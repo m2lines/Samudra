@@ -18,6 +18,19 @@ This report follows one global physical-only model through four saved training s
 
 This is the **62,966,546-parameter Small conditioned mixed global** model on the 180×360 OM4 Gaussian grid: 77 physical state slots, affine InstanceNorm, a shared initializer/processor with source-specific, identity-initialized 1×1 input adapters, and no additional memory channels. Training starts from random weights and mixes OM4 with observations throughout; observation frequency increases with training. These stages therefore describe increasing observation exposure alongside increasing OM4 exposure, rather than a pure OM4 pretraining phase followed by fine tuning. There is no observation-only finish. The final checkpoint is the 8k/8k endpoint, not the validation-selected checkpoint.
 
+## Matched observation-only comparator in progress
+
+A fresh **Small conditioned scratch global** run is now training with the same
+architecture, seed, normalization, input adapters, missingness handling and global
+observation losses, with zero OM4 optimizer updates. Its fixed **Obs-only: 8,000
+obs** checkpoint will match observation exposure; **Obs-only: 16,000 obs** will
+match the mixed endpoint's total optimizer updates. These are rough update-budget
+comparisons, not exact FLOP matches. Intermediate snapshots are retained.
+
+The forthcoming comparison will add both checkpoints to the initializer/day30
+maps, wider day-30 spectra and annual global-mean plots below. Results have not
+been evaluated yet. [Run design and verified startup](global-scratch-2026-09-30.md).
+
 ## Initializer examples with observation references
 
 SST and SSH reference panels show the **same final five-day history interval** used by the initializer: the five days immediately before the forecast origin. Available surface values are copied into the initialized state by construction; agreement there verifies the supplied state, rather than learned reconstruction skill. Gray reference cells have no available observation. In those cells the initializer learns a completion from history, geography, season and forcing.

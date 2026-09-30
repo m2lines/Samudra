@@ -2935,3 +2935,28 @@ finds model-layer integration offsets of about −0.21 GJ/m² (0–700 m) and
 contribution from forecast evolution rather than attributing the entire annual
 OHC offset to learned climatology or drift. Annual curves retain the native-layer
 observation baseline; this diagnostic does not correct them or change selection.
+
+### September 30 — matched global observation-only run
+
+User authorized a fresh comparator and intermediate checkpoints, with fixed 8k
+and 16k observation results added to the focused report. [Protocol and startup](global-scratch-2026-09-30.md).
+One seed; same 62,966,546-parameter global physical-only IN architecture, task
+adapters and losses; zero OM4 / 16k observation updates. Existing matching global
+fitting/resume qualifications and producer 79025a163817a577ab81af95b401f5cb0563cd12
+are reused; production starts from random weights and loads no qualification model.
+No training implementation changed. Remote dry-run and repository checks passed.
+
+Training **18890321** started immediately on gr102 RTX PRO 6000 Blackwell.
+At 19:28 UTC it has 54 finite observation updates, zero OM4, and immutable
+0/10/25/50 snapshots. Global observation validation at 50 updates is 1.9116.
+This verifies execution, not final scientific performance. W&B is online; source,
+global flags, fresh-source manifest and telemetry were checked. Four endpoint
+evaluations depend on training succeeding: 8k monthly/annual **18890323/18890324**;
+16k monthly/annual **18890360/18890437**. Runtime also enforces completion/counts.
+
+Personal scratch usage is 4.36/5 TB, about 640 GB headroom; reserve roughly 30 GB
+for the new outputs. One-GPU caps are 24 training hours plus six evaluation hours;
+actual elapsed allocation, including retries, will be charged. Initial accounting
+at 19:28 UTC is 368 allocated GPU-seconds (0.1022 GPU-hours), all training.
+Cold-cache initial updates were slower than the completed mixed arm; revisit the
+15–17-hour estimate after warm-up. Monitor with interruptible waits, no timer.

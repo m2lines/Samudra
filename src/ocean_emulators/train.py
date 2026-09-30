@@ -507,9 +507,7 @@ class _ReplayPrefetchPipeline:
                 request = self.trainer.plan_replay_batch(
                     global_batch_index=self._next_to_plan,
                     max_lead_steps=self.max_lead_steps,
-                    refresh_every_n_microbatches=(
-                        self.refresh_every_n_microbatches
-                    ),
+                    refresh_every_n_microbatches=(self.refresh_every_n_microbatches),
                     exclude_reserved=self._reserved_indices,
                     leader_can_plan=local_can_plan,
                 )
@@ -576,10 +574,31 @@ class _ReplayPrefetchPipeline:
                 return
 
             try:
-                self._result_queue.put(self._load_raw_batch(request))
+                batch = self._load_raw_batch(request)
+                if self._should_pin():
+                    # On THIS thread, not the consumer's. Page-locking a rank's
+                    # nine-tile share is about a second of memcpy, and paid on
+                    # the main thread it is a second the GPU spends idle.
+                    # `Trainer._pinned` already does this for validation reads.
+                    batch.pin_memory()
+                self._result_queue.put(batch)
             except BaseException as e:
                 self._result_queue.put(e)
                 return
+
+    def _should_pin(self) -> bool:
+        """Whether this batch's host tensors are worth page-locking.
+
+        Exactly what `_prepare_async` used to decide inline, so moving the pin
+        onto the loader thread does not also change who gets pinned. Domain
+        followers never reach it -- `_load_raw_batch` refuses them.
+        """
+        if not (self.trainer.pin_mem and torch.cuda.is_available()):
+            return False
+        dp_ctx = getattr(self.trainer, "dp_ctx", None)
+        if dp_ctx is not None:
+            return bool(dp_ctx.is_domain_leader)
+        return self.trainer.device.type == "cuda"
 
     def _load_raw_batch(self, request: ReplayBatchRequest) -> RawReplayBatch:
         if (
@@ -652,30 +671,25 @@ class _ReplayPrefetchPipeline:
         return transition
 
     def _prepare_async(self, raw_batch: RawReplayBatch) -> _ReplayPreparedBatch:
+        # The pin already happened, on the loader thread in `_run`. Everything
+        # this method does runs on the main thread between two forwards, so it
+        # is all on the critical path.
         if getattr(self.trainer, "dp_ctx", None) is not None:
-            # Scatter collectives run on the training stream and in strict request
-            # order. Only the leader owns tensors worth pinning.
-            if (
-                self.trainer.dp_ctx.is_domain_leader
-                and self.trainer.pin_mem
-                and torch.cuda.is_available()
-            ):
-                raw_batch.pin_memory()
-            return self.trainer.prepare_raw_replay_batch(
-                raw_batch, ready_event=None
-            )
+            # Scatter collectives run on the training stream and in strict
+            # request order.
+            return self.trainer.prepare_raw_replay_batch(raw_batch, ready_event=None)
         if self.trainer.device.type != "cuda":
             return self.trainer.prepare_raw_replay_batch(raw_batch, ready_event=None)
 
-        if self.trainer.pin_mem and torch.cuda.is_available():
-            raw_batch.pin_memory()
-
         assert self.trainer.replay_copy_stream is not None
         with torch.cuda.stream(self.trainer.replay_copy_stream):
-            prepared = self.trainer.prepare_raw_replay_batch(raw_batch, ready_event=None)
+            prepared = self.trainer.prepare_raw_replay_batch(
+                raw_batch, ready_event=None
+            )
             prepared.ready_event = torch.cuda.Event()
             prepared.ready_event.record(self.trainer.replay_copy_stream)
             return prepared
+
 
 class Trainer:
     model: nn.Module
@@ -690,10 +704,7 @@ class Trainer:
                     "Domain-parallel replay sidecars/resume are not implemented yet. "
                     "Set replay.checkpoint_buffer=false for the Phase 3 gate."
                 )
-            if (
-                cfg.replay.enabled
-                and cfg.emergency_checkpoint_interval_minutes > 0
-            ):
+            if cfg.replay.enabled and cfg.emergency_checkpoint_interval_minutes > 0:
                 raise ValueError(
                     "Periodic emergency checkpoints are not implemented for "
                     "domain-parallel replay. Set "
@@ -705,7 +716,9 @@ class Trainer:
                     "Set inference_epochs=[]; one-step validation is supported."
                 )
             if not isinstance(cfg.model, config.SamudraConfig):
-                raise ValueError("Domain-parallel training currently supports Samudra only.")
+                raise ValueError(
+                    "Domain-parallel training currently supports Samudra only."
+                )
             if not isinstance(cfg.loss, str) or cfg.loss not in {
                 "mse",
                 "mae",
@@ -966,13 +979,8 @@ class Trainer:
         assert isinstance(cfg.replay.max_lead_transition, list)
         assert all(max_lead > 0 for max_lead in cfg.replay.max_lead_steps)
         assert cfg.replay.max_lead_steps == sorted(cfg.replay.max_lead_steps)
-        assert cfg.replay.max_lead_transition == sorted(
-            cfg.replay.max_lead_transition
-        )
-        assert (
-            len(cfg.replay.max_lead_transition)
-            == len(cfg.replay.max_lead_steps) - 1
-        )
+        assert cfg.replay.max_lead_transition == sorted(cfg.replay.max_lead_transition)
+        assert len(cfg.replay.max_lead_transition) == len(cfg.replay.max_lead_steps) - 1
         if isinstance(cfg.replay.refresh_every_n_microbatches, int):
             replay_refresh_values = [cfg.replay.refresh_every_n_microbatches]
         else:
@@ -1039,19 +1047,29 @@ class Trainer:
         # the per-tile masks are then applied where they belong, in the loss and
         # in the replay writeback.
         self.tile_wet_masks: torch.Tensor | None = None
+        #: Global source index -> row of `tile_wet_masks`, filled in by
+        #: `_scope_tile_wet_masks_to_groups` once the tile assignment is known.
+        self._wet_row_of_source: dict[int, int] = {}
+        self._tile_masks_differ = False
         replay_sources = self.data_container.replay_sources or []
         if len(replay_sources) > 1:
-            per_tile = torch.stack(
-                [
-                    source.masks.prognostic_with_hist(cfg.data.hist).to(self.device)
-                    for source in replay_sources
-                ]
-            ).bool()
-            union = per_tile.any(dim=0)
-            differing = int((per_tile != union.unsqueeze(0)).sum())
+            # One mask live at a time. Stacking all 36 tiles of a face costs
+            # 4.2 GB on a rank that reads nine of them, and which nine it owns
+            # is not known until the replay groups exist -- so only the union
+            # and the do-they-differ answer are built here. The narrowed stack
+            # comes later, in `_scope_tile_wet_masks_to_groups`.
+            def hist_mask(source: DataSource) -> torch.Tensor:
+                return source.masks.prognostic_with_hist(cfg.data.hist).bool()
+
+            union = hist_mask(replay_sources[0])
+            for source in replay_sources[1:]:
+                union = union | hist_mask(source)
+            differing = sum(
+                int((hist_mask(source) != union).sum()) for source in replay_sources
+            )
             if differing:
-                self.tile_wet_masks = per_tile
-                self.wet = union
+                self._tile_masks_differ = True
+                self.wet = union.to(self.device)
                 logger.info(
                     "Per-tile wet masks differ in %d channel-cells; the model "
                     "masks with their union and the loss weights each sample by "
@@ -1226,9 +1244,7 @@ class Trainer:
                         )
                     # Scheduler is tied to the optimizer; rebuild if either reset is requested.
                     if cfg.scheduler:
-                        self.scheduler = cfg.scheduler.build(
-                            self.optimizer, cfg.epochs
-                        )
+                        self.scheduler = cfg.scheduler.build(self.optimizer, cfg.epochs)
                         logger.info("Reset scheduler state on resume.")
                     else:
                         self.scheduler = None
@@ -1321,7 +1337,9 @@ class Trainer:
         )
         self._replay_resume_consumed = False
         self.replay_storage_dtype = (
-            torch.bfloat16 if getattr(cfg.model, "use_bfloat16", False) else torch.float32
+            torch.bfloat16
+            if getattr(cfg.model, "use_bfloat16", False)
+            else torch.float32
         )
         self.replay_generator = torch.Generator(device="cpu")
         # Ranks normally hold independent buffers, so their planners are
@@ -1379,9 +1397,7 @@ class Trainer:
         self.temporal_stride: int = self.temporal_strides[0]
         self.batch_size: int = cfg.batch_size
         self.gradient_accumulation_steps: int = cfg.gradient_accumulation_steps
-        self.ddp_use_no_sync_for_accumulation = (
-            cfg.ddp_use_no_sync_for_accumulation
-        )
+        self.ddp_use_no_sync_for_accumulation = cfg.ddp_use_no_sync_for_accumulation
         self.slow_batch_log_threshold_seconds: float = (
             cfg.slow_batch_log_threshold_seconds
         )
@@ -1514,7 +1530,10 @@ class Trainer:
 
                 # Iterative step training
                 if self.replay_enabled:
-                    if epoch == self.start_epoch or epoch in self.temporal_stride_transition:
+                    if (
+                        epoch == self.start_epoch
+                        or epoch in self.temporal_stride_transition
+                    ):
                         cur_temporal_stride = self.get_current_temporal_stride(epoch)
                         self.temporal_stride = cur_temporal_stride
                         self.init_data_loaders(
@@ -1580,9 +1599,7 @@ class Trainer:
                 val_stats = self.validate_one_epoch(epoch)
                 end_epoch_val_time = time.perf_counter()
 
-                autoregressive_val_stats = self.validate_autoregressive_one_epoch(
-                    epoch
-                )
+                autoregressive_val_stats = self.validate_autoregressive_one_epoch(epoch)
                 end_epoch_autoregressive_val_time = time.perf_counter()
 
                 if -1 in self.inference_epochs or epoch in self.inference_epochs:
@@ -1683,7 +1700,9 @@ class Trainer:
 
         sharded = TrainData(self.num_out)
         for step in range(expected_steps):
-            input_tensor = data.get_input(step) if self.dp_ctx.is_domain_leader else None
+            input_tensor = (
+                data.get_input(step) if self.dp_ctx.is_domain_leader else None
+            )
             label = data.get_label(step) if self.dp_ctx.is_domain_leader else None
             sharded.append(
                 self.dp_ctx.scatter_spatial(input_tensor, ndim=4),
@@ -1694,9 +1713,7 @@ class Trainer:
             sharded.source_indices = list(data.source_indices)
         return sharded
 
-    def _materialize_train_output(
-        self, output: TrainBatchOutput
-    ) -> TrainBatchOutput:
+    def _materialize_train_output(self, output: TrainBatchOutput) -> TrainBatchOutput:
         """Gather replicated loss artifacts into ordinary tensors for logging."""
         if self.dp_ctx is None:
             return output
@@ -1749,12 +1766,7 @@ class Trainer:
             if isinstance(self.model, torch.nn.parallel.DistributedDataParallel)
             else None
         )
-        use_no_sync = (
-            ddp_model is not None
-            and self.ddp_use_no_sync_for_accumulation
-            and self.gradient_accumulation_steps > 1
-            and not self.ddp_static_graph
-        )
+        use_no_sync = self._ddp_withholds_allreduce(ddp_model, per_chunk=False)
 
         for data_iter_step, data in enumerate(
             metric_logger.log_every(
@@ -1798,6 +1810,12 @@ class Trainer:
             ) % self.gradient_accumulation_steps == 0
             sync_gradients = should_step or is_last
 
+            sync_context: contextlib.AbstractContextManager
+            if use_no_sync and not sync_gradients:
+                sync_context = ddp_model.no_sync()
+            else:
+                sync_context = contextlib.nullcontext()
+
             with sync_context:
                 TO: TrainBatchOutput = Stepper.train_batch(
                     self.model, data, self.loss_fn
@@ -1814,9 +1832,7 @@ class Trainer:
 
             # Step optimizer after accumulating enough batches or at the end
             if sync_gradients:
-                grad_norm = torch.nn.utils.clip_grad_norm_(
-                    self.model.parameters(), 1.0
-                )
+                grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
                 if torch.isfinite(grad_norm):
                     self.optimizer.step()
                     self._ema(model=self.model)
@@ -2017,12 +2033,11 @@ class Trainer:
             if isinstance(self.model, torch.nn.parallel.DistributedDataParallel)
             else None
         )
-        use_no_sync = (
-            ddp_model is not None
-            and self.ddp_use_no_sync_for_accumulation
-            and self.gradient_accumulation_steps > 1
-            and not self.ddp_static_graph
-        )
+        # `per_chunk`: `_replay_forward_backward` splits a face microbatch into
+        # chunks, and a chunk boundary is an accumulation boundary whether or
+        # not `gradient_accumulation_steps` is 1 -- which on the 1-face config
+        # it is.
+        use_no_sync = self._ddp_withholds_allreduce(ddp_model, per_chunk=True)
 
         for data_iter_step, prepared in enumerate(
             metric_logger.log_every(
@@ -2041,7 +2056,11 @@ class Trainer:
             in_final_cycle = (
                 global_data_iter_step + 1 > final_cycle_start
             ) and remaining_batches > 0
-            r = remaining_batches if in_final_cycle else self.gradient_accumulation_steps
+            r = (
+                remaining_batches
+                if in_final_cycle
+                else self.gradient_accumulation_steps
+            )
 
             data = prepared.data
             replay_cursors = prepared.cursors
@@ -2059,12 +2078,9 @@ class Trainer:
             ) % self.gradient_accumulation_steps == 0
             sync_gradients = should_step or is_last
 
-            sync_context: contextlib.AbstractContextManager
-            if use_no_sync and not sync_gradients:
-                sync_context = ddp_model.no_sync()
-            else:
-                sync_context = contextlib.nullcontext()
-
+            # No `no_sync` block here: this loop does not run the backward.
+            # `_replay_forward_backward` owns the chunk loop and wraps every
+            # chunk but the last, which is where the boundary actually falls.
             pred, TO = self._replay_forward_backward(
                 data,
                 prepared,
@@ -2092,9 +2108,7 @@ class Trainer:
             self.num_batches_seen += 1
 
             if sync_gradients:
-                grad_norm = torch.nn.utils.clip_grad_norm_(
-                    self.model.parameters(), 1.0
-                )
+                grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
                 if torch.isfinite(grad_norm):
                     self.optimizer.step()
                     self._ema(model=self.model)
@@ -2254,7 +2268,9 @@ class Trainer:
         if isinstance(self.train_loader, _DomainFollowerLoader):
             return self.train_loader.with_offset(start_batch_in_epoch)
         raw_loader = self.train_loader._dataloader
-        batch_sampler = _OffsetBatchSampler(raw_loader.batch_sampler, start_batch_in_epoch)
+        batch_sampler = _OffsetBatchSampler(
+            raw_loader.batch_sampler, start_batch_in_epoch
+        )
         loader_kwargs: dict[str, Any] = {
             "dataset": raw_loader.dataset,
             "batch_sampler": batch_sampler,
@@ -2446,9 +2462,7 @@ class Trainer:
                 )
 
         reserved_for_request = {slot.replay_index for slot in train_slots}
-        if (
-            global_batch_index + 1
-        ) % refresh_every_n_microbatches == 0:
+        if (global_batch_index + 1) % refresh_every_n_microbatches == 0:
             refresh_indices = self.replay_buffer.random_indices(
                 self.batch_size,
                 exclude_reserved=exclude_reserved | reserved_for_request,
@@ -2557,9 +2571,13 @@ class Trainer:
         is_leader = self.dp_ctx.is_domain_leader
         if is_leader:
             if len(raw_batch.train_transitions) != len(raw_batch.request.train_slots):
-                raise RuntimeError("Domain leader replay train transition count mismatch")
+                raise RuntimeError(
+                    "Domain leader replay train transition count mismatch"
+                )
             if len(raw_batch.seed_transitions) != len(raw_batch.request.seed_slots):
-                raise RuntimeError("Domain leader replay seed transition count mismatch")
+                raise RuntimeError(
+                    "Domain leader replay seed transition count mismatch"
+                )
 
         inputs = []
         labels = []
@@ -2768,7 +2786,10 @@ class Trainer:
         prognostic_state = entry.state if prognostic_state is None else prognostic_state
         if prognostic_state.ndim == 3:
             prognostic_state = prognostic_state.unsqueeze(0)
-        if prognostic_state.shape[1:] != (dataset.num_prognostic_channels, *boundary.shape[-2:]):
+        if prognostic_state.shape[1:] != (
+            dataset.num_prognostic_channels,
+            *boundary.shape[-2:],
+        ):
             raise ValueError(
                 "Replay prognostic state shape does not match model input: "
                 f"{prognostic_state.shape} vs boundary spatial shape {boundary.shape}"
@@ -2807,17 +2828,7 @@ class Trainer:
         )
 
     def _replay_state_diverged(self, state: torch.Tensor) -> bool:
-        return bool(
-            diagnose_replay_state(
-                state,
-                max_state_sigma=(
-                    getattr(
-                        getattr(self, "replay_cfg", None), "max_state_sigma", 0.0
-                    )
-                    or 0.0
-                ),
-            )
-        )
+        return bool(self._replay_state_divergence(state))
 
     def _stage_replay_state_for_buffer(
         self,
@@ -2825,11 +2836,7 @@ class Trainer:
         cursor: ReplayCursor,
     ) -> ReplayEntry:
         source = state.detach()
-        if (
-            source.device.type == "cuda"
-            and self.pin_mem
-            and torch.cuda.is_available()
-        ):
+        if source.device.type == "cuda" and self.pin_mem and torch.cuda.is_available():
             assert self.replay_copy_stream is not None
             cpu_state = torch.empty(
                 source.shape,
@@ -2883,16 +2890,89 @@ class Trainer:
         ]
         # dataset index is source-major over strides; the mask is per source.
         num_strides = max(1, len(self.data_stride))
-        source_indices = torch.tensor(
-            [index // num_strides for index in indices],
-            device=self.tile_wet_masks.device,
-        )
         # Left as bool. The loss casts whatever it is given
         # (`_channel_weight`, and gradient_z's own reshape), and it only ever
         # sees one chunk at a time -- so converting the whole microbatch here
         # would quadruple a tensor that is 3.9 GB at nine 752^2 tiles and
         # throw away all but a slice of it per chunk.
-        return self.tile_wet_masks[source_indices]
+        return self._wet_for_sources([index // num_strides for index in indices])
+
+    def _scope_tile_wet_masks_to_groups(self) -> None:
+        """Keep only the tiles this rank scores resident on the GPU.
+
+        A face rank owns nine of 36 tiles, so stacking all of them costs 4.2 GB
+        where 1.05 GB is read. Which nine it owns is not known until the replay
+        groups exist, so this runs from `init_data_loaders`, not `__init__`.
+
+        Callers still name a tile by its global source index; the masks are
+        stored by local row and `_wet_row_of_source` maps between them.
+        """
+        if not self._tile_masks_differ:
+            self.tile_wet_masks = None
+            self._wet_row_of_source = {}
+            return
+        sources = self.data_container.replay_sources or []
+        num_strides = max(1, len(self.data_stride))
+        local = sorted(
+            {
+                index // num_strides
+                for group in self.replay_groups
+                for index in group.dataset_indices
+            }
+        )
+        self._wet_row_of_source = {source: row for row, source in enumerate(local)}
+        self.tile_wet_masks = torch.stack(
+            [
+                sources[source].masks.prognostic_with_hist(self.hist).to(self.device)
+                for source in local
+            ]
+        ).bool()
+        logger.info(
+            "Per-tile wet masks: %d of %d tiles on this rank (%.2f GB).",
+            len(local),
+            len(sources),
+            self.tile_wet_masks.numel() * self.tile_wet_masks.element_size() / 1024**3,
+        )
+
+    def _wet_for_sources(self, sources: Sequence[int]) -> torch.Tensor:
+        """Mask rows for the given global source indices.
+
+        Raises on a source this rank does not hold. Silently taking a
+        neighbouring tile's land would weight the loss with a plausible wrong
+        number rather than fail.
+        """
+        masks = self.tile_wet_masks
+        assert masks is not None
+        rows = self._wet_row_of_source
+        missing = sorted({int(source) for source in sources if int(source) not in rows})
+        if missing:
+            raise RuntimeError(
+                f"Wet masks were asked for source(s) {missing}; this rank holds "
+                f"{sorted(rows)}."
+            )
+        index = torch.tensor([rows[int(s)] for s in sources], device=masks.device)
+        return masks[index]
+
+    def _ddp_withholds_allreduce(self, ddp_model, *, per_chunk: bool) -> bool:
+        """Whether to hold DDP's all-reduce back until the last piece of a step.
+
+        `per_chunk` is the replay path, where one microbatch is split into
+        several forward/backwards. Those chunks need exactly what accumulation
+        steps need -- one all-reduce at the end, not one each -- and that is
+        true even when `gradient_accumulation_steps` is 1, which is what the
+        1-face config runs. Gating on accumulation alone left that config
+        all-reducing the whole parameter set three to five times per step.
+
+        The curriculum path passes False: it runs one backward per iteration,
+        so only accumulation can create a boundary to withhold across.
+        """
+        if ddp_model is None or not self.ddp_use_no_sync_for_accumulation:
+            return False
+        if self.ddp_static_graph:
+            # `no_sync` and a static graph are incompatible; `__init__` already
+            # turns the flag off for this case, so this is belt and braces.
+            return False
+        return per_chunk or self.gradient_accumulation_steps > 1
 
     def _microbatch_spans(self, data: TrainData) -> list[tuple[int, int]]:
         """How to split one microbatch into forward/backward chunks.
@@ -2972,11 +3052,7 @@ class Trainer:
             # share of the face, so the chunks SUM. Without one they are
             # means and have to be recombined, which is only exact while the
             # tiles share a land mask -- see this method's docstring.
-            share = (
-                1.0
-                if getattr(self, "_loss_denominator_is_fixed", False)
-                else (stop - start) / samples
-            )
+            share = 1.0 if self._loss_denominator_is_fixed else (stop - start) / samples
             with sync_context:
                 chunk = data if len(spans) == 1 else data.slice_batch(start, stop)
                 pred = self.model(chunk)[0]
@@ -3162,8 +3238,9 @@ class Trainer:
                         describe_divergence(divergence)
                         if divergence
                         else "clean on this rank, another rank's tiles diverged",
-                        "fresh gold seed" if seed_entry is not None else
-                        "no seed available, held the previous entry",
+                        "fresh gold seed"
+                        if seed_entry is not None
+                        else "no seed available, held the previous entry",
                         self._diverged_writebacks,
                     )
                     continue
@@ -3250,9 +3327,7 @@ class Trainer:
             self._active_epoch or self.start_epoch,
             log=False,
         )
-        fresh_per_rank = self.replay_fresh_gold_samples_per_epoch(
-            active_refresh_every
-        )
+        fresh_per_rank = self.replay_fresh_gold_samples_per_epoch(active_refresh_every)
         fresh_global = (
             fresh_per_rank
             if self.dp_ctx is not None
@@ -3351,11 +3426,7 @@ class Trainer:
     def prepare_raw_seed_batch(self, raw_batch: RawReplayBatch) -> _ReplayPreparedBatch:
         dp_ctx = getattr(self, "dp_ctx", None)
         if dp_ctx is not None:
-            if (
-                dp_ctx.is_domain_leader
-                and self.pin_mem
-                and torch.cuda.is_available()
-            ):
+            if dp_ctx.is_domain_leader and self.pin_mem and torch.cuda.is_available():
                 raw_batch.pin_memory()
             return self.prepare_raw_replay_batch(raw_batch, ready_event=None)
         if self.device.type != "cuda":
@@ -3519,11 +3590,8 @@ class Trainer:
         if wet is None:
             return ownership.expand(-1, self.num_out, -1, -1).contiguous()
         num_strides = max(1, len(self.data_stride))
-        sources = torch.tensor(
-            [index // num_strides for index in group.dataset_indices],
-            device=wet.device,
-        )
-        return wet[sources].to(dtype=torch.float32) * ownership
+        sources = [index // num_strides for index in group.dataset_indices]
+        return self._wet_for_sources(sources).to(dtype=torch.float32) * ownership
 
     def _grouped_val_datasets(self, group: ReplayGroup) -> list[TorchTrainDataset]:
         return [self.val_datasets[index] for index in group.dataset_indices]
@@ -3649,12 +3717,13 @@ class Trainer:
         # do the equivalent here while keeping GPU normalization and inference
         # on the main thread.
         workers = min(len(datasets), max(self.num_workers, 1))
-        with ThreadPoolExecutor(
-            max_workers=workers, thread_name_prefix="grouped_val_read"
-        ) as read_executor, self._test_context():
-            for step, index in enumerate(
-                metric_logger.log_every(indices, 1, header)
-            ):
+        with (
+            ThreadPoolExecutor(
+                max_workers=workers, thread_name_prefix="grouped_val_read"
+            ) as read_executor,
+            self._test_context(),
+        ):
+            for step, index in enumerate(metric_logger.log_every(indices, 1, header)):
                 if self.debug and (step + 1) % 5 == 0:
                     break
                 input, label = self._grouped_val_example(
@@ -3815,7 +3884,9 @@ class Trainer:
                     raw_tiles = []
                     for tile, dataset in enumerate(datasets):
                         raw = RawTrainData(dataset.id)
-                        raw.insert(torch.cat((now[tile], nxt[tile]), dim=0), boundary[tile])
+                        raw.insert(
+                            torch.cat((now[tile], nxt[tile]), dim=0), boundary[tile]
+                        )
                         raw_tiles.append(raw)
                     del now, nxt, boundary
                     input, label = self._grouped_val_tensors(datasets, raw_tiles)
@@ -3890,9 +3961,8 @@ class Trainer:
                     # draws as almost nothing. Record every mostly-ocean batch so
                     # the snapshot is the last of those instead.
                     wet_fraction = float(tile_wet[0, 0].float().mean())
-                    record_diagnostics = (
-                        wet_fraction >= SNAPSHOT_MIN_WET_FRACTION
-                        or (is_last and snapshot_wet_fraction is None)
+                    record_diagnostics = wet_fraction >= SNAPSHOT_MIN_WET_FRACTION or (
+                        is_last and snapshot_wet_fraction is None
                     )
                     if record_diagnostics:
                         snapshot_wet_fraction = wet_fraction
@@ -4094,16 +4164,12 @@ class Trainer:
         every patch gets rolled out.
         """
         sources = (
-            self.data_container.replay_sources
-            if self.replay_enabled
-            else [self.src]
+            self.data_container.replay_sources if self.replay_enabled else [self.src]
         )
         assert sources is not None
         return [source.slice(self.val_time) for source in sources]
 
-    def due_autoregressive_val_specs(
-        self, epoch: int
-    ) -> list[AutoregressiveValSpec]:
+    def due_autoregressive_val_specs(self, epoch: int) -> list[AutoregressiveValSpec]:
         """The rollout validations that are enabled and have reached their start epoch.
 
         Depends only on the config and the epoch, so every rank resolves the
@@ -4393,7 +4459,9 @@ class Trainer:
                     boundary, truth = next(steps)
                     inputs = torch.cat(
                         [
-                            dataset.prepare_input(state[tile : tile + 1], boundary[tile])
+                            dataset.prepare_input(
+                                state[tile : tile + 1], boundary[tile]
+                            )
                             for tile, dataset in enumerate(datasets)
                         ]
                     )
@@ -4463,7 +4531,9 @@ class Trainer:
             num_steps,
             datetime.timedelta(seconds=round(elapsed)),
             seconds_per_step,
-            datetime.timedelta(seconds=round(seconds_per_step * (num_steps - completed))),
+            datetime.timedelta(
+                seconds=round(seconds_per_step * (num_steps - completed))
+            ),
             memory,
         )
 
@@ -4530,9 +4600,7 @@ class Trainer:
                     ),
                     step_offset=step,
                 )
-                state = [
-                    blended[index : index + 1] for index in range(len(datasets))
-                ]
+                state = [blended[index : index + 1] for index in range(len(datasets))]
                 # `state` deliberately keeps only the latest prediction for the
                 # next autoregressive step; all other full-domain tensors are done.
                 del inputs, target, blended
@@ -4546,12 +4614,8 @@ class Trainer:
                         # Make elapsed time include the preceding asynchronous GPU
                         # work, so the ETA describes actual wall-clock progress.
                         torch.cuda.synchronize(self.device)
-                        allocated_gib = (
-                            torch.cuda.memory_allocated(self.device) / 2**30
-                        )
-                        reserved_gib = (
-                            torch.cuda.memory_reserved(self.device) / 2**30
-                        )
+                        allocated_gib = torch.cuda.memory_allocated(self.device) / 2**30
+                        reserved_gib = torch.cuda.memory_reserved(self.device) / 2**30
                         memory = (
                             "cuda allocated/reserved="
                             f"{allocated_gib:.1f}/{reserved_gib:.1f} GiB"
@@ -4695,7 +4759,9 @@ class Trainer:
         Returns:
             int: current_step
         """
-        cur_step = self.steps[self._get_schedule_stage_index(epoch, self.step_transition)]
+        cur_step = self.steps[
+            self._get_schedule_stage_index(epoch, self.step_transition)
+        ]
         if epoch == self.start_epoch:
             logger.info(f"Starting training at step {cur_step}")
         elif epoch in self.step_transition:
@@ -4719,13 +4785,9 @@ class Trainer:
             self._get_schedule_stage_index(epoch, self.temporal_stride_transition)
         ]
         if epoch == self.start_epoch:
-            logger.info(
-                f"Starting training at temporal_stride {cur_temporal_stride}"
-            )
+            logger.info(f"Starting training at temporal_stride {cur_temporal_stride}")
         elif epoch in self.temporal_stride_transition:
-            logger.info(
-                f"Transitioning to temporal_stride {cur_temporal_stride}"
-            )
+            logger.info(f"Transitioning to temporal_stride {cur_temporal_stride}")
 
         return cur_temporal_stride
 
@@ -4762,8 +4824,7 @@ class Trainer:
             )
         elif log and epoch in self.replay_cfg.refresh_every_n_microbatches_transition:
             logger.info(
-                "Transitioning replay refresh_every_n_microbatches "
-                f"to {cur_refresh}"
+                f"Transitioning replay refresh_every_n_microbatches to {cur_refresh}"
             )
         return cur_refresh
 
@@ -5012,11 +5073,8 @@ class Trainer:
             sample_weight = None
         else:
             num_strides = max(1, len(self.data_stride))
-            sources = torch.tensor(
-                [index // num_strides for index in group.dataset_indices],
-                device=self.tile_wet_masks.device,
-            )
-            sample_weight = self.tile_wet_masks[sources].to(dtype=torch.float32)
+            sources = [index // num_strides for index in group.dataset_indices]
+            sample_weight = self._wet_for_sources(sources).to(dtype=torch.float32)
 
         denominator, gradient_z = self.fp_ctx.global_loss_norms(
             self.domain_wet, sample_weight, tiles=group.num_tiles
@@ -5145,9 +5203,7 @@ class Trainer:
             cur_temporal_stride = self.temporal_stride
         self.current_train_steps = cur_step
         replay_sources = (
-            self.data_container.replay_sources
-            if self.replay_enabled
-            else [self.src]
+            self.data_container.replay_sources if self.replay_enabled else [self.src]
         )
         assert replay_sources is not None
         train_datasets = [
@@ -5185,11 +5241,16 @@ class Trainer:
         # the tile catalog, which only exists once the sources are open.
         if getattr(self, "face_parallel_cfg", None) and self.face_parallel_cfg.enabled:
             self.replay_groups = self._build_face_replay_groups()
+            # Which tiles are local is known only now, and the loss
+            # normalization below indexes the masks -- so narrow them first.
+            self._scope_tile_wet_masks_to_groups()
             self._install_face_loss_normalization()
             self._install_face_validation_scorer()
             self._build_group_frame_reader()
             # Fail now rather than an epoch in, at the first validation.
             self._require_face_reader()
+        else:
+            self._scope_tile_wet_masks_to_groups()
 
         for group in self.replay_groups:
             if group.blender is not None:
@@ -5326,9 +5387,7 @@ class Trainer:
             self.train_loader = TrainDataLoader(
                 train_dataloader, train_datasets, self.device
             )
-            self.val_loader = TrainDataLoader(
-                val_dataloader, val_datasets, self.device
-            )
+            self.val_loader = TrainDataLoader(val_dataloader, val_datasets, self.device)
 
     def _install_signal_handlers(self) -> None:
         handled_signals = [signal.SIGTERM, signal.SIGINT]
@@ -5410,8 +5469,7 @@ class Trainer:
             return checkpoint_path
         except Exception:
             logger.exception(
-                f"Failed to save emergency minibatch checkpoint to "
-                f"{checkpoint_path}"
+                f"Failed to save emergency minibatch checkpoint to {checkpoint_path}"
             )
             return None
 

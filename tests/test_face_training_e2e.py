@@ -13,6 +13,7 @@ Shrunk 45x from the real geometry but structurally identical: 6x6 tiles of
 `data.llc_tiles`, with land that differs tile to tile.
 """
 
+import dataclasses
 import json
 import logging
 
@@ -40,9 +41,9 @@ def _write_face_cache(root, times: int = 240) -> None:
     generator = np.random.default_rng(0)
     shape = (times, len(PROGNOSTIC), EXTENT, EXTENT)
     prognostic = generator.standard_normal(shape).astype(np.float32)
-    boundary = generator.standard_normal(
-        (times, len(BOUNDARY), EXTENT, EXTENT)
-    ).astype(np.float32)
+    boundary = generator.standard_normal((times, len(BOUNDARY), EXTENT, EXTENT)).astype(
+        np.float32
+    )
 
     # Land that differs between tiles, which is the whole reason the loss
     # denominator has to come from the face rather than from a rank's batch.
@@ -264,7 +265,11 @@ def test_validation_keeps_a_batch_normalized_loss(face_root) -> None:
             )
 
         whole = [(0, tiles)]
-        thirds = [(0, tiles // 3), (tiles // 3, 2 * tiles // 3), (2 * tiles // 3, tiles)]
+        thirds = [
+            (0, tiles // 3),
+            (tiles // 3, 2 * tiles // 3),
+            (2 * tiles // 3, tiles),
+        ]
 
         # The training loss is a share, so its chunks add up.
         assert torch.allclose(
@@ -279,6 +284,53 @@ def test_validation_keeps_a_batch_normalized_loss(face_root) -> None:
             score(trainer.loss_fn, whole),
             rtol=1e-2,
         )
+
+
+def test_narrowing_the_wet_masks_does_not_move_which_mask_a_tile_gets(
+    face_root,
+) -> None:
+    """The per-tile masks are stored per rank but are still named globally.
+
+    A rank owns nine of 36 tiles, so keeping all 36 resident wastes 3.1 GB --
+    but every caller names a tile by its GLOBAL source index, derived from a
+    dataset index. Get the remap wrong and the loss is weighted by a
+    neighbouring tile's land: a plausible number, and nothing raises. So this
+    checks the narrowed lookup against the whole-face stack directly.
+    """
+    with MultitonScope():
+        trainer = Trainer(_face_config(face_root))
+        # The stack is built in `init_data_loaders`, not `__init__`: which
+        # tiles are local is not known until the replay groups exist.
+        trainer.run()
+        sources = trainer.data_container.replay_sources
+        whole_face = torch.stack(
+            [source.masks.prognostic_with_hist(trainer.hist) for source in sources]
+        ).bool()
+
+        # World size is 1 here, so every tile is local and the stack is the
+        # whole face -- the identity case the remap must not disturb.
+        assert trainer.tile_wet_masks is not None
+        assert torch.equal(trainer.tile_wet_masks, whole_face)
+
+        # Now own a strict subset, as one rank of four would.
+        owned = (0, 5, 6, 11, 19, 23, 30, 34, 35)
+        trainer.replay_groups = [
+            dataclasses.replace(trainer.replay_groups[0], dataset_indices=owned)
+        ]
+        trainer._scope_tile_wet_masks_to_groups()
+        assert trainer.tile_wet_masks.shape[0] == len(owned)
+
+        # Each owned tile still resolves to its own mask, in any order and
+        # repeated -- which is how `_batch_wet_weight` asks for them, one
+        # entry per sample in the microbatch.
+        assert torch.equal(trainer._wet_for_sources(owned), whole_face[list(owned)])
+        mixed = [35, 0, 19, 0, 5]
+        assert torch.equal(trainer._wet_for_sources(mixed), whole_face[mixed])
+
+        # And a tile this rank does not hold is an error rather than a
+        # quietly wrong weight.
+        with pytest.raises(RuntimeError, match="this rank holds"):
+            trainer._wet_for_sources([1])
 
 
 def test_without_face_parallel_both_losses_are_the_same_object(face_root) -> None:
@@ -332,9 +384,7 @@ def test_validation_forwards_are_chunked_like_training(face_root, monkeypatch) -
 
         monkeypatch.setattr(model, "predict_step", recording)
         tiles = len(trainer.fp_ctx.local_tiles)
-        inputs = torch.zeros(
-            tiles, trainer.num_in, SIZE, SIZE, device=trainer.device
-        )
+        inputs = torch.zeros(tiles, trainer.num_in, SIZE, SIZE, device=trainer.device)
         out = trainer._predict_in_chunks(model, inputs)
 
         assert out.shape[0] == tiles
@@ -500,7 +550,9 @@ def test_ungrouped_validation_scores_each_tile_by_its_own_land(face_root) -> Non
     raise AssertionError("no validation sample came from a tile with land")
 
 
-def test_ungrouped_snapshot_is_drawn_from_a_mostly_ocean_tile(face_root, monkeypatch) -> None:
+def test_ungrouped_snapshot_is_drawn_from_a_mostly_ocean_tile(
+    face_root, monkeypatch
+) -> None:
     """Validation samples arrive sorted, so the LAST one -- which is what the
     surface snapshot used to draw -- comes from the last tiles. In this cache,
     as on face 1, those are mostly land, so the snapshot drew almost nothing.

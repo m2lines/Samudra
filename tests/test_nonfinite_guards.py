@@ -120,9 +120,10 @@ def test_save_checkpoint_still_writes_finite_weights(tmp_path):
 
 
 def _trainer_with_sigma(max_state_sigma):
-    return SimpleNamespace(
-        replay_cfg=SimpleNamespace(max_state_sigma=max_state_sigma)
-    )
+    """A real Trainer, minus `__init__`: the methods under test call siblings."""
+    trainer = Trainer.__new__(Trainer)
+    trainer.replay_cfg = SimpleNamespace(max_state_sigma=max_state_sigma)
+    return trainer
 
 
 def test_replay_state_diverged_always_rejects_nonfinite():

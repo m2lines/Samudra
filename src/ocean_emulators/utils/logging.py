@@ -203,6 +203,11 @@ class MetricLogger:
         log_msg_list.append("max cpu mem: {cpu_memory:.0f}")
         if torch.cuda.is_available():
             log_msg_list.append("max gpu mem: {gpu_memory:.0f}")
+            # Reserved-minus-allocated is fragmentation; a retry is the
+            # allocator flushing its cache and re-asking the driver. Logged so
+            # thrash is a number rather than an inference from step time.
+            log_msg_list.append("gpu reserved: {gpu_reserved:.0f}")
+            log_msg_list.append("alloc retries: {alloc_retries:d}")
         log_msg = self.delimiter.join(log_msg_list)
         KB = 1024.0
         MB = 1024.0 * 1024.0
@@ -232,6 +237,12 @@ class MetricLogger:
                 )
                 if torch.cuda.is_available():
                     named_metrics["gpu_memory"] = torch.cuda.max_memory_allocated() / MB
+                    named_metrics["gpu_reserved"] = (
+                        torch.cuda.max_memory_reserved() / MB
+                    )
+                    named_metrics["alloc_retries"] = int(
+                        torch.cuda.memory_stats().get("num_alloc_retries", 0)
+                    )
 
                 logger.info(log_msg.format(display_index, total_steps, **named_metrics))
 
@@ -243,8 +254,7 @@ class MetricLogger:
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
         per_iteration = total_time / num_batches if num_batches > 0 else float("nan")
         logger.info(
-            f"{header} Total time: {total_time_str} "
-            f"({per_iteration:.4f} s / it)"
+            f"{header} Total time: {total_time_str} ({per_iteration:.4f} s / it)"
         )
 
 

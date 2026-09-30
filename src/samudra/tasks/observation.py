@@ -259,7 +259,7 @@ class Harness:
         ) != manifest:
             raise ValueError("Run contract differs; choose a new output directory")
         atomic_json(manifest, self.out / "manifest.json")
-        self.log = WandBLogger()
+        self.log = WandBLogger.init_instance()
         self.log.configure(args.wandb_mode != "disabled", True)
         self.log.init(
             entity=args.entity,

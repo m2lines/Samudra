@@ -164,6 +164,20 @@ initialized dates, not an eight-year continuous rollout.
   one-step outputs match the experimental implementation exactly on a 64×128
   mixed-validity fixture.
 
+A live RTX qualification ([W&B run](https://wandb.ai/ocean_emulators/observational-transfer/runs/281abfeb535b))
+completed eight updates, restarted from its checkpoint, then completed update nine
+(eight OM4, one observation). Losses and gradient norms were finite, optimizer/RNG
+state was preserved, and W&B history contains the integrated metrics, all 27
+spectral errors and OM4 retention. Initial validation matched the original score
+exactly (6.2383686823984945). Partial runs correctly lacked full-completion markers.
+
+The GPU producer was `9353654`; subsequent grid-export metadata, already-reached
+stop-limit and YAML-include fixes were checked independently. The final grid command
+was verified against Torch's training grid. All qualification GPU attempts,
+including retries, used **0.764 allocated GPU-hours**; source hashes, job outcomes
+and failed attempts are recorded in the artifact. This qualifies the extracted
+harness; it is **not a new full 16k-update performance result**.
+
 The included `scripts/verify_observation_preprocessing.py` reruns the data checks.
 These are sampled comparisons, not a claim that every upstream chunk was rebuilt.
 Targeted tests cover global scoring, derivative-stencil support, missingness,

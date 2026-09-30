@@ -81,7 +81,11 @@ def collect():
         reference = read(run / "selection-reference.json", arm + "/run/reference")
         assert reference["protocol"]["version"] == (3 if arm == "restricted" else 4)
         assert reference["data_manifest_sha256"] == manifest["data_manifest_sha256"]
-        assert digest(run / "best.pt") == best["checkpoint_sha256"]
+        assert (
+            digest(run / "best.pt")
+            == best["checkpoint_sha256"]
+            == complete["best_checkpoint_sha256"]
+        )
         for path in sorted(run.glob("validation-*.json")):
             read(path, arm + "/validation/" + path.stem)
         missing = []
@@ -93,6 +97,21 @@ def collect():
                 if not (directory / "COMPLETE.json").exists():
                     missing.append(str(directory))
                     continue
+                submission = read(
+                    root / f"{prefix}-{choice}-{kind}-submission.json",
+                    key + "/submission",
+                )
+                evaluation_producer = json.loads((root / "DAG.json").read_text())[
+                    "producer"
+                ]
+                assert submission["code_commit"] == evaluation_producer
+                assert "--global-observations" in submission["module_args"]
+                with (
+                    BASE.parent / ("slurm-" + submission["job"] + ".out")
+                ).open() as stream:
+                    header = "".join(next(stream) for _ in range(15))
+                assert "Code commit:    " + evaluation_producer in header
+                files[key + "/runtime_header"] = header
                 marker = read(directory / "COMPLETE.json", key + "/complete")
                 signature = read(
                     directory
@@ -110,6 +129,10 @@ def collect():
                         run / "manifest.json"
                     )
                 if kind == "monthly":
+                    assert (
+                        signature["data_manifest_sha256"]
+                        == manifest["data_manifest_sha256"]
+                    )
                     assert marker["origins"] == 96
                     stem = "fixed-budget" if choice == "endpoint" else "selected"
                     for name in (
@@ -122,6 +145,10 @@ def collect():
                         metrics = record["metrics"] if name == stem else record
                         assert metrics["origins"] == TEST_MONTHS
                 else:
+                    assert signature["producer"] == evaluation_producer
+                    assert signature["training_manifest_sha256"] == digest(
+                        run / "manifest.json"
+                    )
                     assert sorted(marker["origins"]) == ORIGINS
                     assert marker["inputs"] == signature
                     for origin in ORIGINS:
@@ -131,6 +158,11 @@ def collect():
             read(
                 root / "probe-conditioned/JOINT_QUALIFIED.json",
                 arm + "/qualification/resume",
+            )
+            assert files[arm + "/qualification/fit"]["code_commit"] == producer
+            assert (
+                files[arm + "/qualification/resume"]["contract"]["code_commit"]
+                == producer
             )
             assert all(files[arm + "/qualification/fit"]["gradient_reached"].values())
             assert files[arm + "/qualification/resume"]["resume_verified"]
@@ -174,6 +206,7 @@ def collect():
         )
     return dict(
         collected_utc=datetime.datetime.now(datetime.UTC).isoformat(),
+        collector_sha256=digest(Path(__file__)),
         files=files,
         hashes=hashes,
         status=status,

@@ -2843,3 +2843,25 @@ Pending on restored access: check training and all evaluation markers, safely
 recover routine failures, verify endpoint/selection lineage and global metric
 support, collect three-arm results/maps and publish the updated comparison report.
 The timer remains disabled; no replacement timer was created.
+
+### 06:30 UTC — access restored; report assembly underway
+
+Authenticated Torch access restored. Both jobs continued during the monitoring
+outage: at 06:18 UTC physical-only was 14,518/16,000 and latent10 14,620/16,000;
+subsequent structured events show continued finite-loss updates. No retries or
+training changes were needed. Dependent evaluations remain queued for completion.
+
+Control globally rescored monthly/annual results pass actual checkpoint hashes,
+exact origins, global-domain flags and fixed 8k/8k lineage checks. CPU export
+18859335 completed; the 18,872,320-byte control archive and every member SHA256
+match the direct DTN-to-local stream. The documented DTN rclone module was absent,
+so an authenticated read-only SSH stream was used; no new external bucket upload.
+New-arm CPU exports 18859573/18859588 depend on their endpoint and selected annual
+evaluations. Export sources are frozen under a hash-named directory with checksum
+verification before execution. Report code is committed through 7229528ae.
+
+Prepared the matched endpoint/selected tables, global component and persistence
+comparison, full-grid native-pixel initial/day30/day365 maps, regional spectra,
+and separate northern/southern polar SST/ADT errors. The latter independently
+reproduce the existing control's global annual scores before splitting latitude
+bands. Final conclusions await both new models' completed held-out evaluations.

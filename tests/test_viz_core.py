@@ -254,7 +254,10 @@ def test_gaussian_without_source_areas_uses_spherical_fallback(gaussian_viz):
         },
     )
 
-    out = Viz._with_cell_areas(gaussian_viz, data)
+    with pytest.warns(
+        UserWarning, match="'areacello' is missing; using a spherical approximation"
+    ):
+        out = Viz._with_cell_areas(gaussian_viz, data)
 
     assert "areacello" in out and "areacello_weights" in out
     expected = np.asarray(spherical_area(data))

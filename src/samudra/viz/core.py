@@ -217,6 +217,12 @@ class Viz:
                 )
             area = np.asarray(source.transpose("lat", "lon").values, dtype=np.float64)
         elif is_rectilinear(self.data_layout.grid_type):
+            warnings.warn(
+                "Source 'areacello' is missing; using a spherical approximation "
+                "for cell areas that assumes uniformly spaced latitude/longitude.",
+                UserWarning,
+                stacklevel=2,
+            )
             area = np.asarray(spherical_area(data), dtype=np.float64)
         else:
             raise ValueError(

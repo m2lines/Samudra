@@ -76,3 +76,21 @@ At 11:42 UTC September 29, resumed seeds had reached updates **2,029** and
 Both native-cache equivalence checks passed, and observed host memory was about
 62 GiB per job, below the 96 GiB allocation. This verifies real optimizer
 progress after restart, not just scheduler acceptance.
+
+## Monitoring and provisional plateau rule
+
+Check the existing job IDs and validation exports hourly, with additional checks
+only around actionable transitions. Assess each seed separately. Flag a
+provisional plateau when the best of the latest three consecutive scheduled
+500-update validations improves by less than 1% over the best score preceding
+that window. Missing checks or an off-schedule final validation do not fill the
+three-check window. The reproducible helper is
+`python -m samudra.experiments.diffusion_plateau --parent PATH --continuation PATH`.
+
+A flag triggers an interim report, not a claim of convergence or automatic
+cancellation of the authorized training. Keep final reporting distinct from
+interim validation: collect completed native and held-out monthly/annual outputs,
+verify them, and compare with the frozen short-budget baselines. Notify on a
+plateau report, completion, or a persistent operational blocker. A failed SSH
+check alone does not establish that Slurm jobs stopped and does not justify
+restarting them.

@@ -6,6 +6,7 @@ from typing import Literal, assert_never
 import numpy as np
 import torch
 import torch.nn.functional as F
+from torch.utils.weak import WeakTensorKeyDictionary
 import xarray as xr
 from jaxtyping import Float
 
@@ -71,6 +72,38 @@ def loss_fn_from_metric(
     return loss_fn
 
 
+#: Float casts of masks that are bound once when a loss is built. Weakly
+#: keyed, so the curriculum rebuilding a loss drops the old entries.
+_CAST_CACHE: WeakTensorKeyDictionary = WeakTensorKeyDictionary()
+
+
+def _cache_slot(cache: WeakTensorKeyDictionary, tensor: torch.Tensor) -> dict:
+    """The cache entries belonging to `tensor`, created on first use."""
+    slot = cache.get(tensor)
+    if slot is None:
+        slot = {}
+        cache[tensor] = slot
+    return slot
+
+
+def _cast_constant(tensor: torch.Tensor, dtype: torch.dtype) -> torch.Tensor:
+    """`tensor.to(dtype)` for a tensor that never changes.
+
+    `wet` and the channel weights arrive as bool and were cast on every call:
+    464 MB of bool->float32 three times per loss at face scale, for the same
+    bits every time.
+
+    Only for tensors with that lifetime. Anything built per call -- the
+    per-sample weight above all -- must not come through here.
+    """
+    if tensor.dtype == dtype:
+        return tensor
+    slot = _cache_slot(_CAST_CACHE, tensor)
+    if dtype not in slot:
+        slot[dtype] = tensor.to(dtype=dtype)
+    return slot[dtype]
+
+
 def _channel_weight(
     dtype: torch.dtype,
     *,
@@ -78,10 +111,11 @@ def _channel_weight(
     spatial_weight: torch.Tensor | None = None,
     extra_weight: torch.Tensor | None = None,
 ) -> torch.Tensor:
-    weight = wet.to(dtype=dtype).unsqueeze(0)
+    weight = _cast_constant(wet, dtype).unsqueeze(0)
     if spatial_weight is not None:
-        weight = weight * spatial_weight.to(dtype=dtype).unsqueeze(0)
+        weight = weight * _cast_constant(spatial_weight, dtype).unsqueeze(0)
     if extra_weight is not None:
+        # NOT cached: this one is the per-sample mask, rebuilt every call.
         weight = weight * extra_weight.to(dtype=dtype)
     return weight
 
@@ -215,7 +249,10 @@ def decomposed_mse_diff_weighted(
     # Combine losses
     combined_loss = torch.cat([mse[:, :1], diff_mse], dim=1)
     return _weighted_channel_mean(
-        combined_loss, wet=wet, spatial_weight=spatial_weight, extra_weight=sample_weight
+        combined_loss,
+        wet=wet,
+        spatial_weight=spatial_weight,
+        extra_weight=sample_weight,
     )
 
 
@@ -340,30 +377,67 @@ class GradientZNorms:
     count_by_time: torch.Tensor
 
 
+#: `wet` -> {(variable, dtype, num_times, num_vars): (spatial_weight, result)}.
+#: The channel weight sits beside the result and is checked by identity, so a
+#: loss rebuilt with different weights cannot be served a stale one.
+_Z_MIDPOINT_CACHE: WeakTensorKeyDictionary = WeakTensorKeyDictionary()
+
+
+def _gradient_z_midpoint_weight(
+    *,
+    wet: torch.Tensor,
+    spatial_weight: torch.Tensor | None,
+    variable: str,
+    lower: torch.Tensor,
+    upper: torch.Tensor,
+    num_times: int,
+    num_vars: int,
+    dtype: torch.dtype,
+) -> torch.Tensor:
+    """``[num_times, num_pairs, H, W]``: which level pairs are wet, and how much.
+
+    A pure function of the masks and the depth pairing, both fixed for the run,
+    but it was rebuilt on every loss call, once per 3D variable -- sixteen full
+    reads of constants per call at face scale.
+
+    Keyed on `wet` rather than the reshaped view the callers hold, since that
+    view is a fresh object every call and would never hit.
+    """
+    slot = _cache_slot(_Z_MIDPOINT_CACHE, wet)
+    key = (variable, dtype, num_times, num_vars)
+    cached_spatial, cached = slot.get(key, (None, None))
+    if cached is not None and cached_spatial is spatial_weight:
+        return cached
+
+    wet_by_time = wet.reshape(num_times, num_vars, *wet.shape[-2:]).bool()
+    midpoint = (wet_by_time[:, upper] & wet_by_time[:, lower]).to(dtype=dtype)
+    if spatial_weight is not None:
+        spatial_by_time = spatial_weight.reshape(
+            num_times, num_vars, *spatial_weight.shape[-2:]
+        )
+        midpoint = midpoint * torch.minimum(
+            spatial_by_time[:, upper], spatial_by_time[:, lower]
+        ).to(dtype=dtype)
+    slot[key] = (spatial_weight, midpoint)
+    return midpoint
+
+
 def _gradient_z_weight(
     *,
-    wet_by_time: torch.Tensor,
-    spatial_weight_by_time: torch.Tensor | None,
+    midpoint_weight: torch.Tensor,
     sample_weight: torch.Tensor | None,
     lower: torch.Tensor,
     upper: torch.Tensor,
     num_times: int,
     num_vars: int,
     batch: int,
-    dtype: torch.dtype,
 ) -> torch.Tensor:
     """``[batch, num_times, num_pairs, H, W]`` weight for one variable.
 
-    Shared by the loss and by :func:`gradient_z_norms` so the denominators are
-    built from exactly the same expression they will later divide.
+    Shared by the loss and by :func:`gradient_z_norms` -- through the same
+    cached `midpoint_weight` -- so the denominators are built from exactly the
+    same expression they will later divide.
     """
-    midpoint_weight = (wet_by_time[:, upper] & wet_by_time[:, lower]).to(dtype=dtype)
-    if spatial_weight_by_time is not None:
-        midpoint_weight = midpoint_weight * torch.minimum(
-            spatial_weight_by_time[:, upper],
-            spatial_weight_by_time[:, lower],
-        ).to(dtype=dtype)
-
     # Carrying the per-sample weight into BOTH sums is what keeps this a
     # weighted mean. The expand is load-bearing rather than cosmetic: the
     # denominator sums over the batch axis, so a size-1 axis here would
@@ -421,17 +495,8 @@ def gradient_z_norms(
             f"wet has {wet.shape[0]} channels, not a multiple of {num_vars}"
         )
     num_times = wet.shape[0] // num_vars
-    wet_by_time = wet.reshape(num_times, num_vars, *wet.shape[-2:]).bool()
-    spatial_weight_by_time = (
-        spatial_weight.reshape(num_times, num_vars, *spatial_weight.shape[-2:])
-        if spatial_weight is not None
-        else None
-    )
-
     valid_cells: dict[str, torch.Tensor] = {}
-    count_by_time = torch.zeros(
-        (num_times, num_vars), device=wet.device, dtype=dtype
-    )
+    count_by_time = torch.zeros((num_times, num_vars), device=wet.device, dtype=dtype)
     for variable in tensor_map.VAR_SET_3D:
         indices = tensor_map.VAR_3D_IDX[variable].to(
             device=wet.device, dtype=torch.long
@@ -440,15 +505,22 @@ def gradient_z_norms(
             continue
         lower, upper = indices[:-1], indices[1:]
         weight = _gradient_z_weight(
-            wet_by_time=wet_by_time,
-            spatial_weight_by_time=spatial_weight_by_time,
+            midpoint_weight=_gradient_z_midpoint_weight(
+                wet=wet,
+                spatial_weight=spatial_weight,
+                variable=variable,
+                lower=lower,
+                upper=upper,
+                num_times=num_times,
+                num_vars=num_vars,
+                dtype=dtype,
+            ),
             sample_weight=sample_weight,
             lower=lower,
             upper=upper,
             num_times=num_times,
             num_vars=num_vars,
             batch=batch,
-            dtype=dtype,
         )
         cells = weight.sum(dim=(0, 3, 4))
         if reduce is not None:
@@ -499,13 +571,6 @@ def gradient_z_l1_loss(
     target_by_time = target.reshape(
         target.shape[0], num_times, num_vars, *target.shape[-2:]
     )
-    wet_by_time = wet.reshape(num_times, num_vars, *wet.shape[-2:]).bool()
-    spatial_weight_by_time = (
-        spatial_weight.reshape(num_times, num_vars, *spatial_weight.shape[-2:])
-        if spatial_weight is not None
-        else None
-    )
-
     loss_by_time = torch.zeros(
         (num_times, num_vars), device=pred.device, dtype=pred.dtype
     )
@@ -543,28 +608,35 @@ def gradient_z_l1_loss(
         grad_loss = (pred_grad_z - target_grad_z).abs()
 
         weight = _gradient_z_weight(
-            wet_by_time=wet_by_time,
-            spatial_weight_by_time=spatial_weight_by_time,
+            midpoint_weight=_gradient_z_midpoint_weight(
+                wet=wet,
+                spatial_weight=spatial_weight,
+                variable=variable,
+                lower=lower,
+                upper=upper,
+                num_times=num_times,
+                num_vars=num_vars,
+                dtype=pred.dtype,
+            ),
             sample_weight=sample_weight,
             lower=lower,
             upper=upper,
             num_times=num_times,
             num_vars=num_vars,
             batch=pred.shape[0],
-            dtype=pred.dtype,
         )
-        local_cells = weight.sum(dim=(0, 3, 4))
         if norms is None:
-            valid_cells = local_cells
+            valid_cells = weight.sum(dim=(0, 3, 4))
             valid_pair = valid_cells > 0
         else:
             # Fixed denominators: this call scores a PIECE of a larger domain,
             # so it must divide by that domain's cell counts, not its own, or
             # the pieces cannot be summed. Which pairs exist is likewise a
             # property of the whole domain -- a pair with no wet cell in this
-            # chunk may well have one elsewhere.
+            # chunk may well have one elsewhere. The local count is therefore
+            # meaningless here, not merely unused, so it is not computed.
             valid_cells = norms.valid_cells[variable].to(
-                device=local_cells.device, dtype=local_cells.dtype
+                device=weight.device, dtype=weight.dtype
             )
             valid_pair = valid_cells > 0
         numerator = (grad_loss * weight).sum(dim=(0, 3, 4))
@@ -598,9 +670,7 @@ def decomposed_mae_gradient_weighted(
     spatial_weight: torch.Tensor | None = None,
 ) -> torch.Tensor:
     """MAE loss with spatial gradient matching penalty."""
-    mae_per_channel = decomposed_mae(
-        pred, target, wet, spatial_weight=spatial_weight
-    )
+    mae_per_channel = decomposed_mae(pred, target, wet, spatial_weight=spatial_weight)
     grad_loss = gradient_h_l1_loss(
         pred, target, wet, pad_mode, spatial_weight=spatial_weight
     )
@@ -836,6 +906,12 @@ class GradientLoss:
         wet mask is a property of the sample, not of the run, and scoring one
         tile's ocean against another tile's mask is simply wrong.
         """
+        # Cast once, not once per consumer: it arrives bool and the base
+        # metric, gradient_h and gradient_z between them cast it seven times,
+        # 1.39 GB each at face scale. The `.to` calls downstream stay and
+        # become no-ops, so a float weight still behaves exactly as before.
+        if sample_weight is not None:
+            sample_weight = sample_weight.to(dtype=pred.dtype)
         base_loss = (
             self.loss_fn(pred, target)
             if sample_weight is None

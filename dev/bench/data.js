@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790791019439,
+  "lastUpdate": 1790793528426,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -12498,6 +12498,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.5750420981730722",
             "extra": "mean: 55.0546833394 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b8cba2d17abcc33a8568264b265cf9ca4185a892",
+          "message": "Avoid overriding top level readme (#904)\n\nApparently a file in .github/README.md overrides a top-level README.md",
+          "timestamp": "2026-09-30T17:58:27Z",
+          "tree_id": "784885c0301576547907a7c48b281dcbf58834ba",
+          "url": "https://github.com/m2lines/Samudra/commit/b8cba2d17abcc33a8568264b265cf9ca4185a892"
+        },
+        "date": 1790793526563,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.9349678161451328,
+            "unit": "iter/sec",
+            "range": "stddev: 0.003105123254305681",
+            "extra": "mean: 1.0695555320000154 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.06721546551982344,
+            "unit": "iter/sec",
+            "range": "stddev: 0.7823394633011277",
+            "extra": "mean: 14.877528441799996 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.018317310717463692,
+            "unit": "iter/sec",
+            "range": "stddev: 0.26562635197933354",
+            "extra": "mean: 54.593166836799995 sec\nrounds: 5"
           }
         ]
       }

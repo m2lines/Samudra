@@ -21,9 +21,8 @@ def main():
     parser.add_argument("--config", default="observation/om4.yaml")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
-    config = DataConfig.model_validate(
-        yaml.safe_load(resolve_config_path(args.config).read_text())
-    )
+    with resolve_config_path(args.config).open() as stream:
+        config = DataConfig.model_validate(yaml.safe_load(stream))
     bundle = config.build(LocalLocation(path=args.om4))
     source = bundle.train_sources[0]
     names = bundle.data_layout.prognostic_var_names

@@ -200,12 +200,12 @@ class Harness:
             expected = [str(m) for m in pd.period_range(*SPLITS[split], freq="M")]
             if [p.stem for p in self.data.paths(split)] != expected:
                 raise ValueError(f"Incomplete {split} cohort")
-        model_config = SurfaceInitializedConfig.model_validate(
-            yaml.safe_load(resolve_config_path(args.model).read_text())
-        )
-        om4_config = DataConfig.model_validate(
-            yaml.safe_load(resolve_config_path(args.om4_config).read_text())
-        )
+        with resolve_config_path(args.model).open() as stream:
+            model_config = SurfaceInitializedConfig.model_validate(
+                yaml.safe_load(stream)
+            )
+        with resolve_config_path(args.om4_config).open() as stream:
+            om4_config = DataConfig.model_validate(yaml.safe_load(stream))
         self.om4 = (
             Om4Samples(args.om4, om4_config, self.data, self.device, args.cache_device)
             if args.command == "train"

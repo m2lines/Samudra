@@ -235,15 +235,21 @@ class DataConfig(BaseConfig):
             if isinstance(self.data_location, list)
             else [self.data_location]
         )
-        data_locations = [data_root.resolve(location) for location in configured_locations]
+        data_locations = [
+            data_root.resolve(location) for location in configured_locations
+        ]
         expanded_locations: list[ResolvedLocation] = []
         for location in data_locations:
             if isinstance(location, LocalLocation) and location.path.is_dir():
                 children = sorted(
-                    child for child in location.path.iterdir() if child.suffix == ".zarr"
+                    child
+                    for child in location.path.iterdir()
+                    if child.suffix == ".zarr"
                 )
                 if children:
-                    expanded_locations.extend(LocalLocation(path=child) for child in children)
+                    expanded_locations.extend(
+                        LocalLocation(path=child) for child in children
+                    )
                     continue
             expanded_locations.append(location)
         if not expanded_locations:
@@ -277,8 +283,11 @@ class DataConfig(BaseConfig):
 
         Window = tuple[int, int, int, int, int]
         default_window: Window = (
-            self.llc_face, self.llc_i_start, self.llc_i_end,
-            self.llc_j_start, self.llc_j_end,
+            self.llc_face,
+            self.llc_i_start,
+            self.llc_i_end,
+            self.llc_j_start,
+            self.llc_j_end,
         )
 
         def load(
@@ -293,17 +302,27 @@ class DataConfig(BaseConfig):
                         f"{location} is not local."
                     )
                 native_store = NativeStoreSpec(
-                    path=str(location.path), face=face,
-                    j_start=j_start, j_stop=j_end,
-                    i_start=i_start, i_stop=i_end,
+                    path=str(location.path),
+                    face=face,
+                    j_start=j_start,
+                    j_stop=j_end,
+                    i_start=i_start,
+                    i_stop=i_end,
                     read_threads=self.rust_read_threads,
                 )
             return DataSource.from_locations(
-                data_location=location, means_location=means_location,
-                stds_location=stds_location, prognostic_var_names=prognostic_var_names,
-                boundary_var_names=boundary_var_names, static_data_vars=self.static_data_vars,
-                use_dask=dask, llc_face=face, llc_i_start=i_start,
-                llc_i_end=i_end, llc_j_start=j_start, llc_j_end=j_end,
+                data_location=location,
+                means_location=means_location,
+                stds_location=stds_location,
+                prognostic_var_names=prognostic_var_names,
+                boundary_var_names=boundary_var_names,
+                static_data_vars=self.static_data_vars,
+                use_dask=dask,
+                llc_face=face,
+                llc_i_start=i_start,
+                llc_i_end=i_end,
+                llc_j_start=j_start,
+                llc_j_end=j_end,
                 # An explicit tile list means every source is a window into one
                 # store, so each still needs its own crop -- unlike a directory
                 # of prebuilt caches, which are already cropped.
@@ -355,9 +374,12 @@ class DataConfig(BaseConfig):
                 boundary_native = NativeStoreSpec(
                     # A packed cache is already cropped to its tile, so the
                     # window is its whole extent and it has no face axis.
-                    path=str(boundary_location.path), face=None,
-                    j_start=0, j_stop=int(boundary_data.sizes["y"]),
-                    i_start=0, i_stop=int(boundary_data.sizes["x"]),
+                    path=str(boundary_location.path),
+                    face=None,
+                    j_start=0,
+                    j_stop=int(boundary_data.sizes["y"]),
+                    i_start=0,
+                    i_stop=int(boundary_data.sizes["x"]),
                     read_threads=self.rust_read_threads,
                     packed_prefix="boundary",
                 )
@@ -1013,8 +1035,7 @@ class ReplayConfig(BaseConfig):
     enabled: bool = Field(
         default=False,
         description=(
-            "Enable hist=0 replay-buffer training instead of iterated rollout "
-            "training."
+            "Enable hist=0 replay-buffer training instead of iterated rollout training."
         ),
     )
     buffer_size: int = Field(

@@ -198,9 +198,9 @@ class UNetBackbone(nn.Module):
                 raise RuntimeError(f"Unhandled UNet skip mode {self.unet_skip_mode}")
 
     def forward(self, fts: torch.Tensor) -> torch.Tensor:
-        skip_inputs: list[torch.Tensor] = []
-        for i in range(self.num_steps):
-            skip_inputs.append(torch.zeros_like(fts))
+        # `None`, not `zeros_like`: every entry is overwritten before it is
+        # read, and an unfilled one should raise rather than add a zero.
+        skip_inputs: list[torch.Tensor | None] = [None] * self.num_steps
         count = 0
         for layer_index, layer in enumerate(self.layers):
             # Circular/Globe padding
@@ -227,8 +227,15 @@ class UNetBackbone(nn.Module):
                     or isinstance(layer, ZonallyPeriodicBilinearUpsample)
                 ):
                     skip_index = int(2 * self.num_steps - count - 1)
+                    skip = skip_inputs[skip_index]
+                    if skip is None:
+                        raise RuntimeError(
+                            f"UNet skip {skip_index} was never filled: the "
+                            f"encoder produced fewer than {self.num_steps} "
+                            "blocks before the first upsample."
+                        )
                     crop = np.array(fts.shape[2:])
-                    shape = np.array(skip_inputs[skip_index].shape[2:])
+                    shape = np.array(skip.shape[2:])
                     pads = shape - crop
                     pads = [
                         pads[1] // 2,
@@ -239,7 +246,7 @@ class UNetBackbone(nn.Module):
                     if any(pads):
                         fts = nn.functional.pad(fts, pads)
                     if self._uses_skip_connection(skip_index):
-                        fts += skip_inputs[skip_index]
+                        fts += skip
                     count += 1
 
         return fts

@@ -133,6 +133,23 @@ class CoreBlock(torch.nn.Module):
         self.upscale_factor = upscale_factor
         self.norm = norm
 
+    @property
+    def conv_padding(self) -> int:
+        """Padding to hand Conv2d, rather than padding its input first.
+
+        Zero on every side is exactly what `apply_spatial_pad` produces when
+        `pad` is "constant", and Conv2d does it inside the kernel: no copy of
+        the input, and no second copy when activation checkpointing recomputes
+        the forward. With "circular" the two axes genuinely differ -- wrap in
+        x, zeros in y -- so there the explicit pad stays.
+        """
+        return self.N_pad if (self.domain_parallel or self.pad == "constant") else 0
+
+    @property
+    def pads_input(self) -> bool:
+        """Whether the forward still has to pad before each conv."""
+        return not self.domain_parallel and self.pad != "constant"
+
     def forward(self, fts: torch.Tensor) -> torch.Tensor:
         raise NotImplementedError()
 
@@ -161,7 +178,7 @@ class ConvBlock(CoreBlock):
                 out_channels,
                 kernel_size,
                 dilation=dilation,
-                padding=self.N_pad if domain_parallel else 0,
+                padding=self.conv_padding,
             )
         )
         layers.append(torch.nn.BatchNorm2d(out_channels))
@@ -173,7 +190,7 @@ class ConvBlock(CoreBlock):
                     out_channels,
                     kernel_size,
                     dilation=dilation,
-                    padding=self.N_pad if domain_parallel else 0,
+                    padding=self.conv_padding,
                 )
             )
             layers.append(torch.nn.BatchNorm2d(out_channels))
@@ -184,7 +201,7 @@ class ConvBlock(CoreBlock):
 
     def forward(self, fts: torch.Tensor) -> torch.Tensor:
         for layer in self.layers:
-            if isinstance(layer, nn.Conv2d) and not self.domain_parallel:
+            if isinstance(layer, nn.Conv2d) and self.pads_input:
                 fts = apply_spatial_pad(fts, self.N_pad, self.pad)
                 # conv2d layers are expensive so we save their activations,
                 # other (simple) layers are cheap, so we don't save their activations.
@@ -243,7 +260,7 @@ class ConvNeXtBlock(CoreBlock):
                 out_channels=int(in_channels * upscale_factor),
                 kernel_size=kernel_size,
                 dilation=dilation,
-                padding=self.N_pad if domain_parallel else 0,
+                padding=self.conv_padding,
             )
         )
         norm_layer = self._build_norm_layer(
@@ -261,7 +278,7 @@ class ConvNeXtBlock(CoreBlock):
                 out_channels=int(in_channels * upscale_factor),
                 kernel_size=kernel_size,
                 dilation=dilation,
-                padding=self.N_pad if domain_parallel else 0,
+                padding=self.conv_padding,
             )
         )
         norm_layer = self._build_norm_layer(
@@ -316,7 +333,7 @@ class ConvNeXtBlock(CoreBlock):
             if (
                 isinstance(layer, nn.Conv2d)
                 and layer.kernel_size[0] != 1
-                and not self.domain_parallel
+                and self.pads_input
             ):
                 x = apply_spatial_pad(x, self.N_pad, self.pad)
             if self.checkpoint_simple and not isinstance(layer, nn.Conv2d):

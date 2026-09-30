@@ -48,6 +48,9 @@ from ocean_emulators.tiling import face_tile_windows
 
 CHUNK_GRID = 6
 
+#: Default store. `--store` points the same benchmark at a copy on other
+#: media, which is how the disk-vs-flash numbers are taken: identical work,
+#: identical eviction, one variable.
 STORE = (
     "/orcd/data/abodner/002/cody/LLC_patch/face_1/"
     "LLC4320_face1_i0-4320_j0-4320.zarr"
@@ -251,6 +254,7 @@ def verify(windows, dtype) -> None:
 
 
 def main() -> None:
+    global STORE
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--ranks", type=int, default=4)
     parser.add_argument("--threads", type=int, default=8, help="read threads per rank")
@@ -263,7 +267,13 @@ def main() -> None:
     parser.add_argument("--no-evict", action="store_true")
     parser.add_argument("--skip-verify", action="store_true")
     parser.add_argument("--json", default="")
+    parser.add_argument(
+        "--store", default=STORE, help="zarr store to read (default: the disk copy)"
+    )
     args = parser.parse_args()
+    # `evict` and the worker initializer both read the module constant, so
+    # rebinding it is what makes --store reach every path.
+    STORE = args.store
 
     dtype = np.dtype(args.dtype)
     windows = face_tile_windows(1, overlap=args.overlap)

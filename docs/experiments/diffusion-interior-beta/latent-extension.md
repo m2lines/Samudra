@@ -94,3 +94,12 @@ verify them, and compare with the frozen short-budget baselines. Notify on a
 plateau report, completion, or a persistent operational blocker. A failed SSH
 check alone does not establish that Slurm jobs stopped and does not justify
 restarting them.
+
+For the final comparison, `diffusion_latent_summary` accepts
+`--previous-latent-runs` for the original run directories and `--latent-runs` for
+the extension. It checks both completed evaluation contracts and the continuation
+receipts, rejecting changes beyond the training budgets or a different parent
+checkpoint. Write its output into a separate extension-assets directory.
+`diffusion_latent_figures` then plots the baseline, physical diffusion, original
+latent and extended latent results together with distinct colors and markers.
+The original report remains unchanged.

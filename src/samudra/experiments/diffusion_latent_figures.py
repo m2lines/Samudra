@@ -93,17 +93,26 @@ def main():
     args = parser.parse_args()
     with gzip.open(args.summary, "rt") as stream:
         summary = json.load(stream)
+    styles: tuple[tuple[str, str, str, str], ...] = STYLES
+    if "latent_short" in summary["families"]:
+        styles = (
+            *STYLES[:3],
+            ("S-1729", "#c84638", "D", "Latent short 1729"),
+            ("S-1730", "#c84638", "X", "Latent short 1730"),
+            ("D-1729", "#268449", "P", "Latent extended 1729"),
+            ("D-1730", "#268449", "v", "Latent extended 1730"),
+        )
     runs = {}
-    for family in ("physical", "latent"):
+    for family in summary["families"]:
         runs.update(summary["families"][family])
-    expected = {name for name, *_ in STYLES if name != "baseline"}
+    expected = {name for name, *_ in styles if name != "baseline"}
     if set(runs) != expected:
         raise ValueError("Expected both completed seeds from both model families")
     shared = {"baseline": summary["baseline"], "runs": runs}
     args.output.mkdir(parents=True, exist_ok=True)
-    profiles(shared, args.output, styles=STYLES)
-    annual(shared, args.output, styles=STYLES)
-    calibration(shared, args.output)
+    profiles(shared, args.output, styles=styles)
+    annual(shared, args.output, styles=styles)
+    calibration(shared, args.output, styles=styles[1:])
 
 
 if __name__ == "__main__":

@@ -1,0 +1,18 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+# Lightweight Python 3.12 environment, tested for the full-range CPU workflow.
+# No CUDA, training dependencies, conda, or container registry credentials.
+copernicusmarine==2.4.1
+dask[array]==2025.2.0
+fire==0.7.1
+h5netcdf==1.6.1
+h5py==3.13.0
+numcodecs==0.15.1
+numpy==2.4.6
+pandas==2.2.3
+pypdl==1.5.7
+scipy==1.15.2
+xarray==2025.6.1
+zarr==2.18.7
+pytest==8.3.5

@@ -24,6 +24,9 @@ variants=()
 if [[ "${COMPILE_TEST:-0}" == 1 ]]; then
   variants=(--variants baseline compiled_decoder skip_initial compiled_skip_initial)
 fi
+if [[ "${VALIDATION_COMPARISON:-0}" == 1 ]]; then
+  variants=(--validation-comparison)
+fi
 export SAMUDRA_CODE_COMMIT="$CODE_COMMIT"
 export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 PYTHONUNBUFFERED=1 PYTHONNOUSERSITE=1
 srun --gpus-per-task=1 apptainer exec --nv --bind "$code:/pilot-code,/orcd:/orcd" "$image" \

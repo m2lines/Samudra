@@ -24,6 +24,9 @@ seed=$((1729 + ${SLURM_ARRAY_TASK_ID:-0}))
 phase=observation
 report=report-v1
 extra=(--annual)
+if [[ "${STOPPED_RUN:-0}" == 1 ]]; then
+  extra+=(--stopped-run)
+fi
 if [[ "${PRETRAINING_MAPS:-0}" == 1 ]]; then
   phase=om4
   report=pretraining-maps-v1

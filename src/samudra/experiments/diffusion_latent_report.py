@@ -9,6 +9,7 @@ from pathlib import Path
 
 import torch
 
+from samudra.experiments.diffusion_checkpoint_status import verify_checkpoint
 from samudra.experiments.diffusion_evaluation import (
     EnsembleMeanForecast,
     evaluate_point_metrics,
@@ -58,6 +59,7 @@ def main():
         help="Export the three fixed observation-input examples before adaptation",
     )
     parser.add_argument("--members", type=int, default=8)
+    parser.add_argument("--stopped-run", action="store_true")
     args = parser.parse_args()
     if args.members < 2:
         parser.error("Need at least two members")
@@ -68,11 +70,9 @@ def main():
         if args.pretraining_maps
         else "OBSERVATION_COMPLETE.json"
     )
-    completed = json.loads((args.checkpoint.parent / marker).read_text())
-    if not completed["state"]["complete"] or completed[
-        "best_checkpoint_sha256"
-    ] != digest(args.checkpoint):
-        raise ValueError("Training stage/checkpoint not verified")
+    training_status = verify_checkpoint(
+        args.checkpoint, marker, stopped=args.stopped_run
+    )
     data = Samples(args.root / "data/observations", "cuda")
     data.use_observation_normalization()
     model, signature = load_latent_checkpoint(args.checkpoint, data)
@@ -97,6 +97,7 @@ def main():
         scope="pretraining-maps" if args.pretraining_maps else "observation-report",
         evaluator_commit=os.environ["SAMUDRA_CODE_COMMIT"],
         training_protocol=signature,
+        training_status=training_status,
         checkpoint_sha256=digest(args.checkpoint),
         selection_reference_sha256=digest(ref),
         members=args.members,

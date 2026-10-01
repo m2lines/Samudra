@@ -11,6 +11,7 @@ from types import SimpleNamespace
 import numpy as np
 import torch
 
+from samudra.experiments.diffusion_checkpoint_status import verify_checkpoint
 from samudra.experiments.diffusion_latent_report import load_latent_checkpoint
 from samudra.experiments.diffusion_native_controls import velocity_statistics
 from samudra.experiments.initializer_wave import InitializerWave
@@ -65,6 +66,7 @@ def main():
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--checkpoint", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--stopped-run", action="store_true")
     args = parser.parse_args()
     data = Samples(args.root / "data/observations", "cuda")
     data.use_observation_normalization()
@@ -74,11 +76,9 @@ def main():
         if signature["phase"] == "om4"
         else "OBSERVATION_COMPLETE.json"
     )
-    complete = json.loads((args.checkpoint.parent / marker).read_text())
-    if not complete["state"]["complete"] or complete[
-        "best_checkpoint_sha256"
-    ] != digest(args.checkpoint):
-        raise ValueError("Selected checkpoint not complete or changed")
+    training_status = verify_checkpoint(
+        args.checkpoint, marker, stopped=args.stopped_run
+    )
     if (
         digest(args.root / "DATA_READY.json") != signature["data_sha256"]
         or digest(data.root / "SHA256SUMS") != signature["observation_manifest_sha256"]
@@ -132,6 +132,7 @@ def main():
         protocol = dict(
             evaluator_commit=os.environ["SAMUDRA_CODE_COMMIT"],
             training_protocol=signature,
+            training_status=training_status,
             checkpoint_sha256=digest(args.checkpoint),
             origins=[str(source.time.values[i + 18]) for i in indices],
             members=8,

@@ -23,9 +23,13 @@ root=/orcd/pool/008/jrusak/diffusion-interior-engaging
 code="$root/code/$CODE_COMMIT"
 image=/orcd/scratch/orcd/014/jrusak/apptainer_cache/images/diffusion-26.05-9cd36b1-amd64.sif
 seed=$((1729 + ${SLURM_ARRAY_TASK_ID:-0}))
+extra=()
+if [[ "${STOPPED_RUN:-0}" == 1 ]]; then
+  extra+=(--stopped-run)
+fi
 export SAMUDRA_CODE_COMMIT="$CODE_COMMIT"
 export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 PYTHONUNBUFFERED=1 PYTHONNOUSERSITE=1
 srun --gpus-per-task=1 apptainer exec --nv --bind "$code:/pilot-code,/orcd:/orcd" "$image" \
   env PYTHONPATH=/pilot-code/src /workspace/.venv/bin/python -m samudra.experiments.diffusion_latent_native \
   --root "$root" --checkpoint "$root/runs/$RUN_GROUP/D-$seed/$CHECKPOINT_PHASE/best.pt" \
-  --output "$root/runs/$RUN_GROUP/D-$seed/native-$CHECKPOINT_PHASE-v1"
+  --output "$root/runs/$RUN_GROUP/D-$seed/native-$CHECKPOINT_PHASE-v1" "${extra[@]}"

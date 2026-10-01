@@ -36,10 +36,18 @@ def main():
     ref = dict(np.load(a.references / "obs08000-monthly.npz"))
     result: dict = dict(
         scope="Day30 only. January2015 snapshot with eight individual readouts, power of their mean and mean of their powers. Regional plane-detrended windowed pseudo-spectra, not global spherical spectra or trajectory skill.",
-        native_support="Native observations use their own finite support within the same geographic box; grid and support differ from one-degree curves. Native-versus-coarse differences include averaging and support effects.",
+        native_support="Native observations use the same coarse common geographic support projected by cell boundaries plus their native finite mask; native-versus-coarse differences include resolution, averaging and remaining support effects.",
         sources={},
         curves={},
     )
+    for path in (
+        a.references / "grid.npz",
+        a.references / "om4-day30.npz",
+        a.references / "obs08000-monthly.npz",
+        a.native / "oisst-grid.npz",
+        a.native / "duacs-grid.npz",
+    ):
+        result["sources"][str(path)] = digest(path)
     for seed in (1729, 1730):
         path = a.stopped_runs / f"D-{seed}/report-v1/members/2015-01.npz"
         data = dict(np.load(path))
@@ -67,6 +75,9 @@ def main():
                 & np.logical_and.reduce([np.isfinite(f) for f in fields])
                 & np.isfinite(members).all(0)
             )
+            yi = np.searchsorted((lat[:-1] + lat[1:]) / 2, native_grid["lat"])
+            xi = np.searchsorted((lon[:-1] + lon[1:]) / 2, native_grid["lon"])
+            native_support = support[np.ix_(yi, xi)] & np.isfinite(native["native"])
             for column, region in enumerate(REGIONS):
                 ax = axes[row, column]
                 curves = [regional(f, lat, lon, region, support) for f in fields]
@@ -78,7 +89,7 @@ def main():
                     native_grid["lat"],
                     native_grid["lon"],
                     region,
-                    np.isfinite(native["native"]),
+                    native_support,
                 )
                 if (
                     any(c is None for c in curves + member_curves)

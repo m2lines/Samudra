@@ -17,6 +17,7 @@ from global_physical_heat_content import (  # type: ignore[import-not-found]
 )
 
 from samudra.experiments.diffusion_latent_maps import grid as plot_grid
+from samudra.experiments.observation_pilot import digest
 
 
 def main():
@@ -35,6 +36,9 @@ def main():
     cosine = np.cos(np.deg2rad(lat))[:, None] * np.ones((1, len(lon)))
     heat_climate = np.load(a.heat_context)["climatology"]
     output = {}
+    sources = {
+        str(path): digest(path) for path in (a.references / "grid.npz", a.heat_context)
+    }
     styles = [
         ("Deterministic historical", "black", "^"),
         ("Short 1729", "#cd5c5c", "D"),
@@ -50,6 +54,7 @@ def main():
             for seed in (1729, 1730)
         ]
         models = [dict(np.load(path)) for path in paths]
+        sources.update({str(path): digest(path) for path in paths})
         for model in models[1:]:
             np.testing.assert_allclose(
                 model["reference"], models[0]["reference"], equal_nan=True
@@ -156,6 +161,7 @@ def main():
             dict(
                 scope="Common fixed finite support per year and variable; globally distributed support, no extrapolation to missing ocean. OHC model/native vertical discretizations differ.",
                 results=output,
+                sources=sources,
             ),
             indent=2,
         )

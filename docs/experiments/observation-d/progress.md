@@ -3006,3 +3006,7 @@ Authenticated ControlMaster access was restored after the user's fix at 20:15 ET
 ### 2026-09-30 21:15 ET: matched global scratch check
 
 Training 18890321 remains running at 6,310 observation / zero OM4 updates. Latest global integrated-plus-spectral validation is 0.599251 at 6,300; best is 0.592400 at 6,100. Loss and gradients remain finite. Actual accumulated allocation is 5.8867 GPU-hours; recent mean GPU utilization is 66.1%. No completion or partial marker is present. Four endpoint GPU evaluations and the final comparison/interior CPU exports remain pending their successful dependencies. Throughput projects approximately 9.1 training hours remaining (06:19 ET October 01), before queued evaluation/export/reporting. [Full check](artifacts/2026-09-30-global-scratch/hour6.json.gz).
+
+### 2026-09-30 22:15 ET: matched global scratch check
+
+Training 18890321 remains running at 7,420 observation / zero OM4 updates. Latest global integrated-plus-spectral validation is 0.611035 at 7,400; best is 0.588786 at 6,400. Loss and gradients remain finite. Actual accumulated allocation is 6.8864 GPU-hours; recent mean GPU utilization is 68.2%. No completion or partial marker is present. Four endpoint GPU evaluations and the final comparison/interior CPU exports remain pending their successful dependencies. Throughput projects approximately 7.7 training hours remaining (05:59 ET October 01), before queued evaluation/export/reporting. [Full check](artifacts/2026-09-30-global-scratch/hour7.json.gz).

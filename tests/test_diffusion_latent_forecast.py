@@ -178,3 +178,39 @@ def test_checkpointed_denoising_preserves_explicit_rng_and_gradients():
         ordinary.parameters(), recomputed.parameters(), strict=True
     ):
         torch.testing.assert_close(expected.grad, actual.grad, rtol=0, atol=0)
+
+
+@pytest.mark.parametrize("stochastic", [False, True])
+def test_omitting_unused_initial_readout_preserves_forecast_gradients_and_rng(
+    stochastic,
+):
+    from copy import deepcopy
+
+    torch.set_num_threads(1)
+    torch.manual_seed(99)
+    original = model_for_test(stochastic).train()
+    optimized = deepcopy(original)
+    surface = torch.randn(1, 5, 2, 8, 12)
+    atmosphere = torch.randn(1, 5, 8, 8, 12)
+    contexts = torch.randn(1, 5, 5, 8, 12)
+    mask, valid = torch.ones(4, 8, 12), torch.ones_like(surface)
+    results = []
+    for model, include in ((original, True), (optimized, False)):
+        rng = torch.Generator().manual_seed(13)
+        forecast, initial = model.forecast(
+            surface,
+            atmosphere,
+            contexts,
+            mask,
+            valid,
+            generator=rng,
+            members=2 if stochastic else 1,
+            decode_initial=include,
+        )
+        assert (initial is None) == (not include)
+        forecast.square().mean().backward()
+        results.append((forecast.detach(), rng.get_state()))
+    for a, b in zip(results[0], results[1], strict=True):
+        torch.testing.assert_close(a, b, rtol=0, atol=0)
+    for a, b in zip(original.parameters(), optimized.parameters(), strict=True):
+        torch.testing.assert_close(a.grad, b.grad, rtol=0, atol=0)

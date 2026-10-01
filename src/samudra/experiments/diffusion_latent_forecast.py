@@ -182,7 +182,16 @@ class LatentOceanForecast(nn.Module):
         return torch.stack(losses).mean()
 
     def forecast(
-        self, surface, atmosphere, contexts, mask, validity, *, generator, members=1
+        self,
+        surface,
+        atmosphere,
+        contexts,
+        mask,
+        validity,
+        *,
+        generator,
+        members=1,
+        decode_initial=True,
     ):
         if members < 1 or (not self.stochastic and members != 1):
             raise ValueError(
@@ -204,7 +213,16 @@ class LatentOceanForecast(nn.Module):
         )
         trajectories, initials = [], []
         for _ in range(members):
-            initials.append(self.readout(states[0], mask, generator, known, anchor))
+            if decode_initial:
+                initials.append(self.readout(states[0], mask, generator, known, anchor))
+            elif self.stochastic:
+                # Initial physical readouts never enter recurrence or forecast loss.
+                # Consume their one noise draw to preserve every subsequent sample.
+                torch.randn(
+                    (initial.shape[0], 2 * self.channels, *mask.shape[-2:]),
+                    device=initial.device,
+                    generator=generator,
+                )
             trajectories.append(
                 torch.stack(
                     [
@@ -214,4 +232,6 @@ class LatentOceanForecast(nn.Module):
                     1,
                 )
             )
-        return torch.stack(trajectories), torch.stack(initials)
+        return torch.stack(trajectories), torch.stack(
+            initials
+        ) if decode_initial else None

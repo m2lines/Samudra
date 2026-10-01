@@ -60,9 +60,19 @@ def main():
         results["training_signature"] = signature
         if variant in ("channels_last", "compiled_channels_last"):
             model.to(memory_format=torch.channels_last)
-        elif variant not in ("baseline", "compiled_norm", "compiled_decoder"):
+        elif variant not in (
+            "baseline",
+            "compiled_norm",
+            "compiled_decoder",
+            "skip_initial",
+            "compiled_skip_initial",
+        ):
             raise ValueError(variant)
-        if variant in ("compiled_channels_last", "compiled_decoder"):
+        if variant in (
+            "compiled_channels_last",
+            "compiled_decoder",
+            "compiled_skip_initial",
+        ):
             model.decoder.compile()
         if variant == "compiled_norm":
             for module in model.modules():
@@ -85,6 +95,8 @@ def main():
                     sample["validity"],
                     generator=torch.Generator(device="cuda").manual_seed(1729 + index),
                     members=2,
+                    decode_initial=variant
+                    not in ("skip_initial", "compiled_skip_initial"),
                 )
                 loss = forecast_observation_crps(data, predictions, sample)
             torch.cuda.synchronize()

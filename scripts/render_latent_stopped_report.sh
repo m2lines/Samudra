@@ -18,7 +18,7 @@ uv run python -m samudra.experiments.diffusion_latent_summary \
 uv run python -m samudra.experiments.diffusion_latent_figures --summary "$output/summary.json.gz" --output "$output"
 uv run python -m samudra.experiments.diffusion_validation_figures --short-runs "$short" --extended-runs "$stopped" --output "$output"
 uv run python -m samudra.experiments.diffusion_temporal_figures --short-runs "$short" --extended-runs "$stopped" --output "$output"
-uv run python -m samudra.experiments.diffusion_latent_native_figures --latent-runs "$stopped" --pretraining-runs "$short" --physical-native "$native" --output "$output"
+uv run python -m samudra.experiments.diffusion_latent_native_figures --latent-runs "$stopped" --pretraining-runs "$short" --previous-latent-runs "$short" --physical-native "$native" --output "$output"
 uv run python -m samudra.experiments.diffusion_latent_maps --baseline "$baseline" --physical-reports "$physical" --latent-runs "$stopped" --pretraining-runs "$short" --output "$output"
 for seed in 1729 1730; do
   uv run python -m samudra.experiments.diffusion_latent_diagnostics --maps "$stopped/D-$seed/report-v1" --output "$output/diagnostics-$seed.json"

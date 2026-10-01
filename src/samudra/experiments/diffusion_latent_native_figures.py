@@ -16,6 +16,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--latent-runs", type=Path, required=True)
     parser.add_argument("--pretraining-runs", type=Path)
+    parser.add_argument("--previous-latent-runs", type=Path)
     parser.add_argument("--physical-native", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
@@ -27,7 +28,10 @@ def main():
         ("latent", "D", ("D", "X")),
     ):
         for seed, marker in zip((1729, 1730), markers, strict=True):
-            for phase, color in (("om4", "tab:blue"), ("observation", "tab:red")):
+            phases = [("om4", "tab:blue"), ("observation", "tab:red")]
+            if family == "latent" and args.previous_latent_runs:
+                phases.insert(1, ("short", "tab:orange"))
+            for phase, color in phases:
                 root = (
                     (
                         (args.pretraining_runs or args.latent_runs)
@@ -38,8 +42,11 @@ def main():
                     if family == "latent"
                     else args.physical_native / f"B-{seed}"
                 )
+                if phase == "short":
+                    root = args.previous_latent_runs / f"D-{seed}"
+                source_phase = "observation" if phase == "short" else phase
                 path = root / (
-                    f"native-{phase}-summary.json"
+                    f"native-{source_phase}-summary.json"
                     if family == "latent"
                     else f"{phase}-summary.json"
                 )
@@ -70,7 +77,14 @@ def main():
                     [r["rmse"] for r in points],
                     marker=marker,
                     color=color,
-                    label=f"{prefix}-{seed} {phase}",
+                    label=f"{prefix}-{seed} "
+                    + (
+                        "stopped"
+                        if family == "latent"
+                        and args.previous_latent_runs
+                        and phase == "observation"
+                        else phase
+                    ),
                 )
                 if seed == 1729 and phase == "om4":
                     axis.plot(

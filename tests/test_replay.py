@@ -167,8 +167,7 @@ def test_replay_transition_advances_forcing_and_target_with_cursor():
     for expected_lead_step in [1, 2, 3]:
         cursor = cursor.advance()
         current_time_index = (
-            source_index * dataset.temporal_stride
-            + expected_lead_step * dataset.stride
+            source_index * dataset.temporal_stride + expected_lead_step * dataset.stride
         )
         target_time_index = current_time_index + dataset.stride
         drifted_state = torch.tensor(
@@ -326,7 +325,9 @@ def test_prepare_raw_replay_batch_keeps_loss_label_float32_with_bf16_transport()
         pin_memory=False,
     )
     trainer.replay_buffer.append(
-        ReplayEntry(state=torch.tensor([[[999.0]]], dtype=torch.bfloat16), cursor=cursor)
+        ReplayEntry(
+            state=torch.tensor([[[999.0]]], dtype=torch.bfloat16), cursor=cursor
+        )
     )
 
     prepared = trainer.prepare_raw_replay_batch(raw_batch, ready_event=None)
@@ -695,13 +696,16 @@ def test_domain_replay_planning_leader_closes_fill_window(is_leader):
 
     trainer._plan_replay_batch_local = unexpected_plan
 
-    assert trainer.plan_replay_batch(
-        global_batch_index=31,
-        max_lead_steps=4,
-        refresh_every_n_microbatches=8,
-        exclude_reserved=set(),
-        leader_can_plan=False,
-    ) is None
+    assert (
+        trainer.plan_replay_batch(
+            global_batch_index=31,
+            max_lead_steps=4,
+            refresh_every_n_microbatches=8,
+            exclude_reserved=set(),
+            leader_can_plan=False,
+        )
+        is None
+    )
 
 
 def test_replay_refresh_schedule_resolves_by_epoch():
@@ -710,6 +714,7 @@ def test_replay_refresh_schedule_resolves_by_epoch():
     trainer.replay_cfg = SimpleNamespace(
         refresh_every_n_microbatches=[4, 8, 16],
         refresh_every_n_microbatches_transition=[3, 5],
+        curriculum_epoch_offset=0,
     )
 
     assert trainer.get_current_replay_refresh_every_n_microbatches(1) == 4

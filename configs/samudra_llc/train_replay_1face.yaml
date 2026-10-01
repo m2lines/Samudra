@@ -87,6 +87,12 @@ steps: [1]
 step_transition: []
 lr_multipliers: [1.0]
 lr_multiplier_transition: []
+# The cosine moves once an epoch, which at 2190 steps an epoch means step 1
+# already runs at full LR -- and that is where a fresh model is most able to
+# take a step it cannot come back from. Ramp over the first 3200 steps
+# instead. Safe across a resume: the ramp reads num_batches_seen.
+lr_warmup_steps: 3200
+lr_warmup_start_factor: 0.001
 preemptible: false
 
 backend: auto

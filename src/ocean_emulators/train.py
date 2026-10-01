@@ -130,7 +130,10 @@ from ocean_emulators.utils.logging import (
     handle_warnings,
 )
 from ocean_emulators.utils.loss import LossFn
-from ocean_emulators.utils.schedule import EpochMultiplierScheduler
+from ocean_emulators.utils.schedule import (
+    EpochMultiplierScheduler,
+    linear_warmup_factor,
+)
 from ocean_emulators.utils.train import (
     CheckpointPaths,
     collate_inference_data,
@@ -1173,6 +1176,11 @@ class Trainer:
         self.scheduler = None
         if cfg.scheduler:
             self.scheduler = cfg.scheduler.build(self.optimizer, cfg.epochs)
+        # Resolved after the checkpoint block below, which decides whether
+        # this is a cold start.
+        self.lr_warmup_steps = 0
+        self.lr_warmup_start_factor = cfg.lr_warmup_start_factor
+        self._lr_warmup_applied = 1.0
         self.lr_multipliers = cfg.lr_multipliers
         self.lr_multiplier_transition = cfg.lr_multiplier_transition
         self.use_lr_multipliers = (
@@ -1218,6 +1226,17 @@ class Trainer:
         )
 
         self.num_batches_seen = 0
+        # No gate on how the run started. The ramp reads `num_batches_seen`,
+        # which the checkpoint carries, so a resume lands wherever it left off
+        # -- past the ramp means full LR, with nothing to switch off.
+        self.lr_warmup_steps = cfg.lr_warmup_steps
+        if self.lr_warmup_steps:
+            logger.info(
+                "LR warmup: ramping from %.3g x to full over the first %d "
+                "optimizer step(s), measured in num_batches_seen.",
+                cfg.lr_warmup_start_factor,
+                self.lr_warmup_steps,
+            )
         self.start_batch_in_epoch = 0
         loaded_checkpoint = False
         if cfg.resume_ckpt_path is not None:
@@ -1834,6 +1853,7 @@ class Trainer:
             if sync_gradients:
                 grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
                 if torch.isfinite(grad_norm):
+                    self._apply_lr_warmup()
                     self.optimizer.step()
                     self._ema(model=self.model)
                 else:
@@ -1855,11 +1875,9 @@ class Trainer:
                     )
                 self.optimizer.zero_grad()
 
-            lr = (
-                self.optimizer.param_groups[-1]["lr"]
-                if self.scheduler is None
-                else self.scheduler.get_last_lr()[0]
-            )
+            # The optimizer, not the scheduler: a scheduler reports what it
+            # assigned, which during warmup is not what the step will use.
+            lr = self.optimizer.param_groups[-1]["lr"]
 
             with torch.no_grad():
                 # Reduce losses
@@ -1979,6 +1997,9 @@ class Trainer:
 
         if self.scheduler is not None:
             self.scheduler.step()
+            # The epoch scheduler assigns the LR outright, so whatever warmup
+            # had scaled is gone. The next step re-derives it from scratch.
+            self._lr_warmup_applied = 1.0
 
         if processed_batches == 0:
             logger.warning(
@@ -2110,6 +2131,7 @@ class Trainer:
             if sync_gradients:
                 grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
                 if torch.isfinite(grad_norm):
+                    self._apply_lr_warmup()
                     self.optimizer.step()
                     self._ema(model=self.model)
                 else:
@@ -2131,11 +2153,9 @@ class Trainer:
                     )
                 self.optimizer.zero_grad()
 
-            lr = (
-                self.optimizer.param_groups[-1]["lr"]
-                if self.scheduler is None
-                else self.scheduler.get_last_lr()[0]
-            )
+            # The optimizer, not the scheduler: a scheduler reports what it
+            # assigned, which during warmup is not what the step will use.
+            lr = self.optimizer.param_groups[-1]["lr"]
 
             with torch.no_grad():
                 if self.dp_ctx is not None:
@@ -2247,6 +2267,9 @@ class Trainer:
 
         if self.scheduler is not None:
             self.scheduler.step()
+            # The epoch scheduler assigns the LR outright, so whatever warmup
+            # had scaled is gone. The next step re-derives it from scratch.
+            self._lr_warmup_applied = 1.0
 
         if processed_batches == 0:
             logger.warning(
@@ -2973,6 +2996,28 @@ class Trainer:
             # turns the flag off for this case, so this is belt and braces.
             return False
         return per_chunk or self.gradient_accumulation_steps > 1
+
+    def _apply_lr_warmup(self) -> None:
+        """Scale the LR for the first `lr_warmup_steps` optimizer steps.
+
+        Multiplies whatever the epoch scheduler has set rather than replacing
+        it, so the two compose: the cosine still owns the shape across epochs
+        and this only holds the first steps down. The applied factor is divided
+        back out whenever it changes -- the same discipline
+        `EpochMultiplierScheduler` keeps, for the same reason: the two must
+        never both think they own the number.
+        """
+        if not self.lr_warmup_steps:
+            return
+        target = linear_warmup_factor(
+            self.num_batches_seen, self.lr_warmup_steps, self.lr_warmup_start_factor
+        )
+        if target == self._lr_warmup_applied:
+            return
+        scale = target / self._lr_warmup_applied
+        for group in self.optimizer.param_groups:
+            group["lr"] *= scale
+        self._lr_warmup_applied = target
 
     def _microbatch_spans(self, data: TrainData) -> list[tuple[int, int]]:
         """How to split one microbatch into forward/backward chunks.
@@ -4791,9 +4836,20 @@ class Trainer:
 
         return cur_temporal_stride
 
+    def _curriculum_epoch(self, epoch: int) -> int:
+        """The epoch the replay curricula should behave as if they were at.
+
+        `replay.curriculum_epoch_offset` starts them partway up, which is what
+        a run loaded from a pretraining wants: one-step skill it already has,
+        rollout skill on this data it does not.
+        """
+        return epoch + self.replay_cfg.curriculum_epoch_offset
+
     def get_current_replay_max_lead(self, epoch: int) -> int:
         cur_max_lead = self.replay_cfg.max_lead_steps[
-            self._get_schedule_stage_index(epoch, self.replay_cfg.max_lead_transition)
+            self._get_schedule_stage_index(
+                self._curriculum_epoch(epoch), self.replay_cfg.max_lead_transition
+            )
         ]
         if epoch == self.start_epoch:
             logger.info(f"Starting replay training at max_lead_steps {cur_max_lead}")
@@ -4813,7 +4869,7 @@ class Trainer:
         else:
             cur_refresh = refresh_values[
                 self._get_schedule_stage_index(
-                    epoch,
+                    self._curriculum_epoch(epoch),
                     self.replay_cfg.refresh_every_n_microbatches_transition,
                 )
             ]

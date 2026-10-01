@@ -1,0 +1,535 @@
+<!-- SPDX-FileCopyrightText: 2026 Samudra Authors -->
+<!-- SPDX-License-Identifier: CC-BY-4.0 -->
+
+# Three-day investigation: completed findings
+
+Started 26 September 2026; completed 28 September, before the 29 September
+09:30 ET deadline. All three training runs, evaluations and report figures are complete. [Plan and scope](three-day-followup-2026-09-26.md).
+
+
+The completed one-seed comparison supports a **modest monthly forecast benefit
+from sequential OM4 training**: 4.9% lower integrated-plus-spectral test score and
+8.6% lower monthly SST RMSE than scratch under the same 16k total-update allowance.
+It does **not** establish a robust year-end SST benefit: the selected models differ
+by only 3.8%, and the raw equal-observation checkpoints reverse that ordering.
+Scheduled mixed training retains the OM4 task but performs worse than sequential
+on observation forecasts. Scratch plateaued under the selection metric by 8k;
+extending to 16k did not improve it. Hidden-state interventions expose a recurring
+tradeoff between reducing drift and preserving spectra. See the
+[completed comparison](#completed-production-results) for the three-arm tables;
+the first sections below give the preceding smaller-model diagnostics.
+
+## Earlier smaller-model result: much of the long-range advantage is reduced bias
+
+These diagnostics reuse the completed InstanceNorm scratch and InstanceNorm
+OM4 → observations models defined in the [preceding report](instance-norm-results-2026-09-26.md).
+They use the same selected checkpoints and three continuous annual test origins;
+there is no training, reselection or fitted test-time correction.
+
+For each location we decompose error over the 73 forecast steps into its temporal
+mean and residual temporal variation. The area/time-weighted MSE is exactly the
+sum of those two components, including variable observation support. This
+within-year mean is a diagnostic decomposition, not a deployable bias correction.
+Values below average the three per-origin decompositions.
+
+| Model | Field | Annual MSE | Temporal-mean bias contribution | Temporal-anomaly error contribution |
+| --- | --- | ---: | ---: | ---: |
+| InstanceNorm scratch | SST (°C²) | 3.087849 | 2.115475 | 0.972374 |
+| InstanceNorm scratch | ADT (m²) | 0.032543 | 0.023446 | 0.009098 |
+| InstanceNorm OM4 → observations | SST (°C²) | 1.016766 | 0.520636 | 0.496130 |
+| InstanceNorm OM4 → observations | ADT (m²) | 0.015001 | 0.008632 | 0.006370 |
+
+Approximately **77% of the SST MSE reduction and 84% of the ADT MSE reduction**
+are in the temporal-mean bias component. The temporal-anomaly error also improves;
+the advantage is not exclusively a mean offset. This does not yet identify
+whether weights, initial state or forcing response causes the difference.
+
+## Training climatology beats both unmodified models at year end
+
+The baseline is the existing training-only monthly surface climatology evaluated
+at each forecast midpoint's calendar month, with the same observed support.
+The correlation is the area-weighted centered spatial correlation of predicted
+and reference anomalies relative to that climatology. Simply subtracting the
+same climatology from prediction and truth cannot change RMSE; the separate
+correlation/amplitude diagnostics answer a different question.
+
+| Model | Field | Day-365 RMSE | Climatology RMSE | Day-365 mean bias | Centered anomaly correlation |
+| --- | --- | ---: | ---: | ---: | ---: |
+| InstanceNorm scratch | SST (°C) | 2.1102 | 1.0373 | -0.9670 | 0.2792 |
+| InstanceNorm scratch | ADT (m) | 0.2192 | 0.0992 | -0.1282 | 0.0510 |
+| InstanceNorm OM4 → observations | SST (°C) | 1.2906 | 1.0373 | -0.4106 | 0.3847 |
+| InstanceNorm OM4 → observations | ADT (m) | 0.1536 | 0.0992 | -0.0564 | 0.0318 |
+
+OM4 initialization improves year-end SST anomaly correlation, but not ADT anomaly
+correlation. Both models have worse year-end SST and ADT RMSE than climatology.
+The previous annual improvement therefore establishes reduced degradation
+relative to scratch, not useful year-ahead predictive skill against this baseline.
+One seed and three previously examined annual origins remain exploratory evidence.
+
+## Initial hidden-state information does not explain the year-end gap
+
+Both completed selected checkpoints were rerun on H200 with five fixed
+interventions. For each model, seasonal means were estimated from its initializer
+outputs on all 243 training examples. Hidden-state replacement preserves both
+observed SST/ADT slots at both history times. Velocity-only replacement changes
+only the 38 internal U/V slots. Those slots need not represent physically correct
+velocities. No hidden states were swapped between models.
+
+![Annual forecasts under state and forcing interventions](artifacts/2026-09-26-three-day/mechanism-rollouts.png)
+
+Values are mean RMSE across the three January-start annual sequences. The
+unmodified path was checked against each model's native forecast, exactly, on
+this execution. Paired comparisons below use these H200 baselines; small
+floating-point differences from the earlier hardware's annual results are not
+interpreted as changes in skill.
+
+| Model | Condition | Day-5 SST RMSE (°C) | Day-30 SST RMSE (°C) | Day-365 SST RMSE (°C) | Day-365 ADT RMSE (m) |
+| --- | --- | ---: | ---: | ---: | ---: |
+| InstanceNorm scratch | Unmodified | 0.3993 | 0.5978 | 2.1101 | 0.2192 |
+| InstanceNorm scratch | Initial hidden state → seasonal mean | 0.5349 | 0.6450 | 2.1126 | 0.2191 |
+| InstanceNorm scratch | Future forcing → seasonal mean | 0.4296 | 0.7167 | 2.2264 | 0.2213 |
+| InstanceNorm OM4 → observations | Unmodified | 0.3870 | 0.5870 | 1.2906 | 0.1536 |
+| InstanceNorm OM4 → observations | Initial hidden state → seasonal mean | 0.4532 | 0.6270 | 1.2877 | 0.1527 |
+| InstanceNorm OM4 → observations | Future forcing → seasonal mean | 0.4163 | 0.7105 | 1.4466 | 0.1621 |
+
+Replacing the case-specific hidden initialization worsens short-lead error,
+but the year-end SST gap is essentially unchanged: about 0.820°C before and
+0.825°C after replacement. Replacing only the internal velocity slots similarly
+changes year-end SST by less than 0.003°C in either model, while worsening
+day-five surface-derived velocity RMSE from 0.0815 to 0.1113 m/s for scratch and
+0.0815 to 0.1049 m/s for the OM4-initialized model. The hidden initialization
+therefore affects early forecasts, but its case-specific departures from the
+seasonal mean do not account for the long-range advantage in these cases.
+
+Replacing future forcing with its training monthly climatology worsens SST,
+including the OM4 model's year-end RMSE from 1.291 to 1.447°C. The long-range
+advantage still survives. This argues against either case-specific hidden
+initialization or access to actual future forcing being the sole explanation.
+It is consistent with better learned rollout behavior and reduced drift after
+OM4 training; it does not prove which weights or physical mechanism provide it.
+Because each replacement uses that model's **own** seasonal mean, better learned
+mean initialization remains an alternative to better processor weights. The
+experiment also does not remove hidden-state information continually throughout
+the rollout, so it cannot establish that evolving hidden memory is unnecessary.
+The observed initial SST/ADT states are retained in all state interventions, so
+this is not a test of discarding *all* initial-condition information.
+
+A separate day-30 hidden-state seasonal reset improves day-90 SST RMSE from
+1.238 to 0.914°C for scratch and 0.772 to 0.697°C for transfer. The longer effect
+is mixed: scratch worsens at day 365, while transfer improves slightly. Replacing
+an evolved state with an initializer-derived mean can be out of distribution;
+this exploratory sensitivity result motivates studying drift, not adopting a
+reset based on these held-out cases.
+
+These results use one seed and three previously examined annual origins. They
+are diagnostic evidence, not new checkpoint selection or a test-tuned correction.
+[Full mechanism evidence](artifacts/2026-09-26-three-day/mechanism-evidence.json.gz)
+includes all five conditions, three origins, lead errors, spectra and hashes.
+
+## Continually resetting hidden state closes most of the point-error gap, at a spectral cost
+
+The initial-state result prompted a fixed follow-up: replace hidden slots with
+their training seasonal mean **before every forecast step**, preserving the
+model's own predicted SST/ADT history. An alternative resets only the internal
+velocity slots. No future surface observations are supplied. These conditions
+were specified before running the follow-up; they remain exploratory analyses
+on the same previously examined annual cases.
+
+![Continuous hidden-memory reset](artifacts/2026-09-26-three-day/memory-reset-rollouts.png)
+
+| Model | Condition | Day-30 SST RMSE (°C) | Day-365 SST RMSE (°C) | Day-365 ADT RMSE (m) | Annual EKE spectral error (dex) |
+| --- | --- | ---: | ---: | ---: | ---: |
+| InstanceNorm scratch | Unmodified | 0.5978 | 2.1101 | 0.2192 | 1.963 |
+| InstanceNorm scratch | Every-step hidden-state seasonal reset | 0.8224 | 0.8932 | 0.1040 | 3.203 |
+| InstanceNorm scratch | Every-step velocity-slot seasonal reset | 1.9071 | 2.0698 | 0.1315 | 3.163 |
+| InstanceNorm OM4 → observations | Unmodified | 0.5870 | 1.2906 | 0.1536 | 1.665 |
+| InstanceNorm OM4 → observations | Every-step hidden-state seasonal reset | 0.7416 | 0.8365 | 0.0990 | 2.698 |
+| InstanceNorm OM4 → observations | Every-step velocity-slot seasonal reset | 0.8150 | 1.2025 | 0.1063 | 2.348 |
+
+The year-end SST gap shrinks from 0.820 to 0.057°C, approximately **93%**, under
+the full hidden-state reset. Both reset models beat the training climatology's
+1.037°C year-end SST RMSE in these conditional-forcing cases. They lose short-lead
+accuracy, however, and their annual EKE spectra become substantially worse.
+The mean EKE-field power ratio across retained regions/wavenumbers, computed
+geometrically, falls from 0.0109 to 0.000628 for scratch and from 0.0218 to 0.00201
+for transfer. These are ratios of **EKE-field spectral power**, not fractions of
+physical kinetic energy. The reset suppresses variability while reducing drift.
+
+This is evidence that evolving hidden-state feedback contributes to the
+long-range point-error gap, and that OM4 training may help by reducing harmful
+drift in that feedback. It is **not** evidence that hidden memory is universally
+unnecessary, that the velocity slots are physically interpretable, or that the
+reset is a better model on the integrated-plus-spectral objective. The large
+short-lead penalty from resetting velocity slots alone also cautions against
+interpreting slot ablations as clean removals of isolated physical processes.
+Model-specific seasonal means still confound mean-state quality with processor
+weights. A prospective training/evaluation comparison would be needed before
+adopting a stabilizing constraint as a model change.
+
+[Full follow-up evidence](artifacts/2026-09-26-three-day/memory-reset-evidence.json.gz)
+retains all conditions, origins, spectral curves and training-mean provenance.
+Jobs 18583498/18583499 completed in 64/62 allocated GPU seconds.
+
+## Methods and model names
+
+| Literal model name | Meaning |
+| --- | --- |
+| InstanceNorm scratch | Randomly initialized 121.7M-parameter history initializer and approximately 31.6M-parameter D processor, with a 387-parameter forcing adapter. Trained only on observation labels: 1,000 reconstruction updates then 8,000 joint updates. Fixed observation validation selected joint update 4,900; core learning rate 3e-4. |
+| InstanceNorm OM4 → observations | Same architecture. A fresh InstanceNorm core was trained on OM4 and selected by OM4 validation, then received 1,000 observation reconstruction and 8,000 joint updates with the adapter. Observation validation selected joint update 6,400; core learning rate 1e-4. |
+
+Both use a 19-frame surface history at five-day cadence. OM4 joint training uses
+six five-day full-state forecast targets; observation training uses calendar-month
+T/S constraints and six or seven five-day surface targets. Annual forecasts are
+73 autoregressive steps with prescribed ERA5 forcing; there is no year-long
+backpropagation. Training-derived replacements use only training examples.
+The new Samudra-2-matched processor has 83,872,357 parameters, for approximately
+205.6M total model parameters with the same initializer and adapter. It is a
+separate comparison, using InstanceNorm and fixed loss rather than reproducing
+the reference BatchNorm/dynamic-loss training recipe.
+
+| Literal new model name | Meaning and frozen exposure |
+| --- | --- |
+| Samudra2 scratch | Random initial weights; 16,000 observation-only updates. The raw 8,000-update checkpoint also supports an equal-observation-exposure comparison. |
+| Samudra2 sequential | Random initial weights; 8,000 OM4 updates followed by 8,000 observation updates in one loop/optimizer, without a boundary reload. |
+| Samudra2 mixed | Same initial seed and per-task examples as sequential; exactly 8,000 updates from each task, scheduled from OM4-heavy to observation-heavy while retaining OM4 in the tail. |
+
+All three use effective batch eight, AdamW learning rate 1e-4, weight decay 0.01,
+gradient norm cap one, no warm-up, and reconstruction auxiliary weight 0.1.
+There is no separate observation reconstruction/adaptation phase. **There is no
+explicit task/domain embedding and no task-specific initializer, processor or
+output head.** The processor receives two state frames, five geographic/seasonal
+context channels and three forcing channels. OM4 supplies native forcings;
+observations use the learned ERA5 adapter. Task identity is therefore only
+implicit in input distributions, adapted forcings and masks. The task scheduler
+chooses examples and losses but does not pass its task label to the network.
+A task embedding with per-block modulation is a reasonable controlled follow-up,
+not part of these runs. Missing explicit domain conditioning is one possible
+explanation for mixed-task interference, not a demonstrated cause of its poorer
+observation forecasts.
+
+Primary selection remains the fixed integrated-plus-spectral observation validation
+score; OM4 retention is diagnostic only. Total-update matching is approximate
+compute matching because OM4 and observation updates have different costs.
+The [frozen protocol](three-day-followup-2026-09-26.md) gives the full schedule,
+checkpoints, qualification contracts and caps. Completed three-arm results are below.
+
+## Completed production results
+
+Samudra2 scratch completed 16,000 observation updates. Samudra2 sequential and
+Samudra2 mixed each completed exactly 8,000 OM4 and 8,000 observation updates.
+All monthly, annual, raw-8k, initializer and mechanism diagnostics completed.
+Selected hashes match the training completion markers and monthly/annual inputs. Selection used the fixed
+nine-origin integrated-plus-spectral observation score; the table below reports
+96 held-out monthly origins (2015–2022), and mean day-365 RMSE across the three
+annual starts (1 January 2015, 2018 and 2021). Annual runs use prescribed future
+ERA5, and were not used to choose checkpoints. Lower is better.
+
+| Model | Checkpoint | Selected OM4 / obs updates | Monthly integrated + spectral score | Monthly mean SST RMSE (°C) | Day-365 SST RMSE (°C) | Day-365 ADT RMSE (m) |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| Samudra2 scratch | Validation-selected | 0 / 7,900 | 0.5969 | 0.5139 | 2.2711 | 0.2911 |
+| Samudra2 sequential | Validation-selected | 8,000 / 7,700 | 0.5677 | 0.4695 | 2.1854 | 0.2318 |
+| Samudra2 mixed | Validation-selected | 7,467 / 5,733 | 0.5914 | 0.5236 | 4.4749 | 0.3584 |
+
+Among the two OM4-containing arms, the same ordering holds for their **raw final
+checkpoints**, which have identical
+8k/8k task exposure and are not validation-selected: monthly scores are 0.5837
+(sequential) versus 0.6002 (mixed); day-365 SST RMSE is 2.2825 versus 3.7414°C.
+Thus, preserving source-task performance did not translate into better observation
+forecasts in this particular schedule. This is a one-seed result for one mixture
+schedule, not evidence that all joint training is worse. Sequential improves the monthly composite by **4.9%** relative to scratch and
+monthly mean SST RMSE by **8.6%**. Its day-365 SST improvement is only **3.8%**,
+while ADT improves by **20.4%** and surface-derived velocity RMSE by **48.6%**
+(0.3573 to 0.1836 m/s). These improvements are not uniform across metrics: annual
+EKE spectral error is better for scratch (0.475 dex) than sequential (1.231 dex).
+The larger recipe therefore does not reproduce the earlier pilot’s large
+year-end SST advantage. Architecture, budgets and training schedule changed
+together, so this is not an isolated architecture ablation.
+
+The numeric evidence for [scratch](artifacts/2026-09-26-three-day/production-scratch.json.gz),
+[sequential](artifacts/2026-09-26-three-day/production-sequential.json.gz)
+and [mixed](artifacts/2026-09-26-three-day/production-mixed.json.gz) includes completion markers, manifests, selected hashes, all reporting metrics,
+controls and raw-checkpoint lineages. To investigate the long-range failure, the
+same seven already-defined state/forcing interventions have completed for these
+three fixed selected models. They do not alter training or select new weights.
+
+### Components and persistence in the same monthly metric
+
+“Inferred persistence” holds each selected model's last initialized full state
+fixed throughout the forecast. Its surface starts from the observed surface,
+while interior temperature is model-inferred; therefore surface errors match
+across arms but OHC and composite scores differ. “Seasonal climatology” uses the
+training-only monthly means. These controls use the same 96 origins, support,
+spectral bins and fixed validation normalization as the forecast scores.
+SST, velocity and EKE errors below average the day-5/15/30 evaluations; OHC uses
+the calendar-month objective. Lower is better.
+
+| Model | Method | Composite | SST RMSE (°C) | Velocity RMSE (m/s) | EKE RMSE (m²/s²) | OHC 0–700 m RMSE (GJ/m²) | OHC 700–2000 m RMSE (GJ/m²) |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Samudra2 scratch | Forecast | 0.5969 | 0.5139 | 0.1124 | 0.02445 | 0.6761 | 0.3923 |
+| Samudra2 scratch | Inferred persistence | 0.6194 | 0.7912 | 0.1290 | 0.02388 | 0.7320 | 0.4661 |
+| Samudra2 sequential | Forecast | 0.5677 | 0.4695 | 0.1071 | 0.02352 | 0.6965 | 0.3881 |
+| Samudra2 sequential | Inferred persistence | 0.6124 | 0.7912 | 0.1290 | 0.02388 | 0.7297 | 0.4418 |
+| Samudra2 mixed | Forecast | 0.5914 | 0.5236 | 0.1089 | 0.02399 | 0.6909 | 0.4074 |
+| Samudra2 mixed | Inferred persistence | 0.6119 | 0.7912 | 0.1290 | 0.02388 | 0.7360 | 0.4370 |
+| Seasonal climatology | Training monthly means | 1.3804 | 0.9039 | 0.1537 | 0.03081 | 0.8382 | 0.3729 |
+
+The sequential forecast beats its persistence control by 7.3% on the composite,
+with much larger SST improvement. It does not dominate every component: scratch
+has lower upper-ocean OHC error, and climatology has lower deep OHC error than any
+forecast. The aggregate score combines these tradeoffs with spatial spectra;
+it is not a standalone SST loss.
+
+### Scratch plateau and equal observation exposure
+
+The scratch selection score improved from 0.56135 (best through 4k, at update
+3,600) to 0.54078 (best through 8k, at 7,900). **No checkpoint from 8k through
+16k improved that fixed integrated-plus-spectral validation score.** Thus the
+selected 16k-budget result uses the same weights that were available by 8k;
+it does not claim that the raw final weights are identical or that optimization
+cannot improve under a different recipe.
+
+For a separate equal-observation-exposure check, use the immutable **raw 8k**
+checkpoints, not best-through-8k weights:
+
+| Model | OM4 / obs exposure at raw checkpoint | Monthly integrated + spectral score | Day-365 SST RMSE (°C) |
+| --- | ---: | ---: | ---: |
+| Samudra2 scratch | 0 / 8,000 | 0.6189 | 2.2247 |
+| Samudra2 sequential | 8,000 / 8,000 | 0.5837 | 2.2825 |
+| Samudra2 mixed | 8,000 / 8,000 | 0.6002 | 3.7414 |
+
+This confirms a monthly composite advantage from sequential OM4 training at
+matched observation exposure, but **no consistent year-end SST advantage**.
+The scratch endpoint costs fewer total updates in this secondary comparison.
+The main selected-checkpoint table instead gives each arm a 16k total-update
+training allowance, with selection allowed anywhere within it.
+
+Actual allocated cost, including each arm’s evaluations and retries, was
+**32.96 GPU-hours for scratch, 24.88 for sequential, and 25.62 for mixed**,
+plus 0.25 shared qualification/diagnostic GPU-hours. Unequal task costs and
+preemption overhead mean this is an equal-update-budget comparison, not exact
+FLOP or GPU-hour matching. The full accounting is retained in the evidence files.
+
+### Hidden-state feedback and the new models’ annual drift
+
+![Production rollout errors and spectral tradeoffs under hidden-state interventions](artifacts/2026-09-26-three-day/production-mechanisms.png)
+
+Curves average three annual origins. Spectral bars average three regions and
+three origins; dots show the three per-origin regional averages, not confidence
+intervals. Lower is better in every panel.
+
+The same seven interventions were applied to the selected production checkpoints,
+using each model’s own seasonal initializer means from all 243 training examples.
+Baseline checkpoint hashes match the selected monthly and annual evaluations;
+baseline annual errors reproduce those above. Values average the same three
+annual origins. EKE spectral error averages their three predefined regions;
+“dex” means a base-10 logarithmic spectral-power discrepancy, not physical energy.
+
+| Model | Condition | Day-30 SST RMSE (°C) | Day-365 SST RMSE (°C) | Day-365 ADT RMSE (m) | Annual EKE spectral error (dex) |
+| --- | --- | ---: | ---: | ---: | ---: |
+| Samudra2 scratch | Unmodified | 0.5542 | 2.2711 | 0.2911 | 0.475 |
+| Samudra2 scratch | Initial hidden state → seasonal mean | 0.6017 | 2.2702 | 0.2909 | 0.469 |
+| Samudra2 scratch | Every-step hidden-state seasonal reset | 0.8683 | 0.9917 | 0.1180 | 2.159 |
+| Samudra2 scratch | Every-step velocity-slot seasonal reset | 1.4281 | 1.6253 | 0.1885 | 1.762 |
+| Samudra2 sequential | Unmodified | 0.5364 | 2.1854 | 0.2318 | 1.231 |
+| Samudra2 sequential | Initial hidden state → seasonal mean | 0.5899 | 2.2348 | 0.2259 | 1.340 |
+| Samudra2 sequential | Every-step hidden-state seasonal reset | 0.7872 | 0.8621 | 0.1014 | 2.923 |
+| Samudra2 sequential | Every-step velocity-slot seasonal reset | 0.8958 | 4.0740 | 0.2073 | 2.237 |
+| Samudra2 mixed | Unmodified | 0.6319 | 4.4749 | 0.3584 | 1.424 |
+| Samudra2 mixed | Initial hidden state → seasonal mean | 0.6679 | 4.0507 | 0.3226 | 1.704 |
+| Samudra2 mixed | Every-step hidden-state seasonal reset | 0.8043 | 0.9174 | 0.0961 | 2.642 |
+| Samudra2 mixed | Every-step velocity-slot seasonal reset | 0.9575 | 8.1160 | 0.5076 | 1.727 |
+
+The mixed-versus-sequential year-end SST gap falls from **2.290 to 0.055°C**
+under continuous full-hidden-state replacement. Replacing only the initial
+hidden state does not eliminate the gap. This supports evolving hidden-state
+feedback as a contributor to the difference in drift. However, continuous resets
+worsen short-lead SST and annual EKE spectra in both models. They are not an
+improvement on the integrated-plus-spectral objective. Resetting velocity slots
+alone can substantially worsen annual SST, especially in the mixed model.
+
+Scratch shows the same drift-versus-spectrum tradeoff: continuous hidden reset
+reduces year-end SST RMSE from 2.271 to 0.992°C while worsening EKE spectral
+error from 0.475 to 2.159 dex. Its initial-only reset barely changes year-end SST.
+Better EKE spectral agreement alongside worse velocity RMSE is not contradictory:
+a power spectrum measures spatial scale/amplitude without requiring the right
+features at the right locations. Neither metric substitutes for the other.
+
+These interventions retain the model’s own evolving SST/ADT and supply no future
+surface observations. They do not establish that the hidden slots are physically
+correct, unnecessary, or separable into clean physical mechanisms. Model-specific
+means confound mean-state quality with weights, and resets can produce states
+outside the training distribution. Together with the retained OM4-task accuracy,
+the mixed model’s failure suggests that source-task retention alone does not
+control observational rollout drift. This remains one seed and three previously
+examined annual cases, not a prospective test of a stabilizing training method.
+
+Full seven-condition evidence: [scratch](artifacts/2026-09-26-three-day/production-mechanisms-scratch.json.gz),
+[sequential](artifacts/2026-09-26-three-day/production-mechanisms-sequential.json.gz),
+[mixed](artifacts/2026-09-26-three-day/production-mechanisms-mixed.json.gz).
+
+### Initializer profiles across production training
+
+![Evolution of initializer temperature, salinity and velocity-slot profiles](artifacts/2026-09-26-three-day/production-profiles.svg)
+
+Mean temperature and salinity profiles settle relatively quickly, while the
+velocity-designated channels change much more across observation updates. These
+are wet-area-weighted, nominally decoded initializer outputs averaged over nine
+validation origins. They are not verified instantaneous ocean states; even upper
+T/S is constrained through monthly objectives rather than an instantaneous
+initializer target. Velocity and the deeper state remain unconstrained. Similar
+mean profiles therefore do not imply similar dynamics or explain the annual
+error gap by themselves. Zero denotes the common random model before either task;
+subsequent labels count observation updates, with different source exposure.
+
+## Checkpoint maps, annual structure and regional spectra
+
+The [complete map collection](three-day-maps-2026-09-28.md) covers early and late
+observation checkpoints, scratch 8k versus 16k, initializer temperature/velocity
+structure, and all three annual test origins. Examples below use raw 8k weights
+for the checkpoint view and validation-selected weights for annual forecasts.
+They must not be confused with the same checkpoint comparison.
+
+![Day-30 SST at raw 8k observation checkpoints](artifacts/2026-09-26-three-day/production-day30-sst-later-part3.png)
+
+![Selected annual SST forecasts versus observations](artifacts/2026-09-26-three-day/production-annual-sst-2015-01-01.png)
+
+In this annual example, scratch develops fine noisy structure, while sequential
+and mixed forecasts are smoother but show broader spatial drift. The mixed model
+shows particularly large changes in tropical structure by day 365. These are
+qualitative observations for the displayed case, not proof of the mechanism or
+an assessment of unscored polar accuracy. Maps show the full grid; aggregate
+observation scores retain the fixed 60°S–60°N support.
+
+![Internal velocity-designated initializer channel at raw 8k checkpoints](artifacts/2026-09-26-three-day/production-initial-u-later-part3.png)
+
+Internal velocity slots have substantially different spatial patterns across
+training recipes despite similar mean temperature profiles. They are unconstrained
+representations, not validated current reconstructions. The following panel instead
+shows **surface-derived geostrophic speed**, the quantity used in the velocity
+metrics, on the predefined spectral regions.
+
+![Regional geostrophic speed at day 365](artifacts/2026-09-26-three-day/production-regional-speed-day365.png)
+
+![Annual regional EKE spectra](artifacts/2026-09-26-three-day/production-annual-eke-spectra.png)
+
+The annual spectra make the metric tradeoff concrete. Scratch has much more
+EKE-field power than the two OM4-containing models and is closer to the observed
+powers overall, despite its worse pointwise velocity error. Sequential and mixed
+are strongly underpowered on these retained scales. This supports reporting both
+point errors and spectra, rather than declaring one recipe uniformly superior.
+The maps are one annual origin; the spectral curves average all three years.
+
+## Production learning curves
+
+![Observation exposure, total updates, and OM4-task retention](artifacts/2026-09-26-three-day/production-learning.png)
+
+These curves use only training-run validation, not held-out test results. Dots
+include all recorded validation attempts, including replay after preemption;
+solid lines show the minimum observed score through each update count, and stars
+mark the selected checkpoints. The left panel counts observation
+updates; the center also charges OM4 updates. Equal update counts are only rough
+compute matching because task costs differ; actual allocated GPU-hours include
+retries. All arms completed their frozen update budgets.
+
+The right panel is a separate diagnostic, not part of checkpoint selection. It
+shows the clear difference between retaining OM4-task performance through mixed
+training and losing much of it during observation-only continuation. The
+[compressed evidence](artifacts/2026-09-26-three-day/production-learning-evidence.json.gz)
+and [plot script](artifacts/2026-09-26-three-day/plot_production_learning.py.txt)
+retain all plotted validation events and selected checkpoint counts. Comparisons
+with the earlier, smaller InstanceNorm pilot cannot isolate architecture effects:
+the new recipe also changes task allocation and reconstruction scheduling.
+
+## Early production diagnostic: retention of the OM4 task
+
+The following are early raw validation snapshots,
+not selected final checkpoints; task exposures differ. Lower is better for both
+columns. OM4 T/S MSE uses the common observation normalization and the same eleven
+source-validation origins throughout.
+
+| Model | OM4 updates | Observation updates | Observation selection score | OM4 T/S MSE |
+| --- | ---: | ---: | ---: | ---: |
+| Samudra2 sequential | 8,000 | 0 | 1.2133 | 0.00473 |
+| Samudra2 sequential | 8,000 | 100 | 1.2011 | 0.66556 |
+| Samudra2 sequential | 8,000 | 400 | 0.7584 | 0.65529 |
+| Samudra2 scratch | 0 | 1,500 | 0.6359 | 1.11722 |
+| Samudra2 mixed | 4,287 | 1,513 | 0.5952 | 0.00591 |
+
+Sequential training loses much of its OM4-task accuracy within the first 100
+observation updates: source T/S MSE rises from 0.00473 to 0.66556. Meanwhile, the
+mixed arm still performs well on the source task after more than 1,500 observation
+updates. This is direct evidence that the observation-only continuation changes
+behavior on the original task, and that continued source training can preserve it.
+It does not establish whether that retention causes better observation forecasts,
+particularly at long leads. The completed sequential/mixed evaluations above
+show that retention did not translate into better forecasts for this schedule.
+
+This also does not identify which component forgets: the shared initializer and
+processor can both change, and OM4 and observation inputs differ. The initializer
+and state diagnostics will help interpret that distinction. Raw
+[snapshot evidence](artifacts/2026-09-26-three-day/early-retention.json) preserves
+producer, timestamps, per-task counts and all underlying retention metrics.
+
+## Execution and remaining work
+
+**Monitoring status, 28 September:** Authenticated access is restored. Scratch
+completed 16,000 updates at 04:16 UTC and all six replacement evaluations
+completed successfully. All three arms and their numerical diagnostics are now
+complete. Total recorded allocation is **83.7039 GPU-hours**, including retries
+and preemptions, below the 120-hour ceiling. Runtime recovery preserved the
+original scientific manifest and qualifications; details and failed attempts are
+in [progress](progress.md). All compact map arrays were transferred with approval and verified by full
+SHA-256 read-back; report maps and spectra are complete.
+
+
+The Samudra-2-matched processor has 83,872,357 parameters, versus approximately
+31.6M in the previous pilot; the initializer stays approximately 121.7M. The
+reference backbone/output padding and kernel are reused, retaining InstanceNorm
+and fixed loss. Single-loop producer `50630959c6a8aed89fcc0152cab28b16f8c377d3`
+passed 29 targeted tests and all commit checks. It preserves exact per-task
+exposure/sample order, one optimizer, and checkpoint/resume state. Build 18581034
+completed. H200 OM4 qualification **18581191** completed 100 updates in
+191 training seconds, with finite training loss and lower four-origin OM4
+validation error. Observation qualification **18581192** completed ten fixed-example
+updates, reducing loss from 1.2603 to 0.2463 with gradients reaching every module;
+peak GPU allocation was 6.15 GiB. These are feasibility checks, not held-out lift.
+
+Mixed probe **18581193** failed its next-update numerical equivalence check:
+identical losses but a few replayed weights differed by several millionths.
+The backbone uses CUDA bilinear interpolation, whose installed PyTorch documentation
+warns of nondeterministic gradients. Producer `dd3a05b07554ce0c1c9f589643d2afb764ab1440`
+now verifies serialized/restored weights, optimizer moments and RNG states exactly,
+then compares disk replay variation against measured in-memory replay variation.
+It also records selected checkpoints' global and per-task counts. Eighteen focused
+tests and all commit checks passed. New qualifications use fresh directories;
+the failed producer/checkpoint is preserved. Build **18582535** submits the retry.
+Fresh fitting 18582538 and mixed/resume probe 18582539 then passed. Exact state
+restoration and the native-versus-serialized variation were both verified; the
+probe completed six OM4/four observation updates with switches back to OM4.
+The producer above is now pinned for production.
+
+Mechanism jobs **18581194 / 18581195** completed all five conditions on all three
+annual origins in 278 / 282 allocated GPU seconds, respectively. Their results
+are analyzed above. Production jobs **18583546 (scratch), 18583547 (sequential),
+and 18583548 (mixed)** were submitted at 14:41 UTC and have running H200
+allocations. All three have reached finite structured training updates after cache warm-up.
+Running allocations do not establish convergence. Selected monthly/annual
+evaluations, raw 8k-observation comparisons, and initializer/profile/map diagnostics
+were originally queued behind successful training and are now complete. The fixed-budget evaluator passed a real
+nine-origin validation qualification and records explicit per-task counts; raw
+weights are not mislabeled as validation-selected. See the
+[progress log](progress.md#26-september-1510-utc--production-and-evaluation-dependencies)
+for the complete job mapping. Actual campaign use at 15:08 UTC was 1.96 allocated
+GPU-hours, including retries, against the 120-hour ceiling.
+
+Bias/anomaly diagnostic producer `6d8a8d26b` passed two decomposition tests and
+repository checks. CPU job 18580782 failed before analysis because bare container
+Python lacked an installed project dependency; corrected job **18580810 completed
+in 23 seconds** using the container project environment. No GPU-hours were used.
+Raw [scratch diagnostics](artifacts/2026-09-26-three-day/scratch-annual-decomposition.json)
+and [transfer diagnostics](artifacts/2026-09-26-three-day/transfer-annual-decomposition.json)
+retain evaluation and training-statistics hashes.
+
+Next: monitor the qualified production comparison, evaluate its selected and
+fixed-budget checkpoints, and relate observation performance to OM4 retention. Known preprocessing limits and quarter-degree runs
+are out of scope for this three-day campaign.

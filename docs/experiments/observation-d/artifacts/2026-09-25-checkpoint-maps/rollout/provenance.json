@@ -1,0 +1,282 @@
+{
+  "sources": [
+    {
+      "arm": "obs0",
+      "step": 3000,
+      "phase": "joint",
+      "checkpoint": "/scratch/jr7309/runs/2026-09-23-observation-budget-rtx-cache/obs0/best.pt",
+      "checkpoint_sha256": "ad64fdf0ed830c58d2b6f1875245f2dad86854780eefd9866bb6c53c7738a44d",
+      "method": "D \u2192 observations \u00b7 3k",
+      "batchnorm": "frozen",
+      "zero_adapter": false,
+      "selected_checkpoint_sha256": "ad64fdf0ed830c58d2b6f1875245f2dad86854780eefd9866bb6c53c7738a44d",
+      "source_checkpoint_sha256": "ad64fdf0ed830c58d2b6f1875245f2dad86854780eefd9866bb6c53c7738a44d",
+      "weights_used_sha256": "ad64fdf0ed830c58d2b6f1875245f2dad86854780eefd9866bb6c53c7738a44d"
+    },
+    {
+      "arm": "obs0",
+      "step": 4000,
+      "phase": "joint",
+      "checkpoint": "/scratch/jr7309/runs/2026-09-23-observation-budget-rtx-cache/obs0/joint-04000.pt",
+      "checkpoint_sha256": "eb82cdb3ec5083c39bae88ac24adcdfd852f417ce88d9f5588a3cd371fa6178c",
+      "method": "D \u2192 observations \u00b7 4k",
+      "batchnorm": "frozen",
+      "zero_adapter": false,
+      "selected_checkpoint_sha256": "eb82cdb3ec5083c39bae88ac24adcdfd852f417ce88d9f5588a3cd371fa6178c",
+      "source_checkpoint_sha256": "eb82cdb3ec5083c39bae88ac24adcdfd852f417ce88d9f5588a3cd371fa6178c",
+      "weights_used_sha256": "eb82cdb3ec5083c39bae88ac24adcdfd852f417ce88d9f5588a3cd371fa6178c"
+    },
+    {
+      "arm": "random",
+      "step": 4000,
+      "phase": "joint",
+      "checkpoint": "/scratch/jr7309/runs/2026-09-23-observation-budget-rtx-cache/random/joint-04000.pt",
+      "checkpoint_sha256": "b069370028ee464f5fc881f5fe525e6c395e8d7a94465e1b80d81391268551b3",
+      "method": "Observation-only random \u00b7 4k",
+      "batchnorm": "per-sample",
+      "zero_adapter": false,
+      "selected_checkpoint_sha256": "b069370028ee464f5fc881f5fe525e6c395e8d7a94465e1b80d81391268551b3",
+      "source_checkpoint_sha256": "b069370028ee464f5fc881f5fe525e6c395e8d7a94465e1b80d81391268551b3",
+      "weights_used_sha256": "b069370028ee464f5fc881f5fe525e6c395e8d7a94465e1b80d81391268551b3"
+    },
+    {
+      "arm": "random",
+      "step": 5000,
+      "phase": "joint",
+      "checkpoint": "/scratch/jr7309/runs/2026-09-23-observation-budget-rtx-cache/batch-stat-curves/checkpoints/random-best-5000.pt",
+      "checkpoint_sha256": "4841721c8b7957363f3828a52743d56ce6df124a2b7d09e727efa86e95527db7",
+      "method": "Observation-only random \u00b7 5k",
+      "batchnorm": "per-sample",
+      "zero_adapter": false,
+      "selected_checkpoint_sha256": "4841721c8b7957363f3828a52743d56ce6df124a2b7d09e727efa86e95527db7",
+      "source_checkpoint_sha256": "4841721c8b7957363f3828a52743d56ce6df124a2b7d09e727efa86e95527db7",
+      "weights_used_sha256": "4841721c8b7957363f3828a52743d56ce6df124a2b7d09e727efa86e95527db7"
+    },
+    {
+      "arm": "random",
+      "step": 6000,
+      "phase": "joint",
+      "checkpoint": "/scratch/jr7309/runs/2026-09-23-observation-budget-rtx-cache/random/joint-06000.pt",
+      "checkpoint_sha256": "b686d28136c67efb92deeff9c7ccde7d6e59ea9fba162a45ebe638b4769b8dda",
+      "method": "Observation-only random \u00b7 6k",
+      "batchnorm": "per-sample",
+      "zero_adapter": false,
+      "selected_checkpoint_sha256": "b686d28136c67efb92deeff9c7ccde7d6e59ea9fba162a45ebe638b4769b8dda",
+      "source_checkpoint_sha256": "b686d28136c67efb92deeff9c7ccde7d6e59ea9fba162a45ebe638b4769b8dda",
+      "weights_used_sha256": "b686d28136c67efb92deeff9c7ccde7d6e59ea9fba162a45ebe638b4769b8dda"
+    },
+    {
+      "arm": "random",
+      "step": 8000,
+      "phase": "joint",
+      "checkpoint": "/scratch/jr7309/runs/2026-09-23-observation-budget-rtx-cache/random/joint-08000.pt",
+      "checkpoint_sha256": "5088aa5e8a655bc03376f31085d789013f100dfdc52e6d50616ff6e4cb3dc7db",
+      "method": "Observation-only random \u00b7 8k",
+      "batchnorm": "per-sample",
+      "zero_adapter": false,
+      "selected_checkpoint_sha256": "5088aa5e8a655bc03376f31085d789013f100dfdc52e6d50616ff6e4cb3dc7db",
+      "source_checkpoint_sha256": "5088aa5e8a655bc03376f31085d789013f100dfdc52e6d50616ff6e4cb3dc7db",
+      "weights_used_sha256": "5088aa5e8a655bc03376f31085d789013f100dfdc52e6d50616ff6e4cb3dc7db"
+    }
+  ],
+  "cases": [
+    "2022-01",
+    "2022-07"
+  ],
+  "case_times": {
+    "2022-01": {
+      "last_history_midpoint": "2021-12-29T12:00:00",
+      "day30_bin_midpoint": "2022-01-28T12:00:00"
+    },
+    "2022-07": {
+      "last_history_midpoint": "2022-06-28T12:00:00",
+      "day30_bin_midpoint": "2022-07-28T12:00:00"
+    }
+  },
+  "producer": "79e8e6fde70e27317cfe89f308d0ab1212bcb6c4",
+  "script_sha256": "2f45ad0ff0cfbb609a6d4f1a5584ae53ef4995540530e9cedf7475900e4d1060",
+  "scope": "Fixed held-out map examples only; D frozen BN and scratch per-sample BN; no checkpoint selection",
+  "bundle_sha256": "f0417057ddf076824920452386217c1b9fdba0fe4f2e68aa7391d0bb09aa5180",
+  "plot_script_sha256": "f2af74a1471182bb2f542d2185740fe56122528b370190debf74c4ba7d42ea37",
+  "rendered": [
+    {
+      "file": "day30-2022-01-anomalies-sst",
+      "limits": [
+        -3,
+        3
+      ],
+      "figure_pixels": [
+        820,
+        2220
+      ],
+      "panel_pixels": [
+        720,
+        240
+      ],
+      "panel_grid_shape_yx": [
+        120,
+        360
+      ],
+      "panel_left_px": 70,
+      "panel_top_px": [
+        80,
+        375,
+        670,
+        965,
+        1260,
+        1555,
+        1850
+      ]
+    },
+    {
+      "file": "day30-2022-01-anomalies-adt",
+      "limits": [
+        -0.25,
+        0.25
+      ],
+      "figure_pixels": [
+        820,
+        2220
+      ],
+      "panel_pixels": [
+        720,
+        240
+      ],
+      "panel_grid_shape_yx": [
+        120,
+        360
+      ],
+      "panel_left_px": 70,
+      "panel_top_px": [
+        80,
+        375,
+        670,
+        965,
+        1260,
+        1555,
+        1850
+      ]
+    },
+    {
+      "file": "day30-2022-07-fields-sst",
+      "limits": [
+        -2,
+        32
+      ],
+      "figure_pixels": [
+        820,
+        2220
+      ],
+      "panel_pixels": [
+        720,
+        240
+      ],
+      "panel_grid_shape_yx": [
+        120,
+        360
+      ],
+      "panel_left_px": 70,
+      "panel_top_px": [
+        80,
+        375,
+        670,
+        965,
+        1260,
+        1555,
+        1850
+      ]
+    },
+    {
+      "file": "day30-2022-07-fields-adt",
+      "limits": [
+        -1.5,
+        1.5
+      ],
+      "figure_pixels": [
+        820,
+        2220
+      ],
+      "panel_pixels": [
+        720,
+        240
+      ],
+      "panel_grid_shape_yx": [
+        120,
+        360
+      ],
+      "panel_left_px": 70,
+      "panel_top_px": [
+        80,
+        375,
+        670,
+        965,
+        1260,
+        1555,
+        1850
+      ]
+    },
+    {
+      "file": "day30-2022-07-anomalies-sst",
+      "limits": [
+        -3,
+        3
+      ],
+      "figure_pixels": [
+        820,
+        2220
+      ],
+      "panel_pixels": [
+        720,
+        240
+      ],
+      "panel_grid_shape_yx": [
+        120,
+        360
+      ],
+      "panel_left_px": 70,
+      "panel_top_px": [
+        80,
+        375,
+        670,
+        965,
+        1260,
+        1555,
+        1850
+      ]
+    },
+    {
+      "file": "day30-2022-07-anomalies-adt",
+      "limits": [
+        -0.25,
+        0.25
+      ],
+      "figure_pixels": [
+        820,
+        2220
+      ],
+      "panel_pixels": [
+        720,
+        240
+      ],
+      "panel_grid_shape_yx": [
+        120,
+        360
+      ],
+      "panel_left_px": 70,
+      "panel_top_px": [
+        80,
+        375,
+        670,
+        965,
+        1260,
+        1555,
+        1850
+      ]
+    }
+  ],
+  "pixel_verification": "Every saved panel RGB pixel equals the source colormap cell repeated exactly 2x2, including the common missing-data mask",
+  "rasterization": "Lossless PNG: exactly 2 x 2 pixels per retained grid cell at native image size; no interpolation. PDF embeds native grid with interpolation disabled.",
+  "coordinates": "Square cells in grid-index space, sorted longitude and retained 60S-60N latitude rows; ticks label actual cell-center coordinates. No geographic resampling.",
+  "mask": "60S-60N model wet domain intersected with finite target observations, identical across candidates",
+  "interpretation": "Illustrative cases, not aggregate skill; gray is land or unavailable observations. Colorbar extensions mark saturation. Endpoint is the last common exported surface lead, not a multi-year continuous rollout."
+}

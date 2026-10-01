@@ -1,0 +1,92 @@
+{
+  "observed_utc": "2026-09-26T22:46:23.016025+00:00",
+  "producer": "dd3a05b07554",
+  "scope": "early validation diagnostic only; unequal task exposure; no held-out or selected-model claim",
+  "rows": [
+    {
+      "model": "Samudra2 sequential",
+      "event": {
+        "time_utc": "2026-09-26T21:44:25.298361+00:00",
+        "event": "joint_validation",
+        "global_step": 8000,
+        "om4": 8000,
+        "observation": 0,
+        "validation/obs_score": 1.213266659983374,
+        "om4_retention": {
+          "ts_mse": 0.004727300722151995,
+          "reconstruction_ts_mse": 0.005592393223196268,
+          "full_mse": 0.002786163706332445,
+          "origins": 11
+        }
+      }
+    },
+    {
+      "model": "Samudra2 sequential",
+      "event": {
+        "time_utc": "2026-09-26T21:56:32.456449+00:00",
+        "event": "joint_validation",
+        "global_step": 8100,
+        "om4": 8000,
+        "observation": 100,
+        "validation/obs_score": 1.2011084978029007,
+        "om4_retention": {
+          "ts_mse": 0.6655587553977966,
+          "reconstruction_ts_mse": 0.6821394562721252,
+          "full_mse": 0.4388728141784668,
+          "origins": 11
+        }
+      }
+    },
+    {
+      "model": "Samudra2 sequential",
+      "event": {
+        "time_utc": "2026-09-26T22:40:29.750099+00:00",
+        "event": "joint_validation",
+        "global_step": 8400,
+        "om4": 8000,
+        "observation": 400,
+        "validation/obs_score": 0.7583580509845127,
+        "om4_retention": {
+          "ts_mse": 0.6552897691726685,
+          "reconstruction_ts_mse": 0.7556473016738892,
+          "full_mse": 0.40882474184036255,
+          "origins": 11
+        }
+      }
+    },
+    {
+      "model": "Samudra2 scratch",
+      "event": {
+        "time_utc": "2026-09-26T17:42:52.532613+00:00",
+        "event": "joint_validation",
+        "global_step": 1500,
+        "om4": 0,
+        "observation": 1500,
+        "validation/obs_score": 0.635903969796537,
+        "om4_retention": {
+          "ts_mse": 1.1172150373458862,
+          "reconstruction_ts_mse": 1.8573691844940186,
+          "full_mse": 0.7742067575454712,
+          "origins": 11
+        }
+      }
+    },
+    {
+      "model": "Samudra2 mixed",
+      "event": {
+        "time_utc": "2026-09-26T22:27:27.059082+00:00",
+        "event": "joint_validation",
+        "global_step": 5800,
+        "om4": 4287,
+        "observation": 1513,
+        "validation/obs_score": 0.5951659171629644,
+        "om4_retention": {
+          "ts_mse": 0.005905773025006056,
+          "reconstruction_ts_mse": 0.0073726545087993145,
+          "full_mse": 0.003484637476503849,
+          "origins": 11
+        }
+      }
+    }
+  ]
+}

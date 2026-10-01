@@ -1,0 +1,196 @@
+<!--
+SPDX-FileCopyrightText: 2026 Samudra Authors
+
+SPDX-License-Identifier: CC-BY-4.0
+-->
+
+# Observational D snapshot: technical methods
+
+See the [snapshot report](snapshot-2026-09-23.md) for results and next decisions.
+
+## What this pilot establishes
+
+The existing **D initializer and five-day evolution model can be reused**. Strict loading,
+zero-adapter equivalence, real-data fitting and complete training/evaluation all ran on
+Torch. No OM4 pretraining was repeated. The only added network is an eight-input,
+three-output atmospheric adapter (387 parameters); the original ocean tensor shapes
+and architecture remain intact. Its outputs are learned conditioning features, not
+calibrated physical fluxes. The source-control adapter outputs zero in the original
+normalized forcing slots; this is not a claim of physically zero atmospheric flux.
+
+The three comparisons are full fine-tuning, adapter-only with the ocean networks
+frozen, and the same architecture initialized from scratch. Scratch uses no OM4
+weights or normalization, but its atmospheric inputs include ERA5 reanalysis and its
+interior targets are gridded IAP analyses. All arms retain the same model grid and
+ocean masks. “Observation-only” describes the ocean
+training source, not raw, independent measurements or an operational forecast.
+
+## Result-table method names
+
+The following are the literal names in the snapshot results table. Persistence
+controls reuse a selected checkpoint; they are evaluation procedures, not separately
+trained models. The initializer copies the latest observed SST/ADT into its surface
+channels, so matched persistence retains these inputs while holding the inferred
+interior fixed (or advancing its seasonal mean for the anomaly control).
+
+| Result-table name | Definition |
+|---|---|
+| Full model: inferred-state persistence | Use the selected full fine-tuned initializer and adapter, then hold the latest reconstructed ocean state fixed for every forecast lead. The evolution network is bypassed; no separate model is trained. |
+| Full model: interior-anomaly persistence | Use the same full fine-tuned initializer, keep its interior T/S anomalies relative to training seasonal climatology fixed, and advance only the seasonal mean. Surface fields persist unchanged; learned evolution is bypassed. |
+| Full fine-tuning forecast | Start from OM4-pretrained D, fine-tune initializer, evolution and atmospheric adapter on the observational training package, then run autoregressive evolution from the selected initializer. |
+| Scratch: inferred-state persistence | Use the selected observation-only scratch initializer and adapter, then hold its latest reconstructed state fixed; bypass evolution. |
+| Observation-only scratch forecast | Train the same architecture from random weights with observation-derived normalization, then run autoregressive evolution. No OM4 weights or normalization are used. |
+| Training seasonal climatology | Predict the training-set seasonal climatology at the target dates. No neural initializer or evolution network is used. |
+| Atmospheric adapter only | Use frozen OM4-pretrained initializer and evolution networks with the selected observationally trained 387-parameter atmospheric adapter. Run autoregressive evolution. |
+| Source D with zero adapter | Use the original OM4-pretrained initializer and evolution networks with zero adapter outputs and source normalization. Run autoregressive evolution. Zero denotes normalized conditioning, not physically zero atmospheric flux. |
+
+In the execution table, **Full fine-tuning**, **Adapter only**, and **Scratch**
+are the training-arm names for **Full fine-tuning forecast**, **Atmospheric adapter
+only**, and **Observation-only scratch forecast**, respectively.
+
+The complete component table retains machine-readable arm/method labels. Each
+literal row name is mapped below; `primary` is the full fine-tuning arm.
+
+| Complete-table name | Definition |
+|---|---|
+| primary / selected | Forecast with the selected full fine-tuning checkpoint, including autoregressive evolution. |
+| primary / selected-inferred-persistence | Hold the selected full fine-tuning initializer’s latest state fixed; bypass evolution. |
+| primary / selected-inferred-anomaly-persistence | Use the selected full fine-tuning initializer; preserve interior T/S anomalies while advancing the training seasonal mean. Surface fields persist; bypass evolution. |
+| primary / source-with-zero-forcing | Source D with zero adapter: original OM4 weights and normalization, with autoregressive evolution. |
+| primary / source-inferred-persistence | Hold the original source D initializer’s latest state fixed, using zero adapter outputs and source normalization; bypass evolution. |
+| primary / inferred-anomaly-persistence | Original source D initializer with zero adapter outputs and source normalization; preserve interior T/S anomalies while advancing the training seasonal mean. Surface fields persist; bypass evolution. |
+| primary / seasonal-climatology | Training seasonal climatology at target dates; no neural forecast. |
+| adapter-only / selected | Forecast with the selected adapter-only checkpoint, including autoregressive evolution. |
+| adapter-only / selected-inferred-persistence | Hold the selected adapter-only initializer’s latest state fixed; bypass evolution. |
+| adapter-only / selected-inferred-anomaly-persistence | Use the selected adapter-only initializer; preserve interior T/S anomalies while advancing the training seasonal mean. Surface fields persist; bypass evolution. |
+| adapter-only / source-with-zero-forcing | Source D with zero adapter: original OM4 weights and normalization, with autoregressive evolution. |
+| adapter-only / source-inferred-persistence | Hold the original source D initializer’s latest state fixed, using zero adapter outputs and source normalization; bypass evolution. |
+| adapter-only / inferred-anomaly-persistence | Original source D initializer with zero adapter outputs and source normalization; preserve interior T/S anomalies while advancing the training seasonal mean. Surface fields persist; bypass evolution. |
+| adapter-only / seasonal-climatology | Training seasonal climatology at target dates; no neural forecast. |
+| scratch / selected | Forecast with the selected observation-only scratch checkpoint, including autoregressive evolution. |
+| scratch / selected-inferred-persistence | Hold the selected observation-only scratch initializer’s latest state fixed; bypass evolution. |
+| scratch / selected-inferred-anomaly-persistence | Use the selected observation-only scratch initializer; preserve interior T/S anomalies while advancing the training seasonal mean. Surface fields persist; bypass evolution. |
+| scratch / source-with-zero-forcing | Source D with zero adapter: original OM4 weights and normalization, with autoregressive evolution. |
+| scratch / source-inferred-persistence | Hold the original source D initializer’s latest state fixed, using zero adapter outputs and source normalization; bypass evolution. |
+| scratch / inferred-anomaly-persistence | Original source D initializer with zero adapter outputs and source normalization; preserve interior T/S anomalies while advancing the training seasonal mean. Surface fields persist; bypass evolution. |
+| scratch / seasonal-climatology | Training seasonal climatology at target dates; no neural forecast. |
+
+Source and seasonal-climatology controls are identical across arms and repeated
+for completeness; they are not additional independently fitted models.
+
+## Model architecture and optimization
+
+We use a deterministic, non-diffusion model consisting of a surface-history initializer,
+an autoregressive ocean evolution network and a shared atmospheric adapter. Both ocean
+networks are ConvNeXt-style U-Nets on the 180 × 360 Gaussian grid. The initializer uses
+four channel widths **256/384/512/768**; the evolution network uses **128/192/256/384**.
+The U-Net blocks use BatchNorm and capped GELU; the atmospheric adapter uses GELU.
+
+| Component | Interface | Parameters (approximately) |
+|---|---|---:|
+| History initializer | 19 five-day SST/ADT frames, validity masks, adapted atmosphere and five geographic/seasonal channels; 138 input channels → two 77-channel states | **121.7 million** |
+| Ocean evolution | Two previous states + three adapted forcing channels + five context channels; 162 inputs → 77 outputs per five-day step | **31.6 million** |
+| Atmospheric adapter | Shared pointwise 1×1 convolutions, 8 → 32 → 3, with GELU | **387** |
+| Complete model | Initializer + evolution + adapter | **153.3 million** |
+
+Exact counts are [recorded here](artifacts/2026-09-23/model-details.json):
+121,684,010 + 31,631,677 + 387 = **153,316,074** scalar parameters, excluding
+BatchNorm buffers, optimizer state and activations. Each ocean state contains T, S,
+u and v at 19 depths plus SSH. The initializer copies the final two supplied SST/ADT
+frames into the corresponding surface output channels; it learns the remaining state.
+Forecasting then advances recursively, supplying prescribed ERA5 through the adapter.
+Future surface observations are not fed back during a forecast.
+
+Full fine-tuning and observation-only scratch have identical architectures and parameter
+counts. Both train all **153.3 million** parameters during the joint stage. The
+adapter-only arm trains just **387**, keeping both ocean networks frozen. The earlier
+reconstruction stage trains the initializer and adapter (about **121.7 million**);
+adapter warm-up trains 387. Persistence reuses the chosen initializer and holds its
+state fixed, adding no learned parameters; seasonal climatology has no neural weights.
+
+The pilot uses AdamW (weight decay 0.01), gradient clipping at norm 1, an effective
+batch of eight monthly examples accumulated one at a time, BF16 convolution with
+FP32 loss reductions, and activation checkpointing. Core learning rates are 10⁻⁵
+for transferred weights and 10⁻⁴ for scratch; the adapter uses 10⁻³ before joint
+training and 10⁻⁴ in the joint stage. Transferred models retain source ocean
+normalization and frozen BatchNorm running statistics; scratch uses training-observation
+normalization and updates those statistics. Seed 1729 is used throughout. Validation
+checks every 100 updates select checkpoints using the integrated-plus-spectral score,
+with patience five and the phase update/time caps in the approved plan. Actual retained
+updates and selected checkpoints are tabulated in the snapshot report.
+
+## Data and physical conventions resolved
+
+- **Common grid:** conservatively remap to D's actual 180 × 360 Gaussian coordinates,
+  with periodic longitude and at least 90% finite source coverage over each full
+  target cell. The native grids differ; a nominal one-degree label is insufficient.
+  The [sample audit](materialized-sample-audit.json) found SST/ADT coverage of
+  93.95%/94.19% within the model's 60°S–60°N surface domain for the audited month.
+- **Time:** OISST, DUACS ADT and ERA5 use explicit five-day means. Nineteen prior
+  surface bins feed six or seven forecast bins; calendar overlap weights produce
+  the next-month interior prediction. Monthly IAP supervises 14 model depth centers
+  through 1850 m. No extrapolated observations below 2000 m.
+- **Quantities:** convert IAP Absolute to Practical Salinity with pressure/location.
+  Retain the existing direct Celsius temperature approximation and shallow-model SST
+  proxy. OHC uses native-layer overlap integrals on each vertical grid, density
+  1035 kg/m³ and heat capacity 3850 J/kg/K, with complete-column common support.
+  DUACS ADT is the SSH target; surface velocity/EKE come from SSH geostrophy.
+- **Operator and missing-data effects measured:** the original [single-month check](coarsening-consistency.json)
+  found 0.0656 m/s disagreement between geostrophy of coarsened ADT and directly
+  coarsened DUACS velocity. The [full-cohort audit](artifacts/2026-09-23/heldout-operator-audit.json)
+  feeds *target-time observed ADT* through the unchanged scoring operator. Its vector
+  RMSE is 0.1603 m/s on full scoring support, but about **0.0730 m/s** where the
+  observed ADT gradient stencil is complete. The **5.38%** of weighted component/origin
+  support touching missing ADT has about **0.620 m/s** RMS disagreement and contributes
+  roughly **80% of squared velocity disagreement**. DUACS u/v masks also differ;
+  this audit reproduces the scorer's component-wise support exactly. These are
+  data/operator effects, not forecast errors or irreducible error floors.
+  Even this target-time ADT diagnostic has median day-30 EKE spectral power only
+  **24%** of the directly coarsened DUACS reference (nine region/bin comparisons).
+  Forecast dynamics further weaken power, but cannot explain the whole deficit.
+- **Splits and missingness:** 243 training months (May 1993–July 2013), nine validation
+  months (November 2013–July 2014), 96 test months (2015–2022). Normalization and
+  seasonal climatologies use training samples only. Climatology fills missing inputs
+  with validity masks; filled targets are never scored.
+
+The compact prepared package is **20.385 GiB**, 350 NPZ files including grid and
+statistics. All 350 hashes were checked on Torch before fitting. Preparation used
+EAI CPU resources, then OSN and the Torch DTN; the raw full-resolution stores were
+not copied to Torch. No scratch cleanup or deletion was needed.
+
+## How selection and evaluation work
+
+The held-out table aggregates 96 separately initialized monthly forecasts spanning
+2015–2022. It is an eight-year sampling period, not an eight-year forecast lead.
+Surface forecasts are scored at days 5, 15 and 30; next-calendar-month interior
+means may require a seventh five-day step. No continuous eight-year rollout was
+evaluated for these pilot models.
+
+Checkpoint selection used the frozen validation objective throughout:
+
+`0.5 × mean(five integrated errors / fixed validation-climatology errors)`
+`+ 0.5 × mean(27 spatial spectral errors in dex)`.
+
+For each spectral comparison, error in **dex** is
+`sqrt(mean((log10(predicted power) - log10(reference power))²))` over
+retained wavenumber bins, with log-log interpolation onto reference wavenumbers.
+The spectral term averages 27 such errors (three variables × three regions ×
+three leads). A uniform ×2 or ÷2 power mismatch gives 0.301 dex; ×10 or ÷10 gives
+1 dex. These scores do not identify whether power is too high or too low, and
+power agreement does not establish phase or timing skill.
+
+The five integrated errors are SST, geostrophic velocity, EKE and OHC in 0–700 m
+and 700–2000 m. Surface metrics average the matched day-5, day-15 and day-30 bin
+errors. Spectra cover SST, ADT and EKE in the North Pacific, Gulf Stream and Agulhas
+at those three leads. Every required component must be finite; there is no RMSE-only
+fallback. Training loss and depth-resolved T/S errors are diagnostics. **Held-out
+scores retain the validation denominators**, and were not used to pick checkpoints,
+change weights or extend budgets.
+
+Only three radial spectral bins per region survive the four-cell minimum wavelength:
+approximately 600–3000 km. These are **broad-scale spatial spectra**, not mesoscale
+or temporal spectral evidence. Nine validation months cannot establish annual or
+long-period variability. Independently reinitialized forecasts are not concatenated
+into a continuous trajectory. The pilot's monthly 2015–2022 cohort and coarsened
+references differ from the legacy native-grid, continuous-rollout metric cohort;
+numerical scores should be compared within this pilot.

@@ -1,0 +1,8 @@
+{
+  "scope": "May 1993 sample including its 19 history and seven forecast bins; preparation consistency diagnostic only",
+  "comparison": "Geostrophic velocity derived from coarsened ADT versus separately coarsened DUACS ugos/vgos",
+  "vector_rmse_m_s": 0.06559828303255394,
+  "reference_vector_rms_m_s": 0.16734489365418612,
+  "ratio": 0.3919945305777366,
+  "interpretation": "Horizontal remapping and gradients do not generally commute. This quantifies this sample with the existing geostrophic kernel; it is neither learned forecast error nor an irreducible error bound."
+}

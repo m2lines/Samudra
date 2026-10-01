@@ -1,0 +1,32 @@
+[
+  [
+    "D \u2192 observations",
+    "obs0-evaluation",
+    "selected-predictions.npz"
+  ],
+  [
+    "D \u2192 25% OM4 \u2192 observations",
+    "obs25-evaluation",
+    "selected-predictions.npz"
+  ],
+  [
+    "D \u2192 50% OM4 \u2192 observations",
+    "obs50-evaluation",
+    "selected-predictions.npz"
+  ],
+  [
+    "D \u2192 75% OM4 \u2192 observations",
+    "obs75-evaluation",
+    "selected-predictions.npz"
+  ],
+  [
+    "Observation-only random (4k)",
+    "random-4000-evaluation",
+    "selected-predictions.npz"
+  ],
+  [
+    "D \u2192 observations: inferred-state persistence",
+    "obs0-evaluation",
+    "selected-inferred-persistence.npz"
+  ]
+]

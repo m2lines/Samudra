@@ -9,6 +9,7 @@ from torch import nn
 from torch.nn import functional as F
 from torch.utils.checkpoint import checkpoint
 
+from samudra.experiments.missingness import identity_adapters, state_mask
 from samudra.experiments.surface_state import make_unet
 
 
@@ -185,9 +186,25 @@ class SwinReconstructor(nn.Module):
 
 
 class HistoryInitializer(nn.Module):
-    def __init__(self, names, architecture, expanded):
+    def __init__(
+        self,
+        names,
+        architecture,
+        expanded,
+        surface_policy="legacy-copy",
+        task_conditioning="none",
+        latent_channels=0,
+    ):
         super().__init__()
-        self.channels = len(names)
+        if surface_policy not in ("legacy-copy", "observed-only"):
+            raise ValueError("Unknown surface copy policy")
+        if task_conditioning not in ("none", "input-adapters"):
+            raise ValueError("Unknown task conditioning")
+        self.surface_policy = surface_policy
+        if latent_channels < 0:
+            raise ValueError("Latent channel count must be nonnegative")
+        self.physical_channels = len(names)
+        self.channels = len(names) + latent_channels
         self.surface = [names.index("thetao_0"), names.index("zos")]
         self.history = 19 if expanded else 6
         self.expanded = expanded
@@ -201,15 +218,33 @@ class HistoryInitializer(nn.Module):
             ]
             self.net = make_unet(inputs, 2 * self.channels, widths)
 
-    def forward(self, surface, past_forcing, context, mask):
+        self.input_adapters = (
+            identity_adapters(inputs) if task_conditioning == "input-adapters" else None
+        )
+
+    def forward(
+        self, surface, past_forcing, context, mask, input_mask=None, task="observation"
+    ):
         surface = surface[:, -self.history :]
         b, _, _, h, w = surface.shape
         masks = mask[self.surface].expand(b, self.history, 2, h, w)
+        if input_mask is not None:
+            masks = input_mask[:, -self.history :].to(surface.dtype)
+            if masks.shape != surface.shape:
+                raise ValueError(
+                    "Per-frame surface validity must match the surface history"
+                )
         pieces = [surface.flatten(1, 2), masks.flatten(1, 2), context]
         if self.expanded:
             pieces.append(past_forcing[:, -self.history :].flatten(1, 2))
-        result = (
-            self.net(torch.cat(pieces, 1)).float().reshape(b, 2, self.channels, h, w)
-        )
-        result[:, :, self.surface] = surface[:, -2:]
-        return result * mask
+        inputs = torch.cat(pieces, 1)
+        if self.input_adapters is not None:
+            inputs = self.input_adapters[task](inputs)
+        result = self.net(inputs).float().reshape(b, 2, self.channels, h, w)
+        if self.surface_policy == "observed-only":
+            result[:, :, self.surface] = torch.where(
+                masks[:, -2:].bool(), surface[:, -2:], result[:, :, self.surface]
+            )
+        else:
+            result[:, :, self.surface] = surface[:, -2:]
+        return result * state_mask(mask, self.channels)

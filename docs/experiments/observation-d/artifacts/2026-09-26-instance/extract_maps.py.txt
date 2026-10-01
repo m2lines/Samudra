@@ -1,0 +1,16 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+# SPDX-License-Identifier: Apache-2.0
+import argparse, pathlib, numpy as np
+p=argparse.ArgumentParser(); p.add_argument('--arm',required=True); a=p.parse_args()
+r=pathlib.Path('/scratch/jr7309/runs/2026-09-25-observation-instance/handoff-v2'); out=r/'report-arrays';out.mkdir(exist_ok=True)
+channels=[38,47,0,9,76]
+for step in [0,10,100,1000,2000,4000,6000,8000]:
+ name=f'joint-{step:05d}'; d=np.load(r/f'{a.arm}-main-state-diagnostics'/(name+'.npz'))
+ data={k:d[k] for k in ['lat','lon','cases']};data.update(names=d['names'][channels],mask=d['mask'][channels],channels=channels)
+ for k in ['initial','day30']: data[k]=d[k][:,channels]
+ np.savez_compressed(out/f'{a.arm}-{name}.npz',**data)
+for kind in ['main-annual-validation','annual-joint-00000','annual-joint-00100','annual-joint-01000','annual-joint-04000','annual-joint-08000']:
+ d=np.load(r/f'{a.arm}-{kind}'/'2013-11-01.npz'); print(kind,[(k,d[k].shape) for k in d.files],flush=True)
+ ix=d['leads_days']//5-1
+ data={'surface':d['surface'][ix], 'reference':d['reference'][ix,:2], 'leads_days':d['leads_days']}
+ np.savez_compressed(out/f'{a.arm}-{kind}.npz',**data)

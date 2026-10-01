@@ -107,40 +107,31 @@ def main():
                                 ),
                             )
                         )
-                        if mode == "om4-pretrained":
-                            continue
+                        fields = [truth, mean, *members[:4]]
+                        titles = [
+                            "Observations, matching five-day bin"
+                            if mode == "obs-adapted"
+                            else "OM4 reference",
+                            "Ensemble mean (8)",
+                            *[f"Member {i}" for i in range(1, 5)],
+                        ]
                         if mode == "obs-adapted":
-                            fields = [truth, mean, *members[:4]]
-                            titles = [
-                                "Observations, matching five-day bin",
-                                "Ensemble mean (8)",
-                                *[f"Member {i}" for i in range(1, 5)],
-                            ]
                             label = "Observation history + ERA5, adapted checkpoint"
                         else:
-                            before_path = a.root / f"D-{seed}" / "om4-pretrained" / name
-                            with np.load(before_path) as before:
-                                np.testing.assert_array_equal(
-                                    before["reference"], z["reference"]
+                            if mode == "om4-adapted":
+                                before_path = (
+                                    a.root / f"D-{seed}" / "om4-pretrained" / name
                                 )
-                                pre = before["members"][:, j, c]
-                            fields = [
-                                truth,
-                                pre.mean(0),
-                                pre[0],
-                                mean,
-                                members[0],
-                                members[1],
-                            ]
-                            titles = [
-                                "OM4 reference",
-                                "OM4-pretrained: mean (8)",
-                                "OM4-pretrained: member 1",
-                                "Observation-adapted: mean (8)",
-                                "Observation-adapted: member 1",
-                                "Observation-adapted: member 2",
-                            ]
-                            label = "OM4 surface history + native forcing; interior is inferred"
+                                with np.load(before_path) as before:
+                                    np.testing.assert_array_equal(
+                                        before["reference"], z["reference"]
+                                    )
+                            stage = (
+                                "OM4-pretrained"
+                                if mode == "om4-pretrained"
+                                else "Observation-adapted"
+                            )
+                            label = f"{stage}; OM4 surface history + native forcing; interior inferred"
                         unit = {
                             "thetao_0": "°C",
                             "zos": "m",

@@ -244,3 +244,32 @@ def test_compiled_decoder_keeps_portable_checkpoint_keys(tmp_path):
         reloaded = restored.decoder(*inputs)
     torch.testing.assert_close(expected, actual, rtol=0, atol=0)
     torch.testing.assert_close(expected, reloaded, rtol=0, atol=0)
+
+
+def test_selected_readouts_preserve_full_forecast_members_and_rng():
+    from samudra.experiments.diffusion_endpoint_maps import selected_readouts
+
+    torch.set_num_threads(1)
+    torch.manual_seed(41)
+    model = model_for_test(True).eval()
+    surface = torch.randn(1, 3, 2, 8, 12)
+    atmosphere = torch.randn(1, 7, 8, 8, 12)
+    contexts = torch.randn(1, 7, 5, 8, 12)
+    mask = torch.ones(4, 8, 12)
+    validity = torch.ones_like(surface, dtype=torch.bool)
+    full_rng = torch.Generator().manual_seed(23)
+    selected_rng = torch.Generator().manual_seed(23)
+    with torch.no_grad():
+        full, _ = model.forecast(
+            surface, atmosphere, contexts, mask, validity, generator=full_rng, members=3
+        )
+        adapted = model.adapt(atmosphere)
+        initial, known, anchor = model.encode_native(
+            surface, adapted[:, :3], contexts[:, 2], mask, validity
+        )
+        states = model.processor.rollout(initial, adapted[:, 3:], contexts[:, 3:])
+        result = selected_readouts(
+            model, states, mask, known, anchor, selected_rng, members=3, leads=(2, 4)
+        )
+    torch.testing.assert_close(result, full[:, :, [1, 3]], rtol=0, atol=0)
+    assert torch.equal(full_rng.get_state(), selected_rng.get_state())

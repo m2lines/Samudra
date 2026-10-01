@@ -3,6 +3,17 @@
 
 # Latent observation-training continuation
 
+**Stopped by user on October 1, 2026.** No further training is authorized before
+review. The observation objective excludes latitudes outside 60°S–60°N, whereas
+the newer deterministic global controls use global observation support. OM4
+pretraining and replay in these latent runs use global wet-cell cosine weights.
+The forthcoming stopped-run report will preserve that distinction rather than
+treating these as matched controls. Existing selected and latest checkpoints are
+preserved with `TRAINING_STOPPED.json` hash receipts; stopping is not budget
+completion. Both training arrays and their dependent evaluations are terminal.
+Replacement evaluation-only jobs will use explicit stopped-run verification.
+
+
 Authorized September 29 after the [completed short-budget report](latent-wave.md).
 Both seeds continue the same observation-training objective for approximately
 48 additional fitting hours. Architecture, OM4 pretraining, datasets, splits,

@@ -3,7 +3,7 @@
 
 # Persistent latent state with diffusion readouts
 
-**September 29 follow-up:** [An authorized two-day continuation is running](latent-extension.md).
+**October 1 follow-up:** [The stopped continuation report is complete](latent-extension.md).
 The results below remain the completed short-budget comparison.
 
 This two-seed wave learns the initializer, recurrent latent dynamics and physical

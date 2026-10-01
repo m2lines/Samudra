@@ -6,10 +6,13 @@
 Authorized 25 September 2026; total ceiling **576 allocated GPU-hours**, including
 qualification, evaluation, unsuccessful attempts and repeats. The A/B,
 physical-state scratch, artifact-diagnostic and persistent-latent waves are complete.
-Allocated compute through the completed report is **121.5853 GPU-hours**.
-[The continuation was stopped at the user’s request on October 1](latent-extension.md)
-to align observation loss support with the newer global deterministic controls.
-Its final evaluations/report are in progress; further scientific training awaits review.
+Allocated compute through the stopped-run report and performance investigation is
+**222.4431 GPU-hours** of the 576-hour cap.
+[The October 1 stopped continuation report is complete](latent-extension.md).
+Monthly composites improve to 0.743/0.757, but annual forecasts become severely
+unstable and monthly ensembles become underdispersed. Observation training used
+±60° support and is not matched to newer global deterministic controls.
+Further scientific training awaits review.
 [Completed performance tests](training-performance.md) measured 1.96× faster L40S
 updates or 4.1× versus the original L40S setup using an H200 and opt-in code changes.
 
@@ -21,7 +24,7 @@ The upstream observation comparison is complete and its transfer checkpoint is
 the selected reference. Execution moved to Engaging on September 26 with the
 user-approved local OM4 releases; the original branch and report links are retained.
 
-The latest completed wave is [persistent latent evolution with diffusion readouts](latent-wave.md).
+The preceding short-budget wave is [persistent latent evolution with diffusion readouts](latent-wave.md).
 Both seeds finished 24,000 OM4 updates and approximately 2,000 observation updates
 under the time cap. The saved salinity examples lose the conspicuous diagonal
 artifact, but test composites (1.019 and 0.961) remain worse than the deterministic
@@ -33,7 +36,7 @@ The [previous physical-state diffusion results](scratch-wave.md) remain availabl
 23–24% interior CRPS improvement, with worse point scores and velocity retention.
 ## Contents
 
-- [Stopped latent continuation; report in preparation](latent-extension.md)
+- [Completed stopped-run report: monthly lift, annual instability](latent-extension.md)
 - [Completed training performance investigation](training-performance.md)
 
 - [Completed latent-state results](latent-wave.md)

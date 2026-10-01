@@ -78,10 +78,16 @@ def main():
     )
     with gzip.open(a.output / "raw-timings.json.gz", "wt") as f:
         json.dump(raw, f, indent=2)
+    completed_pairs = {
+        r["job"]
+        for r in records
+        if r["variant"] == "compiled_skip_initial" and r["job_completed"]
+    }
     bf16 = [
         r
         for r in records
-        if r["precision"] == "bf16"
+        if r["job"] in completed_pairs
+        and r["precision"] == "bf16"
         and r["variant"]
         in ("baseline", "compiled_decoder", "skip_initial", "compiled_skip_initial")
     ]

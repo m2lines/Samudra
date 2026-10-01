@@ -7,8 +7,11 @@ Authorized 25 September 2026; total ceiling **576 allocated GPU-hours**, includi
 qualification, evaluation, unsuccessful attempts and repeats. The A/B,
 physical-state scratch, artifact-diagnostic and persistent-latent waves are complete.
 Allocated compute through the completed report is **121.5853 GPU-hours**.
-[An authorized two-day continuation of both latent seeds is now running](latent-extension.md);
-its new allocations will be added to that total.
+[The continuation was stopped at the user’s request on October 1](latent-extension.md)
+to align observation loss support with the newer global deterministic controls.
+Its final evaluations/report are in progress; further scientific training awaits review.
+[Completed performance tests](training-performance.md) measured 1.96× faster L40S
+updates or 4.1× versus the original L40S setup using an H200 and opt-in code changes.
 
 This campaign depends on the final model/checkpoint decision from thread
 `01a0d027-0851-7213-a64e-f1d40d40e64d`, tracked in [PR #892](https://github.com/m2lines/Samudra/pull/892).
@@ -30,7 +33,8 @@ The [previous physical-state diffusion results](scratch-wave.md) remain availabl
 23–24% interior CRPS improvement, with worse point scores and velocity retention.
 ## Contents
 
-- [Active two-day latent continuation](latent-extension.md)
+- [Stopped latent continuation; report in preparation](latent-extension.md)
+- [Completed training performance investigation](training-performance.md)
 
 - [Completed latent-state results](latent-wave.md)
 - [Completed physical-state from-scratch results](scratch-wave.md)

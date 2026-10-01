@@ -16,6 +16,8 @@ from global_physical_heat_content import (  # type: ignore[import-not-found]
     heat_total,
 )
 
+from samudra.experiments.diffusion_latent_maps import grid as plot_grid
+
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
@@ -73,6 +75,17 @@ def main():
                 for m in models
             ]
             wet = grid["mask"][0 if channel == 0 else 6].astype(bool)
+            plot_grid(
+                [field.mean(0) / (1e6 if is_heat else 1) for field in [truth] + values],
+                ["Observations"] + [style[0] for style in styles],
+                wet,
+                lat,
+                a.output / f"annual-map-{panel}-{year}.png",
+                f"{origin}: {label}, annual temporal mean. No detrending; no polar exclusion.",
+                "MJ/m²" if is_heat else unit,
+                show_loss_boundary=False,
+                distinguish_missing=True,
+            )
             support = wet & np.isfinite(truth).all(0)
             for field in values:
                 support &= np.isfinite(field).all(0)

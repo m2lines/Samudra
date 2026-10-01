@@ -6,7 +6,11 @@ import argparse
 import json
 from pathlib import Path
 
+import matplotlib
 import numpy as np
+
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 
 from samudra.experiments.diffusion_latent_maps import grid
 from samudra.experiments.observation_pilot import digest
@@ -29,6 +33,7 @@ def main():
         origin = f"{year}-01"
         rp = a.references / f"{year - 1}-12.npz"
         reference = np.load(rp)["values"]
+        depths = np.load(rp)["depth"]
         results["sources"][str(rp)] = digest(rp)
         for seed in (1729, 1730):
             paths = [
@@ -91,7 +96,61 @@ def main():
                     )
                     for name, f in zip(titles[1:], fields[1:], strict=True)
                 }
-            results["origins"][f"{seed}-{origin}"] = record
+            profiles = {}
+            fig, axes = plt.subplots(1, 2, figsize=(9, 6), layout="constrained")
+            for group, prefix in enumerate(("thetao", "so")):
+                curves: dict[str, list[float]] = {name: [] for name in titles[1:]}
+                used_depths = []
+                for depth in range(len(depths)):
+                    if group == 0 and depth == 0:
+                        continue  # Surface temperature is supplied, not inferred.
+                    ci = arrays[0]["channel_names"].tolist().index(f"{prefix}_{depth}")
+                    fields = (
+                        [reference[group, depth], climate[group, depth]]
+                        + [v[:, ci].mean(0) for v in predictions]
+                        + [predictions[-1][0, ci]]
+                    )
+                    support = mask[ci] & np.logical_and.reduce(
+                        [np.isfinite(f) for f in fields]
+                    )
+                    weights = np.cos(np.deg2rad(lat))[:, None] * support
+                    for name, field in zip(titles[1:], fields[1:], strict=True):
+                        curves[name].append(
+                            float(
+                                np.sqrt(
+                                    np.sum(
+                                        np.where(support, field - fields[0], 0) ** 2
+                                        * weights
+                                    )
+                                    / weights.sum()
+                                )
+                            )
+                        )
+                    used_depths.append(float(depths[depth]))
+                for (name, values), marker in zip(
+                    curves.items(), ("s", "^", "D", "o", "v"), strict=True
+                ):
+                    axes[group].plot(values, used_depths, marker=marker, label=name)
+                axes[group].invert_yaxis()
+                axes[group].set(
+                    title=prefix,
+                    xlabel="Context RMSE (°C)"
+                    if group == 0
+                    else "Context RMSE (salinity)",
+                    ylabel="Depth (m)",
+                )
+                axes[group].grid(alpha=0.2)
+                profiles[prefix] = dict(depth_m=used_depths, rmse=curves)
+            handles, labels = axes[0].get_legend_handles_labels()
+            fig.legend(handles, labels, loc="outside lower center", ncol=2, fontsize=8)
+            fig.suptitle(
+                f"{origin}, seed{seed}: initial interior versus preceding December IAP\nMonthly context, not instantaneous truth; supplied SST excluded"
+            )
+            fig.savefig(a.output / f"initializer-profiles-{seed}-{origin}.png", dpi=130)
+            plt.close(fig)
+            results["origins"][f"{seed}-{origin}"] = dict(
+                maps=record, profiles=profiles
+            )
     (a.output / "initializer-context.json").write_text(
         json.dumps(results, indent=2) + "\n"
     )

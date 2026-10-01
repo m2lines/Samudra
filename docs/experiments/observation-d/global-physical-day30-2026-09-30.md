@@ -47,6 +47,14 @@ Each persistence baseline holds that checkpoint's full initialized state fixed. 
 
 Mixed finishes at validation composite 0.565245, compared with 0.626532/0.593291 for obs-only 8k/16k. Mixed therefore remains ahead on validation; scratch's narrow held-out endpoint advantage is not a stable across-cohort ranking. All report values use the fixed checkpoints listed above.
 
+### Validation score during training
+
+![Global integrated-plus-spectral validation score: raw traces and EMA, versus total and observation updates](artifacts/2026-10-01-global-validation-ema/global-validation-training-curves.png)
+
+Thin traces show all 173 mixed and 164 obs-only validation scores; bold traces show an exponential moving average (EMA) with a **500-total-update half-life**. The EMA starts at the first raw score and updates in linear score space using `decay = 2^(-Δtotal_updates / 500)`. The same EMA values appear on both axes; the right panel changes only the horizontal coordinate to observation updates. This accounts for irregular validation intervals, including extra milestone checks. Filled circles mark the raw scores at the three report checkpoints. The two obs-only checkpoints belong to the same training trajectory.
+
+Both curves use the identical frozen validation-climatology reference and the established integrated-plus-spectral score. Smoothing is for display; it does not change checkpoint selection or the reported endpoint numbers. [Raw points, EMA values and definition](artifacts/2026-10-01-global-validation-ema/validation-curve-results.json.gz) · [Source hashes and checks](artifacts/2026-10-01-global-validation-ema/provenance.json.gz).
+
 ## Learned initializer fields and observation context
 
 SST and SSH reference panels show the **same final five-day history interval** used by the initializer: the five days immediately before the forecast origin. Available surface values are copied into the initialized state by construction; agreement there verifies the supplied state, rather than learned reconstruction skill. **These panels do not test whether the network learns an identity function: an explicit overwrite supplies observed SST/SSH after the network runs.** Their learned surface behavior is confined to missing ocean cells. The [pinned initializer code](https://github.com/m2lines/Samudra/blob/79025a163817a577ab81af95b401f5cb0563cd12/src/samudra/experiments/initializer_models.py#L240) implements this overwrite. **Gray marks fixed model land (or the field’s depth mask); white marks missing observations within model ocean cells.** In missing ocean cells the initializer learns a completion from history, geography, season and forcing.

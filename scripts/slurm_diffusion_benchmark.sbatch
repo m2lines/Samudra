@@ -22,11 +22,12 @@ image=/orcd/scratch/orcd/014/jrusak/apptainer_cache/images/diffusion-26.05-9cd36
 export TORCHINDUCTOR_COMPILE_THREADS=2
 variants=()
 if [[ "${COMPILE_TEST:-0}" == 1 ]]; then
-  variants=(--variants baseline compiled_decoder compiled_norm skip_initial compiled_skip_initial)
+  variants=(--variants baseline compiled_decoder skip_initial compiled_skip_initial)
 fi
 export SAMUDRA_CODE_COMMIT="$CODE_COMMIT"
 export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 PYTHONUNBUFFERED=1 PYTHONNOUSERSITE=1
 srun --gpus-per-task=1 apptainer exec --nv --bind "$code:/pilot-code,/orcd:/orcd" "$image" \
   env PYTHONPATH=/pilot-code/src /workspace/.venv/bin/python -m samudra.experiments.diffusion_benchmark \
   --root "$root" --checkpoint "$root/runs/latent-d192-extended-v1/D-1729/observation/best.pt" \
-  --output "$root/runs/latent-performance-v1/job-$SLURM_JOB_ID" "${variants[@]}"
+  --output "$root/runs/latent-performance-v1/job-$SLURM_JOB_ID" "${variants[@]}" \
+  --precision "${BENCHMARK_PRECISION:-bf16}" --sample-index "${SAMPLE_INDEX:-0}"

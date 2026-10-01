@@ -27,6 +27,8 @@ def main():
     parser.add_argument("--warmup", type=int, default=2)
     parser.add_argument("--repeats", type=int, default=3)
     parser.add_argument("--profile", action="store_true")
+    parser.add_argument("--precision", choices=("bf16", "float32"), default="bf16")
+    parser.add_argument("--sample-index", type=int, default=0)
     args = parser.parse_args()
     if args.output.exists():
         raise ValueError("Use a fresh benchmark output directory")
@@ -40,20 +42,21 @@ def main():
     data.use_observation_normalization()
     paths = data.paths("train")
     start = time.perf_counter()
-    sample = data.load(paths[0])
+    sample = data.load(paths[args.sample_index])
     torch.cuda.synchronize()
     load_seconds = time.perf_counter() - start
     results = dict(
         scope="Fixed real observation sample, full two-member CRPS optimizer updates; excludes OM4 replay, validation, I/O and checkpoint saves. Benchmark weights discarded.",
         gpu=torch.cuda.get_device_name(),
+        precision=args.precision,
         torch_version=torch.__version__,
         cuda_version=torch.version.cuda,
         cudnn_version=torch.backends.cudnn.version(),
         producer=os.environ["SAMUDRA_CODE_COMMIT"],
         job=os.environ.get("SLURM_JOB_ID"),
         checkpoint_sha256=digest(args.checkpoint),
-        sample=str(paths[0]),
-        sample_sha256=digest(paths[0]),
+        sample=str(paths[args.sample_index]),
+        sample_sha256=digest(paths[args.sample_index]),
         forecast_leads=len(sample["month_weights"]),
         load_seconds=load_seconds,
         variants={},
@@ -90,7 +93,9 @@ def main():
             torch.cuda.synchronize()
             torch.cuda.reset_peak_memory_stats()
             started = time.perf_counter()
-            with torch.autocast("cuda", dtype=torch.bfloat16):
+            with torch.autocast(
+                "cuda", dtype=torch.bfloat16, enabled=args.precision == "bf16"
+            ):
                 predictions, initial = model.forecast(
                     sample["surface"],
                     sample["atmosphere"],
@@ -126,7 +131,7 @@ def main():
             record = dict(
                 index=index,
                 warmup=index < args.warmup,
-                loss=float(loss),
+                loss=float(loss.detach()),
                 gradient_norm=float(norm),
                 forward_seconds=forward_end - started,
                 backward_seconds=backward_end - forward_end,

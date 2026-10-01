@@ -15,6 +15,7 @@ from samudra.experiments.diffusion_latent import (
     LatentHistoryEncoder,
     PersistentLatentProcessor,
 )
+from samudra.experiments.diffusion_noise import diffusion_noise
 from samudra.experiments.joint_diffusion import (
     JointInteriorDecoder,
     channel_balanced_mse,
@@ -217,11 +218,13 @@ class LatentOceanForecast(nn.Module):
                 initials.append(self.readout(states[0], mask, generator, known, anchor))
             elif self.stochastic:
                 # Initial physical readouts never enter recurrence or forecast loss.
-                # Consume their one noise draw to preserve every subsequent sample.
-                torch.randn(
+                # Consume their configured noise draws to preserve subsequent samples.
+                diffusion_noise(
                     (initial.shape[0], 2 * self.channels, *mask.shape[-2:]),
-                    device=initial.device,
-                    generator=generator,
+                    mask.repeat(2, 1, 1),
+                    generator,
+                    self.decoder.noise_correlation,
+                    self.decoder.paired_noise_draws,
                 )
             trajectories.append(
                 torch.stack(

@@ -42,6 +42,8 @@ def load_latent_checkpoint(path, data):
         decoder_width=signature["decoder_width"],
         sampling_steps=signature["sampling_steps"],
     ).to(data.device)
+    model.decoder.noise_correlation = signature.get("noise_correlation", 0.0)
+    model.decoder.paired_noise_draws = signature.get("paired_noise_draws", False)
     model.load_state_dict(saved["model"], strict=True)
     model.eval()
     if signature.get("execution", {}).get("compile_decoder", False):

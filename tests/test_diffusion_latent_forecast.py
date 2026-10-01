@@ -246,12 +246,14 @@ def test_compiled_decoder_keeps_portable_checkpoint_keys(tmp_path):
     torch.testing.assert_close(expected, reloaded, rtol=0, atol=0)
 
 
-def test_selected_readouts_preserve_full_forecast_members_and_rng():
+@pytest.mark.parametrize("correlation", [0.0, 0.5])
+def test_selected_readouts_preserve_full_forecast_members_and_rng(correlation):
     from samudra.experiments.diffusion_endpoint_maps import selected_readouts
 
     torch.set_num_threads(1)
     torch.manual_seed(41)
     model = model_for_test(True).eval()
+    model.decoder.noise_correlation = correlation
     surface = torch.randn(1, 3, 2, 8, 12)
     atmosphere = torch.randn(1, 7, 8, 8, 12)
     contexts = torch.randn(1, 7, 5, 8, 12)

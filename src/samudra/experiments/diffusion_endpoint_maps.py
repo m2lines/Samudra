@@ -13,6 +13,7 @@ import torch
 
 from samudra.experiments.diffusion_checkpoint_status import verify_checkpoint
 from samudra.experiments.diffusion_latent_report import load_latent_checkpoint
+from samudra.experiments.diffusion_noise import diffusion_noise
 from samudra.experiments.diffusion_report import verified_annual_origins
 from samudra.experiments.initializer_wave import InitializerWave
 from samudra.experiments.observation_annual import inputs, read_origin
@@ -31,8 +32,8 @@ def selected_readouts(
 ):
     """Preserve the full forecast RNG stream while skipping unused Heun decodes.
 
-    sample_joint draws exactly one full-state Gaussian per readout; decoded fields
-    never enter recurrence. This retains identical requested draws and final RNG.
+    Consume the configured noise draws for every readout; decoded fields never
+    enter recurrence. This retains identical requested draws and final RNG.
     """
     if not model.stochastic or max(leads) >= len(states):
         raise ValueError("Require stochastic latent trajectory covering every lead")
@@ -43,10 +44,12 @@ def selected_readouts(
             if step in leads:
                 selected.append(model.readout(state, mask, generator)[:, -1].float())
             else:
-                torch.randn(
+                diffusion_noise(
                     (state.shape[0], 2 * model.channels, *mask.shape[-2:]),
-                    device=state.device,
-                    generator=generator,
+                    mask.repeat(2, 1, 1),
+                    generator,
+                    model.decoder.noise_correlation,
+                    model.decoder.paired_noise_draws,
                 )
         result.append(torch.stack(selected, 1))
     return torch.stack(result)

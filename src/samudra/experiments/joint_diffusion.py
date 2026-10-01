@@ -8,16 +8,19 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
+from samudra.experiments.diffusion_noise import diffusion_noise
 from samudra.experiments.initializer_diffusion import OceanConv, ResidualBlock
 
 
 class JointInteriorDecoder(nn.Module):
     """Shared parameters for different target grids; the conditioning grid stays fixed."""
 
-    def __init__(self, conditions, fields, width=64):
+    def __init__(self, conditions, fields, width=64, noise_correlation=0.0):
         super().__init__()
         if width <= 0 or width % 8:
             raise ValueError("Decoder width must be a positive multiple of eight")
+        self.noise_correlation = noise_correlation
+        self.paired_noise_draws = False
         self.fields = fields
         self.embedding = nn.Sequential(
             nn.Linear(64, 128), nn.SiLU(), nn.Linear(128, 128)
@@ -105,7 +108,13 @@ def denoising_loss(
         torch.randn(target.shape[0], device=target.device, generator=generator) * 1.2
         - 1.2
     ).exp()
-    noise = torch.randn(target.shape, device=target.device, generator=generator) * mask
+    noise = diffusion_noise(
+        target.shape,
+        mask,
+        generator,
+        decoder.noise_correlation,
+        decoder.paired_noise_draws,
+    )
     noisy = target + sigma[:, None, None, None] * noise
     if known_mask is not None:
         if known_mask.shape not in (mask.shape, target.shape):
@@ -178,7 +187,14 @@ def sample_joint(
     ) ** 7
     sigmas = torch.cat((sigmas, sigmas.new_zeros(1)))
     state = anchor(
-        torch.randn(shape, device=latent.device, generator=generator) * sigmas[0]
+        diffusion_noise(
+            shape,
+            mask,
+            generator,
+            decoder.noise_correlation,
+            decoder.paired_noise_draws,
+        )
+        * sigmas[0]
     )
     for current, following in zip(sigmas[:-1], sigmas[1:], strict=True):
         derivative = (state - denoise(state, current)) / current

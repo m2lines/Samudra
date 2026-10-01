@@ -32,6 +32,10 @@ def main():
         raise ValueError("Use a fresh benchmark output directory")
     args.output.mkdir(parents=True)
     torch.set_num_threads(1)
+    # GroupNorm has many fixed channel/spatial shapes in this multi-scale model.
+    # Default per-code-object specialization limits are too small for this test.
+    torch._dynamo.config.recompile_limit = 64
+    torch._dynamo.config.accumulated_recompile_limit = 256
     data = Samples(args.root / "data/observations", "cuda")
     data.use_observation_normalization()
     paths = data.paths("train")

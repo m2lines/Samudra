@@ -22,7 +22,7 @@ image=/orcd/scratch/orcd/014/jrusak/apptainer_cache/images/diffusion-26.05-9cd36
 export TORCHINDUCTOR_COMPILE_THREADS=2
 variants=()
 if [[ "${COMPILE_TEST:-0}" == 1 ]]; then
-  variants=(--variants baseline compiled_norm compiled_decoder)
+  variants=(--variants baseline compiled_decoder compiled_norm skip_initial compiled_skip_initial)
 fi
 export SAMUDRA_CODE_COMMIT="$CODE_COMMIT"
 export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 PYTHONUNBUFFERED=1 PYTHONNOUSERSITE=1

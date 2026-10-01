@@ -6,8 +6,8 @@
 Authorized October 1: **one seed, two fresh OM4-only runs, 2,000 updates each**.
 The comparison isolates spatial noise covariance under a small total training
 budget. It does not continue the 23,500-update selected model and does not use
-observation fine-tuning. Status: array **24559159** is running on Engaging, one L40S per arm,
-producer `ed27d5a97`. No scientific result yet. Noise-variance, coastline,
+observation fine-tuning. Status: replacement array **24560409** was submitted on Engaging, one L40S per arm,
+producer `ac336c62b`. No scientific result yet. Noise-variance, coastline,
 periodic-boundary, paired-RNG and analytic Gaussian-sampler checks pass.
 
 Both arms start from the identical saved scratch step-0 weights in
@@ -66,6 +66,13 @@ Two single-L40S jobs have a two-hour allocation cap each, including preparation
 and evaluation (at most four newly allocated GPU-hours before any recovery).
 Training checkpoints permit resume after preemption without resetting updates.
 The existing campaign total before this pilot is 223.5028 / 576 GPU-hours.
+
+The first array, 24559159 (`ed27d5a97`), was stopped before training: both jobs
+waited on the shared-filesystem read of an old physical checkpoint loaded by the
+legacy data-loader wrapper. That physical model is unused in this experiment.
+The replacement removes only that unnecessary load and uses a separate output
+directory, `correlated-noise-scratch-v2`. The first attempt consumed 0.445 GPU-hours
+(two allocations of 801 seconds); its outputs are not scientific results.
 
 Implementation: [noise generator](../../../src/samudra/experiments/diffusion_noise.py),
 [training and member export](../../../src/samudra/experiments/diffusion_correlated_pilot.py),

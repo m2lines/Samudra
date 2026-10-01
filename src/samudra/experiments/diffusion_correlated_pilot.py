@@ -133,7 +133,9 @@ def main():
         normalization="instance",
         observation_normalization_root=str(data.root),
         fresh_evolution=True,
-        initial_checkpoint=str(args.root / "checkpoints/om4-source/selected.pt"),
+        # This legacy loader constructs an unused physical model. Do not load
+        # its old checkpoint: the trained latent model was loaded above.
+        initial_checkpoint="",
         wave1_root="",
         val_origins=12,
         device_cache=True,

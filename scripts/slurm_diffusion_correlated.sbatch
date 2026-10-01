@@ -27,4 +27,4 @@ export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 PYTHONUNBUFFER
 srun --gpus-per-task=1 apptainer exec --nv --bind "$code:/pilot-code,/orcd:/orcd" "$image" \
  env PYTHONPATH=/pilot-code/src /workspace/.venv/bin/python -m samudra.experiments.diffusion_correlated_pilot \
  --root "$root" --checkpoint "$root/runs/latent-d192-v2/D-1729/om4/best.pt" \
- --output "$root/runs/correlated-noise-scratch-v1/$arm" --updates 2000 --hours 1.5 --correlation "$correlation"
+ --output "$root/runs/correlated-noise-scratch-v2/$arm" --updates 2000 --hours 1.5 --correlation "$correlation"

@@ -97,6 +97,9 @@ def main():
     state, lineage = load_fixed_checkpoint(run, spec["checkpoint"], "test", 8000, 8000)
     assert lineage["checkpoint_sha256"] == spec["checkpoint_sha256"]
     assert lineage["training_manifest_sha256"] == spec["manifest_sha256"]
+    assert manifest["arguments"].get("latent_channels", 0) == spec.get(
+        "latent_channels", 0
+    )
     options = SimpleNamespace(**manifest["arguments"])
     options.output = str(root / "om4-loader")
     options.name = "velocity-task-diagnostic"
@@ -217,6 +220,7 @@ def main():
                         *inputs, task=task
                     )
             initial = outputs["om4_om4"]
+            assert initial.shape[2] == n + spec.get("latent_channels", 0)
             states = initial
             predicted = []
             for lead in range(1, 7):
@@ -234,8 +238,12 @@ def main():
         record = {
             "history_midpoints": [str(t) for t in desired],
             "surface": {},
-            "reconstruction": breakdown(initial, truth, om4.weights, names, True),
-            "forecast": breakdown(forecast, labels, om4.weights, names, False),
+            "reconstruction": breakdown(
+                initial[:, :, :n], truth, om4.weights, names, True
+            ),
+            "forecast": breakdown(
+                forecast[:, :, :n], labels, om4.weights, names, False
+            ),
         }
         physical = {key: data.physical(v)[0, -1] for key, v in outputs.items()}
         target = data.physical(truth)[0, -1]
@@ -251,7 +259,10 @@ def main():
             for c in [0, 19]
         }
         saved_path = Path(
-            "/scratch/jr7309/runs/2026-09-29-observation-global/global-endpoint-annual"
+            spec.get(
+                "annual_reference",
+                "/scratch/jr7309/runs/2026-09-29-observation-global/global-endpoint-annual",
+            )
         ) / (origin + ".npz")
         saved = np.load(saved_path)["initial"][-1]
         actual = physical["obs_observation"].cpu().numpy()

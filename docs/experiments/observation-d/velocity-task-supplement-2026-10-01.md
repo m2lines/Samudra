@@ -65,3 +65,7 @@ A useful next intervention would replace or disrupt U/V during observation forec
 Frozen checkpoint `7ca22c101324f176983415c58c218149464fac79b4397eca6bf2c5012bc9d3c3`, original runtime producer `79025a163817a577ab81af95b401f5cb0563cd12`. The canonical Rust OM4 reader supplies the original normalization and masks; model-space conversion follows the training path. The inference source is explicitly attached to that native reader. Exact time alignment, common masks, checkpoint counts/hashes, runtime-source hashes, observation-state reproduction and recomposition of the original balanced losses all passed. Maps retain ±0.5 m/s scales and one pixel per grid cell. The appendix contains every per-channel error and both dates separately.
 
 Successful job **18974877** completed in 42 seconds on one RTX GPU. Two earlier diagnostic setup attempts failed before inference (27 and 29 seconds); records are retained. Total actual allocation, including both failures, is **0.0272 GPU-hours**. No weights, training schedules or checkpoint selection changed. [Full results, source, plotting audit and execution records](artifacts/2026-10-01-velocity-task-audit/provenance.json.gz).
+
+## Follow-up: explicit memory channels
+
+The [same analysis on Global + 10 memory channels](velocity-memory-supplement-2026-10-01.md) finds no consistent reduction of this task dependence: observation-path current correlations fall, and adapter sensitivity decreases for U but increases for V on fixed OM4 inputs.

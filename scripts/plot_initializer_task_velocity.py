@@ -20,6 +20,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--arrays", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--label", default="Mixed checkpoint")
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
     meta = json.loads((args.arrays / "COMPLETE.json").read_text())
@@ -44,7 +45,7 @@ def main():
             filename = origin + "-" + name + ".png"
             audit[filename] = panel_plot(
                 panels,
-                f"Mixed checkpoint: surface {name} velocity before {origin}; frozen weights",
+                f"{args.label}: surface {name} velocity before {origin}; frozen weights",
                 (channel, name, "m/s", (-0.5, 0.5), "RdBu_r"),
                 args.output / filename,
                 distinguish_missing=True,

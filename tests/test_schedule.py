@@ -1,3 +1,4 @@
+import pytest
 import torch
 
 from ocean_emulators.utils.schedule import (
@@ -5,6 +6,7 @@ from ocean_emulators.utils.schedule import (
     CosineWithTailSchedulerConfig,
     CosineWithWarmupConfig,
     EpochMultiplierScheduler,
+    linear_warmup_factor,
 )
 
 
@@ -161,3 +163,37 @@ def test_epoch_multiplier_scheduler_scales_epochs_without_warping_base_cosine():
         base_lr_history[3] * 1.0,
     ]
     assert lr_history == expected
+
+
+# --------------------------------------------------------------------------
+# Step-level warmup
+# --------------------------------------------------------------------------
+
+
+def test_the_ramp_starts_low_and_is_exactly_full_at_the_last_step() -> None:
+    total, start = 3200, 1e-3
+    assert linear_warmup_factor(1, total, start) == pytest.approx(start)
+    assert linear_warmup_factor(total, total, start) == 1.0
+    # Halfway in steps is halfway in LR: the ramp is linear.
+    middle = linear_warmup_factor(1 + (total - 1) // 2, total, start)
+    assert middle == pytest.approx(start + (1.0 - start) / 2, rel=1e-3)
+
+
+def test_the_ramp_never_pulls_the_rate_back_down_afterwards() -> None:
+    for step in (3200, 3201, 10_000, 1_000_000):
+        assert linear_warmup_factor(step, 3200, 1e-3) == 1.0
+
+
+def test_the_ramp_is_monotonic() -> None:
+    factors = [linear_warmup_factor(n, 3200, 1e-3) for n in range(1, 3400)]
+    assert factors == sorted(factors)
+
+
+def test_zero_steps_disables_it() -> None:
+    assert linear_warmup_factor(1, 0, 1e-3) == 1.0
+
+
+def test_a_nonsense_start_factor_is_refused() -> None:
+    for bad in (0.0, -1.0, 1.5):
+        with pytest.raises(ValueError, match="start_factor"):
+            linear_warmup_factor(1, 100, bad)

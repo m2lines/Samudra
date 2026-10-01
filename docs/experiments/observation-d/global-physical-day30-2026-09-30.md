@@ -140,6 +140,25 @@ Surface scores use **January 26–30** of 2015/2018/2021, exactly the day-30 map
 
 On this cohort, obs-only 16k has lower SST and upper-OHC error; mixed has lower geostrophic velocity and deep-OHC error. See the applicability decisions below before comparing with the original suite's published long-rollout numbers.
 
+### Why is OM4 OHC error larger?
+
+A follow-up audit reproduces the scores and finds that **a global offset does not explain most of the gap**. Below, bias is prediction minus IAP, averaged over the three January cases. Centered RMSE removes each case's area-weighted mean error before pooling its spatial squared errors. All entries are GJ/m², on the identical comparison support; centered scores are diagnostics and do not replace the official-kernel table.
+
+| Model | Layer | RMSE | Mean bias | Centered RMSE |
+|---|---|---:|---:|---:|
+| Date-matched OM4 1° (context) | 0–700 m | 2.089 | -0.380 | 2.054 |
+| Date-matched OM4 1° (context) | 700–2000 m | 1.578 | -0.804 | 1.358 |
+| Final: 8,000 obs | 0–700 m | 0.764 | -0.449 | 0.617 |
+| Final: 8,000 obs | 700–2000 m | 0.470 | -0.208 | 0.422 |
+| Obs-only: 16,000 obs | 0–700 m | 0.727 | -0.382 | 0.619 |
+| Obs-only: 16,000 obs | 700–2000 m | 0.482 | -0.184 | 0.445 |
+
+OM4's upper-layer RMSE is equivalent to about **0.75°C** error in the 700-m layer-average temperature; its deep-layer error corresponds to about **0.30°C** over 1,300 m. The extraction uses °C, exact model layer thicknesses, full monthly overlap weights, the same heat-capacity/density constants and matching complete-column masks. No unit or pairing error was found in these checks. A double-precision bias/variance decomposition reproduces every previously reported per-case OHC MSE within 2×10⁻⁶ relative error.
+
+As a magnitude check, the [original metrics commit](https://github.com/m2lines/Samudra/commit/14455906efb26e227171b4c467fe4589d95aa01e) reported OM4 OHC RMSEs of about **3.01/2.20 GJ/m²** for the two layers. That uses a different resolution, cohort and support, so it is not a numerical acceptance target for our **2.09/1.58** result; it shows that multi-GJ/m² OM4 errors are not unprecedented.
+
+The defensible interpretation is improved agreement with **IAP**, which directly supervises the learned models. OM4 is a separate simulated realization with its own mean spatial structure; this audit does not separate persistent regional climatology differences from time-varying mismatch. Lower IAP RMSE alone does not establish better ocean dynamics, and the previously documented vertical-representation differences remain. All six months and four models' decompositions are archived in the metric provenance.
+
 ### Official metric definitions: applicability to these rollouts
 
 These tables use the numerical kernels from [the official metrics commit `14455906`](https://github.com/m2lines/Samudra/commit/14455906efb26e227171b4c467fe4589d95aa01e), with explicit fixed-lead adaptations. They are **not the unmodified complete-calendar-year official report**, and do not replace the training selection score. “Final: 8,000 obs” is the mixed 8k OM4 + 8k observation endpoint; the two obs-only rows are the fixed 8k and 16k endpoints defined above. OM4 is the date-matched simulation reference, not an observation-initialized forecast.

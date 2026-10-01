@@ -3098,3 +3098,7 @@ Added day30/day365 native-grid SST, SSH-derived geostrophic velocity and monthly
 ### 2026-10-01: missing OM4 OHC baseline completed
 
 Filled both native-IAP OHC columns for OM4: January upper/deep RMSE 2.089/1.578 GJ/m²; December 2.102/1.563 GJ/m², equal-case MSE aggregation across 2015/2018/2021. Full-month overlap weights and native depth integration verified. OM4 complete-column masks and pairing fractions exactly match learned-model rows; existing metrics unchanged. CPU extraction 18978279 (9 s), failed schema attempt 18978273 (6 s), scoring 112642 (6 s); all recorded, no GPU allocation.
+
+### 2026-10-01: audit of OM4 OHC error magnitude
+
+Units/coverage/layer/support checks and native-grid double-precision bias decomposition support the reported gap. January upper OHC OM4 RMSE 2.089 remains 2.054 GJ/m² after removing each case mean bias; mixed 0.764 becomes 0.617. Thus this is largely spatial disagreement with IAP, not simply a global offset. No published metric changed. CPU audit job 112651 completed after 112648 hit an overly strict float32 decomposition tolerance; both records archived. Report adds comparison with the original commit’s different-cohort OM4 magnitude and limits interpretation to agreement with IAP.

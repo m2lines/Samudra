@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-FileCopyrightText: 2026 Samudra Authors
 # SPDX-License-Identifier: Apache-2.0
-"""CPU-only OM4 references matched to the final five days of annual forecasts."""
+"""CPU-only OM4 samples matched to five-day forecast intervals."""
 
 import argparse
 import hashlib
@@ -27,7 +27,11 @@ def main():
     parser.add_argument(
         "--grid", type=Path, default=Path("/scratch/jr7309/data/obs-d-pilot/grid.npz")
     )
+    parser.add_argument("--lead-days", type=int, nargs="+", default=[365])
+    parser.add_argument("--map-fields", action="store_true")
     args = parser.parse_args()
+    if any(lead < 5 for lead in args.lead_days):
+        parser.error("lead-days must be at least five")
     out = args.output
     out.mkdir(parents=True, exist_ok=True)
     if (out / "COMPLETE.json").exists():
@@ -39,43 +43,46 @@ def main():
     stamps = pd.DatetimeIndex([str(v) for v in ds.time.values])
     centers = stamps.to_numpy(dtype="datetime64[ns]").astype("int64") / 1e9 / 86400
     origins = ["2015-01-01", "2018-01-01", "2021-01-01"]
-    frames = []
-    alignment = []
-    for origin in origins:
-        start = pd.Timestamp(origin) + pd.Timedelta(days=360)
-        lo = start.value / 1e9 / 86400
-        overlap = np.maximum(
-            0, np.minimum(centers + 2.5, lo + 5) - np.maximum(centers - 2.5, lo)
-        )
-        indices = np.flatnonzero(overlap > 0)
-        assert np.isclose(overlap.sum(), 5)
-        weights = overlap[indices] / 5
-        values = np.stack(
-            [ds[k].isel(time=indices).values for k in ["thetao_0", "zos"]], axis=1
-        )
-        finite = np.isfinite(values).all(0)
-        frame = np.sum(
-            np.where(np.isfinite(values), values, 0) * weights[:, None, None, None],
-            axis=0,
-        )
-        frames.append(np.where(finite, frame, np.nan))
-        alignment.append(
-            {
-                "origin": origin,
-                "lead_days": 365,
-                "start": str(start.date()),
-                "end": str((start + pd.Timedelta(days=5)).date()),
-                "source_midpoints": [str(stamps[i]) for i in indices],
-                "overlap_weights": weights.tolist(),
-            }
-        )
-    np.savez_compressed(
-        out / "om4-day365.npz",
-        surface=frames,
-        lat=grid["lat"],
-        lon=grid["lon"],
-        origins=origins,
+    fields = (
+        ["thetao_9", "so_0", "uo_0", "vo_0"] if args.map_fields else ["thetao_0", "zos"]
     )
+    alignment = []
+    for lead in args.lead_days:
+        frames = []
+        for origin in origins:
+            start = pd.Timestamp(origin) + pd.Timedelta(days=lead - 5)
+            lo = start.value / 1e9 / 86400
+            overlap = np.maximum(
+                0, np.minimum(centers + 2.5, lo + 5) - np.maximum(centers - 2.5, lo)
+            )
+            indices = np.flatnonzero(overlap > 0)
+            assert np.isclose(overlap.sum(), 5)
+            weights = overlap[indices] / 5
+            values = np.stack([ds[k].isel(time=indices).values for k in fields], axis=1)
+            finite = np.isfinite(values).all(0)
+            frame = np.sum(
+                np.where(np.isfinite(values), values, 0) * weights[:, None, None, None],
+                axis=0,
+            )
+            frames.append(np.where(finite, frame, np.nan))
+            alignment.append(
+                {
+                    "origin": origin,
+                    "lead_days": lead,
+                    "start": str(start.date()),
+                    "end": str((start + pd.Timedelta(days=5)).date()),
+                    "source_midpoints": [str(stamps[i]) for i in indices],
+                    "overlap_weights": weights.tolist(),
+                }
+            )
+        np.savez_compressed(
+            out / f"om4-day{lead}.npz",
+            **{"values" if args.map_fields else "surface": frames},
+            lat=grid["lat"],
+            lon=grid["lon"],
+            origins=origins,
+            fields=fields,
+        )
     report = {
         "script_sha256": digest(Path(__file__)),
         "om4_source": str(args.om4),
@@ -83,6 +90,10 @@ def main():
         "grid_source": str(args.grid),
         "grid_sha256": digest(args.grid),
         "alignment": alignment,
+        "fields": fields,
+        "lead_days": args.lead_days,
+        "field_attributes": {name: ds[name].attrs for name in fields},
+        "reference_role": "Date-matched OM4 model-data sample, not observational ground truth",
         "files": {
             p.name: {"sha256": digest(p), "bytes": p.stat().st_size}
             for p in out.glob("*.npz")

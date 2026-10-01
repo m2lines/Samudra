@@ -3,6 +3,7 @@
 """Day-30 maps, regional spectra and undetrended annual global means."""
 
 import argparse
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -39,6 +40,8 @@ parser.add_argument("--arrays", type=Path, required=True)
 parser.add_argument("--native", type=Path, required=True)
 parser.add_argument("--output", type=Path, required=True)
 parser.add_argument("--heat-context", type=Path)
+parser.add_argument("--om4-map-references", type=Path)
+parser.add_argument("--maps-only", action="store_true")
 args = parser.parse_args()
 arrays_root = args.arrays
 native_root = args.native
@@ -116,6 +119,27 @@ results = {
     "profiles": {},
     "reference_coverage": {},
 }
+om4_maps = {}
+om4_map_manifest = None
+if args.om4_map_references:
+    reference_root = args.om4_map_references
+    om4_map_manifest = json.loads((reference_root / "COMPLETE.json").read_text())
+    assert om4_map_manifest["metadata_sha256"] == meta["om4"]["metadata_sha256"]
+    assert om4_map_manifest["fields"] == ["thetao_9", "so_0", "uo_0", "vo_0"]
+    for lead in [30, 365]:
+        path = reference_root / f"om4-day{lead}.npz"
+        receipt = om4_map_manifest["files"][path.name]
+        assert path.stat().st_size == receipt["bytes"]
+        assert hashlib.sha256(path.read_bytes()).hexdigest() == receipt["sha256"]
+        values = dict(np.load(path))
+        np.testing.assert_array_equal(values["lat"], lat)
+        np.testing.assert_array_equal(values["lon"], lon)
+        np.testing.assert_array_equal(
+            values["origins"], ["2015-01-01", "2018-01-01", "2021-01-01"]
+        )
+        np.testing.assert_array_equal(values["fields"], grid["names"][[1, 2, 4, 5]])
+        om4_maps[lead] = values
+    results["om4_map_reference"] = om4_map_manifest
 for origin in ["2015-01-01", "2018-01-01", "2021-01-01"]:
     arrays = {
         k: dict(np.load(arrays_root / (k + "-" + origin + ".npz"))) for k, _ in STAGES
@@ -162,6 +186,25 @@ for origin in ["2015-01-01", "2018-01-01", "2021-01-01"]:
                 reference_label = "DUACS geostrophic proxy (not target)"
             if reference_label:
                 panels.append((reference_label, truth, grid))
+            if phase != "initial" and c in [1, 2, 4, 5] and om4_maps:
+                assert om4_map_manifest is not None
+                lead = 30 if phase == "day30" else 365
+                sample = om4_maps[lead]
+                index = list(sample["origins"]).index(origin)
+                om4_state = np.full_like(arrays["obs08000"]["initial"], np.nan)
+                om4_state[[1, 2, 4, 5]] = sample["values"][index]
+                interval = next(
+                    record
+                    for record in om4_map_manifest["alignment"]
+                    if record["origin"] == origin and record["lead_days"] == lead
+                )
+                start = pd.Timestamp(origin) + pd.Timedelta(days=lead - 5)
+                end = start + pd.Timedelta(days=5)
+                assert interval["start"] == str(start.date()) and interval[
+                    "end"
+                ] == str(end.date())
+                om4_label = f"OM4 model-data sample: {start.date()} to {(end - pd.Timedelta(days=1)).date()}"
+                panels.append((om4_label, om4_state, grid))
             name = f"{origin}-{phase}-channel{c}.png"
             if reference_label:
                 missing = wet[c] & ~np.isfinite(truth[c])
@@ -181,6 +224,11 @@ for origin in ["2015-01-01", "2018-01-01", "2021-01-01"]:
                 figure_root / name,
                 distinguish_missing=True,
             )
+if args.maps_only:
+    (figure_root / "results.json").write_text(json.dumps(results, indent=2) + "\n")
+    print("MAP_RENDER_COMPLETE", flush=True)
+    sys.exit(0)
+
 # Broad, masked pseudo-spectra. The fixed coarse common mask is shared by every coarse curve.
 
 results["spectra"] = regional_spectra(

@@ -3086,3 +3086,7 @@ Job18974877 completed0:0 in42seconds; earlier setup failures18974799/18974840 (d
 ### 2026-10-01: ten-channel velocity/task diagnostic completed
 
 Repeated the frozen physical-only analysis on the matched global +10 memory endpoint (8k OM4 +8k obs), retaining 87 channels. Job 18976718 completed 0:0 in 43 s / 0.0119 GPU-hours, no retries. Both dates exactly reproduce archived physical initialization. Extra memory does not consistently reduce task dependence: observation-path U/V correlations with OM4 are 0.169/0.069 versus 0.312/0.195; fixed-OM4-input adapter sensitivity falls for U but increases for V. Same targets/masks and six-step loss decomposition verified. [Report and evidence](velocity-memory-supplement-2026-10-01.md). No retraining or selection changes.
+
+### 2026-10-01: OM4 context added to SST/SSH rollout maps
+
+Added date-matched OM4 SST and SSH to all 12 day30/day365 endpoint figures (2015/2018/2021). Complete five-day coverage verified; original 48 model/observation tiles remain pixel-identical, other maps unchanged. Day365 OM4 references exactly reproduce existing spectral data. CPU job 18977362 completed 0:0 in 7 s, zero GPU-hours. [Report](global-physical-day30-2026-09-30.md) and surface-reference audit updated; no forecast metrics or selection changed.

@@ -3032,3 +3032,7 @@ Training 18890321 remains running at 11,878 observation / zero OM4 updates. Late
 ### 2026-10-01 03:16 ET: matched global scratch check
 
 Training 18890321 remains running at 12,992 observation / zero OM4 updates. Latest global integrated-plus-spectral validation is 0.595196 at 12,900; best is 0.579615 at 11,200. Loss and gradients remain finite. Actual accumulated allocation is 11.8972 GPU-hours; recent mean GPU utilization is 72.5%. No completion or partial marker is present. Four endpoint GPU evaluations and the final comparison/interior CPU exports remain pending their successful dependencies. Throughput projects approximately 2.7 training hours remaining (05:58 ET October 01), before queued evaluation/export/reporting. [Full check](artifacts/2026-09-30-global-scratch/hour12.json.gz).
+
+### 2026-10-01 04:16 ET: matched global scratch check
+
+Training 18890321 remains running at 14,097 observation / zero OM4 updates. Latest global integrated-plus-spectral validation is 0.606079 at 14,000; best is 0.579615 at 11,200. Loss and gradients remain finite. Actual accumulated allocation is 12.8958 GPU-hours; recent mean GPU utilization is 70.2%. No completion or partial marker is present. Four endpoint GPU evaluations and the final comparison/interior CPU exports remain pending their successful dependencies. Throughput projects approximately 1.7 training hours remaining (05:59 ET October 01), before queued evaluation/export/reporting. [Full check](artifacts/2026-09-30-global-scratch/hour13.json.gz).

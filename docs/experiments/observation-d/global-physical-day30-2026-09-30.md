@@ -3,9 +3,9 @@
 
 # Global physical-only: initialization, day-30 structure and annual heat content
 
-**OM4 mixing helps at equal observation exposure, but twice as many observation updates closes the monthly score gap.** At day 30, mixed training reaches SST/SSH RMSE of 0.640°C/0.0792 m; obs-only reaches 0.694°C/0.0886 m at 8k and 0.572°C/0.0826 m at 16k. Mixed retains better SSH spectra and visibly less pronounced annual SST ripples. Learned initializer T/S fields are very similar at the endpoints. These results suggest a benefit to forecast structure, rather than a large unique advantage in recovering the initial interior state.
+**OM4 mixing helps at equal observation exposure, but twice as many observation updates closes the monthly score gap.** At day 30, mixed training reaches SST/SSH RMSE of 0.640°C/0.0792 m; obs-only reaches 0.694°C/0.0886 m at 8k and 0.572°C/0.0826 m at 16k. Mixed retains better day-30 SSH spectra and visibly less pronounced annual SST ripples. Learned initializer T/S fields are very similar at the endpoints. These results suggest a benefit to forecast structure, rather than a large unique advantage in recovering the initial interior state.
 
-This report follows the global physical-only mixed model through four saved training stages and adds a **completed, matched observation-only run at 8k and 16k**. Spatial spectra and surface-error diagnostics use **day 30 only**. The established combined benchmark is separately labeled because it also includes other leads and monthly OHC. Annual global means, OHC totals in ZJ and maps remain diagnostic. None of the three endpoints beats its own inferred-initial-state persistence on that combined benchmark.
+This report follows the global physical-only mixed model through four saved training stages and adds a **completed, matched observation-only run at 8k and 16k**. The day-30 spectra and surface-error diagnostics remain separate from the added **day-365-only spectra** below; no spectral curve blends rollout leads. The established combined benchmark is separately labeled because it also includes other leads and monthly OHC. Annual global means, OHC totals in ZJ and maps remain diagnostic. None of the three endpoints beats its own inferred-initial-state persistence on that combined benchmark.
 
 ## Which checkpoints are being compared?
 
@@ -238,6 +238,34 @@ SST/SSH means use cosine-latitude weights on the model grid. OHC totals use sphe
 | Surface zonal velocity | [maps](artifacts/2026-10-01-global-physical-comparison/2015-01-01-day365-channel4.png) | [maps](artifacts/2026-10-01-global-physical-comparison/2018-01-01-day365-channel4.png) | [maps](artifacts/2026-10-01-global-physical-comparison/2021-01-01-day365-channel4.png) |
 | Surface meridional velocity | [maps](artifacts/2026-10-01-global-physical-comparison/2015-01-01-day365-channel5.png) | [maps](artifacts/2026-10-01-global-physical-comparison/2018-01-01-day365-channel5.png) | [maps](artifacts/2026-10-01-global-physical-comparison/2021-01-01-day365-channel5.png) |
 
+### Day-365 spatial spectra
+
+These use the same six regions, transform, model labels and reference products as the day-30 plots: mixed 8k, obs-only 8k/16k, OM4 1°, observations 1° and observations on their native prepared grids. Each model curve averages **three individual day-365 power spectra**, from the January 2015/2018/2021 annual rollouts. Only the 73rd output is used: **days 360–365**, December 27–31 of the corresponding year (half-open interval ending January 1). OM4 and both observation grids match that exact interval. This is a spatial endpoint spectrum, not a spectrum averaged over the year or over forecast leads.
+
+**The cohorts differ:** the day-30 panels average twelve monthly starts in 2015; these day-365 panels use three January starts in different years. Reference-power changes between the two sections can reflect season/year sampling as well as forecast behavior. The annual panels verify their references against the actual saved forecast targets; native-to-coarse masks/values and final map-versus-surface arrays agree.
+
+![Day-365 SST spectra across six regions](artifacts/2026-10-01-global-physical-day365/day365-final-sst-spectra.png)
+
+![Day-365 SSH spectra across six regions](artifacts/2026-10-01-global-physical-day365/day365-final-ssh-spectra.png)
+
+![Day-365 geostrophic KE spectra across six regions](artifacts/2026-10-01-global-physical-day365/day365-final-geostrophic-ke-spectra.png)
+
+The Tropical Pacific panels show a pronounced excess-power bump in obs-only 16k SSH and its derived geostrophic velocity. Obs-only 8k also has excess power there. Mixed avoids that bump but has too little SST power at the shortest represented wavelengths in the boundary-current regions. These are regional, field-dependent differences: plausible integrated power in other regions does not establish spatial realism, and a power spectrum cannot show whether fronts or eddies are in the right locations.
+
+For context, the same descriptive log10-power distance used above, restricted to wavelengths of at least four grid spacings and equally weighting the four boundary-current boxes, gives:
+
+| Model | SST vs obs 1° | SSH vs obs 1° | Geo. KE vs obs 1° |
+|---|---:|---:|---:|
+| Final: 8,000 obs | 0.110 | 0.144 | 0.168 |
+| Obs-only: 8,000 obs | 0.161 | 0.143 | 0.141 |
+| Obs-only: 16,000 obs | 0.168 | 0.126 | 0.152 |
+
+Mixed is closer in this SST summary; SSH/geostrophic-KE distances do **not** uniformly favor mixed at day 365. This four-region summary excludes the Tropical Pacific bump, which is why the full regional panels remain essential. As at day 30, geostrophy excludes ±5°, making the Niño 3.4 KE panel unavailable. All distances are diagnostic, with checkpoint selection unchanged.
+
+Training-stage comparisons: [SST](artifacts/2026-10-01-global-physical-day365/day365-training-sst-spectra.png) · [SSH](artifacts/2026-10-01-global-physical-day365/day365-training-ssh-spectra.png) · [geostrophic KE](artifacts/2026-10-01-global-physical-day365/day365-training-geostrophic-ke-spectra.png).
+
+[Day-365 spectral numbers and masks](artifacts/2026-10-01-global-physical-day365/results.json.gz) · [Exact reference intervals, source hashes and CPU accounting](artifacts/2026-10-01-global-physical-day365/provenance.json.gz). The addition reused all saved forecasts, required two successful CPU-only extractions (7/11 seconds elapsed), and added **zero GPU-hours**. Sharing the spectrum code reproduces every previous day-30 curve exactly; the day-30 figures and forecast scores are unchanged.
+
 ## Methods and limits
 
 Both model families use the Small D ConvNeXt U-Net: widths 128/192/256/384, one block per level, dilations 1/2/4/8, periodic longitude padding and zero latitude padding. The initializer takes 19 five-day history frames (95 days), finite-input indicators, forcings, spherical geographic coordinates and annual sine/cosine. It emits two states containing T/S/U/V at 19 depths plus SSH; the processor uses the previous two states. No physical freezing or velocity constraint is imposed.
@@ -248,7 +276,7 @@ OHC integrates temperature relative to 0°C, using ρ=1035 kg/m³ and cp=3850 J/
 
 All checkpoint lineage hashes and counts, exact cohorts, global evaluation flags, prepared/native reference hashes and archive members are retained in the [evidence and provenance](artifacts/2026-10-01-global-physical-comparison/provenance.json.gz). The ZJ conversion passed full-sphere area and constant-field integration checks, plus missing-support/no-extrapolation checks. The new regional transform passed amplitude/plane-invariance, resolved-wavelength, Nyquist, empty-support and geostrophic-sign/equator checks. Map pixels and native/coarse equivalence were checked. Failed launch attempts are included in allocation accounting.
 
-One seed per trajectory and twelve spectral snapshots support descriptive conclusions. The mixed intermediate stages change both source exposures and observation frequency together; the fresh scratch run adds controlled equal-exposure and equal-update endpoint comparisons. No state intervention or source-specific supervision ablation is included, so these results do not causally explain the remaining structural advantage. Internal fields lacking observation supervision remain diagnostic states, and finite analyzed products do not establish direct measurement coverage under ice. Annual means can look good while spatial patterns are poor, which is why the maps remain alongside them.
+One seed per trajectory, twelve day-30 spectral snapshots and three day-365 snapshots support descriptive conclusions. The mixed intermediate stages change both source exposures and observation frequency together; the fresh scratch run adds controlled equal-exposure and equal-update endpoint comparisons. No state intervention or source-specific supervision ablation is included, so these results do not causally explain the remaining structural advantage. Internal fields lacking observation supervision remain diagnostic states, and finite analyzed products do not establish direct measurement coverage under ice. Annual means can look good while spatial patterns are poor, which is why the maps remain alongside them.
 
 The additional checkpoint inference used **0.245 allocated GPU-hours**, including all six failed launch attempts and their successful replacements. The first CPU collector was canceled after repeated NPZ decompression was diagnosed; its replacement completed successfully. Original records and outputs are preserved. Those earlier mixed diagnostics reused the existing trained trajectory and final-checkpoint evaluations. The new matched scratch run adds **14.6258 training + 0.1683 evaluation = 14.7942 actual allocated GPU-hours**, with no GPU retries; training 18890321 and all four monthly/annual evaluations completed 0:0. Final collection 18892522 took 237 CPU seconds; learned scratch-state extraction 18895376 took nine CPU seconds. The earlier mixed diagnostic cost is separate and is not charged again.
 

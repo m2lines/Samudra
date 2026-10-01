@@ -21,8 +21,11 @@ from global_physical_heat_content import (  # type: ignore[import-not-found]
 )
 from global_physical_spectra import (  # type: ignore[import-not-found]
     REGIONS,
-    geostrophic,
-    spectrum,
+    regional_spectra,
+)
+from global_physical_spectra_plotting import (  # type: ignore[import-not-found]
+    colors,
+    plot_regional_spectra,
 )
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -179,150 +182,24 @@ for origin in ["2015-01-01", "2018-01-01", "2021-01-01"]:
                 distinguish_missing=True,
             )
 # Broad, masked pseudo-spectra. The fixed coarse common mask is shared by every coarse curve.
-colors = {
-    "obs00050": "#c94438",
-    "obs00500": "#9c65c5",
-    "obs02000": "#35a38f",
-    "obs08000": "#2167ad",
-    "scratch08000": "#c87526",
-    "scratch16000": "#7b4caf",
-    "OM4 (1°)": "#e29624",
-    "Observations (1°)": "#222222",
-    "Observations (native)": "#777777",
-}
-for variable, channel, product, unit in [
-    ("SST", 0, "oisst", "°C² km"),
-    ("SSH", 1, "duacs", "m² km"),
-    ("Geostrophic KE", 1, "duacs", "m² s⁻² km"),
-]:
-    results["spectra"][variable] = {}
-    for region, xb, yb in REGIONS:
-        iy = np.flatnonzero((lat >= yb[0]) & (lat <= yb[1]))
-        ix = np.flatnonzero((lon >= xb[0]) & (lon <= xb[1]))
-        s = np.ix_(iy, ix)
-        reference = monthly["obs08000"]["reference"][:, channel]
-        common = (
-            wet[0 if channel == 0 else 6]
-            & np.isfinite(reference).all(0)
-            & np.isfinite(OM4[:, channel]).all(0)
-        )
-        if variable == "Geostrophic KE":
-            # Identical coarse derivative support; finite land placeholders are not ocean.
-            for source_ssh in [reference, OM4[:, channel]]:
-                velocities = geostrophic(np.where(wet[6], source_ssh, np.nan), lat, lon)
-                common &= np.logical_and.reduce(
-                    [np.isfinite(v).all(0) for v in velocities]
-                )
-        curves = {
-            k: (m["prediction"][:, channel], lat, lon, common)
-            for k, m in monthly.items()
-        }
-        curves["OM4 (1°)"] = (OM4[:, channel], lat, lon, common)
-        curves["Observations (1°)"] = (reference, lat, lon, common)
-        ng = native_grids[product]
-        nlat, nlon = ng["lat"], ng["lon"]
-        # Nearest coarse-cell support in geographic coordinates; native product holes remain missing.
-        near_y = np.abs(nlat[:, None] - lat[None]).argmin(1)
-        near_x = np.abs(((nlon[:, None] - lon[None] + 180) % 360) - 180).argmin(1)
-        nsupport = common[near_y[:, None], near_x[None]] & np.isfinite(
-            native[product]
-        ).all(0)
-        curves["Observations (native)"] = (native[product], nlat, nlon, nsupport)
-        records = {}
-        for name, (z, ys, xs, support) in curves.items():
-            y = np.flatnonzero((ys >= yb[0]) & (ys <= yb[1]))
-            x = np.flatnonzero((xs >= xb[0]) & (xs <= xb[1]))
-            block = np.ix_(y, x)
-            fields = (
-                [z]
-                if variable != "Geostrophic KE"
-                else list(
-                    geostrophic(
-                        np.where(wet[6], z, np.nan)
-                        if name != "Observations (native)"
-                        else z,
-                        ys,
-                        xs,
-                    )
-                )
-            )
-            available = support.copy()
-            if variable == "Geostrophic KE":
-                available &= (np.abs(ys) >= 5)[:, None]
-            available &= np.logical_and.reduce([np.isfinite(f).all(0) for f in fields])
-            stack = []
-            base = None
-            for t in range(12):
-                component = [
-                    spectrum(f[t][block], ys[y], xs[x], available[block])
-                    for f in fields
-                ]
-                if any(v is None for v in component):
-                    break
-                base = component[0]
-                stack.append(
-                    np.mean([v["power"] for v in component], axis=0)
-                    if len(component) == 2
-                    else np.array(base["power"])
-                )
-            if len(stack) == 12:
-                assert base is not None
-                base["power"] = np.mean(stack, axis=0).tolist()
-                base["origins"] = 12
-                records[name] = base
-            else:
-                records[name] = {
-                    "unavailable": "Insufficient finite common support; geostrophy excludes ±5°"
-                }
-        results["spectra"][variable][region] = records
-    for subset, chosen in [
-        (
-            "final",
-            ENDPOINTS + ["OM4 (1°)", "Observations (1°)", "Observations (native)"],
-        ),
-        (
-            "training",
-            [k for k, _ in STAGES]
-            + ["OM4 (1°)", "Observations (1°)", "Observations (native)"],
-        ),
-    ]:
-        fig, axes = plt.subplots(2, 3, figsize=(13, 7), layout="constrained")
-        for ax, (region, xb, yb) in zip(axes.flat, REGIONS):
-            for name in chosen:
-                curve = results["spectra"][variable][region][name]
-                if "power" not in curve:
-                    continue
-                label = dict(STAGES).get(name, name)
-                ax.loglog(
-                    curve["k_rad_km"],
-                    curve["power"],
-                    label=label,
-                    color=colors[name],
-                    ls="--" if name in ["OM4 (1°)", "Observations (native)"] else "-",
-                    lw=1.7 if name in ["obs08000", "Observations (1°)"] else 1.1,
-                )
-            ax.set_title(f"{region}: {xb[0]}–{xb[1]}°E, {yb[0]}–{yb[1]}°N", fontsize=10)
-            ax.set_xlabel("Angular wavenumber (rad/km)")
-            ax.set_ylabel("k × PSD (" + unit + ")")
-            ax.grid(alpha=0.2, which="both")
-            if variable == "Geostrophic KE" and region == "Niño 3.4":
-                ax.text(
-                    0.5,
-                    0.5,
-                    "Unavailable:\ngeostrophy excludes ±5°",
-                    ha="center",
-                    transform=ax.transAxes,
-                )
-        handles, labels = axes.flat[0].get_legend_handles_labels()
-        fig.legend(handles, labels, loc="outside lower center", ncol=4, fontsize=9)
-        fig.suptitle(variable + ": mean of twelve day-30 spatial power spectra, 2015")
-        fig.savefig(
-            figure_root
-            / (subset + "-" + variable.lower().replace(" ", "-") + "-spectra.png"),
-            dpi=140,
-        )
-        plt.close(fig)
-        print("spectra", variable, subset, flush=True)
+
+results["spectra"] = regional_spectra(
+    {key: value["prediction"] for key, value in monthly.items()},
+    monthly["obs08000"]["reference"],
+    OM4,
+    lat,
+    lon,
+    wet,
+    native,
+    native_grids,
+)
+plot_regional_spectra(
+    results["spectra"],
+    STAGES,
+    ENDPOINTS,
+    figure_root,
+    "mean of twelve day-30 spatial power spectra, 2015",
+)
 # Descriptive distance on well-resolved wavelengths, separate from selection metrics.
 results["spectral_distance"] = {}
 for variable in ["SST", "SSH", "Geostrophic KE"]:

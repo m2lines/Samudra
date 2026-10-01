@@ -74,3 +74,105 @@ def geostrophic(ssh, lat, lon):
     dx = np.gradient(z, np.deg2rad(lon), axis=-1) / (6371000 * np.cos(phi)[:, None])
     safe = np.where(np.abs(lat) >= 5, f, np.nan)[:, None]
     return -9.81 * dy / safe, 9.81 * dx / safe
+
+
+def regional_spectra(
+    predictions, reference_surface, om4, lat, lon, wet, native, native_grids
+):
+    """Average per-snapshot regional power on identical coarse reference support."""
+    snapshot_count = len(reference_surface)
+    assert snapshot_count > 0
+    reference_surface = reference_surface[:, :2]
+    assert reference_surface.shape == om4.shape
+    assert all(
+        values[:, :2].shape == reference_surface.shape
+        for values in predictions.values()
+    )
+    assert all(len(values) == snapshot_count for values in native.values())
+    output: dict = {}
+    for variable, channel, product, unit in [
+        ("SST", 0, "oisst", "°C² km"),
+        ("SSH", 1, "duacs", "m² km"),
+        ("Geostrophic KE", 1, "duacs", "m² s⁻² km"),
+    ]:
+        output[variable] = {}
+        for region, xb, yb in REGIONS:
+            reference = reference_surface[:, channel]
+            common = (
+                wet[0 if channel == 0 else 6]
+                & np.isfinite(reference).all(0)
+                & np.isfinite(om4[:, channel]).all(0)
+            )
+            if variable == "Geostrophic KE":
+                # Identical coarse derivative support; finite land placeholders are not ocean.
+                for source_ssh in [reference, om4[:, channel]]:
+                    velocities = geostrophic(
+                        np.where(wet[6], source_ssh, np.nan), lat, lon
+                    )
+                    common &= np.logical_and.reduce(
+                        [np.isfinite(v).all(0) for v in velocities]
+                    )
+            curves = {
+                k: (m[:, channel], lat, lon, common) for k, m in predictions.items()
+            }
+            curves["OM4 (1°)"] = (om4[:, channel], lat, lon, common)
+            curves["Observations (1°)"] = (reference, lat, lon, common)
+            ng = native_grids[product]
+            nlat, nlon = ng["lat"], ng["lon"]
+            # Nearest coarse-cell support in geographic coordinates; native product holes remain missing.
+            near_y = np.abs(nlat[:, None] - lat[None]).argmin(1)
+            near_x = np.abs(((nlon[:, None] - lon[None] + 180) % 360) - 180).argmin(1)
+            nsupport = common[near_y[:, None], near_x[None]] & np.isfinite(
+                native[product]
+            ).all(0)
+            curves["Observations (native)"] = (native[product], nlat, nlon, nsupport)
+            records = {}
+            for name, (z, ys, xs, support) in curves.items():
+                y = np.flatnonzero((ys >= yb[0]) & (ys <= yb[1]))
+                x = np.flatnonzero((xs >= xb[0]) & (xs <= xb[1]))
+                block = np.ix_(y, x)
+                fields = (
+                    [z]
+                    if variable != "Geostrophic KE"
+                    else list(
+                        geostrophic(
+                            np.where(wet[6], z, np.nan)
+                            if name != "Observations (native)"
+                            else z,
+                            ys,
+                            xs,
+                        )
+                    )
+                )
+                available = support.copy()
+                if variable == "Geostrophic KE":
+                    available &= (np.abs(ys) >= 5)[:, None]
+                available &= np.logical_and.reduce(
+                    [np.isfinite(f).all(0) for f in fields]
+                )
+                stack = []
+                base = None
+                for t in range(snapshot_count):
+                    component = [
+                        spectrum(f[t][block], ys[y], xs[x], available[block])
+                        for f in fields
+                    ]
+                    if any(v is None for v in component):
+                        break
+                    base = component[0]
+                    stack.append(
+                        np.mean([v["power"] for v in component], axis=0)
+                        if len(component) == 2
+                        else np.array(base["power"])
+                    )
+                if len(stack) == snapshot_count:
+                    assert base is not None
+                    base["power"] = np.mean(stack, axis=0).tolist()
+                    base["origins"] = snapshot_count
+                    records[name] = base
+                else:
+                    records[name] = {
+                        "unavailable": "Insufficient finite common support; geostrophy excludes ±5°"
+                    }
+            output[variable][region] = records
+    return output

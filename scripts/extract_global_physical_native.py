@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Exact-bin native and training-grid references for fixed day-30 diagnostics."""
 
+import argparse
 import hashlib
 import json
 from pathlib import Path
@@ -13,9 +14,29 @@ import xarray as xr
 
 from samudra.experiments.observation_prepare import ConservativeRemap
 
-root = Path("/mnt/home/jrusak/data/obs_full_range")
-out = root / "d-observation-pilot/global-physical-focus-20260930"
-out.mkdir(exist_ok=True)
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument(
+    "--root", type=Path, default=Path("/mnt/home/jrusak/data/obs_full_range")
+)
+parser.add_argument("--output", type=Path)
+parser.add_argument("--lead-days", type=int, default=30)
+parser.add_argument("--origins", nargs="+")
+args = parser.parse_args()
+if args.lead_days < 5:
+    parser.error("lead-days must be at least five")
+root = args.root
+out = args.output or root / "d-observation-pilot/global-physical-focus-20260930"
+out.mkdir(parents=True, exist_ok=True)
+if (out / "NATIVE_COMPLETE.json").exists():
+    raise ValueError("Preserve completed references; choose a new output directory")
+origins = (
+    [(str(value), pd.Timestamp(value)) for value in args.origins]
+    if args.origins
+    else [
+        (str(month), month.start_time)
+        for month in pd.period_range("2015-01", "2015-12", freq="M")
+    ]
+)
 grid = dict(np.load(root / "d-observation-pilot/code/grid.npz"))
 records: dict[str, Any] = {}
 for product, variables in [("oisst", ["sst"]), ("duacs", ["adt"])]:
@@ -29,12 +50,15 @@ for product, variables in [("oisst", ["sst"]), ("duacs", ["adt"])]:
         "metadata_sha256": hashlib.sha256(
             (source / ".zmetadata").read_bytes()
         ).hexdigest(),
+        "source": str(source),
+        "lead_days": args.lead_days,
+        "origins": [name for name, _ in origins],
         "dates": [],
         "files": {},
     }
     np.savez_compressed(out / (product + "-grid.npz"), lat=lat, lon=lon)
-    for month in pd.period_range("2015-01", "2015-12", freq="M"):
-        start = month.start_time + pd.Timedelta(days=25)
+    for label, origin in origins:
+        start = origin + pd.Timedelta(days=args.lead_days - 5)
         dates = pd.date_range(start, periods=5, freq="D")
         indices = times.get_indexer(dates)
         assert (indices >= 0).all()
@@ -51,7 +75,7 @@ for product, variables in [("oisst", ["sst"]), ("duacs", ["adt"])]:
             np.where(np.isfinite(coarse_daily), coarse_daily, 0).mean(0),
             np.nan,
         ).astype("float32")
-        name = product + "-" + str(month) + ".npz"
+        name = product + "-" + label + ".npz"
         np.savez_compressed(
             out / name,
             native=native,
@@ -65,11 +89,12 @@ for product, variables in [("oisst", ["sst"]), ("duacs", ["adt"])]:
         records[product]["files"][name] = hashlib.sha256(
             (out / name).read_bytes()
         ).hexdigest()
-        print(product, month, flush=True)
+        print(product, label, flush=True)
+records["script_sha256"] = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
 (out / "NATIVE_COMPLETE.json").write_text(json.dumps(records, indent=2) + "\n")
 import shutil
 
-for year in [2014, 2017, 2020]:
+for year in [2014, 2017, 2020] if not args.origins else []:
     source = (
         root / "d-observation-pilot/daily/iap" / str(year) / (str(year) + "-12.npz")
     )

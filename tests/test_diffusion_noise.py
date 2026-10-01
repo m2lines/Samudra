@@ -49,3 +49,46 @@ def test_paired_arms_consume_identical_random_streams():
         diffusion_noise((2, 1, 9, 11), mask, white_rng, 0, paired_draws=True)
         diffusion_noise((2, 1, 9, 11), mask, correlated_rng, 0.5, paired_draws=True)
         assert torch.equal(white_rng.get_state(), correlated_rng.get_state())
+
+
+def test_correlated_sampler_with_exact_gaussian_denoiser():
+    """A changed covariance must still sample the specified clean distribution."""
+    from torch import nn
+    from torch.nn import functional as F
+
+    from samudra.experiments.joint_diffusion import sample_joint
+
+    torch.set_num_threads(1)
+    axis = torch.arange(-2, 3).float()
+    k = torch.exp(-axis.square() / 2)
+    kernel = (k[:, None] * k[None, :])[None, None]
+    basis = torch.eye(64).reshape(64, 1, 8, 8)
+    filtered = F.conv2d(
+        F.pad(F.pad(basis, (2, 2, 0, 0), mode="circular"), (0, 0, 2, 2)), kernel
+    )
+    operator = filtered.reshape(64, 64).T
+    operator = operator / operator.square().sum(1, keepdim=True).sqrt()
+    covariance = 0.5 * (torch.eye(64) + operator @ operator.T)
+    eigenvalues, eigenvectors = torch.linalg.eigh(covariance)
+
+    class ExactGaussian(nn.Module):
+        fields = 1
+        noise_correlation = 0.5
+        paired_noise_draws = True
+
+        def forward(self, noisy, sigma, latent, mask):
+            # Clean data covariance I; noisy data covariance I + sigma^2 C.
+            coefficients = noisy.flatten(1) @ eigenvectors
+            coefficients = coefficients / (1 + sigma[:, None].square() * eigenvalues)
+            return (coefficients @ eigenvectors.T).reshape_as(noisy)
+
+    result = sample_joint(
+        ExactGaussian(),
+        torch.zeros(4096, 1, 1, 1),
+        torch.ones(1, 8, 8),
+        torch.Generator().manual_seed(491),
+        steps=64,
+    ).flatten(1)
+    actual = torch.cov(result.T)
+    torch.testing.assert_close(actual.diag(), torch.ones(64), atol=0.09, rtol=0)
+    assert (actual - torch.diag(actual.diag())).abs().max() < 0.08

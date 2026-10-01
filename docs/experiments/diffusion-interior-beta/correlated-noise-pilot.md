@@ -6,8 +6,9 @@
 Authorized October 1: **one seed, two fresh OM4-only runs, 2,000 updates each**.
 The comparison isolates spatial noise covariance under a small total training
 budget. It does not continue the 23,500-update selected model and does not use
-observation fine-tuning. Status: implementation and qualification checks in progress;
-no scientific result yet.
+observation fine-tuning. Status: array **24559159** is running on Engaging, one L40S per arm,
+producer `ed27d5a97`. No scientific result yet. Noise-variance, coastline,
+periodic-boundary, paired-RNG and analytic Gaussian-sampler checks pass.
 
 Both arms start from the identical saved scratch step-0 weights in
 `latent-d192-v2/D-1729/om4/best.pt`. The checkpoint's actual state is verified to

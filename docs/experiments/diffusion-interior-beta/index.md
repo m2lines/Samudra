@@ -12,7 +12,9 @@ Allocated compute through the stopped-run report and performance investigation i
 Monthly composites improve to 0.743/0.757, but annual forecasts become severely
 unstable and monthly ensembles become underdispersed. Observation training used
 ±60° support and is not matched to newer global deterministic controls.
-Further scientific training awaits review.
+The full observation-training comparison awaits review.
+[A small matched OM4-only noise pilot](correlated-noise-pilot.md) is authorized
+and running: one seed, 2,000 updates each with white versus correlated Gaussian noise.
 [Completed performance tests](training-performance.md) measured 1.96× faster L40S
 updates or 4.1× versus the original L40S setup using an H200 and opt-in code changes.
 
@@ -36,6 +38,7 @@ The [previous physical-state diffusion results](scratch-wave.md) remain availabl
 23–24% interior CRPS improvement, with worse point scores and velocity retention.
 ## Contents
 
+- [Small matched spatially correlated-noise pilot](correlated-noise-pilot.md)
 - [Day-30/day-365 members and means: observation and OM4 inputs](endpoint-maps.md)
 - [Completed stopped-run report: monthly lift, annual instability](latent-extension.md)
 - [Completed training performance investigation](training-performance.md)

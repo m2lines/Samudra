@@ -127,6 +127,40 @@ The error table averages each origin’s area-weighted RMSE over 96 independentl
 | Obs-only: 8,000 obs | 0.694 | 1.168 | 0.0886 | 0.0800 |
 | Obs-only: 16,000 obs | 0.572 | 1.168 | 0.0826 | 0.0800 |
 
+### Day-30 official-kernel metrics, matched map cohort
+
+Surface scores use **January 26–30** of 2015/2018/2021, exactly the day-30 map intervals. OHC uses each **full January forecast mean**, including the final day of the month; it is not an instantaneous day-30 comparison to monthly IAP. Lower is better.
+
+| Model | SST RMSE °C | Geostrophic velocity RMSE m/s | OHC 0–700 RMSE GJ/m² | OHC 700–2000 RMSE GJ/m² |
+|---|---:|---:|---:|---:|
+| Final: 8,000 obs | 0.695 | 0.168 | 0.764 | 0.470 |
+| Obs-only: 8,000 obs | 0.706 | 0.170 | 0.794 | 0.489 |
+| Obs-only: 16,000 obs | 0.629 | 0.170 | 0.727 | 0.482 |
+| Date-matched OM4 1° (context) | 0.799 | 0.194 | — | — |
+
+On this cohort, obs-only 16k has lower SST and upper-OHC error; mixed has lower geostrophic velocity and deep-OHC error. See the applicability decisions below before comparing with the original suite's published long-rollout numbers.
+
+### Official metric definitions: applicability to these rollouts
+
+These tables use the numerical kernels from [the official metrics commit `14455906`](https://github.com/m2lines/Samudra/commit/14455906efb26e227171b4c467fe4589d95aa01e), with explicit fixed-lead adaptations. They are **not the unmodified complete-calendar-year official report**, and do not replace the training selection score. “Final: 8,000 obs” is the mixed 8k OM4 + 8k observation endpoint; the two obs-only rows are the fixed 8k and 16k endpoints defined above. OM4 is the date-matched simulation reference, not an observation-initialized forecast.
+
+Both lead tables use the **same three January 1 initializations: 2015, 2018 and 2021**. For each case we compute spatial area-weighted MSE on the native prepared observation grid, average the three case MSEs equally, then take the square root. This differs from averaging case RMSEs. It is a three-example diagnostic: the earlier day-30 table uses 96 origins, and the spatial spectra use twelve monthly 2015 origins. Comparisons across those tables also change the cohort and spatial operator.
+
+| Official metric or feature | Treatment here |
+|---|---|
+| `obs/sst/total_rmse` | SST versus native 0.25° OISST; model field linearly interpolated to the observation grid. Exact matching five-day intervals. |
+| `obs/velocity/total_rmse` | Derive U/V from model SSH on its own grid, interpolate to native 0.125° DUACS, compare with DUACS `ugos`/`vgos`. Vector squared error is Δu² + Δv²; exclude ±5° as specified by the kernel. The model's unconstrained U/V state channels are not used. |
+| `obs/ohc_0_700/per_area_total_rmse`, `obs/ohc_700_2000/per_area_total_rmse` | Calendar-month mean OHC maps, model layers versus native IAP layers, with ρ=1035 kg/m³ and Cp=3850 J/(kg K), referenced to 0°C. Model OHC is interpolated to the native 0.5° IAP grid. We retain this experiment's complete-column support on both sides; the original suite can include partial columns, so this is an additional explicit support restriction. These are per-area spatial errors, not the global ZJ totals plotted below. |
+| `obs/eke/total_rmse` | **Not reported at an isolated lead.** Official instantaneous EKE uses anomalies about each field's time mean, not ½(u²+v²). Estimating that mean from only three December endpoints (or three January endpoints) would define a different, poorly sampled variability diagnostic. Full-trajectory EKE would blend leads and is deferred rather than mislabeled as day-365 EKE. |
+| SST residual-variance map RMSE / pattern correlation | **Not reported:** fixed-lead samples do not provide the continuous seasonal record required for the official detrending/deseasonalization procedure. |
+| Upper-700-m OHC residual-variance map RMSE / pattern correlation | **Not reported:** same temporal limitation. |
+| Annual standard deviation and calendar-year bootstrap CI | **Not reported:** three endpoint/month samples are not complete-year blocks. The original official driver deliberately requires complete years; its guards were not bypassed. |
+| Temporal spectra | Omitted as requested. Spatial spectra remain separate diagnostics, not substitutes for missing temporal metrics. |
+
+SST and velocity retain approximately **98.5% and 93.2%** of their finite native observation area after pairing. OHC retains approximately **99.0% and 99.1% of complete-column observation area** in the two layers; those percentages are not fractions of the whole ocean. The native-grid operator erodes coastal support where interpolation touches missing model cells. All three learned models have the same pairing support. We preserve the official global domain, with no ±60° cutoff.
+
+The original suite scores a completed time series on calendar-year blocks; these tables instead answer the requested lead-specific question. OHC necessarily answers a monthly question, and the native-layer/model-layer representation difference documented below still contributes. No learned correction, detrending, fitted SSH offset or retuning is applied. OM4 OHC is left blank because its monthly full-depth reference was not extracted for this endpoint diagnostic.
+
 ![SST at day 30 with matching observations](artifacts/2026-10-01-global-physical-endpoints/2015-01-01-day30-channel0.png)
 
 ![SSH at day 30 with matching observations](artifacts/2026-10-01-global-physical-endpoints/2015-01-01-day30-channel6.png)
@@ -181,6 +215,19 @@ The figures retain absolute snapshot fluctuations after spatial plane removal; t
 ## Annual SST/SSH means, OHC totals and maps
 
 One initialization, 73 five-day autoregressive steps, prescribed future ERA5, no future surface-state corrections. The plots show **undetrended SST/SSH means and total OHC in ZJ**, for all three endpoints, with observations, each model's initialized-state persistence and training-only monthly climatology. SST and SSH use five-day intervals; OHC uses calendar-month averages, separately for 0–700 and 700–2000 m. OHC is the sum of column heat content times spherical cell area, divided by 10²¹ J/ZJ. It is integrated over fixed, common observed support, with no extrapolation into unobserved ocean. Its temperature reference remains 0°C.
+
+### Day-365 official-kernel metrics, matched map cohort
+
+Surface scores use **December 27–31** after the same three January initializations; they are endpoint errors, not averages over all 73 leads. OHC uses each **full December forecast mean**. Definitions, native-grid pairing, unavailable temporal diagnostics and uncertainty limitations are given in [the applicability table](#official-metric-definitions-applicability-to-these-rollouts). Lower is better.
+
+| Model | SST RMSE °C | Geostrophic velocity RMSE m/s | OHC 0–700 RMSE GJ/m² | OHC 700–2000 RMSE GJ/m² |
+|---|---:|---:|---:|---:|
+| Final: 8,000 obs | 0.751 | 0.191 | 1.193 | 0.581 |
+| Obs-only: 8,000 obs | 0.871 | 0.225 | 2.459 | 1.140 |
+| Obs-only: 16,000 obs | 0.798 | 0.250 | 2.770 | 1.078 |
+| Date-matched OM4 1° (context) | 0.774 | 0.196 | — | — |
+
+Mixed has lower error than both obs-only endpoints in every computed column on these three examples. In particular, a smaller global OHC mean offset for obs-only does not imply lower spatial OHC error: opposing regional errors can cancel in a global total. These native-grid endpoint results are descriptive, not a new checkpoint-selection criterion.
 
 ![2015 annual SST/SSH means and OHC totals](artifacts/2026-10-01-global-physical-comparison/2015-01-01-annual-global-means.png)
 
@@ -292,3 +339,5 @@ The initializer-velocity OM4 addition uses a separate successful CPU extraction,
 The whole-December initializer diagnostic adds **0.0158 actual GPU-hours**, including the short duplicate request stopped by the output-preservation guard. All nine model/month cases passed seven-initializer/zero-processor checks and exact independent weighted-sum verification. Archive/member readback, prior climatology/reference equality and pinned runtime/checkpoint lineage checks passed. The [diagnostic provenance](artifacts/2026-10-01-initializer-monthly/provenance.json.gz) preserves both attempt logs, Alpha preparation inputs and executed helper source. No new training or rollout was performed.
 
 The SST/SSH rollout maps also retain the observation reference and now include date-matched OM4 context for all three origins and both leads. OM4 SSH is the native `zos` field in meters; no offset is fitted to align it with DUACS ADT. These are model-data context panels, not an assumption of a shared absolute sea-level datum. All six OM4 intervals have complete five-day coverage. The 12 updated figures preserve all 48 original model/observation tiles pixel-for-pixel; the other endpoint maps are unchanged. Day-365 OM4 values reproduce those already used in the spectral comparison. CPU extraction job **18977362** completed successfully in seven seconds, with **zero GPU-hours**. [Surface-reference and figure audit](artifacts/2026-10-01-global-physical-surface-om4/provenance.json.gz).
+
+The official-kernel endpoint tables were computed on an Alpha CPU node, with no model inference or GPU allocation. The archived results contain every case MSE, pairing fraction, original kernel/source hashes, input-array hashes and the exact aggregation. [Metrics provenance and numerical results](artifacts/2026-10-01-official-fixed-lead-metrics/provenance.json.gz).

@@ -3090,3 +3090,7 @@ Repeated the frozen physical-only analysis on the matched global +10 memory endp
 ### 2026-10-01: OM4 context added to SST/SSH rollout maps
 
 Added date-matched OM4 SST and SSH to all 12 day30/day365 endpoint figures (2015/2018/2021). Complete five-day coverage verified; original 48 model/observation tiles remain pixel-identical, other maps unchanged. Day365 OM4 references exactly reproduce existing spectral data. CPU job 18977362 completed 0:0 in 7 s, zero GPU-hours. [Report](global-physical-day30-2026-09-30.md) and surface-reference audit updated; no forecast metrics or selection changed.
+
+### 2026-10-01: official-kernel fixed-lead metric tables
+
+Added day30/day365 native-grid SST, SSH-derived geostrophic velocity and monthly OHC error tables for matching 2015/2018/2021 January-start cohorts. Pinned kernels to 14455906; explicit deviations from full official report: endpoint reduction instead of complete-year blocks, January/December OHC, complete-column support. Temporal variance/EKE and year-block uncertainty unavailable at these endpoints; temporal spectra deferred as requested. Mixed leads all four day365 metrics; day30 benefits vary by field. Alpha CPU job 112625 completed; no GPU use, inference, training or selection changes. Per-case MSEs and provenance archived with the report.

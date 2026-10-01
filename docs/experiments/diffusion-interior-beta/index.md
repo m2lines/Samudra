@@ -7,7 +7,7 @@ Authorized 25 September 2026; total ceiling **576 allocated GPU-hours**, includi
 qualification, evaluation, unsuccessful attempts and repeats. The A/B,
 physical-state scratch, artifact-diagnostic and persistent-latent waves are complete.
 Allocated compute through the stopped-run report and performance investigation is
-**222.4431 GPU-hours** of the 576-hour cap.
+**223.5028 GPU-hours** of the 576-hour cap, including the endpoint-map follow-up.
 [The October 1 stopped continuation report is complete](latent-extension.md).
 Monthly composites improve to 0.743/0.757, but annual forecasts become severely
 unstable and monthly ensembles become underdispersed. Observation training used
@@ -36,6 +36,7 @@ The [previous physical-state diffusion results](scratch-wave.md) remain availabl
 23–24% interior CRPS improvement, with worse point scores and velocity retention.
 ## Contents
 
+- [Day-30/day-365 members and means: observation and OM4 inputs](endpoint-maps.md)
 - [Completed stopped-run report: monthly lift, annual instability](latent-extension.md)
 - [Completed training performance investigation](training-performance.md)
 

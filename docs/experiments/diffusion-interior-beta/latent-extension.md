@@ -10,6 +10,11 @@ Interior fair CRPS improves 21–24% over that control, but monthly ensembles be
 underdispersed and day-365 SST RMSE rises to 43–68°C. These are not usable annual
 forecasts. All evaluations are complete; training remains stopped for review.
 
+[The endpoint-map follow-up](endpoint-maps.md) shows day-30/day-365 SSH/SST
+members and means, plus OM4-initialized SSH/SST/interior T/S before and after
+observation adaptation. These are endpoint fields, distinct from this report's
+annual time-average maps.
+
 Training stopped on October 1, 2026, for a protocol correction before the next
 comparison. The observation loss and validation selection in these runs cover
 60°S–60°N; newer deterministic controls use global observation support. OM4

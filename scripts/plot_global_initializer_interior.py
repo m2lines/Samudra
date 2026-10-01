@@ -68,6 +68,7 @@ def main():
     parser.add_argument("--scratch-arrays", type=Path)
     parser.add_argument("--references", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--endpoints-only", action="store_true")
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
     roots = [args.arrays] + ([args.scratch_arrays] if args.scratch_arrays else [])
@@ -96,6 +97,10 @@ def main():
         for stage in json.loads((root / "COMPLETE.json").read_text())["stages"]
     }
     stages = [k for k in LABELS if k in stage_roots]
+    if args.endpoints_only:
+        stages = [
+            key for key in stages if key == "obs08000" or key.startswith("scratch")
+        ]
     result: dict = {
         "sources": sources,
         "origins": {},

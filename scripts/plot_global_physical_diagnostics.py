@@ -42,6 +42,7 @@ parser.add_argument("--output", type=Path, required=True)
 parser.add_argument("--heat-context", type=Path)
 parser.add_argument("--om4-map-references", type=Path)
 parser.add_argument("--maps-only", action="store_true")
+parser.add_argument("--endpoints-only", action="store_true")
 args = parser.parse_args()
 arrays_root = args.arrays
 native_root = args.native
@@ -74,6 +75,12 @@ SCRATCH_STAGES = [
     if key in meta["checkpoints"]
 ]
 STAGES += SCRATCH_STAGES
+if args.endpoints_only:
+    STAGES = [
+        (key, label)
+        for key, label in STAGES
+        if key == "obs08000" or key.startswith("scratch")
+    ]
 ENDPOINTS = ["obs08000", *[key for key, _ in SCRATCH_STAGES]]
 monthly = {k: dict(np.load(arrays_root / (k + "-monthly.npz"))) for k, _ in STAGES}
 OM4 = dict(np.load(arrays_root / "om4-day30.npz"))["surface"]
@@ -112,8 +119,8 @@ for values in monthly.values():
 print(
     "native/coarse exact-bin and checkpoint-reference equivalence verified", flush=True
 )
-results = {
-    "checkpoints": meta["checkpoints"],
+results: dict = {
+    "checkpoints": {key: meta["checkpoints"][key] for key, _ in STAGES},
     "spectra": {},
     "maps": {},
     "profiles": {},
@@ -463,7 +470,13 @@ for row, count_field in enumerate(
         ["sst_rmse", "adt_rmse"],
         ["Day-30 SST RMSE (°C)", "Day-30 SSH RMSE (m)"],
     ):
-        groups = [(STAGES[:4], "Mixed OM4 + obs", "#2167ad")]
+        groups = [
+            (
+                [stage for stage in STAGES if not stage[0].startswith("scratch")],
+                "Mixed OM4 + obs",
+                "#2167ad",
+            )
+        ]
         if SCRATCH_STAGES:
             groups.append((SCRATCH_STAGES, "Obs-only", "#c87526"))
         for stages, label, color in groups:

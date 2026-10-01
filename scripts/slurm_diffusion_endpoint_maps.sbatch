@@ -22,7 +22,9 @@ image=/orcd/scratch/orcd/014/jrusak/apptainer_cache/images/diffusion-26.05-9cd36
 seed=$((1729 + ${SLURM_ARRAY_TASK_ID:-0}))
 export SAMUDRA_CODE_COMMIT="$CODE_COMMIT"
 export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 PYTHONUNBUFFERED=1 PYTHONNOUSERSITE=1
-for mode in obs-adapted om4-adapted om4-pretrained; do
+modes=(obs-adapted om4-adapted om4-pretrained)
+if [[ "${NATIVE_ONLY:-0}" == 1 ]]; then modes=(om4-adapted om4-pretrained); fi
+for mode in "${modes[@]}"; do
   input=om4
   checkpoint="$root/runs/latent-d192-extended-v1/D-$seed/observation/best.pt"
   extra=(--stopped-run)

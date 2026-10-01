@@ -273,3 +273,20 @@ def test_selected_readouts_preserve_full_forecast_members_and_rng():
         )
     torch.testing.assert_close(result, full[:, :, [1, 3]], rtol=0, atol=0)
     assert torch.equal(full_rng.get_state(), selected_rng.get_state())
+
+
+def test_native_endpoint_chunks_preserve_history_and_order_without_future_inputs():
+    from samudra.experiments.diffusion_endpoint_maps import native_sequence
+
+    class Wave:
+        def model_sample(self, dataset, ids):
+            start = ids[0]
+            history = tuple(torch.tensor(start + j) for j in range(4))
+            forcing = torch.arange(start, start + dataset.steps)[None]
+            labels = forcing + 100
+            return (*history, forcing, labels)
+
+    result = native_sequence(Wave(), SimpleNamespace(steps=6), 17, steps=73)
+    assert [x.item() for x in result[:4]] == [17, 18, 19, 20]
+    torch.testing.assert_close(result[4], torch.arange(17, 90)[None])
+    torch.testing.assert_close(result[5], torch.arange(117, 190)[None])

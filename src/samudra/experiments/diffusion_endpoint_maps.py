@@ -52,6 +52,27 @@ def selected_readouts(
     return torch.stack(result)
 
 
+def native_sequence(wave, dataset, index, steps=73):
+    """Read short windows; future ocean fields are references, never inputs.
+
+    The general training loader materializes overlapping full histories at each
+    forecast step. Keeping its six-step windows avoids quadratic storage for a
+    long diagnostic rollout while preserving the verified native normalization.
+    """
+    first = None
+    forcings, targets = [], []
+    for offset in range(0, steps, dataset.steps):
+        sample = wave.model_sample(dataset, [index + offset])
+        if first is None:
+            first = sample[:4]
+        count = min(dataset.steps, steps - offset)
+        forcings.append(sample[4][:, :count])
+        targets.append(sample[5][:, :count])
+    if first is None:
+        raise ValueError("Native sequence must contain at least one forecast step")
+    return (*first, torch.cat(forcings, 1), torch.cat(targets, 1))
+
+
 def export(path, values, reference, data, metadata):
     indices = [list(data.grid["names"]).index(c) for c in CHANNELS]
     physical = data.physical(values)[:, 0, :, indices].cpu().numpy()
@@ -190,7 +211,7 @@ def main():
                 LocalLocation(path=Path(loader_args.data_root) / "OM4.zarr"),
                 create_rust_io_runtime(4),
             )
-            dataset = wave.dataset(source, steps=73)
+            dataset = wave.dataset(source, steps=6)
             wave.prepare(dataset)
             for year in (2015, 2018, 2021):
                 index = next(
@@ -198,8 +219,8 @@ def main():
                     for i in range(len(dataset))
                     if source.time.values[i + 18].year == year
                 )
-                surface, past, context, truth, forcing, labels = wave.model_sample(
-                    dataset, [index]
+                surface, past, context, truth, forcing, labels = native_sequence(
+                    wave, dataset, index
                 )
                 if forcing.shape[1] != 73:
                     raise ValueError("Native forecast horizon differs")

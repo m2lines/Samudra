@@ -71,6 +71,16 @@ def main():
     parser.add_argument("--latent-width", type=int, default=128)
     parser.add_argument("--processor-depth", type=int, default=4)
     parser.add_argument("--sampling-steps", type=int, default=16)
+    parser.add_argument(
+        "--compile-decoder",
+        action="store_true",
+        help="Use measured torch.compile decoder path; requires a fresh matching qualification",
+    )
+    parser.add_argument(
+        "--skip-initial-training-readout",
+        action="store_true",
+        help="Omit unused initial physical readouts in observation training, preserving sampling RNG",
+    )
     parser.add_argument("--device-cache", action="store_true")
     parser.add_argument("--cache-device", choices=["cuda", "cpu"], default="cuda")
     parser.add_argument("--cache-reserve-gib", type=float, default=32)
@@ -133,6 +143,11 @@ def main():
         uncertainty="Independent conditional readouts; not coherent ensemble trajectories",
         native_context="Target midpoint, anchor plus (step+1)*5 days",
     )
+    if args.compile_decoder or args.skip_initial_training_readout:
+        contract["execution"] = dict(
+            compile_decoder=args.compile_decoder,
+            skip_initial_training_readout=args.skip_initial_training_readout,
+        )
     if args.qualification:
         qualification = json.loads(args.qualification.read_text())
         if qualification["contract"] != contract or not qualification["qualified"]:
@@ -221,6 +236,8 @@ def main():
                 raise ValueError("Pretraining contract or seed differs")
             model.load_state_dict(saved["model"], strict=True)
             del saved
+        if args.compile_decoder:
+            model.decoder.compile()
         optimizer = torch.optim.AdamW(
             [p for p in model.parameters() if p.requires_grad], lr=1e-4
         )
@@ -245,6 +262,7 @@ def main():
                         args.seed + step
                     ),
                     members=2,
+                    decode_initial=not args.skip_initial_training_readout,
                 )
                 return forecast_observation_crps(data, predictions, sample)
 

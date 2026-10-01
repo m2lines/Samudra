@@ -214,3 +214,33 @@ def test_omitting_unused_initial_readout_preserves_forecast_gradients_and_rng(
         torch.testing.assert_close(a, b, rtol=0, atol=0)
     for a, b in zip(original.parameters(), optimized.parameters(), strict=True):
         torch.testing.assert_close(a.grad, b.grad, rtol=0, atol=0)
+
+
+def test_compiled_decoder_keeps_portable_checkpoint_keys(tmp_path):
+    torch.set_num_threads(1)
+    torch.manual_seed(73)
+    model = model_for_test(True).eval()
+    original_keys = set(model.state_dict())
+    inputs = (
+        torch.randn(1, 8, 8, 12),
+        torch.ones(1),
+        torch.randn(1, 16, 4, 6),
+        torch.ones(8, 8, 12),
+    )
+    with torch.no_grad():
+        expected = model.decoder(*inputs)
+    # CPU eager backend exercises the module compilation wrapper and serialization;
+    # Inductor numerical differences are measured by the real GPU benchmarks.
+    model.decoder.compile(backend="eager")
+    with torch.no_grad():
+        actual = model.decoder(*inputs)
+    assert set(model.state_dict()) == original_keys
+    torch.save(model.state_dict(), tmp_path / "weights.pt")
+    restored = model_for_test(True).eval()
+    restored.load_state_dict(
+        torch.load(tmp_path / "weights.pt", weights_only=True), strict=True
+    )
+    with torch.no_grad():
+        reloaded = restored.decoder(*inputs)
+    torch.testing.assert_close(expected, actual, rtol=0, atol=0)
+    torch.testing.assert_close(expected, reloaded, rtol=0, atol=0)

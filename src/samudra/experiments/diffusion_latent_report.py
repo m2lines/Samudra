@@ -44,6 +44,8 @@ def load_latent_checkpoint(path, data):
     ).to(data.device)
     model.load_state_dict(saved["model"], strict=True)
     model.eval()
+    if signature.get("execution", {}).get("compile_decoder", False):
+        model.decoder.compile()
     return model, signature
 
 

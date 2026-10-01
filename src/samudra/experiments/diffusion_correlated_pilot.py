@@ -49,7 +49,7 @@ def export_members(model, wave, dataset, data, output):
                 [model.readout(final, wave.mask, rng)[:, -1] for _ in range(8)]
             ).float()
         physical = data.physical(members)[:, 0, channels].cpu().numpy()
-        target = data.physical(labels[:, -1])[0, channels].cpu().numpy()
+        target = data.physical(labels[:, -1:])[0, 0, channels].cpu().numpy()
         if not np.isfinite(physical).all():
             raise FloatingPointError("Nonfinite physical endpoint")
         path = output / f"{year}.npz"
@@ -73,6 +73,67 @@ def export_members(model, wave, dataset, data, output):
     )
 
 
+def build_wave(args, data):
+    loader_args = SimpleNamespace(
+        arm="D",
+        phase="reconstruction",
+        seed=1729,
+        readers=16,
+        data_root=str(args.root / "data/om4_onedeg_v3"),
+        output=str(args.output / "loader"),
+        name="correlated-noise-pilot",
+        wandb_mode="disabled",
+        normalization="instance",
+        observation_normalization_root=str(data.root),
+        fresh_evolution=True,
+        # This legacy loader constructs an unused physical model. Do not load
+        # its old checkpoint: the trained latent model was loaded above.
+        initial_checkpoint="",
+        wave1_root="",
+        val_origins=12,
+        device_cache=not args.export_only,
+        cache_device="cpu",
+        device_cache_reserve_gib=32,
+        batch_size=1,
+    )
+    return InitializerWave(loader_args)
+
+
+def export_completed(args, data):
+    complete = json.loads((args.output / "PRETRAIN_COMPLETE.json").read_text())
+    checkpoint = args.output / "last.pt"
+    if complete["state"]["step"] != 2000 or not complete["state"]["complete"]:
+        raise ValueError("Export requires completed 2000-update training")
+    if digest(checkpoint) != complete["final_checkpoint_sha256"]:
+        raise ValueError("Final checkpoint hash differs")
+    model, signature = load_latent_checkpoint(checkpoint, data)
+    if signature["noise_correlation"] != args.correlation:
+        raise ValueError("Noise arm differs")
+    wave = build_wave(args, data)
+    try:
+        source = native_om4_source(
+            wave.context_bundle.inference_source,
+            LocalLocation(path=Path(wave.args.data_root) / "OM4.zarr"),
+            create_rust_io_runtime(4),
+        )
+        dataset = wave.dataset(source, steps=6)
+        wave.prepare(dataset)
+        export_members(model, wave, dataset, data, args.output / "evaluation/final")
+        atomic_json(
+            dict(
+                state=complete["state"],
+                signature=signature,
+                final_checkpoint_sha256=complete["final_checkpoint_sha256"],
+                exports=["final"],
+                export_producer=os.environ["SAMUDRA_CODE_COMMIT"],
+            ),
+            args.output / "PILOT_COMPLETE.json",
+        )
+    finally:
+        if wave.run:
+            wave.run.finish()
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, required=True)
@@ -81,12 +142,16 @@ def main():
     parser.add_argument("--updates", type=int, default=2000)
     parser.add_argument("--correlation", type=float, choices=(0.0, 0.5), required=True)
     parser.add_argument("--hours", type=float, default=1.5)
+    parser.add_argument("--export-only", action="store_true")
     args = parser.parse_args()
     if not 0 < args.updates <= 2000 or not 0 < args.hours <= 2:
         parser.error("Pilot limited to 2000 updates and two fitting hours")
     args.output.mkdir(parents=True, exist_ok=True)
     data = Samples(args.root / "data/observations", "cuda")
     data.use_observation_normalization()
+    if args.export_only:
+        export_completed(args, data)
+        return
     model, parent = load_latent_checkpoint(args.checkpoint, data)
     if parent["phase"] != "om4" or parent.get("noise_correlation", 0) != 0:
         raise ValueError("Require the original white-noise OM4 checkpoint")
@@ -121,29 +186,7 @@ def main():
     if protocol.exists() and json.loads(protocol.read_text()) != signature:
         raise ValueError("Existing pilot protocol differs")
     atomic_json(signature, protocol)
-    loader_args = SimpleNamespace(
-        arm="D",
-        phase="reconstruction",
-        seed=1729,
-        readers=16,
-        data_root=str(args.root / "data/om4_onedeg_v3"),
-        output=str(args.output / "loader"),
-        name="correlated-noise-pilot",
-        wandb_mode="disabled",
-        normalization="instance",
-        observation_normalization_root=str(data.root),
-        fresh_evolution=True,
-        # This legacy loader constructs an unused physical model. Do not load
-        # its old checkpoint: the trained latent model was loaded above.
-        initial_checkpoint="",
-        wave1_root="",
-        val_origins=12,
-        device_cache=True,
-        cache_device="cpu",
-        device_cache_reserve_gib=32,
-        batch_size=1,
-    )
-    wave = InitializerWave(loader_args)
+    wave = build_wave(args, data)
     try:
         wave.prepare(wave.trainset)
         wave.prepare(wave.valset)
@@ -216,7 +259,7 @@ def main():
         gc.collect()
         source = native_om4_source(
             wave.context_bundle.inference_source,
-            LocalLocation(path=Path(loader_args.data_root) / "OM4.zarr"),
+            LocalLocation(path=Path(wave.args.data_root) / "OM4.zarr"),
             create_rust_io_runtime(4),
         )
         dataset = wave.dataset(source, steps=6)

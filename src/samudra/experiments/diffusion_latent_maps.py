@@ -16,7 +16,18 @@ from samudra.experiments.diffusion_ab_figures import save_png
 from samudra.experiments.diffusion_latent_diagnostics import ORIGINS
 
 
-def grid(fields, titles, mask, lat, path, caption, unit):
+def grid(
+    fields,
+    titles,
+    mask,
+    lat,
+    path,
+    caption,
+    unit,
+    *,
+    show_loss_boundary=True,
+    distinguish_missing=False,
+):
     """Six panels, shared physical color limits, no image interpolation."""
     if len(fields) != 6 or any(field.shape != (180, 360) for field in fields):
         raise ValueError("Expected six native 180x360 fields")
@@ -34,9 +45,15 @@ def grid(fields, titles, mask, lat, path, caption, unit):
             interpolation="nearest",
             aspect="equal",
         )
-        for latitude in (-60, 60):
-            row = np.interp(latitude, lat, np.arange(180))
-            ax.axhline(float(row), color="white", linewidth=0.8)
+        if distinguish_missing:
+            rgba = im.to_rgba(np.nan_to_num(field), bytes=True)
+            rgba[~np.isfinite(field)] = [255, 255, 255, 255]
+            rgba[~mask] = [209, 209, 209, 255]
+            im.set_data(rgba)
+        if show_loss_boundary:
+            for latitude in (-60, 60):
+                row = np.interp(latitude, lat, np.arange(180))
+                ax.axhline(float(row), color="white", linewidth=0.8)
         ax.set_title(title, fontsize=10)
         ax.set_xticks([])
         ax.set_yticks([])
@@ -54,7 +71,12 @@ def grid(fields, titles, mask, lat, path, caption, unit):
     fig.text(
         0.5,
         0.016,
-        caption + "\nWhite lines: ±60° observation loss/scoring boundary.",
+        caption
+        + (
+            "\nWhite lines: ±60° observation loss/scoring boundary."
+            if show_loss_boundary
+            else "\nGray: model land; white: missing values on model ocean."
+        ),
         ha="center",
         fontsize=10,
     )

@@ -9,6 +9,7 @@ import os
 import time
 from pathlib import Path
 
+import numpy as np
 import torch
 
 from samudra.experiments.diffusion_latent_report import load_latent_checkpoint
@@ -59,10 +60,14 @@ def main():
         results["training_signature"] = signature
         if variant in ("channels_last", "compiled_channels_last"):
             model.to(memory_format=torch.channels_last)
-        elif variant != "baseline":
+        elif variant not in ("baseline", "compiled_norm", "compiled_decoder"):
             raise ValueError(variant)
-        if variant == "compiled_channels_last":
+        if variant in ("compiled_channels_last", "compiled_decoder"):
             model.decoder.compile()
+        if variant == "compiled_norm":
+            for module in model.modules():
+                if isinstance(module, torch.nn.GroupNorm):
+                    module.compile(fullgraph=True)
         optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
         records = []
 
@@ -87,6 +92,15 @@ def main():
             loss.backward()
             torch.cuda.synchronize()
             backward_end = time.perf_counter()
+            if index == 0:
+                gradients = {
+                    name: p.grad.detach().flatten()[:64].float().cpu().numpy()
+                    for name, p in model.named_parameters()
+                    if p.grad is not None
+                }
+                np.savez_compressed(
+                    args.output / f"{variant}-gradient-sample.npz", **gradients
+                )
             norm = torch.nn.utils.clip_grad_norm_(
                 model.parameters(), 1.0, error_if_nonfinite=True
             )

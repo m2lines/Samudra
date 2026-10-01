@@ -3,12 +3,64 @@
 
 # Small matched spatial-noise experiment
 
-Authorized October 1: **one seed, two fresh OM4-only runs, 2,000 updates each**.
-The comparison isolates spatial noise covariance under a small total training
-budget. It does not continue the 23,500-update selected model and does not use
-observation fine-tuning. Status: replacement array **24560409** was submitted on Engaging, one L40S per arm,
-producer `ac336c62b`. No scientific result yet. Noise-variance, coastline,
-periodic-boundary, paired-RNG and analytic Gaussian-sampler checks pass.
+**Completed October 1: spatially correlated noise helps modestly after 2,000
+OM4-only updates, but does not resolve the grain.** Both arms started from identical
+untrained weights, used seed 1729, and completed exactly 2,000 updates. This is a
+small-total-budget comparison, not a continuation of the 23,500-update model.
+
+Across the three held-out day-30 dates, member neighboring-cell roughness fell
+22–23%, ensemble-mean RMSE improved 4.5–5.4%, and fair CRPS improved 3.9–6.3%.
+However, members remain very noisy: neighboring-cell differences are still 6–15
+times the reference RMS in the correlated arm. Ensemble spread is 2.3–2.6 times
+mean RMSE, with 98–99% coverage by the eight-member min–max interval (the ideal
+exchangeable expectation is 7/9, about 77.8%). Both short-trained models are
+substantially overdispersed, not plausible calibrated ensembles.
+
+| Field | Mean RMSE: white → correlated | Fair CRPS: white → correlated | Member/reference roughness: white → correlated |
+|---|---:|---:|---:|
+| SST (°C) | 3.366 → 3.214 | 2.098 → 2.016 | 19.02 → 14.87 |
+| SSH (m) | 0.2017 → 0.1909 | 0.1255 → 0.1192 | 12.08 → 9.38 |
+| T at 550 m (°C) | 1.114 → 1.061 | 0.6718 → 0.6318 | 7.82 → 6.05 |
+| S at 550 m | 0.2140 → 0.2026 | 0.1324 → 0.1241 | 11.91 → 9.21 |
+
+Entries are arithmetic averages of the three per-date metrics, cosine-latitude
+weighted on wet cells within ±60°. The raw per-date results are in
+[metrics.csv](correlated-noise-assets/metrics.csv).
+
+![Paired 2018 salinity maps](correlated-noise-assets/paired-2018-so_9.png)
+
+All paired maps use shared color limits and exactly 2×2 image pixels per native
+grid cell. The first row compares reference and ensemble means; the second compares
+reference and member 1. Maps show the full grid, including unscored extreme latitudes.
+
+| Date | SST | SSH | T at 550 m | S at 550 m |
+|---|---|---|---|---|
+| 2015 | [SST](correlated-noise-assets/paired-2015-thetao_0.png) | [SSH](correlated-noise-assets/paired-2015-zos.png) | [T](correlated-noise-assets/paired-2015-thetao_9.png) | [S](correlated-noise-assets/paired-2015-so_9.png) |
+| 2018 | [SST](correlated-noise-assets/paired-2018-thetao_0.png) | [SSH](correlated-noise-assets/paired-2018-zos.png) | [T](correlated-noise-assets/paired-2018-thetao_9.png) | [S](correlated-noise-assets/paired-2018-so_9.png) |
+| 2021 | [SST](correlated-noise-assets/paired-2021-thetao_0.png) | [SSH](correlated-noise-assets/paired-2021-zos.png) | [T](correlated-noise-assets/paired-2021-thetao_9.png) | [S](correlated-noise-assets/paired-2021-so_9.png) |
+
+Additional six-panel maps (reference, mean and members 1–4) are retained for each
+arm/date/field in [the assets directory](correlated-noise-assets/).
+
+![Individual-member and ensemble-mean spectra](correlated-noise-assets/member-spectra.png)
+
+These are power spectra on a common fully wet 32×32 Pacific patch, averaged over
+dates. Dashed member curves use triangle/diamond markers; mean curves use circles.
+Bands show the range across eight members after averaging each member's power
+across dates. Correlated-noise member power in the highest four radial bins is
+about 48% lower than white noise, but both are orders of magnitude above the smooth
+reference there. Frequencies are cycles/grid cell, not physical kilometers; the
+small patch and Hann window limit interpretation.
+
+**Interpretation:** the noise covariance changes the grain and slightly improves
+point and distributional scores at this early budget. It does not establish that
+the model learned better fine structure: the prior itself contains less high-frequency
+power. It also does not isolate the explicit EDM bypass from internal U-Net skips,
+or establish that the benefit persists with longer training. No further training
+has been submitted. A next test would be a separately approved matched continuation
+of these two checkpoints, to see whether the gap persists as both models converge.
+
+## Matched experiment
 
 Both arms start from the identical saved scratch step-0 weights in
 `latent-d192-v2/D-1729/om4/best.pt`. The checkpoint's actual state is verified to
@@ -50,16 +102,16 @@ is reused, as in the original OM4 training; no observation targets enter the los
 
 ## Evaluation
 
-Use the fixed final 2,000-update weights in both arms, not a checkpoint selected
-on the test maps. Retain eight day-30 members on three held-out native January
-origins (2015, 2018, 2021), showing SSH, SST and T/S at 550 m. Compare individual
+We used the fixed final 2,000-update weights in both arms, not a checkpoint selected
+on the test maps. We retained eight day-30 members on three held-out native January
+origins (2015, 2018, 2021), showing SSH, SST and T/S at 550 m. We compared individual
 members and means, neighboring-cell roughness, member spectra, physical error,
 CRPS and calibration. This pilot addresses grain at a trained rollout horizon,
 not annual stability or observation-transfer skill.
 
 The native validation denoising losses are logged for optimization diagnostics;
 the two corruption distributions make their raw values unsuitable as a direct
-cross-arm skill ranking. Save intermediate weights at 1,000 and 2,000 updates.
+cross-arm skill ranking. We saved intermediate weights at 1,000 and 2,000 updates.
 The fixed three-date cohort is a diagnostic sample, not a broad significance test.
 
 Two single-L40S jobs have a two-hour allocation cap each, including preparation
@@ -77,3 +129,42 @@ directory, `correlated-noise-scratch-v2`. The first attempt consumed 0.445 GPU-h
 Implementation: [noise generator](../../../src/samudra/experiments/diffusion_noise.py),
 [training and member export](../../../src/samudra/experiments/diffusion_correlated_pilot.py),
 [Slurm launcher](../../../scripts/slurm_diffusion_correlated.sbatch).
+
+## Execution and provenance
+
+Training array **24560409**, producer `ac336c62b`, completed both 2,000-update
+fits. The correlated arm was preempted once and automatically restarted; the
+training state and paired sampling schedule were retained. Fitting took 26.8
+minutes (white) and 26.7 minutes (correlated), excluding cache preparation.
+
+Both jobs then failed in export: selecting the final reference time without
+retaining its axis caused channel indexing against a singleton axis after
+normalization broadcasting. The fix preserves the time axis. Evaluation-only
+array **24567755**, producer `17b5cf39c`, loaded the checksum-verified final
+checkpoints and completed both arms without any additional optimizer updates.
+It finished October 1 at 2:58 p.m. America/New_York.
+
+The monitor's first check found the export failure, recovered it, and confirmed
+completion. The requested hourly sleep loop was stopped when no jobs remained.
+
+Including the initial stalled startup, preemption, training, failed exports and
+successful recovery, this pilot allocated **1.9569 GPU-hours**; the campaign total
+is **225.4597 / 576 GPU-hours**. Accounting includes duplicate Slurm records for
+requeues but excludes job-step rows to avoid double counting.
+
+All **32 transferred files (32,468,538 bytes)** matched remote SHA-256 and byte
+counts. The renderer also verified both training contracts, all six export hashes,
+paired target arrays, masks, grids and timestamps before computing metrics.
+Focused scientific tests: **23 passed**. The export fix additionally passed a CPU
+check of target axes and physical channel scaling; both live GPU exports succeeded.
+
+- [Training protocols, completion records and validation curves](correlated-noise-assets/training-records.json.gz)
+- [Remote/local transfer receipt](correlated-noise-assets/remote-files.json.gz)
+- [Slurm accounting, including preemption](correlated-noise-assets/accounting.txt.gz)
+- [Metric and spectral provenance](correlated-noise-assets/provenance.json.gz)
+- [Spectral values](correlated-noise-assets/spectra.json.gz)
+- [Published asset checksums](correlated-noise-assets/asset-manifest.json.gz)
+
+Remote outputs: `/orcd/pool/008/jrusak/diffusion-interior-engaging/runs/correlated-noise-scratch-v2/{white,correlated}`.
+Final weights are `last.pt`; the completion records contain their full hashes.
+Report reproduction: `uv run python scripts/report_correlated_noise_pilot.py --root outputs/correlated-noise/runs --output outputs/correlated-noise/assets`.

@@ -159,6 +159,7 @@ def main():
     parser.add_argument("--baseline", type=Path, required=True)
     parser.add_argument("--physical-reports", type=Path, required=True)
     parser.add_argument("--latent-runs", type=Path, required=True)
+    parser.add_argument("--pretraining-runs", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
@@ -174,7 +175,9 @@ def main():
                 origin,
             )
             initialization(
-                run / "pretraining-maps-v1",
+                (args.pretraining_runs or args.latent_runs)
+                / f"D-{seed}"
+                / "pretraining-maps-v1",
                 run / "report-v1",
                 args.output,
                 seed,

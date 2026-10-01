@@ -44,6 +44,16 @@ def main():
                 a.short_runs / f"D-{seed}" / "report-v1/members" / f"{origin}.npz",
                 a.stopped_runs / f"D-{seed}" / "report-v1/members" / f"{origin}.npz",
             ]
+            protocols = [
+                json.loads((path.parent.parent / "protocol.json").read_text())
+                for path in paths
+            ]
+            if any(
+                protocol["training_protocol"]["pretrained_sha256"]
+                != protocols[0]["checkpoint_sha256"]
+                for protocol in protocols[1:]
+            ):
+                raise ValueError("Initializer pretraining checkpoint lineage differs")
             arrays = [dict(np.load(path)) for path in paths]
             for path in paths:
                 results["sources"][str(path)] = digest(path)

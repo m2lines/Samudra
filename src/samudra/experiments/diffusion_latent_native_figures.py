@@ -15,6 +15,7 @@ import numpy as np
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--latent-runs", type=Path, required=True)
+    parser.add_argument("--pretraining-runs", type=Path)
     parser.add_argument("--physical-native", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
@@ -28,7 +29,12 @@ def main():
         for seed, marker in zip((1729, 1730), markers, strict=True):
             for phase, color in (("om4", "tab:blue"), ("observation", "tab:red")):
                 root = (
-                    args.latent_runs / f"D-{seed}"
+                    (
+                        (args.pretraining_runs or args.latent_runs)
+                        if phase == "om4"
+                        else args.latent_runs
+                    )
+                    / f"D-{seed}"
                     if family == "latent"
                     else args.physical_native / f"B-{seed}"
                 )

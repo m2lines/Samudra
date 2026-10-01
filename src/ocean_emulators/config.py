@@ -1337,6 +1337,18 @@ class TrainConfig(TopLevelConfig):
     gradient_accumulation_steps: int = 1
     scheduler: SchedulerConfig | None = None
     loss: Loss = "mse"
+    validation_mode: Literal["inline", "offload", "both"] = Field(
+        default="inline",
+        description=(
+            "Where validation runs. 'inline' is the historical behaviour: the "
+            "trainer validates at every epoch end on its own GPUs. 'offload' "
+            "skips it and writes a per-epoch EMA snapshot for a separate "
+            "validator job to pick up, which is what lets a rank-local run use "
+            "a world size that does not divide the face -- inline face "
+            "validation is the only thing that needs it to. 'both' validates "
+            "inline AND writes snapshots, for checking the two agree."
+        ),
+    )
     finetune: bool = False
     resume_ckpt_path: str | None = None
     reset_optimizer_on_resume: bool = Field(

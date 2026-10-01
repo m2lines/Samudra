@@ -21,9 +21,7 @@ def collate_raw_train_data(data: Sequence[RawTrainData]) -> RawTrainData:
     assert all(d.dataset_id == batched_data.dataset_id for d in data), (
         "we don't support heterogenous batches yet"
     )
-    batched_data.source_indices = [
-        idx for d in data for idx in d.source_indices
-    ]
+    batched_data.source_indices = [idx for d in data for idx in d.source_indices]
 
     steps = len(data[0].raw_data)
     for step in range(steps):
@@ -78,6 +76,20 @@ class CheckpointPaths:
     @property
     def best_inference_checkpoint_path(self) -> Path:
         return self.checkpoint_dir / "best_inference_ckpt.pt"
+
+    def ema_epoch_snapshot_path(self, epoch: int) -> Path:
+        """A per-epoch copy of the EMA weights, for an offloaded validator.
+
+        `ema_ckpt.pt` is overwritten every epoch, so a validator that falls
+        behind would score whatever happens to be there rather than the epoch
+        it meant to. Each epoch gets its own name instead.
+        """
+        return self.checkpoint_dir / f"ema_ckpt_ep{epoch:04d}.pt"
+
+    @property
+    def best_validation_ema_checkpoint_path(self) -> Path:
+        """Where an offloaded validator links the best EMA snapshot."""
+        return self.checkpoint_dir / "best_validation_ema_ckpt.pt"
 
     @property
     def ema_checkpoint_path(self) -> Path:

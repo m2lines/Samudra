@@ -757,3 +757,54 @@ def test_a_rank_local_row_is_reseeded_without_consulting_the_other_ranks(
     assert _count_divergence_votes(_block_config(face_root), monkeypatch) == 0
     # Positive control: the face topology still votes, every write-back.
     assert _count_divergence_votes(_face_config(face_root), monkeypatch) > 0
+
+
+# --------------------------------------------------------------------------
+# Offloaded validation (what frees the world size)
+# --------------------------------------------------------------------------
+
+
+def _offload_config(face_root, **overrides):
+    return _block_config(face_root, **{"--validation_mode": "offload", **overrides})
+
+
+def test_offloaded_validation_builds_no_face_context(face_root) -> None:
+    """The whole point: nothing left shards the face, so 36 % ranks is free.
+
+    Training draws independent blocks and validation happens in another job,
+    so `assign_tiles` -- the only thing that needed the face to divide evenly
+    over the ranks -- is never reached.
+    """
+    with MultitonScope():
+        trainer = _prepared(_offload_config(face_root))
+        assert trainer.fp_ctx is None
+        assert trainer.face_val_group is None
+        # Still 16 blocks of 9, still blended within the rank.
+        assert len(trainer.replay_groups) == 16
+        assert {group.num_tiles for group in trainer.replay_groups} == {9}
+        # And the loss is still normalized by a constant.
+        assert trainer._loss_denominator_is_fixed
+
+
+def test_offloading_does_not_change_the_denominator(face_root) -> None:
+    """The constant is the face's whether or not a face context exists."""
+    torch.testing.assert_close(
+        _score_with(_block_config(face_root)),
+        _score_with(_offload_config(face_root)),
+        rtol=0,
+        atol=0,
+    )
+
+
+def test_an_offloaded_run_trains_and_leaves_a_snapshot_per_epoch(
+    face_root, caplog
+) -> None:
+    caplog.set_level(logging.INFO)
+    with MultitonScope():
+        trainer = Trainer(_offload_config(face_root))
+        trainer.run()
+        assert trainer._diverged_writebacks == 0
+        snapshots = sorted(trainer.ckpt_paths.checkpoint_dir.glob("ema_ckpt_ep*.pt"))
+        assert snapshots, "an offloaded run must leave the validator something"
+        # No inline validation ran.
+        assert "One-Step Face Validation" not in caplog.text

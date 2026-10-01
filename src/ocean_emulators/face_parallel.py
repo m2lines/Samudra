@@ -307,19 +307,16 @@ class FaceParallelContext:
         local = weighted_channel_denominator(
             wet=wet, batch=tiles, extra_weight=local_sample_weight
         )
-        if collective:
-            denominator = self._all_reduce(
-                local.detach().to(dtype=torch.float64).clone(), op="sum"
+        if not collective:
+            # The caller passed the WHOLE face's masks, so the local sum
+            # already IS the face total and no context is needed.
+            return face_wide_loss_norms(
+                wet, local_sample_weight, tiles=tiles, world_size=self.world_size
             )
-            reduce = lambda cells: self._all_reduce(cells.clone(), op="sum")  # noqa: E731
-        else:
-            # `collective=False` says the caller passed the WHOLE face's masks,
-            # so the local sum already is the face total. Rank-local blocks use
-            # this: every rank opens all 36 sources, so the same constant is
-            # reachable without a collective -- and it must be the face's, not
-            # a block's, or a land-heavy block would reweight itself.
-            denominator = local.detach().to(dtype=torch.float64).clone()
-            reduce = None
+        denominator = self._all_reduce(
+            local.detach().to(dtype=torch.float64).clone(), op="sum"
+        )
+        reduce = lambda cells: self._all_reduce(cells.clone(), op="sum")  # noqa: E731
         norms = gradient_z_norms(
             wet=wet,
             batch=tiles,
@@ -488,6 +485,49 @@ def build_face_replay_groups(
 # sees each of them fully blended (as a centre) and partially blended (as one
 # of the eight ring tiles). On a single face the 20 perimeter tiles never get
 # to be a centre; on the globe every tile does.
+
+
+def face_wide_loss_norms(
+    wet: torch.Tensor,
+    sample_weight: torch.Tensor | None,
+    *,
+    tiles: int,
+    world_size: int,
+) -> tuple[torch.Tensor, "GradientZNorms"]:
+    """The loss constants a rank divides by, derived from the whole face.
+
+    The collective-free twin of `FaceParallelContext.global_loss_norms`, and
+    the reason a rank-local run needs no face context at all: every rank opens
+    all 36 sources, so the face total is reachable locally. It must still be
+    the FACE's total rather than a block's, or a block drawn over land would
+    scale its own loss up and outvote the others through DDP's mean.
+
+    `/ world_size` lands on a different factor for the two terms, for the
+    reason `global_loss_norms` documents: the base metric is one ratio, so
+    DDP's 1/R is absorbed into its denominator; gradient_z is an average OF
+    ratios, so its denominators stay true counts and the 1/R goes into the
+    pair count instead.
+    """
+    from ocean_emulators.utils.loss import (
+        gradient_z_norms,
+        weighted_channel_denominator,
+    )
+
+    local = weighted_channel_denominator(
+        wet=wet, batch=tiles, extra_weight=sample_weight
+    )
+    norms = gradient_z_norms(
+        wet=wet, batch=tiles, sample_weight=sample_weight, reduce=None
+    )
+    return (
+        (local.detach().to(dtype=torch.float64).clone() / world_size).to(
+            dtype=torch.float32
+        ),
+        GradientZNorms(
+            valid_cells=norms.valid_cells,
+            count_by_time=norms.count_by_time / world_size,
+        ),
+    )
 
 
 def interior_centers(grid: int) -> tuple[int, ...]:

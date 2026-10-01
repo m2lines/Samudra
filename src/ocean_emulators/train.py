@@ -6,6 +6,7 @@ import logging
 import math
 import multiprocessing
 import os
+import shutil
 import queue
 import random
 import signal
@@ -87,6 +88,7 @@ from ocean_emulators.replay import (
 )
 from ocean_emulators.face_parallel import (
     build_block_replay_groups,
+    face_wide_loss_norms,
     split_into_chunks,
     FaceParallelContext,
     build_face_replay_groups,
@@ -1175,6 +1177,7 @@ class Trainer:
         self.scheduler = None
         if cfg.scheduler:
             self.scheduler = cfg.scheduler.build(self.optimizer, cfg.epochs)
+        self.validation_mode = cfg.validation_mode
         self.lr_multipliers = cfg.lr_multipliers
         self.lr_multiplier_transition = cfg.lr_multiplier_transition
         self.use_lr_multipliers = (
@@ -1609,11 +1612,25 @@ class Trainer:
                         f"Stopping after emergency checkpoint ({reason})."
                     )
 
-                val_stats = self.validate_one_epoch(epoch)
-                end_epoch_val_time = time.perf_counter()
+                if self.validation_mode == "offload":
+                    # Another job scores the per-epoch EMA snapshots. Nothing
+                    # here feeds back into training -- the LR scheduler has
+                    # already stepped, there is no plateau scheduler and no
+                    # early stopping -- so the only thing lost by deferring is
+                    # which snapshot gets labelled best, which the validator
+                    # owns instead.
+                    val_stats = {}
+                    end_epoch_val_time = time.perf_counter()
+                    autoregressive_val_stats = {}
+                    end_epoch_autoregressive_val_time = end_epoch_val_time
+                else:
+                    val_stats = self.validate_one_epoch(epoch)
+                    end_epoch_val_time = time.perf_counter()
 
-                autoregressive_val_stats = self.validate_autoregressive_one_epoch(epoch)
-                end_epoch_autoregressive_val_time = time.perf_counter()
+                    autoregressive_val_stats = self.validate_autoregressive_one_epoch(
+                        epoch
+                    )
+                    end_epoch_autoregressive_val_time = time.perf_counter()
 
                 if -1 in self.inference_epochs or epoch in self.inference_epochs:
                     inf_stats = self.inference_one_epoch(epoch)
@@ -1623,16 +1640,22 @@ class Trainer:
                     end_epoch_inf_time = None
 
                 train_loss = train_stats["train/mean/loss"]
-                one_step_loss = val_stats[ONE_STEP_LOSS_KEY]
-                v_loss, v_loss_stats = self.combined_validation_loss(
-                    one_step_loss, autoregressive_val_stats
-                )
+                one_step_loss = val_stats.get(ONE_STEP_LOSS_KEY)
+                if one_step_loss is None:
+                    v_loss, v_loss_stats = None, {}
+                else:
+                    v_loss, v_loss_stats = self.combined_validation_loss(
+                        one_step_loss, autoregressive_val_stats
+                    )
                 inf_loss = inf_stats.get(
                     "inference/time_mean_norm/rmse/channel_mean", None
                 )
 
                 logger.info(f"Achieved Train Loss = {train_loss:.3f}")
-                logger.info(f"Achieved One-Step Validation Loss = {one_step_loss:.3f}")
+                if one_step_loss is not None:
+                    logger.info(
+                        f"Achieved One-Step Validation Loss = {one_step_loss:.3f}"
+                    )
                 for label in ("short", "long"):
                     key = f"val/mean/{label}-autoregressive-loss"
                     if key in autoregressive_val_stats:
@@ -1640,7 +1663,8 @@ class Trainer:
                             f"Achieved {label.capitalize()} Autoregressive "
                             f"Validation Loss = {autoregressive_val_stats[key]:.3f}"
                         )
-                logger.info(f"Achieved Combined Validation Loss = {v_loss:.3f}")
+                if v_loss is not None:
+                    logger.info(f"Achieved Combined Validation Loss = {v_loss:.3f}")
                 if inf_loss is not None:
                     logger.info(f"Achieved Inference Loss = {inf_loss:.3f}")
 
@@ -3012,12 +3036,13 @@ class Trainer:
         waiting in.
         """
         fp_ctx = getattr(self, "fp_ctx", None)
-        if fp_ctx is None:
+        if fp_ctx is None and not self._rank_local_blocks:
             return [(0, data.get_input(0).shape[0])]
         if self._rank_local_blocks:
             # Every block is the same size, so one chunking serves them all.
             tiles, chunks = self._block_tiles_per_row, self._block_chunks
         else:
+            assert fp_ctx is not None
             tiles, chunks = len(fp_ctx.local_tiles), fp_ctx.chunks
         samples = data.get_input(0).shape[0]
         if samples % tiles:
@@ -4976,8 +5001,11 @@ class Trainer:
         `blend_scope="rank"` returns one group per candidate 3x3 block, each
         blended inside this rank alone.
 
-        `fp_ctx` and the face group are built either way, because validation
-        is face-synchronous in both -- that is how the model gets deployed.
+        `fp_ctx` and the face group are built whenever validation runs here,
+        because face validation is face-synchronous in both topologies -- that
+        is how the model gets deployed. With rank-local blocks AND validation
+        offloaded, neither is needed, and skipping them is what lets the world
+        size stop dividing 36: training never shards the face.
         """
         catalog = getattr(self, "tile_catalog", None)
         if not catalog:
@@ -4988,6 +5016,19 @@ class Trainer:
             )
         layout = build_group_layout(catalog)
         world_size = get_world_size()
+        if self._rank_local_blocks and self.validation_mode == "offload":
+            # Nothing here shards the face: training draws independent blocks
+            # and validation happens in another job. So the world size is free.
+            self.fp_ctx = None
+            self.face_val_group = None
+            logger.info(
+                "Rank-local blocks with validation offloaded: the face is "
+                "never sharded, so world size %d needs no relation to %d "
+                "tiles.",
+                world_size,
+                layout.num_tiles,
+            )
+            return self._build_block_groups(catalog)
         shardable, reason = face_group_is_shardable(layout, world_size)
         if not shardable:
             raise ValueError(
@@ -5014,6 +5055,10 @@ class Trainer:
         self.face_val_group = face_groups[0]
         if not self._rank_local_blocks:
             return face_groups
+        return self._build_block_groups(catalog)
+
+    def _build_block_groups(self, catalog) -> list[ReplayGroup]:
+        """One group per candidate 3x3 block, plus the chunking they share."""
         grid = math.isqrt(len(catalog))
         if grid * grid != len(catalog):
             raise ValueError(
@@ -5160,21 +5205,10 @@ class Trainer:
         Built here rather than in `__init__` because it needs the tile
         assignment, which needs the catalog, which needs the sources open.
         """
-        if self.fp_ctx is None:
+        if self.fp_ctx is None and not self._rank_local_blocks:
             raise RuntimeError("Face loss normalization needs a face context")
         # The face share, not a drawn block: the constant this installs is the
         # face's in both topologies.
-        group = self.face_val_group
-        # Exactly the weight `_batch_wet_weight` hands the loss for this
-        # rank's tiles, so the denominator is built from the same expression
-        # it will later divide.
-        if self.tile_wet_masks is None:
-            sample_weight = None
-        else:
-            num_strides = max(1, len(self.data_stride))
-            sources = [index // num_strides for index in group.dataset_indices]
-            sample_weight = self._wet_for_sources(sources).to(dtype=torch.float32)
-
         if self._rank_local_blocks:
             # The constant must stay the FACE's, not a block's: a block drawn
             # over land would otherwise scale itself up and outvote the others
@@ -5184,15 +5218,26 @@ class Trainer:
             # float mask on the GPU.
             masks = self.tile_wet_masks
             assert masks is not None
-            denominator, gradient_z = self.fp_ctx.global_loss_norms(
+            denominator, gradient_z = face_wide_loss_norms(
                 self.domain_wet.cpu(),
                 masks.to(dtype=torch.float32),
                 tiles=masks.shape[0],
-                collective=False,
+                world_size=get_world_size(),
             )
             denominator = denominator.to(self.device)
             gradient_z = gradient_z.to(self.device)
         else:
+            group = self.face_val_group
+            assert group is not None
+            # Exactly the weight `_batch_wet_weight` hands the loss for this
+            # rank's tiles, so the denominator is built from the same
+            # expression it will later divide.
+            if self.tile_wet_masks is None:
+                sample_weight = None
+            else:
+                num_strides = max(1, len(self.data_stride))
+                sources = [index // num_strides for index in group.dataset_indices]
+                sample_weight = self._wet_for_sources(sources).to(dtype=torch.float32)
             denominator, gradient_z = self.fp_ctx.global_loss_norms(
                 self.domain_wet, sample_weight, tiles=group.num_tiles
             )
@@ -5366,7 +5411,8 @@ class Trainer:
             # normalization below indexes the masks -- so narrow them first.
             self._scope_tile_wet_masks_to_groups()
             self._install_face_loss_normalization()
-            self._install_face_validation_scorer()
+            if self.face_val_group is not None:
+                self._install_face_validation_scorer()
             self._build_group_frame_reader()
             # Fail now rather than an epoch in, at the first validation.
             self._require_face_reader()
@@ -5594,10 +5640,12 @@ class Trainer:
             )
             return None
 
-    def save_all_checkpoints(self, epoch: int, v_loss: float, inf_loss: float):
+    def save_all_checkpoints(
+        self, epoch: int, v_loss: float | None, inf_loss: float | None
+    ):
         with self._test_context():
             is_best_val_loss = False
-            if v_loss <= self.best_val_loss:
+            if v_loss is not None and v_loss <= self.best_val_loss:
                 logger.info(
                     f"Epoch validation loss ({v_loss:.3f}) is lower than "
                     f"previous best validation loss ({self.best_val_loss:.3f})."
@@ -5643,6 +5691,21 @@ class Trainer:
             self.ckpt_paths.ema_checkpoint_path,
             for_inference=True,
         )
+        if self.validation_mode != "inline":
+            # A named copy per epoch, hardlinked so it costs an inode rather
+            # than 2.9 GB: `os.replace` gave `ema_ckpt.pt` a fresh inode this
+            # epoch, so the link pins these bytes even as later epochs
+            # overwrite the name.
+            snapshot = self.ckpt_paths.ema_epoch_snapshot_path(epoch)
+            source = self.ckpt_paths.ema_checkpoint_path
+            staging = snapshot.with_suffix(".pt.tmp")
+            try:
+                staging.unlink(missing_ok=True)
+                os.link(source, staging)
+            except OSError:
+                shutil.copy2(source, staging)
+            os.replace(staging, snapshot)
+            logger.info("Wrote EMA snapshot for the validator: %s", snapshot)
 
     def save_checkpoint(
         self,

@@ -82,3 +82,5 @@ forcings, the latent grid and observation targets remain fixed. No results yet.
 
 Conditional extension after H and latent reconstruction/evolution diagnostics.
 No results yet.
+
+- [Grain diagnostics and globally supervised next-run proposal](grain-diagnostics.md)

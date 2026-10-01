@@ -39,6 +39,7 @@ def main():
     p.add_argument("--output", type=Path, required=True)
     a = p.parse_args()
     a.output.mkdir(parents=True, exist_ok=True)
+    spectra = []
     metrics = []
     response = []
     sources = {}
@@ -69,6 +70,18 @@ def main():
                     y, x = patch(mask, z["lat"], z["lon"])
                     member_power = spectrum(members, y, x).mean(0)
                     mean_power = spectrum(members.mean(0), y, x)
+                    spectra.append(
+                        dict(
+                            mode=mode,
+                            case=case.name,
+                            day=lead,
+                            steps=steps,
+                            channel=str(channel),
+                            member_power=member_power.tolist(),
+                            mean_power=mean_power.tolist(),
+                            reference_power=spectrum(target, y, x).tolist(),
+                        )
+                    )
                     for domain in ["global", "60"]:
                         scored = finite.copy()
                         if domain == "60":
@@ -146,6 +159,37 @@ def main():
             if not noise_file.exists():
                 continue
             z = dict(np.load(noise_file))
+            if "2018" in case.name:
+                target_fields = np.load(case / "day30-steps16.npz")["reference"]
+                for c, ch in enumerate(z["channels"]):
+                    target = target_fields[c]
+                    fields = []
+                    titles = []
+                    for sigma in [0.03, 0.1]:
+                        i = list(z["sigmas"]).index(sigma)
+                        fields.extend(
+                            [
+                                target,
+                                target + sigma * z["noise"][i, 0, c] * z["scale"][c],
+                                target + z["errors"][i, 0, c] * z["scale"][c],
+                            ]
+                        )
+                        titles.extend(
+                            [
+                                "Clean OM4",
+                                f"Corrupted, sigma={sigma}",
+                                f"Denoised, sigma={sigma}",
+                            ]
+                        )
+                    paired_map(
+                        fields,
+                        titles,
+                        z["mask"][c].astype(bool),
+                        a.output / f"denoise-{mode}-{ch}.png",
+                        f"{mode}; OM4 2018 day30; one denoiser call, matched conditioning",
+                        str(ch),
+                    )
+
             for c, ch in enumerate(z["channels"]):
                 mask = z["mask"][c].astype(bool)
                 w = np.cos(np.deg2rad(z["lat"]))[:, None] * mask
@@ -202,6 +246,68 @@ def main():
         ax.grid(alpha=0.2)
     save_png(fig, a.output / "denoiser-noise-gain.png", dpi=130)
     plt.close(fig)
+    for day in [30, 365]:
+        fig, axes = plt.subplots(3, 4, figsize=(18, 12), layout="constrained")
+        for row, (mode, task) in enumerate(
+            [("pretrained", "om4"), ("adapted", "om4"), ("adapted", "obs")]
+        ):
+            for col, ch in enumerate(["thetao_0", "zos", "thetao_9", "so_9"]):
+                ax = axes[row, col]
+                subset = [
+                    r
+                    for r in spectra
+                    if r["mode"] == mode
+                    and r["case"].startswith(task)
+                    and r["day"] == day
+                    and r["channel"] == ch
+                ]
+                if not subset:
+                    ax.set_visible(False)
+                    continue
+                k = np.arange(1, 17) / 32
+                ref = np.array(
+                    [r["reference_power"] for r in subset if r["steps"] == 16]
+                ).mean(0)
+                if np.isfinite(ref).all():
+                    ax.loglog(
+                        k,
+                        ref,
+                        color="black",
+                        marker="x",
+                        markersize=3,
+                        label="reference",
+                    )
+                for steps, color, marker in [
+                    (16, "#0072b2", "o"),
+                    (32, "#e69f00", "s"),
+                    (64, "#009e73", "^"),
+                    (128, "#cc79a7", "D"),
+                ]:
+                    values = [r for r in subset if r["steps"] == steps]
+                    for key, style, label in [
+                        ("member_power", "-", "member"),
+                        ("mean_power", ":", "mean"),
+                    ]:
+                        power = np.array([r[key] for r in values]).mean(0)
+                        ax.loglog(
+                            k,
+                            power,
+                            color=color,
+                            linestyle=style,
+                            marker=marker,
+                            markersize=2,
+                            label=f"{steps} {label}",
+                        )
+                ax.set(
+                    title=f"{mode} / {task} / {ch}",
+                    xlabel="cycles/grid cell",
+                    ylabel="window-normalized power",
+                )
+                ax.legend(fontsize=5)
+                ax.grid(alpha=0.2)
+        save_png(fig, a.output / f"sampler-spectra-day{day}.png", dpi=110)
+        plt.close(fig)
+    (a.output / "spectra.json").write_text(json.dumps(spectra, indent=2) + "\n")
     (a.output / "sources.json").write_text(json.dumps(sources, indent=2) + "\n")
 
 

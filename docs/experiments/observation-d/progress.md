@@ -3010,3 +3010,9 @@ Training 18890321 remains running at 6,310 observation / zero OM4 updates. Lates
 ### 2026-09-30 22:15 ET: matched global scratch check
 
 Training 18890321 remains running at 7,420 observation / zero OM4 updates. Latest global integrated-plus-spectral validation is 0.611035 at 7,400; best is 0.588786 at 6,400. Loss and gradients remain finite. Actual accumulated allocation is 6.8864 GPU-hours; recent mean GPU utilization is 68.2%. No completion or partial marker is present. Four endpoint GPU evaluations and the final comparison/interior CPU exports remain pending their successful dependencies. Throughput projects approximately 7.7 training hours remaining (05:59 ET October 01), before queued evaluation/export/reporting. [Full check](artifacts/2026-09-30-global-scratch/hour7.json.gz).
+
+### 2026-09-30 23:15 ET: matched global scratch check
+
+Training 18890321 remains running at 8,530 observation / zero OM4 updates. Latest global integrated-plus-spectral validation is 0.602028 at 8,500; best is 0.584724 at 7,600. Loss and gradients remain finite. Actual accumulated allocation is 7.8825 GPU-hours; recent mean GPU utilization is 70.9%. No completion or partial marker is present. Four endpoint GPU evaluations and the final comparison/interior CPU exports remain pending their successful dependencies. Throughput projects approximately 6.7 training hours remaining (05:57 ET October 01), before queued evaluation/export/reporting. [Full check](artifacts/2026-09-30-global-scratch/hour8.json.gz).
+
+The immutable 8k checkpoint is fully hashed: `6e885fef7c6ffe99741a41ca20ce369e5e4829ae83c8490aac02839210214006`, 755,544,139 bytes, unchanged during readback. Its global validation composite is 0.626532. This receipt will be checked against the eventual fixed-8k held-out evaluation lineage; no evaluation was started early.

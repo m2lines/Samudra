@@ -92,3 +92,38 @@ def test_correlated_sampler_with_exact_gaussian_denoiser():
     actual = torch.cov(result.T)
     torch.testing.assert_close(actual.diag(), torch.ones(64), atol=0.09, rtol=0)
     assert (actual - torch.diag(actual.diag())).abs().max() < 0.08
+
+
+def test_solver_refinement_preserves_initial_noise_and_rng():
+    from samudra.experiments.joint_diffusion import sample_joint
+
+    class Recorder:
+        fields = 1
+        noise_correlation = 0.0
+        paired_noise_draws = False
+
+        def __init__(self):
+            self.first = None
+
+        def __call__(self, noisy, sigma, latent, mask):
+            if self.first is None:
+                self.first = noisy.clone()
+            return noisy / (1 + sigma[:, None, None, None].square())
+
+    first = end = None
+    for steps in (16, 32, 64, 128):
+        decoder = Recorder()
+        generator = torch.Generator().manual_seed(4041729)
+        sample_joint(
+            decoder,
+            torch.zeros(1, 1, 2, 2),
+            torch.ones(1, 4, 4),
+            generator,
+            steps=steps,
+        )
+        if first is None:
+            first, end = decoder.first, generator.get_state()
+        else:
+            torch.testing.assert_close(decoder.first, first, rtol=0, atol=0)
+            assert end is not None
+            assert torch.equal(generator.get_state(), end)

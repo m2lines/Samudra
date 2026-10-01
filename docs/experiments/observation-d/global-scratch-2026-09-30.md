@@ -93,3 +93,13 @@ updates were slower; refine the duration estimate after cache warming.
 [W&B run](https://wandb.ai/ocean_emulators/observational-transfer/runs/2f252fb3ca72).
 
 The final CPU comparison export is submitted as **18892522**, dependent on successful completion of all four fixed-checkpoint evaluations. Collector probe 18892182 and numerical verification 18892367 completed successfully (48 and 7 CPU seconds, respectively; zero GPUs), reproducing all prior control arrays, day-30 reductions, annual means and support exactly. The collector exports initialization OHC and native-IAP training climatology for the supported ZJ totals. The updated renderer adds both obs-only checkpoints to maps and wider spectra, and keeps observation-exposure and total-update axes separate. [Report pipeline evidence](artifacts/2026-09-30-global-scratch/report-pipeline.json.gz).
+
+## Completed October 1
+
+Training 18890321 finished at 06:00 ET with 16,000 observation / zero OM4 updates; no partial marker or retry. All four fixed-checkpoint GPU evaluations completed 0:0 by 06:04 ET. Comparison collector 18892522 and learned-state extractor 18895376 completed 0:0 by 06:10 ET. Actual allocation is **14.7942 GPU-hours**, including evaluation, below the 30-hour nominal cap. Restored SSH access confirmed completion; authentication interruptions did not interrupt training.
+
+The 8k checkpoint checksum is unchanged from its immutable pre-completion receipt and matches evaluation lineage. The 16k checksum is `e40c2e2f9cce556270dea57f9d08f772350fb72914d0690e4fbe2f8c2039034b`. The separate validation minimum is at 15,300 updates, score 0.578434; it is not substituted for either requested endpoint.
+
+Both report-array archives and all NPZ members passed full hash/size readback. The updated report adds both endpoints to initialization, day30 spectra/maps and annual OHC-ZJ/SST/SSH plots. Mixed has a 5.2% better combined test score at equal observation exposure; scratch 16k is 1.1% better at equal total updates, with better SST and worse SSH/velocity structure. Stronger annual SST ripples remain in both scratch endpoints. Learned initializer T/S agreement is similar. No endpoint beats its own inferred-state persistence on the combined test metric.
+
+[Completed comparison](global-physical-day30-2026-09-30.md) · [Verified execution/lineage](artifacts/2026-10-01-global-physical-comparison/completion.json.gz) · [Results/provenance](artifacts/2026-10-01-global-physical-comparison/provenance.json.gz). Monitoring has ended; the old timer remains disabled.

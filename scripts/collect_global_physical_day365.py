@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-FileCopyrightText: 2026 Samudra Authors
 # SPDX-License-Identifier: Apache-2.0
-"""CPU-only OM4 samples matched to five-day forecast intervals."""
+"""CPU-only OM4 samples matched to initialization and five-day forecast intervals."""
 
 import argparse
 import hashlib
@@ -29,9 +29,14 @@ def main():
     )
     parser.add_argument("--lead-days", type=int, nargs="+", default=[365])
     parser.add_argument("--map-fields", action="store_true")
+    parser.add_argument(
+        "--allow-partial-initial",
+        action="store_true",
+        help="Permit incomplete lead-zero reference coverage; record the gap explicitly.",
+    )
     args = parser.parse_args()
-    if any(lead < 5 for lead in args.lead_days):
-        parser.error("lead-days must be at least five")
+    if any(lead != 0 and lead < 5 for lead in args.lead_days):
+        parser.error("lead-days must be zero for initialization or at least five")
     out = args.output
     out.mkdir(parents=True, exist_ok=True)
     if (out / "COMPLETE.json").exists():
@@ -56,8 +61,20 @@ def main():
                 0, np.minimum(centers + 2.5, lo + 5) - np.maximum(centers - 2.5, lo)
             )
             indices = np.flatnonzero(overlap > 0)
-            assert np.isclose(overlap.sum(), 5)
-            weights = overlap[indices] / 5
+            covered_days = float(overlap.sum())
+            complete = bool(np.isclose(covered_days, 5))
+            if not complete and not (
+                args.allow_partial_initial and lead == 0 and 0 < covered_days < 5
+            ):
+                nearby = np.flatnonzero(np.abs(centers - lo) < 12)
+                raise ValueError(
+                    f"Incomplete OM4 interval: origin={origin}, lead={lead}, "
+                    f"covered_days={overlap.sum()}, source_midpoints="
+                    f"{[str(stamps[i]) for i in nearby]}, "
+                    f"overlaps={overlap[nearby].tolist()}, "
+                    f"time_encoding={ds.time.encoding}"
+                )
+            weights = overlap[indices] / covered_days
             values = np.stack([ds[k].isel(time=indices).values for k in fields], axis=1)
             finite = np.isfinite(values).all(0)
             frame = np.sum(
@@ -73,6 +90,20 @@ def main():
                     "end": str((start + pd.Timedelta(days=5)).date()),
                     "source_midpoints": [str(stamps[i]) for i in indices],
                     "overlap_weights": weights.tolist(),
+                    "covered_days": covered_days,
+                    "complete": complete,
+                    "source_start": str(
+                        (stamps[indices[0]] - pd.Timedelta(days=2.5)).date()
+                    ),
+                    "source_end": str(
+                        (stamps[indices[-1]] + pd.Timedelta(days=2.5)).date()
+                    ),
+                    "sampling_caveat": (
+                        None
+                        if complete
+                        else "Incomplete requested window: weighted mean of available OM4 "
+                        "five-day averages, normalized by covered days; no gap filling."
+                    ),
                 }
             )
         np.savez_compressed(
@@ -92,6 +123,8 @@ def main():
         "alignment": alignment,
         "fields": fields,
         "lead_days": args.lead_days,
+        "allow_partial_initial": args.allow_partial_initial,
+        "time_support_convention": "Stored midpoint plus/minus 2.5 days; source has no explicit time bounds",
         "field_attributes": {name: ds[name].attrs for name in fields},
         "reference_role": "Date-matched OM4 model-data sample, not observational ground truth",
         "files": {

@@ -133,7 +133,7 @@ if args.om4_map_references:
     om4_map_manifest = json.loads((reference_root / "COMPLETE.json").read_text())
     assert om4_map_manifest["metadata_sha256"] == meta["om4"]["metadata_sha256"]
     assert om4_map_manifest["fields"] == ["thetao_9", "so_0", "uo_0", "vo_0"]
-    for lead in [30, 365]:
+    for lead in om4_map_manifest["lead_days"]:
         path = reference_root / f"om4-day{lead}.npz"
         receipt = om4_map_manifest["files"][path.name]
         assert path.stat().st_size == receipt["bytes"]
@@ -193,9 +193,10 @@ for origin in ["2015-01-01", "2018-01-01", "2021-01-01"]:
                 reference_label = "DUACS geostrophic proxy (not target)"
             if reference_label:
                 panels.append((reference_label, truth, grid))
-            if phase != "initial" and c in [1, 2, 4, 5] and om4_maps:
+            lead = 0 if phase == "initial" else 30 if phase == "day30" else 365
+            om4_fields = [4, 5] if phase == "initial" else [1, 2, 4, 5]
+            if c in om4_fields and lead in om4_maps:
                 assert om4_map_manifest is not None
-                lead = 30 if phase == "day30" else 365
                 sample = om4_maps[lead]
                 index = list(sample["origins"]).index(origin)
                 om4_state = np.full_like(arrays["obs08000"]["initial"], np.nan)
@@ -211,6 +212,15 @@ for origin in ["2015-01-01", "2018-01-01", "2021-01-01"]:
                     "end"
                 ] == str(end.date())
                 om4_label = f"OM4 model-data sample: {start.date()} to {(end - pd.Timedelta(days=1)).date()}"
+                if not interval.get("complete", True):
+                    source_start = pd.Timestamp(interval["source_start"])
+                    source_end = pd.Timestamp(interval["source_end"]) - pd.Timedelta(
+                        days=1
+                    )
+                    om4_label = (
+                        f"OM4 sample: {source_start.date()} to {source_end.date()} "
+                        f"({interval['covered_days']:g}/5 days overlap)"
+                    )
                 panels.append((om4_label, om4_state, grid))
             name = f"{origin}-{phase}-channel{c}.png"
             if reference_label:

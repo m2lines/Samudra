@@ -136,7 +136,7 @@ Surface scores use **January 26–30** of 2015/2018/2021, exactly the day-30 map
 | Final: 8,000 obs | 0.695 | 0.168 | 0.764 | 0.470 |
 | Obs-only: 8,000 obs | 0.706 | 0.170 | 0.794 | 0.489 |
 | Obs-only: 16,000 obs | 0.629 | 0.170 | 0.727 | 0.482 |
-| Date-matched OM4 1° (context) | 0.799 | 0.194 | — | — |
+| Date-matched OM4 1° (context) | 0.799 | 0.194 | 2.089 | 1.578 |
 
 On this cohort, obs-only 16k has lower SST and upper-OHC error; mixed has lower geostrophic velocity and deep-OHC error. See the applicability decisions below before comparing with the original suite's published long-rollout numbers.
 
@@ -159,7 +159,7 @@ Both lead tables use the **same three January 1 initializations: 2015, 2018 and 
 
 SST and velocity retain approximately **98.5% and 93.2%** of their finite native observation area after pairing. OHC retains approximately **99.0% and 99.1% of complete-column observation area** in the two layers; those percentages are not fractions of the whole ocean. The native-grid operator erodes coastal support where interpolation touches missing model cells. All three learned models have the same pairing support. We preserve the official global domain, with no ±60° cutoff.
 
-The original suite scores a completed time series on calendar-year blocks; these tables instead answer the requested lead-specific question. OHC necessarily answers a monthly question, and the native-layer/model-layer representation difference documented below still contributes. No learned correction, detrending, fitted SSH offset or retuning is applied. OM4 OHC is left blank because its monthly full-depth reference was not extracted for this endpoint diagnostic.
+The original suite scores a completed time series on calendar-year blocks; these tables instead answer the requested lead-specific question. OHC necessarily answers a monthly question, and the native-layer/model-layer representation difference documented below still contributes. No learned correction, detrending, fitted SSH offset or retuning is applied. OM4 OHC uses overlap-weighted full January/December means of its 19 native temperature levels, integrated with the same model-layer thicknesses and constants. Its complete-column masks and native-IAP pairing support exactly match those of the learned models. The OM4 monthly samples are structural simulation context, not observation-initialized forecasts.
 
 ![SST at day 30 with matching observations](artifacts/2026-10-01-global-physical-endpoints/2015-01-01-day30-channel0.png)
 
@@ -225,7 +225,7 @@ Surface scores use **December 27–31** after the same three January initializat
 | Final: 8,000 obs | 0.751 | 0.191 | 1.193 | 0.581 |
 | Obs-only: 8,000 obs | 0.871 | 0.225 | 2.459 | 1.140 |
 | Obs-only: 16,000 obs | 0.798 | 0.250 | 2.770 | 1.078 |
-| Date-matched OM4 1° (context) | 0.774 | 0.196 | — | — |
+| Date-matched OM4 1° (context) | 0.774 | 0.196 | 2.102 | 1.563 |
 
 Mixed has lower error than both obs-only endpoints in every computed column on these three examples. In particular, a smaller global OHC mean offset for obs-only does not imply lower spatial OHC error: opposing regional errors can cancel in a global total. These native-grid endpoint results are descriptive, not a new checkpoint-selection criterion.
 
@@ -341,3 +341,5 @@ The whole-December initializer diagnostic adds **0.0158 actual GPU-hours**, incl
 The SST/SSH rollout maps also retain the observation reference and now include date-matched OM4 context for all three origins and both leads. OM4 SSH is the native `zos` field in meters; no offset is fitted to align it with DUACS ADT. These are model-data context panels, not an assumption of a shared absolute sea-level datum. All six OM4 intervals have complete five-day coverage. The 12 updated figures preserve all 48 original model/observation tiles pixel-for-pixel; the other endpoint maps are unchanged. Day-365 OM4 values reproduce those already used in the spectral comparison. CPU extraction job **18977362** completed successfully in seven seconds, with **zero GPU-hours**. [Surface-reference and figure audit](artifacts/2026-10-01-global-physical-surface-om4/provenance.json.gz).
 
 The official-kernel endpoint tables were computed on an Alpha CPU node, with no model inference or GPU allocation. The archived results contain every case MSE, pairing fraction, original kernel/source hashes, input-array hashes and the exact aggregation. [Metrics provenance and numerical results](artifacts/2026-10-01-official-fixed-lead-metrics/provenance.json.gz).
+
+The OM4 OHC baseline was added from six full-month temperature extractions. Torch CPU job **18978279** completed in nine seconds after one six-second schema-lookup failure; Alpha CPU scoring job **112642** completed in six seconds. All attempts are retained in the existing metrics provenance. Complete calendar coverage, model/OM4 support equality, observation fingerprint and pairing fractions passed; every preexisting metric value is unchanged. No GPU time was used.

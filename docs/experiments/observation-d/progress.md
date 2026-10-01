@@ -3094,3 +3094,7 @@ Added date-matched OM4 SST and SSH to all 12 day30/day365 endpoint figures (2015
 ### 2026-10-01: official-kernel fixed-lead metric tables
 
 Added day30/day365 native-grid SST, SSH-derived geostrophic velocity and monthly OHC error tables for matching 2015/2018/2021 January-start cohorts. Pinned kernels to 14455906; explicit deviations from full official report: endpoint reduction instead of complete-year blocks, January/December OHC, complete-column support. Temporal variance/EKE and year-block uncertainty unavailable at these endpoints; temporal spectra deferred as requested. Mixed leads all four day365 metrics; day30 benefits vary by field. Alpha CPU job 112625 completed; no GPU use, inference, training or selection changes. Per-case MSEs and provenance archived with the report.
+
+### 2026-10-01: missing OM4 OHC baseline completed
+
+Filled both native-IAP OHC columns for OM4: January upper/deep RMSE 2.089/1.578 GJ/m²; December 2.102/1.563 GJ/m², equal-case MSE aggregation across 2015/2018/2021. Full-month overlap weights and native depth integration verified. OM4 complete-column masks and pairing fractions exactly match learned-model rows; existing metrics unchanged. CPU extraction 18978279 (9 s), failed schema attempt 18978273 (6 s), scoring 112642 (6 s); all recorded, no GPU allocation.

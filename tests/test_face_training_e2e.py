@@ -23,7 +23,11 @@ import torch
 import xarray as xr
 
 from ocean_emulators.config import GradientLossConfig, TrainConfig
-from ocean_emulators.face_parallel import block_tiles, interior_centers
+from ocean_emulators.face_parallel import (
+    FaceParallelContext,
+    block_tiles,
+    interior_centers,
+)
 from ocean_emulators.tiling import face_tile_windows
 from ocean_emulators.train import Trainer
 from ocean_emulators.utils.multiton import MultitonScope
@@ -718,3 +722,38 @@ def test_the_wet_masks_sit_on_the_host_for_a_drawn_block(face_root) -> None:
         # And they still resolve by global source index.
         weight = trainer._wet_for_sources((12, 13, 14))
         assert weight.shape[0] == 3
+
+
+def _count_divergence_votes(config, monkeypatch) -> int:
+    """How many times the cross-rank divergence vote fires over a run.
+
+    Patched on the CLASS, not an instance: `run()` rebuilds the face context
+    through `init_data_loaders`, so an instance patch would be counting a
+    object that no longer takes part.
+    """
+    votes: list[bool] = []
+    original = FaceParallelContext.agree
+
+    def counting(self, flag):
+        votes.append(flag)
+        return original(self, flag)
+
+    monkeypatch.setattr(FaceParallelContext, "agree", counting)
+    with MultitonScope():
+        Trainer(config).run()
+    return len(votes)
+
+
+def test_a_rank_local_row_is_reseeded_without_consulting_the_other_ranks(
+    face_root, monkeypatch
+) -> None:
+    """A diverged block must not drag three healthy, unrelated blocks with it.
+
+    Under `blend_scope="face"` the ranks hold one row between them, so one
+    rank seeing a runaway tile has to make all of them reseed or the face
+    stops being one timestamp. Rank-local rows share nothing, so the vote is
+    not merely unnecessary -- taking it would reseed blocks that are fine.
+    """
+    assert _count_divergence_votes(_block_config(face_root), monkeypatch) == 0
+    # Positive control: the face topology still votes, every write-back.
+    assert _count_divergence_votes(_face_config(face_root), monkeypatch) > 0

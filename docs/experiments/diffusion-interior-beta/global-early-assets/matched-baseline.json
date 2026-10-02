@@ -1,0 +1,20 @@
+{
+  "event": {
+    "time_utc": "2026-09-29T19:55:51.564346+00:00",
+    "event": "joint_validation",
+    "global_step": 194,
+    "om4": 169,
+    "observation": 25,
+    "validation/obs_score": 1.8566937366293301,
+    "om4_retention": {
+      "ts_mse": 0.05561821162700653,
+      "reconstruction_ts_mse": 0.1327543407678604,
+      "full_mse": 0.03239491581916809,
+      "origins": 11
+    },
+    "elapsed_training_seconds": 545.8008395119105
+  },
+  "reference_sha256": "c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c",
+  "source_sha256": "111ffb2a4a8a82d59a8116beda5bd3f8f2ae6a854f9b14093c136eae017d94cd",
+  "source": "observation-d/artifacts/2026-10-01-global-validation-ema/validation-curve-results.json.gz"
+}

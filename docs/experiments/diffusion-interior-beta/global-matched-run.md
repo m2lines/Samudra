@@ -63,6 +63,13 @@ ready to review.
 
 ## Qualification and launch status
 
+**Update October 2:** [First 25-observation-update results](global-early-results.md)
+are complete. The eight-H200 request was unschedulable because Engaging
+`mit_preemptable` caps this account at four GPUs. It was canceled without allocation
+and replaced by four-H200 continuation **24611683**. The previous four-day estimate
+assumed eight GPUs; actual continuation timing and Torch availability are being
+checked. The launch details below preserve the original sequence.
+
 H200 qualification **24596676** completed 0:0 in 14 minutes. Training producer:
 `4ecba36a40b7b581edeaa2292c90d1953fca7aa0`. Both full effective-batch-eight
 objectives have finite, nonzero encoder/processor/decoder gradients. The global

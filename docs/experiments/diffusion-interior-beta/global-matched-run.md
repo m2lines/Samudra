@@ -8,8 +8,10 @@ batch eight, with intermediate checkpoints and early evaluations. This replaces
 the proposed stop for approval at 2,000 observation updates in the
 [grain diagnostic report](grain-diagnostics.md). Full exposure is authorized;
 actual allocated GPU-hours, including qualification and restarts, will be reported.
-The original 576-GPU-hour campaign cap remains in force pending a requested
-increase: qualification projects roughly 750 GPU-hours for this new run alone.
+After reviewing the approximately four-day estimate, the user approved proceeding
+with early results the following morning. The communicated allowance for this new
+run is 900 GPU-hours, including qualification, restarts and evaluation; this
+supersedes the earlier campaign cap for this run.
 
 Use seed 1729, the comparator's quadratic mixed schedule and per-task epoch-shuffled
 sample streams. Preserve 19 history bins, six native forecast leads, the supplied
@@ -79,15 +81,24 @@ explains the new measured timing without implying that compilation regressed.
 
 This projects approximately **752 GPU-hours** before evaluation, checkpoint I/O,
 restarts and distributed overhead. Eight H200s would imply roughly four training
-days, plus queue time. A 900-GPU-hour allowance for this new run was requested;
-no increase is assumed while the question is pending.
+days, plus queue time. The approved planning allowance is 900 GPU-hours for this
+new run, including overhead and evaluation.
 
 Production job **24597458** requests eight H200s, 64 CPUs, 512 GB host RAM and
-12 wall-clock hours on Engaging `mit_preemptable`. It is queued at this update;
-no production updates have completed. This initial allocation is within the
-remaining original allowance. Checkpoint/evaluation directories and observations
-are on scratch. Continue or recover only within the authorized remaining budget;
-count all preempted/requeued allocation time.
+12 wall-clock hours on Engaging `mit_preemptable`. It depends on a smaller prefix
+job **24598325**, requesting one H200 for up to five hours and stopping after
+global update 194 (169 OM4 + 25 observation updates). This is the same scientific
+run, with unchanged effective batch eight and producer. The bounded prefix uses
+launcher revision `41bdcdc16`; changing rank count preserves the sample schedule
+and resumes the optimizer. Evaluation **24598449** depends on that prefix and
+requests one H200 for up to two hours, exporting all nine validation origins with
+eight members and 32 sampling steps. It may run alongside the continuation.
+
+The target is an initial report on October 2 morning, Eastern time, with maps,
+member spectra, mean scores, CRPS and spread. Queue time remains uncertain; no
+production updates have completed at this update. Checkpoint/evaluation directories
+and observations are on scratch. Count all preempted/requeued allocation time
+against the authorized remaining budget.
 
 Earlier qualification attempts are retained: **24595210** failed after four seconds
 because the container has no standalone `torchrun`; **24595596** failed after

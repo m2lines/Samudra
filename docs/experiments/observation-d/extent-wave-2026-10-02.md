@@ -3,6 +3,14 @@
 
 # Global and native-quarter-degree patch transfer screen
 
+**Current execution, October 2 at 4:23 p.m. ET:** all four arms passed fitting,
+joint-task and resume qualification. Active production job **209239** is queued
+on beta priority; no production updates have run. Slurm's current estimate is
+**5:52 a.m. ET October 3**, subject to change. The active run root is
+`/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-02-extent-om4/runtime-v2`.
+Earlier failed attempts and their recovery are retained below. Monitoring is
+continuing through the user-requested sleep loop, without queue resubmissions.
+
 Approved October 2, 2026. One seed (1729), physical state first, no LLC,
 no additional latent channels and no diffusion. Branch `codex/patch-global-om4`
 starts from observation-report commit `4f1aaa8281b9c49f3e388f8734ab9e2ec067ab32`.

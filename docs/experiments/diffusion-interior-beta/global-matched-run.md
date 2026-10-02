@@ -8,6 +8,8 @@ batch eight, with intermediate checkpoints and early evaluations. This replaces
 the proposed stop for approval at 2,000 observation updates in the
 [grain diagnostic report](grain-diagnostics.md). Full exposure is authorized;
 actual allocated GPU-hours, including qualification and restarts, will be reported.
+The original 576-GPU-hour campaign cap remains in force pending a requested
+increase: qualification projects roughly 750 GPU-hours for this new run alone.
 
 Use seed 1729, the comparator's quadratic mixed schedule and per-task epoch-shuffled
 sample streams. Preserve 19 history bins, six native forecast leads, the supplied
@@ -55,4 +57,56 @@ requires successful qualification and full observation payload checksum verifica
 
 Monitor in this chat, with intervals chosen around checkpoints, job boundaries
 and evaluation completion. Notify through Pushover when blocked or results are
-ready to review. No new goal object was requested.
+ready to review.
+
+## Qualification and launch status
+
+H200 qualification **24596676** completed 0:0 in 14 minutes. Training producer:
+`4ecba36a40b7b581edeaa2292c90d1953fca7aa0`. Both full effective-batch-eight
+objectives have finite, nonzero encoder/processor/decoder gradients. The global
+support and zero-placeholder checks pass, as does strict model/optimizer reload.
+Peak allocated GPU memory is **43.7 GiB**. CUDA allocator reserved memory is
+higher; this is not a claim that the complete job fits a 48-GB GPU.
+
+Warm microbatches average **5.11 seconds OM4 / 37.16 seconds observation**.
+Observation timing includes forecast, completion and monthly reconstruction,
+two members, 32 Heun steps and backward passes. The earlier 8.54-second H200
+benchmark covered forecast only at 16 steps with unused initial readouts removed.
+For a seven-lead month, decoder calls increase from `14 × 31 = 434` to
+`30 × 63 = 1,890`: approximately **4.35×**. H200 and decoder compilation are
+still enabled; completion now needs the initial readout. The workload increase
+explains the new measured timing without implying that compilation regressed.
+
+This projects approximately **752 GPU-hours** before evaluation, checkpoint I/O,
+restarts and distributed overhead. Eight H200s would imply roughly four training
+days, plus queue time. A 900-GPU-hour allowance for this new run was requested;
+no increase is assumed while the question is pending.
+
+Production job **24597458** requests eight H200s, 64 CPUs, 512 GB host RAM and
+12 wall-clock hours on Engaging `mit_preemptable`. It is queued at this update;
+no production updates have completed. This initial allocation is within the
+remaining original allowance. Checkpoint/evaluation directories and observations
+are on scratch. Continue or recover only within the authorized remaining budget;
+count all preempted/requeued allocation time.
+
+Earlier qualification attempts are retained: **24595210** failed after four seconds
+because the container has no standalone `torchrun`; **24595596** failed after
+95 seconds because host `CC`/`CXX` settings reached the container. The launcher now
+uses `python -m torch.distributed.run` and explicitly selects container GCC/G++.
+The unused pending Torch qualification **18990883** was canceled without allocation.
+Qualification plus these failed attempts consumed **0.2608 GPU-hours**.
+
+The observation scratch copy contains **350 files / 21,888,642,966 bytes**. Every
+source-content hash and destination read-back hash matched the frozen comparator
+manifest; eight parallel readers completed it in 150.4 seconds. Native OM4 remains
+on the existing verified Engaging store. No data preparation or target changed.
+
+- [Complete qualification measurements and contract](global-assets/qualification.json.gz)
+- [Observation scratch transfer and read-back receipt](global-assets/data-staging.json.gz)
+- [Training implementation](../../../src/samudra/experiments/diffusion_global_train.py)
+- [Member-level evaluation implementation](../../../src/samudra/experiments/diffusion_global_evaluate.py)
+
+Twenty-nine focused loss/model/noise/distributed-accumulation checks pass. Repository
+lint, types, schema, secret scanning and REUSE checks pass. Early evaluations will
+also record pixel and spatial loss magnitudes and gradients with respect to decoded
+fields; those are supervision-strength diagnostics, not parameter-gradient norms.

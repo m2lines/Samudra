@@ -41,6 +41,9 @@ else
   : "${EVAL_CHECKPOINT:?Evaluation checkpoint required}"
   args+=(--output "$root/evaluation" --evaluate "$EVAL_CHECKPOINT" --eval-steps "${EVAL_STEPS:-32}")
 fi
+if [[ -n "${MAX_NEW_UPDATES:-}" ]]; then
+  args+=(--max-new-updates "$MAX_NEW_UPDATES")
+fi
 mkdir -p "$root/inductor-cache" "$root/triton-cache"
 child=
 requeue_requested=0

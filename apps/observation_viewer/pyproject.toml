@@ -1,0 +1,25 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+# SPDX-License-Identifier: Apache-2.0
+
+[project]
+name = "samudra-observation-viewer"
+version = "0.1.0"
+description = "Panel explorer for saved Samudra observation-report arrays"
+requires-python = ">=3.12"
+classifiers = [
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+]
+dependencies = [
+  "bokeh>=3.8,<4",
+  "numpy>=1.26,<3",
+  "panel>=1.8,<2",
+]
+
+[dependency-groups]
+dev = [ "mypy>=1.13,<2", "playwright>=1.55", "pytest>=8", "ruff>=0.12" ]
+
+[tool.pytest]
+ini_options.pythonpath = [ "." ]
+ini_options.testpaths = [ "tests" ]

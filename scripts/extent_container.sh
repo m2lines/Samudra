@@ -6,10 +6,17 @@ stage=$1
 arm=$2
 root=$3
 python=/workspace/.venv/bin/python
-"$python" - <<'PY'
+"$python" - "$root" <<'PY'
+import hashlib,json,pathlib,sys
 import torch, gsw
 from samudra.experiments.observation_model import ObservationTransfer
 from samudra.rust_data import create_rust_io_runtime
+root=pathlib.Path(sys.argv[1])
+contract=json.loads((root/'paths.json').read_text())
+extensions=list((root/'runtime').rglob('*.so'))
+assert len(extensions)==1
+assert hashlib.sha256(extensions[0].read_bytes()).hexdigest()==contract['rust_extension_sha256']
+runtime=create_rust_io_runtime(4)
 print({'torch': torch.__version__, 'gpu': torch.cuda.get_device_name(), 'cuda': torch.version.cuda}, flush=True)
 PY
 if [[ "$stage" != train-all ]]; then

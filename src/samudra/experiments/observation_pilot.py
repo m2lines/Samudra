@@ -93,6 +93,8 @@ class Pilot:
             qualification = json.loads(Path(args.qualification).read_text())
             if (
                 qualification["code_commit"] != os.environ.get("SAMUDRA_CODE_COMMIT")
+                or qualification.get("runtime_extension_sha256")
+                != os.environ.get("SAMUDRA_RUNTIME_SHA256")
                 or qualification["data_manifest_sha256"]
                 != digest(Path(args.data) / "SHA256SUMS")
                 or not args.selection_reference
@@ -140,6 +142,7 @@ class Pilot:
             "statistics_sha256": digest(Path(args.data) / "statistics.npz"),
             "protocol": self.protocol,
             "code_commit": os.environ.get("SAMUDRA_CODE_COMMIT"),
+            "runtime_extension_sha256": os.environ.get("SAMUDRA_RUNTIME_SHA256"),
             "training_months": [p.stem for p in self.training],
             "validation_months": [p.stem for p in self.validation],
         }
@@ -697,6 +700,7 @@ class Pilot:
                 "gradient_reached": reached,
                 "training_origin": self.training[0].stem,
                 "code_commit": self.manifest["code_commit"],
+                "runtime_extension_sha256": os.environ.get("SAMUDRA_RUNTIME_SHA256"),
                 "data_manifest_sha256": self.manifest["data_manifest_sha256"],
                 "selection_reference_sha256": digest(
                     self.out / "selection-reference.json"

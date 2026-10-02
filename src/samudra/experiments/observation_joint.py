@@ -138,6 +138,7 @@ def om4_objective(
 def qualification_contract(args):
     result = {
         "code_commit": os.environ.get("SAMUDRA_CODE_COMMIT"),
+        "runtime_extension_sha256": os.environ.get("SAMUDRA_RUNTIME_SHA256"),
         "data_manifest_sha256": digest(Path(args.data) / "SHA256SUMS"),
         "om4_data": args.om4_data,
         "selection_reference_sha256": digest(args.selection_reference),

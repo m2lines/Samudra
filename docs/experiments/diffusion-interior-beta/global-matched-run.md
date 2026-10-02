@@ -105,18 +105,23 @@ earlier qualification, failed/preempted attempts and three early evaluations.
 The broad scheduler/QOS listings were insufficient to infer its limit; actual
 execution confirms all eight GPUs.
 
-Eight-B200 continuation **19028465** is queued using the
-[documented preemption-only comment](https://services.rt.nyu.edu/docs/hpc/submitting_jobs/slurm_submitting_jobs/)
-and automatic requeue. The normal eight-B200 submission
-was rejected; adding the documented preemption routing was accepted. Slurm still
-initially labeled the first request `b200`/`gpu48`, then changed it to `gpuplus`
-after its dependency cleared. Acceptance is not yet evidence of allocation or a
-particular preemption behavior. At 08:10 ET, the original B200 request's estimated
-start was October 4 at 01:47, so it was canceled before allocation and replaced
-behind **eight-RTX continuation 19028464**. That segment targets global step
-1,550 (1,300 OM4 / 250 observation), followed by validation/member-map evaluation
-**19028475**. B200 cannot write checkpoints while RTX training is active.
-Training uses the same pinned scientific producer on both GPU families.
+The [250-observation-update results](global-early-results.md) are now published.
+Eight-RTX continuation **19028464** reached global step 1,550 in 6,365 seconds,
+followed by single-RTX evaluation **19028475** in 563 seconds. Allocation through
+that evaluation totals **30.70 GPU-hours**. Continuation **19032747** is running
+on eight RTX GPUs toward 500 observation updates; evaluation **19032748** depends
+on it.
+
+B200 requests used the
+[documented preemption-only comment](https://services.rt.nyu.edu/docs/hpc/submitting_jobs/slurm_submitting_jobs/).
+The normal eight-B200 request was rejected, whereas preemption routing was
+accepted. Slurm initially labeled it `b200`/`gpu48`, then changed it to `gpuplus`
+after its dependency cleared. Accepted requests are not proof of allocation.
+B200 jobs **19027159** and **19028465** were canceled before allocation because
+their estimated starts were about two days away. A fresh 10 a.m. October 2
+scheduler check estimated October 3 for four B200s or eight H200s, and October 4
+for eight B200s. RTX training therefore continues now; alternative capacity will
+be rechecked at segment boundaries. No concurrent jobs write the optimizer.
 
 - [RTX complete-objective qualification](global-assets/rtx6000-qualified.json.gz)
 - [B200 complete-objective qualification](global-assets/b200-qualified.json.gz)

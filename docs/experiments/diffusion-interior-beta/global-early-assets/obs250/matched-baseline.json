@@ -1,0 +1,18 @@
+{
+  "event": {
+    "time_utc": "2026-09-29T20:44:31.883672+00:00",
+    "event": "joint_validation",
+    "global_step": 1550,
+    "om4": 1300,
+    "observation": 250,
+    "validation/obs_score": 0.9494790911650635,
+    "om4_retention": {
+      "ts_mse": 0.02116784080862999,
+      "reconstruction_ts_mse": 0.037925299257040024,
+      "full_mse": 0.011805686168372631,
+      "origins": 11
+    },
+    "elapsed_training_seconds": 3466.017291270895
+  },
+  "source": "observation-d/artifacts/2026-10-01-global-validation-ema/validation-curve-results.json.gz"
+}

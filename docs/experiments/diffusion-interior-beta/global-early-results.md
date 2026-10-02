@@ -3,13 +3,80 @@
 
 # Global diffusion: early checkpoints
 
-**Compute update:** The colleague's seed-fund reservation will not be used; job
-**24614650** was canceled with zero allocation. The optimizer at step 713 passed
-full SHA256 verification after transfer to Torch. **Eight RTX GPUs are allocated
-on `gr104` (19027018)** for a bounded continuation. B200 passed the same full-objective
-qualification at about 1.8× RTX throughput; eight-B200 job **19027159** is queued
-behind the RTX segment. See [hardware measurements and migration provenance](global-matched-run.md#alternative-compute-torch).
+**Compute update:** Training is running on eight Torch RTX GPUs. The colleague's
+seed-fund reservation is excluded. B200 qualified faster, but current B200/H200
+queue estimates are later than continuing on RTX. See
+[hardware measurements and migration provenance](global-matched-run.md#alternative-compute-torch).
 Historical reservation plans below are superseded.
+
+## October 2 update: 250 observation updates
+
+**Surface grain is now decreasing, but remains excessive; interior grain has
+barely changed.** The validation composite improves 29.0% from 100 updates,
+reaching **1.4025**, while the matched deterministic control scores **0.9495**.
+Day-30 SST RMSE falls from 3.196°C to **1.645°C**. This checkpoint has completed
+3.125% of the planned observation exposure, so it is still an early comparison.
+The optimizer and scientific configuration continued unchanged across the
+Engaging-to-Torch migration; native OM4 uses each cluster's existing version,
+while observation payloads and the validation reference are identical.
+
+| Observation / OM4 updates | Diffusion validation composite | Matched deterministic composite | Day-30 diffusion SST RMSE |
+|---|---:|---:|---:|
+| 25 / 169 | 2.6122 | 1.8567 | 3.654°C |
+| 50 / 324 | 2.2069 | 1.4791 | 3.608°C |
+| 100 / 607 | 1.9749 | 1.1472 | 3.196°C |
+| 250 / 1,300 | 1.4025 | 0.9495 | 1.645°C |
+
+Relative to 25 updates, individual-member power in the highest four Pacific
+patch spectral bins falls **76.6% for SST and 37.5% for SSH**. Monthly T550
+power increases 4.2%; monthly S550 decreases only 2.1%. These are changes in
+sampled-field power, not spectral error reductions. All four fields still have
+excessive small-scale power relative to their observational references. The
+maps remain visibly grainy, including the ensemble mean. Monthly T/S maps
+already average independent readouts, so they do not establish instantaneous
+interior realism or temporal coherence.
+
+| Calibration at 250 updates | Surface, all forecast bins | Monthly interior |
+|---|---:|---:|
+| Ensemble-mean RMSE, standardized | 0.2429 | 0.2253 |
+| Ensemble spread, standardized | 0.4948 | 0.3941 |
+| Spread / RMSE | 2.04 | 1.75 |
+| Fair CRPS | 0.1345 | 0.1143 |
+| Empirical CRPS | 0.1685 | 0.1421 |
+| Empirical central 80% coverage | 92.2% | 91.9% |
+| Empirical central 90% coverage | 95.3% | 95.0% |
+
+Surface spread has almost halved since 100 updates (0.9416 → 0.4948), reducing
+its spread/error ratio from 2.38 to 2.04. Interior spread changes little while
+mean error improves, increasing its ratio from 1.50 to 1.75. Both remain
+pooled-overdispersed. These finite-eight-member summaries use the same weighting
+and coverage conventions described below.
+
+The forecast pixel fair-CRPS term is 0.11786 and the spatial term 0.11336.
+Decoded-field gradient norms remain comparable: **1.13e-4 pixel / 1.24e-4
+spatial**. This confirms active supervision at the outputs, not which term
+caused the improvement.
+
+![250-update day-30 SST members and mean](global-early-assets/obs250/members-2013-11-thetao_0.png)
+
+![250-update monthly salinity at 550 m](global-early-assets/obs250/members-2013-11-so_9.png)
+
+![250-update member and ensemble-mean spectra](global-early-assets/obs250/member-spectra.png)
+
+[All 12 maps and numerical assets at 250 updates](global-early-assets/obs250/) ·
+[Metrics and checkpoint manifest](global-early-assets/obs250/COMPLETE.json.gz) ·
+[Calibration and field-gradient records](global-early-assets/obs250/calibration.json.gz) ·
+[Matched deterministic event](global-early-assets/obs250/matched-baseline.json) ·
+[Pooled summary](global-early-assets/obs250/summary.json).
+
+Eight-RTX job **19028464** completed at global step 1,550 in 6,365 seconds.
+Evaluation **19028475** completed all nine validation origins in 563 seconds on
+one RTX GPU. The checkpoint and transferred array hashes were independently
+verified. Allocation through this checkpoint/evaluation is **30.70 GPU-hours**,
+including earlier qualifications, failures and preemption. Continuation
+**19032747** is running on eight RTX GPUs toward global step 2,667 (2,167 OM4 /
+500 observation); evaluation **19032748** is queued behind it. No held-out test
+cases have been used for these early checks.
 
 ## Morning update: 100 observation updates
 

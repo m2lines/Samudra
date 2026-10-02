@@ -3,6 +3,14 @@
 
 # Global diffusion: early checkpoints
 
+**Compute update:** At the user's request, seed-fund reservation job **24614650**
+was canceled before allocation; it consumed zero GPU-hours. That colleague's
+reservation will not be used. The latest optimizer is safely checkpointed at
+step 713. Torch RTX and B200 hardware qualifications **19026429 / 19026430** are
+being compared, with eight-GPU RTX capacity currently available and later estimates
+for eight H200s/B200s. A checkpoint transfer to Torch is underway. Historical
+reservation plans below are superseded by this instruction.
+
 ## Morning update: 100 observation updates
 
 The new model is learning, but **mean prediction is improving much faster than

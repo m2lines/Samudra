@@ -63,6 +63,12 @@ ready to review.
 
 ## Qualification and launch status
 
+**Latest compute instruction:** Do not use the colleague's seed-fund reservation.
+Job **24614650** was canceled before allocation (zero GPU-hours). The optimizer
+is checkpointed at step 713. Torch RTX/B200 hardware checks **19026429/19026430**
+and a verified checkpoint transfer are in progress to select an alternative.
+The reservation plans below are historical and superseded.
+
 **Update October 2 morning:** [25-, 50- and 100-observation-update results](global-early-results.md)
 are published. The general Engaging preemptible QOS caps GPUs at four; the original
 eight-GPU request was canceled without allocation. Bounded four-H200 continuations

@@ -118,6 +118,13 @@ or archives for it, download additional data, run inference, or substitute
 another quantity. Only acquire or generate missing data if the user explicitly
 asks for that as a separate or additional task.
 
+You may offer to create a GitHub issue in `m2lines/Samudra`, assigned to `jder`,
+for the missing data. Describe the missing fields, depths, times, or coverage,
+the viewer capability they would enable, and acceptance criteria for the data
+deliverable. Create the issue only when the user approves or explicitly asks;
+do not ask again if that authorization is already present. Keep private
+deployment URLs and configuration out of the issue.
+
 The app displays saved observation-report arrays; it does not run training or
 inference. Preserve masks, units, five-day forecast intervals, checkpoint
 provenance, and the distinction between IAP monthly context and instantaneous

@@ -249,3 +249,13 @@ that match. The cache-only correction does not alter training producer ba2242014
 Grace cache job **114412** is running with the corrected guard and isolated CPU
 dependency. Native physical values, wet-finite checks and full cache readback
 verification remain required before releasing patch probes.
+
+At approximately **11:45 a.m. ET**, both replacement global probes completed
+their six OM4 / four observation updates and wrote `JOINT_QUALIFIED.json` with
+`resume_verified: true`. U-global measured 6.77 seconds/update and L-global
+5.35 seconds/update, implying roughly **7.53 and 5.95 training hours** respectively
+for 4,000 updates before validation/data-startup overhead. Peak allocated GPU
+memory was 71.68 / 71.57 GiB, including the 54.63 GiB resident global training
+cache. These measurements satisfy the screen's throughput gate. Production
+still waits for the two native-patch probes; their cache is actively building
+and has begun reporting exact-readback-verified frames.

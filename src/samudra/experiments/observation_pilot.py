@@ -751,7 +751,9 @@ def build_parser():
     parser.add_argument("--adapter-only", action="store_true")
     parser.add_argument("--from-scratch", action="store_true")
     parser.add_argument(
-        "--evolution-architecture", choices=["d", "samudra2"], default="d"
+        "--evolution-architecture",
+        choices=["d", "samudra2", "extent-unet", "extent-local"],
+        default="d",
     )
     parser.add_argument(
         "--initializer-architecture", choices=["wide", "unet"], default="wide"

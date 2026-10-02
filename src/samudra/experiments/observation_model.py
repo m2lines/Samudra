@@ -28,7 +28,12 @@ class ObservationTransfer(nn.Module):
         latent_channels=0,
     ):
         super().__init__()
-        self.initializer = HistoryInitializer(
+        initializer_class = HistoryInitializer
+        if evolution_architecture.startswith("extent-"):
+            from samudra.experiments.extent_models import ExtentInitializer
+
+            initializer_class = ExtentInitializer
+        self.initializer = initializer_class(
             names,
             initializer_architecture,
             True,

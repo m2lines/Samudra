@@ -136,7 +136,7 @@ def om4_objective(
 
 
 def qualification_contract(args):
-    return {
+    result = {
         "code_commit": os.environ.get("SAMUDRA_CODE_COMMIT"),
         "data_manifest_sha256": digest(Path(args.data) / "SHA256SUMS"),
         "om4_data": args.om4_data,
@@ -154,6 +154,16 @@ def qualification_contract(args):
         "warmup_steps": args.warmup_steps,
         "seed": args.seed,
     }
+    if getattr(args, "patch_cache", None):
+        result["patch_cache_manifest_sha256"] = digest(
+            Path(args.patch_cache) / "manifest.json"
+        )
+        result["patch_cache_ready_sha256"] = digest(
+            Path(args.patch_cache) / "CACHE_READY.json"
+        )
+        result["patch_training"] = args.patch_training
+        result["patch_shape_halo"] = [128, 128, 32]
+    return result
 
 
 def load_om4(args):
@@ -195,6 +205,9 @@ def load_om4(args):
 
 
 class JointPilot(Pilot):
+    def om4_objective(self, *args):
+        return om4_objective(*args)
+
     def __init__(self, args):
         self.schedule = TaskSchedule(
             args.om4_updates,
@@ -353,7 +366,7 @@ class JointPilot(Pilot):
                             (count * self.args.accumulate + micro) % len(self.training)
                         ]
                         coverage = self.data.load(coverage_path)["validity"][:, :19]
-                        loss = om4_objective(
+                        loss = self.om4_objective(
                             self.model,
                             self.om4,
                             [index],
@@ -363,7 +376,7 @@ class JointPilot(Pilot):
                             completion_weight,
                         )
                     else:
-                        loss = om4_objective(
+                        loss = self.om4_objective(
                             self.model,
                             self.om4,
                             [index],
@@ -592,6 +605,8 @@ def main():
     parser.add_argument("--deadline", required=True)
     parser.add_argument("--joint-probe", action="store_true")
     parser.add_argument("--joint-qualification")
+    parser.add_argument("--patch-cache")
+    parser.add_argument("--patch-training", action="store_true")
     parser.set_defaults(
         from_scratch=True,
         observation_normalization=True,
@@ -640,7 +655,18 @@ def main():
         parser.error(
             "This qualified deterministic sampler currently supports one GPU per arm"
         )
-    JointPilot(args).run_joint()
+    if args.patch_training and (
+        not args.patch_cache or not args.evolution_architecture.startswith("extent-")
+    ):
+        parser.error(
+            "Patch training requires a verified native cache and extent-aware processor"
+        )
+    if args.evolution_architecture.startswith("extent-"):
+        from samudra.experiments.extent_training import ExtentPilot
+
+        ExtentPilot(args).run_joint()
+    else:
+        JointPilot(args).run_joint()
 
 
 if __name__ == "__main__":

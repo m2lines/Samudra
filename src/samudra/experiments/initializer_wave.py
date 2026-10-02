@@ -751,7 +751,9 @@ def build_parser():
     )
     parser.add_argument("--fresh-evolution", action="store_true")
     parser.add_argument(
-        "--evolution-architecture", choices=["d", "samudra2"], default="d"
+        "--evolution-architecture",
+        choices=["d", "samudra2", "extent-unet", "extent-local"],
+        default="d",
     )
     parser.add_argument("--observation-normalization-root")
     parser.add_argument("--deadline", default="2026-09-24T17:00:00Z")

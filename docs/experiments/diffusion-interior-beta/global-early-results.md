@@ -1,7 +1,61 @@
 <!-- SPDX-FileCopyrightText: 2026 Samudra Authors -->
 <!-- SPDX-License-Identifier: CC-BY-4.0 -->
 
-# Global diffusion: first checkpoint
+# Global diffusion: early checkpoints
+
+## Update: 50 observation updates
+
+The validation composite improves **15.5%**, from 2.6122 to **2.2069**, but remains
+worse than the deterministic control at matched exposure. Member grain barely
+changes: average power in the highest four Pacific diagnostic spectral bins falls
+only **0.7–1.2%** across the four displayed fields. Better mean prediction is not
+yet accompanied by substantially more realistic sampled texture.
+
+| Observation / OM4 updates | Diffusion validation composite | Matched deterministic composite | Day-30 diffusion SST RMSE |
+|---|---:|---:|---:|
+| 25 / 169 | 2.6122 | 1.8567 | 3.654°C |
+| 50 / 324 | 2.2069 | 1.4791 | 3.608°C |
+
+All entries use the same frozen validation reference and nine origins; lower is
+better. These are fixed-exposure checkpoints, not validation-selected endpoints.
+
+| Calibration at 50 updates | Surface, all forecast bins | Monthly interior |
+|---|---:|---:|
+| Ensemble-mean RMSE, standardized | 0.4726 | 0.3176 |
+| Ensemble spread, standardized | 0.9974 | 0.4085 |
+| Spread / RMSE | 2.11 | 1.29 |
+| Fair CRPS | 0.2711 | 0.1552 |
+| Empirical CRPS | 0.3415 | 0.1840 |
+| Empirical central 80% coverage | 93.2% | 82.6% |
+| Empirical central 90% coverage | 96.1% | 87.9% |
+
+Mean errors improve while spread barely shrinks, increasing overdispersion relative
+to mean error. The forecast pixel fair-CRPS component falls from 0.20295 to 0.17803;
+the weighted spatial component changes only from 0.14006 to 0.13906. At 50 updates,
+their average decoded-field gradient norms are **1.19e-4 pixel / 1.23e-4 spatial**.
+The spatial term is active and not negligible at the physical output, although
+these are not parameter-gradient norms and do not establish its optimization effect.
+
+![50-update day-30 SSH members and mean](global-early-assets/obs50/members-2013-11-zos.png)
+
+![50-update member and ensemble-mean spectra](global-early-assets/obs50/member-spectra.png)
+
+[All 12 maps and numerical assets at 50 updates](global-early-assets/obs50/) ·
+[Metrics and checkpoint manifest](global-early-assets/obs50/COMPLETE.json.gz) ·
+[Calibration and field-gradient records](global-early-assets/obs50/calibration.json.gz) ·
+[Matched deterministic event](global-early-assets/obs50/matched-baseline.json) ·
+[Pooled summary](global-early-assets/obs50/summary.json).
+
+Four-H200 segment **24621174** completed 180 additional updates in 2,948 seconds;
+evaluation **24626161** completed in 695 seconds on one H200. The new-run allocation
+through this evaluation is **6.0992 GPU-hours**, including failed qualifications.
+The unused long four-GPU request **24611683** was canceled before allocation.
+Bounded four-H200 continuation **24628644** targets the 100-observation-update
+checkpoint while waiting for reserved eight-H200 job **24614650**, which now
+depends on it. The reserved job cannot start before October 2 at 10:01 a.m. Eastern.
+The remaining sections preserve the first-checkpoint analysis.
+
+## Initial checkpoint: 25 observation updates
 
 The first checkpoint is numerically healthy but **has not solved the grain**.
 After **169 OM4 + 25 observation updates**, its global validation composite is

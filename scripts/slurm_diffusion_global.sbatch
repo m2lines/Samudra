@@ -50,7 +50,7 @@ request_requeue() {
 }
 trap request_requeue USR1
 srun apptainer exec --nv --bind "$code:/pilot-code,$cluster_bind" "$image" \
- env PYTHONPATH=/pilot-code/src /workspace/.venv/bin/python -m torch.distributed.run --standalone --nproc_per_node="${GPUS:-1}" \
+ env CC=/usr/bin/gcc CXX=/usr/bin/g++ PYTHONPATH=/pilot-code/src /workspace/.venv/bin/python -m torch.distributed.run --standalone --nproc_per_node="${GPUS:-1}" \
  --module samudra.experiments.diffusion_global_train "${args[@]}" &
 child=$!
 set +e

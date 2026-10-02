@@ -63,22 +63,63 @@ ready to review.
 
 ## Qualification and launch status
 
-**Latest compute instruction:** Do not use the colleague's seed-fund reservation.
-Job **24614650** was canceled before allocation (zero GPU-hours). The optimizer
-is checkpointed at step 713. Torch RTX/B200 hardware checks **19026429/19026430**
-and a verified checkpoint transfer are in progress to select an alternative.
-The reservation plans below are historical and superseded.
+### Alternative compute: Torch
 
-**Update October 2 morning:** [25-, 50- and 100-observation-update results](global-early-results.md)
-are published. The general Engaging preemptible QOS caps GPUs at four; the original
-eight-GPU request was canceled without allocation. Bounded four-H200 continuations
-completed through step 713, including successful preemption recovery. A reservation
-already assigned to the user permits eight H200s from October 2 at 10 a.m.; reserved
-continuation **24614650** is waiting only for its 10:01 a.m. earliest start, in a
-six-hour segment. It resumes the latest optimizer without changing the scientific
-configuration. Observed four-GPU observation updates take about 68 seconds per
-effective batch; eight-GPU timing remains to be measured. The launch details below
-preserve the original sequence.
+The seed-fund reservation is excluded at the user's request, and its queued job
+was canceled with zero allocation. The user authorized looking across other
+available resources. Full-objective hardware tests on Torch both passed finite
+encoder/processor/decoder gradients and strict model/optimizer reload:
+
+| Hardware | Job | Warm OM4 seconds/sample | Warm observation seconds/sample | Peak allocated GPU memory |
+|---|---|---:|---:|---:|
+| RTX PRO 6000 Blackwell Server Edition | 19026429 | 1.687 | 43.930 | 43.72 GiB |
+| B200 | 19026430 | 1.363 | 24.338 | 43.71 GiB |
+| H200 NVL, original Engaging qualification | 24596676 | 5.112 | 37.156 | 43.71 GiB |
+
+Each warm number averages the last seven samples of the same eight-sample
+qualification objective; the first includes compilation. Native I/O/cache differs
+across hosts, so native timing is not a pure GPU comparison. Steady later Engaging
+H200 observation samples were about 31–34 seconds. B200 is about **1.8× faster than
+RTX** in the observation test. These are single-GPU timings, not an eight-GPU
+scaling measurement. RTX/B200 qualifications consumed 556/366 allocated seconds,
+or **0.2561 GPU-hours combined**; their disposable updates do not enter the run.
+
+The full **1,845,796,913-byte optimizer checkpoint** at global step 713 passed
+source and destination SHA256 verification before installation on Torch. Transfer
+used an authenticated SSH stream and rclone on `dtn011`; that node's software module
+mount was absent, so the existing trusted Torch rclone executable was copied to
+scratch and run there. Optional OSN staging denied writes and was not used.
+Observation payloads and the metric reference are identical to the previously
+verified Torch copies. Native OM4 uses each cluster's existing store under the
+user's prior authorization for similar per-cluster versions; full native payload
+identity is not claimed.
+
+**Eight-RTX job 19027018 is allocated on `gr104`**, using Lzanna's normal RTX
+partition, 128 CPUs and 1,400 GB host memory. This bounded segment resumes the
+same optimizer for up to 200 additional updates, with effective batch eight and
+`NCCL_P2P_DISABLE=1`. The broad scheduler/QOS listings were insufficient to infer
+its limit; the actual allocation confirms all eight GPUs.
+
+Eight-B200 continuation **19027159** is queued behind it using the
+[documented preemption-only comment](https://services.rt.nyu.edu/docs/hpc/submitting_jobs/slurm_submitting_jobs/)
+and automatic requeue. The normal eight-B200 submission
+was rejected; adding the documented preemption routing was accepted. Slurm still
+labels it `b200`/`gpu48`, so acceptance is not yet evidence of allocation or a
+particular preemption behavior. The continuation cannot write checkpoints while
+the RTX segment is active. Both use the same pinned scientific producer.
+
+- [RTX complete-objective qualification](global-assets/rtx6000-qualified.json.gz)
+- [B200 complete-objective qualification](global-assets/b200-qualified.json.gz)
+- [Checkpoint migration identity and transfer receipt](global-assets/torch-migration.json.gz)
+- [Hardware qualification launcher](../../../scripts/slurm_diffusion_hardware.sbatch)
+
+### Earlier Engaging launch sequence
+
+The [25-, 50- and 100-observation-update results](global-early-results.md) are
+published. Bounded four-H200 continuations reached step 713, including successful
+preemption recovery. The subsequently proposed eight-H200 reservation was canceled
+at the user's request and consumed no allocation. The remaining original launch
+notes preserve qualification and provenance; current compute status is above.
 
 H200 qualification **24596676** completed 0:0 in 14 minutes. Training producer:
 `4ecba36a40b7b581edeaa2292c90d1953fca7aa0`. Both full effective-batch-eight

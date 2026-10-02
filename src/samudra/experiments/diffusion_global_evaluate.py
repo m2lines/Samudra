@@ -41,6 +41,21 @@ class RecordingForecast(nn.Module):
         stats = observation_ensemble_statistics(self.data, members, sample)
         stats["origin"] = sample["name"]
         stats["spatial_objective"] = float(forecast_crps(self.data, members, sample))
+        # Gradients at decoded fields quantify the actual supervision strength;
+        # they are not parameter-gradient norms or a fitting intervention.
+        with torch.enable_grad():
+            probe = members.detach().requires_grad_(True)
+            pixel = forecast_crps(self.data, probe, sample, coefficient=0)
+            spatial = forecast_crps(self.data, probe, sample) - pixel
+            pixel_gradient = torch.autograd.grad(pixel, probe, retain_graph=True)[0]
+            spatial_gradient = torch.autograd.grad(spatial, probe)[0]
+            stats["loss_components"] = dict(
+                pixel=float(pixel.detach()),
+                spatial=float(spatial.detach()),
+                pixel_field_gradient_norm=float(pixel_gradient.norm()),
+                spatial_field_gradient_norm=float(spatial_gradient.norm()),
+            )
+
         stats = serial(stats)
         self.records.append(stats)
         channels = [38, 76, 47, 66]

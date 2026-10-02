@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-type: local
+type: slurm_allocation
 output_dir: .LOCAL/searches
-# By default, use every GPU visible to the current machine.
-# max_concurrent: 4
+# By default, use every GPU in the current Slurm allocation.
+# max_concurrent: 8

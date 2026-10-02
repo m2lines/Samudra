@@ -27,7 +27,12 @@ from samudra.search.config import (
     SlurmExecutorConfig,
     resource_slug,
 )
-from samudra.search.executors import Executor, LocalExecutor, SlurmExecutor
+from samudra.search.executors import (
+    Executor,
+    LocalExecutor,
+    SlurmAllocationExecutor,
+    SlurmExecutor,
+)
 from samudra.search.report import write_search_report
 from samudra.search.state import SearchState
 from samudra.train import Trainer
@@ -43,6 +48,7 @@ from samudra.utils.training_summary import (
 CHECKPOINT = Path("saved_nets/ckpt.pt")
 EXECUTORS: dict[str, type[Executor]] = {
     "local": LocalExecutor,
+    "slurm_allocation": SlurmAllocationExecutor,
     "slurm": SlurmExecutor,
 }
 
@@ -201,8 +207,9 @@ class SuccessiveHalving:
                 and self.config.executor.rung0_probe
             )
             if not gate_anchors:
-                self.executor.submit_anchors(state)
-            self.executor.submit_rung(self.read_state(), 0)
+                self.executor.submit_initial(state)
+            else:
+                self.executor.submit_rung(self.read_state(), 0)
         except Exception as error:
             state = self.read_state()
             state["status"] = "failed"
@@ -326,9 +333,7 @@ class SuccessiveHalving:
             train_config.experiment.wandb.mode = "disabled"
         tags = train_config.experiment.wandb.tags or []
         train_config.experiment.wandb.tags = list(
-            dict.fromkeys(
-                [*tags, "search", self.slug, self.run_id, resource_slug(name)]
-            )
+            dict.fromkeys([*tags, "search", self.slug, resource_slug(name)])
         )
         train_config.prepare_output_dirs()
         handle_logging(train_config.debug, train_config.experiment.output_dir)

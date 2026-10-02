@@ -259,3 +259,13 @@ memory was 71.68 / 71.57 GiB, including the 54.63 GiB resident global training
 cache. These measurements satisfy the screen's throughput gate. Production
 still waits for the two native-patch probes; their cache is actively building
 and has begun reporting exact-readback-verified frames.
+
+At **1:16 p.m. ET**, cache job 114412 was confirmed `COMPLETED`, exit 0,
+after 1:32:11. All **2,903** frames passed exact readback and wet-finite checks.
+The monitor independently checked the completion flags and final manifest/grid
+hashes, then released patch probes **209235 and 209237**. Their release receipt is
+`runtime-v2/patch-release.json`. Cache manifest SHA256:
+`3e77922069af5ef7dc188043b8a6b65f30fa5a91f65ee986b951d9197e51e3d5`;
+grid SHA256:
+`5ffa767dd688880029ee23141edcfbf0d3004e61c314e4a8df212d3006c126aa`.
+Production 209239 remains dependent on both patch probes passing.

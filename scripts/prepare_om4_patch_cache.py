@@ -32,9 +32,23 @@ def write_json(path, value):
     temporary.replace(path)
 
 
+def validate_shared_time(times, attrs, baseline_times, baseline_attrs):
+    if not np.array_equal(times, baseline_times) or any(
+        attrs[key] != baseline_attrs[key] for key in ("units", "calendar")
+    ):
+        raise ValueError(
+            "Quarter-degree timestamps differ from the global OM4 baseline"
+        )
+    if not set(np.diff(times)).issubset({5.0, 6.0}):
+        raise ValueError(
+            "Unexpected OM4 cadence beyond the shared five/six-day calendar"
+        )
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", required=True)
+    parser.add_argument("--global-om4", required=True)
     parser.add_argument("--transfer-success", required=True)
     parser.add_argument("--grid", required=True)
     parser.add_argument("--output", required=True)
@@ -50,6 +64,8 @@ def main():
     original = zarr.open_consolidated(str(source / "OM4.zarr"), mode="r")
     grid = dict(np.load(args.grid))
     names = grid["names"].tolist()
+    if not np.array_equal(original["lev"][:], grid["depth"]):
+        raise ValueError("Quarter-degree depths differ from the shared physical state")
     forcing = ["tauuo", "tauvo", "hfds"]
     times = original["time"][:]
     attrs = dict(original["time"].attrs)
@@ -58,8 +74,14 @@ def main():
     indices = np.flatnonzero((stamps >= "1975-01-03") & (stamps <= "2014-10-05"))
     if not len(indices) or not np.all(np.diff(indices) == 1):
         raise ValueError("Noncontiguous source time selection")
-    if not np.allclose(np.diff(times[indices]), 5, rtol=0, atol=1e-8):
-        raise ValueError("Expected exact five-day cadence")
+    baseline = zarr.open_consolidated(str(Path(args.global_om4) / "OM4.zarr"), mode="r")
+    baseline_attrs = dict(baseline["time"].attrs)
+    validate_shared_time(times, attrs, baseline["time"][:], baseline_attrs)
+    gaps, gap_counts = np.unique(np.diff(times[indices]), return_counts=True)
+    if not set(gaps).issubset({5.0, 6.0}):
+        raise ValueError(
+            "Unexpected OM4 cadence beyond the shared five/six-day calendar"
+        )
     for name in names + forcing:
         if original[name].shape != (len(times), 720, 1440):
             raise ValueError(f"Unexpected native quarter-degree shape: {name}")
@@ -81,6 +103,12 @@ def main():
         frames=len(indices),
         shape=[720, 1440],
         source_indices=indices.tolist(),
+        global_om4=args.global_om4,
+        global_time_metadata=baseline_attrs,
+        cadence_days={
+            str(gap): int(count) for gap, count in zip(gaps, gap_counts, strict=True)
+        },
+        timestep_policy="Exact baseline timestamps; retain baseline nominal five-day model stepping including shared six-day gaps",
         dtype="float32",
         spatial_chunks=[128, 128],
         producer=os.environ["SAMUDRA_CODE_COMMIT"],

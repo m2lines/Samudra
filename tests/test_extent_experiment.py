@@ -168,3 +168,18 @@ def test_exposure_budget_and_resume_patch_choice():
         )
         seen[kind] += 1
     assert seen == {"observation": 2000, "global": 1000, "patch": 1000}
+
+
+def test_native_calendar_matches_baseline_including_leap_gaps():
+    from scripts.prepare_om4_patch_cache import validate_shared_time
+
+    time = np.array([2.5, 7.5, 13.5, 18.5])
+    attrs = {"units": "days since 1958-01-01", "calendar": "julian"}
+    validate_shared_time(time, attrs, time.copy(), attrs)
+    with pytest.raises(ValueError, match="timestamps differ"):
+        validate_shared_time(time, attrs, time + 1, attrs)
+    with pytest.raises(ValueError, match="timestamps differ"):
+        validate_shared_time(time, attrs, time, {**attrs, "calendar": "noleap"})
+    irregular = np.array([0.0, 5.0, 12.0])
+    with pytest.raises(ValueError, match="Unexpected OM4 cadence"):
+        validate_shared_time(irregular, attrs, irregular, attrs)

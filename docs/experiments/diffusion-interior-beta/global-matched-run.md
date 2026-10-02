@@ -67,8 +67,11 @@ ready to review.
 are complete. The eight-H200 request was unschedulable because Engaging
 `mit_preemptable` caps this account at four GPUs. It was canceled without allocation
 and replaced by four-H200 continuation **24611683**. The previous four-day estimate
-assumed eight GPUs; actual continuation timing and Torch availability are being
-checked. The launch details below preserve the original sequence.
+assumed eight GPUs. A reservation already assigned to the user permits eight
+H200s starting October 2 at 10 a.m.; reserved continuation **24614650** is queued
+behind **24611683**, with earliest start 10:01 a.m. and a six-hour segment. Actual
+multi-GPU timing remains unmeasured. The launch details below preserve the original
+sequence.
 
 H200 qualification **24596676** completed 0:0 in 14 minutes. Training producer:
 `4ecba36a40b7b581edeaa2292c90d1953fca7aa0`. Both full effective-batch-eight

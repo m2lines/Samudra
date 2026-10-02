@@ -87,8 +87,13 @@ Engaging's partition QOS `mit_preemptable` has `MaxTRESPU=gres/gpu=4`. Slurm acc
 the eight-GPU submission but could not schedule it. Four-H200 replacement
 **24611683** is queued and resumes the same checkpoint and optimizer; effective
 batch remains eight. The earlier four-day projection assumed eight GPUs and is
-not yet established. Torch's eight-H200 route is being checked; a full-run ETA
-will use actual multi-GPU throughput, not ideal scaling.
+not yet established. An additional reservation already assigned to this account permits eight H200s
+on `node3400` from October 2 at 10 a.m. Eastern through October 7. Reserved
+continuation **24614650** is now queued with an explicit October 2 10:01 a.m.
+earliest start and a dependency on **24611683**, using the reservation-specific
+account/QOS. Its six-hour segment resumes the same optimizer. This avoids moving
+the run to Torch. A full-run ETA will use actual multi-GPU throughput, not ideal
+scaling; the reserved job has not started yet.
 
 Continue the authorized run without changing its scientific configuration. The
 next useful matched checks are at 50, 100 and 250 observation updates, tracking

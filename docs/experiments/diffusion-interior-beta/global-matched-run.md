@@ -46,7 +46,8 @@ before fixing the test setting. Retain fixed-exposure weights separately from
 validation selection. Final reporting includes the 96 test origins and annual
 cases, with member spectra and calibration rather than ensemble means alone.
 
-Torch is reachable; Engaging SSH authentication currently fails. Torch has the
+Torch and Engaging are reachable (Engaging requires normal SSH rather than a
+batch-mode initial authentication). Torch has the
 same staged observation manifest and an existing compatible container. The new
 run root is `/scratch/jr7309/diffusion-global-v1`. H200 preemptible routing gives a
 substantially earlier estimate than the regular queue. Production submission

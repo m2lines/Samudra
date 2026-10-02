@@ -111,6 +111,13 @@ branch before updating the live service; do not edit the live checkout directly.
 
 ## Scientific and operational constraints
 
+When a request needs variables, depths, times, samples, or other information
+that the available viewer data does not contain, reply with exactly what data
+is missing and what is available. Do not search other stores, machines, chats,
+or archives for it, download additional data, run inference, or substitute
+another quantity. Only acquire or generate missing data if the user explicitly
+asks for that as a separate or additional task.
+
 The app displays saved observation-report arrays; it does not run training or
 inference. Preserve masks, units, five-day forecast intervals, checkpoint
 provenance, and the distinction between IAP monthly context and instantaneous

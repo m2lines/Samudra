@@ -28,7 +28,7 @@ def verify_maps(
 ):
     prediction, comparison = catalog.values(mode, model, origin, reference)
     mask = catalog.array(catalog.meta[f"{mode}_mask"])
-    wet = mask[variable] if mode == "surface" else mask[index, variable]
+    wet = mask[index, variable] if mode == "interior" else mask[variable]
     a, b = prediction[index, variable][wet], comparison[index, variable][wet]
     for key, expected in zip(
         ["prediction", "reference", "difference"], [a, b, a - b], strict=True
@@ -199,5 +199,64 @@ def test_controls_update_real_maps_profiles_and_keep_sessions_independent():
             np.array(section, dtype=float), prediction[wet], equal_nan=True
         )
         page.screenshot(path=str(screenshot_root / "interior.png"), full_page=True)
+        assert not errors, errors
+        browser.close()
+
+
+def test_monthly_heat_maps_point_series_and_mode_switching():
+    assert URL is not None
+    catalog = Catalog(os.environ.get("SAMUDRA_VIEWER_DATA", ROOT / ".data"))
+    errors = []
+    with sync_playwright() as p:
+        browser = p.chromium.launch(
+            executable_path=os.environ.get("CHROMIUM_EXECUTABLE"),
+            headless=True,
+            args=["--no-sandbox"],
+        )
+        page = browser.new_page(viewport=dict(width=1600, height=1100))
+        page.on("pageerror", lambda error: errors.append(str(error)))
+        page.goto(URL, wait_until="networkidle")
+        select(page, "view-select", "Monthly ocean heat content")
+        verify_maps(page, catalog, "heat", "obs08000", "2015-01-01", 0, 0)
+        select(page, "month-select", "2015-06")
+        select(page, "variable-select", "700–2000 m")
+        verify_maps(page, catalog, "heat", "obs08000", "2015-01-01", 1, 5)
+        select(page, "origin-select", "2021-01-01")
+        expect(page.locator(".month-select select")).to_have_value(
+            "2021-06", timeout=30000
+        )
+        expect(
+            page.get_by_role(
+                "heading", name="Ocean heat content · 700–2000 m · 2021-06"
+            )
+        ).to_be_visible()
+        select(page, "model-select", "Observations only · 16,000 updates")
+        verify_maps(page, catalog, "heat", "scratch16000", "2021-01-01", 1, 5)
+        y, x = np.abs(catalog.lat - 30).argmin(), np.abs(catalog.lon - 330).argmin()
+        expected = catalog.values("heat", "scratch16000", "2021-01-01")
+        actual = page.evaluate("""() => {
+            const d=Bokeh.documents[0].get_model_by_name('detail-source').data;
+            return {x:Array.from(d.x),prediction:Array.from(d.prediction),reference:Array.from(d.reference)};
+        }""")
+        np.testing.assert_array_equal(actual["x"], np.arange(1, 13))
+        for key, values in zip(["prediction", "reference"], expected, strict=True):
+            np.testing.assert_allclose(
+                np.array(actual[key], dtype=float), values[:, 1, y, x], equal_nan=True
+            )
+        select(page, "reference-select", "Mixed · 8,000 observation updates")
+        verify_maps(
+            page, catalog, "heat", "scratch16000", "2021-01-01", 1, 5, "obs08000"
+        )
+        select(page, "reference-select", "IAP monthly heat content")
+        verify_maps(page, catalog, "heat", "scratch16000", "2021-01-01", 1, 5)
+        (ROOT / ".screenshots").mkdir(exist_ok=True)
+        page.screenshot(
+            path=str(ROOT / ".screenshots/monthly-heat.png"), full_page=True
+        )
+        select(page, "view-select", "Annual surface forecasts")
+        verify_maps(page, catalog, "surface", "scratch16000", "2021-01-01", 0, 5)
+        expect(page.locator(".month-select select")).not_to_be_visible()
+        select(page, "view-select", "Initialized ocean interior")
+        verify_maps(page, catalog, "interior", "scratch16000", "2021-01-01", 0, 9)
         assert not errors, errors
         browser.close()

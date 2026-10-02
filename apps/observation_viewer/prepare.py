@@ -85,6 +85,8 @@ def prepare(compact, interiors, references, output):
         raise ValueError("No matched surface/interior models found")
     surface_mask = grid["mask"][[0, 6]]
     interior_mask = interior_grid["mask"][:, :14].transpose(1, 0, 2, 3)
+    # Full-column support, including the layers straddling 700 and 2000 m.
+    heat_mask = np.stack([interior_mask[:11, 0].all(0), interior_mask[10:14, 0].all(0)])
     climate = read(interiors[0], "december-climatology.npz")["ts"]
     for root in interiors[1:]:
         np.testing.assert_array_equal(
@@ -100,6 +102,10 @@ def prepare(compact, interiors, references, output):
         "depths": interior_grid["depths"][:14].tolist(),
         "surface_mask": write("surface-mask", surface_mask),
         "interior_mask": write("interior-mask", interior_mask),
+        "heat_mask": write("heat-mask", heat_mask),
+        "heat_unit": "GJ/m²",
+        "heat_input_unit": "J/m²",
+        "heat_depth_bounds_m": [[0, 700], [700, 2000]],
         "climatology": write(
             "december-climatology",
             np.where(interior_mask, climate.transpose(1, 0, 2, 3), np.nan),
@@ -123,6 +129,7 @@ def prepare(compact, interiors, references, output):
             "models": {},
         }
         shared_reference = None
+        shared_heat_reference = None
         for model in models:
             values = read(compact, f"{model}-{origin}.npz")
             surface = np.where(surface_mask, values["surface"], np.nan)
@@ -136,6 +143,31 @@ def prepare(compact, interiors, references, output):
                 )
             else:
                 np.testing.assert_array_equal(observed, shared_reference)
+            months = values["months"].tolist()
+            expected_months = [f"{origin[:4]}-{month:02d}" for month in range(1, 13)]
+            if months != expected_months:
+                raise ValueError(f"Unexpected heat-content months for {model}/{origin}")
+            record["heat_months"] = months
+            heat_values = {}
+            for key in ["predicted_ohc", "reference_ohc"]:
+                raw = values[key]
+                if raw.shape != (12, 2, len(grid["lat"]), len(grid["lon"])):
+                    raise ValueError(f"Unexpected {key} shape for {model}/{origin}")
+                if np.isfinite(raw[:, ~heat_mask]).any():
+                    raise ValueError(
+                        f"Unexpected {key} values outside full-column mask"
+                    )
+                heat_values[key] = np.where(
+                    heat_mask, raw.astype(np.float64) / 1e9, np.nan
+                )
+            heat_reference = heat_values["reference_ohc"]
+            if shared_heat_reference is None:
+                shared_heat_reference = heat_reference
+                record["heat_reference"] = write(
+                    f"{origin}-heat-reference", heat_reference
+                )
+            else:
+                np.testing.assert_array_equal(heat_reference, shared_heat_reference)
             ts = read(interior_roots[model], f"{model}-{origin}.npz")["ts"]
             interior = np.where(interior_mask, ts[:, :14].transpose(1, 0, 2, 3), np.nan)
             # The compact and full-depth exports must describe the same initializer.
@@ -154,6 +186,7 @@ def prepare(compact, interiors, references, output):
             record["models"][model] = {
                 "surface": write(f"{model}-{origin}-surface", surface),
                 "interior": write(f"{model}-{origin}-interior", interior),
+                "heat": write(f"{model}-{origin}-heat", heat_values["predicted_ohc"]),
             }
             print(f"Verified {model} / {origin}", flush=True)
         catalog["records"][origin] = record

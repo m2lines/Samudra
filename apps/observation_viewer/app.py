@@ -29,12 +29,14 @@ DIFFERENCE_PALETTE = list(RdBu[11])
 MODES = {
     "Annual surface forecasts": "surface",
     "Initialized ocean interior": "interior",
+    "Monthly ocean heat content": "heat",
 }
 VARIABLES = {
     "surface": {"Sea surface temperature": 0, "Sea surface height": 1},
     "interior": {"Temperature": 0, "Salinity": 1},
+    "heat": {"0–700 m": 0, "700–2000 m": 1},
 }
-UNITS = {"surface": ["°C", "m"], "interior": ["°C", "psu"]}
+UNITS = {"surface": ["°C", "m"], "interior": ["°C", "psu"], "heat": ["GJ/m²", "GJ/m²"]}
 
 
 def style_plot(plot):
@@ -106,6 +108,12 @@ class Viewer:
             value=9,
             visible=False,
             css_classes=["depth-select"],
+        )
+        self.month = pn.widgets.Select(
+            name="Month",
+            options={},
+            visible=False,
+            css_classes=["month-select"],
         )
         self.latitude = pn.widgets.FloatInput(
             name="Latitude (°N)",
@@ -271,16 +279,15 @@ class Viewer:
         )
         self.line.legend.location = "top_right"
         self.line.legend.click_policy = "hide"
-        self.line.add_tools(
-            HoverTool(
-                tooltips=[
-                    ("Lead / depth", "@x"),
-                    ("Model", "@prediction{0.0000}"),
-                    ("Comparison", "@reference{0.0000}"),
-                ],
-                mode="vline",
-            )
+        self.line_hover = HoverTool(
+            tooltips=[
+                ("Forecast lead (days)", "@x"),
+                ("Model", "@prediction{0.0000}"),
+                ("Comparison", "@reference{0.0000}"),
+            ],
+            mode="vline",
         )
+        self.line.add_tools(self.line_hover)
         self.marker = Span(
             location=30, dimension="height", line_dash="dashed", line_color="#586b78"
         )
@@ -408,6 +415,7 @@ class Viewer:
         self.frame.param.watch(self.step, "value")
         self.player.param.watch(self.play, "value")
         self.depth.param.watch(self.change_depth, "value")
+        self.month.param.watch(self.change_depth, "value")
         for point_control in [self.latitude, self.longitude, self.orientation]:
             point_control.param.watch(self.change_point, "value")
         self.rescale.on_click(lambda event: self.refresh(rescale=True))
@@ -416,6 +424,8 @@ class Viewer:
     @property
     def index(self):
         assert self.frame.value is not None
+        if self.mode.value == "heat":
+            return self.month.value
         return (
             self.frame.value // 5 - 1
             if self.mode.value == "surface"
@@ -426,18 +436,26 @@ class Viewer:
         self._changing = True
         self.player.direction = 0
         interior = event.new == "interior"
+        heat = event.new == "heat"
+        self.variable.name = "Layer" if heat else "Variable"
         self.variable.options = VARIABLES[event.new]
         self.variable.value = 0
         options = {
-            "IAP monthly context" if interior else "Observations": "observations"
+            "IAP monthly context"
+            if interior
+            else "IAP monthly heat content"
+            if heat
+            else "Observations": "observations"
         }
         if interior:
             options["Training December climatology"] = "climatology"
         options.update(self.model_options)
         self.reference.options = options
         self.reference.value = "observations"
-        for control in [self.frame, self.player, self.detail]:
-            control.visible = not interior
+        self.frame.visible = event.new == "surface"
+        self.player.visible = event.new == "surface"
+        self.detail.visible = not interior
+        self.month.visible = heat
         for control in [
             self.depth,
             self.orientation,
@@ -482,6 +500,18 @@ class Viewer:
             self.update_point()
 
     def refresh(self, rescale=False):
+        if self.mode.value == "heat":
+            options = {
+                month: index
+                for index, month in enumerate(
+                    self.catalog.meta["records"][self.origin.value]["heat_months"]
+                )
+            }
+            self._changing = True
+            selected = self.month.value
+            self.month.options = options
+            self.month.value = selected if selected in options.values() else 0
+            self._changing = False
         mode, variable, index = self.mode.value, self.variable.value, self.index
         self.prediction, self.comparison = self.catalog.values(
             mode, self.model.value, self.origin.value, self.reference.value
@@ -497,7 +527,7 @@ class Viewer:
                 difference, symmetric=True
             )
         mask = self.catalog.array(self.catalog.meta[f"{mode}_mask"])
-        wet = mask[variable] if mode == "surface" else mask[index, variable]
+        wet = mask[index, variable] if mode == "interior" else mask[variable]
         geometry_changed = self.wet is None or not np.array_equal(wet, self.wet)
         self.wet = wet
         coords = (
@@ -538,6 +568,12 @@ class Viewer:
                 f"### {variable_label} · {interval(self.origin.value, index)}"
             )
             self.context.object = "Five-day means on the model grid. Observations: OISST temperature / DUACS sea level. Click a map to inspect a cell; pan and zoom are linked across all three maps."
+        elif mode == "heat":
+            month = self.catalog.meta["records"][self.origin.value]["heat_months"][
+                index
+            ]
+            self.caption.object = f"### Ocean heat content · {variable_label} · {month}"
+            self.context.object = "Monthly layer-integrated heat content from the annual forecast, compared with IAP monthly analyses. Two stored layers: 0–700 m and 700–2000 m; these are not full vertical temperature profiles. Units: GJ/m² (saved J/m² divided by 10⁹), relative to 0 °C. Gray cells lack a complete model column for the selected layer. Click a map for the monthly series."
         else:
             self.caption.object = f"### {variable_label} · {self.catalog.depths[index]:g} m · initialization {self.origin.value}"
             self.context.object = f"Initialized state from the last five-day history interval. IAP {self.catalog.meta['records'][self.origin.value]['context_month']} is monthly context, not instantaneous truth. Surface temperature at 2.5 m is copied from available inputs."
@@ -577,14 +613,26 @@ class Viewer:
             return f"{value:.4g} {self.unit}" if np.isfinite(value) else "unavailable"
 
         self.location.object = f"**Selected cell:** {lat:.2f}°N, {lon:.2f}°E · model {number(a[self.index])} · comparison {number(b[self.index])}"
-        if self.mode.value == "surface":
+        if self.mode.value != "interior":
+            heat = self.mode.value == "heat"
             self.line_source.data = dict(
-                x=np.arange(5, 366, 5), prediction=a, reference=b
+                x=np.arange(1, 13) if heat else np.arange(5, 366, 5),
+                prediction=a,
+                reference=b,
             )
-            self.line.xaxis.axis_label = "Forecast lead (days; five-day means)"
+            self.line.xaxis.axis_label = (
+                f"Month of {self.origin.value[:4]} (monthly means)"
+                if heat
+                else "Forecast lead (days; five-day means)"
+            )
             self.line.yaxis.axis_label = self.unit
-            self.line.title.text = f"Time series · {lat:.2f}°N, {lon:.2f}°E"
-            self.marker.location = self.frame.value
+            self.line.title.text = f"{'Monthly heat content' if heat else 'Time series'} · {lat:.2f}°N, {lon:.2f}°E"
+            self.line_hover.tooltips = [
+                ("Month" if heat else "Forecast lead (days)", "@x"),
+                ("Model", "@prediction{0.0000}"),
+                ("Comparison", "@reference{0.0000}"),
+            ]
+            self.marker.location = self.index + 1 if heat else self.frame.value
         else:
             self.profile_source.data = dict(
                 depth=self.catalog.depths, prediction=a, reference=b
@@ -653,6 +701,7 @@ class Viewer:
             self.frame,
             self.player,
             self.depth,
+            self.month,
             self.lock_colors,
             self.rescale,
             pn.layout.Divider(),

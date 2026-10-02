@@ -13,6 +13,7 @@ browser. No training runtime or inference is required.
 | --- | --- | --- |
 | Annual surface forecasts | SST, SSH | Six model/checkpoint choices, three January origins, five-day lead slider/playback through day 365, model/reference/difference maps, click-to-select point time series |
 | Initialized ocean interior | Temperature, salinity | Fourteen depth centers from 2.5 to 1,850 m, model/IAP/climatology comparisons, map-linked longitude or latitude sections and vertical profiles |
+| Monthly ocean heat content | 0–700 m and 700–2000 m layer totals | Twelve monthly maps, IAP or checkpoint comparisons, and map-linked monthly point series |
 
 The six checkpoints comprise mixed training at 50, 500, 2,000 and 8,000
 observation updates, plus observation-only training at 8,000 and 16,000 updates.
@@ -37,6 +38,13 @@ RMS/bias are cosine-weighted snapshot diagnostics on paired finite cells, not
 the report's full official metric suite. Forecast origin, forecast lead, and
 training exposure remain distinct selectors.
 
+Monthly heat content comes from the existing annual report exports. Forecasts
+are monthly aggregates of the five-day rollout, compared with IAP monthly
+analyses. Values are layer-integrated heat per unit area relative to 0 °C,
+displayed in **GJ/m²** (the saved J/m² divided by 10⁹). Only complete model
+columns contribute to each layer; missing IAP values remain unavailable.
+These two layer totals do not provide full vertical temperature profiles.
+
 ## Install and prepare
 
 From the repository root:
@@ -59,7 +67,7 @@ source paths, checkpoint lineage and original receipts in `catalog.json`.
 The source catalog is specific to this report; loading an arbitrary Zarr store
 is not implemented. Input preparation refuses to overwrite a nonempty output.
 
-The current bundle occupies approximately 921 MiB. It is ignored by Git, and
+The prepared bundle is ignored by Git, and
 the server does not depend on the temporary source directories after preparation.
 Set `SAMUDRA_VIEWER_DATA` to use a different prepared bundle.
 

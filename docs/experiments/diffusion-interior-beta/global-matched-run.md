@@ -94,19 +94,29 @@ verified Torch copies. Native OM4 uses each cluster's existing store under the
 user's prior authorization for similar per-cluster versions; full native payload
 identity is not claimed.
 
-**Eight-RTX job 19027018 is allocated on `gr104`**, using Lzanna's normal RTX
-partition, 128 CPUs and 1,400 GB host memory. This bounded segment resumes the
-same optimizer for up to 200 additional updates, with effective batch eight and
-`NCCL_P2P_DISABLE=1`. The broad scheduler/QOS listings were insufficient to infer
-its limit; the actual allocation confirms all eight GPUs.
+**Eight-RTX job 19027018 completed on `gr104`**, using Lzanna's normal RTX
+partition, 128 CPUs and 1,400 GB host memory. It resumed the same optimizer for
+200 updates, reaching global step 913 (780 OM4 / 133 observation), with effective
+batch eight and `NCCL_P2P_DISABLE=1`. Both tasks have finite gradients and fresh
+optimizer checkpoints. Recent median complete update times are 1.93 seconds OM4
+and 44.91 seconds observation. Its 36m25s allocation consumed 4.856 GPU-hours;
+the new run has consumed 16.40 GPU-hours through this segment, including all
+earlier qualification, failed/preempted attempts and three early evaluations.
+The broad scheduler/QOS listings were insufficient to infer its limit; actual
+execution confirms all eight GPUs.
 
-Eight-B200 continuation **19027159** is queued behind it using the
+Eight-B200 continuation **19028465** is queued using the
 [documented preemption-only comment](https://services.rt.nyu.edu/docs/hpc/submitting_jobs/slurm_submitting_jobs/)
 and automatic requeue. The normal eight-B200 submission
 was rejected; adding the documented preemption routing was accepted. Slurm still
-labels it `b200`/`gpu48`, so acceptance is not yet evidence of allocation or a
-particular preemption behavior. The continuation cannot write checkpoints while
-the RTX segment is active. Both use the same pinned scientific producer.
+initially labeled the first request `b200`/`gpu48`, then changed it to `gpuplus`
+after its dependency cleared. Acceptance is not yet evidence of allocation or a
+particular preemption behavior. At 08:10 ET, the original B200 request's estimated
+start was October 4 at 01:47, so it was canceled before allocation and replaced
+behind **eight-RTX continuation 19028464**. That segment targets global step
+1,550 (1,300 OM4 / 250 observation), followed by validation/member-map evaluation
+**19028475**. B200 cannot write checkpoints while RTX training is active.
+Training uses the same pinned scientific producer on both GPU families.
 
 - [RTX complete-objective qualification](global-assets/rtx6000-qualified.json.gz)
 - [B200 complete-objective qualification](global-assets/b200-qualified.json.gz)

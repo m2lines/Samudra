@@ -221,8 +221,10 @@ def main():
         optimizer.zero_grad(set_to_none=True)
         measurements: dict[str, float] = {}
         total = 0.0
+        micro_seconds = []
         model.train()
         for micro in range(rank, 8, world):
+            micro_started = time.monotonic()
             index = ids[micro]
             noise_seed = seed + 1000000 + count * 8 + micro
             with torch.autocast("cuda", dtype=torch.bfloat16):
@@ -246,6 +248,7 @@ def main():
                         raise FloatingPointError("native")
                     (loss / 8).backward()
                     total += float(loss.detach()) / 8
+            micro_seconds.append(time.monotonic() - micro_started)
         # Sum each rank's 1/8-scaled microbatch gradients exactly once. Unused
         # ERA5/source adapters keep grad=None, so AdamW does not decay them.
         if world > 1:
@@ -279,6 +282,7 @@ def main():
             gradient_norms=norms,
             peak_gib=torch.cuda.max_memory_allocated() / 2**30,
             world_size=world,
+            micro_seconds=micro_seconds,
         )
         if rank == 0:
             emit(event)

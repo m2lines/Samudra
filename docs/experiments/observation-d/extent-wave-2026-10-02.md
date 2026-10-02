@@ -269,3 +269,17 @@ hashes, then released patch probes **209235 and 209237**. Their release receipt 
 grid SHA256:
 `5ffa767dd688880029ee23141edcfbf0d3004e61c314e4a8df212d3006c126aa`.
 Production 209239 remains dependent on both patch probes passing.
+
+By approximately **2:15 p.m. ET**, both native patch probes completed successfully:
+209235 in 9:30 and 209237 in 9:49. Their structured events confirm three global
+OM4 updates, three native-quarter patch updates and four observation updates;
+both wrote `resume_verified: true`. L-multitask measured 7.97 seconds/update
+(8.86 hours for 4,000 updates) and U-multitask 8.72 seconds/update (9.69 hours),
+excluding validation/startup overhead. Both meet the throughput gate.
+
+All four qualification dependencies are now satisfied. Production **209239**
+is pending beta priority. Slurm's point-in-time estimate was **2:30 a.m. ET on
+October 3** (06:30 UTC); this is not a guaranteed start. No resource requests
+were changed in response to the ordinary queue wait. Monitoring continues with
+longer sleep intervals during this wait. No production scientific result is
+claimed yet.

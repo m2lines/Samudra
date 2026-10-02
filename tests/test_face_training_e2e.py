@@ -696,17 +696,22 @@ def _score_with(config) -> torch.Tensor:
         return trainer.train_loss_fn(pred, target, sample_weight=weight)
 
 
-def test_the_denominator_is_the_face_s_not_the_block_s(face_root) -> None:
-    """The constant must not follow the draw.
+def test_rank_local_denominator_is_the_blocks_fixed_share_of_the_face(
+    face_root,
+) -> None:
+    """The constant must not follow the block's wet-cell count.
 
     A block drawn over land would otherwise scale its own loss up and outvote
-    the others through DDP's mean -- exactly what the face-wide denominator
-    was introduced to stop. At world size 1 the two topologies see the same
-    36 tiles, so the same tensors must score the same.
+    the others through DDP's mean. A rank-local row always contains 9 of the
+    face's 36 tiles, so its denominator is one quarter of the face constant
+    even in this single-process test. DDP then averages any number of such
+    independent rows without changing the scale.
     """
+    face_score = _score_with(_face_config(face_root))
+    block_score = _score_with(_block_config(face_root))
     torch.testing.assert_close(
-        _score_with(_face_config(face_root)),
-        _score_with(_block_config(face_root)),
+        block_score,
+        face_score * 4,
         rtol=0,
         atol=0,
     )

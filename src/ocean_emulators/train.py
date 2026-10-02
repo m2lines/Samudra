@@ -134,7 +134,10 @@ from ocean_emulators.utils.logging import (
     handle_warnings,
 )
 from ocean_emulators.utils.loss import LossFn
-from ocean_emulators.utils.schedule import EpochMultiplierScheduler
+from ocean_emulators.utils.schedule import (
+    EpochMultiplierScheduler,
+    linear_warmup_factor,
+)
 from ocean_emulators.utils.train import (
     CheckpointPaths,
     collate_inference_data,
@@ -1178,6 +1181,12 @@ class Trainer:
         if cfg.scheduler:
             self.scheduler = cfg.scheduler.build(self.optimizer, cfg.epochs)
         self.validation_mode = cfg.validation_mode
+        # Initialized before checkpoint loading because the optimizer and
+        # scheduler may be rebuilt there. The active ramp is enabled below,
+        # once `num_batches_seen` has its well-defined initial value.
+        self.lr_warmup_steps = 0
+        self.lr_warmup_start_factor = cfg.lr_warmup_start_factor
+        self._lr_warmup_applied = 1.0
         self.lr_multipliers = cfg.lr_multipliers
         self.lr_multiplier_transition = cfg.lr_multiplier_transition
         self.use_lr_multipliers = (
@@ -1223,6 +1232,18 @@ class Trainer:
         )
 
         self.num_batches_seen = 0
+        # No gate on how the run started. The ramp reads `num_batches_seen`,
+        # which a resumable checkpoint carries, so a resume lands wherever it
+        # left off. Finetuning resets the counter and intentionally restarts
+        # the ramp for the new data distribution.
+        self.lr_warmup_steps = cfg.lr_warmup_steps
+        if self.lr_warmup_steps:
+            logger.info(
+                "LR warmup: ramping from %.3g x to full over the first %d "
+                "optimizer step(s), measured in num_batches_seen.",
+                cfg.lr_warmup_start_factor,
+                self.lr_warmup_steps,
+            )
         self.start_batch_in_epoch = 0
         loaded_checkpoint = False
         if cfg.resume_ckpt_path is not None:
@@ -1243,10 +1264,16 @@ class Trainer:
                         self.optimizer = torch.optim.Adam(
                             self.model.parameters(), lr=cfg.learning_rate
                         )
+                        self._lr_warmup_applied = 1.0
                         logger.info(
                             "Reset optimizer state on resume (lr=%s).",
                             cfg.learning_rate,
                         )
+                    else:
+                        # A mid-epoch checkpoint may carry a warmup-scaled LR.
+                        # A rebuilt scheduler must take ownership of the
+                        # unscaled value.
+                        self._remove_lr_warmup()
                     # Scheduler is tied to the optimizer; rebuild if either reset is requested.
                     if cfg.scheduler:
                         self.scheduler = cfg.scheduler.build(self.optimizer, cfg.epochs)
@@ -1871,6 +1898,7 @@ class Trainer:
             if sync_gradients:
                 grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
                 if torch.isfinite(grad_norm):
+                    self._apply_lr_warmup()
                     self.optimizer.step()
                     self._ema(model=self.model)
                 else:
@@ -1892,11 +1920,9 @@ class Trainer:
                     )
                 self.optimizer.zero_grad()
 
-            lr = (
-                self.optimizer.param_groups[-1]["lr"]
-                if self.scheduler is None
-                else self.scheduler.get_last_lr()[0]
-            )
+            # The optimizer, not the scheduler: during warmup the scheduler's
+            # last assigned value is not the value the step actually used.
+            lr = self.optimizer.param_groups[-1]["lr"]
 
             with torch.no_grad():
                 # Reduce losses
@@ -2015,6 +2041,10 @@ class Trainer:
                 )
 
         if self.scheduler is not None:
+            # Recursive schedulers such as CosineAnnealingLR advance from the
+            # optimizer's current LR. Remove the step-level scale first so it
+            # cannot become part of the next epoch's base rate.
+            self._remove_lr_warmup()
             self.scheduler.step()
 
         if processed_batches == 0:
@@ -2147,6 +2177,7 @@ class Trainer:
             if sync_gradients:
                 grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
                 if torch.isfinite(grad_norm):
+                    self._apply_lr_warmup()
                     self.optimizer.step()
                     self._ema(model=self.model)
                 else:
@@ -2168,11 +2199,9 @@ class Trainer:
                     )
                 self.optimizer.zero_grad()
 
-            lr = (
-                self.optimizer.param_groups[-1]["lr"]
-                if self.scheduler is None
-                else self.scheduler.get_last_lr()[0]
-            )
+            # The optimizer, not the scheduler: during warmup the scheduler's
+            # last assigned value is not the value the step actually used.
+            lr = self.optimizer.param_groups[-1]["lr"]
 
             with torch.no_grad():
                 if self.dp_ctx is not None:
@@ -2283,6 +2312,10 @@ class Trainer:
                 )
 
         if self.scheduler is not None:
+            # Recursive schedulers such as CosineAnnealingLR advance from the
+            # optimizer's current LR. Remove the step-level scale first so it
+            # cannot become part of the next epoch's base rate.
+            self._remove_lr_warmup()
             self.scheduler.step()
 
         if processed_batches == 0:
@@ -3024,6 +3057,35 @@ class Trainer:
             # turns the flag off for this case, so this is belt and braces.
             return False
         return per_chunk or self.gradient_accumulation_steps > 1
+
+    def _apply_lr_warmup(self) -> None:
+        """Scale the scheduled LR for the first configured optimizer steps.
+
+        This multiplies whatever the epoch scheduler has set rather than
+        replacing it. The previously applied factor is divided back out before
+        applying the next one so that the factors never compound.
+        """
+        if not self.lr_warmup_steps:
+            return
+        target = linear_warmup_factor(
+            self.num_batches_seen,
+            self.lr_warmup_steps,
+            self.lr_warmup_start_factor,
+        )
+        if target == self._lr_warmup_applied:
+            return
+        scale = target / self._lr_warmup_applied
+        for group in self.optimizer.param_groups:
+            group["lr"] *= scale
+        self._lr_warmup_applied = target
+
+    def _remove_lr_warmup(self) -> None:
+        """Restore the scheduler-owned LR before advancing the scheduler."""
+        if self._lr_warmup_applied == 1.0:
+            return
+        for group in self.optimizer.param_groups:
+            group["lr"] /= self._lr_warmup_applied
+        self._lr_warmup_applied = 1.0
 
     def _microbatch_spans(self, data: TrainData) -> list[tuple[int, int]]:
         """How to split one microbatch into forward/backward chunks.
@@ -5221,8 +5283,8 @@ class Trainer:
             denominator, gradient_z = face_wide_loss_norms(
                 self.domain_wet.cpu(),
                 masks.to(dtype=torch.float32),
-                tiles=masks.shape[0],
-                world_size=get_world_size(),
+                face_tiles=masks.shape[0],
+                rank_tiles=self._block_tiles_per_row,
             )
             denominator = denominator.to(self.device)
             gradient_z = gradient_z.to(self.device)
@@ -5686,16 +5748,15 @@ class Trainer:
         logger.info(
             f"Saving latest EMA checkpoint to {self.ckpt_paths.ema_checkpoint_path}"
         )
-        self.save_checkpoint(
+        wrote_ema = self.save_checkpoint(
             epoch,
             self.ckpt_paths.ema_checkpoint_path,
             for_inference=True,
         )
-        if self.validation_mode != "inline":
-            # A named copy per epoch, hardlinked so it costs an inode rather
-            # than 2.9 GB: `os.replace` gave `ema_ckpt.pt` a fresh inode this
-            # epoch, so the link pins these bytes even as later epochs
-            # overwrite the name.
+        if self.validation_mode != "inline" and wrote_ema:
+            # A named hardlink pins this epoch's bytes without copying them:
+            # `os.replace` gave `ema_ckpt.pt` a fresh inode this epoch, so later
+            # epochs can replace that name without changing this snapshot.
             snapshot = self.ckpt_paths.ema_epoch_snapshot_path(epoch)
             source = self.ckpt_paths.ema_checkpoint_path
             staging = snapshot.with_suffix(".pt.tmp")
@@ -5715,7 +5776,7 @@ class Trainer:
         batch_in_epoch: int | None = None,
         epoch_complete: bool = True,
         save_reason: str | None = None,
-    ):
+    ) -> bool:
         if for_inference:
             with self._ema_context():
                 # `state_dict()` returns tensors that alias live parameter storage,
@@ -5747,7 +5808,7 @@ class Trainer:
                 len(model_state_dict),
                 nonfinite[0],
             )
-            return
+            return False
 
         # Create temporary file in the same directory as the target
         temp_dir = os.path.dirname(checkpoint_path)
@@ -5768,6 +5829,9 @@ class Trainer:
                 "best_inf_loss": self.best_inf_loss,
                 "ema": ema_state,
                 "num_batches_seen": self.num_batches_seen,
+                # Needed only for an incomplete-epoch/emergency checkpoint:
+                # its optimizer LR still carries this multiplicative scale.
+                "lr_warmup_applied": getattr(self, "_lr_warmup_applied", 1.0),
                 "wandb_id": self.wandb_id,
                 "wandb_name": self.wandb_name,
             }
@@ -5786,6 +5850,7 @@ class Trainer:
 
             torch.save(checkpoint, temporary_location)
             os.replace(temporary_location, checkpoint_path)
+        return True
 
     @staticmethod
     def _clone_state_dict(state):
@@ -5877,6 +5942,7 @@ class Trainer:
             self.wandb_id = checkpoint.get("wandb_id")
             self.wandb_name = checkpoint.get("wandb_name")
             self.num_batches_seen = checkpoint.get("num_batches_seen", 0)
+            self._lr_warmup_applied = checkpoint.get("lr_warmup_applied", 1.0)
 
             logger.info(f"Start Epoch: {self.start_epoch}")
             logger.info(f"Start Batch In Epoch: {self.start_batch_in_epoch}")

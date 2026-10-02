@@ -311,7 +311,10 @@ class FaceParallelContext:
             # The caller passed the WHOLE face's masks, so the local sum
             # already IS the face total and no context is needed.
             return face_wide_loss_norms(
-                wet, local_sample_weight, tiles=tiles, world_size=self.world_size
+                wet,
+                local_sample_weight,
+                face_tiles=tiles,
+                rank_tiles=tiles // self.world_size,
             )
         denominator = self._all_reduce(
             local.detach().to(dtype=torch.float64).clone(), op="sum"
@@ -491,10 +494,10 @@ def face_wide_loss_norms(
     wet: torch.Tensor,
     sample_weight: torch.Tensor | None,
     *,
-    tiles: int,
-    world_size: int,
+    face_tiles: int,
+    rank_tiles: int,
 ) -> tuple[torch.Tensor, "GradientZNorms"]:
-    """The loss constants a rank divides by, derived from the whole face.
+    """Loss constants for one rank-local row, derived from the whole face.
 
     The collective-free twin of `FaceParallelContext.global_loss_norms`, and
     the reason a rank-local run needs no face context at all: every rank opens
@@ -502,30 +505,42 @@ def face_wide_loss_norms(
     the FACE's total rather than a block's, or a block drawn over land would
     scale its own loss up and outvote the others through DDP's mean.
 
-    `/ world_size` lands on a different factor for the two terms, for the
-    reason `global_loss_norms` documents: the base metric is one ratio, so
-    DDP's 1/R is absorbed into its denominator; gradient_z is an average OF
-    ratios, so its denominators stay true counts and the 1/R goes into the
-    pair count instead.
+    The normalization share is the fraction of the face in EACH row, not the
+    number of DDP ranks. A 3x3 row is 9/36 = 1/4 of a face whether four or
+    eight ranks draw independent rows. Using world size here would make the
+    loss and gradients grow with rank count.
+
+    The share lands on different constants for the two terms, for the reason
+    `global_loss_norms` documents: the base metric is one ratio, so it scales
+    the denominator; gradient_z is an average OF ratios, so its per-pair cell
+    counts stay face-wide and the share scales the pair count.
     """
+    if face_tiles <= 0:
+        raise ValueError(f"face_tiles must be positive, got {face_tiles}")
+    if not 0 < rank_tiles <= face_tiles:
+        raise ValueError(
+            f"rank_tiles must be in [1, {face_tiles}], got {rank_tiles}"
+        )
+
     from ocean_emulators.utils.loss import (
         gradient_z_norms,
         weighted_channel_denominator,
     )
 
     local = weighted_channel_denominator(
-        wet=wet, batch=tiles, extra_weight=sample_weight
+        wet=wet, batch=face_tiles, extra_weight=sample_weight
     )
     norms = gradient_z_norms(
-        wet=wet, batch=tiles, sample_weight=sample_weight, reduce=None
+        wet=wet, batch=face_tiles, sample_weight=sample_weight, reduce=None
     )
+    rank_share = rank_tiles / face_tiles
     return (
-        (local.detach().to(dtype=torch.float64).clone() / world_size).to(
+        (local.detach().to(dtype=torch.float64).clone() * rank_share).to(
             dtype=torch.float32
         ),
         GradientZNorms(
             valid_cells=norms.valid_cells,
-            count_by_time=norms.count_by_time / world_size,
+            count_by_time=norms.count_by_time * rank_share,
         ),
     )
 

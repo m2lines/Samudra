@@ -269,3 +269,64 @@ def test_get_current_temporal_stride_resume_at_transition_uses_post_transition_s
     trainer.temporal_stride_transition = [5, 9]
 
     assert trainer.get_current_temporal_stride(9) == 6
+
+
+def test_step_warmup_scales_without_compounding_previous_factors():
+    parameter = torch.nn.Parameter(torch.zeros(1))
+    trainer = Trainer.__new__(Trainer)
+    trainer.optimizer = torch.optim.SGD([parameter], lr=0.1)
+    trainer.lr_warmup_steps = 10
+    trainer.lr_warmup_start_factor = 0.1
+    trainer._lr_warmup_applied = 1.0
+
+    trainer.num_batches_seen = 1
+    trainer._apply_lr_warmup()
+    assert trainer.optimizer.param_groups[0]["lr"] == pytest.approx(0.01)
+
+    trainer.num_batches_seen = 5
+    trainer._apply_lr_warmup()
+    # Step 5 is a 0.5 factor. It replaces the old 0.1 factor rather than
+    # multiplying by it and shrinking the base LR a second time.
+    assert trainer.optimizer.param_groups[0]["lr"] == pytest.approx(0.05)
+
+    trainer.num_batches_seen = 10
+    trainer._apply_lr_warmup()
+    assert trainer.optimizer.param_groups[0]["lr"] == pytest.approx(0.1)
+
+
+def test_step_warmup_is_removed_before_cosine_advances_an_epoch():
+    parameter = torch.nn.Parameter(torch.zeros(1))
+    trainer = Trainer.__new__(Trainer)
+    trainer.optimizer = torch.optim.SGD([parameter], lr=0.1)
+    trainer.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        trainer.optimizer, T_max=10
+    )
+    trainer.lr_warmup_steps = 10
+    trainer.lr_warmup_start_factor = 0.1
+    trainer._lr_warmup_applied = 1.0
+
+    trainer.num_batches_seen = 1
+    trainer._apply_lr_warmup()
+    assert trainer.optimizer.param_groups[0]["lr"] == pytest.approx(0.01)
+
+    # Epoch schedulers advance from the optimizer's current value. Warmup must
+    # be removed first or the 0.1 factor becomes baked into the cosine base.
+    trainer.optimizer.step()
+    trainer._remove_lr_warmup()
+    trainer.scheduler.step()
+
+    control_parameter = torch.nn.Parameter(torch.zeros(1))
+    control_optimizer = torch.optim.SGD([control_parameter], lr=0.1)
+    control_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        control_optimizer, T_max=10
+    )
+    control_optimizer.step()
+    control_scheduler.step()
+    scheduled_lr = control_optimizer.param_groups[0]["lr"]
+    assert trainer.optimizer.param_groups[0]["lr"] == pytest.approx(scheduled_lr)
+
+    trainer.num_batches_seen = 2
+    trainer._apply_lr_warmup()
+    assert trainer.optimizer.param_groups[0]["lr"] == pytest.approx(
+        scheduled_lr * 0.2
+    )

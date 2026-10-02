@@ -1528,6 +1528,20 @@ class TrainConfig(TopLevelConfig):
     step_transition: list[int] = []
     lr_multipliers: list[float] = [1.0]
     lr_multiplier_transition: list[int] = []
+    #: Optimizer steps to ramp the LR over. The schedulers move the LR once an
+    #: epoch, so without this the first step of a run already executes at full
+    #: LR -- and that is where a fresh model is most able to take a step it
+    #: cannot recover from. 0 disables it.
+    #:
+    #: Safe to leave on across a resume: the ramp is a function of
+    #: `num_batches_seen`, which is checkpointed, so a run resumed past the
+    #: ramp is already at full LR and one resumed inside it picks up where it
+    #: stopped. Only a load that resets the step count (`finetune`) restarts
+    #: the ramp, which for weights meeting a new data distribution is usually
+    #: what you want anyway.
+    lr_warmup_steps: int = Field(default=0, ge=0)
+    #: LR at step 1 as a fraction of the scheduled LR.
+    lr_warmup_start_factor: float = Field(default=1e-3, gt=0.0, le=1.0)
     temporal_stride_transition: list[int] = []
     inference_epochs: list[int] = [-1]
     train_time: TimeConfig = TimeConfig(

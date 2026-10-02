@@ -4,6 +4,31 @@ import torch
 from pydantic import BaseModel
 
 
+def linear_warmup_factor(step: int, total_steps: int, start_factor: float) -> float:
+    """LR scale for optimizer `step` of a linear ramp, 1-indexed.
+
+    The schedulers below move the learning rate once per EPOCH, which at a
+    couple of thousand steps an epoch means the very first step already runs at
+    full LR. On a cold start that is where a run is most able to take a step it
+    cannot come back from. This ramps over steps instead: `start_factor` at
+    step 1, exactly 1.0 at `total_steps`, and 1.0 for ever after.
+
+    A pure function of the step count so that a resumed run picks the ramp up
+    where it stopped rather than restarting it -- `num_batches_seen` is
+    checkpointed, so nothing else has to be.
+    """
+    if total_steps <= 0:
+        return 1.0
+    if not 0.0 < start_factor <= 1.0:
+        raise ValueError(f"start_factor must be in (0, 1], got {start_factor}")
+    if step >= total_steps:
+        return 1.0
+    if total_steps == 1:
+        return 1.0
+    progress = max(0, step - 1) / (total_steps - 1)
+    return start_factor + (1.0 - start_factor) * progress
+
+
 class EpochMultiplierScheduler:
     """Wrap a scheduler and apply stage-wise LR multipliers by epoch."""
 

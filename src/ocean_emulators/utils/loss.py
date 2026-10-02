@@ -665,7 +665,12 @@ def gradient_z_l1_loss(
         )
     return torch.where(
         count_by_time > 0,
-        loss_by_time / count_by_time.clamp_min(1.0),
+        # Fixed face-wide norms deliberately use fractional counts to encode
+        # the share scored by one rank/block (for example 1/4 and 1/2 for a
+        # 3x3 block of a 6x6 face). Clamping those to 1 silently discards that
+        # scale. Locally derived counts are integers >= 1, so the epsilon is a
+        # no-op for the ordinary non-partitioned path.
+        loss_by_time / count_by_time.clamp_min(1e-8),
         loss_by_time,
     ).reshape(-1)
 

@@ -61,3 +61,41 @@ def test_missing_targets_do_not_contaminate_spatial_gradients():
     assert members.grad is not None
     assert torch.isfinite(members.grad).all()
     assert not bool(members.grad[..., 0, 0].count_nonzero())
+
+
+def test_accumulation_matches_partitioned_optimizer_step_after_resume():
+    # CPU analogue of the synchronous rank reduction, including AdamW resume.
+    import copy
+
+    torch.manual_seed(17)
+    model = torch.nn.Linear(3, 2)
+    reference = copy.deepcopy(model)
+    x, y = torch.randn(8, 3), torch.randn(8, 2)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
+    other = torch.optim.AdamW(reference.parameters(), lr=1e-4)
+    for _ in range(2):
+        optimizer.zero_grad(set_to_none=True)
+        ((model(x) - y).square().mean()).backward()
+        optimizer.step()
+        other.zero_grad(set_to_none=True)
+        summed = [torch.zeros_like(p) for p in reference.parameters()]
+        for rank in range(4):
+            reference.zero_grad(set_to_none=True)
+            for micro in range(rank, 8, 4):
+                (
+                    (reference(x[micro : micro + 1]) - y[micro : micro + 1])
+                    .square()
+                    .mean()
+                    / 8
+                ).backward()
+            for total, parameter in zip(summed, reference.parameters(), strict=True):
+                assert parameter.grad is not None
+                total.add_(parameter.grad)
+        for total, parameter in zip(summed, reference.parameters(), strict=True):
+            parameter.grad = total
+        other.step()
+        state = copy.deepcopy(other.state_dict())
+        other = torch.optim.AdamW(reference.parameters(), lr=1e-4)
+        other.load_state_dict(state)
+        for a, b in zip(model.parameters(), reference.parameters(), strict=True):
+            torch.testing.assert_close(a, b, rtol=1e-6, atol=1e-7)

@@ -151,3 +151,40 @@ Entry points: `scripts/run_extent_wave.py`, `scripts/slurm_extent_beta.sbatch`,
 The launch root records frozen paths, producer hash, selection reference,
 scheduler IDs, readiness releases and logs. Production completion requires
 actual `TRAIN_COMPLETE.json` and held-out evaluation `COMPLETE.json` outputs.
+
+## Submission snapshot, October 2 at approximately 10:45 a.m. ET
+
+Pinned producer: `ec9ecf916ebbff21306f8c3aa94553c8165f3a23`.
+Source archive SHA256:
+`29b28bb5aa05e22c051a6ca60a9fcb8a7fd1f258c8673f405b69a8f9be5a21fc`.
+Exact existing full-global selection-reference SHA256:
+`c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c`.
+Launch root:
+`/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-02-extent-om4`.
+The complete submission commands and dependency IDs are in `jobs.json` there.
+
+| Scheduler | Job | Purpose | Observed status |
+|---|---:|---|---|
+| Alpha/Grace | 114309 | Rehash all observation inputs | Verification output confirms all 350 files match; finished |
+| Alpha/Grace | 114235 | Quarter-degree transfer and full readback | Running |
+| Alpha/Grace | 114311 | Lossless native patch cache and readback | Pending transfer success |
+| Beta | 209206 | U architecture fitting | Released after observation verification; pending resources |
+| Beta | 209208 | L architecture fitting | Released after observation verification; pending priority |
+| Beta | 209210 | U-global resume/gradient/throughput probe | Pending successful U fitting |
+| Beta | 209212 | L-global resume/gradient/throughput probe | Pending successful L fitting |
+| Beta | 209214 | L-multitask probe | Held for verified cache; also requires successful L fitting |
+| Beta | 209216 | U-multitask probe | Held for verified cache; also requires successful U fitting |
+| Beta | 209218 | Four-arm production and held-out evaluation | Pending successful completion of all four probes |
+
+The readiness bridge on beta is PID 4007051; its receipt is
+`gate-process.json`, its releases are in `released.json`, and its log is
+`logs/readiness-gate.log`. It has released only 209206 and 209208 so far.
+No GPU training or scientific result is claimed in this snapshot.
+
+Local validation passed: 23 tests covering extent geometry, six-step crop
+equivalence conditional on supplied states, boundary restoration, checkpointed
+geometry gradients, native sample timing/repeatability, exact task counts,
+existing joint resume/gradient routing, global observation support, completion,
+latent-state compatibility, and task scheduling. Mypy passed for all eight new
+Python files/tests and the five modified Python modules. Ruff and shell syntax
+checks passed.

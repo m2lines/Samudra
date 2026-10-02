@@ -664,7 +664,7 @@ class Viewer:
             self.orientation,
         ]
         return pn.template.FastListTemplate(
-            title="Samudra · Ocean results",
+            title="Samudra Results Viewer",
             accent_base_color="#087f8c",
             header_background="#143b4a",
             sidebar=[pn.Column(*sidebar)],

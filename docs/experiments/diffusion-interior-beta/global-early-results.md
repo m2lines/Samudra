@@ -3,6 +3,57 @@
 
 # Global diffusion: early checkpoints
 
+## Morning update: 100 observation updates
+
+The new model is learning, but **mean prediction is improving much faster than
+member texture or calibration**. At 100 observation updates, the global composite
+is **1.9749**, compared with **1.1472** for the deterministic control at identical
+data exposure. Day-30 SST RMSE is **3.196°C**. Member grain persists in the maps.
+These are still early checkpoints: 100 is only 1.25% of the planned observation
+updates. No scientific configuration has changed between these checkpoints.
+
+| Observation / OM4 updates | Diffusion validation composite | Matched deterministic composite | Day-30 diffusion SST RMSE |
+|---|---:|---:|---:|
+| 25 / 169 | 2.6122 | 1.8567 | 3.654°C |
+| 50 / 324 | 2.2069 | 1.4791 | 3.608°C |
+| 100 / 607 | 1.9749 | 1.1472 | 3.196°C |
+
+Compared with 25 updates, high-frequency member power in the same Pacific patch
+diagnostic falls **5.8% SST, 3.4% SSH, 2.2% monthly T550 and 1.9% monthly S550**.
+This remains far above the reference power at small scales. Forecast pixel fair
+CRPS falls to 0.15388 while its spatial component is 0.13694; decoded-field gradient
+norms remain comparable, **1.15e-4 pixel / 1.23e-4 spatial**.
+
+| Calibration at 100 updates | Surface, all forecast bins | Monthly interior |
+|---|---:|---:|
+| Ensemble-mean RMSE, standardized | 0.3957 | 0.2692 |
+| Ensemble spread, standardized | 0.9416 | 0.4042 |
+| Spread / RMSE | 2.38 | 1.50 |
+| Fair CRPS | 0.2389 | 0.1331 |
+| Empirical CRPS | 0.3053 | 0.1616 |
+| Empirical central 80% coverage | 95.4% | 87.7% |
+| Empirical central 90% coverage | 97.5% | 92.0% |
+
+![100-update day-30 SSH members and mean](global-early-assets/obs100/members-2013-11-zos.png)
+
+![100-update member and ensemble-mean spectra](global-early-assets/obs100/member-spectra.png)
+
+[All 12 maps and numerical assets at 100 updates](global-early-assets/obs100/) ·
+[Metrics and checkpoint manifest](global-early-assets/obs100/COMPLETE.json.gz) ·
+[Calibration and field-gradient records](global-early-assets/obs100/calibration.json.gz) ·
+[Matched deterministic event](global-early-assets/obs100/matched-baseline.json) ·
+[Pooled summary](global-early-assets/obs100/summary.json).
+
+Four-H200 job **24628644** recovered automatically after preemption. It used
+454 seconds before preemption and 4,058 seconds after requeue, finishing at global
+step 713 (612 OM4 + 101 observation updates). The immutable **step-00707** snapshot
+has exactly 607/100 updates and is the one evaluated here. Evaluation **24628822**
+completed in 630 seconds on one H200. Total new-run allocation through this check
+is **11.2875 GPU-hours**, including failed qualifications and the preempted segment.
+Reserved **eight-H200 job 24614650** is waiting only for its **October 2, 10:01 a.m.
+Eastern** earliest start. It resumes the latest optimizer at step 713. The next
+planned validation is the 250-observation-update snapshot.
+
 ## Update: 50 observation updates
 
 The validation composite improves **15.5%**, from 2.6122 to **2.2069**, but remains

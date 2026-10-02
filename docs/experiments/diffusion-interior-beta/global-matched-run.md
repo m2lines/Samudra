@@ -63,15 +63,16 @@ ready to review.
 
 ## Qualification and launch status
 
-**Update October 2:** [First 25-observation-update results](global-early-results.md)
-are complete. The eight-H200 request was unschedulable because Engaging
-`mit_preemptable` caps this account at four GPUs. It was canceled without allocation
-and replaced by four-H200 continuation **24611683**. The previous four-day estimate
-assumed eight GPUs. A reservation already assigned to the user permits eight
-H200s starting October 2 at 10 a.m.; reserved continuation **24614650** is queued
-behind **24611683**, with earliest start 10:01 a.m. and a six-hour segment. Actual
-multi-GPU timing remains unmeasured. The launch details below preserve the original
-sequence.
+**Update October 2 morning:** [25-, 50- and 100-observation-update results](global-early-results.md)
+are published. The general Engaging preemptible QOS caps GPUs at four; the original
+eight-GPU request was canceled without allocation. Bounded four-H200 continuations
+completed through step 713, including successful preemption recovery. A reservation
+already assigned to the user permits eight H200s from October 2 at 10 a.m.; reserved
+continuation **24614650** is waiting only for its 10:01 a.m. earliest start, in a
+six-hour segment. It resumes the latest optimizer without changing the scientific
+configuration. Observed four-GPU observation updates take about 68 seconds per
+effective batch; eight-GPU timing remains to be measured. The launch details below
+preserve the original sequence.
 
 H200 qualification **24596676** completed 0:0 in 14 minutes. Training producer:
 `4ecba36a40b7b581edeaa2292c90d1953fca7aa0`. Both full effective-batch-eight

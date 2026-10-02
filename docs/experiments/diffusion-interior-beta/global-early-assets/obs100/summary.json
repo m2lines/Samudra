@@ -1,0 +1,34 @@
+{
+  "counts": {
+    "om4": 607,
+    "observation": 100
+  },
+  "score": 1.9749087195493709,
+  "calibration": {
+    "surface": {
+      "mean_squared_error": 0.1565837607313426,
+      "ensemble_variance": 0.8865614701981791,
+      "fair_crps": 0.23891737382239492,
+      "empirical_crps": 0.305319523890091,
+      "coverage_80": 0.9535257574069284,
+      "coverage_90": 0.9748896031812276,
+      "rmse": 0.3957066599532318,
+      "spread": 0.9415739324122027,
+      "spread_rmse": 2.3794745646269546
+    },
+    "interior": {
+      "mean_squared_error": 0.07244992388191412,
+      "ensemble_variance": 0.16335617624738252,
+      "fair_crps": 0.13308906168182139,
+      "empirical_crps": 0.16158913798284147,
+      "coverage_80": 0.8765124591080584,
+      "coverage_90": 0.9195185388618673,
+      "rmse": 0.2691652352773555,
+      "spread": 0.40417344822165463,
+      "spread_rmse": 1.5015811674385917
+    }
+  },
+  "calibration_units": "Observation-standardized, pooled finite wet-area support",
+  "spectra": "32x32 entirely observed Pacific patch per field/date; not a global spectrum",
+  "checkpoint_sha256": "b1ebefcd210d108e2ce5875d6c37326d93fd1c3dc252096b94a075b04eb8b28d"
+}

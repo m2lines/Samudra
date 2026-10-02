@@ -18,7 +18,13 @@ from samudra.metrics import kernels
 
 
 class Samples:
-    def __init__(self, root, device):
+    def __init__(
+        self, root, device, surface_fill="climatology", global_observations=False
+    ):
+        if surface_fill not in ("climatology", "zero"):
+            raise ValueError("Unknown missing surface input fill")
+        self.surface_fill = surface_fill
+        self.global_observations = global_observations
         self.root = Path(root)
         self.device = device
         self.grid = dict(np.load(self.root / "grid.npz"))
@@ -27,7 +33,8 @@ class Samples:
         self.mean = self.tensor(self.grid["mean"])[None, None, :, None, None]
         self.std = self.tensor(self.grid["std"])[None, None, :, None, None]
         self.area = self.tensor(np.cos(np.deg2rad(self.grid["lat"]))[:, None])
-        self.area *= self.tensor(np.abs(self.grid["lat"][:, None]) <= 60)
+        if not global_observations:
+            self.area *= self.tensor(np.abs(self.grid["lat"][:, None]) <= 60)
         self.ts_indices = list(range(38, 52)) + list(range(57, 71))
         self.ts_mask = self.mask[self.ts_indices].clone()
         self.ts_mask[0] = 0  # Supplied surface temperature is not interior supervision.
@@ -133,6 +140,8 @@ class Samples:
         normalized = (filled - self.grid["mean"][[38, 76], None, None]) / self.grid[
             "std"
         ][[38, 76], None, None]
+        if getattr(self, "surface_fill", "climatology") == "zero":
+            normalized = np.where(validity, normalized, 0)
         normalized *= self.grid["mask"][[38, 76]]
         atmosphere = (
             sample["atmosphere"] - self.stats["atmosphere_mean"][None, :, None, None]

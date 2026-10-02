@@ -33,6 +33,8 @@ class LatentOceanForecast(nn.Module):
     trainable components and differ in readout/supervision only.
     """
 
+    input_adapters: nn.ModuleDict
+
     def __init__(
         self,
         initializer,
@@ -73,7 +75,7 @@ class LatentOceanForecast(nn.Module):
         b, t, c, h, w = atmosphere.shape
         return self.adapter(atmosphere.reshape(b * t, c, h, w)).reshape(b, t, 3, h, w)
 
-    def encode_native(self, surface, past, context, mask, validity=None):
+    def encode_native(self, surface, past, context, mask, validity=None, task="om4"):
         if surface.shape[1:3] != (self.history, len(self.surface)) or past.shape[
             1:3
         ] != (self.history, 3):
@@ -93,6 +95,8 @@ class LatentOceanForecast(nn.Module):
             ),
             1,
         )
+        if hasattr(self, "input_adapters"):
+            inputs = self.input_adapters[task](inputs)
         latent = self.encoder(inputs)
         known = surface.new_zeros(
             surface.shape[0], 2, self.channels, *surface.shape[-2:]
@@ -208,9 +212,10 @@ class LatentOceanForecast(nn.Module):
             contexts[:, count - 1],
             mask,
             validity[:, :count],
+            task="observation",
         )
         states = self.processor.rollout(
-            initial, adapted[:, count:], contexts[:, count:]
+            initial, adapted[:, count:], contexts[:, count:], task="observation"
         )
         trajectories, initials = [], []
         for _ in range(members):

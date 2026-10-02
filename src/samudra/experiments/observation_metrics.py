@@ -86,14 +86,19 @@ def spatial_error(prediction, reference, lat, lon, region):
     }
 
 
-def protocol(strict_velocity_support=False):
-    if not strict_velocity_support:
-        return PROTOCOL
-    return {
-        **PROTOCOL,
-        "version": 3,
-        "velocity_support": "Both observed velocity components and complete observed ADT derivative stencil; prediction-independent; EKE uses identical per-origin support",
-    }
+def protocol(strict_velocity_support=False, global_observations=False):
+    result = dict(PROTOCOL)
+    if strict_velocity_support:
+        result.update(
+            version=3,
+            velocity_support="Both observed velocity components and complete observed ADT derivative stencil; prediction-independent; EKE uses identical per-origin support",
+        )
+    if global_observations:
+        result.update(
+            version=4,
+            domain="Global, common finite observation and model wet support; geostrophy excludes 5S-5N",
+        )
+    return result
 
 
 def score(
@@ -105,6 +110,7 @@ def score(
     lon,
     mask,
     strict_velocity_support=False,
+    global_observations=False,
 ):
     """Arrays: surface [origins, leads, 2, y, x], velocity refs at slots 2:4.
 
@@ -112,7 +118,7 @@ def score(
     Monthly OHC arrays have shape [origins, 2, y, x].
     """
     area = np.cos(np.deg2rad(lat))[:, None] * np.ones((1, len(lon)))
-    domain = mask & (np.abs(lat[:, None]) <= 60)
+    domain = mask if global_observations else mask & (np.abs(lat[:, None]) <= 60)
     if not np.isfinite(np.where(domain, prediction, 0)).all():
         raise ValueError("Nonfinite prediction on the fixed model domain")
     metrics, curves = {}, {}

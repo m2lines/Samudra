@@ -202,7 +202,11 @@ A CPU test verifies identical initial noise and final RNG state for all four
 solver step counts. A synthetic identity-response fixture verifies gain and
 correlation equal 1. These fixtures are not published scientific results.
 
-## Proposed next run — not submitted
+## Proposed next run — superseded by full-run authorization
+
+**October 1 update:** the user authorized the full 8k/8k run with early checkpoints.
+See the [execution plan](global-matched-run.md); the initial stop-for-approval and
+160-GPU-hour prefix proposal below are historical.
 
 Propose one fresh latent-initializer/diffusion-decoder run, seed 1729, retaining the
 current width-192 decoder and latent processor. Begin with the comparator's retained **4,949 OM4 + 2,000

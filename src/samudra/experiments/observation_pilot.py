@@ -253,6 +253,7 @@ class Pilot:
             strict_velocity_support=getattr(
                 getattr(self, "args", None), "strict_velocity_support", False
             ),
+            global_observations=getattr(self.data, "global_observations", False),
         )
         supported = interior_count > 0
         result["thermohaline"] = {

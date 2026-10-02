@@ -56,6 +56,8 @@ class PersistentLatentProcessor(nn.Module):
     Width/depth are configurable; production values require the prior wave report.
     """
 
+    input_adapters: nn.ModuleDict
+
     def __init__(
         self, width=128, depth=4, latent_shape=(45, 90), conditioning_shape=(180, 360)
     ):
@@ -76,7 +78,7 @@ class PersistentLatentProcessor(nn.Module):
         assert self.head.bias is not None
         nn.init.zeros_(self.head.bias)
 
-    def forward(self, latent, forcing, context):
+    def forward(self, latent, forcing, context, task="om4"):
         if tuple(latent.shape[1:]) != (2, self.width, *self.latent_shape):
             raise ValueError("Latent memory shape changed")
         if tuple(forcing.shape[1:]) != (3, *self.conditioning_shape):
@@ -86,12 +88,13 @@ class PersistentLatentProcessor(nn.Module):
         condition = F.adaptive_avg_pool2d(
             torch.cat((forcing, context), 1), self.latent_shape
         )
-        update = self.head(
-            self.blocks(self.stem(torch.cat((latent.flatten(1, 2), condition), 1)))
-        )
+        inputs = torch.cat((latent.flatten(1, 2), condition), 1)
+        if hasattr(self, "input_adapters"):
+            inputs = self.input_adapters[task](inputs)
+        update = self.head(self.blocks(self.stem(inputs)))
         return torch.stack((latent[:, -1], latent[:, -1] + update), 1)
 
-    def rollout(self, initial, forcing, contexts):
+    def rollout(self, initial, forcing, contexts, task="om4"):
         if forcing.shape[:2] != contexts.shape[:2]:
             raise ValueError("Future forcing/context intervals must align")
         current = initial
@@ -103,10 +106,11 @@ class PersistentLatentProcessor(nn.Module):
                     current,
                     forcing[:, step],
                     contexts[:, step],
+                    task,
                     use_reentrant=False,
                 )
                 if self.training and torch.is_grad_enabled()
-                else self(current, forcing[:, step], contexts[:, step])
+                else self(current, forcing[:, step], contexts[:, step], task)
             )
             result.append(current)
         return result

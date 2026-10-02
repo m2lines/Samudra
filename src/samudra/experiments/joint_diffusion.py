@@ -103,6 +103,7 @@ def denoising_loss(
     *,
     known_mask=None,
     checkpoint_denoiser=False,
+    spatial_weight=0.0,
 ):
     sigma = (
         torch.randn(target.shape[0], device=target.device, generator=generator) * 1.2
@@ -131,11 +132,12 @@ def denoising_loss(
         )
     else:
         prediction = decoder(noisy, sigma, latent, mask)
-    return (
-        channel_balanced_mse(prediction, target, weights)
-        * (1 + sigma.square())
-        / sigma.square()
-    ).mean()
+    error = channel_balanced_mse(prediction, target, weights)
+    if spatial_weight:
+        from samudra.experiments.diffusion_spatial import spatial_mse
+
+        error = error + spatial_weight * spatial_mse(prediction, target, weights)
+    return (error * (1 + sigma.square()) / sigma.square()).mean()
 
 
 def sample_joint(

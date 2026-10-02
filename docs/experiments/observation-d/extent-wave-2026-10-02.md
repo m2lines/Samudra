@@ -188,3 +188,64 @@ existing joint resume/gradient routing, global observation support, completion,
 latent-state compatibility, and task scheduling. Mypy passed for all eight new
 Python files/tests and the five modified Python modules. Ruff and shell syntax
 checks passed.
+
+## Monitoring recovery, October 2 late morning
+
+The user requested an in-conversation sleep loop, with longer sleeps during
+ordinary queue waits. No conversation timer was created.
+
+The first two fitting jobs completed successfully. Global joint probes 209210
+and 209212 failed before training because the container lacked the optional
+Rust loader. Their logs and the successful fitting outputs remain in the original
+root. The unstarted patch probes 209214/209216 and blocked production 209218 were
+cancelled for this concrete runtime repair, not to chase cluster availability.
+
+Training recovery root: `<launch-root>/runtime-v2`.
+Training producer: `ba22420144ef7576c324c40f74bae614ab77c1d4`.
+The loader was built from the pinned Rust source, passed 90 loader/extent/joint
+CPU tests (four CUDA/manual tests deselected), and constructed successfully on
+beta. The wheel SHA256 is
+`13b05ce0e69b9e1e54fda416e0d34cb6886108f2713749018fea58ce4a592c6b`;
+the extension binary SHA256 is
+`b6c47dc2ea183b482b9d1faf3d704ad5068bfee975f133f930b276936a75969c`.
+Launches check the binary hash and actually construct the loader before starting
+a fitting or training process. Qualification and resume contracts bind the
+runtime package hash as well as the code producer. Fresh fitting was rerun;
+old certificates were not relabeled.
+
+| Replacement beta job | Purpose | Observed status |
+|---:|---|---|
+| 209227 | U fitting | Passed; training-example loss 1.70294 → 0.28793 |
+| 209229 | L fitting | Passed; training-example loss 1.55556 → 0.95169 |
+| 209231 | U-global joint probe | Running; native OM4 cache warmup reached |
+| 209233 | L-global joint probe | Running; native OM4 cache warmup reached |
+| 209235 | L-multitask joint probe | Held until the native cache is verified |
+| 209237 | U-multitask joint probe | Held until the native cache is verified |
+| 209239 | Four-arm production/evaluation | Pending all four replacement probes |
+
+Both fresh fitting checks reached the initializer, evolution, ERA5 adapter and
+completion head. These one-example fitting numbers are not scientific skill
+results. The original login-host readiness bridge is superseded; the authorized
+monitoring loop will release only the replacement patch jobs after checking the
+cache marker and hashes.
+
+Transfer job 114235 completed at **11:30 a.m. ET** with all 385,269 files /
+1,594,021,374,932 bytes verified. CPU cache attempt 114311 failed immediately
+because its environment lacked cftime. An isolated cftime 1.6.4.post1 ARM runtime
+was staged without modifying shared environments. Attempt 114399 then exposed
+an overly strict exact-five-day assertion in the new cache builder.
+
+Live metadata checks established that quarter-degree and global OM4 timestamps
+are **identical**, including Julian calendar/units and 16 six-day gaps across the
+full 1958–2022 series. The existing global task already uses nominal five-day
+stepping over this series. Cache producer
+`909a6d60cebcc24f7a4dd86ce4b8cde2ee5e9c9e` now requires exact timestamp agreement
+with that baseline and records the five/six-day gap counts. It does not resample
+or change the training timestep convention. A regression test rejects shifted
+timestamps, differing calendars and unexpected gaps. All 19 quarter-degree depth
+coordinates also match the shared state depths exactly, and the builder checks
+that match. The cache-only correction does not alter training producer ba2242014.
+
+Grace cache job **114412** is running with the corrected guard and isolated CPU
+dependency. Native physical values, wet-finite checks and full cache readback
+verification remain required before releasing patch probes.

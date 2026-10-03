@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import TYPE_CHECKING, assert_never
+from typing import TYPE_CHECKING, Literal, assert_never
 
 import numpy as np
 import torch
@@ -21,6 +21,22 @@ from samudra.utils.train import pairwise
 
 if TYPE_CHECKING:
     from samudra.config import Checkpointing  # noqa: F401
+
+
+StochasticDepthSchedule = Literal["constant", "linear"]
+
+
+def _stochastic_depth_rates(
+    rate: float, schedule: StochasticDepthSchedule, n_blocks: int
+) -> list[float]:
+    """Assign stochastic-depth rates to core blocks in forward order."""
+    if schedule == "constant":
+        return [rate] * n_blocks
+    if schedule == "linear":
+        if n_blocks == 1:
+            return [rate]
+        return [rate * index / (n_blocks - 1) for index in range(n_blocks)]
+    assert_never(schedule)
 
 
 class UNetBackbone(nn.Module):
@@ -59,6 +75,8 @@ class UNetBackbone(nn.Module):
         create_upsampling_block: UpsamplingBlockBuilder,
         checkpointing: "Checkpointing | None",
         drop_path_rate: float = 0.0,
+        stochastic_depth_rate: float = 0.0,
+        stochastic_depth_schedule: StochasticDepthSchedule = "constant",
     ):
         super().__init__()
         self.in_channels = in_channels
@@ -69,6 +87,14 @@ class UNetBackbone(nn.Module):
         dilation = dilation.copy()
         n_layers = n_layers.copy()
         self.pad = pad
+        num_core_blocks = 2 * (len(ch_width) - 1) + 1
+        stochastic_depth_rates = iter(
+            _stochastic_depth_rates(
+                stochastic_depth_rate,
+                stochastic_depth_schedule,
+                num_core_blocks,
+            )
+        )
 
         match checkpointing:
             case "all":
@@ -95,6 +121,7 @@ class UNetBackbone(nn.Module):
                     n_layers=n_layers[i],
                     pad=pad,
                     checkpoint_simple=checkpoint_simple,
+                    stochastic_depth_rate=next(stochastic_depth_rates),
                 )
             )
             # Down sampling block
@@ -109,6 +136,7 @@ class UNetBackbone(nn.Module):
                 n_layers=n_layers[i],
                 pad=pad,
                 checkpoint_simple=checkpoint_simple,
+                stochastic_depth_rate=next(stochastic_depth_rates),
             )
         )
 
@@ -130,6 +158,7 @@ class UNetBackbone(nn.Module):
                     n_layers=n_layers[i],
                     pad=pad,
                     checkpoint_simple=checkpoint_simple,
+                    stochastic_depth_rate=next(stochastic_depth_rates),
                 )
             )
             layers.append(create_upsampling_block(in_channels=b, out_channels=b))
@@ -143,6 +172,7 @@ class UNetBackbone(nn.Module):
                 n_layers=n_layers[i],
                 pad=pad,
                 checkpoint_simple=checkpoint_simple,
+                stochastic_depth_rate=next(stochastic_depth_rates),
             )
         )
 

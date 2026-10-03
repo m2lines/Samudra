@@ -554,9 +554,16 @@ class BlockConfig(BaseConfig):
             n_layers: int,
             pad: str,
             checkpoint_simple: bool,
+            stochastic_depth_rate: float,
         ) -> CoreBlock:
             match self.block_type:
                 case "conv_block":
+                    if stochastic_depth_rate > 0.0:
+                        raise ValueError(
+                            "Stochastic depth requires a residual core block. "
+                            "Set core_block.block_type to 'conv_next_block' or "
+                            "stochastic_depth_rate to 0.0."
+                        )
                     return ConvBlock(
                         in_channels=in_channels,
                         out_channels=out_channels,
@@ -580,6 +587,7 @@ class BlockConfig(BaseConfig):
                         norm=self.norm,
                         activation=activation,
                         pointwise_linear=self.pointwise_linear,
+                        stochastic_depth_rate=stochastic_depth_rate,
                     )
                 case _:
                     assert_never(self.block_type)
@@ -757,6 +765,7 @@ UpSamplingBlocks = Literal[
     "bilinear_upsample", "transposed_conv", "zonally_periodic_upsample"
 ]
 Checkpointing = Literal["all", "simple"]
+StochasticDepthSchedule = Literal["constant", "linear"]
 
 
 class UNetBackboneConfig(BaseConfig):
@@ -769,6 +778,16 @@ class UNetBackboneConfig(BaseConfig):
     drop_path_rate: float = Field(
         default=0.0,
         description="Shortcut dropout rate. The chance we turn off skip connections in the UNet. Reasonable values are 0.1-0.3. Use 0.0 to disable.",
+    )
+    stochastic_depth_rate: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="Maximum probability of dropping a ConvNeXt residual branch. Use 0.0 to disable.",
+    )
+    stochastic_depth_schedule: StochasticDepthSchedule = Field(
+        default="constant",
+        description="How stochastic-depth rates are assigned across ConvNeXt blocks. 'constant' uses stochastic_depth_rate for every block; 'linear' increases from 0.0 to stochastic_depth_rate in forward order.",
     )
 
     def build(
@@ -815,6 +834,8 @@ class UNetBackboneConfig(BaseConfig):
             create_upsampling_block=create_upsampling_block,
             checkpointing=checkpointing,
             drop_path_rate=self.drop_path_rate,
+            stochastic_depth_rate=self.stochastic_depth_rate,
+            stochastic_depth_schedule=self.stochastic_depth_schedule,
         )
 
 

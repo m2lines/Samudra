@@ -2,12 +2,15 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from typing import Literal
+
 import pytest
 import torch
 import torch.nn as nn
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
+from samudra.config import BlockConfig, UNetBackboneConfig
 from samudra.models.modules.blocks import ConvNeXtBlock, DropPath, PointwiseLinear
 
 
@@ -52,6 +55,81 @@ def test_convnext_block_backward_pass(pointwise_linear: bool):
     y.sum().backward()
     assert x.grad is not None
     assert x.grad.shape == x.shape
+
+
+def test_convnext_stochastic_depth_is_disabled_during_eval():
+    block = ConvNeXtBlock(
+        in_channels=4,
+        out_channels=4,
+        stochastic_depth_rate=1.0,
+    )
+    block.convblock = nn.Sequential(nn.Identity())
+    block.eval()
+    x = torch.randn(2, 4, 6, 8)
+
+    torch.testing.assert_close(block(x), 2 * x)
+
+
+def test_convnext_stochastic_depth_drops_residual_branch():
+    block = ConvNeXtBlock(
+        in_channels=4,
+        out_channels=4,
+        stochastic_depth_rate=1.0,
+    )
+    block.convblock = nn.Sequential(nn.Identity())
+    block.train()
+    x = torch.randn(2, 4, 6, 8)
+
+    torch.testing.assert_close(block(x), x)
+
+
+def test_convnext_stochastic_depth_preserves_projection_gradient():
+    block = ConvNeXtBlock(
+        in_channels=4,
+        out_channels=6,
+        norm="nonorm",
+        pointwise_linear=True,
+        stochastic_depth_rate=1.0,
+    )
+    block.train()
+    x = torch.randn(2, 4, 6, 8, requires_grad=True)
+
+    block(x).sum().backward()
+
+    assert x.grad is not None
+    assert isinstance(block.skip_module, nn.Module)
+    projection_parameters = list(block.skip_module.parameters())
+    assert projection_parameters
+    assert all(parameter.grad is not None for parameter in projection_parameters)
+
+
+@pytest.mark.parametrize(
+    "schedule, expected",
+    [
+        ("constant", [0.4] * 5),
+        ("linear", [0.0, 0.1, 0.2, 0.3, 0.4]),
+    ],
+)
+def test_unet_assigns_stochastic_depth_rates(
+    schedule: Literal["constant", "linear"], expected: list[float]
+):
+    config = UNetBackboneConfig(
+        ch_width=[4, 8],
+        dilation=[1, 1],
+        n_layers=[1, 1],
+        core_block=BlockConfig(block_type="conv_next_block"),
+        stochastic_depth_rate=0.4,
+        stochastic_depth_schedule=schedule,
+    )
+
+    model = config.build(in_channels=2, pad="circular", checkpointing=None)
+    rates = [
+        layer.stochastic_depth.dropout.p
+        for layer in model.layers
+        if isinstance(layer, ConvNeXtBlock)
+    ]
+
+    assert rates == pytest.approx(expected)
 
 
 class TestDropPath:

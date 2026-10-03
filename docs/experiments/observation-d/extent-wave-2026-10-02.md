@@ -3,15 +3,12 @@
 
 # Global and native-quarter-degree patch transfer screen
 
-**Current execution, October 3 at 5:19 a.m. ET:** all four arms passed fitting,
-joint-task and resume qualification. Production job **209239** started at
-**2:18 a.m. ET** on `b1-11-s1-dgx-01-c01`. All four arms have completed their first
-production updates with finite losses: U-global 2,267, L-global 3,110,
-L-multitask 1,936, U-multitask 1,674 of 4,000. Both multitask arms have executed
-over 600 native patch updates.
-Every arm has produced a finite integrated-plus-spectral observation validation
-score. These early checkpoints have unequal update counts and are not a result
-comparison.
+**Current execution, October 3 at 6:30 a.m. ET:** L-global has completed all
+4,000 updates and its 96-origin held-out evaluation. Production job **209239**
+remains running for U-global (3,051 updates), L-multitask (2,753) and
+U-multitask (2,291), with finite losses and validation scores. It started at
+**2:18 a.m. ET** on `b1-11-s1-dgx-01-c01`. Matched-budget held-out comparisons
+await the other three arms.
 The active run root is
 `/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-02-extent-om4/runtime-v2`.
 Earlier failed attempts and their recovery are retained below. Monitoring is
@@ -329,3 +326,13 @@ remain pending. Based on observed progress and the increasing observation-task
 fraction, L-global is expected to enter evaluation around 6:30 a.m. ET and the
 other arms roughly 8–10 a.m. ET. These are runtime estimates, not guaranteed
 completion times. No scientific or execution protocol changes were needed.
+
+At **6:30 a.m. ET**, L-global had completed at 6:23:57 a.m. ET, exactly
+2,000 global OM4 plus 2,000 observation updates. Both `TRAIN_COMPLETE.json` and
+`test-selected/COMPLETE.json` were present. The latter confirms all 96 held-out
+monthly origins and the selected checkpoint SHA256
+`8fb9e6950093dc1d5de8e50eb5272747380ee1e68cb19f9fe60a78e92d3c95f5`, matching the
+training marker. Its best validation composite was 0.760346 at total update
+3,500 (1,915 OM4 / 1,585 observation), selected using validation only. U-global,
+L-multitask and U-multitask continued without errors at 3,051, 2,753 and 2,291
+updates respectively. Final transfer conclusions await those completed runs.

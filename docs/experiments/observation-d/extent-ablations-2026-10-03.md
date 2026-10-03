@@ -69,8 +69,10 @@ as the first screen; distinguish those from validation-selection denominators.
 The held-out cohort has been seen in earlier experiments, so these follow-ups
 are exploratory comparisons rather than a fresh untouched-test claim.
 
-Keep all completed original runs unchanged. No new seeds, LLC experiments,
-additional arms or adaptive extensions are included in this wave. Queue waits
+Keep all completed original runs unchanged. No new seeds or LLC experiments are included in this wave. On October 3 the
+user subsequently authorized continued iteration through Monday October 5 around
+9 a.m. ET, including further waves without renewed approval. Keep each wave's
+protocol and comparisons explicit; the four runs listed here remain unchanged. Queue waits
 are expected; do not cancel/resubmit to chase capacity. Target less than one day
 per run, with a 20-hour per-run training cap and 24-hour four-GPU allocation cap.
 A progress snapshot is useful if queue delays prevent completion before review.
@@ -203,3 +205,10 @@ variant needs implementation and qualification rather than a config-only launch.
 Prioritize the accessory-loss mechanism after reviewing this wave. Select any
 further concrete runs against the remaining review window; do not silently fold
 these architecture changes into the four active controls.
+
+The user's latest instruction authorizes autonomous follow-up waves through
+**Monday October 5 around 9 a.m. ET**. Prepare the accessory-loss targets while
+the current runs finish, then use validation and training-only diagnostics to
+choose the next fixed comparison. Keep held-out results descriptive and record
+each new arm before launching it. Preserve time for a report snapshot at the
+review deadline; a queued or unfinished run is not a completed scientific result.

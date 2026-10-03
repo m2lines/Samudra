@@ -109,7 +109,7 @@ def extract(root, data, bundle, methods=None):
     )
 
 
-def plot(bundle, output):
+def plot(bundle, output, global_observations=False):
     import matplotlib
 
     matplotlib.use("Agg")
@@ -122,13 +122,21 @@ def plot(bundle, output):
     lon = (arrays["lon"] + 180) % 360 - 180
     order = np.argsort(lon)
     lat = arrays["lat"]
-    latitude_rows = np.flatnonzero(np.abs(lat) <= 60)
+    latitude_rows = (
+        np.arange(len(lat))
+        if global_observations
+        else np.flatnonzero(np.abs(lat) <= 60)
+    )
     pixels_per_cell, dpi = 2, 128
     panel_width = len(lon) * pixels_per_cell
     panel_height = len(latitude_rows) * pixels_per_cell
     left, right, top, gap, bottom = 70, 30, 80, 55, 130
     width = left + panel_width + right
-    domain = arrays["mask"] & (np.abs(lat[:, None]) <= 60)
+    domain = (
+        arrays["mask"]
+        if global_observations
+        else arrays["mask"] & (np.abs(lat[:, None]) <= 60)
+    )
     # Identical reference-valid support for every candidate; filled cells are hidden.
     valid = np.isfinite(arrays["reference"]) & domain
     all_fields = np.concatenate([arrays["reference"][None], arrays["prediction"]])
@@ -275,8 +283,9 @@ def plot(bundle, output):
             "rendered": render,
             "pixel_verification": "Every saved panel RGB pixel equals the source colormap cell repeated exactly 2x2, including the common missing-data mask",
             "rasterization": "Lossless PNG: exactly 2 x 2 pixels per retained grid cell at native image size; no interpolation. PDF embeds native grid with interpolation disabled.",
-            "coordinates": "Square cells in grid-index space, sorted longitude and retained 60S-60N latitude rows; ticks label actual cell-center coordinates. No geographic resampling.",
-            "mask": "60S-60N model wet domain intersected with finite target observations, identical across candidates",
+            "coordinates": "Square cells in grid-index space, sorted longitude; ticks label actual cell-center coordinates. No geographic resampling.",
+            "latitude_domain": "global" if global_observations else "60S-60N",
+            "mask": "Selected model wet domain intersected with finite target observations, identical across candidates",
             "interpretation": "Illustrative cases, not aggregate skill; gray is land or unavailable observations. Colorbar extensions mark saturation. Endpoint is the last common exported surface lead, not a multi-year continuous rollout.",
         }
     )
@@ -286,6 +295,7 @@ def plot(bundle, output):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--extract", action="store_true")
+    parser.add_argument("--global-observations", action="store_true")
     parser.add_argument(
         "--methods",
         type=Path,
@@ -300,7 +310,7 @@ def main():
         methods = json.loads(args.methods.read_text()) if args.methods else None
         extract(args.root, args.data, args.bundle, methods)
     else:
-        plot(args.bundle, args.output)
+        plot(args.bundle, args.output, args.global_observations)
 
 
 if __name__ == "__main__":

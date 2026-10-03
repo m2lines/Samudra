@@ -86,6 +86,7 @@ def om4_objective(
     mask_seed=None,
     coverage=None,
     completion_weight=0.0,
+    accessory=None,
 ):
     surface, past, context, truth, forcing, labels = data.model_sample(
         data.trainset, ids
@@ -105,7 +106,7 @@ def om4_objective(
     initial = model.call(
         model.initializer, surface, past, context, data.mask, visible, "om4"
     )
-    states, predictions = initial, []
+    states, predictions, accessory_losses = initial, [], []
     for lead in range(1, 7):
         predicted = model.call(
             model.evolution,
@@ -115,7 +116,11 @@ def om4_objective(
             data.mask,
             lead,
             "om4",
+            *([True] if accessory is not None else []),
         )
+        if accessory is not None:
+            predicted, auxiliary = predicted
+            accessory_losses.append(accessory.loss(auxiliary, ids, lead))
         predictions.append(predicted)
         states = torch.stack((states[:, -1], predicted), 1)
     loss = balanced_loss(
@@ -132,6 +137,8 @@ def om4_objective(
             initial[:, :, model.initializer.surface], original[:, -2:], hidden, data.lat
         )
         loss = loss + completion_weight * extra
+    if accessory is not None:
+        loss = loss + accessory.coefficient * torch.stack(accessory_losses).mean()
     return loss
 
 
@@ -169,6 +176,11 @@ def qualification_contract(args):
             "lr_scale": getattr(args, "patch_lr_scale", 1.0),
         }
         result["patch_shape_halo"] = [128, 128, 32]
+    if getattr(args, "auxiliary_cache", None):
+        result["auxiliary"] = {
+            "ready_sha256": digest(Path(args.auxiliary_cache) / "READY.json"),
+            "coefficient": args.auxiliary_weight,
+        }
     return result
 
 
@@ -428,6 +440,15 @@ class JointPilot(Pilot):
                     for p in adapters[task].parameters()
                 ):
                     raise ValueError("Active task adapter received no gradients")
+        auxiliary = getattr(self.model.evolution, "auxiliary_head", None)
+        if auxiliary is not None:
+            gradients = [p.grad for p in auxiliary.parameters()]
+            if task == "om4" and not any(
+                g is not None and bool(g.count_nonzero()) for g in gradients
+            ):
+                raise ValueError("Accessory head received no OM4 gradients")
+            if task == "observation" and any(g is not None for g in gradients):
+                raise ValueError("Accessory head received observation gradients")
         norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
         if not torch.isfinite(norm) or not math.isfinite(loss_sum):
             raise FloatingPointError("Nonfinite joint gradient")
@@ -629,6 +650,8 @@ def main():
     )
     parser.add_argument("--patch-leads", type=int, choices=[1, 6], default=6)
     parser.add_argument("--patch-lr-scale", type=float, default=1.0)
+    parser.add_argument("--auxiliary-cache")
+    parser.add_argument("--auxiliary-weight", type=float, default=0.0)
     parser.set_defaults(
         from_scratch=True,
         observation_normalization=True,
@@ -639,6 +662,17 @@ def main():
         fixed_updates=True,
     )
     args = parser.parse_args()
+    if args.evolution_architecture == "extent-aux":
+        if (
+            not args.auxiliary_cache
+            or args.auxiliary_weight <= 0
+            or args.patch_training
+        ):
+            parser.error(
+                "Accessory training needs verified targets, positive weight and global-only tasks"
+            )
+    elif args.auxiliary_cache or args.auxiliary_weight:
+        parser.error("Accessory targets require extent-aux architecture")
     if (
         not args.from_scratch
         or args.normalization != "instance"

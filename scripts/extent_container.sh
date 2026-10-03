@@ -23,6 +23,30 @@ if [[ "$stage" == diagnose ]]; then
   baseline=$("$python" -c 'import json,sys; print(json.load(open(sys.argv[1]))["baseline_root"])' "$root/paths.json")
   exec "$python" -m samudra.experiments.extent_diagnostics --root "$root" --baseline-root "$baseline"
 fi
+if [[ "$stage" == train-representation ]]; then
+  pids=()
+  for gpu in 0 1 2 3; do
+    (
+      export CUDA_VISIBLE_DEVICES=$gpu
+      case "$gpu" in
+        0) sequence=(U-aux01 A-global);;
+        1) sequence=(U-aux10 A-multitask);;
+        2) sequence=(W-global);;
+        3) sequence=(W-multitask);;
+      esac
+      status=0
+      for next_arm in "${sequence[@]}"; do
+        "$python" /extent-code/scripts/run_extent_wave.py --root "$root" --stage train --arm "$next_arm" \
+          > "$root/logs/$next_arm-$SLURM_JOB_ID.log" 2>&1 || status=1
+      done
+      exit "$status"
+    ) &
+    pids+=("$!")
+  done
+  status=0
+  for pid in "${pids[@]}"; do wait "$pid" || status=1; done
+  exit "$status"
+fi
 if [[ "$stage" != train-all && "$stage" != train-ablations ]]; then
   exec "$python" /extent-code/scripts/run_extent_wave.py --root "$root" --stage "$stage" --arm "$arm"
 fi

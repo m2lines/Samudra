@@ -20,12 +20,20 @@ ARMS = {
     "U-patch-lr01": ("unet", True),
     "U-patch-truth": ("unet", True),
     "U-patch-1step": ("unet", True),
+    "U-aux01": ("aux", False),
+    "U-aux10": ("aux", False),
+    "W-global": ("wide", False),
+    "W-multitask": ("wide", True),
+    "A-global": ("axial", False),
+    "A-multitask": ("axial", True),
 }
 INTERVENTIONS = {
     "U-omit-patch": ["--patch-mode", "omit"],
     "U-patch-lr01": ["--patch-lr-scale", "0.1"],
     "U-patch-truth": ["--patch-mode", "truth"],
     "U-patch-1step": ["--patch-leads", "1"],
+    "U-aux01": ["--auxiliary-weight", "0.01"],
+    "U-aux10": ["--auxiliary-weight", "0.1"],
 }
 
 
@@ -121,6 +129,8 @@ def main():
     if patch:
         joint += ["--patch-cache", config["patch_cache"], "--patch-training"]
     joint += INTERVENTIONS.get(args.arm, [])
+    if architecture == "aux":
+        joint += ["--auxiliary-cache", config["auxiliary_cache"]]
     if args.stage == "probe":
         command(
             "samudra.experiments.observation_joint",

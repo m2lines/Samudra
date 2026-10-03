@@ -9,7 +9,7 @@ import torch
 
 from samudra.experiments.extent_data import PatchSamples
 from samudra.experiments.missingness import completion_loss, structured_visibility
-from samudra.experiments.observation_joint import JointPilot
+from samudra.experiments.observation_joint import JointPilot, om4_objective
 from samudra.experiments.observation_pilot import atomic_json
 from samudra.experiments.surface_state import advance_season, balanced_loss
 
@@ -84,6 +84,13 @@ class ExtentPilot(JointPilot):
             PatchSamples(args.patch_cache, self.om4) if args.patch_training else None
         )
         self.update_seconds = []
+        self.accessory = None
+        if getattr(args, "auxiliary_cache", None):
+            from samudra.experiments.extent_accessory import VarianceTargets
+
+            self.accessory = VarianceTargets(
+                args.auxiliary_cache, self.om4, args.auxiliary_weight
+            )
         counts = {
             name: sum(p.numel() for p in getattr(self.model, name).parameters())
             for name in ("initializer", "evolution", "adapter")
@@ -101,11 +108,29 @@ class ExtentPilot(JointPilot):
             )
         )
 
-    def om4_objective(self, *args):
+    def om4_objective(
+        self,
+        model,
+        data,
+        ids,
+        reconstruction_weight,
+        mask_seed=None,
+        coverage=None,
+        completion_weight=0.0,
+    ):
         count = self.schedule.counts(self.completed)["om4"]
         if self.patches is None or count % 2 == 0:
-            return super().om4_objective(*args)
-        seed = args[4]
+            return om4_objective(
+                model,
+                data,
+                ids,
+                reconstruction_weight,
+                mask_seed,
+                coverage,
+                completion_weight,
+                self.accessory,
+            )
+        seed = mask_seed
         if seed is None:
             raise ValueError("Patch tasks need deterministic sample seeds")
         sample = self.patches.sample(seed)
@@ -144,6 +169,9 @@ class ExtentPilot(JointPilot):
         return super().required_gradient_components(task)
 
     def train_update(self):
+        accessory = getattr(self, "accessory", None)
+        if accessory is not None:
+            accessory.loss_records.clear()
         if (
             self.is_patch_slot()
             and getattr(self.args, "patch_mode", "shared") == "omit"
@@ -172,6 +200,13 @@ class ExtentPilot(JointPilot):
     def emit(self, record):
         if record.get("event") in {"joint_train", "joint_skip"}:
             record = dict(record)
+            accessory = getattr(self, "accessory", None)
+            if accessory is not None and accessory.loss_records:
+                extra = float(torch.stack(accessory.loss_records).mean())
+                record["accessory_mse"] = extra
+                record["physical_objective"] = (
+                    record["loss"] - accessory.coefficient * extra
+                )
             if self.args.patch_training:
                 record["om4_global"] = (record["om4"] + 1) // 2
                 auxiliary = record["om4"] // 2

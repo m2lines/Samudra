@@ -120,6 +120,7 @@ class Experiment:
         self.mask = self.source.masks.prognostic.to(self.device)
         lat, lon = self.source.resolution
         self.lat = lat.to(self.device).float()
+        self.lon = lon.to(self.device).float()
         self.geo = geographic_features(self.lat, lon.to(self.device).float())
         self.weights = self.mask.float() * torch.deg2rad(self.lat).cos()[None, :, None]
         self.std = torch.tensor(

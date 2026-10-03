@@ -16,6 +16,7 @@ from torch.nn import functional as F
 from samudra.experiments.initializer_models import HistoryInitializer
 from samudra.experiments.missingness import state_mask
 from samudra.experiments.surface_state import make_unet
+from samudra.models.modules.unet_backbone import UNetBackbone
 
 
 @contextmanager
@@ -120,20 +121,64 @@ class LocalNet(nn.Module):
         return self.output(value)
 
 
+class AxialBlock(nn.Module):
+    """Residual row then column attention; no fixed-size positional table."""
+
+    def __init__(self, width, heads=8):
+        super().__init__()
+        self.norms = nn.ModuleList([nn.LayerNorm(width) for _ in range(2)])
+        self.attention = nn.ModuleList(
+            [nn.MultiheadAttention(width, heads, batch_first=True) for _ in range(2)]
+        )
+        self.scales = nn.Parameter(torch.full((2,), 0.1))
+
+    def forward(self, value):
+        for axis in range(2):
+            # Put the attended dimension last before the feature dimension.
+            arranged = (
+                value.permute(0, 2, 3, 1) if axis == 0 else value.permute(0, 3, 2, 1)
+            )
+            shape = arranged.shape
+            sequence = arranged.reshape(-1, shape[-2], shape[-1])
+            normalized = self.norms[axis](sequence)
+            update = self.attention[axis](
+                normalized, normalized, normalized, need_weights=False
+            )[0]
+            arranged = (sequence + self.scales[axis] * update).reshape(shape)
+            value = (
+                arranged.permute(0, 3, 1, 2)
+                if axis == 0
+                else arranged.permute(0, 3, 2, 1)
+            )
+        return value
+
+
 class ExtentEvolution(nn.Module):
-    def __init__(self, channels, local=False, local_width=512):
+    def __init__(self, channels, local=False, local_width=512, *, variant="unet"):
         super().__init__()
         self.local = local
         inputs = 2 * channels + 8
         self.geometry = nn.Conv2d(7, inputs, 1, bias=False)
         nn.init.zeros_(self.geometry.weight)
+        widths = [192, 288, 384, 576] if variant == "wide" else [128, 192, 256, 384]
         self.net = (
             LocalNet(inputs, channels, local_width)
             if local
-            else make_unet(inputs, channels, [128, 192, 256, 384])
+            else make_unet(inputs, channels, widths)
         )
+        # Optional modules must not change subsequent adapter initialization.
+        with torch.random.fork_rng(devices=[]):
+            if variant == "aux":
+                self.auxiliary_head = nn.Conv2d(widths[0], 1, 1)
+            if variant == "axial":
+                assert isinstance(self.net, nn.Sequential)
+                backbone = self.net[0]
+                assert isinstance(backbone, UNetBackbone)
+                backbone.layers.insert(2 * len(widths) + 1, AxialBlock(widths[-1]))
 
-    def forward(self, states, forcing, context, mask, lead, task="observation"):
+    def forward(
+        self, states, forcing, context, mask, lead, task="observation", return_aux=False
+    ):
         regional = task == "om4-patch"
         inputs = torch.cat((states.flatten(1, 2), context, forcing[:, lead - 1]), 1)
         adapters = getattr(self, "input_adapters", None)
@@ -144,6 +189,13 @@ class ExtentEvolution(nn.Module):
         if self.local:
             result = self.net(inputs, regional)
         else:
+            assert isinstance(self.net, nn.Sequential)
             with regional_padding(self.net, regional):
-                result = self.net(inputs)
-        return result.float() * state_mask(mask, result.shape[1])
+                features = self.net[0](inputs)
+                result = self.net[1](features)
+        result = result.float() * state_mask(mask, result.shape[1])
+        if return_aux:
+            if self.local or not hasattr(self, "auxiliary_head"):
+                raise ValueError("Auxiliary output requires the auxiliary U-Net")
+            return result, self.auxiliary_head(features).float()
+        return result

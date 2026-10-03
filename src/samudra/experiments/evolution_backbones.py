@@ -47,10 +47,20 @@ class Samudra2Evolution(Evolution):
 
 
 def build_evolution(channels, architecture="d"):
-    if architecture in ("extent-unet", "extent-local"):
+    if architecture in (
+        "extent-unet",
+        "extent-local",
+        "extent-aux",
+        "extent-wide",
+        "extent-axial",
+    ):
         from samudra.experiments.extent_models import ExtentEvolution
 
-        return ExtentEvolution(channels, local=architecture == "extent-local")
+        return ExtentEvolution(
+            channels,
+            local=architecture == "extent-local",
+            variant=architecture.removeprefix("extent-"),
+        )
     if architecture == "d":
         return Evolution(channels, [128, 192, 256, 384], "ar")
     if architecture == "samudra2":

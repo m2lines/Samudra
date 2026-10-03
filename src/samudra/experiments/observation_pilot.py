@@ -756,7 +756,15 @@ def build_parser():
     parser.add_argument("--from-scratch", action="store_true")
     parser.add_argument(
         "--evolution-architecture",
-        choices=["d", "samudra2", "extent-unet", "extent-local"],
+        choices=[
+            "d",
+            "samudra2",
+            "extent-unet",
+            "extent-local",
+            "extent-aux",
+            "extent-wide",
+            "extent-axial",
+        ],
         default="d",
     )
     parser.add_argument(

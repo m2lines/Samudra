@@ -212,3 +212,14 @@ the current runs finish, then use validation and training-only diagnostics to
 choose the next fixed comparison. Keep held-out results descriptive and record
 each new arm before launching it. Preserve time for a report snapshot at the
 review deadline; a queued or unfinished run is not a completed scientific result.
+
+At **7:30 p.m. ET**, production 209574 remained running. U-omit-patch had made
+733 actual optimizer updates at schedule slot 1,186; each other arm had reached
+480 updates. Latest completed validation was 1.0670 at slot 1,100 for omission,
+and at slot 400: 1.9277 (smaller patch LR), 1.8777 (true-state patch input), and
+1.8030 (one-step patch). These are unequal exposure budgets and preliminary
+scores, not a comparison of completed interventions. Slurm accounting through
+this check totals **5.56 allocated GPU-hours**, including all ablation fitting,
+resume probes and the gradient diagnostic. No failures or retries were recorded.
+The [next representation wave](extent-representation-2026-10-03.md) has fixed
+run definitions and queued qualifications; its production is not yet submitted.

@@ -116,3 +116,28 @@ Tests cover non-nested conservative aggregation, mean-flow-invariant variance,
 wet nonfinite failures, exact future-date target alignment, masked target loss,
 accessory gradient routing, preserved core initialization and dynamic-extent
 axial gradient propagation. Production qualification/results will be appended.
+
+## Submission snapshot, October 3 at 7:02 p.m. ET
+
+Training producer: `b14ce8acd0ddf77b42b6341b25cdfe242dc8eec6`.
+The source-only archive hashes to
+`cf02c2a6a611388227bdb15934de3dafff5085c3fe633f67f9b63c636c84c113`.
+Local validation passed 24 targeted tests, Ruff, mypy for ten touched Python
+files, shell syntax, and actual wider/axial forward/backward checks.
+
+| Family | Fitting job | First joint/resume probe | Paired joint/resume probe |
+|---|---:|---:|---:|
+| Accessory | 209580 | U-aux01: 209581 | U-aux10: 209582 |
+| Wider | 209583 | W-global: 209584 | W-multitask: 209585 |
+| Axial | 209586 | A-global: 209587 | A-multitask: 209588 |
+
+Each second probe depends on its first, and each first probe depends on fitting,
+limiting this qualification phase to three concurrent GPUs. At this snapshot,
+all fitting jobs were **pending** for capacity/priority; all probes were pending
+on dependencies. No production job has been submitted for this new wave yet.
+The four-arm mechanism-ablation allocation **209574 remains running**.
+
+New root: `/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation`.
+[Exact submission receipts](artifacts/extent-representation-2026-10-03/qualification-jobs.json)
+include resource requests and dependency IDs. All qualifications request one GPU,
+16 CPUs, 128 GiB, and at most two hours on `beta_test` with QoS `test`.

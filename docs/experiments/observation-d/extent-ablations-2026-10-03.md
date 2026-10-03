@@ -110,3 +110,17 @@ qualification dependencies remain unfulfilled. No training is claimed yet.
 Local verification: **18 targeted tests passed**, Ruff, mypy on all five affected
 Python files, shell syntax and diff whitespace checks passed. Monitoring continues
 through sleeps; there is no periodic conversation timer.
+
+At **6:27 p.m. ET**, fitting and all four joint/resume probes had completed
+successfully. Fitting loss fell from 1.703 to 0.286 and reached all required
+components. Every probe recorded exact checkpoint serialization/restoration and
+replay within measured native GPU variation. The omission probe recorded ten
+schedule slots but seven optimizer updates (3 global / 0 patch / 4 observation,
+3 omitted); the other probes recorded 3 global / 3 patch / 4 observation updates.
+Their measured training-time projections were below the 18-hour qualification
+gate. These ten-slot checks establish execution contracts, not scientific skill.
+
+Production **209574 started at 6:23:32 p.m. ET** on
+`b2-14-s1-dgx-02-c04`, after all required dependencies succeeded. Diagnostic
+209575 also started. Neither production completion nor diagnostic results are
+claimed yet. No failed attempts or queue resubmissions occurred in this wave.

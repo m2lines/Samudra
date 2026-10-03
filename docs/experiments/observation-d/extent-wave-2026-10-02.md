@@ -3,10 +3,13 @@
 
 # Global and native-quarter-degree patch transfer screen
 
-**Current execution, October 2 at 4:23 p.m. ET:** all four arms passed fitting,
-joint-task and resume qualification. Active production job **209239** is queued
-on beta priority; no production updates have run. Slurm's current estimate is
-**5:52 a.m. ET October 3**, subject to change. The active run root is
+**Current execution, October 3 at 2:31 a.m. ET:** all four arms passed fitting,
+joint-task and resume qualification. Production job **209239** started at
+**2:18 a.m. ET** on `b1-11-s1-dgx-01-c01`. All four arms have completed their first
+production updates with finite losses: U-global 42, L-global 67, L-multitask 28,
+U-multitask 28. Both multitask arms have already executed 12 native patch updates.
+Scientific validation is not yet available.
+The active run root is
 `/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-02-extent-om4/runtime-v2`.
 Earlier failed attempts and their recovery are retained below. Monitoring is
 continuing through the user-requested sleep loop, without queue resubmissions.
@@ -291,3 +294,17 @@ October 3** (06:30 UTC); this is not a guaranteed start. No resource requests
 were changed in response to the ordinary queue wait. Monitoring continues with
 longer sleep intervals during this wait. No production scientific result is
 claimed yet.
+
+At **2:25 a.m. ET October 3**, production 209239 was confirmed `RUNNING`
+(start 06:18:45 UTC). All four child processes reached their 2,829-frame global
+OM4 cache warmup, each allocating 54.63 GiB for that cache. The pinned container
+reported PyTorch 2.9.0a0, CUDA 13.0 and NVIDIA GB200. No traceback was present in
+the startup logs. The overnight queue wait required no resubmission or resource
+changes. First production updates and scientific validation remain to be checked.
+
+At **2:31 a.m. ET**, structured events confirmed first production updates in
+every arm: U-global 42 (37 OM4 / 5 observation), L-global 67 (59 / 8), and each
+multitask arm 28 (13 global OM4 / 12 native patch / 3 observation). Reported
+losses and gradient norms were finite. The first scheduled 100-update validation
+has not yet been reached by every arm; these training losses are not the primary
+comparison metric.

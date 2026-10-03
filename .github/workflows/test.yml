@@ -10,6 +10,8 @@ on:
     branches:
       - main
   pull_request:
+    # Removing the experiment label restores CI without another commit.
+    types: [opened, synchronize, reopened, unlabeled]
     branches:
       - "**"
   merge_group:
@@ -21,6 +23,11 @@ concurrency:
 
 jobs:
   test-cpu:
+    if: >-
+      github.event_name != 'pull_request' || (
+        !startsWith(github.head_ref, 'experiment/') &&
+        !contains(github.event.pull_request.labels.*.name, 'experiment')
+      )
     runs-on: ubuntu-latest
     steps:
       - name: Check out code

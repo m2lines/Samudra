@@ -3,11 +3,12 @@
 
 # Global and native-quarter-degree patch transfer screen
 
-**Current execution, October 3 at 2:46 a.m. ET:** all four arms passed fitting,
+**Current execution, October 3 at 5:19 a.m. ET:** all four arms passed fitting,
 joint-task and resume qualification. Production job **209239** started at
 **2:18 a.m. ET** on `b1-11-s1-dgx-01-c01`. All four arms have completed their first
-production updates with finite losses: U-global 273, L-global 418, L-multitask 185,
-U-multitask 184. Both multitask arms have executed 79 native patch updates.
+production updates with finite losses: U-global 2,267, L-global 3,110,
+L-multitask 1,936, U-multitask 1,674 of 4,000. Both multitask arms have executed
+over 600 native patch updates.
 Every arm has produced a finite integrated-plus-spectral observation validation
 score. These early checkpoints have unequal update counts and are not a result
 comparison.
@@ -319,3 +320,12 @@ composite, lower is better. Counts differ because the processors and native-data
 tasks have different throughput; these early values must not be interpreted as
 matched-budget evidence for or against patch transfer. Training and monitoring
 continue without changing the approved protocol.
+
+At **5:19 a.m. ET**, production had run three hours with no failed arm.
+L-global had reached 3,110 updates, U-global 2,267, L-multitask 1,936 and
+U-multitask 1,674. Best observation validation scores so far were respectively
+0.793, 0.784, 0.919 and 1.293, at unequal budgets; the held-out comparisons
+remain pending. Based on observed progress and the increasing observation-task
+fraction, L-global is expected to enter evaluation around 6:30 a.m. ET and the
+other arms roughly 8–10 a.m. ET. These are runtime estimates, not guaranteed
+completion times. No scientific or execution protocol changes were needed.

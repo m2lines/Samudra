@@ -12,6 +12,7 @@ on:
     branches:
       - main
   pull_request:
+    types: [opened, synchronize, reopened, unlabeled]
     branches:
       - "**"
   merge_group:
@@ -26,7 +27,12 @@ concurrency:
 
 jobs:
   ec2-build:
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    if: >-
+      github.event_name != 'pull_request' || (
+        !startsWith(github.head_ref, 'experiment/') &&
+        !contains(github.event.pull_request.labels.*.name, 'experiment') &&
+        github.event.pull_request.head.repo.full_name == github.repository
+      )
     permissions:
       contents: read
       id-token: write
@@ -332,7 +338,11 @@ jobs:
             '
 
   report-container-test-status:
-    if: always()
+    if: >-
+      always() && (github.event_name != 'pull_request' || (
+        !startsWith(github.head_ref, 'experiment/') &&
+        !contains(github.event.pull_request.labels.*.name, 'experiment')
+      ))
     needs:
       - ec2-build
       - build-and-smoke

@@ -1,0 +1,221 @@
+{
+  "protocol": "Four deterministic training examples per task; mean loss gradients before clipping. Shared parameters only, excluding task-specific input adapters. No optimizer steps; not a causal attribution or representative spatial survey.",
+  "checkpoints": {
+    "U-global": {
+      "checkpoint": "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-02-extent-om4/runtime-v2/U-global/best.pt",
+      "sha256": "76058c08c74a92942612aedd75ee961a1c53125076dd449c77007710c05ea4eb",
+      "tasks": {
+        "observation": {
+          "losses": [
+            0.010231260400520935,
+            0.01132421481843899,
+            0.009085175876702321,
+            0.00828343540119135
+          ],
+          "mean_loss": 0.0097310216242134,
+          "shared_gradient_norms": {
+            "initializer": 0.07115403562784195,
+            "evolution": 0.08800457417964935
+          },
+          "provenance": [
+            "1993-05",
+            "1996-02",
+            "2001-10",
+            "2010-12"
+          ]
+        },
+        "global_om4": {
+          "losses": [
+            0.00917501375079155,
+            0.010633230209350586,
+            0.009947681799530983,
+            0.009575838223099709
+          ],
+          "mean_loss": 0.009832940995693207,
+          "shared_gradient_norms": {
+            "initializer": 0.04840724542737007,
+            "evolution": 0.12315580993890762
+          },
+          "provenance": [
+            {
+              "train_origin_index": 0
+            },
+            {
+              "train_origin_index": 33
+            },
+            {
+              "train_origin_index": 101
+            },
+            {
+              "train_origin_index": 211
+            }
+          ]
+        },
+        "native_patch": {
+          "losses": [
+            0.8071119785308838,
+            0.9738910794258118,
+            0.44893720746040344,
+            0.7810324430465698
+          ],
+          "mean_loss": 0.7527431771159172,
+          "shared_gradient_norms": {
+            "initializer": 42.33646011352539,
+            "evolution": 8.733122825622559
+          },
+          "provenance": [
+            {
+              "first": "1975-11-09",
+              "y": 293,
+              "x": 993
+            },
+            {
+              "first": "1982-06-17",
+              "y": 103,
+              "x": 284
+            },
+            {
+              "first": "1984-04-12",
+              "y": 213,
+              "x": 2
+            },
+            {
+              "first": "2010-06-02",
+              "y": 287,
+              "x": 171
+            }
+          ],
+          "true_initial_state_forecast_losses": [
+            0.40070605278015137,
+            0.8013548254966736,
+            0.40303683280944824,
+            0.5544626116752625
+          ],
+          "truth_loss_caveat": "Forecast only; shared loss also includes 0.1 reconstruction and 0.1 completion. Do not interpret ratio as a pure initializer effect."
+        }
+      },
+      "cosines": {
+        "observation vs global_om4": {
+          "initializer": 0.4960192143917084,
+          "evolution": 0.5715162754058838
+        },
+        "observation vs native_patch": {
+          "initializer": 0.0016794411931186914,
+          "evolution": -0.03413328900933266
+        },
+        "global_om4 vs native_patch": {
+          "initializer": -0.01607787236571312,
+          "evolution": -0.001770184957422316
+        }
+      }
+    },
+    "U-multitask": {
+      "checkpoint": "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-02-extent-om4/runtime-v2/U-multitask/best.pt",
+      "sha256": "ec8d5969db37ae195aa50d9d3c79e1828765e619cbe2eb9736606d4f5247ed1d",
+      "tasks": {
+        "observation": {
+          "losses": [
+            0.015706130478346875,
+            0.016091413086831347,
+            0.012552596319179975,
+            0.013662565742289681
+          ],
+          "mean_loss": 0.01450317640666197,
+          "shared_gradient_norms": {
+            "initializer": 0.03565526381134987,
+            "evolution": 0.07759761810302734
+          },
+          "provenance": [
+            "1993-05",
+            "1996-02",
+            "2001-10",
+            "2010-12"
+          ]
+        },
+        "global_om4": {
+          "losses": [
+            0.024314718320965767,
+            0.02661246620118618,
+            0.025773633271455765,
+            0.024814100936055183
+          ],
+          "mean_loss": 0.025378729682415724,
+          "shared_gradient_norms": {
+            "initializer": 0.06495301425457001,
+            "evolution": 0.23941968381404877
+          },
+          "provenance": [
+            {
+              "train_origin_index": 0
+            },
+            {
+              "train_origin_index": 33
+            },
+            {
+              "train_origin_index": 101
+            },
+            {
+              "train_origin_index": 211
+            }
+          ]
+        },
+        "native_patch": {
+          "losses": [
+            0.04396345093846321,
+            0.040815580636262894,
+            0.02856430411338806,
+            0.05020753666758537
+          ],
+          "mean_loss": 0.040887718088924885,
+          "shared_gradient_norms": {
+            "initializer": 0.20544616878032684,
+            "evolution": 0.5515282154083252
+          },
+          "provenance": [
+            {
+              "first": "1975-11-09",
+              "y": 293,
+              "x": 993
+            },
+            {
+              "first": "1982-06-17",
+              "y": 103,
+              "x": 284
+            },
+            {
+              "first": "1984-04-12",
+              "y": 213,
+              "x": 2
+            },
+            {
+              "first": "2010-06-02",
+              "y": 287,
+              "x": 171
+            }
+          ],
+          "true_initial_state_forecast_losses": [
+            0.13610419631004333,
+            0.058355968445539474,
+            0.11174985021352768,
+            0.5610541701316833
+          ],
+          "truth_loss_caveat": "Forecast only; shared loss also includes 0.1 reconstruction and 0.1 completion. Do not interpret ratio as a pure initializer effect."
+        }
+      },
+      "cosines": {
+        "observation vs global_om4": {
+          "initializer": 0.2225029021501541,
+          "evolution": 0.2517574727535248
+        },
+        "observation vs native_patch": {
+          "initializer": 0.08404681086540222,
+          "evolution": -0.309426873922348
+        },
+        "global_om4 vs native_patch": {
+          "initializer": 0.16064955294132233,
+          "evolution": -0.28729844093322754
+        }
+      }
+    }
+  }
+}

@@ -124,3 +124,49 @@ Production **209574 started at 6:23:32 p.m. ET** on
 `b2-14-s1-dgx-02-c04`, after all required dependencies succeeded. Diagnostic
 209575 also started. Neither production completion nor diagnostic results are
 claimed yet. No failed attempts or queue resubmissions occurred in this wave.
+
+## Training-only diagnostic: preliminary mechanism evidence
+
+Diagnostic 209575 completed successfully in 7:24, with zero optimizer updates.
+It inspected the exact previously selected checkpoint hashes from the first
+screen. The following numbers average four fixed training examples per task;
+gradient norms are before clipping and exclude domain-specific input adapters.
+
+| Frozen checkpoint | Task | Mean training loss | Shared initializer gradient norm | Shared processor gradient norm |
+|---|---|---:|---:|---:|
+| U-global | Observation | 0.00973 | 0.0712 | 0.0880 |
+| U-global | Global OM4 | 0.00983 | 0.0484 | 0.1232 |
+| U-global | Native patch | 0.75274 | 42.3365 | 8.7331 |
+| U-multitask | Observation | 0.01450 | 0.0357 | 0.0776 |
+| U-multitask | Global OM4 | 0.02538 | 0.0650 | 0.2394 |
+| U-multitask | Native patch | 0.04089 | 0.2054 | 0.5515 |
+
+| Frozen checkpoint | Task pair | Initializer gradient cosine | Processor gradient cosine |
+|---|---|---:|---:|
+| U-global | Observation / global OM4 | +0.496 | +0.572 |
+| U-global | Observation / native patch | +0.002 | −0.034 |
+| U-global | Global OM4 / native patch | −0.016 | −0.002 |
+| U-multitask | Observation / global OM4 | +0.223 | +0.252 |
+| U-multitask | Observation / native patch | +0.084 | −0.309 |
+| U-multitask | Global OM4 / native patch | +0.161 | −0.287 |
+
+The native task is substantially harder for the global-only checkpoint, with a
+particularly large initializer gradient. After multitask training, native loss
+is much smaller, but its shared-processor gradient opposes both global tasks on
+these examples. A negative cosine means opposing local gradient directions; it
+does not quantify the effect of the actual clipped, Adam-preconditioned update.
+This supports testing interference and regional-initialization difficulty, but
+four examples cannot establish their prevalence across geography, training time
+or seeds. The task losses also differ in their components and spatial support;
+this table is not a comparison of identical physical RMSEs.
+
+The [raw diagnostic](artifacts/extent-ablations-2026-10-03/gradient-diagnostic.json)
+contains sample provenance and additional true-state forecast losses. Those
+additional losses omit reconstruction/completion terms and use initial states
+outside the shared-initializer training path, so their ratio to the shared loss
+is not a clean estimate of initializer error.
+
+At **6:37 p.m. ET**, all four production arms had finite training events. The
+smaller-LR arm reported exactly 1e-5 on patch slots; omission events separately
+recorded skipped slots and actual updates. All four initial validation composites
+were exactly 6.011031320118986, matching the original U-multitask starting score.

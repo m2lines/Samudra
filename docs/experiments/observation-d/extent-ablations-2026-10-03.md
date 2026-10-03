@@ -170,3 +170,36 @@ At **6:37 p.m. ET**, all four production arms had finite training events. The
 smaller-LR arm reported exactly 1e-5 on patch slots; omission events separately
 recorded skipped slots and actual updates. All four initial validation composites
 were exactly 6.011031320118986, matching the original U-multitask starting score.
+
+## User-suggested follow-ups, after this wave
+
+On October 3 the user added two directions for consideration once these results
+are available. They are not part of the currently running four-arm wave.
+
+**Global evolution with a fine-scale accessory loss.** Keep the processor input
+and output at global 1° throughout. Add a small head on its intermediate features
+to predict a quantity derived from quarter-degree data at the matching future
+time and geographic support. A first candidate is horizontal velocity variance
+within each coarse cell, `0.5 * (mean(u² + v²) - mean(u)² - mean(v)²)`, using
+area-weighted native samples. This is spatial subcell variance of five-day-mean
+fields, not total unresolved kinetic energy and not the report's SSH-derived EKE
+metric. Native patches may supply sparse target support; they do not become
+processor inputs or autonomous regional rollouts. Verify time alignment and
+conservative geographic aggregation onto the actual 1° grid rather than assuming
+four-by-four index groups. Use training-period-only target normalization and
+retain global observation validation for selection. This tests a fine-scale
+representation constraint without the current regional/global task switch.
+
+**Capacity and attention.** Consider a wider U-Net and a U-Net with axial
+attention, each paired with its own global-only control. Width alone tests
+capacity; adding attention at fixed widths tests a different mixing mechanism,
+although parameter/compute increases must still be reported. Axial attention
+would attend along rows and columns of the supplied field, with explicit
+geographic/task information and the existing global-versus-regional boundary
+semantics. It does not automatically establish transfer across extents. This
+checkout's current U-Net backbone has no existing axial-attention option, so that
+variant needs implementation and qualification rather than a config-only launch.
+
+Prioritize the accessory-loss mechanism after reviewing this wave. Select any
+further concrete runs against the remaining review window; do not silently fold
+these architecture changes into the four active controls.

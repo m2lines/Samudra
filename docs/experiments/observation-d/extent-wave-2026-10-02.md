@@ -3,16 +3,18 @@
 
 # Global and native-quarter-degree patch transfer screen
 
-**Current execution, October 3 at 6:30 a.m. ET:** L-global has completed all
-4,000 updates and its 96-origin held-out evaluation. Production job **209239**
-remains running for U-global (3,051 updates), L-multitask (2,753) and
-U-multitask (2,291), with finite losses and validation scores. It started at
-**2:18 a.m. ET** on `b1-11-s1-dgx-01-c01`. Matched-budget held-out comparisons
-await the other three arms.
+**Completed October 3 at 9:41:55 a.m. ET.** All four arms completed 4,000 updates
+and 96-origin held-out evaluations. Production job **209239** exited successfully
+after 7:23:10 on `b1-11-s1-dgx-01-c01`. The sleep-loop monitoring is complete.
+**This screen found no aggregate observation benefit from replacing half the
+coarse-global OM4 updates with native quarter-degree patch updates:** held-out
+composite error increased 19.9% within the U-Net family and 4.1% within the local
+family. This is one seed and a short budget, not evidence that patch transfer
+cannot work.
 The active run root is
 `/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-02-extent-om4/runtime-v2`.
 Earlier failed attempts and their recovery are retained below. Monitoring is
-continuing through the user-requested sleep loop, without queue resubmissions.
+completed through the user-requested sleep loop, without queue resubmissions.
 
 Approved October 2, 2026. One seed (1729), physical state first, no LLC,
 no additional latent channels and no diffusion. Branch `codex/patch-global-om4`
@@ -32,6 +34,105 @@ L-global. The two processor families are **not parameter matched**. All arms
 start from random weights. Within each family, global and multitask arms have
 identical initialization. The existing report is an external reference; this
 2k+2k screen is not an endpoint-budget reproduction of its 8k+8k model.
+
+## Completed comparison
+
+These are **96 independently initialized monthly forecasts, January 2015 through
+December 2022**, not a continuous eight-year rollout. Surface integrated errors
+average leads 5, 15 and 30 days; heat-content errors use calendar-month means.
+Every model below uses global observation support. The four literal model names
+are defined in the task table above and architecture section below.
+
+| Model | Selected total update | Validation composite | Held-out composite ↓ | Integrated error ratio ↓ | Spectral error, dex ↓ | Initialized-state persistence ↓ |
+|---|---:|---:|---:|---:|---:|---:|
+| U-global | 3,800 | 0.6643 | 0.6784 | 0.8871 | 0.4696 | 0.5886 |
+| U-multitask | 4,000 | 0.8293 | 0.8130 | 0.9167 | 0.7093 | 0.6026 |
+| L-global | 3,500 | 0.7603 | 0.7546 | 0.8673 | 0.6419 | 0.5538 |
+| L-multitask | 3,389 | 0.8097 | 0.7856 | 0.9642 | 0.6070 | 0.5890 |
+
+All runs consumed the same 4,000-update total budget; checkpoint selection can
+choose an earlier update. **Selection** uses the immutable validation seasonal
+climatology denominators and 27 qualified spectral keys. **Held-out reporting**
+uses the identical test-seasonal-climatology denominators shared by all four
+arms, matching the [existing observation report](global-domain-results-2026-09-30.md).
+Test metrics never choose a checkpoint. Validation and test composites therefore
+use different cohorts and denominators and should not be read as a direct
+train/generalization-gap estimate.
+
+The composite is half the mean of five normalized integrated errors plus half
+the mean of 27 spatial spectral errors across SST/ADT/EKE, three regions and
+three leads. The integrated ratio divides each error by that of the common
+seasonal-climatology control. Spectral error is measured in log10 power-ratio
+units (dex), not percent. It is not a temporal-spectrum or century-rollout score.
+
+“Initialized-state persistence” uses the selected model's initializer and holds
+its inferred latest full state fixed through the forecast. It is model-dependent
+because its subsurface state is learned; it does not invoke the evolution
+processor. All four evolved forecasts lose to their own persistence on the
+composite, largely because evolution worsens the spatial spectra. Three arms
+improve the mean normalized integrated error relative to persistence;
+L-multitask is nearly equal but slightly worse (0.9642 versus 0.9626). The
+aggregate failure should not be read as every component worsening.
+The common seasonal-climatology control scores **1.3201**. Anomaly persistence
+also appears in the downloadable scores; it shifts the inferred interior T/S
+by the training-climatology change into the target month, while preserving the
+same surface persistence control.
+
+| Model | SST RMSE °C | Geostrophic velocity RMSE m/s | EKE RMSE m²/s² | OHC 0–700 m RMSE GJ/m² | OHC 700–2000 m RMSE GJ/m² |
+|---|---:|---:|---:|---:|---:|
+| U-global | 0.6252 | 0.1156 | 0.02535 | 0.7002 | 0.4522 |
+| U-multitask | 0.6217 | 0.1285 | 0.02715 | 0.7684 | 0.4216 |
+| L-global | 0.6138 | 0.1246 | 0.02612 | 0.6499 | 0.4100 |
+| L-multitask | 0.6704 | 0.1299 | 0.02643 | 0.7809 | 0.4897 |
+
+Velocity and EKE here derive geostrophically from SSH; they do not directly score
+the prognostic U/V channels. U-multitask slightly improves SST and deep OHC but
+worsens velocity, shallow OHC and spectra. L-multitask slightly improves spectra
+but worsens all five integrated errors. There is no consistent fine-to-coarse
+transfer benefit in this configuration.
+
+![Observation validation versus updates, with selected checkpoints marked](artifacts/extent-wave-2026-10-03/validation-curves.png)
+
+The curves use the same nine validation months at every checkpoint. Stars mark
+the validation-selected weights. U-multitask is still improving at its last
+checkpoint; the screen does not establish its converged performance. Local
+multitasking largely catches up on validation, but its selected held-out score
+is still worse. An extension, different task weighting, or another seed would be
+a new experiment requiring approval; none was launched during monitoring.
+
+The defensible conclusion is limited to this fixed-update screen. It changes
+resolution, field extent, and preprocessing release together; the patch core
+also supplies far fewer scored cells per update. It does not isolate the reason
+for negative transfer, match FLOPs, test native-quarter global evolution, or
+evaluate LLC. The U/L families differ in parameter count and mixing, so their
+cross-family ranking is not a controlled architecture attribution.
+
+Machine-readable evidence: [all scores](artifacts/extent-wave-2026-10-03/scores.csv),
+[validation curves](artifacts/extent-wave-2026-10-03/validation-curves.csv), and
+[source metrics, hashes and completion records](artifacts/extent-wave-2026-10-03/source-results.json).
+
+## Final execution provenance
+
+Training producer remained `ba22420144ef7576c324c40f74bae614ab77c1d4` throughout
+production. Every final event confirms 2,000 OM4 plus 2,000 observation updates;
+both multitask arms confirm exactly 1,000 global and 1,000 native patch updates.
+Every evaluation marker confirms 96 test origins and the matching selected
+checkpoint hash. No production retry or protocol change was needed.
+
+| Model | Training completed, October 3 ET | Training-loop hours including validation | Selected checkpoint SHA256 |
+|---|---|---:|---|
+| U-global | 8:04 a.m. | 5.62 | `76058c08c74a92942612aedd75ee961a1c53125076dd449c77007710c05ea4eb` |
+| U-multitask | 9:39 a.m. | 7.20 | `ec8d5969db37ae195aa50d9d3c79e1828765e619cbe2eb9736606d4f5247ed1d` |
+| L-global | 6:24 a.m. | 3.95 | `8fb9e6950093dc1d5de8e50eb5272747380ee1e68cb19f9fe60a78e92d3c95f5` |
+| L-multitask | 8:16 a.m. | 5.82 | `3934584f8d1c6d4593156cb39f08d1fc532f1dceaebb7d0953a8574da66cb36f` |
+
+Slurm reports production `COMPLETED`, exit 0, **26,590 seconds on four GPUs**:
+29.54 allocated GPU-hours. Including all original and replacement GPU
+qualification jobs, including failed attempts, the wave used **30.56 allocated
+GPU-hours**. This includes idle capacity after the faster arms finished and is
+not a FLOP estimate. CPU transfer/cache work is separate. Each run met the
+requested less-than-one-day runtime target. No monitor timer was created;
+the requested sleep loop ends after these checks and this report.
 
 ## Fields and tasks
 

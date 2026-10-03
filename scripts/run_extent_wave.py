@@ -16,6 +16,16 @@ ARMS = {
     "L-global": ("local", False),
     "L-multitask": ("local", True),
     "U-multitask": ("unet", True),
+    "U-omit-patch": ("unet", True),
+    "U-patch-lr01": ("unet", True),
+    "U-patch-truth": ("unet", True),
+    "U-patch-1step": ("unet", True),
+}
+INTERVENTIONS = {
+    "U-omit-patch": ["--patch-mode", "omit"],
+    "U-patch-lr01": ["--patch-lr-scale", "0.1"],
+    "U-patch-truth": ["--patch-mode", "truth"],
+    "U-patch-1step": ["--patch-leads", "1"],
 }
 
 
@@ -110,6 +120,7 @@ def main():
     ]
     if patch:
         joint += ["--patch-cache", config["patch_cache"], "--patch-training"]
+    joint += INTERVENTIONS.get(args.arm, [])
     if args.stage == "probe":
         command(
             "samudra.experiments.observation_joint",

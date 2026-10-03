@@ -163,6 +163,11 @@ def qualification_contract(args):
             Path(args.patch_cache) / "CACHE_READY.json"
         )
         result["patch_training"] = args.patch_training
+        result["patch_intervention"] = {
+            "mode": getattr(args, "patch_mode", "shared"),
+            "leads": getattr(args, "patch_leads", 6),
+            "lr_scale": getattr(args, "patch_lr_scale", 1.0),
+        }
         result["patch_shape_halo"] = [128, 128, 32]
     return result
 
@@ -206,6 +211,16 @@ def load_om4(args):
 
 
 class JointPilot(Pilot):
+    def task_learning_rate(self, task):
+        return self.args.core_lr if task == "observation" else self.args.om4_lr
+
+    def required_gradient_components(self, task):
+        return (
+            {"initializer", "evolution", "adapter"}
+            if task == "observation"
+            else {"initializer", "evolution"}
+        )
+
     def om4_objective(self, *args):
         return om4_objective(*args)
 
@@ -344,7 +359,7 @@ class JointPilot(Pilot):
         seed = self.args.seed + (0 if task == "observation" else 100000)
         size = len(self.training) if task == "observation" else len(self.om4.trainset)
         ids = sample_indices(size, seed, count, self.args.accumulate)
-        lr = self.args.core_lr if task == "observation" else self.args.om4_lr
+        lr = self.task_learning_rate(task)
         warmup = self.args.warmup_steps
         lr *= min(1.0, (count + 1) / warmup) if warmup else 1.0
         for group in self.optimizer.param_groups:
@@ -393,15 +408,16 @@ class JointPilot(Pilot):
                 p.grad is not None and bool(p.grad.count_nonzero())
                 for p in getattr(self.model, name).parameters()
             )
-        if (
-            not reached["initializer"]
-            or not reached["evolution"]
-            or (task == "observation" and not reached["adapter"])
-        ):
-            raise ValueError(f"Missing {task} gradients: {reached}")
-        if task == "om4" and reached["adapter"]:
-            raise ValueError("OM4 unexpectedly trained ERA5 adapter")
-        for component in (self.model.initializer, self.model.evolution):
+        required = self.required_gradient_components(task)
+        if any(not reached[name] for name in required):
+            raise ValueError(
+                f"Missing {task} gradients: {reached}; required={required}"
+            )
+        for name in {"initializer", "evolution", "adapter"} - required:
+            if any(p.grad is not None for p in getattr(self.model, name).parameters()):
+                raise ValueError(f"Inactive {name} received gradients on {task}")
+        for name in required & {"initializer", "evolution"}:
+            component = getattr(self.model, name)
             adapters = getattr(component, "input_adapters", None)
             if adapters is not None:
                 other = "om4" if task == "observation" else "observation"
@@ -608,6 +624,11 @@ def main():
     parser.add_argument("--joint-qualification")
     parser.add_argument("--patch-cache")
     parser.add_argument("--patch-training", action="store_true")
+    parser.add_argument(
+        "--patch-mode", choices=["shared", "truth", "omit"], default="shared"
+    )
+    parser.add_argument("--patch-leads", type=int, choices=[1, 6], default=6)
+    parser.add_argument("--patch-lr-scale", type=float, default=1.0)
     parser.set_defaults(
         from_scratch=True,
         observation_normalization=True,
@@ -656,6 +677,12 @@ def main():
         parser.error(
             "This qualified deterministic sampler currently supports one GPU per arm"
         )
+    if not 0 < args.patch_lr_scale <= 1:
+        parser.error("Patch learning-rate scale must be in (0, 1]")
+    if not args.patch_training and (
+        args.patch_mode != "shared" or args.patch_leads != 6 or args.patch_lr_scale != 1
+    ):
+        parser.error("Patch interventions require patch training")
     if args.patch_training and (
         not args.patch_cache or not args.evolution_architecture.startswith("extent-")
     ):

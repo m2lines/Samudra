@@ -3,6 +3,7 @@
 
 import json
 from types import SimpleNamespace
+from typing import Any
 
 import numpy as np
 import pytest
@@ -183,3 +184,115 @@ def test_native_calendar_matches_baseline_including_leap_gaps():
     irregular = np.array([0.0, 5.0, 12.0])
     with pytest.raises(ValueError, match="Unexpected OM4 cadence"):
         validate_shared_time(irregular, attrs, irregular, attrs)
+
+
+def test_omitted_patch_is_a_true_noop_and_preserves_future_sampling():
+    import copy
+    import time
+
+    from samudra.experiments.extent_training import ExtentPilot
+    from samudra.experiments.observation_joint import assert_exact_state
+
+    pilot: Any = ExtentPilot.__new__(ExtentPilot)
+    pilot.args = SimpleNamespace(patch_training=True, patch_mode="omit")
+    pilot.schedule = TaskSchedule(6, 4, "mixed")
+    pilot.completed = 1  # Second OM4 slot, hence auxiliary patch.
+    pilot.model = nn.Linear(2, 1)
+    pilot.optimizer = torch.optim.AdamW(pilot.model.parameters(), lr=1e-3)
+    pilot.model(torch.ones(1, 2)).sum().backward()
+    pilot.optimizer.step()
+    before = copy.deepcopy((pilot.model.state_dict(), pilot.optimizer.state_dict()))
+    rng = torch.get_rng_state().clone()
+    records: list[dict[str, Any]] = []
+    pilot.emit = records.append
+    pilot.elapsed_seconds, pilot.started = 0, time.monotonic()
+    pilot.train_update()
+    assert pilot.completed == 2 and records[0]["event"] == "joint_skip"
+    assert_exact_state(pilot.model.state_dict(), before[0])
+    assert_exact_state(pilot.optimizer.state_dict(), before[1])
+    assert torch.equal(rng, torch.get_rng_state())
+    assert pilot.schedule.counts(pilot.completed) == {"om4": 2, "observation": 0}
+
+
+def test_patch_learning_rate_and_gradient_contract_are_task_local():
+    from samudra.experiments.extent_training import ExtentPilot
+
+    pilot: Any = ExtentPilot.__new__(ExtentPilot)
+    pilot.args = SimpleNamespace(
+        patch_training=True,
+        patch_mode="truth",
+        patch_lr_scale=0.1,
+        core_lr=1e-4,
+        om4_lr=1e-4,
+    )
+    pilot.schedule = TaskSchedule(6, 4, "mixed")
+    for slot, task, lr, components in [
+        (0, "om4", 1e-4, {"initializer", "evolution"}),
+        (1, "om4", 1e-5, {"evolution"}),
+        (4, "observation", 1e-4, {"initializer", "evolution", "adapter"}),
+    ]:
+        pilot.completed = slot
+        assert pilot.task_learning_rate(task) == pytest.approx(lr)
+        assert pilot.required_gradient_components(task) == components
+
+
+@pytest.mark.parametrize("mode,leads", [("shared", 6), ("shared", 1), ("truth", 6)])
+def test_patch_horizon_and_truth_initialization_route_actual_gradients(mode, leads):
+    from samudra.experiments.extent_training import patch_objective
+
+    class Init(nn.Module):
+        surface = [0, 4]
+
+        def __init__(self):
+            super().__init__()
+            self.weight = nn.Parameter(torch.tensor(0.5))
+            self.calls = 0
+
+        def forward(self, *args):
+            self.calls += 1
+            return self.weight * torch.ones(1, 2, 5, 8, 8)
+
+    class Evolution(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.weight = nn.Parameter(torch.tensor(0.9))
+            self.leads = []
+
+        def forward(self, states, forcing, context, mask, lead, task):
+            self.leads.append(lead)
+            return states[:, -1] * self.weight
+
+    model = SimpleNamespace(
+        initializer=Init(), evolution=Evolution(), call=lambda fn, *a: fn(*a)
+    )
+    sample = dict(
+        surface=torch.ones(1, 19, 2, 8, 8),
+        mask=torch.ones(5, 8, 8, dtype=torch.bool),
+        past=torch.zeros(1, 19, 3, 8, 8),
+        context=torch.zeros(1, 5, 8, 8),
+        truth=torch.ones(1, 2, 5, 8, 8),
+        forcing=torch.zeros(1, 6, 3, 8, 8),
+        labels=torch.ones(1, 6, 5, 8, 8) * 2,
+        weights=torch.ones(5, 8, 8),
+        core=torch.ones(5, 8, 8, dtype=torch.bool),
+        lat=torch.linspace(-10, 10, 8),
+    )
+    loss = patch_objective(
+        model,
+        sample,
+        ["thetao_0", "so_0", "uo_0", "vo_0", "zos"],
+        0.1,
+        0.1,
+        1729,
+        mode=mode,
+        leads=leads,
+    )
+    loss.backward()
+    assert model.evolution.leads == list(range(1, leads + 1))
+    assert model.evolution.weight.grad is not None and model.evolution.weight.grad != 0
+    if mode == "truth":
+        assert model.initializer.calls == 0 and model.initializer.weight.grad is None
+    else:
+        assert (
+            model.initializer.calls == 1 and model.initializer.weight.grad is not None
+        )

@@ -97,8 +97,10 @@ The curves use the same nine validation months at every checkpoint. Stars mark
 the validation-selected weights. U-multitask is still improving at its last
 checkpoint; the screen does not establish its converged performance. Local
 multitasking largely catches up on validation, but its selected held-out score
-is still worse. An extension, different task weighting, or another seed would be
-a new experiment requiring approval; none was launched during monitoring.
+is still worse. No extension or task change was made within this screen.
+The user subsequently authorized the [mechanism ablations](extent-ablations-2026-10-03.md)
+and [representation/capacity follow-ups](extent-representation-2026-10-03.md),
+with autonomous iteration through Monday October 5 around 9 a.m. ET.
 
 The defensible conclusion is limited to this fixed-update screen. It changes
 resolution, field extent, and preprocessing release together; the patch core
@@ -110,6 +112,52 @@ cross-family ranking is not a controlled architecture attribution.
 Machine-readable evidence: [all scores](artifacts/extent-wave-2026-10-03/scores.csv),
 [validation curves](artifacts/extent-wave-2026-10-03/validation-curves.csv), and
 [source metrics, hashes and completion records](artifacts/extent-wave-2026-10-03/source-results.json).
+
+## Rollout maps and spectral diagnosis
+
+These maps show day-30 five-day means for January and July 2022, the two fixed
+illustrative origins inherited from the observation report. Each comparison
+includes observations, both models in that family, and each model's initialized
+persistence. Anomalies subtract the same training seasonal climatology. Gray
+denotes land or missing observations; all candidates share the reference-valid
+support and color limits. These examples are not an aggregate-skill estimate.
+
+| Family | January SST anomalies | January SSH anomalies | July SST anomalies | July SSH anomalies | July absolute SST | July absolute SSH |
+|---|---|---|---|---|---|---|
+| U-Net | [Map](artifacts/extent-wave-2026-10-03/U-maps/day30-2022-01-anomalies-sst.png) | [Map](artifacts/extent-wave-2026-10-03/U-maps/day30-2022-01-anomalies-adt.png) | [Map](artifacts/extent-wave-2026-10-03/U-maps/day30-2022-07-anomalies-sst.png) | [Map](artifacts/extent-wave-2026-10-03/U-maps/day30-2022-07-anomalies-adt.png) | [Map](artifacts/extent-wave-2026-10-03/U-maps/day30-2022-07-fields-sst.png) | [Map](artifacts/extent-wave-2026-10-03/U-maps/day30-2022-07-fields-adt.png) |
+| Local | [Map](artifacts/extent-wave-2026-10-03/L-maps/day30-2022-01-anomalies-sst.png) | [Map](artifacts/extent-wave-2026-10-03/L-maps/day30-2022-01-anomalies-adt.png) | [Map](artifacts/extent-wave-2026-10-03/L-maps/day30-2022-07-anomalies-sst.png) | [Map](artifacts/extent-wave-2026-10-03/L-maps/day30-2022-07-anomalies-adt.png) | [Map](artifacts/extent-wave-2026-10-03/L-maps/day30-2022-07-fields-sst.png) | [Map](artifacts/extent-wave-2026-10-03/L-maps/day30-2022-07-fields-adt.png) |
+
+The July U-Net maps show weakened SSH anomalies after evolution, relative to
+both observations and initialized persistence. Native multitasking does not
+restore the lost structure. The local forecasts retain more visible surface
+structure in this example, but still have weak EKE spectra across the cohort.
+
+| Model | SST spectral error, dex | ADT spectral error, dex | EKE spectral error, dex |
+|---|---:|---:|---:|
+| U-global | 0.2130 | 0.0746 | 1.1211 |
+| U-multitask | 0.2684 | 0.1669 | 1.6926 |
+| L-global | 0.2701 | 0.1798 | 1.4759 |
+| L-multitask | 0.1920 | 0.1785 | 1.4504 |
+
+Each column averages its nine region/lead scores. The largest spectral deficit
+is EKE. For example, day-30 Gulf Stream EKE **spectral power** is 0.67–2.10% of
+the supplied reference across the three retained bins for U-global, versus
+0.11–0.24% for U-multitask. These are power ratios, not EKE-amplitude ratios.
+
+Part of the absolute EKE discrepancy comes from the established observation
+operator convention: predictions differentiate coarse SSH, whereas references
+use separately coarsened DUACS U/V. These operations do not commute. The
+[earlier operator audit](snapshot-2026-09-23-methods.md) quantified that effect;
+it is not an irreducible error floor or evidence of forecast error by itself.
+Here, initialized persistence has mean EKE spectral error 0.6320 dex for all
+four models, versus 1.12–1.69 after evolution, so evolution adds a substantial
+deficit under the same reporting convention. The primary metric remains fixed.
+
+Grace job **116881** extracted these cases from completed exports in 32 seconds,
+without training or inference. Map extraction verified selected-weight hashes
+against the training, selection and evaluation records. Detailed source and
+render provenance: [U-Net](artifacts/extent-wave-2026-10-03/U-maps/provenance.json),
+[local](artifacts/extent-wave-2026-10-03/L-maps/provenance.json).
 
 ## Final execution provenance
 

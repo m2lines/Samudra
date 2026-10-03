@@ -84,3 +84,29 @@ and RNG effects, task-local learning-rate changes, actual one/six-step forecast
 calls, and absence of initializer gradients under true-state patch inputs.
 The runtime, native cache and observation reference remain the verified ones from
 the original screen. Job IDs, producer hashes and live outcomes follow here.
+
+Submitted **October 3 at 6:03 p.m. ET** under producer
+`c9a33e0dba63b6da0d11b7d20c1db7e42d78e0e5`. Source archive SHA256:
+`39a362d55b1833cd85ad05c4bf32fa7601917ff14d69c8195556ab13140d4a4b`.
+Run root:
+`/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-ablations`.
+The copied runtime retains the original verified wheel and extension hashes.
+The new producer requires fresh qualification rather than relabeling old probes.
+
+| Job | Role | Dependencies | Verified state at submission |
+|---|---|---|---|
+| 209568 | Shared U-Net fitting qualification | None | Pending resources |
+| 209569 | U-omit-patch joint/resume probe | 209568 | Pending dependency |
+| 209570 | U-patch-lr01 joint/resume probe | 209568 | Pending dependency |
+| 209571 | U-patch-truth joint/resume probe | 209568 | Pending dependency |
+| 209572 | U-patch-1step joint/resume probe | 209568 | Pending dependency |
+| 209574 | Four independent production/evaluation arms, one four-GPU node | All four probes, afterok | Pending dependency |
+| 209575 | Training-only checkpoint loss/gradient diagnostic | 209570 | Pending dependency |
+
+The fitting, probe and diagnostic jobs request one GPU each on `beta_test/test`;
+production requests 144 CPUs, four GPUs and full-node memory on `beta/standard`.
+A successful scheduler dry run does not establish a production start time while
+qualification dependencies remain unfulfilled. No training is claimed yet.
+Local verification: **18 targeted tests passed**, Ruff, mypy on all five affected
+Python files, shell syntax and diff whitespace checks passed. Monitoring continues
+through sleeps; there is no periodic conversation timer.

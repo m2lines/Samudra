@@ -1,0 +1,34 @@
+{
+  "scope": "Training-only target decomposition; fixed maps fitted and measured on the same period. Not held-out predictive skill.",
+  "interpretation": "Fraction of standardized target MSE removed by geography alone or geography plus calendar month; does not demonstrate dynamics or observation benefit.",
+  "ready_sha256": "e7c118ecdec43f5a0d0480b3df429492ef1cd4ff2589fead7eb060b17bb8d9fd",
+  "script_sha256": "9263ca2e2b8655361ffd0c11b426d90a671b0f6f6b61e470e7cd6fc21ddb96e9",
+  "frames": 2829,
+  "period": [
+    "1975-01-03",
+    "2013-09-30"
+  ],
+  "monthly_counts": [
+    234,
+    234,
+    234,
+    234,
+    234,
+    234,
+    244,
+    263,
+    234,
+    228,
+    228,
+    228
+  ],
+  "weighted_mse": {
+    "zero": 0.9999999999999989,
+    "static_spatial_mean": 0.32202388799831605,
+    "calendar_month_spatial_mean": 0.2799098127937257
+  },
+  "fraction_explained": {
+    "static_spatial_mean": 0.6779761120016836,
+    "calendar_month_spatial_mean": 0.7200901872062739
+  }
+}

@@ -97,7 +97,8 @@ unfinished budgets explicitly.
 
 Grace job **116869** completed successfully in 32 seconds with 16 CPUs, 32 GiB
 and no GPUs. Producer `6f678cbfccf7d630780c97111d95aff4aefa0d4a`.
-All **2,829** training frames (1975-01-03 through 2013-10-04) were read back
+All **2,829** training frames (1975-01-03 through the last included timestamp,
+2013-09-30; training cutoff 2013-10-04) were read back
 exactly, and all contributing wet native velocities were finite. There are
 43,252 valid coarse cells. Training-only transform values are scale
 0.0027922708904027874 m²/s², log mean 0.43588650490263964 and log std
@@ -116,6 +117,31 @@ Tests cover non-nested conservative aggregation, mean-flow-invariant variance,
 wet nonfinite failures, exact future-date target alignment, masked target loss,
 accessory gradient routing, preserved core initialization and dynamic-extent
 axial gradient propagation. Production qualification/results will be appended.
+
+### How much of the accessory target is static?
+
+A training-only decomposition over every valid target frame gives:
+
+| Fixed-map predictor | Area-weighted standardized target MSE | Fraction explained relative to zero |
+|---|---:|---:|
+| Zero in standardized target space | 1.0000 | 0% |
+| Each cell's training time mean | 0.3220 | 67.8% |
+| Each cell's training calendar-month mean | 0.2799 | 72.0% |
+
+Thus a substantial fraction can be learned from geography alone, and about 28%
+remains after fitting geography plus monthly seasonality. These are in-sample
+fixed-map fits to training targets, not held-out predictive skill. An accessory
+loss can help through geographic/seasonal representation without teaching
+fine-scale dynamics; improvement in its loss alone cannot distinguish those
+mechanisms. If the accessory arms improve observation validation, a useful next
+control is supervision from the fixed training climatology instead of the
+time-varying target. That control is not folded into the current six arms.
+
+The diagnostic independently reproduced unit standardized target variance.
+Grace job **116904** completed in 16 seconds using four CPUs and 8 GiB, with
+no GPU or model optimization. Diagnostic producer
+`c1bc69796b1738b9fa36495240e743cfe843ea43`.
+[Raw decomposition and hashes](artifacts/extent-representation-2026-10-03/target-decomposition.json).
 
 ## Submission snapshot, October 3 at 7:02 p.m. ET
 

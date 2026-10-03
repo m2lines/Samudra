@@ -3,12 +3,14 @@
 
 # Global and native-quarter-degree patch transfer screen
 
-**Current execution, October 3 at 2:31 a.m. ET:** all four arms passed fitting,
+**Current execution, October 3 at 2:46 a.m. ET:** all four arms passed fitting,
 joint-task and resume qualification. Production job **209239** started at
 **2:18 a.m. ET** on `b1-11-s1-dgx-01-c01`. All four arms have completed their first
-production updates with finite losses: U-global 42, L-global 67, L-multitask 28,
-U-multitask 28. Both multitask arms have already executed 12 native patch updates.
-Scientific validation is not yet available.
+production updates with finite losses: U-global 273, L-global 418, L-multitask 185,
+U-multitask 184. Both multitask arms have executed 79 native patch updates.
+Every arm has produced a finite integrated-plus-spectral observation validation
+score. These early checkpoints have unequal update counts and are not a result
+comparison.
 The active run root is
 `/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-02-extent-om4/runtime-v2`.
 Earlier failed attempts and their recovery are retained below. Monitoring is
@@ -308,3 +310,12 @@ multitask arm 28 (13 global OM4 / 12 native patch / 3 observation). Reported
 losses and gradient norms were finite. The first scheduled 100-update validation
 has not yet been reached by every arm; these training losses are not the primary
 comparison metric.
+
+At **2:46 a.m. ET**, production remained healthy with no traceback in any arm's
+log. Latest available observation validation scores were 2.432 at update 200
+(U-global), 1.161 at update 400 (L-global), 2.584 at update 100 (L-multitask),
+and 2.549 at update 100 (U-multitask). These are the frozen integrated-plus-spectral
+composite, lower is better. Counts differ because the processors and native-data
+tasks have different throughput; these early values must not be interpreted as
+matched-budget evidence for or against patch transfer. Training and monitoring
+continue without changing the approved protocol.

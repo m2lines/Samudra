@@ -1,0 +1,159 @@
+{
+  "producer": "558d45cac2294f691d1d73a47db1783df1850c80",
+  "root": "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-accessory-controls",
+  "submitted_utc": "2026-10-04T12:49:20.548948+00:00",
+  "jobs": [
+    {
+      "job_id": "209715",
+      "stage": "fit",
+      "arm": "U-aux01-static",
+      "dependencies": [],
+      "command": [
+        "sbatch",
+        "--parsable",
+        "--account=ny_lz1955_multiscale",
+        "--nodes=1",
+        "--ntasks-per-node=1",
+        "--partition=beta_test",
+        "--qos=test",
+        "--cpus-per-task=16",
+        "--gres=gpu:1",
+        "--mem=128G",
+        "--time=02:00:00",
+        "--job-name=extent-target-fit-U-aux01-static",
+        "--output=/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-accessory-controls/logs/fit-U-aux01-static-%j.out",
+        "--error=/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-accessory-controls/logs/fit-U-aux01-static-%j.err",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-accessory-controls/code/558d45cac/scripts/slurm_extent_beta.sbatch",
+        "fit",
+        "U-aux01-static",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-accessory-controls",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-accessory-controls/code/558d45cac",
+        "558d45cac2294f691d1d73a47db1783df1850c80"
+      ]
+    },
+    {
+      "job_id": "209716",
+      "stage": "probe",
+      "arm": "U-aux01-static",
+      "dependencies": [
+        "209715"
+      ],
+      "command": [
+        "sbatch",
+        "--parsable",
+        "--account=ny_lz1955_multiscale",
+        "--nodes=1",
+        "--ntasks-per-node=1",
+        "--partition=beta_test",
+        "--qos=test",
+        "--cpus-per-task=16",
+        "--gres=gpu:1",
+        "--mem=128G",
+        "--time=02:00:00",
+        "--job-name=extent-target-probe-U-aux01-static",
+        "--output=/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-accessory-controls/logs/probe-U-aux01-static-%j.out",
+        "--error=/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-accessory-controls/logs/probe-U-aux01-static-%j.err",
+        "--dependency=afterok:209715",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-accessory-controls/code/558d45cac/scripts/slurm_extent_beta.sbatch",
+        "probe",
+        "U-aux01-static",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-accessory-controls",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-accessory-controls/code/558d45cac",
+        "558d45cac2294f691d1d73a47db1783df1850c80"
+      ]
+    },
+    {
+      "job_id": "209717",
+      "stage": "probe",
+      "arm": "U-aux01-seasonal",
+      "dependencies": [
+        "209715"
+      ],
+      "command": [
+        "sbatch",
+        "--parsable",
+        "--account=ny_lz1955_multiscale",
+        "--nodes=1",
+        "--ntasks-per-node=1",
+        "--partition=beta_test",
+        "--qos=test",
+        "--cpus-per-task=16",
+        "--gres=gpu:1",
+        "--mem=128G",
+        "--time=02:00:00",
+        "--job-name=extent-target-probe-U-aux01-seasonal",
+        "--output=/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-accessory-controls/logs/probe-U-aux01-seasonal-%j.out",
+        "--error=/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-accessory-controls/logs/probe-U-aux01-seasonal-%j.err",
+        "--dependency=afterok:209715",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-accessory-controls/code/558d45cac/scripts/slurm_extent_beta.sbatch",
+        "probe",
+        "U-aux01-seasonal",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-accessory-controls",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-accessory-controls/code/558d45cac",
+        "558d45cac2294f691d1d73a47db1783df1850c80"
+      ]
+    },
+    {
+      "job_id": "209718",
+      "stage": "probe",
+      "arm": "U-aux01-shuffled",
+      "dependencies": [
+        "209715"
+      ],
+      "command": [
+        "sbatch",
+        "--parsable",
+        "--account=ny_lz1955_multiscale",
+        "--nodes=1",
+        "--ntasks-per-node=1",
+        "--partition=beta_test",
+        "--qos=test",
+        "--cpus-per-task=16",
+        "--gres=gpu:1",
+        "--mem=128G",
+        "--time=02:00:00",
+        "--job-name=extent-target-probe-U-aux01-shuffled",
+        "--output=/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-accessory-controls/logs/probe-U-aux01-shuffled-%j.out",
+        "--error=/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-accessory-controls/logs/probe-U-aux01-shuffled-%j.err",
+        "--dependency=afterok:209715",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-accessory-controls/code/558d45cac/scripts/slurm_extent_beta.sbatch",
+        "probe",
+        "U-aux01-shuffled",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-accessory-controls",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-accessory-controls/code/558d45cac",
+        "558d45cac2294f691d1d73a47db1783df1850c80"
+      ]
+    },
+    {
+      "job_id": "209719",
+      "stage": "probe",
+      "arm": "U-aux01-anomaly",
+      "dependencies": [
+        "209715"
+      ],
+      "command": [
+        "sbatch",
+        "--parsable",
+        "--account=ny_lz1955_multiscale",
+        "--nodes=1",
+        "--ntasks-per-node=1",
+        "--partition=beta_test",
+        "--qos=test",
+        "--cpus-per-task=16",
+        "--gres=gpu:1",
+        "--mem=128G",
+        "--time=02:00:00",
+        "--job-name=extent-target-probe-U-aux01-anomaly",
+        "--output=/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-accessory-controls/logs/probe-U-aux01-anomaly-%j.out",
+        "--error=/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-accessory-controls/logs/probe-U-aux01-anomaly-%j.err",
+        "--dependency=afterok:209715",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-accessory-controls/code/558d45cac/scripts/slurm_extent_beta.sbatch",
+        "probe",
+        "U-aux01-anomaly",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-accessory-controls",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-accessory-controls/code/558d45cac",
+        "558d45cac2294f691d1d73a47db1783df1850c80"
+      ]
+    }
+  ]
+}

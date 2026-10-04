@@ -3,14 +3,35 @@
 
 # Global/patch transfer: accessory supervision and processor capacity
 
-**First completed result:** W-global finished all 4,000 updates at 8:06 a.m. ET
-on October 4 and all 96 held-out monthly forecasts. Its validation-selected
-test composite is **0.6735**, versus **0.6784** for U-global: a small 0.7%
-improvement with one seed, despite increasing total parameters from 63.0M to
-100.7M. Its own initialized persistence remains better (0.5897). The integrated
-ratio is 0.8920 and spectral error 0.4549 dex; the selected checkpoint is the
-4,000-update endpoint. This does not establish convergence or a robust capacity
-benefit. [Verified first-result evidence](artifacts/extent-representation-2026-10-03/first-completed-results.json).
+**Three global-only arms completed by 8:46 a.m. ET October 4.** All finished
+4,000 updates and all 96 held-out monthly forecasts, with checkpoint hashes
+verified against the physical files, selection and evaluation markers.
+
+| Model | Selected update | Validation | Test composite ↓ | Integrated ratio | Spectral dex | Own initialized persistence |
+|---|---:|---:|---:|---:|---:|---:|
+| U-global | 3,800 | 0.6643 | 0.6784 | 0.8871 | 0.4696 | 0.5886 |
+| U-aux01 | 4,000 | 0.6421 | 0.6674 | 0.8691 | 0.4657 | 0.5896 |
+| U-aux10 | 4,000 | 0.6698 | 0.6955 | 0.8930 | 0.4980 | 0.5898 |
+| W-global | 4,000 | 0.6548 | 0.6735 | 0.8920 | 0.4549 | 0.5897 |
+
+U-global is the original global-only U-Net control; the other literal names
+and architectures are defined below. The lower accessory coefficient improves
+test composite by **1.6%**, whereas the larger coefficient is **2.5% worse**.
+Widening the processor gives only **0.7%** improvement despite increasing total
+parameters from 63.0M to 100.7M. These are small single-seed differences, and all
+still lose to persistence. Endpoint selection in the three new arms does not
+establish convergence. Their held-out scores use the same test-climatology
+denominators as the original controls.
+
+![Matched global-only validation curves](artifacts/extent-representation-2026-10-03/accessory-summary/accessory-targets-and-wider-global-processor.png)
+
+[Scores](artifacts/extent-representation-2026-10-03/accessory-summary/scores.csv)
+and [verified lineage and raw results](artifacts/extent-representation-2026-10-03/accessory-completed-results.json).
+The [target-information controls](extent-accessory-controls-2026-10-04.md)
+were predeclared from completed validation before these accessory test scores
+were collected. They distinguish aligned fine-scale information from geographic
+or seasonal regularization. The wider multitask and both attention arms are
+still in progress.
 
 **Production started October 4 at 1:49 a.m. ET.** Job 209608 is running on
 `b2-14-s1-dgx-02-c04`, after successful completion of ablations 209574.

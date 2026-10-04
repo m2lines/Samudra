@@ -64,3 +64,27 @@ checkpoint of each completed arm. Report test scores as exploratory, with the
 same test-climatology denominators and persistence controls. These forecasts
 cover 2015–2022 as independent monthly 30-day cases, not continuous eight-year
 rollouts. Any unfinished arm at Monday review will be labeled unfinished.
+
+## Qualification submitted at 8:49 a.m. ET
+
+Producer `558d45cac2294f691d1d73a47db1783df1850c80`, archive SHA-256
+`e79ee680969a14ff21bdda5de08e5d285cca1bf2b7ec775a2b41dd7a91b952e6`.
+Local validation passed 22 targeted tests, Ruff, mypy for the four touched
+Python implementation files, shell syntax and diff checks. The tests check
+seasonal/anomaly decomposition, invalid-cell support, preserved shuffled maps,
+unchanged global RNG, future-label alignment and gradient routing. No active
+producer was replaced and no checkpoint crosses the new qualification contract.
+
+| Stage | Arm | Job |
+|---|---|---:|
+| Fit | Shared accessory architecture | 209715 |
+| Joint/resume probe | U-aux01-static | 209716 |
+| Joint/resume probe | U-aux01-seasonal | 209717 |
+| Joint/resume probe | U-aux01-shuffled | 209718 |
+| Joint/resume probe | U-aux01-anomaly | 209719 |
+
+All four probes depend on the fitting job succeeding. Each qualification uses
+one GPU, 16 CPUs, 128 GiB and at most two hours on beta_test/test. Production
+has not been submitted. Root:
+`/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-accessory-controls`.
+[Exact receipts](artifacts/extent-accessory-controls-2026-10-04/qualification-jobs.json).

@@ -61,6 +61,17 @@ Monitor in this chat, with intervals chosen around checkpoints, job boundaries
 and evaluation completion. Notify through Pushover when blocked or results are
 ready to review.
 
+## Current milestone
+
+The [2,000-observation-update report](global-2000-results.md) is available. The
+composite is 1.2458 versus 0.6268 for the matched deterministic control. Grain is
+substantially reduced, but surface ensembles are underdispersed; 64 inference
+steps offer little benefit over 32. The optimizer reached 2,070 observation /
+5,033 OM4 updates. Ordinary four-H200 continuation 24761666 is queued after the
+completed evaluations. Allocation through the evaluations is 190.303 GPU-hours.
+The next detailed report is planned at 4k observation updates. The following
+hardware and migration entries preserve the earlier execution history.
+
 ## Qualification and launch status
 
 ### Alternative compute: Torch

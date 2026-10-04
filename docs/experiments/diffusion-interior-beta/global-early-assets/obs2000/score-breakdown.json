@@ -1,0 +1,152 @@
+{
+  "obs250-steps32": {
+    "counts": {
+      "om4": 1300,
+      "observation": 250
+    },
+    "score": 1.4025186672989485,
+    "integrated_ratios_to_frozen_climatology": {
+      "sst_rmse": 1.91831273258828,
+      "velocity_rmse": 1.9597615162730488,
+      "eke_rmse": 1.588510101049263,
+      "ohc_0_700_rmse": 1.5360852572112875,
+      "ohc_700_2000_rmse": 2.2942443203525897
+    },
+    "integrated_mean": 1.859382785494894,
+    "spectral_mean_error_dex": 0.945654549103003,
+    "by_field_spectra": {
+      "sst": {
+        "mean_error_dex": 0.2487659275124735,
+        "geometric_power_ratio": 1.1262822525828413
+      },
+      "adt": {
+        "mean_error_dex": 0.40298962749166506,
+        "geometric_power_ratio": 0.5610783590211746
+      },
+      "eke": {
+        "mean_error_dex": 2.1852080923048707,
+        "geometric_power_ratio": 0.006881996188760608
+      }
+    }
+  },
+  "obs500-steps32": {
+    "counts": {
+      "om4": 2167,
+      "observation": 500
+    },
+    "score": 1.6756938911234163,
+    "integrated_ratios_to_frozen_climatology": {
+      "sst_rmse": 1.804311449835921,
+      "velocity_rmse": 1.2458638380529725,
+      "eke_rmse": 1.0143421205572538,
+      "ohc_0_700_rmse": 2.5337270762099835,
+      "ohc_700_2000_rmse": 2.761703213925407
+    },
+    "integrated_mean": 1.8719895397163078,
+    "spectral_mean_error_dex": 1.4793982425305245,
+    "by_field_spectra": {
+      "sst": {
+        "mean_error_dex": 0.2231496220838959,
+        "geometric_power_ratio": 0.8691917181936598
+      },
+      "adt": {
+        "mean_error_dex": 0.629412252258,
+        "geometric_power_ratio": 0.35020865306374255
+      },
+      "eke": {
+        "mean_error_dex": 3.5856328532496775,
+        "geometric_power_ratio": 0.0002657739576694881
+      }
+    }
+  },
+  "obs1000-steps32": {
+    "counts": {
+      "om4": 3389,
+      "observation": 1000
+    },
+    "score": 1.475105187512108,
+    "integrated_ratios_to_frozen_climatology": {
+      "sst_rmse": 1.13051031150876,
+      "velocity_rmse": 1.0735663033296725,
+      "eke_rmse": 1.0065959186340976,
+      "ohc_0_700_rmse": 1.4456006706388733,
+      "ohc_700_2000_rmse": 1.9267724667380268
+    },
+    "integrated_mean": 1.316609134169886,
+    "spectral_mean_error_dex": 1.63360124085433,
+    "by_field_spectra": {
+      "sst": {
+        "mean_error_dex": 0.34138996983574266,
+        "geometric_power_ratio": 0.4835377842567454
+      },
+      "adt": {
+        "mean_error_dex": 0.5876304140566849,
+        "geometric_power_ratio": 0.4000658204381316
+      },
+      "eke": {
+        "mean_error_dex": 3.971783338670562,
+        "geometric_power_ratio": 0.00010871406479677639
+      }
+    }
+  },
+  "obs2000-steps32": {
+    "counts": {
+      "om4": 4949,
+      "observation": 2000
+    },
+    "score": 1.2457826740749802,
+    "integrated_ratios_to_frozen_climatology": {
+      "sst_rmse": 1.1586454482735276,
+      "velocity_rmse": 1.021093541741388,
+      "eke_rmse": 0.9978572059589416,
+      "ohc_0_700_rmse": 1.4854561997668956,
+      "ohc_700_2000_rmse": 1.4233245992818908
+    },
+    "integrated_mean": 1.2172753990045286,
+    "spectral_mean_error_dex": 1.2742899491454318,
+    "by_field_spectra": {
+      "sst": {
+        "mean_error_dex": 0.26451743216213,
+        "geometric_power_ratio": 0.6659858685981883
+      },
+      "adt": {
+        "mean_error_dex": 0.4033850597042422,
+        "geometric_power_ratio": 0.47594179953554533
+      },
+      "eke": {
+        "mean_error_dex": 3.154967355569923,
+        "geometric_power_ratio": 0.0007056623299753289
+      }
+    }
+  },
+  "obs2000-steps64": {
+    "counts": {
+      "om4": 4949,
+      "observation": 2000
+    },
+    "score": 1.2434503091752114,
+    "integrated_ratios_to_frozen_climatology": {
+      "sst_rmse": 1.156294470384112,
+      "velocity_rmse": 1.0199175698859273,
+      "eke_rmse": 0.9978704357371131,
+      "ohc_0_700_rmse": 1.4731751033761225,
+      "ohc_700_2000_rmse": 1.4178679890370118
+    },
+    "integrated_mean": 1.2130251136840573,
+    "spectral_mean_error_dex": 1.2738755046663657,
+    "by_field_spectra": {
+      "sst": {
+        "mean_error_dex": 0.2643204584645088,
+        "geometric_power_ratio": 0.6665307242711358
+      },
+      "adt": {
+        "mean_error_dex": 0.4023442058208724,
+        "geometric_power_ratio": 0.47677703688424633
+      },
+      "eke": {
+        "mean_error_dex": 3.1549618497137155,
+        "geometric_power_ratio": 0.0007056995743067328
+      }
+    }
+  }
+}

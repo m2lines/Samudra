@@ -3,11 +3,10 @@
 
 # Global diffusion: early checkpoints
 
-**Compute update:** Training is running on eight Torch RTX GPUs. The colleague's
-seed-fund reservation is excluded. B200 qualified faster, but current B200/H200
-queue estimates are later than continuing on RTX. See
-[hardware measurements and migration provenance](global-matched-run.md#alternative-compute-torch).
-Historical reservation plans below are superseded.
+**Latest:** The [2,000-update report](global-2000-results.md) adds the 1k/2k
+comparisons, member maps, finite-ensemble rank diagnostics and the 32/64-step
+sampling check. Training is continuing on ordinary Engaging H200s; the earlier
+Torch and reservation plans below are historical.
 
 ## October 2 update: 250 observation updates
 

@@ -22,14 +22,32 @@ from samudra.experiments.diffusion_latent_maps import grid
 from samudra.experiments.observation_pilot import digest
 
 
+def rank_probabilities(records, task):
+    count = records[0][task]["members"]
+    counts = sum(
+        np.array(row[task]["rank_weights"]).reshape(count + 1, -1).sum(1)
+        for row in records
+    )
+    return counts / counts.sum()
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--compare-root", type=Path)
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
     receipt = json.loads((args.root / "COMPLETE.json").read_text())
     calibration = json.loads((args.root / "calibration.json").read_text())
+    comparison = None
+    if args.compare_root:
+        comparison = json.loads((args.compare_root / "COMPLETE.json").read_text())
+        for key in ("checkpoint_sha256", "training_contract", "split"):
+            if receipt[key] != comparison[key]:
+                raise ValueError(f"Sampling comparison changed {key}")
+        if receipt["files"].keys() != comparison["files"].keys():
+            raise ValueError("Sampling comparison changed evaluation origins")
     spectra = []
     for index, (filename, sha) in enumerate(sorted(receipt["files"].items())):
         path = args.root / filename
@@ -77,6 +95,58 @@ def main():
                         show_loss_boundary=False,
                         distinguish_missing=True,
                     )
+                if index == 0 and comparison is not None:
+                    other_path = args.compare_root / filename
+                    if digest(other_path) != comparison["files"][filename]:
+                        raise ValueError(f"Changed comparison export: {filename}")
+                    with np.load(other_path) as other:
+                        for key in (
+                            "mask",
+                            "lat",
+                            "lon",
+                            "channel_names",
+                            "monthly_reference",
+                            "day30_surface_reference",
+                        ):
+                            np.testing.assert_array_equal(data[key], other[key])
+                        other_members = (
+                            other["day30"][:, channel]
+                            if channel < 2
+                            else other["monthly"][:, monthly_index]
+                        )
+                    fields, titles = [], []
+                    for member_index in (None, 0, 1):
+                        for values, steps in (
+                            (other_members, comparison["sampling_steps"]),
+                            (members, receipt["sampling_steps"]),
+                        ):
+                            fields.append(
+                                values.mean(0)
+                                if member_index is None
+                                else values[member_index]
+                            )
+                            label = (
+                                "Eight-member mean"
+                                if member_index is None
+                                else f"Member {member_index + 1}"
+                            )
+                            titles.append(f"{steps} steps: {label}")
+                    grid(
+                        fields,
+                        titles,
+                        mask,
+                        data["lat"],
+                        args.output / f"sampling-{path.stem}-{name}.png",
+                        f"{path.stem}; matched checkpoint and initial noise; "
+                        + (
+                            "five-day surface bin"
+                            if channel < 2
+                            else "monthly interior"
+                        ),
+                        str(name),
+                        show_loss_boundary=False,
+                        distinguish_missing=True,
+                    )
     (args.output / "spectra.json").write_text(json.dumps(spectra, indent=2))
     fig, axes = plt.subplots(2, 2, figsize=(11, 9), layout="constrained")
     for ax, name in zip(
@@ -116,7 +186,41 @@ def main():
         values["rmse"] = values["mean_squared_error"] ** 0.5
         values["spread"] = values["ensemble_variance"] ** 0.5
         values["spread_rmse"] = values["spread"] / values["rmse"]
+        ranks = rank_probabilities(calibration, task)
+        values["rank_probabilities"] = ranks.tolist()
+        values["outside_ensemble_fraction"] = float(ranks[0] + ranks[-1])
         pooled[task] = values
+    fig, axes = plt.subplots(1, 2, figsize=(10, 4), layout="constrained")
+    for ax, task in zip(axes, ("surface", "interior"), strict=True):
+        ranks = np.array(pooled[task]["rank_probabilities"])
+        positions = np.arange(len(ranks))
+        offset = 0.18 if comparison else 0
+        ax.bar(
+            positions + offset,
+            ranks,
+            width=0.36 if comparison else 0.7,
+            label=f"{receipt['sampling_steps']} steps",
+            color="#d55e00",
+        )
+        if comparison:
+            records = json.loads((args.compare_root / "calibration.json").read_text())
+            ax.bar(
+                positions - offset,
+                rank_probabilities(records, task),
+                width=0.36,
+                label=f"{comparison['sampling_steps']} steps",
+                color="#0072b2",
+            )
+        ax.axhline(1 / len(ranks), color="black", label="Exchangeable reference")
+        ax.set(
+            title=task,
+            xlabel="Observation rank (0 / 8: outside ensemble)",
+            ylabel="Wet-area weighted fraction",
+            xticks=positions,
+        )
+        ax.legend(fontsize=8)
+    save_png(fig, args.output / "rank-histograms.png", dpi=130)
+    plt.close(fig)
     summary = dict(
         counts=receipt["counts"],
         score=receipt["score"],

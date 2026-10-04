@@ -14,7 +14,7 @@ logged separately from physical objectives, as qualified.
 
 Follow-up within the user's authorized iteration window ending Monday October 5
 around 9 a.m. ET. This follows the [original screen](extent-wave-2026-10-02.md)
-and complements the running [mechanism ablations](extent-ablations-2026-10-03.md).
+and complements the completed [mechanism ablations](extent-ablations-2026-10-03.md).
 The original native-patch task hurt observation scores; these experiments test
 whether fine-scale targets help without a regional task switch, and whether
 processor capacity or attention improves transfer. They do not use LLC.

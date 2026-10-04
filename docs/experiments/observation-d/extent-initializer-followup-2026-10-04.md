@@ -3,6 +3,11 @@
 
 # Separating regional initialization quality from gradient interference
 
+**Production is running.** Job 209686 started October 4 at 2:17:31 a.m. ET on
+`b1-14-s1-dgx-01-c04`. At 2:40 a.m., all four arms had finite training updates
+and their first observation validation. This is confirmed execution, not a
+queue estimate; final comparisons await the completed budgets and evaluations.
+
 Predeclared October 4 after completion of the [first mechanism ablations](extent-ablations-2026-10-03.md),
 within the user's autonomous iteration window ending Monday around 9 a.m. ET.
 The strongest patch variant on validation was true-state initialization
@@ -132,3 +137,14 @@ running representation wave 209608. There are no failed attempts or retries.
 
 [Qualification evidence](artifacts/extent-initializer-2026-10-04/qualification-results.json)
 and [exact production receipt](artifacts/extent-initializer-2026-10-04/production-jobs.json).
+
+## First production validation, October 4 at 2:40 a.m. ET
+
+The job started earlier than the tentative queue estimate, without resubmission.
+U-patch-detach reached 147 updates, U-patch-forecast and U-patch-loss01 reached
+146, and L-patch-truth reached 164. Their observation validation composites at
+100 updates were respectively 2.6141, 2.5989, 2.4499 and 2.5664. These early
+values establish functioning training and evaluation, not a result at the
+planned 4,000-update budget. Production overlaps the representation wave as
+declared, with eight GPUs allocated in total. No recovery or protocol change
+was required.

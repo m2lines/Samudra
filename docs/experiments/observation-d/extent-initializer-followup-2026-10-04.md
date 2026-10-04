@@ -3,19 +3,101 @@
 
 # Separating regional initialization quality from gradient interference
 
-**First completed result:** L-patch-truth finished 4,000 updates at 8:11 a.m. ET
-on October 4 and all 96 held-out monthly forecasts. Its validation-selected
-test composite is **0.7670**, compared with 0.7856 for L-multitask and 0.7546
-for L-global. True native initial states reduce the patch penalty by 2.4%
-relative to ordinary local multitasking, but do not beat global-only training.
-The selected checkpoint is update 3,600, validation 0.7754; test integrated
-ratio is 0.8751 and spectral error 0.6589 dex. It still loses to its own
-initialized persistence (0.5636). [Verified first-result evidence](artifacts/extent-initializer-2026-10-04/first-completed-results.json).
+**Completed October 4 at 9:59 a.m. ET.** All four arms finished exactly 4,000
+updates and all 96 held-out monthly forecasts. Native loss weighting helped
+substantially; removing initializer losses or gradients alone did much less.
+No native-patch variant beat the original global-only control.
 
-**Production is running.** Job 209686 started October 4 at 2:17:31 a.m. ET on
-`b1-14-s1-dgx-01-c04`. At 2:40 a.m., all four arms had finite training updates
-and their first observation validation. This is confirmed execution, not a
-queue estimate; final comparisons await the completed budgets and evaluations.
+## Completed comparison
+
+Checkpoint selection uses the unchanged integrated-plus-spectral observation
+validation score. Test composites use the common test-climatology denominators,
+verified identical across arms. These are independent monthly forecasts over
+2015–2022, with surface scores at 5, 15 and 30 days and calendar-month OHC—not
+a continuous eight-year rollout. All named forecasts use the learned initializer
+on observations, including models whose **native training task** uses truth.
+
+| Model | Selected update | Validation | Test composite ↓ | Integrated ratio | Spectral dex | Own initialized persistence |
+|---|---:|---:|---:|---:|---:|---:|
+| U-global | 3,800 | 0.6643 | 0.6784 | 0.8871 | 0.4696 | 0.5886 |
+| U-omit-patch | 2,633 actual / 3,600 scheduled | 0.6866 | 0.7074 | 0.9146 | 0.5003 | 0.5842 |
+| U-patch-loss01 | 3,900 | 0.7101 | 0.7104 | 0.9032 | 0.5176 | 0.5893 |
+| U-patch-truth | 4,000 | 0.7356 | 0.7278 | 0.9039 | 0.5517 | 0.5757 |
+| U-patch-detach | 4,000 | 0.8002 | 0.7964 | 0.9009 | 0.6919 | 0.5829 |
+| U-patch-lr01 | 4,000 | 0.8188 | 0.8115 | 0.9243 | 0.6987 | 0.6176 |
+| U-multitask | 4,000 | 0.8293 | 0.8130 | 0.9167 | 0.7093 | 0.6026 |
+| U-patch-forecast | 4,000 | 0.8370 | 0.8155 | 0.9245 | 0.7065 | 0.5827 |
+| L-global | 3,500 | 0.7603 | 0.7546 | 0.8673 | 0.6419 | 0.5538 |
+| L-patch-truth | 3,600 | 0.7754 | 0.7670 | 0.8751 | 0.6589 | 0.5636 |
+| L-multitask | 3,389 | 0.8097 | 0.7856 | 0.9642 | 0.6070 | 0.5890 |
+
+All models still lose to their own initialized persistence on the composite.
+U-omit-patch finishes 3,000 actual updates because its 1,000 native slots are
+true no-ops; other models finish 4,000. The methods below define every model.
+
+![Initializer and gradient routing](artifacts/extent-initializer-2026-10-04/summary/initializer-and-gradient-routing.png)
+
+![Loss versus learning-rate weighting](artifacts/extent-initializer-2026-10-04/summary/loss-versus-learning-rate-weighting.png)
+
+![Local processor initialization](artifacts/extent-initializer-2026-10-04/summary/local-processor-initialization.png)
+
+The loss-weighted model improves test composite by **12.6%** over U-multitask
+and **12.5%** over the smaller-LR model. It remains **4.7% worse than U-global**
+and approximately equal to omission (0.4% worse). This recovers most of the
+negative-transfer penalty; it does not demonstrate positive native-patch benefit.
+
+Truth versus detached learned initialization uses the same native forecast-only
+objective and gradient routing. Truth improves test score by **8.6%** relative
+to the detached variant, supporting initial-state quality as part of the problem.
+Detaching the initializer improves only 2.0% over original multitasking. Removing
+native reconstruction/completion losses while retaining forecast gradients
+(U-patch-forecast) gives essentially the original result, 0.3% worse. Thus the
+auxiliary initializer losses alone do not explain the observed penalty.
+For the local processor, true states improve on ordinary multitasking by 2.4%
+but remain 1.6% worse than its global-only control. All are single-seed findings.
+
+[All scores](artifacts/extent-initializer-2026-10-04/summary/scores.csv),
+[validation curves](artifacts/extent-initializer-2026-10-04/summary/validation-curves.csv),
+and [raw results with verified lineage](artifacts/extent-initializer-2026-10-04/source-results.json).
+
+## Recorded gradients and clipping
+
+These summaries use every production optimizer update's recorded total-model
+norm after accumulation and loss weighting, before clipping at 1.0. They use no
+new model execution and do not measure Adam moments or parameter displacement.
+
+| Model | Median native gradient norm | Native updates clipped | Median observation gradient norm |
+|---|---:|---:|---:|
+| U-multitask | 1.7106 | 81.5% | 0.2622 |
+| U-patch-lr01 | 2.0221 | 88.3% | 0.2730 |
+| U-patch-loss01 | 0.1879 | 7.0% | 0.2001 |
+| U-patch-truth | 1.0976 | 54.7% | 0.2353 |
+| U-patch-detach | 1.8813 | 85.3% | 0.2555 |
+| U-patch-forecast | 1.5795 | 77.5% | 0.2637 |
+
+Loss weighting changes the gradient entering both clipping and shared Adam
+moments. A smaller task learning rate scales the resulting parameter step but
+leaves that task's gradient contribution to moments intact. The measurements
+are consistent with excessive native-task influence on joint optimization.
+They do not identify Adam interference as the sole cause: the learned states
+and gradients also diverge across runs. Clipping can erase some of the intended
+loss-scale reduction on large-gradient updates. The diagnostic separately
+records early and late schedule windows and all global/observation tasks.
+
+[Read-only diagnostic and event hashes](artifacts/extent-initializer-2026-10-04/optimizer-diagnostic.json).
+
+## Completed execution and provenance
+
+Job **209686** completed with exit 0 after 27,721 seconds on four GPUs:
+**30.80 allocated GPU-hours**, or **31.66** including all qualifications.
+Producer stayed `b8092783bf1e47b6ac670251feba5fbd2902a5bd`. There were no failed
+attempts, retries or scientific protocol changes. Physical checkpoint SHA-256,
+training completion, selection metadata and evaluation fingerprints agree for
+all four arms. Their exact hashes and completion times are in the linked raw
+results. Target-control job 209722 started after this job released its node.
+
+The following methods and progress entries retain the predeclared plan and
+historical snapshots; running or queued statements below describe those times.
 
 Predeclared October 4 after completion of the [first mechanism ablations](extent-ablations-2026-10-03.md),
 within the user's autonomous iteration window ending Monday around 9 a.m. ET.
@@ -31,6 +113,16 @@ overlap that wave on a second four-GPU node, for at most eight production GPUs.
 No existing run or source pin changes.
 
 ## Exact tasks and controls
+
+The original controls U-global and L-global use only global OM4 and observation
+updates, with the U-Net and bounded local processors respectively. U-multitask
+and L-multitask replace half their OM4 updates with the original native-patch
+task. U-omit-patch removes those native slots entirely. U-patch-lr01 retains the
+original native loss but reduces its learning rate tenfold. U-patch-truth uses
+two true full native states and native forecast loss only. Their exact methods
+are in the [screen](extent-wave-2026-10-02.md) and
+[first ablations](extent-ablations-2026-10-03.md). New literal names are defined
+in the table below.
 
 All four arms use seed 1729 and exactly 4,000 optimizer updates: 1,000 global
 OM4, 1,000 native quarter-degree OM4 patches and 2,000 global observation updates.

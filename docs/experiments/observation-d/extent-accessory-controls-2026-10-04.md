@@ -3,12 +3,12 @@
 
 # What information makes the fine-scale accessory target useful?
 
-**Qualified; production queued as job 209722.** All fitting and resume probes
-completed successfully. Production depends on initializer wave 209686 finishing,
-preserving the declared maximum of eight concurrent production GPUs. The
-October 4, 9:04 a.m. ET submission's tentative scheduler estimate was
-7:40 p.m. ET that evening; actual completion of its dependency may change that.
-No production result is claimed yet.
+**Production is running as job 209722.** It started October 4 at 9:59:55 a.m.
+ET after initializer wave 209686 completed, much earlier than the tentative
+scheduler estimate. At 10:07 a.m., all four target controls had finite optimizer
+updates (nine or ten each). All fitting and resume probes completed successfully;
+there have been no retries or changes to active producers. The two production
+allocations retain eight GPUs in total. No final result is claimed yet.
 
 Predeclared October 4 around 8:50 a.m. ET, within the authorized iteration
 window ending Monday around 9 a.m. ET. Completed validation, before collecting

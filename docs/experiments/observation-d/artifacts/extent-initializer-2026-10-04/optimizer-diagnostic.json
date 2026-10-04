@@ -1,0 +1,1510 @@
+{
+  "collected_utc": "2026-10-04T14:05:39.285056+00:00",
+  "script_sha256": "4555a7fa3e3bf5368f9f3d2ab1fb01aa93fdf322a15110c2530fb8f568ee9d29",
+  "protocol": "Recorded total-model gradient norms after accumulation and loss weighting, before clipping at 1.0. Adam moments and actual parameter displacements are not measured. Phases use schedule slots, not wall time or observation exposure.",
+  "arms": {
+    "U-global": {
+      "root": "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-02-extent-om4/runtime-v2/U-global",
+      "events_sha256": "8b2af6e5dd81229e481a13797a433d769771898b007c2993ff393590b3ef8f09",
+      "manifest_sha256": "2089b5c94cd7243a706b7fa637b58b527f93bf9d25bb5aafd6784bea53b3cdfe",
+      "training_complete": {
+        "global_step": 4000,
+        "task_counts": {
+          "om4": 2000,
+          "observation": 2000
+        },
+        "best_score": 0.6643363756877559,
+        "best_checkpoint_sha256": "76058c08c74a92942612aedd75ee961a1c53125076dd449c77007710c05ea4eb",
+        "completed_utc": "2026-10-03T12:04:01.452481+00:00"
+      },
+      "actual_updates": 4000,
+      "summaries": [
+        {
+          "phase": "all",
+          "task": "observation",
+          "updates": 2000,
+          "gradient_norm_median": 0.13410305231809616,
+          "gradient_norm_mean": 0.17810317656956612,
+          "gradient_norm_max": 3.972898244857788,
+          "clipping_fraction": 0.0125,
+          "mean_clip_multiplier": 0.9955810903107624,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "all",
+          "task": "global",
+          "updates": 2000,
+          "gradient_norm_median": 0.21331291645765305,
+          "gradient_norm_mean": 0.2892173081152141,
+          "gradient_norm_max": 13.914320945739746,
+          "clipping_fraction": 0.019,
+          "mean_clip_multiplier": 0.9945146911555751,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "early",
+          "task": "observation",
+          "updates": 218,
+          "gradient_norm_median": 0.33275796473026276,
+          "gradient_norm_mean": 0.5098578594966766,
+          "gradient_norm_max": 3.972898244857788,
+          "clipping_fraction": 0.11467889908256881,
+          "mean_clip_multiplier": 0.9594595441354343,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "early",
+          "task": "global",
+          "updates": 782,
+          "gradient_norm_median": 0.3111720085144043,
+          "gradient_norm_mean": 0.4388895095290278,
+          "gradient_norm_max": 13.914320945739746,
+          "clipping_fraction": 0.04859335038363171,
+          "mean_clip_multiplier": 0.9859710771242329,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "late",
+          "task": "observation",
+          "updates": 782,
+          "gradient_norm_median": 0.11953714489936829,
+          "gradient_norm_mean": 0.12641024884417693,
+          "gradient_norm_max": 0.27215948700904846,
+          "clipping_fraction": 0.0,
+          "mean_clip_multiplier": 1.0,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "late",
+          "task": "global",
+          "updates": 218,
+          "gradient_norm_median": 0.24186589568853378,
+          "gradient_norm_mean": 0.2641083279265723,
+          "gradient_norm_max": 0.7001106142997742,
+          "clipping_fraction": 0.0,
+          "mean_clip_multiplier": 1.0,
+          "learning_rates": [
+            0.0001
+          ]
+        }
+      ]
+    },
+    "U-multitask": {
+      "root": "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-02-extent-om4/runtime-v2/U-multitask",
+      "events_sha256": "fef2224a1073d3f067c774b5f16566cba7f26cb6eb70c09d2e6a68c6b758b2d9",
+      "manifest_sha256": "cc0b1808d743545870a9d52fc628986e08ca1827d42d7f273a54a19851863e85",
+      "training_complete": {
+        "global_step": 4000,
+        "task_counts": {
+          "om4": 2000,
+          "observation": 2000
+        },
+        "best_score": 0.8292873359541367,
+        "best_checkpoint_sha256": "ec8d5969db37ae195aa50d9d3c79e1828765e619cbe2eb9736606d4f5247ed1d",
+        "completed_utc": "2026-10-03T13:38:54.656957+00:00"
+      },
+      "actual_updates": 4000,
+      "summaries": [
+        {
+          "phase": "all",
+          "task": "observation",
+          "updates": 2000,
+          "gradient_norm_median": 0.26221537590026855,
+          "gradient_norm_mean": 0.32441394755244257,
+          "gradient_norm_max": 4.565264701843262,
+          "clipping_fraction": 0.023,
+          "mean_clip_multiplier": 0.9921239403135822,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "all",
+          "task": "global",
+          "updates": 1000,
+          "gradient_norm_median": 0.5260855853557587,
+          "gradient_norm_mean": 0.6380244361758232,
+          "gradient_norm_max": 18.00817108154297,
+          "clipping_fraction": 0.103,
+          "mean_clip_multiplier": 0.975118300830573,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "all",
+          "task": "patch",
+          "updates": 1000,
+          "gradient_norm_median": 1.7106040120124817,
+          "gradient_norm_mean": 3.5196438391208646,
+          "gradient_norm_max": 103.81773376464844,
+          "clipping_fraction": 0.815,
+          "mean_clip_multiplier": 0.5845214098165776,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "early",
+          "task": "observation",
+          "updates": 218,
+          "gradient_norm_median": 0.6236434578895569,
+          "gradient_norm_mean": 0.8279090240734432,
+          "gradient_norm_max": 4.565264701843262,
+          "clipping_fraction": 0.21100917431192662,
+          "mean_clip_multiplier": 0.9277425716842401,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "early",
+          "task": "global",
+          "updates": 391,
+          "gradient_norm_median": 0.7475054860115051,
+          "gradient_norm_mean": 0.9105563192721218,
+          "gradient_norm_max": 18.00817108154297,
+          "clipping_fraction": 0.25831202046035806,
+          "mean_clip_multiplier": 0.9369079351310946,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "early",
+          "task": "patch",
+          "updates": 391,
+          "gradient_norm_median": 2.6110270023345947,
+          "gradient_norm_mean": 5.365693526042392,
+          "gradient_norm_max": 103.81773376464844,
+          "clipping_fraction": 0.9616368286445013,
+          "mean_clip_multiplier": 0.42328989234489095,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "late",
+          "task": "observation",
+          "updates": 782,
+          "gradient_norm_median": 0.20728834718465805,
+          "gradient_norm_mean": 0.21302135107691025,
+          "gradient_norm_max": 0.5086473226547241,
+          "clipping_fraction": 0.0,
+          "mean_clip_multiplier": 1.0,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "late",
+          "task": "global",
+          "updates": 109,
+          "gradient_norm_median": 0.4350886344909668,
+          "gradient_norm_mean": 0.4574718158179467,
+          "gradient_norm_max": 0.8339884281158447,
+          "clipping_fraction": 0.0,
+          "mean_clip_multiplier": 1.0,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "late",
+          "task": "patch",
+          "updates": 109,
+          "gradient_norm_median": 1.3341065645217896,
+          "gradient_norm_mean": 1.8358062904909116,
+          "gradient_norm_max": 12.97352123260498,
+          "clipping_fraction": 0.6788990825688074,
+          "mean_clip_multiplier": 0.7143766844080611,
+          "learning_rates": [
+            0.0001
+          ]
+        }
+      ]
+    },
+    "L-global": {
+      "root": "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-02-extent-om4/runtime-v2/L-global",
+      "events_sha256": "6cd9b1a48bc9bb31bde95a14ac515385339f93073c95113d3349851f62d31413",
+      "manifest_sha256": "28b054599b19dcafd4feb99e1152c11c5b2ba1b8dc7d7a966834e4406bc55487",
+      "training_complete": {
+        "global_step": 4000,
+        "task_counts": {
+          "om4": 2000,
+          "observation": 2000
+        },
+        "best_score": 0.7603463681577942,
+        "best_checkpoint_sha256": "8fb9e6950093dc1d5de8e50eb5272747380ee1e68cb19f9fe60a78e92d3c95f5",
+        "completed_utc": "2026-10-03T10:23:57.217766+00:00"
+      },
+      "actual_updates": 4000,
+      "summaries": [
+        {
+          "phase": "all",
+          "task": "observation",
+          "updates": 2000,
+          "gradient_norm_median": 0.3476403057575226,
+          "gradient_norm_mean": 0.41266196700558067,
+          "gradient_norm_max": 2.460803985595703,
+          "clipping_fraction": 0.025,
+          "mean_clip_multiplier": 0.9947398903835326,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "all",
+          "task": "global",
+          "updates": 2000,
+          "gradient_norm_median": 0.5626972019672394,
+          "gradient_norm_mean": 0.6498680483140051,
+          "gradient_norm_max": 3.0642428398132324,
+          "clipping_fraction": 0.1535,
+          "mean_clip_multiplier": 0.9662036088557584,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "early",
+          "task": "observation",
+          "updates": 218,
+          "gradient_norm_median": 0.7210102677345276,
+          "gradient_norm_mean": 0.7924425956032691,
+          "gradient_norm_max": 2.460803985595703,
+          "clipping_fraction": 0.20642201834862386,
+          "mean_clip_multiplier": 0.9530075544956578,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "early",
+          "task": "global",
+          "updates": 782,
+          "gradient_norm_median": 0.6801572442054749,
+          "gradient_norm_mean": 0.8031005162336028,
+          "gradient_norm_max": 3.0642428398132324,
+          "clipping_fraction": 0.26342710997442453,
+          "mean_clip_multiplier": 0.9334106789239712,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "late",
+          "task": "observation",
+          "updates": 782,
+          "gradient_norm_median": 0.35153041779994965,
+          "gradient_norm_mean": 0.39311311664559956,
+          "gradient_norm_max": 1.0536372661590576,
+          "clipping_fraction": 0.0025575447570332483,
+          "mean_clip_multiplier": 0.9999156544524065,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "late",
+          "task": "global",
+          "updates": 218,
+          "gradient_norm_median": 0.5537793636322021,
+          "gradient_norm_mean": 0.6100596663191777,
+          "gradient_norm_max": 1.4419485330581665,
+          "clipping_fraction": 0.0871559633027523,
+          "mean_clip_multiplier": 0.9876981789975443,
+          "learning_rates": [
+            0.0001
+          ]
+        }
+      ]
+    },
+    "L-multitask": {
+      "root": "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-02-extent-om4/runtime-v2/L-multitask",
+      "events_sha256": "2caa5e2c8e388dc320665472822ba44451d1119204a3ebcf48f383fa3e2d17be",
+      "manifest_sha256": "1dd79301051fa7985259c5a87a585b13bbcf4edd56c53c0bdf04eeb594ad274b",
+      "training_complete": {
+        "global_step": 4000,
+        "task_counts": {
+          "om4": 2000,
+          "observation": 2000
+        },
+        "best_score": 0.809745522105477,
+        "best_checkpoint_sha256": "3934584f8d1c6d4593156cb39f08d1fc532f1dceaebb7d0953a8574da66cb36f",
+        "completed_utc": "2026-10-03T12:15:59.613820+00:00"
+      },
+      "actual_updates": 4000,
+      "summaries": [
+        {
+          "phase": "all",
+          "task": "observation",
+          "updates": 2000,
+          "gradient_norm_median": 0.4800889492034912,
+          "gradient_norm_mean": 0.5647752878591418,
+          "gradient_norm_max": 3.216902256011963,
+          "clipping_fraction": 0.079,
+          "mean_clip_multiplier": 0.9798272858262651,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "all",
+          "task": "global",
+          "updates": 1000,
+          "gradient_norm_median": 0.837242066860199,
+          "gradient_norm_mean": 0.9361948866844177,
+          "gradient_norm_max": 5.08241081237793,
+          "clipping_fraction": 0.332,
+          "mean_clip_multiplier": 0.9196273327319412,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "all",
+          "task": "patch",
+          "updates": 1000,
+          "gradient_norm_median": 1.5915926694869995,
+          "gradient_norm_mean": 3.711123988747597,
+          "gradient_norm_max": 64.79806518554688,
+          "clipping_fraction": 0.787,
+          "mean_clip_multiplier": 0.603991887890735,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "early",
+          "task": "observation",
+          "updates": 218,
+          "gradient_norm_median": 1.1202754974365234,
+          "gradient_norm_mean": 1.2071733214986433,
+          "gradient_norm_max": 3.216902256011963,
+          "clipping_fraction": 0.6100917431192661,
+          "mean_clip_multiplier": 0.829344847938734,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "early",
+          "task": "global",
+          "updates": 391,
+          "gradient_norm_median": 1.041149377822876,
+          "gradient_norm_mean": 1.1598493066590156,
+          "gradient_norm_max": 5.08241081237793,
+          "clipping_fraction": 0.5242966751918159,
+          "mean_clip_multiplier": 0.8516362209056455,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "early",
+          "task": "patch",
+          "updates": 391,
+          "gradient_norm_median": 2.031278371810913,
+          "gradient_norm_mean": 4.467941053611848,
+          "gradient_norm_max": 64.79806518554688,
+          "clipping_fraction": 0.9028132992327366,
+          "mean_clip_multiplier": 0.5038990133713951,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "late",
+          "task": "observation",
+          "updates": 782,
+          "gradient_norm_median": 0.39585335552692413,
+          "gradient_norm_mean": 0.4188743852402853,
+          "gradient_norm_max": 1.0288052558898926,
+          "clipping_fraction": 0.0025575447570332483,
+          "mean_clip_multiplier": 0.9999483695708035,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "late",
+          "task": "global",
+          "updates": 109,
+          "gradient_norm_median": 0.682687520980835,
+          "gradient_norm_mean": 0.7320321396403356,
+          "gradient_norm_max": 1.5948915481567383,
+          "clipping_fraction": 0.1559633027522936,
+          "mean_clip_multiplier": 0.9780550371357599,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "late",
+          "task": "patch",
+          "updates": 109,
+          "gradient_norm_median": 1.2440111637115479,
+          "gradient_norm_mean": 3.168078426374208,
+          "gradient_norm_max": 54.26195526123047,
+          "clipping_fraction": 0.6605504587155964,
+          "mean_clip_multiplier": 0.7101523189869074,
+          "learning_rates": [
+            0.0001
+          ]
+        }
+      ]
+    },
+    "U-omit-patch": {
+      "root": "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-ablations/U-omit-patch",
+      "events_sha256": "6316e8cd96887947f66669d77db00aaa4984fdce81ba2714318a28673012d796",
+      "manifest_sha256": "6c2fbb5cb99badea0ff5a42e2e62d88473d9e36f9bacb13af1a447be901c5d2f",
+      "training_complete": {
+        "global_step": 4000,
+        "task_counts": {
+          "om4": 2000,
+          "observation": 2000
+        },
+        "best_score": 0.6866062618090712,
+        "best_checkpoint_sha256": "a3dac2c96aadd72d16dead0d2dc204f7e3b5401ab610d8a2b6e8c9172f99b05b",
+        "completed_utc": "2026-10-04T03:12:34.163150+00:00"
+      },
+      "actual_updates": 3000,
+      "summaries": [
+        {
+          "phase": "all",
+          "task": "observation",
+          "updates": 2000,
+          "gradient_norm_median": 0.16082341223955154,
+          "gradient_norm_mean": 0.2036144458912313,
+          "gradient_norm_max": 5.163539886474609,
+          "clipping_fraction": 0.012,
+          "mean_clip_multiplier": 0.9946764746634187,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "all",
+          "task": "global",
+          "updates": 1000,
+          "gradient_norm_median": 0.303968146443367,
+          "gradient_norm_mean": 0.4093281645923853,
+          "gradient_norm_max": 14.093429565429688,
+          "clipping_fraction": 0.029,
+          "mean_clip_multiplier": 0.9894057084764574,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "early",
+          "task": "observation",
+          "updates": 218,
+          "gradient_norm_median": 0.29287245869636536,
+          "gradient_norm_mean": 0.5390925319916612,
+          "gradient_norm_max": 5.163539886474609,
+          "clipping_fraction": 0.11009174311926606,
+          "mean_clip_multiplier": 0.9511603180130159,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "early",
+          "task": "global",
+          "updates": 391,
+          "gradient_norm_median": 0.3484022319316864,
+          "gradient_norm_mean": 0.5449473325477536,
+          "gradient_norm_max": 14.093429565429688,
+          "clipping_fraction": 0.0741687979539642,
+          "mean_clip_multiplier": 0.9729046252594816,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "late",
+          "task": "observation",
+          "updates": 782,
+          "gradient_norm_median": 0.11373623088002205,
+          "gradient_norm_mean": 0.12130468551193357,
+          "gradient_norm_max": 0.3909797668457031,
+          "clipping_fraction": 0.0,
+          "mean_clip_multiplier": 1.0,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "late",
+          "task": "global",
+          "updates": 109,
+          "gradient_norm_median": 0.3177100419998169,
+          "gradient_norm_mean": 0.34447105885098833,
+          "gradient_norm_max": 0.9304865598678589,
+          "clipping_fraction": 0.0,
+          "mean_clip_multiplier": 1.0,
+          "learning_rates": [
+            0.0001
+          ]
+        }
+      ]
+    },
+    "U-patch-lr01": {
+      "root": "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-ablations/U-patch-lr01",
+      "events_sha256": "133e3c70f01d10678aed4cd4c08f8fd9a71f0af3e00a524fdf2b8bd89a6b790e",
+      "manifest_sha256": "92c0b7afc4de39f361e066dfa1b92d4918d56eeb293bf889cc77e05f96ba17d9",
+      "training_complete": {
+        "global_step": 4000,
+        "task_counts": {
+          "om4": 2000,
+          "observation": 2000
+        },
+        "best_score": 0.8188413154484603,
+        "best_checkpoint_sha256": "ba0dc6540a5c63810f9eb49523bfeb863ac39fd32673d7faab331bbe12ec55af",
+        "completed_utc": "2026-10-04T05:46:19.084206+00:00"
+      },
+      "actual_updates": 4000,
+      "summaries": [
+        {
+          "phase": "all",
+          "task": "observation",
+          "updates": 2000,
+          "gradient_norm_median": 0.27299050986766815,
+          "gradient_norm_mean": 0.3335707674138248,
+          "gradient_norm_max": 4.743651390075684,
+          "clipping_fraction": 0.02,
+          "mean_clip_multiplier": 0.991601587797329,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "all",
+          "task": "global",
+          "updates": 1000,
+          "gradient_norm_median": 0.49472078680992126,
+          "gradient_norm_mean": 0.6108594662100076,
+          "gradient_norm_max": 14.53381061553955,
+          "clipping_fraction": 0.087,
+          "mean_clip_multiplier": 0.9756981551093987,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "all",
+          "task": "patch",
+          "updates": 1000,
+          "gradient_norm_median": 2.0220673084259033,
+          "gradient_norm_mean": 4.35231209731102,
+          "gradient_norm_max": 114.60929870605469,
+          "clipping_fraction": 0.883,
+          "mean_clip_multiplier": 0.5196781372364702,
+          "learning_rates": [
+            1e-05
+          ]
+        },
+        {
+          "phase": "early",
+          "task": "observation",
+          "updates": 218,
+          "gradient_norm_median": 0.6552382409572601,
+          "gradient_norm_mean": 0.851816842041978,
+          "gradient_norm_max": 4.743651390075684,
+          "clipping_fraction": 0.1834862385321101,
+          "mean_clip_multiplier": 0.9229503467644857,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "early",
+          "task": "global",
+          "updates": 391,
+          "gradient_norm_median": 0.6953007578849792,
+          "gradient_norm_mean": 0.8678350854102913,
+          "gradient_norm_max": 14.53381061553955,
+          "clipping_fraction": 0.21739130434782608,
+          "mean_clip_multiplier": 0.9383570245316182,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "early",
+          "task": "patch",
+          "updates": 391,
+          "gradient_norm_median": 3.1161551475524902,
+          "gradient_norm_mean": 6.260397719757636,
+          "gradient_norm_max": 83.47291564941406,
+          "clipping_fraction": 0.9872122762148338,
+          "mean_clip_multiplier": 0.3563365283422736,
+          "learning_rates": [
+            1e-05
+          ]
+        },
+        {
+          "phase": "late",
+          "task": "observation",
+          "updates": 782,
+          "gradient_norm_median": 0.2072521150112152,
+          "gradient_norm_mean": 0.21288217445049445,
+          "gradient_norm_max": 0.4292318522930145,
+          "clipping_fraction": 0.0,
+          "mean_clip_multiplier": 1.0,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "late",
+          "task": "global",
+          "updates": 109,
+          "gradient_norm_median": 0.4953432083129883,
+          "gradient_norm_mean": 0.5247292859018395,
+          "gradient_norm_max": 1.2488133907318115,
+          "clipping_fraction": 0.01834862385321101,
+          "mean_clip_multiplier": 0.9981702616287704,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "late",
+          "task": "patch",
+          "updates": 109,
+          "gradient_norm_median": 1.52580726146698,
+          "gradient_norm_mean": 4.40290461056823,
+          "gradient_norm_max": 114.60929870605469,
+          "clipping_fraction": 0.8073394495412844,
+          "mean_clip_multiplier": 0.6352264166201455,
+          "learning_rates": [
+            1e-05
+          ]
+        }
+      ]
+    },
+    "U-patch-truth": {
+      "root": "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-ablations/U-patch-truth",
+      "events_sha256": "61682522c838aabe589fdca9369541f1ca7bfc9571e43195e19ada19e520286f",
+      "manifest_sha256": "d5073c866d615b6dcd84a4520fed6be75e437c0b3b2aabff6adc483ec339c7ac",
+      "training_complete": {
+        "global_step": 4000,
+        "task_counts": {
+          "om4": 2000,
+          "observation": 2000
+        },
+        "best_score": 0.7355708673395619,
+        "best_checkpoint_sha256": "246f278137af98977f494a3c67a41ff11e7b4c3595b54b21725c03f0d348de02",
+        "completed_utc": "2026-10-04T05:46:20.126345+00:00"
+      },
+      "actual_updates": 4000,
+      "summaries": [
+        {
+          "phase": "all",
+          "task": "observation",
+          "updates": 2000,
+          "gradient_norm_median": 0.23526466637849808,
+          "gradient_norm_mean": 0.29595079422742127,
+          "gradient_norm_max": 5.873873710632324,
+          "clipping_fraction": 0.023,
+          "mean_clip_multiplier": 0.9923081828624157,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "all",
+          "task": "global",
+          "updates": 1000,
+          "gradient_norm_median": 0.4693667143583298,
+          "gradient_norm_mean": 0.6027734442800283,
+          "gradient_norm_max": 18.396284103393555,
+          "clipping_fraction": 0.093,
+          "mean_clip_multiplier": 0.9744606983203516,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "all",
+          "task": "patch",
+          "updates": 1000,
+          "gradient_norm_median": 1.0976257920265198,
+          "gradient_norm_mean": 2.102988424807787,
+          "gradient_norm_max": 26.77726173400879,
+          "clipping_fraction": 0.547,
+          "mean_clip_multiplier": 0.7329035156319966,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "early",
+          "task": "observation",
+          "updates": 218,
+          "gradient_norm_median": 0.5408607721328735,
+          "gradient_norm_mean": 0.7857912063872049,
+          "gradient_norm_max": 5.873873710632324,
+          "clipping_fraction": 0.21100917431192662,
+          "mean_clip_multiplier": 0.9294328702973919,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "early",
+          "task": "global",
+          "updates": 391,
+          "gradient_norm_median": 0.6548606753349304,
+          "gradient_norm_mean": 0.8668220611408238,
+          "gradient_norm_max": 18.396284103393555,
+          "clipping_fraction": 0.23529411764705882,
+          "mean_clip_multiplier": 0.9347626126302597,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "early",
+          "task": "patch",
+          "updates": 391,
+          "gradient_norm_median": 1.6536434888839722,
+          "gradient_norm_mean": 2.841384907284051,
+          "gradient_norm_max": 26.77726173400879,
+          "clipping_fraction": 0.7595907928388747,
+          "mean_clip_multiplier": 0.6085233050164871,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "late",
+          "task": "observation",
+          "updates": 782,
+          "gradient_norm_median": 0.19333519786596298,
+          "gradient_norm_mean": 0.20575249182713,
+          "gradient_norm_max": 0.4231138527393341,
+          "clipping_fraction": 0.0,
+          "mean_clip_multiplier": 1.0,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "late",
+          "task": "global",
+          "updates": 109,
+          "gradient_norm_median": 0.4771963357925415,
+          "gradient_norm_mean": 0.49013641353594056,
+          "gradient_norm_max": 0.9851779937744141,
+          "clipping_fraction": 0.0,
+          "mean_clip_multiplier": 1.0,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "late",
+          "task": "patch",
+          "updates": 109,
+          "gradient_norm_median": 0.9669371247291565,
+          "gradient_norm_mean": 1.5605679801024428,
+          "gradient_norm_max": 12.784844398498535,
+          "clipping_fraction": 0.45871559633027525,
+          "mean_clip_multiplier": 0.796941746610401,
+          "learning_rates": [
+            0.0001
+          ]
+        }
+      ]
+    },
+    "U-patch-1step": {
+      "root": "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-ablations/U-patch-1step",
+      "events_sha256": "de66fa9e5ff064adcecea97dd55e4033cb9d83f04b72f17a915bd63d44786a46",
+      "manifest_sha256": "54ce41ab9650738334e811ca3b92d4dc4c8cbaa0a5b26acf82a33d47f07e468f",
+      "training_complete": {
+        "global_step": 4000,
+        "task_counts": {
+          "om4": 2000,
+          "observation": 2000
+        },
+        "best_score": 0.8404497489625037,
+        "best_checkpoint_sha256": "198101849c4141fc8baee1360acc74eedfa46ab3c532a2004c3d22e39bfd7472",
+        "completed_utc": "2026-10-04T05:46:19.795489+00:00"
+      },
+      "actual_updates": 4000,
+      "summaries": [
+        {
+          "phase": "all",
+          "task": "observation",
+          "updates": 2000,
+          "gradient_norm_median": 0.25666312873363495,
+          "gradient_norm_mean": 0.3129684041403234,
+          "gradient_norm_max": 4.871832370758057,
+          "clipping_fraction": 0.0205,
+          "mean_clip_multiplier": 0.9928827987304407,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "all",
+          "task": "global",
+          "updates": 1000,
+          "gradient_norm_median": 0.4825243353843689,
+          "gradient_norm_mean": 0.6003031045496464,
+          "gradient_norm_max": 26.147857666015625,
+          "clipping_fraction": 0.074,
+          "mean_clip_multiplier": 0.978770133487888,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "all",
+          "task": "patch",
+          "updates": 1000,
+          "gradient_norm_median": 1.2170903086662292,
+          "gradient_norm_mean": 2.977269044369459,
+          "gradient_norm_max": 73.89224243164062,
+          "clipping_fraction": 0.598,
+          "mean_clip_multiplier": 0.7018010066221071,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "early",
+          "task": "observation",
+          "updates": 218,
+          "gradient_norm_median": 0.57631054520607,
+          "gradient_norm_mean": 0.7792020531695917,
+          "gradient_norm_max": 4.871832370758057,
+          "clipping_fraction": 0.18807339449541285,
+          "mean_clip_multiplier": 0.9347045755086303,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "early",
+          "task": "global",
+          "updates": 391,
+          "gradient_norm_median": 0.5926670432090759,
+          "gradient_norm_mean": 0.8335516062538947,
+          "gradient_norm_max": 26.147857666015625,
+          "clipping_fraction": 0.17647058823529413,
+          "mean_clip_multiplier": 0.9469508586195232,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "early",
+          "task": "patch",
+          "updates": 391,
+          "gradient_norm_median": 1.9284019470214844,
+          "gradient_norm_mean": 4.520923700783869,
+          "gradient_norm_max": 73.89224243164062,
+          "clipping_fraction": 0.8414322250639387,
+          "mean_clip_multiplier": 0.5392544250756997,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "late",
+          "task": "observation",
+          "updates": 782,
+          "gradient_norm_median": 0.20851901173591614,
+          "gradient_norm_mean": 0.22241183051177302,
+          "gradient_norm_max": 0.6162890195846558,
+          "clipping_fraction": 0.0,
+          "mean_clip_multiplier": 1.0,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "late",
+          "task": "global",
+          "updates": 109,
+          "gradient_norm_median": 0.4079618453979492,
+          "gradient_norm_mean": 0.45195392389363104,
+          "gradient_norm_max": 1.1612831354141235,
+          "clipping_fraction": 0.01834862385321101,
+          "mean_clip_multiplier": 0.9983358395339528,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "late",
+          "task": "patch",
+          "updates": 109,
+          "gradient_norm_median": 0.786072313785553,
+          "gradient_norm_mean": 1.4218026998393032,
+          "gradient_norm_max": 19.75899314880371,
+          "clipping_fraction": 0.4036697247706422,
+          "mean_clip_multiplier": 0.839884384954582,
+          "learning_rates": [
+            0.0001
+          ]
+        }
+      ]
+    },
+    "U-patch-detach": {
+      "root": "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-initializer/U-patch-detach",
+      "events_sha256": "56c607e548b5ee96d5ff5696c38432f6810090adc59a8bcac5540d6ff6b7661a",
+      "manifest_sha256": "b6b8d59bcc40c9c71afaf1a4da5ab8c19df43f3c7b0d71d34f867505ea1bbe95",
+      "training_complete": {
+        "global_step": 4000,
+        "task_counts": {
+          "om4": 2000,
+          "observation": 2000
+        },
+        "best_score": 0.8002388086437582,
+        "best_checkpoint_sha256": "d1852d93e09fc3b19062420a1deb55c10a335f7f9ad72c779ab748df4e9a3301",
+        "completed_utc": "2026-10-04T13:53:04.505117+00:00"
+      },
+      "actual_updates": 4000,
+      "summaries": [
+        {
+          "phase": "all",
+          "task": "observation",
+          "updates": 2000,
+          "gradient_norm_median": 0.2554697096347809,
+          "gradient_norm_mean": 0.3229418564811349,
+          "gradient_norm_max": 4.8595967292785645,
+          "clipping_fraction": 0.023,
+          "mean_clip_multiplier": 0.991491001225172,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "all",
+          "task": "global",
+          "updates": 1000,
+          "gradient_norm_median": 0.5576944649219513,
+          "gradient_norm_mean": 0.6748356053233147,
+          "gradient_norm_max": 15.709089279174805,
+          "clipping_fraction": 0.134,
+          "mean_clip_multiplier": 0.9670042146166208,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "all",
+          "task": "patch",
+          "updates": 1000,
+          "gradient_norm_median": 1.88126540184021,
+          "gradient_norm_mean": 3.449857162028551,
+          "gradient_norm_max": 67.24153137207031,
+          "clipping_fraction": 0.853,
+          "mean_clip_multiplier": 0.5470252695127767,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "early",
+          "task": "observation",
+          "updates": 218,
+          "gradient_norm_median": 0.5992063581943512,
+          "gradient_norm_mean": 0.8311895863452089,
+          "gradient_norm_max": 4.8595967292785645,
+          "clipping_fraction": 0.21100917431192662,
+          "mean_clip_multiplier": 0.9219357910566239,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "early",
+          "task": "global",
+          "updates": 391,
+          "gradient_norm_median": 0.791462779045105,
+          "gradient_norm_mean": 0.9446995853234434,
+          "gradient_norm_max": 15.709089279174805,
+          "clipping_fraction": 0.30434782608695654,
+          "mean_clip_multiplier": 0.9207098839250513,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "early",
+          "task": "patch",
+          "updates": 391,
+          "gradient_norm_median": 2.8831684589385986,
+          "gradient_norm_mean": 4.845862780385615,
+          "gradient_norm_max": 67.24153137207031,
+          "clipping_fraction": 0.9514066496163683,
+          "mean_clip_multiplier": 0.40642045218155426,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "late",
+          "task": "observation",
+          "updates": 782,
+          "gradient_norm_median": 0.19603432714939117,
+          "gradient_norm_mean": 0.20744142557501488,
+          "gradient_norm_max": 0.48521026968955994,
+          "clipping_fraction": 0.0,
+          "mean_clip_multiplier": 1.0,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "late",
+          "task": "global",
+          "updates": 109,
+          "gradient_norm_median": 0.4501514732837677,
+          "gradient_norm_mean": 0.48072892167699444,
+          "gradient_norm_max": 0.9461798667907715,
+          "clipping_fraction": 0.0,
+          "mean_clip_multiplier": 1.0,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "late",
+          "task": "patch",
+          "updates": 109,
+          "gradient_norm_median": 1.4938569068908691,
+          "gradient_norm_mean": 2.217203712518062,
+          "gradient_norm_max": 23.063749313354492,
+          "clipping_fraction": 0.7522935779816514,
+          "mean_clip_multiplier": 0.6538448515212408,
+          "learning_rates": [
+            0.0001
+          ]
+        }
+      ]
+    },
+    "U-patch-forecast": {
+      "root": "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-initializer/U-patch-forecast",
+      "events_sha256": "a7f5c06c9844e2e312db1bfea23cfbead3ba541ca2fb92b1fa177224c4a518e2",
+      "manifest_sha256": "3e67d5b14fad3f6c75bd61c2cc5de3f5fff55f562d2e5ed46c8178ba836f7694",
+      "training_complete": {
+        "global_step": 4000,
+        "task_counts": {
+          "om4": 2000,
+          "observation": 2000
+        },
+        "best_score": 0.8369908019338773,
+        "best_checkpoint_sha256": "cb78ba7392b8618b782051c69fb1ef0fdce79a09bd17db34c89114e062365d8d",
+        "completed_utc": "2026-10-04T13:56:24.250112+00:00"
+      },
+      "actual_updates": 4000,
+      "summaries": [
+        {
+          "phase": "all",
+          "task": "observation",
+          "updates": 2000,
+          "gradient_norm_median": 0.2636757642030716,
+          "gradient_norm_mean": 0.3252584307156503,
+          "gradient_norm_max": 4.582434177398682,
+          "clipping_fraction": 0.0225,
+          "mean_clip_multiplier": 0.9920429075044482,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "all",
+          "task": "global",
+          "updates": 1000,
+          "gradient_norm_median": 0.5208947956562042,
+          "gradient_norm_mean": 0.6399834993183613,
+          "gradient_norm_max": 17.844446182250977,
+          "clipping_fraction": 0.095,
+          "mean_clip_multiplier": 0.972278580270268,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "all",
+          "task": "patch",
+          "updates": 1000,
+          "gradient_norm_median": 1.5795239806175232,
+          "gradient_norm_mean": 3.2702694090604782,
+          "gradient_norm_max": 131.8673553466797,
+          "clipping_fraction": 0.775,
+          "mean_clip_multiplier": 0.6137415273267588,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "early",
+          "task": "observation",
+          "updates": 218,
+          "gradient_norm_median": 0.6088580191135406,
+          "gradient_norm_mean": 0.8259067778740454,
+          "gradient_norm_max": 4.582434177398682,
+          "clipping_fraction": 0.20642201834862386,
+          "mean_clip_multiplier": 0.9269991514169559,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "early",
+          "task": "global",
+          "updates": 391,
+          "gradient_norm_median": 0.706413209438324,
+          "gradient_norm_mean": 0.914744419667422,
+          "gradient_norm_max": 17.844446182250977,
+          "clipping_fraction": 0.23785166240409208,
+          "mean_clip_multiplier": 0.9291969172391127,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "early",
+          "task": "patch",
+          "updates": 391,
+          "gradient_norm_median": 2.420197010040283,
+          "gradient_norm_mean": 5.025897470352899,
+          "gradient_norm_max": 131.8673553466797,
+          "clipping_fraction": 0.9386189258312021,
+          "mean_clip_multiplier": 0.4505561836491001,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "late",
+          "task": "observation",
+          "updates": 782,
+          "gradient_norm_median": 0.20575238019227982,
+          "gradient_norm_mean": 0.21367928473388448,
+          "gradient_norm_max": 0.4383109211921692,
+          "clipping_fraction": 0.0,
+          "mean_clip_multiplier": 1.0,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "late",
+          "task": "global",
+          "updates": 109,
+          "gradient_norm_median": 0.44521474838256836,
+          "gradient_norm_mean": 0.4640548726834288,
+          "gradient_norm_max": 1.001559853553772,
+          "clipping_fraction": 0.009174311926605505,
+          "mean_clip_multiplier": 0.9999857025588378,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "late",
+          "task": "patch",
+          "updates": 109,
+          "gradient_norm_median": 1.1367310285568237,
+          "gradient_norm_mean": 1.5712739415125017,
+          "gradient_norm_max": 9.595176696777344,
+          "clipping_fraction": 0.6146788990825688,
+          "mean_clip_multiplier": 0.758920464994972,
+          "learning_rates": [
+            0.0001
+          ]
+        }
+      ]
+    },
+    "U-patch-loss01": {
+      "root": "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-initializer/U-patch-loss01",
+      "events_sha256": "c26c464d6b00b35e28fa845d85421ef74658a6973936d2ddc94ae40221edc6ab",
+      "manifest_sha256": "143ac36f56b3b8b2542749cb07a96e023983e78b36d99f3f2fb6aa5548d9b29b",
+      "training_complete": {
+        "global_step": 4000,
+        "task_counts": {
+          "om4": 2000,
+          "observation": 2000
+        },
+        "best_score": 0.7100509907043425,
+        "best_checkpoint_sha256": "0451153498bb39728a1b143cdd95d3a661ebc5bca6f64cd87f75bfbffd5b7fb9",
+        "completed_utc": "2026-10-04T13:53:26.564095+00:00"
+      },
+      "actual_updates": 4000,
+      "summaries": [
+        {
+          "phase": "all",
+          "task": "observation",
+          "updates": 2000,
+          "gradient_norm_median": 0.20014331489801407,
+          "gradient_norm_mean": 0.25342184912413357,
+          "gradient_norm_max": 4.585233211517334,
+          "clipping_fraction": 0.0185,
+          "mean_clip_multiplier": 0.9931785379846833,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "all",
+          "task": "global",
+          "updates": 1000,
+          "gradient_norm_median": 0.3829609155654907,
+          "gradient_norm_mean": 0.5222293623238802,
+          "gradient_norm_max": 17.99869728088379,
+          "clipping_fraction": 0.072,
+          "mean_clip_multiplier": 0.9796440756821799,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "all",
+          "task": "patch",
+          "updates": 1000,
+          "gradient_norm_median": 0.18793585151433945,
+          "gradient_norm_mean": 0.371679425470531,
+          "gradient_norm_max": 12.522577285766602,
+          "clipping_fraction": 0.07,
+          "mean_clip_multiplier": 0.9722589056106281,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "early",
+          "task": "observation",
+          "updates": 218,
+          "gradient_norm_median": 0.39706937968730927,
+          "gradient_norm_mean": 0.6653211608939215,
+          "gradient_norm_max": 4.585233211517334,
+          "clipping_fraction": 0.1651376146788991,
+          "mean_clip_multiplier": 0.9391084628773158,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "early",
+          "task": "global",
+          "updates": 391,
+          "gradient_norm_median": 0.5195901989936829,
+          "gradient_norm_mean": 0.728081406020295,
+          "gradient_norm_max": 17.99869728088379,
+          "clipping_fraction": 0.16624040920716113,
+          "mean_clip_multiplier": 0.9498415219511784,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "early",
+          "task": "patch",
+          "updates": 391,
+          "gradient_norm_median": 0.2911011874675751,
+          "gradient_norm_mean": 0.5545693314098337,
+          "gradient_norm_max": 12.522577285766602,
+          "clipping_fraction": 0.13554987212276215,
+          "mean_clip_multiplier": 0.9462636866726251,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "late",
+          "task": "observation",
+          "updates": 782,
+          "gradient_norm_median": 0.1570686772465706,
+          "gradient_norm_mean": 0.17854435384616524,
+          "gradient_norm_max": 0.459673136472702,
+          "clipping_fraction": 0.0,
+          "mean_clip_multiplier": 1.0,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "late",
+          "task": "global",
+          "updates": 109,
+          "gradient_norm_median": 0.3015699088573456,
+          "gradient_norm_mean": 0.34596314178694276,
+          "gradient_norm_max": 1.0659068822860718,
+          "clipping_fraction": 0.009174311926605505,
+          "mean_clip_multiplier": 0.999432728211731,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "late",
+          "task": "patch",
+          "updates": 109,
+          "gradient_norm_median": 0.12999644875526428,
+          "gradient_norm_mean": 0.18422155721335237,
+          "gradient_norm_max": 1.250732421875,
+          "clipping_fraction": 0.01834862385321101,
+          "mean_clip_multiplier": 0.9972930072476276,
+          "learning_rates": [
+            0.0001
+          ]
+        }
+      ]
+    },
+    "L-patch-truth": {
+      "root": "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-initializer/L-patch-truth",
+      "events_sha256": "576ac1b43cdb4b7315bd21566c33c91637ad3917c3ec7b3ffe51a402e66e254a",
+      "manifest_sha256": "d7162a4ab35078b04ae462fd14976edb116e5d5827a7027ff28b8df29a902806",
+      "training_complete": {
+        "global_step": 4000,
+        "task_counts": {
+          "om4": 2000,
+          "observation": 2000
+        },
+        "best_score": 0.7753503092596999,
+        "best_checkpoint_sha256": "7cb90c0e448aa9f47cbfdd574ea63f0f1d66749590286b6f11066eab71479a65",
+        "completed_utc": "2026-10-04T12:11:05.015024+00:00"
+      },
+      "actual_updates": 4000,
+      "summaries": [
+        {
+          "phase": "all",
+          "task": "observation",
+          "updates": 2000,
+          "gradient_norm_median": 0.3674105107784271,
+          "gradient_norm_mean": 0.42660327153280375,
+          "gradient_norm_max": 2.51324462890625,
+          "clipping_fraction": 0.028,
+          "mean_clip_multiplier": 0.9921743161774284,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "all",
+          "task": "global",
+          "updates": 1000,
+          "gradient_norm_median": 0.6782872080802917,
+          "gradient_norm_mean": 0.7612265231907368,
+          "gradient_norm_max": 2.6728460788726807,
+          "clipping_fraction": 0.203,
+          "mean_clip_multiplier": 0.9552869272796504,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "all",
+          "task": "patch",
+          "updates": 1000,
+          "gradient_norm_median": 0.7810410261154175,
+          "gradient_norm_mean": 1.463462838307023,
+          "gradient_norm_max": 22.269851684570312,
+          "clipping_fraction": 0.384,
+          "mean_clip_multiplier": 0.822248030826458,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "early",
+          "task": "observation",
+          "updates": 218,
+          "gradient_norm_median": 0.6594666540622711,
+          "gradient_norm_mean": 0.8211755197529399,
+          "gradient_norm_max": 2.51324462890625,
+          "clipping_fraction": 0.24770642201834864,
+          "mean_clip_multiplier": 0.9291602583543057,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "early",
+          "task": "global",
+          "updates": 391,
+          "gradient_norm_median": 0.8012708425521851,
+          "gradient_norm_mean": 0.8969806346594525,
+          "gradient_norm_max": 2.6728460788726807,
+          "clipping_fraction": 0.319693094629156,
+          "mean_clip_multiplier": 0.9226653777049482,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "early",
+          "task": "patch",
+          "updates": 391,
+          "gradient_norm_median": 0.979104220867157,
+          "gradient_norm_mean": 1.768694069493762,
+          "gradient_norm_max": 15.53524398803711,
+          "clipping_fraction": 0.4833759590792839,
+          "mean_clip_multiplier": 0.770737603634385,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "late",
+          "task": "observation",
+          "updates": 782,
+          "gradient_norm_median": 0.31442300975322723,
+          "gradient_norm_mean": 0.3590393547454606,
+          "gradient_norm_max": 0.9497443437576294,
+          "clipping_fraction": 0.0,
+          "mean_clip_multiplier": 1.0,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "late",
+          "task": "global",
+          "updates": 109,
+          "gradient_norm_median": 0.6543599367141724,
+          "gradient_norm_mean": 0.7171150536165325,
+          "gradient_norm_max": 1.6141302585601807,
+          "clipping_fraction": 0.13761467889908258,
+          "mean_clip_multiplier": 0.9702335373611201,
+          "learning_rates": [
+            0.0001
+          ]
+        },
+        {
+          "phase": "late",
+          "task": "patch",
+          "updates": 109,
+          "gradient_norm_median": 0.6109668016433716,
+          "gradient_norm_mean": 1.1078181007039656,
+          "gradient_norm_max": 9.134578704833984,
+          "clipping_fraction": 0.3211009174311927,
+          "mean_clip_multiplier": 0.8777464747669275,
+          "learning_rates": [
+            0.0001
+          ]
+        }
+      ]
+    }
+  }
+}

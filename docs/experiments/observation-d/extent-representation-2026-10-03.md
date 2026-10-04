@@ -3,6 +3,15 @@
 
 # Global/patch transfer: accessory supervision and processor capacity
 
+**First completed result:** W-global finished all 4,000 updates at 8:06 a.m. ET
+on October 4 and all 96 held-out monthly forecasts. Its validation-selected
+test composite is **0.6735**, versus **0.6784** for U-global: a small 0.7%
+improvement with one seed, despite increasing total parameters from 63.0M to
+100.7M. Its own initialized persistence remains better (0.5897). The integrated
+ratio is 0.8920 and spectral error 0.4549 dex; the selected checkpoint is the
+4,000-update endpoint. This does not establish convergence or a robust capacity
+benefit. [Verified first-result evidence](artifacts/extent-representation-2026-10-03/first-completed-results.json).
+
 **Production started October 4 at 1:49 a.m. ET.** Job 209608 is running on
 `b2-14-s1-dgx-02-c04`, after successful completion of ablations 209574.
 At 1:52 a.m., all four first-stage processes (U-aux01, U-aux10, W-global,

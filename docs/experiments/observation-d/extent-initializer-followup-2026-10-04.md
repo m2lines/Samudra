@@ -3,6 +3,15 @@
 
 # Separating regional initialization quality from gradient interference
 
+**First completed result:** L-patch-truth finished 4,000 updates at 8:11 a.m. ET
+on October 4 and all 96 held-out monthly forecasts. Its validation-selected
+test composite is **0.7670**, compared with 0.7856 for L-multitask and 0.7546
+for L-global. True native initial states reduce the patch penalty by 2.4%
+relative to ordinary local multitasking, but do not beat global-only training.
+The selected checkpoint is update 3,600, validation 0.7754; test integrated
+ratio is 0.8751 and spectral error 0.6589 dex. It still loses to its own
+initialized persistence (0.5636). [Verified first-result evidence](artifacts/extent-initializer-2026-10-04/first-completed-results.json).
+
 **Production is running.** Job 209686 started October 4 at 2:17:31 a.m. ET on
 `b1-14-s1-dgx-01-c04`. At 2:40 a.m., all four arms had finite training updates
 and their first observation validation. This is confirmed execution, not a

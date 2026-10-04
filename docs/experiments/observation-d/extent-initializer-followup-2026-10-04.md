@@ -148,3 +148,15 @@ values establish functioning training and evaluation, not a result at the
 planned 4,000-update budget. Production overlaps the representation wave as
 declared, with eight GPUs allocated in total. No recovery or protocol change
 was required.
+
+## Mid-run check, October 4 at 5:42 a.m. ET
+
+All four arms continue without a failure or restart. L-patch-truth has reached
+2,305 updates; the three U-Net variants are at approximately 1,844. Best
+validation scores are 0.8291 for L-patch-truth, 1.1701 for U-patch-detach,
+1.2404 for U-patch-forecast and 0.9901 for U-patch-loss01. Loss weighting is
+showing a stronger early improvement than the earlier learning-rate intervention,
+but comparisons will use each completed budget's validation-selected checkpoint.
+The remaining training is expected to finish roughly 8–11 a.m. ET, based on
+observed progress; this remains an estimate. The job has accumulated 13.65
+allocated GPU-hours, plus 0.86 for qualification, at this check.

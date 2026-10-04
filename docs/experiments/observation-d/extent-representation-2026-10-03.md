@@ -12,6 +12,14 @@ By **1:56 a.m. ET**, all four had finite optimizer updates: U-aux01/U-aux10 at
 four updates, W-global at seven and W-multitask at five. Accessory losses were
 logged separately from physical objectives, as qualified.
 
+At **5:42 a.m. ET**, U-aux01/U-aux10 had reached 2,485/2,436 updates,
+W-global 2,641 and W-multitask 1,866. Best validation composites so far were
+0.7239, 0.7251, 0.7186 and 1.2043 respectively, at unequal budgets. Both
+accessory arms and the wider global control remain healthy; axial runs have not
+started yet. The first stage should finish roughly 8–10 a.m. ET at observed
+throughput, followed by axial training through the afternoon. These are runtime
+estimates, not completed results or guaranteed finishing times.
+
 Follow-up within the user's authorized iteration window ending Monday October 5
 around 9 a.m. ET. This follows the [original screen](extent-wave-2026-10-02.md)
 and complements the completed [mechanism ablations](extent-ablations-2026-10-03.md).

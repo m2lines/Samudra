@@ -3,6 +3,13 @@
 
 # Native-patch transfer: cause-isolation follow-up
 
+**Partial result, October 3 at 11:15 p.m. ET:** the omission control completed
+its full budget and held-out evaluation. It scores **0.7074**, compared with
+**0.8130** for the original native-patch multitask model and **0.6784** for
+global-only training. Native updates hurt relative to omitting them, while
+additional global OM4 updates help. The three modified patch arms are still
+running; this is not the completed ablation-wave comparison.
+
 Authorized October 3, with approximately 40 hours before review (roughly
 Monday October 5 at 9:53 a.m. ET). One seed, one four-GPU beta production
 allocation, four alternatives to the original U-Net multitask run. This follows
@@ -261,3 +268,37 @@ updates**, twice the global exposure of the rows above. It is not the
 same-exposure removal control. By this live check, omission has advanced to
 slot 2,900 with 2,025 actual updates and score 0.7279. The patch arms are around
 1,600 updates. Job 209574 remains running; 209608 remains dependency-pending.
+
+## Completed omission control, October 3 at 11:15 p.m. ET
+
+U-omit-patch finished training at **11:12:34 p.m. ET**, with exactly 1,000 global
+OM4 and 2,000 observation optimizer updates, plus 1,000 recorded skipped patch
+slots. All 96 test forecasts and controls then completed. The selected checkpoint
+is at schedule slot 3,600, corresponding to **2,633 actual updates** (968 global
+OM4 and 1,665 observation); its SHA-256 is
+`a3dac2c96aadd72d16dead0d2dc204f7e3b5401ab610d8a2b6e8c9172f99b05b`.
+The physical checkpoint hash matches training, selection and evaluation records.
+
+| Model | Completed global OM4 / native / observation updates | Validation-selected score | Test composite | Integrated ratio | Spectral dex | Own initialized persistence |
+|---|---|---:|---:|---:|---:|---:|
+| U-global | 2,000 / 0 / 2,000 | 0.6643 | 0.6784 | 0.8871 | 0.4696 | 0.5886 |
+| U-omit-patch | 1,000 / 0 / 2,000 | 0.6866 | 0.7074 | 0.9146 | 0.5003 | 0.5842 |
+| U-multitask | 1,000 / 1,000 / 2,000 | 0.8293 | 0.8130 | 0.9167 | 0.7093 | 0.6026 |
+
+Scores retain the original integrated-plus-spectral metric. Checkpoints were
+selected on the same frozen validation reference; test reporting uses the same
+common test-climatology denominators. The collector verified the climatology
+metrics are identical to the original screen before this comparison.
+
+Omission is **13.0% better than U-multitask** on the test composite, while
+remaining **4.3% worse than U-global**. This separates two effects in this
+single-seed setup: the native task hurts relative to doing no update in its slot,
+and more global OM4 training is useful. Most of the omission-versus-multitask
+composite difference is spectral; their mean integrated error ratios are close.
+Omission still loses to its own initialized persistence on the composite, despite
+improving the mean integrated ratio, so this result does not establish useful
+forecast dynamics or a satisfactory final model.
+
+[Raw omission metrics, exposure, validation curve and lineage](artifacts/extent-ablations-2026-10-03/omission-results.json).
+At this check the three modified patch arms were at roughly 2,600 updates;
+209574 remains running and 209608 remains pending on its successful completion.

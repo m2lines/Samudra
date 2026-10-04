@@ -8,6 +8,7 @@ import argparse
 import datetime
 import hashlib
 import json
+import statistics
 from pathlib import Path
 
 
@@ -80,7 +81,40 @@ def collect(root, arms):
             raise ValueError("Inconsistent actual update accounting")
         if final["optimizer_updates"] != exposure["optimizer_updates"]:
             raise ValueError("Final training event differs from completion exposure")
+        targets = None
+        if (run / "ACCESSORY_TARGETS.json").exists():
+            targets = read(run / "ACCESSORY_TARGETS.json")
+            qualified = read(root / ("probe-" + name) / "ACCESSORY_TARGETS.json")
+            if targets != qualified:
+                raise ValueError(
+                    "Production accessory targets differ from qualification"
+                )
+            if targets["mode"] != manifest["arguments"]["auxiliary_target_mode"]:
+                raise ValueError("Target mode differs from training arguments")
+        accessory = [event for event in updates if "accessory_mse" in event]
+        accessory_summary = {}
+        if accessory:
+            if len(accessory) != 2000 or any(
+                event["task"] != "om4" or event["source_extent"] != "global"
+                for event in accessory
+            ):
+                raise ValueError("Unexpected accessory-loss update accounting")
+            for phase, lower in (("all", 0), ("last_1000_schedule_slots", 3000)):
+                selected = [
+                    event for event in accessory if event["global_step"] > lower
+                ]
+                accessory_summary[phase] = dict(
+                    om4_updates=len(selected),
+                    mean_training_accessory_mse=statistics.mean(
+                        event["accessory_mse"] for event in selected
+                    ),
+                    mean_training_physical_objective=statistics.mean(
+                        event["physical_objective"] for event in selected
+                    ),
+                )
         result["arms"][name] = dict(
+            accessory_targets=targets,
+            accessory_training_summary=accessory_summary,
             training_complete=training,
             evaluation_complete=complete,
             best=best,

@@ -1,0 +1,187 @@
+{
+  "producer": "b8092783bf1e47b6ac670251feba5fbd2902a5bd",
+  "root": "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-initializer",
+  "submitted_utc": "2026-10-04T05:56:21.690392+00:00",
+  "jobs": [
+    {
+      "job_id": "209674",
+      "stage": "fit",
+      "arm": "U-patch-detach",
+      "dependencies": [],
+      "command": [
+        "sbatch",
+        "--parsable",
+        "--account=ny_lz1955_multiscale",
+        "--nodes=1",
+        "--ntasks-per-node=1",
+        "--partition=beta_test",
+        "--qos=test",
+        "--cpus-per-task=16",
+        "--gres=gpu:1",
+        "--mem=128G",
+        "--time=02:00:00",
+        "--job-name=extent-init-fit-U-patch-detach",
+        "--output=/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-initializer/logs/fit-U-patch-detach-%j.out",
+        "--error=/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-initializer/logs/fit-U-patch-detach-%j.err",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-initializer/code/b8092783b/scripts/slurm_extent_beta.sbatch",
+        "fit",
+        "U-patch-detach",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-initializer",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-initializer/code/b8092783b",
+        "b8092783bf1e47b6ac670251feba5fbd2902a5bd"
+      ]
+    },
+    {
+      "job_id": "209675",
+      "stage": "fit",
+      "arm": "L-patch-truth",
+      "dependencies": [],
+      "command": [
+        "sbatch",
+        "--parsable",
+        "--account=ny_lz1955_multiscale",
+        "--nodes=1",
+        "--ntasks-per-node=1",
+        "--partition=beta_test",
+        "--qos=test",
+        "--cpus-per-task=16",
+        "--gres=gpu:1",
+        "--mem=128G",
+        "--time=02:00:00",
+        "--job-name=extent-init-fit-L-patch-truth",
+        "--output=/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-initializer/logs/fit-L-patch-truth-%j.out",
+        "--error=/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-initializer/logs/fit-L-patch-truth-%j.err",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-initializer/code/b8092783b/scripts/slurm_extent_beta.sbatch",
+        "fit",
+        "L-patch-truth",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-initializer",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-initializer/code/b8092783b",
+        "b8092783bf1e47b6ac670251feba5fbd2902a5bd"
+      ]
+    },
+    {
+      "job_id": "209676",
+      "stage": "probe",
+      "arm": "U-patch-detach",
+      "dependencies": [
+        "209674"
+      ],
+      "command": [
+        "sbatch",
+        "--parsable",
+        "--account=ny_lz1955_multiscale",
+        "--nodes=1",
+        "--ntasks-per-node=1",
+        "--partition=beta_test",
+        "--qos=test",
+        "--cpus-per-task=16",
+        "--gres=gpu:1",
+        "--mem=128G",
+        "--time=02:00:00",
+        "--job-name=extent-init-probe-U-patch-detach",
+        "--output=/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-initializer/logs/probe-U-patch-detach-%j.out",
+        "--error=/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-initializer/logs/probe-U-patch-detach-%j.err",
+        "--dependency=afterok:209674",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-initializer/code/b8092783b/scripts/slurm_extent_beta.sbatch",
+        "probe",
+        "U-patch-detach",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-initializer",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-initializer/code/b8092783b",
+        "b8092783bf1e47b6ac670251feba5fbd2902a5bd"
+      ]
+    },
+    {
+      "job_id": "209677",
+      "stage": "probe",
+      "arm": "U-patch-forecast",
+      "dependencies": [
+        "209674"
+      ],
+      "command": [
+        "sbatch",
+        "--parsable",
+        "--account=ny_lz1955_multiscale",
+        "--nodes=1",
+        "--ntasks-per-node=1",
+        "--partition=beta_test",
+        "--qos=test",
+        "--cpus-per-task=16",
+        "--gres=gpu:1",
+        "--mem=128G",
+        "--time=02:00:00",
+        "--job-name=extent-init-probe-U-patch-forecast",
+        "--output=/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-initializer/logs/probe-U-patch-forecast-%j.out",
+        "--error=/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-initializer/logs/probe-U-patch-forecast-%j.err",
+        "--dependency=afterok:209674",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-initializer/code/b8092783b/scripts/slurm_extent_beta.sbatch",
+        "probe",
+        "U-patch-forecast",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-initializer",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-initializer/code/b8092783b",
+        "b8092783bf1e47b6ac670251feba5fbd2902a5bd"
+      ]
+    },
+    {
+      "job_id": "209678",
+      "stage": "probe",
+      "arm": "U-patch-loss01",
+      "dependencies": [
+        "209674"
+      ],
+      "command": [
+        "sbatch",
+        "--parsable",
+        "--account=ny_lz1955_multiscale",
+        "--nodes=1",
+        "--ntasks-per-node=1",
+        "--partition=beta_test",
+        "--qos=test",
+        "--cpus-per-task=16",
+        "--gres=gpu:1",
+        "--mem=128G",
+        "--time=02:00:00",
+        "--job-name=extent-init-probe-U-patch-loss01",
+        "--output=/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-initializer/logs/probe-U-patch-loss01-%j.out",
+        "--error=/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-initializer/logs/probe-U-patch-loss01-%j.err",
+        "--dependency=afterok:209674",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-initializer/code/b8092783b/scripts/slurm_extent_beta.sbatch",
+        "probe",
+        "U-patch-loss01",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-initializer",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-initializer/code/b8092783b",
+        "b8092783bf1e47b6ac670251feba5fbd2902a5bd"
+      ]
+    },
+    {
+      "job_id": "209679",
+      "stage": "probe",
+      "arm": "L-patch-truth",
+      "dependencies": [
+        "209675"
+      ],
+      "command": [
+        "sbatch",
+        "--parsable",
+        "--account=ny_lz1955_multiscale",
+        "--nodes=1",
+        "--ntasks-per-node=1",
+        "--partition=beta_test",
+        "--qos=test",
+        "--cpus-per-task=16",
+        "--gres=gpu:1",
+        "--mem=128G",
+        "--time=02:00:00",
+        "--job-name=extent-init-probe-L-patch-truth",
+        "--output=/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-initializer/logs/probe-L-patch-truth-%j.out",
+        "--error=/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-initializer/logs/probe-L-patch-truth-%j.err",
+        "--dependency=afterok:209675",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-initializer/code/b8092783b/scripts/slurm_extent_beta.sbatch",
+        "probe",
+        "L-patch-truth",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-initializer",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-initializer/code/b8092783b",
+        "b8092783bf1e47b6ac670251feba5fbd2902a5bd"
+      ]
+    }
+  ]
+}

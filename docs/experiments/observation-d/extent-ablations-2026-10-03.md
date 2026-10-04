@@ -49,6 +49,13 @@ shared initializer. The smaller-LR change is only 0.2% better on test, while the
 one-step change is 1.4% worse; neither establishes a useful gain with one seed.
 The smaller LR still lets the full native gradient affect shared Adam moments.
 
+The next [initializer/gradient follow-up](extent-initializer-followup-2026-10-04.md)
+separates learned-versus-true initial states, forecast gradients through the
+initializer, auxiliary reconstruction/completion losses, and loss versus LR
+weighting. It also repeats true-state patch training with the local processor.
+These choices follow validation and training diagnostics; no test metric chooses
+a new checkpoint or intervention.
+
 [All scores](artifacts/extent-ablations-2026-10-03/summary/scores.csv),
 [validation curves](artifacts/extent-ablations-2026-10-03/summary/validation-curves.csv),
 and [raw metrics and verified lineage](artifacts/extent-ablations-2026-10-03/source-results.json).

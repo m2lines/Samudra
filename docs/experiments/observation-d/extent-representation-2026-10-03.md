@@ -8,6 +8,9 @@
 At 1:52 a.m., all four first-stage processes (U-aux01, U-aux10, W-global,
 W-multitask) were warming the 2,829-frame global cache. Axial arms follow their
 paired accessory arms on the same GPUs. No production result is claimed yet.
+By **1:56 a.m. ET**, all four had finite optimizer updates: U-aux01/U-aux10 at
+four updates, W-global at seven and W-multitask at five. Accessory losses were
+logged separately from physical objectives, as qualified.
 
 Follow-up within the user's authorized iteration window ending Monday October 5
 around 9 a.m. ET. This follows the [original screen](extent-wave-2026-10-02.md)

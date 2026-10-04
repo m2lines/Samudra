@@ -76,3 +76,27 @@ needed. This leaves startup/evaluation allowance and aims to finish comfortably
 before Monday review. No queue-chasing resubmission or additional seed is planned.
 
 Results and exact job/source provenance will be appended after qualification.
+
+## Submission, October 4 at 1:56 a.m. ET
+
+Producer `b8092783bf1e47b6ac670251feba5fbd2902a5bd`; source archive SHA-256
+`fc9d5196a9dc9fa262453499e69724a2b400eb3ab33d6ab0e7113f6d8f3ee778`.
+Local checks passed 24 targeted tests, Ruff, mypy for four touched Python files,
+shell syntax and diff checks. All existing production uses its earlier immutable
+producer. Fresh qualifications are required under the extended contract.
+
+| Stage | Arm/family | Job |
+|---|---|---:|
+| Fit | Shared U-Net family | 209674 |
+| Fit | Local family | 209675 |
+| Joint/resume probe | U-patch-detach | 209676 |
+| Joint/resume probe | U-patch-forecast | 209677 |
+| Joint/resume probe | U-patch-loss01 | 209678 |
+| Joint/resume probe | L-patch-truth | 209679 |
+
+Both fitting allocations were running at this snapshot; the four probes were
+pending on their corresponding fitting job. Each qualification requests one GPU,
+16 CPUs, 128 GiB and up to two hours on `beta_test`/`test`. Production has not
+been submitted. Root:
+`/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-initializer`.
+[Exact receipts](artifacts/extent-initializer-2026-10-04/qualification-jobs.json).

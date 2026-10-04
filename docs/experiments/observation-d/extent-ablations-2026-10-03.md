@@ -231,3 +231,33 @@ reached about 1,010 updates. Their latest slot-1,000 validation composites were
 Omission's latest score was 0.8488 at slot 2,100. Completed-budget comparisons
 remain pending. The representation wave has now passed every qualification and
 its production job 209608 is queued behind successful completion of 209574.
+
+## Intermediate matched-exposure diagnostic, 9:30 p.m. ET
+
+Every patch arm has reached schedule slot 1,600. At that fixed checkpoint,
+all have seen **580 global OM4 and 440 observation updates**. The original and
+modified patch arms additionally consumed 580 native updates; omission did not.
+These are the checkpoint scores at that slot, not each arm's best-so-far score.
+
+| Model | Actual optimizer updates | Validation composite at slot 1,600 |
+|---|---:|---:|
+| U-multitask, original control | 1,600 | 1.2932 |
+| U-omit-patch | 1,020 | 0.9318 |
+| U-patch-lr01 | 1,600 | 1.3217 |
+| U-patch-truth | 1,600 | 1.1698 |
+| U-patch-1step | 1,600 | 1.2086 |
+
+At this intermediate exposure, removing the native task performs better despite
+fewer optimizer updates. That supports a harmful contribution from the native
+task in the current setup, beyond simply replacing useful global examples.
+The true-state and shorter-horizon modifications partly reduce the gap; the
+smaller per-task LR does not at this point. It changes step size but retains
+the native task's contribution to shared Adam moments, as specified above.
+Full-budget results and another seed could change the ranking; this is not a
+claim about asymptotic convergence or universal negative transfer.
+
+For context, U-global scores 0.8623 at update 1,600, but uses **1,160 global OM4
+updates**, twice the global exposure of the rows above. It is not the
+same-exposure removal control. By this live check, omission has advanced to
+slot 2,900 with 2,025 actual updates and score 0.7279. The patch arms are around
+1,600 updates. Job 209574 remains running; 209608 remains dependency-pending.

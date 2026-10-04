@@ -19,6 +19,12 @@ def digest(path):
 
 
 def summarize(events):
+    if any(
+        event.get("source_extent", event["task"])
+        not in {"observation", "global", "patch"}
+        for event in events
+    ):
+        raise ValueError("Training events lack a recognized task/extent label")
     rows = []
     for phase, lower, upper in (
         ("all", 0, 4000),

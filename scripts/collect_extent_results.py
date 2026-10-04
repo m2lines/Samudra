@@ -63,6 +63,14 @@ def collect(root, arms):
             if line.strip()
         ]
         updates = [e for e in events if e.get("event") == "joint_train"]
+        actual_counts = {0: 0}
+        actual_counts.update(
+            {
+                e["global_step"]: e["optimizer_updates"]
+                for e in events
+                if e.get("event") in {"joint_train", "joint_skip"}
+            }
+        )
         exposure = read(run / "EXPOSURE.json")
         final = updates[-1]
         if (
@@ -76,11 +84,14 @@ def collect(root, arms):
             training_complete=training,
             evaluation_complete=complete,
             best=best,
+            selected_optimizer_updates=actual_counts[best["global_step"]],
             exposure=exposure,
             manifest=manifest,
             final_training_event=final,
             validation_events=[
-                e for e in events if e.get("event") == "joint_validation"
+                dict(e, optimizer_updates=actual_counts[e["global_step"]])
+                for e in events
+                if e.get("event") == "joint_validation"
             ],
             files={
                 p.name: dict(sha256=digest(p), data=read(p))

@@ -299,6 +299,18 @@ Omission still loses to its own initialized persistence on the composite, despit
 improving the mean integrated ratio, so this result does not establish useful
 forecast dynamics or a satisfactory final model.
 
+![Completed omission control versus the two original U-Net arms](artifacts/extent-ablations-2026-10-03/omission-summary/omission-control.png)
+
+The left panel counts real optimizer updates, excluding omitted slots. The
+right compares the same observation exposure; U-global still receives twice
+as many global OM4 updates. Omission and global-only training track much more
+closely on that axis than either tracks the native multitask arm. These axes
+separate total work from downstream exposure; neither is a FLOP measurement.
+[Scores](artifacts/extent-ablations-2026-10-03/omission-summary/scores.csv) and
+[curve values](artifacts/extent-ablations-2026-10-03/omission-summary/validation-curves.csv)
+retain the exact quantities. The reporting script reproduced the original four
+arms' scores to an absolute tolerance of 1e-12 before adding this comparison.
+
 [Raw omission metrics, exposure, validation curve and lineage](artifacts/extent-ablations-2026-10-03/omission-results.json).
 At this check the three modified patch arms were at roughly 2,600 updates;
 209574 remains running and 209608 remains pending on its successful completion.

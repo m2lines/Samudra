@@ -3,7 +3,7 @@
 
 # Global/patch transfer: accessory supervision and processor capacity
 
-**Three global-only arms completed by 8:46 a.m. ET October 4.** All finished
+**Four arms completed by 11:10 a.m. ET October 4.** All finished
 4,000 updates and all 96 held-out monthly forecasts, with checkpoint hashes
 verified against the physical files, selection and evaluation markers.
 
@@ -13,8 +13,11 @@ verified against the physical files, selection and evaluation markers.
 | U-aux01 | 4,000 | 0.6421 | 0.6674 | 0.8691 | 0.4657 | 0.5896 |
 | U-aux10 | 4,000 | 0.6698 | 0.6955 | 0.8930 | 0.4980 | 0.5898 |
 | W-global | 4,000 | 0.6548 | 0.6735 | 0.8920 | 0.4549 | 0.5897 |
+| U-multitask | 4,000 | 0.8293 | 0.8130 | 0.9167 | 0.7093 | 0.6026 |
+| W-multitask | 3,900 | 0.8696 | 0.8513 | 0.9699 | 0.7327 | 0.6137 |
 
-U-global is the original global-only U-Net control; the other literal names
+U-global is the original global-only U-Net control; U-multitask replaces half
+its OM4 updates with native-patch evolution. The other literal names
 and architectures are defined below. The lower accessory coefficient improves
 test composite by **1.6%**, whereas the larger coefficient is **2.5% worse**.
 Widening the processor gives only **0.7%** improvement despite increasing total
@@ -30,8 +33,17 @@ and [verified lineage and raw results](artifacts/extent-representation-2026-10-0
 The [target-information controls](extent-accessory-controls-2026-10-04.md)
 were predeclared from completed validation before these accessory test scores
 were collected. They distinguish aligned fine-scale information from geographic
-or seasonal regularization. The wider multitask and both attention arms are
-still in progress.
+or seasonal regularization. Both attention arms remain in progress.
+
+The wider multitask arm is **4.7% worse** than the original U-multitask and
+**26.4% worse** than its own wider global-only control. Widening alone therefore
+does not resolve negative transfer at this learning rate and update budget.
+This does not rule out a separately tuned larger model or longer training.
+
+![Width and patch-transfer comparison](artifacts/extent-representation-2026-10-03/wide-summary/does-a-wider-processor-improve-patch-transfer.png)
+
+[Width comparison scores](artifacts/extent-representation-2026-10-03/wide-summary/scores.csv)
+and [verified wider-multitask result](artifacts/extent-representation-2026-10-03/wide-multitask-result.json).
 
 **Production started October 4 at 1:49 a.m. ET.** Job 209608 is running on
 `b2-14-s1-dgx-02-c04`, after successful completion of ablations 209574.

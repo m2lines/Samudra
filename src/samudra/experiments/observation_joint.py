@@ -181,6 +181,8 @@ def qualification_contract(args):
         result["auxiliary"] = {
             "ready_sha256": digest(Path(args.auxiliary_cache) / "READY.json"),
             "coefficient": args.auxiliary_weight,
+            "target_mode": getattr(args, "auxiliary_target_mode", "aligned"),
+            "shuffle_seed": 271828,
         }
     return result
 
@@ -656,6 +658,11 @@ def main():
     parser.add_argument("--patch-loss-scale", type=float, default=1.0)
     parser.add_argument("--auxiliary-cache")
     parser.add_argument("--auxiliary-weight", type=float, default=0.0)
+    parser.add_argument(
+        "--auxiliary-target-mode",
+        choices=["aligned", "static", "seasonal", "shuffled", "anomaly"],
+        default="aligned",
+    )
     parser.set_defaults(
         from_scratch=True,
         observation_normalization=True,
@@ -675,7 +682,11 @@ def main():
             parser.error(
                 "Accessory training needs verified targets, positive weight and global-only tasks"
             )
-    elif args.auxiliary_cache or args.auxiliary_weight:
+    elif (
+        args.auxiliary_cache
+        or args.auxiliary_weight
+        or args.auxiliary_target_mode != "aligned"
+    ):
         parser.error("Accessory targets require extent-aux architecture")
     if (
         not args.from_scratch

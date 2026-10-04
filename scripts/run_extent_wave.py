@@ -30,6 +30,10 @@ ARMS = {
     "U-patch-forecast": ("unet", True),
     "U-patch-loss01": ("unet", True),
     "L-patch-truth": ("local", True),
+    "U-aux01-static": ("aux", False),
+    "U-aux01-seasonal": ("aux", False),
+    "U-aux01-shuffled": ("aux", False),
+    "U-aux01-anomaly": ("aux", False),
 }
 INTERVENTIONS = {
     "U-omit-patch": ["--patch-mode", "omit"],
@@ -42,6 +46,15 @@ INTERVENTIONS = {
     "U-patch-forecast": ["--patch-mode", "forecast"],
     "U-patch-loss01": ["--patch-loss-scale", "0.1"],
     "L-patch-truth": ["--patch-mode", "truth"],
+    **{
+        "U-aux01-" + mode: [
+            "--auxiliary-weight",
+            "0.01",
+            "--auxiliary-target-mode",
+            mode,
+        ]
+        for mode in ("static", "seasonal", "shuffled", "anomaly")
+    },
 }
 
 

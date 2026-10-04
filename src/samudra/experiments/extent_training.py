@@ -5,6 +5,7 @@
 
 import time
 from contextlib import nullcontext
+from pathlib import Path
 
 import torch
 
@@ -91,7 +92,13 @@ class ExtentPilot(JointPilot):
             from samudra.experiments.extent_accessory import VarianceTargets
 
             self.accessory = VarianceTargets(
-                args.auxiliary_cache, self.om4, args.auxiliary_weight
+                args.auxiliary_cache,
+                self.om4,
+                args.auxiliary_weight,
+                getattr(args, "auxiliary_target_mode", "aligned"),
+            )
+            atomic_json(
+                self.accessory.provenance, Path(args.output) / "ACCESSORY_TARGETS.json"
             )
         counts = {
             name: sum(p.numel() for p in getattr(self.model, name).parameters())

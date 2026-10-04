@@ -11,10 +11,45 @@ import zarr  # type: ignore[import-untyped]
 from torch import nn
 from torch.utils.checkpoint import checkpoint
 
-from samudra.experiments.extent_accessory import VarianceTargets
+from samudra.experiments.extent_accessory import VarianceTargets, transform_targets
 from samudra.experiments.extent_models import AxialBlock, ExtentEvolution
 from samudra.experiments.observation_pilot import digest
 from samudra.experiments.surface_state import geographic_features
+
+
+def test_target_controls_separate_seasonal_structure_from_time_varying_anomalies():
+    dates = [
+        f"{year}-{month:02d}-03" for year in (2000, 2001) for month in range(1, 13)
+    ]
+    geography = np.array([[0.0, 2.0], [3.0, 0.0]], dtype="f4")
+    season = np.tile(np.arange(12, dtype="f4"), 2)[:, None, None]
+    perturbation = np.repeat([-0.25, 0.25], 12).astype("f4")[:, None, None]
+    values = geography[None] + season + perturbation
+    values[:, 1, 1] = 0  # An invalid cell remains zero in every mode.
+    seasonal = transform_targets(values, dates, "seasonal")
+    anomaly = transform_targets(values, dates, "anomaly")
+    np.testing.assert_array_equal(seasonal + anomaly, values)
+    np.testing.assert_array_equal(seasonal[:12], seasonal[12:])
+    np.testing.assert_array_equal(anomaly[:12], -anomaly[12:])
+    assert np.count_nonzero(anomaly[:, 0, 0]) == 24
+    static = transform_targets(values, dates, "static")
+    np.testing.assert_array_equal(static[0], static[-1])
+    np.testing.assert_array_equal(static[0], [[5.5, 7.5], [8.5, 0]])
+    for mode in ("aligned", "static", "seasonal", "shuffled", "anomaly"):
+        assert not transform_targets(values, dates, mode)[:, 1, 1].any()
+
+
+def test_shuffled_target_preserves_maps_and_global_rng_but_breaks_date_alignment():
+    values = np.arange(96, dtype="f4").reshape(24, 2, 2)
+    dates = [f"2000-{1 + i % 12:02d}-03" for i in range(24)]
+    np.random.seed(1729)
+    expected_random = np.random.random(4)
+    np.random.seed(1729)
+    first = transform_targets(values, dates, "shuffled")
+    np.testing.assert_array_equal(np.random.random(4), expected_random)
+    np.testing.assert_array_equal(first, transform_targets(values, dates, "shuffled"))
+    assert not np.array_equal(first, values)
+    np.testing.assert_array_equal(first[np.argsort(first[:, 0, 0])], values)
 
 
 def test_auxiliary_head_preserves_core_initialization_and_routes_gradients(monkeypatch):

@@ -47,7 +47,7 @@ if [[ "$stage" == train-representation ]]; then
   for pid in "${pids[@]}"; do wait "$pid" || status=1; done
   exit "$status"
 fi
-if [[ "$stage" != train-all && "$stage" != train-ablations && "$stage" != train-initializer ]]; then
+if [[ "$stage" != train-all && "$stage" != train-ablations && "$stage" != train-initializer && "$stage" != train-accessory-controls ]]; then
   exec "$python" /extent-code/scripts/run_extent_wave.py --root "$root" --stage "$stage" --arm "$arm"
 fi
 arms=(U-global L-global L-multitask U-multitask)
@@ -56,6 +56,9 @@ if [[ "$stage" == train-ablations ]]; then
 fi
 if [[ "$stage" == train-initializer ]]; then
   arms=(U-patch-detach U-patch-forecast U-patch-loss01 L-patch-truth)
+fi
+if [[ "$stage" == train-accessory-controls ]]; then
+  arms=(U-aux01-static U-aux01-seasonal U-aux01-shuffled U-aux01-anomaly)
 fi
 pids=()
 for gpu in 0 1 2 3; do

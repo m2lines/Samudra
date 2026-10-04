@@ -3,6 +3,7 @@
 
 """Training-only targets for subcell variance of five-day mean velocity."""
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -12,9 +13,33 @@ import zarr  # type: ignore[import-untyped]
 
 from samudra.experiments.observation_pilot import digest
 
+TARGET_MODES = ("aligned", "static", "seasonal", "shuffled", "anomaly")
+SHUFFLE_SEED = 271828
+
+
+def transform_targets(values, dates, mode):
+    """Transform training-only targets without touching model/sampler RNG state."""
+    if mode not in TARGET_MODES:
+        raise ValueError(f"Unknown accessory target mode: {mode}")
+    if mode == "aligned":
+        return values
+    if mode == "static":
+        mean = values.mean(axis=0, dtype=np.float64).astype(values.dtype)
+        return np.broadcast_to(mean, values.shape).copy()
+    if mode == "shuffled":
+        permutation = np.random.default_rng(SHUFFLE_SEED).permutation(len(values))
+        return values[permutation]
+    months = np.array([int(str(date)[5:7]) for date in dates])
+    result = np.empty_like(values)
+    for month in np.unique(months):
+        selected = months == month
+        mean = values[selected].mean(axis=0, dtype=np.float64).astype(values.dtype)
+        result[selected] = mean if mode == "seasonal" else values[selected] - mean
+    return result
+
 
 class VarianceTargets:
-    def __init__(self, root, data, coefficient):
+    def __init__(self, root, data, coefficient, mode="aligned"):
         root = Path(root)
         ready = json.loads((root / "READY.json").read_text())
         for name in ("manifest", "normalization", "grid"):
@@ -49,13 +74,28 @@ class VarianceTargets:
             np.log1p(np.nan_to_num(raw) / norm["variance_scale"]) - norm["log_mean"]
         ) / norm["log_std"]
         normalized[:, ~valid] = 0
+        normalized = transform_targets(normalized, dates, mode)
+        weights = grid["area"] * valid
+        weights = weights / weights.sum()
+        self.provenance = dict(
+            mode=mode,
+            coefficient=coefficient,
+            shuffle_seed=SHUFFLE_SEED if mode == "shuffled" else None,
+            frames=len(dates),
+            first_date=str(dates[0]),
+            last_date=str(dates[-1]),
+            values_sha256=hashlib.sha256(memoryview(normalized).cast("B")).hexdigest(),
+            area_mean=float(
+                (normalized.mean(axis=0, dtype=np.float64) * weights).sum()
+            ),
+            area_mean_square=float(
+                (np.square(normalized).mean(axis=0, dtype=np.float64) * weights).sum()
+            ),
+        )
         self.values = torch.as_tensor(
             normalized[:, None], device=data.device, dtype=torch.float32
         )
-        weights = grid["area"] * valid
-        self.weights = torch.as_tensor(
-            weights / weights.sum(), device=data.device, dtype=torch.float32
-        )
+        self.weights = torch.as_tensor(weights, device=data.device, dtype=torch.float32)
         self.coefficient = coefficient
         self.loss_records = []
 

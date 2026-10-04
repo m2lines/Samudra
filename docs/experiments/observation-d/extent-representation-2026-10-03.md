@@ -25,7 +25,9 @@ All arms start fresh with seed 1729, use the original training splits, masks,
 channel normalization, spatial InstanceNorm, geometry inputs and task adapters.
 The common 31.28M-parameter U-Net initializer consumes 19 surface/forcing frames
 and predicts two full physical states. The processor evolves 77 physical fields
-through six nominal five-day steps. Global fields are 180×360; regional examples
+through six nominal five-day steps on OM4 tasks. Observation tasks retain six
+or seven forecast bins according to calendar-month overlap for OHC; surface
+metrics remain at 5, 15 and 30 days. Global fields are 180×360; regional examples
 are 128×128 native quarter-degree crops, with a 64×64 scored interior and no true
 future boundary conditions. Native data remain the verified v2026-09 five-day
 averages, and global data remain the original 1° OM4 v3 store.

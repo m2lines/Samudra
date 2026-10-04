@@ -23,7 +23,9 @@ OM4, 1,000 native quarter-degree OM4 patches and 2,000 global observation update
 Reuse the verified 1° OM4 v3 global store, v2026-09 quarter-degree five-day-mean
 patch cache and fixed observation samples. Global fields are 180×360; native
 patches are 128×128 with 64×64 scored interiors. The model evolves 77 physical
-channels through six nominal five-day steps. No future state boundary conditions
+channels through six nominal five-day steps on OM4 tasks. Observation tasks
+retain six or seven forecast bins according to calendar-month overlap for OHC,
+with surface metrics at 5, 15 and 30 days. No future state boundary conditions
 or fine-resolution fields enter observation inference.
 
 | Literal name | Initial state on native patch tasks | Native objective and gradient routing | Primary comparison |

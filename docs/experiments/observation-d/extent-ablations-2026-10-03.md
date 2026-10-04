@@ -109,7 +109,9 @@ observation losses, checkpoint-selection metric and held-out cohort stay fixed.
 The original mixed schedule has 4,000 slots: 1,000 global OM4, 1,000 auxiliary
 native-patch OM4 and 2,000 global observation slots. Global data are 180×360;
 native quarter-degree patches are 128×128 with a central 64×64 scored core.
-Global tasks always retain six five-day forecast steps. All task samples use
+Global OM4 tasks always retain six nominal five-day forecast steps. Observation
+tasks retain six or seven forecast bins according to calendar-month overlap for
+OHC, with surface metrics at 5, 15 and 30 days. All task samples use
 the original count-derived seeds, including the retained original global slots.
 
 | Literal name | Auxiliary patch-slot behavior | Actual optimizer updates | Question |

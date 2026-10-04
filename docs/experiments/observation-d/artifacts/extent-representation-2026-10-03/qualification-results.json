@@ -1,0 +1,594 @@
+{
+  "checked_utc": "2026-10-04T00:30:20.126965+00:00",
+  "root": "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation",
+  "qualifications": {
+    "fit-aux": {
+      "QUALIFIED.json": {
+        "normalization": "instance",
+        "evolution_architecture": "extent-aux",
+        "model_options": {
+          "initializer_architecture": "unet",
+          "surface_policy": "observed-only",
+          "task_conditioning": "input-adapters",
+          "latent_channels": 0
+        },
+        "surface_fill": "zero",
+        "global_observations": true,
+        "completion_weight": 0.1,
+        "losses": [
+          1.7029437436087025,
+          1.2311335394491312,
+          0.9820296619154427,
+          0.7753287344203491,
+          0.6591304127172124,
+          0.5829767852198564,
+          0.44716281304302546,
+          0.41653350717697624,
+          0.3460027053815869,
+          0.3240914587460318,
+          0.28167790389192965
+        ],
+        "gradient_reached": {
+          "initializer": true,
+          "evolution": true,
+          "adapter": true,
+          "completion_head": true
+        },
+        "training_origin": "1993-05",
+        "code_commit": "b14ce8acd0ddf77b42b6341b25cdfe242dc8eec6",
+        "runtime_extension_sha256": "13b05ce0e69b9e1e54fda416e0d34cb6886108f2713749018fea58ce4a592c6b",
+        "data_manifest_sha256": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+        "selection_reference_sha256": "c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c",
+        "gpu": "NVIDIA GB200",
+        "max_gpu_memory_gib": 3.7449493408203125,
+        "scope": "training-only ten-update fitting and integrated-validation qualification, not held-out skill"
+      }
+    },
+    "fit-axial": {
+      "QUALIFIED.json": {
+        "normalization": "instance",
+        "evolution_architecture": "extent-axial",
+        "model_options": {
+          "initializer_architecture": "unet",
+          "surface_policy": "observed-only",
+          "task_conditioning": "input-adapters",
+          "latent_channels": 0
+        },
+        "surface_fill": "zero",
+        "global_observations": true,
+        "completion_weight": 0.1,
+        "losses": [
+          1.7041395319921864,
+          1.2359958624542082,
+          0.9750481856801179,
+          0.7732676047376319,
+          0.7115407818673718,
+          0.5531000137303764,
+          0.4448638421650565,
+          0.3963388055396915,
+          0.3496776174772768,
+          0.3054863883895512,
+          0.2825738775971251
+        ],
+        "gradient_reached": {
+          "initializer": true,
+          "evolution": true,
+          "adapter": true,
+          "completion_head": true
+        },
+        "training_origin": "1993-05",
+        "code_commit": "b14ce8acd0ddf77b42b6341b25cdfe242dc8eec6",
+        "runtime_extension_sha256": "13b05ce0e69b9e1e54fda416e0d34cb6886108f2713749018fea58ce4a592c6b",
+        "data_manifest_sha256": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+        "selection_reference_sha256": "c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c",
+        "gpu": "NVIDIA GB200",
+        "max_gpu_memory_gib": 3.773653507232666,
+        "scope": "training-only ten-update fitting and integrated-validation qualification, not held-out skill"
+      }
+    },
+    "fit-wide": {
+      "QUALIFIED.json": {
+        "normalization": "instance",
+        "evolution_architecture": "extent-wide",
+        "model_options": {
+          "initializer_architecture": "unet",
+          "surface_policy": "observed-only",
+          "task_conditioning": "input-adapters",
+          "latent_channels": 0
+        },
+        "surface_fill": "zero",
+        "global_observations": true,
+        "completion_weight": 0.1,
+        "losses": [
+          1.6688776625616444,
+          1.299346132406085,
+          1.299488687729707,
+          0.789805786122997,
+          0.610147993042273,
+          0.5229998159063758,
+          0.5024370195476104,
+          0.43998986506554805,
+          0.33150759037297506,
+          0.33707800196156223,
+          0.2874085973036279
+        ],
+        "gradient_reached": {
+          "initializer": true,
+          "evolution": true,
+          "adapter": true,
+          "completion_head": true
+        },
+        "training_origin": "1993-05",
+        "code_commit": "b14ce8acd0ddf77b42b6341b25cdfe242dc8eec6",
+        "runtime_extension_sha256": "13b05ce0e69b9e1e54fda416e0d34cb6886108f2713749018fea58ce4a592c6b",
+        "data_manifest_sha256": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+        "selection_reference_sha256": "c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c",
+        "gpu": "NVIDIA GB200",
+        "max_gpu_memory_gib": 4.1690802574157715,
+        "scope": "training-only ten-update fitting and integrated-validation qualification, not held-out skill"
+      }
+    },
+    "probe-A-global": {
+      "JOINT_QUALIFIED.json": {
+        "contract": {
+          "code_commit": "b14ce8acd0ddf77b42b6341b25cdfe242dc8eec6",
+          "runtime_extension_sha256": "13b05ce0e69b9e1e54fda416e0d34cb6886108f2713749018fea58ce4a592c6b",
+          "data_manifest_sha256": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+          "om4_data": "/mnt/home/jrusak/data/diffusion-interior-beta/data/om4_onedeg_v3",
+          "selection_reference_sha256": "c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c",
+          "normalization": "instance",
+          "evolution_architecture": "extent-axial",
+          "model_options": {
+            "initializer_architecture": "unet",
+            "surface_policy": "observed-only",
+            "task_conditioning": "input-adapters",
+            "latent_channels": 0
+          },
+          "surface_fill": "zero",
+          "completion_weight": 0.1,
+          "global_observations": true,
+          "reconstruction_weight": 0.1,
+          "accumulate": 8,
+          "core_lr": 0.0001,
+          "om4_lr": 0.0001,
+          "warmup_steps": 0,
+          "seed": 1729
+        },
+        "resume_verified": true,
+        "resume_evidence": {
+          "serialization_exact": true,
+          "restoration_exact": true,
+          "native_and_serialized_replay": {
+            "native_repeat": {
+              "rmse": 1.6729701542514912e-07,
+              "max_absolute": 0.00018403171270620078
+            },
+            "serialized": {
+              "rmse": 1.1896757066600804e-07,
+              "max_absolute": 0.00018963986076414585
+            }
+          },
+          "acceptance": "Serialized replay difference <= 5x native replay difference, with RMSE floor 1e-8 and maximum absolute floor 1e-7"
+        },
+        "task_counts": {
+          "om4": 6,
+          "observation": 4
+        },
+        "gpu": "NVIDIA GB200",
+        "max_gpu_memory_gib": 71.68302869796753
+      },
+      "THROUGHPUT.json": {
+        "mean_update_seconds": 8.100269980806237,
+        "updates": 12,
+        "training_hours_for_4000_updates": 9.000299978673597,
+        "note": "Excludes validation and initial dataset preparation"
+      }
+    },
+    "probe-A-multitask": {
+      "JOINT_QUALIFIED.json": {
+        "contract": {
+          "code_commit": "b14ce8acd0ddf77b42b6341b25cdfe242dc8eec6",
+          "runtime_extension_sha256": "13b05ce0e69b9e1e54fda416e0d34cb6886108f2713749018fea58ce4a592c6b",
+          "data_manifest_sha256": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+          "om4_data": "/mnt/home/jrusak/data/diffusion-interior-beta/data/om4_onedeg_v3",
+          "selection_reference_sha256": "c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c",
+          "normalization": "instance",
+          "evolution_architecture": "extent-axial",
+          "model_options": {
+            "initializer_architecture": "unet",
+            "surface_policy": "observed-only",
+            "task_conditioning": "input-adapters",
+            "latent_channels": 0
+          },
+          "surface_fill": "zero",
+          "completion_weight": 0.1,
+          "global_observations": true,
+          "reconstruction_weight": 0.1,
+          "accumulate": 8,
+          "core_lr": 0.0001,
+          "om4_lr": 0.0001,
+          "warmup_steps": 0,
+          "seed": 1729,
+          "patch_cache_manifest_sha256": "3e77922069af5ef7dc188043b8a6b65f30fa5a91f65ee986b951d9197e51e3d5",
+          "patch_cache_ready_sha256": "b21472044b2b6bd09aea846dabe76ca7e1e220da8c12ab785c38f8e88c1f4791",
+          "patch_training": true,
+          "patch_intervention": {
+            "mode": "shared",
+            "leads": 6,
+            "lr_scale": 1.0
+          },
+          "patch_shape_halo": [
+            128,
+            128,
+            32
+          ]
+        },
+        "resume_verified": true,
+        "resume_evidence": {
+          "serialization_exact": true,
+          "restoration_exact": true,
+          "native_and_serialized_replay": {
+            "native_repeat": {
+              "rmse": 1.6766931138537062e-07,
+              "max_absolute": 0.00019700636039488018
+            },
+            "serialized": {
+              "rmse": 1.6595703041623915e-07,
+              "max_absolute": 0.0001942528469953686
+            }
+          },
+          "acceptance": "Serialized replay difference <= 5x native replay difference, with RMSE floor 1e-8 and maximum absolute floor 1e-7"
+        },
+        "task_counts": {
+          "om4": 6,
+          "observation": 4
+        },
+        "gpu": "NVIDIA GB200",
+        "max_gpu_memory_gib": 71.68302869796753
+      },
+      "THROUGHPUT.json": {
+        "mean_update_seconds": 11.086660108024565,
+        "updates": 12,
+        "training_hours_for_4000_updates": 12.318511231138405,
+        "note": "Excludes validation and initial dataset preparation"
+      }
+    },
+    "probe-U-aux01": {
+      "JOINT_QUALIFIED.json": {
+        "contract": {
+          "code_commit": "b14ce8acd0ddf77b42b6341b25cdfe242dc8eec6",
+          "runtime_extension_sha256": "13b05ce0e69b9e1e54fda416e0d34cb6886108f2713749018fea58ce4a592c6b",
+          "data_manifest_sha256": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+          "om4_data": "/mnt/home/jrusak/data/diffusion-interior-beta/data/om4_onedeg_v3",
+          "selection_reference_sha256": "c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c",
+          "normalization": "instance",
+          "evolution_architecture": "extent-aux",
+          "model_options": {
+            "initializer_architecture": "unet",
+            "surface_policy": "observed-only",
+            "task_conditioning": "input-adapters",
+            "latent_channels": 0
+          },
+          "surface_fill": "zero",
+          "completion_weight": 0.1,
+          "global_observations": true,
+          "reconstruction_weight": 0.1,
+          "accumulate": 8,
+          "core_lr": 0.0001,
+          "om4_lr": 0.0001,
+          "warmup_steps": 0,
+          "seed": 1729,
+          "auxiliary": {
+            "ready_sha256": "e7c118ecdec43f5a0d0480b3df429492ef1cd4ff2589fead7eb060b17bb8d9fd",
+            "coefficient": 0.01
+          }
+        },
+        "resume_verified": true,
+        "resume_evidence": {
+          "serialization_exact": true,
+          "restoration_exact": true,
+          "native_and_serialized_replay": {
+            "native_repeat": {
+              "rmse": 2.979950272152669e-07,
+              "max_absolute": 0.00019580291700549424
+            },
+            "serialized": {
+              "rmse": 3.0256268499966423e-07,
+              "max_absolute": 0.0001932809827849269
+            }
+          },
+          "acceptance": "Serialized replay difference <= 5x native replay difference, with RMSE floor 1e-8 and maximum absolute floor 1e-7"
+        },
+        "task_counts": {
+          "om4": 6,
+          "observation": 4
+        },
+        "gpu": "NVIDIA GB200",
+        "max_gpu_memory_gib": 71.67781066894531
+      },
+      "THROUGHPUT.json": {
+        "mean_update_seconds": 8.234578720876016,
+        "updates": 12,
+        "training_hours_for_4000_updates": 9.149531912084463,
+        "note": "Excludes validation and initial dataset preparation"
+      }
+    },
+    "probe-U-aux10": {
+      "JOINT_QUALIFIED.json": {
+        "contract": {
+          "code_commit": "b14ce8acd0ddf77b42b6341b25cdfe242dc8eec6",
+          "runtime_extension_sha256": "13b05ce0e69b9e1e54fda416e0d34cb6886108f2713749018fea58ce4a592c6b",
+          "data_manifest_sha256": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+          "om4_data": "/mnt/home/jrusak/data/diffusion-interior-beta/data/om4_onedeg_v3",
+          "selection_reference_sha256": "c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c",
+          "normalization": "instance",
+          "evolution_architecture": "extent-aux",
+          "model_options": {
+            "initializer_architecture": "unet",
+            "surface_policy": "observed-only",
+            "task_conditioning": "input-adapters",
+            "latent_channels": 0
+          },
+          "surface_fill": "zero",
+          "completion_weight": 0.1,
+          "global_observations": true,
+          "reconstruction_weight": 0.1,
+          "accumulate": 8,
+          "core_lr": 0.0001,
+          "om4_lr": 0.0001,
+          "warmup_steps": 0,
+          "seed": 1729,
+          "auxiliary": {
+            "ready_sha256": "e7c118ecdec43f5a0d0480b3df429492ef1cd4ff2589fead7eb060b17bb8d9fd",
+            "coefficient": 0.1
+          }
+        },
+        "resume_verified": true,
+        "resume_evidence": {
+          "serialization_exact": true,
+          "restoration_exact": true,
+          "native_and_serialized_replay": {
+            "native_repeat": {
+              "rmse": 3.126753275372111e-07,
+              "max_absolute": 0.00018623541109263897
+            },
+            "serialized": {
+              "rmse": 2.808742138522703e-07,
+              "max_absolute": 0.00019736145623028278
+            }
+          },
+          "acceptance": "Serialized replay difference <= 5x native replay difference, with RMSE floor 1e-8 and maximum absolute floor 1e-7"
+        },
+        "task_counts": {
+          "om4": 6,
+          "observation": 4
+        },
+        "gpu": "NVIDIA GB200",
+        "max_gpu_memory_gib": 71.67781066894531
+      },
+      "THROUGHPUT.json": {
+        "mean_update_seconds": 7.712048829746588,
+        "updates": 12,
+        "training_hours_for_4000_updates": 8.568943144162876,
+        "note": "Excludes validation and initial dataset preparation"
+      }
+    },
+    "probe-W-global": {
+      "JOINT_QUALIFIED.json": {
+        "contract": {
+          "code_commit": "b14ce8acd0ddf77b42b6341b25cdfe242dc8eec6",
+          "runtime_extension_sha256": "13b05ce0e69b9e1e54fda416e0d34cb6886108f2713749018fea58ce4a592c6b",
+          "data_manifest_sha256": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+          "om4_data": "/mnt/home/jrusak/data/diffusion-interior-beta/data/om4_onedeg_v3",
+          "selection_reference_sha256": "c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c",
+          "normalization": "instance",
+          "evolution_architecture": "extent-wide",
+          "model_options": {
+            "initializer_architecture": "unet",
+            "surface_policy": "observed-only",
+            "task_conditioning": "input-adapters",
+            "latent_channels": 0
+          },
+          "surface_fill": "zero",
+          "completion_weight": 0.1,
+          "global_observations": true,
+          "reconstruction_weight": 0.1,
+          "accumulate": 8,
+          "core_lr": 0.0001,
+          "om4_lr": 0.0001,
+          "warmup_steps": 0,
+          "seed": 1729
+        },
+        "resume_verified": true,
+        "resume_evidence": {
+          "serialization_exact": true,
+          "restoration_exact": true,
+          "native_and_serialized_replay": {
+            "native_repeat": {
+              "rmse": 1.3975420505761608e-07,
+              "max_absolute": 0.0001824368955567479
+            },
+            "serialized": {
+              "rmse": 2.188556442145448e-07,
+              "max_absolute": 0.00018368136079516262
+            }
+          },
+          "acceptance": "Serialized replay difference <= 5x native replay difference, with RMSE floor 1e-8 and maximum absolute floor 1e-7"
+        },
+        "task_counts": {
+          "om4": 6,
+          "observation": 4
+        },
+        "gpu": "NVIDIA GB200",
+        "max_gpu_memory_gib": 71.81623601913452
+      },
+      "THROUGHPUT.json": {
+        "mean_update_seconds": 8.028490834656017,
+        "updates": 12,
+        "training_hours_for_4000_updates": 8.920545371840019,
+        "note": "Excludes validation and initial dataset preparation"
+      }
+    },
+    "probe-W-multitask": {
+      "JOINT_QUALIFIED.json": {
+        "contract": {
+          "code_commit": "b14ce8acd0ddf77b42b6341b25cdfe242dc8eec6",
+          "runtime_extension_sha256": "13b05ce0e69b9e1e54fda416e0d34cb6886108f2713749018fea58ce4a592c6b",
+          "data_manifest_sha256": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+          "om4_data": "/mnt/home/jrusak/data/diffusion-interior-beta/data/om4_onedeg_v3",
+          "selection_reference_sha256": "c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c",
+          "normalization": "instance",
+          "evolution_architecture": "extent-wide",
+          "model_options": {
+            "initializer_architecture": "unet",
+            "surface_policy": "observed-only",
+            "task_conditioning": "input-adapters",
+            "latent_channels": 0
+          },
+          "surface_fill": "zero",
+          "completion_weight": 0.1,
+          "global_observations": true,
+          "reconstruction_weight": 0.1,
+          "accumulate": 8,
+          "core_lr": 0.0001,
+          "om4_lr": 0.0001,
+          "warmup_steps": 0,
+          "seed": 1729,
+          "patch_cache_manifest_sha256": "3e77922069af5ef7dc188043b8a6b65f30fa5a91f65ee986b951d9197e51e3d5",
+          "patch_cache_ready_sha256": "b21472044b2b6bd09aea846dabe76ca7e1e220da8c12ab785c38f8e88c1f4791",
+          "patch_training": true,
+          "patch_intervention": {
+            "mode": "shared",
+            "leads": 6,
+            "lr_scale": 1.0
+          },
+          "patch_shape_halo": [
+            128,
+            128,
+            32
+          ]
+        },
+        "resume_verified": true,
+        "resume_evidence": {
+          "serialization_exact": true,
+          "restoration_exact": true,
+          "native_and_serialized_replay": {
+            "native_repeat": {
+              "rmse": 1.5350460567675004e-07,
+              "max_absolute": 0.00019443272321950644
+            },
+            "serialized": {
+              "rmse": 1.4488826149220025e-07,
+              "max_absolute": 0.00019112409790977836
+            }
+          },
+          "acceptance": "Serialized replay difference <= 5x native replay difference, with RMSE floor 1e-8 and maximum absolute floor 1e-7"
+        },
+        "task_counts": {
+          "om4": 6,
+          "observation": 4
+        },
+        "gpu": "NVIDIA GB200",
+        "max_gpu_memory_gib": 71.81623601913452
+      },
+      "THROUGHPUT.json": {
+        "mean_update_seconds": 10.827831566993458,
+        "updates": 12,
+        "training_hours_for_4000_updates": 12.030923963326064,
+        "note": "Excludes validation and initial dataset preparation"
+      }
+    }
+  },
+  "accounting": [
+    {
+      "job": "209580",
+      "state": "COMPLETED",
+      "elapsed": 177,
+      "start": "2026-10-03T23:37:06",
+      "end": "2026-10-03T23:40:03",
+      "gpus": 1,
+      "gpu_hours": 0.049166666666666664,
+      "exit": "0:0"
+    },
+    {
+      "job": "209581",
+      "state": "COMPLETED",
+      "elapsed": 671,
+      "start": "2026-10-03T23:40:04",
+      "end": "2026-10-03T23:51:15",
+      "gpus": 1,
+      "gpu_hours": 0.18638888888888888,
+      "exit": "0:0"
+    },
+    {
+      "job": "209582",
+      "state": "COMPLETED",
+      "elapsed": 650,
+      "start": "2026-10-03T23:51:15",
+      "end": "2026-10-04T00:02:05",
+      "gpus": 1,
+      "gpu_hours": 0.18055555555555555,
+      "exit": "0:0"
+    },
+    {
+      "job": "209583",
+      "state": "COMPLETED",
+      "elapsed": 185,
+      "start": "2026-10-03T23:37:06",
+      "end": "2026-10-03T23:40:11",
+      "gpus": 1,
+      "gpu_hours": 0.05138888888888889,
+      "exit": "0:0"
+    },
+    {
+      "job": "209584",
+      "state": "COMPLETED",
+      "elapsed": 642,
+      "start": "2026-10-03T23:40:11",
+      "end": "2026-10-03T23:50:53",
+      "gpus": 1,
+      "gpu_hours": 0.17833333333333334,
+      "exit": "0:0"
+    },
+    {
+      "job": "209585",
+      "state": "COMPLETED",
+      "elapsed": 712,
+      "start": "2026-10-03T23:50:53",
+      "end": "2026-10-04T00:02:45",
+      "gpus": 1,
+      "gpu_hours": 0.19777777777777777,
+      "exit": "0:0"
+    },
+    {
+      "job": "209586",
+      "state": "COMPLETED",
+      "elapsed": 179,
+      "start": "2026-10-03T23:37:06",
+      "end": "2026-10-03T23:40:05",
+      "gpus": 1,
+      "gpu_hours": 0.04972222222222222,
+      "exit": "0:0"
+    },
+    {
+      "job": "209587",
+      "state": "COMPLETED",
+      "elapsed": 643,
+      "start": "2026-10-03T23:40:05",
+      "end": "2026-10-03T23:50:48",
+      "gpus": 1,
+      "gpu_hours": 0.1786111111111111,
+      "exit": "0:0"
+    },
+    {
+      "job": "209588",
+      "state": "COMPLETED",
+      "elapsed": 716,
+      "start": "2026-10-03T23:50:49",
+      "end": "2026-10-04T00:02:45",
+      "gpus": 1,
+      "gpu_hours": 0.1988888888888889,
+      "exit": "0:0"
+    }
+  ]
+}

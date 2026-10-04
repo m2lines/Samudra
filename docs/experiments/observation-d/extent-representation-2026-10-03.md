@@ -167,3 +167,49 @@ New root: `/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-represen
 [Exact submission receipts](artifacts/extent-representation-2026-10-03/qualification-jobs.json)
 include resource requests and dependency IDs. All qualifications request one GPU,
 16 CPUs, 128 GiB, and at most two hours on `beta_test` with QoS `test`.
+
+## Qualifications passed; production queued at 8:32 p.m. ET
+
+All three fitting jobs and all six joint probes completed successfully, with
+exit 0. Initial-to-final fitting losses were 1.703→0.282 (accessory),
+1.669→0.287 (wider), and 1.704→0.283 (axial). Required initializer, processor,
+adapter and surface-completion gradients were present. Joint probes additionally
+verified accessory-head gradients on OM4 and their absence on observation tasks.
+The reported physical objective excludes the separately logged accessory term.
+
+All six probes verified exact serialization/restoration and serialized replay
+differences within the measured native nondeterminism tolerance. Measured peak
+GPU allocation was 71.7–71.8 GiB, including the shared global-data cache.
+
+| Arm | Probe seconds/update | Extrapolated training hours for 4,000 updates |
+|---|---:|---:|
+| U-aux01 | 8.23 | 9.15 |
+| U-aux10 | 7.71 | 8.57 |
+| W-global | 8.03 | 8.92 |
+| W-multitask | 10.83 | 12.03 |
+| A-global | 8.10 | 9.00 |
+| A-multitask | 11.09 | 12.32 |
+
+These short-probe estimates exclude validation/startup; the first screen's
+probes were slower than its eventual production average. The longest proposed
+serial GPU lane totals 20.89 estimated training hours, leaving about three hours
+within a 24-hour allocation for overhead. This is a feasibility check, not a
+guaranteed completion time. Qualifications consumed **1.271 allocated GPU-hours**.
+
+Production **209608** is queued on `beta`, QoS `standard`, one node with four
+GPUs, 144 CPUs, `--mem=0`, and a 24-hour cap. It depends on successful completion
+of current ablation job **209574**, and uses the fixed packing documented above.
+The scheduler's dry-run start estimate was **October 4 at 3:17 a.m. ET**; actual
+start remains unconfirmed. No queue-chasing resource change was made.
+
+The first submission dry-run rejected completed probe IDs because they were no
+longer available to Slurm's live dependency mechanism. It launched no job and
+used no GPU time. Admission instead explicitly checked all six `COMPLETED/0:0`
+accounting records and their producer-matching qualification contracts before
+submission, while retaining the live `afterok:209574` dependency. The training
+runner also checks each exact qualification contract before production. The
+failed submission script is preserved; no scientific or resume contract changed.
+
+Evidence: [qualification results](artifacts/extent-representation-2026-10-03/qualification-results.json),
+[production admission](artifacts/extent-representation-2026-10-03/production-admission.json),
+[exact production receipt](artifacts/extent-representation-2026-10-03/production-jobs.json).

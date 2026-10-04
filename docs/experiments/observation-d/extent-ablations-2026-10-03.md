@@ -223,3 +223,11 @@ this check totals **5.56 allocated GPU-hours**, including all ablation fitting,
 resume probes and the gradient diagnostic. No failures or retries were recorded.
 The [next representation wave](extent-representation-2026-10-03.md) has fixed
 run definitions and queued qualifications; its production is not yet submitted.
+
+At **8:30 p.m. ET**, all four arms were still running without a recorded
+failure. Omission reached 1,407 actual updates at slot 2,125; the other arms
+reached about 1,010 updates. Their latest slot-1,000 validation composites were
+1.5710 (smaller patch LR), 1.4436 (true-state patch), and 1.4991 (one-step patch).
+Omission's latest score was 0.8488 at slot 2,100. Completed-budget comparisons
+remain pending. The representation wave has now passed every qualification and
+its production job 209608 is queued behind successful completion of 209574.

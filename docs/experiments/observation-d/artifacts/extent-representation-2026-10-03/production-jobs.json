@@ -1,0 +1,333 @@
+{
+  "producer": "b14ce8acd0ddf77b42b6341b25cdfe242dc8eec6",
+  "root": "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation",
+  "submitted_utc": "2026-10-03T23:01:28.391225+00:00",
+  "jobs": [
+    {
+      "job_id": "209580",
+      "stage": "fit",
+      "arm": "U-aux01",
+      "dependencies": [],
+      "command": [
+        "sbatch",
+        "--parsable",
+        "--account=ny_lz1955_multiscale",
+        "--nodes=1",
+        "--ntasks-per-node=1",
+        "--partition=beta_test",
+        "--qos=test",
+        "--cpus-per-task=16",
+        "--gres=gpu:1",
+        "--mem=128G",
+        "--time=02:00:00",
+        "--job-name=extent-repr-fit-U-aux01",
+        "--output=/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation/logs/fit-U-aux01-%j.out",
+        "--error=/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation/logs/fit-U-aux01-%j.err",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation/code/b14ce8acd/scripts/slurm_extent_beta.sbatch",
+        "fit",
+        "U-aux01",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation/code/b14ce8acd",
+        "b14ce8acd0ddf77b42b6341b25cdfe242dc8eec6"
+      ]
+    },
+    {
+      "job_id": "209581",
+      "stage": "probe",
+      "arm": "U-aux01",
+      "dependencies": [
+        "209580"
+      ],
+      "command": [
+        "sbatch",
+        "--parsable",
+        "--account=ny_lz1955_multiscale",
+        "--nodes=1",
+        "--ntasks-per-node=1",
+        "--partition=beta_test",
+        "--qos=test",
+        "--cpus-per-task=16",
+        "--gres=gpu:1",
+        "--mem=128G",
+        "--time=02:00:00",
+        "--job-name=extent-repr-probe-U-aux01",
+        "--output=/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation/logs/probe-U-aux01-%j.out",
+        "--error=/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation/logs/probe-U-aux01-%j.err",
+        "--dependency=afterok:209580",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation/code/b14ce8acd/scripts/slurm_extent_beta.sbatch",
+        "probe",
+        "U-aux01",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation/code/b14ce8acd",
+        "b14ce8acd0ddf77b42b6341b25cdfe242dc8eec6"
+      ]
+    },
+    {
+      "job_id": "209582",
+      "stage": "probe",
+      "arm": "U-aux10",
+      "dependencies": [
+        "209581"
+      ],
+      "command": [
+        "sbatch",
+        "--parsable",
+        "--account=ny_lz1955_multiscale",
+        "--nodes=1",
+        "--ntasks-per-node=1",
+        "--partition=beta_test",
+        "--qos=test",
+        "--cpus-per-task=16",
+        "--gres=gpu:1",
+        "--mem=128G",
+        "--time=02:00:00",
+        "--job-name=extent-repr-probe-U-aux10",
+        "--output=/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation/logs/probe-U-aux10-%j.out",
+        "--error=/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation/logs/probe-U-aux10-%j.err",
+        "--dependency=afterok:209581",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation/code/b14ce8acd/scripts/slurm_extent_beta.sbatch",
+        "probe",
+        "U-aux10",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation/code/b14ce8acd",
+        "b14ce8acd0ddf77b42b6341b25cdfe242dc8eec6"
+      ]
+    },
+    {
+      "job_id": "209583",
+      "stage": "fit",
+      "arm": "W-global",
+      "dependencies": [],
+      "command": [
+        "sbatch",
+        "--parsable",
+        "--account=ny_lz1955_multiscale",
+        "--nodes=1",
+        "--ntasks-per-node=1",
+        "--partition=beta_test",
+        "--qos=test",
+        "--cpus-per-task=16",
+        "--gres=gpu:1",
+        "--mem=128G",
+        "--time=02:00:00",
+        "--job-name=extent-repr-fit-W-global",
+        "--output=/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation/logs/fit-W-global-%j.out",
+        "--error=/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation/logs/fit-W-global-%j.err",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation/code/b14ce8acd/scripts/slurm_extent_beta.sbatch",
+        "fit",
+        "W-global",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation/code/b14ce8acd",
+        "b14ce8acd0ddf77b42b6341b25cdfe242dc8eec6"
+      ]
+    },
+    {
+      "job_id": "209584",
+      "stage": "probe",
+      "arm": "W-global",
+      "dependencies": [
+        "209583"
+      ],
+      "command": [
+        "sbatch",
+        "--parsable",
+        "--account=ny_lz1955_multiscale",
+        "--nodes=1",
+        "--ntasks-per-node=1",
+        "--partition=beta_test",
+        "--qos=test",
+        "--cpus-per-task=16",
+        "--gres=gpu:1",
+        "--mem=128G",
+        "--time=02:00:00",
+        "--job-name=extent-repr-probe-W-global",
+        "--output=/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation/logs/probe-W-global-%j.out",
+        "--error=/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation/logs/probe-W-global-%j.err",
+        "--dependency=afterok:209583",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation/code/b14ce8acd/scripts/slurm_extent_beta.sbatch",
+        "probe",
+        "W-global",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation/code/b14ce8acd",
+        "b14ce8acd0ddf77b42b6341b25cdfe242dc8eec6"
+      ]
+    },
+    {
+      "job_id": "209585",
+      "stage": "probe",
+      "arm": "W-multitask",
+      "dependencies": [
+        "209584"
+      ],
+      "command": [
+        "sbatch",
+        "--parsable",
+        "--account=ny_lz1955_multiscale",
+        "--nodes=1",
+        "--ntasks-per-node=1",
+        "--partition=beta_test",
+        "--qos=test",
+        "--cpus-per-task=16",
+        "--gres=gpu:1",
+        "--mem=128G",
+        "--time=02:00:00",
+        "--job-name=extent-repr-probe-W-multitask",
+        "--output=/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation/logs/probe-W-multitask-%j.out",
+        "--error=/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation/logs/probe-W-multitask-%j.err",
+        "--dependency=afterok:209584",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation/code/b14ce8acd/scripts/slurm_extent_beta.sbatch",
+        "probe",
+        "W-multitask",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation/code/b14ce8acd",
+        "b14ce8acd0ddf77b42b6341b25cdfe242dc8eec6"
+      ]
+    },
+    {
+      "job_id": "209586",
+      "stage": "fit",
+      "arm": "A-global",
+      "dependencies": [],
+      "command": [
+        "sbatch",
+        "--parsable",
+        "--account=ny_lz1955_multiscale",
+        "--nodes=1",
+        "--ntasks-per-node=1",
+        "--partition=beta_test",
+        "--qos=test",
+        "--cpus-per-task=16",
+        "--gres=gpu:1",
+        "--mem=128G",
+        "--time=02:00:00",
+        "--job-name=extent-repr-fit-A-global",
+        "--output=/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation/logs/fit-A-global-%j.out",
+        "--error=/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation/logs/fit-A-global-%j.err",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation/code/b14ce8acd/scripts/slurm_extent_beta.sbatch",
+        "fit",
+        "A-global",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation/code/b14ce8acd",
+        "b14ce8acd0ddf77b42b6341b25cdfe242dc8eec6"
+      ]
+    },
+    {
+      "job_id": "209587",
+      "stage": "probe",
+      "arm": "A-global",
+      "dependencies": [
+        "209586"
+      ],
+      "command": [
+        "sbatch",
+        "--parsable",
+        "--account=ny_lz1955_multiscale",
+        "--nodes=1",
+        "--ntasks-per-node=1",
+        "--partition=beta_test",
+        "--qos=test",
+        "--cpus-per-task=16",
+        "--gres=gpu:1",
+        "--mem=128G",
+        "--time=02:00:00",
+        "--job-name=extent-repr-probe-A-global",
+        "--output=/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation/logs/probe-A-global-%j.out",
+        "--error=/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation/logs/probe-A-global-%j.err",
+        "--dependency=afterok:209586",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation/code/b14ce8acd/scripts/slurm_extent_beta.sbatch",
+        "probe",
+        "A-global",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation/code/b14ce8acd",
+        "b14ce8acd0ddf77b42b6341b25cdfe242dc8eec6"
+      ]
+    },
+    {
+      "job_id": "209588",
+      "stage": "probe",
+      "arm": "A-multitask",
+      "dependencies": [
+        "209587"
+      ],
+      "command": [
+        "sbatch",
+        "--parsable",
+        "--account=ny_lz1955_multiscale",
+        "--nodes=1",
+        "--ntasks-per-node=1",
+        "--partition=beta_test",
+        "--qos=test",
+        "--cpus-per-task=16",
+        "--gres=gpu:1",
+        "--mem=128G",
+        "--time=02:00:00",
+        "--job-name=extent-repr-probe-A-multitask",
+        "--output=/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation/logs/probe-A-multitask-%j.out",
+        "--error=/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation/logs/probe-A-multitask-%j.err",
+        "--dependency=afterok:209587",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation/code/b14ce8acd/scripts/slurm_extent_beta.sbatch",
+        "probe",
+        "A-multitask",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation/code/b14ce8acd",
+        "b14ce8acd0ddf77b42b6341b25cdfe242dc8eec6"
+      ]
+    },
+    {
+      "job_id": "209608",
+      "stage": "train-representation",
+      "arm": "all",
+      "dependencies": [
+        "209574"
+      ],
+      "command": [
+        "sbatch",
+        "--parsable",
+        "--account=ny_lz1955_multiscale",
+        "--partition=beta",
+        "--qos=standard",
+        "--nodes=1",
+        "--ntasks-per-node=1",
+        "--cpus-per-task=144",
+        "--gres=gpu:4",
+        "--mem=0",
+        "--time=24:00:00",
+        "--job-name=extent-representation-all",
+        "--dependency=afterok:209574",
+        "--output=/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation/logs/train-representation-%j.out",
+        "--error=/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation/logs/train-representation-%j.err",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation/code/b14ce8acd/scripts/slurm_extent_beta.sbatch",
+        "train-representation",
+        "all",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation/code/b14ce8acd",
+        "b14ce8acd0ddf77b42b6341b25cdfe242dc8eec6"
+      ],
+      "submitted_utc": "2026-10-04T00:31:36.438523+00:00",
+      "lanes": [
+        [
+          "U-aux01",
+          "A-global"
+        ],
+        [
+          "U-aux10",
+          "A-multitask"
+        ],
+        [
+          "W-global"
+        ],
+        [
+          "W-multitask"
+        ]
+      ],
+      "probe_training_hours": {
+        "U-aux01": 9.149531912084463,
+        "A-global": 9.000299978673597,
+        "U-aux10": 8.568943144162876,
+        "A-multitask": 12.318511231138405,
+        "W-global": 8.920545371840019,
+        "W-multitask": 12.030923963326064
+      }
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "producer": "b14ce8acd0ddf77b42b6341b25cdfe242dc8eec6",
+  "checked_utc": "2026-10-04T00:31:36.348556+00:00",
+  "qualification_accounting": "209581|COMPLETED|0:0\n209582|COMPLETED|0:0\n209584|COMPLETED|0:0\n209585|COMPLETED|0:0\n209587|COMPLETED|0:0\n209588|COMPLETED|0:0\n",
+  "qualification_job_ids": [
+    "209581",
+    "209582",
+    "209584",
+    "209585",
+    "209587",
+    "209588"
+  ],
+  "training_hours_by_arm": {
+    "U-aux01": 9.149531912084463,
+    "A-global": 9.000299978673597,
+    "U-aux10": 8.568943144162876,
+    "A-multitask": 12.318511231138405,
+    "W-global": 8.920545371840019,
+    "W-multitask": 12.030923963326064
+  },
+  "live_dependencies": [
+    "209574"
+  ],
+  "dependency_note": "Probe IDs no longer accepted by live Slurm dependencies; verified COMPLETED/0:0 accounting plus immutable qualification contracts gate admission."
+}

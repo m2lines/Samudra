@@ -1,0 +1,393 @@
+{
+  "checked_utc": "2026-10-04T13:03:39.867175+00:00",
+  "root": "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-accessory-controls",
+  "qualifications": {
+    "fit-aux": {
+      "QUALIFIED.json": {
+        "normalization": "instance",
+        "evolution_architecture": "extent-aux",
+        "model_options": {
+          "initializer_architecture": "unet",
+          "surface_policy": "observed-only",
+          "task_conditioning": "input-adapters",
+          "latent_channels": 0
+        },
+        "surface_fill": "zero",
+        "global_observations": true,
+        "completion_weight": 0.1,
+        "losses": [
+          1.7029437436087025,
+          1.2310220017610087,
+          0.9821386261584613,
+          0.776982191931248,
+          0.6597054900586308,
+          0.5863394221543176,
+          0.4490470546918958,
+          0.4174725798508194,
+          0.34155232079158077,
+          0.3289043797482369,
+          0.2880335670866699
+        ],
+        "gradient_reached": {
+          "initializer": true,
+          "evolution": true,
+          "adapter": true,
+          "completion_head": true
+        },
+        "training_origin": "1993-05",
+        "code_commit": "558d45cac2294f691d1d73a47db1783df1850c80",
+        "runtime_extension_sha256": "13b05ce0e69b9e1e54fda416e0d34cb6886108f2713749018fea58ce4a592c6b",
+        "data_manifest_sha256": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+        "selection_reference_sha256": "c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c",
+        "gpu": "NVIDIA GB200",
+        "max_gpu_memory_gib": 3.7449493408203125,
+        "scope": "training-only ten-update fitting and integrated-validation qualification, not held-out skill"
+      }
+    },
+    "probe-U-aux01-anomaly": {
+      "JOINT_QUALIFIED.json": {
+        "contract": {
+          "code_commit": "558d45cac2294f691d1d73a47db1783df1850c80",
+          "runtime_extension_sha256": "13b05ce0e69b9e1e54fda416e0d34cb6886108f2713749018fea58ce4a592c6b",
+          "data_manifest_sha256": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+          "om4_data": "/mnt/home/jrusak/data/diffusion-interior-beta/data/om4_onedeg_v3",
+          "selection_reference_sha256": "c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c",
+          "normalization": "instance",
+          "evolution_architecture": "extent-aux",
+          "model_options": {
+            "initializer_architecture": "unet",
+            "surface_policy": "observed-only",
+            "task_conditioning": "input-adapters",
+            "latent_channels": 0
+          },
+          "surface_fill": "zero",
+          "completion_weight": 0.1,
+          "global_observations": true,
+          "reconstruction_weight": 0.1,
+          "accumulate": 8,
+          "core_lr": 0.0001,
+          "om4_lr": 0.0001,
+          "warmup_steps": 0,
+          "seed": 1729,
+          "auxiliary": {
+            "ready_sha256": "e7c118ecdec43f5a0d0480b3df429492ef1cd4ff2589fead7eb060b17bb8d9fd",
+            "coefficient": 0.01,
+            "target_mode": "anomaly",
+            "shuffle_seed": 271828
+          }
+        },
+        "resume_verified": true,
+        "resume_evidence": {
+          "serialization_exact": true,
+          "restoration_exact": true,
+          "native_and_serialized_replay": {
+            "native_repeat": {
+              "rmse": 1.9197189254162717e-07,
+              "max_absolute": 0.000188981561223045
+            },
+            "serialized": {
+              "rmse": 9.174298847885955e-08,
+              "max_absolute": 0.00017917182412929833
+            }
+          },
+          "acceptance": "Serialized replay difference <= 5x native replay difference, with RMSE floor 1e-8 and maximum absolute floor 1e-7"
+        },
+        "task_counts": {
+          "om4": 6,
+          "observation": 4
+        },
+        "gpu": "NVIDIA GB200",
+        "max_gpu_memory_gib": 71.67781066894531
+      },
+      "THROUGHPUT.json": {
+        "mean_update_seconds": 8.675003159189751,
+        "updates": 12,
+        "training_hours_for_4000_updates": 9.638892399099724,
+        "note": "Excludes validation and initial dataset preparation"
+      },
+      "ACCESSORY_TARGETS.json": {
+        "mode": "anomaly",
+        "coefficient": 0.01,
+        "shuffle_seed": null,
+        "frames": 2829,
+        "first_date": "1975-01-03",
+        "last_date": "2013-09-30",
+        "values_sha256": "64d4e69806384a2bbb9efc7a190adba78a0912ba365e6583450a40091adbf418",
+        "area_mean": 5.611520314431827e-11,
+        "area_mean_square": 0.27990982218504407
+      }
+    },
+    "probe-U-aux01-seasonal": {
+      "JOINT_QUALIFIED.json": {
+        "contract": {
+          "code_commit": "558d45cac2294f691d1d73a47db1783df1850c80",
+          "runtime_extension_sha256": "13b05ce0e69b9e1e54fda416e0d34cb6886108f2713749018fea58ce4a592c6b",
+          "data_manifest_sha256": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+          "om4_data": "/mnt/home/jrusak/data/diffusion-interior-beta/data/om4_onedeg_v3",
+          "selection_reference_sha256": "c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c",
+          "normalization": "instance",
+          "evolution_architecture": "extent-aux",
+          "model_options": {
+            "initializer_architecture": "unet",
+            "surface_policy": "observed-only",
+            "task_conditioning": "input-adapters",
+            "latent_channels": 0
+          },
+          "surface_fill": "zero",
+          "completion_weight": 0.1,
+          "global_observations": true,
+          "reconstruction_weight": 0.1,
+          "accumulate": 8,
+          "core_lr": 0.0001,
+          "om4_lr": 0.0001,
+          "warmup_steps": 0,
+          "seed": 1729,
+          "auxiliary": {
+            "ready_sha256": "e7c118ecdec43f5a0d0480b3df429492ef1cd4ff2589fead7eb060b17bb8d9fd",
+            "coefficient": 0.01,
+            "target_mode": "seasonal",
+            "shuffle_seed": 271828
+          }
+        },
+        "resume_verified": true,
+        "resume_evidence": {
+          "serialization_exact": true,
+          "restoration_exact": true,
+          "native_and_serialized_replay": {
+            "native_repeat": {
+              "rmse": 2.2009705942738378e-07,
+              "max_absolute": 0.00018495135009288788
+            },
+            "serialized": {
+              "rmse": 2.2983611075957997e-07,
+              "max_absolute": 0.00019176100613549352
+            }
+          },
+          "acceptance": "Serialized replay difference <= 5x native replay difference, with RMSE floor 1e-8 and maximum absolute floor 1e-7"
+        },
+        "task_counts": {
+          "om4": 6,
+          "observation": 4
+        },
+        "gpu": "NVIDIA GB200",
+        "max_gpu_memory_gib": 71.67781066894531
+      },
+      "THROUGHPUT.json": {
+        "mean_update_seconds": 8.497933501076963,
+        "updates": 12,
+        "training_hours_for_4000_updates": 9.442148334529959,
+        "note": "Excludes validation and initial dataset preparation"
+      },
+      "ACCESSORY_TARGETS.json": {
+        "mode": "seasonal",
+        "coefficient": 0.01,
+        "shuffle_seed": null,
+        "frames": 2829,
+        "first_date": "1975-01-03",
+        "last_date": "2013-09-30",
+        "values_sha256": "e340f257206c019ada33e0437618d96e526c22d65e369a38a6614601d816b412",
+        "area_mean": 1.0957354423107857e-08,
+        "area_mean_square": 0.7200902117072625
+      }
+    },
+    "probe-U-aux01-shuffled": {
+      "JOINT_QUALIFIED.json": {
+        "contract": {
+          "code_commit": "558d45cac2294f691d1d73a47db1783df1850c80",
+          "runtime_extension_sha256": "13b05ce0e69b9e1e54fda416e0d34cb6886108f2713749018fea58ce4a592c6b",
+          "data_manifest_sha256": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+          "om4_data": "/mnt/home/jrusak/data/diffusion-interior-beta/data/om4_onedeg_v3",
+          "selection_reference_sha256": "c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c",
+          "normalization": "instance",
+          "evolution_architecture": "extent-aux",
+          "model_options": {
+            "initializer_architecture": "unet",
+            "surface_policy": "observed-only",
+            "task_conditioning": "input-adapters",
+            "latent_channels": 0
+          },
+          "surface_fill": "zero",
+          "completion_weight": 0.1,
+          "global_observations": true,
+          "reconstruction_weight": 0.1,
+          "accumulate": 8,
+          "core_lr": 0.0001,
+          "om4_lr": 0.0001,
+          "warmup_steps": 0,
+          "seed": 1729,
+          "auxiliary": {
+            "ready_sha256": "e7c118ecdec43f5a0d0480b3df429492ef1cd4ff2589fead7eb060b17bb8d9fd",
+            "coefficient": 0.01,
+            "target_mode": "shuffled",
+            "shuffle_seed": 271828
+          }
+        },
+        "resume_verified": true,
+        "resume_evidence": {
+          "serialization_exact": true,
+          "restoration_exact": true,
+          "native_and_serialized_replay": {
+            "native_repeat": {
+              "rmse": 1.8484644235421113e-07,
+              "max_absolute": 0.00017526440205983818
+            },
+            "serialized": {
+              "rmse": 1.8689454786947734e-07,
+              "max_absolute": 0.000194946100236848
+            }
+          },
+          "acceptance": "Serialized replay difference <= 5x native replay difference, with RMSE floor 1e-8 and maximum absolute floor 1e-7"
+        },
+        "task_counts": {
+          "om4": 6,
+          "observation": 4
+        },
+        "gpu": "NVIDIA GB200",
+        "max_gpu_memory_gib": 71.67781066894531
+      },
+      "THROUGHPUT.json": {
+        "mean_update_seconds": 8.31958422565367,
+        "updates": 12,
+        "training_hours_for_4000_updates": 9.243982472948524,
+        "note": "Excludes validation and initial dataset preparation"
+      },
+      "ACCESSORY_TARGETS.json": {
+        "mode": "shuffled",
+        "coefficient": 0.01,
+        "shuffle_seed": 271828,
+        "frames": 2829,
+        "first_date": "1975-01-03",
+        "last_date": "2013-09-30",
+        "values_sha256": "63b73d4782a89f03fb6e8f501cfdd7ef8debee9846d3fb9e203b9d6a84bbb0b6",
+        "area_mean": 1.1018135778750882e-08,
+        "area_mean_square": 1.0000000341409059
+      }
+    },
+    "probe-U-aux01-static": {
+      "JOINT_QUALIFIED.json": {
+        "contract": {
+          "code_commit": "558d45cac2294f691d1d73a47db1783df1850c80",
+          "runtime_extension_sha256": "13b05ce0e69b9e1e54fda416e0d34cb6886108f2713749018fea58ce4a592c6b",
+          "data_manifest_sha256": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+          "om4_data": "/mnt/home/jrusak/data/diffusion-interior-beta/data/om4_onedeg_v3",
+          "selection_reference_sha256": "c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c",
+          "normalization": "instance",
+          "evolution_architecture": "extent-aux",
+          "model_options": {
+            "initializer_architecture": "unet",
+            "surface_policy": "observed-only",
+            "task_conditioning": "input-adapters",
+            "latent_channels": 0
+          },
+          "surface_fill": "zero",
+          "completion_weight": 0.1,
+          "global_observations": true,
+          "reconstruction_weight": 0.1,
+          "accumulate": 8,
+          "core_lr": 0.0001,
+          "om4_lr": 0.0001,
+          "warmup_steps": 0,
+          "seed": 1729,
+          "auxiliary": {
+            "ready_sha256": "e7c118ecdec43f5a0d0480b3df429492ef1cd4ff2589fead7eb060b17bb8d9fd",
+            "coefficient": 0.01,
+            "target_mode": "static",
+            "shuffle_seed": 271828
+          }
+        },
+        "resume_verified": true,
+        "resume_evidence": {
+          "serialization_exact": true,
+          "restoration_exact": true,
+          "native_and_serialized_replay": {
+            "native_repeat": {
+              "rmse": 1.6682483346559717e-07,
+              "max_absolute": 0.0001819832541514188
+            },
+            "serialized": {
+              "rmse": 2.1038573952739032e-07,
+              "max_absolute": 0.00018198322504758835
+            }
+          },
+          "acceptance": "Serialized replay difference <= 5x native replay difference, with RMSE floor 1e-8 and maximum absolute floor 1e-7"
+        },
+        "task_counts": {
+          "om4": 6,
+          "observation": 4
+        },
+        "gpu": "NVIDIA GB200",
+        "max_gpu_memory_gib": 71.67781066894531
+      },
+      "THROUGHPUT.json": {
+        "mean_update_seconds": 8.572874397592386,
+        "updates": 12,
+        "training_hours_for_4000_updates": 9.525415997324874,
+        "note": "Excludes validation and initial dataset preparation"
+      },
+      "ACCESSORY_TARGETS.json": {
+        "mode": "static",
+        "coefficient": 0.01,
+        "shuffle_seed": null,
+        "frames": 2829,
+        "first_date": "1975-01-03",
+        "last_date": "2013-09-30",
+        "values_sha256": "a4ffb9546168db7256ce1858c0db9c4c53ff44a2ee21f9b9c85f8d05d4b394d8",
+        "area_mean": 1.1047906069150404e-08,
+        "area_mean_square": 0.6779761354539959
+      }
+    }
+  },
+  "accounting": [
+    {
+      "job": "209715",
+      "state": "COMPLETED",
+      "elapsed": 145,
+      "start": "2026-10-04T12:49:20",
+      "end": "2026-10-04T12:51:45",
+      "gpus": 1,
+      "gpu_hours": 0.04027777777777778,
+      "exit": "0:0"
+    },
+    {
+      "job": "209716",
+      "state": "COMPLETED",
+      "elapsed": 613,
+      "start": "2026-10-04T12:51:45",
+      "end": "2026-10-04T13:01:58",
+      "gpus": 1,
+      "gpu_hours": 0.17027777777777778,
+      "exit": "0:0"
+    },
+    {
+      "job": "209717",
+      "state": "COMPLETED",
+      "elapsed": 619,
+      "start": "2026-10-04T12:51:45",
+      "end": "2026-10-04T13:02:04",
+      "gpus": 1,
+      "gpu_hours": 0.17194444444444446,
+      "exit": "0:0"
+    },
+    {
+      "job": "209718",
+      "state": "COMPLETED",
+      "elapsed": 616,
+      "start": "2026-10-04T12:51:45",
+      "end": "2026-10-04T13:02:01",
+      "gpus": 1,
+      "gpu_hours": 0.1711111111111111,
+      "exit": "0:0"
+    },
+    {
+      "job": "209719",
+      "state": "COMPLETED",
+      "elapsed": 620,
+      "start": "2026-10-04T12:51:45",
+      "end": "2026-10-04T13:02:05",
+      "gpus": 1,
+      "gpu_hours": 0.17222222222222222,
+      "exit": "0:0"
+    }
+  ],
+  "allocated_gpu_hours": 0.7258333333333333
+}

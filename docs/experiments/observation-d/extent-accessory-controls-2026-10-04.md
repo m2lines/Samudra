@@ -3,6 +3,13 @@
 
 # What information makes the fine-scale accessory target useful?
 
+**Qualified; production queued as job 209722.** All fitting and resume probes
+completed successfully. Production depends on initializer wave 209686 finishing,
+preserving the declared maximum of eight concurrent production GPUs. The
+October 4, 9:04 a.m. ET submission's tentative scheduler estimate was
+7:40 p.m. ET that evening; actual completion of its dependency may change that.
+No production result is claimed yet.
+
 Predeclared October 4 around 8:50 a.m. ET, within the authorized iteration
 window ending Monday around 9 a.m. ET. Completed validation, before collecting
 the accessory arms' held-out scores, motivates this follow-up: U-aux01 reached
@@ -88,3 +95,34 @@ one GPU, 16 CPUs, 128 GiB and at most two hours on beta_test/test. Production
 has not been submitted. Root:
 `/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-accessory-controls`.
 [Exact receipts](artifacts/extent-accessory-controls-2026-10-04/qualification-jobs.json).
+
+## Qualification results and production admission, 9:04 a.m. ET
+
+All five jobs completed with exit 0. Fit loss fell from 1.703 to 0.288 with all
+required component gradients. Every target mode passed exact checkpoint
+serialization/restoration and the unchanged replay test. Each qualification
+contract binds the target mode, coefficient, target-cache receipt, source and
+runtime; each transformed target also has its own recorded SHA-256. Peak GPU
+memory was 71.68 GiB. Qualifications used **0.726 allocated GPU-hours**.
+
+| Target mode | Probe seconds/update | Extrapolated training hours for 4,000 updates | Area-weighted target mean square |
+|---|---:|---:|---:|
+| Static | 8.57 | 9.53 | 0.67798 |
+| Seasonal | 8.50 | 9.44 | 0.72009 |
+| Shuffled | 8.32 | 9.24 | 1.00000 |
+| Anomaly | 8.68 | 9.64 | 0.27991 |
+
+All pass the 12-hour training gate; startup, validation and held-out evaluation
+are additional. Target means are approximately zero. The seasonal/anomaly
+second moments sum to one, and the shuffled control preserves the aligned
+target's second moment. The resulting differences in accessory loss scale are
+explicit, not silently renormalized.
+
+Production requests one four-GPU beta/standard node, 144 CPUs, full node memory
+and 16 hours. It retains successful `afterok` dependencies on all four probes
+and running initializer wave 209686. The training safety cap is 14 hours per
+arm. The dry-run ID 209721 was not an allocated job; the actual submission is
+**209722**. No qualifications failed and no retries occurred.
+
+[Full qualification evidence](artifacts/extent-accessory-controls-2026-10-04/qualification-results.json)
+and [production receipt](artifacts/extent-accessory-controls-2026-10-04/production-jobs.json).

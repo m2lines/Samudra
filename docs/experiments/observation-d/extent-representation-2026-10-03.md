@@ -3,6 +3,12 @@
 
 # Global/patch transfer: accessory supervision and processor capacity
 
+**Production started October 4 at 1:49 a.m. ET.** Job 209608 is running on
+`b2-14-s1-dgx-02-c04`, after successful completion of ablations 209574.
+At 1:52 a.m., all four first-stage processes (U-aux01, U-aux10, W-global,
+W-multitask) were warming the 2,829-frame global cache. Axial arms follow their
+paired accessory arms on the same GPUs. No production result is claimed yet.
+
 Follow-up within the user's authorized iteration window ending Monday October 5
 around 9 a.m. ET. This follows the [original screen](extent-wave-2026-10-02.md)
 and complements the running [mechanism ablations](extent-ablations-2026-10-03.md).

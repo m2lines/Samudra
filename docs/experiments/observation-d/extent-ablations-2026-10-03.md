@@ -3,19 +3,76 @@
 
 # Native-patch transfer: cause-isolation follow-up
 
-**Partial result, October 3 at 11:15 p.m. ET:** the omission control completed
-its full budget and held-out evaluation. It scores **0.7074**, compared with
-**0.8130** for the original native-patch multitask model and **0.6784** for
-global-only training. Native updates hurt relative to omitting them, while
-additional global OM4 updates help. The three modified patch arms are still
-running; this is not the completed ablation-wave comparison.
+**Completed October 4 at 1:49 a.m. ET.** All four arms finished their planned
+budgets and all 96 held-out monthly forecasts. The native task hurt relative to
+omitting it. Giving native evolution true initial physical states removed much
+of that penalty, but did not beat omission or additional global OM4 training.
+A tenfold smaller patch learning rate and a one-step patch horizon did not
+produce a material improvement over the original multitask model.
 
-Authorized October 3, with approximately 40 hours before review (roughly
-Monday October 5 at 9:53 a.m. ET). One seed, one four-GPU beta production
-allocation, four alternatives to the original U-Net multitask run. This follows
-the [completed screen](extent-wave-2026-10-02.md), whose U-multitask composite
-was 19.9% worse than U-global on the held-out cohort. The local processor's gap
-was smaller; this wave concentrates on the larger U-Net gap.
+Authorized October 3, with autonomous iteration through Monday October 5 around
+9 a.m. ET. One seed and one four-GPU beta production allocation for this wave.
+It follows the [completed screen](extent-wave-2026-10-02.md). The
+[accessory/capacity wave](extent-representation-2026-10-03.md) has now started.
+
+## Completed comparison
+
+Every checkpoint is selected using the unchanged integrated-plus-spectral
+observation validation composite. Test reporting uses common test-climatology
+denominators, verified identical across all arms. These are 96 independent
+monthly 30-day forecasts, not an eight-year continuous rollout.
+
+| Model | Actual training updates | Selected actual update | Validation | Test composite ↓ | Integrated ratio | Spectral dex | Own initialized persistence |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| U-global, original | 4,000 | 3,800 | 0.6643 | 0.6784 | 0.8871 | 0.4696 | 0.5886 |
+| U-omit-patch | 3,000 | 2,633 | 0.6866 | 0.7074 | 0.9146 | 0.5003 | 0.5842 |
+| U-patch-truth | 4,000 | 4,000 | 0.7356 | 0.7278 | 0.9039 | 0.5517 | 0.5757 |
+| U-patch-lr01 | 4,000 | 4,000 | 0.8188 | 0.8115 | 0.9243 | 0.6987 | 0.6176 |
+| U-multitask, original | 4,000 | 4,000 | 0.8293 | 0.8130 | 0.9167 | 0.7093 | 0.6026 |
+| U-patch-1step | 4,000 | 4,000 | 0.8404 | 0.8244 | 0.9513 | 0.6975 | 0.6137 |
+
+The literal model names are defined below; U-global and U-multitask are the
+original global-only and native-multitask U-Net controls defined in the first
+report. All learned observation forecasts still lose to their own initialized
+persistence on the composite. Checkpoint selection at the final update in the
+three patch variants also means this screen does not establish convergence.
+
+![Validation against actual updates and observation exposure](artifacts/extent-ablations-2026-10-03/summary/u-net-ablations.png)
+
+Omission improves the test composite by **13.0%** over original multitasking.
+The true-state patch arm improves it by **10.5%**, but remains **2.9% worse than
+omission** and **7.3% worse than global-only training**. This implicates the
+regional initialization problem or its gradients as an important part of the
+negative transfer. It does not separate better regional initial states from
+removing native-task gradients and reconstruction/completion losses from the
+shared initializer. The smaller-LR change is only 0.2% better on test, while the
+one-step change is 1.4% worse; neither establishes a useful gain with one seed.
+The smaller LR still lets the full native gradient affect shared Adam moments.
+
+[All scores](artifacts/extent-ablations-2026-10-03/summary/scores.csv),
+[validation curves](artifacts/extent-ablations-2026-10-03/summary/validation-curves.csv),
+and [raw metrics and verified lineage](artifacts/extent-ablations-2026-10-03/source-results.json).
+The plots separately show actual optimizer work and observation exposure; neither
+axis is FLOP matching. Omitted slots do not count as optimizer updates.
+
+## Completed execution
+
+Training producer stayed `c9a33e0dba63b6da0d11b7d20c1db7e42d78e0e5`.
+Job **209574** completed with exit 0 after 26,750 seconds on four GPUs:
+**29.72 allocated GPU-hours**, or **30.85** including fitting, resume probes and
+the gradient diagnostic. There were no production retries or protocol changes.
+Every selected checkpoint hash was checked against the physical checkpoint,
+training marker, selection metadata and completed evaluation fingerprint.
+
+| Arm | Training completed, ET | Selected checkpoint SHA-256 |
+|---|---|---|
+| U-omit-patch | October 3, 11:12:34 p.m. | `a3dac2c96aadd72d16dead0d2dc204f7e3b5401ab610d8a2b6e8c9172f99b05b` |
+| U-patch-lr01 | October 4, 1:46:19 a.m. | `ba0dc6540a5c63810f9eb49523bfeb863ac39fd32673d7faab331bbe12ec55af` |
+| U-patch-truth | October 4, 1:46:20 a.m. | `246f278137af98977f494a3c67a41ff11e7b4c3595b54b21725c03f0d348de02` |
+| U-patch-1step | October 4, 1:46:19 a.m. | `198101849c4141fc8baee1360acc74eedfa46ab3c532a2004c3d22e39bfd7472` |
+
+The following plan and progress entries preserve the sequence of decisions and
+intermediate evidence. Their running/pending statements describe those times.
 
 ## Fixed setup and precise interventions
 

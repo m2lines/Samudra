@@ -1,0 +1,13 @@
+{
+  "script_sha256": "5614e9baecf5f16a7082bffeeadce81e290e4314537632a6ad1e8e7c9872f7a0",
+  "sources": {
+    "docs/experiments/observation-d/artifacts/extent-wave-2026-10-03/source-results.json": "ede6e41b566b74f57ddacb8fd347f2d43bbf62a706dadeca840e221d3feb6a5e",
+    "docs/experiments/observation-d/artifacts/extent-ablations-2026-10-03/source-results.json": "14b8f0e1858a08be7fe8b77d316d72c2e6a4de6e0f814de07d612c5f50ed9f2d"
+  },
+  "selection_reference_sha256": "c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c",
+  "test_normalization": "Common held-out seasonal-climatology errors, verified identical across arms; validation uses its separately frozen reference.",
+  "x_axes": "Actual optimizer updates include all trained tasks and exclude omitted slots; observation updates show equal downstream exposure separately.",
+  "figures": [
+    "u-net-ablations.png"
+  ]
+}

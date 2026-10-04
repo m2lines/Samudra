@@ -1,0 +1,18 @@
+{
+  "script_sha256": "5614e9baecf5f16a7082bffeeadce81e290e4314537632a6ad1e8e7c9872f7a0",
+  "sources": {
+    "docs/experiments/observation-d/artifacts/extent-wave-2026-10-03/source-results.json": "ede6e41b566b74f57ddacb8fd347f2d43bbf62a706dadeca840e221d3feb6a5e",
+    "docs/experiments/observation-d/artifacts/extent-ablations-2026-10-03/source-results.json": "14b8f0e1858a08be7fe8b77d316d72c2e6a4de6e0f814de07d612c5f50ed9f2d",
+    "docs/experiments/observation-d/artifacts/extent-initializer-2026-10-04/source-results.json": "8a6fea70c04a4b97ce58bc9d6af49a36444c37be128cde5901de004874226988",
+    "docs/experiments/observation-d/artifacts/extent-representation-2026-10-03/source-results.json": "3c1678012fa99559fb9ff764ddc7b454e81f716636c6319185b99bdfac733868",
+    "docs/experiments/observation-d/artifacts/extent-accessory-controls-2026-10-04/source-results.json": "3ea642d5242aa14c49e81ba7b148ff698d94df67c3c9f05903aefeff9db2c13f"
+  },
+  "selection_reference_sha256": "c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c",
+  "test_normalization": "Common held-out seasonal-climatology errors, verified identical across arms; validation uses its separately frozen reference.",
+  "x_axes": "Actual optimizer updates include all trained tasks and exclude omitted slots; observation updates show equal downstream exposure separately.",
+  "figures": [
+    "main-data-use-comparisons.png",
+    "processor-capacity-and-patch-transfer.png",
+    "information-in-the-accessory-target.png"
+  ]
+}

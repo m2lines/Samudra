@@ -3,71 +3,91 @@
 
 # Global/patch transfer: accessory supervision and processor capacity
 
-**Four arms completed by 11:10 a.m. ET October 4.** All finished
-4,000 updates and all 96 held-out monthly forecasts, with checkpoint hashes
-verified against the physical files, selection and evaluation markers.
+**Completed October 4 at 4:26:27 p.m. ET.** All six arms finished 4,000
+updates and all 96 held-out monthly forecasts. Width and bottleneck axial
+attention did not resolve negative transfer. A small fine-scale accessory loss
+helped modestly; the completed [target controls](extent-accessory-controls-2026-10-04.md)
+show that a seasonal target can match that validation benefit.
+
+## Completed comparison
+
+Selection uses the fixed observation integrated-plus-spectral validation
+composite. Test reporting uses common test-climatology denominators, verified
+identical across all arms. These are 96 independent monthly 30-day forecasts,
+not a continuous eight-year integration.
 
 | Model | Selected update | Validation | Test composite ↓ | Integrated ratio | Spectral dex | Own initialized persistence |
 |---|---:|---:|---:|---:|---:|---:|
-| U-global | 3,800 | 0.6643 | 0.6784 | 0.8871 | 0.4696 | 0.5886 |
-| U-aux01 | 4,000 | 0.6421 | 0.6674 | 0.8691 | 0.4657 | 0.5896 |
-| U-aux10 | 4,000 | 0.6698 | 0.6955 | 0.8930 | 0.4980 | 0.5898 |
-| W-global | 4,000 | 0.6548 | 0.6735 | 0.8920 | 0.4549 | 0.5897 |
-| U-multitask | 4,000 | 0.8293 | 0.8130 | 0.9167 | 0.7093 | 0.6026 |
-| W-multitask | 3,900 | 0.8696 | 0.8513 | 0.9699 | 0.7327 | 0.6137 |
+| U-global | 3800 | 0.6643 | 0.6784 | 0.8871 | 0.4696 | 0.5886 |
+| U-multitask | 4000 | 0.8293 | 0.8130 | 0.9167 | 0.7093 | 0.6026 |
+| W-global | 4000 | 0.6548 | 0.6735 | 0.8920 | 0.4549 | 0.5897 |
+| W-multitask | 3900 | 0.8696 | 0.8513 | 0.9699 | 0.7327 | 0.6137 |
+| A-global | 4000 | 0.6556 | 0.6817 | 0.8931 | 0.4704 | 0.5948 |
+| A-multitask | 4000 | 0.8298 | 0.8137 | 0.9733 | 0.6540 | 0.6018 |
+| U-aux01 | 4000 | 0.6421 | 0.6674 | 0.8691 | 0.4657 | 0.5896 |
+| U-aux10 | 4000 | 0.6698 | 0.6955 | 0.8930 | 0.4980 | 0.5898 |
 
-U-global is the original global-only U-Net control; U-multitask replaces half
-its OM4 updates with native-patch evolution. The other literal names
-and architectures are defined below. The lower accessory coefficient improves
-test composite by **1.6%**, whereas the larger coefficient is **2.5% worse**.
-Widening the processor gives only **0.7%** improvement despite increasing total
-parameters from 63.0M to 100.7M. These are small single-seed differences, and all
-still lose to persistence. Endpoint selection in the three new arms does not
-establish convergence. Their held-out scores use the same test-climatology
-denominators as the original controls.
+U-global is the original global-only U-Net control. U-multitask replaces half
+its global OM4 updates with native-patch evolution. Other literal names are
+defined in the architecture table below. All models lose to their own initialized
+persistence on the composite. Endpoint selections do not establish convergence.
 
-![Matched global-only validation curves](artifacts/extent-representation-2026-10-03/accessory-summary/accessory-targets-and-wider-global-processor.png)
+Widening improves global-only test score by only **0.7%** despite increasing
+parameters from 63.0M to 100.7M. The wider multitask model is **4.7% worse** than
+U-multitask and **26.4% worse** than W-global. Axial attention changes test score
+by about **+0.5%** globally and **+0.1%** with multitasking relative to the
+corresponding original U models (positive means worse). Its multitask penalty
+relative to A-global is 19.4%. These capacity changes do not solve transfer at
+this learning rate and update budget; separately tuned or longer runs are not
+tested.
 
-[Scores](artifacts/extent-representation-2026-10-03/accessory-summary/scores.csv)
-and [verified lineage and raw results](artifacts/extent-representation-2026-10-03/accessory-completed-results.json).
+![Capacity and task-sharing comparison](artifacts/extent-review-2026-10-05/summary/processor-capacity-and-patch-transfer.png)
+
+U-aux01 improves test composite by **1.6%**, while U-aux10 is **2.5% worse** than
+U-global. The larger coefficient nevertheless lowers its late-training accessory
+MSE from 0.3096 to 0.2117 on the same 218 global-OM4 updates in the final 1,000
+schedule slots. Predicting the accessory target better during training therefore
+does not automatically improve observational forecasting. These are training
+batch losses, not a held-out fine-scale skill test.
+
+![Accessory controls](artifacts/extent-review-2026-10-05/summary/information-in-the-accessory-target.png)
+
 The [target-information controls](extent-accessory-controls-2026-10-04.md)
-were predeclared from completed validation before these accessory test scores
-were collected. They distinguish aligned fine-scale information from geographic
-or seasonal regularization. Both attention arms remain in progress.
+were predeclared from completed validation before accessory held-out scores were
+collected. They distinguish seasonal/spatial regularization from aligned anomaly
+information. Small single-seed differences require confirmation.
 
-The wider multitask arm is **4.7% worse** than the original U-multitask and
-**26.4% worse** than its own wider global-only control. Widening alone therefore
-does not resolve negative transfer at this learning rate and update budget.
-This does not rule out a separately tuned larger model or longer training.
+[All final scores](artifacts/extent-review-2026-10-05/summary/scores.csv),
+[validation curves](artifacts/extent-review-2026-10-05/summary/validation-curves.csv),
+and [raw six-arm results and verified lineage](artifacts/extent-representation-2026-10-03/source-results.json).
 
-![Width and patch-transfer comparison](artifacts/extent-representation-2026-10-03/wide-summary/does-a-wider-processor-improve-patch-transfer.png)
+## Day-30 maps
 
-[Width comparison scores](artifacts/extent-representation-2026-10-03/wide-summary/scores.csv)
-and [verified wider-multitask result](artifacts/extent-representation-2026-10-03/wide-multitask-result.json).
+These fixed January/July 2022 cases compare U-global/U-multitask, both wider
+models, both attention models, and U-global initialized persistence.
+All panels use the same observation support and color limits. Anomalies subtract
+the same training climatology. These examples illustrate structure; the aggregate
+scores above determine the comparisons.
 
-**Production started October 4 at 1:49 a.m. ET.** Job 209608 is running on
-`b2-14-s1-dgx-02-c04`, after successful completion of ablations 209574.
-At 1:52 a.m., all four first-stage processes (U-aux01, U-aux10, W-global,
-W-multitask) were warming the 2,829-frame global cache. Axial arms follow their
-paired accessory arms on the same GPUs. No production result is claimed yet.
-By **1:56 a.m. ET**, all four had finite optimizer updates: U-aux01/U-aux10 at
-four updates, W-global at seven and W-multitask at five. Accessory losses were
-logged separately from physical objectives, as qualified.
+| Case | SST | SSH |
+|---|---|---|
+| January anomalies | [Map](artifacts/extent-representation-2026-10-03/maps/day30-2022-01-anomalies-sst.png) | [Map](artifacts/extent-representation-2026-10-03/maps/day30-2022-01-anomalies-adt.png) |
+| July anomalies | [Map](artifacts/extent-representation-2026-10-03/maps/day30-2022-07-anomalies-sst.png) | [Map](artifacts/extent-representation-2026-10-03/maps/day30-2022-07-anomalies-adt.png) |
+| July absolute fields | [Map](artifacts/extent-representation-2026-10-03/maps/day30-2022-07-fields-sst.png) | [Map](artifacts/extent-representation-2026-10-03/maps/day30-2022-07-fields-adt.png) |
 
-At **5:42 a.m. ET**, U-aux01/U-aux10 had reached 2,485/2,436 updates,
-W-global 2,641 and W-multitask 1,866. Best validation composites so far were
-0.7239, 0.7251, 0.7186 and 1.2043 respectively, at unequal budgets. Both
-accessory arms and the wider global control remain healthy; axial runs have not
-started yet. The first stage should finish roughly 8–10 a.m. ET at observed
-throughput, followed by axial training through the afternoon. These are runtime
-estimates, not completed results or guaranteed finishing times.
+[Checkpoint/date provenance](artifacts/extent-representation-2026-10-03/maps/provenance.json).
 
-Follow-up within the user's authorized iteration window ending Monday October 5
-around 9 a.m. ET. This follows the [original screen](extent-wave-2026-10-02.md)
-and complements the completed [mechanism ablations](extent-ablations-2026-10-03.md).
-The original native-patch task hurt observation scores; these experiments test
-whether fine-scale targets help without a regional task switch, and whether
-processor capacity or attention improves transfer. They do not use LLC.
+## Final execution
+
+Job **209608** completed with exit 0 after 52,617 seconds on four GPUs:
+**58.46 allocated GPU-hours**, or **59.73** including all qualifications.
+This includes idle capacity after faster arms completed. Producer stayed
+`b14ce8acd0ddf77b42b6341b25cdfe242dc8eec6`; there were no production retries or
+protocol changes. Every checkpoint hash matches the physical selected weights,
+training marker, selection metadata and complete evaluation fingerprint.
+
+The following predeclared methods and execution entries preserve provenance;
+older running/queued statements describe their original snapshot times.
 
 ## Predeclared runs and methods
 

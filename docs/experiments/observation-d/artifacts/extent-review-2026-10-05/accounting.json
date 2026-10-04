@@ -1,0 +1,454 @@
+{
+  "checked_utc": "2026-10-04T20:33:43.930648+00:00",
+  "definition": "Allocated GPUs times elapsed allocation time; includes qualifications, failed attempts, and idle GPU capacity. Cancelled jobs with no allocation cost zero. CPU-only preparation and map jobs are excluded from GPU-hours.",
+  "jobs": [
+    {
+      "job": "209206",
+      "state": "COMPLETED",
+      "elapsed": 247,
+      "start": "2026-10-02T14:45:18",
+      "end": "2026-10-02T14:49:25",
+      "gpus": 1,
+      "gpu_hours": 0.06861111111111111,
+      "exit": "0:0"
+    },
+    {
+      "job": "209208",
+      "state": "COMPLETED",
+      "elapsed": 228,
+      "start": "2026-10-02T14:45:18",
+      "end": "2026-10-02T14:49:06",
+      "gpus": 1,
+      "gpu_hours": 0.06333333333333334,
+      "exit": "0:0"
+    },
+    {
+      "job": "209210",
+      "state": "FAILED",
+      "elapsed": 136,
+      "start": "2026-10-02T14:49:25",
+      "end": "2026-10-02T14:51:41",
+      "gpus": 1,
+      "gpu_hours": 0.03777777777777778,
+      "exit": "1:0"
+    },
+    {
+      "job": "209212",
+      "state": "FAILED",
+      "elapsed": 140,
+      "start": "2026-10-02T14:49:07",
+      "end": "2026-10-02T14:51:27",
+      "gpus": 1,
+      "gpu_hours": 0.03888888888888889,
+      "exit": "1:0"
+    },
+    {
+      "job": "209214",
+      "state": "CANCELLED by 11211",
+      "elapsed": 0,
+      "start": "None",
+      "end": "2026-10-02T15:28:01",
+      "gpus": 0,
+      "gpu_hours": 0.0,
+      "exit": "0:0"
+    },
+    {
+      "job": "209216",
+      "state": "CANCELLED by 11211",
+      "elapsed": 0,
+      "start": "None",
+      "end": "2026-10-02T15:28:01",
+      "gpus": 0,
+      "gpu_hours": 0.0,
+      "exit": "0:0"
+    },
+    {
+      "job": "209218",
+      "state": "CANCELLED by 11211",
+      "elapsed": 0,
+      "start": "None",
+      "end": "2026-10-02T15:28:01",
+      "gpus": 0,
+      "gpu_hours": 0.0,
+      "exit": "0:0"
+    },
+    {
+      "job": "209227",
+      "state": "COMPLETED",
+      "elapsed": 264,
+      "start": "2026-10-02T15:30:07",
+      "end": "2026-10-02T15:34:31",
+      "gpus": 1,
+      "gpu_hours": 0.07333333333333333,
+      "exit": "0:0"
+    },
+    {
+      "job": "209229",
+      "state": "COMPLETED",
+      "elapsed": 262,
+      "start": "2026-10-02T15:30:09",
+      "end": "2026-10-02T15:34:31",
+      "gpus": 1,
+      "gpu_hours": 0.07277777777777777,
+      "exit": "0:0"
+    },
+    {
+      "job": "209231",
+      "state": "COMPLETED",
+      "elapsed": 625,
+      "start": "2026-10-02T15:34:31",
+      "end": "2026-10-02T15:44:56",
+      "gpus": 1,
+      "gpu_hours": 0.1736111111111111,
+      "exit": "0:0"
+    },
+    {
+      "job": "209233",
+      "state": "COMPLETED",
+      "elapsed": 595,
+      "start": "2026-10-02T15:34:31",
+      "end": "2026-10-02T15:44:26",
+      "gpus": 1,
+      "gpu_hours": 0.16527777777777777,
+      "exit": "0:0"
+    },
+    {
+      "job": "209235",
+      "state": "COMPLETED",
+      "elapsed": 570,
+      "start": "2026-10-02T18:00:54",
+      "end": "2026-10-02T18:10:24",
+      "gpus": 1,
+      "gpu_hours": 0.15833333333333333,
+      "exit": "0:0"
+    },
+    {
+      "job": "209237",
+      "state": "COMPLETED",
+      "elapsed": 589,
+      "start": "2026-10-02T18:00:54",
+      "end": "2026-10-02T18:10:43",
+      "gpus": 1,
+      "gpu_hours": 0.16361111111111112,
+      "exit": "0:0"
+    },
+    {
+      "job": "209239",
+      "state": "COMPLETED",
+      "elapsed": 26590,
+      "start": "2026-10-03T06:18:45",
+      "end": "2026-10-03T13:41:55",
+      "gpus": 4,
+      "gpu_hours": 29.544444444444444,
+      "exit": "0:0"
+    },
+    {
+      "job": "209568",
+      "state": "COMPLETED",
+      "elapsed": 170,
+      "start": "2026-10-03T22:05:07",
+      "end": "2026-10-03T22:07:57",
+      "gpus": 1,
+      "gpu_hours": 0.04722222222222222,
+      "exit": "0:0"
+    },
+    {
+      "job": "209569",
+      "state": "COMPLETED",
+      "elapsed": 821,
+      "start": "2026-10-03T22:07:57",
+      "end": "2026-10-03T22:21:38",
+      "gpus": 1,
+      "gpu_hours": 0.22805555555555557,
+      "exit": "0:0"
+    },
+    {
+      "job": "209570",
+      "state": "COMPLETED",
+      "elapsed": 873,
+      "start": "2026-10-03T22:07:57",
+      "end": "2026-10-03T22:22:30",
+      "gpus": 1,
+      "gpu_hours": 0.2425,
+      "exit": "0:0"
+    },
+    {
+      "job": "209571",
+      "state": "COMPLETED",
+      "elapsed": 874,
+      "start": "2026-10-03T22:07:57",
+      "end": "2026-10-03T22:22:31",
+      "gpus": 1,
+      "gpu_hours": 0.2427777777777778,
+      "exit": "0:0"
+    },
+    {
+      "job": "209572",
+      "state": "COMPLETED",
+      "elapsed": 876,
+      "start": "2026-10-03T22:07:57",
+      "end": "2026-10-03T22:22:33",
+      "gpus": 1,
+      "gpu_hours": 0.24333333333333335,
+      "exit": "0:0"
+    },
+    {
+      "job": "209574",
+      "state": "COMPLETED",
+      "elapsed": 26750,
+      "start": "2026-10-03T22:23:32",
+      "end": "2026-10-04T05:49:22",
+      "gpus": 4,
+      "gpu_hours": 29.72222222222222,
+      "exit": "0:0"
+    },
+    {
+      "job": "209575",
+      "state": "COMPLETED",
+      "elapsed": 444,
+      "start": "2026-10-03T22:22:30",
+      "end": "2026-10-03T22:29:54",
+      "gpus": 1,
+      "gpu_hours": 0.12333333333333334,
+      "exit": "0:0"
+    },
+    {
+      "job": "209580",
+      "state": "COMPLETED",
+      "elapsed": 177,
+      "start": "2026-10-03T23:37:06",
+      "end": "2026-10-03T23:40:03",
+      "gpus": 1,
+      "gpu_hours": 0.049166666666666664,
+      "exit": "0:0"
+    },
+    {
+      "job": "209581",
+      "state": "COMPLETED",
+      "elapsed": 671,
+      "start": "2026-10-03T23:40:04",
+      "end": "2026-10-03T23:51:15",
+      "gpus": 1,
+      "gpu_hours": 0.18638888888888888,
+      "exit": "0:0"
+    },
+    {
+      "job": "209582",
+      "state": "COMPLETED",
+      "elapsed": 650,
+      "start": "2026-10-03T23:51:15",
+      "end": "2026-10-04T00:02:05",
+      "gpus": 1,
+      "gpu_hours": 0.18055555555555555,
+      "exit": "0:0"
+    },
+    {
+      "job": "209583",
+      "state": "COMPLETED",
+      "elapsed": 185,
+      "start": "2026-10-03T23:37:06",
+      "end": "2026-10-03T23:40:11",
+      "gpus": 1,
+      "gpu_hours": 0.05138888888888889,
+      "exit": "0:0"
+    },
+    {
+      "job": "209584",
+      "state": "COMPLETED",
+      "elapsed": 642,
+      "start": "2026-10-03T23:40:11",
+      "end": "2026-10-03T23:50:53",
+      "gpus": 1,
+      "gpu_hours": 0.17833333333333334,
+      "exit": "0:0"
+    },
+    {
+      "job": "209585",
+      "state": "COMPLETED",
+      "elapsed": 712,
+      "start": "2026-10-03T23:50:53",
+      "end": "2026-10-04T00:02:45",
+      "gpus": 1,
+      "gpu_hours": 0.19777777777777777,
+      "exit": "0:0"
+    },
+    {
+      "job": "209586",
+      "state": "COMPLETED",
+      "elapsed": 179,
+      "start": "2026-10-03T23:37:06",
+      "end": "2026-10-03T23:40:05",
+      "gpus": 1,
+      "gpu_hours": 0.04972222222222222,
+      "exit": "0:0"
+    },
+    {
+      "job": "209587",
+      "state": "COMPLETED",
+      "elapsed": 643,
+      "start": "2026-10-03T23:40:05",
+      "end": "2026-10-03T23:50:48",
+      "gpus": 1,
+      "gpu_hours": 0.1786111111111111,
+      "exit": "0:0"
+    },
+    {
+      "job": "209588",
+      "state": "COMPLETED",
+      "elapsed": 716,
+      "start": "2026-10-03T23:50:49",
+      "end": "2026-10-04T00:02:45",
+      "gpus": 1,
+      "gpu_hours": 0.1988888888888889,
+      "exit": "0:0"
+    },
+    {
+      "job": "209608",
+      "state": "COMPLETED",
+      "elapsed": 52617,
+      "start": "2026-10-04T05:49:30",
+      "end": "2026-10-04T20:26:27",
+      "gpus": 4,
+      "gpu_hours": 58.46333333333333,
+      "exit": "0:0"
+    },
+    {
+      "job": "209674",
+      "state": "COMPLETED",
+      "elapsed": 461,
+      "start": "2026-10-04T05:56:22",
+      "end": "2026-10-04T06:04:03",
+      "gpus": 1,
+      "gpu_hours": 0.12805555555555556,
+      "exit": "0:0"
+    },
+    {
+      "job": "209675",
+      "state": "COMPLETED",
+      "elapsed": 470,
+      "start": "2026-10-04T05:56:22",
+      "end": "2026-10-04T06:04:12",
+      "gpus": 1,
+      "gpu_hours": 0.13055555555555556,
+      "exit": "0:0"
+    },
+    {
+      "job": "209676",
+      "state": "COMPLETED",
+      "elapsed": 596,
+      "start": "2026-10-04T06:04:03",
+      "end": "2026-10-04T06:13:59",
+      "gpus": 1,
+      "gpu_hours": 0.16555555555555557,
+      "exit": "0:0"
+    },
+    {
+      "job": "209677",
+      "state": "COMPLETED",
+      "elapsed": 594,
+      "start": "2026-10-04T06:04:03",
+      "end": "2026-10-04T06:13:57",
+      "gpus": 1,
+      "gpu_hours": 0.165,
+      "exit": "0:0"
+    },
+    {
+      "job": "209678",
+      "state": "COMPLETED",
+      "elapsed": 587,
+      "start": "2026-10-04T06:04:12",
+      "end": "2026-10-04T06:13:59",
+      "gpus": 1,
+      "gpu_hours": 0.16305555555555556,
+      "exit": "0:0"
+    },
+    {
+      "job": "209679",
+      "state": "COMPLETED",
+      "elapsed": 388,
+      "start": "2026-10-04T06:05:04",
+      "end": "2026-10-04T06:11:32",
+      "gpus": 1,
+      "gpu_hours": 0.10777777777777778,
+      "exit": "0:0"
+    },
+    {
+      "job": "209686",
+      "state": "COMPLETED",
+      "elapsed": 27721,
+      "start": "2026-10-04T06:17:31",
+      "end": "2026-10-04T13:59:32",
+      "gpus": 4,
+      "gpu_hours": 30.801111111111112,
+      "exit": "0:0"
+    },
+    {
+      "job": "209715",
+      "state": "COMPLETED",
+      "elapsed": 145,
+      "start": "2026-10-04T12:49:20",
+      "end": "2026-10-04T12:51:45",
+      "gpus": 1,
+      "gpu_hours": 0.04027777777777778,
+      "exit": "0:0"
+    },
+    {
+      "job": "209716",
+      "state": "COMPLETED",
+      "elapsed": 613,
+      "start": "2026-10-04T12:51:45",
+      "end": "2026-10-04T13:01:58",
+      "gpus": 1,
+      "gpu_hours": 0.17027777777777778,
+      "exit": "0:0"
+    },
+    {
+      "job": "209717",
+      "state": "COMPLETED",
+      "elapsed": 619,
+      "start": "2026-10-04T12:51:45",
+      "end": "2026-10-04T13:02:04",
+      "gpus": 1,
+      "gpu_hours": 0.17194444444444446,
+      "exit": "0:0"
+    },
+    {
+      "job": "209718",
+      "state": "COMPLETED",
+      "elapsed": 616,
+      "start": "2026-10-04T12:51:45",
+      "end": "2026-10-04T13:02:01",
+      "gpus": 1,
+      "gpu_hours": 0.1711111111111111,
+      "exit": "0:0"
+    },
+    {
+      "job": "209719",
+      "state": "COMPLETED",
+      "elapsed": 620,
+      "start": "2026-10-04T12:51:45",
+      "end": "2026-10-04T13:02:05",
+      "gpus": 1,
+      "gpu_hours": 0.17222222222222222,
+      "exit": "0:0"
+    },
+    {
+      "job": "209722",
+      "state": "COMPLETED",
+      "elapsed": 23442,
+      "start": "2026-10-04T13:59:55",
+      "end": "2026-10-04T20:30:37",
+      "gpus": 4,
+      "gpu_hours": 26.046666666666667,
+      "exit": "0:0"
+    }
+  ],
+  "waves": {
+    "Original screen": 30.56,
+    "Mechanism ablations": 30.849444444444444,
+    "Accessory and capacity": 59.73416666666667,
+    "Initializer and gradients": 31.66111111111111,
+    "Accessory target controls": 26.7725
+  },
+  "total_gpu_hours": 179.57722222222222
+}

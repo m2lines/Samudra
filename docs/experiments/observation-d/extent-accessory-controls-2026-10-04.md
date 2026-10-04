@@ -3,12 +3,100 @@
 
 # What information makes the fine-scale accessory target useful?
 
-**Production is running as job 209722.** It started October 4 at 9:59:55 a.m.
-ET after initializer wave 209686 completed, much earlier than the tentative
-scheduler estimate. At 10:07 a.m., all four target controls had finite optimizer
-updates (nine or ten each). All fitting and resume probes completed successfully;
-there have been no retries or changes to active producers. The two production
-allocations retain eight GPUs in total. No final result is claimed yet.
+**Completed October 4 at 4:30:37 p.m. ET.** All four target controls finished
+4,000 updates and all 96 held-out monthly forecasts. Production target arrays
+match their qualification hashes and statistics. No training remains running.
+
+## Completed comparison
+
+Every checkpoint is selected by the same integrated-plus-spectral observation
+validation score. Test composites use common test-climatology denominators.
+These are independent monthly forecasts over 2015–2022, scored through 30 days,
+not a continuous eight-year rollout.
+
+| Model | Selected update | Validation | Test composite ↓ | Integrated ratio | Spectral dex | Own initialized persistence |
+|---|---:|---:|---:|---:|---:|---:|
+| U-global | 3800 | 0.6643 | 0.6784 | 0.8871 | 0.4696 | 0.5886 |
+| U-aux01 | 4000 | 0.6421 | 0.6674 | 0.8691 | 0.4657 | 0.5896 |
+| U-aux10 | 4000 | 0.6698 | 0.6955 | 0.8930 | 0.4980 | 0.5898 |
+| U-aux01-static | 4000 | 0.6520 | 0.6815 | 0.8893 | 0.4737 | 0.5906 |
+| U-aux01-seasonal | 3800 | 0.6407 | 0.6567 | 0.8668 | 0.4465 | 0.5725 |
+| U-aux01-shuffled | 4000 | 0.6455 | 0.6769 | 0.8821 | 0.4718 | 0.5981 |
+| U-aux01-anomaly | 4000 | 0.6565 | 0.6787 | 0.8704 | 0.4870 | 0.5882 |
+
+The literal model names and target transforms are defined below. The seasonal
+control essentially matches the aligned target on validation (0.6407 versus
+0.6421) and improves test composite by **3.2%** relative to global-only training.
+The aligned target improves it by 1.6%. Static, shuffled and anomaly targets
+change test composite by approximately +0.5%, −0.2% and +0.1% respectively,
+small differences around the global-only reference. The larger aligned loss
+coefficient is 2.5% worse. All evolved forecasts still lose to persistence.
+
+The pilot's best validation score does **not require year-specific fine-scale
+anomaly information**. A seasonal spatial pattern is sufficient to match the
+observed benefit. This is compatible with seasonal/spatial regularization and
+does not demonstrate learning feedback from evolving fine-scale anomalies.
+The seasonal-versus-aligned validation difference itself is tiny, and one seed
+cannot establish a reliable ranking among these small gains. Static and shuffled
+controls also have limitations described below; this is not a proof that temporal
+fine-scale information is useless.
+
+![Accessory target information](artifacts/extent-review-2026-10-05/summary/information-in-the-accessory-target.png)
+
+The seasonal target improves SST RMSE from 0.6252 to **0.6065 °C** and deep OHC
+RMSE from 0.4522 to **0.4228 GJ/m²** relative to U-global. Shallow OHC is nearly
+unchanged, 0.7002 versus 0.7030 GJ/m²; geostrophic velocity and EKE integrated
+errors change little. Its mean spectral error is 0.4465 versus 0.4696 dex.
+The accessory gain is not a uniform improvement of every physical quantity.
+
+[All component scores](artifacts/extent-review-2026-10-05/summary/scores.csv),
+[validation curves](artifacts/extent-review-2026-10-05/summary/validation-curves.csv),
+and [raw results, target hashes and checkpoint lineage](artifacts/extent-accessory-controls-2026-10-04/source-results.json).
+
+## Day-30 maps
+
+These fixed January/July 2022 cases compare U-global, both aligned accessory
+weights, the four target controls, and U-global initialized persistence.
+All panels use the same observation support and color limits. Anomalies subtract
+the same training climatology. These examples illustrate structure; the aggregate
+scores above determine the comparisons.
+
+| Case | SST | SSH |
+|---|---|---|
+| January anomalies | [Map](artifacts/extent-accessory-controls-2026-10-04/maps/day30-2022-01-anomalies-sst.png) | [Map](artifacts/extent-accessory-controls-2026-10-04/maps/day30-2022-01-anomalies-adt.png) |
+| July anomalies | [Map](artifacts/extent-accessory-controls-2026-10-04/maps/day30-2022-07-anomalies-sst.png) | [Map](artifacts/extent-accessory-controls-2026-10-04/maps/day30-2022-07-anomalies-adt.png) |
+| July absolute fields | [Map](artifacts/extent-accessory-controls-2026-10-04/maps/day30-2022-07-fields-sst.png) | [Map](artifacts/extent-accessory-controls-2026-10-04/maps/day30-2022-07-fields-adt.png) |
+
+[Checkpoint/date provenance](artifacts/extent-accessory-controls-2026-10-04/maps/provenance.json).
+
+## Training diagnostic and final execution
+
+| Target | Mean accessory MSE during the final 1,000 schedule slots |
+|---|---:|
+| Aligned, coefficient 0.01 | 0.3096 |
+| Aligned, coefficient 0.1 | 0.2117 |
+| Static | 0.0444 |
+| Seasonal | 0.0611 |
+| Shuffled | 0.3661 |
+| Seasonal anomaly | 0.2745 |
+
+These average the same 218 global-OM4 updates, with eight examples per update,
+while weights are still changing. They are training diagnostics, not frozen
+held-out errors. Targets have different variances, so raw losses cannot rank
+fine-scale predictive skill across modes. The larger aligned coefficient fits
+the target better but produces worse observation metrics, illustrating why
+accessory accuracy alone is insufficient.
+
+Production **209722** completed with exit 0 after 23,442 seconds on four GPUs:
+**26.05 allocated GPU-hours**, or **26.77** including all qualifications.
+Producer stayed `558d45cac2294f691d1d73a47db1783df1850c80`. There were no failed
+attempts, retries or changes to the predeclared target transforms. Selected
+checkpoint hashes match their physical files, training markers and completed
+evaluation fingerprints. All actual target transforms exactly match the records
+made during qualification.
+
+The following methods and execution entries retain the predeclared plan and
+historical snapshots; earlier running/queued statements describe those times.
 
 Predeclared October 4 around 8:50 a.m. ET, within the authorized iteration
 window ending Monday around 9 a.m. ET. Completed validation, before collecting

@@ -1,0 +1,291 @@
+{
+  "scope": "Saved day-30 five-day mean forecasts; no new inference or training",
+  "cases": [
+    "2022-01",
+    "2022-07"
+  ],
+  "case_choice": "January and July of the final held-out year, inherited from the original report",
+  "lead_index": 5,
+  "grid_sha256": "ce96360964a6669d0186b9581abaaffc06f660c4e09e0ac813b3dd1b819e5167",
+  "script_sha256": "44b9456cac6c4c95c11c8157247d121c52679712da721c4bccbb6cedd69ab239",
+  "sources": [
+    {
+      "method": "U-global",
+      "path": "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-02-extent-om4/runtime-v2/U-global/test-selected/selected-predictions.npz",
+      "sha256": "0406f7204be30e807cc115b8ecf0b6a33530044bc80b48b85996dcc4ba8f137d",
+      "selected_checkpoint_sha256": "76058c08c74a92942612aedd75ee961a1c53125076dd449c77007710c05ea4eb",
+      "source_checkpoint_sha256": null,
+      "weights_used_sha256": "76058c08c74a92942612aedd75ee961a1c53125076dd449c77007710c05ea4eb"
+    },
+    {
+      "method": "U-aux01",
+      "path": "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation/U-aux01/test-selected/selected-predictions.npz",
+      "sha256": "892d958662e5d65b500ab00484ffbf0dfe3f127acfd4202656c35646f80da82c",
+      "selected_checkpoint_sha256": "a6ef208d70bb911fcb36fb8722910174f7ae9acd1943409ce09041d4ae495972",
+      "source_checkpoint_sha256": null,
+      "weights_used_sha256": "a6ef208d70bb911fcb36fb8722910174f7ae9acd1943409ce09041d4ae495972"
+    },
+    {
+      "method": "U-aux10",
+      "path": "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation/U-aux10/test-selected/selected-predictions.npz",
+      "sha256": "9a5f4ab532ba5703c4ef8bfd69f7f6bc0556215c203c97514b206406e365fdb5",
+      "selected_checkpoint_sha256": "ccfedc3006fa948d270b67d25c7ac5363cd23f8bcddba3983ad8e7a3d060d095",
+      "source_checkpoint_sha256": null,
+      "weights_used_sha256": "ccfedc3006fa948d270b67d25c7ac5363cd23f8bcddba3983ad8e7a3d060d095"
+    },
+    {
+      "method": "U-aux01-static",
+      "path": "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-accessory-controls/U-aux01-static/test-selected/selected-predictions.npz",
+      "sha256": "3cc96557ed1eed531e4b274b57457a6c00d7be2ce48015fbbc2b5c10ae55deb1",
+      "selected_checkpoint_sha256": "4bfc9ef32fdb5fdd51ace6dcc2151ad3d1c03622dd2f3b380656618f391375d2",
+      "source_checkpoint_sha256": null,
+      "weights_used_sha256": "4bfc9ef32fdb5fdd51ace6dcc2151ad3d1c03622dd2f3b380656618f391375d2"
+    },
+    {
+      "method": "U-aux01-seasonal",
+      "path": "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-accessory-controls/U-aux01-seasonal/test-selected/selected-predictions.npz",
+      "sha256": "1779f9ac6df4f603ffa538c91f6bd6a16e9ba8d45c01c9611bd577f94622f01b",
+      "selected_checkpoint_sha256": "a0996623642e18afd1c3b69ef20c73e358b74a7edc874a3cc5af137fcd65671b",
+      "source_checkpoint_sha256": null,
+      "weights_used_sha256": "a0996623642e18afd1c3b69ef20c73e358b74a7edc874a3cc5af137fcd65671b"
+    },
+    {
+      "method": "U-aux01-shuffled",
+      "path": "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-accessory-controls/U-aux01-shuffled/test-selected/selected-predictions.npz",
+      "sha256": "9cb93ee7e54cabb056593b8f8e773e5605b0fcba9a2452a850e41064d4d59afa",
+      "selected_checkpoint_sha256": "c6e8f5145a749f8da87d41d1c4cc50c0553227f15801aaa959f3d846b7ec71f2",
+      "source_checkpoint_sha256": null,
+      "weights_used_sha256": "c6e8f5145a749f8da87d41d1c4cc50c0553227f15801aaa959f3d846b7ec71f2"
+    },
+    {
+      "method": "U-aux01-anomaly",
+      "path": "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-accessory-controls/U-aux01-anomaly/test-selected/selected-predictions.npz",
+      "sha256": "3d10d9d4bbfe6f5758f0c21251110dc8eae8f9fb70ef1f4ad66e2715ae940a1d",
+      "selected_checkpoint_sha256": "85102f05174ed2f8599c5a6e9314c6b454c07dc37395631e0ccc083c6528272f",
+      "source_checkpoint_sha256": null,
+      "weights_used_sha256": "85102f05174ed2f8599c5a6e9314c6b454c07dc37395631e0ccc083c6528272f"
+    },
+    {
+      "method": "U-global / initialized persistence",
+      "path": "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-02-extent-om4/runtime-v2/U-global/test-selected/selected-inferred-persistence.npz",
+      "sha256": "703b51264d9c100ddc16e763b3f49e025d71fc14a70bd0c35fd2254b9875115f",
+      "selected_checkpoint_sha256": "76058c08c74a92942612aedd75ee961a1c53125076dd449c77007710c05ea4eb",
+      "source_checkpoint_sha256": null,
+      "weights_used_sha256": "76058c08c74a92942612aedd75ee961a1c53125076dd449c77007710c05ea4eb"
+    },
+    {
+      "method": "Training seasonal climatology",
+      "path": "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-02-extent-om4/runtime-v2/U-global/test-selected/seasonal-climatology.npz",
+      "sha256": "3daaa2cb9a20bc8fafc6ba77d7d090c88b8381fea563a545d71a972bf27e8525",
+      "selected_checkpoint_sha256": "76058c08c74a92942612aedd75ee961a1c53125076dd449c77007710c05ea4eb",
+      "source_checkpoint_sha256": null,
+      "weights_used_sha256": null
+    }
+  ],
+  "case_times": {
+    "2022-01": {
+      "last_history_midpoint": "2021-12-29T12:00:00",
+      "day30_bin_midpoint": "2022-01-28T12:00:00"
+    },
+    "2022-07": {
+      "last_history_midpoint": "2022-06-28T12:00:00",
+      "day30_bin_midpoint": "2022-07-28T12:00:00"
+    }
+  },
+  "bundle_sha256": "2e3393e28f4bd530d496638a6436bd990fd3a20715f5004355e2496f21477ddb",
+  "plot_script_sha256": "53bb55b4ac6420c4ab3c83526fee8812006d19acd60b1efc19976c30da3815a5",
+  "rendered": [
+    {
+      "file": "day30-2022-01-anomalies-sst",
+      "limits": [
+        -3,
+        3
+      ],
+      "figure_pixels": [
+        820,
+        3890
+      ],
+      "panel_pixels": [
+        720,
+        360
+      ],
+      "panel_grid_shape_yx": [
+        180,
+        360
+      ],
+      "panel_left_px": 70,
+      "panel_top_px": [
+        80,
+        495,
+        910,
+        1325,
+        1740,
+        2155,
+        2570,
+        2985,
+        3400
+      ]
+    },
+    {
+      "file": "day30-2022-01-anomalies-adt",
+      "limits": [
+        -0.25,
+        0.25
+      ],
+      "figure_pixels": [
+        820,
+        3890
+      ],
+      "panel_pixels": [
+        720,
+        360
+      ],
+      "panel_grid_shape_yx": [
+        180,
+        360
+      ],
+      "panel_left_px": 70,
+      "panel_top_px": [
+        80,
+        495,
+        910,
+        1325,
+        1740,
+        2155,
+        2570,
+        2985,
+        3400
+      ]
+    },
+    {
+      "file": "day30-2022-07-fields-sst",
+      "limits": [
+        -2,
+        32
+      ],
+      "figure_pixels": [
+        820,
+        3890
+      ],
+      "panel_pixels": [
+        720,
+        360
+      ],
+      "panel_grid_shape_yx": [
+        180,
+        360
+      ],
+      "panel_left_px": 70,
+      "panel_top_px": [
+        80,
+        495,
+        910,
+        1325,
+        1740,
+        2155,
+        2570,
+        2985,
+        3400
+      ]
+    },
+    {
+      "file": "day30-2022-07-fields-adt",
+      "limits": [
+        -1.5,
+        1.5
+      ],
+      "figure_pixels": [
+        820,
+        3890
+      ],
+      "panel_pixels": [
+        720,
+        360
+      ],
+      "panel_grid_shape_yx": [
+        180,
+        360
+      ],
+      "panel_left_px": 70,
+      "panel_top_px": [
+        80,
+        495,
+        910,
+        1325,
+        1740,
+        2155,
+        2570,
+        2985,
+        3400
+      ]
+    },
+    {
+      "file": "day30-2022-07-anomalies-sst",
+      "limits": [
+        -3,
+        3
+      ],
+      "figure_pixels": [
+        820,
+        3890
+      ],
+      "panel_pixels": [
+        720,
+        360
+      ],
+      "panel_grid_shape_yx": [
+        180,
+        360
+      ],
+      "panel_left_px": 70,
+      "panel_top_px": [
+        80,
+        495,
+        910,
+        1325,
+        1740,
+        2155,
+        2570,
+        2985,
+        3400
+      ]
+    },
+    {
+      "file": "day30-2022-07-anomalies-adt",
+      "limits": [
+        -0.25,
+        0.25
+      ],
+      "figure_pixels": [
+        820,
+        3890
+      ],
+      "panel_pixels": [
+        720,
+        360
+      ],
+      "panel_grid_shape_yx": [
+        180,
+        360
+      ],
+      "panel_left_px": 70,
+      "panel_top_px": [
+        80,
+        495,
+        910,
+        1325,
+        1740,
+        2155,
+        2570,
+        2985,
+        3400
+      ]
+    }
+  ],
+  "pixel_verification": "Every saved panel RGB pixel equals the source colormap cell repeated exactly 2x2, including the common missing-data mask",
+  "rasterization": "Lossless PNG: exactly 2 x 2 pixels per retained grid cell at native image size; no interpolation. PDF embeds native grid with interpolation disabled.",
+  "coordinates": "Square cells in grid-index space, sorted longitude; ticks label actual cell-center coordinates. No geographic resampling.",
+  "latitude_domain": "global",
+  "mask": "Selected model wet domain intersected with finite target observations, identical across candidates",
+  "interpretation": "Illustrative cases, not aggregate skill; gray is land or unavailable observations. Colorbar extensions mark saturation. Endpoint is the last common exported surface lead, not a multi-year continuous rollout."
+}

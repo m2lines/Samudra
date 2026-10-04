@@ -60,6 +60,26 @@ but remain 1.6% worse than its global-only control. All are single-seed findings
 [validation curves](artifacts/extent-initializer-2026-10-04/summary/validation-curves.csv),
 and [raw results with verified lineage](artifacts/extent-initializer-2026-10-04/source-results.json).
 
+## Day-30 maps
+
+These repeat the fixed January/July 2022 cases, with common observation support,
+color limits and training-climatology anomalies. The U-Net panels compare the
+original global/multitask controls, true initialization, detached initialization,
+forecast-only initialization and native loss weighting. The local panels compare
+global-only, original multitask and true-state multitask training. Each includes
+the corresponding global-only model's initialized persistence. All observational
+forecasts still start from learned initial states. These cases illustrate spatial
+structure; aggregate metrics determine the reported comparisons.
+
+| Case | U-Net SST | U-Net SSH | Local SST | Local SSH |
+|---|---|---|---|---|
+| January anomalies | [Map](artifacts/extent-initializer-2026-10-04/U-maps/day30-2022-01-anomalies-sst.png) | [Map](artifacts/extent-initializer-2026-10-04/U-maps/day30-2022-01-anomalies-adt.png) | [Map](artifacts/extent-initializer-2026-10-04/L-maps/day30-2022-01-anomalies-sst.png) | [Map](artifacts/extent-initializer-2026-10-04/L-maps/day30-2022-01-anomalies-adt.png) |
+| July anomalies | [Map](artifacts/extent-initializer-2026-10-04/U-maps/day30-2022-07-anomalies-sst.png) | [Map](artifacts/extent-initializer-2026-10-04/U-maps/day30-2022-07-anomalies-adt.png) | [Map](artifacts/extent-initializer-2026-10-04/L-maps/day30-2022-07-anomalies-sst.png) | [Map](artifacts/extent-initializer-2026-10-04/L-maps/day30-2022-07-anomalies-adt.png) |
+| July absolute fields | [Map](artifacts/extent-initializer-2026-10-04/U-maps/day30-2022-07-fields-sst.png) | [Map](artifacts/extent-initializer-2026-10-04/U-maps/day30-2022-07-fields-adt.png) | [Map](artifacts/extent-initializer-2026-10-04/L-maps/day30-2022-07-fields-sst.png) | [Map](artifacts/extent-initializer-2026-10-04/L-maps/day30-2022-07-fields-adt.png) |
+
+[U-Net source/date provenance](artifacts/extent-initializer-2026-10-04/U-maps/provenance.json) and
+[local source/date provenance](artifacts/extent-initializer-2026-10-04/L-maps/provenance.json).
+
 ## Recorded gradients and clipping
 
 These summaries use every production optimizer update's recorded total-model

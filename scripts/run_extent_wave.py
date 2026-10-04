@@ -26,6 +26,10 @@ ARMS = {
     "W-multitask": ("wide", True),
     "A-global": ("axial", False),
     "A-multitask": ("axial", True),
+    "U-patch-detach": ("unet", True),
+    "U-patch-forecast": ("unet", True),
+    "U-patch-loss01": ("unet", True),
+    "L-patch-truth": ("local", True),
 }
 INTERVENTIONS = {
     "U-omit-patch": ["--patch-mode", "omit"],
@@ -34,6 +38,10 @@ INTERVENTIONS = {
     "U-patch-1step": ["--patch-leads", "1"],
     "U-aux01": ["--auxiliary-weight", "0.01"],
     "U-aux10": ["--auxiliary-weight", "0.1"],
+    "U-patch-detach": ["--patch-mode", "detach"],
+    "U-patch-forecast": ["--patch-mode", "forecast"],
+    "U-patch-loss01": ["--patch-loss-scale", "0.1"],
+    "L-patch-truth": ["--patch-mode", "truth"],
 }
 
 
@@ -152,7 +160,9 @@ def main():
             raise RuntimeError("Resume probe exited without qualification")
         return
     throughput = json.loads((probe / "THROUGHPUT.json").read_text())
-    if throughput["training_hours_for_4000_updates"] > 18:
+    if throughput["training_hours_for_4000_updates"] > config.get(
+        "training_hours_gate", 18
+    ):
         raise RuntimeError(
             "Measured update throughput cannot meet the one-day screen; revise budget before training"
         )
@@ -170,7 +180,7 @@ def main():
             "--validate-every",
             "100",
             "--joint-hours",
-            "20",
+            str(config.get("joint_hours", 20)),
             "--milestone-steps",
             "500",
             "1000",

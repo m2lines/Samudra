@@ -236,7 +236,10 @@ def test_patch_learning_rate_and_gradient_contract_are_task_local():
         assert pilot.required_gradient_components(task) == components
 
 
-@pytest.mark.parametrize("mode,leads", [("shared", 6), ("shared", 1), ("truth", 6)])
+@pytest.mark.parametrize(
+    "mode,leads",
+    [("shared", 6), ("shared", 1), ("truth", 6), ("detach", 6), ("forecast", 6)],
+)
 def test_patch_horizon_and_truth_initialization_route_actual_gradients(mode, leads):
     from samudra.experiments.extent_training import patch_objective
 
@@ -292,7 +295,15 @@ def test_patch_horizon_and_truth_initialization_route_actual_gradients(mode, lea
     assert model.evolution.weight.grad is not None and model.evolution.weight.grad != 0
     if mode == "truth":
         assert model.initializer.calls == 0 and model.initializer.weight.grad is None
+    elif mode == "detach":
+        assert model.initializer.calls == 1 and model.initializer.weight.grad is None
     else:
         assert (
             model.initializer.calls == 1 and model.initializer.weight.grad is not None
         )
+    if mode in {"truth", "detach", "forecast"}:
+        start = 1.0 if mode == "truth" else 0.5
+        expected = (
+            sum((start * 0.9**lead - 2) ** 2 for lead in range(1, leads + 1)) / leads
+        )
+        assert float(loss.detach()) == pytest.approx(expected, rel=1e-6)

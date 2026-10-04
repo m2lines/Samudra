@@ -1,0 +1,78 @@
+<!-- SPDX-FileCopyrightText: 2026 Samudra Authors -->
+<!-- SPDX-License-Identifier: CC-BY-4.0 -->
+
+# Separating regional initialization quality from gradient interference
+
+Predeclared October 4 after completion of the [first mechanism ablations](extent-ablations-2026-10-03.md),
+within the user's autonomous iteration window ending Monday around 9 a.m. ET.
+The strongest patch variant on validation was true-state initialization
+(0.7356 versus 0.8293 for the original native task), but omission remained better
+(0.6866). That evidence motivates separating input quality, initializer gradient
+routing, auxiliary initializer losses, and task weighting. The test cohort is
+used descriptively; it does not choose these interventions or checkpoints.
+
+This is one further four-arm, one-seed comparison, alongside the already
+qualified [accessory/capacity wave](extent-representation-2026-10-03.md). It may
+overlap that wave on a second four-GPU node, for at most eight production GPUs.
+No existing run or source pin changes.
+
+## Exact tasks and controls
+
+All four arms use seed 1729 and exactly 4,000 optimizer updates: 1,000 global
+OM4, 1,000 native quarter-degree OM4 patches and 2,000 global observation updates.
+Reuse the verified 1° OM4 v3 global store, v2026-09 quarter-degree five-day-mean
+patch cache and fixed observation samples. Global fields are 180×360; native
+patches are 128×128 with 64×64 scored interiors. The model evolves 77 physical
+channels through six nominal five-day steps. No future state boundary conditions
+or fine-resolution fields enter observation inference.
+
+| Literal name | Initial state on native patch tasks | Native objective and gradient routing | Primary comparison |
+|---|---|---|---|
+| U-patch-detach | Same learned initializer and masked surface inputs as U-multitask | Six-step forecast loss only; initializer evaluated without gradients; processor gradients retained | Against U-patch-truth: same gradient routing/objective, learned rather than true initial states |
+| U-patch-forecast | Same learned initializer and masked surface inputs as U-multitask | Six-step forecast loss backpropagates through both initializer and processor; omit native reconstruction/completion losses | Against U-patch-detach: whether forecast gradients through the initializer help or hurt; against U-multitask: remove only native auxiliary initializer losses |
+| U-patch-loss01 | Original learned initialization and native task | Multiply the entire native loss by 0.1 before backward/clipping; keep LR 1e-4 | Against U-patch-lr01: reducing gradient contribution versus reducing parameter step size |
+| L-patch-truth | Two true full native physical states | Six-step forecast loss only, no native initializer gradients | Against L-multitask and L-global: does true-state patch training also help the bounded local processor? |
+
+The three U arms have 62,967,680 parameters; L-patch-truth has 35,681,936.
+All retain the same 31.28M-parameter U-Net initializer. The local processor's
+four-cell one-step receptive radius conditions on supplied states and geometry;
+its shared initializer remains nonlocal. The global and observation tasks,
+including learned initialization and their reconstruction/completion losses,
+remain unchanged in every arm. No artificial visibility mask is removed from
+the learned-initializer patch variants.
+
+Reference definitions: **U-multitask** and **L-multitask** are the original
+shared-initializer native-patch arms; **U-global** and **L-global** replace native
+updates with additional global OM4 updates. **U-patch-truth** is the completed
+U-Net true-initial-state ablation; **U-patch-lr01** is the completed native LR
+1e-5 ablation, which retains unscaled native gradients in Adam's moments.
+
+The loss-weight arm also changes the interaction with clipping: when both the
+original and scaled gradient norms exceed the threshold, normalization can
+erase much of the scale difference. Log both scaled and unscaled native losses
+and the pre-clip gradient norm. This is a controlled training intervention,
+not an assertion that loss weight and task frequency or LR are equivalent.
+
+## Fixed training, selection and qualification
+
+Keep the progressive mixed schedule, per-task sample seeds, accumulation of
+eight examples, AdamW LR 1e-4, weight decay 0.01, clipping at 1, and no warmup.
+Checkpoints use the same frozen integrated-plus-spectral global observation
+validation composite. Report the same 96 monthly test forecasts and initialized
+persistence with common test-climatology normalization. One seed limits the
+strength of causal/generalization claims; repeated test reporting is exploratory.
+
+Use a new immutable producer, fresh fitting qualifications for U and L, and a
+real joint/resume probe for each arm. The new qualification contract binds
+initialization mode and native loss scale. Probes must verify initializer
+gradients are absent for detached/true-state native tasks and present for the
+forecast-only/shared variants. Unit tests check actual gradient routing and
+forecast-only values, including exclusion of auxiliary losses.
+
+Production requests one beta node, four GPUs, 144 CPUs, all node memory and a
+16-hour cap. Admit only if each short probe extrapolates below 12 training hours;
+the per-arm training loop stops safely at 14 hours, preserving a checkpoint if
+needed. This leaves startup/evaluation allowance and aims to finish comfortably
+before Monday review. No queue-chasing resubmission or additional seed is planned.
+
+Results and exact job/source provenance will be appended after qualification.

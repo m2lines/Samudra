@@ -4,6 +4,7 @@
 """Native-quarter regional tasks within the existing observation joint loop."""
 
 import time
+from contextlib import nullcontext
 
 import torch
 
@@ -25,9 +26,9 @@ def patch_objective(
     mode="shared",
     leads=6,
 ):
-    if mode not in {"shared", "truth"} or leads not in {1, 6}:
+    if mode not in {"shared", "truth", "detach", "forecast"} or leads not in {1, 6}:
         raise ValueError(
-            "Patch objective requires shared/truth initialization and 1/6 leads"
+            "Patch objective requires shared/truth/detach/forecast initialization and 1/6 leads"
         )
     surface, mask = sample["surface"], sample["mask"]
     available = mask[model.initializer.surface].expand_as(surface)
@@ -35,15 +36,16 @@ def patch_objective(
     if mode == "truth":
         initial = sample["truth"].detach()
     else:
-        initial = model.call(
-            model.initializer,
-            torch.where(visible, surface, 0),
-            sample["past"],
-            sample["context"],
-            mask,
-            visible,
-            "om4-patch",
-        )
+        with torch.no_grad() if mode == "detach" else nullcontext():
+            initial = model.call(
+                model.initializer,
+                torch.where(visible, surface, 0),
+                sample["past"],
+                sample["context"],
+                mask,
+                visible,
+                "om4-patch",
+            )
     states, predictions = initial, []
     for lead in range(1, leads + 1):
         value = model.call(
@@ -63,7 +65,7 @@ def patch_objective(
         sample["weights"],
         names,
     )
-    if mode == "truth":
+    if mode in {"truth", "detach", "forecast"}:
         return loss
     loss = loss + reconstruction_weight * balanced_loss(
         initial, sample["truth"], sample["weights"], names, True
@@ -134,7 +136,7 @@ class ExtentPilot(JointPilot):
         if seed is None:
             raise ValueError("Patch tasks need deterministic sample seeds")
         sample = self.patches.sample(seed)
-        return patch_objective(
+        return getattr(self.args, "patch_loss_scale", 1.0) * patch_objective(
             self.model,
             sample,
             self.om4.names,
@@ -161,10 +163,10 @@ class ExtentPilot(JointPilot):
         )
 
     def required_gradient_components(self, task):
-        if (
-            self.is_patch_slot()
-            and getattr(self.args, "patch_mode", "shared") == "truth"
-        ):
+        if self.is_patch_slot() and getattr(self.args, "patch_mode", "shared") in {
+            "truth",
+            "detach",
+        }:
             return {"evolution"}
         return super().required_gradient_components(task)
 
@@ -224,6 +226,14 @@ class ExtentPilot(JointPilot):
                     if self.args.patch_training and record["om4"] % 2 == 0
                     else "global"
                 )
+                if (
+                    record["source_extent"] == "patch"
+                    and record["event"] == "joint_train"
+                ):
+                    record["patch_mode"] = getattr(self.args, "patch_mode", "shared")
+                    scale = getattr(self.args, "patch_loss_scale", 1.0)
+                    record["patch_loss_scale"] = scale
+                    record["unscaled_patch_loss"] = record["loss"] / scale
         super().emit(record)
 
     def run_joint(self):

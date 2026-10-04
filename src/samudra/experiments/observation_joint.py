@@ -174,6 +174,7 @@ def qualification_contract(args):
             "mode": getattr(args, "patch_mode", "shared"),
             "leads": getattr(args, "patch_leads", 6),
             "lr_scale": getattr(args, "patch_lr_scale", 1.0),
+            "loss_scale": getattr(args, "patch_loss_scale", 1.0),
         }
         result["patch_shape_halo"] = [128, 128, 32]
     if getattr(args, "auxiliary_cache", None):
@@ -646,10 +647,13 @@ def main():
     parser.add_argument("--patch-cache")
     parser.add_argument("--patch-training", action="store_true")
     parser.add_argument(
-        "--patch-mode", choices=["shared", "truth", "omit"], default="shared"
+        "--patch-mode",
+        choices=["shared", "truth", "omit", "detach", "forecast"],
+        default="shared",
     )
     parser.add_argument("--patch-leads", type=int, choices=[1, 6], default=6)
     parser.add_argument("--patch-lr-scale", type=float, default=1.0)
+    parser.add_argument("--patch-loss-scale", type=float, default=1.0)
     parser.add_argument("--auxiliary-cache")
     parser.add_argument("--auxiliary-weight", type=float, default=0.0)
     parser.set_defaults(
@@ -713,8 +717,13 @@ def main():
         )
     if not 0 < args.patch_lr_scale <= 1:
         parser.error("Patch learning-rate scale must be in (0, 1]")
+    if not 0 < args.patch_loss_scale <= 1:
+        parser.error("Patch loss scale must be in (0, 1]")
     if not args.patch_training and (
-        args.patch_mode != "shared" or args.patch_leads != 6 or args.patch_lr_scale != 1
+        args.patch_mode != "shared"
+        or args.patch_leads != 6
+        or args.patch_lr_scale != 1
+        or args.patch_loss_scale != 1
     ):
         parser.error("Patch interventions require patch training")
     if args.patch_training and (

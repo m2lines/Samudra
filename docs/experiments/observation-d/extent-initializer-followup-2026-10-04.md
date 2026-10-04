@@ -100,3 +100,33 @@ pending on their corresponding fitting job. Each qualification requests one GPU,
 been submitted. Root:
 `/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-initializer`.
 [Exact receipts](artifacts/extent-initializer-2026-10-04/qualification-jobs.json).
+
+## Qualifications passed; production queued at 2:17 a.m. ET
+
+All six qualification jobs completed with exit 0. Fitting loss decreased from
+1.703 to 0.283 for U and 1.556 to 0.952 for L, with all required component and
+completion gradients present. Each joint probe verified exact serialization
+and restoration, and replay within the unchanged native-nondeterminism test.
+The contracts explicitly record `detach`, `forecast`, `shared` with loss scale
+0.1, or `truth`, as appropriate. Peak GPU memory was 71.6–71.7 GiB, including
+the global-data cache.
+
+| Arm | Probe seconds/update | Extrapolated hours for 4,000 updates |
+|---|---:|---:|
+| U-patch-detach | 9.89 | 10.98 |
+| U-patch-forecast | 9.62 | 10.69 |
+| U-patch-loss01 | 9.82 | 10.91 |
+| L-patch-truth | 6.14 | 6.82 |
+
+Every arm passes the predeclared 12-hour training extrapolation gate. Startup,
+validation and evaluation are additional; per-arm training caps remain 14 hours
+within the 16-hour allocation. Qualifications used **0.860 allocated GPU-hours**.
+
+Production **209686** is pending beta priority with successful `afterok`
+dependencies on all four joint probes. It requests the declared four GPUs,
+144 CPUs and full node memory. A dry-run start estimate was **October 4 around
+3:46 a.m. ET**, not a confirmed start. This allocation may overlap the already
+running representation wave 209608. There are no failed attempts or retries.
+
+[Qualification evidence](artifacts/extent-initializer-2026-10-04/qualification-results.json)
+and [exact production receipt](artifacts/extent-initializer-2026-10-04/production-jobs.json).

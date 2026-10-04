@@ -24,11 +24,11 @@ monthly 30-day forecasts, not an eight-year continuous rollout.
 
 | Model | Actual training updates | Selected actual update | Validation | Test composite ↓ | Integrated ratio | Spectral dex | Own initialized persistence |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| U-global, original | 4,000 | 3,800 | 0.6643 | 0.6784 | 0.8871 | 0.4696 | 0.5886 |
+| U-global | 4,000 | 3,800 | 0.6643 | 0.6784 | 0.8871 | 0.4696 | 0.5886 |
 | U-omit-patch | 3,000 | 2,633 | 0.6866 | 0.7074 | 0.9146 | 0.5003 | 0.5842 |
 | U-patch-truth | 4,000 | 4,000 | 0.7356 | 0.7278 | 0.9039 | 0.5517 | 0.5757 |
 | U-patch-lr01 | 4,000 | 4,000 | 0.8188 | 0.8115 | 0.9243 | 0.6987 | 0.6176 |
-| U-multitask, original | 4,000 | 4,000 | 0.8293 | 0.8130 | 0.9167 | 0.7093 | 0.6026 |
+| U-multitask | 4,000 | 4,000 | 0.8293 | 0.8130 | 0.9167 | 0.7093 | 0.6026 |
 | U-patch-1step | 4,000 | 4,000 | 0.8404 | 0.8244 | 0.9513 | 0.6975 | 0.6137 |
 
 The literal model names are defined below; U-global and U-multitask are the
@@ -61,6 +61,26 @@ a new checkpoint or intervention.
 and [raw metrics and verified lineage](artifacts/extent-ablations-2026-10-03/source-results.json).
 The plots separately show actual optimizer work and observation exposure; neither
 axis is FLOP matching. Omitted slots do not count as optimizer updates.
+
+### Day-30 maps
+
+The same fixed January/July 2022 cases show observations, all six U-Net models
+in the table, and U-global's initialized persistence. Anomalies subtract the
+same training climatology; candidates share observation-valid support and color
+limits. The true-state label refers only to its **native training task**: these
+observation forecasts still use the learned initializer, with no true future
+ocean state supplied. Individual cases illustrate structure rather than rank
+aggregate skill.
+
+| Case | SST | SSH |
+|---|---|---|
+| January anomalies | [Map](artifacts/extent-ablations-2026-10-03/maps/day30-2022-01-anomalies-sst.png) | [Map](artifacts/extent-ablations-2026-10-03/maps/day30-2022-01-anomalies-adt.png) |
+| July anomalies | [Map](artifacts/extent-ablations-2026-10-03/maps/day30-2022-07-anomalies-sst.png) | [Map](artifacts/extent-ablations-2026-10-03/maps/day30-2022-07-anomalies-adt.png) |
+| July absolute fields | [Map](artifacts/extent-ablations-2026-10-03/maps/day30-2022-07-fields-sst.png) | [Map](artifacts/extent-ablations-2026-10-03/maps/day30-2022-07-fields-adt.png) |
+
+Grace job 117319 extracted the completed exports in 25 seconds without new
+inference. [Source and rendering provenance](artifacts/extent-ablations-2026-10-03/maps/provenance.json)
+includes the matching selected checkpoint hashes.
 
 ## Completed execution
 

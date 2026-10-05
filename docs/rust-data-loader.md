@@ -158,8 +158,6 @@ pair and preparation policy throughout the batch.
 ## Installation and tests
 
 In a source checkout, install the optional extension with `uv sync --extra rust`.
-The root [`rust-toolchain.toml`](../rust-toolchain.toml) pins the compiler;
-the crate uses Rust edition 2024.
 
 The native crate and its standalone test environment live in
 [`rust/loader`](../rust/loader):

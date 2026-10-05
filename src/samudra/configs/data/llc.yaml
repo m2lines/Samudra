@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+# SPDX-FileCopyrightText: 2026 Samudra Authors
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -6,6 +6,8 @@
 
 sources:
   - type: llc
+    prognostic_vars_key: single_1
+    boundary_vars_key: single_1
     face: 1
     i_start: 0
     i_end: 720
@@ -17,6 +19,9 @@ sources:
     val_time:
       start: "2012-09-01T12:00:00Z"
       end: "2012-11-15T12:00:00Z"
+    inference_times:
+      - start: "2012-10-16T12:00:00Z"
+        end: "2012-11-14T12:00:00Z"
     data_location: LLC.zarr
     data_means_location: LLC_means.zarr
     data_stds_location: LLC_stds.zarr

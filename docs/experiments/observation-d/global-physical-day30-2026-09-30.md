@@ -362,3 +362,7 @@ The SST/SSH rollout maps also retain the observation reference and now include d
 The official-kernel endpoint tables were computed on an Alpha CPU node, with no model inference or GPU allocation. The archived results contain every case MSE, pairing fraction, original kernel/source hashes, input-array hashes and the exact aggregation. [Metrics provenance and numerical results](artifacts/2026-10-01-official-fixed-lead-metrics/provenance.json.gz).
 
 The OM4 OHC baseline was added from six full-month temperature extractions. Torch CPU job **18978279** completed in nine seconds after one six-second schema-lookup failure; Alpha CPU scoring job **112642** completed in six seconds. All attempts are retained in the existing metrics provenance. Complete calendar coverage, model/OM4 support equality, observation fingerprint and pairing fractions passed; every preexisting metric value is unchanged. No GPU time was used.
+
+## Deep T/S imprinting check
+
+The [Samudra 2 comparison](imprinting-comparison-2026-10-05.md) examines T/S changes at 550/1850/3100 m and velocity-pattern associations. Scratch shows the strongest repeated deep ripples and salinity/velocity association; mixed is quieter but still develops broad deep-temperature bands. Much of the departure begins in the first processor step. The supplement distinguishes the paper’s fully supervised, eight-year anomalies/variance from our sparse one-year states and unconstrained observation channels below 2000 m.

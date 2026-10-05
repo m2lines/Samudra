@@ -3102,3 +3102,7 @@ Filled both native-IAP OHC columns for OM4: January upper/deep RMSE 2.089/1.578 
 ### 2026-10-01: audit of OM4 OHC error magnitude
 
 Units/coverage/layer/support checks and native-grid double-precision bias decomposition support the reported gap. January upper OHC OM4 RMSE 2.089 remains 2.054 GJ/m² after removing each case mean bias; mixed 0.764 becomes 0.617. Thus this is largely spatial disagreement with IAP, not simply a global offset. No published metric changed. CPU audit job 112651 completed after 112648 hit an overly strict float32 decomposition tolerance; both records archived. Report adds comparison with the original commit’s different-cohort OM4 magnitude and limits interpretation to agreement with IAP.
+
+### 2026-10-05: quick deep T/S imprinting comparison
+
+Compared paper §4.2/Fig4(e)/Figs5–6 with saved 2015/2018 final mixed and scratch8k/16k snapshots. CPU export 19230825 completed in 22 s, no inference/GPU. Deep3100 scratch salinity-change / U-change high-pass correlations about 0.53/0.55 at day365 versus mixed0.10 and OM4~0.00; mixed deep-T correlation only0.04 despite bands. Large changes already at day5. Report distinguishes lack of observation supervision below1850m, initializer/processor adjustment, correlations versus causal imprinting, and sparse snapshots versus temporal variance. [Supplement](imprinting-comparison-2026-10-05.md).

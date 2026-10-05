@@ -69,6 +69,13 @@ on any cluster migration, checksum-verify optimizer transfers, and allow only on
 active writer. Inspect the first native and observation updates and verify a
 checkpoint/resume before continuing. GPU handoff is pending the next job boundary.
 
+Producer `e8a6312ea` is checksum-verified on Engaging and Torch. On Engaging,
+four-H200 handoff job **24866192** waits for current job **24761666** and performs
+eight updates from the saved optimizer. Continuation **24866254** waits for that
+job to succeed and reloads its checkpoint. These updates count toward the existing
+16k total. Both use ordinary `mit_general` / `mit_preemptable`; the colleague's
+reservation is excluded. No appended-training job was submitted.
+
 CPU tests check unchanged task/exposure sequences at every global update, LR
 endpoints, monotonic decay, rejection of invalid parents, and bitwise optimizer/RNG
 continuation across an interruption. Preserve

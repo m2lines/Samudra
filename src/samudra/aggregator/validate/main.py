@@ -8,7 +8,7 @@ import torch
 from samudra.aggregator.train import TrainAggregator
 from samudra.aggregator.validate.sub_aggregator import ValidateSubAggregator
 from samudra.constants import DataLayout
-from samudra.utils.data import ChannelTransform, get_aggregator_dicts
+from samudra.utils.data import BatchPreprocessor, get_aggregator_dicts
 from samudra.utils.output import ValBatchOutput
 from samudra.utils.wandb import Metrics, MetricsDict
 
@@ -24,7 +24,7 @@ class ValidateAggregator(TrainAggregator):
         num_prognostic_channels: int,
         *,
         data_layout: DataLayout,
-        preprocessor: ChannelTransform,
+        preprocessor: BatchPreprocessor,
     ):
         super().__init__(data_layout)
         self._aggregators = aggregators

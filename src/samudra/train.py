@@ -55,7 +55,7 @@ from samudra.stepper import (
     validate_batch,
     validate_rollout,
 )
-from samudra.utils.data import ChannelTransform, get_inference_steps
+from samudra.utils.data import BatchPreprocessor, get_inference_steps
 from samudra.utils.device import using_gpu
 from samudra.utils.distributed import (
     all_reduce_mean,
@@ -192,7 +192,7 @@ class Trainer:
         self.loader_version = self.data_bundle.loader_version
 
         # Aggregation still works on the primary source only.
-        self.preprocessor = ChannelTransform(
+        self.preprocessor = BatchPreprocessor(
             self.primary_source,
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,

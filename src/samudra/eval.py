@@ -16,7 +16,7 @@ from samudra.constants import BoundaryVarNames, Grid, PrognosticVarNames
 from samudra.datasets import InferenceDataset
 from samudra.metrics.run import open_predictions, run_observation_metrics
 from samudra.stepper import run_rollout
-from samudra.utils.data import ChannelTransform, get_inference_steps
+from samudra.utils.data import BatchPreprocessor, get_inference_steps
 from samudra.utils.device import using_gpu
 from samudra.utils.distributed import is_main_process, set_seed
 from samudra.utils.logging import get_model_summary, handle_logging, handle_warnings
@@ -93,7 +93,7 @@ class Eval:
         self.area_weights: Grid = self.source.spherical_area_weights
         self.area_weights = self.area_weights.to(self.device)
 
-        self.preprocessor = ChannelTransform(
+        self.preprocessor = BatchPreprocessor(
             self.source,
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,

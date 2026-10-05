@@ -31,7 +31,7 @@ from samudra.datasets import (
     TorchTrainDataset,
     TrainingWindows,
 )
-from samudra.utils.data import CanonicalSource, ChannelTransform, Masks
+from samudra.utils.data import BatchPreprocessor, CanonicalSource, Masks
 from samudra.utils.location import LocalLocation
 from samudra.utils.multiton import MultitonScope
 from samudra.utils.samplers import EquivalenceGroupBatchSampler
@@ -766,7 +766,7 @@ def tiny_dataset_input(normalize_before_mask: bool, masked_fill_value: float):
     )
 
     with MultitonScope():
-        _ = ChannelTransform(
+        _ = BatchPreprocessor(
             test,
             prognostic_var_names=["prognostic1", "prognostic2"],
             boundary_var_names=["boundary1", "boundary2"],

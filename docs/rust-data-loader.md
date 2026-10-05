@@ -37,7 +37,7 @@ readers within the process.
 | `RustIoRuntime` (`rust_reader.py`) | Open the extension's flat or compact readers and supply their shared `ZarrReadPool`. |
 | `_PinnedTensorPool` | Reuse host buffers after their CUDA consumer events complete. Each loader owns its pool. |
 | `BatchPreparer` | Supply model-batch grid context and apply the input, boundary, and label preparation policies. |
-| `ChannelTransform` | Normalize and mask unique planes using cached device statistics and masks. |
+| `BatchPreprocessor` | Normalize and mask unique planes using cached device statistics and masks. |
 
 ## Pipeline and concurrency
 
@@ -68,7 +68,7 @@ flowchart LR
     subgraph PREFETCH["CUDA prefetch stream: batch N+1"]
         direction TB
         B["BatchPreparer<br/>grid context and preparation policy"]
-        C["ChannelTransform<br/>normalize and mask unique planes"]
+        C["BatchPreprocessor<br/>normalize and mask unique planes"]
         G["NativeBatchLoader<br/>gather ModelBatch tensors"]
         B --> C --> G
     end
@@ -109,7 +109,7 @@ directly. `read_into` completes all writes before returning or raising, so the
 caller can safely reuse the destination after a failed read.
 
 `NativeBatchLoader` copies each unique plane to CUDA once. `BatchPreparer` and
-`ChannelTransform` apply normalization and masking, then the loader gathers
+`BatchPreprocessor` apply normalization and masking, then the loader gathers
 repeated history and rollout positions into `ModelBatch` tensors.
 
 `HostPrefetch` selects disk-to-RAM read-ahead for CPU training or CUDA training

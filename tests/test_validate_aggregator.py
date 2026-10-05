@@ -12,7 +12,7 @@ from samudra.aggregator.validate.snapshot import SnapshotAggregator
 from samudra.aggregator.validate.sub_aggregator import ValidateSubAggregator
 from samudra.constants import DataLayout
 from samudra.utils.ctx import BatchGrid
-from samudra.utils.data import CanonicalSource, ChannelTransform
+from samudra.utils.data import BatchPreprocessor, CanonicalSource
 from samudra.utils.output import ValBatchOutput
 from samudra.utils.wandb import Metrics
 
@@ -63,8 +63,8 @@ def data_layout_for(source: CanonicalSource) -> DataLayout:
 
 def preprocessor_for(
     source: CanonicalSource, data_layout: DataLayout
-) -> ChannelTransform:
-    return ChannelTransform(
+) -> BatchPreprocessor:
+    return BatchPreprocessor(
         source,
         data_layout.prognostic_var_names,
         data_layout.boundary_var_names,

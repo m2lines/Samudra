@@ -640,7 +640,7 @@ def convert_tensor_out_to_dict(
 
 def get_aggregator_dicts(
     data: Prognostic | Input,
-    preprocessor: "ChannelTransform",
+    preprocessor: "BatchPreprocessor",
     data_layout: DataLayout,
     wet: torch.Tensor,
     long_rollout: bool,
@@ -770,7 +770,7 @@ def with_lat_lon_coords(data: xr.Dataset) -> xr.Dataset:
     return data_copy
 
 
-class ChannelTransform:
+class BatchPreprocessor:
     def __init__(
         self,
         source: CanonicalSource,

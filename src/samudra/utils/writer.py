@@ -10,7 +10,7 @@ import xarray as xr
 from einops import rearrange
 
 from samudra.constants import DataLayout
-from samudra.utils.data import ChannelTransform, stack_levels
+from samudra.utils.data import BatchPreprocessor, stack_levels
 from samudra.utils.output import ModelInferenceOutput
 
 
@@ -24,7 +24,7 @@ class ZarrWriter:
         output_steps: int,
         model_path: str | os.PathLike,
         time_chunk_size: int,
-        preprocessor: ChannelTransform,
+        preprocessor: BatchPreprocessor,
         data_layout: DataLayout,
     ):
         self.pred_path = os.path.join(output_dir, "predictions.zarr")

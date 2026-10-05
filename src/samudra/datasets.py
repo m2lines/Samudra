@@ -25,9 +25,9 @@ from samudra.constants import (
 )
 from samudra.utils.ctx import BatchGrid
 from samudra.utils.data import (
+    BatchPreprocessor,
     CanonicalReadRequest,
     CanonicalSource,
-    ChannelTransform,
     LoadStats,
 )
 from samudra.utils.device import using_gpu
@@ -84,7 +84,7 @@ class InferenceDataset(Dataset):
         self._device = torch.device("cpu")
         self._source = source
         self._times = source.time
-        self.preprocessor = ChannelTransform(
+        self.preprocessor = BatchPreprocessor(
             source,
             self.prognostic_var_names,
             self.boundary_var_names,
@@ -509,7 +509,7 @@ class BatchPreparer:
 
     def __init__(self, windows: TrainingWindows) -> None:
         self.windows = windows
-        self._input = ChannelTransform(
+        self._input = BatchPreprocessor(
             windows.input_source,
             windows.prognostic_var_names,
             windows.boundary_var_names,
@@ -519,7 +519,7 @@ class BatchPreparer:
         self._label = (
             self._input
             if windows.label_source is windows.input_source
-            else ChannelTransform(
+            else BatchPreprocessor(
                 windows.label_source,
                 windows.prognostic_var_names,
                 windows.boundary_var_names,

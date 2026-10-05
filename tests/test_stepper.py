@@ -11,7 +11,7 @@ from samudra.datasets import InferenceDataset, ModelBatch
 from samudra.models.base import BaseModel
 from samudra.stepper import _get_rollout_step_chunks, validate_batch
 from samudra.utils.ctx import BatchGrid
-from samudra.utils.data import CanonicalSource, ChannelTransform
+from samudra.utils.data import BatchPreprocessor, CanonicalSource
 from samudra.utils.multiton import MultitonScope
 from tests.conftest import TEST_DATA_LAYOUT, canonicalize_mock_om4
 
@@ -75,7 +75,7 @@ def inf_data_init(hist: int):
             boundary_var_names=data_layout.boundary_var_names,
         )
 
-        _ = ChannelTransform(
+        _ = BatchPreprocessor(
             val,
             prognostic_var_names=data_layout.prognostic_var_names,
             boundary_var_names=data_layout.boundary_var_names,

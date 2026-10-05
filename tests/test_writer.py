@@ -11,14 +11,14 @@ import xarray as xr
 
 from samudra.config import Om4DataSourceConfig
 from samudra.constants import build_om4_layout
-from samudra.utils.data import CanonicalSource, ChannelTransform
+from samudra.utils.data import BatchPreprocessor, CanonicalSource
 from samudra.utils.output import ModelInferenceOutput
 from samudra.utils.writer import ZarrWriter
 from tests.conftest import TEST_FULL_DATA_LAYOUT
 
 # write() never touches preprocessing (record_batch does), so these tests drive
 # the writer directly with a buffer and omit a real preprocessor.
-_NO_PREPROCESSOR = cast(ChannelTransform, None)
+_NO_PREPROCESSOR = cast(BatchPreprocessor, None)
 
 
 class _IdentityNormalize:
@@ -116,7 +116,7 @@ def test_writer_flattens_configured_output_steps(tmp_path):
         output_steps=1,
         model_path="dummy.ckpt",
         time_chunk_size=4,
-        preprocessor=cast(ChannelTransform, _IdentityNormalize()),
+        preprocessor=cast(BatchPreprocessor, _IdentityNormalize()),
         data_layout=data_layout,
     )
     prediction = torch.zeros(3, n_channels, 2, 3)

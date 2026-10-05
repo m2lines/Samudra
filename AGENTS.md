@@ -34,8 +34,7 @@ with skipped jobs, but they do not allocate runners. Adding the label does not c
 those separately when needed. Normal main-branch, merge-queue, scheduled, release, and manual workflows still run.
 
 If experimental work becomes a merge candidate, create a normal development branch and PR with the intended changes
-and no `experiment` label, then require the usual CI checks. On an existing normal branch, removing the label restores
-PR CI; on an `experiment/` branch, removing the label alone still skips it. Draft status by itself does not skip CI.
+and no `experiment` label, then require the usual CI checks.
 Continue running relevant local checks for experimental code and preserve run/data provenance in result reports.
 
 ## Data

@@ -32,7 +32,6 @@ on:
     tags:
       - "v*"
   pull_request:
-    types: [opened, synchronize, reopened, unlabeled]
     paths:
       - "scripts/package.py"
       - ".github/workflows/release.yml"

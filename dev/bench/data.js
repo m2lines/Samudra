@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791222321260,
+  "lastUpdate": 1791239149630,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -12588,6 +12588,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.207746678362976",
             "extra": "mean: 54.732580077600005 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fomobot640@gmail.com",
+            "name": "fomo-bot",
+            "username": "fomo-bot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e786f0678ff4ec854f4c0f796078e53e42aa68fa",
+          "message": "Remove legacy hist data setting (#908)\n\n## Summary\n- remove the legacy `data.hist` field and translation path from\n`DataConfig`\n- convert test/quickstart configs from `hist` to explicit `input_steps`\nand `output_steps`\n- update remaining config consumers and generated quickstart notebook\ncontent\n\n## Validation\n- `CUDA_VISIBLE_DEVICES= uv run pytest tests/test_config.py\ntests/test_datasets.py tests/test_quickstart_config.py\ntests/test_stepper.py -m \"not manual and not cuda\" -q`\n- `CUDA_VISIBLE_DEVICES= uv run pytest\ntests/test_utils_data.py::test_get_norm_unnorm_dicts -m \"not manual and\nnot cuda\" -q`\n- `uvx pre-commit run --all-files`\n\nRefs #860",
+          "timestamp": "2026-10-05T21:45:28Z",
+          "tree_id": "7d381d106e1247b08e52dc9e76f6a6fc7b110cc8",
+          "url": "https://github.com/m2lines/Samudra/commit/e786f0678ff4ec854f4c0f796078e53e42aa68fa"
+        },
+        "date": 1791239147989,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.9478284013177543,
+            "unit": "iter/sec",
+            "range": "stddev: 0.005177462169006538",
+            "extra": "mean: 1.055043295400003 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.06911745086914262,
+            "unit": "iter/sec",
+            "range": "stddev: 0.01770711042762628",
+            "extra": "mean: 14.46812617399998 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.01826198186954717,
+            "unit": "iter/sec",
+            "range": "stddev: 0.3187694914714909",
+            "extra": "mean: 54.75856931319997 sec\nrounds: 5"
           }
         ]
       }

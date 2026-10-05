@@ -31,7 +31,12 @@ from samudra.aggregator.loss import (
 )
 from samudra.aggregator.validate.rollout import RolloutValidationAggregator
 from samudra.backend import init_train_backend
-from samudra.config import TrainConfig, build_loss_fn
+from samudra.config import (
+    CpuDataLoadingConfig,
+    GpuDataLoadingConfig,
+    TrainConfig,
+    build_loss_fn,
+)
 from samudra.constants import (
     MAX_TRAIN_MODEL_STEPS_FORWARD,
     BoundaryVarNames,
@@ -78,6 +83,7 @@ from samudra.utils.rollout_validation import (
     should_run_on_epoch_freq,
 )
 from samudra.utils.samplers import (
+    BatchSchedule,
     DistributedEquivalenceGroupBatchSampler,
     EquivalenceGroupBatchSampler,
 )
@@ -144,13 +150,8 @@ class Trainer:
         self.N_bound = len(self.boundary_var_names)
         self.N_prog = len(self.prognostic_var_names)
 
-        data_num_workers = cfg.data.loading.num_pytorch_workers()
-        persistent_workers = cfg.data.loading.persistent_pytorch_workers()
         self.data_loading = cfg.data.loading
 
-        self.mp_context: BaseContext | None = None
-        if data_num_workers > 0:
-            self.mp_context = multiprocessing.get_context("spawn")
         self.inference_num_workers = cfg.data.inference_loading.num_workers
         self.inference_persistent_workers = (
             cfg.data.inference_loading.persistent_workers
@@ -325,8 +326,6 @@ class Trainer:
         self.data_stride: list[int] = cfg.data_stride
         self.batch_size: int = cfg.batch_size
         self.gradient_accumulation_steps: int = cfg.gradient_accumulation_steps
-        self.num_workers: int = data_num_workers
-        self.persistent_workers: bool = persistent_workers
         self.pin_mem: bool = cfg.pin_mem
         self.inference_epochs = cfg.inference_epochs
         self.max_train_model_steps_forward = (
@@ -1202,23 +1201,32 @@ class Trainer:
         if self.distributed is not None:
             assert self.distributed.rank is not None
             worker_seed += 2 * self.distributed.rank
-        self.train_loader = self.data_loading.build_batch_loader(
+
+        def build_loader(
+            windows: list[TrainingWindows], sampler: BatchSchedule, seed: int
+        ) -> TrainBatchLoader:
+            if isinstance(
+                self.data_loading, (CpuDataLoadingConfig, GpuDataLoadingConfig)
+            ):
+                return self.data_loading.build_batch_loader(
+                    windows,
+                    sampler,
+                    self.device,
+                    pin_memory=self.pin_mem,
+                    worker_seed=seed,
+                    concurrent_compute=self.concurrent_compute,
+                )
+            return self.data_loading.build_batch_loader(windows, sampler, self.device)
+
+        self.train_loader = build_loader(
             train_windows,
             train_batch_sampler,
-            self.device,
-            pin_memory=self.pin_mem,
-            multiprocessing_context=self.mp_context,
-            worker_seed=worker_seed,
-            concurrent_compute=self.concurrent_compute,
+            worker_seed,
         )
-        self.val_loader = self.data_loading.build_batch_loader(
+        self.val_loader = build_loader(
             val_windows,
             val_batch_sampler,
-            self.device,
-            pin_memory=self.pin_mem,
-            multiprocessing_context=self.mp_context,
-            worker_seed=worker_seed + 1,
-            concurrent_compute=self.concurrent_compute,
+            worker_seed + 1,
         )
 
     def save_all_checkpoints(self, epoch: int, v_loss: float, inf_loss: float):

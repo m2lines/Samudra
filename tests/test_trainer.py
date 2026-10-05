@@ -658,10 +658,12 @@ def test_data_loaders_enable_persistent_workers_on_positive_num_workers(
 ):
     _, trainer = trainer_pair
 
-    assert trainer.mp_context is not None
-    assert trainer.mp_context.get_start_method() == "spawn"
     assert isinstance(trainer.train_loader, TorchBatchLoader)
     assert isinstance(trainer.val_loader, TorchBatchLoader)
+    for loader in (trainer.train_loader, trainer.val_loader):
+        context = loader._host_loader.multiprocessing_context
+        assert context is not None
+        assert context.get_start_method() == "spawn"
     assert trainer.train_loader._host_loader.persistent_workers is True
     assert trainer.val_loader._host_loader.persistent_workers is True
     assert trainer.inference_source is not None
@@ -684,8 +686,9 @@ def test_data_loaders_disable_persistent_workers_when_num_workers_is_zero(
         trainer = Trainer(train_config)
         trainer.init_data_loaders(cur_step=train_config.steps[0])
 
-    assert trainer.mp_context is None
     assert isinstance(trainer.train_loader, TorchBatchLoader)
     assert isinstance(trainer.val_loader, TorchBatchLoader)
+    assert trainer.train_loader._host_loader.multiprocessing_context is None
+    assert trainer.val_loader._host_loader.multiprocessing_context is None
     assert trainer.train_loader._host_loader.persistent_workers is False
     assert trainer.val_loader._host_loader.persistent_workers is False

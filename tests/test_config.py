@@ -102,7 +102,6 @@ def test_data_config_defaults_to_cpu_loading():
 
     assert isinstance(cfg.loading, CpuDataLoadingConfig)
     assert cfg.loading.num_workers == 4
-    assert cfg.loading.num_pytorch_workers() == 4
     assert isinstance(cfg.sources[0], Om4DataSourceConfig)
 
 
@@ -120,8 +119,6 @@ def test_data_config_accepts_rust_loading():
     assert cfg.loading.prefetch_batches == 3
     assert cfg.loading.max_concurrent_reads == 12
     assert cfg.loading.prefetch_to_device is False
-    assert cfg.loading.num_pytorch_workers() == 0
-    assert cfg.loading.persistent_pytorch_workers() is False
 
 
 @pytest.mark.parametrize("field", ["prefetch_batches", "max_concurrent_reads"])
@@ -456,7 +453,6 @@ def test_data_config_accepts_gpu_loading():
     assert isinstance(cfg.loading, GpuDataLoadingConfig)
     assert cfg.loading.kvikio_task_size == 32 * 1024 * 1024
     assert cfg.loading.kvikio_num_threads == 4
-    assert cfg.loading.num_pytorch_workers() == 0
 
 
 def test_train_config_allows_cli_override_for_cpu_num_workers(tmp_path):

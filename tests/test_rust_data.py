@@ -840,7 +840,6 @@ def test_trainer_selects_rust_loader_with_no_pytorch_workers(
         trainer.init_data_loaders(cur_step=1)
         batch = next(iter(trainer.train_loader))
 
-    assert trainer.num_workers == 0
     assert trainer.inference_num_workers == 3
     assert isinstance(trainer.train_loader, NativeBatchLoader)
     assert isinstance(trainer.val_loader, NativeBatchLoader)

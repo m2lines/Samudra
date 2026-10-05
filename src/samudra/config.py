@@ -5,7 +5,6 @@
 import abc
 import datetime
 from functools import cached_property, partial
-from multiprocessing.context import BaseContext
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Literal, Self, assert_never
 
@@ -315,7 +314,11 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
         return source
 
 
-class BaseDataLoadingConfig(BaseConfig):
+class CpuDataLoadingConfig(BaseConfig):
+    type: Literal["cpu"] = "cpu"
+    num_workers: int = Field(default=4, ge=0)
+    persistent_workers: bool = True
+
     def build_source_backend(self) -> "TrainingSourceBackend":
         from samudra.data_backend import PythonSourceBackend
 
@@ -328,7 +331,6 @@ class BaseDataLoadingConfig(BaseConfig):
         device: torch.device,
         *,
         pin_memory: bool,
-        multiprocessing_context: BaseContext | None,
         worker_seed: int,
         concurrent_compute: bool,
     ) -> "TrainBatchLoader":
@@ -338,47 +340,50 @@ class BaseDataLoadingConfig(BaseConfig):
             windows,
             batch_sampler,
             device,
-            self,
+            num_workers=self.num_workers,
+            persistent_workers=self.persistent_workers,
             pin_memory=pin_memory,
-            multiprocessing_context=multiprocessing_context,
             worker_seed=worker_seed,
             concurrent_compute=concurrent_compute,
         )
 
-    def num_pytorch_workers(self) -> int:
-        raise NotImplementedError
 
-    def persistent_pytorch_workers(self) -> bool:
-        raise NotImplementedError
-
-
-class CpuDataLoadingConfig(BaseDataLoadingConfig):
-    type: Literal["cpu"] = "cpu"
-    num_workers: int = Field(default=4, ge=0)
-    persistent_workers: bool = True
-
-    def num_pytorch_workers(self) -> int:
-        return self.num_workers
-
-    def persistent_pytorch_workers(self) -> bool:
-        return self.persistent_workers
-
-
-class GpuDataLoadingConfig(BaseDataLoadingConfig):
+class GpuDataLoadingConfig(BaseConfig):
     type: Literal["gpu"] = "gpu"
     kvikio_task_size: int = Field(default=64 * 1024 * 1024, gt=0)
     kvikio_num_threads: int = Field(default=8, gt=0)
 
-    def num_pytorch_workers(self) -> int:
-        # When loading data direct to GPU, we don't want worker processes.
-        # 0 means "load in the main process"
-        return 0
+    def build_source_backend(self) -> "TrainingSourceBackend":
+        from samudra.data_backend import PythonSourceBackend
 
-    def persistent_pytorch_workers(self) -> bool:
-        return False
+        return PythonSourceBackend()
+
+    def build_batch_loader(
+        self,
+        windows: list["TrainingWindows"],
+        batch_sampler: "BatchSchedule",
+        device: torch.device,
+        *,
+        pin_memory: bool,
+        worker_seed: int,
+        concurrent_compute: bool,
+    ) -> "TrainBatchLoader":
+        from samudra.train_data_loader import build_torch_batch_loader
+
+        return build_torch_batch_loader(
+            windows,
+            batch_sampler,
+            device,
+            # Direct GPU reads run in the main process.
+            num_workers=0,
+            persistent_workers=False,
+            pin_memory=pin_memory,
+            worker_seed=worker_seed,
+            concurrent_compute=concurrent_compute,
+        )
 
 
-class RustDataLoadingConfig(BaseDataLoadingConfig):
+class RustDataLoadingConfig(BaseConfig):
     """Configuration for the local Rust Zarr data loader."""
 
     type: Literal["rust"] = "rust"
@@ -404,11 +409,6 @@ class RustDataLoadingConfig(BaseDataLoadingConfig):
         windows: list["TrainingWindows"],
         batch_sampler: "BatchSchedule",
         device: torch.device,
-        *,
-        pin_memory: bool,
-        multiprocessing_context: BaseContext | None,
-        worker_seed: int,
-        concurrent_compute: bool,
     ) -> "TrainBatchLoader":
         from samudra.native_loader import CudaPrefetch, HostPrefetch, NativeBatchLoader
 
@@ -424,12 +424,6 @@ class RustDataLoadingConfig(BaseDataLoadingConfig):
             prefetch_batches=self.prefetch_batches,
             prefetch=prefetch,
         )
-
-    def num_pytorch_workers(self) -> int:
-        return 0
-
-    def persistent_pytorch_workers(self) -> bool:
-        return False
 
 
 DataLoadingConfig = Annotated[

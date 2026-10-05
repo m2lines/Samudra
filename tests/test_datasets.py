@@ -22,7 +22,12 @@ from hypothesis.extra.numpy import arrays
 from numpy.typing import NDArray
 from torch.utils.data import ConcatDataset, DataLoader
 
-from samudra.config import DataConfig, TrainConfig
+from samudra.config import (
+    CpuDataLoadingConfig,
+    DataConfig,
+    GpuDataLoadingConfig,
+    TrainConfig,
+)
 from samudra.constants import DataLayout, LoaderVersion
 from samudra.datasets import (
     InferenceDataset,
@@ -45,6 +50,61 @@ from tests.conftest import (
     cache_dir,
 )
 from tests.llc_fixtures import write_raw_llc_zarr_datasets
+from tests.test_canonical_dataset import _equivalent_om4_sources
+
+
+@pytest.mark.parametrize(
+    "loading,workers,persistent",
+    [
+        (CpuDataLoadingConfig(num_workers=0), 0, False),
+        (CpuDataLoadingConfig(num_workers=1), 1, True),
+        (CpuDataLoadingConfig(num_workers=1, persistent_workers=False), 1, False),
+        (GpuDataLoadingConfig(), 0, False),
+    ],
+)
+def test_torch_loading_configs_preserve_batch_schedule(loading, workers, persistent):
+    source, _ = _equivalent_om4_sources()
+    windows = TrainingWindows(
+        input_source=source,
+        label_source=None,
+        prognostic_var_names=["so_0", "so_2", "zos"],
+        boundary_var_names=["hfds"],
+        input_steps=2,
+        output_steps=1,
+        steps=2,
+        normalize_before_mask=True,
+        masked_fill_value=-1.0,
+    )
+    schedule = [[1, 0], [2]]
+    device = torch.device("cpu")
+    loader = loading.build_batch_loader(
+        [windows],
+        schedule,
+        device,
+        pin_memory=False,
+        worker_seed=17,
+        concurrent_compute=False,
+    )
+    assert isinstance(loader, TorchBatchLoader)
+    assert loader._host_loader.num_workers == workers
+    assert loader._host_loader.persistent_workers is persistent
+    reference = TorchTrainDataset(windows)
+    try:
+        for actual, indices in zip(loader, schedule, strict=True):
+            expected = reference.to_model_batch(
+                collate_host_batches([reference[index] for index in indices]), device
+            )
+            for actual_step, expected_step in zip(
+                actual.steps, expected.steps, strict=True
+            ):
+                for actual_tensor, expected_tensor in zip(
+                    actual_step, expected_step, strict=True
+                ):
+                    torch.testing.assert_close(
+                        actual_tensor, expected_tensor, rtol=0, atol=0
+                    )
+    finally:
+        loader.close()
 
 
 @pytest.fixture

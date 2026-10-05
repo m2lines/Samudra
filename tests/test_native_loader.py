@@ -77,13 +77,12 @@ class ArrayBulkReader:
 
 
 @pytest.mark.parametrize("normalize_before_mask", [True, False])
-@pytest.mark.parametrize("pin_memory", [True, False])
 @pytest.mark.parametrize("prefetch_to_device", [True, False])
 @pytest.mark.parametrize(
     "device_type", ["cpu", pytest.param("cuda", marks=pytest.mark.cuda)]
 )
 def test_shared_pipeline_accepts_an_independent_bulk_reader(
-    normalize_before_mask, pin_memory, prefetch_to_device, device_type, monkeypatch
+    normalize_before_mask, prefetch_to_device, device_type, monkeypatch
 ):
     source, _ = _equivalent_om4_sources()
     data, means, stds = source._xarray_datasets_for_testing()
@@ -128,10 +127,6 @@ def test_shared_pipeline_accepts_an_independent_bulk_reader(
         [windows(native)],
         schedule,
         device,
-        pin_memory=pin_memory,
-        multiprocessing_context=None,
-        worker_seed=0,
-        concurrent_compute=False,
     )
     assert isinstance(loader, NativeBatchLoader)
     original_prepare = loader._prepare_batch

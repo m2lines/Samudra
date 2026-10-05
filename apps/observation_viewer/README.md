@@ -13,7 +13,7 @@ browser. No training runtime or inference is required.
 | --- | --- | --- |
 | Annual surface forecasts | SST, SSH | Six model/checkpoint choices, three January origins, five-day lead slider/playback through day 365, model/reference/difference maps, click-to-select point time series |
 | Initialized ocean interior | Temperature, salinity, zonal/meridional velocity | Fourteen depth centers from 2.5 to 1,850 m, observation/OM4 inputs, model/IAP/OM4/climatology comparisons, linked sections and vertical profiles |
-| Monthly ocean heat content | 0–700 m and 700–2000 m layer totals; temperature depth profiles | Month slider, IAP or checkpoint comparisons, map-linked monthly heat series and selected-month temperature profiles |
+| Monthly ocean heat content | 0–700 m and 700–2000 m layer totals; temperature depth profiles | Month slider, IAP or checkpoint comparisons, map-linked monthly heat series, colored depth/latitude or depth/longitude sections, and selected-cell temperature profiles |
 
 The six checkpoints comprise mixed training at 50, 500, 2,000 and 8,000
 observation updates, plus observation-only training at 8,000 and 16,000 updates.
@@ -59,8 +59,14 @@ displayed in **GJ/m²** (the saved J/m² divided by 10⁹). Only complete model
 columns contribute to each layer; missing IAP values remain unavailable.
 The extended monthly bundle adds temperature profiles at fourteen depths
 (2.5–1,850 m). Click a map to choose a cell, then move the month slider to see
-its temperature profile evolve. The layer selector controls OHC maps and the
-heat-content series; the temperature profile always shows the full depth range.
+its temperature field evolve. **Along longitude** shows a depth/longitude
+color section at the selected latitude; **Along latitude** shows a depth/latitude
+section at the selected longitude. These are spatial slices, not zonal or global
+averages. Model, comparison and difference sections sit below the maps, use °C,
+and share the initialized-interior view's depth masks and layer geometry. The
+selected-cell line profile remains below the heat-content time series.
+The layer selector controls OHC maps and the heat-content series; temperature
+sections and profiles always show the full depth range.
 Changing the origin preserves the selected calendar month. Model, IAP and
 checkpoint comparison choices apply to both heat and temperature.
 

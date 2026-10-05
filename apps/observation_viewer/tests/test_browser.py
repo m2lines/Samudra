@@ -245,6 +245,54 @@ def verify_monthly_profile(
         timeout=30000,
     )
 
+    verify_monthly_sections(page, catalog, model, origin, month, reference)
+
+
+def verify_monthly_sections(
+    page, catalog, model, origin, month, reference="observations", along_lon=True
+):
+    lat = float(page.locator(".latitude-input input").input_value())
+    lon = float(page.locator(".longitude-input input").input_value())
+    y = np.abs(catalog.lat - lat).argmin()
+    x = np.abs((catalog.lon - lon + 180) % 360 - 180).argmin()
+    take = (
+        (lambda values: values[:, y, :])
+        if along_lon
+        else (lambda values: values[:, :, x])
+    )
+    wet = take(catalog.array(catalog.meta["interior_mask"])[:, 0])
+    a, b = [
+        take(values[month])
+        for values in catalog.values("temperature", model, origin, reference)
+    ]
+    coordinate, depth = np.meshgrid(
+        catalog.lon if along_lon else catalog.lat, catalog.depths
+    )
+    for key, values in zip(
+        ["prediction", "reference", "difference"], [a, b, a - b], strict=True
+    ):
+        expected = {
+            "value": values[wet],
+            "depth": depth[wet],
+            "coordinate": coordinate[wet],
+        }
+        page.wait_for_function(
+            """({key, expected}) => {
+                const d = Bokeh.documents[0].get_model_by_name('section-' + key).data;
+                return Object.entries(expected).every(([field, values]) =>
+                    d[field].length === values.length && values.every((v, i) =>
+                        v === null ? !Number.isFinite(d[field][i]) : Math.abs(d[field][i] - v) < 1e-5));
+            }""",
+            arg=dict(
+                key=key,
+                expected={
+                    field: [float(v) if np.isfinite(v) else None for v in array]
+                    for field, array in expected.items()
+                },
+            ),
+            timeout=30000,
+        )
+
 
 def test_monthly_heat_maps_point_series_and_mode_switching():
     assert URL is not None
@@ -270,6 +318,13 @@ def test_monthly_heat_maps_point_series_and_mode_switching():
         select(page, "variable-select", "700–2000 m")
         verify_maps(page, catalog, "heat", "obs08000", "2015-01-01", 1, 5)
         verify_monthly_profile(page, catalog, "obs08000", "2015-01-01", 5)
+        if "monthly_temperature" in catalog.meta:
+            page.get_by_text("Along latitude", exact=True).click()
+            verify_monthly_sections(
+                page, catalog, "obs08000", "2015-01-01", 5, along_lon=False
+            )
+            page.get_by_text("Along longitude", exact=True).click()
+            verify_monthly_sections(page, catalog, "obs08000", "2015-01-01", 5)
         select(page, "origin-select", "2021-01-01")
         verify_maps(page, catalog, "heat", "obs08000", "2021-01-01", 1, 5)
         expect(page.get_by_text("Month: 2021-06", exact=True)).to_be_visible(
@@ -319,6 +374,10 @@ def test_monthly_heat_maps_point_series_and_mode_switching():
                 11,
                 original_heat=True,
             )
+            expect(page.locator(".depth-sections").first).not_to_be_visible(
+                timeout=30000
+            )
+            expect(page.get_by_text("Along latitude", exact=True)).not_to_be_visible()
             select(page, "monthly-source-select", "Regenerated forecast + profiles")
             verify_maps(page, catalog, "heat", "scratch16000", "2021-01-01", 1, 11)
             verify_monthly_profile(page, catalog, "scratch16000", "2021-01-01", 11)

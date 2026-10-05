@@ -149,6 +149,7 @@ class Viewer:
         )
         self.orientation = pn.widgets.RadioButtonGroup(
             name="Section direction",
+            css_classes=["section-direction"],
             options=["Along longitude", "Along latitude"],
             value="Along longitude",
             visible=False,
@@ -420,6 +421,7 @@ class Viewer:
         self.section_row = pn.Row(
             *(pn.pane.Bokeh(p, sizing_mode="stretch_width") for p in self.sections),
             visible=False,
+            css_classes=["depth-sections"],
         )
         self.detail = pn.Column(pn.pane.Bokeh(self.line, sizing_mode="stretch_width"))
         self.profile_pane = pn.Column(
@@ -497,12 +499,7 @@ class Viewer:
         )
         self.profile_pane.visible = interior or (self.monthly_profiles)
         self.depth_marker.visible = interior
-        for control in [
-            self.depth,
-            self.orientation,
-            self.section_row,
-        ]:
-            control.visible = interior
+        self.depth.visible = interior
         self._changing = False
         self.refresh(rescale=True)
 
@@ -603,6 +600,7 @@ class Viewer:
             self._changing = False
         mode, variable, index = self.mode.value, self.variable.value, self.index
         self.profile_pane.visible = mode == "interior" or self.monthly_profiles
+        self.orientation.visible = self.section_row.visible = self.profile_pane.visible
         data_mode = (
             "report_heat"
             if (
@@ -674,7 +672,7 @@ class Viewer:
             self.caption.object = f"### Ocean heat content · {variable_label} · {month}"
             self.context.object = "Monthly layer-integrated heat content compared with IAP analyses, in GJ/m² relative to 0 °C. Gray cells lack a complete model column for the selected layer. Click a map for the monthly series."
             if self.monthly_profiles:
-                self.context.object += " Move the month slider to explore temperature profiles at the selected cell."
+                self.context.object += " Move the month slider to explore temperature sections and the selected-cell profile. Use Along longitude / Along latitude to choose the section direction; click a map to move the slice."
             if self.monthly_profiles:
                 self.context.object += (
                     " " + self.catalog.meta["monthly_temperature"]["description"]
@@ -780,6 +778,15 @@ class Viewer:
                 month = self.catalog.meta["records"][self.origin.value]["heat_months"][
                     self.index
                 ]
+                self.update_sections(
+                    prediction[self.index],
+                    comparison[self.index],
+                    self.catalog.array(self.catalog.meta["interior_mask"])[:, 0],
+                    y,
+                    x,
+                    "°C",
+                    period=month,
+                )
                 self.profile.xaxis.axis_label = "Temperature (°C)"
                 self.profile.title.text = (
                     f"Monthly temperature · {month} · {lat:.2f}°N, {lon:.2f}°E"
@@ -791,55 +798,65 @@ class Viewer:
             self.profile.xaxis.axis_label = self.unit
             self.profile.title.text = f"Vertical profile · {lat:.2f}°N, {lon:.2f}°E"
             self.depth_marker.location = float(self.catalog.depths[self.depth.value])
-            along_lon = self.orientation.value == "Along longitude"
-            coordinate = self.catalog.lon if along_lon else self.catalog.lat
-            bounds = (0, 360) if along_lon else (-90, 90)
-            ce = edges(coordinate, bounds)
-            # The report uses these OM4 layer centers and corresponding interfaces.
-            de = np.array(
-                [0, 5, 15, 30, 50, 80, 130, 200, 300, 450, 650, 900, 1200, 1600, 2100]
+            self.update_sections(
+                self.prediction[:, variable],
+                self.comparison[:, variable],
+                self.catalog.array(self.catalog.meta["interior_mask"])[:, variable],
+                y,
+                x,
+                self.unit,
             )
-            np.testing.assert_array_equal((de[:-1] + de[1:]) / 2, self.catalog.depths)
-            left, top = np.meshgrid(ce[:-1], de[:-1])
-            right, bottom = np.meshgrid(ce[1:], de[1:])
-            coord, depth = np.meshgrid(coordinate, self.catalog.depths)
-            wet = self.catalog.array(self.catalog.meta["interior_mask"])[:, variable]
-            take = (lambda v: v[:, y, :]) if along_lon else (lambda v: v[:, :, x])
-            support = take(wet)
-            first, second = (
-                take(self.prediction[:, variable]),
-                take(self.comparison[:, variable]),
+
+    def update_sections(self, prediction, comparison, wet, y, x, unit, period=""):
+        """Render a depth/longitude or depth/latitude slice without spatial averaging."""
+        lat, lon = self.catalog.lat[y], self.catalog.lon[x]
+        along_lon = self.orientation.value == "Along longitude"
+        coordinate = self.catalog.lon if along_lon else self.catalog.lat
+        bounds = (0, 360) if along_lon else (-90, 90)
+        ce = edges(coordinate, bounds)
+        # The report uses these OM4 layer centers and corresponding interfaces.
+        de = np.array(
+            [0, 5, 15, 30, 50, 80, 130, 200, 300, 450, 650, 900, 1200, 1600, 2100]
+        )
+        np.testing.assert_array_equal((de[:-1] + de[1:]) / 2, self.catalog.depths)
+        left, top = np.meshgrid(ce[:-1], de[:-1])
+        right, bottom = np.meshgrid(ce[1:], de[1:])
+        coord, depth = np.meshgrid(coordinate, self.catalog.depths)
+        take = (lambda v: v[:, y, :]) if along_lon else (lambda v: v[:, :, x])
+        support = take(wet)
+        first, second = (
+            take(prediction),
+            take(comparison),
+        )
+        low, high = limits(first, second)
+        for mapper in self.section_mappers[:2]:
+            mapper.low, mapper.high = low, high
+        self.section_mappers[2].low, self.section_mappers[2].high = limits(
+            first - second, symmetric=True
+        )
+        for i, (plot, source, values) in enumerate(
+            zip(
+                self.sections,
+                self.section_sources,
+                [first, second, first - second],
+                strict=True,
             )
-            low, high = limits(first, second)
-            for mapper in self.section_mappers[:2]:
-                mapper.low, mapper.high = low, high
-            self.section_mappers[2].low, self.section_mappers[2].high = limits(
-                first - second, symmetric=True
+        ):
+            source.data = dict(
+                left=left[support],
+                right=right[support],
+                top=top[support],
+                bottom=bottom[support],
+                coordinate=coord[support],
+                depth=depth[support],
+                value=values[support],
             )
-            for i, (plot, source, values) in enumerate(
-                zip(
-                    self.sections,
-                    self.section_sources,
-                    [first, second, first - second],
-                    strict=True,
-                )
-            ):
-                source.data = dict(
-                    left=left[support],
-                    right=right[support],
-                    top=top[support],
-                    bottom=bottom[support],
-                    coordinate=coord[support],
-                    depth=depth[support],
-                    value=values[support],
-                )
-                plot.xaxis.axis_label = (
-                    "Longitude (°E)" if along_lon else "Latitude (°N)"
-                )
-                plot.below[-1].title = self.unit
-                plot.x_range.start, plot.x_range.end = bounds
-                label = ["Model", "Comparison", "Difference"][i]
-                plot.title.text = f"{label} · {'latitude' if along_lon else 'longitude'} {lat if along_lon else lon:.2f}°"
+            plot.xaxis.axis_label = "Longitude (°E)" if along_lon else "Latitude (°N)"
+            plot.below[-1].title = unit
+            plot.x_range.start, plot.x_range.end = bounds
+            label = ["Model", "Comparison", "Difference"][i]
+            label += f" · T · {period}" if period else ""
+            plot.title.text = f"{label} · {'latitude' if along_lon else 'longitude'} {lat if along_lon else lon:.2f}°"
 
     def view(self):
         sidebar = [
@@ -877,8 +894,8 @@ class Viewer:
                     self.map_row,
                     self.summary,
                     self.location,
-                    self.detail,
                     self.section_row,
+                    self.detail,
                     self.profile_pane,
                     pn.Accordion(
                         ("Data, masks & provenance", self.provenance), active=[]

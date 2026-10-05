@@ -121,6 +121,12 @@ def test_data_config_accepts_rust_loading():
     assert cfg.loading.prefetch_to_device is False
 
 
+@pytest.mark.parametrize("field", ["pin_mem", "concurrent_compute"])
+def test_rust_loading_rejects_pytorch_options(field):
+    with pytest.raises(ValidationError, match=field):
+        RustDataLoadingConfig.model_validate({field: True})
+
+
 @pytest.mark.parametrize("field", ["prefetch_batches", "max_concurrent_reads"])
 def test_rust_loading_requires_positive_bounds(field):
     with pytest.raises(ValidationError, match=field):
@@ -455,7 +461,7 @@ def test_data_config_accepts_gpu_loading():
     assert cfg.loading.kvikio_num_threads == 4
 
 
-def test_train_config_allows_cli_override_for_cpu_num_workers(tmp_path):
+def test_train_config_allows_cli_override_for_cpu_loading_options(tmp_path):
     config_path = TEST_CONFIGS_DIR / "train_default.yaml"
 
     cfg = TrainConfig.from_yaml_and_cli(
@@ -467,11 +473,17 @@ def test_train_config_allows_cli_override_for_cpu_num_workers(tmp_path):
             str(tmp_path / "outputs"),
             "--data.loading.num_workers",
             "2",
+            "--data.loading.pin_mem",
+            "false",
+            "--data.loading.concurrent_compute",
+            "true",
         ]
     )
 
     assert isinstance(cfg.data.loading, CpuDataLoadingConfig)
     assert cfg.data.loading.num_workers == 2
+    assert cfg.data.loading.pin_mem is False
+    assert cfg.data.loading.concurrent_compute is True
 
 
 def test_get_pydantic_models_collects_loading_variants():
@@ -500,6 +512,17 @@ def test_shipped_eval_presets_load(preset: pathlib.Path):
     only a real eval job would notice.
     """
     EvalConfig.from_yaml_and_cli([str(preset)])
+
+
+@pytest.mark.parametrize(
+    "preset",
+    sorted(
+        (pathlib.Path(__file__).parents[1] / "src/samudra/configs").glob("*/train.yaml")
+    ),
+    ids=lambda path: path.parent.name,
+)
+def test_shipped_train_presets_load(preset: pathlib.Path):
+    TrainConfig.from_yaml_and_cli([str(preset)])
 
 
 def test_rust_loading_rejects_derived_channels_before_opening_data(

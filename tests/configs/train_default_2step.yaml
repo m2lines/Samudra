@@ -8,7 +8,6 @@
 # Used in automated tests.
 debug: false
 disk_mode: true
-pin_mem: true
 save_freq: 5
 epochs: 1
 batch_size: 1

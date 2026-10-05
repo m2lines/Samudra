@@ -59,10 +59,21 @@ from tests.test_canonical_dataset import _equivalent_om4_sources
         (CpuDataLoadingConfig(num_workers=0), 0, False),
         (CpuDataLoadingConfig(num_workers=1), 1, True),
         (CpuDataLoadingConfig(num_workers=1, persistent_workers=False), 1, False),
+        (
+            CpuDataLoadingConfig(num_workers=0, concurrent_compute=True, pin_mem=False),
+            0,
+            False,
+        ),
         (GpuDataLoadingConfig(), 0, False),
+        (GpuDataLoadingConfig(concurrent_compute=True, pin_mem=False), 0, False),
     ],
 )
-def test_torch_loading_configs_preserve_batch_schedule(loading, workers, persistent):
+@pytest.mark.parametrize(
+    "device_type", ["cpu", pytest.param("cuda", marks=pytest.mark.cuda)]
+)
+def test_torch_loading_configs_preserve_batch_schedule(
+    loading, workers, persistent, device_type
+):
     source, _ = _equivalent_om4_sources()
     windows = TrainingWindows(
         input_source=source,
@@ -76,23 +87,24 @@ def test_torch_loading_configs_preserve_batch_schedule(loading, workers, persist
         masked_fill_value=-1.0,
     )
     schedule = [[1, 0], [2]]
-    device = torch.device("cpu")
+    device = torch.device(device_type)
     loader = loading.build_batch_loader(
         [windows],
         schedule,
         device,
-        pin_memory=False,
-        worker_seed=17,
-        concurrent_compute=False,
+        seed=17,
     )
     assert isinstance(loader, TorchBatchLoader)
     assert loader._host_loader.num_workers == workers
     assert loader._host_loader.persistent_workers is persistent
+    assert loader._host_loader.pin_memory is (loading.pin_mem and device_type == "cuda")
+    assert loader._host_loader.generator.initial_seed() == 17
     reference = TorchTrainDataset(windows)
     try:
         for actual, indices in zip(loader, schedule, strict=True):
             expected = reference.to_model_batch(
-                collate_host_batches([reference[index] for index in indices]), device
+                collate_host_batches([reference[index] for index in indices]),
+                torch.device("cpu"),
             )
             for actual_step, expected_step in zip(
                 actual.steps, expected.steps, strict=True
@@ -101,7 +113,7 @@ def test_torch_loading_configs_preserve_batch_schedule(loading, workers, persist
                     actual_step, expected_step, strict=True
                 ):
                     torch.testing.assert_close(
-                        actual_tensor, expected_tensor, rtol=0, atol=0
+                        actual_tensor.cpu(), expected_tensor, rtol=0, atol=0
                     )
     finally:
         loader.close()

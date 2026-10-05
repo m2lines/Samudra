@@ -318,6 +318,8 @@ class CpuDataLoadingConfig(BaseConfig):
     type: Literal["cpu"] = "cpu"
     num_workers: int = Field(default=4, ge=0)
     persistent_workers: bool = True
+    pin_mem: bool = True
+    concurrent_compute: bool = False
 
     def build_source_backend(self) -> "TrainingSourceBackend":
         from samudra.data_backend import PythonSourceBackend
@@ -330,9 +332,7 @@ class CpuDataLoadingConfig(BaseConfig):
         batch_sampler: "BatchSchedule",
         device: torch.device,
         *,
-        pin_memory: bool,
-        worker_seed: int,
-        concurrent_compute: bool,
+        seed: int,
     ) -> "TrainBatchLoader":
         from samudra.train_data_loader import build_torch_batch_loader
 
@@ -342,9 +342,9 @@ class CpuDataLoadingConfig(BaseConfig):
             device,
             num_workers=self.num_workers,
             persistent_workers=self.persistent_workers,
-            pin_memory=pin_memory,
-            worker_seed=worker_seed,
-            concurrent_compute=concurrent_compute,
+            pin_memory=self.pin_mem,
+            worker_seed=seed,
+            concurrent_compute=self.concurrent_compute,
         )
 
 
@@ -352,6 +352,8 @@ class GpuDataLoadingConfig(BaseConfig):
     type: Literal["gpu"] = "gpu"
     kvikio_task_size: int = Field(default=64 * 1024 * 1024, gt=0)
     kvikio_num_threads: int = Field(default=8, gt=0)
+    pin_mem: bool = True
+    concurrent_compute: bool = False
 
     def build_source_backend(self) -> "TrainingSourceBackend":
         from samudra.data_backend import PythonSourceBackend
@@ -364,9 +366,7 @@ class GpuDataLoadingConfig(BaseConfig):
         batch_sampler: "BatchSchedule",
         device: torch.device,
         *,
-        pin_memory: bool,
-        worker_seed: int,
-        concurrent_compute: bool,
+        seed: int,
     ) -> "TrainBatchLoader":
         from samudra.train_data_loader import build_torch_batch_loader
 
@@ -377,9 +377,9 @@ class GpuDataLoadingConfig(BaseConfig):
             # Direct GPU reads run in the main process.
             num_workers=0,
             persistent_workers=False,
-            pin_memory=pin_memory,
-            worker_seed=worker_seed,
-            concurrent_compute=concurrent_compute,
+            pin_memory=self.pin_mem,
+            worker_seed=seed,
+            concurrent_compute=self.concurrent_compute,
         )
 
 
@@ -409,6 +409,8 @@ class RustDataLoadingConfig(BaseConfig):
         windows: list["TrainingWindows"],
         batch_sampler: "BatchSchedule",
         device: torch.device,
+        *,
+        seed: int,
     ) -> "TrainBatchLoader":
         from samudra.native_loader import CudaPrefetch, HostPrefetch, NativeBatchLoader
 
@@ -598,7 +600,6 @@ class DataConfig(BaseConfig):
     loader_version: str = str(LoaderVersion.OM4_TORCH.value)
     normalize_before_mask: bool = True
     masked_fill_value: float = 0.0
-    concurrent_compute: bool = False
 
     @pydantic.model_validator(mode="after")
     def validate_step_configuration(self) -> Self:
@@ -1388,13 +1389,6 @@ def build_loss_fn(
 class TrainConfig(TopLevelConfig):
     # Training parameters
     disk_mode: bool = True
-    pin_mem: bool = Field(
-        default=True,
-        description=(
-            "Pin host batches for PyTorch loaders. Native loaders choose pinning "
-            "automatically from the training device."
-        ),
-    )
     save_freq: int = 5
     validation_image_log_freq: int = Field(
         default=10,

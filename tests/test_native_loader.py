@@ -127,6 +127,7 @@ def test_shared_pipeline_accepts_an_independent_bulk_reader(
         [windows(native)],
         schedule,
         device,
+        seed=17,
     )
     assert isinstance(loader, NativeBatchLoader)
     original_prepare = loader._prepare_batch

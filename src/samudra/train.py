@@ -31,12 +31,7 @@ from samudra.aggregator.loss import (
 )
 from samudra.aggregator.validate.rollout import RolloutValidationAggregator
 from samudra.backend import init_train_backend
-from samudra.config import (
-    CpuDataLoadingConfig,
-    GpuDataLoadingConfig,
-    TrainConfig,
-    build_loss_fn,
-)
+from samudra.config import TrainConfig, build_loss_fn
 from samudra.constants import (
     MAX_TRAIN_MODEL_STEPS_FORWARD,
     BoundaryVarNames,
@@ -83,7 +78,6 @@ from samudra.utils.rollout_validation import (
     should_run_on_epoch_freq,
 )
 from samudra.utils.samplers import (
-    BatchSchedule,
     DistributedEquivalenceGroupBatchSampler,
     EquivalenceGroupBatchSampler,
 )
@@ -114,12 +108,6 @@ class Trainer:
 
         # Backend
         self.device, self.distributed = init_train_backend(cfg.backend)
-
-        # Adjust workers and memory pinning based on device
-        if not using_gpu():
-            cfg.pin_mem = False
-        elif cfg.disk_mode:
-            cfg.pin_mem = True
 
         # Distributed mode
         dask.config.set(scheduler="synchronous")
@@ -181,7 +169,6 @@ class Trainer:
 
         # Dataloaders
         logger.info(f"Loading data")
-        self.concurrent_compute = cfg.data.concurrent_compute
 
         self.primary_source = self.data_bundle.train_sources[0]
 
@@ -326,7 +313,6 @@ class Trainer:
         self.data_stride: list[int] = cfg.data_stride
         self.batch_size: int = cfg.batch_size
         self.gradient_accumulation_steps: int = cfg.gradient_accumulation_steps
-        self.pin_mem: bool = cfg.pin_mem
         self.inference_epochs = cfg.inference_epochs
         self.max_train_model_steps_forward = (
             MAX_TRAIN_MODEL_STEPS_FORWARD // self.output_steps
@@ -1202,31 +1188,17 @@ class Trainer:
             assert self.distributed.rank is not None
             worker_seed += 2 * self.distributed.rank
 
-        def build_loader(
-            windows: list[TrainingWindows], sampler: BatchSchedule, seed: int
-        ) -> TrainBatchLoader:
-            if isinstance(
-                self.data_loading, (CpuDataLoadingConfig, GpuDataLoadingConfig)
-            ):
-                return self.data_loading.build_batch_loader(
-                    windows,
-                    sampler,
-                    self.device,
-                    pin_memory=self.pin_mem,
-                    worker_seed=seed,
-                    concurrent_compute=self.concurrent_compute,
-                )
-            return self.data_loading.build_batch_loader(windows, sampler, self.device)
-
-        self.train_loader = build_loader(
+        self.train_loader = self.data_loading.build_batch_loader(
             train_windows,
             train_batch_sampler,
-            worker_seed,
+            self.device,
+            seed=worker_seed,
         )
-        self.val_loader = build_loader(
+        self.val_loader = self.data_loading.build_batch_loader(
             val_windows,
             val_batch_sampler,
-            worker_seed + 1,
+            self.device,
+            seed=worker_seed + 1,
         )
 
     def save_all_checkpoints(self, epoch: int, v_loss: float, inf_loss: float):

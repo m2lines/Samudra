@@ -43,7 +43,7 @@ def build_torch_batch_loader(
         batch_sampler=batch_sampler,
         num_workers=num_workers,
         persistent_workers=persistent_workers and num_workers > 0,
-        pin_memory=pin_memory,
+        pin_memory=pin_memory and device.type == "cuda",
         collate_fn=collate_host_batches,
         multiprocessing_context=(
             multiprocessing.get_context("spawn") if num_workers > 0 else None

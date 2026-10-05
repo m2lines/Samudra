@@ -197,9 +197,10 @@ experiment:
     project: samudra_quickstart
 
 data:
-  # Number of additional past ocean states supplied with the current state.
-  # Zero means that the model sees only the current timestep.
-  hist: 0
+  # Number of raw ocean states supplied to each model call.
+  input_steps: 1
+  # Number of future raw ocean states emitted by each model call.
+  output_steps: 1
   concurrent_compute: true
   loading:
     type: cpu

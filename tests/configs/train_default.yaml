@@ -54,7 +54,8 @@ data:
   loading:
     type: cpu
     num_workers: 4
-  hist: 0
+  input_steps: 1
+  output_steps: 1
 
 model:
   pred_residuals: false

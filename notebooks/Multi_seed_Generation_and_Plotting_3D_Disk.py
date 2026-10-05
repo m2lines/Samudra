@@ -61,7 +61,8 @@ from utils.train import extract_wet_mask
 #                 str(datetime.now())[:10]
 #             ),
 #             "ckpt_path=['/pscratch/sd/s/suryad/Ocean_Emulator/train_3D/2024-12-12-convnextunet_CM4_hist1_allvars_completerun/batch_size=4,epochs=70,hist=1,rand_seed=15,region=global_3D,scheduler=True,unet.ch_width=[157,200,250,300,400],wandb.mode=online/saved_nets/convnextunet_epoch_37_beststeps_4_global_3D_all_N_train_13800_Lateral_Data_025_no_smooth.pt']",
-#             "hist=1",
+#             "data.input_steps=2",
+#             "data.output_steps=2",
 #             "unet.ch_width=[157,200,250,300,400]",
 #             "run_gen_pred=True",
 #             "pred_names=null",
@@ -90,7 +91,8 @@ from utils.train import extract_wet_mask
 #                 str(datetime.now())[:10]
 #             ),
 #             "ckpt_path=['/pscratch/sd/s/suryad/Ocean_Emulator/train_3D/2024-12-20-convnextunet_CM4_hist0_with_SAT_tos/batch_size=4,exp_num_extra=3D_all_SAT_tos,exp_num_in=3D_noFast_all,exp_num_out=3D_noFast_all,hist=0,rand_seed=15,region=global_3D,scheduler=True,unet.ch_width=[157,200,250,300,400],wandb.mode=online/saved_nets/convnextunet_epoch_55_beststeps_4_global_3D_all_N_train_13800_Lateral_Data_025_no_smooth.pt']",
-#             "hist=0",
+#             "data.input_steps=1",
+#             "data.output_steps=1",
 #             "unet.ch_width=[157,200,250,300,400]",
 #             "run_gen_pred=True",
 #             "exp_num_in=3D_noFast_all",
@@ -122,7 +124,8 @@ with initialize_config_dir(
                 str(datetime.now())[:10]
             ),
             "ckpt_path=['/pscratch/sd/s/suryad/Ocean_Emulator/train_3D/2024-11-19-convnextunet_CM4_hist1/batch_size=4,epochs=70,exp_num_in=3D_noFast_all,exp_num_out=3D_noFast_all,hist=1,rand_seed=15,region=global_3D,scheduler=True,unet.ch_width=[157,200,250,300,400],wandb.mode=online/saved_nets/convnextunet_epoch_55_steps_4_global_3D_all_N_train_13800_Lateral_Data_025_no_smooth.pt']",
-            "hist=1",
+            "data.input_steps=2",
+            "data.output_steps=2",
             "unet.ch_width=[157,200,250,300,400]",
             "run_gen_pred=True",
             "pred_names=null",
@@ -160,7 +163,8 @@ with initialize_config_dir(
 #                 str(datetime.now())[:10]
 #             ),
 #             "ckpt_path=['/pscratch/sd/s/suryad/Ocean_Emulator/train_3D/2024-11-23-swinv1_CM4_hist1_nofast/batch_size=4,epochs=70,exp_num_in=3D_noFast_all,exp_num_out=3D_noFast_all,hist=1,rand_seed=15,region=global_3D,scheduler=True,wandb.mode=online/saved_nets/swin_epoch_67_beststeps_4_global_3D_all_N_train_13800_Lateral_Data_025_no_smooth.pt']",
-#             "hist=1",
+#             "data.input_steps=2",
+#             "data.output_steps=2",
 #             "run_gen_pred=True",
 #             "pred_names=null",
 #             "pred_paths=null",
@@ -214,9 +218,12 @@ if args.training.lateral:
 else:
     N_extra = N_atm  # Number of atmosphere variables
 N_out = len(outputs_str)
+input_steps = args.data.input_steps
+output_steps = args.data.output_steps
+history_steps = input_steps - 1
 
-num_in = int((args.data.hist + 1) * N_in + N_extra)
-num_out = int((args.data.hist + 1) * len(outputs_str))
+num_in = int(input_steps * N_in + N_extra)
+num_out = int(output_steps * len(outputs_str))
 
 print("Number of inputs: ", num_in)  # 3 (ocean speeds + ocean temp)(t) +
 # 3 (atm wind stresses + atm temp)(t) +
@@ -233,7 +240,7 @@ if "swin" in args.training.network.lower():
         in_channels=num_in,
         output_channels=num_out,
         wet=wet.cuda(),
-        hist=args.data.hist,
+        hist=history_steps,
         lat=lat,
         lon=lon,
         land_mask=mask,
@@ -294,7 +301,7 @@ s_train, e_train, e_test = get_train_test_ranges(
     args.data.N_samples,
     args.data.N_val,
     args.data.lag,
-    args.data.hist,
+    history_steps,
     args.data.interval,
 )
 dataset_name = args.dataset_name
@@ -311,7 +318,7 @@ else:
 print("Calculating mask tensors")
 
 wet_zarr = xr.open_zarr(os.path.join("/pscratch/sd/s/suryad/data", args.data.wet_file))
-wet = extract_wet_mask(wet_zarr, outputs_str, args.data.hist)
+wet = extract_wet_mask(wet_zarr, outputs_str, history_steps)
 print("Wet resolution:", wet.shape)
 # time_vec = inputs[0].time.data
 # time_test = time_vec[e_test : (e_test + args.data.lag * args.data.N_test)]
@@ -600,7 +607,7 @@ train_data = TrainDataset(
     args.data.N_samples,
     args.data.lag,
     args.data.interval,
-    args.data.hist,
+    history_steps,
     args.data.steps,
     device="cuda",
 )
@@ -616,7 +623,7 @@ test_data = InferenceDataset(
     args.data.N_test,
     args.data.lag,
     args.data.interval,
-    args.data.hist,
+    history_steps,
     e_test,
     long_rollout=True,
     device="cuda",
@@ -649,13 +656,13 @@ if "swin" in args.training.network.lower():
         in_channels=num_in,
         output_channels=num_out,
         wet=wet.cuda(),
-        hist=args.data.hist,
+        hist=history_steps,
         lat=lat,
         lon=lon,
         land_mask=mask,
     )
 elif "unet" in args.training.network.lower():
-    model = instantiate(args.unet, n_out=num_out, wet=wet.cuda(), hist=args.data.hist)
+    model = instantiate(args.unet, n_out=num_out, wet=wet.cuda(), hist=history_steps)
 
 full_model_path = args.ckpt_path
 full_model_name = args.training.network + "_" + post_model_name
@@ -728,7 +735,7 @@ if not os.path.isdir(pred_model_path):
     os.makedirs(pred_model_path)
 
 Nb = args.training.Nb
-hist = args.data.hist
+hist = history_steps
 lag = args.data.lag
 N_test = args.data.N_test
 N_samples = args.data.N_samples

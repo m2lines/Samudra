@@ -78,7 +78,8 @@ def test_quickstart_notebook_is_valid_and_current():
     assert "70 epochs" in sources
     assert "Autoregressive forecast steps" in sources
     assert "steps: [1, 4]" in sources
-    assert "Number of additional past ocean states" in sources
+    assert "Number of raw ocean states supplied" in sources
+    assert "Number of future raw ocean states emitted" in sources
     assert "Channels per stage control model capacity" in sources
     assert "broader spatial context" in sources
     assert "backend: cuda" in sources
@@ -167,6 +168,8 @@ def test_quickstart_yaml_config_validates(tmp_path):
     assert isinstance(cfg.model, SamudraConfig)
     assert cfg.model.unet.dilation == [1, 2, 4, 8]
     assert cfg.model.unet.ch_width == [280, 380, 480, 520]
+    assert cfg.data.input_steps == 1
+    assert cfg.data.output_steps == 1
     assert cfg.data.sources[0].prognostic_vars_key == "thermo_dynamic_5"
     data_location = cfg.data.sources[0].data_location
     assert isinstance(data_location, S3Location)

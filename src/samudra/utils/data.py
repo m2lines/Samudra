@@ -60,11 +60,6 @@ class Masks:
         object.__setattr__(self, "prognostic", self.prognostic.bool())
         object.__setattr__(self, "boundary", self.boundary.bool())
 
-    def prognostic_with_hist(
-        self, hist: int
-    ) -> Bool[GridMask, " prognostic_vars*({hist}+1)"]:
-        return self.prognostic_for_steps(hist + 1)
-
     def prognostic_for_steps(
         self, steps: int
     ) -> Bool[GridMask, " prognostic_vars*steps"]:

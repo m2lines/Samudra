@@ -92,7 +92,7 @@ def inf_data_init(hist: int):
             long_rollout=True,
         )
 
-        yield inference_dataset, val.masks.prognostic_with_hist(hist)
+        yield inference_dataset, val.masks.prognostic_for_steps(input_steps)
 
 
 class MockModel(BaseModel):

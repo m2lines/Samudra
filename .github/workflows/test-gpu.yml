@@ -18,7 +18,12 @@ permissions:
 
 jobs:
   ec2:
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    if: >-
+      github.event_name != 'pull_request' || (
+        !startsWith(github.head_ref, 'experiment/') &&
+        !contains(github.event.pull_request.labels.*.name, 'experiment') &&
+        github.event.pull_request.head.repo.full_name == github.repository
+      )
     permissions:
       contents: read
       id-token: write # Required for interacting with AWS via OIDC
@@ -65,7 +70,11 @@ jobs:
   # This exists beacuse the run-tests job will be skipped if the ec2 job fails,
   # and that skip will not block merging the PR.
   report-gpu-test-status:
-    if: always()
+    if: >-
+      always() && (github.event_name != 'pull_request' || (
+        !startsWith(github.head_ref, 'experiment/') &&
+        !contains(github.event.pull_request.labels.*.name, 'experiment')
+      ))
     needs: [ec2, test-gpu]
     runs-on: ubuntu-latest
     steps:

@@ -12,7 +12,7 @@ browser. No training runtime or inference is required.
 | View | Fields | Controls and linked plots |
 | --- | --- | --- |
 | Annual surface forecasts | SST, SSH | Six model/checkpoint choices, three January origins, five-day lead slider/playback through day 365, model/reference/difference maps, click-to-select point time series |
-| Initialized ocean interior | Temperature, salinity | Fourteen depth centers from 2.5 to 1,850 m, model/IAP/climatology comparisons, map-linked longitude or latitude sections and vertical profiles |
+| Initialized ocean interior | Temperature, salinity, zonal/meridional velocity | Fourteen depth centers from 2.5 to 1,850 m, observation/OM4 inputs, model/IAP/OM4/climatology comparisons, linked sections and vertical profiles |
 | Monthly ocean heat content | 0–700 m and 700–2000 m layer totals | Twelve monthly maps, IAP or checkpoint comparisons, and map-linked monthly point series |
 
 The six checkpoints comprise mixed training at 50, 500, 2,000 and 8,000
@@ -20,9 +20,13 @@ observation updates, plus observation-only training at 8,000 and 16,000 updates.
 Origins are January 1 of 2015, 2018 and 2021. Comparisons can also use another
 checkpoint. Each browser session owns its controls and plot models.
 
-In the initialized-interior view, origins are labeled with `(obs)` to identify
-observation-initialized examples. The current bundle contains T/S only; it has
-no OM4-initialized examples, velocity fields, or matching OM4 gold states.
+In the initialized-interior view, origins are labeled `(obs)` or `(om4)` for
+their input source and task adapter. The extended bundle contains both sources
+for 2015 and 2018; observation examples also include 2021. The 2021 observation
+history has no exact timestamp match in the OM4 input series. Observation
+examples retain all six checkpoints; OM4
+examples use the mixed 8k/8k endpoint. The checkpoint selector lists only
+available examples. Velocities are the model's actual U/V fields in m/s.
 
 Maps preserve the irregular Gaussian latitudes using cell quadrilaterals.
 The map frames resize at a fixed 2:1 width-to-height ratio, with axes and color
@@ -34,8 +38,14 @@ Limits stay fixed during time/depth stepping by default; the rescale button
 updates them explicitly. Values outside the limits remain available on hover.
 Sections have separate shared limits computed over the selected full-depth section.
 
-Interior references are the **preceding December monthly IAP analysis**. They
-are context for the initialized five-day state, not instantaneous truth. The
+Observation-initialized T/S references include the **preceding December monthly
+IAP analysis**, which is context for the initialized five-day state, not
+instantaneous truth. IAP and its climatology have no velocity fields, so those
+comparison choices are unavailable for U/V. **OM4 gold** is the native full
+state for the same final five-day history interval as the OM4-input example.
+For observation-input examples, that simulation state is labeled **OM4
+contemporaneous context**: it is not observational truth. Observation-task
+velocity slots are not directly supervised currents. The
 2.5 m temperature slot contains copied available surface inputs. December
 climatology uses the report's training-only 1993–2012 analyses. The displayed
 RMS/bias are cosine-weighted snapshot diagnostics on paired finite cells, not
@@ -74,6 +84,32 @@ is not implemented. Input preparation refuses to overwrite a nonempty output.
 The prepared bundle is ignored by Git, and
 the server does not depend on the temporary source directories after preparation.
 Set `SAMUDRA_VIEWER_DATA` to use a different prepared bundle.
+
+### Extended initialization bundle
+
+`export_interior.py` runs offline in the original report's pinned Samudra
+training runtime. Its `--root` contains `contract.json`, which fixes the
+producer commit, module hashes, checkpoint and training-manifest hashes, and
+the paths/hashes of the six checkpoints' saved annual arrays. It runs only the
+mixed endpoint initializer for two matched OM4/observation histories, verifies
+reproduction of the saved observation state, and exports the last initialized
+T/S/U/V state plus OM4 gold. All other observation states come directly from
+saved arrays. No model is trained and no annual forecast is rerun.
+
+Then create a new bundle with the lightweight viewer environment:
+
+```bash
+uv run --project apps/observation_viewer python apps/observation_viewer/extend_interior.py \
+  --base /path/to/existing/viewer-bundle \
+  --export /path/to/initialization-export/output \
+  --output /path/to/new/viewer-bundle
+```
+
+Extension verifies grid, masks, source hashes, checkpoint lineage, physical
+units, and exact preservation of every existing T/S value. It checks all
+prepared arrays by read-back and SHA-256 and retains the export source,
+contract, and receipt. Keep those data files out of Git. An older base bundle
+continues to offer T/S observation examples until it is extended.
 
 ## Run and access
 

@@ -81,6 +81,15 @@ class Catalog:
         return result
 
     def values(self, mode, model, origin, reference="observations"):
+        if mode == "interior" and "interior_examples" in self.meta:
+            record = self.meta["interior_examples"][origin]
+            prediction = self.array(record["models"][model])
+            comparison = self.array(
+                record["references"][reference]
+                if reference in record["references"]
+                else record["models"][reference]
+            )
+            return prediction, comparison
         record = self.meta["records"][origin]
         prediction = self.array(record["models"][model][mode])
         if reference == "observations":

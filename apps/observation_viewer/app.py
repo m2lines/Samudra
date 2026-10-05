@@ -36,7 +36,11 @@ VARIABLES = {
     "interior": {"Temperature": 0, "Salinity": 1},
     "heat": {"0–700 m": 0, "700–2000 m": 1},
 }
-UNITS = {"surface": ["°C", "m"], "interior": ["°C", "psu"], "heat": ["GJ/m²", "GJ/m²"]}
+UNITS = {
+    "surface": ["°C", "m"],
+    "interior": ["°C", "psu", "m/s", "m/s"],
+    "heat": ["GJ/m²", "GJ/m²"],
+}
 
 
 def style_plot(plot):
@@ -56,6 +60,7 @@ class Viewer:
         self._changing = False
         self.wet = None
         self.model_options = {v["label"]: k for k, v in catalog.meta["models"].items()}
+        self.interior_examples = catalog.meta.get("interior_examples", {})
         self.mode = pn.widgets.Select(
             name="View", options=MODES, value="surface", css_classes=["view-select"]
         )
@@ -409,8 +414,10 @@ class Viewer:
         self.profile_pane = pn.Column(
             pn.pane.Bokeh(self.profile, sizing_mode="stretch_width"), visible=False
         )
-        for control in [self.model, self.origin, self.variable, self.reference]:
+        for control in [self.model, self.reference]:
             control.param.watch(self.select, "value")
+        for control in [self.origin, self.variable]:
+            control.param.watch(self.change_sample, "value")
         self.mode.param.watch(self.change_mode, "value")
         self.frame.param.watch(self.step, "value")
         self.player.param.watch(self.play, "value")
@@ -438,26 +445,30 @@ class Viewer:
         interior = event.new == "interior"
         heat = event.new == "heat"
         origin = self.origin.value
-        self.origin.options = {
-            f"{value} (obs)" if interior else value: value
-            for value in self.catalog.meta["origins"]
-        }
+        date = self.interior_examples.get(origin, {}).get("origin", origin)
+        self.origin.options = (
+            {record["label"]: key for key, record in self.interior_examples.items()}
+            if interior and self.interior_examples
+            else {
+                f"{value} (obs)" if interior else value: value
+                for value in self.catalog.meta["origins"]
+            }
+        )
+        if origin not in self.origin.options.values():
+            origin = date
         self.origin.value = origin
         self.variable.name = "Layer" if heat else "Variable"
-        self.variable.options = VARIABLES[event.new]
+        self.variable.options = (
+            {
+                **VARIABLES["interior"],
+                "Zonal velocity (U)": 2,
+                "Meridional velocity (V)": 3,
+            }
+            if interior and self.interior_examples
+            else VARIABLES[event.new]
+        )
         self.variable.value = 0
-        options = {
-            "IAP monthly context"
-            if interior
-            else "IAP monthly heat content"
-            if heat
-            else "Observations": "observations"
-        }
-        if interior:
-            options["Training December climatology"] = "climatology"
-        options.update(self.model_options)
-        self.reference.options = options
-        self.reference.value = "observations"
+        self.configure_comparisons(reset=True)
         self.frame.visible = event.new == "surface"
         self.player.visible = event.new == "surface"
         self.detail.visible = not interior
@@ -471,6 +482,55 @@ class Viewer:
             control.visible = interior
         self._changing = False
         self.refresh(rescale=True)
+
+    def configure_comparisons(self, reset=False):
+        interior, heat = self.mode.value == "interior", self.mode.value == "heat"
+        record = self.interior_examples.get(self.origin.value) if interior else None
+        models = {
+            label: key
+            for label, key in self.model_options.items()
+            if record is None or key in record["models"]
+        }
+        model = self.model.value
+        self.model.options = models
+        self.model.value = (
+            model if model in models.values() else next(iter(models.values()))
+        )
+        options = {
+            "IAP monthly context"
+            if interior
+            else "IAP monthly heat content"
+            if heat
+            else "Observations": "observations"
+        }
+        if interior:
+            options["Training December climatology"] = "climatology"
+        if record is not None:
+            options = {}
+            if "observations" in record["references"] and self.variable.value < 2:
+                options["IAP monthly context"] = "observations"
+                options["Training December climatology"] = "climatology"
+            if "om4" in record["references"]:
+                options[
+                    "OM4 gold"
+                    if record["source"] == "om4"
+                    else "OM4 contemporaneous context"
+                ] = "om4"
+        options.update(models)
+        reference = self.reference.value
+        self.reference.options = options
+        self.reference.value = (
+            next(iter(options.values()))
+            if reset or reference not in options.values()
+            else reference
+        )
+
+    def change_sample(self, event):
+        if not self._changing:
+            self._changing = True
+            self.configure_comparisons()
+            self._changing = False
+            self.refresh(rescale=True)
 
     def select(self, event):
         if not self._changing:
@@ -581,13 +641,25 @@ class Viewer:
             self.caption.object = f"### Ocean heat content · {variable_label} · {month}"
             self.context.object = "Monthly layer-integrated heat content from the annual forecast, compared with IAP monthly analyses. Two stored layers: 0–700 m and 700–2000 m; these are not full vertical temperature profiles. Units: GJ/m² (saved J/m² divided by 10⁹), relative to 0 °C. Gray cells lack a complete model column for the selected layer. Click a map for the monthly series."
         else:
-            self.caption.object = f"### {variable_label} · {self.catalog.depths[index]:g} m · initialization {self.origin.value}"
-            self.context.object = f"Initialized state from the last five-day history interval. IAP {self.catalog.meta['records'][self.origin.value]['context_month']} is monthly context, not instantaneous truth. Surface temperature at 2.5 m is copied from available inputs."
+            record = self.interior_examples.get(self.origin.value)
+            label = record["label"] if record else f"{self.origin.value} (obs)"
+            self.caption.object = f"### {variable_label} · {self.catalog.depths[index]:g} m · initialization {label}"
+            if record:
+                self.context.object = record["description"]
+            else:
+                self.context.object = f"Initialized state from the last five-day history interval. IAP {self.catalog.meta['records'][self.origin.value]['context_month']} is monthly context, not instantaneous truth. Surface temperature at 2.5 m is copied from available inputs."
         stats = paired_stats(a, b, self.catalog.lat)
         if stats["cells"]:
             qualifier = (
                 "Context difference"
-                if mode == "interior" and self.reference.value == "observations"
+                if mode == "interior"
+                and (
+                    self.reference.value == "observations"
+                    or (
+                        self.reference.value == "om4"
+                        and self.interior_examples[self.origin.value]["source"] == "obs"
+                    )
+                )
                 else "Snapshot difference"
             )
             self.summary.object = f"**{qualifier}:** RMS {stats['rmse']:.4g} {self.unit} · bias {stats['bias']:+.4g} {self.unit} · {stats['cells']:,} paired cells. Cosine-latitude weighted; exploratory diagnostics."

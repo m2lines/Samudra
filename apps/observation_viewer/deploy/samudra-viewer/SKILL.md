@@ -111,8 +111,12 @@ branch before updating the live service; do not edit the live checkout directly.
 
 ## Scientific and operational constraints
 
-When a request needs variables, depths, times, samples, or other information
-that the available viewer data does not contain, reply with exactly what data
+The following missing-data restriction applies to `fomo-bot`. It does not
+restrict agents running as `jder` from acquiring or generating data when jder
+authorizes that work.
+
+When a request to `fomo-bot` needs variables, depths, times, samples, or other
+information that the available viewer data does not contain, reply with exactly what data
 is missing and what is available. Do not search other stores, machines, chats,
 or archives for it, download additional data, run inference, or substitute
 another quantity. Only acquire or generate missing data if the user explicitly

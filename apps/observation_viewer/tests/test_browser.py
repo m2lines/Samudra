@@ -260,3 +260,114 @@ def test_monthly_heat_maps_point_series_and_mode_switching():
         verify_maps(page, catalog, "interior", "scratch16000", "2021-01-01", 0, 9)
         assert not errors, errors
         browser.close()
+
+
+def test_om4_gold_velocity_profiles_and_source_switching():
+    assert URL is not None
+    catalog = Catalog(os.environ.get("SAMUDRA_VIEWER_DATA", ROOT / ".data"))
+    if "interior_examples" not in catalog.meta:
+        pytest.skip("Requires the extended initialization bundle")
+    errors = []
+    with sync_playwright() as p:
+        browser = p.chromium.launch(
+            executable_path=os.environ.get("CHROMIUM_EXECUTABLE"),
+            headless=True,
+            args=["--no-sandbox"],
+        )
+        page = browser.new_page(viewport=dict(width=1600, height=1100))
+        page.on("pageerror", lambda error: errors.append(str(error)))
+        page.goto(URL, wait_until="networkidle")
+        page.wait_for_function(
+            "window.Bokeh?.documents?.[0]?.get_model_by_name('source-prediction')?.data.value.length > 0",
+            timeout=60000,
+        )
+        select(page, "model-select", "Observations only · 16,000 updates")
+        select(page, "view-select", "Initialized ocean interior")
+        verify_maps(page, catalog, "interior", "scratch16000", "2015-01-01", 0, 9)
+        expect(page.locator(".origin-select option")).to_have_text(
+            [record["label"] for record in catalog.meta["interior_examples"].values()]
+        )
+        select(page, "origin-select", "2018-01-01 (om4)")
+        verify_maps(
+            page, catalog, "interior", "obs08000", "2018-01-01-om4", 0, 9, "om4"
+        )
+        expect(page.locator(".model-select option")).to_have_text(
+            ["Mixed · 8,000 observation updates"]
+        )
+        expect(page.locator(".reference-select option:checked")).to_have_text(
+            "OM4 gold"
+        )
+        select(page, "depth-select", "1050 m")
+        for variable, label in enumerate(
+            ["Temperature", "Salinity", "Zonal velocity (U)", "Meridional velocity (V)"]
+        ):
+            select(page, "variable-select", label)
+            verify_maps(
+                page,
+                catalog,
+                "interior",
+                "obs08000",
+                "2018-01-01-om4",
+                variable,
+                11,
+                "om4",
+            )
+        lat = float(page.locator(".latitude-input input").input_value())
+        lon = float(page.locator(".longitude-input input").input_value())
+        y, x = np.abs(catalog.lat - lat).argmin(), np.abs(catalog.lon - lon).argmin()
+        predicted, gold = catalog.values(
+            "interior", "obs08000", "2018-01-01-om4", "om4"
+        )
+        page.wait_for_function(
+            "v => Math.abs(Bokeh.documents[0].get_model_by_name('profile-source').data.prediction[9] - v) < 1e-5",
+            arg=float(predicted[9, 3, y, x]),
+        )
+        profile = page.evaluate(
+            """() => {
+                const data = Bokeh.documents[0].get_model_by_name('profile-source').data;
+                return {prediction: Array.from(data.prediction), reference: Array.from(data.reference)};
+            }"""
+        )
+        np.testing.assert_allclose(
+            np.array(profile["prediction"], dtype=float),
+            predicted[:, 3, y, x],
+            equal_nan=True,
+        )
+        np.testing.assert_allclose(
+            np.array(profile["reference"], dtype=float),
+            gold[:, 3, y, x],
+            equal_nan=True,
+        )
+        section = page.evaluate(
+            "Array.from(Bokeh.documents[0].get_model_by_name('section-reference').data.value)"
+        )
+        wet = catalog.array(catalog.meta["interior_mask"])[:, 3, y, :]
+        np.testing.assert_allclose(
+            np.array(section, dtype=float), gold[:, 3, y, :][wet], equal_nan=True
+        )
+        select(page, "origin-select", "2018-01-01 (obs)")
+        expect(page.locator(".reference-select option:checked")).to_have_text(
+            "OM4 contemporaneous context", timeout=30000
+        )
+        assert not any(
+            "IAP" in label
+            for label in page.locator(".reference-select option").all_text_contents()
+        )
+        select(page, "model-select", "Observations only · 16,000 updates")
+        verify_maps(
+            page, catalog, "interior", "scratch16000", "2018-01-01", 3, 11, "om4"
+        )
+        select(page, "variable-select", "Temperature")
+        select(page, "reference-select", "IAP monthly context")
+        verify_maps(page, catalog, "interior", "scratch16000", "2018-01-01", 0, 11)
+        select(page, "origin-select", "2015-01-01 (om4)")
+        verify_maps(
+            page, catalog, "interior", "obs08000", "2015-01-01-om4", 0, 11, "om4"
+        )
+        select(page, "view-select", "Annual surface forecasts")
+        verify_maps(page, catalog, "surface", "obs08000", "2015-01-01", 0, 5)
+        expect(page.locator(".origin-select option:checked")).to_have_text(
+            "2015-01-01", timeout=30000
+        )
+        assert not errors
+        browser.close()

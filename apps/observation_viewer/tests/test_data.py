@@ -44,3 +44,42 @@ def test_difference_limits_are_symmetric_and_handle_empty_constant_fields():
     assert low == -high and high > 2
     assert limits(np.array([np.nan])) == (0, 1)
     assert limits(np.array([5, 5])) == (4.5, 5.5)
+
+
+def test_same_date_sources_route_to_distinct_predictions_and_gold(tmp_path):
+    import json
+
+    from data import Catalog
+
+    arrays = {"obs.npy": 2, "om4.npy": 7, "gold.npy": 5, "iap.npy": 3}
+    files = {}
+    for name, value in arrays.items():
+        data = np.full((2, 4, 2, 2), value, dtype=np.float32)
+        np.save(tmp_path / name, data)
+        files[name] = {"shape": list(data.shape), "dtype": str(data.dtype)}
+    meta = {
+        "schema_version": 1,
+        "lat": [-30, 30],
+        "lon": [90, 270],
+        "depths": [2.5, 10],
+        "files": files,
+        "interior_examples": {
+            "2015-01-01": {
+                "models": {"mixed": "obs.npy"},
+                "references": {"observations": "iap.npy", "om4": "gold.npy"},
+            },
+            "2015-01-01-om4": {
+                "models": {"mixed": "om4.npy"},
+                "references": {"om4": "gold.npy"},
+            },
+        },
+    }
+    (tmp_path / "catalog.json").write_text(json.dumps(meta))
+    catalog = Catalog(tmp_path)
+    observation, context = catalog.values("interior", "mixed", "2015-01-01")
+    prediction, gold = catalog.values("interior", "mixed", "2015-01-01-om4", "om4")
+    assert np.all(observation == 2) and np.all(context == 3)
+    assert np.all(prediction - gold == 2)
+    assert np.all(catalog.values("interior", "mixed", "2015-01-01", "om4")[1] == gold)
+    with pytest.raises(KeyError):
+        catalog.values("interior", "mixed", "2015-01-01-om4", "observations")

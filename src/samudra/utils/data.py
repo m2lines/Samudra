@@ -155,8 +155,8 @@ class BulkCanonicalReader(CanonicalReader, Protocol):
 
 
 @dataclasses.dataclass(frozen=True)
-class _XarrayCanonicalReader:
-    """Private xarray implementation of the canonical read contract."""
+class XarrayCanonicalReader:
+    """Canonical channel reads and metadata backed by xarray."""
 
     data: xr.Dataset
     means: xr.Dataset
@@ -272,7 +272,7 @@ class CanonicalSource:
             raise ValueError("Canonical data, means, and stds have different channels")
         return cls(
             name=name,
-            _reader=_XarrayCanonicalReader(
+            _reader=XarrayCanonicalReader(
                 data,
                 means[list(channels)],
                 stds[list(channels)],
@@ -351,7 +351,7 @@ class CanonicalSource:
 
     def to_xarray_dataset(self) -> xr.Dataset:
         """Return the backing xarray dataset when the reader supports it."""
-        if not isinstance(self._reader, _XarrayCanonicalReader):
+        if not isinstance(self._reader, XarrayCanonicalReader):
             raise TypeError("This canonical dataset is not backed by xarray")
         return self._reader.data
 
@@ -359,7 +359,7 @@ class CanonicalSource:
         self,
     ) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
         """Expose xarray fixtures without making them part of the public contract."""
-        if not isinstance(self._reader, _XarrayCanonicalReader):
+        if not isinstance(self._reader, XarrayCanonicalReader):
             raise TypeError("This canonical dataset is not backed by xarray")
         return self._reader.data, self._reader.means, self._reader.stds
 
@@ -374,7 +374,8 @@ class CanonicalSource:
         prognostic_var_names: PrognosticVarNames,
         boundary_var_names: BoundaryVarNames,
         name: str = "CanonicalSource",
-        reader_factory: Callable[[CanonicalReader], CanonicalReader] | None = None,
+        reader_factory: Callable[[XarrayCanonicalReader], CanonicalReader]
+        | None = None,
     ) -> Self:
         """Build a canonical reader from already-canonicalized xarray datasets."""
         channels = tuple(dict.fromkeys((*prognostic_var_names, *boundary_var_names)))
@@ -405,14 +406,15 @@ class CanonicalSource:
                 f"stds={sorted(missing_stds)}"
             )
 
-        reader: CanonicalReader = _XarrayCanonicalReader(
+        xarray_reader = XarrayCanonicalReader(
             data=data,
             means=means[list(channels)],
             stds=stds[list(channels)],
             channels=channels,
         )
+        reader: CanonicalReader = xarray_reader
         if reader_factory is not None:
-            reader = reader_factory(reader)
+            reader = reader_factory(xarray_reader)
             if reader.channels != channels:
                 raise ValueError("Reader factory changed the canonical channel order")
         return cls(name=name, _reader=reader, masks=masks, data_layout=data_layout)

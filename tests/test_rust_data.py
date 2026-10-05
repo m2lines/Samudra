@@ -32,7 +32,11 @@ from samudra.native_loader import CudaPrefetch, HostPrefetch, NativeBatchLoader
 from samudra.native_reader import NativeOm4Reader, PhysicalVariable, build_om4_reader
 from samudra.rust_reader import RustIoRuntime
 from samudra.train import Trainer
-from samudra.utils.data import CanonicalReadRequest, CanonicalSource
+from samudra.utils.data import (
+    CanonicalReadRequest,
+    CanonicalSource,
+    XarrayCanonicalReader,
+)
 from samudra.utils.location import LocalLocation, UnresolvedLocation
 from samudra.utils.multiton import MultitonScope
 from samudra.utils.samplers import DistributedEquivalenceGroupBatchSampler
@@ -40,10 +44,12 @@ from samudra.utils.train import collate_host_batches
 
 
 def native_om4_source(source, location, runtime):
+    xarray_reader = source.reader
+    assert isinstance(xarray_reader, XarrayCanonicalReader)
     return dataclasses.replace(
         source,
         _reader=build_om4_reader(
-            source.reader, location, source.data_layout, runtime, backend="rust"
+            xarray_reader, location, source.data_layout, runtime, backend="rust"
         ),
     )
 
@@ -55,7 +61,7 @@ def reference_dataset(dataset):
     def xarray_source(source):
         reader = source.reader
         assert isinstance(reader, NativeOm4Reader)
-        return dataclasses.replace(source, _reader=reader.metadata_reader)
+        return dataclasses.replace(source, _reader=reader.xarray_reader)
 
     windows = copy.copy(dataset.windows)
     windows.input_source = xarray_source(windows.input_source)
@@ -363,7 +369,7 @@ def test_native_source_rejects_cf_encoding_before_opening_reader(
     monkeypatch.setattr(rust_reader, "_load_extension", no_native_open)
     with pytest.raises(ValueError, match="does not support CF encoding") as error:
         native_om4_source(
-            dataclasses.replace(source, _reader=reader.metadata_reader),
+            dataclasses.replace(source, _reader=reader.xarray_reader),
             LocalLocation(path=encoded_path),
             runtime,
         )
@@ -387,7 +393,7 @@ def test_native_source_allows_nan_fill_values(source_fixture, request, tmp_path)
         encoded_path, encoding={variable: {"_FillValue": np.nan}}, consolidated=True
     )
     native = native_om4_source(
-        dataclasses.replace(source, _reader=reader.metadata_reader),
+        dataclasses.replace(source, _reader=reader.xarray_reader),
         LocalLocation(path=encoded_path),
         RustIoRuntime(1),
     )
@@ -742,7 +748,7 @@ def test_native_reader_maps_an_already_sliced_canonical_dataset(
 ):
     native_reader = cast(Any, flat_om4_source.reader)
     canonical = dataclasses.replace(
-        flat_om4_source, _reader=native_reader.metadata_reader
+        flat_om4_source, _reader=native_reader.xarray_reader
     )
     sliced = canonical.slice_time(
         Om4TimeConfig.model_validate({"start": "2000-01-11", "end": "2000-03-01"})
@@ -1370,10 +1376,10 @@ def test_native_ordinary_reads_use_the_configured_reader(
     )
     reader = cast(NativeOm4Reader, source.reader)
     channels = ("hfds", "thetao_0")
-    expected = reader.metadata_reader.read(CanonicalReadRequest(indices, channels))
+    expected = reader.xarray_reader.read(CanonicalReadRequest(indices, channels))
 
     def no_xarray_reads(*args, **kwargs):
         pytest.fail("Native canonical read fell back to Xarray")
 
-    monkeypatch.setattr(type(reader.metadata_reader), "read", no_xarray_reads)
+    monkeypatch.setattr(type(reader.xarray_reader), "read", no_xarray_reads)
     np.testing.assert_array_equal(source.read(indices, channels), expected)

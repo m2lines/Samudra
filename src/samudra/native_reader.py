@@ -15,7 +15,11 @@ import numpy as np
 import xarray as xr
 
 from samudra.constants import DataLayout
-from samudra.utils.data import CanonicalReader, CanonicalReadRequest, ChannelStatistics
+from samudra.utils.data import (
+    CanonicalReadRequest,
+    ChannelStatistics,
+    XarrayCanonicalReader,
+)
 from samudra.utils.location import LocalLocation
 
 
@@ -56,9 +60,9 @@ class Om4IoRuntime(Protocol):
 
 @dataclass(frozen=True)
 class NativeOm4Reader:
-    """Canonical metadata and native reads over a physical OM4 plane reader."""
+    """Xarray metadata and native reads over a physical OM4 plane reader."""
 
-    metadata_reader: CanonicalReader
+    xarray_reader: XarrayCanonicalReader
     channels: tuple[str, ...]
     path: str
     _planes: PlaneReader
@@ -68,33 +72,33 @@ class NativeOm4Reader:
 
     @property
     def time(self) -> xr.DataArray:
-        return self.metadata_reader.time
+        return self.xarray_reader.time
 
     @property
     def resolution(self):
-        return self.metadata_reader.resolution
+        return self.xarray_reader.resolution
 
     def statistics(self, channels: tuple[str, ...]) -> ChannelStatistics:
-        return self.metadata_reader.statistics(channels)
+        return self.xarray_reader.statistics(channels)
 
     @property
     def attrs(self):
-        return self.metadata_reader.attrs
+        return self.xarray_reader.attrs
 
     @property
     def storage_id(self) -> int:
         return id(self._planes)
 
     def slice_time(self, time) -> Self:
-        metadata_reader = self.metadata_reader.slice_time(time)
-        positions = self.time.to_index().get_indexer(metadata_reader.time.to_index())
+        xarray_reader = self.xarray_reader.slice_time(time)
+        positions = self.time.to_index().get_indexer(xarray_reader.time.to_index())
         if np.any(positions < 0):
             raise AssertionError("Canonical time slice could not be mapped to storage")
         physical = self._physical_time_indices[positions].copy()
         physical.setflags(write=False)
         return replace(
             self,
-            metadata_reader=metadata_reader,
+            xarray_reader=xarray_reader,
             _physical_time_indices=physical,
         )
 
@@ -115,10 +119,10 @@ class NativeOm4Reader:
         return output
 
     def coordinates(self):
-        return self.metadata_reader.coordinates()
+        return self.xarray_reader.coordinates()
 
     def metadata(self, data_layout):
-        return self.metadata_reader.metadata(data_layout)
+        return self.xarray_reader.metadata(data_layout)
 
     def physical_indices(self, relative: np.ndarray) -> np.ndarray:
         return self._physical_time_indices[relative]
@@ -167,7 +171,7 @@ def _validate_native_encoding(
 
 
 def build_om4_reader(
-    metadata_reader: CanonicalReader,
+    xarray_reader: XarrayCanonicalReader,
     location: LocalLocation,
     data_layout: DataLayout,
     runtime: Om4IoRuntime,
@@ -177,7 +181,7 @@ def build_om4_reader(
     """Construct an OM4 reader from canonical metadata and an I/O runtime."""
     physical = location.open({})
     reader_variables: dict[str, PhysicalVariable] = {}
-    for logical_name in metadata_reader.channels:
+    for logical_name in xarray_reader.channels:
         if logical_name in physical.data_vars:
             reader_variables[logical_name] = PhysicalVariable(logical_name)
             continue
@@ -214,7 +218,7 @@ def build_om4_reader(
     )
 
     physical_time = physical["time"].to_index()
-    canonical_time = metadata_reader.time.to_index()
+    canonical_time = xarray_reader.time.to_index()
     if not physical_time.is_unique:
         raise ValueError(f"Native store {location.path} has duplicate time coordinates")
     if not canonical_time.is_unique:
@@ -235,16 +239,16 @@ def build_om4_reader(
             f"Native store {location.path} reports {time_size} rows, but its time "
             f"coordinate has {len(physical_time)}"
         )
-    if (lat, lon) != tuple(len(axis) for axis in metadata_reader.resolution):
+    if (lat, lon) != tuple(len(axis) for axis in xarray_reader.resolution):
         raise ValueError(
             f"Native store {location.path} has spatial shape {(lat, lon)}, but the "
-            f"canonical dataset has {tuple(len(axis) for axis in metadata_reader.resolution)}"
+            f"canonical dataset has {tuple(len(axis) for axis in xarray_reader.resolution)}"
         )
     physical_indices = physical_indices.copy()
     physical_indices.setflags(write=False)
     return NativeOm4Reader(
-        metadata_reader=metadata_reader,
-        channels=metadata_reader.channels,
+        xarray_reader=xarray_reader,
+        channels=xarray_reader.channels,
         path=str(location.path),
         _planes=native,
         _reader_variables=reader_variables,

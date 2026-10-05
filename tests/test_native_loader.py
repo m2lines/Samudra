@@ -94,8 +94,8 @@ def test_shared_pipeline_accepts_an_independent_bulk_reader(
         data_layout=source.data_layout,
         prognostic_var_names=["so_0", "so_2", "zos"],
         boundary_var_names=["hfds"],
-        reader_factory=lambda metadata: ArrayBulkReader(
-            source, metadata, np.arange(source.time.size), calls
+        reader_factory=lambda xarray_reader: ArrayBulkReader(
+            source, xarray_reader, np.arange(source.time.size), calls
         ),
     )
     period = Om4TimeConfig(start=JulianDate("2000-01-02"), end=JulianDate("2000-01-08"))

@@ -15,6 +15,18 @@ The maps show **change from each source's own initial state, with that change's 
 
 The learned models share the small D architecture and task-conditioned InstanceNorm setup described in the [main report](global-physical-day30-2026-09-30.md#methods-and-limits). **Mixed: 8k OM4 + 8k obs** has 62,966,546 parameters and 77 physical slots; **Obs-only: 8k obs** and **Obs-only: 16k obs** have the same architecture trained only on observations. None has the ten extra memory slots. Unlike the paper's full-state OM4 training, our direct observation T/S targets stop at **1850 m**, sampled from IAP extending to approximately 2000 m. Thus 3100-m T/S slots have **no direct observation targets**; mixed supervises them only on OM4-task steps. All observation-task U/V slots are also unconstrained. The displayed physical units below are the slots' nominal scaling, not a guarantee of physical meaning.
 
+## Absolute fields at day 30: OM4 versus mixed only
+
+These panels show **actual T/S/U/V fields at 3100 m**, for the same January 26–30 forecast intervals, with OM4 above and mixed below. There is **no initial-state subtraction, anomaly calculation or spatial-mean removal**. U/V are the physical state channels, not velocities derived from SSH. The observation-conditioned model's unconstrained deep-slot interpretation still applies.
+
+**Obs-only is excluded from both the figures and color-range calculation.** Each field has a shared scale across OM4/mixed and the two dates, spanning all finite values; U/V ranges are symmetric around zero. No percentile clipping is applied. Maps retain one pixel per grid cell and the common depth masks.
+
+![Absolute day30 T/S/U/V at 3100m: OM4 versus mixed, 2015](artifacts/2026-10-05-absolute-day30/2015-01-01-day30-depth3100.png)
+
+[Same absolute-field comparison for 2018](artifacts/2026-10-05-absolute-day30/2018-01-01-day30-depth3100.png) · [Source and range audit](artifacts/2026-10-05-absolute-day30/provenance.json.gz).
+
+The full-field view retains broad T/S structure that the change maps intentionally subtract, while the mixed model's U/V fields differ substantially from the date-matched OM4 currents. These plots reuse verified local snapshots and require no new inference. Additional matched-depth U/V extraction at 550/1850 m could not be submitted because Torch's Slurm controller was unavailable; those four-field comparisons are not included here.
+
 ## Deep spatial structure
 
 ![Day365 centered changes in T/S and internal zonal velocity at 3100 m, 2015](artifacts/2026-10-05-imprinting/2015-01-01-day365-depth3100.png)

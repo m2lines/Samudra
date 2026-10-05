@@ -3106,3 +3106,7 @@ Units/coverage/layer/support checks and native-grid double-precision bias decomp
 ### 2026-10-05: quick deep T/S imprinting comparison
 
 Compared paper §4.2/Fig4(e)/Figs5–6 with saved 2015/2018 final mixed and scratch8k/16k snapshots. CPU export 19230825 completed in 22 s, no inference/GPU. Deep3100 scratch salinity-change / U-change high-pass correlations about 0.53/0.55 at day365 versus mixed0.10 and OM4~0.00; mixed deep-T correlation only0.04 despite bands. Large changes already at day5. Report distinguishes lack of observation supervision below1850m, initializer/processor adjustment, correlations versus causal imprinting, and sparse snapshots versus temporal variance. [Supplement](imprinting-comparison-2026-10-05.md).
+
+### 2026-10-05: absolute OM4/mixed day30 fields
+
+Added paired absolute T/S/U/V at3100m for2015/2018, OM4 and mixed only; shared full ranges exclude scratch, no deltas/anomalies/clipping. Reused verified local snapshots. Further550/1850m U/V extraction could not be submitted: Slurm controller connect failure, no allocation. Existing scores and outputs unchanged.

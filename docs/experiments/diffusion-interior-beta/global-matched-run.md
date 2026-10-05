@@ -63,12 +63,19 @@ ready to review.
 
 ## Current milestone
 
+An October 4 follow-up adds a [separate 2,000-update cosine LR cooldown](global-cooldown.md)
+after the original 16k endpoint, preserving its weights, optimizer and comparison.
+This adds about 32–34 hours on four H200s; the original milestone reports proceed
+as scheduled. The cooldown is prepared but has not started.
+
 The [2,000-observation-update report](global-2000-results.md) is available. The
 composite is 1.2458 versus 0.6268 for the matched deterministic control. Grain is
 substantially reduced, but surface ensembles are underdispersed; 64 inference
-steps offer little benefit over 32. The optimizer reached 2,070 observation /
-5,033 OM4 updates. Ordinary four-H200 continuation 24761666 is queued after the
-completed evaluations. Allocation through the evaluations is 190.303 GPU-hours.
+steps offer little benefit over 32. On October 4 at 20:25 ET the optimizer had
+reached 2,776 observation / 5,764 OM4 updates. Ordinary four-H200 continuation
+24761666 is running on Engaging after several automatically recovered preemptions.
+Allocation through the 2k evaluations was 190.303 GPU-hours; that figure excludes
+this ongoing job. Torch is reachable again, but no new Torch writer is active.
 The next detailed report is planned at 4k observation updates. The following
 hardware and migration entries preserve the earlier execution history.
 

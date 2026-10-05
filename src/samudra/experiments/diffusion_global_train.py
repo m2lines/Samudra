@@ -22,6 +22,10 @@ from samudra.experiments.diffusion_global import (
     native_objective,
     observation_parts,
 )
+from samudra.experiments.diffusion_global_cooldown import (
+    CooldownSchedule,
+    validate_parent,
+)
 from samudra.experiments.diffusion_latent_train import gradient_norm
 from samudra.experiments.observation_pilot import atomic_json, atomic_torch, digest
 from samudra.experiments.observation_training import Samples
@@ -47,7 +51,17 @@ def main():
     parser.add_argument("--checkpoint-every", type=int, default=50)
     parser.add_argument("--evaluate", type=Path)
     parser.add_argument("--eval-steps", type=int, default=32)
+    parser.add_argument("--cooldown-parent", type=Path)
+    parser.add_argument("--cooldown-updates", type=int, default=2000)
+    parser.add_argument("--cooldown-min-lr", type=float, default=1e-6)
     args = parser.parse_args()
+    if args.cooldown_parent and (args.qualify or args.evaluate):
+        raise ValueError("Cooldown is a separate training continuation")
+    if (
+        args.cooldown_parent
+        and args.output.resolve() == args.cooldown_parent.parent.resolve()
+    ):
+        raise ValueError("Cooldown must preserve the parent output directory")
     rank, world = int(os.environ.get("RANK", 0)), int(os.environ.get("WORLD_SIZE", 1))
     local = int(os.environ.get("LOCAL_RANK", 0))
     if 8 % world:
@@ -97,12 +111,35 @@ def main():
         compile_decoder=args.compile_decoder,
         producer=os.environ["SAMUDRA_CODE_COMMIT"],
     )
+    parent = None
+    cooldown = None
     if not args.qualify and not args.evaluate:
         if args.qualification is None:
             raise ValueError("Qualification required")
         q = json.loads(args.qualification.read_text())
-        if q["contract"] != contract or not q["qualified"]:
+        qualified_contract = contract
+        if args.cooldown_parent:
+            # The new producer changes continuation bookkeeping and LR only.
+            # Keep the parent's complete scientific contract, checked against
+            # the original qualification rather than relabeling old weights.
+            qualified_contract = dict(contract, producer=q["contract"]["producer"])
+        if q["contract"] != qualified_contract or not q["qualified"]:
             raise ValueError("Qualification contract differs")
+        if args.cooldown_parent:
+            parent = torch.load(
+                args.cooldown_parent, map_location="cpu", weights_only=False
+            )
+            validate_parent(parent, qualified_contract)
+            cooldown = CooldownSchedule(args.cooldown_updates, args.cooldown_min_lr)
+            contract["cooldown"] = dict(
+                parent_sha256=digest(args.cooldown_parent),
+                parent_producer=qualified_contract["producer"],
+                start_step=16000,
+                updates=cooldown.updates,
+                minimum_lr=cooldown.minimum_lr,
+                schedule="cosine from 1e-4; terminal mix 7 observation : 1 OM4",
+                final_counts=cooldown.counts(cooldown.total),
+            )
     protocol = args.output / "protocol.json"
     if protocol.exists() and json.loads(protocol.read_text()) != contract:
         raise ValueError("Output protocol differs")
@@ -125,12 +162,17 @@ def main():
     if args.compile_decoder:
         model.decoder.compile()
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=0.01)
-    schedule = TaskSchedule(8000, 8000, "mixed")
+    schedule = cooldown or TaskSchedule(8000, 8000, "mixed")
     completed = 0
     last = args.output / "last.pt"
-    if last.exists() and not args.qualify and not args.evaluate:
-        saved = torch.load(last, map_location="cpu", weights_only=False)
-        if saved["contract"] != contract:
+    if (last.exists() or parent is not None) and not args.qualify and not args.evaluate:
+        saved = (
+            torch.load(last, map_location="cpu", weights_only=False)
+            if last.exists()
+            else parent
+        )
+        assert saved is not None
+        if last.exists() and saved["contract"] != contract:
             raise ValueError("Checkpoint contract differs")
         model.load_state_dict(saved["model"], strict=True)
         optimizer.load_state_dict(saved["optimizer"])
@@ -142,6 +184,7 @@ def main():
         torch.set_rng_state(saved["cpu_rng"])
         torch.cuda.set_rng_state(saved["cuda_rng"], device)
         del saved
+        del parent
     reference = json.loads(args.reference.read_text())
     if args.evaluate:
         saved = torch.load(args.evaluate, map_location="cpu", weights_only=False)
@@ -205,7 +248,7 @@ def main():
                 dict(
                     step=completed,
                     counts=schedule.counts(completed),
-                    complete=completed == 16000,
+                    complete=completed == schedule.total,
                 ),
                 args.output / "state.json",
             )
@@ -214,6 +257,9 @@ def main():
 
     def update(task, count):
         assert wave is not None
+        if cooldown is not None:
+            for group in optimizer.param_groups:
+                group["lr"] = cooldown.learning_rate(completed)
         started = time.monotonic()
         seed = 1729 + (0 if task == "observation" else 100000)
         size = len(training) if task == "observation" else len(wave.trainset)
@@ -283,6 +329,7 @@ def main():
             peak_gib=torch.cuda.max_memory_allocated() / 2**30,
             world_size=world,
             micro_seconds=micro_seconds,
+            learning_rate=optimizer.param_groups[0]["lr"],
         )
         if rank == 0:
             emit(event)
@@ -328,6 +375,10 @@ def main():
         update(task, count)
         completed += 1
         milestone = task == "observation" and count + 1 in MILESTONES
+        milestone |= cooldown is not None and completed in (
+            16000 + cooldown.updates // 2,
+            cooldown.total,
+        )
         due = stop or time.monotonic() - started >= args.invocation_hours * 3600
         due |= (
             args.max_new_updates is not None
@@ -340,9 +391,9 @@ def main():
             completed % args.checkpoint_every == 0
             or milestone
             or bool(flag)
-            or completed == 16000
+            or completed == schedule.total
         ):
-            save(snapshot=milestone or completed == 16000)
+            save(snapshot=milestone or completed == schedule.total)
         if bool(flag):
             break
     if rank == 0:
@@ -351,7 +402,7 @@ def main():
                 event="invocation_finished",
                 step=completed,
                 counts=schedule.counts(completed),
-                complete=completed == 16000,
+                complete=completed == schedule.total,
             )
         )
     if world > 1:

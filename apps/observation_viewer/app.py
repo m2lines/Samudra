@@ -437,6 +437,12 @@ class Viewer:
         self.player.direction = 0
         interior = event.new == "interior"
         heat = event.new == "heat"
+        origin = self.origin.value
+        self.origin.options = {
+            f"{value} (obs)" if interior else value: value
+            for value in self.catalog.meta["origins"]
+        }
+        self.origin.value = origin
         self.variable.name = "Layer" if heat else "Variable"
         self.variable.options = VARIABLES[event.new]
         self.variable.value = 0

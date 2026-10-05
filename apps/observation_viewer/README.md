@@ -20,6 +20,10 @@ observation updates, plus observation-only training at 8,000 and 16,000 updates.
 Origins are January 1 of 2015, 2018 and 2021. Comparisons can also use another
 checkpoint. Each browser session owns its controls and plot models.
 
+In the initialized-interior view, origins are labeled with `(obs)` to identify
+observation-initialized examples. The current bundle contains T/S only; it has
+no OM4-initialized examples, velocity fields, or matching OM4 gold states.
+
 Maps preserve the irregular Gaussian latitudes using cell quadrilaterals.
 The map frames resize at a fixed 2:1 width-to-height ratio, with axes and color
 bars outside that frame.

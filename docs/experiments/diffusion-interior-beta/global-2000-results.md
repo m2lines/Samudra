@@ -3,6 +3,8 @@
 
 # Global diffusion: 2,000 observation updates
 
+Newer results: [4,000 observation updates](global-4000-results.md).
+
 The model has substantially reduced the early grain, but **has not improved on the
 deterministic control**. At 2,000 observation + 4,949 OM4 updates, its validation
 composite is **1.2458**, versus **0.6268** for the control at exactly the same task

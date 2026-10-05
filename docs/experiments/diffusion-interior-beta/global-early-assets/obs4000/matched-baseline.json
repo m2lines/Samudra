@@ -1,0 +1,19 @@
+{
+  "source": "observation-d/artifacts/2026-10-01-global-validation-ema/validation-curve-results.json.gz",
+  "reference_sha256": "c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c",
+  "event": {
+    "time_utc": "2026-09-30T03:03:31.141528+00:00",
+    "event": "joint_validation",
+    "global_step": 10667,
+    "om4": 6667,
+    "observation": 4000,
+    "validation/obs_score": 0.5997594323793936,
+    "om4_retention": {
+      "ts_mse": 0.007750504184514284,
+      "reconstruction_ts_mse": 0.016058607026934624,
+      "full_mse": 0.004460455849766731,
+      "origins": 11
+    },
+    "elapsed_training_seconds": 26206.529343364993
+  }
+}

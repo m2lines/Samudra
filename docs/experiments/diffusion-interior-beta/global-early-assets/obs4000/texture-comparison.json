@@ -1,0 +1,25 @@
+{
+  "comparison": "Highest four bins of identical 32x32 Pacific patches, nine origins; individual-member powers averaged",
+  "fields": {
+    "thetao_0": {
+      "member_power_ratio_4k_to_2k": 0.07830904632424195,
+      "4k_member_power_to_reference": 0.8694431116322542,
+      "2k_member_power_to_reference": 11.102716128508165
+    },
+    "zos": {
+      "member_power_ratio_4k_to_2k": 0.07836283081625914,
+      "4k_member_power_to_reference": 18.45352695245701,
+      "2k_member_power_to_reference": 235.4882635075528
+    },
+    "thetao_9": {
+      "member_power_ratio_4k_to_2k": 0.010808093658834252,
+      "4k_member_power_to_reference": 39.21983519141189,
+      "2k_member_power_to_reference": 3628.7467919335268
+    },
+    "so_9": {
+      "member_power_ratio_4k_to_2k": 0.007871465032615212,
+      "4k_member_power_to_reference": 45.94256229395497,
+      "2k_member_power_to_reference": 5836.596123287489
+    }
+  }
+}

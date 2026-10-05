@@ -19,6 +19,7 @@ from report_correlated_noise_pilot import (  # type: ignore[import-not-found]
 
 from samudra.experiments.diffusion_ab_figures import save_png
 from samudra.experiments.diffusion_latent_maps import grid
+from samudra.experiments.observation_metrics import PROTOCOL, selection_score
 from samudra.experiments.observation_pilot import digest
 
 
@@ -31,14 +32,62 @@ def rank_probabilities(records, task):
     return counts / counts.sum()
 
 
+def score_breakdown(receipt, reference):
+    result = receipt["metrics"]
+    control, keys = reference["control"], reference["spectral_keys"]
+    recomputed = selection_score(result, control, keys)
+    np.testing.assert_allclose(recomputed, receipt["score"], rtol=1e-12)
+    ratios = {
+        name: result["metrics"][name] / control["metrics"][name]
+        for name in PROTOCOL["integrated"]
+    }
+    fields = {}
+    for field in PROTOCOL["spatial_spectra"]:
+        curves = [result["spectra"][key] for key in keys if key.startswith(field + "/")]
+        log_ratios = np.concatenate(
+            [
+                np.log10(
+                    np.maximum(
+                        np.array(curve["prediction_power"])
+                        / np.array(curve["reference_power"]),
+                        1e-300,
+                    )
+                )
+                for curve in curves
+            ]
+        )
+        fields[field] = dict(
+            mean_error_dex=float(np.mean([curve["error_dex"] for curve in curves])),
+            geometric_power_ratio=float(10 ** log_ratios.mean()),
+        )
+    return dict(
+        counts=receipt["counts"],
+        score=recomputed,
+        integrated_ratios_to_frozen_climatology=ratios,
+        integrated_mean=float(np.mean(list(ratios.values()))),
+        spectral_mean_error_dex=float(
+            np.mean([result["spectra"][key]["error_dex"] for key in keys])
+        ),
+        by_field_spectra=fields,
+    )
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--compare-root", type=Path)
+    parser.add_argument("--reference", type=Path)
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
     receipt = json.loads((args.root / "COMPLETE.json").read_text())
+    if args.reference:
+        if digest(args.reference) != receipt["training_contract"]["reference"]:
+            raise ValueError("Frozen scoring reference differs")
+        breakdown = score_breakdown(receipt, json.loads(args.reference.read_text()))
+        (args.output / "score-breakdown.json").write_text(
+            json.dumps(breakdown, indent=2)
+        )
     calibration = json.loads((args.root / "calibration.json").read_text())
     comparison = None
     if args.compare_root:

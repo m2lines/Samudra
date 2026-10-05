@@ -616,7 +616,8 @@ def _llc_data_config(
                     "data_stds_location": "stds.zarr",
                 }
             ],
-            "hist": 1,
+            "input_steps": 2,
+            "output_steps": 2,
             "normalize_before_mask": True,
             "masked_fill_value": -99.0,
             "loading": {"type": "cpu", "num_workers": 0},
@@ -835,7 +836,7 @@ def test_train_dataset_normalize_pre_fill(
     td0_step0_label = td0.get_label(0)
     inf_prog, inf_boundary, inf_step0_label = inference_dataset[0]
 
-    # Prog and boundary each carry (hist+1)*2 channels over a 2x2 grid.
+    # Prog and boundary each carry 2 timesteps over a 2x2 grid.
     assert td0_prog.shape == (1, 4, 2, 2)
     assert td0_boundary.shape == (1, 4, 2, 2)
     assert td0_step0_label.shape == (1, 4, 2, 2)

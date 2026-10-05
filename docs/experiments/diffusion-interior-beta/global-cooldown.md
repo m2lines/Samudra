@@ -81,6 +81,31 @@ ordinary `mit_general` / `mit_preemptable`, excluding the colleague's reservatio
 No appended-training job was submitted. Allocation through the handoff is 256.152
 GPU-hours, excluding ongoing job 24866254 and including all preempted attempts.
 
+### October 5: dedicated eight-RTX continuation
+
+At the user's request, job 24866254 received the trainer's graceful stop signal
+and completed after saving global step **9,594 = 6,238 OM4 / 3,356 observation**.
+It used 32,150 allocated seconds on four H200s, bringing allocation to **291.874
+GPU-hours** before the RTX continuation. Both the frozen parent optimizer
+(1,845,796,913 bytes) and current optimizer (1,845,797,361 bytes) were transferred
+through Torch's DTN and passed full source/destination SHA256 verification. The
+previous Torch 500-observation checkpoint was retained separately.
+
+Eight-RTX job **19217720** is running on `gr106` in `rtx6000_lzanna`, using 64 CPUs
+and 512 GB host memory. It resumed at update 9,595, with effective batch eight,
+unchanged optimizer and LR schedule, finite gradients in all three modules, and
+fresh checkpoints. Warm observation updates take about **45 seconds**, versus
+66 seconds on four H200s. GPU peak allocated memory is about 43 GiB per rank.
+Rank-local logged loss contributions halve with eight rather than four ranks;
+that is a logging denominator change, not a measured improvement in full loss.
+
+Continuation **19218524** waits for 19217720. No Engaging writer remains active.
+The initially held Torch job 19216380 could not be released because Slurm returned
+an unspecified error; it was canceled with zero allocation and replaced by 19217720.
+Observation payloads, metric reference and checkpoints are identical; native OM4
+uses the previously authorized similar per-cluster versions, not a claimed
+byte-identical native store. The earlier appended-training producer is unused.
+
 
 CPU tests check unchanged task/exposure sequences at every global update, LR
 endpoints, monotonic decay, rejection of invalid parents, and bitwise optimizer/RNG

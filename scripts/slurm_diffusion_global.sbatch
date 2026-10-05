@@ -39,7 +39,7 @@ elif [[ "$mode" == train ]]; then
   args+=(--output "$root/train" --qualification "$root/qualification-$CODE_COMMIT/QUALIFIED.json" --invocation-hours "${INVOCATION_HOURS:-11.5}" --checkpoint-every 10)
 elif [[ "$mode" == cooldown ]]; then
   : "${PARENT_COMMIT:?Original qualified producer required}"
-  args+=(--output "$root/cooldown" --cooldown-parent "$root/train/last.pt"
+  args+=(--output "$root/train-cooldown" --cooldown-parent "$root/train/last.pt"
     --qualification "$root/qualification-$PARENT_COMMIT/QUALIFIED.json"
     --invocation-hours "${INVOCATION_HOURS:-11.5}" --checkpoint-every 10)
 else

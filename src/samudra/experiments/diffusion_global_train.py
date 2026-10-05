@@ -56,7 +56,7 @@ def main():
     parser.add_argument("--cooldown-min-lr", type=float, default=1e-6)
     args = parser.parse_args()
     if args.cooldown_parent and (args.qualify or args.evaluate):
-        raise ValueError("Cooldown is a separate training continuation")
+        raise ValueError("Cooldown requires a training resume")
     if (
         args.cooldown_parent
         and args.output.resolve() == args.cooldown_parent.parent.resolve()
@@ -129,15 +129,16 @@ def main():
             parent = torch.load(
                 args.cooldown_parent, map_location="cpu", weights_only=False
             )
-            validate_parent(parent, qualified_contract)
             cooldown = CooldownSchedule(args.cooldown_updates, args.cooldown_min_lr)
+            validate_parent(parent, qualified_contract, cooldown)
             contract["cooldown"] = dict(
                 parent_sha256=digest(args.cooldown_parent),
                 parent_producer=qualified_contract["producer"],
-                start_step=16000,
+                parent_step=parent["step"],
+                start_step=cooldown.start,
                 updates=cooldown.updates,
                 minimum_lr=cooldown.minimum_lr,
-                schedule="cosine from 1e-4; terminal mix 7 observation : 1 OM4",
+                schedule="cosine from 1e-4 within original quadratic 8000/8000",
                 final_counts=cooldown.counts(cooldown.total),
             )
     protocol = args.output / "protocol.json"
@@ -234,6 +235,8 @@ def main():
                 cuda_rng=torch.cuda.get_rng_state(device),
             )
             atomic_torch(payload, last)
+            if cooldown is not None and completed == cooldown.start:
+                atomic_torch(payload, args.output / "cooldown-start-optimizer.pt")
             if snapshot:
                 atomic_torch(
                     dict(
@@ -376,7 +379,8 @@ def main():
         completed += 1
         milestone = task == "observation" and count + 1 in MILESTONES
         milestone |= cooldown is not None and completed in (
-            16000 + cooldown.updates // 2,
+            cooldown.start,
+            cooldown.start + cooldown.updates // 2,
             cooldown.total,
         )
         due = stop or time.monotonic() - started >= args.invocation_hours * 3600

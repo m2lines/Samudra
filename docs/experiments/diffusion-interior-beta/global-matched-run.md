@@ -63,10 +63,11 @@ ready to review.
 
 ## Current milestone
 
-An October 4 follow-up adds a [separate 2,000-update cosine LR cooldown](global-cooldown.md)
-after the original 16k endpoint, preserving its weights, optimizer and comparison.
-This adds about 32–34 hours on four H200s; the original milestone reports proceed
-as scheduled. The cooldown is prepared but has not started.
+The October 4 update adds a [cosine LR cooldown within the final 2,000 updates](global-cooldown.md)
+of the existing 16k run, with no extra training exposure. Save a full optimizer
+checkpoint at step 14k, then taper from 1e-4 to 1e-6 by step 16k. The original
+quadratic task schedule and exact 8k/8k exposure remain unchanged. The new trainer
+is prepared for a normal job-boundary handoff; cooldown has not started.
 
 The [2,000-observation-update report](global-2000-results.md) is available. The
 composite is 1.2458 versus 0.6268 for the matched deterministic control. Grain is

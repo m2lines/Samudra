@@ -7,7 +7,6 @@
 # A config file to test SamudraMini training shape/plumbing.
 debug: false
 disk_mode: true
-pin_mem: true
 save_freq: 5
 epochs: 2
 batch_size: 1

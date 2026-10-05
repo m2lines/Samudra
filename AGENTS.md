@@ -19,6 +19,24 @@ The samudra-multi model supports training on multiple scales of data all at once
 degree, half degree and quarter degree) by configuring multiple data sources. Each configured source is trained against
 labels from the same source/resolution.
 
+## Experimental work and results PRs
+
+For experiments, exploratory work, and result reports that are not intended to merge:
+
+* Use an `experiment/<descriptive-name>` branch, especially when committing results, figures, or run artifacts.
+* Open a draft PR and apply the `experiment` label. State in the PR description that it is an experiment/results record
+  and is not intended to merge.
+* For an existing results PR on another branch, apply the `experiment` label; there is no need to rename its branch.
+
+Either the `experiment/` head-branch prefix or the `experiment` PR label skips automatic PR CI jobs, including
+pre-commit, CPU/GPU tests, data tests, container builds, and release smoke builds. Workflow entries may still appear
+with skipped jobs, but they do not allocate runners. Adding the label does not cancel jobs already running; cancel
+those separately when needed. Normal main-branch, merge-queue, scheduled, release, and manual workflows still run.
+
+If experimental work becomes a merge candidate, create a normal development branch and PR with the intended changes
+and no `experiment` label, then require the usual CI checks.
+Continue running relevant local checks for experimental code and preserve run/data provenance in result reports.
+
 ## Data
 
 When the proper S3 style credentials are passed into the local environment, you will be able to open each dataset like so:

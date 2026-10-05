@@ -34,7 +34,14 @@ from tenacity import retry
 
 from samudra.utils.data import compact_dataset
 
-DEFAULT_DATA_ROOT = "https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/v2025-11/om4_onedeg/"
+DEFAULT_DATA_ROOT = (
+    "https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/v2026-09/om4_onedeg/"
+)
+
+
+def source_store(root: str, name: str) -> str:
+    """Return the Zarr store URL for a named dataset under ``root``."""
+    return f"{root.rstrip('/')}/{name}.zarr"
 
 
 @retry
@@ -61,7 +68,7 @@ def main(args: argparse.Namespace) -> None:
         ("OM4_stds", "zarr"),
     ]:
         dest = os.path.join(args.dest, name)
-        source = (args.source or DEFAULT_DATA_ROOT) + name
+        source = source_store(args.source or DEFAULT_DATA_ROOT, name)
 
         # Open Xarray Datasets with retries + exponential backoff.
         if name == "OM4":

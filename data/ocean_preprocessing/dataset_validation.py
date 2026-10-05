@@ -40,6 +40,22 @@ def ds_processed_validate(ds_processed: xr.Dataset, deep=False):
         _nan_test_deep(ds_processed)
 
 
+def require_om4_publication_freshwater_flux(ds: xr.Dataset) -> None:
+    """Require ``wfo`` at the new-OM4-publication boundary.
+
+    Shared input validators intentionally accept legacy OM4 and CM4 datasets
+    without freshwater flux. New OM4 publications use this narrower invariant.
+    The primary raw source may provide ``wfo`` itself; otherwise callers must
+    supplement it before reaching this boundary.
+    """
+    if "wfo" not in ds.data_vars:
+        raise ValueError(
+            "New OM4 publications require freshwater flux variable 'wfo'; "
+            "use a primary raw source that contains it or provide "
+            "--wfo_source_path when the primary source lacks it"
+        )
+
+
 _COMMON_REQUIRED_COORDS = {
     "areacello",
     "dz",

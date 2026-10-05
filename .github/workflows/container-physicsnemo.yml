@@ -26,11 +26,16 @@ concurrency:
 
 jobs:
   ec2-build:
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    if: >-
+      github.event_name != 'pull_request' || (
+        !startsWith(github.head_ref, 'experiment/') &&
+        !contains(github.event.pull_request.labels.*.name, 'experiment') &&
+        github.event.pull_request.head.repo.full_name == github.repository
+      )
     permissions:
       contents: read
       id-token: write
-    uses: Open-Athena/ec2-gha/.github/workflows/runner.yml@v2
+    uses: ./.github/workflows/ec2-runner.yml
     with:
       aws_region: us-east-1
       ec2_instance_type: m7i.xlarge
@@ -43,7 +48,6 @@ jobs:
       #   --query 'reverse(sort_by(Images, &CreationDate))[:1].ImageId' --output text
       ec2_image_id: ami-04b70fa74e45c3917
       ec2_root_device_size: 200 # (GBs) local x86_64 image build needs substantial headroom
-      aws_tags: '[{"Key": "project", "Value": "fomo"}]'
     secrets:
       GH_SA_TOKEN: ${{ secrets.GH_SA_TOKEN }}
 
@@ -132,12 +136,11 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: Open-Athena/ec2-gha/.github/workflows/runner.yml@v2
+    uses: ./.github/workflows/ec2-runner.yml
     with:
-      ec2_instance_type: g6.xlarge
+      ec2_instance_type: g5.xlarge
       ec2_image_id: ami-0365bff494b18bf93 # Deep Learning OSS Nvidia Driver AMI GPU PyTorch 2.7 (Ubuntu 22.04) in oa-ci-dev
       ec2_root_device_size: 200 # large image pull + test data/cache need substantial headroom
-      aws_tags: '[{"Key": "project", "Value": "fomo"}]'
     secrets:
       GH_SA_TOKEN: ${{ secrets.GH_SA_TOKEN }}
 
@@ -146,7 +149,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: Open-Athena/ec2-gha/.github/workflows/runner.yml@v2
+    uses: ./.github/workflows/ec2-runner.yml
     with:
       aws_region: us-east-1
       ec2_instance_type: m7g.xlarge
@@ -159,7 +162,6 @@ jobs:
       #   --query 'reverse(sort_by(Images, &CreationDate))[:1].ImageId' --output text
       ec2_image_id: ami-02c57ce16e9a8e906
       ec2_root_device_size: 200 # local arm64 image build plus test data/cache need substantial headroom
-      aws_tags: '[{"Key": "project", "Value": "fomo"}]'
     secrets:
       GH_SA_TOKEN: ${{ secrets.GH_SA_TOKEN }}
 
@@ -335,7 +337,11 @@ jobs:
             '
 
   report-container-test-status:
-    if: always()
+    if: >-
+      always() && (github.event_name != 'pull_request' || (
+        !startsWith(github.head_ref, 'experiment/') &&
+        !contains(github.event.pull_request.labels.*.name, 'experiment')
+      ))
     needs:
       - ec2-build
       - build-and-smoke

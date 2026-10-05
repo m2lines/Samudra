@@ -9,7 +9,7 @@ from numpy.typing import NDArray
 
 type CompactVariableSelector = tuple[str, int | None]
 
-class FlatOm4ReadPool:
+class ZarrReadPool:
     def __init__(self, max_concurrent_reads: int) -> None: ...
 
 class FlatOm4Reader:
@@ -17,7 +17,7 @@ class FlatOm4Reader:
         self,
         path: str | PathLike[str],
         variables: list[str],
-        read_pool: FlatOm4ReadPool,
+        read_pool: ZarrReadPool,
     ) -> None: ...
     @property
     def shape(self) -> tuple[int, int, int]: ...
@@ -33,7 +33,7 @@ class CompactOm4Reader:
         self,
         path: str | PathLike[str],
         variable_selectors: list[CompactVariableSelector],
-        read_pool: FlatOm4ReadPool,
+        read_pool: ZarrReadPool,
     ) -> None: ...
     @property
     def shape(self) -> tuple[int, int, int]: ...

@@ -30,7 +30,8 @@ class Aggregator:
     @staticmethod
     def get_validation_aggregator(
         metadata: dict[str, dict[str, str]],
-        hist: int,
+        input_steps: int,
+        output_steps: int,
         area_weights: torch.Tensor,
         num_prognostic_channels: int,
         data_layout: DataLayout,
@@ -39,19 +40,20 @@ class Aggregator:
         include_image_aggregators: bool = True,
     ) -> ValidateAggregator:
         val_aggregators: dict[str, ValidateSubAggregator] = {
-            "reduced": MeanAggregator(area_weights, hist),
+            "reduced": MeanAggregator(area_weights, output_steps - 1),
         }
         if include_image_aggregators:
             val_aggregators.update(
                 {
-                    "snapshot": SnapshotAggregator(metadata, hist),
-                    "mean_map": MapAggregator(metadata, hist),
+                    "snapshot": SnapshotAggregator(metadata, input_steps),
+                    "mean_map": MapAggregator(metadata, output_steps),
                 }
             )
 
         return ValidateAggregator(
             val_aggregators,
-            hist=hist,
+            input_steps=input_steps,
+            output_steps=output_steps,
             num_prognostic_channels=num_prognostic_channels,
             data_layout=data_layout,
             preprocessor=preprocessor,
@@ -61,7 +63,8 @@ class Aggregator:
     def get_inline_inference_aggregator(
         n_timesteps: int,
         metadata: dict[str, dict[str, str]],
-        hist: int,
+        input_steps: int,
+        output_steps: int,
         area_weights: torch.Tensor,
         wet: torch.Tensor,
         num_prognostic_channels: int,
@@ -72,7 +75,8 @@ class Aggregator:
         return InferenceEvaluatorAggregator(
             n_timesteps=n_timesteps,
             metadata=metadata,
-            hist=hist,
+            input_steps=input_steps,
+            output_steps=output_steps,
             area_weights=area_weights,
             wet=wet,
             num_prognostic_channels=num_prognostic_channels,
@@ -88,7 +92,8 @@ class Aggregator:
     def get_standalone_inference_aggregator(
         n_timesteps: int,
         metadata: dict[str, dict[str, str]],
-        hist: int,
+        input_steps: int,
+        output_steps: int,
         area_weights: torch.Tensor,
         wet: torch.Tensor,
         num_prognostic_channels: int,
@@ -99,7 +104,8 @@ class Aggregator:
         return InferenceEvaluatorAggregator(
             n_timesteps=n_timesteps,
             metadata=metadata,
-            hist=hist,
+            input_steps=input_steps,
+            output_steps=output_steps,
             area_weights=area_weights,
             wet=wet,
             num_prognostic_channels=num_prognostic_channels,

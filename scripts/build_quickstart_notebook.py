@@ -160,7 +160,6 @@ QUICKSTART_YAML = """\
 # Every training, data, and model control is visible and editable.
 debug: false
 disk_mode: true
-pin_mem: true
 save_freq: 1
 # One epoch keeps this instructional run short. Samudra presets commonly use
 # 70 epochs; also extend the date windows for a substantive experiment.
@@ -200,9 +199,10 @@ data:
   # Number of additional past ocean states supplied with the current state.
   # Zero means that the model sees only the current timestep.
   hist: 0
-  concurrent_compute: true
   loading:
     type: cpu
+    pin_mem: true
+    concurrent_compute: true
     num_workers: 0
     persistent_workers: false
   sources:
@@ -225,19 +225,19 @@ data:
         endpoint_url: "https://nyu1.osn.mghpcc.org"
         anon: true
         bucket: m2lines-pubs
-        path: Samudra/v2026-07/om4_twodeg/OM4.zarr
+        path: Samudra/v2026-09/om4_twodeg/OM4.zarr
       data_means_location:
         type: s3
         endpoint_url: "https://nyu1.osn.mghpcc.org"
         anon: true
         bucket: m2lines-pubs
-        path: Samudra/v2026-07/om4_twodeg/OM4_means.zarr
+        path: Samudra/v2026-09/om4_twodeg/OM4_means.zarr
       data_stds_location:
         type: s3
         endpoint_url: "https://nyu1.osn.mghpcc.org"
         anon: true
         bucket: m2lines-pubs
-        path: Samudra/v2026-07/om4_twodeg/OM4_stds.zarr
+        path: Samudra/v2026-09/om4_twodeg/OM4_stds.zarr
 
 model:
   # Recompute U-Net layers during backpropagation to reduce GPU memory use.
@@ -297,7 +297,7 @@ DATA_MD = """\
 ### 4. Inspect the selected public OM4 data
 
 The YAML points to `OM4.zarr`, `OM4_means.zarr`, and `OM4_stds.zarr` in the
-public `s3://m2lines-pubs/Samudra/v2026-07/om4_twodeg/` directory. The cell
+public `s3://m2lines-pubs/Samudra/v2026-09/om4_twodeg/` directory. The cell
 opens remote metadata, selects the exact train and validation windows, and
 loads one sea-surface-height value as a connectivity check. Only the selected
 chunks stream into Colab.

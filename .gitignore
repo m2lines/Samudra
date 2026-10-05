@@ -50,5 +50,6 @@ site/
 profiles/
 
 # Build artifacts
+build/
 dist/
-rust/crab_load/target/
+rust/loader/target/

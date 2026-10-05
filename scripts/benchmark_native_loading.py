@@ -8,7 +8,6 @@ import argparse
 import gc
 import hashlib
 import json
-import multiprocessing
 import time
 from pathlib import Path
 
@@ -22,8 +21,7 @@ from samudra.config import (
     RustDataLoadingConfig,
     TensorStoreDataLoadingConfig,
 )
-from samudra.datasets import ModelBatch, TorchTrainDataset
-from samudra.train_data_loader import build_train_batch_loader
+from samudra.datasets import ModelBatch, TrainingWindows
 from samudra.utils.location import LocalLocation
 
 
@@ -53,7 +51,8 @@ def main() -> None:
     parser.add_argument("--rounds", type=int, default=3)
     parser.add_argument("--start-index", type=int, default=1300)
     parser.add_argument("--window-count", type=int, default=120)
-    parser.add_argument("--hist", type=int, default=1)
+    parser.add_argument("--input-steps", type=int, default=2)
+    parser.add_argument("--output-steps", type=int, default=1)
     parser.add_argument("--steps", type=int, default=4)
     args = parser.parse_args()
     if not 0 < args.batches <= args.window_count or args.rounds < 1:
@@ -70,7 +69,7 @@ def main() -> None:
         torch.ones(1, device=device)
         synchronize()
     loading = (
-        CpuDataLoadingConfig(num_workers=args.workers)
+        CpuDataLoadingConfig(num_workers=args.workers, concurrent_compute=True)
         if args.backend == "cpu"
         else {
             "rust": RustDataLoadingConfig,
@@ -93,18 +92,18 @@ def main() -> None:
         LocalLocation(path=args.data_root.resolve())
     )
     source = container.train_sources[0]
-    dataset = TorchTrainDataset(
+    windows = TrainingWindows(
         source,
         None,
         source.data_layout.prognostic_var_names,
         source.data_layout.boundary_var_names,
-        hist=args.hist,
+        input_steps=args.input_steps,
+        output_steps=args.output_steps,
         steps=args.steps,
         normalize_before_mask=True,
         masked_fill_value=0.0,
-        concurrent_compute_=True,
     )
-    if args.start_index < 0 or args.start_index + args.window_count > len(dataset):
+    if args.start_index < 0 or args.start_index + args.window_count > len(windows):
         parser.error("Requested sampling window exceeds the training data")
     schedule = [
         [int(i)]
@@ -114,17 +113,7 @@ def main() -> None:
             replace=False,
         )
     ]
-    loader = build_train_batch_loader(
-        [dataset],
-        schedule,
-        device,
-        loading,
-        pin_memory=device.type == "cuda",
-        multiprocessing_context=multiprocessing.get_context("spawn")
-        if loading.num_pytorch_workers()
-        else None,
-        worker_seed=0,
-    )
+    loader = loading.build_batch_loader([windows], schedule, device, seed=0)
     setup_seconds = time.perf_counter() - start
     measurements = []
     digests = []
@@ -180,10 +169,11 @@ def main() -> None:
         if device.type == "cuda"
         else "cpu",
         "data_root": str(args.data_root.resolve()),
-        "hist": args.hist,
+        "input_steps": args.input_steps,
+        "output_steps": args.output_steps,
         "steps": args.steps,
         "channels": list(source.channels),
-        "workers": loading.num_pytorch_workers(),
+        "workers": args.workers if args.backend == "cpu" else 0,
         "read_threads": args.read_threads,
         "setup_seconds": setup_seconds,
         "first_batch_seconds": first_batch_seconds,

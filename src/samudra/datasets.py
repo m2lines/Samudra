@@ -7,12 +7,12 @@ import time
 from collections.abc import Iterator
 from concurrent.futures.thread import ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import ClassVar, Protocol, final
+from typing import ClassVar, Literal, Protocol, final
 
 import numpy as np
 import torch
 import xarray as xr
-from jaxtyping import Float
+from jaxtyping import Int
 from torch.utils.data import Dataset
 
 from samudra.constants import (
@@ -22,6 +22,7 @@ from samudra.constants import (
     Prognostic,
     PrognosticVarNames,
     RolloutStep,
+    TimeIndices,
 )
 from samudra.utils.ctx import BatchGrid
 from samudra.utils.data import (
@@ -37,17 +38,18 @@ logger = logging.getLogger(__name__)
 
 
 class InferenceDataset(Dataset):
-    """This class is used for inference rollouts.
+    """Dataset of overlapping windows used for autoregressive inference.
 
-    It creates rolling indices to keep track of histories/past states.
-    For example,
-    Hist=0 ; 0->[0, 1]; 1->[1, 2]; 2->[2, 3]; 3->[3, 4]
-    Hist=1 ; 0->[[0, 1], [2, 3]]; 1->[[2, 3], [4, 5]];
-            2->[[4, 5], [6, 7]]; 3->[[6, 7], [8, 9]]
-    Hist=2 ; 0->[[0, 1, 2], [3, 4, 5]];
-            1->[[3, 4, 5], [6, 7, 8]];
-            2->[[6, 7, 8], [9, 10, 11]];
-            3->[[9, 10, 11], [12, 13, 14]]
+    Each window contains ``input_steps`` historical states followed by
+    ``output_steps`` target states. Consecutive windows advance by
+    ``output_steps`` so that every model output becomes the newest part of the
+    next input history. For example::
+
+        input_steps=1, output_steps=1: [0 | 1], [1 | 2], [2 | 3]
+        input_steps=2, output_steps=2: [0, 1 | 2, 3], [2, 3 | 4, 5]
+        input_steps=2, output_steps=1: [0, 1 | 2], [1, 2 | 3], [2, 3 | 4]
+
+    The values before ``|`` are inputs and those after it are targets.
     """
 
     @elapsed
@@ -56,7 +58,8 @@ class InferenceDataset(Dataset):
         source: CanonicalSource,
         prognostic_var_names,
         boundary_var_names,
-        hist,
+        input_steps,
+        output_steps,
         normalize_before_mask,
         masked_fill_value,
         long_rollout,
@@ -66,11 +69,18 @@ class InferenceDataset(Dataset):
         # to be passed between DataLoader worker processes. Call to(device) before
         # using the dataset for inference.
 
-        self.hist = hist
+        self.input_steps = input_steps
+        self.output_steps = output_steps
+        if not 1 <= self.output_steps <= self.input_steps:
+            raise ValueError(
+                f"output_steps must be between 1 and {self.input_steps}, "
+                f"got {self.output_steps}"
+            )
         self.prognostic_var_names = tuple(prognostic_var_names)
         self.boundary_var_names = tuple(boundary_var_names)
 
-        self.num_prognostic_channels = (hist + 1) * len(prognostic_var_names)
+        self.num_prognostic_channels = self.input_steps * len(prognostic_var_names)
+        self.num_output_channels = self.output_steps * len(prognostic_var_names)
         self.input_resolution = source.resolution
         self._device = torch.device("cpu")
         self._source = source
@@ -83,31 +93,25 @@ class InferenceDataset(Dataset):
             masked_fill_value=masked_fill_value,
         )
 
-        time_indices = np.arange(source.time.size)
-        indices = xr.DataArray(
-            time_indices,
-            dims=["time"],
-            coords={"time": time_indices},
+        window_size = self.input_steps + self.output_steps
+        num_windows = (source.time.size - window_size) // self.output_steps + 1
+        if num_windows <= 0:
+            rolling_values = np.empty((0, window_size), dtype=int)
+        else:
+            starts = np.arange(num_windows) * self.output_steps
+            rolling_values = starts[:, None] + np.arange(window_size)[None, :]
+        self.rolling_indices = xr.DataArray(
+            rolling_values,
+            dims=["window_dim", "time"],
         )
-        total_steps = 2 * self.hist + 1
-        rolling_indices = indices.rolling(
-            time=len(time_indices) - total_steps, center=False
-        ).construct("window_dim")
-        rolling_indices = rolling_indices.transpose("window_dim", "time").isel(
-            time=slice(len(time_indices) - total_steps - 1, None)
-        )  # Remove first few null indices
-        self.rolling_indices = rolling_indices.isel(
-            window_dim=slice(0, None, self.hist + 1)
-        )  # Skip indices based on history
-        self.rolling_indices = self.rolling_indices.astype(int)
 
         if long_rollout:
             logger.info(
                 f"Long rollout will use input at time {source.time.values[0]} and produce"
-                f" output at {source.time.values[self.hist + 1]}"
+                f" output at {source.time.values[self.input_steps]}"
             )
 
-        self.wet_label = source.masks.prognostic_with_hist(self.hist)
+        self.wet_label = source.masks.prognostic_for_steps(self.output_steps)
         self.size = len(self.rolling_indices)
 
         if using_gpu():
@@ -151,12 +155,12 @@ class InferenceDataset(Dataset):
     def get_target_time(self, start_step: int, num_steps: int):
         x_index = self._get_x_index(start_step)
         batch_index = x_index.values[0]
-        steps_predicted = len(batch_index) // 2
-        start_target_index = batch_index[steps_predicted]
+        start_target_index = batch_index[self.input_steps]
 
         return self._times.isel(
             time=slice(
-                start_target_index, start_target_index + num_steps * steps_predicted
+                start_target_index,
+                start_target_index + num_steps * self.output_steps,
             )
         )
 
@@ -204,7 +208,7 @@ class InferenceDataset(Dataset):
 
     def _get_prognostic(self, x_index):
         return self._read_and_prepare(
-            x_index.values[:, : self.hist + 1],
+            x_index.values[:, : self.input_steps],
             channels=self.prognostic_var_names,
             prognostic=True,
         )
@@ -213,18 +217,18 @@ class InferenceDataset(Dataset):
         """
         This function returns the boundary condition for the current time step.
 
-        With hist > 0, the boundary condition considered is always the last step of
-        the input.
+        With multiple input steps, the boundary condition considered is always the
+        last input step.
         """
         return self._read_and_prepare(
-            x_index.values[:, : self.hist + 1],
+            x_index.values[:, : self.input_steps],
             channels=self.boundary_var_names,
             prognostic=False,
         )
 
     def _get_label(self, x_index):
         return self._read_and_prepare(
-            x_index.values[:, self.hist + 1 :],
+            x_index.values[:, self.input_steps :],
             channels=self.prognostic_var_names,
             prognostic=True,
         )
@@ -365,7 +369,7 @@ class BatchReadUse:
     source: CanonicalSource
     request: CanonicalReadRequest
     mask: torch.Tensor
-    cache_name: str
+    role: Literal["input", "boundary", "label"]
 
 
 @dataclass(frozen=True)
@@ -383,7 +387,7 @@ class BatchReadPlan:
     steps: tuple[BatchReadStep, ...]
 
 
-class TrainingShard:
+class TrainingWindows:
     """Training-window semantics shared by sample and native batch readers."""
 
     def __init__(
@@ -392,44 +396,56 @@ class TrainingShard:
         label_source: CanonicalSource | None,
         prognostic_var_names: PrognosticVarNames,
         boundary_var_names: BoundaryVarNames,
-        hist: int,
+        input_steps: int,
+        output_steps: int,
         steps: int,
         normalize_before_mask: bool,
         masked_fill_value: float,
-        stride: int,
-        shard_id: str | None = None,
+        stride: int = 1,
+        windows_id: str | None = None,
     ) -> None:
-        self.id = shard_id or f"TrainingShard_{id(self)}"
+        self.id = windows_id or f"TrainingWindows_{id(self)}"
         self.input_source = input_source
         self.label_source = label_source or input_source
-        self.hist = hist
+        self.input_steps = input_steps
+        self.output_steps = output_steps
+        if not 1 <= self.output_steps <= self.input_steps:
+            raise ValueError(
+                f"output_steps must be between 1 and {self.input_steps}, "
+                f"got {self.output_steps}"
+            )
         self.steps = steps
         self.stride = stride
         self.normalize_before_mask = normalize_before_mask
         self.masked_fill_value = masked_fill_value
         self.prognostic_var_names = tuple(prognostic_var_names)
         self.boundary_var_names = tuple(boundary_var_names)
-        self.num_prognostic_channels = (hist + 1) * len(prognostic_var_names)
-        self.num_boundary_channels = (hist + 1) * len(boundary_var_names)
+        self.num_prognostic_channels = input_steps * len(prognostic_var_names)
+        self.num_output_channels = output_steps * len(prognostic_var_names)
+        self.num_boundary_channels = input_steps * len(boundary_var_names)
         if not np.array_equal(self.input_source.time, self.label_source.time):
             raise ValueError("Input and label sources have different time slices")
 
-        total_times = 2 * hist + 2
+        total_times = input_steps + output_steps
         num_windows = input_source.time.size - (total_times - 1) * stride
         indices = xr.DataArray(np.arange(num_windows), dims=["window"])
         offsets = xr.DataArray(np.arange(total_times), dims=["time"])
-        self.rolling_indices: Float[xr.DataArray, "window time"] = (
+        self.rolling_indices: Int[xr.DataArray, "window time"] = (
             indices + stride * offsets
         )
         self.input_prognostic_mask = input_source.masks.prognostic
         self.label_prognostic_mask = self.label_source.masks.prognostic
         self.boundary_mask = input_source.masks.boundary
         self.ctx = BatchGrid(
-            label_mask=self.label_source.masks.prognostic_with_hist(hist),
+            label_mask=self.label_source.masks.prognostic_for_steps(output_steps),
             input_resolution_cpu=input_source.resolution,
             output_resolution_cpu=self.label_source.resolution,
         )
-        self.size = input_source.time.size - steps * (hist + 1) * stride - hist * stride
+        self.size = (
+            input_source.time.size
+            - steps * output_steps * stride
+            - (input_steps - 1) * stride
+        )
 
     def __len__(self) -> int:
         return self.size
@@ -445,12 +461,12 @@ class TrainingShard:
         """Preserve the current homogeneous dataset-ID batching contract."""
         return self.id
 
-    def window_indices(self, index: int, step: int) -> np.ndarray:
+    def window_indices(self, index: int, step: int) -> TimeIndices:
         if index < 0:
             raise IndexError("Negative training-window indices are not supported")
         if index >= len(self):
             raise IndexError("Training-window index out of range")
-        window = index + step * (self.hist + 1) * self.stride
+        window = index + step * self.output_steps * self.stride
         return self.rolling_indices.isel(window=window, drop=True).to_numpy()
 
     def window_plan(self, indices: list[int]) -> BatchReadPlan:
@@ -462,56 +478,56 @@ class TrainingShard:
             relative = np.stack(
                 [self.window_indices(index, step) for index in indices]
             ).astype(np.int64, copy=False)
-            current = relative[:, : self.hist + 1]
-            forecast = relative[:, self.hist + 1 :]
+            current = relative[:, : self.input_steps]
+            forecast = relative[:, self.input_steps :]
             planned_steps.append(
                 BatchReadStep(
                     input=BatchReadUse(
                         self.input_source,
                         CanonicalReadRequest(current, self.prognostic_var_names),
                         self.input_prognostic_mask,
-                        "prognostic_input",
+                        "input",
                     ),
                     boundary=BatchReadUse(
                         self.input_source,
                         CanonicalReadRequest(current, self.boundary_var_names),
                         self.boundary_mask,
-                        "boundary_input",
+                        "boundary",
                     ),
                     label=BatchReadUse(
                         self.label_source,
                         CanonicalReadRequest(forecast, self.prognostic_var_names),
                         self.label_prognostic_mask,
-                        "prognostic_label",
+                        "label",
                     ),
                 )
             )
         return BatchReadPlan(self.id, tuple(planned_steps))
 
 
-class TrainBatchPreparer:
+class BatchPreparer:
     """Rank-local normalization, masking, shaping, and device-static caches."""
 
-    def __init__(self, shard: TrainingShard) -> None:
-        self.shard = shard
+    def __init__(self, windows: TrainingWindows) -> None:
+        self.windows = windows
         self._input = BatchPreprocessor(
-            shard.input_source,
-            shard.prognostic_var_names,
-            shard.boundary_var_names,
-            normalize_before_mask=shard.normalize_before_mask,
-            masked_fill_value=shard.masked_fill_value,
+            windows.input_source,
+            windows.prognostic_var_names,
+            windows.boundary_var_names,
+            normalize_before_mask=windows.normalize_before_mask,
+            masked_fill_value=windows.masked_fill_value,
         )
-        self._label = BatchPreprocessor(
-            shard.label_source,
-            shard.prognostic_var_names,
-            shard.boundary_var_names,
-            normalize_before_mask=shard.normalize_before_mask,
-            masked_fill_value=shard.masked_fill_value,
+        self._label = (
+            self._input
+            if windows.label_source is windows.input_source
+            else BatchPreprocessor(
+                windows.label_source,
+                windows.prognostic_var_names,
+                windows.boundary_var_names,
+                normalize_before_mask=windows.normalize_before_mask,
+                masked_fill_value=windows.masked_fill_value,
+            )
         )
-        self._device_static: dict[
-            tuple[torch.device, str],
-            tuple[torch.Tensor, torch.Tensor, torch.Tensor],
-        ] = {}
         self._device_ctx: dict[torch.device, BatchGrid] = {}
 
     def prepare_host_batch(
@@ -530,7 +546,7 @@ class TrainBatchPreparer:
     def new_model_batch(self, device: torch.device) -> ModelBatch:
         device_ctx = self._device_ctx.get(device)
         if device_ctx is None:
-            device_ctx = self.shard.ctx.to(device)
+            device_ctx = self.windows.ctx.to(device)
             self._device_ctx[device] = device_ctx
         return ModelBatch(device_ctx)
 
@@ -548,52 +564,15 @@ class TrainBatchPreparer:
                 f"Unique ocean planes are on {data.device}; expected {device}"
             )
 
-        cache_key = (device, use.cache_name)
-        static = self._device_static.get(cache_key)
-        if static is None:
-            statistics = use.source.statistics(use.request.channels)
-            mean = torch.from_numpy(statistics.mean).to(device=device, dtype=data.dtype)
-            std = torch.from_numpy(statistics.std).to(device=device, dtype=data.dtype)
-            shape = (1, len(use.request.channels), 1, 1)
-            static = (
-                mean.reshape(shape),
-                std.reshape(shape),
-                use.mask.to(device=device, non_blocking=True),
-            )
-            self._device_static[cache_key] = static
-        mean, std, mask = static
-
-        def normalize(tensor: torch.Tensor) -> torch.Tensor:
-            return ((tensor - mean) / std).nan_to_num(nan=0.0)
-
-        if self.shard.normalize_before_mask:
-            data = normalize(data)
-        data = torch.where(mask, data, self.shard.masked_fill_value)
-        if not self.shard.normalize_before_mask:
-            data = normalize(data)
-        return data
+        preprocessor = self._label if use.role == "label" else self._input
+        return preprocessor.prepare_planes(
+            data, device, boundary=use.role == "boundary"
+        )
 
 
 @final
 class TorchTrainDataset(Dataset[HostBatch]):
-    """
-    This class is used for training and validation.
-
-    It creates rolling indices to keep track of histories/past states. But different
-    from InferenceDataset, as it creates rolling indices based on stride. By default,
-    the sliding window / stride is 1.
-
-    We make use of ModelBatch class to store a single sample.
-
-    For example,
-    Hist=0 ; step=0->[0, 1]; step=1->[1, 2]; step=2->[2, 3]; step=3->[3, 4]
-    Hist=1 ; step=0->[[0, 1], [2, 3]]; step=1->[[2, 3], [4, 5]];
-            step=2->[[4, 5], [6, 7]]; step=3->[[6, 7], [8, 9]]
-    Hist=2 ; step=0->[[0, 1, 2], [3, 4, 5]];
-            step=1->[[3, 4, 5], [6, 7, 8]];
-            step=2->[[6, 7, 8], [9, 10, 11]];
-            step=3->[[9, 10, 11], [12, 13, 14]]
-    """
+    """Adapt training windows to PyTorch's per-sample Dataset interface."""
 
     type Id = str
 
@@ -613,73 +592,53 @@ class TorchTrainDataset(Dataset[HostBatch]):
         return cls._shared_executor
 
     @elapsed
-    def __init__(
-        self,
-        input_source: CanonicalSource,
-        label_source: CanonicalSource | None,
-        prognostic_var_names: PrognosticVarNames,
-        boundary_var_names: BoundaryVarNames,
-        hist: int,
-        steps: int,
-        normalize_before_mask: bool,
-        masked_fill_value: float,
-        stride: int = 1,
-        concurrent_compute_: bool = False,
-        shard_id: str | None = None,
-    ):
+    def __init__(self, windows: TrainingWindows, *, concurrent_compute_: bool = False):
         super().__init__()
-        self.shard = TrainingShard(
-            input_source=input_source,
-            label_source=label_source,
-            prognostic_var_names=prognostic_var_names,
-            boundary_var_names=boundary_var_names,
-            hist=hist,
-            steps=steps,
-            normalize_before_mask=normalize_before_mask,
-            masked_fill_value=masked_fill_value,
-            stride=stride,
-            shard_id=shard_id,
-        )
-        self.preparer = TrainBatchPreparer(self.shard)
-        self.id = self.shard.id
+        self.windows = windows
+        self.preparer = BatchPreparer(windows)
+        self.id = windows.id
         self._concurrent_compute = concurrent_compute_
 
     def __len__(self) -> int:
-        return len(self.shard)
+        return len(self.windows)
 
     @property
-    def hist(self) -> int:
-        return self.shard.hist
+    def input_steps(self) -> int:
+        return self.windows.input_steps
+
+    @property
+    def output_steps(self) -> int:
+        return self.windows.output_steps
 
     @property
     def steps(self) -> int:
-        return self.shard.steps
+        return self.windows.steps
 
     @property
     def stride(self) -> int:
-        return self.shard.stride
+        return self.windows.stride
 
     @property
     def prognostic_var_names(self) -> tuple[str, ...]:
-        return self.shard.prognostic_var_names
+        return self.windows.prognostic_var_names
 
     @property
     def boundary_var_names(self) -> tuple[str, ...]:
-        return self.shard.boundary_var_names
+        return self.windows.boundary_var_names
 
     @property
     def sources(self) -> tuple[CanonicalSource, ...]:
-        return self.shard.sources
+        return self.windows.sources
 
     @property
     def batch_compatibility_key(self) -> str:
-        return self.shard.batch_compatibility_key
+        return self.windows.batch_compatibility_key
 
     @elapsed(level=logging.DEBUG)
     def __getitem__(self, idx: int):
         start_time = time.perf_counter()
         host_batch = HostBatch(self.id)
-        plan = self.shard.window_plan([idx])
+        plan = self.windows.window_plan([idx])
         for step in plan.steps:
             reads = (step.input, step.boundary, step.label)
             if self._concurrent_compute:
@@ -721,7 +680,7 @@ class TorchTrainDataset(Dataset[HostBatch]):
 
 
 @final
-class BatchLoader:
+class TorchBatchLoader:
     """Wrapper around a torch DataLoader that handles GPU post-processing.
 
     This class wraps a DataLoader[HostBatch] and converts the raw data

@@ -17,7 +17,8 @@
 # raw data is streamed directly from the OSN pod via s3fs (no local staging).
 #
 # --- Required env vars -------------------------------------------------------
-#   RESOLUTION   one of: twodeg | twodeg_filter | onedeg | onedeg_filter | halfdeg | quarterdeg
+#   RESOLUTION   one of: twodeg | twodeg_filter | onedeg | onedeg_filter |
+#                halfdeg | halfdeg_filter | quarterdeg | quarterdeg_filter
 #   OUTPUT_PATH  full s3 zarr path for the result, OR set OUTPUT_BASE (below).
 #
 # --- Common env vars ---------------------------------------------------------
@@ -25,9 +26,13 @@
 #                  ${OUTPUT_BASE}/om4_${RESOLUTION}${variant_suffix}/OM4.zarr
 #                e.g. export OUTPUT_BASE="s3://m2lines-pubs/Samudra/v$(date +%Y-%m)"
 #   RAW_ROOT     source prefix (default: s3://m2lines-pubs/Samudra/raw)
-#   DATA_VARIANT averaged (default) | snapshots; selects the raw store and adds
-#                `_snapshots` to derived output directories for snapshot data.
+#   DATA_VARIANT averaged (default) | snapshots; selects the raw store and
+#                derived output-directory suffix. The averaged variant adds
+#                five-day-mean wfo from the combined snapshot source after
+#                strict alignment QC.
 #   DATA_PATH    exact raw OM4 source; overrides DATA_VARIANT's source selection.
+#   WFO_SOURCE_PATH exact supplemental wfo store; defaults to the combined
+#                snapshot source for DATA_VARIANT=averaged.
 #   PREPROC_ENV  conda env name (default: ocean_preprocessing)
 #   CONDA_SH     path to conda.sh (autodetected from $CONDA_EXE / common dirs)
 #   REPO_DIR     repo checkout (default: $SLURM_SUBMIT_DIR); we cd here so the
@@ -59,8 +64,8 @@
 # directives below):
 #   twodeg / twodeg_filter : --cpus-per-task=32  --mem=240G --time=08:00:00  (coarsest, fastest)
 #   onedeg / onedeg_filter : --cpus-per-task=64  --mem=480G --time=12:00:00
-#   halfdeg                : --cpus-per-task=128 --mem=490G --time=1-00:00:00
-#   quarterdeg             : --cpus-per-task=128 --mem=490G --time=2-00:00:00 \
+#   halfdeg / halfdeg_filter : --cpus-per-task=128 --mem=490G --time=1-00:00:00
+#   quarterdeg / quarterdeg_filter : --cpus-per-task=128 --mem=490G --time=2-00:00:00 \
 #                            (also set N_WORKERS=16 to cap peak memory; if it
 #                             still OOMs, fall back to --partition=cl for a
 #                             3 TB node -- but that partition queues for days)
@@ -95,7 +100,7 @@ source "${VARIANT_SCRIPT}"
 # --- Resolve inputs ----------------------------------------------------------
 RESOLUTION="${RESOLUTION:-}"
 if [[ -z "${RESOLUTION}" ]]; then
-  echo "ERROR: RESOLUTION is required (twodeg | twodeg_filter | onedeg | onedeg_filter | halfdeg | quarterdeg)." >&2
+  echo "ERROR: RESOLUTION is required (twodeg | twodeg_filter | onedeg | onedeg_filter | halfdeg | halfdeg_filter | quarterdeg | quarterdeg_filter)." >&2
   exit 2
 fi
 
@@ -107,16 +112,22 @@ case "${RESOLUTION}" in
   onedeg)        GRID="gaussian_grid_180_by_360";  FILTER_FLAG="--skip_spatial_filtering" ;;
   onedeg_filter) GRID="gaussian_grid_180_by_360";  FILTER_FLAG="" ;;   # filtering ON (scale 18)
   halfdeg)       GRID="gaussian_grid_360_by_720";  FILTER_FLAG="--skip_spatial_filtering" ;;
+  halfdeg_filter) GRID="gaussian_grid_360_by_720"; FILTER_FLAG="" ;;   # filtering ON (scale 9)
   quarterdeg)    GRID="gaussian_grid_720_by_1440"; FILTER_FLAG="--skip_spatial_filtering" ;;
+  quarterdeg_filter) GRID="gaussian_grid_720_by_1440"; FILTER_FLAG="" ;; # filtering ON (scale 1)
   *)
     echo "ERROR: unknown RESOLUTION='${RESOLUTION}'." >&2
-    echo "Expected one of: twodeg | twodeg_filter | onedeg | onedeg_filter | halfdeg | quarterdeg." >&2
+    echo "Expected one of: twodeg | twodeg_filter | onedeg | onedeg_filter | halfdeg | halfdeg_filter | quarterdeg | quarterdeg_filter." >&2
     exit 2 ;;
 esac
 
 RAW_ROOT="${RAW_ROOT:-s3://m2lines-pubs/Samudra/raw}"
 resolve_om4_data_variant
 DATA_PATH="${DATA_PATH:-${RAW_ROOT}/${OM4_SOURCE_STORE}}"
+WFO_SOURCE_PATH="${WFO_SOURCE_PATH:-}"
+if [[ -z "${WFO_SOURCE_PATH}" && -n "${OM4_WFO_SOURCE_STORE}" ]]; then
+  WFO_SOURCE_PATH="${RAW_ROOT}/${OM4_WFO_SOURCE_STORE}"
+fi
 NATIVE_GRID_PATH="${RAW_ROOT}/ocean_static_no_mask_table.zarr"
 MOSAIC_PATH="${RAW_ROOT}/grids/ocean_hgrid.zarr"
 TARGET_GRID_PATH="${RAW_ROOT}/grids/${GRID}.zarr"
@@ -192,6 +203,9 @@ fi
 if [[ "${SKIP_VALIDATION:-1}" == "1" ]]; then
   pipeline_flags+=(--skip_validation)
 fi
+if [[ -n "${WFO_SOURCE_PATH}" ]]; then
+  pipeline_flags+=(--wfo_source_path="${WFO_SOURCE_PATH}")
+fi
 
 # --- Run ---------------------------------------------------------------------
 # Enter the selected data subproject before invoking Python. The conda env is
@@ -203,6 +217,7 @@ cd "${REPO_DIR}/data"
 echo "Resolution:   ${RESOLUTION}"
 echo "Data variant: ${DATA_VARIANT}"
 echo "Data path:    ${DATA_PATH}"
+echo "wfo source:   ${WFO_SOURCE_PATH:-none}"
 echo "Target grid:  ${GRID}  (filter: ${FILTER_FLAG:-on})"
 echo "Raw root:     ${RAW_ROOT}"
 echo "Output path:  ${OUTPUT_PATH}"

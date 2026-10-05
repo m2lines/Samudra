@@ -2,6 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import copy
+import dataclasses
 from types import SimpleNamespace
 
 import numpy as np
@@ -13,9 +15,9 @@ import zarr  # type: ignore[import-untyped]
 pytest.importorskip("tensorstore")
 
 from samudra.config import DataConfig, Om4DataSourceConfig, TensorStoreDataLoadingConfig
-from samudra.datasets import TorchTrainDataset
+from samudra.datasets import TorchTrainDataset, TrainingWindows
+from samudra.native_reader import NativeOm4Reader, PhysicalVariable
 from samudra.tensorstore_data import TensorStoreIoRuntime
-from samudra.train_data_loader import build_train_batch_loader
 from samudra.utils.location import LocalLocation
 from samudra.utils.train import collate_host_batches
 
@@ -73,49 +75,66 @@ def om4_store(tmp_path, request):
     return tmp_path, cfg
 
 
-def make_loader(om4_store, monkeypatch, device, hist, steps, normalize_before_mask):
+def make_loader(
+    om4_store,
+    monkeypatch,
+    device,
+    input_steps,
+    output_steps,
+    steps,
+    normalize_before_mask,
+):
     def no_rust():
         pytest.fail("TensorStore loading attempted to import the Rust extension")
 
-    monkeypatch.setattr("samudra.rust_data._load_extension", no_rust)
+    monkeypatch.setattr("samudra.rust_reader._load_extension", no_rust)
     root, source_cfg = om4_store
     loading = TensorStoreDataLoadingConfig(max_concurrent_reads=2, prefetch_batches=2)
     container = DataConfig(sources=[source_cfg], loading=loading).build(
         LocalLocation(path=root)
     )
     source = container.train_sources[0]
-    dataset = TorchTrainDataset(
+    windows = TrainingWindows(
         source,
         None,
         source.data_layout.prognostic_var_names,
         source.data_layout.boundary_var_names,
-        hist=hist,
+        input_steps=input_steps,
+        output_steps=output_steps,
         steps=steps,
         stride=1,
         normalize_before_mask=normalize_before_mask,
         masked_fill_value=-7.0,
     )
     schedule = [[3, 1], [0, 2], [1, 3]]
-    loader = build_train_batch_loader(
-        [dataset],
-        schedule,
-        device,
-        loading,
-        pin_memory=False,
-        multiprocessing_context=None,
-        worker_seed=0,
+    loader = loading.build_batch_loader([windows], schedule, device, seed=0)
+    # Use genuine Xarray reads as the reference, rather than the native reader.
+    reference = copy.copy(windows)
+    assert isinstance(source.reader, NativeOm4Reader)
+    reference.input_source = dataclasses.replace(
+        source, _reader=source.reader.xarray_reader
     )
+    reference.label_source = reference.input_source
+    dataset = TorchTrainDataset(reference)
     return dataset, loader, schedule
 
 
-@pytest.mark.parametrize("hist,steps", [(0, 1), (1, 2), (1, 4)])
+@pytest.mark.parametrize(
+    "input_steps,output_steps,steps", [(1, 1, 1), (2, 1, 2), (2, 1, 4), (2, 2, 4)]
+)
 @pytest.mark.parametrize("normalize_before_mask", [True, False])
 def test_tensorstore_pipeline_matches_xarray(
-    om4_store, monkeypatch, hist, steps, normalize_before_mask
+    om4_store, monkeypatch, input_steps, output_steps, steps, normalize_before_mask
 ):
     device = torch.device("cpu")
     dataset, loader, schedule = make_loader(
-        om4_store, monkeypatch, device, hist, steps, normalize_before_mask
+        om4_store,
+        monkeypatch,
+        device,
+        input_steps,
+        output_steps,
+        steps,
+        normalize_before_mask,
     )
     try:
         for batch, indices in zip(loader, schedule, strict=True):
@@ -136,7 +155,9 @@ def test_tensorstore_pipeline_matches_xarray(
 @pytest.mark.cuda
 def test_tensorstore_cuda_prefetch_matches_xarray(om4_store, monkeypatch):
     device = torch.device("cuda")
-    dataset, loader, schedule = make_loader(om4_store, monkeypatch, device, 1, 4, True)
+    dataset, loader, schedule = make_loader(
+        om4_store, monkeypatch, device, 2, 1, 4, True
+    )
     buffers = []
     original_acquire = loader._pinned_pool.acquire
 
@@ -169,12 +190,21 @@ def test_tensorstore_compact_level_and_channel_order(om4_store):
     root, _ = om4_store
     group = zarr.open_group(str(root / "data.zarr"), mode="r")
     runtime = TensorStoreIoRuntime(2)
-    selectors: list[str] | list[tuple[str, int | None]]
+    selectors: list[PhysicalVariable]
     if "thetao" in group:
-        reader = runtime.open_compact(
-            root / "data.zarr", [("thetao", 2), ("hfds", None), ("thetao", 0)]
+        reader = runtime.open(
+            root / "data.zarr",
+            [
+                PhysicalVariable("thetao", 2),
+                PhysicalVariable("hfds"),
+                PhysicalVariable("thetao", 0),
+            ],
         )
-        selectors = [("thetao", 2), ("hfds", None), ("thetao", 0)]
+        selectors = [
+            PhysicalVariable("thetao", 2),
+            PhysicalVariable("hfds"),
+            PhysicalVariable("thetao", 0),
+        ]
         data = xr.open_zarr(root / "data.zarr", chunks=None)
         expected = np.stack(
             [
@@ -185,12 +215,12 @@ def test_tensorstore_compact_level_and_channel_order(om4_store):
             axis=1,
         )
     else:
-        selectors = ["thetao_2", "hfds", "thetao_0"]
-        reader = runtime.open_flat(root / "data.zarr", selectors)
+        selectors = [
+            PhysicalVariable(name) for name in ["thetao_2", "hfds", "thetao_0"]
+        ]
+        reader = runtime.open(root / "data.zarr", selectors)
         data = xr.open_zarr(root / "data.zarr", chunks=None)
-        expected = np.stack(
-            [data[name].isel(time=[4, 1]) for name in selectors], axis=1
-        )
+        expected = np.stack([data[v.name].isel(time=[4, 1]) for v in selectors], axis=1)
     output = np.empty((2, 3, 2, 3), dtype=np.float32)
     reader.read_into([4, 1], selectors, output)
     np.testing.assert_equal(output, expected)
@@ -205,13 +235,18 @@ def test_tensorstore_rejects_cf_encoding(om4_store, attribute, value):
     group = zarr.open_group(str(root / "data.zarr"), mode="a")
     group.hfds.attrs[attribute] = value
     with pytest.raises(ValueError, match="does not decode|requires NaN fill"):
-        TensorStoreIoRuntime(2).open_flat(root / "data.zarr", ["hfds"])
+        TensorStoreIoRuntime(2).open(root / "data.zarr", [PhysicalVariable("hfds")])
 
 
 @pytest.mark.parametrize("failure", ["submission", "completion"])
-def test_tensorstore_drains_writes_before_releasing_failed_buffer(om4_store, failure):
+@pytest.mark.parametrize("error_type", [ValueError, KeyboardInterrupt])
+def test_tensorstore_drains_writes_before_releasing_failed_buffer(
+    om4_store, failure, error_type
+):
     root, _ = om4_store
-    reader = TensorStoreIoRuntime(2).open_flat(root / "data.zarr", ["hfds"])
+    reader = TensorStoreIoRuntime(2).open(
+        root / "data.zarr", [PhysicalVariable("hfds")]
+    )
     submitted: list[int] = []
     completed = []
 
@@ -221,20 +256,59 @@ def test_tensorstore_drains_writes_before_releasing_failed_buffer(om4_store, fai
 
         def write(source):
             if failure == "submission" and index == 1:
-                raise ValueError("submission failed")
+                raise error_type("submission failed")
 
             def result():
                 completed.append(index)
                 if failure == "completion" and index == 0:
-                    raise ValueError("completion failed")
+                    raise error_type("completion failed")
                 output[:] = 5
 
-            return SimpleNamespace(result=result)
+            return SimpleNamespace(result=result, done=lambda: True)
 
         return SimpleNamespace(write=write)
 
     reader._ts = SimpleNamespace(array=array)
     output = np.empty((2, 2, 2, 3), dtype=np.float32)
-    with pytest.raises(ExceptionGroup, match="TensorStore OM4 reads failed"):
-        reader.read_into([0, 1], ["hfds", "hfds"], output)
+    with pytest.raises(BaseExceptionGroup, match="TensorStore OM4 reads failed"):
+        reader.read_into(
+            [0, 1], [PhysicalVariable("hfds"), PhysicalVariable("hfds")], output
+        )
     assert completed == ([0] if failure == "submission" else [0, 1])
+
+
+@pytest.mark.parametrize(
+    "times,variables", [([], [PhysicalVariable("hfds")]), ([0], []), ([], [])]
+)
+def test_tensorstore_empty_reads(om4_store, times, variables):
+    root, _ = om4_store
+    reader = TensorStoreIoRuntime(2).open(
+        root / "data.zarr", [PhysicalVariable("hfds")]
+    )
+    output = np.empty((len(times), len(variables), 2, 3), dtype=np.float32)
+    reader.read_into(times, variables, output)
+
+
+def test_tensorstore_drains_copy_after_interrupted_wait(om4_store):
+    root, _ = om4_store
+    reader = TensorStoreIoRuntime(2).open(
+        root / "data.zarr", [PhysicalVariable("hfds")]
+    )
+    waits = []
+
+    def array(output, **kwargs):
+        def result():
+            waits.append(1)
+            if len(waits) == 1:
+                raise KeyboardInterrupt()
+            output[:] = 5
+
+        future = SimpleNamespace(result=result, done=lambda: len(waits) > 1)
+        return SimpleNamespace(write=lambda source: future)
+
+    reader._ts = SimpleNamespace(array=array)
+    output = np.empty((1, 1, 2, 3), dtype=np.float32)
+    with pytest.raises(BaseExceptionGroup):
+        reader.read_into([0], [PhysicalVariable("hfds")], output)
+    assert len(waits) == 2
+    np.testing.assert_equal(output, 5)

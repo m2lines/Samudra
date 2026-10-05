@@ -51,7 +51,7 @@ data_location:
   endpoint_url: "https://nyu1.osn.mghpcc.org"  # omit for AWS S3
   anon: true                                   # read a public bucket without credentials
   bucket: m2lines-pubs
-  path: Samudra/v2026-07/om4_twodeg/OM4.zarr
+  path: Samudra/v2026-09/om4_twodeg/OM4.zarr
 
 # Read a Zarr/NetCDF store from an absolute local path.
 data_location:

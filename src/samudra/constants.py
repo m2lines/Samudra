@@ -9,9 +9,10 @@ from typing import Literal, NamedTuple, Self
 
 logger = logging.getLogger(__name__)
 
+import numpy as np
 import torch
 import xarray as xr
-from jaxtyping import Bool, Float
+from jaxtyping import Bool, Float, Int
 from torch import Tensor
 
 # Common Type Aliases
@@ -31,6 +32,10 @@ Boundary = Float[Grid, "*batch boundary_vars"]
 #   for return types, referring only to axes annotated for arguments.
 # So, we'll leave this default and use symbolic axes locally.
 type Input = Float[Grid, "*batch total_vars"]
+
+# Canonical read requests may be scalar, flat, or grouped into batch histories.
+TimeIndices = Int[np.ndarray, "*sample"]
+CanonicalPlanes = Float[np.ndarray, "*sample channel lat lon"]
 
 
 class RolloutStep(NamedTuple):
@@ -56,12 +61,25 @@ MAX_TRAIN_MODEL_STEPS_FORWARD = 200
 
 # Horizontal grid geometry. "gaussian" is a regular/rectilinear lat-lon grid whose
 # 2D lat/lon are the outer product of the 1D axes, so they can be reconstructed by
-# broadcasting. "tripolar" is curvilinear: lat/lon vary along both horizontal dims
-# and cannot be rebuilt by broadcasting, so the real 2D coordinates must be carried
-# with the data. Downstream code that reconstructs geometry must branch on this.
-GridType = Literal["gaussian", "tripolar"]
+# broadcasting. The rest are curvilinear: lat/lon vary along both horizontal dims and
+# cannot be rebuilt by broadcasting, so the real 2D coordinates must be carried with
+# the data.
+#
+#   "tripolar" is OM4's native grid, which moves the northern singularity onto two
+#     poles over land so the Arctic is not a hole in the model.
+#   "llc" is MITgcm's lat-lon-cap: 13 faces, regular within each face but not across
+#     them. See https://gmd.copernicus.org/articles/16/7143/2023/ section 2.2.
+#
+# Downstream code depends on the rectilinear/curvilinear split rather than on which
+# curvilinear grid it is, so branch with `is_rectilinear` and not on the name.
+GridType = Literal["gaussian", "tripolar", "llc"]
 PrognosticVarNames = list[str]
 BoundaryVarNames = list[str]
+
+
+def is_rectilinear(grid_type: GridType) -> bool:
+    """Whether 2D lat/lon can be rebuilt from the 1D axes."""
+    return grid_type == "gaussian"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -493,9 +511,7 @@ def build_llc_layout(
             },
         },
         ocean_heat_temperature_var="Theta",
-        # LLC (lat-lon-cap) is curvilinear, so its 2D geometry can't be broadcast
-        # from 1D axes -- same broadcast-unsafe class as the tripolar grid.
-        grid_type="tripolar",
+        grid_type="llc",
     )
 
 

@@ -26,13 +26,13 @@ class MapAggregator(ValidateSubAggregator):
     }
 
     def __init__(
-        self, metadata: dict[str, dict[str, str]] | None = None, hist: int = 0
+        self, metadata: dict[str, dict[str, str]] | None = None, output_steps: int = 1
     ):
         """
         Args:
             metadata: Mapping of variable names their metadata that will
                 used in generating logged image captions.
-            hist: Number of history steps to include in the snapshot.
+            output_steps: Number of raw output timesteps.
         """
         if metadata is None:
             metadata = {}
@@ -41,7 +41,7 @@ class MapAggregator(ValidateSubAggregator):
         self._n_batches = 0
         self._target_data: dict[str, torch.Tensor] = {}
         self._gen_data: dict[str, torch.Tensor] = {}
-        self.hist = hist
+        self.output_steps = output_steps
 
     @torch.no_grad()
     def record_batch(
@@ -76,7 +76,7 @@ class MapAggregator(ValidateSubAggregator):
             label: Label to prepend to all log keys.
         """
         time_dim = 0
-        target_time = self.hist  # Use latest time step
+        target_time = self.output_steps - 1
         image_logs = {}
         render_images = is_main_process()
         sorted_names = sorted(list(self._gen_data.keys()))

@@ -102,7 +102,6 @@ def test_data_config_defaults_to_cpu_loading():
 
     assert isinstance(cfg.loading, CpuDataLoadingConfig)
     assert cfg.loading.num_workers == 4
-    assert cfg.loading.num_pytorch_workers() == 4
     assert isinstance(cfg.sources[0], Om4DataSourceConfig)
 
 
@@ -120,8 +119,12 @@ def test_data_config_accepts_rust_loading():
     assert cfg.loading.prefetch_batches == 3
     assert cfg.loading.max_concurrent_reads == 12
     assert cfg.loading.prefetch_to_device is False
-    assert cfg.loading.num_pytorch_workers() == 0
-    assert cfg.loading.persistent_pytorch_workers() is False
+
+
+@pytest.mark.parametrize("field", ["pin_mem", "concurrent_compute"])
+def test_rust_loading_rejects_pytorch_options(field):
+    with pytest.raises(ValidationError, match=field):
+        RustDataLoadingConfig.model_validate({field: True})
 
 
 @pytest.mark.parametrize("field", ["prefetch_batches", "max_concurrent_reads"])
@@ -137,6 +140,48 @@ def test_rust_loading_rejects_non_local_locations_before_open(tmp_path):
 
     with pytest.raises(ValueError, match="requires local data"):
         cfg.build(LocalLocation(path=tmp_path))
+
+
+def test_data_config_output_steps_default_and_override():
+    default = DataConfig(sources=[om4_source_config()])
+    legacy = DataConfig(sources=[om4_source_config()], hist=1)
+    explicit = DataConfig(sources=[om4_source_config()], input_steps=2)
+    one_step = DataConfig(sources=[om4_source_config()], input_steps=2, output_steps=1)
+
+    assert default.input_steps == legacy.input_steps == explicit.input_steps == 2
+    assert default.output_steps == legacy.output_steps == explicit.output_steps == 2
+    assert legacy.hist is None
+    assert one_step.output_steps == 1
+
+
+@pytest.mark.parametrize(("hist", "input_steps"), [(0, 1), (1, 2), (3, 4)])
+def test_data_config_translates_legacy_hist(hist, input_steps):
+    legacy = DataConfig(sources=[om4_source_config()], hist=hist)
+
+    assert legacy.hist is None
+    assert legacy.input_steps == input_steps
+    assert legacy.output_steps == input_steps
+    assert (
+        DataConfig.model_validate(legacy.model_dump()).model_dump()
+        == legacy.model_dump()
+    )
+
+
+def test_data_config_rejects_hist_with_input_steps():
+    with pytest.raises(ValidationError, match="mutually exclusive"):
+        DataConfig(sources=[om4_source_config()], hist=1, input_steps=2)
+
+
+def test_data_config_preserves_explicit_output_steps_with_legacy_hist():
+    legacy = DataConfig(sources=[om4_source_config()], hist=2, output_steps=1)
+
+    assert legacy.input_steps == 3
+    assert legacy.output_steps == 1
+
+
+def test_data_config_rejects_more_outputs_than_inputs():
+    with pytest.raises(ValidationError, match="cannot exceed"):
+        DataConfig(sources=[om4_source_config()], input_steps=2, output_steps=3)
 
 
 def test_om4_dataset_config_retains_selected_variable_keys():
@@ -414,10 +459,9 @@ def test_data_config_accepts_gpu_loading():
     assert isinstance(cfg.loading, GpuDataLoadingConfig)
     assert cfg.loading.kvikio_task_size == 32 * 1024 * 1024
     assert cfg.loading.kvikio_num_threads == 4
-    assert cfg.loading.num_pytorch_workers() == 0
 
 
-def test_train_config_allows_cli_override_for_cpu_num_workers(tmp_path):
+def test_train_config_allows_cli_override_for_cpu_loading_options(tmp_path):
     config_path = TEST_CONFIGS_DIR / "train_default.yaml"
 
     cfg = TrainConfig.from_yaml_and_cli(
@@ -429,11 +473,17 @@ def test_train_config_allows_cli_override_for_cpu_num_workers(tmp_path):
             str(tmp_path / "outputs"),
             "--data.loading.num_workers",
             "2",
+            "--data.loading.pin_mem",
+            "false",
+            "--data.loading.concurrent_compute",
+            "true",
         ]
     )
 
     assert isinstance(cfg.data.loading, CpuDataLoadingConfig)
     assert cfg.data.loading.num_workers == 2
+    assert cfg.data.loading.pin_mem is False
+    assert cfg.data.loading.concurrent_compute is True
 
 
 def test_get_pydantic_models_collects_loading_variants():
@@ -462,3 +512,43 @@ def test_shipped_eval_presets_load(preset: pathlib.Path):
     only a real eval job would notice.
     """
     EvalConfig.from_yaml_and_cli([str(preset)])
+
+
+@pytest.mark.parametrize(
+    "preset",
+    sorted(
+        (pathlib.Path(__file__).parents[1] / "src/samudra/configs").glob("*/train.yaml")
+    ),
+    ids=lambda path: path.parent.name,
+)
+def test_shipped_train_presets_load(preset: pathlib.Path):
+    TrainConfig.from_yaml_and_cli([str(preset)])
+
+
+def test_rust_loading_rejects_derived_channels_before_opening_data(
+    tmp_path, monkeypatch
+):
+    source = om4_source_config(boundary_vars_key="tau_hfds_hfds_anom")
+    cfg = DataConfig(sources=[source], loading=RustDataLoadingConfig())
+
+    def unexpected_open(*args, **kwargs):
+        pytest.fail("Unsupported native config opened data before validation")
+
+    monkeypatch.setattr(LocalLocation, "open", unexpected_open)
+    with pytest.raises(ValueError, match="does not yet support derived boundary"):
+        cfg.build(LocalLocation(path=tmp_path))
+
+
+def test_rollout_checkpoint_selection_requires_supported_validation():
+    with open(TEST_CONFIGS_DIR / DEFAULT_CONFIG) as f:
+        data = yaml.safe_load(f)
+    data["checkpoint_validation_metric"] = "rollout_rmse"
+    with pytest.raises(ValidationError, match="requires rollout_validation"):
+        TrainConfig.model_validate(data)
+    data["rollout_validation"] = {"days": [360]}
+    assert (
+        TrainConfig.model_validate(data).checkpoint_validation_metric == "rollout_rmse"
+    )
+    data["data"]["sources"] *= 2
+    with pytest.raises(ValidationError, match="requires a single data source"):
+        TrainConfig.model_validate(data)

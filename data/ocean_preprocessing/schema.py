@@ -6,8 +6,8 @@ from xarrera import CoordsSchema, DataArraySchema, DatasetSchema  # noqa: E402
 
 OM4_3D_VARS = ("so", "thetao", "uo", "vo")
 OM4_REQUIRED_2D_VARS = ("hfds", "tauuo", "tauvo", "zos")
-# Keep this policy explicit until the matching averaged-run wfo source in #838
-# is identified. Snapshot sources currently provide wfo; averaged sources do not.
+# Legacy averaged OM4 and CM4 datasets do not contain freshwater flux. Keep wfo
+# optional in shared validators; the OM4 publication CLI enforces it separately.
 OM4_OPTIONAL_2D_VARS = ("wfo",)
 
 

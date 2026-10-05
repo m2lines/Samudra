@@ -12,12 +12,18 @@ import xarray as xr
 from samudra.config import Om4DataSourceConfig
 from samudra.constants import build_om4_layout
 from samudra.utils.data import BatchPreprocessor, CanonicalSource
+from samudra.utils.output import ModelInferenceOutput
 from samudra.utils.writer import ZarrWriter
 from tests.conftest import TEST_FULL_DATA_LAYOUT
 
 # write() never touches preprocessing (record_batch does), so these tests drive
 # the writer directly with a buffer and omit a real preprocessor.
 _NO_PREPROCESSOR = cast(BatchPreprocessor, None)
+
+
+class _IdentityNormalize:
+    def unnormalize_tensor_prognostic(self, data, fill_value):
+        return data
 
 
 def _source_coords(ny, nx):
@@ -54,7 +60,7 @@ def test_writer_output_is_analysis_ready(tmp_path):
     writer = ZarrWriter(
         tmp_path,
         coords=coords,
-        hist=0,
+        output_steps=1,
         model_path="dummy.ckpt",
         time_chunk_size=4,
         preprocessor=_NO_PREPROCESSOR,
@@ -101,6 +107,31 @@ def test_writer_output_is_analysis_ready(tmp_path):
     np.testing.assert_allclose(out["lon"].isel(y=0).values, coords["lon"].values)
 
 
+def test_writer_flattens_configured_output_steps(tmp_path):
+    data_layout = TEST_FULL_DATA_LAYOUT
+    n_channels = len(data_layout.prognostic_var_names)
+    writer = ZarrWriter(
+        tmp_path,
+        coords=_source_coords(2, 3),
+        output_steps=1,
+        model_path="dummy.ckpt",
+        time_chunk_size=4,
+        preprocessor=cast(BatchPreprocessor, _IdentityNormalize()),
+        data_layout=data_layout,
+    )
+    prediction = torch.zeros(3, n_channels, 2, 3)
+    output = ModelInferenceOutput(
+        prediction=prediction,
+        target=prediction.clone(),
+        time=xr.DataArray(np.arange(3), dims="time"),
+    )
+
+    writer.record_batch(output)
+
+    assert writer.buffer is not None
+    assert writer.buffer.shape == (3, n_channels, 2, 3)
+
+
 def test_writer_prefers_real_2d_lat_lon(tmp_path):
     """When the source carries real 2D lat/lon, the writer uses them verbatim.
 
@@ -125,7 +156,7 @@ def test_writer_prefers_real_2d_lat_lon(tmp_path):
     writer = ZarrWriter(
         tmp_path,
         coords=coords,
-        hist=0,
+        output_steps=1,
         model_path="dummy.ckpt",
         time_chunk_size=4,
         preprocessor=_NO_PREPROCESSOR,
@@ -189,7 +220,7 @@ def test_tripolar_om4_canonicalization_preserves_writer_geometry(tmp_path):
     writer = ZarrWriter(
         tmp_path,
         coords=source.coordinates(),
-        hist=0,
+        output_steps=1,
         model_path="dummy.ckpt",
         time_chunk_size=4,
         preprocessor=_NO_PREPROCESSOR,
@@ -214,7 +245,7 @@ def test_writer_appends_along_time(tmp_path):
     writer = ZarrWriter(
         tmp_path,
         coords=coords,
-        hist=0,
+        output_steps=1,
         model_path="dummy.ckpt",
         time_chunk_size=4,
         preprocessor=_NO_PREPROCESSOR,
@@ -263,7 +294,7 @@ def test_writer_shallow_spec_slices_depth_metadata(tmp_path):
     writer = ZarrWriter(
         tmp_path,
         coords=coords,
-        hist=0,
+        output_steps=1,
         model_path="dummy.ckpt",
         time_chunk_size=4,
         preprocessor=_NO_PREPROCESSOR,
@@ -306,7 +337,7 @@ def test_writer_curvilinear_grid_without_real_coords_raises(tmp_path):
     writer = ZarrWriter(
         tmp_path,
         coords=coords,
-        hist=0,
+        output_steps=1,
         model_path="dummy.ckpt",
         time_chunk_size=4,
         preprocessor=_NO_PREPROCESSOR,

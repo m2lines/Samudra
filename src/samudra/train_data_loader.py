@@ -2,60 +2,52 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Construction boundary for model-facing training batch loaders."""
+"""PyTorch batch construction shared by the CPU and GPU loading configs."""
 
-from multiprocessing.context import BaseContext
+import multiprocessing
 
 import torch
 from torch.utils.data import ConcatDataset, DataLoader
 
-from samudra.config import BaseDataLoadingConfig, NativeDataLoadingConfig
-from samudra.datasets import BatchLoader, HostBatch, TorchTrainDataset, TrainBatchLoader
-from samudra.rust_data import (
-    BatchSampler,
-    CudaPrefetch,
-    HostPrefetch,
-    RustTrainDataLoader,
+from samudra.datasets import (
+    HostBatch,
+    TorchBatchLoader,
+    TorchTrainDataset,
+    TrainBatchLoader,
+    TrainingWindows,
 )
+from samudra.utils.samplers import BatchSchedule
 from samudra.utils.train import collate_host_batches
 
 
-def build_train_batch_loader(
-    datasets: list[TorchTrainDataset],
-    batch_sampler: BatchSampler,
+def build_torch_batch_loader(
+    windows: list[TrainingWindows],
+    batch_sampler: BatchSchedule,
     device: torch.device,
-    loading: BaseDataLoadingConfig,
     *,
+    num_workers: int,
+    persistent_workers: bool,
     pin_memory: bool,
-    multiprocessing_context: BaseContext | None,
     worker_seed: int,
+    concurrent_compute: bool,
 ) -> TrainBatchLoader:
-    """Build one loader while keeping backend policy out of Trainer."""
-    if isinstance(loading, NativeDataLoadingConfig):
-        prefetch = (
-            CudaPrefetch()
-            if device.type == "cuda" and loading.prefetch_to_device
-            else HostPrefetch(pin_memory=pin_memory)
-        )
-        return RustTrainDataLoader(
-            [dataset.shard for dataset in datasets],
-            batch_sampler,
-            device,
-            prefetch_batches=loading.prefetch_batches,
-            prefetch=prefetch,
-        )
+    """Build a PyTorch loader from explicit settings supplied by its config."""
+    datasets = [
+        TorchTrainDataset(window, concurrent_compute_=concurrent_compute)
+        for window in windows
+    ]
 
     host_data: torch.utils.data.Dataset[HostBatch] = ConcatDataset(datasets)
     dataloader = DataLoader(
         host_data,
         batch_sampler=batch_sampler,
-        num_workers=loading.num_pytorch_workers(),
-        persistent_workers=(
-            loading.persistent_pytorch_workers() and loading.num_pytorch_workers() > 0
-        ),
-        pin_memory=pin_memory,
+        num_workers=num_workers,
+        persistent_workers=persistent_workers and num_workers > 0,
+        pin_memory=pin_memory and device.type == "cuda",
         collate_fn=collate_host_batches,
-        multiprocessing_context=multiprocessing_context,
+        multiprocessing_context=(
+            multiprocessing.get_context("spawn") if num_workers > 0 else None
+        ),
         generator=torch.Generator().manual_seed(worker_seed),
     )
-    return BatchLoader(dataloader, datasets, device)
+    return TorchBatchLoader(dataloader, datasets, device)

@@ -5,6 +5,7 @@
 import json
 import logging
 import tempfile
+import weakref
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, cast
@@ -19,17 +20,20 @@ from samudra.config import (
     SearchRunConfig,
     TrainConfig,
 )
-from samudra.datasets import BatchLoader
+from samudra.datasets import TorchBatchLoader
 from samudra.models.base import BaseModel
 from samudra.train import (
     Trainer,
+    run_training,
     should_log_validation_images,
     should_run_on_epoch_freq,
 )
 from samudra.utils.ctx import BatchGrid
+from samudra.utils.ema import EMATracker
 from samudra.utils.logging import handle_logging
 from samudra.utils.loss import DynamicLoss
 from samudra.utils.multiton import MultitonScope
+from samudra.utils.train_progress import TrainProgress
 from tests.conftest import DEFAULT_CONFIG, SAMUDRA_MULTI_CONFIG, TrainPair
 
 
@@ -54,7 +58,8 @@ def test_rollout_validation_passes_source_to_inference_dataset(monkeypatch):
     trainer.model = SimpleNamespace(eval=lambda: None)
     trainer.prognostic_var_names = []
     trainer.boundary_var_names = []
-    trainer.hist = 0
+    trainer.input_steps = 1
+    trainer.output_steps = 1
     trainer.normalize_before_mask = True
     trainer.masked_fill_value = 0.0
 
@@ -79,6 +84,43 @@ def test_handle_logging_replaces_handlers_between_local_jobs(tmp_path):
     assert "first candidate" in (first / "experiment.log").read_text()
     assert "second candidate" not in (first / "experiment.log").read_text()
     assert (second / "experiment.log").read_text().count("second candidate") == 1
+
+
+def test_run_training_drops_trainer_before_post_train_sweep(monkeypatch):
+    events = []
+    trainer_ref = None
+
+    class Sweep:
+        def run(self):
+            assert trainer_ref is not None and trainer_ref() is None
+            events.append("sweep")
+
+    class FakeTrainer:
+        distributed = object()
+        post_train_sweep = Sweep()
+
+        def run(self):
+            events.append("train")
+
+    def build_trainer(_cfg):
+        nonlocal trainer_ref
+        trainer = FakeTrainer()
+        trainer_ref = weakref.ref(trainer)
+        return trainer
+
+    monkeypatch.setattr("samudra.train.Trainer", build_trainer)
+    monkeypatch.setattr("samudra.train.is_main_process", lambda: True)
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
+    monkeypatch.setattr(torch.distributed, "barrier", lambda: events.append("barrier"))
+    monkeypatch.setattr(
+        torch.distributed,
+        "destroy_process_group",
+        lambda: events.append("destroy"),
+    )
+
+    run_training(TrainConfig.model_construct())
+
+    assert events == ["train", "barrier", "destroy", "sweep"]
 
 
 @pytest.mark.manual
@@ -369,10 +411,9 @@ def test_checkpoint_inference(trainer_pair: TrainPair, caplog):
     caplog.set_level(logging.INFO)
     _, trainer = trainer_pair
 
-    hist = trainer.hist
     assert trainer.inference_source is not None
     resolution = trainer.inference_source.resolution
-    wet = trainer.inference_source.masks.prognostic_with_hist(hist)
+    wet = trainer.inference_source.masks.prognostic_for_steps(trainer.output_steps)
     ctx = BatchGrid(wet, resolution, resolution).to(trainer.device)
     data = trainer.inference_loader.dataset[0]
     inference_dataset, _num_steps = data
@@ -405,6 +446,107 @@ def test_checkpoint_inference(trainer_pair: TrainPair, caplog):
     assert trainer.train_progress.target_values_seen == 48
     assert trainer.train_progress.optimizer_steps == 3
     assert trainer.train_progress.gpu_seconds == 12.5
+
+
+@pytest.fixture
+def checkpoint_trainer():
+    trainer = cast(Any, object.__new__(Trainer))
+    trainer.model = torch.nn.Sequential(torch.nn.Linear(2, 2), torch.nn.BatchNorm1d(2))
+    trainer.model[0].bias.requires_grad_(False)
+    with torch.no_grad():
+        for parameter in trainer.model.parameters():
+            parameter.fill_(2.0)
+    trainer._ema = EMATracker(trainer.model, decay=0.5, faster_decay_at_start=False)
+    with torch.no_grad():
+        for parameter in trainer.model.parameters():
+            parameter.fill_(6.0)
+    trainer._ema(cast(BaseModel, trainer.model))
+    trainer.optimizer = torch.optim.SGD(trainer.model.parameters(), lr=0.1)
+    trainer.checkpoint_validation_metric = "one_step_loss"
+    trainer.best_val_loss = 1.0
+    trainer.best_inf_loss = 2.0
+    trainer.num_batches_seen = 1
+    trainer.train_progress = TrainProgress()
+    trainer.wandb_id = None
+    trainer.wandb_name = None
+    trainer.loss_fn = torch.nn.MSELoss()
+    trainer.scheduler = None
+    return trainer
+
+
+@pytest.mark.parametrize("for_inference", [False, True])
+def test_checkpoint_saves_raw_or_ema_weights(
+    tmp_path, for_inference, checkpoint_trainer, monkeypatch
+):
+    trainer = checkpoint_trainer
+    raw = {name: value.clone() for name, value in trainer.model.state_dict().items()}
+    ema = {name: value.clone() for name, value in trainer._ema._ema_params.items()}
+    original_save = torch.save
+
+    def save_without_model_copy(checkpoint, path):
+        # Serialization must use the live model storage, avoiding a GPU-sized copy.
+        for name, value in trainer.model.state_dict().items():
+            assert checkpoint["model"][name].data_ptr() == value.data_ptr()
+        original_save(checkpoint, path)
+
+    monkeypatch.setattr(torch, "save", save_without_model_copy)
+    checkpoint_path = tmp_path / "checkpoint.pt"
+    trainer.save_checkpoint(1, checkpoint_path, for_inference=for_inference)
+    checkpoint = torch.load(checkpoint_path, weights_only=True)
+
+    # Check serialized weights, including frozen parameters and BatchNorm buffers.
+    trainable = {
+        name
+        for name, parameter in trainer.model.named_parameters()
+        if parameter.requires_grad
+    }
+    assert checkpoint["model"].keys() == raw.keys()
+    for name, value in checkpoint["model"].items():
+        expected = (
+            torch.full_like(raw[name], 4.0)
+            if for_inference and name in trainable
+            else raw[name]
+        )
+        torch.testing.assert_close(value, expected, rtol=0, atol=0)
+    assert checkpoint["model"]._metadata == getattr(
+        trainer.model.state_dict(), "_metadata"
+    )
+    for name, value in trainer.model.state_dict().items():
+        torch.testing.assert_close(value, raw[name], rtol=0, atol=0)
+    for name, value in trainer._ema._ema_params.items():
+        torch.testing.assert_close(value, ema[name], rtol=0, atol=0)
+    assert ("ema_params" in checkpoint["ema"]) == (not for_inference)
+    if not for_inference:
+        for name, value in checkpoint["ema"]["ema_params"].items():
+            torch.testing.assert_close(value, ema[name], rtol=0, atol=0)
+
+
+def test_checkpoint_save_failure_restores_raw_weights(
+    tmp_path, checkpoint_trainer, monkeypatch
+):
+    trainer = checkpoint_trainer
+    raw = {name: value.clone() for name, value in trainer.model.state_dict().items()}
+    ema = {name: value.clone() for name, value in trainer._ema._ema_params.items()}
+    checkpoint_path = tmp_path / "checkpoint.pt"
+    checkpoint_path.write_bytes(b"previous checkpoint")
+
+    def fail_save(checkpoint, path):
+        # The exception occurs while averaged weights are installed in the model.
+        torch.testing.assert_close(
+            trainer.model[0].weight, torch.full((2, 2), 4.0), rtol=0, atol=0
+        )
+        raise OSError("simulated checkpoint write failure")
+
+    monkeypatch.setattr(torch, "save", fail_save)
+    with pytest.raises(OSError, match="simulated checkpoint write failure"):
+        trainer.save_checkpoint(1, checkpoint_path, for_inference=True)
+
+    for name, value in trainer.model.state_dict().items():
+        torch.testing.assert_close(value, raw[name], rtol=0, atol=0)
+    for name, value in trainer._ema._ema_params.items():
+        torch.testing.assert_close(value, ema[name], rtol=0, atol=0)
+    assert trainer._ema._stored_params == []
+    assert checkpoint_path.read_bytes() == b"previous checkpoint"
 
 
 def test_should_log_validation_images_every_n_epochs():
@@ -484,8 +626,8 @@ def test_multiscale_training_validates_primary_source_and_logs_reduced_metrics(
         trainer = Trainer(train_config)
         trainer.init_data_loaders(cur_step=train_config.steps[0])
 
-        assert isinstance(trainer.train_loader, BatchLoader)
-        assert isinstance(trainer.val_loader, BatchLoader)
+        assert isinstance(trainer.train_loader, TorchBatchLoader)
+        assert isinstance(trainer.val_loader, TorchBatchLoader)
         assert len(trainer.train_loader._datasets) == 2
         assert len(trainer.val_loader._datasets) == 1
         val_dataset = next(iter(trainer.val_loader._datasets.values()))
@@ -493,7 +635,7 @@ def test_multiscale_training_validates_primary_source_and_logs_reduced_metrics(
 
         class PerfectModel(BaseModel):
             def __init__(self):
-                super().__init__(0, 0, 0, False, 1, "constant", 0)
+                super().__init__(0, 0, 1, False, 1, "constant", 0)
 
             def forward(self, batch, loss_fn=None):
                 return [batch.get_label(0)]
@@ -508,6 +650,46 @@ def test_multiscale_training_validates_primary_source_and_logs_reduced_metrics(
 @pytest.mark.parametrize("backend", ["cpu"], indirect=True)
 @pytest.mark.parametrize(
     "data_source,config_name",
+    [("mock-om4", SAMUDRA_MULTI_CONFIG)],
+    indirect=True,
+)
+def test_trainer_supports_two_input_one_output_batches(train_config):
+    train_config.data.input_steps = 2
+    train_config.data.output_steps = 1
+    train_config.data.loading.num_workers = 0
+    train_config.model.perceiver_implementation = "naive"
+
+    with MultitonScope():
+        trainer = Trainer(train_config)
+        trainer.init_data_loaders(cur_step=2)
+        batch = next(iter(trainer.train_loader))
+        prognostic, _, label = batch[0]
+
+        assert prognostic.shape[1] == 2 * trainer.N_prog
+        assert label.shape[1] == trainer.N_prog
+        assert trainer.num_out == trainer.N_prog
+
+        assert trainer.input_steps == trainer.model.input_steps == 2
+        assert trainer.output_steps == 1
+        assert trainer.model.out_channels == label.shape[1]
+
+        class PerfectOneStepModel(BaseModel):
+            def __init__(self):
+                super().__init__(0, 0, 1, False, 1, "constant", 0)
+
+            def forward(self, batch, loss_fn=None):
+                return [batch.get_label(0)]
+
+        trainer.model = PerfectOneStepModel()
+        trainer.test_using_ema = False
+        validation_logs = trainer.validate_one_epoch(epoch=2)
+
+    assert any(key.startswith("val/reduced/weighted_rmse/") for key in validation_logs)
+
+
+@pytest.mark.parametrize("backend", ["cpu"], indirect=True)
+@pytest.mark.parametrize(
+    "data_source,config_name",
     [("mock-om4", "train_default.yaml")],
     indirect=True,
 )
@@ -516,10 +698,12 @@ def test_data_loaders_enable_persistent_workers_on_positive_num_workers(
 ):
     _, trainer = trainer_pair
 
-    assert trainer.mp_context is not None
-    assert trainer.mp_context.get_start_method() == "spawn"
-    assert isinstance(trainer.train_loader, BatchLoader)
-    assert isinstance(trainer.val_loader, BatchLoader)
+    assert isinstance(trainer.train_loader, TorchBatchLoader)
+    assert isinstance(trainer.val_loader, TorchBatchLoader)
+    for loader in (trainer.train_loader, trainer.val_loader):
+        context = loader._host_loader.multiprocessing_context
+        assert context is not None
+        assert context.get_start_method() == "spawn"
     assert trainer.train_loader._host_loader.persistent_workers is True
     assert trainer.val_loader._host_loader.persistent_workers is True
     assert trainer.inference_source is not None
@@ -542,8 +726,138 @@ def test_data_loaders_disable_persistent_workers_when_num_workers_is_zero(
         trainer = Trainer(train_config)
         trainer.init_data_loaders(cur_step=train_config.steps[0])
 
-    assert trainer.mp_context is None
-    assert isinstance(trainer.train_loader, BatchLoader)
-    assert isinstance(trainer.val_loader, BatchLoader)
+    assert isinstance(trainer.train_loader, TorchBatchLoader)
+    assert isinstance(trainer.val_loader, TorchBatchLoader)
+    assert trainer.train_loader._host_loader.multiprocessing_context is None
+    assert trainer.val_loader._host_loader.multiprocessing_context is None
     assert trainer.train_loader._host_loader.persistent_workers is False
     assert trainer.val_loader._host_loader.persistent_workers is False
+
+
+def test_rollout_checkpoint_selection_and_skipped_epochs():
+    import contextlib
+
+    from samudra.config import RolloutValidationConfig
+
+    trainer = cast(Any, object.__new__(Trainer))
+    trainer.checkpoint_validation_metric = "rollout_rmse"
+    trainer.rollout_validation = RolloutValidationConfig(days=[360, 90], frequency=2)
+    trainer.best_val_loss = float("inf")
+    trainer.best_inf_loss = float("inf")
+    trainer.save_freq = 100
+    trainer._test_context = contextlib.nullcontext
+    trainer.ckpt_paths = SimpleNamespace(
+        best_validation_checkpoint_path="best",
+        latest_checkpoint_path="latest",
+        ema_checkpoint_path="ema",
+    )
+    saved = []
+    trainer.save_checkpoint = lambda epoch, path, **kwargs: saved.append((epoch, path))
+    for epoch, one_step, rollout in [
+        (1, 1.0, 4.0),
+        (2, 0.1, None),
+        (3, 2.0, 3.0),
+        (5, 0.01, 5.0),
+        (7, 0.0, float("nan")),
+    ]:
+        stats = (
+            {}
+            if rollout is None
+            else {
+                "rollout_val/360d/normalized_rmse/channel_mean": rollout,
+                "rollout_val/90d/normalized_rmse/channel_mean": 0.01,
+            }
+        )
+        score = trainer.validation_checkpoint_score(
+            epoch, {"val/mean/loss": one_step}, stats
+        )
+        trainer.save_all_checkpoints(epoch, score, None)
+    assert [(epoch, path) for epoch, path in saved if path == "best"] == [
+        (1, "best"),
+        (3, "best"),
+    ]
+    assert trainer.best_val_loss == 3.0
+    assert len([path for _, path in saved if path == "latest"]) == 5
+    with pytest.raises(KeyError):
+        trainer.validation_checkpoint_score(9, {"val/mean/loss": 0.0}, {})
+    trainer.checkpoint_validation_metric = "one_step_loss"
+    assert trainer.validation_checkpoint_score(9, {"val/mean/loss": 0.5}, {}) == 0.5
+
+
+@pytest.mark.parametrize(
+    "saved_identity,expected",
+    [
+        (None, float("inf")),
+        ({"metric": "rollout_rmse", "horizon": {"days": 90}}, float("inf")),
+        ({"metric": "rollout_rmse", "horizon": {"days": 360}}, 2.5),
+    ],
+)
+def test_resume_resets_incompatible_validation_score(
+    monkeypatch, saved_identity, expected
+):
+    from samudra.config import RolloutValidationConfig
+
+    trainer = cast(Any, object.__new__(Trainer))
+    trainer.checkpoint_validation_metric = "rollout_rmse"
+    trainer.rollout_validation = RolloutValidationConfig(days=[360])
+    trainer.device = "cpu"
+    trainer.model = torch.nn.Linear(1, 1)
+    trainer.optimizer = torch.optim.SGD(trainer.model.parameters(), lr=0.1)
+    trainer.scheduler = None
+    trainer.loss_fn = object()
+    checkpoint = {
+        "model": trainer.model.state_dict(),
+        "optimizer": trainer.optimizer.state_dict(),
+        "epoch": 2,
+        "ema": {},
+        "best_val_loss": 2.5,
+        "best_inf_loss": 3.0,
+    }
+    if saved_identity is not None:
+        checkpoint["validation_checkpoint_identity"] = saved_identity
+    monkeypatch.setattr(torch, "load", lambda *args, **kwargs: checkpoint)
+    monkeypatch.setattr(EMATracker, "from_state", lambda *args, **kwargs: None)
+    trainer.load_checkpoint("unused.pt")
+    assert trainer.best_val_loss == expected
+    assert trainer.start_epoch == 3
+    trainer.checkpoint_validation_metric = "one_step_loss"
+    checkpoint.pop("validation_checkpoint_identity", None)
+    trainer.load_checkpoint("unused.pt")
+    assert trainer.best_val_loss == 2.5
+
+
+@pytest.mark.parametrize("backend", ["cpu"], indirect=True)
+@pytest.mark.parametrize(
+    "data_source,config_name",
+    [("mock-om4", "train_default_2step.yaml")],
+    indirect=True,
+)
+def test_training_selects_rollout_checkpoint(train_config, monkeypatch):
+    from samudra.config import RolloutValidationConfig
+
+    train_config.epochs = 1
+    train_config.inference_epochs = []
+    train_config.rollout_validation = RolloutValidationConfig(model_steps=3)
+    train_config.checkpoint_validation_metric = "rollout_rmse"
+    with MultitonScope():
+        trainer = Trainer(train_config)
+        recorded = {}
+        validate = trainer.validate_rollout_one_epoch
+
+        def capture_rollout(epoch):
+            stats = validate(epoch)
+            recorded.update(stats)
+            return stats
+
+        monkeypatch.setattr(trainer, "validate_rollout_one_epoch", capture_rollout)
+        trainer.run()
+        score = recorded["rollout_val/normalized_rmse/channel_mean"]
+        assert trainer.best_val_loss == pytest.approx(score)
+        checkpoint = torch.load(
+            trainer.ckpt_paths.best_validation_checkpoint_path, map_location="cpu"
+        )
+        assert checkpoint["best_val_loss"] == pytest.approx(score)
+        assert checkpoint["validation_checkpoint_identity"] == {
+            "metric": "rollout_rmse",
+            "horizon": {"model_steps": 3},
+        }

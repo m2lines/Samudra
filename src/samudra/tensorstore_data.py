@@ -12,7 +12,8 @@ from typing import Any
 import numpy as np
 import zarr  # type: ignore[import-untyped]
 
-from samudra.rust_data import Om4IoRuntime
+from samudra.constants import CanonicalPlanes
+from samudra.native_reader import Om4IoRuntime, PhysicalVariable
 
 
 class TensorStoreIoRuntime(Om4IoRuntime):
@@ -34,11 +35,8 @@ class TensorStoreIoRuntime(Om4IoRuntime):
             }
         )
 
-    def open_flat(self, path: Path, variables: list[str]) -> "TensorStoreOm4Reader":
-        return self.open_compact(path, [(name, None) for name in variables])
-
-    def open_compact(
-        self, path: Path, variables: list[tuple[str, int | None]]
+    def open(
+        self, path: Path, variables: Sequence[PhysicalVariable]
     ) -> "TensorStoreOm4Reader":
         return TensorStoreOm4Reader(path, variables, self._ts, self._context)
 
@@ -49,7 +47,7 @@ class TensorStoreOm4Reader:
     def __init__(
         self,
         path: Path,
-        variables: list[tuple[str, int | None]],
+        variables: Sequence[PhysicalVariable],
         ts: Any,
         context: Any,
     ) -> None:
@@ -59,7 +57,8 @@ class TensorStoreOm4Reader:
         self._views: dict[tuple[str, int | None], Any] = {}
         group = zarr.open_group(str(path), mode="r")
         arrays: dict[str, Any] = {}
-        for name, level in variables:
+        for variable in variables:
+            name, level = variable.name, variable.level
             metadata = group[name]
             if metadata.dtype != np.dtype("float32"):
                 raise ValueError(f"TensorStore OM4 requires float32 arrays: {name}")
@@ -120,10 +119,10 @@ class TensorStoreOm4Reader:
     def read_into(
         self,
         indices: list[int],
-        variables: Sequence[str | tuple[str, int | None]],
-        output: np.ndarray,
+        variables: Sequence[PhysicalVariable],
+        output: CanonicalPlanes,
     ) -> None:
-        selectors = [(v, None) if isinstance(v, str) else v for v in variables]
+        selectors = [(v.name, v.level) for v in variables]
         expected = (len(indices), len(selectors), *self.shape[1:])
         if output.shape != expected or output.dtype != np.float32:
             raise ValueError(f"Expected a float32 output buffer with shape {expected}")
@@ -132,6 +131,8 @@ class TensorStoreOm4Reader:
         if any(index < 0 or index >= self.shape[0] for index in indices):
             raise IndexError("OM4 time index out of range")
         views = [self._views[selector] for selector in selectors]
+        if not indices or not selectors:
+            return
         futures = []
         errors = []
         try:
@@ -142,14 +143,20 @@ class TensorStoreOm4Reader:
                     output[:, channel, :, :], context=self._context, copy=False
                 )
                 futures.append(target.write(view[indices, :, :]))
-        except Exception as error:
+        except BaseException as error:
             errors.append(error)
         # Drain every submitted read, including on failure, before the caller
         # can release the buffer lease and reuse its memory for another batch.
         for future in futures:
-            try:
-                future.result()
-            except Exception as error:
-                errors.append(error)
+            while True:
+                try:
+                    future.result()
+                    break
+                except BaseException as error:
+                    errors.append(error)
+                    # An interrupted wait can leave the copy running. Keep
+                    # waiting until the buffer is safe to release.
+                    if future.done():
+                        break
         if errors:
-            raise ExceptionGroup("TensorStore OM4 reads failed", errors)
+            raise BaseExceptionGroup("TensorStore OM4 reads failed", errors)

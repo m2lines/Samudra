@@ -38,8 +38,14 @@ class ModelInferenceOutput:
         prediction: torch.Tensor,
         target: torch.Tensor,
         time: xr.DataArray,
+        final_prognostic: torch.Tensor | None = None,
     ):
         assert prediction.shape == target.shape
         self.prediction = prediction
         self.target = target
         self.time = time
+        self.final_prognostic = (
+            prediction[-1].unsqueeze(0)
+            if final_prognostic is None
+            else final_prognostic
+        )

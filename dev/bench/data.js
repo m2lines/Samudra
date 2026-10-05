@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790793536174,
+  "lastUpdate": 1791222314342,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -12543,6 +12543,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.26562635197933354",
             "extra": "mean: 54.593166836799995 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse+bot@openathena.ai",
+            "name": "oa-jder-bot",
+            "username": "oa-jder-bot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "8c16dca0f16344fdfe89ffac2b58c9b76f529511",
+          "message": "Skip PR CI for experiment branches and labels (#906)\n\nExperimental result PRs currently run the full CI suite each time\nreports or artifacts are updated. Skip automatic PR CI when the head\nbranch starts with `experiment/` **or** the PR has the `experiment`\nlabel.\n\nThe guards cover every PR-triggered workflow, including AWS runner\nprovisioning and the GPU/container status jobs that use `always()`.\nRemoving the label starts CI again on a normal branch. Main pushes,\nmerge queues, scheduled releases, and explicit manual runs retain their\ncurrent behavior. Adding a label does not cancel a run that has already\nstarted.\n\nDocument the branch, label, draft-PR, and results-record conventions in\n`AGENTS.md`, along with the process for moving experimental changes into\na normal merge candidate.\n\nValidation:\n\n- `actionlint` 1.7.12 passed for all workflows.\n- 435 assertions using GitHub's `@actions/expressions` evaluator passed\nacross all seven PR workflows. Cases cover branch prefixes, labels,\nforks, label removal, dependent/status jobs, ordinary PRs, main pushes,\nmerge groups, schedules, reusable calls, and manual runs.\n- Repository pre-commit hooks passed, including YAML, whitespace, large\nfiles, schema validation, secrets, and REUSE.\n- `git diff --check` passed.\n\n---------\n\nCo-authored-by: fomo-bot <266121006+fomo-bot@users.noreply.github.com>",
+          "timestamp": "2026-10-05T17:04:13Z",
+          "tree_id": "a78d0eb225c58c4eff0e48ab6bec6ac1b1527526",
+          "url": "https://github.com/m2lines/Samudra/commit/8c16dca0f16344fdfe89ffac2b58c9b76f529511"
+        },
+        "date": 1791222312594,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.9359261025604182,
+            "unit": "iter/sec",
+            "range": "stddev: 0.004493098625271097",
+            "extra": "mean: 1.0684604235999984 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.06829109011876847,
+            "unit": "iter/sec",
+            "range": "stddev: 0.2770810784723835",
+            "extra": "mean: 14.643198669999993 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.01827065339478236,
+            "unit": "iter/sec",
+            "range": "stddev: 0.207746678362976",
+            "extra": "mean: 54.732580077600005 sec\nrounds: 5"
           }
         ]
       }

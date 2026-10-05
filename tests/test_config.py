@@ -537,3 +537,18 @@ def test_rust_loading_rejects_derived_channels_before_opening_data(
     monkeypatch.setattr(LocalLocation, "open", unexpected_open)
     with pytest.raises(ValueError, match="does not yet support derived boundary"):
         cfg.build(LocalLocation(path=tmp_path))
+
+
+def test_rollout_checkpoint_selection_requires_supported_validation():
+    with open(TEST_CONFIGS_DIR / DEFAULT_CONFIG) as f:
+        data = yaml.safe_load(f)
+    data["checkpoint_validation_metric"] = "rollout_rmse"
+    with pytest.raises(ValidationError, match="requires rollout_validation"):
+        TrainConfig.model_validate(data)
+    data["rollout_validation"] = {"days": [360]}
+    assert (
+        TrainConfig.model_validate(data).checkpoint_validation_metric == "rollout_rmse"
+    )
+    data["data"]["sources"] *= 2
+    with pytest.raises(ValidationError, match="requires a single data source"):
+        TrainConfig.model_validate(data)

@@ -12,7 +12,6 @@ import re
 import sys
 import warnings
 from collections.abc import Iterable
-from copy import deepcopy
 from pathlib import Path
 from subprocess import PIPE, STDOUT, Popen
 from typing import TYPE_CHECKING, Any
@@ -34,12 +33,8 @@ from tqdm.auto import tqdm
 
 from samudra.constants import DataLayout, GridType, build_om4_layout, is_rectilinear
 from samudra.metrics.run import score_rollouts
-from samudra.utils.data import (
-    spherical_area,
-    spherical_area_weights,
-    with_level_index_vars,
-)
-from samudra.utils.location import ResolvedLocation
+from samudra.utils.data import spherical_area, with_level_index_vars
+from samudra.utils.location import Location, ResolvedLocation
 from samudra.viz import observations as obs_figures
 from samudra.viz.norms import percentile_norm, symmetric_percentile_norm
 
@@ -56,6 +51,50 @@ class VizRun:
     variables: list[str]
 
 
+@dataclasses.dataclass
+class PreparedVizGroundtruth:
+    data_layout: DataLayout
+    data: xr.Dataset
+    profile_groundtruth: xr.Dataset
+    basins: xr.Dataset
+    time_indices: list[int]
+    prediction_coords: dict[str, xr.DataArray]
+    wetmask: xr.DataArray
+
+
+@dataclasses.dataclass
+class VizTemplate:
+    # save prepared ground truth
+    dataset_name: str
+    data_root: ResolvedLocation
+    variables: list[str]
+    prepared_groundtruth: PreparedVizGroundtruth
+    observations: "ObsMetricsConfig | None" = None
+
+    def instantiate(self, output_path: Path, runs: list[VizRun]) -> "Viz":
+        return Viz(
+            str(output_path),
+            self.dataset_name,
+            runs,
+            prepared_groundtruth=self.prepared_groundtruth,
+            observations=self.observations,
+            data_root=self.data_root,
+        )
+
+    def instantiate_run(
+        self,
+        output_path: Path,
+        name: str,
+        location: Location,
+    ) -> "Viz":
+        run = VizRun(
+            name=name,
+            data=self.data_root.resolve(location).open(chunks={}),
+            variables=self.variables,
+        )
+        return self.instantiate(output_path, [run])
+
+
 class Viz:
     """Generates maps, time series, and probability density plots from evaluation outputs."""
 
@@ -64,14 +103,13 @@ class Viz:
         output_path: str,
         dataset_name: str,
         runs: list["VizRun"],
-        basins: xr.Dataset,
-        groundtruth_rollout: xr.Dataset,
-        time_range: slice,
+        prepared_groundtruth: PreparedVizGroundtruth,
         observations: "ObsMetricsConfig | None" = None,
         data_root: ResolvedLocation | None = None,
-        *,
-        grid_type: GridType,
     ):
+        if not runs:
+            raise ValueError("Viz requires at least one run")
+
         pred_dict: dict[str, dict[str, Any]] = {}
         for run in runs:
             pred_dict[run.name] = {
@@ -84,24 +122,8 @@ class Viz:
             }
 
         key1 = runs[0].name
-        # TODO: Support non-OM4 data layouts in visualization.
-        self.data_layout = build_om4_layout(grid_type=grid_type)
+        self.data_layout = prepared_groundtruth.data_layout
         levels = len(self.data_layout.depth_levels)
-
-        groundtruth_rollout = groundtruth_rollout.sel(time=time_range)
-
-        groundtruth_rollout = preserve_2d_coords(groundtruth_rollout)
-
-        groundtruth_rollout = self._with_cell_areas(groundtruth_rollout)
-
-        # This function processes the ds_groundtruth and predictions for plotting
-        # The predictions are loaded into pred_dict
-        data, pred_dict = process_data(
-            groundtruth_rollout, pred_dict, data_layout=self.data_layout
-        )
-
-        last_index = len(data.time) - 1
-        self.time_indices = [0, last_index // 2, last_index]
 
         var_list = {
             "vo": r"$v$ $( m/s )$",
@@ -113,6 +135,8 @@ class Viz:
             "KE": r"$KE$ $( J/m^2 )$",
             "OHC": r"$OHC$ $Anomaly$ $( ZJ )$",
         }
+
+        pred_dict = process_prediction_runs(prepared_groundtruth, pred_dict)
 
         # Create folder paths
         self.timeseries_path = os.path.join(output_path, f"Timeseries")
@@ -151,21 +175,19 @@ class Viz:
 
         # Basin masks are built on first use to avoid breaking when no correct mask
         # is available and you're not doing basin-based analyses anyway.
-        self._basins: xr.Dataset = basins
+        self._basins: xr.Dataset = prepared_groundtruth.basins
 
         # Compute profile means
         with ProgressBar():
-            logger.info("Computing profile for ground truth " + dataset_name)
-            profile_groundtruth = profile_mean(data).load()
-
             for k in pred_dict.keys():
                 logger.info("Computing profile for prediction " + k)
                 pred_dict[k]["profile_prediction"] = profile_mean(
                     pred_dict[k]["ds_prediction"]
                 ).load()
 
-        self.data: xr.Dataset = data
-        self.profile_groundtruth: xr.Dataset = profile_groundtruth
+        self.time_indices = prepared_groundtruth.time_indices
+        self.data: xr.Dataset = prepared_groundtruth.data
+        self.profile_groundtruth: xr.Dataset = prepared_groundtruth.profile_groundtruth
         self.pred_dict: dict[str, dict[str, Any]] = pred_dict
         self.dataset_name: str = dataset_name
         self.clist: list[str] = clist
@@ -202,56 +224,6 @@ class Viz:
                 "Indian": process_mask(data, basins["basin_indian"], grid_type),
                 "Arctic": process_mask(data, basins["basin_arctic"], grid_type),
             }
-        )
-
-    def _with_cell_areas(self, data: xr.Dataset) -> xr.Dataset:
-        """Attach the two area fields the reductions downstream expect.
-
-        `areacello` is the *weighting* field (normalized to sum to one) and
-        `areacello_spherical` is the physical cell area in m^2. On a rectilinear
-        grid both follow analytically from the 1-D axes. On a curvilinear grid
-        they do not: once the grid folds, `cos(lat)` stops being proportional to
-        cell area and `np.diff(lat).mean()` stops describing the spacing, so we
-        use the source's own `areacello` and refuse to invent one.
-        """
-        if is_rectilinear(self.data_layout.grid_type):
-            data = data.assign(areacello=(["lat", "lon"], spherical_area_weights(data)))
-            data["areacello_spherical"] = (["lat", "lon"], spherical_area(data))
-            return data
-
-        if "areacello" not in data.variables:
-            raise ValueError(
-                "Cannot build cell areas for "
-                f"grid_type={self.data_layout.grid_type!r}: the source carries no "
-                "'areacello'. The rectilinear helpers (spherical_area_weights / "
-                "spherical_area) assume separable, uniformly spaced 1-D lat/lon "
-                "and are invalid on a curvilinear grid, so there is nothing safe "
-                "to fall back to. Preserve 'areacello' through preprocessing."
-            )
-
-        area = np.asarray(data["areacello"].values, dtype=np.float64)
-        expected = (data.sizes["lat"], data.sizes["lon"])
-        if area.shape != expected:
-            raise ValueError(
-                f"Source 'areacello' has shape {area.shape}, expected {expected} "
-                "to match the horizontal grid. Cell areas must be given on the "
-                "same grid as the data."
-            )
-        if not np.isfinite(area).any() or np.nansum(area) <= 0:
-            raise ValueError(
-                "Source 'areacello' has no positive finite values, so it cannot "
-                "be used to weight reductions."
-            )
-
-        weights = np.where(np.isfinite(area), area, 0.0)
-        weights = weights / weights.sum()
-
-        # Drop first: `areacello` arrives as a coordinate on OM4 sources, and we
-        # need both fields as data variables for the reductions downstream.
-        data = data.drop_vars(["areacello", "areacello_spherical"], errors="ignore")
-        return data.assign(
-            areacello=(["lat", "lon"], weights),
-            areacello_spherical=(["lat", "lon"], area),
         )
 
     def _map_coords(self, data) -> tuple:
@@ -703,7 +675,7 @@ class Viz:
 
         thetao = (
             self.data["thetao"]
-            .weighted(self.data["areacello"] * self.data["dz"])
+            .weighted(self.data["areacello_weights"] * self.data["dz"])
             .mean(["x", "y", "lev"])
         )
         thetao = thetao.rename(r"$\theta_O$")
@@ -712,7 +684,7 @@ class Viz:
         for i, k in enumerate(self.pred_dict.keys()):
             thetao_pred = (
                 self.pred_dict[k]["ds_prediction"][var]
-                .weighted(self.data["areacello"] * self.data["dz"])
+                .weighted(self.data["areacello_weights"] * self.data["dz"])
                 .mean(["x", "y", "lev"])
             )
             thetao_pred.plot(ax=ax, label=self.pred_dict[k]["name"], c=self.clist[i])
@@ -749,7 +721,7 @@ class Viz:
 
         salinity = (
             self.data["so"]
-            .weighted(self.data["areacello"] * self.data["dz"])
+            .weighted(self.data["areacello_weights"] * self.data["dz"])
             .mean(["x", "y", "lev"])
         )
         salinity = salinity.rename("S")
@@ -758,7 +730,7 @@ class Viz:
         for i, k in enumerate(self.pred_dict.keys()):
             salinity_pred = (
                 self.pred_dict[k]["ds_prediction"][var]
-                .weighted(self.data["areacello"] * self.data["dz"])
+                .weighted(self.data["areacello_weights"] * self.data["dz"])
                 .mean(["x", "y", "lev"])
             )
             salinity_pred.plot(ax=ax, label=self.pred_dict[k]["name"], c=self.clist[i])
@@ -787,6 +759,8 @@ class Viz:
         )
 
     def step_ohc_noanomaly_plots(self):
+        # Heat integrals need cell areas in m². Normalized `areacello_weights` weights
+        # are for means and would discard the physical volume scale here.
         c_p = 3850  # J/(kg C)
         rho_0 = 1025  # kg/m^3
         f = open(os.path.join(self.output_path, "compare_info.txt"), "a")
@@ -864,8 +838,8 @@ class Viz:
         c_p = 3850  # J/(kg C)
         rho_0 = 1025  # kg/m^3
 
-        # Use real areacello for physical calculations
-        areacello = data["areacello_spherical"]
+        # Use physical cell areas for heat integrals.
+        areacello = data["areacello"]
 
         OHC = ((data["thetao"] * c_p * rho_0) * areacello * data["dz"]).sum(
             ["x", "y", "lev"]
@@ -1730,7 +1704,7 @@ class Viz:
 
         salinity = (
             self.data["so"]
-            .weighted(self.data["areacello"] * self.data["dz"])
+            .weighted(self.data["areacello_weights"] * self.data["dz"])
             .mean(["x", "y", "lev"])
         )
 
@@ -1743,7 +1717,7 @@ class Viz:
                 salinity_pred = (
                     self.pred_dict[k]["ds_prediction"]["so"]
                     .weighted(
-                        self.pred_dict[k]["ds_prediction"]["areacello"]
+                        self.pred_dict[k]["ds_prediction"]["areacello_weights"]
                         * self.pred_dict[k]["ds_prediction"]["dz"]
                     )
                     .mean(["x", "y", "lev"])
@@ -1810,14 +1784,18 @@ class Viz:
         )
         da_temp = self.data["thetao"]  # Directly use temperature variable
         section_mask = isnan(da_temp).all("x").isel(time=0)
-        da_temp_int_x = da_temp.weighted(self.data["areacello"]).mean(["x", "time"])
+        da_temp_int_x = da_temp.weighted(self.data["areacello_weights"]).mean(
+            ["x", "time"]
+        )
         temp_pred = da_temp_int_x.where(~section_mask)
         GT_temp_pred = temp_pred
 
         for j, (model_key, model_data) in enumerate(self.pred_dict.items(), start=1):
             da_temp = model_data["ds_prediction"]["thetao"]  # Use temperature variable
             section_mask = isnan(da_temp).all("x").isel(time=0)
-            da_temp_int_x = da_temp.weighted(self.data["areacello"]).mean(["x", "time"])
+            da_temp_int_x = da_temp.weighted(self.data["areacello_weights"]).mean(
+                ["x", "time"]
+            )
             temp_pred = da_temp_int_x.where(~section_mask)
             self.pred_dict[model_key]["temp_profile"] = temp_pred
 
@@ -1978,7 +1956,7 @@ class Viz:
             return T_clim[window:]
 
         nino_true_compute_clim = NinoIndexComputeClim(
-            data_surface["thetao"][:, 0], self.data["areacello"]
+            data_surface["thetao"][:, 0], self.data["areacello_weights"]
         )
         nino_true_compute_clim = nino_true_compute_clim.rename("Nino 3.4")
         nino_true_compute_clim = nino_true_compute_clim.assign_attrs(
@@ -1988,7 +1966,7 @@ class Viz:
         for k in self.pred_dict.keys():
             self.pred_dict[k]["nino_pred_compute_clim"] = NinoIndexComputeClim(
                 self.pred_dict[k]["ds_prediction_surface"]["thetao"][:, 0],
-                self.pred_dict[k]["ds_prediction"]["areacello"],
+                self.pred_dict[k]["ds_prediction"]["areacello_weights"],
             )
             self.pred_dict[k]["nino_pred_compute_clim"] = self.pred_dict[k][
                 "nino_pred_compute_clim"
@@ -3980,35 +3958,10 @@ def _combine_variables_by_level(
     return ds
 
 
-def combine_variables_by_level(
-    ds_groundtruth: xr.Dataset,
-    pred_dict: dict[str, dict[str, Any]],
-    data_layout: DataLayout,
-) -> tuple[xr.Dataset, dict[str, dict[str, Any]]]:
-    """
-    Combine variables by level for ground truth and predictions.
-
-    Parameters:
-    ds_groundtruth (xarray.Dataset): The ground truth dataset.
-    pred_dict (dict): Dictionary containing prediction datasets.
-
-    Returns:
-    xarray.Dataset, dict: Updated ground truth and prediction datasets.
-    """
-    ds_groundtruth = _combine_variables_by_level(
-        ds_groundtruth, ["thetao", "so", "uo", "vo", "mask"], data_layout
-    )
-    for key in pred_dict.keys():
-        pred_dict[key]["ds_prediction"] = _combine_variables_by_level(
-            pred_dict[key]["ds_prediction"], pred_dict[key]["ls"], data_layout
-        )
-    return ds_groundtruth, pred_dict
-
-
 def _postprocess_for_plot(
     ds,
+    areacello_weights: np.ndarray,
     areacello: np.ndarray,
-    areacello_spherical: np.ndarray,
     dz,
     times,
     wetmask,
@@ -4044,109 +3997,178 @@ def _postprocess_for_plot(
         else:
             ds[var] = ds[var].where(wetmask.isel(lev=0))
 
-    ds["areacello"] = (["lat", "lon"], areacello)
-    ds["areacello_spherical"] = (["lat", "lon"], areacello_spherical)
+    ds["areacello_weights"] = (["lat", "lon"], areacello_weights, {"units": "1"})
+    ds["areacello"] = (["lat", "lon"], areacello, {"units": "m2"})
     ds["dz"] = ("lev", dz)
     return ds
 
 
-def postprocess_for_plot(
-    ds_groundtruth, areacello: xr.DataArray, dz: np.ndarray, pred_dict
-):
+def _prepare_groundtruth_rollout(
+    groundtruth_rollout: xr.Dataset,
+    time_range: slice,
+    data_layout: DataLayout,
+) -> xr.Dataset:
+    groundtruth_rollout = groundtruth_rollout.sel(time=time_range)
+    groundtruth_rollout = preserve_2d_coords(groundtruth_rollout)
+    return _with_cell_areas(groundtruth_rollout, data_layout)
+
+
+def _with_cell_areas(data: xr.Dataset, data_layout: DataLayout) -> xr.Dataset:
+    """Keep physical cell areas (m²) separate from normalized mean weights.
+
+    Source areas take precedence on every grid, including Gaussian grids
+    whose latitude spacing is nonuniform. Only rectilinear legacy stores
+    without areas use the spherical approximation. Curvilinear grids must
+    supply their own areas.
     """
-    Postprocess for plotting.
-
-    Parameters:
-    ds_groundtruth (xarray.Dataset): The ground truth dataset.
-    areacello (xarray.DataArray): areacello dataarray.
-    pred_dict (dict): Dictionary containing prediction datasets.
-
-    Returns:
-    xarray.Dataset, dict: Postprocessed ground truth and prediction datasets.
-    """
-    areacello_values = areacello.values
-    times = ds_groundtruth.time
-    areacello_spherical_values = ds_groundtruth["areacello_spherical"].values
-
-    # Masking land with NaNs
-    if "mask" in ds_groundtruth.data_vars:
-        wetmask = ds_groundtruth["mask"].isel(
-            time=0, missing_dims="ignore"
-        )  # our data does not always have time for a mask
+    if "areacello" in data.variables:
+        source = data["areacello"]
+        if set(source.dims) != {"lat", "lon"}:
+            raise ValueError(
+                f"Source 'areacello' has dimensions {source.dims}, expected "
+                "('lat', 'lon') to match the horizontal grid."
+            )
+        area = np.asarray(source.transpose("lat", "lon").values, dtype=np.float64)
+    elif is_rectilinear(data_layout.grid_type):
+        warnings.warn(
+            "Source 'areacello' is missing; using a spherical approximation "
+            "for cell areas that assumes uniformly spaced latitude/longitude.",
+            UserWarning,
+            stacklevel=2,
+        )
+        area = np.asarray(spherical_area(data), dtype=np.float64)
     else:
-        wetmask = ds_groundtruth.wetmask
+        raise ValueError(
+            "Cannot build cell areas for "
+            f"grid_type={data_layout.grid_type!r}: the source carries no "
+            "'areacello'. Spherical areas assume separable, uniformly spaced "
+            "1-D lat/lon and are invalid on a curvilinear grid. "
+            "Preserve 'areacello' through preprocessing."
+        )
 
-    ds_groundtruth = _postprocess_for_plot(
-        ds_groundtruth, areacello_values, areacello_spherical_values, dz, times, wetmask
+    if not np.isfinite(area).any() or np.nansum(area) <= 0:
+        raise ValueError(
+            "Source 'areacello' has no positive finite values, so it cannot "
+            "be used to weight reductions."
+        )
+    if np.isinf(area).any() or np.any(area < 0):
+        raise ValueError("Source 'areacello' contains infinite or negative areas.")
+
+    weights = np.where(np.isfinite(area), area, 0.0)
+    weights = weights / weights.sum()
+
+    # Source areas may be coordinates; expose both fields as data variables.
+    data = data.drop_vars(["areacello", "areacello_weights"], errors="ignore")
+    return data.assign(
+        areacello=xr.DataArray(area, dims=("lat", "lon"), attrs={"units": "m2"}),
+        areacello_weights=xr.DataArray(
+            weights, dims=("lat", "lon"), attrs={"units": "1"}
+        ),
     )
 
-    coords = ds_groundtruth.coords
 
-    for key in pred_dict.keys():
-        pred_dict[key]["ds_prediction"] = _postprocess_for_plot(
-            pred_dict[key]["ds_prediction"],
-            areacello_values,
-            areacello_spherical_values,
-            dz,
-            times,
-            wetmask,
-            coords=coords,
-        )
-
-        # Rename lat and lon to y and x
-        pred_dict[key]["ds_prediction"] = pred_dict[key]["ds_prediction"].rename(
-            {"lat": "y", "lon": "x"}
-        )
-
-    # Rename lat and lon to y and x (This needs to be done in the end!)
-    ds_groundtruth = ds_groundtruth.rename({"lat": "y", "lon": "x"})
-
-    return ds_groundtruth, pred_dict
+def _wetmask_for_groundtruth(ds_groundtruth: xr.Dataset) -> xr.DataArray:
+    if "mask" in ds_groundtruth.data_vars:
+        return ds_groundtruth["mask"].isel(time=0, missing_dims="ignore")
+    return ds_groundtruth.wetmask
 
 
-def process_data(
-    data: xr.Dataset,
+def prepare_viz_groundtruth(
+    dataset_name: str,
+    basins: xr.Dataset,
+    groundtruth_rollout: xr.Dataset,
+    time_range: slice,
+    grid_type: GridType,
+) -> PreparedVizGroundtruth:
+    # TODO: Support non-OM4 data layouts in visualization.
+    data_layout = build_om4_layout(grid_type=grid_type)
+    groundtruth_rollout = _prepare_groundtruth_rollout(
+        groundtruth_rollout,
+        time_range,
+        data_layout,
+    )
+    ds_groundtruth = with_level_index_vars(
+        groundtruth_rollout, depth_levels=data_layout.depth_levels
+    )
+    ds_groundtruth = _combine_variables_by_level(
+        ds_groundtruth,
+        ["thetao", "so", "uo", "vo", "mask"],
+        data_layout,
+    )
+
+    areacello_weights_values = ds_groundtruth.areacello_weights.values
+    areacello_values = ds_groundtruth["areacello"].values
+    times = ds_groundtruth.time
+    wetmask = _wetmask_for_groundtruth(ds_groundtruth)
+
+    data = _postprocess_for_plot(
+        ds_groundtruth,
+        areacello_weights_values,
+        areacello_values,
+        np.array(data_layout.depth_thickness),
+        times,
+        wetmask,
+    )
+    prediction_coords = {name: coord for name, coord in data.coords.items()}
+    data = data.rename({"lat": "y", "lon": "x"})
+
+    last_index = len(data.time) - 1
+    time_indices = [0, last_index // 2, last_index]
+
+    with ProgressBar():
+        logger.info("Computing profile for ground truth " + dataset_name)
+        profile_groundtruth = profile_mean(data).load()
+
+    return PreparedVizGroundtruth(
+        data_layout=data_layout,
+        data=data,
+        profile_groundtruth=profile_groundtruth,
+        basins=basins,
+        time_indices=time_indices,
+        prediction_coords=prediction_coords,
+        wetmask=wetmask,
+    )
+
+
+def process_prediction_runs(
+    prepared_groundtruth: PreparedVizGroundtruth,
     pred_dict: dict[str, dict[str, Any]],
-    data_layout: DataLayout,
-) -> tuple[xr.Dataset, dict[str, dict[str, Any]]]:
-    """
-    Get plot ready OM4 data.
-    """
-    ds_groundtruth = with_level_index_vars(data, depth_levels=data_layout.depth_levels)
-
-    # Store ds_prediction
-    copy_dict = deepcopy(pred_dict)
-
+) -> dict[str, dict[str, Any]]:
+    depth_thickness = np.array(prepared_groundtruth.data_layout.depth_thickness)
+    times = prepared_groundtruth.data.time
+    areacello_weights_values = prepared_groundtruth.data.areacello_weights.values
+    areacello_values = prepared_groundtruth.data.areacello.values
     for key in pred_dict.keys():
         ds_prediction = pred_dict[key]["data"]
 
-        assert ds_prediction.time.size == ds_groundtruth.time.size, (
+        assert ds_prediction.time.size == prepared_groundtruth.data.time.size, (
             f"Sizes different for {key}: {ds_prediction.time.size}!="
-            f"{ds_groundtruth.time.size}; prediction range is "
+            f"{prepared_groundtruth.data.time.size}; prediction range is "
             f"{ds_prediction.time.values[0]} to "
             f"{ds_prediction.time.values[-1]}\n"
-            f"groundtruth range is {ds_groundtruth.time.values[0]} to "
-            f"{ds_groundtruth.time.values[-1]}"
+            f"groundtruth range is {prepared_groundtruth.data.time.values[0]} to "
+            f"{prepared_groundtruth.data.time.values[-1]}"
         )
         if "model_path" in ds_prediction.attrs:
-            copy_dict[key]["model_path"] = ds_prediction.attrs["model_path"]
+            pred_dict[key]["model_path"] = ds_prediction.attrs["model_path"]
 
-        pred_dict[key]["ds_prediction"] = ds_prediction
+        ds_prediction = _combine_variables_by_level(
+            ds_prediction,
+            pred_dict[key]["ls"],
+            prepared_groundtruth.data_layout,
+        )
+        ds_prediction = _postprocess_for_plot(
+            ds_prediction,
+            areacello_weights_values,
+            areacello_values,
+            depth_thickness,
+            times,
+            prepared_groundtruth.wetmask,
+            coords=prepared_groundtruth.prediction_coords,
+        )
+        pred_dict[key]["ds_prediction"] = ds_prediction.rename({"lat": "y", "lon": "x"})
 
-    ### Combine Variables by level
-    ds_groundtruth, pred_dict = combine_variables_by_level(
-        ds_groundtruth, pred_dict, data_layout
-    )
-
-    ### Postprocess predictions for plotting
-    ds_groundtruth, pred_dict = postprocess_for_plot(
-        ds_groundtruth,
-        ds_groundtruth.areacello,
-        np.array(data_layout.depth_thickness),
-        pred_dict,
-    )
-
-    return ds_groundtruth, pred_dict
+    return pred_dict
 
 
 def remove_climatology(ds):
@@ -4250,38 +4272,38 @@ def profile_mean(ds: xr.Dataset) -> xr.Dataset:
     """
     Compute the mean of each variable for each time step.
     """
-    return ds.weighted(ds.areacello).mean(["y", "x"])
+    return ds.weighted(ds.areacello_weights).mean(["y", "x"])
 
 
 def get_basin_datasets(ds, basin_masks, data):
     da_temp = ds * basin_masks["Atlantic"]
     section_mask = isnan(da_temp).all("x")
-    da_temp_int_x = da_temp.weighted(data["areacello"]).mean(["x"])
+    da_temp_int_x = da_temp.weighted(data["areacello_weights"]).mean(["x"])
     At = da_temp_int_x.where(~section_mask)
 
     da_temp = ds * basin_masks["Indian"]
     section_mask = isnan(da_temp).all("x")
-    da_temp_int_x = da_temp.weighted(data["areacello"]).mean(["x"])
+    da_temp_int_x = da_temp.weighted(data["areacello_weights"]).mean(["x"])
     In = da_temp_int_x.where(~section_mask)
 
     da_temp = ds * basin_masks["Pacific"]
     section_mask = np.isnan(da_temp).all("x")
-    da_temp_int_x = da_temp.weighted(data["areacello"]).mean(["x"])
+    da_temp_int_x = da_temp.weighted(data["areacello_weights"]).mean(["x"])
     Pa = da_temp_int_x.where(~section_mask)
 
     da_temp = ds * basin_masks["Southern"]
     section_mask = isnan(da_temp).all("x")
-    da_temp_int_x = da_temp.weighted(data["areacello"]).mean(["x"])
+    da_temp_int_x = da_temp.weighted(data["areacello_weights"]).mean(["x"])
     So = da_temp_int_x.where(~section_mask)
 
     da_temp = ds * basin_masks["Arctic"]
     section_mask = isnan(da_temp).all("x")
-    da_temp_int_x = da_temp.weighted(data["areacello"]).mean(["x"])
+    da_temp_int_x = da_temp.weighted(data["areacello_weights"]).mean(["x"])
     Ar = da_temp_int_x.where(~section_mask)
 
     da_temp = ds
     section_mask = isnan(da_temp).all("x")
-    da_temp_int_x = da_temp.weighted(data["areacello"]).mean(["x"])
+    da_temp_int_x = da_temp.weighted(data["areacello_weights"]).mean(["x"])
     Gl = da_temp_int_x.where(~section_mask)
 
     return [At, In, Pa, So, Ar, Gl], [

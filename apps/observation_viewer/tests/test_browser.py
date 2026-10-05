@@ -24,9 +24,19 @@ def select(page, css, label):
 
 
 def verify_maps(
-    page, catalog, mode, model, origin, variable, index, reference="observations"
+    page,
+    catalog,
+    mode,
+    model,
+    origin,
+    variable,
+    index,
+    reference="observations",
+    original_heat=False,
 ):
-    prediction, comparison = catalog.values(mode, model, origin, reference)
+    prediction, comparison = catalog.values(
+        "report_heat" if original_heat else mode, model, origin, reference
+    )
     mask = catalog.array(catalog.meta[f"{mode}_mask"])
     wet = mask[index, variable] if mode == "interior" else mask[variable]
     a, b = prediction[index, variable][wet], comparison[index, variable][wet]
@@ -203,6 +213,39 @@ def test_controls_update_real_maps_profiles_and_keep_sessions_independent():
         browser.close()
 
 
+def verify_monthly_profile(
+    page, catalog, model, origin, month, reference="observations"
+):
+    if "monthly_temperature" not in catalog.meta:
+        return
+    lat = float(page.locator(".latitude-input input").input_value())
+    lon = float(page.locator(".longitude-input input").input_value())
+    y = np.abs(catalog.lat - lat).argmin()
+    x = np.abs((catalog.lon - lon + 180) % 360 - 180).argmin()
+    expected = catalog.values("temperature", model, origin, reference)
+    fields = {"depth": catalog.depths}
+    fields.update(
+        {
+            key: values[month, :, y, x]
+            for key, values in zip(["prediction", "reference"], expected, strict=True)
+        }
+    )
+    # Await all profile values, since Bokeh updates arrive asynchronously.
+    page.wait_for_function(
+        """expected => {
+            const d = Bokeh.documents[0].get_model_by_name('profile-source').data;
+            return Object.entries(expected).every(([key, values]) =>
+                d[key].length === values.length && values.every((v, i) =>
+                    v === null ? !Number.isFinite(d[key][i]) : Math.abs(d[key][i] - v) < 1e-5));
+        }""",
+        arg={
+            key: [float(v) if np.isfinite(v) else None for v in values]
+            for key, values in fields.items()
+        },
+        timeout=30000,
+    )
+
+
 def test_monthly_heat_maps_point_series_and_mode_switching():
     assert URL is not None
     catalog = Catalog(os.environ.get("SAMUDRA_VIEWER_DATA", ROOT / ".data"))
@@ -218,20 +261,28 @@ def test_monthly_heat_maps_point_series_and_mode_switching():
         page.goto(URL, wait_until="networkidle")
         select(page, "view-select", "Monthly ocean heat content")
         verify_maps(page, catalog, "heat", "obs08000", "2015-01-01", 0, 0)
-        select(page, "month-select", "2015-06")
+        verify_monthly_profile(page, catalog, "obs08000", "2015-01-01", 0)
+        month_slider = page.locator(".month-slider [role=slider]")
+        month_slider.focus()
+        month_slider.press("Home")
+        for _ in range(5):
+            month_slider.press("ArrowRight")
         select(page, "variable-select", "700–2000 m")
         verify_maps(page, catalog, "heat", "obs08000", "2015-01-01", 1, 5)
+        verify_monthly_profile(page, catalog, "obs08000", "2015-01-01", 5)
         select(page, "origin-select", "2021-01-01")
-        expect(page.locator(".month-select select")).to_have_value(
-            "2021-06", timeout=30000
+        verify_maps(page, catalog, "heat", "obs08000", "2021-01-01", 1, 5)
+        expect(page.get_by_text("Month: 2021-06", exact=True)).to_be_visible(
+            timeout=30000
         )
         expect(
             page.get_by_role(
                 "heading", name="Ocean heat content · 700–2000 m · 2021-06"
             )
-        ).to_be_visible()
+        ).to_be_visible(timeout=30000)
         select(page, "model-select", "Observations only · 16,000 updates")
         verify_maps(page, catalog, "heat", "scratch16000", "2021-01-01", 1, 5)
+        verify_monthly_profile(page, catalog, "scratch16000", "2021-01-01", 5)
         y, x = np.abs(catalog.lat - 30).argmin(), np.abs(catalog.lon - 330).argmin()
         expected = catalog.values("heat", "scratch16000", "2021-01-01")
         actual = page.evaluate("""() => {
@@ -247,15 +298,46 @@ def test_monthly_heat_maps_point_series_and_mode_switching():
         verify_maps(
             page, catalog, "heat", "scratch16000", "2021-01-01", 1, 5, "obs08000"
         )
+        verify_monthly_profile(
+            page, catalog, "scratch16000", "2021-01-01", 5, "obs08000"
+        )
         select(page, "reference-select", "IAP monthly heat content")
         verify_maps(page, catalog, "heat", "scratch16000", "2021-01-01", 1, 5)
+        month_slider.focus()
+        month_slider.press("End")
+        verify_maps(page, catalog, "heat", "scratch16000", "2021-01-01", 1, 11)
+        verify_monthly_profile(page, catalog, "scratch16000", "2021-01-01", 11)
+        if "monthly_temperature" in catalog.meta:
+            select(page, "monthly-source-select", "Original report (heat only)")
+            verify_maps(
+                page,
+                catalog,
+                "heat",
+                "scratch16000",
+                "2021-01-01",
+                1,
+                11,
+                original_heat=True,
+            )
+            select(page, "monthly-source-select", "Regenerated forecast + profiles")
+            verify_maps(page, catalog, "heat", "scratch16000", "2021-01-01", 1, 11)
+            verify_monthly_profile(page, catalog, "scratch16000", "2021-01-01", 11)
+        canvas = page.locator("canvas").first.bounding_box()
+        assert canvas is not None
+        page.mouse.click(
+            canvas["x"] + canvas["width"] * 0.6, canvas["y"] + canvas["height"] * 0.5
+        )
+        expect(page.locator(".longitude-input input")).not_to_have_value(
+            re.compile(r"^330(?:\.0+)?$"), timeout=30000
+        )
+        verify_monthly_profile(page, catalog, "scratch16000", "2021-01-01", 11)
         (ROOT / ".screenshots").mkdir(exist_ok=True)
         page.screenshot(
             path=str(ROOT / ".screenshots/monthly-heat.png"), full_page=True
         )
         select(page, "view-select", "Annual surface forecasts")
         verify_maps(page, catalog, "surface", "scratch16000", "2021-01-01", 0, 5)
-        expect(page.locator(".month-select select")).not_to_be_visible()
+        expect(page.locator(".month-slider [role=slider]")).not_to_be_visible()
         select(page, "view-select", "Initialized ocean interior")
         verify_maps(page, catalog, "interior", "scratch16000", "2021-01-01", 0, 9)
         assert not errors, errors

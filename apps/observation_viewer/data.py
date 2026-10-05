@@ -93,7 +93,9 @@ class Catalog:
         record = self.meta["records"][origin]
         prediction = self.array(record["models"][model][mode])
         if reference == "observations":
-            comparison = self.array(record[f"{mode}_reference"])
+            comparison = self.array(
+                record[f"{'heat' if mode == 'report_heat' else mode}_reference"]
+            )
         elif reference == "climatology":
             if mode != "interior":
                 raise ValueError("December climatology is only an interior reference")

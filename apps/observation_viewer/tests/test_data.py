@@ -83,3 +83,19 @@ def test_same_date_sources_route_to_distinct_predictions_and_gold(tmp_path):
     assert np.all(catalog.values("interior", "mixed", "2015-01-01", "om4")[1] == gold)
     with pytest.raises(KeyError):
         catalog.values("interior", "mixed", "2015-01-01-om4", "observations")
+
+
+def test_monthly_temperature_integrates_to_matching_heat_layers():
+    from extend_monthly_temperature import integrated_heat
+
+    # A uniform 1°C column has rho*cp*thickness heat, not a depth mean.
+    temperature = np.ones((2, 14, 1, 2), dtype=np.float32)
+    mask = np.ones((2, 1, 2), dtype=bool)
+    mask[1, 0, 1] = False
+    # The 650–900 m cell overlaps 50 m of the upper layer, 200 m of the lower.
+    temperature[1, 10] += 1
+    heat = integrated_heat(temperature, mask)
+    expected = np.array([[700, 1300], [750, 1500]]) * 1035 * 3850 / 1e9
+    np.testing.assert_allclose(heat[:, :, 0, 0], expected)
+    assert np.isnan(heat[:, 1, 0, 1]).all()
+    assert np.isfinite(heat[:, 0, 0, 1]).all()

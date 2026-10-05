@@ -114,11 +114,22 @@ class Viewer:
             visible=False,
             css_classes=["depth-select"],
         )
-        self.month = pn.widgets.Select(
-            name="Month",
-            options={},
+        self.monthly_source = pn.widgets.Select(
+            name="Monthly data",
+            options={
+                "Regenerated forecast + profiles": "replay",
+                "Original report (heat only)": "report",
+            },
+            value="replay",
             visible=False,
-            css_classes=["month-select"],
+            css_classes=["monthly-source-select"],
+        )
+        self.month = pn.widgets.DiscreteSlider(
+            name="Month",
+            options={"January": 0},
+            value=0,
+            visible=False,
+            css_classes=["month-slider"],
         )
         self.latitude = pn.widgets.FloatInput(
             name="Latitude (°N)",
@@ -414,7 +425,7 @@ class Viewer:
         self.profile_pane = pn.Column(
             pn.pane.Bokeh(self.profile, sizing_mode="stretch_width"), visible=False
         )
-        for control in [self.model, self.reference]:
+        for control in [self.model, self.reference, self.monthly_source]:
             control.param.watch(self.select, "value")
         for control in [self.origin, self.variable]:
             control.param.watch(self.change_sample, "value")
@@ -427,6 +438,14 @@ class Viewer:
             point_control.param.watch(self.change_point, "value")
         self.rescale.on_click(lambda event: self.refresh(rescale=True))
         self.refresh(rescale=True)
+
+    @property
+    def monthly_profiles(self):
+        return (
+            self.mode.value == "heat"
+            and "monthly_temperature" in self.catalog.meta
+            and self.monthly_source.value == "replay"
+        )
 
     @property
     def index(self):
@@ -473,10 +492,14 @@ class Viewer:
         self.player.visible = event.new == "surface"
         self.detail.visible = not interior
         self.month.visible = heat
+        self.monthly_source.visible = (
+            heat and "monthly_temperature" in self.catalog.meta
+        )
+        self.profile_pane.visible = interior or (self.monthly_profiles)
+        self.depth_marker.visible = interior
         for control in [
             self.depth,
             self.orientation,
-            self.profile_pane,
             self.section_row,
         ]:
             control.visible = interior
@@ -579,8 +602,18 @@ class Viewer:
             self.month.value = selected if selected in options.values() else 0
             self._changing = False
         mode, variable, index = self.mode.value, self.variable.value, self.index
+        self.profile_pane.visible = mode == "interior" or self.monthly_profiles
+        data_mode = (
+            "report_heat"
+            if (
+                mode == "heat"
+                and "monthly_temperature" in self.catalog.meta
+                and self.monthly_source.value == "report"
+            )
+            else mode
+        )
         self.prediction, self.comparison = self.catalog.values(
-            mode, self.model.value, self.origin.value, self.reference.value
+            data_mode, self.model.value, self.origin.value, self.reference.value
         )
         a, b = self.prediction[index, variable], self.comparison[index, variable]
         difference = a - b
@@ -639,7 +672,19 @@ class Viewer:
                 index
             ]
             self.caption.object = f"### Ocean heat content · {variable_label} · {month}"
-            self.context.object = "Monthly layer-integrated heat content from the annual forecast, compared with IAP monthly analyses. Two stored layers: 0–700 m and 700–2000 m; these are not full vertical temperature profiles. Units: GJ/m² (saved J/m² divided by 10⁹), relative to 0 °C. Gray cells lack a complete model column for the selected layer. Click a map for the monthly series."
+            self.context.object = "Monthly layer-integrated heat content compared with IAP analyses, in GJ/m² relative to 0 °C. Gray cells lack a complete model column for the selected layer. Click a map for the monthly series."
+            if self.monthly_profiles:
+                self.context.object += " Move the month slider to explore temperature profiles at the selected cell."
+            if self.monthly_profiles:
+                self.context.object += (
+                    " " + self.catalog.meta["monthly_temperature"]["description"]
+                )
+            elif "monthly_temperature" in self.catalog.meta:
+                self.context.object += " Original report values. Select ‘Regenerated forecast + profiles’ for monthly temperature profiles."
+            else:
+                self.context.object += (
+                    " Temperature profiles are unavailable in this data bundle."
+                )
         else:
             record = self.interior_examples.get(self.origin.value)
             label = record["label"] if record else f"{self.origin.value} (obs)"
@@ -673,6 +718,15 @@ class Viewer:
             "Model and comparison share a color scale; difference is centered on zero. Limits use the pooled 2nd–98th percentiles and may clip extremes. "
             "The prepared catalog retains original source paths, hashes, and report receipts."
         )
+        if self.monthly_profiles:
+            replay = self.catalog.meta["monthly_temperature"]["report_comparison"][
+                f"{self.model.value}-{self.origin.value}"
+            ]
+            self.provenance.object += (
+                f"\n\nMonthly values are from a frozen-checkpoint replay. Difference from the original report across all months and both heat layers: "
+                f"RMS {replay['rms']:.4g} GJ/m²; maximum absolute difference {replay['max_abs']:.4g} GJ/m². "
+                "The original heat arrays and full export receipts are retained in the data bundle."
+            )
         self.update_point()
 
     def update_point(self):
@@ -711,6 +765,25 @@ class Viewer:
                 ("Comparison", "@reference{0.0000}"),
             ]
             self.marker.location = self.index + 1 if heat else self.frame.value
+            if self.monthly_profiles:
+                prediction, comparison = self.catalog.values(
+                    "temperature",
+                    self.model.value,
+                    self.origin.value,
+                    self.reference.value,
+                )
+                self.profile_source.data = dict(
+                    depth=self.catalog.depths,
+                    prediction=prediction[self.index, :, y, x],
+                    reference=comparison[self.index, :, y, x],
+                )
+                month = self.catalog.meta["records"][self.origin.value]["heat_months"][
+                    self.index
+                ]
+                self.profile.xaxis.axis_label = "Temperature (°C)"
+                self.profile.title.text = (
+                    f"Monthly temperature · {month} · {lat:.2f}°N, {lon:.2f}°E"
+                )
         else:
             self.profile_source.data = dict(
                 depth=self.catalog.depths, prediction=a, reference=b
@@ -779,6 +852,7 @@ class Viewer:
             self.frame,
             self.player,
             self.depth,
+            self.monthly_source,
             self.month,
             self.lock_colors,
             self.rescale,

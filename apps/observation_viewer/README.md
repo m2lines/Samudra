@@ -13,7 +13,7 @@ browser. No training runtime or inference is required.
 | --- | --- | --- |
 | Annual surface forecasts | SST, SSH | Six model/checkpoint choices, three January origins, five-day lead slider/playback through day 365, model/reference/difference maps, click-to-select point time series |
 | Initialized ocean interior | Temperature, salinity, zonal/meridional velocity | Fourteen depth centers from 2.5 to 1,850 m, observation/OM4 inputs, model/IAP/OM4/climatology comparisons, linked sections and vertical profiles |
-| Monthly ocean heat content | 0–700 m and 700–2000 m layer totals | Twelve monthly maps, IAP or checkpoint comparisons, and map-linked monthly point series |
+| Monthly ocean heat content | 0–700 m and 700–2000 m layer totals; temperature depth profiles | Month slider, IAP or checkpoint comparisons, map-linked monthly heat series and selected-month temperature profiles |
 
 The six checkpoints comprise mixed training at 50, 500, 2,000 and 8,000
 observation updates, plus observation-only training at 8,000 and 16,000 updates.
@@ -57,7 +57,24 @@ are monthly aggregates of the five-day rollout, compared with IAP monthly
 analyses. Values are layer-integrated heat per unit area relative to 0 °C,
 displayed in **GJ/m²** (the saved J/m² divided by 10⁹). Only complete model
 columns contribute to each layer; missing IAP values remain unavailable.
-These two layer totals do not provide full vertical temperature profiles.
+The extended monthly bundle adds temperature profiles at fourteen depths
+(2.5–1,850 m). Click a map to choose a cell, then move the month slider to see
+its temperature profile evolve. The layer selector controls OHC maps and the
+heat-content series; the temperature profile always shows the full depth range.
+Changing the origin preserves the selected calendar month. Model, IAP and
+checkpoint comparison choices apply to both heat and temperature.
+
+The original annual exports did not retain monthly depth-resolved temperature.
+The extended monthly view therefore uses **regenerated annual forecasts** from
+the same frozen checkpoints and verified inputs. Both OHC and temperature come
+from that replay, with exact calendar-overlap weighting of five-day intervals.
+The local GPU/runtime differs from the original report, so numerical values can
+change. The UI labels this distinction; the export receipt quantifies differences
+from the report. Use **Monthly data → Original report (heat only)** to return to the original
+heat maps and monthly series. Those arrays remain in the bundle under `report_heat`.
+Surface and initialized-interior views continue to use their original arrays.
+IAP profiles use the prepared monthly analysis on model depths, with missing
+values retained; IAP heat totals retain the report's native-depth integration.
 
 ## Install and prepare
 
@@ -110,6 +127,30 @@ units, and exact preservation of every existing T/S value. It checks all
 prepared arrays by read-back and SHA-256 and retains the export source,
 contract, and receipt. Keep those data files out of Git. An older base bundle
 continues to offer T/S observation examples until it is extended.
+
+### Monthly temperature bundle
+
+`export_monthly_temperature.py` runs offline using the report's historical
+Samudra source and a training Python environment. Its contract pins module
+hashes, input manifests, normalization statistics and checkpoint runs. The
+`--inputs-root` may point to the original scratch tree or a verified local
+mirror with the same relative paths. It does no training. For example:
+
+```bash
+PYTHONPATH=/path/to/historical/source/src python apps/observation_viewer/export_monthly_temperature.py \
+  --contract /path/to/monthly-contract.json --inputs-root /path/to/mirror \
+  --base /path/to/existing/viewer-bundle --output /path/to/monthly-export
+uv run --project apps/observation_viewer python apps/observation_viewer/extend_monthly_temperature.py \
+  --base /path/to/existing/viewer-bundle --export /path/to/monthly-export \
+  --output /path/to/new/viewer-bundle
+```
+
+The extension verifies every export checksum, month, depth, mask and checkpoint
+lineage, and independently integrates the temperature profiles to check that
+both displayed heat layers agree. It preserves existing arrays, checks all new
+arrays by full read-back, and retains the source, contract and receipts under
+`monthly-temperature-provenance/`. Older bundles keep their monthly heat view
+and report that temperature profiles are unavailable.
 
 ## Run and access
 

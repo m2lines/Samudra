@@ -64,6 +64,9 @@ optional-dependencies.rust = [
   "samudra-rust-loader==0.1",
 ]
 
+optional-dependencies.tensorstore = [
+  "tensorstore>=0.1.85,<0.2",
+]
 urls.Documentation = "https://m2lines.github.io/Samudra/docs/"
 urls.Homepage = "https://m2lines.github.io/Samudra/"
 urls.Issues = "https://github.com/m2lines/Samudra/issues"
@@ -92,6 +95,7 @@ dev = [
   "scalene>=1.5.51",
   "snakeviz>=2.2.2",
   "tenacity>=9",
+  "tensorstore>=0.1.85,<0.2",
   "types-pyyaml>=6.0.12.20241230",
   "types-tqdm>=4.67.0.20250516",
   "xarrayutils>=2.0.1",

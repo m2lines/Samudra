@@ -385,26 +385,17 @@ class GpuDataLoadingConfig(BaseConfig):
         )
 
 
-class RustDataLoadingConfig(BaseConfig):
-    """Configuration for the local Rust Zarr data loader."""
+class NativeDataLoadingConfig(BaseConfig):
+    """Shared batch preparation and prefetch policy for native readers."""
 
-    type: Literal["rust"] = "rust"
     max_concurrent_reads: int = Field(
         default=32,
         ge=1,
-        description="Shared Rayon Zarr read concurrency limit for this process/rank.",
+        description="Shared native Zarr read concurrency limit for this process/rank.",
     )
 
     prefetch_batches: int = Field(default=2, ge=1)
     prefetch_to_device: bool = True
-
-    def build_source_backend(self) -> "TrainingSourceBackend":
-        from samudra.data_backend import NativeOm4SourceBackend
-        from samudra.rust_reader import RustIoRuntime
-
-        return NativeOm4SourceBackend(
-            "rust", partial(RustIoRuntime, self.max_concurrent_reads)
-        )
 
     def build_batch_loader(
         self,
@@ -430,8 +421,35 @@ class RustDataLoadingConfig(BaseConfig):
         )
 
 
+class RustDataLoadingConfig(NativeDataLoadingConfig):
+    type: Literal["rust"] = "rust"
+
+    def build_source_backend(self) -> "TrainingSourceBackend":
+        from samudra.data_backend import NativeOm4SourceBackend
+        from samudra.rust_reader import RustIoRuntime
+
+        return NativeOm4SourceBackend(
+            "rust", partial(RustIoRuntime, self.max_concurrent_reads)
+        )
+
+
+class TensorStoreDataLoadingConfig(NativeDataLoadingConfig):
+    type: Literal["tensorstore"] = "tensorstore"
+
+    def build_source_backend(self) -> "TrainingSourceBackend":
+        from samudra.data_backend import NativeOm4SourceBackend
+        from samudra.tensorstore_data import TensorStoreIoRuntime
+
+        return NativeOm4SourceBackend(
+            "tensorstore", partial(TensorStoreIoRuntime, self.max_concurrent_reads)
+        )
+
+
 DataLoadingConfig = Annotated[
-    CpuDataLoadingConfig | GpuDataLoadingConfig | RustDataLoadingConfig,
+    CpuDataLoadingConfig
+    | GpuDataLoadingConfig
+    | RustDataLoadingConfig
+    | TensorStoreDataLoadingConfig,
     Field(discriminator="type"),
 ]
 

@@ -6,12 +6,10 @@ SPDX-License-Identifier: Apache-2.0
 
 # Samudra Rust data loading
 
-The optional `samudra-rust-loader` extension accelerates local OM4 training and
-validation without changing Samudra's sampling or batch semantics. Python still
-decides which examples belong in each batch and deduplicates physical planes across
-the autoregressive rollout. Rust keeps the Zarr arrays open and reads each unique
-plane concurrently. The shared native batch pipeline transfers and preprocesses those unique
-planes before gathering the model-facing tensors.
+The optional `samudra-rust-loader` extension loads local flat and compact OM4
+stores for training and validation. Python plans batches and deduplicates physical
+planes across each autoregressive rollout. Rust reads those planes concurrently
+into host buffers, then Python transfers and prepares them for the model.
 
 Select it with:
 
@@ -24,194 +22,147 @@ data:
     prefetch_to_device: true
 ```
 
-## Code organization
+## Components
 
-The selected loading config constructs both the source readers and the batch
-loader. `RustDataLoadingConfig` owns its read-concurrency and prefetch settings,
-creates one `RustIoRuntime` per data bundle/process, and constructs the shared
-`NativeBatchLoader`. A future native backend gets its own concrete config and
-runtime; a few repeated construction lines do not require a shared config base,
-and its concurrency settings need not mean the same thing as Rust's Rayon count.
+`RustDataLoadingConfig` constructs the source readers and `NativeBatchLoader`.
+Each data bundle creates one `RustIoRuntime`, shared by its training and validation
+readers within the process.
 
-| Component | Responsibility |
+| Component | Responsibility in the Rust loader |
 | --- | --- |
-| `TrainingWindows` | Define input history, forecast targets, stride, masks and source pairing. The sampler groups these directly. |
-| `TorchTrainDataset` / `TorchBatchLoader` | Adapt those windows to PyTorch sample loading and collation. |
-| `NativeBatchLoader` (`native_loader.py`) | Deduplicate full-batch reads, prefetch, transfer, gather, and manage pinned-buffer lifetimes. |
-| `BatchPreparer` | Assemble model batches and their grid context. |
-| `ChannelTransform` | Share normalization, masking and device-static caches across sample loading, native loading and inference; restore physical values for output. |
-| `NativeOm4Reader` (`native_reader.py`) | Map canonical channels and sliced time indices to physical OM4 arrays and depth selections. Ordinary reads and bulk reads use the same configured I/O backend. |
-| `RustIoRuntime` (`rust_reader.py`) | Own the Rayon pool and adapt typed physical selections to the optional extension's flat/compact APIs. |
+| `RustDataLoadingConfig` | Configure read concurrency and prefetch; construct the runtime and loader. |
+| `TrainingWindows` | Define input history, forecast targets, stride, masks, and source pairing; produce read plans for the sampled windows. |
+| `NativeBatchLoader` (`native_loader.py`) | Follow the sampler schedule, deduplicate batch reads, prefetch, transfer, and gather model tensors. |
+| `NativeOm4Reader` (`native_reader.py`) | Map canonical channels and sliced time indices to physical OM4 arrays and depth selections. |
+| `RustIoRuntime` (`rust_reader.py`) | Open the extension's flat or compact readers and supply their shared `ZarrReadPool`. |
+| `_PinnedTensorPool` | Reuse host buffers after their CUDA consumer events complete. Each loader owns its pool. |
+| `BatchPreparer` | Supply model-batch grid context and apply the input, boundary, and label preparation policies. |
+| `ChannelTransform` | Normalize and mask unique planes using cached device statistics and masks. |
 
-The trainer builds `TrainingWindows` and asks the loading config to build the
-loader. The native path never constructs a PyTorch dataset. Source construction
-installs the final canonical reader; it does not attach a hidden Rust reader for
-later discovery. The batch pipeline uses the explicit `BulkCanonicalReader`
-protocol, without depending on OM4 or a particular native reader class.
+## Pipeline and concurrency
 
-`NativeOm4Reader` uses the narrower `PlaneReader` interface for physical I/O.
-Its `read_into` method receives a caller-owned float32 array and typed array/depth
-selections. **Every write must finish before the call returns or raises**, including
-cancellation. An implementation with asynchronous I/O must drain its work before
-propagating an exception, so the batch loader can safely release the destination.
-
-## Pipeline and ownership
-
-Python owns scheduling, normalization, masking, and CUDA operations. Rust owns
-local Zarr reads and decompression; it has no dependency on Torch or CUDA.
+This diagram shows CUDA training with `prefetch_to_device: true` for one DDP
+rank. The host, CUDA preparation, and model lanes can work on different batches
+concurrently. The CUDA boxes name the Python components that queue work on each
+stream.
 
 ```mermaid
 flowchart LR
-    subgraph host["CPU host — one process per DDP rank"]
-        subgraph python["Python"]
-            S["Sampler: epoch and rank schedule"]
-            H["One producer thread per active iterator<br/>at most prefetch_batches queued reads"]
-            P["Loader-owned pinned buffer pool"]
-            S --> H
+    subgraph HOST["CPU host: one process per DDP rank"]
+        direction TB
+        L["NativeBatchLoader<br/>queue depth: prefetch_batches"]
+        subgraph PRODUCER["One Python producer thread per iterator"]
+            W["TrainingWindows<br/>plan sampled windows"]
+            D["_NativeBatchReader<br/>deduplicate rollout planes"]
+            R["NativeOm4Reader<br/>map channels and times"]
+            W --> D --> R
         end
-        subgraph rust["Rust — shared by train and validation"]
-            R["Persistent Zarr readers"]
-            W["Rayon pool: max_concurrent_reads threads"]
-            R --> W
+        L --> W
+        subgraph IO["RustIoRuntime / ZarrReadPool"]
+            READ["FlatOm4Reader / CompactOm4Reader<br/>parallel reads and decompression<br/>max_concurrent_reads Rayon threads"]
         end
-        H --> R
-        W -->|"fill unique planes"| P
+        R -->|"read_into; GIL released"| READ
+        READ -->|"fill"| P["_PinnedTensorPool<br/>unique planes in host RAM"]
     end
-    subgraph gpu["GPU — Python / PyTorch"]
-        C["Loader stream: copy, normalize, mask, gather"]
-        M["Model stream"]
-        C -->|"CUDA event"| M
+
+    subgraph PREFETCH["CUDA prefetch stream: batch N+1"]
+        direction TB
+        B["BatchPreparer<br/>grid context and preparation policy"]
+        C["ChannelTransform<br/>normalize and mask unique planes"]
+        G["NativeBatchLoader<br/>gather ModelBatch tensors"]
+        B --> C --> G
     end
-    P -->|"CPU to GPU copy"| C
+
+    subgraph COMPUTE["CUDA model stream: batch N"]
+        M["Model<br/>forward / backward"]
+    end
+
+    HOST -->|"copy unique planes to CUDA"| PREFETCH
+    PREFETCH -->|"wait for ready event<br/>when consuming N+1"| COMPUTE
 ```
 
-There are three independent concurrency layers:
+The producer can read a later batch while the CUDA prefetch stream prepares the
+next batch and the model stream computes the current one. `prefetch_batches`
+limits the host queue; the producer executes one batch read at a time. Within
+that read, the Rayon pool performs up to `max_concurrent_reads` tasks concurrently.
+The Python thread waits for `read_into` to finish with the GIL released.
 
-1. **Native reads within a batch.** Each process owns one Rayon pool, sized by
-   `max_concurrent_reads` and shared by its training and validation readers. A
-   flat OM4 batch is planned as unique `(time index, variable)` plane reads
-   across every sample and autoregressive step; Rayon runs up to the configured
-   number concurrently. The PyO3 call releases the GIL during reading and
-   decompression. Readers and Zarr array metadata persist across batches.
-2. **Bounded host prefetch across batches.** One Python producer thread consumes
-   the already-computed sampler schedule and keeps at most `prefetch_batches`
-   futures queued. The single producer prevents multiple batches from each
-   trying to occupy the full native pool. Results are yielded in sampler order,
-   so shuffle, epoch seeding, and rank-local DDP partitioning are unchanged.
-3. **CUDA transfer and preparation overlap.** With pinned memory and
-   `prefetch_to_device`, each unique plane is copied once and normalized and
-   masked on a dedicated CUDA stream. Only then does a device-side indexed
-   gather materialize repeated input/label/rollout positions. The model stream
-   waits on one event when that batch is yielded, while the following host read
-   can proceed in parallel with model work.
+`_CudaPrefetchIterator` queues copies and preparation on a dedicated stream, one
+batch ahead of the model. The model stream waits for that batch's ready event
+before using its tensors. `NativeBatchLoader` coordinates host reads, device
+copies, and the final gather.
 
-Every DDP rank has its own host producers and CUDA prefetch streams, one each
-for its training and validation loaders. Those loaders have separate
-pinned-buffer pools but share the rank's bounded native read pool. There are no
-PyTorch `DataLoader` worker processes on the Rust path.
+Each active training or validation iterator has its own producer thread and CUDA
+prefetch stream. Their loaders have separate pinned-buffer pools and share the
+rank's `ZarrReadPool`. Results are yielded in sampler order.
 
-## Buffer lifetime and memory bounds
+## Host buffers and device transfer
 
-### Where pinning happens
+The producer allocates one float32 tensor per unique read group, usually one for
+prognostic planes and one for boundary planes. Input and label reads share a
+group when they reference the same physical store and channels. The tensors have
+shape `(unique_time, channel, y, x)`.
 
-Pinning happens before the Zarr read. `prefetch_batches` bounds the host read
-queue; `prefetch_to_device: true` separately enables one-batch-ahead transfer and
-preparation on a CUDA stream when training on CUDA. Device prefetch forces pinning
-on even if `pin_mem` is false.
+With CUDA prefetch enabled, `_PinnedTensorPool` supplies page-locked memory,
+including when `pin_mem` is false. Rust fills a NumPy view of that allocation
+directly. `read_into` completes all writes before returning or raising, so the
+caller can safely reuse the destination after a failed read.
 
-`HostPrefetch` means only the disk-to-RAM stage runs ahead. It is selected for CPU
-training and when CUDA device prefetch is disabled. For the latter, the batch is
-still copied to CUDA, normalized, and gathered when consumed, on the model's
-current stream. `pin_mem` then controls pinned staging buffers for that transfer;
-copy and model computation on the same stream execute in order. This avoids
-holding an additional prepared batch on the GPU. Normal CPU training disables
-pinning because there is no host-to-device transfer.
+`NativeBatchLoader` copies each unique plane to CUDA once. `BatchPreparer` and
+`ChannelTransform` apply normalization and masking, then the loader gathers
+repeated history and rollout positions into `ModelBatch` tensors.
 
-The host producer requests one float32 tensor per unique read group,
-normally prognostic and boundary planes. Input and label share the prognostic
-group when they use the same physical store.
+`HostPrefetch` selects disk-to-RAM read-ahead for CPU training or CUDA training
+with `prefetch_to_device: false`. On CUDA, transfer and preparation happen on the
+model's current stream when the batch is consumed, and `pin_mem` controls host
+pinning. This mode holds fewer prepared batches on the GPU. CPU training uses
+unpinned buffers.
 
-On the first request for a shape, the pool calls:
+### Buffer reuse and cleanup
 
-```python
-torch.empty(shape, dtype=torch.float32, pin_memory=True)
-```
+After queuing CUDA copies and preparation, the loader records an event and returns
+the host buffers to `_PinnedTensorPool` with that event. On each acquisition,
+the pool queries pending events:
 
-This allocates page-locked host memory through PyTorch's CUDA host allocator.
-The tensor has shape `(unique_time, channel, y, x)` and is exposed to PyO3 as a
-NumPy view. NumPy and Torch share the same CPU allocation; no data is copied to
-create the view. Rust reads and decompresses the selected Zarr chunks, then
-writes each plane directly into that pinned destination. Logical rollout maps
-remain small CPU index tensors. There is no intermediate pageable batch and no
-Python collation copy. The native decoder still has bounded per-read scratch
-before copying a decoded plane into its pinned location.
+- completed event: move the buffer to the free list;
+- incomplete event: keep the buffer pending and allocate or reuse another;
+- free buffer with sufficient capacity: reuse it for the next read.
 
-When the CUDA-prefetch iterator consumes the batch, `Tensor.to(device,
-non_blocking=True)` queues one host-to-device copy per unique read group.
-Normalization and masking run on the unique device planes. `index_select` then
-duplicates processed planes into the existing `ModelBatch` input, boundary, and
-label layout. Thus overlapping rollout values are copied from CPU to GPU once and are copied
-device-to-device only after preprocessing. The host producer can concurrently
-fill another set of pinned buffers while the model stream works.
+The pool retains the three largest free buffers. Iterator exhaustion, early close,
+and producer or preparation errors close the producer and reclaim completed
+buffers. Queued CUDA operations retain their event-protected buffer leases even
+when preparation fails. A read failure returns its partial batch's buffers
+immediately.
 
-### When a pinned buffer can be reused
+Host memory use depends on the prefetch depth, the batch being prepared, reusable
+buffers, and native read scratch. Flat reads hold one decompressed plane per
+active Rayon task. Compact reads group requested levels by physical array and
+retain at most one physical array's scratch per concurrent time index.
 
-After device preparation is queued, the loader records a CUDA event on the
-prefetch stream and releases the raw host tensors to the pool with that event.
-The event follows the copies and preparation. This could be tightened: host
-buffers only need to wait for the copies to finish.
-
-Released tensors first enter a pending-event queue. On each later acquisition,
-the pool queries pending events without blocking:
-
-- completed event: move the tensor to the free list;
-- incomplete event: leave the tensor pending and allocate/reuse another buffer;
-- free tensor with sufficient capacity: return it for the next read.
-
-The pool reuses any allocation with sufficient capacity and retains only the three
-largest free buffers, enough for one input/boundary/label group set. On a CPU path
-there is no asynchronous H2D consumer, so pooled tensors return to the free list
-immediately after batch preparation.
-
-Iterator exhaustion, early close, and producer or preparation errors close the
-prefetch producer and reclaim completed buffers. Already queued CUDA transfers
-retain their event-protected buffer leases even when preparation fails.
-A load failure returns every tensor acquired for the partial batch immediately
-because no device transfer was queued.
-
-Memory is bounded by the prefetch depth, the batch being prepared, and native
-read scratch. Flat reads hold one decompressed plane per active Rayon task.
-Compact reads group requested levels by physical array and retain at most one
-physical array's scratch per concurrent time index.
-
-## Format translation
+## Store requirements and format translation
 
 - **Flat OM4:** canonical depth channels such as `thetao_4` are physical array
-  names and are passed directly to Rust.
-- **Compact OM4:** Python maps `thetao_4` to the explicit selector
-  `("thetao", 4)`. Rust groups requested levels backed by the same physical array.
-- **Encoded values:** direct reads do not apply Xarray's CF decoding. Selected
-  physical arrays with `scale_factor`, `add_offset`, or non-NaN `_FillValue` /
-  `missing_value` sentinels are rejected before a native reader is opened. Use
-  `loading.type: cpu` for these stores. NaN fill values remain supported.
-- **Derived channels:** seasonal-climatology fields such as `hfds_anomalies` are
-  unsupported. The current check runs after Python canonicalization; configurations
-  that compute these fields can therefore do expensive work before failing.
+  names passed directly to Rust.
+- **Compact OM4:** `NativeOm4Reader` maps `thetao_4` to array `thetao`, level `4`.
+  Rust groups requested levels backed by the same physical array.
+- **Values:** native reads require unscaled float32 values and NaN missing-value
+  sentinels. Arrays with `scale_factor`, `add_offset`, or non-NaN `_FillValue` /
+  `missing_value` sentinels are rejected before the native reader opens them.
+- **Channels:** the configured channels must map to stored physical variables.
+  Derived anomaly channels such as `hfds_anomalies` are rejected before datasets
+  are opened or canonicalized.
 
-The current loader is local-filesystem only and supports training and validation.
-S3, LLC, and inference remain follow-on work. Python retains the existing
-homogeneous-`dataset_id` batch contract.
+Each batch belongs to one set of `TrainingWindows`, preserving a single source
+pair and preparation policy throughout the batch.
 
 ## Installation and tests
 
 In a source checkout, install the optional extension with `uv sync --extra rust`.
-The default installation does not require Rust. The root
-[`rust-toolchain.toml`](../rust-toolchain.toml) pins the compiler used for builds;
-the crate uses Rust edition 2024. There is no separately advertised minimum
-supported Rust version.
+The root [`rust-toolchain.toml`](../rust-toolchain.toml) pins the compiler;
+the crate uses Rust edition 2024.
 
-The native crate lives in [`rust/loader`](../rust/loader). Its small standalone
-test environment does not install Torch or Samudra:
+The native crate and its standalone test environment live in
+[`rust/loader`](../rust/loader):
 
 ```bash
 uv sync --project rust/loader --python 3.12 --locked --group test
@@ -223,16 +174,15 @@ cargo fmt --manifest-path rust/loader/Cargo.toml -- --check
 cargo clippy --manifest-path rust/loader/Cargo.toml --all-targets -- -D warnings
 ```
 
-Native Rust tests link Python and run without the `extension-module` feature.
-Wheel builds enable that feature for the Python shared library (`cdylib`).
-The Rust CI workflow separately runs the Samudra integration suite with the Rust
-extra installed. GPU CI covers pinned buffers and CUDA prefetch. Regular CPU CI
-runs without the Rust extra.
+Native Rust tests link Python. Wheel builds enable the `extension-module` feature
+for the Python shared library (`cdylib`). The Rust CI workflow runs the Samudra
+integration suite with the Rust extra installed; GPU CI covers pinned buffers
+and CUDA prefetch.
 
-The integration tests compare native and Python `ModelBatch` values for flat and
+Integration tests compare native and Python `ModelBatch` values for flat and
 compact stores, history windows, rollout steps, strides, masks, normalization,
 and different input/label grids. They also cover deterministic schedules and
-cleanup after iterator exhaustion, early exit, and read errors.
+cleanup after exhaustion, early exit, and read or preparation errors.
 
 ## Native code and CPU targets
 
@@ -241,8 +191,8 @@ server baseline: `x86-64-v3` on x86_64, and Neoverse V1 on aarch64. Rust flags t
 the extension and Rust dependencies; target-specific `CFLAGS` tune bundled native
 codecs. Wheels built with these settings require compatible CPUs.
 
-`zarrs` builds the bundled C-Blosc sources through `blosc-src`; it does not link a
-system `libblosc.so`. Read concurrency is bounded by the shared Rayon pool.
+`zarrs` builds bundled C-Blosc sources through `blosc-src`. Read concurrency is
+bounded by the shared Rayon pool.
 
 ## Recorded performance
 

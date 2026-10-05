@@ -103,10 +103,11 @@ prognostic planes and one for boundary planes. Input and label reads share a
 group when they reference the same physical store and channels. The tensors have
 shape `(unique_time, channel, y, x)`.
 
-With CUDA prefetch enabled, `_PinnedTensorPool` supplies page-locked memory,
-including when `pin_mem` is false. Rust fills a NumPy view of that allocation
-directly. `read_into` completes all writes before returning or raising, so the
-caller can safely reuse the destination after a failed read.
+For CUDA training, `_PinnedTensorPool` supplies page-locked host memory. CPU
+training uses ordinary unpinned buffers. The loader selects pinning automatically
+from the training device. Rust fills a NumPy view of that allocation directly.
+`read_into` completes all writes before returning or raising, so the caller can
+safely reuse the destination after a failed read.
 
 `NativeBatchLoader` copies each unique plane to CUDA once. `BatchPreparer` and
 `BatchPreprocessor` apply normalization and masking, then the loader gathers
@@ -114,9 +115,8 @@ repeated history and rollout positions into `ModelBatch` tensors.
 
 `HostPrefetch` selects disk-to-RAM read-ahead for CPU training or CUDA training
 with `prefetch_to_device: false`. On CUDA, transfer and preparation happen on the
-model's current stream when the batch is consumed, and `pin_mem` controls host
-pinning. This mode holds fewer prepared batches on the GPU. CPU training uses
-unpinned buffers.
+model's current stream when the batch is consumed, using pinned host buffers.
+This mode holds fewer prepared batches on the GPU.
 
 ### Buffer reuse and cleanup
 

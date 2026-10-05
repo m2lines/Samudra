@@ -415,7 +415,7 @@ class RustDataLoadingConfig(BaseDataLoadingConfig):
         prefetch = (
             CudaPrefetch()
             if device.type == "cuda" and self.prefetch_to_device
-            else HostPrefetch(pin_memory=pin_memory)
+            else HostPrefetch()
         )
         return NativeBatchLoader(
             windows,
@@ -1394,7 +1394,13 @@ def build_loss_fn(
 class TrainConfig(TopLevelConfig):
     # Training parameters
     disk_mode: bool = True
-    pin_mem: bool = True
+    pin_mem: bool = Field(
+        default=True,
+        description=(
+            "Pin host batches for PyTorch loaders. Native loaders choose pinning "
+            "automatically from the training device."
+        ),
+    )
     save_freq: int = 5
     validation_image_log_freq: int = Field(
         default=10,

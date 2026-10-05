@@ -26,13 +26,7 @@ from samudra.utils.samplers import BatchSchedule
 
 @dataclass(frozen=True)
 class HostPrefetch:
-    """Read ahead into RAM; prepare on the consumer's CPU or CUDA stream.
-
-    Pinning supports the later host-to-CUDA transfer even without a separate
-    device-prefetch stream. CPU training does not need pinned memory.
-    """
-
-    pin_memory: bool
+    """Read ahead into RAM; prepare on the consumer's CPU or CUDA stream."""
 
 
 @dataclass(frozen=True)
@@ -310,8 +304,7 @@ class NativeBatchLoader:
         self._prefetch_to_device = isinstance(prefetch, CudaPrefetch)
         if self._prefetch_to_device and device.type != "cuda":
             raise ValueError("CUDA prefetch requires a CUDA training device")
-        pin_memory = True if isinstance(prefetch, CudaPrefetch) else prefetch.pin_memory
-        self._pinned_pool = _PinnedTensorPool() if pin_memory else None
+        self._pinned_pool = _PinnedTensorPool() if device.type == "cuda" else None
         self._cumulative_sizes = np.cumsum([len(window) for window in windows]).tolist()
 
     def _resolve_batch(self, global_indices: list[int]) -> tuple[int, list[int]]:

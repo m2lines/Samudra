@@ -68,11 +68,8 @@ def rust_train_loader(
 ) -> NativeBatchLoader:
     del max_concurrent_reads
     datasets, *rest = args
-    pin_memory = kwargs.pop("pin_memory")
     prefetch = (
-        CudaPrefetch()
-        if kwargs.pop("prefetch_to_device", False)
-        else HostPrefetch(pin_memory=pin_memory)
+        CudaPrefetch() if kwargs.pop("prefetch_to_device", False) else HostPrefetch()
     )
     return NativeBatchLoader(
         [dataset.windows for dataset in datasets], *rest, prefetch=prefetch, **kwargs
@@ -285,7 +282,6 @@ def test_compact_rust_loader_consumes_existing_prefetch_schedule(
         torch.device("cpu"),
         max_concurrent_reads=2,
         prefetch_batches=2,
-        pin_memory=False,
     )
 
     for actual, batch_indices in zip(loader, schedule):
@@ -500,7 +496,6 @@ def test_rust_loader_consumes_existing_batch_schedule(
         torch.device("cpu"),
         max_concurrent_reads=2,
         prefetch_batches=2,
-        pin_memory=False,
     )
 
     actual_batches = list(loader)
@@ -544,7 +539,6 @@ def test_rust_loader_matches_cpu_with_separate_destination(
         torch.device("cpu"),
         max_concurrent_reads=2,
         prefetch_batches=1,
-        pin_memory=False,
     )
 
     actual = next(iter(loader))
@@ -583,7 +577,6 @@ def test_rust_loader_deduplicates_full_rollout_before_preprocessing(
         torch.device("cpu"),
         max_concurrent_reads=2,
         prefetch_batches=1,
-        pin_memory=False,
     )
     chunk_batch = loader._batch_readers[0].load_chunk_batch([0, 1])
 
@@ -654,7 +647,6 @@ def test_rust_loader_preserves_homogeneous_dataset_id_invariant(flat_om4_source)
         torch.device("cpu"),
         max_concurrent_reads=1,
         prefetch_batches=1,
-        pin_memory=False,
     )
 
     with pytest.raises(AssertionError, match="heterogenous batches"):
@@ -696,7 +688,6 @@ def test_distributed_sampler_never_crosses_dataset_ids(flat_om4_source):
             torch.device("cpu"),
             max_concurrent_reads=1,
             prefetch_batches=1,
-            pin_memory=False,
         )
         schedule = list(sampler)
         schedules.append(schedule)
@@ -736,7 +727,6 @@ def test_rust_batch_uses_physical_indices_after_time_slice(flat_om4_source):
         torch.device("cpu"),
         max_concurrent_reads=2,
         prefetch_batches=1,
-        pin_memory=False,
     )
     actual = next(iter(loader))
 
@@ -786,7 +776,6 @@ def test_native_reader_maps_an_already_sliced_canonical_dataset(
         torch.device("cpu"),
         max_concurrent_reads=2,
         prefetch_batches=1,
-        pin_memory=False,
     )
 
     actual = next(iter(loader))
@@ -939,7 +928,6 @@ def test_rust_loader_prefetches_next_batch_during_consumption(
         torch.device("cpu"),
         max_concurrent_reads=1,
         prefetch_batches=2,
-        pin_memory=False,
     )
     original_load = loader._batch_readers[0].load_chunk_batch
     second_started = threading.Event()
@@ -987,7 +975,6 @@ def test_rust_loader_surfaces_prefetch_errors(flat_om4_source, monkeypatch):
         torch.device("cpu"),
         max_concurrent_reads=1,
         prefetch_batches=1,
-        pin_memory=False,
     )
 
     def fail_load(_indices, **_kwargs):
@@ -1026,7 +1013,6 @@ def test_rust_loader_closes_prefetch_when_partial_iterator_is_abandoned(
         torch.device("cpu"),
         max_concurrent_reads=1,
         prefetch_batches=2,
-        pin_memory=False,
     )
 
     next(iter(loader))
@@ -1059,10 +1045,9 @@ def test_rust_loader_reclaims_completed_pinned_prefetch_on_early_close(
     loader = rust_train_loader(
         [dataset],
         [[0], [1], [2]],
-        torch.device("cpu"),
+        torch.device("cuda"),
         max_concurrent_reads=1,
         prefetch_batches=2,
-        pin_memory=True,
     )
     acquired: list[int] = []
     released: list[int] = []
@@ -1112,10 +1097,9 @@ def test_rust_loader_reclaims_pinned_prefetch_after_producer_error(
     loader = rust_train_loader(
         [dataset],
         [[0], [1]],
-        torch.device("cpu"),
+        torch.device("cuda"),
         max_concurrent_reads=1,
         prefetch_batches=2,
-        pin_memory=True,
     )
     acquired: list[int] = []
     released: list[int] = []
@@ -1176,7 +1160,6 @@ def test_rust_loader_prefetches_pinned_batch_on_dedicated_cuda_stream(
         torch.device("cuda"),
         max_concurrent_reads=2,
         prefetch_batches=2,
-        pin_memory=True,
         prefetch_to_device=True,
     )
     observed_streams = []
@@ -1250,7 +1233,6 @@ def test_rust_loader_reuses_pinned_buffers_after_cuda_event(
         torch.device("cuda"),
         max_concurrent_reads=1,
         prefetch_batches=1,
-        pin_memory=True,
         prefetch_to_device=True,
     )
     pointers: list[int] = []
@@ -1304,7 +1286,6 @@ def test_preparation_failure_closes_retained_iterator_and_releases_buffers(
         torch.device(device_type),
         max_concurrent_reads=1,
         prefetch_batches=2,
-        pin_memory=device_type == "cuda",
         prefetch_to_device=device_prefetch,
     )
     # Retain host iterators and exceptions so destructors cannot make a missing

@@ -12,6 +12,7 @@ import torch
 
 from samudra.config import JulianDate, Om4TimeConfig, RustDataLoadingConfig
 from samudra.datasets import TorchTrainDataset, TrainingWindows
+from samudra.native_loader import NativeBatchLoader
 from samudra.utils.data import CanonicalReader, CanonicalReadRequest, CanonicalSource
 from samudra.utils.train import collate_host_batches
 from tests.test_canonical_dataset import _equivalent_om4_sources
@@ -76,8 +77,13 @@ class ArrayBulkReader:
 
 
 @pytest.mark.parametrize("normalize_before_mask", [True, False])
+@pytest.mark.parametrize("pin_memory", [True, False])
+@pytest.mark.parametrize("prefetch_to_device", [True, False])
+@pytest.mark.parametrize(
+    "device_type", ["cpu", pytest.param("cuda", marks=pytest.mark.cuda)]
+)
 def test_shared_pipeline_accepts_an_independent_bulk_reader(
-    normalize_before_mask, monkeypatch
+    normalize_before_mask, pin_memory, prefetch_to_device, device_type, monkeypatch
 ):
     source, _ = _equivalent_om4_sources()
     data, means, stds = source._xarray_datasets_for_testing()
@@ -115,15 +121,28 @@ def test_shared_pipeline_accepts_an_independent_bulk_reader(
         pytest.fail("Shared batch construction imported the Rust extension")
 
     monkeypatch.setattr("samudra.rust_reader._load_extension", forbidden_import)
-    loader = RustDataLoadingConfig(prefetch_batches=2).build_batch_loader(
+    device = torch.device(device_type)
+    loader = RustDataLoadingConfig(
+        prefetch_batches=2, prefetch_to_device=prefetch_to_device
+    ).build_batch_loader(
         [windows(native)],
         schedule,
-        torch.device("cpu"),
-        pin_memory=False,
+        device,
+        pin_memory=pin_memory,
         multiprocessing_context=None,
         worker_seed=0,
         concurrent_compute=False,
     )
+    assert isinstance(loader, NativeBatchLoader)
+    original_prepare = loader._prepare_batch
+    observed_pinned: list[bool] = []
+
+    def record_prepare(loaded):
+        _, raw = loaded
+        observed_pinned.extend(tensor.is_pinned() for tensor in raw.groups)
+        return original_prepare(loaded)
+
+    monkeypatch.setattr(loader, "_prepare_batch", record_prepare)
     try:
         for actual, indices in zip(loader, schedule, strict=True):
             expected = reference.to_model_batch(
@@ -136,14 +155,16 @@ def test_shared_pipeline_accepts_an_independent_bulk_reader(
                 for actual_tensor, expected_tensor in zip(
                     actual_step, expected_step, strict=True
                 ):
+                    assert actual_tensor.device.type == device_type
                     torch.testing.assert_close(
-                        actual_tensor, expected_tensor, rtol=0, atol=0
+                        actual_tensor.cpu(), expected_tensor, rtol=0, atol=0
                     )
     finally:
         loader.close()
 
     # One prognostic and one boundary read per batch, deduplicated across all steps.
     assert len(calls) == 2 * len(schedule)
+    assert observed_pinned == [device_type == "cuda"] * (2 * len(schedule))
     np.testing.assert_array_equal(calls[0][0], [1, 2, 3, 4, 5])
     np.testing.assert_array_equal(calls[1][0], [1, 2, 3, 4])
     assert calls[0][1] == ("so_0", "so_2", "zos")

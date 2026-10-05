@@ -14,6 +14,7 @@ import torch
 from torch import nn
 
 from samudra.config import BlockConfig, UNetBackboneConfig
+from samudra.experiments.missingness import state_mask
 
 
 def make_unet(inputs: int, outputs: int, widths: list[int]) -> nn.Module:
@@ -72,7 +73,7 @@ class Evolution(nn.Module):
             raise ValueError(kind)
         self.net = make_unet(2 * channels + 5 + extra, channels, widths)
 
-    def forward(self, states, forcing, context, mask, lead: int):
+    def forward(self, states, forcing, context, mask, lead: int, task="observation"):
         b, _, _, h, w = states.shape
         if self.kind == "direct":
             # Slice BEFORE encoding: future forcing after requested lead is absent.
@@ -89,7 +90,12 @@ class Evolution(nn.Module):
         else:
             extra = forcing[:, lead - 1]
         inputs = torch.cat((states.flatten(1, 2), context, extra), 1)
-        return self.net(inputs) * mask
+        adapters = getattr(self, "input_adapters", None)
+        if adapters is not None:
+            assert isinstance(adapters, nn.ModuleDict)
+            inputs = adapters[task](inputs)
+        result = self.net(inputs)
+        return result * state_mask(mask, result.shape[1])
 
 
 class Forecast(nn.Module):

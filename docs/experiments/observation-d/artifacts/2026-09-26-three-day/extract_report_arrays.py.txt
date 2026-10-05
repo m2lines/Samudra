@@ -1,0 +1,53 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+# SPDX-License-Identifier: Apache-2.0
+"""Extract compact report arrays, preserving original-grid cells and metric definitions."""
+import argparse,hashlib,json,pathlib
+import numpy as np
+from samudra.experiments.observation_metrics import _field,spatial_error
+from samudra.metrics import kernels,spectra
+p=argparse.ArgumentParser();p.add_argument('--arm',choices=['scratch','sequential','mixed'],required=True);a=p.parse_args()
+r=pathlib.Path('/scratch/jr7309/runs/2026-09-26-observation-joint');out=r/'report-arrays'/a.arm;out.mkdir(parents=True,exist_ok=True)
+assert (r/(a.arm+'-main')/'TRAIN_COMPLETE.json').exists()
+state=r/(a.arm+'-main-state-diagnostics');signature=json.loads((state/'COMPLETE.json').read_text())
+channels=[38,47,0,9,57,66,76]
+for name in signature['checkpoints']:
+ stem=pathlib.Path(name).stem
+ with np.load(state/(stem+'.npz')) as z:
+  d={k:z[k] for k in ['lat','lon','cases']};d.update(names=z['names'][channels],mask=z['mask'][channels],channels=channels)
+  for k in ['initial','day30']:d[k]=z[k][:,channels]
+  np.savez_compressed(out/(stem+'.npz'),**d)
+for kind in ['annual-test','fixed8k-annual-test']:
+ folder=r/(a.arm+'-main-'+kind);complete=json.loads((folder/'COMPLETE.json').read_text())
+ for origin in complete['origins']:
+  with np.load(folder/(origin+'.npz')) as z:
+   ix=z['leads_days']//5-1
+   np.savez_compressed(out/(kind+'-'+origin+'.npz'),surface=z['surface'][ix],reference=z['reference'][ix,:2],leads_days=z['leads_days'])
+g=np.load('/scratch/jr7309/data/obs-d-pilot/grid.npz');lat,lon=g['lat'],g['lon'];domain=g['mask'][0]&(abs(lat[:,None])<=60)
+def fields(pred,reference):
+ pred=np.where(domain,pred,np.nan);reference=np.where(domain,reference,np.nan)
+ pu,pv=kernels.geostrophic_velocity_from_zos(_field(pred[:,1],lat,lon),'lat','lon')
+ ru,rv=kernels.geostrophic_velocity_from_zos(_field(reference[:,1],lat,lon),'lat','lon')
+ pu,pv,ru,rv=[v.transpose('time','lat','lon').values for v in [pu,pv,ru,rv]]
+ support=(abs(lat[:,None])>=5)&np.isfinite(ru)&np.isfinite(rv)&np.isfinite(reference[:,2])&np.isfinite(reference[:,3])
+ pu,pv,u,v=[np.where(support,x,np.nan) for x in [pu,pv,reference[:,2],reference[:,3]]]
+ pe=kernels.instantaneous_surface_eke(_field(pu,lat,lon),_field(pv,lat,lon)).values
+ re=kernels.instantaneous_surface_eke(_field(u,lat,lon),_field(v,lat,lon)).values
+ return np.stack([pu,pv],1),np.stack([u,v],1),pe,re
+folder=r/(a.arm+'-main-monthly-test')
+with np.load(folder/'selected-predictions.npz') as z:
+ i=list(z['origins']).index('2022-07');v,ref,pe,re=fields(z['prediction'][:,5],z['reference'][:,5])
+ regional=dict(lat=lat,lon=lon,monthly_uv=v[i],reference_monthly_uv=ref[i],monthly_eke=np.nanmean(pe,0),reference_monthly_eke=np.nanmean(re,0))
+saved=json.loads((folder/'selected.json').read_text())['metrics']['spectra']
+for region in spectra.SPATIAL_REGIONS:
+ curve=spatial_error(pe,re,lat,lon,region);existing=saved[f'eke/{region[0]}/day30']
+ for k in ['k_rad_km','reference_power','prediction_power']:np.testing.assert_allclose(curve[k],existing[k],rtol=1e-6,atol=1e-10)
+with np.load(r/(a.arm+'-main-annual-test')/'2015-01-01.npz') as z:
+ v,ref,pe,re=fields(z['surface'],z['reference']);regional.update(annual_uv=v[[5,72]],reference_annual_uv=ref[[5,72]],annual_eke=np.nanmean(pe,0),reference_annual_eke=np.nanmean(re,0))
+np.savez_compressed(out/'regional.npz',**regional)
+def sha(path):
+ h=hashlib.sha256()
+ with path.open('rb') as f:
+  for b in iter(lambda:f.read(4*1024*1024),b''):h.update(b)
+ return h.hexdigest()
+audit={'arm':a.arm,'extractor_sha256':sha(pathlib.Path(__file__)),'state_signature':signature,'monthly_spectrum_reproduced':True,'monthly_origin':'2022-07','annual_region_origin':'2015-01-01','files':{f.name:{'sha256':sha(f),'bytes':f.stat().st_size} for f in sorted(out.glob('*.npz'))}}
+(out/'COMPLETE.json').write_text(json.dumps(audit,indent=2)+'\n');print(json.dumps({'arm':a.arm,'files':len(audit['files']),'bytes':sum(x['bytes'] for x in audit['files'].values()),'monthly_spectrum_reproduced':True}))

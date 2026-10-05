@@ -1,0 +1,7 @@
+model,policy,score,persistence_score
+D → observations (3k),original,0.5270783296302521,0.5669837865826349
+D → observations (3k),recalibrated,0.8863551687108957,0.8196509003360625
+D → observations (3k),per-sample,0.9100843024005771,0.8202589034875875
+Observation-only random (6k),original,0.8410401767008457,0.6222602140861873
+Observation-only random (6k),recalibrated,0.8402861125354969,0.6125879820965239
+Observation-only random (6k),per-sample,0.5572997413016997,0.5954100858511899

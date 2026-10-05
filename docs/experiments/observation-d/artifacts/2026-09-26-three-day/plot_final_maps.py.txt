@@ -1,0 +1,121 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+# SPDX-License-Identifier: Apache-2.0
+"""Render checked native-cell maps and saved metric spectra from compact arrays."""
+import argparse,gzip,hashlib,json
+from pathlib import Path
+import numpy as np
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+from matplotlib.ticker import NullFormatter
+from PIL import Image
+p=argparse.ArgumentParser();p.add_argument('--arrays',type=Path,required=True);p.add_argument('--output',type=Path,required=True);a=p.parse_args();b=a.arrays;out=a.output
+arms=['scratch','sequential','mixed'];labels={x:'Samudra2 '+x for x in arms};regions=[('North Pacific',(170,200),(25,45)),('Gulf Stream',(300,320),(25,45)),('Agulhas',(40,60),(-50,-30))]
+metrics={};audit={'input_manifests':{},'figures':{},'maps':[]}
+for arm in arms:
+ d=json.loads((b/arm/'COMPLETE.json').read_text());audit['input_manifests'][arm]=d
+ for name,rec in d['files'].items():
+  f=b/arm/name;assert f.stat().st_size==rec['bytes'];assert hashlib.sha256(f.read_bytes()).hexdigest()==rec['sha256']
+ with gzip.open(out/f'production-{arm}.json.gz','rt') as f:metrics[arm]=json.load(f)['arms'][arm]['evaluations']
+g=np.load(b/'scratch/joint-00000.npz');lat,lon=g['lat'],g['lon'];order=np.argsort((lon+180)%360-180)
+
+def maps(name,title,panels,cmap,limits,unit,cols=3,scale=1,regional=False):
+ rows=(len(panels)+cols-1)//cols;cellw=400 if not regional else 230;rowh=225 if not regional else 110;w=50+cols*cellw;h=95+rows*rowh+70
+ fig=plt.figure(figsize=(w/100,h/100),dpi=100);tiles=[]
+ for i,(label,z) in enumerate(panels):
+  left=45+(i%cols)*cellw;top=85+(i//cols)*rowh
+  if z is None:continue
+  z=np.asarray(z)
+  if not regional:z=z[:,order]
+  ph,pw=np.array(z.shape)*scale
+  ax=fig.add_axes([left/w,(h-top-ph)/h,pw/w,ph/h]);im=ax.imshow(z,origin='lower',cmap=cmap,vmin=limits[0],vmax=limits[1],interpolation='none',aspect='equal');ax.set_title(label,fontsize=8)
+  if regional:ax.set_axis_off()
+  else:
+   ax.set_xticks([0,180,359],['−180°','0°','180°']);ax.set_yticks([0,90,179],['90°S','0°','90°N']);ax.tick_params(length=0,labelsize=6)
+   for spine in ax.spines.values():spine.set_visible(False)
+  np.testing.assert_allclose(ax.get_window_extent().size,[pw,ph],atol=1e-6)
+  rgba=im.to_rgba(z,bytes=True);tile=np.repeat(np.repeat(np.where(rgba[...,3:]>0,rgba[...,:3],209)[::-1],scale,0),scale,1);tiles.append((left,top,tile))
+ cax=fig.add_axes([.2,45/h,.6,12/h]);fig.colorbar(im,cax=cax,orientation='horizontal',label=unit,extend='both');fig.suptitle(title,fontsize=11,y=1-15/h);fig.savefig(out/name,dpi=100);plt.close(fig)
+ raster=Image.open(out/name).convert('RGB')
+ for left,top,tile in tiles:raster.paste(Image.fromarray(tile),(left,top))
+ raster.save(out/name,optimize=True)
+ pixels=np.array(raster)
+ for left,top,tile in tiles:np.testing.assert_array_equal(pixels[top:top+tile.shape[0],left:left+tile.shape[1]],tile)
+ # Indexed color changes neither geometry nor the constant grid-cell blocks.
+ # Use a single image palette to keep report files below the repository limit.
+ if (out/name).stat().st_size>245000:
+  raster=raster.quantize(colors=256,dither=Image.Dither.NONE);raster.save(out/name,optimize=True)
+  pixels=np.array(raster.convert('RGB'))
+  for left,top,tile in tiles:
+   block=pixels[top:top+tile.shape[0],left:left+tile.shape[1]]
+   if scale==2:np.testing.assert_array_equal(block,np.repeat(np.repeat(block[::2,::2],2,0),2,1))
+ if (out/name).stat().st_size>=250000:
+  (out/name).unlink()
+  chunk=cols if rows>1 else max(1,cols//2)
+  for start in range(0,len(panels),chunk):
+   maps(Path(name).stem+f'-part{start//chunk+1}.png',title,panels[start:start+chunk],cmap,limits,unit,cols=min(cols,chunk),scale=scale,regional=regional)
+  return
+ audit['maps'].append({'file':name,'pixels_per_grid_cell':scale,'panels':len(tiles),'cell_geometry_verified':True})
+
+specs=[('initial',0,'sst','Initializer SST','turbo',(-2,32),'°C'),('initial',1,'t550','Initializer temperature at 550 m','turbo',(-2,20),'nominal °C'),('initial',2,'u','Initializer eastward velocity slot','RdBu_r',(-1,1),'nominal m/s'),('initial',6,'adt','Initializer SSH slot','RdBu_r',(-1.5,1.5),'nominal m'),('day30',0,'sst','Day-30 SST','turbo',(-2,32),'°C'),('day30',6,'adt','Day-30 ADT','RdBu_r',(-1.5,1.5),'m')]
+for kind,ch,short,title,cmap,lim,unit in specs:
+ for period,steps in [('early',[0,10,100]),('later',[1000,4000,8000])]:
+  panels=[]
+  for step in steps:
+   for arm in arms:
+    z=np.load(b/arm/f'joint-{step:05d}.npz');panels.append((f'{labels[arm]} · {step:,} obs',np.where(z['mask'][ch],z[kind][0,ch],np.nan)))
+  maps(f'production-{kind}-{short}-{period}.png',title+' · November 2013 origin\n0 = random before either task; source exposure differs; full grid',panels,cmap,lim,unit)
+# Scratch-only 16k endpoint versus its immutable raw 8k checkpoint.
+for kind,ch,short,title,cmap,lim,unit in [specs[0],specs[2],specs[4],specs[5]]:
+ panels=[]
+ for step in [8000,16000]:
+  z=np.load(b/'scratch'/f'joint-{step:05d}.npz');panels.append((f'Samudra2 scratch · {step:,} obs',np.where(z['mask'][ch],z[kind][0,ch],np.nan)))
+ maps(f'production-scratch-{kind}-{short}-8k-16k.png',title+' · scratch raw checkpoints · November 2013',panels,cmap,lim,unit,cols=2)
+# Selected annual forecasts; observations use exactly the same sampled leads.
+for origin in ['2015-01-01','2018-01-01','2021-01-01']:
+ for ch,short,cmap,lim,unit in [(0,'sst','turbo',(-2,32),'°C'),(1,'adt','RdBu_r',(-1.5,1.5),'m')]:
+  panels=[]
+  for day in [30,365]:
+   for arm in ['observed',*arms]:
+    z=np.load(b/('scratch' if arm=='observed' else arm)/f'annual-test-{origin}.npz');ix=list(z['leads_days']).index(day);field=z['reference' if arm=='observed' else 'surface'][ix,ch]
+    panels.append((f'{"Observed" if arm=="observed" else labels[arm]} · day {day}',np.where(g['mask'][0 if ch==0 else 6],field,np.nan)))
+  maps(f'production-annual-{short}-{origin}.png',f'Selected continuous rollout · {short.upper()} · initialized {origin}\nGray = outside available support',panels,cmap,lim,unit,cols=4)
+
+reg={arm:np.load(b/arm/'regional.npz') for arm in arms}
+for key in ['reference_monthly_uv','reference_annual_uv','reference_monthly_eke','reference_annual_eke']:
+ for arm in arms[1:]:np.testing.assert_allclose(reg[arm][key],reg['scratch'][key],equal_nan=True)
+def regional_panels(key,component=None):
+ panels=[]
+ for region,xlim,ylim in regions:
+  yi=np.flatnonzero((lat>=ylim[0])&(lat<=ylim[1]));xi=np.flatnonzero((lon>=xlim[0])&(lon<=xlim[1]))
+  for arm in ['observed',*arms]:
+   z=reg['scratch' if arm=='observed' else arm][('reference_' if arm=='observed' else '')+key]
+   if component is not None:z=component(z)
+   panels.append((region+' · '+('Observed' if arm=='observed' else arm),z[np.ix_(yi,xi)]))
+ return panels
+for component,title in [(0,'Eastward'),(1,'Northward')]:
+ maps(f'production-regional-velocity-{component}.png',title+' geostrophic velocity · day 30 · July 2022',regional_panels('monthly_uv',lambda x:x[component]),'RdBu_r',(-.5,.5),'m/s',cols=4,scale=2,regional=True)
+for day,ix in [(30,0),(365,1)]:
+ maps(f'production-regional-speed-day{day}.png',f'Geostrophic speed · day {day} · continuous rollout from 2015-01-01',regional_panels('annual_uv',lambda x:np.sqrt((x[ix]**2).sum(0))),'viridis',(0,.6),'m/s',cols=4,scale=2,regional=True)
+for kind in ['monthly','annual']:
+ maps(f'production-regional-{kind}-eke.png',('Day-30 EKE · 96 monthly origins' if kind=='monthly' else 'Year-mean EKE · 2015 continuous rollout'),regional_panels(kind+'_eke'),'magma',(0,.05),'m²/s²',cols=4,scale=2,regional=True)
+for annual in [False,True]:
+ fig,axes=plt.subplots(1 if annual else 3,3,figsize=(12,4 if annual else 10),squeeze=False)
+ for j,(region,_,__) in enumerate(regions):
+  for i,day in enumerate([None] if annual else [5,15,30]):
+   ax=axes[i,j]
+   for arm in arms:
+    if annual:
+     curves=[metrics[arm]['annual-test'][f'{year}-01-01.json']['spectra']['annual-eke/'+region] for year in [2015,2018,2021]];d=curves[0];rp=np.mean([v['reference_power'] for v in curves],0);pp=np.mean([v['prediction_power'] for v in curves],0)
+    else:
+     d=metrics[arm]['monthly-test']['selected.json']['metrics']['spectra'][f'eke/{region}/day{day}'];rp=d['reference_power'];pp=d['prediction_power']
+    if arm=='scratch':ax.loglog(d['k_rad_km'],rp,'ko-',label='Observed');reference=rp
+    else:np.testing.assert_allclose(rp,reference)
+    ax.loglog(d['k_rad_km'],pp,'o-',label=labels[arm])
+   ax.set(title=region+(' · annual' if annual else f' · day {day}'),xlabel='Wavenumber (rad/km)',ylabel='k-weighted EKE-field power');ax.grid(alpha=.2,which='both');ax.xaxis.set_minor_formatter(NullFormatter())
+ axes[0,0].legend(fontsize=7);fig.suptitle('EKE spatial spectra · exact retained metric bins\n'+('Mean of three continuous years; sequence-mean anomalies' if annual else '96 separately initialized monthly origins; fixed-lead cohort anomalies'),fontsize=11);fig.tight_layout(rect=(0,0,1,.86 if annual else .94));fig.savefig(out/f'production-{ "annual" if annual else "monthly"}-eke-spectra.png',dpi=110);plt.close(fig)
+for f in out.glob('production-*.png'):
+ (out/(f.name+'.license')).write_text('SPDX-FileCopyrightText: 2026 Samudra Authors\nSPDX-License-Identifier: CC-BY-4.0\n')
+ audit['figures'][f.name]={'bytes':f.stat().st_size,'sha256':hashlib.sha256(f.read_bytes()).hexdigest()}
+(out/'production-map-audit.json.gz').write_bytes(gzip.compress(json.dumps(audit,separators=(',',':')).encode(),mtime=0));(out/'production-map-audit.json.gz.license').write_text('SPDX-FileCopyrightText: 2026 Samudra Authors\nSPDX-License-Identifier: CC-BY-4.0\n')
+print('Rendered',len(audit['maps']),'map panelsheets; all input hashes and cell geometry checked')

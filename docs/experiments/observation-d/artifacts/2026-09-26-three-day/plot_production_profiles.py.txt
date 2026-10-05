@@ -1,0 +1,38 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+# SPDX-License-Identifier: Apache-2.0
+"""Plot initializer profiles from completed checkpoint diagnostics, without arrays."""
+import gzip,json
+from pathlib import Path
+import numpy as np
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+out=Path(__file__).resolve().parent
+arms={}
+for arm in ['scratch','sequential','mixed']:
+ path=out/f'production-{arm}.json.gz'
+ if path.exists():
+  with gzip.open(path,'rt') as f:arms[arm]=json.load(f)['arms'][arm]['evaluations']['state-diagnostics']
+depth=np.array([2.5,10,22.5,40,65,105,165,250,375,550,775,1050,1400,1850,2400,3100,4000,5000,6000])
+steps=[0,10,100,1000,4000,8000,16000];colors=['#666666','#56b4e9','#0072b2','#009e73','#e69f00','#d55e00','#cc79a7']
+fig,axes=plt.subplots(3,len(arms),figsize=(4*len(arms),9),squeeze=False,sharey=True,sharex="row")
+for col,(arm,data) in enumerate(arms.items()):
+ for step,color in zip(steps,colors,strict=True):
+  key=f'joint-{step:05d}.json'
+  if key not in data:continue
+  p=data[key]['profiles'];assert len(p)==9
+  mean=np.mean([v['initial_mean'] for v in p],0)
+  rms=np.sqrt(np.mean(np.square([v['initial_rms'] for v in p]),0))
+  for row,values in enumerate([mean[38:57],mean[57:76],rms[:19]]):
+   assert np.isfinite(values).all()
+   axes[row,col].plot(values,depth,color=color,label=f'{step:,} obs',linewidth=1.4,linestyle=':' if step==0 else '-')
+ axes[0,col].set_title('Samudra2 '+arm)
+ for row,label in enumerate(['Temperature mean (°C)','Salinity mean (PSU)','Eastward-velocity RMS (nominal m/s)']):
+  ax=axes[row,col];ax.set_xlabel(label);ax.grid(alpha=.2);ax.axhspan(2000,6000,color='.93',zorder=0);ax.set_yscale('symlog',linthresh=100);ax.set_ylim(6000,0);ax.set_yticks([0,100,500,2000,6000],labels=['0','100','500','2000','6000'])
+  if col==0:ax.set_ylabel('Nominal depth (m)')
+by_label={label:handle for ax in axes[0] for handle,label in zip(*ax.get_legend_handles_labels(),strict=True)}
+labels=[f'{step:,} obs' for step in steps if f'{step:,} obs' in by_label];fig.legend([by_label[label] for label in labels],labels,loc='lower center',ncol=len(labels),fontsize=8,bbox_to_anchor=(.5,.04))
+fig.suptitle('Initializer evolution across observation updates · nine validation origins',fontsize=12)
+fig.text(.5,.012,'0 = random weights before either task. Source exposure differs between models. Shading: below monthly T/S supervision.\nThese are nominally decoded internal states, not verified instantaneous ocean states.',ha='center',fontsize=8)
+fig.tight_layout(rect=(0,.09,1,.96));fig.savefig(out/'production-profiles.svg',metadata={'Date':None})
+path=out/'production-profiles.svg';path.write_text('\n'.join(line.rstrip() for line in path.read_text().splitlines())+'\n')

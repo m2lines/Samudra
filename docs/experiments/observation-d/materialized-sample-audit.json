@@ -1,0 +1,165 @@
+{
+  "scope": "one actual training-month sample, not full-cohort certification",
+  "origin": "1993-05-01T00:00:00",
+  "compressed_bytes": 63907466,
+  "sha256": "0be2844c5fc2a5ea6167169b61ac958dec169f195c5916035becd6274ef1d321", "checksum_note": "# pragma: allowlist secret (public data SHA256)",
+  "arrays": {
+    "surface": {
+      "shape": [
+        26,
+        2,
+        180,
+        360
+      ],
+      "dtype": "float32",
+      "bytes": 13478400
+    },
+    "atmosphere": {
+      "shape": [
+        26,
+        8,
+        180,
+        360
+      ],
+      "dtype": "float32",
+      "bytes": 53913600
+    },
+    "velocity": {
+      "shape": [
+        26,
+        2,
+        180,
+        360
+      ],
+      "dtype": "float32",
+      "bytes": 13478400
+    },
+    "interior": {
+      "shape": [
+        2,
+        14,
+        180,
+        360
+      ],
+      "dtype": "float32",
+      "bytes": 7257600
+    },
+    "ohc": {
+      "shape": [
+        2,
+        180,
+        360
+      ],
+      "dtype": "float32",
+      "bytes": 518400
+    },
+    "month_weights": {
+      "shape": [
+        7
+      ],
+      "dtype": "float32",
+      "bytes": 28
+    },
+    "midpoints": {
+      "shape": [
+        26
+      ],
+      "dtype": "<U19",
+      "bytes": 1976
+    },
+    "origin": {
+      "shape": [],
+      "dtype": "<U19",
+      "bytes": 76
+    }
+  },
+  "first_midpoint": "1993-01-28T12:00:00",
+  "last_history_midpoint": "1993-04-28T12:00:00",
+  "first_forecast_midpoint": "1993-05-03T12:00:00",
+  "last_forecast_midpoint": "1993-06-02T12:00:00",
+  "month_weights": [
+    0.16129031777381897,
+    0.16129031777381897,
+    0.16129031777381897,
+    0.16129031777381897,
+    0.16129031777381897,
+    0.16129031777381897,
+    0.032258063554763794
+  ],
+  "month_weight_sum": 0.9999998807907104,
+  "sst": {
+    "finite_fraction_on_60S_60N_model_surface_domain": 0.9395105856475117,
+    "min": -1.7999999523162842,
+    "median": 21.394018173217773,
+    "max": 31.37139892578125
+  },
+  "adt": {
+    "finite_fraction_on_60S_60N_model_surface_domain": 0.9418629517612196,
+    "min": -1.5438411235809326,
+    "median": 0.5762655735015869,
+    "max": 1.7918453216552734
+  },
+  "temperature": {
+    "finite_fraction_on_60S_60N_model_surface_domain": 0.8676826793406393,
+    "min": -2.6502368450164795,
+    "median": 9.398542404174805,
+    "max": 31.03028678894043
+  },
+  "practical_salinity": {
+    "finite_fraction_on_60S_60N_model_surface_domain": 0.8630914193190795,
+    "min": 7.038192272186279,
+    "median": 34.644004821777344,
+    "max": 40.61774826049805
+  },
+  "atmosphere_all_finite": true,
+  "atmosphere": [
+    {
+      "finite_fraction_on_60S_60N_model_surface_domain": 1.0,
+      "min": -13.594744682312012,
+      "median": -0.3545202612876892,
+      "max": 18.169145584106445
+    },
+    {
+      "finite_fraction_on_60S_60N_model_surface_domain": 1.0,
+      "min": -14.758773803710938,
+      "median": -0.19826571643352509,
+      "max": 13.440725326538086
+    },
+    {
+      "finite_fraction_on_60S_60N_model_surface_domain": 1.0,
+      "min": 239.24508666992188,
+      "median": 293.17559814453125,
+      "max": 308.64129638671875
+    },
+    {
+      "finite_fraction_on_60S_60N_model_surface_domain": 1.0,
+      "min": 235.93814086914062,
+      "median": 288.3358154296875,
+      "max": 300.57208251953125
+    },
+    {
+      "finite_fraction_on_60S_60N_model_surface_domain": 1.0,
+      "min": 79977.484375,
+      "median": 101210.6875,
+      "max": 104103.7890625
+    },
+    {
+      "finite_fraction_on_60S_60N_model_surface_domain": 1.0,
+      "min": 4.6872358322143555,
+      "median": 205.6546630859375,
+      "max": 368.81512451171875
+    },
+    {
+      "finite_fraction_on_60S_60N_model_surface_domain": 1.0,
+      "min": 133.01473999023438,
+      "median": 361.067626953125,
+      "max": 440.8218688964844
+    },
+    {
+      "finite_fraction_on_60S_60N_model_surface_domain": 1.0,
+      "min": -3.0612917756300817e-10,
+      "median": 2.0832116206292994e-05,
+      "max": 0.001577757648192346
+    }
+  ]
+}

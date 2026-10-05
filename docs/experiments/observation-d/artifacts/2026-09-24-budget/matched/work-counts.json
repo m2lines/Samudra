@@ -1,0 +1,41 @@
+{
+  "scope": "Retained deterministic training updates; excludes validation, replay, activation-checkpoint recomputation, and calibration. Forwards counted per sample, not batched Python call. Each observation joint sample includes its forecast initialization plus monthly reconstruction initializations.",
+  "counts": {
+    "1000": {
+      "sample_presentations": 8000,
+      "observation_evolution_forwards": 52684,
+      "observation_monthly_initializer_forwards": 52684,
+      "observation_joint_initializer_forwards": 60684
+    },
+    "2000": {
+      "sample_presentations": 16000,
+      "observation_evolution_forwards": 105366,
+      "observation_monthly_initializer_forwards": 105366,
+      "observation_joint_initializer_forwards": 121366
+    },
+    "3000": {
+      "sample_presentations": 24000,
+      "observation_evolution_forwards": 158065,
+      "observation_monthly_initializer_forwards": 158065,
+      "observation_joint_initializer_forwards": 182065
+    },
+    "4000": {
+      "sample_presentations": 32000,
+      "observation_evolution_forwards": 210771,
+      "observation_monthly_initializer_forwards": 210771,
+      "observation_joint_initializer_forwards": 242771
+    },
+    "6000": {
+      "sample_presentations": 48000,
+      "observation_evolution_forwards": 316033,
+      "observation_monthly_initializer_forwards": 316033,
+      "observation_joint_initializer_forwards": 364033
+    },
+    "8000": {
+      "sample_presentations": 64000,
+      "observation_evolution_forwards": 421440,
+      "observation_monthly_initializer_forwards": 421440,
+      "observation_joint_initializer_forwards": 485440
+    }
+  }
+}

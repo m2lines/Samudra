@@ -1,0 +1,9 @@
+{
+  "checkpoints": [
+    "22e629f41c418fa93ee3ec0a3257d80d71d77b02b2fe1cbd89eae04507d22905",
+    "43fc846b5b35850708d3f1b6cbecb7ba74a33abab7adec1a20bbab77ab07e9ab"
+  ],
+  "origins": 9,
+  "selection": "none; validation diagnostics only",
+  "script_sha256": "c615d6465c1453d731a2915b2ff94bcb788b04b755596f9296e031463f6101f9"
+}

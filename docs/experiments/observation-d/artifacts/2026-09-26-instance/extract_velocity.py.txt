@@ -1,0 +1,24 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+# SPDX-License-Identifier: Apache-2.0
+import json,pathlib,numpy as np
+from samudra.experiments.observation_metrics import _field,spatial_error
+from samudra.metrics import kernels,spectra
+r=pathlib.Path('/scratch/jr7309/runs/2026-09-25-observation-instance/handoff-v2');g=np.load('/scratch/jr7309/data/obs-d-pilot/grid.npz');lat,lon=g['lat'],g['lon'];domain=g['mask'][0]&(abs(lat[:,None])<=60)
+out={'lat':lat,'lon':lon};audit={}
+def fields(p,r):
+ p=np.where(domain,p,np.nan);r=np.where(domain,r,np.nan)
+ pu,pv=kernels.geostrophic_velocity_from_zos(_field(p[:,1],lat,lon),'lat','lon');ru,rv=kernels.geostrophic_velocity_from_zos(_field(r[:,1],lat,lon),'lat','lon')
+ pu,pv,ru,rv=[a.transpose('time','lat','lon').values for a in [pu,pv,ru,rv]]
+ support=(abs(lat[:,None])>=5)&np.isfinite(ru)&np.isfinite(rv)&np.isfinite(r[:,2])&np.isfinite(r[:,3])
+ pu,pv,u,v=[np.where(support,a,np.nan) for a in [pu,pv,r[:,2],r[:,3]]]
+ pe=kernels.instantaneous_surface_eke(_field(pu,lat,lon),_field(pv,lat,lon)).values;re=kernels.instantaneous_surface_eke(_field(u,lat,lon),_field(v,lat,lon)).values
+ return np.stack([pu,pv],1),np.stack([u,v],1),pe,re
+for arm in ['scratch','transfer']:
+ p=r/f'{arm}-main-monthly-test';z=np.load(p/'selected-predictions.npz');i=list(z['origins']).index('2022-07');v,ref,pe,re=fields(z['prediction'][:,5],z['reference'][:,5]);out[arm+'_monthly_uv']=v[i];out['reference_monthly_uv']=ref[i];out[arm+'_monthly_eke']=np.nanmean(pe,0);out['reference_monthly_eke']=np.nanmean(re,0)
+ saved=json.loads((p/'selected.json').read_text())['metrics']['spectra']
+ for region in spectra.SPATIAL_REGIONS:
+  curve=spatial_error(pe,re,lat,lon,region);existing=saved[f'eke/{region[0]}/day30']
+  for k in ['k_rad_km','reference_power','prediction_power']:np.testing.assert_allclose(curve[k],existing[k],rtol=1e-6,atol=1e-10)
+ audit[arm]={'monthly_spectrum_reproduced':True,'monthly_origin':'2022-07','annual_origin':'2015-01-01'}
+ z=np.load(r/f'{arm}-main-annual-test/2015-01-01.npz');v,ref,pe,re=fields(z['surface'],z['reference']);out[arm+'_annual_uv']=v[[5,72]];out['reference_annual_uv']=ref[[5,72]];out[arm+'_annual_eke']=np.nanmean(pe,0);out['reference_annual_eke']=np.nanmean(re,0)
+np.savez_compressed(r/'report-arrays/velocity.npz',**out);(r/'report-arrays/velocity-audit.json').write_text(json.dumps(audit,indent=2));print(json.dumps(audit))

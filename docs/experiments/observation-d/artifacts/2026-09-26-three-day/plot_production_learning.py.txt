@@ -1,0 +1,50 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+# SPDX-License-Identifier: Apache-2.0
+"""Render validation exposure and source-task retention, including replayed attempts."""
+import gzip,json
+from pathlib import Path
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import numpy as np
+out=Path(__file__).resolve().parent
+with gzip.open(out/'production-learning-evidence.json.gz','rt') as f:
+    evidence=json.load(f)
+colors=['#0072b2','#d55e00','#009e73']
+fig,axes=plt.subplots(1,3,figsize=(14,4.3))
+for (label,arm),color in zip(evidence['arms'].items(),colors,strict=True):
+    events=arm['validation_events']
+    for ax,xkey in zip(axes[:2],['observation','global_step'],strict=True):
+        x=np.array([e[xkey] for e in events])
+        y=np.array([e['validation/obs_score'] for e in events])
+        assert np.isfinite(y).all()
+        ax.scatter(x,y,s=7,alpha=.22,color=color,linewidths=0)
+        unique=np.unique(x)
+        best=np.minimum.accumulate([y[x==v].min() for v in unique])
+        ax.step(unique,best,where='post',color=color,label=label,linewidth=1.7)
+    x=np.array([e['observation'] for e in events])
+    y=np.array([e['om4_retention']['ts_mse'] for e in events])
+    assert np.isfinite(y).all() and np.all(y>0)
+    axes[2].scatter(x,y,s=9,alpha=.6,color=color,linewidths=0,label=label)
+    selected=arm['best']
+    axes[0].scatter([selected['task_counts']['observation']],[selected['score']],marker='*',s=100,color=color,edgecolor='black',linewidth=.5,zorder=5)
+    axes[1].scatter([selected['global_step']],[selected['score']],marker='*',s=100,color=color,edgecolor='black',linewidth=.5,zorder=5)
+for ax in axes:
+    ax.grid(alpha=.2)
+    ax.set_xlim(-150,16200)
+    ax.ticklabel_format(axis='x',style='sci',scilimits=(3,3))
+axes[0].set(xlabel='Observation updates',ylabel='Integrated + spectral validation score',title='Observation exposure')
+axes[1].set(xlabel='Total OM4 + observation updates',ylabel='Integrated + spectral validation score',title='Approximate training compute')
+for ax in axes[:2]:
+    ax.set_yscale('log')
+    ax.set_ylim(.45,3)
+    ax.set_yticks([.5,.7,1,2,3],labels=['0.5','0.7','1','2','3'])
+    ax.minorticks_off()
+axes[2].set(xlabel='Observation updates',ylabel='OM4 T/S MSE (common normalized units)',title='Retention of the original OM4 task',yscale='log')
+axes[0].legend(fontsize=8,loc='upper right')
+complete=all(a['training_complete'] for a in evidence['arms'].values())
+status='Completed training' if complete else 'Training in progress; not a final comparison'
+fig.suptitle(status+' — '+evidence['observed_utc'][:16].replace('T',' ')+' UTC',fontsize=12)
+fig.text(.5,.018,'Dots: every recorded validation, including replays. Lines: best observed score up to each count. Stars: currently selected weights.\nLower is better. Source retention is diagnostic only; selected weights use observation validation. One seed.',ha='center',fontsize=8)
+fig.tight_layout(rect=(0,.09,1,.93))
+fig.savefig(out/'production-learning.png',dpi=160)

@@ -578,21 +578,10 @@ class DataConfig(BaseConfig):
     inference_loading: InferenceDataLoadingConfig = Field(
         default_factory=InferenceDataLoadingConfig
     )
-    hist: int | None = Field(
-        default=None,
-        ge=0,
-        description=(
-            "Legacy number of additional input-history timesteps. This is "
-            "translated to input_steps and cannot be set together with it."
-        ),
-    )
     input_steps: int = Field(
         default=2,
         ge=1,
-        description=(
-            "Number of raw timesteps consumed by each model call. Cannot be set "
-            "together with the legacy hist option."
-        ),
+        description="Number of raw timesteps consumed by each model call.",
     )
     output_steps: int = Field(
         default=2,
@@ -605,15 +594,6 @@ class DataConfig(BaseConfig):
 
     @pydantic.model_validator(mode="after")
     def validate_step_configuration(self) -> Self:
-        if self.hist is not None:
-            if "input_steps" in self.model_fields_set:
-                raise ValueError(
-                    "data.hist and data.input_steps are mutually exclusive"
-                )
-            self.input_steps = self.hist + 1
-            if "output_steps" not in self.model_fields_set:
-                self.output_steps = self.input_steps
-            self.hist = None
         if self.output_steps > self.input_steps:
             raise ValueError(
                 "data.output_steps cannot exceed the number of input timesteps "

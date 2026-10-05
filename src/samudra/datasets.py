@@ -12,7 +12,7 @@ from typing import ClassVar, Literal, Protocol, final
 import numpy as np
 import torch
 import xarray as xr
-from jaxtyping import Float
+from jaxtyping import Int
 from torch.utils.data import Dataset
 
 from samudra.constants import (
@@ -22,6 +22,7 @@ from samudra.constants import (
     Prognostic,
     PrognosticVarNames,
     RolloutStep,
+    TimeIndices,
 )
 from samudra.utils.ctx import BatchGrid
 from samudra.utils.data import (
@@ -429,7 +430,7 @@ class TrainingWindows:
         num_windows = input_source.time.size - (total_times - 1) * stride
         indices = xr.DataArray(np.arange(num_windows), dims=["window"])
         offsets = xr.DataArray(np.arange(total_times), dims=["time"])
-        self.rolling_indices: Float[xr.DataArray, "window time"] = (
+        self.rolling_indices: Int[xr.DataArray, "window time"] = (
             indices + stride * offsets
         )
         self.input_prognostic_mask = input_source.masks.prognostic
@@ -460,7 +461,7 @@ class TrainingWindows:
         """Preserve the current homogeneous dataset-ID batching contract."""
         return self.id
 
-    def window_indices(self, index: int, step: int) -> np.ndarray:
+    def window_indices(self, index: int, step: int) -> TimeIndices:
         if index < 0:
             raise IndexError("Negative training-window indices are not supported")
         if index >= len(self):

@@ -703,7 +703,7 @@ def test_distributed_sampler_never_crosses_dataset_ids(flat_om4_source):
     assert len(schedules[0]) == len(schedules[1])
 
 
-def test_rust_batch_uses_physical_indices_after_time_slice(flat_om4_source):
+def test_rust_batch_reads_correct_times_after_time_slice(flat_om4_source):
     sliced = flat_om4_source.slice_time(
         Om4TimeConfig.model_validate({"start": "2000-01-11", "end": "2000-03-01"})
     )
@@ -1383,3 +1383,24 @@ def test_native_ordinary_reads_use_the_configured_reader(
 
     monkeypatch.setattr(type(reader.xarray_reader), "read", no_xarray_reads)
     np.testing.assert_array_equal(source.read(indices, channels), expected)
+
+
+@pytest.mark.parametrize("source_fixture", ["flat_om4_source", "compact_om4_source"])
+@pytest.mark.parametrize("indices", [np.array([4, 2, 2, 0]), np.empty(0, dtype=int)])
+def test_native_bulk_reads_use_positions_in_the_current_time_slice(
+    source_fixture, indices, request
+):
+    source = request.getfixturevalue(source_fixture).slice_time(
+        Om4TimeConfig.model_validate({"start": "2000-01-06", "end": "2000-03-10"})
+    )
+    source = source.slice_time(
+        Om4TimeConfig.model_validate({"start": "2000-01-16", "end": "2000-03-01"})
+    )
+    reader = cast(NativeOm4Reader, source.reader)
+    channels = ("hfds", "thetao_0")
+    expected = reader.xarray_reader.read(CanonicalReadRequest(indices, channels))
+    output = np.full(expected.shape, np.nan, dtype=np.float32)
+
+    reader.read_into(indices, channels, output)
+
+    np.testing.assert_array_equal(output, expected)

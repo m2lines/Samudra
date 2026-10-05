@@ -10,8 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import numpy as np
-
+from samudra.constants import CanonicalPlanes
 from samudra.native_reader import PhysicalVariable, PlaneReader
 
 
@@ -39,7 +38,7 @@ class _RustPlaneReader:
         self,
         time_indices: list[int],
         variables: Sequence[PhysicalVariable],
-        output: np.ndarray,
+        output: CanonicalPlanes,
     ) -> None:
         selectors: list[tuple[str, int | None]] | list[str]
         if self.compact:

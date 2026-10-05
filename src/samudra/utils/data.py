@@ -14,7 +14,7 @@ import numpy as np
 import torch
 import xarray as xr
 from einops import rearrange
-from jaxtyping import Bool
+from jaxtyping import Bool, Int
 
 if TYPE_CHECKING:
     from samudra.config import TimeConfig
@@ -22,6 +22,7 @@ if TYPE_CHECKING:
 from samudra.constants import (
     BatchTimeSeriesOutput,
     BoundaryVarNames,
+    CanonicalPlanes,
     DataLayout,
     DictSingleChannelVar,
     Grid,
@@ -35,6 +36,7 @@ from samudra.constants import (
     PrognosticMask,
     PrognosticVarNames,
     SingleTimeSeriesOutput,
+    TimeIndices,
     construct_metadata,
 )
 from samudra.derived_variables import add_derived_variables
@@ -77,12 +79,13 @@ class Masks:
 class CanonicalReadRequest:
     """A storage-independent request for canonical ocean-data planes.
 
-    The shape of ``time_indices`` defines the leading dimensions of the returned
-    planes. Keeping this core request to NumPy makes it usable by Python and native
-    readers without importing xarray concepts into the boundary.
+    ``time_indices`` are positions in the reader's current time slice. Their shape
+    defines the leading dimensions of the returned planes. Keeping this core
+    request to NumPy makes it usable by Python and native readers without importing
+    xarray concepts into the boundary.
     """
 
-    time_indices: np.ndarray
+    time_indices: TimeIndices
     channels: tuple[str, ...]
 
     def __post_init__(self) -> None:
@@ -122,7 +125,7 @@ class CanonicalReader(Protocol):
 
     def slice_time(self, time: "TimeConfig") -> Self: ...
 
-    def read(self, request: CanonicalReadRequest) -> np.ndarray: ...
+    def read(self, request: CanonicalReadRequest) -> CanonicalPlanes: ...
 
     def coordinates(self) -> Mapping[str, xr.DataArray]: ...
 
@@ -133,9 +136,9 @@ class CanonicalReader(Protocol):
 class BulkCanonicalReader(CanonicalReader, Protocol):
     """Optional bulk I/O capability used by the native batch pipeline.
 
-    Storage identity and physical time indices remain stable across slices. Reads
-    use canonical channel names and fill caller-owned (time, channel, lat, lon)
-    float32 arrays. No writes may outlive a call, including a failed call.
+    Reads use positions in this reader's time axis and canonical channel names,
+    filling caller-owned (time, channel, lat, lon) float32 arrays. Storage identity
+    remains stable across slices. No writes may outlive a call, including failure.
     """
 
     @property
@@ -144,13 +147,11 @@ class BulkCanonicalReader(CanonicalReader, Protocol):
     @property
     def spatial_shape(self) -> tuple[int, int]: ...
 
-    def physical_indices(self, relative: np.ndarray) -> np.ndarray: ...
-
     def read_into(
         self,
-        physical_time_indices: np.ndarray,
+        time_indices: Int[np.ndarray, " time"],
         channels: tuple[str, ...],
-        output: np.ndarray,
+        output: CanonicalPlanes,
     ) -> None: ...
 
 
@@ -193,7 +194,7 @@ class XarrayCanonicalReader:
     def slice_time(self, time: "TimeConfig") -> Self:
         return dataclasses.replace(self, data=self.data.sel(time=time.time_slice))
 
-    def read(self, request: CanonicalReadRequest) -> np.ndarray:
+    def read(self, request: CanonicalReadRequest) -> CanonicalPlanes:
         self._validate_channels(request.channels)
         index_dims = [f"index_{i}" for i in range(request.time_indices.ndim)]
         index = xr.DataArray(request.time_indices, dims=index_dims)
@@ -342,7 +343,9 @@ class CanonicalSource:
             _reader=self._reader.slice_time(time),
         )
 
-    def read(self, time_indices: np.ndarray, channels: Sequence[str]) -> np.ndarray:
+    def read(
+        self, time_indices: TimeIndices, channels: Sequence[str]
+    ) -> CanonicalPlanes:
         """Read canonical channels at integer time indices."""
         return self._reader.read(CanonicalReadRequest(time_indices, tuple(channels)))
 

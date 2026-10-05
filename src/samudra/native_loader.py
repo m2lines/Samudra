@@ -19,6 +19,7 @@ from threading import Lock
 import numpy as np
 import torch
 
+from samudra.constants import TimeIndices
 from samudra.datasets import BatchPreparer, BatchReadUse, ModelBatch, TrainingWindows
 from samudra.utils.data import BulkCanonicalReader, LoadStats
 from samudra.utils.samplers import BatchSchedule
@@ -150,7 +151,7 @@ class _ChunkBatch:
 @dataclass
 class _PendingChunkUse:
     key: tuple[int, tuple[str, ...]]
-    physical_indices: np.ndarray
+    time_indices: TimeIndices
     policy: BatchReadUse
 
 
@@ -191,11 +192,13 @@ class _NativeBatchReader:
             reader: BulkCanonicalReader,
             use: BatchReadUse,
         ) -> _PendingChunkUse:
+            # TrainingWindows requires input and label time axes to match, so
+            # source-relative positions are comparable within each read group.
             key = (reader.storage_id, use.request.channels)
             group_specs.setdefault(key, reader)
             return _PendingChunkUse(
                 key=key,
-                physical_indices=reader.physical_indices(use.request.time_indices),
+                time_indices=use.request.time_indices,
                 policy=use,
             )
 
@@ -223,12 +226,12 @@ class _NativeBatchReader:
 
             groups: list[torch.Tensor] = []
             group_metadata: dict[
-                tuple[int, tuple[str, ...]], tuple[int, np.ndarray]
+                tuple[int, tuple[str, ...]], tuple[int, TimeIndices]
             ] = {}
             for key, reader in group_specs.items():
                 unique_indices = np.unique(
                     np.concatenate(
-                        [use.physical_indices.reshape(-1) for use in uses_by_key[key]]
+                        [use.time_indices.reshape(-1) for use in uses_by_key[key]]
                     )
                 ).astype(np.int64, copy=False)
                 shape = (len(unique_indices), len(key[1]), *reader.spatial_shape)
@@ -243,9 +246,11 @@ class _NativeBatchReader:
 
             def finalize(use: _PendingChunkUse) -> _ChunkUse:
                 group_index, unique_indices = group_metadata[use.key]
-                rows = np.searchsorted(unique_indices, use.physical_indices)
-                if not np.array_equal(unique_indices[rows], use.physical_indices):
-                    raise AssertionError("Native chunk plan lost a physical time index")
+                rows = np.searchsorted(unique_indices, use.time_indices)
+                if not np.array_equal(unique_indices[rows], use.time_indices):
+                    raise AssertionError(
+                        "Native chunk plan lost a canonical time index"
+                    )
                 return _ChunkUse(
                     group_index=group_index,
                     rows=torch.from_numpy(rows.astype(np.int64, copy=False)),

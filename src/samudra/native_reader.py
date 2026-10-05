@@ -13,8 +13,9 @@ from typing import Protocol, Self
 
 import numpy as np
 import xarray as xr
+from jaxtyping import Int
 
-from samudra.constants import DataLayout
+from samudra.constants import CanonicalPlanes, DataLayout
 from samudra.utils.data import (
     CanonicalReadRequest,
     ChannelStatistics,
@@ -39,7 +40,7 @@ class PlaneReader(Protocol):
         self,
         time_indices: list[int],
         variables: Sequence[PhysicalVariable],
-        output: np.ndarray,
+        output: CanonicalPlanes,
     ) -> None:
         """Fill float32 (time, channel, lat, lon) caller-owned storage.
 
@@ -67,7 +68,7 @@ class NativeOm4Reader:
     path: str
     _planes: PlaneReader
     _reader_variables: dict[str, PhysicalVariable]
-    _physical_time_indices: np.ndarray
+    _physical_time_indices: Int[np.ndarray, " source_time"]
     _spatial_shape: tuple[int, int]
 
     @property
@@ -102,7 +103,7 @@ class NativeOm4Reader:
             _physical_time_indices=physical,
         )
 
-    def read(self, request: CanonicalReadRequest) -> np.ndarray:
+    def read(self, request: CanonicalReadRequest) -> CanonicalPlanes:
         shape = (
             *request.time_indices.shape,
             len(request.channels),
@@ -110,7 +111,7 @@ class NativeOm4Reader:
         )
         output = np.empty(shape, dtype=np.float32)
         self.read_into(
-            self.physical_indices(request.time_indices).reshape(-1),
+            request.time_indices.reshape(-1),
             request.channels,
             output.reshape(
                 request.time_indices.size, len(request.channels), *self.spatial_shape
@@ -124,26 +125,24 @@ class NativeOm4Reader:
     def metadata(self, data_layout):
         return self.xarray_reader.metadata(data_layout)
 
-    def physical_indices(self, relative: np.ndarray) -> np.ndarray:
-        return self._physical_time_indices[relative]
-
     @property
     def spatial_shape(self) -> tuple[int, int]:
         return self._spatial_shape
 
     def read_into(
         self,
-        physical_time_indices: np.ndarray,
+        time_indices: Int[np.ndarray, " time"],
         channels: tuple[str, ...],
-        output: np.ndarray,
+        output: CanonicalPlanes,
     ) -> None:
-        if physical_time_indices.ndim != 1:
-            raise ValueError("Physical time indices must be one-dimensional")
+        """Read positions relative to this reader's current time slice."""
+        if time_indices.ndim != 1:
+            raise ValueError("Canonical time indices must be one-dimensional")
         missing = set(channels).difference(self._reader_variables)
         if missing:
             raise KeyError(f"Canonical channels not found: {sorted(missing)}")
         self._planes.read_into(
-            physical_time_indices.tolist(),
+            self._physical_time_indices[time_indices].tolist(),
             [self._reader_variables[name] for name in channels],
             output,
         )

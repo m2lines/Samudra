@@ -9,8 +9,10 @@ from dataclasses import dataclass, replace
 import numpy as np
 import pytest
 import torch
+from jaxtyping import Int
 
 from samudra.config import JulianDate, Om4TimeConfig, RustDataLoadingConfig
+from samudra.constants import CanonicalPlanes, TimeIndices
 from samudra.datasets import TorchTrainDataset, TrainingWindows
 from samudra.native_loader import NativeBatchLoader
 from samudra.utils.data import CanonicalReader, CanonicalReadRequest, CanonicalSource
@@ -24,8 +26,8 @@ class ArrayBulkReader:
 
     root: CanonicalSource
     view: CanonicalReader
-    indices: np.ndarray
-    calls: list[tuple[np.ndarray, tuple[str, ...]]]
+    indices: Int[np.ndarray, " source_time"]
+    calls: list[tuple[TimeIndices, tuple[str, ...]]]
 
     @property
     def channels(self):
@@ -57,7 +59,7 @@ class ArrayBulkReader:
         positions = self.time.to_index().get_indexer(view.time.to_index())
         return replace(self, view=view, indices=self.indices[positions])
 
-    def read(self, request: CanonicalReadRequest) -> np.ndarray:
+    def read(self, request: CanonicalReadRequest) -> CanonicalPlanes:
         pytest.fail("Native batching should use bulk reads")
 
     @property
@@ -68,12 +70,14 @@ class ArrayBulkReader:
     def spatial_shape(self) -> tuple[int, int]:
         return self.root.grid_size
 
-    def physical_indices(self, relative: np.ndarray) -> np.ndarray:
-        return self.indices[relative]
-
-    def read_into(self, indices, channels, output):
+    def read_into(
+        self,
+        indices: Int[np.ndarray, " time"],
+        channels: tuple[str, ...],
+        output: CanonicalPlanes,
+    ) -> None:
         self.calls.append((indices.copy(), channels))
-        np.copyto(output, self.root.read(indices, channels))
+        np.copyto(output, self.root.read(self.indices[indices], channels))
 
 
 @pytest.mark.parametrize("normalize_before_mask", [True, False])
@@ -86,7 +90,7 @@ def test_shared_pipeline_accepts_an_independent_bulk_reader(
 ):
     source, _ = _equivalent_om4_sources()
     data, means, stds = source._xarray_datasets_for_testing()
-    calls: list[tuple[np.ndarray, tuple[str, ...]]] = []
+    calls: list[tuple[TimeIndices, tuple[str, ...]]] = []
     native = CanonicalSource.from_datasets(
         data,
         means,
@@ -161,7 +165,7 @@ def test_shared_pipeline_accepts_an_independent_bulk_reader(
     # One prognostic and one boundary read per batch, deduplicated across all steps.
     assert len(calls) == 2 * len(schedule)
     assert observed_pinned == [device_type == "cuda"] * (2 * len(schedule))
-    np.testing.assert_array_equal(calls[0][0], [1, 2, 3, 4, 5])
-    np.testing.assert_array_equal(calls[1][0], [1, 2, 3, 4])
+    np.testing.assert_array_equal(calls[0][0], [0, 1, 2, 3, 4])
+    np.testing.assert_array_equal(calls[1][0], [0, 1, 2, 3])
     assert calls[0][1] == ("so_0", "so_2", "zos")
     assert calls[1][1] == ("hfds",)

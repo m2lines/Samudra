@@ -103,6 +103,11 @@ prognostic planes and one for boundary planes. Input and label reads share a
 group when they reference the same physical store and channels. The tensors have
 shape `(unique_time, channel, y, x)`.
 
+`read_into` takes integer positions in the source's current time slice.
+`NativeOm4Reader` maps these positions to storage rows using a cached index array.
+Input and label sources have matching time axes, so the loader can deduplicate
+their positions before reading.
+
 For CUDA training, `_PinnedTensorPool` supplies page-locked host memory. CPU
 training uses ordinary unpinned buffers. The loader selects pinning automatically
 from the training device. Rust fills a NumPy view of that allocation directly.

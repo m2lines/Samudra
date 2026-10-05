@@ -3110,3 +3110,7 @@ Compared paper §4.2/Fig4(e)/Figs5–6 with saved 2015/2018 final mixed and scra
 ### 2026-10-05: absolute OM4/mixed day30 fields
 
 Added paired absolute T/S/U/V at3100m for2015/2018, OM4 and mixed only; shared full ranges exclude scratch, no deltas/anomalies/clipping. Reused verified local snapshots. Further550/1850m U/V extraction could not be submitted: Slurm controller connect failure, no allocation. Existing scores and outputs unchanged.
+
+### 2026-10-05: make OM4 deep currents visible
+
+Updated the day-30 absolute OM4/mixed comparison at 3100 m with separate U/V colorbars, symmetric 99th-percentile absolute limits pooled across the two dates. OM4 U/V limits are approximately 0.054 m/s, versus mixed 0.245/0.218 m/s: the prior shared full ranges obscured real OM4 structure. T/S retain shared scales; original shared-scale figures remain linked for amplitude comparison. Data and masks are unchanged, obs-only remains excluded, and the range/clipping audit and plotting source are included in provenance. Rendered from verified local exports; no cluster job or new inference.

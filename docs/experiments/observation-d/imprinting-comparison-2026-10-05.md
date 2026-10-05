@@ -19,11 +19,13 @@ The learned models share the small D architecture and task-conditioned InstanceN
 
 These panels show **actual T/S/U/V fields at 3100 m**, for the same January 26–30 forecast intervals, with OM4 above and mixed below. There is **no initial-state subtraction, anomaly calculation or spatial-mean removal**. U/V are the physical state channels, not velocities derived from SSH. The observation-conditioned model's unconstrained deep-slot interpretation still applies.
 
-**Obs-only is excluded from both the figures and color-range calculation.** Each field has a shared scale across OM4/mixed and the two dates, spanning all finite values; U/V ranges are symmetric around zero. No percentile clipping is applied. Maps retain one pixel per grid cell and the common depth masks.
+**Obs-only is excluded from both the figures and color-range calculation.** T/S retain shared full-range scales across OM4/mixed and both dates. **U/V now have separate, explicitly labeled colorbars for each model and component**, using symmetric limits at the 99th percentile of absolute velocity pooled across both dates (roughly 1% of values saturate). These limits are about ±0.054 m/s for OM4 U/V, versus ±0.245/0.218 m/s for mixed U/V. The OM4 currents were present in the original maps but visually compressed by the much larger mixed velocities and full-range extremes; the separate scales reveal structure without implying equal amplitudes. Maps retain one pixel per grid cell and the common depth masks.
 
-![Absolute day30 T/S/U/V at 3100m: OM4 versus mixed, 2015](artifacts/2026-10-05-absolute-day30/2015-01-01-day30-depth3100.png)
+![Absolute day30 T/S/U/V at 3100m: OM4 versus mixed, 2015](artifacts/2026-10-05-absolute-day30/2015-01-01-day30-depth3100-separate-velocity.png)
 
-[Same absolute-field comparison for 2018](artifacts/2026-10-05-absolute-day30/2018-01-01-day30-depth3100.png) · [Source and range audit](artifacts/2026-10-05-absolute-day30/provenance.json.gz).
+[Same absolute-field comparison for 2018](artifacts/2026-10-05-absolute-day30/2018-01-01-day30-depth3100-separate-velocity.png) · [Source and range audit](artifacts/2026-10-05-absolute-day30/provenance.json.gz).
+
+For direct amplitude comparison, the original shared, unclipped scales remain available: [2015](artifacts/2026-10-05-absolute-day30/2015-01-01-day30-depth3100.png) · [2018](artifacts/2026-10-05-absolute-day30/2018-01-01-day30-depth3100.png). Only display limits changed; the underlying absolute fields are identical.
 
 The full-field view retains broad T/S structure that the change maps intentionally subtract, while the mixed model's U/V fields differ substantially from the date-matched OM4 currents. These plots reuse verified local snapshots and require no new inference. Additional matched-depth U/V extraction at 550/1850 m could not be submitted because Torch's Slurm controller was unavailable; those four-field comparisons are not included here.
 

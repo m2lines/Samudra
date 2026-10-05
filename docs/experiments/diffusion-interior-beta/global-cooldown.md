@@ -67,14 +67,20 @@ Slurm launcher supports `MODE=cooldown`, with `CODE_COMMIT` set to the new produ
 and `PARENT_COMMIT` set to the original qualified producer. Keep both directories
 on any cluster migration, checksum-verify optimizer transfers, and allow only one
 active writer. Inspect the first native and observation updates and verify a
-checkpoint/resume before continuing. GPU handoff is pending the next job boundary.
+checkpoint/resume before continuing. The GPU handoff and restart have passed.
 
-Producer `e8a6312ea` is checksum-verified on Engaging and Torch. On Engaging,
-four-H200 handoff job **24866192** waits for current job **24761666** and performs
-eight updates from the saved optimizer. Continuation **24866254** waits for that
-job to succeed and reloads its checkpoint. These updates count toward the existing
-16k total. Both use ordinary `mit_general` / `mit_preemptable`; the colleague's
-reservation is excluded. No appended-training job was submitted.
+Producer `e8a6312ea` is checksum-verified on Engaging and Torch. Engaging job
+**24761666** finished at step 8,751 (5,863 OM4 / 2,888 observation), preserving its
+full optimizer checkpoint. Four-H200 handoff **24866192** completed eight updates
+in 401 allocated seconds. Continuation **24866254** successfully reloaded that
+checkpoint and is running on `node4801`; both objectives have finite positive
+encoder, processor and decoder gradient norms. Parent checksum matches the new
+contract, sample counts continue without reset, and LR is still `1e-4` as expected
+before step 14k. These updates count toward the existing 16k total. All jobs use
+ordinary `mit_general` / `mit_preemptable`, excluding the colleague's reservation.
+No appended-training job was submitted. Allocation through the handoff is 256.152
+GPU-hours, excluding ongoing job 24866254 and including all preempted attempts.
+
 
 CPU tests check unchanged task/exposure sequences at every global update, LR
 endpoints, monotonic decay, rejection of invalid parents, and bitwise optimizer/RNG

@@ -18,6 +18,11 @@ concurrency:
 
 jobs:
   test-rust-loader:
+    if: >-
+      github.event_name != 'pull_request' || (
+        !startsWith(github.head_ref, 'experiment/') &&
+        !contains(github.event.pull_request.labels.*.name, 'experiment')
+      )
     strategy:
       fail-fast: false
       matrix:
@@ -72,6 +77,11 @@ jobs:
           .wheel-test/bin/python -c 'import samudra_rust_loader; samudra_rust_loader.ZarrReadPool(1)'
 
   test-rust-integration:
+    if: >-
+      github.event_name != 'pull_request' || (
+        !startsWith(github.head_ref, 'experiment/') &&
+        !contains(github.event.pull_request.labels.*.name, 'experiment')
+      )
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803

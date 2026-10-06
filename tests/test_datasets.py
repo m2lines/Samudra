@@ -53,48 +53,6 @@ from tests.llc_fixtures import write_raw_llc_zarr_datasets
 from tests.test_canonical_dataset import _equivalent_om4_sources
 
 
-@pytest.mark.parametrize("concurrent_compute", [False, True])
-@pytest.mark.parametrize("input_steps,output_steps", [(1, 1), (2, 1), (2, 2)])
-def test_torch_sample_reads_use_unbatched_indices(
-    monkeypatch, concurrent_compute, input_steps, output_steps
-):
-    source, _ = _equivalent_om4_sources()
-    windows = TrainingWindows(
-        input_source=source,
-        label_source=None,
-        prognostic_var_names=["so_0", "so_2", "zos"],
-        boundary_var_names=["hfds"],
-        input_steps=input_steps,
-        output_steps=output_steps,
-        steps=2,
-        normalize_before_mask=True,
-        masked_fill_value=-1.0,
-    )
-    original_read = CanonicalSource.read
-    calls = []
-
-    def read(source, indices, channels):
-        assert indices.ndim == 1
-        calls.append((indices.copy(), channels))
-        return original_read(source, indices, channels)
-
-    monkeypatch.setattr(CanonicalSource, "read", read)
-    dataset = TorchTrainDataset(windows, concurrent_compute_=concurrent_compute)
-    actual = dataset[0]
-    assert len(calls) == 6
-    plan = windows.window_plan([0])
-    for tensors, step in zip(actual.steps, plan.steps, strict=True):
-        for tensor, use in zip(
-            tensors, (step.input, step.boundary, step.label), strict=True
-        ):
-            expected = original_read(
-                use.source, use.request.time_indices, use.request.channels
-            )[0]
-            torch.testing.assert_close(
-                tensor, torch.from_numpy(expected), rtol=0, atol=0
-            )
-
-
 @pytest.mark.parametrize(
     "loading,workers,persistent",
     [

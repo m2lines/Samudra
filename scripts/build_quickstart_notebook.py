@@ -176,7 +176,6 @@ loss:
   metric: mse
 finetune: false
 resume_ckpt_path: null
-inference_epochs: []
 # Temporal spacing between input and target frames; 1 uses consecutive frames.
 data_stride: [1]
 # Autoregressive forecast steps used at each training-curriculum stage.

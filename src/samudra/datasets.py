@@ -252,18 +252,6 @@ class InferenceDataset(Dataset):
         return self._source.coordinates()
 
 
-class InferenceDatasets(Dataset):
-    def __init__(self, datasets: list[InferenceDataset], lengths: list[int]):
-        self.datasets = datasets
-        self.lengths = lengths
-
-    def __len__(self):
-        return len(self.datasets)
-
-    def __getitem__(self, idx):
-        return (self.datasets[idx], self.lengths[idx])
-
-
 class HostBatch:
     def __init__(self, dataset_id: "TorchTrainDataset.Id"):
         self.dataset_id: TorchTrainDataset.Id = dataset_id

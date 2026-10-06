@@ -46,7 +46,6 @@ from tests.conftest import (
     TEST_CONFIGS_DIR,
     TEST_DATA_LAYOUT,
     DataSourceDims,
-    TrainPair,
     cache_dir,
 )
 from tests.llc_fixtures import write_raw_llc_zarr_datasets
@@ -120,11 +119,23 @@ def test_torch_loading_configs_preserve_batch_schedule(
 
 
 @pytest.fixture
-def inference_loader_pair(
-    trainer_pair: TrainPair,
-) -> tuple[TrainConfig, DataLoader, DataLayout]:
-    cfg, trainer = trainer_pair
-    return cfg, trainer.inference_loader, trainer.data_layout
+def inference_dataset_pair(
+    train_config: TrainConfig,
+) -> tuple[TrainConfig, list[tuple[InferenceDataset, int]], DataLayout]:
+    bundle = train_config.data.build(train_config.experiment.resolved_data_root)
+    source = bundle.inference_source
+    assert source is not None
+    dataset = InferenceDataset(
+        source=source,
+        prognostic_var_names=bundle.data_layout.prognostic_var_names,
+        boundary_var_names=bundle.data_layout.boundary_var_names,
+        input_steps=train_config.data.input_steps,
+        output_steps=train_config.data.output_steps,
+        normalize_before_mask=train_config.data.normalize_before_mask,
+        masked_fill_value=train_config.data.masked_fill_value,
+        long_rollout=True,
+    )
+    return train_config, [(dataset, len(dataset))], bundle.data_layout
 
 
 def test_cache_dir_defaults_to_worktree(
@@ -530,8 +541,8 @@ def test_loader__data_shape__across_source_counts(
         )
 
 
-def test_inference__data_shape(inference_loader_pair):
-    cfg, loader, data_layout = inference_loader_pair
+def test_inference__data_shape(inference_dataset_pair):
+    cfg, loader, data_layout = inference_dataset_pair
     batch_size = 1  # Inference always uses batch size 1
     input_steps = cfg.data.input_steps
 
@@ -542,7 +553,7 @@ def test_inference__data_shape(inference_loader_pair):
 
     samples = list(loader)
     assert len(samples) == 1, (
-        f"Current config {cfg.inference!r} only supports 1 examples for inference; "
+        f"Current config {cfg.data.sources[0].inference_times!r} only supports 1 examples for inference; "
         f"got {len(samples)}."
     )
 
@@ -565,8 +576,8 @@ def test__data_is_not_zeros(train_config):
             assert np.count_nonzero(y) != 0, "Label data should not be a zeros matrix!"
 
 
-def test_inference__data_is_not_zero(inference_loader_pair):
-    cfg, loader, _ = inference_loader_pair
+def test_inference__data_is_not_zero(inference_dataset_pair):
+    cfg, loader, _ = inference_dataset_pair
 
     for sample in loader:
         dataset, n = sample
@@ -956,8 +967,8 @@ def test_profile__loader__1gb(train_config, loader_version, benchmark):
 @pytest.mark.parametrize(
     "data_source,config_name", [("mock", DEFAULT_CONFIG)], indirect=True
 )
-def test_profile__inference_loader__1gb(inference_loader_pair, benchmark):
-    cfg, loader, _ = inference_loader_pair
+def test_profile__inference_loader__1gb(inference_dataset_pair, benchmark):
+    cfg, loader, _ = inference_dataset_pair
 
     def bench():
         for sample in loader:

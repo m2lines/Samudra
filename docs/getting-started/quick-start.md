@@ -62,8 +62,8 @@ For multiple horizons, checkpoint selection uses the longest horizon. If
 checkpoint; latest and periodic checkpoints continue to be saved. A requested
 day horizon must fit the configured validation split.
 
-Other presets retain single-step selection. To restore that behavior and disable
-rollout validation, set `checkpoint_validation_metric: one_step_loss` and
+To use single-step checkpoint selection and disable rollout validation,
+set `checkpoint_validation_metric: one_step_loss` and
 `rollout_validation: null`. Rollout selection currently requires a single data
 source. When resuming, changing the selection metric or configured horizon resets
 the saved best score so incompatible scores are not compared. The checkpoint's

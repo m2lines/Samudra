@@ -26,14 +26,16 @@ def test_annual_month_weights_cover_calendar_without_phase_reset():
         month_weights(starts[:-1], "2014-10")
 
 
-def test_future_observations_never_enter_annual_inputs():
+@pytest.mark.parametrize("surface_fill", ["climatology", "zero"])
+def test_future_observations_never_enter_annual_inputs(surface_fill):
     h, w = 4, 8
     mask = np.ones((77, h, w), dtype=bool)
     data = SimpleNamespace(
+        surface_fill=surface_fill,
         grid=dict(
             mask=mask,
-            mean=np.zeros(77),
-            std=np.ones(77),
+            mean=np.ones(77) * 10,
+            std=np.ones(77) * 2,
             lat=np.linspace(-80, 80, h),
             lon=np.arange(w) * 45,
         ),
@@ -50,7 +52,11 @@ def test_future_observations_never_enter_annual_inputs():
         atmosphere=np.zeros((92, 8, h, w)),
         midpoint=pd.date_range("2013-07-29", periods=92, freq="5D").to_numpy(),
     )
+    raw["surface"][0, 0, 0, 0] = np.nan
     before = inputs(data, raw)
+    assert before[0][0, 0, 0, 0, 0] == (0 if surface_fill == "zero" else -5)
+    assert before[0][0, 0, 0, 0, 1] == -4.5
+    assert before[4][0, 0, 0, 0, 0] == 0
     raw["surface"][19:] = np.nan
     after = inputs(data, raw)
     assert before[0].shape[1] == 19
@@ -124,3 +130,25 @@ def test_annual_velocity_uses_named_dimensions(monkeypatch):
     result = annual.surface_metrics(surface, reference, data)
     assert result["annual_eke_rmse"] == pytest.approx(0)
     assert result["leads"]["365"]["velocity_rmse"] == pytest.approx(0)
+
+
+def test_global_annual_metrics_include_high_latitude_error(monkeypatch):
+    from samudra.experiments import observation_annual as annual
+
+    lat, lon = np.linspace(-85, 85, 18), np.arange(36) * 10
+    shape = (73, 2, len(lat), len(lon))
+    prediction = np.zeros(shape)
+    reference = np.zeros((73, 4, len(lat), len(lon)))
+    prediction[:, 0, np.abs(lat) > 60] = 2
+    data = SimpleNamespace(
+        grid=dict(lat=lat, lon=lon, mask=np.ones((77, 18, 36), dtype=bool)),
+        global_observations=False,
+    )
+    monkeypatch.setattr(annual, "spatial_error", lambda *args: None)
+    legacy = annual.surface_metrics(prediction, reference, data)
+    assert legacy["leads"]["365"]["sst_rmse"] == 0
+    data.global_observations = True
+    global_result = annual.surface_metrics(prediction, reference, data)
+    area = np.cos(np.deg2rad(lat))
+    expected = np.sqrt(4 * area[np.abs(lat) > 60].sum() / area.sum())
+    assert global_result["leads"]["365"]["sst_rmse"] == pytest.approx(expected)

@@ -82,6 +82,8 @@ def inputs(data, raw):
     normalized = (filled - data.grid["mean"][[38, 76], None, None]) / data.grid["std"][
         [38, 76], None, None
     ]
+    if getattr(data, "surface_fill", "climatology") == "zero":
+        normalized = np.where(validity, normalized, 0)
     normalized *= data.grid["mask"][[38, 76]]
     atmosphere = (
         raw["atmosphere"] - data.stats["atmosphere_mean"][None, :, None, None]
@@ -102,7 +104,9 @@ def inputs(data, raw):
 def surface_metrics(prediction, reference, data):
     lat, lon = data.grid["lat"], data.grid["lon"]
     area = np.cos(np.deg2rad(lat))[:, None] * np.ones((1, len(lon)))
-    domain = data.grid["mask"][0] & (np.abs(lat[:, None]) <= 60)
+    domain = data.grid["mask"][0].copy()
+    if not getattr(data, "global_observations", False):
+        domain &= np.abs(lat[:, None]) <= 60
     p, r = np.where(domain, prediction, np.nan), np.where(domain, reference, np.nan)
     predicted_u, predicted_v = kernels.geostrophic_velocity_from_zos(
         _field(p[:, 1], lat, lon), "lat", "lon"

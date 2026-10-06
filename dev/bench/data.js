@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791302554502,
+  "lastUpdate": 1791302562307,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -25455,6 +25455,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.1632669469580393",
             "extra": "mean: 38.249501513199974 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fomobot640@gmail.com",
+            "name": "fomo-bot",
+            "username": "fomo-bot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "0b53202488d18724d5cf7d306230fb72c2779528",
+          "message": "Fix Torch sample-read indexing performance regression (#910)\n\nTorch sample reads regressed after #800 because the per-sample adapter\nbegan passing `(1, time)` indices through Xarray/Dask's batched indexing\npath. Restore one-dimensional indices for serial and concurrent reads\nwhile preserving the model-facing tensor shapes and native batch plans.\n\nRegression coverage checks one- and two-input windows, one- and\ntwo-output windows, two rollout steps, and both read modes against the\nbatch-shaped reference with exact tensor equality.\n\nLocal warmed CPU sample-read timing improved from 1.53 s before the fix\nto 0.556 s after it (five measured rounds). This is a local raw-read\ncomparison, not an end-to-end Rust throughput claim. The original CI\nalert showed about 2.7x slower raw Torch reads.\n\nRefs #800. Broader benchmark improvements are tracked separately in\n#909.\n\nValidation:\n- Dataset, canonical-reader, and native-loader CPU checks: 89 passed, 67\ndeselected (manual/CUDA excluded).\n- Six new regression cases passed.\n- All pre-commit checks passed, including mypy, schema validation, and\nlicensing.\n- Existing warmed sample-read benchmark passed; five-round mean 0.556 s.",
+          "timestamp": "2026-10-06T15:27:23Z",
+          "tree_id": "dd6621d3217b2016f7c061c271d73dc1394dec81",
+          "url": "https://github.com/m2lines/Samudra/commit/0b53202488d18724d5cf7d306230fb72c2779528"
+        },
+        "date": 1791302561915,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.9667619899789168,
+            "unit": "iter/sec",
+            "range": "stddev: 0.004252323078462729",
+            "extra": "mean: 1.0343807580000202 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.43284800106642796,
+            "unit": "iter/sec",
+            "range": "stddev: 0.041457604832603114",
+            "extra": "mean: 2.3102798153999857 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.027953583498444238,
+            "unit": "iter/sec",
+            "range": "stddev: 0.1842125838973923",
+            "extra": "mean: 35.77358874420001 sec\nrounds: 5"
           }
         ]
       }

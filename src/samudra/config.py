@@ -239,6 +239,7 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
         *,
         use_dask: bool,
         is_primary: bool,
+        include_inference: bool = True,
         source_backend: "TrainingSourceBackend",
     ) -> SourceSplits:
         source = self._build_source(
@@ -247,7 +248,7 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
             source_backend=source_backend,
         )
         inference_source = None
-        if is_primary and self.inference_times:
+        if include_inference and is_primary and self.inference_times:
             if use_dask:
                 full_inference_source = source
             else:
@@ -604,6 +605,8 @@ class DataConfig(BaseConfig):
     def build(
         self,
         data_root: ResolvedLocation,
+        *,
+        include_inference: bool = True,
     ) -> DataBundle:
         loader_version = LoaderVersion(self.loader_version)
         use_dask = loader_version != LoaderVersion.OM4_TORCH
@@ -614,6 +617,7 @@ class DataConfig(BaseConfig):
                 data_root,
                 use_dask=use_dask,
                 is_primary=index == 0,
+                include_inference=include_inference,
                 source_backend=source_backend,
             )
             for index, source_cfg in enumerate(self.sources)
@@ -1413,7 +1417,6 @@ class TrainConfig(TopLevelConfig):
     data_stride: list[int] = [1]
     steps: list[int] = [4]
     step_transition: list[int] = []
-    inference_epochs: list[int] = [-1]
     post_train_eval: "PostTrainEvalConfig | None" = None
 
     # Config components

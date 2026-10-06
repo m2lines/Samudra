@@ -17,7 +17,6 @@ scheduler: null
 loss: mse
 finetune: false
 resume_ckpt_path: null
-inference_epochs: [-1]
 data_stride: [1]
 steps: [2]
 step_transition: []

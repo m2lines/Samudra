@@ -24,7 +24,6 @@ loss:
   limit: 20
 finetune: false
 resume_ckpt_path: null
-inference_epochs: []
 post_train_eval:
   eval_config_path: samudra_om4/eval.yaml
 data_stride: [1]

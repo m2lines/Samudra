@@ -22,7 +22,6 @@ loss:
   metric: mse
 finetune: false
 resume_ckpt_path: null
-inference_epochs: []
 post_train_eval:
   eval_config_path: samudra_mini_om4/eval.yaml
 data_stride: [1]

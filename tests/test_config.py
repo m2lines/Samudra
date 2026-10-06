@@ -368,6 +368,13 @@ def test_data_config_builds_llc_source_from_local_files(tmp_path):
     assert container.inference_source is not None
     assert container.inference_source.time.size == 2
 
+    training_container = cfg.build(
+        LocalLocation(path=tmp_path), include_inference=False
+    )
+    assert training_container.inference_source is None
+    assert training_container.train_sources[0].time.size == 2
+    assert training_container.val_sources[0].time.size == 2
+
     sliced = source.slice_time(
         LlcTimeConfig(
             start=np.datetime64("2011-09-10T12:00:00", "ns"),

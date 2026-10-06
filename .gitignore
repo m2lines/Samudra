@@ -50,4 +50,6 @@ site/
 profiles/
 
 # Build artifacts
+build/
 dist/
+rust/loader/target/

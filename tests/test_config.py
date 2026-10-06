@@ -22,10 +22,11 @@ from samudra.config import (
     Om4DataSourceConfig,
     Om4TimeConfig,
     RolloutValidationConfig,
+    RustDataLoadingConfig,
     TrainConfig,
 )
 from samudra.config_schema import get_pydantic_models
-from samudra.utils.location import LocalLocation, UnresolvedLocation
+from samudra.utils.location import LocalLocation, S3Location, UnresolvedLocation
 from tests.conftest import DEFAULT_CONFIG, TEST_CONFIGS_DIR
 from tests.llc_fixtures import write_raw_llc_datasets
 
@@ -101,8 +102,44 @@ def test_data_config_defaults_to_cpu_loading():
 
     assert isinstance(cfg.loading, CpuDataLoadingConfig)
     assert cfg.loading.num_workers == 4
-    assert cfg.loading.num_pytorch_workers() == 4
     assert isinstance(cfg.sources[0], Om4DataSourceConfig)
+
+
+def test_data_config_accepts_rust_loading():
+    cfg = DataConfig(
+        sources=[om4_source_config()],
+        loading=RustDataLoadingConfig(
+            prefetch_batches=3,
+            max_concurrent_reads=12,
+            prefetch_to_device=False,
+        ),
+    )
+
+    assert isinstance(cfg.loading, RustDataLoadingConfig)
+    assert cfg.loading.prefetch_batches == 3
+    assert cfg.loading.max_concurrent_reads == 12
+    assert cfg.loading.prefetch_to_device is False
+
+
+@pytest.mark.parametrize("field", ["pin_mem", "concurrent_compute"])
+def test_rust_loading_rejects_pytorch_options(field):
+    with pytest.raises(ValidationError, match=field):
+        RustDataLoadingConfig.model_validate({field: True})
+
+
+@pytest.mark.parametrize("field", ["prefetch_batches", "max_concurrent_reads"])
+def test_rust_loading_requires_positive_bounds(field):
+    with pytest.raises(ValidationError, match=field):
+        RustDataLoadingConfig.model_validate({field: 0})
+
+
+def test_rust_loading_rejects_non_local_locations_before_open(tmp_path):
+    source = om4_source_config()
+    source.data_location = S3Location(bucket="example", path="data.zarr")
+    cfg = DataConfig(sources=[source], loading=RustDataLoadingConfig())
+
+    with pytest.raises(ValueError, match="requires local data"):
+        cfg.build(LocalLocation(path=tmp_path))
 
 
 def test_data_config_output_steps_default_and_override():
@@ -400,10 +437,9 @@ def test_data_config_accepts_gpu_loading():
     assert isinstance(cfg.loading, GpuDataLoadingConfig)
     assert cfg.loading.kvikio_task_size == 32 * 1024 * 1024
     assert cfg.loading.kvikio_num_threads == 4
-    assert cfg.loading.num_pytorch_workers() == 0
 
 
-def test_train_config_allows_cli_override_for_cpu_num_workers(tmp_path):
+def test_train_config_allows_cli_override_for_cpu_loading_options(tmp_path):
     config_path = TEST_CONFIGS_DIR / "train_default.yaml"
 
     cfg = TrainConfig.from_yaml_and_cli(
@@ -415,11 +451,17 @@ def test_train_config_allows_cli_override_for_cpu_num_workers(tmp_path):
             str(tmp_path / "outputs"),
             "--data.loading.num_workers",
             "2",
+            "--data.loading.pin_mem",
+            "false",
+            "--data.loading.concurrent_compute",
+            "true",
         ]
     )
 
     assert isinstance(cfg.data.loading, CpuDataLoadingConfig)
     assert cfg.data.loading.num_workers == 2
+    assert cfg.data.loading.pin_mem is False
+    assert cfg.data.loading.concurrent_compute is True
 
 
 def test_get_pydantic_models_collects_loading_variants():
@@ -448,6 +490,31 @@ def test_shipped_eval_presets_load(preset: pathlib.Path):
     only a real eval job would notice.
     """
     EvalConfig.from_yaml_and_cli([str(preset)])
+
+
+@pytest.mark.parametrize(
+    "preset",
+    sorted(
+        (pathlib.Path(__file__).parents[1] / "src/samudra/configs").glob("*/train.yaml")
+    ),
+    ids=lambda path: path.parent.name,
+)
+def test_shipped_train_presets_load(preset: pathlib.Path):
+    TrainConfig.from_yaml_and_cli([str(preset)])
+
+
+def test_rust_loading_rejects_derived_channels_before_opening_data(
+    tmp_path, monkeypatch
+):
+    source = om4_source_config(boundary_vars_key="tau_hfds_hfds_anom")
+    cfg = DataConfig(sources=[source], loading=RustDataLoadingConfig())
+
+    def unexpected_open(*args, **kwargs):
+        pytest.fail("Unsupported native config opened data before validation")
+
+    monkeypatch.setattr(LocalLocation, "open", unexpected_open)
+    with pytest.raises(ValueError, match="does not yet support derived boundary"):
+        cfg.build(LocalLocation(path=tmp_path))
 
 
 def test_rollout_checkpoint_selection_requires_supported_validation():

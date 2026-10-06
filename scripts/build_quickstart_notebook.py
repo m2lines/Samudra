@@ -160,7 +160,6 @@ QUICKSTART_YAML = """\
 # Every training, data, and model control is visible and editable.
 debug: false
 disk_mode: true
-pin_mem: true
 save_freq: 1
 # One epoch keeps this instructional run short. Samudra presets commonly use
 # 70 epochs; also extend the date windows for a substantive experiment.
@@ -201,9 +200,10 @@ data:
   input_steps: 1
   # Number of future raw ocean states emitted by each model call.
   output_steps: 1
-  concurrent_compute: true
   loading:
     type: cpu
+    pin_mem: true
+    concurrent_compute: true
     num_workers: 0
     persistent_workers: false
   sources:

@@ -6,7 +6,6 @@
 
 debug: false
 disk_mode: true
-pin_mem: true
 save_freq: 5
 epochs: 70
 batch_size: 4

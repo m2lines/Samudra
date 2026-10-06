@@ -9,9 +9,10 @@ from typing import Literal, NamedTuple, Self
 
 logger = logging.getLogger(__name__)
 
+import numpy as np
 import torch
 import xarray as xr
-from jaxtyping import Bool, Float
+from jaxtyping import Bool, Float, Int
 from torch import Tensor
 
 # Common Type Aliases
@@ -31,6 +32,10 @@ Boundary = Float[Grid, "*batch boundary_vars"]
 #   for return types, referring only to axes annotated for arguments.
 # So, we'll leave this default and use symbolic axes locally.
 type Input = Float[Grid, "*batch total_vars"]
+
+# Canonical read requests may be scalar, flat, or grouped into batch histories.
+TimeIndices = Int[np.ndarray, "*sample"]
+CanonicalPlanes = Float[np.ndarray, "*sample channel lat lon"]
 
 
 class RolloutStep(NamedTuple):

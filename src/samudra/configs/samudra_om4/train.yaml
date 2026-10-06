@@ -6,7 +6,6 @@
 
 debug: false
 disk_mode: true
-pin_mem: true
 save_freq: 5
 # Roughly one year (~35 model calls with two five-day outputs per call).
 rollout_validation:

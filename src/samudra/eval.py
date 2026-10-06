@@ -17,7 +17,6 @@ from samudra.datasets import InferenceDataset
 from samudra.metrics.run import open_predictions, run_observation_metrics
 from samudra.stepper import run_rollout
 from samudra.utils.data import BatchPreprocessor, get_inference_steps
-from samudra.utils.device import using_gpu
 from samudra.utils.distributed import is_main_process, set_seed
 from samudra.utils.logging import get_model_summary, handle_logging, handle_warnings
 from samudra.utils.wandb import WandBLogger
@@ -36,13 +35,6 @@ class Eval:
         cfg.prepare_output_dirs()
 
         self.device = init_eval_backend(cfg.backend)
-
-        # Adjust workers and memory pinning based on device
-        data_num_workers = cfg.data.loading.num_pytorch_workers()
-        if not using_gpu():
-            data_num_workers = 0  # Disable multi-processing on CPU
-        elif cfg.disk_mode:
-            data_num_workers = torch.cuda.device_count() * data_num_workers
 
         # Set seeds
         set_seed(cfg.experiment.rand_seed)
@@ -132,7 +124,6 @@ class Eval:
         # Eval
         self.output_dir = cfg.experiment.output_dir
         self.debug = cfg.debug
-        self.num_workers = data_num_workers
         self.num_model_steps_forward = cfg.num_model_steps_forward
         self.save_zarr = cfg.save_zarr
         self.model_path = cfg.ckpt_path

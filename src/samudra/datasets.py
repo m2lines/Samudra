@@ -641,23 +641,25 @@ class TorchTrainDataset(Dataset[HostBatch]):
         plan = self.windows.window_plan([idx])
         for step in plan.steps:
             reads = (step.input, step.boundary, step.label)
+            # This adapter reads one sample. Preserve one-dimensional time
+            # indexing to avoid Xarray/Dask's more expensive batched indexing.
             if self._concurrent_compute:
                 executor = self._get_executor()
                 futures = [
                     executor.submit(
                         use.source.read,
-                        use.request.time_indices,
+                        use.request.time_indices[0],
                         use.request.channels,
                     )
                     for use in reads
                 ]
-                loaded = [future.result()[0] for future in futures]
+                loaded = [future.result() for future in futures]
             else:
                 loaded = [
                     use.source.read(
-                        use.request.time_indices,
+                        use.request.time_indices[0],
                         use.request.channels,
-                    )[0]
+                    )
                     for use in reads
                 ]
             input_, boundary, label = map(torch.from_numpy, loaded)

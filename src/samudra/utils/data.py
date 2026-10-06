@@ -5,16 +5,16 @@
 import dataclasses
 import logging
 from collections import defaultdict
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from functools import cached_property
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any, Literal, Protocol, Self, final
+from typing import TYPE_CHECKING, Any, Literal, Protocol, Self, final, runtime_checkable
 
 import numpy as np
 import torch
 import xarray as xr
 from einops import rearrange
-from jaxtyping import Bool
+from jaxtyping import Bool, Int
 
 if TYPE_CHECKING:
     from samudra.config import TimeConfig
@@ -22,6 +22,7 @@ if TYPE_CHECKING:
 from samudra.constants import (
     BatchTimeSeriesOutput,
     BoundaryVarNames,
+    CanonicalPlanes,
     DataLayout,
     DictSingleChannelVar,
     Grid,
@@ -35,6 +36,7 @@ from samudra.constants import (
     PrognosticMask,
     PrognosticVarNames,
     SingleTimeSeriesOutput,
+    TimeIndices,
     construct_metadata,
 )
 from samudra.derived_variables import add_derived_variables
@@ -60,11 +62,6 @@ class Masks:
         object.__setattr__(self, "prognostic", self.prognostic.bool())
         object.__setattr__(self, "boundary", self.boundary.bool())
 
-    def prognostic_with_hist(
-        self, hist: int
-    ) -> Bool[GridMask, " prognostic_vars*({hist}+1)"]:
-        return self.prognostic_for_steps(hist + 1)
-
     def prognostic_for_steps(
         self, steps: int
     ) -> Bool[GridMask, " prognostic_vars*steps"]:
@@ -77,12 +74,13 @@ class Masks:
 class CanonicalReadRequest:
     """A storage-independent request for canonical ocean-data planes.
 
-    The shape of ``time_indices`` defines the leading dimensions of the returned
-    planes. Keeping this core request to NumPy makes it usable by Python and native
-    readers without importing xarray concepts into the boundary.
+    ``time_indices`` are positions in the reader's current time slice. Their shape
+    defines the leading dimensions of the returned planes. Keeping this core
+    request to NumPy makes it usable by Python and native readers without importing
+    xarray concepts into the boundary.
     """
 
-    time_indices: np.ndarray
+    time_indices: TimeIndices
     channels: tuple[str, ...]
 
     def __post_init__(self) -> None:
@@ -104,7 +102,7 @@ class ChannelStatistics:
 
 
 class CanonicalReader(Protocol):
-    """Narrow storage seam implemented by xarray now and native readers later."""
+    """Canonical channel, coordinate, statistics and read semantics."""
 
     @property
     def channels(self) -> tuple[str, ...]: ...
@@ -122,16 +120,39 @@ class CanonicalReader(Protocol):
 
     def slice_time(self, time: "TimeConfig") -> Self: ...
 
-    def read(self, request: CanonicalReadRequest) -> np.ndarray: ...
+    def read(self, request: CanonicalReadRequest) -> CanonicalPlanes: ...
 
     def coordinates(self) -> Mapping[str, xr.DataArray]: ...
 
     def metadata(self, data_layout: DataLayout) -> dict: ...
 
 
+@runtime_checkable
+class BulkCanonicalReader(CanonicalReader, Protocol):
+    """Optional bulk I/O capability used by the native batch pipeline.
+
+    Reads use positions in this reader's time axis and canonical channel names,
+    filling caller-owned (time, channel, lat, lon) float32 arrays. Storage identity
+    remains stable across slices. No writes may outlive a call, including failure.
+    """
+
+    @property
+    def storage_id(self) -> int: ...
+
+    @property
+    def spatial_shape(self) -> tuple[int, int]: ...
+
+    def read_into(
+        self,
+        time_indices: Int[np.ndarray, " time"],
+        channels: tuple[str, ...],
+        output: CanonicalPlanes,
+    ) -> None: ...
+
+
 @dataclasses.dataclass(frozen=True)
-class _XarrayCanonicalReader:
-    """Private xarray implementation of the canonical read contract."""
+class XarrayCanonicalReader:
+    """Canonical channel reads and metadata backed by xarray."""
 
     data: xr.Dataset
     means: xr.Dataset
@@ -168,7 +189,7 @@ class _XarrayCanonicalReader:
     def slice_time(self, time: "TimeConfig") -> Self:
         return dataclasses.replace(self, data=self.data.sel(time=time.time_slice))
 
-    def read(self, request: CanonicalReadRequest) -> np.ndarray:
+    def read(self, request: CanonicalReadRequest) -> CanonicalPlanes:
         self._validate_channels(request.channels)
         index_dims = [f"index_{i}" for i in range(request.time_indices.ndim)]
         index = xr.DataArray(request.time_indices, dims=index_dims)
@@ -215,17 +236,15 @@ class CanonicalSource:
 
     @property
     def reader(self) -> CanonicalReader:
-        """Return the storage reader so backends can decorate its read behavior."""
+        """Return the configured canonical reader."""
         return self._reader
 
-    def with_reader(self, reader: CanonicalReader) -> Self:
-        """Return an equivalent source backed by a replacement reader."""
-        if reader.channels != self.channels:
-            raise ValueError(
-                "Replacement reader channels must match the canonical source: "
-                f"expected {self.channels}, got {reader.channels}"
-            )
-        return dataclasses.replace(self, _reader=reader)
+    @property
+    def bulk_reader(self) -> BulkCanonicalReader:
+        """Return the explicit bulk I/O capability required by native batching."""
+        if not isinstance(self._reader, BulkCanonicalReader):
+            raise TypeError(f"Source {self.name!r} does not support bulk plane reads")
+        return self._reader
 
     @classmethod
     def from_canonical_datasets(
@@ -249,7 +268,7 @@ class CanonicalSource:
             raise ValueError("Canonical data, means, and stds have different channels")
         return cls(
             name=name,
-            _reader=_XarrayCanonicalReader(
+            _reader=XarrayCanonicalReader(
                 data,
                 means[list(channels)],
                 stds[list(channels)],
@@ -319,7 +338,9 @@ class CanonicalSource:
             _reader=self._reader.slice_time(time),
         )
 
-    def read(self, time_indices: np.ndarray, channels: Sequence[str]) -> np.ndarray:
+    def read(
+        self, time_indices: TimeIndices, channels: Sequence[str]
+    ) -> CanonicalPlanes:
         """Read canonical channels at integer time indices."""
         return self._reader.read(CanonicalReadRequest(time_indices, tuple(channels)))
 
@@ -328,7 +349,7 @@ class CanonicalSource:
 
     def to_xarray_dataset(self) -> xr.Dataset:
         """Return the backing xarray dataset when the reader supports it."""
-        if not isinstance(self._reader, _XarrayCanonicalReader):
+        if not isinstance(self._reader, XarrayCanonicalReader):
             raise TypeError("This canonical dataset is not backed by xarray")
         return self._reader.data
 
@@ -336,7 +357,7 @@ class CanonicalSource:
         self,
     ) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
         """Expose xarray fixtures without making them part of the public contract."""
-        if not isinstance(self._reader, _XarrayCanonicalReader):
+        if not isinstance(self._reader, XarrayCanonicalReader):
             raise TypeError("This canonical dataset is not backed by xarray")
         return self._reader.data, self._reader.means, self._reader.stds
 
@@ -351,6 +372,8 @@ class CanonicalSource:
         prognostic_var_names: PrognosticVarNames,
         boundary_var_names: BoundaryVarNames,
         name: str = "CanonicalSource",
+        reader_factory: Callable[[XarrayCanonicalReader], CanonicalReader]
+        | None = None,
     ) -> Self:
         """Build a canonical reader from already-canonicalized xarray datasets."""
         channels = tuple(dict.fromkeys((*prognostic_var_names, *boundary_var_names)))
@@ -381,17 +404,18 @@ class CanonicalSource:
                 f"stds={sorted(missing_stds)}"
             )
 
-        return cls(
-            name=name,
-            _reader=_XarrayCanonicalReader(
-                data=data,
-                means=means[list(channels)],
-                stds=stds[list(channels)],
-                channels=channels,
-            ),
-            masks=masks,
-            data_layout=data_layout,
+        xarray_reader = XarrayCanonicalReader(
+            data=data,
+            means=means[list(channels)],
+            stds=stds[list(channels)],
+            channels=channels,
         )
+        reader: CanonicalReader = xarray_reader
+        if reader_factory is not None:
+            reader = reader_factory(xarray_reader)
+            if reader.channels != channels:
+                raise ValueError("Reader factory changed the canonical channel order")
+        return cls(name=name, _reader=reader, masks=masks, data_layout=data_layout)
 
 
 @dataclasses.dataclass
@@ -771,6 +795,50 @@ class BatchPreprocessor:
         self._boundary_mean_np = boundary_statistics.mean
         self._boundary_std_np = boundary_statistics.std
 
+        self._device_static: dict[
+            tuple[torch.device, torch.dtype, bool],
+            tuple[torch.Tensor, torch.Tensor, torch.Tensor],
+        ] = {}
+
+    def prepare_planes(
+        self, data: torch.Tensor, device: torch.device, *, boundary: bool = False
+    ) -> torch.Tensor:
+        """Normalize and mask (..., channel, lat, lon) without changing shape.
+
+        Sample loading, native bulk loading and inference share this operation;
+        each can choose whether to flatten histories before passing to a model.
+        """
+        data = data.to(device=device, non_blocking=True)
+        key = (device, data.dtype, boundary)
+        static = self._device_static.get(key)
+        if static is None:
+            mean = self._boundary_mean_np if boundary else self._prognostic_mean_np
+            std = self._boundary_std_np if boundary else self._prognostic_std_np
+            mask = self.boundary_mask if boundary else self.prognostic_mask
+            static = (
+                torch.from_numpy(mean).to(device=device, dtype=data.dtype),
+                torch.from_numpy(std).to(device=device, dtype=data.dtype),
+                mask.to(device=device, non_blocking=True),
+            )
+            self._device_static[key] = static
+        mean_tensor, std_tensor, mask_tensor = static
+        if data.shape[-3] != mean_tensor.numel():
+            raise ValueError(
+                f"Expected {mean_tensor.numel()} variable channels, got {data.shape[-3]}"
+            )
+        mean_tensor = self._reshape_statistics(mean_tensor, data.ndim)
+        std_tensor = self._reshape_statistics(std_tensor, data.ndim)
+
+        def normalize(tensor: torch.Tensor) -> torch.Tensor:
+            return ((tensor - mean_tensor) / std_tensor).nan_to_num(nan=0.0)
+
+        if self.normalize_before_mask:
+            data = normalize(data)
+        data = torch.where(mask_tensor, data, self.masked_fill_value)
+        if not self.normalize_before_mask:
+            data = normalize(data)
+        return data
+
     @staticmethod
     def _reshape_statistics(statistics: torch.Tensor, ndim: int) -> torch.Tensor:
         shape = [1] * ndim
@@ -803,25 +871,13 @@ class BatchPreprocessor:
         return normalized.to(data.dtype)
 
     def _prepare(
-        self,
-        data: torch.Tensor,
-        *,
-        mean: np.ndarray,
-        std: np.ndarray,
-        mask: torch.Tensor,
-        device: torch.device,
+        self, data: torch.Tensor, device: torch.device, *, boundary: bool = False
     ) -> Input:
-        tensor = data.to(device, non_blocking=True)
-        if tensor.ndim == 4:
-            tensor = tensor.unsqueeze(0)
-        elif tensor.ndim != 5:
-            raise ValueError(f"Expected 4D or 5D canonical planes, got {tensor.ndim}D")
-        mask = mask.to(device, non_blocking=True)
-        if self.normalize_before_mask:
-            tensor = self._normalize_tensor(tensor, mean, std)
-        tensor = torch.where(mask, tensor, self.masked_fill_value)
-        if not self.normalize_before_mask:
-            tensor = self._normalize_tensor(tensor, mean, std)
+        if data.ndim == 4:
+            data = data.unsqueeze(0)
+        elif data.ndim != 5:
+            raise ValueError(f"Expected 4D or 5D canonical planes, got {data.ndim}D")
+        tensor = self.prepare_planes(data, device, boundary=boundary)
         return rearrange(
             tensor, "batch time variable lat lon -> batch (time variable) lat lon"
         )
@@ -829,22 +885,10 @@ class BatchPreprocessor:
     def prepare_prognostic(
         self, data: torch.Tensor, device: torch.device
     ) -> Prognostic:
-        return self._prepare(
-            data,
-            mean=self._prognostic_mean_np,
-            std=self._prognostic_std_np,
-            mask=self.prognostic_mask,
-            device=device,
-        )
+        return self._prepare(data, device)
 
     def prepare_boundary(self, data: torch.Tensor, device: torch.device) -> Input:
-        return self._prepare(
-            data,
-            mean=self._boundary_mean_np,
-            std=self._boundary_std_np,
-            mask=self.boundary_mask,
-            device=device,
-        )
+        return self._prepare(data, device, boundary=True)
 
     def normalize_tensor_prognostic(
         self, data: torch.Tensor, fill_nan=True, fill_value=0.0

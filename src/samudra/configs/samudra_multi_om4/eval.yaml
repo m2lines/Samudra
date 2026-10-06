@@ -31,7 +31,9 @@ experiment:
     project: default
 
 data:
-  concurrent_compute: true
+  loading:
+    type: cpu
+    concurrent_compute: true
   sources:
     # First source is used for inference. Reorder to eval a different scale.
     - type: om4

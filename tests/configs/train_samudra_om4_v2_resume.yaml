@@ -7,7 +7,6 @@
 # A small Samudra OM4 v2 config for checkpoint/resume parity tests.
 debug: false
 disk_mode: true
-pin_mem: true
 save_freq: 1
 epochs: 2
 batch_size: 1
@@ -55,11 +54,12 @@ data:
       data_means_location: means.nc
       data_stds_location: stds.nc
   loading:
+    concurrent_compute: false
     type: cpu
     num_workers: 0
     persistent_workers: false
-  hist: 1
-  concurrent_compute: false
+  input_steps: 2
+  output_steps: 2
 
 model:
   checkpointing: all

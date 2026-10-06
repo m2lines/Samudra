@@ -4,9 +4,9 @@
 
 import abc
 import datetime
-from functools import cached_property
+from functools import cached_property, partial
 from pathlib import Path
-from typing import Annotated, Literal, Self, assert_never
+from typing import TYPE_CHECKING, Annotated, Literal, Self, assert_never
 
 import cftime
 import numpy as np
@@ -30,6 +30,7 @@ from samudra.constants import (
     GridSize,
     GridType,
     LoaderVersion,
+    build_llc_layout,
     build_om4_layout,
 )
 from samudra.models import Samudra, SamudraMini, SamudraMulti
@@ -86,6 +87,11 @@ from samudra.utils.loss import (
 from samudra.utils.profiler import Profiler
 from samudra.utils.schedule import SchedulerConfig
 from samudra.utils.train import CheckpointPaths
+
+if TYPE_CHECKING:
+    from samudra.data_backend import TrainingSourceBackend
+    from samudra.datasets import TrainBatchLoader, TrainingWindows
+    from samudra.utils.samplers import BatchSchedule
 
 
 class WandBConfig(BaseConfig):
@@ -196,7 +202,11 @@ LOCATION_DOCS = (
 )
 
 
+type DataSourceType = Literal["om4", "llc"]
+
+
 class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
+    type: DataSourceType
     train_time: SourceTimeConfigT = Field(frozen=True)
     val_time: SourceTimeConfigT = Field(frozen=True)
     inference_times: tuple[SourceTimeConfigT, ...] = Field(default=(), frozen=True)
@@ -209,6 +219,10 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
     data_stds_location: Location = Field(
         description="Location of the data standard deviations; " + LOCATION_DOCS
     )
+
+    @abc.abstractmethod
+    def build_layout(self) -> DataLayout:
+        raise NotImplementedError
 
     @abc.abstractmethod
     def canonicalize_datasets(
@@ -225,10 +239,12 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
         *,
         use_dask: bool,
         is_primary: bool,
+        source_backend: "TrainingSourceBackend",
     ) -> SourceSplits:
         source = self._build_source(
             data_root,
             turn_on_dask=use_dask,
+            source_backend=source_backend,
         )
         inference_source = None
         if is_primary and self.inference_times:
@@ -238,6 +254,7 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
                 full_inference_source = self._build_source(
                     data_root,
                     turn_on_dask=True,
+                    source_backend=source_backend,
                 )
             # TODO: remove multiple inference time ranges altogether (see #813)
             assert len(self.inference_times) == 1, (
@@ -256,11 +273,19 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
         data_root: ResolvedLocation,
         *,
         turn_on_dask: bool,
+        source_backend: "TrainingSourceBackend",
     ) -> CanonicalSource:
         resolved_data_location = data_root.resolve(self.data_location)
         resolved_means_location = data_root.resolve(self.data_means_location)
         resolved_stds_location = data_root.resolve(self.data_stds_location)
 
+        source_backend.validate_source(
+            data_location=resolved_data_location,
+            means_location=resolved_means_location,
+            stds_location=resolved_stds_location,
+            source_type=self.type,
+            data_layout=self.build_layout(),
+        )
         chunks: dict[str, int] | None = {} if turn_on_dask else None
         data = resolved_data_location.open(chunks)
         means = resolved_means_location.open(chunks)
@@ -278,48 +303,144 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
             prognostic_var_names=data_layout.prognostic_var_names,
             boundary_var_names=data_layout.boundary_var_names,
             name=f"{resolved_data_location}-{turn_on_dask}",
+            reader_factory=(
+                None
+                if turn_on_dask
+                else partial(
+                    source_backend.build_reader,
+                    data_location=resolved_data_location,
+                    data_layout=data_layout,
+                )
+            ),
         )
         return source
 
 
-class BaseDataLoadingConfig(BaseConfig):
-    def num_pytorch_workers(self) -> int:
-        raise NotImplementedError
-
-    def persistent_pytorch_workers(self) -> bool:
-        raise NotImplementedError
-
-
-class CpuDataLoadingConfig(BaseDataLoadingConfig):
+class CpuDataLoadingConfig(BaseConfig):
     type: Literal["cpu"] = "cpu"
     num_workers: int = Field(default=4, ge=0)
     persistent_workers: bool = True
+    pin_mem: bool = True
+    concurrent_compute: bool = False
 
-    def num_pytorch_workers(self) -> int:
-        return self.num_workers
+    def build_source_backend(self) -> "TrainingSourceBackend":
+        from samudra.data_backend import PythonSourceBackend
 
-    def persistent_pytorch_workers(self) -> bool:
-        return self.persistent_workers
+        return PythonSourceBackend()
+
+    def build_batch_loader(
+        self,
+        windows: list["TrainingWindows"],
+        batch_sampler: "BatchSchedule",
+        device: torch.device,
+        *,
+        seed: int,
+    ) -> "TrainBatchLoader":
+        from samudra.train_data_loader import build_torch_batch_loader
+
+        return build_torch_batch_loader(
+            windows,
+            batch_sampler,
+            device,
+            num_workers=self.num_workers,
+            persistent_workers=self.persistent_workers,
+            pin_memory=self.pin_mem,
+            worker_seed=seed,
+            concurrent_compute=self.concurrent_compute,
+        )
 
 
-class GpuDataLoadingConfig(BaseDataLoadingConfig):
+class GpuDataLoadingConfig(BaseConfig):
     type: Literal["gpu"] = "gpu"
     kvikio_task_size: int = Field(default=64 * 1024 * 1024, gt=0)
     kvikio_num_threads: int = Field(default=8, gt=0)
+    pin_mem: bool = True
+    concurrent_compute: bool = False
 
-    def num_pytorch_workers(self) -> int:
-        # When loading data direct to GPU, we don't want worker processes.
-        # 0 means "load in the main process"
-        return 0
+    def build_source_backend(self) -> "TrainingSourceBackend":
+        from samudra.data_backend import PythonSourceBackend
 
-    def persistent_pytorch_workers(self) -> bool:
-        return False
+        return PythonSourceBackend()
+
+    def build_batch_loader(
+        self,
+        windows: list["TrainingWindows"],
+        batch_sampler: "BatchSchedule",
+        device: torch.device,
+        *,
+        seed: int,
+    ) -> "TrainBatchLoader":
+        from samudra.train_data_loader import build_torch_batch_loader
+
+        return build_torch_batch_loader(
+            windows,
+            batch_sampler,
+            device,
+            # Direct GPU reads run in the main process.
+            num_workers=0,
+            persistent_workers=False,
+            pin_memory=self.pin_mem,
+            worker_seed=seed,
+            concurrent_compute=self.concurrent_compute,
+        )
+
+
+class RustDataLoadingConfig(BaseConfig):
+    """Configuration for the local Rust Zarr data loader."""
+
+    type: Literal["rust"] = "rust"
+    max_concurrent_reads: int = Field(
+        default=32,
+        ge=1,
+        description="Shared Rayon Zarr read concurrency limit for this process/rank.",
+    )
+
+    prefetch_batches: int = Field(default=2, ge=1)
+    prefetch_to_device: bool = True
+
+    def build_source_backend(self) -> "TrainingSourceBackend":
+        from samudra.data_backend import NativeOm4SourceBackend
+        from samudra.rust_reader import RustIoRuntime
+
+        return NativeOm4SourceBackend(
+            "rust", partial(RustIoRuntime, self.max_concurrent_reads)
+        )
+
+    def build_batch_loader(
+        self,
+        windows: list["TrainingWindows"],
+        batch_sampler: "BatchSchedule",
+        device: torch.device,
+        *,
+        seed: int,
+    ) -> "TrainBatchLoader":
+        from samudra.native_loader import CudaPrefetch, HostPrefetch, NativeBatchLoader
+
+        prefetch = (
+            CudaPrefetch()
+            if device.type == "cuda" and self.prefetch_to_device
+            else HostPrefetch()
+        )
+        return NativeBatchLoader(
+            windows,
+            batch_sampler,
+            device,
+            prefetch_batches=self.prefetch_batches,
+            prefetch=prefetch,
+        )
 
 
 DataLoadingConfig = Annotated[
-    CpuDataLoadingConfig | GpuDataLoadingConfig,
+    CpuDataLoadingConfig | GpuDataLoadingConfig | RustDataLoadingConfig,
     Field(discriminator="type"),
 ]
+
+
+class InferenceDataLoadingConfig(BaseConfig):
+    """PyTorch worker policy for inference, independent of training I/O."""
+
+    num_workers: int = Field(default=4, ge=0)
+    persistent_workers: bool = True
 
 
 class Om4DataSourceConfig(BaseDataSourceConfig[Om4TimeConfig]):
@@ -337,6 +458,13 @@ class Om4DataSourceConfig(BaseDataSourceConfig[Om4TimeConfig]):
             )
         return self
 
+    def build_layout(self) -> DataLayout:
+        return build_om4_layout(
+            self.prognostic_vars_key,
+            self.boundary_vars_key,
+            grid_type=self.grid_type,
+        )
+
     def canonicalize_datasets(
         self,
         data: xr.Dataset,
@@ -344,11 +472,7 @@ class Om4DataSourceConfig(BaseDataSourceConfig[Om4TimeConfig]):
         stds: xr.Dataset,
     ) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset, DataLayout]:
         """Convert raw flat or compact OM4 xarray inputs to canonical channels."""
-        data_layout = build_om4_layout(
-            self.prognostic_vars_key,
-            self.boundary_vars_key,
-            grid_type=self.grid_type,
-        )
+        data_layout = self.build_layout()
         data = data.copy()
         means = means.copy()
         stds = stds.copy()
@@ -413,6 +537,9 @@ class LlcDataSourceConfig(BaseDataSourceConfig[LlcTimeConfig]):
             raise ValueError("LLC crop bounds must satisfy j_start < j_end")
         return self
 
+    def build_layout(self) -> DataLayout:
+        return build_llc_layout(self.prognostic_vars_key, self.boundary_vars_key)
+
     def canonicalize_datasets(
         self,
         data: xr.Dataset,
@@ -448,21 +575,13 @@ class DataConfig(BaseConfig):
         min_length=1,
     )
     loading: DataLoadingConfig = Field(default_factory=CpuDataLoadingConfig)
-    hist: int | None = Field(
-        default=None,
-        ge=0,
-        description=(
-            "Legacy number of additional input-history timesteps. This is "
-            "translated to input_steps and cannot be set together with it."
-        ),
+    inference_loading: InferenceDataLoadingConfig = Field(
+        default_factory=InferenceDataLoadingConfig
     )
     input_steps: int = Field(
         default=2,
         ge=1,
-        description=(
-            "Number of raw timesteps consumed by each model call. Cannot be set "
-            "together with the legacy hist option."
-        ),
+        description="Number of raw timesteps consumed by each model call.",
     )
     output_steps: int = Field(
         default=2,
@@ -472,19 +591,9 @@ class DataConfig(BaseConfig):
     loader_version: str = str(LoaderVersion.OM4_TORCH.value)
     normalize_before_mask: bool = True
     masked_fill_value: float = 0.0
-    concurrent_compute: bool = False
 
     @pydantic.model_validator(mode="after")
     def validate_step_configuration(self) -> Self:
-        if self.hist is not None:
-            if "input_steps" in self.model_fields_set:
-                raise ValueError(
-                    "data.hist and data.input_steps are mutually exclusive"
-                )
-            self.input_steps = self.hist + 1
-            if "output_steps" not in self.model_fields_set:
-                self.output_steps = self.input_steps
-            self.hist = None
         if self.output_steps > self.input_steps:
             raise ValueError(
                 "data.output_steps cannot exceed the number of input timesteps "
@@ -499,11 +608,13 @@ class DataConfig(BaseConfig):
         loader_version = LoaderVersion(self.loader_version)
         use_dask = loader_version != LoaderVersion.OM4_TORCH
 
+        source_backend = self.loading.build_source_backend()
         source_splits = [
             source_cfg.build(
                 data_root,
                 use_dask=use_dask,
                 is_primary=index == 0,
+                source_backend=source_backend,
             )
             for index, source_cfg in enumerate(self.sources)
         ]
@@ -1281,7 +1392,6 @@ def build_loss_fn(
 class TrainConfig(TopLevelConfig):
     # Training parameters
     disk_mode: bool = True
-    pin_mem: bool = True
     save_freq: int = 5
     validation_image_log_freq: int = Field(
         default=10,

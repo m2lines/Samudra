@@ -20,6 +20,7 @@ from samudra.config import (
     SearchRunConfig,
     TrainConfig,
 )
+from samudra.datasets import TorchBatchLoader
 from samudra.models.base import BaseModel
 from samudra.train import (
     Trainer,
@@ -581,6 +582,32 @@ def test_should_run_on_epoch_freq_rejects_invalid_inputs():
         should_run_on_epoch_freq(1, 0)
 
 
+def test_run_closes_training_and_inference_loaders(monkeypatch):
+    class CloseSpy:
+        def __init__(self):
+            self.closed = False
+
+        def close(self):
+            self.closed = True
+
+    trainer = cast(Any, Trainer.__new__(Trainer))
+    trainer.train_loader = CloseSpy()
+    trainer.val_loader = CloseSpy()
+    trainer.inference_loader = object()
+    trainer._run = lambda: None
+    closed_inference_loaders: list[object] = []
+    monkeypatch.setattr(
+        "samudra.train.close_pytorch_dataloader",
+        closed_inference_loaders.append,
+    )
+
+    trainer.run()
+
+    assert trainer.train_loader.closed
+    assert trainer.val_loader.closed
+    assert closed_inference_loaders == [trainer.inference_loader]
+
+
 @pytest.mark.parametrize("backend", ["cpu"], indirect=True)
 @pytest.mark.parametrize(
     "data_source,config_name",
@@ -599,6 +626,8 @@ def test_multiscale_training_validates_primary_source_and_logs_reduced_metrics(
         trainer = Trainer(train_config)
         trainer.init_data_loaders(cur_step=train_config.steps[0])
 
+        assert isinstance(trainer.train_loader, TorchBatchLoader)
+        assert isinstance(trainer.val_loader, TorchBatchLoader)
         assert len(trainer.train_loader._datasets) == 2
         assert len(trainer.val_loader._datasets) == 1
         val_dataset = next(iter(trainer.val_loader._datasets.values()))
@@ -633,7 +662,7 @@ def test_trainer_supports_two_input_one_output_batches(train_config):
     with MultitonScope():
         trainer = Trainer(train_config)
         trainer.init_data_loaders(cur_step=2)
-        batch = trainer.train_loader[0]
+        batch = next(iter(trainer.train_loader))
         prognostic, _, label = batch[0]
 
         assert prognostic.shape[1] == 2 * trainer.N_prog
@@ -669,8 +698,12 @@ def test_data_loaders_enable_persistent_workers_on_positive_num_workers(
 ):
     _, trainer = trainer_pair
 
-    assert trainer.mp_context is not None
-    assert trainer.mp_context.get_start_method() == "spawn"
+    assert isinstance(trainer.train_loader, TorchBatchLoader)
+    assert isinstance(trainer.val_loader, TorchBatchLoader)
+    for loader in (trainer.train_loader, trainer.val_loader):
+        context = loader._host_loader.multiprocessing_context
+        assert context is not None
+        assert context.get_start_method() == "spawn"
     assert trainer.train_loader._host_loader.persistent_workers is True
     assert trainer.val_loader._host_loader.persistent_workers is True
     assert trainer.inference_source is not None
@@ -693,7 +726,10 @@ def test_data_loaders_disable_persistent_workers_when_num_workers_is_zero(
         trainer = Trainer(train_config)
         trainer.init_data_loaders(cur_step=train_config.steps[0])
 
-    assert trainer.mp_context is None
+    assert isinstance(trainer.train_loader, TorchBatchLoader)
+    assert isinstance(trainer.val_loader, TorchBatchLoader)
+    assert trainer.train_loader._host_loader.multiprocessing_context is None
+    assert trainer.val_loader._host_loader.multiprocessing_context is None
     assert trainer.train_loader._host_loader.persistent_workers is False
     assert trainer.val_loader._host_loader.persistent_workers is False
 

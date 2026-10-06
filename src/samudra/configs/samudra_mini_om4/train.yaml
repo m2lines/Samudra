@@ -7,6 +7,12 @@
 debug: false
 disk_mode: true
 save_freq: 5
+# Roughly one year on the five-day OM4 time grid.
+rollout_validation:
+  days: [360]
+  frequency: 1
+  steps_forward: 1
+checkpoint_validation_metric: rollout_rmse
 epochs: 70
 batch_size: 2
 learning_rate: 0.0006
@@ -17,6 +23,8 @@ loss:
 finetune: false
 resume_ckpt_path: null
 inference_epochs: []
+post_train_eval:
+  eval_config_path: samudra_mini_om4/eval.yaml
 data_stride: [1]
 steps: [4]
 step_transition: []
@@ -31,5 +39,5 @@ experiment:
   wandb:
     mode: disabled
     project: default
-data: !include ../data/om4.yaml
+data: !include ../data/om4_rust.yaml
 model: !include model.yaml

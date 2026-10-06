@@ -21,9 +21,12 @@ scheduler: { type: cosine }
 loss:
   type: dynamic
   metric: mse
+  limit: 20
 finetune: false
 resume_ckpt_path: null
 inference_epochs: []
+post_train_eval:
+  eval_config_path: samudra_om4/eval.yaml
 data_stride: [1]
 steps: [4]
 step_transition: []
@@ -38,5 +41,5 @@ experiment:
   wandb:
     mode: disabled
     project: default
-data: !include ../data/om4.yaml
+data: !include ../data/om4_rust.yaml
 model: !include model.yaml

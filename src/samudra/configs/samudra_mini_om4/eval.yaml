@@ -10,7 +10,7 @@ disk_mode: true
 num_model_steps_forward: 25
 
 experiment:
-  name: samudra_om4_eval
+  name: samudra_mini_om4_eval
   rand_seed: 15
   base_output_dir: .LOCAL
   wandb:

@@ -32,8 +32,7 @@ experiment:
 
 data:
   loading:
-    type: cpu
-    concurrent_compute: true
+    type: rust
   sources:
     # First source is used for inference. Reorder to eval a different scale.
     - type: om4

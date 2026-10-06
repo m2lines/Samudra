@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791239151804,
+  "lastUpdate": 1791247781757,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -12633,6 +12633,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.3187694914714909",
             "extra": "mean: 54.75856931319997 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fd5b9f7ad51294d4df8030d18c2bc481aac8335b",
+          "message": "Add opt-in Rust OM4 data loader (#800)\n\n## Summary\n\nAdd an opt-in Rust loader for training and validation on local flat and\ncompact OM4 Zarr stores. It keeps native readers open, deduplicates\noverlapping history and rollout reads, and overlaps reads and CUDA\npreparation with model execution. Sampler order, source compatibility,\nnormalization, masking, and the model-batch contract remain shared with\nthe Python path.\n\n```yaml\ndata:\n  loading:\n    type: rust\n    max_concurrent_reads: 8\n    prefetch_batches: 2\n    prefetch_to_device: true\n```\n\nInstall the optional extension with `uv sync --extra rust`.\n\n## Design\n\n- **Configuration:** `RustDataLoadingConfig` constructs its source\nruntime and batch loader. CPU and GPU loading configs own their\nPyTorch-specific settings and construction.\n- **Window semantics:** `TrainingWindows` plans input history, forcing,\nand targets for the sampled windows. Canonical reads use typed integer\npositions relative to the source's current time slice.\n- **I/O:** `NativeOm4Reader` privately maps canonical channels and time\npositions to physical OM4 arrays. `RustIoRuntime` shares one bounded\nRayon read pool across the rank's training and validation readers; Rust\nreads and decompresses into caller-owned buffers with the GIL released.\n- **Batching:** `NativeBatchLoader` deduplicates reads across each\nbatch's full rollout, prefetches through a bounded host queue, and\ngathers model tensors. `BatchPreparer` and the existing\n`BatchPreprocessor` apply shared grid, normalization, and masking\nsemantics.\n- **Concurrency and lifetime:** one producer thread per active iterator\noverlaps native reads with CUDA work. CUDA training automatically uses\npinned host memory, with optional preparation on a separate CUDA stream;\nCPU training uses ordinary memory. CUDA events protect buffer reuse, and\nexhaustion, early exit, and failures release loader resources.\n\nThe Rust path requires local OM4 float32 arrays with supported\nencodings. Unsupported source types, remote locations, derived anomaly\nchannels, CF scaling, and non-NaN missing-value sentinels fail\nexplicitly. Inference continues through its existing reader path.\n\nSee [the component and concurrency\ndiagram](https://github.com/m2lines/Samudra/blob/u/jder/rust-loader/docs/rust-data-loader.md)\nfor the runtime layout and store requirements.\n\n## Validation\n\nValidated at `f9c706a81`, including main through `8c16dca0f`:\n\n- Standard CPU suite: **695 passed, 2 skipped, 10 expected failures**.\n- Loader, dataset, and trainer CUDA regressions: **77 passed**.\n- All pre-commit checks passed, including typing and schema validation.\n- Tests cover flat/compact reader parity, sliced time axes, repeated and\nempty reads, rollout deduplication, sampler/DDP schedules, unsupported\nconfigurations, and prefetch/buffer cleanup on normal and exceptional\npaths.\n\n### Matched local training check\n\nTwo local CUDA jobs on NVIDIA GB10 used the same 1.43M-parameter\nConvNeXt U-Net, seed 15, deterministic float32 settings, and 1° OM4 data\n(77 prognostics plus `tauuo`, `tauvo`, and `hfds`). Each completed one\nepoch: 16 training batches and 8 validation batches, batch size 2, two\ninput timesteps, one output timestep, and two autoregressive training\nsteps. Training covered 1975-01-03 through 1975-06-22; validation\ncovered 1975-07-02 through 1975-09-25.\n\n| Loading config | W&B run | Train loss | Validation loss |\n| --- | --- | ---: | ---: |\n| `gpu` |\n[8bbkaar3](https://wandb.ai/ocean_emulators/default/runs/8bbkaar3) |\n1.1800267696380615 | 0.5487010478973389 |\n| `rust` |\n[s1o0qwbx](https://wandb.ai/ocean_emulators/default/runs/s1o0qwbx) |\n1.1800267696380615 | 0.5487010478973389 |\n\nBoth runs finished and were read back from W&B. All 24 prepared batches,\nall 8 validation predictions, and saved model, optimizer, and EMA\ntensors matched exactly. All 2,102 locally captured training/validation\nscalar comparisons matched; the corresponding W&B history and summary\nvalues also matched.\n\nHere `gpu` denotes the current main-process Xarray/PyTorch loader; both\njobs compute on CUDA. This is a one-epoch correctness check. Synchronous\nbatch hashing and sequential filesystem-cache effects make the timings\nunsuitable for a speed comparison.\n\n---------\n\nCo-authored-by: OA jder bot <jesse+bot@openathena.ai>\nCo-authored-by: Alexander Merose <alex@openathena.ai>",
+          "timestamp": "2026-10-06T00:10:55Z",
+          "tree_id": "302c783d49fd03fe2fbf834424e21e0152dc122d",
+          "url": "https://github.com/m2lines/Samudra/commit/fd5b9f7ad51294d4df8030d18c2bc481aac8335b"
+        },
+        "date": 1791247780000,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.35049674192809405,
+            "unit": "iter/sec",
+            "range": "stddev: 0.03011588733648064",
+            "extra": "mean: 2.853093567999997 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.4273067064969211,
+            "unit": "iter/sec",
+            "range": "stddev: 0.046826200838163384",
+            "extra": "mean: 2.3402394223999976 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.022504527926727014,
+            "unit": "iter/sec",
+            "range": "stddev: 0.17489423967379147",
+            "extra": "mean: 44.43550219120001 sec\nrounds: 5"
           }
         ]
       }

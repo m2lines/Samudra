@@ -1,0 +1,311 @@
+{
+  "scope": "New global 16k run through Oct6 18:50ET; completed training through19254479 and6k evaluation19307267.19280686 stillpending andunallocated.",
+  "source": "Top-level Slurm allocations including all preempted attempts; previouspartial19217720 replacedbycompleted41478seconds.",
+  "gpu_hours": 568.7527777777777,
+  "jobs": [
+    {
+      "cluster": "engaging",
+      "job": "24595210",
+      "state": "FAILED",
+      "elapsed_seconds": 4,
+      "gpus": 1,
+      "gpu_hours": 0.0011111111111111111
+    },
+    {
+      "cluster": "engaging",
+      "job": "24595596",
+      "state": "FAILED",
+      "elapsed_seconds": 95,
+      "gpus": 1,
+      "gpu_hours": 0.02638888888888889
+    },
+    {
+      "cluster": "engaging",
+      "job": "24596676",
+      "state": "COMPLETED",
+      "elapsed_seconds": 840,
+      "gpus": 1,
+      "gpu_hours": 0.23333333333333334
+    },
+    {
+      "cluster": "engaging",
+      "job": "24598325",
+      "state": "COMPLETED",
+      "elapsed_seconds": 7894,
+      "gpus": 1,
+      "gpu_hours": 2.1927777777777777
+    },
+    {
+      "cluster": "engaging",
+      "job": "24598449",
+      "state": "COMPLETED",
+      "elapsed_seconds": 637,
+      "gpus": 1,
+      "gpu_hours": 0.17694444444444443
+    },
+    {
+      "cluster": "engaging",
+      "job": "24621174",
+      "state": "COMPLETED",
+      "elapsed_seconds": 2948,
+      "gpus": 4,
+      "gpu_hours": 3.2755555555555556
+    },
+    {
+      "cluster": "engaging",
+      "job": "24626161",
+      "state": "COMPLETED",
+      "elapsed_seconds": 695,
+      "gpus": 1,
+      "gpu_hours": 0.19305555555555556
+    },
+    {
+      "cluster": "engaging",
+      "job": "24628644",
+      "state": "PREEMPTED",
+      "elapsed_seconds": 454,
+      "gpus": 4,
+      "gpu_hours": 0.5044444444444445
+    },
+    {
+      "cluster": "engaging",
+      "job": "24628644",
+      "state": "COMPLETED",
+      "elapsed_seconds": 4058,
+      "gpus": 4,
+      "gpu_hours": 4.5088888888888885
+    },
+    {
+      "cluster": "engaging",
+      "job": "24628822",
+      "state": "COMPLETED",
+      "elapsed_seconds": 630,
+      "gpus": 1,
+      "gpu_hours": 0.175
+    },
+    {
+      "cluster": "torch",
+      "job": "19026429",
+      "state": "COMPLETED",
+      "elapsed_seconds": 556,
+      "gpus": 1,
+      "gpu_hours": 0.15444444444444444
+    },
+    {
+      "cluster": "torch",
+      "job": "19026430",
+      "state": "COMPLETED",
+      "elapsed_seconds": 366,
+      "gpus": 1,
+      "gpu_hours": 0.10166666666666667
+    },
+    {
+      "cluster": "torch",
+      "job": "19027018",
+      "state": "COMPLETED",
+      "elapsed_seconds": 2185,
+      "gpus": 8,
+      "gpu_hours": 4.855555555555555
+    },
+    {
+      "cluster": "torch",
+      "job": "19028464",
+      "state": "COMPLETED",
+      "elapsed_seconds": 6365,
+      "gpus": 8,
+      "gpu_hours": 14.144444444444444
+    },
+    {
+      "cluster": "torch",
+      "job": "19028475",
+      "state": "COMPLETED",
+      "elapsed_seconds": 563,
+      "gpus": 1,
+      "gpu_hours": 0.15638888888888888
+    },
+    {
+      "cluster": "torch",
+      "job": "19032747",
+      "state": "COMPLETED",
+      "elapsed_seconds": 12920,
+      "gpus": 8,
+      "gpu_hours": 28.711111111111112
+    },
+    {
+      "cluster": "torch",
+      "job": "19032748",
+      "state": "COMPLETED",
+      "elapsed_seconds": 571,
+      "gpus": 1,
+      "gpu_hours": 0.15861111111111112
+    },
+    {
+      "cluster": "engaging",
+      "job": "24680790",
+      "state": "COMPLETED",
+      "elapsed_seconds": 19989,
+      "gpus": 4,
+      "gpu_hours": 22.21
+    },
+    {
+      "cluster": "engaging",
+      "job": "24696392",
+      "state": "COMPLETED",
+      "elapsed_seconds": 41542,
+      "gpus": 4,
+      "gpu_hours": 46.15777777777778
+    },
+    {
+      "cluster": "engaging",
+      "job": "24729502",
+      "state": "PREEMPTED",
+      "elapsed_seconds": 13979,
+      "gpus": 4,
+      "gpu_hours": 15.532222222222222
+    },
+    {
+      "cluster": "engaging",
+      "job": "24729502",
+      "state": "COMPLETED",
+      "elapsed_seconds": 41520,
+      "gpus": 4,
+      "gpu_hours": 46.13333333333333
+    },
+    {
+      "cluster": "engaging",
+      "job": "24761663",
+      "state": "COMPLETED",
+      "elapsed_seconds": 649,
+      "gpus": 1,
+      "gpu_hours": 0.1802777777777778
+    },
+    {
+      "cluster": "engaging",
+      "job": "24761664",
+      "state": "COMPLETED",
+      "elapsed_seconds": 636,
+      "gpus": 1,
+      "gpu_hours": 0.17666666666666667
+    },
+    {
+      "cluster": "engaging",
+      "job": "24761665",
+      "state": "COMPLETED",
+      "elapsed_seconds": 1235,
+      "gpus": 1,
+      "gpu_hours": 0.34305555555555556
+    },
+    {
+      "cluster": "engaging",
+      "job": "24761666",
+      "state": "PREEMPTED",
+      "elapsed_seconds": 1849,
+      "gpus": 4,
+      "gpu_hours": 2.0544444444444445
+    },
+    {
+      "cluster": "engaging",
+      "job": "24761666",
+      "state": "PREEMPTED",
+      "elapsed_seconds": 2042,
+      "gpus": 4,
+      "gpu_hours": 2.2688888888888887
+    },
+    {
+      "cluster": "engaging",
+      "job": "24761666",
+      "state": "PREEMPTED",
+      "elapsed_seconds": 173,
+      "gpus": 4,
+      "gpu_hours": 0.1922222222222222
+    },
+    {
+      "cluster": "engaging",
+      "job": "24761666",
+      "state": "PREEMPTED",
+      "elapsed_seconds": 678,
+      "gpus": 4,
+      "gpu_hours": 0.7533333333333333
+    },
+    {
+      "cluster": "engaging",
+      "job": "24761666",
+      "state": "PREEMPTED",
+      "elapsed_seconds": 411,
+      "gpus": 4,
+      "gpu_hours": 0.45666666666666667
+    },
+    {
+      "cluster": "engaging",
+      "job": "24761666",
+      "state": "PREEMPTED",
+      "elapsed_seconds": 12228,
+      "gpus": 4,
+      "gpu_hours": 13.586666666666666
+    },
+    {
+      "cluster": "engaging",
+      "job": "24761666",
+      "state": "COMPLETED",
+      "elapsed_seconds": 41482,
+      "gpus": 4,
+      "gpu_hours": 46.09111111111111
+    },
+    {
+      "cluster": "engaging",
+      "job": "24866192",
+      "state": "COMPLETED",
+      "elapsed_seconds": 401,
+      "gpus": 4,
+      "gpu_hours": 0.44555555555555554
+    },
+    {
+      "cluster": "engaging",
+      "job": "24866254",
+      "state": "COMPLETED",
+      "elapsed_seconds": 32150,
+      "gpus": 4,
+      "gpu_hours": 35.72222222222222
+    },
+    {
+      "cluster": "torch",
+      "job": "19217720",
+      "state": "COMPLETED",
+      "elapsed_seconds": 41478,
+      "gpus": 8,
+      "gpu_hours": 92.17333333333333
+    },
+    {
+      "cluster": "torch",
+      "job": "19246962",
+      "state": "COMPLETED",
+      "elapsed_seconds": 678,
+      "gpus": 1,
+      "gpu_hours": 0.18833333333333332
+    },
+    {
+      "cluster": "torch",
+      "job": "19218524",
+      "state": "COMPLETED",
+      "elapsed_seconds": 41460,
+      "gpus": 8,
+      "gpu_hours": 92.13333333333334
+    },
+    {
+      "cluster": "torch",
+      "job": "19254479",
+      "state": "COMPLETED",
+      "elapsed_seconds": 41488,
+      "gpus": 8,
+      "gpu_hours": 92.19555555555556
+    },
+    {
+      "cluster": "torch",
+      "job": "19307267",
+      "state": "COMPLETED",
+      "elapsed_seconds": 677,
+      "gpus": 1,
+      "gpu_hours": 0.18805555555555556
+    }
+  ]
+}

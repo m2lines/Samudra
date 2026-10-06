@@ -63,12 +63,12 @@ ready to review.
 
 ## Current milestone
 
-The [4,000-observation-update report](global-4000-results.md) is available:
-composite 0.7644 versus 0.5998 for the matched deterministic control. Member
-texture and accuracy improve markedly before the cooldown, while both surface
-and interior ensembles are now somewhat underdispersed. Training is running on
-eight dedicated Torch RTX GPUs, with the exact 8k/8k endpoint retained. The
-following entries document earlier checkpoints and execution history.
+The [6,000-observation-update report](global-6000-results.md) is available:
+composite 0.7847 versus 0.7644 at 4k and 0.5864 for the matched deterministic
+control. Grain continues to decrease, but OHC errors and underdispersion worsen.
+Cooldown has not started. Training uses eight Torch RTX GPUs; after a clean
+checkpoint at global 13,578, continuation 19280686 is queued as of October 6, 18:50 ET.
+The exact 8k/8k endpoint is unchanged. Following entries preserve earlier history.
 
 The October 4 update adds a [cosine LR cooldown within the final 2,000 updates](global-cooldown.md)
 of the existing 16k run, with no extra training exposure. Save a full optimizer

@@ -3,6 +3,8 @@
 
 # Global diffusion: 4,000 observation updates
 
+Newer results: [6,000 observation updates](global-6000-results.md).
+
 Continued training improves accuracy, member texture and surface calibration.
 The validation composite falls **38.6%, from 1.2458 to 0.7644**, but remains
 **27.4% above the matched deterministic control, 0.5998**. Lower is better.

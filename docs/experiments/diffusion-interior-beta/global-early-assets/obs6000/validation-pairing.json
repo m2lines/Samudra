@@ -1,0 +1,25 @@
+{
+  "origins": [
+    "members-2013-11.npz",
+    "members-2013-12.npz",
+    "members-2014-01.npz",
+    "members-2014-02.npz",
+    "members-2014-03.npz",
+    "members-2014-04.npz",
+    "members-2014-05.npz",
+    "members-2014-06.npz",
+    "members-2014-07.npz"
+  ],
+  "identical_arrays": [
+    "lat",
+    "lon",
+    "mask",
+    "channel_names",
+    "monthly_reference",
+    "day30_surface_reference"
+  ],
+  "training_contract_changes": [],
+  "cooldown_start": 14000,
+  "evaluated_global_step": 13555,
+  "reference_sha256": "c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c"
+}

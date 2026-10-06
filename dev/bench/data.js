@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791302562307,
+  "lastUpdate": 1791322560580,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -12723,6 +12723,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.538119238578411",
             "extra": "mean: 42.42777014500001 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "2330a6f8ca9b92c1048c605f7b0ce3d32424e6b5",
+          "message": "Update current Samudra defaults and enable single-source rollout validation (#914)\n\nThe current `samudra_om4` preset now uses instance normalization,\nbfloat16, and dynamic MSE loss with a maximum channel-weight ratio of\n20. This matches what the preprint uses for 1/4° runs.\n\nEnable 360-day (roughly one-year) rollout validation every epoch and\n`rollout_rmse` checkpoint selection for mini and historical v1, v2, and\nv2_highres presets, matching the existing current-Samudra settings.\nMulti-source training remains unchanged because rollout validation and\nrollout-RMSE checkpoint selection only support a single data source.\n\n---------\n\nCo-authored-by: OA jder bot <jesse+bot@openathena.ai>\nCo-authored-by: fomo-bot <266121006+fomo-bot@users.noreply.github.com>",
+          "timestamp": "2026-10-06T20:58:59Z",
+          "tree_id": "bb002f418886ef150b5bbdef00b9314b9edccb40",
+          "url": "https://github.com/m2lines/Samudra/commit/2330a6f8ca9b92c1048c605f7b0ce3d32424e6b5"
+        },
+        "date": 1791322558840,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.9451228236888941,
+            "unit": "iter/sec",
+            "range": "stddev: 0.004676152694898351",
+            "extra": "mean: 1.0580635394000069 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.4173698768251457,
+            "unit": "iter/sec",
+            "range": "stddev: 0.038400356785904935",
+            "extra": "mean: 2.395956333999982 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.023474638421256515,
+            "unit": "iter/sec",
+            "range": "stddev: 0.637725035943604",
+            "extra": "mean: 42.59916519499999 sec\nrounds: 5"
           }
         ]
       }

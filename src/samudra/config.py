@@ -876,7 +876,6 @@ UpSamplingBlocks = Literal[
     "bilinear_upsample", "transposed_conv", "zonally_periodic_upsample"
 ]
 Checkpointing = Literal["all", "simple"]
-StochasticDepthSchedule = Literal["constant", "linear"]
 
 
 class UNetBackboneConfig(BaseConfig):
@@ -894,11 +893,7 @@ class UNetBackboneConfig(BaseConfig):
         default=0.0,
         ge=0.0,
         le=1.0,
-        description="Maximum probability of dropping a ConvNeXt residual branch. Use 0.0 to disable.",
-    )
-    stochastic_depth_schedule: StochasticDepthSchedule = Field(
-        default="constant",
-        description="How stochastic-depth rates are assigned across ConvNeXt blocks. 'constant' uses stochastic_depth_rate for every block; 'linear' increases from 0.0 to stochastic_depth_rate in forward order.",
+        description="Probability of dropping a ConvNeXt residual branch. The same rate is used for every block. Use 0.0 to disable.",
     )
 
     def build(
@@ -946,7 +941,6 @@ class UNetBackboneConfig(BaseConfig):
             checkpointing=checkpointing,
             drop_path_rate=self.drop_path_rate,
             stochastic_depth_rate=self.stochastic_depth_rate,
-            stochastic_depth_schedule=self.stochastic_depth_schedule,
         )
 
 

@@ -2,8 +2,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Literal
-
 import pytest
 import torch
 import torch.nn as nn
@@ -103,23 +101,13 @@ def test_convnext_stochastic_depth_preserves_projection_gradient():
     assert all(parameter.grad is not None for parameter in projection_parameters)
 
 
-@pytest.mark.parametrize(
-    "schedule, expected",
-    [
-        ("constant", [0.4] * 5),
-        ("linear", [0.0, 0.1, 0.2, 0.3, 0.4]),
-    ],
-)
-def test_unet_assigns_stochastic_depth_rates(
-    schedule: Literal["constant", "linear"], expected: list[float]
-):
+def test_unet_assigns_constant_stochastic_depth_rate():
     config = UNetBackboneConfig(
         ch_width=[4, 8],
         dilation=[1, 1],
         n_layers=[1, 1],
         core_block=BlockConfig(block_type="conv_next_block"),
         stochastic_depth_rate=0.4,
-        stochastic_depth_schedule=schedule,
     )
 
     model = config.build(in_channels=2, pad="circular", checkpointing=None)
@@ -129,7 +117,7 @@ def test_unet_assigns_stochastic_depth_rates(
         if isinstance(layer, ConvNeXtBlock)
     ]
 
-    assert rates == pytest.approx(expected)
+    assert rates == pytest.approx([0.4] * 5)
 
 
 class TestDropPath:

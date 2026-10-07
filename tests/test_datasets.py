@@ -122,7 +122,9 @@ def test_torch_loading_configs_preserve_batch_schedule(
 def inference_dataset_pair(
     train_config: TrainConfig,
 ) -> tuple[TrainConfig, list[tuple[InferenceDataset, int]], DataLayout]:
-    bundle = train_config.data.build(train_config.experiment.resolved_data_root)
+    bundle = train_config.data.build(
+        train_config.experiment.resolved_data_root, include_inference=True
+    )
     source = bundle.inference_source
     assert source is not None
     dataset = InferenceDataset(
@@ -219,6 +221,7 @@ def make_loader(
     )
     container = data_config.build(
         cfg.experiment.resolved_data_root,
+        include_inference=False,
     )
     data_layout = container.data_layout
     prognostic = data_layout.prognostic_var_names
@@ -710,7 +713,7 @@ def _llc_data_config(
 
 
 def _llc_torch_dataset(config: DataConfig, tmp_path) -> TorchTrainDataset:
-    container = config.build(LocalLocation(path=tmp_path))
+    container = config.build(LocalLocation(path=tmp_path), include_inference=False)
     data_layout = container.data_layout
     return TorchTrainDataset(
         TrainingWindows(

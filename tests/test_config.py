@@ -139,7 +139,7 @@ def test_rust_loading_rejects_non_local_locations_before_open(tmp_path):
     cfg = DataConfig(sources=[source], loading=RustDataLoadingConfig())
 
     with pytest.raises(ValueError, match="requires local data"):
-        cfg.build(LocalLocation(path=tmp_path))
+        cfg.build(LocalLocation(path=tmp_path), include_inference=False)
 
 
 def test_data_config_output_steps_default_and_override():
@@ -351,7 +351,7 @@ def test_data_config_builds_llc_source_from_local_files(tmp_path):
         }
     )
 
-    container = cfg.build(LocalLocation(path=tmp_path))
+    container = cfg.build(LocalLocation(path=tmp_path), include_inference=True)
     source = container.train_sources[0]
     source_data, _, _ = source._xarray_datasets_for_testing()
 
@@ -411,7 +411,7 @@ def test_data_config_rejects_multiple_data_layouts(tmp_path):
     )
 
     with pytest.raises(ValueError, match="same data layout"):
-        cfg.build(LocalLocation(path=tmp_path))
+        cfg.build(LocalLocation(path=tmp_path), include_inference=False)
 
 
 def test_data_config_accepts_gpu_loading():
@@ -521,7 +521,7 @@ def test_rust_loading_rejects_derived_channels_before_opening_data(
 
     monkeypatch.setattr(LocalLocation, "open", unexpected_open)
     with pytest.raises(ValueError, match="does not yet support derived boundary"):
-        cfg.build(LocalLocation(path=tmp_path))
+        cfg.build(LocalLocation(path=tmp_path), include_inference=False)
 
 
 def test_rollout_checkpoint_selection_requires_supported_validation():

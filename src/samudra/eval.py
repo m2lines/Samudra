@@ -42,6 +42,7 @@ class Eval:
         logger.info("Loading data")
         self.data_bundle = cfg.data.build(
             cfg.experiment.resolved_data_root,
+            include_inference=True,
         )
 
         # Getting prognostic and boundary variables

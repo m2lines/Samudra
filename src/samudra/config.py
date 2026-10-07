@@ -239,7 +239,7 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
         *,
         use_dask: bool,
         is_primary: bool,
-        include_inference: bool = True,
+        include_inference: bool,
         source_backend: "TrainingSourceBackend",
     ) -> SourceSplits:
         source = self._build_source(
@@ -606,7 +606,7 @@ class DataConfig(BaseConfig):
         self,
         data_root: ResolvedLocation,
         *,
-        include_inference: bool = True,
+        include_inference: bool,
     ) -> DataBundle:
         loader_version = LoaderVersion(self.loader_version)
         use_dask = loader_version != LoaderVersion.OM4_TORCH

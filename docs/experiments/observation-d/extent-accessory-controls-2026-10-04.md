@@ -71,6 +71,35 @@ scores above determine the comparisons.
 
 ## Training diagnostic and final execution
 
+The aligned accessory loss does decrease during training. The curves below
+average OM4 updates within each block of 100 total scheduled updates; observation
+updates have no accessory loss. These are changing-model training losses, not
+held-out fine-scale prediction scores.
+
+![Accessory training loss and its weighted contribution](artifacts/extent-accessory-controls-2026-10-04/accessory-training-loss.png)
+
+| Model | Accessory MSE, first 1,000 slots | Accessory MSE, last 1,000 slots | Late weighted accessory | Late physical objective | Accessory / physical |
+|---|---:|---:|---:|---:|---:|
+| U-aux01 | 0.4907 | 0.3096 | 0.003096 | 0.011401 | 27.2% |
+| U-aux10 | 0.3717 | 0.2117 | 0.021170 | 0.011832 | 178.9% |
+
+The first and last blocks contain 782 and 218 OM4 updates respectively. The
+physical objective includes forecast, initializer reconstruction and surface
+completion losses. Thus the accessory term is not negligible in scalar loss
+units, especially at weight 0.1. These ratios do **not** measure gradient
+contributions to the shared processor: separate gradient norms and alignment
+were not recorded. [Per-update evidence](artifacts/extent-accessory-controls-2026-10-04/accessory-training-loss.json).
+
+The default aligned target asks a linear head on each coarse cell's processor
+features to predict the future quarter-degree surface velocity variance inside
+that cell, after a standardized log transform. It does not reconstruct a
+fine-resolution field or directly constrain the coarse forecast spectrum. Its
+output is neither fed back into the state nor used at observational inference;
+transfer relies on gradients changing the shared representation. Geography
+alone explains 67.8% of the training target variance, and geography plus monthly
+seasonality explains 72.0%. Fitting this target therefore need not establish
+learning of time-dependent fine-scale dynamics.
+
 | Target | Mean accessory MSE during the final 1,000 schedule slots |
 |---|---:|
 | Aligned, coefficient 0.01 | 0.3096 |

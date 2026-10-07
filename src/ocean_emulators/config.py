@@ -1668,6 +1668,13 @@ class TiledInferenceConfig(BaseConfig):
     response_bins: int = Field(
         default=32, description="Distance bins for the perturbation response curve."
     )
+    resume: bool = Field(
+        default=False,
+        description=(
+            "Continue an interrupted rollout: re-seed from the last frame of the "
+            "experiment's predictions.zarr and append the remaining steps."
+        ),
+    )
 
 
 class EvalConfig(TopLevelConfig):

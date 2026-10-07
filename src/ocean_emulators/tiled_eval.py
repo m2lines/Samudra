@@ -28,20 +28,24 @@ hourly stride is ~178 GB.
 import dataclasses
 import datetime
 import logging
+import os
 import time
 from collections import OrderedDict
 from pathlib import Path
 
 import numpy as np
 import torch
+import torch.distributed as dist
 import xarray as xr
 
 from ocean_emulators.backend import init_eval_backend
 from ocean_emulators.config import EvalConfig
 from ocean_emulators.constants import BOUNDARY_VARS, PROGNOSTIC_VARS, TensorMap
 from ocean_emulators.datasets import InferenceDataset
+from ocean_emulators.face_parallel import assign_tiles
 from ocean_emulators.tile_diagnostics import response_by_distance
 from ocean_emulators.tiling import (
+    DistributedTileBlender,
     TileBlender,
     build_group_layout,
     build_tile_catalog,
@@ -55,7 +59,12 @@ from ocean_emulators.utils.data import (
     spherical_area_weights,
 )
 from ocean_emulators.utils.device import using_gpu
-from ocean_emulators.utils.distributed import set_seed
+from ocean_emulators.utils.distributed import (
+    get_rank,
+    get_world_size,
+    init_distributed_mode,
+    set_seed,
+)
 from ocean_emulators.utils.logging import (
     get_model_summary,
     handle_logging,
@@ -298,6 +307,32 @@ class TiledEval:
             sorted(set(self.layout.overlaps.values())),
         )
 
+        # Under torchrun each rank steps a contiguous block of the tiles and
+        # trades only the seams with the others; rank 0 gathers the blended
+        # tiles to stitch and write. One rank owns every tile.
+        self.world_size, self.rank = get_world_size(), get_rank()
+        self.tile_ranks = (0,) * self.layout.num_tiles
+        if self.world_size > 1:
+            self.tile_ranks = assign_tiles(
+                self.layout.num_tiles, self.world_size, self.rank
+            ).tile_ranks
+        self.local_tiles = tuple(
+            tile for tile, owner in enumerate(self.tile_ranks) if owner == self.rank
+        )
+        # The order `dist.gather` concatenates tiles in: by rank, then by tile.
+        self._gather_order = sorted(
+            range(self.layout.num_tiles),
+            key=lambda tile: (self.tile_ranks[tile], tile),
+        )
+        if self.world_size > 1 and (
+            cfg.tiling.preblend_mode != "none" or cfg.tiling.perturbation
+        ):
+            raise ValueError(
+                "Multi-GPU tiled eval does not support the preblend or "
+                "perturbation diagnostics; set --tiling.preblend_mode none "
+                "--tiling.perturbation false, or run on one GPU."
+            )
+
         self.normalize = Normalize.init_instance(
             sources[0],
             prognostic_var_names=self.prognostic_var_names,
@@ -360,6 +395,18 @@ class TiledEval:
             ramp_width=cfg.tiling.ramp_width,
             dtype=torch.float32,
         ).to(self.device)
+        self.step_blender = self.blender
+        if self.world_size > 1:
+            self.step_blender = DistributedTileBlender(
+                self.layout,
+                tile_ranks=self.tile_ranks,
+                rank=self.rank,
+                window=cfg.tiling.window,
+                kbd_beta=cfg.tiling.kbd_beta,
+                ramp_width=cfg.tiling.ramp_width,
+                dtype=torch.float32,
+            ).to(self.device)
+        self.local_wet = [self.tile_wet[index] for index in self.local_tiles]
         self.seam_pairs = _seam_pairs(self.layout)
 
         # Land on the stitched canvas. The rollout keeps land at 0 in normalized
@@ -375,6 +422,8 @@ class TiledEval:
                 .unsqueeze(0)
             )[0]
         self.canonical_wet = (stitched > 0.5).cpu()
+        # Each tile's own mask, on the host where the output is unnormalized.
+        self.stitch_wet = torch.stack(self.tile_wet).cpu()
         logger.info(
             "Canonical wet fraction %.4f (land written as NaN)",
             float(self.canonical_wet.to(torch.float32).mean()),
@@ -388,8 +437,8 @@ class TiledEval:
 
         # ---------------- datasets ----------------
         self.datasets: list[InferenceDataset] = []
-        for source in sources:
-            sliced = source.slice(cfg.inference_time)
+        for index in self.local_tiles:
+            sliced = sources[index].slice(cfg.inference_time)
             self.datasets.append(
                 InferenceDataset(
                     src=sliced,
@@ -477,6 +526,56 @@ class TiledEval:
             residuals.append(prediction - model_input[:, : self.num_out])
         return torch.cat(residuals, dim=0), torch.cat(inputs, dim=0)
 
+    def _gather_tiles(self, local: torch.Tensor) -> torch.Tensor | None:
+        """Every tile, in layout order, on rank 0's host; ``None`` on the others.
+
+        Reordered on the host, which has room for the whole face; stitching
+        already happens there.
+        """
+        if self.world_size == 1:
+            return local
+        buckets = (
+            [torch.empty_like(local) for _ in range(self.world_size)]
+            if self.rank == 0
+            else None
+        )
+        dist.gather(local.contiguous(), buckets, dst=0)
+        if buckets is None:
+            return None
+        gathered = torch.cat([bucket.cpu() for bucket in buckets])
+        tiles = torch.empty_like(gathered)
+        tiles[self._gather_order] = gathered
+        return tiles
+
+    def _resume_state(self) -> tuple[list[torch.Tensor], int]:
+        """This rank's tiles cut from the last saved frame, and the next step.
+
+        The saved frame is the stitched state, and blended tiles agree in their
+        overlaps, so cutting it back up recovers the state the rollout held --
+        to float32 round-off through unnormalize/normalize.
+        """
+        if self.hist != 0:
+            raise ValueError("resume needs hist=0; one saved frame is not a history")
+        path = self.output_dir / "predictions.zarr"
+        saved = xr.open_zarr(path, consolidated=False)
+        start = saved.sizes["time"]
+        frame = saved[list(self.tensor_map.prognostic_var_names)].isel(time=-1)
+        state = []
+        for index in self.local_tiles:
+            j0, j1, i0, i1 = self.layout.canonical_bounds(self.layout.tiles[index])
+            raw = torch.from_numpy(
+                frame.isel(lat=slice(j0, j1), lon=slice(i0, i1))
+                .to_array()
+                .values
+            )
+            tile_state = self.normalize.normalize_tensor_prognostic(raw)
+            wet = self.tile_wet[index].cpu()
+            state.append(torch.where(wet, tile_state, 0.0).unsqueeze(0).to(self.device))
+        self._frames_written = start
+        self._created_stores.add("predictions.zarr")
+        logger.info("Resuming from frame %d of %s", start - 1, path)
+        return state, start
+
     @torch.no_grad()
     def run(self) -> None:
         started = time.perf_counter()
@@ -485,6 +584,9 @@ class TiledEval:
         state = [
             dataset.initial_prognostic.to(self.device) for dataset in self.datasets
         ]
+        start = 0
+        if cfg.tiling.resume:
+            state, start = self._resume_state()
         num_steps = min(self.num_steps, len(self.datasets[0]))
         steps_per_write = resolve_steps_per_write(cfg.num_model_steps_forward, num_steps)
         logger.info(
@@ -493,12 +595,13 @@ class TiledEval:
             len(state),
             steps_per_write,
         )
-        self._check_stores_are_writable()
+        if not cfg.tiling.resume:
+            self._check_stores_are_writable()
 
         buffers = _RolloutBuffers()
         perturb_centre = self._perturbation_centre()
 
-        for step in range(num_steps):
+        for step in range(start, num_steps):
             if step % 10 == 0:
                 logger.info("Rollout step %d of %d", step, num_steps - 1)
 
@@ -524,12 +627,15 @@ class TiledEval:
             next_state = advance_state(
                 inputs,
                 residuals,
-                blender=self.blender,
-                tile_wet=self.tile_wet,
+                blender=self.step_blender,
+                tile_wet=self.local_wet,
                 num_out=self.num_out,
                 blend=cfg.tiling.blend,
             )
             state = [next_state[index : index + 1] for index in range(len(state))]
+            next_state = self._gather_tiles(next_state)
+            if next_state is None:
+                continue
 
             # Unnormalize per tile, then stitch: unnormalization is affine per
             # channel while the blend is a weighted mean with weights summing to
@@ -537,13 +643,12 @@ class TiledEval:
             # exactly in every overlap, so a land cell is never averaged against
             # a live one.)
             #
-            # fill_value is irrelevant here -- Normalize's mask is sources[0]'s,
-            # which is all ocean -- so land is masked on the canvas afterwards
-            # with `canonical_wet` instead. Doing it here with the old
-            # single-tile mask silently wrote `0 * std + mean`, i.e. the channel
-            # mean, over every land cell of the other three tiles.
+            # Each tile is filled with its OWN mask: Normalize's default is
+            # sources[0]'s, which on a whole face has land, and stamped 0 over
+            # that land's footprint in every other tile. Land is then set to NaN
+            # on the canvas with `canonical_wet`.
             unnormalized = self.normalize.unnormalize_tensor_prognostic(
-                next_state.cpu(), fill_value=0.0
+                next_state.cpu(), fill_value=0.0, wet=self.stitch_wet
             )
             canonical = self.blender.to_canonical(unnormalized.unsqueeze(0))[0]
             canonical = torch.where(
@@ -558,6 +663,10 @@ class TiledEval:
         # The rollout length need not divide the write interval; the tail is a
         # short chunk rather than a lost one.
         self._flush(buffers, centre=perturb_centre)
+        if self.world_size > 1:
+            # NCCL calls only enqueue, so a rank that writes nothing reaches here
+            # with its last step still in flight; leaving would strand rank 0.
+            dist.barrier()
 
         elapsed = str(datetime.timedelta(seconds=int(time.perf_counter() - started)))
         logger.info(
@@ -779,7 +888,9 @@ class TiledEval:
                 f"{path} already exists. Choose a unique experiment name or "
                 "delete it first."
             )
-        dataset.to_zarr(path, mode="w")
+        # Float time: from one frame xarray infers integer "days since <t0>",
+        # which the next hourly append cannot be cast back into.
+        dataset.to_zarr(path, mode="w", encoding={"time": {"dtype": "float64"}})
         self._created_stores.add(name)
         logger.info("Created %s", path)
 
@@ -789,6 +900,8 @@ def main() -> None:
     cfg.prepare_output_dirs()
     handle_logging(cfg.debug, cfg.experiment.output_dir)
     handle_warnings()
+    if int(os.environ.get("WORLD_SIZE", "1")) > 1:
+        init_distributed_mode()
 
     evaluator = TiledEval(cfg)
     try:

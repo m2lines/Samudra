@@ -7,8 +7,8 @@ Input format (from ocean_emulators.utils.writer.ZarrWriter):
   - Dims: time, lat, lon
 
 Output format:
-  - Variables: every levelled field the input actually contains
-  - Dims: time, k, lat, lon
+  - Variables: every levelled field the input actually contains, plus Eta
+  - Dims: time, k, lat, lon for levelled fields; time, lat, lon for Eta
 
 Which fields get repacked is discovered from the input by default, rather than
 fixed to a list. A hardcoded list silently drops whatever it does not name: a
@@ -29,6 +29,7 @@ import xarray as xr
 #: Emitted first when present, so output variable order is stable across runs.
 #: Anything else the input carries is appended in first-seen order.
 PREFERRED_ORDER = ("U", "V", "Theta", "Salt", "W")
+SURFACE_FIELDS = ("Eta",)
 LEVEL_VAR = re.compile(r"^(?P<field>.+)_(?P<level>\d+)$")
 
 
@@ -111,6 +112,16 @@ def _repack(ds: xr.Dataset, fields: list[str]) -> xr.Dataset:
         da = xr.concat(parts, dim="k").transpose("time", "k", "lat", "lon")
         da.name = field
         da.attrs.update(ds[level_vars[0][1]].attrs)
+        repacked[field] = da
+
+    # Eta is prognostic but has no depth suffix, so level discovery cannot see
+    # it. Preserve it alongside the 4D ocean fields instead of silently
+    # dropping sea-surface height from the compact output.
+    for field in SURFACE_FIELDS:
+        if field not in ds:
+            continue
+        da = ds[field].transpose("time", "lat", "lon")
+        da.name = field
         repacked[field] = da
 
     if shared_levels is None:

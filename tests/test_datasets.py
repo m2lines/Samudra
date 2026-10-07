@@ -958,7 +958,8 @@ def test_profile__loader__1gb(train_config, loader_version, benchmark):
 @pytest.mark.parametrize(
     "data_source,config_name", [("mock", DEFAULT_CONFIG)], indirect=True
 )
-def test_profile__inference_loader__1gb(inference_dataset_pair, benchmark):
+def test_profile__inference_dataset__1gb(inference_dataset_pair, benchmark):
+    # Direct dataset iteration is not comparable to the former loader benchmark.
     _, dataset, _ = inference_dataset_pair
 
     def bench():

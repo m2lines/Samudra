@@ -6,10 +6,12 @@ import logging
 from pathlib import Path
 
 import dask
+import pandas as pd
 import xarray as xr
 
 from samudra.config import CpuDataLoadingConfig, EvalConfig, ObsMetricsConfig
 from samudra.metrics.run import score_rollouts
+from samudra.utils.data import stack_levels
 from samudra.utils.location import LocalLocation
 
 logging.basicConfig(
@@ -45,8 +47,28 @@ for variant, job in [("control", 210664), ("sd01", 210665)]:
             / checkpoint
         )
         paths[label] = path
-        rollouts[label] = xr.open_zarr(path / "predictions.zarr", chunks={})
-rollouts["om4"] = bundle.inference_source.to_xarray_dataset()
+        prediction = xr.open_zarr(path / "predictions.zarr", chunks={})
+        wet = stack_levels(
+            xr.Dataset(
+                {
+                    name: (
+                        ("y", "x"),
+                        bundle.inference_source.masks.prognostic[i]
+                        .numpy()
+                        .astype(bool),
+                    )
+                    for i, name in enumerate(bundle.data_layout.prognostic_var_names)
+                },
+                coords={"y": prediction.y, "x": prediction.x},
+            ),
+            bundle.data_layout,
+        )
+        for field in wet.data_vars:
+            prediction[field] = prediction[field].where(wet[field])
+        rollouts[label] = prediction
+# Reuse the already-computed OM4 baseline; only model masking changed.
+baseline = pd.read_csv(out / "unmasked_observation_metrics.csv")
+baseline = baseline[baseline.model == "om4"]
 result = score_rollouts(
     obs,
     rollouts=rollouts,
@@ -55,6 +77,8 @@ result = score_rollouts(
     primary_label="control_epoch_0070",
     output_dir=out,
 )
+result.frame = pd.concat([result.frame, baseline], ignore_index=True)
+result.frame.to_csv(out / "observation_metrics.csv", index=False)
 for label, path in paths.items():
     result.frame[result.frame.model.isin([label, "om4"])].to_csv(
         path / "observation_metrics.csv", index=False
@@ -63,7 +87,9 @@ for label, path in paths.items():
     json.dumps(
         {
             "rows": len(result.frame),
-            "models": list(rollouts),
+            "models": [*rollouts, "om4"],
+            "masking": "Original per-channel training wet masks applied lazily; predictions stores unchanged",
+            "baseline_job": 125006,
             "outputs": {k: str(v) for k, v in paths.items()},
         },
         indent=2,

@@ -127,7 +127,9 @@ def main():
         normalization="instance",
         observation_normalization_root=str(data.root),
         fresh_evolution=True,
-        initial_checkpoint=str(args.root / "checkpoints/om4-source/selected.pt"),
+        initial_checkpoint=""
+        if args.global_final
+        else str(args.root / "checkpoints/om4-source/selected.pt"),
         wave1_root="",
         val_origins=12,
         device_cache=False,

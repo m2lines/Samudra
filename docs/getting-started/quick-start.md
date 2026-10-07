@@ -100,6 +100,11 @@ The evaluation config must match any changes to the training model, input/output
 steps, variables, or dataset paths; it inherits the training data root, not all
 training overrides. Its inference period must be present in that dataset.
 
+New prediction stores preserve dry cells as NaNs so observation scoring excludes
+land and absent depth levels. Older stores written with zero-filled dry cells
+need the original per-channel source masks applied before scoring; a zero value
+alone cannot distinguish dry cells from valid ocean predictions.
+
 ### Data Paths
 
 Training configs reference OM4 ocean model data stored in Zarr format. The bundled

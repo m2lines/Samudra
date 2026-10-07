@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791322567356,
+  "lastUpdate": 1791404808519,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -12768,6 +12768,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.637725035943604",
             "extra": "mean: 42.59916519499999 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fomobot640@gmail.com",
+            "name": "fomo-bot",
+            "username": "fomo-bot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bbd952fc4c662cb553faef19fc2e2c8b6f04b08c",
+          "message": "Remove legacy inference during training (#916)\n\nTraining still contains a separate epoch-based inference loop alongside\nrollout validation and post-training checkpoint evaluation. Remove\n`inference_epochs`, its loaders and aggregators, inference-loss logging,\nand best-inference checkpoint selection. Training now builds only\ntraining and validation data sources; standalone evaluation retains its\ninference windows.\n\nUpdate bundled presets, the quickstart notebook, and test fixtures for\nthe removed configuration field. Preserve checkpoint prediction\nround-trip and inference dataset coverage, and verify that skipping\ninference leaves training and validation sources intact. Older\ncheckpoints remain loadable with their extra inference-loss metadata\nignored.\n\nRefs #913. This PR contains only the training-inference removal\nrequested in\nhttps://github.com/m2lines/Samudra/pull/913#discussion_r4200616624.\n\nValidation:\n- Focused CPU suite: 241 passed, 1 skipped, 72 deselected.\n- `uvx pre-commit run --all-files`: passed.",
+          "timestamp": "2026-10-07T19:55:06Z",
+          "tree_id": "5eb08cc4bd2b3f6220b22a821c38e595e41b1ba7",
+          "url": "https://github.com/m2lines/Samudra/commit/bbd952fc4c662cb553faef19fc2e2c8b6f04b08c"
+        },
+        "date": 1791404806580,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.9365190691479602,
+            "unit": "iter/sec",
+            "range": "stddev: 0.003980211464546518",
+            "extra": "mean: 1.067783916999997 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_dataset__1gb[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.3496524627493361,
+            "unit": "iter/sec",
+            "range": "stddev: 0.11082127538893843",
+            "extra": "mean: 2.859982715799987 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.05016661850743869,
+            "unit": "iter/sec",
+            "range": "stddev: 1.7909880292294242",
+            "extra": "mean: 19.933573953199982 sec\nrounds: 5"
           }
         ]
       }

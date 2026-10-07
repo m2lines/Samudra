@@ -218,7 +218,7 @@ data:
       val_time:
         start: "1975-03-29"
         end: "1975-04-28"
-      inference_times: []
+      inference_time: null
       # Public, anonymous 2° OM4 stores on OSN.
       data_location:
         type: s3

@@ -25,9 +25,9 @@ sources:
     val_time:
       start: "2013-10-05"
       end: "2014-10-05"
-    inference_times:
-      - start: "2014-10-10"
-        end: "2022-12-24"
+    inference_time:
+      start: "2014-10-10"
+      end: "2022-12-24"
     data_location:
       type: s3
       endpoint_url: "https://nyu1.osn.mghpcc.org"

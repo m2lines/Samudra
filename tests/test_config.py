@@ -201,17 +201,32 @@ def test_llc_time_config_serializes_as_safe_yaml():
     }
 
 
+@pytest.mark.parametrize("kwargs", [{}, {"inference_time": None}])
+def test_data_source_inference_time_is_optional(kwargs):
+    assert om4_source_config(**kwargs).inference_time is None
+
+
+def test_data_source_inference_time_rejects_multiple_ranges():
+    time = {"start": "2014-10-10", "end": "2014-10-20"}
+    with pytest.raises(ValidationError):
+        om4_source_config(inference_time=[time, time])
+
+
 def test_data_source_time_fields_are_immutable():
     source = om4_source_config(
-        inference_times=[
-            Om4TimeConfig(start=JulianDate("2014-10-10"), end=JulianDate("2014-10-20"))
-        ]
+        inference_time=Om4TimeConfig(
+            start=JulianDate("2014-10-10"), end=JulianDate("2014-10-20")
+        )
     )
     replacement = Om4TimeConfig(
         start=JulianDate("1980-01-01"), end=JulianDate("1981-01-01")
     )
 
-    assert isinstance(source.inference_times, tuple)
+    assert isinstance(source.inference_time, Om4TimeConfig)
+    with pytest.raises(ValidationError, match="Field is frozen"):
+        source.inference_time = replacement
+    with pytest.raises(ValidationError, match="Instance is frozen"):
+        source.inference_time.start = JulianDate("1980-01-01")
     with pytest.raises(ValidationError, match="Field is frozen"):
         source.train_time = replacement
     with pytest.raises(ValidationError, match="Instance is frozen"):
@@ -255,12 +270,10 @@ def test_data_config_accepts_llc_dataset_type():
                         "start": "2012-09-01T12:00:00Z",
                         "end": "2012-11-15T12:00:00Z",
                     },
-                    "inference_times": [
-                        {
-                            "start": "2012-11-15T12:00:00Z",
-                            "end": "2012-12-15T12:00:00Z",
-                        }
-                    ],
+                    "inference_time": {
+                        "start": "2012-11-15T12:00:00Z",
+                        "end": "2012-12-15T12:00:00Z",
+                    },
                     "data_location": "data.zarr",
                     "data_means_location": "means.zarr",
                     "data_stds_location": "stds.zarr",
@@ -272,7 +285,7 @@ def test_data_config_accepts_llc_dataset_type():
     source = cfg.sources[0]
     assert isinstance(source, LlcDataSourceConfig)
     assert source.face == 2
-    assert isinstance(source.inference_times[0], LlcTimeConfig)
+    assert isinstance(source.inference_time, LlcTimeConfig)
     assert source.prognostic_vars_key == "single_1"
 
 
@@ -337,12 +350,10 @@ def test_data_config_builds_llc_source_from_local_files(tmp_path):
                         "start": "2011-09-11T12:00:00Z",
                         "end": "2011-09-12T12:00:00Z",
                     },
-                    "inference_times": [
-                        {
-                            "start": "2011-09-10T12:00:00Z",
-                            "end": "2011-09-11T12:00:00Z",
-                        }
-                    ],
+                    "inference_time": {
+                        "start": "2011-09-10T12:00:00Z",
+                        "end": "2011-09-11T12:00:00Z",
+                    },
                     "data_location": "data.zarr",
                     "data_means_location": "means.nc",
                     "data_stds_location": "stds.nc",
@@ -374,6 +385,13 @@ def test_data_config_builds_llc_source_from_local_files(tmp_path):
     assert training_container.inference_source is None
     assert training_container.train_sources[0].time.size == 2
     assert training_container.val_sources[0].time.size == 2
+
+    without_inference = cfg.model_copy(
+        update={"sources": [cfg.sources[0].model_copy(update={"inference_time": None})]}
+    ).build(LocalLocation(path=tmp_path), include_inference=True)
+    assert without_inference.inference_source is None
+    assert without_inference.train_sources[0].time.size == 2
+    assert without_inference.val_sources[0].time.size == 2
 
     sliced = source.slice_time(
         LlcTimeConfig(

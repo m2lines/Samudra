@@ -175,6 +175,38 @@ or seven five-day bins for calendar-month integration. Every model uses the
 learned initializer at observational evaluation, even if native training uses
 true full states.
 
+### Task mixture over training
+
+These runs start from random weights and interleave tasks from the beginning;
+they do not start from D's checkpoint. The mixture becomes increasingly
+observation-heavy, but there is no separate observation-only finishing phase.
+Each scheduled update uses one task with eight accumulated examples. The exact
+counts in successive blocks are:
+
+| Scheduled updates | OM4 updates (all resolutions) | Observation updates | Observation share |
+|---|---:|---:|---:|
+| 1–1,000 | 782 | 218 | 21.8% |
+| 1,001–2,000 | 593 | 407 | 40.7% |
+| 2,001–3,000 | 407 | 593 | 59.3% |
+| 3,001–4,000 | 218 | 782 | 78.2% |
+| Total | 2,000 | 2,000 | 50.0% |
+
+For global-only arms, every OM4 update uses the global 1° task. Multitask arms
+alternate global 1° and native quarter-degree patch tasks within the OM4 slots,
+giving 1,000 global + 1,000 patch + 2,000 observation updates overall. Their
+final 1,000 slots contain 109 global + 109 patch + 782 observation updates.
+Accessory arms retain the global-only schedule and add the fine-resolution
+target loss on global OM4 updates; they do not evolve native patches.
+`U-omit-patch` skips the 1,000 patch slots without optimizer updates, leaving
+3,000 actual updates, of which 2,000 are observational.
+
+These are update fractions, not GPU-time or FLOP fractions. Reported results
+use the checkpoint selected by observation validation, which can precede the
+end of the schedule. The implementation is
+[`TaskSchedule`](../../../src/samudra/experiments/task_schedule.py), with the
+2,000/2,000 mixed schedule set in
+[`run_extent_wave.py`](../../../scripts/run_extent_wave.py).
+
 | Family | Processor | Total parameters, including common initializer and forcing adapter |
 |---|---|---:|
 | U | ConvNeXt U-Net, widths 128/192/256/384 | 62,967,680 |

@@ -12,6 +12,7 @@ import numpy as np
 import torch
 
 from samudra.experiments.diffusion_checkpoint_status import verify_checkpoint
+from samudra.experiments.diffusion_global import make_model
 from samudra.experiments.diffusion_latent_report import load_latent_checkpoint
 from samudra.experiments.diffusion_native_controls import velocity_statistics
 from samudra.experiments.initializer_wave import InitializerWave
@@ -67,28 +68,52 @@ def main():
     parser.add_argument("--checkpoint", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--stopped-run", action="store_true")
+    parser.add_argument("--global-final", action="store_true")
     args = parser.parse_args()
-    data = Samples(args.root / "data/observations", "cuda")
+    data = Samples(
+        args.root / "data/observations", "cuda", global_observations=args.global_final
+    )
     data.use_observation_normalization()
-    model, signature = load_latent_checkpoint(args.checkpoint, data)
-    marker = (
-        "PRETRAIN_COMPLETE.json"
-        if signature["phase"] == "om4"
-        else "OBSERVATION_COMPLETE.json"
-    )
-    training_status = verify_checkpoint(
-        args.checkpoint, marker, stopped=args.stopped_run
-    )
-    if (
-        digest(args.root / "DATA_READY.json") != signature["data_sha256"]
-        or digest(data.root / "SHA256SUMS") != signature["observation_manifest_sha256"]
-    ):
-        raise ValueError("Data contract changed")
-    if (
-        digest(data.root / "statistics.npz")
-        != signature["observation_statistics_sha256"]
-    ):
-        raise ValueError("Observation scales changed")
+    if args.global_final:
+        saved = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
+        if saved["step"] != 16000 or saved["counts"] != {
+            "om4": 8000,
+            "observation": 8000,
+        }:
+            raise ValueError("Global native report requires final 8k/8k weights")
+        signature = saved["contract"]
+        for key, path in (
+            ("observation_manifest", data.root / "SHA256SUMS"),
+            ("stats", data.root / "statistics.npz"),
+            ("grid", data.root / "grid.npz"),
+        ):
+            if digest(path) != signature[key]:
+                raise ValueError(f"Changed global native input: {key}")
+        model = make_model(data.grid["names"].tolist(), "cuda", steps=32)
+        model.load_state_dict(saved["model"], strict=True)
+        model.eval()
+        training_status = {"step": saved["step"], "counts": saved["counts"]}
+    else:
+        model, signature = load_latent_checkpoint(args.checkpoint, data)
+        marker = (
+            "PRETRAIN_COMPLETE.json"
+            if signature["phase"] == "om4"
+            else "OBSERVATION_COMPLETE.json"
+        )
+        training_status = verify_checkpoint(
+            args.checkpoint, marker, stopped=args.stopped_run
+        )
+        if (
+            digest(args.root / "DATA_READY.json") != signature["data_sha256"]
+            or digest(data.root / "SHA256SUMS")
+            != signature["observation_manifest_sha256"]
+        ):
+            raise ValueError("Data contract changed")
+        if (
+            digest(data.root / "statistics.npz")
+            != signature["observation_statistics_sha256"]
+        ):
+            raise ValueError("Observation scales changed")
     args.output.mkdir(parents=True, exist_ok=True)
     loader_args = SimpleNamespace(
         arm="D",
@@ -139,6 +164,8 @@ def main():
             seed=4041729,
             leads=[0, 5, 10, 15, 20, 25, 30],
             channels=wave.names,
+            global_domain=args.global_final,
+            native_store=str(Path(loader_args.data_root) / "OM4.zarr"),
             scope="Model-world OM4 controls, not observed interior/velocity skill. Independent readouts on a shared latent trajectory.",
         )
         contract = args.output / "protocol.json"
@@ -174,7 +201,11 @@ def main():
                     records.append(torch.stack(decoded, 1))
                 members = torch.stack(records).float()
             target = torch.cat((truth[:, -1:], labels), 1)
-            region = (wave.lat.abs() <= 60)[:, None]
+            region = (
+                torch.ones_like(wave.lat, dtype=torch.bool)
+                if args.global_final
+                else wave.lat.abs() <= 60
+            )[:, None]
             mask = wave.mask * region
             weights = wave.weights * region
             mse = channel_mse(members.mean(0), target, weights)
@@ -211,13 +242,15 @@ def main():
             hashes[destination.name] = digest(destination)
             if index in (indices[0], indices[12], indices[-1]):
                 channels = [wave.names.index(n) for n in ("so_9", "thetao_9", "uo_9")]
+                arrays_path = args.output / f"fields-{index}.npz"
                 np.savez_compressed(
-                    args.output / f"fields-{index}.npz",
+                    arrays_path,
                     members=physical[:, :, :, channels].cpu().numpy(),
                     truth=physical_truth[:, :, channels].cpu().numpy(),
                     mask=mask[channels].cpu().numpy(),
                     channels=np.array([wave.names[c] for c in channels]),
                 )
+                hashes[arrays_path.name] = digest(arrays_path)
             print(
                 json.dumps(dict(event="latent_native_origin", index=index)), flush=True
             )

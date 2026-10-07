@@ -760,6 +760,7 @@ def build_parser():
             "extent-aux",
             "extent-wide",
             "extent-axial",
+            "extent-fine",
         ],
         default="d",
     )

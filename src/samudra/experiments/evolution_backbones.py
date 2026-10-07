@@ -53,6 +53,7 @@ def build_evolution(channels, architecture="d"):
         "extent-aux",
         "extent-wide",
         "extent-axial",
+        "extent-fine",
     ):
         from samudra.experiments.extent_models import ExtentEvolution
 

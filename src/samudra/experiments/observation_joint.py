@@ -162,6 +162,15 @@ def qualification_contract(args):
         "warmup_steps": args.warmup_steps,
         "seed": args.seed,
     }
+    if getattr(args, "early_data", None):
+        result["early"] = {
+            "root": args.early_data,
+            "manifest_sha256": digest(Path(args.early_data) / "READY.json"),
+            "fine": args.evolution_architecture == "extent-fine",
+            "period": ["1958-01-03", "1974-12-31"],
+            "fraction_of_om4": 0.5,
+            "fine_coarse_forecast_weights": [0.5, 0.5],
+        }
     if getattr(args, "patch_cache", None):
         result["patch_cache_manifest_sha256"] = digest(
             Path(args.patch_cache) / "manifest.json"
@@ -646,6 +655,7 @@ def main():
     parser.add_argument("--deadline", required=True)
     parser.add_argument("--joint-probe", action="store_true")
     parser.add_argument("--joint-qualification")
+    parser.add_argument("--early-data")
     parser.add_argument("--patch-cache")
     parser.add_argument("--patch-training", action="store_true")
     parser.add_argument(
@@ -743,7 +753,11 @@ def main():
         parser.error(
             "Patch training requires a verified native cache and extent-aware processor"
         )
-    if args.evolution_architecture.startswith("extent-"):
+    if args.early_data:
+        from samudra.experiments.early_fine_training import EarlyPilot
+
+        EarlyPilot(args).run_joint()
+    elif args.evolution_architecture.startswith("extent-"):
         from samudra.experiments.extent_training import ExtentPilot
 
         ExtentPilot(args).run_joint()

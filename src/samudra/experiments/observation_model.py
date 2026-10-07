@@ -58,6 +58,17 @@ class ObservationTransfer(nn.Module):
             self.evolution.input_adapters = identity_adapters(
                 2 * (len(names) + latent_channels) + 8
             )
+        if evolution_architecture == "extent-fine":
+            from samudra.experiments.early_fine_models import FineDecoder, FineEncoder
+
+            # Preserve all shared weights and RNG state relative to the coarse arm.
+            with torch.random.fork_rng(devices=[]):
+                self.initializer.fine_encoder = FineEncoder(
+                    len(names) + latent_channels
+                )
+                self.evolution.fine_decoder = FineDecoder(
+                    len(names) + latent_channels, len(names)
+                )
         self.activation_checkpointing = True
         self.update_batchnorm = False
         configure_normalization(self, normalization)

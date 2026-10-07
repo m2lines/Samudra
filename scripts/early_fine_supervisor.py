@@ -36,16 +36,35 @@ def main():
                 raise ValueError("Runtime binary drift: " + path)
 
     def run(script, arguments):
+        stopping = False
         child = subprocess.Popen(
             [sys.executable, str(Path(__file__).with_name(script)), *arguments]
         )
-        signal.signal(signal.SIGUSR1, lambda *_: child.send_signal(signal.SIGUSR1))
-        signal.signal(signal.SIGTERM, lambda *_: child.send_signal(signal.SIGUSR1))
+
+        def stop(*_):
+            nonlocal stopping
+            stopping = True
+            if child.poll() is None:
+                child.send_signal(signal.SIGUSR1)
+
+        signal.signal(signal.SIGUSR1, stop)
+        signal.signal(signal.SIGTERM, stop)
         code = child.wait()
+        if stopping:
+            raise SystemExit(75)
         if code:
             raise SystemExit(code)
 
     if args.stage == "prepare":
+        image = Path(
+            "/orcd/scratch/orcd/014/jrusak/apptainer_cache/images/diffusion-26.05-9cd36b1-amd64.sif"
+        )
+        with image.open("rb") as stream:
+            if (
+                hashlib.file_digest(stream, "sha256").hexdigest()
+                != runtime["image_sha256"]
+            ):
+                raise ValueError("Container image differs from pinned runtime")
         run("prepare_early_fine_wave.py", ["--root", args.root])
         return
     import torch

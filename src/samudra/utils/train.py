@@ -9,7 +9,7 @@ from pathlib import Path
 import torch
 from xarray_einstats.einops import rearrange  # noqa: F401
 
-from samudra.datasets import HostBatch, InferenceDataset
+from samudra.datasets import HostBatch
 from samudra.utils.data import LoadStats
 
 
@@ -39,14 +39,6 @@ def collate_host_batches(data: Sequence[HostBatch]) -> HostBatch:
     batched_data.load_stats = stats
 
     return batched_data
-
-
-def collate_inference_data(
-    data: Sequence[InferenceDataset],
-) -> tuple[InferenceDataset, int]:
-    # TODO: There is probably a better way to do inference batching
-    assert len(data) == 1, "Inference batch size must be 1"
-    return data[0][0], data[0][1]
 
 
 class CheckpointPaths:
@@ -80,10 +72,6 @@ class CheckpointPaths:
             return None
         epoch = checkpoint_path.stem.removeprefix(cls._PERIODIC_CHECKPOINT_PREFIX)
         return int(epoch) if epoch.isdecimal() else None
-
-    @property
-    def best_inference_checkpoint_path(self) -> Path:
-        return self.checkpoint_dir / "best_inference_ckpt.pt"
 
     @property
     def ema_checkpoint_path(self) -> Path:

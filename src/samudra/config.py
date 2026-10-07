@@ -209,7 +209,7 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
     type: DataSourceType
     train_time: SourceTimeConfigT = Field(frozen=True)
     val_time: SourceTimeConfigT = Field(frozen=True)
-    inference_times: tuple[SourceTimeConfigT, ...] = Field(default=(), frozen=True)
+    inference_time: SourceTimeConfigT | None = Field(default=None, frozen=True)
     data_location: Location = Field(
         description="Location of the data; " + LOCATION_DOCS
     )
@@ -239,6 +239,7 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
         *,
         use_dask: bool,
         is_primary: bool,
+        include_inference: bool,
         source_backend: "TrainingSourceBackend",
     ) -> SourceSplits:
         source = self._build_source(
@@ -247,7 +248,7 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
             source_backend=source_backend,
         )
         inference_source = None
-        if is_primary and self.inference_times:
+        if include_inference and is_primary and self.inference_time is not None:
             if use_dask:
                 full_inference_source = source
             else:
@@ -256,11 +257,7 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
                     turn_on_dask=True,
                     source_backend=source_backend,
                 )
-            # TODO: remove multiple inference time ranges altogether (see #813)
-            assert len(self.inference_times) == 1, (
-                "multiple inference time ranges have been deprecated"
-            )
-            inference_source = full_inference_source.slice_time(self.inference_times[0])
+            inference_source = full_inference_source.slice_time(self.inference_time)
 
         return SourceSplits(
             train=source.slice_time(self.train_time),
@@ -604,6 +601,8 @@ class DataConfig(BaseConfig):
     def build(
         self,
         data_root: ResolvedLocation,
+        *,
+        include_inference: bool,
     ) -> DataBundle:
         loader_version = LoaderVersion(self.loader_version)
         use_dask = loader_version != LoaderVersion.OM4_TORCH
@@ -614,6 +613,7 @@ class DataConfig(BaseConfig):
                 data_root,
                 use_dask=use_dask,
                 is_primary=index == 0,
+                include_inference=include_inference,
                 source_backend=source_backend,
             )
             for index, source_cfg in enumerate(self.sources)
@@ -1413,7 +1413,6 @@ class TrainConfig(TopLevelConfig):
     data_stride: list[int] = [1]
     steps: list[int] = [4]
     step_transition: list[int] = []
-    inference_epochs: list[int] = [-1]
     post_train_eval: "PostTrainEvalConfig | None" = None
 
     # Config components

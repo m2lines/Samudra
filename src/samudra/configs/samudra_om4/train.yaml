@@ -24,7 +24,6 @@ loss:
   limit: 20
 finetune: false
 resume_ckpt_path: null
-inference_epochs: []
 data_stride: [1]
 steps: [4]
 step_transition: []

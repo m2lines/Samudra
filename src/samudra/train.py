@@ -7,21 +7,18 @@ import datetime
 import gc
 import logging
 import math
-import multiprocessing
 import os
 import socket
 import tempfile
 import time
 import warnings
 from collections import OrderedDict
-from multiprocessing.context import BaseContext
 from pathlib import Path
 from typing import Any
 
 import dask
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader, DistributedSampler, RandomSampler
 
 from samudra.aggregator import Aggregator
 from samudra.aggregator.loss import (
@@ -40,24 +37,21 @@ from samudra.constants import (
 )
 from samudra.datasets import (
     InferenceDataset,
-    InferenceDatasets,
     ModelBatch,
     TorchTrainDataset,
     TrainBatchLoader,
     TrainingWindows,
-    close_pytorch_dataloader,
 )
 from samudra.models.base import BaseModel
 from samudra.post_train_eval import CheckpointSweep
 from samudra.stepper import (
     TrainBatchOutput,
     ValBatchOutput,
-    run_rollout,
     train_batch,
     validate_batch,
     validate_rollout,
 )
-from samudra.utils.data import BatchPreprocessor, get_inference_steps
+from samudra.utils.data import BatchPreprocessor
 from samudra.utils.device import using_gpu
 from samudra.utils.distributed import (
     all_reduce_mean,
@@ -83,7 +77,7 @@ from samudra.utils.samplers import (
     DistributedEquivalenceGroupBatchSampler,
     EquivalenceGroupBatchSampler,
 )
-from samudra.utils.train import CheckpointPaths, collate_inference_data
+from samudra.utils.train import CheckpointPaths
 from samudra.utils.train_progress import TrainProgress
 from samudra.utils.training_summary import (
     write_search_metrics,
@@ -128,6 +122,7 @@ class Trainer:
 
         self.data_bundle = cfg.data.build(
             data_root=cfg.experiment.resolved_data_root,
+            include_inference=False,
         )
 
         # Getting prognostic and boundary variables
@@ -149,14 +144,6 @@ class Trainer:
         self.N_prog = len(self.prognostic_var_names)
 
         self.data_loading = cfg.data.loading
-
-        self.inference_num_workers = cfg.data.inference_loading.num_workers
-        self.inference_persistent_workers = (
-            cfg.data.inference_loading.persistent_workers
-        )
-        self.inference_mp_context: BaseContext | None = None
-        if self.inference_num_workers > 0:
-            self.inference_mp_context = multiprocessing.get_context("spawn")
 
         self.input_steps = cfg.data.input_steps
         self.output_steps = cfg.data.output_steps
@@ -181,11 +168,6 @@ class Trainer:
         logger.info(f"Loading data")
 
         self.primary_source = self.data_bundle.train_sources[0]
-
-        # We use dask for inference since it has memory issues otherwise.
-        # TODO(jder): Could rewrite inference dataset like we did for TorchTrainDataset
-        # see https://github.com/m2lines/Samudra/issues/208
-        self.inference_source = self.data_bundle.inference_source
 
         self.loader_version = self.data_bundle.loader_version
 
@@ -277,7 +259,6 @@ class Trainer:
         self.checkpoint_validation_metric = cfg.checkpoint_validation_metric
         self.rollout_validation = cfg.rollout_validation
         self.best_val_loss = float("inf")
-        self.best_inf_loss = 1e8
         self.train_progress = TrainProgress()
         loaded_checkpoint = False
         if cfg.resume_ckpt_path is not None:
@@ -324,7 +305,6 @@ class Trainer:
         self.data_stride: list[int] = cfg.data_stride
         self.batch_size: int = cfg.batch_size
         self.gradient_accumulation_steps: int = cfg.gradient_accumulation_steps
-        self.inference_epochs = cfg.inference_epochs
         self.max_train_model_steps_forward = (
             MAX_TRAIN_MODEL_STEPS_FORWARD // self.output_steps
         )
@@ -339,13 +319,6 @@ class Trainer:
 
         assert self.data_layout is not None
 
-        if self.inference_epochs:
-            if self.inference_source is None:
-                raise ValueError(
-                    "Inference time is not configured for the first data source"
-                )
-            self.init_inference_stores()
-
         # Add type annotations for samplers
         self.train_sampler: (
             EquivalenceGroupBatchSampler | DistributedEquivalenceGroupBatchSampler
@@ -353,56 +326,10 @@ class Trainer:
         self.val_sampler: (
             EquivalenceGroupBatchSampler | DistributedEquivalenceGroupBatchSampler
         )
-        self.inference_sampler: DistributedSampler | RandomSampler
 
         # Add type annotations for loaders
         self.train_loader: TrainBatchLoader
         self.val_loader: TrainBatchLoader
-        self.inference_loader: DataLoader[ModelBatch]
-
-    def init_inference_stores(self):
-        assert self.inference_source is not None
-        num_time_steps = get_inference_steps(
-            self.inference_source,
-            input_steps=self.input_steps,
-            output_steps=self.output_steps,
-        )
-        inference_dataset = InferenceDataset(
-            source=self.inference_source,
-            prognostic_var_names=self.prognostic_var_names,
-            boundary_var_names=self.boundary_var_names,
-            input_steps=self.input_steps,
-            output_steps=self.output_steps,
-            normalize_before_mask=self.normalize_before_mask,
-            masked_fill_value=self.masked_fill_value,
-            long_rollout=True,
-        )
-
-        inference_data_combined = InferenceDatasets(
-            [inference_dataset], [num_time_steps]
-        )
-
-        if self.distributed is not None:
-            self.inference_sampler = DistributedSampler(
-                inference_data_combined, shuffle=True
-            )
-        else:
-            self.inference_sampler = RandomSampler(inference_data_combined)
-
-        # Create data loaders
-        self.inference_loader = DataLoader(
-            inference_data_combined,
-            batch_size=1,
-            sampler=self.inference_sampler,
-            num_workers=self.inference_num_workers,
-            persistent_workers=(
-                self.inference_persistent_workers and self.inference_num_workers > 0
-            ),
-            pin_memory=False,
-            drop_last=False,
-            collate_fn=collate_inference_data,
-            multiprocessing_context=self.inference_mp_context,
-        )
 
     def run(self) -> None:
         """Run training and deterministically release loader-owned resources."""
@@ -412,8 +339,6 @@ class Trainer:
             if hasattr(self, "train_loader"):
                 self.train_loader.close()
                 self.val_loader.close()
-            if hasattr(self, "inference_loader"):
-                close_pytorch_dataloader(self.inference_loader)
 
     def _run(self) -> None:
         logger.info(f"Starting training")
@@ -450,28 +375,17 @@ class Trainer:
                 rollout_val_stats = {}
                 end_epoch_rollout_val_time = None
 
-            if -1 in self.inference_epochs or epoch in self.inference_epochs:
-                inf_stats = self.inference_one_epoch(epoch)
-                end_epoch_inf_time = time.perf_counter()
-            else:
-                inf_stats = {}
-                end_epoch_inf_time = None
-
             train_loss = train_stats["train/mean/loss"]
             v_loss = val_stats["val/mean/loss"]
-            inf_loss = inf_stats.get("inference/time_mean_norm/rmse/channel_mean", None)
 
             logger.info(f"Achieved Train Loss = {train_loss:.3f}")
             logger.info(f"Achieved Validation Loss = {v_loss:.3f}")
-            if inf_loss is not None:
-                logger.info(f"Achieved Inference Loss = {inf_loss:.3f}")
-
             time_elapsed = time.perf_counter() - start_epoch_train_time
             if is_main_process():
                 checkpoint_score = self.validation_checkpoint_score(
                     epoch, val_stats, rollout_val_stats
                 )
-                self.save_all_checkpoints(epoch, checkpoint_score, inf_loss)
+                self.save_all_checkpoints(epoch, checkpoint_score)
                 if self.search_run is not None:
                     write_training_summary(
                         self.output_dir,
@@ -479,14 +393,11 @@ class Trainer:
                             epoch,
                             train_loss=float(train_loss),
                             validation_loss=float(v_loss),
-                            inference_loss=(
-                                float(inf_loss) if inf_loss is not None else None
-                            ),
                             train_seconds=end_epoch_train_time - start_epoch_train_time,
                             validation_seconds=end_epoch_val_time
                             - end_epoch_train_time,
                             total_seconds=time_elapsed,
-                            diagnostics={**train_stats, **val_stats, **inf_stats},
+                            diagnostics={**train_stats, **val_stats},
                         ),
                     )
 
@@ -494,7 +405,6 @@ class Trainer:
                 **train_stats,
                 **val_stats,
                 **rollout_val_stats,
-                **inf_stats,
                 "epoch": epoch,
                 "epoch_train_seconds": end_epoch_train_time - start_epoch_train_time,
                 "epoch_validation_seconds": end_epoch_val_time - end_epoch_train_time,
@@ -507,16 +417,6 @@ class Trainer:
                     end_epoch_rollout_val_time - end_epoch_val_time
                 )
 
-            if end_epoch_inf_time is not None:
-                inf_start_time = (
-                    end_epoch_rollout_val_time
-                    if end_epoch_rollout_val_time is not None
-                    else end_epoch_val_time
-                )
-                log_stats["epoch_inference_seconds"] = (
-                    end_epoch_inf_time - inf_start_time
-                )
-
             if is_main_process():
                 if self.search_run is not None:
                     write_search_metrics(
@@ -525,9 +425,6 @@ class Trainer:
                             **self.search_run.model_dump(),
                             "train_loss": float(train_loss),
                             "validation_loss": float(v_loss),
-                            "inference_loss": (
-                                float(inf_loss) if inf_loss is not None else None
-                            ),
                             **log_stats,
                         },
                     )
@@ -561,7 +458,6 @@ class Trainer:
         *,
         train_loss: float,
         validation_loss: float,
-        inference_loss: float | None,
         train_seconds: float,
         validation_seconds: float,
         total_seconds: float,
@@ -586,8 +482,6 @@ class Trainer:
             "train_loss": train_loss,
             "validation_loss": validation_loss,
             "best_validation_loss": float(self.best_val_loss),
-            "inference_loss": inference_loss,
-            "best_inference_loss": float(self.best_inf_loss),
             "epoch_train_seconds": train_seconds,
             "epoch_validation_seconds": validation_seconds,
             "epoch_total_seconds": total_seconds,
@@ -1019,47 +913,6 @@ class Trainer:
             logger.info("Aggregating rollout validation logs")
             return logs
 
-    def inference_one_epoch(self, epoch):
-        self.model.eval()
-
-        with torch.no_grad(), self._test_context():
-            for batch_index, (inference_dataset, num_steps) in enumerate(
-                self.inference_loader
-            ):
-                # TODO(alxmrs): Aggregator only supports a single scale.
-                inf_aggregator = Aggregator.get_inline_inference_aggregator(
-                    num_steps,
-                    self.primary_source.metadata,
-                    self.input_steps,
-                    self.output_steps,
-                    self.primary_source.spherical_area_weights.to(self.device),
-                    self.primary_source.masks.prognostic.to(self.device),
-                    self.num_out,
-                    self.data_layout,
-                    self.preprocessor,
-                    self.prognostic_var_names,
-                )
-
-                # TODO(jder): we need the underlying model so we can use forward_once;
-                # see https://github.com/m2lines/Samudra/issues/51
-                run_rollout(
-                    model=self.model.module
-                    if isinstance(self.model, torch.nn.parallel.DistributedDataParallel)
-                    else self.model,
-                    dataset=inference_dataset,
-                    inf_aggregator=inf_aggregator,
-                    epoch=epoch,
-                    num_model_steps_forward=min(
-                        num_steps // 2, self.max_train_model_steps_forward
-                    ),
-                    data_layout=self.data_layout,
-                    preprocessor=self.preprocessor,
-                )
-
-        logger.info(f"Aggregating inference logs")
-        logs = inf_aggregator.get_summary_logs()
-        return {f"inference/{k}": v for k, v in logs.items()}
-
     def get_current_step(self, epoch):
         """Determine the current step based on the epoch and transition points.
 
@@ -1240,9 +1093,7 @@ class Trainer:
             )
         return identity
 
-    def save_all_checkpoints(
-        self, epoch: int, v_loss: float | None, inf_loss: float | None
-    ):
+    def save_all_checkpoints(self, epoch: int, v_loss: float | None):
         with self._test_context():
             is_best_val_loss = False
             if (
@@ -1259,20 +1110,7 @@ class Trainer:
                     f"{self.ckpt_paths.best_validation_checkpoint_path}"
                 )
                 self.best_val_loss = v_loss
-                is_best_val_loss = True  # wait until inference error is updated
-            if inf_loss is not None and (inf_loss <= self.best_inf_loss):
-                logger.info(
-                    f"Epoch inference error ({inf_loss:.3f}) is lower than "
-                    f"previous best inference error ({self.best_inf_loss:.3f})."
-                )
-                logger.info(
-                    "Saving lowest inference error checkpoint to "
-                    f"{self.ckpt_paths.best_inference_checkpoint_path}"
-                )
-                self.best_inf_loss = inf_loss
-                self.save_checkpoint(
-                    epoch, self.ckpt_paths.best_inference_checkpoint_path
-                )
+                is_best_val_loss = True
             if is_best_val_loss:
                 self.save_checkpoint(
                     epoch, self.ckpt_paths.best_validation_checkpoint_path
@@ -1316,7 +1154,6 @@ class Trainer:
                     "epoch": epoch,
                     "best_val_loss": self.best_val_loss,
                     "validation_checkpoint_identity": self.validation_checkpoint_identity(),
-                    "best_inf_loss": self.best_inf_loss,
                     "ema": self._ema.get_state(include_ema_params=not for_inference),
                     "num_batches_seen": self.num_batches_seen,
                     "train_progress": self.train_progress.state_dict(),
@@ -1394,7 +1231,6 @@ class Trainer:
                 if saved_identity == self.validation_checkpoint_identity()
                 else float("inf")
             )
-            self.best_inf_loss = checkpoint["best_inf_loss"]
 
     def is_wandb_enabled(self):
         return self.wandb_logger.enabled and is_main_process()

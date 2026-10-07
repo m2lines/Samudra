@@ -830,7 +830,6 @@ def test_trainer_selects_rust_loader_with_no_pytorch_workers(
         prefetch_batches=2, max_concurrent_reads=2
     )
     config.data.inference_loading = InferenceDataLoadingConfig(num_workers=3)
-    config.inference_epochs = []
     config.batch_size = 2
     config.data_stride = [1, 2]
     config.steps = [1]
@@ -846,7 +845,7 @@ def test_trainer_selects_rust_loader_with_no_pytorch_workers(
         trainer.init_data_loaders(cur_step=1)
         batch = next(iter(trainer.train_loader))
 
-    assert trainer.inference_num_workers == 3
+    assert trainer.data_bundle.inference_source is None
     assert isinstance(trainer.train_loader, NativeBatchLoader)
     assert isinstance(trainer.val_loader, NativeBatchLoader)
     assert not hasattr(trainer.train_loader, "_dataloader")
@@ -890,7 +889,6 @@ def test_trainer_selects_rust_loader_for_compact_om4(compact_om4_source, tmp_pat
     config.data.loading = RustDataLoadingConfig(
         prefetch_batches=2, max_concurrent_reads=2
     )
-    config.inference_epochs = []
     config.batch_size = 2
     config.data_stride = [1, 2]
     config.steps = [1]

@@ -121,7 +121,7 @@ def test_torch_loading_configs_preserve_batch_schedule(
 @pytest.fixture
 def inference_dataset_pair(
     train_config: TrainConfig,
-) -> tuple[TrainConfig, list[tuple[InferenceDataset, int]], DataLayout]:
+) -> tuple[TrainConfig, InferenceDataset, DataLayout]:
     bundle = train_config.data.build(
         train_config.experiment.resolved_data_root, include_inference=True
     )
@@ -137,7 +137,7 @@ def inference_dataset_pair(
         masked_fill_value=train_config.data.masked_fill_value,
         long_rollout=True,
     )
-    return train_config, [(dataset, len(dataset))], bundle.data_layout
+    return train_config, dataset, bundle.data_layout
 
 
 def test_cache_dir_defaults_to_worktree(
@@ -545,7 +545,7 @@ def test_loader__data_shape__across_source_counts(
 
 
 def test_inference__data_shape(inference_dataset_pair):
-    cfg, loader, data_layout = inference_dataset_pair
+    cfg, dataset, data_layout = inference_dataset_pair
     batch_size = 1  # Inference always uses batch size 1
     input_steps = cfg.data.input_steps
 
@@ -554,18 +554,10 @@ def test_inference__data_shape(inference_dataset_pair):
     ) * input_steps
     output_var_dim = len(data_layout.prognostic_var_names) * cfg.data.output_steps
 
-    samples = list(loader)
-    assert len(samples) == 1, (
-        f"Current config {cfg.data.sources[0].inference_time!r} only supports 1 examples for inference; "
-        f"got {len(samples)}."
-    )
-
-    for sample in samples:
-        inference_dataset, n = sample
-        for prog, boundary, y in inference_dataset:
-            X = torch.cat((prog, boundary), dim=1)
-            assert X.shape == (batch_size, input_var_dim, 180, 360)
-            assert y.shape == (batch_size, output_var_dim, 180, 360)
+    for prog, boundary, y in dataset:
+        X = torch.cat((prog, boundary), dim=1)
+        assert X.shape == (batch_size, input_var_dim, 180, 360)
+        assert y.shape == (batch_size, output_var_dim, 180, 360)
 
 
 def test__data_is_not_zeros(train_config):
@@ -580,21 +572,17 @@ def test__data_is_not_zeros(train_config):
 
 
 def test_inference__data_is_not_zero(inference_dataset_pair):
-    cfg, loader, _ = inference_dataset_pair
+    _, dataset, _ = inference_dataset_pair
 
-    for sample in loader:
-        dataset, n = sample
-        for prog, boundary, y in dataset:
-            X = torch.cat((prog, boundary), dim=1)
-            assert np.count_nonzero(np.zeros(X.shape)) == 0, (
-                "Sanity check: Zero is zero."
-            )
-            assert np.count_nonzero(X.numpy()) != 0, (
-                "Input data should not be a zeros matrix!"
-            )
-            assert np.count_nonzero(y.numpy()) != 0, (
-                "Label data should not be a zeros matrix!"
-            )
+    for prog, boundary, y in dataset:
+        X = torch.cat((prog, boundary), dim=1)
+        assert np.count_nonzero(np.zeros(X.shape)) == 0, "Sanity check: Zero is zero."
+        assert np.count_nonzero(X.numpy()) != 0, (
+            "Input data should not be a zeros matrix!"
+        )
+        assert np.count_nonzero(y.numpy()) != 0, (
+            "Label data should not be a zeros matrix!"
+        )
 
 
 def assert_equal_samples(original_samples, new_samples):
@@ -971,13 +959,11 @@ def test_profile__loader__1gb(train_config, loader_version, benchmark):
     "data_source,config_name", [("mock", DEFAULT_CONFIG)], indirect=True
 )
 def test_profile__inference_loader__1gb(inference_dataset_pair, benchmark):
-    cfg, loader, _ = inference_dataset_pair
+    _, dataset, _ = inference_dataset_pair
 
     def bench():
-        for sample in loader:
-            dataset, n = sample
-            for prog, boundary, y in dataset:
-                _, _, _ = prog, boundary, y
+        for prog, boundary, y in dataset:
+            _, _, _ = prog, boundary, y
 
     # Warm the restored Zarr cache before timing steady-state loader throughput.
     bench()

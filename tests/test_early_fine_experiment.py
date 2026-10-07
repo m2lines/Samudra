@@ -150,3 +150,15 @@ def test_encoder_reduces_spatial_dimensions_exactly_fourfold():
         torch.zeros(1, 5, 24, 40),
     )
     assert value.shape == (1, 2, 87, 6, 10)
+
+
+def test_fine_decoder_reference_wraps_longitude():
+    from samudra.experiments.early_fine_models import FineDecoder
+
+    decoder = FineDecoder(3, 2)
+    for parameter in decoder.parameters():
+        nn.init.zeros_(parameter)
+    state = torch.arange(8).float()[None, None, None].expand(1, 3, 4, 8)
+    result = decoder(state, torch.zeros(1, 5, 4, 8), torch.ones(2, 16, 32))
+    torch.testing.assert_close(result[..., 0], torch.full((1, 2, 16), 7 * 0.375))
+    torch.testing.assert_close(result[..., -1], torch.full((1, 2, 16), 7 * 0.625))

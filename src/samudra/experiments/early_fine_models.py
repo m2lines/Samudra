@@ -57,11 +57,15 @@ class FineDecoder(nn.Module):
     def forward(self, state, context, mask):
         residual = self.net(torch.cat((state, context), 1)).float()
         reference = F.interpolate(
-            state[:, : self.physical_channels].float(),
+            F.pad(
+                state[:, : self.physical_channels].float(),
+                (1, 1, 0, 0),
+                mode="circular",
+            ),
             scale_factor=4,
             mode="bilinear",
             align_corners=False,
-        )
+        )[..., 4:-4]
         if residual.shape[-2:] != mask.shape[-2:]:
             raise ValueError("Fine decoder grid does not match native target")
         return (reference + residual) * mask

@@ -55,7 +55,7 @@ After each shared processor step, the fine decoder reads all predicted state
 channels plus geography/season. A 3×3 convolution to 64 features, GELU and
 pointwise projection to 77×16 channels followed by pixel shuffle produce a
 fourfold upsampled residual over bilinearly interpolated coarse physical fields.
-Longitude convolution is periodic and latitude padding is zero. Decoded fields
+Longitude convolution and reference interpolation are periodic; latitude convolution padding is zero. Decoded fields
 are masked at native depths. The recurrent path carries the **coarse predicted
 state, including latent channels**; it never re-encodes true future fields.
 Fine I/O modules are inactive on recent-OM4 and observation tasks.
@@ -123,5 +123,38 @@ included.
 
 ## Status
 
-Implementation and local tests are in progress. No scientific results exist for
-this wave yet. Submission receipts and qualification outcomes will be appended.
+Checked at 2026-10-07T19:03:34.587072+00:00.
+
+GPU implementation is pinned at `c4d726764be3909156ad5fbf1d5fc3ecb158c425`.
+The independent data audit used `87d49ee7d72607ad96a90286d6e302075bb97aa2`;
+qualifications bind its completed readiness manifest.
+Local validation: **32 targeted tests passed**, Ruff and shell syntax checks
+passed, and the pinned Engaging container imported the implementation and Rust
+reader successfully. Tests verify identical shared initialization, correct
+fourfold spatial reduction, wet-area conservation, fine encoder/decoder gradients,
+latent-state recurrence/gradients, periodic decoder reference interpolation,
+no gold-state leakage into initialization, and
+existing task/resume behavior.
+
+| Stage | Slurm job / array | Dependency | Last observed state |
+|---|---|---|---|
+| Data and container audit | 25185472 | None | Completed successfully (4m28s) |
+| Four fitting/mixed-resume qualifications | 25185999_[0-3] | Successful data audit | Pending: Priority |
+| Four production/evaluation runs | 25186000_[0-3] | All qualifications succeed | Pending: Dependency |
+
+The completed audit verified all 350 observation NPZ checksums, exact time-vector
+agreement, and 99,280 expected-size early chunks per OM4 source. Wet-value
+finiteness was sampled at frames 0, 620 and 1240 across all 80 variables.
+Original arrays 25185474/25185475 were canceled before starting (zero GPU use)
+to correct periodic longitude interpolation before qualification; their receipts
+are retained.
+
+Array order follows the run table above. No GPU work or scientific result is
+claimed yet. [Exact submission commands, paths and runtime hashes](artifacts/early-fine-2026-10-07/submission.json).
+
+The Engaging image SHA256 is
+`08e81775209ac46315f8e65e854750147644f806fd3af6a6dd5d9d4df8a54008`, with PyTorch
+`2.12.0a0+0291f960b6.nv26.04.48445190`, NumPy 1.26.4, Zarr 2.18.7 and an isolated
+GSW 3.6.20 overlay. This differs from the previous Beta runtime and will remain
+visible in cross-campaign comparisons. The project pool has 488 GiB free at
+submission; no new full-resolution dataset copy is being made.

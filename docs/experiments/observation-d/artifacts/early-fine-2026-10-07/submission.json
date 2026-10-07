@@ -1,0 +1,268 @@
+{
+  "submission.json": {
+    "producer": "c4d726764be3909156ad5fbf1d5fc3ecb158c425",
+    "submitted_at": "2026-10-07T15:00:36.380277-04:00",
+    "replaced_unstarted_arrays": [
+      "25185474",
+      "25185475"
+    ],
+    "reason": "Periodic longitude interpolation correction before qualification; original arrays never started",
+    "jobs": [
+      {
+        "stage": "prepare",
+        "job_id": "25185472",
+        "command": [
+          "sbatch",
+          "--parsable",
+          "--account=mit_general",
+          "--qos=normal",
+          "--nodes=1",
+          "--ntasks=1",
+          "--partition=mit_normal",
+          "--cpus-per-task=8",
+          "--mem=32G",
+          "--time=02:00:00",
+          "--job-name=early-fine-data",
+          "--output=/orcd/pool/008/jrusak/early-fine-20261007/logs/prepare-%A_%a.out",
+          "--error=/orcd/pool/008/jrusak/early-fine-20261007/logs/prepare-%A_%a.err",
+          "/orcd/pool/008/jrusak/early-fine-20261007/code/87d49ee7d72607ad96a90286d6e302075bb97aa2/scripts/slurm_early_fine_engaging.sbatch",
+          "/orcd/pool/008/jrusak/early-fine-20261007",
+          "/orcd/pool/008/jrusak/early-fine-20261007/code/87d49ee7d72607ad96a90286d6e302075bb97aa2",
+          "prepare",
+          "87d49ee7d72607ad96a90286d6e302075bb97aa2"
+        ]
+      },
+      {
+        "stage": "qualify",
+        "job_id": "25185999",
+        "command": [
+          "sbatch",
+          "--parsable",
+          "--account=mit_general",
+          "--qos=normal",
+          "--partition=mit_preemptable",
+          "--nodes=1",
+          "--ntasks=1",
+          "--gres=gpu:h200:1",
+          "--cpus-per-task=16",
+          "--mem=96G",
+          "--time=02:00:00",
+          "--array=0-3%4",
+          "--export=ALL,GPU_ENABLED=1",
+          "--dependency=afterok:25185472",
+          "--job-name=early-fine-qualify",
+          "--output=/orcd/pool/008/jrusak/early-fine-20261007/logs/qualify-%A_%a.out",
+          "--error=/orcd/pool/008/jrusak/early-fine-20261007/logs/qualify-%A_%a.err",
+          "/orcd/pool/008/jrusak/early-fine-20261007/code/c4d726764be3909156ad5fbf1d5fc3ecb158c425/scripts/slurm_early_fine_engaging.sbatch",
+          "/orcd/pool/008/jrusak/early-fine-20261007",
+          "/orcd/pool/008/jrusak/early-fine-20261007/code/c4d726764be3909156ad5fbf1d5fc3ecb158c425",
+          "qualify",
+          "c4d726764be3909156ad5fbf1d5fc3ecb158c425"
+        ]
+      },
+      {
+        "stage": "train",
+        "job_id": "25186000",
+        "command": [
+          "sbatch",
+          "--parsable",
+          "--account=mit_general",
+          "--qos=normal",
+          "--partition=mit_preemptable",
+          "--nodes=1",
+          "--ntasks=1",
+          "--gres=gpu:h200:1",
+          "--cpus-per-task=16",
+          "--mem=96G",
+          "--time=24:00:00",
+          "--array=0-3%4",
+          "--export=ALL,GPU_ENABLED=1",
+          "--dependency=afterok:25185999",
+          "--job-name=early-fine-train",
+          "--output=/orcd/pool/008/jrusak/early-fine-20261007/logs/train-%A_%a.out",
+          "--error=/orcd/pool/008/jrusak/early-fine-20261007/logs/train-%A_%a.err",
+          "/orcd/pool/008/jrusak/early-fine-20261007/code/c4d726764be3909156ad5fbf1d5fc3ecb158c425/scripts/slurm_early_fine_engaging.sbatch",
+          "/orcd/pool/008/jrusak/early-fine-20261007",
+          "/orcd/pool/008/jrusak/early-fine-20261007/code/c4d726764be3909156ad5fbf1d5fc3ecb158c425",
+          "train",
+          "c4d726764be3909156ad5fbf1d5fc3ecb158c425"
+        ]
+      }
+    ]
+  },
+  "submission-initial-unstarted-arrays.json": {
+    "producer": "87d49ee7d72607ad96a90286d6e302075bb97aa2",
+    "submitted_at": "2026-10-07T14:56:03.323429-04:00",
+    "jobs": [
+      {
+        "stage": "prepare",
+        "job_id": "25185472",
+        "command": [
+          "sbatch",
+          "--parsable",
+          "--account=mit_general",
+          "--qos=normal",
+          "--nodes=1",
+          "--ntasks=1",
+          "--partition=mit_normal",
+          "--cpus-per-task=8",
+          "--mem=32G",
+          "--time=02:00:00",
+          "--job-name=early-fine-data",
+          "--output=/orcd/pool/008/jrusak/early-fine-20261007/logs/prepare-%A_%a.out",
+          "--error=/orcd/pool/008/jrusak/early-fine-20261007/logs/prepare-%A_%a.err",
+          "/orcd/pool/008/jrusak/early-fine-20261007/code/87d49ee7d72607ad96a90286d6e302075bb97aa2/scripts/slurm_early_fine_engaging.sbatch",
+          "/orcd/pool/008/jrusak/early-fine-20261007",
+          "/orcd/pool/008/jrusak/early-fine-20261007/code/87d49ee7d72607ad96a90286d6e302075bb97aa2",
+          "prepare",
+          "87d49ee7d72607ad96a90286d6e302075bb97aa2"
+        ]
+      },
+      {
+        "stage": "qualify",
+        "job_id": "25185474",
+        "command": [
+          "sbatch",
+          "--parsable",
+          "--account=mit_general",
+          "--qos=normal",
+          "--nodes=1",
+          "--ntasks=1",
+          "--partition=mit_preemptable",
+          "--gres=gpu:h200:1",
+          "--cpus-per-task=16",
+          "--mem=96G",
+          "--time=02:00:00",
+          "--array=0-3%4",
+          "--export=ALL,GPU_ENABLED=1",
+          "--dependency=afterok:25185472",
+          "--job-name=early-fine-qual",
+          "--output=/orcd/pool/008/jrusak/early-fine-20261007/logs/qualify-%A_%a.out",
+          "--error=/orcd/pool/008/jrusak/early-fine-20261007/logs/qualify-%A_%a.err",
+          "/orcd/pool/008/jrusak/early-fine-20261007/code/87d49ee7d72607ad96a90286d6e302075bb97aa2/scripts/slurm_early_fine_engaging.sbatch",
+          "/orcd/pool/008/jrusak/early-fine-20261007",
+          "/orcd/pool/008/jrusak/early-fine-20261007/code/87d49ee7d72607ad96a90286d6e302075bb97aa2",
+          "qualify",
+          "87d49ee7d72607ad96a90286d6e302075bb97aa2"
+        ]
+      },
+      {
+        "stage": "train",
+        "job_id": "25185475",
+        "command": [
+          "sbatch",
+          "--parsable",
+          "--account=mit_general",
+          "--qos=normal",
+          "--nodes=1",
+          "--ntasks=1",
+          "--partition=mit_preemptable",
+          "--gres=gpu:h200:1",
+          "--cpus-per-task=16",
+          "--mem=96G",
+          "--time=24:00:00",
+          "--array=0-3%4",
+          "--export=ALL,GPU_ENABLED=1",
+          "--dependency=afterok:25185474",
+          "--job-name=early-fine-train",
+          "--output=/orcd/pool/008/jrusak/early-fine-20261007/logs/train-%A_%a.out",
+          "--error=/orcd/pool/008/jrusak/early-fine-20261007/logs/train-%A_%a.err",
+          "/orcd/pool/008/jrusak/early-fine-20261007/code/87d49ee7d72607ad96a90286d6e302075bb97aa2/scripts/slurm_early_fine_engaging.sbatch",
+          "/orcd/pool/008/jrusak/early-fine-20261007",
+          "/orcd/pool/008/jrusak/early-fine-20261007/code/87d49ee7d72607ad96a90286d6e302075bb97aa2",
+          "train",
+          "87d49ee7d72607ad96a90286d6e302075bb97aa2"
+        ]
+      }
+    ]
+  },
+  "paths.json": {
+    "producer": "c4d726764be3909156ad5fbf1d5fc3ecb158c425",
+    "archive_sha256": "9cce693c55bc325e83c05f685937b77dd9778b10ff1c997d79a943872da0ea23",
+    "global_om4": "/orcd/data/abodner/002/jrusak/om4_onedeg_v3",
+    "fine_om4": "/orcd/data/abodner/002/jrusak/om4_quarterdeg",
+    "observations": "/orcd/pool/008/jrusak/early-fine-20261007/observations",
+    "observation_source": "/orcd/pool/008/jrusak/diffusion-interior-engaging/data/observation-bundles/samples",
+    "early_data": "/orcd/pool/008/jrusak/early-fine-20261007/early-data",
+    "joint_hours": 24,
+    "training_hours_gate": 20
+  },
+  "runtime-contract.json": {
+    "image_sha256": "08e81775209ac46315f8e65e854750147644f806fd3af6a6dd5d9d4df8a54008",
+    "modules": {
+      "torch": {
+        "version": "2.12.0a0+0291f960b6.nv26.04.48445190",
+        "binaries": {}
+      },
+      "numpy": {
+        "version": "1.26.4",
+        "binaries": {}
+      },
+      "zarr": {
+        "version": "2.18.7",
+        "binaries": {}
+      },
+      "gsw": {
+        "version": "3.6.20",
+        "binaries": {
+          "/orcd/pool/008/jrusak/early-fine-20261007/runtime/gsw/_gsw_ufuncs.cpython-312-x86_64-linux-gnu.so": "a68285c6aa46aac465e69767d0463801ef8f7dc37fb1405559705a6ab0de7d29"
+        }
+      },
+      "cftime": {
+        "version": "1.6.4.post1",
+        "binaries": {
+          "/workspace/.venv/lib/python3.12/site-packages/cftime/_cftime.cpython-312-x86_64-linux-gnu.so": "bae798596f73dd75f4a85fb457f847ae87e43a5a05a37c06b0b55018579d22bd"
+        }
+      },
+      "samudra_rust_loader": {
+        "version": null,
+        "binaries": {
+          "/workspace/.venv/lib/python3.12/site-packages/samudra_rust_loader/samudra_rust_loader.cpython-312-x86_64-linux-gnu.so": "6710243ce96fb9df5c5227efc94014ec3984fa7ccd2511c1a9d81a44ad4f46ab"
+        }
+      }
+    }
+  },
+  "observations/DATA_READY.json": {
+    "verification": "all 350 NPZ files checked against source SHA256SUMS",
+    "source_sha256sums": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+    "verified_at": "2026-10-07T18:58:15.219348+00:00"
+  },
+  "early-data/READY.json": {
+    "producer": "87d49ee7d72607ad96a90286d6e302075bb97aa2",
+    "metadata_sha256": {
+      "coarse": "8c4e12bbb43cf70826d406d6910461e1b287835e5f7f27729a2eb8d545c4a19c",
+      "fine": "1b430134a5f1aadebace8b3457b6b4be12dfc9523589df06c8e112a7784170fe"
+    },
+    "sources": {
+      "coarse": {
+        "first": "1958-01-03 12:00:00",
+        "last": "2022-12-29 12:00:00",
+        "early_frames": 1241,
+        "early_chunks_size_checked": 99280,
+        "early_payload_bytes": 25733376000,
+        "finite_sample_frames": [
+          0,
+          620,
+          1240
+        ]
+      },
+      "fine": {
+        "first": "1958-01-03 12:00:00",
+        "last": "2022-12-29 12:00:00",
+        "early_frames": 1241,
+        "early_chunks_size_checked": 99280,
+        "early_payload_bytes": 411734016000,
+        "finite_sample_frames": [
+          0,
+          620,
+          1240
+        ]
+      }
+    },
+    "coarse": "/orcd/data/abodner/002/jrusak/om4_onedeg_v3",
+    "fine": "/orcd/data/abodner/002/jrusak/om4_quarterdeg"
+  },
+  "checked_at": "2026-10-07T19:03:34.587072+00:00",
+  "sacct": "JobID|State|Elapsed|AllocTRES\n25185472|COMPLETED|00:04:28|billing=8,cpu=8,mem=32G,node=1\n25185472.batch|COMPLETED|00:04:28|cpu=8,mem=32G,node=1\n25185472.extern|COMPLETED|00:04:28|billing=8,cpu=8,mem=32G,node=1\n25185472.0|COMPLETED|00:04:27|cpu=8,mem=32G,node=1\n25185474_[0-3%4]|CANCELLED by 205060|00:00:00|\n25185475_[0-3%4]|CANCELLED by 205060|00:00:00|\n25185999_[0-3%4]|PENDING|00:00:00|\n25186000_[0-3%4]|PENDING|00:00:00|\n",
+  "squeue": "                 JOBID      STATE               NODELIST(REASON)\n      25186000_[0-3%4]    PENDING                   (Dependency)\n      25185999_[0-3%4]    PENDING                     (Priority)\n"
+}

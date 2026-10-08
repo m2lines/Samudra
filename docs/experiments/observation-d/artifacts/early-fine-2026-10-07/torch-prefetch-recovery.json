@@ -1,0 +1,240 @@
+{
+  "io-result": {
+    "start_step": 746,
+    "end_step": 770,
+    "seconds": 308.35846862080507,
+    "timings": {
+      "recent": [
+        5.941935851005837,
+        5.679033424006775,
+        5.233630228089169,
+        5.400634667137638,
+        5.635338557884097,
+        5.197041861945763,
+        4.806675022933632,
+        4.830835320055485,
+        5.253742387983948
+      ],
+      "early": [
+        26.357826529070735,
+        23.529603428207338,
+        23.754305882845074,
+        23.619380576070398,
+        22.229219823842868,
+        23.192655759863555,
+        22.71856958186254,
+        29.22334615397267,
+        24.4765349579975
+      ],
+      "observation": [
+        7.48222701693885,
+        6.41140269394964,
+        7.299284108914435,
+        5.630131479119882,
+        5.546668977010995,
+        6.1476635481230915
+      ]
+    },
+    "calls": {
+      "Samples.load": {
+        "n": 192,
+        "total": 87.27977118012495,
+        "mean": 0.4545821415631508
+      },
+      "EarlySamples.sample": {
+        "n": 72,
+        "total": 158.47788654617034,
+        "mean": 2.2010817575856993
+      }
+    },
+    "producer": "030c96ec7205ab87f38f9cdf132d07a282db7602"
+  },
+  "prefetch-submission": {
+    "producer": "b4c7c05f0a63c064980b91ec41962d88d313245c",
+    "job_id": "19422275",
+    "command": [
+      "sbatch",
+      "--parsable",
+      "--account=torch_pr_347_lzanna",
+      "--partition=rtx6000_lzanna",
+      "--nodes=1",
+      "--ntasks=1",
+      "--gres=gpu:1",
+      "--cpus-per-task=16",
+      "--mem=192G",
+      "--array=0-3%4",
+      "--time=01:00:00",
+      "--chdir=/scratch/jr7309",
+      "--job-name=early-fine-prefetch-qualify",
+      "--output=/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-prefetch/logs/qualify-%A_%a.out",
+      "--error=/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-prefetch/logs/qualify-%A_%a.err",
+      "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-prefetch/source/b4c7c05f0a63c064980b91ec41962d88d313245c/scripts/slurm_early_fine_engaging.sbatch",
+      "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-prefetch",
+      "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-prefetch/source/b4c7c05f0a63c064980b91ec41962d88d313245c",
+      "qualify",
+      "b4c7c05f0a63c064980b91ec41962d88d313245c"
+    ],
+    "archive_sha256": "0263604b50d1f94712b24b13e84737e7108612245e3ba47e0b450637569d435a",
+    "time": "2026-10-08T07:32:54.106165+00:00",
+    "production_submitted": false,
+    "source_audit": "inherited unchanged; no source data mutation",
+    "must_pass_before_production": [
+      "all four new fit/resume qualifications",
+      "exact checkpoint migration audit",
+      "sustained utilization check"
+    ]
+  },
+  "prefetch-checks": [
+    {
+      "stage": "copy_migration",
+      "job_id": "19422370",
+      "command": [
+        "sbatch",
+        "--parsable",
+        "--account=torch_pr_347_lzanna",
+        "--nodes=1",
+        "--ntasks=1",
+        "--chdir=/scratch/jr7309",
+        "--partition=cpu_short",
+        "--cpus-per-task=4",
+        "--mem=16G",
+        "--time=01:00:00",
+        "--dependency=afterok:19422275",
+        "--job-name=early-fine-copy-migration",
+        "--output=/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-prefetch/logs/migrate-%j.out",
+        "--error=/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-prefetch/logs/migrate-%j.err",
+        "--wrap",
+        "apptainer exec --bind /scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-prefetch/source/b4c7c05f0a63c064980b91ec41962d88d313245c:/pilot-code,/scratch:/scratch /scratch/jr7309/.apptainer-images/ghcr.io-m2lines-ocean-emulator-physicsnemo-26.05-9cd36b1bdcf4921fb027494afa4157e217818ccd.sif env PYTHONPATH=/pilot-code/src:/pilot-code:/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-prefetch/runtime /workspace/.venv/bin/python /scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-prefetch/migrate-early-fine-prefetch.py"
+      ]
+    },
+    {
+      "stage": "isolated_utilization",
+      "job_id": "19422371",
+      "command": [
+        "sbatch",
+        "--parsable",
+        "--account=torch_pr_347_lzanna",
+        "--nodes=1",
+        "--ntasks=1",
+        "--chdir=/scratch/jr7309",
+        "--partition=rtx6000_lzanna",
+        "--gres=gpu:1",
+        "--cpus-per-task=16",
+        "--mem=192G",
+        "--array=0-3%4",
+        "--time=00:45:00",
+        "--dependency=afterok:19422370",
+        "--job-name=early-fine-util-check",
+        "--output=/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-prefetch/logs/performance-%A_%a.out",
+        "--error=/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-prefetch/logs/performance-%A_%a.err",
+        "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-prefetch/performance-early-fine-prefetch.sbatch"
+      ]
+    }
+  ],
+  "prefetch-callbacks": [
+    {
+      "workload": "19422275",
+      "callback": "19422419",
+      "command": [
+        "sbatch",
+        "--parsable",
+        "--account=torch_pr_347_lzanna",
+        "--partition=cpu_short",
+        "--cpus-per-task=1",
+        "--mem=256M",
+        "--time=00:10:00",
+        "--dependency=afterany:19422275",
+        "--chdir=/scratch/jr7309",
+        "--job-name=prefetch-followup",
+        "--output=/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-prefetch/.followup/callback-%j.log",
+        "--wrap",
+        "python3 /scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-prefetch/.followup/send.py --credential-file /scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-prefetch/.followup/torch-19422275.json --retry-seconds 0 --status unknown --summary 'Prefetch recovery stage terminated; inspect actual accounting and gates.' --output /scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-prefetch"
+      ]
+    },
+    {
+      "workload": "19422370",
+      "callback": "19422425",
+      "command": [
+        "sbatch",
+        "--parsable",
+        "--account=torch_pr_347_lzanna",
+        "--partition=cpu_short",
+        "--cpus-per-task=1",
+        "--mem=256M",
+        "--time=00:10:00",
+        "--dependency=afterany:19422370",
+        "--chdir=/scratch/jr7309",
+        "--job-name=prefetch-followup",
+        "--output=/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-prefetch/.followup/callback-%j.log",
+        "--wrap",
+        "python3 /scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-prefetch/.followup/send.py --credential-file /scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-prefetch/.followup/torch-19422370.json --retry-seconds 0 --status unknown --summary 'Prefetch recovery stage terminated; inspect actual accounting and gates.' --output /scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-prefetch"
+      ]
+    },
+    {
+      "workload": "19422371",
+      "callback": "19422426",
+      "command": [
+        "sbatch",
+        "--parsable",
+        "--account=torch_pr_347_lzanna",
+        "--partition=cpu_short",
+        "--cpus-per-task=1",
+        "--mem=256M",
+        "--time=00:10:00",
+        "--dependency=afterany:19422371",
+        "--chdir=/scratch/jr7309",
+        "--job-name=prefetch-followup",
+        "--output=/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-prefetch/.followup/callback-%j.log",
+        "--wrap",
+        "python3 /scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-prefetch/.followup/send.py --credential-file /scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-prefetch/.followup/torch-19422371.json --retry-seconds 0 --status unknown --summary 'Prefetch recovery stage terminated; inspect actual accounting and gates.' --output /scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-prefetch"
+      ]
+    }
+  ],
+  "prefetch-startup": {
+    "time": "2026-10-08T07:39:02.908167+00:00",
+    "arms": {
+      "U-multitask-early": {
+        "latest": null,
+        "io_equal": false,
+        "qualified": false
+      },
+      "U-multitask-early-latent": {
+        "latest": null,
+        "io_equal": false,
+        "qualified": false
+      },
+      "U-multitask-early-fine": {
+        "latest": null,
+        "io_equal": false,
+        "qualified": false
+      },
+      "U-multitask-early-fine-latent": {
+        "latest": null,
+        "io_equal": false,
+        "qualified": false
+      }
+    },
+    "accounting": "JobID|State|ElapsedRaw|AllocTRES\n19410263_0|COMPLETED|672|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19410263_0.batch|COMPLETED|672|cpu=16,gres/gpu=1,mem=96G,node=1\n19410263_0.extern|COMPLETED|673|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19410263_0.0|COMPLETED|669|cpu=16,gres/gpu=1,mem=96G,node=1\n19410263_1|COMPLETED|647|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19410263_1.batch|COMPLETED|647|cpu=16,gres/gpu=1,mem=96G,node=1\n19410263_1.extern|COMPLETED|648|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19410263_1.0|COMPLETED|643|cpu=16,gres/gpu=1,mem=96G,node=1\n19410263_2|FAILED|535|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19410263_2.batch|FAILED|535|cpu=16,gres/gpu=1,mem=96G,node=1\n19410263_2.extern|COMPLETED|535|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19410263_2.0|FAILED|532|cpu=16,gres/gpu=1,mem=96G,node=1\n19410263_3|FAILED|373|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19410263_3.batch|FAILED|373|cpu=16,gres/gpu=1,mem=96G,node=1\n19410263_3.extern|COMPLETED|373|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19410263_3.0|FAILED|369|cpu=16,gres/gpu=1,mem=96G,node=1\n19411640_0|FAILED|438|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19411640_0.batch|FAILED|438|cpu=16,gres/gpu=1,mem=96G,node=1\n19411640_0.extern|COMPLETED|440|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19411640_0.0|FAILED|436|cpu=16,gres/gpu=1,mem=96G,node=1\n19411640_1|COMPLETED|516|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19411640_1.batch|COMPLETED|516|cpu=16,gres/gpu=1,mem=96G,node=1\n19411640_1.extern|COMPLETED|516|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19411640_1.0|COMPLETED|515|cpu=16,gres/gpu=1,mem=96G,node=1\n19411640_2|COMPLETED|558|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19411640_2.batch|COMPLETED|558|cpu=16,gres/gpu=1,mem=96G,node=1\n19411640_2.extern|COMPLETED|562|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19411640_2.0|COMPLETED|556|cpu=16,gres/gpu=1,mem=96G,node=1\n19411640_3|COMPLETED|717|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19411640_3.batch|COMPLETED|717|cpu=16,gres/gpu=1,mem=96G,node=1\n19411640_3.extern|COMPLETED|717|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19411640_3.0|COMPLETED|716|cpu=16,gres/gpu=1,mem=96G,node=1\n19412713_0|COMPLETED|513|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19412713_0.batch|COMPLETED|513|cpu=16,gres/gpu=1,mem=96G,node=1\n19412713_0.extern|COMPLETED|519|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19412713_0.0|COMPLETED|517|cpu=16,gres/gpu=1,mem=96G,node=1\n19412713_1|COMPLETED|517|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19412713_1.batch|COMPLETED|517|cpu=16,gres/gpu=1,mem=96G,node=1\n19412713_1.extern|COMPLETED|518|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19412713_1.0|COMPLETED|516|cpu=16,gres/gpu=1,mem=96G,node=1\n19412713_2|COMPLETED|558|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19412713_2.batch|COMPLETED|558|cpu=16,gres/gpu=1,mem=96G,node=1\n19412713_2.extern|COMPLETED|559|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19412713_2.0|COMPLETED|558|cpu=16,gres/gpu=1,mem=96G,node=1\n19412713_3|COMPLETED|548|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19412713_3.batch|COMPLETED|548|cpu=16,gres/gpu=1,mem=96G,node=1\n19412713_3.extern|COMPLETED|548|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19412713_3.0|COMPLETED|548|cpu=16,gres/gpu=1,mem=96G,node=1\n19412714_0|CANCELLED by 0|7722|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19412714_0.batch|CANCELLED|7726|cpu=16,gres/gpu=1,mem=96G,node=1\n19412714_0.extern|COMPLETED|7744|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19412714_0.0|FAILED|7734|cpu=16,gres/gpu=1,mem=96G,node=1\n19412714_1|CANCELLED by 0|7728|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19412714_1.batch|CANCELLED|7732|cpu=16,gres/gpu=1,mem=96G,node=1\n19412714_1.extern|COMPLETED|7738|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19412714_1.0|FAILED|7734|cpu=16,gres/gpu=1,mem=96G,node=1\n19412714_2|CANCELLED by 0|7733|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19412714_2.batch|CANCELLED|7736|cpu=16,gres/gpu=1,mem=96G,node=1\n19412714_2.extern|COMPLETED|7753|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19412714_2.0|FAILED|7740|cpu=16,gres/gpu=1,mem=96G,node=1\n19412714_3|CANCELLED by 0|7741|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19412714_3.batch|CANCELLED|7743|cpu=16,gres/gpu=1,mem=96G,node=1\n19412714_3.extern|COMPLETED|7753|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19412714_3.0|FAILED|7747|cpu=16,gres/gpu=1,mem=96G,node=1\n19421648|COMPLETED|649|billing=16,cpu=16,gres/gpu=1,mem=128G,node=1\n19421648.batch|COMPLETED|649|cpu=16,gres/gpu=1,mem=128G,node=1\n19421648.extern|COMPLETED|649|billing=16,cpu=16,gres/gpu=1,mem=128G,node=1\n19421648.0|COMPLETED|648|cpu=16,gres/gpu=1,mem=128G,node=1\n19422275_0|RUNNING|356|billing=16,cpu=16,gres/gpu=1,mem=192G,node=1\n19422275_0.batch|RUNNING|356|cpu=16,gres/gpu=1,mem=192G,node=1\n19422275_0.extern|RUNNING|356|billing=16,cpu=16,gres/gpu=1,mem=192G,node=1\n19422275_0.0|RUNNING|355|cpu=16,gres/gpu=1,mem=192G,node=1\n19422275_1|RUNNING|350|billing=16,cpu=16,gres/gpu=1,mem=192G,node=1\n19422275_1.batch|RUNNING|350|cpu=16,gres/gpu=1,mem=192G,node=1\n19422275_1.extern|RUNNING|350|billing=16,cpu=16,gres/gpu=1,mem=192G,node=1\n19422275_1.0|RUNNING|348|cpu=16,gres/gpu=1,mem=192G,node=1\n19422275_2|RUNNING|237|billing=16,cpu=16,gres/gpu=1,mem=192G,node=1\n19422275_2.batch|RUNNING|237|cpu=16,gres/gpu=1,mem=192G,node=1\n19422275_2.extern|RUNNING|237|billing=16,cpu=16,gres/gpu=1,mem=192G,node=1\n19422275_2.0|RUNNING|237|cpu=16,gres/gpu=1,mem=192G,node=1\n19422275_3|RUNNING|235|billing=16,cpu=16,gres/gpu=1,mem=192G,node=1\n19422275_3.batch|RUNNING|235|cpu=16,gres/gpu=1,mem=192G,node=1\n19422275_3.extern|RUNNING|235|billing=16,cpu=16,gres/gpu=1,mem=192G,node=1\n19422275_3.0|RUNNING|235|cpu=16,gres/gpu=1,mem=192G,node=1\n19422371_[0-3%4]|PENDING|0|\n"
+  },
+  "scripts": {
+    "migrate-early-fine-prefetch.py": {
+      "sha256": "9ef47482c503f1e0a3363e04bad50caa125a49cf899a0bcb1eaf826843f65bdb",
+      "source": "\"\"\"Explicit, one-time copy-only producer migration. Never modifies the old root.\"\"\"\nimport copy,hashlib,json,os,pathlib,shutil,torch\nfrom samudra.experiments.observation_joint import assert_exact_state\nfrom samudra.experiments.observation_pilot import atomic_json,atomic_torch,digest\nfrom scripts.run_early_fine_wave import ARMS\nold=pathlib.Path('/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-replay')\nnew=old.parent/'recovery-prefetch'\nold_producer='030c96ec7205ab87f38f9cdf132d07a282db7602'\nproducer='b4c7c05f0a63c064980b91ec41962d88d313245c'\nassert json.loads((new/'paths.json').read_text())['producer']==producer\n# New fitting, exact replay and I/O equality gates must pass for every arm.\nfor arm,(architecture,latent) in ARMS.items():\n probe=new/('probe-'+arm)\n q=json.loads((probe/'JOINT_QUALIFIED.json').read_text())\n assert q['resume_verified'] and q['contract']['code_commit']==producer\n assert json.loads((probe/'IO_EQUIVALENT.json').read_text())['cpu_arrays_exact']\n assert json.loads((probe/'THROUGHPUT.json').read_text())['training_hours_for_4000_updates']<=20\n fit=json.loads((new/f'fit-{architecture}-{latent}/QUALIFIED.json').read_text())\n assert fit['code_commit']==producer\nreceipts=[]\nfor arm in ARMS:\n src=old/arm;dst=new/arm\n if dst.exists():raise FileExistsError('Refusing to overwrite a resumed arm: '+str(dst))\n dst.mkdir()\n manifest=json.loads((src/'manifest.json').read_text())\n assert manifest['code_commit']==old_producer\n migrated=copy.deepcopy(manifest);migrated['code_commit']=producer\n changes={}\n for key in ['output','qualification','joint_qualification','selection_reference']:\n  value=manifest['arguments'][key]\n  assert value.startswith(str(old)+'/'),(key,value)\n  updated=str(new)+value[len(str(old)):]\n  migrated['arguments'][key]=updated;changes[key]={'old':value,'new':updated}\n for p in src.iterdir():\n  if p.is_file() and p.name not in ['joint-last.pt','manifest.json','PREEMPTED.json']:\n   shutil.copy2(p,dst/p.name)\n   assert digest(p)==digest(dst/p.name)\n checkpoint=torch.load(src/'joint-last.pt',map_location='cpu',weights_only=False)\n assert_exact_state(checkpoint['manifest'],manifest)\n old_sha=digest(src/'joint-last.pt')\n checkpoint['manifest']=migrated\n atomic_torch(checkpoint,dst/'joint-last.pt')\n restored=torch.load(dst/'joint-last.pt',map_location='cpu',weights_only=False)\n assert_exact_state(restored,checkpoint)\n # Re-read the retained source to verify all non-manifest state exactly.\n original=torch.load(src/'joint-last.pt',map_location='cpu',weights_only=False)\n assert original.keys()==restored.keys()\n for key in original:\n  if key!='manifest':assert_exact_state(restored[key],original[key])\n assert digest(src/'joint-last.pt')==old_sha\n atomic_json(migrated,dst/'manifest.json')\n receipt={'arm':arm,'old_producer':old_producer,'producer':producer,'source':str(src/'joint-last.pt'),'source_sha256':old_sha,'destination_sha256':digest(dst/'joint-last.pt'),'global_step':checkpoint['global_step'],'task_counts':checkpoint['task_counts'],'elapsed_seconds':checkpoint['elapsed_seconds'],'changes':{'code_commit':{'old':old_producer,'new':producer},'arguments':changes},'all_other_checkpoint_state_exact':True,'source_unchanged':True}\n atomic_json(receipt,dst/'MIGRATION.json');receipts.append(receipt)\n del original,restored,checkpoint\natomic_json({'migrations':receipts,'scientific_changes':False},new/'MIGRATION_COMPLETE.json')\nprint(json.dumps(receipts),flush=True)\n# Separate copies for the diagnostic, whose mount keeps all production read-only.\nfor arm in ARMS:\n target=new/'performance'/arm\n target.mkdir(parents=True)\n for name in ['joint-last.pt','manifest.json']:\n  shutil.copyfile(new/arm/name,target/name)\n  assert digest(new/arm/name)==digest(target/name)\n  assert (new/arm/name).stat().st_ino != (target/name).stat().st_ino\natomic_json({'copies_verified':list(ARMS)},new/'performance/COPIES_VERIFIED.json')\n"
+    },
+    "performance-early-fine-prefetch.py": {
+      "sha256": "4f46ac3c54d091b8a56c7461a26cf558469ede8f29a7bb0888569d2946d9dc92",
+      "source": "\"\"\"Measure an isolated resume copy; no diagnostic weights enter production.\"\"\"\nimport argparse,json,os,pathlib,statistics,threading,time\nimport pynvml\nimport torch\nfrom samudra.experiments.early_fine_training import EarlyPilot\nfrom samudra.experiments.observation_pilot import atomic_json\narm=pathlib.Path(os.environ['PROFILE_ARM'])\nargs=argparse.Namespace(**json.loads((arm/'manifest.json').read_text())['arguments'])\npilot=EarlyPilot(args)\npynvml.nvmlInit()\ngpu_uuid=str(torch.cuda.get_device_properties(0).uuid)\nhandle=pynvml.nvmlDeviceGetHandleByUUID(gpu_uuid)\ninitial=pilot.completed\ntry:\n for future in pilot.observation_warm:future.result()\n for _ in range(20):pilot.train_update()\n pilot.timings={k:[] for k in ['recent','early','observation']}\n readings=[];stop=threading.Event()\n def monitor():\n  while not stop.is_set():\n   readings.append({'time':time.time(),'gpu_percent':pynvml.nvmlDeviceGetUtilizationRates(handle).gpu})\n   stop.wait(1)\n thread=threading.Thread(target=monitor);thread.start()\n begin=time.monotonic()\n try:\n  for _ in range(80):pilot.train_update()\n  torch.cuda.synchronize()\n finally:\n  stop.set();thread.join()\n elapsed=time.monotonic()-begin\n mean=statistics.mean(v['gpu_percent'] for v in readings)\n result={'arm':arm.name,'producer':os.environ['SAMUDRA_CODE_COMMIT'],'initial_step':initial,'final_step':pilot.completed,'warmup_updates':20,'measured_updates':80,'measured_seconds':elapsed,'gpu_uuid':gpu_uuid,'gpu_utilization_mean':mean,'gpu_utilization_last_half_mean':statistics.mean(v['gpu_percent'] for v in readings[len(readings)//2:]),'gpu_samples':readings,'timings':pilot.timings,'promote_diagnostic_weights':False,'utilization_gate_passed':mean>=50}\n atomic_json(result,arm/'PERFORMANCE_COMPLETE.json')\n print(json.dumps({k:v for k,v in result.items() if k not in ['gpu_samples','timings']}),flush=True)\n if mean<50:raise RuntimeError('Measured GPU utilization remains below 50%; production stays blocked')\nfinally:\n pilot.early.prefetch.close();pilot.early.pool.shutdown(wait=True,cancel_futures=True)\n pilot.observation_warm_pool.shutdown(wait=True,cancel_futures=True)\n if pilot.wandb:pilot.wandb.finish()\n"
+    },
+    "performance-early-fine-prefetch.sbatch": {
+      "sha256": "e7cfe5265bf4d14b5345c4a174308ce4a08058bb9bc20ee546ad80695c00e797",
+      "source": "#!/bin/bash -l\nset -euo pipefail\nroot=/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-prefetch\ncode=$root/source/b4c7c05f0a63c064980b91ec41962d88d313245c\nexport SAMUDRA_CODE_COMMIT=b4c7c05f0a63c064980b91ec41962d88d313245c\nexport SAMUDRA_RUNTIME_SHA256=$(sha256sum \"$root/runtime-contract.json\" | cut -d ' ' -f1)\nexport OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 PYTHONUNBUFFERED=1 PYTHONNOUSERSITE=1\narms=(U-multitask-early U-multitask-early-latent U-multitask-early-fine U-multitask-early-fine-latent)\narm=${arms[$SLURM_ARRAY_TASK_ID]}\nexport PROFILE_ARM=$root/$arm\nimage=/scratch/jr7309/.apptainer-images/ghcr.io-m2lines-ocean-emulator-physicsnemo-26.05-9cd36b1bdcf4921fb027494afa4157e217818ccd.sif\n# Production and original attempts are read-only. Only independent diagnostic\n# copies and the per-job local cache are writable inside this container.\nsrun apptainer exec --nv --bind \"$code:/pilot-code:ro,/scratch:/scratch:ro,$root/performance/$arm:$PROFILE_ARM:rw,$SLURM_TMPDIR:$SLURM_TMPDIR\" \"$image\" env PYTHONPATH=\"/pilot-code/src:/pilot-code:$root/runtime\" /workspace/.venv/bin/python \"$root/performance-early-fine-prefetch.py\"\n"
+    }
+  },
+  "tests": "39 targeted tests pass; Ruff and shell syntax checks pass",
+  "callback_events": {
+    "19422275": "a5e99721-56fc-410d-a43f-0b0446c479de",
+    "19422370": "305dbf97-ba7a-4313-a70b-f56aecb755f0",
+    "19422371": "1a47f1cd-7b2f-4e98-a9dd-2d76dee081c1"
+  },
+  "gpu_hours_at_snapshot": 10.928611111111111
+}

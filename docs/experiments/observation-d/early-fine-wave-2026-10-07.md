@@ -415,3 +415,70 @@ CPU completion callback **19421734** depends on `afterany:19421648`, with
 registration `37121c37-5a02-4507-9e75-d5723c73f541` and the durable local
 `early-fine-torch-io-callback-relay.service` for Torch's blocked HTTPS egress.
 [Cancellation and utilization evidence](artifacts/early-fine-2026-10-07/torch-root-cancellation.json).
+
+## October 8: measured loader stalls and prefetch recovery
+
+Diagnostic callback `37121c37-5a02-4507-9e75-d5723c73f541` was verified:
+job **19421648 completed successfully**, using 649 allocated GPU-seconds.
+Its separate checkpoint copy advanced from 746 to 770; those updates are
+**not** included in production progress. The 24 measured updates took
+308.36 seconds. Timed loader calls accounted for 158.48 seconds (51.4%) in
+fine OM4 sampling and 87.28 seconds (28.3%) in observation loading. Observation
+cache misses included about 59 seconds of NPZ decompression. This is a short,
+instrumented run with initially cold observation caches, not an estimate that
+80% of a warmed production run is necessarily lost to loading. It nevertheless
+identifies substantial avoidable GPU-idle work.
+
+Tested producer **`b4c7c05f0a63c064980b91ec41962d88d313245c`** changes only
+I/O execution and its checks:
+
+- Prefetch CPU arrays for the next two early OM4 updates, using the exact
+  existing per-example seeds and consumption order. CUDA preprocessing remains
+  on the training thread; prefetch consumes no model RNG state.
+- Copy native early-data chunks into each job's local SSD cache as they are
+  requested. Every copied chunk is read back and compared byte-for-byte before
+  it becomes visible. Source datasets remain unchanged.
+- Warm the existing bounded observation cache in the background. No observation
+  fields, masks, normalization, loss terms, or temporal splits change.
+- Add an exact serial-versus-prefetched CPU-array check during qualification.
+  Existing fit, gradient-routing, five-native/five-serialized replay, and
+  throughput gates remain required.
+
+**39 targeted tests pass**, including original channel/time layout, explicit
+seed/replay order, unchanged NumPy RNG, cache readback/missing-key behavior,
+and propagation of asynchronous read errors. Ruff and shell syntax checks pass.
+Each GPU job now requests 192 GB host memory for the bounded lookahead and
+observation cache. Torch rejected a 24-CPU request before allocation; a
+16-CPU request passed `sbatch --test-only` and was used. No GPU time was
+charged for that rejected submission.
+
+The recovery uses isolated root
+`/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-prefetch`:
+
+| Stage | Job | Required outcome |
+|---|---|---|
+| All four fresh qualifications | 19422275 | Fit, I/O equality, numerical replay, and throughput pass |
+| CPU checkpoint-copy audit | 19422370 | All four qualifications pass; original checkpoints remain unchanged |
+| Four isolated utilization checks | 19422371 | 20 warmup + 80 measured updates; mean allocated-GPU utilization ≥50% |
+
+Dependencies are `afterok` at each transition. **Production has not been
+resubmitted.** The copy audit permits only a producer update and relocation of
+four run/qualification paths in checkpoint manifests. It verifies all other
+checkpoint contents exactly, including model weights, optimizer, CPU/CUDA/NumPy
+RNG, task counts, and accumulated elapsed time. Original attempts remain intact.
+Utilization checks receive separate verified copies, with production mounted
+read-only; their weights will not be promoted. Resumed production must start
+from the retained 1,800 / 1,836 / 758 / 746 update checkpoints after all gates pass.
+
+At 03:39 ET, all four qualifications were running; migration and utilization
+checks were waiting on dependencies. No new qualification or utilization
+success is claimed. Completed attempts through the diagnostic account for
+**10.6014 GPU-hours**. Including the running qualifications at the 03:39 ET
+snapshot gives **10.9286 GPU-hours**; pending stages have consumed none.
+CPU callbacks **19422419/19422425/19422426** and the verified local
+`early-fine-torch-prefetch-callback-relay.service` cover each stage.
+[Profile, submission commands, audit/performance scripts, and accounting](artifacts/early-fine-2026-10-07/torch-prefetch-recovery.json).
+
+At 03:40 ET, both coarse qualification probes had finite real training losses
+and gradients; the fine probes were still warming their OM4 device caches.
+Fresh probe losses are qualification diagnostics, not resumed-model results.

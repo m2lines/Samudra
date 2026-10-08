@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791404810924,
+  "lastUpdate": 1791472596244,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -12813,6 +12813,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 1.7909880292294242",
             "extra": "mean: 19.933573953199982 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse+bot@openathena.ai",
+            "name": "oa-jder-bot",
+            "username": "oa-jder-bot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6b88f2c0204828ef77d41b3ab2733679615f53e8",
+          "message": "Run full post-training evaluation and preserve dry-cell masks (#917)\n\nPost-training checkpoint sweeps bypassed observation scoring, and the\nrollout writer represented dry cells as finite zeros. This could omit\nobservation results or count land and absent deep levels as water when\nscoring saved predictions.\n\nUse the shared `Eval.run()` path for configured checkpoint sweeps,\nreturn observation scalars into `evals/summary.json`, and preserve dry\ncells as NaN in new prediction stores. Configured observation CSVs and\nW&B logging follow the standalone evaluation path, with cleanup on\nfailure. `standalone_inference()` remains the rollout implementation\ncalled by `run()`.\n\nTraining presets remain unchanged; the evaluation docs include an opt-in\npost-training configuration. The evaluation documentation now explains\nhow to score saved predictions locally or in a separate CPU job with `uv\nrun samudra metrics`, including matching configs/output paths, deferring\ninline observation scoring, CSV output, and masking older stores. The\nmetrics-only CLI does not upload results to W&B.\n\nMotivated by experiment #915; see [the corrected observational\nresults](https://github.com/m2lines/Samudra/pull/915#issuecomment-6048355935).\n\nValidation: 78 focused writer, evaluation, sweep, and configuration\ntests pass. The documented CLI arguments were parsed and their resolved\nprediction directory checked; the new `samudra metrics --help` entry\npoint also succeeds. Local pre-commit checks pass. No new full training\nrun was performed for this revision.",
+          "timestamp": "2026-10-08T14:47:14Z",
+          "tree_id": "64c671ae9c3e851ed1420497fc182dffac18a124",
+          "url": "https://github.com/m2lines/Samudra/commit/6b88f2c0204828ef77d41b3ab2733679615f53e8"
+        },
+        "date": 1791472594492,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.9310015590185311,
+            "unit": "iter/sec",
+            "range": "stddev: 0.002307490242067456",
+            "extra": "mean: 1.0741120573999978 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_dataset__1gb[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.3341668640323562,
+            "unit": "iter/sec",
+            "range": "stddev: 0.13083877754897666",
+            "extra": "mean: 2.992516935799995 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.05544499782391406,
+            "unit": "iter/sec",
+            "range": "stddev: 0.06117745113299667",
+            "extra": "mean: 18.035892131800004 sec\nrounds: 5"
           }
         ]
       }

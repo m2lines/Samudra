@@ -13,6 +13,38 @@ from samudra.experiments.observation_annual import inputs, month_weights
 from samudra.experiments.observation_model import ObservationTransfer
 
 
+def test_annual_relocated_data_rejects_changed_statistics(tmp_path):
+    from samudra.experiments.observation_annual import verify_sample_root
+    from samudra.experiments.observation_pilot import digest
+
+    manifest = {}
+    for name, key in [
+        ("manifest.json", "data_manifest_sha256"),
+        ("grid.npz", "grid_sha256"),
+        ("statistics.npz", "statistics_sha256"),
+    ]:
+        (tmp_path / name).write_bytes(name.encode())
+        manifest[key] = digest(tmp_path / name)
+    verify_sample_root(tmp_path, manifest)
+    (tmp_path / "statistics.npz").write_bytes(b"different normalization")
+    with pytest.raises(ValueError, match="statistics.npz"):
+        verify_sample_root(tmp_path, manifest)
+
+
+def test_annual_persistence_uses_last_initial_state_and_physical_units():
+    from samudra.experiments.observation_annual import persistence_surface
+
+    initial = torch.zeros(1, 2, 87, 2, 3)
+    initial[:, 0] = 999  # The preceding state must not enter persistence.
+    initial[:, 1, 38] = 4
+    initial[:, 1, 76] = 7
+    data = SimpleNamespace(physical=lambda x: x[:, :, :77] * 2 + 10)
+    result = persistence_surface(data, initial, 73)
+    assert result.shape == (73, 2, 2, 3)
+    np.testing.assert_array_equal(result[:, 0], 18)
+    np.testing.assert_array_equal(result[:, 1], 24)
+
+
 def test_annual_month_weights_cover_calendar_without_phase_reset():
     starts = pd.date_range("2013-11-01", periods=73, freq="5D")
     for month in pd.period_range("2013-11", "2014-10", freq="M"):

@@ -24,6 +24,23 @@ from samudra.metrics import kernels, spectra
 LEADS = [5, 15, 30, 90, 180, 365]
 
 
+def verify_sample_root(root, manifest):
+    """Permit relocated data only when all training data fingerprints match."""
+    for filename, key in (
+        ("manifest.json", "data_manifest_sha256"),
+        ("grid.npz", "grid_sha256"),
+        ("statistics.npz", "statistics_sha256"),
+    ):
+        if digest(Path(root) / filename) != manifest[key]:
+            raise ValueError(f"Annual sample data differs: {filename}")
+
+
+def persistence_surface(data, initial, steps):
+    """Hold the last inferred initial physical state, never future observations."""
+    surface = data.physical(initial[:, -1:])[0, 0, [38, 76]].cpu().numpy()
+    return np.broadcast_to(surface, (steps, *surface.shape)).copy()
+
+
 def month_weights(starts, month):
     first = pd.Period(month, freq="M").start_time
     last = first + pd.offsets.MonthBegin(1)
@@ -168,6 +185,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run", required=True)
     parser.add_argument("--annual-data", required=True)
+    parser.add_argument(
+        "--data", help="Relocated monthly data, verified against training hashes"
+    )
+    parser.add_argument("--include-persistence", action="store_true")
     parser.add_argument("--output", required=True)
     parser.add_argument("--checkpoint", default="best.pt")
     parser.add_argument("--split", choices=("validation", "test"), default="validation")
@@ -188,6 +209,8 @@ def main():
         parser.error("Fixed-budget evaluation requires both task counts")
     run, annual, output = Path(args.run), Path(args.annual_data), Path(args.output)
     manifest = json.loads((run / "manifest.json").read_text())
+    sample_root = args.data or manifest["arguments"]["data"]
+    verify_sample_root(sample_root, manifest)
     global_observations = args.global_observations or manifest["arguments"].get(
         "global_observations", False
     )
@@ -230,6 +253,12 @@ def main():
     }
     if fixed:
         signature["fixed_budget_lineage"] = lineage
+    if args.data or args.include_persistence:
+        signature.update(
+            sample_root=str(sample_root),
+            sample_manifest_sha256=digest(Path(sample_root) / "manifest.json"),
+            include_persistence=args.include_persistence,
+        )
     output.mkdir(parents=True, exist_ok=True)
     if (output / "input.json").exists() and json.loads(
         (output / "input.json").read_text()
@@ -237,13 +266,15 @@ def main():
         raise ValueError("Annual evaluation resume contract differs")
     atomic_json(signature, output / "input.json")
     data = Samples(
-        manifest["arguments"]["data"],
+        sample_root,
         "cuda",
         manifest["arguments"].get("surface_fill", "climatology"),
         global_observations=global_observations,
     )
     if manifest["normalization_mode"] == "observation-only":
         data.use_observation_normalization()
+    np.testing.assert_array_equal(data.grid["mean"], manifest["effective_mean"])
+    np.testing.assert_array_equal(data.grid["std"], manifest["effective_std"])
     model = (
         ObservationTransfer.from_arguments(
             data.grid["names"].tolist(), manifest["arguments"]
@@ -265,6 +296,9 @@ def main():
     for origin_path in origins:
         description, raw = read_origin(origin_path.parent)
         origin = description["origin"]
+        print(
+            json.dumps({"event": "annual_origin_start", "origin": origin}), flush=True
+        )
         with torch.inference_mode(), torch.autocast("cuda", dtype=torch.bfloat16):
             prediction, initial = model.forecast(*inputs(data, raw))
         if prediction.shape[1] != 73 or not torch.isfinite(prediction).all():
@@ -273,6 +307,12 @@ def main():
         surface = physical[0, :, [38, 76]].cpu().numpy()
         reference = np.concatenate([raw["surface"][19:], raw["velocity"][19:]], axis=1)
         result = surface_metrics(surface, reference, data)
+        persistence, persistence_arrays = None, {}
+        if args.include_persistence:
+            held_surface = persistence_surface(data, initial, 73)
+            persistence = surface_metrics(held_surface, reference, data)
+            held_ohc = data.ohc(initial[:, -1])[0]
+            persistence_arrays["persistence_surface"] = held_surface
         months, monthly_predictions, monthly_references = [], [], []
         area = data.area.cpu().numpy()
         for record in description["monthly_interiors"]:
@@ -292,6 +332,11 @@ def main():
                 label: weighted_rmse(ohc[i], truth[i], area)
                 for i, label in enumerate(("0_700", "700_2000"))
             }
+            if persistence is not None:
+                persistence.setdefault("monthly_ohc", {})[month] = {
+                    label: weighted_rmse(held_ohc[i], truth[i], area)
+                    for i, label in enumerate(("0_700", "700_2000"))
+                }
             months.append(month)
             monthly_predictions.append(ohc)
             monthly_references.append(truth)
@@ -299,6 +344,12 @@ def main():
             "Single initialization; 73 five-day steps; no future surface corrections"
         )
         atomic_json(result, output / f"{origin}.json")
+        if persistence is not None:
+            persistence["scope"] = (
+                "Selected model's final inferred initial state held fixed for 365 days"
+            )
+            atomic_json(persistence, output / f"{origin}-persistence.json")
+            persistence_arrays["persistence_ohc"] = held_ohc
         np.savez_compressed(
             output / f"{origin}.npz",
             surface=surface,
@@ -309,6 +360,7 @@ def main():
             months=months,
             predicted_ohc=np.array(monthly_predictions),
             reference_ohc=np.array(monthly_references),
+            **persistence_arrays,
             **(
                 {
                     "latent_initial": initial[0, :, model.physical_channels :]
@@ -327,6 +379,8 @@ def main():
             ),
         )
         results[origin] = {"metrics": f"{origin}.json", "arrays": f"{origin}.npz"}
+        if persistence is not None:
+            results[origin]["persistence"] = f"{origin}-persistence.json"
         print(
             json.dumps({"event": "annual_origin_complete", "origin": origin}),
             flush=True,

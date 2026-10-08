@@ -8,12 +8,11 @@ broader temporal coverage helps observation forecasts, whether learning from
 fine-resolution examples improves transfer, and whether fine supervision makes
 recurrent latent state more useful. No LLC data enter this wave.
 
-**Current status, October 8 at 05:35 ET:** all four observation-cache
-qualifications and the checkpoint-copy audit passed. The coarse utilization
-checks measured **61.0% and 64.5%**, above the 50% gate; the fine checks are
-training and have not reported final measurements. Production remains at
-**1,800 / 1,836 / 758 / 746** updates until all four checks pass. No final
-scientific comparison is available yet. See the latest entry below for evidence.
+**Current status, October 8 at 05:57 ET:** all qualification, checkpoint-copy
+and utilization checks passed. Production array **19426012** has two coarse
+allocations running and two fine arms queued for resources, using the audited
+**1,800 / 1,836 / 758 / 746** checkpoints. Diagnostic weights are excluded. No final scientific comparison
+is available yet. See the latest entry below for evidence and follow-up.
 
 ## Runs and matched exposure
 
@@ -741,3 +740,51 @@ snapshot. Both fine probes had reached finite real training updates (770 and
 positions only. Completed allocations total **14.0483 GPU-hours**; including
 running allocations at that snapshot gives **14.7733 GPU-hours**. The verified
 callback remains responsible for checking all final outputs and accounting.
+
+## October 8: all utilization checks passed; production resubmitted
+
+Callback `9b962e29-208e-4d1e-b4dc-c34f6911eac0` was verified against the
+complete measurement files and Slurm accounting. **All four tasks of
+19425444 completed successfully**, and every arm passed the fixed 50% mean
+GPU-utilization gate after 20 warmup plus 80 measured updates.
+
+| Model | Mean GPU utilization | Last-half mean | Measured 80 updates |
+|---|---:|---:|---:|
+| U-multitask-early | 61.04% | 60.70% | 207.79 s |
+| U-multitask-early-latent | 64.48% | 64.68% | 211.94 s |
+| U-multitask-early-fine | 54.58% | 55.52% | 311.43 s |
+| U-multitask-early-fine-latent | 52.67% | 53.78% | 331.15 s |
+
+The four allocations used **1.1336 GPU-hours** including startup, bringing
+completed attempts and retries to **14.9664 GPU-hours** before resumed
+production. These measurements exclude initial cache warmup and production
+validation, so full-run utilization still needs monitoring. They demonstrate
+operational recovery, not scientific forecast skill.
+
+The first production submission was rejected because completed predecessor
+19425444 had expired from Slurm's active job table. No job or GPU allocation
+was created. Its failure record and original helper are retained. The second
+helper removes only the stale scheduler dependency: it still requires all
+four successful `sacct` records, all qualification/audit/utilization evidence,
+and checkpoint hashes matching the audited production copies. The trainer,
+producer and scientific protocol are unchanged.
+
+Production/evaluation array **19426012_[0-3]** is now submitted with one RTX,
+16 CPUs and 192 GiB per arm, using the pinned producer
+`8c9a7403edbcd3a37fe09c3af687cbb99a62be85` and the existing `stage=train`
+runner. It resumes **1,800 / 1,836 / 758 / 746**, not the advanced diagnostic
+copies. It was queued for resources at the 05:54 ET snapshot. The short probes
+imply roughly 1.8 hours of remaining optimizer work per coarse arm and
+3.3–3.9 hours per fine arm, before queueing, startup, validation, checkpointing
+and final evaluation; these are estimates, not a promised completion time.
+
+CPU callback **19426015** (`afterany:19426012`), registration
+`7e96fa3f-f42a-4463-9858-88a0b6792069`, and the verified active
+`early-fine-torch-obscache-production-callback-relay.service` cover completion.
+[Final utilization, accounting, production submission and callback receipts](artifacts/early-fine-2026-10-07/torch-observation-cache-production.json).
+
+
+By 05:57 ET, the coarse array tasks 0 and 1 had started allocations on gr101;
+the fine tasks 2 and 3 remained queued. No pending job is counted as running
+training. A transient `QOSMaxGRESPerUser` reason reverted to `Resources`;
+no resource requests or jobs were replaced in response.

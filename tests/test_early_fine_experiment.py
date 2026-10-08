@@ -8,7 +8,7 @@ import torch
 from torch import nn
 
 from samudra.experiments import extent_models, initializer_models
-from samudra.experiments.early_fine_data import WetCoarsener
+from samudra.experiments.early_fine_data import WetCoarsener, load_grid_bounds
 from samudra.experiments.early_fine_models import FineEncoder
 from samudra.experiments.early_fine_training import fine_objective
 from samudra.experiments.observation_model import ObservationTransfer
@@ -31,6 +31,30 @@ def test_coarsener_preserves_wet_constant_and_does_not_count_land():
         remap.integrate(torch.ones(16, 32)).sum(),
         torch.tensor(4 * np.pi, dtype=torch.float32),
     )
+
+
+def test_published_gaussian_geometry_matches_centers_and_conserves_area(tmp_path):
+    from pathlib import Path
+
+    from samudra.experiments.observation_pilot import digest
+
+    base = Path(__file__).parent / "fixtures" / "early_fine_grids"
+    grids = {}
+    for key in ["coarse", "fine"]:
+        path = base / (key + "-bounds.npz")
+        with np.load(path) as data:
+            store = {k: data[k] for k in ["x", "y"]}
+        grids[key] = load_grid_bounds(store, path, digest(path))
+        with pytest.raises(ValueError, match="differs from qualification"):
+            load_grid_bounds(store, path, "wrong digest")
+        with pytest.raises(AssertionError):
+            load_grid_bounds({**store, "y": store["y"] + 0.01}, path)
+    coarsener = WetCoarsener(grids["fine"], grids["coarse"])
+    ones = torch.ones(720, 1440)
+    torch.testing.assert_close(
+        coarsener.integrate(ones).sum(), torch.tensor(4 * np.pi, dtype=torch.float32)
+    )
+    torch.testing.assert_close(coarsener(ones, ones.bool()), torch.ones(180, 360))
 
 
 @pytest.mark.parametrize("latent", [0, 10])

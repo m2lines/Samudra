@@ -10,8 +10,10 @@ from pathlib import Path
 
 import cftime
 import numpy as np
+import torch
 import zarr
 
+from samudra.experiments.early_fine_data import WetCoarsener, load_grid_bounds
 from scripts.verify_extent_observations import main as verify_observations
 
 
@@ -58,11 +60,20 @@ def main():
         != "c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c"
     ):
         raise ValueError("Selection reference differs from U-global")
-    receipt = {"producer": paths["producer"], "metadata_sha256": {}, "sources": {}}
+    receipt = {
+        "producer": paths["producer"],
+        "metadata_sha256": {},
+        "sources": {},
+        "grid_bounds": {},
+    }
+    grids = {}
     times = []
     for key, path in [("coarse", paths["global_om4"]), ("fine", paths["fine_om4"])]:
         p = Path(path)
         store = zarr.open_consolidated(str(p / "OM4.zarr"))
+        bounds = paths["grid_bounds"][key]
+        grids[key] = load_grid_bounds(store, bounds)
+        receipt["grid_bounds"][key] = {"path": bounds, "sha256": sha(bounds)}
         receipt[key] = str(p)
         receipt["metadata_sha256"][key] = sha(p / "OM4.zarr/.zmetadata")
         t = store["time"][:]
@@ -107,6 +118,15 @@ def main():
             "finite_sample_frames": [0, 620, 1240],
         }
     np.testing.assert_array_equal(*times)
+    coarsener = WetCoarsener(grids["fine"], grids["coarse"])
+    ones = torch.ones(len(grids["fine"]["y"]), len(grids["fine"]["x"]))
+    torch.testing.assert_close(
+        coarsener.integrate(ones).sum(), torch.tensor(4 * np.pi, dtype=torch.float32)
+    )
+    torch.testing.assert_close(
+        coarsener(ones, ones.bool()),
+        torch.ones(len(grids["coarse"]["y"]), len(grids["coarse"]["x"])),
+    )
     early = Path(paths["early_data"])
     early.mkdir(parents=True, exist_ok=True)
     target = early / "READY.json"

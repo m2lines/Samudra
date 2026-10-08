@@ -17,6 +17,37 @@ from samudra.experiments.observation_pilot import digest
 from samudra.experiments.surface_state import geographic_features
 
 
+def load_grid_bounds(store, path, expected_sha256=None):
+    """Use published corner geometry only when its centers match the data store."""
+    if expected_sha256 is not None and digest(path) != expected_sha256:
+        raise ValueError("Published grid geometry differs from qualification")
+    with np.load(path) as archive:
+        grid = {k: archive[k] for k in ["lat_b", "lon_b", "y", "x"]}
+    for center, corner, endpoints in [
+        ("y", "lat_b", (-90, 90)),
+        ("x", "lon_b", (0, 360)),
+    ]:
+        np.testing.assert_allclose(grid[center], store[center][:], rtol=0, atol=1e-10)
+        b = grid[corner]
+        if b.ndim != 1 or len(b) != len(grid[center]) + 1 or not np.all(np.diff(b) > 0):
+            raise ValueError("Malformed published grid bounds")
+        np.testing.assert_allclose(b[[0, -1]], endpoints, rtol=0, atol=1e-10)
+        if not np.all((grid[center] > b[:-1]) & (grid[center] < b[1:])):
+            raise ValueError("Grid centers lie outside published bounds")
+    return grid
+
+
+def rectilinear_edges(grid):
+    lat, lon = np.asarray(grid["lat_b"]), np.asarray(grid["lon_b"])
+    if lat.ndim == lon.ndim == 2:
+        if not np.allclose(lat, lat[:, :1]) or not np.allclose(lon, lon[:1, :]):
+            raise ValueError("Expected rectilinear bounds")
+        lat, lon = lat[:, 0], lon[0, :]
+    if lat.ndim != 1 or lon.ndim != 1:
+        raise ValueError("Expected one-dimensional cell edges")
+    return lat, lon
+
+
 def overlap(source, target):
     value = np.maximum(
         0,
@@ -31,8 +62,8 @@ def overlap(source, target):
 class WetCoarsener(nn.Module):
     def __init__(self, fine, coarse):
         super().__init__()
-        sy, sx = fine["lat_b"][:, 0], fine["lon_b"][0, :]
-        ty, tx = coarse["lat_b"][:, 0], coarse["lon_b"][0, :]
+        sy, sx = rectilinear_edges(fine)
+        ty, tx = rectilinear_edges(coarse)
         self.register_buffer(
             "y",
             torch.from_numpy(
@@ -106,9 +137,16 @@ class EarlySamples:
         lon = torch.tensor(self.store["x"][:], device=self.device, dtype=torch.float32)
         self.geo = geographic_features(self.lat, lon)
         self.weights = self.mask.float() * self.lat.deg2rad().cos()[None, :, None]
-        self.coarsen = (
-            WetCoarsener(self.store, coarse).to(self.device) if fine else None
-        )
+        self.coarsen = None
+        if fine:
+            geometry = ready["grid_bounds"]
+            grids = {
+                key: load_grid_bounds(
+                    store, geometry[key]["path"], geometry[key]["sha256"]
+                )
+                for key, store in [("fine", self.store), ("coarse", coarse)]
+            }
+            self.coarsen = WetCoarsener(grids["fine"], grids["coarse"]).to(self.device)
         # As in U-global, retain the original 1-degree forcing normalization.
         means = zarr.open_consolidated(str(Path(ready["coarse"]) / "OM4_means.zarr"))
         stds = zarr.open_consolidated(str(Path(ready["coarse"]) / "OM4_stds.zarr"))

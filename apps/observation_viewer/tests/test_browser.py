@@ -577,6 +577,15 @@ def test_new_annual_models_descriptions_persistence_and_profile_availability():
             "10 recurrent latent channels"
         )
         select(page, "view-select", "Initialized ocean interior")
+        verify_maps(
+            page,
+            catalog,
+            "interior",
+            "U-multitask-early-fine-latent",
+            "2015-01-01",
+            0,
+            9,
+        )
         select(page, "reference-select", "U-global")
         verify_maps(
             page,
@@ -589,7 +598,20 @@ def test_new_annual_models_descriptions_persistence_and_profile_availability():
             "U-global",
         )
         select(page, "view-select", "Monthly ocean heat content")
+        verify_maps(
+            page,
+            catalog,
+            "heat",
+            "U-multitask-early-fine-latent",
+            "2015-01-01",
+            0,
+            0,
+            original_heat=True,
+        )
         select(page, "model-select", "Mixed · 8,000 observation updates")
+        verify_maps(
+            page, catalog, "heat", "obs08000", "2015-01-01", 0, 0, original_heat=True
+        )
         select(page, "monthly-source-select", "Regenerated forecast + profiles")
         verify_maps(page, catalog, "heat", "obs08000", "2015-01-01", 0, 0)
         expect(page.locator(".section-direction")).to_be_visible()

@@ -79,6 +79,20 @@ The earlier annual verifier mistakenly compared file suffixes against `json`/`np
 
 Ruff, mypy, schema validation, secret detection, and ten targeted tests pass. The repository-wide REUSE hook has 47 pre-existing missing-license findings in unrelated report artifacts; new files include their licenses.
 
-**Submitted October 8:** CPU audit **19447443**, then annual evaluation array **19447444** (12 tasks, at most four concurrent RTX GPUs, one-hour cap per task). At submission both stages are pending; the GPU array requires successful audit. The existing early/fine array **19446317** completed all ten tasks, with three origin files per model; its output-hash audit is being repaired before reuse.
+**October 8 recovery:** audit **19447968 passed**, rehashing all 48 transferred
+source files, repeating the full data audit, and validating the ten existing
+annual outputs. Evaluation array **19447970** has begun real inference; its
+remaining tasks are waiting for RTX capacity (twelve tasks, at most four concurrent
+GPUs). The existing early/fine array **19446317** completed all ten tasks; five
+belong in this presentation comparison.
 
-[Submission and completion callback records](artifacts/presentation-annual-2026-10-08/submission.json). Completion callbacks **19447463/19447464** and the supervised SSH relay are installed for this conversation. The final report combines the twelve new models with the five original early/fine controls.
+The first audit **19447443** passed its data checks but failed at an unnecessary
+module-load command. Its dependent array **19447444** never started and used
+zero GPU-hours. The replacement changes only the launcher guard; numerical code,
+checkpoints, and evaluation protocol are unchanged. Original records are retained.
+
+[Original submission](artifacts/presentation-annual-2026-10-08/submission.json) ·
+[Recovery and completion callbacks](artifacts/presentation-annual-2026-10-08/recovery-submission.json).
+Callbacks **19448008/19448129** and the supervised SSH relay are installed. The
+final report will combine the twelve new models with the five original early/fine
+controls after checking complete outputs and hashes for every model.

@@ -241,3 +241,47 @@ NPZ checksums and the early-source audit passed again on Torch.
 Compute-node callback HTTPS check 19410286 timed out too. The installed local
 SSH relay supplies the completion-delivery route; CPU callback jobs save their
 event before attempting HTTPS, allowing identical replay through that relay.
+
+## October 8 qualification failure and bounds recovery
+
+Callbacks `37c06a82-364e-47b3-b9da-5492fe283e3e` and
+`0e550751-873b-467b-92c6-f6bf8a0efc7a` were handled together. Coarse arms
+19410263_0/1 completed mixed-task and disk-resume qualification; their estimated
+training times were 8.37 and 7.85 hours, respectively, with peaks of 71.68 GiB.
+Fine arms 19410263_2/3 failed in coarsener construction with `KeyError: lat_b`,
+before any joint training update. Production 19410264 was canceled by the
+scheduler after the failed dependency and used zero GPU time. First-attempt
+qualification usage was 0.6186 allocated GPU-hours, including both failures.
+[Accounting, failures and successful coarse checks](artifacts/early-fine-2026-10-07/torch-first-qualification.json).
+
+The consolidated OM4 stores retain center coordinates but omit corner geometry.
+The loader incorrectly assumed `lat_b` and `lon_b` were present. Recovery reads
+the original published Gaussian grid geometry from
+[180×360](https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/raw/grids/gaussian_grid_180_by_360.zarr/.zmetadata)
+and [720×1440](https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/raw/grids/gaussian_grid_720_by_1440.zarr/.zmetadata),
+checks that its centers match the data arrays, and binds file hashes into the
+readiness contract. The CPU audit now constructs the actual coarsener and checks
+full-sphere area and constant preservation before allowing GPU qualification.
+No inferred or interpolated replacement bounds are introduced.
+
+Fix producer: `bace89544af6bee819e9da480d7280c8d5e2b51f`. **33 targeted tests
+passed**, including published-grid, mismatch rejection, area, model, and resume
+tests; Ruff passed. All four arms requalify fresh in
+`/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-grid-bounds`. No old fit
+weights or qualification markers are promoted to the new producer. Original
+checkpoints, logs and contracts are preserved. Engaging jobs remain held and
+would also require this fix before any reuse.
+
+Recovery submissions: CPU audit **19411638**, qualification array
+**19411640_[0-3]**, production/evaluation array **19411643_[0-3]**. Their
+`afterok` chain again requires the audit and all four qualifications to succeed.
+Callbacks **19411674/19411675/19411679** use the corresponding `afterany`
+dependencies and the verified local
+`early-fine-torch-grid-callback-relay.service`. Initial state is queued;
+submission is not qualification or scientific success.
+[Recovery submission receipts](artifacts/early-fine-2026-10-07/torch-bounds-recovery.json).
+
+A direct lightweight CPU check in the pinned Torch container verified both
+published grids against the actual stored `x`/`y` arrays to absolute tolerance
+1e-10 degrees (180×360 and 720×1440). Full payload and coarsener preflight
+still run in audit 19411638; this coordinate check does not replace that gate.

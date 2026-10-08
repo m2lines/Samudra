@@ -1,0 +1,132 @@
+{
+  "submission.json": {
+    "producer": "bace89544af6bee819e9da480d7280c8d5e2b51f",
+    "submitted_at": "2026-10-08T04:17:35.472502+00:00",
+    "jobs": [
+      {
+        "stage": "prepare",
+        "job_id": "19411638",
+        "command": [
+          "sbatch",
+          "--parsable",
+          "--account=torch_pr_347_lzanna",
+          "--nodes=1",
+          "--ntasks=1",
+          "--chdir=/scratch/jr7309",
+          "--export=ALL",
+          "--job-name=early-fine-prepare",
+          "--output=/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-grid-bounds/logs/prepare-%A_%a.out",
+          "--error=/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-grid-bounds/logs/prepare-%A_%a.err",
+          "--partition=cpu_short",
+          "--cpus-per-task=8",
+          "--mem=32G",
+          "--time=02:00:00",
+          "--wrap",
+          "apptainer exec --bind /scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-grid-bounds/source/bace89544af6bee819e9da480d7280c8d5e2b51f:/pilot-code,/scratch:/scratch /scratch/jr7309/.apptainer-images/ghcr.io-m2lines-ocean-emulator-physicsnemo-26.05-9cd36b1bdcf4921fb027494afa4157e217818ccd.sif env PYTHONPATH=/pilot-code/src:/pilot-code:/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-grid-bounds/runtime /workspace/.venv/bin/python /scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-grid-bounds/prepare-early-fine-torch.py"
+        ]
+      },
+      {
+        "stage": "qualify",
+        "job_id": "19411640",
+        "command": [
+          "sbatch",
+          "--parsable",
+          "--account=torch_pr_347_lzanna",
+          "--nodes=1",
+          "--ntasks=1",
+          "--chdir=/scratch/jr7309",
+          "--export=ALL",
+          "--job-name=early-fine-qualify",
+          "--output=/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-grid-bounds/logs/qualify-%A_%a.out",
+          "--error=/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-grid-bounds/logs/qualify-%A_%a.err",
+          "--partition=rtx6000_lzanna",
+          "--gres=gpu:1",
+          "--cpus-per-task=16",
+          "--mem=96G",
+          "--array=0-3%4",
+          "--requeue",
+          "--signal=B:USR1@300",
+          "--time=02:00:00",
+          "--dependency=afterok:19411638",
+          "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-grid-bounds/source/bace89544af6bee819e9da480d7280c8d5e2b51f/scripts/slurm_early_fine_engaging.sbatch",
+          "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-grid-bounds",
+          "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-grid-bounds/source/bace89544af6bee819e9da480d7280c8d5e2b51f",
+          "qualify",
+          "bace89544af6bee819e9da480d7280c8d5e2b51f"
+        ]
+      },
+      {
+        "stage": "train",
+        "job_id": "19411643",
+        "command": [
+          "sbatch",
+          "--parsable",
+          "--account=torch_pr_347_lzanna",
+          "--nodes=1",
+          "--ntasks=1",
+          "--chdir=/scratch/jr7309",
+          "--export=ALL",
+          "--job-name=early-fine-train",
+          "--output=/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-grid-bounds/logs/train-%A_%a.out",
+          "--error=/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-grid-bounds/logs/train-%A_%a.err",
+          "--partition=rtx6000_lzanna",
+          "--gres=gpu:1",
+          "--cpus-per-task=16",
+          "--mem=96G",
+          "--array=0-3%4",
+          "--requeue",
+          "--signal=B:USR1@300",
+          "--time=24:00:00",
+          "--dependency=afterok:19411640",
+          "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-grid-bounds/source/bace89544af6bee819e9da480d7280c8d5e2b51f/scripts/slurm_early_fine_engaging.sbatch",
+          "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-grid-bounds",
+          "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-grid-bounds/source/bace89544af6bee819e9da480d7280c8d5e2b51f",
+          "train",
+          "bace89544af6bee819e9da480d7280c8d5e2b51f"
+        ]
+      }
+    ],
+    "replaces_failed_torch_arrays": [
+      "19410263",
+      "19410264"
+    ],
+    "scientific_changes": false
+  },
+  "callbacks.json": {
+    "callbacks": [
+      {
+        "workload": "19411638",
+        "callback": "19411674",
+        "dependency": "afterany:19411638"
+      },
+      {
+        "workload": "19411640",
+        "callback": "19411675",
+        "dependency": "afterany:19411640"
+      },
+      {
+        "workload": "19411643",
+        "callback": "19411679",
+        "dependency": "afterany:19411643"
+      }
+    ],
+    "registered_at": "2026-10-08T04:18:38.768020+00:00",
+    "delivery": "Saved exact event payloads relayed over SSH; direct HTTPS known blocked"
+  },
+  "paths.json": {
+    "producer": "bace89544af6bee819e9da480d7280c8d5e2b51f",
+    "archive_sha256": "2e7979d5d6d5bec491c103781f47bbf0fb0858055a8e46f3e61bfe3b8c26f985",
+    "global_om4": "/scratch/jr7309/data/om4_onedeg_v3",
+    "fine_om4": "/scratch/jr7309/data/om4_quarterdeg_v2",
+    "observations": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-grid-bounds/observations",
+    "observation_source": "/scratch/jr7309/data/obs-d-pilot",
+    "early_data": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-grid-bounds/early-data",
+    "joint_hours": 24,
+    "training_hours_gate": 20,
+    "image": "/scratch/jr7309/.apptainer-images/ghcr.io-m2lines-ocean-emulator-physicsnemo-26.05-9cd36b1bdcf4921fb027494afa4157e217818ccd.sif",
+    "grid_bounds": {
+      "coarse": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-grid-bounds/source/bace89544af6bee819e9da480d7280c8d5e2b51f/tests/fixtures/early_fine_grids/coarse-bounds.npz",
+      "fine": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-grid-bounds/source/bace89544af6bee819e9da480d7280c8d5e2b51f/tests/fixtures/early_fine_grids/fine-bounds.npz"
+    }
+  }
+}

@@ -1,0 +1,164 @@
+{
+  "checked_at": "2026-10-08T04:16:54.049734+00:00",
+  "sacct": "JobID|State|Elapsed|ExitCode\n19410261|COMPLETED|00:04:36|0:0\n19410261.batch|COMPLETED|00:04:36|0:0\n19410261.extern|COMPLETED|00:04:36|0:0\n19410263_0|COMPLETED|00:11:12|0:0\n19410263_0.batch|COMPLETED|00:11:12|0:0\n19410263_0.extern|COMPLETED|00:11:13|0:0\n19410263_0.0|COMPLETED|00:11:09|0:0\n19410263_1|COMPLETED|00:10:47|0:0\n19410263_1.batch|COMPLETED|00:10:47|0:0\n19410263_1.extern|COMPLETED|00:10:48|0:0\n19410263_1.0|COMPLETED|00:10:43|0:0\n19410263_2|FAILED|00:08:55|1:0\n19410263_2.batch|FAILED|00:08:55|1:0\n19410263_2.extern|COMPLETED|00:08:55|0:0\n19410263_2.0|FAILED|00:08:52|1:0\n19410263_3|FAILED|00:06:13|1:0\n19410263_3.batch|FAILED|00:06:13|1:0\n19410263_3.extern|COMPLETED|00:06:13|0:0\n19410263_3.0|FAILED|00:06:09|1:0\n19410264_[0-3%4]|CANCELLED by 0|00:00:00|0:0\n",
+  "qualifications": {
+    "probe-U-multitask-early/EXPOSURE.json": {
+      "om4_recent": 3,
+      "om4_early": 3,
+      "observation": 4
+    },
+    "probe-U-multitask-early/JOINT_QUALIFIED.json": {
+      "contract": {
+        "code_commit": "9efad7a45b1a9a328d19db888bb89f6b12d22291",
+        "runtime_extension_sha256": "ff904784233031f60809530a5520fb11b317052746cd8e4f25c674f12f5f09ba",
+        "data_manifest_sha256": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+        "om4_data": "/scratch/jr7309/data/om4_onedeg_v3",
+        "selection_reference_sha256": "c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c",
+        "normalization": "instance",
+        "evolution_architecture": "extent-unet",
+        "model_options": {
+          "initializer_architecture": "unet",
+          "surface_policy": "observed-only",
+          "task_conditioning": "input-adapters",
+          "latent_channels": 0
+        },
+        "surface_fill": "zero",
+        "completion_weight": 0.1,
+        "global_observations": true,
+        "reconstruction_weight": 0.1,
+        "accumulate": 8,
+        "core_lr": 0.0001,
+        "om4_lr": 0.0001,
+        "warmup_steps": 0,
+        "seed": 1729,
+        "early": {
+          "root": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/early-data",
+          "manifest_sha256": "1051c33169109baa1d77eae645453bb468fe60a1f50405c0f00a6b76a5cd068b",
+          "fine": false,
+          "period": [
+            "1958-01-03",
+            "1974-12-31"
+          ],
+          "fraction_of_om4": 0.5,
+          "fine_coarse_forecast_weights": [
+            0.5,
+            0.5
+          ]
+        }
+      },
+      "resume_verified": true,
+      "resume_evidence": {
+        "serialization_exact": true,
+        "restoration_exact": true,
+        "native_and_serialized_replay": {
+          "native_repeat": {
+            "rmse": 1.8134007412363712e-07,
+            "max_absolute": 0.00018617061141412705
+          },
+          "serialized": {
+            "rmse": 2.0276484626412552e-07,
+            "max_absolute": 0.00019277812680229545
+          }
+        },
+        "acceptance": "Serialized replay difference <= 5x native replay difference, with RMSE floor 1e-8 and maximum absolute floor 1e-7"
+      },
+      "task_counts": {
+        "om4": 6,
+        "observation": 4
+      },
+      "gpu": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+      "max_gpu_memory_gib": 71.677809715271
+    },
+    "probe-U-multitask-early/THROUGHPUT.json": {
+      "mean_seconds": {
+        "recent": 6.021525890333578,
+        "early": 13.44656247498157,
+        "observation": 5.335003225831315
+      },
+      "training_hours_for_4000_updates": 8.371693004716048,
+      "peak_gpu_gib": 71.677809715271,
+      "note": "Includes real I/O, backward and optimizer; excludes validation and initial cache warmup"
+    },
+    "probe-U-multitask-early-latent/EXPOSURE.json": {
+      "om4_recent": 3,
+      "om4_early": 3,
+      "observation": 4
+    },
+    "probe-U-multitask-early-latent/JOINT_QUALIFIED.json": {
+      "contract": {
+        "code_commit": "9efad7a45b1a9a328d19db888bb89f6b12d22291",
+        "runtime_extension_sha256": "ff904784233031f60809530a5520fb11b317052746cd8e4f25c674f12f5f09ba",
+        "data_manifest_sha256": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+        "om4_data": "/scratch/jr7309/data/om4_onedeg_v3",
+        "selection_reference_sha256": "c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c",
+        "normalization": "instance",
+        "evolution_architecture": "extent-unet",
+        "model_options": {
+          "initializer_architecture": "unet",
+          "surface_policy": "observed-only",
+          "task_conditioning": "input-adapters",
+          "latent_channels": 10
+        },
+        "surface_fill": "zero",
+        "completion_weight": 0.1,
+        "global_observations": true,
+        "reconstruction_weight": 0.1,
+        "accumulate": 8,
+        "core_lr": 0.0001,
+        "om4_lr": 0.0001,
+        "warmup_steps": 0,
+        "seed": 1729,
+        "early": {
+          "root": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/early-data",
+          "manifest_sha256": "1051c33169109baa1d77eae645453bb468fe60a1f50405c0f00a6b76a5cd068b",
+          "fine": false,
+          "period": [
+            "1958-01-03",
+            "1974-12-31"
+          ],
+          "fraction_of_om4": 0.5,
+          "fine_coarse_forecast_weights": [
+            0.5,
+            0.5
+          ]
+        }
+      },
+      "resume_verified": true,
+      "resume_evidence": {
+        "serialization_exact": true,
+        "restoration_exact": true,
+        "native_and_serialized_replay": {
+          "native_repeat": {
+            "rmse": 1.3315902073051811e-07,
+            "max_absolute": 9.759701788425446e-05
+          },
+          "serialized": {
+            "rmse": 0.0,
+            "max_absolute": 0.0
+          }
+        },
+        "acceptance": "Serialized replay difference <= 5x native replay difference, with RMSE floor 1e-8 and maximum absolute floor 1e-7"
+      },
+      "task_counts": {
+        "om4": 6,
+        "observation": 4
+      },
+      "gpu": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+      "max_gpu_memory_gib": 71.67926406860352
+    },
+    "probe-U-multitask-early-latent/THROUGHPUT.json": {
+      "mean_seconds": {
+        "recent": 5.643351658635463,
+        "early": 12.00453747692518,
+        "observation": 5.302364001477447
+      },
+      "training_hours_for_4000_updates": 7.847949205143205,
+      "peak_gpu_gib": 71.67926406860352,
+      "note": "Includes real I/O, backward and optimizer; excludes validation and initial cache warmup"
+    }
+  },
+  "errors": {
+    "2": "wandb: You can sync this run to the cloud by running:\nwandb: wandb sync /scratch/jr7309/runs/2026-10-08-early-fine-rtx/fit-fine-0/wandb/offline-run-20261007_235921-a4689f87721f\nwandb: Find logs at: ./runs/2026-10-08-early-fine-rtx/fit-fine-0/wandb/offline-run-20261007_235921-a4689f87721f/logs\nwandb: Using wandb-core as the SDK backend.  Please refer to https://wandb.me/wandb-core for more information.\nwandb: WARNING `resume` will be ignored since W&B syncing is set to `offline`. Starting a new run with run id 3ee04ef58623.\nwandb: Tracking run with wandb version 0.19.8\nwandb: W&B syncing is set to `offline` in this directory.  \nwandb: Run `wandb online` or set WANDB_MODE=online to enable cloud syncing.\nTraceback (most recent call last):\n  File \"<frozen runpy>\", line 198, in _run_module_as_main\n  File \"<frozen runpy>\", line 88, in _run_code\n  File \"/pilot-code/src/samudra/experiments/observation_joint.py\", line 769, in <module>\n    main()\n  File \"/pilot-code/src/samudra/experiments/observation_joint.py\", line 759, in main\n    EarlyPilot(args).run_joint()\n    ^^^^^^^^^^^^^^^^\n  File \"/pilot-code/src/samudra/experiments/early_fine_training.py\", line 127, in __init__\n    self.early = EarlySamples(\n                 ^^^^^^^^^^^^^\n  File \"/pilot-code/src/samudra/experiments/early_fine_data.py\", line 110, in __init__\n    WetCoarsener(self.store, coarse).to(self.device) if fine else None\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/pilot-code/src/samudra/experiments/early_fine_data.py\", line 34, in __init__\n    sy, sx = fine[\"lat_b\"][:, 0], fine[\"lon_b\"][0, :]\n             ~~~~^^^^^^^^^\n  File \"/workspace/.venv/lib/python3.12/site-packages/zarr/hierarchy.py\", line 511, in __getitem__\n    raise KeyError(item)\nKeyError: 'lat_b'\nsrun: error: gr104: task 0: Exited with exit code 1\nsrun: Terminating StepId=19410651.0",
+    "3": "wandb: You can sync this run to the cloud by running:\nwandb: wandb sync /scratch/jr7309/runs/2026-10-08-early-fine-rtx/fit-fine-10/wandb/offline-run-20261008_000013-315590508861\nwandb: Find logs at: ./runs/2026-10-08-early-fine-rtx/fit-fine-10/wandb/offline-run-20261008_000013-315590508861/logs\nwandb: Using wandb-core as the SDK backend.  Please refer to https://wandb.me/wandb-core for more information.\nwandb: WARNING `resume` will be ignored since W&B syncing is set to `offline`. Starting a new run with run id 482062e352b7.\nwandb: Tracking run with wandb version 0.19.8\nwandb: W&B syncing is set to `offline` in this directory.  \nwandb: Run `wandb online` or set WANDB_MODE=online to enable cloud syncing.\nTraceback (most recent call last):\n  File \"<frozen runpy>\", line 198, in _run_module_as_main\n  File \"<frozen runpy>\", line 88, in _run_code\n  File \"/pilot-code/src/samudra/experiments/observation_joint.py\", line 769, in <module>\n    main()\n  File \"/pilot-code/src/samudra/experiments/observation_joint.py\", line 759, in main\n    EarlyPilot(args).run_joint()\n    ^^^^^^^^^^^^^^^^\n  File \"/pilot-code/src/samudra/experiments/early_fine_training.py\", line 127, in __init__\n    self.early = EarlySamples(\n                 ^^^^^^^^^^^^^\n  File \"/pilot-code/src/samudra/experiments/early_fine_data.py\", line 110, in __init__\n    WetCoarsener(self.store, coarse).to(self.device) if fine else None\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/pilot-code/src/samudra/experiments/early_fine_data.py\", line 34, in __init__\n    sy, sx = fine[\"lat_b\"][:, 0], fine[\"lon_b\"][0, :]\n             ~~~~^^^^^^^^^\n  File \"/workspace/.venv/lib/python3.12/site-packages/zarr/hierarchy.py\", line 511, in __getitem__\n    raise KeyError(item)\nKeyError: 'lat_b'\nsrun: error: gr103: task 0: Exited with exit code 1\nsrun: Terminating StepId=19410263.0"
+  }
+}

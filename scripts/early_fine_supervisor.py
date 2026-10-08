@@ -57,7 +57,10 @@ def main():
 
     if args.stage == "prepare":
         image = Path(
-            "/orcd/scratch/orcd/014/jrusak/apptainer_cache/images/diffusion-26.05-9cd36b1-amd64.sif"
+            paths.get(
+                "image",
+                "/orcd/scratch/orcd/014/jrusak/apptainer_cache/images/diffusion-26.05-9cd36b1-amd64.sif",
+            )
         )
         with image.open("rb") as stream:
             if (

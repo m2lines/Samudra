@@ -1,0 +1,181 @@
+{
+  "producer": "25cc663fd4163ccfc0f056edc343732a484aa6e7",
+  "jobs": [
+    {
+      "stage": "audit",
+      "job_id": "19447443",
+      "command": [
+        "sbatch",
+        "--parsable",
+        "--account=torch_pr_347_lzanna",
+        "--nodes=1",
+        "--ntasks=1",
+        "--chdir=/scratch/jr7309",
+        "--export=ALL",
+        "--partition=cpu_short",
+        "--cpus-per-task=4",
+        "--mem=24G",
+        "--time=00:30:00",
+        "--job-name=presentation-annual-audit",
+        "--output=/scratch/jr7309/runs/2026-10-08-presentation-annual/logs/audit-%A_%a.out",
+        "--error=/scratch/jr7309/runs/2026-10-08-presentation-annual/logs/audit-%A_%a.err",
+        "/scratch/jr7309/runs/2026-10-08-presentation-annual/audit.sbatch"
+      ]
+    },
+    {
+      "stage": "evaluate",
+      "job_id": "19447444",
+      "command": [
+        "sbatch",
+        "--parsable",
+        "--account=torch_pr_347_lzanna",
+        "--nodes=1",
+        "--ntasks=1",
+        "--chdir=/scratch/jr7309",
+        "--export=ALL",
+        "--partition=rtx6000_lzanna",
+        "--gres=gpu:1",
+        "--cpus-per-task=8",
+        "--mem=48G",
+        "--time=01:00:00",
+        "--array=0-11%4",
+        "--dependency=afterok:19447443",
+        "--job-name=presentation-annual",
+        "--output=/scratch/jr7309/runs/2026-10-08-presentation-annual/logs/evaluate-%A_%a.out",
+        "--error=/scratch/jr7309/runs/2026-10-08-presentation-annual/logs/evaluate-%A_%a.err",
+        "/scratch/jr7309/runs/2026-10-08-presentation-annual/source/25cc663fd4163ccfc0f056edc343732a484aa6e7/scripts/slurm_early_fine_annual.sbatch",
+        "/scratch/jr7309/runs/2026-10-08-presentation-annual",
+        "/scratch/jr7309/runs/2026-10-08-presentation-annual/source/25cc663fd4163ccfc0f056edc343732a484aa6e7",
+        "evaluate",
+        "25cc663fd4163ccfc0f056edc343732a484aa6e7"
+      ]
+    }
+  ],
+  "models": [
+    {
+      "name": "U-multitask",
+      "source_run": "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-02-extent-om4/runtime-v2/U-multitask",
+      "checkpoint_sha256": "ec8d5969db37ae195aa50d9d3c79e1828765e619cbe2eb9736606d4f5247ed1d",
+      "selected_global_step": 4000,
+      "training_producer": "ba22420144ef7576c324c40f74bae614ab77c1d4",
+      "run": "/scratch/jr7309/runs/2026-10-08-presentation-annual/sources/U-multitask"
+    },
+    {
+      "name": "U-omit-patch",
+      "source_run": "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-ablations/U-omit-patch",
+      "checkpoint_sha256": "a3dac2c96aadd72d16dead0d2dc204f7e3b5401ab610d8a2b6e8c9172f99b05b",
+      "selected_global_step": 3600,
+      "training_producer": "c9a33e0dba63b6da0d11b7d20c1db7e42d78e0e5",
+      "run": "/scratch/jr7309/runs/2026-10-08-presentation-annual/sources/U-omit-patch"
+    },
+    {
+      "name": "U-patch-loss01",
+      "source_run": "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-initializer/U-patch-loss01",
+      "checkpoint_sha256": "0451153498bb39728a1b143cdd95d3a661ebc5bca6f64cd87f75bfbffd5b7fb9",
+      "selected_global_step": 3900,
+      "training_producer": "b8092783bf1e47b6ac670251feba5fbd2902a5bd",
+      "run": "/scratch/jr7309/runs/2026-10-08-presentation-annual/sources/U-patch-loss01"
+    },
+    {
+      "name": "U-aux01",
+      "source_run": "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation/U-aux01",
+      "checkpoint_sha256": "a6ef208d70bb911fcb36fb8722910174f7ae9acd1943409ce09041d4ae495972",
+      "selected_global_step": 4000,
+      "training_producer": "b14ce8acd0ddf77b42b6341b25cdfe242dc8eec6",
+      "run": "/scratch/jr7309/runs/2026-10-08-presentation-annual/sources/U-aux01"
+    },
+    {
+      "name": "U-aux01-static",
+      "source_run": "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-accessory-controls/U-aux01-static",
+      "checkpoint_sha256": "4bfc9ef32fdb5fdd51ace6dcc2151ad3d1c03622dd2f3b380656618f391375d2",
+      "selected_global_step": 4000,
+      "training_producer": "558d45cac2294f691d1d73a47db1783df1850c80",
+      "run": "/scratch/jr7309/runs/2026-10-08-presentation-annual/sources/U-aux01-static"
+    },
+    {
+      "name": "U-aux01-seasonal",
+      "source_run": "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-accessory-controls/U-aux01-seasonal",
+      "checkpoint_sha256": "a0996623642e18afd1c3b69ef20c73e358b74a7edc874a3cc5af137fcd65671b",
+      "selected_global_step": 3800,
+      "training_producer": "558d45cac2294f691d1d73a47db1783df1850c80",
+      "run": "/scratch/jr7309/runs/2026-10-08-presentation-annual/sources/U-aux01-seasonal"
+    },
+    {
+      "name": "U-aux01-shuffled",
+      "source_run": "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-accessory-controls/U-aux01-shuffled",
+      "checkpoint_sha256": "c6e8f5145a749f8da87d41d1c4cc50c0553227f15801aaa959f3d846b7ec71f2",
+      "selected_global_step": 4000,
+      "training_producer": "558d45cac2294f691d1d73a47db1783df1850c80",
+      "run": "/scratch/jr7309/runs/2026-10-08-presentation-annual/sources/U-aux01-shuffled"
+    },
+    {
+      "name": "U-aux01-anomaly",
+      "source_run": "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-accessory-controls/U-aux01-anomaly",
+      "checkpoint_sha256": "85102f05174ed2f8599c5a6e9314c6b454c07dc37395631e0ccc083c6528272f",
+      "selected_global_step": 4000,
+      "training_producer": "558d45cac2294f691d1d73a47db1783df1850c80",
+      "run": "/scratch/jr7309/runs/2026-10-08-presentation-annual/sources/U-aux01-anomaly"
+    },
+    {
+      "name": "W-global",
+      "source_run": "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation/W-global",
+      "checkpoint_sha256": "7670c62ee97cd0b23a9ed239909f7330abc17b99838ad4fb154a6fedd2644587",
+      "selected_global_step": 4000,
+      "training_producer": "b14ce8acd0ddf77b42b6341b25cdfe242dc8eec6",
+      "run": "/scratch/jr7309/runs/2026-10-08-presentation-annual/sources/W-global"
+    },
+    {
+      "name": "W-multitask",
+      "source_run": "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation/W-multitask",
+      "checkpoint_sha256": "1a7070cf455c1f1b3df623917a5ca93456a7afdae09d3aa3b3c96df33cf605c7",
+      "selected_global_step": 3900,
+      "training_producer": "b14ce8acd0ddf77b42b6341b25cdfe242dc8eec6",
+      "run": "/scratch/jr7309/runs/2026-10-08-presentation-annual/sources/W-multitask"
+    },
+    {
+      "name": "A-global",
+      "source_run": "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation/A-global",
+      "checkpoint_sha256": "bda00fc7c2281ef2df08519a2966f4274e98c4c2445ed0b10ad20bd3e0b1fbf0",
+      "selected_global_step": 4000,
+      "training_producer": "b14ce8acd0ddf77b42b6341b25cdfe242dc8eec6",
+      "run": "/scratch/jr7309/runs/2026-10-08-presentation-annual/sources/A-global"
+    },
+    {
+      "name": "A-multitask",
+      "source_run": "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation/A-multitask",
+      "checkpoint_sha256": "2701685ee247b0787f03c122c3b9ab08419eed490b0345932dcfb9fede17dcac",
+      "selected_global_step": 4000,
+      "training_producer": "b14ce8acd0ddf77b42b6341b25cdfe242dc8eec6",
+      "run": "/scratch/jr7309/runs/2026-10-08-presentation-annual/sources/A-multitask"
+    }
+  ],
+  "reuse_root": "/scratch/jr7309/runs/2026-10-08-early-fine-annual",
+  "reuse_evaluation_job": "19446317",
+  "launch_sha256": {
+    "audit.sbatch": "b3f782bd40239c01dc81aba1f02f4da4dfe0caaadc454b603afe4c26ad01bebf",
+    "prepare.py": "f4f6aecd125bc5a30a35d0ea7dcff3162608698e99dfe4e93d87f9da29d77835",
+    "submit.py": "d8048b87466c41a252f5c5f9f1b73e3bf291231e6de927711d68845b5728df91",
+    "paths.json": "2615bcd1e9941f0a19b5b5a42d42c8bd3d008a1ec049b8bda061713bf5d7dcfe"
+  },
+  "callbacks": [
+    {
+      "stage": "audit",
+      "job_id": "19447443",
+      "callback": "19447463",
+      "dependency": "afterany:19447443",
+      "registration": {
+        "event_id": "73c131f8-4051-4794-b7c0-c0be233dcce9"
+      }
+    },
+    {
+      "stage": "evaluate",
+      "job_id": "19447444",
+      "callback": "19447464",
+      "dependency": "afterany:19447444:19446317",
+      "registration": {
+        "event_id": "672177a3-1837-4160-a765-9ad3736061ef"
+      }
+    }
+  ],
+  "relay_service": "presentation-annual-callback-relay.service"
+}

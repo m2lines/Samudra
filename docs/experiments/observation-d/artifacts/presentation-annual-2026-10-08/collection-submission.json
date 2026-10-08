@@ -1,0 +1,24 @@
+{
+  "job_id": "19448382",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "--account=torch_pr_347_lzanna",
+    "--partition=cpu_short",
+    "--cpus-per-task=4",
+    "--mem=24G",
+    "--time=00:30:00",
+    "--dependency=afterok:19447970",
+    "--chdir=/scratch/jr7309",
+    "--job-name=presentation-annual-collect",
+    "--output=/scratch/jr7309/runs/2026-10-08-presentation-annual/logs/collect-%j.out",
+    "--error=/scratch/jr7309/runs/2026-10-08-presentation-annual/logs/collect-%j.err",
+    "/scratch/jr7309/runs/2026-10-08-presentation-annual/collect.sbatch"
+  ],
+  "report_producer": "1c1c6efee919198e88e03455f62d79b4ac0efa71",
+  "source_archive_sha256": "e4f0cef65c8871be74529cb1e0b40bcea7498b1aa7ff9e6c2b63c863d1505f77",
+  "script_sha256": "130d9fc85e625b43ed0337a7ed02d3c9b542295339e18f9fe7c3e54f8eb0431d",
+  "callback_job": "19448405",
+  "event_id": "b803e30a-d7de-4336-9b4c-00566be963f8",
+  "relay_service": "presentation-annual-collection-callback-relay.service"
+}

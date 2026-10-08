@@ -1,0 +1,159 @@
+{
+  "markers": [
+    {
+      "model": "U-multitask",
+      "root": "/scratch/jr7309/runs/2026-10-08-presentation-annual",
+      "origins": 3,
+      "hashed_files": 11,
+      "legacy_repair": false
+    },
+    {
+      "model": "U-omit-patch",
+      "root": "/scratch/jr7309/runs/2026-10-08-presentation-annual",
+      "origins": 3,
+      "hashed_files": 11,
+      "legacy_repair": false
+    },
+    {
+      "model": "U-patch-loss01",
+      "root": "/scratch/jr7309/runs/2026-10-08-presentation-annual",
+      "origins": 3,
+      "hashed_files": 11,
+      "legacy_repair": false
+    },
+    {
+      "model": "U-aux01",
+      "root": "/scratch/jr7309/runs/2026-10-08-presentation-annual",
+      "origins": 3,
+      "hashed_files": 11,
+      "legacy_repair": false
+    },
+    {
+      "model": "U-aux01-static",
+      "root": "/scratch/jr7309/runs/2026-10-08-presentation-annual",
+      "origins": 3,
+      "hashed_files": 11,
+      "legacy_repair": false
+    },
+    {
+      "model": "U-aux01-seasonal",
+      "root": "/scratch/jr7309/runs/2026-10-08-presentation-annual",
+      "origins": 3,
+      "hashed_files": 11,
+      "legacy_repair": false
+    },
+    {
+      "model": "U-aux01-shuffled",
+      "root": "/scratch/jr7309/runs/2026-10-08-presentation-annual",
+      "origins": 3,
+      "hashed_files": 11,
+      "legacy_repair": false
+    },
+    {
+      "model": "U-aux01-anomaly",
+      "root": "/scratch/jr7309/runs/2026-10-08-presentation-annual",
+      "origins": 3,
+      "hashed_files": 11,
+      "legacy_repair": false
+    },
+    {
+      "model": "W-global",
+      "root": "/scratch/jr7309/runs/2026-10-08-presentation-annual",
+      "origins": 3,
+      "hashed_files": 11,
+      "legacy_repair": false
+    },
+    {
+      "model": "W-multitask",
+      "root": "/scratch/jr7309/runs/2026-10-08-presentation-annual",
+      "origins": 3,
+      "hashed_files": 11,
+      "legacy_repair": false
+    },
+    {
+      "model": "A-global",
+      "root": "/scratch/jr7309/runs/2026-10-08-presentation-annual",
+      "origins": 3,
+      "hashed_files": 11,
+      "legacy_repair": false
+    },
+    {
+      "model": "A-multitask",
+      "root": "/scratch/jr7309/runs/2026-10-08-presentation-annual",
+      "origins": 3,
+      "hashed_files": 11,
+      "legacy_repair": false
+    },
+    {
+      "model": "U-global",
+      "root": "/scratch/jr7309/runs/2026-10-08-early-fine-annual",
+      "origins": 3,
+      "hashed_files": 11,
+      "legacy_repair": true
+    },
+    {
+      "model": "U-multitask-early",
+      "root": "/scratch/jr7309/runs/2026-10-08-early-fine-annual",
+      "origins": 3,
+      "hashed_files": 11,
+      "legacy_repair": true
+    },
+    {
+      "model": "U-multitask-early-latent",
+      "root": "/scratch/jr7309/runs/2026-10-08-early-fine-annual",
+      "origins": 3,
+      "hashed_files": 11,
+      "legacy_repair": true
+    },
+    {
+      "model": "U-multitask-early-fine",
+      "root": "/scratch/jr7309/runs/2026-10-08-early-fine-annual",
+      "origins": 3,
+      "hashed_files": 11,
+      "legacy_repair": true
+    },
+    {
+      "model": "U-multitask-early-fine-latent",
+      "root": "/scratch/jr7309/runs/2026-10-08-early-fine-annual",
+      "origins": 3,
+      "hashed_files": 11,
+      "legacy_repair": true
+    },
+    {
+      "model": "U-global-cooldown",
+      "root": "/scratch/jr7309/runs/2026-10-08-early-fine-annual",
+      "origins": 3,
+      "hashed_files": 11,
+      "legacy_repair": true
+    },
+    {
+      "model": "U-multitask-early-cooldown",
+      "root": "/scratch/jr7309/runs/2026-10-08-early-fine-annual",
+      "origins": 3,
+      "hashed_files": 11,
+      "legacy_repair": true
+    },
+    {
+      "model": "U-multitask-early-latent-cooldown",
+      "root": "/scratch/jr7309/runs/2026-10-08-early-fine-annual",
+      "origins": 3,
+      "hashed_files": 11,
+      "legacy_repair": true
+    },
+    {
+      "model": "U-multitask-early-fine-cooldown",
+      "root": "/scratch/jr7309/runs/2026-10-08-early-fine-annual",
+      "origins": 3,
+      "hashed_files": 11,
+      "legacy_repair": true
+    },
+    {
+      "model": "U-multitask-early-fine-latent-cooldown",
+      "root": "/scratch/jr7309/runs/2026-10-08-early-fine-annual",
+      "origins": 3,
+      "hashed_files": 11,
+      "legacy_repair": true
+    }
+  ],
+  "accounting": "19446317_0|COMPLETED|0:0|64|billing=8,cpu=8,gres/gpu=1,mem=48G,node=1\n19446317_1|COMPLETED|0:0|63|billing=8,cpu=8,gres/gpu=1,mem=48G,node=1\n19446317_2|COMPLETED|0:0|67|billing=8,cpu=8,gres/gpu=1,mem=48G,node=1\n19446317_3|COMPLETED|0:0|69|billing=8,cpu=8,gres/gpu=1,mem=48G,node=1\n19446317_4|COMPLETED|0:0|65|billing=8,cpu=8,gres/gpu=1,mem=48G,node=1\n19446317_5|COMPLETED|0:0|62|billing=8,cpu=8,gres/gpu=1,mem=48G,node=1\n19446317_6|COMPLETED|0:0|62|billing=8,cpu=8,gres/gpu=1,mem=48G,node=1\n19446317_7|COMPLETED|0:0|64|billing=8,cpu=8,gres/gpu=1,mem=48G,node=1\n19446317_8|COMPLETED|0:0|60|billing=8,cpu=8,gres/gpu=1,mem=48G,node=1\n19446317_9|COMPLETED|0:0|65|billing=8,cpu=8,gres/gpu=1,mem=48G,node=1\n19447443|FAILED|1:0|62|billing=4,cpu=4,mem=24G,node=1\n19447444_[0-11%4]|CANCELLED by 0|0:0|0|\n19447968|COMPLETED|0:0|132|billing=4,cpu=4,mem=24G,node=1\n19447970_0|COMPLETED|0:0|65|billing=8,cpu=8,gres/gpu=1,mem=48G,node=1\n19447970_1|COMPLETED|0:0|66|billing=8,cpu=8,gres/gpu=1,mem=48G,node=1\n19447970_2|COMPLETED|0:0|71|billing=8,cpu=8,gres/gpu=1,mem=48G,node=1\n19447970_3|COMPLETED|0:0|63|billing=8,cpu=8,gres/gpu=1,mem=48G,node=1\n19447970_4|COMPLETED|0:0|63|billing=8,cpu=8,gres/gpu=1,mem=48G,node=1\n19447970_5|COMPLETED|0:0|65|billing=8,cpu=8,gres/gpu=1,mem=48G,node=1\n19447970_6|COMPLETED|0:0|65|billing=8,cpu=8,gres/gpu=1,mem=48G,node=1\n19447970_7|COMPLETED|0:0|62|billing=8,cpu=8,gres/gpu=1,mem=48G,node=1\n19447970_8|COMPLETED|0:0|66|billing=8,cpu=8,gres/gpu=1,mem=48G,node=1\n19447970_9|COMPLETED|0:0|63|billing=8,cpu=8,gres/gpu=1,mem=48G,node=1\n19447970_10|COMPLETED|0:0|63|billing=8,cpu=8,gres/gpu=1,mem=48G,node=1\n19447970_11|COMPLETED|0:0|64|billing=8,cpu=8,gres/gpu=1,mem=48G,node=1\n19448382|PENDING|0:0|0|\n"
+}

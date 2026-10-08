@@ -1,0 +1,917 @@
+{
+  "event_id": "b2e0e58d-edc6-4c8b-8b7e-49f4268530d9",
+  "checked_utc": "2026-10-08T09:18:50.998410+00:00",
+  "qualifications": {
+    "U-multitask-early": {
+      "JOINT_QUALIFIED.json": {
+        "contract": {
+          "code_commit": "8c9a7403edbcd3a37fe09c3af687cbb99a62be85",
+          "runtime_extension_sha256": "ff904784233031f60809530a5520fb11b317052746cd8e4f25c674f12f5f09ba",
+          "data_manifest_sha256": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+          "om4_data": "/scratch/jr7309/data/om4_onedeg_v3",
+          "selection_reference_sha256": "c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c",
+          "normalization": "instance",
+          "evolution_architecture": "extent-unet",
+          "model_options": {
+            "initializer_architecture": "unet",
+            "surface_policy": "observed-only",
+            "task_conditioning": "input-adapters",
+            "latent_channels": 0
+          },
+          "surface_fill": "zero",
+          "completion_weight": 0.1,
+          "global_observations": true,
+          "reconstruction_weight": 0.1,
+          "accumulate": 8,
+          "core_lr": 0.0001,
+          "om4_lr": 0.0001,
+          "warmup_steps": 0,
+          "seed": 1729,
+          "early": {
+            "root": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-grid-bounds/early-data",
+            "manifest_sha256": "433484fdad2460fd12bc905d7ac38a9dc8196d5df0de57a64e8ce3585769b1bd",
+            "fine": false,
+            "period": [
+              "1958-01-03",
+              "1974-12-31"
+            ],
+            "fraction_of_om4": 0.5,
+            "fine_coarse_forecast_weights": [
+              0.5,
+              0.5
+            ]
+          }
+        },
+        "resume_verified": true,
+        "resume_evidence": {
+          "serialization_exact": true,
+          "restoration_exact": true,
+          "native_and_serialized_replay": {
+            "native_repeat_1": {
+              "rmse": 0.0,
+              "max_absolute": 0.0
+            },
+            "native_repeat_2": {
+              "rmse": 0.0,
+              "max_absolute": 0.0
+            },
+            "native_repeat_3": {
+              "rmse": 0.0,
+              "max_absolute": 0.0
+            },
+            "native_repeat_4": {
+              "rmse": 0.0,
+              "max_absolute": 0.0
+            },
+            "serialized_0": {
+              "rmse": 0.0,
+              "max_absolute": 0.0
+            },
+            "serialized_1": {
+              "rmse": 0.0,
+              "max_absolute": 0.0
+            },
+            "serialized_2": {
+              "rmse": 0.0,
+              "max_absolute": 0.0
+            },
+            "serialized_3": {
+              "rmse": 0.0,
+              "max_absolute": 0.0
+            },
+            "serialized_4": {
+              "rmse": 0.0,
+              "max_absolute": 0.0
+            },
+            "native_repeat": {
+              "rmse": 0.0,
+              "max_absolute": 0.0
+            },
+            "serialized": {
+              "rmse": 0.0,
+              "max_absolute": 0.0
+            }
+          },
+          "native_trials": 5,
+          "serialized_trials": 5,
+          "acceptance": "Maximum serialized replay difference across five trials <= 5x maximum native replay difference across five trials, with RMSE floor 1e-8 and maximum absolute floor 1e-7",
+          "deterministic_reference_bitwise_exact": true,
+          "reference_scope": "Serialization diagnostic only; production uses its unchanged numerical backend"
+        },
+        "task_counts": {
+          "om4": 6,
+          "observation": 4
+        },
+        "gpu": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+        "max_gpu_memory_gib": 71.677809715271
+      },
+      "IO_EQUIVALENT.json": {
+        "seeds": [
+          1101737,
+          1101753
+        ],
+        "cpu_arrays_exact": true,
+        "observation_prepared_and_coverage_exact": true,
+        "producer": "8c9a7403edbcd3a37fe09c3af687cbb99a62be85"
+      },
+      "THROUGHPUT.json": {
+        "mean_seconds": {
+          "recent": 3.9857828447129577,
+          "early": 1.66942133102566,
+          "observation": 4.8000464826965565
+        },
+        "training_hours_for_4000_updates": 4.237582539203259,
+        "peak_gpu_gib": 71.677809715271,
+        "note": "Includes real I/O, backward and optimizer; excludes validation and initial cache warmup"
+      }
+    },
+    "U-multitask-early-latent": {
+      "JOINT_QUALIFIED.json": {
+        "contract": {
+          "code_commit": "8c9a7403edbcd3a37fe09c3af687cbb99a62be85",
+          "runtime_extension_sha256": "ff904784233031f60809530a5520fb11b317052746cd8e4f25c674f12f5f09ba",
+          "data_manifest_sha256": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+          "om4_data": "/scratch/jr7309/data/om4_onedeg_v3",
+          "selection_reference_sha256": "c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c",
+          "normalization": "instance",
+          "evolution_architecture": "extent-unet",
+          "model_options": {
+            "initializer_architecture": "unet",
+            "surface_policy": "observed-only",
+            "task_conditioning": "input-adapters",
+            "latent_channels": 10
+          },
+          "surface_fill": "zero",
+          "completion_weight": 0.1,
+          "global_observations": true,
+          "reconstruction_weight": 0.1,
+          "accumulate": 8,
+          "core_lr": 0.0001,
+          "om4_lr": 0.0001,
+          "warmup_steps": 0,
+          "seed": 1729,
+          "early": {
+            "root": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-grid-bounds/early-data",
+            "manifest_sha256": "433484fdad2460fd12bc905d7ac38a9dc8196d5df0de57a64e8ce3585769b1bd",
+            "fine": false,
+            "period": [
+              "1958-01-03",
+              "1974-12-31"
+            ],
+            "fraction_of_om4": 0.5,
+            "fine_coarse_forecast_weights": [
+              0.5,
+              0.5
+            ]
+          }
+        },
+        "resume_verified": true,
+        "resume_evidence": {
+          "serialization_exact": true,
+          "restoration_exact": true,
+          "native_and_serialized_replay": {
+            "native_repeat_1": {
+              "rmse": 0.0,
+              "max_absolute": 0.0
+            },
+            "native_repeat_2": {
+              "rmse": 0.0,
+              "max_absolute": 0.0
+            },
+            "native_repeat_3": {
+              "rmse": 0.0,
+              "max_absolute": 0.0
+            },
+            "native_repeat_4": {
+              "rmse": 0.0,
+              "max_absolute": 0.0
+            },
+            "serialized_0": {
+              "rmse": 0.0,
+              "max_absolute": 0.0
+            },
+            "serialized_1": {
+              "rmse": 0.0,
+              "max_absolute": 0.0
+            },
+            "serialized_2": {
+              "rmse": 0.0,
+              "max_absolute": 0.0
+            },
+            "serialized_3": {
+              "rmse": 0.0,
+              "max_absolute": 0.0
+            },
+            "serialized_4": {
+              "rmse": 0.0,
+              "max_absolute": 0.0
+            },
+            "native_repeat": {
+              "rmse": 0.0,
+              "max_absolute": 0.0
+            },
+            "serialized": {
+              "rmse": 0.0,
+              "max_absolute": 0.0
+            }
+          },
+          "native_trials": 5,
+          "serialized_trials": 5,
+          "acceptance": "Maximum serialized replay difference across five trials <= 5x maximum native replay difference across five trials, with RMSE floor 1e-8 and maximum absolute floor 1e-7",
+          "deterministic_reference_bitwise_exact": true,
+          "reference_scope": "Serialization diagnostic only; production uses its unchanged numerical backend"
+        },
+        "task_counts": {
+          "om4": 6,
+          "observation": 4
+        },
+        "gpu": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+        "max_gpu_memory_gib": 71.67926406860352
+      },
+      "IO_EQUIVALENT.json": {
+        "seeds": [
+          1101737,
+          1101753
+        ],
+        "cpu_arrays_exact": true,
+        "observation_prepared_and_coverage_exact": true,
+        "producer": "8c9a7403edbcd3a37fe09c3af687cbb99a62be85"
+      },
+      "THROUGHPUT.json": {
+        "mean_seconds": {
+          "recent": 4.266363727704932,
+          "early": 1.6031529262351494,
+          "observation": 4.779279153149289
+        },
+        "training_hours_for_4000_updates": 4.285576377844071,
+        "peak_gpu_gib": 71.67926406860352,
+        "note": "Includes real I/O, backward and optimizer; excludes validation and initial cache warmup"
+      }
+    },
+    "U-multitask-early-fine": {
+      "JOINT_QUALIFIED.json": {
+        "contract": {
+          "code_commit": "8c9a7403edbcd3a37fe09c3af687cbb99a62be85",
+          "runtime_extension_sha256": "ff904784233031f60809530a5520fb11b317052746cd8e4f25c674f12f5f09ba",
+          "data_manifest_sha256": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+          "om4_data": "/scratch/jr7309/data/om4_onedeg_v3",
+          "selection_reference_sha256": "c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c",
+          "normalization": "instance",
+          "evolution_architecture": "extent-fine",
+          "model_options": {
+            "initializer_architecture": "unet",
+            "surface_policy": "observed-only",
+            "task_conditioning": "input-adapters",
+            "latent_channels": 0
+          },
+          "surface_fill": "zero",
+          "completion_weight": 0.1,
+          "global_observations": true,
+          "reconstruction_weight": 0.1,
+          "accumulate": 8,
+          "core_lr": 0.0001,
+          "om4_lr": 0.0001,
+          "warmup_steps": 0,
+          "seed": 1729,
+          "early": {
+            "root": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-grid-bounds/early-data",
+            "manifest_sha256": "433484fdad2460fd12bc905d7ac38a9dc8196d5df0de57a64e8ce3585769b1bd",
+            "fine": true,
+            "period": [
+              "1958-01-03",
+              "1974-12-31"
+            ],
+            "fraction_of_om4": 0.5,
+            "fine_coarse_forecast_weights": [
+              0.5,
+              0.5
+            ]
+          }
+        },
+        "resume_verified": true,
+        "resume_evidence": {
+          "serialization_exact": true,
+          "restoration_exact": true,
+          "native_and_serialized_replay": {
+            "native_repeat_1": {
+              "rmse": 0.0,
+              "max_absolute": 0.0
+            },
+            "native_repeat_2": {
+              "rmse": 0.0,
+              "max_absolute": 0.0
+            },
+            "native_repeat_3": {
+              "rmse": 0.0,
+              "max_absolute": 0.0
+            },
+            "native_repeat_4": {
+              "rmse": 0.0,
+              "max_absolute": 0.0
+            },
+            "serialized_0": {
+              "rmse": 0.0,
+              "max_absolute": 0.0
+            },
+            "serialized_1": {
+              "rmse": 0.0,
+              "max_absolute": 0.0
+            },
+            "serialized_2": {
+              "rmse": 0.0,
+              "max_absolute": 0.0
+            },
+            "serialized_3": {
+              "rmse": 0.0,
+              "max_absolute": 0.0
+            },
+            "serialized_4": {
+              "rmse": 0.0,
+              "max_absolute": 0.0
+            },
+            "native_repeat": {
+              "rmse": 0.0,
+              "max_absolute": 0.0
+            },
+            "serialized": {
+              "rmse": 0.0,
+              "max_absolute": 0.0
+            }
+          },
+          "native_trials": 5,
+          "serialized_trials": 5,
+          "acceptance": "Maximum serialized replay difference across five trials <= 5x maximum native replay difference across five trials, with RMSE floor 1e-8 and maximum absolute floor 1e-7",
+          "deterministic_reference_bitwise_exact": true,
+          "reference_scope": "Serialization diagnostic only; production uses its unchanged numerical backend"
+        },
+        "task_counts": {
+          "om4": 6,
+          "observation": 4
+        },
+        "gpu": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+        "max_gpu_memory_gib": 71.67848777770996
+      },
+      "IO_EQUIVALENT.json": {
+        "seeds": [
+          1101737,
+          1101753
+        ],
+        "cpu_arrays_exact": true,
+        "observation_prepared_and_coverage_exact": true,
+        "producer": "8c9a7403edbcd3a37fe09c3af687cbb99a62be85"
+      },
+      "THROUGHPUT.json": {
+        "mean_seconds": {
+          "recent": 4.061498698933671,
+          "early": 7.751521841002007,
+          "observation": 4.773824548330874
+        },
+        "training_hours_for_4000_updates": 5.9335193434992854,
+        "peak_gpu_gib": 71.67848777770996,
+        "note": "Includes real I/O, backward and optimizer; excludes validation and initial cache warmup"
+      }
+    },
+    "U-multitask-early-fine-latent": {
+      "JOINT_QUALIFIED.json": {
+        "contract": {
+          "code_commit": "8c9a7403edbcd3a37fe09c3af687cbb99a62be85",
+          "runtime_extension_sha256": "ff904784233031f60809530a5520fb11b317052746cd8e4f25c674f12f5f09ba",
+          "data_manifest_sha256": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+          "om4_data": "/scratch/jr7309/data/om4_onedeg_v3",
+          "selection_reference_sha256": "c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c",
+          "normalization": "instance",
+          "evolution_architecture": "extent-fine",
+          "model_options": {
+            "initializer_architecture": "unet",
+            "surface_policy": "observed-only",
+            "task_conditioning": "input-adapters",
+            "latent_channels": 10
+          },
+          "surface_fill": "zero",
+          "completion_weight": 0.1,
+          "global_observations": true,
+          "reconstruction_weight": 0.1,
+          "accumulate": 8,
+          "core_lr": 0.0001,
+          "om4_lr": 0.0001,
+          "warmup_steps": 0,
+          "seed": 1729,
+          "early": {
+            "root": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-grid-bounds/early-data",
+            "manifest_sha256": "433484fdad2460fd12bc905d7ac38a9dc8196d5df0de57a64e8ce3585769b1bd",
+            "fine": true,
+            "period": [
+              "1958-01-03",
+              "1974-12-31"
+            ],
+            "fraction_of_om4": 0.5,
+            "fine_coarse_forecast_weights": [
+              0.5,
+              0.5
+            ]
+          }
+        },
+        "resume_verified": true,
+        "resume_evidence": {
+          "serialization_exact": true,
+          "restoration_exact": true,
+          "native_and_serialized_replay": {
+            "native_repeat_1": {
+              "rmse": 0.0,
+              "max_absolute": 0.0
+            },
+            "native_repeat_2": {
+              "rmse": 0.0,
+              "max_absolute": 0.0
+            },
+            "native_repeat_3": {
+              "rmse": 0.0,
+              "max_absolute": 0.0
+            },
+            "native_repeat_4": {
+              "rmse": 0.0,
+              "max_absolute": 0.0
+            },
+            "serialized_0": {
+              "rmse": 0.0,
+              "max_absolute": 0.0
+            },
+            "serialized_1": {
+              "rmse": 0.0,
+              "max_absolute": 0.0
+            },
+            "serialized_2": {
+              "rmse": 0.0,
+              "max_absolute": 0.0
+            },
+            "serialized_3": {
+              "rmse": 0.0,
+              "max_absolute": 0.0
+            },
+            "serialized_4": {
+              "rmse": 0.0,
+              "max_absolute": 0.0
+            },
+            "native_repeat": {
+              "rmse": 0.0,
+              "max_absolute": 0.0
+            },
+            "serialized": {
+              "rmse": 0.0,
+              "max_absolute": 0.0
+            }
+          },
+          "native_trials": 5,
+          "serialized_trials": 5,
+          "acceptance": "Maximum serialized replay difference across five trials <= 5x maximum native replay difference across five trials, with RMSE floor 1e-8 and maximum absolute floor 1e-7",
+          "deterministic_reference_bitwise_exact": true,
+          "reference_scope": "Serialization diagnostic only; production uses its unchanged numerical backend"
+        },
+        "task_counts": {
+          "om4": 6,
+          "observation": 4
+        },
+        "gpu": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+        "max_gpu_memory_gib": 71.67996597290039
+      },
+      "IO_EQUIVALENT.json": {
+        "seeds": [
+          1101737,
+          1101753
+        ],
+        "cpu_arrays_exact": true,
+        "observation_prepared_and_coverage_exact": true,
+        "producer": "8c9a7403edbcd3a37fe09c3af687cbb99a62be85"
+      },
+      "THROUGHPUT.json": {
+        "mean_seconds": {
+          "recent": 4.037065208035831,
+          "early": 5.395317370382448,
+          "observation": 4.645690265702656
+        },
+        "training_hours_for_4000_updates": 5.201045308284332,
+        "peak_gpu_gib": 71.67996597290039,
+        "note": "Includes real I/O, backward and optimizer; excludes validation and initial cache warmup"
+      }
+    }
+  },
+  "fits": {
+    "fit-fine-0": {
+      "normalization": "instance",
+      "evolution_architecture": "extent-fine",
+      "model_options": {
+        "initializer_architecture": "unet",
+        "surface_policy": "observed-only",
+        "task_conditioning": "input-adapters",
+        "latent_channels": 0
+      },
+      "surface_fill": "zero",
+      "global_observations": true,
+      "completion_weight": 0.1,
+      "losses": [
+        1.7028145902286296,
+        1.2286593129957193,
+        0.9677169354697618,
+        0.7503506599988712,
+        0.641641927224464,
+        0.5954139046174437,
+        0.44242821103076824,
+        0.4070351355003247,
+        0.33968743994188766,
+        0.30884198876731994,
+        0.2787716532037775
+      ],
+      "gradient_reached": {
+        "initializer": true,
+        "evolution": true,
+        "adapter": true,
+        "completion_head": true
+      },
+      "training_origin": "1993-05",
+      "code_commit": "8c9a7403edbcd3a37fe09c3af687cbb99a62be85",
+      "runtime_extension_sha256": "ff904784233031f60809530a5520fb11b317052746cd8e4f25c674f12f5f09ba",
+      "data_manifest_sha256": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+      "selection_reference_sha256": "c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c",
+      "gpu": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+      "max_gpu_memory_gib": 3.7502822875976562,
+      "scope": "training-only ten-update fitting and integrated-validation qualification, not held-out skill"
+    },
+    "fit-fine-10": {
+      "normalization": "instance",
+      "evolution_architecture": "extent-fine",
+      "model_options": {
+        "initializer_architecture": "unet",
+        "surface_policy": "observed-only",
+        "task_conditioning": "input-adapters",
+        "latent_channels": 10
+      },
+      "surface_fill": "zero",
+      "global_observations": true,
+      "completion_weight": 0.1,
+      "losses": [
+        1.7798652468111056,
+        1.2956020100121877,
+        1.054479473827419,
+        0.8495606457657049,
+        0.7315353003619827,
+        0.5652050683100278,
+        0.48236883545936277,
+        0.4022308496927192,
+        0.34563533347729203,
+        0.30795541763372436,
+        0.2808289928499115
+      ],
+      "gradient_reached": {
+        "initializer": true,
+        "evolution": true,
+        "adapter": true,
+        "completion_head": true,
+        "latent_initializer": true,
+        "latent_evolution": true
+      },
+      "training_origin": "1993-05",
+      "code_commit": "8c9a7403edbcd3a37fe09c3af687cbb99a62be85",
+      "runtime_extension_sha256": "ff904784233031f60809530a5520fb11b317052746cd8e4f25c674f12f5f09ba",
+      "data_manifest_sha256": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+      "selection_reference_sha256": "c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c",
+      "gpu": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+      "max_gpu_memory_gib": 3.80794620513916,
+      "scope": "training-only ten-update fitting and integrated-validation qualification, not held-out skill"
+    },
+    "fit-unet-0": {
+      "normalization": "instance",
+      "evolution_architecture": "extent-unet",
+      "model_options": {
+        "initializer_architecture": "unet",
+        "surface_policy": "observed-only",
+        "task_conditioning": "input-adapters",
+        "latent_channels": 0
+      },
+      "surface_fill": "zero",
+      "global_observations": true,
+      "completion_weight": 0.1,
+      "losses": [
+        1.7028145902286296,
+        1.2286593129957193,
+        0.9677169354697618,
+        0.7503438259368495,
+        0.6416264071413507,
+        0.5956838582629135,
+        0.4423960307243119,
+        0.40718386282519603,
+        0.33974989917214654,
+        0.3088546797781499,
+        0.2785859961518727
+      ],
+      "gradient_reached": {
+        "initializer": true,
+        "evolution": true,
+        "adapter": true,
+        "completion_head": true
+      },
+      "training_origin": "1993-05",
+      "code_commit": "8c9a7403edbcd3a37fe09c3af687cbb99a62be85",
+      "runtime_extension_sha256": "ff904784233031f60809530a5520fb11b317052746cd8e4f25c674f12f5f09ba",
+      "data_manifest_sha256": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+      "selection_reference_sha256": "c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c",
+      "gpu": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+      "max_gpu_memory_gib": 3.7496042251586914,
+      "scope": "training-only ten-update fitting and integrated-validation qualification, not held-out skill"
+    },
+    "fit-unet-10": {
+      "normalization": "instance",
+      "evolution_architecture": "extent-unet",
+      "model_options": {
+        "initializer_architecture": "unet",
+        "surface_policy": "observed-only",
+        "task_conditioning": "input-adapters",
+        "latent_channels": 10
+      },
+      "surface_fill": "zero",
+      "global_observations": true,
+      "completion_weight": 0.1,
+      "losses": [
+        1.7798652468111056,
+        1.2956020100121877,
+        1.054366296260369,
+        0.8492796466910556,
+        0.7319768603542225,
+        0.5656259267533064,
+        0.4823782609912204,
+        0.4025315946444991,
+        0.34567407782591203,
+        0.3080907941066847,
+        0.2808980543770091
+      ],
+      "gradient_reached": {
+        "initializer": true,
+        "evolution": true,
+        "adapter": true,
+        "completion_head": true,
+        "latent_initializer": true,
+        "latent_evolution": true
+      },
+      "training_origin": "1993-05",
+      "code_commit": "8c9a7403edbcd3a37fe09c3af687cbb99a62be85",
+      "runtime_extension_sha256": "ff904784233031f60809530a5520fb11b317052746cd8e4f25c674f12f5f09ba",
+      "data_manifest_sha256": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+      "selection_reference_sha256": "c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c",
+      "gpu": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+      "max_gpu_memory_gib": 3.807244300842285,
+      "scope": "training-only ten-update fitting and integrated-validation qualification, not held-out skill"
+    }
+  },
+  "accounting": "JobID|State|ElapsedRaw|AllocTRES\n19425180_0|COMPLETED|513|billing=16,cpu=16,gres/gpu=1,mem=192G,node=1\n19425180_1|COMPLETED|530|billing=16,cpu=16,gres/gpu=1,mem=192G,node=1\n19425180_2|COMPLETED|565|billing=16,cpu=16,gres/gpu=1,mem=192G,node=1\n19425180_3|COMPLETED|519|billing=16,cpu=16,gres/gpu=1,mem=192G,node=1\n",
+  "migration": {
+    "accounting": "JobID|State|ElapsedRaw|AllocTRES\n19425442|COMPLETED|82|billing=4,cpu=4,mem=16G,node=1\n19425444_0|RUNNING|39|billing=16,cpu=16,gres/gpu=1,mem=192G,node=1\n19425444_1|RUNNING|33|billing=16,cpu=16,gres/gpu=1,mem=192G,node=1\n19425444_2|RUNNING|27|billing=16,cpu=16,gres/gpu=1,mem=192G,node=1\n19425444_3|RUNNING|21|billing=16,cpu=16,gres/gpu=1,mem=192G,node=1\n",
+    "MIGRATION_COMPLETE.json": {
+      "migrations": [
+        {
+          "arm": "U-multitask-early",
+          "old_producer": "030c96ec7205ab87f38f9cdf132d07a282db7602",
+          "producer": "8c9a7403edbcd3a37fe09c3af687cbb99a62be85",
+          "source": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-replay/U-multitask-early/joint-last.pt",
+          "source_sha256": "1c13bc03eef7edf725753a7a37e5509527031e99a44cd6b3fe0813f7e4bfaae7",
+          "destination_sha256": "a0edc3afd5300b5fbe54ed8379c1588d519ba7b3409f28c2e12789d79e3b5d49",
+          "global_step": 1800,
+          "task_counts": {
+            "om4": 1272,
+            "observation": 528
+          },
+          "elapsed_seconds": 7396.994684780948,
+          "changes": {
+            "code_commit": {
+              "old": "030c96ec7205ab87f38f9cdf132d07a282db7602",
+              "new": "8c9a7403edbcd3a37fe09c3af687cbb99a62be85"
+            },
+            "arguments": {
+              "output": {
+                "old": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-replay/U-multitask-early",
+                "new": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-observation-cache/U-multitask-early"
+              },
+              "qualification": {
+                "old": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-replay/fit-unet-0/QUALIFIED.json",
+                "new": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-observation-cache/fit-unet-0/QUALIFIED.json"
+              },
+              "joint_qualification": {
+                "old": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-replay/probe-U-multitask-early/JOINT_QUALIFIED.json",
+                "new": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-observation-cache/probe-U-multitask-early/JOINT_QUALIFIED.json"
+              },
+              "selection_reference": {
+                "old": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-replay/selection-reference.json",
+                "new": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-observation-cache/selection-reference.json"
+              }
+            }
+          },
+          "all_other_checkpoint_state_exact": true,
+          "source_unchanged": true
+        },
+        {
+          "arm": "U-multitask-early-latent",
+          "old_producer": "030c96ec7205ab87f38f9cdf132d07a282db7602",
+          "producer": "8c9a7403edbcd3a37fe09c3af687cbb99a62be85",
+          "source": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-replay/U-multitask-early-latent/joint-last.pt",
+          "source_sha256": "b7161782bbd36d374032b57e5596b95f330cfeb47c82b717035809aefa095203",
+          "destination_sha256": "6dcbe550e925957d103440690f3c5d756f170ecabc6366fe435841dae29a5f4d",
+          "global_step": 1836,
+          "task_counts": {
+            "om4": 1291,
+            "observation": 545
+          },
+          "elapsed_seconds": 7414.753142157104,
+          "changes": {
+            "code_commit": {
+              "old": "030c96ec7205ab87f38f9cdf132d07a282db7602",
+              "new": "8c9a7403edbcd3a37fe09c3af687cbb99a62be85"
+            },
+            "arguments": {
+              "output": {
+                "old": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-replay/U-multitask-early-latent",
+                "new": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-observation-cache/U-multitask-early-latent"
+              },
+              "qualification": {
+                "old": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-replay/fit-unet-10/QUALIFIED.json",
+                "new": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-observation-cache/fit-unet-10/QUALIFIED.json"
+              },
+              "joint_qualification": {
+                "old": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-replay/probe-U-multitask-early-latent/JOINT_QUALIFIED.json",
+                "new": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-observation-cache/probe-U-multitask-early-latent/JOINT_QUALIFIED.json"
+              },
+              "selection_reference": {
+                "old": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-replay/selection-reference.json",
+                "new": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-observation-cache/selection-reference.json"
+              }
+            }
+          },
+          "all_other_checkpoint_state_exact": true,
+          "source_unchanged": true
+        },
+        {
+          "arm": "U-multitask-early-fine",
+          "old_producer": "030c96ec7205ab87f38f9cdf132d07a282db7602",
+          "producer": "8c9a7403edbcd3a37fe09c3af687cbb99a62be85",
+          "source": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-replay/U-multitask-early-fine/joint-last.pt",
+          "source_sha256": "5e81ad58429b7a205191a0f64538c1c4ecc05b8b220187485570e6f8afa41062",
+          "destination_sha256": "665c13c10b3b3d4eaec9eadf240368de476e3a32f159b293c2c0db10e85266b8",
+          "global_step": 758,
+          "task_counts": {
+            "om4": 610,
+            "observation": 148
+          },
+          "elapsed_seconds": 7423.149718486005,
+          "changes": {
+            "code_commit": {
+              "old": "030c96ec7205ab87f38f9cdf132d07a282db7602",
+              "new": "8c9a7403edbcd3a37fe09c3af687cbb99a62be85"
+            },
+            "arguments": {
+              "output": {
+                "old": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-replay/U-multitask-early-fine",
+                "new": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-observation-cache/U-multitask-early-fine"
+              },
+              "qualification": {
+                "old": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-replay/fit-fine-0/QUALIFIED.json",
+                "new": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-observation-cache/fit-fine-0/QUALIFIED.json"
+              },
+              "joint_qualification": {
+                "old": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-replay/probe-U-multitask-early-fine/JOINT_QUALIFIED.json",
+                "new": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-observation-cache/probe-U-multitask-early-fine/JOINT_QUALIFIED.json"
+              },
+              "selection_reference": {
+                "old": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-replay/selection-reference.json",
+                "new": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-observation-cache/selection-reference.json"
+              }
+            }
+          },
+          "all_other_checkpoint_state_exact": true,
+          "source_unchanged": true
+        },
+        {
+          "arm": "U-multitask-early-fine-latent",
+          "old_producer": "030c96ec7205ab87f38f9cdf132d07a282db7602",
+          "producer": "8c9a7403edbcd3a37fe09c3af687cbb99a62be85",
+          "source": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-replay/U-multitask-early-fine-latent/joint-last.pt",
+          "source_sha256": "8b61b92941b72fd56bc6f6ef0d9e65efb181ac50c706db0eeb31f87fc13710e8",
+          "destination_sha256": "1d9cade0f86b0a571b84f026d00cb6f4c7fdc9e56a80b75124e5948c7943d29c",
+          "global_step": 746,
+          "task_counts": {
+            "om4": 601,
+            "observation": 145
+          },
+          "elapsed_seconds": 7405.335198373068,
+          "changes": {
+            "code_commit": {
+              "old": "030c96ec7205ab87f38f9cdf132d07a282db7602",
+              "new": "8c9a7403edbcd3a37fe09c3af687cbb99a62be85"
+            },
+            "arguments": {
+              "output": {
+                "old": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-replay/U-multitask-early-fine-latent",
+                "new": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-observation-cache/U-multitask-early-fine-latent"
+              },
+              "qualification": {
+                "old": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-replay/fit-fine-10/QUALIFIED.json",
+                "new": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-observation-cache/fit-fine-10/QUALIFIED.json"
+              },
+              "joint_qualification": {
+                "old": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-replay/probe-U-multitask-early-fine-latent/JOINT_QUALIFIED.json",
+                "new": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-observation-cache/probe-U-multitask-early-fine-latent/JOINT_QUALIFIED.json"
+              },
+              "selection_reference": {
+                "old": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-replay/selection-reference.json",
+                "new": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-observation-cache/selection-reference.json"
+              }
+            }
+          },
+          "all_other_checkpoint_state_exact": true,
+          "source_unchanged": true
+        }
+      ],
+      "scientific_changes": false
+    },
+    "performance/COPIES_VERIFIED.json": {
+      "copies_verified": [
+        "U-multitask-early",
+        "U-multitask-early-latent",
+        "U-multitask-early-fine",
+        "U-multitask-early-fine-latent"
+      ]
+    }
+  },
+  "utilization_submission": {
+    "checks": [
+      {
+        "stage": "copy_migration",
+        "job_id": "19425442",
+        "command": [
+          "sbatch",
+          "--parsable",
+          "--account=torch_pr_347_lzanna",
+          "--nodes=1",
+          "--ntasks=1",
+          "--chdir=/scratch/jr7309",
+          "--partition=cpu_short",
+          "--cpus-per-task=4",
+          "--mem=16G",
+          "--time=01:00:00",
+          "--job-name=early-fine-copy-migration",
+          "--output=/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-observation-cache/logs/migrate-%j.out",
+          "--error=/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-observation-cache/logs/migrate-%j.err",
+          "--wrap",
+          "apptainer exec --bind /scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-observation-cache/source/8c9a7403edbcd3a37fe09c3af687cbb99a62be85:/pilot-code,/scratch:/scratch /scratch/jr7309/.apptainer-images/ghcr.io-m2lines-ocean-emulator-physicsnemo-26.05-9cd36b1bdcf4921fb027494afa4157e217818ccd.sif env PYTHONPATH=/pilot-code/src:/pilot-code:/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-observation-cache/runtime /workspace/.venv/bin/python /scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-observation-cache/migrate-early-fine-observation-cache.py"
+        ]
+      },
+      {
+        "stage": "isolated_utilization",
+        "job_id": "19425444",
+        "command": [
+          "sbatch",
+          "--parsable",
+          "--account=torch_pr_347_lzanna",
+          "--nodes=1",
+          "--ntasks=1",
+          "--chdir=/scratch/jr7309",
+          "--partition=rtx6000_lzanna",
+          "--gres=gpu:1",
+          "--cpus-per-task=16",
+          "--mem=192G",
+          "--array=0-3%4",
+          "--time=00:45:00",
+          "--dependency=afterok:19425442",
+          "--job-name=early-fine-util-check",
+          "--output=/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-observation-cache/logs/performance-%A_%a.out",
+          "--error=/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-observation-cache/logs/performance-%A_%a.err",
+          "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-observation-cache/performance-early-fine-observation-cache.sbatch"
+        ]
+      }
+    ],
+    "callback": {
+      "workload": "19425444",
+      "callback": "19425464",
+      "command": [
+        "sbatch",
+        "--parsable",
+        "--account=torch_pr_347_lzanna",
+        "--partition=cpu_short",
+        "--cpus-per-task=1",
+        "--mem=256M",
+        "--time=00:10:00",
+        "--dependency=afterany:19425444",
+        "--chdir=/scratch/jr7309",
+        "--job-name=obscache-followup",
+        "--output=/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-observation-cache/.followup/callback-%j.log",
+        "--wrap",
+        "python3 /scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-observation-cache/.followup/send.py --credential-file /scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-observation-cache/.followup/torch-19425444.json --retry-seconds 0 --status unknown --summary 'Observation cache utilization checks terminated; verify actual gates and outputs.' --output /scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-observation-cache"
+      ]
+    },
+    "registration": "{\"credential_file\":\"/home/jder/.local/state/codex-async-followup/credentials/torch-19425444.json\",\"event_id\":\"9b962e29-208e-4d1e-b4dc-c34f6911eac0\",\"thread_id\":\"01a0d8be-2e2a-7883-8dea-2d99d0087d9c\"}\n",
+    "relay_service": "early-fine-torch-obscache-util-callback-relay.service"
+  },
+  "completed_gpu_hours_before_utilization": 13.832777777777778,
+  "production_submitted": false,
+  "staged_production_helper": {
+    "source": "\"\"\"Submit preserved production checkpoints only after all recovery gates pass.\"\"\"\nimport hashlib,json,os,pathlib,subprocess\nr=pathlib.Path('/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-observation-cache')\nproducer='8c9a7403edbcd3a37fe09c3af687cbb99a62be85'\nreceipt=r/'production-submission.json'\nif receipt.exists():raise FileExistsError('Production already submitted; inspect receipt before any retry')\np=json.loads((r/'paths.json').read_text());assert p['producer']==producer\ncode=r/'source'/producer\nmigration=json.loads((r/'MIGRATION_COMPLETE.json').read_text())\nassert not migration['scientific_changes']\narms=['U-multitask-early','U-multitask-early-latent','U-multitask-early-fine','U-multitask-early-fine-latent']\nassert json.loads((r/'performance/COPIES_VERIFIED.json').read_text())['copies_verified']==arms\naccounting=subprocess.check_output(['sacct','-X','-n','-j','19425444','--format=JobID,State','-P'],text=True)\nrows=[line.strip().split('|') for line in accounting.splitlines() if line.strip()]\nassert {row[0] for row in rows}=={'19425444_'+str(i) for i in range(4)}, accounting\nassert all(row[1]=='COMPLETED' for row in rows),accounting\nfor i,arm in enumerate(arms):\n q=json.loads((r/('probe-'+arm)/'JOINT_QUALIFIED.json').read_text())\n assert q['contract']['code_commit']==producer and q['resume_verified']\n assert q['resume_evidence']['deterministic_reference_bitwise_exact']\n io=json.loads((r/('probe-'+arm)/'IO_EQUIVALENT.json').read_text())\n assert io['cpu_arrays_exact'] and io['observation_prepared_and_coverage_exact']\n perf=json.loads((r/'performance'/arm/'PERFORMANCE_COMPLETE.json').read_text())\n assert perf['producer']==producer and perf['utilization_gate_passed'] and perf['gpu_utilization_mean']>=50\n assert perf['warmup_updates']==20 and perf['measured_updates']==80 and not perf['promote_diagnostic_weights']\n m=migration['migrations'][i];assert m['arm']==arm and m['producer']==producer\n assert m['all_other_checkpoint_state_exact'] and m['source_unchanged']\n assert m['global_step']==[1800,1836,758,746][i]==perf['initial_step']\n digest=hashlib.sha256()\n with (r/arm/'joint-last.pt').open('rb') as f:\n  for chunk in iter(lambda:f.read(8*1024*1024),b''):digest.update(chunk)\n assert digest.hexdigest()==m['destination_sha256']\nenv=os.environ.copy();env.update(SAMUDRA_IMAGE=p['image'],SAMUDRA_DATA_BIND='/scratch:/scratch',APPTAINER_CACHEDIR='/scratch/jr7309/apptainer-cache',SINGULARITY_CACHEDIR='/scratch/jr7309/singularity-cache',GPU_ENABLED='1',WANDB_MODE='offline')\ncmd=['sbatch','--parsable','--account=torch_pr_347_lzanna','--partition=rtx6000_lzanna','--nodes=1','--ntasks=1','--chdir=/scratch/jr7309','--export=ALL','--gres=gpu:1','--cpus-per-task=16','--mem=192G','--array=0-3%4','--requeue','--signal=B:USR1@300','--time=24:00:00','--dependency=afterok:19425444','--job-name=early-fine-train','--output='+str(r/'logs/train-%A_%a.out'),'--error='+str(r/'logs/train-%A_%a.err'),str(code/'scripts/slurm_early_fine_engaging.sbatch'),str(r),str(code),'train',producer]\njob=subprocess.check_output(cmd,env=env,text=True).strip().split(';')[0]\nresult={'job_id':job,'producer':producer,'command':cmd,'utilization_accounting':accounting,'production_source':'audited root/ARM checkpoints; diagnostic weights excluded'}\nreceipt.write_text(json.dumps(result,indent=2)+'\\n');print(json.dumps(result))\n",
+    "sha256": "2b0e78a7ca345b0c8b53dd178c3045bc81b87b89bb73d814ef80ed20342bbffb",
+    "executed": false
+  }
+}

@@ -8,6 +8,12 @@ broader temporal coverage helps observation forecasts, whether learning from
 fine-resolution examples improves transfer, and whether fine supervision makes
 recurrent latent state more useful. No LLC data enter this wave.
 
+**Current status, October 8 at 05:23 ET:** all four observation-cache
+qualifications and the checkpoint-copy audit passed. Isolated utilization
+array **19425444** is running. Production remains at **1,800 / 1,836 / 758 /
+746** updates until every arm clears the utilization gate. No final comparison
+is available yet. See the latest entry below for evidence and follow-up.
+
 ## Runs and matched exposure
 
 | Literal model name | Recent OM4 1° updates | Earlier OM4 updates | Observation updates | Extra recurrent channels |
@@ -686,3 +692,41 @@ At 05:09 ET all four arms had completed ten finite fitting updates and entered
 OM4 cache warmup for the joint probe. Qualification is still in progress.
 The migration and performance script hashes match their staged copies; the
 artifact records the exact remote submission helper and verified source-archive hash.
+
+## October 8: observation-cache qualification and copy audit passed
+
+Callback `b2e0e58d-edc6-4c8b-8b7e-49f4268530d9` was checked against
+Slurm accounting and every fitting, joint-qualification, I/O-equality and
+throughput marker. **All four tasks of 19425180 completed successfully.**
+All cached observation tensors and mask-only coverage matched their uncached
+references exactly. Every deterministic native/serialized replay had zero RMS
+and maximum parameter difference. The pinned producer is
+`8c9a7403edbcd3a37fe09c3af687cbb99a62be85`.
+
+Short-probe training-time estimates were 4.24 / 4.29 / 5.93 / 5.20 hours for
+coarse / coarse+latent / fine / fine+latent. These are qualification estimates
+that include deterministic-reference work and exclude initial cache warmup,
+validation and evaluation; they are not completion ETAs. This qualification
+used **0.5908 GPU-hours**, bringing completed attempts and retries to
+**13.8328 GPU-hours**.
+
+CPU copy-audit job **19425442 completed in 82 seconds**. It checked all model,
+optimizer, RNG, counters and other non-manifest checkpoint contents exactly,
+and confirmed unchanged original checkpoint hashes. Only the producer and
+four run/qualification paths changed in the copied manifests. Audited resume
+positions remain **1,800 / 1,836 / 758 / 746**. It also verified independent
+checkpoint copies for the performance probes.
+
+Utilization array **19425444_[0-3]** was released by `afterok:19425442` and all
+four tasks are running. The unchanged protocol measures 80 real updates after
+20 warmup updates and requires mean GPU utilization at least 50% in every arm.
+Production mounts are read-only in these checks; diagnostic weights are never
+promoted. A production-submit helper is staged but **has not been executed**.
+It requires successful accounting and utilization markers for all four tasks,
+all qualification/audit evidence, and hashes matching the preserved production
+checkpoints before invoking the existing `stage=train` runner.
+
+Callback **19425464** (`afterany:19425444`), registration
+`9b962e29-208e-4d1e-b4dc-c34f6911eac0`, and the verified active
+`early-fine-torch-obscache-util-callback-relay.service` cover completion.
+[Full qualification, migration, independent-copy evidence, submission receipts and staged production helper](artifacts/early-fine-2026-10-07/torch-observation-cache-migration.json).

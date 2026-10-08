@@ -1,0 +1,161 @@
+{
+  "checked_at": "2026-10-08T04:40:59.010704+00:00",
+  "sacct": "JobID|State|Elapsed|ExitCode\n19411638|COMPLETED|00:05:31|0:0\n19411638.batch|COMPLETED|00:05:31|0:0\n19411638.extern|COMPLETED|00:05:31|0:0\n19411640_0|FAILED|00:07:18|1:0\n19411640_0.batch|FAILED|00:07:18|1:0\n19411640_0.extern|COMPLETED|00:07:20|0:0\n19411640_0.0|FAILED|00:07:16|1:0\n19411640_1|COMPLETED|00:08:36|0:0\n19411640_1.batch|COMPLETED|00:08:36|0:0\n19411640_1.extern|COMPLETED|00:08:36|0:0\n19411640_1.0|COMPLETED|00:08:35|0:0\n19411640_2|COMPLETED|00:09:18|0:0\n19411640_2.batch|COMPLETED|00:09:18|0:0\n19411640_2.extern|COMPLETED|00:09:22|0:0\n19411640_2.0|COMPLETED|00:09:16|0:0\n19411640_3|RUNNING|00:11:34|0:0\n19411640_3.batch|RUNNING|00:11:34|0:0\n19411640_3.extern|RUNNING|00:11:34|0:0\n19411640_3.0|RUNNING|00:11:33|0:0\n19411643_[0-3%4]|PENDING|00:00:00|0:0\n",
+  "evidence": {
+    "probe-U-multitask-early-fine/EXPOSURE.json": {
+      "om4_recent": 3,
+      "om4_early": 3,
+      "observation": 4
+    },
+    "probe-U-multitask-early-fine/JOINT_QUALIFIED.json": {
+      "contract": {
+        "code_commit": "bace89544af6bee819e9da480d7280c8d5e2b51f",
+        "runtime_extension_sha256": "ff904784233031f60809530a5520fb11b317052746cd8e4f25c674f12f5f09ba",
+        "data_manifest_sha256": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+        "om4_data": "/scratch/jr7309/data/om4_onedeg_v3",
+        "selection_reference_sha256": "c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c",
+        "normalization": "instance",
+        "evolution_architecture": "extent-fine",
+        "model_options": {
+          "initializer_architecture": "unet",
+          "surface_policy": "observed-only",
+          "task_conditioning": "input-adapters",
+          "latent_channels": 0
+        },
+        "surface_fill": "zero",
+        "completion_weight": 0.1,
+        "global_observations": true,
+        "reconstruction_weight": 0.1,
+        "accumulate": 8,
+        "core_lr": 0.0001,
+        "om4_lr": 0.0001,
+        "warmup_steps": 0,
+        "seed": 1729,
+        "early": {
+          "root": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-grid-bounds/early-data",
+          "manifest_sha256": "433484fdad2460fd12bc905d7ac38a9dc8196d5df0de57a64e8ce3585769b1bd",
+          "fine": true,
+          "period": [
+            "1958-01-03",
+            "1974-12-31"
+          ],
+          "fraction_of_om4": 0.5,
+          "fine_coarse_forecast_weights": [
+            0.5,
+            0.5
+          ]
+        }
+      },
+      "resume_verified": true,
+      "resume_evidence": {
+        "serialization_exact": true,
+        "restoration_exact": true,
+        "native_and_serialized_replay": {
+          "native_repeat": {
+            "rmse": 6.177258549600262e-09,
+            "max_absolute": 8.692964911460876e-06
+          },
+          "serialized": {
+            "rmse": 3.5031924245811895e-09,
+            "max_absolute": 4.156026989221573e-06
+          }
+        },
+        "acceptance": "Serialized replay difference <= 5x native replay difference, with RMSE floor 1e-8 and maximum absolute floor 1e-7"
+      },
+      "task_counts": {
+        "om4": 6,
+        "observation": 4
+      },
+      "gpu": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+      "max_gpu_memory_gib": 71.67848777770996
+    },
+    "probe-U-multitask-early-fine/THROUGHPUT.json": {
+      "mean_seconds": {
+        "recent": 5.493967834083985,
+        "early": 25.88614715092505,
+        "observation": 5.165772272118677
+      },
+      "training_hours_for_4000_updates": 11.586572091457331,
+      "peak_gpu_gib": 71.67848777770996,
+      "note": "Includes real I/O, backward and optimizer; excludes validation and initial cache warmup"
+    },
+    "probe-U-multitask-early-latent/EXPOSURE.json": {
+      "om4_recent": 3,
+      "om4_early": 3,
+      "observation": 4
+    },
+    "probe-U-multitask-early-latent/JOINT_QUALIFIED.json": {
+      "contract": {
+        "code_commit": "bace89544af6bee819e9da480d7280c8d5e2b51f",
+        "runtime_extension_sha256": "ff904784233031f60809530a5520fb11b317052746cd8e4f25c674f12f5f09ba",
+        "data_manifest_sha256": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+        "om4_data": "/scratch/jr7309/data/om4_onedeg_v3",
+        "selection_reference_sha256": "c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c",
+        "normalization": "instance",
+        "evolution_architecture": "extent-unet",
+        "model_options": {
+          "initializer_architecture": "unet",
+          "surface_policy": "observed-only",
+          "task_conditioning": "input-adapters",
+          "latent_channels": 10
+        },
+        "surface_fill": "zero",
+        "completion_weight": 0.1,
+        "global_observations": true,
+        "reconstruction_weight": 0.1,
+        "accumulate": 8,
+        "core_lr": 0.0001,
+        "om4_lr": 0.0001,
+        "warmup_steps": 0,
+        "seed": 1729,
+        "early": {
+          "root": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-grid-bounds/early-data",
+          "manifest_sha256": "433484fdad2460fd12bc905d7ac38a9dc8196d5df0de57a64e8ce3585769b1bd",
+          "fine": false,
+          "period": [
+            "1958-01-03",
+            "1974-12-31"
+          ],
+          "fraction_of_om4": 0.5,
+          "fine_coarse_forecast_weights": [
+            0.5,
+            0.5
+          ]
+        }
+      },
+      "resume_verified": true,
+      "resume_evidence": {
+        "serialization_exact": true,
+        "restoration_exact": true,
+        "native_and_serialized_replay": {
+          "native_repeat": {
+            "rmse": 2.0717226826393175e-07,
+            "max_absolute": 0.00019364606123417616
+          },
+          "serialized": {
+            "rmse": 0.0,
+            "max_absolute": 0.0
+          }
+        },
+        "acceptance": "Serialized replay difference <= 5x native replay difference, with RMSE floor 1e-8 and maximum absolute floor 1e-7"
+      },
+      "task_counts": {
+        "om4": 6,
+        "observation": 4
+      },
+      "gpu": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+      "max_gpu_memory_gib": 71.67926406860352
+    },
+    "probe-U-multitask-early-latent/THROUGHPUT.json": {
+      "mean_seconds": {
+        "recent": 5.600396628025919,
+        "early": 12.41906663030386,
+        "observation": 5.299644791210691
+      },
+      "training_hours_for_4000_updates": 7.949653566875323,
+      "peak_gpu_gib": 71.67926406860352,
+      "note": "Includes real I/O, backward and optimizer; excludes validation and initial cache warmup"
+    }
+  },
+  "failed_stderr": "wandb:                 loss 1.1721\nwandb:                   lr 0.0001\nwandb:          observation 1\nwandb:                  om4 4\nwandb:            om4_early 2\nwandb:           om4_recent 2\nwandb:              origins 1217\nwandb:           parameters 62967680\nwandb:  spectral_components 27\nwandb: validation/obs_score 4.51049\nwandb: \nwandb: You can sync this run to the cloud by running:\nwandb: wandb sync /scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-grid-bounds/probe-U-multitask-early/wandb/offline-run-20261008_003011-f216963eeb13\nwandb: Find logs at: ./runs/2026-10-08-early-fine-rtx/recovery-grid-bounds/probe-U-multitask-early/wandb/offline-run-20261008_003011-f216963eeb13/logs\nTraceback (most recent call last):\n  File \"<frozen runpy>\", line 198, in _run_module_as_main\n  File \"<frozen runpy>\", line 88, in _run_code\n  File \"/pilot-code/src/samudra/experiments/observation_joint.py\", line 769, in <module>\n    main()\n  File \"/pilot-code/src/samudra/experiments/observation_joint.py\", line 759, in main\n    EarlyPilot(args).run_joint()\n  File \"/pilot-code/src/samudra/experiments/early_fine_training.py\", line 241, in run_joint\n    super().run_joint()\n  File \"/pilot-code/src/samudra/experiments/observation_joint.py\", line 615, in run_joint\n    self.verify_resume_update()\n  File \"/pilot-code/src/samudra/experiments/observation_joint.py\", line 526, in verify_resume_update\n    raise ValueError(\nValueError: Serialized replay exceeds measured native variation: {'native_repeat': {'rmse': 6.043051511977145e-09, 'max_absolute': 4.92483377456665e-06}, 'serialized': {'rmse': 1.5068285824964222e-07, 'max_absolute': 0.0001941454829648137}}\nsrun: error: gr102: task 0: Exited with exit code 1\nsrun: Terminating StepId=19412252.0"
+}

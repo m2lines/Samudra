@@ -289,3 +289,52 @@ still run in audit 19411638; this coordinate check does not replace that gate.
 At 00:28 ET, recovery audit 19411638 was running (4m26s elapsed) without an
 error traceback. Qualification 19411640 and production 19411643 remained
 pending dependencies. No new qualification or scientific result is claimed.
+
+## October 8 replay-check recovery
+
+Audit callback `3512e27d-5a43-47f2-a037-8eddab8ff2d7` confirmed data/bounds
+audit 19411638 completed in 5m31s. Geometry and all data checks passed. The
+next qualification attempt passed for coarse+latent and both fine arms, with
+estimated training times 7.95, 11.59 and 12.15 hours and peak allocated GPU
+memory about 71.68 GiB. These are throughput estimates, excluding validation
+and startup, not trained-model results.
+
+Coarse/no-latent arm 19411640_0 failed the existing numerical replay check.
+Checkpoint serialization and restored model/optimizer/RNG states were exact.
+Its one native repeat differed by RMS 6.04e-9 / max 4.92e-6, while serialized
+replay differed by RMS 1.51e-7 / max 1.94e-4. This exceeded the single-repeat
+control envelope, though comparable variation occurred between native repeats
+in earlier successful probes. This evidence points to an inadequately sampled
+native numerical-variation estimate; it does not justify ignoring the gate.
+[Full qualification evidence and failure](artifacts/early-fine-2026-10-07/torch-bounds-qualification.json).
+
+Producer `030c96ec7205ab87f38f9cdf132d07a282db7602` changes only the
+qualification diagnostic: exactly five native and five serialized trials are
+run from the same checkpoint, with exact restoration checked every time.
+The maximum serialized difference must satisfy the same 5× factor and the
+same RMS/max-absolute floors against the maximum native variation. All trials
+are retained. The test never retries until passing. **35 targeted tests pass**,
+including late native jitter and deliberately corrupted resumed-update tests;
+Ruff passes. Scientific training, data, optimizer, schedule, and metric
+selection are unchanged.
+
+Fresh qualification array **19412713_[0-3]** and dependent production array
+**19412714_[0-3]** use isolated root
+`/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-replay`. They reuse the
+passed, hash-pinned data/bounds audit unchanged, but no fit weights or old
+qualification markers are promoted. The completed audit had aged out of live
+Slurm dependency records, so its successful accounting and readiness hash
+were explicitly verified before submission. New qualification waited for
+prior array termination to avoid overlap; production requires all new tasks
+to succeed. At 00:43 ET all four replacement qualifications were running and
+had advanced past fitting to cache loading.
+
+First two completed qualification attempts used **1.2378 GPU-hours** including
+failures (0.6186 + 0.6192); neither production attempt ran. Old blocked
+production 19411643 and its superseded callbacks were canceled. Callback
+registrations `9aad14ae-ebf3-4301-b2d8-9a92956f6ec9` and
+`119b303a-1c0f-49a5-aad8-40797f2fa9ac` were revoked as superseded; the old
+grid-recovery relay was stopped. New callbacks **19412774/19412775** use
+`afterany` and the active `early-fine-torch-replay-callback-relay.service`.
+[Replacement receipts, final prior-attempt results, and startup evidence](artifacts/early-fine-2026-10-07/torch-replay-recovery.json).
+Engaging jobs remain held until all Torch qualifications succeed.

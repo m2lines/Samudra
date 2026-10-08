@@ -14,6 +14,7 @@ from pathlib import Path
 
 import numpy as np
 
+from samudra.experiments.annual_artifacts import annual_output_hashes
 from samudra.experiments.observation_annual import read_origin, verify_sample_root
 from samudra.experiments.observation_pilot import atomic_json, digest
 
@@ -143,11 +144,7 @@ def main():
         {
             **contract,
             "model": row,
-            "outputs": {
-                p.name: digest(p)
-                for p in output.iterdir()
-                if p.suffix in {"json", "npz"} and p.name != "VERIFIED.json"
-            },
+            "outputs": annual_output_hashes(output, complete),
         },
         output / "VERIFIED.json",
     )

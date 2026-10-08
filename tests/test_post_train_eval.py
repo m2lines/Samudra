@@ -291,19 +291,3 @@ def test_checkpoint_eval_runs_observation_phase_and_returns_scalars(
     evaluator.standalone_inference.assert_not_called()
     # run() owns cleanup, including on failure.
     evaluator.finish.assert_not_called()
-
-
-def test_current_preset_enables_last_checkpoint_observation_eval(monkeypatch, tmp_path):
-    from samudra.config import EvalConfig, TrainConfig
-
-    monkeypatch.chdir(tmp_path)
-    train = TrainConfig.from_yaml("samudra_om4/train.yaml")
-    assert train.post_train_eval is not None
-    assert train.post_train_eval.last_n_checkpoints == 1
-    evaluation = EvalConfig.from_yaml(train.post_train_eval.eval_config_path)
-    assert evaluation.observations is not None
-    assert evaluation.save_zarr
-    disabled = TrainConfig.from_yaml_and_cli(
-        ["samudra_om4/train.yaml", "--post_train_eval=null"]
-    )
-    assert disabled.post_train_eval is None

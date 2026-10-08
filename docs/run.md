@@ -63,6 +63,43 @@ Each task will see all GPUs on the node, but they know how to choose the correct
 
 To learn more about other datasets used during training, please see the [data documentation](data.md).
 
+### Observation metrics after training
+
+Once evaluation has written `predictions.zarr`, you can score it against DUACS
+(surface geostrophic velocity and EKE), OISST (SST), and IAP (ocean heat content)
+on a local machine or in a separate CPU job. No GPU, checkpoint loading, or new
+model rollout is needed:
+
+```bash
+uv run python -m samudra.metrics path/to/eval.yaml \
+  --experiment.data_root /path/to/om4/data \
+  --experiment.base_output_dir /path/to/training-output/evals \
+  --experiment.name epoch_0070 \
+  --data.loading.type cpu
+```
+
+This example reads `/path/to/training-output/evals/epoch_0070/predictions.zarr`.
+Set the output directory and name to match your saved evaluation; repeat with
+`ema_latest` to score its predictions. If you only have checkpoints, first
+[run evaluation](#evaluating-the-model) to generate the saved rollout.
+
+Use an evaluation config whose data sources, variables, and inference period
+match the saved predictions, with an `observations` block such as the one in
+`samudra_om4/eval.yaml`. To generate predictions on the GPU and score them later,
+use `observations: null` for the rollout, then restore the observation settings
+for the command above. Observation-enabled post-training evaluation otherwise
+scores observations inline in its allocation.
+
+The command writes `observation_metrics.csv` alongside the predictions and logs
+scalar results locally; it does not upload them to W&B. The configured OM4
+baseline is scored too. Public observation inputs total roughly 65 GB, so allow
+for network I/O and sufficient memory, or point the observation config at local
+copies. A separate CPU job lets you release the training GPUs before scoring.
+
+New prediction stores preserve land and absent depth levels as NaNs. Older
+stores with zero-filled dry cells need their original per-channel wet masks
+applied before scoring; valid ocean zeros must not be masked indiscriminately.
+
 ## Evaluating the model
 
 ```bash

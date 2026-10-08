@@ -70,41 +70,6 @@ the saved best score so incompatible scores are not compared. The checkpoint's
 `best_val_loss` (and search summary's `best_validation_loss`) stores the selected
 score; `validation_loss` continues to report single-step loss.
 
-### End-of-training evaluation
-
-The current `samudra_om4/train.yaml` preset evaluates the last saved epoch and
-the final EMA checkpoint after training. It uses `samudra_om4/eval.yaml`, which
-saves the long rollout and scores it against DUACS, OISST, and IAP observations,
-alongside a date-matched OM4 baseline.
-
-```yaml
-post_train_eval:
-  eval_config_path: samudra_om4/eval.yaml
-  last_n_checkpoints: 1
-```
-
-Each checkpoint writes `predictions.zarr` and `observation_metrics.csv` under
-the training output's `evals/<checkpoint>/` directory. `evals/summary.json`
-contains both rollout and `obs/*` scalar metrics. When W&B is enabled in the
-**evaluation config**, it also receives the scalars and `obs/metrics_table`.
-The bundled evaluation config keeps W&B disabled; local metrics are still saved.
-
-Observation scoring reads the public observation stores (roughly 65 GB) and
-adds CPU time after the rollout. Budget for this phase in the job wall time.
-You can point `observations` at local copies instead. Data or scoring errors
-fail the evaluation rather than silently omitting metrics.
-
-Set `post_train_eval: null` to skip the entire phase. To keep the rollout but
-omit observations, use a custom evaluation config with `observations: null`.
-The evaluation config must match any changes to the training model, input/output
-steps, variables, or dataset paths; it inherits the training data root, not all
-training overrides. Its inference period must be present in that dataset.
-
-New prediction stores preserve dry cells as NaNs so observation scoring excludes
-land and absent depth levels. Older stores written with zero-filled dry cells
-need the original per-channel source masks applied before scoring; a zero value
-alone cannot distinguish dry cells from valid ocean predictions.
-
 ### Data Paths
 
 Training configs reference OM4 ocean model data stored in Zarr format. The bundled

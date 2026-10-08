@@ -7,11 +7,6 @@
 debug: false
 disk_mode: true
 save_freq: 5
-# Evaluate the last saved epoch and final EMA, including observation metrics.
-# Set post_train_eval: null to skip the end-of-training evaluation.
-post_train_eval:
-  eval_config_path: samudra_om4/eval.yaml
-  last_n_checkpoints: 1
 # Roughly one year (~35 model calls with two five-day outputs per call).
 rollout_validation:
   days: [360]

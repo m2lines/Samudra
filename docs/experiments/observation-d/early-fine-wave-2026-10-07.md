@@ -99,7 +99,7 @@ source datasets are not modified. Native early chunks are checked for expected
 sizes, identical timestamps and representative finite wet values. This is not a
 full fresh native-payload checksum audit.
 
-H200 qualification is required: the retained resident recent-OM4 cache alone is
+High-memory GPU qualification is required: the retained resident recent-OM4 cache alone is
 about 55 GiB, so L40S is unsuitable without a separate cache change. Early data
 are streamed with eight reader threads rather than resident on the GPU. The
 existing x86 Apptainer image is pinned by SHA256; a private gsw overlay leaves
@@ -172,3 +172,52 @@ conversation after either successful or unsuccessful termination; actual outputs
 will be checked before reporting results. Endpoint authentication passed from the
 login host; compute-node connectivity check job is `25219448`. Callback delivery
 can itself wait for CPU scheduling. Credentials remain private and outside Git.
+
+## Torch migration (October 7–8)
+
+The user authorized checking and using Torch capacity. At 23:43 ET, a complete
+24-hour, one-RTX, 16-CPU, 96-GiB request passed `sbatch --test-only` with an
+immediate start estimate on gr101 in `rtx6000_lzanna` (scheduler preemption of
+lower-priority work). The estimate is not proof of a running allocation.
+Comment-routed H200 requests were rejected as unavailable under both tested
+LZanna and general accounts.
+
+Torch observation manifest/grid/statistics and both OM4 metadata SHA256 hashes
+match Engaging. Data remain in place under `/scratch/jr7309/data`; a fresh full
+observation verification and early-OM4 audit gate Torch qualification. Live
+quota was 4.42 TB used of 5 TB, leaving about 0.58 TB. No full dataset transfer
+is needed. The experiment root is
+`/scratch/jr7309/runs/2026-10-08-early-fine-rtx`.
+
+Producer `9efad7a45b1a9a328d19db888bb89f6b12d22291` changes only launcher image
+and bind-path portability relative to the Engaging producer. Scientific model,
+schedule, optimizer, selection and seed are unchanged. Each arm must qualify
+fresh on RTX; no qualification marker is carried across hosts. Python modules
+and compiled scientific/Rust extensions must match the pinned Engaging runtime;
+the Torch SIF gets its own verified hash.
+
+| Torch stage | Job / array | Dependency | Initial state |
+|---|---|---|---|
+| Data/runtime audit | 19410261 | None | Submitted |
+| Four RTX qualifications | 19410263_[0-3] | Successful audit | Pending dependency |
+| Four production/evaluation runs | 19410264_[0-3] | All qualifications succeed | Pending dependency |
+
+Engaging arrays 25185999/25186000 were held while still unstarted, preventing
+duplicate scientific runs. They remain available as a fallback until Torch
+qualification succeeds.
+
+Torch CPU-only completion callbacks 19410281/19410283/19410285 respectively
+use `afterany` dependencies on the three stages. Login-host HTTPS requests to
+the callback receiver time out, so a durable local service
+`early-fine-torch-callback-relay.service` retrieves saved terminal-event payloads
+over the authenticated Torch SSH session every ten minutes and submits the
+identical payload locally. It exits after all three events are relayed. It emits
+no periodic conversation updates. Relay delivery requires the SSH session;
+remote event files persist if delivery is delayed. Compute-node HTTPS check
+19410286 was also submitted. No callback credentials are included in the report.
+
+[Exact Torch submission and callback receipts](artifacts/early-fine-2026-10-07/torch-submission.json)
+include the source-only archive hash and bootstrap scripts. The initially copied
+full repository archive was unnecessarily large because of prior report assets;
+its extraction was stopped before job submission, and the jobs use a separate,
+verified source-only archive of the same producer.

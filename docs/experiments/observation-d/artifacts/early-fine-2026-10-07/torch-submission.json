@@ -1,0 +1,133 @@
+{
+  "submission": {
+    "producer": "9efad7a45b1a9a328d19db888bb89f6b12d22291",
+    "submitted_at": "2026-10-08T03:50:40.369913+00:00",
+    "jobs": [
+      {
+        "stage": "prepare",
+        "job_id": "19410261",
+        "command": [
+          "sbatch",
+          "--parsable",
+          "--account=torch_pr_347_lzanna",
+          "--nodes=1",
+          "--ntasks=1",
+          "--chdir=/scratch/jr7309",
+          "--export=ALL",
+          "--job-name=early-fine-prepare",
+          "--output=/scratch/jr7309/runs/2026-10-08-early-fine-rtx/logs/prepare-%A_%a.out",
+          "--error=/scratch/jr7309/runs/2026-10-08-early-fine-rtx/logs/prepare-%A_%a.err",
+          "--partition=cpu_short",
+          "--cpus-per-task=8",
+          "--mem=32G",
+          "--time=02:00:00",
+          "--wrap",
+          "apptainer exec --bind /scratch/jr7309/runs/2026-10-08-early-fine-rtx/source/9efad7a45b1a9a328d19db888bb89f6b12d22291:/pilot-code,/scratch:/scratch /scratch/jr7309/.apptainer-images/ghcr.io-m2lines-ocean-emulator-physicsnemo-26.05-9cd36b1bdcf4921fb027494afa4157e217818ccd.sif env PYTHONPATH=/pilot-code/src:/pilot-code:/scratch/jr7309/runs/2026-10-08-early-fine-rtx/runtime /workspace/.venv/bin/python /scratch/jr7309/runs/2026-10-08-early-fine-rtx/prepare-early-fine-torch.py"
+        ]
+      },
+      {
+        "stage": "qualify",
+        "job_id": "19410263",
+        "command": [
+          "sbatch",
+          "--parsable",
+          "--account=torch_pr_347_lzanna",
+          "--nodes=1",
+          "--ntasks=1",
+          "--chdir=/scratch/jr7309",
+          "--export=ALL",
+          "--job-name=early-fine-qualify",
+          "--output=/scratch/jr7309/runs/2026-10-08-early-fine-rtx/logs/qualify-%A_%a.out",
+          "--error=/scratch/jr7309/runs/2026-10-08-early-fine-rtx/logs/qualify-%A_%a.err",
+          "--partition=rtx6000_lzanna",
+          "--gres=gpu:1",
+          "--cpus-per-task=16",
+          "--mem=96G",
+          "--array=0-3%4",
+          "--requeue",
+          "--signal=B:USR1@300",
+          "--time=02:00:00",
+          "--dependency=afterok:19410261",
+          "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/source/9efad7a45b1a9a328d19db888bb89f6b12d22291/scripts/slurm_early_fine_engaging.sbatch",
+          "/scratch/jr7309/runs/2026-10-08-early-fine-rtx",
+          "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/source/9efad7a45b1a9a328d19db888bb89f6b12d22291",
+          "qualify",
+          "9efad7a45b1a9a328d19db888bb89f6b12d22291"
+        ]
+      },
+      {
+        "stage": "train",
+        "job_id": "19410264",
+        "command": [
+          "sbatch",
+          "--parsable",
+          "--account=torch_pr_347_lzanna",
+          "--nodes=1",
+          "--ntasks=1",
+          "--chdir=/scratch/jr7309",
+          "--export=ALL",
+          "--job-name=early-fine-train",
+          "--output=/scratch/jr7309/runs/2026-10-08-early-fine-rtx/logs/train-%A_%a.out",
+          "--error=/scratch/jr7309/runs/2026-10-08-early-fine-rtx/logs/train-%A_%a.err",
+          "--partition=rtx6000_lzanna",
+          "--gres=gpu:1",
+          "--cpus-per-task=16",
+          "--mem=96G",
+          "--array=0-3%4",
+          "--requeue",
+          "--signal=B:USR1@300",
+          "--time=24:00:00",
+          "--dependency=afterok:19410263",
+          "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/source/9efad7a45b1a9a328d19db888bb89f6b12d22291/scripts/slurm_early_fine_engaging.sbatch",
+          "/scratch/jr7309/runs/2026-10-08-early-fine-rtx",
+          "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/source/9efad7a45b1a9a328d19db888bb89f6b12d22291",
+          "train",
+          "9efad7a45b1a9a328d19db888bb89f6b12d22291"
+        ]
+      }
+    ],
+    "replaces_engaging_arrays": [
+      "25185999",
+      "25186000"
+    ],
+    "scientific_changes": false
+  },
+  "callbacks": {
+    "callbacks": [
+      {
+        "workload": "19410261",
+        "callback": "19410281",
+        "dependency": "afterany:19410261"
+      },
+      {
+        "workload": "19410263",
+        "callback": "19410283",
+        "dependency": "afterany:19410263"
+      },
+      {
+        "workload": "19410264",
+        "callback": "19410285",
+        "dependency": "afterany:19410264"
+      }
+    ],
+    "compute_connectivity_check": "19410286",
+    "registered_at": "2026-10-08T03:52:17.637146+00:00"
+  },
+  "paths": {
+    "producer": "9efad7a45b1a9a328d19db888bb89f6b12d22291",
+    "archive_sha256": "28ed2ca0aac54d3ad12eec8d78d079d8e3bea86d3a41866ea596102d32b28ab3",
+    "global_om4": "/scratch/jr7309/data/om4_onedeg_v3",
+    "fine_om4": "/scratch/jr7309/data/om4_quarterdeg_v2",
+    "observations": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/observations",
+    "observation_source": "/scratch/jr7309/data/obs-d-pilot",
+    "early_data": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/early-data",
+    "joint_hours": 24,
+    "training_hours_gate": 20,
+    "image": "/scratch/jr7309/.apptainer-images/ghcr.io-m2lines-ocean-emulator-physicsnemo-26.05-9cd36b1bdcf4921fb027494afa4157e217818ccd.sif"
+  },
+  "bootstrap_scripts": {
+    "prepare-early-fine-torch.py": "import hashlib, importlib, json, os, pathlib, subprocess, sys\nroot=pathlib.Path('/scratch/jr7309/runs/2026-10-08-early-fine-rtx')\npaths=json.loads((root/'paths.json').read_text())\nexpected=json.loads((root/'expected-runtime.json').read_text())\nfor name, spec in expected['modules'].items():\n    module=importlib.import_module(name)\n    if getattr(module,'__version__',None) != spec['version']:\n        raise RuntimeError('Runtime version mismatch: '+name)\n    for path, sha in spec['binaries'].items():\n        if hashlib.sha256(pathlib.Path(path).read_bytes()).hexdigest()!=sha:\n            raise RuntimeError('Runtime binary mismatch: '+path)\nwith open(paths['image'],'rb') as f:\n    expected['image_sha256']=hashlib.file_digest(f,'sha256').hexdigest()\n(root/'runtime-contract.json').write_text(json.dumps(expected,indent=2)+'\\n')\nfrom samudra.rust_data import create_rust_io_runtime\ncreate_rust_io_runtime(4)\nprint(json.dumps({'event':'runtime_ready','image_sha256':expected['image_sha256']}),flush=True)\nsubprocess.run([sys.executable, '/pilot-code/scripts/prepare_early_fine_wave.py','--root',str(root)],check=True)\n",
+    "submit-early-fine-torch.py": "import datetime, hashlib, json, os, pathlib, shlex, subprocess\nroot=pathlib.Path('/scratch/jr7309/runs/2026-10-08-early-fine-rtx')\nproducer='9efad7a45b1a9a328d19db888bb89f6b12d22291'\ncode=root/'source'/producer\nassert (code/'scripts/run_early_fine_wave.py').exists()\npaths=json.loads((root/'early-fine-torch-paths.json').read_text())\nwith (root/'early-fine-torch-source.tar').open('rb') as f:\n h=hashlib.sha256()\n for chunk in iter(lambda:f.read(8*1024**2),b''):h.update(chunk)\nassert h.hexdigest()==paths['archive_sha256']\n(root/'paths.json').write_text(json.dumps(paths,indent=2)+'\\n')\n(root/'expected-runtime.json').write_bytes((root/'early-fine-torch-expected-runtime.json').read_bytes())\nenv=os.environ.copy();env.update(SAMUDRA_IMAGE=paths['image'],SAMUDRA_DATA_BIND='/scratch:/scratch',APPTAINER_CACHEDIR='/scratch/jr7309/apptainer-cache',SINGULARITY_CACHEDIR='/scratch/jr7309/singularity-cache',OMP_NUM_THREADS='1',OPENBLAS_NUM_THREADS='1',PYTHONUNBUFFERED='1',PYTHONNOUSERSITE='1',SAMUDRA_CODE_COMMIT=producer,WANDB_MODE='offline')\nbase=['sbatch','--parsable','--account=torch_pr_347_lzanna','--nodes=1','--ntasks=1','--chdir=/scratch/jr7309','--export=ALL']\nrows=[]\ndef submit(stage, opts, tail, env=env):\n cmd=base+['--job-name=early-fine-'+stage,'--output='+str(root/'logs'/(stage+'-%A_%a.out')),'--error='+str(root/'logs'/(stage+'-%A_%a.err'))]+opts+tail\n jid=subprocess.check_output(cmd,env=env,universal_newlines=True).strip().split(';')[0]\n rows.append({'stage':stage,'job_id':jid,'command':cmd})\n return jid\nwrap=['apptainer','exec','--bind',str(code)+':/pilot-code,/scratch:/scratch',paths['image'],'env','PYTHONPATH=/pilot-code/src:/pilot-code:'+str(root/'runtime'),'/workspace/.venv/bin/python',str(root/'prepare-early-fine-torch.py')]\nprepare=submit('prepare',['--partition=cpu_short','--cpus-per-task=8','--mem=32G','--time=02:00:00'],['--wrap',' '.join(shlex.quote(v) for v in wrap)])\ngpuenv=env.copy();gpuenv.update(GPU_ENABLED='1')\ncommon=['--partition=rtx6000_lzanna','--gres=gpu:1','--cpus-per-task=16','--mem=96G','--array=0-3%4','--requeue','--signal=B:USR1@300']\nqual=submit('qualify',common+['--time=02:00:00','--dependency=afterok:'+prepare],[str(code/'scripts/slurm_early_fine_engaging.sbatch'),str(root),str(code),'qualify',producer],gpuenv)\ntrain=submit('train',common+['--time=24:00:00','--dependency=afterok:'+qual],[str(code/'scripts/slurm_early_fine_engaging.sbatch'),str(root),str(code),'train',producer],gpuenv)\nreceipt={'producer':producer,'submitted_at':datetime.datetime.now(datetime.timezone.utc).isoformat(),'jobs':rows,'replaces_engaging_arrays':['25185999','25186000'],'scientific_changes':False}\n(root/'submission.json').write_text(json.dumps(receipt,indent=2)+'\\n')\nprint(json.dumps(receipt,indent=2))\n",
+    "early-fine-callback-relay.py": "import json, os, pathlib, subprocess, time\nos.umask(0o077)\nbase=pathlib.Path('/home/jder/.local/state/codex-async-followup/credentials')\nstate=base/'early-fine-torch-relayed.json'\ncompleted=set(json.loads(state.read_text())) if state.exists() else set()\njobs=['19410261','19410263','19410264']\nremote=\"import json,pathlib; p=pathlib.Path('/scratch/jr7309/runs/2026-10-08-early-fine-rtx/.followup'); print(json.dumps({j:json.loads((p/('torch-'+j+'.json.event.json')).read_text()) for j in ['19410261','19410263','19410264'] if (p/('torch-'+j+'.json.event.json')).exists()}))\"\nwhile len(completed)<len(jobs):\n    try:\n        subprocess.run(['ssh','-O','check','torch'],check=True,capture_output=True,timeout=15)\n        result=subprocess.run(['ssh','-o','ConnectTimeout=20','torch','python3 -'],input=remote,text=True,capture_output=True,check=True,timeout=60)\n        events=json.loads(result.stdout)\n        for job,payload in events.items():\n            if job in completed or job not in jobs:continue\n            credential=base/('torch-'+job+'.json')\n            event=credential.with_suffix('.json.event.json')\n            if event.exists():\n                if json.loads(event.read_text())!=payload:raise RuntimeError('Conflicting saved event')\n            else:\n                with event.open('x') as f:json.dump(payload,f)\n            subprocess.run(['/usr/bin/python3','/home/jder/.codex/skills/async-job-followup/scripts/send.py','--credential-file',str(credential)],check=True,timeout=360)\n            completed.add(job)\n            state.write_text(json.dumps(sorted(completed)))\n            print('Relayed terminal event for '+job,flush=True)\n    except Exception as exc:\n        print('Relay check deferred: '+type(exc).__name__,flush=True)\n    if len(completed)<len(jobs):time.sleep(600)\n"
+  }
+}

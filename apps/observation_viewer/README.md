@@ -11,11 +11,11 @@ browser. No training runtime or inference is required.
 
 | View | Fields | Controls and linked plots |
 | --- | --- | --- |
-| Annual surface forecasts | SST, SSH | Six model/checkpoint choices, three January origins, five-day lead slider/playback through day 365, model/reference/difference maps, click-to-select point time series |
+| Annual surface forecasts | SST, SSH | Model/checkpoint choices, three January origins, five-day lead slider/playback through day 365, model/reference/difference maps, click-to-select point time series |
 | Initialized ocean interior | Temperature, salinity, zonal/meridional velocity | Fourteen depth centers from 2.5 to 1,850 m, observation/OM4 inputs, model/IAP/OM4/climatology comparisons, linked sections and vertical profiles |
 | Monthly ocean heat content | 0–700 m and 700–2000 m layer totals; temperature depth profiles | Month slider, IAP or checkpoint comparisons, map-linked monthly heat series, colored depth/latitude or depth/longitude sections, and selected-cell temperature profiles |
 
-The six checkpoints comprise mixed training at 50, 500, 2,000 and 8,000
+The original six checkpoints comprise mixed training at 50, 500, 2,000 and 8,000
 observation updates, plus observation-only training at 8,000 and 16,000 updates.
 Origins are January 1 of 2015, 2018 and 2021. Comparisons can also use another
 checkpoint. Each browser session owns its controls and plot models.
@@ -242,3 +242,46 @@ Screenshots are written to the ignored `.screenshots` directory.
 This first version focuses on saved report examples. It does not yet browse
 individual training batches, arbitrary forecast interior time sequences, 3D
 volumes, or diffusion outputs.
+
+## Additional annual comparison models
+
+The October 8 extension adds **17 non-cooldown models**, alongside the original
+six exposure checkpoints: U-global/U-multitask, U-omit-patch, U-patch-loss01,
+U-aux01 and its static/seasonal/shuffled/anomaly controls, W-global/W-multitask,
+A-global/A-multitask, and the four U-multitask-early variants (coarse/fine,
+with/without recurrent latent channels). Each has the same three annual origins.
+The model selector and map titles retain the literal report names.
+
+The **What is this model?** section at the bottom of the main area updates with
+the selected model. It explains architecture, approximate parameter count,
+training data/objective, the selected checkpoint's actual exposure, and the
+difference between fixed-budget and validation-selected checkpoints.
+
+New models expose saved 73-step SST/SSH forecasts, the final inferred initial
+T/S/U/V state at fourteen depths, and twelve monthly OHC fields. **Own initialized
+persistence** is available as a surface/OHC comparison. The fine modules used
+during earlier-quarter-degree training are inactive on these observation
+rollouts. No inference is performed to add the models.
+
+Monthly depth-resolved temperature was not saved for the new models. Selecting
+one uses its original saved heat fields and hides the profile controls; it does
+not substitute the initial temperature or interpolate between sparse forecast
+states. Original models retain their existing regenerated profiles. When using
+regenerated monthly values, comparison choices are restricted to models with
+matching profile availability; select original report heat to compare all models.
+New initialized-interior examples are observation-input cases only; existing
+OM4-input examples remain unchanged.
+
+`extend_annual_models.py` creates a new bundle from a base catalog and a verified
+local mirror of annual report outputs. `inventory.json` records exact remote
+paths, SHA256 checksums, byte counts, selected checkpoint metadata and origin
+files. It rejects cooldown entries, verifies all source/base bytes, exact grids,
+depths, masks, references, calendars and checkpoint lineage, converts heat from
+J/m² to GJ/m², and verifies every new array by full read-back. All previous arrays
+and provenance are preserved. Keep the source mirror and prepared arrays out of Git.
+
+```bash
+uv run --project apps/observation_viewer python apps/observation_viewer/extend_annual_models.py \
+  --base /path/to/current-bundle --source /path/to/verified-annual-mirror \
+  --output /path/to/new-bundle
+```

@@ -21,6 +21,8 @@ from bokeh.palettes import RdBu, Viridis256
 from bokeh.plotting import figure
 
 sys.path.insert(0, str(Path(__file__).parent))
+from model_info import description
+
 from data import Catalog, edges, interval, limits, paired_stats
 
 pn.extension(sizing_mode="stretch_width")
@@ -165,6 +167,9 @@ class Viewer:
         self.location = pn.pane.Markdown("", css_classes=["point-summary"])
         self.context = pn.pane.Alert("", alert_type="info")
         self.provenance = pn.pane.Markdown("", sizing_mode="stretch_width")
+        self.model_description = pn.pane.Markdown(
+            "", css_classes=["model-description"], sizing_mode="stretch_width"
+        )
         self.maps, self.sources, self.mappers, self.crosshairs = [], [], [], []
         self.xrange, self.yrange = Range1d(start=0, end=360), Range1d(start=-90, end=90)
         le, la = edges(catalog.lon, (0, 360)), edges(catalog.lat, (-90, 90))
@@ -447,6 +452,10 @@ class Viewer:
             self.mode.value == "heat"
             and "monthly_temperature" in self.catalog.meta
             and self.monthly_source.value == "replay"
+            and "temperature"
+            in self.catalog.meta["records"][self.origin.value]["models"][
+                self.model.value
+            ]
         )
 
     @property
@@ -495,7 +504,9 @@ class Viewer:
         self.detail.visible = not interior
         self.month.visible = heat
         self.monthly_source.visible = (
-            heat and "monthly_temperature" in self.catalog.meta
+            heat
+            and "monthly_temperature" in self.catalog.meta
+            and len(self.monthly_source.options) > 1
         )
         self.profile_pane.visible = interior or (self.monthly_profiles)
         self.depth_marker.visible = interior
@@ -516,6 +527,19 @@ class Viewer:
         self.model.value = (
             model if model in models.values() else next(iter(models.values()))
         )
+        if heat and "monthly_temperature" in self.catalog.meta:
+            available = self.catalog.meta["records"][self.origin.value]["models"][
+                self.model.value
+            ]
+            sources = {"Original report (heat only)": "report"}
+            if "temperature" in available:
+                sources = {"Regenerated forecast + profiles": "replay", **sources}
+            selected_source = self.monthly_source.value
+            self.monthly_source.options = sources
+            self.monthly_source.value = (
+                selected_source if selected_source in sources.values() else "report"
+            )
+            self.monthly_source.visible = len(sources) > 1
         options = {
             "IAP monthly context"
             if interior
@@ -536,7 +560,23 @@ class Viewer:
                     if record["source"] == "om4"
                     else "OM4 contemporaneous context"
                 ] = "om4"
-        options.update(models)
+        if not interior:
+            available = self.catalog.meta["records"][self.origin.value]["models"][
+                self.model.value
+            ]
+            if (
+                "heat" if heat else "surface"
+            ) + "_persistence" in available and not self.monthly_profiles:
+                options["Own initialized persistence"] = "persistence"
+        comparisons = models
+        if self.monthly_profiles:
+            records = self.catalog.meta["records"][self.origin.value]["models"]
+            comparisons = {
+                label: key
+                for label, key in models.items()
+                if "temperature" in records[key]
+            }
+        options.update(comparisons)
         reference = self.reference.value
         self.reference.options = options
         self.reference.value = (
@@ -554,6 +594,11 @@ class Viewer:
 
     def select(self, event):
         if not self._changing:
+            self._changing = True
+            try:
+                self.configure_comparisons()
+            finally:
+                self._changing = False
             self.refresh(rescale=True)
 
     def step(self, event):
@@ -645,6 +690,9 @@ class Viewer:
         )
 
         def short_label(model):
+            explicit = self.catalog.meta["models"][model].get("short_label")
+            if explicit:
+                return explicit
             counts = self.catalog.meta["models"][model]["lineage"]["task_counts"]
             return f"{'Mixed' if counts['om4'] else 'Obs only'} · {counts['observation']:,} obs"
 
@@ -677,6 +725,13 @@ class Viewer:
                 self.context.object += (
                     " " + self.catalog.meta["monthly_temperature"]["description"]
                 )
+            elif (
+                "temperature"
+                not in self.catalog.meta["records"][self.origin.value]["models"][
+                    self.model.value
+                ]
+            ):
+                self.context.object += " Original saved forecast values. Monthly temperature profiles were not saved for this model; initialized profiles are available in the interior view."
             elif "monthly_temperature" in self.catalog.meta:
                 self.context.object += " Original report values. Select ‘Regenerated forecast + profiles’ for monthly temperature profiles."
             else:
@@ -708,9 +763,12 @@ class Viewer:
             self.summary.object = f"**{qualifier}:** RMS {stats['rmse']:.4g} {self.unit} · bias {stats['bias']:+.4g} {self.unit} · {stats['cells']:,} paired cells. Cosine-latitude weighted; exploratory diagnostics."
         else:
             self.summary.object = "No common finite cells in this slice."
-        lineage = self.catalog.meta["models"][self.model.value]["lineage"]
+        info = self.catalog.meta["models"][self.model.value]
+        lineage = info["lineage"]
+        self.model_description.object = description(self.model.value, info)
+        report_url = info.get("report_url", self.catalog.meta["report_url"])
         self.provenance.object = (
-            f"[Source report]({self.catalog.meta['report_url']}) · **{self.catalog.meta['models'][self.model.value]['label']}**\n\n"
+            f"[Source report]({report_url}) · **{self.catalog.meta['models'][self.model.value]['label']}**\n\n"
             f"Origin: `{self.origin.value}` · Checkpoint SHA-256: `{lineage['checkpoint_sha256']}`\n\n"
             "Gray = model land/depth mask. White = unavailable values in model ocean cells. "
             "Model and comparison share a color scale; difference is centered on zero. Limits use the pooled 2nd–98th percentiles and may clip extremes. "
@@ -900,6 +958,7 @@ class Viewer:
                     pn.Accordion(
                         ("Data, masks & provenance", self.provenance), active=[]
                     ),
+                    self.model_description,
                 )
             ],
             main_layout=None,

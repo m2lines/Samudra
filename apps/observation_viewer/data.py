@@ -92,7 +92,10 @@ class Catalog:
             return prediction, comparison
         record = self.meta["records"][origin]
         prediction = self.array(record["models"][model][mode])
-        if reference == "observations":
+        if reference == "persistence":
+            kind = "heat" if mode == "report_heat" else mode
+            comparison = self.array(record["models"][model][kind + "_persistence"])
+        elif reference == "observations":
             comparison = self.array(
                 record[f"{'heat' if mode == 'report_heat' else mode}_reference"]
             )

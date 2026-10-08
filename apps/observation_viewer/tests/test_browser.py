@@ -512,3 +512,86 @@ def test_om4_gold_velocity_profiles_and_source_switching():
         )
         assert not errors
         browser.close()
+
+
+def test_new_annual_models_descriptions_persistence_and_profile_availability():
+    assert URL is not None
+    catalog = Catalog(os.environ.get("SAMUDRA_VIEWER_DATA", ROOT / ".data"))
+    if "A-global" not in catalog.meta["models"]:
+        pytest.skip("Requires the verified annual-model extension")
+    errors = []
+    with sync_playwright() as p:
+        browser = p.chromium.launch(
+            executable_path=os.environ.get("CHROMIUM_EXECUTABLE"),
+            headless=True,
+            args=["--no-sandbox"],
+        )
+        page = browser.new_page(viewport=dict(width=1600, height=1100))
+        page.on("pageerror", lambda error: errors.append(str(error)))
+        page.goto(URL, wait_until="networkidle")
+        page.wait_for_function(
+            "window.Bokeh?.documents?.[0]?.get_model_by_name('source-prediction')?.data.value.length > 0",
+            timeout=60000,
+        )
+        assert page.locator(".model-select option").count() == len(
+            catalog.meta["models"]
+        )
+        assert not any(
+            "cooldown" in label
+            for label in page.locator(".model-select option").all_text_contents()
+        )
+        select(page, "model-select", "A-global")
+        verify_maps(page, catalog, "surface", "A-global", "2015-01-01", 0, 5)
+        expect(page.locator(".model-description")).to_contain_text("axial attention")
+        expect(page.locator(".model-description")).to_contain_text("64.2M parameters")
+        select(page, "reference-select", "U-global")
+        verify_maps(
+            page, catalog, "surface", "A-global", "2015-01-01", 0, 5, "U-global"
+        )
+        select(page, "reference-select", "Own initialized persistence")
+        slider = page.locator(".lead-slider [role=slider]")
+        slider.focus()
+        slider.press("End")
+        verify_maps(
+            page, catalog, "surface", "A-global", "2015-01-01", 0, 72, "persistence"
+        )
+        select(page, "view-select", "Monthly ocean heat content")
+        verify_maps(
+            page, catalog, "heat", "A-global", "2015-01-01", 0, 0, original_heat=True
+        )
+        expect(page.locator(".section-direction")).not_to_be_visible()
+        select(page, "reference-select", "Own initialized persistence")
+        verify_maps(
+            page,
+            catalog,
+            "heat",
+            "A-global",
+            "2015-01-01",
+            0,
+            0,
+            "persistence",
+            original_heat=True,
+        )
+        select(page, "model-select", "U-multitask-early-fine-latent")
+        expect(page.locator(".model-description")).to_contain_text(
+            "10 recurrent latent channels"
+        )
+        select(page, "view-select", "Initialized ocean interior")
+        select(page, "reference-select", "U-global")
+        verify_maps(
+            page,
+            catalog,
+            "interior",
+            "U-multitask-early-fine-latent",
+            "2015-01-01",
+            0,
+            9,
+            "U-global",
+        )
+        select(page, "view-select", "Monthly ocean heat content")
+        select(page, "model-select", "Mixed · 8,000 observation updates")
+        select(page, "monthly-source-select", "Regenerated forecast + profiles")
+        verify_maps(page, catalog, "heat", "obs08000", "2015-01-01", 0, 0)
+        expect(page.locator(".section-direction")).to_be_visible()
+        assert not errors, errors
+        browser.close()

@@ -158,3 +158,17 @@ The Engaging image SHA256 is
 GSW 3.6.20 overlay. This differs from the previous Beta runtime and will remain
 visible in cross-campaign comparisons. The project pool has 488 GiB free at
 submission; no new full-resolution dataset copy is being made.
+
+## October 7 evening queue check
+
+At approximately 21:37 ET, qualifications `25185999_[0-3]` were still pending
+for scheduler priority. Production/evaluation `25186000_[0-3]` remained pending
+on their success. No GPU work or model results exist yet; `squeue --start` gives
+no start estimate. The passed data audit remains the only completed stage.
+
+Durable CPU-only completion callbacks are installed: `25219446` depends on
+`afterany:25185999`, and `25219447` on `afterany:25186000`. They notify this
+conversation after either successful or unsuccessful termination; actual outputs
+will be checked before reporting results. Endpoint authentication passed from the
+login host; compute-node connectivity check job is `25219448`. Callback delivery
+can itself wait for CPU scheduling. Credentials remain private and outside Git.

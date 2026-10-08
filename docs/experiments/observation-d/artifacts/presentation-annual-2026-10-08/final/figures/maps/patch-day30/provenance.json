@@ -1,0 +1,360 @@
+{
+  "cases": [
+    "2015-01-01",
+    "2018-01-01",
+    "2021-01-01"
+  ],
+  "lead_bin_end_days": 30,
+  "scope": "Same selected checkpoints, same annual cases, one initialization; all models in the group shown",
+  "grid_sha256": "ce96360964a6669d0186b9581abaaffc06f660c4e09e0ac813b3dd1b819e5167",
+  "statistics_sha256": "7688d483d4c87a8ce0e2f27a1a342db93eecb3e892187506475d6970e865c001",
+  "results_sha256": "6fde9b2519fa4297e0ab55538c974bdadf91086e8a05f15244bec4ab10d1f81e",
+  "exporter_sha256": "da5c7d01de479b802d8ac4d79d5f4de1be5d68222da06f589a863644703a59f1",
+  "sources": [
+    {
+      "method": "U-global",
+      "path": "/scratch/jr7309/runs/2026-10-08-early-fine-annual/U-global",
+      "selected_checkpoint_sha256": "76058c08c74a92942612aedd75ee961a1c53125076dd449c77007710c05ea4eb",
+      "source_checkpoint_sha256": null,
+      "annual_output_hashes": {
+        "2015-01-01-persistence.json": "792fa44106d1e50ab46d6d1d5f0ed9cb4a370335aa090bc5c2a604b414deda39",
+        "2015-01-01.json": "60fd767f3baa3f178d627120ffbc8bdd44056ed068c095b0d0f608eedbd4acea",
+        "2015-01-01.npz": "60b7ddefcbd3a2f352b939f090f98b37a58f609b7cf8089561bd933a4ea9088b",
+        "2018-01-01-persistence.json": "373866e97bf3b8a4309ea2a07b02809cd75add4cd41d2783066200f2940de0ce",
+        "2018-01-01.json": "90e3aa55acd257ceed3e8050167e391f91cac226e3d91fb4a1b6655b032bad74",
+        "2018-01-01.npz": "2cc9ff7041d4aee68e426bf624e3717f26a607526714a297ddac3109f151082f",
+        "2021-01-01-persistence.json": "60c0d0a38ce229edb8da241f2b20508afa2c430297fe63ffd3860c3b0637eb0b",
+        "2021-01-01.json": "cfaf4d18359db4f87286e41b7111fe90eacc86524eff810ba1ca192a80e04cd6",
+        "2021-01-01.npz": "bceeffa1220e7a249e73a99abaa0f61a0e293add1c1d89d89d67a6403db8530c",
+        "COMPLETE.json": "ff0d663d0e64b6c2c7e677c72592ac982e95bb24c960862aa0027f339fe512cd",
+        "input.json": "ec4f409102a489e949d761310003ce0325eb6c25732cc259dc5565a58ab90a72"
+      },
+      "weights_used_sha256": "76058c08c74a92942612aedd75ee961a1c53125076dd449c77007710c05ea4eb"
+    },
+    {
+      "method": "U-multitask",
+      "path": "/scratch/jr7309/runs/2026-10-08-presentation-annual/U-multitask",
+      "selected_checkpoint_sha256": "ec8d5969db37ae195aa50d9d3c79e1828765e619cbe2eb9736606d4f5247ed1d",
+      "source_checkpoint_sha256": null,
+      "annual_output_hashes": {
+        "2015-01-01-persistence.json": "1f2d61001940c4c7e4ef38fe54f4c5cca4ff6534b175d05da527ac7773274ab0",
+        "2015-01-01.json": "efbbae5507494ec8d486686a3a7e45dd68001fccfe7094dabc89c6e8940cd210",
+        "2015-01-01.npz": "3a35cba92b5fbac65cb6cc7268a340ec1a52373ac20e758fd28b277465d6fd98",
+        "2018-01-01-persistence.json": "e1367a3c99b2e6075f23dc9ddc940568bb4d4ac1f9d73258da68a162368691fc",
+        "2018-01-01.json": "696e0b5e7ceaab90e1d1658dadd1f4477e5a1b6f16eebfd075806ecc7ae4405f",
+        "2018-01-01.npz": "a8147c2d13a5dbf6403feea0ba7f8bd1d7138db52a1ce527aa3f530722880b36",
+        "2021-01-01-persistence.json": "2f43f0284338a4dbb427eee9fa3f734cd17a32bd3ec6c4a43cd7f3efa8a93067",
+        "2021-01-01.json": "aed64511c201a0815258810a72a662aaf7cc93ec84066fd807e33a019c3abfbb",
+        "2021-01-01.npz": "470d550fa62e69d7e672dd41388758bc49512ad0daf4d74500b186bbc1554a04",
+        "COMPLETE.json": "cfa71257ea8ef771cc571dede1dc33d57059e3f5535e8fe67ccea2c6a25788da",
+        "input.json": "3af57f98816f96e42e778cf2cc7ba51d2d3b38b5679d2390a0acf122c6079a76"
+      },
+      "weights_used_sha256": "ec8d5969db37ae195aa50d9d3c79e1828765e619cbe2eb9736606d4f5247ed1d"
+    },
+    {
+      "method": "U-omit-patch",
+      "path": "/scratch/jr7309/runs/2026-10-08-presentation-annual/U-omit-patch",
+      "selected_checkpoint_sha256": "a3dac2c96aadd72d16dead0d2dc204f7e3b5401ab610d8a2b6e8c9172f99b05b",
+      "source_checkpoint_sha256": null,
+      "annual_output_hashes": {
+        "2015-01-01-persistence.json": "4db75a9a344f3679323f4597f3a6cee17bd24faa3dea06029dbb39171e697505",
+        "2015-01-01.json": "f83ba804809843211fdee9d06ea50983c46e13fc9cd0f53fedeb3c73866c0741",
+        "2015-01-01.npz": "731875df1c5857d2f2b860c7af848083575830063406d4351f4351b2686b8684",
+        "2018-01-01-persistence.json": "6617af46f1ddd7c05850862fe7212e70cc94689acf412b9d23e28ac1942c9938",
+        "2018-01-01.json": "8b47d429206a8eefeb14a9a35f2aa6e97c3132c0c154d46f563371adb8c89493",
+        "2018-01-01.npz": "9d9285a5f2eebf57377a970011fed8e900df3e4a5fe7b5e4c4129e9f6b03f5f7",
+        "2021-01-01-persistence.json": "9e9e400e54c946a8b1240407a676baa70e793307fa9e183286bd4f44ea6050cb",
+        "2021-01-01.json": "ab84ffde64fc23b16529748619224fdeb7ba85e19a1fc8ff776659d16a2a9799",
+        "2021-01-01.npz": "fd35e960b017a1c7cae33c58ef7f5c9046f39b167db921347653e8fdf0ff29eb",
+        "COMPLETE.json": "0d7577adfcf3a9d5f5fe98b10be85b7037e333838f79b3ad59e37d335bc59a71",
+        "input.json": "0a32d9e181c0483e291168dc2d3d4c1ae53cbb3c4361e34027354b47661f5f5a"
+      },
+      "weights_used_sha256": "a3dac2c96aadd72d16dead0d2dc204f7e3b5401ab610d8a2b6e8c9172f99b05b"
+    },
+    {
+      "method": "U-patch-loss01",
+      "path": "/scratch/jr7309/runs/2026-10-08-presentation-annual/U-patch-loss01",
+      "selected_checkpoint_sha256": "0451153498bb39728a1b143cdd95d3a661ebc5bca6f64cd87f75bfbffd5b7fb9",
+      "source_checkpoint_sha256": null,
+      "annual_output_hashes": {
+        "2015-01-01-persistence.json": "df4bf278f2fac8d04bb81c71ee9c190ca08c395a9fcda4ad9a3330117820352b",
+        "2015-01-01.json": "fe7896396f03dc046a73acbabf6ddac79f70d2192ad021550772bda400cbb966",
+        "2015-01-01.npz": "2103959383ccb1fcef3bef7c23171c89b87eead0ca71b50a6629b87d714d5468",
+        "2018-01-01-persistence.json": "54e4cb2f2b0e3e51755f451582bddbed9439b0a55fcc3191e8c2ba6e8168deb3",
+        "2018-01-01.json": "5a9635833e8fb008e77b95983996343f8bfc283c2cf64a4b78b9e177e3bd1315",
+        "2018-01-01.npz": "136f5b0fcb0581eda83843e80a5972fe7936115f06977694ee00e98059af3701",
+        "2021-01-01-persistence.json": "68247b488d292e19d20badb3a355be54b98ceb91fb377ea217f6bee58928928f",
+        "2021-01-01.json": "c46b5b5bd5c1ec04195717cfdb22a1228ed478b095fe0a4cc3af8491082a73b2",
+        "2021-01-01.npz": "f5408c36d2d3312f4be1f4df9b4a0d5fbc57749e6902dd2895571fa3b23badc2",
+        "COMPLETE.json": "f3e54e35c3de27732ca073b24a3349a47885b5e01d7dc8f2d3c85fa2849a70f7",
+        "input.json": "6c4744cc968d47f028498072ae6e81565363147e000286ed8275ce9da7155667"
+      },
+      "weights_used_sha256": "0451153498bb39728a1b143cdd95d3a661ebc5bca6f64cd87f75bfbffd5b7fb9"
+    },
+    {
+      "method": "U-global / initialized persistence",
+      "path": "/scratch/jr7309/runs/2026-10-08-early-fine-annual/U-global",
+      "selected_checkpoint_sha256": "76058c08c74a92942612aedd75ee961a1c53125076dd449c77007710c05ea4eb",
+      "source_checkpoint_sha256": null,
+      "annual_output_hashes": {
+        "2015-01-01-persistence.json": "792fa44106d1e50ab46d6d1d5f0ed9cb4a370335aa090bc5c2a604b414deda39",
+        "2015-01-01.json": "60fd767f3baa3f178d627120ffbc8bdd44056ed068c095b0d0f608eedbd4acea",
+        "2015-01-01.npz": "60b7ddefcbd3a2f352b939f090f98b37a58f609b7cf8089561bd933a4ea9088b",
+        "2018-01-01-persistence.json": "373866e97bf3b8a4309ea2a07b02809cd75add4cd41d2783066200f2940de0ce",
+        "2018-01-01.json": "90e3aa55acd257ceed3e8050167e391f91cac226e3d91fb4a1b6655b032bad74",
+        "2018-01-01.npz": "2cc9ff7041d4aee68e426bf624e3717f26a607526714a297ddac3109f151082f",
+        "2021-01-01-persistence.json": "60c0d0a38ce229edb8da241f2b20508afa2c430297fe63ffd3860c3b0637eb0b",
+        "2021-01-01.json": "cfaf4d18359db4f87286e41b7111fe90eacc86524eff810ba1ca192a80e04cd6",
+        "2021-01-01.npz": "bceeffa1220e7a249e73a99abaa0f61a0e293add1c1d89d89d67a6403db8530c",
+        "COMPLETE.json": "ff0d663d0e64b6c2c7e677c72592ac982e95bb24c960862aa0027f339fe512cd",
+        "input.json": "ec4f409102a489e949d761310003ce0325eb6c25732cc259dc5565a58ab90a72"
+      },
+      "weights_used_sha256": "76058c08c74a92942612aedd75ee961a1c53125076dd449c77007710c05ea4eb"
+    }
+  ],
+  "case_times": {
+    "2015-01-01": {
+      "day30_bin_midpoint": "2015-01-28T12:00:00"
+    },
+    "2018-01-01": {
+      "day30_bin_midpoint": "2018-01-28T12:00:00"
+    },
+    "2021-01-01": {
+      "day30_bin_midpoint": "2021-01-28T12:00:00"
+    }
+  },
+  "bundle_sha256": "59996ad697c5fa7a99aef57d591348ba8de5e94b56ecf9bba4777d52b0f2185d",
+  "plot_script_sha256": "ca768a857cf7564803746f803abc5763e2b7077265e72a9e88ca087b1b500798",
+  "rendered": [
+    {
+      "file": "day30-2015-01-01-anomalies-sst",
+      "limits": [
+        -3,
+        3
+      ],
+      "figure_pixels": [
+        820,
+        2645
+      ],
+      "panel_pixels": [
+        720,
+        360
+      ],
+      "panel_grid_shape_yx": [
+        180,
+        360
+      ],
+      "panel_left_px": 70,
+      "panel_top_px": [
+        80,
+        495,
+        910,
+        1325,
+        1740,
+        2155
+      ]
+    },
+    {
+      "file": "day30-2015-01-01-anomalies-adt",
+      "limits": [
+        -0.25,
+        0.25
+      ],
+      "figure_pixels": [
+        820,
+        2645
+      ],
+      "panel_pixels": [
+        720,
+        360
+      ],
+      "panel_grid_shape_yx": [
+        180,
+        360
+      ],
+      "panel_left_px": 70,
+      "panel_top_px": [
+        80,
+        495,
+        910,
+        1325,
+        1740,
+        2155
+      ]
+    },
+    {
+      "file": "day30-2018-01-01-anomalies-sst",
+      "limits": [
+        -3,
+        3
+      ],
+      "figure_pixels": [
+        820,
+        2645
+      ],
+      "panel_pixels": [
+        720,
+        360
+      ],
+      "panel_grid_shape_yx": [
+        180,
+        360
+      ],
+      "panel_left_px": 70,
+      "panel_top_px": [
+        80,
+        495,
+        910,
+        1325,
+        1740,
+        2155
+      ]
+    },
+    {
+      "file": "day30-2018-01-01-anomalies-adt",
+      "limits": [
+        -0.25,
+        0.25
+      ],
+      "figure_pixels": [
+        820,
+        2645
+      ],
+      "panel_pixels": [
+        720,
+        360
+      ],
+      "panel_grid_shape_yx": [
+        180,
+        360
+      ],
+      "panel_left_px": 70,
+      "panel_top_px": [
+        80,
+        495,
+        910,
+        1325,
+        1740,
+        2155
+      ]
+    },
+    {
+      "file": "day30-2021-01-01-fields-sst",
+      "limits": [
+        -2,
+        32
+      ],
+      "figure_pixels": [
+        820,
+        2645
+      ],
+      "panel_pixels": [
+        720,
+        360
+      ],
+      "panel_grid_shape_yx": [
+        180,
+        360
+      ],
+      "panel_left_px": 70,
+      "panel_top_px": [
+        80,
+        495,
+        910,
+        1325,
+        1740,
+        2155
+      ]
+    },
+    {
+      "file": "day30-2021-01-01-fields-adt",
+      "limits": [
+        -1.5,
+        1.5
+      ],
+      "figure_pixels": [
+        820,
+        2645
+      ],
+      "panel_pixels": [
+        720,
+        360
+      ],
+      "panel_grid_shape_yx": [
+        180,
+        360
+      ],
+      "panel_left_px": 70,
+      "panel_top_px": [
+        80,
+        495,
+        910,
+        1325,
+        1740,
+        2155
+      ]
+    },
+    {
+      "file": "day30-2021-01-01-anomalies-sst",
+      "limits": [
+        -3,
+        3
+      ],
+      "figure_pixels": [
+        820,
+        2645
+      ],
+      "panel_pixels": [
+        720,
+        360
+      ],
+      "panel_grid_shape_yx": [
+        180,
+        360
+      ],
+      "panel_left_px": 70,
+      "panel_top_px": [
+        80,
+        495,
+        910,
+        1325,
+        1740,
+        2155
+      ]
+    },
+    {
+      "file": "day30-2021-01-01-anomalies-adt",
+      "limits": [
+        -0.25,
+        0.25
+      ],
+      "figure_pixels": [
+        820,
+        2645
+      ],
+      "panel_pixels": [
+        720,
+        360
+      ],
+      "panel_grid_shape_yx": [
+        180,
+        360
+      ],
+      "panel_left_px": 70,
+      "panel_top_px": [
+        80,
+        495,
+        910,
+        1325,
+        1740,
+        2155
+      ]
+    }
+  ],
+  "pixel_verification": "Every saved panel RGB pixel equals the source colormap cell repeated exactly 2x2, including the common missing-data mask",
+  "rasterization": "Lossless PNG: exactly 2 x 2 pixels per retained grid cell at native image size; no interpolation. PDF embeds native grid with interpolation disabled.",
+  "coordinates": "Square cells in grid-index space, sorted longitude; ticks label actual cell-center coordinates. No geographic resampling.",
+  "latitude_domain": "global",
+  "mask": "Selected model wet domain intersected with finite target observations, identical across candidates",
+  "interpretation": "Illustrative cases, not aggregate skill; gray is land or unavailable observations. Colorbar extensions mark saturation. Endpoint is the last common exported surface lead, not a multi-year continuous rollout."
+}

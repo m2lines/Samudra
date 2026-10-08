@@ -1,0 +1,29 @@
+19446140|FAILED|1:0|31|billing=4,cpu=4,mem=24G,node=1
+19446141_[0-9%5]|CANCELLED by 4684506|0:0|0|
+19446316|COMPLETED|0:0|55|billing=4,cpu=4,mem=24G,node=1
+19446317_0|COMPLETED|0:0|64|billing=8,cpu=8,gres/gpu=1,mem=48G,node=1
+19446317_1|COMPLETED|0:0|63|billing=8,cpu=8,gres/gpu=1,mem=48G,node=1
+19446317_2|COMPLETED|0:0|67|billing=8,cpu=8,gres/gpu=1,mem=48G,node=1
+19446317_3|COMPLETED|0:0|69|billing=8,cpu=8,gres/gpu=1,mem=48G,node=1
+19446317_4|COMPLETED|0:0|65|billing=8,cpu=8,gres/gpu=1,mem=48G,node=1
+19446317_5|COMPLETED|0:0|62|billing=8,cpu=8,gres/gpu=1,mem=48G,node=1
+19446317_6|COMPLETED|0:0|62|billing=8,cpu=8,gres/gpu=1,mem=48G,node=1
+19446317_7|COMPLETED|0:0|64|billing=8,cpu=8,gres/gpu=1,mem=48G,node=1
+19446317_8|COMPLETED|0:0|60|billing=8,cpu=8,gres/gpu=1,mem=48G,node=1
+19446317_9|COMPLETED|0:0|65|billing=8,cpu=8,gres/gpu=1,mem=48G,node=1
+19447443|FAILED|1:0|62|billing=4,cpu=4,mem=24G,node=1
+19447444_[0-11%4]|CANCELLED by 0|0:0|0|
+19447968|COMPLETED|0:0|132|billing=4,cpu=4,mem=24G,node=1
+19447970_0|COMPLETED|0:0|65|billing=8,cpu=8,gres/gpu=1,mem=48G,node=1
+19447970_1|COMPLETED|0:0|66|billing=8,cpu=8,gres/gpu=1,mem=48G,node=1
+19447970_2|COMPLETED|0:0|71|billing=8,cpu=8,gres/gpu=1,mem=48G,node=1
+19447970_3|COMPLETED|0:0|63|billing=8,cpu=8,gres/gpu=1,mem=48G,node=1
+19447970_4|COMPLETED|0:0|63|billing=8,cpu=8,gres/gpu=1,mem=48G,node=1
+19447970_5|COMPLETED|0:0|65|billing=8,cpu=8,gres/gpu=1,mem=48G,node=1
+19447970_6|COMPLETED|0:0|65|billing=8,cpu=8,gres/gpu=1,mem=48G,node=1
+19447970_7|COMPLETED|0:0|62|billing=8,cpu=8,gres/gpu=1,mem=48G,node=1
+19447970_8|COMPLETED|0:0|66|billing=8,cpu=8,gres/gpu=1,mem=48G,node=1
+19447970_9|COMPLETED|0:0|63|billing=8,cpu=8,gres/gpu=1,mem=48G,node=1
+19447970_10|COMPLETED|0:0|63|billing=8,cpu=8,gres/gpu=1,mem=48G,node=1
+19447970_11|COMPLETED|0:0|64|billing=8,cpu=8,gres/gpu=1,mem=48G,node=1
+19448382|COMPLETED|0:0|262|billing=4,cpu=4,mem=24G,node=1

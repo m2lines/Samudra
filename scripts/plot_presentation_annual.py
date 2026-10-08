@@ -24,7 +24,7 @@ def plot(folder, output):
     frame = pd.read_csv(folder / "rmse-scores.csv")
     pooled = frame[frame.origin == "pooled"]
     names = list(dict.fromkeys(n for group in GROUPS.values() for n in group))
-    fig, axes = plt.subplots(1, 2, figsize=(12, 8), sharey=True)
+    fig, axes = plt.subplots(1, 2, figsize=(12, 8), sharex=True, sharey=True)
     for ax, day in zip(axes, (30, 365), strict=True):
         values = pooled[pooled.lead_days == day].set_index("model").rmse_score
         prediction = values.loc[names].to_numpy()
@@ -93,6 +93,47 @@ def plot(folder, output):
         fig.tight_layout(rect=(0, 0.20, 1, 0.95))
         fig.savefig(output / f"lead-curves-{group}.png", dpi=160)
         fig.savefig(output / f"lead-curves-{group}.pdf")
+        plt.close(fig)
+
+        fig, axes = plt.subplots(1, 2, figsize=(11, 4))
+        for label in labels:
+            records = metrics[label]
+            climatology = "climatology" in label
+            months = [1, 12] if climatology else list(range(1, 13))
+            style = (
+                {"color": "black", "ls": "none", "marker": "x"}
+                if climatology
+                else {"color": "0.5", "ls": "--", "marker": "."}
+                if "persistence" in label
+                else {"marker": "."}
+            )
+            for ax, layer in zip(axes, ("0_700", "700_2000"), strict=True):
+                curve = [
+                    np.sqrt(
+                        np.mean(
+                            [
+                                records[o]["monthly_ohc"][f"{o[:4]}-{m:02d}"][layer]
+                                ** 2
+                                for o in origins
+                            ]
+                        )
+                    )
+                    / 1e8
+                    for m in months
+                ]
+                ax.plot(months, curve, label=label, **style)
+                ax.set(
+                    xlabel="Forecast calendar month (January start)",
+                    ylabel=f"OHC {layer.replace('_', '–')} m RMSE (10⁸ J/m²)",
+                    xticks=[1, 3, 6, 9, 12],
+                )
+                ax.grid(alpha=0.2)
+        handles, legend = axes[-1].get_legend_handles_labels()
+        fig.legend(handles, legend, loc="lower center", ncol=3, fontsize=8)
+        fig.suptitle(f"{group}: full calendar-month means; equal-origin MSE pooling")
+        fig.tight_layout(rect=(0, 0.20, 1, 0.95))
+        fig.savefig(output / f"ohc-curves-{group}.png", dpi=160)
+        fig.savefig(output / f"ohc-curves-{group}.pdf")
         plt.close(fig)
 
     for bundle in sorted((folder / "maps").glob("*.npz")):

@@ -1,0 +1,23 @@
+{
+  "report_producer": "1c1c6efee919198e88e03455f62d79b4ac0efa71",
+  "evaluation_producer": "25cc663fd4163ccfc0f056edc343732a484aa6e7",
+  "models": 17,
+  "origins": [
+    "2015-01-01",
+    "2018-01-01",
+    "2021-01-01"
+  ],
+  "files": {
+    "results.json": "6fde9b2519fa4297e0ab55538c974bdadf91086e8a05f15244bec4ab10d1f81e",
+    "rmse-scores.csv": "c774979cf08a092786a750d1d11437039dc59fe2cae9dfae8328a7f181645462",
+    "maps/MAP_BUNDLES_COMPLETE.json": "38010e70f6634c8758ef4cc9972e85281f25a25ff143c87a947196eea654ac16",
+    "maps/accessory-day30.npz": "9461054e6d69ee30827d777d89af9fd384f8fe31c675bc126233b0f03a8206b4",
+    "maps/accessory-day365.npz": "082f080df38f42eb9f3d2dbe855fec80499f284f3802dd6df9e578d9cd32197f",
+    "maps/capacity-day30.npz": "29959e22158d737162fce3df1af217db302ab4908ca8001aaa8cb544507312c2",
+    "maps/capacity-day365.npz": "01414d290b9001fa1cf6383e2d4a05e8fa90f888a9a6fa3c6aec04fcf5ee6370",
+    "maps/early-fine-day30.npz": "8b8ecea41502585fca2d956283aacf6fa2bb27edc8f41ba2b0160bfe096fddf9",
+    "maps/early-fine-day365.npz": "0cd3ebe1d0f1356e5a1498e1f40e5d72bfb72b8d331bb4b7195e4a351398ecc8",
+    "maps/patch-day30.npz": "59996ad697c5fa7a99aef57d591348ba8de5e94b56ecf9bba4777d52b0f2185d",
+    "maps/patch-day365.npz": "4839de30b83d6079a86f96389a10c83d22f7d78f22b370a877754e7198f4e110"
+  }
+}

@@ -1,0 +1,141 @@
+model,origin,annual_eke_rmse
+U-multitask,2015-01-01,0.025281517862962368
+U-multitask,2018-01-01,0.02584834442086265
+U-multitask,2021-01-01,0.026485660587757857
+U-multitask,pooled,0.02587651619728292
+U-multitask / initialized persistence,2015-01-01,0.025820433133717444
+U-multitask / initialized persistence,2018-01-01,0.026304455263314087
+U-multitask / initialized persistence,2021-01-01,0.026978046554040475
+U-multitask / initialized persistence,pooled,0.026371917701628757
+U-omit-patch,2015-01-01,0.02520819956177757
+U-omit-patch,2018-01-01,0.025735191203109787
+U-omit-patch,2021-01-01,0.02637531453296766
+U-omit-patch,pooled,0.025777319540764235
+U-omit-patch / initialized persistence,2015-01-01,0.025820433133717444
+U-omit-patch / initialized persistence,2018-01-01,0.026304455263314087
+U-omit-patch / initialized persistence,2021-01-01,0.026978046554040475
+U-omit-patch / initialized persistence,pooled,0.026371917701628757
+U-patch-loss01,2015-01-01,0.02512040737294515
+U-patch-loss01,2018-01-01,0.025716505789995948
+U-patch-loss01,2021-01-01,0.026395873439656704
+U-patch-loss01,pooled,0.02574953508494206
+U-patch-loss01 / initialized persistence,2015-01-01,0.025820433133717444
+U-patch-loss01 / initialized persistence,2018-01-01,0.026304455263314087
+U-patch-loss01 / initialized persistence,2021-01-01,0.026978046554040475
+U-patch-loss01 / initialized persistence,pooled,0.026371917701628757
+U-aux01,2015-01-01,0.02504043317332544
+U-aux01,2018-01-01,0.02558599528771741
+U-aux01,2021-01-01,0.026173445083353505
+U-aux01,pooled,0.02560413818052462
+U-aux01 / initialized persistence,2015-01-01,0.025820433133717444
+U-aux01 / initialized persistence,2018-01-01,0.026304455263314087
+U-aux01 / initialized persistence,2021-01-01,0.026978046554040475
+U-aux01 / initialized persistence,pooled,0.026371917701628757
+U-aux01-static,2015-01-01,0.025022856843091797
+U-aux01-static,2018-01-01,0.025555326343370034
+U-aux01-static,2021-01-01,0.02614329657251885
+U-aux01-static,pooled,0.02557792032714078
+U-aux01-static / initialized persistence,2015-01-01,0.025820433133717444
+U-aux01-static / initialized persistence,2018-01-01,0.026304455263314087
+U-aux01-static / initialized persistence,2021-01-01,0.026978046554040475
+U-aux01-static / initialized persistence,pooled,0.026371917701628757
+U-aux01-seasonal,2015-01-01,0.024940713711047807
+U-aux01-seasonal,2018-01-01,0.025508784447005016
+U-aux01-seasonal,2021-01-01,0.026089470173760353
+U-aux01-seasonal,pooled,0.025517299611098773
+U-aux01-seasonal / initialized persistence,2015-01-01,0.025820433133717444
+U-aux01-seasonal / initialized persistence,2018-01-01,0.026304455263314087
+U-aux01-seasonal / initialized persistence,2021-01-01,0.026978046554040475
+U-aux01-seasonal / initialized persistence,pooled,0.026371917701628757
+U-aux01-shuffled,2015-01-01,0.025019032412821402
+U-aux01-shuffled,2018-01-01,0.025555354210921432
+U-aux01-shuffled,2021-01-01,0.026131416719762084
+U-aux01-shuffled,pooled,0.02557263544951471
+U-aux01-shuffled / initialized persistence,2015-01-01,0.025820433133717444
+U-aux01-shuffled / initialized persistence,2018-01-01,0.026304455263314087
+U-aux01-shuffled / initialized persistence,2021-01-01,0.026978046554040475
+U-aux01-shuffled / initialized persistence,pooled,0.026371917701628757
+U-aux01-anomaly,2015-01-01,0.025073875071449286
+U-aux01-anomaly,2018-01-01,0.025561091157652066
+U-aux01-anomaly,2021-01-01,0.02619300934325178
+U-aux01-anomaly,pooled,0.0256134231131785
+U-aux01-anomaly / initialized persistence,2015-01-01,0.025820433133717444
+U-aux01-anomaly / initialized persistence,2018-01-01,0.026304455263314087
+U-aux01-anomaly / initialized persistence,2021-01-01,0.026978046554040475
+U-aux01-anomaly / initialized persistence,pooled,0.026371917701628757
+W-global,2015-01-01,0.02504932497373018
+W-global,2018-01-01,0.025536704596652603
+W-global,2021-01-01,0.02612786705546725
+W-global,pooled,0.02557510117389184
+W-global / initialized persistence,2015-01-01,0.025820433133717444
+W-global / initialized persistence,2018-01-01,0.026304455263314087
+W-global / initialized persistence,2021-01-01,0.026978046554040475
+W-global / initialized persistence,pooled,0.026371917701628757
+W-multitask,2015-01-01,0.025889383933291456
+W-multitask,2018-01-01,0.025883446020283328
+W-multitask,2021-01-01,0.02677327238657444
+W-multitask,pooled,0.026185371823571012
+W-multitask / initialized persistence,2015-01-01,0.025820433133717444
+W-multitask / initialized persistence,2018-01-01,0.026304455263314087
+W-multitask / initialized persistence,2021-01-01,0.026978046554040475
+W-multitask / initialized persistence,pooled,0.026371917701628757
+A-global,2015-01-01,0.02521969524870217
+A-global,2018-01-01,0.02569924372010221
+A-global,2021-01-01,0.026230592361895275
+A-global,pooled,0.025719824596852278
+A-global / initialized persistence,2015-01-01,0.025820433133717444
+A-global / initialized persistence,2018-01-01,0.026304455263314087
+A-global / initialized persistence,2021-01-01,0.026978046554040475
+A-global / initialized persistence,pooled,0.026371917701628757
+A-multitask,2015-01-01,0.025310348095882746
+A-multitask,2018-01-01,0.02587133684714627
+A-multitask,2021-01-01,0.026469287863446808
+A-multitask,pooled,0.025887982997208545
+A-multitask / initialized persistence,2015-01-01,0.025820433133717444
+A-multitask / initialized persistence,2018-01-01,0.026304455263314087
+A-multitask / initialized persistence,2021-01-01,0.026978046554040475
+A-multitask / initialized persistence,pooled,0.026371917701628757
+U-global,2015-01-01,0.02511243094925083
+U-global,2018-01-01,0.02567605790388997
+U-global,2021-01-01,0.026292740551986053
+U-global,pooled,0.02569826416575546
+U-global / initialized persistence,2015-01-01,0.025820433133717444
+U-global / initialized persistence,2018-01-01,0.026304455263314087
+U-global / initialized persistence,2021-01-01,0.026978046554040475
+U-global / initialized persistence,pooled,0.026371917701628757
+U-multitask-early,2015-01-01,0.025066719109762055
+U-multitask-early,2018-01-01,0.02567294324121853
+U-multitask-early,2021-01-01,0.026261504085756622
+U-multitask-early,pooled,0.02567169010434614
+U-multitask-early / initialized persistence,2015-01-01,0.025820433133717444
+U-multitask-early / initialized persistence,2018-01-01,0.026304455263314087
+U-multitask-early / initialized persistence,2021-01-01,0.026978046554040475
+U-multitask-early / initialized persistence,pooled,0.026371917701628757
+U-multitask-early-latent,2015-01-01,0.025037472671188592
+U-multitask-early-latent,2018-01-01,0.025570134659136167
+U-multitask-early-latent,2021-01-01,0.026142191873977864
+U-multitask-early-latent,pooled,0.025587243046895764
+U-multitask-early-latent / initialized persistence,2015-01-01,0.025820433133717444
+U-multitask-early-latent / initialized persistence,2018-01-01,0.026304455263314087
+U-multitask-early-latent / initialized persistence,2021-01-01,0.026978046554040475
+U-multitask-early-latent / initialized persistence,pooled,0.026371917701628757
+U-multitask-early-fine,2015-01-01,0.025154962832064472
+U-multitask-early-fine,2018-01-01,0.025653718956143157
+U-multitask-early-fine,2021-01-01,0.026245816181450197
+U-multitask-early-fine,pooled,0.025688702564835752
+U-multitask-early-fine / initialized persistence,2015-01-01,0.025820433133717444
+U-multitask-early-fine / initialized persistence,2018-01-01,0.026304455263314087
+U-multitask-early-fine / initialized persistence,2021-01-01,0.026978046554040475
+U-multitask-early-fine / initialized persistence,pooled,0.026371917701628757
+U-multitask-early-fine-latent,2015-01-01,0.024981953700885004
+U-multitask-early-fine-latent,2018-01-01,0.025539496100223345
+U-multitask-early-fine-latent,2021-01-01,0.02610880763099636
+U-multitask-early-fine-latent,pooled,0.025547561577567823
+U-multitask-early-fine-latent / initialized persistence,2015-01-01,0.025820433133717444
+U-multitask-early-fine-latent / initialized persistence,2018-01-01,0.026304455263314087
+U-multitask-early-fine-latent / initialized persistence,2021-01-01,0.026978046554040475
+U-multitask-early-fine-latent / initialized persistence,pooled,0.026371917701628757
+Training seasonal climatology,2015-01-01,0.025107353216145517
+Training seasonal climatology,2018-01-01,0.025521228840678437
+Training seasonal climatology,2021-01-01,0.02619746116637513
+Training seasonal climatology,pooled,0.025612622400047875

@@ -8,11 +8,12 @@ broader temporal coverage helps observation forecasts, whether learning from
 fine-resolution examples improves transfer, and whether fine supervision makes
 recurrent latent state more useful. No LLC data enter this wave.
 
-**Current status, October 8 at 05:23 ET:** all four observation-cache
-qualifications and the checkpoint-copy audit passed. Isolated utilization
-array **19425444** is running. Production remains at **1,800 / 1,836 / 758 /
-746** updates until every arm clears the utilization gate. No final comparison
-is available yet. See the latest entry below for evidence and follow-up.
+**Current status, October 8 at 05:35 ET:** all four observation-cache
+qualifications and the checkpoint-copy audit passed. The coarse utilization
+checks measured **61.0% and 64.5%**, above the 50% gate; the fine checks are
+training and have not reported final measurements. Production remains at
+**1,800 / 1,836 / 758 / 746** updates until all four checks pass. No final
+scientific comparison is available yet. See the latest entry below for evidence.
 
 ## Runs and matched exposure
 
@@ -730,3 +731,13 @@ Callback **19425464** (`afterany:19425444`), registration
 `9b962e29-208e-4d1e-b4dc-c34f6911eac0`, and the verified active
 `early-fine-torch-obscache-util-callback-relay.service` cover completion.
 [Full qualification, migration, independent-copy evidence, submission receipts and staged production helper](artifacts/early-fine-2026-10-07/torch-observation-cache-migration.json).
+
+
+At the 05:35 ET snapshot, both coarse probes had saved passing measurements:
+**61.04%** (207.79 s for 80 updates) and **64.48%** (211.94 s). The first had
+completed in Slurm; the second was still reported running at the accounting
+snapshot. Both fine probes had reached finite real training updates (770 and
+755) and had not yet saved final utilization results. These are diagnostic
+positions only. Completed allocations total **14.0483 GPU-hours**; including
+running allocations at that snapshot gives **14.7733 GPU-hours**. The verified
+callback remains responsible for checking all final outputs and accounting.

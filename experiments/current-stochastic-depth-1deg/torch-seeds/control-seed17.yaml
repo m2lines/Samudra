@@ -92,5 +92,5 @@ model:
     up_sampling_block: zonally_periodic_upsample
     stochastic_depth_rate: 0.0
 post_train_eval:
-  eval_config_path: /opt/samudra-code/experiments/current-stochastic-depth-1deg/torch-seeds/control-eval.yaml
+  eval_config_path: /scratch/jr7309/runs/current-sd-seeds16-17/configs/control-eval.yaml
   last_n_checkpoints: 1

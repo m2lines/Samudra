@@ -1,0 +1,241 @@
+{
+  "checked_at": "2026-10-08T04:01:34.970241+00:00",
+  "runtime": {
+    "image_sha256": "b77c03ca4810dc13c7cb970b10edfbd279b2da17e16973d8df2bfbccae8b7d81",
+    "modules": {
+      "torch": {
+        "version": "2.12.0a0+0291f960b6.nv26.04.48445190",
+        "binaries": {}
+      },
+      "numpy": {
+        "version": "1.26.4",
+        "binaries": {}
+      },
+      "zarr": {
+        "version": "2.18.7",
+        "binaries": {}
+      },
+      "gsw": {
+        "version": "3.6.20",
+        "binaries": {
+          "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/runtime/gsw/_gsw_ufuncs.cpython-312-x86_64-linux-gnu.so": "a68285c6aa46aac465e69767d0463801ef8f7dc37fb1405559705a6ab0de7d29"
+        }
+      },
+      "cftime": {
+        "version": "1.6.4.post1",
+        "binaries": {
+          "/workspace/.venv/lib/python3.12/site-packages/cftime/_cftime.cpython-312-x86_64-linux-gnu.so": "bae798596f73dd75f4a85fb457f847ae87e43a5a05a37c06b0b55018579d22bd"
+        }
+      },
+      "samudra_rust_loader": {
+        "version": null,
+        "binaries": {
+          "/workspace/.venv/lib/python3.12/site-packages/samudra_rust_loader/samudra_rust_loader.cpython-312-x86_64-linux-gnu.so": "6710243ce96fb9df5c5227efc94014ec3984fa7ccd2511c1a9d81a44ad4f46ab"
+        }
+      }
+    }
+  },
+  "early_data": {
+    "producer": "9efad7a45b1a9a328d19db888bb89f6b12d22291",
+    "metadata_sha256": {
+      "coarse": "8c4e12bbb43cf70826d406d6910461e1b287835e5f7f27729a2eb8d545c4a19c",
+      "fine": "1b430134a5f1aadebace8b3457b6b4be12dfc9523589df06c8e112a7784170fe"
+    },
+    "sources": {
+      "coarse": {
+        "first": "1958-01-03 12:00:00",
+        "last": "2022-12-29 12:00:00",
+        "early_frames": 1241,
+        "early_chunks_size_checked": 99280,
+        "early_payload_bytes": 25733376000,
+        "finite_sample_frames": [
+          0,
+          620,
+          1240
+        ]
+      },
+      "fine": {
+        "first": "1958-01-03 12:00:00",
+        "last": "2022-12-29 12:00:00",
+        "early_frames": 1241,
+        "early_chunks_size_checked": 99280,
+        "early_payload_bytes": 411734016000,
+        "finite_sample_frames": [
+          0,
+          620,
+          1240
+        ]
+      }
+    },
+    "coarse": "/scratch/jr7309/data/om4_onedeg_v3",
+    "fine": "/scratch/jr7309/data/om4_quarterdeg_v2"
+  },
+  "fits": {
+    "fit-fine-0": {
+      "losses": [
+        1.7028145902286296,
+        1.2286593129957193,
+        0.9677169354697618,
+        0.7503506599988712,
+        0.641641927224464,
+        0.5954139046174437,
+        0.4424421826925154,
+        0.4070792690124913,
+        0.33974183292384436,
+        0.30893034452163637,
+        0.27888342424982404
+      ],
+      "normalization": "instance",
+      "evolution_architecture": "extent-fine",
+      "model_options": {
+        "initializer_architecture": "unet",
+        "surface_policy": "observed-only",
+        "task_conditioning": "input-adapters",
+        "latent_channels": 0
+      }
+    },
+    "fit-fine-10": {
+      "losses": [
+        1.7798652468111056,
+        1.2956020100121877,
+        1.054479473827419,
+        0.8495606457657049,
+        0.731623337261319,
+        0.5651829064111126,
+        0.4823311603197298,
+        0.4022376466823777,
+        0.34559657431397106,
+        0.30789861729268,
+        0.2810381090823221
+      ],
+      "normalization": "instance",
+      "evolution_architecture": "extent-fine",
+      "model_options": {
+        "initializer_architecture": "unet",
+        "surface_policy": "observed-only",
+        "task_conditioning": "input-adapters",
+        "latent_channels": 10
+      }
+    },
+    "fit-unet-0": {
+      "losses": [
+        1.7028145902286296,
+        1.2286593129957193,
+        0.9677169354697618,
+        0.7503506599988712,
+        0.641641927224464,
+        0.5954139046174437,
+        0.44242821103076824,
+        0.40704168602748264,
+        0.33970736006740315,
+        0.30885978108484846,
+        0.27874305672709127
+      ],
+      "normalization": "instance",
+      "evolution_architecture": "extent-unet",
+      "model_options": {
+        "initializer_architecture": "unet",
+        "surface_policy": "observed-only",
+        "task_conditioning": "input-adapters",
+        "latent_channels": 0
+      }
+    },
+    "fit-unet-10": {
+      "losses": [
+        1.7798652468111056,
+        1.2956020100121877,
+        1.054366296260369,
+        0.8492796466910556,
+        0.7319768603542225,
+        0.5656259267533064,
+        0.4823782609912204,
+        0.4025315946444991,
+        0.34567407782591203,
+        0.3081026095153551,
+        0.2809262126613049
+      ],
+      "normalization": "instance",
+      "evolution_architecture": "extent-unet",
+      "model_options": {
+        "initializer_architecture": "unet",
+        "surface_policy": "observed-only",
+        "task_conditioning": "input-adapters",
+        "latent_channels": 10
+      }
+    }
+  },
+  "events": {
+    "0": [
+      {
+        "event": "runtime_verified",
+        "producer": "9efad7a45b1a9a328d19db888bb89f6b12d22291",
+        "gpu": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+        "torch": "2.12.0a0+0291f960b6.nv26.04.48445190",
+        "cuda": "13.2",
+        "job": "19410615"
+      },
+      {
+        "event": "cache_warm_start",
+        "frames": 2829,
+        "cache_gib": 54.633378982543945,
+        "time_utc": "2026-10-08T03:59:00.204613+00:00",
+        "peak_gpu_gib": 54.925700664520264,
+        "host_peak_gib_rank0": 1.4608306884765625
+      }
+    ],
+    "1": [
+      {
+        "event": "runtime_verified",
+        "producer": "9efad7a45b1a9a328d19db888bb89f6b12d22291",
+        "gpu": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+        "torch": "2.12.0a0+0291f960b6.nv26.04.48445190",
+        "cuda": "13.2",
+        "job": "19410650"
+      },
+      {
+        "event": "cache_warm_start",
+        "frames": 2829,
+        "cache_gib": 54.633378982543945,
+        "time_utc": "2026-10-08T03:59:49.519020+00:00",
+        "peak_gpu_gib": 54.92715501785278,
+        "host_peak_gib_rank0": 1.4609489440917969
+      }
+    ],
+    "2": [
+      {
+        "event": "runtime_verified",
+        "producer": "9efad7a45b1a9a328d19db888bb89f6b12d22291",
+        "gpu": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+        "torch": "2.12.0a0+0291f960b6.nv26.04.48445190",
+        "cuda": "13.2",
+        "job": "19410651"
+      },
+      {
+        "event": "cache_warm_start",
+        "frames": 2829,
+        "cache_gib": 54.633378982543945,
+        "time_utc": "2026-10-08T04:00:01.722282+00:00",
+        "peak_gpu_gib": 54.92637872695923,
+        "host_peak_gib_rank0": 1.4635200500488281
+      }
+    ],
+    "3": [
+      {
+        "event": "runtime_verified",
+        "producer": "9efad7a45b1a9a328d19db888bb89f6b12d22291",
+        "gpu": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+        "torch": "2.12.0a0+0291f960b6.nv26.04.48445190",
+        "cuda": "13.2",
+        "job": "19410263"
+      },
+      {
+        "event": "cache_warm_start",
+        "frames": 2829,
+        "cache_gib": 54.633378982543945,
+        "time_utc": "2026-10-08T04:00:47.067613+00:00",
+        "peak_gpu_gib": 54.92785692214966,
+        "host_peak_gib_rank0": 1.4635391235351562
+      }
+    ]
+  }
+}

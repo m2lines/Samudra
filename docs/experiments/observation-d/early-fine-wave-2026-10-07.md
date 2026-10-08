@@ -221,3 +221,23 @@ include the source-only archive hash and bootstrap scripts. The initially copied
 full repository archive was unnecessarily large because of prior report assets;
 its extraction was stopped before job submission, and the jobs use a separate,
 verified source-only archive of the same producer.
+
+### Confirmed RTX execution at 00:01 ET October 8
+
+Data/runtime audit 19410261 completed successfully in 4m36s. All four
+qualification tasks were **running** on gr101/gr102/gr104/gr103 respectively.
+Each passed its ten-update observation fitting check and advanced to loading
+the 54.63-GiB recent-OM4 cache for the mixed-task/resume probe. Logs identify
+NVIDIA RTX PRO 6000 Blackwell Server Edition. Full qualification, throughput
+acceptance, production and held-out evaluation are still pending.
+
+The Torch SIF SHA256 is
+`b77c03ca4810dc13c7cb970b10edfbd279b2da17e16973d8df2bfbccae8b7d81`. It differs
+from the Engaging SIF container file, while all checked scientific library
+versions and compiled scientific/Rust binary hashes match. All 350 observation
+NPZ checksums and the early-source audit passed again on Torch.
+[Verified startup evidence](artifacts/early-fine-2026-10-07/torch-startup.json).
+
+Compute-node callback HTTPS check 19410286 timed out too. The installed local
+SSH relay supplies the completion-delivery route; CPU callback jobs save their
+event before attempting HTTPS, allowing identical replay through that relay.

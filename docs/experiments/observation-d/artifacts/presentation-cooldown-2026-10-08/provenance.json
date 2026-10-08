@@ -1,0 +1,33 @@
+{
+  "script_sha256": "42b43944cc3be3187c3b8c34da3447d4be31a5504c6fb382036c4609d078ed76",
+  "sources": {
+    "docs/experiments/observation-d/artifacts/early-fine-annual-2026-10-08/final/results.json": "b84580cbbf855345ef80ba926cd8dcfffcf43c058203a57be0e3693f4adcbf08",
+    "docs/experiments/observation-d/artifacts/early-fine-annual-2026-10-08/final/verification.json": "a34e5755425b821b8273e74e6fb6c7a207c0e41372769c3214d9bc0273d0a86e",
+    "docs/experiments/observation-d/artifacts/presentation-annual-2026-10-08/final/results.json.gz": "bca42d3e5c4bf91d7f860c5269deca0ed6e840adc65e42a777c2a39c5ed9ad0e",
+    "docs/experiments/observation-d/artifacts/presentation-annual-2026-10-08/final/COLLECTION_COMPLETE.json": "3f1a3f0e80bce0eecb14d3bfba556ae882468fdccaf02dcf0923ae61d2dd39b6"
+  },
+  "selected_checkpoint_sha256": {
+    "U-global-cooldown": "6db6d66ffbf5684d0cc7e962b1fa08a69ec88f00a1a53a3200b72e98dee2dc6e",
+    "U-multitask-early-cooldown": "95951b0b968c80cfe8737004dd806edaf3d4dd2b3d5318921c78599ccbf4a8e3",
+    "U-multitask-early-latent-cooldown": "6acb16f1ad3949b17cd505b7ef2c3f079a09ed78f921001ed8212c4ef3b372bb",
+    "U-multitask-early-fine-cooldown": "12327e2feee50def2ae37c161da76fef70d4b63549972d3bb756252c57c0251b",
+    "U-multitask-early-fine-latent-cooldown": "11df6d8d60285fce32807b070dcccde7d16dc2a2b00a1afdb1f083dec81898cc"
+  },
+  "origins": [
+    "2015-01-01",
+    "2018-01-01",
+    "2021-01-01"
+  ],
+  "rmse_definition": "Same four-component score as presentation: equal-origin MSE pooling then square root, normalized by common pooled training-climatology errors at each lead; SST, geostrophic velocity, January/December OHC in two layers",
+  "spectral_definition": "Original 27-term SST/ADT/EKE score at 5/15/30 days over 96 monthly origins; see spectral-provenance.json",
+  "selection": "Original short-horizon integrated-plus-spectral validation selection; no new training, inference or reselection",
+  "files": {
+    "rmse-comparison.pdf": "b519cec89b5620a23d378ec792e2b09d25fe7c5c4daf9b99e9aeffc458001df8",
+    "rmse-comparison.png": "be6b380d193b109f1b66ec59cf35c97133cb7c28e614c96d1f0cf5e5a66ba212",
+    "rmse-scores.csv": "f03c53aed78c719551a53a0ba68c8baa3e982326a1ff7a0ee2e5ffeb03e66b29",
+    "spectral-comparison.pdf": "1466c5f98b07da18764bd036c8475789fa2b358d2514f3c5c435f4dcbba9951e",
+    "spectral-comparison.png": "bd224eff89fa2e2b4e8812638864c29563dfb343fb1a0c7f7f4c5b573712cb4f",
+    "spectral-provenance.json": "a141fb8b5418e6f2bbcc2d6744e1f1a4f9656cb2eb695d1a4962767f5010730a",
+    "spectral-scores.csv": "2e99c37d7ee9d91c004b4a4e40c83d24d81328a2c4fdefcf0ab12ac5db2a87c6"
+  }
+}

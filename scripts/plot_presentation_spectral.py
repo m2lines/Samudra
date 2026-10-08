@@ -26,10 +26,20 @@ def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def plot(repo, output):
+def plot(
+    repo,
+    output,
+    *,
+    names=None,
+    audits=None,
+    checkpoints=None,
+    title_prefix="",
+    figsize=(10, 8),
+):
     artifacts = repo / "docs/experiments/observation-d/artifacts"
-    names = list(dict.fromkeys(n for group in GROUPS.values() for n in group))
-    audits = [
+    if names is None:
+        names = list(dict.fromkeys(n for group in GROUPS.values() for n in group))
+    audits = audits or [
         artifacts / "extent-review-2026-10-05/summary/summary-provenance.json",
         artifacts / "early-fine-2026-10-07/final/summary/summary-provenance.json",
     ]
@@ -67,16 +77,22 @@ def plot(repo, output):
     }
     if set(keys) != expected:
         raise ValueError("Expected the original 27 spectral terms")
-    annual_folder = artifacts / "presentation-annual-2026-10-08/final"
-    annual_bytes = gzip.decompress((annual_folder / "results.json.gz").read_bytes())
-    annual_audit = json.loads((annual_folder / "COLLECTION_COMPLETE.json").read_text())
-    if (
-        hashlib.sha256(annual_bytes).hexdigest()
-        != annual_audit["files"]["results.json"]
-    ):
-        raise ValueError("Presentation checkpoint provenance changed")
-    annual = json.loads(annual_bytes)
-    control = arms["U-global"]["files"]["seasonal-climatology.json"]["data"]
+    if checkpoints is None:
+        annual_folder = artifacts / "presentation-annual-2026-10-08/final"
+        annual_bytes = gzip.decompress((annual_folder / "results.json.gz").read_bytes())
+        annual_audit = json.loads(
+            (annual_folder / "COLLECTION_COMPLETE.json").read_text()
+        )
+        if (
+            hashlib.sha256(annual_bytes).hexdigest()
+            != annual_audit["files"]["results.json"]
+        ):
+            raise ValueError("Presentation checkpoint provenance changed")
+        annual = json.loads(annual_bytes)
+        checkpoints = {
+            n: annual["models"][n]["model"]["checkpoint_sha256"] for n in names
+        }
+    control = arms[names[0]]["files"]["seasonal-climatology.json"]["data"]
     cohort = control["origins"]
     if len(cohort) != 96:
         raise ValueError("Expected 96 held-out monthly origins")
@@ -128,7 +144,7 @@ def plot(repo, output):
 
     for name in names:
         arm = arms[name]
-        checkpoint = annual["models"][name]["model"]["checkpoint_sha256"]
+        checkpoint = checkpoints[name]
         if arm["best"]["checkpoint_sha256"] != checkpoint:
             raise ValueError("Different selected checkpoint: " + name)
         if arm["evaluation_complete"]["selected_sha256"] != checkpoint:
@@ -165,7 +181,7 @@ def plot(repo, output):
     prediction = [values.loc[n, "evolved"] for n in names]
     persistence = [values.loc[n, "initialized persistence"] for n in names]
     climatology = values.loc["Training seasonal climatology", "climatology"]
-    fig, ax = plt.subplots(figsize=(10, 8))
+    fig, ax = plt.subplots(figsize=figsize)
     y = np.arange(len(names))
     ax.hlines(y, prediction, persistence, color="0.7", lw=1)
     ax.scatter(prediction, y, color="C0", label="Evolved forecast", zorder=3)
@@ -191,7 +207,8 @@ def plot(repo, output):
     ax.set_xlim(left=0)
     ax.set_xlabel("Mean spectral error (dex; lower is better)")
     ax.set_title(
-        "Original 5 / 15 / 30-day spectral score\nSST + ADT + EKE · 3 regions · 96 held-out monthly origins",
+        title_prefix
+        + "Original 5 / 15 / 30-day spectral score\nSST + ADT + EKE · 3 regions · 96 held-out monthly origins",
         fontsize=12,
     )
     ax.grid(axis="x", alpha=0.2)
@@ -220,7 +237,7 @@ def plot(repo, output):
         aggregation="Average spatial power across origins at each fixed lead, then RMS log10-power mismatch per curve; arithmetic mean of 27 curves (3 quantities x 3 regions x 3 leads)",
         eke="SSH-derived geostrophic velocity anomalies across origins at each fixed lead; original monthly definition, not within-year EKE",
         control_relative_tolerance=1e-10,
-        checks="Source bundle hashes; 17 matching selected checkpoints; identical cohorts; common controls and reference spectra within float roundoff; all 945 constituent errors reproduced from saved power curves; agreement with original published score tables",
+        checks=f"Source bundle hashes; {len(names)} matching selected checkpoints; identical cohorts; common controls and reference spectra within float roundoff; all {(2 * len(names) + 1) * len(keys)} constituent errors reproduced from saved power curves; agreement with original published score tables",
         output_sha256={f: digest(output / f) for f in files},
     )
     (output / "spectral-provenance.json").write_text(

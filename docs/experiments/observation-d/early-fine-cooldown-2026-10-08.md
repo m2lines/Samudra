@@ -15,6 +15,7 @@ on **October 8, 2026, by 13:30 ET**. This follow-up used **7.242 GPU-hours**,
 including qualification; the original wave used 25.325 separately.
 
 Contents: [Results](#results) · [Components and persistence](#components-and-persistence) ·
+[Presentation comparison charts](#presentation-comparison-charts) ·
 [Validation curves](#validation-curves) · [30-day maps](#30-day-maps) ·
 [Protocol](#protocol) · [Verification](#verification).
 
@@ -114,6 +115,40 @@ verification of prognostic U/V. The spectral breakdown remains dominated by EKE:
 
 [All parent/cooldown metrics and both persistence controls](artifacts/early-fine-cooldown-2026-10-08/final/summary/scores.csv) ·
 [Full lead/region/depth metrics and checkpoint provenance](artifacts/early-fine-cooldown-2026-10-08/final/source-results.json).
+
+## Presentation comparison charts
+
+These use **only the five cooldown models**, with the same validation-selected
+checkpoints in both diagrams. They match the definitions and controls in the
+[17-model presentation comparison](presentation-annual-2026-10-08.md), whose
+original charts contain only constant-rate runs. No models were retrained,
+forecasts rerun, or checkpoints reselected for these figures.
+
+![Cooldown-only day-30 and day-365 RMSE comparison](artifacts/presentation-cooldown-2026-10-08/rmse-comparison.png)
+
+The RMSE score equally averages SST, SSH-derived geostrophic velocity, and
+OHC at 0–700/700–2000 m, normalized by the same training-climatology errors
+used in the original chart. Across the three January starts (2015/2018/2021),
+MSE is pooled before taking each square root. OHC uses January/December monthly
+means at the two plotted leads. Climatology is therefore exactly 1 by definition.
+
+![Cooldown-only original 5/15/30-day spectral comparison](artifacts/presentation-cooldown-2026-10-08/spectral-comparison.png)
+
+The spectral chart retains the original **27-term SST/ADT/EKE score at days
+5/15/30 over 96 monthly origins**, not annual spectral errors. Power is averaged
+over origins before computing RMS log10-power mismatch per curve; all 27 errors
+are equally weighted. All five evolved cooldown models still lose to their own
+initialized persistence on this score. The spectral climatology value is measured,
+not normalized to 1.
+
+[RMSE PDF](artifacts/presentation-cooldown-2026-10-08/rmse-comparison.pdf) ·
+[Spectral PDF](artifacts/presentation-cooldown-2026-10-08/spectral-comparison.pdf) ·
+[RMSE components and individual origins](artifacts/presentation-cooldown-2026-10-08/rmse-scores.csv) ·
+[Spectral components](artifacts/presentation-cooldown-2026-10-08/spectral-scores.csv) ·
+[Verified source/checkpoint hashes](artifacts/presentation-cooldown-2026-10-08/provenance.json).
+Reproduce with `python -m scripts.plot_cooldown_comparisons --output OUTPUT`.
+The restart/numerical-divergence caveat above still applies to comparisons with
+constant-rate parents; these are not isolated causal estimates of LR decay.
 
 ## Validation curves
 

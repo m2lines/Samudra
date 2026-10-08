@@ -18,13 +18,16 @@ from scripts.export_presentation_annual_maps import GROUPS
 from scripts.plot_observation_rollout_maps import plot as plot_maps
 
 
-def plot(folder, output):
+def plot_comparison(
+    frame,
+    names,
+    output,
+    title="Same selected checkpoints · three January starts · matched RMSE controls",
+    figsize=(12, 8),
+):
     output.mkdir(parents=True, exist_ok=True)
-    result = json.loads((folder / "results.json").read_text())
-    frame = pd.read_csv(folder / "rmse-scores.csv")
     pooled = frame[frame.origin == "pooled"]
-    names = list(dict.fromkeys(n for group in GROUPS.values() for n in group))
-    fig, axes = plt.subplots(1, 2, figsize=(12, 8), sharex=True, sharey=True)
+    fig, axes = plt.subplots(1, 2, figsize=figsize, sharex=True, sharey=True)
     for ax, day in zip(axes, (30, 365), strict=True):
         values = pooled[pooled.lead_days == day].set_index("model").rmse_score
         prediction = values.loc[names].to_numpy()
@@ -44,14 +47,18 @@ def plot(folder, output):
         ax.set_yticks(y, names, fontsize=8)
     axes[0].invert_yaxis()
     axes[1].legend(fontsize=8, loc="best")
-    fig.suptitle(
-        "Same selected checkpoints · three January starts · matched RMSE controls"
-    )
+    fig.suptitle(title)
     fig.tight_layout()
     fig.savefig(output / "rmse-comparison.png", dpi=160)
     fig.savefig(output / "rmse-comparison.pdf")
     plt.close(fig)
 
+
+def plot(folder, output):
+    result = json.loads((folder / "results.json").read_text())
+    frame = pd.read_csv(folder / "rmse-scores.csv")
+    names = list(dict.fromkeys(n for group in GROUPS.values() for n in group))
+    plot_comparison(frame, names, output)
     origins = result["configuration"]["origins"]
     leads = [5, 15, 30, 90, 180, 365]
     metrics = result["metrics"]

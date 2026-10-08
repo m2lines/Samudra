@@ -6,12 +6,14 @@ spots used to turn that transient excursion into permanent, silent corruption --
 these tests pin both guards down.
 """
 
+import contextlib
 import logging
 from types import SimpleNamespace
 
 import torch
 
 from ocean_emulators.train import Trainer
+from ocean_emulators.utils.train import CheckpointPaths
 
 
 def test_clip_grad_norm_spreads_a_single_nonfinite_gradient():
@@ -87,7 +89,7 @@ def test_save_checkpoint_refuses_nonfinite_weights(tmp_path, caplog):
     with caplog.at_level(logging.ERROR):
         result = Trainer.save_checkpoint(trainer, epoch=3, checkpoint_path=target)
 
-    assert result is None
+    assert result is False
     # The good checkpoint already on disk is left untouched.
     assert target.read_bytes() == b"previous-checkpoint"
     assert "non-finite" in caplog.text
@@ -106,17 +108,41 @@ def test_save_checkpoint_still_writes_finite_weights(tmp_path):
         best_val_loss=0.5,
         best_inf_loss=0.5,
         num_batches_seen=10,
+        _lr_warmup_applied=0.25,
         wandb_id=None,
         wandb_name=None,
         loss_fn=SimpleNamespace(),
         scheduler=None,
     )
 
-    Trainer.save_checkpoint(trainer, epoch=3, checkpoint_path=target)
+    assert Trainer.save_checkpoint(trainer, epoch=3, checkpoint_path=target) is True
 
     written = torch.load(target, map_location="cpu", weights_only=False)
     assert torch.isfinite(written["model"]["conv.weight"]).all()
     assert written["epoch"] == 3
+    assert written["lr_warmup_applied"] == 0.25
+
+
+def test_refused_ema_write_does_not_publish_a_stale_epoch_snapshot(tmp_path):
+    """A failed epoch must not relabel the preceding EMA as current."""
+    paths = CheckpointPaths(tmp_path)
+    paths.ema_checkpoint_path.write_bytes(b"previous-epoch")
+    trainer = Trainer.__new__(Trainer)
+    trainer.ckpt_paths = paths
+    trainer.best_val_loss = 1e8
+    trainer.best_inf_loss = 1e8
+    trainer.save_freq = 100
+    trainer.validation_mode = "offload"
+    trainer._test_context = contextlib.nullcontext
+
+    def save(epoch, path, **kwargs):
+        return path != paths.ema_checkpoint_path
+
+    trainer.save_checkpoint = save
+    trainer.save_all_checkpoints(epoch=2, v_loss=None, inf_loss=None)
+
+    assert not paths.ema_epoch_snapshot_path(2).exists()
+    assert paths.ema_checkpoint_path.read_bytes() == b"previous-epoch"
 
 
 def _trainer_with_sigma(max_state_sigma):

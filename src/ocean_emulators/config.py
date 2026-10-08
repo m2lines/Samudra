@@ -1108,6 +1108,18 @@ class ReplayConfig(BaseConfig):
             "transition epochs."
         ),
     )
+    storage_dtype: Literal["auto", "float16", "bfloat16", "float32"] = Field(
+        default="auto",
+        description=(
+            "How replay rows are held on the host. 'auto' follows "
+            "model.use_bfloat16, which is what it has always done. The cache "
+            "is z-scored and stored float16, so its states sit near 1 and "
+            "never approach either format's range; float16 then carries three "
+            "more mantissa bits, 0.098% of a standard deviation against "
+            "bfloat16's 0.78%. Range is not the constraint either way -- "
+            "max_state_sigma rejects a row long before 65504."
+        ),
+    )
     max_state_sigma: float = Field(
         default=0.0,
         description=(
@@ -1339,6 +1351,18 @@ class TrainConfig(TopLevelConfig):
     gradient_accumulation_steps: int = 1
     scheduler: SchedulerConfig | None = None
     loss: Loss = "mse"
+    validation_mode: Literal["inline", "offload", "both"] = Field(
+        default="inline",
+        description=(
+            "Where validation runs. 'inline' is the historical behaviour: the "
+            "trainer validates at every epoch end on its own GPUs. 'offload' "
+            "skips it and writes a per-epoch EMA snapshot for a separate "
+            "validator job to pick up, which is what lets a rank-local run use "
+            "a world size that does not divide the face -- inline face "
+            "validation is the only thing that needs it to. 'both' validates "
+            "inline AND writes snapshots, for checking the two agree."
+        ),
+    )
     finetune: bool = False
     resume_ckpt_path: str | None = None
     reset_optimizer_on_resume: bool = Field(
@@ -1529,9 +1553,9 @@ class TrainConfig(TopLevelConfig):
     #: stopped. Only a load that resets the step count (`finetune`) restarts
     #: the ramp, which for weights meeting a new data distribution is usually
     #: what you want anyway.
-    lr_warmup_steps: int = 0
+    lr_warmup_steps: int = Field(default=0, ge=0)
     #: LR at step 1 as a fraction of the scheduled LR.
-    lr_warmup_start_factor: float = 1e-3
+    lr_warmup_start_factor: float = Field(default=1e-3, gt=0.0, le=1.0)
     temporal_stride_transition: list[int] = []
     inference_epochs: list[int] = [-1]
     train_time: TimeConfig = TimeConfig(

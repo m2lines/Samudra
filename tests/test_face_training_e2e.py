@@ -23,6 +23,11 @@ import torch
 import xarray as xr
 
 from ocean_emulators.config import GradientLossConfig, TrainConfig
+from ocean_emulators.face_parallel import (
+    FaceParallelContext,
+    block_tiles,
+    interior_centers,
+)
 from ocean_emulators.tiling import face_tile_windows
 from ocean_emulators.train import Trainer
 from ocean_emulators.utils.multiton import MultitonScope
@@ -585,3 +590,226 @@ def test_ungrouped_snapshot_is_drawn_from_a_mostly_ocean_tile(
     assert recorded, "no snapshot was recorded"
     field = next(iter(recorded[-1].values()))[0]
     assert float(torch.isnan(field).float().mean()) < 0.5
+
+
+# --------------------------------------------------------------------------
+# Rank-local blocks (face_parallel.blend_scope="rank")
+# --------------------------------------------------------------------------
+
+
+def _block_config(face_root, **overrides):
+    return _face_config(
+        face_root, **{"--face_parallel.blend_scope": "rank", **overrides}
+    )
+
+
+def _prepared(config) -> Trainer:
+    """A Trainer with its loaders built, which is where the groups appear.
+
+    `run()` would do it too, and a whole epoch besides; these tests need
+    only the setup `init_data_loaders` performs.
+    """
+    trainer = Trainer(config)
+    trainer.init_data_loaders(max(trainer.replay_cfg.max_lead_steps))
+    return trainer
+
+
+def test_a_rank_local_block_run_advances_end_to_end(face_root, caplog) -> None:
+    """The load-bearing test for the other topology: real Trainer, no halo."""
+    caplog.set_level(logging.INFO)
+    with MultitonScope():
+        trainer = Trainer(_block_config(face_root))
+        trainer.run()
+
+        # One group per interior centre, nine tiles each.
+        assert len(trainer.replay_groups) == 16
+        assert {group.num_tiles for group in trainer.replay_groups} == {9}
+        # The group id IS the list position -- `sample_replay_seed_cursor`
+        # stamps it onto the cursor and `replay_group_for` indexes by it.
+        assert [group.group_id for group in trainer.replay_groups] == list(range(16))
+        # Nothing is exchanged between ranks, which is the whole point.
+        assert all(not group.blender.exchange_ops for group in trainer.replay_groups)
+        assert trainer._diverged_writebacks == 0
+        assert trainer._loss_denominator_is_fixed
+
+
+def test_a_block_is_its_centre_and_the_eight_around_it(face_root) -> None:
+    with MultitonScope():
+        trainer = _prepared(_block_config(face_root))
+        centres = interior_centers(6)
+        assert len(centres) == 16
+        for group, centre in zip(trainer.replay_groups, centres, strict=True):
+            assert group.dataset_indices == block_tiles(centre, grid=6)
+        # The first block is the corner block a rank of four holds today.
+        assert trainer.replay_groups[0].dataset_indices == (
+            0,
+            1,
+            2,
+            6,
+            7,
+            8,
+            12,
+            13,
+            14,
+        )
+
+
+def test_the_block_layout_leaves_its_outer_sides_unblended(face_root) -> None:
+    """A block's outer edge has no neighbour, so it must keep weight 1.
+
+    Inside the block the seams are still reconciled; it is only the ring's
+    outward sides that stop being tapered, because there is nothing there to
+    hand the cells to.
+    """
+    with MultitonScope():
+        trainer = _prepared(_block_config(face_root))
+        layout = trainer.replay_groups[0].layout
+        assert layout.num_tiles == 9
+        # Corner tile of the block: two sides face outward.
+        assert "jlo" in {side for tile, side in layout.exterior_sides if tile == 0}
+        # The block's centre tile is interior on all four sides.
+        centre = layout.tiles[4].tile_id
+        assert not [side for tile, side in layout.exterior_sides if tile == centre]
+
+
+def test_validation_still_covers_the_whole_face(face_root) -> None:
+    """Training is rank-local; validation is not, because deployment is not."""
+    with MultitonScope():
+        trainer = _prepared(_block_config(face_root))
+        assert trainer.face_val_group is not None
+        # World size 1 here, so the rank's face share is all 36.
+        assert trainer.face_val_group.num_tiles == 36
+        assert trainer._primary_replay_group() is trainer.face_val_group
+        # The reader's DEFAULT tile set is the face share validation reads.
+        assert trainer.group_frame_reader.num_tiles == 36
+
+
+def _score_with(config) -> torch.Tensor:
+    """One loss call on fixed tensors, inside its own multiton scope."""
+    with MultitonScope():
+        trainer = _prepared(config)
+        generator = torch.Generator().manual_seed(11)
+        shape = (9, trainer.N_prog, SIZE, SIZE)
+        pred = torch.randn(shape, generator=generator)
+        target = torch.randn(shape, generator=generator)
+        weight = torch.rand(shape, generator=generator) > 0.2
+        return trainer.train_loss_fn(pred, target, sample_weight=weight)
+
+
+def test_rank_local_denominator_is_the_blocks_fixed_share_of_the_face(
+    face_root,
+) -> None:
+    """The constant must not follow the block's wet-cell count.
+
+    A block drawn over land would otherwise scale its own loss up and outvote
+    the others through DDP's mean. A rank-local row always contains 9 of the
+    face's 36 tiles, so its denominator is one quarter of the face constant
+    even in this single-process test. DDP then averages any number of such
+    independent rows without changing the scale.
+    """
+    face_score = _score_with(_face_config(face_root))
+    block_score = _score_with(_block_config(face_root))
+    torch.testing.assert_close(
+        block_score,
+        face_score * 4,
+        rtol=0,
+        atol=0,
+    )
+
+
+def test_the_wet_masks_sit_on_the_host_for_a_drawn_block(face_root) -> None:
+    """Any of the 36 may be wanted, so they cannot be narrowed to nine."""
+    with MultitonScope():
+        trainer = _prepared(_block_config(face_root))
+        assert trainer.tile_wet_masks is not None
+        assert trainer.tile_wet_masks.shape[0] == 36
+        assert trainer.tile_wet_masks.device.type == "cpu"
+        # And they still resolve by global source index.
+        weight = trainer._wet_for_sources((12, 13, 14))
+        assert weight.shape[0] == 3
+
+
+def _count_divergence_votes(config, monkeypatch) -> int:
+    """How many times the cross-rank divergence vote fires over a run.
+
+    Patched on the CLASS, not an instance: `run()` rebuilds the face context
+    through `init_data_loaders`, so an instance patch would be counting a
+    object that no longer takes part.
+    """
+    votes: list[bool] = []
+    original = FaceParallelContext.agree
+
+    def counting(self, flag):
+        votes.append(flag)
+        return original(self, flag)
+
+    monkeypatch.setattr(FaceParallelContext, "agree", counting)
+    with MultitonScope():
+        Trainer(config).run()
+    return len(votes)
+
+
+def test_a_rank_local_row_is_reseeded_without_consulting_the_other_ranks(
+    face_root, monkeypatch
+) -> None:
+    """A diverged block must not drag three healthy, unrelated blocks with it.
+
+    Under `blend_scope="face"` the ranks hold one row between them, so one
+    rank seeing a runaway tile has to make all of them reseed or the face
+    stops being one timestamp. Rank-local rows share nothing, so the vote is
+    not merely unnecessary -- taking it would reseed blocks that are fine.
+    """
+    assert _count_divergence_votes(_block_config(face_root), monkeypatch) == 0
+    # Positive control: the face topology still votes, every write-back.
+    assert _count_divergence_votes(_face_config(face_root), monkeypatch) > 0
+
+
+# --------------------------------------------------------------------------
+# Offloaded validation (what frees the world size)
+# --------------------------------------------------------------------------
+
+
+def _offload_config(face_root, **overrides):
+    return _block_config(face_root, **{"--validation_mode": "offload", **overrides})
+
+
+def test_offloaded_validation_builds_no_face_context(face_root) -> None:
+    """The whole point: nothing left shards the face, so 36 % ranks is free.
+
+    Training draws independent blocks and validation happens in another job,
+    so `assign_tiles` -- the only thing that needed the face to divide evenly
+    over the ranks -- is never reached.
+    """
+    with MultitonScope():
+        trainer = _prepared(_offload_config(face_root))
+        assert trainer.fp_ctx is None
+        assert trainer.face_val_group is None
+        # Still 16 blocks of 9, still blended within the rank.
+        assert len(trainer.replay_groups) == 16
+        assert {group.num_tiles for group in trainer.replay_groups} == {9}
+        # And the loss is still normalized by a constant.
+        assert trainer._loss_denominator_is_fixed
+
+
+def test_offloading_does_not_change_the_denominator(face_root) -> None:
+    """The constant is the face's whether or not a face context exists."""
+    torch.testing.assert_close(
+        _score_with(_block_config(face_root)),
+        _score_with(_offload_config(face_root)),
+        rtol=0,
+        atol=0,
+    )
+
+
+def test_an_offloaded_run_trains_and_leaves_a_snapshot_per_epoch(
+    face_root, caplog
+) -> None:
+    caplog.set_level(logging.INFO)
+    with MultitonScope():
+        trainer = Trainer(_offload_config(face_root))
+        trainer.run()
+        assert trainer._diverged_writebacks == 0
+        snapshots = sorted(trainer.ckpt_paths.checkpoint_dir.glob("ema_ckpt_ep*.pt"))
+        assert snapshots, "an offloaded run must leave the validator something"
+        # No inline validation ran.
+        assert "One-Step Face Validation" not in caplog.text

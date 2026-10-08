@@ -35,6 +35,7 @@ from __future__ import annotations
 import dataclasses
 import logging
 from collections.abc import Sequence
+from typing import Literal
 
 import pydantic
 import torch
@@ -42,10 +43,13 @@ import torch
 from ocean_emulators.utils.loss import GradientZNorms
 
 from ocean_emulators.tiling import (
+    SIDES,
     DistributedTileBlender,
     ReplayGroup,
     TileGroupLayout,
+    TileSpec,
     WindowKind,
+    build_group_layout,
     contiguous_tile_blocks,
     ownership_masks,
 )
@@ -67,6 +71,17 @@ class FaceParallelConfig(pydantic.BaseModel):
             "Sized against the STORE, not the core count: 4 ranks x 8 threads "
             "read a face in 2.91 s where 4 x 15 took 7.85 s on the same work "
             "(scripts/_bench/face_read.py). Aim for about 32 across all ranks."
+        ),
+    )
+    blend_scope: Literal["face", "rank"] = pydantic.Field(
+        default="face",
+        description=(
+            "What a replay row covers. 'face' advances all 36 tiles in "
+            "lockstep across the ranks and exchanges seams between them -- how "
+            "a global model would be deployed. 'rank' gives each rank its own "
+            "3x3 block, blended within the rank only, with no cross-rank halo "
+            "and no shared row; the block centre is drawn per row. Validation "
+            "is face-synchronous either way."
         ),
     )
     tiles_per_chunk: int = pydantic.Field(
@@ -263,7 +278,12 @@ class FaceParallelContext:
         return (total / self.world_size).to(dtype=torch.float32)
 
     def global_loss_norms(
-        self, wet: torch.Tensor, local_sample_weight: torch.Tensor | None, *, tiles: int
+        self,
+        wet: torch.Tensor,
+        local_sample_weight: torch.Tensor | None,
+        *,
+        tiles: int,
+        collective: bool = True,
     ) -> tuple[torch.Tensor, "GradientZNorms"]:
         """Denominators that make a rank's score a share of the face's.
 
@@ -287,14 +307,24 @@ class FaceParallelContext:
         local = weighted_channel_denominator(
             wet=wet, batch=tiles, extra_weight=local_sample_weight
         )
+        if not collective:
+            # The caller passed the WHOLE face's masks, so the local sum
+            # already IS the face total and no context is needed.
+            return face_wide_loss_norms(
+                wet,
+                local_sample_weight,
+                face_tiles=tiles,
+                rank_tiles=tiles // self.world_size,
+            )
         denominator = self._all_reduce(
             local.detach().to(dtype=torch.float64).clone(), op="sum"
         )
+        reduce = lambda cells: self._all_reduce(cells.clone(), op="sum")  # noqa: E731
         norms = gradient_z_norms(
             wet=wet,
             batch=tiles,
             sample_weight=local_sample_weight,
-            reduce=lambda cells: self._all_reduce(cells.clone(), op="sum"),
+            reduce=reduce,
         )
         return (
             (denominator / self.world_size).to(dtype=torch.float32),
@@ -443,3 +473,195 @@ def build_face_replay_groups(
             blender=context.blender,
         )
     ]
+
+
+# --------------------------------------------------------------------------
+# Rank-local blocks
+# --------------------------------------------------------------------------
+#
+# The alternative topology: instead of four ranks advancing ONE face and
+# exchanging seams across ranks, each rank advances its own 3x3 block of nine
+# tiles and blends only within itself. A replay row is then a block, not a
+# face, and the ranks share nothing but the gradient all-reduce.
+#
+# Every interior tile is a candidate centre, so over enough steps the model
+# sees each of them fully blended (as a centre) and partially blended (as one
+# of the eight ring tiles). On a single face the 20 perimeter tiles never get
+# to be a centre; on the globe every tile does.
+
+
+def face_wide_loss_norms(
+    wet: torch.Tensor,
+    sample_weight: torch.Tensor | None,
+    *,
+    face_tiles: int,
+    rank_tiles: int,
+) -> tuple[torch.Tensor, "GradientZNorms"]:
+    """Loss constants for one rank-local row, derived from the whole face.
+
+    The collective-free twin of `FaceParallelContext.global_loss_norms`, and
+    the reason a rank-local run needs no face context at all: every rank opens
+    all 36 sources, so the face total is reachable locally. It must still be
+    the FACE's total rather than a block's, or a block drawn over land would
+    scale its own loss up and outvote the others through DDP's mean.
+
+    The normalization share is the fraction of the face in EACH row, not the
+    number of DDP ranks. A 3x3 row is 9/36 = 1/4 of a face whether four or
+    eight ranks draw independent rows. Using world size here would make the
+    loss and gradients grow with rank count.
+
+    The share lands on different constants for the two terms, for the reason
+    `global_loss_norms` documents: the base metric is one ratio, so it scales
+    the denominator; gradient_z is an average OF ratios, so its per-pair cell
+    counts stay face-wide and the share scales the pair count.
+    """
+    if face_tiles <= 0:
+        raise ValueError(f"face_tiles must be positive, got {face_tiles}")
+    if not 0 < rank_tiles <= face_tiles:
+        raise ValueError(
+            f"rank_tiles must be in [1, {face_tiles}], got {rank_tiles}"
+        )
+
+    from ocean_emulators.utils.loss import (
+        gradient_z_norms,
+        weighted_channel_denominator,
+    )
+
+    local = weighted_channel_denominator(
+        wet=wet, batch=face_tiles, extra_weight=sample_weight
+    )
+    norms = gradient_z_norms(
+        wet=wet, batch=face_tiles, sample_weight=sample_weight, reduce=None
+    )
+    rank_share = rank_tiles / face_tiles
+    return (
+        (local.detach().to(dtype=torch.float64).clone() * rank_share).to(
+            dtype=torch.float32
+        ),
+        GradientZNorms(
+            valid_cells=norms.valid_cells,
+            count_by_time=norms.count_by_time * rank_share,
+        ),
+    )
+
+
+def interior_centers(grid: int) -> tuple[int, ...]:
+    """Tile ids that have all eight neighbours, row-major.
+
+    A 6x6 face has 16 of them. The perimeter cannot centre a 3x3 block.
+    """
+    if grid < 3:
+        raise ValueError(f"a {grid}x{grid} grid has no interior tile")
+    return tuple(
+        row * grid + col for row in range(1, grid - 1) for col in range(1, grid - 1)
+    )
+
+
+def block_tiles(center: int, *, grid: int) -> tuple[int, ...]:
+    """The nine tile ids of the 3x3 block centred on `center`, row-major.
+
+    Tile ids are row-major over the face (`tiling.face_tile_windows`), so a
+    neighbour is a fixed offset away and adjacency needs no geometry.
+    """
+    row, col = divmod(center, grid)
+    if not (1 <= row < grid - 1 and 1 <= col < grid - 1):
+        raise ValueError(
+            f"tile {center} is at row {row}, col {col} of a {grid}x{grid} "
+            "grid, so it has no complete 3x3 neighbourhood"
+        )
+    return tuple(
+        (row + dj) * grid + (col + di) for dj in (-1, 0, 1) for di in (-1, 0, 1)
+    )
+
+
+def _overlap_signature(layout: TileGroupLayout) -> tuple:
+    """What makes two blocks want the same blend weights.
+
+    Weights depend only on each tile's overlap width per side, and blocks
+    differ there solely where they touch a face edge -- whose seams are 48
+    cells against an interior 32. So the sixteen 3x3 blocks of a face need
+    only nine distinct blenders, and this is the key that finds them.
+    """
+    return tuple(
+        (position, side, layout.overlaps.get((tile.tile_id, side)))
+        for position, tile in enumerate(layout.tiles)
+        for side in SIDES
+    )
+
+
+def build_block_replay_groups(
+    catalog: Sequence[TileSpec],
+    *,
+    num_strides: int,
+    rank: int,
+    grid: int,
+    window: WindowKind = "quintic",
+    ramp_width: int | None = None,
+    dtype: torch.dtype = torch.float32,
+    device: torch.device | str | None = None,
+) -> list["ReplayGroup"]:
+    """One replay group per candidate 3x3 block, each blended within the rank.
+
+    The group id is the list position, which is what `replay_group_for` and
+    `sample_replay_seed_cursor` between them rely on: the seed draw picks a
+    group uniformly and stamps its id onto the cursor, so drawing a block is
+    the group draw already in place.
+
+    Each group carries a nine-tile layout, so `build_group_layout` sees only
+    those nine and marks the block's outer sides exterior -- weight 1, nothing
+    to blend against. The blender is a `DistributedTileBlender` with every tile
+    assigned to this rank, which leaves `exchange_ops` empty and so performs no
+    point-to-point at all: tile-space blending, no canonical grid, no
+    collective.
+    """
+    if num_strides != 1:
+        raise ValueError(
+            "Rank-local replay advances one block on one cursor, so it takes a "
+            f"single temporal stride; got {num_strides}. Use data_stride=[1]."
+        )
+    if len(catalog) != grid * grid:
+        raise ValueError(
+            f"a {grid}x{grid} face needs {grid * grid} tiles, got {len(catalog)}"
+        )
+
+    groups: list[ReplayGroup] = []
+    blenders: dict[tuple, DistributedTileBlender] = {}
+    for group_id, center in enumerate(interior_centers(grid)):
+        tiles = [catalog[tile] for tile in block_tiles(center, grid=grid)]
+        layout = build_group_layout(tiles, group_id=group_id)
+        signature = _overlap_signature(layout)
+        blender = blenders.get(signature)
+        if blender is None:
+            blender = DistributedTileBlender(
+                layout,
+                tile_ranks=(rank,) * len(tiles),
+                rank=rank,
+                window=window,
+                ramp_width=ramp_width,
+                dtype=dtype,
+            )
+            if blender.exchange_ops:
+                raise AssertionError(
+                    "A rank-local block blender must exchange nothing, but "
+                    f"{len(blender.exchange_ops)} cross-rank halo op(s) were "
+                    "planned."
+                )
+            if device is not None:
+                blender.to(device)
+            blenders[signature] = blender
+        groups.append(
+            ReplayGroup(
+                group_id=group_id,
+                dataset_indices=tuple(tile.dataset_index for tile in tiles),
+                layout=layout,
+                blender=blender,
+            )
+        )
+    logger.info(
+        "Rank-local blocks: %d candidate centre(s) of %d tiles, %d distinct "
+        "blender(s) shared between them, no halo exchange.",
+        len(groups),
+        len(groups[0].dataset_indices),
+        len(blenders),
+    )
+    return groups

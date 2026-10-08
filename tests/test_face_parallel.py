@@ -19,6 +19,7 @@ from ocean_emulators.face_parallel import (
     FaceParallelContext,
     assign_tiles,
     face_group_is_shardable,
+    face_wide_loss_norms,
     local_tile_windows,
     split_into_chunks,
 )
@@ -29,6 +30,7 @@ from ocean_emulators.tiling import (
     ownership_masks,
     tile_catalog_from_windows,
 )
+from ocean_emulators.utils.loss import decomposed_mse
 from ocean_emulators.utils.multiton import MultitonScope
 
 EXTENT = 240
@@ -304,6 +306,53 @@ def test_the_denominator_is_the_same_whichever_rank_holds_the_land() -> None:
 # --------------------------------------------------------------------------
 # Face-wide loss normalization
 # --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("world_size", [4, 8])
+def test_rank_local_loss_and_gradient_scale_do_not_depend_on_world_size(
+    world_size: int,
+) -> None:
+    """DDP may average any number of independent nine-tile rows.
+
+    The denominator is one block's 9/36 share of the face. The old
+    face/world_size denominator passed for four ranks by coincidence, then
+    doubled both this loss and its gradient on the eight-GPU rental.
+    """
+    face_tiles, rank_tiles = 36, 9
+    channels, size = 2, 3
+    with MultitonScope():
+        TensorMap.init_instance("single_2", "single")
+        wet = torch.ones(channels, size, size)
+        face_masks = torch.ones(face_tiles, channels, size, size)
+        denominator, _ = face_wide_loss_norms(
+            wet,
+            face_masks,
+            face_tiles=face_tiles,
+            rank_tiles=rank_tiles,
+        )
+
+        parameter = torch.tensor(1.0, requires_grad=True)
+        rank_losses = []
+        for _rank in range(world_size):
+            prediction = parameter.expand(rank_tiles, channels, size, size)
+            target = torch.zeros_like(prediction)
+            block_mask = torch.ones_like(prediction)
+            rank_losses.append(
+                decomposed_mse(
+                    prediction,
+                    target,
+                    wet,
+                    sample_weight=block_mask,
+                    denominator=denominator,
+                ).mean()
+            )
+
+        ddp_mean = torch.stack(rank_losses).mean()
+        ddp_mean.backward()
+
+    assert ddp_mean.item() == pytest.approx(1.0)
+    assert parameter.grad is not None
+    assert parameter.grad.item() == pytest.approx(2.0)
 
 
 def _norm_worker(rank: int, world_size: int, port: str, queue) -> None:

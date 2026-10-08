@@ -6,6 +6,7 @@ import logging
 import math
 import multiprocessing
 import os
+import shutil
 import queue
 import random
 import signal
@@ -86,6 +87,9 @@ from ocean_emulators.replay import (
     replay_sidecar_path,
 )
 from ocean_emulators.face_parallel import (
+    build_block_replay_groups,
+    face_wide_loss_norms,
+    split_into_chunks,
     FaceParallelContext,
     build_face_replay_groups,
     face_group_is_shardable,
@@ -1176,8 +1180,10 @@ class Trainer:
         self.scheduler = None
         if cfg.scheduler:
             self.scheduler = cfg.scheduler.build(self.optimizer, cfg.epochs)
-        # Resolved after the checkpoint block below, which decides whether
-        # this is a cold start.
+        self.validation_mode = cfg.validation_mode
+        # Initialized before checkpoint loading because the optimizer and
+        # scheduler may be rebuilt there. The active ramp is enabled below,
+        # once `num_batches_seen` has its well-defined initial value.
         self.lr_warmup_steps = 0
         self.lr_warmup_start_factor = cfg.lr_warmup_start_factor
         self._lr_warmup_applied = 1.0
@@ -1227,8 +1233,9 @@ class Trainer:
 
         self.num_batches_seen = 0
         # No gate on how the run started. The ramp reads `num_batches_seen`,
-        # which the checkpoint carries, so a resume lands wherever it left off
-        # -- past the ramp means full LR, with nothing to switch off.
+        # which a resumable checkpoint carries, so a resume lands wherever it
+        # left off. Finetuning resets the counter and intentionally restarts
+        # the ramp for the new data distribution.
         self.lr_warmup_steps = cfg.lr_warmup_steps
         if self.lr_warmup_steps:
             logger.info(
@@ -1257,10 +1264,16 @@ class Trainer:
                         self.optimizer = torch.optim.Adam(
                             self.model.parameters(), lr=cfg.learning_rate
                         )
+                        self._lr_warmup_applied = 1.0
                         logger.info(
                             "Reset optimizer state on resume (lr=%s).",
                             cfg.learning_rate,
                         )
+                    else:
+                        # A mid-epoch checkpoint may carry a warmup-scaled LR.
+                        # A rebuilt scheduler must take ownership of the
+                        # unscaled value.
+                        self._remove_lr_warmup()
                     # Scheduler is tied to the optimizer; rebuild if either reset is requested.
                     if cfg.scheduler:
                         self.scheduler = cfg.scheduler.build(self.optimizer, cfg.epochs)
@@ -1355,10 +1368,17 @@ class Trainer:
             else None
         )
         self._replay_resume_consumed = False
-        self.replay_storage_dtype = (
+        # Storage precision is not the same decision as compute precision,
+        # though one flag used to make both. 'auto' keeps the old coupling.
+        self.replay_storage_dtype = {
+            "float16": torch.float16,
+            "bfloat16": torch.bfloat16,
+            "float32": torch.float32,
+        }.get(
+            getattr(cfg.replay, "storage_dtype", "auto"),
             torch.bfloat16
             if getattr(cfg.model, "use_bfloat16", False)
-            else torch.float32
+            else torch.float32,
         )
         self.replay_generator = torch.Generator(device="cpu")
         # Ranks normally hold independent buffers, so their planners are
@@ -1366,7 +1386,11 @@ class Trainer:
         # advance ONE row together, so they must draw the same row, the same
         # seed time and the same refresh schedule -- which a shared seed gives
         # for free, the planner being deterministic.
-        shares_one_buffer = self.dp_ctx is not None or cfg.face_parallel.enabled
+        # Rank-local blocks are back to independent buffers: each rank draws
+        # its own block centre, seed time and refresh schedule.
+        shares_one_buffer = self.dp_ctx is not None or (
+            cfg.face_parallel.enabled and cfg.face_parallel.blend_scope == "face"
+        )
         replay_seed = (
             cfg.experiment.rand_seed
             if shares_one_buffer
@@ -1615,11 +1639,25 @@ class Trainer:
                         f"Stopping after emergency checkpoint ({reason})."
                     )
 
-                val_stats = self.validate_one_epoch(epoch)
-                end_epoch_val_time = time.perf_counter()
+                if self.validation_mode == "offload":
+                    # Another job scores the per-epoch EMA snapshots. Nothing
+                    # here feeds back into training -- the LR scheduler has
+                    # already stepped, there is no plateau scheduler and no
+                    # early stopping -- so the only thing lost by deferring is
+                    # which snapshot gets labelled best, which the validator
+                    # owns instead.
+                    val_stats = {}
+                    end_epoch_val_time = time.perf_counter()
+                    autoregressive_val_stats = {}
+                    end_epoch_autoregressive_val_time = end_epoch_val_time
+                else:
+                    val_stats = self.validate_one_epoch(epoch)
+                    end_epoch_val_time = time.perf_counter()
 
-                autoregressive_val_stats = self.validate_autoregressive_one_epoch(epoch)
-                end_epoch_autoregressive_val_time = time.perf_counter()
+                    autoregressive_val_stats = self.validate_autoregressive_one_epoch(
+                        epoch
+                    )
+                    end_epoch_autoregressive_val_time = time.perf_counter()
 
                 if -1 in self.inference_epochs or epoch in self.inference_epochs:
                     inf_stats = self.inference_one_epoch(epoch)
@@ -1629,16 +1667,22 @@ class Trainer:
                     end_epoch_inf_time = None
 
                 train_loss = train_stats["train/mean/loss"]
-                one_step_loss = val_stats[ONE_STEP_LOSS_KEY]
-                v_loss, v_loss_stats = self.combined_validation_loss(
-                    one_step_loss, autoregressive_val_stats
-                )
+                one_step_loss = val_stats.get(ONE_STEP_LOSS_KEY)
+                if one_step_loss is None:
+                    v_loss, v_loss_stats = None, {}
+                else:
+                    v_loss, v_loss_stats = self.combined_validation_loss(
+                        one_step_loss, autoregressive_val_stats
+                    )
                 inf_loss = inf_stats.get(
                     "inference/time_mean_norm/rmse/channel_mean", None
                 )
 
                 logger.info(f"Achieved Train Loss = {train_loss:.3f}")
-                logger.info(f"Achieved One-Step Validation Loss = {one_step_loss:.3f}")
+                if one_step_loss is not None:
+                    logger.info(
+                        f"Achieved One-Step Validation Loss = {one_step_loss:.3f}"
+                    )
                 for label in ("short", "long"):
                     key = f"val/mean/{label}-autoregressive-loss"
                     if key in autoregressive_val_stats:
@@ -1646,7 +1690,8 @@ class Trainer:
                             f"Achieved {label.capitalize()} Autoregressive "
                             f"Validation Loss = {autoregressive_val_stats[key]:.3f}"
                         )
-                logger.info(f"Achieved Combined Validation Loss = {v_loss:.3f}")
+                if v_loss is not None:
+                    logger.info(f"Achieved Combined Validation Loss = {v_loss:.3f}")
                 if inf_loss is not None:
                     logger.info(f"Achieved Inference Loss = {inf_loss:.3f}")
 
@@ -1996,10 +2041,11 @@ class Trainer:
                 )
 
         if self.scheduler is not None:
+            # Recursive schedulers such as CosineAnnealingLR advance from the
+            # optimizer's current LR. Remove the step-level scale first so it
+            # cannot become part of the next epoch's base rate.
+            self._remove_lr_warmup()
             self.scheduler.step()
-            # The epoch scheduler assigns the LR outright, so whatever warmup
-            # had scaled is gone. The next step re-derives it from scratch.
-            self._lr_warmup_applied = 1.0
 
         if processed_batches == 0:
             logger.warning(
@@ -2266,10 +2312,11 @@ class Trainer:
                 )
 
         if self.scheduler is not None:
+            # Recursive schedulers such as CosineAnnealingLR advance from the
+            # optimizer's current LR. Remove the step-level scale first so it
+            # cannot become part of the next epoch's base rate.
+            self._remove_lr_warmup()
             self.scheduler.step()
-            # The epoch scheduler assigns the LR outright, so whatever warmup
-            # had scaled is gone. The next step re-derives it from scratch.
-            self._lr_warmup_applied = 1.0
 
         if processed_batches == 0:
             logger.warning(
@@ -2943,18 +2990,27 @@ class Trainer:
                 for index in group.dataset_indices
             }
         )
+        # A drawn block can be any nine of the 36, so which masks are wanted is
+        # not known until the row is drawn. Keeping all 36 on the GPU would cost
+        # 4.2 GB, which does not fit beside `checkpointing: simple`; keep them
+        # on pinned host memory instead and move the nine per step.
+        self._wet_masks_on_host = self._rank_local_blocks
+        device = "cpu" if self._wet_masks_on_host else self.device
         self._wet_row_of_source = {source: row for row, source in enumerate(local)}
         self.tile_wet_masks = torch.stack(
             [
-                sources[source].masks.prognostic_with_hist(self.hist).to(self.device)
+                sources[source].masks.prognostic_with_hist(self.hist).to(device)
                 for source in local
             ]
         ).bool()
+        if self._wet_masks_on_host and self.pin_mem and torch.cuda.is_available():
+            self.tile_wet_masks = self.tile_wet_masks.pin_memory()
         logger.info(
-            "Per-tile wet masks: %d of %d tiles on this rank (%.2f GB).",
+            "Per-tile wet masks: %d of %d tiles, %.2f GB on %s.",
             len(local),
             len(sources),
             self.tile_wet_masks.numel() * self.tile_wet_masks.element_size() / 1024**3,
+            self.tile_wet_masks.device,
         )
 
     def _wet_for_sources(self, sources: Sequence[int]) -> torch.Tensor:
@@ -2974,7 +3030,12 @@ class Trainer:
                 f"{sorted(rows)}."
             )
         index = torch.tensor([rows[int(s)] for s in sources], device=masks.device)
-        return masks[index]
+        selected = masks[index]
+        if selected.device == self.device:
+            return selected
+        # Host-resident stack: the nine rows this row wants go over now, on the
+        # copy stream so the transfer overlaps the step that asked for them.
+        return selected.to(self.device, non_blocking=True)
 
     def _ddp_withholds_allreduce(self, ddp_model, *, per_chunk: bool) -> bool:
         """Whether to hold DDP's all-reduce back until the last piece of a step.
@@ -2998,19 +3059,18 @@ class Trainer:
         return per_chunk or self.gradient_accumulation_steps > 1
 
     def _apply_lr_warmup(self) -> None:
-        """Scale the LR for the first `lr_warmup_steps` optimizer steps.
+        """Scale the scheduled LR for the first configured optimizer steps.
 
-        Multiplies whatever the epoch scheduler has set rather than replacing
-        it, so the two compose: the cosine still owns the shape across epochs
-        and this only holds the first steps down. The applied factor is divided
-        back out whenever it changes -- the same discipline
-        `EpochMultiplierScheduler` keeps, for the same reason: the two must
-        never both think they own the number.
+        This multiplies whatever the epoch scheduler has set rather than
+        replacing it. The previously applied factor is divided back out before
+        applying the next one so that the factors never compound.
         """
         if not self.lr_warmup_steps:
             return
         target = linear_warmup_factor(
-            self.num_batches_seen, self.lr_warmup_steps, self.lr_warmup_start_factor
+            self.num_batches_seen,
+            self.lr_warmup_steps,
+            self.lr_warmup_start_factor,
         )
         if target == self._lr_warmup_applied:
             return
@@ -3019,30 +3079,44 @@ class Trainer:
             group["lr"] *= scale
         self._lr_warmup_applied = target
 
+    def _remove_lr_warmup(self) -> None:
+        """Restore the scheduler-owned LR before advancing the scheduler."""
+        if self._lr_warmup_applied == 1.0:
+            return
+        for group in self.optimizer.param_groups:
+            group["lr"] /= self._lr_warmup_applied
+        self._lr_warmup_applied = 1.0
+
     def _microbatch_spans(self, data: TrainData) -> list[tuple[int, int]]:
         """How to split one microbatch into forward/backward chunks.
 
-        One span unless a replay row is a whole face, which no GPU holds at
-        once. The span count comes from `FaceParallelContext`, which derives it
-        from the tiles a rank owns -- identical on every rank, because a rank
-        that ran fewer chunks would never reach the gradient all-reduce the
-        others are waiting in.
+        One span unless a replay row is more tiles than a GPU holds at once.
+        How many that is depends on the topology: a face row gives a rank its
+        share of the face, a rank-local row gives it a whole 3x3 block. Either
+        way the chunk count is identical on every rank, because a rank that ran
+        fewer chunks would never reach the gradient all-reduce the others are
+        waiting in.
         """
         fp_ctx = getattr(self, "fp_ctx", None)
-        if fp_ctx is None:
+        if fp_ctx is None and not self._rank_local_blocks:
             return [(0, data.get_input(0).shape[0])]
+        if self._rank_local_blocks:
+            # Every block is the same size, so one chunking serves them all.
+            tiles, chunks = self._block_tiles_per_row, self._block_chunks
+        else:
+            assert fp_ctx is not None
+            tiles, chunks = len(fp_ctx.local_tiles), fp_ctx.chunks
         samples = data.get_input(0).shape[0]
-        tiles = len(fp_ctx.local_tiles)
         if samples % tiles:
             raise ValueError(
                 f"A face-parallel microbatch holds {samples} samples, which is "
-                f"not a whole number of the {tiles} tiles this rank owns."
+                f"not a whole number of the {tiles} tiles in a row."
             )
         rows = samples // tiles
         spans: list[tuple[int, int]] = []
         for row in range(rows):
             base = row * tiles
-            for chunk in fp_ctx.chunks:
+            for chunk in chunks:
                 spans.append((base + chunk[0], base + chunk[-1] + 1))
         return spans
 
@@ -3253,9 +3327,13 @@ class Trainer:
                 # Trainer without running __init__, and this method is one they
                 # call directly.
                 fp_ctx = getattr(self, "fp_ctx", None)
+                # The vote exists because a face's tiles are spread over the
+                # ranks, so one rank can see a runaway tile the others cannot.
+                # With rank-local blocks nobody else holds any of this row, and
+                # voting would reseed three healthy, unrelated blocks.
                 row_diverged = (
                     fp_ctx.agree(bool(divergence))
-                    if fp_ctx is not None
+                    if fp_ctx is not None and not self._rank_local_blocks
                     else bool(divergence)
                 )
                 if row_diverged:
@@ -3603,6 +3681,11 @@ class Trainer:
         Validation uses one stride, so it takes the first grouped layout; the
         others differ only in which time windows they address.
         """
+        face_group = getattr(self, "face_val_group", None)
+        if face_group is not None:
+            # With rank-local blocks `replay_groups` holds 3x3 blocks, whose
+            # blender exchanges nothing. Validation needs the face.
+            return face_group
         for group in getattr(self, "replay_groups", []) or []:
             if group.is_grouped:
                 return group
@@ -4977,8 +5060,26 @@ class Trainer:
         )
         return catalog
 
+    @property
+    def _rank_local_blocks(self) -> bool:
+        """Whether a replay row is this rank's 3x3 block rather than the face."""
+        cfg = getattr(self, "face_parallel_cfg", None)
+        return bool(cfg and cfg.enabled and cfg.blend_scope == "rank")
+
     def _build_face_replay_groups(self) -> list[ReplayGroup]:
-        """One group holding this rank's share of a face-sized tile catalog."""
+        """Replay groups over a face-sized tile catalog, in either topology.
+
+        `blend_scope="face"` returns one group: this rank's share of a face
+        advanced in lockstep with the others, seams exchanged between ranks.
+        `blend_scope="rank"` returns one group per candidate 3x3 block, each
+        blended inside this rank alone.
+
+        `fp_ctx` and the face group are built whenever validation runs here,
+        because face validation is face-synchronous in both topologies -- that
+        is how the model gets deployed. With rank-local blocks AND validation
+        offloaded, neither is needed, and skipping them is what lets the world
+        size stop dividing 36: training never shards the face.
+        """
         catalog = getattr(self, "tile_catalog", None)
         if not catalog:
             raise ValueError(
@@ -4988,6 +5089,19 @@ class Trainer:
             )
         layout = build_group_layout(catalog)
         world_size = get_world_size()
+        if self._rank_local_blocks and self.validation_mode == "offload":
+            # Nothing here shards the face: training draws independent blocks
+            # and validation happens in another job. So the world size is free.
+            self.fp_ctx = None
+            self.face_val_group = None
+            logger.info(
+                "Rank-local blocks with validation offloaded: the face is "
+                "never sharded, so world size %d needs no relation to %d "
+                "tiles.",
+                world_size,
+                layout.num_tiles,
+            )
+            return self._build_block_groups(catalog)
         shardable, reason = face_group_is_shardable(layout, world_size)
         if not shardable:
             raise ValueError(
@@ -5004,12 +5118,41 @@ class Trainer:
             # Before the loss normalization below, which collectives.
             device=self.device,
         )
-        return build_face_replay_groups(
+        face_groups = build_face_replay_groups(
             layout,
             self.fp_ctx,
             num_strides=len(self.data_stride),
             dataset_index_of=[tile.dataset_index for tile in catalog],
         )
+        # Validation scores the whole face on every rank, in both topologies.
+        self.face_val_group = face_groups[0]
+        if not self._rank_local_blocks:
+            return face_groups
+        return self._build_block_groups(catalog)
+
+    def _build_block_groups(self, catalog) -> list[ReplayGroup]:
+        """One group per candidate 3x3 block, plus the chunking they share."""
+        grid = math.isqrt(len(catalog))
+        if grid * grid != len(catalog):
+            raise ValueError(
+                f"blend_scope='rank' needs a square face; got {len(catalog)} tiles."
+            )
+        groups = build_block_replay_groups(
+            catalog,
+            num_strides=len(self.data_stride),
+            rank=get_rank(),
+            grid=grid,
+            window=getattr(self.replay_cfg, "blend_window", "quintic"),
+            dtype=torch.float32,
+            device=self.device,
+        )
+        # The forward/backward chunking follows the BLOCK, not the rank's share
+        # of the face -- they are both nine tiles at four ranks, but not at one.
+        self._block_tiles_per_row = groups[0].num_tiles
+        self._block_chunks = split_into_chunks(
+            self._block_tiles_per_row, self.face_parallel_cfg.tiles_per_chunk
+        )
+        return groups
 
     def read_group_frame(self, slot, *, seed: bool):
         """A whole group's transitions in one chunk-streaming pass, or None.
@@ -5033,12 +5176,13 @@ class Trainer:
         target = int(values[reference.hist + 1])
         times = reference._prognostic_src.data["time"].to_numpy()
 
+        windows = self._group_read_windows(group)
         if seed:
-            frames = reader.read_prognostic(times[current])
+            frames = reader.read_prognostic(times[current], windows)
             boundaries: list[torch.Tensor] | None = None
         else:
-            frames = reader.read_prognostic(times[target])
-            boundaries = reader.read_boundary(times[current])
+            frames = reader.read_prognostic(times[target], windows)
+            boundaries = reader.read_boundary(times[current], windows)
 
         transitions = []
         for tile_index, dataset_index in enumerate(group.dataset_indices):
@@ -5057,6 +5201,18 @@ class Trainer:
                 )
             )
         return transitions
+
+    def _group_read_windows(self, group: ReplayGroup):
+        """Store windows for a group's tiles, or None for the reader's default.
+
+        None is the whole point of the default: a face run always reads the
+        same tiles, so it never re-plans.
+        """
+        if not self._rank_local_blocks:
+            return None
+        windows = self.data_container.replay_windows
+        num_strides = max(1, len(self.data_stride))
+        return [windows[index // num_strides] for index in group.dataset_indices]
 
     def _build_group_frame_reader(self) -> None:
         """Open a chunk-streaming reader for this rank's tiles, if it applies.
@@ -5085,7 +5241,10 @@ class Trainer:
             raise ValueError(
                 f"The group frame reader reads a local Zarr store; got {location}."
             )
-        group = self.replay_groups[0]
+        # The DEFAULT tile set is this rank's face share, which is what
+        # validation reads. Training passes its block's windows per read, so
+        # one reader serves both without a second pool or store handle.
+        group = getattr(self, "face_val_group", None) or self.replay_groups[0]
         num_strides = max(1, len(self.data_stride))
         local = [windows[index // num_strides] for index in group.dataset_indices]
         self.group_frame_reader = GroupFrameReader(
@@ -5119,22 +5278,42 @@ class Trainer:
         Built here rather than in `__init__` because it needs the tile
         assignment, which needs the catalog, which needs the sources open.
         """
-        if self.fp_ctx is None:
+        if self.fp_ctx is None and not self._rank_local_blocks:
             raise RuntimeError("Face loss normalization needs a face context")
-        group = self.replay_groups[0]
-        # Exactly the weight `_batch_wet_weight` hands the loss for this
-        # rank's tiles, so the denominator is built from the same expression
-        # it will later divide.
-        if self.tile_wet_masks is None:
-            sample_weight = None
+        # The face share, not a drawn block: the constant this installs is the
+        # face's in both topologies.
+        if self._rank_local_blocks:
+            # The constant must stay the FACE's, not a block's: a block drawn
+            # over land would otherwise scale itself up and outvote the others
+            # through DDP's mean. Every rank has all 36 masks, so the face
+            # total needs no collective -- and it is summed on the host, where
+            # the masks already live, so the startup never holds 4.2 GB of
+            # float mask on the GPU.
+            masks = self.tile_wet_masks
+            assert masks is not None
+            denominator, gradient_z = face_wide_loss_norms(
+                self.domain_wet.cpu(),
+                masks.to(dtype=torch.float32),
+                face_tiles=masks.shape[0],
+                rank_tiles=self._block_tiles_per_row,
+            )
+            denominator = denominator.to(self.device)
+            gradient_z = gradient_z.to(self.device)
         else:
-            num_strides = max(1, len(self.data_stride))
-            sources = [index // num_strides for index in group.dataset_indices]
-            sample_weight = self._wet_for_sources(sources).to(dtype=torch.float32)
-
-        denominator, gradient_z = self.fp_ctx.global_loss_norms(
-            self.domain_wet, sample_weight, tiles=group.num_tiles
-        )
+            group = self.face_val_group
+            assert group is not None
+            # Exactly the weight `_batch_wet_weight` hands the loss for this
+            # rank's tiles, so the denominator is built from the same
+            # expression it will later divide.
+            if self.tile_wet_masks is None:
+                sample_weight = None
+            else:
+                num_strides = max(1, len(self.data_stride))
+                sources = [index // num_strides for index in group.dataset_indices]
+                sample_weight = self._wet_for_sources(sources).to(dtype=torch.float32)
+            denominator, gradient_z = self.fp_ctx.global_loss_norms(
+                self.domain_wet, sample_weight, tiles=group.num_tiles
+            )
         self.train_loss_fn = build_loss_fn(
             self._loss_cfg,
             wet=self.domain_wet,
@@ -5168,7 +5347,11 @@ class Trainer:
         is nearly empty now and nearly full then.
         """
         assert self.fp_ctx is not None
-        group = self.replay_groups[0]
+        # The FACE group: validation covers the whole face in both topologies,
+        # and `_grouped_val_weight` narrows its 36-tile ownership masks by
+        # `fp_ctx.local_tiles`. A 3x3 block's layout would be indexed off the
+        # end of.
+        group = self.face_val_group
         weight = self._grouped_val_weight(group)
         denominator, gradient_z = self.fp_ctx.global_loss_norms(
             self.domain_wet, weight, tiles=group.num_tiles
@@ -5301,7 +5484,8 @@ class Trainer:
             # normalization below indexes the masks -- so narrow them first.
             self._scope_tile_wet_masks_to_groups()
             self._install_face_loss_normalization()
-            self._install_face_validation_scorer()
+            if self.face_val_group is not None:
+                self._install_face_validation_scorer()
             self._build_group_frame_reader()
             # Fail now rather than an epoch in, at the first validation.
             self._require_face_reader()
@@ -5529,10 +5713,12 @@ class Trainer:
             )
             return None
 
-    def save_all_checkpoints(self, epoch: int, v_loss: float, inf_loss: float):
+    def save_all_checkpoints(
+        self, epoch: int, v_loss: float | None, inf_loss: float | None
+    ):
         with self._test_context():
             is_best_val_loss = False
-            if v_loss <= self.best_val_loss:
+            if v_loss is not None and v_loss <= self.best_val_loss:
                 logger.info(
                     f"Epoch validation loss ({v_loss:.3f}) is lower than "
                     f"previous best validation loss ({self.best_val_loss:.3f})."
@@ -5573,11 +5759,25 @@ class Trainer:
         logger.info(
             f"Saving latest EMA checkpoint to {self.ckpt_paths.ema_checkpoint_path}"
         )
-        self.save_checkpoint(
+        wrote_ema = self.save_checkpoint(
             epoch,
             self.ckpt_paths.ema_checkpoint_path,
             for_inference=True,
         )
+        if self.validation_mode != "inline" and wrote_ema:
+            # A named hardlink pins this epoch's bytes without copying them:
+            # `os.replace` gave `ema_ckpt.pt` a fresh inode this epoch, so later
+            # epochs can replace that name without changing this snapshot.
+            snapshot = self.ckpt_paths.ema_epoch_snapshot_path(epoch)
+            source = self.ckpt_paths.ema_checkpoint_path
+            staging = snapshot.with_suffix(".pt.tmp")
+            try:
+                staging.unlink(missing_ok=True)
+                os.link(source, staging)
+            except OSError:
+                shutil.copy2(source, staging)
+            os.replace(staging, snapshot)
+            logger.info("Wrote EMA snapshot for the validator: %s", snapshot)
 
     def save_checkpoint(
         self,
@@ -5587,7 +5787,7 @@ class Trainer:
         batch_in_epoch: int | None = None,
         epoch_complete: bool = True,
         save_reason: str | None = None,
-    ):
+    ) -> bool:
         if for_inference:
             with self._ema_context():
                 # `state_dict()` returns tensors that alias live parameter storage,
@@ -5619,7 +5819,7 @@ class Trainer:
                 len(model_state_dict),
                 nonfinite[0],
             )
-            return
+            return False
 
         # Create temporary file in the same directory as the target
         temp_dir = os.path.dirname(checkpoint_path)
@@ -5640,6 +5840,9 @@ class Trainer:
                 "best_inf_loss": self.best_inf_loss,
                 "ema": ema_state,
                 "num_batches_seen": self.num_batches_seen,
+                # Needed only for an incomplete-epoch/emergency checkpoint:
+                # its optimizer LR still carries this multiplicative scale.
+                "lr_warmup_applied": getattr(self, "_lr_warmup_applied", 1.0),
                 "wandb_id": self.wandb_id,
                 "wandb_name": self.wandb_name,
             }
@@ -5658,6 +5861,7 @@ class Trainer:
 
             torch.save(checkpoint, temporary_location)
             os.replace(temporary_location, checkpoint_path)
+        return True
 
     @staticmethod
     def _clone_state_dict(state):
@@ -5749,6 +5953,7 @@ class Trainer:
             self.wandb_id = checkpoint.get("wandb_id")
             self.wandb_name = checkpoint.get("wandb_name")
             self.num_batches_seen = checkpoint.get("num_batches_seen", 0)
+            self._lr_warmup_applied = checkpoint.get("lr_warmup_applied", 1.0)
 
             logger.info(f"Start Epoch: {self.start_epoch}")
             logger.info(f"Start Batch In Epoch: {self.start_batch_in_epoch}")

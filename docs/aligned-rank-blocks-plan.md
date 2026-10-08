@@ -194,4 +194,11 @@ All edits are small and reuse existing paths. Comments stay one line.
 
 - Phase 0 step 1 done: recut WIP backed up and discarded, recut plan marked
   superseded.
-- Waiting on step 2 (Cody commits main's eval WIP) and the eval 25162709 gate.
+- Step 2 committed (`58c5245e`). The eval gate cleared once 25162709 ended.
+- Step 3 merge is staged with conflicts resolved:
+  - Warmup: async's `_remove_lr_warmup` (strips the step factor before
+    `scheduler.step()`), and its bounds-checked warmup fields.
+  - Main's `curriculum_epoch_offset` is kept.
+  - The non-GPU suite fails only the 152 tests that already fail on `58c5245e`.
+- Waiting on Cody to commit the merge before step 4. The async WIP patch
+  dry-runs cleanly, excluding the repack script, which is already in main.

@@ -376,6 +376,15 @@ class GradientZNorms:
     #: ``[num_times, num_vars]`` pairs contributing to each channel.
     count_by_time: torch.Tensor
 
+    def to(self, device) -> "GradientZNorms":
+        """The same counts on another device. Both fields are small."""
+        return GradientZNorms(
+            valid_cells={
+                name: cells.to(device) for name, cells in self.valid_cells.items()
+            },
+            count_by_time=self.count_by_time.to(device),
+        )
+
 
 #: `wet` -> {(variable, dtype, num_times, num_vars): (spatial_weight, result)}.
 #: The channel weight sits beside the result and is checked by identity, so a
@@ -656,7 +665,12 @@ def gradient_z_l1_loss(
         )
     return torch.where(
         count_by_time > 0,
-        loss_by_time / count_by_time.clamp_min(1.0),
+        # Fixed face-wide norms deliberately use fractional counts to encode
+        # the share scored by one rank/block (for example 1/4 and 1/2 for a
+        # 3x3 block of a 6x6 face). Clamping those to 1 silently discards that
+        # scale. Locally derived counts are integers >= 1, so the epsilon is a
+        # no-op for the ordinary non-partitioned path.
+        loss_by_time / count_by_time.clamp_min(1e-8),
         loss_by_time,
     ).reshape(-1)
 

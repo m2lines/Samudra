@@ -1,0 +1,84 @@
+{
+  "checked_utc": "2026-10-08T15:54:58.409599+00:00",
+  "arms": {
+    "U-multitask-early": {
+      "fit_passed": true,
+      "probe_passed": true,
+      "progress": [
+        {
+          "folder": "probe-U-multitask-early",
+          "last_event": {
+            "time_utc": "2026-10-08T15:54:11.817066+00:00",
+            "event": "joint_train",
+            "global_step": 10,
+            "om4": 6,
+            "observation": 4,
+            "task": "observation",
+            "loss": 0.5363363369562844,
+            "lr": 0.0001,
+            "gradient_norm": 2.449240207672119,
+            "elapsed_seconds": 131.693798734108,
+            "om4_recent": 3,
+            "om4_early": 3
+          }
+        }
+      ]
+    },
+    "U-multitask-early-latent": {
+      "fit_passed": true,
+      "probe_passed": true,
+      "progress": [
+        {
+          "folder": "probe-U-multitask-early-latent",
+          "last_event": {
+            "time_utc": "2026-10-08T15:54:33.443254+00:00",
+            "event": "joint_train",
+            "global_step": 10,
+            "om4": 6,
+            "observation": 4,
+            "task": "observation",
+            "loss": 0.592414691923464,
+            "lr": 0.0001,
+            "gradient_norm": 2.6712300777435303,
+            "elapsed_seconds": 130.52952409605496,
+            "om4_recent": 3,
+            "om4_early": 3
+          }
+        }
+      ]
+    },
+    "U-multitask-early-fine": {
+      "fit_passed": true,
+      "probe_passed": false,
+      "progress": []
+    },
+    "U-multitask-early-fine-latent": {
+      "fit_passed": true,
+      "probe_passed": false,
+      "progress": []
+    },
+    "U-global": {
+      "fit_passed": true,
+      "probe_passed": false,
+      "progress": [
+        {
+          "folder": "probe-U-global",
+          "last_event": {
+            "time_utc": "2026-10-08T15:54:54.257050+00:00",
+            "event": "joint_train",
+            "global_step": 6,
+            "om4": 5,
+            "observation": 1,
+            "task": "om4",
+            "loss": 0.9644493982195854,
+            "lr": 0.0001,
+            "gradient_norm": 2.8374876976013184,
+            "elapsed_seconds": 99.54108825000003,
+            "om4_recent": 5,
+            "om4_early": 0
+          }
+        }
+      ]
+    }
+  }
+}

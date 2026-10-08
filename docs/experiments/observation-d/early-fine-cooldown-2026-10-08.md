@@ -66,13 +66,17 @@ task boundary, and recent-only control routing.
 
 **Submitted:** qualification array **19437767**, CPU checkpoint migration
 **19437769** (`afterok` on all qualifications), and training/evaluation array
-**19437770** (`afterok` on migration). Initial scheduler check showed qualification
-queued; production has not started. Producer:
+**19437770** (`afterok` on migration). At the October 8 11:55 ET check, all five fitting checks had passed. The two
+coarse early-data arms also passed their mixed-task and bitwise resume probes;
+the two fine arms and U-global were still completing qualification. Production
+has not started. [Qualification snapshot](artifacts/early-fine-cooldown-2026-10-08/qualification-start.json). Producer:
 `4a1cd7a9bfb60d53b990b331fa0232c91aab5bb8`.
 
 The U-global source checksum is
 `027bd17238c6dce8af74135ff5748061e00ecd258c830166482537ff0d769bf7`, verified on
-Beta, the local staging copy and Torch after transfer through dtn011. The other
+Beta, the local staging copy and Torch after transfer through dtn011. A strict
+CPU model load also verified identical ordered state names and 62,967,680
+parameters ([compatibility check](artifacts/early-fine-cooldown-2026-10-08/u-global-compatibility.json)). The other
 four sources remain in the prior completed Torch run. Scratch had approximately
 0.48 TB free before this wave.
 

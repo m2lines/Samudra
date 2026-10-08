@@ -1,0 +1,11 @@
+{
+  "source_step": 2667,
+  "task_counts": {
+    "om4": 1667,
+    "observation": 1000
+  },
+  "ordered_state_names_exact": true,
+  "strict_model_load": true,
+  "parameters": 62967680,
+  "scope": "CPU architecture compatibility; production runtime/resume gated separately"
+}

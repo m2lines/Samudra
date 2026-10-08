@@ -200,8 +200,10 @@ already covers U-global and the four early/fine arms. Those five outputs are reu
 only the twelve missing presentation comparisons required new inference. The five cooldown evaluations
 in that separate job remain a supplemental comparison, outside this 17-model table.
 
-Matching [cooldown-only RMSE and spectral comparison charts](early-fine-cooldown-2026-10-08.md#presentation-comparison-charts)
-are now available for those five selected checkpoints, with unchanged score definitions.
+[Matched-parent RMSE and cooldown spectral comparison charts](early-fine-cooldown-2026-10-08.md#presentation-comparison-charts)
+are available with unchanged score definitions. The RMSE chart pairs the five
+cooldown models with their five constant-rate parents; the spectral chart shows
+the five cooldown models.
 
 
 ## Fixed evaluation protocol

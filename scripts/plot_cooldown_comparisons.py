@@ -43,6 +43,9 @@ def plot(repo, output):
     names = [name for name in annual["models"] if name.endswith("-cooldown")]
     if len(names) != 5:
         raise ValueError("Expected all five cooldown models")
+    comparison_names = [
+        n for name in names for n in (name.removesuffix("-cooldown"), name)
+    ]
     records = {
         "Training seasonal climatology": original["metrics"][
             "Training seasonal climatology"
@@ -78,6 +81,8 @@ def plot(repo, output):
             != original["models"][parent]["model"]["checkpoint_sha256"]
         ):
             raise ValueError("Shared parent checkpoint differs")
+        for label in (parent, parent + " / initialized persistence"):
+            records[label] = original["metrics"][label]
         for origin in origins:
             for day in (30, 365):
                 a = endpoint(
@@ -113,10 +118,11 @@ def plot(repo, output):
     frame.to_csv(output / "rmse-scores.csv", index=False)
     plot_comparison(
         frame,
-        names,
+        comparison_names,
         output,
-        title="Cooldown models · selected checkpoints · three January starts · matched RMSE controls",
-        figsize=(13, 4.6),
+        title="Matched constant-rate and cooldown models · selected checkpoints · three January starts",
+        figsize=(13, 6.5),
+        compare_cooldown=True,
     )
     plot_spectral(
         repo,
@@ -140,6 +146,10 @@ def plot(repo, output):
         script_sha256=digest(Path(__file__)),
         sources={str(p.relative_to(repo)): digest(p) for p in sources},
         selected_checkpoint_sha256=checkpoints,
+        rmse_selected_checkpoint_sha256={
+            n: annual["models"][n]["inputs"]["checkpoint_sha256"]
+            for n in comparison_names
+        },
         origins=origins,
         rmse_definition="Same four-component score as presentation: equal-origin MSE pooling then square root, normalized by common pooled training-climatology errors at each lead; SST, geostrophic velocity, January/December OHC in two layers",
         spectral_definition="Original 27-term SST/ADT/EKE score at 5/15/30 days over 96 monthly origins; see spectral-provenance.json",
@@ -147,7 +157,7 @@ def plot(repo, output):
         files={
             p.name: digest(p)
             for p in sorted(output.iterdir())
-            if p.is_file() and p.name != "provenance.json"
+            if p.is_file() and p.name != "provenance.json" and p.suffix != ".license"
         },
     )
     (output / "provenance.json").write_text(json.dumps(provenance, indent=2) + "\n")

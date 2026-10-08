@@ -24,6 +24,7 @@ def plot_comparison(
     output,
     title="Same selected checkpoints · three January starts · matched RMSE controls",
     figsize=(12, 8),
+    compare_cooldown=False,
 ):
     output.mkdir(parents=True, exist_ok=True)
     pooled = frame[frame.origin == "pooled"]
@@ -36,7 +37,23 @@ def plot_comparison(
         ].to_numpy()
         y = np.arange(len(names))
         ax.hlines(y, prediction, persistence, color="0.7", lw=1)
-        ax.scatter(prediction, y, label="Evolved forecast", color="C0", zorder=3)
+        if compare_cooldown:
+            cooled = np.array([n.endswith("-cooldown") for n in names])
+            for selected, label, color in (
+                (~cooled, "Constant learning rate", "C0"),
+                (cooled, "Cooldown", "C1"),
+            ):
+                ax.scatter(
+                    prediction[selected],
+                    y[selected],
+                    label=label,
+                    color=color,
+                    zorder=3,
+                )
+            for boundary in np.arange(1.5, len(names) - 1, 2):
+                ax.axhline(boundary, color="0.9", lw=0.7, zorder=0)
+        else:
+            ax.scatter(prediction, y, label="Evolved forecast", color="C0", zorder=3)
         ax.scatter(
             persistence, y, marker="|", s=65, color="0.4", label="Own persistence"
         )

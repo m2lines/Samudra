@@ -118,13 +118,19 @@ verification of prognostic U/V. The spectral breakdown remains dominated by EKE:
 
 ## Presentation comparison charts
 
-These use **only the five cooldown models**, with the same validation-selected
-checkpoints in both diagrams. They match the definitions and controls in the
+The RMSE chart pairs **the five cooldown models with their five matching
+constant-rate parents**; the spectral chart contains only the five cooldown
+models. The cooldown checkpoints match across both diagrams. They use the definitions and controls in the
 [17-model presentation comparison](presentation-annual-2026-10-08.md), whose
 original charts contain only constant-rate runs. No models were retrained,
 forecasts rerun, or checkpoints reselected for these figures.
 
-![Cooldown-only day-30 and day-365 RMSE comparison](artifacts/presentation-cooldown-2026-10-08/rmse-comparison.png)
+![Matched constant-rate and cooldown day-30 and day-365 RMSE comparison](artifacts/presentation-cooldown-2026-10-08/rmse-comparison.png)
+
+Blue points show constant-rate models; orange points show their cooldown
+counterparts on the next row. Each row retains that checkpoint's own initialized
+persistence. Only the five matching parents are included, not the other models
+from the broader presentation screen.
 
 The RMSE score equally averages SST, SSH-derived geostrophic velocity, and
 OHC at 0–700/700–2000 m, normalized by the same training-climatology errors

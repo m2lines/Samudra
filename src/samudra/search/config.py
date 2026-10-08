@@ -26,7 +26,7 @@ def resource_slug(value: str) -> str:
 
 
 class ObjectiveConfig(BaseConfig):
-    metric: str = "validation_loss"
+    metric: str = "best_validation_score"
     mode: Literal["min", "max"] = "min"
 
 
@@ -113,7 +113,7 @@ class SearchConfig(TopLevelConfig):
     run_id: str | None = None
     algorithm: AlgorithmConfig
     objective: ObjectiveConfig = Field(default_factory=ObjectiveConfig)
-    metrics: list[str] = Field(default_factory=lambda: ["validation_loss"])
+    metrics: list[str] = Field(default_factory=lambda: ["best_validation_score"])
     candidates: list[CandidateConfig] = Field(min_length=1)
     executor: ExecutorConfig
     artifacts: ArtifactConfig | None = None

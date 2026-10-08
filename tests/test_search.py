@@ -82,6 +82,37 @@ def search_state(search, *, status="running") -> dict:
     }
 
 
+def test_default_objective_promotes_by_configured_checkpoint_score(
+    tmp_path, monkeypatch
+):
+    value = config(tmp_path).model_dump(mode="json")
+    value.pop("objective")
+    value.pop("metrics")
+    search = SearchConfig.model_validate(value).build()
+    assert search.config.objective.metric == "best_validation_score"
+    assert search.config.metrics == ["best_validation_score"]
+    search.search_dir.mkdir(parents=True)
+    search.config_path.write_text("test", encoding="utf-8")
+    state = search_state(search)
+    state["rungs"][0]["candidates"] = ["a", "b", "c"]
+    search.write_state(state)
+    identity = {"metric": "rollout_rmse", "horizon": {"days": 360}}
+    for name, loss, score in [("a", 0.1, 3.0), ("b", 0.3, 1.0), ("c", 0.2, 2.0)]:
+        write_result(search, name, 0, loss)
+        path = search.output_dir(name, 0) / "training_summary.json"
+        summary = json.loads(path.read_text())
+        summary.update(
+            best_validation_score=score, validation_checkpoint_identity=identity
+        )
+        path.write_text(json.dumps(summary), encoding="utf-8")
+    monkeypatch.setattr(search.executor, "submit_rung", lambda *args: None)
+    search.advance(0)
+    updated = search.read_state()
+    assert updated["rungs"][0]["promoted"] == ["b", "c"]
+    results = pd.read_parquet(search.results_parquet_path)
+    assert results.iloc[0]["validation_checkpoint_identity"]["metric"] == "rollout_rmse"
+
+
 def test_config_validates_objective_and_rungs(tmp_path):
     value = config(tmp_path).model_dump(mode="json")
     value["metrics"] = ["train_loss"]

@@ -13,6 +13,20 @@ budget, retain the best fraction, and give progressively larger budgets only to
 the survivors. This is useful for comparing model architectures as well as
 ordinary hyperparameters such as learning rate and batch size.
 
+Search minimizes `best_validation_score` by default: the best score seen so far
+under each candidate's `checkpoint_validation_metric`. This is validation loss
+for `one_step_loss`, or normalized rollout RMSE for `rollout_rmse` (using the
+longest configured horizon). A rung ending between rollout epochs uses the
+best score from earlier scheduled rollouts. Results retain
+`validation_checkpoint_identity` with the metric and horizon; use comparable
+metrics and horizons across competing candidates.
+
+`validation_loss` still reports ordinary validation loss at the final epoch of
+the rung. To rank by that value, explicitly set
+`objective: {metric: validation_loss, mode: min}` and include `validation_loss`
+in `metrics`. Existing explicit objectives keep their behavior.
+`best_validation_loss` remains a compatibility alias for `best_validation_score`.
+
 Successive halving is the resource-allocation primitive used by
 [Hyperband](https://jmlr.org/papers/v18/16-558.html). Samudra currently runs one
 successive-halving bracket. It does not yet run Hyperband's collection of
@@ -98,7 +112,7 @@ import pandas as pd
 results = pd.read_csv(
     "/scratch/USER/searches/my-search--20260813T192612.123456Z/results.csv"
 )
-print(results.sort_values(["rung", "validation_loss"]))
+print(results.sort_values(["rung", "best_validation_score"]))
 ```
 
 ## Publish an inspectable research record
@@ -169,11 +183,11 @@ The Parquet tables can be queried in place by agents or collaborators. For a
 public HTTP endpoint, DuckDB needs no local download:
 
 ```sql
-SELECT candidate, rung, epochs, validation_loss, error
+SELECT candidate, rung, epochs, best_validation_score, error
 FROM read_parquet(
   'https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/experiments/searches/my-search--20260813T192612.123456Z/results.parquet'
 )
-ORDER BY rung, validation_loss;
+ORDER BY rung, best_validation_score;
 ```
 
 `epochs.parquet` supports deeper questions such as which model learned fastest,
@@ -212,8 +226,8 @@ algorithm:
   promotion_fraction: 0.5
   minimum_promoted: 1
 
-objective: {metric: validation_loss, mode: min}
-metrics: [validation_loss, train_loss, best_validation_loss]
+objective: {metric: best_validation_score, mode: min}
+metrics: [best_validation_score, validation_loss, train_loss]
 
 executor: !include torch.yaml
 

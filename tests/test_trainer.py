@@ -731,6 +731,43 @@ def test_data_loaders_disable_persistent_workers_when_num_workers_is_zero(
     assert trainer.val_loader._host_loader.persistent_workers is False
 
 
+@pytest.mark.parametrize("metric", ["one_step_loss", "rollout_rmse"])
+def test_search_summary_uses_best_configured_checkpoint_score(metric, monkeypatch):
+    from samudra.config import RolloutValidationConfig
+
+    trainer = cast(Any, object.__new__(Trainer))
+    trainer.checkpoint_validation_metric = metric
+    trainer.rollout_validation = RolloutValidationConfig(days=[90, 360], frequency=2)
+    trainer.best_val_loss = 2.5
+    trainer.epochs = 2
+    trainer.search_run = SimpleNamespace(model_dump=lambda: {})
+    trainer.train_progress = TrainProgress()
+    trainer.wandb_id = None
+    trainer.wandb_name = None
+    trainer.device = "cpu"
+    trainer.world_size = 1
+    monkeypatch.setattr("samudra.train.using_gpu", lambda: False)
+    # A skipped rollout at the rung boundary preserves the earlier best score.
+    if metric == "rollout_rmse":
+        assert (
+            trainer.validation_checkpoint_score(2, {"val/mean/loss": 0.1}, {}) is None
+        )
+    summary = trainer._search_summary(
+        2,
+        train_loss=0.2,
+        validation_loss=0.1,
+        train_seconds=1.0,
+        validation_seconds=1.0,
+        total_seconds=2.0,
+    )
+    assert summary["validation_loss"] == 0.1
+    assert summary["best_validation_score"] == 2.5
+    assert summary["best_validation_loss"] == summary["best_validation_score"]
+    assert summary["validation_checkpoint_identity"]["metric"] == metric
+    if metric == "rollout_rmse":
+        assert summary["validation_checkpoint_identity"]["horizon"] == {"days": 360}
+
+
 def test_rollout_checkpoint_selection_and_skipped_epochs():
     import contextlib
 

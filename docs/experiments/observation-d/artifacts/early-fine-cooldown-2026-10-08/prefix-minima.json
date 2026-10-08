@@ -1,0 +1,22 @@
+{
+  "U-multitask-early": {
+    "prefix_minimum_step": 2667,
+    "prefix_minimum_validation_score": 0.7208240545297044
+  },
+  "U-multitask-early-latent": {
+    "prefix_minimum_step": 2667,
+    "prefix_minimum_validation_score": 0.7344823712917619
+  },
+  "U-multitask-early-fine": {
+    "prefix_minimum_step": 2400,
+    "prefix_minimum_validation_score": 0.729514698047092
+  },
+  "U-multitask-early-fine-latent": {
+    "prefix_minimum_step": 2400,
+    "prefix_minimum_validation_score": 0.7259887750640405
+  },
+  "U-global": {
+    "prefix_minimum_step": 2400,
+    "prefix_minimum_validation_score": 0.7316573272381448
+  }
+}

@@ -1,0 +1,144 @@
+{
+  "time": "2026-10-08T15:43:55.569288+00:00",
+  "producer": "4a1cd7a9bfb60d53b990b331fa0232c91aab5bb8",
+  "archive_sha256": "6e91db93b4d6f1a2e51223ff42177350e17f0c59258ab3455928961801a9a4a6",
+  "cooldown": {
+    "start": 3000,
+    "end": 4000,
+    "final_ratio": 0.01
+  },
+  "jobs": [
+    {
+      "stage": "qualification",
+      "job_id": "19437767",
+      "command": [
+        "sbatch",
+        "--parsable",
+        "--account=torch_pr_347_lzanna",
+        "--nodes=1",
+        "--ntasks=1",
+        "--chdir=/scratch/jr7309",
+        "--export=ALL",
+        "--partition=rtx6000_lzanna",
+        "--gres=gpu:1",
+        "--cpus-per-task=16",
+        "--mem=192G",
+        "--array=0-4%5",
+        "--time=01:00:00",
+        "--job-name=early-fine-cooldown-qual",
+        "--output=/scratch/jr7309/runs/2026-10-08-early-fine-cooldown/logs/qualify-%A_%a.out",
+        "--error=/scratch/jr7309/runs/2026-10-08-early-fine-cooldown/logs/qualify-%A_%a.err",
+        "/scratch/jr7309/runs/2026-10-08-early-fine-cooldown/source/4a1cd7a9bfb60d53b990b331fa0232c91aab5bb8/scripts/slurm_early_fine_engaging.sbatch",
+        "/scratch/jr7309/runs/2026-10-08-early-fine-cooldown",
+        "/scratch/jr7309/runs/2026-10-08-early-fine-cooldown/source/4a1cd7a9bfb60d53b990b331fa0232c91aab5bb8",
+        "qualify",
+        "4a1cd7a9bfb60d53b990b331fa0232c91aab5bb8"
+      ]
+    },
+    {
+      "stage": "migration",
+      "job_id": "19437769",
+      "command": [
+        "sbatch",
+        "--parsable",
+        "--account=torch_pr_347_lzanna",
+        "--nodes=1",
+        "--ntasks=1",
+        "--chdir=/scratch/jr7309",
+        "--export=ALL",
+        "--partition=cpu_short",
+        "--cpus-per-task=4",
+        "--mem=16G",
+        "--time=00:30:00",
+        "--dependency=afterok:19437767",
+        "--job-name=early-fine-cooldown-copy",
+        "--output=/scratch/jr7309/runs/2026-10-08-early-fine-cooldown/logs/migrate-%j.out",
+        "--error=/scratch/jr7309/runs/2026-10-08-early-fine-cooldown/logs/migrate-%j.err",
+        "--wrap",
+        "apptainer exec --bind /scratch/jr7309/runs/2026-10-08-early-fine-cooldown/source/4a1cd7a9bfb60d53b990b331fa0232c91aab5bb8:/pilot-code:ro,/scratch:/scratch /scratch/jr7309/.apptainer-images/ghcr.io-m2lines-ocean-emulator-physicsnemo-26.05-9cd36b1bdcf4921fb027494afa4157e217818ccd.sif env PYTHONPATH=/pilot-code/src:/pilot-code:/scratch/jr7309/runs/2026-10-08-early-fine-cooldown/runtime /workspace/.venv/bin/python /scratch/jr7309/runs/2026-10-08-early-fine-cooldown/source/4a1cd7a9bfb60d53b990b331fa0232c91aab5bb8/scripts/prepare_early_fine_cooldown.py --root /scratch/jr7309/runs/2026-10-08-early-fine-cooldown"
+      ]
+    },
+    {
+      "stage": "production",
+      "job_id": "19437770",
+      "command": [
+        "sbatch",
+        "--parsable",
+        "--account=torch_pr_347_lzanna",
+        "--nodes=1",
+        "--ntasks=1",
+        "--chdir=/scratch/jr7309",
+        "--export=ALL",
+        "--partition=rtx6000_lzanna",
+        "--gres=gpu:1",
+        "--cpus-per-task=16",
+        "--mem=192G",
+        "--array=0-4%5",
+        "--time=05:00:00",
+        "--dependency=afterok:19437769",
+        "--requeue",
+        "--signal=B:USR1@300",
+        "--job-name=early-fine-cooldown",
+        "--output=/scratch/jr7309/runs/2026-10-08-early-fine-cooldown/logs/train-%A_%a.out",
+        "--error=/scratch/jr7309/runs/2026-10-08-early-fine-cooldown/logs/train-%A_%a.err",
+        "/scratch/jr7309/runs/2026-10-08-early-fine-cooldown/source/4a1cd7a9bfb60d53b990b331fa0232c91aab5bb8/scripts/slurm_early_fine_engaging.sbatch",
+        "/scratch/jr7309/runs/2026-10-08-early-fine-cooldown",
+        "/scratch/jr7309/runs/2026-10-08-early-fine-cooldown/source/4a1cd7a9bfb60d53b990b331fa0232c91aab5bb8",
+        "train",
+        "4a1cd7a9bfb60d53b990b331fa0232c91aab5bb8"
+      ]
+    }
+  ],
+  "arms": [
+    "U-multitask-early",
+    "U-multitask-early-latent",
+    "U-multitask-early-fine",
+    "U-multitask-early-fine-latent",
+    "U-global"
+  ],
+  "callbacks": [
+    {
+      "stage": "qualification",
+      "job_id": "19437767",
+      "callback": "19437784",
+      "registration": "{\"credential_file\":\"/home/jder/.local/state/codex-async-followup/credentials/torch-19437767.json\",\"event_id\":\"4c0084f2-96d1-4deb-98a8-643647f0c428\",\"thread_id\":\"01a0d8be-2e2a-7883-8dea-2d99d0087d9c\"}\n",
+      "command": [
+        "sbatch",
+        "--parsable",
+        "--account=torch_pr_347_lzanna",
+        "--partition=cpu_short",
+        "--cpus-per-task=1",
+        "--mem=256M",
+        "--time=00:10:00",
+        "--dependency=afterany:19437767",
+        "--chdir=/scratch/jr7309",
+        "--job-name=cooldown-followup",
+        "--output=/scratch/jr7309/runs/2026-10-08-early-fine-cooldown/.followup/callback-%j.log",
+        "--wrap",
+        "python3 /scratch/jr7309/runs/2026-10-08-early-fine-cooldown/.followup/send.py --credential-file /scratch/jr7309/runs/2026-10-08-early-fine-cooldown/.followup/torch-19437767.json --retry-seconds 0 --status unknown --summary 'Cooldown qualification terminated; check actual accounting and outputs.' --output /scratch/jr7309/runs/2026-10-08-early-fine-cooldown"
+      ]
+    },
+    {
+      "stage": "production",
+      "job_id": "19437770",
+      "callback": "19437785",
+      "registration": "{\"credential_file\":\"/home/jder/.local/state/codex-async-followup/credentials/torch-19437770.json\",\"event_id\":\"880f3d91-0bb1-456a-ad36-18000966a5cc\",\"thread_id\":\"01a0d8be-2e2a-7883-8dea-2d99d0087d9c\"}\n",
+      "command": [
+        "sbatch",
+        "--parsable",
+        "--account=torch_pr_347_lzanna",
+        "--partition=cpu_short",
+        "--cpus-per-task=1",
+        "--mem=256M",
+        "--time=00:10:00",
+        "--dependency=afterany:19437770",
+        "--chdir=/scratch/jr7309",
+        "--job-name=cooldown-followup",
+        "--output=/scratch/jr7309/runs/2026-10-08-early-fine-cooldown/.followup/callback-%j.log",
+        "--wrap",
+        "python3 /scratch/jr7309/runs/2026-10-08-early-fine-cooldown/.followup/send.py --credential-file /scratch/jr7309/runs/2026-10-08-early-fine-cooldown/.followup/torch-19437770.json --retry-seconds 0 --status unknown --summary 'Cooldown production terminated; check actual accounting and outputs.' --output /scratch/jr7309/runs/2026-10-08-early-fine-cooldown"
+      ]
+    }
+  ],
+  "relay_service": "early-fine-cooldown-callback-relay.service"
+}

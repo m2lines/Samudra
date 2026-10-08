@@ -1,0 +1,32 @@
+{
+  "U-multitask-early": {
+    "checkpoint": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-observation-cache/U-multitask-early/joint-01000.pt",
+    "sha256": "4272d7d2c8dac3c83e1c590619313128950c8bb0d25971ec92beff0fdd1a4169",
+    "events": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-observation-cache/U-multitask-early/events.jsonl",
+    "events_sha256": "e5516e9ea57bc7ea0e765a6eaf64d37eb7681445e7b88001a1c65f09d0d19225"
+  },
+  "U-multitask-early-latent": {
+    "checkpoint": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-observation-cache/U-multitask-early-latent/joint-01000.pt",
+    "sha256": "67fce1da12019b1df3add76bc10f42e1e6ef320b3409fff7ce9429a0d2df1407",
+    "events": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-observation-cache/U-multitask-early-latent/events.jsonl",
+    "events_sha256": "487d5104b0debc269a9f799c2b8fcde3d495fb032ee76f84c575c8f50b8dfc43"
+  },
+  "U-multitask-early-fine": {
+    "checkpoint": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-observation-cache/U-multitask-early-fine/joint-01000.pt",
+    "sha256": "eff19d1698f7fe95a2b0d5f7fd8c8d96b1dfa61030710ae628ba53cea4a5e565",
+    "events": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-observation-cache/U-multitask-early-fine/events.jsonl",
+    "events_sha256": "a191d8f2c4e2c5eb92b6cda9d8832bd384007331018338bcbc73c633c607d6fe"
+  },
+  "U-multitask-early-fine-latent": {
+    "checkpoint": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-observation-cache/U-multitask-early-fine-latent/joint-01000.pt",
+    "sha256": "a57d063f37b3aaa83b06e0e53897db18ce76a126665d8ec752a9e035c89953f8",
+    "events": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-observation-cache/U-multitask-early-fine-latent/events.jsonl",
+    "events_sha256": "028007fbc6ad3a8ed64bf9b864340999bc2d6ed88fd6d38d3c04c661cdb6fe81"
+  },
+  "U-global": {
+    "checkpoint": "/scratch/jr7309/runs/2026-10-08-early-fine-cooldown/sources/U-global/joint-01000.pt",
+    "sha256": "027bd17238c6dce8af74135ff5748061e00ecd258c830166482537ff0d769bf7",
+    "events": "/scratch/jr7309/runs/2026-10-08-early-fine-cooldown/sources/U-global/events.jsonl",
+    "events_sha256": "8b2af6e5dd81229e481a13797a433d769771898b007c2993ff393590b3ef8f09"
+  }
+}

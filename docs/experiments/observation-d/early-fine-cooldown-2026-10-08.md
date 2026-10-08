@@ -64,4 +64,25 @@ update while sharing the tested CPU observation cache. **48 targeted tests pass*
 including an identical prefix before cooldown, exact optimizer resume across a
 task boundary, and recent-only control routing.
 
-Status: implementation tested; checkpoint transfer and submission in progress.
+**Submitted:** qualification array **19437767**, CPU checkpoint migration
+**19437769** (`afterok` on all qualifications), and training/evaluation array
+**19437770** (`afterok` on migration). Initial scheduler check showed qualification
+queued; production has not started. Producer:
+`4a1cd7a9bfb60d53b990b331fa0232c91aab5bb8`.
+
+The U-global source checksum is
+`027bd17238c6dce8af74135ff5748061e00ecd258c830166482537ff0d769bf7`, verified on
+Beta, the local staging copy and Torch after transfer through dtn011. The other
+four sources remain in the prior completed Torch run. Scratch had approximately
+0.48 TB free before this wave.
+
+Durable callbacks cover qualification and final results, with a verified SSH relay
+because Torch HTTPS egress is unavailable. No periodic chat timer was created.
+[Submission and callback records](artifacts/early-fine-cooldown-2026-10-08/submission.json).
+
+For three parents, the best validation checkpoint before the fork was at update
+2,400 and its weights were not retained. The final comparison will explicitly
+check that each cooled selection beats its
+[recorded prefix minimum](artifacts/early-fine-cooldown-2026-10-08/prefix-minima.json);
+otherwise it cannot claim to recover the best checkpoint across the entire 4k
+trajectory. No later original-run best weights enter the continuation.

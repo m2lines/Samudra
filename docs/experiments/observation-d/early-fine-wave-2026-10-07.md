@@ -285,3 +285,7 @@ A direct lightweight CPU check in the pinned Torch container verified both
 published grids against the actual stored `x`/`y` arrays to absolute tolerance
 1e-10 degrees (180×360 and 720×1440). Full payload and coarsener preflight
 still run in audit 19411638; this coordinate check does not replace that gate.
+
+At 00:28 ET, recovery audit 19411638 was running (4m26s elapsed) without an
+error traceback. Qualification 19411640 and production 19411643 remained
+pending dependencies. No new qualification or scientific result is claimed.

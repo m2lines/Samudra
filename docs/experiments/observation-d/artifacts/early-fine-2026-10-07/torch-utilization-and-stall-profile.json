@@ -1,0 +1,693 @@
+{
+  "checked_utc": "2026-10-08T08:33:30.126763+00:00",
+  "event_id": "98c13e5b-3d1c-4a2d-8972-c71f1c3796d0",
+  "results": [
+    {
+      "arm": "U-multitask-early",
+      "producer": "b111057c72373825f1e7b643d1ee8a03daa191c3",
+      "initial_step": 1800,
+      "final_step": 1900,
+      "warmup_updates": 20,
+      "measured_updates": 80,
+      "measured_seconds": 261.93576021911576,
+      "gpu_uuid": "86b16f85-8a19-aaf3-1656-13910de516bc",
+      "gpu_utilization_mean": 48.6551724137931,
+      "gpu_utilization_last_half_mean": 47.41984732824427,
+      "timings": {
+        "recent": [
+          1.8927567349746823,
+          1.8874771709088236,
+          1.9427145351655781,
+          1.9376976829953492,
+          1.923050340032205,
+          1.941889634821564,
+          1.9369336650706828,
+          1.9217354401480407,
+          1.9557711801026016,
+          3.6453650551848114,
+          1.8911421140655875,
+          2.856058574980125,
+          1.8065505158156157,
+          3.330894520971924,
+          1.9924273919314146,
+          1.9953664690256119,
+          2.0433712978847325,
+          1.9424158239271492,
+          2.0197487811092287,
+          2.4399612399283797,
+          1.946598706068471,
+          4.083409670041874
+        ],
+        "early": [
+          2.083068032981828,
+          2.259352588094771,
+          2.081450568046421,
+          2.051183599047363,
+          2.127553917001933,
+          2.048486409941688,
+          2.2428542599081993,
+          2.074052697978914,
+          2.0611334340646863,
+          2.0708243569824845,
+          2.1021619848906994,
+          2.1477471268735826,
+          2.0313732938375324,
+          2.218635946046561,
+          2.087264894042164,
+          2.025588553864509,
+          2.036576546030119,
+          2.214972387999296,
+          2.2469094989355654,
+          2.072637462988496,
+          2.034651283174753
+        ],
+        "observation": [
+          5.549680738011375,
+          3.417980065802112,
+          4.858921798877418,
+          3.5095303361304104,
+          5.116034282837063,
+          3.677225677995011,
+          4.537586356047541,
+          5.158154415898025,
+          3.2715332829393446,
+          5.5831186848226935,
+          3.4814297498669475,
+          4.711297249188647,
+          3.6564399539493024,
+          4.555320712039247,
+          3.6409710608422756,
+          3.3208059549797326,
+          4.9592504820320755,
+          3.216564900940284,
+          6.261603933060542,
+          3.5751368880737573,
+          5.17170034092851,
+          3.3973484369926155,
+          5.970875861123204,
+          3.2781032910570502,
+          4.339835708029568,
+          5.205949032213539,
+          3.2148108640685678,
+          4.910527175990865,
+          3.294177233008668,
+          5.036892999196425,
+          3.286066872999072,
+          4.624778232071549,
+          3.712564409011975,
+          5.173698350088671,
+          3.3757006369996816,
+          4.79264773405157,
+          5.592349007027224
+        ]
+      },
+      "promote_diagnostic_weights": false,
+      "utilization_gate_passed": false,
+      "path": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-exact-replay/performance/U-multitask-early/PERFORMANCE_COMPLETE.json",
+      "gpu_sample_count": 261
+    },
+    {
+      "arm": "U-multitask-early-fine",
+      "producer": "b111057c72373825f1e7b643d1ee8a03daa191c3",
+      "initial_step": 758,
+      "final_step": 858,
+      "warmup_updates": 20,
+      "measured_updates": 80,
+      "measured_seconds": 361.28395587508567,
+      "gpu_uuid": "c3449e9b-bf0d-9ff7-fb5f-3130f00b7262",
+      "gpu_utilization_mean": 47.01939058171745,
+      "gpu_utilization_last_half_mean": 49.19889502762431,
+      "timings": {
+        "recent": [
+          4.009806230897084,
+          3.128555041970685,
+          1.9413616580422968,
+          3.3269843352027237,
+          3.6339759090915322,
+          3.3214938249439,
+          1.8837179229594767,
+          1.9403297759126872,
+          4.540811597136781,
+          2.8903395789675415,
+          1.8996754470281303,
+          1.9569399489555508,
+          3.1804210729897022,
+          3.327079333132133,
+          2.1691536931321025,
+          1.8775613959878683,
+          3.606366298161447,
+          3.1444537211209536,
+          3.694784186081961,
+          1.775260274996981,
+          2.4647446079179645,
+          3.0916717250365764,
+          3.237265902105719,
+          1.8444146867841482,
+          1.7624910159502178,
+          2.7061242850031704,
+          3.155631690984592,
+          3.4243946741335094
+        ],
+        "early": [
+          5.429185987915844,
+          5.3492110362276435,
+          6.088660447159782,
+          5.366470434004441,
+          5.62375482195057,
+          5.327817936195061,
+          5.775726180057973,
+          5.3160187338944525,
+          5.412271731998771,
+          5.276666575111449,
+          5.908930192934349,
+          5.393372894031927,
+          5.324338598875329,
+          5.515482150949538,
+          6.479983061086386,
+          5.518035493092611,
+          5.345453368965536,
+          5.283384261885658,
+          5.378905390156433,
+          5.615709071978927,
+          5.34181619505398,
+          5.328840825008228,
+          5.3504413950722665,
+          5.923100417014211,
+          5.52313603204675,
+          5.239226758014411,
+          5.335587016073987,
+          5.292539393994957,
+          5.653487927978858
+        ],
+        "observation": [
+          4.034950031898916,
+          4.959879108006135,
+          6.518531360197812,
+          4.9481392852030694,
+          4.031344263115898,
+          6.44409581203945,
+          6.128225533990189,
+          3.6211570990271866,
+          5.692117642844096,
+          5.292291032150388,
+          4.265238079009578,
+          5.218292167875916,
+          6.034518607892096,
+          3.7126444219611585,
+          4.3830869409721345,
+          5.879262540023774,
+          5.1744690199848264,
+          4.330966017907485,
+          5.385202853009105,
+          5.755720012122765,
+          4.29151561902836,
+          3.8012789920903742,
+          5.186004494084045
+        ]
+      },
+      "promote_diagnostic_weights": false,
+      "utilization_gate_passed": false,
+      "path": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-exact-replay/performance/U-multitask-early-fine/PERFORMANCE_COMPLETE.json",
+      "gpu_sample_count": 361
+    },
+    {
+      "arm": "U-multitask-early-fine-latent",
+      "producer": "b111057c72373825f1e7b643d1ee8a03daa191c3",
+      "initial_step": 746,
+      "final_step": 846,
+      "warmup_updates": 20,
+      "measured_updates": 80,
+      "measured_seconds": 379.5841982581187,
+      "gpu_uuid": "a815f052-4f89-60a8-a593-3c32106ae02c",
+      "gpu_utilization_mean": 45.02638522427441,
+      "gpu_utilization_last_half_mean": 47.084210526315786,
+      "timings": {
+        "recent": [
+          1.9723046410363168,
+          5.603000187082216,
+          4.541407285956666,
+          1.9561424569692463,
+          4.4630872048437595,
+          4.786841815104708,
+          3.1564364719670266,
+          2.00254696700722,
+          4.424319325014949,
+          4.228391970973462,
+          3.3175018639303744,
+          1.8953539319336414,
+          1.9833336190786213,
+          4.472892553079873,
+          3.5159340449608862,
+          2.093535888940096,
+          1.9869887388776988,
+          3.5045908100437373,
+          3.5838113909121603,
+          2.7241537228692323,
+          1.998018940910697,
+          3.2330028631258756,
+          3.6927633190061897,
+          3.8393209429923445,
+          2.0999068960081786,
+          2.0690473411232233,
+          2.917090483941138,
+          4.042324940906838,
+          2.0402923820074648
+        ],
+        "early": [
+          5.551142167998478,
+          5.815044795861468,
+          5.830834673019126,
+          5.780085675185546,
+          5.503886142047122,
+          5.472435780102387,
+          5.982377422042191,
+          5.6278053189162165,
+          5.510771501110867,
+          5.645017233910039,
+          6.060981178889051,
+          5.425921431975439,
+          5.712325579021126,
+          5.56918751494959,
+          5.986892477143556,
+          5.520888867788017,
+          5.4554199820850044,
+          5.504053290002048,
+          6.072486981982365,
+          5.551465296884999,
+          5.764258153969422,
+          5.660730602918193,
+          5.529784786049277,
+          6.021724624792114,
+          5.62103984085843,
+          5.518391191959381,
+          5.8332216429989785,
+          5.779374425066635,
+          5.737817937042564
+        ],
+        "observation": [
+          7.380647578975186,
+          4.048061131034046,
+          6.243900595931336,
+          3.536058652913198,
+          4.000407801009715,
+          6.514483989914879,
+          4.595249458914623,
+          3.961438186932355,
+          6.725186765892431,
+          5.797805482055992,
+          3.8516463469713926,
+          5.489182783989236,
+          5.116430505178869,
+          4.525756073184311,
+          5.0952496668323874,
+          6.12508321297355,
+          4.393212978029624,
+          4.205332214012742,
+          6.2849026650656015,
+          6.230936187086627,
+          5.241236967034638,
+          4.966554241022095
+        ]
+      },
+      "promote_diagnostic_weights": false,
+      "utilization_gate_passed": false,
+      "path": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-exact-replay/performance/U-multitask-early-fine-latent/PERFORMANCE_COMPLETE.json",
+      "gpu_sample_count": 379
+    },
+    {
+      "arm": "U-multitask-early-latent",
+      "producer": "b111057c72373825f1e7b643d1ee8a03daa191c3",
+      "initial_step": 1836,
+      "final_step": 1936,
+      "warmup_updates": 20,
+      "measured_updates": 80,
+      "measured_seconds": 270.7412352869287,
+      "gpu_uuid": "33865820-cf42-fda6-9eff-f0a1de78d606",
+      "gpu_utilization_mean": 55.18518518518518,
+      "gpu_utilization_last_half_mean": 56.57037037037037,
+      "timings": {
+        "recent": [
+          1.9709961200132966,
+          1.9636927039828151,
+          1.9429852839093655,
+          1.9545097590889782,
+          2.0805486899334937,
+          1.957241632975638,
+          1.999255124013871,
+          2.0161138297989964,
+          1.9827484448906034,
+          1.9273725559469312,
+          3.5063755051232874,
+          2.3704634259920567,
+          3.2242025239393115,
+          2.0051009801682085,
+          2.04527541808784,
+          1.899573473026976,
+          2.070417009992525,
+          2.0538490919861943,
+          4.110066615976393,
+          2.183314531110227,
+          2.126802616054192
+        ],
+        "early": [
+          2.212005864130333,
+          2.0943003150168806,
+          2.363794515840709,
+          2.080678473925218,
+          2.110039744991809,
+          2.081772713921964,
+          2.0663245348259807,
+          2.1564165209420025,
+          2.1236521750688553,
+          2.159374068956822,
+          2.3042001351714134,
+          2.1177765419706702,
+          2.247021405957639,
+          2.130615941947326,
+          2.1416441679466516,
+          2.1624341341666877,
+          2.2665039468556643,
+          2.3324589321855456,
+          2.0884640268050134,
+          2.1033647612202913
+        ],
+        "observation": [
+          5.408701291074976,
+          3.373750080121681,
+          5.312713133869693,
+          3.4151296340860426,
+          5.482998173916712,
+          3.5212404530029744,
+          5.013981896918267,
+          3.6240064131561667,
+          4.777920376043767,
+          5.593222663039342,
+          3.2407233379781246,
+          5.388877071905881,
+          3.5327970788348466,
+          5.170471592107788,
+          3.344142067944631,
+          5.1840086919255555,
+          3.642484935000539,
+          4.7691644879523665,
+          3.246173015795648,
+          6.066791748162359,
+          4.9401393830776215,
+          3.4673929039854556,
+          5.505693499930203,
+          4.693004376022145,
+          5.512041736161336,
+          3.383582026930526,
+          4.94248137017712,
+          3.4448595598805696,
+          5.3242471849080175,
+          3.3261879179626703,
+          4.808462447952479,
+          3.430498201865703,
+          4.739282105118036,
+          3.59287780104205,
+          3.6329808649607003,
+          4.64309360506013,
+          3.313451674999669,
+          6.82882257620804,
+          3.4301672920119017
+        ]
+      },
+      "promote_diagnostic_weights": false,
+      "utilization_gate_passed": true,
+      "path": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-exact-replay/performance/U-multitask-early-latent/PERFORMANCE_COMPLETE.json",
+      "gpu_sample_count": 270
+    }
+  ],
+  "accounting": "JobID|State|ElapsedRaw|AllocTRES|NodeList\n19423495|COMPLETED|68|billing=4,cpu=4,mem=16G,node=1|cs613\n19423496_0|FAILED|775|billing=16,cpu=16,gres/gpu=1,mem=192G,node=1|gr104\n19423496_1|COMPLETED|781|billing=16,cpu=16,gres/gpu=1,mem=192G,node=1|gr104\n19423496_2|FAILED|844|billing=16,cpu=16,gres/gpu=1,mem=192G,node=1|gr106\n19423496_3|FAILED|869|billing=16,cpu=16,gres/gpu=1,mem=192G,node=1|gr106\n",
+  "completed_gpu_hours_including_all_retries": 12.721111111111112,
+  "production_resumed": false,
+  "preserved_production_steps": [
+    1800,
+    1836,
+    758,
+    746
+  ],
+  "diagnostic_scripts": {
+    "profile-early-fine-stalls.py": "\"\"\"Isolated CPU/CUDA profiling; checkpoint copies cannot enter production.\"\"\"\nimport argparse, cProfile, functools, json, os, pathlib, pstats, time\nimport torch\nfrom samudra.experiments.early_fine_training import EarlyPilot\nfrom samudra.experiments.observation_pilot import atomic_json\narm = pathlib.Path(os.environ['PROFILE_ARM'])\nargs = argparse.Namespace(**json.loads((arm/'manifest.json').read_text())['arguments'])\npilot = EarlyPilot(args)\ninitial = pilot.completed\ncalls = {}\ndef wrap(obj, name, label):\n    original = getattr(obj, name)\n    @functools.wraps(original)\n    def measured(*args, **kwargs):\n        start = time.perf_counter()\n        try:\n            with torch.profiler.record_function(label):\n                return original(*args, **kwargs)\n        finally:\n            calls.setdefault(label, []).append(time.perf_counter()-start)\n    setattr(obj, name, measured)\ntry:\n    for future in pilot.observation_warm: future.result()\n    for _ in range(20): pilot.train_update()\n    for obj, name, label in [(pilot.data,'load','observation_load'), (pilot.early,'sample','early_sample'), (pilot,'checkpoint','checkpoint'), (pilot.optimizer,'step','optimizer_step'), (pilot,'objective','observation_objective'), (pilot,'om4_objective','om4_objective')]:\n        wrap(obj,name,label)\n    cpu = cProfile.Profile()\n    started=time.perf_counter()\n    cpu.enable()\n    for _ in range(24): pilot.train_update()\n    torch.cuda.synchronize()\n    cpu.disable()\n    seconds=time.perf_counter()-started\n    cpu.dump_stats(str(arm/'cpu-profile.pstats'))\n    with (arm/'cpu-profile.txt').open('w') as out:\n        pstats.Stats(cpu,stream=out).sort_stats('cumulative').print_stats(100)\n        pstats.Stats(cpu,stream=out).sort_stats('tottime').print_stats(80)\n    result={'producer':os.environ['SAMUDRA_CODE_COMMIT'],'initial_step':initial,'cpu_profile_final_step':pilot.completed,'cpu_profile_updates':24,'cpu_profile_seconds':seconds,'wall_wrappers':{k:{'count':len(v),'seconds':sum(v)} for k,v in calls.items()},'promote_diagnostic_weights':False}\n    atomic_json(result,arm/'CPU_PROFILE_COMPLETE.json')\n    # Separate short traces for one real update of each task. Instrumented\n    # timing is diagnosis only and cannot satisfy the utilization gate.\n    seen=set()\n    for _ in range(12):\n        task=pilot.schedule.task(pilot.completed)\n        if task=='om4': task='early' if pilot.schedule.counts(pilot.completed)['om4']%2 else 'recent'\n        if task in seen:\n            pilot.train_update()\n            continue\n        with torch.profiler.profile(activities=[torch.profiler.ProfilerActivity.CPU,torch.profiler.ProfilerActivity.CUDA],record_shapes=False,profile_memory=False,with_stack=False) as trace:\n            with torch.profiler.record_function('train_update_'+task): pilot.train_update()\n            torch.cuda.synchronize()\n        trace.export_chrome_trace(str(arm/('trace-'+task+'.json')))\n        (arm/('operators-'+task+'.txt')).write_text(trace.key_averages().table(sort_by='self_cpu_time_total',row_limit=70)+'\\n'+trace.key_averages().table(sort_by='self_device_time_total',row_limit=70))\n        seen.add(task)\n        if len(seen)==3: break\n    if len(seen)!=3: raise RuntimeError('Missing task profile')\n    result.update(final_step=pilot.completed,profiled_tasks=sorted(seen))\n    atomic_json(result,arm/'PROFILE_COMPLETE.json')\n    print(json.dumps(result),flush=True)\nfinally:\n    pilot.early.prefetch.close(); pilot.early.pool.shutdown(wait=True,cancel_futures=True)\n    pilot.observation_warm_pool.shutdown(wait=True,cancel_futures=True)\n    if pilot.wandb: pilot.wandb.finish()\n",
+    "profile-early-fine-stalls.sbatch": "#!/bin/bash -l\nset -euo pipefail\nroot=/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-exact-replay\ncode=$root/source/b111057c72373825f1e7b643d1ee8a03daa191c3\nexport SAMUDRA_CODE_COMMIT=b111057c72373825f1e7b643d1ee8a03daa191c3\nexport SAMUDRA_RUNTIME_SHA256=$(sha256sum \"$root/runtime-contract.json\" | cut -d ' ' -f1)\nexport OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 PYTHONUNBUFFERED=1 PYTHONNOUSERSITE=1\narms=(U-multitask-early U-multitask-early-latent U-multitask-early-fine U-multitask-early-fine-latent)\narm=${arms[$SLURM_ARRAY_TASK_ID]}\nexport PROFILE_ARM=$root/$arm\nimage=/scratch/jr7309/.apptainer-images/ghcr.io-m2lines-ocean-emulator-physicsnemo-26.05-9cd36b1bdcf4921fb027494afa4157e217818ccd.sif\n# Production and original attempts are read-only. Only independent diagnostic\n# copies and the per-job local cache are writable inside this container.\nsrun apptainer exec --nv --bind \"$code:/pilot-code:ro,/scratch:/scratch:ro,$root/diagnostic-stalls/$arm:$PROFILE_ARM:rw,$SLURM_TMPDIR:$SLURM_TMPDIR\" \"$image\" env PYTHONPATH=\"/pilot-code/src:/pilot-code:$root/runtime\" /workspace/.venv/bin/python \"$root/profile-early-fine-stalls.py\"\n",
+    "submit-early-fine-stalls.py": "import hashlib,json,pathlib,shutil,subprocess\nr=pathlib.Path('/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-exact-replay');d=r/'diagnostic-stalls';d.mkdir(exist_ok=False)\ndef sha(p):\n h=hashlib.sha256()\n with p.open('rb') as f:\n  for b in iter(lambda:f.read(8*1024*1024),b''):h.update(b)\n return h.hexdigest()\nrows=[]\nfor arm in ['U-multitask-early','U-multitask-early-fine-latent']:\n src=r/arm; dst=d/arm;dst.mkdir()\n files=[]\n for p in src.iterdir():\n  if p.is_file():\n   q=dst/p.name;shutil.copy2(p,q)\n   before=sha(p);after=sha(q)\n   if before!=after or p.stat().st_ino==q.stat().st_ino:raise RuntimeError('Independent copy failed')\n   files.append({'file':p.name,'sha256':before})\n rows.append({'arm':arm,'files':files})\nreceipt={'copies':rows,'producer':'b111057c72373825f1e7b643d1ee8a03daa191c3','scripts':{n:sha(r/n) for n in ['profile-early-fine-stalls.py','profile-early-fine-stalls.sbatch']},'production_read_only':True,'promote_diagnostic_weights':False}\n(d/'COPIES_VERIFIED.json').write_text(json.dumps(receipt,indent=2)+'\\n')\ncmd=['sbatch','--parsable','--account=torch_pr_347_lzanna','--partition=rtx6000_lzanna','--nodes=1','--ntasks=1','--gres=gpu:1','--cpus-per-task=16','--mem=192G','--array=0,3%2','--time=00:30:00','--chdir=/scratch/jr7309','--job-name=early-fine-stall-profile','--output='+str(r/'logs/stalls-%A_%a.out'),'--error='+str(r/'logs/stalls-%A_%a.err'),str(r/'profile-early-fine-stalls.sbatch')]\njob=subprocess.check_output(cmd,text=True).strip().split(';')[0]\nreceipt.update(job_id=job,command=cmd)\n(d/'submission.json').write_text(json.dumps(receipt,indent=2)+'\\n');print(json.dumps({'job_id':job,'command':cmd}))\n"
+  },
+  "stall_profile_submission": {
+    "copies": [
+      {
+        "arm": "U-multitask-early",
+        "files": [
+          {
+            "file": "MIGRATION.json",
+            "sha256": "34748f7b92e4c25537c873746af4b44ea2ae7b69b48dd5b44f301f2be15cdbd2"
+          },
+          {
+            "file": "baseline-validation.json",
+            "sha256": "ee1f1e07269b21511dec77e02e6933e8b07665db4ecbb305630f33098b0c6a83"
+          },
+          {
+            "file": "best-anywhere.json",
+            "sha256": "c9b9125628da828dc13b1a73d80c9a3bcd04c9469d32dcf70c55b79b30b3c492"
+          },
+          {
+            "file": "best-anywhere.pt",
+            "sha256": "6eed2c8af8083535ae59c1fe42bd5b835364d4693db9696ed145a1cb102d81f8"
+          },
+          {
+            "file": "best.json",
+            "sha256": "d9410aa8e46ce9f038bd330fe719bbcc177489e3c106bd588bf1c375758de278"
+          },
+          {
+            "file": "best.pt",
+            "sha256": "052e06a935b9f22c4dea84c5b3d4cfd305a4a7aec237f1c25a76c94868ebb2e6"
+          },
+          {
+            "file": "events.jsonl",
+            "sha256": "799d0738c9973c7f4dc6e6463f82a268c1046c438154c450f564668f5b1d6bcf"
+          },
+          {
+            "file": "joint-00000.pt",
+            "sha256": "eebb7cdea237bf5375a588315871da1c2e6aaad4d42051d25e575614fe9a27cb"
+          },
+          {
+            "file": "joint-00500.pt",
+            "sha256": "f6d9ef18e66b00cdafb22f8626d36c39008eac9db0fac4059a5ee6878d90ce7d"
+          },
+          {
+            "file": "joint-last.pt",
+            "sha256": "de55efa47f689f1b31b4775a2ca4b8870b21456862ccfaf0462db54a1efcf196"
+          },
+          {
+            "file": "manifest.json",
+            "sha256": "deb2beef828f768a63136be73765c8e3e839227296cd19e14132d99303ea4db8"
+          },
+          {
+            "file": "selection-reference.json",
+            "sha256": "c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c"
+          },
+          {
+            "file": "validation-00100.json",
+            "sha256": "cc97ce86bed0f8a98106bc620954fd03705600cb415a3d1183b269a19bb43f82"
+          },
+          {
+            "file": "validation-00200.json",
+            "sha256": "bbe24aaaf2a620f75bc4627c53c2fb91894dc57efc30a2e71bdd13402bba9401"
+          },
+          {
+            "file": "validation-00300.json",
+            "sha256": "753cc015c26226d1942e55eadbc31c5d65ee6bbaf2fba4e022dd26fc411fb892"
+          },
+          {
+            "file": "validation-00400.json",
+            "sha256": "1af546802b1cc8c18ef48ff6181497fc9fd050bf563b8ca1b9673b3550444ce3"
+          },
+          {
+            "file": "validation-00500.json",
+            "sha256": "ccff09fdd2d8103f58fa64844b8d6fdae5c2536209eb8cf65fad03c1d64bc056"
+          },
+          {
+            "file": "validation-00600.json",
+            "sha256": "b5cc2c25976c42811fd828308a15b156d7768d9a44403f67b78887b08f76bf3c"
+          },
+          {
+            "file": "validation-00700.json",
+            "sha256": "9211043b1d2c0aaa9168be07214e55d15253f5377388b1eff594a1d1db34f740"
+          },
+          {
+            "file": "validation-00800.json",
+            "sha256": "b00f97a7180e78281d3933d33d6fd09204b95f2b9734dca5e6e6c6ad7e4aea50"
+          },
+          {
+            "file": "validation-00900.json",
+            "sha256": "4033b0bd1b4b9017dd4a14332cab5c8dcf9879c1b90752fc94ca3d3db789bdd5"
+          },
+          {
+            "file": "validation-01000.json",
+            "sha256": "26f8cd158c700ab2fc44770e86b7f3ccefd406a6a28cf9d4efdeb511d9bceffe"
+          },
+          {
+            "file": "validation-01100.json",
+            "sha256": "66866fb015904dd809709b377f51cdd4769d74b4f670cd11d580dec581b11880"
+          },
+          {
+            "file": "validation-01200.json",
+            "sha256": "2f7f28cdcfc6f889c3269aec5bc25d4cd399147a065f69c89f2e5aaa44751eda"
+          },
+          {
+            "file": "validation-01300.json",
+            "sha256": "befc7f6d8bb4a7e7682640553c7fb5f6b18154b41d5ee5ec7eb5a276271a7941"
+          },
+          {
+            "file": "validation-01400.json",
+            "sha256": "27f860e5822f0d122fe5efd3a3ba809622941649eb98ff43f0cfcb9dd5d6637d"
+          },
+          {
+            "file": "validation-01500.json",
+            "sha256": "cb6b67f70011653dd75d7769b80988b0ed5b9988595b4256deeac1536e7fef94"
+          },
+          {
+            "file": "validation-01600.json",
+            "sha256": "af30915ee846f1633feee534e49c9956cd272c39a6986658a56244eb828527e6"
+          },
+          {
+            "file": "validation-01700.json",
+            "sha256": "0a5d3d06b0ea595071f389e2e4e17b2e6e1e293e2b7cbc35b675222cf2be1637"
+          },
+          {
+            "file": "validation-01738.json",
+            "sha256": "226bb3c42557ff5b1198f3d7c7432c47ebaa4d7b51c544d553ab0a4d1a8a2f2b"
+          },
+          {
+            "file": "validation-01800.json",
+            "sha256": "543b85de76b1b42f5255ae30ccb049a0303ad242c0e23940d09b91efdefba47b"
+          }
+        ]
+      },
+      {
+        "arm": "U-multitask-early-fine-latent",
+        "files": [
+          {
+            "file": "MIGRATION.json",
+            "sha256": "7d8f92edefde6788fde7fb639b6111e32d464e9298b530f7135f72bf8cc84af4"
+          },
+          {
+            "file": "baseline-validation.json",
+            "sha256": "d5e8ff159bb67558cdc4b5a96d438b4dbf6716f14f771f8c593dd8d6fd7604b2"
+          },
+          {
+            "file": "best-anywhere.json",
+            "sha256": "7fcb9068677dc1feaaaa276b5f93464534e080af9e7623c52bbc1205831845ef"
+          },
+          {
+            "file": "best-anywhere.pt",
+            "sha256": "90baceb5a2152a5d931af8cb3eefc2b8111247e3dedcdce77b960e19092b11bd"
+          },
+          {
+            "file": "best.json",
+            "sha256": "2caa4cc9d055e7447a9920872af3a710b1ebdb287b1223c798601736575310f7"
+          },
+          {
+            "file": "best.pt",
+            "sha256": "b40774a0cfd5167a91dc5c3d898f2c6601e8df26f60ebd5d2695bd3f0bf32824"
+          },
+          {
+            "file": "events.jsonl",
+            "sha256": "c3c25065ffdc5782e1b1ddf4d1ba3ea6741bcf47e49ede36f0a4bab0db22147d"
+          },
+          {
+            "file": "joint-00000.pt",
+            "sha256": "832460801331515bef9915026aef25ade1a11de5adac251791fad6f3f38a34e9"
+          },
+          {
+            "file": "joint-last.pt",
+            "sha256": "0adb5d1dbb6a783fb4607626d40567ff55f901ea6f9b823de24fef57ba4b7971"
+          },
+          {
+            "file": "manifest.json",
+            "sha256": "f2eda74a4d7e58ec3870744eb2ac2793c128baab40b8fe04275042bf4d1e22b9"
+          },
+          {
+            "file": "selection-reference.json",
+            "sha256": "c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c"
+          },
+          {
+            "file": "validation-00100.json",
+            "sha256": "70b4811b55c07c6b28da76bebe5b5f4f9d02865b826286efde2e301300eca071"
+          },
+          {
+            "file": "validation-00200.json",
+            "sha256": "f486ac29511069d8d97edd4f273b3e23c41c289d8eb782b5f32ff6c85c9d892c"
+          },
+          {
+            "file": "validation-00300.json",
+            "sha256": "a55450be5de384b81f96303861252aafb9690010085eb9e714cca87a2e5e3dc7"
+          },
+          {
+            "file": "validation-00400.json",
+            "sha256": "c35c87f2619d753352d5315023a80c472cf2e1d25a6e857e4e0ef5ea33af7d3d"
+          },
+          {
+            "file": "validation-00500.json",
+            "sha256": "b90491a49bb3b54fdebce90fe2de5bc426b132cd4184a5b2f1748e8895a6a3a5"
+          },
+          {
+            "file": "validation-00600.json",
+            "sha256": "c3af0e8bdef5d68ad3170c829a91f1717b16fad43a41335372194b44838abb12"
+          },
+          {
+            "file": "validation-00700.json",
+            "sha256": "3b305b1ac788e0eb76e1256c1f61813d8ff853989f316e000efc3b505919815e"
+          }
+        ]
+      }
+    ],
+    "producer": "b111057c72373825f1e7b643d1ee8a03daa191c3",
+    "scripts": {
+      "profile-early-fine-stalls.py": "bd5327e89193480263dc0d6ac075a8fdd6c3250c1c8f0e0d1cdf466c43a69482",
+      "profile-early-fine-stalls.sbatch": "0937b6a38dd6f9901652d307b191e83fa6888354ec3054ad0f6ea186e38ebcda"
+    },
+    "production_read_only": true,
+    "promote_diagnostic_weights": false,
+    "job_id": "19424361",
+    "command": [
+      "sbatch",
+      "--parsable",
+      "--account=torch_pr_347_lzanna",
+      "--partition=rtx6000_lzanna",
+      "--nodes=1",
+      "--ntasks=1",
+      "--gres=gpu:1",
+      "--cpus-per-task=16",
+      "--mem=192G",
+      "--array=0,3%2",
+      "--time=00:30:00",
+      "--chdir=/scratch/jr7309",
+      "--job-name=early-fine-stall-profile",
+      "--output=/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-exact-replay/logs/stalls-%A_%a.out",
+      "--error=/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-exact-replay/logs/stalls-%A_%a.err",
+      "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-exact-replay/profile-early-fine-stalls.sbatch"
+    ],
+    "callback": {
+      "workload": "19424361",
+      "callback": "19424379",
+      "command": [
+        "sbatch",
+        "--parsable",
+        "--account=torch_pr_347_lzanna",
+        "--partition=cpu_short",
+        "--cpus-per-task=1",
+        "--mem=256M",
+        "--time=00:10:00",
+        "--dependency=afterany:19424361",
+        "--chdir=/scratch/jr7309",
+        "--job-name=stall-profile-followup",
+        "--output=/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-exact-replay/.followup/callback-%j.log",
+        "--wrap",
+        "python3 /scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-exact-replay/.followup/send.py --credential-file /scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-exact-replay/.followup/torch-19424361.json --retry-seconds 0 --status unknown --summary 'Isolated stall profiling terminated; inspect CPU/CUDA profiles and actual accounting.' --output /scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-exact-replay/diagnostic-stalls"
+      ]
+    },
+    "registration": "{\"credential_file\":\"/home/jder/.local/state/codex-async-followup/credentials/torch-19424361.json\",\"event_id\":\"bb028842-3186-4bf2-b6c3-a73dfc8c3994\",\"thread_id\":\"01a0d8be-2e2a-7883-8dea-2d99d0087d9c\"}\n",
+    "relay_service": "early-fine-torch-stalls-callback-relay.service"
+  }
+}

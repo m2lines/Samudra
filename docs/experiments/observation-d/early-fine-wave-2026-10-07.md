@@ -573,3 +573,49 @@ checkpoint-copy audit used CPU resources only. Completion callback **19423518**
 (`afterany:19423496`), registration `98c13e5b-3d1c-4a2d-8972-c71f1c3796d0`,
 and `early-fine-torch-utilization-callback-relay.service` provide follow-up.
 [Exact replay, checkpoint hashes/state audit, and utilization submission receipts](artifacts/early-fine-2026-10-07/torch-migration-and-utilization.json).
+
+## October 8: utilization improved, but three arms remain below the recovery gate
+
+Callback `98c13e5b-3d1c-4a2d-8972-c71f1c3796d0` was checked against
+Slurm accounting and every `PERFORMANCE_COMPLETE.json`. All four diagnostic
+copies completed 20 warmup and 80 measured training updates. Only the coarse
+latent arm passed the required mean GPU utilization of at least 50%; the other
+three exited with the explicit utilization-gate error after saving their
+measurements. A completion-marker filename alone does not imply this gate passed.
+
+| Model | Mean GPU utilization | Last-half mean | Measured 80 updates | Gate |
+|---|---:|---:|---:|---|
+| U-multitask-early | 48.66% | 47.42% | 261.94 s | Failed |
+| U-multitask-early-latent | 55.19% | 56.57% | 270.74 s | Passed |
+| U-multitask-early-fine | 47.02% | 49.20% | 361.28 s | Failed |
+| U-multitask-early-fine-latent | 45.03% | 47.08% | 379.58 s | Failed |
+
+These short isolated checks show improvement over the original canceled
+production's approximately 35–36% coarse and 21% fine utilization, but are not
+matched-duration benchmarks. They do not establish scientific improvement.
+Only about 2–3% of the measured wall time falls outside the timed update body,
+which bounds the contribution of checkpoint writing and other outer-loop work.
+Observation updates average 4.34–5.20 s; recent coarse OM4 updates average
+2.24–3.18 s, and fine early OM4 updates average 5.51–5.69 s. This motivates
+profiling the remaining data preparation and CPU/GPU synchronization costs.
+
+Production has **not** resumed. The original and audited migrated production
+checkpoints remain at **1,800 / 1,836 / 758 / 746** updates. No diagnostic
+weights enter the comparison. The four utilization checks used **0.9081
+GPU-hours**, bringing all completed attempts and retries to **12.7211
+GPU-hours**. The model, data, losses, seed and scientific selection protocol
+remain unchanged.
+
+[Utilization measurements, accounting, and isolated profiling scripts](artifacts/early-fine-2026-10-07/torch-utilization-and-stall-profile.json).
+
+Isolated diagnostic array **19424361_[0,3]** profiles the coarse and fine latent
+arms on one RTX, 16 CPUs and 192 GiB per arm, capped at 30 minutes each. Both
+started and entered cache warmup. It uses the same qualified producer
+`b111057c72373825f1e7b643d1ee8a03daa191c3`, unchanged task sequence, and
+new independent checkpoint copies verified by SHA-256. All production mounts
+are read-only. After 20 warmup updates it captures a 24-update CPU profile and
+short CPU/CUDA traces for one real update of each task. Instrumented timings
+will diagnose costs; they cannot satisfy the utilization gate. Its script
+hashes and copy receipts are in the linked artifact. Callback **19424379**
+(`afterany:19424361`), event `bb028842-3186-4bf2-b6c3-a73dfc8c3994`, and
+`early-fine-torch-stalls-callback-relay.service` cover completion.

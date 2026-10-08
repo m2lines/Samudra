@@ -1,0 +1,736 @@
+{
+  "qualification": {
+    "time": "2026-10-08T08:07:15.387913+00:00",
+    "arms": {
+      "U-multitask-early": {
+        "IO_EQUIVALENT.json": {
+          "seeds": [
+            1101737,
+            1101753
+          ],
+          "cpu_arrays_exact": true,
+          "producer": "b111057c72373825f1e7b643d1ee8a03daa191c3"
+        },
+        "JOINT_QUALIFIED.json": {
+          "contract": {
+            "code_commit": "b111057c72373825f1e7b643d1ee8a03daa191c3",
+            "runtime_extension_sha256": "ff904784233031f60809530a5520fb11b317052746cd8e4f25c674f12f5f09ba",
+            "data_manifest_sha256": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+            "om4_data": "/scratch/jr7309/data/om4_onedeg_v3",
+            "selection_reference_sha256": "c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c",
+            "normalization": "instance",
+            "evolution_architecture": "extent-unet",
+            "model_options": {
+              "initializer_architecture": "unet",
+              "surface_policy": "observed-only",
+              "task_conditioning": "input-adapters",
+              "latent_channels": 0
+            },
+            "surface_fill": "zero",
+            "completion_weight": 0.1,
+            "global_observations": true,
+            "reconstruction_weight": 0.1,
+            "accumulate": 8,
+            "core_lr": 0.0001,
+            "om4_lr": 0.0001,
+            "warmup_steps": 0,
+            "seed": 1729,
+            "early": {
+              "root": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-grid-bounds/early-data",
+              "manifest_sha256": "433484fdad2460fd12bc905d7ac38a9dc8196d5df0de57a64e8ce3585769b1bd",
+              "fine": false,
+              "period": [
+                "1958-01-03",
+                "1974-12-31"
+              ],
+              "fraction_of_om4": 0.5,
+              "fine_coarse_forecast_weights": [
+                0.5,
+                0.5
+              ]
+            }
+          },
+          "resume_verified": true,
+          "resume_evidence": {
+            "serialization_exact": true,
+            "restoration_exact": true,
+            "native_and_serialized_replay": {
+              "native_repeat_1": {
+                "rmse": 0.0,
+                "max_absolute": 0.0
+              },
+              "native_repeat_2": {
+                "rmse": 0.0,
+                "max_absolute": 0.0
+              },
+              "native_repeat_3": {
+                "rmse": 0.0,
+                "max_absolute": 0.0
+              },
+              "native_repeat_4": {
+                "rmse": 0.0,
+                "max_absolute": 0.0
+              },
+              "serialized_0": {
+                "rmse": 0.0,
+                "max_absolute": 0.0
+              },
+              "serialized_1": {
+                "rmse": 0.0,
+                "max_absolute": 0.0
+              },
+              "serialized_2": {
+                "rmse": 0.0,
+                "max_absolute": 0.0
+              },
+              "serialized_3": {
+                "rmse": 0.0,
+                "max_absolute": 0.0
+              },
+              "serialized_4": {
+                "rmse": 0.0,
+                "max_absolute": 0.0
+              },
+              "native_repeat": {
+                "rmse": 0.0,
+                "max_absolute": 0.0
+              },
+              "serialized": {
+                "rmse": 0.0,
+                "max_absolute": 0.0
+              }
+            },
+            "native_trials": 5,
+            "serialized_trials": 5,
+            "acceptance": "Maximum serialized replay difference across five trials <= 5x maximum native replay difference across five trials, with RMSE floor 1e-8 and maximum absolute floor 1e-7",
+            "deterministic_reference_bitwise_exact": true,
+            "reference_scope": "Serialization diagnostic only; production uses its unchanged numerical backend"
+          },
+          "task_counts": {
+            "om4": 6,
+            "observation": 4
+          },
+          "gpu": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+          "max_gpu_memory_gib": 71.677809715271
+        },
+        "THROUGHPUT.json": {
+          "mean_seconds": {
+            "recent": 5.279464946982141,
+            "early": 2.198550526673595,
+            "observation": 4.90326448261308
+          },
+          "training_hours_for_4000_updates": 4.8012623441338595,
+          "peak_gpu_gib": 71.677809715271,
+          "note": "Includes real I/O, backward and optimizer; excludes validation and initial cache warmup"
+        }
+      },
+      "U-multitask-early-latent": {
+        "IO_EQUIVALENT.json": {
+          "seeds": [
+            1101737,
+            1101753
+          ],
+          "cpu_arrays_exact": true,
+          "producer": "b111057c72373825f1e7b643d1ee8a03daa191c3"
+        },
+        "JOINT_QUALIFIED.json": {
+          "contract": {
+            "code_commit": "b111057c72373825f1e7b643d1ee8a03daa191c3",
+            "runtime_extension_sha256": "ff904784233031f60809530a5520fb11b317052746cd8e4f25c674f12f5f09ba",
+            "data_manifest_sha256": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+            "om4_data": "/scratch/jr7309/data/om4_onedeg_v3",
+            "selection_reference_sha256": "c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c",
+            "normalization": "instance",
+            "evolution_architecture": "extent-unet",
+            "model_options": {
+              "initializer_architecture": "unet",
+              "surface_policy": "observed-only",
+              "task_conditioning": "input-adapters",
+              "latent_channels": 10
+            },
+            "surface_fill": "zero",
+            "completion_weight": 0.1,
+            "global_observations": true,
+            "reconstruction_weight": 0.1,
+            "accumulate": 8,
+            "core_lr": 0.0001,
+            "om4_lr": 0.0001,
+            "warmup_steps": 0,
+            "seed": 1729,
+            "early": {
+              "root": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-grid-bounds/early-data",
+              "manifest_sha256": "433484fdad2460fd12bc905d7ac38a9dc8196d5df0de57a64e8ce3585769b1bd",
+              "fine": false,
+              "period": [
+                "1958-01-03",
+                "1974-12-31"
+              ],
+              "fraction_of_om4": 0.5,
+              "fine_coarse_forecast_weights": [
+                0.5,
+                0.5
+              ]
+            }
+          },
+          "resume_verified": true,
+          "resume_evidence": {
+            "serialization_exact": true,
+            "restoration_exact": true,
+            "native_and_serialized_replay": {
+              "native_repeat_1": {
+                "rmse": 0.0,
+                "max_absolute": 0.0
+              },
+              "native_repeat_2": {
+                "rmse": 0.0,
+                "max_absolute": 0.0
+              },
+              "native_repeat_3": {
+                "rmse": 0.0,
+                "max_absolute": 0.0
+              },
+              "native_repeat_4": {
+                "rmse": 0.0,
+                "max_absolute": 0.0
+              },
+              "serialized_0": {
+                "rmse": 0.0,
+                "max_absolute": 0.0
+              },
+              "serialized_1": {
+                "rmse": 0.0,
+                "max_absolute": 0.0
+              },
+              "serialized_2": {
+                "rmse": 0.0,
+                "max_absolute": 0.0
+              },
+              "serialized_3": {
+                "rmse": 0.0,
+                "max_absolute": 0.0
+              },
+              "serialized_4": {
+                "rmse": 0.0,
+                "max_absolute": 0.0
+              },
+              "native_repeat": {
+                "rmse": 0.0,
+                "max_absolute": 0.0
+              },
+              "serialized": {
+                "rmse": 0.0,
+                "max_absolute": 0.0
+              }
+            },
+            "native_trials": 5,
+            "serialized_trials": 5,
+            "acceptance": "Maximum serialized replay difference across five trials <= 5x maximum native replay difference across five trials, with RMSE floor 1e-8 and maximum absolute floor 1e-7",
+            "deterministic_reference_bitwise_exact": true,
+            "reference_scope": "Serialization diagnostic only; production uses its unchanged numerical backend"
+          },
+          "task_counts": {
+            "om4": 6,
+            "observation": 4
+          },
+          "gpu": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+          "max_gpu_memory_gib": 71.67926406860352
+        },
+        "THROUGHPUT.json": {
+          "mean_seconds": {
+            "recent": 4.601878669423361,
+            "early": 2.2485002329728254,
+            "observation": 5.067247183259147
+          },
+          "training_hours_for_4000_updates": 4.718020352476245,
+          "peak_gpu_gib": 71.67926406860352,
+          "note": "Includes real I/O, backward and optimizer; excludes validation and initial cache warmup"
+        }
+      },
+      "U-multitask-early-fine": {
+        "IO_EQUIVALENT.json": {
+          "seeds": [
+            1101737,
+            1101753
+          ],
+          "cpu_arrays_exact": true,
+          "producer": "b111057c72373825f1e7b643d1ee8a03daa191c3"
+        },
+        "JOINT_QUALIFIED.json": {
+          "contract": {
+            "code_commit": "b111057c72373825f1e7b643d1ee8a03daa191c3",
+            "runtime_extension_sha256": "ff904784233031f60809530a5520fb11b317052746cd8e4f25c674f12f5f09ba",
+            "data_manifest_sha256": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+            "om4_data": "/scratch/jr7309/data/om4_onedeg_v3",
+            "selection_reference_sha256": "c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c",
+            "normalization": "instance",
+            "evolution_architecture": "extent-fine",
+            "model_options": {
+              "initializer_architecture": "unet",
+              "surface_policy": "observed-only",
+              "task_conditioning": "input-adapters",
+              "latent_channels": 0
+            },
+            "surface_fill": "zero",
+            "completion_weight": 0.1,
+            "global_observations": true,
+            "reconstruction_weight": 0.1,
+            "accumulate": 8,
+            "core_lr": 0.0001,
+            "om4_lr": 0.0001,
+            "warmup_steps": 0,
+            "seed": 1729,
+            "early": {
+              "root": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-grid-bounds/early-data",
+              "manifest_sha256": "433484fdad2460fd12bc905d7ac38a9dc8196d5df0de57a64e8ce3585769b1bd",
+              "fine": true,
+              "period": [
+                "1958-01-03",
+                "1974-12-31"
+              ],
+              "fraction_of_om4": 0.5,
+              "fine_coarse_forecast_weights": [
+                0.5,
+                0.5
+              ]
+            }
+          },
+          "resume_verified": true,
+          "resume_evidence": {
+            "serialization_exact": true,
+            "restoration_exact": true,
+            "native_and_serialized_replay": {
+              "native_repeat_1": {
+                "rmse": 0.0,
+                "max_absolute": 0.0
+              },
+              "native_repeat_2": {
+                "rmse": 0.0,
+                "max_absolute": 0.0
+              },
+              "native_repeat_3": {
+                "rmse": 0.0,
+                "max_absolute": 0.0
+              },
+              "native_repeat_4": {
+                "rmse": 0.0,
+                "max_absolute": 0.0
+              },
+              "serialized_0": {
+                "rmse": 0.0,
+                "max_absolute": 0.0
+              },
+              "serialized_1": {
+                "rmse": 0.0,
+                "max_absolute": 0.0
+              },
+              "serialized_2": {
+                "rmse": 0.0,
+                "max_absolute": 0.0
+              },
+              "serialized_3": {
+                "rmse": 0.0,
+                "max_absolute": 0.0
+              },
+              "serialized_4": {
+                "rmse": 0.0,
+                "max_absolute": 0.0
+              },
+              "native_repeat": {
+                "rmse": 0.0,
+                "max_absolute": 0.0
+              },
+              "serialized": {
+                "rmse": 0.0,
+                "max_absolute": 0.0
+              }
+            },
+            "native_trials": 5,
+            "serialized_trials": 5,
+            "acceptance": "Maximum serialized replay difference across five trials <= 5x maximum native replay difference across five trials, with RMSE floor 1e-8 and maximum absolute floor 1e-7",
+            "deterministic_reference_bitwise_exact": true,
+            "reference_scope": "Serialization diagnostic only; production uses its unchanged numerical backend"
+          },
+          "task_counts": {
+            "om4": 6,
+            "observation": 4
+          },
+          "gpu": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+          "max_gpu_memory_gib": 71.67848777770996
+        },
+        "THROUGHPUT.json": {
+          "mean_seconds": {
+            "recent": 5.624623778353755,
+            "early": 6.641052628712107,
+            "observation": 4.9117218148357304
+          },
+          "training_hours_for_4000_updates": 6.135866676871479,
+          "peak_gpu_gib": 71.67848777770996,
+          "note": "Includes real I/O, backward and optimizer; excludes validation and initial cache warmup"
+        }
+      },
+      "U-multitask-early-fine-latent": {
+        "IO_EQUIVALENT.json": {
+          "seeds": [
+            1101737,
+            1101753
+          ],
+          "cpu_arrays_exact": true,
+          "producer": "b111057c72373825f1e7b643d1ee8a03daa191c3"
+        },
+        "JOINT_QUALIFIED.json": {
+          "contract": {
+            "code_commit": "b111057c72373825f1e7b643d1ee8a03daa191c3",
+            "runtime_extension_sha256": "ff904784233031f60809530a5520fb11b317052746cd8e4f25c674f12f5f09ba",
+            "data_manifest_sha256": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+            "om4_data": "/scratch/jr7309/data/om4_onedeg_v3",
+            "selection_reference_sha256": "c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c",
+            "normalization": "instance",
+            "evolution_architecture": "extent-fine",
+            "model_options": {
+              "initializer_architecture": "unet",
+              "surface_policy": "observed-only",
+              "task_conditioning": "input-adapters",
+              "latent_channels": 10
+            },
+            "surface_fill": "zero",
+            "completion_weight": 0.1,
+            "global_observations": true,
+            "reconstruction_weight": 0.1,
+            "accumulate": 8,
+            "core_lr": 0.0001,
+            "om4_lr": 0.0001,
+            "warmup_steps": 0,
+            "seed": 1729,
+            "early": {
+              "root": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-grid-bounds/early-data",
+              "manifest_sha256": "433484fdad2460fd12bc905d7ac38a9dc8196d5df0de57a64e8ce3585769b1bd",
+              "fine": true,
+              "period": [
+                "1958-01-03",
+                "1974-12-31"
+              ],
+              "fraction_of_om4": 0.5,
+              "fine_coarse_forecast_weights": [
+                0.5,
+                0.5
+              ]
+            }
+          },
+          "resume_verified": true,
+          "resume_evidence": {
+            "serialization_exact": true,
+            "restoration_exact": true,
+            "native_and_serialized_replay": {
+              "native_repeat_1": {
+                "rmse": 0.0,
+                "max_absolute": 0.0
+              },
+              "native_repeat_2": {
+                "rmse": 0.0,
+                "max_absolute": 0.0
+              },
+              "native_repeat_3": {
+                "rmse": 0.0,
+                "max_absolute": 0.0
+              },
+              "native_repeat_4": {
+                "rmse": 0.0,
+                "max_absolute": 0.0
+              },
+              "serialized_0": {
+                "rmse": 0.0,
+                "max_absolute": 0.0
+              },
+              "serialized_1": {
+                "rmse": 0.0,
+                "max_absolute": 0.0
+              },
+              "serialized_2": {
+                "rmse": 0.0,
+                "max_absolute": 0.0
+              },
+              "serialized_3": {
+                "rmse": 0.0,
+                "max_absolute": 0.0
+              },
+              "serialized_4": {
+                "rmse": 0.0,
+                "max_absolute": 0.0
+              },
+              "native_repeat": {
+                "rmse": 0.0,
+                "max_absolute": 0.0
+              },
+              "serialized": {
+                "rmse": 0.0,
+                "max_absolute": 0.0
+              }
+            },
+            "native_trials": 5,
+            "serialized_trials": 5,
+            "acceptance": "Maximum serialized replay difference across five trials <= 5x maximum native replay difference across five trials, with RMSE floor 1e-8 and maximum absolute floor 1e-7",
+            "deterministic_reference_bitwise_exact": true,
+            "reference_scope": "Serialization diagnostic only; production uses its unchanged numerical backend"
+          },
+          "task_counts": {
+            "om4": 6,
+            "observation": 4
+          },
+          "gpu": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+          "max_gpu_memory_gib": 71.67996597290039
+        },
+        "THROUGHPUT.json": {
+          "mean_seconds": {
+            "recent": 5.86808042274788,
+            "early": 6.274842160986736,
+            "observation": 5.007949204345305
+          },
+          "training_hours_for_4000_updates": 6.155228053451451,
+          "peak_gpu_gib": 71.67996597290039,
+          "note": "Includes real I/O, backward and optimizer; excludes validation and initial cache warmup"
+        }
+      }
+    },
+    "accounting": "JobID|State|ElapsedRaw|AllocTRES\n19423076_0|COMPLETED|640|billing=16,cpu=16,gres/gpu=1,mem=192G,node=1\n19423076_0.batch|COMPLETED|640|cpu=16,gres/gpu=1,mem=192G,node=1\n19423076_0.extern|COMPLETED|640|billing=16,cpu=16,gres/gpu=1,mem=192G,node=1\n19423076_0.0|COMPLETED|639|cpu=16,gres/gpu=1,mem=192G,node=1\n19423076_1|COMPLETED|544|billing=16,cpu=16,gres/gpu=1,mem=192G,node=1\n19423076_1.batch|COMPLETED|544|cpu=16,gres/gpu=1,mem=192G,node=1\n19423076_1.extern|COMPLETED|549|billing=16,cpu=16,gres/gpu=1,mem=192G,node=1\n19423076_1.0|COMPLETED|543|cpu=16,gres/gpu=1,mem=192G,node=1\n19423076_2|COMPLETED|521|billing=16,cpu=16,gres/gpu=1,mem=192G,node=1\n19423076_2.batch|COMPLETED|521|cpu=16,gres/gpu=1,mem=192G,node=1\n19423076_2.extern|COMPLETED|531|billing=16,cpu=16,gres/gpu=1,mem=192G,node=1\n19423076_2.0|COMPLETED|523|cpu=16,gres/gpu=1,mem=192G,node=1\n19423076_3|COMPLETED|520|billing=16,cpu=16,gres/gpu=1,mem=192G,node=1\n19423076_3.batch|COMPLETED|520|cpu=16,gres/gpu=1,mem=192G,node=1\n19423076_3.extern|COMPLETED|523|billing=16,cpu=16,gres/gpu=1,mem=192G,node=1\n19423076_3.0|COMPLETED|515|cpu=16,gres/gpu=1,mem=192G,node=1\n19423495|RUNNING|58|billing=4,cpu=4,mem=16G,node=1\n19423495.batch|RUNNING|58|cpu=4,mem=16G,node=1\n19423495.extern|RUNNING|58|billing=4,cpu=4,mem=16G,node=1\n19423496_[0-3%4]|PENDING|0|\n"
+  },
+  "migration": {
+    "migrations": [
+      {
+        "arm": "U-multitask-early",
+        "old_producer": "030c96ec7205ab87f38f9cdf132d07a282db7602",
+        "producer": "b111057c72373825f1e7b643d1ee8a03daa191c3",
+        "source": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-replay/U-multitask-early/joint-last.pt",
+        "source_sha256": "1c13bc03eef7edf725753a7a37e5509527031e99a44cd6b3fe0813f7e4bfaae7",
+        "destination_sha256": "de55efa47f689f1b31b4775a2ca4b8870b21456862ccfaf0462db54a1efcf196",
+        "global_step": 1800,
+        "task_counts": {
+          "om4": 1272,
+          "observation": 528
+        },
+        "elapsed_seconds": 7396.994684780948,
+        "changes": {
+          "code_commit": {
+            "old": "030c96ec7205ab87f38f9cdf132d07a282db7602",
+            "new": "b111057c72373825f1e7b643d1ee8a03daa191c3"
+          },
+          "arguments": {
+            "output": {
+              "old": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-replay/U-multitask-early",
+              "new": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-exact-replay/U-multitask-early"
+            },
+            "qualification": {
+              "old": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-replay/fit-unet-0/QUALIFIED.json",
+              "new": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-exact-replay/fit-unet-0/QUALIFIED.json"
+            },
+            "joint_qualification": {
+              "old": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-replay/probe-U-multitask-early/JOINT_QUALIFIED.json",
+              "new": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-exact-replay/probe-U-multitask-early/JOINT_QUALIFIED.json"
+            },
+            "selection_reference": {
+              "old": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-replay/selection-reference.json",
+              "new": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-exact-replay/selection-reference.json"
+            }
+          }
+        },
+        "all_other_checkpoint_state_exact": true,
+        "source_unchanged": true
+      },
+      {
+        "arm": "U-multitask-early-latent",
+        "old_producer": "030c96ec7205ab87f38f9cdf132d07a282db7602",
+        "producer": "b111057c72373825f1e7b643d1ee8a03daa191c3",
+        "source": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-replay/U-multitask-early-latent/joint-last.pt",
+        "source_sha256": "b7161782bbd36d374032b57e5596b95f330cfeb47c82b717035809aefa095203",
+        "destination_sha256": "78cd0d755c7e4ec7df7150c695ec7913c93104bac2a638ef510fbd3d8fd9ce05",
+        "global_step": 1836,
+        "task_counts": {
+          "om4": 1291,
+          "observation": 545
+        },
+        "elapsed_seconds": 7414.753142157104,
+        "changes": {
+          "code_commit": {
+            "old": "030c96ec7205ab87f38f9cdf132d07a282db7602",
+            "new": "b111057c72373825f1e7b643d1ee8a03daa191c3"
+          },
+          "arguments": {
+            "output": {
+              "old": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-replay/U-multitask-early-latent",
+              "new": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-exact-replay/U-multitask-early-latent"
+            },
+            "qualification": {
+              "old": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-replay/fit-unet-10/QUALIFIED.json",
+              "new": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-exact-replay/fit-unet-10/QUALIFIED.json"
+            },
+            "joint_qualification": {
+              "old": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-replay/probe-U-multitask-early-latent/JOINT_QUALIFIED.json",
+              "new": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-exact-replay/probe-U-multitask-early-latent/JOINT_QUALIFIED.json"
+            },
+            "selection_reference": {
+              "old": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-replay/selection-reference.json",
+              "new": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-exact-replay/selection-reference.json"
+            }
+          }
+        },
+        "all_other_checkpoint_state_exact": true,
+        "source_unchanged": true
+      },
+      {
+        "arm": "U-multitask-early-fine",
+        "old_producer": "030c96ec7205ab87f38f9cdf132d07a282db7602",
+        "producer": "b111057c72373825f1e7b643d1ee8a03daa191c3",
+        "source": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-replay/U-multitask-early-fine/joint-last.pt",
+        "source_sha256": "5e81ad58429b7a205191a0f64538c1c4ecc05b8b220187485570e6f8afa41062",
+        "destination_sha256": "5d041f0b7252895d44f226e9457a5ed0095b3121d8125082eddd32fb8d04a909",
+        "global_step": 758,
+        "task_counts": {
+          "om4": 610,
+          "observation": 148
+        },
+        "elapsed_seconds": 7423.149718486005,
+        "changes": {
+          "code_commit": {
+            "old": "030c96ec7205ab87f38f9cdf132d07a282db7602",
+            "new": "b111057c72373825f1e7b643d1ee8a03daa191c3"
+          },
+          "arguments": {
+            "output": {
+              "old": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-replay/U-multitask-early-fine",
+              "new": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-exact-replay/U-multitask-early-fine"
+            },
+            "qualification": {
+              "old": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-replay/fit-fine-0/QUALIFIED.json",
+              "new": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-exact-replay/fit-fine-0/QUALIFIED.json"
+            },
+            "joint_qualification": {
+              "old": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-replay/probe-U-multitask-early-fine/JOINT_QUALIFIED.json",
+              "new": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-exact-replay/probe-U-multitask-early-fine/JOINT_QUALIFIED.json"
+            },
+            "selection_reference": {
+              "old": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-replay/selection-reference.json",
+              "new": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-exact-replay/selection-reference.json"
+            }
+          }
+        },
+        "all_other_checkpoint_state_exact": true,
+        "source_unchanged": true
+      },
+      {
+        "arm": "U-multitask-early-fine-latent",
+        "old_producer": "030c96ec7205ab87f38f9cdf132d07a282db7602",
+        "producer": "b111057c72373825f1e7b643d1ee8a03daa191c3",
+        "source": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-replay/U-multitask-early-fine-latent/joint-last.pt",
+        "source_sha256": "8b61b92941b72fd56bc6f6ef0d9e65efb181ac50c706db0eeb31f87fc13710e8",
+        "destination_sha256": "0adb5d1dbb6a783fb4607626d40567ff55f901ea6f9b823de24fef57ba4b7971",
+        "global_step": 746,
+        "task_counts": {
+          "om4": 601,
+          "observation": 145
+        },
+        "elapsed_seconds": 7405.335198373068,
+        "changes": {
+          "code_commit": {
+            "old": "030c96ec7205ab87f38f9cdf132d07a282db7602",
+            "new": "b111057c72373825f1e7b643d1ee8a03daa191c3"
+          },
+          "arguments": {
+            "output": {
+              "old": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-replay/U-multitask-early-fine-latent",
+              "new": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-exact-replay/U-multitask-early-fine-latent"
+            },
+            "qualification": {
+              "old": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-replay/fit-fine-10/QUALIFIED.json",
+              "new": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-exact-replay/fit-fine-10/QUALIFIED.json"
+            },
+            "joint_qualification": {
+              "old": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-replay/probe-U-multitask-early-fine-latent/JOINT_QUALIFIED.json",
+              "new": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-exact-replay/probe-U-multitask-early-fine-latent/JOINT_QUALIFIED.json"
+            },
+            "selection_reference": {
+              "old": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-replay/selection-reference.json",
+              "new": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-exact-replay/selection-reference.json"
+            }
+          }
+        },
+        "all_other_checkpoint_state_exact": true,
+        "source_unchanged": true
+      }
+    ],
+    "scientific_changes": false
+  },
+  "submission": [
+    {
+      "stage": "copy_migration",
+      "job_id": "19423495",
+      "command": [
+        "sbatch",
+        "--parsable",
+        "--account=torch_pr_347_lzanna",
+        "--nodes=1",
+        "--ntasks=1",
+        "--chdir=/scratch/jr7309",
+        "--partition=cpu_short",
+        "--cpus-per-task=4",
+        "--mem=16G",
+        "--time=01:00:00",
+        "--job-name=early-fine-copy-migration",
+        "--output=/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-exact-replay/logs/migrate-%j.out",
+        "--error=/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-exact-replay/logs/migrate-%j.err",
+        "--wrap",
+        "apptainer exec --bind /scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-exact-replay/source/b111057c72373825f1e7b643d1ee8a03daa191c3:/pilot-code,/scratch:/scratch /scratch/jr7309/.apptainer-images/ghcr.io-m2lines-ocean-emulator-physicsnemo-26.05-9cd36b1bdcf4921fb027494afa4157e217818ccd.sif env PYTHONPATH=/pilot-code/src:/pilot-code:/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-exact-replay/runtime /workspace/.venv/bin/python /scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-exact-replay/migrate-early-fine-exact-replay.py"
+      ]
+    },
+    {
+      "stage": "isolated_utilization",
+      "job_id": "19423496",
+      "command": [
+        "sbatch",
+        "--parsable",
+        "--account=torch_pr_347_lzanna",
+        "--nodes=1",
+        "--ntasks=1",
+        "--chdir=/scratch/jr7309",
+        "--partition=rtx6000_lzanna",
+        "--gres=gpu:1",
+        "--cpus-per-task=16",
+        "--mem=192G",
+        "--array=0-3%4",
+        "--time=00:45:00",
+        "--dependency=afterok:19423495",
+        "--job-name=early-fine-util-check",
+        "--output=/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-exact-replay/logs/performance-%A_%a.out",
+        "--error=/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-exact-replay/logs/performance-%A_%a.err",
+        "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-exact-replay/performance-early-fine-exact-replay.sbatch"
+      ]
+    }
+  ],
+  "callbacks": [
+    {
+      "workload": "19423496",
+      "callback": "19423518",
+      "command": [
+        "sbatch",
+        "--parsable",
+        "--account=torch_pr_347_lzanna",
+        "--partition=cpu_short",
+        "--cpus-per-task=1",
+        "--mem=256M",
+        "--time=00:10:00",
+        "--dependency=afterany:19423496",
+        "--chdir=/scratch/jr7309",
+        "--job-name=prefetch-followup",
+        "--output=/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-exact-replay/.followup/callback-%j.log",
+        "--wrap",
+        "python3 /scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-exact-replay/.followup/send.py --credential-file /scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-exact-replay/.followup/torch-19423496.json --retry-seconds 0 --status unknown --summary 'Prefetch recovery stage terminated; inspect actual accounting and gates.' --output /scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-exact-replay"
+      ]
+    }
+  ],
+  "completed_gpu_hours_before_utilization": 11.813055555555556,
+  "migration_accounting": {
+    "job_id": "19423495",
+    "state": "COMPLETED",
+    "elapsed_seconds": 68,
+    "gpus": 0
+  },
+  "callback_event_id": "98c13e5b-3d1c-4a2d-8972-c71f1c3796d0"
+}

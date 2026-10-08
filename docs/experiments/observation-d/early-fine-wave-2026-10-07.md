@@ -534,3 +534,42 @@ additional. Callback **19423241** (`afterany:19423076`), registration
 `203b8dc7-568f-4b64-9efe-3fa6a1b88c87`, and the durable
 `early-fine-torch-exact-replay-callback-relay.service` cover the replacement.
 [Full prior failure, passing probes, replacement receipts and staged audit scripts](artifacts/early-fine-2026-10-07/torch-exact-replay-recovery.json).
+
+## October 8: exact replay and checkpoint-copy audit passed
+
+Callback `203b8dc7-568f-4b64-9efe-3fa6a1b88c87` was verified. **All four
+qualifications in 19423076 completed successfully.** Every native repeat and
+serialized replay had zero RMS and zero maximum parameter difference under
+the deterministic reference. Exact state restoration and CPU I/O equality also
+passed in every arm. Qualified short-probe training-time estimates were 4.80,
+4.72, 6.14 and 6.16 hours for coarse, coarse+latent, fine and fine+latent,
+respectively. They include the diagnostic's deterministic replay work and are
+not production completion estimates.
+
+CPU job **19423495 completed the copy audit in 68 seconds**. It verified all
+non-manifest checkpoint contents exactly and confirmed unchanged original
+checkpoint hashes. Only the new producer and four run/qualification paths
+changed in the copied manifests. Verified resume positions are:
+
+| Model | Global updates | OM4 updates | Observation updates |
+|---|---:|---:|---:|
+| U-multitask-early | 1,800 | 1,272 | 528 |
+| U-multitask-early-latent | 1,836 | 1,291 | 545 |
+| U-multitask-early-fine | 758 | 610 | 148 |
+| U-multitask-early-fine-latent | 746 | 601 | 145 |
+
+The audit also created and hash-verified independent diagnostic copies.
+Utilization array **19423496_[0-3]** depended on successful audit completion;
+all four tasks are now running. Each measures 80 real updates after 20 warmup
+updates on its diagnostic copy, using the unchanged production numerical
+backend. Production is mounted read-only during these checks. Their weights
+and additional updates will not enter the comparison. Production has not yet
+been submitted; sustained utilization remains the last recovery check.
+
+Completed GPU attempts through exact qualification total **11.8131 GPU-hours**,
+including every failed qualification, canceled production allocation and the
+original I/O diagnostic. Running utilization checks are additional; the
+checkpoint-copy audit used CPU resources only. Completion callback **19423518**
+(`afterany:19423496`), registration `98c13e5b-3d1c-4a2d-8972-c71f1c3796d0`,
+and `early-fine-torch-utilization-callback-relay.service` provide follow-up.
+[Exact replay, checkpoint hashes/state audit, and utilization submission receipts](artifacts/early-fine-2026-10-07/torch-migration-and-utilization.json).

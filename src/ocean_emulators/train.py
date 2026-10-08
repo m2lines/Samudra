@@ -170,8 +170,34 @@ GROUPED_AUTOREGRESSIVE_VAL_LOG_EVERY = 12
 SNAPSHOT_MIN_WET_FRACTION = 0.9
 
 
+def _log_replay_seed_timing(message: str, *args: Any) -> None:
+    """Emit startup diagnostics from every rank despite rank-filtered INFO logs."""
+    log = logger.info if is_main_process() else logger.warning
+    log(message, *args)
+
+
 class GracefulStopRequested(RuntimeError):
     """Raised when training should stop after writing an emergency checkpoint."""
+
+
+def _is_scheduled_replay_refresh(
+    global_batch_index: int,
+    refresh_every_n_microbatches: int,
+    *,
+    rank: int,
+    world_size: int,
+) -> bool:
+    """Spread independent rank-local refresh reads across an interval.
+
+    Rank-local replay rows do not need to refresh on the same optimizer step.
+    Giving each rank an evenly spaced phase avoids making every rank issue its
+    extra gold-row read/decode at once.  A single-rank run retains the original
+    ``interval, 2 * interval, ...`` schedule.
+    """
+    if world_size <= 0:
+        raise ValueError("world_size must be positive")
+    phase = rank * refresh_every_n_microbatches // world_size
+    return (global_batch_index + 1 + phase) % refresh_every_n_microbatches == 0
 
 
 def _and_join(names: list[str]) -> str:
@@ -620,29 +646,10 @@ class _ReplayPrefetchPipeline:
         # a slot reads the SAME source_index and lead_step -- that shared cursor
         # is the whole point of grouping.
         def load(slot, *, seed: bool):
-            group = self.trainer.replay_group_for(slot.cursor)
-            grouped = self.trainer.read_group_frame(slot, seed=seed)
-            if grouped is not None:
-                return [
-                    self._prepare_raw_transition_for_transport(transition)
-                    for transition in grouped
-                ]
-            loaded = []
-            for tile_index, dataset_index in enumerate(group.dataset_indices):
-                dataset = self.trainer.train_datasets[dataset_index]
-                reader = (
-                    dataset.get_raw_replay_seed_transition
-                    if seed
-                    else dataset.get_raw_replay_train_transition
-                )
-                transition = reader(
-                    dataset_index=dataset_index,
-                    source_index=slot.cursor.source_index,
-                    lead_step=slot.cursor.lead_step,
-                )
-                transition.tile_index = tile_index
-                loaded.append(self._prepare_raw_transition_for_transport(transition))
-            return loaded
+            return [
+                self._prepare_raw_transition_for_transport(transition)
+                for transition in self.trainer._read_replay_slot(slot, seed=seed)
+            ]
 
         train_transitions = [
             transition
@@ -842,13 +849,13 @@ class Trainer:
                 else scaled_workers
             )
             if scaled_workers != cfg.data.num_workers:
-                logger.info(
+                _log_replay_seed_timing(
                     "Scaling data.num_workers from "
                     f"{cfg.data.num_workers} to {scaled_workers} per rank "
                     f"for world_size={world_size}."
                 )
             if capped_workers != scaled_workers:
-                logger.info(
+                _log_replay_seed_timing(
                     "Capping data.num_workers per rank from "
                     f"{scaled_workers} to {capped_workers} "
                     f"(ddp_max_data_workers_per_rank="
@@ -1258,7 +1265,10 @@ class Trainer:
                 self.start_epoch = 1
                 self.start_batch_in_epoch = 0
             else:
-                self.load_checkpoint(cfg.resume_ckpt_path)
+                self.load_checkpoint(
+                    cfg.resume_ckpt_path,
+                    restore_wandb_identity=cfg.experiment.wandb.resume_from_checkpoint,
+                )
                 if cfg.reset_optimizer_on_resume or cfg.reset_scheduler_on_resume:
                     if cfg.reset_optimizer_on_resume:
                         self.optimizer = torch.optim.Adam(
@@ -1292,7 +1302,9 @@ class Trainer:
                             transition_epochs=self.lr_multiplier_transition,
                             current_epoch=self.start_epoch,
                         )
-                    logger.info(
+                elif cfg.override_learning_rate_on_resume:
+                    self._override_resumed_learning_rate(cfg.learning_rate)
+                    _log_replay_seed_timing(
                         "Optimizer LR after reset: %s",
                         self.optimizer.param_groups[-1]["lr"],
                     )
@@ -1610,7 +1622,7 @@ class Trainer:
                     self.start_batch_in_epoch if epoch == self.start_epoch else 0
                 )
                 if start_batch_in_epoch > 0:
-                    logger.info(
+                    _log_replay_seed_timing(
                         f"Resuming epoch {epoch} from batch {start_batch_in_epoch}"
                     )
                 self._last_completed_batch_in_epoch = start_batch_in_epoch - 1
@@ -1680,7 +1692,7 @@ class Trainer:
 
                 logger.info(f"Achieved Train Loss = {train_loss:.3f}")
                 if one_step_loss is not None:
-                    logger.info(
+                    _log_replay_seed_timing(
                         f"Achieved One-Step Validation Loss = {one_step_loss:.3f}"
                     )
                 for label in ("short", "long"):
@@ -2532,7 +2544,16 @@ class Trainer:
                 )
 
         reserved_for_request = {slot.replay_index for slot in train_slots}
-        if (global_batch_index + 1) % refresh_every_n_microbatches == 0:
+        # Only independent rank-local rows may phase-shift their refreshes.
+        # Face-synchronous ranks jointly own one replay row, so they must make
+        # the same refresh decision and sample the same replacement cursor.
+        stagger_rank_local = self._rank_local_blocks
+        if _is_scheduled_replay_refresh(
+            global_batch_index,
+            refresh_every_n_microbatches,
+            rank=get_rank() if stagger_rank_local else 0,
+            world_size=get_world_size() if stagger_rank_local else 1,
+        ):
             refresh_indices = self.replay_buffer.random_indices(
                 self.batch_size,
                 exclude_reserved=exclude_reserved | reserved_for_request,
@@ -2794,22 +2815,7 @@ class Trainer:
         too when there is one, rather than paying the per-tile read a few
         hundred extra chunk decodes per row.
         """
-        grouped = self.read_group_frame(slot, seed=True)
-        if grouped is not None:
-            return grouped
-        transitions = []
-        group = self.replay_group_for(slot.cursor)
-        for tile_index, dataset_index in enumerate(group.dataset_indices):
-            transition = self.train_datasets[
-                dataset_index
-            ].get_raw_replay_seed_transition(
-                dataset_index=dataset_index,
-                source_index=slot.cursor.source_index,
-                lead_step=slot.cursor.lead_step,
-            )
-            transition.tile_index = tile_index
-            transitions.append(transition)
-        return transitions
+        return self._read_replay_slot(slot, seed=True)
 
     @staticmethod
     def _stack_tile_states(tile_states: list[torch.Tensor]) -> torch.Tensor:
@@ -2908,12 +2914,31 @@ class Trainer:
         source = state.detach()
         if source.device.type == "cuda" and self.pin_mem and torch.cuda.is_available():
             assert self.replay_copy_stream is not None
+            timing = getattr(self, "_active_seed_timing", None)
+            if timing is not None:
+                logger.info(
+                    "Replay seed timing rank=%s index=%s "
+                    "phase=replay_state_pin_alloc START shape=%s dtype=%s",
+                    timing["rank"],
+                    timing["replay_index"],
+                    tuple(source.shape),
+                    self.replay_storage_dtype,
+                )
+                allocation_start = time.perf_counter()
             cpu_state = torch.empty(
                 source.shape,
                 device="cpu",
                 dtype=self.replay_storage_dtype,
                 pin_memory=True,
             )
+            if timing is not None:
+                logger.info(
+                    "Replay seed timing rank=%s index=%s "
+                    "phase=replay_state_pin_alloc DONE seconds=%.3f",
+                    timing["rank"],
+                    timing["replay_index"],
+                    time.perf_counter() - allocation_start,
+                )
             current_stream = torch.cuda.current_stream()
             self.replay_copy_stream.wait_stream(current_stream)
             with torch.cuda.stream(self.replay_copy_stream):
@@ -2990,10 +3015,8 @@ class Trainer:
                 for index in group.dataset_indices
             }
         )
-        # A drawn block can be any nine of the 36, so which masks are wanted is
-        # not known until the row is drawn. Keeping all 36 on the GPU would cost
-        # 4.2 GB, which does not fit beside `checkpointing: simple`; keep them
-        # on pinned host memory instead and move the nine per step.
+        # Rank mode keeps every block's masks on pinned host memory (~16.7 GB
+        # for a face's 144 block tiles) and moves the drawn block's nine per step.
         self._wet_masks_on_host = self._rank_local_blocks
         device = "cpu" if self._wet_masks_on_host else self.device
         self._wet_row_of_source = {source: row for row, source in enumerate(local)}
@@ -3487,23 +3510,47 @@ class Trainer:
         if count <= 0:
             return []
 
+        seed_start = time.perf_counter()
+        if is_main_process():
+            logger.info("Seeding replay buffer: 0/%s entries ready", count)
         next_replay_index = len(self.replay_buffer.entries) if self.replay_buffer else 0
         remaining = count
         request_id = 0
         entries_by_index: dict[int, ReplayEntry] = {}
         while remaining > 0:
+            entry_start = time.perf_counter()
             group_size = min(self.batch_size, remaining)
             request = None
             dp_ctx = getattr(self, "dp_ctx", None)
             if dp_ctx is None or dp_ctx.is_domain_leader:
                 seed_slots = []
                 for _ in range(group_size):
+                    cursor_start = time.perf_counter()
+                    cursor = self.sample_replay_seed_cursor()
+                    cursor_seconds = time.perf_counter() - cursor_start
                     seed_slots.append(
                         ReplaySeedSlot(
                             replay_index=next_replay_index,
-                            cursor=self.sample_replay_seed_cursor(),
+                            cursor=cursor,
                             reason="seed",
                         )
+                    )
+                    group = self.replay_group_for(cursor)
+                    logger.info(
+                        "Replay seed timing rank=%s index=%s "
+                        "phase=cursor_selection DONE seconds=%.6f "
+                        "dataset=%s source=%s lead=%s stride=%s "
+                        "temporal_stride=%s group=%s tiles=%s",
+                        get_rank(),
+                        next_replay_index,
+                        cursor_seconds,
+                        cursor.dataset_index,
+                        cursor.source_index,
+                        cursor.lead_step,
+                        cursor.stride,
+                        cursor.temporal_stride,
+                        group.group_id,
+                        group.num_tiles,
                     )
                     next_replay_index += 1
                 request = ReplayBatchRequest(
@@ -3522,23 +3569,57 @@ class Trainer:
                 if not dp_ctx.is_domain_leader:
                     next_replay_index += group_size
             assert request is not None
+            seed_transitions = []
+            if dp_ctx is None or dp_ctx.is_domain_leader:
+                for slot in request.seed_slots:
+                    group = self.replay_group_for(slot.cursor)
+                    logger.info(
+                        "Replay seed timing rank=%s index=%s "
+                        "phase=group_read_decode START group=%s tiles=%s source=%s",
+                        get_rank(),
+                        slot.replay_index,
+                        group.group_id,
+                        group.num_tiles,
+                        slot.cursor.source_index,
+                    )
+                    read_start = time.perf_counter()
+                    slot_transitions = self._seed_transitions_for_slot(slot)
+                    logger.info(
+                        "Replay seed timing rank=%s index=%s "
+                        "phase=group_read_decode DONE seconds=%.3f transitions=%s",
+                        get_rank(),
+                        slot.replay_index,
+                        time.perf_counter() - read_start,
+                        len(slot_transitions),
+                    )
+                    seed_transitions.extend(slot_transitions)
             raw_batch = RawReplayBatch(
                 request=request,
                 train_transitions=[],
-                seed_transitions=(
-                    [
-                        transition
-                        for slot in request.seed_slots
-                        for transition in self._seed_transitions_for_slot(slot)
-                    ]
-                    if dp_ctx is None or dp_ctx.is_domain_leader
-                    else []
-                ),
+                seed_transitions=seed_transitions,
             )
-            prepared = self.prepare_raw_seed_batch(raw_batch)
+            timing_slot = request.seed_slots[0] if request.seed_slots else None
+            self._active_seed_timing = (
+                {"rank": get_rank(), "replay_index": timing_slot.replay_index}
+                if timing_slot is not None
+                else None
+            )
+            try:
+                prepared = self.prepare_raw_seed_batch(raw_batch)
+            finally:
+                self._active_seed_timing = None
             entries_by_index.update(prepared.seed_entries)
             remaining -= group_size
             request_id += 1
+            if is_main_process():
+                logger.info(
+                    "Seeding replay buffer: %s/%s entries ready "
+                    "(last %.1fs, total %.1fs)",
+                    count - remaining,
+                    count,
+                    time.perf_counter() - entry_start,
+                    time.perf_counter() - seed_start,
+                )
 
         first_index = len(self.replay_buffer.entries) if self.replay_buffer else 0
         return [
@@ -3555,12 +3636,41 @@ class Trainer:
         if self.device.type != "cuda":
             return self.prepare_raw_replay_batch(raw_batch, ready_event=None)
 
+        timing = getattr(self, "_active_seed_timing", None)
+        if timing is not None:
+            _log_replay_seed_timing(
+                "Replay seed timing rank=%s index=%s "
+                "phase=raw_pin SKIPPED seconds=0.000 "
+                "reason=rank-local startup path stages raw tensors directly",
+                timing["rank"],
+                timing["replay_index"],
+            )
+
         assert self.replay_copy_stream is not None
+        if timing is not None:
+            _log_replay_seed_timing(
+                "Replay seed timing rank=%s index=%s "
+                "phase=h2d_prepare_enqueue START",
+                timing["rank"],
+                timing["replay_index"],
+            )
+            phase_start = time.perf_counter()
+        else:
+            phase_start = 0.0
         with torch.cuda.stream(self.replay_copy_stream):
             prepared = self.prepare_raw_replay_batch(raw_batch, ready_event=None)
             prepared.ready_event = torch.cuda.Event()
             prepared.ready_event.record(self.replay_copy_stream)
         prepared.wait_ready()
+        if timing is not None:
+            _log_replay_seed_timing(
+                "Replay seed timing rank=%s index=%s "
+                "phase=h2d_prepare_enqueue DONE seconds=%.3f "
+                "(asynchronous CUDA work queued, not synchronized)",
+                timing["rank"],
+                timing["replay_index"],
+                time.perf_counter() - phase_start,
+            )
         return prepared
 
     @staticmethod
@@ -5067,41 +5177,33 @@ class Trainer:
         return bool(cfg and cfg.enabled and cfg.blend_scope == "rank")
 
     def _build_face_replay_groups(self) -> list[ReplayGroup]:
-        """Replay groups over a face-sized tile catalog, in either topology.
+        """Replay groups over the tile catalog, in either topology.
 
         `blend_scope="face"` returns one group: this rank's share of a face
         advanced in lockstep with the others, seams exchanged between ranks.
-        `blend_scope="rank"` returns one group per candidate 3x3 block, each
-        blended inside this rank alone.
-
-        `fp_ctx` and the face group are built whenever validation runs here,
-        because face validation is face-synchronous in both topologies -- that
-        is how the model gets deployed. With rank-local blocks AND validation
-        offloaded, neither is needed, and skipping them is what lets the world
-        size stop dividing 36: training never shards the face.
+        `blend_scope="rank"` returns one group per block of a block-major
+        catalog (`tiling.block_tile_windows`), each blended inside this rank.
+        Block windows cannot form the face, so rank mode validates offloaded.
         """
         catalog = getattr(self, "tile_catalog", None)
         if not catalog:
             raise ValueError(
                 "face_parallel.enabled=true needs a tile catalog. Set "
-                "data.llc_tiles to a whole face -- see "
-                "ocean_emulators.tiling.face_tile_windows."
+                "data.llc_tiles with ocean_emulators.tiling.face_tile_windows "
+                "(blend_scope=face) or block_tile_windows (blend_scope=rank)."
             )
-        layout = build_group_layout(catalog)
-        world_size = get_world_size()
-        if self._rank_local_blocks and self.validation_mode == "offload":
-            # Nothing here shards the face: training draws independent blocks
-            # and validation happens in another job. So the world size is free.
+        if self._rank_local_blocks:
+            if self.validation_mode != "offload":
+                raise ValueError(
+                    "blend_scope='rank' trains on block windows, which cannot "
+                    "form the face validation group. Set validation_mode=offload."
+                )
+            # Nothing shards the face, so the world size is free.
             self.fp_ctx = None
             self.face_val_group = None
-            logger.info(
-                "Rank-local blocks with validation offloaded: the face is "
-                "never sharded, so world size %d needs no relation to %d "
-                "tiles.",
-                world_size,
-                layout.num_tiles,
-            )
             return self._build_block_groups(catalog)
+        layout = build_group_layout(catalog)
+        world_size = get_world_size()
         shardable, reason = face_group_is_shardable(layout, world_size)
         if not shardable:
             raise ValueError(
@@ -5124,30 +5226,20 @@ class Trainer:
             num_strides=len(self.data_stride),
             dataset_index_of=[tile.dataset_index for tile in catalog],
         )
-        # Validation scores the whole face on every rank, in both topologies.
         self.face_val_group = face_groups[0]
-        if not self._rank_local_blocks:
-            return face_groups
-        return self._build_block_groups(catalog)
+        return face_groups
 
     def _build_block_groups(self, catalog) -> list[ReplayGroup]:
-        """One group per candidate 3x3 block, plus the chunking they share."""
-        grid = math.isqrt(len(catalog))
-        if grid * grid != len(catalog):
-            raise ValueError(
-                f"blend_scope='rank' needs a square face; got {len(catalog)} tiles."
-            )
+        """One group per 3x3 block, plus the chunking they share."""
         groups = build_block_replay_groups(
             catalog,
             num_strides=len(self.data_stride),
             rank=get_rank(),
-            grid=grid,
             window=getattr(self.replay_cfg, "blend_window", "quintic"),
             dtype=torch.float32,
             device=self.device,
         )
-        # The forward/backward chunking follows the BLOCK, not the rank's share
-        # of the face -- they are both nine tiles at four ranks, but not at one.
+        # The forward/backward chunking follows the block, not a face share.
         self._block_tiles_per_row = groups[0].num_tiles
         self._block_chunks = split_into_chunks(
             self._block_tiles_per_row, self.face_parallel_cfg.tiles_per_chunk
@@ -5201,6 +5293,32 @@ class Trainer:
                 )
             )
         return transitions
+
+    def _read_replay_slot(self, slot, *, seed: bool) -> list[RawReplayTransition]:
+        """Read one replay row in canonical tile order, grouped when possible."""
+        grouped = self.read_group_frame(slot, seed=seed)
+        if grouped is not None:
+            return grouped
+
+        group = self.replay_group_for(slot.cursor)
+
+        def read_tile(item: tuple[int, int]) -> RawReplayTransition:
+            tile_index, dataset_index = item
+            dataset = self.train_datasets[dataset_index]
+            reader = (
+                dataset.get_raw_replay_seed_transition
+                if seed
+                else dataset.get_raw_replay_train_transition
+            )
+            transition = reader(
+                dataset_index=dataset_index,
+                source_index=slot.cursor.source_index,
+                lead_step=slot.cursor.lead_step,
+            )
+            transition.tile_index = tile_index
+            return transition
+
+        return [read_tile(item) for item in enumerate(group.dataset_indices)]
 
     def _group_read_windows(self, group: ReplayGroup):
         """Store windows for a group's tiles, or None for the reader's default.
@@ -5263,6 +5381,20 @@ class Trainer:
             self.face_parallel_cfg.read_threads,
             self.group_frame_reader.naive_chunks_per_frame,
         )
+        if self._rank_local_blocks:
+            # 18 per block (9 per array) when the blocks are chunk-aligned.
+            counts = [
+                self.group_frame_reader.chunks_for(self._group_read_windows(block))
+                for block in self.replay_groups
+            ]
+            logger.info(
+                "Rank-local blocks decode %d-%d chunk(s) per frame "
+                "(prognostic + boundary), mean %.2f over %d blocks.",
+                min(counts),
+                max(counts),
+                sum(counts) / len(counts),
+                len(counts),
+            )
 
     def _install_face_loss_normalization(self) -> None:
         """Rebuild the loss to normalize by the face, not by the batch in flight.
@@ -5283,12 +5415,9 @@ class Trainer:
         # The face share, not a drawn block: the constant this installs is the
         # face's in both topologies.
         if self._rank_local_blocks:
-            # The constant must stay the FACE's, not a block's: a block drawn
-            # over land would otherwise scale itself up and outvote the others
-            # through DDP's mean. Every rank has all 36 masks, so the face
-            # total needs no collective -- and it is summed on the host, where
-            # the masks already live, so the startup never holds 4.2 GB of
-            # float mask on the GPU.
+            # The constant is the mean block's, not the drawn block's, so a land
+            # block cannot outvote the others through DDP's mean. Every rank
+            # holds every block's masks, so it is summed on the host, no collective.
             masks = self.tile_wet_masks
             assert masks is not None
             denominator, gradient_z = face_wide_loss_norms(
@@ -5465,31 +5594,34 @@ class Trainer:
         ]
         self.train_datasets = train_datasets
 
-        # Replay rows address groups, not datasets. Ungrouped, the mapping is the
-        # identity, so `cursor.dataset_index` keeps its old meaning exactly.
-        self.replay_groups = build_replay_groups(
-            num_sources=len(replay_sources),
-            num_strides=len(self.data_stride),
-            grouped=getattr(self, "replay_grouped", False),
-            tiles=getattr(self, "tile_catalog", None),
-            window=getattr(self.replay_cfg, "blend_window", "quintic"),
-            dtype=torch.float32,
-        )
-        # A face is one group whose tiles live on different ranks. Build the
-        # context here rather than in __init__ because the layout comes from
-        # the tile catalog, which only exists once the sources are open.
+        # Replay rows address groups, not datasets. Face-parallel runs build
+        # their own groups from the tile catalog, which only exists once the
+        # sources are open, so this runs here rather than in __init__.
         if getattr(self, "face_parallel_cfg", None) and self.face_parallel_cfg.enabled:
             self.replay_groups = self._build_face_replay_groups()
             # Which tiles are local is known only now, and the loss
             # normalization below indexes the masks -- so narrow them first.
             self._scope_tile_wet_masks_to_groups()
             self._install_face_loss_normalization()
-            if self.face_val_group is not None:
+            if self.face_val_group is not None and self.validation_mode != "offload":
                 self._install_face_validation_scorer()
             self._build_group_frame_reader()
-            # Fail now rather than an epoch in, at the first validation.
-            self._require_face_reader()
+            if self.validation_mode != "offload":
+                # Fail now rather than an epoch in, at the first validation.
+                # Offloaded training deliberately permits a directory of
+                # one-chunk-per-tile stores; its separate validator keeps using
+                # the packed face and therefore builds its own group reader.
+                self._require_face_reader()
         else:
+            # Ungrouped, the mapping is the identity: group i is dataset i.
+            self.replay_groups = build_replay_groups(
+                num_sources=len(replay_sources),
+                num_strides=len(self.data_stride),
+                grouped=getattr(self, "replay_grouped", False),
+                tiles=getattr(self, "tile_catalog", None),
+                window=getattr(self.replay_cfg, "blend_window", "quintic"),
+                dtype=torch.float32,
+            )
             self._scope_tile_wet_masks_to_groups()
 
         for group in self.replay_groups:
@@ -5683,25 +5815,46 @@ class Trainer:
         reason: str,
     ) -> Path | None:
         batch_in_epoch = max(-1, batch_in_epoch)
-        checkpoint_path = (
-            self.ckpt_paths.latest_batch_checkpoint_path
-            if is_main_process()
-            else self.ckpt_paths.latest_batch_checkpoint_path_for_rank(get_rank())
+        main_process = is_main_process()
+        replicated_ddp = self.dp_ctx is None and get_world_size() > 1
+        # Ordinary DDP has identical model, optimizer and EMA state on every
+        # rank.  Writing one multi-GB copy per rank only creates a filesystem
+        # write storm and makes the time-limit checkpoint less reliable.  A
+        # non-main rank still writes its own copy for an uncaught exception,
+        # because rank 0 may never enter that failure path.  Domain-parallel
+        # ranks are not replicas and retain the existing per-rank behaviour.
+        write_model_checkpoint = (
+            main_process or not replicated_ddp or reason == "uncaught_exception"
         )
+        checkpoint_path = self.ckpt_paths.latest_batch_checkpoint_path
+        if not main_process:
+            checkpoint_path = self.ckpt_paths.latest_batch_checkpoint_path_for_rank(
+                get_rank()
+            )
 
         try:
-            self.save_checkpoint(
-                epoch=epoch,
-                checkpoint_path=checkpoint_path,
-                batch_in_epoch=batch_in_epoch,
-                epoch_complete=False,
-                save_reason=reason,
-            )
+            if write_model_checkpoint:
+                wrote_checkpoint = self.save_checkpoint(
+                    epoch=epoch,
+                    checkpoint_path=checkpoint_path,
+                    batch_in_epoch=batch_in_epoch,
+                    epoch_complete=False,
+                    save_reason=reason,
+                )
+                if not wrote_checkpoint:
+                    logger.error(
+                        "Emergency minibatch checkpoint was refused; keeping the "
+                        "previous checkpoint at %s",
+                        checkpoint_path,
+                    )
+                    return None
             if self.replay_enabled:
                 self.save_replay_buffer_sidecar(
                     self.ckpt_paths.latest_batch_checkpoint_path,
                     epoch,
                 )
+            if not write_model_checkpoint:
+                return None
             logger.warning(
                 f"Saved emergency minibatch checkpoint to {checkpoint_path} "
                 f"(epoch={epoch}, batch_in_epoch={batch_in_epoch}, reason={reason})"
@@ -5904,7 +6057,50 @@ class Trainer:
             return tuple(self._localize_checkpoint_state(item) for item in value)
         return value
 
-    def load_checkpoint(self, checkpoint_path, finetune=False):
+    def _override_resumed_learning_rate(self, target_lr: float) -> None:
+        """Change a resumed LR without discarding Adam or scheduler progress."""
+        self._remove_lr_warmup()
+        current_lrs = [float(group["lr"]) for group in self.optimizer.param_groups]
+        if not current_lrs or current_lrs[0] <= 0:
+            raise ValueError(
+                f"Cannot rescale resumed learning rate from {current_lrs!r}"
+            )
+
+        # Preserve relative rates if an optimizer ever gains multiple parameter
+        # groups; the configured LR names the first group's resumed rate.
+        scale = float(target_lr) / current_lrs[0]
+        for group in self.optimizer.param_groups:
+            group["lr"] = float(group["lr"]) * scale
+            if "initial_lr" in group:
+                group["initial_lr"] = float(group["initial_lr"]) * scale
+
+        def scale_scheduler(scheduler) -> None:
+            if scheduler is None:
+                return
+            if isinstance(scheduler, EpochMultiplierScheduler):
+                scale_scheduler(scheduler.scheduler)
+                return
+            for attr in ("base_lrs", "_last_lr"):
+                values = getattr(scheduler, attr, None)
+                if values is not None:
+                    setattr(scheduler, attr, [float(value) * scale for value in values])
+            if hasattr(scheduler, "eta_min"):
+                scheduler.eta_min = float(scheduler.eta_min) * scale
+            for child in getattr(scheduler, "_schedulers", []):
+                scale_scheduler(child)
+
+        scale_scheduler(self.scheduler)
+        logger.info(
+            "Overrode resumed optimizer LR: %s -> %s (scale=%s); preserved "
+            "optimizer moments and scheduler position.",
+            current_lrs,
+            [group["lr"] for group in self.optimizer.param_groups],
+            scale,
+        )
+
+    def load_checkpoint(
+        self, checkpoint_path, finetune=False, restore_wandb_identity=True
+    ):
         logger.info(f"Loading checkpoint from {checkpoint_path}")
         checkpoint = torch.load(checkpoint_path, map_location=torch.device(self.device))
 
@@ -5950,8 +6146,9 @@ class Trainer:
                 self.start_epoch = checkpoint["epoch"]
                 self.start_batch_in_epoch = checkpoint.get("batch_in_epoch", -1) + 1
 
-            self.wandb_id = checkpoint.get("wandb_id")
-            self.wandb_name = checkpoint.get("wandb_name")
+            if restore_wandb_identity:
+                self.wandb_id = checkpoint.get("wandb_id")
+                self.wandb_name = checkpoint.get("wandb_name")
             self.num_batches_seen = checkpoint.get("num_batches_seen", 0)
             self._lr_warmup_applied = checkpoint.get("lr_warmup_applied", 1.0)
 

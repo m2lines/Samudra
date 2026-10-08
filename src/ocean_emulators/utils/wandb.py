@@ -70,9 +70,19 @@ class WandBLogger(Multiton):
             return self._init_new_run(cfg, data_container)
         if not cfg.experiment.wandb.resume_from_checkpoint:
             return self._init_new_run(cfg, data_container)
+        # Only rank 0 has W&B enabled.  Do not make every other DDP process
+        # deserialize a multi-GB training checkpoint just to read two strings;
+        # Trainer.load_checkpoint restores these attributes on every rank later.
+        if not self._enabled:
+            return None, cfg.experiment.name
 
         # Load checkpoint and try to resume
-        checkpoint = torch.load(checkpoint_path)
+        checkpoint = torch.load(
+            checkpoint_path,
+            map_location="cpu",
+            weights_only=False,
+            mmap=True,
+        )
         wandb_id = checkpoint.get("wandb_id")
         wandb_name = checkpoint.get("wandb_name")
         run_name = wandb_name or cfg.experiment.name

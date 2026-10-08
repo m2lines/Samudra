@@ -13,9 +13,9 @@ to deliver 36 chunks of distinct data.
 
 This module inverts the loop. It walks *chunks* rather than tiles: each chunk
 the group needs is read exactly once and scattered into every tile buffer that
-overlaps it, then dropped. A rank holding a contiguous 3x3 block of tiles
-touches 16 chunks instead of 81, and measured end to end that is 5x faster than
-the per-tile path (`scripts/_bench/face_read.py`).
+overlaps it, then dropped. A 3x3 block of face windows touches 16-25 chunks
+instead of 81 (5x faster end to end, `scripts/_bench/face_read.py`); windows
+clamped inside a chunk-aligned block (`tiling.block_tile_windows`) touch 9.
 
 The face is never materialized. Peak memory is the tile buffers plus one
 inflated chunk per thread, so a rank pays for the nine tiles it owns rather

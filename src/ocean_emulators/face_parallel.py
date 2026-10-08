@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import dataclasses
 import logging
+import math
 from collections.abc import Sequence
 from typing import Literal
 
@@ -67,7 +68,8 @@ class FaceParallelConfig(pydantic.BaseModel):
         default=8,
         ge=1,
         description=(
-            "Chunk decodes in flight per rank while reading a face frame. "
+            "Chunk decodes in flight per rank while reading a packed face "
+            "frame, or independent tile stores in flight for a pre-cut cache. "
             "Sized against the STORE, not the core count: 4 ranks x 8 threads "
             "read a face in 2.91 s where 4 x 15 took 7.85 s on the same work "
             "(scripts/_bench/face_read.py). Aim for about 32 across all ranks."
@@ -501,14 +503,13 @@ def face_wide_loss_norms(
 
     The collective-free twin of `FaceParallelContext.global_loss_norms`, and
     the reason a rank-local run needs no face context at all: every rank opens
-    all 36 sources, so the face total is reachable locally. It must still be
-    the FACE's total rather than a block's, or a block drawn over land would
-    scale its own loss up and outvote the others through DDP's mean.
+    every block's sources, so the total is reachable locally. It must be that
+    total rather than the drawn block's, or a block over land would scale its
+    own loss up and outvote the others through DDP's mean.
 
-    The normalization share is the fraction of the face in EACH row, not the
-    number of DDP ranks. A 3x3 row is 9/36 = 1/4 of a face whether four or
-    eight ranks draw independent rows. Using world size here would make the
-    loss and gradients grow with rank count.
+    The share is each row's fraction of all sources (9/144 for the 16 blocks
+    of a face), not the number of DDP ranks, which would make the loss and
+    gradients grow with rank count.
 
     The share lands on different constants for the two terms, for the reason
     `global_loss_norms` documents: the base metric is one ratio, so it scales
@@ -545,43 +546,8 @@ def face_wide_loss_norms(
     )
 
 
-def interior_centers(grid: int) -> tuple[int, ...]:
-    """Tile ids that have all eight neighbours, row-major.
-
-    A 6x6 face has 16 of them. The perimeter cannot centre a 3x3 block.
-    """
-    if grid < 3:
-        raise ValueError(f"a {grid}x{grid} grid has no interior tile")
-    return tuple(
-        row * grid + col for row in range(1, grid - 1) for col in range(1, grid - 1)
-    )
-
-
-def block_tiles(center: int, *, grid: int) -> tuple[int, ...]:
-    """The nine tile ids of the 3x3 block centred on `center`, row-major.
-
-    Tile ids are row-major over the face (`tiling.face_tile_windows`), so a
-    neighbour is a fixed offset away and adjacency needs no geometry.
-    """
-    row, col = divmod(center, grid)
-    if not (1 <= row < grid - 1 and 1 <= col < grid - 1):
-        raise ValueError(
-            f"tile {center} is at row {row}, col {col} of a {grid}x{grid} "
-            "grid, so it has no complete 3x3 neighbourhood"
-        )
-    return tuple(
-        (row + dj) * grid + (col + di) for dj in (-1, 0, 1) for di in (-1, 0, 1)
-    )
-
-
 def _overlap_signature(layout: TileGroupLayout) -> tuple:
-    """What makes two blocks want the same blend weights.
-
-    Weights depend only on each tile's overlap width per side, and blocks
-    differ there solely where they touch a face edge -- whose seams are 48
-    cells against an interior 32. So the sixteen 3x3 blocks of a face need
-    only nine distinct blenders, and this is the key that finds them.
-    """
+    """Per-position seam widths; blocks with equal signatures share a blender."""
     return tuple(
         (position, side, layout.overlaps.get((tile.tile_id, side)))
         for position, tile in enumerate(layout.tiles)
@@ -594,40 +560,42 @@ def build_block_replay_groups(
     *,
     num_strides: int,
     rank: int,
-    grid: int,
+    tiles_per_block: int = 9,
     window: WindowKind = "quintic",
     ramp_width: int | None = None,
     dtype: torch.dtype = torch.float32,
     device: torch.device | str | None = None,
 ) -> list["ReplayGroup"]:
-    """One replay group per candidate 3x3 block, each blended within the rank.
+    """One replay group per block of a block-major catalog, blended within the rank.
 
-    The group id is the list position, which is what `replay_group_for` and
-    `sample_replay_seed_cursor` between them rely on: the seed draw picks a
-    group uniformly and stamps its id onto the cursor, so drawing a block is
-    the group draw already in place.
-
-    Each group carries a nine-tile layout, so `build_group_layout` sees only
-    those nine and marks the block's outer sides exterior -- weight 1, nothing
-    to blend against. The blender is a `DistributedTileBlender` with every tile
-    assigned to this rank, which leaves `exchange_ops` empty and so performs no
-    point-to-point at all: tile-space blending, no canonical grid, no
-    collective.
+    `tiling.block_tile_windows` lays the catalog out as consecutive blocks. The
+    group id is the block's position, which the seed draw stamps onto the
+    cursor. A block's outer sides are exterior (weight 1), and its blender has
+    every tile on this rank, so it exchanges nothing.
     """
     if num_strides != 1:
         raise ValueError(
             "Rank-local replay advances one block on one cursor, so it takes a "
             f"single temporal stride; got {num_strides}. Use data_stride=[1]."
         )
-    if len(catalog) != grid * grid:
+    if not catalog or len(catalog) % tiles_per_block:
         raise ValueError(
-            f"a {grid}x{grid} face needs {grid * grid} tiles, got {len(catalog)}"
+            f"A block-major catalog needs a multiple of {tiles_per_block} tiles, "
+            f"got {len(catalog)}. Build data.llc_tiles with "
+            "tiling.block_tile_windows."
         )
 
+    side = math.isqrt(tiles_per_block)
     groups: list[ReplayGroup] = []
     blenders: dict[tuple, DistributedTileBlender] = {}
-    for group_id, center in enumerate(interior_centers(grid)):
-        tiles = [catalog[tile] for tile in block_tiles(center, grid=grid)]
+    for group_id, first in enumerate(range(0, len(catalog), tiles_per_block)):
+        tiles = list(catalog[first : first + tiles_per_block])
+        starts = ({t.i_start for t in tiles}, {t.j_start for t in tiles})
+        if {len(axis) for axis in starts} != {side}:
+            raise ValueError(
+                f"Block {group_id} is not a {side}x{side} tile grid. Build "
+                "data.llc_tiles with tiling.block_tile_windows."
+            )
         layout = build_group_layout(tiles, group_id=group_id)
         signature = _overlap_signature(layout)
         blender = blenders.get(signature)
@@ -658,8 +626,8 @@ def build_block_replay_groups(
             )
         )
     logger.info(
-        "Rank-local blocks: %d candidate centre(s) of %d tiles, %d distinct "
-        "blender(s) shared between them, no halo exchange.",
+        "Rank-local blocks: %d block(s) of %d tiles, %d distinct blender(s), "
+        "no halo exchange.",
         len(groups),
         len(groups[0].dataset_indices),
         len(blenders),

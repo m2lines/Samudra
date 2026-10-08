@@ -1379,6 +1379,14 @@ class TrainConfig(TopLevelConfig):
             "instead of loading it from the checkpoint."
         ),
     )
+    override_learning_rate_on_resume: bool = Field(
+        default=False,
+        description=(
+            "When resuming optimizer/scheduler state, rescale their learning-rate "
+            "state so the resumed optimizer starts at `learning_rate`. Adam moments "
+            "and the scheduler's epoch position are preserved."
+        ),
+    )
     debug: bool = False
     surface_snapshot: bool = Field(
         default=False,

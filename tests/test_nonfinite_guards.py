@@ -9,9 +9,11 @@ these tests pin both guards down.
 import contextlib
 import logging
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 import torch
 
+import ocean_emulators.train as train_module
 from ocean_emulators.train import Trainer
 from ocean_emulators.utils.train import CheckpointPaths
 
@@ -121,6 +123,69 @@ def test_save_checkpoint_still_writes_finite_weights(tmp_path):
     assert torch.isfinite(written["model"]["conv.weight"]).all()
     assert written["epoch"] == 3
     assert written["lr_warmup_applied"] == 0.25
+
+
+def _emergency_checkpoint_trainer(tmp_path):
+    trainer = Trainer.__new__(Trainer)
+    trainer.ckpt_paths = CheckpointPaths(tmp_path)
+    trainer.dp_ctx = None
+    trainer.replay_enabled = False
+    trainer.save_checkpoint = Mock(return_value=True)
+    return trainer
+
+
+def test_replicated_ddp_emergency_checkpoint_is_main_rank_only(
+    tmp_path, monkeypatch
+):
+    trainer = _emergency_checkpoint_trainer(tmp_path)
+    monkeypatch.setattr(train_module, "is_main_process", lambda: False)
+    monkeypatch.setattr(train_module, "get_rank", lambda: 3)
+    monkeypatch.setattr(train_module, "get_world_size", lambda: 6)
+
+    result = trainer.save_emergency_checkpoint(
+        epoch=1,
+        batch_in_epoch=418,
+        reason="SIGUSR1",
+    )
+
+    assert result is None
+    trainer.save_checkpoint.assert_not_called()
+
+
+def test_nonmain_uncaught_exception_keeps_rank_checkpoint(tmp_path, monkeypatch):
+    trainer = _emergency_checkpoint_trainer(tmp_path)
+    monkeypatch.setattr(train_module, "is_main_process", lambda: False)
+    monkeypatch.setattr(train_module, "get_rank", lambda: 3)
+    monkeypatch.setattr(train_module, "get_world_size", lambda: 6)
+
+    result = trainer.save_emergency_checkpoint(
+        epoch=1,
+        batch_in_epoch=418,
+        reason="uncaught_exception",
+    )
+
+    assert result == trainer.ckpt_paths.latest_batch_checkpoint_path_for_rank(3)
+    trainer.save_checkpoint.assert_called_once()
+
+
+def test_refused_emergency_checkpoint_is_not_reported_as_saved(
+    tmp_path, monkeypatch, caplog
+):
+    trainer = _emergency_checkpoint_trainer(tmp_path)
+    trainer.save_checkpoint.return_value = False
+    monkeypatch.setattr(train_module, "is_main_process", lambda: True)
+    monkeypatch.setattr(train_module, "get_world_size", lambda: 6)
+
+    with caplog.at_level(logging.WARNING):
+        result = trainer.save_emergency_checkpoint(
+            epoch=1,
+            batch_in_epoch=418,
+            reason="periodic_interval",
+        )
+
+    assert result is None
+    assert "was refused" in caplog.text
+    assert "Saved emergency minibatch checkpoint" not in caplog.text
 
 
 def test_refused_ema_write_does_not_publish_a_stale_epoch_snapshot(tmp_path):

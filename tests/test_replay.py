@@ -7,6 +7,7 @@ import pytest
 import torch
 import xarray as xr
 
+import ocean_emulators.train as train_module
 from ocean_emulators.datasets import (
     ReplayBatchRequest,
     ReplayBatchSlot,
@@ -17,7 +18,12 @@ from ocean_emulators.datasets import (
 )
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.replay import ReplayBuffer, ReplayEntry, replay_sidecar_path
-from ocean_emulators.train import Trainer, _ReplayPrefetchPipeline
+from ocean_emulators.train import (
+    Trainer,
+    _is_scheduled_replay_refresh,
+    _ReplayPrefetchPipeline,
+)
+from ocean_emulators.tiling import ReplayGroup
 from ocean_emulators.utils.data import DataSource, Masks
 
 
@@ -722,6 +728,125 @@ def test_replay_refresh_schedule_resolves_by_epoch():
     assert trainer.get_current_replay_refresh_every_n_microbatches(3) == 8
     assert trainer.get_current_replay_refresh_every_n_microbatches(4) == 8
     assert trainer.get_current_replay_refresh_every_n_microbatches(5) == 16
+
+
+def test_single_rank_replay_refresh_keeps_original_schedule():
+    refreshes = [
+        batch_index
+        for batch_index in range(60)
+        if _is_scheduled_replay_refresh(
+            batch_index,
+            26,
+            rank=0,
+            world_size=1,
+        )
+    ]
+
+    assert refreshes == [25, 51]
+
+
+def test_rank_local_replay_refreshes_are_staggered():
+    refreshes_by_rank = {
+        rank: [
+            batch_index
+            for batch_index in range(26)
+            if _is_scheduled_replay_refresh(
+                batch_index,
+                26,
+                rank=rank,
+                world_size=7,
+            )
+        ]
+        for rank in range(7)
+    }
+
+    assert refreshes_by_rank == {
+        0: [25],
+        1: [22],
+        2: [18],
+        3: [14],
+        4: [11],
+        5: [7],
+        6: [3],
+    }
+
+
+def test_face_synchronous_replay_refresh_is_not_staggered(monkeypatch):
+    """Face ranks share one row and must refresh on the same optimizer step."""
+    monkeypatch.setattr(train_module, "get_rank", lambda: 1)
+    monkeypatch.setattr(train_module, "get_world_size", lambda: 2)
+
+    generator = torch.Generator(device="cpu")
+    generator.manual_seed(0)
+    buffer = ReplayBuffer(
+        buffer_size=2,
+        storage_dtype=torch.float32,
+        generator=generator,
+        pin_memory=False,
+    )
+    cursor = ReplayCursor(
+        dataset_index=0,
+        source_index=0,
+        lead_step=0,
+        stride=1,
+        temporal_stride=1,
+    )
+    for _ in range(2):
+        buffer.append(ReplayEntry(state=torch.zeros(1), cursor=cursor))
+
+    trainer = Trainer.__new__(Trainer)
+    trainer.face_parallel_cfg = SimpleNamespace(enabled=True, blend_scope="face")
+    trainer.replay_buffer = buffer
+    trainer.batch_size = 1
+    trainer.sample_replay_seed_cursor = lambda: cursor
+
+    before_interval = trainer._plan_replay_batch_local(
+        global_batch_index=1,
+        max_lead_steps=10,
+        refresh_every_n_microbatches=4,
+        exclude_reserved=set(),
+    )
+    at_interval = trainer._plan_replay_batch_local(
+        global_batch_index=3,
+        max_lead_steps=10,
+        refresh_every_n_microbatches=4,
+        exclude_reserved=set(),
+    )
+
+    assert before_interval.seed_slots == ()
+    assert [slot.reason for slot in at_interval.seed_slots] == ["scheduled"]
+
+
+def test_per_tile_replay_reads_keep_canonical_tile_order():
+    """Without a group reader, tiles come back in the group's order."""
+
+    class FakeDataset:
+        def get_raw_replay_seed_transition(
+            self, *, dataset_index, source_index, lead_step
+        ):
+            return SimpleNamespace(dataset_index=dataset_index, tile_index=None)
+
+    order = (8, 0, 7, 1, 6, 2, 5, 3, 4)
+    trainer = Trainer.__new__(Trainer)
+    trainer.group_frame_reader = None
+    trainer.replay_groups = [ReplayGroup(group_id=0, dataset_indices=order)]
+    trainer.train_datasets = [FakeDataset() for _ in order]
+    slot = ReplaySeedSlot(
+        replay_index=0,
+        cursor=ReplayCursor(
+            dataset_index=0,
+            source_index=5,
+            lead_step=0,
+            stride=1,
+            temporal_stride=1,
+        ),
+        reason="seed",
+    )
+
+    transitions = trainer._read_replay_slot(slot, seed=True)
+
+    assert [transition.dataset_index for transition in transitions] == list(order)
+    assert [transition.tile_index for transition in transitions] == list(range(9))
 
 
 def test_predict_step_residual_uses_actual_replay_input_state():

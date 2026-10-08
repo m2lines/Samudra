@@ -127,7 +127,10 @@ def _validation_signature(raw: Mapping[str, Any]) -> dict[str, Any]:
     Data locations are intentionally excluded: the validator reads a second,
     byte-equivalent face cache so it does not contend with H200 training I/O.
     Geometry, masks, normalization locations, variables, model, loss, seeded
-    draws, and validation horizons still have to match.
+    draws, and validation horizons still have to match. Sample/run counts are
+    also excluded: they are operational controls for how much of an immutable
+    snapshot the offloaded worker can afford to score; the resulting metrics
+    naturally reflect that configured workload.
     """
     model = copy.deepcopy(raw.get("model", {}))
     model.pop("checkpointing", None)
@@ -161,13 +164,10 @@ def _validation_signature(raw: Mapping[str, Any]) -> dict[str, Any]:
             )
         },
         "val_time": raw.get("val_time"),
-        "one_step_val_num": raw.get("one_step_val_num"),
         "short_autoregressive_val_length": raw.get(
             "short_autoregressive_val_length"
         ),
-        "short_autoregressive_val_num": raw.get("short_autoregressive_val_num"),
         "long_autoregressive_val_length": raw.get("long_autoregressive_val_length"),
-        "long_autoregressive_val_num": raw.get("long_autoregressive_val_num"),
         "long_autoregressive_val_start_epoch": raw.get(
             "long_autoregressive_val_start_epoch"
         ),

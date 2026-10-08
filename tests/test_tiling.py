@@ -5,11 +5,13 @@ import pytest
 import torch
 import xarray as xr
 
+from ocean_emulators.chunk_reader import chunk_plan
 from ocean_emulators.tiling import (
     SIDES,
     TileBlender,
     TileSpec,
     build_group_layout,
+    block_tile_windows,
     build_tile_catalog,
     face_tile_windows,
     ownership_boxes,
@@ -633,6 +635,25 @@ def test_face_windows_are_uniformly_shaped_and_cover_the_face() -> None:
     for _, i0, i1, j0, j1 in windows:
         covered[j0:j1, i0:i1] = True
     assert covered.all()
+
+
+def test_block_windows_fill_chunk_aligned_blocks_exactly() -> None:
+    """Rank-local blocks clamp inside a 3x3 chunk block, so each reads 9 chunks."""
+    windows = block_tile_windows(
+        1, extent=FACE_EXTENT, tile=FACE_TILE, overlap=FACE_OVERLAP
+    )
+    face = set(face_tile_windows(1, extent=FACE_EXTENT, tile=FACE_TILE, overlap=FACE_OVERLAP))
+    assert len(windows) == 16 * 9
+    for first in range(0, len(windows), 9):
+        block = windows[first : first + 9]
+        layout = build_group_layout(tile_catalog_from_windows(block))
+        assert layout.canonical_shape == (3 * FACE_TILE, 3 * FACE_TILE)
+        assert all(origin % FACE_TILE == 0 for origin in layout.canonical_origin)
+        assert set(layout.overlaps.values()) == {3 * FACE_OVERLAP}
+        local = [(i0, i1, j0, j1) for _, i0, i1, j0, j1 in block]
+        assert len(chunk_plan(local, chunk_rows=FACE_TILE, chunk_cols=FACE_TILE)) == 9
+        # The centre window is the face's own.
+        assert block[4] in face
 
 
 def test_face_window_origins_match_the_existing_752_tile_caches() -> None:

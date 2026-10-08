@@ -377,6 +377,31 @@ def face_tile_windows(
     ]
 
 
+def block_tile_windows(
+    face: int,
+    *,
+    extent: int = 4320,
+    tile: int = 720,
+    overlap: int = 16,
+    block: int = 3,
+) -> list[tuple[int, int, int, int, int]]:
+    """Windows of every `block` x `block` tile group, block-major.
+
+    Each block is a `block * tile` square on the tile grid, and its windows are
+    clamped inside the block rather than the face, so a block reads exactly
+    `block**2` chunks when the store's chunks are `tile` wide.
+    """
+    span = block * tile
+    inner = face_tile_windows(face, extent=span, tile=tile, overlap=overlap)
+    starts = range(0, extent - span + 1, tile)
+    return [
+        (face, i0 + block_i, i1 + block_i, j0 + block_j, j1 + block_j)
+        for block_j in starts
+        for block_i in starts
+        for _, i0, i1, j0, j1 in inner
+    ]
+
+
 def tile_catalog_from_windows(
     windows: Sequence[tuple[int, int, int, int, int]],
 ) -> list[TileSpec]:

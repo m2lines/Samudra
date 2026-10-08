@@ -58,7 +58,10 @@ def _fake_cfg():
         experiment=SimpleNamespace(
             output_dir=Path("."),
             name="test-run",
-            wandb=SimpleNamespace(model_dump=lambda: {}),
+            wandb=SimpleNamespace(
+                model_dump=lambda: {},
+                resume_from_checkpoint=True,
+            ),
         ),
     )
 
@@ -77,7 +80,13 @@ def test_wandb_resume_without_id_starts_new_run(monkeypatch):
         calls.append(kwargs)
         return _Run()
 
-    monkeypatch.setattr("ocean_emulators.utils.wandb.torch.load", lambda _: {"wandb_id": None, "wandb_name": "resume-name"})
+    monkeypatch.setattr(
+        "ocean_emulators.utils.wandb.torch.load",
+        lambda *_args, **_kwargs: {
+            "wandb_id": None,
+            "wandb_name": "resume-name",
+        },
+    )
     monkeypatch.setattr("ocean_emulators.utils.wandb.wandb.init", fake_init)
 
     with MultitonScope():
@@ -110,7 +119,10 @@ def test_wandb_resume_fallback_keeps_logging_enabled(monkeypatch):
 
     monkeypatch.setattr(
         "ocean_emulators.utils.wandb.torch.load",
-        lambda _: {"wandb_id": "old-id", "wandb_name": "resume-name"},
+        lambda *_args, **_kwargs: {
+            "wandb_id": "old-id",
+            "wandb_name": "resume-name",
+        },
     )
     monkeypatch.setattr("ocean_emulators.utils.wandb.wandb.init", fake_init)
 
@@ -130,3 +142,23 @@ def test_wandb_resume_fallback_keeps_logging_enabled(monkeypatch):
     assert calls[0]["id"] == "old-id"
     assert "resume" not in calls[1]
     assert wandb_id == "fallback-run-id"
+
+
+def test_nonmain_rank_does_not_load_checkpoint_for_wandb(monkeypatch):
+    monkeypatch.setattr(
+        "ocean_emulators.utils.wandb.torch.load",
+        lambda *_args, **_kwargs: pytest.fail("non-main rank loaded checkpoint"),
+    )
+
+    with MultitonScope():
+        logger = WandBLogger.init_instance()
+        logger.configure(enabled=True, is_main_process=False)
+        wandb_id, wandb_name = logger.setup_run(
+            checkpoint_path="dummy.ckpt",
+            cfg=_fake_cfg(),
+            data_container=_fake_data_container(),
+            finetune=False,
+        )
+
+    assert wandb_id is None
+    assert wandb_name == "test-run"

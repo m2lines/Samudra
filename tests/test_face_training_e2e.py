@@ -23,12 +23,9 @@ import torch
 import xarray as xr
 
 from ocean_emulators.config import GradientLossConfig, TrainConfig
-from ocean_emulators.face_parallel import (
-    FaceParallelContext,
-    block_tiles,
-    interior_centers,
-)
-from ocean_emulators.tiling import face_tile_windows
+from ocean_emulators import train as train_module
+from ocean_emulators.face_parallel import FaceParallelContext
+from ocean_emulators.tiling import block_tile_windows, face_tile_windows
 from ocean_emulators.train import Trainer
 from ocean_emulators.utils.multiton import MultitonScope
 
@@ -598,8 +595,15 @@ def test_ungrouped_snapshot_is_drawn_from_a_mostly_ocean_tile(
 
 
 def _block_config(face_root, **overrides):
+    windows = block_tile_windows(1, extent=EXTENT, tile=TILE, overlap=OVERLAP)
     return _face_config(
-        face_root, **{"--face_parallel.blend_scope": "rank", **overrides}
+        face_root,
+        **{
+            "--face_parallel.blend_scope": "rank",
+            "--validation_mode": "offload",
+            "--data.llc_tiles": json.dumps([list(w) for w in windows]),
+            **overrides,
+        },
     )
 
 
@@ -621,7 +625,7 @@ def test_a_rank_local_block_run_advances_end_to_end(face_root, caplog) -> None:
         trainer = Trainer(_block_config(face_root))
         trainer.run()
 
-        # One group per interior centre, nine tiles each.
+        # One group per chunk-aligned block, nine tiles each.
         assert len(trainer.replay_groups) == 16
         assert {group.num_tiles for group in trainer.replay_groups} == {9}
         # The group id IS the list position -- `sample_replay_seed_cursor`
@@ -629,29 +633,34 @@ def test_a_rank_local_block_run_advances_end_to_end(face_root, caplog) -> None:
         assert [group.group_id for group in trainer.replay_groups] == list(range(16))
         # Nothing is exchanged between ranks, which is the whole point.
         assert all(not group.blender.exchange_ops for group in trainer.replay_groups)
+        # Every block has the same geometry, so one blender serves them all.
+        assert len({id(group.blender) for group in trainer.replay_groups}) == 1
         assert trainer._diverged_writebacks == 0
         assert trainer._loss_denominator_is_fixed
 
 
-def test_a_block_is_its_centre_and_the_eight_around_it(face_root) -> None:
+def test_blocks_are_chunk_aligned_runs_of_nine(face_root) -> None:
+    """Each block is nine consecutive sources filling 3x3 store chunks exactly."""
     with MultitonScope():
         trainer = _prepared(_block_config(face_root))
-        centres = interior_centers(6)
-        assert len(centres) == 16
-        for group, centre in zip(trainer.replay_groups, centres, strict=True):
-            assert group.dataset_indices == block_tiles(centre, grid=6)
-        # The first block is the corner block a rank of four holds today.
-        assert trainer.replay_groups[0].dataset_indices == (
-            0,
-            1,
-            2,
-            6,
-            7,
-            8,
-            12,
-            13,
-            14,
-        )
+        for index, group in enumerate(trainer.replay_groups):
+            assert group.dataset_indices == tuple(range(9 * index, 9 * index + 9))
+            origin = group.layout.canonical_origin
+            assert group.layout.canonical_shape == (3 * TILE, 3 * TILE)
+            assert origin[0] % TILE == 0 and origin[1] % TILE == 0
+            assert set(group.layout.overlaps.values()) == {3 * OVERLAP}
+            windows = trainer._group_read_windows(group)
+            assert trainer.group_frame_reader.chunks_for(windows) == 18
+
+
+def test_face_windows_are_rejected_as_blocks(face_root) -> None:
+    """The 36 face windows are not block-major, so rank mode refuses them."""
+    windows = face_tile_windows(1, extent=EXTENT, tile=TILE, overlap=OVERLAP)
+    config = _block_config(
+        face_root, **{"--data.llc_tiles": json.dumps([list(w) for w in windows])}
+    )
+    with MultitonScope(), pytest.raises(ValueError, match="not a 3x3 tile grid"):
+        _prepared(config)
 
 
 def test_the_block_layout_leaves_its_outer_sides_unblended(face_root) -> None:
@@ -672,16 +681,11 @@ def test_the_block_layout_leaves_its_outer_sides_unblended(face_root) -> None:
         assert not [side for tile, side in layout.exterior_sides if tile == centre]
 
 
-def test_validation_still_covers_the_whole_face(face_root) -> None:
-    """Training is rank-local; validation is not, because deployment is not."""
-    with MultitonScope():
-        trainer = _prepared(_block_config(face_root))
-        assert trainer.face_val_group is not None
-        # World size 1 here, so the rank's face share is all 36.
-        assert trainer.face_val_group.num_tiles == 36
-        assert trainer._primary_replay_group() is trainer.face_val_group
-        # The reader's DEFAULT tile set is the face share validation reads.
-        assert trainer.group_frame_reader.num_tiles == 36
+def test_rank_mode_requires_offloaded_validation(face_root) -> None:
+    """Block windows cannot form the face, so inline validation has no group."""
+    config = _block_config(face_root, **{"--validation_mode": "inline"})
+    with MultitonScope(), pytest.raises(ValueError, match="validation_mode=offload"):
+        _prepared(config)
 
 
 def _score_with(config) -> torch.Tensor:
@@ -696,33 +700,35 @@ def _score_with(config) -> torch.Tensor:
         return trainer.train_loss_fn(pred, target, sample_weight=weight)
 
 
-def test_rank_local_denominator_is_the_blocks_fixed_share_of_the_face(
-    face_root,
+def test_rank_local_denominator_is_one_blocks_share_of_all_blocks(
+    face_root, monkeypatch
 ) -> None:
-    """The constant must not follow the block's wet-cell count.
+    """The constant must not follow the drawn block's wet-cell count.
 
-    A block drawn over land would otherwise scale its own loss up and outvote
-    the others through DDP's mean. A rank-local row always contains 9 of the
-    face's 36 tiles, so its denominator is one quarter of the face constant
-    even in this single-process test. DDP then averages any number of such
-    independent rows without changing the scale.
+    A block over land would otherwise scale its own loss up and outvote the
+    others through DDP's mean. So every row divides by a 9/144 share of all
+    block tiles' wet cells, whatever block it holds.
     """
-    face_score = _score_with(_face_config(face_root))
-    block_score = _score_with(_block_config(face_root))
-    torch.testing.assert_close(
-        block_score,
-        face_score * 4,
-        rtol=0,
-        atol=0,
-    )
+    calls = []
+    original = train_module.face_wide_loss_norms
+
+    def recording(*args, **kwargs):
+        calls.append(kwargs)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(train_module, "face_wide_loss_norms", recording)
+    with MultitonScope():
+        trainer = _prepared(_block_config(face_root))
+        assert trainer._loss_denominator_is_fixed
+    assert [(c["face_tiles"], c["rank_tiles"]) for c in calls] == [(144, 9)]
 
 
 def test_the_wet_masks_sit_on_the_host_for_a_drawn_block(face_root) -> None:
-    """Any of the 36 may be wanted, so they cannot be narrowed to nine."""
+    """Any block may be drawn, so all block masks stay resident."""
     with MultitonScope():
         trainer = _prepared(_block_config(face_root))
         assert trainer.tile_wet_masks is not None
-        assert trainer.tile_wet_masks.shape[0] == 36
+        assert trainer.tile_wet_masks.shape[0] == 144
         assert trainer.tile_wet_masks.device.type == "cpu"
         # And they still resolve by global source index.
         weight = trainer._wet_for_sources((12, 13, 14))
@@ -769,10 +775,6 @@ def test_a_rank_local_row_is_reseeded_without_consulting_the_other_ranks(
 # --------------------------------------------------------------------------
 
 
-def _offload_config(face_root, **overrides):
-    return _block_config(face_root, **{"--validation_mode": "offload", **overrides})
-
-
 def test_offloaded_validation_builds_no_face_context(face_root) -> None:
     """The whole point: nothing left shards the face, so 36 % ranks is free.
 
@@ -781,7 +783,7 @@ def test_offloaded_validation_builds_no_face_context(face_root) -> None:
     over the ranks -- is never reached.
     """
     with MultitonScope():
-        trainer = _prepared(_offload_config(face_root))
+        trainer = _prepared(_block_config(face_root))
         assert trainer.fp_ctx is None
         assert trainer.face_val_group is None
         # Still 16 blocks of 9, still blended within the rank.
@@ -791,14 +793,40 @@ def test_offloaded_validation_builds_no_face_context(face_root) -> None:
         assert trainer._loss_denominator_is_fixed
 
 
-def test_offloading_does_not_change_the_denominator(face_root) -> None:
-    """The constant is the face's whether or not a face context exists."""
-    torch.testing.assert_close(
-        _score_with(_block_config(face_root)),
-        _score_with(_offload_config(face_root)),
-        rtol=0,
-        atol=0,
-    )
+@pytest.mark.parametrize("blend_scope", ["face", "rank"])
+def test_offloaded_training_does_not_require_a_packed_group_reader(
+    face_root, monkeypatch, blend_scope
+) -> None:
+    """Pre-cut tile stores have no shared packed-cache frame reader."""
+    if blend_scope == "rank":
+        config = _block_config(face_root)
+    else:
+        config = _face_config(face_root, **{"--validation_mode": "offload"})
+    with MultitonScope():
+        trainer = Trainer(config)
+
+        def no_packed_reader():
+            trainer.group_frame_reader = None
+
+        monkeypatch.setattr(trainer, "_build_group_frame_reader", no_packed_reader)
+        trainer.init_data_loaders(max(trainer.replay_cfg.max_lead_steps))
+        assert trainer.group_frame_reader is None
+
+
+def test_both_validation_still_requires_a_packed_group_reader(
+    face_root, monkeypatch
+) -> None:
+    """Mode `both` includes inline validation and must retain its guard."""
+    config = _face_config(face_root, **{"--validation_mode": "both"})
+    with MultitonScope():
+        trainer = Trainer(config)
+
+        def no_packed_reader():
+            trainer.group_frame_reader = None
+
+        monkeypatch.setattr(trainer, "_build_group_frame_reader", no_packed_reader)
+        with pytest.raises(RuntimeError, match="needs the tiles cut from one packed cache"):
+            trainer.init_data_loaders(max(trainer.replay_cfg.max_lead_steps))
 
 
 def test_an_offloaded_run_trains_and_leaves_a_snapshot_per_epoch(
@@ -806,7 +834,7 @@ def test_an_offloaded_run_trains_and_leaves_a_snapshot_per_epoch(
 ) -> None:
     caplog.set_level(logging.INFO)
     with MultitonScope():
-        trainer = Trainer(_offload_config(face_root))
+        trainer = Trainer(_block_config(face_root))
         trainer.run()
         assert trainer._diverged_writebacks == 0
         snapshots = sorted(trainer.ckpt_paths.checkpoint_dir.glob("ema_ckpt_ep*.pt"))

@@ -53,6 +53,21 @@ def test_config_guard_accepts_runtime_and_branch_only_differences(tmp_path):
     assert validation_config_mismatches(run, validator) == []
 
 
+def test_config_guard_accepts_validator_local_workload_counts(tmp_path):
+    run, validator = _run_and_validator_configs(tmp_path)
+    validator["one_step_val_num"] = 25
+    validator["short_autoregressive_val_num"] = 1
+    validator["long_autoregressive_val_num"] = 0
+    assert validation_config_mismatches(run, validator) == []
+
+
+def test_config_guard_still_rejects_a_rollout_horizon_change(tmp_path):
+    run, validator = _run_and_validator_configs(tmp_path)
+    validator["short_autoregressive_val_length"] += 1
+    mismatches = validation_config_mismatches(run, validator)
+    assert any("short_autoregressive_val_length" in item for item in mismatches)
+
+
 def test_offload_options_are_removed_before_config_parsing(tmp_path):
     options, remaining = _parse_offload_args(
         [

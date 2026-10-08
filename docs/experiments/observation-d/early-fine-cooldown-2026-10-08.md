@@ -18,6 +18,9 @@ Contents: [Results](#results) · [Components and persistence](#components-and-pe
 [Validation curves](#validation-curves) · [30-day maps](#30-day-maps) ·
 [Protocol](#protocol) · [Verification](#verification).
 
+The [continuous 365-day comparison](early-fine-annual-2026-10-08.md) is a separate
+fixed-checkpoint diagnostic covering both schedules.
+
 ## Results
 
 Each row compares a validation-selected cooldown checkpoint with its own

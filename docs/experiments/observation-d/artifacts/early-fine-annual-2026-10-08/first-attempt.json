@@ -1,0 +1,153 @@
+{
+  "producer": "b8db87731736c18d0ad4497d0a8bef42e8e2ce34",
+  "jobs": [
+    {
+      "stage": "audit",
+      "job_id": "19446140",
+      "command": [
+        "sbatch",
+        "--parsable",
+        "--account=torch_pr_347_lzanna",
+        "--nodes=1",
+        "--ntasks=1",
+        "--chdir=/scratch/jr7309",
+        "--export=ALL",
+        "--partition=cpu_short",
+        "--cpus-per-task=4",
+        "--mem=24G",
+        "--time=00:20:00",
+        "--job-name=annual-data-audit",
+        "--output=/scratch/jr7309/runs/2026-10-08-early-fine-annual/logs/audit-%A_%a.out",
+        "--error=/scratch/jr7309/runs/2026-10-08-early-fine-annual/logs/audit-%A_%a.err",
+        "/scratch/jr7309/runs/2026-10-08-early-fine-annual/source/b8db87731736c18d0ad4497d0a8bef42e8e2ce34/scripts/slurm_early_fine_annual.sbatch",
+        "/scratch/jr7309/runs/2026-10-08-early-fine-annual",
+        "/scratch/jr7309/runs/2026-10-08-early-fine-annual/source/b8db87731736c18d0ad4497d0a8bef42e8e2ce34",
+        "audit",
+        "b8db87731736c18d0ad4497d0a8bef42e8e2ce34"
+      ]
+    },
+    {
+      "stage": "evaluate",
+      "job_id": "19446141",
+      "command": [
+        "sbatch",
+        "--parsable",
+        "--account=torch_pr_347_lzanna",
+        "--nodes=1",
+        "--ntasks=1",
+        "--chdir=/scratch/jr7309",
+        "--export=ALL",
+        "--partition=rtx6000_lzanna",
+        "--gres=gpu:1",
+        "--cpus-per-task=8",
+        "--mem=48G",
+        "--time=01:00:00",
+        "--array=0-9%5",
+        "--dependency=afterok:19446140",
+        "--job-name=early-fine-annual",
+        "--output=/scratch/jr7309/runs/2026-10-08-early-fine-annual/logs/evaluate-%A_%a.out",
+        "--error=/scratch/jr7309/runs/2026-10-08-early-fine-annual/logs/evaluate-%A_%a.err",
+        "/scratch/jr7309/runs/2026-10-08-early-fine-annual/source/b8db87731736c18d0ad4497d0a8bef42e8e2ce34/scripts/slurm_early_fine_annual.sbatch",
+        "/scratch/jr7309/runs/2026-10-08-early-fine-annual",
+        "/scratch/jr7309/runs/2026-10-08-early-fine-annual/source/b8db87731736c18d0ad4497d0a8bef42e8e2ce34",
+        "evaluate",
+        "b8db87731736c18d0ad4497d0a8bef42e8e2ce34"
+      ]
+    }
+  ],
+  "models": [
+    {
+      "name": "U-global",
+      "run": "/scratch/jr7309/runs/2026-10-08-early-fine-annual/sources/U-global",
+      "checkpoint_sha256": "76058c08c74a92942612aedd75ee961a1c53125076dd449c77007710c05ea4eb",
+      "training_producer": "ba22420144ef7576c324c40f74bae614ab77c1d4",
+      "selected_global_step": 3800
+    },
+    {
+      "name": "U-multitask-early",
+      "run": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-observation-cache/U-multitask-early",
+      "checkpoint_sha256": "e07cb192c8455bfb82a4a0fd16c691d283b30eaa99231c3c00f84744622ad0b3",
+      "training_producer": "8c9a7403edbcd3a37fe09c3af687cbb99a62be85",
+      "selected_global_step": 3900
+    },
+    {
+      "name": "U-multitask-early-latent",
+      "run": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-observation-cache/U-multitask-early-latent",
+      "checkpoint_sha256": "7002aac05718cb13837cd543306d8a21634f33f1a27292a75a6ae88f90cbd5b5",
+      "training_producer": "8c9a7403edbcd3a37fe09c3af687cbb99a62be85",
+      "selected_global_step": 4000
+    },
+    {
+      "name": "U-multitask-early-fine",
+      "run": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-observation-cache/U-multitask-early-fine",
+      "checkpoint_sha256": "abdc00d8d4decf73ccb86308d8110c2ef4328bf2284b643644dacf72214a15a8",
+      "training_producer": "8c9a7403edbcd3a37fe09c3af687cbb99a62be85",
+      "selected_global_step": 4000
+    },
+    {
+      "name": "U-multitask-early-fine-latent",
+      "run": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-observation-cache/U-multitask-early-fine-latent",
+      "checkpoint_sha256": "506e37955749ef5c36d2a3e242708ec0a7b3b26e4eec323c5b6164876506b0cb",
+      "training_producer": "8c9a7403edbcd3a37fe09c3af687cbb99a62be85",
+      "selected_global_step": 4000
+    },
+    {
+      "name": "U-global-cooldown",
+      "run": "/scratch/jr7309/runs/2026-10-08-early-fine-cooldown/U-global",
+      "checkpoint_sha256": "6db6d66ffbf5684d0cc7e962b1fa08a69ec88f00a1a53a3200b72e98dee2dc6e",
+      "training_producer": "4a1cd7a9bfb60d53b990b331fa0232c91aab5bb8",
+      "selected_global_step": 3700
+    },
+    {
+      "name": "U-multitask-early-cooldown",
+      "run": "/scratch/jr7309/runs/2026-10-08-early-fine-cooldown/U-multitask-early",
+      "checkpoint_sha256": "95951b0b968c80cfe8737004dd806edaf3d4dd2b3d5318921c78599ccbf4a8e3",
+      "training_producer": "4a1cd7a9bfb60d53b990b331fa0232c91aab5bb8",
+      "selected_global_step": 3500
+    },
+    {
+      "name": "U-multitask-early-latent-cooldown",
+      "run": "/scratch/jr7309/runs/2026-10-08-early-fine-cooldown/U-multitask-early-latent",
+      "checkpoint_sha256": "6acb16f1ad3949b17cd505b7ef2c3f079a09ed78f921001ed8212c4ef3b372bb",
+      "training_producer": "4a1cd7a9bfb60d53b990b331fa0232c91aab5bb8",
+      "selected_global_step": 3500
+    },
+    {
+      "name": "U-multitask-early-fine-cooldown",
+      "run": "/scratch/jr7309/runs/2026-10-08-early-fine-cooldown/U-multitask-early-fine",
+      "checkpoint_sha256": "12327e2feee50def2ae37c161da76fef70d4b63549972d3bb756252c57c0251b",
+      "training_producer": "4a1cd7a9bfb60d53b990b331fa0232c91aab5bb8",
+      "selected_global_step": 4000
+    },
+    {
+      "name": "U-multitask-early-fine-latent-cooldown",
+      "run": "/scratch/jr7309/runs/2026-10-08-early-fine-cooldown/U-multitask-early-fine-latent",
+      "checkpoint_sha256": "11df6d8d60285fce32807b070dcccde7d16dc2a2b00a1afdb1f083dec81898cc",
+      "training_producer": "4a1cd7a9bfb60d53b990b331fa0232c91aab5bb8",
+      "selected_global_step": 4000
+    }
+  ],
+  "callbacks": [
+    {
+      "stage": "audit",
+      "job_id": "19446140",
+      "callback": "19446158",
+      "registration": {
+        "credential_file": "/home/jder/.local/state/codex-async-followup/credentials/torch-19446140.json",
+        "event_id": "93b84ccb-2958-451b-90fc-9b4504020b0f",
+        "thread_id": "01a0d8be-2e2a-7883-8dea-2d99d0087d9c"
+      }
+    },
+    {
+      "stage": "evaluate",
+      "job_id": "19446141",
+      "callback": "19446161",
+      "registration": {
+        "credential_file": "/home/jder/.local/state/codex-async-followup/credentials/torch-19446141.json",
+        "event_id": "05bd3cb2-53dd-4cb5-a74f-52ad19ab078e",
+        "thread_id": "01a0d8be-2e2a-7883-8dea-2d99d0087d9c"
+      }
+    }
+  ],
+  "relay_service": "early-fine-annual-callback-relay.service"
+}

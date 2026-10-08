@@ -57,4 +57,30 @@ The annual evaluator adds persistence and permits a relocated monthly-data path
 only when its fingerprints match training. Eleven targeted tests pass, including
 single initialization through 73 steps, exclusion of future observations, exact
 calendar-month overlap weights, and rejection of changed normalization files.
-Submission and verified execution status will be recorded here concisely.
+
+**Submitted October 8:** CPU data audit **19446316** and evaluation array
+**19446317** (ten tasks, up to five concurrent RTX GPUs; eight CPUs and 48 GiB
+per task). Each evaluation allocation is capped at one hour. Evaluation depends
+on successful audit; at the initial check both stages are pending. No annual
+result is available yet.
+
+Evaluation producer: `5f61785a0aea8a55e7c4313518efe3d9d77e2a7f`.
+The original U-global selected checkpoint matches SHA256
+`76058c08c74a92942612aedd75ee961a1c53125076dd449c77007710c05ea4eb`
+on Beta, local staging and Torch. All ten evaluations share the Torch runtime,
+including this external parent control.
+
+[Exact checkpoint/data paths](artifacts/early-fine-annual-2026-10-08/paths.json) ·
+[Submission and callback records](artifacts/early-fine-annual-2026-10-08/submission.json).
+Durable completion callbacks use the existing SSH relay because Torch HTTPS
+is blocked. No recurring chat timer is used.
+
+Reporting uses the [verified annual collector](../../../scripts/collect_early_fine_annual.py)
+and shared map renderer. The renderer now reads lead/case metadata; its six
+existing day-30 control figures still pass exact pixel checks.
+
+The first CPU audit (19446140, 31 seconds) caught a new audit-path error: the
+training data fingerprint refers to `SHA256SUMS`, not `manifest.json`.
+That lookup was corrected and retested; no data, model, normalization, or metric
+changed. Its unstarted GPU array and callbacks were canceled/revoked before
+replacement. [Original attempt](artifacts/early-fine-annual-2026-10-08/first-attempt.json).

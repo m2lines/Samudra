@@ -119,6 +119,8 @@ def plot(bundle, output, global_observations=False):
     with np.load(bundle) as archive:
         arrays = {key: archive[key] for key in archive.files}
     provenance = json.loads(str(arrays["provenance"]))
+    cases = provenance.get("cases", CASES)
+    lead_days = provenance.get("lead_bin_end_days", 30)
     lon = (arrays["lon"] + 180) % 360 - 180
     order = np.argsort(lon)
     lat = arrays["lat"]
@@ -149,9 +151,9 @@ def plot(bundle, output, global_observations=False):
         raise ValueError("Map labels do not match the exported methods")
     output.mkdir(parents=True, exist_ok=True)
     render = []
-    for case_index, case in enumerate(CASES):
+    for case_index, case in enumerate(cases):
         for anomaly in (False, True):
-            if not anomaly and case != "2022-07":
+            if not anomaly and case != cases[-1]:
                 continue
             fields = all_fields[:, case_index].copy()
             if anomaly:
@@ -220,9 +222,11 @@ def plot(bundle, output, global_observations=False):
                     extend="both",
                 )
                 kind = "anomalies" if anomaly else "fields"
-                midpoint = provenance["case_times"][case]["day30_bin_midpoint"][:10]
+                midpoint = provenance["case_times"][case][
+                    f"day{lead_days}_bin_midpoint"
+                ][:10]
                 fig.suptitle(
-                    f"{variable} · {case} origin · day-30 five-day mean\nMidpoint {midpoint} · "
+                    f"{variable} · {case} origin · day-{lead_days} five-day mean\nMidpoint {midpoint} · "
                     + (
                         "training-climatology anomalies"
                         if anomaly
@@ -231,7 +235,7 @@ def plot(bundle, output, global_observations=False):
                     fontsize=10,
                     y=1 - 12 / height,
                 )
-                stem = f"day30-{case}-{kind}-{'sst' if column == 0 else 'adt'}"
+                stem = f"day{lead_days}-{case}-{kind}-{'sst' if column == 0 else 'adt'}"
                 fig.canvas.draw()
                 for ax in axes:
                     np.testing.assert_allclose(

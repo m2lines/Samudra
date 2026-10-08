@@ -1,0 +1,30 @@
+{
+  "counts": {
+    "om4": 8000,
+    "observation": 8000
+  },
+  "score": 0.7691079843607409,
+  "integrated_ratios_to_frozen_climatology": {
+    "sst_rmse": 0.6942870243192598,
+    "velocity_rmse": 0.9572667380511884,
+    "eke_rmse": 1.2022203989568088,
+    "ohc_0_700_rmse": 0.9733914465364369,
+    "ohc_700_2000_rmse": 1.0958655182579815
+  },
+  "integrated_mean": 0.9846062252243352,
+  "spectral_mean_error_dex": 0.5536097434971468,
+  "by_field_spectra": {
+    "sst": {
+      "mean_error_dex": 0.18120752594790523,
+      "geometric_power_ratio": 0.7341475585236498
+    },
+    "adt": {
+      "mean_error_dex": 0.13707384589302496,
+      "geometric_power_ratio": 0.7788161926222938
+    },
+    "eke": {
+      "mean_error_dex": 1.3425478586505097,
+      "geometric_power_ratio": 0.045588149762203295
+    }
+  }
+}

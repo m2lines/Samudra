@@ -3,6 +3,11 @@
 
 # Global mixed latent diffusion: 16,000 updates
 
+**Completed October 7:** training reached exactly 8k OM4 / 8k observation updates,
+including the final 2k cosine cooldown. See the [final results](global-final-results.md)
+for held-out skill, annual failures, member diagnostics and allocation. The dated
+execution notes below are historical.
+
 Authorized October 1: run the full 8,000 OM4 + 8,000 observation updates at effective
 batch eight, with intermediate checkpoints and early evaluations. This replaces
 the proposed stop for approval at 2,000 observation updates in the

@@ -20,12 +20,19 @@ def summarize(root):
     if any(complete.get(k) != v for k, v in protocol.items()):
         raise ValueError("Native latent completion contract differs")
     files = complete["files"]
-    if len(files) != 24 or len(set(protocol["origins"])) != 24:
+    record_files = [name for name in files if name.endswith(".json")]
+    array_files = [name for name in files if name.endswith(".npz")]
+    if (
+        len(record_files) != 24
+        or len(set(protocol["origins"])) != 24
+        or len(array_files) not in (0, 3)
+        or len(files) != len(record_files) + len(array_files)
+    ):
         raise ValueError("Require the complete native 24-origin cohort")
     for name, expected in files.items():
         if Path(name).name != name or digest(root / name) != expected:
             raise ValueError("Native latent diagnostic hash differs")
-    records = [json.loads((root / name).read_text()) for name in files]
+    records = [json.loads((root / name).read_text()) for name in record_files]
     if sorted(r["origin"] for r in records) != sorted(protocol["origins"]):
         raise ValueError("Native cohort differs")
     results = []
@@ -66,7 +73,11 @@ def summarize(root):
         results=results,
         errors=dict(channels=protocol["channels"], leads=protocol["leads"], **errors),
         temporal=temporal,
-        scope="OM4 reference, 24 origins, 60S-60N. Static support permits equal-origin averaging of per-channel MSE. Velocity scores pool area-weighted numerators; temporal correlations are descriptive equal-origin means. Independent latent readouts do not represent coherent uncertain trajectories.",
+        scope=(
+            "OM4 reference, 24 origins, "
+            + ("global wet support" if protocol.get("global_domain") else "60S-60N")
+            + ". Static support permits equal-origin averaging of per-channel MSE. Velocity scores pool area-weighted numerators; temporal correlations are descriptive equal-origin means. Independent latent readouts do not represent coherent uncertain trajectories."
+        ),
     )
 
 

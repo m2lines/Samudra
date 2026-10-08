@@ -1,0 +1,25 @@
+{
+  "archives": {
+    "deterministic-annual-reference.tar": {
+      "sha256": "18dd1536cd4e59202c1b044f88fbdce7134f0905a508c9ca61495f4bf97ae4ef",
+      "bytes": 300144640
+    },
+    "final-annual-and-point.tar": {
+      "sha256": "da637a35e8c7cac23634dfadf21852bc10a11aff799cf08395d33ffdcfbf1ee9",
+      "bytes": 1540741120
+    },
+    "final-test-part1.tar": {
+      "sha256": "ce5a08aa522c83563618eef6382f5f6487ad9bd06443d612b0a3825a05e776ed",
+      "bytes": 2067875840
+    },
+    "final-test-part2.tar": {
+      "sha256": "011ed136738dabd138f5f8012cfb1b8bb5670362193d759773a93527c371575a",
+      "bytes": 2069207040
+    }
+  },
+  "method": "Complete remote/local archive SHA256 equality, followed by every NPZ receipt check in report renderers; annual target arrays and monthly support pairing also verified",
+  "remote_root": "/scratch/jr7309/diffusion-global-v1/evaluation",
+  "test_exports": 96,
+  "native_origins": 24,
+  "annual_origins": 3
+}

@@ -3,12 +3,17 @@
 
 # Global diffusion: cooldown within the 16k run
 
+**Completed October 7:** training reached exactly 8k OM4 / 8k observation updates,
+including the final 2k cosine cooldown. See the [final results](global-final-results.md)
+for held-out skill, annual failures, member diagnostics and allocation. The dated
+execution notes below are historical.
+
 Authorized October 4 after the "Unet limitations" study. Apply a cosine LR cooldown
 **over the final 2,000 updates of the existing 16,000-update run**. Total exposure
 remains exactly 8,000 OM4 + 8,000 observation updates at effective batch eight.
 There are no additional training updates or material training-time increase.
 Compare against earlier checkpoints, including a new checkpoint immediately
-before the taper. No cooldown updates have run yet.
+before the taper. The cooldown is now complete; the original plan follows.
 
 ## Motivation and interpretation
 

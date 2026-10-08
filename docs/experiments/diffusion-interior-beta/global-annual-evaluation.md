@@ -3,6 +3,11 @@
 
 # Final global annual evaluation
 
+**Completed October 7:** training reached exactly 8k OM4 / 8k observation updates,
+including the final 2k cosine cooldown. See the [final results](global-final-results.md)
+for held-out skill, annual failures, member diagnostics and allocation. The dated
+execution notes below are historical.
+
 Prepared for the final 8k OM4 / 8k observation checkpoint; **not yet GPU-evaluated**.
 This evaluation does not change the training producer or the nine-origin monthly
 validation procedure. It reports long trajectories separately from selection.

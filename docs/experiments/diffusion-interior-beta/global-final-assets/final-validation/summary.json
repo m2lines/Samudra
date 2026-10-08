@@ -1,0 +1,58 @@
+{
+  "counts": {
+    "om4": 8000,
+    "observation": 8000
+  },
+  "score": 0.7396864926061631,
+  "calibration": {
+    "surface": {
+      "mean_squared_error": 0.010586456236980582,
+      "ensemble_variance": 0.0041181616740938246,
+      "fair_crps": 0.04970881872811854,
+      "empirical_crps": 0.053316811661908,
+      "coverage_80": 0.449236421541377,
+      "coverage_90": 0.5196112791143888,
+      "rmse": 0.1028905060585309,
+      "spread": 0.06417290451657791,
+      "spread_rmse": 0.6237009319409134,
+      "rank_probabilities": [
+        0.12974597694806186,
+        0.079922853362943,
+        0.07131564104416598,
+        0.06984898675649064,
+        0.0718551816753658,
+        0.07763176669975193,
+        0.08979147198994154,
+        0.11792382912757213,
+        0.29196429239570715
+      ],
+      "outside_ensemble_fraction": 0.421710269343769
+    },
+    "interior": {
+      "mean_squared_error": 0.00632860533152859,
+      "ensemble_variance": 0.001873642135771797,
+      "fair_crps": 0.0339154068239492,
+      "empirical_crps": 0.036059466675269936,
+      "coverage_80": 0.4265996048041583,
+      "coverage_90": 0.4937030817613879,
+      "rmse": 0.0795525318989194,
+      "spread": 0.04328558808393155,
+      "spread_rmse": 0.544113267682427,
+      "rank_probabilities": [
+        0.19359524543364642,
+        0.08802511387177944,
+        0.07338788457937499,
+        0.06869819401375449,
+        0.06808031673199412,
+        0.07151655651593498,
+        0.07963086710924347,
+        0.10101836848118763,
+        0.2560474532630844
+      ],
+      "outside_ensemble_fraction": 0.44964269869673085
+    }
+  },
+  "calibration_units": "Observation-standardized, pooled finite wet-area support",
+  "spectra": "32x32 entirely observed Pacific patch per field/date; not a global spectrum",
+  "checkpoint_sha256": "853b3353c6d926754a15f19437493a7497813ce2b88cb058fe1a616cc838e6e5"
+}

@@ -61,6 +61,8 @@ class Samples:
             self.stats["surface_mean"],
             self.stats["surface_std"],
         )
+        if "prepared_sample" in self.__dict__:
+            self.prepared_sample.cache_clear()
         self.grid["mean"], self.grid["std"] = mean, std
         self.mean = self.tensor(mean)[None, None, :, None, None]
         self.std = self.tensor(std)[None, None, :, None, None]
@@ -131,7 +133,37 @@ class Samples:
 
         return read
 
+    @cached_property
+    def prepared_sample(self):
+        # Opt-in CPU cache for the fixed training/validation inputs. Model
+        # outputs and CUDA tensors are never retained here.
+        return lru_cache(maxsize=256)(self.prepare_sample)
+
+    @cached_property
+    def coverage_sample(self):
+        @lru_cache(maxsize=256)
+        def read(path):
+            raw = self.read_sample(Path(path))["surface"]
+            return np.isfinite(raw) & self.grid["mask"][[38, 76]]
+
+        return read
+
+    def load_coverage(self, path):
+        return self.tensor(self.coverage_sample(Path(path))[:19])[None]
+
     def load(self, path):
+        prepare = (
+            self.prepared_sample
+            if getattr(self, "cache_prepared", False)
+            else self.prepare_sample
+        )
+        prepared = prepare(Path(path))
+        return {
+            k: v if k in ("raw", "name") else self.tensor(v)
+            for k, v in prepared.items()
+        }
+
+    def prepare_sample(self, path):
         sample = self.read_sample(Path(path))
         raw = sample["surface"]
         validity = np.isfinite(raw) & self.grid["mask"][[38, 76]]
@@ -150,15 +182,15 @@ class Samples:
             raise ValueError(f"Nonfinite inputs: {path}")
         interior = sample["interior"].reshape(28, *raw.shape[-2:])
         return dict(
-            surface=self.tensor(normalized)[None],
-            atmosphere=self.tensor(atmosphere)[None],
-            contexts=self.tensor(
-                context_planes(self.grid["lat"], self.grid["lon"], sample["midpoints"])
+            surface=normalized[None],
+            atmosphere=atmosphere[None],
+            contexts=context_planes(
+                self.grid["lat"], self.grid["lon"], sample["midpoints"]
             )[None],
-            validity=self.tensor(validity)[None],
-            month_weights=self.tensor(sample["month_weights"]),
-            interior=self.tensor(interior)[None],
-            raw_surface=self.tensor(raw[19:])[None],
+            validity=validity[None],
+            month_weights=sample["month_weights"],
+            interior=interior[None],
+            raw_surface=raw[None, 19:],
             raw=sample,
             name=Path(path).stem,
         )

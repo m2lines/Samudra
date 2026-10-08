@@ -170,7 +170,24 @@ class EarlyPilot(JointPilot):
         self.early = EarlySamples(
             args.early_data, self.om4, args.evolution_architecture == "extent-fine"
         )
+        self.data.cache_prepared = True
         if args.joint_probe:
+            for path in [self.training[0], self.validation[0]]:
+                self.data.cache_prepared = False
+                reference = self.data.load(path)
+                self.data.cache_prepared = True
+                cached = self.data.load(path)
+                for name, value in reference.items():
+                    if isinstance(value, torch.Tensor):
+                        torch.testing.assert_close(
+                            cached[name], value, rtol=0, atol=0, equal_nan=True
+                        )
+                torch.testing.assert_close(
+                    self.data.load_coverage(path),
+                    reference["validity"][:, :19],
+                    rtol=0,
+                    atol=0,
+                )
             seeds = [args.seed + 1100008, args.seed + 1100024]
             for seed in seeds:
                 self.early.prefetch.plan([seed])
@@ -185,13 +202,14 @@ class EarlyPilot(JointPilot):
                 dict(
                     seeds=seeds,
                     cpu_arrays_exact=True,
+                    observation_prepared_and_coverage_exact=True,
                     producer=self.manifest["code_commit"],
                 ),
                 self.out / "IO_EQUIVALENT.json",
             )
         self.observation_warm_pool = ThreadPoolExecutor(max_workers=2)
         self.observation_warm = [
-            self.observation_warm_pool.submit(self.data.read_sample, path)
+            self.observation_warm_pool.submit(self.data.prepared_sample, path)
             for path in [*self.training, *self.validation]
         ]
         self.timings = {k: [] for k in ["recent", "early", "observation"]}
@@ -264,6 +282,9 @@ class EarlyPilot(JointPilot):
             coverage,
             completion_weight,
         )
+
+    def observation_coverage(self, path):
+        return self.data.load_coverage(path)
 
     def train_update(self):
         if self.stop_requested:

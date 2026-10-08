@@ -377,6 +377,9 @@ class JointPilot(Pilot):
         )
         self.model.train()
 
+    def observation_coverage(self, path):
+        return self.data.load(path)["validity"][:, :19]
+
     def train_update(self):
         task = self.schedule.task(self.completed)
         count = self.schedule.counts(self.completed)[task]
@@ -405,7 +408,7 @@ class JointPilot(Pilot):
                         coverage_path = self.training[
                             (count * self.args.accumulate + micro) % len(self.training)
                         ]
-                        coverage = self.data.load(coverage_path)["validity"][:, :19]
+                        coverage = self.observation_coverage(coverage_path)
                         loss = self.om4_objective(
                             self.model,
                             self.om4,

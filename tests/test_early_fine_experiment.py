@@ -355,3 +355,107 @@ def test_early_replay_requires_bitwise_reference_equality(monkeypatch, differenc
     else:
         pilot.verify_resume_update()
         assert pilot.resume_evidence["deterministic_reference_bitwise_exact"]
+
+
+@pytest.mark.parametrize("fill", ["zero", "climatology"])
+def test_prepared_observations_and_mask_only_match_original_loader(
+    tmp_path, monkeypatch, fill
+):
+    import pandas as pd
+
+    from samudra.experiments.observation_data import context_planes
+    from samudra.experiments.observation_training import Samples
+
+    rng = np.random.default_rng(17)
+    data = Samples.__new__(Samples)
+    data.device = "cpu"
+    data.surface_fill = fill
+    data.grid = dict(
+        mask=np.ones((77, 4, 8), dtype=bool),
+        mean=rng.normal(size=77).astype("f4"),
+        std=rng.uniform(1, 2, size=77).astype("f4"),
+        lat=np.linspace(-70, 70, 4),
+        lon=np.arange(8) * 45,
+    )
+    data.grid["mask"][:, 0, 0] = False
+    data.stats = dict(
+        surface_climatology=rng.normal(size=(12, 2, 4, 8)).astype("f4"),
+        atmosphere_mean=np.arange(3, dtype="f4"),
+        atmosphere_std=np.arange(1, 4, dtype="f4"),
+    )
+    raw = rng.normal(size=(25, 2, 4, 8)).astype("f4")
+    raw[::2, :, 1, 1] = np.nan
+    source = dict(
+        surface=raw,
+        atmosphere=rng.normal(size=(25, 3, 4, 8)).astype("f4"),
+        interior=rng.normal(size=(28, 4, 8)).astype("f4"),
+        midpoints=pd.date_range("2000-12-01", periods=25, freq="5D").to_numpy(),
+        month_weights=np.ones(6, dtype="f4") / 6,
+    )
+    source["interior"][1, 2, 3] = np.nan
+    path = tmp_path / "2001-03.npz"
+    np.savez(path, **source)
+    # Frozen pre-cache loader formula, including land and missing observations.
+    validity = np.isfinite(raw) & data.grid["mask"][[38, 76]]
+    months = pd.DatetimeIndex(source["midpoints"]).month.to_numpy() - 1
+    filled = np.where(validity, raw, data.stats["surface_climatology"][months])
+    normalized = (filled - data.grid["mean"][[38, 76], None, None]) / data.grid["std"][
+        [38, 76], None, None
+    ]
+    if fill == "zero":
+        normalized = np.where(validity, normalized, 0)
+    normalized *= data.grid["mask"][[38, 76]]
+    expected = dict(
+        surface=data.tensor(normalized)[None],
+        atmosphere=data.tensor(
+            (source["atmosphere"] - data.stats["atmosphere_mean"][None, :, None, None])
+            / data.stats["atmosphere_std"][None, :, None, None]
+        )[None],
+        contexts=data.tensor(
+            context_planes(data.grid["lat"], data.grid["lon"], source["midpoints"])
+        )[None],
+        validity=data.tensor(validity)[None],
+        month_weights=data.tensor(source["month_weights"]),
+        interior=data.tensor(source["interior"])[None],
+        raw_surface=data.tensor(raw[19:])[None],
+    )
+    data.cache_prepared = True
+    for _ in range(2):
+        actual = data.load(path)
+        for name, value in expected.items():
+            torch.testing.assert_close(
+                actual[name], value, rtol=0, atol=0, equal_nan=True
+            )
+        assert actual["name"] == "2001-03"
+    assert data.prepared_sample.cache_info().hits == 1
+    monkeypatch.setattr(
+        data,
+        "prepare_sample",
+        lambda _: pytest.fail("Mask-only loading prepared full fields"),
+    )
+    torch.testing.assert_close(
+        data.load_coverage(path), expected["validity"][:, :19], rtol=0, atol=0
+    )
+    # Per-step metadata cannot pollute cached future examples.
+    actual["mask_seed"] = 10
+    assert "mask_seed" not in data.load(path)
+
+
+def test_prepared_observation_cache_clears_when_normalization_changes():
+    from samudra.experiments.observation_training import Samples
+
+    data = Samples.__new__(Samples)
+    data.device = "cpu"
+    data.grid = {}
+    data.stats = dict(
+        interior_mean=np.arange(28, dtype="f4"),
+        interior_std=np.ones(28, dtype="f4"),
+        surface_mean=np.array([2, 3], dtype="f4"),
+        surface_std=np.array([4, 5], dtype="f4"),
+    )
+    data.prepare_sample = lambda _: data.grid.get("mean", np.zeros(77)).copy()
+    data.prepared_sample("example")
+    assert data.prepared_sample.cache_info().currsize == 1
+    data.use_observation_normalization()
+    assert data.prepared_sample.cache_info().currsize == 0
+    assert data.prepared_sample("example")[38] == 2

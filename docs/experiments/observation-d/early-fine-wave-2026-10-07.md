@@ -482,3 +482,55 @@ CPU callbacks **19422419/19422425/19422426** and the verified local
 At 03:40 ET, both coarse qualification probes had finite real training losses
 and gradients; the fine probes were still warming their OM4 device caches.
 Fresh probe losses are qualification diagnostics, not resumed-model results.
+
+## October 8: exact-reference replay qualification
+
+Callback `a5e99721-56fc-410d-a43f-0b0446c479de` was verified against outputs
+and accounting. Prefetch qualification **19422275 passed three arms**; the fine
+arm without latent channels failed its numerical replay envelope. All four
+serial/prefetched CPU-array comparisons passed. The passing arms' estimated
+training times were 4.57 h (coarse), 4.11 h (coarse+latent), and 5.19 h
+(fine+latent), excluding startup, validation and evaluation. These short-probe
+estimates suggest an I/O improvement but do not establish sustained utilization.
+
+The failed arm restored model, optimizer and RNG state exactly. Four native
+repeats were mostly identical (largest RMS difference 2.28e-9), while one of
+five serialized repeats differed by RMS 1.32e-7 / maximum 1.63e-4. Other
+serialized repeats were identical or much closer. The native-variation envelope
+therefore failed again. Its failed record is retained; the checkpoint was not
+promoted and the gate was not overridden. The pinned PyTorch source explicitly
+provides a deterministic decomposition for CUDA bilinear interpolation when
+deterministic algorithms are enabled, addressing a known source of native
+backward variability in this network.
+
+Producer **`b111057c72373825f1e7b643d1ee8a03daa191c3`** retains the I/O
+changes and replaces the noisy serialization comparison with a **deterministic
+numerical reference used only during replay qualification**. Both native and
+serialized trials use deterministic algorithms and cuDNN settings, with a
+cuBLAS workspace configured at qualification launch. All five native and five
+serialized trials must now agree **bitwise**; any nonzero parameter difference
+fails the additional check. All prior state-restoration checks remain.
+Numerical settings are restored even if the diagnostic fails. Production's
+numerical backend, model, losses, data, seeds and update schedule are unchanged.
+
+**43 targeted tests pass**, including exact-reference rejection of even tiny
+injected drift and restoration of numerical settings on success and failure.
+New all-four qualification array **19423076** uses isolated root
+`/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-exact-replay`.
+At initial bring-up all four tasks were running; the coarse tasks had completed
+fitting and entered cache warmup. No new replay success is claimed yet.
+
+The blocked migration 19422370, utilization array 19422371, and their callbacks
+19422425/19422426 were canceled without starting. Their callback registrations
+were revoked and the superseded relay stopped. Copy-audit and isolated
+utilization scripts have been staged for the new producer, but those jobs and
+production have **not** been submitted. The copy audit additionally requires
+the new `deterministic_reference_bitwise_exact` evidence. Original production
+checkpoints at 1,800 / 1,836 / 758 / 746 updates remain untouched.
+
+Completed attempts now total **11.1950 GPU-hours**, including the additional
+0.5936 h for all four prefetch qualifications; the running replacement is
+additional. Callback **19423241** (`afterany:19423076`), registration
+`203b8dc7-568f-4b64-9efe-3fa6a1b88c87`, and the durable
+`early-fine-torch-exact-replay-callback-relay.service` cover the replacement.
+[Full prior failure, passing probes, replacement receipts and staged audit scripts](artifacts/early-fine-2026-10-07/torch-exact-replay-recovery.json).

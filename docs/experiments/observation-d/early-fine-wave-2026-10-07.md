@@ -624,3 +624,64 @@ At 04:44 ET both diagnostics reached real resumed training: the coarse copy
 completed update 1,820 and the fine latent copy reached 751, with finite losses
 and gradient norms and no startup errors. These are diagnostic-copy positions;
 the production checkpoints remain unchanged.
+
+## October 8: profiles identify redundant observation preparation
+
+Callback `bb028842-3186-4bf2-b6c3-a73dfc8c3994` was verified against
+accounting and both `PROFILE_COMPLETE.json` files. Both tasks of diagnostic
+array **19424361** completed, including CPU profiles and CPU/CUDA traces of
+recent OM4, earlier OM4, and observation updates. No diagnostic weights were
+promoted.
+
+| Profiled model | 24-update wall time | Observation loading | Earlier OM4 sample loading | Checkpoint writing |
+|---|---:|---:|---:|---:|
+| U-multitask-early | 93.49 s | 19.11 s (20.4%) | 0.98 s | 1.88 s |
+| U-multitask-early-fine-latent | 149.98 s | 33.68 s (22.5%) | 20.82 s | 3.05 s |
+
+These are instrumented wall measurements, not throughput or utilization gates.
+The wall wrappers count 192 observation loads per 24-update profile, including
+OM4 microbatches that consume only observation coverage. The loader still
+normalized the full surface and atmospheric inputs, rebuilt geographic/seasonal
+context, and transferred unused fields on each of those calls. Fine early-step
+CUDA traces also show substantial host-to-device transfer cost. Aggregate
+cProfile cumulative times are distorted by concurrent reader activity and must
+not be interpreted as additive wall-time fractions; the table uses explicit
+wall wrappers instead.
+
+Producer **`8c9a7403edbcd3a37fe09c3af687cbb99a62be85`** addresses the
+repeated observation preparation: the early-data experiment opts into a bounded
+256-entry CPU cache of prepared inputs and uses a separate mask-only loader
+for OM4 completion coverage. Observation batches retain the original tensor
+values; each load returns fresh per-step metadata. Changing normalization
+clears the prepared cache. The existing reader threads warm the prepared
+training/validation cache. No GPU tensors or model outputs are cached, and
+fine-field transfer behavior is unchanged in this recovery.
+
+**46 targeted tests pass**, including exact comparison against the prior loader
+formula with missing values, land, both fill policies, and all returned tensors;
+mask-only loading without full preparation; and normalization-cache invalidation.
+Qualification additionally compares real cached/uncached observation tensors
+and coverage exactly, alongside the existing fitting, source-I/O, deterministic
+bitwise replay, and throughput gates. The model, optimizer, data, losses, seed,
+update sequence and observation selection metric are unchanged.
+
+The two completed profiles consumed **0.5208 GPU-hours** (835 and 1,040 allocated
+seconds), bringing completed attempts and retries to **13.2419 GPU-hours**.
+The 05:01 ET quota check reported **4.48 / 5.00 TB** scratch usage. Original
+production checkpoints remain at **1,800 / 1,836 / 758 / 746** updates.
+
+All-four qualification array **19425180** is running in separate root
+`/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-observation-cache`.
+The transferred source archive hash matches its local pinned archive. The
+original data audit and runtime contract are inherited unchanged. The next
+copy-audit and utilization scripts are staged but have not been submitted;
+the copy audit requires the new observation-equality evidence in every arm.
+All four must still pass sustained utilization before production can resume.
+Callback **19425188** (`afterany:19425180`), registration
+`b2e0e58d-edc6-4c8b-8b7e-49f4268530d9`, and the durable
+`early-fine-torch-obscache-callback-relay.service` cover qualification completion.
+[Profiles, operator summaries, qualification receipt, and staged recovery scripts](artifacts/early-fine-2026-10-07/torch-observation-cache-recovery.json).
+
+At 05:09 ET all four arms had completed ten finite fitting updates and entered
+OM4 cache warmup for the joint probe. Qualification is still in progress.
+Remote hashes of all staged recovery scripts match the recorded local scripts.

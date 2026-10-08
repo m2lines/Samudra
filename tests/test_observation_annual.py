@@ -19,7 +19,7 @@ def test_annual_relocated_data_rejects_changed_statistics(tmp_path):
 
     manifest = {}
     for name, key in [
-        ("manifest.json", "data_manifest_sha256"),
+        ("SHA256SUMS", "data_manifest_sha256"),
         ("grid.npz", "grid_sha256"),
         ("statistics.npz", "statistics_sha256"),
     ]:

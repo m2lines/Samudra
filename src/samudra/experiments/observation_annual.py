@@ -27,7 +27,7 @@ LEADS = [5, 15, 30, 90, 180, 365]
 def verify_sample_root(root, manifest):
     """Permit relocated data only when all training data fingerprints match."""
     for filename, key in (
-        ("manifest.json", "data_manifest_sha256"),
+        ("SHA256SUMS", "data_manifest_sha256"),
         ("grid.npz", "grid_sha256"),
         ("statistics.npz", "statistics_sha256"),
     ):
@@ -256,7 +256,7 @@ def main():
     if args.data or args.include_persistence:
         signature.update(
             sample_root=str(sample_root),
-            sample_manifest_sha256=digest(Path(sample_root) / "manifest.json"),
+            sample_manifest_sha256=digest(Path(sample_root) / "SHA256SUMS"),
             include_persistence=args.include_persistence,
         )
     output.mkdir(parents=True, exist_ok=True)

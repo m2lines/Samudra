@@ -195,5 +195,7 @@
     "source_files_rehashed": 48,
     "legacy_results_rehashed": 10,
     "scientific_changes": false
-  }
+  },
+  "callbacks_superseded_by": "collection-submission.json",
+  "stage_callbacks_revoked": true
 }

@@ -79,20 +79,28 @@ The earlier annual verifier mistakenly compared file suffixes against `json`/`np
 
 Ruff, mypy, schema validation, secret detection, and ten targeted tests pass. The repository-wide REUSE hook has 47 pre-existing missing-license findings in unrelated report artifacts; new files include their licenses.
 
-**October 8 recovery:** audit **19447968 passed**, rehashing all 48 transferred
-source files, repeating the full data audit, and validating the ten existing
-annual outputs. Evaluation array **19447970** has begun real inference; its
-remaining tasks are waiting for RTX capacity (twelve tasks, at most four concurrent
-GPUs). The existing early/fine array **19446317** completed all ten tasks; five
-belong in this presentation comparison.
+**October 8:** all twelve new model evaluations in **19447970 completed**.
+Together with five reused models from **19446317**, every presentation model
+has three annual origins, its expected selected-checkpoint hash, and eleven
+hashed output files. CPU collection/export **19448382** is queued; it rechecks
+all file hashes and shared references before calculating the matched scores.
+No new scientific conclusion is available until this collection is complete.
 
-The first audit **19447443** passed its data checks but failed at an unnecessary
-module-load command. Its dependent array **19447444** never started and used
-zero GPU-hours. The replacement changes only the launcher guard; numerical code,
-checkpoints, and evaluation protocol are unchanged. Original records are retained.
+Audit **19447968** passed the full data checks, rehashed all 48 transferred source
+files, and repaired verification of the ten existing annual outputs. The first
+audit **19447443** passed its data checks but failed at an unnecessary module-load
+command; its GPU array never started. Recovery changed only that launcher guard.
+Original records and outputs are preserved.
+
+The twelve additional evaluations used **0.2156 GPU-hours**. Including all ten
+previous early/fine evaluations (five controls plus five supplemental cooldowns),
+the two annual arrays used **0.3936 GPU-hours** in total; the failed CPU audit and
+unstarted dependent array added no GPU-hours. Training costs are separate.
 
 [Original submission](artifacts/presentation-annual-2026-10-08/submission.json) ·
-[Recovery and completion callbacks](artifacts/presentation-annual-2026-10-08/recovery-submission.json).
-Callbacks **19448008/19448129** and the supervised SSH relay are installed. The
-final report will combine the twelve new models with the five original early/fine
-controls after checking complete outputs and hashes for every model.
+[Recovery](artifacts/presentation-annual-2026-10-08/recovery-submission.json) ·
+[Completion markers and accounting](artifacts/presentation-annual-2026-10-08/completion-snapshot.json) ·
+[Collection and final callback](artifacts/presentation-annual-2026-10-08/collection-submission.json).
+The reporting scripts are pinned at `1c1c6efee919198e88e03455f62d79b4ac0efa71`.
+The supervised SSH relay and callback **19448405** cover collection; superseded
+stage callbacks were revoked to avoid duplicate updates.

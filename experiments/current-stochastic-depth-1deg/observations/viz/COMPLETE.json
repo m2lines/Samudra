@@ -1,0 +1,36 @@
+{
+  "figures": [
+    "eke_spatial_spectra_vs_duacs.pdf",
+    "ssta_spatial_spectra_vs_oisst.pdf",
+    "ke_temporal_spectra_vs_duacs.pdf",
+    "eke_spatial_spectra_interannual.pdf",
+    "ssta_spatial_spectra_interannual.pdf",
+    "ke_temporal_spectra_interannual.pdf",
+    "global_sst.pdf",
+    "global_sst_residual.pdf",
+    "global_surface_eke.pdf",
+    "global_surface_eke_residual.pdf",
+    "global_ohc_upper700.pdf",
+    "global_ohc_upper700_residual.pdf",
+    "surface_geostrophic_velocity_rmse_vs_duacs.pdf",
+    "surface_eke_rmse_vs_duacs.pdf",
+    "sst_rmse_vs_oisst.pdf",
+    "ohc_per_area_rmse_vs_argo_iap_0_700m.pdf",
+    "ohc_per_area_rmse_vs_argo_iap_700_2000m.pdf",
+    "sst_residual_variance_vs_oisst.pdf",
+    "ohc_upper700_residual_variance_vs_argo_iap.pdf",
+    "annual_total_rmse_vs_observations.pdf"
+  ],
+  "elapsed_seconds": 8551.548589699902,
+  "models": [
+    "control_epoch_0070",
+    "control_ema_latest",
+    "sd01_epoch_0070",
+    "sd01_ema_latest",
+    "om4"
+  ],
+  "masking": "Original per-channel wet masks; stored predictions unchanged",
+  "headline_metrics": "Reused verified masked scoring CSV",
+  "spectral_scores": 45,
+  "pdf_storage": "Original PDFs retained under the remote job output directory; PNG counterparts committed here."
+}

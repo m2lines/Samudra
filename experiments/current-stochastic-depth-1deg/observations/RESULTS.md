@@ -9,6 +9,10 @@ All four saved rollouts have now been scored against DUACS, OISST, and IAP, toge
 
 This supplements the [OM4 comparison report](../results/RESULTS.md). It is a metrics-only backfill: no retraining or rollout regeneration.
 
+## Figures and spectral comparison
+
+The [complete visualization report](viz/RESULTS.md) adds 20 figures, all 45 regional spectral scores, and time-series diagnostics. SD has mixed spectral effects: better North Pacific/Gulf Stream spatial spectra, but worse global/Gulf Stream temporal KE spectra, with stronger SST cooling drift. These results qualify the comparison without changing the primary RMSE findings below.
+
 ## Primary observation RMSE
 
 Lower is better. OHC is displayed in GJ/m² (the CSV stores J/m²).

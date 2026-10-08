@@ -1,0 +1,46 @@
+diagnostic,model,region,log10_rmse_dex,available
+Surface EKE spatial spectra vs DUACS,control_epoch_0070,North Pacific,3.5313013359022243,True
+Surface EKE spatial spectra vs DUACS,control_epoch_0070,Gulf Stream,4.034445195639805,True
+Surface EKE spatial spectra vs DUACS,control_epoch_0070,Agulhas,2.169730052679928,True
+Surface EKE spatial spectra vs DUACS,control_ema_latest,North Pacific,3.6369218826619925,True
+Surface EKE spatial spectra vs DUACS,control_ema_latest,Gulf Stream,3.9756091479618334,True
+Surface EKE spatial spectra vs DUACS,control_ema_latest,Agulhas,2.18200853102016,True
+Surface EKE spatial spectra vs DUACS,sd01_epoch_0070,North Pacific,3.5252966149798923,True
+Surface EKE spatial spectra vs DUACS,sd01_epoch_0070,Gulf Stream,3.72995504424005,True
+Surface EKE spatial spectra vs DUACS,sd01_epoch_0070,Agulhas,2.3049272004544954,True
+Surface EKE spatial spectra vs DUACS,sd01_ema_latest,North Pacific,3.6183322260981705,True
+Surface EKE spatial spectra vs DUACS,sd01_ema_latest,Gulf Stream,3.751393011404518,True
+Surface EKE spatial spectra vs DUACS,sd01_ema_latest,Agulhas,2.2860962612519224,True
+Surface EKE spatial spectra vs DUACS,om4,North Pacific,3.3358294683722267,True
+Surface EKE spatial spectra vs DUACS,om4,Gulf Stream,3.6240253106628093,True
+Surface EKE spatial spectra vs DUACS,om4,Agulhas,2.068033922664473,True
+SST anomaly spatial spectra vs OISST,control_epoch_0070,North Pacific,1.2837319450278648,True
+SST anomaly spatial spectra vs OISST,control_epoch_0070,Gulf Stream,0.8418438181926652,True
+SST anomaly spatial spectra vs OISST,control_epoch_0070,Agulhas,0.9320610091887345,True
+SST anomaly spatial spectra vs OISST,control_ema_latest,North Pacific,1.3057623400151441,True
+SST anomaly spatial spectra vs OISST,control_ema_latest,Gulf Stream,0.8025827032837879,True
+SST anomaly spatial spectra vs OISST,control_ema_latest,Agulhas,0.9383152846754389,True
+SST anomaly spatial spectra vs OISST,sd01_epoch_0070,North Pacific,1.2401416851890392,True
+SST anomaly spatial spectra vs OISST,sd01_epoch_0070,Gulf Stream,0.6959441039236685,True
+SST anomaly spatial spectra vs OISST,sd01_epoch_0070,Agulhas,0.9408956446880887,True
+SST anomaly spatial spectra vs OISST,sd01_ema_latest,North Pacific,1.253928535692575,True
+SST anomaly spatial spectra vs OISST,sd01_ema_latest,Gulf Stream,0.7262597951727903,True
+SST anomaly spatial spectra vs OISST,sd01_ema_latest,Agulhas,0.9373528838275426,True
+SST anomaly spatial spectra vs OISST,om4,North Pacific,0.8827866703544557,True
+SST anomaly spatial spectra vs OISST,om4,Gulf Stream,0.5500287517474421,True
+SST anomaly spatial spectra vs OISST,om4,Agulhas,0.743802225193266,True
+Surface geostrophic KE temporal spectra vs DUACS,control_epoch_0070,Global,1.4069561893815066,True
+Surface geostrophic KE temporal spectra vs DUACS,control_epoch_0070,Gulf Stream,3.024590108697028,True
+Surface geostrophic KE temporal spectra vs DUACS,control_epoch_0070,Agulhas,1.737011603209242,True
+Surface geostrophic KE temporal spectra vs DUACS,control_ema_latest,Global,1.4369086828240794,True
+Surface geostrophic KE temporal spectra vs DUACS,control_ema_latest,Gulf Stream,3.0450686051962603,True
+Surface geostrophic KE temporal spectra vs DUACS,control_ema_latest,Agulhas,1.7553355213980901,True
+Surface geostrophic KE temporal spectra vs DUACS,sd01_epoch_0070,Global,1.5648989844484593,True
+Surface geostrophic KE temporal spectra vs DUACS,sd01_epoch_0070,Gulf Stream,3.1930682404312134,True
+Surface geostrophic KE temporal spectra vs DUACS,sd01_epoch_0070,Agulhas,1.6675850648021149,True
+Surface geostrophic KE temporal spectra vs DUACS,sd01_ema_latest,Global,1.5754633269336202,True
+Surface geostrophic KE temporal spectra vs DUACS,sd01_ema_latest,Gulf Stream,3.2484146224252592,True
+Surface geostrophic KE temporal spectra vs DUACS,sd01_ema_latest,Agulhas,1.6800069370945534,True
+Surface geostrophic KE temporal spectra vs DUACS,om4,Global,1.2963436277374738,True
+Surface geostrophic KE temporal spectra vs DUACS,om4,Gulf Stream,3.266262417512867,True
+Surface geostrophic KE temporal spectra vs DUACS,om4,Agulhas,1.6937930256362785,True

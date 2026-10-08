@@ -1,0 +1,19 @@
+diagnostic,model,trend_per_year,residual_variance,units
+Global mean SST,OISST,0.0005668278046928461,0.003974938487341874,degC
+Global mean SST,control_epoch_0070,-0.01992033174315538,0.002090985927744309,degC
+Global mean SST,control_ema_latest,-0.019362121478410984,0.0021152230618684204,degC
+Global mean SST,sd01_epoch_0070,-0.028961745834004626,0.004534883783834139,degC
+Global mean SST,sd01_ema_latest,-0.02891346744626803,0.004722526364031214,degC
+Global mean SST,om4,-0.008108257531629534,0.0046039575703570885,degC
+Global mean surface EKE,DUACS,0.00011208911149738765,1.391742815552294e-07,m2 s-2
+Global mean surface EKE,control_epoch_0070,-6.721663484472761e-06,7.452972088297747e-09,m2 s-2
+Global mean surface EKE,control_ema_latest,-6.680959535696691e-06,6.869420738945301e-09,m2 s-2
+Global mean surface EKE,sd01_epoch_0070,-6.607847901044212e-06,4.83741773713649e-09,m2 s-2
+Global mean surface EKE,sd01_ema_latest,-5.566598011281978e-06,4.9590739037539776e-09,m2 s-2
+Global mean surface EKE,om4,-1.1448310112457684e-05,8.789013582278763e-09,m2 s-2
+Global mean upper-700 m OHC per area,ARGO-IAP,11199355.802067291,357287712964718.56,J m-2
+Global mean upper-700 m OHC per area,control_epoch_0070,-2514800.2262206394,172775425914711.06,J m-2
+Global mean upper-700 m OHC per area,control_ema_latest,-986222.2710213854,159735997897221.0,J m-2
+Global mean upper-700 m OHC per area,sd01_epoch_0070,-24432322.936013874,5737854967087437.0,J m-2
+Global mean upper-700 m OHC per area,sd01_ema_latest,-25379408.40007347,6298871505599021.0,J m-2
+Global mean upper-700 m OHC per area,om4,24908863.565520994,123251308013128.95,J m-2

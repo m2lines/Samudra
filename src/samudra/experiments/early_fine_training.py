@@ -2,9 +2,11 @@
 # SPDX-License-Identifier: Apache-2.0
 """Paired early coarse/fine training with persistent optional latent state."""
 
+import os
 import signal
 import time
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 from types import SimpleNamespace
 
 import numpy as np
@@ -20,6 +22,30 @@ from samudra.experiments.missingness import (
 from samudra.experiments.observation_joint import JointPilot, om4_objective
 from samudra.experiments.observation_pilot import atomic_json
 from samudra.experiments.surface_state import advance_season, balanced_loss
+
+
+@contextmanager
+def deterministic_replay():
+    """Use a repeatable numerical reference only for serialization diagnostics."""
+    if os.environ.get("CUBLAS_WORKSPACE_CONFIG") not in (":4096:8", ":16:8"):
+        raise RuntimeError(
+            "Replay qualification needs a deterministic cuBLAS workspace at launch"
+        )
+    enabled = torch.are_deterministic_algorithms_enabled()
+    warn_only = torch.is_deterministic_algorithms_warn_only_enabled()
+    benchmark, cudnn = (
+        torch.backends.cudnn.benchmark,
+        torch.backends.cudnn.deterministic,
+    )
+    try:
+        torch.use_deterministic_algorithms(True)
+        torch.backends.cudnn.benchmark = False
+        torch.backends.cudnn.deterministic = True
+        yield
+    finally:
+        torch.use_deterministic_algorithms(enabled, warn_only=warn_only)
+        torch.backends.cudnn.benchmark = benchmark
+        torch.backends.cudnn.deterministic = cudnn
 
 
 def fine_objective(
@@ -124,6 +150,21 @@ def fine_objective(
 
 
 class EarlyPilot(JointPilot):
+    def verify_resume_update(self):
+        with deterministic_replay():
+            super().verify_resume_update()
+        differences = self.resume_evidence["native_and_serialized_replay"]
+        if any(
+            value != 0
+            for difference in differences.values()
+            for value in difference.values()
+        ):
+            raise ValueError("Deterministic reference replay was not bitwise exact")
+        self.resume_evidence["deterministic_reference_bitwise_exact"] = True
+        self.resume_evidence["reference_scope"] = (
+            "Serialization diagnostic only; production uses its unchanged numerical backend"
+        )
+
     def __init__(self, args):
         super().__init__(args)
         self.early = EarlySamples(

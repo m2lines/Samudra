@@ -302,3 +302,56 @@ def test_early_prefetched_fields_match_original_channel_and_time_layout():
     finally:
         data.prefetch.close()
         data.pool.shutdown()
+
+
+@pytest.mark.parametrize("failure", [False, True])
+def test_deterministic_reference_restores_production_flags(monkeypatch, failure):
+    from samudra.experiments.early_fine_training import deterministic_replay
+
+    monkeypatch.setenv("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
+    previous = (
+        torch.are_deterministic_algorithms_enabled(),
+        torch.is_deterministic_algorithms_warn_only_enabled(),
+        torch.backends.cudnn.benchmark,
+        torch.backends.cudnn.deterministic,
+    )
+    try:
+        with deterministic_replay():
+            assert torch.are_deterministic_algorithms_enabled()
+            assert torch.backends.cudnn.deterministic
+            assert not torch.backends.cudnn.benchmark
+            if failure:
+                raise RuntimeError("injected diagnostic failure")
+    except RuntimeError:
+        assert failure
+    assert previous == (
+        torch.are_deterministic_algorithms_enabled(),
+        torch.is_deterministic_algorithms_warn_only_enabled(),
+        torch.backends.cudnn.benchmark,
+        torch.backends.cudnn.deterministic,
+    )
+
+
+@pytest.mark.parametrize("difference", [0.0, 1e-12])
+def test_early_replay_requires_bitwise_reference_equality(monkeypatch, difference):
+    from samudra.experiments.early_fine_training import EarlyPilot
+    from samudra.experiments.observation_joint import JointPilot
+
+    monkeypatch.setenv("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
+
+    def verify(self):
+        assert torch.are_deterministic_algorithms_enabled()
+        self.resume_evidence = {
+            "native_and_serialized_replay": {
+                "serialized": {"rmse": difference, "max_absolute": difference}
+            }
+        }
+
+    monkeypatch.setattr(JointPilot, "verify_resume_update", verify)
+    pilot = EarlyPilot.__new__(EarlyPilot)
+    if difference:
+        with pytest.raises(ValueError, match="bitwise exact"):
+            pilot.verify_resume_update()
+    else:
+        pilot.verify_resume_update()
+        assert pilot.resume_evidence["deterministic_reference_bitwise_exact"]

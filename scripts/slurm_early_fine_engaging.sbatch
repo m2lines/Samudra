@@ -9,6 +9,9 @@ set -euo pipefail
 root=$1
 code=$2
 stage=$3
+if [[ "$stage" == qualify ]]; then
+  export CUBLAS_WORKSPACE_CONFIG=:4096:8
+fi
 export SAMUDRA_CODE_COMMIT=$4
 export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1
 export PYTHONUNBUFFERED=1 PYTHONNOUSERSITE=1

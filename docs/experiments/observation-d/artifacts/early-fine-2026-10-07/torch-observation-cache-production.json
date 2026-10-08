@@ -481,5 +481,68 @@
     "production_job_created": false,
     "record_path": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-observation-cache/production-dependency-rejection.json",
     "resolution": "Remove stale sbatch dependency after exact successful sacct accounting and all artifact/hash gates; training source and scientific protocol unchanged."
-  }
+  },
+  "verified_production_start": {
+    "checked_utc": "2026-10-08T10:03:51.762547+00:00",
+    "accounting": "JobID|State|ElapsedRaw|AllocTRES\n19426012_0|RUNNING|648|billing=16,cpu=16,gres/gpu=1,mem=192G,node=1\n19426012_1|RUNNING|648|billing=16,cpu=16,gres/gpu=1,mem=192G,node=1\n19426012_2|RUNNING|438|billing=16,cpu=16,gres/gpu=1,mem=192G,node=1\n19426012_3|RUNNING|438|billing=16,cpu=16,gres/gpu=1,mem=192G,node=1\n",
+    "arms": {
+      "U-multitask-early": {
+        "time_utc": "2026-10-08T10:03:50.547801+00:00",
+        "event": "joint_train",
+        "global_step": 1847,
+        "om4": 1297,
+        "observation": 550,
+        "task": "om4",
+        "loss": 0.013493500533513725,
+        "lr": 0.0001,
+        "gradient_norm": 0.20660348236560822,
+        "elapsed_seconds": 7554.463429773925,
+        "om4_recent": 649,
+        "om4_early": 648
+      },
+      "U-multitask-early-latent": {
+        "time_utc": "2026-10-08T10:03:51.314563+00:00",
+        "event": "joint_train",
+        "global_step": 1882,
+        "om4": 1315,
+        "observation": 567,
+        "task": "observation",
+        "loss": 0.01401213437850391,
+        "lr": 0.0001,
+        "gradient_norm": 0.12552417814731598,
+        "elapsed_seconds": 7572.82258021622,
+        "om4_recent": 658,
+        "om4_early": 657
+      },
+      "U-multitask-early-fine": {
+        "time_utc": "2026-10-08T10:03:43.624583+00:00",
+        "event": "joint_train",
+        "global_step": 770,
+        "om4": 619,
+        "observation": 151,
+        "task": "om4",
+        "loss": 0.020753973862156272,
+        "lr": 0.0001,
+        "gradient_norm": 0.24433618783950806,
+        "elapsed_seconds": 7500.91397081106,
+        "om4_recent": 310,
+        "om4_early": 309
+      },
+      "U-multitask-early-fine-latent": {
+        "time_utc": "2026-10-08T10:03:40.051713+00:00",
+        "event": "joint_train",
+        "global_step": 753,
+        "om4": 606,
+        "observation": 147,
+        "task": "om4",
+        "loss": 0.021499862428754568,
+        "lr": 0.0001,
+        "gradient_norm": 0.22836139798164368,
+        "elapsed_seconds": 7472.98440392199,
+        "om4_recent": 303,
+        "om4_early": 303
+      }
+    }
+  },
+  "gpu_hours_including_running_at_start_snapshot": 15.569722222222223
 }

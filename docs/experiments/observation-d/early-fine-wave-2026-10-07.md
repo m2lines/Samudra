@@ -8,11 +8,11 @@ broader temporal coverage helps observation forecasts, whether learning from
 fine-resolution examples improves transfer, and whether fine supervision makes
 recurrent latent state more useful. No LLC data enter this wave.
 
-**Current status, October 8 at 05:57 ET:** all qualification, checkpoint-copy
-and utilization checks passed. Production array **19426012** has two coarse
-allocations running and two fine arms queued for resources, using the audited
-**1,800 / 1,836 / 758 / 746** checkpoints. Diagnostic weights are excluded. No final scientific comparison
-is available yet. See the latest entry below for evidence and follow-up.
+**Current status, October 8 at 06:04 ET:** all recovery checks passed and all
+four production arms are training in array **19426012**. Verified updates are
+**1,847 / 1,882 / 770 / 753**, advancing from the preserved production
+checkpoints; no diagnostic weights were promoted. Training and held-out
+evaluation are still incomplete. See the latest entry below for evidence and follow-up.
 
 ## Runs and matched exposure
 
@@ -788,3 +788,20 @@ By 05:57 ET, the coarse array tasks 0 and 1 had started allocations on gr101;
 the fine tasks 2 and 3 remained queued. No pending job is counted as running
 training. A transient `QOSMaxGRESPerUser` reason reverted to `Resources`;
 no resource requests or jobs were replaced in response.
+
+
+At 06:04 ET, all four production tasks were running and had advanced beyond
+their preserved checkpoints with finite losses and gradients:
+
+| Model | Verified production update |
+|---|---:|
+| U-multitask-early | 1,847 |
+| U-multitask-early-latent | 1,882 |
+| U-multitask-early-fine | 770 |
+| U-multitask-early-fine-latent | 753 |
+
+The restarted production allocations had consumed 2,172 GPU-seconds at the
+accounting snapshot. Including every prior attempt gives **15.5697 GPU-hours**
+so far; production is still running. Completion follow-up remains active for
+training and selected-model evaluation. No final scientific result is claimed
+from successful recovery or early training losses.

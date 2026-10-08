@@ -1,0 +1,198 @@
+{
+  "U-multitask-early": {
+    "source_fork_validation": 0.7208240545297044,
+    "reevaluated_fork_validation": 0.7208240545297044,
+    "prefix_task_counters_and_lr_exact": true,
+    "first_replayed_update": {
+      "parent": {
+        "time_utc": "2026-10-08T10:39:01.420519+00:00",
+        "event": "joint_train",
+        "global_step": 2668,
+        "om4": 1668,
+        "observation": 1000,
+        "task": "om4",
+        "loss": 0.010987399145960808,
+        "lr": 0.0001,
+        "gradient_norm": 0.14263150095939636,
+        "elapsed_seconds": 9665.336146940012,
+        "om4_recent": 834,
+        "om4_early": 834
+      },
+      "cooldown": {
+        "time_utc": "2026-10-08T16:07:40.374876+00:00",
+        "event": "joint_train",
+        "global_step": 2668,
+        "om4": 1668,
+        "observation": 1000,
+        "task": "om4",
+        "loss": 0.010987399145960808,
+        "lr": 0.0001,
+        "gradient_norm": 0.1426321417093277,
+        "elapsed_seconds": 9682.337569949683,
+        "om4_recent": 834,
+        "om4_early": 834
+      }
+    },
+    "validation_3000": {
+      "parent": 0.8113670071714707,
+      "cooldown": 0.8699139183398726
+    }
+  },
+  "U-multitask-early-latent": {
+    "source_fork_validation": 0.7344823712917619,
+    "reevaluated_fork_validation": 0.7344823712917619,
+    "prefix_task_counters_and_lr_exact": true,
+    "first_replayed_update": {
+      "parent": {
+        "time_utc": "2026-10-08T10:38:25.776138+00:00",
+        "event": "joint_train",
+        "global_step": 2668,
+        "om4": 1668,
+        "observation": 1000,
+        "task": "om4",
+        "loss": 0.011527880560606718,
+        "lr": 0.0001,
+        "gradient_norm": 0.3135795295238495,
+        "elapsed_seconds": 9647.284153634217,
+        "om4_recent": 834,
+        "om4_early": 834
+      },
+      "cooldown": {
+        "time_utc": "2026-10-08T16:07:21.896375+00:00",
+        "event": "joint_train",
+        "global_step": 2668,
+        "om4": 1668,
+        "observation": 1000,
+        "task": "om4",
+        "loss": 0.011527880560606718,
+        "lr": 0.0001,
+        "gradient_norm": 0.3135799467563629,
+        "elapsed_seconds": 9663.093605317175,
+        "om4_recent": 834,
+        "om4_early": 834
+      }
+    },
+    "validation_3000": {
+      "parent": 0.7439251243600695,
+      "cooldown": 0.7102123855361062
+    }
+  },
+  "U-multitask-early-fine": {
+    "source_fork_validation": 0.7438398513067028,
+    "reevaluated_fork_validation": 0.7438398513067028,
+    "prefix_task_counters_and_lr_exact": true,
+    "first_replayed_update": {
+      "parent": {
+        "time_utc": "2026-10-08T11:58:08.795963+00:00",
+        "event": "joint_train",
+        "global_step": 2668,
+        "om4": 1668,
+        "observation": 1000,
+        "task": "om4",
+        "loss": 0.01386045222170651,
+        "lr": 0.0001,
+        "gradient_norm": 0.20747560262680054,
+        "elapsed_seconds": 14366.085337992059,
+        "om4_recent": 834,
+        "om4_early": 834
+      },
+      "cooldown": {
+        "time_utc": "2026-10-08T16:09:33.665961+00:00",
+        "event": "joint_train",
+        "global_step": 2668,
+        "om4": 1668,
+        "observation": 1000,
+        "task": "om4",
+        "loss": 0.01386045222170651,
+        "lr": 0.0001,
+        "gradient_norm": 0.20747573673725128,
+        "elapsed_seconds": 14389.673761294922,
+        "om4_recent": 834,
+        "om4_early": 834
+      }
+    },
+    "validation_3000": {
+      "parent": 0.7655506963929622,
+      "cooldown": 0.7705106180219667
+    }
+  },
+  "U-multitask-early-fine-latent": {
+    "source_fork_validation": 0.7395933998591688,
+    "reevaluated_fork_validation": 0.7395933998591688,
+    "prefix_task_counters_and_lr_exact": true,
+    "first_replayed_update": {
+      "parent": {
+        "time_utc": "2026-10-08T12:00:28.464313+00:00",
+        "event": "joint_train",
+        "global_step": 2668,
+        "om4": 1668,
+        "observation": 1000,
+        "task": "om4",
+        "loss": 0.013092132634483278,
+        "lr": 0.0001,
+        "gradient_norm": 0.17338243126869202,
+        "elapsed_seconds": 14481.397002866026,
+        "om4_recent": 834,
+        "om4_early": 834
+      },
+      "cooldown": {
+        "time_utc": "2026-10-08T16:08:16.324040+00:00",
+        "event": "joint_train",
+        "global_step": 2668,
+        "om4": 1668,
+        "observation": 1000,
+        "task": "om4",
+        "loss": 0.013092132634483278,
+        "lr": 0.0001,
+        "gradient_norm": 0.17338472604751587,
+        "elapsed_seconds": 14509.785249948967,
+        "om4_recent": 834,
+        "om4_early": 834
+      }
+    },
+    "validation_3000": {
+      "parent": 0.7714072894333346,
+      "cooldown": 0.7726860084877915
+    }
+  },
+  "U-global": {
+    "source_fork_validation": 0.7352844750638468,
+    "reevaluated_fork_validation": 0.7353997067895828,
+    "prefix_task_counters_and_lr_exact": true,
+    "first_replayed_update": {
+      "parent": {
+        "time_utc": "2026-10-03T09:54:26.927952+00:00",
+        "event": "joint_train",
+        "global_step": 2668,
+        "om4": 1668,
+        "observation": 1000,
+        "task": "om4",
+        "loss": 0.011773297097533941,
+        "lr": 0.0001,
+        "gradient_norm": 0.21865111589431763,
+        "elapsed_seconds": 12464.095056705177,
+        "om4_global": 1668,
+        "om4_patch": 0,
+        "source_extent": "global"
+      },
+      "cooldown": {
+        "time_utc": "2026-10-08T16:09:20.959341+00:00",
+        "event": "joint_train",
+        "global_step": 2668,
+        "om4": 1668,
+        "observation": 1000,
+        "task": "om4",
+        "loss": 0.011773910489864647,
+        "lr": 0.0001,
+        "gradient_norm": 0.21866069734096527,
+        "elapsed_seconds": 12476.599287473131,
+        "om4_recent": 1668,
+        "om4_early": 0
+      }
+    },
+    "validation_3000": {
+      "parent": 0.7902020703866302,
+      "cooldown": 0.8473361018128716
+    }
+  }
+}

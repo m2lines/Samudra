@@ -1,0 +1,156 @@
+{
+  "checked_utc": "2026-10-08T17:41:48.501943+00:00",
+  "callback_event_handled": "880f3d91-0bb1-456a-ad36-18000966a5cc",
+  "cooldown_gpu_hours": 7.242222222222222,
+  "prior_wave_gpu_hours_separate": 25.325,
+  "combined_gpu_hours_excluding_external_original_u_global": 32.56722222222222,
+  "jobs": [
+    {
+      "JobID": "19437769",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "Start": "2026-10-08T11:58:28",
+      "End": "2026-10-08T12:00:17",
+      "ElapsedRaw": "109",
+      "AllocTRES": "billing=4,cpu=4,mem=16G,node=1"
+    },
+    {
+      "JobID": "19437767_0",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "Start": "2026-10-08T11:46:13",
+      "End": "2026-10-08T11:54:20",
+      "ElapsedRaw": "487",
+      "AllocTRES": "billing=16,cpu=16,gres/gpu=1,mem=192G,node=1"
+    },
+    {
+      "JobID": "19437767_1",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "Start": "2026-10-08T11:46:13",
+      "End": "2026-10-08T11:54:41",
+      "ElapsedRaw": "508",
+      "AllocTRES": "billing=16,cpu=16,gres/gpu=1,mem=192G,node=1"
+    },
+    {
+      "JobID": "19437767_2",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "Start": "2026-10-08T11:46:13",
+      "End": "2026-10-08T11:58:01",
+      "ElapsedRaw": "708",
+      "AllocTRES": "billing=16,cpu=16,gres/gpu=1,mem=192G,node=1"
+    },
+    {
+      "JobID": "19437767_3",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "Start": "2026-10-08T11:47:14",
+      "End": "2026-10-08T11:57:59",
+      "ElapsedRaw": "645",
+      "AllocTRES": "billing=16,cpu=16,gres/gpu=1,mem=192G,node=1"
+    },
+    {
+      "JobID": "19437767_4",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "Start": "2026-10-08T11:47:14",
+      "End": "2026-10-08T11:55:27",
+      "ElapsedRaw": "493",
+      "AllocTRES": "billing=16,cpu=16,gres/gpu=1,mem=192G,node=1"
+    },
+    {
+      "JobID": "19437770_0",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "Start": "2026-10-08T12:01:38",
+      "End": "2026-10-08T13:14:08",
+      "ElapsedRaw": "4350",
+      "AllocTRES": "billing=16,cpu=16,gres/gpu=1,mem=192G,node=1"
+    },
+    {
+      "JobID": "19437770_1",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "Start": "2026-10-08T12:01:38",
+      "End": "2026-10-08T13:12:59",
+      "ElapsedRaw": "4281",
+      "AllocTRES": "billing=16,cpu=16,gres/gpu=1,mem=192G,node=1"
+    },
+    {
+      "JobID": "19437770_2",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "Start": "2026-10-08T12:01:38",
+      "End": "2026-10-08T13:29:05",
+      "ElapsedRaw": "5247",
+      "AllocTRES": "billing=16,cpu=16,gres/gpu=1,mem=192G,node=1"
+    },
+    {
+      "JobID": "19437770_3",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "Start": "2026-10-08T12:02:33",
+      "End": "2026-10-08T13:30:08",
+      "ElapsedRaw": "5255",
+      "AllocTRES": "billing=16,cpu=16,gres/gpu=1,mem=192G,node=1"
+    },
+    {
+      "JobID": "19437770_4",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "Start": "2026-10-08T12:02:33",
+      "End": "2026-10-08T13:10:51",
+      "ElapsedRaw": "4098",
+      "AllocTRES": "billing=16,cpu=16,gres/gpu=1,mem=192G,node=1"
+    },
+    {
+      "JobID": "19437784",
+      "State": "FAILED",
+      "ExitCode": "1:0",
+      "Start": "2026-10-08T11:58:28",
+      "End": "2026-10-08T11:58:50",
+      "ElapsedRaw": "22",
+      "AllocTRES": "billing=1,cpu=1,mem=256M,node=1"
+    },
+    {
+      "JobID": "19437785",
+      "State": "FAILED",
+      "ExitCode": "1:0",
+      "Start": "2026-10-08T13:32:13",
+      "End": "2026-10-08T13:32:34",
+      "ElapsedRaw": "21",
+      "AllocTRES": "billing=1,cpu=1,mem=256M,node=1"
+    },
+    {
+      "JobID": "19442686",
+      "State": "FAILED",
+      "ExitCode": "1:0",
+      "Start": "2026-10-08T13:36:48",
+      "End": "2026-10-08T13:36:55",
+      "ElapsedRaw": "7",
+      "AllocTRES": "billing=4,cpu=4,mem=24G,node=1"
+    },
+    {
+      "JobID": "19442773",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "Start": "2026-10-08T13:38:42",
+      "End": "2026-10-08T13:39:41",
+      "ElapsedRaw": "59",
+      "AllocTRES": "billing=4,cpu=4,mem=24G,node=1"
+    }
+  ],
+  "cpu_report_attempts": {
+    "19442686": "Failed after 7 CPU seconds: report requested selected.npz; saved export is selected-predictions.npz. No training or inference ran.",
+    "19442773": "Corrected map export filename; extraction completed after 59 CPU seconds; original request and logs preserved."
+  },
+  "callback_helpers": "Torch HTTPS blocked; both events delivered via SSH relay. Relay is now inactive/dead after both deliveries.",
+  "source_extraction_sha256": "16cc52e2da97946a1263ad625b30eb1beff418c679622158441a61f902949b86",
+  "reporting_sources": {
+    "scripts/collect_early_fine_results.py": "26b1fcc271fe6968a8b19571ed6f6f58a2f93ae761878577ecf386ab37c597f2",
+    "scripts/plot_early_fine_cooldown.py": "eb862ffd28af9d69c0d610865b75c09c420970c0e45ca24302c2ae107e70493e",
+    "scripts/extract_extent_maps.py": "44b9456cac6c4c95c11c8157247d121c52679712da721c4bccbb6cedd69ab239",
+    "scripts/summarize_extent_results.py": "52684caf97718cf0786e930c45a83549024dd96a7256a289ad4cddb34628a2b8"
+  }
+}

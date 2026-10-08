@@ -13,7 +13,8 @@ completed the same 96-origin held-out evaluation. The last allocation finished
 at **09:18 ET**. Total allocated GPU time, including every failed attempt and
 qualification/profile run, was **25.325 GPU-hours**. No further runs are queued
 for this wave. The [matched cooldown follow-up](early-fine-cooldown-2026-10-08.md)
-is tracked separately.
+is complete: results are mixed, with measurable pre-decay replay divergence;
+see that report for the matched curves, maps and limitations.
 
 Contents: [Results](#results) · [Metric components](#metric-components) ·
 [Validation curves](#validation-curves) · [30-day maps](#30-day-maps) ·

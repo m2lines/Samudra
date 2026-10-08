@@ -1,0 +1,13 @@
+{
+  "script_sha256": "52684caf97718cf0786e930c45a83549024dd96a7256a289ad4cddb34628a2b8",
+  "sources": {
+    "docs/experiments/observation-d/artifacts/early-fine-2026-10-07/final/u-global.json": "b91695b15f6855a1bd9fdb185cb9d6ca586cc2a0c6917381a50f760e5d60e0a2",
+    "docs/experiments/observation-d/artifacts/early-fine-2026-10-07/final/source-results.json": "8f116810c64e42286d1a5e68b11d588e694848cf5ec07d02627007dc3f2e42b0",
+    "docs/experiments/observation-d/artifacts/early-fine-cooldown-2026-10-08/final/source-results.json": "b0f0cd1aad04040f985b32b4e6b262565f49e10d845c23f9ce2a260923690478"
+  },
+  "selection_reference_sha256": "c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c",
+  "test_normalization": "Common held-out seasonal-climatology errors from the first source arm; all controls verified within the recorded relative tolerance. Validation uses its separately frozen reference.",
+  "control_relative_tolerance": 1e-06,
+  "x_axes": "Actual optimizer updates include all trained tasks and exclude omitted slots; observation updates show equal downstream exposure separately.",
+  "figures": []
+}

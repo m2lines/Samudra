@@ -25,6 +25,8 @@ def digest(path):
 
 def collect(root):
     paths = read(root / "paths.json")
+    cooldown = paths.get("cooldown")
+    names = [*ARMS, "U-global"] if cooldown else ARMS
     result = dict(
         collected_utc=datetime.datetime.now(datetime.UTC).isoformat(),
         root=str(root),
@@ -34,7 +36,7 @@ def collect(root):
         selection_reference_sha256=digest(root / "selection-reference.json"),
         arms={},
     )
-    for name in ARMS:
+    for name in names:
         run = root / name
         training = read(run / "TRAIN_COMPLETE.json")
         complete = read(run / "test-selected/COMPLETE.json")
@@ -62,7 +64,12 @@ def collect(root):
         ):
             raise ValueError("Incorrect evaluation cohort")
         exposure = read(run / "EXPOSURE.json")
-        if exposure != dict(om4_recent=1000, om4_early=1000, observation=2000):
+        expected = (
+            dict(om4_recent=2000, om4_early=0, observation=2000)
+            if name == "U-global"
+            else dict(om4_recent=1000, om4_early=1000, observation=2000)
+        )
+        if exposure != expected:
             raise ValueError("Unexpected exposure")
         events = [
             json.loads(line) for line in (run / "events.jsonl").read_text().splitlines()
@@ -74,7 +81,27 @@ def collect(root):
             math.isfinite(e[k]) for e in updates for k in ("loss", "gradient_norm")
         ):
             raise ValueError("Nonfinite training event")
-        result["arms"][name] = dict(
+        migration = None
+        if cooldown:
+            migration = read(run / "MIGRATION.json")
+            if not migration["all_other_checkpoint_state_exact"]:
+                raise ValueError("Cooldown source state audit failed")
+            for event in updates[migration["global_step"] :]:
+                fraction = max(
+                    0,
+                    min(
+                        1,
+                        (event["global_step"] - cooldown["start"])
+                        / (cooldown["end"] - cooldown["start"]),
+                    ),
+                )
+                expected_lr = 1e-4 * (1 - (1 - cooldown["final_ratio"]) * fraction)
+                if not math.isclose(event["lr"], expected_lr, rel_tol=1e-12):
+                    raise ValueError("Executed cooldown learning rate differs")
+            if best["global_step"] < migration["global_step"]:
+                raise ValueError("Selected checkpoint precedes cooldown fork")
+        result["arms"][name + ("-cooldown" if cooldown else "")] = dict(
+            migration=migration,
             training_complete=training,
             evaluation_complete=complete,
             best=best,

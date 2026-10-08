@@ -1,0 +1,46 @@
+{
+  "integrated_denominators_exact": true,
+  "all_forecasts_same_96_origins": true,
+  "prefix_selection": {
+    "U-multitask-early-cooldown": {
+      "selected_validation": 0.6543809038581605,
+      "prefix_minimum": {
+        "prefix_minimum_step": 2667,
+        "prefix_minimum_validation_score": 0.7208240545297044
+      },
+      "beats_prefix": true
+    },
+    "U-multitask-early-latent-cooldown": {
+      "selected_validation": 0.6603506840511932,
+      "prefix_minimum": {
+        "prefix_minimum_step": 2667,
+        "prefix_minimum_validation_score": 0.7344823712917619
+      },
+      "beats_prefix": true
+    },
+    "U-multitask-early-fine-cooldown": {
+      "selected_validation": 0.6575235436051142,
+      "prefix_minimum": {
+        "prefix_minimum_step": 2400,
+        "prefix_minimum_validation_score": 0.729514698047092
+      },
+      "beats_prefix": true
+    },
+    "U-multitask-early-fine-latent-cooldown": {
+      "selected_validation": 0.6615749958654582,
+      "prefix_minimum": {
+        "prefix_minimum_step": 2400,
+        "prefix_minimum_validation_score": 0.7259887750640405
+      },
+      "beats_prefix": true
+    },
+    "U-global-cooldown": {
+      "selected_validation": 0.656122496757092,
+      "prefix_minimum": {
+        "prefix_minimum_step": 2400,
+        "prefix_minimum_validation_score": 0.7316573272381448
+      },
+      "beats_prefix": true
+    }
+  }
+}

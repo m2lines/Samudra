@@ -1,0 +1,86 @@
+[
+  {
+    "name": "U-multitask",
+    "source_run": "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-02-extent-om4/runtime-v2/U-multitask",
+    "checkpoint_sha256": "ec8d5969db37ae195aa50d9d3c79e1828765e619cbe2eb9736606d4f5247ed1d",
+    "selected_global_step": 4000,
+    "training_producer": "ba22420144ef7576c324c40f74bae614ab77c1d4"
+  },
+  {
+    "name": "U-omit-patch",
+    "source_run": "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-ablations/U-omit-patch",
+    "checkpoint_sha256": "a3dac2c96aadd72d16dead0d2dc204f7e3b5401ab610d8a2b6e8c9172f99b05b",
+    "selected_global_step": 3600,
+    "training_producer": "c9a33e0dba63b6da0d11b7d20c1db7e42d78e0e5"
+  },
+  {
+    "name": "U-patch-loss01",
+    "source_run": "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-initializer/U-patch-loss01",
+    "checkpoint_sha256": "0451153498bb39728a1b143cdd95d3a661ebc5bca6f64cd87f75bfbffd5b7fb9",
+    "selected_global_step": 3900,
+    "training_producer": "b8092783bf1e47b6ac670251feba5fbd2902a5bd"
+  },
+  {
+    "name": "U-aux01",
+    "source_run": "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation/U-aux01",
+    "checkpoint_sha256": "a6ef208d70bb911fcb36fb8722910174f7ae9acd1943409ce09041d4ae495972",
+    "selected_global_step": 4000,
+    "training_producer": "b14ce8acd0ddf77b42b6341b25cdfe242dc8eec6"
+  },
+  {
+    "name": "U-aux01-static",
+    "source_run": "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-accessory-controls/U-aux01-static",
+    "checkpoint_sha256": "4bfc9ef32fdb5fdd51ace6dcc2151ad3d1c03622dd2f3b380656618f391375d2",
+    "selected_global_step": 4000,
+    "training_producer": "558d45cac2294f691d1d73a47db1783df1850c80"
+  },
+  {
+    "name": "U-aux01-seasonal",
+    "source_run": "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-accessory-controls/U-aux01-seasonal",
+    "checkpoint_sha256": "a0996623642e18afd1c3b69ef20c73e358b74a7edc874a3cc5af137fcd65671b",
+    "selected_global_step": 3800,
+    "training_producer": "558d45cac2294f691d1d73a47db1783df1850c80"
+  },
+  {
+    "name": "U-aux01-shuffled",
+    "source_run": "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-accessory-controls/U-aux01-shuffled",
+    "checkpoint_sha256": "c6e8f5145a749f8da87d41d1c4cc50c0553227f15801aaa959f3d846b7ec71f2",
+    "selected_global_step": 4000,
+    "training_producer": "558d45cac2294f691d1d73a47db1783df1850c80"
+  },
+  {
+    "name": "U-aux01-anomaly",
+    "source_run": "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-accessory-controls/U-aux01-anomaly",
+    "checkpoint_sha256": "85102f05174ed2f8599c5a6e9314c6b454c07dc37395631e0ccc083c6528272f",
+    "selected_global_step": 4000,
+    "training_producer": "558d45cac2294f691d1d73a47db1783df1850c80"
+  },
+  {
+    "name": "W-global",
+    "source_run": "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation/W-global",
+    "checkpoint_sha256": "7670c62ee97cd0b23a9ed239909f7330abc17b99838ad4fb154a6fedd2644587",
+    "selected_global_step": 4000,
+    "training_producer": "b14ce8acd0ddf77b42b6341b25cdfe242dc8eec6"
+  },
+  {
+    "name": "W-multitask",
+    "source_run": "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation/W-multitask",
+    "checkpoint_sha256": "1a7070cf455c1f1b3df623917a5ca93456a7afdae09d3aa3b3c96df33cf605c7",
+    "selected_global_step": 3900,
+    "training_producer": "b14ce8acd0ddf77b42b6341b25cdfe242dc8eec6"
+  },
+  {
+    "name": "A-global",
+    "source_run": "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation/A-global",
+    "checkpoint_sha256": "bda00fc7c2281ef2df08519a2966f4274e98c4c2445ed0b10ad20bd3e0b1fbf0",
+    "selected_global_step": 4000,
+    "training_producer": "b14ce8acd0ddf77b42b6341b25cdfe242dc8eec6"
+  },
+  {
+    "name": "A-multitask",
+    "source_run": "/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation/A-multitask",
+    "checkpoint_sha256": "2701685ee247b0787f03c122c3b9ab08419eed490b0345932dcfb9fede17dcac",
+    "selected_global_step": 4000,
+    "training_producer": "b14ce8acd0ddf77b42b6341b25cdfe242dc8eec6"
+  }
+]

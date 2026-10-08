@@ -23,7 +23,7 @@ fi
 if ! command -v apptainer >/dev/null; then
   module load apptainer/1.5.2
 fi
-arms=(U-multitask-early U-multitask-early-latent U-multitask-early-fine U-multitask-early-fine-latent)
+arms=(U-multitask-early U-multitask-early-latent U-multitask-early-fine U-multitask-early-fine-latent U-global)
 arm=${arms[${SLURM_ARRAY_TASK_ID:-0}]}
 export SAMUDRA_RUNTIME_SHA256
 SAMUDRA_RUNTIME_SHA256=$(sha256sum "$root/runtime-contract.json" | cut -d ' ' -f1)

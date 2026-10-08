@@ -36,18 +36,22 @@ def command(module, arguments):
         raise SystemExit(status if status > 0 else 1)
 
 
-def main():
+def main(arms=ARMS):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", required=True)
-    parser.add_argument("--arm", choices=ARMS, required=True)
+    parser.add_argument("--arm", choices=arms, required=True)
     parser.add_argument("--stage", choices=["fit", "probe", "train"], required=True)
     args = parser.parse_args()
     root = Path(args.root)
     config = json.loads((root / "paths.json").read_text())
     if os.environ["SAMUDRA_CODE_COMMIT"] != config["producer"]:
         raise ValueError("Launch producer differs from frozen paths")
-    architecture, latent = ARMS[args.arm]
-    fit = root / ("fit-" + architecture + "-" + str(latent))
+    architecture, latent = arms[args.arm]
+    fit = root / (
+        "fit-" + args.arm
+        if config.get("cooldown")
+        else "fit-" + architecture + "-" + str(latent)
+    )
     probe = root / ("probe-" + args.arm)
     out = (
         fit
@@ -122,6 +126,18 @@ def main():
         "2026-12-31T00:00:00+00:00",
     ]
     joint += ["--early-data", config["early_data"]]
+    if config.get("cooldown"):
+        cooldown = config["cooldown"]
+        joint += [
+            "--cooldown-start",
+            str(cooldown["start"]),
+            "--cooldown-end",
+            str(cooldown["end"]),
+            "--cooldown-final-ratio",
+            str(cooldown["final_ratio"]),
+        ]
+        if args.arm == "U-global":
+            joint += ["--recent-only"]
     if args.stage == "probe":
         command(
             "samudra.experiments.observation_joint",
@@ -150,6 +166,15 @@ def main():
             "Measured update throughput cannot meet the one-day screen; revise budget before training"
         )
     if not (out / "TRAIN_COMPLETE.json").exists():
+        if config.get("cooldown"):
+            audit = json.loads((out / "MIGRATION.json").read_text())
+            if (
+                not audit["all_other_checkpoint_state_exact"]
+                or audit["global_step"] != 2667
+            ):
+                raise ValueError(
+                    "Cooldown requires audited source checkpoint migration"
+                )
         command(
             "samudra.experiments.observation_joint",
             common

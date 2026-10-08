@@ -238,7 +238,7 @@ class EarlyPilot(JointPilot):
         completion_weight=0.0,
     ):
         count = self.schedule.counts(self.completed)["om4"]
-        if count % 2 == 0:
+        if getattr(self.args, "recent_only", False) or count % 2 == 0:
             return om4_objective(
                 model,
                 data,
@@ -296,7 +296,11 @@ class EarlyPilot(JointPilot):
         # CPU-only lookahead across the next two early updates. All examples
         # retain the exact original mask/sample seeds and consumption order.
         seeds = []
-        for step in range(self.completed, self.schedule.total):
+        for step in (
+            range(self.completed, self.schedule.total)
+            if not getattr(self.args, "recent_only", False)
+            else ()
+        ):
             count = self.schedule.counts(step)["om4"]
             if self.schedule.task(step) == "om4" and count % 2:
                 seeds.extend(
@@ -311,7 +315,12 @@ class EarlyPilot(JointPilot):
                 future.result()  # Do not swallow asynchronous read failures.
         task = self.schedule.task(self.completed)
         task = (
-            ("early" if self.schedule.counts(self.completed)["om4"] % 2 else "recent")
+            (
+                "early"
+                if self.schedule.counts(self.completed)["om4"] % 2
+                and not getattr(self.args, "recent_only", False)
+                else "recent"
+            )
             if task == "om4"
             else task
         )
@@ -335,9 +344,10 @@ class EarlyPilot(JointPilot):
     def emit(self, record):
         if record.get("event") == "joint_train":
             record = dict(record)
-            record.update(
-                om4_recent=(record["om4"] + 1) // 2, om4_early=record["om4"] // 2
+            early = (
+                0 if getattr(self.args, "recent_only", False) else record["om4"] // 2
             )
+            record.update(om4_recent=record["om4"] - early, om4_early=early)
         super().emit(record)
 
     def run_joint(self):
@@ -356,10 +366,11 @@ class EarlyPilot(JointPilot):
             self.early.pool.shutdown(wait=True, cancel_futures=True)
             self.observation_warm_pool.shutdown(wait=True, cancel_futures=True)
         counts = self.schedule.counts(self.completed)
+        early = 0 if getattr(self.args, "recent_only", False) else counts["om4"] // 2
         atomic_json(
             dict(
-                om4_recent=(counts["om4"] + 1) // 2,
-                om4_early=counts["om4"] // 2,
+                om4_recent=counts["om4"] - early,
+                om4_early=early,
                 observation=counts["observation"],
             ),
             self.out / "EXPOSURE.json",
@@ -367,10 +378,11 @@ class EarlyPilot(JointPilot):
         if self.args.joint_probe:
             if not (self.out / "JOINT_QUALIFIED.json").exists():
                 raise RuntimeError("Incomplete probe")
-            means = {k: sum(v) / len(v) for k, v in self.timings.items()}
+            means = {k: sum(v) / len(v) if v else 0 for k, v in self.timings.items()}
+            recent_only = getattr(self.args, "recent_only", False)
             hours = (
-                1000 * means["recent"]
-                + 1000 * means["early"]
+                (2000 if recent_only else 1000) * means["recent"]
+                + (0 if recent_only else 1000) * means["early"]
                 + 2000 * means["observation"]
             ) / 3600
             atomic_json(

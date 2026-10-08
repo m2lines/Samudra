@@ -90,10 +90,24 @@ def main():
     )
     from scripts.run_early_fine_wave import ARMS
 
+    runner = "run_early_fine_wave.py"
+    if paths.get("cooldown"):
+        ARMS = dict(ARMS, **{"U-global": ("unet", 0)})
+        runner = "run_early_fine_cooldown.py"
+
     architecture, latent = ARMS[args.arm]
     if args.stage == "qualify":
         for stage, marker in [
-            ("fit", root / f"fit-{architecture}-{latent}" / "QUALIFIED.json"),
+            (
+                "fit",
+                root
+                / (
+                    f"fit-{args.arm}"
+                    if paths.get("cooldown")
+                    else f"fit-{architecture}-{latent}"
+                )
+                / "QUALIFIED.json",
+            ),
             ("probe", root / f"probe-{args.arm}" / "JOINT_QUALIFIED.json"),
         ]:
             # Throughput is written after the probe marker: rerun if interrupted there.
@@ -102,12 +116,12 @@ def main():
             )
             if not complete:
                 run(
-                    "run_early_fine_wave.py",
+                    runner,
                     ["--root", args.root, "--arm", args.arm, "--stage", stage],
                 )
     else:
         run(
-            "run_early_fine_wave.py",
+            runner,
             ["--root", args.root, "--arm", args.arm, "--stage", "train"],
         )
 

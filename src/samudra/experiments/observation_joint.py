@@ -142,6 +142,19 @@ def om4_objective(
     return loss
 
 
+def cooldown_multiplier(args, update):
+    """One-based global update; preserve both tasks' rates until cooldown starts."""
+    start = getattr(args, "cooldown_start", None)
+    if start is None:
+        return 1.0
+    end = args.cooldown_end
+    ratio = args.cooldown_final_ratio
+    if not 0 <= start < end or not 0 <= ratio <= 1:
+        raise ValueError("Invalid cooldown interval or final ratio")
+    fraction = min(1.0, max(0.0, (update - start) / (end - start)))
+    return 1.0 - (1.0 - ratio) * fraction
+
+
 def qualification_contract(args):
     result = {
         "code_commit": os.environ.get("SAMUDRA_CODE_COMMIT"),
@@ -168,8 +181,16 @@ def qualification_contract(args):
             "manifest_sha256": digest(Path(args.early_data) / "READY.json"),
             "fine": args.evolution_architecture == "extent-fine",
             "period": ["1958-01-03", "1974-12-31"],
-            "fraction_of_om4": 0.5,
+            "fraction_of_om4": 0.0 if getattr(args, "recent_only", False) else 0.5,
             "fine_coarse_forecast_weights": [0.5, 0.5],
+        }
+        result["early"]["recent_only"] = getattr(args, "recent_only", False)
+    if getattr(args, "cooldown_start", None) is not None:
+        result["cooldown"] = {
+            "start": args.cooldown_start,
+            "end": args.cooldown_end,
+            "final_ratio": args.cooldown_final_ratio,
+            "axis": "one-based global optimizer update",
         }
     if getattr(args, "patch_cache", None):
         result["patch_cache_manifest_sha256"] = digest(
@@ -389,6 +410,7 @@ class JointPilot(Pilot):
         lr = self.task_learning_rate(task)
         warmup = self.args.warmup_steps
         lr *= min(1.0, (count + 1) / warmup) if warmup else 1.0
+        lr *= cooldown_multiplier(self.args, self.completed + 1)
         for group in self.optimizer.param_groups:
             group["lr"] = lr
         self.model.train()
@@ -672,6 +694,10 @@ def main():
     parser.add_argument("--joint-probe", action="store_true")
     parser.add_argument("--joint-qualification")
     parser.add_argument("--early-data")
+    parser.add_argument("--recent-only", action="store_true")
+    parser.add_argument("--cooldown-start", type=int)
+    parser.add_argument("--cooldown-end", type=int, default=4000)
+    parser.add_argument("--cooldown-final-ratio", type=float, default=0.01)
     parser.add_argument("--patch-cache")
     parser.add_argument("--patch-training", action="store_true")
     parser.add_argument(
@@ -699,6 +725,13 @@ def main():
         fixed_updates=True,
     )
     args = parser.parse_args()
+    cooldown_multiplier(args, 1)
+    if args.recent_only and (
+        not args.early_data or args.evolution_architecture != "extent-unet"
+    ):
+        parser.error(
+            "Recent-only control requires the early-data runner with extent-unet"
+        )
     if args.evolution_architecture == "extent-aux":
         if (
             not args.auxiliary_cache

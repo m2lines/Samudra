@@ -106,6 +106,57 @@ def test_nonfinite_does_not_advance_optimizer(monkeypatch):
     assert not pilot.optimizer.state
 
 
+def test_cooldown_preserves_prefix_and_resumes_across_tasks(monkeypatch):
+    original = toy_pilot(monkeypatch)
+    cooled = toy_pilot(monkeypatch)
+    cooled.args.cooldown_start = 2
+    cooled.args.cooldown_end = 4
+    cooled.args.cooldown_final_ratio = 0.01
+    for _ in range(2):
+        original.train_update()
+        cooled.train_update()
+    joint.assert_exact_state(original.model.state_dict(), cooled.model.state_dict())
+    joint.assert_exact_state(
+        original.optimizer.state_dict(), cooled.optimizer.state_dict()
+    )
+    saved = copy.deepcopy((cooled.model.state_dict(), cooled.optimizer.state_dict()))
+    cooled.train_update()
+    assert cooled.optimizer.param_groups[0]["lr"] == pytest.approx(0.00505)
+    resumed = toy_pilot(monkeypatch)
+    resumed.args = copy.deepcopy(cooled.args)
+    resumed.completed = 2
+    resumed.model.load_state_dict(saved[0])
+    resumed.optimizer.load_state_dict(saved[1])
+    resumed.train_update()
+    joint.assert_exact_state(cooled.model.state_dict(), resumed.model.state_dict())
+    joint.assert_exact_state(
+        cooled.optimizer.state_dict(), resumed.optimizer.state_dict()
+    )
+    cooled.train_update()
+    assert cooled.optimizer.param_groups[0]["lr"] == pytest.approx(0.0001)
+    # Schedule is global, so an OM4 update at the same position gets the same decay.
+    args = SimpleNamespace(
+        cooldown_start=3000, cooldown_end=4000, cooldown_final_ratio=0.01
+    )
+    assert joint.cooldown_multiplier(args, 3000) == 1
+    assert joint.cooldown_multiplier(args, 3500) == pytest.approx(0.505)
+    assert joint.cooldown_multiplier(args, 4000) == pytest.approx(0.01)
+
+
+def test_recent_only_control_keeps_all_om4_updates_on_original_objective(monkeypatch):
+    from samudra.experiments import early_fine_training as early
+
+    pilot = early.EarlyPilot.__new__(early.EarlyPilot)
+    pilot.args = SimpleNamespace(recent_only=True)
+    pilot.schedule = TaskSchedule(2000, 2000, "mixed")
+    marker = object()
+    monkeypatch.setattr(early, "om4_objective", lambda *a: marker)
+    # Includes odd OM4 count: the early-data arm would otherwise read earlier fields.
+    for completed in [0, 1, 2667, 3000, 3999]:
+        pilot.completed = completed
+        assert pilot.om4_objective(None, None, None, 0.1) is marker
+
+
 def test_disk_resume_verification_and_selected_counts(tmp_path, monkeypatch):
     pilot = toy_pilot(monkeypatch)
     monkeypatch.setattr(torch.cuda, "get_rng_state", torch.get_rng_state)

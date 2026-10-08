@@ -684,4 +684,5 @@ Callback **19425188** (`afterany:19425180`), registration
 
 At 05:09 ET all four arms had completed ten finite fitting updates and entered
 OM4 cache warmup for the joint probe. Qualification is still in progress.
-Remote hashes of all staged recovery scripts match the recorded local scripts.
+The migration and performance script hashes match their staged copies; the
+artifact records the exact remote submission helper and verified source-archive hash.

@@ -373,3 +373,45 @@ After verifying qualification, held Engaging arrays 25185999/25186000 and
 their CPU callbacks 25219446/25219447 were canceled; their two callback
 registrations were revoked. Torch production completion callback 19412775
 and the active SSH relay remain in place. No held-out results exist yet.
+
+## October 8: root cancellation and I/O diagnosis
+
+Production callback `4bac5bca-9172-41f6-863e-202c0d620c0b` was checked against
+Slurm accounting and saved outputs. **All four production tasks were canceled
+by UID 0 at approximately 03:00 ET**, after 2h09m. Each saved a signal-time
+checkpoint. No arm has completed training or held-out evaluation.
+
+| Model | Saved / 4,000 updates | Mean recorded GPU utilization |
+|---|---:|---:|
+| U-multitask-early | 1,800 | 34.6% |
+| U-multitask-early-latent | 1,836 | 36.4% |
+| U-multitask-early-fine | 758 | 20.9% |
+| U-multitask-early-fine-latent | 746 | 21.1% |
+
+Utilization comes from 513–514 offline W&B system samples per arm, read
+locally from saved records. These measurements support investigating Torch's
+reported low-utilization cancellation policy; UID 0 and timing alone do not
+prove the administrator's reason. The fine job steps reported about 7.3–7.4 TB
+of disk reads each, versus about 1.1 TB for each coarse arm. The synchronous
+early-example loader is a candidate bottleneck; profiling is needed to
+separate storage from CPU preprocessing and other idle time.
+
+Actual allocated time before the diagnostic is **10.4211 GPU-hours**:
+1.8311 across all qualifications plus 8.5900 for production. Failed attempts
+remain included. Scratch quota was 4.44 / 5.00 TB. The inspected RTX node
+provided 1.7 TB of free node-local SSD space, making local staging a possible
+recovery without duplicating the dataset in shared scratch.
+
+Bounded diagnostic **19421648** runs 24 updates from an independent,
+SHA-256-verified copy of the fine+latent checkpoint at step 746. Its container
+mounts production scratch read-only and overlays only the diagnostic copy as
+writable. Diagnostic updates will not be promoted to production. It records
+CPU profiling, loader timings and one-second GPU telemetry. Scientific producer
+`030c96ec7205ab87f38f9cdf132d07a282db7602`, data and model settings are
+unchanged. Production will resume from its own checkpoints after the bottleneck
+is addressed; unchanged low-utilization jobs have not been resubmitted.
+
+CPU completion callback **19421734** depends on `afterany:19421648`, with
+registration `37121c37-5a02-4507-9e75-d5723c73f541` and the durable local
+`early-fine-torch-io-callback-relay.service` for Torch's blocked HTTPS egress.
+[Cancellation and utilization evidence](artifacts/early-fine-2026-10-07/torch-root-cancellation.json).

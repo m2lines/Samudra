@@ -1,0 +1,412 @@
+{
+  "event_id": "4bac5bca-9172-41f6-863e-202c0d620c0b",
+  "production_array": "19412714",
+  "production_elapsed_seconds": [
+    7722,
+    7728,
+    7733,
+    7741
+  ],
+  "previous_qualification_gpu_hours": 1.8311111111111111,
+  "total_gpu_hours_before_diagnostic": 10.421111111111111,
+  "source": "Offline W&B system records, 513 or 514 samples per arm; no online export",
+  "telemetry": [
+    {
+      "file": "run-2506fcba4eeb.wandb",
+      "stats": {
+        "gpu.0.gpu": {
+          "n": 514,
+          "mean": 21.134241245136188,
+          "min": 0.0,
+          "max": 100.0
+        },
+        "gpu.0.memory": {
+          "n": 514,
+          "mean": 10.694552529182879,
+          "min": 0,
+          "max": 68
+        },
+        "gpu.0.memoryAllocated": {
+          "n": 514,
+          "mean": 97.28372053037093,
+          "min": 61.381682450172136,
+          "max": 98.73495714446248
+        },
+        "gpu.0.memoryAllocatedBytes": {
+          "n": 514,
+          "mean": 99853916454.84825,
+          "min": 63003361280,
+          "max": 101343494144
+        },
+        "gpu.0.temp": {
+          "n": 514,
+          "mean": 39.43579766536965,
+          "min": 32.0,
+          "max": 50.0
+        },
+        "gpu.0.powerWatts": {
+          "n": 514,
+          "mean": 148.5532587548638,
+          "min": 86.173,
+          "max": 343.371
+        },
+        "gpu.0.enforcedPowerLimitWatts": {
+          "n": 514,
+          "mean": 600.0,
+          "min": 600.0,
+          "max": 600.0
+        },
+        "gpu.0.powerPercent": {
+          "n": 514,
+          "mean": 24.75887645914397,
+          "min": 14.362166666666667,
+          "max": 57.2285
+        },
+        "gpu.0.smClock": {
+          "n": 514,
+          "mean": 2306.231517509728,
+          "min": 2272,
+          "max": 2392
+        },
+        "gpu.0.memoryClock": {
+          "n": 514,
+          "mean": 12481,
+          "min": 12481,
+          "max": 12481
+        },
+        "gpu.0.correctedMemoryErrors": {
+          "n": 514,
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "gpu.0.uncorrectedMemoryErrors": {
+          "n": 514,
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "disk./.usagePercent": {
+          "n": 514,
+          "mean": 0.018310546875,
+          "min": 0.018310546875,
+          "max": 0.018310546875
+        },
+        "disk./.usageGB": {
+          "n": 514,
+          "mean": 1.1444091796875e-05,
+          "min": 1.1444091796875e-05,
+          "max": 1.1444091796875e-05
+        }
+      }
+    },
+    {
+      "file": "run-e4f2c7bb46f4.wandb",
+      "stats": {
+        "gpu.0.gpu": {
+          "n": 513,
+          "mean": 36.3859649122807,
+          "min": 0.0,
+          "max": 100.0
+        },
+        "gpu.0.memory": {
+          "n": 513,
+          "mean": 15.210526315789474,
+          "min": 0,
+          "max": 42
+        },
+        "gpu.0.memoryAllocated": {
+          "n": 513,
+          "mean": 90.21242377259962,
+          "min": 61.381682450172136,
+          "max": 91.26103313003769
+        },
+        "gpu.0.memoryAllocatedBytes": {
+          "n": 513,
+          "mean": 92595798942.19104,
+          "min": 63003361280,
+          "max": 93672112128
+        },
+        "gpu.0.temp": {
+          "n": 513,
+          "mean": 44.99025341130604,
+          "min": 32.0,
+          "max": 52.0
+        },
+        "gpu.0.powerWatts": {
+          "n": 513,
+          "mean": 212.12585575048732,
+          "min": 85.597,
+          "max": 342.306
+        },
+        "gpu.0.enforcedPowerLimitWatts": {
+          "n": 513,
+          "mean": 600.0,
+          "min": 600.0,
+          "max": 600.0
+        },
+        "gpu.0.powerPercent": {
+          "n": 513,
+          "mean": 35.35430929174789,
+          "min": 14.266166666666665,
+          "max": 57.050999999999995
+        },
+        "gpu.0.smClock": {
+          "n": 513,
+          "mean": 2356.4424951267056,
+          "min": 2250,
+          "max": 2422
+        },
+        "gpu.0.memoryClock": {
+          "n": 513,
+          "mean": 12481,
+          "min": 12481,
+          "max": 12481
+        },
+        "gpu.0.correctedMemoryErrors": {
+          "n": 513,
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "gpu.0.uncorrectedMemoryErrors": {
+          "n": 513,
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "disk./.usageGB": {
+          "n": 513,
+          "mean": 1.1444091796875e-05,
+          "min": 1.1444091796875e-05,
+          "max": 1.1444091796875e-05
+        },
+        "disk./.usagePercent": {
+          "n": 513,
+          "mean": 0.018310546875,
+          "min": 0.018310546875,
+          "max": 0.018310546875
+        }
+      }
+    },
+    {
+      "file": "run-16c66276917a.wandb",
+      "stats": {
+        "gpu.0.gpu": {
+          "n": 514,
+          "mean": 20.93190661478599,
+          "min": 0.0,
+          "max": 100.0
+        },
+        "gpu.0.memory": {
+          "n": 514,
+          "mean": 10.72373540856031,
+          "min": 0,
+          "max": 68
+        },
+        "gpu.0.memoryAllocated": {
+          "n": 514,
+          "mean": 97.37694721965401,
+          "min": 61.37350976125533,
+          "max": 98.72678445554568
+        },
+        "gpu.0.memoryAllocatedBytes": {
+          "n": 514,
+          "mean": 99949606154.9572,
+          "min": 62994972672,
+          "max": 101335105536
+        },
+        "gpu.0.temp": {
+          "n": 514,
+          "mean": 38.766536964980546,
+          "min": 32.0,
+          "max": 47.0
+        },
+        "gpu.0.powerWatts": {
+          "n": 514,
+          "mean": 144.03384435797665,
+          "min": 84.255,
+          "max": 333.214
+        },
+        "gpu.0.enforcedPowerLimitWatts": {
+          "n": 514,
+          "mean": 600.0,
+          "min": 600.0,
+          "max": 600.0
+        },
+        "gpu.0.powerPercent": {
+          "n": 514,
+          "mean": 24.005640726329442,
+          "min": 14.042499999999999,
+          "max": 55.535666666666664
+        },
+        "gpu.0.smClock": {
+          "n": 514,
+          "mean": 2295.396887159533,
+          "min": 2265,
+          "max": 2392
+        },
+        "gpu.0.memoryClock": {
+          "n": 514,
+          "mean": 12481,
+          "min": 12481,
+          "max": 12481
+        },
+        "gpu.0.correctedMemoryErrors": {
+          "n": 514,
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "gpu.0.uncorrectedMemoryErrors": {
+          "n": 514,
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "disk./.usageGB": {
+          "n": 514,
+          "mean": 1.1444091796875e-05,
+          "min": 1.1444091796875e-05,
+          "max": 1.1444091796875e-05
+        },
+        "disk./.usagePercent": {
+          "n": 514,
+          "mean": 0.018310546875,
+          "min": 0.018310546875,
+          "max": 0.018310546875
+        }
+      }
+    },
+    {
+      "file": "run-107e52c5e403.wandb",
+      "stats": {
+        "gpu.0.gpu": {
+          "n": 513,
+          "mean": 34.64327485380117,
+          "min": 0.0,
+          "max": 99.0
+        },
+        "gpu.0.memory": {
+          "n": 513,
+          "mean": 14.690058479532164,
+          "min": 0,
+          "max": 43
+        },
+        "gpu.0.memoryAllocated": {
+          "n": 513,
+          "mean": 90.14779102613666,
+          "min": 61.37350976125533,
+          "max": 91.2549036133501
+        },
+        "gpu.0.memoryAllocatedBytes": {
+          "n": 513,
+          "mean": 92529458625.1228,
+          "min": 62994972672,
+          "max": 93665820672
+        },
+        "gpu.0.temp": {
+          "n": 513,
+          "mean": 46.606237816764136,
+          "min": 34.0,
+          "max": 55.0
+        },
+        "gpu.0.powerWatts": {
+          "n": 513,
+          "mean": 195.38861013645223,
+          "min": 86.213,
+          "max": 333.314
+        },
+        "gpu.0.enforcedPowerLimitWatts": {
+          "n": 513,
+          "mean": 600.0,
+          "min": 600.0,
+          "max": 600.0
+        },
+        "gpu.0.powerPercent": {
+          "n": 513,
+          "mean": 32.564768356075376,
+          "min": 14.368833333333333,
+          "max": 55.55233333333334
+        },
+        "gpu.0.smClock": {
+          "n": 513,
+          "mean": 2397.325536062378,
+          "min": 2310,
+          "max": 2422
+        },
+        "gpu.0.memoryClock": {
+          "n": 513,
+          "mean": 12481,
+          "min": 12481,
+          "max": 12481
+        },
+        "gpu.0.correctedMemoryErrors": {
+          "n": 513,
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "gpu.0.uncorrectedMemoryErrors": {
+          "n": 513,
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "disk./.usagePercent": {
+          "n": 513,
+          "mean": 0.018310546875,
+          "min": 0.018310546875,
+          "max": 0.018310546875
+        },
+        "disk./.usageGB": {
+          "n": 513,
+          "mean": 1.1444091796875e-05,
+          "min": 1.1444091796875e-05,
+          "max": 1.1444091796875e-05
+        }
+      }
+    }
+  ],
+  "checkpoint_steps": {
+    "U-multitask-early": 1800,
+    "U-multitask-early-latent": 1836,
+    "U-multitask-early-fine": 758,
+    "U-multitask-early-fine-latent": 746
+  },
+  "status": "CANCELLED by 0, all four; PREEMPTED markers saved",
+  "reason": "Low GPU utilization observed; admin cause not explicitly confirmed",
+  "diagnostic_job": "19421648",
+  "diagnostic_isolation": "Hash-verified independent checkpoint copy; production scratch read-only in Apptainer; only diagnostic copy overlaid writable",
+  "diagnostic": {
+    "job_id": "19421648",
+    "callback_job": "19421734",
+    "callback_event_id": "37121c37-5a02-4507-9e75-d5723c73f541",
+    "relay_service": "early-fine-torch-io-callback-relay.service",
+    "scripts": {
+      "profile-early-fine.py": {
+        "sha256": "3c57bffa3e790f39b7a75ad0a8140067464247f93a891cf2fe74f7ffee7de02d",
+        "source": "import argparse,cProfile,json,os,pathlib,pstats,time,collections,torch\nfrom samudra.experiments.early_fine_training import EarlyPilot\nfrom samudra.experiments.early_fine_data import EarlySamples\nfrom samudra.experiments.observation_training import Samples\n# The launcher makes /scratch read-only and overlays this path with a verified\n# independent copy. Production files are never writable inside this container.\narm=pathlib.Path(os.environ['PROFILE_ARM'])\nargs=argparse.Namespace(**json.loads((arm/'manifest.json').read_text())['arguments'])\npilot=EarlyPilot(args)\ncounts=collections.defaultdict(list)\ndef wrap(cls,name):\n orig=getattr(cls,name)\n def timed(*a,**kw):\n  torch.cuda.synchronize(); start=time.monotonic()\n  try:return orig(*a,**kw)\n  finally:\n   torch.cuda.synchronize();counts[cls.__name__+'.'+name].append(time.monotonic()-start)\n setattr(cls,name,timed)\nwrap(EarlySamples,'sample');wrap(Samples,'load')\nprof=cProfile.Profile();prof.enable();start=time.monotonic();first=pilot.completed\nfor i in range(24):pilot.train_update()\ntorch.cuda.synchronize();elapsed=time.monotonic()-start;prof.disable()\nprof.dump_stats(str(arm/'profile.pstats'))\nwith (arm/'profile.txt').open('w') as f:pstats.Stats(prof,stream=f).sort_stats('cumulative').print_stats(65)\nresult={'start_step':first,'end_step':pilot.completed,'seconds':elapsed,'timings':pilot.timings,'calls':{k:{'n':len(v),'total':sum(v),'mean':sum(v)/len(v)} for k,v in counts.items()},'producer':os.environ['SAMUDRA_CODE_COMMIT']}\n(arm/'PROFILE_COMPLETE.json').write_text(json.dumps(result,indent=2)+'\\n');print(json.dumps(result),flush=True)\nif pilot.wandb:pilot.wandb.finish()\n"
+      },
+      "profile-early-fine.sbatch": {
+        "sha256": "e7765e9e255ab7344e2ab04b4e8d9d3c747e2b911d4af2f7157d170eaede065c",
+        "source": "#!/bin/bash -l\nset -euo pipefail\nroot=/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-replay\ncode=$root/source/030c96ec7205ab87f38f9cdf132d07a282db7602\nexport SAMUDRA_CODE_COMMIT=030c96ec7205ab87f38f9cdf132d07a282db7602\nexport SAMUDRA_RUNTIME_SHA256=$(sha256sum \"$root/runtime-contract.json\" | cut -d ' ' -f1)\nexport OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 PYTHONUNBUFFERED=1 PYTHONNOUSERSITE=1\nexport PROFILE_ARM=$root/U-multitask-early-fine-latent\nimage=/scratch/jr7309/.apptainer-images/ghcr.io-m2lines-ocean-emulator-physicsnemo-26.05-9cd36b1bdcf4921fb027494afa4157e217818ccd.sif\nprintf 'local tmp: %s\\n' \"${SLURM_TMPDIR:-unset}\"\ndf -hT /tmp \"${SLURM_TMPDIR:-/tmp}\"\nnvidia-smi --query-gpu=timestamp,index,utilization.gpu,memory.used --format=csv -l 1 > \"$root/diagnostic-io/gpu-$SLURM_JOB_ID.csv\" &\ntelemetry=$!\ntrap 'kill \"$telemetry\" 2>/dev/null || true' EXIT\n# RO scratch prevents accidental production writes; only the independent copy is RW.\nsrun apptainer exec --nv --bind \"$code:/pilot-code:ro,/scratch:/scratch:ro,$root/diagnostic-io/arm:$PROFILE_ARM:rw\" \"$image\" env PYTHONPATH=\"/pilot-code/src:/pilot-code:$root/runtime\" /workspace/.venv/bin/python \"$root/diagnostic-io/profile-early-fine.py\"\n"
+      }
+    },
+    "checkpoint_copy_sha256": "8b61b92941b72fd56bc6f6ef0d9e65efb181ac50c706db0eeb31f87fc13710e8",
+    "manifest_copy_sha256": "22516c689bf7bd3287f24e6d0477e180da5d2a8a1c1c26554a24e617b94437fe",
+    "production_mount": "read-only",
+    "node_local_filesystem": {
+      "mount": "/state/partition1",
+      "type": "xfs",
+      "size": "1.7T",
+      "available": "1.7T"
+    },
+    "slurm_resources": {
+      "gpu": 1,
+      "cpus": 16,
+      "memory": "128G",
+      "wall_limit": "00:20:00"
+    }
+  }
+}

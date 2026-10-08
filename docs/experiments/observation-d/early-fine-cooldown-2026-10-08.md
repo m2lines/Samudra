@@ -64,13 +64,26 @@ update while sharing the tested CPU observation cache. **48 targeted tests pass*
 including an identical prefix before cooldown, exact optimizer resume across a
 task boundary, and recent-only control routing.
 
-**Submitted:** qualification array **19437767**, CPU checkpoint migration
-**19437769** (`afterok` on all qualifications), and training/evaluation array
-**19437770** (`afterok` on migration). At the October 8 11:55 ET check, all five fitting checks had passed. The two
-coarse early-data arms also passed their mixed-task and bitwise resume probes;
-the two fine arms and U-global were still completing qualification. Production
-has not started. [Qualification snapshot](artifacts/early-fine-cooldown-2026-10-08/qualification-start.json). Producer:
-`4a1cd7a9bfb60d53b990b331fa0232c91aab5bb8`.
+**Status — October 8, 12:12 ET:** all five qualifications passed fitting,
+exact data equivalence, bitwise replay and throughput checks. CPU migration
+**19437769** passed its exact checkpoint-state audit. All five production jobs in
+array **19437770** have executed new updates with finite losses and gradients:
+
+| Model | Latest verified total update |
+|---|---:|
+| U-global-cooldown | 2,731 |
+| U-multitask-early-cooldown | 2,753 |
+| U-multitask-early-latent-cooldown | 2,764 |
+| U-multitask-early-fine-cooldown | 2,700 |
+| U-multitask-early-fine-latent-cooldown | 2,720 |
+
+These are still in the constant-rate replay prefix; decay starts after update
+3,000. No cooled result or final evaluation is available yet. This wave has used
+**1.643 allocated GPU-hours so far**, including **0.789** for qualification array
+**19437767**; the original wave's 25.325 GPU-hours are separate.
+[Qualification and migration evidence](artifacts/early-fine-cooldown-2026-10-08/qualified-migrated.json)
+and [production updates/accounting](artifacts/early-fine-cooldown-2026-10-08/production-start.json).
+Producer: `4a1cd7a9bfb60d53b990b331fa0232c91aab5bb8`.
 
 The U-global source checksum is
 `027bd17238c6dce8af74135ff5748061e00ecd258c830166482537ff0d769bf7`, verified on

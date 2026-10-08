@@ -1,0 +1,250 @@
+{
+  "checked_utc": "2026-10-08T16:12:14.959583+00:00",
+  "arms": {
+    "U-multitask-early": {
+      "first_new_update": {
+        "time_utc": "2026-10-08T16:07:40.374876+00:00",
+        "event": "joint_train",
+        "global_step": 2668,
+        "om4": 1668,
+        "observation": 1000,
+        "task": "om4",
+        "loss": 0.010987399145960808,
+        "lr": 0.0001,
+        "gradient_norm": 0.1426321417093277,
+        "elapsed_seconds": 9682.337569949683,
+        "om4_recent": 834,
+        "om4_early": 834
+      },
+      "latest_new_update": {
+        "time_utc": "2026-10-08T16:12:14.527213+00:00",
+        "event": "joint_train",
+        "global_step": 2753,
+        "om4": 1699,
+        "observation": 1054,
+        "task": "om4",
+        "loss": 0.011995214154012501,
+        "lr": 0.0001,
+        "gradient_norm": 0.25055328011512756,
+        "elapsed_seconds": 9956.48991214484,
+        "om4_recent": 850,
+        "om4_early": 849
+      },
+      "new_update_count": 86,
+      "latest_validation": {
+        "time_utc": "2026-10-08T16:09:42.974574+00:00",
+        "event": "joint_validation",
+        "global_step": 2700,
+        "om4": 1680,
+        "observation": 1020,
+        "validation/obs_score": 0.7394289301675889,
+        "om4_retention": {
+          "ts_mse": 0.015226763673126698,
+          "reconstruction_ts_mse": 0.03367132693529129,
+          "full_mse": 0.008856885135173798,
+          "origins": 11
+        }
+      },
+      "train_complete": false,
+      "evaluation_complete": false
+    },
+    "U-multitask-early-latent": {
+      "first_new_update": {
+        "time_utc": "2026-10-08T16:07:21.896375+00:00",
+        "event": "joint_train",
+        "global_step": 2668,
+        "om4": 1668,
+        "observation": 1000,
+        "task": "om4",
+        "loss": 0.011527880560606718,
+        "lr": 0.0001,
+        "gradient_norm": 0.3135799467563629,
+        "elapsed_seconds": 9663.093605317175,
+        "om4_recent": 834,
+        "om4_early": 834
+      },
+      "latest_new_update": {
+        "time_utc": "2026-10-08T16:12:12.994904+00:00",
+        "event": "joint_train",
+        "global_step": 2764,
+        "om4": 1703,
+        "observation": 1061,
+        "task": "om4",
+        "loss": 0.011659939424134791,
+        "lr": 0.0001,
+        "gradient_norm": 0.266054630279541,
+        "elapsed_seconds": 9954.19213923905,
+        "om4_recent": 852,
+        "om4_early": 851
+      },
+      "new_update_count": 97,
+      "latest_validation": {
+        "time_utc": "2026-10-08T16:09:13.993596+00:00",
+        "event": "joint_validation",
+        "global_step": 2700,
+        "om4": 1680,
+        "observation": 1020,
+        "validation/obs_score": 0.7464861879362384,
+        "om4_retention": {
+          "ts_mse": 0.015036537311971188,
+          "reconstruction_ts_mse": 0.03483618423342705,
+          "full_mse": 0.008802268654108047,
+          "origins": 11
+        }
+      },
+      "train_complete": false,
+      "evaluation_complete": false
+    },
+    "U-multitask-early-fine": {
+      "first_new_update": {
+        "time_utc": "2026-10-08T16:09:33.665961+00:00",
+        "event": "joint_train",
+        "global_step": 2668,
+        "om4": 1668,
+        "observation": 1000,
+        "task": "om4",
+        "loss": 0.01386045222170651,
+        "lr": 0.0001,
+        "gradient_norm": 0.20747573673725128,
+        "elapsed_seconds": 14389.673761294922,
+        "om4_recent": 834,
+        "om4_early": 834
+      },
+      "latest_new_update": {
+        "time_utc": "2026-10-08T16:12:06.573359+00:00",
+        "event": "joint_train",
+        "global_step": 2700,
+        "om4": 1680,
+        "observation": 1020,
+        "task": "om4",
+        "loss": 0.014387886389158666,
+        "lr": 0.0001,
+        "gradient_norm": 0.2917402386665344,
+        "elapsed_seconds": 14542.581162397051,
+        "om4_recent": 840,
+        "om4_early": 840
+      },
+      "new_update_count": 33,
+      "latest_validation": {
+        "time_utc": "2026-10-08T16:12:10.018062+00:00",
+        "event": "joint_validation",
+        "global_step": 2700,
+        "om4": 1680,
+        "observation": 1020,
+        "validation/obs_score": 0.7360956785618393,
+        "om4_retention": {
+          "ts_mse": 0.01630146987736225,
+          "reconstruction_ts_mse": 0.03507552295923233,
+          "full_mse": 0.00973177794367075,
+          "origins": 11
+        }
+      },
+      "train_complete": false,
+      "evaluation_complete": false
+    },
+    "U-multitask-early-fine-latent": {
+      "first_new_update": {
+        "time_utc": "2026-10-08T16:08:16.324040+00:00",
+        "event": "joint_train",
+        "global_step": 2668,
+        "om4": 1668,
+        "observation": 1000,
+        "task": "om4",
+        "loss": 0.013092132634483278,
+        "lr": 0.0001,
+        "gradient_norm": 0.17338472604751587,
+        "elapsed_seconds": 14509.785249948967,
+        "om4_recent": 834,
+        "om4_early": 834
+      },
+      "latest_new_update": {
+        "time_utc": "2026-10-08T16:12:11.601610+00:00",
+        "event": "joint_train",
+        "global_step": 2720,
+        "om4": 1687,
+        "observation": 1033,
+        "task": "observation",
+        "loss": 0.012743006570085567,
+        "lr": 0.0001,
+        "gradient_norm": 0.17763908207416534,
+        "elapsed_seconds": 14745.062824881868,
+        "om4_recent": 844,
+        "om4_early": 843
+      },
+      "new_update_count": 53,
+      "latest_validation": {
+        "time_utc": "2026-10-08T16:10:54.725643+00:00",
+        "event": "joint_validation",
+        "global_step": 2700,
+        "om4": 1680,
+        "observation": 1020,
+        "validation/obs_score": 0.7370243981914224,
+        "om4_retention": {
+          "ts_mse": 0.01475281361490488,
+          "reconstruction_ts_mse": 0.03491195663809776,
+          "full_mse": 0.008770142681896687,
+          "origins": 11
+        }
+      },
+      "train_complete": false,
+      "evaluation_complete": false
+    },
+    "U-global": {
+      "first_new_update": {
+        "time_utc": "2026-10-08T16:09:20.959341+00:00",
+        "event": "joint_train",
+        "global_step": 2668,
+        "om4": 1668,
+        "observation": 1000,
+        "task": "om4",
+        "loss": 0.011773910489864647,
+        "lr": 0.0001,
+        "gradient_norm": 0.21866069734096527,
+        "elapsed_seconds": 12476.599287473131,
+        "om4_recent": 1668,
+        "om4_early": 0
+      },
+      "latest_new_update": {
+        "time_utc": "2026-10-08T16:12:14.692739+00:00",
+        "event": "joint_train",
+        "global_step": 2731,
+        "om4": 1691,
+        "observation": 1040,
+        "task": "observation",
+        "loss": 0.012187585534984028,
+        "lr": 0.0001,
+        "gradient_norm": 0.19583174586296082,
+        "elapsed_seconds": 12650.332688534167,
+        "om4_recent": 1691,
+        "om4_early": 0
+      },
+      "new_update_count": 64,
+      "latest_validation": {
+        "time_utc": "2026-10-08T16:10:59.509208+00:00",
+        "event": "joint_validation",
+        "global_step": 2700,
+        "om4": 1680,
+        "observation": 1020,
+        "validation/obs_score": 0.7549852008197506,
+        "om4_retention": {
+          "ts_mse": 0.01473164465278387,
+          "reconstruction_ts_mse": 0.03494929149746895,
+          "full_mse": 0.009865463711321354,
+          "origins": 11
+        }
+      },
+      "train_complete": false,
+      "evaluation_complete": false
+    }
+  },
+  "accounting": "JobID|State|ExitCode|ElapsedRaw|AllocTRES\n19437769|COMPLETED|0:0|109|billing=4,cpu=4,mem=16G,node=1\n19437767_0|COMPLETED|0:0|487|billing=16,cpu=16,gres/gpu=1,mem=192G,node=1\n19437767_1|COMPLETED|0:0|508|billing=16,cpu=16,gres/gpu=1,mem=192G,node=1\n19437767_2|COMPLETED|0:0|708|billing=16,cpu=16,gres/gpu=1,mem=192G,node=1\n19437767_3|COMPLETED|0:0|645|billing=16,cpu=16,gres/gpu=1,mem=192G,node=1\n19437767_4|COMPLETED|0:0|493|billing=16,cpu=16,gres/gpu=1,mem=192G,node=1\n19437770_0|RUNNING|0:0|637|billing=16,cpu=16,gres/gpu=1,mem=192G,node=1\n19437770_1|RUNNING|0:0|637|billing=16,cpu=16,gres/gpu=1,mem=192G,node=1\n19437770_2|RUNNING|0:0|637|billing=16,cpu=16,gres/gpu=1,mem=192G,node=1\n19437770_3|RUNNING|0:0|582|billing=16,cpu=16,gres/gpu=1,mem=192G,node=1\n19437770_4|RUNNING|0:0|582|billing=16,cpu=16,gres/gpu=1,mem=192G,node=1\n19437784|FAILED|1:0|22|billing=1,cpu=1,mem=256M,node=1\n19437785|PENDING|0:0|0|\n",
+  "queue": "19437785|PENDING|0:00|(Dependency)\n19437770_3|RUNNING|9:43|gr102\n19437770_4|RUNNING|9:43|gr105\n19437770_0|RUNNING|10:38|gr102\n19437770_1|RUNNING|10:38|gr104\n19437770_2|RUNNING|10:38|gr105\n",
+  "notes": [
+    "Training events beyond update 2667 are newly executed production updates; earlier events were copied from source histories.",
+    "Validation events at update 2667 may be copied source records; this snapshot does not claim a cooldown result.",
+    "CPU callback 19437784 could not deliver over blocked Torch HTTPS; the active SSH relay delivered event 4c0084f2-96d1-4deb-98a8-643647f0c428. Production callback remains registered."
+  ],
+  "accumulated_allocated_gpu_hours": 1.6433333333333333,
+  "qualification_gpu_hours": 0.7891666666666667,
+  "prior_wave_gpu_hours_separate": 25.325
+}

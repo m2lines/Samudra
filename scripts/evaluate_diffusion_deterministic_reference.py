@@ -88,16 +88,30 @@ def main():
         physical = data.physical(prediction)
         monthly = (physical * sample["month_weights"][None, :, None, None, None]).sum(1)
         surface = physical[:, :, [38, 76]]
+        # The historical point export retains days5..30 only. Month losses can
+        # require a seventh bin; keep that bin in the calibration comparison.
+        previous_bins = prior_reference.shape[1]
+        if previous_bins != 6 or surface.shape[1] < previous_bins:
+            raise ValueError("Unexpected historical point-export lead layout")
         np.testing.assert_array_equal(
-            sample["raw_surface"][0].cpu().numpy(), prior_reference[index]
+            sample["raw_surface"][0, :previous_bins].cpu().numpy(),
+            prior_reference[index],
         )
         differences.append(
-            float(np.max(np.abs(surface[0].cpu().numpy() - prior_prediction[index])))
+            float(
+                np.max(
+                    np.abs(
+                        surface[0, :previous_bins].cpu().numpy()
+                        - prior_prediction[index]
+                    )
+                )
+            )
         )
         records.append(
             serial(
                 dict(
                     origin=path.stem,
+                    forecast_bins=surface.shape[1],
                     surface=point(
                         surface,
                         sample["raw_surface"],
@@ -131,6 +145,7 @@ def main():
             metric_helper_sha256=digest(args.metric_helper),
             lineage=lineage,
             previous_surface_max_absolute_difference=max(differences),
+            previous_surface_comparison_bins=6,
             previous_surface_per_origin_max_absolute_difference=differences,
             point_statistics_sha256=digest(args.output / "point-statistics.json"),
             scope="Global point-mass CRPS (MAE) and MSE on exactly the diffusion report's standardized observation support",

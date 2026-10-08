@@ -78,9 +78,14 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--compare-root", type=Path)
     parser.add_argument("--reference", type=Path)
+    parser.add_argument("--map-origins", nargs="+", help="Months to plot (YYYY-MM)")
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
     receipt = json.loads((args.root / "COMPLETE.json").read_text())
+    if args.map_origins and not set(args.map_origins).issubset(
+        {Path(name).stem.removeprefix("members-") for name in receipt["files"]}
+    ):
+        raise ValueError("Requested map origin is absent from the evaluation")
     if args.reference:
         if digest(args.reference) != receipt["training_contract"]["reference"]:
             raise ValueError("Frozen scoring reference differs")
@@ -130,7 +135,12 @@ def main():
                         mean=spectrum(members.mean(0), y, x).tolist(),
                     )
                 )
-                if index in (0, 4, 8):
+                plot_origin = (
+                    path.stem.removeprefix("members-") in args.map_origins
+                    if args.map_origins
+                    else index in (0, 4, 8)
+                )
+                if plot_origin:
                     temporal = "day-30 five-day bin" if channel < 2 else "monthly"
                     grid(
                         [target, members.mean(0), *members[:4]],

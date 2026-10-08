@@ -4,6 +4,7 @@
 
 import json
 import math
+import os
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -15,6 +16,67 @@ from torch import nn
 
 from samudra.experiments.observation_pilot import digest
 from samudra.experiments.surface_state import geographic_features
+
+
+class LocalReadCache(zarr.storage.DirectoryStore):
+    """Job-local copies of immutable source chunks; verify every copied byte."""
+
+    def __init__(self, source, cache):
+        super().__init__(str(source))
+        self.cache = Path(cache)
+        self.cache.mkdir(parents=True, exist_ok=True)
+
+    def __getitem__(self, key):
+        target = self.cache / key
+        if target.is_file():
+            return target.read_bytes()
+        value = super().__getitem__(key)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        # Duplicate reads may race, but readers never see a partial write.
+        import tempfile
+
+        with tempfile.NamedTemporaryFile(dir=target.parent, delete=False) as f:
+            temporary = Path(f.name)
+            f.write(value)
+        try:
+            if temporary.read_bytes() != value:
+                raise OSError("Local OM4 cache failed byte-for-byte readback")
+            temporary.replace(target)
+        finally:
+            temporary.unlink(missing_ok=True)
+        return value
+
+    def __contains__(self, key):
+        return (self.cache / key).is_file() or super().__contains__(key)
+
+
+class SamplePrefetch:
+    """Bounded CPU lookahead keyed by explicit seeds, independent of model RNG."""
+
+    def __init__(self, read, limit=16):
+        self.read = read
+        self.limit = limit
+        self.pool = ThreadPoolExecutor(max_workers=2)
+        self.pending = {}
+
+    def plan(self, seeds):
+        seeds = list(dict.fromkeys(seeds))
+        if len(seeds) > self.limit:
+            raise ValueError("Prefetch plan exceeds its memory bound")
+        # Replay qualification can move backwards; stale work is not state.
+        for seed in list(self.pending):
+            if seed not in seeds:
+                self.pending.pop(seed).cancel()
+        for seed in seeds:
+            if seed not in self.pending:
+                self.pending[seed] = self.pool.submit(self.read, seed)
+
+    def take(self, seed):
+        future = self.pending.pop(seed, None)
+        return self.read(seed) if future is None else future.result()
+
+    def close(self):
+        self.pool.shutdown(wait=True, cancel_futures=True)
 
 
 def load_grid_bounds(store, path, expected_sha256=None):
@@ -111,7 +173,14 @@ class EarlySamples:
             != ready["metadata_sha256"]["fine" if fine else "coarse"]
         ):
             raise ValueError("Early data metadata differs from qualification")
-        self.store = zarr.open_consolidated(str(source / "OM4.zarr"), mode="r")
+        store = str(source / "OM4.zarr")
+        if os.environ.get("SLURM_TMPDIR"):
+            store = LocalReadCache(
+                store,
+                Path(os.environ["SLURM_TMPDIR"])
+                / ("early-fine" if fine else "early-coarse"),
+            )
+        self.store = zarr.open_consolidated(store, mode="r")
         coarse = zarr.open_consolidated(
             str(Path(ready["coarse"]) / "OM4.zarr"), mode="r"
         )
@@ -157,9 +226,10 @@ class EarlySamples:
         self.fs = torch.tensor(
             [float(stds[n][...]) for n in self.forcing_names], device=self.device
         )[None, :, None, None]
-        self.pool = ThreadPoolExecutor(max_workers=8)
+        self.pool = ThreadPoolExecutor(max_workers=16)
+        self.prefetch = SamplePrefetch(self.read_cpu)
 
-    def sample(self, seed):
+    def read_cpu(self, seed):
         start = self.origins[
             int(np.random.default_rng(seed).integers(len(self.origins)))
         ]
@@ -172,9 +242,15 @@ class EarlySamples:
             return np.asarray(self.store[n][a:b], dtype="f4")
 
         values = list(self.pool.map(read, requests))
-        state = torch.from_numpy(np.stack(values[:77], axis=1)).to(self.device)
-        surface = torch.from_numpy(np.stack(values[77:79], axis=1)).to(self.device)
-        forcing = torch.from_numpy(np.stack(values[79:], axis=1)).to(self.device)
+        return start, tuple(
+            np.stack(v, axis=1) for v in [values[:77], values[77:79], values[79:]]
+        )
+
+    def sample(self, seed):
+        start, arrays = self.prefetch.take(seed)
+        state, surface, forcing = (
+            torch.from_numpy(value).to(self.device) for value in arrays
+        )
         for value, wet in [
             (state, self.mask),
             (surface, self.mask[self.surface_ids]),

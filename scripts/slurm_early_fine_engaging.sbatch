@@ -14,6 +14,9 @@ export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1
 export PYTHONUNBUFFERED=1 PYTHONNOUSERSITE=1
 image=${SAMUDRA_IMAGE:-/orcd/scratch/orcd/014/jrusak/apptainer_cache/images/diffusion-26.05-9cd36b1-amd64.sif}
 data_bind=${SAMUDRA_DATA_BIND:-/orcd:/orcd}
+if [[ -n ${SLURM_TMPDIR:-} ]]; then
+  data_bind+=",$SLURM_TMPDIR:$SLURM_TMPDIR"
+fi
 if ! command -v apptainer >/dev/null; then
   module load apptainer/1.5.2
 fi

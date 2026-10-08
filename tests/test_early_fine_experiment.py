@@ -186,3 +186,119 @@ def test_fine_decoder_reference_wraps_longitude():
     result = decoder(state, torch.zeros(1, 5, 4, 8), torch.ones(2, 16, 32))
     torch.testing.assert_close(result[..., 0], torch.full((1, 2, 16), 7 * 0.375))
     torch.testing.assert_close(result[..., -1], torch.full((1, 2, 16), 7 * 0.625))
+
+
+def test_local_read_cache_copies_exact_bytes_and_preserves_missing_keys(tmp_path):
+    from samudra.experiments.early_fine_data import LocalReadCache
+
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "chunk").write_bytes(bytes(range(256)) * 64)
+    cache = LocalReadCache(source, tmp_path / "cache")
+    expected = (source / "chunk").read_bytes()
+    assert cache["chunk"] == expected
+    assert (tmp_path / "cache/chunk").read_bytes() == expected
+    # Source reads are unnecessary once the immutable chunk is copied.
+    (source / "chunk").unlink()
+    assert "chunk" in cache
+    assert cache["chunk"] == expected
+    assert "missing" not in cache
+    with pytest.raises(KeyError):
+        cache["missing"]
+
+
+def test_prefetch_keeps_explicit_seed_order_and_global_rng_on_replay():
+    from samudra.experiments.early_fine_data import SamplePrefetch
+
+    def read(seed):
+        return np.random.default_rng(seed).standard_normal((2, 3))
+
+    before = np.random.get_state()
+    prefetch = SamplePrefetch(read, limit=4)
+    try:
+        prefetch.plan([5, 7, 11, 13])
+        for seed in [7, 5]:
+            np.testing.assert_array_equal(prefetch.take(seed), read(seed))
+        # A restored checkpoint may return to previously consumed seeds.
+        prefetch.plan([5, 7])
+        for seed in [5, 7, 23]:
+            np.testing.assert_array_equal(prefetch.take(seed), read(seed))
+        after = np.random.get_state()
+        np.testing.assert_array_equal(before[1], after[1])
+        assert before[0] == after[0] and before[2:] == after[2:]
+        with pytest.raises(ValueError, match="memory bound"):
+            prefetch.plan(range(5))
+    finally:
+        prefetch.close()
+
+
+def test_prefetch_read_errors_are_not_silenced():
+    from samudra.experiments.early_fine_data import SamplePrefetch
+
+    def fail(seed):
+        raise OSError("missing native chunk")
+
+    prefetch = SamplePrefetch(fail)
+    try:
+        prefetch.plan([3])
+        with pytest.raises(IOError, match="missing native chunk"):
+            prefetch.take(3)
+    finally:
+        prefetch.close()
+
+
+def test_early_prefetched_fields_match_original_channel_and_time_layout():
+    from concurrent.futures import ThreadPoolExecutor
+
+    import cftime
+
+    from samudra.experiments.early_fine_data import EarlySamples, SamplePrefetch
+
+    data = EarlySamples.__new__(EarlySamples)
+    data.names = [f"field_{i}" for i in range(77)]
+    data.forcing_names = ["tauuo", "tauvo", "hfds"]
+    data.surface_ids = [38, 76]
+    data.origins = list(range(5))
+    data.store = {
+        n: np.arange(30 * 2 * 4, dtype="f4").reshape(30, 2, 4) + i * 1000
+        for i, n in enumerate(data.names + data.forcing_names)
+    }
+    data.pool = ThreadPoolExecutor(max_workers=4)
+    data.prefetch = SamplePrefetch(data.read_cpu)
+    data.device = "cpu"
+    data.mask = torch.ones(77, 2, 4, dtype=torch.bool)
+    data.mean = torch.zeros(77)
+    data.std = torch.ones(77)
+    data.fm = torch.zeros(1, 3, 1, 1)
+    data.fs = torch.ones(1, 3, 1, 1)
+    data.geo = torch.zeros(3, 2, 4)
+    data.dates = [cftime.DatetimeNoLeap(1958, 1, i + 1) for i in range(30)]
+    try:
+        data.prefetch.plan([1729])
+        result = data.sample(1729)
+        start = int(np.random.default_rng(1729).integers(5))
+        expected = np.stack(
+            [data.store[n][start + 17 : start + 25] for n in data.names], axis=1
+        )
+        np.testing.assert_array_equal(result["truth"][0], expected[:2])
+        np.testing.assert_array_equal(result["labels"][0], expected[2:])
+        np.testing.assert_array_equal(
+            result["surface"][0],
+            np.stack(
+                [
+                    data.store[data.names[i]][start : start + 19]
+                    for i in data.surface_ids
+                ],
+                axis=1,
+            ),
+        )
+        np.testing.assert_array_equal(
+            result["forcing"][0],
+            np.stack(
+                [data.store[n][start + 18 : start + 24] for n in data.forcing_names],
+                axis=1,
+            ),
+        )
+    finally:
+        data.prefetch.close()
+        data.pool.shutdown()

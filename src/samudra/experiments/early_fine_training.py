@@ -4,8 +4,10 @@
 
 import signal
 import time
+from concurrent.futures import ThreadPoolExecutor
 from types import SimpleNamespace
 
+import numpy as np
 import torch
 from torch.nn import functional as F
 
@@ -127,6 +129,30 @@ class EarlyPilot(JointPilot):
         self.early = EarlySamples(
             args.early_data, self.om4, args.evolution_architecture == "extent-fine"
         )
+        if args.joint_probe:
+            seeds = [args.seed + 1100008, args.seed + 1100024]
+            for seed in seeds:
+                self.early.prefetch.plan([seed])
+                prefetched = self.early.prefetch.take(seed)
+                serial = self.early.read_cpu(seed)
+                if prefetched[0] != serial[0]:
+                    raise ValueError("Prefetch changed the sampled origin")
+                for left, right in zip(prefetched[1], serial[1], strict=True):
+                    np.testing.assert_array_equal(left, right)
+                del prefetched, serial
+            atomic_json(
+                dict(
+                    seeds=seeds,
+                    cpu_arrays_exact=True,
+                    producer=self.manifest["code_commit"],
+                ),
+                self.out / "IO_EQUIVALENT.json",
+            )
+        self.observation_warm_pool = ThreadPoolExecutor(max_workers=2)
+        self.observation_warm = [
+            self.observation_warm_pool.submit(self.data.read_sample, path)
+            for path in [*self.training, *self.validation]
+        ]
         self.timings = {k: [] for k in ["recent", "early", "observation"]}
         self.stop_requested = False
         self.interrupted = False
@@ -205,6 +231,22 @@ class EarlyPilot(JointPilot):
             raise InterruptedError(
                 "Checkpoint saved before preemption/time-limit requeue"
             )
+        # CPU-only lookahead across the next two early updates. All examples
+        # retain the exact original mask/sample seeds and consumption order.
+        seeds = []
+        for step in range(self.completed, self.schedule.total):
+            count = self.schedule.counts(step)["om4"]
+            if self.schedule.task(step) == "om4" and count % 2:
+                seeds.extend(
+                    self.args.seed + 1100000 + count * self.args.accumulate + micro
+                    for micro in range(self.args.accumulate)
+                )
+                if len(seeds) >= 2 * self.args.accumulate:
+                    break
+        self.early.prefetch.plan(seeds)
+        for future in self.observation_warm:
+            if future.done():
+                future.result()  # Do not swallow asynchronous read failures.
         task = self.schedule.task(self.completed)
         task = (
             ("early" if self.schedule.counts(self.completed)["om4"] % 2 else "recent")
@@ -247,6 +289,10 @@ class EarlyPilot(JointPilot):
                 self.out / "PREEMPTED.json",
             )
             raise SystemExit(75)
+        finally:
+            self.early.prefetch.close()
+            self.early.pool.shutdown(wait=True, cancel_futures=True)
+            self.observation_warm_pool.shutdown(wait=True, cancel_futures=True)
         counts = self.schedule.counts(self.completed)
         atomic_json(
             dict(

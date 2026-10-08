@@ -35,15 +35,32 @@ def collect(root, output):
     for row in config["models"]:
         run = root / row["name"]
         verified = json.loads((run / "VERIFIED.json").read_text())
+        hashes = verified["outputs"]
+        if not hashes:
+            # The original runner omitted dots in Path.suffix comparisons.
+            # Retain that record and require the separate full read-back audit.
+            supplemental = json.loads((run / "VERIFIED-OUTPUT-HASHES.json").read_text())
+            if supplemental["original_verified_sha256"] != digest(
+                run / "VERIFIED.json"
+            ):
+                raise ValueError("Supplemental audit lineage differs")
+            hashes = supplemental["outputs"]
         if (
             verified["config_sha256"] != digest(root / "paths.json")
             or verified["model"] != row
         ):
             raise ValueError("Annual result audit differs")
-        for name, checksum in verified["outputs"].items():
+        for name, checksum in hashes.items():
             if digest(run / name) != checksum:
                 raise ValueError("Annual output changed: " + str(run / name))
         complete = json.loads((run / "COMPLETE.json").read_text())
+        required = {"COMPLETE.json"} | {
+            filename
+            for item in complete["origins"].values()
+            for filename in item.values()
+        }
+        if not required <= hashes.keys():
+            raise ValueError("Incomplete annual output checksum audit")
         if (
             sorted(complete["origins"]) != config["origins"]
             or complete["inputs"]["checkpoint_sha256"] != row["checkpoint_sha256"]
@@ -62,7 +79,7 @@ def collect(root, output):
                 evolved.append(arrays["surface"][-1])
                 persisted.append(arrays["persistence_surface"][-1])
                 truth.append(arrays["reference"][-1, :2])
-            records[origin]["arrays_sha256"] = verified["outputs"][item["arrays"]]
+            records[origin]["arrays_sha256"] = hashes[item["arrays"]]
         result["models"][row["name"]] = dict(
             inputs=complete["inputs"], selected=row, origins=records
         )

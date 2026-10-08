@@ -1,0 +1,1123 @@
+{
+  "data_audit": {
+    "config_sha256": "89311438be22c882511e6fae185fdfe2e88005863b064761eca5c702e7ba27da",
+    "runtime_sha256": "ff904784233031f60809530a5520fb11b317052746cd8e4f25c674f12f5f09ba",
+    "origins": [
+      "2015-01-01",
+      "2018-01-01",
+      "2021-01-01"
+    ],
+    "checkpoints": [
+      {
+        "name": "U-global",
+        "run": "/scratch/jr7309/runs/2026-10-08-early-fine-annual/sources/U-global",
+        "checkpoint_sha256": "76058c08c74a92942612aedd75ee961a1c53125076dd449c77007710c05ea4eb",
+        "training_producer": "ba22420144ef7576c324c40f74bae614ab77c1d4",
+        "selected_global_step": 3800
+      },
+      {
+        "name": "U-multitask-early",
+        "run": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-observation-cache/U-multitask-early",
+        "checkpoint_sha256": "e07cb192c8455bfb82a4a0fd16c691d283b30eaa99231c3c00f84744622ad0b3",
+        "training_producer": "8c9a7403edbcd3a37fe09c3af687cbb99a62be85",
+        "selected_global_step": 3900
+      },
+      {
+        "name": "U-multitask-early-latent",
+        "run": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-observation-cache/U-multitask-early-latent",
+        "checkpoint_sha256": "7002aac05718cb13837cd543306d8a21634f33f1a27292a75a6ae88f90cbd5b5",
+        "training_producer": "8c9a7403edbcd3a37fe09c3af687cbb99a62be85",
+        "selected_global_step": 4000
+      },
+      {
+        "name": "U-multitask-early-fine",
+        "run": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-observation-cache/U-multitask-early-fine",
+        "checkpoint_sha256": "abdc00d8d4decf73ccb86308d8110c2ef4328bf2284b643644dacf72214a15a8",
+        "training_producer": "8c9a7403edbcd3a37fe09c3af687cbb99a62be85",
+        "selected_global_step": 4000
+      },
+      {
+        "name": "U-multitask-early-fine-latent",
+        "run": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-observation-cache/U-multitask-early-fine-latent",
+        "checkpoint_sha256": "506e37955749ef5c36d2a3e242708ec0a7b3b26e4eec323c5b6164876506b0cb",
+        "training_producer": "8c9a7403edbcd3a37fe09c3af687cbb99a62be85",
+        "selected_global_step": 4000
+      },
+      {
+        "name": "U-global-cooldown",
+        "run": "/scratch/jr7309/runs/2026-10-08-early-fine-cooldown/U-global",
+        "checkpoint_sha256": "6db6d66ffbf5684d0cc7e962b1fa08a69ec88f00a1a53a3200b72e98dee2dc6e",
+        "training_producer": "4a1cd7a9bfb60d53b990b331fa0232c91aab5bb8",
+        "selected_global_step": 3700
+      },
+      {
+        "name": "U-multitask-early-cooldown",
+        "run": "/scratch/jr7309/runs/2026-10-08-early-fine-cooldown/U-multitask-early",
+        "checkpoint_sha256": "95951b0b968c80cfe8737004dd806edaf3d4dd2b3d5318921c78599ccbf4a8e3",
+        "training_producer": "4a1cd7a9bfb60d53b990b331fa0232c91aab5bb8",
+        "selected_global_step": 3500
+      },
+      {
+        "name": "U-multitask-early-latent-cooldown",
+        "run": "/scratch/jr7309/runs/2026-10-08-early-fine-cooldown/U-multitask-early-latent",
+        "checkpoint_sha256": "6acb16f1ad3949b17cd505b7ef2c3f079a09ed78f921001ed8212c4ef3b372bb",
+        "training_producer": "4a1cd7a9bfb60d53b990b331fa0232c91aab5bb8",
+        "selected_global_step": 3500
+      },
+      {
+        "name": "U-multitask-early-fine-cooldown",
+        "run": "/scratch/jr7309/runs/2026-10-08-early-fine-cooldown/U-multitask-early-fine",
+        "checkpoint_sha256": "12327e2feee50def2ae37c161da76fef70d4b63549972d3bb756252c57c0251b",
+        "training_producer": "4a1cd7a9bfb60d53b990b331fa0232c91aab5bb8",
+        "selected_global_step": 4000
+      },
+      {
+        "name": "U-multitask-early-fine-latent-cooldown",
+        "run": "/scratch/jr7309/runs/2026-10-08-early-fine-cooldown/U-multitask-early-fine-latent",
+        "checkpoint_sha256": "11df6d8d60285fce32807b070dcccde7d16dc2a2b00a1afdb1f083dec81898cc",
+        "training_producer": "4a1cd7a9bfb60d53b990b331fa0232c91aab5bb8",
+        "selected_global_step": 4000
+      }
+    ],
+    "monthly_first_30_days_and_ohc_exact": true,
+    "finite_forcing": true
+  },
+  "runtime": {
+    "image_sha256": "b77c03ca4810dc13c7cb970b10edfbd279b2da17e16973d8df2bfbccae8b7d81",
+    "modules": {
+      "torch": {
+        "version": "2.12.0a0+0291f960b6.nv26.04.48445190",
+        "binaries": {}
+      },
+      "numpy": {
+        "version": "1.26.4",
+        "binaries": {}
+      },
+      "zarr": {
+        "version": "2.18.7",
+        "binaries": {}
+      },
+      "gsw": {
+        "version": "3.6.20",
+        "binaries": {
+          "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/runtime/gsw/_gsw_ufuncs.cpython-312-x86_64-linux-gnu.so": "a68285c6aa46aac465e69767d0463801ef8f7dc37fb1405559705a6ab0de7d29"
+        }
+      },
+      "cftime": {
+        "version": "1.6.4.post1",
+        "binaries": {
+          "/workspace/.venv/lib/python3.12/site-packages/cftime/_cftime.cpython-312-x86_64-linux-gnu.so": "bae798596f73dd75f4a85fb457f847ae87e43a5a05a37c06b0b55018579d22bd"
+        }
+      },
+      "samudra_rust_loader": {
+        "version": null,
+        "binaries": {
+          "/workspace/.venv/lib/python3.12/site-packages/samudra_rust_loader/samudra_rust_loader.cpython-312-x86_64-linux-gnu.so": "6710243ce96fb9df5c5227efc94014ec3984fa7ccd2511c1a9d81a44ad4f46ab"
+        }
+      }
+    }
+  },
+  "models": {
+    "U-global": {
+      "VERIFIED.json": {
+        "config_sha256": "89311438be22c882511e6fae185fdfe2e88005863b064761eca5c702e7ba27da",
+        "runtime_sha256": "ff904784233031f60809530a5520fb11b317052746cd8e4f25c674f12f5f09ba",
+        "model": {
+          "name": "U-global",
+          "run": "/scratch/jr7309/runs/2026-10-08-early-fine-annual/sources/U-global",
+          "checkpoint_sha256": "76058c08c74a92942612aedd75ee961a1c53125076dd449c77007710c05ea4eb",
+          "training_producer": "ba22420144ef7576c324c40f74bae614ab77c1d4",
+          "selected_global_step": 3800
+        },
+        "outputs": {}
+      },
+      "VERIFIED-OUTPUT-HASHES.json": {
+        "producer": "25cc663fd4163ccfc0f056edc343732a484aa6e7",
+        "original_verified_sha256": "5c36483529257bea048c9011f6d38ce4aa992c470b23e65e1bcb08e2fc2b3f88",
+        "outputs": {
+          "2015-01-01-persistence.json": "792fa44106d1e50ab46d6d1d5f0ed9cb4a370335aa090bc5c2a604b414deda39",
+          "2015-01-01.json": "60fd767f3baa3f178d627120ffbc8bdd44056ed068c095b0d0f608eedbd4acea",
+          "2015-01-01.npz": "60b7ddefcbd3a2f352b939f090f98b37a58f609b7cf8089561bd933a4ea9088b",
+          "2018-01-01-persistence.json": "373866e97bf3b8a4309ea2a07b02809cd75add4cd41d2783066200f2940de0ce",
+          "2018-01-01.json": "90e3aa55acd257ceed3e8050167e391f91cac226e3d91fb4a1b6655b032bad74",
+          "2018-01-01.npz": "2cc9ff7041d4aee68e426bf624e3717f26a607526714a297ddac3109f151082f",
+          "2021-01-01-persistence.json": "60c0d0a38ce229edb8da241f2b20508afa2c430297fe63ffd3860c3b0637eb0b",
+          "2021-01-01.json": "cfaf4d18359db4f87286e41b7111fe90eacc86524eff810ba1ca192a80e04cd6",
+          "2021-01-01.npz": "bceeffa1220e7a249e73a99abaa0f61a0e293add1c1d89d89d67a6403db8530c",
+          "COMPLETE.json": "ff0d663d0e64b6c2c7e677c72592ac982e95bb24c960862aa0027f339fe512cd",
+          "input.json": "ec4f409102a489e949d761310003ce0325eb6c25732cc259dc5565a58ab90a72"
+        },
+        "scope": "Post-hoc read-back audit repairing an empty file-hash list; forecasts, weights and original audit remain unchanged"
+      },
+      "COMPLETE.json": {
+        "inputs": {
+          "protocol": "continuous-365-day-v1",
+          "training_manifest_sha256": "2089b5c94cd7243a706b7fa637b58b527f93bf9d25bb5aafd6784bea53b3cdfe",
+          "checkpoint_sha256": "76058c08c74a92942612aedd75ee961a1c53125076dd449c77007710c05ea4eb",
+          "global_observations": true,
+          "data_manifests": {
+            "test/2015-01-01/COMPLETE.json": "44ea1216b44aec5b8ea95678f31cbd1d449ec3fbbd3b0690484ecb488996441d",
+            "test/2018-01-01/COMPLETE.json": "8ee8d9e68e641a3a8cab031e9a28bfa80094927bd7973b558cc73777a9ac461e",
+            "test/2021-01-01/COMPLETE.json": "92d128ff711c563094d44725a84e8b62fd06b103cb4f3789ae39e89dc8170c6c"
+          },
+          "producer": "5f61785a0aea8a55e7c4313518efe3d9d77e2a7f",
+          "split": "test",
+          "selection": "Diagnostic only; nine-origin v3 selection unchanged",
+          "eke": "Anomalies relative to each sequence's own year mean",
+          "forcing": "Prescribed ERA5 through trained adapter; not an operational forcing forecast",
+          "sample_root": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-grid-bounds/observations",
+          "sample_manifest_sha256": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+          "include_persistence": true
+        },
+        "origins": {
+          "2015-01-01": {
+            "metrics": "2015-01-01.json",
+            "arrays": "2015-01-01.npz",
+            "persistence": "2015-01-01-persistence.json"
+          },
+          "2018-01-01": {
+            "metrics": "2018-01-01.json",
+            "arrays": "2018-01-01.npz",
+            "persistence": "2018-01-01-persistence.json"
+          },
+          "2021-01-01": {
+            "metrics": "2021-01-01.json",
+            "arrays": "2021-01-01.npz",
+            "persistence": "2021-01-01-persistence.json"
+          }
+        }
+      }
+    },
+    "U-multitask-early": {
+      "VERIFIED.json": {
+        "config_sha256": "89311438be22c882511e6fae185fdfe2e88005863b064761eca5c702e7ba27da",
+        "runtime_sha256": "ff904784233031f60809530a5520fb11b317052746cd8e4f25c674f12f5f09ba",
+        "model": {
+          "name": "U-multitask-early",
+          "run": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-observation-cache/U-multitask-early",
+          "checkpoint_sha256": "e07cb192c8455bfb82a4a0fd16c691d283b30eaa99231c3c00f84744622ad0b3",
+          "training_producer": "8c9a7403edbcd3a37fe09c3af687cbb99a62be85",
+          "selected_global_step": 3900
+        },
+        "outputs": {}
+      },
+      "VERIFIED-OUTPUT-HASHES.json": {
+        "producer": "25cc663fd4163ccfc0f056edc343732a484aa6e7",
+        "original_verified_sha256": "77d88262e94d0bd545c536c93a9b2203dba60445d0a97032be6de73f2d2eaf7f",
+        "outputs": {
+          "2015-01-01-persistence.json": "ffc29d994b0dec6b4ff0c949be316e8b4a80bf8b5b5f092422d3186de58a7337",
+          "2015-01-01.json": "592d8401cbf85a5a73098dbf751399613be45de04de2a0f06023f00821e27333",
+          "2015-01-01.npz": "2cba27246468199ee9f930ae462c96c3c4454408b1b6300f540a85e9c3ebb805",
+          "2018-01-01-persistence.json": "165e22cd28642fea4eca37337452a8cc5261a81ec5d23961428b18f69496f8b3",
+          "2018-01-01.json": "213982c8735f61e261490919a954991235ece3b8713d16d4665e4c485573dcd0",
+          "2018-01-01.npz": "51d968cddfbadff52fd04ee63d69284e0ad1125f4435f461ea7d1f38ff2b0c75",
+          "2021-01-01-persistence.json": "c00978b6fcbdb9b92a4a78d93cdacccc895b90943e94d0d6c75d32b22caa0505",
+          "2021-01-01.json": "fd06e73aad93095bc10746802100cd87d641a37cda19229e254c7ed7705ca984",
+          "2021-01-01.npz": "95cd70782bac37b2441763472bfdf61031e42ce110718dfdbdf6b363832b19be",
+          "COMPLETE.json": "5cd57059c285a1624989561300ea0e8c0657782c3046ac3aaaba8aa91c239bef",
+          "input.json": "b096dbcc21f6841f5caaaf5614701665802407c27dd31374b1bb6eafc161813c"
+        },
+        "scope": "Post-hoc read-back audit repairing an empty file-hash list; forecasts, weights and original audit remain unchanged"
+      },
+      "COMPLETE.json": {
+        "inputs": {
+          "protocol": "continuous-365-day-v1",
+          "training_manifest_sha256": "e2c49c49b7a3e308f662c72a8097c036233ae4c3c087c9e1b5e2031594713eb8",
+          "checkpoint_sha256": "e07cb192c8455bfb82a4a0fd16c691d283b30eaa99231c3c00f84744622ad0b3",
+          "global_observations": true,
+          "data_manifests": {
+            "test/2015-01-01/COMPLETE.json": "44ea1216b44aec5b8ea95678f31cbd1d449ec3fbbd3b0690484ecb488996441d",
+            "test/2018-01-01/COMPLETE.json": "8ee8d9e68e641a3a8cab031e9a28bfa80094927bd7973b558cc73777a9ac461e",
+            "test/2021-01-01/COMPLETE.json": "92d128ff711c563094d44725a84e8b62fd06b103cb4f3789ae39e89dc8170c6c"
+          },
+          "producer": "5f61785a0aea8a55e7c4313518efe3d9d77e2a7f",
+          "split": "test",
+          "selection": "Diagnostic only; nine-origin v3 selection unchanged",
+          "eke": "Anomalies relative to each sequence's own year mean",
+          "forcing": "Prescribed ERA5 through trained adapter; not an operational forcing forecast",
+          "sample_root": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-grid-bounds/observations",
+          "sample_manifest_sha256": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+          "include_persistence": true
+        },
+        "origins": {
+          "2015-01-01": {
+            "metrics": "2015-01-01.json",
+            "arrays": "2015-01-01.npz",
+            "persistence": "2015-01-01-persistence.json"
+          },
+          "2018-01-01": {
+            "metrics": "2018-01-01.json",
+            "arrays": "2018-01-01.npz",
+            "persistence": "2018-01-01-persistence.json"
+          },
+          "2021-01-01": {
+            "metrics": "2021-01-01.json",
+            "arrays": "2021-01-01.npz",
+            "persistence": "2021-01-01-persistence.json"
+          }
+        }
+      }
+    },
+    "U-multitask-early-latent": {
+      "VERIFIED.json": {
+        "config_sha256": "89311438be22c882511e6fae185fdfe2e88005863b064761eca5c702e7ba27da",
+        "runtime_sha256": "ff904784233031f60809530a5520fb11b317052746cd8e4f25c674f12f5f09ba",
+        "model": {
+          "name": "U-multitask-early-latent",
+          "run": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-observation-cache/U-multitask-early-latent",
+          "checkpoint_sha256": "7002aac05718cb13837cd543306d8a21634f33f1a27292a75a6ae88f90cbd5b5",
+          "training_producer": "8c9a7403edbcd3a37fe09c3af687cbb99a62be85",
+          "selected_global_step": 4000
+        },
+        "outputs": {}
+      },
+      "VERIFIED-OUTPUT-HASHES.json": {
+        "producer": "25cc663fd4163ccfc0f056edc343732a484aa6e7",
+        "original_verified_sha256": "1697026dbc42c580bb94004d366cb7013c8e5eda0409079554f760af1648172d",
+        "outputs": {
+          "2015-01-01-persistence.json": "acef3c8e1abc41c7dbf21ce03e2f8e4824fc3b0a04b00fa0ec7c2c18a9648fbe",
+          "2015-01-01.json": "e506b5d390ce5e8c685ff761053da977131289593bde7f77dff83a0e62a2c840",
+          "2015-01-01.npz": "5ff4586f08c4cf2b80814029246a3a5d83ef3c16b10d31aa52859d6346bf1dd4",
+          "2018-01-01-persistence.json": "8665e70138fc6c54c097d3a8d614ae5782e08d302372502f3095e0db08e94201",
+          "2018-01-01.json": "1589cb44ca05217248780cf6875db08e4c80cae7b16c0aef5f5032e217aa407a",
+          "2018-01-01.npz": "c53f036ad8af7336c24d42ee406613a4faa42e0e64ddabaf825cca01e647e607",
+          "2021-01-01-persistence.json": "4124a883e8afdad831a5928080f96094bf61298f2eae5bbaad0c2a5659e9b9a0",
+          "2021-01-01.json": "34ccfabc05f512158501c64f1ee5d8d2aa855d891352ce75579feae67330492c",
+          "2021-01-01.npz": "ba29c6d87088098469db9043663cf19dacdcef5d6d92981221fc44af45dab061",
+          "COMPLETE.json": "39be951a9dbe1b5b938e460b7d39eaac29d376894e9e599d1e60ab3da473ac32",
+          "input.json": "1ef203863d74893418b0deb148a3d8725478adb99f9a7a27cd109cfd6083a1e5"
+        },
+        "scope": "Post-hoc read-back audit repairing an empty file-hash list; forecasts, weights and original audit remain unchanged"
+      },
+      "COMPLETE.json": {
+        "inputs": {
+          "protocol": "continuous-365-day-v1",
+          "training_manifest_sha256": "ec27a9895a975eda71f9c73b7c80e4b751272de888a91c7ade29eba018e257b4",
+          "checkpoint_sha256": "7002aac05718cb13837cd543306d8a21634f33f1a27292a75a6ae88f90cbd5b5",
+          "global_observations": true,
+          "data_manifests": {
+            "test/2015-01-01/COMPLETE.json": "44ea1216b44aec5b8ea95678f31cbd1d449ec3fbbd3b0690484ecb488996441d",
+            "test/2018-01-01/COMPLETE.json": "8ee8d9e68e641a3a8cab031e9a28bfa80094927bd7973b558cc73777a9ac461e",
+            "test/2021-01-01/COMPLETE.json": "92d128ff711c563094d44725a84e8b62fd06b103cb4f3789ae39e89dc8170c6c"
+          },
+          "producer": "5f61785a0aea8a55e7c4313518efe3d9d77e2a7f",
+          "split": "test",
+          "selection": "Diagnostic only; nine-origin v3 selection unchanged",
+          "eke": "Anomalies relative to each sequence's own year mean",
+          "forcing": "Prescribed ERA5 through trained adapter; not an operational forcing forecast",
+          "sample_root": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-grid-bounds/observations",
+          "sample_manifest_sha256": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+          "include_persistence": true
+        },
+        "origins": {
+          "2015-01-01": {
+            "metrics": "2015-01-01.json",
+            "arrays": "2015-01-01.npz",
+            "persistence": "2015-01-01-persistence.json"
+          },
+          "2018-01-01": {
+            "metrics": "2018-01-01.json",
+            "arrays": "2018-01-01.npz",
+            "persistence": "2018-01-01-persistence.json"
+          },
+          "2021-01-01": {
+            "metrics": "2021-01-01.json",
+            "arrays": "2021-01-01.npz",
+            "persistence": "2021-01-01-persistence.json"
+          }
+        }
+      }
+    },
+    "U-multitask-early-fine": {
+      "VERIFIED.json": {
+        "config_sha256": "89311438be22c882511e6fae185fdfe2e88005863b064761eca5c702e7ba27da",
+        "runtime_sha256": "ff904784233031f60809530a5520fb11b317052746cd8e4f25c674f12f5f09ba",
+        "model": {
+          "name": "U-multitask-early-fine",
+          "run": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-observation-cache/U-multitask-early-fine",
+          "checkpoint_sha256": "abdc00d8d4decf73ccb86308d8110c2ef4328bf2284b643644dacf72214a15a8",
+          "training_producer": "8c9a7403edbcd3a37fe09c3af687cbb99a62be85",
+          "selected_global_step": 4000
+        },
+        "outputs": {}
+      },
+      "VERIFIED-OUTPUT-HASHES.json": {
+        "producer": "25cc663fd4163ccfc0f056edc343732a484aa6e7",
+        "original_verified_sha256": "d2be7dd11832686b4c9b2b06f467b424d32b2d0fa826332c9255962913a9c4c5",
+        "outputs": {
+          "2015-01-01-persistence.json": "3a1f71e839e6c893588c804af8bdc56e6b0dc14bb7a185de982c7b3e9296a985",
+          "2015-01-01.json": "33c76fdfe1eaa8612bc538110e8b836d641f50c152eea3c88315c588aab5a22d",
+          "2015-01-01.npz": "71b36c4f4f25f81ec9f1f5a30af91d6b3e725049d659e8a79f7f7c39ecffd080",
+          "2018-01-01-persistence.json": "46cc890eb211e49fc2179847ad2a30ea0f1313ce6d5c3583b0ba4436c21379d7",
+          "2018-01-01.json": "2fd2a3ad3569d470de84ac8d3770a92b1776bd9a2659cf23988f70ca4025a3a0",
+          "2018-01-01.npz": "4e311bac3891849ae5bcfc02dff025edb3ae660c46ae19fd0d3a7716610d8b47",
+          "2021-01-01-persistence.json": "b64367e8a5e070a4dbbe8bded0301b1813d146160e3f6509c962a58ac563b55f",
+          "2021-01-01.json": "96757547f1e36e8c5d1c40f90b804b949b03764a44199e814aad70ccb35007ec",
+          "2021-01-01.npz": "542c42a00fa0ec262fa283b1c59446f289c90cb99d614acb80911dcdee31fd6c",
+          "COMPLETE.json": "86dc4c61943423b80de8075870667173d502df5b54da1d87eb04c9d37de827a6",
+          "input.json": "6dda6082757045a13dfe5dd67b10e725db2bf2108e538d63f067ae4b60e8e407"
+        },
+        "scope": "Post-hoc read-back audit repairing an empty file-hash list; forecasts, weights and original audit remain unchanged"
+      },
+      "COMPLETE.json": {
+        "inputs": {
+          "protocol": "continuous-365-day-v1",
+          "training_manifest_sha256": "efd3823cf2cffcac8ffcd48338f3c6f0b6a52e3e79dcf8274639b9526f348795",
+          "checkpoint_sha256": "abdc00d8d4decf73ccb86308d8110c2ef4328bf2284b643644dacf72214a15a8",
+          "global_observations": true,
+          "data_manifests": {
+            "test/2015-01-01/COMPLETE.json": "44ea1216b44aec5b8ea95678f31cbd1d449ec3fbbd3b0690484ecb488996441d",
+            "test/2018-01-01/COMPLETE.json": "8ee8d9e68e641a3a8cab031e9a28bfa80094927bd7973b558cc73777a9ac461e",
+            "test/2021-01-01/COMPLETE.json": "92d128ff711c563094d44725a84e8b62fd06b103cb4f3789ae39e89dc8170c6c"
+          },
+          "producer": "5f61785a0aea8a55e7c4313518efe3d9d77e2a7f",
+          "split": "test",
+          "selection": "Diagnostic only; nine-origin v3 selection unchanged",
+          "eke": "Anomalies relative to each sequence's own year mean",
+          "forcing": "Prescribed ERA5 through trained adapter; not an operational forcing forecast",
+          "sample_root": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-grid-bounds/observations",
+          "sample_manifest_sha256": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+          "include_persistence": true
+        },
+        "origins": {
+          "2015-01-01": {
+            "metrics": "2015-01-01.json",
+            "arrays": "2015-01-01.npz",
+            "persistence": "2015-01-01-persistence.json"
+          },
+          "2018-01-01": {
+            "metrics": "2018-01-01.json",
+            "arrays": "2018-01-01.npz",
+            "persistence": "2018-01-01-persistence.json"
+          },
+          "2021-01-01": {
+            "metrics": "2021-01-01.json",
+            "arrays": "2021-01-01.npz",
+            "persistence": "2021-01-01-persistence.json"
+          }
+        }
+      }
+    },
+    "U-multitask-early-fine-latent": {
+      "VERIFIED.json": {
+        "config_sha256": "89311438be22c882511e6fae185fdfe2e88005863b064761eca5c702e7ba27da",
+        "runtime_sha256": "ff904784233031f60809530a5520fb11b317052746cd8e4f25c674f12f5f09ba",
+        "model": {
+          "name": "U-multitask-early-fine-latent",
+          "run": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-observation-cache/U-multitask-early-fine-latent",
+          "checkpoint_sha256": "506e37955749ef5c36d2a3e242708ec0a7b3b26e4eec323c5b6164876506b0cb",
+          "training_producer": "8c9a7403edbcd3a37fe09c3af687cbb99a62be85",
+          "selected_global_step": 4000
+        },
+        "outputs": {}
+      },
+      "VERIFIED-OUTPUT-HASHES.json": {
+        "producer": "25cc663fd4163ccfc0f056edc343732a484aa6e7",
+        "original_verified_sha256": "81c45d08b134aaed1cb9fe3b1f0c7254a869153d037d22845877f7c864128bab",
+        "outputs": {
+          "2015-01-01-persistence.json": "a6823867624cc92b463e92e1cbf04829df108faecc54eea7b3cb17ae25aa7844",
+          "2015-01-01.json": "87a30fa7ad26000c572b4c319dac2236d132e4193742f5fbbacbc849a6e7fa32",
+          "2015-01-01.npz": "ae31174d4bcd85d2a41df812c5f94dba1066005649c7f443b739cef7b2d17c9e",
+          "2018-01-01-persistence.json": "276cac885a7887bc1e647fa2173b066af560403ae8395e8287aa1be0a337eb12",
+          "2018-01-01.json": "adca9ec4cd9bf5d6dff10db5ff1c12a70b9cff8b615973f6105948fa6e7b1ebf",
+          "2018-01-01.npz": "a0d1acf3c00d61d36f4ddd90af2c6702aa6d510f4e88b706559f539004f2af6d",
+          "2021-01-01-persistence.json": "78202f66d8558086d79d085de48235b3800c10e12a1011948570d26a3a1d8325",
+          "2021-01-01.json": "28ba7c5cfaf80f03b1f00f37e3edd65e9ef22c99259f845f3c8071e5b2b594c1",
+          "2021-01-01.npz": "c67c70964b460fade34c52d25b2b4fb96af32a392de9ad2b9f3fbf179e91043b",
+          "COMPLETE.json": "6fa55757d98e9b8a279edd003f1a8a04eb772f41f7d490f3c074825b1e5de4d6",
+          "input.json": "551d5cba7d3cdcbb420f05cfabeb8d43c04954bd2b9c5d838b547ed3b221b9cb"
+        },
+        "scope": "Post-hoc read-back audit repairing an empty file-hash list; forecasts, weights and original audit remain unchanged"
+      },
+      "COMPLETE.json": {
+        "inputs": {
+          "protocol": "continuous-365-day-v1",
+          "training_manifest_sha256": "76a5ab0c17df102398628f953f7275a8233c728d2ce5f7fe5a412a4243a8405c",
+          "checkpoint_sha256": "506e37955749ef5c36d2a3e242708ec0a7b3b26e4eec323c5b6164876506b0cb",
+          "global_observations": true,
+          "data_manifests": {
+            "test/2015-01-01/COMPLETE.json": "44ea1216b44aec5b8ea95678f31cbd1d449ec3fbbd3b0690484ecb488996441d",
+            "test/2018-01-01/COMPLETE.json": "8ee8d9e68e641a3a8cab031e9a28bfa80094927bd7973b558cc73777a9ac461e",
+            "test/2021-01-01/COMPLETE.json": "92d128ff711c563094d44725a84e8b62fd06b103cb4f3789ae39e89dc8170c6c"
+          },
+          "producer": "5f61785a0aea8a55e7c4313518efe3d9d77e2a7f",
+          "split": "test",
+          "selection": "Diagnostic only; nine-origin v3 selection unchanged",
+          "eke": "Anomalies relative to each sequence's own year mean",
+          "forcing": "Prescribed ERA5 through trained adapter; not an operational forcing forecast",
+          "sample_root": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-grid-bounds/observations",
+          "sample_manifest_sha256": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+          "include_persistence": true
+        },
+        "origins": {
+          "2015-01-01": {
+            "metrics": "2015-01-01.json",
+            "arrays": "2015-01-01.npz",
+            "persistence": "2015-01-01-persistence.json"
+          },
+          "2018-01-01": {
+            "metrics": "2018-01-01.json",
+            "arrays": "2018-01-01.npz",
+            "persistence": "2018-01-01-persistence.json"
+          },
+          "2021-01-01": {
+            "metrics": "2021-01-01.json",
+            "arrays": "2021-01-01.npz",
+            "persistence": "2021-01-01-persistence.json"
+          }
+        }
+      }
+    },
+    "U-global-cooldown": {
+      "VERIFIED.json": {
+        "config_sha256": "89311438be22c882511e6fae185fdfe2e88005863b064761eca5c702e7ba27da",
+        "runtime_sha256": "ff904784233031f60809530a5520fb11b317052746cd8e4f25c674f12f5f09ba",
+        "model": {
+          "name": "U-global-cooldown",
+          "run": "/scratch/jr7309/runs/2026-10-08-early-fine-cooldown/U-global",
+          "checkpoint_sha256": "6db6d66ffbf5684d0cc7e962b1fa08a69ec88f00a1a53a3200b72e98dee2dc6e",
+          "training_producer": "4a1cd7a9bfb60d53b990b331fa0232c91aab5bb8",
+          "selected_global_step": 3700
+        },
+        "outputs": {}
+      },
+      "VERIFIED-OUTPUT-HASHES.json": {
+        "producer": "25cc663fd4163ccfc0f056edc343732a484aa6e7",
+        "original_verified_sha256": "286522d41fc095e3cd346d58852eabc975e73bf85ca89ce90e28cafad03fa504",
+        "outputs": {
+          "2015-01-01-persistence.json": "5da5e3d62c73679b5da8663628095976aaf6021ef3d387e0babdf8497c9d6cd4",
+          "2015-01-01.json": "35755bc4f9b13820aa34655822e19e186462794ceadf05ce4737d197170c5b87",
+          "2015-01-01.npz": "1635b1745aa60a7cdb51b8b88b1ee03633b8ce594fa207b5224beaa8ed627399",
+          "2018-01-01-persistence.json": "896f53001e89386b087c6a97f5e471736af2072b84d775c1bf30fdeaee5052e4",
+          "2018-01-01.json": "a6f760153d49e305af70ff0296d5ea61ed4c9851f44292553baca4b56b3f2467",
+          "2018-01-01.npz": "d52f7bf387362705b202b2dbc71924a82844f592a44fc0c25b27caa03b836db1",
+          "2021-01-01-persistence.json": "0d1a8a227e9df3a95d9e1329bf8d5783e1f987f0f5dabb73fd7e524f81afbc5a",
+          "2021-01-01.json": "0114c3a8c4216f8ae974563572fd066e6863910c9d8830c89a101c15b8b74d8d",
+          "2021-01-01.npz": "8542733b8e116882d1dcd80a3c9452c52667dd55def62d224310394d07c014d6",
+          "COMPLETE.json": "bfb8d415c0a03c6dfb1205861bf34d31edaf17951940c7e6f4664c81e9cfcda2",
+          "input.json": "6356b1404844681ebec78e389dcecdf5c3bde5e3720a6ccd9af3e255f22ee281"
+        },
+        "scope": "Post-hoc read-back audit repairing an empty file-hash list; forecasts, weights and original audit remain unchanged"
+      },
+      "COMPLETE.json": {
+        "inputs": {
+          "protocol": "continuous-365-day-v1",
+          "training_manifest_sha256": "6e12bd63b2a6c4aa2928a6e383526b0348d39f44411dbfe6f2e1a3097af77933",
+          "checkpoint_sha256": "6db6d66ffbf5684d0cc7e962b1fa08a69ec88f00a1a53a3200b72e98dee2dc6e",
+          "global_observations": true,
+          "data_manifests": {
+            "test/2015-01-01/COMPLETE.json": "44ea1216b44aec5b8ea95678f31cbd1d449ec3fbbd3b0690484ecb488996441d",
+            "test/2018-01-01/COMPLETE.json": "8ee8d9e68e641a3a8cab031e9a28bfa80094927bd7973b558cc73777a9ac461e",
+            "test/2021-01-01/COMPLETE.json": "92d128ff711c563094d44725a84e8b62fd06b103cb4f3789ae39e89dc8170c6c"
+          },
+          "producer": "5f61785a0aea8a55e7c4313518efe3d9d77e2a7f",
+          "split": "test",
+          "selection": "Diagnostic only; nine-origin v3 selection unchanged",
+          "eke": "Anomalies relative to each sequence's own year mean",
+          "forcing": "Prescribed ERA5 through trained adapter; not an operational forcing forecast",
+          "sample_root": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-grid-bounds/observations",
+          "sample_manifest_sha256": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+          "include_persistence": true
+        },
+        "origins": {
+          "2015-01-01": {
+            "metrics": "2015-01-01.json",
+            "arrays": "2015-01-01.npz",
+            "persistence": "2015-01-01-persistence.json"
+          },
+          "2018-01-01": {
+            "metrics": "2018-01-01.json",
+            "arrays": "2018-01-01.npz",
+            "persistence": "2018-01-01-persistence.json"
+          },
+          "2021-01-01": {
+            "metrics": "2021-01-01.json",
+            "arrays": "2021-01-01.npz",
+            "persistence": "2021-01-01-persistence.json"
+          }
+        }
+      }
+    },
+    "U-multitask-early-cooldown": {
+      "VERIFIED.json": {
+        "config_sha256": "89311438be22c882511e6fae185fdfe2e88005863b064761eca5c702e7ba27da",
+        "runtime_sha256": "ff904784233031f60809530a5520fb11b317052746cd8e4f25c674f12f5f09ba",
+        "model": {
+          "name": "U-multitask-early-cooldown",
+          "run": "/scratch/jr7309/runs/2026-10-08-early-fine-cooldown/U-multitask-early",
+          "checkpoint_sha256": "95951b0b968c80cfe8737004dd806edaf3d4dd2b3d5318921c78599ccbf4a8e3",
+          "training_producer": "4a1cd7a9bfb60d53b990b331fa0232c91aab5bb8",
+          "selected_global_step": 3500
+        },
+        "outputs": {}
+      },
+      "VERIFIED-OUTPUT-HASHES.json": {
+        "producer": "25cc663fd4163ccfc0f056edc343732a484aa6e7",
+        "original_verified_sha256": "79bd9f3b07d9b60423d87485f74a669ae1599d8865dde5817f1427392f5859e1",
+        "outputs": {
+          "2015-01-01-persistence.json": "1a7e01dea68d3aec1aa39a8cfc6a3032a5b3f1c90d556013b15c0011e188d4d8",
+          "2015-01-01.json": "96f5d5e2245e150ee2f17d8ade76db8c0381e71d33e0f7e38c2e88c910f2e5f0",
+          "2015-01-01.npz": "35984741b43ce93fca048a9be8133ec17f8c61b88482ead88000f4962e0db884",
+          "2018-01-01-persistence.json": "2075b10503fc47014224a8be180dd23a539648ce14d4ba6f320ba7d775aaa35c",
+          "2018-01-01.json": "635e8561c0400c8737a436d4402fefe448ccd19829435191a3402b0189a2b4db",
+          "2018-01-01.npz": "ec51c4ed497c90ce251fef0c6ae48a260bbed790871c1e1052e6308b039ae153",
+          "2021-01-01-persistence.json": "50696ebf111012c34d0183738165aa7b80c14c7c860ca9bdf861f1d20c39a675",
+          "2021-01-01.json": "0d0c1fe97f81d2c99e350715030833c2be09b27a6cccd78807d4d7fe93aeaf76",
+          "2021-01-01.npz": "37215798c83c262a5177122efb5e1cc8787e217b18b9edfb497c96479f171204",
+          "COMPLETE.json": "2bbe1018516757d72d82b054ff0d11af861d6c018a24a382605a4b94843c572f",
+          "input.json": "e91eebdb9e9cbf63d64f98dbeb0c0ef1352be23a88ee9de6a4e689e0f6584970"
+        },
+        "scope": "Post-hoc read-back audit repairing an empty file-hash list; forecasts, weights and original audit remain unchanged"
+      },
+      "COMPLETE.json": {
+        "inputs": {
+          "protocol": "continuous-365-day-v1",
+          "training_manifest_sha256": "18f8abb1186bef54adb709bcaf966440e49c256d0fc09da67b4ac909f12ae0b7",
+          "checkpoint_sha256": "95951b0b968c80cfe8737004dd806edaf3d4dd2b3d5318921c78599ccbf4a8e3",
+          "global_observations": true,
+          "data_manifests": {
+            "test/2015-01-01/COMPLETE.json": "44ea1216b44aec5b8ea95678f31cbd1d449ec3fbbd3b0690484ecb488996441d",
+            "test/2018-01-01/COMPLETE.json": "8ee8d9e68e641a3a8cab031e9a28bfa80094927bd7973b558cc73777a9ac461e",
+            "test/2021-01-01/COMPLETE.json": "92d128ff711c563094d44725a84e8b62fd06b103cb4f3789ae39e89dc8170c6c"
+          },
+          "producer": "5f61785a0aea8a55e7c4313518efe3d9d77e2a7f",
+          "split": "test",
+          "selection": "Diagnostic only; nine-origin v3 selection unchanged",
+          "eke": "Anomalies relative to each sequence's own year mean",
+          "forcing": "Prescribed ERA5 through trained adapter; not an operational forcing forecast",
+          "sample_root": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-grid-bounds/observations",
+          "sample_manifest_sha256": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+          "include_persistence": true
+        },
+        "origins": {
+          "2015-01-01": {
+            "metrics": "2015-01-01.json",
+            "arrays": "2015-01-01.npz",
+            "persistence": "2015-01-01-persistence.json"
+          },
+          "2018-01-01": {
+            "metrics": "2018-01-01.json",
+            "arrays": "2018-01-01.npz",
+            "persistence": "2018-01-01-persistence.json"
+          },
+          "2021-01-01": {
+            "metrics": "2021-01-01.json",
+            "arrays": "2021-01-01.npz",
+            "persistence": "2021-01-01-persistence.json"
+          }
+        }
+      }
+    },
+    "U-multitask-early-latent-cooldown": {
+      "VERIFIED.json": {
+        "config_sha256": "89311438be22c882511e6fae185fdfe2e88005863b064761eca5c702e7ba27da",
+        "runtime_sha256": "ff904784233031f60809530a5520fb11b317052746cd8e4f25c674f12f5f09ba",
+        "model": {
+          "name": "U-multitask-early-latent-cooldown",
+          "run": "/scratch/jr7309/runs/2026-10-08-early-fine-cooldown/U-multitask-early-latent",
+          "checkpoint_sha256": "6acb16f1ad3949b17cd505b7ef2c3f079a09ed78f921001ed8212c4ef3b372bb",
+          "training_producer": "4a1cd7a9bfb60d53b990b331fa0232c91aab5bb8",
+          "selected_global_step": 3500
+        },
+        "outputs": {}
+      },
+      "VERIFIED-OUTPUT-HASHES.json": {
+        "producer": "25cc663fd4163ccfc0f056edc343732a484aa6e7",
+        "original_verified_sha256": "b6e81ccf506cf8fd7856406d294240f1524595276b0b13c7bba2fa2d7c6db8bd",
+        "outputs": {
+          "2015-01-01-persistence.json": "c06efedc1272ae0f5b4d417e099028631fcd347400c69b7ee610146ae0066796",
+          "2015-01-01.json": "cda8ed9ae53166c2a3ff2b6ec5e1988e02b3bf14cc3651bbd2ea2b97f1b8b4d8",
+          "2015-01-01.npz": "01d33b15ba877d3bf6878c14aa3202c711efbbcf0e658d2d925dd0eb5983611a",
+          "2018-01-01-persistence.json": "1416dd51b1c4e4045f78ef919a1098f12431efb95ee2bc163998a6535d7351aa",
+          "2018-01-01.json": "c2a26a77854378e6e3593b2c4ed22afa6343f8d421edb5fc59c88b0381348a2a",
+          "2018-01-01.npz": "9940562891cbad3b35c77e2bd7e529a65015f299d9079a0e4e201d039b2e38cf",
+          "2021-01-01-persistence.json": "525858b95c685808eec6ff5f43adc319b922657679123ec63088e5c3acaef7ed",
+          "2021-01-01.json": "a01e9d1915f77b663d792c6bdc1ae12161bb456386c0565502bb028002e2e8f0",
+          "2021-01-01.npz": "3e437b5e89a16665694ea7f834176a81d761c776d35cf48f65494e69fc52a72d",
+          "COMPLETE.json": "bb0529a8a55efb2f35e2831265c7adf78b571ccab53489cedbf050b8322b4b4e",
+          "input.json": "1de564d913ec9c1c2016b7ff404369326cebe8f348b362bf8bf004185b5d3529"
+        },
+        "scope": "Post-hoc read-back audit repairing an empty file-hash list; forecasts, weights and original audit remain unchanged"
+      },
+      "COMPLETE.json": {
+        "inputs": {
+          "protocol": "continuous-365-day-v1",
+          "training_manifest_sha256": "1fd851b8346581bb84510d2d187322188c3d5a21ef4a06fa1985b0dd82c7e5cc",
+          "checkpoint_sha256": "6acb16f1ad3949b17cd505b7ef2c3f079a09ed78f921001ed8212c4ef3b372bb",
+          "global_observations": true,
+          "data_manifests": {
+            "test/2015-01-01/COMPLETE.json": "44ea1216b44aec5b8ea95678f31cbd1d449ec3fbbd3b0690484ecb488996441d",
+            "test/2018-01-01/COMPLETE.json": "8ee8d9e68e641a3a8cab031e9a28bfa80094927bd7973b558cc73777a9ac461e",
+            "test/2021-01-01/COMPLETE.json": "92d128ff711c563094d44725a84e8b62fd06b103cb4f3789ae39e89dc8170c6c"
+          },
+          "producer": "5f61785a0aea8a55e7c4313518efe3d9d77e2a7f",
+          "split": "test",
+          "selection": "Diagnostic only; nine-origin v3 selection unchanged",
+          "eke": "Anomalies relative to each sequence's own year mean",
+          "forcing": "Prescribed ERA5 through trained adapter; not an operational forcing forecast",
+          "sample_root": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-grid-bounds/observations",
+          "sample_manifest_sha256": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+          "include_persistence": true
+        },
+        "origins": {
+          "2015-01-01": {
+            "metrics": "2015-01-01.json",
+            "arrays": "2015-01-01.npz",
+            "persistence": "2015-01-01-persistence.json"
+          },
+          "2018-01-01": {
+            "metrics": "2018-01-01.json",
+            "arrays": "2018-01-01.npz",
+            "persistence": "2018-01-01-persistence.json"
+          },
+          "2021-01-01": {
+            "metrics": "2021-01-01.json",
+            "arrays": "2021-01-01.npz",
+            "persistence": "2021-01-01-persistence.json"
+          }
+        }
+      }
+    },
+    "U-multitask-early-fine-cooldown": {
+      "VERIFIED.json": {
+        "config_sha256": "89311438be22c882511e6fae185fdfe2e88005863b064761eca5c702e7ba27da",
+        "runtime_sha256": "ff904784233031f60809530a5520fb11b317052746cd8e4f25c674f12f5f09ba",
+        "model": {
+          "name": "U-multitask-early-fine-cooldown",
+          "run": "/scratch/jr7309/runs/2026-10-08-early-fine-cooldown/U-multitask-early-fine",
+          "checkpoint_sha256": "12327e2feee50def2ae37c161da76fef70d4b63549972d3bb756252c57c0251b",
+          "training_producer": "4a1cd7a9bfb60d53b990b331fa0232c91aab5bb8",
+          "selected_global_step": 4000
+        },
+        "outputs": {}
+      },
+      "VERIFIED-OUTPUT-HASHES.json": {
+        "producer": "25cc663fd4163ccfc0f056edc343732a484aa6e7",
+        "original_verified_sha256": "fefbc50088697d18b68c1c87d35346f5f78ea4ab654f5a2ef452326d79198453",
+        "outputs": {
+          "2015-01-01-persistence.json": "e78d63044ff5e0f3922c962c9e280249d07dac4b56af2b9c43259631d4f745ad",
+          "2015-01-01.json": "2fd245cde6ed09a3254d4423496218101918bfa804db6ed7d107ac6696d8f4e4",
+          "2015-01-01.npz": "9e278053af670399771c0e69d1a25c1ac238819da47719f716a1c7aca986d573",
+          "2018-01-01-persistence.json": "2dca041845597c8b8c2e91ab4f7c4e3cf4462723b00602a825abf82f1a4687ff",
+          "2018-01-01.json": "aa620f7768301be26ab4923df0a418486e4ae8d6558109d49f90f4ca8a9d4249",
+          "2018-01-01.npz": "ee0fb59d02a0034b67d1c143454ef1ecc92a2da70b08d420ec3be34e68f71b65",
+          "2021-01-01-persistence.json": "82c2d1bde28d770b33ffa3946073777d3a06c08600e9df2a235b10890152b1cd",
+          "2021-01-01.json": "2bcd793cbc55d64cc094deaae9d3ead26c8484a167f2fb7d6fcded0b60ec6d1e",
+          "2021-01-01.npz": "b1e63168179e1441528374a2a1750f312bce7f67e76868565c66013e338e9b7b",
+          "COMPLETE.json": "98fa469cfee26a0aa9b7e8a9e5a56c2b0319b02932609a4344390cd81badf1fb",
+          "input.json": "7a02bd50c8718f3e742b2e5394de7b9d31ff3a720f03e4debc6adaa4b53b04ec"
+        },
+        "scope": "Post-hoc read-back audit repairing an empty file-hash list; forecasts, weights and original audit remain unchanged"
+      },
+      "COMPLETE.json": {
+        "inputs": {
+          "protocol": "continuous-365-day-v1",
+          "training_manifest_sha256": "e649e3482710125871f8f12455f16e3514ee582acbb20a6d999253c34fe7d8fe",
+          "checkpoint_sha256": "12327e2feee50def2ae37c161da76fef70d4b63549972d3bb756252c57c0251b",
+          "global_observations": true,
+          "data_manifests": {
+            "test/2015-01-01/COMPLETE.json": "44ea1216b44aec5b8ea95678f31cbd1d449ec3fbbd3b0690484ecb488996441d",
+            "test/2018-01-01/COMPLETE.json": "8ee8d9e68e641a3a8cab031e9a28bfa80094927bd7973b558cc73777a9ac461e",
+            "test/2021-01-01/COMPLETE.json": "92d128ff711c563094d44725a84e8b62fd06b103cb4f3789ae39e89dc8170c6c"
+          },
+          "producer": "5f61785a0aea8a55e7c4313518efe3d9d77e2a7f",
+          "split": "test",
+          "selection": "Diagnostic only; nine-origin v3 selection unchanged",
+          "eke": "Anomalies relative to each sequence's own year mean",
+          "forcing": "Prescribed ERA5 through trained adapter; not an operational forcing forecast",
+          "sample_root": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-grid-bounds/observations",
+          "sample_manifest_sha256": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+          "include_persistence": true
+        },
+        "origins": {
+          "2015-01-01": {
+            "metrics": "2015-01-01.json",
+            "arrays": "2015-01-01.npz",
+            "persistence": "2015-01-01-persistence.json"
+          },
+          "2018-01-01": {
+            "metrics": "2018-01-01.json",
+            "arrays": "2018-01-01.npz",
+            "persistence": "2018-01-01-persistence.json"
+          },
+          "2021-01-01": {
+            "metrics": "2021-01-01.json",
+            "arrays": "2021-01-01.npz",
+            "persistence": "2021-01-01-persistence.json"
+          }
+        }
+      }
+    },
+    "U-multitask-early-fine-latent-cooldown": {
+      "VERIFIED.json": {
+        "config_sha256": "89311438be22c882511e6fae185fdfe2e88005863b064761eca5c702e7ba27da",
+        "runtime_sha256": "ff904784233031f60809530a5520fb11b317052746cd8e4f25c674f12f5f09ba",
+        "model": {
+          "name": "U-multitask-early-fine-latent-cooldown",
+          "run": "/scratch/jr7309/runs/2026-10-08-early-fine-cooldown/U-multitask-early-fine-latent",
+          "checkpoint_sha256": "11df6d8d60285fce32807b070dcccde7d16dc2a2b00a1afdb1f083dec81898cc",
+          "training_producer": "4a1cd7a9bfb60d53b990b331fa0232c91aab5bb8",
+          "selected_global_step": 4000
+        },
+        "outputs": {}
+      },
+      "VERIFIED-OUTPUT-HASHES.json": {
+        "producer": "25cc663fd4163ccfc0f056edc343732a484aa6e7",
+        "original_verified_sha256": "206d6ca960dbe7ef65433dd03b70934f168d55ab369679c7d25a4eaed805d2a0",
+        "outputs": {
+          "2015-01-01-persistence.json": "8a736f3aec32c9791e897ea2372ee62f3a8b83b5dfe72bcaffb6315085b5e901",
+          "2015-01-01.json": "51fec624fd0b71166bdf176c2e92df1f49f5af8289abd66179cd8805bc03b722",
+          "2015-01-01.npz": "d35098f819950093b2fb3ffb62de824520451e55fcc6688eb3ba827f07c29ae7",
+          "2018-01-01-persistence.json": "64104312c5e86284aced5dad95e654f4c0d9124b14aa6b04aeff4f55a9b8eef0",
+          "2018-01-01.json": "556a0ebaa104f0b54cc0837bab38021957306191a15383da9952247317bf0bd9",
+          "2018-01-01.npz": "c2b9a4b7f4ba5f99c75567aba5c08c588630d689e63345e5633e752199fe7e70",
+          "2021-01-01-persistence.json": "eaf27dce604a27641dec2a9ddfe44cd64cbbf896880fc343d17395cb87734757",
+          "2021-01-01.json": "9718c3a5e4096b48586855bc826bb2a88333543d7b8694f476b7de7f88b7bd41",
+          "2021-01-01.npz": "26c5058aff0b6d1e4168481522a4c758681c5257d3eaf4e869df8947b0289e63",
+          "COMPLETE.json": "6b34e6c85576904f34a65d84d81b73f830569094bfeb899f2cc58c271266bf75",
+          "input.json": "0657c1abcd01c39856ae9c31bac308680ad123503ed8e60a8c51cee0e756bc95"
+        },
+        "scope": "Post-hoc read-back audit repairing an empty file-hash list; forecasts, weights and original audit remain unchanged"
+      },
+      "COMPLETE.json": {
+        "inputs": {
+          "protocol": "continuous-365-day-v1",
+          "training_manifest_sha256": "4b9b81ae44bdc1126f38562d28d815b374bbffd53395b181de544d20d17bca32",
+          "checkpoint_sha256": "11df6d8d60285fce32807b070dcccde7d16dc2a2b00a1afdb1f083dec81898cc",
+          "global_observations": true,
+          "data_manifests": {
+            "test/2015-01-01/COMPLETE.json": "44ea1216b44aec5b8ea95678f31cbd1d449ec3fbbd3b0690484ecb488996441d",
+            "test/2018-01-01/COMPLETE.json": "8ee8d9e68e641a3a8cab031e9a28bfa80094927bd7973b558cc73777a9ac461e",
+            "test/2021-01-01/COMPLETE.json": "92d128ff711c563094d44725a84e8b62fd06b103cb4f3789ae39e89dc8170c6c"
+          },
+          "producer": "5f61785a0aea8a55e7c4313518efe3d9d77e2a7f",
+          "split": "test",
+          "selection": "Diagnostic only; nine-origin v3 selection unchanged",
+          "eke": "Anomalies relative to each sequence's own year mean",
+          "forcing": "Prescribed ERA5 through trained adapter; not an operational forcing forecast",
+          "sample_root": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-grid-bounds/observations",
+          "sample_manifest_sha256": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+          "include_persistence": true
+        },
+        "origins": {
+          "2015-01-01": {
+            "metrics": "2015-01-01.json",
+            "arrays": "2015-01-01.npz",
+            "persistence": "2015-01-01-persistence.json"
+          },
+          "2018-01-01": {
+            "metrics": "2018-01-01.json",
+            "arrays": "2018-01-01.npz",
+            "persistence": "2018-01-01-persistence.json"
+          },
+          "2021-01-01": {
+            "metrics": "2021-01-01.json",
+            "arrays": "2021-01-01.npz",
+            "persistence": "2021-01-01-persistence.json"
+          }
+        }
+      }
+    }
+  },
+  "collected_utc": "2026-10-08T20:07:21.879610+00:00",
+  "accounting": [
+    {
+      "JobID": "19446140",
+      "State": "FAILED",
+      "ExitCode": "1:0",
+      "Start": "2026-10-08T14:53:16",
+      "End": "2026-10-08T14:53:47",
+      "ElapsedRaw": "31",
+      "AllocTRES": "billing=4,cpu=4,mem=24G,node=1"
+    },
+    {
+      "JobID": "19446141_[0-9%5]",
+      "State": "CANCELLED by 4684506",
+      "ExitCode": "0:0",
+      "Start": "None",
+      "End": "2026-10-08T14:55:22",
+      "ElapsedRaw": "0",
+      "AllocTRES": ""
+    },
+    {
+      "JobID": "19446158",
+      "State": "FAILED",
+      "ExitCode": "1:0",
+      "Start": "2026-10-08T14:53:50",
+      "End": "2026-10-08T14:54:15",
+      "ElapsedRaw": "25",
+      "AllocTRES": "billing=1,cpu=1,mem=256M,node=1"
+    },
+    {
+      "JobID": "19446161",
+      "State": "CANCELLED by 4684506",
+      "ExitCode": "0:0",
+      "Start": "None",
+      "End": "2026-10-08T14:55:21",
+      "ElapsedRaw": "0",
+      "AllocTRES": ""
+    },
+    {
+      "JobID": "19446316",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "Start": "2026-10-08T15:14:27",
+      "End": "2026-10-08T15:15:22",
+      "ElapsedRaw": "55",
+      "AllocTRES": "billing=4,cpu=4,mem=24G,node=1"
+    },
+    {
+      "JobID": "19446317_0",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "Start": "2026-10-08T15:16:35",
+      "End": "2026-10-08T15:17:39",
+      "ElapsedRaw": "64",
+      "AllocTRES": "billing=8,cpu=8,gres/gpu=1,mem=48G,node=1"
+    },
+    {
+      "JobID": "19446317_1",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "Start": "2026-10-08T15:16:35",
+      "End": "2026-10-08T15:17:38",
+      "ElapsedRaw": "63",
+      "AllocTRES": "billing=8,cpu=8,gres/gpu=1,mem=48G,node=1"
+    },
+    {
+      "JobID": "19446317_2",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "Start": "2026-10-08T15:16:35",
+      "End": "2026-10-08T15:17:42",
+      "ElapsedRaw": "67",
+      "AllocTRES": "billing=8,cpu=8,gres/gpu=1,mem=48G,node=1"
+    },
+    {
+      "JobID": "19446317_3",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "Start": "2026-10-08T15:16:35",
+      "End": "2026-10-08T15:17:44",
+      "ElapsedRaw": "69",
+      "AllocTRES": "billing=8,cpu=8,gres/gpu=1,mem=48G,node=1"
+    },
+    {
+      "JobID": "19446317_4",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "Start": "2026-10-08T15:16:38",
+      "End": "2026-10-08T15:17:43",
+      "ElapsedRaw": "65",
+      "AllocTRES": "billing=8,cpu=8,gres/gpu=1,mem=48G,node=1"
+    },
+    {
+      "JobID": "19446317_5",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "Start": "2026-10-08T15:17:41",
+      "End": "2026-10-08T15:18:43",
+      "ElapsedRaw": "62",
+      "AllocTRES": "billing=8,cpu=8,gres/gpu=1,mem=48G,node=1"
+    },
+    {
+      "JobID": "19446317_6",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "Start": "2026-10-08T15:17:41",
+      "End": "2026-10-08T15:18:43",
+      "ElapsedRaw": "62",
+      "AllocTRES": "billing=8,cpu=8,gres/gpu=1,mem=48G,node=1"
+    },
+    {
+      "JobID": "19446317_7",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "Start": "2026-10-08T15:17:45",
+      "End": "2026-10-08T15:18:49",
+      "ElapsedRaw": "64",
+      "AllocTRES": "billing=8,cpu=8,gres/gpu=1,mem=48G,node=1"
+    },
+    {
+      "JobID": "19446317_8",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "Start": "2026-10-08T15:17:45",
+      "End": "2026-10-08T15:18:45",
+      "ElapsedRaw": "60",
+      "AllocTRES": "billing=8,cpu=8,gres/gpu=1,mem=48G,node=1"
+    },
+    {
+      "JobID": "19446317_9",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "Start": "2026-10-08T15:17:45",
+      "End": "2026-10-08T15:18:50",
+      "ElapsedRaw": "65",
+      "AllocTRES": "billing=8,cpu=8,gres/gpu=1,mem=48G,node=1"
+    },
+    {
+      "JobID": "19446318",
+      "State": "FAILED",
+      "ExitCode": "1:0",
+      "Start": "2026-10-08T15:44:21",
+      "End": "2026-10-08T15:44:47",
+      "ElapsedRaw": "26",
+      "AllocTRES": "billing=1,cpu=1,mem=256M,node=1"
+    },
+    {
+      "JobID": "19446319",
+      "State": "FAILED",
+      "ExitCode": "1:0",
+      "Start": "2026-10-08T15:44:21",
+      "End": "2026-10-08T15:44:47",
+      "ElapsedRaw": "26",
+      "AllocTRES": "billing=1,cpu=1,mem=256M,node=1"
+    },
+    {
+      "JobID": "19448212",
+      "State": "FAILED",
+      "ExitCode": "1:0",
+      "Start": "2026-10-08T15:50:18",
+      "End": "2026-10-08T15:50:33",
+      "ElapsedRaw": "15",
+      "AllocTRES": "billing=4,cpu=4,mem=24G,node=1"
+    },
+    {
+      "JobID": "19448645",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "Start": "2026-10-08T16:04:57",
+      "End": "2026-10-08T16:05:49",
+      "ElapsedRaw": "52",
+      "AllocTRES": "billing=4,cpu=4,mem=24G,node=1"
+    }
+  ],
+  "allocated_gpu_seconds": 641,
+  "allocated_gpu_hours": 0.17805555555555555,
+  "collector_job": "19448645",
+  "failed_collector_job": "19448212",
+  "collector_sha256": "a5519524f9757b02ad161e6b7687b9babcb7ee1ed871947c9e5433d67c0c74ba",
+  "summary_sha256": "847d532f8a4e3fccb852c99b1f30550601610105127aaa3a07688717294de1b0",
+  "targeted_tests_passed": 14,
+  "callback_relay": "inactive/dead; Result=success",
+  "handled_events": [
+    "161d6ef2-eb71-4ddd-8ca3-994cfd5e3a01",
+    "85ce70c8-329d-4037-9e51-294e2eb09f75"
+  ],
+  "report_files_sha256": {
+    "U-global-maps.npz": "0fe590eba766edd4a50d143d32bd981d02bcf6bdad94f5819b4e472fe7780e1e",
+    "U-multitask-early-fine-latent-maps.npz": "eafcf379c4bdab74f43e08d02b3fc8b204b116344991a8438fdb7be4810ff7d5",
+    "U-multitask-early-fine-maps.npz": "be84d913c8b4a47f23f1740447f03be5b8e9ef953e36383f5d523bb25ed24c7e",
+    "U-multitask-early-latent-maps.npz": "618a2f610407ef1f4f89ea8c826ab052cf526065c7b3cdb3569a467fabdad1c3",
+    "U-multitask-early-maps.npz": "6f932f8986b1d2a48caa2573d1881d8984d6c0e0259a7320fa5d1a199a702e1b",
+    "results.json": "b84580cbbf855345ef80ba926cd8dcfffcf43c058203a57be0e3693f4adcbf08",
+    "summary/adt-spectra.pdf": "65d90120fe0ab675059cf0a0190d3dabc02b2943d484af030adbe4485f4e9a47",
+    "summary/adt-spectra.png": "dc79184c69420a340eae41965d2b50d12d966d78bc9a0f5ef8788550d590be4b",
+    "summary/annual-eke-spectra.pdf": "340f99dbfb4d2d3328a4fc91cad40aa3d3700214d089411ed13521ffa503ed32",
+    "summary/annual-eke-spectra.png": "e905178d7adaa4831da915139764e2042d89a0ef554dfac54298d87117cbab7b",
+    "summary/annual-eke.csv": "d44b82c6a4c5aa0ebf9ccb8f6c249da4825956abc9693e711841fee9f5734667",
+    "summary/lead-curves-2015-01-01.pdf": "3d3fe82ce3334e5c17b735559033b37c16d10ff3d49d35adccfd276ad56b415b",
+    "summary/lead-curves-2015-01-01.png": "5c685c6a82c761bb86fd3d1b3e22afe405265c772b9c76ea43c4ec1f7c67529a",
+    "summary/lead-curves-2018-01-01.pdf": "049c873814a2d5271500667a62361ad86de9b5b08ab3bd5e5211599297c5718c",
+    "summary/lead-curves-2018-01-01.png": "ef574e91dbf8db8644f11afa227758c48b80f5397fb7e0cbc0918eef8b7c48e3",
+    "summary/lead-curves-2021-01-01.pdf": "668875db6f8c6293d1e39d884412c177c32f942d10b87b65eb95854a8ee36296",
+    "summary/lead-curves-2021-01-01.png": "ad1afe6125ef922a292919460130d9a2cc83f95ae28303d73cfc687fd0428345",
+    "summary/lead-curves-mean.pdf": "635d523d176eaff76c721ebc4517154bf0325c7aec36da3a1f65a0b5666e6561",
+    "summary/lead-curves-mean.png": "ba24703eccd60d616c94eb5e2f751cb2a18fed445b2e203142787602e3d69cb8",
+    "summary/lead-metrics.csv": "d4a2651db4238296c354f583d1971a9295396c43fdf3a2b8db9f99765ef4b0f1",
+    "summary/maps/U-global/day365-2015-01-01-anomalies-adt.pdf": "6038edb7ac28fea0e67478304e42270cdb4553e4b9590c5da463559cad222e79",
+    "summary/maps/U-global/day365-2015-01-01-anomalies-adt.png": "c5f08902062ba3788151cc1d0a59c0ba0eb2935cb4cde8dad29130bc6c5e59f8",
+    "summary/maps/U-global/day365-2015-01-01-anomalies-sst.pdf": "5d1425ab38f40845989079a6aa4b50cff01029b1b772b6537e6ece04a29dc49d",
+    "summary/maps/U-global/day365-2015-01-01-anomalies-sst.png": "c0d2176b27987f6dd460de469e285046132bcfa932e7ac2dcde28912bf23f011",
+    "summary/maps/U-global/day365-2018-01-01-anomalies-adt.pdf": "8e75844d5333285bdf35b43c530dd2c6092a5aa74959da9230f0ded7a78baa61",
+    "summary/maps/U-global/day365-2018-01-01-anomalies-adt.png": "29522c5c61f693c0e4b786e3fb9d1692d7a0aa2d3fafc035905bea3621b9cea1",
+    "summary/maps/U-global/day365-2018-01-01-anomalies-sst.pdf": "3a6a394a68782047f68bb38a473136c9bf9a090b3910e7a7cfa4daa1626093bf",
+    "summary/maps/U-global/day365-2018-01-01-anomalies-sst.png": "74d05a050cf582ac9354981f89f91f2607acad1fe6aac603705b02fe6245ab13",
+    "summary/maps/U-global/day365-2021-01-01-anomalies-adt.pdf": "fb51151127a323985e205ce48ce4f4b87cd5db4112408ecf996ed9536b822dcf",
+    "summary/maps/U-global/day365-2021-01-01-anomalies-adt.png": "2393e0126cceeb41d88262acfb4817c5810890ff4172cfba37c6fe99b0e304e3",
+    "summary/maps/U-global/day365-2021-01-01-anomalies-sst.pdf": "aac444e1f769e2bb89fe50717ae7c4164199d75bcf044ed9404be5bb506d826b",
+    "summary/maps/U-global/day365-2021-01-01-anomalies-sst.png": "92159e7bf45eb36c02307288d94853a5698edb649aecab6c2dbaf05678b0c369",
+    "summary/maps/U-global/day365-2021-01-01-fields-adt.pdf": "0333a75ab05dadbcc48056bbfd3f28a7de2d0d8974858933fdd6526c646be1e5",
+    "summary/maps/U-global/day365-2021-01-01-fields-adt.png": "281c364ed8979baec37b20d257cc3c8f3b0d664b2ae8490129a8bf5db9e2d122",
+    "summary/maps/U-global/day365-2021-01-01-fields-sst.pdf": "fedc575f80d52ba9e5f2e1ca84041bf25df0474528d1866e9a004a106defd383",
+    "summary/maps/U-global/day365-2021-01-01-fields-sst.png": "3885fd781fa81d7e56904fe73b9a03afef2af1ac7ef10868712cee4b667c4238",
+    "summary/maps/U-global/provenance.json": "0fa211b5a170312ee1df749aa26ed169b607d22a1c4483ab193e7b13dc5f8ac3",
+    "summary/maps/U-multitask-early/day365-2015-01-01-anomalies-adt.pdf": "d20dd01a2804cecef8bc57e03a7f70f9bf5933d91e4735586bc7e8924aa39c05",
+    "summary/maps/U-multitask-early/day365-2015-01-01-anomalies-adt.png": "3fd1f227825614f616bdbdc4e0225be62bebc25f8417c114f86326cf466f91b3",
+    "summary/maps/U-multitask-early/day365-2015-01-01-anomalies-sst.pdf": "a792a4df381a7650b74d0ea779a78bf881a1c999811b10ae2e3e6c308a8c34d0",
+    "summary/maps/U-multitask-early/day365-2015-01-01-anomalies-sst.png": "39949ee39ceaa68dfd05f68724c70c0df39639afedf70ccc992190e958b983a3",
+    "summary/maps/U-multitask-early/day365-2018-01-01-anomalies-adt.pdf": "10a9e2c5c8925ac895b8f5187ad5a80e088376a4fff9522b0836d0b3348b4085",
+    "summary/maps/U-multitask-early/day365-2018-01-01-anomalies-adt.png": "776aa9f5216bb2d5c3925dd5de9260d875a19ab3720ff9bb4f1397e21df9d816",
+    "summary/maps/U-multitask-early/day365-2018-01-01-anomalies-sst.pdf": "1b90f8408b8ea274657baefd338a1ddcaa7fd8b2919c5f8f170dea18e9d2a276",
+    "summary/maps/U-multitask-early/day365-2018-01-01-anomalies-sst.png": "c1df6e2b05cbb056c0b0d3d891a1436c3e6add7967cf1987094ebceaf782fb2c",
+    "summary/maps/U-multitask-early/day365-2021-01-01-anomalies-adt.pdf": "07902ddb809d23dd1f6e7a5e09e13cbda73a6bf929160a36fa447d87f9312a9b",
+    "summary/maps/U-multitask-early/day365-2021-01-01-anomalies-adt.png": "8b318a87c006d17408f59fb2c8882a1573a1e130c2cde80aead5b3e00e6b82c1",
+    "summary/maps/U-multitask-early/day365-2021-01-01-anomalies-sst.pdf": "120d07ac37d08bdeab7822de005c2c3b305fad65ae8add01eecb8df378890096",
+    "summary/maps/U-multitask-early/day365-2021-01-01-anomalies-sst.png": "ecf4ec5c58a2b52ed885c81eb597ddc4b6350ecbe3464c3acd695df3201aecf8",
+    "summary/maps/U-multitask-early/day365-2021-01-01-fields-adt.pdf": "6daf0dec2c53c5aa301bbe5a44ef33c501b98ddc1a636530bddbfe84c967391b",
+    "summary/maps/U-multitask-early/day365-2021-01-01-fields-adt.png": "9fdc9c38a062df90cda439bf581f81263783c742929f6beef21ad261a6123bb5",
+    "summary/maps/U-multitask-early/day365-2021-01-01-fields-sst.pdf": "6c310c5c7b90c7cf0cf2a9a23fe951ca760403c54da865b5ae65f0fe002bce13",
+    "summary/maps/U-multitask-early/day365-2021-01-01-fields-sst.png": "ff08c80922f46f518140dfd535d5ac3a037bfafd8d02bcbe75034a81f3dff18f",
+    "summary/maps/U-multitask-early/provenance.json": "71bbc0c6a0f5860237eff21b70ccde130c94879ed4ff9f572e21b77b9814aa3d",
+    "summary/maps/U-multitask-early-fine/day365-2015-01-01-anomalies-adt.pdf": "f372deaf7c616f347b64f15cc67c5f6167622861a205b70979e373bb8825af52",
+    "summary/maps/U-multitask-early-fine/day365-2015-01-01-anomalies-adt.png": "59dd32fd10989f23b0aab8cb69d7a2ff8e6bea8a1a77ed132687b71a7ce7289d",
+    "summary/maps/U-multitask-early-fine/day365-2015-01-01-anomalies-sst.pdf": "92a55f7c2fe61e29ae5e559ba44cfbfed74ffa099f94c439a7bfd3c7acd0287c",
+    "summary/maps/U-multitask-early-fine/day365-2015-01-01-anomalies-sst.png": "08257e105ec41079daa61aba20eb1e4ba4b967bb039f82e6c2c6f97991888e47",
+    "summary/maps/U-multitask-early-fine/day365-2018-01-01-anomalies-adt.pdf": "7a94941f1ba6199f61e9a808a72c7356e1033cdcca1f7784a0d66f79510747d5",
+    "summary/maps/U-multitask-early-fine/day365-2018-01-01-anomalies-adt.png": "b9bdceee2fc6655ba48040eb1ab601eb5acf9b426ee77f50a3acb72fb3058dae",
+    "summary/maps/U-multitask-early-fine/day365-2018-01-01-anomalies-sst.pdf": "6888e68cfef0613138cd8b905e96efd296649a372ed4848f31f13ce45cf36755",
+    "summary/maps/U-multitask-early-fine/day365-2018-01-01-anomalies-sst.png": "64fe67c8c4be7346a5cb17245f66712cf9e2e6daee2bd7d6af0fa5ba24aa9fa3",
+    "summary/maps/U-multitask-early-fine/day365-2021-01-01-anomalies-adt.pdf": "b106c24eff3b51c67cedd15cfe5237995e6f53880b286e3017caa94915020fd2",
+    "summary/maps/U-multitask-early-fine/day365-2021-01-01-anomalies-adt.png": "d2a8837180b194e85847aaab9d946d4b0607b65d0800c5f7793d89379e0a83c4",
+    "summary/maps/U-multitask-early-fine/day365-2021-01-01-anomalies-sst.pdf": "d73eb2a30108e0af27035df5d5ad179f11fae31bf17ed7d6bc6346b3aad31404",
+    "summary/maps/U-multitask-early-fine/day365-2021-01-01-anomalies-sst.png": "9a2601a505b3a4caad06dfd95a870dc3dcea17dcabf85fd05eb94e8479fc2428",
+    "summary/maps/U-multitask-early-fine/day365-2021-01-01-fields-adt.pdf": "0933fc42d2cc8d2906d0d94993b1e16391991532b78afadfa6089cf62e7f9827",
+    "summary/maps/U-multitask-early-fine/day365-2021-01-01-fields-adt.png": "9a4bc6f2a3139ebd332841c72a64a202068d49789858fd55c88c3714690357b1",
+    "summary/maps/U-multitask-early-fine/day365-2021-01-01-fields-sst.pdf": "53bb86c6f665582b953651e5bd6e6f31e8a72444d4682908ba5a1f8a465f6290",
+    "summary/maps/U-multitask-early-fine/day365-2021-01-01-fields-sst.png": "362e8bfe606fc417897f6dc020272fc0a0d0763b6b9ae920378cebc1f71c9333",
+    "summary/maps/U-multitask-early-fine/provenance.json": "34f7008424b29b9c8edb62892b54591f5560c32b64fe2151b4e76ee1c7638941",
+    "summary/maps/U-multitask-early-fine-latent/day365-2015-01-01-anomalies-adt.pdf": "ede9d56d8320ca0798e453e3d653b9b56de1b797a3516bc3c7ca03c3e08aba19",
+    "summary/maps/U-multitask-early-fine-latent/day365-2015-01-01-anomalies-adt.png": "f795c1d42a09aa4bc261344fc99626696917652294bb990c417de6878f37781d",
+    "summary/maps/U-multitask-early-fine-latent/day365-2015-01-01-anomalies-sst.pdf": "234fbf21e25f29c365b83047dd87d537af1a9b71c5398e8de8d47a7d4e220bb5",
+    "summary/maps/U-multitask-early-fine-latent/day365-2015-01-01-anomalies-sst.png": "f61f885939b36947f23f863f58b0052beaef0014e9d44484bbcd18af6fba4008",
+    "summary/maps/U-multitask-early-fine-latent/day365-2018-01-01-anomalies-adt.pdf": "0ff65263906d830754286936e7305338c3f49be8e147df9597d19a30850e6f00",
+    "summary/maps/U-multitask-early-fine-latent/day365-2018-01-01-anomalies-adt.png": "cb3e690c2b1ba86959a9ade8ab6cf330f16ccbed8a89db3ee7aa73fa5cb70317",
+    "summary/maps/U-multitask-early-fine-latent/day365-2018-01-01-anomalies-sst.pdf": "a14cca8643b9dd75adbe6e054cd42b825373778ae371c3c70cc29b0c670cbba6",
+    "summary/maps/U-multitask-early-fine-latent/day365-2018-01-01-anomalies-sst.png": "d0fcfe4e6cc0dbaa9b2e9bccfb16191319924bfd0775a33801d8036c8b236399",
+    "summary/maps/U-multitask-early-fine-latent/day365-2021-01-01-anomalies-adt.pdf": "674b1c32220ffe53c62aa069a87dad5ddaf822d1cc76d0cc0721253bb6ae040e",
+    "summary/maps/U-multitask-early-fine-latent/day365-2021-01-01-anomalies-adt.png": "5b8d1d00d20750f09c51657c4585227ba5a6b37a3c6815e75bf67cc52dccd267",
+    "summary/maps/U-multitask-early-fine-latent/day365-2021-01-01-anomalies-sst.pdf": "48a431a6574aea132374c8b62a6f6d259ad340bcd485ea451a01d4ea5d8f4b03",
+    "summary/maps/U-multitask-early-fine-latent/day365-2021-01-01-anomalies-sst.png": "49017014999941898d970b37346ea3674fcd4b5013b68341a2eed0387e640ffc",
+    "summary/maps/U-multitask-early-fine-latent/day365-2021-01-01-fields-adt.pdf": "c235aee0e9fb8f7d86c805b21be9a32e373b82ca6849793c06af918572e99f81",
+    "summary/maps/U-multitask-early-fine-latent/day365-2021-01-01-fields-adt.png": "e30e409c588e2c7d62a002c18f58aea3c32591266d8b6e71393193ea97547d1b",
+    "summary/maps/U-multitask-early-fine-latent/day365-2021-01-01-fields-sst.pdf": "4e24ea039bf28e5d3818decb23b3d1665f545fba1f749f231fbd6cfe451a1fba",
+    "summary/maps/U-multitask-early-fine-latent/day365-2021-01-01-fields-sst.png": "116f3904439dc155a23cd3c1256637831c401d3162c352b0def2dc74c5101e19",
+    "summary/maps/U-multitask-early-fine-latent/provenance.json": "63066ffb26ab9eccfcc77e26e0644e828519e4db6be64141964670f39d6259c5",
+    "summary/maps/U-multitask-early-latent/day365-2015-01-01-anomalies-adt.pdf": "e2bd2fd0d9e08f2dedf8e35f0301655e3256c79b0fabb077d70847ac3ae4eb09",
+    "summary/maps/U-multitask-early-latent/day365-2015-01-01-anomalies-adt.png": "44c60f25e7549bf6dce916c2cf61f58777a2e7fabb3e112b1ccd4532bbdd6ac7",
+    "summary/maps/U-multitask-early-latent/day365-2015-01-01-anomalies-sst.pdf": "709d14ddad979ddfaa538702741e7371143f976d9c90bce479036298bfeb26c6",
+    "summary/maps/U-multitask-early-latent/day365-2015-01-01-anomalies-sst.png": "a986cf454bb861d778c3321fe8183d7985d03085008b8f7886ad9f84a1c4dbbd",
+    "summary/maps/U-multitask-early-latent/day365-2018-01-01-anomalies-adt.pdf": "51acfb644d70cf6f21b4123edd4a4ad601fcaa7aae90340639c2fa8260b5df63",
+    "summary/maps/U-multitask-early-latent/day365-2018-01-01-anomalies-adt.png": "5500c230f345ddf99e8a106a809db25f770bfc47cdaa571fa0e46037d6c6ddeb",
+    "summary/maps/U-multitask-early-latent/day365-2018-01-01-anomalies-sst.pdf": "1ba13ef2ec21f3d49379468d3486db82c0e6ceb42560f54acf9c4db3a70ddde1",
+    "summary/maps/U-multitask-early-latent/day365-2018-01-01-anomalies-sst.png": "626ad61a38a88bd7c98dc2ba5f4c5bf36b3d1db3f7784cea93a9b84ec721801d",
+    "summary/maps/U-multitask-early-latent/day365-2021-01-01-anomalies-adt.pdf": "45bd59dc0b04f96abc0eb571ea5818d8987e49899022d6a758cfad284dc2ad46",
+    "summary/maps/U-multitask-early-latent/day365-2021-01-01-anomalies-adt.png": "306a28de16481b88f95307341227e7224d14189bf098a990f1847427f0c87876",
+    "summary/maps/U-multitask-early-latent/day365-2021-01-01-anomalies-sst.pdf": "5c2b65cc84f2c582ef69578a9225357b172b5e4caf63d19fcc276690e91a9714",
+    "summary/maps/U-multitask-early-latent/day365-2021-01-01-anomalies-sst.png": "14ab8e365ace339e88b0b59b39640f303e21b59d30d93b54b7bc7e2f01d85584",
+    "summary/maps/U-multitask-early-latent/day365-2021-01-01-fields-adt.pdf": "fcf22d79857ce79507dade8c02cf15e2bf3865eb1b1e29e2e712aeaa1b0d1322",
+    "summary/maps/U-multitask-early-latent/day365-2021-01-01-fields-adt.png": "a507aed3935780a3d63c214240c16f428f809abab2ddb872ebc569c9591125fa",
+    "summary/maps/U-multitask-early-latent/day365-2021-01-01-fields-sst.pdf": "a31bb553bc12e43eb8dc07f40a9df814d19e7043683ff2cc771fa1ea21fd77c3",
+    "summary/maps/U-multitask-early-latent/day365-2021-01-01-fields-sst.png": "9da9337c78c1a8c7aa4f84b447d3822f305e3993c6b450da4730c6bbbacb9712",
+    "summary/maps/U-multitask-early-latent/provenance.json": "8e498592ad60c9a17546bfe33a46c09ae69af63efe04b3329db978e0f4f23d79",
+    "summary/monthly-ohc-0_700.pdf": "da273f68ef975247f653bf65b33a552b2049afc712ed7467cee5ec5fff1de655",
+    "summary/monthly-ohc-0_700.png": "481eb171c47d89dcd4f5d7d0d660888b2dc61cc187fe4b6f6e5d5e6326ccd228",
+    "summary/monthly-ohc-700_2000.pdf": "cad94e24de6dd3b179904425c3f79286925bb3c15cda947ec0d1c969242bbf29",
+    "summary/monthly-ohc-700_2000.png": "a633d1bc756831caf520e4c41061c489b1db806e7e285ce0777e55cef7bb6431",
+    "summary/monthly-ohc.csv": "1a6fdc8f020214e84532b2fb048e1c6b3462351799786f98aac46aa3cd4d8b13",
+    "summary/provenance.json": "c06180bc6ea72c18d04b7b6fb7201c9819d0d4996399196f7f0d1ef14be81797",
+    "summary/sst-spectra.pdf": "dddec41be8923377f83aff8f3912decd63d1c17b7d42e593b44fc3f31b64b5d8",
+    "summary/sst-spectra.png": "14c92b79e454069eae975e5db85df36945a51b3569d44beca34cce7cc3a0e456"
+  }
+}

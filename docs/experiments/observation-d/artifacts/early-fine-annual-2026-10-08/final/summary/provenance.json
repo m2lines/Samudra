@@ -1,0 +1,6 @@
+{
+  "source_sha256": "b84580cbbf855345ef80ba926cd8dcfffcf43c058203a57be0e3693f4adcbf08",
+  "script_sha256": "847d532f8a4e3fccb852c99b1f30550601610105127aaa3a07688717294de1b0",
+  "aggregation": "Arithmetic mean of three per-origin scores; spectral plots instead show mean power",
+  "surface_persistence_equal": true
+}

@@ -481,6 +481,9 @@ class Trainer:
             "complete": epoch == self.epochs,
             "train_loss": train_loss,
             "validation_loss": validation_loss,
+            "best_validation_score": float(self.best_val_loss),
+            "validation_checkpoint_identity": self.validation_checkpoint_identity(),
+            # Compatibility alias for existing search configurations.
             "best_validation_loss": float(self.best_val_loss),
             "epoch_train_seconds": train_seconds,
             "epoch_validation_seconds": validation_seconds,

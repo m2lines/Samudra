@@ -89,7 +89,7 @@ def write_search_report(search: SuccessiveHalving, state: dict[str, Any]) -> Pat
             "## Latest eligible result per candidate",
             "",
             "| Rank | Candidate | Rung | Epochs | Objective | Train loss | "
-            "Best validation loss | Optimizer steps | W&B ID |",
+            "Best validation score | Optimizer steps | W&B ID |",
             "|---:|---|---:|---:|---:|---:|---:|---:|---|",
         ]
     )
@@ -101,7 +101,7 @@ def write_search_report(search: SuccessiveHalving, state: dict[str, Any]) -> Pat
             row.get("epochs"),
             row.get(search.config.objective.metric),
             row.get("train_loss"),
-            row.get("best_validation_loss"),
+            row.get("best_validation_score", row.get("best_validation_loss")),
             row.get("optimizer_steps"),
             row.get("wandb_id"),
         ]

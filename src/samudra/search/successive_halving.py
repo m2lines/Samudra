@@ -464,6 +464,9 @@ class SuccessiveHalving:
                 result[metric] = float(score)
             result.update(
                 eligible=True,
+                validation_checkpoint_identity=summary.get(
+                    "validation_checkpoint_identity"
+                ),
                 optimizer_steps=summary.get("optimizer_steps"),
                 wandb_id=summary.get("wandb_id"),
                 wandb_name=summary.get("wandb_name"),

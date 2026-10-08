@@ -67,8 +67,9 @@ set `checkpoint_validation_metric: one_step_loss` and
 `rollout_validation: null`. Rollout selection currently requires a single data
 source. When resuming, changing the selection metric or configured horizon resets
 the saved best score so incompatible scores are not compared. The checkpoint's
-`best_val_loss` (and search summary's `best_validation_loss`) stores the selected
-score; `validation_loss` continues to report single-step loss.
+`best_val_loss` stores the selected score. Search minimizes this score by default
+as `best_validation_score`; `best_validation_loss` remains a compatibility alias.
+`validation_loss` continues to report single-step loss.
 
 ### Data Paths
 

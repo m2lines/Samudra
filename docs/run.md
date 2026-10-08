@@ -63,6 +63,44 @@ Each task will see all GPUs on the node, but they know how to choose the correct
 
 To learn more about other datasets used during training, please see the [data documentation](data.md).
 
+## Evaluating the model
+
+```bash
+DATA_PATH=path/to/save/data
+uv run scripts/clone_data.py $DATA_PATH
+# (then put a checkpoint of the model at path/to/checkpoint)
+uv run samudra eval src/samudra/configs/samudra_om4/eval.yaml --ckpt_path path/to/checkpoint --experiment.data_root $DATA_PATH --experiment.name <my-experiment-name>-eval
+```
+
+This produces a `predictions.zarr` file in the output directory (by default `.LOCAL`) with the rollout of the model.
+
+You can run `uv run samudra eval --help` to see all the options available.
+
+To run evaluation automatically after training, add this to your training config:
+
+```yaml
+post_train_eval:
+  eval_config_path: path/to/eval.yaml
+  last_n_checkpoints: 1
+```
+
+This evaluates the last periodic checkpoint and final EMA checkpoint. Use an
+evaluation config matching your training data and model overrides; only the data
+root is inherited automatically. An `observations` block enables observation
+scoring in the same job. To score later on CPU, set `observations: null` for this
+phase and follow the instructions below.
+
+To learn more about other datasets used during training, please see the [data documentation](data.md).
+
+To run a remote training job with SkyPilot, use the following command:
+
+```shell
+# export WANDB_API_KEY=<my-key>  # Get your key at https://wandb.ai/authorize
+uv run sky launch skypilot/eval.sky.yaml  --env WANDB_API_KEY --env-file <my-vars>.env --env NAME <my-experiment-name>-eval --env CONFIG src/samudra/configs/samudra_om4/eval.yaml
+```
+
+Please read the `eval.sky.yaml` docstring for more information.
+
 ### Observation metrics after training
 
 Once evaluation has written `predictions.zarr`, you can score it against DUACS
@@ -71,7 +109,7 @@ on a local machine or in a separate CPU job. No GPU, checkpoint loading, or new
 model rollout is needed:
 
 ```bash
-uv run python -m samudra.metrics path/to/eval.yaml \
+uv run samudra metrics path/to/eval.yaml \
   --experiment.data_root /path/to/om4/data \
   --experiment.base_output_dir /path/to/training-output/evals \
   --experiment.name epoch_0070 \
@@ -95,34 +133,6 @@ scalar results locally; it does not upload them to W&B. The configured OM4
 baseline is scored too. Public observation inputs total roughly 65 GB, so allow
 for network I/O and sufficient memory, or point the observation config at local
 copies. A separate CPU job lets you release the training GPUs before scoring.
-
-New prediction stores preserve land and absent depth levels as NaNs. Older
-stores with zero-filled dry cells need their original per-channel wet masks
-applied before scoring; valid ocean zeros must not be masked indiscriminately.
-
-## Evaluating the model
-
-```bash
-DATA_PATH=path/to/save/data
-uv run scripts/clone_data.py $DATA_PATH
-# (then put a checkpoint of the model at path/to/checkpoint)
-uv run samudra eval src/samudra/configs/samudra_om4/eval.yaml --ckpt_path path/to/checkpoint --experiment.data_root $DATA_PATH --experiment.name <my-experiment-name>-eval
-```
-
-This produces a `predictions.zarr` file in the output directory (by default `.LOCAL`) with the rollout of the model.
-
-You can run `uv run samudra eval --help` to see all the options available.
-
-To learn more about other datasets used during training, please see the [data documentation](data.md).
-
-To run a remote training job with SkyPilot, use the following command:
-
-```shell
-# export WANDB_API_KEY=<my-key>  # Get your key at https://wandb.ai/authorize
-uv run sky launch skypilot/eval.sky.yaml  --env WANDB_API_KEY --env-file <my-vars>.env --env NAME <my-experiment-name>-eval --env CONFIG src/samudra/configs/samudra_om4/eval.yaml
-```
-
-Please read the `eval.sky.yaml` docstring for more information.
 
 ## Visualizing outputs from the model
 

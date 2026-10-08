@@ -164,9 +164,12 @@ class Eval:
     def run(self) -> MetricsDict:
         start_time = time.perf_counter()
         try:
+            inf_stats = self.standalone_inference()
+            # Time only the rollout, excluding logging and observation scoring.
+            rollout_seconds = time.perf_counter() - start_time
             log_stats = {
-                **self.standalone_inference(),
-                "eval_total_seconds": time.perf_counter() - start_time,
+                **inf_stats,
+                "eval_total_seconds": rollout_seconds,
             }
             if is_main_process():
                 self.wandb_logger.log(log_stats, step=None)

@@ -1,0 +1,1010 @@
+{
+  "different_floats": [
+    {
+      "path": "/spectra/sst/North Pacific/day5/error_dex",
+      "relative": 2.4758897382131927e-16,
+      "absolute": 2.220446049250313e-16
+    },
+    {
+      "path": "/spectra/sst/North Pacific/day5/reference_power/0",
+      "relative": 6.318428908120229e-16,
+      "absolute": 1.1641532182693481e-10
+    },
+    {
+      "path": "/spectra/sst/North Pacific/day5/reference_power/1",
+      "relative": 2.6478462329927297e-15,
+      "absolute": 1.3096723705530167e-10
+    },
+    {
+      "path": "/spectra/sst/North Pacific/day5/reference_power/2",
+      "relative": 1.3573606649836068e-16,
+      "absolute": 1.8189894035458565e-12
+    },
+    {
+      "path": "/spectra/sst/North Pacific/day5/prediction_power/0",
+      "relative": 2.8286150252436006e-15,
+      "absolute": 3.2014213502407074e-10
+    },
+    {
+      "path": "/spectra/sst/North Pacific/day5/prediction_power/1",
+      "relative": 3.1458470324288244e-15,
+      "absolute": 5.093170329928398e-11
+    },
+    {
+      "path": "/spectra/sst/North Pacific/day5/prediction_power/2",
+      "relative": 2.4491145414232647e-16,
+      "absolute": 1.1368683772161603e-13
+    },
+    {
+      "path": "/spectra/sst/Gulf Stream/day5/error_dex",
+      "relative": 4.564938611050757e-16,
+      "absolute": 1.1102230246251565e-16
+    },
+    {
+      "path": "/spectra/sst/Gulf Stream/day5/reference_power/0",
+      "relative": 1.050612386661195e-14,
+      "absolute": 3.899913281202316e-09
+    },
+    {
+      "path": "/spectra/sst/Gulf Stream/day5/reference_power/1",
+      "relative": 3.5163757571806842e-15,
+      "absolute": 6.984919309616089e-10
+    },
+    {
+      "path": "/spectra/sst/Gulf Stream/day5/reference_power/2",
+      "relative": 2.0455567868555253e-16,
+      "absolute": 7.275957614183426e-12
+    },
+    {
+      "path": "/spectra/sst/Gulf Stream/day5/prediction_power/0",
+      "relative": 9.134676787718558e-15,
+      "absolute": 2.7939677238464355e-09
+    },
+    {
+      "path": "/spectra/sst/Gulf Stream/day5/prediction_power/1",
+      "relative": 2.9100918990340355e-15,
+      "absolute": 4.656612873077393e-10
+    },
+    {
+      "path": "/spectra/sst/Gulf Stream/day5/prediction_power/2",
+      "relative": 2.580639498470363e-16,
+      "absolute": 3.637978807091713e-12
+    },
+    {
+      "path": "/spectra/sst/Agulhas/day5/error_dex",
+      "relative": 1.7008161002266264e-16,
+      "absolute": 5.551115123125783e-17
+    },
+    {
+      "path": "/spectra/sst/Agulhas/day5/reference_power/0",
+      "relative": 9.140259647064365e-15,
+      "absolute": 2.7939677238464355e-09
+    },
+    {
+      "path": "/spectra/sst/Agulhas/day5/reference_power/1",
+      "relative": 8.542089407622121e-16,
+      "absolute": 4.656612873077393e-10
+    },
+    {
+      "path": "/spectra/sst/Agulhas/day5/prediction_power/0",
+      "relative": 7.735496362341754e-15,
+      "absolute": 2.3865140974521637e-09
+    },
+    {
+      "path": "/spectra/sst/Agulhas/day5/prediction_power/1",
+      "relative": 9.480802472122028e-16,
+      "absolute": 4.656612873077393e-10
+    },
+    {
+      "path": "/spectra/sst/Agulhas/day5/prediction_power/2",
+      "relative": 1.407824229310503e-16,
+      "absolute": 3.637978807091713e-12
+    },
+    {
+      "path": "/spectra/adt/North Pacific/day5/error_dex",
+      "relative": 1.3751426642853666e-15,
+      "absolute": 1.2212453270876722e-15
+    },
+    {
+      "path": "/spectra/adt/North Pacific/day5/reference_power/0",
+      "relative": 3.261206401557007e-15,
+      "absolute": 1.8189894035458565e-12
+    },
+    {
+      "path": "/spectra/adt/North Pacific/day5/reference_power/1",
+      "relative": 1.2792878144028709e-15,
+      "absolute": 3.410605131648481e-13
+    },
+    {
+      "path": "/spectra/adt/North Pacific/day5/reference_power/2",
+      "relative": 2.938140087361243e-16,
+      "absolute": 1.1368683772161603e-13
+    },
+    {
+      "path": "/spectra/adt/North Pacific/day5/prediction_power/0",
+      "relative": 2.367417118554857e-14,
+      "absolute": 6.480149750132114e-12
+    },
+    {
+      "path": "/spectra/adt/North Pacific/day5/prediction_power/1",
+      "relative": 3.74281762604734e-15,
+      "absolute": 2.2737367544323206e-13
+    },
+    {
+      "path": "/spectra/adt/North Pacific/day5/prediction_power/2",
+      "relative": 4.236599965586829e-16,
+      "absolute": 7.105427357601002e-15
+    },
+    {
+      "path": "/spectra/adt/Gulf Stream/day5/error_dex",
+      "relative": 5.53231934522155e-16,
+      "absolute": 1.6653345369377348e-16
+    },
+    {
+      "path": "/spectra/adt/Gulf Stream/day5/reference_power/0",
+      "relative": 1.8450637315867213e-15,
+      "absolute": 9.094947017729282e-12
+    },
+    {
+      "path": "/spectra/adt/Gulf Stream/day5/reference_power/1",
+      "relative": 3.284327216636893e-16,
+      "absolute": 1.8189894035458565e-12
+    },
+    {
+      "path": "/spectra/adt/Gulf Stream/day5/reference_power/2",
+      "relative": 1.7448049615728765e-16,
+      "absolute": 4.547473508864641e-13
+    },
+    {
+      "path": "/spectra/adt/Gulf Stream/day5/prediction_power/0",
+      "relative": 1.0415845438733372e-15,
+      "absolute": 4.547473508864641e-12
+    },
+    {
+      "path": "/spectra/adt/Gulf Stream/day5/prediction_power/1",
+      "relative": 8.376080432051246e-16,
+      "absolute": 3.637978807091713e-12
+    },
+    {
+      "path": "/spectra/adt/Gulf Stream/day5/prediction_power/2",
+      "relative": 4.2136813354642855e-16,
+      "absolute": 3.410605131648481e-13
+    },
+    {
+      "path": "/spectra/adt/Agulhas/day5/error_dex",
+      "relative": 5.393850818029131e-16,
+      "absolute": 2.220446049250313e-16
+    },
+    {
+      "path": "/spectra/adt/Agulhas/day5/reference_power/0",
+      "relative": 2.696997412927857e-15,
+      "absolute": 2.546585164964199e-11
+    },
+    {
+      "path": "/spectra/adt/Agulhas/day5/reference_power/1",
+      "relative": 1.3688516877671566e-16,
+      "absolute": 1.8189894035458565e-12
+    },
+    {
+      "path": "/spectra/adt/Agulhas/day5/reference_power/2",
+      "relative": 2.9264289577710563e-16,
+      "absolute": 9.094947017729282e-13
+    },
+    {
+      "path": "/spectra/adt/Agulhas/day5/prediction_power/0",
+      "relative": 2.3397837669741363e-15,
+      "absolute": 2.000888343900442e-11
+    },
+    {
+      "path": "/spectra/adt/Agulhas/day5/prediction_power/1",
+      "relative": 6.391517587296348e-16,
+      "absolute": 7.275957614183426e-12
+    },
+    {
+      "path": "/spectra/adt/Agulhas/day5/prediction_power/2",
+      "relative": 1.869779151736707e-16,
+      "absolute": 1.1368683772161603e-13
+    },
+    {
+      "path": "/spectra/eke/North Pacific/day5/reference_power/0",
+      "relative": 3.7342095856219947e-16,
+      "absolute": 1.7763568394002505e-15
+    },
+    {
+      "path": "/spectra/eke/North Pacific/day5/reference_power/2",
+      "relative": 2.4507917573167528e-16,
+      "absolute": 8.881784197001252e-16
+    },
+    {
+      "path": "/spectra/eke/North Pacific/day5/prediction_power/0",
+      "relative": 1.2476033306529544e-15,
+      "absolute": 1.734723475976807e-18
+    },
+    {
+      "path": "/spectra/eke/North Pacific/day5/prediction_power/1",
+      "relative": 2.217658476352644e-16,
+      "absolute": 4.336808689942018e-19
+    },
+    {
+      "path": "/spectra/eke/Gulf Stream/day5/reference_power/0",
+      "relative": 2.1176092198674495e-15,
+      "absolute": 1.2789769243681803e-13
+    },
+    {
+      "path": "/spectra/eke/Gulf Stream/day5/prediction_power/0",
+      "relative": 1.0794308115608425e-15,
+      "absolute": 5.204170427930421e-18
+    },
+    {
+      "path": "/spectra/eke/Gulf Stream/day5/prediction_power/2",
+      "relative": 1.7280005817041197e-16,
+      "absolute": 1.734723475976807e-18
+    },
+    {
+      "path": "/spectra/eke/Agulhas/day5/reference_power/0",
+      "relative": 6.817396271467442e-16,
+      "absolute": 8.526512829121202e-14
+    },
+    {
+      "path": "/spectra/eke/Agulhas/day5/reference_power/1",
+      "relative": 1.228066864219141e-16,
+      "absolute": 2.842170943040401e-14
+    },
+    {
+      "path": "/spectra/eke/Agulhas/day5/prediction_power/0",
+      "relative": 4.729410812947342e-16,
+      "absolute": 5.204170427930421e-18
+    },
+    {
+      "path": "/spectra/sst/North Pacific/day15/error_dex",
+      "relative": 1.2541699386399037e-16,
+      "absolute": 1.1102230246251565e-16
+    },
+    {
+      "path": "/spectra/sst/North Pacific/day15/reference_power/0",
+      "relative": 3.5797913523764146e-15,
+      "absolute": 6.984919309616089e-10
+    },
+    {
+      "path": "/spectra/sst/North Pacific/day15/reference_power/1",
+      "relative": 2.1637193845712964e-15,
+      "absolute": 1.0913936421275139e-10
+    },
+    {
+      "path": "/spectra/sst/North Pacific/day15/reference_power/2",
+      "relative": 4.345066113537243e-16,
+      "absolute": 5.4569682106375694e-12
+    },
+    {
+      "path": "/spectra/sst/North Pacific/day15/prediction_power/0",
+      "relative": 2.8286150252436006e-15,
+      "absolute": 3.2014213502407074e-10
+    },
+    {
+      "path": "/spectra/sst/North Pacific/day15/prediction_power/1",
+      "relative": 3.1458470324288244e-15,
+      "absolute": 5.093170329928398e-11
+    },
+    {
+      "path": "/spectra/sst/North Pacific/day15/prediction_power/2",
+      "relative": 2.4491145414232647e-16,
+      "absolute": 1.1368683772161603e-13
+    },
+    {
+      "path": "/spectra/sst/Gulf Stream/day15/reference_power/0",
+      "relative": 1.0056010772507595e-14,
+      "absolute": 3.6670826375484467e-09
+    },
+    {
+      "path": "/spectra/sst/Gulf Stream/day15/reference_power/1",
+      "relative": 2.6228580916274064e-15,
+      "absolute": 5.238689482212067e-10
+    },
+    {
+      "path": "/spectra/sst/Gulf Stream/day15/reference_power/2",
+      "relative": 1.9653068505895294e-16,
+      "absolute": 7.275957614183426e-12
+    },
+    {
+      "path": "/spectra/sst/Gulf Stream/day15/prediction_power/0",
+      "relative": 9.134676787718558e-15,
+      "absolute": 2.7939677238464355e-09
+    },
+    {
+      "path": "/spectra/sst/Gulf Stream/day15/prediction_power/1",
+      "relative": 2.9100918990340355e-15,
+      "absolute": 4.656612873077393e-10
+    },
+    {
+      "path": "/spectra/sst/Gulf Stream/day15/prediction_power/2",
+      "relative": 2.580639498470363e-16,
+      "absolute": 3.637978807091713e-12
+    },
+    {
+      "path": "/spectra/sst/Agulhas/day15/error_dex",
+      "relative": 1.5397790024392752e-15,
+      "absolute": 4.996003610813204e-16
+    },
+    {
+      "path": "/spectra/sst/Agulhas/day15/reference_power/0",
+      "relative": 7.24026161252931e-15,
+      "absolute": 2.2118911147117615e-09
+    },
+    {
+      "path": "/spectra/sst/Agulhas/day15/reference_power/1",
+      "relative": 8.707425037554927e-16,
+      "absolute": 4.656612873077393e-10
+    },
+    {
+      "path": "/spectra/sst/Agulhas/day15/reference_power/2",
+      "relative": 4.644906370178919e-16,
+      "absolute": 4.3655745685100555e-11
+    },
+    {
+      "path": "/spectra/sst/Agulhas/day15/prediction_power/0",
+      "relative": 7.735496362341754e-15,
+      "absolute": 2.3865140974521637e-09
+    },
+    {
+      "path": "/spectra/sst/Agulhas/day15/prediction_power/1",
+      "relative": 9.480802472122028e-16,
+      "absolute": 4.656612873077393e-10
+    },
+    {
+      "path": "/spectra/sst/Agulhas/day15/prediction_power/2",
+      "relative": 1.407824229310503e-16,
+      "absolute": 3.637978807091713e-12
+    },
+    {
+      "path": "/spectra/adt/North Pacific/day15/error_dex",
+      "relative": 1.3795857670980055e-15,
+      "absolute": 1.2212453270876722e-15
+    },
+    {
+      "path": "/spectra/adt/North Pacific/day15/reference_power/0",
+      "relative": 4.4070151487670124e-15,
+      "absolute": 2.5011104298755527e-12
+    },
+    {
+      "path": "/spectra/adt/North Pacific/day15/reference_power/1",
+      "relative": 6.39322776493447e-16,
+      "absolute": 1.7053025658242404e-13
+    },
+    {
+      "path": "/spectra/adt/North Pacific/day15/reference_power/2",
+      "relative": 1.4944355241439806e-16,
+      "absolute": 5.684341886080802e-14
+    },
+    {
+      "path": "/spectra/adt/North Pacific/day15/prediction_power/0",
+      "relative": 2.367417118554857e-14,
+      "absolute": 6.480149750132114e-12
+    },
+    {
+      "path": "/spectra/adt/North Pacific/day15/prediction_power/1",
+      "relative": 3.74281762604734e-15,
+      "absolute": 2.2737367544323206e-13
+    },
+    {
+      "path": "/spectra/adt/North Pacific/day15/prediction_power/2",
+      "relative": 4.236599965586829e-16,
+      "absolute": 7.105427357601002e-15
+    },
+    {
+      "path": "/spectra/adt/Gulf Stream/day15/error_dex",
+      "relative": 7.436666932977095e-16,
+      "absolute": 2.220446049250313e-16
+    },
+    {
+      "path": "/spectra/adt/Gulf Stream/day15/reference_power/0",
+      "relative": 1.3099061668746093e-15,
+      "absolute": 6.366462912410498e-12
+    },
+    {
+      "path": "/spectra/adt/Gulf Stream/day15/reference_power/1",
+      "relative": 3.3250318497302017e-16,
+      "absolute": 1.8189894035458565e-12
+    },
+    {
+      "path": "/spectra/adt/Gulf Stream/day15/prediction_power/0",
+      "relative": 1.0415845438733372e-15,
+      "absolute": 4.547473508864641e-12
+    },
+    {
+      "path": "/spectra/adt/Gulf Stream/day15/prediction_power/1",
+      "relative": 8.376080432051246e-16,
+      "absolute": 3.637978807091713e-12
+    },
+    {
+      "path": "/spectra/adt/Gulf Stream/day15/prediction_power/2",
+      "relative": 4.2136813354642855e-16,
+      "absolute": 3.410605131648481e-13
+    },
+    {
+      "path": "/spectra/adt/Agulhas/day15/error_dex",
+      "relative": 8.099577482407842e-16,
+      "absolute": 3.3306690738754696e-16
+    },
+    {
+      "path": "/spectra/adt/Agulhas/day15/reference_power/0",
+      "relative": 1.9320066516000776e-15,
+      "absolute": 1.8189894035458565e-11
+    },
+    {
+      "path": "/spectra/adt/Agulhas/day15/reference_power/1",
+      "relative": 9.587380401121613e-16,
+      "absolute": 1.2732925824820995e-11
+    },
+    {
+      "path": "/spectra/adt/Agulhas/day15/reference_power/2",
+      "relative": 1.4655112925676874e-16,
+      "absolute": 4.547473508864641e-13
+    },
+    {
+      "path": "/spectra/adt/Agulhas/day15/prediction_power/0",
+      "relative": 2.3397837669741363e-15,
+      "absolute": 2.000888343900442e-11
+    },
+    {
+      "path": "/spectra/adt/Agulhas/day15/prediction_power/1",
+      "relative": 6.391517587296348e-16,
+      "absolute": 7.275957614183426e-12
+    },
+    {
+      "path": "/spectra/adt/Agulhas/day15/prediction_power/2",
+      "relative": 1.869779151736707e-16,
+      "absolute": 1.1368683772161603e-13
+    },
+    {
+      "path": "/spectra/eke/North Pacific/day15/reference_power/1",
+      "relative": 2.3335114627800197e-16,
+      "absolute": 1.7763568394002505e-15
+    },
+    {
+      "path": "/spectra/eke/North Pacific/day15/prediction_power/0",
+      "relative": 1.2476033306529544e-15,
+      "absolute": 1.734723475976807e-18
+    },
+    {
+      "path": "/spectra/eke/North Pacific/day15/prediction_power/1",
+      "relative": 2.217658476352644e-16,
+      "absolute": 4.336808689942018e-19
+    },
+    {
+      "path": "/spectra/eke/Gulf Stream/day15/reference_power/0",
+      "relative": 1.4166043800852638e-15,
+      "absolute": 8.526512829121202e-14
+    },
+    {
+      "path": "/spectra/eke/Gulf Stream/day15/prediction_power/0",
+      "relative": 1.0794308115608425e-15,
+      "absolute": 5.204170427930421e-18
+    },
+    {
+      "path": "/spectra/eke/Gulf Stream/day15/prediction_power/2",
+      "relative": 1.7280005817041197e-16,
+      "absolute": 1.734723475976807e-18
+    },
+    {
+      "path": "/spectra/eke/Agulhas/day15/reference_power/0",
+      "relative": 3.369780622901899e-16,
+      "absolute": 4.263256414560601e-14
+    },
+    {
+      "path": "/spectra/eke/Agulhas/day15/reference_power/1",
+      "relative": 2.441306339604427e-16,
+      "absolute": 5.684341886080802e-14
+    },
+    {
+      "path": "/spectra/eke/Agulhas/day15/prediction_power/0",
+      "relative": 4.729410812947342e-16,
+      "absolute": 5.204170427930421e-18
+    },
+    {
+      "path": "/spectra/sst/North Pacific/day30/error_dex",
+      "relative": 3.7392105284309994e-16,
+      "absolute": 3.3306690738754696e-16
+    },
+    {
+      "path": "/spectra/sst/North Pacific/day30/reference_power/0",
+      "relative": 9.792310834564906e-16,
+      "absolute": 1.7462298274040222e-10
+    },
+    {
+      "path": "/spectra/sst/North Pacific/day30/reference_power/1",
+      "relative": 2.889534100561893e-15,
+      "absolute": 1.3096723705530167e-10
+    },
+    {
+      "path": "/spectra/sst/North Pacific/day30/reference_power/2",
+      "relative": 1.3482800412607369e-16,
+      "absolute": 1.8189894035458565e-12
+    },
+    {
+      "path": "/spectra/sst/North Pacific/day30/prediction_power/0",
+      "relative": 2.8286150252436006e-15,
+      "absolute": 3.2014213502407074e-10
+    },
+    {
+      "path": "/spectra/sst/North Pacific/day30/prediction_power/1",
+      "relative": 3.1458470324288244e-15,
+      "absolute": 5.093170329928398e-11
+    },
+    {
+      "path": "/spectra/sst/North Pacific/day30/prediction_power/2",
+      "relative": 2.4491145414232647e-16,
+      "absolute": 1.1368683772161603e-13
+    },
+    {
+      "path": "/spectra/sst/Gulf Stream/day30/error_dex",
+      "relative": 8.942888573705893e-16,
+      "absolute": 2.220446049250313e-16
+    },
+    {
+      "path": "/spectra/sst/Gulf Stream/day30/reference_power/0",
+      "relative": 1.1401834885002279e-14,
+      "absolute": 4.190951585769653e-09
+    },
+    {
+      "path": "/spectra/sst/Gulf Stream/day30/reference_power/1",
+      "relative": 3.1949188713625135e-15,
+      "absolute": 6.402842700481415e-10
+    },
+    {
+      "path": "/spectra/sst/Gulf Stream/day30/prediction_power/0",
+      "relative": 9.134676787718558e-15,
+      "absolute": 2.7939677238464355e-09
+    },
+    {
+      "path": "/spectra/sst/Gulf Stream/day30/prediction_power/1",
+      "relative": 2.9100918990340355e-15,
+      "absolute": 4.656612873077393e-10
+    },
+    {
+      "path": "/spectra/sst/Gulf Stream/day30/prediction_power/2",
+      "relative": 2.580639498470363e-16,
+      "absolute": 3.637978807091713e-12
+    },
+    {
+      "path": "/spectra/sst/Agulhas/day30/reference_power/0",
+      "relative": 8.219575874846421e-15,
+      "absolute": 2.5029294192790985e-09
+    },
+    {
+      "path": "/spectra/sst/Agulhas/day30/reference_power/1",
+      "relative": 1.067640595795377e-15,
+      "absolute": 5.820766091346741e-10
+    },
+    {
+      "path": "/spectra/sst/Agulhas/day30/prediction_power/0",
+      "relative": 7.735496362341754e-15,
+      "absolute": 2.3865140974521637e-09
+    },
+    {
+      "path": "/spectra/sst/Agulhas/day30/prediction_power/1",
+      "relative": 9.480802472122028e-16,
+      "absolute": 4.656612873077393e-10
+    },
+    {
+      "path": "/spectra/sst/Agulhas/day30/prediction_power/2",
+      "relative": 1.407824229310503e-16,
+      "absolute": 3.637978807091713e-12
+    },
+    {
+      "path": "/spectra/adt/North Pacific/day30/error_dex",
+      "relative": 1.1250782346419363e-15,
+      "absolute": 9.992007221626409e-16
+    },
+    {
+      "path": "/spectra/adt/North Pacific/day30/reference_power/0",
+      "relative": 5.625420496691266e-15,
+      "absolute": 3.183231456205249e-12
+    },
+    {
+      "path": "/spectra/adt/North Pacific/day30/reference_power/1",
+      "relative": 6.412482342365006e-16,
+      "absolute": 1.7053025658242404e-13
+    },
+    {
+      "path": "/spectra/adt/North Pacific/day30/reference_power/2",
+      "relative": 2.9439850725799526e-16,
+      "absolute": 1.1368683772161603e-13
+    },
+    {
+      "path": "/spectra/adt/North Pacific/day30/prediction_power/0",
+      "relative": 2.367417118554857e-14,
+      "absolute": 6.480149750132114e-12
+    },
+    {
+      "path": "/spectra/adt/North Pacific/day30/prediction_power/1",
+      "relative": 3.74281762604734e-15,
+      "absolute": 2.2737367544323206e-13
+    },
+    {
+      "path": "/spectra/adt/North Pacific/day30/prediction_power/2",
+      "relative": 4.236599965586829e-16,
+      "absolute": 7.105427357601002e-15
+    },
+    {
+      "path": "/spectra/adt/Gulf Stream/day30/error_dex",
+      "relative": 9.278386124481205e-16,
+      "absolute": 2.7755575615628914e-16
+    },
+    {
+      "path": "/spectra/adt/Gulf Stream/day30/reference_power/0",
+      "relative": 1.846212282190366e-15,
+      "absolute": 9.094947017729282e-12
+    },
+    {
+      "path": "/spectra/adt/Gulf Stream/day30/reference_power/1",
+      "relative": 1.6309991968445654e-16,
+      "absolute": 9.094947017729282e-13
+    },
+    {
+      "path": "/spectra/adt/Gulf Stream/day30/prediction_power/0",
+      "relative": 1.0415845438733372e-15,
+      "absolute": 4.547473508864641e-12
+    },
+    {
+      "path": "/spectra/adt/Gulf Stream/day30/prediction_power/1",
+      "relative": 8.376080432051246e-16,
+      "absolute": 3.637978807091713e-12
+    },
+    {
+      "path": "/spectra/adt/Gulf Stream/day30/prediction_power/2",
+      "relative": 4.2136813354642855e-16,
+      "absolute": 3.410605131648481e-13
+    },
+    {
+      "path": "/spectra/adt/Agulhas/day30/error_dex",
+      "relative": 6.693219812331459e-16,
+      "absolute": 2.7755575615628914e-16
+    },
+    {
+      "path": "/spectra/adt/Agulhas/day30/reference_power/0",
+      "relative": 2.704033016897605e-15,
+      "absolute": 2.546585164964199e-11
+    },
+    {
+      "path": "/spectra/adt/Agulhas/day30/reference_power/1",
+      "relative": 1.3693694342208824e-16,
+      "absolute": 1.8189894035458565e-12
+    },
+    {
+      "path": "/spectra/adt/Agulhas/day30/prediction_power/0",
+      "relative": 2.3397837669741363e-15,
+      "absolute": 2.000888343900442e-11
+    },
+    {
+      "path": "/spectra/adt/Agulhas/day30/prediction_power/1",
+      "relative": 6.391517587296348e-16,
+      "absolute": 7.275957614183426e-12
+    },
+    {
+      "path": "/spectra/adt/Agulhas/day30/prediction_power/2",
+      "relative": 1.869779151736707e-16,
+      "absolute": 1.1368683772161603e-13
+    },
+    {
+      "path": "/spectra/eke/North Pacific/day30/reference_power/0",
+      "relative": 1.9388822174725458e-16,
+      "absolute": 8.881784197001252e-16
+    },
+    {
+      "path": "/spectra/eke/North Pacific/day30/reference_power/1",
+      "relative": 1.210764160104978e-16,
+      "absolute": 8.881784197001252e-16
+    },
+    {
+      "path": "/spectra/eke/North Pacific/day30/prediction_power/0",
+      "relative": 1.2476033306529544e-15,
+      "absolute": 1.734723475976807e-18
+    },
+    {
+      "path": "/spectra/eke/North Pacific/day30/prediction_power/1",
+      "relative": 2.217658476352644e-16,
+      "absolute": 4.336808689942018e-19
+    },
+    {
+      "path": "/spectra/eke/Gulf Stream/day30/reference_power/0",
+      "relative": 9.390899791915766e-16,
+      "absolute": 5.684341886080802e-14
+    },
+    {
+      "path": "/spectra/eke/Gulf Stream/day30/reference_power/2",
+      "relative": 1.1412710656380445e-16,
+      "absolute": 1.4210854715202004e-14
+    },
+    {
+      "path": "/spectra/eke/Gulf Stream/day30/prediction_power/0",
+      "relative": 1.0794308115608425e-15,
+      "absolute": 5.204170427930421e-18
+    },
+    {
+      "path": "/spectra/eke/Gulf Stream/day30/prediction_power/2",
+      "relative": 1.7280005817041197e-16,
+      "absolute": 1.734723475976807e-18
+    },
+    {
+      "path": "/spectra/eke/Agulhas/day30/reference_power/0",
+      "relative": 6.612035277532882e-16,
+      "absolute": 8.526512829121202e-14
+    },
+    {
+      "path": "/spectra/eke/Agulhas/day30/prediction_power/0",
+      "relative": 4.729410812947342e-16,
+      "absolute": 5.204170427930421e-18
+    },
+    {
+      "path": "/thermohaline/rmse/0",
+      "relative": 1.73542651374172e-09,
+      "absolute": 9.837602954476665e-10
+    },
+    {
+      "path": "/thermohaline/rmse/1",
+      "relative": 8.9430405936131e-10,
+      "absolute": 5.010822867745901e-10
+    },
+    {
+      "path": "/thermohaline/rmse/2",
+      "relative": 4.174090512728164e-08,
+      "absolute": 2.4753578853342617e-08
+    },
+    {
+      "path": "/thermohaline/rmse/3",
+      "relative": 2.3028978826898238e-10,
+      "absolute": 1.48161150015369e-10
+    },
+    {
+      "path": "/thermohaline/rmse/4",
+      "relative": 6.686645940189407e-10,
+      "absolute": 4.399175468350336e-10
+    },
+    {
+      "path": "/thermohaline/rmse/5",
+      "relative": 3.926602905993254e-08,
+      "absolute": 2.1588310028519686e-08
+    },
+    {
+      "path": "/thermohaline/rmse/6",
+      "relative": 2.121163872320675e-09,
+      "absolute": 7.903919740925858e-10
+    },
+    {
+      "path": "/thermohaline/rmse/7",
+      "relative": 5.547853497318591e-09,
+      "absolute": 1.48695405988164e-09
+    },
+    {
+      "path": "/thermohaline/rmse/8",
+      "relative": 3.795509115731085e-08,
+      "absolute": 8.491302827540181e-09
+    },
+    {
+      "path": "/thermohaline/rmse/9",
+      "relative": 9.667801148477986e-10,
+      "absolute": 1.570474583711956e-10
+    },
+    {
+      "path": "/thermohaline/rmse/10",
+      "relative": 1.5115825363789362e-09,
+      "absolute": 1.5613495218946838e-10
+    },
+    {
+      "path": "/thermohaline/rmse/11",
+      "relative": 4.218154892707322e-08,
+      "absolute": 3.097025275122789e-09
+    },
+    {
+      "path": "/thermohaline/rmse/12",
+      "relative": 3.280988666290372e-09,
+      "absolute": 2.243238095278599e-10
+    },
+    {
+      "path": "/thermohaline/rmse/13",
+      "relative": 6.989231104247246e-09,
+      "absolute": 1.5240290696105774e-09
+    },
+    {
+      "path": "/thermohaline/rmse/14",
+      "relative": 1.9809635407211652e-09,
+      "absolute": 4.084363403045188e-10
+    },
+    {
+      "path": "/thermohaline/rmse/15",
+      "relative": 4.90812101338464e-10,
+      "absolute": 7.55561724297138e-11
+    },
+    {
+      "path": "/thermohaline/rmse/16",
+      "relative": 1.0015407717118662e-08,
+      "absolute": 1.3081095096012518e-09
+    },
+    {
+      "path": "/thermohaline/rmse/17",
+      "relative": 3.874488022202869e-09,
+      "absolute": 4.0268335887994056e-10
+    },
+    {
+      "path": "/thermohaline/rmse/18",
+      "relative": 2.7837202093744007e-09,
+      "absolute": 2.2108218034055938e-10
+    },
+    {
+      "path": "/thermohaline/rmse/19",
+      "relative": 2.5674390971887317e-09,
+      "absolute": 1.6874827923896163e-10
+    },
+    {
+      "path": "/thermohaline/rmse/20",
+      "relative": 1.4615243920381915e-09,
+      "absolute": 7.274707225501942e-11
+    },
+    {
+      "path": "/thermohaline/rmse/21",
+      "relative": 2.0340524817577955e-09,
+      "absolute": 6.391892570789537e-11
+    },
+    {
+      "path": "/thermohaline/rmse/22",
+      "relative": 2.6582163777456073e-09,
+      "absolute": 5.904342986751132e-11
+    },
+    {
+      "path": "/thermohaline/rmse/23",
+      "relative": 2.055381101068911e-09,
+      "absolute": 2.954741312732878e-11
+    },
+    {
+      "path": "/thermohaline/rmse/24",
+      "relative": 5.261811543827716e-09,
+      "absolute": 4.8088068249629856e-11
+    },
+    {
+      "path": "/thermohaline/rmse/25",
+      "relative": 2.957646609253329e-09,
+      "absolute": 2.163810103317232e-11
+    },
+    {
+      "path": "/thermohaline/rmse/26",
+      "relative": 4.36679066169549e-09,
+      "absolute": 2.3551056937964887e-11
+    },
+    {
+      "path": "/thermohaline/bias/0",
+      "relative": 6.0211153599161834e-09,
+      "absolute": 1.5800470376525766e-09
+    },
+    {
+      "path": "/thermohaline/bias/1",
+      "relative": 2.200988351615902e-09,
+      "absolute": 5.615168885420019e-10
+    },
+    {
+      "path": "/thermohaline/bias/2",
+      "relative": 8.653914778352366e-08,
+      "absolute": 2.0506163628253304e-08
+    },
+    {
+      "path": "/thermohaline/bias/3",
+      "relative": 2.220564089803419e-09,
+      "absolute": 4.766107231102268e-10
+    },
+    {
+      "path": "/thermohaline/bias/4",
+      "relative": 1.5438784391438601e-09,
+      "absolute": 2.894237627337759e-10
+    },
+    {
+      "path": "/thermohaline/bias/5",
+      "relative": 7.434684967482605e-08,
+      "absolute": 1.0042596504389323e-08
+    },
+    {
+      "path": "/thermohaline/bias/6",
+      "relative": 3.1252620885843565e-09,
+      "absolute": 3.1906040309781503e-10
+    },
+    {
+      "path": "/thermohaline/bias/7",
+      "relative": 3.0974966225332612e-09,
+      "absolute": 2.241778152001217e-10
+    },
+    {
+      "path": "/thermohaline/bias/8",
+      "relative": 7.648433472373709e-08,
+      "absolute": 4.116771069873071e-09
+    },
+    {
+      "path": "/thermohaline/bias/9",
+      "relative": 2.5782956808746176e-09,
+      "absolute": 1.2755696499056057e-10
+    },
+    {
+      "path": "/thermohaline/bias/10",
+      "relative": 7.922267549001639e-10,
+      "absolute": 2.580407415520014e-11
+    },
+    {
+      "path": "/thermohaline/bias/11",
+      "relative": 8.070789219672683e-08,
+      "absolute": 1.4536293731215455e-09
+    },
+    {
+      "path": "/thermohaline/bias/12",
+      "relative": 1.8438219236898693e-09,
+      "absolute": 2.3857863601373097e-11
+    },
+    {
+      "path": "/thermohaline/bias/13",
+      "relative": 5.1149839476162024e-09,
+      "absolute": 1.4521949615042828e-11
+    },
+    {
+      "path": "/thermohaline/bias/14",
+      "relative": 5.207127014338597e-09,
+      "absolute": 1.8302155364163797e-11
+    },
+    {
+      "path": "/thermohaline/bias/15",
+      "relative": 3.4574097427508272e-09,
+      "absolute": 1.1824962016515617e-11
+    },
+    {
+      "path": "/thermohaline/bias/16",
+      "relative": 1.698553156014765e-08,
+      "absolute": 4.002094966190639e-11
+    },
+    {
+      "path": "/thermohaline/bias/17",
+      "relative": 1.303945598498812e-08,
+      "absolute": 3.814932050816289e-11
+    },
+    {
+      "path": "/thermohaline/bias/18",
+      "relative": 1.3564075134848218e-08,
+      "absolute": 1.0788686957696747e-10
+    },
+    {
+      "path": "/thermohaline/bias/19",
+      "relative": 4.156349730894152e-09,
+      "absolute": 4.209396720078473e-11
+    },
+    {
+      "path": "/thermohaline/bias/20",
+      "relative": 7.126260666885048e-09,
+      "absolute": 3.4513975878669445e-11
+    },
+    {
+      "path": "/thermohaline/bias/21",
+      "relative": 2.940564554282819e-08,
+      "absolute": 1.576098225455208e-11
+    },
+    {
+      "path": "/thermohaline/bias/22",
+      "relative": 1.919693983681358e-08,
+      "absolute": 1.8401781726011535e-11
+    },
+    {
+      "path": "/thermohaline/bias/23",
+      "relative": 5.165914926716389e-09,
+      "absolute": 8.967207401969213e-12
+    },
+    {
+      "path": "/thermohaline/bias/24",
+      "relative": 1.2239456112737994e-08,
+      "absolute": 9.702270996163331e-12
+    },
+    {
+      "path": "/thermohaline/bias/25",
+      "relative": 7.40778564801467e-09,
+      "absolute": 8.249006512583978e-12
+    },
+    {
+      "path": "/thermohaline/bias/26",
+      "relative": 1.0378553920669898e-08,
+      "absolute": 1.6838020561182887e-11
+    }
+  ],
+  "integrated_controls_exact": true
+}

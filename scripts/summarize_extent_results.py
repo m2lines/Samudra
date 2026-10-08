@@ -8,6 +8,7 @@ import argparse
 import csv
 import hashlib
 import json
+import math
 import statistics
 from pathlib import Path
 
@@ -22,7 +23,22 @@ def actual_updates(arm, event):
     return event["global_step"] - (event["om4"] // 2 if omitted else 0)
 
 
-def summarize(sources, output, groups):
+def controls_match(left, right, rtol):
+    """Allow an explicit relative roundoff tolerance, preserving raw inputs."""
+    if isinstance(left, dict) and isinstance(right, dict):
+        return left.keys() == right.keys() and all(
+            controls_match(left[key], right[key], rtol) for key in left
+        )
+    if isinstance(left, list) and isinstance(right, list):
+        return len(left) == len(right) and all(
+            controls_match(a, b, rtol) for a, b in zip(left, right)
+        )
+    if isinstance(left, float) and isinstance(right, float):
+        return math.isclose(left, right, rel_tol=rtol, abs_tol=0)
+    return left == right
+
+
+def summarize(sources, output, groups, control_rtol=0):
     import matplotlib
 
     matplotlib.use("Agg")
@@ -43,7 +59,9 @@ def summarize(sources, output, groups):
     control = next(iter(arms.values()))["files"]["seasonal-climatology.json"]["data"]
     scores, curves = [], []
     for name, arm in arms.items():
-        if arm["files"]["seasonal-climatology.json"]["data"] != control:
+        if not controls_match(
+            arm["files"]["seasonal-climatology.json"]["data"], control, control_rtol
+        ):
             raise ValueError("Held-out normalization controls differ")
         best = arm["best"]
         counts = best["task_counts"]
@@ -154,7 +172,8 @@ def summarize(sources, output, groups):
             str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in sources
         },
         selection_reference_sha256=bundles[0]["selection_reference_sha256"],
-        test_normalization="Common held-out seasonal-climatology errors, verified identical across arms; validation uses its separately frozen reference.",
+        test_normalization="Common held-out seasonal-climatology errors from the first source arm; all controls verified within the recorded relative tolerance. Validation uses its separately frozen reference.",
+        control_relative_tolerance=control_rtol,
         x_axes="Actual optimizer updates include all trained tasks and exclude omitted slots; observation updates show equal downstream exposure separately.",
         figures=rendered,
     )
@@ -167,6 +186,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--sources", nargs="+", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--control-rtol", type=float, default=0)
     parser.add_argument(
         "--groups",
         type=Path,
@@ -174,7 +194,12 @@ def main():
         help="JSON mapping figure title to literal model names",
     )
     args = parser.parse_args()
-    summarize(args.sources, args.output, json.loads(args.groups.read_text()))
+    summarize(
+        args.sources,
+        args.output,
+        json.loads(args.groups.read_text()),
+        args.control_rtol,
+    )
 
 
 if __name__ == "__main__":

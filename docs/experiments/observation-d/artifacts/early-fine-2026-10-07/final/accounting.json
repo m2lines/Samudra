@@ -1,0 +1,449 @@
+{
+  "callback_handled": "7e96fa3f-f42a-4463-9858-88a0b6792069",
+  "gpu_hours_including_all_attempts": 25.325,
+  "prior_gpu_seconds": 53879,
+  "production_gpu_seconds": 37291,
+  "jobs": [
+    {
+      "JobID": "19410263_0",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "ElapsedRaw": "672",
+      "AllocTRES": "billing=16,cpu=16,gres/gpu=1,mem=96G,node=1",
+      "Start": "2026-10-07T23:57:58",
+      "End": "2026-10-08T00:09:10",
+      "gpu_seconds": 672
+    },
+    {
+      "JobID": "19410263_1",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "ElapsedRaw": "647",
+      "AllocTRES": "billing=16,cpu=16,gres/gpu=1,mem=96G,node=1",
+      "Start": "2026-10-07T23:58:58",
+      "End": "2026-10-08T00:09:45",
+      "gpu_seconds": 647
+    },
+    {
+      "JobID": "19410263_2",
+      "State": "FAILED",
+      "ExitCode": "1:0",
+      "ElapsedRaw": "535",
+      "AllocTRES": "billing=16,cpu=16,gres/gpu=1,mem=96G,node=1",
+      "Start": "2026-10-07T23:58:58",
+      "End": "2026-10-08T00:07:53",
+      "gpu_seconds": 535
+    },
+    {
+      "JobID": "19410263_3",
+      "State": "FAILED",
+      "ExitCode": "1:0",
+      "ElapsedRaw": "373",
+      "AllocTRES": "billing=16,cpu=16,gres/gpu=1,mem=96G,node=1",
+      "Start": "2026-10-07T23:59:57",
+      "End": "2026-10-08T00:06:10",
+      "gpu_seconds": 373
+    },
+    {
+      "JobID": "19411640_0",
+      "State": "FAILED",
+      "ExitCode": "1:0",
+      "ElapsedRaw": "438",
+      "AllocTRES": "billing=16,cpu=16,gres/gpu=1,mem=96G,node=1",
+      "Start": "2026-10-08T00:29:25",
+      "End": "2026-10-08T00:36:43",
+      "gpu_seconds": 438
+    },
+    {
+      "JobID": "19411640_1",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "ElapsedRaw": "516",
+      "AllocTRES": "billing=16,cpu=16,gres/gpu=1,mem=96G,node=1",
+      "Start": "2026-10-08T00:29:25",
+      "End": "2026-10-08T00:38:01",
+      "gpu_seconds": 516
+    },
+    {
+      "JobID": "19411640_2",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "ElapsedRaw": "558",
+      "AllocTRES": "billing=16,cpu=16,gres/gpu=1,mem=96G,node=1",
+      "Start": "2026-10-08T00:29:25",
+      "End": "2026-10-08T00:38:43",
+      "gpu_seconds": 558
+    },
+    {
+      "JobID": "19411640_3",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "ElapsedRaw": "717",
+      "AllocTRES": "billing=16,cpu=16,gres/gpu=1,mem=96G,node=1",
+      "Start": "2026-10-08T00:29:25",
+      "End": "2026-10-08T00:41:22",
+      "gpu_seconds": 717
+    },
+    {
+      "JobID": "19412713_0",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "ElapsedRaw": "513",
+      "AllocTRES": "billing=16,cpu=16,gres/gpu=1,mem=96G,node=1",
+      "Start": "2026-10-08T00:42:19",
+      "End": "2026-10-08T00:50:52",
+      "gpu_seconds": 513
+    },
+    {
+      "JobID": "19412713_1",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "ElapsedRaw": "517",
+      "AllocTRES": "billing=16,cpu=16,gres/gpu=1,mem=96G,node=1",
+      "Start": "2026-10-08T00:42:19",
+      "End": "2026-10-08T00:50:56",
+      "gpu_seconds": 517
+    },
+    {
+      "JobID": "19412713_2",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "ElapsedRaw": "558",
+      "AllocTRES": "billing=16,cpu=16,gres/gpu=1,mem=96G,node=1",
+      "Start": "2026-10-08T00:42:19",
+      "End": "2026-10-08T00:51:37",
+      "gpu_seconds": 558
+    },
+    {
+      "JobID": "19412713_3",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "ElapsedRaw": "548",
+      "AllocTRES": "billing=16,cpu=16,gres/gpu=1,mem=96G,node=1",
+      "Start": "2026-10-08T00:42:19",
+      "End": "2026-10-08T00:51:27",
+      "gpu_seconds": 548
+    },
+    {
+      "JobID": "19412714_0",
+      "State": "CANCELLED by 0",
+      "ExitCode": "0:0",
+      "ElapsedRaw": "7722",
+      "AllocTRES": "billing=16,cpu=16,gres/gpu=1,mem=96G,node=1",
+      "Start": "2026-10-08T00:51:44",
+      "End": "2026-10-08T03:00:26",
+      "gpu_seconds": 7722
+    },
+    {
+      "JobID": "19412714_1",
+      "State": "CANCELLED by 0",
+      "ExitCode": "0:0",
+      "ElapsedRaw": "7728",
+      "AllocTRES": "billing=16,cpu=16,gres/gpu=1,mem=96G,node=1",
+      "Start": "2026-10-08T00:51:44",
+      "End": "2026-10-08T03:00:32",
+      "gpu_seconds": 7728
+    },
+    {
+      "JobID": "19412714_2",
+      "State": "CANCELLED by 0",
+      "ExitCode": "0:0",
+      "ElapsedRaw": "7733",
+      "AllocTRES": "billing=16,cpu=16,gres/gpu=1,mem=96G,node=1",
+      "Start": "2026-10-08T00:51:44",
+      "End": "2026-10-08T03:00:37",
+      "gpu_seconds": 7733
+    },
+    {
+      "JobID": "19412714_3",
+      "State": "CANCELLED by 0",
+      "ExitCode": "0:0",
+      "ElapsedRaw": "7741",
+      "AllocTRES": "billing=16,cpu=16,gres/gpu=1,mem=96G,node=1",
+      "Start": "2026-10-08T00:51:44",
+      "End": "2026-10-08T03:00:45",
+      "gpu_seconds": 7741
+    },
+    {
+      "JobID": "19421648",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "ElapsedRaw": "649",
+      "AllocTRES": "billing=16,cpu=16,gres/gpu=1,mem=128G,node=1",
+      "Start": "2026-10-08T03:11:26",
+      "End": "2026-10-08T03:22:15",
+      "gpu_seconds": 649
+    },
+    {
+      "JobID": "19422275_0",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "ElapsedRaw": "509",
+      "AllocTRES": "billing=16,cpu=16,gres/gpu=1,mem=192G,node=1",
+      "Start": "2026-10-08T03:33:06",
+      "End": "2026-10-08T03:41:35",
+      "gpu_seconds": 509
+    },
+    {
+      "JobID": "19422275_1",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "ElapsedRaw": "516",
+      "AllocTRES": "billing=16,cpu=16,gres/gpu=1,mem=192G,node=1",
+      "Start": "2026-10-08T03:33:12",
+      "End": "2026-10-08T03:41:48",
+      "gpu_seconds": 516
+    },
+    {
+      "JobID": "19422275_2",
+      "State": "FAILED",
+      "ExitCode": "1:0",
+      "ElapsedRaw": "625",
+      "AllocTRES": "billing=16,cpu=16,gres/gpu=1,mem=192G,node=1",
+      "Start": "2026-10-08T03:35:05",
+      "End": "2026-10-08T03:45:30",
+      "gpu_seconds": 625
+    },
+    {
+      "JobID": "19422275_3",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "ElapsedRaw": "487",
+      "AllocTRES": "billing=16,cpu=16,gres/gpu=1,mem=192G,node=1",
+      "Start": "2026-10-08T03:35:07",
+      "End": "2026-10-08T03:43:14",
+      "gpu_seconds": 487
+    },
+    {
+      "JobID": "19423076_0",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "ElapsedRaw": "640",
+      "AllocTRES": "billing=16,cpu=16,gres/gpu=1,mem=192G,node=1",
+      "Start": "2026-10-08T03:53:51",
+      "End": "2026-10-08T04:04:31",
+      "gpu_seconds": 640
+    },
+    {
+      "JobID": "19423076_1",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "ElapsedRaw": "544",
+      "AllocTRES": "billing=16,cpu=16,gres/gpu=1,mem=192G,node=1",
+      "Start": "2026-10-08T03:54:00",
+      "End": "2026-10-08T04:03:04",
+      "gpu_seconds": 544
+    },
+    {
+      "JobID": "19423076_2",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "ElapsedRaw": "521",
+      "AllocTRES": "billing=16,cpu=16,gres/gpu=1,mem=192G,node=1",
+      "Start": "2026-10-08T03:55:12",
+      "End": "2026-10-08T04:03:53",
+      "gpu_seconds": 521
+    },
+    {
+      "JobID": "19423076_3",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "ElapsedRaw": "520",
+      "AllocTRES": "billing=16,cpu=16,gres/gpu=1,mem=192G,node=1",
+      "Start": "2026-10-08T03:55:17",
+      "End": "2026-10-08T04:03:57",
+      "gpu_seconds": 520
+    },
+    {
+      "JobID": "19423496_0",
+      "State": "FAILED",
+      "ExitCode": "1:0",
+      "ElapsedRaw": "775",
+      "AllocTRES": "billing=16,cpu=16,gres/gpu=1,mem=192G,node=1",
+      "Start": "2026-10-08T04:07:31",
+      "End": "2026-10-08T04:20:26",
+      "gpu_seconds": 775
+    },
+    {
+      "JobID": "19423496_1",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "ElapsedRaw": "781",
+      "AllocTRES": "billing=16,cpu=16,gres/gpu=1,mem=192G,node=1",
+      "Start": "2026-10-08T04:07:31",
+      "End": "2026-10-08T04:20:32",
+      "gpu_seconds": 781
+    },
+    {
+      "JobID": "19423496_2",
+      "State": "FAILED",
+      "ExitCode": "1:0",
+      "ElapsedRaw": "844",
+      "AllocTRES": "billing=16,cpu=16,gres/gpu=1,mem=192G,node=1",
+      "Start": "2026-10-08T04:07:38",
+      "End": "2026-10-08T04:21:42",
+      "gpu_seconds": 844
+    },
+    {
+      "JobID": "19423496_3",
+      "State": "FAILED",
+      "ExitCode": "1:0",
+      "ElapsedRaw": "869",
+      "AllocTRES": "billing=16,cpu=16,gres/gpu=1,mem=192G,node=1",
+      "Start": "2026-10-08T04:07:38",
+      "End": "2026-10-08T04:22:07",
+      "gpu_seconds": 869
+    },
+    {
+      "JobID": "19424361_0",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "ElapsedRaw": "835",
+      "AllocTRES": "billing=16,cpu=16,gres/gpu=1,mem=192G,node=1",
+      "Start": "2026-10-08T04:36:44",
+      "End": "2026-10-08T04:50:39",
+      "gpu_seconds": 835
+    },
+    {
+      "JobID": "19424361_3",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "ElapsedRaw": "1040",
+      "AllocTRES": "billing=16,cpu=16,gres/gpu=1,mem=192G,node=1",
+      "Start": "2026-10-08T04:36:48",
+      "End": "2026-10-08T04:54:08",
+      "gpu_seconds": 1040
+    },
+    {
+      "JobID": "19425180_0",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "ElapsedRaw": "513",
+      "AllocTRES": "billing=16,cpu=16,gres/gpu=1,mem=192G,node=1",
+      "Start": "2026-10-08T05:07:22",
+      "End": "2026-10-08T05:15:55",
+      "gpu_seconds": 513
+    },
+    {
+      "JobID": "19425180_1",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "ElapsedRaw": "530",
+      "AllocTRES": "billing=16,cpu=16,gres/gpu=1,mem=192G,node=1",
+      "Start": "2026-10-08T05:07:33",
+      "End": "2026-10-08T05:16:23",
+      "gpu_seconds": 530
+    },
+    {
+      "JobID": "19425180_2",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "ElapsedRaw": "565",
+      "AllocTRES": "billing=16,cpu=16,gres/gpu=1,mem=192G,node=1",
+      "Start": "2026-10-08T05:07:33",
+      "End": "2026-10-08T05:16:58",
+      "gpu_seconds": 565
+    },
+    {
+      "JobID": "19425180_3",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "ElapsedRaw": "519",
+      "AllocTRES": "billing=16,cpu=16,gres/gpu=1,mem=192G,node=1",
+      "Start": "2026-10-08T05:07:42",
+      "End": "2026-10-08T05:16:21",
+      "gpu_seconds": 519
+    },
+    {
+      "JobID": "19425444_0",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "ElapsedRaw": "776",
+      "AllocTRES": "billing=16,cpu=16,gres/gpu=1,mem=192G,node=1",
+      "Start": "2026-10-08T05:20:38",
+      "End": "2026-10-08T05:33:34",
+      "gpu_seconds": 776
+    },
+    {
+      "JobID": "19425444_1",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "ElapsedRaw": "876",
+      "AllocTRES": "billing=16,cpu=16,gres/gpu=1,mem=192G,node=1",
+      "Start": "2026-10-08T05:20:44",
+      "End": "2026-10-08T05:35:20",
+      "gpu_seconds": 876
+    },
+    {
+      "JobID": "19425444_2",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "ElapsedRaw": "1204",
+      "AllocTRES": "billing=16,cpu=16,gres/gpu=1,mem=192G,node=1",
+      "Start": "2026-10-08T05:20:50",
+      "End": "2026-10-08T05:40:54",
+      "gpu_seconds": 1204
+    },
+    {
+      "JobID": "19425444_3",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "ElapsedRaw": "1225",
+      "AllocTRES": "billing=16,cpu=16,gres/gpu=1,mem=192G,node=1",
+      "Start": "2026-10-08T05:20:56",
+      "End": "2026-10-08T05:41:21",
+      "gpu_seconds": 1225
+    },
+    {
+      "JobID": "19426012_0",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "ElapsedRaw": "6646",
+      "AllocTRES": "billing=16,cpu=16,gres/gpu=1,mem=192G,node=1",
+      "Start": "2026-10-08T05:53:03",
+      "End": "2026-10-08T07:43:49",
+      "gpu_seconds": 6646
+    },
+    {
+      "JobID": "19426012_1",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "ElapsedRaw": "6680",
+      "AllocTRES": "billing=16,cpu=16,gres/gpu=1,mem=192G,node=1",
+      "Start": "2026-10-08T05:53:03",
+      "End": "2026-10-08T07:44:23",
+      "gpu_seconds": 6680
+    },
+    {
+      "JobID": "19426012_2",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "ElapsedRaw": "11869",
+      "AllocTRES": "billing=16,cpu=16,gres/gpu=1,mem=192G,node=1",
+      "Start": "2026-10-08T05:56:33",
+      "End": "2026-10-08T09:14:22",
+      "gpu_seconds": 11869
+    },
+    {
+      "JobID": "19426012_3",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "ElapsedRaw": "12096",
+      "AllocTRES": "billing=16,cpu=16,gres/gpu=1,mem=192G,node=1",
+      "Start": "2026-10-08T05:56:33",
+      "End": "2026-10-08T09:18:09",
+      "gpu_seconds": 12096
+    },
+    {
+      "JobID": "19431987",
+      "State": "COMPLETED",
+      "ExitCode": "0:0",
+      "ElapsedRaw": "50",
+      "AllocTRES": "billing=4,cpu=4,mem=48G,node=1",
+      "Start": "2026-10-08T09:25:46",
+      "End": "2026-10-08T09:26:36",
+      "gpu_seconds": 0
+    }
+  ],
+  "report_job_submission_note": "Explicit cpu partition rejected before allocation; default routing accepted CPU-only job 19431987 on cpu_short."
+}

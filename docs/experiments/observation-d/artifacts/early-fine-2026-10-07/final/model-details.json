@@ -1,0 +1,86 @@
+{
+  "U-multitask-early": {
+    "parameters": 62967680,
+    "early_ready_events": [
+      {
+        "time_utc": "2026-10-08T04:57:19.967234+00:00",
+        "event": "early_ready",
+        "origins": 1217,
+        "fine": false,
+        "parameters": 62967680,
+        "latent_channels": 0
+      },
+      {
+        "time_utc": "2026-10-08T10:01:13.336656+00:00",
+        "event": "early_ready",
+        "origins": 1217,
+        "fine": false,
+        "parameters": 62967680,
+        "latent_channels": 0
+      }
+    ]
+  },
+  "U-multitask-early-latent": {
+    "parameters": 63364930,
+    "early_ready_events": [
+      {
+        "time_utc": "2026-10-08T04:56:59.952100+00:00",
+        "event": "early_ready",
+        "origins": 1217,
+        "fine": false,
+        "parameters": 63364930,
+        "latent_channels": 10
+      },
+      {
+        "time_utc": "2026-10-08T10:01:13.446713+00:00",
+        "event": "early_ready",
+        "origins": 1217,
+        "fine": false,
+        "parameters": 63364930,
+        "latent_channels": 10
+      }
+    ]
+  },
+  "U-multitask-early-fine": {
+    "parameters": 63149162,
+    "early_ready_events": [
+      {
+        "time_utc": "2026-10-08T04:57:00.499030+00:00",
+        "event": "early_ready",
+        "origins": 1217,
+        "fine": true,
+        "parameters": 63149162,
+        "latent_channels": 0
+      },
+      {
+        "time_utc": "2026-10-08T10:02:26.459869+00:00",
+        "event": "early_ready",
+        "origins": 1217,
+        "fine": true,
+        "parameters": 63149162,
+        "latent_channels": 0
+      }
+    ]
+  },
+  "U-multitask-early-fine-latent": {
+    "parameters": 63552832,
+    "early_ready_events": [
+      {
+        "time_utc": "2026-10-08T04:57:21.959462+00:00",
+        "event": "early_ready",
+        "origins": 1217,
+        "fine": true,
+        "parameters": 63552832,
+        "latent_channels": 10
+      },
+      {
+        "time_utc": "2026-10-08T10:02:32.855759+00:00",
+        "event": "early_ready",
+        "origins": 1217,
+        "fine": true,
+        "parameters": 63552832,
+        "latent_channels": 10
+      }
+    ]
+  }
+}

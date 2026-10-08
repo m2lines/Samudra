@@ -619,3 +619,8 @@ will diagnose costs; they cannot satisfy the utilization gate. Its script
 hashes and copy receipts are in the linked artifact. Callback **19424379**
 (`afterany:19424361`), event `bb028842-3186-4bf2-b6c3-a73dfc8c3994`, and
 `early-fine-torch-stalls-callback-relay.service` cover completion.
+
+At 04:44 ET both diagnostics reached real resumed training: the coarse copy
+completed update 1,820 and the fine latent copy reached 751, with finite losses
+and gradient norms and no startup errors. These are diagnostic-copy positions;
+the production checkpoints remain unchanged.

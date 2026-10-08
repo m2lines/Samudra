@@ -139,6 +139,43 @@ def test_exact_restoration_rejects_lost_optimizer_moments():
     joint.assert_exact_state(joint.cpu_copy(state), state)
 
 
+@pytest.mark.parametrize("serialized_drift", [False, True])
+def test_replay_uses_fixed_native_envelope_and_rejects_serialized_drift(
+    tmp_path, monkeypatch, serialized_drift
+):
+    pilot = toy_pilot(monkeypatch)
+    monkeypatch.setattr(torch.cuda, "get_rng_state", torch.get_rng_state)
+    monkeypatch.setattr(torch.cuda, "set_rng_state", torch.set_rng_state)
+    pilot.out = tmp_path
+    pilot.resume = tmp_path / "joint-last.pt"
+    pilot.manifest = {"protocol": "test"}
+    pilot.train_update()
+    pilot.checkpoint(pilot.resume)
+    update = pilot.train_update
+    count = 0
+
+    def noisy_update():
+        nonlocal count
+        update()
+        # First native repeats agree, then a later native trial reveals jitter.
+        perturbation = 0.001 if count in (3, 6) else 0.0
+        if serialized_drift and count >= 5:
+            perturbation += 0.1
+        with torch.no_grad():
+            pilot.model.evolution.weight.add_(perturbation)
+        count += 1
+
+    pilot.train_update = noisy_update
+    if serialized_drift:
+        with pytest.raises(ValueError, match="exceeds measured native variation"):
+            pilot.verify_resume_update()
+    else:
+        pilot.verify_resume_update()
+        assert pilot.resume_evidence["native_trials"] == 5
+        assert pilot.resume_evidence["serialized_trials"] == 5
+    assert count == 10
+
+
 def test_mixed_probe_actually_switches_back_to_om4(monkeypatch):
     pilot = toy_pilot(monkeypatch)
     pilot.schedule = TaskSchedule(6, 4, "mixed")

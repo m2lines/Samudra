@@ -492,16 +492,17 @@ class JointPilot(Pilot):
             "rng_numpy": np.random.get_state(),
         }
         # Check serialization and restoration exactly. GPU interpolation backward
-        # can be nondeterministic, so separately measure native replay variation.
+        # can be nondeterministic. A single native repeat can accidentally agree
+        # almost exactly and badly underestimate its variation, so use a fixed
+        # number of native and serialized trials (never retry until passing).
         for key, value in native.items():
             assert_exact_state(value, serialized[key])
         expected = None
         differences = {}
-        for label, snapshot in (
-            ("native", native),
-            ("native_repeat", native),
-            ("serialized", serialized),
-        ):
+        trials = [("native", native)]
+        trials += [(f"native_repeat_{i}", native) for i in range(1, 5)]
+        trials += [(f"serialized_{i}", serialized) for i in range(5)]
+        for label, snapshot in trials:
             saved = cpu_copy(snapshot)
             self.model.load_state_dict(saved["model"], strict=True)
             self.optimizer.load_state_dict(saved["optimizer"])
@@ -520,6 +521,16 @@ class JointPilot(Pilot):
                 differences[label] = parameter_difference(
                     self.model.state_dict(), expected
                 )
+        individual_trials = differences.copy()
+        for group in ("native_repeat", "serialized"):
+            differences[group] = {
+                metric: max(
+                    d[metric]
+                    for key, d in individual_trials.items()
+                    if key.startswith(group + "_")
+                )
+                for metric in ("rmse", "max_absolute")
+            }
         for metric, floor in (("rmse", 1e-8), ("max_absolute", 1e-7)):
             limit = max(floor, 5 * differences["native_repeat"][metric])
             if differences["serialized"][metric] > limit:
@@ -530,7 +541,9 @@ class JointPilot(Pilot):
             "serialization_exact": True,
             "restoration_exact": True,
             "native_and_serialized_replay": differences,
-            "acceptance": "Serialized replay difference <= 5x native replay difference, with RMSE floor 1e-8 and maximum absolute floor 1e-7",
+            "native_trials": 5,
+            "serialized_trials": 5,
+            "acceptance": "Maximum serialized replay difference across five trials <= 5x maximum native replay difference across five trials, with RMSE floor 1e-8 and maximum absolute floor 1e-7",
         }
         self.emit(
             {

@@ -16,6 +16,7 @@ this diagnostic—not evidence of validated climate rollouts.
 
 Contents: [Matched scores](#matched-scores) · [What changes](#what-changes) ·
 [Components and origins](#components-and-origins) · [Maps and lead curves](#maps-and-lead-curves) ·
+[Original spectral score](#original-51530-day-spectral-score) ·
 [Model definitions](#models) · [Protocol](#fixed-evaluation-protocol) · [Verification](#verification).
 
 ## Matched scores
@@ -147,6 +148,34 @@ on the same global 1° task here.
 | Wider / attention | [SST](artifacts/presentation-annual-2026-10-08/final/figures/maps/capacity-day30/day30-2021-01-01-anomalies-sst.png) · [ADT](artifacts/presentation-annual-2026-10-08/final/figures/maps/capacity-day30/day30-2021-01-01-anomalies-adt.png) | [SST](artifacts/presentation-annual-2026-10-08/final/figures/maps/capacity-day365/day365-2021-01-01-anomalies-sst.png) · [ADT](artifacts/presentation-annual-2026-10-08/final/figures/maps/capacity-day365/day365-2021-01-01-anomalies-adt.png) | [Surface](artifacts/presentation-annual-2026-10-08/final/figures/lead-curves-capacity.png) · [OHC](artifacts/presentation-annual-2026-10-08/final/figures/ohc-curves-capacity.png) |
 | Earlier OM4 / fine / latent | [SST](artifacts/presentation-annual-2026-10-08/final/figures/maps/early-fine-day30/day30-2021-01-01-anomalies-sst.png) · [ADT](artifacts/presentation-annual-2026-10-08/final/figures/maps/early-fine-day30/day30-2021-01-01-anomalies-adt.png) | [SST](artifacts/presentation-annual-2026-10-08/final/figures/maps/early-fine-day365/day365-2021-01-01-anomalies-sst.png) · [ADT](artifacts/presentation-annual-2026-10-08/final/figures/maps/early-fine-day365/day365-2021-01-01-anomalies-adt.png) | [Surface](artifacts/presentation-annual-2026-10-08/final/figures/lead-curves-early-fine.png) · [OHC](artifacts/presentation-annual-2026-10-08/final/figures/ohc-curves-early-fine.png) |
 
+
+## Original 5/15/30-day spectral score
+
+This requested companion uses the **same spectral component used during
+validation**, evaluated on the original **96 held-out monthly origins** from
+2015–2022. It is separate from the three continuous annual forecasts above.
+The selected checkpoints and model order are identical to the annual chart.
+
+![Original spectral score with own persistence and measured climatology](artifacts/presentation-spectral-2026-10-08/spectral-comparison.png)
+
+Each point averages **27** regional spatial-spectrum errors: SST, ADT and
+geostrophic EKE × North Pacific, Gulf Stream and Agulhas × days 5, 15 and 30.
+For each term, spatial power is averaged over forecast origins first; the
+error is then the RMS difference between predicted and observed log₁₀ power.
+The 27 errors receive equal weight. There is no integrated-RMSE term or
+climatology normalization; zero means matching spectra. EKE uses velocity
+anomalies across origins at each fixed lead, preserving the original metric.
+
+All evolved models lose to initialized persistence on this spectral component.
+Persistence is approximately **0.215 dex** for every model, since its surface
+fields share the observed initialization; EKE is derived from those surface
+fields. Seasonal climatology measures **1.640 dex**. The three per-quantity
+components are available in the [score CSV](artifacts/presentation-spectral-2026-10-08/spectral-scores.csv).
+
+The plot verifies source hashes, selected-checkpoint identities, common cohorts
+and reference spectra, reconstructs all 945 constituent curve errors, and
+matches the original published score tables. [Provenance](artifacts/presentation-spectral-2026-10-08/spectral-provenance.json) ·
+[PDF](artifacts/presentation-spectral-2026-10-08/spectral-comparison.pdf).
 
 ## Models
 

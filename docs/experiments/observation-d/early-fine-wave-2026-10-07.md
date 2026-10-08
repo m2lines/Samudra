@@ -338,3 +338,38 @@ grid-recovery relay was stopped. New callbacks **19412774/19412775** use
 `afterany` and the active `early-fine-torch-replay-callback-relay.service`.
 [Replacement receipts, final prior-attempt results, and startup evidence](artifacts/early-fine-2026-10-07/torch-replay-recovery.json).
 Engaging jobs remain held until all Torch qualifications succeed.
+
+## October 8: all qualifications passed; production running
+
+Callback `e23115bf-fbcd-4029-b600-b00c365e05f9` was verified against accounting
+and output markers. All four tasks in **19412713** completed successfully.
+Each has exact serialization/restoration checks, all five native and five
+serialized trials, and a throughput estimate below the 20-hour training gate.
+The saved numerical differences were independently checked against the
+acceptance thresholds. No failed gate was overridden.
+
+All four production tasks in **19412714** started around **00:52 ET**. At
+01:03 ET they had finite training losses and gradients and positive-size
+`joint-last.pt` checkpoints (about 756–763 MB each):
+
+| Model | Completed / 4,000 updates | Qualified training-time estimate | Peak qualification GPU memory |
+|---|---:|---:|---:|
+| U-multitask-early | 57 | 6.46 h | 71.68 GiB |
+| U-multitask-early-latent | 64 | 7.02 h | 71.68 GiB |
+| U-multitask-early-fine | 28 | 10.85 h | 71.68 GiB |
+| U-multitask-early-fine-latent | 28 | 9.24 h | 71.68 GiB |
+
+These short-probe timing estimates exclude validation, startup and final
+evaluation; differences between arms include I/O variability. They are not
+scientific comparisons or firm finish deadlines. Model selection remains
+integrated-plus-spectral observation validation.
+
+At the recorded accounting snapshot, actual allocated GPU time was **2.6278 h**:
+**1.8311 h** across all three qualification attempts, including failures, plus
+**0.7967 h** of current production. Earlier production attempts used zero GPU
+time. [Complete qualification, startup, and accounting evidence](artifacts/early-fine-2026-10-07/torch-production-start.json).
+
+After verifying qualification, held Engaging arrays 25185999/25186000 and
+their CPU callbacks 25219446/25219447 were canceled; their two callback
+registrations were revoked. Torch production completion callback 19412775
+and the active SSH relay remain in place. No held-out results exist yet.

@@ -1,0 +1,656 @@
+{
+  "checked_at": "2026-10-08T05:03:41.256614+00:00",
+  "qualifications": {
+    "probe-U-multitask-early/EXPOSURE.json": {
+      "om4_recent": 3,
+      "om4_early": 3,
+      "observation": 4
+    },
+    "probe-U-multitask-early/JOINT_QUALIFIED.json": {
+      "contract": {
+        "code_commit": "030c96ec7205ab87f38f9cdf132d07a282db7602",
+        "runtime_extension_sha256": "ff904784233031f60809530a5520fb11b317052746cd8e4f25c674f12f5f09ba",
+        "data_manifest_sha256": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+        "om4_data": "/scratch/jr7309/data/om4_onedeg_v3",
+        "selection_reference_sha256": "c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c",
+        "normalization": "instance",
+        "evolution_architecture": "extent-unet",
+        "model_options": {
+          "initializer_architecture": "unet",
+          "surface_policy": "observed-only",
+          "task_conditioning": "input-adapters",
+          "latent_channels": 0
+        },
+        "surface_fill": "zero",
+        "completion_weight": 0.1,
+        "global_observations": true,
+        "reconstruction_weight": 0.1,
+        "accumulate": 8,
+        "core_lr": 0.0001,
+        "om4_lr": 0.0001,
+        "warmup_steps": 0,
+        "seed": 1729,
+        "early": {
+          "root": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-grid-bounds/early-data",
+          "manifest_sha256": "433484fdad2460fd12bc905d7ac38a9dc8196d5df0de57a64e8ce3585769b1bd",
+          "fine": false,
+          "period": [
+            "1958-01-03",
+            "1974-12-31"
+          ],
+          "fraction_of_om4": 0.5,
+          "fine_coarse_forecast_weights": [
+            0.5,
+            0.5
+          ]
+        }
+      },
+      "resume_verified": true,
+      "resume_evidence": {
+        "serialization_exact": true,
+        "restoration_exact": true,
+        "native_and_serialized_replay": {
+          "native_repeat_1": {
+            "rmse": 0.0,
+            "max_absolute": 0.0
+          },
+          "native_repeat_2": {
+            "rmse": 1.6943809461183004e-07,
+            "max_absolute": 0.00017984538862947375
+          },
+          "native_repeat_3": {
+            "rmse": 0.0,
+            "max_absolute": 0.0
+          },
+          "native_repeat_4": {
+            "rmse": 3.719605592897012e-09,
+            "max_absolute": 3.452412784099579e-06
+          },
+          "serialized_0": {
+            "rmse": 0.0,
+            "max_absolute": 0.0
+          },
+          "serialized_1": {
+            "rmse": 0.0,
+            "max_absolute": 0.0
+          },
+          "serialized_2": {
+            "rmse": 1.3479897684011185e-07,
+            "max_absolute": 0.00017136335372924805
+          },
+          "serialized_3": {
+            "rmse": 1.6974363538513348e-07,
+            "max_absolute": 0.00017449409642722458
+          },
+          "serialized_4": {
+            "rmse": 0.0,
+            "max_absolute": 0.0
+          },
+          "native_repeat": {
+            "rmse": 1.6943809461183004e-07,
+            "max_absolute": 0.00017984538862947375
+          },
+          "serialized": {
+            "rmse": 1.6974363538513348e-07,
+            "max_absolute": 0.00017449409642722458
+          }
+        },
+        "native_trials": 5,
+        "serialized_trials": 5,
+        "acceptance": "Maximum serialized replay difference across five trials <= 5x maximum native replay difference across five trials, with RMSE floor 1e-8 and maximum absolute floor 1e-7"
+      },
+      "task_counts": {
+        "om4": 6,
+        "observation": 4
+      },
+      "gpu": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+      "max_gpu_memory_gib": 71.677809715271
+    },
+    "probe-U-multitask-early/THROUGHPUT.json": {
+      "mean_seconds": {
+        "recent": 5.477993510042627,
+        "early": 9.537313612255579,
+        "observation": 4.115100859682291
+      },
+      "training_hours_for_4000_updates": 6.457085789350774,
+      "peak_gpu_gib": 71.677809715271,
+      "note": "Includes real I/O, backward and optimizer; excludes validation and initial cache warmup"
+    },
+    "probe-U-multitask-early-fine/EXPOSURE.json": {
+      "om4_recent": 3,
+      "om4_early": 3,
+      "observation": 4
+    },
+    "probe-U-multitask-early-fine/JOINT_QUALIFIED.json": {
+      "contract": {
+        "code_commit": "030c96ec7205ab87f38f9cdf132d07a282db7602",
+        "runtime_extension_sha256": "ff904784233031f60809530a5520fb11b317052746cd8e4f25c674f12f5f09ba",
+        "data_manifest_sha256": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+        "om4_data": "/scratch/jr7309/data/om4_onedeg_v3",
+        "selection_reference_sha256": "c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c",
+        "normalization": "instance",
+        "evolution_architecture": "extent-fine",
+        "model_options": {
+          "initializer_architecture": "unet",
+          "surface_policy": "observed-only",
+          "task_conditioning": "input-adapters",
+          "latent_channels": 0
+        },
+        "surface_fill": "zero",
+        "completion_weight": 0.1,
+        "global_observations": true,
+        "reconstruction_weight": 0.1,
+        "accumulate": 8,
+        "core_lr": 0.0001,
+        "om4_lr": 0.0001,
+        "warmup_steps": 0,
+        "seed": 1729,
+        "early": {
+          "root": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-grid-bounds/early-data",
+          "manifest_sha256": "433484fdad2460fd12bc905d7ac38a9dc8196d5df0de57a64e8ce3585769b1bd",
+          "fine": true,
+          "period": [
+            "1958-01-03",
+            "1974-12-31"
+          ],
+          "fraction_of_om4": 0.5,
+          "fine_coarse_forecast_weights": [
+            0.5,
+            0.5
+          ]
+        }
+      },
+      "resume_verified": true,
+      "resume_evidence": {
+        "serialization_exact": true,
+        "restoration_exact": true,
+        "native_and_serialized_replay": {
+          "native_repeat_1": {
+            "rmse": 2.2751187207539214e-07,
+            "max_absolute": 0.0001941331720445305
+          },
+          "native_repeat_2": {
+            "rmse": 3.001420256312713e-07,
+            "max_absolute": 0.00019350553338881582
+          },
+          "native_repeat_3": {
+            "rmse": 2.3931476047805306e-07,
+            "max_absolute": 0.00019447485101409256
+          },
+          "native_repeat_4": {
+            "rmse": 2.333777462947777e-07,
+            "max_absolute": 0.0001932288141688332
+          },
+          "serialized_0": {
+            "rmse": 1.7465272247387398e-07,
+            "max_absolute": 0.00017960804689209908
+          },
+          "serialized_1": {
+            "rmse": 2.637764119369426e-07,
+            "max_absolute": 0.00019270696793682873
+          },
+          "serialized_2": {
+            "rmse": 1.7453605581196362e-07,
+            "max_absolute": 0.0001796080614440143
+          },
+          "serialized_3": {
+            "rmse": 2.597879837211954e-07,
+            "max_absolute": 0.00019416460418142378
+          },
+          "serialized_4": {
+            "rmse": 2.637823735260983e-07,
+            "max_absolute": 0.00019270696793682873
+          },
+          "native_repeat": {
+            "rmse": 3.001420256312713e-07,
+            "max_absolute": 0.00019447485101409256
+          },
+          "serialized": {
+            "rmse": 2.637823735260983e-07,
+            "max_absolute": 0.00019416460418142378
+          }
+        },
+        "native_trials": 5,
+        "serialized_trials": 5,
+        "acceptance": "Maximum serialized replay difference across five trials <= 5x maximum native replay difference across five trials, with RMSE floor 1e-8 and maximum absolute floor 1e-7"
+      },
+      "task_counts": {
+        "om4": 6,
+        "observation": 4
+      },
+      "gpu": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+      "max_gpu_memory_gib": 71.67848777770996
+    },
+    "probe-U-multitask-early-fine/THROUGHPUT.json": {
+      "mean_seconds": {
+        "recent": 5.4742602843325585,
+        "early": 25.345377719961107,
+        "observation": 4.1203323318443905
+      },
+      "training_hours_for_4000_updates": 10.850084074439568,
+      "peak_gpu_gib": 71.67848777770996,
+      "note": "Includes real I/O, backward and optimizer; excludes validation and initial cache warmup"
+    },
+    "probe-U-multitask-early-fine-latent/EXPOSURE.json": {
+      "om4_recent": 3,
+      "om4_early": 3,
+      "observation": 4
+    },
+    "probe-U-multitask-early-fine-latent/JOINT_QUALIFIED.json": {
+      "contract": {
+        "code_commit": "030c96ec7205ab87f38f9cdf132d07a282db7602",
+        "runtime_extension_sha256": "ff904784233031f60809530a5520fb11b317052746cd8e4f25c674f12f5f09ba",
+        "data_manifest_sha256": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+        "om4_data": "/scratch/jr7309/data/om4_onedeg_v3",
+        "selection_reference_sha256": "c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c",
+        "normalization": "instance",
+        "evolution_architecture": "extent-fine",
+        "model_options": {
+          "initializer_architecture": "unet",
+          "surface_policy": "observed-only",
+          "task_conditioning": "input-adapters",
+          "latent_channels": 10
+        },
+        "surface_fill": "zero",
+        "completion_weight": 0.1,
+        "global_observations": true,
+        "reconstruction_weight": 0.1,
+        "accumulate": 8,
+        "core_lr": 0.0001,
+        "om4_lr": 0.0001,
+        "warmup_steps": 0,
+        "seed": 1729,
+        "early": {
+          "root": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-grid-bounds/early-data",
+          "manifest_sha256": "433484fdad2460fd12bc905d7ac38a9dc8196d5df0de57a64e8ce3585769b1bd",
+          "fine": true,
+          "period": [
+            "1958-01-03",
+            "1974-12-31"
+          ],
+          "fraction_of_om4": 0.5,
+          "fine_coarse_forecast_weights": [
+            0.5,
+            0.5
+          ]
+        }
+      },
+      "resume_verified": true,
+      "resume_evidence": {
+        "serialization_exact": true,
+        "restoration_exact": true,
+        "native_and_serialized_replay": {
+          "native_repeat_1": {
+            "rmse": 1.744481754461488e-07,
+            "max_absolute": 0.00016450093244202435
+          },
+          "native_repeat_2": {
+            "rmse": 2.684683966246692e-07,
+            "max_absolute": 0.00017580902203917503
+          },
+          "native_repeat_3": {
+            "rmse": 2.316280706936984e-07,
+            "max_absolute": 0.0001862880017142743
+          },
+          "native_repeat_4": {
+            "rmse": 1.7442722470489465e-07,
+            "max_absolute": 0.00016450093244202435
+          },
+          "serialized_0": {
+            "rmse": 2.4175956210655983e-07,
+            "max_absolute": 0.00018955665291287005
+          },
+          "serialized_1": {
+            "rmse": 2.3502172985556786e-07,
+            "max_absolute": 0.00017172882508020848
+          },
+          "serialized_2": {
+            "rmse": 2.6848297419459975e-07,
+            "max_absolute": 0.00017580903659109026
+          },
+          "serialized_3": {
+            "rmse": 1.744662601990809e-07,
+            "max_absolute": 0.00016450093244202435
+          },
+          "serialized_4": {
+            "rmse": 2.3501841564677892e-07,
+            "max_absolute": 0.00017172882508020848
+          },
+          "native_repeat": {
+            "rmse": 2.684683966246692e-07,
+            "max_absolute": 0.0001862880017142743
+          },
+          "serialized": {
+            "rmse": 2.6848297419459975e-07,
+            "max_absolute": 0.00018955665291287005
+          }
+        },
+        "native_trials": 5,
+        "serialized_trials": 5,
+        "acceptance": "Maximum serialized replay difference across five trials <= 5x maximum native replay difference across five trials, with RMSE floor 1e-8 and maximum absolute floor 1e-7"
+      },
+      "task_counts": {
+        "om4": 6,
+        "observation": 4
+      },
+      "gpu": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+      "max_gpu_memory_gib": 71.67996597290039
+    },
+    "probe-U-multitask-early-fine-latent/THROUGHPUT.json": {
+      "mean_seconds": {
+        "recent": 5.4821939033766585,
+        "early": 19.476746498684708,
+        "observation": 4.1438744313692535
+      },
+      "training_hours_for_4000_updates": 9.23519146244441,
+      "peak_gpu_gib": 71.67996597290039,
+      "note": "Includes real I/O, backward and optimizer; excludes validation and initial cache warmup"
+    },
+    "probe-U-multitask-early-latent/EXPOSURE.json": {
+      "om4_recent": 3,
+      "om4_early": 3,
+      "observation": 4
+    },
+    "probe-U-multitask-early-latent/JOINT_QUALIFIED.json": {
+      "contract": {
+        "code_commit": "030c96ec7205ab87f38f9cdf132d07a282db7602",
+        "runtime_extension_sha256": "ff904784233031f60809530a5520fb11b317052746cd8e4f25c674f12f5f09ba",
+        "data_manifest_sha256": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+        "om4_data": "/scratch/jr7309/data/om4_onedeg_v3",
+        "selection_reference_sha256": "c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c",
+        "normalization": "instance",
+        "evolution_architecture": "extent-unet",
+        "model_options": {
+          "initializer_architecture": "unet",
+          "surface_policy": "observed-only",
+          "task_conditioning": "input-adapters",
+          "latent_channels": 10
+        },
+        "surface_fill": "zero",
+        "completion_weight": 0.1,
+        "global_observations": true,
+        "reconstruction_weight": 0.1,
+        "accumulate": 8,
+        "core_lr": 0.0001,
+        "om4_lr": 0.0001,
+        "warmup_steps": 0,
+        "seed": 1729,
+        "early": {
+          "root": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-grid-bounds/early-data",
+          "manifest_sha256": "433484fdad2460fd12bc905d7ac38a9dc8196d5df0de57a64e8ce3585769b1bd",
+          "fine": false,
+          "period": [
+            "1958-01-03",
+            "1974-12-31"
+          ],
+          "fraction_of_om4": 0.5,
+          "fine_coarse_forecast_weights": [
+            0.5,
+            0.5
+          ]
+        }
+      },
+      "resume_verified": true,
+      "resume_evidence": {
+        "serialization_exact": true,
+        "restoration_exact": true,
+        "native_and_serialized_replay": {
+          "native_repeat_1": {
+            "rmse": 2.7180454828518156e-07,
+            "max_absolute": 0.00019364585750736296
+          },
+          "native_repeat_2": {
+            "rmse": 2.554041710916681e-07,
+            "max_absolute": 0.0001956732157850638
+          },
+          "native_repeat_3": {
+            "rmse": 1.60166555922986e-07,
+            "max_absolute": 0.00018697706400416791
+          },
+          "native_repeat_4": {
+            "rmse": 2.862027485799256e-07,
+            "max_absolute": 0.00019567323033697903
+          },
+          "serialized_0": {
+            "rmse": 3.2260006430834076e-07,
+            "max_absolute": 0.00019652055925689638
+          },
+          "serialized_1": {
+            "rmse": 3.0625906663803534e-07,
+            "max_absolute": 0.00019567323033697903
+          },
+          "serialized_2": {
+            "rmse": 1.1022208551531425e-09,
+            "max_absolute": 9.778887033462524e-07
+          },
+          "serialized_3": {
+            "rmse": 2.672341129255189e-07,
+            "max_absolute": 0.00019652055925689638
+          },
+          "serialized_4": {
+            "rmse": 2.672358877999587e-07,
+            "max_absolute": 0.0001965205738088116
+          },
+          "native_repeat": {
+            "rmse": 2.862027485799256e-07,
+            "max_absolute": 0.00019567323033697903
+          },
+          "serialized": {
+            "rmse": 3.2260006430834076e-07,
+            "max_absolute": 0.0001965205738088116
+          }
+        },
+        "native_trials": 5,
+        "serialized_trials": 5,
+        "acceptance": "Maximum serialized replay difference across five trials <= 5x maximum native replay difference across five trials, with RMSE floor 1e-8 and maximum absolute floor 1e-7"
+      },
+      "task_counts": {
+        "om4": 6,
+        "observation": 4
+      },
+      "gpu": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+      "max_gpu_memory_gib": 71.67926406860352
+    },
+    "probe-U-multitask-early-latent/THROUGHPUT.json": {
+      "mean_seconds": {
+        "recent": 5.5523106411565095,
+        "early": 11.258444216645634,
+        "observation": 4.237595623914296
+      },
+      "training_hours_for_4000_updates": 7.023873918230761,
+      "peak_gpu_gib": 71.67926406860352,
+      "note": "Includes real I/O, backward and optimizer; excludes validation and initial cache warmup"
+    }
+  },
+  "production": {
+    "0": {
+      "latest_events": [
+        {
+          "time_utc": "2026-10-08T05:03:23.858509+00:00",
+          "event": "joint_train",
+          "global_step": 55,
+          "om4": 48,
+          "observation": 7,
+          "task": "om4",
+          "loss": 0.11239597480744123,
+          "lr": 0.0001,
+          "gradient_norm": 1.140470266342163,
+          "elapsed_seconds": 364.3587693569716,
+          "om4_recent": 24,
+          "om4_early": 24
+        },
+        {
+          "time_utc": "2026-10-08T05:03:25.700535+00:00",
+          "event": "joint_train",
+          "global_step": 56,
+          "om4": 49,
+          "observation": 7,
+          "task": "om4",
+          "loss": 0.11262830812484026,
+          "lr": 0.0001,
+          "gradient_norm": 0.8681016564369202,
+          "elapsed_seconds": 366.20079430099577,
+          "om4_recent": 25,
+          "om4_early": 24
+        },
+        {
+          "time_utc": "2026-10-08T05:03:32.970444+00:00",
+          "event": "joint_train",
+          "global_step": 57,
+          "om4": 50,
+          "observation": 7,
+          "task": "om4",
+          "loss": 0.10625378135591745,
+          "lr": 0.0001,
+          "gradient_norm": 0.7430884838104248,
+          "elapsed_seconds": 373.47070448612794,
+          "om4_recent": 25,
+          "om4_early": 25
+        }
+      ],
+      "error_tail": null
+    },
+    "1": {
+      "latest_events": [
+        {
+          "time_utc": "2026-10-08T05:03:28.315009+00:00",
+          "event": "joint_train",
+          "global_step": 62,
+          "om4": 54,
+          "observation": 8,
+          "task": "observation",
+          "loss": 0.1577059638352963,
+          "lr": 0.0001,
+          "gradient_norm": 2.090336799621582,
+          "elapsed_seconds": 388.8364625920076,
+          "om4_recent": 27,
+          "om4_early": 27
+        },
+        {
+          "time_utc": "2026-10-08T05:03:30.191290+00:00",
+          "event": "joint_train",
+          "global_step": 63,
+          "om4": 55,
+          "observation": 8,
+          "task": "om4",
+          "loss": 0.10516452882438898,
+          "lr": 0.0001,
+          "gradient_norm": 0.7563121914863586,
+          "elapsed_seconds": 390.7127431409899,
+          "om4_recent": 28,
+          "om4_early": 27
+        },
+        {
+          "time_utc": "2026-10-08T05:03:36.633390+00:00",
+          "event": "joint_train",
+          "global_step": 64,
+          "om4": 56,
+          "observation": 8,
+          "task": "om4",
+          "loss": 0.09717262908816338,
+          "lr": 0.0001,
+          "gradient_norm": 0.6686994433403015,
+          "elapsed_seconds": 397.1548451129347,
+          "om4_recent": 28,
+          "om4_early": 28
+        }
+      ],
+      "error_tail": null
+    },
+    "2": {
+      "latest_events": [
+        {
+          "time_utc": "2026-10-08T05:02:44.671068+00:00",
+          "event": "joint_train",
+          "global_step": 26,
+          "om4": 23,
+          "observation": 3,
+          "task": "om4",
+          "loss": 0.2693862169981003,
+          "lr": 0.0001,
+          "gradient_norm": 1.141265630722046,
+          "elapsed_seconds": 344.77616391680203,
+          "om4_recent": 12,
+          "om4_early": 11
+        },
+        {
+          "time_utc": "2026-10-08T05:03:08.168439+00:00",
+          "event": "joint_train",
+          "global_step": 27,
+          "om4": 24,
+          "observation": 3,
+          "task": "om4",
+          "loss": 0.2334547694772482,
+          "lr": 0.0001,
+          "gradient_norm": 0.7206922173500061,
+          "elapsed_seconds": 368.2735351379961,
+          "om4_recent": 12,
+          "om4_early": 12
+        },
+        {
+          "time_utc": "2026-10-08T05:03:13.632733+00:00",
+          "event": "joint_train",
+          "global_step": 28,
+          "om4": 25,
+          "observation": 3,
+          "task": "om4",
+          "loss": 0.2351766675710678,
+          "lr": 0.0001,
+          "gradient_norm": 0.7266550064086914,
+          "elapsed_seconds": 373.73782949894667,
+          "om4_recent": 13,
+          "om4_early": 12
+        }
+      ],
+      "error_tail": null
+    },
+    "3": {
+      "latest_events": [
+        {
+          "time_utc": "2026-10-08T05:03:11.266909+00:00",
+          "event": "joint_train",
+          "global_step": 26,
+          "om4": 23,
+          "observation": 3,
+          "task": "om4",
+          "loss": 0.28940217196941376,
+          "lr": 0.0001,
+          "gradient_norm": 1.228714942932129,
+          "elapsed_seconds": 349.93353872396983,
+          "om4_recent": 12,
+          "om4_early": 11
+        },
+        {
+          "time_utc": "2026-10-08T05:03:35.364027+00:00",
+          "event": "joint_train",
+          "global_step": 27,
+          "om4": 24,
+          "observation": 3,
+          "task": "om4",
+          "loss": 0.24457830749452114,
+          "lr": 0.0001,
+          "gradient_norm": 0.8066110610961914,
+          "elapsed_seconds": 374.0306513640098,
+          "om4_recent": 12,
+          "om4_early": 12
+        },
+        {
+          "time_utc": "2026-10-08T05:03:40.908602+00:00",
+          "event": "joint_train",
+          "global_step": 28,
+          "om4": 25,
+          "observation": 3,
+          "task": "om4",
+          "loss": 0.2524859141558409,
+          "lr": 0.0001,
+          "gradient_norm": 0.9562751054763794,
+          "elapsed_seconds": 379.57523132907227,
+          "om4_recent": 13,
+          "om4_early": 12
+        }
+      ],
+      "error_tail": null
+    }
+  },
+  "accounting": "JobID|State|ElapsedRaw|ExitCode|AllocTRES\n19410263_0|COMPLETED|672|0:0|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19410263_0.batch|COMPLETED|672|0:0|cpu=16,gres/gpu=1,mem=96G,node=1\n19410263_0.extern|COMPLETED|673|0:0|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19410263_0.0|COMPLETED|669|0:0|cpu=16,gres/gpu=1,mem=96G,node=1\n19410263_1|COMPLETED|647|0:0|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19410263_1.batch|COMPLETED|647|0:0|cpu=16,gres/gpu=1,mem=96G,node=1\n19410263_1.extern|COMPLETED|648|0:0|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19410263_1.0|COMPLETED|643|0:0|cpu=16,gres/gpu=1,mem=96G,node=1\n19410263_2|FAILED|535|1:0|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19410263_2.batch|FAILED|535|1:0|cpu=16,gres/gpu=1,mem=96G,node=1\n19410263_2.extern|COMPLETED|535|0:0|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19410263_2.0|FAILED|532|1:0|cpu=16,gres/gpu=1,mem=96G,node=1\n19410263_3|FAILED|373|1:0|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19410263_3.batch|FAILED|373|1:0|cpu=16,gres/gpu=1,mem=96G,node=1\n19410263_3.extern|COMPLETED|373|0:0|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19410263_3.0|FAILED|369|1:0|cpu=16,gres/gpu=1,mem=96G,node=1\n19410264_[0-3%4]|CANCELLED by 0|0|0:0|\n19411640_0|FAILED|438|1:0|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19411640_0.batch|FAILED|438|1:0|cpu=16,gres/gpu=1,mem=96G,node=1\n19411640_0.extern|COMPLETED|440|0:0|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19411640_0.0|FAILED|436|1:0|cpu=16,gres/gpu=1,mem=96G,node=1\n19411640_1|COMPLETED|516|0:0|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19411640_1.batch|COMPLETED|516|0:0|cpu=16,gres/gpu=1,mem=96G,node=1\n19411640_1.extern|COMPLETED|516|0:0|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19411640_1.0|COMPLETED|515|0:0|cpu=16,gres/gpu=1,mem=96G,node=1\n19411640_2|COMPLETED|558|0:0|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19411640_2.batch|COMPLETED|558|0:0|cpu=16,gres/gpu=1,mem=96G,node=1\n19411640_2.extern|COMPLETED|562|0:0|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19411640_2.0|COMPLETED|556|0:0|cpu=16,gres/gpu=1,mem=96G,node=1\n19411640_3|COMPLETED|717|0:0|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19411640_3.batch|COMPLETED|717|0:0|cpu=16,gres/gpu=1,mem=96G,node=1\n19411640_3.extern|COMPLETED|717|0:0|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19411640_3.0|COMPLETED|716|0:0|cpu=16,gres/gpu=1,mem=96G,node=1\n19411643_[0-3%4]|CANCELLED by 4684506|0|0:0|\n19412713_0|COMPLETED|513|0:0|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19412713_0.batch|COMPLETED|513|0:0|cpu=16,gres/gpu=1,mem=96G,node=1\n19412713_0.extern|COMPLETED|519|0:0|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19412713_0.0|COMPLETED|517|0:0|cpu=16,gres/gpu=1,mem=96G,node=1\n19412713_1|COMPLETED|517|0:0|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19412713_1.batch|COMPLETED|517|0:0|cpu=16,gres/gpu=1,mem=96G,node=1\n19412713_1.extern|COMPLETED|518|0:0|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19412713_1.0|COMPLETED|516|0:0|cpu=16,gres/gpu=1,mem=96G,node=1\n19412713_2|COMPLETED|558|0:0|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19412713_2.batch|COMPLETED|558|0:0|cpu=16,gres/gpu=1,mem=96G,node=1\n19412713_2.extern|COMPLETED|559|0:0|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19412713_2.0|COMPLETED|558|0:0|cpu=16,gres/gpu=1,mem=96G,node=1\n19412713_3|COMPLETED|548|0:0|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19412713_3.batch|COMPLETED|548|0:0|cpu=16,gres/gpu=1,mem=96G,node=1\n19412713_3.extern|COMPLETED|548|0:0|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19412713_3.0|COMPLETED|548|0:0|cpu=16,gres/gpu=1,mem=96G,node=1\n19412714_0|RUNNING|717|0:0|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19412714_0.batch|RUNNING|717|0:0|cpu=16,gres/gpu=1,mem=96G,node=1\n19412714_0.extern|RUNNING|717|0:0|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19412714_0.0|RUNNING|710|0:0|cpu=16,gres/gpu=1,mem=96G,node=1\n19412714_1|RUNNING|717|0:0|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19412714_1.batch|RUNNING|717|0:0|cpu=16,gres/gpu=1,mem=96G,node=1\n19412714_1.extern|RUNNING|717|0:0|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19412714_1.0|RUNNING|714|0:0|cpu=16,gres/gpu=1,mem=96G,node=1\n19412714_2|RUNNING|717|0:0|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19412714_2.batch|RUNNING|717|0:0|cpu=16,gres/gpu=1,mem=96G,node=1\n19412714_2.extern|RUNNING|717|0:0|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19412714_2.0|RUNNING|710|0:0|cpu=16,gres/gpu=1,mem=96G,node=1\n19412714_3|RUNNING|717|0:0|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19412714_3.batch|RUNNING|717|0:0|cpu=16,gres/gpu=1,mem=96G,node=1\n19412714_3.extern|RUNNING|717|0:0|billing=16,cpu=16,gres/gpu=1,mem=96G,node=1\n19412714_3.0|RUNNING|713|0:0|cpu=16,gres/gpu=1,mem=96G,node=1\n"
+}

@@ -1,0 +1,12 @@
+{
+  "job_id": 126740,
+  "scheduler": "alpha",
+  "partition": "grace",
+  "cpus": 32,
+  "dask_threads": 8,
+  "memory": "384G",
+  "walltime_limit": "06:00:00",
+  "source": "Preserved experiment source used for training and observation backfill",
+  "image": "ghcr.io/m2lines/ocean-emulator-physicsnemo@sha256:7d78e8fb9592abdf046d88e55004f15cfe34f0c8ee38b17d83e98cc05b6f82c4",
+  "notes": "Checked-in script differs from submitted script only by a mypy annotation/whitespace. Existing masked headline CSV reused; all five model/baseline fields freshly reduced for figures. No result claimed until COMPLETE.json and accounting verified."
+}

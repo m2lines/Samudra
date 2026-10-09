@@ -28,7 +28,7 @@ for seed in 16 17; do
     mkdir -p "$DATA_CACHE_DIR"
     sbatch --parsable --account=torch_pr_347_lzanna --partition=rtx6000_lzanna \
       --nodes=1 --ntasks-per-node=1 --cpus-per-task=128 --gres=gpu:rtx6000:8 \
-      --exclusive --mem=0 --time=48:00:00 --job-name="$NAME" \
+      --mem=512G --time=48:00:00 --job-name="$NAME" \
       --chdir=/scratch/jr7309 --output="$root/train-%j.out" --error="$root/train-%j.err" \
       "$HOME/slurm_apptainer_train.sbatch" | tee "$root/${variant}-seed${seed}.jobid"
   done

@@ -1,0 +1,68 @@
+{
+  "original_result_sha256": "6fde9b2519fa4297e0ab55538c974bdadf91086e8a05f15244bec4ab10d1f81e",
+  "original_scores_sha256": "c774979cf08a092786a750d1d11437039dc59fe2cae9dfae8328a7f181645462",
+  "compact_manifest_sha256": "8df5a248c5427e4d5d31cb6a59d994e1e0e4ba142bfae9e1827546f0a065976a",
+  "grid_sha256": "ce96360964a6669d0186b9581abaaffc06f660c4e09e0ac813b3dd1b819e5167",
+  "sources": {
+    "/tmp/viewer-annual-source/scratch/jr7309/runs/2026-10-08-early-fine-annual/U-global/2015-01-01.npz": "60b7ddefcbd3a2f352b939f090f98b37a58f609b7cf8089561bd933a4ea9088b",
+    "/tmp/global-physical-comparison/data/compact/scratch08000-2015-01-01.npz": "d33c4617d3958724972ccd51993c0000c0a6e524288314df8848f510002c77d7",
+    "/tmp/global-physical-comparison/data/compact/scratch16000-2015-01-01.npz": "6de1dede4c54bf30bf143dd6d6a10a49538883c36140bd632c39d82423f54049",
+    "/tmp/viewer-annual-source/scratch/jr7309/runs/2026-10-08-early-fine-annual/U-global/2018-01-01.npz": "2cc9ff7041d4aee68e426bf624e3717f26a607526714a297ddac3109f151082f",
+    "/tmp/global-physical-comparison/data/compact/scratch08000-2018-01-01.npz": "8a8898800e19ca7013693f185f26252bc629fe10b60d380ec86883f41616abe2",
+    "/tmp/global-physical-comparison/data/compact/scratch16000-2018-01-01.npz": "38ed506893a1c036f885a8b1ab6d0b7dbc95215241b3cc49438118c0b1bcabb4",
+    "/tmp/viewer-annual-source/scratch/jr7309/runs/2026-10-08-early-fine-annual/U-global/2021-01-01.npz": "bceeffa1220e7a249e73a99abaa0f61a0e293add1c1d89d89d67a6403db8530c",
+    "/tmp/global-physical-comparison/data/compact/scratch08000-2021-01-01.npz": "570d220ee64ecbd6b06fe52a0e5981c352053192e593b9c8f2e21a9ceb154b08",
+    "/tmp/global-physical-comparison/data/compact/scratch16000-2021-01-01.npz": "418b37e7297b60a58a9d52505513a0df7abb91a380fd52b63dd6f1fd81524a35"
+  },
+  "checkpoints": {
+    "Obs-only: 8,000 obs": {
+      "checkpoint_policy": "fixed-budget, not validation-selected",
+      "checkpoint": "joint-08000.pt",
+      "checkpoint_sha256": "6e885fef7c6ffe99741a41ca20ce369e5e4829ae83c8490aac02839210214006",
+      "global_step": 8000,
+      "task_counts": {
+        "om4": 0,
+        "observation": 8000
+      },
+      "training_manifest_sha256": "7d8568008e5ae306981f58b590ece5c6b803a11088888a909db090585e1d71a4"
+    },
+    "Obs-only: 16,000 obs": {
+      "checkpoint_policy": "fixed-budget, not validation-selected",
+      "checkpoint": "joint-16000.pt",
+      "checkpoint_sha256": "e40c2e2f9cce556270dea57f9d08f772350fb72914d0690e4fbe2f8c2039034b",
+      "global_step": 16000,
+      "task_counts": {
+        "om4": 0,
+        "observation": 16000
+      },
+      "training_manifest_sha256": "7d8568008e5ae306981f58b590ece5c6b803a11088888a909db090585e1d71a4"
+    }
+  },
+  "origins": [
+    "2015-01-01",
+    "2018-01-01",
+    "2021-01-01"
+  ],
+  "verification": [
+    "All nine source annual arrays hash-verified",
+    "All scratch surface and OHC targets exactly equal U-global targets",
+    "Both leads of all three U-global RMSE records reproduced exactly",
+    "Original 17-model CSV rows retained without recomputing their scores"
+  ],
+  "score": "Equal-origin MSE pooling, square root, then mean of four RMSE ratios to the original pooled training climatology; OHC January/December means",
+  "scope": "Two fixed endpoints of one obs-only trajectory, no cooldown; larger training budgets and a related architecture, not a matched ablation of the 17-model screen. No new inference or checkpoint selection.",
+  "code": {
+    "scripts/plot_presentation_obs_comparators.py": "047710a3343168b0b98c09d72f2b3042a3210a8eadcf894ad157279be0fda6b1",
+    "scripts/plot_presentation_annual.py": "1882db20488e55e737e942e8fa9366687cdfd6e426bf6896033d974fe9e9c913",
+    "scripts/collect_presentation_annual.py": "5cbdddbba585082567197a83aaccb40a37e6e0821390e123521f3b95171c8d48",
+    "src/samudra/experiments/observation_annual.py": "96027e59a49b81a183c43a2b2c82c298ec4b8763cf80ebb5bc0e13c418947bda",
+    "src/samudra/experiments/observation_metrics.py": "160b83557ce53124a33d87a620d0598df71dfa40920d739921f7efca99214e24",
+    "src/samudra/metrics/kernels.py": "fe99dde8550696dad681e4a8e307c1778c613655f0931f02a2336808dec4c9d4"
+  },
+  "files": {
+    "obs-only-metrics.json": "d5e6d8837c4a5ffc6169a974d0b86a12082830c8c3cb8ee27d44f818347d819d",
+    "rmse-comparison.pdf": "9ad1237a990333e4ab075f57eafd0dba0d977492d75d41361a0ae94785974a86",
+    "rmse-comparison.png": "639b6455af6f47565889fd4e91df16b67b1c83fb0d0c3ebe7c31e1c0420a17df",
+    "rmse-scores.csv": "f1463dfaacaaf47f065bc5f15ba5918f876cd0d51a0200cbf8fc61bc622432c1"
+  }
+}

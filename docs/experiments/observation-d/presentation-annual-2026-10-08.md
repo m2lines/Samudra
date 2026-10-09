@@ -15,6 +15,7 @@ better relative model discrimination, with limited absolute annual skill on
 this diagnostic—not evidence of validated climate rollouts.
 
 Contents: [Matched scores](#matched-scores) · [What changes](#what-changes) ·
+[Observation-only comparators](#observation-only-comparators) ·
 [Components and origins](#components-and-origins) · [Maps and lead curves](#maps-and-lead-curves) ·
 [Original spectral score](#original-51530-day-spectral-score) ·
 [Model definitions](#models) · [Protocol](#fixed-evaluation-protocol) · [Verification](#verification).
@@ -58,6 +59,45 @@ its own persistence; fine-plus-latent is **6.6% better**. Persistence holds each
 model's inferred initial state fixed, so it differs across checkpoints. January
 starts also mean the annual endpoint returns to almost the initial season;
 persistence is a substantially harder control there than at midyear.
+
+## Observation-only comparators
+
+The expanded chart adds **Obs-only: 8,000 obs** and **Obs-only: 16,000 obs** to
+the original 17 uncooled models. These are fixed checkpoints of one randomly
+initialized, observation-only trajectory with zero OM4 updates and no cooldown.
+They use the 62,966,546-parameter Small conditioned global architecture described
+in the [global physical-only report](global-physical-day30-2026-09-30.md).
+They are external comparators: their budgets and checkpoint policy differ from
+the validation-selected 4,000-update screen, and their related architecture
+lacks the screen's added geometry/task interface. This is not a matched test of
+removing OM4 from U-global.
+
+![Uncooled models with observation-only checkpoints and own persistence](artifacts/presentation-obs-comparators-2026-10-08/rmse-comparison.png)
+
+| Model | Day 30 | Day 365 | Own persistence, day 30 | Own persistence, day 365 |
+|---|---:|---:|---:|---:|
+| Obs-only: 8,000 obs | 0.9227 | 2.1606 | 1.1948 | 1.1262 |
+| Obs-only: 16,000 obs | 0.8726 | 2.3227 | 1.1661 | 1.0991 |
+
+**The observation-only checkpoints are competitive at day 30 but substantially
+worse at day 365.** Extending observation-only training improves this day-30
+score by 5.4%, while worsening the annual score by 7.5%. At day 365 their SST
+RMSEs remain relatively good (0.849/0.785°C); the large composite errors come
+mainly from OHC (upper layer 26.69/30.98 × 10⁸ J/m²; deep layer 12.35/12.08 ×
+10⁸ J/m²), with worse geostrophic velocity too (0.209/0.253 m/s). Both annual
+forecasts lose to their own initialized persistence. This result suggests
+long-rollout interior drift despite improving short-range fit, but the unmatched
+training setups do not isolate a causal effect of OM4 supervision.
+
+All values use the **same three January starts and original climatology
+denominators** as the main chart. Surface and monthly OHC targets match exactly;
+recomputing U-global from saved arrays reproduces every scored component exactly.
+Original 17-model scores are unchanged. Only saved outputs were rescored: no
+new inference, training, or checkpoint selection. The annual comparison remains
+limited to three examples. [Full scores and physical components](artifacts/presentation-obs-comparators-2026-10-08/rmse-scores.csv) ·
+[Source hashes and verification](artifacts/presentation-obs-comparators-2026-10-08/provenance.json) ·
+[PDF](artifacts/presentation-obs-comparators-2026-10-08/rmse-comparison.pdf) ·
+[Reproduction script](../../../scripts/plot_presentation_obs_comparators.py).
 
 ## What changes
 
@@ -193,6 +233,7 @@ matches the original published score tables. [Provenance](artifacts/presentation
 | U-multitask-early-latent | Same coarse data, with ten recurrent latent channels | [Early/fine methods](early-fine-wave-2026-10-07.md) |
 | U-multitask-early-fine | Earlier OM4 at ¼° through an encoder and decoder around the coarse processor | [Early/fine methods](early-fine-wave-2026-10-07.md) |
 | U-multitask-early-fine-latent | Same fine-resolution task with ten recurrent latent channels | [Early/fine methods](early-fine-wave-2026-10-07.md) |
+| Obs-only: 8,000 obs; Obs-only: 16,000 obs | Fixed 8k/16k endpoints of one observation-only trajectory; external, longer-trained comparators in the expanded chart | [Scratch methods](global-scratch-2026-09-30.md) |
 | Training seasonal climatology | Training-only monthly surface and interior mean fields, mapped to the scored quantities | [Score collector](../../../scripts/collect_presentation_annual.py) |
 
 There are 17 models. The existing [early/fine annual evaluation](early-fine-annual-2026-10-08.md)

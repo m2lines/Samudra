@@ -51,3 +51,18 @@ uses NCCL_P2P_DISABLE=1 on all four runs.
 Persistent startup and per-job completion follow-ups check scheduler state,
 then verify real logs and artifacts before reporting results. Observation
 scoring remains a separate CPU stage; no visualization is scheduled.
+
+## Control seed 16 recovery
+
+Job 19457054 reached epoch 2 and failed after 6m07s with
+`CUDNN_STATUS_EXECUTION_FAILED_CUDART` during backward on rank 0. No more
+specific CUDA cause was reported; this is not established as a data-loader or
+hardware fault. Eight ranks, effective batch 32, and online W&B were confirmed.
+The interrupted W&B segment is `ocean_emulators/default/vfs6v3ev`.
+
+Retry **19460455** resumes from the saved end-of-epoch-1 `ckpt.pt` into a new
+`current-1deg-control-seed16-torch-retry1` output directory. The original output
+and logs are retained. Source, seed, data, loader and model settings are unchanged;
+this is a recovery attempt, not a confirmed fix. The first attempt consumed
+about 0.82 allocated GPU-hours. Report this resumed run separately in provenance;
+no bitwise equivalence to uninterrupted training is claimed.

@@ -66,3 +66,31 @@ and logs are retained. Source, seed, data, loader and model settings are unchang
 this is a recovery attempt, not a confirmed fix. The first attempt consumed
 about 0.82 allocated GPU-hours. Report this resumed run separately in provenance;
 no bitwise equivalence to uninterrupted training is claimed.
+
+## Shared epoch-2 failure investigation
+
+All four original jobs failed on **gr103**, on rank 0 during backward at the
+fourth batch of epoch 2, after completing epoch 1 and its validation cycle.
+Control 16 reported the cuDNN error above; the other three reported an illegal
+CUDA memory access. This repeatability suggests a shared problem, but does not
+establish whether it is software, CUDA libraries, or hardware.
+
+| Original job | Elapsed | W&B segment |
+|---|---|---|
+| 19457054 | 6m07s | vfs6v3ev |
+| 19457056 | 4m42s | ic27x334 |
+| 19457059 | 4m33s | kt36r3b4 |
+| 19457061 | 4m39s | 3m11xsef |
+
+The four failed allocations total about 2.67 GPU-hours. Retry 19460455 was
+canceled after 23 seconds during distributed initialization because it also
+landed on gr103; it did not produce a resumed training result.
+
+**19461486** resumes the same control-16 epoch-1 checkpoint on **gr101**, using
+`resume-control16-other-node.sh`. Source, container, Rust loader (including
+CUDA prefetch), NCCL settings, batch size, and model parameters are unchanged.
+It writes `current-1deg-control-seed16-torch-retry2`. Torch rejects node exclusion;
+the explicit gr101 request passed `sbatch --test-only`. The job was queued when
+recorded here. Startup and completion callbacks are installed and verified.
+The other three retries are deferred until this host comparison is inspected.
+No final-epoch or observation scores exist for the additional seeds yet.

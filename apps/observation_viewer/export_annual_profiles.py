@@ -107,9 +107,9 @@ def run(root, stage, index=None):
                 json.dumps(dict(event="profile_data_audited", origin=path.parent.name)),
                 flush=True,
             )
-        write_json(root / "AUDITED.json", signature)
+        write_json(root / "audit-output/AUDITED.json", signature)
         return
-    if read(root / "AUDITED.json") != signature:
+    if read(root / "audit-output/AUDITED.json") != signature:
         raise ValueError("Profile audit contract differs")
     row = cfg["models"][index]
     name, folder = row["name"], Path(row["run"])

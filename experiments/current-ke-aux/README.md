@@ -57,3 +57,34 @@ the original pinned ARM64 PhysicsNeMo image and original Rust extension.
 Qualification runs on beta_test. Follow-up uses a supervised local accounting
 watcher plus a timed reminder because Beta's scheduler lacks a suitable CPU-only
 callback queue. Training completion triggers evaluation/reporting in this chat.
+
+## Qualification and frozen coefficient
+
+Beta qualification job **211902** completed successfully in 5m09s on a GB200.
+Both modes passed real-batch forward/backward, date alignment, finite-gradient,
+head-gradient and state reload/inference checks. Peak allocated GPU memory for
+aligned qualification was 13,287,238,144 bytes. All 2,830 target frames passed
+read-back verification. The first attempt (211900) exposed a missing October 5,
+2013 training target; the isolated target cache now includes that native-derived
+frame, with the parent cache and its normalization preserved.
+
+The fixed coefficient for **both** treatments is **0.0340550269485343**, derived
+only from four aligned training batches. Physical backbone gradient norms were
+4.26–4.42, unweighted auxiliary norms 12.35–13.12, and gradient cosines
+−0.016 to +0.0033. This establishes a working, initially modest auxiliary signal;
+it does not establish an RMSE improvement. Seasonal qualification had identical
+physical losses and unweighted auxiliary norms 11.85–12.50.
+
+Full receipts are retained as `qualification-{aligned,seasonal}.json` under
+`/projects/ny/lz1955/multiscale/jrusak/runs/current-ke-aux-20261010` on Beta.
+Qualification source archive SHA-256:
+`c26f781682cd8e69255c7ddc626e7056d58cdcc5a6bd9044a2121a8f3b217521`.
+Target manifest SHA-256:
+`9a56838fb2355d0cf428875a4a570b5fa4c9b3aefab1d7e2df96d0ab7f2432a7`.
+The receipt records coefficient 0.01 used to check backward propagation before
+calibration; the frozen production coefficient is the value above.
+
+Validation: 126 relevant CPU tests passed (four CUDA/manual tests deselected),
+and all changed-file pre-commit checks passed, including mypy and schemas.
+Each production allocation additionally runs a two-epoch, four-rank debug
+preflight before starting a fresh 70-epoch training process.

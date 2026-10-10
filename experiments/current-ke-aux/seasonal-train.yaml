@@ -96,4 +96,4 @@ post_train_eval: null
 auxiliary_ke:
   target_root: /projects/ny/lz1955/multiscale/jrusak/runs/current-ke-aux-20261010/targets
   mode: seasonal
-  coefficient: 0.01
+  coefficient: 0.0340550269485343

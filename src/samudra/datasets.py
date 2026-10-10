@@ -304,6 +304,10 @@ class ModelBatch:
         self.ctx = ctx
         self.steps: list[RolloutStep] = []
         self.load_stats: LoadStats | None = None
+        self.label_times: list[np.ndarray] = []
+        self.auxiliary_targets: list[torch.Tensor] | None = None
+        self.auxiliary_weights: torch.Tensor | None = None
+        self.auxiliary_coefficient: float = 0.0
 
     def append(
         self, prognostic_input: Prognostic, boundary_input: Boundary, label: Prognostic

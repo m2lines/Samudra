@@ -35,6 +35,12 @@ def train_batch(
     model: torch.nn.Module, batch: ModelBatch, loss_fn: Callable
 ) -> TrainBatchOutput:
     loss_per_channel = model(batch, loss_fn=partial(loss_fn, ctx=batch.ctx))
+    if isinstance(loss_per_channel, tuple):
+        physical, auxiliary = loss_per_channel
+        result = TrainBatchOutput(physical.mean(), physical)
+        result.auxiliary_loss = auxiliary
+        result.optimization_loss = result.loss + batch.auxiliary_coefficient * auxiliary
+        return result
     loss = torch.mean(loss_per_channel)
     return TrainBatchOutput(loss, loss_per_channel)
 

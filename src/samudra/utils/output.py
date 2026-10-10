@@ -12,6 +12,8 @@ class TrainBatchOutput:
     def __init__(self, loss: torch.Tensor, loss_per_channel: torch.Tensor):
         self.loss = loss
         self.loss_per_channel = loss_per_channel
+        self.optimization_loss = loss
+        self.auxiliary_loss: torch.Tensor | None = None
 
 
 class ValBatchOutput(TrainBatchOutput):

@@ -74,8 +74,9 @@ class BaseModel(torch.nn.Module):
         self,
         batch: ModelBatch,
         loss_fn=None,
-    ) -> torch.Tensor | list[torch.Tensor]:
+    ) -> torch.Tensor | list[torch.Tensor] | tuple[torch.Tensor, torch.Tensor]:
         outputs: list[torch.Tensor] = []
+        auxiliary_losses = []
         loss = torch.tensor(torch.nan)
         prog_tensor, _ = batch.get_initial_input()
         for step in range(len(batch)):
@@ -87,7 +88,13 @@ class BaseModel(torch.nn.Module):
                 ):
                     prog_tensor = prog_tensor.detach()
 
-            decodings = self.forward_once(prog_tensor, boundary_tensor, batch.ctx)
+            if loss_fn is not None and batch.auxiliary_targets is not None:
+                decodings, auxiliary = self.forward_training_step(
+                    prog_tensor, boundary_tensor, batch, step
+                )
+                auxiliary_losses.append(auxiliary)
+            else:
+                decodings = self.forward_once(prog_tensor, boundary_tensor, batch.ctx)
             pred = self._assemble_prediction(prog_tensor, decodings)
 
             if loss_fn is not None:
@@ -107,8 +114,13 @@ class BaseModel(torch.nn.Module):
 
         if loss_fn is None:
             return outputs
+        elif auxiliary_losses:
+            return loss, torch.stack(auxiliary_losses).mean()
         else:
             return loss
+
+    def forward_training_step(self, prognostic, boundary, batch, step):
+        raise NotImplementedError("This model does not support auxiliary supervision")
 
     def inference(
         self,

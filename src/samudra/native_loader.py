@@ -389,6 +389,11 @@ class NativeBatchLoader:
                 materialize(step.boundary),
                 materialize(step.label),
             )
+            train_data.label_times.append(
+                step.label.policy.source.time.values[
+                    step.label.policy.request.time_indices
+                ]
+            )
         train_data.load_stats = raw.load_stats
         return train_data
 

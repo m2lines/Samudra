@@ -982,6 +982,7 @@ class BaseModelConfig(BaseConfig, abc.ABC):
 
 
 class SamudraConfig(BaseModelConfig):
+    auxiliary_ke: bool = False
     unet: UNetBackboneConfig = UNetBackboneConfig()
     pos_channels: int = Field(
         default=0,
@@ -1026,6 +1027,9 @@ class SamudraConfig(BaseModelConfig):
             grid_size=grid_sizes[0],
             gradient_detach_interval=self.gradient_detach_interval,
             use_bfloat16=self.use_bfloat16,
+            auxiliary_ke_outputs=(out_channels // (prog_channels // input_steps))
+            if self.auxiliary_ke
+            else 0,
         )
 
 
@@ -1383,7 +1387,14 @@ def build_loss_fn(
             assert_never(loss_cfg)
 
 
+class AuxiliaryKEConfig(BaseConfig):
+    target_root: Path
+    mode: Literal["aligned", "seasonal"]
+    coefficient: float = Field(gt=0)
+
+
 class TrainConfig(TopLevelConfig):
+    auxiliary_ke: AuxiliaryKEConfig | None = None
     # Training parameters
     disk_mode: bool = True
     save_freq: int = 5
@@ -1438,6 +1449,13 @@ class TrainConfig(TopLevelConfig):
 
     @pydantic.model_validator(mode="after")
     def validate_checkpoint_metric(self) -> Self:
+        if self.auxiliary_ke is not None:
+            if not isinstance(self.model, SamudraConfig) or not self.model.auxiliary_ke:
+                raise ValueError("KE training requires the Samudra auxiliary head")
+            if not isinstance(self.data.loading, RustDataLoadingConfig):
+                raise ValueError(
+                    "This KE experiment requires timestamp-aware Rust loading"
+                )
         if self.checkpoint_validation_metric == "rollout_rmse":
             if self.rollout_validation is None:
                 raise ValueError(

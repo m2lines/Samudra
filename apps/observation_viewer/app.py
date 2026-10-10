@@ -59,6 +59,11 @@ class Viewer:
 
     def __init__(self, catalog):
         self.catalog = catalog
+        for record in catalog.meta["records"].values():
+            if "temperature_reference" not in record or any(
+                "temperature" not in row for row in record["models"].values()
+            ):
+                raise ValueError("Viewer requires monthly profiles for every model")
         self._changing = False
         self.wet = None
         self.model_options = {v["label"]: k for k, v in catalog.meta["models"].items()}
@@ -115,16 +120,6 @@ class Viewer:
             value=9,
             visible=False,
             css_classes=["depth-select"],
-        )
-        self.monthly_source = pn.widgets.Select(
-            name="Monthly data",
-            options={
-                "Regenerated forecast + profiles": "replay",
-                "Original report (heat only)": "report",
-            },
-            value="replay",
-            visible=False,
-            css_classes=["monthly-source-select"],
         )
         self.month = pn.widgets.DiscreteSlider(
             name="Month",
@@ -432,7 +427,7 @@ class Viewer:
         self.profile_pane = pn.Column(
             pn.pane.Bokeh(self.profile, sizing_mode="stretch_width"), visible=False
         )
-        for control in [self.model, self.reference, self.monthly_source]:
+        for control in [self.model, self.reference]:
             control.param.watch(self.select, "value")
         for control in [self.origin, self.variable]:
             control.param.watch(self.change_sample, "value")
@@ -448,15 +443,7 @@ class Viewer:
 
     @property
     def monthly_profiles(self):
-        return (
-            self.mode.value == "heat"
-            and "monthly_temperature" in self.catalog.meta
-            and self.monthly_source.value == "replay"
-            and "temperature"
-            in self.catalog.meta["records"][self.origin.value]["models"][
-                self.model.value
-            ]
-        )
+        return self.mode.value == "heat"
 
     @property
     def index(self):
@@ -503,11 +490,6 @@ class Viewer:
         self.player.visible = event.new == "surface"
         self.detail.visible = not interior
         self.month.visible = heat
-        self.monthly_source.visible = (
-            heat
-            and "monthly_temperature" in self.catalog.meta
-            and len(self.monthly_source.options) > 1
-        )
         self.profile_pane.visible = interior or (self.monthly_profiles)
         self.depth_marker.visible = interior
         self.depth.visible = interior
@@ -527,19 +509,6 @@ class Viewer:
         self.model.value = (
             model if model in models.values() else next(iter(models.values()))
         )
-        if heat and "monthly_temperature" in self.catalog.meta:
-            available = self.catalog.meta["records"][self.origin.value]["models"][
-                self.model.value
-            ]
-            sources = {"Original report (heat only)": "report"}
-            if "temperature" in available:
-                sources = {"Regenerated forecast + profiles": "replay", **sources}
-            selected_source = self.monthly_source.value
-            self.monthly_source.options = sources
-            self.monthly_source.value = (
-                selected_source if selected_source in sources.values() else "report"
-            )
-            self.monthly_source.visible = len(sources) > 1
         options = {
             "IAP monthly context"
             if interior
@@ -564,19 +533,9 @@ class Viewer:
             available = self.catalog.meta["records"][self.origin.value]["models"][
                 self.model.value
             ]
-            if (
-                "heat" if heat else "surface"
-            ) + "_persistence" in available and not self.monthly_profiles:
+            if ("heat" if heat else "surface") + "_persistence" in available:
                 options["Own initialized persistence"] = "persistence"
-        comparisons = models
-        if self.monthly_profiles:
-            records = self.catalog.meta["records"][self.origin.value]["models"]
-            comparisons = {
-                label: key
-                for label, key in models.items()
-                if "temperature" in records[key]
-            }
-        options.update(comparisons)
+        options.update(models)
         reference = self.reference.value
         self.reference.options = options
         self.reference.value = (
@@ -646,17 +605,8 @@ class Viewer:
         mode, variable, index = self.mode.value, self.variable.value, self.index
         self.profile_pane.visible = mode == "interior" or self.monthly_profiles
         self.orientation.visible = self.section_row.visible = self.profile_pane.visible
-        data_mode = (
-            "report_heat"
-            if (
-                mode == "heat"
-                and "monthly_temperature" in self.catalog.meta
-                and self.monthly_source.value == "report"
-            )
-            else mode
-        )
         self.prediction, self.comparison = self.catalog.values(
-            data_mode, self.model.value, self.origin.value, self.reference.value
+            mode, self.model.value, self.origin.value, self.reference.value
         )
         a, b = self.prediction[index, variable], self.comparison[index, variable]
         difference = a - b
@@ -721,23 +671,7 @@ class Viewer:
             self.context.object = "Monthly layer-integrated heat content compared with IAP analyses, in GJ/m² relative to 0 °C. Gray cells lack a complete model column for the selected layer. Click a map for the monthly series."
             if self.monthly_profiles:
                 self.context.object += " Move the month slider to explore temperature sections and the selected-cell profile. Use Along longitude / Along latitude to choose the section direction; click a map to move the slice."
-            if self.monthly_profiles:
-                self.context.object += (
-                    " " + self.catalog.meta["monthly_temperature"]["description"]
-                )
-            elif (
-                "temperature"
-                not in self.catalog.meta["records"][self.origin.value]["models"][
-                    self.model.value
-                ]
-            ):
-                self.context.object += " Original saved forecast values. Monthly temperature profiles were not saved for this model; initialized profiles are available in the interior view."
-            elif "monthly_temperature" in self.catalog.meta:
-                self.context.object += " Original report values. Select ‘Regenerated forecast + profiles’ for monthly temperature profiles."
-            else:
-                self.context.object += (
-                    " Temperature profiles are unavailable in this data bundle."
-                )
+            self.context.object += " Heat maps and profiles use the same calendar-month forecast means. Profiles show IAP monthly temperatures at model depths."
         else:
             record = self.interior_examples.get(self.origin.value)
             label = record["label"] if record else f"{self.origin.value} (obs)"
@@ -774,15 +708,6 @@ class Viewer:
             "Model and comparison share a color scale; difference is centered on zero. Limits use the pooled 2nd–98th percentiles and may clip extremes. "
             "The prepared catalog retains original source paths, hashes, and report receipts."
         )
-        if self.monthly_profiles:
-            replay = self.catalog.meta["monthly_temperature"]["report_comparison"][
-                f"{self.model.value}-{self.origin.value}"
-            ]
-            self.provenance.object += (
-                f"\n\nMonthly values are from a frozen-checkpoint replay. Difference from the original report across all months and both heat layers: "
-                f"RMS {replay['rms']:.4g} GJ/m²; maximum absolute difference {replay['max_abs']:.4g} GJ/m². "
-                "The original heat arrays and full export receipts are retained in the data bundle."
-            )
         self.update_point()
 
     def update_point(self):
@@ -927,7 +852,6 @@ class Viewer:
             self.frame,
             self.player,
             self.depth,
-            self.monthly_source,
             self.month,
             self.lock_colors,
             self.rescale,

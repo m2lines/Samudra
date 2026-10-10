@@ -32,11 +32,8 @@ def verify_maps(
     variable,
     index,
     reference="observations",
-    original_heat=False,
 ):
-    prediction, comparison = catalog.values(
-        "report_heat" if original_heat else mode, model, origin, reference
-    )
+    prediction, comparison = catalog.values(mode, model, origin, reference)
     mask = catalog.array(catalog.meta[f"{mode}_mask"])
     wet = mask[index, variable] if mode == "interior" else mask[variable]
     a, b = prediction[index, variable][wet], comparison[index, variable][wet]
@@ -362,25 +359,7 @@ def test_monthly_heat_maps_point_series_and_mode_switching():
         month_slider.press("End")
         verify_maps(page, catalog, "heat", "scratch16000", "2021-01-01", 1, 11)
         verify_monthly_profile(page, catalog, "scratch16000", "2021-01-01", 11)
-        if "monthly_temperature" in catalog.meta:
-            select(page, "monthly-source-select", "Original report (heat only)")
-            verify_maps(
-                page,
-                catalog,
-                "heat",
-                "scratch16000",
-                "2021-01-01",
-                1,
-                11,
-                original_heat=True,
-            )
-            expect(page.locator(".depth-sections").first).not_to_be_visible(
-                timeout=30000
-            )
-            expect(page.get_by_text("Along latitude", exact=True)).not_to_be_visible()
-            select(page, "monthly-source-select", "Regenerated forecast + profiles")
-            verify_maps(page, catalog, "heat", "scratch16000", "2021-01-01", 1, 11)
-            verify_monthly_profile(page, catalog, "scratch16000", "2021-01-01", 11)
+        expect(page.locator(".monthly-source-select")).to_have_count(0)
         canvas = page.locator("canvas").first.bounding_box()
         assert canvas is not None
         page.mouse.click(
@@ -556,10 +535,11 @@ def test_new_annual_models_descriptions_persistence_and_profile_availability():
             page, catalog, "surface", "A-global", "2015-01-01", 0, 72, "persistence"
         )
         select(page, "view-select", "Monthly ocean heat content")
-        verify_maps(
-            page, catalog, "heat", "A-global", "2015-01-01", 0, 0, original_heat=True
-        )
-        expect(page.locator(".section-direction")).not_to_be_visible()
+        verify_maps(page, catalog, "heat", "A-global", "2015-01-01", 0, 0)
+        expect(page.locator(".section-direction")).to_be_visible()
+        expect(page.locator(".monthly-source-select")).to_have_count(0)
+        verify_monthly_profile(page, catalog, "A-global", "2015-01-01", 0)
+        verify_monthly_sections(page, catalog, "A-global", "2015-01-01", 0)
         select(page, "reference-select", "Own initialized persistence")
         verify_maps(
             page,
@@ -570,7 +550,12 @@ def test_new_annual_models_descriptions_persistence_and_profile_availability():
             0,
             0,
             "persistence",
-            original_heat=True,
+        )
+        verify_monthly_profile(
+            page, catalog, "A-global", "2015-01-01", 0, "persistence"
+        )
+        verify_monthly_sections(
+            page, catalog, "A-global", "2015-01-01", 0, "persistence"
         )
         select(page, "model-select", "U-multitask-early-fine-latent")
         expect(page.locator(".model-description")).to_contain_text(
@@ -606,14 +591,48 @@ def test_new_annual_models_descriptions_persistence_and_profile_availability():
             "2015-01-01",
             0,
             0,
-            original_heat=True,
         )
         select(page, "model-select", "Mixed · 8,000 observation updates")
-        verify_maps(
-            page, catalog, "heat", "obs08000", "2015-01-01", 0, 0, original_heat=True
-        )
-        select(page, "monthly-source-select", "Regenerated forecast + profiles")
         verify_maps(page, catalog, "heat", "obs08000", "2015-01-01", 0, 0)
         expect(page.locator(".section-direction")).to_be_visible()
+        select(page, "reference-select", "Own initialized persistence")
+        verify_maps(
+            page, catalog, "heat", "obs08000", "2015-01-01", 0, 0, "persistence"
+        )
+        verify_monthly_profile(
+            page, catalog, "obs08000", "2015-01-01", 0, "persistence"
+        )
         assert not errors, errors
+        browser.close()
+
+
+def test_monthly_persistence_has_matching_heat_and_depth_profiles():
+    catalog = Catalog(os.environ.get("SAMUDRA_VIEWER_DATA", ROOT / ".data"))
+    if (
+        "temperature_persistence"
+        not in catalog.meta["records"]["2015-01-01"]["models"]["obs08000"]
+    ):
+        pytest.skip("Requires complete monthly profile bundle")
+    with sync_playwright() as p:
+        browser = p.chromium.launch(
+            executable_path=os.environ.get("CHROMIUM_EXECUTABLE"),
+            headless=True,
+            args=["--no-sandbox"],
+        )
+        page = browser.new_page(viewport=dict(width=1600, height=1100))
+        page.goto(URL, wait_until="networkidle")
+        page.wait_for_function(
+            "window.Bokeh?.documents?.[0]?.get_model_by_name('source-prediction')?.data.value.length > 0",
+            timeout=60000,
+        )
+        select(page, "view-select", "Monthly ocean heat content")
+        verify_maps(page, catalog, "heat", "obs08000", "2015-01-01", 0, 0)
+        select(page, "reference-select", "Own initialized persistence")
+        verify_maps(
+            page, catalog, "heat", "obs08000", "2015-01-01", 0, 0, "persistence"
+        )
+        verify_monthly_profile(
+            page, catalog, "obs08000", "2015-01-01", 0, "persistence"
+        )
+        expect(page.locator(".monthly-source-select")).to_have_count(0)
         browser.close()

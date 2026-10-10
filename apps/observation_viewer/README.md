@@ -52,7 +52,7 @@ RMS/bias are cosine-weighted snapshot diagnostics on paired finite cells, not
 the report's full official metric suite. Forecast origin, forecast lead, and
 training exposure remain distinct selectors.
 
-Monthly heat content comes from the existing annual report exports. Forecasts
+Monthly heat content is integrated from the saved temperature profiles. Forecasts
 are monthly aggregates of the five-day rollout, compared with IAP monthly
 analyses. Values are layer-integrated heat per unit area relative to 0 °C,
 displayed in **GJ/m²** (the saved J/m² divided by 10⁹). Only complete model
@@ -70,15 +70,14 @@ sections and profiles always show the full depth range.
 Changing the origin preserves the selected calendar month. Model, IAP and
 checkpoint comparison choices apply to both heat and temperature.
 
-The original annual exports did not retain monthly depth-resolved temperature.
-The extended monthly view therefore uses **regenerated annual forecasts** from
-the same frozen checkpoints and verified inputs. Both OHC and temperature come
-from that replay, with exact calendar-overlap weighting of five-day intervals.
-The local GPU/runtime differs from the original report, so numerical values can
-change. The UI labels this distinction; the export receipt quantifies differences
-from the report. Use **Monthly data → Original report (heat only)** to return to the original
-heat maps and monthly series. Those arrays remain in the bundle under `report_heat`.
-Surface and initialized-interior views continue to use their original arrays.
+All 23 displayed checkpoints have calendar-month temperature profiles and heat
+content from the same frozen annual forecast for each case. Every model uses the
+same controls; there is no original/regenerated data selector. Profiles are
+computed with exact calendar-overlap weights over the 73 five-day predictions.
+The service never runs inference. Historical report arrays, replay comparisons,
+checkpoint hashes and generation receipts remain in the prepared catalog for
+provenance, rather than appearing as competing UI data modes.
+Surface and initialized-interior views retain their saved annual-report arrays.
 IAP profiles use the prepared monthly analysis on model depths, with missing
 values retained; IAP heat totals retain the report's native-depth integration.
 
@@ -155,8 +154,7 @@ The extension verifies every export checksum, month, depth, mask and checkpoint
 lineage, and independently integrates the temperature profiles to check that
 both displayed heat layers agree. It preserves existing arrays, checks all new
 arrays by full read-back, and retains the source, contract and receipts under
-`monthly-temperature-provenance/`. Older bundles keep their monthly heat view
-and report that temperature profiles are unavailable.
+`monthly-temperature-provenance/`. Complete profiles for every model before serving the updated viewer.
 
 ## Run and access
 
@@ -257,18 +255,22 @@ the selected model. It explains architecture, approximate parameter count,
 training data/objective, the selected checkpoint's actual exposure, and the
 difference between fixed-budget and validation-selected checkpoints.
 
-New models expose saved 73-step SST/SSH forecasts, the final inferred initial
-T/S/U/V state at fourteen depths, and twelve monthly OHC fields. **Own initialized
-persistence** is available as a surface/OHC comparison. The fine modules used
-during earlier-quarter-degree training are inactive on these observation
-rollouts. No inference is performed to add the models.
+The added models expose saved 73-step SST/SSH forecasts, the final inferred
+initial T/S/U/V state at fourteen depths, and monthly heat content and temperature
+profiles. **Own initialized persistence** is available in the monthly view for
+all models, using their own initial temperature profiles and consistent heat
+integrals. Surface persistence remains available for the added annual models.
+The fine modules used during earlier-quarter-degree training are inactive on
+observation rollouts.
 
-Monthly depth-resolved temperature was not saved for the new models. Selecting
-one uses its original saved heat fields and hides the profile controls; it does
-not substitute the initial temperature or interpolate between sparse forecast
-states. Original models retain their existing regenerated profiles. When using
-regenerated monthly values, comparison choices are restricted to models with
-matching profile availability; select original report heat to compare all models.
+`export_annual_profiles.py` runs the missing frozen-checkpoint annual forecasts
+in the original audited Torch runtime. It checks source, runtime, checkpoint,
+input and calendar contracts and records numerical differences from the saved
+annual outputs. `complete_monthly_profiles.py` verifies every export, checks that
+independent integration of each temperature profile reproduces its heat content,
+and builds a new complete catalog while preserving all historical arrays.
+The viewer requires profiles for every model before publishing this update.
+
 New initialized-interior examples are observation-input cases only; existing
 OM4-input examples remain unchanged.
 

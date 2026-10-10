@@ -5,6 +5,7 @@
 import contextlib
 import datetime
 import gc
+import json
 import logging
 import math
 import os
@@ -185,6 +186,18 @@ class Trainer:
             input_steps=self.input_steps,
             grid_sizes=[source.grid_size for source in self.data_bundle.train_sources],
         ).to(self.device)
+
+        self.auxiliary_targets = None
+        if cfg.auxiliary_ke is not None:
+            from samudra.auxiliary_ke import VarianceTargets
+
+            self.auxiliary_targets = VarianceTargets(
+                cfg.auxiliary_ke, self.primary_source, self.prognostic_var_names
+            )
+            if is_main_process():
+                (cfg.experiment.output_dir / "auxiliary-ke-provenance.json").write_text(
+                    json.dumps(self.auxiliary_targets.provenance, indent=2) + "\n"
+                )
 
         self.nets_dir = cfg.experiment.nets_dir
         self.network = self.model.__class__.__name__
@@ -542,12 +555,14 @@ class Trainer:
             with self.train_progress.batch(
                 batch, world_size=self.world_size, device=self.device
             ) as batch_progress:
+                if self.auxiliary_targets is not None:
+                    self.auxiliary_targets.attach(batch, self.device)
                 batch_output: TrainBatchOutput = train_batch(
                     self.model, batch, self.loss_fn
                 )
 
                 # Scale loss by this accumulation cycle's actual microbatch count.
-                scaled_loss = batch_output.loss / r
+                scaled_loss = batch_output.optimization_loss / r
                 scaled_loss.backward()
 
                 train_aggregator.record_batch(batch_output)
@@ -610,6 +625,16 @@ class Trainer:
                         "data_wait_time"
                     ].value,
                 }
+                if batch_output.auxiliary_loss is not None:
+                    metrics["train/batch/auxiliary_ke_mse"] = all_reduce_mean(
+                        batch_output.auxiliary_loss.detach()
+                    )
+                    metrics["train/batch/optimization_loss"] = all_reduce_mean(
+                        batch_output.optimization_loss.detach()
+                    )
+                    metrics["train/batch/auxiliary_coefficient"] = (
+                        batch.auxiliary_coefficient
+                    )
 
                 if loss_scale_per_channel_fn := getattr(
                     self.loss_fn, "loss_scale_per_channel", None

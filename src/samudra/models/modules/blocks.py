@@ -106,16 +106,17 @@ class ZonallyPeriodicBilinearUpsample(torch.nn.Module):
 
 
 class DropPath(torch.nn.Module):
-    """Drop path dropout (for skip connections).
+    """Drop entire sample paths during training.
 
-    During training, randomly drops entire samples' skip connections
-    with probability ``drop_prob``, scaling survivors by 1/(1-p) to preserve
-    expected values. Implemented via ``nn.Dropout`` applied to a per-sample
-    mask of ones.
+    During training, randomly drops a complete branch for each sample with
+    probability ``drop_prob``, scaling survivors by 1/(1-p) to preserve expected
+    values. This can be used for U-Net shortcut dropout or stochastic depth on a
+    residual branch.
 
     References:
-        [0]: Rethinking U-net Skip Connections for Biomedical Image Segmentation (https://arxiv.org/abs/2402.08276)
-        [1]: Dropout Reduces Underfitting (https://arxiv.org/abs/2303.01500)
+        [0]: Deep Networks with Stochastic Depth (https://arxiv.org/abs/1603.09382)
+        [1]: Rethinking U-net Skip Connections for Biomedical Image Segmentation (https://arxiv.org/abs/2402.08276)
+        [2]: Dropout Reduces Underfitting (https://arxiv.org/abs/2303.01500)
     """
 
     def __init__(self, drop_prob: float = 0.0):
@@ -123,22 +124,22 @@ class DropPath(torch.nn.Module):
         self.dropout = torch.nn.Dropout(p=drop_prob)
 
     def forward(
-        self, skip_conn: Float[torch.Tensor, "B C H W"]
+        self, branch: Float[torch.Tensor, "B C H W"]
     ) -> Float[torch.Tensor, "B C H W"]:
         if not self.training or self.dropout.p == 0.0:
-            return skip_conn
+            return branch
         # Per-sample mask: (B, 1, 1, 1) broadcasts over C, H, W.
         mask = self.dropout(
             torch.ones(
-                skip_conn.shape[0],
+                branch.shape[0],
                 1,
                 1,
                 1,
-                device=skip_conn.device,
-                dtype=skip_conn.dtype,
+                device=branch.device,
+                dtype=branch.dtype,
             )
         )
-        return skip_conn * mask
+        return branch * mask
 
 
 class AvgPool(torch.nn.Module):
@@ -282,6 +283,7 @@ class ConvNeXtBlock(CoreBlock):
         norm="batch",
         checkpoint_simple: bool = False,
         pointwise_linear: bool = False,
+        stochastic_depth_rate: float = 0.0,
     ):
         super().__init__(in_channels, out_channels, kernel_size, dilation, pad)
         assert n_layers == 1, "Can only use a single layer here!"
@@ -342,6 +344,7 @@ class ConvNeXtBlock(CoreBlock):
         )
         self.convblock = torch.nn.Sequential(*convblock)
         self.checkpoint_simple = checkpoint_simple
+        self.stochastic_depth = DropPath(stochastic_depth_rate)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # return self.skip_module(x) + self.convblock(x)
@@ -358,7 +361,7 @@ class ConvNeXtBlock(CoreBlock):
                 x = torch.utils.checkpoint.checkpoint(layer, x, use_reentrant=False)
             else:
                 x = layer(x)
-        return skip + x
+        return skip + self.stochastic_depth(x)
 
 
 class CoreBlockBuilder(Protocol):
@@ -370,6 +373,7 @@ class CoreBlockBuilder(Protocol):
         n_layers: int,
         pad: str,
         checkpoint_simple: bool,
+        stochastic_depth_rate: float,
     ) -> CoreBlock: ...
 
 

@@ -59,6 +59,7 @@ class UNetBackbone(nn.Module):
         create_upsampling_block: UpsamplingBlockBuilder,
         checkpointing: "Checkpointing | None",
         drop_path_rate: float = 0.0,
+        stochastic_depth_rate: float = 0.0,
     ):
         super().__init__()
         self.in_channels = in_channels
@@ -95,6 +96,7 @@ class UNetBackbone(nn.Module):
                     n_layers=n_layers[i],
                     pad=pad,
                     checkpoint_simple=checkpoint_simple,
+                    stochastic_depth_rate=stochastic_depth_rate,
                 )
             )
             # Down sampling block
@@ -109,6 +111,7 @@ class UNetBackbone(nn.Module):
                 n_layers=n_layers[i],
                 pad=pad,
                 checkpoint_simple=checkpoint_simple,
+                stochastic_depth_rate=stochastic_depth_rate,
             )
         )
 
@@ -130,6 +133,7 @@ class UNetBackbone(nn.Module):
                     n_layers=n_layers[i],
                     pad=pad,
                     checkpoint_simple=checkpoint_simple,
+                    stochastic_depth_rate=stochastic_depth_rate,
                 )
             )
             layers.append(create_upsampling_block(in_channels=b, out_channels=b))
@@ -143,6 +147,7 @@ class UNetBackbone(nn.Module):
                 n_layers=n_layers[i],
                 pad=pad,
                 checkpoint_simple=checkpoint_simple,
+                stochastic_depth_rate=stochastic_depth_rate,
             )
         )
 

@@ -1,0 +1,42 @@
+[
+  {
+    "path": "/scratch/jr7309/runs/current-sd-seeds16-17/output/current-1deg-control-seed16-torch-native1x1/evals/summary.json",
+    "local": "control-seed16/eval-summary.json",
+    "sha256": "dc6913c13c8580413db19842c4971ed0e18568ade4848b285f55fde9b48966a6"
+  },
+  {
+    "path": "/scratch/jr7309/runs/current-sd-seeds16-17/observations/control-seed16/observation_metrics.csv",
+    "local": "control-seed16/observation_metrics.csv",
+    "sha256": "5a984356c9a2a61a8fb9618b9c0008654d7dd8632f540d9c26bf60b25f8f5212"
+  },
+  {
+    "path": "/scratch/jr7309/runs/current-sd-seeds16-17/output/current-1deg-sd01-seed16-torch-native1x1/evals/summary.json",
+    "local": "sd01-seed16/eval-summary.json",
+    "sha256": "40d5c2dab1e44525dac7ef4b55df8682752c22ea32cf1a5c4ef969b0d446252b"
+  },
+  {
+    "path": "/scratch/jr7309/runs/current-sd-seeds16-17/observations/sd01-seed16/observation_metrics.csv",
+    "local": "sd01-seed16/observation_metrics.csv",
+    "sha256": "496db3e105d73fb9058cccb55f4d77be3a05fb16da5e2be0190d722be1cff8bf"
+  },
+  {
+    "path": "/scratch/jr7309/runs/current-sd-seeds16-17/output/current-1deg-control-seed17-torch-native1x1/evals/summary.json",
+    "local": "control-seed17/eval-summary.json",
+    "sha256": "3993bda026e7cb401c74bf7e28ef08d9776fb755bc4aec6836e177f7ce825617"
+  },
+  {
+    "path": "/scratch/jr7309/runs/current-sd-seeds16-17/observations/control-seed17/observation_metrics.csv",
+    "local": "control-seed17/observation_metrics.csv",
+    "sha256": "c1369f26bb08968a592db20b09ee67af166a7c28416b6f98790882758067e1f3"
+  },
+  {
+    "path": "/scratch/jr7309/runs/current-sd-seeds16-17/output/current-1deg-sd01-seed17-torch-native1x1/evals/summary.json",
+    "local": "sd01-seed17/eval-summary.json",
+    "sha256": "5ad0321ebbd84a8df671bfbf0a497c45ab9a76cfb75767af6cc6176b0219d2f6"
+  },
+  {
+    "path": "/scratch/jr7309/runs/current-sd-seeds16-17/observations/sd01-seed17/observation_metrics.csv",
+    "local": "sd01-seed17/observation_metrics.csv",
+    "sha256": "3e2b6d3b22697dadc0623928bf2e4ec43e8289ca8dfed302f2754fbbf1d542b2"
+  }
+]

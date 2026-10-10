@@ -5,6 +5,8 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Results: current Samudra, stochastic depth 0 versus 0.1
 
+**Update: [three-seed comparison, including Torch seeds 16 and 17](../torch-seeds/RESULTS.md).** The original seed-15 results below are retained.
+
 Both 70-epoch runs and all four post-training checkpoint evaluations completed successfully on 2026-10-07. **This single-seed comparison does not support enabling stochastic depth 0.1 for this setup:** the dynamic validation loss is lower, but fixed 360-day normalized rollout RMSE is 4.19% higher and long-rollout normalized time-mean RMSE is 28.48% higher for the final raw checkpoint (26.88% higher for final EMA).
 
 Positive percentage changes below mean higher error. The dynamic loss uses evolving per-channel weights and is not a fixed metric for comparing forecast quality across runs.

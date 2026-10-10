@@ -1,0 +1,5 @@
+{
+  "file": "config.yaml",
+  "sha256": "ca6ec091c060cd9237c6e5b85df01ac10c25aa5996976a51cab7ec2b6d2306ab",
+  "conversion": "YAML to JSON; PosixPath converted to strings and tuples to arrays"
+}

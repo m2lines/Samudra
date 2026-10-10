@@ -1,0 +1,14 @@
+{
+  "rows": 153,
+  "models": [
+    "sd01_seed16_epoch_0070",
+    "sd01_seed16_ema_latest",
+    "om4"
+  ],
+  "masking": "Original per-channel training wet masks applied lazily; predictions stores unchanged",
+  "baseline_job": 125006,
+  "outputs": {
+    "sd01_seed16_epoch_0070": "/scratch/jr7309/runs/current-sd-seeds16-17/output/current-1deg-sd01-seed16-torch-native1x1/evals/epoch_0070",
+    "sd01_seed16_ema_latest": "/scratch/jr7309/runs/current-sd-seeds16-17/output/current-1deg-sd01-seed16-torch-native1x1/evals/ema_latest"
+  }
+}

@@ -1,0 +1,152 @@
+{
+  "backend": "nccl",
+  "batch_size": 2,
+  "checkpoint_validation_metric": "rollout_rmse",
+  "data": {
+    "inference_loading": {
+      "num_workers": 4,
+      "persistent_workers": true
+    },
+    "input_steps": 2,
+    "loader_version": "om4-torch",
+    "loading": {
+      "max_concurrent_reads": 8,
+      "prefetch_batches": 2,
+      "prefetch_to_device": true,
+      "type": "rust"
+    },
+    "masked_fill_value": 0.0,
+    "normalize_before_mask": true,
+    "output_steps": 2,
+    "sources": [
+      {
+        "boundary_vars_key": "tau_hfds",
+        "data_location": "OM4.zarr",
+        "data_means_location": "OM4_means.zarr",
+        "data_stds_location": "OM4_stds.zarr",
+        "grid_type": "gaussian",
+        "inference_times": [
+          {
+            "end": "2022-12-24",
+            "start": "2014-10-10"
+          }
+        ],
+        "prognostic_vars_key": "thermo_dynamic_all",
+        "train_time": {
+          "end": "2013-10-05",
+          "start": "1975-01-03"
+        },
+        "type": "om4",
+        "val_time": {
+          "end": "2014-10-05",
+          "start": "2013-10-05"
+        }
+      }
+    ]
+  },
+  "data_stride": [
+    1
+  ],
+  "debug": false,
+  "delayed_loss_estimate": false,
+  "disk_mode": true,
+  "ema_decay": 0.999,
+  "epochs": 70,
+  "experiment": {
+    "base_output_dir": "/scratch/jr7309/runs/current-sd-seeds16-17/output",
+    "data_root": "/scratch/jr7309/data/om4-v2026-09/om4_onedeg",
+    "name": "current-1deg-control-seed16-torch-native1x1",
+    "rand_seed": 16,
+    "search": null,
+    "wandb": {
+      "entity": "ocean_emulators",
+      "group": null,
+      "mode": "online",
+      "notes": null,
+      "project": "default",
+      "tags": null
+    }
+  },
+  "faster_decay_at_start": true,
+  "finetune": false,
+  "gradient_accumulation_steps": 2,
+  "inference_epochs": [],
+  "learning_rate": 0.0006,
+  "loss": {
+    "limit": 20.0,
+    "metric": "mse",
+    "type": "dynamic"
+  },
+  "model": {
+    "add_3d_coordinates": false,
+    "checkpointing": "all",
+    "gradient_detach_interval": 0,
+    "last_kernel_size": 3,
+    "pad": "circular",
+    "pos_channels": 0,
+    "pred_residuals": false,
+    "unet": {
+      "ch_width": [
+        280,
+        380,
+        480,
+        520
+      ],
+      "core_block": {
+        "activation": "capped_gelu",
+        "block_type": "conv_next_block",
+        "kernel_size": 3,
+        "norm": "instance",
+        "pointwise_linear": false,
+        "upscale_factor": 2
+      },
+      "dilation": [
+        1,
+        2,
+        4,
+        8
+      ],
+      "down_sampling_block": "avg_pool",
+      "drop_path_rate": 0.0,
+      "n_layers": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "stochastic_depth_rate": 0.0,
+      "up_sampling_block": "zonally_periodic_upsample"
+    },
+    "use_bfloat16": true
+  },
+  "post_train_eval": {
+    "epochs": null,
+    "eval_config_path": "/scratch/jr7309/runs/current-sd-seeds16-17/configs/control-eval.yaml",
+    "last_n_checkpoints": 1,
+    "viz_config_path": null
+  },
+  "preemptible": false,
+  "profiler": {
+    "cuda_snapshot_frequency": null
+  },
+  "resume_ckpt_path": null,
+  "rollout_validation": {
+    "days": [
+      360
+    ],
+    "frequency": 1,
+    "model_steps": -1,
+    "steps_forward": 1
+  },
+  "save_freq": 5,
+  "scheduler": {
+    "target_epochs": null,
+    "type": "cosine"
+  },
+  "step_transition": [],
+  "steps": [
+    4
+  ],
+  "test_using_ema": true,
+  "validation_image_log_freq": 10
+}

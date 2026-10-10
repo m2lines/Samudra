@@ -1,0 +1,32 @@
+[
+  {
+    "mode": "original",
+    "returncode": 0,
+    "stdout": "{'torch': '2.12.0a0+0291f960b6.nv26.04.48445190', 'cuda': '13.2', 'cudnn': 92100, 'gpu': 'NVIDIA RTX PRO 6000 Blackwell Server Edition', 'mode': 'original', 'shape': [2, 160, 180, 360], 'autocast': True, 'dtype': 'torch.bfloat16', 'finite_input': True, 'finite_weight': True}\nFORWARD_OK\nBACKWARD_OK\n",
+    "stderr": ""
+  },
+  {
+    "mode": "random",
+    "returncode": 0,
+    "stdout": "{'torch': '2.12.0a0+0291f960b6.nv26.04.48445190', 'cuda': '13.2', 'cudnn': 92100, 'gpu': 'NVIDIA RTX PRO 6000 Blackwell Server Edition', 'mode': 'random', 'shape': [2, 160, 180, 360], 'autocast': True, 'dtype': 'torch.bfloat16', 'finite_input': True, 'finite_weight': True}\nFORWARD_OK\nBACKWARD_OK\n",
+    "stderr": ""
+  },
+  {
+    "mode": "channels_last",
+    "returncode": 0,
+    "stdout": "{'torch': '2.12.0a0+0291f960b6.nv26.04.48445190', 'cuda': '13.2', 'cudnn': 92100, 'gpu': 'NVIDIA RTX PRO 6000 Blackwell Server Edition', 'mode': 'channels_last', 'shape': [2, 160, 180, 360], 'autocast': True, 'dtype': 'torch.bfloat16', 'finite_input': True, 'finite_weight': True}\nFORWARD_OK\nBACKWARD_OK\n",
+    "stderr": ""
+  },
+  {
+    "mode": "fp32",
+    "returncode": 0,
+    "stdout": "{'torch': '2.12.0a0+0291f960b6.nv26.04.48445190', 'cuda': '13.2', 'cudnn': 92100, 'gpu': 'NVIDIA RTX PRO 6000 Blackwell Server Edition', 'mode': 'fp32', 'shape': [2, 160, 180, 360], 'autocast': True, 'dtype': 'torch.bfloat16', 'finite_input': True, 'finite_weight': True}\nFORWARD_OK\nBACKWARD_OK\n",
+    "stderr": ""
+  },
+  {
+    "mode": "no_cudnn",
+    "returncode": 0,
+    "stdout": "{'torch': '2.12.0a0+0291f960b6.nv26.04.48445190', 'cuda': '13.2', 'cudnn': 92100, 'gpu': 'NVIDIA RTX PRO 6000 Blackwell Server Edition', 'mode': 'no_cudnn', 'shape': [2, 160, 180, 360], 'autocast': True, 'dtype': 'torch.bfloat16', 'finite_input': True, 'finite_weight': True}\nFORWARD_OK\nBACKWARD_OK\n",
+    "stderr": ""
+  }
+]

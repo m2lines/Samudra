@@ -1,0 +1,23 @@
+JobID|State|ElapsedRaw|NodeList|ExitCode|AllocTRES
+19457054|FAILED|367|gr103|1:0|billing=128,cpu=128,gres/gpu=8,mem=512G,node=1
+19457056|FAILED|282|gr103|1:0|billing=128,cpu=128,gres/gpu=8,mem=512G,node=1
+19457059|FAILED|273|gr103|1:0|billing=128,cpu=128,gres/gpu=8,mem=512G,node=1
+19457061|FAILED|279|gr103|1:0|billing=128,cpu=128,gres/gpu=8,mem=512G,node=1
+19460455|CANCELLED by 4684506|23|gr103|0:0|billing=128,cpu=128,gres/gpu=8,mem=512G,node=1
+19461486|FAILED|181|gr101|127:0|billing=128,cpu=128,gres/gpu=8,mem=512G,node=1
+19511233|FAILED|56|gr106|1:0|billing=128,cpu=128,gres/gpu=8,mem=512G,node=1
+19512489|FAILED|44|gr106|1:0|billing=128,cpu=128,gres/gpu=8,mem=512G,node=1
+19513737|FAILED|43|gr106|1:0|billing=128,cpu=128,gres/gpu=8,mem=512G,node=1
+19515467|FAILED|40|gr106|1:0|billing=128,cpu=128,gres/gpu=8,mem=512G,node=1
+19518164|COMPLETED|21|gr106|0:0|billing=8,cpu=8,gres/gpu=1,mem=32G,node=1
+19518558|FAILED|207|gr106|1:0|billing=128,cpu=128,gres/gpu=8,mem=512G,node=1
+19520341|TIMEOUT|1817|gr106|0:0|billing=128,cpu=128,gres/gpu=8,mem=512G,node=1
+19521808|COMPLETED|13093|gr106|0:0|billing=128,cpu=128,gres/gpu=8,mem=512G,node=1
+19521809|COMPLETED|13599|gr106|0:0|billing=128,cpu=128,gres/gpu=8,mem=512G,node=1
+19521810|COMPLETED|13330|gr106|0:0|billing=128,cpu=128,gres/gpu=8,mem=512G,node=1
+19521811|COMPLETED|13569|gr106|0:0|billing=128,cpu=128,gres/gpu=8,mem=512G,node=1
+19527118|FAILED|8|cs676|1:0|billing=32,cpu=32,mem=384G,node=1
+19527566|COMPLETED|1725|cl017|0:0|billing=32,cpu=32,mem=384G,node=1
+19530759|COMPLETED|1918|cl015|0:0|billing=32,cpu=32,mem=384G,node=1
+19536765|COMPLETED|1925|cl012|0:0|billing=32,cpu=32,mem=384G,node=1
+19548461|COMPLETED|1573|cl017|0:0|billing=32,cpu=32,mem=384G,node=1

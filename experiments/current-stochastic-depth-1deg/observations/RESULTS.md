@@ -5,6 +5,8 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Observational metrics: corrected wet-mask backfill
 
+**Update: [three-seed comparison, including Torch seeds 16 and 17](../torch-seeds/RESULTS.md).** The original seed-15 results below are retained.
+
 All four saved rollouts have now been scored against DUACS, OISST, and IAP, together with the date-matched OM4 baseline. **For seed 15, constant stochastic depth 0.1 worsens all five primary observational RMSEs at both raw epoch 70 and final EMA.** The largest change is SST: 0.8922 → 1.4109 °C (+58.13%) for raw epoch 70, and 0.8875 → 1.4517 °C (+63.57%) for final EMA. Other primary changes range from +0.14% to +2.70%; these are observed point differences, not claims of significance across training seeds.
 
 This supplements the [OM4 comparison report](../results/RESULTS.md). It is a metrics-only backfill: no retraining or rollout regeneration.

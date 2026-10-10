@@ -1,0 +1,26 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+# SPDX-License-Identifier: Apache-2.0
+"""Experiment-only backend workaround, including spawned evaluation workers."""
+
+import torch
+
+_original_conv_forward = torch.nn.Conv2d.forward
+
+
+def pointwise_native_forward(self, x):
+    """Preserve Conv2d parameters and semantics; bypass cuDNN for 1x1 kernels."""
+    if self.kernel_size == (1, 1):
+        with torch.backends.cudnn.flags(enabled=False):
+            return _original_conv_forward(self, x)
+    return _original_conv_forward(self, x)
+
+
+torch.nn.Conv2d.forward = pointwise_native_forward  # type: ignore[method-assign]
+print(
+    "BACKEND: native PyTorch 1x1 convolutions; other convolutions use cuDNN", flush=True
+)
+
+if __name__ == "__main__":
+    from samudra.train import main
+
+    main()

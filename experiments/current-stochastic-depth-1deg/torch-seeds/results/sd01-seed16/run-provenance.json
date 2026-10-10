@@ -1,0 +1,9 @@
+{
+  "code_commit": "c3df51b5e0a8e497201377b27423eaf91d712c3e",
+  "code_layer_sha256": "bc963b707b76741c5827d88a41b44b27464b7d16c17b2ee324abac8ac6569fd0",
+  "code_repo_url": "https://github.com/m2lines/Samudra.git",
+  "container_git_commit": "0b53202488d18724d5cf7d306230fb72c2779528",
+  "container_git_remote_url": "https://github.com/m2lines/Samudra",
+  "container_image_ref": "",
+  "container_sif_path": "/scratch/jr7309/.apptainer-images/sd-seeds-base-0b5320248.sif"
+}

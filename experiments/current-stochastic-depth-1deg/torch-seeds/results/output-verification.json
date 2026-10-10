@@ -1,0 +1,322 @@
+[
+  {
+    "seed": 16,
+    "variant": "control",
+    "checkpoint": "epoch_0070",
+    "n_times": 598,
+    "fields": {
+      "thetao": [
+        598,
+        19,
+        180,
+        360
+      ],
+      "so": [
+        598,
+        19,
+        180,
+        360
+      ],
+      "uo": [
+        598,
+        19,
+        180,
+        360
+      ],
+      "vo": [
+        598,
+        19,
+        180,
+        360
+      ],
+      "zos": [
+        598,
+        180,
+        360
+      ]
+    },
+    "expected_chunks": 120,
+    "actual_chunks": 120,
+    "n_finite_metrics": 469
+  },
+  {
+    "seed": 16,
+    "variant": "control",
+    "checkpoint": "ema_latest",
+    "n_times": 598,
+    "fields": {
+      "thetao": [
+        598,
+        19,
+        180,
+        360
+      ],
+      "so": [
+        598,
+        19,
+        180,
+        360
+      ],
+      "uo": [
+        598,
+        19,
+        180,
+        360
+      ],
+      "vo": [
+        598,
+        19,
+        180,
+        360
+      ],
+      "zos": [
+        598,
+        180,
+        360
+      ]
+    },
+    "expected_chunks": 120,
+    "actual_chunks": 120,
+    "n_finite_metrics": 469
+  },
+  {
+    "seed": 16,
+    "variant": "sd01",
+    "checkpoint": "epoch_0070",
+    "n_times": 598,
+    "fields": {
+      "thetao": [
+        598,
+        19,
+        180,
+        360
+      ],
+      "so": [
+        598,
+        19,
+        180,
+        360
+      ],
+      "uo": [
+        598,
+        19,
+        180,
+        360
+      ],
+      "vo": [
+        598,
+        19,
+        180,
+        360
+      ],
+      "zos": [
+        598,
+        180,
+        360
+      ]
+    },
+    "expected_chunks": 120,
+    "actual_chunks": 120,
+    "n_finite_metrics": 469
+  },
+  {
+    "seed": 16,
+    "variant": "sd01",
+    "checkpoint": "ema_latest",
+    "n_times": 598,
+    "fields": {
+      "thetao": [
+        598,
+        19,
+        180,
+        360
+      ],
+      "so": [
+        598,
+        19,
+        180,
+        360
+      ],
+      "uo": [
+        598,
+        19,
+        180,
+        360
+      ],
+      "vo": [
+        598,
+        19,
+        180,
+        360
+      ],
+      "zos": [
+        598,
+        180,
+        360
+      ]
+    },
+    "expected_chunks": 120,
+    "actual_chunks": 120,
+    "n_finite_metrics": 469
+  },
+  {
+    "seed": 17,
+    "variant": "control",
+    "checkpoint": "ema_latest",
+    "n_times": 598,
+    "fields": {
+      "thetao": [
+        598,
+        19,
+        180,
+        360
+      ],
+      "so": [
+        598,
+        19,
+        180,
+        360
+      ],
+      "uo": [
+        598,
+        19,
+        180,
+        360
+      ],
+      "vo": [
+        598,
+        19,
+        180,
+        360
+      ],
+      "zos": [
+        598,
+        180,
+        360
+      ]
+    },
+    "expected_chunks": 120,
+    "actual_chunks": 120,
+    "n_finite_metrics": 469
+  },
+  {
+    "seed": 17,
+    "variant": "control",
+    "checkpoint": "epoch_0070",
+    "n_times": 598,
+    "fields": {
+      "thetao": [
+        598,
+        19,
+        180,
+        360
+      ],
+      "so": [
+        598,
+        19,
+        180,
+        360
+      ],
+      "uo": [
+        598,
+        19,
+        180,
+        360
+      ],
+      "vo": [
+        598,
+        19,
+        180,
+        360
+      ],
+      "zos": [
+        598,
+        180,
+        360
+      ]
+    },
+    "expected_chunks": 120,
+    "actual_chunks": 120,
+    "n_finite_metrics": 469
+  },
+  {
+    "seed": 17,
+    "variant": "sd01",
+    "checkpoint": "ema_latest",
+    "n_times": 598,
+    "fields": {
+      "thetao": [
+        598,
+        19,
+        180,
+        360
+      ],
+      "so": [
+        598,
+        19,
+        180,
+        360
+      ],
+      "uo": [
+        598,
+        19,
+        180,
+        360
+      ],
+      "vo": [
+        598,
+        19,
+        180,
+        360
+      ],
+      "zos": [
+        598,
+        180,
+        360
+      ]
+    },
+    "expected_chunks": 120,
+    "actual_chunks": 120,
+    "n_finite_metrics": 469
+  },
+  {
+    "seed": 17,
+    "variant": "sd01",
+    "checkpoint": "epoch_0070",
+    "n_times": 598,
+    "fields": {
+      "thetao": [
+        598,
+        19,
+        180,
+        360
+      ],
+      "so": [
+        598,
+        19,
+        180,
+        360
+      ],
+      "uo": [
+        598,
+        19,
+        180,
+        360
+      ],
+      "vo": [
+        598,
+        19,
+        180,
+        360
+      ],
+      "zos": [
+        598,
+        180,
+        360
+      ]
+    },
+    "expected_chunks": 120,
+    "actual_chunks": 120,
+    "n_finite_metrics": 469
+  }
+]

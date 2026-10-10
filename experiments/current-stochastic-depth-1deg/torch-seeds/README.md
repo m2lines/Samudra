@@ -5,6 +5,8 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Additional paired seeds on Torch
 
+**Completed:** see the [three-seed results](RESULTS.md) for all four successful training runs, eight evaluations, CPU observation metrics, and the required Torch backend workaround. The submission and recovery records below describe the earlier attempts.
+
 Seeds 16 and 17 each compare control with constant stochastic depth 0.1. The
 training source remains the original merged experiment source; only seed,
 platform, per-GPU batch size, names, and runtime paths change.

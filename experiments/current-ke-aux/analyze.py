@@ -85,7 +85,7 @@ def compare(base, treatment, indices):
 
 def draw_maps(output, grid, channels, channel_indices, lead_index, *, bias=False):
     # Common physical-unit range per variable/depth, symmetric common delta range.
-    loaded = {arm: np.load(output / f"{arm}-ema-maps.npz") for arm in ARMS}
+    loaded = {arm: dict(np.load(output / f"{arm}-ema-maps.npz")) for arm in ARMS}
     figures = output / "figures"
     figures.mkdir(exist_ok=True)
     lon = (grid["lon"] + 180) % 360 - 180
@@ -171,9 +171,12 @@ def draw_maps(output, grid, channels, channel_indices, lead_index, *, bias=False
             )
         )
         fig.savefig(figures / f"{variable}-{kind}-{LEADS[lead_index]}d.png", dpi=140)
+        fig.savefig(
+            figures / f"{variable}-{kind}-{LEADS[lead_index]}d.jpg",
+            dpi=75,
+            pil_kwargs={"quality": 60, "optimize": True},
+        )
         plt.close(fig)
-    for data in loaded.values():
-        data.close()
 
 
 def main():

@@ -3,6 +3,10 @@
 
 # Samudra-current: auxiliary subcell kinetic energy
 
+**Results:** [First-wave report and error-map atlas](results/RESULTS.md).
+No clear global forecast RMSE improvement; regional gains are offset by tropical
+degradation. Both training runs and all six matched evaluations completed.
+
 Experiment/results record, not intended to merge. First wave: two fresh seed-15
 runs, aligned and seasonal targets. No later seeds are authorized by this wave.
 

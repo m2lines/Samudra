@@ -29,13 +29,11 @@ def main():
     cfg.data.loading = CpuDataLoadingConfig()
     bundle = cfg.data.build(cfg.experiment.resolved_data_root)
     assert bundle.inference_source is not None
+    # Use the published five-day products, matching the original control scores.
+    # Full-range prepared local stores are daily and deliberately fail exact-time checks.
     obs = ObsMetricsConfig.model_validate(
-        dict(
-            duacs_location="/projects/ny/lz1955/multiscale/jrusak/data/obs_full_range/prepared/duacs.zarr",
-            oisst_location="/projects/ny/lz1955/multiscale/jrusak/data/obs_full_range/prepared/oisst.zarr",
-            argo_iap_location="/projects/ny/lz1955/multiscale/jrusak/data/obs_full_range/prepared/argo-iap.zarr",
-            rmse_start="2015-01-01",
-            rmse_end="2022-12-31",
+        EvalConfig._load_yaml(
+            root.parent / "eval-source/src/samudra/configs/data/obs.yaml"
         )
     )
     rollouts = {}

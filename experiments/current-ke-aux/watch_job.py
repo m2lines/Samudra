@@ -8,6 +8,7 @@ import time
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--job", required=True, type=int)
+parser.add_argument("--host", choices=("alpha", "beta"), default="beta")
 parser.add_argument("--credential", required=True)
 args = parser.parse_args()
 terminal = {
@@ -28,7 +29,7 @@ while True:
             "ssh",
             "-o",
             "ConnectTimeout=15",
-            "beta",
+            args.host,
             f"bash -lc 'sacct -X -j {args.job} --noheader --parsable2 --format=JobIDRaw,State'",
         ],
         capture_output=True,

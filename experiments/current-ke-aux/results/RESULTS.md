@@ -7,7 +7,7 @@
 Both aligned and seasonal supervision change global errors by less than 0.4%
 across the five sampled leads. Regional gains in the Kuroshio and Gulf Stream
 are offset by increased tropical errors. The raw-checkpoint sensitivity agrees
-with this pattern. This does not reproduce the earlier LLC pilot's broad gain.
+with this pattern. This does not reproduce the earlier auxiliary-loss pilot's gain.
 
 ## Matched quarterly forecasts
 

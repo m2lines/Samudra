@@ -25,8 +25,13 @@ ARMS = (
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, required=True)
+    parser.add_argument("--campaign", choices=("v1", "v2"), default="v1")
     parser.add_argument("--smoke", action="store_true")
     args = parser.parse_args()
+    from samudra.experiments.diffusion_interventions import V2_ARMS
+
+    arms = V2_ARMS if args.campaign == "v2" else ARMS
+    updates = 256 if args.campaign == "v2" else 128
     gpus: queue.Queue[int] = queue.Queue()
     for gpu in range(4):
         gpus.put(gpu)
@@ -54,6 +59,12 @@ def main():
                     str(args.root),
                     "--arm",
                     arm,
+                    "--campaign",
+                    args.campaign,
+                    "--updates",
+                    str(updates),
+                    "--hours",
+                    "18",
                 ]
                 if args.smoke:
                     command += ["--smoke", "--updates", "2", "--hours", "0.8"]
@@ -62,7 +73,7 @@ def main():
                 )
                 if not args.smoke:
                     # Fixed final budget, never choose weights on annual test errors.
-                    ckpt = str(args.root / "runs" / arm / "step-0128.pt")
+                    ckpt = str(args.root / "runs" / arm / f"step-{updates:04d}.pt")
                     common = [
                         "--data",
                         str(args.root / "data/observations"),
@@ -130,9 +141,9 @@ def main():
                             "--annual-data",
                             str(args.root / "data/annual_observations"),
                             "--expected-observation-updates",
-                            "8064",
+                            str(8000 + updates // 2),
                             "--expected-om4-updates",
-                            "8064",
+                            str(8000 + updates // 2),
                             "--output",
                             str(args.root / "evaluation" / arm / "annual"),
                         ],
@@ -148,7 +159,7 @@ def main():
             gpus.put(gpu)
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
-        results = list(pool.map(arm_run, ARMS))
+        results = list(pool.map(arm_run, arms))
     (logroot / "RESULTS.json").write_text(json.dumps(results, indent=2) + "\n")
     if not all(r["success"] for r in results):
         raise RuntimeError(f"Some arms failed; inspect {logroot}/RESULTS.json")

@@ -142,3 +142,68 @@ def test_replay_targets_follow_carried_latent_and_reuse_detaches(monkeypatch):
     assert not replay.last_info["refreshed"]
     assert seen[6].flatten().tolist() == [origin + 12, origin + 13]
     assert model.processor.rate.grad > 0
+
+
+def test_alternative_features_preserve_bias_and_detect_diagonal_curvature():
+    from samudra.experiments.diffusion_structure_losses import structure_mse
+
+    y, x = torch.meshgrid(torch.arange(20), torch.arange(24), indexing="ij")
+    truth = torch.zeros(1, 2, 20, 24)
+    weights = torch.ones_like(truth)
+    assert structure_mse(truth + 2, truth, weights, "curvature") == 0
+    assert structure_mse(truth + 2, truth, weights, "block") > 0
+    noisy = (truth + torch.sin((x + y) * 2.0)).requires_grad_()
+    loss = structure_mse(noisy, truth, weights, "curvature").sum()
+    loss.backward()
+    assert loss > 0 and noisy.grad is not None and torch.isfinite(noisy.grad).all()
+
+
+def test_alternative_feature_crps_masks_nan_and_poles():
+    from samudra.experiments.diffusion_structure_losses import features, structure_crps
+
+    for kind in ("curvature", "block"):
+        target = torch.randn(1, 2, 20, 24)
+        target[..., 5] = float("nan")
+        members = torch.randn(2, *target.shape, requires_grad=True)
+        values = structure_crps(
+            members,
+            target,
+            torch.ones_like(target, dtype=torch.bool),
+            torch.ones(20, 1),
+            1.0,
+            kind,
+        )
+        values.sum().backward()
+        assert torch.isfinite(values).all() and members.grad is not None
+        assert torch.isfinite(members.grad).all()
+        assert members.grad[..., 5].count_nonzero() == 0
+        if kind == "block":
+            _, _, weights = next(
+                features(members, target, torch.ones_like(target), kind)
+            )
+            assert not weights[..., 0, :].any() and not weights[..., -1, :].any()
+            assert not weights[..., 4:7].any()
+
+
+def test_latent_bound_penalizes_growth_without_shrinking_normal_states():
+    from samudra.experiments.diffusion_structure_losses import excess_latent_loss
+
+    reference = torch.ones(1, 2, 3, 4, 5, requires_grad=True)
+    assert excess_latent_loss([reference * 1.5], reference) == 0
+    state = torch.full_like(reference, 3, requires_grad=True)
+    excess_latent_loss([state], reference).backward()
+    assert reference.grad is None
+    assert state.grad is not None and (state.grad > 0).all()
+
+
+def test_structure_mse_all_unsupported_features_are_zero():
+    from samudra.experiments.diffusion_structure_losses import structure_mse
+
+    value = torch.randn(1, 2, 20, 24, requires_grad=True)
+    weights = torch.zeros_like(value)
+    weights[..., 5, 5] = 1
+    for kind in ("curvature", "block"):
+        loss = structure_mse(value, value.detach(), weights, kind)
+        assert loss == 0
+        loss.sum().backward()
+    assert value.grad is not None and torch.isfinite(value.grad).all()

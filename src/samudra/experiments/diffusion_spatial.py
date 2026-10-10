@@ -71,7 +71,9 @@ def multiscale_mse(prediction, target, weights):
     return result
 
 
-def spatial_crps(members, target, mask, area, scale, coefficient=0.5, multiscale=0.0):
+def spatial_crps(
+    members, target, mask, area, scale, coefficient=0.5, multiscale=0.0, structure=""
+):
     """Pixel fair CRPS plus the equally scaled x/y increment scores."""
     reduced, present = fair_crps(members, target, mask, area, scale)
     valid = torch.isfinite(target) & mask.bool()
@@ -95,10 +97,16 @@ def spatial_crps(members, target, mask, area, scale, coefficient=0.5, multiscale
                 (p - q) / distance, (t - u) / distance, support, (x + y) / 2, scale
             )
             reduced = reduced + multiscale * extra * supported / 8
+    if structure:
+        from samudra.experiments.diffusion_structure_losses import structure_crps
+
+        reduced = reduced + 2.0 * structure_crps(
+            members, target, mask, area, scale, structure
+        )
     return reduced, present
 
 
-def interior_crps(data, monthly, sample, coefficient=0.5, multiscale=0.0):
+def interior_crps(data, monthly, sample, coefficient=0.5, multiscale=0.0, structure=""):
     physical = monthly.float() * data.std[:, 0] + data.mean[:, 0]
     values, valid = spatial_crps(
         physical[:, :, data.ts_indices],
@@ -108,17 +116,20 @@ def interior_crps(data, monthly, sample, coefficient=0.5, multiscale=0.0):
         data.ts_scale,
         coefficient,
         multiscale,
+        structure,
     )
     return (
         sum(values[:, s][valid[:, s]].mean() for s in (slice(0, 14), slice(14, 28))) / 2
     )
 
 
-def forecast_crps(data, members, sample, coefficient=0.5, multiscale=0.0):
+def forecast_crps(data, members, sample, coefficient=0.5, multiscale=0.0, structure=""):
     monthly = (members * sample["month_weights"][None, None, :, None, None, None]).sum(
         2
     )
-    loss = 0.8 * interior_crps(data, monthly, sample, coefficient, multiscale)
+    loss = 0.8 * interior_crps(
+        data, monthly, sample, coefficient, multiscale, structure
+    )
     physical = members.float() * data.std + data.mean
     values, valid = spatial_crps(
         physical[:, :, :, [38, 76]],
@@ -128,14 +139,17 @@ def forecast_crps(data, members, sample, coefficient=0.5, multiscale=0.0):
         data.surface_scale,
         coefficient,
         multiscale,
+        structure,
     )
     return loss + 0.1 * sum(values[:, :, c][valid[:, :, c]].mean() for c in range(2))
 
 
-def completion_crps(data, members, target, valid, coefficient=0.5, multiscale=0.0):
+def completion_crps(
+    data, members, target, valid, coefficient=0.5, multiscale=0.0, structure=""
+):
     if not bool(valid.any()):
         return members.sum() * 0
     values, present = spatial_crps(
-        members, target, valid, data.area, 1.0, coefficient, multiscale
+        members, target, valid, data.area, 1.0, coefficient, multiscale, structure
     )
     return values[present].mean()

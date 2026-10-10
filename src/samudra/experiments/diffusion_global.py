@@ -43,6 +43,7 @@ def rng(device, seed):
 
 def observation_parts(model, data, original, seed, multiscale=0.0):
     """Yield separate differentiable objectives so graphs can be freed sequentially."""
+    structure = getattr(model.decoder, "structure_aux", "")
     sample = corrupt_sample(original, seed)
     predictions, initial = model.forecast(
         sample["surface"],
@@ -53,13 +54,16 @@ def observation_parts(model, data, original, seed, multiscale=0.0):
         generator=rng(data.device, seed + 2000000),
         members=2,
     )
-    forecast = forecast_crps(data, predictions, sample, multiscale=multiscale)
+    forecast = forecast_crps(
+        data, predictions, sample, multiscale=multiscale, structure=structure
+    )
     completion = completion_crps(
         data,
         initial[:, :, :, model.surface],
         sample["completion_target"],
         sample["completion_valid"],
         multiscale=multiscale,
+        structure=structure,
     )
     yield (
         "forecast_completion",
@@ -93,7 +97,9 @@ def observation_parts(model, data, original, seed, multiscale=0.0):
         )
         value = members * weight
         monthly = value if monthly is None else monthly + value
-    loss = interior_crps(data, monthly, sample, multiscale=multiscale)
+    loss = interior_crps(
+        data, monthly, sample, multiscale=multiscale, structure=structure
+    )
     yield "reconstruction", 0.1 * loss, {"reconstruction": float(loss.detach())}
 
 

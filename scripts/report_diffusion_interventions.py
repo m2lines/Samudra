@@ -350,7 +350,7 @@ def scored_spectra(root, output):
     handles, labels = axes[0, 0].get_legend_handles_labels()
     fig.legend(handles, labels, loc="lower center", ncol=2, fontsize=8)
     fig.suptitle(
-        "Day 30 · nine validation months · exact scored spectral bins\nSquares: mean of 8; triangles: first draw. Full six-arm values in spectra.csv"
+        "Day 30 · nine validation months · exact scored spectral bins\nSquares: mean of 8; triangles: first draw. Full values for all arms in spectra.csv"
     )
     fig.tight_layout(rect=(0, 0.13, 1, 0.93))
     save_png(fig, output / "day30-spectra.png", dpi=120)
@@ -363,7 +363,13 @@ def main():
     p.add_argument("--baseline", type=Path, required=True)
     p.add_argument("--presentation", type=Path, required=True)
     p.add_argument("--output", type=Path, required=True)
+    p.add_argument("--arms", nargs="+", default=None)
+    p.add_argument("--updates", type=int, default=128)
     args = p.parse_args()
+    if args.arms is not None:
+        ARMS[:] = args.arms
+    if args.updates <= 0 or args.updates % 2:
+        raise ValueError("Expected a positive even update count")
     args.output.mkdir(parents=True, exist_ok=True)
     with gzip.open(args.presentation, "rt") as f:
         presentation = json.load(f)
@@ -381,9 +387,12 @@ def main():
         inputs, done = read(directory / "input.json"), read(directory / "COMPLETE.json")
         assert manifests(inputs) == expected
         if arm in ARMS:
-            assert inputs["counts"] == {"om4": 8064, "observation": 8064}
+            assert inputs["counts"] == {
+                "om4": 8000 + args.updates // 2,
+                "observation": 8000 + args.updates // 2,
+            }
             assert (
-                inputs["step"] == 16128
+                inputs["step"] == 16000 + args.updates
                 and inputs["members"] == 8
                 and inputs["sampling_steps"] == 32
             )
@@ -526,7 +535,7 @@ def main():
             )
             for a in names
         ]
-        ax.barh(names, values, color=["0.6", "#009E73", *["#0072B2"] * 6])
+        ax.barh(names, values, color=["0.6", "#009E73", *["#0072B2"] * len(ARMS)])
         ax.invert_yaxis()
         ax.set_title(f"Day {day}")
         ax.set_xlabel("Climatology-normalized four-component RMSE ↓")

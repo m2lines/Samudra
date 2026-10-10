@@ -36,6 +36,16 @@ ARMS = (
     "unroll12",
     "latent-jitter",
 )
+V2_ARMS = (
+    "control",
+    "replay",
+    "replay-bound",
+    "pushforward",
+    "curvature",
+    "block",
+    "curvature-replay",
+    "block-replay",
+)
 PARENT_SHA = "853b3353c6d926754a15f19437493a7497813ce2b88cb058fe1a616cc838e6e5"  # pragma: allowlist secret
 
 
@@ -49,8 +59,10 @@ class LatentReplay:
     possible 360-day trajectory must lie within the original training source.
     """
 
-    def __init__(self, wave):
+    def __init__(self, wave, fresh_each=False, bound=False):
         self.wave = wave
+        self.fresh_each = fresh_each
+        self.bound = bound
         self.annual = wave.dataset(wave.source, steps=72)
         self.slots = {}
         self.last_info = {}
@@ -58,7 +70,12 @@ class LatentReplay:
     def loss(self, model, slot, count, coverage, seed, multiscale=0.0):
         wave = self.wave
         entry = self.slots.get(slot)
-        fresh = entry is None or entry["uses"] >= 4 or entry["lead"] + 6 > 72
+        fresh = (
+            self.fresh_each
+            or entry is None
+            or entry["uses"] >= 4
+            or entry["lead"] + 6 > 72
+        )
         if fresh:
             index = sample_indices(len(self.annual), 991729, count, 8)[slot]
             lead = (6, 18, 36, 60)[slot % 4]
@@ -80,6 +97,7 @@ class LatentReplay:
                     visible,
                     task="om4",
                 )
+                reference = latent.detach()
                 for step in range(lead):
                     latent = model.processor(
                         latent,
@@ -88,7 +106,9 @@ class LatentReplay:
                         task="om4",
                     )
                 latent = latent.detach()
-            entry = dict(index=index, lead=lead, latent=latent, uses=0)
+            entry = dict(
+                index=index, lead=lead, latent=latent, uses=0, reference=reference
+            )
         assert entry is not None
         index, lead = entry["index"], entry["lead"]
         # At origin + lead, this window's truth is [lead-1, lead]; labels begin
@@ -124,6 +144,7 @@ class LatentReplay:
             lead=lead + 6,
             latent=states[-1].detach(),
             uses=entry["uses"] + 1,
+            reference=entry.get("reference", entry["latent"]),
         )
         self.last_info = dict(
             origin_index=index,
@@ -131,14 +152,32 @@ class LatentReplay:
             lead_end_days=(lead + 6) * 5,
             refreshed=fresh,
         )
-        return torch.stack(losses).mean()
+        result = torch.stack(losses).mean()
+        if self.bound:
+            from samudra.experiments.diffusion_structure_losses import (
+                excess_latent_loss,
+            )
+
+            penalty = excess_latent_loss(states[1:], entry["reference"])
+            self.last_info["bound_penalty"] = float(penalty.detach())
+            result = result + 0.1 * penalty
+        return result
 
     def state_dict(self):
-        return {k: dict(v, latent=v["latent"].cpu()) for k, v in self.slots.items()}
+        return {
+            k: {
+                name: value.cpu() if torch.is_tensor(value) else value
+                for name, value in v.items()
+            }
+            for k, v in self.slots.items()
+        }
 
     def load_state_dict(self, state):
         self.slots = {
-            k: dict(v, latent=v["latent"].to(self.wave.device))
+            k: {
+                name: value.to(self.wave.device) if torch.is_tensor(value) else value
+                for name, value in v.items()
+            }
             for k, v in state.items()
         }
 
@@ -146,13 +185,19 @@ class LatentReplay:
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, required=True)
-    parser.add_argument("--arm", choices=ARMS, required=True)
+    parser.add_argument(
+        "--arm", choices=tuple(dict.fromkeys((*ARMS, *V2_ARMS))), required=True
+    )
+    parser.add_argument("--campaign", choices=("v1", "v2"), default="v1")
     parser.add_argument("--updates", type=int, default=128)
     parser.add_argument("--hours", type=float, default=10)
     parser.add_argument("--smoke", action="store_true")
     args = parser.parse_args()
-    if not 2 <= args.updates <= 128 or args.updates % 2:
-        raise ValueError("This pilot has an even cap of 128 additional updates per arm")
+    cap = 256 if args.campaign == "v2" else 128
+    if not 2 <= args.updates <= cap or args.updates % 2:
+        raise ValueError(f"This campaign requires an even budget <= {cap}")
+    if args.arm not in (V2_ARMS if args.campaign == "v2" else ARMS):
+        raise ValueError("Arm does not belong to campaign")
     device = torch.device("cuda", 0)
     torch.cuda.set_device(device)
     torch.set_num_threads(1)
@@ -185,14 +230,21 @@ def main():
         raise ValueError("Changed cohort or latitude mask")
     base_contract = saved["contract"]
     spec = dict(
-        version=1,
+        version=2 if args.campaign == "v2" else 1,
         arm=args.arm,
+        campaign=args.campaign,
+        structure_aux=next(
+            (kind for kind in ("curvature", "block") if kind in args.arm), ""
+        ),
+        structure_weight=2.0,
+        fresh_pushforward=args.arm == "pushforward",
+        latent_bound_weight=0.1 if args.arm == "replay-bound" else 0.0,
         parent_sha256=PARENT_SHA,
         producer=os.environ["SAMUDRA_CODE_COMMIT"],
         seed=271829,
         updates=args.updates,
         effective_batch=8,
-        alternating_tasks="OM4 then observation; 64 each at full budget",
+        alternating_tasks=f"OM4 then observation; {args.updates // 2} each at full budget",
         optimizer="fresh AdamW for all arms",
         learning_rate="cosine 1e-5 to 1e-6",
         clip=1.0,
@@ -208,6 +260,15 @@ def main():
         compile_decoder=True,
         parent_contract=base_contract,
     )
+    if args.campaign == "v1":
+        for key in (
+            "campaign",
+            "structure_aux",
+            "structure_weight",
+            "fresh_pushforward",
+            "latent_bound_weight",
+        ):
+            spec.pop(key)
     protocol = output / "protocol.json"
     if protocol.exists() and json.loads(protocol.read_text()) != spec:
         raise ValueError("Changed continuation protocol")
@@ -215,6 +276,7 @@ def main():
     model = make_model(data.grid["names"].tolist(), device)
     model.load_state_dict(saved["model"], strict=True)
     del saved
+    model.decoder.structure_aux = spec.get("structure_aux", "")
     model.decoder.compile()
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-5, weight_decay=0.01)
     loader = SimpleNamespace(root=args.root, output=output, export_only=True)
@@ -230,7 +292,11 @@ def main():
         wave.run.finish()
         wave.run = None
     longer = wave.dataset(wave.source, steps=12)
-    replay = LatentReplay(wave)
+    replay = LatentReplay(
+        wave,
+        fresh_each=spec.get("fresh_pushforward", False),
+        bound=bool(spec.get("latent_bound_weight", 0.0)),
+    )
     completed = 0
     last = output / "last.pt"
     if last.exists():
@@ -251,9 +317,9 @@ def main():
         run = wandb.init(
             project="default",
             entity="ocean_emulators",
-            group="diffusion-interventions-v1",
+            group=f"diffusion-interventions-{args.campaign}",
             name=args.arm,
-            id=f"diffint-v1-{args.arm}",
+            id=f"diffint-{args.campaign}-{args.arm}",
             resume="allow",
             dir=str(output),
             config=spec,
@@ -341,7 +407,9 @@ def main():
                     coverage = data.load(training[(count * 8 + micro) % len(training)])[
                         "validity"
                     ][:, :19]
-                    if micro >= 4 and "replay" in args.arm:
+                    if micro >= 4 and (
+                        "replay" in args.arm or args.arm == "pushforward"
+                    ):
                         loss = replay.loss(
                             model,
                             micro - 4,
@@ -406,11 +474,11 @@ def main():
         due = time.monotonic() - started > args.hours * 3600 or stop
         if (
             completed % 16 == 0
-            or completed in (32, 64, 128)
+            or completed in (32, 64, 128, 256)
             or completed == args.updates
             or due
         ):
-            save(snapshot=completed in (32, 64, 128) or completed == args.updates)
+            save(snapshot=completed in (32, 64, 128, 256) or completed == args.updates)
         if due:
             break
     if run:

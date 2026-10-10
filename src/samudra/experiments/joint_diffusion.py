@@ -142,6 +142,11 @@ def denoising_loss(
         from samudra.experiments.diffusion_spatial import multiscale_mse
 
         error = error + multiscale_weight * multiscale_mse(prediction, target, weights)
+    structure = getattr(decoder, "structure_aux", "")
+    if structure:
+        from samudra.experiments.diffusion_structure_losses import structure_mse
+
+        error = error + 2.0 * structure_mse(prediction, target, weights, structure)
     return (error * (1 + sigma.square()) / sigma.square()).mean()
 
 

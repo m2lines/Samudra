@@ -73,3 +73,23 @@ def test_matched_scores_preserve_both_output_slots_and_area_mask(tmp_path):
         np.mean(np.arange(1, 73) ** 2) * (spatial * wet).numpy() ** 2,
     )
     assert len(times) == 72
+
+
+def test_paired_year_bootstrap_keeps_matched_multiplicative_change():
+    spec = importlib.util.spec_from_file_location(
+        "ke_analysis",
+        Path(__file__).parents[1] / "experiments/current-ke-aux/analyze.py",
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    base = np.arange(1, 29, dtype=float) ** 2
+    indices = np.random.default_rng(7).integers(0, 7, (100, 7))
+    result = module.compare(base, 0.81 * base, indices)
+    np.testing.assert_allclose(
+        [result[k] for k in ("change_percent", "ci_low", "ci_high")], -10
+    )
+    masks = module.regions(np.array([-50, 0, 30, 70]), np.array([10, 140, 300]))
+    np.testing.assert_array_equal(
+        np.sum(list(masks.values())[1:], axis=0), np.ones((4, 3))
+    )

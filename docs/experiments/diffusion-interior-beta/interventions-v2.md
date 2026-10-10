@@ -106,3 +106,29 @@ pushforward curvature block curvature-replay block-replay`; the first-pilot
 128-update contract remains its default. Add explicit spatial-sector diagnostics
 and spatial-arm spectrum panels to the final v2 report rather than relying only
 on the default first-four-arm spectral panel.
+
+## Checkpoint learning curves (requested during the run)
+
+Add identical annual evaluations of every arm at 32/64/128 added updates; reuse
+the already-scheduled final 256-update evaluations and common untouched parent.
+The x-axis shows both total added updates and their half-sized OM4/observation
+counts. These are checkpoints along one 256-update cosine-LR schedule, not
+independently optimized training budgets. Do not splice in v1's 128-update
+endpoint as if it came from this schedule.
+
+The extra 24 evaluations keep three origins, eight members, 32 sampling steps,
+full-latitude support and unchanged metric definitions. Completed v1 annual
+runs took about 30.4 minutes each: roughly 12 GPU-hours expected for this sweep.
+Queue one four-B200 evaluation allocation after production, capped at seven
+hours (28 allocated GPU-hours). Combined reservation ceilings are 160 production
++ 28 learning-curve evaluation + the actual 0.999 smoke GPU-hours, under 192.
+Any recovery must respect the remaining campaign budget.
+
+Use `scripts/report_diffusion_learning_curves.py` for 30/365-day blended curves,
+physical component tables, per-origin results and SST-error-versus-forecast-lead
+panels at each checkpoint. Distinguish delaying divergence from reducing errors
+throughout the year. Report marginal improvement per doubling. Arithmetic
+512/1024-update scenarios repeat the observed 128→256 fractional gain; also show
+no-further-improvement. They are conditional scenarios, not convergence claims,
+confidence intervals, or authorization for larger training runs. Repeated annual
+cases remain exploratory. The current training processes and budgets are unchanged.

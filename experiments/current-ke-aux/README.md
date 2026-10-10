@@ -103,3 +103,24 @@ Online W&B is configured; initialization cannot be verified until scheduling.
 Supervised scheduler watchers are active and authenticated, with one-hour startup
 reminders and terminal-state callbacks to the originating chat. Completion will
 trigger the matched evaluation and map work described above.
+
+## Matched evaluation implementation
+
+`evaluate.py` uses the same production source and inference path for all three
+models, with both final EMA and raw checkpoints. It stores continuous predictions,
+per-date/channel fixed normalized MSE, mean squared error maps, signed bias maps,
+and signed forecast errors at five nominal leads for all 28 quarterly starts.
+Physical-unit errors follow from the frozen per-channel standard deviations.
+The primary normalized score uses fixed, equal channel weights and each channel's
+original wet mask with spherical area weights; DynamicLoss weights are excluded.
+
+The source calendar has 16 six-day intervals among its 4,744 intervals. Six
+quarterly starts cross such an interval: nominal 90/180/360-day leads can be
+91/181/361 days. We retain actual source dates and record actual elapsed days in
+the receipt, rather than interpolate truth or silently call those exact leads.
+All three models use the identical dates. The other 4,728 intervals are five days.
+
+A regression test checks both output slots, all five selected leads, per-channel
+wet masks, area weighting and consistency between scalar and spatial MSE. The
+production evaluation allocation first performs a real aligned/control smoke
+check (short continuous write plus one complete quarterly forecast).

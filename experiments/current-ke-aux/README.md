@@ -124,3 +124,19 @@ A regression test checks both output slots, all five selected leads, per-channel
 wet masks, area weighting and consistency between scalar and spatial MSE. The
 production evaluation allocation first performs a real aligned/control smoke
 check (short continuous write plus one complete quarterly forecast).
+
+## Training completion and queued evaluation
+
+Aligned training **211905** completed successfully (exit 0) in 4h22m13s, with
+`ckpt_70.pt` and `ema_ckpt.pt` saved and W&B synced:
+https://wandb.ai/ocean_emulators/default/runs/b2dudv2l.
+Seasonal training **211906** was still running at epoch 66 when the evaluation
+was submitted; its W&B run is https://wandb.ai/ocean_emulators/default/runs/9idy3li1.
+
+Matched evaluation **211962** is submitted on Beta with
+`afterok:211906`, source `87a4246e283d0f6ee92814a90dc223ae2fd549e9`.
+Its verified archive SHA-256 is
+`e7bd33727874934529b88c585a7cd59a530cca9db96e57f8e65879fbe6a05679`.
+Outputs will be retained under `evaluations-211962` in the experiment runtime
+root. An authenticated supervised completion watcher and a one-hour fallback
+reminder are active. Scoring and plot analysis remain pending.

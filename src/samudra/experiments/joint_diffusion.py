@@ -104,6 +104,7 @@ def denoising_loss(
     known_mask=None,
     checkpoint_denoiser=False,
     spatial_weight=0.0,
+    multiscale_weight=0.0,
 ):
     sigma = (
         torch.randn(target.shape[0], device=target.device, generator=generator) * 1.2
@@ -137,6 +138,10 @@ def denoising_loss(
         from samudra.experiments.diffusion_spatial import spatial_mse
 
         error = error + spatial_weight * spatial_mse(prediction, target, weights)
+    if multiscale_weight:
+        from samudra.experiments.diffusion_spatial import multiscale_mse
+
+        error = error + multiscale_weight * multiscale_mse(prediction, target, weights)
     return (error * (1 + sigma.square()) / sigma.square()).mean()
 
 

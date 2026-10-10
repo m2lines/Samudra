@@ -41,7 +41,7 @@ def rng(device, seed):
     return torch.Generator(device=device).manual_seed(seed)
 
 
-def observation_parts(model, data, original, seed):
+def observation_parts(model, data, original, seed, multiscale=0.0):
     """Yield separate differentiable objectives so graphs can be freed sequentially."""
     sample = corrupt_sample(original, seed)
     predictions, initial = model.forecast(
@@ -53,12 +53,13 @@ def observation_parts(model, data, original, seed):
         generator=rng(data.device, seed + 2000000),
         members=2,
     )
-    forecast = forecast_crps(data, predictions, sample)
+    forecast = forecast_crps(data, predictions, sample, multiscale=multiscale)
     completion = completion_crps(
         data,
         initial[:, :, :, model.surface],
         sample["completion_target"],
         sample["completion_valid"],
+        multiscale=multiscale,
     )
     yield (
         "forecast_completion",
@@ -92,13 +93,23 @@ def observation_parts(model, data, original, seed):
         )
         value = members * weight
         monthly = value if monthly is None else monthly + value
-    loss = interior_crps(data, monthly, sample)
+    loss = interior_crps(data, monthly, sample, multiscale=multiscale)
     yield "reconstruction", 0.1 * loss, {"reconstruction": float(loss.detach())}
 
 
-def native_objective(model, wave, index, coverage, seed):
+def native_objective(
+    model,
+    wave,
+    index,
+    coverage,
+    seed,
+    multiscale=0.0,
+    jitter=0.0,
+    horizon=6,
+    dataset=None,
+):
     surface, past, context, truth, forcing, targets = wave.model_sample(
-        wave.trainset, [index]
+        wave.trainset if dataset is None else dataset, [index]
     )
     available = wave.mask[model.surface].bool().expand_as(surface)
     visible = structured_visibility(available & coverage.bool(), seed)
@@ -110,13 +121,33 @@ def native_objective(model, wave, index, coverage, seed):
         visible,
         task="om4",
     )
-    contexts = torch.stack([advance_season(context, (i + 1) * 5) for i in range(6)], 1)
+    if jitter:
+        scale = (
+            state.detach()
+            .float()
+            .square()
+            .mean((-2, -1), keepdim=True)
+            .sqrt()
+            .clamp_min(1e-3)
+        )
+        perturbation = torch.randn(
+            state.shape, device=state.device, generator=rng(wave.device, seed + 5000000)
+        )
+        state = state + jitter * scale * perturbation
+    if forcing.shape[1] != horizon:
+        raise ValueError("Native forcing horizon differs")
+    contexts = torch.stack(
+        [advance_season(context, (i + 1) * 5) for i in range(horizon)], 1
+    )
     states = model.processor.rollout(state, forcing, contexts, task="om4")
     sequence = torch.cat((truth, targets), 1)
     mask, weights = wave.mask.repeat(2, 1, 1), wave.weights.repeat(2, 1, 1)
     generator = rng(wave.device, seed + 4000000)
     losses = []
     for step, latent in enumerate(states):
+        # Longer unroll uses the same six forecast denoiser calls, at days 35–60.
+        if step != 0 and step <= horizon - 6:
+            continue
         target = sequence[:, step : step + 2].flatten(1, 2)
         supervised = weights.clone()
         if step == 0:
@@ -133,6 +164,7 @@ def native_objective(model, wave, index, coverage, seed):
             known_mask=anchor if step == 0 else None,
             checkpoint_denoiser=model.training,
             spatial_weight=0.5,
+            multiscale_weight=multiscale,
         )
         losses.append(loss)
     # Forecast/reconstruction task weights match the comparator. Denoising is
@@ -152,6 +184,7 @@ def native_objective(model, wave, index, coverage, seed):
             known_mask=anchor,
             checkpoint_denoiser=model.training,
             spatial_weight=0.5,
+            multiscale_weight=multiscale,
         )
         result = result + 0.1 * completion
     return result

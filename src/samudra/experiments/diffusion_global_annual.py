@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 Samudra Authors
 # SPDX-License-Identifier: Apache-2.0
-"""Final global annual point metrics and individual conditional readout exports."""
+"""Fixed-checkpoint global annual metrics and conditional readout exports."""
 
 import argparse
 import json
@@ -23,19 +23,36 @@ ORIGINS = ["2015-01-01", "2018-01-01", "2021-01-01"]
 class AnnualMembers(nn.Module):
     """Export member fields before averaging; no coherent trajectory claim."""
 
-    def __init__(self, model, data, origins, output, members=8, seed=4041729):
+    def __init__(
+        self, model, data, origins, output, members=8, seed=4041729, track_latents=False
+    ):
         super().__init__()
         self.model, self.data = model, data
         self.origins, self.output = origins, output
         self.members, self.seed, self.completed = members, seed, 0
+        self.track_latents = track_latents
 
     def forecast(self, *args):
         surface = args[0]
-        trajectories, initial = self.model.forecast(
-            *args,
-            members=self.members,
-            generator=torch.Generator(device=surface.device).manual_seed(self.seed),
+        latent_rms = []
+        hook = (
+            self.model.processor.register_forward_hook(
+                lambda module, inputs, value: latent_rms.append(
+                    float(value.detach().float().square().mean().sqrt())
+                )
+            )
+            if self.track_latents
+            else None
         )
+        try:
+            trajectories, initial = self.model.forecast(
+                *args,
+                members=self.members,
+                generator=torch.Generator(device=surface.device).manual_seed(self.seed),
+            )
+        finally:
+            if hook is not None:
+                hook.remove()
         if trajectories.shape[:4] != (self.members, 1, 73, 77):
             raise ValueError("Unexpected annual ensemble shape")
         # Select four channels before converting to physical units, avoiding a
@@ -47,6 +64,13 @@ class AnnualMembers(nn.Module):
         if not np.isfinite(fields).all() or not np.isfinite(initial_fields).all():
             raise ValueError("Nonfinite annual member output")
         origin = self.origins[self.completed].parent.name
+        if self.track_latents:
+            if len(latent_rms) != 73:
+                raise ValueError("Incomplete latent trajectory trace")
+            atomic_json(
+                dict(leads_days=list(range(5, 366, 5)), latent_rms=latent_rms),
+                self.output / f"latent-{origin}.json",
+            )
         np.savez_compressed(
             self.output / f"members-{origin}.npz",
             fields=fields,
@@ -71,16 +95,22 @@ def main():
     parser.add_argument("--reference", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--steps", type=int, default=32)
+    parser.add_argument("--expected-observation-updates", type=int, default=8000)
+    parser.add_argument("--expected-om4-updates", type=int, default=8000)
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
     data = Samples(args.data, "cuda", surface_fill="zero", global_observations=True)
     data.use_observation_normalization()
     saved = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
-    if saved["step"] != 16000 or saved["counts"] != {
-        "om4": 8000,
-        "observation": 8000,
-    }:
-        raise ValueError("This held-out annual report requires final 8k/8k weights")
+    expected_counts = {
+        "om4": args.expected_om4_updates,
+        "observation": args.expected_observation_updates,
+    }
+    if (
+        saved["step"] != sum(expected_counts.values())
+        or saved["counts"] != expected_counts
+    ):
+        raise ValueError("Checkpoint does not match the requested fixed task exposure")
     contract = saved["contract"]
     for key, path in (
         ("observation_manifest", data.root / "SHA256SUMS"),
@@ -108,13 +138,17 @@ def main():
         uncertainty="Independent conditional diffusion readouts along one deterministic latent path; not coherent ensemble trajectories",
         member_fields="SST, SSH, temperature at550m, salinity at550m at all73 five-day leads; member means are separate point outputs",
     )
+    if "intervention" in saved:
+        protocol["intervention"] = saved["intervention"]
     manifest = args.output / "input.json"
     if manifest.exists() and json.loads(manifest.read_text()) != protocol:
         raise ValueError("Existing annual output has a different protocol")
     atomic_json(protocol, manifest)
     model = make_model(data.grid["names"].tolist(), "cuda", steps=args.steps)
     model.load_state_dict(saved["model"], strict=True)
-    recording = AnnualMembers(model, data, origins, args.output).eval()
+    recording = AnnualMembers(
+        model, data, origins, args.output, track_latents=True
+    ).eval()
     evaluate_origins(recording, data, origins, args.output, protocol)
     atomic_json(
         dict(

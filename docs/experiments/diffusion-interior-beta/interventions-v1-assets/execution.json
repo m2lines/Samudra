@@ -1,0 +1,98 @@
+{
+  "code_id": "interventions-19a3ea7900ea",
+  "archive_sha256": "19a3ea7900ea2b8274f29e343876fe351fecff942b68881f9300fde7e8456815",
+  "base_commit": "41fde9b7fec8302df02663b905c6f66b8b494043",
+  "parent_sha256": "853b3353c6d926754a15f19437493a7497813ce2b88cb058fe1a616cc838e6e5",
+  "rust_loader_sha256": "7c2517836e1e6ae680637c019ced9b0c40b3866603129c0228bbecc7ddc81ba7",
+  "root": "/projects/ny/lz1955/multiscale/jrusak/runs/diffusion-interventions-v1",
+  "arms": [
+    "control",
+    "multiscale",
+    "replay",
+    "multiscale-replay",
+    "unroll12",
+    "latent-jitter"
+  ],
+  "updates_each": 128,
+  "effective_batch": 8,
+  "maximum_allocated_gpu_hours": 68,
+  "attempts": [
+    {
+      "job": "211722",
+      "code_id": "interventions-cea48c33c8cc",
+      "state": "FAILED",
+      "elapsed_seconds": 172,
+      "reason": "Missing ARM64 Rust loader mount",
+      "callback": "ae4dd851-2fdf-4edb-8fff-456060b580d9",
+      "callback_handled": true
+    },
+    {
+      "job": "211725",
+      "code_id": "interventions-11d2cb2586a5",
+      "state": "FAILED",
+      "elapsed_seconds": 136,
+      "reason": "Recent Beta loader missing branch-specific FlatOm4ReadPool API",
+      "callback": "a20d4636-e5d0-4ec0-9332-58caa34454cc",
+      "callback_handled": true
+    },
+    {
+      "job": "211727",
+      "code_id": "interventions-11d2cb2586a5",
+      "state": "COMPLETED",
+      "elapsed_seconds": 1105,
+      "all_six_arms_passed": true,
+      "callback": "73708dc0-101e-4b46-b314-fb36bb6330f5",
+      "callback_handled": true
+    }
+  ],
+  "production_job": "211734",
+  "state": "COMPLETED",
+  "exit_code": "0:0",
+  "production_start_utc": "2026-10-10T02:34:32Z",
+  "production_end_utc": "2026-10-10T13:58:11Z",
+  "production_elapsed_seconds": 41019,
+  "allocated_gpus": 4,
+  "allocated_gpu_hours_total": 47.14666666666667,
+  "production_results": [
+    {
+      "arm": "control",
+      "success": true,
+      "gpu": 0
+    },
+    {
+      "arm": "multiscale",
+      "success": true,
+      "gpu": 1
+    },
+    {
+      "arm": "replay",
+      "success": true,
+      "gpu": 2
+    },
+    {
+      "arm": "multiscale-replay",
+      "success": true,
+      "gpu": 3
+    },
+    {
+      "arm": "unroll12",
+      "success": true,
+      "gpu": 1
+    },
+    {
+      "arm": "latent-jitter",
+      "success": true,
+      "gpu": 2
+    }
+  ],
+  "wandb": {
+    "control": "https://wandb.ai/ocean_emulators/default/runs/diffint-v1-control",
+    "multiscale": "https://wandb.ai/ocean_emulators/default/runs/diffint-v1-multiscale",
+    "replay": "https://wandb.ai/ocean_emulators/default/runs/diffint-v1-replay",
+    "multiscale-replay": "https://wandb.ai/ocean_emulators/default/runs/diffint-v1-multiscale-replay",
+    "unroll12": "https://wandb.ai/ocean_emulators/default/runs/diffint-v1-unroll12",
+    "latent-jitter": "https://wandb.ai/ocean_emulators/default/runs/diffint-v1-latent-jitter"
+  },
+  "monitor_probe_note": "Step 211734.1 was a failed read-only nvidia-smi probe with --gres=none; retry 211734.2 succeeded. Main training/evaluation step and batch exited 0.",
+  "runtime_source_note": "Archive is the exact executed source. Published training source additionally has a replay non-null invariant assertion and type annotations; reporting code was added after execution."
+}

@@ -88,3 +88,18 @@ Validation: 126 relevant CPU tests passed (four CUDA/manual tests deselected),
 and all changed-file pre-commit checks passed, including mypy and schemas.
 Each production allocation additionally runs a two-epoch, four-rank debug
 preflight before starting a fresh 70-epoch training process.
+
+## Submitted first wave
+
+| Treatment | Beta job | Seed | Initial state |
+| --- | --- | --- | --- |
+| Aligned subcell KE | 211905 | 15 | Pending, priority |
+| Seasonal subcell KE | 211906 | 15 | Pending, priority |
+
+Both jobs use source commit `2506c0805ad94d6f99903cd5c855fb27a2b424ca`.
+The transferred production archive was verified with SHA-256
+`9d564b8b5f69ed51f438649bbeaf19d22e1d8675ed57aff487ce3cd66bf80576`.
+Online W&B is configured; initialization cannot be verified until scheduling.
+Supervised scheduler watchers are active and authenticated, with one-hour startup
+reminders and terminal-state callbacks to the originating chat. Completion will
+trigger the matched evaluation and map work described above.

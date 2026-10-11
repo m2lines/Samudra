@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-FileCopyrightText: 2026 Samudra Authors
 # SPDX-License-Identifier: Apache-2.0
-"""Verify and summarize the fixed-budget six-arm continuation experiment."""
+"""Verify and summarize a fixed-budget continuation experiment."""
 
 import argparse
 import csv
@@ -196,6 +196,8 @@ def native_maps(root, output):
         assert np.array_equal(
             data["reference"], sources[0]["reference"], equal_nan=True
         )
+        np.testing.assert_array_equal(data["mask"], sources[0]["mask"])
+        np.testing.assert_array_equal(data["leads_days"], sources[0]["leads_days"])
     for lead in (30, 365):
         index = list(sources[0]["leads_days"]).index(lead)
         for channel, label, limits in [
@@ -207,7 +209,7 @@ def native_maps(root, output):
             target = sources[0]["reference"][index, channel]
             mask = sources[0]["mask"][channel].astype(bool)
             height, width = target.shape
-            tw, th = 2 * width + 90, 8 * (height + 25) + 155
+            tw, th = 2 * width + 90, (len(names) + 1) * (height + 25) + 155
             fig = plt.figure(figsize=(tw / 100, th / 100), dpi=100)
             fields = [("OM4 reference", target, target)]
             for name, data in zip(names, sources, strict=True):
@@ -264,12 +266,24 @@ def native_maps(root, output):
 
 
 def scored_spectra(root, output):
-    """Reconstruct scored mean spectra, then compute matching first-draw spectra."""
+    """Reconstruct scored mean spectra, then compute matching first-draw spectra.
+
+    Both modes use the existing scorer: fully observed rectangular regions,
+    no land/gap filling, planar detrending, and a separable periodic Hann window
+    with power correction. Verify coordinates, masks, origins, and reference
+    fields are identical across arms, so all curves have the same support.
+    """
     rows = []
     curves = {}
+    common = {}
+    common_origins = None
     for arm in ARMS:
         directory = root / arm / "validation"
         done = read(directory / "COMPLETE.json")
+        if common_origins is None:
+            common_origins = done["metrics"]["origins"]
+        else:
+            assert done["metrics"]["origins"] == common_origins
         means, draws, references = [], [], []
         for origin in done["metrics"]["origins"]:
             with np.load(directory / f"members-{origin}.npz") as saved:
@@ -277,6 +291,12 @@ def scored_spectra(root, output):
                 draws.append(saved["day30"][0, :2])
                 references.append(saved["day30_surface_reference"])
                 lat, lon, mask = saved["lat"], saved["lon"], saved["mask"][:2]
+                shared = (lat, lon, mask, references[-1])
+                if origin not in common:
+                    common[origin] = shared
+                else:
+                    for actual, expected in zip(shared, common[origin], strict=True):
+                        np.testing.assert_array_equal(actual, expected)
         support = np.isfinite(np.stack(references)) & mask.astype(bool)[None]
         for mode, values in (("mean", means), ("draw1", draws)):
             surface_values = np.where(support, np.stack(values), np.nan)
@@ -322,37 +342,60 @@ def scored_spectra(root, output):
                                 prediction_power=power[i],
                             )
                         )
+    assert common_origins is not None, "At least one arm is required"
     table(output / "spectra.csv", rows)
-    fig, axes = plt.subplots(3, 2, figsize=(10, 10))
-    colors = ["#0072B2", "#E69F00", "#009E73", "#CC79A7"]
+    # Separate ensemble means and individual draws rather than overlaying up to
+    # sixteen nearly identical lines. Color AND marker identify each arm.
+    legend_rows = int(np.ceil(len(ARMS) / 4))
+    legend_height = 0.3 * legend_rows + 0.35
+    figure_height = 3.2 * len(spectra.SPATIAL_REGIONS) + legend_height + 0.65
+    fig, axes = plt.subplots(
+        len(spectra.SPATIAL_REGIONS), 4, figsize=(16, figure_height), squeeze=False
+    )
+    colors = [plt.get_cmap("tab10")(index) for index in range(10)]
+    markers = ("o", "s", "^", "D", "v", "P", "X", "<", ">", "*")
     for row, (region, _, _) in enumerate(spectra.SPATIAL_REGIONS):
-        for col, field_label in enumerate(("sst", "adt")):
+        for col, (field_label, mode) in enumerate(
+            (("sst", "mean"), ("sst", "draw1"), ("adt", "mean"), ("adt", "draw1"))
+        ):
             ax = axes[row, col]
-            for arm, color in zip(ARMS[:4], colors, strict=True):
-                for mode, marker in (("mean", "s"), ("draw1", "^")):
-                    k, ratio = curves[arm, mode, field_label, region]
-                    ax.plot(
-                        2 * np.pi / k,
-                        ratio,
-                        marker=marker,
-                        markerfacecolor="white",
-                        color=color,
-                        label=f"{arm}: {mode}",
-                        linewidth=1,
-                    )
+            for index, arm in enumerate(ARMS):
+                k, ratio = curves[arm, mode, field_label, region]
+                ax.plot(
+                    2 * np.pi / k,
+                    ratio,
+                    marker=markers[index % len(markers)],
+                    markerfacecolor="white",
+                    color=colors[index % len(colors)],
+                    label=arm,
+                    linewidth=1,
+                    markersize=4,
+                )
             ax.axhline(1, color="black", linewidth=1)
-            ax.set_title(f"{field_label.upper()} · {region}")
+            mode_label = "mean of 8" if mode == "mean" else "draw 1"
+            ax.set_title(f"{field_label.upper()} · {mode_label} · {region}", fontsize=9)
             ax.set_xscale("log")
             ax.set_yscale("log")
             ax.invert_xaxis()
             ax.set_xlabel("Wavelength (km)")
             ax.set_ylabel("Power / reference power")
     handles, labels = axes[0, 0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc="lower center", ncol=2, fontsize=8)
+    # Within each region and field, use identical vertical limits for the mean
+    # and draw panels so the apparent spread is not changed by autoscaling.
+    for row in range(len(spectra.SPATIAL_REGIONS)):
+        for first_col in (0, 2):
+            pair = axes[row, first_col : first_col + 2]
+            limits = [ax.get_ylim() for ax in pair]
+            for ax in pair:
+                ax.set_ylim(min(v[0] for v in limits), max(v[1] for v in limits))
+    fig.legend(handles, labels, loc="lower center", ncol=4, fontsize=8)
     fig.suptitle(
-        "Day 30 · nine validation months · exact scored spectral bins\nSquares: mean of 8; triangles: first draw. Full values for all arms in spectra.csv"
+        f"Day 30 · {len(common_origins)} validation months · exact scored spectral bins\n"
+        "Ensemble means and individual draws shown separately; all arms included. Full values in spectra.csv"
     )
-    fig.tight_layout(rect=(0, 0.13, 1, 0.93))
+    fig.tight_layout(
+        rect=(0, legend_height / figure_height, 1, 1 - 0.65 / figure_height)
+    )
     save_png(fig, output / "day30-spectra.png", dpi=120)
     plt.close(fig)
 

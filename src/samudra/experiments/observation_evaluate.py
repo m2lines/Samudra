@@ -53,6 +53,10 @@ def main():
     if not (run / "TRAIN_COMPLETE.json").exists():
         raise ValueError("Selection must finish before held-out evaluation")
     manifest = json.loads((run / "manifest.json").read_text())
+    if manifest["arguments"].get("iap_grid") and digest(
+        manifest["arguments"]["iap_grid"]
+    ) != manifest.get("iap_grid_sha256"):
+        raise ValueError("Native IAP observation geometry differs from training")
     global_observations = args.global_observations or manifest["arguments"].get(
         "global_observations", False
     )
@@ -105,6 +109,7 @@ def main():
         "cuda",
         manifest["arguments"].get("surface_fill", "climatology"),
         global_observations=global_observations,
+        iap_grid=manifest["arguments"].get("iap_grid"),
     )
     if manifest["arguments"].get("from_scratch", False) or manifest["arguments"].get(
         "observation_normalization", False

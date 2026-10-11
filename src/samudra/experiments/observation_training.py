@@ -21,13 +21,26 @@ class Samples:
     cache_prepared = False
 
     def __init__(
-        self, root, device, surface_fill="climatology", global_observations=False
+        self,
+        root,
+        device,
+        surface_fill="climatology",
+        global_observations=False,
+        *,
+        iap_grid=None,
+        cache_size=None,
     ):
         if surface_fill not in ("climatology", "zero"):
             raise ValueError("Unknown missing surface input fill")
         self.surface_fill = surface_fill
         self.root = Path(root)
         self.device = device
+        self.dual_grid = iap_grid is not None
+        self.cache_size = (
+            (2 if self.dual_grid else 256) if cache_size is None else cache_size
+        )
+        if not isinstance(self.cache_size, int) or self.cache_size < 0:
+            raise ValueError("cache_size must be a nonnegative integer")
         self.grid = dict(np.load(self.root / "grid.npz"))
         self.stats = dict(np.load(self.root / "statistics.npz"))
         self.mask = self.tensor(self.grid["mask"])
@@ -44,6 +57,100 @@ class Samples:
         self.surface_scale = self.tensor(self.stats["surface_std"])[
             None, None, :, None, None
         ]
+        if self.dual_grid:
+            from samudra.experiments.quarter_observation_operator import (
+                NativeIapOperator,
+            )
+
+            self.iap_grid = (
+                dict(np.load(iap_grid))
+                if isinstance(iap_grid, (str, Path))
+                else dict(iap_grid)
+            )
+            from samudra.experiments.observation_prepare import DEPTHS
+
+            np.testing.assert_array_equal(self.iap_grid["depth"], DEPTHS)
+            operator_args = (
+                self.grid["lat"],
+                self.grid["lon"],
+                self.iap_grid["lat"],
+                self.iap_grid["lon"],
+            )
+            self.interior_operator = NativeIapOperator(
+                *operator_args, self.grid["mask"][self.ts_indices]
+            ).to(device)
+            self._interior_support = self.interior_operator.supported.clone()
+            self._interior_support[0] = False
+            self._interior_area = self.interior_operator.area.clone()
+            # Layer support requires every intersecting native model layer,
+            # including cells that overlap only part of the 700 m boundary.
+            edges = np.r_[0.0, np.cumsum(build_om4_layout().depth_thickness)]
+            masks = []
+            for layer in kernels.OHC_LAYERS:
+                keep = (edges[:-1] < layer.max_depth) & (edges[1:] > layer.min_depth)
+                masks.append(self.grid["mask"][38:57][keep].all(axis=0))
+            self.ohc_operator = NativeIapOperator(*operator_args, np.stack(masks)).to(
+                device
+            )
+            self._ohc_support = self.ohc_operator.supported.clone()
+            self._ohc_area = self.ohc_operator.area.clone()
+            if not global_observations:
+                domain = self.tensor(np.abs(self.iap_grid["lat"][:, None]) <= 60).bool()
+                self._interior_support &= domain
+                self._ohc_support &= domain
+                self._interior_area *= domain
+                self._ohc_area *= domain
+            required = ("interior_climatology", "ohc_climatology", "iap_lat", "iap_lon")
+            if any(name not in self.stats for name in required):
+                raise ValueError(
+                    "Native IAP geometry requires training-only native statistics"
+                )
+            for coordinate in ("lat", "lon"):
+                np.testing.assert_array_equal(
+                    self.stats["iap_" + coordinate], self.iap_grid[coordinate]
+                )
+
+    @property
+    def interior_support(self):
+        return (
+            self._interior_support
+            if getattr(self, "dual_grid", False)
+            else self.ts_mask
+        )
+
+    @property
+    def interior_area(self):
+        return self._interior_area if getattr(self, "dual_grid", False) else self.area
+
+    @property
+    def ohc_support(self):
+        if getattr(self, "dual_grid", False):
+            return self._ohc_support
+        mask = self.mask[0].bool()
+        if not self.global_observations:
+            mask = mask & self.tensor(np.abs(self.grid["lat"][:, None]) <= 60).bool()
+        return mask.expand(2, -1, -1)
+
+    @property
+    def ohc_area(self):
+        return self._ohc_area if getattr(self, "dual_grid", False) else self.area
+
+    @property
+    def ohc_metric_kwargs(self):
+        if not getattr(self, "dual_grid", False):
+            return {}
+        return dict(
+            ohc_area=self.ohc_area.detach().cpu().numpy(),
+            ohc_support=self.ohc_support.detach().cpu().numpy(),
+        )
+
+    def project_interior(self, monthly_normalized):
+        physical = self.physical(monthly_normalized[:, None])[:, 0, self.ts_indices]
+        return (
+            self.interior_operator(physical)
+            if getattr(self, "dual_grid", False)
+            else physical
+        )
 
     def use_observation_normalization(self):
         """Scratch control: no simulation-derived normalization statistics."""
@@ -71,6 +178,8 @@ class Samples:
 
     @cached_property
     def interior_climatology(self):
+        if getattr(self, "dual_grid", False):
+            return self.stats["interior_climatology"]
         h, w = self.grid["mask"].shape[-2:]
         total = np.zeros((12, 28, h, w), dtype=np.float64)
         count = np.zeros_like(total)
@@ -88,6 +197,10 @@ class Samples:
         return np.where(np.isfinite(result), result, fallback).astype(np.float32)
 
     def persistence_anomaly(self, initial, sample):
+        if getattr(self, "dual_grid", False):
+            raise NotImplementedError(
+                "Anomaly persistence requires a defined dual-grid observation-space control"
+            )
         state = initial[:, -1].clone()
         previous_month = pd.Timestamp(str(sample["raw"]["midpoints"][18])).month - 1
         target_month = pd.Timestamp(sample["name"]).month - 1
@@ -101,6 +214,10 @@ class Samples:
         return state
 
     def climatology_prediction(self, sample):
+        if getattr(self, "dual_grid", False):
+            raise NotImplementedError(
+                "Native IAP climatology is observation-space data; use climatology_fields"
+            )
         count = len(sample["month_weights"])
         state = torch.zeros(
             (1, count, 77, *self.grid["mask"].shape[-2:]), device=self.device
@@ -128,7 +245,7 @@ class Samples:
         # Cache only CPU source arrays: normalization and GPU transfer stay on
         # the original path. 256 entries cover 243 training + 9 validation
         # months (20.5 GiB); historical evaluation evicts training entries.
-        @lru_cache(maxsize=256)
+        @lru_cache(maxsize=getattr(self, "cache_size", 256))
         def read(path):
             with np.load(path) as saved:
                 return {k: saved[k] for k in saved.files}
@@ -139,11 +256,11 @@ class Samples:
     def prepared_sample(self):
         # Opt-in CPU cache for the fixed training/validation inputs. Model
         # outputs and CUDA tensors are never retained here.
-        return lru_cache(maxsize=256)(self.prepare_sample)
+        return lru_cache(maxsize=getattr(self, "cache_size", 256))(self.prepare_sample)
 
     @cached_property
     def coverage_sample(self):
-        @lru_cache(maxsize=256)
+        @lru_cache(maxsize=getattr(self, "cache_size", 256))
         def read(path):
             raw = self.read_sample(Path(path))["surface"]
             return np.isfinite(raw) & self.grid["mask"][[38, 76]]
@@ -182,7 +299,12 @@ class Samples:
         ) / self.stats["atmosphere_std"][None, :, None, None]
         if not np.isfinite(normalized).all() or not np.isfinite(atmosphere).all():
             raise ValueError(f"Nonfinite inputs: {path}")
-        interior = sample["interior"].reshape(28, *raw.shape[-2:])
+        interior_shape = (
+            sample["interior"].shape[-2:]
+            if getattr(self, "dual_grid", False)
+            else raw.shape[-2:]
+        )
+        interior = sample["interior"].reshape(28, *interior_shape)
         return dict(
             surface=normalized[None],
             atmosphere=atmosphere[None],
@@ -201,9 +323,9 @@ class Samples:
         # Latent slots have no physical scale or direct observation target.
         return normalized[:, :, : self.std.shape[2]].float() * self.std + self.mean
 
-    def masked_channel_mse(self, prediction, target, mask, scale):
+    def masked_channel_mse(self, prediction, target, mask, scale, *, area=None):
         valid = torch.isfinite(target) & mask.bool()
-        weight = valid * self.area
+        weight = valid * (self.area if area is None else area)
         safe_target = torch.where(valid, target, 0)
         safe_prediction = torch.where(valid, prediction.float(), 0)
         denominator = weight.sum((-2, -1))
@@ -215,9 +337,13 @@ class Samples:
         return reduced, present
 
     def interior_loss(self, monthly_normalized, sample):
-        physical = self.physical(monthly_normalized[:, None])[:, 0, self.ts_indices]
+        physical = self.project_interior(monthly_normalized)
         channel, present = self.masked_channel_mse(
-            physical, sample["interior"], self.ts_mask, self.ts_scale
+            physical,
+            sample["interior"],
+            self.interior_support,
+            self.ts_scale,
+            area=self.interior_area,
         )
         groups = []
         for region in (slice(0, 14), slice(14, 28)):
@@ -243,7 +369,39 @@ class Samples:
             groups.append(values[valid].mean())
         return 0.8 * interior + 0.1 * groups[0] + 0.1 * groups[1]
 
+    def evaluation_fields(self, prediction, sample):
+        """One projection path for learned forecasts and persistence controls."""
+        monthly = (prediction * sample["month_weights"][None, :, None, None, None]).sum(
+            1
+        )
+        return dict(
+            surface=self.physical(prediction)[:, :, [38, 76]],
+            interior=self.project_interior(monthly),
+            ohc=self.ohc(monthly),
+        )
+
+    def climatology_fields(self, sample):
+        """Training-only controls directly on their observation supports."""
+        if not getattr(self, "dual_grid", False):
+            return self.evaluation_fields(self.climatology_prediction(sample), sample)
+        months = pd.DatetimeIndex(sample["raw"]["midpoints"][19:]).month.to_numpy() - 1
+        target = pd.Timestamp(sample["name"]).month - 1
+        return dict(
+            surface=self.tensor(self.stats["surface_climatology"][months])[None],
+            interior=self.tensor(self.interior_climatology[target])[None],
+            ohc=self.stats["ohc_climatology"][target][None],
+        )
+
+    def project_ohc(self, model_maps):
+        """Project already integrated physical OHC; never integrate upsampled truth."""
+        if not getattr(self, "dual_grid", False):
+            return model_maps
+        return self.ohc_operator(self.tensor(model_maps)).detach().cpu().numpy()
+
     def ohc(self, state):
+        return self.project_ohc(self.model_ohc(state))
+
+    def model_ohc(self, state):
         """Monthly normalized state -> native-layer OHC, complete model columns only."""
         physical = self.physical(state[:, None])[:, 0].detach().cpu().numpy()
         layout = build_om4_layout()

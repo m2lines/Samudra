@@ -58,9 +58,9 @@ class Pilot:
                 "Dataset must pass full source-hash verification before training"
             )
         readiness = json.loads(ready.read_text())
-        if (
-            readiness.get("verification")
-            != "all 350 NPZ files checked against source SHA256SUMS"
+        expected_files = 351 if getattr(args, "iap_grid", None) else 350
+        if readiness.get("verification") != (
+            f"all {expected_files} NPZ files checked against source SHA256SUMS"
         ):
             raise ValueError("Unknown data verification protocol")
         self.data = Samples(
@@ -68,6 +68,7 @@ class Pilot:
             self.device,
             getattr(args, "surface_fill", "climatology"),
             global_observations=getattr(args, "global_observations", False),
+            iap_grid=getattr(args, "iap_grid", None),
         )
         self.model = ObservationTransfer.from_arguments(
             self.data.grid["names"].tolist(), vars(args)
@@ -147,6 +148,14 @@ class Pilot:
             "training_months": [p.stem for p in self.training],
             "validation_months": [p.stem for p in self.validation],
         }
+        if self.data.dual_grid:
+            self.manifest["iap_grid_sha256"] = digest(args.iap_grid)
+            self.manifest["observation_geometry"] = {
+                "interior": "physical model means projected to native IAP cells",
+                "ohc": "model native-layer integration then native IAP projection",
+                "minimum_model_wet_area_coverage": 0.9,
+                "climatology": "training-only means on each observation support",
+            }
         manifest_file = self.out / "manifest.json"
         if (
             manifest_file.exists()
@@ -221,7 +230,7 @@ class Pilot:
         for path in paths:
             sample = self.data.load(path)
             if climatology:
-                prediction = self.data.climatology_prediction(sample)
+                fields = self.data.climatology_fields(sample)
             elif persistence or anomaly:
                 with torch.autocast("cuda", dtype=torch.bfloat16):
                     initial = self.model.initialize(
@@ -242,25 +251,25 @@ class Pilot:
             else:
                 with torch.autocast("cuda", dtype=torch.bfloat16):
                     prediction, _ = self.model.forecast(*self.arguments(sample))
-            monthly = (
-                prediction * sample["month_weights"][None, :, None, None, None]
-            ).sum(1)
-            surface = self.data.physical(prediction)[:, :6, [38, 76]].cpu().numpy()[0]
+            if not climatology:
+                fields = self.data.evaluation_fields(prediction, sample)
+            surface = fields["surface"][:, :6].cpu().numpy()[0]
             truth = np.concatenate(
                 [sample["raw"]["surface"][19:25], sample["raw"]["velocity"][19:25]],
                 axis=1,
             )
-            predicted_ohc = self.data.ohc(monthly)[0]
-            observed_ohc = np.where(
-                np.isfinite(predicted_ohc), sample["raw"]["ohc"], np.nan
+            predicted_ohc = fields["ohc"][0]
+            fixed_ohc_support = (
+                self.data.ohc_support.cpu().numpy()
+                if self.data.dual_grid
+                else np.isfinite(predicted_ohc)
             )
+            observed_ohc = np.where(fixed_ohc_support, sample["raw"]["ohc"], np.nan)
             predictions.append(surface)
             references.append(truth)
             if rmse_only:
-                climate = self.data.climatology_prediction(sample)
-                climates.append(
-                    self.data.physical(climate)[:, :6, [38, 76]].cpu().numpy()[0]
-                )
+                climate = self.data.climatology_fields(sample)
+                climates.append(climate["surface"][:, :6].cpu().numpy()[0])
             ohc.append(predicted_ohc)
             reference_ohc.append(observed_ohc)
             if export:
@@ -276,12 +285,10 @@ class Pilot:
                     ),
                     flush=True,
                 )
-            physical_ts = self.data.physical(monthly[:, None])[
-                :, 0, self.data.ts_indices
-            ]
+            physical_ts = fields["interior"]
             target = sample["interior"]
-            valid = torch.isfinite(target) & self.data.ts_mask.bool()
-            weights = valid * self.data.area
+            valid = torch.isfinite(target) & self.data.interior_support.bool()
+            weights = valid * self.data.interior_area
             error = torch.where(valid, physical_ts - target, 0)
             interior_error += (error.square() * weights).sum((0, 2, 3)).cpu().numpy()
             interior_bias += (error * weights).sum((0, 2, 3)).cpu().numpy()
@@ -296,6 +303,7 @@ class Pilot:
             **arrays,
             compute_spectra=not rmse_only,
             climatology_surface=np.array(climates) if rmse_only else None,
+            **self.data.ohc_metric_kwargs,
             lat=self.data.grid["lat"],
             lon=self.data.grid["lon"],
             mask=self.data.grid["mask"][0],
@@ -320,7 +328,21 @@ class Pilot:
         if export:
             temporary = Path(export).with_suffix(".tmp")
             with temporary.open("wb") as stream:
-                np.savez_compressed(stream, **arrays, origins=result["origins"])
+                geometry = (
+                    dict(
+                        lat=self.data.grid["lat"],
+                        lon=self.data.grid["lon"],
+                        iap_lat=self.data.iap_grid["lat"],
+                        iap_lon=self.data.iap_grid["lon"],
+                        ohc_support=self.data.ohc_support.cpu().numpy(),
+                        ohc_area=self.data.ohc_area.cpu().numpy(),
+                    )
+                    if self.data.dual_grid
+                    else {}
+                )
+                np.savez_compressed(
+                    stream, **arrays, **geometry, origins=result["origins"]
+                )
             temporary.replace(export)
         return result
 
@@ -773,6 +795,7 @@ def build_parser():
         "--normalization", choices=["batch", "instance"], default="batch"
     )
     parser.add_argument("--data", required=True)
+    parser.add_argument("--iap-grid", help="Explicit native IAP observation geometry")
     parser.add_argument("--checkpoint", required=True)
     parser.add_argument("--source-contract", required=True)
     parser.add_argument("--output", required=True)

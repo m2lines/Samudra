@@ -127,11 +127,14 @@ def score(
     global_observations=False,
     compute_spectra=True,
     climatology_surface=None,
+    ohc_area=None,
+    ohc_support=None,
 ):
     """Arrays: surface [origins, leads, 2, y, x], velocity refs at slots 2:4.
 
     Prediction only needs SST and ADT. Reference slots are SST, ADT, ugos, vgos.
-    Monthly OHC arrays have shape [origins, 2, y, x].
+    Monthly OHC arrays have shape [origins, 2, observation_y, observation_x].
+    A distinct OHC grid requires explicit fixed area and two-layer support.
     """
     area = np.cos(np.deg2rad(lat))[:, None] * np.ones((1, len(lon)))
     domain = mask if global_observations else mask & (np.abs(lat[:, None]) <= 60)
@@ -223,10 +226,29 @@ def score(
             )
     for key, values in accumulated.items():
         metrics[key] = float(np.mean(values))
+    if (ohc_area is None) != (ohc_support is None):
+        raise ValueError("Distinct OHC geometry requires both area and fixed support")
+    if ohc_area is not None:
+        ohc_area = np.asarray(ohc_area)
+        ohc_support = np.asarray(ohc_support, dtype=bool)
+        if (
+            predicted_ohc.ndim != 4
+            or predicted_ohc.shape[:2] != (prediction.shape[0], 2)
+            or ohc_area.shape != predicted_ohc.shape[-2:]
+            or ohc_support.shape != predicted_ohc.shape[1:]
+            or reference_ohc.shape != predicted_ohc.shape
+            or not np.isfinite(ohc_area).all()
+            or (ohc_area < 0).any()
+            or not (ohc_area[np.any(ohc_support, axis=0)] > 0).all()
+        ):
+            raise ValueError("Invalid fixed OHC observation geometry")
+        if not np.isfinite(np.where(ohc_support, predicted_ohc, 0)).all():
+            raise ValueError("Nonfinite OHC prediction on fixed observation support")
     for channel, label in enumerate(("0_700", "700_2000")):
-        truth = np.where(domain, reference_ohc[:, channel], np.nan)
+        support = domain if ohc_support is None else ohc_support[channel]
+        truth = np.where(support, reference_ohc[:, channel], np.nan)
         metrics[f"ohc_{label}_rmse"] = weighted_rmse(
-            predicted_ohc[:, channel], truth, area
+            predicted_ohc[:, channel], truth, area if ohc_area is None else ohc_area
         )
     return {"metrics": metrics, "spectra": curves}
 

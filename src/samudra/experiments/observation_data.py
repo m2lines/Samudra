@@ -136,7 +136,7 @@ def context_planes(lat, lon, midpoints):
     return np.array(result, dtype=np.float32)
 
 
-def fit_statistics(samples, grid, output):
+def fit_statistics(samples, grid, output, *, iap_grid=None):
     """Training-example-distribution statistics; repeated history weighting is explicit."""
     from samudra.experiments.observation_prepare import save_atomic
 
@@ -151,6 +151,29 @@ def fit_statistics(samples, grid, output):
         "atmosphere": np.zeros((3, 8)),
         "interior": np.zeros((3, 28)),
     }
+    native_climate = None
+    if iap_grid is not None:
+        from samudra.experiments.observation_prepare import ConservativeRemap
+
+        iap_grid = (
+            dict(np.load(iap_grid)) if isinstance(iap_grid, (str, Path)) else iap_grid
+        )
+        interior_shape = (len(iap_grid["lat"]), len(iap_grid["lon"]))
+        remap = ConservativeRemap(lat, grid["lon"], iap_grid["lat"], iap_grid["lon"])
+        _, coverage = remap(np.where(mask[0], 1.0, np.nan))
+        native_domain = (coverage >= 0.9 - 1e-7) & (
+            np.abs(iap_grid["lat"][:, None]) <= 60
+        )
+        # Preserve the historical scalar-statistics policy explicitly: cosine
+        # weights and 60S-60N, even when losses/evaluation are global.
+        native_area = np.cos(np.deg2rad(iap_grid["lat"]))[:, None] * native_domain
+        native_climate = {
+            name: [
+                np.zeros((12, channels, *interior_shape), dtype=np.float64)
+                for _ in range(2)
+            ]
+            for name, channels in (("interior", 28), ("ohc", 2))
+        }
     count = 0
     for path in sorted(Path(samples).glob("*.npz")):
         month = path.stem
@@ -160,9 +183,13 @@ def fit_statistics(samples, grid, output):
             for name, storage in moments.items():
                 values = sample[name].astype(np.float64)
                 if name == "interior":
-                    values = values.reshape(1, 28, h, w)
+                    values = values.reshape(
+                        1, 28, *(interior_shape if iap_grid is not None else (h, w))
+                    )
                 valid = np.isfinite(values)
-                weights = valid * area
+                weights = valid * (
+                    native_area if name == "interior" and iap_grid is not None else area
+                )
                 safe = np.where(valid, values, 0)
                 storage[0] += weights.sum((0, 2, 3))
                 storage[1] += (safe * weights).sum((0, 2, 3))
@@ -173,6 +200,13 @@ def fit_statistics(samples, grid, output):
                 valid = np.isfinite(field)
                 climatology_sum[date.month - 1] += np.where(valid, field, 0)
                 climatology_count[date.month - 1] += valid
+            if native_climate is not None:
+                month_index = pd.Timestamp(month).month - 1
+                for name, (total, support) in native_climate.items():
+                    values = sample[name].reshape(total.shape[1:]).astype(np.float64)
+                    valid = np.isfinite(values)
+                    total[month_index] += np.where(valid, values, 0)
+                    support[month_index] += valid
         count += 1
     if count != 243:
         raise ValueError(f"Expected 243 accepted training months, found {count}")
@@ -202,6 +236,35 @@ def fit_statistics(samples, grid, output):
             field[~np.isfinite(field)] = fallback
     result["surface_climatology"] = climatology.astype(np.float32)
     result["training_month_count"] = np.array(count)
+    if native_climate is not None:
+        for name, (total, support) in native_climate.items():
+            climate = np.divide(
+                total, support, out=np.full_like(total, np.nan), where=support > 0
+            )
+            # Finite training-only fallback is a control prediction, never a
+            # fabricated target. Target validity is still read from each sample.
+            for month_index in range(12):
+                for channel in range(climate.shape[1]):
+                    field = climate[month_index, channel]
+                    valid = np.isfinite(field) & native_domain
+                    if not valid.any():
+                        raise ValueError(
+                            f"Empty native {name} climatology: month={month_index + 1}, channel={channel}"
+                        )
+                    if name == "interior":
+                        fallback = result["interior_mean"][channel]
+                    else:
+                        fallback = np.sum(
+                            np.where(valid, field, 0) * native_area
+                        ) / np.sum(valid * native_area)
+                    field[~np.isfinite(field)] = fallback
+            result[name + "_climatology"] = climate.astype(np.float32)
+            result[name + "_climatology_count"] = support.astype(np.int32)
+        result["iap_lat"] = np.asarray(iap_grid["lat"])
+        result["iap_lon"] = np.asarray(iap_grid["lon"])
+        result["normalization_policy"] = np.array(
+            "training months; repeated surface/atmosphere history; native IAP interiors; cosine-area weights within 60S-60N; climatology cell means global"
+        )
     save_atomic(Path(output), **result)
 
 
@@ -218,11 +281,24 @@ def main():
     root = Path(args.output)
     root.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(archive.root / "grid.npz", root / "grid.npz")
+    iap_grid = None
+    native_files = ("iap-grid.npz", "iap-operator.json")
+    present = [(archive.root / name).exists() for name in native_files]
+    if any(present):
+        if not all(present):
+            raise ValueError(
+                "Native IAP preparation requires both grid and operator contract"
+            )
+        for name in native_files:
+            shutil.copyfile(archive.root / name, root / name)
+        iap_grid = root / "iap-grid.npz"
     for split in SPLITS:
         archive.materialize(split, root / split)
         print(json.dumps({"event": "split_materialized", "split": split}), flush=True)
         if split == "train":
-            fit_statistics(root / "train", archive.grid, root / "statistics.npz")
+            fit_statistics(
+                root / "train", archive.grid, root / "statistics.npz", iap_grid=iap_grid
+            )
     (root / "COMPLETE.json").write_text(
         json.dumps(
             {

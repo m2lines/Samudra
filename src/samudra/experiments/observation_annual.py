@@ -33,6 +33,11 @@ def verify_sample_root(root, manifest):
     ):
         if digest(Path(root) / filename) != manifest[key]:
             raise ValueError(f"Annual sample data differs: {filename}")
+    iap_grid = manifest.get("arguments", {}).get("iap_grid")
+    if iap_grid and digest(Path(root) / Path(iap_grid).name) != manifest.get(
+        "iap_grid_sha256"
+    ):
+        raise ValueError("Annual native IAP geometry differs from training")
 
 
 def persistence_surface(data, initial, steps):
@@ -270,6 +275,11 @@ def main():
         "cuda",
         manifest["arguments"].get("surface_fill", "climatology"),
         global_observations=global_observations,
+        iap_grid=(
+            Path(sample_root) / Path(manifest["arguments"]["iap_grid"]).name
+            if manifest["arguments"].get("iap_grid")
+            else None
+        ),
     )
     if manifest["normalization_mode"] == "observation-only":
         data.use_observation_normalization()
@@ -314,7 +324,7 @@ def main():
             held_ohc = data.ohc(initial[:, -1])[0]
             persistence_arrays["persistence_surface"] = held_surface
         months, monthly_predictions, monthly_references = [], [], []
-        area = data.area.cpu().numpy()
+        area = data.ohc_area.cpu().numpy()
         for record in description["monthly_interiors"]:
             path = origin_path.parent / record["file"]
             if (
@@ -361,6 +371,11 @@ def main():
             predicted_ohc=np.array(monthly_predictions),
             reference_ohc=np.array(monthly_references),
             **persistence_arrays,
+            **(
+                {"iap_lat": data.iap_grid["lat"], "iap_lon": data.iap_grid["lon"]}
+                if data.dual_grid
+                else {}
+            ),
             **(
                 {
                     "latent_initial": initial[0, :, model.physical_channels :]

@@ -17,7 +17,7 @@
     }
   ],
   "reference_sha256": "d7bf4f3eeaa6a4522f7315ab77ea8468392f800c29d7a17506f5eedfa2b83b60",
-  "script_sha256": "efe1fe20c72911de81a0046e350e44049ac5ee7c119dc1031698dc90f3050d29",
+  "script_sha256": "10ec4041eba3246b60a171de3394963aa0f95259d8a7a7b63072ec0d6734ff17",
   "observation_contract": {
     "data_manifest_sha256": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
     "grid_sha256": "ce96360964a6669d0186b9581abaaffc06f660c4e09e0ac813b3dd1b819e5167",

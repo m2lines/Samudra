@@ -12,7 +12,9 @@ second arm using validation results, before looking at the new held-out results.
 improve selected validation by 5–7% over the 4k reproduction, so use **6,000
 updates** for the quarter-degree baseline. The best early-fine validation gain
 is smaller than the observed two-seed U-global spread; no optional second arm
-is promoted on this evidence. The [completed report](early-rmse-6k-2026-10-10.md)
+is promoted yet. This remains provisional while the user-requested
+[matched 4k reproductions](early-rmse-4k-reproduction-2026-10-11.md) test the
+earlier advantage; late-window means favor early fine more than minima do. The [completed report](early-rmse-6k-2026-10-10.md)
 contains the component and held-out comparisons.
 
 ## Runs

@@ -114,6 +114,13 @@ def main():
     minima = []
     for (wave, model), events in series.items():
         best = min(events, key=lambda r: r["rmse_blend"])
+        final_steps = set(range(best["budget"] - 400, best["budget"] + 1, 100))
+        final_events = [e for e in events if e["update"] in final_steps]
+        final_mean = (
+            float(np.mean([e["rmse_blend"] for e in final_events]))
+            if {e["update"] for e in final_events} == final_steps
+            else None
+        )
         minima.append(
             dict(
                 wave=wave,
@@ -124,6 +131,7 @@ def main():
                 best_rmse=best["rmse_blend"],
                 last_update=events[-1]["update"],
                 last_rmse=events[-1]["rmse_blend"],
+                final_five_scheduled_mean=final_mean,
             )
         )
     with (out / "minima.csv").open("w") as stream:

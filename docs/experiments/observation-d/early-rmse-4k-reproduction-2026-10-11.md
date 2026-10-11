@@ -7,7 +7,7 @@ Two fresh 4,000-update runs test whether the original early-data advantage
 repeats when training length and mixture match **U-global-repro4k**. The
 [6k comparison](early-rmse-6k-2026-10-10.md) stretched the mixture as well as the
 training budget, so its intermediate update 4,000 is not this control.
-The new runs are submitted; their results are pending. The curves below show
+The new runs passed data and model qualification; their results are pending. The curves below show
 completed historical runs and current reproductions, and will include the new
 4k runs as validation events arrive.
 
@@ -64,6 +64,14 @@ stretched training/data mixture may alter relative performance. The requested
 reproductions isolate the 4k schedule under the current common Torch producer.
 Cross-runtime differences remain relevant for the historical Beta control.
 
+The 6k minima also hide a late-training difference: the final five scheduled
+validations average **0.8524/0.8502** for early-fine/early-fine+latent, versus
+**0.8830/0.8808** for the two U-global seeds. These correlated validation points
+are a descriptive stability diagnostic, not five independent trials. Report
+the mean at budget−400, −300, −200, −100 and the endpoint for every completed
+run, alongside the minimum and endpoint; do not use it to change checkpoint
+selection. This diagnostic was added before the new 4k results were available.
+
 ## Curves
 
 All lines below use the same RMSE blend, including historical runs originally
@@ -85,8 +93,8 @@ Torch submission: data audit **19580149**, two-arm qualification **19580150**,
 then production/evaluation **19580151**. Dependencies require every audit and
 qualification to pass. Each arm requests one RTX6000, 16 CPUs and 192 GB RAM;
 at most two GPUs run concurrently. No qualification weights enter training.
-Training should take roughly 4–5 hours after allocation, plus qualification
-and evaluation; queue time is additional.
+Qualification measured roughly 5.3–5.5 training hours, excluding validation
+and startup; queue time is additional.
 
 The unchanged successful training producer is
 `eae2b5c56da44eb3686a6eaf72a80aa419a4b5a4`. The source archive and runtime are

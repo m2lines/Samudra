@@ -64,6 +64,14 @@ held-out ranking. Latent channels do not consistently improve the paired arms.
 All 421 saved validation blends were independently recomputed from their five
 components and the frozen reference.
 
+The best-checkpoint table does not summarize all late-training behavior.
+Across the final five scheduled validations (5,600–6,000), early-fine and
+fine+latent average **0.8524 and 0.8502**, versus **0.8830 and 0.8808** for the
+two U-global seeds. This descriptive diagnostic suggests a late-training
+advantage despite the close minima; the five correlated points are not
+independent trials and do not replace the prespecified selection criterion.
+The matched 4k follow-up reports this diagnostic alongside minima/endpoints.
+
 ## Runs
 
 | Literal model name | Seed | Recent OM4 1° updates | Earlier OM4 updates | Observation updates | Total |

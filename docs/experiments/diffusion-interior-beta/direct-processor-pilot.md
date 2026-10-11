@@ -12,6 +12,15 @@ processor's internal residual blocks remain unchanged; there is no outer
 identity bypass or implicit addition in the direct variant. Direct prediction
 does not mathematically guarantee stable recurrence.
 
+The existing matched deterministic 8k/8k reference already predicts the next
+output state directly. Its versioned
+[evolution](https://github.com/m2lines/Samudra/blob/4c058b3ec144a646589bb4b833f74f8f654f06f4/src/samudra/experiments/surface_state.py)
+returns the network output times the mask, and its
+[forecast loop](https://github.com/m2lines/Samudra/blob/4c058b3ec144a646589bb4b833f74f8f654f06f4/src/samudra/experiments/observation_model.py)
+shifts that prediction into the state without adding the prior state. Internal
+U-Net residual blocks are a separate detail. This is a relevant difference from
+the diffusion model, but not a controlled explanation of their stability gap.
+
 ## Four matched small continuations
 
 All arms start from the previous **replay-bound** checkpoint at 8,128 OM4 and
@@ -89,3 +98,12 @@ Sources: [architecture](../../../src/samudra/experiments/diffusion_direct.py),
 [trainer](../../../src/samudra/experiments/diffusion_interventions.py),
 [runner](../../../scripts/run_diffusion_direct.py),
 [Slurm launcher](../../../scripts/slurm_diffusion_direct_beta.sbatch).
+
+Initial qualification job **212175** is running on Beta's short-test partition,
+four B200s, maximum 45 minutes. Immutable runtime source is
+`direct-v1-362478529fa8`, from commit `39dde12a6`; 28 targeted tests and all
+repository hooks pass. A durable scheduler watcher and one-hour fallback
+reminder are registered. Production training follows only after all four smoke
+arms and architecture-aware checkpoint reloads pass. The production dry-run
+queue estimate was October 12 at 03:43 UTC; this is advisory, not a reservation
+or a confirmed start time.

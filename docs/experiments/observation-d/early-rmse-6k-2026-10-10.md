@@ -93,26 +93,32 @@ GPU utilization is recorded throughout, including validation. Preserve failed
 attempts; diagnose low utilization before any routine resubmission. No new seeds,
 models or scientific protocol changes beyond this table are included.
 
-Status at October 10 **22:14 ET**: CPU audit **19555071** and all seven
+Status at October 11 **01:32 ET**: CPU audit **19555071** and all seven
 qualification tasks **19555072** completed successfully. Saved gates confirm
 bitwise exact deterministic serialization replay, exact I/O, matching producer,
 seed and selection-reference contracts, and acceptable measured throughput.
 All 73 targeted tests and repository commit hooks passed.
 
-Production/evaluation array **19555073** has four early-data models running
-(1,015–1,856 total updates at this snapshot); the three U-global controls remain
-queued behind the four-task concurrency limit. Each running arm has completed
-RMSE-only validations. These are **partial training curves**; the controls have
-not trained yet, so they do not establish an improvement over U-global.
-Ten-minute GPU-utilization averages are 62–68%, with no recorded training errors.
+Production/evaluation array **19555073** has completed the two coarse early-data
+arms: both reached 6,000 updates (3,000 OM4 / 3,000 observation), selected a
+checkpoint using validation alone, and completed all 96 held-out origins.
+Checkpoint hashes agree across saved training, selection and evaluation records;
+the actual selected files were independently hashed. Best validation blends are
+0.82497 for U-multitask-early and 0.83154 for U-multitask-early-latent.
+
+The fine-data arms are near 4,250 updates. Both long U-global controls are now
+training (135–300 updates); U-global-repro4k remains queued behind the four-task
+limit. These are **partial training curves**, not a completed comparison against
+U-global. No failed attempts or training errors have been recorded. Scratch
+has approximately 64 GB free at the latest quota check.
 
 ![RMSE validation against total and observation updates](artifacts/early-rmse-6k-2026-10-10/progress/validation-blend.png)
 
 [All five normalized components](artifacts/early-rmse-6k-2026-10-10/progress/validation-components.png) ·
 [Numeric validation history](artifacts/early-rmse-6k-2026-10-10/progress/validation.csv).
 Every plotted blend was independently checked against its saved five components
-and frozen climatology denominators. Curves contain 56 completed validations
-through total update 1,800 (coarse) / 1,000 (fine), rather than interpolated results.
+and frozen climatology denominators. Curves contain 217 completed validations,
+including the two full coarse early-data trajectories, rather than interpolated results.
 
 The initial batch telemetry used physical Slurm GPU IDs, whereas Torch's cgroups
 renumber allocated GPUs. Failed telemetry files are retained; separate read-only

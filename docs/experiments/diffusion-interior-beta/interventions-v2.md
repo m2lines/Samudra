@@ -183,3 +183,30 @@ learning for autonomous systems. Our forced system needs matching forcing paths
 and calendar times, not an autonomous semigroup assumption. Composition alone
 does not guarantee stability: even exponentially growing dynamics compose
 exactly. Physical supervision and annual plausibility diagnostics remain essential.
+
+## Directional report diagnostic
+
+Use `scripts/report_diffusion_directional.py --root <evaluation-directory>
+--arms <arm-names> --output <output-directory>` alongside the scored radial
+spectra. It checks the nine validation origins, coordinates, masks, references
+and NPZ fingerprints, and rejects incomplete regional ocean boxes. All eight
+members are included. The same planar detrending and periodic Hann taper are
+used, but this diagnostic uses grid-cell distances and a full two-dimensional
+Fourier transform, not the physical-distance bins used in the blended score.
+
+Report power in 2-4, 4-8 and 8-16-cell wavelength bands, excluding frequencies
+outside the radial Nyquist circle. Also report the power-weighted mean of
+`cos(4 theta)`, where theta is the Fourier wavevector angle in image-grid
+coordinates. Positive coefficients favor grid axes; negative coefficients favor
+diagonals. Compare against the reference coefficient in each band and region:
+a negative difference means relatively more diagonal power than the reference.
+Pool raw powers and angular moments across cases before dividing, separately
+for ensemble-mean fields and the average of individual-member powers. Zero-power
+orientation is undefined, not isotropic. The CSV retains absolute power and
+coefficients alongside reference ratios/differences.
+
+This is an exploratory texture diagnostic, not an additional selection score
+or a unique artifact detector. Ocean structure, finite Fourier lattices and
+tapering also affect angular power; a reference difference alone does not prove
+an artifact. Interpret it together with individual-member maps, reference
+gradients, radial spectra, calibration and annual stability.

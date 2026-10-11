@@ -3,37 +3,50 @@
 
 # Native quarter-degree observation experiment: proposed follow-on
 
-Run after the [current seven-run comparison](early-rmse-6k-2026-10-10.md)
-finishes. The user approved this plan, including reporting both resolutions,
-on October 10. No follow-on jobs have been submitted. Choose the budget and optional
-second arm using validation results, before looking at the new held-out results.
-
-**October 11 decision:** use **6,000 updates** for the quarter-degree baseline:
-the 6k U-global seeds improve selected validation by 5–7% over the 4k control.
-The subsequent [matched 4k reproductions](early-rmse-4k-reproduction-2026-10-11.md)
-repeat the earlier-data advantage (2.7–3.0% validation, 2.6–3.7% held-out).
-This supports retaining **U-early-latent-quarter** as the proposed single
-additional arm: fine+latent led validation in both 4k executions. Its new
-validation advantage over the non-latent fine arm is only 0.3%, so a specific
-benefit from latent channels remains uncertain. This is a candidate for the
-follow-on comparison, not a demonstrated quarter-degree gain; neither run has
-been submitted or qualified at native quarter-degree resolution.
+Run after the [4k/6k auxiliary reproductions](early-rmse-6k-2026-10-10.md#auxiliary-loss-reproductions)
+finish. On October 11 the user authorized **U-global, observation-only, and the
+best one or two variants from the 6k comparison**, judged at both 30 and 365 days.
+All quarter-degree runs use 6,000 total updates. No quarter-degree jobs have yet
+been qualified or submitted. Reporting both native-resolution and matched 1°
+metrics remains agreed.
 
 ## Runs
 
-| Proposed name | Processor and predicted state | OM4 updates | Observation updates |
+| Name | Processor and predicted state | OM4 updates | Observation updates |
 |---|---|---|---|
 | U-global-quarter | Global 720×1440; same U-Net widths/depth and approximately 63M parameters | 3,000 recent-period examples at ¼° | 3,000 at ¼° |
-| U-early-quarter, optionally U-early-latent-quarter | Same global ¼° processor; add 10 recurrent channels only if that variant merits promotion | 1,500 recent + 1,500 from 1958–1974, all at ¼° | 3,000 at ¼° |
+| U-obs-only-quarter | Same global processor and initializer, both randomly initialized | None | 6,000 at ¼° |
+| Promoted variant(s), names fixed after the 6k comparison | Same native global grid; retain the selected data, latent-state or auxiliary-supervision change where applicable | 3,000; for an earlier-data variant, 1,500 recent + 1,500 from 1958–1974 | 3,000 at ¼° |
 
 Train fresh with seed 1729, fixed LR 1e-4, the existing physical losses, effective
-batch of eight, five-day steps, history/rollout lengths, and the stretched
-progressive mixture. Preserve chronological train/validation/test splits.
-The completed long-run versus original-schedule reproduction supports 6,000
-updates. A single
-optional arm should have a convincing validation improvement over U-global,
-considering component tradeoffs and the observed two-seed U-global variation.
-This small seed sample does not establish significance.
+batch of eight, five-day steps and unchanged history/rollout lengths. OM4-plus-obs
+arms retain the stretched progressive mixture. Observation-only uses observation
+examples throughout, with the same initializer reconstruction and forecast losses;
+it receives no OM4 training examples. This matches total optimizer updates, not
+observation exposure or exact FLOPs. Preserve chronological splits.
+
+## Choosing the variants
+
+First finish the auxiliary reproductions and evaluate the **fixed validation-selected
+checkpoints from the 6k runs** for U-global (both seeds), the four earlier-data
+variants, U-aux01 and U-aux01-anomaly. Do not substitute the older 4k annual results.
+Do not choose a different checkpoint using annual test outcomes.
+
+Reuse the [matched annual comparison](presentation-annual-2026-10-08.md#fixed-evaluation-protocol):
+three January starts (2015, 2018, 2021), continuous 73-step forecasts, and the same
+four-component climatology-normalized RMSE blend at days 30 and 365 (SST,
+geostrophic velocity, OHC 0–700 m, OHC 700–2000 m). Pool equal-origin MSE before
+taking square roots. Each lead has its own common climatology denominators.
+Report EKE separately: annual temporal-anomaly EKE is not the fixed-lead monthly
+cohort EKE used in the five-component training-validation blend.
+
+Promote the best non-baseline variant at each horizon, taking their union (one
+or two variants). Inspect component errors and both U-global seeds alongside
+that ranking; describe weak gains as uncertain. This avoids inventing a weight
+between short and long horizons. The three starts are a small, previously viewed
+test cohort: using them to choose the next wave is exploratory model development,
+not an untouched test of the winning hypothesis. Show all candidate scores and
+per-origin results. Quarter-degree results require their own evaluation.
 
 This is full global ¼° evolution, not a ¼° encoder around a 1° processor.
 The same convolutional architecture has a smaller receptive field in geographic
@@ -59,7 +72,7 @@ read-back. Compressed payload is approximately 635 GB. The 4,745 timestamps span
 1958–2022, on a Gaussian 720×1440 grid. This is a prepared regridded product,
 not the original tripolar simulation grid. Its release differs from the current
 Torch wave's quarter-degree v2 source, so comparisons include that provenance
-difference. Both proposed quarter-degree arms will use the same release.
+difference. All quarter-degree arms will use the same release.
 
 Observation sources already exist under:
 
@@ -101,6 +114,18 @@ own initialized persistence, matched rollout maps and temperature profiles.
 Use the same held-out origins. Retain annual rollouts as an evaluation follow-up
 to the short-lead comparison; they must not choose the training checkpoint.
 
+## Execution status
+
+The prerequisite annual comparison is queued on Torch after the auxiliary wave's
+verified result export: audit **19600907** → eight-model evaluation **19600908**
+(two GPUs concurrently) → collection **19600909**. It uses evaluation producer
+`56aac9375a59a7204cd54d85a0c5a3b8e9383d59` and the existing annual data/runtime at
+`/scratch/jr7309/runs/2026-10-11-rmse-6k-annual`. The audit freezes completed 6k
+selected checkpoint hashes and requires each run's 96-origin short-horizon
+completion record. These are queued evaluations, not new training or completed
+annual results. Quarter-degree production remains gated on these results and
+real-data qualification.
+
 ## Beta bring-up and decision points
 
 Use one Beta node (four B200s) per run, initially sequentially. Qualify the actual
@@ -122,6 +147,14 @@ a reliable runtime estimate here. Wait for capacity rather than moving jobs
 repeatedly; Beta had no idle nodes at the inventory snapshot.
 
 Use **native-support RMSE selection**, with the unchanged 1° score reported for
-comparison. The agreed defaults are fresh training, unchanged U-Net architecture,
-and at most one promoted earlier-data variant;
-the completed comparisons support the 6k baseline and the earlier-data candidate above.
+comparison. The agreed scope is two baseline arms plus one or two promoted
+variants, all trained fresh for 6k updates. Final variant identities depend on
+the completed matched 30/365-day comparison.
+
+If an auxiliary variant wins, preserve what its target means: the current q
+labels measure variance inside a **1° cell using ¼° velocities**. They are not
+unresolved variance inside a ¼° cell. A native-quarter model can retain that
+supervision through a head aggregated to the original 1° support; it cannot
+silently relabel q as finer-scale truth. Document and qualify the head/aggregation
+before submitting that arm. This transfer changes the relation of the auxiliary
+target to the resolved state, so it is not an exact resolution-only reproduction.

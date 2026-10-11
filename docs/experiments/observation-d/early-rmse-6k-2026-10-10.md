@@ -3,7 +3,7 @@
 
 # Longer early-data comparison with RMSE selection
 
-All seven fresh runs completed. **Longer U-global training helps:** the selected
+The initial seven fresh runs completed. **Longer U-global training helps:** the selected
 6k model's held-out RMSE blend is 0.8423, versus 0.9082 for the 4k reproduction
 (7.3% lower). Its second seed scores 0.8503. **At 6k, best-checkpoint gains from
 early data are small**, although late-window means favor the fine-task variants.
@@ -50,8 +50,11 @@ U-multitask-early-fine beats seed-1729 U-global by 0.98% on validation and 0.87%
 on test. The two U-global seeds differ by 2.17% and 0.96%, respectively. Two seeds
 cannot estimate significance reliably, but that scale argues against declaring
 a robust early-fine win. The early-latent arm has the lowest test blend while
-losing to U-global on validation; it must not be promoted by choosing on the
-held-out ranking. Latent channels do not consistently improve the paired arms.
+losing to U-global on validation. That held-out ranking does not establish a
+validation-selected winner. Latent channels do not consistently improve the
+paired arms. The subsequently authorized [quarter-degree plan](quarter-global-plan-2026-10-10.md#choosing-the-variants)
+will use matched 30/365-day outcomes to choose follow-on variants explicitly as
+exploratory model development, while leaving checkpoint selection unchanged.
 
 ![Budget and seed controls](artifacts/early-rmse-6k-2026-10-10/final/u-global-budget-and-seed-controls.png)
 

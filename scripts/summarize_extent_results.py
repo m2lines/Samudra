@@ -56,6 +56,7 @@ def summarize(sources, output, groups, control_rtol=0):
     reference = bundles[0]["selection_reference"]
     integrated = reference["protocol"]["integrated"]
     spectral = reference["spectral_keys"]
+    rmse_only = reference["protocol"].get("selection_metric") == "rmse-only"
     control = next(iter(arms.values()))["files"]["seasonal-climatology.json"]["data"]
     scores, curves = [], []
     for name, arm in arms.items():
@@ -84,8 +85,12 @@ def summarize(sources, output, groups, control_rtol=0):
             ratio = statistics.mean(
                 metrics["metrics"][key] / control["metrics"][key] for key in integrated
             )
-            dex = statistics.mean(
-                metrics["spectra"][key]["error_dex"] for key in spectral
+            dex = (
+                None
+                if rmse_only
+                else statistics.mean(
+                    metrics["spectra"][key]["error_dex"] for key in spectral
+                )
             )
             scores.append(
                 dict(
@@ -94,7 +99,7 @@ def summarize(sources, output, groups, control_rtol=0):
                     selected_schedule_slot=best["global_step"],
                     selected_optimizer_updates=selected_actual,
                     validation_score=best["score"],
-                    composite=(ratio + dex) / 2,
+                    composite=ratio if dex is None else (ratio + dex) / 2,
                     integrated_ratio=ratio,
                     spectral_dex=dex,
                     **{k: metrics["metrics"][k] for k in integrated},
@@ -157,8 +162,12 @@ def summarize(sources, output, groups, control_rtol=0):
             axis.grid(alpha=0.2)
             axis.legend(frameon=False, fontsize=8)
             axis.set_xlim(left=0)
-        axes[0].set_ylabel("Observation validation composite (lower is better)")
-        fig.suptitle(group + " — one seed; stars mark selected checkpoints")
+        axes[0].set_ylabel(
+            "Validation RMSE blend (lower is better)"
+            if rmse_only
+            else "Observation validation composite (lower is better)"
+        )
+        fig.suptitle(group + " — stars mark selected checkpoints")
         filename = group.lower().replace(" ", "-") + ".png"
         fig.savefig(output / filename, dpi=160)
         plt.close(fig)

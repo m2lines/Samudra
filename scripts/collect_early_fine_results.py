@@ -23,11 +23,15 @@ def digest(path):
         return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
-def collect(root):
+def collect(root, selected_names=None):
     paths = read(root / "paths.json")
     cooldown = paths.get("cooldown")
-    names = paths.get("runs") or ([*ARMS, "U-global"] if cooldown else ARMS)
+    all_names = paths.get("runs") or ([*ARMS, "U-global"] if cooldown else ARMS)
+    names = selected_names or all_names
+    if not set(names) <= set(all_names):
+        raise ValueError("Unknown model requested")
     result = dict(
+        complete_wave=set(names) == set(all_names),
         collected_utc=datetime.datetime.now(datetime.UTC).isoformat(),
         root=str(root),
         paths=paths,
@@ -154,5 +158,10 @@ def collect(root):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, required=True)
+    parser.add_argument(
+        "--models",
+        nargs="+",
+        help="Explicit partial report; defaults to the entire wave",
+    )
     args = parser.parse_args()
-    print(json.dumps(collect(args.root), indent=2, allow_nan=False))
+    print(json.dumps(collect(args.root, args.models), indent=2, allow_nan=False))

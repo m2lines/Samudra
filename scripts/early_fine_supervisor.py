@@ -26,6 +26,13 @@ def main():
     paths = json.loads((root / "paths.json").read_text())
     if paths["producer"] != os.environ["SAMUDRA_CODE_COMMIT"]:
         raise ValueError("Wrong producer")
+    if paths.get("runs"):
+        with (root / "source.tar").open("rb") as stream:
+            if (
+                hashlib.file_digest(stream, "sha256").hexdigest()
+                != paths["archive_sha256"]
+            ):
+                raise ValueError("Pinned source archive differs")
     runtime = json.loads((root / "runtime-contract.json").read_text())
     for name, expected in runtime["modules"].items():
         module = importlib.import_module(name)
@@ -95,6 +102,11 @@ def main():
         ARMS = dict(ARMS, **{"U-global": ("unet", 0)})
         runner = "run_early_fine_cooldown.py"
 
+    if paths.get("runs"):
+        from scripts.run_early_fine_rmse_wave import ARMS
+
+        runner = "run_early_fine_rmse_wave.py"
+
     architecture, latent = ARMS[args.arm]
     if args.stage == "qualify":
         for stage, marker in [
@@ -103,7 +115,7 @@ def main():
                 root
                 / (
                     f"fit-{args.arm}"
-                    if paths.get("cooldown")
+                    if paths.get("cooldown") or paths.get("runs")
                     else f"fit-{architecture}-{latent}"
                 )
                 / "QUALIFIED.json",

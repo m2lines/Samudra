@@ -126,6 +126,7 @@ class Pilot:
         self.protocol = protocol(
             getattr(args, "strict_velocity_support", False),
             getattr(args, "global_observations", False),
+            getattr(args, "selection_metric", "integrated-spectral"),
         )
         self.manifest = {
             "arguments": vars(args),
@@ -192,12 +193,26 @@ class Pilot:
             sample["validity"],
         )
 
+    @property
+    def selection_kwargs(self):
+        mode = getattr(
+            getattr(self, "args", None), "selection_metric", "integrated-spectral"
+        )
+        return {"metric": mode} if mode != "integrated-spectral" else {}
+
     @torch.no_grad()
     def evaluate(
         self, paths, persistence=False, export=None, climatology=False, anomaly=False
     ):
         self.model.eval()
         predictions, references, ohc, reference_ohc = [], [], [], []
+        climates = []
+        rmse_only = (
+            getattr(
+                getattr(self, "args", None), "selection_metric", "integrated-spectral"
+            )
+            == "rmse-only"
+        )
         interior_error, interior_bias, interior_count = (
             np.zeros(28),
             np.zeros(28),
@@ -241,6 +256,11 @@ class Pilot:
             )
             predictions.append(surface)
             references.append(truth)
+            if rmse_only:
+                climate = self.data.climatology_prediction(sample)
+                climates.append(
+                    self.data.physical(climate)[:, :6, [38, 76]].cpu().numpy()[0]
+                )
             ohc.append(predicted_ohc)
             reference_ohc.append(observed_ohc)
             if export:
@@ -274,6 +294,8 @@ class Pilot:
         )
         result = score(
             **arrays,
+            compute_spectra=not rmse_only,
+            climatology_surface=np.array(climates) if rmse_only else None,
             lat=self.data.grid["lat"],
             lon=self.data.grid["lon"],
             mask=self.data.grid["mask"][0],
@@ -337,12 +359,14 @@ class Pilot:
             for name in ("sst", "adt", "eke")
             if not any(key.startswith(name + "/") for key in keys)
         ]
-        if missing_groups:
+        if missing_groups and not self.selection_kwargs:
             raise ValueError(
                 f"No qualified spectra for {missing_groups}; refuse incomplete selection"
             )
         self.control, self.spectral_keys = control, keys
-        initial_score = selection_score(baseline, control, keys)
+        initial_score = selection_score(
+            baseline, control, keys, **self.selection_kwargs
+        )
         self.global_best = initial_score
         atomic_json(
             {
@@ -466,7 +490,9 @@ class Pilot:
             torch.cuda.set_rng_state(saved["cuda_rng"].cpu())
         else:
             metrics = self.evaluate(self.validation)
-            state["best"] = selection_score(metrics, self.control, self.spectral_keys)
+            state["best"] = selection_score(
+                metrics, self.control, self.spectral_keys, **self.selection_kwargs
+            )
             atomic_torch(
                 {"model": self.model.state_dict(), "score": state["best"]}, best
             )
@@ -535,7 +561,9 @@ class Pilot:
             )
             if validate:
                 metrics = self.evaluate(self.validation)
-                value = selection_score(metrics, self.control, self.spectral_keys)
+                value = selection_score(
+                    metrics, self.control, self.spectral_keys, **self.selection_kwargs
+                )
                 atomic_json(
                     metrics, self.out / f"{name}-validation-{state['step']:05d}.json"
                 )
@@ -752,6 +780,11 @@ def build_parser():
     parser.add_argument("--qualification")
     parser.add_argument("--fit-probe", action="store_true")
     parser.add_argument("--selection-reference")
+    parser.add_argument(
+        "--selection-metric",
+        choices=["integrated-spectral", "rmse-only"],
+        default="integrated-spectral",
+    )
     parser.add_argument("--adapter-only", action="store_true")
     parser.add_argument("--from-scratch", action="store_true")
     parser.add_argument(

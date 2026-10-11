@@ -87,7 +87,7 @@ def test_fixed_evaluation_does_not_claim_validation_selection(tmp_path, monkeypa
         use_observation_normalization=lambda: None,
         paths=lambda split: list(range(96)),
     )
-    monkeypatch.setattr(evaluation, "Samples", lambda *a: data)
+    monkeypatch.setattr(evaluation, "Samples", lambda *a, **k: data)
     monkeypatch.setattr(evaluation, "ObservationTransfer", Model)
     seen = []
 

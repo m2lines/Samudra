@@ -86,7 +86,11 @@ def spatial_error(prediction, reference, lat, lon, region):
     }
 
 
-def protocol(strict_velocity_support=False, global_observations=False):
+def protocol(
+    strict_velocity_support=False,
+    global_observations=False,
+    selection_metric="integrated-spectral",
+):
     result = dict(PROTOCOL)
     if strict_velocity_support:
         result.update(
@@ -98,6 +102,16 @@ def protocol(strict_velocity_support=False, global_observations=False):
             version=4,
             domain="Global, common finite observation and model wet support; geostrophy excludes 5S-5N",
         )
+    if selection_metric == "rmse-only":
+        result.update(
+            version=5,
+            selection="mean(normalized integrated errors)",
+            selection_metric=selection_metric,
+            spatial_spectra=[],
+            missing="Require all five integrated RMSE components; no spectral qualification",
+        )
+    elif selection_metric != "integrated-spectral":
+        raise ValueError("Unknown selection metric")
     return result
 
 
@@ -111,6 +125,8 @@ def score(
     mask,
     strict_velocity_support=False,
     global_observations=False,
+    compute_spectra=True,
+    climatology_surface=None,
 ):
     """Arrays: surface [origins, leads, 2, y, x], velocity refs at slots 2:4.
 
@@ -121,7 +137,8 @@ def score(
     domain = mask if global_observations else mask & (np.abs(lat[:, None]) <= 60)
     if not np.isfinite(np.where(domain, prediction, 0)).all():
         raise ValueError("Nonfinite prediction on the fixed model domain")
-    metrics, curves = {}, {}
+    metrics: dict[str, Any] = {}
+    curves = {}
     accumulated: dict[str, list[float]] = {
         name: [] for name in ("sst_rmse", "velocity_rmse", "eke_rmse")
     }
@@ -174,7 +191,7 @@ def score(
             ("adt", p[:, 1], r[:, 1]),
             ("eke", pe, re),
         ]:
-            for region in spectra.SPATIAL_REGIONS:
+            for region in spectra.SPATIAL_REGIONS if compute_spectra else []:
                 key = f"{label}/{region[0]}/day{5 * (lead + 1)}"
                 result = spatial_error(predicted, truth, lat, lon, region)
                 if result is not None:
@@ -186,6 +203,24 @@ def score(
         metrics[f"sst_variance_map_rmse/day{5 * (lead + 1)}"] = weighted_rmse(
             variance_pred, variance_ref, area
         )
+        if climatology_surface is not None:
+            # A single training-only climatology is subtracted from both fields.
+            climate = climatology_surface[:, lead, 0]
+            valid = np.isfinite(sst) & np.isfinite(climate)
+            w = np.broadcast_to(area, sst.shape) * valid
+            a = np.where(valid, p[:, 0] - climate, 0)
+            b = np.where(valid, sst - climate, 0)
+            aa, bb = np.sum(w * a**2), np.sum(w * b**2)
+            prefix = f"sst_dynamics/day{5 * (lead + 1)}"
+            metrics[prefix + "/bias_celsius"] = float(np.sum(w * (a - b)) / w.sum())
+            metrics[prefix + "/anomaly_correlation"] = (
+                float(np.sum(w * a * b) / np.sqrt(aa * bb))
+                if aa > 0 and bb > 0
+                else None
+            )
+            metrics[prefix + "/anomaly_rms_ratio"] = (
+                float(np.sqrt(aa / bb)) if bb > 0 else None
+            )
     for key, values in accumulated.items():
         metrics[key] = float(np.mean(values))
     for channel, label in enumerate(("0_700", "700_2000")):
@@ -196,8 +231,10 @@ def score(
     return {"metrics": metrics, "spectra": curves}
 
 
-def selection_score(result, control, spectral_keys):
-    if not spectral_keys:
+def selection_score(result, control, spectral_keys, metric="integrated-spectral"):
+    if metric not in ("integrated-spectral", "rmse-only"):
+        raise ValueError("Unknown selection metric")
+    if not spectral_keys and metric != "rmse-only":
         raise ValueError("No qualified spectral metrics: refuse RMSE-only selection")
     ratios = []
     for name in PROTOCOL["integrated"]:
@@ -210,6 +247,8 @@ def selection_score(result, control, spectral_keys):
         ):
             raise ValueError(f"Invalid fixed selection component: {name}")
         ratios.append(numerator / denominator)
+    if metric == "rmse-only":
+        return float(np.mean(ratios))
     errors = [result["spectra"][key]["error_dex"] for key in spectral_keys]
     if not np.isfinite(errors).all():
         raise ValueError("Nonfinite required spectral comparison")

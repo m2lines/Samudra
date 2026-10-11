@@ -11,7 +11,7 @@ from pathlib import Path
 import cftime
 import numpy as np
 import torch
-import zarr
+import zarr  # type: ignore[import-untyped]
 
 from samudra.experiments.early_fine_data import WetCoarsener, load_grid_bounds
 from scripts.verify_extent_observations import main as verify_observations
@@ -48,16 +48,19 @@ def main():
     sys.argv = ["verify", str(obs)]
     verify_observations()
     expected = {
-        "SHA256SUMS": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
-        "grid.npz": "ce96360964a6669d0186b9581abaaffc06f660c4e09e0ac813b3dd1b819e5167",
-        "statistics.npz": "7688d483d4c87a8ce0e2f27a1a342db93eecb3e892187506475d6970e865c001",
+        "SHA256SUMS": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",  # pragma: allowlist secret
+        "grid.npz": "ce96360964a6669d0186b9581abaaffc06f660c4e09e0ac813b3dd1b819e5167",  # pragma: allowlist secret
+        "statistics.npz": "7688d483d4c87a8ce0e2f27a1a342db93eecb3e892187506475d6970e865c001",  # pragma: allowlist secret
     }
-    for f, digest in expected.items():
-        if sha(obs / f) != digest:
-            raise ValueError("Observation contract differs: " + f)
+    for filename, digest in expected.items():
+        if sha(obs / filename) != digest:
+            raise ValueError("Observation contract differs: " + filename)
     if (
         sha(root / "selection-reference.json")
-        != "c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c"
+        != paths.get(
+            "selection_reference_sha256",
+            "c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c",  # pragma: allowlist secret
+        )
     ):
         raise ValueError("Selection reference differs from U-global")
     receipt = {

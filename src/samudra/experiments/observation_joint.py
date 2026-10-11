@@ -342,11 +342,11 @@ class JointPilot(Pilot):
         self.om4.prepare(self.om4.valset)
         self.started = time.monotonic()
 
-    def checkpoint(self, path):
+    def checkpoint(self, path, model_only=False):
         atomic_torch(
             {
                 "model": self.model.state_dict(),
-                "optimizer": self.optimizer.state_dict(),
+                "optimizer": None if model_only else self.optimizer.state_dict(),
                 "manifest": self.manifest,
                 "global_step": self.completed,
                 "step": self.schedule.counts(self.completed)["observation"],
@@ -364,7 +364,9 @@ class JointPilot(Pilot):
 
     def validate(self):
         metrics = self.evaluate(self.validation)
-        score = selection_score(metrics, self.control, self.spectral_keys)
+        score = selection_score(
+            metrics, self.control, self.spectral_keys, **self.selection_kwargs
+        )
         counts = self.schedule.counts(self.completed)
         finish = self.schedule.observation_finish
         if finish and self.completed > self.schedule.total - finish:
@@ -644,7 +646,10 @@ class JointPilot(Pilot):
                     self.validate()
                     self.checkpoint(self.resume)
                 if milestone:
-                    self.checkpoint(self.out / f"joint-{obs_count:05d}.pt")
+                    self.checkpoint(
+                        self.out / f"joint-{obs_count:05d}.pt",
+                        model_only=getattr(self.args, "model_only_milestones", False),
+                    )
                 if self.args.joint_probe and self.completed == 4:
                     self.checkpoint(self.resume)
                     # In-process disk round-trip tests the same model/optimizer
@@ -687,6 +692,7 @@ def main():
     )
     parser.add_argument("--observation-finish", type=int, default=0)
     parser.add_argument("--om4-updates", type=int, required=True)
+    parser.add_argument("--model-only-milestones", action="store_true")
     parser.add_argument("--om4-lr", type=float, required=True)
     parser.add_argument("--om4-data", default="/scratch/jr7309/data/om4_onedeg_v3")
     parser.add_argument("--om4-validation-origins", type=int, default=12)

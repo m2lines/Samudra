@@ -96,6 +96,9 @@ def main():
             "strict_velocity_support", False
         ),
         global_observations=global_observations,
+        selection_metric=manifest["arguments"].get(
+            "selection_metric", "integrated-spectral"
+        ),
     )
     evaluator.data = Samples(
         manifest["arguments"]["data"],

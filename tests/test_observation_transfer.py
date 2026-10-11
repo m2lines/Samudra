@@ -107,6 +107,28 @@ def test_integrated_scorer_identity_and_nonfinite_prediction():
     assert result["spectra"]
     assert all(abs(value) < 1e-10 for value in result["metrics"].values())
     assert all(abs(curve["error_dex"]) < 1e-10 for curve in result["spectra"].values())
+    rmse = score(
+        prediction,
+        reference,
+        ohc,
+        ohc,
+        lat,
+        lon,
+        mask,
+        compute_spectra=False,
+        climatology_surface=np.zeros_like(prediction),
+    )
+    assert not rmse["spectra"]
+    for name in PROTOCOL["integrated"]:
+        assert rmse["metrics"][name] == result["metrics"][name]
+    for lead in [5, 15, 30]:
+        assert rmse["metrics"][
+            f"sst_dynamics/day{lead}/anomaly_correlation"
+        ] == pytest.approx(1)
+        assert rmse["metrics"][
+            f"sst_dynamics/day{lead}/anomaly_rms_ratio"
+        ] == pytest.approx(1)
+        assert rmse["metrics"][f"sst_dynamics/day{lead}/bias_celsius"] == 0
     prediction[0, 0, 0, 3, 3] = np.nan
     with pytest.raises(ValueError, match="Nonfinite prediction"):
         score(prediction, reference, ohc, ohc, lat, lon, mask)

@@ -47,9 +47,10 @@ def main(arms=ARMS):
     if os.environ["SAMUDRA_CODE_COMMIT"] != config["producer"]:
         raise ValueError("Launch producer differs from frozen paths")
     architecture, latent = arms[args.arm]
+    run = config.get("runs", {}).get(args.arm, {})
     fit = root / (
         "fit-" + args.arm
-        if config.get("cooldown")
+        if config.get("cooldown") or config.get("runs")
         else "fit-" + architecture + "-" + str(latent)
     )
     probe = root / ("probe-" + args.arm)
@@ -100,12 +101,14 @@ def main(arms=ARMS):
         "--warmup-steps",
         "0",
         "--seed",
-        "1729",
+        str(run.get("seed", 1729)),
         "--wandb-mode",
         "offline",
         "--selection-reference",
         root / "selection-reference.json",
     ]
+    if config.get("selection_metric"):
+        common += ["--selection-metric", config["selection_metric"]]
     if args.stage == "fit":
         command("samudra.experiments.observation_pilot", common + ["--fit-probe"])
         if not (fit / "QUALIFIED.json").exists():
@@ -138,6 +141,10 @@ def main(arms=ARMS):
         ]
         if args.arm == "U-global":
             joint += ["--recent-only"]
+    if config.get("runs"):
+        joint += ["--model-only-milestones"]
+    if run.get("recent_only"):
+        joint += ["--recent-only"]
     if args.stage == "probe":
         command(
             "samudra.experiments.observation_joint",
@@ -159,9 +166,9 @@ def main(arms=ARMS):
             raise RuntimeError("Resume probe exited without qualification")
         return
     throughput = json.loads((probe / "THROUGHPUT.json").read_text())
-    if throughput["training_hours_for_4000_updates"] > config.get(
-        "training_hours_gate", 20
-    ):
+    if throughput["training_hours_for_4000_updates"] * run.get(
+        "updates", 4000
+    ) / 4000 > config.get("training_hours_gate", 20):
         raise RuntimeError(
             "Measured update throughput cannot meet the one-day screen; revise budget before training"
         )
@@ -183,18 +190,15 @@ def main(arms=ARMS):
                 "--joint-qualification",
                 probe / "JOINT_QUALIFIED.json",
                 "--om4-updates",
-                "2000",
+                str(run.get("updates", 4000) // 2),
                 "--joint-steps",
-                "2000",
+                str(run.get("updates", 4000) // 2),
                 "--validate-every",
                 "100",
                 "--joint-hours",
                 str(config.get("joint_hours", 24)),
                 "--milestone-steps",
-                "500",
-                "1000",
-                "1500",
-                "2000",
+                *map(str, range(500, run.get("updates", 4000) // 2 + 1, 500)),
             ],
         )
     if not (out / "TRAIN_COMPLETE.json").exists():

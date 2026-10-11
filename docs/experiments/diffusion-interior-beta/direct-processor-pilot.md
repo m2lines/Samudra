@@ -81,8 +81,8 @@ spread or stable long-term behavior.
 
 ## Execution
 
-One Beta production node, four B200s, one arm per GPU. Initial smoke test checks
-two warm-up updates where applicable, two mixed updates, and architecture-aware
+One Beta production node, four B200s, one arm per GPU. Qualification checks the
+full 256-update warm-up where applicable, two mixed updates, and architecture-aware
 checkpoint reload. Production allocation is at most eight hours. Total pilot
 ceiling including smoke tests and recovery: **40 allocated GPU-hours**. A Slurm
 accounting gate checks previous actual/reserved allocations before launch.
@@ -99,11 +99,18 @@ Sources: [architecture](../../../src/samudra/experiments/diffusion_direct.py),
 [runner](../../../scripts/run_diffusion_direct.py),
 [Slurm launcher](../../../scripts/slurm_diffusion_direct_beta.sbatch).
 
-Initial qualification job **212175** is running on Beta's short-test partition,
-four B200s, maximum 45 minutes. Immutable runtime source is
+Initial qualification job **212175** finished with three passing arms and one
+failure, after 21m41s on four B200s (**1.44556 allocated GPU-hours**). It used an
+abbreviated two-update warm-up. In `direct-warm`, teacher-forced relative latent
+MSE fell from 0.947 to 0.598, but day-30 autoregressive relative MSE rose from
+0.951 to 53.843; the subsequent native replay objective became nonfinite before
+the first mixed update. The residual, direct-without-warm-up, and residual-warm
+arms passed their two mixed updates and strict checkpoint reloads. This is a
+failure of the abbreviated conversion, not a result for the planned full warm-up.
+Its immutable runtime source was
 `direct-v1-362478529fa8`, from commit `39dde12a6`; 28 targeted tests and all
-repository hooks pass. A durable scheduler watcher and one-hour fallback
-reminder are registered. Production training follows only after all four smoke
-arms and architecture-aware checkpoint reloads pass. The production dry-run
+repository hooks passed. Preserve these outputs under `smoke-212175/` and rerun
+qualification using the actual 256-update conversion, without changing the
+production recipe. Production training follows only after qualification. The production dry-run
 queue estimate was October 12 at 03:43 UTC; this is advisory, not a reservation
 or a confirmed start time.

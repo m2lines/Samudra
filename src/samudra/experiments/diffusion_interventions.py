@@ -317,9 +317,9 @@ def main(campaign_default="v1"):
             else "residual",
             parent_step=parent_step,
             parent_counts={"om4": parent_count, "observation": parent_count},
-            warmup_steps=(2 if args.smoke else 256)
-            if args.arm.endswith("-warm")
-            else 0,
+            # A truncated conversion can destabilize recurrence even if its
+            # one-step fit improves. Qualify the actual production warmup.
+            warmup_steps=256 if args.arm.endswith("-warm") else 0,
             warmup_learning_rate="cosine 1e-3 to 1e-5",
             warmup_weight_decay=0.0,
             warmup_batch=1,

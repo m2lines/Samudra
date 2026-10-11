@@ -69,7 +69,10 @@ This is the averaged dataset subsequently prepared in thread
 It contains OM4, mean and standard-deviation stores; packed depth arrays use
 Blosc/Zstd compression. Saved conversion receipts verify lossless payload
 read-back. Compressed payload is approximately 635 GB. The 4,745 timestamps span
-1958–2022, on a Gaussian 720×1440 grid. This is a prepared regridded product,
+1958–2022, on a Gaussian 720×1440 grid. A direct coordinate audit found 4,728
+five-day intervals and 16 six-day intervals at leap-year boundaries (December 28
+to January 3, Julian calendar). Keep the published timestamps and existing OM4
+step convention; do not reject or silently rewrite those boundary intervals. This is a prepared regridded product,
 not the original tripolar simulation grid. Its release differs from the current
 Torch wave's quarter-degree v2 source, so comparisons include that provenance
 difference. All quarter-degree arms will use the same release.
@@ -106,8 +109,12 @@ Also evaluate conservatively coarsened predictions through the unchanged 1°
 observation operators and frozen reference for a direct comparison with the
 current runs. Calculate velocity/EKE after the chosen remapping where required
 by each operator; do not interchange derivative, squaring and averaging.
-Native-resolution blend values and the historical 1° blend are different
-protocols and must be labelled separately.
+Before calling the 1° comparison numerically identical to the existing one,
+verify that quarter-to-one-degree wet coverage supports every required legacy
+cell. If it does not, freeze a common intersection and rescore both the saved
+1° comparators and their climatology there; label those scores as common-support
+rescoring rather than the original published numbers. Native-resolution and
+1° blend values are different protocols and must be labelled separately.
 
 Report validation curves/components, fixed endpoints and selected checkpoints,
 own initialized persistence, matched rollout maps and temperature profiles.
@@ -125,6 +132,11 @@ selected checkpoint hashes and requires each run's 96-origin short-horizon
 completion record. These are queued evaluations, not new training or completed
 annual results. Quarter-degree production remains gated on these results and
 real-data qualification.
+
+Local groundwork now includes a bounded compact-OM4 window reader and explicit
+native-IAP projection in losses and metrics. Legacy scalar-statistics outputs
+were checked for exact equality on a synthetic 243-month fixture; real compact
+reads, real-data operators and four-GPU training are still to be qualified.
 
 ## Beta bring-up and decision points
 

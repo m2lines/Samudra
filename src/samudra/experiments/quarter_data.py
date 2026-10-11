@@ -45,6 +45,43 @@ class WindowReader(Protocol):
     ) -> torch.Tensor: ...
 
 
+def valid_om4_interval(left, right):
+    """Nominal five-day OM4 bins include the published leap-year final interval."""
+    delta = right - left
+    if isinstance(delta, np.timedelta64):
+        if delta == np.timedelta64(5, "D"):
+            return True
+        if delta != np.timedelta64(6, "D"):
+            return False
+        parts = [
+            tuple(map(int, str(value.astype("datetime64[D]")).split("-")))
+            for value in (left, right)
+        ]
+        year, month, day = parts[0]
+        leap = (
+            int(
+                (
+                    np.datetime64(f"{year + 1}-01-01") - np.datetime64(f"{year}-01-01")
+                ).astype(int)
+            )
+            == 366
+        )
+        return leap and (month, day) == (12, 28) and parts[1] == (year + 1, 1, 3)
+    if delta == datetime.timedelta(days=5):
+        return True
+    if delta != datetime.timedelta(days=6):
+        return False
+    year = left.year
+    leap = (
+        left.replace(year=year + 1, month=1, day=1) - left.replace(month=1, day=1)
+    ).days == 366
+    return (
+        leap
+        and (left.month, left.day) == (12, 28)
+        and (right.year, right.month, right.day) == (year + 1, 1, 3)
+    )
+
+
 class QuarterOm4Windows:
     def __init__(
         self,
@@ -66,14 +103,11 @@ class QuarterOm4Windows:
         if len(self.times) < 25:
             raise ValueError("OM4 source needs at least 25 frames")
         # Timing is cheap metadata; never silently bridge a missing five-day bin.
-        for delta in np.diff(self.times):
-            expected = (
-                np.timedelta64(5, "D")
-                if isinstance(delta, np.timedelta64)
-                else datetime.timedelta(days=5)
-            )
-            if delta != expected:
-                raise ValueError("OM4 windows require contiguous five-day frames")
+        for left, right in zip(self.times[:-1], self.times[1:], strict=True):
+            if not valid_om4_interval(left, right):
+                raise ValueError(
+                    "OM4 windows require five-day frames or the published leap-year boundary"
+                )
         candidates = (
             np.arange(len(self.times) - 24) if origins is None else np.asarray(origins)
         )

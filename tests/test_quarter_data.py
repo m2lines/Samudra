@@ -244,3 +244,27 @@ def test_invalid_normalization_is_rejected_without_reads(source_and_reader):
     with pytest.raises(ValueError, match="positive scales"):
         QuarterOm4Windows(source, reader, observation_statistics=stats)
     assert not reader.calls
+
+
+@pytest.mark.parametrize(
+    "date_type", [cftime.DatetimeJulian, cftime.DatetimeGregorian, datetime.datetime]
+)
+def test_om4_calendar_retains_verified_leap_year_boundary(date_type):
+    from samudra.experiments.quarter_data import valid_om4_interval
+
+    assert valid_om4_interval(date_type(2012, 12, 28, 12), date_type(2013, 1, 3, 12))
+    assert not valid_om4_interval(
+        date_type(2011, 12, 28, 12), date_type(2012, 1, 3, 12)
+    )
+    assert not valid_om4_interval(date_type(2012, 6, 1, 12), date_type(2012, 6, 7, 12))
+
+
+def test_numpy_om4_calendar_retains_verified_leap_year_boundary():
+    from samudra.experiments.quarter_data import valid_om4_interval
+
+    assert valid_om4_interval(
+        np.datetime64("2012-12-28T12:00"), np.datetime64("2013-01-03T12:00")
+    )
+    assert not valid_om4_interval(
+        np.datetime64("2012-06-01T12:00"), np.datetime64("2012-06-07T12:00")
+    )

@@ -3,6 +3,8 @@
 
 # Five-/ten-day endpoint-consistency pilot
 
+Completed: [results, maps, spectra and numerical exports](timestep-results.md).
+
 User-authorized follow-up to the [stability campaign](interventions-v2.md).
 Question: can supervising a second time interval, and requiring consistency
 between one ten-day advance and two five-day advances, reduce annual drift in
@@ -109,3 +111,8 @@ GPU. Production 212017 is eligible but waiting on priority; its October 11
 03:40 UTC scheduler estimate was 11:40 UTC, not a guaranteed start. No scientific
 results are claimed from qualification. Its callback is retired; production
 completion monitoring and fallback reminders remain active.
+
+Production completed successfully on October 11 after 5:56:24 (23.760 allocated
+GPU-hours). All four 128-update checkpoints and their validation, native and
+annual evaluations passed completion/provenance checks. The timestep callback
+is retired. The separate eight-arm learning-curve evaluations remain queued.

@@ -1,0 +1,2208 @@
+{
+  "annual": [
+    {
+      "arm": "parent",
+      "origin": "2015-01-01",
+      "day": 30,
+      "score": 0.9002163372769502,
+      "sst_rmse": 0.6671076859098812,
+      "adt_rmse": 0.07289905725820078,
+      "velocity_rmse": 0.13767107727075703,
+      "ohc_0_700_rmse": 670070950.3760308,
+      "ohc_700_2000_rmse": 407881555.1355778
+    },
+    {
+      "arm": "parent",
+      "origin": "2018-01-01",
+      "day": 30,
+      "score": 0.8615835627514387,
+      "sst_rmse": 0.5864760463546107,
+      "adt_rmse": 0.07524967916857168,
+      "velocity_rmse": 0.13842402019122185,
+      "ohc_0_700_rmse": 653508228.1543212,
+      "ohc_700_2000_rmse": 388963012.08432525
+    },
+    {
+      "arm": "parent",
+      "origin": "2021-01-01",
+      "day": 30,
+      "score": 0.9251362498332943,
+      "sst_rmse": 0.6018991020983635,
+      "adt_rmse": 0.08199365328496194,
+      "velocity_rmse": 0.1395855993766858,
+      "ohc_0_700_rmse": 679570713.8242868,
+      "ohc_700_2000_rmse": 465554441.0125929
+    },
+    {
+      "arm": "parent",
+      "origin": "pooled",
+      "day": 30,
+      "score": 0.8967570704477512,
+      "sst_rmse": 0.6194807897625744,
+      "adt_rmse": 0.07681090622023663,
+      "velocity_rmse": 0.13856247019081222,
+      "ohc_0_700_rmse": 667803473.5586232,
+      "ohc_700_2000_rmse": 422058655.21910423
+    },
+    {
+      "arm": "parent",
+      "origin": "2015-01-01",
+      "day": 365,
+      "score": 38.60596936886603,
+      "sst_rmse": 29.633485145356108,
+      "adt_rmse": 1.9541452670757893,
+      "velocity_rmse": 3.1039317238777597,
+      "ohc_0_700_rmse": 39119796937.61413,
+      "ohc_700_2000_rmse": 21923508674.52342
+    },
+    {
+      "arm": "parent",
+      "origin": "2018-01-01",
+      "day": 365,
+      "score": 39.989688557137185,
+      "sst_rmse": 31.535951037774044,
+      "adt_rmse": 2.050737684579778,
+      "velocity_rmse": 3.2277364544754445,
+      "ohc_0_700_rmse": 39961708472.930145,
+      "ohc_700_2000_rmse": 22602466188.323074
+    },
+    {
+      "arm": "parent",
+      "origin": "2021-01-01",
+      "day": 365,
+      "score": 39.954990159600364,
+      "sst_rmse": 33.041655568846735,
+      "adt_rmse": 2.1256310333003117,
+      "velocity_rmse": 3.2446503148266292,
+      "ohc_0_700_rmse": 38758755704.777565,
+      "ohc_700_2000_rmse": 22457414951.386383
+    },
+    {
+      "arm": "parent",
+      "origin": "pooled",
+      "day": 365,
+      "score": 39.52786248505573,
+      "sst_rmse": 31.434644648048344,
+      "adt_rmse": 2.0447099277175145,
+      "velocity_rmse": 3.192722476275747,
+      "ohc_0_700_rmse": 39283320465.12976,
+      "ohc_700_2000_rmse": 22329705153.262726
+    },
+    {
+      "arm": "deterministic",
+      "origin": "2015-01-01",
+      "day": 30,
+      "score": 0.9036892784603918,
+      "sst_rmse": 0.6678676094729272,
+      "adt_rmse": 0.06981491194027013,
+      "velocity_rmse": 0.1228111358814316,
+      "ohc_0_700_rmse": 714830116.5095174,
+      "ohc_700_2000_rmse": 431076987.4202814
+    },
+    {
+      "arm": "deterministic",
+      "origin": "2018-01-01",
+      "day": 30,
+      "score": 0.8874376553054304,
+      "sst_rmse": 0.6303459482111801,
+      "adt_rmse": 0.07694666623670665,
+      "velocity_rmse": 0.12366481848842466,
+      "ohc_0_700_rmse": 731900261.5976158,
+      "ohc_700_2000_rmse": 411229418.32742906
+    },
+    {
+      "arm": "deterministic",
+      "origin": "2021-01-01",
+      "day": 30,
+      "score": 0.9150772346221697,
+      "sst_rmse": 0.6209317660015353,
+      "adt_rmse": 0.07746287184363183,
+      "velocity_rmse": 0.12501565661630853,
+      "ohc_0_700_rmse": 729838383.2286161,
+      "ohc_700_2000_rmse": 456000745.39652866
+    },
+    {
+      "arm": "deterministic",
+      "origin": "pooled",
+      "day": 30,
+      "score": 0.9024238898798755,
+      "sst_rmse": 0.6400363052825258,
+      "adt_rmse": 0.07482291959115588,
+      "velocity_rmse": 0.12383386293399885,
+      "ohc_0_700_rmse": 725562805.4665401,
+      "ohc_700_2000_rmse": 433156508.8138662
+    },
+    {
+      "arm": "deterministic",
+      "origin": "2015-01-01",
+      "day": 365,
+      "score": 1.2243390046597236,
+      "sst_rmse": 0.7491151200612077,
+      "adt_rmse": 0.09891403474312119,
+      "velocity_rmse": 0.15372163803016575,
+      "ohc_0_700_rmse": 1224986242.4498036,
+      "ohc_700_2000_rmse": 632380931.9418845
+    },
+    {
+      "arm": "deterministic",
+      "origin": "2018-01-01",
+      "day": 365,
+      "score": 1.2085055319790596,
+      "sst_rmse": 0.7244348083182023,
+      "adt_rmse": 0.09921521314547507,
+      "velocity_rmse": 0.1561723367098179,
+      "ohc_0_700_rmse": 1280461704.923126,
+      "ohc_700_2000_rmse": 588571296.6677558
+    },
+    {
+      "arm": "deterministic",
+      "origin": "2021-01-01",
+      "day": 365,
+      "score": 1.1504711815381445,
+      "sst_rmse": 0.6476474641760158,
+      "adt_rmse": 0.09612059529731821,
+      "velocity_rmse": 0.1565170334392434,
+      "ohc_0_700_rmse": 1197266085.5726573,
+      "ohc_700_2000_rmse": 565079753.2402678
+    },
+    {
+      "arm": "deterministic",
+      "origin": "pooled",
+      "day": 365,
+      "score": 1.1953546610671253,
+      "sst_rmse": 0.7083846630329627,
+      "adt_rmse": 0.09809317616255861,
+      "velocity_rmse": 0.15547531691418984,
+      "ohc_0_700_rmse": 1234722580.3972325,
+      "ohc_700_2000_rmse": 595996907.6728872
+    },
+    {
+      "arm": "control",
+      "origin": "2015-01-01",
+      "day": 30,
+      "score": 0.9047713263121206,
+      "sst_rmse": 0.6678822053497014,
+      "adt_rmse": 0.07395719795011516,
+      "velocity_rmse": 0.13886811365484694,
+      "ohc_0_700_rmse": 673779766.8800917,
+      "ohc_700_2000_rmse": 409564960.7424954
+    },
+    {
+      "arm": "control",
+      "origin": "2018-01-01",
+      "day": 30,
+      "score": 0.8623384500207653,
+      "sst_rmse": 0.5872917415708333,
+      "adt_rmse": 0.07562918350354382,
+      "velocity_rmse": 0.13921261861290277,
+      "ohc_0_700_rmse": 650769261.031566,
+      "ohc_700_2000_rmse": 389009242.71367973
+    },
+    {
+      "arm": "control",
+      "origin": "2021-01-01",
+      "day": 30,
+      "score": 0.92173962171529,
+      "sst_rmse": 0.5995199539104457,
+      "adt_rmse": 0.0825468701722284,
+      "velocity_rmse": 0.1394364073121904,
+      "ohc_0_700_rmse": 677077927.824652,
+      "ohc_700_2000_rmse": 462929411.6447211
+    },
+    {
+      "arm": "control",
+      "origin": "pooled",
+      "day": 30,
+      "score": 0.8973365636547588,
+      "sst_rmse": 0.6192475016977907,
+      "adt_rmse": 0.07746703879990068,
+      "velocity_rmse": 0.13917257614828202,
+      "ohc_0_700_rmse": 667311602.8033395,
+      "ohc_700_2000_rmse": 421653605.12724185
+    },
+    {
+      "arm": "control",
+      "origin": "2015-01-01",
+      "day": 365,
+      "score": 36.818151782427876,
+      "sst_rmse": 28.08443699088049,
+      "adt_rmse": 1.8933210576756845,
+      "velocity_rmse": 2.9604995019622193,
+      "ohc_0_700_rmse": 37169689935.49584,
+      "ohc_700_2000_rmse": 21030851319.798122
+    },
+    {
+      "arm": "control",
+      "origin": "2018-01-01",
+      "day": 365,
+      "score": 37.968933370664686,
+      "sst_rmse": 29.707268834921972,
+      "adt_rmse": 1.943636058414958,
+      "velocity_rmse": 3.038330488105557,
+      "ohc_0_700_rmse": 37931433753.14756,
+      "ohc_700_2000_rmse": 21618248916.3843
+    },
+    {
+      "arm": "control",
+      "origin": "2021-01-01",
+      "day": 365,
+      "score": 37.07675215007522,
+      "sst_rmse": 28.051819671276196,
+      "adt_rmse": 1.89887369817493,
+      "velocity_rmse": 3.0249136064887634,
+      "ohc_0_700_rmse": 36776842406.417816,
+      "ohc_700_2000_rmse": 21427584562.815434
+    },
+    {
+      "arm": "control",
+      "origin": "pooled",
+      "day": 365,
+      "score": 37.29269687035766,
+      "sst_rmse": 28.624942559446655,
+      "adt_rmse": 1.9120762778220555,
+      "velocity_rmse": 3.008106369062945,
+      "ohc_0_700_rmse": 37295735474.97003,
+      "ohc_700_2000_rmse": 21360296296.65603
+    },
+    {
+      "arm": "supervised",
+      "origin": "2015-01-01",
+      "day": 30,
+      "score": 0.9050876747938158,
+      "sst_rmse": 0.6685259658632461,
+      "adt_rmse": 0.0739891939772371,
+      "velocity_rmse": 0.13901155943185745,
+      "ohc_0_700_rmse": 672752162.7086681,
+      "ohc_700_2000_rmse": 409900950.639408
+    },
+    {
+      "arm": "supervised",
+      "origin": "2018-01-01",
+      "day": 30,
+      "score": 0.8628500862554299,
+      "sst_rmse": 0.5873422908786899,
+      "adt_rmse": 0.0757302794353612,
+      "velocity_rmse": 0.13939509582124826,
+      "ohc_0_700_rmse": 650081359.4377552,
+      "ohc_700_2000_rmse": 389635335.7233251
+    },
+    {
+      "arm": "supervised",
+      "origin": "2021-01-01",
+      "day": 30,
+      "score": 0.9226900821972779,
+      "sst_rmse": 0.6001215327597988,
+      "adt_rmse": 0.0825190301934554,
+      "velocity_rmse": 0.13950782242037202,
+      "ohc_0_700_rmse": 676873921.5199734,
+      "ohc_700_2000_rmse": 464061702.3918287
+    },
+    {
+      "arm": "supervised",
+      "origin": "pooled",
+      "day": 30,
+      "score": 0.8979437717404618,
+      "sst_rmse": 0.619689112316271,
+      "adt_rmse": 0.07750025030675173,
+      "velocity_rmse": 0.1393049878398304,
+      "ohc_0_700_rmse": 666673221.2889754,
+      "ohc_700_2000_rmse": 422369406.9595638
+    },
+    {
+      "arm": "supervised",
+      "origin": "2015-01-01",
+      "day": 365,
+      "score": 37.47515862349218,
+      "sst_rmse": 27.995258742118676,
+      "adt_rmse": 1.8949998130554517,
+      "velocity_rmse": 3.0115251955316755,
+      "ohc_0_700_rmse": 38036758712.979485,
+      "ohc_700_2000_rmse": 21543098362.466095
+    },
+    {
+      "arm": "supervised",
+      "origin": "2018-01-01",
+      "day": 365,
+      "score": 38.444738328053404,
+      "sst_rmse": 29.14380885638737,
+      "adt_rmse": 1.9696940764412565,
+      "velocity_rmse": 3.1295826965549924,
+      "ohc_0_700_rmse": 38586125752.24876,
+      "ohc_700_2000_rmse": 22024798075.43799
+    },
+    {
+      "arm": "supervised",
+      "origin": "2021-01-01",
+      "day": 365,
+      "score": 37.65339302215533,
+      "sst_rmse": 27.71206665344125,
+      "adt_rmse": 1.9231671638220558,
+      "velocity_rmse": 3.091631321115268,
+      "ohc_0_700_rmse": 37435136721.521164,
+      "ohc_700_2000_rmse": 21961338822.43421
+    },
+    {
+      "arm": "supervised",
+      "origin": "pooled",
+      "day": 365,
+      "score": 37.86165597094809,
+      "sst_rmse": 28.29048570868886,
+      "adt_rmse": 1.9295328438295924,
+      "velocity_rmse": 3.077973147142962,
+      "ohc_0_700_rmse": 38022246011.67391,
+      "ohc_700_2000_rmse": 21844123696.412136
+    },
+    {
+      "arm": "consistency-weak",
+      "origin": "2015-01-01",
+      "day": 30,
+      "score": 0.9044013107576854,
+      "sst_rmse": 0.6682765344147238,
+      "adt_rmse": 0.07392317079872365,
+      "velocity_rmse": 0.13883959377514468,
+      "ohc_0_700_rmse": 672569267.8851521,
+      "ohc_700_2000_rmse": 409494805.1043441
+    },
+    {
+      "arm": "consistency-weak",
+      "origin": "2018-01-01",
+      "day": 30,
+      "score": 0.8621013755410499,
+      "sst_rmse": 0.5871512703109666,
+      "adt_rmse": 0.0755767273137449,
+      "velocity_rmse": 0.13919536713288244,
+      "ohc_0_700_rmse": 649422604.6447732,
+      "ohc_700_2000_rmse": 389419201.4361618
+    },
+    {
+      "arm": "consistency-weak",
+      "origin": "2021-01-01",
+      "day": 30,
+      "score": 0.9217035365350581,
+      "sst_rmse": 0.5990161122314085,
+      "adt_rmse": 0.08245741615738024,
+      "velocity_rmse": 0.1393047974056432,
+      "ohc_0_700_rmse": 676675690.379076,
+      "ohc_700_2000_rmse": 463653041.62069315
+    },
+    {
+      "arm": "consistency-weak",
+      "origin": "pooled",
+      "day": 30,
+      "score": 0.8971377164292764,
+      "sst_rmse": 0.6191823757693061,
+      "adt_rmse": 0.07740736909740316,
+      "velocity_rmse": 0.1391133945277885,
+      "ohc_0_700_rmse": 666330530.9622171,
+      "ohc_700_2000_rmse": 422021900.2448186
+    },
+    {
+      "arm": "consistency-weak",
+      "origin": "2015-01-01",
+      "day": 365,
+      "score": 37.405333127020235,
+      "sst_rmse": 27.947882223159038,
+      "adt_rmse": 1.9006453027021462,
+      "velocity_rmse": 2.9891458177106682,
+      "ohc_0_700_rmse": 38300661523.99998,
+      "ohc_700_2000_rmse": 21403079140.130173
+    },
+    {
+      "arm": "consistency-weak",
+      "origin": "2018-01-01",
+      "day": 365,
+      "score": 38.53108022259538,
+      "sst_rmse": 29.101073702412748,
+      "adt_rmse": 1.9746785631561377,
+      "velocity_rmse": 3.110915815481953,
+      "ohc_0_700_rmse": 38912161003.494316,
+      "ohc_700_2000_rmse": 22078723250.037685
+    },
+    {
+      "arm": "consistency-weak",
+      "origin": "2021-01-01",
+      "day": 365,
+      "score": 37.53944888420623,
+      "sst_rmse": 27.656426757937034,
+      "adt_rmse": 1.936961161064646,
+      "velocity_rmse": 3.071959095691882,
+      "ohc_0_700_rmse": 37503159004.53787,
+      "ohc_700_2000_rmse": 21834452080.958096
+    },
+    {
+      "arm": "consistency-weak",
+      "origin": "pooled",
+      "day": 365,
+      "score": 37.83017144817737,
+      "sst_rmse": 28.242016880350235,
+      "adt_rmse": 1.937664103497217,
+      "velocity_rmse": 3.057761851210621,
+      "ohc_0_700_rmse": 38243011921.38474,
+      "ohc_700_2000_rmse": 21773876662.230556
+    },
+    {
+      "arm": "consistency-strong",
+      "origin": "2015-01-01",
+      "day": 30,
+      "score": 0.9038091445005723,
+      "sst_rmse": 0.6666729994283391,
+      "adt_rmse": 0.0738650277024413,
+      "velocity_rmse": 0.13890210460543218,
+      "ohc_0_700_rmse": 671605683.4432821,
+      "ohc_700_2000_rmse": 409581835.24838597
+    },
+    {
+      "arm": "consistency-strong",
+      "origin": "2018-01-01",
+      "day": 30,
+      "score": 0.8620910411716194,
+      "sst_rmse": 0.5868886679029646,
+      "adt_rmse": 0.0755182999616457,
+      "velocity_rmse": 0.13923949393213872,
+      "ohc_0_700_rmse": 649104109.3118749,
+      "ohc_700_2000_rmse": 389557178.32332355
+    },
+    {
+      "arm": "consistency-strong",
+      "origin": "2021-01-01",
+      "day": 30,
+      "score": 0.9210043936653954,
+      "sst_rmse": 0.5973880941308929,
+      "adt_rmse": 0.08225736851503436,
+      "velocity_rmse": 0.13926918490138274,
+      "ohc_0_700_rmse": 676277531.3590802,
+      "ohc_700_2000_rmse": 463567900.7186273
+    },
+    {
+      "arm": "consistency-strong",
+      "origin": "pooled",
+      "day": 30,
+      "score": 0.8966928563618543,
+      "sst_rmse": 0.6179977701386511,
+      "adt_rmse": 0.07729883703652488,
+      "velocity_rmse": 0.13913702741948558,
+      "ohc_0_700_rmse": 665768137.3621532,
+      "ohc_700_2000_rmse": 422061320.0019403
+    },
+    {
+      "arm": "consistency-strong",
+      "origin": "2015-01-01",
+      "day": 365,
+      "score": 37.69943810802968,
+      "sst_rmse": 27.983164563551114,
+      "adt_rmse": 1.9068237203761194,
+      "velocity_rmse": 2.9927442260391235,
+      "ohc_0_700_rmse": 39000874226.407394,
+      "ohc_700_2000_rmse": 21522296889.29967
+    },
+    {
+      "arm": "consistency-strong",
+      "origin": "2018-01-01",
+      "day": 365,
+      "score": 38.73527608593595,
+      "sst_rmse": 29.140362696066333,
+      "adt_rmse": 1.987164085612181,
+      "velocity_rmse": 3.14003985041172,
+      "ohc_0_700_rmse": 39321194396.85681,
+      "ohc_700_2000_rmse": 22121051226.76716
+    },
+    {
+      "arm": "consistency-strong",
+      "origin": "2021-01-01",
+      "day": 365,
+      "score": 37.84650196189064,
+      "sst_rmse": 27.78920307662589,
+      "adt_rmse": 1.9488860189906323,
+      "velocity_rmse": 3.0883046419657547,
+      "ohc_0_700_rmse": 38190877763.42043,
+      "ohc_700_2000_rmse": 21909837083.35762
+    },
+    {
+      "arm": "consistency-strong",
+      "origin": "pooled",
+      "day": 365,
+      "score": 38.09811806979865,
+      "sst_rmse": 28.310528340077717,
+      "adt_rmse": 1.947900965890641,
+      "velocity_rmse": 3.074301754125176,
+      "ohc_0_700_rmse": 38840561545.717354,
+      "ohc_700_2000_rmse": 21852468447.81071
+    }
+  ],
+  "validation": [
+    {
+      "arm": "control",
+      "score": 0.7351187069182797,
+      "sst_rmse/day5": 0.533278482153857,
+      "velocity_rmse/day5": 0.12131367779897326,
+      "eke_rmse/day5": 0.019552916439408284,
+      "sst_variance_map_rmse/day5": 0.7850045292328067,
+      "sst_rmse/day15": 0.5658269057959183,
+      "velocity_rmse/day15": 0.1271787228614801,
+      "eke_rmse/day15": 0.020376738781907818,
+      "sst_variance_map_rmse/day15": 0.9366497060848609,
+      "sst_rmse/day30": 0.6073107804888447,
+      "velocity_rmse/day30": 0.1353367557418978,
+      "eke_rmse/day30": 0.020654703322907968,
+      "sst_variance_map_rmse/day30": 1.1006972628378504,
+      "sst_rmse": 0.56880538947954,
+      "velocity_rmse": 0.12794305213411705,
+      "eke_rmse": 0.020194786181408023,
+      "ohc_0_700_rmse": 647422064.1650059,
+      "ohc_700_2000_rmse": 393997698.51936674
+    },
+    {
+      "arm": "supervised",
+      "score": 0.7336570430260514,
+      "sst_rmse/day5": 0.5331256043038245,
+      "velocity_rmse/day5": 0.12134831471748263,
+      "eke_rmse/day5": 0.019524219065450425,
+      "sst_variance_map_rmse/day5": 0.7863549563816961,
+      "sst_rmse/day15": 0.5649469619550405,
+      "velocity_rmse/day15": 0.12719819420295694,
+      "eke_rmse/day15": 0.02038378788317912,
+      "sst_variance_map_rmse/day15": 0.9380839321943443,
+      "sst_rmse/day30": 0.6073458557943076,
+      "velocity_rmse/day30": 0.1353579353278951,
+      "eke_rmse/day30": 0.02063770401990408,
+      "sst_variance_map_rmse/day30": 1.10383576447911,
+      "sst_rmse": 0.5684728073510574,
+      "velocity_rmse": 0.12796814808277823,
+      "eke_rmse": 0.020181903656177877,
+      "ohc_0_700_rmse": 646506470.0633477,
+      "ohc_700_2000_rmse": 393684644.074829
+    },
+    {
+      "arm": "consistency-weak",
+      "score": 0.7321686589222773,
+      "sst_rmse/day5": 0.5329128880238031,
+      "velocity_rmse/day5": 0.12137135697966205,
+      "eke_rmse/day5": 0.01948247683304512,
+      "sst_variance_map_rmse/day5": 0.7880366192443816,
+      "sst_rmse/day15": 0.5645181970463655,
+      "velocity_rmse/day15": 0.12719412792540274,
+      "eke_rmse/day15": 0.02038514256049134,
+      "sst_variance_map_rmse/day15": 0.9382023250906212,
+      "sst_rmse/day30": 0.6069087984922446,
+      "velocity_rmse/day30": 0.13537533808104582,
+      "eke_rmse/day30": 0.02063618458979491,
+      "sst_variance_map_rmse/day30": 1.1064893227545116,
+      "sst_rmse": 0.5681132945208044,
+      "velocity_rmse": 0.12798027432870354,
+      "eke_rmse": 0.020167934661110457,
+      "ohc_0_700_rmse": 646224765.1614416,
+      "ohc_700_2000_rmse": 393736398.4580897
+    },
+    {
+      "arm": "consistency-strong",
+      "score": 0.7322713862722303,
+      "sst_rmse/day5": 0.532229742364714,
+      "velocity_rmse/day5": 0.12133412603522765,
+      "eke_rmse/day5": 0.019462386120781387,
+      "sst_variance_map_rmse/day5": 0.7880709478566981,
+      "sst_rmse/day15": 0.5645483665229978,
+      "velocity_rmse/day15": 0.12714887904875002,
+      "eke_rmse/day15": 0.020390268291021568,
+      "sst_variance_map_rmse/day15": 0.9387980163749519,
+      "sst_rmse/day30": 0.6062264828473386,
+      "velocity_rmse/day30": 0.13536879568908058,
+      "eke_rmse/day30": 0.020638559567492387,
+      "sst_variance_map_rmse/day30": 1.1052181524715607,
+      "sst_rmse": 0.5676681972450167,
+      "velocity_rmse": 0.1279506002576861,
+      "eke_rmse": 0.020163737993098448,
+      "ohc_0_700_rmse": 645873056.2560261,
+      "ohc_700_2000_rmse": 394063997.7550929
+    }
+  ],
+  "calibration": [
+    {
+      "arm": "control",
+      "group": "SST",
+      "spread_rmse_ratio": 0.6183994105749445,
+      "coverage90": 0.5529043066657843,
+      "fair_crps": 0.03602348577681616
+    },
+    {
+      "arm": "control",
+      "group": "SSH",
+      "spread_rmse_ratio": 0.6244027226354747,
+      "coverage90": 0.4876411512908047,
+      "fair_crps": 0.06358199368946817
+    },
+    {
+      "arm": "control",
+      "group": "T",
+      "spread_rmse_ratio": 0.575084887765311,
+      "coverage90": 0.47639640343692247,
+      "fair_crps": 0.03382741151011173
+    },
+    {
+      "arm": "control",
+      "group": "S",
+      "spread_rmse_ratio": 0.5279675300925183,
+      "coverage90": 0.5107305497999453,
+      "fair_crps": 0.03409308917530943
+    },
+    {
+      "arm": "supervised",
+      "group": "SST",
+      "spread_rmse_ratio": 0.6187251679916438,
+      "coverage90": 0.5524227161430457,
+      "fair_crps": 0.03600379690836848
+    },
+    {
+      "arm": "supervised",
+      "group": "SSH",
+      "spread_rmse_ratio": 0.6258862620504593,
+      "coverage90": 0.48760472224402795,
+      "fair_crps": 0.06357373774103948
+    },
+    {
+      "arm": "supervised",
+      "group": "T",
+      "spread_rmse_ratio": 0.5751461942955597,
+      "coverage90": 0.4761604895017272,
+      "fair_crps": 0.03382081627890098
+    },
+    {
+      "arm": "supervised",
+      "group": "S",
+      "spread_rmse_ratio": 0.5276341132562591,
+      "coverage90": 0.5100244087441557,
+      "fair_crps": 0.034116923603271315
+    },
+    {
+      "arm": "consistency-weak",
+      "group": "SST",
+      "spread_rmse_ratio": 0.6189026788510703,
+      "coverage90": 0.5519226842350712,
+      "fair_crps": 0.03599278453236044
+    },
+    {
+      "arm": "consistency-weak",
+      "group": "SSH",
+      "spread_rmse_ratio": 0.6264246295579743,
+      "coverage90": 0.48742456578505633,
+      "fair_crps": 0.06359922736141246
+    },
+    {
+      "arm": "consistency-weak",
+      "group": "T",
+      "spread_rmse_ratio": 0.5755073258965208,
+      "coverage90": 0.47621590469486264,
+      "fair_crps": 0.03381035492802182
+    },
+    {
+      "arm": "consistency-weak",
+      "group": "S",
+      "spread_rmse_ratio": 0.528641103415271,
+      "coverage90": 0.5102014890699693,
+      "fair_crps": 0.034101480127233574
+    },
+    {
+      "arm": "consistency-strong",
+      "group": "SST",
+      "spread_rmse_ratio": 0.6194868483205306,
+      "coverage90": 0.552365498129964,
+      "fair_crps": 0.03597574971319122
+    },
+    {
+      "arm": "consistency-strong",
+      "group": "SSH",
+      "spread_rmse_ratio": 0.6273139400903214,
+      "coverage90": 0.48758776293103484,
+      "fair_crps": 0.0635790849751658
+    },
+    {
+      "arm": "consistency-strong",
+      "group": "T",
+      "spread_rmse_ratio": 0.5757575385365439,
+      "coverage90": 0.4763765457068165,
+      "fair_crps": 0.03380665963133154
+    },
+    {
+      "arm": "consistency-strong",
+      "group": "S",
+      "spread_rmse_ratio": 0.5298307393367327,
+      "coverage90": 0.5108074574567885,
+      "fair_crps": 0.03409073459429609
+    }
+  ],
+  "spatial": [
+    {
+      "arm": "control",
+      "channel": "SST",
+      "mean_increment_rmse": 0.23286508339380807,
+      "member_increment_rmse": 0.2894720320904412
+    },
+    {
+      "arm": "control",
+      "channel": "SSH",
+      "mean_increment_rmse": 0.03686332282247278,
+      "member_increment_rmse": 0.04437589706894591
+    },
+    {
+      "arm": "supervised",
+      "channel": "SST",
+      "mean_increment_rmse": 0.2328884743860914,
+      "member_increment_rmse": 0.28965216325194565
+    },
+    {
+      "arm": "supervised",
+      "channel": "SSH",
+      "mean_increment_rmse": 0.03688664881609784,
+      "member_increment_rmse": 0.0444744875135219
+    },
+    {
+      "arm": "consistency-weak",
+      "channel": "SST",
+      "mean_increment_rmse": 0.2328982221918882,
+      "member_increment_rmse": 0.2895907200323506
+    },
+    {
+      "arm": "consistency-weak",
+      "channel": "SSH",
+      "mean_increment_rmse": 0.036899005623366204,
+      "member_increment_rmse": 0.04444652170542407
+    },
+    {
+      "arm": "consistency-strong",
+      "channel": "SST",
+      "mean_increment_rmse": 0.2329014519748957,
+      "member_increment_rmse": 0.289592081903037
+    },
+    {
+      "arm": "consistency-strong",
+      "channel": "SSH",
+      "mean_increment_rmse": 0.03689437345450508,
+      "member_increment_rmse": 0.044441822381243314
+    }
+  ],
+  "native": [
+    {
+      "arm": "parent",
+      "year": 2015,
+      "day": 0,
+      "latent_rms": 1.5657960176467896,
+      "sst_normalized_rmse": 0.0,
+      "ssh_normalized_rmse": 0.0,
+      "t_normalized_rmse": 0.19755409158528572,
+      "s_normalized_rmse": 0.18387036467671558
+    },
+    {
+      "arm": "parent",
+      "year": 2015,
+      "day": 30,
+      "latent_rms": 2.1249518394470215,
+      "sst_normalized_rmse": 0.09065841272608785,
+      "ssh_normalized_rmse": 0.1346015968555192,
+      "t_normalized_rmse": 0.19761942305528535,
+      "s_normalized_rmse": 0.17014775519912137
+    },
+    {
+      "arm": "parent",
+      "year": 2015,
+      "day": 90,
+      "latent_rms": 1.8548823595046997,
+      "sst_normalized_rmse": 0.14591483339360442,
+      "ssh_normalized_rmse": 0.16435641120191644,
+      "t_normalized_rmse": 0.22198396876901413,
+      "s_normalized_rmse": 0.2142064363150198
+    },
+    {
+      "arm": "parent",
+      "year": 2015,
+      "day": 180,
+      "latent_rms": 1.9584276676177979,
+      "sst_normalized_rmse": 0.3962511776807354,
+      "ssh_normalized_rmse": 0.5261669167197914,
+      "t_normalized_rmse": 0.6997656204846687,
+      "s_normalized_rmse": 1.1548896021782031
+    },
+    {
+      "arm": "parent",
+      "year": 2015,
+      "day": 365,
+      "latent_rms": 48.25542449951172,
+      "sst_normalized_rmse": 3.3649457297405436,
+      "ssh_normalized_rmse": 3.499102886212519,
+      "t_normalized_rmse": 4.998432252445938,
+      "s_normalized_rmse": 6.818525097942003
+    },
+    {
+      "arm": "parent",
+      "year": 2018,
+      "day": 0,
+      "latent_rms": 1.5657267570495605,
+      "sst_normalized_rmse": 0.0,
+      "ssh_normalized_rmse": 0.0,
+      "t_normalized_rmse": 0.19880214788604433,
+      "s_normalized_rmse": 0.1906609793423316
+    },
+    {
+      "arm": "parent",
+      "year": 2018,
+      "day": 30,
+      "latent_rms": 2.123995304107666,
+      "sst_normalized_rmse": 0.08655716182846977,
+      "ssh_normalized_rmse": 0.12072446489421891,
+      "t_normalized_rmse": 0.1989438646907343,
+      "s_normalized_rmse": 0.17573390028083943
+    },
+    {
+      "arm": "parent",
+      "year": 2018,
+      "day": 90,
+      "latent_rms": 1.8536574840545654,
+      "sst_normalized_rmse": 0.14599014831480825,
+      "ssh_normalized_rmse": 0.16160887127439746,
+      "t_normalized_rmse": 0.2225809703117983,
+      "s_normalized_rmse": 0.22153428651619944
+    },
+    {
+      "arm": "parent",
+      "year": 2018,
+      "day": 180,
+      "latent_rms": 1.9540984630584717,
+      "sst_normalized_rmse": 0.39399747337702695,
+      "ssh_normalized_rmse": 0.5258533184658819,
+      "t_normalized_rmse": 0.6937048795632171,
+      "s_normalized_rmse": 1.1418951956277037
+    },
+    {
+      "arm": "parent",
+      "year": 2018,
+      "day": 365,
+      "latent_rms": 47.40826416015625,
+      "sst_normalized_rmse": 3.3237388972756543,
+      "ssh_normalized_rmse": 3.4750373838321167,
+      "t_normalized_rmse": 4.965204470870237,
+      "s_normalized_rmse": 6.774293090456122
+    },
+    {
+      "arm": "parent",
+      "year": 2021,
+      "day": 0,
+      "latent_rms": 1.5666306018829346,
+      "sst_normalized_rmse": 0.0,
+      "ssh_normalized_rmse": 0.0,
+      "t_normalized_rmse": 0.20054338658346263,
+      "s_normalized_rmse": 0.1951825474404149
+    },
+    {
+      "arm": "parent",
+      "year": 2021,
+      "day": 30,
+      "latent_rms": 2.1241371631622314,
+      "sst_normalized_rmse": 0.09163552673317767,
+      "ssh_normalized_rmse": 0.13631649104322666,
+      "t_normalized_rmse": 0.201241202291904,
+      "s_normalized_rmse": 0.1809787813749603
+    },
+    {
+      "arm": "parent",
+      "year": 2021,
+      "day": 90,
+      "latent_rms": 1.8565210103988647,
+      "sst_normalized_rmse": 0.14072228748662363,
+      "ssh_normalized_rmse": 0.16114147625375302,
+      "t_normalized_rmse": 0.22449629728417417,
+      "s_normalized_rmse": 0.22126723094325793
+    },
+    {
+      "arm": "parent",
+      "year": 2021,
+      "day": 180,
+      "latent_rms": 1.9439237117767334,
+      "sst_normalized_rmse": 0.39081036937748387,
+      "ssh_normalized_rmse": 0.5216563651963949,
+      "t_normalized_rmse": 0.6911014806241365,
+      "s_normalized_rmse": 1.138224236811063
+    },
+    {
+      "arm": "parent",
+      "year": 2021,
+      "day": 365,
+      "latent_rms": 47.57009506225586,
+      "sst_normalized_rmse": 3.3471008338567265,
+      "ssh_normalized_rmse": 3.4403638527532308,
+      "t_normalized_rmse": 4.948140222178557,
+      "s_normalized_rmse": 6.724763974097127
+    },
+    {
+      "arm": "control",
+      "year": 2015,
+      "day": 0,
+      "latent_rms": 1.6156219244003296,
+      "sst_normalized_rmse": 0.0,
+      "ssh_normalized_rmse": 0.0,
+      "t_normalized_rmse": 0.19662695566195446,
+      "s_normalized_rmse": 0.18258303691821787
+    },
+    {
+      "arm": "control",
+      "year": 2015,
+      "day": 30,
+      "latent_rms": 2.221029043197632,
+      "sst_normalized_rmse": 0.08714168990535993,
+      "ssh_normalized_rmse": 0.13524785355338403,
+      "t_normalized_rmse": 0.1967790784033235,
+      "s_normalized_rmse": 0.16965988699775622
+    },
+    {
+      "arm": "control",
+      "year": 2015,
+      "day": 90,
+      "latent_rms": 1.9621596336364746,
+      "sst_normalized_rmse": 0.14114990551084275,
+      "ssh_normalized_rmse": 0.1628594338904535,
+      "t_normalized_rmse": 0.2203195863465504,
+      "s_normalized_rmse": 0.21147972423000932
+    },
+    {
+      "arm": "control",
+      "year": 2015,
+      "day": 180,
+      "latent_rms": 1.9211578369140625,
+      "sst_normalized_rmse": 0.38824201420163057,
+      "ssh_normalized_rmse": 0.49743566969347747,
+      "t_normalized_rmse": 0.6787286452063725,
+      "s_normalized_rmse": 1.12954662734217
+    },
+    {
+      "arm": "control",
+      "year": 2015,
+      "day": 365,
+      "latent_rms": 42.07052230834961,
+      "sst_normalized_rmse": 3.139346645439062,
+      "ssh_normalized_rmse": 3.299179790175557,
+      "t_normalized_rmse": 4.692799861406139,
+      "s_normalized_rmse": 6.473308628137552
+    },
+    {
+      "arm": "control",
+      "year": 2018,
+      "day": 0,
+      "latent_rms": 1.615647315979004,
+      "sst_normalized_rmse": 0.0,
+      "ssh_normalized_rmse": 0.0,
+      "t_normalized_rmse": 0.1978505651876275,
+      "s_normalized_rmse": 0.18957627910514038
+    },
+    {
+      "arm": "control",
+      "year": 2018,
+      "day": 30,
+      "latent_rms": 2.219388484954834,
+      "sst_normalized_rmse": 0.08327766200490204,
+      "ssh_normalized_rmse": 0.12117493891823664,
+      "t_normalized_rmse": 0.19810642898162087,
+      "s_normalized_rmse": 0.17543364464487693
+    },
+    {
+      "arm": "control",
+      "year": 2018,
+      "day": 90,
+      "latent_rms": 1.9631894826889038,
+      "sst_normalized_rmse": 0.14144673926964682,
+      "ssh_normalized_rmse": 0.15974866944976782,
+      "t_normalized_rmse": 0.22085758684303128,
+      "s_normalized_rmse": 0.21861497383322726
+    },
+    {
+      "arm": "control",
+      "year": 2018,
+      "day": 180,
+      "latent_rms": 1.9226068258285522,
+      "sst_normalized_rmse": 0.3863531947318686,
+      "ssh_normalized_rmse": 0.49894671960851933,
+      "t_normalized_rmse": 0.6738311581285126,
+      "s_normalized_rmse": 1.1143705193673472
+    },
+    {
+      "arm": "control",
+      "year": 2018,
+      "day": 365,
+      "latent_rms": 41.36066436767578,
+      "sst_normalized_rmse": 3.106246064028175,
+      "ssh_normalized_rmse": 3.280907313299465,
+      "t_normalized_rmse": 4.649882712555434,
+      "s_normalized_rmse": 6.434476994451329
+    },
+    {
+      "arm": "control",
+      "year": 2021,
+      "day": 0,
+      "latent_rms": 1.6161930561065674,
+      "sst_normalized_rmse": 0.0,
+      "ssh_normalized_rmse": 0.0,
+      "t_normalized_rmse": 0.1996521844386482,
+      "s_normalized_rmse": 0.19377145640688623
+    },
+    {
+      "arm": "control",
+      "year": 2021,
+      "day": 30,
+      "latent_rms": 2.2199296951293945,
+      "sst_normalized_rmse": 0.08704211146297103,
+      "ssh_normalized_rmse": 0.1366208884269693,
+      "t_normalized_rmse": 0.20036611353038417,
+      "s_normalized_rmse": 0.1803659283480179
+    },
+    {
+      "arm": "control",
+      "year": 2021,
+      "day": 90,
+      "latent_rms": 1.962471842765808,
+      "sst_normalized_rmse": 0.13612367689656155,
+      "ssh_normalized_rmse": 0.15944226378887286,
+      "t_normalized_rmse": 0.22288953781425766,
+      "s_normalized_rmse": 0.2185473023942213
+    },
+    {
+      "arm": "control",
+      "year": 2021,
+      "day": 180,
+      "latent_rms": 1.918151617050171,
+      "sst_normalized_rmse": 0.38264068328858225,
+      "ssh_normalized_rmse": 0.49483141655784646,
+      "t_normalized_rmse": 0.6709748445776065,
+      "s_normalized_rmse": 1.1048304232152495
+    },
+    {
+      "arm": "control",
+      "year": 2021,
+      "day": 365,
+      "latent_rms": 41.36333465576172,
+      "sst_normalized_rmse": 3.105270820883859,
+      "ssh_normalized_rmse": 3.239469045767582,
+      "t_normalized_rmse": 4.612999942223007,
+      "s_normalized_rmse": 6.336769781631278
+    },
+    {
+      "arm": "supervised",
+      "year": 2015,
+      "day": 0,
+      "latent_rms": 1.6003891229629517,
+      "sst_normalized_rmse": 0.0,
+      "ssh_normalized_rmse": 0.0,
+      "t_normalized_rmse": 0.1964573749737488,
+      "s_normalized_rmse": 0.18321236715767736
+    },
+    {
+      "arm": "supervised",
+      "year": 2015,
+      "day": 30,
+      "latent_rms": 2.1776392459869385,
+      "sst_normalized_rmse": 0.08764763993375463,
+      "ssh_normalized_rmse": 0.1351747797794005,
+      "t_normalized_rmse": 0.196466834081235,
+      "s_normalized_rmse": 0.16934581749884292
+    },
+    {
+      "arm": "supervised",
+      "year": 2015,
+      "day": 90,
+      "latent_rms": 1.8961738348007202,
+      "sst_normalized_rmse": 0.142977169185031,
+      "ssh_normalized_rmse": 0.16357763486113372,
+      "t_normalized_rmse": 0.2222167310710323,
+      "s_normalized_rmse": 0.21504696405303395
+    },
+    {
+      "arm": "supervised",
+      "year": 2015,
+      "day": 180,
+      "latent_rms": 1.9592232704162598,
+      "sst_normalized_rmse": 0.3974912102345245,
+      "ssh_normalized_rmse": 0.5226900543092092,
+      "t_normalized_rmse": 0.7001325132087863,
+      "s_normalized_rmse": 1.1526676510761138
+    },
+    {
+      "arm": "supervised",
+      "year": 2015,
+      "day": 365,
+      "latent_rms": 46.004337310791016,
+      "sst_normalized_rmse": 3.2828981165953524,
+      "ssh_normalized_rmse": 3.420266944996636,
+      "t_normalized_rmse": 4.893502517353348,
+      "s_normalized_rmse": 6.6931032011047575
+    },
+    {
+      "arm": "supervised",
+      "year": 2018,
+      "day": 0,
+      "latent_rms": 1.6005722284317017,
+      "sst_normalized_rmse": 0.0,
+      "ssh_normalized_rmse": 0.0,
+      "t_normalized_rmse": 0.1977335403816995,
+      "s_normalized_rmse": 0.19046809109106527
+    },
+    {
+      "arm": "supervised",
+      "year": 2018,
+      "day": 30,
+      "latent_rms": 2.1774134635925293,
+      "sst_normalized_rmse": 0.08403719582789174,
+      "ssh_normalized_rmse": 0.12131582554573413,
+      "t_normalized_rmse": 0.1978375971643898,
+      "s_normalized_rmse": 0.17535820876168284
+    },
+    {
+      "arm": "supervised",
+      "year": 2018,
+      "day": 90,
+      "latent_rms": 1.898101806640625,
+      "sst_normalized_rmse": 0.1436109756871935,
+      "ssh_normalized_rmse": 0.160385624686373,
+      "t_normalized_rmse": 0.2228514952558107,
+      "s_normalized_rmse": 0.22220691942888654
+    },
+    {
+      "arm": "supervised",
+      "year": 2018,
+      "day": 180,
+      "latent_rms": 1.9573086500167847,
+      "sst_normalized_rmse": 0.39561730270370504,
+      "ssh_normalized_rmse": 0.5230920420283268,
+      "t_normalized_rmse": 0.6961237699317881,
+      "s_normalized_rmse": 1.1380846154983275
+    },
+    {
+      "arm": "supervised",
+      "year": 2018,
+      "day": 365,
+      "latent_rms": 45.3385124206543,
+      "sst_normalized_rmse": 3.2501107710521016,
+      "ssh_normalized_rmse": 3.4092012271949166,
+      "t_normalized_rmse": 4.862600390069303,
+      "s_normalized_rmse": 6.657284156012572
+    },
+    {
+      "arm": "supervised",
+      "year": 2021,
+      "day": 0,
+      "latent_rms": 1.601051926612854,
+      "sst_normalized_rmse": 0.0,
+      "ssh_normalized_rmse": 0.0,
+      "t_normalized_rmse": 0.1994564231915649,
+      "s_normalized_rmse": 0.19456365059140282
+    },
+    {
+      "arm": "supervised",
+      "year": 2021,
+      "day": 30,
+      "latent_rms": 2.177055835723877,
+      "sst_normalized_rmse": 0.08751254619756682,
+      "ssh_normalized_rmse": 0.13615719728707226,
+      "t_normalized_rmse": 0.19999867007429425,
+      "s_normalized_rmse": 0.18010331915868558
+    },
+    {
+      "arm": "supervised",
+      "year": 2021,
+      "day": 90,
+      "latent_rms": 1.897261381149292,
+      "sst_normalized_rmse": 0.13811031326042564,
+      "ssh_normalized_rmse": 0.16006938974722504,
+      "t_normalized_rmse": 0.22464455715282602,
+      "s_normalized_rmse": 0.22179869342578035
+    },
+    {
+      "arm": "supervised",
+      "year": 2021,
+      "day": 180,
+      "latent_rms": 1.9521849155426025,
+      "sst_normalized_rmse": 0.3925023741255471,
+      "ssh_normalized_rmse": 0.5196916146267462,
+      "t_normalized_rmse": 0.6937037190473588,
+      "s_normalized_rmse": 1.136051780312123
+    },
+    {
+      "arm": "supervised",
+      "year": 2021,
+      "day": 365,
+      "latent_rms": 45.71786117553711,
+      "sst_normalized_rmse": 3.2660538241266455,
+      "ssh_normalized_rmse": 3.3680523604719776,
+      "t_normalized_rmse": 4.830230822838673,
+      "s_normalized_rmse": 6.595574022723438
+    },
+    {
+      "arm": "consistency-weak",
+      "year": 2015,
+      "day": 0,
+      "latent_rms": 1.5402125120162964,
+      "sst_normalized_rmse": 0.0,
+      "ssh_normalized_rmse": 0.0,
+      "t_normalized_rmse": 0.19640917629018523,
+      "s_normalized_rmse": 0.1833556597335151
+    },
+    {
+      "arm": "consistency-weak",
+      "year": 2015,
+      "day": 30,
+      "latent_rms": 2.062335729598999,
+      "sst_normalized_rmse": 0.08817295187678349,
+      "ssh_normalized_rmse": 0.13536650312348347,
+      "t_normalized_rmse": 0.19639862955114226,
+      "s_normalized_rmse": 0.16886187868838998
+    },
+    {
+      "arm": "consistency-weak",
+      "year": 2015,
+      "day": 90,
+      "latent_rms": 1.811755895614624,
+      "sst_normalized_rmse": 0.14159077570377482,
+      "ssh_normalized_rmse": 0.16194103301635784,
+      "t_normalized_rmse": 0.2222064362776318,
+      "s_normalized_rmse": 0.21515798753975537
+    },
+    {
+      "arm": "consistency-weak",
+      "year": 2015,
+      "day": 180,
+      "latent_rms": 1.9322527647018433,
+      "sst_normalized_rmse": 0.3988597166157297,
+      "ssh_normalized_rmse": 0.5330887556557118,
+      "t_normalized_rmse": 0.7088427596480749,
+      "s_normalized_rmse": 1.1648821385955501
+    },
+    {
+      "arm": "consistency-weak",
+      "year": 2015,
+      "day": 365,
+      "latent_rms": 48.88383483886719,
+      "sst_normalized_rmse": 3.341574415676013,
+      "ssh_normalized_rmse": 3.4663088344859228,
+      "t_normalized_rmse": 5.0163706712891045,
+      "s_normalized_rmse": 6.822220365562207
+    },
+    {
+      "arm": "consistency-weak",
+      "year": 2018,
+      "day": 0,
+      "latent_rms": 1.5407010316848755,
+      "sst_normalized_rmse": 0.0,
+      "ssh_normalized_rmse": 0.0,
+      "t_normalized_rmse": 0.19766750871279412,
+      "s_normalized_rmse": 0.19053798992232926
+    },
+    {
+      "arm": "consistency-weak",
+      "year": 2018,
+      "day": 30,
+      "latent_rms": 2.0628819465637207,
+      "sst_normalized_rmse": 0.08457534810286918,
+      "ssh_normalized_rmse": 0.12158071754695678,
+      "t_normalized_rmse": 0.19774019306566376,
+      "s_normalized_rmse": 0.17478289665705135
+    },
+    {
+      "arm": "consistency-weak",
+      "year": 2018,
+      "day": 90,
+      "latent_rms": 1.8110288381576538,
+      "sst_normalized_rmse": 0.1421985276106432,
+      "ssh_normalized_rmse": 0.15915785680746608,
+      "t_normalized_rmse": 0.22276425823999352,
+      "s_normalized_rmse": 0.2224494522673515
+    },
+    {
+      "arm": "consistency-weak",
+      "year": 2018,
+      "day": 180,
+      "latent_rms": 1.9253500699996948,
+      "sst_normalized_rmse": 0.39620728981575204,
+      "ssh_normalized_rmse": 0.5324961688123255,
+      "t_normalized_rmse": 0.7034384642216248,
+      "s_normalized_rmse": 1.149602857707314
+    },
+    {
+      "arm": "consistency-weak",
+      "year": 2018,
+      "day": 365,
+      "latent_rms": 48.19947814941406,
+      "sst_normalized_rmse": 3.3006791138506424,
+      "ssh_normalized_rmse": 3.43562904073149,
+      "t_normalized_rmse": 4.961391476578213,
+      "s_normalized_rmse": 6.746188932029911
+    },
+    {
+      "arm": "consistency-weak",
+      "year": 2021,
+      "day": 0,
+      "latent_rms": 1.5412559509277344,
+      "sst_normalized_rmse": 0.0,
+      "ssh_normalized_rmse": 0.0,
+      "t_normalized_rmse": 0.19941445924857193,
+      "s_normalized_rmse": 0.19480795151436675
+    },
+    {
+      "arm": "consistency-weak",
+      "year": 2021,
+      "day": 30,
+      "latent_rms": 2.0626988410949707,
+      "sst_normalized_rmse": 0.08829922535282177,
+      "ssh_normalized_rmse": 0.13632005733238964,
+      "t_normalized_rmse": 0.19994423562947924,
+      "s_normalized_rmse": 0.17964503020087358
+    },
+    {
+      "arm": "consistency-weak",
+      "year": 2021,
+      "day": 90,
+      "latent_rms": 1.81437349319458,
+      "sst_normalized_rmse": 0.13694066702045826,
+      "ssh_normalized_rmse": 0.1589986321432428,
+      "t_normalized_rmse": 0.22473423671262044,
+      "s_normalized_rmse": 0.22209329751244766
+    },
+    {
+      "arm": "consistency-weak",
+      "year": 2021,
+      "day": 180,
+      "latent_rms": 1.9336230754852295,
+      "sst_normalized_rmse": 0.3937516772522096,
+      "ssh_normalized_rmse": 0.5312884260753956,
+      "t_normalized_rmse": 0.7023778917045123,
+      "s_normalized_rmse": 1.1474721131202386
+    },
+    {
+      "arm": "consistency-weak",
+      "year": 2021,
+      "day": 365,
+      "latent_rms": 48.75521469116211,
+      "sst_normalized_rmse": 3.308454382256932,
+      "ssh_normalized_rmse": 3.3827720445852454,
+      "t_normalized_rmse": 4.92679012845734,
+      "s_normalized_rmse": 6.672661054985577
+    },
+    {
+      "arm": "consistency-strong",
+      "year": 2015,
+      "day": 0,
+      "latent_rms": 1.399363398551941,
+      "sst_normalized_rmse": 0.0,
+      "ssh_normalized_rmse": 0.0,
+      "t_normalized_rmse": 0.19635442469339284,
+      "s_normalized_rmse": 0.18436096866165178
+    },
+    {
+      "arm": "consistency-strong",
+      "year": 2015,
+      "day": 30,
+      "latent_rms": 1.8946329355239868,
+      "sst_normalized_rmse": 0.08894160058137991,
+      "ssh_normalized_rmse": 0.13580940146802234,
+      "t_normalized_rmse": 0.19649876669765,
+      "s_normalized_rmse": 0.16932660609504666
+    },
+    {
+      "arm": "consistency-strong",
+      "year": 2015,
+      "day": 90,
+      "latent_rms": 1.7019493579864502,
+      "sst_normalized_rmse": 0.14037606272588155,
+      "ssh_normalized_rmse": 0.1604693654948375,
+      "t_normalized_rmse": 0.22097276017524936,
+      "s_normalized_rmse": 0.21352420413180387
+    },
+    {
+      "arm": "consistency-strong",
+      "year": 2015,
+      "day": 180,
+      "latent_rms": 1.8262485265731812,
+      "sst_normalized_rmse": 0.39371998157818777,
+      "ssh_normalized_rmse": 0.5189813270462118,
+      "t_normalized_rmse": 0.7062600908860002,
+      "s_normalized_rmse": 1.182505711524722
+    },
+    {
+      "arm": "consistency-strong",
+      "year": 2015,
+      "day": 365,
+      "latent_rms": 47.48829650878906,
+      "sst_normalized_rmse": 3.418913513401821,
+      "ssh_normalized_rmse": 3.5337229483897805,
+      "t_normalized_rmse": 5.087412107589713,
+      "s_normalized_rmse": 6.97263054554051
+    },
+    {
+      "arm": "consistency-strong",
+      "year": 2018,
+      "day": 0,
+      "latent_rms": 1.4001013040542603,
+      "sst_normalized_rmse": 0.0,
+      "ssh_normalized_rmse": 0.0,
+      "t_normalized_rmse": 0.19763124539702606,
+      "s_normalized_rmse": 0.19144643739799708
+    },
+    {
+      "arm": "consistency-strong",
+      "year": 2018,
+      "day": 30,
+      "latent_rms": 1.896661400794983,
+      "sst_normalized_rmse": 0.08544707704312376,
+      "ssh_normalized_rmse": 0.1218416437327529,
+      "t_normalized_rmse": 0.19791880753780083,
+      "s_normalized_rmse": 0.17499653977471277
+    },
+    {
+      "arm": "consistency-strong",
+      "year": 2018,
+      "day": 90,
+      "latent_rms": 1.7022744417190552,
+      "sst_normalized_rmse": 0.14154996260646216,
+      "ssh_normalized_rmse": 0.15750699475249572,
+      "t_normalized_rmse": 0.22173269134813833,
+      "s_normalized_rmse": 0.22091427792776475
+    },
+    {
+      "arm": "consistency-strong",
+      "year": 2018,
+      "day": 180,
+      "latent_rms": 1.8344851732254028,
+      "sst_normalized_rmse": 0.39135572750798026,
+      "ssh_normalized_rmse": 0.5210311291541837,
+      "t_normalized_rmse": 0.7008374385089622,
+      "s_normalized_rmse": 1.1645810768255278
+    },
+    {
+      "arm": "consistency-strong",
+      "year": 2018,
+      "day": 365,
+      "latent_rms": 47.48843002319336,
+      "sst_normalized_rmse": 3.378405230647416,
+      "ssh_normalized_rmse": 3.5114048020816444,
+      "t_normalized_rmse": 5.048583588245556,
+      "s_normalized_rmse": 6.919913344017646
+    },
+    {
+      "arm": "consistency-strong",
+      "year": 2021,
+      "day": 0,
+      "latent_rms": 1.4007655382156372,
+      "sst_normalized_rmse": 0.0,
+      "ssh_normalized_rmse": 0.0,
+      "t_normalized_rmse": 0.19938203063115736,
+      "s_normalized_rmse": 0.19600021731828832
+    },
+    {
+      "arm": "consistency-strong",
+      "year": 2021,
+      "day": 30,
+      "latent_rms": 1.8970507383346558,
+      "sst_normalized_rmse": 0.08916790877331977,
+      "ssh_normalized_rmse": 0.1365155753953915,
+      "t_normalized_rmse": 0.20015310300361347,
+      "s_normalized_rmse": 0.18028831047189406
+    },
+    {
+      "arm": "consistency-strong",
+      "year": 2021,
+      "day": 90,
+      "latent_rms": 1.7023602724075317,
+      "sst_normalized_rmse": 0.13605110775983062,
+      "ssh_normalized_rmse": 0.15768314787120086,
+      "t_normalized_rmse": 0.22373725260191943,
+      "s_normalized_rmse": 0.22077418914129787
+    },
+    {
+      "arm": "consistency-strong",
+      "year": 2021,
+      "day": 180,
+      "latent_rms": 1.8277437686920166,
+      "sst_normalized_rmse": 0.38893668580188395,
+      "ssh_normalized_rmse": 0.5156134690816051,
+      "t_normalized_rmse": 0.6988660791690285,
+      "s_normalized_rmse": 1.162339633154544
+    },
+    {
+      "arm": "consistency-strong",
+      "year": 2021,
+      "day": 365,
+      "latent_rms": 47.48910140991211,
+      "sst_normalized_rmse": 3.392215478782589,
+      "ssh_normalized_rmse": 3.4694976001010485,
+      "t_normalized_rmse": 5.017725201927992,
+      "s_normalized_rmse": 6.842309720926646
+    }
+  ],
+  "provenance": {
+    "parent": {
+      "inputs": {
+        "checkpoint_sha256": "853b3353c6d926754a15f19437493a7497813ce2b88cb058fe1a616cc838e6e5",
+        "training_contract": {
+          "version": 1,
+          "seed": 1729,
+          "schedule": "quadratic mixed 8000/8000",
+          "effective_batch": 8,
+          "decoder_width": 192,
+          "latent_width": 128,
+          "processor_depth": 4,
+          "sampling_steps": 32,
+          "noise_correlation": 0.5,
+          "spatial_weight": 0.5,
+          "reconstruction_weight": 0.1,
+          "completion_weight": 0.1,
+          "global_observations": true,
+          "surface_fill": "zero",
+          "task_conditioning": "identity input adapters for encoder and processor",
+          "learning_rate": 0.0001,
+          "weight_decay": 0.01,
+          "clip": 1.0,
+          "training_members": 2,
+          "native_loss": "channel-balanced clean-field denoising plus spatial differences",
+          "observation_loss": "group-balanced fair CRPS plus spatial-increment fair CRPS",
+          "observation_manifest": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+          "grid": "ce96360964a6669d0186b9581abaaffc06f660c4e09e0ac813b3dd1b819e5167",
+          "stats": "7688d483d4c87a8ce0e2f27a1a342db93eecb3e892187506475d6970e865c001",
+          "reference": "c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c",
+          "compile_decoder": true,
+          "producer": "e8a6312ea0b85f798c82e718197a3d5cb8a27f25",
+          "cooldown": {
+            "parent_sha256": "7d9095f98b924ab24abcc9ee9687b27f30541761a5a0979ed3be4dd4e42bfe98",
+            "parent_producer": "4ecba36a40b7b581edeaa2292c90d1953fca7aa0",
+            "parent_step": 8751,
+            "start_step": 14000,
+            "updates": 2000,
+            "minimum_lr": 1e-06,
+            "schedule": "cosine from 1e-4 within original quadratic 8000/8000",
+            "final_counts": {
+              "om4": 8000,
+              "observation": 8000
+            }
+          }
+        },
+        "counts": {
+          "om4": 8000,
+          "observation": 8000
+        },
+        "step": 16000,
+        "evaluator": "db9e994d49622926067cee4a096d955bee0e93a1",
+        "sampling_steps": 32,
+        "members": 8,
+        "seed": 4041729,
+        "annual_manifests": {
+          "2015-01-01": "44ea1216b44aec5b8ea95678f31cbd1d449ec3fbbd3b0690484ecb488996441d",
+          "2018-01-01": "8ee8d9e68e641a3a8cab031e9a28bfa80094927bd7973b558cc73777a9ac461e",
+          "2021-01-01": "92d128ff711c563094d44725a84e8b62fd06b103cb4f3789ae39e89dc8170c6c"
+        },
+        "domain": "All finite wet latitudes; zero-normalized missing surface inputs",
+        "uncertainty": "Independent conditional diffusion readouts along one deterministic latent path; not coherent ensemble trajectories",
+        "member_fields": "SST, SSH, temperature at550m, salinity at550m at all73 five-day leads; member means are separate point outputs"
+      },
+      "metric_hashes": {
+        "2015-01-01": "45448f8f448c0247af0ab5b37ffb51da3edddedc0dd781fd8b07a860fd25ca60",
+        "2018-01-01": "fdfd2af1179ce4d659dc799d8dcf588d01dec27f38588075c05d08d1495da1b6",
+        "2021-01-01": "d0f127226d501c4941f03d43f4e03a04df601eaf51f8febe9c3e8fd986d00757"
+      }
+    },
+    "deterministic": {
+      "inputs": {
+        "protocol": "continuous-365-day-v1",
+        "training_manifest_sha256": "2a6c7aa6f588ed70abbe6d131f3429f79859a191365c227bdbf5ac0f55d1eef5",
+        "checkpoint_sha256": "7ca22c101324f176983415c58c218149464fac79b4397eca6bf2c5012bc9d3c3",
+        "global_observations": true,
+        "data_manifests": {
+          "test/2015-01-01/COMPLETE.json": "44ea1216b44aec5b8ea95678f31cbd1d449ec3fbbd3b0690484ecb488996441d",
+          "test/2018-01-01/COMPLETE.json": "8ee8d9e68e641a3a8cab031e9a28bfa80094927bd7973b558cc73777a9ac461e",
+          "test/2021-01-01/COMPLETE.json": "92d128ff711c563094d44725a84e8b62fd06b103cb4f3789ae39e89dc8170c6c"
+        },
+        "producer": "79025a163817a577ab81af95b401f5cb0563cd12",
+        "split": "test",
+        "selection": "Diagnostic only; nine-origin v3 selection unchanged",
+        "eke": "Anomalies relative to each sequence's own year mean",
+        "forcing": "Prescribed ERA5 through trained adapter; not an operational forcing forecast",
+        "fixed_budget_lineage": {
+          "checkpoint_policy": "fixed-budget, not validation-selected",
+          "checkpoint": "joint-08000.pt",
+          "checkpoint_sha256": "7ca22c101324f176983415c58c218149464fac79b4397eca6bf2c5012bc9d3c3",
+          "global_step": 16000,
+          "task_counts": {
+            "om4": 8000,
+            "observation": 8000
+          },
+          "training_manifest_sha256": "2a6c7aa6f588ed70abbe6d131f3429f79859a191365c227bdbf5ac0f55d1eef5"
+        }
+      },
+      "metric_hashes": {
+        "2015-01-01": "3ffe78daf50ab0e43997cf7f4ac27177b167988bd46992e0f804ddb2a2219bd1",
+        "2018-01-01": "c16436e47ea57e356b7113f0b8a7937c00e56a0254d2183afe1d64c70e96b17c",
+        "2021-01-01": "15cdd4b60d7119cac7f160cc8c207654204d6fb6ba247b88f788c7e52aed7cf6"
+      }
+    },
+    "control": {
+      "inputs": {
+        "checkpoint_sha256": "97b830d74c8a6d2758039c0dc0d0c9128ff6f2c0ca46aab6595973bf09446a13",
+        "training_contract": {
+          "version": 1,
+          "seed": 1729,
+          "schedule": "quadratic mixed 8000/8000",
+          "effective_batch": 8,
+          "decoder_width": 192,
+          "latent_width": 128,
+          "processor_depth": 4,
+          "sampling_steps": 32,
+          "noise_correlation": 0.5,
+          "spatial_weight": 0.5,
+          "reconstruction_weight": 0.1,
+          "completion_weight": 0.1,
+          "global_observations": true,
+          "surface_fill": "zero",
+          "task_conditioning": "identity input adapters for encoder and processor",
+          "learning_rate": 0.0001,
+          "weight_decay": 0.01,
+          "clip": 1.0,
+          "training_members": 2,
+          "native_loss": "channel-balanced clean-field denoising plus spatial differences",
+          "observation_loss": "group-balanced fair CRPS plus spatial-increment fair CRPS",
+          "observation_manifest": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+          "grid": "ce96360964a6669d0186b9581abaaffc06f660c4e09e0ac813b3dd1b819e5167",
+          "stats": "7688d483d4c87a8ce0e2f27a1a342db93eecb3e892187506475d6970e865c001",
+          "reference": "c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c",
+          "compile_decoder": true,
+          "producer": "e8a6312ea0b85f798c82e718197a3d5cb8a27f25",
+          "cooldown": {
+            "parent_sha256": "7d9095f98b924ab24abcc9ee9687b27f30541761a5a0979ed3be4dd4e42bfe98",
+            "parent_producer": "4ecba36a40b7b581edeaa2292c90d1953fca7aa0",
+            "parent_step": 8751,
+            "start_step": 14000,
+            "updates": 2000,
+            "minimum_lr": 1e-06,
+            "schedule": "cosine from 1e-4 within original quadratic 8000/8000",
+            "final_counts": {
+              "om4": 8000,
+              "observation": 8000
+            }
+          }
+        },
+        "counts": {
+          "om4": 8064,
+          "observation": 8064
+        },
+        "step": 16128,
+        "evaluator": "timestep-v1-25a5e181b345",
+        "sampling_steps": 32,
+        "members": 8,
+        "seed": 4041729,
+        "annual_manifests": {
+          "2015-01-01": "44ea1216b44aec5b8ea95678f31cbd1d449ec3fbbd3b0690484ecb488996441d",
+          "2018-01-01": "8ee8d9e68e641a3a8cab031e9a28bfa80094927bd7973b558cc73777a9ac461e",
+          "2021-01-01": "92d128ff711c563094d44725a84e8b62fd06b103cb4f3789ae39e89dc8170c6c"
+        },
+        "domain": "All finite wet latitudes; zero-normalized missing surface inputs",
+        "uncertainty": "Independent conditional diffusion readouts along one deterministic latent path; not coherent ensemble trajectories",
+        "member_fields": "SST, SSH, temperature at550m, salinity at550m at all73 five-day leads; member means are separate point outputs",
+        "intervention": {
+          "version": 3,
+          "arm": "control",
+          "campaign": "timestep",
+          "structure_aux": "",
+          "structure_weight": 2.0,
+          "fresh_pushforward": false,
+          "latent_bound_weight": 0.0,
+          "parent_sha256": "853b3353c6d926754a15f19437493a7497813ce2b88cb058fe1a616cc838e6e5",
+          "producer": "timestep-v1-25a5e181b345",
+          "seed": 271829,
+          "updates": 128,
+          "effective_batch": 8,
+          "alternating_tasks": "OM4 then observation; 64 each at full budget",
+          "optimizer": "fresh AdamW for all arms",
+          "learning_rate": "cosine 1e-5 to 1e-6",
+          "clip": 1.0,
+          "multiscale_weight": 0.0,
+          "spatial": "existing nearest-neighbor term retained; optional four directions at lags 1/2/4/8 divided by grid distance",
+          "stability": "Five-day inference; auxiliary ten-day endpoint on all OM4 microbatches; no replay",
+          "replay": "four detached on-policy latent chains; burn-in 30/90/180/300d; six steps per use; reset after four uses or 360d",
+          "jitter": 0.0,
+          "long_unroll": "12 differentiable steps, decode last six plus initial; original six-step cohort preserved in first four microbatches",
+          "global_observations": true,
+          "sampling_steps": 32,
+          "members_train": 2,
+          "compile_decoder": true,
+          "parent_contract": {
+            "version": 1,
+            "seed": 1729,
+            "schedule": "quadratic mixed 8000/8000",
+            "effective_batch": 8,
+            "decoder_width": 192,
+            "latent_width": 128,
+            "processor_depth": 4,
+            "sampling_steps": 32,
+            "noise_correlation": 0.5,
+            "spatial_weight": 0.5,
+            "reconstruction_weight": 0.1,
+            "completion_weight": 0.1,
+            "global_observations": true,
+            "surface_fill": "zero",
+            "task_conditioning": "identity input adapters for encoder and processor",
+            "learning_rate": 0.0001,
+            "weight_decay": 0.01,
+            "clip": 1.0,
+            "training_members": 2,
+            "native_loss": "channel-balanced clean-field denoising plus spatial differences",
+            "observation_loss": "group-balanced fair CRPS plus spatial-increment fair CRPS",
+            "observation_manifest": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+            "grid": "ce96360964a6669d0186b9581abaaffc06f660c4e09e0ac813b3dd1b819e5167",
+            "stats": "7688d483d4c87a8ce0e2f27a1a342db93eecb3e892187506475d6970e865c001",
+            "reference": "c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c",
+            "compile_decoder": true,
+            "producer": "e8a6312ea0b85f798c82e718197a3d5cb8a27f25",
+            "cooldown": {
+              "parent_sha256": "7d9095f98b924ab24abcc9ee9687b27f30541761a5a0979ed3be4dd4e42bfe98",
+              "parent_producer": "4ecba36a40b7b581edeaa2292c90d1953fca7aa0",
+              "parent_step": 8751,
+              "start_step": 14000,
+              "updates": 2000,
+              "minimum_lr": 1e-06,
+              "schedule": "cosine from 1e-4 within original quadratic 8000/8000",
+              "final_counts": {
+                "om4": 8000,
+                "observation": 8000
+              }
+            }
+          },
+          "timestep_physical_weight": 0.0,
+          "timestep_consistency_weight": 0.0,
+          "timestep": "Shared processor; ordered two-interval forcing/context adapter; endpoint-only consistency; decoder uses short-path day-five scaffold"
+        }
+      },
+      "metric_hashes": {
+        "2015-01-01": "471e9ea6953cbc591783e11e45f699d031c3c7fca26848e3d983f8a65447fe2a",
+        "2018-01-01": "a179abc888d1087b9fc7e58c38ffc7dade6df490983ac3ba36c5bc7843d47b98",
+        "2021-01-01": "adb2cdd2d9aa8afe5242d1982e6c4c64282d844f41da946b0e8814a32c1dfc17"
+      }
+    },
+    "supervised": {
+      "inputs": {
+        "checkpoint_sha256": "dedf9958b42f59e70986a21c810b97e9e3c4c765fe90da940849782926110c1c",
+        "training_contract": {
+          "version": 1,
+          "seed": 1729,
+          "schedule": "quadratic mixed 8000/8000",
+          "effective_batch": 8,
+          "decoder_width": 192,
+          "latent_width": 128,
+          "processor_depth": 4,
+          "sampling_steps": 32,
+          "noise_correlation": 0.5,
+          "spatial_weight": 0.5,
+          "reconstruction_weight": 0.1,
+          "completion_weight": 0.1,
+          "global_observations": true,
+          "surface_fill": "zero",
+          "task_conditioning": "identity input adapters for encoder and processor",
+          "learning_rate": 0.0001,
+          "weight_decay": 0.01,
+          "clip": 1.0,
+          "training_members": 2,
+          "native_loss": "channel-balanced clean-field denoising plus spatial differences",
+          "observation_loss": "group-balanced fair CRPS plus spatial-increment fair CRPS",
+          "observation_manifest": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+          "grid": "ce96360964a6669d0186b9581abaaffc06f660c4e09e0ac813b3dd1b819e5167",
+          "stats": "7688d483d4c87a8ce0e2f27a1a342db93eecb3e892187506475d6970e865c001",
+          "reference": "c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c",
+          "compile_decoder": true,
+          "producer": "e8a6312ea0b85f798c82e718197a3d5cb8a27f25",
+          "cooldown": {
+            "parent_sha256": "7d9095f98b924ab24abcc9ee9687b27f30541761a5a0979ed3be4dd4e42bfe98",
+            "parent_producer": "4ecba36a40b7b581edeaa2292c90d1953fca7aa0",
+            "parent_step": 8751,
+            "start_step": 14000,
+            "updates": 2000,
+            "minimum_lr": 1e-06,
+            "schedule": "cosine from 1e-4 within original quadratic 8000/8000",
+            "final_counts": {
+              "om4": 8000,
+              "observation": 8000
+            }
+          }
+        },
+        "counts": {
+          "om4": 8064,
+          "observation": 8064
+        },
+        "step": 16128,
+        "evaluator": "timestep-v1-25a5e181b345",
+        "sampling_steps": 32,
+        "members": 8,
+        "seed": 4041729,
+        "annual_manifests": {
+          "2015-01-01": "44ea1216b44aec5b8ea95678f31cbd1d449ec3fbbd3b0690484ecb488996441d",
+          "2018-01-01": "8ee8d9e68e641a3a8cab031e9a28bfa80094927bd7973b558cc73777a9ac461e",
+          "2021-01-01": "92d128ff711c563094d44725a84e8b62fd06b103cb4f3789ae39e89dc8170c6c"
+        },
+        "domain": "All finite wet latitudes; zero-normalized missing surface inputs",
+        "uncertainty": "Independent conditional diffusion readouts along one deterministic latent path; not coherent ensemble trajectories",
+        "member_fields": "SST, SSH, temperature at550m, salinity at550m at all73 five-day leads; member means are separate point outputs",
+        "intervention": {
+          "version": 3,
+          "arm": "supervised",
+          "campaign": "timestep",
+          "structure_aux": "",
+          "structure_weight": 2.0,
+          "fresh_pushforward": false,
+          "latent_bound_weight": 0.0,
+          "parent_sha256": "853b3353c6d926754a15f19437493a7497813ce2b88cb058fe1a616cc838e6e5",
+          "producer": "timestep-v1-25a5e181b345",
+          "seed": 271829,
+          "updates": 128,
+          "effective_batch": 8,
+          "alternating_tasks": "OM4 then observation; 64 each at full budget",
+          "optimizer": "fresh AdamW for all arms",
+          "learning_rate": "cosine 1e-5 to 1e-6",
+          "clip": 1.0,
+          "multiscale_weight": 0.0,
+          "spatial": "existing nearest-neighbor term retained; optional four directions at lags 1/2/4/8 divided by grid distance",
+          "stability": "Five-day inference; auxiliary ten-day endpoint on all OM4 microbatches; no replay",
+          "replay": "four detached on-policy latent chains; burn-in 30/90/180/300d; six steps per use; reset after four uses or 360d",
+          "jitter": 0.0,
+          "long_unroll": "12 differentiable steps, decode last six plus initial; original six-step cohort preserved in first four microbatches",
+          "global_observations": true,
+          "sampling_steps": 32,
+          "members_train": 2,
+          "compile_decoder": true,
+          "parent_contract": {
+            "version": 1,
+            "seed": 1729,
+            "schedule": "quadratic mixed 8000/8000",
+            "effective_batch": 8,
+            "decoder_width": 192,
+            "latent_width": 128,
+            "processor_depth": 4,
+            "sampling_steps": 32,
+            "noise_correlation": 0.5,
+            "spatial_weight": 0.5,
+            "reconstruction_weight": 0.1,
+            "completion_weight": 0.1,
+            "global_observations": true,
+            "surface_fill": "zero",
+            "task_conditioning": "identity input adapters for encoder and processor",
+            "learning_rate": 0.0001,
+            "weight_decay": 0.01,
+            "clip": 1.0,
+            "training_members": 2,
+            "native_loss": "channel-balanced clean-field denoising plus spatial differences",
+            "observation_loss": "group-balanced fair CRPS plus spatial-increment fair CRPS",
+            "observation_manifest": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+            "grid": "ce96360964a6669d0186b9581abaaffc06f660c4e09e0ac813b3dd1b819e5167",
+            "stats": "7688d483d4c87a8ce0e2f27a1a342db93eecb3e892187506475d6970e865c001",
+            "reference": "c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c",
+            "compile_decoder": true,
+            "producer": "e8a6312ea0b85f798c82e718197a3d5cb8a27f25",
+            "cooldown": {
+              "parent_sha256": "7d9095f98b924ab24abcc9ee9687b27f30541761a5a0979ed3be4dd4e42bfe98",
+              "parent_producer": "4ecba36a40b7b581edeaa2292c90d1953fca7aa0",
+              "parent_step": 8751,
+              "start_step": 14000,
+              "updates": 2000,
+              "minimum_lr": 1e-06,
+              "schedule": "cosine from 1e-4 within original quadratic 8000/8000",
+              "final_counts": {
+                "om4": 8000,
+                "observation": 8000
+              }
+            }
+          },
+          "timestep_physical_weight": 0.5,
+          "timestep_consistency_weight": 0.0,
+          "timestep": "Shared processor; ordered two-interval forcing/context adapter; endpoint-only consistency; decoder uses short-path day-five scaffold"
+        }
+      },
+      "metric_hashes": {
+        "2015-01-01": "7134862df8b0c5fdccb6aa8371e2008c1b3fd0a89a87a282533369632bb3c1fa",
+        "2018-01-01": "af6f38556e32d1910c0c23de72d68a01ef6df54914a68c3f44686baa0f9ca850",
+        "2021-01-01": "b8186ec6db650826dc0ecdaa25c2a7c8d9917129e31aafbd5bb57a19ea59530b"
+      }
+    },
+    "consistency-weak": {
+      "inputs": {
+        "checkpoint_sha256": "e67b2431deba464d9d744235a7fdabef99e63dc52a87fb12c60e8a629a781335",
+        "training_contract": {
+          "version": 1,
+          "seed": 1729,
+          "schedule": "quadratic mixed 8000/8000",
+          "effective_batch": 8,
+          "decoder_width": 192,
+          "latent_width": 128,
+          "processor_depth": 4,
+          "sampling_steps": 32,
+          "noise_correlation": 0.5,
+          "spatial_weight": 0.5,
+          "reconstruction_weight": 0.1,
+          "completion_weight": 0.1,
+          "global_observations": true,
+          "surface_fill": "zero",
+          "task_conditioning": "identity input adapters for encoder and processor",
+          "learning_rate": 0.0001,
+          "weight_decay": 0.01,
+          "clip": 1.0,
+          "training_members": 2,
+          "native_loss": "channel-balanced clean-field denoising plus spatial differences",
+          "observation_loss": "group-balanced fair CRPS plus spatial-increment fair CRPS",
+          "observation_manifest": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+          "grid": "ce96360964a6669d0186b9581abaaffc06f660c4e09e0ac813b3dd1b819e5167",
+          "stats": "7688d483d4c87a8ce0e2f27a1a342db93eecb3e892187506475d6970e865c001",
+          "reference": "c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c",
+          "compile_decoder": true,
+          "producer": "e8a6312ea0b85f798c82e718197a3d5cb8a27f25",
+          "cooldown": {
+            "parent_sha256": "7d9095f98b924ab24abcc9ee9687b27f30541761a5a0979ed3be4dd4e42bfe98",
+            "parent_producer": "4ecba36a40b7b581edeaa2292c90d1953fca7aa0",
+            "parent_step": 8751,
+            "start_step": 14000,
+            "updates": 2000,
+            "minimum_lr": 1e-06,
+            "schedule": "cosine from 1e-4 within original quadratic 8000/8000",
+            "final_counts": {
+              "om4": 8000,
+              "observation": 8000
+            }
+          }
+        },
+        "counts": {
+          "om4": 8064,
+          "observation": 8064
+        },
+        "step": 16128,
+        "evaluator": "timestep-v1-25a5e181b345",
+        "sampling_steps": 32,
+        "members": 8,
+        "seed": 4041729,
+        "annual_manifests": {
+          "2015-01-01": "44ea1216b44aec5b8ea95678f31cbd1d449ec3fbbd3b0690484ecb488996441d",
+          "2018-01-01": "8ee8d9e68e641a3a8cab031e9a28bfa80094927bd7973b558cc73777a9ac461e",
+          "2021-01-01": "92d128ff711c563094d44725a84e8b62fd06b103cb4f3789ae39e89dc8170c6c"
+        },
+        "domain": "All finite wet latitudes; zero-normalized missing surface inputs",
+        "uncertainty": "Independent conditional diffusion readouts along one deterministic latent path; not coherent ensemble trajectories",
+        "member_fields": "SST, SSH, temperature at550m, salinity at550m at all73 five-day leads; member means are separate point outputs",
+        "intervention": {
+          "version": 3,
+          "arm": "consistency-weak",
+          "campaign": "timestep",
+          "structure_aux": "",
+          "structure_weight": 2.0,
+          "fresh_pushforward": false,
+          "latent_bound_weight": 0.0,
+          "parent_sha256": "853b3353c6d926754a15f19437493a7497813ce2b88cb058fe1a616cc838e6e5",
+          "producer": "timestep-v1-25a5e181b345",
+          "seed": 271829,
+          "updates": 128,
+          "effective_batch": 8,
+          "alternating_tasks": "OM4 then observation; 64 each at full budget",
+          "optimizer": "fresh AdamW for all arms",
+          "learning_rate": "cosine 1e-5 to 1e-6",
+          "clip": 1.0,
+          "multiscale_weight": 0.0,
+          "spatial": "existing nearest-neighbor term retained; optional four directions at lags 1/2/4/8 divided by grid distance",
+          "stability": "Five-day inference; auxiliary ten-day endpoint on all OM4 microbatches; no replay",
+          "replay": "four detached on-policy latent chains; burn-in 30/90/180/300d; six steps per use; reset after four uses or 360d",
+          "jitter": 0.0,
+          "long_unroll": "12 differentiable steps, decode last six plus initial; original six-step cohort preserved in first four microbatches",
+          "global_observations": true,
+          "sampling_steps": 32,
+          "members_train": 2,
+          "compile_decoder": true,
+          "parent_contract": {
+            "version": 1,
+            "seed": 1729,
+            "schedule": "quadratic mixed 8000/8000",
+            "effective_batch": 8,
+            "decoder_width": 192,
+            "latent_width": 128,
+            "processor_depth": 4,
+            "sampling_steps": 32,
+            "noise_correlation": 0.5,
+            "spatial_weight": 0.5,
+            "reconstruction_weight": 0.1,
+            "completion_weight": 0.1,
+            "global_observations": true,
+            "surface_fill": "zero",
+            "task_conditioning": "identity input adapters for encoder and processor",
+            "learning_rate": 0.0001,
+            "weight_decay": 0.01,
+            "clip": 1.0,
+            "training_members": 2,
+            "native_loss": "channel-balanced clean-field denoising plus spatial differences",
+            "observation_loss": "group-balanced fair CRPS plus spatial-increment fair CRPS",
+            "observation_manifest": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+            "grid": "ce96360964a6669d0186b9581abaaffc06f660c4e09e0ac813b3dd1b819e5167",
+            "stats": "7688d483d4c87a8ce0e2f27a1a342db93eecb3e892187506475d6970e865c001",
+            "reference": "c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c",
+            "compile_decoder": true,
+            "producer": "e8a6312ea0b85f798c82e718197a3d5cb8a27f25",
+            "cooldown": {
+              "parent_sha256": "7d9095f98b924ab24abcc9ee9687b27f30541761a5a0979ed3be4dd4e42bfe98",
+              "parent_producer": "4ecba36a40b7b581edeaa2292c90d1953fca7aa0",
+              "parent_step": 8751,
+              "start_step": 14000,
+              "updates": 2000,
+              "minimum_lr": 1e-06,
+              "schedule": "cosine from 1e-4 within original quadratic 8000/8000",
+              "final_counts": {
+                "om4": 8000,
+                "observation": 8000
+              }
+            }
+          },
+          "timestep_physical_weight": 0.5,
+          "timestep_consistency_weight": 0.1,
+          "timestep": "Shared processor; ordered two-interval forcing/context adapter; endpoint-only consistency; decoder uses short-path day-five scaffold"
+        }
+      },
+      "metric_hashes": {
+        "2015-01-01": "1c4ba7cd1c00dfd16284d34a0ff89b602314d5c0ecef91f5705b8ce815a8b424",
+        "2018-01-01": "0f0a2f7d61693e98bc6f514bdd6ac64e6a1f9278e75ebba637d41a63e4ceb493",
+        "2021-01-01": "a9ec58cc06cb9d3272222ae4d3dcabca11eb9c563453779fe598e8907ca6fa3a"
+      }
+    },
+    "consistency-strong": {
+      "inputs": {
+        "checkpoint_sha256": "b6363cd9db34e90c50de68499d1f1966e8dde7980fc6c670d4b58bbf0220257e",
+        "training_contract": {
+          "version": 1,
+          "seed": 1729,
+          "schedule": "quadratic mixed 8000/8000",
+          "effective_batch": 8,
+          "decoder_width": 192,
+          "latent_width": 128,
+          "processor_depth": 4,
+          "sampling_steps": 32,
+          "noise_correlation": 0.5,
+          "spatial_weight": 0.5,
+          "reconstruction_weight": 0.1,
+          "completion_weight": 0.1,
+          "global_observations": true,
+          "surface_fill": "zero",
+          "task_conditioning": "identity input adapters for encoder and processor",
+          "learning_rate": 0.0001,
+          "weight_decay": 0.01,
+          "clip": 1.0,
+          "training_members": 2,
+          "native_loss": "channel-balanced clean-field denoising plus spatial differences",
+          "observation_loss": "group-balanced fair CRPS plus spatial-increment fair CRPS",
+          "observation_manifest": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+          "grid": "ce96360964a6669d0186b9581abaaffc06f660c4e09e0ac813b3dd1b819e5167",
+          "stats": "7688d483d4c87a8ce0e2f27a1a342db93eecb3e892187506475d6970e865c001",
+          "reference": "c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c",
+          "compile_decoder": true,
+          "producer": "e8a6312ea0b85f798c82e718197a3d5cb8a27f25",
+          "cooldown": {
+            "parent_sha256": "7d9095f98b924ab24abcc9ee9687b27f30541761a5a0979ed3be4dd4e42bfe98",
+            "parent_producer": "4ecba36a40b7b581edeaa2292c90d1953fca7aa0",
+            "parent_step": 8751,
+            "start_step": 14000,
+            "updates": 2000,
+            "minimum_lr": 1e-06,
+            "schedule": "cosine from 1e-4 within original quadratic 8000/8000",
+            "final_counts": {
+              "om4": 8000,
+              "observation": 8000
+            }
+          }
+        },
+        "counts": {
+          "om4": 8064,
+          "observation": 8064
+        },
+        "step": 16128,
+        "evaluator": "timestep-v1-25a5e181b345",
+        "sampling_steps": 32,
+        "members": 8,
+        "seed": 4041729,
+        "annual_manifests": {
+          "2015-01-01": "44ea1216b44aec5b8ea95678f31cbd1d449ec3fbbd3b0690484ecb488996441d",
+          "2018-01-01": "8ee8d9e68e641a3a8cab031e9a28bfa80094927bd7973b558cc73777a9ac461e",
+          "2021-01-01": "92d128ff711c563094d44725a84e8b62fd06b103cb4f3789ae39e89dc8170c6c"
+        },
+        "domain": "All finite wet latitudes; zero-normalized missing surface inputs",
+        "uncertainty": "Independent conditional diffusion readouts along one deterministic latent path; not coherent ensemble trajectories",
+        "member_fields": "SST, SSH, temperature at550m, salinity at550m at all73 five-day leads; member means are separate point outputs",
+        "intervention": {
+          "version": 3,
+          "arm": "consistency-strong",
+          "campaign": "timestep",
+          "structure_aux": "",
+          "structure_weight": 2.0,
+          "fresh_pushforward": false,
+          "latent_bound_weight": 0.0,
+          "parent_sha256": "853b3353c6d926754a15f19437493a7497813ce2b88cb058fe1a616cc838e6e5",
+          "producer": "timestep-v1-25a5e181b345",
+          "seed": 271829,
+          "updates": 128,
+          "effective_batch": 8,
+          "alternating_tasks": "OM4 then observation; 64 each at full budget",
+          "optimizer": "fresh AdamW for all arms",
+          "learning_rate": "cosine 1e-5 to 1e-6",
+          "clip": 1.0,
+          "multiscale_weight": 0.0,
+          "spatial": "existing nearest-neighbor term retained; optional four directions at lags 1/2/4/8 divided by grid distance",
+          "stability": "Five-day inference; auxiliary ten-day endpoint on all OM4 microbatches; no replay",
+          "replay": "four detached on-policy latent chains; burn-in 30/90/180/300d; six steps per use; reset after four uses or 360d",
+          "jitter": 0.0,
+          "long_unroll": "12 differentiable steps, decode last six plus initial; original six-step cohort preserved in first four microbatches",
+          "global_observations": true,
+          "sampling_steps": 32,
+          "members_train": 2,
+          "compile_decoder": true,
+          "parent_contract": {
+            "version": 1,
+            "seed": 1729,
+            "schedule": "quadratic mixed 8000/8000",
+            "effective_batch": 8,
+            "decoder_width": 192,
+            "latent_width": 128,
+            "processor_depth": 4,
+            "sampling_steps": 32,
+            "noise_correlation": 0.5,
+            "spatial_weight": 0.5,
+            "reconstruction_weight": 0.1,
+            "completion_weight": 0.1,
+            "global_observations": true,
+            "surface_fill": "zero",
+            "task_conditioning": "identity input adapters for encoder and processor",
+            "learning_rate": 0.0001,
+            "weight_decay": 0.01,
+            "clip": 1.0,
+            "training_members": 2,
+            "native_loss": "channel-balanced clean-field denoising plus spatial differences",
+            "observation_loss": "group-balanced fair CRPS plus spatial-increment fair CRPS",
+            "observation_manifest": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+            "grid": "ce96360964a6669d0186b9581abaaffc06f660c4e09e0ac813b3dd1b819e5167",
+            "stats": "7688d483d4c87a8ce0e2f27a1a342db93eecb3e892187506475d6970e865c001",
+            "reference": "c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c",
+            "compile_decoder": true,
+            "producer": "e8a6312ea0b85f798c82e718197a3d5cb8a27f25",
+            "cooldown": {
+              "parent_sha256": "7d9095f98b924ab24abcc9ee9687b27f30541761a5a0979ed3be4dd4e42bfe98",
+              "parent_producer": "4ecba36a40b7b581edeaa2292c90d1953fca7aa0",
+              "parent_step": 8751,
+              "start_step": 14000,
+              "updates": 2000,
+              "minimum_lr": 1e-06,
+              "schedule": "cosine from 1e-4 within original quadratic 8000/8000",
+              "final_counts": {
+                "om4": 8000,
+                "observation": 8000
+              }
+            }
+          },
+          "timestep_physical_weight": 0.5,
+          "timestep_consistency_weight": 1.0,
+          "timestep": "Shared processor; ordered two-interval forcing/context adapter; endpoint-only consistency; decoder uses short-path day-five scaffold"
+        }
+      },
+      "metric_hashes": {
+        "2015-01-01": "c808e06c8a810504910922064dfd40df65257eddf8d97c7e6597393cb61f520f",
+        "2018-01-01": "e5daba16d9148de34767452ad3fe5144a2ed0b701f3fe49ff34948d62ae7657d",
+        "2021-01-01": "846986d4ec5b5d57dc7dbcfae45100fecaa440c8258556c49ce2ca4a8e97eb81"
+      }
+    }
+  },
+  "presentation_sha256": "bca42d3e5c4bf91d7f860c5269deca0ed6e840adc65e42a777c2a39c5ed9ad0e"
+}

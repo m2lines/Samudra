@@ -1,0 +1,101 @@
+{
+  "origins": [
+    "2013-11",
+    "2013-12",
+    "2014-01",
+    "2014-02",
+    "2014-03",
+    "2014-04",
+    "2014-05",
+    "2014-06",
+    "2014-07"
+  ],
+  "inputs": {
+    "control": {
+      "complete_sha256": "99b67eca2a4306c2959720a7ea58601c5bc90de08198f778721535a454e476b1",
+      "checkpoint_sha256": "97b830d74c8a6d2758039c0dc0d0c9128ff6f2c0ca46aab6595973bf09446a13",
+      "step": 16128,
+      "counts": {
+        "om4": 8064,
+        "observation": 8064
+      },
+      "sampling_steps": 32,
+      "files": {
+        "members-2013-11.npz": "c1690c357a570171e91ecb9b6cee2ef8c22c83ef2fc1c752ed43a7fce88ef488",
+        "members-2013-12.npz": "8b148f7d3fd55f06fc020ffe702b85838b7028d5a38cde3b8fd3f1568b1ea9a7",
+        "members-2014-01.npz": "5de6eea9f9cb7a61b36fce368f08ccbae1bb126c0a3d6b80e36ab103b600425f",
+        "members-2014-02.npz": "378452194dfed920c472ee03cdb4290909c048804e682816f3a5b515398443c7",
+        "members-2014-03.npz": "5a7148f31e683cc76c75e86a5d545d2198c9ccaa747a01c0fc81e218906cd42e",
+        "members-2014-04.npz": "2b79f91d9526846176376ab2268f1d4f409e2861de37d60e19b0ee012d4a919a",
+        "members-2014-05.npz": "c3fc55e8e6baeeef1d5d6c46ce9a7c89220940a1b17c5a24463983f568b0eea5",
+        "members-2014-06.npz": "33b2f898b658b7e6685f3ac3f3e96a3d8e3b2c01295f38666c8451c0fc7e34f9",
+        "members-2014-07.npz": "c2baaa72f710871191e6b9dc04651bd8ea1bb9d8f32293c45c072f73b96fe70d"
+      }
+    },
+    "supervised": {
+      "complete_sha256": "285795dd8cda0fe6205024718ee671af32de990274d5aa794ac6adca2c53ff52",
+      "checkpoint_sha256": "dedf9958b42f59e70986a21c810b97e9e3c4c765fe90da940849782926110c1c",
+      "step": 16128,
+      "counts": {
+        "om4": 8064,
+        "observation": 8064
+      },
+      "sampling_steps": 32,
+      "files": {
+        "members-2013-11.npz": "fc321368ca2d5fdeb615c87216ab5253c5a3dbf722e5b5e66fa5170be116c726",
+        "members-2013-12.npz": "10391f065fa3ab9d5513caa214a734c3c145c86d7dfa69746824ac13121db019",
+        "members-2014-01.npz": "108e86fdaa5c0ff44840f09976b6e19e961d8330c5ba6f178dd6212b32ef3d52",
+        "members-2014-02.npz": "ab10ef7444f83daad792ab222d39d5b518e4ac755788e1a0f0f9145d68c6cfef",
+        "members-2014-03.npz": "7fac2b0de453485d4a71e93fd6784565c1897d2b69d7ea8714aea0789dc8a1ae",
+        "members-2014-04.npz": "bcec4dc812ba3a1af3559cc7e67872740b45460a67f6e55da8eb6df2790589c4",
+        "members-2014-05.npz": "f417711caf531171e8c45a691fe8bc10c3252b097990f470fe134484bf57a597",
+        "members-2014-06.npz": "b059b840a56e88a078c67d8f2691c977e26f10ede172b91af1f9f212c92583db",
+        "members-2014-07.npz": "5a4414af31b3c6760f6867d747fbc7eec986d3fc22f2d1e6c0efa28e1a039b6a"
+      }
+    },
+    "consistency-weak": {
+      "complete_sha256": "c1926c0fe3ddc25f4cf96945cc143cb24304e6540d908fca43a2c72a7d7ed0a5",
+      "checkpoint_sha256": "e67b2431deba464d9d744235a7fdabef99e63dc52a87fb12c60e8a629a781335",
+      "step": 16128,
+      "counts": {
+        "om4": 8064,
+        "observation": 8064
+      },
+      "sampling_steps": 32,
+      "files": {
+        "members-2013-11.npz": "0bd7874908b6d084351c57a12c1ae8da8c85e06def049541ce59d52a13686cd4",
+        "members-2013-12.npz": "2fbdafc35fe62bede88278d0709de61f5955c90e877d1d360d1bf51219f66d6a",
+        "members-2014-01.npz": "ed74ee7335faccb904b2018ae2ee01af62b3b4319a0b27201178a3e8ba41bcfd",
+        "members-2014-02.npz": "8fa40633f96d02748766245952e289e9f2147f1f9bf95ba4e90c9422c70bfdd8",
+        "members-2014-03.npz": "bc53f97d488247452ac461e416281030746173472e57d428362ce560a4702d63",
+        "members-2014-04.npz": "1e8b82ab8209bcd3dc534545749bccd88244be9c0dbcc4fac377790ee1548520",
+        "members-2014-05.npz": "49bcb9eb2a1b72c27a846041a8c3911b4d08c652cc575b7c389d8c18af82660b",
+        "members-2014-06.npz": "9e92f16997fd4117b9422ade318c6bce9d56388c6ee7da8333585b956c68cfc2",
+        "members-2014-07.npz": "e70f715659e00732f29dad2350d88de935f3976e036cf01000adae76b7287ff4"
+      }
+    },
+    "consistency-strong": {
+      "complete_sha256": "93eac1591b03bcd91c1cff3e796b4c4043ecd9dbbcd7a37185eee2d02a10bd11",
+      "checkpoint_sha256": "b6363cd9db34e90c50de68499d1f1966e8dde7980fc6c670d4b58bbf0220257e",
+      "step": 16128,
+      "counts": {
+        "om4": 8064,
+        "observation": 8064
+      },
+      "sampling_steps": 32,
+      "files": {
+        "members-2013-11.npz": "b3c3399b789fb389fcefdb6028b4f77b24dd37daa4750511be1de8bbdf025cf6",
+        "members-2013-12.npz": "4f89f911668599bf00e080646cb0bf893749610dca9f6fdb2cc2a9f14b8638d8",
+        "members-2014-01.npz": "c4ed43190fedbcb8c1ca18a00511f36b8b9a6235f543cfef5c4158861a22fd69",
+        "members-2014-02.npz": "272d0dad8d31e08340defafe2091673be8e21318410147f1c651869c7dd289e4",
+        "members-2014-03.npz": "f4825a9b4c34ea99c512683cb52ae078ab1ff7587a15abce432647e94af152b6",
+        "members-2014-04.npz": "97a6388528857cc403423dc45893a20b949fb09430f4de7b6361207992614dd4",
+        "members-2014-05.npz": "88f3c4a3aef91d8272ff45b423ff57a209846be01e8cadf8278ed4379182870e",
+        "members-2014-06.npz": "8b79dd25b437978ca6fb1f28b07a5755e03f4c77bb396e1e11911fc6b572674f",
+        "members-2014-07.npz": "16b32a7f24430fb7c9b8a5333de647cc281c8322af472f67717dadb8dce06723"
+      }
+    }
+  },
+  "interpretation": "Grid-angle diagnostics of matched day-30 surface fields; not a scored metric.\n\nPower is integrated in grid-wavelength bands, after the scorer's planar detrend\nand periodic Hann with mean-square correction. The full Fourier plane avoids\nhalf-plane multiplicity ambiguity. Coordinates are grid cells, not metres:\ncos(4 angle) distinguishes axis (+) from diagonal (-) orientation in the image,\nnot physical ocean anisotropy. Angle describes the wavevector; stripes are\nperpendicular, which does not change cos(4 angle). Rectangular Fourier lattices and the taper bias\nthis statistic; matched reference differences help but cannot identify artifacts\nuniquely. All case/member raw powers are pooled before normalizing moments.\n",
+  "zero_power": "cos4=NaN and cos4_defined=false: direction unavailable at zero power"
+}

@@ -77,6 +77,8 @@ def main():
                     [r[axis] for r in series],
                     [r["score"] for r in series],
                     label=name,
+                    marker="o",
+                    markersize=3,
                     lw=1.3,
                 )
         ax.set(xlabel=label, ylabel="Validation RMSE blend (lower is better)")
@@ -94,6 +96,8 @@ def main():
                     [r["update"] for r in series],
                     [r[component] / control[component] for r in series],
                     label=name,
+                    marker="o",
+                    markersize=3,
                     lw=1.2,
                 )
         ax.set(

@@ -93,10 +93,31 @@ GPU utilization is recorded throughout, including validation. Preserve failed
 attempts; diagnose low utilization before any routine resubmission. No new seeds,
 models or scientific protocol changes beyond this table are included.
 
-Status at submission, October 10 20:26 ET: CPU audit **19555071** queued;
-qualification array **19555072** waits for that audit; production/evaluation
-array **19555073** waits for every qualification. No training progress is claimed
-from submission alone. All 73 targeted tests and repository commit hooks passed.
+Status at October 10 **21:18 ET**: CPU audit **19555071** and all seven
+qualification tasks **19555072** completed successfully. Saved gates confirm
+bitwise exact deterministic serialization replay, exact I/O, matching producer,
+seed and selection-reference contracts, and acceptable measured throughput.
+All 73 targeted tests and repository commit hooks passed.
+
+Production/evaluation array **19555073** has four early-data models running
+(156–361 total updates at this snapshot); the three U-global controls remain
+queued behind the four-task concurrency limit. Each running arm has completed
+its first RMSE-only validation. These are **startup curves**, not evidence of
+relative model quality; the controls have not trained yet.
+
+![RMSE validation against total and observation updates](artifacts/early-rmse-6k-2026-10-10/progress/validation-blend.png)
+
+[All five normalized components](artifacts/early-rmse-6k-2026-10-10/progress/validation-components.png) ·
+[Numeric validation history](artifacts/early-rmse-6k-2026-10-10/progress/validation.csv).
+Every plotted blend was independently checked against its saved five components
+and frozen climatology denominators. Curves contain eight completed validations
+through total update 300 (coarse) / 100 (fine), rather than interpolated results.
+
+The initial batch telemetry used physical Slurm GPU IDs, whereas Torch's cgroups
+renumber allocated GPUs. Failed telemetry files are retained; separate read-only
+observers now record the actual allocated GPU UUIDs. Training, checkpoints and
+qualification contracts were not changed. A launcher fix in the reporting branch
+applies to future submissions; this wave retains the pinned producer below.
 
 Pinned producer: `eae2b5c56da44eb3686a6eaf72a80aa419a4b5a4`.
 Cluster root: `/scratch/jr7309/runs/2026-10-10-early-rmse-6k`.

@@ -28,7 +28,8 @@ fi
 flags=()
 if [[ "$stage" != prepare ]]; then
   flags+=(--nv)
-  nvidia-smi --id="${SLURM_JOB_GPUS:-${CUDA_VISIBLE_DEVICES:?GPU allocation missing}}" --query-gpu=timestamp,index,utilization.gpu,memory.used --format=csv -l 5 > "$root/logs/gpu-${SLURM_JOB_ID}.csv" &
+  # Torch cgroups renumber allocated devices; do not pass physical SLURM GPU IDs.
+  nvidia-smi --query-gpu=timestamp,uuid,index,utilization.gpu,memory.used --format=csv -l 5 > "$root/logs/gpu-${SLURM_JOB_ID}.csv" &
   telemetry=$!
   trap 'kill "$telemetry" 2>/dev/null || true' EXIT
 fi

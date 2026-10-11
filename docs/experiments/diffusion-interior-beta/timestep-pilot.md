@@ -101,5 +101,11 @@ cancelled automatically if qualification fails). Both were pending at the initia
 check; qualification was estimated to start at 03:29 UTC, while production had
 no firm start estimate. Runtime archive: `timestep-v1-25a5e181b345`, from commit
 `7601a81d6`. Twelve focused CPU tests, independent code review and all repository
-hooks passed. GPU qualification is pending; no scientific results are claimed.
-Persistent completion watchers and hourly/two-hour reminders are verified active.
+hooks passed. Qualification subsequently passed all four arms: two finite updates
+each, including both OM4 auxiliary training and observation training, and strict
+checkpoint loading into the existing five-day evaluator. Job 212015 completed
+in 674 seconds (0.749 allocated GPU-hours), with about 43.2 GiB peak memory per
+GPU. Production 212017 is eligible but waiting on priority; its October 11
+03:40 UTC scheduler estimate was 11:40 UTC, not a guaranteed start. No scientific
+results are claimed from qualification. Its callback is retired; production
+completion monitoring and fallback reminders remain active.

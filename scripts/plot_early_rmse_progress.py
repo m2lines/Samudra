@@ -21,6 +21,11 @@ COMPONENTS = [
     "ohc_0_700_rmse",
     "ohc_700_2000_rmse",
 ]
+DYNAMICS = {
+    "sst_dynamics/day30/bias_celsius": "Day-30 SST bias (°C)",
+    "sst_dynamics/day30/anomaly_correlation": "Day-30 SST anomaly correlation",
+    "sst_dynamics/day30/anomaly_rms_ratio": "Day-30 SST anomaly RMS ratio",
+}
 
 
 def main():
@@ -54,6 +59,8 @@ def main():
                     om4_updates=event["task_counts"]["om4"],
                     score=event["score"],
                     **{k: m[k] for k in COMPONENTS},
+                    **{k: m[k] for k in DYNAMICS},
+                    om4_retention_ts_mse=event["om4_retention"]["ts_mse"],
                 )
             )
     if not rows:
@@ -86,6 +93,28 @@ def main():
     axes[1].legend(fontsize=7)
     for ext in ["png", "pdf"]:
         fig.savefig(args.output / ("validation-blend." + ext), dpi=160)
+    plt.close(fig)
+    fig, axes = plt.subplots(2, 2, figsize=(12, 8), constrained_layout=True)
+    diagnostics = dict(DYNAMICS, om4_retention_ts_mse="OM4 held-out T/S MSE")
+    for ax, (key, label) in zip(axes.flat, diagnostics.items(), strict=True):
+        for name in config["runs"]:
+            series = [r for r in rows if r["model"] == name]
+            if series:
+                ax.plot(
+                    [r["update"] for r in series],
+                    [r[key] for r in series],
+                    label=name,
+                    lw=1.2,
+                )
+        if key.endswith("bias_celsius"):
+            ax.axhline(0, color="gray", ls=":", lw=1)
+        elif key.endswith("anomaly_rms_ratio"):
+            ax.axhline(1, color="gray", ls=":", lw=1)
+        ax.set(xlabel="Total optimizer updates", ylabel=label)
+        ax.grid(alpha=0.25)
+    axes.flat[-1].legend(fontsize=7)
+    for ext in ["png", "pdf"]:
+        fig.savefig(args.output / ("validation-dynamics." + ext), dpi=120)
     plt.close(fig)
     fig, axes = plt.subplots(2, 3, figsize=(14, 8), constrained_layout=True)
     for ax, component in zip(axes.flat, COMPONENTS, strict=False):

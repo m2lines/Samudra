@@ -115,6 +115,7 @@ has approximately 64 GB free at the latest quota check.
 ![RMSE validation against total and observation updates](artifacts/early-rmse-6k-2026-10-10/progress/validation-blend.png)
 
 [All five normalized components](artifacts/early-rmse-6k-2026-10-10/progress/validation-components.png) ·
+[SST dynamics and OM4 retention](artifacts/early-rmse-6k-2026-10-10/progress/validation-dynamics.png) ·
 [Numeric validation history](artifacts/early-rmse-6k-2026-10-10/progress/validation.csv).
 Every plotted blend was independently checked against its saved five components
 and frozen climatology denominators. Curves contain 217 completed validations,

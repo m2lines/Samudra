@@ -11,7 +11,7 @@ import json
 import math
 from pathlib import Path
 
-from run_early_fine_wave import ARMS
+from run_early_fine_wave import ARMS  # type: ignore[import-not-found]
 
 
 def read(path):
@@ -26,7 +26,7 @@ def digest(path):
 def collect(root):
     paths = read(root / "paths.json")
     cooldown = paths.get("cooldown")
-    names = [*ARMS, "U-global"] if cooldown else ARMS
+    names = paths.get("runs") or ([*ARMS, "U-global"] if cooldown else ARMS)
     result = dict(
         collected_utc=datetime.datetime.now(datetime.UTC).isoformat(),
         root=str(root),
@@ -37,6 +37,9 @@ def collect(root):
         arms={},
     )
     for name in names:
+        config = paths.get("runs", {}).get(name, {})
+        budget = config.get("updates", 4000)
+        recent_only = config.get("recent_only", name == "U-global")
         run = root / name
         training = read(run / "TRAIN_COMPLETE.json")
         complete = read(run / "test-selected/COMPLETE.json")
@@ -45,9 +48,9 @@ def collect(root):
         manifest = read(run / "manifest.json")
         if manifest["code_commit"] != paths["producer"]:
             raise ValueError("Producer mismatch")
-        if training["global_step"] != 4000 or training["task_counts"] != {
-            "om4": 2000,
-            "observation": 2000,
+        if training["global_step"] != budget or training["task_counts"] != {
+            "om4": budget // 2,
+            "observation": budget // 2,
         }:
             raise ValueError("Incomplete training")
         if {
@@ -65,9 +68,13 @@ def collect(root):
             raise ValueError("Incorrect evaluation cohort")
         exposure = read(run / "EXPOSURE.json")
         expected = (
-            dict(om4_recent=2000, om4_early=0, observation=2000)
-            if name == "U-global"
-            else dict(om4_recent=1000, om4_early=1000, observation=2000)
+            dict(om4_recent=budget // 2, om4_early=0, observation=budget // 2)
+            if recent_only
+            else dict(
+                om4_recent=budget // 4,
+                om4_early=budget // 4,
+                observation=budget // 2,
+            )
         )
         if exposure != expected:
             raise ValueError("Unexpected exposure")
@@ -75,12 +82,34 @@ def collect(root):
             json.loads(line) for line in (run / "events.jsonl").read_text().splitlines()
         ]
         updates = [e for e in events if e["event"] == "joint_train"]
-        if [e["global_step"] for e in updates] != list(range(1, 4001)):
+        if [e["global_step"] for e in updates] != list(range(1, budget + 1)):
             raise ValueError("Incomplete or duplicated update log")
         if not all(
             math.isfinite(e[k]) for e in updates for k in ("loss", "gradient_norm")
         ):
             raise ValueError("Nonfinite training event")
+        if paths.get("selection_metric") == "rmse-only":
+            if (
+                manifest["arguments"]["selection_metric"] != "rmse-only"
+                or manifest["arguments"]["seed"] != config["seed"]
+                or any(not math.isclose(e["lr"], 1e-4) for e in updates)
+            ):
+                raise ValueError("RMSE wave seed, selection, or learning-rate mismatch")
+            reference = result["selection_reference"]
+            for event_path in run.glob("validation-*.json"):
+                event = read(event_path)
+                metric = event["metrics"]
+                score = (
+                    sum(
+                        metric["metrics"][key] / reference["control"]["metrics"][key]
+                        for key in manifest["protocol"]["integrated"]
+                    )
+                    / 5
+                )
+                if metric["spectra"] or not math.isclose(
+                    score, event["score"], rel_tol=0, abs_tol=1e-12
+                ):
+                    raise ValueError("Saved RMSE selection score mismatch")
         migration = None
         if cooldown:
             migration = read(run / "MIGRATION.json")
@@ -108,6 +137,7 @@ def collect(root):
             manifest=manifest,
             exposure=exposure,
             final_training_event=updates[-1],
+            training_events=updates if paths.get("runs") else [],
             validation_events=[
                 dict(e, optimizer_updates=e["global_step"])
                 for e in events

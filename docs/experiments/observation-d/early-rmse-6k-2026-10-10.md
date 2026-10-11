@@ -93,25 +93,26 @@ GPU utilization is recorded throughout, including validation. Preserve failed
 attempts; diagnose low utilization before any routine resubmission. No new seeds,
 models or scientific protocol changes beyond this table are included.
 
-Status at October 10 **21:18 ET**: CPU audit **19555071** and all seven
+Status at October 10 **22:14 ET**: CPU audit **19555071** and all seven
 qualification tasks **19555072** completed successfully. Saved gates confirm
 bitwise exact deterministic serialization replay, exact I/O, matching producer,
 seed and selection-reference contracts, and acceptable measured throughput.
 All 73 targeted tests and repository commit hooks passed.
 
 Production/evaluation array **19555073** has four early-data models running
-(156–361 total updates at this snapshot); the three U-global controls remain
+(1,015–1,856 total updates at this snapshot); the three U-global controls remain
 queued behind the four-task concurrency limit. Each running arm has completed
-its first RMSE-only validation. These are **startup curves**, not evidence of
-relative model quality; the controls have not trained yet.
+RMSE-only validations. These are **partial training curves**; the controls have
+not trained yet, so they do not establish an improvement over U-global.
+Ten-minute GPU-utilization averages are 62–68%, with no recorded training errors.
 
 ![RMSE validation against total and observation updates](artifacts/early-rmse-6k-2026-10-10/progress/validation-blend.png)
 
 [All five normalized components](artifacts/early-rmse-6k-2026-10-10/progress/validation-components.png) ·
 [Numeric validation history](artifacts/early-rmse-6k-2026-10-10/progress/validation.csv).
 Every plotted blend was independently checked against its saved five components
-and frozen climatology denominators. Curves contain eight completed validations
-through total update 300 (coarse) / 100 (fine), rather than interpolated results.
+and frozen climatology denominators. Curves contain 56 completed validations
+through total update 1,800 (coarse) / 1,000 (fine), rather than interpolated results.
 
 The initial batch telemetry used physical Slurm GPU IDs, whereas Torch's cgroups
 renumber allocated GPUs. Failed telemetry files are retained; separate read-only

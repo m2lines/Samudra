@@ -18,6 +18,9 @@ protocols. This wave uses RMSE-only selection throughout.
 Contents: [Results](#results) · [Runs](#runs) · [Selection](#selection) · [Diagnostics](#diagnostics) ·
 [Execution](#execution).
 
+The [matched 4k early-data reproductions](early-rmse-4k-reproduction-2026-10-11.md)
+test whether the earlier gain repeats before interpreting the 6k result as noise.
+
 ## Results
 
 Lower is better. Validation uses nine origins and its frozen climatology

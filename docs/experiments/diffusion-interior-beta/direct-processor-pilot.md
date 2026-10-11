@@ -3,6 +3,11 @@
 
 # Direct next-latent prediction pilot
 
+**Status:** full-warm-up qualification passed all four arms. Production job
+**212190** started on four Beta GPUs at **2026-10-11 19:04:36 UTC**, with an
+eight-hour allocation limit. Training and evaluations are in progress; no final
+skill or stability result is available yet.
+
 User-authorized follow-up to the [latent-amplitude diagnostics](coastal-decoder-results.md).
 Test whether replacing the persistent residual update
 `next = latest + processor(history, forcing, context)` with
@@ -111,6 +116,32 @@ Its immutable runtime source was
 `direct-v1-362478529fa8`, from commit `39dde12a6`; 28 targeted tests and all
 repository hooks passed. Preserve these outputs under `smoke-212175/` and rerun
 qualification using the actual 256-update conversion, without changing the
-production recipe. Production training follows only after qualification. The production dry-run
-queue estimate was October 12 at 03:43 UTC; this is advisory, not a reservation
-or a confirmed start time.
+production recipe.
+
+Replacement qualification **212178** completed all four arms and strict reloads
+with exit 0 in 30m02s on four B200s (**2.00222 GPU-hours**). Runtime source
+`direct-v1-b673a95fcd25` uses the same production recipe, with the full conversion
+also applied during qualification. All arms completed two mixed updates and
+saved 8,129 OM4 / 8,129 observation counts.
+
+| Warm-up assessment on reserved training-era OM4 origins | Before | After 256 updates |
+|---|---:|---:|
+| Direct: teacher-forced next-slot relative MSE | 0.947320 | 0.005984 |
+| Direct: day-30 autoregressive relative latent MSE | 0.951350 | 0.019181 |
+| Residual: both relative errors | 0 | 0 |
+
+These are latent agreement scores against the frozen teacher, **not physical
+forecast errors**. They establish substantially better short-trajectory transfer
+than the abbreviated conversion, not annual stability or transfer to the
+observation-forcing task. The first mixed native loss remained much higher in
+direct-warm (75.70) than in the residual control (0.4683); the un-warmed direct
+arm's initial native loss was finite but approximately 9.64e15. Passing numerical
+qualification does not mean these models already forecast well.
+
+Production **212190** uses that qualified archive and starts each arm afresh
+from the agreed parent; it does not resume the two-update qualification weights.
+Both qualification jobs count toward the ceiling: **3.44778 GPU-hours consumed**,
+plus at most 32 reserved for production, totaling **35.44778 of 40** before any
+recovery. The initial late-night queue prediction was superseded by the actual
+immediate start. A durable scheduler watcher and one-hour fallback reminder
+are registered for production.

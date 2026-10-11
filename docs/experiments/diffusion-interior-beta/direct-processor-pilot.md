@@ -5,8 +5,9 @@
 
 **Status:** full-warm-up qualification passed all four arms. Production job
 **212190** started on four Beta GPUs at **2026-10-11 19:04:36 UTC**, with an
-eight-hour allocation limit. Training and evaluations are in progress; no final
-skill or stability result is available yet.
+eight-hour allocation limit. At the first hourly check, the two residual arms
+and `direct-warm` are training; the un-warmed `direct` arm stopped on update 3
+at the nonfinite total-gradient-norm guard. Final evaluations are still pending.
 
 User-authorized follow-up to the [latent-amplitude diagnostics](coastal-decoder-results.md).
 Test whether replacing the persistent residual update
@@ -153,3 +154,32 @@ All four production workers confirmed online W&B initialization. Live runs:
 [direct-warm](https://wandb.ai/ocean_emulators/default/runs/diffint-direct-direct-warm).
 The two warm arms have begun their processor-only updates; these are separate
 from the 128 mixed updates and are not yet forecast results.
+
+### First production check: approximately 20:05 UTC
+
+| Arm | Completed mixed updates | Latest observation training loss | Latest OM4 training loss |
+|---|---:|---:|---:|
+| residual | 23 | 0.04773 | 0.57630 |
+| residual-warm | 21 | 0.04640 | 0.48588 |
+| direct-warm | 21 | 0.29135 | 0.90624 |
+| direct | 2; stopped on update 3 | 0.77840 | 9.64e15 |
+
+All three continuing arms have saved recovery checkpoints at update 16.
+The warmed direct observation loss has fallen from approximately 0.656 to
+0.291, but remains above the controls. These are training losses on varying
+batches, not matched held-out scores or evidence of annual stability.
+
+The un-warmed arm passed the two-update qualification but stopped at gradient
+clipping on the third update. The recorded exception identifies a **nonfinite
+total gradient norm**; it does not distinguish nonfinite individual gradient
+entries from overflow while computing the norm. The very large initial native
+loss and failed conversion are retained as evidence, not silently repaired by
+disabling the guard or changing that arm's objective. The other three arms
+continue unchanged; the runner will report an overall failure after they finish
+because it preserves the failed arm's exit status. Check individual results and
+completed evaluation artifacts rather than treating that aggregate exit as an
+infrastructure failure requiring a complete rerun.
+
+Recent speed is approximately 141–150 seconds per mixed update, suggesting
+roughly another 4–4.5 hours of training, plus evaluations. This is an estimate;
+the eight-hour allocation limit and forty-GPU-hour pilot ceiling remain fixed.

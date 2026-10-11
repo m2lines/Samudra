@@ -17,12 +17,12 @@
     },
     {
       "wave": "new 4k reproduction",
-      "path": "torch:/scratch/jr7309/runs/2026-10-11-early-rmse-4k/reporting/early4k-repro-validation-20261011T1746.json.gz",
-      "sha256": "d6ee8b48159677914b72a863dc6626d116374ae894e7d8215ec79e7d97c898cb"
+      "path": "torch:/scratch/jr7309/runs/2026-10-11-early-rmse-4k/reporting/early4k-repro-validation-final.json.gz",
+      "sha256": "37e8ca1612753b58847cf4a79f4d2f0b4ecfdb9d68c61a9ef32e7bd11c32ca22"
     }
   ],
   "reference_sha256": "d7bf4f3eeaa6a4522f7315ab77ea8468392f800c29d7a17506f5eedfa2b83b60",
-  "script_sha256": "c13a40b0ff194e4d72d092bddb837cb69b79e700997949fc7de0d465f71f36eb",
+  "script_sha256": "b47f752b9d10146ca4906464eef61ad75819db26c3f8b14609d9097174286aa7",
   "observation_contract": {
     "data_manifest_sha256": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
     "grid_sha256": "ce96360964a6669d0186b9581abaaffc06f660c4e09e0ac813b3dd1b819e5167",
@@ -32,7 +32,7 @@
     "surface_policy": "observed-only",
     "surface_fill": "zero"
   },
-  "events": 679,
+  "events": 722,
   "rescore": "All original checkpoints rescored from saved physical validation components; historical weights are not reselected or re-evaluated on test data.",
   "caveat": "Historical U-global ran on Beta; historical early arms include recorded recovery attempts. New reproductions and the 6k wave share the Torch producer. Same seed is a repeatability check, not a new independent seed."
 }

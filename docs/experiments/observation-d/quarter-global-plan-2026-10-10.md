@@ -8,14 +8,16 @@ finishes. The user approved this plan, including reporting both resolutions,
 on October 10. No follow-on jobs have been submitted. Choose the budget and optional
 second arm using validation results, before looking at the new held-out results.
 
-**October 11 decision:** the current wave has completed. Its 6k U-global seeds
-improve selected validation by 5–7% over the 4k reproduction, so use **6,000
-updates** for the quarter-degree baseline. The best early-fine validation gain
-is smaller than the observed two-seed U-global spread; no optional second arm
-is promoted yet. This remains provisional while the user-requested
-[matched 4k reproductions](early-rmse-4k-reproduction-2026-10-11.md) test the
-earlier advantage; late-window means favor early fine more than minima do. The [completed report](early-rmse-6k-2026-10-10.md)
-contains the component and held-out comparisons.
+**October 11 decision:** use **6,000 updates** for the quarter-degree baseline:
+the 6k U-global seeds improve selected validation by 5–7% over the 4k control.
+The subsequent [matched 4k reproductions](early-rmse-4k-reproduction-2026-10-11.md)
+repeat the earlier-data advantage (2.7–3.0% validation, 2.6–3.7% held-out).
+This supports retaining **U-early-latent-quarter** as the proposed single
+additional arm: fine+latent led validation in both 4k executions. Its new
+validation advantage over the non-latent fine arm is only 0.3%, so a specific
+benefit from latent channels remains uncertain. This is a candidate for the
+follow-on comparison, not a demonstrated quarter-degree gain; neither run has
+been submitted or qualified at native quarter-degree resolution.
 
 ## Runs
 
@@ -122,4 +124,4 @@ repeatedly; Beta had no idle nodes at the inventory snapshot.
 Use **native-support RMSE selection**, with the unchanged 1° score reported for
 comparison. The agreed defaults are fresh training, unchanged U-Net architecture,
 and at most one promoted earlier-data variant;
-the completed current wave determines its identity and the 4k/6k budget.
+the completed comparisons support the 6k baseline and the earlier-data candidate above.

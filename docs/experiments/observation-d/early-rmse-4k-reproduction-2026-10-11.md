@@ -3,108 +3,153 @@
 
 # Early-data reproduction at the original 4k budget
 
-Two fresh 4,000-update runs test whether the original early-data advantage
-repeats when training length and mixture match **U-global-repro4k**. The
-[6k comparison](early-rmse-6k-2026-10-10.md) stretched the mixture as well as the
-training budget, so its intermediate update 4,000 is not this control.
-The new runs passed data and model qualification; their results are pending. The curves below include completed historical runs and the new
-4k reproductions through updates **2,300 / 1,800** (October 11, 13:46 ET).
-The new curves are partial; do not interpret their current minima as final.
+**The 4k advantage repeats in these same-seed executions.** Both fresh early-data
+runs completed 4,000 updates and all 96 held-out origins. Relative to the matched
+U-global-repro4k control, early-fine improves validation/test RMSE blend by
+**2.7%/2.6%**, and early-fine+latent by **3.0%/3.7%**. Both selected their final
+checkpoint, so this result also holds at the fixed 4k endpoint.
 
-Contents: [Experiment](#experiment) · [Common-metric historical comparison](#common-metric-historical-comparison) ·
-[Curves](#curves) · [Execution and provenance](#execution-and-provenance).
+This supports the earlier-data recipes at this budget. It does not establish
+that latent channels or fine resolution alone cause the gain, or quantify
+variation across independent seeds. The [6k comparison](early-rmse-6k-2026-10-10.md)
+uses a stretched mixture as well as a larger budget; its intermediate update
+4,000 is not this matched control.
 
-## Experiment
+Contents: [Results](#results) · [Curves](#curves) · [Experiment](#experiment) ·
+[Verification](#verification).
 
-| Model | Why reproduce it | Recent OM4 1° | Earlier OM4 ¼° | Observation updates | Extra recurrent channels |
+## Results
+
+All values use the same five-component, full-field **RMSE-only** validation
+blend and frozen denominators; lower is better. Historical runs were rescored
+from saved physical components, removing spectra from this comparison. Their
+data/grid/statistics hashes and observation-support definitions match.
+
+| Model | Execution | Best validation | Best update | Final validation | Final-five mean |
 |---|---|---:|---:|---:|---:|
-| U-multitask-early-fine | Best validation in the completed 6k RMSE wave | 1,000 | 1,000 | 2,000 | 0 |
-| U-multitask-early-fine-latent | Best validation in the original 4k wave, including after RMSE-only rescoring | 1,000 | 1,000 | 2,000 | 10 |
+| U-global | Original 4k, Beta | 0.8815 | 4,000 | 0.8815 | 0.9088 |
+| U-global-repro4k | Matched 4k control, Torch | 0.8861 | 4,000 | 0.8861 | 0.9306 |
+| U-multitask-early-fine | Original 4k | 0.8704 | 4,000 | 0.8704 | 0.8889 |
+| U-multitask-early-fine | New 4k reproduction | **0.8624** | 4,000 | **0.8624** | 0.9037 |
+| U-multitask-early-fine-latent | Original 4k | 0.8559 | 4,000 | 0.8559 | 0.9206 |
+| U-multitask-early-fine-latent | New 4k reproduction | **0.8595** | 4,000 | **0.8595** | 0.9053 |
 
-Both have a global 1° processor with the existing encoder/decoder for the ¼°
-earlier-data task. They start fresh at seed 1729 with fixed LR 1e-4, eight-example
-accumulation, unchanged losses, normalization, data splits, and runtime. The
-4k progressive mixture ends at exactly 2,000 observation updates; earlier and
-recent OM4 alternate in the 2,000 OM4 slots. These are independent executions
-of the same seed, not additional independent seeds. No cooldown is used.
+The two reproduced early-data models also beat the original U-global's RMSE
+minimum. The original fine+latent advantage was 2.9% on RMSE alone, so it was
+not solely a spectral-score effect. The new latent advantage over the new
+non-latent fine model is only **0.3% on validation**; that small difference does
+not establish a reliable benefit from the extra channels.
 
-**U-global-repro4k** is the completed recent-only control: 2,000 recent OM4 and
-2,000 observation updates under the same 4k mixture and seed. **U-global** and
-**U-global-seed1730** from the RMSE wave are the completed 6k controls, with
-3,000 updates per task and seeds 1729/1730. The original U-global is the prior
-4k Beta run; original early arms are the 4k Torch runs, with their recorded
-recovery history. Literal model names remain unchanged; curve labels identify
-the wave and budget so these different executions cannot be confused.
+The final-five mean uses scheduled validations at budget−400, −300, −200,
+−100 and the endpoint. This descriptive diagnostic was declared before the
+new 4k results were available; it does not select checkpoints. These correlated
+points are not five independent trials. Their variation across historical and
+reproduced runs remains substantial, including for U-global itself.
 
-Select new checkpoints using the same five-component, full-field RMSE blend
-and frozen validation denominators as the 6k wave. No spectra, detrending,
-deseasonalization, or test data enter selection. Validation is saved every 100
-total updates and observation milestones. Report minima and fixed endpoints,
-physical components, and curves against total updates and observation exposure.
+For context, the 6k early-fine/fine+latent final-five means are **0.8524/0.8502**,
+versus **0.8830/0.8808** for the two U-global seeds. Thus the close 6k minima hide
+a late-training difference. The combined evidence supports a budget- and
+checkpoint-dependent comparison, rather than dismissing the original 4k gain
+as noise. It does not show that 4k is optimal: the 6k models reach lower errors.
 
-## Common-metric historical comparison
+### Held-out comparison
 
-The original saved physical validation components were rescored using the
-unchanged RMSE reference. Grid, data/statistics hashes, global support, strict
-velocity support and component definitions match. This is a retrospective
-curve comparison; it does not replace historical test scores with test scores
-from un-evaluated checkpoints.
+These are the validation-selected checkpoints, evaluated on the same 96 monthly
+test origins. Test data did not select models or weights. The test blend uses
+common held-out climatology denominators, separately from validation.
 
-| Completed run | Best RMSE blend | Update | Final RMSE blend |
+| Model, matched 4k execution | Test RMSE blend | Own initialized persistence | Change vs U-global-repro4k |
 |---|---:|---:|---:|
-| Original U-global, 4k | 0.8815 | 4,000 | 0.8815 |
-| U-global-repro4k, RMSE reproduction | 0.8861 | 4,000 | 0.8861 |
-| Original early-fine, 4k | 0.8704 | 4,000 | 0.8704 |
-| Original early-fine+latent, 4k | 0.8559 | 4,000 | 0.8559 |
+| U-global-repro4k | 0.9082 | 0.9829 | — |
+| U-multitask-early-fine | 0.8849 | 0.9824 | −2.6% |
+| U-multitask-early-fine-latent | 0.8746 | 0.9718 | −3.7% |
 
-The original fine+latent gain over original U-global is **2.9% on RMSE alone**.
-It cannot be dismissed as purely a spectral-score effect. Conversely, the
-weaker separation at 6k does not establish that the 4k gain was noise: the
-stretched training/data mixture may alter relative performance. The requested
-reproductions isolate the 4k schedule under the current common Torch producer.
-Cross-runtime differences remain relevant for the historical Beta control.
+| Model | SST RMSE (°C) | Geostrophic velocity RMSE (m/s) | EKE RMSE (m²/s²) | OHC 0–700 m RMSE (10⁸ J/m²) | OHC 700–2000 m RMSE (10⁸ J/m²) |
+|---|---:|---:|---:|---:|---:|
+| U-global-repro4k | 0.6478 | 0.11491 | 0.025254 | 8.073 | 4.358 |
+| U-multitask-early-fine | 0.6276 | 0.11503 | 0.025242 | 7.453 | 4.291 |
+| U-multitask-early-fine-latent | 0.6396 | 0.11479 | 0.025218 | 7.244 | 4.153 |
 
-The 6k minima also hide a late-training difference: the final five scheduled
-validations average **0.8524/0.8502** for early-fine/early-fine+latent, versus
-**0.8830/0.8808** for the two U-global seeds. These correlated validation points
-are a descriptive stability diagnostic, not five independent trials. Report
-the mean at budget−400, −300, −200, −100 and the endpoint for every completed
-run, alongside the minimum and endpoint; do not use it to change checkpoint
-selection. This diagnostic was added before the new 4k results were available.
+The largest gains are in upper-ocean heat content: **7.7%/10.3%** for fine and
+fine+latent. SST improves **3.1%/1.3%**; fine+latent also improves deep OHC by
+**4.7%**. Velocity/EKE differences are tiny, and both still have worse EKE RMSE
+than their own initialized persistence (0.022554 m²/s²). The result is mainly
+thermodynamic improvement, not evidence of recovered eddy variability.
+
+[All held-out components and persistence controls](artifacts/early-rmse-4k-2026-10-11/heldout-scores.csv).
+Historical test scores are not retroactively assigned to the RMSE minima: the
+historical selector could choose different weights.
 
 ## Curves
 
-All lines below use the same RMSE blend, including historical runs originally
-selected with the integrated-plus-spectral score. Markers are actual validation
-events; no smoothing or interpolation chooses minima. The late-stage views
-explicitly restrict the displayed score range; the full view and CSV retain
-all events. The budget is stated in each panel and legend.
+The complete comparison contains **722 verified validation events across 14
+series**. All lines use the same RMSE blend. Solid lines are current 4k
+reproductions, dotted lines original 4k runs, and dashed lines stretched 6k
+runs. Colors identify model families. Markers are actual validation events;
+no smoothing chooses minima. The late views explicitly restrict the displayed
+range; the full view and CSV retain every point.
 
 ![Matched schedules and late validation](artifacts/early-rmse-4k-2026-10-11/validation-late.png)
 
 [Full training curves](artifacts/early-rmse-4k-2026-10-11/validation-full.png) ·
 [Observation-exposure curves](artifacts/early-rmse-4k-2026-10-11/validation-observation-exposure.png) ·
+[Vector figure](artifacts/early-rmse-4k-2026-10-11/validation-late.pdf) ·
 [All values and five physical components](artifacts/early-rmse-4k-2026-10-11/validation.csv) ·
-[Minima and endpoints](artifacts/early-rmse-4k-2026-10-11/minima.csv).
+[Minima, endpoints and final-five means](artifacts/early-rmse-4k-2026-10-11/minima.csv).
 
-## Execution and provenance
+## Experiment
 
-Torch submission: data audit **19580149**, two-arm qualification **19580150**,
-then production/evaluation **19580151**. Dependencies require every audit and
-qualification to pass. Each arm requests one RTX6000, 16 CPUs and 192 GB RAM;
-at most two GPUs run concurrently. No qualification weights enter training.
-Qualification measured roughly 5.3–5.5 training hours, excluding validation
-and startup; queue time is additional.
+| Literal model name | Description | Recent OM4 1° | Earlier OM4 ¼° | Observation updates | Extra recurrent channels |
+|---|---|---:|---:|---:|---:|
+| U-global-repro4k | Recent-only matched control from the preceding wave | 2,000 | 0 | 2,000 | 0 |
+| U-multitask-early-fine | Earlier fine-resolution examples through the existing encoder/decoder; best validation in the 6k RMSE wave | 1,000 | 1,000 | 2,000 | 0 |
+| U-multitask-early-fine-latent | Same fine task plus recurrent channels on all tasks; best original 4k validation, including RMSE rescoring | 1,000 | 1,000 | 2,000 | 10 |
+
+All three have a global 1° processor. The early models wrap it with the existing
+encoder/decoder for the ¼° task; they do not evolve the globe at ¼°. New runs
+start fresh at seed 1729, fixed LR 1e-4, eight-example accumulation, and unchanged
+losses, normalization and splits. The 4k progressive mixture ends at exactly
+2,000 observation updates; earlier/recent OM4 alternate in the remaining slots.
+No cooldown is used. These are repeat executions of the same seed, not new
+independent seeds. No qualification weights enter training.
+
+**U-global** in the original wave is the prior 4k Beta control. **U-global** and
+**U-global-seed1730** in the RMSE wave are the completed 6k controls with
+3,000 updates per task and seeds 1729/1730. Historical early models have their
+recorded Torch recovery history. Curve labels distinguish wave and budget;
+the current reproductions and 6k runs share the same Torch training producer.
+
+Selection uses the equal mean of SST, geostrophic velocity, EKE, OHC 0–700 m and
+OHC 700–2000 m RMSE ratios to the frozen validation climatology. Surface errors
+average day 5/15/30; OHC uses calendar-month means. There is no detrending,
+deseasonalization or spectral term. Validation is saved every 100 total updates
+and observation milestones. Test comparisons use 30-day, separately initialized
+forecasts, not continuous multi-year rollouts.
+
+This is a comparison at fixed mixed-task updates, not matched FLOPs: fine-task
+updates cost more. The new reproductions test the combined earlier-data/fine-task
+recipes; they do not independently isolate temporal variety from resolution.
+
+## Verification
+
+All jobs completed successfully on October 11 by **15:52:51 ET**: CPU data audit
+**19580149**, qualification array **19580150**, and training/evaluation array
+**19580151**. Each arm used one Torch RTX6000, 16 CPUs and 192 GB RAM, at most
+two concurrent GPUs. Actual allocated time was **8.7656 GPU-hours**, including
+qualification, startup, training and evaluation; **no retries**.
 
 The unchanged successful training producer is
-`eae2b5c56da44eb3686a6eaf72a80aa419a4b5a4`. The source archive and runtime are
-verified again; source data are shared read-only, with new output and
-qualification directories. Estimated new outputs are at most 14 GB, within
-the live quota headroom; no data or checkpoints were deleted.
+`eae2b5c56da44eb3686a6eaf72a80aa419a4b5a4`. Fresh qualification checked fitting,
+gradient paths, exact I/O and bitwise deterministic checkpoint replay. The
+completion auditor independently hashed both selected checkpoint files and
+verified all 4,000 consecutive updates, exposures, finite losses/gradients,
+fixed LR, seed, producer, frozen validation scores, and both complete 96-origin
+evaluations. Plotting verified the shared data/support contracts and all saved
+RMSE scores. Reporting changes did not alter training code.
 
-Cluster root: `/scratch/jr7309/runs/2026-10-11-early-rmse-4k`.
-Its `paths.json`, `reproduction-contract.json`, `runtime-contract.json`,
-`selection-reference.json` and `submission.json` retain the launch contracts.
-Original saved validation bundles are retained in its `reporting/` directory.
+[Completion/checkpoint audit and accounting](artifacts/early-rmse-4k-2026-10-11/verification.json) ·
 [Curve provenance](artifacts/early-rmse-4k-2026-10-11/provenance.json).
-Reporting script: `scripts/plot_early_rmse_reproductions.py`.
+Cluster root: `/scratch/jr7309/runs/2026-10-11-early-rmse-4k`.
+Its launch contracts and immutable result/validation bundles are retained;
+no source data or checkpoints were deleted. Reporting script:
+`scripts/plot_early_rmse_reproductions.py`.

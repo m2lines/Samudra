@@ -5,11 +5,12 @@
 
 All seven fresh runs completed. **Longer U-global training helps:** the selected
 6k model's held-out RMSE blend is 0.8423, versus 0.9082 for the 4k reproduction
-(7.3% lower). Its second seed scores 0.8503. **The early-data variants do not
-establish a reproducible advantage:** the fine-input variant improves narrowly,
-by less than the observed two-seed U-global spread. These results support a
-6k [quarter-degree U-global follow-on](quarter-global-plan-2026-10-10.md), without
-yet justifying a second quarter-degree arm.
+(7.3% lower). Its second seed scores 0.8503. **At 6k, best-checkpoint gains from
+early data are small**, although late-window means favor the fine-task variants.
+The subsequently completed [matched 4k reproductions](early-rmse-4k-reproduction-2026-10-11.md)
+repeat the earlier-data advantage: 2.7–3.0% lower validation and 2.6–3.7% lower
+test RMSE than U-global-repro4k. The evidence therefore supports a budget- and
+checkpoint-dependent effect. See the [quarter-degree follow-on plan](quarter-global-plan-2026-10-10.md).
 
 The historical [four-arm report](early-fine-wave-2026-10-07.md) and
 [cooldown report](early-fine-cooldown-2026-10-08.md) use their original selection
@@ -17,9 +18,6 @@ protocols. This wave uses RMSE-only selection throughout.
 
 Contents: [Results](#results) · [Runs](#runs) · [Selection](#selection) · [Diagnostics](#diagnostics) ·
 [Execution](#execution).
-
-The [matched 4k early-data reproductions](early-rmse-4k-reproduction-2026-10-11.md)
-test whether the earlier gain repeats before interpreting the 6k result as noise.
 
 ## Results
 

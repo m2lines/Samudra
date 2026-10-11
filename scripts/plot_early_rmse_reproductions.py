@@ -167,7 +167,7 @@ def main():
         ("update", True, "validation-late"),
         ("observation_updates", True, "validation-observation-exposure"),
     ]:
-        fig, axes = plt.subplots(2, 2, figsize=(14, 9), constrained_layout=True)
+        fig, axes = plt.subplots(2, 2, figsize=(16, 10), constrained_layout=True)
         for ax, (title, include) in zip(axes.flat, panels, strict=True):
             for (wave, model), events in series.items():
                 if not include(wave, model, events):
@@ -210,12 +210,13 @@ def main():
                 ax.set_ylim(0.80, 1.15)
                 ax.set_xlim(left=2000 if axis == "update" else 500)
             ax.grid(alpha=0.25)
-            ax.legend(fontsize=6)
+            ax.legend(fontsize=7)
         fig.suptitle(
             "Same five RMSE components and frozen validation reference; no spectra"
             + (" · late-stage zoom" if zoom else "")
         )
-        fig.savefig(out / (stem + ".png"), dpi=90)
+        fig.savefig(out / (stem + ".png"), dpi=120)
+        fig.savefig(out / (stem + ".pdf"))
         plt.close(fig)
     (out / "provenance.json").write_text(
         json.dumps(

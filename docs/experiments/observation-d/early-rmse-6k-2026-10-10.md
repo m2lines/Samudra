@@ -138,6 +138,19 @@ every aspect of variability improves.
 Fine and coarse early-OM4 objectives differ, so their loss magnitudes are not
 direct measures of relative model quality. The observation objectives are shared.
 
+The day-30 maps compare every selected model with observations and initialized
+surface persistence, using the same January/July 2022 examples and common
+color limits. Persistence is identical across these models on the plotted
+SST/ADT support; their inferred subsurface states and heat-content persistence
+still differ. Anomalies subtract the shared training seasonal climatology.
+These are five-day means from short rollouts, not annual endpoints.
+
+| Case | SST | ADT / SSH |
+|---|---|---|
+| January anomalies | [Map](artifacts/early-rmse-6k-2026-10-10/maps/day30-2022-01-anomalies-sst.png) | [Map](artifacts/early-rmse-6k-2026-10-10/maps/day30-2022-01-anomalies-adt.png) |
+| July anomalies | [Map](artifacts/early-rmse-6k-2026-10-10/maps/day30-2022-07-anomalies-sst.png) | [Map](artifacts/early-rmse-6k-2026-10-10/maps/day30-2022-07-anomalies-adt.png) |
+| July absolute fields | [Map](artifacts/early-rmse-6k-2026-10-10/maps/day30-2022-07-fields-sst.png) | [Map](artifacts/early-rmse-6k-2026-10-10/maps/day30-2022-07-fields-adt.png) |
+
 Diagnostic weights are preserved every 500 observation updates, alongside
 initial, selected and latest states. Milestones include weights, manifest,
 counts and RNG metadata; only latest checkpoints include optimizer state.

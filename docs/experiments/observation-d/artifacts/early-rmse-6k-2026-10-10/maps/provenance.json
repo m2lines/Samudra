@@ -1,0 +1,403 @@
+{
+  "scope": "Saved day-30 five-day mean forecasts; no new inference or training",
+  "cases": [
+    "2022-01",
+    "2022-07"
+  ],
+  "case_choice": "January and July of the final held-out year, inherited from the original report",
+  "lead_index": 5,
+  "grid_sha256": "ce96360964a6669d0186b9581abaaffc06f660c4e09e0ac813b3dd1b819e5167",
+  "script_sha256": "44b9456cac6c4c95c11c8157247d121c52679712da721c4bccbb6cedd69ab239",
+  "sources": [
+    {
+      "method": "U-global-repro4k",
+      "path": "/scratch/jr7309/runs/2026-10-10-early-rmse-6k/U-global-repro4k/test-selected/selected-predictions.npz",
+      "sha256": "39ae5c8186686ac3d8cc81053d16713be538d92a754b24932023ff97118b96b7",
+      "selected_checkpoint_sha256": "df191e871d10fa850b476edf718063d64c0ac3096e9a2e77c023984d296d1823",
+      "source_checkpoint_sha256": null,
+      "weights_used_sha256": "df191e871d10fa850b476edf718063d64c0ac3096e9a2e77c023984d296d1823"
+    },
+    {
+      "method": "U-global",
+      "path": "/scratch/jr7309/runs/2026-10-10-early-rmse-6k/U-global/test-selected/selected-predictions.npz",
+      "sha256": "5bfaa3c4972c8dd350a74115895de1e82a764cf3d32856f4d8f75745fe7ed12e",
+      "selected_checkpoint_sha256": "83bb1c88639b004f8bd2412f0ff6bb5397b443678c41f32d0a449bb440b854cb",
+      "source_checkpoint_sha256": null,
+      "weights_used_sha256": "83bb1c88639b004f8bd2412f0ff6bb5397b443678c41f32d0a449bb440b854cb"
+    },
+    {
+      "method": "U-global-seed1730",
+      "path": "/scratch/jr7309/runs/2026-10-10-early-rmse-6k/U-global-seed1730/test-selected/selected-predictions.npz",
+      "sha256": "93fedcadecbdd332b74c97d1d0434ad62c3ff9a34488e23a70a95d283b5a18a9",
+      "selected_checkpoint_sha256": "c47eea4d69a79510758fd0d570d324c423d8af162c20a0319325f823fa593333",
+      "source_checkpoint_sha256": null,
+      "weights_used_sha256": "c47eea4d69a79510758fd0d570d324c423d8af162c20a0319325f823fa593333"
+    },
+    {
+      "method": "U-multitask-early",
+      "path": "/scratch/jr7309/runs/2026-10-10-early-rmse-6k/U-multitask-early/test-selected/selected-predictions.npz",
+      "sha256": "6d97376ad158632c9e8f1b62435f13831ecbf3d4ef7bcc22233d47c8b748facd",
+      "selected_checkpoint_sha256": "f39dbaee084434de507b7f82f2bcaf862f7accf21a9a4baad73f7c2d67544b39",
+      "source_checkpoint_sha256": null,
+      "weights_used_sha256": "f39dbaee084434de507b7f82f2bcaf862f7accf21a9a4baad73f7c2d67544b39"
+    },
+    {
+      "method": "U-multitask-early-latent",
+      "path": "/scratch/jr7309/runs/2026-10-10-early-rmse-6k/U-multitask-early-latent/test-selected/selected-predictions.npz",
+      "sha256": "47152f245ee4fb5c3926e8f717d7e306fdd25ba7d42970ca45367e64c6304018",
+      "selected_checkpoint_sha256": "4ef2453e9aeadaf7396e3b78a59944a7abe169f213b853b301dad000289de36b",
+      "source_checkpoint_sha256": null,
+      "weights_used_sha256": "4ef2453e9aeadaf7396e3b78a59944a7abe169f213b853b301dad000289de36b"
+    },
+    {
+      "method": "U-multitask-early-fine",
+      "path": "/scratch/jr7309/runs/2026-10-10-early-rmse-6k/U-multitask-early-fine/test-selected/selected-predictions.npz",
+      "sha256": "8238d7b8283fad00114935a0b5eebaea9676956e53ff7b06bed1039ffd21e18f",
+      "selected_checkpoint_sha256": "5a8d7c6987c96fe8011c33d89e95bade7fb9fc506f72d1f72288f4c88877b4c5",
+      "source_checkpoint_sha256": null,
+      "weights_used_sha256": "5a8d7c6987c96fe8011c33d89e95bade7fb9fc506f72d1f72288f4c88877b4c5"
+    },
+    {
+      "method": "U-multitask-early-fine-latent",
+      "path": "/scratch/jr7309/runs/2026-10-10-early-rmse-6k/U-multitask-early-fine-latent/test-selected/selected-predictions.npz",
+      "sha256": "da1ffb8b038f7650eba8fc775112873d25630a2fa189153149d59aab163f24c5",
+      "selected_checkpoint_sha256": "467c7322850a93cdc9184e19dcccb79345a410ed34eb909ca4717978f9f4e3a4",
+      "source_checkpoint_sha256": null,
+      "weights_used_sha256": "467c7322850a93cdc9184e19dcccb79345a410ed34eb909ca4717978f9f4e3a4"
+    },
+    {
+      "method": "Initialized surface persistence (shared on plotted support)",
+      "path": "/scratch/jr7309/runs/2026-10-10-early-rmse-6k/U-global/test-selected/selected-inferred-persistence.npz",
+      "sha256": "b54bb18e0d3a195b3681dd97bcafa76def233a469c9a0085989f496bb40a7229",
+      "selected_checkpoint_sha256": "83bb1c88639b004f8bd2412f0ff6bb5397b443678c41f32d0a449bb440b854cb",
+      "source_checkpoint_sha256": null,
+      "weights_used_sha256": "83bb1c88639b004f8bd2412f0ff6bb5397b443678c41f32d0a449bb440b854cb"
+    },
+    {
+      "method": "Training seasonal climatology",
+      "path": "/scratch/jr7309/runs/2026-10-10-early-rmse-6k/U-multitask-early/test-selected/seasonal-climatology.npz",
+      "sha256": "3daaa2cb9a20bc8fafc6ba77d7d090c88b8381fea563a545d71a972bf27e8525",
+      "selected_checkpoint_sha256": "f39dbaee084434de507b7f82f2bcaf862f7accf21a9a4baad73f7c2d67544b39",
+      "source_checkpoint_sha256": null,
+      "weights_used_sha256": null
+    }
+  ],
+  "case_times": {
+    "2022-01": {
+      "last_history_midpoint": "2021-12-29T12:00:00",
+      "day30_bin_midpoint": "2022-01-28T12:00:00"
+    },
+    "2022-07": {
+      "last_history_midpoint": "2022-06-28T12:00:00",
+      "day30_bin_midpoint": "2022-07-28T12:00:00"
+    }
+  },
+  "persistence_deduplication": {
+    "verified_equal_on_plotted_support": true,
+    "scope": "Both selected cases, day-30 SST/ADT on common wet and finite-target support only. Invalid cells can differ; subsurface persistence remains model-specific.",
+    "original_bundle_sha256": "b515f38a56e135cda773038bce527b0034eecda09b553b8ef46d81269b922e19",
+    "all_sources": [
+      {
+        "method": "U-multitask-early",
+        "path": "/scratch/jr7309/runs/2026-10-10-early-rmse-6k/U-multitask-early/test-selected/selected-predictions.npz",
+        "sha256": "6d97376ad158632c9e8f1b62435f13831ecbf3d4ef7bcc22233d47c8b748facd",
+        "selected_checkpoint_sha256": "f39dbaee084434de507b7f82f2bcaf862f7accf21a9a4baad73f7c2d67544b39",
+        "source_checkpoint_sha256": null
+      },
+      {
+        "method": "U-multitask-early / initialized persistence",
+        "path": "/scratch/jr7309/runs/2026-10-10-early-rmse-6k/U-multitask-early/test-selected/selected-inferred-persistence.npz",
+        "sha256": "e6ad756b0435c218e8f3f207546231eb82680e750a047e4644c7cd942732ad3b",
+        "selected_checkpoint_sha256": "f39dbaee084434de507b7f82f2bcaf862f7accf21a9a4baad73f7c2d67544b39",
+        "source_checkpoint_sha256": null
+      },
+      {
+        "method": "U-multitask-early-latent",
+        "path": "/scratch/jr7309/runs/2026-10-10-early-rmse-6k/U-multitask-early-latent/test-selected/selected-predictions.npz",
+        "sha256": "47152f245ee4fb5c3926e8f717d7e306fdd25ba7d42970ca45367e64c6304018",
+        "selected_checkpoint_sha256": "4ef2453e9aeadaf7396e3b78a59944a7abe169f213b853b301dad000289de36b",
+        "source_checkpoint_sha256": null
+      },
+      {
+        "method": "U-multitask-early-latent / initialized persistence",
+        "path": "/scratch/jr7309/runs/2026-10-10-early-rmse-6k/U-multitask-early-latent/test-selected/selected-inferred-persistence.npz",
+        "sha256": "5fc8eab47c4595c27a56e8a6e459dd2b89414b78b5013f7f452d8f265e8fdd30",
+        "selected_checkpoint_sha256": "4ef2453e9aeadaf7396e3b78a59944a7abe169f213b853b301dad000289de36b",
+        "source_checkpoint_sha256": null
+      },
+      {
+        "method": "U-multitask-early-fine",
+        "path": "/scratch/jr7309/runs/2026-10-10-early-rmse-6k/U-multitask-early-fine/test-selected/selected-predictions.npz",
+        "sha256": "8238d7b8283fad00114935a0b5eebaea9676956e53ff7b06bed1039ffd21e18f",
+        "selected_checkpoint_sha256": "5a8d7c6987c96fe8011c33d89e95bade7fb9fc506f72d1f72288f4c88877b4c5",
+        "source_checkpoint_sha256": null
+      },
+      {
+        "method": "U-multitask-early-fine / initialized persistence",
+        "path": "/scratch/jr7309/runs/2026-10-10-early-rmse-6k/U-multitask-early-fine/test-selected/selected-inferred-persistence.npz",
+        "sha256": "364bed147df1d957e14d76386933fd3a420987ed7e1cd2b8d388ff3ed8cfd44d",
+        "selected_checkpoint_sha256": "5a8d7c6987c96fe8011c33d89e95bade7fb9fc506f72d1f72288f4c88877b4c5",
+        "source_checkpoint_sha256": null
+      },
+      {
+        "method": "U-multitask-early-fine-latent",
+        "path": "/scratch/jr7309/runs/2026-10-10-early-rmse-6k/U-multitask-early-fine-latent/test-selected/selected-predictions.npz",
+        "sha256": "da1ffb8b038f7650eba8fc775112873d25630a2fa189153149d59aab163f24c5",
+        "selected_checkpoint_sha256": "467c7322850a93cdc9184e19dcccb79345a410ed34eb909ca4717978f9f4e3a4",
+        "source_checkpoint_sha256": null
+      },
+      {
+        "method": "U-multitask-early-fine-latent / initialized persistence",
+        "path": "/scratch/jr7309/runs/2026-10-10-early-rmse-6k/U-multitask-early-fine-latent/test-selected/selected-inferred-persistence.npz",
+        "sha256": "9b2ec329a4009ac3ea15894d0e36aa7b84ee4dfb93ee71389cb71e6a2c750ddc",
+        "selected_checkpoint_sha256": "467c7322850a93cdc9184e19dcccb79345a410ed34eb909ca4717978f9f4e3a4",
+        "source_checkpoint_sha256": null
+      },
+      {
+        "method": "U-global",
+        "path": "/scratch/jr7309/runs/2026-10-10-early-rmse-6k/U-global/test-selected/selected-predictions.npz",
+        "sha256": "5bfaa3c4972c8dd350a74115895de1e82a764cf3d32856f4d8f75745fe7ed12e",
+        "selected_checkpoint_sha256": "83bb1c88639b004f8bd2412f0ff6bb5397b443678c41f32d0a449bb440b854cb",
+        "source_checkpoint_sha256": null
+      },
+      {
+        "method": "U-global / initialized persistence",
+        "path": "/scratch/jr7309/runs/2026-10-10-early-rmse-6k/U-global/test-selected/selected-inferred-persistence.npz",
+        "sha256": "b54bb18e0d3a195b3681dd97bcafa76def233a469c9a0085989f496bb40a7229",
+        "selected_checkpoint_sha256": "83bb1c88639b004f8bd2412f0ff6bb5397b443678c41f32d0a449bb440b854cb",
+        "source_checkpoint_sha256": null
+      },
+      {
+        "method": "U-global-seed1730",
+        "path": "/scratch/jr7309/runs/2026-10-10-early-rmse-6k/U-global-seed1730/test-selected/selected-predictions.npz",
+        "sha256": "93fedcadecbdd332b74c97d1d0434ad62c3ff9a34488e23a70a95d283b5a18a9",
+        "selected_checkpoint_sha256": "c47eea4d69a79510758fd0d570d324c423d8af162c20a0319325f823fa593333",
+        "source_checkpoint_sha256": null
+      },
+      {
+        "method": "U-global-seed1730 / initialized persistence",
+        "path": "/scratch/jr7309/runs/2026-10-10-early-rmse-6k/U-global-seed1730/test-selected/selected-inferred-persistence.npz",
+        "sha256": "2d16259f6fbbb06026225014416dd41b58d4172034b0d0099a91cd5b63c1036d",
+        "selected_checkpoint_sha256": "c47eea4d69a79510758fd0d570d324c423d8af162c20a0319325f823fa593333",
+        "source_checkpoint_sha256": null
+      },
+      {
+        "method": "U-global-repro4k",
+        "path": "/scratch/jr7309/runs/2026-10-10-early-rmse-6k/U-global-repro4k/test-selected/selected-predictions.npz",
+        "sha256": "39ae5c8186686ac3d8cc81053d16713be538d92a754b24932023ff97118b96b7",
+        "selected_checkpoint_sha256": "df191e871d10fa850b476edf718063d64c0ac3096e9a2e77c023984d296d1823",
+        "source_checkpoint_sha256": null
+      },
+      {
+        "method": "U-global-repro4k / initialized persistence",
+        "path": "/scratch/jr7309/runs/2026-10-10-early-rmse-6k/U-global-repro4k/test-selected/selected-inferred-persistence.npz",
+        "sha256": "b70806dbd932328dc6f1c68e28dc436204d1c20f5f4efc7aaab6d0c2cfc4d66a",
+        "selected_checkpoint_sha256": "df191e871d10fa850b476edf718063d64c0ac3096e9a2e77c023984d296d1823",
+        "source_checkpoint_sha256": null
+      },
+      {
+        "method": "Training seasonal climatology",
+        "path": "/scratch/jr7309/runs/2026-10-10-early-rmse-6k/U-multitask-early/test-selected/seasonal-climatology.npz",
+        "sha256": "3daaa2cb9a20bc8fafc6ba77d7d090c88b8381fea563a545d71a972bf27e8525",
+        "selected_checkpoint_sha256": "f39dbaee084434de507b7f82f2bcaf862f7accf21a9a4baad73f7c2d67544b39",
+        "source_checkpoint_sha256": null
+      }
+    ]
+  },
+  "bundle_sha256": "4803f4589a4fff569b43231b176d9d7fd305872f86d31a60efe1792a289b26c2",
+  "plot_script_sha256": "ca768a857cf7564803746f803abc5763e2b7077265e72a9e88ca087b1b500798",
+  "rendered": [
+    {
+      "file": "day30-2022-01-anomalies-sst",
+      "limits": [
+        -3,
+        3
+      ],
+      "figure_pixels": [
+        820,
+        3890
+      ],
+      "panel_pixels": [
+        720,
+        360
+      ],
+      "panel_grid_shape_yx": [
+        180,
+        360
+      ],
+      "panel_left_px": 70,
+      "panel_top_px": [
+        80,
+        495,
+        910,
+        1325,
+        1740,
+        2155,
+        2570,
+        2985,
+        3400
+      ]
+    },
+    {
+      "file": "day30-2022-01-anomalies-adt",
+      "limits": [
+        -0.25,
+        0.25
+      ],
+      "figure_pixels": [
+        820,
+        3890
+      ],
+      "panel_pixels": [
+        720,
+        360
+      ],
+      "panel_grid_shape_yx": [
+        180,
+        360
+      ],
+      "panel_left_px": 70,
+      "panel_top_px": [
+        80,
+        495,
+        910,
+        1325,
+        1740,
+        2155,
+        2570,
+        2985,
+        3400
+      ]
+    },
+    {
+      "file": "day30-2022-07-fields-sst",
+      "limits": [
+        -2,
+        32
+      ],
+      "figure_pixels": [
+        820,
+        3890
+      ],
+      "panel_pixels": [
+        720,
+        360
+      ],
+      "panel_grid_shape_yx": [
+        180,
+        360
+      ],
+      "panel_left_px": 70,
+      "panel_top_px": [
+        80,
+        495,
+        910,
+        1325,
+        1740,
+        2155,
+        2570,
+        2985,
+        3400
+      ]
+    },
+    {
+      "file": "day30-2022-07-fields-adt",
+      "limits": [
+        -1.5,
+        1.5
+      ],
+      "figure_pixels": [
+        820,
+        3890
+      ],
+      "panel_pixels": [
+        720,
+        360
+      ],
+      "panel_grid_shape_yx": [
+        180,
+        360
+      ],
+      "panel_left_px": 70,
+      "panel_top_px": [
+        80,
+        495,
+        910,
+        1325,
+        1740,
+        2155,
+        2570,
+        2985,
+        3400
+      ]
+    },
+    {
+      "file": "day30-2022-07-anomalies-sst",
+      "limits": [
+        -3,
+        3
+      ],
+      "figure_pixels": [
+        820,
+        3890
+      ],
+      "panel_pixels": [
+        720,
+        360
+      ],
+      "panel_grid_shape_yx": [
+        180,
+        360
+      ],
+      "panel_left_px": 70,
+      "panel_top_px": [
+        80,
+        495,
+        910,
+        1325,
+        1740,
+        2155,
+        2570,
+        2985,
+        3400
+      ]
+    },
+    {
+      "file": "day30-2022-07-anomalies-adt",
+      "limits": [
+        -0.25,
+        0.25
+      ],
+      "figure_pixels": [
+        820,
+        3890
+      ],
+      "panel_pixels": [
+        720,
+        360
+      ],
+      "panel_grid_shape_yx": [
+        180,
+        360
+      ],
+      "panel_left_px": 70,
+      "panel_top_px": [
+        80,
+        495,
+        910,
+        1325,
+        1740,
+        2155,
+        2570,
+        2985,
+        3400
+      ]
+    }
+  ],
+  "pixel_verification": "Every saved panel RGB pixel equals the source colormap cell repeated exactly 2x2, including the common missing-data mask",
+  "rasterization": "Lossless PNG: exactly 2 x 2 pixels per retained grid cell at native image size; no interpolation. PDF embeds native grid with interpolation disabled.",
+  "coordinates": "Square cells in grid-index space, sorted longitude; ticks label actual cell-center coordinates. No geographic resampling.",
+  "latitude_domain": "global",
+  "mask": "Selected model wet domain intersected with finite target observations, identical across candidates",
+  "interpretation": "Illustrative cases, not aggregate skill; gray is land or unavailable observations. Colorbar extensions mark saturation. Endpoint is the last common exported surface lead, not a multi-year continuous rollout."
+}

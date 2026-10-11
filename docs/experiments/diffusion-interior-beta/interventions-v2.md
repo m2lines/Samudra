@@ -132,3 +132,54 @@ throughout the year. Report marginal improvement per doubling. Arithmetic
 no-further-improvement. They are conditional scenarios, not convergence claims,
 confidence intervals, or authorization for larger training runs. Repeated annual
 cases remain exploratory. The current training processes and budgets are unchanged.
+
+## Clarified stability objective and variable-timestep follow-up
+
+The immediate goal is comparable degradation over a year to the deterministic
+reference, not matching or beating its absolute RMSE: architecture and other
+hyperparameters differ. Report absolute errors together with excess error above
+day 30 and growth relative to day 30, per component and origin. Ratios alone can
+reward a poor short-lead forecast, so retain short-lead skill and all absolute
+values. Distinguish a stable but inaccurate trajectory from catastrophic growth.
+
+Assess physical plausibility separately from agreement with the realized future:
+compare early and late individual-member fields using fixed color scales, field
+means and spatial variability, extremes, directional spectra and increments.
+Account for seasonality using the corresponding reference distributions; do not
+require January and December to have identical statistics. Include ensemble-mean
+results and calibration alongside members. Independently sampled readouts do not
+define coherent member trajectories, so temporal increments also require an
+explicit sampling convention. These diagnostics should reveal whether late
+fields look implausible without needing a pointwise truth overlay.
+
+None of the eight submitted arms changes the five-day ocean timestep. A proposed
+follow-up is supervised 5/10-day evolution with an additional composition loss:
+two five-day advances should agree with one ten-day advance under the same
+ordered forcing history. Five and ten days use existing OM4 targets without
+inventing intermediate 2.5-day truth. The user approved a small follow-up;
+implementation and execution details are in [the timestep pilot](timestep-pilot.md).
+
+The current processor shifts two latent slots, and the decoder reads both.
+Simply supplying a different timestep would leave slots at different times:
+two five-day calls finish with [t+5,t+10], whereas a naive ten-day call would
+produce [t,t+10]. As the user clarified, only the newest day-ten slot needs to
+match; the older slots should not be compared. The implemented extension shares
+the dynamics weights, with a new ordered-forcing/interval conditioning adapter.
+Physical auxiliary supervision uses the short-path day-five slot alongside the
+direct day-ten slot so the existing decoder still sees five-day spacing.
+Consistency gradients reach both paths and the original five-day processor.
+This tests composition regularization, not arbitrary continuous timesteps.
+
+Suggested matched arms: ordinary five-day continuation; joint supervised
+five-/ten-day training without consistency; the same joint training with latent
+composition consistency. Keep replay, data, optimizer schedule and evaluation
+fixed across arms, and report both examples and GPU cost since compute differs.
+Evaluate all arms with the ordinary five-day rollout to establish benefit to the
+existing task. Compare deterministic latents rather than independent diffusion
+draws; sampled physical outputs need a coupled-noise or distributional comparison.
+
+[Deep-OSG](https://arxiv.org/abs/2302.03358) studies variable-step semigroup-aware
+learning for autonomous systems. Our forced system needs matching forcing paths
+and calendar times, not an autonomous semigroup assumption. Composition alone
+does not guarantee stability: even exponentially growing dynamics compose
+exactly. Physical supervision and annual plausibility diagnostics remain essential.

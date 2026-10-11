@@ -46,6 +46,7 @@ V2_ARMS = (
     "curvature-replay",
     "block-replay",
 )
+TIMESTEP_ARMS = ("control", "supervised", "consistency-weak", "consistency-strong")
 PARENT_SHA = "853b3353c6d926754a15f19437493a7497813ce2b88cb058fe1a616cc838e6e5"  # pragma: allowlist secret
 
 
@@ -182,13 +183,17 @@ class LatentReplay:
         }
 
 
-def main():
+def main(campaign_default="v1"):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument(
-        "--arm", choices=tuple(dict.fromkeys((*ARMS, *V2_ARMS))), required=True
+        "--arm",
+        choices=tuple(dict.fromkeys((*ARMS, *V2_ARMS, *TIMESTEP_ARMS))),
+        required=True,
     )
-    parser.add_argument("--campaign", choices=("v1", "v2"), default="v1")
+    parser.add_argument(
+        "--campaign", choices=("v1", "v2", "timestep"), default=campaign_default
+    )
     parser.add_argument("--updates", type=int, default=128)
     parser.add_argument("--hours", type=float, default=10)
     parser.add_argument("--smoke", action="store_true")
@@ -196,7 +201,10 @@ def main():
     cap = 256 if args.campaign == "v2" else 128
     if not 2 <= args.updates <= cap or args.updates % 2:
         raise ValueError(f"This campaign requires an even budget <= {cap}")
-    if args.arm not in (V2_ARMS if args.campaign == "v2" else ARMS):
+    if (
+        args.arm
+        not in {"v1": ARMS, "v2": V2_ARMS, "timestep": TIMESTEP_ARMS}[args.campaign]
+    ):
         raise ValueError("Arm does not belong to campaign")
     device = torch.device("cuda", 0)
     torch.cuda.set_device(device)
@@ -269,6 +277,19 @@ def main():
             "latent_bound_weight",
         ):
             spec.pop(key)
+    if args.campaign == "timestep":
+        spec.update(
+            version=3,
+            timestep_physical_weight=0.0 if args.arm == "control" else 0.5,
+            timestep_consistency_weight={
+                "control": 0.0,
+                "supervised": 0.0,
+                "consistency-weak": 0.1,
+                "consistency-strong": 1.0,
+            }[args.arm],
+            stability="Five-day inference; auxiliary ten-day endpoint on all OM4 microbatches; no replay",
+            timestep="Shared processor; ordered two-interval forcing/context adapter; endpoint-only consistency; decoder uses short-path day-five scaffold",
+        )
     protocol = output / "protocol.json"
     if protocol.exists() and json.loads(protocol.read_text()) != spec:
         raise ValueError("Changed continuation protocol")
@@ -276,6 +297,10 @@ def main():
     model = make_model(data.grid["names"].tolist(), device)
     model.load_state_dict(saved["model"], strict=True)
     del saved
+    if args.campaign == "timestep":
+        from samudra.experiments.diffusion_timestep import install_timestep_processor
+
+        install_timestep_processor(model)
     model.decoder.structure_aux = spec.get("structure_aux", "")
     model.decoder.compile()
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-5, weight_decay=0.01)
@@ -303,7 +328,15 @@ def main():
         state = torch.load(last, map_location="cpu", weights_only=False)
         if state["intervention"] != spec:
             raise ValueError("Resume protocol differs")
-        model.load_state_dict(state["model"], strict=True)
+        resume_model = dict(state["model"])
+        if args.campaign == "timestep":
+            resume_model.update(
+                {
+                    "processor.timestep_adapter." + key: value
+                    for key, value in state["timestep_adapter"].items()
+                }
+            )
+        model.load_state_dict(resume_model, strict=True)
         optimizer.load_state_dict(state["optimizer"])
         replay.load_state_dict(state["replay"])
         completed = state["step"] - 16000
@@ -338,8 +371,19 @@ def main():
     signal.signal(signal.SIGUSR1, stop_requested)
 
     def save(snapshot=False):
+        model_state = model.state_dict()
+        auxiliary_state = {}
+        if args.campaign == "timestep":
+            model_state = {
+                key: value
+                for key, value in model_state.items()
+                if not key.startswith("processor.timestep_adapter.")
+            }
+            auxiliary_state["timestep_adapter"] = (
+                model.processor.timestep_adapter.state_dict()
+            )
         payload = dict(
-            model=model.state_dict(),
+            model=model_state,
             optimizer=optimizer.state_dict(),
             contract=base_contract,
             intervention=spec,
@@ -351,13 +395,21 @@ def main():
             cpu_rng=torch.get_rng_state(),
             cuda_rng=torch.cuda.get_rng_state(device),
             replay=replay.state_dict(),
+            **auxiliary_state,
         )
         atomic_torch(payload, last)
         if snapshot:
             atomic_torch(
                 {
                     k: payload[k]
-                    for k in ("model", "contract", "intervention", "step", "counts")
+                    for k in (
+                        "model",
+                        "contract",
+                        "intervention",
+                        "step",
+                        "counts",
+                        *auxiliary_state,
+                    )
                 },
                 output / f"step-{completed:04d}.pt",
             )
@@ -438,6 +490,26 @@ def main():
                         raise FloatingPointError("native")
                     (loss / 8).backward()
                     total += float(loss.detach()) / 8
+                    if args.campaign == "timestep" and args.arm != "control":
+                        from samudra.experiments.diffusion_timestep import (
+                            auxiliary_loss,
+                        )
+
+                        auxiliary, measurements = auxiliary_loss(
+                            model,
+                            wave,
+                            index,
+                            coverage,
+                            seed,
+                            physical_weight=spec["timestep_physical_weight"],
+                            consistency_weight=spec["timestep_consistency_weight"],
+                        )
+                        if not bool(torch.isfinite(auxiliary)):
+                            raise FloatingPointError("timestep auxiliary")
+                        (auxiliary / 8).backward()
+                        total += float(auxiliary.detach()) / 8
+                        for key, value in measurements.items():
+                            parts[key] = parts.get(key, 0.0) + float(value) / 8
         norm = torch.nn.utils.clip_grad_norm_(
             model.parameters(), 1.0, error_if_nonfinite=True
         )

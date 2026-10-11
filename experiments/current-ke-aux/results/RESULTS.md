@@ -74,7 +74,49 @@ not the quarterly forecast metric above. Seasonal raw-checkpoint time-mean
 error worsens, so the small EMA mean-bias improvement is not checkpoint-robust.
 There is no evidence here that time-aligned KE anomalies beat a seasonal target.
 
-## Provenance and pending observation scores
+## Completed observation evaluation
+
+Grace CPU job **130049** completed all six continuous-rollout comparisons in
+43m19s, exit 0. Published five-day OISST/DUACS/ARGO-IAP products and the original
+per-channel model wet masks were used. These scores compare a continuous
+2014–2022 trajectory with observations; they are not the independently
+initialized, through-day-30 observation composite from the earlier pilot.
+
+Negative changes mean lower error. Primary final-EMA results:
+
+| Observation metric | Control RMSE | Aligned change (paired 95% interval) | Seasonal change (paired 95% interval) |
+| --- | ---: | ---: | ---: |
+| SST | 0.887820 °C | -0.38% [-0.56, -0.20] | +1.25% [+0.59, +1.93] |
+| Geostrophic velocity vector | 0.194215 m/s | +0.18% [+0.07, +0.30] | +0.11% [+0.01, +0.22] |
+| Instantaneous surface EKE | 0.045499 m²/s² | -0.05% [-0.09, -0.01] | -0.01% [-0.05, +0.03] |
+| OHC 0–700 m | 4.102874 GJ/m² | +0.01% [-0.22, +0.26] | -0.52% [-0.69, -0.34] |
+| OHC 700–2000 m | 2.701223 GJ/m² | -0.13% [-0.30, +0.05] | -0.89% [-1.15, -0.59] |
+
+The primary reduction is the square root of equally weighted annual MSEs.
+SST/velocity/EKE use 2015–2022; OHC uses 2015–2021 because 2022 lacks a complete
+year of shared monthly coverage. The six models have matching metric dates,
+sample counts, grid shapes, and paired-cell counts. Reconstructed annual-MSE
+aggregates reproduce every primary score. Intervals use 10,000 **paired**
+calendar-year resamples, recomputing the treatment/control RMSE ratio each time.
+They measure variation across these years, not seed uncertainty; adjacent years
+on one continuous trajectory may remain dependent. No multiplicity adjustment
+was applied. Individual model intervals in the raw table are not substituted
+for paired difference intervals.
+
+Raw checkpoints give the same direction for aligned SST (-0.63%), seasonal
+SST (+0.84%), and seasonal OHC (-0.39% shallow, -0.69% intermediate). These are
+small, mixed changes, not a broad observation improvement. The seasonal upper
+700-m OHC residual-variance map RMSE also worsens by 26.7% (pattern correlation
+0.695 to 0.616), despite the small improvement in its total OHC RMSE. The two
+diagnostics measure different properties of the trajectory.
+
+[All 306 metric rows](observation-metrics.csv),
+[paired comparisons including raw checkpoints](observation-summary.csv),
+[completion/provenance receipt](observation-provenance.json.gz), and
+[reproducible summary script](../summarize_observations.py).
+Downloaded metrics and completion receipt match remote SHA-256s.
+
+## Provenance
 
 - Control: Beta 210664, W&B `uaei2vbr`, source `a20c44484`.
 - Aligned: Beta 211905, W&B `b2dudv2l`, 70 epochs, exit 0, 4h22m13s.
@@ -95,12 +137,12 @@ There is no evidence here that time-aligned KE anomalies beat a seasonal target.
 - Full errors and continuous Zarr stores remain on Beta under
   `/projects/ny/lz1955/multiscale/jrusak/runs/current-ke-aux-20261010/evaluations-211962`.
 - Observation scoring: Grace CPU job **130049**, submitted through Alpha,
-  scores all six masked continuous rollouts against the published five-day
+  completed all six masked continuous rollouts against the published five-day
   DUACS/OISST/ARGO products used by the earlier control study. The first pass
   (130046) correctly rejected local daily-product timestamps before scoring;
   its failed attempt is preserved separately.
-  Its output is pending; a supervised completion callback and two-hour fallback
-  are verified. These observation scores are distinct from OM4 forecast RMSE.
+  The completion callback was delivered and the output collected and verified.
+  These observation scores are distinct from OM4 forecast RMSE.
 
 No further training seeds have been launched. The current evidence supports a
 regional tradeoff, not adopting this auxiliary loss as a general improvement.

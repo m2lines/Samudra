@@ -7,9 +7,9 @@ Two fresh 4,000-update runs test whether the original early-data advantage
 repeats when training length and mixture match **U-global-repro4k**. The
 [6k comparison](early-rmse-6k-2026-10-10.md) stretched the mixture as well as the
 training budget, so its intermediate update 4,000 is not this control.
-The new runs passed data and model qualification; their results are pending. The curves below show
-completed historical runs and current reproductions, and will include the new
-4k runs as validation events arrive.
+The new runs passed data and model qualification; their results are pending. The curves below include completed historical runs and the new
+4k reproductions through updates **2,300 / 1,800** (October 11, 13:46 ET).
+The new curves are partial; do not interpret their current minima as final.
 
 Contents: [Experiment](#experiment) · [Common-metric historical comparison](#common-metric-historical-comparison) ·
 [Curves](#curves) · [Execution and provenance](#execution-and-provenance).

@@ -173,10 +173,28 @@ def main():
                 if not include(wave, model, events):
                     continue
                 label = f"{model} / {events[0]['budget'] // 1000}k / {wave}"
+                color = (
+                    "tab:orange"
+                    if model.endswith("fine-latent")
+                    else "tab:blue"
+                    if model.endswith("fine")
+                    else "0.5"
+                    if model.endswith("seed1730")
+                    else "black"
+                )
+                style = (
+                    ":"
+                    if wave == "original 4k"
+                    else "--"
+                    if events[0]["budget"] == 6000
+                    else "-"
+                )
                 ax.plot(
                     [e[axis] for e in events],
                     [e["rmse_blend"] for e in events],
                     label=label,
+                    color=color,
+                    linestyle=style,
                     lw=1.35,
                     marker="o",
                     markersize=2,

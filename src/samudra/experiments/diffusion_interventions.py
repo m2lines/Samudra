@@ -3,6 +3,7 @@
 """Small matched continuation wave: spatial losses and latent rollout stability."""
 
 import argparse
+import copy
 import gc
 import json
 import math
@@ -46,6 +47,8 @@ V2_ARMS = (
     "curvature-replay",
     "block-replay",
 )
+DIRECT_ARMS = ("residual", "direct", "residual-warm", "direct-warm")
+DIRECT_PARENT_SHA = "36e99d3c669daa3be0f2120ae1ecb95042dcbb82f66022f2d2b082143f7ba38b"  # pragma: allowlist secret
 TIMESTEP_ARMS = ("control", "supervised", "consistency-weak", "consistency-strong")
 PARENT_SHA = "853b3353c6d926754a15f19437493a7497813ce2b88cb058fe1a616cc838e6e5"  # pragma: allowlist secret
 
@@ -188,11 +191,13 @@ def main(campaign_default="v1"):
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument(
         "--arm",
-        choices=tuple(dict.fromkeys((*ARMS, *V2_ARMS, *TIMESTEP_ARMS))),
+        choices=tuple(dict.fromkeys((*ARMS, *V2_ARMS, *TIMESTEP_ARMS, *DIRECT_ARMS))),
         required=True,
     )
     parser.add_argument(
-        "--campaign", choices=("v1", "v2", "timestep"), default=campaign_default
+        "--campaign",
+        choices=("v1", "v2", "timestep", "direct"),
+        default=campaign_default,
     )
     parser.add_argument("--updates", type=int, default=128)
     parser.add_argument("--hours", type=float, default=10)
@@ -203,7 +208,12 @@ def main(campaign_default="v1"):
         raise ValueError(f"This campaign requires an even budget <= {cap}")
     if (
         args.arm
-        not in {"v1": ARMS, "v2": V2_ARMS, "timestep": TIMESTEP_ARMS}[args.campaign]
+        not in {
+            "v1": ARMS,
+            "v2": V2_ARMS,
+            "timestep": TIMESTEP_ARMS,
+            "direct": DIRECT_ARMS,
+        }[args.campaign]
     ):
         raise ValueError("Arm does not belong to campaign")
     device = torch.device("cuda", 0)
@@ -212,12 +222,19 @@ def main(campaign_default="v1"):
     torch.manual_seed(271829)
     output = args.root / ("smoke" if args.smoke else "runs") / args.arm
     output.mkdir(parents=True, exist_ok=True)
-    parent = args.root / "checkpoints/parent-16000.pt"
-    if digest(parent) != PARENT_SHA:
+    direct_campaign = args.campaign == "direct"
+    parent_step = 16256 if direct_campaign else 16000
+    parent_count = 8128 if direct_campaign else 8000
+    parent_sha = DIRECT_PARENT_SHA if direct_campaign else PARENT_SHA
+    parent = args.root / f"checkpoints/parent-{parent_step}.pt"
+    if digest(parent) != parent_sha:
         raise ValueError("Parent checkpoint differs")
     saved = torch.load(parent, map_location="cpu", weights_only=False)
-    if saved["step"] != 16000 or saved["counts"] != {"om4": 8000, "observation": 8000}:
-        raise ValueError("Expected cooled 8k/8k parent")
+    if saved["step"] != parent_step or saved["counts"] != {
+        "om4": parent_count,
+        "observation": parent_count,
+    }:
+        raise ValueError("Parent step or task counts differ")
     data = Samples(
         args.root / "data/observations",
         device,
@@ -246,8 +263,10 @@ def main(campaign_default="v1"):
         ),
         structure_weight=2.0,
         fresh_pushforward=args.arm == "pushforward",
-        latent_bound_weight=0.1 if args.arm == "replay-bound" else 0.0,
-        parent_sha256=PARENT_SHA,
+        latent_bound_weight=0.1
+        if direct_campaign or args.arm == "replay-bound"
+        else 0.0,
+        parent_sha256=parent_sha,
         producer=os.environ["SAMUDRA_CODE_COMMIT"],
         seed=271829,
         updates=args.updates,
@@ -290,13 +309,41 @@ def main(campaign_default="v1"):
             stability="Five-day inference; auxiliary ten-day endpoint on all OM4 microbatches; no replay",
             timestep="Shared processor; ordered two-interval forcing/context adapter; endpoint-only consistency; decoder uses short-path day-five scaffold",
         )
+    if direct_campaign:
+        spec.update(
+            version=4,
+            processor_prediction="direct"
+            if args.arm.startswith("direct")
+            else "residual",
+            parent_step=parent_step,
+            parent_counts={"om4": parent_count, "observation": parent_count},
+            warmup_steps=(2 if args.smoke else 256)
+            if args.arm.endswith("-warm")
+            else 0,
+            warmup_learning_rate="cosine 1e-3 to 1e-5",
+            warmup_weight_decay=0.0,
+            warmup_batch=1,
+            warmup_target="Frozen parent next latent on short pre-2013 OM4 trajectories; processor only; separate exposure counts",
+            warmup_assessment="Four reserved pre-2013 origins excluded with temporal guard from warmup fitting; teacher-forced and 30-day autoregressive agreement",
+            continuation_optimizer="Fresh AdamW after warmup; no warmup optimizer state carried forward",
+            stability="All arms retain replay and soft latent bound on last four OM4 microbatches",
+        )
     protocol = output / "protocol.json"
     if protocol.exists() and json.loads(protocol.read_text()) != spec:
         raise ValueError("Changed continuation protocol")
     atomic_json(spec, protocol)
     model = make_model(data.grid["names"].tolist(), device)
     model.load_state_dict(saved["model"], strict=True)
+    teacher = (
+        copy.deepcopy(model.processor).eval().requires_grad_(False)
+        if direct_campaign and spec["warmup_steps"]
+        else None
+    )
     del saved
+    if direct_campaign and spec["processor_prediction"] == "direct":
+        from samudra.experiments.diffusion_direct import install_direct_processor
+
+        install_direct_processor(model)
     if args.campaign == "timestep":
         from samudra.experiments.diffusion_timestep import install_timestep_processor
 
@@ -336,10 +383,15 @@ def main(campaign_default="v1"):
                     for key, value in state["timestep_adapter"].items()
                 }
             )
-        model.load_state_dict(resume_model, strict=True)
+        if direct_campaign:
+            from samudra.experiments.diffusion_direct import load_latent_checkpoint
+
+            load_latent_checkpoint(model, state)
+        else:
+            model.load_state_dict(resume_model, strict=True)
         optimizer.load_state_dict(state["optimizer"])
         replay.load_state_dict(state["replay"])
-        completed = state["step"] - 16000
+        completed = state["step"] - parent_step
         torch.set_rng_state(state["cpu_rng"])
         torch.cuda.set_rng_state(state["cuda_rng"], device)
         del state
@@ -370,6 +422,23 @@ def main(campaign_default="v1"):
     signal.signal(signal.SIGTERM, stop_requested)
     signal.signal(signal.SIGUSR1, stop_requested)
 
+    warmup_summary = None
+    if direct_campaign and teacher is not None:
+        from samudra.experiments.diffusion_direct_train import warmup_processor
+
+        if last.exists():
+            warmup_summary = json.loads((output / "warmup-complete.json").read_text())
+        else:
+            warmup_summary = warmup_processor(
+                model, teacher, wave, output, spec, run, lambda: stop
+            )
+        del teacher
+        gc.collect()
+        # Warmup uses only processor parameters and a separate optimizer.
+        # This already-created continuation optimizer has no parameter history.
+        if not last.exists() and optimizer.state:
+            raise RuntimeError("Continuation optimizer unexpectedly has warmup state")
+
     def save(snapshot=False):
         model_state = model.state_dict()
         auxiliary_state = {}
@@ -382,15 +451,18 @@ def main(campaign_default="v1"):
             auxiliary_state["timestep_adapter"] = (
                 model.processor.timestep_adapter.state_dict()
             )
+        if direct_campaign:
+            auxiliary_state["processor_prediction"] = spec["processor_prediction"]
+            auxiliary_state["warmup"] = warmup_summary
         payload = dict(
             model=model_state,
             optimizer=optimizer.state_dict(),
             contract=base_contract,
             intervention=spec,
-            step=16000 + completed,
+            step=parent_step + completed,
             counts={
-                "om4": 8000 + (completed + 1) // 2,
-                "observation": 8000 + completed // 2,
+                "om4": parent_count + (completed + 1) // 2,
+                "observation": parent_count + completed // 2,
             },
             cpu_rng=torch.get_rng_state(),
             cuda_rng=torch.cuda.get_rng_state(device),
@@ -460,7 +532,9 @@ def main(campaign_default="v1"):
                         "validity"
                     ][:, :19]
                     if micro >= 4 and (
-                        "replay" in args.arm or args.arm == "pushforward"
+                        direct_campaign
+                        or "replay" in args.arm
+                        or args.arm == "pushforward"
                     ):
                         loss = replay.loss(
                             model,
@@ -541,7 +615,7 @@ def main(campaign_default="v1"):
                     "seconds": event["seconds"],
                     **{task + "/" + k: v for k, v in parts.items()},
                 },
-                step=completed,
+                step=completed + spec.get("warmup_steps", 0),
             )
         due = time.monotonic() - started > args.hours * 3600 or stop
         if (
@@ -565,6 +639,18 @@ def main(campaign_default="v1"):
             updates=completed,
             checkpoint_sha256=digest(last),
             seconds=time.monotonic() - started,
+            **(
+                {
+                    "warmup": warmup_summary,
+                    "processor_prediction": spec["processor_prediction"],
+                    "counts": {
+                        "om4": parent_count + completed // 2,
+                        "observation": parent_count + completed // 2,
+                    },
+                }
+                if direct_campaign
+                else {}
+            ),
         ),
         output / "COMPLETE.json",
     )

@@ -91,8 +91,11 @@ class PersistentLatentProcessor(nn.Module):
         inputs = torch.cat((latent.flatten(1, 2), condition), 1)
         if hasattr(self, "input_adapters"):
             inputs = self.input_adapters[task](inputs)
-        update = self.head(self.blocks(self.stem(inputs)))
-        return torch.stack((latent[:, -1], latent[:, -1] + update), 1)
+        prediction = self.head(self.blocks(self.stem(inputs)))
+        return torch.stack((latent[:, -1], self._next_latent(latent, prediction)), 1)
+
+    def _next_latent(self, latent, prediction):
+        return latent[:, -1] + prediction
 
     def rollout(self, initial, forcing, contexts, task="om4"):
         if forcing.shape[:2] != contexts.shape[:2]:

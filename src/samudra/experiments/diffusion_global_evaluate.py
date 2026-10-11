@@ -12,6 +12,7 @@ import torch
 from torch import nn
 
 from samudra.experiments.diffusion_calibration import observation_ensemble_statistics
+from samudra.experiments.diffusion_direct import load_latent_checkpoint
 from samudra.experiments.diffusion_evaluation import evaluate_point_metrics
 from samudra.experiments.diffusion_global import make_model
 from samudra.experiments.diffusion_spatial import forecast_crps
@@ -118,7 +119,7 @@ def main():
         if digest(path) != contract[key]:
             raise ValueError(f"Changed input: {key}")
     model = make_model(data.grid["names"].tolist(), "cuda", steps=args.steps)
-    model.load_state_dict(saved["model"], strict=True)
+    load_latent_checkpoint(model, saved)
     paths = data.paths(args.split)
     recording = RecordingForecast(model, data, paths, args.output).eval()
     with torch.no_grad():

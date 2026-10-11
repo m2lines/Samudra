@@ -13,6 +13,7 @@ import numpy as np
 import torch
 
 from samudra.experiments.diffusion_correlated_pilot import build_wave
+from samudra.experiments.diffusion_direct import load_latent_checkpoint
 from samudra.experiments.diffusion_global import make_model, rng
 from samudra.experiments.observation_pilot import atomic_json, digest
 from samudra.experiments.observation_training import Samples
@@ -45,7 +46,7 @@ def main():
         if saved["contract"][key] != digest(data.root / file):
             raise ValueError(f"Changed data: {key}")
     model = make_model(data.grid["names"].tolist(), "cuda").eval()
-    model.load_state_dict(saved["model"], strict=True)
+    load_latent_checkpoint(model, saved)
     protocol = dict(
         checkpoint_sha256=digest(args.checkpoint),
         counts=saved["counts"],

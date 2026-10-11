@@ -11,6 +11,7 @@ import numpy as np
 import torch
 from torch import nn
 
+from samudra.experiments.diffusion_direct import load_latent_checkpoint
 from samudra.experiments.diffusion_global import make_model
 from samudra.experiments.observation_annual import evaluate_origins
 from samudra.experiments.observation_pilot import atomic_json, digest
@@ -145,7 +146,7 @@ def main():
         raise ValueError("Existing annual output has a different protocol")
     atomic_json(protocol, manifest)
     model = make_model(data.grid["names"].tolist(), "cuda", steps=args.steps)
-    model.load_state_dict(saved["model"], strict=True)
+    load_latent_checkpoint(model, saved)
     recording = AnnualMembers(
         model, data, origins, args.output, track_latents=True
     ).eval()

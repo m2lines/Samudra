@@ -1,0 +1,76 @@
+[
+  {
+    "stage": "prepare",
+    "job": "19555071",
+    "command": [
+      "sbatch",
+      "--parsable",
+      "--account=torch_pr_347_lzanna",
+      "--chdir=/scratch/jr7309",
+      "--output=/scratch/jr7309/runs/2026-10-10-early-rmse-6k/logs/%x-%A_%a.out",
+      "--error=/scratch/jr7309/runs/2026-10-10-early-rmse-6k/logs/%x-%A_%a.err",
+      "--job-name=rmse-data-audit",
+      "--partition=cpu_short",
+      "--cpus-per-task=8",
+      "--mem=64G",
+      "--time=01:00:00",
+      "/scratch/jr7309/runs/2026-10-10-early-rmse-6k/source/eae2b5c56da44eb3686a6eaf72a80aa419a4b5a4/scripts/slurm_early_fine_rmse.sbatch",
+      "/scratch/jr7309/runs/2026-10-10-early-rmse-6k",
+      "/scratch/jr7309/runs/2026-10-10-early-rmse-6k/source/eae2b5c56da44eb3686a6eaf72a80aa419a4b5a4",
+      "prepare",
+      "eae2b5c56da44eb3686a6eaf72a80aa419a4b5a4"
+    ]
+  },
+  {
+    "stage": "qualify",
+    "job": "19555072",
+    "command": [
+      "sbatch",
+      "--parsable",
+      "--account=torch_pr_347_lzanna",
+      "--chdir=/scratch/jr7309",
+      "--output=/scratch/jr7309/runs/2026-10-10-early-rmse-6k/logs/%x-%A_%a.out",
+      "--error=/scratch/jr7309/runs/2026-10-10-early-rmse-6k/logs/%x-%A_%a.err",
+      "--job-name=rmse-qualify",
+      "--partition=rtx6000_lzanna",
+      "--gres=gpu:1",
+      "--cpus-per-task=16",
+      "--mem=192G",
+      "--time=01:30:00",
+      "--array=0-6%4",
+      "--dependency=afterok:19555071",
+      "--kill-on-invalid-dep=yes",
+      "/scratch/jr7309/runs/2026-10-10-early-rmse-6k/source/eae2b5c56da44eb3686a6eaf72a80aa419a4b5a4/scripts/slurm_early_fine_rmse.sbatch",
+      "/scratch/jr7309/runs/2026-10-10-early-rmse-6k",
+      "/scratch/jr7309/runs/2026-10-10-early-rmse-6k/source/eae2b5c56da44eb3686a6eaf72a80aa419a4b5a4",
+      "qualify",
+      "eae2b5c56da44eb3686a6eaf72a80aa419a4b5a4"
+    ]
+  },
+  {
+    "stage": "train",
+    "job": "19555073",
+    "command": [
+      "sbatch",
+      "--parsable",
+      "--account=torch_pr_347_lzanna",
+      "--chdir=/scratch/jr7309",
+      "--output=/scratch/jr7309/runs/2026-10-10-early-rmse-6k/logs/%x-%A_%a.out",
+      "--error=/scratch/jr7309/runs/2026-10-10-early-rmse-6k/logs/%x-%A_%a.err",
+      "--job-name=rmse-long",
+      "--partition=rtx6000_lzanna",
+      "--gres=gpu:1",
+      "--cpus-per-task=16",
+      "--mem=192G",
+      "--time=24:00:00",
+      "--array=0-6%4",
+      "--dependency=afterok:19555072",
+      "--kill-on-invalid-dep=yes",
+      "/scratch/jr7309/runs/2026-10-10-early-rmse-6k/source/eae2b5c56da44eb3686a6eaf72a80aa419a4b5a4/scripts/slurm_early_fine_rmse.sbatch",
+      "/scratch/jr7309/runs/2026-10-10-early-rmse-6k",
+      "/scratch/jr7309/runs/2026-10-10-early-rmse-6k/source/eae2b5c56da44eb3686a6eaf72a80aa419a4b5a4",
+      "train",
+      "eae2b5c56da44eb3686a6eaf72a80aa419a4b5a4"
+    ]
+  }
+]

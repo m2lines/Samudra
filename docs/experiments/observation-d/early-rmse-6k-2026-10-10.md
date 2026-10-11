@@ -93,7 +93,14 @@ GPU utilization is recorded throughout, including validation. Preserve failed
 attempts; diagnose low utilization before any routine resubmission. No new seeds,
 models or scientific protocol changes beyond this table are included.
 
-Status: implementation and local verification in progress; no jobs submitted yet.
+Status at submission, October 10 20:26 ET: CPU audit **19555071** queued;
+qualification array **19555072** waits for that audit; production/evaluation
+array **19555073** waits for every qualification. No training progress is claimed
+from submission alone. All 73 targeted tests and repository commit hooks passed.
+
+Pinned producer: `eae2b5c56da44eb3686a6eaf72a80aa419a4b5a4`.
+Cluster root: `/scratch/jr7309/runs/2026-10-10-early-rmse-6k`.
+[Exact run/data/source contract](artifacts/early-rmse-6k-2026-10-10/paths.json) ·
+[Slurm requests and dependencies](artifacts/early-rmse-6k-2026-10-10/submission.json).
 Runner: `scripts/run_early_fine_rmse_wave.py`; Slurm entry:
-`scripts/slurm_early_fine_rmse.sbatch`. Source and submission provenance will be
-recorded here after pinning and submission.
+`scripts/slurm_early_fine_rmse.sbatch`. The source commit remains fixed even when this report is updated.

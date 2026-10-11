@@ -1,0 +1,56 @@
+{
+  "producer": "eae2b5c56da44eb3686a6eaf72a80aa419a4b5a4",
+  "archive_sha256": "628d709532d4c8907ff947279c08bad6fcf8040332d5ed2432a7ac61ff9b7c41",
+  "global_om4": "/scratch/jr7309/data/om4_onedeg_v3",
+  "fine_om4": "/scratch/jr7309/data/om4_quarterdeg_v2",
+  "observations": "/scratch/jr7309/runs/2026-10-10-early-rmse-6k/observations",
+  "observation_source": "/scratch/jr7309/data/obs-d-pilot",
+  "early_data": "/scratch/jr7309/runs/2026-10-10-early-rmse-6k/early-data",
+  "joint_hours": 20,
+  "training_hours_gate": 18,
+  "image": "/scratch/jr7309/.apptainer-images/ghcr.io-m2lines-ocean-emulator-physicsnemo-26.05-9cd36b1bdcf4921fb027494afa4157e217818ccd.sif",
+  "grid_bounds": {
+    "coarse": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-grid-bounds/source/bace89544af6bee819e9da480d7280c8d5e2b51f/tests/fixtures/early_fine_grids/coarse-bounds.npz",
+    "fine": "/scratch/jr7309/runs/2026-10-08-early-fine-rtx/recovery-grid-bounds/source/bace89544af6bee819e9da480d7280c8d5e2b51f/tests/fixtures/early_fine_grids/fine-bounds.npz"
+  },
+  "selection_metric": "rmse-only",
+  "source_selection_reference_sha256": "c94c0601e168858e4ba41423aed74d8604eaa1efbc68dd76370b32b8eeacd26c",
+  "selection_reference_sha256": "d7bf4f3eeaa6a4522f7315ab77ea8468392f800c29d7a17506f5eedfa2b83b60",
+  "runs": {
+    "U-multitask-early": {
+      "seed": 1729,
+      "updates": 6000,
+      "recent_only": false
+    },
+    "U-multitask-early-latent": {
+      "seed": 1729,
+      "updates": 6000,
+      "recent_only": false
+    },
+    "U-multitask-early-fine": {
+      "seed": 1729,
+      "updates": 6000,
+      "recent_only": false
+    },
+    "U-multitask-early-fine-latent": {
+      "seed": 1729,
+      "updates": 6000,
+      "recent_only": false
+    },
+    "U-global": {
+      "seed": 1729,
+      "updates": 6000,
+      "recent_only": true
+    },
+    "U-global-seed1730": {
+      "seed": 1730,
+      "updates": 6000,
+      "recent_only": true
+    },
+    "U-global-repro4k": {
+      "seed": 1729,
+      "updates": 4000,
+      "recent_only": true
+    }
+  }
+}

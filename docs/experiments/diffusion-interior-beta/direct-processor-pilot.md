@@ -145,3 +145,11 @@ plus at most 32 reserved for production, totaling **35.44778 of 40** before any
 recovery. The initial late-night queue prediction was superseded by the actual
 immediate start. A durable scheduler watcher and one-hour fallback reminder
 are registered for production.
+
+All four production workers confirmed online W&B initialization. Live runs:
+[residual](https://wandb.ai/ocean_emulators/default/runs/diffint-direct-residual),
+[direct](https://wandb.ai/ocean_emulators/default/runs/diffint-direct-direct),
+[residual-warm](https://wandb.ai/ocean_emulators/default/runs/diffint-direct-residual-warm),
+[direct-warm](https://wandb.ai/ocean_emulators/default/runs/diffint-direct-direct-warm).
+The two warm arms have begun their processor-only updates; these are separate
+from the 128 mixed updates and are not yet forecast results.

@@ -4,7 +4,8 @@
 # Native quarter-degree observation experiment: proposed follow-on
 
 Run after the [current seven-run comparison](early-rmse-6k-2026-10-10.md)
-finishes. This is a plan, not a submitted wave. Choose the budget and optional
+finishes. The user approved this plan, including reporting both resolutions,
+on October 10. No follow-on jobs have been submitted. Choose the budget and optional
 second arm using validation results, before looking at the new held-out results.
 
 ## Runs
@@ -71,7 +72,7 @@ integration, masks, coast handling, calendar alignment, and split isolation.
 
 ## Selection and reporting
 
-Proposed default: retain the same five-component **RMSE-only** blend and equal
+Agreed selection: retain the same five-component **RMSE-only** blend and equal
 weights, evaluated at the new observation supports, with a frozen training-only
 seasonal-climatology control and validation denominators established on that
 grid. Full-field errors remain neither detrended nor deseasonalized. Spectra do
@@ -105,9 +106,7 @@ as many cells; neither 1° runtime nor the other thread's different model provid
 a reliable runtime estimate here. Wait for capacity rather than moving jobs
 repeatedly; Beta had no idle nodes at the inventory snapshot.
 
-The main choice before implementation is **native-support RMSE selection versus
-retaining 1° RMSE selection**. Native-support selection (recommended) targets
-the new resolution; keeping the 1° selector gives the closest selection-protocol
-match. In either case report both. Other proposed defaults are fresh training,
-unchanged U-Net architecture, and at most one promoted earlier-data variant;
+Use **native-support RMSE selection**, with the unchanged 1° score reported for
+comparison. The agreed defaults are fresh training, unchanged U-Net architecture,
+and at most one promoted earlier-data variant;
 the completed current wave determines its identity and the 4k/6k budget.

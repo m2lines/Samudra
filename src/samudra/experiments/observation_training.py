@@ -18,6 +18,8 @@ from samudra.metrics import kernels
 
 
 class Samples:
+    cache_prepared = False
+
     def __init__(
         self, root, device, surface_fill="climatology", global_observations=False
     ):

@@ -75,7 +75,12 @@ def main():
                 != runtime["image_sha256"]
             ):
                 raise ValueError("Container image differs from pinned runtime")
-        run("prepare_early_fine_wave.py", ["--root", args.root])
+        run(
+            "prepare_auxiliary_rmse_wave.py"
+            if paths.get("auxiliary_cache")
+            else "prepare_early_fine_wave.py",
+            ["--root", args.root],
+        )
         return
     import torch
 

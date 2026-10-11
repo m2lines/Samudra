@@ -128,7 +128,17 @@ def main(arms=ARMS):
         "--deadline",
         "2026-12-31T00:00:00+00:00",
     ]
-    joint += ["--early-data", config["early_data"]]
+    if architecture == "aux":
+        joint += [
+            "--auxiliary-cache",
+            config["auxiliary_cache"],
+            "--auxiliary-weight",
+            "0.01",
+            "--auxiliary-target-mode",
+            run["target_mode"],
+        ]
+    else:
+        joint += ["--early-data", config["early_data"]]
     if config.get("cooldown"):
         cooldown = config["cooldown"]
         joint += [
@@ -143,7 +153,7 @@ def main(arms=ARMS):
             joint += ["--recent-only"]
     if config.get("runs"):
         joint += ["--model-only-milestones"]
-    if run.get("recent_only"):
+    if run.get("recent_only") and architecture != "aux":
         joint += ["--recent-only"]
     if args.stage == "probe":
         command(

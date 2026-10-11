@@ -140,3 +140,90 @@ def test_wave_runner_passes_seed_budget_and_recent_only(tmp_path, monkeypatch):
         "2500",
         "3000",
     ]
+
+
+@pytest.mark.parametrize("mode", ["aligned", "anomaly"])
+@pytest.mark.parametrize("budget", [4000, 6000])
+def test_auxiliary_reproduction_matches_budget_without_early_data(
+    tmp_path, monkeypatch, mode, budget
+):
+    import json
+    import sys
+    from pathlib import Path
+
+    from scripts import run_early_fine_wave as runner
+
+    arm = "U-aux01" + ("-anomaly" if mode == "anomaly" else "") + f"-{budget // 1000}k"
+    config = dict(
+        producer="test",
+        observations="obs",
+        global_om4="om4",
+        auxiliary_cache="targets",
+        selection_metric="rmse-only",
+        runs={arm: dict(seed=1729, updates=budget, recent_only=True, target_mode=mode)},
+    )
+    (tmp_path / "paths.json").write_text(json.dumps(config))
+    probe = tmp_path / ("probe-" + arm)
+    probe.mkdir()
+    (probe / "THROUGHPUT.json").write_text(
+        json.dumps(dict(training_hours_for_4000_updates=1))
+    )
+    calls = []
+
+    def command(module, args):
+        args = list(map(str, args))
+        calls.append((module, args))
+        if module.endswith("observation_joint"):
+            out = Path(args[args.index("--output") + 1])
+            out.mkdir()
+            (out / "TRAIN_COMPLETE.json").write_text("{}")
+
+    monkeypatch.setattr(runner, "command", command)
+    monkeypatch.setenv("SAMUDRA_CODE_COMMIT", "test")
+    monkeypatch.setattr(
+        sys, "argv", ["run", "--root", str(tmp_path), "--arm", arm, "--stage", "train"]
+    )
+    runner.main({arm: ("aux", 0)})
+    args = calls[0][1]
+    for flag, value in [
+        ("--om4-updates", str(budget // 2)),
+        ("--joint-steps", str(budget // 2)),
+        ("--auxiliary-target-mode", mode),
+        ("--auxiliary-weight", "0.01"),
+        ("--selection-metric", "rmse-only"),
+        ("--core-lr", "0.0001"),
+    ]:
+        assert args[args.index(flag) + 1] == value
+    assert "--early-data" not in args and "--recent-only" not in args
+    assert calls[1][0].endswith("observation_evaluate")
+
+
+def test_auxiliary_serialization_requires_exact_reference(monkeypatch):
+    from samudra.experiments.extent_accessory import VarianceTargets
+    from samudra.experiments.extent_training import ExtentPilot
+
+    pilot = ExtentPilot.__new__(ExtentPilot)
+    pilot.accessory = VarianceTargets.__new__(VarianceTargets)
+    monkeypatch.setenv("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
+
+    def verify(self):
+        assert torch.are_deterministic_algorithms_enabled()
+        self.resume_evidence = {
+            "native_and_serialized_replay": {"model": {"max_abs": 0.0}}
+        }
+
+    monkeypatch.setattr(JointPilot, "verify_resume_update", verify)
+    previous = torch.are_deterministic_algorithms_enabled()
+    pilot.verify_resume_update()
+    assert pilot.resume_evidence["deterministic_reference_bitwise_exact"]
+    assert torch.are_deterministic_algorithms_enabled() == previous
+
+    def nonexact(self):
+        self.resume_evidence = {
+            "native_and_serialized_replay": {"model": {"max_abs": 1e-8}}
+        }
+
+    monkeypatch.setattr(JointPilot, "verify_resume_update", nonexact)
+    with pytest.raises(ValueError, match="not exact"):
+        pilot.verify_resume_update()
+    assert torch.are_deterministic_algorithms_enabled() == previous

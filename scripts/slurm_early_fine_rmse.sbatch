@@ -19,6 +19,9 @@ if [[ "$stage" == qualify ]]; then
   export CUBLAS_WORKSPACE_CONFIG=:4096:8
 fi
 arms=(U-multitask-early U-multitask-early-latent U-multitask-early-fine U-multitask-early-fine-latent U-global U-global-seed1730 U-global-repro4k)
+if [[ -e "$root/auxiliary-wave.json" ]]; then
+  arms=(U-aux01-4k U-aux01-6k U-aux01-anomaly-4k U-aux01-anomaly-6k)
+fi
 arm=${arms[${SLURM_ARRAY_TASK_ID:-0}]}
 image=/scratch/jr7309/.apptainer-images/ghcr.io-m2lines-ocean-emulator-physicsnemo-26.05-9cd36b1bdcf4921fb027494afa4157e217818ccd.sif
 binds="/scratch:/scratch:ro,$root:$root:rw,$code:/pilot-code:ro"

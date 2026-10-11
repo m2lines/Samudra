@@ -3,7 +3,9 @@
 
 """Native-quarter regional tasks within the existing observation joint loop."""
 
+import json
 import time
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
 from pathlib import Path
 
@@ -81,6 +83,20 @@ def patch_objective(
 
 
 class ExtentPilot(JointPilot):
+    def verify_resume_update(self):
+        if self.accessory is None:
+            return super().verify_resume_update()
+        from samudra.experiments.early_fine_training import deterministic_replay
+
+        with deterministic_replay():
+            super().verify_resume_update()
+        differences = self.resume_evidence["native_and_serialized_replay"]
+        if not isinstance(differences, dict):
+            raise ValueError("Missing replay difference records")
+        if any(value != 0 for part in differences.values() for value in part.values()):
+            raise ValueError("Auxiliary deterministic reference replay was not exact")
+        self.resume_evidence["deterministic_reference_bitwise_exact"] = True
+
     def __init__(self, args):
         super().__init__(args)
         self.patches = (
@@ -97,9 +113,51 @@ class ExtentPilot(JointPilot):
                 args.auxiliary_weight,
                 getattr(args, "auxiliary_target_mode", "aligned"),
             )
+            if not args.joint_probe:
+                qualified_targets = json.loads(
+                    Path(args.joint_qualification)
+                    .with_name("ACCESSORY_TARGETS.json")
+                    .read_text()
+                )
+                if self.accessory.provenance != qualified_targets:
+                    raise ValueError(
+                        "Production accessory targets differ from qualification"
+                    )
             atomic_json(
                 self.accessory.provenance, Path(args.output) / "ACCESSORY_TARGETS.json"
             )
+            # Same byte-equivalent observation preparation used by the matched
+            # U-global RMSE reproductions; only CPU I/O/preparation is cached.
+            self.data.cache_prepared = True
+            if args.joint_probe:
+                for path in [self.training[0], self.validation[0]]:
+                    self.data.cache_prepared = False
+                    reference = self.data.load(path)
+                    self.data.cache_prepared = True
+                    cached = self.data.load(path)
+                    for name, value in reference.items():
+                        if isinstance(value, torch.Tensor):
+                            torch.testing.assert_close(
+                                cached[name], value, rtol=0, atol=0, equal_nan=True
+                            )
+                    torch.testing.assert_close(
+                        self.data.load_coverage(path),
+                        reference["validity"][:, :19],
+                        rtol=0,
+                        atol=0,
+                    )
+                atomic_json(
+                    dict(
+                        observation_prepared_and_coverage_exact=True,
+                        producer=self.manifest["code_commit"],
+                    ),
+                    self.out / "IO_EQUIVALENT.json",
+                )
+            self.observation_warm_pool = ThreadPoolExecutor(max_workers=2)
+            self.observation_warm = [
+                self.observation_warm_pool.submit(self.data.prepared_sample, path)
+                for path in [*self.training, *self.validation]
+            ]
         counts = {
             name: sum(p.numel() for p in getattr(self.model, name).parameters())
             for name in ("initializer", "evolution", "adapter")
@@ -180,6 +238,9 @@ class ExtentPilot(JointPilot):
     def train_update(self):
         accessory = getattr(self, "accessory", None)
         if accessory is not None:
+            for future in self.observation_warm:
+                if future.done():
+                    future.result()
             accessory.loss_records.clear()
         if (
             self.is_patch_slot()
@@ -205,6 +266,13 @@ class ExtentPilot(JointPilot):
         super().train_update()
         elapsed = time.monotonic() - start
         self.update_seconds.append(elapsed)
+        if accessory is not None and self.completed % 10 == 0:
+            self.checkpoint(self.resume)
+
+    def observation_coverage(self, path):
+        if self.accessory is not None:
+            return self.data.load_coverage(path)
+        return super().observation_coverage(path)
 
     def emit(self, record):
         if record.get("event") in {"joint_train", "joint_skip"}:
@@ -244,7 +312,11 @@ class ExtentPilot(JointPilot):
         super().emit(record)
 
     def run_joint(self):
-        super().run_joint()
+        try:
+            super().run_joint()
+        finally:
+            if self.accessory is not None:
+                self.observation_warm_pool.shutdown(wait=True, cancel_futures=True)
         counts = self.schedule.counts(self.completed)
         auxiliary = counts["om4"] // 2 if self.args.patch_training else 0
         omitted = (

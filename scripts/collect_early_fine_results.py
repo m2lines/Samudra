@@ -80,6 +80,19 @@ def collect(root, selected_names=None):
                 observation=budget // 2,
             )
         )
+        if paths.get("auxiliary_cache"):
+            expected = dict(
+                schedule_slots=budget,
+                optimizer_updates=budget,
+                om4_global=budget // 2,
+                om4_patch=0,
+                omitted_patch_slots=0,
+                observation=budget // 2,
+            )
+            targets = read(run / "ACCESSORY_TARGETS.json")
+            qualified = read(root / ("probe-" + name) / "ACCESSORY_TARGETS.json")
+            if targets != qualified or targets["mode"] != config["target_mode"]:
+                raise ValueError("Auxiliary target qualification mismatch")
         if exposure != expected:
             raise ValueError("Unexpected exposure")
         events = [
@@ -140,6 +153,11 @@ def collect(root, selected_names=None):
             best=best,
             manifest=manifest,
             exposure=exposure,
+            auxiliary_targets=(
+                read(run / "ACCESSORY_TARGETS.json")
+                if paths.get("auxiliary_cache")
+                else None
+            ),
             final_training_event=updates[-1],
             training_events=updates if paths.get("runs") else [],
             validation_events=[

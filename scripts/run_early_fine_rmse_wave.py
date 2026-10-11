@@ -12,6 +12,11 @@ ARMS = dict(
         "U-global": ("unet", 0),
         "U-global-seed1730": ("unet", 0),
         "U-global-repro4k": ("unet", 0),
+        **{
+            name + f"-{budget}k": ("aux", 0)
+            for name in ("U-aux01", "U-aux01-anomaly")
+            for budget in (4, 6)
+        },
     },
 )
 

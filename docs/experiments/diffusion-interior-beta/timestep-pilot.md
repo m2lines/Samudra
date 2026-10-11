@@ -94,3 +94,12 @@ production, for a combined maximum of 188.999. Admission checks use Slurm
 accounting and reject overruns; recoveries must use remaining budget. Existing
 training updates and evaluation coverage are unchanged. Monitor all jobs with
 durable callbacks and one-/two-hour fallback reminders.
+
+Submitted October 11 at 02:15 UTC: qualification **212015** (`beta_test`, one
+hour maximum), production **212017** (`beta`, eight hours, `afterok:212015`,
+cancelled automatically if qualification fails). Both were pending at the initial
+check; qualification was estimated to start at 03:29 UTC, while production had
+no firm start estimate. Runtime archive: `timestep-v1-25a5e181b345`, from commit
+`7601a81d6`. Twelve focused CPU tests, independent code review and all repository
+hooks passed. GPU qualification is pending; no scientific results are claimed.
+Persistent completion watchers and hourly/two-hour reminders are verified active.

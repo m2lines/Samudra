@@ -5,7 +5,7 @@
 
 **Status:** full-warm-up qualification passed all four arms. Production job
 **212190** started on four Beta GPUs at **2026-10-11 19:04:36 UTC**, with an
-eight-hour allocation limit. At the first hourly check, the two residual arms
+eight-hour allocation limit. At the second hourly check, the two residual arms
 and `direct-warm` are training; the un-warmed `direct` arm stopped on update 3
 at the nonfinite total-gradient-norm guard. Final evaluations are still pending.
 
@@ -183,3 +183,20 @@ infrastructure failure requiring a complete rerun.
 Recent speed is approximately 141–150 seconds per mixed update, suggesting
 roughly another 4–4.5 hours of training, plus evaluations. This is an estimate;
 the eight-hour allocation limit and forty-GPU-hour pilot ceiling remain fixed.
+
+### Second production check: approximately 21:06 UTC
+
+The residual arms have completed 49/128 mixed updates and direct-warm 45/128;
+all continuing arms have finite logged losses and gradient norms. Each has a
+verified `step-0032.pt` snapshot. The residual recovery checkpoints are at
+update 48; direct-warm's latest recovery checkpoint is at update 32.
+
+At the same observation update 44, training loss is **0.178296 direct-warm**,
+**0.046561 residual**, and **0.046559 residual-warm**. The direct-warm loss is
+lower than at the previous check, but this temporal comparison uses different
+batches and does not establish a held-out gain. The two residual controls remain
+nearly identical on this matched update. No final forecast evaluation has
+completed. Recent throughput suggests **3–3.5 hours of training remaining**,
+followed by evaluations. The un-warmed direct arm remains stopped; no extra
+training was launched. The durable completion watcher is active and the hourly
+fallback check is rearmed.

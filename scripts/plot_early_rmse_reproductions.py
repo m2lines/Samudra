@@ -34,6 +34,7 @@ def main():
     parser.add_argument("--sources", type=Path, required=True)
     parser.add_argument("--reference", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--family", choices=["early", "auxiliary"], default="early")
     args = parser.parse_args()
     sources = json.loads(args.sources.read_text())
     reference = json.loads(args.reference.read_text())["control"]["metrics"]
@@ -162,6 +163,19 @@ def main():
         ),
         ("U-global controls and seeds", lambda w, m, e: m.startswith("U-global")),
     ]
+    if args.family == "auxiliary":
+        panels = [
+            ("Matched 4k schedules", lambda w, m, e: e[0]["budget"] == 4000),
+            ("Matched 6k schedules", lambda w, m, e: e[0]["budget"] == 6000),
+            (
+                "Aligned auxiliary target: original and reproductions",
+                lambda w, m, e: m.startswith("U-aux01") and "anomaly" not in m,
+            ),
+            (
+                "Seasonal-anomaly target: original and reproductions",
+                lambda w, m, e: m.startswith("U-aux01-anomaly"),
+            ),
+        ]
     for axis, zoom, stem in [
         ("update", False, "validation-full"),
         ("update", True, "validation-late"),
@@ -175,9 +189,9 @@ def main():
                 label = f"{model} / {events[0]['budget'] // 1000}k / {wave}"
                 color = (
                     "tab:orange"
-                    if model.endswith("fine-latent")
+                    if model.endswith("fine-latent") or "anomaly" in model
                     else "tab:blue"
-                    if model.endswith("fine")
+                    if model.endswith("fine") or model.startswith("U-aux01")
                     else "0.5"
                     if model.endswith("seed1730")
                     else "black"
@@ -224,10 +238,11 @@ def main():
                 sources=evidence,
                 reference_sha256=sha(args.reference),
                 script_sha256=sha(__file__),
+                family=args.family,
                 observation_contract=contract,
                 events=len(rows),
                 rescore="All original checkpoints rescored from saved physical validation components; historical weights are not reselected or re-evaluated on test data.",
-                caveat="Historical U-global ran on Beta; historical early arms include recorded recovery attempts. New reproductions and the 6k wave share the Torch producer. Same seed is a repeatability check, not a new independent seed.",
+                caveat="Historical U-global and auxiliary arms ran on Beta; historical early arms include recorded recoveries. Reproductions use the matched Torch runtime; producer and data contracts are recorded in source manifests. Same-seed repeats do not quantify independent-seed uncertainty.",
             ),
             indent=2,
         )

@@ -1,7 +1,7 @@
 <!-- SPDX-FileCopyrightText: 2026 Samudra Authors -->
 <!-- SPDX-License-Identifier: CC-BY-4.0 -->
 
-# Early-data reproduction at the original 4k budget
+# Matched 4k reproductions: earlier data and auxiliary losses
 
 **The 4k advantage repeats in these same-seed executions.** Both fresh early-data
 runs completed 4,000 updates and all 96 held-out origins. Relative to the matched
@@ -16,7 +16,7 @@ uses a stretched mixture as well as a larger budget; its intermediate update
 4,000 is not this matched control.
 
 Contents: [Results](#results) · [Curves](#curves) · [Experiment](#experiment) ·
-[Verification](#verification).
+[Verification](#verification) · [Auxiliary reproductions](#auxiliary-loss-reproductions).
 
 ## Results
 
@@ -153,3 +153,55 @@ Cluster root: `/scratch/jr7309/runs/2026-10-11-early-rmse-4k`.
 Its launch contracts and immutable result/validation bundles are retained;
 no source data or checkpoints were deleted. Reporting script:
 `scripts/plot_early_rmse_reproductions.py`.
+
+## Auxiliary-loss reproductions
+
+**Submitted October 11; no new auxiliary result yet.** The added fresh runs
+are **U-aux01-4k** and **U-aux01-anomaly-4k**, each matched to U-global-repro4k:
+2,000 recent global OM4 updates plus 2,000 observation updates, seed 1729,
+fixed LR 1e-4, and the same progressive task mixture and RMSE-only validation.
+These are independent 4k schedules, not intermediate checkpoints from 6k runs.
+The corresponding [6k reproductions](early-rmse-6k-2026-10-10.md#auxiliary-loss-reproductions)
+stretch that mixture to 3,000 updates of each task.
+
+**U-aux01** adds a 129-parameter pointwise head to U-global's processor features
+(total 62,967,809 parameters). On OM4 updates, it predicts standardized
+`log1p(q / scale)` at every valid coarse cell and all six forecast leads,
+where `q = 0.5 * (mean(u² + v²) - mean(u)² - mean(v)²)` comes from the original
+quarter-degree five-day-mean surface velocities. The accessory loss is
+area-weighted MSE with coefficient 0.01. **U-aux01-anomaly** instead targets that
+standardized quantity minus its per-cell, calendar-month training mean. The
+head is unused at observation inference; neither recipe supplies fine fields
+to the processor or adds recurrent channels. Both use the original recent OM4
+period, not the earlier-data extension. [Original target methods](extent-accessory-controls-2026-10-04.md#fixed-setup-and-literal-model-names).
+
+Only one original execution of each of these exact recipes was found. They
+are the top two genuine target variants by their **rescored RMSE validation
+minimum**, not by held-out test performance or the old spectral composite:
+
+| Original recipe | Best RMSE validation | Update | Final-five mean |
+|---|---:|---:|---:|
+| U-global | 0.8815 | 4,000 | 0.9088 |
+| U-aux01 | 0.8502 | 4,000 | 0.9127 |
+| U-aux01-anomaly | 0.8486 | 4,000 | 0.8952 |
+
+The aligned run's late-window mean does not improve on U-global despite its
+better minimum. That discrepancy makes replication particularly useful. The
+seasonal-mean variant's RMSE minimum is 0.8611; its stronger ranking under the
+old composite partly reflected spectra. The shuffled target remains a control.
+New results will include validation curves, fixed endpoints, final-five means,
+all five physical components, selected 96-origin test scores and own persistence.
+
+The reproductions retain the matched Torch container/runtime. CPU observation
+caching is checked against uncached tensors; target files are copied from Beta
+with full file-by-file SHA-256 verification. Fresh fitting, gradient routing,
+exact serialization replay and throughput gates precede production. Diagnostic
+weights are excluded. Pinned producer: `56aac9375a59a7204cd54d85a0c5a3b8e9383d59`.
+Cluster root: `/scratch/jr7309/runs/2026-10-11-auxiliary-rmse`.
+
+Shared dependency chain: data audit **19597634** → four fresh qualifications
+**19597635** → training/evaluation **19597636** on Torch RTX6000. Each array
+task requests one GPU, 16 CPUs and 192 GB RAM. All four qualifications must
+pass before any production arm starts. Forty-eight completed diagnostic
+checkpoints (20.25 GB) were copied to archive, fully SHA-256 verified and linked
+from their original paths to make room; production checkpoints were untouched.

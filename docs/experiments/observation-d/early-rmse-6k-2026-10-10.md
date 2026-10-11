@@ -17,7 +17,7 @@ The historical [four-arm report](early-fine-wave-2026-10-07.md) and
 protocols. This wave uses RMSE-only selection throughout.
 
 Contents: [Results](#results) · [Runs](#runs) · [Selection](#selection) · [Diagnostics](#diagnostics) ·
-[Execution](#execution).
+[Execution](#execution) · [Auxiliary reproductions](#auxiliary-loss-reproductions).
 
 ## Results
 
@@ -187,3 +187,32 @@ Cluster root: `/scratch/jr7309/runs/2026-10-10-early-rmse-6k`.
 [Slurm requests and dependencies](artifacts/early-rmse-6k-2026-10-10/submission.json).
 Runner: `scripts/run_early_fine_rmse_wave.py`; Slurm entry:
 `scripts/slurm_early_fine_rmse.sbatch`. The source commit remains fixed even when this report is updated.
+
+## Auxiliary-loss reproductions
+
+**Submitted October 11; no new auxiliary result yet.** Two fresh additions,
+**U-aux01-6k** and **U-aux01-anomaly-6k**, use 3,000 recent global OM4 updates plus
+3,000 observation updates, the same stretched progressive mixture as U-global,
+seed 1729, fixed LR 1e-4, and the unchanged five-component RMSE-only selection.
+They start from scratch; they are not continuations of the original 4k runs.
+
+U-aux01 uses a training-only processor head to predict future subcell surface
+velocity variance from the original quarter-degree OM4 targets, with accessory
+weight 0.01. U-aux01-anomaly predicts the target after subtracting its per-cell
+training seasonal mean. Both retain the global 1° physical evolution task and
+62,967,809 total parameters. Full definitions, the original RMSE-only ranking,
+and the matched 4k runs are in the [4k report](early-rmse-4k-reproduction-2026-10-11.md#auxiliary-loss-reproductions).
+
+These additions will be compared with both existing U-global seeds and the
+completed early-data reproductions using validation trajectories, endpoints,
+final-five means, individual physical components, selected 96-origin test
+scores and own persistence. Original auxiliary runs were on Beta; the new
+runs share the Torch runtime with the current controls. This is a same-seed
+repeatability check, not an independent-seed confidence interval.
+
+Shared dependency chain: data audit **19597634** → four fresh qualifications
+**19597635** → training/evaluation **19597636** on Torch RTX6000. Each array
+task requests one GPU, 16 CPUs and 192 GB RAM. All four qualifications must
+pass before any production arm starts. Forty-eight completed diagnostic
+checkpoints (20.25 GB) were copied to archive, fully SHA-256 verified and linked
+from their original paths to make room; production checkpoints were untouched.

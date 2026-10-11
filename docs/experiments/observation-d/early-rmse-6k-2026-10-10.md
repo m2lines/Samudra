@@ -190,7 +190,7 @@ Runner: `scripts/run_early_fine_rmse_wave.py`; Slurm entry:
 
 ## Auxiliary-loss reproductions
 
-**Submitted October 11; no new auxiliary result yet.** Two fresh additions,
+**All qualifications passed; production started October 11. No completed auxiliary result yet.** Two fresh additions,
 **U-aux01-6k** and **U-aux01-anomaly-6k**, use 3,000 recent global OM4 updates plus
 3,000 observation updates, the same stretched progressive mixture as U-global,
 seed 1729, fixed LR 1e-4, and the unchanged five-component RMSE-only selection.

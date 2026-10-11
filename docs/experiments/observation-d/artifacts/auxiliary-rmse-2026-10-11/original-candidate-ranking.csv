@@ -1,0 +1,7 @@
+model,best_rmse,best_update,final_five_mean,selected,original_seed,original_run
+U-aux01-anomaly,0.8485635162935395,4000,0.8951567790553903,True,1729,/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-accessory-controls/U-aux01-anomaly
+U-aux01,0.8502355143970226,4000,0.9126674010816389,True,1729,/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation/U-aux01
+U-aux01-shuffled,0.8506034653330389,4000,0.9009051730901682,False,1729,/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-accessory-controls/U-aux01-shuffled
+U-aux01-static,0.857366920082199,4000,0.9120266139525137,False,1729,/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-accessory-controls/U-aux01-static
+U-aux01-seasonal,0.8611111248379751,3500,0.901666489886864,False,1729,/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-04-extent-accessory-controls/U-aux01-seasonal
+U-aux10,0.8677067884695303,4000,0.892631235626747,False,1729,/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-03-extent-representation/U-aux10

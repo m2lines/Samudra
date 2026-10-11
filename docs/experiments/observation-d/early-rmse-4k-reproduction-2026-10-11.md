@@ -156,7 +156,7 @@ no source data or checkpoints were deleted. Reporting script:
 
 ## Auxiliary-loss reproductions
 
-**Submitted October 11; no new auxiliary result yet.** The added fresh runs
+**All qualifications passed; production started October 11. No completed auxiliary result yet.** The added fresh runs
 are **U-aux01-4k** and **U-aux01-anomaly-4k**, each matched to U-global-repro4k:
 2,000 recent global OM4 updates plus 2,000 observation updates, seed 1729,
 fixed LR 1e-4, and the same progressive task mixture and RMSE-only validation.
@@ -189,6 +189,7 @@ The aligned run's late-window mean does not improve on U-global despite its
 better minimum. That discrepancy makes replication particularly useful. The
 seasonal-mean variant's RMSE minimum is 0.8611; its stronger ranking under the
 old composite partly reflected spectra. The shuffled target remains a control.
+[All original candidate scores](artifacts/auxiliary-rmse-2026-10-11/original-candidate-ranking.csv).
 New results will include validation curves, fixed endpoints, final-five means,
 all five physical components, selected 96-origin test scores and own persistence.
 

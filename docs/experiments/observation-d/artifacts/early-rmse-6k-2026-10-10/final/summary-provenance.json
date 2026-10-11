@@ -1,0 +1,14 @@
+{
+  "script_sha256": "2b8f8ccbd628ed77d9e93b85341569e856e4ddaf33fb16548f28b447d6b1e085",
+  "sources": {
+    "/tmp/rmse-all-completed.json": "2474caf143d1c671655bd500db61a0604c13000548fe86a7daad8d5b77dfb429"
+  },
+  "selection_reference_sha256": "d7bf4f3eeaa6a4522f7315ab77ea8468392f800c29d7a17506f5eedfa2b83b60",
+  "test_normalization": "Common held-out seasonal-climatology errors from the first source arm; all controls verified within the recorded relative tolerance. Validation uses its separately frozen reference.",
+  "control_relative_tolerance": 0,
+  "x_axes": "Actual optimizer updates include all trained tasks and exclude omitted slots; observation updates show equal downstream exposure separately.",
+  "figures": [
+    "long-run-comparison.png",
+    "u-global-budget-and-seed-controls.png"
+  ]
+}

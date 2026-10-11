@@ -8,6 +8,13 @@ finishes. The user approved this plan, including reporting both resolutions,
 on October 10. No follow-on jobs have been submitted. Choose the budget and optional
 second arm using validation results, before looking at the new held-out results.
 
+**October 11 decision:** the current wave has completed. Its 6k U-global seeds
+improve selected validation by 5–7% over the 4k reproduction, so use **6,000
+updates** for the quarter-degree baseline. The best early-fine validation gain
+is smaller than the observed two-seed U-global spread; no optional second arm
+is promoted on this evidence. The [completed report](early-rmse-6k-2026-10-10.md)
+contains the component and held-out comparisons.
+
 ## Runs
 
 | Proposed name | Processor and predicted state | OM4 updates | Observation updates |
@@ -18,8 +25,8 @@ second arm using validation results, before looking at the new held-out results.
 Train fresh with seed 1729, fixed LR 1e-4, the existing physical losses, effective
 batch of eight, five-day steps, history/rollout lengths, and the stretched
 progressive mixture. Preserve chronological train/validation/test splits.
-Use 6,000 updates if the ongoing long-run versus original-schedule reproduction
-supports it; otherwise revisit the budget with the completed curves. A single
+The completed long-run versus original-schedule reproduction supports 6,000
+updates. A single
 optional arm should have a convincing validation improvement over U-global,
 considering component tradeoffs and the observed two-seed U-global variation.
 This small seed sample does not establish significance.
@@ -99,6 +106,10 @@ The existing pilot preloads whole OM4 periods on GPU and prepared observations
 on CPU; this cannot simply be scaled by changing grid dimensions. Integrate the
 verified compact reader with bounded window loading/caching, then check exact
 channel/time/mask equivalence, fitting, gradients, resume and numerical replay.
+Rebuild the current branch's ARM64 native extension: its `FlatOm4ReadPool` API
+differs from the earlier Beta producer's `ZarrReadPool`. The current
+`CompactOm4Reader` provides bounded explicit time/channel reads, including packed
+depth arrays; normalization and masking remain the experiment's responsibility.
 Use activation checkpointing as needed and measure memory, throughput and
 validation overhead before giving a production ETA. Data parallelism alone
 does not make an oversized single sample fit. Quarter-degree fields have 16×

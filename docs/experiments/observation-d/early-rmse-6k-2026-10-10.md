@@ -3,13 +3,63 @@
 
 # Longer early-data comparison with RMSE selection
 
-Seven fresh runs test whether the earlier-OM4 gains persist with 50% more
-training, how their validation components evolve, and how much U-global varies
-between seeds. The historical [four-arm report](early-fine-wave-2026-10-07.md)
-and [cooldown report](early-fine-cooldown-2026-10-08.md) remain unchanged.
+All seven fresh runs completed. **Longer U-global training helps:** the selected
+6k model's held-out RMSE blend is 0.8423, versus 0.9082 for the 4k reproduction
+(7.3% lower). Its second seed scores 0.8503. **The early-data variants do not
+establish a reproducible advantage:** the fine-input variant improves narrowly,
+by less than the observed two-seed U-global spread. These results support a
+6k [quarter-degree U-global follow-on](quarter-global-plan-2026-10-10.md), without
+yet justifying a second quarter-degree arm.
 
-Contents: [Runs](#runs) · [Selection](#selection) · [Diagnostics](#diagnostics) ·
+The historical [four-arm report](early-fine-wave-2026-10-07.md) and
+[cooldown report](early-fine-cooldown-2026-10-08.md) use their original selection
+protocols. This wave uses RMSE-only selection throughout.
+
+Contents: [Results](#results) · [Runs](#runs) · [Selection](#selection) · [Diagnostics](#diagnostics) ·
 [Execution](#execution).
+
+## Results
+
+Lower is better. Validation uses nine origins and its frozen climatology
+denominators. The held-out blend uses all 96 test origins and the same held-out
+seasonal-climatology denominators for every model; that control scores 1.
+Test data never select weights. Own persistence holds each selected model's
+initialized ocean state fixed, without applying its evolution processor.
+
+| Model | Selected total update | Selected validation blend | Endpoint validation blend | Held-out blend | Own persistence blend |
+|---|---:|---:|---:|---:|---:|
+| U-global | 5,200 | 0.8241 | 0.8689 | 0.8423 | 0.9391 |
+| U-global-seed1730 | 5,800 | 0.8419 | 0.8633 | 0.8503 | 0.9513 |
+| U-global-repro4k | 4,000 | 0.8861 | 0.8861 | 0.9082 | 0.9829 |
+| U-multitask-early | 5,500 | 0.8250 | 0.8648 | 0.8405 | 0.9216 |
+| U-multitask-early-latent | 5,200 | 0.8315 | 0.8682 | 0.8300 | 0.9099 |
+| U-multitask-early-fine | 5,500 | 0.8160 | 0.8616 | 0.8349 | 0.9160 |
+| U-multitask-early-fine-latent | 5,600 | 0.8329 | 0.8360 | 0.8534 | 0.9681 |
+
+[All physical components and persistence controls](artifacts/early-rmse-6k-2026-10-10/final/scores.csv) ·
+[Independent completion and checkpoint audit](artifacts/early-rmse-6k-2026-10-10/final/verification.json).
+
+The two 6k U-global seeds improve selected validation by 5.0–7.0% and held-out
+blend by 6.4–7.3% relative to the 4k reproduction. Even their fixed 6k endpoints
+improve validation, by 2.0–2.6%. The stretched mixture changes exposure at each
+intermediate update; this supports the longer training recipe, not a claim that
+6,000 is optimal or that the benefit comes solely from extra observation updates.
+
+U-multitask-early-fine beats seed-1729 U-global by 0.98% on validation and 0.87%
+on test. The two U-global seeds differ by 2.17% and 0.96%, respectively. Two seeds
+cannot estimate significance reliably, but that scale argues against declaring
+a robust early-fine win. The early-latent arm has the lowest test blend while
+losing to U-global on validation; it must not be promoted by choosing on the
+held-out ranking. Latent channels do not consistently improve the paired arms.
+
+![Budget and seed controls](artifacts/early-rmse-6k-2026-10-10/final/u-global-budget-and-seed-controls.png)
+
+![RMSE validation against total and observation updates](artifacts/early-rmse-6k-2026-10-10/progress/validation-blend.png)
+
+[All five normalized components](artifacts/early-rmse-6k-2026-10-10/progress/validation-components.png) ·
+[Numeric validation history, including physical units](artifacts/early-rmse-6k-2026-10-10/progress/validation.csv).
+All 421 saved validation blends were independently recomputed from their five
+components and the frozen reference.
 
 ## Runs
 
@@ -62,70 +112,52 @@ select checkpoints. Training losses remain unchanged.
 
 ## Diagnostics
 
-Validate every 100 total updates and at saved observation-exposure milestones.
-Plot the primary blend, all five physical RMSE components and normalized ratios,
-OM4 retention, and per-task training losses against both total updates and
-observation updates. Also log SST bias, area-weighted uncentered anomaly
-correlation and anomaly RMS amplitude ratio using a shared training-only seasonal
-climatology, alongside the existing SST variance-map and depthwise T/S RMSE/bias.
-These short-cohort diagnostics do not establish long-term temporal behavior.
+Validation ran every 100 total updates and at saved observation-exposure
+milestones. The blend is plotted against both total and observation updates;
+component, dynamics and retention curves use total updates. SST diagnostics use
+the shared training-only seasonal climatology. These short-lead, reinitialized
+cohorts do not establish long-term autonomous dynamics.
 
-Save diagnostic checkpoints at 500-observation-update intervals, plus initial,
-selected and latest states. Milestones retain weights, manifest, task counts and
-RNG metadata; they deliberately omit optimizer tensors. The latest checkpoint
-retains the full optimizer/RNG resume state. Use these milestones for matched
-rollout and initializer maps/profiles as training proceeds. Report fixed endpoints
-alongside validation-selected results and each selected model's own initialized
-persistence. Selected held-out evaluation uses the same 96 monthly origins.
+The models still damp SST anomalies: the six long-run selected models retain
+only 0.66–0.72 of the observed day-30 anomaly RMS, with cold biases of
+0.15–0.28°C. U-global's day-30 anomaly correlation is 0.659, versus 0.592 for
+the 4k reproduction. Lower RMSE has not removed the amplitude deficit.
+
+All selected models improve their overall held-out blend over own persistence,
+but **EKE RMSE worsens**: approximately 0.0247–0.0253 m²/s² versus persistence's
+0.02255 m²/s². Better SST, velocity and heat-content errors do not imply that
+every aspect of variability improves.
+
+![SST dynamics and OM4 retention](artifacts/early-rmse-6k-2026-10-10/progress/validation-dynamics.png)
+
+![Per-task training objectives](artifacts/early-rmse-6k-2026-10-10/final/training-loss.png)
+
+[Monthly temperature/salinity error profiles](artifacts/early-rmse-6k-2026-10-10/final/heldout-depth-errors.png) ·
+[Profile numbers, including own persistence](artifacts/early-rmse-6k-2026-10-10/final/heldout-depth-errors.csv) ·
+[Training-loss bins](artifacts/early-rmse-6k-2026-10-10/final/training-loss.csv).
+Fine and coarse early-OM4 objectives differ, so their loss magnitudes are not
+direct measures of relative model quality. The observation objectives are shared.
+
+Diagnostic weights are preserved every 500 observation updates, alongside
+initial, selected and latest states. Milestones include weights, manifest,
+counts and RNG metadata; only latest checkpoints include optimizer state.
+The profiles linked above are monthly forecast-error profiles, not new
+initializer-state or annual-rollout evaluations.
 
 ## Execution
 
-Target: Torch RTX6000, pinned previous container/runtime, one GPU, 16 CPUs and
-192 GB RAM per run, up to four concurrent tasks. Existing datasets are reused.
-Scratch headroom at preflight was about 86 GB; estimated additional persistent
-outputs are approximately 40–50 GB with weights-only diagnostic milestones.
-Node-local source caches are separate from persistent scratch output.
+All jobs completed successfully by October 11 **05:49 ET**: CPU audit **19555071**,
+seven qualification tasks **19555072**, and training/evaluation array **19555073**.
+Each run used one Torch RTX6000, 16 CPUs and 192 GB RAM, with at most four
+concurrent tasks. Actual Slurm allocation totals are **33.0325 GPU-hours**,
+including qualification, initialization, training and evaluation; no retries.
 
-CPU data/source audit precedes all seven fitting/gradient, exact-I/O, deterministic
-serialization-replay and measured-throughput qualifications. Production depends
-on all seven qualifications passing and starts from fresh random weights.
-GPU utilization is recorded throughout, including validation. Preserve failed
-attempts; diagnose low utilization before any routine resubmission. No new seeds,
-models or scientific protocol changes beyond this table are included.
-
-Status at October 11 **01:32 ET**: CPU audit **19555071** and all seven
-qualification tasks **19555072** completed successfully. Saved gates confirm
-bitwise exact deterministic serialization replay, exact I/O, matching producer,
-seed and selection-reference contracts, and acceptable measured throughput.
-All 73 targeted tests and repository commit hooks passed.
-
-Production/evaluation array **19555073** has completed the two coarse early-data
-arms: both reached 6,000 updates (3,000 OM4 / 3,000 observation), selected a
-checkpoint using validation alone, and completed all 96 held-out origins.
-Checkpoint hashes agree across saved training, selection and evaluation records;
-the actual selected files were independently hashed. Best validation blends are
-0.82497 for U-multitask-early and 0.83154 for U-multitask-early-latent.
-
-The fine-data arms are near 4,250 updates. Both long U-global controls are now
-training (135–300 updates); U-global-repro4k remains queued behind the four-task
-limit. These are **partial training curves**, not a completed comparison against
-U-global. No failed attempts or training errors have been recorded. Scratch
-has approximately 64 GB free at the latest quota check.
-
-![RMSE validation against total and observation updates](artifacts/early-rmse-6k-2026-10-10/progress/validation-blend.png)
-
-[All five normalized components](artifacts/early-rmse-6k-2026-10-10/progress/validation-components.png) ·
-[SST dynamics and OM4 retention](artifacts/early-rmse-6k-2026-10-10/progress/validation-dynamics.png) ·
-[Numeric validation history](artifacts/early-rmse-6k-2026-10-10/progress/validation.csv).
-Every plotted blend was independently checked against its saved five components
-and frozen climatology denominators. Curves contain 217 completed validations,
-including the two full coarse early-data trajectories, rather than interpolated results.
-
-The initial batch telemetry used physical Slurm GPU IDs, whereas Torch's cgroups
-renumber allocated GPUs. Failed telemetry files are retained; separate read-only
-observers now record the actual allocated GPU UUIDs. Training, checkpoints and
-qualification contracts were not changed. A launcher fix in the reporting branch
-applies to future submissions; this wave retains the pinned producer below.
+All 73 targeted training tests and commit checks passed. Production used fresh
+weights after fitting, exact-I/O, deterministic replay and throughput gates.
+The final collector verified all expected training events and task exposures,
+finite losses/gradients, fixed LR, seeds, producer, independently hashed selected
+checkpoints, and complete 96-origin evaluation records. Reporting changes did
+not alter the pinned training producer.
 
 Pinned producer: `eae2b5c56da44eb3686a6eaf72a80aa419a4b5a4`.
 Cluster root: `/scratch/jr7309/runs/2026-10-10-early-rmse-6k`.

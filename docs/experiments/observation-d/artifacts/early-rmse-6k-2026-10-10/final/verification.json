@@ -1,0 +1,307 @@
+{
+  "complete_wave": true,
+  "collected_utc": "2026-10-11T09:49:27.581589+00:00",
+  "root": "/scratch/jr7309/runs/2026-10-10-early-rmse-6k",
+  "producer": "eae2b5c56da44eb3686a6eaf72a80aa419a4b5a4",
+  "collector_sha256": "8815c5557fcc084d28b54e23dabc92898f051423cc3fc0d665d1b012f9db6281",
+  "selection_reference_sha256": "d7bf4f3eeaa6a4522f7315ab77ea8468392f800c29d7a17506f5eedfa2b83b60",
+  "full_collection_sha256": "2474caf143d1c671655bd500db61a0604c13000548fe86a7daad8d5b77dfb429",
+  "gpu_hours": 33.0325,
+  "retry_gpu_hours": 0,
+  "arms": {
+    "U-multitask-early": {
+      "training_complete": {
+        "global_step": 6000,
+        "task_counts": {
+          "om4": 3000,
+          "observation": 3000
+        },
+        "best_score": 0.8249685660223006,
+        "best_checkpoint_sha256": "f39dbaee084434de507b7f82f2bcaf862f7accf21a9a4baad73f7c2d67544b39",
+        "completed_utc": "2026-10-11T05:12:07.559236+00:00"
+      },
+      "evaluation_complete": {
+        "evaluation_protocol": "selected-controls-v3",
+        "split": "test",
+        "origins": 96,
+        "source_sha256": null,
+        "selected_sha256": "f39dbaee084434de507b7f82f2bcaf862f7accf21a9a4baad73f7c2d67544b39",
+        "fixed_budget_lineage": null
+      },
+      "exposure": {
+        "om4_recent": 1500,
+        "om4_early": 1500,
+        "observation": 3000
+      },
+      "selected": {
+        "global_step": 5500,
+        "task_counts": {
+          "om4": 2922,
+          "observation": 2578
+        },
+        "score": 0.8249685660223006,
+        "checkpoint_sha256": "f39dbaee084434de507b7f82f2bcaf862f7accf21a9a4baad73f7c2d67544b39"
+      },
+      "files": {
+        "COMPLETE.json": "a303656914b1ddca78689a173e2700c5cb2ddf68ebba3a8a381a36c6a93bc312",
+        "evaluation-input.json": "2ef7e3646c62f43c8f0ffa77035d381d954cab32fd720e41d5a716651613280c",
+        "seasonal-climatology.json": "20d965ef1b5954198cbeda121da53d2eff69eae31e70cdb7e823371bf30072f3",
+        "selected-inferred-anomaly-persistence.json": "137e35d34336ca5779e5f0ed04c0023451ea112489026f546f5d299cecdd57e8",
+        "selected-inferred-persistence.json": "b516c2664f4d39cf6dec83edd3c3d0dc4dd8c3980f414ca16e496c17b4a06f09",
+        "selected.json": "8b882d8454724cb470dc28cb0f10ac4a4e32e55e063dfd370e9227fbd1bc089e"
+      }
+    },
+    "U-multitask-early-latent": {
+      "training_complete": {
+        "global_step": 6000,
+        "task_counts": {
+          "om4": 3000,
+          "observation": 3000
+        },
+        "best_score": 0.8315363574435084,
+        "best_checkpoint_sha256": "4ef2453e9aeadaf7396e3b78a59944a7abe169f213b853b301dad000289de36b",
+        "completed_utc": "2026-10-11T05:17:23.581667+00:00"
+      },
+      "evaluation_complete": {
+        "evaluation_protocol": "selected-controls-v3",
+        "split": "test",
+        "origins": 96,
+        "source_sha256": null,
+        "selected_sha256": "4ef2453e9aeadaf7396e3b78a59944a7abe169f213b853b301dad000289de36b",
+        "fixed_budget_lineage": null
+      },
+      "exposure": {
+        "om4_recent": 1500,
+        "om4_early": 1500,
+        "observation": 3000
+      },
+      "selected": {
+        "global_step": 5200,
+        "task_counts": {
+          "om4": 2860,
+          "observation": 2340
+        },
+        "score": 0.8315363574435084,
+        "checkpoint_sha256": "4ef2453e9aeadaf7396e3b78a59944a7abe169f213b853b301dad000289de36b"
+      },
+      "files": {
+        "COMPLETE.json": "66d4a541c3d09bd91291e13b35051b26347eeeb698afb009197fd5cc0b599b9a",
+        "evaluation-input.json": "035a461fefdb307e42ce32c3bfdd5779f41d47fff26962d71f366fd4e5db2653",
+        "seasonal-climatology.json": "20d965ef1b5954198cbeda121da53d2eff69eae31e70cdb7e823371bf30072f3",
+        "selected-inferred-anomaly-persistence.json": "a539cfc2fd3f23fd8a862bd5815c998859609b0fb214ea8f62a0462c2e95c7be",
+        "selected-inferred-persistence.json": "32c28fba2bfa2e8c3d2f16e339aeff88282cdc5376d49a5456b267da379f6aac",
+        "selected.json": "287f1007db2cd1ac8dce30ab770c39298836d54a43cb305120272ebf97e95d9d"
+      }
+    },
+    "U-multitask-early-fine": {
+      "training_complete": {
+        "global_step": 6000,
+        "task_counts": {
+          "om4": 3000,
+          "observation": 3000
+        },
+        "best_score": 0.8160048819155727,
+        "best_checkpoint_sha256": "5a8d7c6987c96fe8011c33d89e95bade7fb9fc506f72d1f72288f4c88877b4c5",
+        "completed_utc": "2026-10-11T07:07:12.514060+00:00"
+      },
+      "evaluation_complete": {
+        "evaluation_protocol": "selected-controls-v3",
+        "split": "test",
+        "origins": 96,
+        "source_sha256": null,
+        "selected_sha256": "5a8d7c6987c96fe8011c33d89e95bade7fb9fc506f72d1f72288f4c88877b4c5",
+        "fixed_budget_lineage": null
+      },
+      "exposure": {
+        "om4_recent": 1500,
+        "om4_early": 1500,
+        "observation": 3000
+      },
+      "selected": {
+        "global_step": 5500,
+        "task_counts": {
+          "om4": 2922,
+          "observation": 2578
+        },
+        "score": 0.8160048819155727,
+        "checkpoint_sha256": "5a8d7c6987c96fe8011c33d89e95bade7fb9fc506f72d1f72288f4c88877b4c5"
+      },
+      "files": {
+        "COMPLETE.json": "92e98e1f806d340b70ae0c475fce2a8c601791043c2fdf5fbd9e9e6db0e6a036",
+        "evaluation-input.json": "2f565041d17e721d713a6733d2bc31d2bc185b349e2cecb7d3f48a095f8d9d04",
+        "seasonal-climatology.json": "20d965ef1b5954198cbeda121da53d2eff69eae31e70cdb7e823371bf30072f3",
+        "selected-inferred-anomaly-persistence.json": "0f9e052b3c5ab9b580442dc568a869307bdab7b78c32857897b3dd1f69e147f1",
+        "selected-inferred-persistence.json": "4e6586b368ba9adfdc5adb064acc9340832c33b9119b3ade05f7ceded1585712",
+        "selected.json": "3b026c7bc9e0de19430629dd45903b3785305d2623422b871b4ed6d7fb353b65"
+      }
+    },
+    "U-multitask-early-fine-latent": {
+      "training_complete": {
+        "global_step": 6000,
+        "task_counts": {
+          "om4": 3000,
+          "observation": 3000
+        },
+        "best_score": 0.832872429725086,
+        "best_checkpoint_sha256": "467c7322850a93cdc9184e19dcccb79345a410ed34eb909ca4717978f9f4e3a4",
+        "completed_utc": "2026-10-11T07:11:52.613216+00:00"
+      },
+      "evaluation_complete": {
+        "evaluation_protocol": "selected-controls-v3",
+        "split": "test",
+        "origins": 96,
+        "source_sha256": null,
+        "selected_sha256": "467c7322850a93cdc9184e19dcccb79345a410ed34eb909ca4717978f9f4e3a4",
+        "fixed_budget_lineage": null
+      },
+      "exposure": {
+        "om4_recent": 1500,
+        "om4_early": 1500,
+        "observation": 3000
+      },
+      "selected": {
+        "global_step": 5600,
+        "task_counts": {
+          "om4": 2940,
+          "observation": 2660
+        },
+        "score": 0.832872429725086,
+        "checkpoint_sha256": "467c7322850a93cdc9184e19dcccb79345a410ed34eb909ca4717978f9f4e3a4"
+      },
+      "files": {
+        "COMPLETE.json": "f94cecb4f880f1d83f94e88facc3b02c184e60c42ec05782d9d308c87a6b441d",
+        "evaluation-input.json": "dab8a6d096046137c190864529e5319500de7cdc3c3986cafe967d1c7ef769a0",
+        "seasonal-climatology.json": "20d965ef1b5954198cbeda121da53d2eff69eae31e70cdb7e823371bf30072f3",
+        "selected-inferred-anomaly-persistence.json": "fdc0f1ef4cd2838eaad16fb7ab9bbb747a495d98474db9fa2f5a27a6d2f6e137",
+        "selected-inferred-persistence.json": "d6b31d47de1567bf922f7165decb4010c55a0097f171831f36ffc9b24257658e",
+        "selected.json": "34f37e8b02cbb605390fc2d9003e0bd811f4a89374e5de8470ade0925f107405"
+      }
+    },
+    "U-global": {
+      "training_complete": {
+        "global_step": 6000,
+        "task_counts": {
+          "om4": 3000,
+          "observation": 3000
+        },
+        "best_score": 0.8240594377365837,
+        "best_checkpoint_sha256": "83bb1c88639b004f8bd2412f0ff6bb5397b443678c41f32d0a449bb440b854cb",
+        "completed_utc": "2026-10-11T09:11:49.253094+00:00"
+      },
+      "evaluation_complete": {
+        "evaluation_protocol": "selected-controls-v3",
+        "split": "test",
+        "origins": 96,
+        "source_sha256": null,
+        "selected_sha256": "83bb1c88639b004f8bd2412f0ff6bb5397b443678c41f32d0a449bb440b854cb",
+        "fixed_budget_lineage": null
+      },
+      "exposure": {
+        "om4_recent": 3000,
+        "om4_early": 0,
+        "observation": 3000
+      },
+      "selected": {
+        "global_step": 5200,
+        "task_counts": {
+          "om4": 2860,
+          "observation": 2340
+        },
+        "score": 0.8240594377365837,
+        "checkpoint_sha256": "83bb1c88639b004f8bd2412f0ff6bb5397b443678c41f32d0a449bb440b854cb"
+      },
+      "files": {
+        "COMPLETE.json": "84a6eede646b0df66369ef7c7f15f58a8cbbb2e7bb9c6b97d370b11f0d882416",
+        "evaluation-input.json": "0189f0bb40b83385e794f7fc4684819003b51352263c5ac0f2711e825772ef01",
+        "seasonal-climatology.json": "20d965ef1b5954198cbeda121da53d2eff69eae31e70cdb7e823371bf30072f3",
+        "selected-inferred-anomaly-persistence.json": "c1951e4d3eceabd6255181f549173cb0c6ba782bba622d9d7e4f105cdf88a595",
+        "selected-inferred-persistence.json": "dc87aec37303f0ec986dd71164ea9839e3cdf864f7ded2eba2c9d6529ebe1cc3",
+        "selected.json": "29579b51c3bb9df2212d2eab3b6c9e8b89cc59e299988786daa7bfdcc01f32ce"
+      }
+    },
+    "U-global-seed1730": {
+      "training_complete": {
+        "global_step": 6000,
+        "task_counts": {
+          "om4": 3000,
+          "observation": 3000
+        },
+        "best_score": 0.8419126121184671,
+        "best_checkpoint_sha256": "c47eea4d69a79510758fd0d570d324c423d8af162c20a0319325f823fa593333",
+        "completed_utc": "2026-10-11T09:09:37.955514+00:00"
+      },
+      "evaluation_complete": {
+        "evaluation_protocol": "selected-controls-v3",
+        "split": "test",
+        "origins": 96,
+        "source_sha256": null,
+        "selected_sha256": "c47eea4d69a79510758fd0d570d324c423d8af162c20a0319325f823fa593333",
+        "fixed_budget_lineage": null
+      },
+      "exposure": {
+        "om4_recent": 3000,
+        "om4_early": 0,
+        "observation": 3000
+      },
+      "selected": {
+        "global_step": 5800,
+        "task_counts": {
+          "om4": 2973,
+          "observation": 2827
+        },
+        "score": 0.8419126121184671,
+        "checkpoint_sha256": "c47eea4d69a79510758fd0d570d324c423d8af162c20a0319325f823fa593333"
+      },
+      "files": {
+        "COMPLETE.json": "c73ee44464c54ca9810ca74d2294ef97cca5baee0ce27041498c6c51c1bd4789",
+        "evaluation-input.json": "c29a3b68315c37cf0d5d46fa1601e47003341809b8ddf3af12bb20d28b5f4ff5",
+        "seasonal-climatology.json": "20d965ef1b5954198cbeda121da53d2eff69eae31e70cdb7e823371bf30072f3",
+        "selected-inferred-anomaly-persistence.json": "cba8007a9c4f62f0e4577fcf3719c9b41b819109b584b7bb726c684d296a2bfb",
+        "selected-inferred-persistence.json": "52e87fc41df99af91ff538a0f0c9fbc6058894952af15658679aa35c5e734c3e",
+        "selected.json": "b5d616e1c3f1985452964a155530fc72663d8508592bc7f6dbfcf672ec662c44"
+      }
+    },
+    "U-global-repro4k": {
+      "training_complete": {
+        "global_step": 4000,
+        "task_counts": {
+          "om4": 2000,
+          "observation": 2000
+        },
+        "best_score": 0.8861478095969332,
+        "best_checkpoint_sha256": "df191e871d10fa850b476edf718063d64c0ac3096e9a2e77c023984d296d1823",
+        "completed_utc": "2026-10-11T09:45:13.678466+00:00"
+      },
+      "evaluation_complete": {
+        "evaluation_protocol": "selected-controls-v3",
+        "split": "test",
+        "origins": 96,
+        "source_sha256": null,
+        "selected_sha256": "df191e871d10fa850b476edf718063d64c0ac3096e9a2e77c023984d296d1823",
+        "fixed_budget_lineage": null
+      },
+      "exposure": {
+        "om4_recent": 2000,
+        "om4_early": 0,
+        "observation": 2000
+      },
+      "selected": {
+        "global_step": 4000,
+        "task_counts": {
+          "om4": 2000,
+          "observation": 2000
+        },
+        "score": 0.8861478095969332,
+        "checkpoint_sha256": "df191e871d10fa850b476edf718063d64c0ac3096e9a2e77c023984d296d1823"
+      },
+      "files": {
+        "COMPLETE.json": "79e97e4b52700d3574e3c85812c2b771d6a607de6f7f78e4528f487d3a714a3e",
+        "evaluation-input.json": "8206652d6a6e194b2504b43aaa5718ce82dd113a507699b8338c2ce538b26ad7",
+        "seasonal-climatology.json": "20d965ef1b5954198cbeda121da53d2eff69eae31e70cdb7e823371bf30072f3",
+        "selected-inferred-anomaly-persistence.json": "a8f3b6c412b1ed4608d1b192c8f268081b31c4747c51073068c3463013370ead",
+        "selected-inferred-persistence.json": "8a1e7a72370686721ce3f6d98e44f3087f0a5d6afed0a6ea13caec3a9c08f261",
+        "selected.json": "366818d180c8152a2dc94f1045b2b3fae4370d54a161354ffbbeb6ac4055c454"
+      }
+    }
+  }
+}

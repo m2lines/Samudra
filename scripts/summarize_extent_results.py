@@ -119,7 +119,9 @@ def summarize(sources, output, groups, control_rtol=0):
     output.mkdir(parents=True, exist_ok=True)
     for filename, rows in [("scores.csv", scores), ("validation-curves.csv", curves)]:
         with (output / filename).open("w") as stream:
-            writer = csv.DictWriter(stream, fieldnames=list(rows[0]))
+            writer = csv.DictWriter(
+                stream, fieldnames=list(rows[0]), lineterminator="\n"
+            )
             writer.writeheader()
             writer.writerows(rows)
     rendered = []

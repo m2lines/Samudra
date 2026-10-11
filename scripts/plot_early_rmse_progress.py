@@ -67,7 +67,7 @@ def main():
         raise ValueError("No completed validation events yet")
     args.output.mkdir(parents=True, exist_ok=True)
     with (args.output / "validation.csv").open("w") as stream:
-        writer = csv.DictWriter(stream, fieldnames=list(rows[0]))
+        writer = csv.DictWriter(stream, fieldnames=list(rows[0]), lineterminator="\n")
         writer.writeheader()
         writer.writerows(rows)
     fig, axes = plt.subplots(1, 2, figsize=(13, 5), constrained_layout=True)
@@ -114,7 +114,7 @@ def main():
         ax.grid(alpha=0.25)
     axes.flat[-1].legend(fontsize=7)
     for ext in ["png", "pdf"]:
-        fig.savefig(args.output / ("validation-dynamics." + ext), dpi=120)
+        fig.savefig(args.output / ("validation-dynamics." + ext), dpi=100)
     plt.close(fig)
     fig, axes = plt.subplots(2, 3, figsize=(14, 8), constrained_layout=True)
     for ax, component in zip(axes.flat, COMPONENTS, strict=False):
@@ -140,7 +140,7 @@ def main():
         *axes.flat[0].get_legend_handles_labels(), loc="center", fontsize=8
     )
     for ext in ["png", "pdf"]:
-        fig.savefig(args.output / ("validation-components." + ext), dpi=160)
+        fig.savefig(args.output / ("validation-components." + ext), dpi=100)
     plt.close(fig)
     print(f"Plotted {len(rows)} verified validation events")
 

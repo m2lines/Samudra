@@ -1,0 +1,77 @@
+{
+  "origin": "2015-01-03 12:00:00",
+  "producer": "coastal-probe-0eeeee4858da",
+  "script_sha256": "3be927836b33c2d80fe91a3ed1f68242f073787989a470111c4d6a4bf7af455e",
+  "leads_days": [
+    30,
+    365
+  ],
+  "seeds": [
+    4041735,
+    4041736
+  ],
+  "sampling_steps": 32,
+  "noise_correlation": 0.5,
+  "denoising_sigmas": [
+    0.05,
+    0.3,
+    1.0,
+    5.0
+  ],
+  "denoising_noise_seeds": [
+    991006,
+    991073
+  ],
+  "coast_distance": "Euclidean grid cells to dry cells, periodic longitude only; not physical distance",
+  "target_pair": "At lead L, targets[L/5-2] and targets[L/5-1]: physical days L-5 and L; score newest frame only",
+  "land_fill": "Inference-only nearest-wet extension of scaled noisy stem input; EDM skip, output masking and sampler unchanged",
+  "latent_bound_definition": "Per batch/slot/channel spatial RMS hard capped at 2 times encoded-origin RMS clamped to minimum 0.1. Applied either only before decoding or after each processor step; never in place.",
+  "caveats": [
+    "One OM4 origin, two seeds by default; mechanistic diagnostic, not a skill benchmark",
+    "Decoder crossing can fail from latent-coordinate mismatch",
+    "Zero and origin latents are counterfactual conditioning, not valid forecasts",
+    "Land-fill evaluation alone cannot validate retraining with changed boundaries",
+    "Hard RMS bounding is an inference/training mismatch, not GroupNorm and not evidence for a retrained normalization architecture"
+  ],
+  "elapsed_seconds": 71.9421404809691,
+  "files": {
+    "metrics.json": "106aff4cd127e25f29cabe75db8e59bdc1387bdaeea5e3a5bb95a7eb4d866bce",
+    "maps.npz": "4c2519d9fd42ff75227c2151a65262e6c512c196287cc9dd1dc1ec51e576eae8",
+    "latents.npz": "4212bd5fa1d0517ac5383c46ad2fea12d54c549d8509feb29a3126b76c6f9942"
+  },
+  "execution": {
+    "job_id": "212173",
+    "host": "beta",
+    "state": "COMPLETED",
+    "GPUs": 1,
+    "allocated_elapsed_seconds": 244,
+    "allocated_gpu_hours": 0.06777777777777778,
+    "code_id": "coastal-probe-0eeeee4858da",
+    "archive_sha256": "0eeeee4858dac1ecf1c788a89cf9680f03bb3f9efd9c2b6c1f531f81a7ba8787",
+    "base_commit": "d0c2bb80827b9b4ccd24b7ef5f5ad5fe48d978ca"
+  },
+  "report_script_sha256": "7a6687cb66a7b0d41625c2343a289cf736c71bee509ef454c17447b13921eef6",
+  "completion_sha256": "68707bdc4bf3b1760ada39a7ab30a39326282ccb8cb20454c75a46a304724db0",
+  "records_verified": 84,
+  "checkpoints": {
+    "control": {
+      "sha256": "4f25f30d413cf9ecab3f4cf4819fc2b6e87e02aeaa06debf320b8d47ab302641",
+      "counts": {
+        "om4": 8128,
+        "observation": 8128
+      },
+      "step": 16256
+    },
+    "replay-bound": {
+      "sha256": "36e99d3c669daa3be0f2120ae1ecb95042dcbb82f66022f2d2b082143f7ba38b",
+      "counts": {
+        "om4": 8128,
+        "observation": 8128
+      },
+      "step": 16256
+    }
+  },
+  "pooling": "Square root of mean individual-member area-weighted MSE; no ensemble-mean score in these charts",
+  "map_seed": 4041735,
+  "coordinate_note": "Native latitude rows displayed with nearest interpolation; latitude ticks are illustrative, not a cartographic reprojection"
+}

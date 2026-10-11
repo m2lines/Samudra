@@ -1,0 +1,98 @@
+{
+  "origin": "2015-01-03 12:00:00",
+  "initialization": "OM4 surface initialized; native OM4 truth",
+  "leads_days": [
+    0,
+    30,
+    90,
+    180,
+    365
+  ],
+  "channels": [
+    "thetao_0",
+    "zos",
+    "thetao_9",
+    "so_9"
+  ],
+  "ensemble_members": 8,
+  "weights": "cos(latitude) normalized over each depth-specific wet mask; approximate gridcell area",
+  "units": {
+    "thetao_0": "degC",
+    "zos": "m",
+    "thetao_9": "degC",
+    "so_9": "practical salinity"
+  },
+  "verification": "NPZ hashes match native COMPLETE.json. All arms have identical coordinates, masks, references, channels and leads; finite fields and positive wet-cell weights; members shape 8x5x4x180x360.",
+  "limitations": [
+    "One OM4-native origin only; these are not observation-initialized annual metrics.",
+    "Member indices at different leads are separate decoder draws, not coherent stochastic trajectories.",
+    "Cos(latitude) is approximate area weighting on this latitude/longitude grid.",
+    "Compare against same-lead reference; seasonal changes should not be treated as instability.",
+    "No deterministic native field artifact included; cannot directly compare distributional growth with deterministic."
+  ],
+  "artifacts": {
+    "parent": {
+      "path": "outputs/diffusion-interventions-v2/evaluation/parent/native/fields-2015.npz",
+      "sha256": "0f1c65764f558f8b4a9d5290207aea5aae9c4e511e6c48c022bd4cafbefe1fe8",
+      "bytes": 26491953,
+      "complete_sha256": "afbb4f4360c4464c3d8c0f7baff6c3c1dd01054855d09d665eaec5c73b3001b4",
+      "checkpoint_sha256": "853b3353c6d926754a15f19437493a7497813ce2b88cb058fe1a616cc838e6e5"
+    },
+    "control": {
+      "path": "outputs/diffusion-interventions-v2/evaluation/control/native/fields-2015.npz",
+      "sha256": "55a1af182841d7937817d28d6b16300e89f28395af3d742fb195cd4467ca0b67",
+      "bytes": 26478258,
+      "complete_sha256": "80b057cb189029225da15a0e935509b6dd4f02ca9eddde132d201108be209bb2",
+      "checkpoint_sha256": "4f25f30d413cf9ecab3f4cf4819fc2b6e87e02aeaa06debf320b8d47ab302641"
+    },
+    "replay": {
+      "path": "outputs/diffusion-interventions-v2/evaluation/replay/native/fields-2015.npz",
+      "sha256": "5db1233a035b83ee2000a288c275e7dd2d7a91836397a1e525f7f7555c74ff1b",
+      "bytes": 26255091,
+      "complete_sha256": "2c9b3647c0864568bb43cf016c9f70d26233e1246d1309eedc30674043e602da",
+      "checkpoint_sha256": "38b44644d2183ea4d6ac65ef0fc0ab9fab41225797419c3cd5fd16de689824e8"
+    },
+    "replay-bound": {
+      "path": "outputs/diffusion-interventions-v2/evaluation/replay-bound/native/fields-2015.npz",
+      "sha256": "1cbd3a489559f6207d8202ba24082a4f2679a4f987f6d35e56b1fec8408d0ffc",
+      "bytes": 26249305,
+      "complete_sha256": "52a5532ad56d358b42540e895c1fd631518928430382cae8a051df25a574436c",
+      "checkpoint_sha256": "36e99d3c669daa3be0f2120ae1ecb95042dcbb82f66022f2d2b082143f7ba38b"
+    },
+    "pushforward": {
+      "path": "outputs/diffusion-interventions-v2/evaluation/pushforward/native/fields-2015.npz",
+      "sha256": "84c927dab9d7b0e5a58ff2948fcf6d96cf2af69817a0ee32e9a958c9b40fe8fb",
+      "bytes": 26248262,
+      "complete_sha256": "71fec423867ca0b0b82947c693456b44c0bc6e6f95a494d8499a756135494eb3",
+      "checkpoint_sha256": "194f689e10b4cef40e44c0173b3cb39d165348eee7314919c4f0af978094cf17"
+    },
+    "curvature": {
+      "path": "outputs/diffusion-interventions-v2/evaluation/curvature/native/fields-2015.npz",
+      "sha256": "cfc7c201e91be27ba9fb38288411c29baebd8648828fb5d52f22d6dddbec2b6c",
+      "bytes": 26464172,
+      "complete_sha256": "77a534cd41110ae2bbd111dfdf755bfbe625c1a6109bd7794f1d068609a693bb",
+      "checkpoint_sha256": "fa01b0113959df5ddada1e0b24312024d8f7cd8848fca7bd2d14e8e0c2fae463"
+    },
+    "block": {
+      "path": "outputs/diffusion-interventions-v2/evaluation/block/native/fields-2015.npz",
+      "sha256": "44b21b0fedff103759f1686ac29b71c7a18bfd244653ef57f7dd3088e61c6f8b",
+      "bytes": 26488545,
+      "complete_sha256": "6842523061d1820b217adc7369e90578a8f1b46499a0846bcfa7159b88750c11",
+      "checkpoint_sha256": "de1cec7bafbaa8a5104462e51e20f3a6d451795c40e726e9eb3a418b71af0ad5"
+    },
+    "curvature-replay": {
+      "path": "outputs/diffusion-interventions-v2/evaluation/curvature-replay/native/fields-2015.npz",
+      "sha256": "931c935cee0f5b7d4f0bf29c96c990faa7c8c926bc2e57afef084c2b61981512",
+      "bytes": 26234768,
+      "complete_sha256": "07b3de63194c9dbf6050538a6dd5625e92dcbd33fcf8da7243bf4b071352bdfb",
+      "checkpoint_sha256": "7819581b2e2db2c558301122a2486a5e1059a73c1e49876f88be8c195bfc5149"
+    },
+    "block-replay": {
+      "path": "outputs/diffusion-interventions-v2/evaluation/block-replay/native/fields-2015.npz",
+      "sha256": "ae6643533d5ee20cc2426a2904d48e679360c9ef694ceaf9da651359b0f7165b",
+      "bytes": 26256359,
+      "complete_sha256": "a28c36e563a86802798b9ba17bb73bb2d45cc9a52160c5a42cba65eb10bd6c8c",
+      "checkpoint_sha256": "c7faebdb72977f3fb7ecbaf3a24b21459643191f5b9128d8ed9f70870e48864b"
+    }
+  }
+}

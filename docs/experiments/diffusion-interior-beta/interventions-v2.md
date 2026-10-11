@@ -3,6 +3,8 @@
 
 # Alternative spatial and stability objectives: two-day campaign
 
+Completed: [final results, learning curves, maps and data](interventions-v2-results.md).
+
 Authorized October 10: spend one to two days testing alternative remedies for
 visible diagonal artifacts and annual divergence, following the
 [first continuation pilot](interventions-v1-results.md). This campaign has a
@@ -210,3 +212,11 @@ or a unique artifact detector. Ocean structure, finite Fourier lattices and
 tapering also affect angular power; a reference difference alone does not prove
 an artifact. Interpret it together with individual-member maps, reference
 gradients, radial spectra, calibration and annual stability.
+
+## Completion
+
+All eight 256-update runs and final evaluations passed (Beta 211873), followed
+by all 24 evaluations of snapshots at 32/64/128 updates (211875). The timestep
+pilot also finished and is reported separately. Combined allocated usage was
+125.796 B200 GPU-hours, including qualification and evaluations, below the
+192 GPU-hour ceiling. Completion callbacks and reminder timers are retired.

@@ -1,0 +1,185 @@
+{
+  "origins": [
+    "2013-11",
+    "2013-12",
+    "2014-01",
+    "2014-02",
+    "2014-03",
+    "2014-04",
+    "2014-05",
+    "2014-06",
+    "2014-07"
+  ],
+  "inputs": {
+    "control": {
+      "complete_sha256": "5a50f1fb4643cac1a94f99b5a942ad9e93de724984aa1424f9affeb1e05eb010",
+      "checkpoint_sha256": "4f25f30d413cf9ecab3f4cf4819fc2b6e87e02aeaa06debf320b8d47ab302641",
+      "step": 16256,
+      "counts": {
+        "om4": 8128,
+        "observation": 8128
+      },
+      "sampling_steps": 32,
+      "files": {
+        "members-2013-11.npz": "0b67e8491ecafb98bf0aab097d65fe49361d8e0254c31c93376923810679b17f",
+        "members-2013-12.npz": "4a6bf75287c6bd3155036c650d7d36c1ce0431007f5950f93f9013cacc44c494",
+        "members-2014-01.npz": "4607204d6680bd4c0ffe67ff1ba25f52050b5c2fff312685ea4746846eae1fb5",
+        "members-2014-02.npz": "0689282433d72bf789806a11dfb24025d857c5aa3f41b5c5170ac4965982cfb2",
+        "members-2014-03.npz": "62d234e59aaf3bd56f392d62c55eaadc1688cbeae91e88b855b47ae71de81cc4",
+        "members-2014-04.npz": "d095fb17a5491b937276f59e1a339c1f6e903198079576d7f1ff6a004cf93e78",
+        "members-2014-05.npz": "67eed450f27305e9a70ee62dbec09359c3985e4ef7ef381891fb75411c51cec8",
+        "members-2014-06.npz": "f27137c86daf9cd006ac449cc1d59aec2371b65f6d07b429ed81c4b91f09104c",
+        "members-2014-07.npz": "653b20b8fc21c729a3ab6cb2ef6d22786800c4e9f4b373f41cb8513c7c7d5acc"
+      }
+    },
+    "replay": {
+      "complete_sha256": "f5ba55e0282aced7d68cbab9c76dd51697fe6dae0cc429a9cfda9849bb80dc11",
+      "checkpoint_sha256": "38b44644d2183ea4d6ac65ef0fc0ab9fab41225797419c3cd5fd16de689824e8",
+      "step": 16256,
+      "counts": {
+        "om4": 8128,
+        "observation": 8128
+      },
+      "sampling_steps": 32,
+      "files": {
+        "members-2013-11.npz": "324aa9261a6cf9ea9f8480e0255cb9445c33309bc6ecdc6d8d3d5ba2e9e39589",
+        "members-2013-12.npz": "e416075ceb1091bed59ce9f4383e723c4669e1513a799f9986664d3b386a1887",
+        "members-2014-01.npz": "25a97525690b665ce7183fe3098b1006d4ac97a13a6bcd1ca40d1111e71a4d2f",
+        "members-2014-02.npz": "604389d38a282977d0178efb748a0b0a84d82a9c075bac15111e5ca450b570f3",
+        "members-2014-03.npz": "689d23a8e95281c62295f6ca9c795df4944729000154419e39c60510c1cb045c",
+        "members-2014-04.npz": "d27a2e4494a4b8cdf97342b02c5adba9e01f3862db8517cc8ba10923bb4371a8",
+        "members-2014-05.npz": "aae1f494f6524189ab177a2670cb2600c90da387cd1a0154e9dff4e35f0a5983",
+        "members-2014-06.npz": "a523685f83c7c07cbd1580330aa353c67fedc850940acd6ab8007f7715b37483",
+        "members-2014-07.npz": "4523fe3a453228071a08f3fd55e54b7c428a4745fff228f1f99b8876a40429ff"
+      }
+    },
+    "replay-bound": {
+      "complete_sha256": "add07975bb0ba0f5cab7bc1763dc442e86e0bd483b05ee4e7b77dac247564cc3",
+      "checkpoint_sha256": "36e99d3c669daa3be0f2120ae1ecb95042dcbb82f66022f2d2b082143f7ba38b",
+      "step": 16256,
+      "counts": {
+        "om4": 8128,
+        "observation": 8128
+      },
+      "sampling_steps": 32,
+      "files": {
+        "members-2013-11.npz": "92dd77598ba1b28cca3ae7956ea982ebfaf0ecb033154dc38478eb11c9468108",
+        "members-2013-12.npz": "0d3f8f0361dd308f0a39e9cedd050558080768a4cea5aab8200e826a8a89dd66",
+        "members-2014-01.npz": "dcef624192e716a53c52e1eb098ff5c993479e4a129414d917d135ab2a6544fb",
+        "members-2014-02.npz": "8470d72bb19672d875552c5b79e65fa8a4db15e6d7bda05a8291ac4a2799a7c0",
+        "members-2014-03.npz": "be94cbe487fd939aaa49c5a19fdd8ea3fcc26684b6c7df030f2a059503e00e5b",
+        "members-2014-04.npz": "1aae283d7c2dd41d8819ee8f6ab8f195e56cb19a3094319f52490c1c8d37e13c",
+        "members-2014-05.npz": "d944eaa08360112c08d62254657dc4bdf7175caca0901dc3ad39e331ce7c4175",
+        "members-2014-06.npz": "34593e8e84b9cb4dc5c4d99b6d21f73f517d7dee426d12432499e0438d9eb1ec",
+        "members-2014-07.npz": "bc0d9ff585bbf1e945fb16de7119df16e921a0d6270da034d805bb64597d7f50"
+      }
+    },
+    "pushforward": {
+      "complete_sha256": "d259c72ddcbb280d8660a5efe2b260d10587c2ddb7347aa8de682625ad40326b",
+      "checkpoint_sha256": "194f689e10b4cef40e44c0173b3cb39d165348eee7314919c4f0af978094cf17",
+      "step": 16256,
+      "counts": {
+        "om4": 8128,
+        "observation": 8128
+      },
+      "sampling_steps": 32,
+      "files": {
+        "members-2013-11.npz": "dd9b1bac7ea668afa869d90216d9463f2e5e4846475943d6f2c61ff560889059",
+        "members-2013-12.npz": "b0ab2418daa5c61a56b4e82a56f8172fd321baa581c508afb1bbbfc5179b7338",
+        "members-2014-01.npz": "d8e941f9cf27d934ff462b1a58184e1d9222ddc00c1e919dc7af9843e84b48a3",
+        "members-2014-02.npz": "f8add23d2892cd0c446d351e2f2ae6a3a5ecf7f73fc927025a9d742defac710b",
+        "members-2014-03.npz": "ce6e593039fd9eb912fd6d7f3d8afc1cbedd1a8bdbe7aa1432bddc34529ba385",
+        "members-2014-04.npz": "355fb57f5a5583b487b520e0cadaaf53b7dcc7f30ba241620a5ce7d4bc9b3c1f",
+        "members-2014-05.npz": "42a69a725e22849d9c957a7e84601c27231f603b38d326ab3060b26a039b2f88",
+        "members-2014-06.npz": "a110b56f4c3873c94e67e16ce9588d6f5b5fd613f32cd64bffe7c07c4a12ef41",
+        "members-2014-07.npz": "0a4de51b2bf948b623254a6b96e3d26989e8400bd37f28c90bc3dad013b6bcf7"
+      }
+    },
+    "curvature": {
+      "complete_sha256": "9b92a1e28c12c873f373537be8a7e7451dbef9f8bfda37177e5665d6a1a8f5da",
+      "checkpoint_sha256": "fa01b0113959df5ddada1e0b24312024d8f7cd8848fca7bd2d14e8e0c2fae463",
+      "step": 16256,
+      "counts": {
+        "om4": 8128,
+        "observation": 8128
+      },
+      "sampling_steps": 32,
+      "files": {
+        "members-2013-11.npz": "6c18372c5537c17208fbd879e1ca06ae4c6a7c3dfcafbe40f6ea3f7cc2275c90",
+        "members-2013-12.npz": "877c997716385959cc1114e5dcf7813749d8cb95c8a07d48148066ccb14b97a7",
+        "members-2014-01.npz": "5ba964badfbb9636fe23b2014eff5937a7191db998ba049713578d13191990ba",
+        "members-2014-02.npz": "bf3e5d55f27f55913604b34f5f8106a003abaafd26b6f96d40669239b1adb31c",
+        "members-2014-03.npz": "7ed681af634d3b2f81c0f5ff948b213b8f1d41265bc8abb23daa14a85a54ea5d",
+        "members-2014-04.npz": "bd350e2f4a3b0892288c125706d811bdd2313f358a231575a73cf7ab7ecfd858",
+        "members-2014-05.npz": "c2945ba1e542009dd4f5fedaf5e90ab360abc3b10d725e488da70a25e95bb6a1",
+        "members-2014-06.npz": "08ae65a13ad6a265c1ec320d06e4d7561d92a9fa7feb3545569603d4dd7f8ae3",
+        "members-2014-07.npz": "f2268d4cf0a44d41bf8cdb71f5462536506fe6b638ffb2fdcddc38af91a93844"
+      }
+    },
+    "block": {
+      "complete_sha256": "37e6384bb67df64eb9171df4eacb0b3fb618ee8bff2c4558aef8a6ff9838ee43",
+      "checkpoint_sha256": "de1cec7bafbaa8a5104462e51e20f3a6d451795c40e726e9eb3a418b71af0ad5",
+      "step": 16256,
+      "counts": {
+        "om4": 8128,
+        "observation": 8128
+      },
+      "sampling_steps": 32,
+      "files": {
+        "members-2013-11.npz": "6ab91ef7b8192a8342d263549b908dc6f9651cfc277120a29d0b68dc3b836955",
+        "members-2013-12.npz": "8cd0c3d30a0de14b2af6d1a343ae87fdd2d11a6229fa101f09d6b7640d86a8a0",
+        "members-2014-01.npz": "947e2891c0258db846122b6f63173938c00f32c22241459ce5581a039bb77c0a",
+        "members-2014-02.npz": "8fc7ebfa830077ef7f2b9f4c83d9953ae4d5ba19405fa62c234b12d45843f3a5",
+        "members-2014-03.npz": "f3db60426775c08fab4cbadc9c0e18a52e1db1c3e16a39c0b9310951fe357d62",
+        "members-2014-04.npz": "0a4e4ae87b110b86203febaf234911ed99359977f53098371cec0982f29423cb",
+        "members-2014-05.npz": "67797d1a58d704d292f2586d702956e87e2d5e24715c5ff0745da16e3d876e92",
+        "members-2014-06.npz": "f262f2bbeb41725072adaeb053b3af9814db8b521c35630362bcef1b3f692b01",
+        "members-2014-07.npz": "99458fcfe77ef28802fffd3849ee53eed6a93e6032a0b5e7721c247edd266aea"
+      }
+    },
+    "curvature-replay": {
+      "complete_sha256": "c88eba11941d85d5dfd83429d7d1b4ed11cf0982559515440c55922341821053",
+      "checkpoint_sha256": "7819581b2e2db2c558301122a2486a5e1059a73c1e49876f88be8c195bfc5149",
+      "step": 16256,
+      "counts": {
+        "om4": 8128,
+        "observation": 8128
+      },
+      "sampling_steps": 32,
+      "files": {
+        "members-2013-11.npz": "f05f35dcdb92a6a9658f0ad99ee34109453a6411667d564eae2c26da4ebf9749",
+        "members-2013-12.npz": "c425b804894f7bf60436152709b9a2ee7fb9f5f0e64d8c6a39b65383ff1bd1df",
+        "members-2014-01.npz": "e1d5897d9c34330307f1b9764ceab2a3cc2881b964ce3b59eadec09cb8652b62",
+        "members-2014-02.npz": "07ca1dae2db8574504a9721633d31ba50c78eb15abd8ac2e79205fa412552ca0",
+        "members-2014-03.npz": "5bed21234975ebcb30c88ea841590eaa64c9ce70df6f322a6eda2701d82e451b",
+        "members-2014-04.npz": "80e00bcf7a44ab34c025c7a2f13cef4998266eda10ab5c595166abd8cf0a5efe",
+        "members-2014-05.npz": "47238171cf7efda0b4f9d28e883666df5055986b596e1a8a823f2a22ee71febc",
+        "members-2014-06.npz": "695b021f00b83c24e37c1ff2bc2c4a2202d6024b17509c48ec17ed038642b040",
+        "members-2014-07.npz": "53a790c6acb5fbec9b61d866988c17236e3bf166572d854d63d17e8c82927850"
+      }
+    },
+    "block-replay": {
+      "complete_sha256": "9224739c4a0ccaab4f58d5ebb80e52d544de804d2c77654e1acaafff774c8155",
+      "checkpoint_sha256": "c7faebdb72977f3fb7ecbaf3a24b21459643191f5b9128d8ed9f70870e48864b",
+      "step": 16256,
+      "counts": {
+        "om4": 8128,
+        "observation": 8128
+      },
+      "sampling_steps": 32,
+      "files": {
+        "members-2013-11.npz": "62ea77a9c1992c1047b6f4c23dffca8dcc1a855cded84aa82305dea26891dd9c",
+        "members-2013-12.npz": "6cf12a135d0d503298eb220550726d2c7063e6cbf0994ae6c84d2c6ec1320ba6",
+        "members-2014-01.npz": "d6ecc9b4f3e7d5ba31d0dc82d3dbc10e6b6997a27b66972d476781a0cafcd01b",
+        "members-2014-02.npz": "1a84334cec38aced2de267f01ef1132466a68991f66ab347b429990f776aa77b",
+        "members-2014-03.npz": "97a1c077ba06438d51f273bb3bac19ea85655716a87efbc38d1dbcffcbc96bef",
+        "members-2014-04.npz": "d9ce711d6efb04e49d06cfca5719f5e26f97bd650247830ef9b8bca7088a036b",
+        "members-2014-05.npz": "0bdb56853eb1da59f655c4490599f9516fec02fa5c4e1a1b507ca7af293106a1",
+        "members-2014-06.npz": "b4c59691a762ac263c4edc0e2868694fc7509da9a3ca4dc71695e3f9936e0d19",
+        "members-2014-07.npz": "3d160b7a6909d34e3659e718477d599f654cbd8ab3321f146bd5b4ef72435819"
+      }
+    }
+  },
+  "interpretation": "Grid-angle diagnostics of matched day-30 surface fields; not a scored metric.\n\nPower is integrated in grid-wavelength bands, after the scorer's planar detrend\nand periodic Hann with mean-square correction. The full Fourier plane avoids\nhalf-plane multiplicity ambiguity. Coordinates are grid cells, not metres:\ncos(4 angle) distinguishes axis (+) from diagonal (-) orientation in the image,\nnot physical ocean anisotropy. Angle describes the wavevector; stripes are\nperpendicular, which does not change cos(4 angle). Rectangular Fourier lattices and the taper bias\nthis statistic; matched reference differences help but cannot identify artifacts\nuniquely. All case/member raw powers are pooled before normalizing moments.\n",
+  "zero_power": "cos4=NaN and cos4_defined=false: direction unavailable at zero power"
+}

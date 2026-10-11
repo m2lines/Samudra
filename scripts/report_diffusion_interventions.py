@@ -123,7 +123,7 @@ def maps(root, output, channel, label, limits):
     # Four image pixels per grid cell, with fixed margins and native aspect.
     height, width = target.shape
     panel_w, panel_h = width * 4, height * 4
-    total_w, total_h = panel_w * 2 + 100, len(fields) * (panel_h + 32) + 135
+    total_w, total_h = panel_w * 2 + 100, len(fields) * (panel_h + 32) + 175
     fig = plt.figure(figsize=(total_w / 100, total_h / 100), dpi=100)
     images = []
     for row, (name, field) in enumerate(fields):
@@ -140,7 +140,7 @@ def maps(root, output, channel, label, limits):
             ax = fig.add_axes(
                 (
                     (35 + col * (panel_w + 30)) / total_w,
-                    (total_h - 70 - row * (panel_h + 32) - panel_h) / total_h,
+                    (total_h - 100 - row * (panel_h + 32) - panel_h) / total_h,
                     panel_w / total_w,
                     panel_h / total_h,
                 )
@@ -162,7 +162,7 @@ def maps(root, output, channel, label, limits):
         bar = fig.add_axes(
             (
                 (35 + col * (panel_w + 30)) / total_w,
-                35 / total_h,
+                45 / total_h,
                 panel_w / total_w,
                 10 / total_h,
             )
@@ -177,6 +177,8 @@ def maps(root, output, channel, label, limits):
         )
     fig.suptitle(
         f"Day-30 {label} · January 2014 · North Pacific\n10–50°N, 150–240°E; identical masks/scales; 4 image pixels per grid cell",
+        y=1 - 12 / total_h,
+        va="top",
         fontsize=10,
     )
     save_png(fig, output / f"day30-{label.split()[0].lower()}-members.png", dpi=100)

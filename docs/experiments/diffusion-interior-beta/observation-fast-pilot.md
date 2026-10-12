@@ -3,11 +3,11 @@
 
 # One-step observation-training pilot
 
-**Status:** qualification **212300 passed** all three arms, gradient checks and
-paired full-sampler readouts. Production **212306 is running** on four Beta B200s,
-started October 12 at 02:34 UTC. No production quality results yet. Implementation
-passed 37 targeted tests and all repository checks, including typing, secret
-scanning and licensing.
+**Status:** complete. [Final results, maps, spectra and timing report](observation-fast-results.md).
+All three arms and evaluations passed. Including cache preparation, fast training
+was 4.6 times faster, with 20% higher day-30 and 22% higher annual blended error
+than the matched control. Total qualification plus production cost was 26.05
+allocated GPU-hours. Monitoring is retired; no larger scratch runs were launched.
 
 Observation updates currently backpropagate through the 32-step diffusion sampler
 for two members, forecast leads, and the separate monthly reconstruction task.
@@ -101,7 +101,7 @@ The short-test allocation has a one-hour limit (at most four allocated GPU-hours
 Runtime archive: `obs-fast-v1-04fdba652e9e`; implementation commit: `b5d5e3c11`.
 Qualification completed successfully in 34m32s, using **2.3022 allocated GPU-hours**.
 Its callback is retired. An independently supervised scheduler watcher and hourly
-fallback callback are registered for production. The production allocation's
+fallback callback covered production; both are now retired. The production allocation's
 eight-hour limit gives a combined maximum of **34.3022 allocated GPU-hours**.
 
 ### Qualification observations

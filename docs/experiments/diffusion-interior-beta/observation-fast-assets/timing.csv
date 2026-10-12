@@ -1,0 +1,21 @@
+arm,stage,seconds,note
+control,wait_for_cache,6.721820682287216e-07,Wall time; waiting is not additional active GPU compute
+control,training,18474.368518678006,Single-GPU subprocess wall time including startup
+control,validation,570.5753823260311,Single-GPU subprocess wall time including startup
+control,native,349.3576018931344,Single-GPU subprocess wall time including startup
+control,annual,1852.5517053848598,Single-GPU subprocess wall time including startup
+control,training_loop,18419.295598159777,Trainer elapsed time; excludes process startup and cache preparation
+fast,wait_for_cache,1243.7701256060973,Wall time; waiting is not additional active GPU compute
+fast,training,2811.0130939472,Single-GPU subprocess wall time including startup
+fast,validation,573.0742899398319,Single-GPU subprocess wall time including startup
+fast,native,335.91949475510046,Single-GPU subprocess wall time including startup
+fast,annual,1855.4724808388855,Single-GPU subprocess wall time including startup
+fast,training_loop,2756.52082025609,Trainer elapsed time; excludes process startup and cache preparation
+hybrid,wait_for_cache,1243.7700720699504,Wall time; waiting is not additional active GPU compute
+hybrid,training,6574.551011943957,Single-GPU subprocess wall time including startup
+hybrid,validation,571.2983322090004,Single-GPU subprocess wall time including startup
+hybrid,native,352.86614470090717,Single-GPU subprocess wall time including startup
+hybrid,annual,1860.144620534964,Single-GPU subprocess wall time including startup
+hybrid,training_loop,6518.032763021998,Trainer elapsed time; excludes process startup and cache preparation
+shared,cache_preparation,1243.7704888070002,"One preparation GPU; charged once, not once per fast/hybrid arm"
+allocation,runner_wall,21246.91975905304,Four GPUs allocated throughout; Slurm accounting remains authoritative

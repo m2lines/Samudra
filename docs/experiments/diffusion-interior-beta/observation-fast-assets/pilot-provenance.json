@@ -1,0 +1,30 @@
+{
+  "parent": {
+    "checkpoint_sha256": "36e99d3c669daa3be0f2120ae1ecb95042dcbb82f66022f2d2b082143f7ba38b",
+    "counts": {
+      "om4": 8128,
+      "observation": 8128
+    }
+  },
+  "control": {
+    "checkpoint_sha256": "09067505fefcd5f74d5c6e387f49cfdc138adc326e74247c667dc55503e2ff4f",
+    "counts": {
+      "om4": 8192,
+      "observation": 8192
+    }
+  },
+  "fast": {
+    "checkpoint_sha256": "e1076fb533a4e784054852a00e23cc53c0ed3d9624fd68a5d96051923a3959b0",
+    "counts": {
+      "om4": 8192,
+      "observation": 8192
+    }
+  },
+  "hybrid": {
+    "checkpoint_sha256": "63c1aab1bf57c26908bd52c9a94cd32d0c9984e2df043c7cf85abf7c83a0850c",
+    "counts": {
+      "om4": 8192,
+      "observation": 8192
+    }
+  }
+}

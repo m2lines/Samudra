@@ -1,0 +1,50 @@
+{
+  "arms": [
+    {
+      "arm": "control",
+      "success": true,
+      "gpu": 0,
+      "timings": {
+        "wait_for_cache": 6.721820682287216e-07,
+        "training": 18474.368518678006,
+        "validation": 570.5753823260311,
+        "native": 349.3576018931344,
+        "annual": 1852.5517053848598
+      },
+      "total_seconds": 21246.89915740909
+    },
+    {
+      "arm": "fast",
+      "success": true,
+      "gpu": 1,
+      "timings": {
+        "wait_for_cache": 1243.7701256060973,
+        "training": 2811.0130939472,
+        "validation": 573.0742899398319,
+        "native": 335.91949475510046,
+        "annual": 1855.4724808388855
+      },
+      "total_seconds": 6819.282764316071
+    },
+    {
+      "arm": "hybrid",
+      "success": true,
+      "gpu": 2,
+      "timings": {
+        "wait_for_cache": 1243.7700720699504,
+        "training": 6574.551011943957,
+        "validation": 571.2983322090004,
+        "native": 352.86614470090717,
+        "annual": 1860.144620534964
+      },
+      "total_seconds": 10602.680752015905
+    }
+  ],
+  "preparation": {
+    "seconds": 1243.7704888070002,
+    "gpu": 3
+  },
+  "wall_seconds": 21246.91975905304,
+  "allocated_gpu_hours_excluding_job_startup": 23.60768862117004,
+  "accounting": "All four GPUs count for the entire allocation, including cache wait and idle slots; final Slurm accounting remains authoritative"
+}

@@ -10,14 +10,18 @@ This is an experiment/results record, not intended to merge.
 
 ## October 12: Torch qualification
 
-Source `79cb5003903bb6b800bae16d562de8dbd484948a`, immutable snapshot under
+Qualification source `79cb5003903bb6b800bae16d562de8dbd484948a`, immutable snapshot under
 `/scratch/jr7309/runs/score-multitask-1deg-20261012/sources/`.
+Production source is `480bcc7df886a808ab324c3410a055f4a8fa73b1`. Model, training, loss and common
+configuration code are byte-identical to qualification; production adds the GPU-visibility guard described below.
 
 | Stage | Torch job | Resources | Last verified state |
 | --- | --- | --- | --- |
 | All-task qualification | 19648755 | 1 H100, 6 CPUs, 64 GiB RAM | Completed, exit 0; 2:01 on gh001 |
 | Completion notification | 19648789 | CPU-only, 1 CPU, 512 MiB | Completed; callback delivered |
-| F and M production | Not yet submitted | Plan: 2 H100s each, 16 CPUs, 192 GiB RAM | Await qualification |
+| F: forecast-only | 19649331 | 2 H100s, 16 CPUs, 192 GiB RAM, 36-hour ceiling | Submitted; eligible after 13:34 Eastern |
+| M: structured multitask | 19649333 | Same as F | Submitted; eligible after 13:34 Eastern |
+| Production notifications | 19649371 / 19649375 | CPU-only, 1 CPU, 512 MiB each | `afterany` dependencies on F / M |
 
 Campaign root: `/scratch/jr7309/runs/score-multitask-1deg-20261012`.
 Resolved inputs: `configs/{qualification,train}-{forecast,multitask}.yaml`.
@@ -30,12 +34,19 @@ record **42.42 GB peak allocated GPU memory** and 18.74 seconds for the six trai
 initial summary overhead. Job cost was 0.0336 allocated H100 GPU-hours. The largest recorded host RSS was
 11.29 GiB. These short-run timings do not establish full epoch throughput. The randomly sampled updates
 did not happen to choose a gap task, but the explicit pre-update backward probe verified it separately.
+The published JSON retains every metric and represents its verified Git fingerprint as a commit URL.
 The qualification-only checkpoint does not count as a training epoch or initialize production weights.
 Production retains batch 4/rank, accumulation 4, effective batch 32 and 70 epochs. Both arms use online W&B.
 
 The qualification callback `f4d1a330-e42b-4131-88f4-6bfc25456181` delivered and was retired after verification.
 Authentication passed on the login and compute nodes. Callback credentials stay in the private remote
 directory and are not committed. Production receives separate callbacks and hourly reminders.
+
+F callback: `ccd71a7c-9edf-4134-86e9-e3e9ccd08321`; M callback: `6e8c72d6-35e1-4d8c-a7ed-75ae5b950b43`.
+Both authenticated successfully from Torch and have hourly reminders. Production routing was verified:
+account `torch_pr_347_lzanna`, partition `h100`, constraint `h100`, two GPUs per job,
+`Comment=preemption=yes;requeue=true`, `Requeue=1`. Neither run is claimed to have started merely from
+submission or an advisory start estimate. W&B URLs and first-epoch logging will be verified at bring-up.
 
 Torch held job 19648662 could not be released (`scontrol release` returned an unspecified error twice).
 It and dependent notification 19648699 were cancelled before allocation; their callback was revoked.

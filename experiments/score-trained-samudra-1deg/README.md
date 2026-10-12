@@ -5,8 +5,9 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Score-trained stochastic Samudra on 1-degree OM4
 
-Status: proposed 2026-10-11; no implementation, qualification, training, or evaluation submitted.
-Experiment planning record, not intended to merge. Budget and execution remain subject to wave approval.
+Status: implementation and qualification preparation, 2026-10-11. The user authorized B/C/D on Beta,
+Torch, or Engaging, using Rust loading and no `hfds_anomalies`. Reuse A; do not retrain it.
+Experiment record, not intended to merge. Later waves remain subject to approval.
 
 ## Question and scope
 
@@ -32,7 +33,7 @@ The `samudra_om4_v2` preset has `steps: [4]` and inherits `input_steps: 2` and `
 `DataConfig`. The recent control has the same temporal setup: eight five-day outputs, through day 40 after
 the last input. Time stepping is not a distinction between these configurations.
 
-**Proposed matched reference: the recent 1-degree deterministic control**, using the same Samudra 2-width
+**Matched reference: the recent 1-degree deterministic control**, using the same Samudra 2-width
 backbone and temporal setup. Its configuration differences from the named `samudra_om4_v2` preset concern
 normalization and other settings: the recent control uses InstanceNorm and explicit bfloat16, whereas the
 named v2 model specifies BatchNorm. The recent control also uses `tau_hfds` with Rust loading, whereas the
@@ -44,9 +45,12 @@ Evidence for the recent control:
 - [Saved control configuration](https://github.com/m2lines/Samudra/blob/a20c44484/experiments/current-stochastic-depth-1deg/control-train.yaml)
   and [experiment record](https://github.com/m2lines/Samudra/blob/a20c44484/experiments/current-stochastic-depth-1deg/README.md).
 - [PR #915](https://github.com/m2lines/Samudra/pull/915) contains the later stochastic-depth comparison.
-- Local saved configuration and report were read for this plan. Historical jobs and current cluster capacity
-  have not been rechecked. Existing results are references until data, code, timing, and checkpoint parity
-  are established; they do not replace a matched main-based control automatically.
+- Reuse seed-15 Beta job **210664**, W&B [uaei2vbr](https://wandb.ai/ocean_emulators/default/runs/uaei2vbr).
+  Its final `ckpt_70.pt` and `ema_ckpt.pt` were verified present on 2026-10-11 under
+  `/projects/ny/lz1955/multiscale/jrusak/runs/current-stochastic-depth-1deg-20261006/control/output/current-1deg-control-ga2-210664/saved_nets`.
+  The recorded source/config commit is `a20c44484`; A is a reused historical control, not a new run on this
+  branch. B is the newly trained deterministic control. All final checkpoints will be rescored with the
+  common evaluator. A's original validation-selected checkpoint uses a different selection policy.
 
 Pin a resolved configuration for every arm, including defaults. The proposed common settings are:
 
@@ -64,17 +68,17 @@ Pin a resolved configuration for every arm, including defaults. The proposed com
 | Effective context batch | 32 distinct forecast origins per optimizer update, excluding ensemble replicas |
 | First training seed | 15; later confirmation seeds 16 and 17 |
 
-The older preset includes `hfds_anomalies`, which the recent Rust setup did not support. Do not silently change
-that forcing if the older preset is selected. Likewise, preserve model normalization across a matched comparison;
+The user selected `tau_hfds` with no `hfds_anomalies` for all new arms. Keep InstanceNorm across B/C/D;
 BatchNorm over folded ensemble replicas would itself change batch statistics.
 
 ## Data and split
 
-Use OM4 one-degree fields on the 180 x 360 grid at their actual five-day temporal support. The recent control
-used `/mnt/home/jrusak/data/om4/v2026-09/om4_onedeg` on Beta. An earlier Torch candidate is
-`/scratch/jr7309/data/om4_onedeg_v3`; these pointers are not an assertion that the two releases are equivalent.
-Before execution, verify the chosen store, means/stds, variables, masks, coordinates, time coverage, and ancestry,
-and use that exact release in every arm. Retain depth-specific wet-cell masks.
+Use OM4 one-degree fields on the 180 x 360 grid at their actual five-day temporal support. On Beta,
+`/mnt/home/jrusak/data/om4/v2026-09/om4_onedeg`, used by A, now resolves to project storage at
+`/projects/ny/lz1955/multiscale/jrusak/data/om4/v2026-09/om4_onedeg`. The new runs use this project path
+directly, with `OM4.zarr`, `OM4_means.zarr` and `OM4_stds.zarr`. The symlink and all three stores were
+checked on 2026-10-11. Each run exports its actual source bounds, variables, forcing, and fitting/validation
+origin manifests. Retain depth-specific wet-cell masks.
 
 Proposed periods follow the recent control: training from 1975-01-03 to the 2013-10-05 boundary, validation
 from that boundary through 2014-10-05, and testing from 2014-10-10 through 2022-12-24. Resolve endpoints against
@@ -90,12 +94,12 @@ They do not constitute surface-observation initialization or instantaneous daily
 
 | Arm | Network and training | Purpose |
 | --- | --- | --- |
-| A: vanilla | Current deterministic backbone, existing dynamic MSE with weight-ratio cap 20 | Practical baseline |
+| A: vanilla, reused | Existing seed-15 checkpoint; dynamic MSE with weight-ratio cap 20 | Practical baseline; no new training |
 | B: fixed-weight MSE | Same backbone with the stochastic conditioning interface disabled; fixed normalized-field MSE | Control for changing channel weighting and adding the interface |
 | C: stochastic marginal | Shared backbone with multiscale random conditioning; gridpoint almost-fair CRPS | Test direct ensemble generation |
 | D: stochastic structured | Exactly C, plus scores on spatial averages and vertical/temporal differences | Test dependence and variability beyond gridpoint marginals |
 
-Start from the same seeded backbone initialization and use paired context minibatch order. Use independent
+B/C/D start from the same seeded backbone initialization and use paired context minibatch order. Use independent
 random-number streams for data sampling, parameter initialization, training noise, and evaluation noise.
 No frozen deterministic predictor is required. C/D produce the full two-state output jointly, not separate
 independently sampled variables or times. Record added conditioning parameters and measured compute.
@@ -204,14 +208,15 @@ uncertainty. Repeated forecasts within a year are not independent replications.
 
 ## Compute and execution stages
 
-This is a plan, not launch authorization. Current cluster capacity, scratch space, and image availability have
-not been checked. Use a supported GPU cluster and the same device type for the matched timing comparison;
-honor current Slurm limits. Checkpoint/resume must include optimizer, EMA, scheduler and all RNG streams.
+The user authorized this first wave on 2026-10-11. Beta has available B200 nodes, the same hardware used for A;
+Torch has active jobs and CPU-limit queue pressure, while Engaging's batch-mode SSH authentication failed.
+Use Beta's pinned ARM64 PhysicsNeMo container and existing compiled Rust loader. Project storage has 32 TiB
+available at the live check. Production requests are full four-GPU nodes; qualification uses `beta_test`.
 
 - **Qualification:** bounded synthetic correctness checks, then a short real-data run to establish peak memory,
   context updates/second, member-steps/second, nonzero noise response, and early spread/gradient behavior.
-  Budget proposal: at most eight GPU-hours including the tiny real-data qualification, subject to approval.
-- **First wave:** one seed for A/B/C/D. Budget proposal: approximately 200 GPU-hours including evaluation,
+  Budget envelope: at most eight GPU-hours including real-data qualification.
+- **First wave:** reuse A and train B/C/D at seed 15. Budget envelope: approximately 200 GPU-hours including evaluation,
   finalized from qualification. A previous four-GPU control reported about 3 h 40 min elapsed (~14.7 allocated
   GPU-hours), but that is historical hardware-specific evidence, not a measured estimate for the new code.
   Four-member training may approach four times deterministic compute before other overheads.
@@ -226,6 +231,34 @@ honor current Slurm limits. Checkpoint/resume must include optimizer, EMA, sched
 For submitted jobs, arrange durable completion/failure callbacks to the originating conversation and check
 roughly hourly while active. Preserve job IDs, immutable source/container identifiers, complete configs,
 dataset manifests, checkpoint lineage, runtime counters, raw metrics and selected field assets.
+
+### Implemented first-wave details
+
+- `common.yaml` pins the recipe; `prepare.py` exports complete resolved configs. `train_score.py` subclasses
+  the main trainer, reusing Rust batch loading, DDP, Adam, cosine decay, gradient accumulation/clipping, EMA,
+  W&B and atomic epoch checkpoints. Production source under `src/samudra` is unchanged.
+- `score_model.py` adds eight Gaussian channels at each of the four encoder resolutions, after the complete
+  ConvNeXt block (including its normalization). The projection weights start at standard deviation
+  `0.02/sqrt(8)`. Hooks execute inside the existing activation checkpoint, which preserves random draws on
+  backward recomputation. B has no projections. Local tests compare common backbone weights exactly.
+- Grid MSE/CRPS uses the control's **land-inclusive** spatial denominator after masking. Auxiliary scores and
+  evaluation normalize over valid wet area. Thus equal normalized channel coefficients do not imply equal
+  wet-ocean influence for channels with different masks. This choice preserves B's existing plain-MSE semantics.
+- D's fixed RMS scales use 64 training origins selected by sampler seed 15, epoch 0, four batches per rank on
+  four GPUs, including all eight target frames per origin. Save the sampled indices and scales before training.
+  Spatial scores average the two block sizes; difference scores average vertical and temporal groups. For
+  16-cell blocks, retain partial edge blocks using empty padding, with no duplicated geographic cells.
+- First-wave validation uses eight members for C/D, one for B. Every epoch scores one-call validation windows
+  and two validation-only 90-day rollouts, initialized at window indices 0 and 18. Select secondary checkpoints
+  with the average score at 10/20/40/90 days (CRPS for C/D, RMSE for B). This replaces the proposed annual
+  training-time validation to bound overhead. Annual and longer rollouts remain final evaluation tasks. The
+  primary comparison remains the epoch-70 EMA; A's old best-validation checkpoint is not a matched selection.
+- Epoch-boundary restarts restore optimizer, EMA, scheduler and progress from the ordinary checkpoint. The
+  training-noise stream is deterministically seeded by epoch and rank; validation uses a separate fixed stream
+  inside `fork_rng`. Sampler order has its own seeded stream. Mid-epoch resumes are not supported: a preempted
+  partial epoch is replayed from the last completed epoch. Qualification checkpoints are explicitly non-resumable.
+- Nine local numerical/model tests cover CRPS values and gradients, dry/edge masking, depth ordering, stochastic
+  checkpoint recomputation, common initialization, member history, model-state round trips and exact B parity.
 
 ## Decision and deliverables
 

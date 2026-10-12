@@ -249,12 +249,15 @@ The main validation, component, training and depth-profile figures above now
 include the two 6k auxiliary runs. The dedicated reproduction comparison contains
 510 verified validation events across ten series, including the original runs.
 
-The accessory loss is learned, not numerically negligible: aligned-target MSE
+The accessory loss decreases and is not numerically negligible: aligned-target MSE
 falls from **0.4505 to 0.2611**, and anomaly-target MSE from **0.2872 to 0.2669**,
 comparing averages over the first and final quarters of training. At the end,
 the weighted accessory term is about **29% of the OM4 physical objective** for
 both recipes. These scalar ratios do not measure gradient contribution, and the
 accessory loss is absent on observation updates.
+The anomaly target's full-training mean square is 0.2799, so its late MSE of
+0.2669 is still close to a zero-output reference. This is a scale check, not a
+matched-batch skill score, but it limits claims about learning temporal anomalies.
 
 ![Accessory versus physical training objectives](artifacts/auxiliary-rmse-2026-10-11/accessory-training.png)
 

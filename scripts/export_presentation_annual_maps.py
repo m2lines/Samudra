@@ -34,11 +34,12 @@ GROUPS = {
 }
 
 
-def export(root, results_path, output):
+def export(root, results_path, output, groups=None):
+    groups = GROUPS if groups is None else groups
     results = json.loads(results_path.read_text())
     config = results["configuration"]
     origins = config["origins"]
-    if set(results["models"]) != {n for names in GROUPS.values() for n in names}:
+    if set(results["models"]) != {n for names in groups.values() for n in names}:
         raise ValueError("Map models differ from the collected comparison")
     samples = Path(config["observations"])
     with np.load(samples / "grid.npz") as grid:
@@ -87,7 +88,7 @@ def export(root, results_path, output):
                     )
     output.mkdir(parents=True, exist_ok=True)
     artifacts = {}
-    for group, names in GROUPS.items():
+    for group, names in groups.items():
         for day in (30, 365):
             labels = names + ["U-global / initialized persistence"]
             map_sources = [sources[n] for n in names] + [
@@ -131,5 +132,13 @@ if __name__ == "__main__":
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--results", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--groups", type=Path, help="JSON groups for a matched new cohort"
+    )
     args = parser.parse_args()
-    export(args.root, args.results, args.output)
+    export(
+        args.root,
+        args.results,
+        args.output,
+        json.loads(args.groups.read_text()) if args.groups else None,
+    )

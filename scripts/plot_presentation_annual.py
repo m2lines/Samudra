@@ -71,15 +71,16 @@ def plot_comparison(
     plt.close(fig)
 
 
-def plot(folder, output):
+def plot(folder, output, groups=None):
+    groups = GROUPS if groups is None else groups
     result = json.loads((folder / "results.json").read_text())
     frame = pd.read_csv(folder / "rmse-scores.csv")
-    names = list(dict.fromkeys(n for group in GROUPS.values() for n in group))
+    names = list(dict.fromkeys(n for group in groups.values() for n in group))
     plot_comparison(frame, names, output)
     origins = result["configuration"]["origins"]
     leads = [5, 15, 30, 90, 180, 365]
     metrics = result["metrics"]
-    for group, models in GROUPS.items():
+    for group, models in groups.items():
         fig, axes = plt.subplots(1, 3, figsize=(13, 3.8))
         labels = models + [
             "U-global / initialized persistence",
@@ -168,5 +169,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--groups", type=Path, help="JSON groups for a matched new cohort"
+    )
     args = parser.parse_args()
-    plot(args.input, args.output)
+    plot(
+        args.input,
+        args.output,
+        json.loads(args.groups.read_text()) if args.groups else None,
+    )

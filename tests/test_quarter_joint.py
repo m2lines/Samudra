@@ -31,6 +31,7 @@ def args(tmp_path, mode="qualify", arm="observation-only"):
         compact_audit=None,
         train_hours=22.0,
         validate_every=100,
+        world_size=4,
     )
 
 
@@ -50,6 +51,147 @@ def test_frozen_science_and_production_never_bypasses_fit(tmp_path):
     assert production.evolution_architecture == "extent-unet"
     assert production.selection_metric == "rmse-only"
     assert production.global_observations and production.strict_velocity_support
+
+
+@pytest.mark.parametrize("world", [4, 8])
+@pytest.mark.parametrize("mode", ["reference", "qualify", "qualify-replay", "train"])
+def test_requested_world_matches_launcher_and_reference_stays_single_rank(world, mode):
+    expected = 1 if mode == "reference" else world
+    runner.validate_world_size(mode, world, expected)
+    with pytest.raises(ValueError, match="requires"):
+        runner.validate_world_size(mode, world, 8 if expected != 8 else 4)
+    with pytest.raises(ValueError, match="four or eight"):
+        runner.validate_world_size(mode, 2, expected)
+
+
+def test_science_contract_rejects_launcher_world_before_opening_data(
+    tmp_path, monkeypatch
+):
+    supplied = args(tmp_path)
+    supplied.world_size = 8
+    monkeypatch.setattr(runner.dist, "get_world_size", lambda: 4)
+    with pytest.raises(ValueError, match="requires 8 ranks, got 4"):
+        runner.science_contract(supplied, runner.pilot_arguments(supplied))
+
+
+@pytest.mark.parametrize("path", ["recent", "early", "observation"])
+@pytest.mark.parametrize("completed", [0, 1, 2, 1499, 2999])
+def test_world_change_preserves_every_sample_mask_and_coverage(path, completed):
+    streams = []
+    for world in (4, 8):
+        streams.append(
+            sorted(
+                (
+                    sample
+                    for rank in range(world)
+                    for sample in runner.path_samples(
+                        path,
+                        recent_size=2800,
+                        observation_size=243,
+                        completed_om4=completed,
+                        completed_observation=completed,
+                        rank=rank,
+                        world_size=world,
+                    )
+                ),
+                key=lambda sample: sample.global_micro,
+            )
+        )
+    assert streams[0] == streams[1]
+    assert len(streams[0]) == 8
+
+
+@pytest.mark.parametrize("path", ["om4", "recent", "early"])
+def test_om4_load_uses_only_existing_coverage_path(path):
+    subject: Any = object.__new__(runner.QuarterRunner)
+    calls = []
+    coverage = torch.ones((1, 19, 2, 2, 3))
+
+    def load_coverage(selected):
+        calls.append(selected)
+        return coverage
+
+    def forbidden(selected):
+        raise AssertionError("OM4 requested a complete observation sample")
+
+    subject.pilot = SimpleNamespace(
+        data=SimpleNamespace(load_coverage=load_coverage, load=forbidden),
+        training=["a", "b"],
+    )
+    subject.io_samples, subject.io_seconds = 0, 0.0
+    sample = SimpleNamespace(coverage_index=1)
+    loaded = subject.load(path, sample)
+    assert loaded[0] is sample and loaded[1] is coverage
+    assert loaded[2:] == (("early",) if path == "early" else ())
+    assert calls == ["b"] and subject.io_samples == 1
+
+
+def test_native_cached_coverage_equals_full_sample_validity(tmp_path, monkeypatch):
+    from samudra.experiments.observation_training import Samples
+
+    data = object.__new__(Samples)
+    data.device, data.dual_grid, data.surface_fill, data.cache_size = (
+        "cpu",
+        True,
+        "zero",
+        2,
+    )
+    mask = np.ones((77, 2, 3), dtype=bool)
+    mask[38, 0, 0] = False
+    mask[76, 1, 2] = False
+    data.grid = dict(
+        mask=mask,
+        mean=np.zeros(77),
+        std=np.ones(77),
+        lat=np.array([-30.0, 30.0]),
+        lon=np.array([0.0, 120.0, 240.0]),
+    )
+    data.stats = dict(
+        surface_climatology=np.zeros((12, 2, 2, 3)),
+        atmosphere_mean=np.zeros(8),
+        atmosphere_std=np.ones(8),
+    )
+    surface = np.ones((26, 2, 2, 3), dtype=np.float32)
+    surface[3, 0, 1, 0] = np.nan
+    path = tmp_path / "2000-01.npz"
+    np.savez(
+        path,
+        surface=surface,
+        atmosphere=np.zeros((26, 8, 2, 3)),
+        interior=np.zeros((28, 1, 2)),
+        midpoints=np.arange(26).astype("timedelta64[D]") + np.datetime64("1999-10-01"),
+        month_weights=np.ones(7) / 7,
+    )
+    full = data.load(path)["validity"][:, :19]
+    first = data.load_coverage(path)
+    assert first.dtype == torch.float32 and first.shape == (1, 19, 2, 2, 3)
+    torch.testing.assert_close(first, full, rtol=0, atol=0)
+    assert not first[0, 3, 0, 1, 0] and not first[0, :, 0, 0, 0].any()
+
+    def forbidden(*args):
+        raise AssertionError("Cached coverage reread or prepared a full sample")
+
+    monkeypatch.setattr(data, "read_sample", forbidden)
+    monkeypatch.setattr(data, "prepare_sample", forbidden)
+    torch.testing.assert_close(data.load_coverage(path), full, rtol=0, atol=0)
+
+
+@pytest.mark.parametrize("saved_world,rng_world", [(4, 4), (8, 4)])
+def test_cross_world_resume_rejected_before_model_or_rng_mutation(
+    tmp_path, saved_world, rng_world
+):
+    subject = object.__new__(runner.QuarterRunner)
+    subject.args = SimpleNamespace(mode="train")
+    subject.contract = {"world_size": 8}
+    path = tmp_path / "resume.pt"
+    runner.atomic_torch(
+        dict(
+            quarter_contract={"world_size": saved_world}, rng={"world_size": rng_world}
+        ),
+        path,
+    )
+    with pytest.raises(ValueError, match="Cross-world resume"):
+        subject.restore(path)
 
 
 def test_schedules_are_exact_matched_exposure():
@@ -119,7 +261,7 @@ def test_retention_rejects_changed_source_cohort(corrupt):
 
 
 def test_empty_or_mismatched_qualification_cannot_authorize_train():
-    contract = {"arm": "observation-only"}
+    contract = {"arm": "observation-only", "world_size": 4}
     with pytest.raises(ValueError, match="contract differs"):
         runner.check_qualification({}, contract)
     with pytest.raises(ValueError, match="Missing measured.*fit"):
@@ -128,7 +270,7 @@ def test_empty_or_mismatched_qualification_cannot_authorize_train():
         name: {"passed": True} for name in ["fit", "ddp", "resume", "io", "throughput"]
     }
     record = {"quarter_contract": contract, "quarter_evidence": evidence}
-    with pytest.raises(ValueError, match="four real ranks"):
+    with pytest.raises(ValueError, match="4 real ranks"):
         runner.check_qualification(record, contract)
     evidence["ddp"]["world_size"] = 4
     with pytest.raises(ValueError, match="throughput"):
@@ -242,9 +384,10 @@ def test_replica_hash_handles_scalar_buffers_and_detects_changed_weights():
     assert runner.tensor_hash(state) != first
 
 
-def test_qualification_requires_both_real_task_curves_and_replays():
+@pytest.mark.parametrize("world", [4, 8])
+def test_qualification_requires_both_real_task_curves_and_replays(world):
     tasks = ["observation", "om4"]
-    hashes = ["a" * 64] * 4
+    hashes = ["a" * 64] * world
     evidence: dict[str, dict[str, Any]] = {
         "fit": {
             "passed": True,
@@ -262,7 +405,7 @@ def test_qualification_requires_both_real_task_curves_and_replays():
         },
         "ddp": {
             "passed": True,
-            "world_size": 4,
+            "world_size": world,
             "model_hashes": hashes,
             "task_model_hashes": {task: hashes for task in tasks},
         },
@@ -284,7 +427,7 @@ def test_qualification_requires_both_real_task_curves_and_replays():
             "task_seconds_per_update": {task: 10.0 for task in tasks},
         },
     }
-    contract = {"arm": "u-global"}
+    contract = {"arm": "u-global", "world_size": world}
     record = {"quarter_contract": contract, "quarter_evidence": evidence}
     runner.check_qualification(record, contract)
     evidence["resume"]["fresh_process"] = False
@@ -538,9 +681,12 @@ def test_qualification_measures_actual_retention_once(monkeypatch, bad):
     assert subject.qualify_retention() is None
 
 
-def pending_fixture(tmp_path, tasks, arm=None):
-    contract = {"arm": arm or ("u-global" if "om4" in tasks else "observation-only")}
-    hashes = ["a" * 64] * 4
+def pending_fixture(tmp_path, tasks, arm=None, world=4):
+    contract = {
+        "arm": arm or ("u-global" if "om4" in tasks else "observation-only"),
+        "world_size": world,
+    }
+    hashes = ["a" * 64] * world
     inputs: dict[str, Any] = {}
     for task in tasks:
         inputs[task] = {}
@@ -560,7 +706,7 @@ def pending_fixture(tmp_path, tasks, arm=None):
         },
         "ddp": {
             "passed": True,
-            "world_size": 4,
+            "world_size": world,
             "model_hashes": hashes,
             "task_model_hashes": {t: hashes for t in tasks},
         },
@@ -568,7 +714,7 @@ def pending_fixture(tmp_path, tasks, arm=None):
             "passed": False,
             "fresh_process": False,
             "tasks": tasks,
-            "producer_processes": [f"producer{i}" for i in range(4)],
+            "producer_processes": [f"producer{i}" for i in range(world)],
             "inputs": inputs,
         },
         "io": {"passed": True, "observation_samples": 2, "om4_windows": 2},
@@ -608,7 +754,10 @@ def replay_receipt(tmp_path, pending, task):
         quarter_contract=pending["quarter_contract"],
         pending_sha256=runner.digest(tmp_path / "QUALIFICATION_PENDING.json"),
         inputs=pending["quarter_evidence"]["resume"]["inputs"][task],
-        processes=[f"{task}-restart{i}" for i in range(4)],
+        processes=[
+            f"{task}-restart{i}"
+            for i in range(pending["quarter_contract"]["world_size"])
+        ],
     )
 
 
@@ -666,13 +815,14 @@ def test_final_gate_requires_separate_hashed_task_restarts(tmp_path, drift):
         )
 
 
+@pytest.mark.parametrize("world", [4, 8])
 @pytest.mark.parametrize(
-    "failure", [None, "same_process", "wrong_task", "changed_state"]
+    "failure", [None, "same_process", "wrong_task", "changed_state", "wrong_world"]
 )
 def test_fresh_replay_compares_one_update_before_publishing(
-    tmp_path, monkeypatch, failure
+    tmp_path, monkeypatch, failure, world
 ):
-    pending = pending_fixture(tmp_path, ["observation"])
+    pending = pending_fixture(tmp_path, ["observation"], world=world)
     task = "observation"
     expected = {
         "diagnostic_only": True,
@@ -681,7 +831,7 @@ def test_fresh_replay_compares_one_update_before_publishing(
         "completed": 1,
         "optimizer": {"step": torch.tensor(1)},
         "counts": {"om4": 0, "observation": 1},
-        "rng": {"ranks": [torch.tensor(i) for i in range(4)]},
+        "rng": {"ranks": [torch.tensor(i) for i in range(world)]},
     }
     expected_path = tmp_path / "qualification-expected-observation.pt"
     runner.atomic_torch(expected, expected_path)
@@ -709,10 +859,12 @@ def test_fresh_replay_compares_one_update_before_publishing(
         actual["model"] = {"weight": torch.tensor(3.0)}
     subject.replay_state = lambda: actual
     tokens = (
-        [f"producer{i}" for i in range(4)]
+        [f"producer{i}" for i in range(world)]
         if failure == "same_process"
-        else [f"replay{i}" for i in range(4)]
+        else [f"replay{i}" for i in range(world)]
     )
+    if failure == "wrong_world":
+        tokens = [f"replay{i}" for i in range(8 if world == 4 else 4)]
     monkeypatch.setattr(runner, "process_tokens", lambda: tokens)
     monkeypatch.setattr(runner.dist, "barrier", lambda: events.append(("barrier",)))
     if failure:
@@ -738,8 +890,9 @@ def test_production_rejects_diagnostic_weights(tmp_path):
 
 
 @pytest.mark.parametrize("arm", list(runner.ARMS))
+@pytest.mark.parametrize("world", [4, 8])
 def test_qualify_writes_diagnostic_expectations_but_no_final_gate(
-    tmp_path, monkeypatch, arm
+    tmp_path, monkeypatch, arm, world
 ):
     subject: Any = object.__new__(runner.QuarterRunner)
     subject.out, subject.rank, subject.device = tmp_path, 0, "cpu"
@@ -747,6 +900,7 @@ def test_qualify_writes_diagnostic_expectations_but_no_final_gate(
     subject.schedule = TaskSchedule(*runner.ARMS[arm])
     subject.contract = dict(
         arm=arm,
+        world_size=world,
         code_commit="code",
         runtime_extension_sha256="runtime",
         data={"SHA256SUMS": "data"},
@@ -809,18 +963,18 @@ def test_qualify_writes_diagnostic_expectations_but_no_final_gate(
 
     subject.checkpoint, subject.restore, subject.update = checkpoint, restore, update
     monkeypatch.setattr(
-        runner, "process_tokens", lambda: [f"producer{i}" for i in range(4)]
+        runner, "process_tokens", lambda: [f"producer{i}" for i in range(world)]
     )
     monkeypatch.setattr(
-        runner, "gather_rank_rng", lambda **kwargs: {"ranks": list(range(4))}
+        runner, "gather_rank_rng", lambda **kwargs: {"ranks": list(range(world))}
     )
     monkeypatch.setattr(runner, "selection_score", lambda *a, **k: 1.0)
-    monkeypatch.setattr(runner.dist, "get_world_size", lambda: 4)
+    monkeypatch.setattr(runner.dist, "get_world_size", lambda: world)
     monkeypatch.setattr(runner.dist, "barrier", lambda: None)
     monkeypatch.setattr(
         runner.dist,
         "all_gather_object",
-        lambda output, value: output.__setitem__(slice(None), [value] * 4),
+        lambda output, value: output.__setitem__(slice(None), [value] * world),
     )
     monkeypatch.setattr(runner.torch.cuda, "synchronize", lambda device: None)
     monkeypatch.setattr(runner.torch.cuda, "max_memory_allocated", lambda: 100)
@@ -1112,14 +1266,15 @@ def valid_early_audit():
 
 
 @pytest.mark.parametrize("arm", list(runner.EARLY_ARMS))
+@pytest.mark.parametrize("world", [4, 8])
 @pytest.mark.parametrize(
     "missing", [None, "early_audit", "normalization", "latent_rows"]
 )
 def test_early_final_gate_requires_three_restarts_and_real_audit(
-    tmp_path, arm, missing
+    tmp_path, arm, missing, world
 ):
     tasks = runner.training_paths(arm)
-    pending = pending_fixture(tmp_path, tasks, arm=arm)
+    pending = pending_fixture(tmp_path, tasks, arm=arm, world=world)
     evidence = pending["quarter_evidence"]
     if missing == "early_audit":
         del evidence["io"]["early_window_audit"]

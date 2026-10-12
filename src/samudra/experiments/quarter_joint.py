@@ -2,9 +2,11 @@
 # SPDX-License-Identifier: Apache-2.0
 """Native-quarter baseline and early-data runner with separate qualification/train modes.
 
-Launch qualification, qualify-replay and training with torchrun --nproc_per_node=4. Reference
+Launch qualification, qualify-replay and training on four or eight ranks. Reference
 construction needs one GPU. No mode submits work. Production requires measured
-four-rank qualification from this exact producer/runtime/data/science contract.
+matching-world qualification from this exact producer/runtime/data/science contract.
+Global batch remains eight. Different world sizes change floating-point reduction
+order; exact checkpoint replay requires the same world size.
 Qualification writes diagnostic checkpoints and QUALIFICATION_PENDING.json.
 Run qualify-replay --replay-task TASK in a separate torchrun invocation for each
 trained path. Only successful fresh-process replays publish QUALIFIED.json.
@@ -361,8 +363,25 @@ def pilot_arguments(args):
     return parsed
 
 
+def validate_world_size(mode, requested, actual):
+    """Keep one-rank reference generation separate from the training topology."""
+    if requested not in (4, 8):
+        raise ValueError("Requested training world size must be four or eight")
+    expected = 1 if mode == "reference" else requested
+    if actual != expected:
+        raise ValueError(f"{mode} requires {expected} ranks, got {actual}")
+
+
+def contract_world_size(contract):
+    world = contract.get("world_size")
+    if world not in (4, 8):
+        raise ValueError("Quarter contract requires world_size four or eight")
+    return world
+
+
 def science_contract(args, pilot_args):
     """Small immutable contract, also checked before allocating models/readers."""
+    validate_world_size(args.mode, args.world_size, dist.get_world_size())
     root = Path(args.data)
     code = os.environ.get("SAMUDRA_CODE_COMMIT", "")
     runtime = os.environ.get("SAMUDRA_RUNTIME_SHA256", "")
@@ -447,7 +466,7 @@ def science_contract(args, pilot_args):
         "seed": 1729,
         "learning_rate": 1e-4,
         "global_batch": 8,
-        "world_size": 4,
+        "world_size": args.world_size,
         "validate_every": args.validate_every,
         "torch": torch.__version__,
         "cuda": torch.version.cuda,
@@ -505,25 +524,26 @@ def check_qualification(record, contract):
     for name in ["fit", "ddp", "resume", "io", "throughput"]:
         if evidence.get(name, {}).get("passed") is not True:
             raise ValueError(f"Missing measured quarter qualification: {name}")
-    if evidence["ddp"].get("world_size") != 4:
-        raise ValueError("Qualification requires four real ranks")
+    world = contract_world_size(contract)
+    if evidence["ddp"].get("world_size") != world:
+        raise ValueError(f"Qualification requires {world} real ranks")
     measured_seconds = evidence["throughput"].get("seconds_per_update", 0)
     if not math.isfinite(measured_seconds) or measured_seconds <= 0:
         raise ValueError("Missing measured update throughput")
     tasks = training_paths(contract["arm"])
     hashes = evidence["ddp"].get("model_hashes", [])
-    if len(hashes) != 4 or len(set(hashes)) != 1 or len(hashes[0]) != 64:
+    if len(hashes) != world or len(set(hashes)) != 1 or len(hashes[0]) != 64:
         raise ValueError("Missing matching measured DDP replica hashes")
     if set(evidence["resume"].get("tasks", [])) != set(tasks):
         raise ValueError("Resume replay must cover every trained task")
     if evidence["resume"].get("fresh_process") is not True:
-        raise ValueError("Qualification requires fresh-process four-rank replay")
+        raise ValueError("Qualification requires fresh-process matching-world replay")
     for task in tasks:
         seconds = evidence["throughput"].get("task_seconds_per_update", {}).get(task, 0)
         if not math.isfinite(seconds) or seconds <= 0:
             raise ValueError(f"Missing finite positive {task} throughput")
         task_hashes = evidence["ddp"].get("task_model_hashes", {}).get(task, [])
-        if len(task_hashes) != 4 or len(set(task_hashes)) != 1:
+        if len(task_hashes) != world or len(set(task_hashes)) != 1:
             raise ValueError(f"Missing matching {task} DDP replicas")
         losses = evidence["fit"].get("losses", {}).get(task, [])
         if (
@@ -630,9 +650,10 @@ def finalize_qualification(out, contract):
     paths = [out / f"qualification-replay-{task}.json" for task in tasks]
     if not all(path.exists() for path in paths):
         return False
+    world = contract_world_size(contract)
     seen = set(resume["producer_processes"])
-    if len(seen) != 4:
-        raise ValueError("Qualification producer requires four distinct processes")
+    if len(seen) != world or len(resume["producer_processes"]) != world:
+        raise ValueError(f"Qualification producer requires {world} distinct processes")
     receipts = {}
     for task, path in zip(tasks, paths, strict=True):
         inputs = replay_inputs(out, pending, task)
@@ -645,8 +666,8 @@ def finalize_qualification(out, contract):
             or receipt.get("task") != task
             or receipt.get("pending_sha256") != digest(pending_path)
             or receipt.get("inputs") != inputs
-            or len(tokens) != 4
-            or len(set(tokens)) != 4
+            or len(tokens) != world
+            or len(set(tokens)) != world
             or seen.intersection(tokens)
         ):
             raise ValueError(f"Invalid fresh-process {task} replay receipt")
@@ -656,7 +677,7 @@ def finalize_qualification(out, contract):
         passed=True,
         fresh_process=True,
         receipts=receipts,
-        scope="exact next model/optimizer/counters/all-rank RNG after separate four-rank process restart per task",
+        scope=f"exact next model/optimizer/counters/all-rank RNG after separate {world}-rank process restart per task",
     )
     check_qualification(pending, contract)
     atomic_json(pending, out / "QUALIFIED.json")
@@ -1084,9 +1105,9 @@ class QuarterRunner:
         else:
             result = (
                 micro,
-                self.pilot.data.load(self.pilot.training[micro.coverage_index])[
-                    "validity"
-                ][:, :19],
+                self.pilot.data.load_coverage(
+                    self.pilot.training[micro.coverage_index]
+                ),
             )
             if task == "early":
                 result += ("early",)
@@ -1206,6 +1227,12 @@ class QuarterRunner:
         if self.args.mode == "train" and state.get("diagnostic_only", False):
             raise ValueError(
                 "Diagnostic qualification weights cannot initialize production"
+            )
+        if contract_world_size(state["quarter_contract"]) != contract_world_size(
+            self.contract
+        ) or state["rng"].get("world_size") != contract_world_size(self.contract):
+            raise ValueError(
+                "Cross-world resume is forbidden; start fresh at the requested world size"
             )
         if state["quarter_contract"] != self.contract or state[
             "task_counts"
@@ -1346,7 +1373,7 @@ class QuarterRunner:
                 },
                 "ddp": {
                     "passed": True,
-                    "world_size": 4,
+                    "world_size": contract_world_size(self.contract),
                     "model_hashes": hashes,
                     "task_model_hashes": task_hashes,
                 },
@@ -1457,12 +1484,13 @@ class QuarterRunner:
         if task not in resume["tasks"]:
             raise ValueError("Requested replay task is not trained by this arm")
         tokens = process_tokens()
+        world = contract_world_size(self.contract)
         if (
-            len(tokens) != 4
-            or len(set(tokens)) != 4
+            len(tokens) != world
+            or len(set(tokens)) != world
             or set(tokens).intersection(resume["producer_processes"])
         ):
-            raise ValueError("Replay requires four fresh processes")
+            raise ValueError(f"Replay requires {world} fresh processes")
         inputs = replay_inputs(self.out, pending, task)
         self.restore(self.out / inputs["checkpoint"]["file"])
         if self.path() != task:
@@ -1667,6 +1695,7 @@ def main():
     parser.add_argument(
         "--replay-task", choices=["om4", "recent", "early", "observation"]
     )
+    parser.add_argument("--world-size", type=int, choices=[4, 8], default=4)
     parser.add_argument("--validate-every", type=int, default=100)
     parser.add_argument("--train-hours", type=float, default=22.0)
     args = parser.parse_args()
@@ -1682,8 +1711,10 @@ def main():
     if not math.isfinite(args.train_hours) or args.train_hours <= 0:
         parser.error("train-hours must be finite and positive")
     world = int(os.environ.get("WORLD_SIZE", "1"))
-    if world != (1 if args.mode == "reference" else 4):
-        parser.error("Reference needs one GPU; qualification/train require four ranks")
+    try:
+        validate_world_size(args.mode, args.world_size, world)
+    except ValueError as error:
+        parser.error(str(error))
     if args.mode == "train" and not args.qualification:
         parser.error("Production requires measured native-quarter qualification")
     configure_determinism()

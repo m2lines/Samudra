@@ -132,7 +132,7 @@ def test_fixed_evaluation_does_not_claim_validation_selection(tmp_path, monkeypa
     assert len(seen) == 4
 
 
-def quarter_run(path, arm):
+def quarter_run(path, arm, world_size=4):
     from samudra.experiments.quarter_joint import ARMS, exposure_counts, pilot_arguments
     from samudra.experiments.task_schedule import TaskSchedule
 
@@ -166,7 +166,7 @@ def quarter_run(path, arm):
         },
         "learning_rate": 1e-4,
         "global_batch": 8,
-        "world_size": 4,
+        "world_size": world_size,
         **{
             key: arguments[key]
             for key in (
@@ -240,11 +240,12 @@ def write_quarter_run(path, manifest, saved, complete):
     ["u-global", "observation-only", "u-multitask-early", "u-multitask-early-latent"],
 )
 @pytest.mark.parametrize("split", ["test", "validation"])
+@pytest.mark.parametrize("world_size", [4, 8])
 def test_quarter_endpoint_supports_all_approved_arms_without_conversion(
-    tmp_path, monkeypatch, arm, split
+    tmp_path, monkeypatch, arm, split, world_size
 ):
     path = tmp_path / arm
-    manifest, saved, complete = quarter_run(path, arm)
+    manifest, saved, complete = quarter_run(path, arm, world_size)
     write_quarter_run(path, manifest, saved, complete)
     # The evaluation producer can differ from immutable training provenance.
     monkeypatch.setenv("SAMUDRA_CODE_COMMIT", "d" * 40)
@@ -259,6 +260,7 @@ def test_quarter_endpoint_supports_all_approved_arms_without_conversion(
     assert lineage["training_producer"] == "a" * 40
     assert lineage["checkpoint_sha256"] == complete["checkpoint_sha256"]
     assert lineage["training_manifest_sha256"] == digest(path / "manifest.json")
+    assert lineage["quarter_contract"]["world_size"] == world_size
     assert not list(path.glob("joint-*.pt"))
 
 
@@ -283,6 +285,8 @@ def test_quarter_endpoint_supports_all_approved_arms_without_conversion(
         "hash",
         "missing_completion",
         "requested_counts",
+        "unsupported_world",
+        "terminal_world",
     ],
 )
 def test_quarter_endpoint_rejects_unfinished_or_mismatched_lineage(tmp_path, corrupt):
@@ -318,6 +322,10 @@ def test_quarter_endpoint_rejects_unfinished_or_mismatched_lineage(tmp_path, cor
         complete["global_step"] = 5999
     elif corrupt == "terminal_counts":
         complete["task_counts"] = {"om4": 3000, "observation": 3000}
+    elif corrupt == "unsupported_world":
+        saved["quarter_contract"]["world_size"] = 16
+    elif corrupt == "terminal_world":
+        complete["quarter_contract"] = {**saved["quarter_contract"], "world_size": 8}
     write_quarter_run(path, manifest, saved, complete)
     if corrupt == "hash":
         with (path / "quarter-last.pt").open("ab") as stream:

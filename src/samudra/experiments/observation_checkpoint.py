@@ -100,7 +100,7 @@ def load_quarter_endpoint(run, manifest, om4_updates, observation_updates):
         or any(contract.get(k) != v for k, v in science.items())
         or contract.get("learning_rate") != 1e-4
         or contract.get("global_batch") != 8
-        or contract.get("world_size") != 4
+        or contract.get("world_size") not in (4, 8)
         or any(arguments.get(k) != v for k, v in expected_arguments.items())
         or not arguments.get("iap_grid")
     ):

@@ -29,10 +29,11 @@ from samudra.experiments.task_schedule import sample_indices
 
 
 @pytest.mark.parametrize("task", ["om4", "observation"])
-def test_partition_matches_historical_eight_example_stream(task):
+@pytest.mark.parametrize("world", [4, 8])
+def test_partition_matches_historical_eight_example_stream(task, world):
     all_samples = [
         sample
-        for rank in range(4)
+        for rank in range(world)
         for sample in rank_samples(
             task=task,
             dataset_size=11,
@@ -40,7 +41,7 @@ def test_partition_matches_historical_eight_example_stream(task):
             seed=1729,
             completed_task_updates=5,
             rank=rank,
-            world_size=4,
+            world_size=world,
         )
     ]
     ordered = sorted(all_samples, key=lambda sample: sample.global_micro)
@@ -48,7 +49,9 @@ def test_partition_matches_historical_eight_example_stream(task):
     assert [s.sample_index for s in ordered] == sample_indices(11, seed, 5, 8)
     assert [s.mask_seed for s in ordered] == list(range(seed + 1000040, seed + 1000048))
     assert [s.coverage_index for s in ordered] == [i % 7 for i in range(40, 48)]
-    assert [s.global_micro for s in all_samples] == [0, 4, 1, 5, 2, 6, 3, 7]
+    assert [s.global_micro for s in all_samples] == (
+        [0, 4, 1, 5, 2, 6, 3, 7] if world == 4 else list(range(8))
+    )
 
 
 @pytest.mark.parametrize(
@@ -133,13 +136,13 @@ def equal_state(actual, expected):
         assert actual == expected
 
 
-def distributed_worker(rank, rendezvous, output):
+def distributed_worker(rank, rendezvous, output, world):
     torch.set_num_threads(1)
     dist.init_process_group(
         "gloo",
         init_method=Path(rendezvous).as_uri(),
         rank=rank,
-        world_size=4,
+        world_size=world,
         timeout=datetime.timedelta(seconds=90),
     )
     try:
@@ -170,13 +173,13 @@ def distributed_worker(rank, rendezvous, output):
                 seed=1729,
                 completed_task_updates=count,
             )
-            local = rank_samples(**arguments, rank=rank, world_size=4)
+            local = rank_samples(**arguments, rank=rank, world_size=world)
             whole = rank_samples(**arguments, rank=0, world_size=1)
             optimizer.zero_grad(set_to_none=True)
             reference_optimizer.zero_grad(set_to_none=True)
             sync_flags.clear()
             loss = accumulate_task_gradients(ddp, task, local, example)
-            assert sync_flags == [False, True]
+            assert sync_flags == ([False, True] if world == 4 else [True])
             expected_loss = 0.0
             for sample in whole:
                 scalar = task_objective(reference, example(sample), task)
@@ -232,7 +235,7 @@ def distributed_worker(rank, rendezvous, output):
             seed=1729,
             completed_task_updates=7,
             rank=rank,
-            world_size=4,
+            world_size=world,
         )
         optimizer.zero_grad(set_to_none=True)
         native_loss = accumulate_task_gradients(ddp, "observation", local, example)
@@ -266,14 +269,15 @@ def distributed_worker(rank, rendezvous, output):
         dist.destroy_process_group()
 
 
-def test_four_rank_global_batch_unused_parameters_and_serialized_resume(tmp_path):
+@pytest.mark.parametrize("world", [4, 8])
+def test_global_batch_unused_parameters_and_serialized_resume(tmp_path, world):
     mp.spawn(
         distributed_worker,
-        args=(str(tmp_path / "rendezvous"), str(tmp_path)),
-        nprocs=4,
+        args=(str(tmp_path / "rendezvous"), str(tmp_path), world),
+        nprocs=world,
         join=True,
     )
-    assert len(list(tmp_path.glob("rank-*.ok"))) == 4
+    assert len(list(tmp_path.glob("rank-*.ok"))) == world
 
 
 def test_rng_scope_and_topology_rejected_before_mutation():

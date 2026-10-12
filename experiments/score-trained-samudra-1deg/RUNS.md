@@ -117,11 +117,16 @@ At 11:30 UTC on 2026-10-12, B had completed all 70 epochs with exit code 0 after
 B's training reminder was retired. C was training epoch 64 and D epoch 70, with current checkpoints and no
 runtime errors. Their hourly reminders remain active. These progress checks do not establish a held-out ranking.
 
+D subsequently completed all 70 epochs at 11:35 UTC with exit code 0 after 10:02:06 allocated wall time
+(40.14 GPU-hours). Its final raw and EMA checkpoints were written and W&B synchronized successfully; D's
+training reminder was retired. C remains active.
+
 ## Annual evaluator qualification
 
 Job **212400** was submitted on 2026-10-12 using evaluator source `0ed45a791` and B's final EMA checkpoint.
 It is a short four-GPU qualification with a 20-minute wall limit: four fixed held-out origins, each rolled
-forward 360 days, distributed one origin per GPU. It was queued at submission. Output is written beneath
+forward 360 days, distributed one origin per GPU. It was moved to `beta_test` / `test` while pending to use
+the short-test queue, and remains queued. Output is written beneath
 `outputs/eval-qualification-B-212400/`; the run must produce all 2,156 per-channel/lead rows and `COMPLETE.json`.
 The evaluator requires epoch 70, loads model weights strictly, checks predictions for nonfinite values,
 records checkpoint/source/config provenance, and requires online W&B. Ten local tests and scoped pre-commit

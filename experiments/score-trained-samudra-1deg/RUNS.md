@@ -353,5 +353,9 @@ provenance and all model labels are retained in the job manifest.
 
 Online W&B is required before scoring. An EXIT callback and hourly fallback reminder are registered; the
 Alpha login-node receiver check passed before release. The script also checks from the compute node.
-Compute-node bring-up and the product time-axis preflight remain to be verified. Relevant analysis code was
-run on all completed artifacts, and scoped pre-commit checks passed before submission.
+The compute-node receiver check passed. W&B initialized online at
+[g3l9tndq](https://wandb.ai/ocean_emulators/default/runs/g3l9tndq), and all product/time-axis preflights passed.
+DUACS and OISST have 598 full-span timestamps and 583 scored times from 2015-01-03 through 2022-12-24.
+ARGO has 97 common complete months and 84 scored months from January 2015 through December 2021.
+The job has begun scoring A's surface velocity. Relevant analysis code was run on all completed artifacts,
+and scoped pre-commit checks passed before submission.

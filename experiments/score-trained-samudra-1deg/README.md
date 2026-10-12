@@ -8,7 +8,7 @@ SPDX-License-Identifier: CC-BY-4.0
 Status: training, primary annual evaluations and continuous eight-year diagnostics complete, 2026-10-12.
 See the [comparison report](RESULTS.md) and [run record](RUNS.md). Persistence and training-only seasonal
 climatology references, checkpoint sensitivities and trajectory export also completed. Observation scoring
-is submitted as Grace job 132094 after correcting the monthly-ARGO preflight. The report distinguishes the
+is running as Grace job 132094 after passing the corrected monthly-ARGO preflight. The report distinguishes the
 fixed final-EMA result from checkpoint-policy sensitivity.
 The user authorized B/C/D on Beta, Torch, or Engaging, using Rust loading and no `hfds_anomalies`.
 Reuse A; do not retrain it.

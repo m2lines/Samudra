@@ -19,9 +19,11 @@ configuration code are byte-identical to qualification; production adds the GPU-
 | --- | --- | --- | --- |
 | All-task qualification | 19648755 | 1 H100, 6 CPUs, 64 GiB RAM | Completed, exit 0; 2:01 on gh001 |
 | Completion notification | 19648789 | CPU-only, 1 CPU, 512 MiB | Completed; callback delivered |
-| F: forecast-only | 19649331 | 2 H100s, 16 CPUs, 192 GiB RAM, 36-hour ceiling | Submitted; eligible after 13:34 Eastern |
-| M: structured multitask | 19649333 | Same as F | Submitted; eligible after 13:34 Eastern |
+| F: forecast-only | 19649331 | 2 H100s, 16 CPUs, 192 GiB RAM, 36-hour ceiling | Still pending priority at 15:33 Eastern; no start estimate |
+| M: structured multitask | 19649333 | Same as F | Still pending priority at 15:33 Eastern; no start estimate |
 | Production notifications | 19649371 / 19649375 | CPU-only, 1 CPU, 512 MiB each | `afterany` dependencies on F / M |
+| RTX qualification | 19656293 | 2 RTX GPUs, 16 CPUs, 192 GiB RAM, 40-minute ceiling | Submitted; eligible after 15:37 Eastern |
+| RTX qualification notification | 19656296 | CPU-only, 1 CPU, 512 MiB | `afterany:19656293` |
 
 Campaign root: `/scratch/jr7309/runs/score-multitask-1deg-20261012`.
 Resolved inputs: `configs/{qualification,train}-{forecast,multitask}.yaml`.
@@ -47,6 +49,19 @@ Both authenticated successfully from Torch and have hourly reminders. Production
 account `torch_pr_347_lzanna`, partition `h100`, constraint `h100`, two GPUs per job,
 `Comment=preemption=yes;requeue=true`, `Requeue=1`. Neither run is claimed to have started merely from
 submission or an advisory start estimate. W&B URLs and first-epoch logging will be verified at bring-up.
+
+At the 15:33 check both H100 jobs were still pending priority and had consumed no GPU time. A fresh
+two-GPU RTX dry run estimated an immediate start on gr103 through `rtx6000_lzanna`; H200 capacity was
+estimated several days away. RTX qualification 19656293 therefore checks the same model/container with
+two ranks before moving production. It uses the previously unused `qualification-forecast` configuration
+and output directory; the explicit backward probes and completion validation still exercise all four tasks.
+The production H100 pair remains queued until the qualification result and a fresh state check determine
+whether to replace both. An advisory dry-run start time is not evidence that an allocation has begun.
+
+Following the updated async guidance, the new RTX callback `3936168a-78b7-4f95-8636-1d4deec41f97` uses
+quiet polling by `/root/rtx_qualification_monitor`, with hourly reminders and durable parent fallback.
+The monitor's waiter is active and the CPU completion callback is attached. The earlier H100 callbacks
+remain active until their jobs complete or are explicitly replaced.
 
 Torch held job 19648662 could not be released (`scontrol release` returned an unspecified error twice).
 It and dependent notification 19648699 were cancelled before allocation; their callback was revoked.

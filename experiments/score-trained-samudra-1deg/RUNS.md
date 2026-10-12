@@ -106,9 +106,16 @@ preflights consumed another 0.307 GPU-hours; the held D attempt consumed none.
 
 Durable one-hour reminders on the originating host wake the conversation to inspect Beta over SSH. On every
 wake, check Slurm state, current epoch/loss, W&B syncing, checkpoint progress, and allocated GPU-hours; rearm
-while active, and retire registrations once jobs finish. Remote instant completion callbacks are unavailable;
-terminal states are detected at the next scheduled check. Resume recoverable interruptions from the latest
+while active, and retire registrations once jobs finish. Connectivity to HTTPS port 443 was restored and
+verified from the login node and all three compute allocations on 2026-10-12. The already-running training
+scripts retain reminder-based follow-up; new evaluation jobs attach completion callbacks with hourly fallback.
+Resume recoverable interruptions from the latest
 completed epoch with the same immutable source and config.
+
+At 11:30 UTC on 2026-10-12, B had completed all 70 epochs with exit code 0 after 9:34:32 allocated wall time
+(38.30 GPU-hours). Its final raw and EMA checkpoints were written and W&B reported successful synchronization.
+B's training reminder was retired. C was training epoch 64 and D epoch 70, with current checkpoints and no
+runtime errors. Their hourly reminders remain active. These progress checks do not establish a held-out ranking.
 
 Once training finishes, qualify and run the common evaluator on A/B/C/D final EMA checkpoints before drawing
 conclusions. Remaining report work includes matched annual/long rollouts, spatial/vertical/temporal diagnostics,

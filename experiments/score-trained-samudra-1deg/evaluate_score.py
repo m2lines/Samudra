@@ -10,7 +10,9 @@ independently. Long-trajectory and observational diagnostics are separate tasks.
 
 import argparse
 import csv
+import hashlib
 import json
+import os
 from pathlib import Path
 
 import numpy as np
@@ -62,6 +64,10 @@ def main():
     parser.add_argument("--members", type=int, default=16)
     parser.add_argument("--origin-limit", type=int)
     args = parser.parse_args()
+    if args.arm in ("C", "D") and args.members < 2:
+        parser.error("Stochastic evaluation requires at least two members")
+    if args.origin_limit is not None and args.origin_limit < 1:
+        parser.error("--origin-limit must be positive")
     cfg = ScoreTrainConfig.from_yaml(args.config)
     raw = cfg.model_dump(mode="json")
     raw["data"]["sources"][0]["inference_time"] = {
@@ -73,6 +79,10 @@ def main():
     rank = (dist.rank or 0) if dist else 0
     world = (dist.world_size or 1) if dist else 1
     args.output.mkdir(parents=True, exist_ok=True)
+    if any(args.output.glob("metrics-rank*.csv")):
+        raise FileExistsError(
+            "Use a fresh output directory to avoid mixing evaluations"
+        )
     bundle = cfg.data.build(
         data_root=cfg.experiment.resolved_data_root, include_inference=True
     )
@@ -103,6 +113,9 @@ def main():
         .eval()
     )
     checkpoint = torch.load(args.checkpoint, map_location="cpu", weights_only=True)
+    checkpoint_epoch = checkpoint["epoch"]
+    if checkpoint_epoch != 70:
+        raise ValueError(f"Expected final epoch 70, got {checkpoint_epoch}")
     state = {k.removeprefix("module."): v for k, v in checkpoint["model"].items()}
     if args.arm == "A":
         net.base.load_state_dict(state, strict=True)
@@ -118,8 +131,13 @@ def main():
     ]
     if args.origin_limit:
         origins = origins[: args.origin_limit]
+    if not origins:
+        raise ValueError("No complete 360-day forecast origins")
     run = None
     if rank == 0:
+        with open(args.checkpoint, "rb") as f:
+            checkpoint_sha256 = hashlib.file_digest(f, "sha256").hexdigest()
+        cfg.save_yaml(args.output / "config.yaml")
         run = wandb.init(
             entity=cfg.experiment.wandb.entity,
             project=cfg.experiment.wandb.project,
@@ -129,17 +147,30 @@ def main():
                 "arm": args.arm,
                 "members": m,
                 "checkpoint": str(args.checkpoint),
+                "checkpoint_epoch": checkpoint_epoch,
+                "checkpoint_sha256": checkpoint_sha256,
+                "source_commit": os.environ.get("SAMUDRA_CODE_COMMIT"),
                 "origins": origins,
                 "seed": 35000000,
                 "test_period": ["2014-10-10", "2022-12-24"],
             },
         )
+        print(f"Online evaluation: {run.url}", flush=True)
         (args.output / "manifest.json").write_text(
             json.dumps(
                 {
                     "wandb_url": run.url,
                     "arm": args.arm,
                     "checkpoint": str(args.checkpoint),
+                    "checkpoint_epoch": checkpoint_epoch,
+                    "checkpoint_sha256": checkpoint_sha256,
+                    "source_commit": os.environ.get("SAMUDRA_CODE_COMMIT"),
+                    "container": os.environ.get("SAMUDRA_CONTAINER_IMAGE_REF"),
+                    "slurm_job": os.environ.get("SLURM_JOB_ID"),
+                    "data_root": str(cfg.experiment.resolved_data_root),
+                    "variables": names,
+                    "forcing": list(boundary_names),
+                    "normalization_std": std.tolist(),
                     "members": m,
                     "origin_indices": origins,
                     "origin_times": [
@@ -258,6 +289,11 @@ def main():
         for path in sorted(args.output.glob("metrics-rank*.csv")):
             with path.open() as f:
                 all_rows.extend(csv.DictReader(f))
+        expected_rows = len(origins) * len(leads) * len(names)
+        if len(all_rows) != expected_rows:
+            raise ValueError(
+                f"Expected {expected_rows} metric rows, got {len(all_rows)}"
+            )
         for lead in leads:
             selected_rows = [r for r in all_rows if int(r["lead_days"]) == lead]
             run.log(

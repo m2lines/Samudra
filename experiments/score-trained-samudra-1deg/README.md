@@ -189,7 +189,9 @@ Predeclare origins, seeds, masks, normalization, aggregation, and plot dates bef
    checkpoints as a sensitivity. Also report validation-selected EMA: deterministic arms by fixed rollout RMSE,
    stochastic arms by fixed normalized marginal CRPS on validation-only origins at 10/20/40/90 days, using a
    fixed eight-member draw. These are separately labeled objective-specific selections, not the primary result.
-   Retain the matched 360-day validation rollout where all labels fit the validation period.
+   The launched B/C/D runs use two 90-day validation rollouts per epoch, rather than the initially proposed
+   360-day rollout. This implementation deviation was disclosed in the conversation; annual forecasts are
+   part of the separate held-out evaluation, not training-time checkpoint selection.
 
 Report, by variable/depth/lead and fixed regions:
 
@@ -236,9 +238,10 @@ available at the live check. Production requests are full four-GPU nodes; qualif
   structure or temporal failure. Only then add masked multitask training or surface-only initialization with a
   matched deterministic comparison. New training waves wait for approval.
 
-For submitted jobs, check roughly hourly while active. Beta login and compute hosts timed out reaching the
-callback receiver, so remote completion callbacks are unavailable. Durable local reminders wake this
-conversation to inspect Slurm over SSH; rearm them while jobs remain active. Preserve job IDs, immutable source/container identifiers, complete configs,
+For submitted jobs, check roughly hourly while active. The initial callback connectivity failure was resolved
+on 2026-10-12 by migrating the receiver to HTTPS port 443. The already-running training scripts have no exit
+hook and retain hourly reminder-based monitoring. New evaluation jobs use exit callbacks plus hourly fallback
+reminders. Preserve job IDs, immutable source/container identifiers, complete configs,
 dataset manifests, checkpoint lineage, runtime counters, raw metrics and selected field assets.
 
 ### Implemented first-wave details
@@ -278,6 +281,9 @@ dataset manifests, checkpoint lineage, runtime counters, raw metrics and selecte
   It supports A's original checkpoint names as well as B/C/D. Broader covariance/spectral, long-trajectory,
   observational and climatology diagnostics remain reporting-stage work; the initial evaluator does not yet
   implement those. It requires an online W&B run and writes per-rank CSVs plus completion manifests.
+  `evaluate_beta.sbatch` launches four independent origin workers; qualification uses four complete annual
+  forecasts, while full evaluation uses the common complete-origin manifest. Final checkpoints must report
+  epoch 70, and checkpoint checksums, source/container identity, config, and row counts are recorded.
 
 ## Decision and deliverables
 

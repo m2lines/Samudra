@@ -3,7 +3,7 @@
 
 # Fresh direct and residual models with replay
 
-Status: submitted on 2026-10-12; qualification and production are queued. No scientific results yet.
+Status: eight-GPU qualification passed on 2026-10-12; both production jobs are eligible and waiting for scheduler priority. No scientific results yet.
 
 The question is whether training stable evolution from scratch makes annual error growth more comparable to the deterministic control, while retaining plausible individual diffusion members. Beating the deterministic control's absolute score is not the primary criterion.
 
@@ -32,9 +32,9 @@ The initial estimate is roughly five to six days per arm once running, and appro
 
 Qualification job **212417** runs both arms for 16 mixed updates, restores the saved checkpoint, and continues each through update 32. Production jobs depend on successful qualification and a source-bound `QUALIFIED.json` receipt. Checks include continuous updates, finite module gradients, optimizer moments, all replay shards, exact exposure counts, and matching initial tensors. Qualification weights are never loaded into production.
 
-Local durable services monitor the qualification and each production job through Slurm, with callback delivery on terminal state or the early checkpoint receipt. Qualification has a 30-minute fallback reminder and production a two-hour fallback. Production enables online W&B; URLs will be added after initialization is verified.
+Local durable services monitor the qualification and each production job through Slurm, with callback delivery on terminal state or the early checkpoint receipt. The completed qualification callback is retired; both production watchers remain active with two-hour fallback reminders. Production enables online W&B; URLs will be added after initialization is verified.
 
-The new trainer and evaluator passed 21 local tests, including two-process gradient equivalence with rank-dependent unused parameters and optimizer/replay restoration. Ruff, mypy and shell syntax checks passed. GPU qualification remains pending.
+The new trainer and evaluator passed 21 local tests, including two-process gradient equivalence with rank-dependent unused parameters and optimizer/replay restoration. Ruff, mypy and shell syntax checks passed. GPU qualification completed successfully in 33m31s (4.47 allocated GPU-hours). Both arms completed 28 OM4 + 4 observation updates, including the actual restart at mixed step 16. The qualification receipt confirms identical initial tensors, complete replay/RNG state, finite module gradients and the expected source ID. All 32 process logs across the four invocations show `P2P/MNNVL` transport. Production checkpoints start fresh, independently of these smoke weights.
 
 ## Early evaluation
 

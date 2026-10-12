@@ -45,10 +45,11 @@ def digest(path):
 
 
 class Pilot:
-    def __init__(self, args):
+    def __init__(self, args, *, write_artifacts=True):
         self.args = args
         self.out = Path(args.output)
-        self.out.mkdir(parents=True, exist_ok=True)
+        if write_artifacts:
+            self.out.mkdir(parents=True, exist_ok=True)
         self.device = torch.device("cuda")
         torch.manual_seed(args.seed)
         np.random.seed(args.seed)
@@ -162,9 +163,10 @@ class Pilot:
             and json.loads(manifest_file.read_text()) != self.manifest
         ):
             raise ValueError("Resume manifest differs from frozen run")
-        atomic_json(self.manifest, manifest_file)
+        if write_artifacts:
+            atomic_json(self.manifest, manifest_file)
         self.wandb = None
-        if args.wandb_mode != "disabled":
+        if write_artifacts and args.wandb_mode != "disabled":
             import wandb
 
             self.wandb = wandb.init(

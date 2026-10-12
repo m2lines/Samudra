@@ -150,11 +150,24 @@ submitted and released on 2026-10-12 with verified callback credentials, EXIT ho
 | A: common annual forecasts | 212403 | beta | 1 hour | Queued |
 | B: common annual forecasts | 212404 | beta | 1 hour | Queued |
 | D: four-origin, 16-member qualification | 212405 | beta_test | 30 minutes | Queued |
+| C: common annual forecasts, 16 members | 212406 | beta | 1 hour | Queued; waits for training 212288 to succeed |
+| D: common annual forecasts, 16 members | 212407 | beta | 1 hour | Queued |
 
 Each allocation has four B200s. The A/B full evaluations use every prespecified complete 360-day origin;
-D's qualification checks ensemble memory use, independent member evolution and probabilistic outputs before
-full C/D evaluation. C's training is still active (epoch 66 at the latest check). Full C/D evaluations and
-the report diagnostics remain pending.
+D's qualification checks ensemble memory use, member evolution and probabilistic outputs before full C/D
+evaluation. C's training is still active (epoch 67 at the latest check); job 212406 has an `afterok:212288`
+dependency, and the evaluator also rejects any checkpoint earlier than epoch 70. Report diagnostics remain
+pending completion of the common evaluations.
+
+D's qualification job 212405 completed successfully in 2:55 (0.194 allocated GPU-hours), with W&B synchronized
+at [e8q1s2v7](https://wandb.ai/ocean_emulators/default/runs/e8q1s2v7). All 2,156 rows are present, unique and
+finite for four origins and 16 members. Rank histograms have 17 bins and sum to four for every channel/lead;
+coverage values lie in [0, 1], spread is positive, and fair CRPS does not exceed empirical CRPS. The origins,
+leads, variables, forcings and normalization match B exactly. Saved 5-day and 360-day target maps and masks
+also match B exactly; all saved fields are finite, dry cells are zero, and members 0 and 1 differ. These are
+execution/consistency checks, not a conclusion about calibration or physical realism. Its callback was
+received and retired, and the full C/D jobs were then submitted with verified completion hooks and hourly
+fallback reminders.
 
 Once training finishes, qualify and run the common evaluator on A/B/C/D final EMA checkpoints before drawing
 conclusions. Remaining report work includes matched annual/long rollouts, spatial/vertical/temporal diagnostics,

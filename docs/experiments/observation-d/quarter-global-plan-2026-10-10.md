@@ -6,9 +6,10 @@
 The [4k/6k auxiliary reproductions](early-rmse-6k-2026-10-10.md#auxiliary-loss-reproductions)
 and matched eight-model annual comparison are complete. On October 11 the user authorized **U-global, observation-only, and the
 best one or two variants from the 6k comparison**, judged at both 30 and 365 days.
-All quarter-degree runs use 6,000 total updates. Quarter-degree production has not yet been
-qualified or submitted; short preparation tests are underway. Reporting both native-resolution and matched 1°
-metrics remains agreed.
+All quarter-degree runs use 6,000 total updates. The training dataset is verified;
+four-arm GPU qualification **212374** is queued on Beta. Quarter-degree production
+has not yet been qualified or submitted. Reporting both native-resolution and
+matched 1° metrics remains agreed.
 
 ## Runs
 
@@ -187,7 +188,7 @@ All prerequisite 1° reproductions and annual evaluations are complete. Annual
 CPU audit **19607393**, eight-model GPU array **19607394**, and collector
 **19607691** passed; no GPU evaluations were repeated. Selected checkpoint and
 output hashes are linked in the annual report. Quarter-degree production remains
-gated on prepared data and real four-GPU qualification of each of the four recipes.
+gated on real four-GPU qualification of each of the four recipes.
 
 Beta diagnostic **212260** completed all three synthetic 720×1440 full-objective
 backward tests on one GB200 (`beta_test`, 0.1281 allocated GPU-hours). The exact
@@ -208,8 +209,14 @@ Production remains unsubmitted.
 
 The static-grid audit and a real-data five-day preparation test passed. The latter
 checked surface fields, all eight finite ERA5 inputs, native IAP profiles/OHC,
-timestamps and output hashes. Four Grace CPU workers (**131367**) are preparing
-the full cache from pinned source `dd79f4630`; this is preprocessing, not training.
+timestamps and output hashes. Grace daily preprocessing **131367**, monthly
+assembly **131375**, and final statistics/verification **131376** have completed.
+All 348 monthly examples and three static/statistics NPZs passed full readback;
+normalization uses exactly 243 training months. The
+[readiness receipt](artifacts/quarter-bringup-2026-10-11/observations-ready.json.gz)
+pins the complete inventory and statistics inputs. Daily preparation used
+`dd79f4630`, and materialization used `ec0e0f0a9`. Annual sample assembly **131377**
+is running separately and does not gate short-lead training qualification.
 The ARM compact-reader build passed (**131371**): one full 80-channel frame
 and four indexed windows exactly matched independent Xarray decoding, including
 missing values. Beta projection test **212269** passed forward and gradient checks
@@ -256,5 +263,6 @@ every recurrent latent output row when present. Both periods retain the original
 OM4 update counter and seed stream; earlier data replaces alternate OM4 updates.
 Qualification weights are diagnostic-only and rejected by production resume.
 The runner, data, schedule, latent-state and early-fine tests passed **109 CPU
-tests**. Each arm has its own two-hour test allocation, at most two concurrently;
-actual GPU qualification remains unsubmitted pending prepared data.
+tests**. Each arm has its own two-hour test allocation, at most two concurrently.
+Array **212374** was submitted after data verification and is pending priority;
+there are no production jobs or quarter-degree scientific results yet.

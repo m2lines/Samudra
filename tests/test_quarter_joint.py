@@ -3,10 +3,12 @@
 
 import json
 import math
+from datetime import timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
+import cftime
 import numpy as np
 import pytest
 import torch
@@ -58,6 +60,62 @@ def test_schedules_are_exact_matched_exposure():
     assert baseline.counts(3000)["observation"] < 1500
     assert obs.counts(6000) == {"om4": 0, "observation": 6000}
     assert all(obs.task(step) == "observation" for step in range(6000))
+
+
+def retention_times():
+    return cftime.num2date(
+        np.arange(87) * 5,
+        "days since 2013-08-01 12:00:00",
+        calendar="julian",
+    )
+
+
+def test_retention_matches_executed_legacy_cohort_without_extending_splits():
+    times = retention_times()
+    ids = runner.historical_retention_ids(times)
+    assert len(times) - 24 == 63
+    assert ids == [0, 6, 12, 18, 24, 30, 36, 42, 48, 54, 60]
+    # Historical InitializerWave treats the nominal 12 as a maximum.
+    assert ids == list(range(0, len(times) - 24, 6))[:12]
+    assert [str(times[i + 18]) for i in ids] == [
+        "2013-10-30 12:00:00",
+        "2013-11-29 12:00:00",
+        "2013-12-29 12:00:00",
+        "2014-01-28 12:00:00",
+        "2014-02-27 12:00:00",
+        "2014-03-29 12:00:00",
+        "2014-04-28 12:00:00",
+        "2014-05-28 12:00:00",
+        "2014-06-27 12:00:00",
+        "2014-07-27 12:00:00",
+        "2014-08-26 12:00:00",
+    ]
+    assert str(times[ids[0] + 19]) == "2013-11-04 12:00:00"
+    assert str(times[ids[-1] + 24]) == "2014-09-25 12:00:00"
+    assert all(
+        cftime.DatetimeJulian(2013, 10, 4)
+        < times[i + lead]
+        < cftime.DatetimeJulian(2014, 10, 10)
+        for i in ids
+        for lead in range(19, 25)
+    )
+    # A twelfth regularly spaced forecast would require test-period targets.
+    assert str(times[0] + timedelta(days=(66 + 24) * 5)) == "2014-10-25 12:00:00"
+
+
+@pytest.mark.parametrize("corrupt", ["short", "extended", "shifted", "origin"])
+def test_retention_rejects_changed_source_cohort(corrupt):
+    times = retention_times()
+    if corrupt == "short":
+        times = times[:-1]
+    elif corrupt == "extended":
+        times = np.append(times, times[-1] + timedelta(days=5))
+    elif corrupt == "shifted":
+        times = times + timedelta(days=5)
+    else:
+        times[18] += timedelta(days=1)
+    with pytest.raises(ValueError, match="historical 11-origin cohort"):
+        runner.historical_retention_ids(times)
 
 
 def test_empty_or_mismatched_qualification_cannot_authorize_train():
@@ -213,7 +271,7 @@ def test_qualification_requires_both_real_task_curves_and_replays():
             "passed": True,
             "seconds": 1.0,
             "metrics": {
-                "origins": 12,
+                "origins": 11,
                 "ts_mse": 1.0,
                 "reconstruction_ts_mse": 2.0,
                 "full_mse": 3.0,
@@ -449,11 +507,11 @@ def test_terminal_marker_matches_selected_evaluation_contract(tmp_path, corrupt_
 def test_qualification_measures_actual_retention_once(monkeypatch, bad):
     subject: Any = object.__new__(runner.QuarterRunner)
     calls = []
-    metrics = dict(origins=12, ts_mse=1.0, reconstruction_ts_mse=2.0, full_mse=3.0)
+    metrics = dict(origins=11, ts_mse=1.0, reconstruction_ts_mse=2.0, full_mse=3.0)
     if bad == "nan":
         metrics["full_mse"] = math.nan
     if bad == "origins":
-        metrics["origins"] = 11
+        metrics["origins"] = 12
     subject.device = "cpu"
 
     def retention():
@@ -467,7 +525,7 @@ def test_qualification_measures_actual_retention_once(monkeypatch, bad):
     times = iter([10.0, 12.5])
     monkeypatch.setattr(runner.time, "monotonic", lambda: next(times))
     if bad:
-        with pytest.raises(ValueError, match="12-origin OM4 retention"):
+        with pytest.raises(ValueError, match="11-origin OM4 retention"):
             subject.qualify_retention()
     else:
         assert subject.qualify_retention() == {
@@ -522,7 +580,7 @@ def pending_fixture(tmp_path, tasks, arm=None):
         "retention": {
             "passed": True,
             "seconds": 2,
-            "metrics": dict(origins=12, ts_mse=1, reconstruction_ts_mse=2, full_mse=3),
+            "metrics": dict(origins=11, ts_mse=1, reconstruction_ts_mse=2, full_mse=3),
         },
     }
     if contract["arm"] in runner.EARLY_ARMS:
@@ -709,7 +767,7 @@ def test_qualify_writes_diagnostic_expectations_but_no_final_gate(
 
     def retention():
         retention_calls.append(True)
-        return dict(origins=12, ts_mse=1.0, reconstruction_ts_mse=2.0, full_mse=3.0)
+        return dict(origins=11, ts_mse=1.0, reconstruction_ts_mse=2.0, full_mse=3.0)
 
     subject.om4 = (
         SimpleNamespace(

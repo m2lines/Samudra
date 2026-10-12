@@ -61,6 +61,37 @@ ARMS = {
     "u-multitask-early-latent": (3000, 3000, "mixed"),
 }
 EARLY_ARMS = {"u-multitask-early": 0, "u-multitask-early-latent": 10}
+# InitializerWave requested at most 12, but its 87-frame validation context
+# supplies 63 complete windows and therefore only these 11 stride-six origins.
+RETENTION_ORIGIN_IDS = (0, 6, 12, 18, 24, 30, 36, 42, 48, 54, 60)
+RETENTION_ORIGIN_TIMES = (
+    "2013-10-30 12:00:00",
+    "2013-11-29 12:00:00",
+    "2013-12-29 12:00:00",
+    "2014-01-28 12:00:00",
+    "2014-02-27 12:00:00",
+    "2014-03-29 12:00:00",
+    "2014-04-28 12:00:00",
+    "2014-05-28 12:00:00",
+    "2014-06-27 12:00:00",
+    "2014-07-27 12:00:00",
+    "2014-08-26 12:00:00",
+)
+
+
+def historical_retention_ids(times):
+    """Pin the executed legacy cohort, without extending any forecast split."""
+    if (
+        len(times) != 87
+        or str(times[0]) != "2013-08-01 12:00:00"
+        or str(times[-1]) != "2014-10-05 12:00:00"
+        or tuple(str(times[i + 18]) for i in RETENTION_ORIGIN_IDS)
+        != RETENTION_ORIGIN_TIMES
+    ):
+        raise ValueError(
+            "OM4 retention times differ from the historical 11-origin cohort"
+        )
+    return list(RETENTION_ORIGIN_IDS)
 
 
 def training_paths(arm):
@@ -376,7 +407,9 @@ def science_contract(args, pilot_args):
             },
             "train_time": ["1975-01-03", "2013-10-04"],
             "retention_context_time": ["2013-08-01", "2014-10-05"],
-            "retention_origins": 12,
+            "retention_origins": len(RETENTION_ORIGIN_IDS),
+            "retention_origin_ids": list(RETENTION_ORIGIN_IDS),
+            "retention_origin_times": list(RETENTION_ORIGIN_TIMES),
             "decoder_audit_sha256": verify_compact_audit(args.compact_audit, source),
         }
         if args.arm in EARLY_ARMS:
@@ -549,7 +582,7 @@ def check_retention(record):
     seconds = record.get("seconds", 0)
     if (
         record.get("passed") is not True
-        or metrics.get("origins") != 12
+        or metrics.get("origins") != len(RETENTION_ORIGIN_IDS)
         or not math.isfinite(seconds)
         or seconds <= 0
         or any(
@@ -557,7 +590,7 @@ def check_retention(record):
             for key in ("ts_mse", "reconstruction_ts_mse", "full_mse")
         )
     ):
-        raise ValueError("Missing finite measured 12-origin OM4 retention")
+        raise ValueError("Missing finite measured 11-origin OM4 retention")
 
 
 def process_tokens():
@@ -916,9 +949,7 @@ class Om4Adapter:
             self.trainset.lon.cpu().numpy(), data.grid["lon"], rtol=0, atol=1e-5
         )
         torch.testing.assert_close(self.mask, data.mask.bool(), rtol=0, atol=0)
-        self.val_ids = list(range(0, len(self.valset), 6))[:12]
-        if len(self.val_ids) != 12:
-            raise ValueError("Incomplete 12-origin OM4 retention cohort")
+        self.val_ids = historical_retention_ids(self.valset.times)
         self.initializer = TaskView(model.initializer, "om4")
         self.model = Pair(
             self.initializer, TaskView(model.evolution, "om4"), joint=True

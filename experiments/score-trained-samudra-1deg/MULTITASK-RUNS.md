@@ -24,6 +24,8 @@ configuration code are byte-identical to qualification; production adds the GPU-
 | Production notifications | 19649371 / 19649375 | CPU-only, 1 CPU, 512 MiB each | `afterany` dependencies on F / M |
 | RTX qualification | 19656293 | 2 RTX GPUs, 16 CPUs, 192 GiB RAM | Failed after 59 seconds on gr103; CUDA illegal memory access |
 | RTX qualification notification | 19656296 | CPU-only, 1 CPU, 512 MiB | Completed; quiet monitor handed result back |
+| RTX native-1×1 retry | 19656804 | Same gr103 node, 2 RTX GPUs, 16 CPUs, 192 GiB RAM | Submitted with eligibility at 15:47 Eastern |
+| RTX retry notification | 19656825 | CPU-only, 1 CPU, 512 MiB | Verified `afterany:19656804` dependency |
 
 Campaign root: `/scratch/jr7309/runs/score-multitask-1deg-20261012`.
 Resolved inputs: `configs/{qualification,train}-{forecast,multitask}.yaml`.
@@ -77,6 +79,16 @@ convolutions. Training and held-out forecast evaluation read the same config fla
 scope, unchanged state/parameter identity, restored global flags, and output/gradient agreement on CPU.
 This is a candidate mitigation pending a same-node RTX retry; it is not a claimed CUDA root-cause fix.
 
+Retry 19656804 uses immutable source `a4b90dfddcb11f45be0c4ab378915c916c0fd9aa`, the same gr103 node,
+container, two-rank allocation and qualification recipe. Its configuration is
+`configs/qualification-forecast-native1x1.yaml`, with `native_pointwise: true` and a distinct output name;
+results will be written to `outputs/qualification-forecast-native1x1/qualification.json`. The 40-minute
+limit is unchanged. Callback `5ec6985f-dc5b-464c-b5ef-b2207e04ee6d` authenticated from the login node;
+compute-node authentication is checked at launch. The quiet monitor has an active waiter, and the
+CPU notification dependency was read back from Slurm. The H100 fallback pair is retained until a
+successful qualification and fresh job-state check permit replacing both arms together. Any production
+RTX pair will use the same backend option in both arms and retain effective batch 32.
+
 Torch held job 19648662 could not be released (`scontrol release` returned an unspecified error twice).
 It and dependent notification 19648699 were cancelled before allocation; their callback was revoked.
 The replacement uses a two-minute delayed start to attach monitoring. Beta held qualification 212521
@@ -100,7 +112,7 @@ normalization store. This sampled comparison is not a full reread of every ocean
 record is `data-sample-fingerprint.json` in the Torch campaign root. Training additionally saves the
 resolved normalization, masks, coordinates, variable order, time splits and upstream attributes.
 
-Local validation: 21 model/numerical tests passed, including initial C parity, mask leakage, requested-only
-gradients and checkpointed backward equivalence. Scoped pre-commit and shell syntax checks passed.
+Local validation: 22 model/numerical tests passed, including initial C parity, mask leakage, requested-only
+gradients, checkpointed backward equivalence and the opt-in 1×1 backend. Scoped pre-commit and shell syntax checks passed.
 `evaluate_score.py --arm F|M` loads the new conditioning architecture for the same held-out forecast
 protocol; final completion and continuous-rollout evaluation remain to be qualified before use.

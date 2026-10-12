@@ -8,7 +8,8 @@ SPDX-License-Identifier: CC-BY-4.0
 Authorized 2026-10-12 after review of the [first-wave results](RESULTS.md). The user confirmed the
 50% forecast / 25% surface-to-interior / 12.5% missing-variable / 12.5% spatial-gap mixture and a matched
 forecast-only control. This is an experiment/results record, not intended to merge. Qualification and
-submission status are recorded below; this plan alone is not evidence of a running job.
+submission status are recorded in [the execution log](MULTITASK-RUNS.md); this plan alone is not evidence
+of a running job.
 
 The question is whether allocating part of C's training to conditional reconstruction produces useful
 interior/completion distributions and improves, preserves or harms its ordinary forecast skill. This uses

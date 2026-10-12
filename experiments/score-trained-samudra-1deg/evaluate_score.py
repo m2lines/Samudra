@@ -18,7 +18,9 @@ from pathlib import Path
 import numpy as np
 import torch
 import wandb
+from multitask_model import MultitaskModelConfig
 from score_model import crps, reduce_field, weights
+from train_multitask import MultitaskTrainConfig
 from train_score import ScoreTrainConfig
 
 from samudra.backend import init_train_backend
@@ -60,7 +62,7 @@ def main():
     parser.add_argument("config")
     parser.add_argument("checkpoint")
     parser.add_argument("output", type=Path)
-    parser.add_argument("--arm", choices=["A", "B", "C", "D"], required=True)
+    parser.add_argument("--arm", choices=["A", "B", "C", "D", "F", "M"], required=True)
     parser.add_argument("--members", type=int, default=16)
     parser.add_argument("--origin-limit", type=int)
     parser.add_argument(
@@ -69,17 +71,25 @@ def main():
         default="final-ema",
     )
     args = parser.parse_args()
-    if args.arm in ("C", "D") and args.members < 2:
+    if args.arm in ("C", "D", "F", "M") and args.members < 2:
         parser.error("Stochastic evaluation requires at least two members")
     if args.origin_limit is not None and args.origin_limit < 1:
         parser.error("--origin-limit must be positive")
-    cfg = ScoreTrainConfig.from_yaml(args.config)
+    config_type: type[ScoreTrainConfig] | type[MultitaskTrainConfig] = (
+        MultitaskTrainConfig if args.arm in ("F", "M") else ScoreTrainConfig
+    )
+    cfg = config_type.from_yaml(args.config)
+    if args.arm in ("F", "M"):
+        expected_mode = {"F": "forecast", "M": "multitask"}[args.arm]
+        assert isinstance(cfg.model, MultitaskModelConfig)
+        if cfg.model.mode != expected_mode:
+            raise ValueError(f"Arm {args.arm} requires mode={expected_mode}")
     raw = cfg.model_dump(mode="json")
     raw["data"]["sources"][0]["inference_time"] = {
         "start": "2014-10-10",
         "end": "2022-12-24",
     }
-    cfg = ScoreTrainConfig(**raw)
+    cfg = config_type(**raw)
     device, dist = init_train_backend("auto")
     rank = (dist.rank or 0) if dist else 0
     world = (dist.world_size or 1) if dist else 1

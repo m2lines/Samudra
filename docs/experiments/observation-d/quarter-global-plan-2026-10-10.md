@@ -6,8 +6,8 @@
 Run after the [4k/6k auxiliary reproductions](early-rmse-6k-2026-10-10.md#auxiliary-loss-reproductions)
 finish. On October 11 the user authorized **U-global, observation-only, and the
 best one or two variants from the 6k comparison**, judged at both 30 and 365 days.
-All quarter-degree runs use 6,000 total updates. No quarter-degree jobs have yet
-been qualified or submitted. Reporting both native-resolution and matched 1°
+All quarter-degree runs use 6,000 total updates. Quarter-degree production has not yet been
+qualified or submitted; short preparation tests are underway. Reporting both native-resolution and matched 1°
 metrics remains agreed.
 
 ## Runs
@@ -41,7 +41,9 @@ Report EKE separately: annual temporal-anomaly EKE is not the fixed-lead monthly
 cohort EKE used in the five-component training-validation blend.
 
 Promote the best non-baseline variant at each horizon, taking their union (one
-or two variants). Inspect component errors and both U-global seeds alongside
+or two variants). Deduplicate recipes that become identical at native quarter
+resolution: early-coarse and early-fine without latent channels both map to
+U-early-quarter; their latent counterparts both map to U-early-latent-quarter. Inspect component errors and both U-global seeds alongside
 that ranking; describe weak gains as uncertain. This avoids inventing a weight
 between short and long horizons. The three starts are a small, previously viewed
 test cohort: using them to choose the next wave is exploratory model development,
@@ -132,6 +134,23 @@ selected checkpoint hashes and requires each run's 96-origin short-horizon
 completion record. These are queued evaluations, not new training or completed
 annual results. Quarter-degree production remains gated on these results and
 real-data qualification.
+
+Beta diagnostic **212260** completed all three synthetic 720×1440 full-objective
+backward tests on one GB200 (`beta_test`, 0.1281 allocated GPU-hours). The exact
+62,967,680-parameter U-global model used bfloat16 and activation checkpointing:
+
+| Task | Forecast leads | Peak allocated / reserved GPU memory | Mean microbatch time after first update |
+|---|---:|---:|---:|
+| OM4 | 6 | 27.1 / 29.2 GiB | 1.75 s |
+| Observation | 6 | 43.7 / 49.9 GiB | 3.19 s |
+| Observation | 7 | 47.2 / 53.4 GiB | 3.67 s |
+
+All three updates per case had finite gradients reaching the expected components.
+[Raw records](artifacts/quarter-bringup-2026-10-11/) preserve runtime, source and
+configuration hashes. These are synthetic microbatch-one measurements, excluding
+data preparation; they do not establish effective-batch-eight throughput,
+native-IAP operator behavior, or four-GPU correctness. No weights were saved.
+Production remains unsubmitted.
 
 Local groundwork now includes a bounded compact-OM4 window reader and explicit
 native-IAP projection in losses and metrics. Legacy scalar-statistics outputs

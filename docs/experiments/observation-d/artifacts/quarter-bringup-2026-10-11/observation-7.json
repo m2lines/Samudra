@@ -1,0 +1,101 @@
+{
+  "diagnostic": "synthetic fields; no data or science qualification; no weights saved",
+  "timing_scope": "Forward, backward, gradient audit, clipping and optimizer; excludes data preparation and final-loss evaluation",
+  "diagnostic_script_sha256": "6f634d186f90edcfe99c19074fd5a552514c749fb62182d70483f6be1ce49180",
+  "source_commit": "56aac9375a59a7204cd54d85a0c5a3b8e9383d59",
+  "source_tree_sha256": "2f4379de0bb64c672558203a0bd4638fb6c1cbbe0918b08611450c65c4195273",
+  "manifest_sha256": "36afc152f19a3f1e2d124b663aba68103eeff7d80069bce6492a1ea0e00b04c0",
+  "training_producer": "eae2b5c56da44eb3686a6eaf72a80aa419a4b5a4",
+  "source_arguments": {
+    "normalization": "instance",
+    "evolution_architecture": "extent-unet",
+    "initializer_architecture": "unet",
+    "surface_policy": "observed-only",
+    "surface_fill": "zero",
+    "task_conditioning": "input-adapters",
+    "latent_channels": 0,
+    "completion_weight": 0.1,
+    "reconstruction_weight": 0.1,
+    "core_lr": 0.0001,
+    "om4_lr": 0.0001,
+    "warmup_steps": 0,
+    "accumulate": 8,
+    "seed": 1729,
+    "from_scratch": true
+  },
+  "task": "observation",
+  "leads": 7,
+  "shape": [
+    720,
+    1440
+  ],
+  "microbatch": 1,
+  "effective_batch": 1,
+  "production_effective_batch": 8,
+  "parameters": 62967680,
+  "activation_checkpointing": true,
+  "torch_version": "2.12.0a0+0291f960b6.nv26.04.48445190",
+  "cuda_version": "13.2",
+  "python": "3.12.3 (main, Mar  3 2026, 12:15:18) [GCC 13.3.0]",
+  "machine": "aarch64",
+  "slurm_job_id": "212260",
+  "image": "ghcr.io/m2lines/ocean-emulator-physicsnemo@sha256:7d78e8fb9592abdf046d88e55004f15cfe34f0c8ee38b17d83e98cc05b6f82c4",
+  "steps": [
+    {
+      "update": 1,
+      "loss": 0.2434150129556656,
+      "gradient_norm": 5.7733073234558105,
+      "gradients_finite": true,
+      "reached": {
+        "initializer": true,
+        "evolution": true,
+        "adapter": true
+      },
+      "seconds": 4.2310101010371,
+      "peak_allocated_gib": 46.76275873184204,
+      "peak_reserved_gib": 53.359375,
+      "host_peak_gib": 3.03961181640625
+    },
+    {
+      "update": 2,
+      "loss": 0.7838224768638611,
+      "gradient_norm": 18.85539436340332,
+      "gradients_finite": true,
+      "reached": {
+        "initializer": true,
+        "evolution": true,
+        "adapter": true
+      },
+      "seconds": 3.6718106500338763,
+      "peak_allocated_gib": 47.24033308029175,
+      "peak_reserved_gib": 53.361328125,
+      "host_peak_gib": 3.03961181640625
+    },
+    {
+      "update": 3,
+      "loss": 0.18213094770908356,
+      "gradient_norm": 4.986073017120361,
+      "gradients_finite": true,
+      "reached": {
+        "initializer": true,
+        "evolution": true,
+        "adapter": true
+      },
+      "seconds": 3.669418865814805,
+      "peak_allocated_gib": 47.24033308029175,
+      "peak_reserved_gib": 53.361328125,
+      "host_peak_gib": 3.03961181640625
+    }
+  ],
+  "gpu": "NVIDIA GB200",
+  "gpu_total_gib": 184.0,
+  "resident_before_backward_gib": 2.0599374771118164,
+  "status": "completed",
+  "initial_loss": 0.2434150129556656,
+  "final_loss": 0.20106008648872375,
+  "measured_update_seconds": 3.6706147579243407,
+  "total_seconds": 13.208058533957228,
+  "peak_allocated_gib": 47.24033308029175,
+  "peak_reserved_gib": 53.361328125,
+  "host_peak_gib": 3.03961181640625
+}

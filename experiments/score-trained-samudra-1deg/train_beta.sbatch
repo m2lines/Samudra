@@ -28,17 +28,8 @@ export NCCL_DEBUG=WARN TORCH_NCCL_ASYNC_ERROR_HANDLING=1
 export SAMUDRA_CODE_COMMIT="$(cat "$SOURCE_ROOT/COMMIT")"
 export SAMUDRA_CODE_REPO_URL=https://github.com/m2lines/Samudra.git
 export SAMUDRA_CONTAINER_IMAGE_REF=ghcr.io/m2lines/ocean-emulator-physicsnemo@sha256:7d78e8fb9592abdf046d88e55004f15cfe34f0c8ee38b17d83e98cc05b6f82c4
-callback="$CAMPAIGN_ROOT/private/$SLURM_JOB_ID.json"
-if [[ -f "$callback" ]]; then
-    python3 "$CAMPAIGN_ROOT/private/send.py" --credential-file "$callback" --check
-    on_exit() {
-        rc=$?
-        trap - EXIT
-        python3 "$CAMPAIGN_ROOT/private/send.py" --credential-file "$callback" || true
-        exit "$rc"
-    }
-    trap on_exit EXIT
-fi
+# Beta cannot reach the callback receiver. The originating host monitors Slurm
+# through SSH; notification availability must not block model training.
 mkdir -p "$CAMPAIGN_ROOT/cache/$mode-$arm" "$WANDB_DIR" "$CAMPAIGN_ROOT/allocations"
 scontrol show job "$SLURM_JOB_ID" > "$CAMPAIGN_ROOT/allocations/$SLURM_JOB_ID.txt"
 mounts="$SOURCE_ROOT/src:/workspace/src,$CAMPAIGN_ROOT/native:/workspace/native,$CAMPAIGN_ROOT:$CAMPAIGN_ROOT,$DATA_ROOT:$DATA_ROOT,$CAMPAIGN_ROOT/cache/$mode-$arm:/workspace/.data_cache"

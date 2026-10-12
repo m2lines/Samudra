@@ -27,8 +27,10 @@ the same source as the successful RTX retry, with the opt-in native 1×1 backend
 | RTX qualification notification | 19656296 | CPU-only, 1 CPU, 512 MiB | Completed; quiet monitor handed result back |
 | RTX native-1×1 retry | 19656804 | Same gr103 node, 2 RTX GPUs, 16 CPUs, 192 GiB RAM | Completed, exit 0; 1:52 on gr103 |
 | RTX retry notification | 19656825 | CPU-only, 1 CPU, 512 MiB | Completed; terminal result verified |
-| F: RTX forecast-only | 19657151 | 2 RTX GPUs, 16 CPUs, 192 GiB RAM, 36-hour ceiling | Submitted; eligible at 15:57 Eastern |
-| M: RTX structured multitask | 19657152 | Same as RTX F | Submitted; eligible at 15:57 Eastern |
+| F: RTX forecast-only | 19657151 | 2 RTX GPUs, 16 CPUs, 192 GiB RAM, 36-hour ceiling | Running on gr103; epoch 1 and online W&B verified |
+| M: RTX structured multitask | 19657152 | Same as RTX F | Failed before training on gr102; initial NCCL barrier timed out |
+| M: unchanged startup retry | 19657895 | Same as RTX F | Submitted; eligible at 16:16:53 Eastern |
+| M retry notification | 19657907 | CPU-only, 1 CPU, 512 MiB | Verified `afterany:19657895` |
 | RTX production notifications | 19657177 / 19657179 | CPU-only, 1 CPU, 512 MiB each | Verified `afterany` dependencies on RTX F / M |
 
 Campaign root: `/scratch/jr7309/runs/score-multitask-1deg-20261012`.
@@ -106,9 +108,29 @@ Slurm read-back confirmed `rtx6000_lzanna`, two RTX GPUs, 16 CPUs, 192 GiB, `Req
 F callback: `3ddc6737-a24d-4751-8344-b7c8cb335704`, monitor `/root/rtx_qualification_monitor`.
 M callback: `ca26508f-2b5d-4351-bc1f-bac024efe117`, monitor `/root/multitask_rtx_monitor`.
 Both login authentication checks passed, and CPU `afterany` dependencies were verified. Quiet monitors
-check startup once, then hourly. W&B URLs and first-epoch progress await actual startup; submission and
-scheduler estimates are not evidence of training. The within-wave hardware/backend recipe is matched;
+check startup once, then hourly. Subsequent startup findings and the replacement M callback are below. The within-wave hardware/backend recipe is matched;
 comparison to historical C must disclose the backend, hardware and rank-count differences.
+
+
+F startup was verified on gr103: two RTX PRO 6000 GPUs, world size 2, native pointwise backend and
+effective batch 32. [Online W&B run 3uv0p502](https://wandb.ai/ocean_emulators/default/runs/3uv0p502)
+is active; epoch 1 reached minibatch 62/352 with finite losses, about 3.30 seconds/batch and negligible
+loader wait. This establishes startup, not full-epoch performance or scientific results.
+
+M 19657152 failed on gr102 after 11:29, exit 1, costing 0.3828 allocated RTX GPU-hours. Both ranks
+hit a 600-second timeout at the initial NCCL barrier (`init_distributed_mode`, first one-element
+ALLREDUCE), before W&B/model/data/training initialization. This is distinct from the convolution error.
+No checkpoints or metrics were produced; the empty checkpoint directory, config and startup/error logs
+are preserved under `outputs/failed-19657152-train-multitask-rtx/`.
+
+Torch rejected a dry-run request with `--exclude=gr102` and asked that the issue be reported to HPC;
+no exclusion or equivalent placement workaround was used, and no external message was sent. An
+unchanged retry 19657895 tests whether startup failure was transient; scheduler placement may again
+choose gr102. Config, source, model settings and communication settings are unchanged. The original
+M callback was retired. Replacement callback `43b3cabc-9d6b-4b4a-90fa-e9dac5d57c62` authenticated,
+and CPU notification 19657907 has a verified `afterany` dependency. `/root/multitask_rtx_monitor`
+checks bring-up after ten minutes, then hourly; another initial-barrier failure requires diagnosis before
+further resubmission. F continues under its existing monitor and callback.
 
 Torch held job 19648662 could not be released (`scontrol release` returned an unspecified error twice).
 It and dependent notification 19648699 were cancelled before allocation; their callback was revoked.

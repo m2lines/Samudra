@@ -148,6 +148,39 @@ own initialized persistence, matched rollout maps and temperature profiles.
 Use the same held-out origins. Retain annual rollouts as an evaluation follow-up
 to the short-lead comparison; they must not choose the training checkpoint.
 
+### Frozen 1° comparison controls
+
+The saved 6k forecasts have now been rescored on that common support, before any
+quarter-degree training. These are **existing 1° models**, with their original
+validation-selected checkpoints. Model definitions and original full-support
+scores remain in the [6k report](early-rmse-6k-2026-10-10.md). Climatology is
+recomputed from the same training months on the intersection; its score is 1.
+
+| Existing model | Monthly blend | Annual cohort: day 30 | Annual cohort: day 365 |
+|---|---:|---:|---:|
+| U-global | 0.8418 | 0.8920 | 1.0281 |
+| U-global-seed1730 | 0.8500 | 0.8954 | 1.0344 |
+| U-multitask-early | 0.8402 | 0.8953 | 1.0344 |
+| U-multitask-early-latent | **0.8295** | **0.8709** | 0.9731 |
+| U-multitask-early-fine | 0.8345 | 0.8809 | **0.9551** |
+| U-multitask-early-fine-latent | 0.8531 | 0.9036 | 1.0185 |
+| U-aux01-6k | 0.8535 | 0.8870 | 1.0396 |
+| U-aux01-anomaly-6k | 0.8345 | 0.8821 | 1.0013 |
+
+Monthly scores use the 96-origin, five-component blend with surface errors
+averaged across days 5/15/30. Annual scores use the separate three-origin,
+four-component protocol above. The same variants lead at days 30 and 365 on
+the intersection. This check does not change the selected quarter-degree recipes.
+
+[Monthly components](artifacts/quarter-common-controls-2026-10-12/monthly-components.csv),
+[annual components and individual origins](artifacts/quarter-common-controls-2026-10-12/annual-components.csv),
+and [frozen inputs and verification](artifacts/quarter-common-controls-2026-10-12/)
+retain the complete scores, denominators, masks and hashes. CPU job **19615441**
+completed in 5m27s, using no GPUs; it checked the saved prediction payloads and
+canonical truth rather than running new forecasts. Source is `81eaa1a29`;
+cluster artifacts are under
+`/scratch/jr7309/runs/2026-10-12-quarter-common-controls/reports`.
+
 ## Execution status
 
 All prerequisite 1° reproductions and annual evaluations are complete. Annual

@@ -182,6 +182,9 @@ Predeclare origins, seeds, masks, normalization, aggregation, and plot dates bef
 
 1. **Repeated forecasts:** approximately quarterly held-out origins through 2021, each with complete 360-day
    targets in the test interval. Score leads 5, 10, 20, 40, 90, 180, and 360 days. Store the exact common manifest.
+   These are nominal days (source steps times five). The Julian-calendar source includes six-day intervals
+   at the ends of leap years, so 72 forecast steps span 360 or 361 actual days. Preserve the actual origin
+   and target timestamps and label plot axes accordingly; see the verified time-coordinate details in `RUNS.md`.
 2. **Long-rollout diagnostic:** one continuously evolving trajectory from the first test origin to the final
    timestamp, without resets. Initially use four stochastic members to bound cost. Interpret drift, stability,
    temporal statistics and mean-state errors separately from repeated forecast skill.

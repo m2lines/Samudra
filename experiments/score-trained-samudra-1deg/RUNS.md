@@ -5,8 +5,9 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # First-wave execution record
 
-Launched 2026-10-11 EDT / 2026-10-12 UTC. Training results are pending; qualification checks are not
-scientific comparisons. This is an experiment/results record, not intended to merge.
+Launched 2026-10-11 EDT / 2026-10-12 UTC. All three new arms completed 70 epochs. A/B/D common annual
+evaluations are complete; C's annual evaluation and the comparative report remain pending. Qualification
+checks are not scientific comparisons. This is an experiment/results record, not intended to merge.
 
 ## Runs
 
@@ -112,14 +113,17 @@ scripts retain reminder-based follow-up; new evaluation jobs attach completion c
 Resume recoverable interruptions from the latest
 completed epoch with the same immutable source and config.
 
-At 11:30 UTC on 2026-10-12, B had completed all 70 epochs with exit code 0 after 9:34:32 allocated wall time
-(38.30 GPU-hours). Its final raw and EMA checkpoints were written and W&B reported successful synchronization.
-B's training reminder was retired. C was training epoch 64 and D epoch 70, with current checkpoints and no
-runtime errors. Their hourly reminders remain active. These progress checks do not establish a held-out ranking.
+All training had completed by 12:16 UTC on 2026-10-12:
 
-D subsequently completed all 70 epochs at 11:35 UTC with exit code 0 after 10:02:06 allocated wall time
-(40.14 GPU-hours). Its final raw and EMA checkpoints were written and W&B synchronized successfully; D's
-training reminder was retired. C remains active.
+| Arm | Beta job | Epochs | Exit code | Allocated wall time | Allocated GPU-hours |
+| --- | --- | --- | --- | --- | --- |
+| B | 212287 | 70 | 0 | 9:34:32 | 38.30 |
+| C | 212288 | 70 | 0 | 10:51:41 | 43.45 |
+| D | 212295 | 70 | 0 | 10:02:06 | 40.14 |
+
+Final raw and EMA checkpoints were written for each arm, and each W&B run reported successful synchronization.
+All three training reminders were retired. New training consumed 121.89 allocated GPU-hours; A was reused.
+These completion checks do not establish a held-out ranking.
 
 ## Annual evaluator qualification
 
@@ -145,19 +149,19 @@ this short check.
 The following jobs use the qualified evaluator source `0ed45a791` and final EMA checkpoints. They were
 submitted and released on 2026-10-12 with verified callback credentials, EXIT hooks, and one-hour reminders.
 
-| Arm/task | Beta job | Partition | Wall limit | State at submission |
+| Arm/task | Beta job | Partition | Wall limit | State at 12:28 UTC |
 | --- | --- | --- | --- | --- |
-| A: common annual forecasts | 212403 | beta | 1 hour | Queued |
-| B: common annual forecasts | 212404 | beta | 1 hour | Queued |
-| D: four-origin, 16-member qualification | 212405 | beta_test | 30 minutes | Queued |
-| C: common annual forecasts, 16 members | 212406 | beta | 1 hour | Queued; waits for training 212288 to succeed |
-| D: common annual forecasts, 16 members | 212407 | beta | 1 hour | Queued |
+| A: common annual forecasts | 212403 | beta | 1 hour | Completed, exit 0; 2:36 |
+| B: common annual forecasts | 212404 | beta | 1 hour | Completed, exit 0; 2:32 |
+| D: four-origin, 16-member qualification | 212405 | beta_test | 30 minutes | Completed, exit 0; 2:55 |
+| C: common annual forecasts, 16 members | 212406 | beta | 1 hour | Running; training dependency cleared |
+| D: common annual forecasts, 16 members | 212407 | beta | 1 hour | Completed, exit 0; 2:52 |
 
 Each allocation has four B200s. The A/B full evaluations use every prespecified complete 360-day origin;
 D's qualification checks ensemble memory use, member evolution and probabilistic outputs before full C/D
-evaluation. C's training is still active (epoch 67 at the latest check); job 212406 has an `afterok:212288`
-dependency, and the evaluator also rejects any checkpoint earlier than epoch 70. Report diagnostics remain
-pending completion of the common evaluations.
+evaluation. Job 212406 was submitted with an `afterok:212288` dependency, now cleared following C's successful
+training completion. The evaluator also rejects any checkpoint earlier than epoch 70. Report diagnostics
+remain pending completion of the common evaluations.
 
 D's qualification job 212405 completed successfully in 2:55 (0.194 allocated GPU-hours), with W&B synchronized
 at [e8q1s2v7](https://wandb.ai/ocean_emulators/default/runs/e8q1s2v7). All 2,156 rows are present, unique and
@@ -169,7 +173,35 @@ execution/consistency checks, not a conclusion about calibration or physical rea
 received and retired, and the full C/D jobs were then submitted with verified completion hooks and hourly
 fallback reminders.
 
-Once training finishes, qualify and run the common evaluator on A/B/C/D final EMA checkpoints before drawing
-conclusions. Remaining report work includes matched annual/long rollouts, spatial/vertical/temporal diagnostics,
+### Completed A/B annual evaluations
+
+A and B each produced all **16,170 unique finite rows**: 30 common origins, seven leads and 77 channels.
+The final epoch-70 EMA checkpoints loaded strictly. Source timestamps, physical-unit conversion, zero
+deterministic spread, CRPS = MAE, rank-histogram totals, finite saved fields and zero dry-cell values all
+passed read-back checks. Manifest origins, leads, channels, forcing and normalization match exactly; saved
+target maps and masks also match exactly at all three saved leads. W&B synchronized at
+[A: 36mor8bf](https://wandb.ai/ocean_emulators/default/runs/36mor8bf) and
+[B: xcw8f76x](https://wandb.ai/ocean_emulators/default/runs/xcw8f76x).
+Artifacts are in `outputs/eval-full-A-212403/` and `outputs/eval-full-B-212404/` beneath the campaign root.
+Their completion callbacks were received and retired.
+
+D's full evaluation also completed with all 16,170 unique finite rows and 16 independently evolving members.
+Its manifest choices and saved targets/masks match A/B exactly; its source timestamps, finite saved fields,
+zero dry-cell values, positive spread, bounded coverage, empirical/fair CRPS ordering and 17-bin rank totals
+passed read-back checks. Distinct saved members verify diversity, not calibration. W&B synchronized at
+[D: 5otm4ksi](https://wandb.ai/ocean_emulators/default/runs/5otm4ksi), and artifacts are in
+`outputs/eval-full-D-212407/`. Its callback was received and retired. C is running with online W&B at
+[djjy0rjx](https://wandb.ai/ocean_emulators/default/runs/djjy0rjx), with a completion hook and hourly reminder.
+
+**Time-coordinate detail:** the source uses a Julian calendar and mostly five-day spacing. Two intervals in
+the held-out period are six days: 2016-12-28 to 2017-01-03 and 2020-12-28 to 2021-01-03, all at 12:00.
+The evaluator's `lead_days` is the nominal number of five-day steps. Thus a nominal 360-day forecast is
+72 source steps and spans 360 or 361 actual days. Nominal 20/40/90/180-day forecasts can likewise span one
+additional day. Every scored target matches the intended source index, and A/B use identical timestamps;
+this is a labeling distinction rather than a target-alignment error. Reports should label leads as nominal
+days and retain actual origin/target timestamps from the CSVs.
+
+Complete the common evaluator on all A/B/C/D final EMA checkpoints before drawing conclusions. Remaining
+report work includes matched annual/long rollouts, spatial/vertical/temporal diagnostics,
 climatology/persistence, observation metrics where applicable, plots and a proposed next wave. Do not start
 additional seeds or change the scientific comparison without reviewing this first wave.

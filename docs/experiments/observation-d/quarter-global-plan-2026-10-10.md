@@ -6,11 +6,11 @@
 The [4k/6k auxiliary reproductions](early-rmse-6k-2026-10-10.md#auxiliary-loss-reproductions)
 and matched eight-model annual comparison are complete. On October 11 the user authorized **U-global, observation-only, and the
 best one or two variants from the 6k comparison**, judged at both 30 and 365 days.
-All quarter-degree runs use 6,000 total updates. The training dataset is verified;
-four-arm GPU qualification **212376** is queued after the real-data CPU preflight
-passed. Quarter-degree production
-has not yet been qualified or submitted. Reporting both native-resolution and
-matched 1° metrics remains agreed.
+All quarter-degree runs use 6,000 total updates. Training and annual evaluation
+data are verified. U-global and observation-only passed four-GPU qualification,
+but measured throughput motivates using eight GPUs per run. Fresh all-arm
+eight-GPU qualification **212398** is queued; production has not been submitted.
+Reporting both native-resolution and matched 1° metrics remains agreed.
 
 ## Runs
 
@@ -198,7 +198,7 @@ All prerequisite 1° reproductions and annual evaluations are complete. Annual
 CPU audit **19607393**, eight-model GPU array **19607394**, and collector
 **19607691** passed; no GPU evaluations were repeated. Selected checkpoint and
 output hashes are linked in the annual report. Quarter-degree production remains
-gated on real four-GPU qualification of each of the four recipes.
+gated on real eight-GPU qualification of each of the four recipes.
 
 Beta diagnostic **212260** completed all three synthetic 720×1440 full-objective
 backward tests on one GB200 (`beta_test`, 0.1281 allocated GPU-hours). The exact
@@ -238,57 +238,54 @@ end-to-end training on observed values.
 
 Local groundwork now includes a bounded compact-OM4 window reader and explicit
 native-IAP projection in losses and metrics. Legacy scalar-statistics outputs
-were checked for exact equality on a synthetic 243-month fixture; the integrated OM4 training windows, observed-value losses and four-GPU training
-are still to be qualified.
+were checked for exact equality on a synthetic 243-month fixture. Actual U-global
+and observation-only four-GPU training passed the checks below; eight-GPU
+execution and the earlier-data arms still require qualification.
 
 ## Beta bring-up and decision points
 
-Use one Beta node (four B200s) per run, initially sequentially. Qualify the actual
-U-global initializer plus autoregressive training, not just a single processor
-forward pass. Preserve the effective batch when distributing accumulation.
-The existing pilot preloads whole OM4 periods on GPU and prepared observations
-on CPU; this cannot simply be scaled by changing grid dimensions. Integrate the
-verified compact reader with bounded window loading/caching, then check exact
-channel/time/mask equivalence, fitting, gradients, resume and numerical replay.
-Rebuild the current branch's ARM64 native extension: its `FlatOm4ReadPool` API
-differs from the earlier Beta producer's `ZarrReadPool`. The current
-`CompactOm4Reader` provides bounded explicit time/channel reads, including packed
-depth arrays; normalization and masking remain the experiment's responsibility.
-Use activation checkpointing as needed and measure memory, throughput and
-validation overhead before giving a production ETA. Data parallelism alone
-does not make an oversized single sample fit. Quarter-degree fields have 16×
-as many cells; neither 1° runtime nor the other thread's different model provides
-a reliable runtime estimate here. Wait for capacity rather than moving jobs
-repeatedly; Beta had no idle nodes at the inventory snapshot.
+Use **two Beta nodes (eight B200s) per run**, preserving global batch eight,
+6,000 updates and the sample/mask/task schedule. Each rank processes one example
+instead of two. Eight-rank reductions can change floating-point trajectories;
+all arms therefore start fresh and must pass new eight-rank qualification.
+Cross-world checkpoint resume is rejected. The compact OM4 reader uses bounded
+windows. OM4 steps now load observation coverage masks directly, avoiding
+unneeded preparation of observation values; mask equivalence is tested.
 
-Use **native-support RMSE selection**, with the unchanged 1° score reported for
-comparison on the common support described above. The four recipes are fixed
-in the run table; no auxiliary-loss arm won the promotion rule.
+Four-GPU diagnostics **212376_0/1** passed fitting, component gradients, matching
+replicas, real I/O, native observation validation and exact fresh-process restart
+on every trained path. U-global also passed historical OM4 retention. These are
+execution checks, not trained-model results. The cold measured scheduled updates
+were 28.34 seconds for OM4 and 24.35 seconds for observations in U-global, and
+13.74 seconds for observation-only. The mixed estimate is about **44 hours before
+validation**, motivating the additional GPUs. Eight-GPU throughput and final
+runtime remain unmeasured.
 
-The staged four-arm qualification producer is
-`f190debb180d4ecfd9120dd46070c54b39c148ae`. The corrected final gate requires native
-observation validation and, for OM4-trained arms, 11-origin OM4 retention,
-plus exact next-update replay in a separate four-rank process for every trained
-path. Earlier-data arms separately qualify recent, early and observation paths,
-verify first/last/leap-boundary windows against xarray, and require gradients in
-every recurrent latent output row when present. Both periods retain the original
-OM4 update counter and seed stream; earlier data replaces alternate OM4 updates.
-Qualification weights are diagnostic-only and rejected by production resume.
-The legacy `--om4-validation-origins=12` was an upper bound: all eight completed
+The pinned producer is `f091232ea8d7a8ee04ea14dd4cdbea5fa828f9ff`; the new array
+**212398** qualifies one eight-GPU arm at a time on `beta_test`. It requires actual
+two-host NVLink transport, all fitting/data/gradient checks and bitwise next-update
+replay after separate process restarts for each trained path. The two unstarted
+four-GPU early-data tests were canceled. Only the immutable data-derived
+climatology reference is inherited; old GPU qualifications and diagnostic weights
+cannot initialize or authorize production. **169 source tests passed**, including
+actual four/eight-rank CPU gradient and serialized-RNG replay tests; seven launch
+transport checks passed. All commit checks passed.
+
+OM4 retention preserves the historical **11-origin** cohort. The old
+`--om4-validation-origins=12` setting was an upper bound: all eight completed
 6k controls actually evaluated 11 origins. The unchanged August 1, 2013–October 5,
-2014 context contains 87 frames and 63 complete 25-frame windows. The corrected
-runner pins stride-six IDs `0,6,…,60` and the historical origin timestamps
-October 30, 2013–August 26, 2014 (noon); forecast targets end September 25, 2014.
-It rejects changed cohorts rather than extending validation into the test period.
-CPU preflight caught the previous exact-12 guard in `81eaa1a29` before any GPU
-allocation. The replacement preserves the original validation boundaries.
-The runner, data, schedule, latent-state and early-fine tests passed **109 CPU
-tests**. Each arm has its own two-hour test allocation, at most two concurrently.
-Replacement array **212376** is queued; superseded **212374** was canceled before
-allocation. Corrected CPU preflight **131990** passed actual recent and
-first/last/leap early windows against xarray, including normalization and finite
-six-tensor outputs (53.8 seconds in the audit; 2m31s allocation). Its
-[receipt](artifacts/quarter-bringup-2026-10-11/cpu-windows-131990.json.gz) preserves
-source/runtime/data hashes. Failed CPU attempt **131988** remains saved; neither
-CPU attempt used GPUs. The correction passes 90 focused tests. There are no
-production jobs or quarter-degree scientific results yet.
+2014 context contains 87 frames and 63 complete 25-frame windows. The runner pins
+stride-six IDs `0,6,…,60`, with forecast origins October 30, 2013–August 26, 2014
+(noon), ending targets September 25. CPU preflight **131990** passed recent and
+first/last/leap-boundary early windows against xarray, including normalization.
+Its [receipt](artifacts/quarter-bringup-2026-10-11/cpu-windows-131990.json.gz)
+preserves the source/runtime/data hashes. The preceding exact-12 guard failure
+was caught on CPU before any GPU allocation; failed and superseded attempts
+remain saved.
+
+Completed native-quarter diagnostic allocations total **7.315 GPU-hours** before
+212398: 1h03m02s × 4 for U-global, 43m42s × 4 for observation-only, plus the two
+single-GPU diagnostics. Canceled unstarted tests used zero. This is separate from
+the completed 1° campaigns. [Qualification and launch receipts](artifacts/quarter-bringup-2026-10-11/eight-rank-transition.json.gz)
+record the producer, measurements and accounting. There are no native-quarter
+production jobs or scientific results yet.

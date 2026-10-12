@@ -210,22 +210,18 @@ a reliable runtime estimate here. Wait for capacity rather than moving jobs
 repeatedly; Beta had no idle nodes at the inventory snapshot.
 
 Use **native-support RMSE selection**, with the unchanged 1° score reported for
-comparison. The agreed scope is two baseline arms plus one or two promoted
-variants, all trained fresh for 6k updates. Final variant identities depend on
-the completed matched 30/365-day comparison.
+comparison on the common support described above. The four recipes are fixed
+in the run table; no auxiliary-loss arm won the promotion rule.
 
-If an auxiliary variant wins, preserve what its target means: the current q
-labels measure variance inside a **1° cell using ¼° velocities**. They are not
-unresolved variance inside a ¼° cell. A native-quarter model can retain that
-supervision through a head aggregated to the original 1° support; it cannot
-silently relabel q as finer-scale truth. Document and qualify the head/aggregation
-before submitting that arm. This transfer changes the relation of the auxiliary
-target to the resolved state, so it is not an exact resolution-only reproduction.
-
-The staged baseline qualification producer is
-`17b5be0e52d9cd234604db2501b81b3f09119d24`. Its final gate requires the native
-observation validation and 12-origin OM4 retention path, plus exact next-update
-replay in a separate four-rank process for each trained task. Qualification
-weights are marked diagnostic-only and rejected by production resume. The
-runner and common-grid collector passed 57 focused CPU tests; actual GPU gates
-remain pending prepared data. Staged qualification has not been submitted.
+The staged four-arm qualification producer is
+`81eaa1a290bdcf3473e7a351a75c7acb3685cd3c`. Its final gate requires native
+observation validation and, for OM4-trained arms, 12-origin OM4 retention,
+plus exact next-update replay in a separate four-rank process for every trained
+path. Earlier-data arms separately qualify recent, early and observation paths,
+verify first/last/leap-boundary windows against xarray, and require gradients in
+every recurrent latent output row when present. Both periods retain the original
+OM4 update counter and seed stream; earlier data replaces alternate OM4 updates.
+Qualification weights are diagnostic-only and rejected by production resume.
+The runner, data, schedule, latent-state and early-fine tests passed **109 CPU
+tests**. Each arm has its own two-hour test allocation, at most two concurrently;
+actual GPU qualification remains unsubmitted pending prepared data.

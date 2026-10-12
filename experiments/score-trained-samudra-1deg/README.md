@@ -5,9 +5,9 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Score-trained stochastic Samudra on 1-degree OM4
 
-Status: training and primary annual evaluations complete, 2026-10-12. See the
-[annual comparison report](RESULTS.md) and [run record](RUNS.md). Continuous diagnostics are queued;
-remaining report work is explicitly listed in the report.
+Status: training, primary annual evaluations and continuous eight-year diagnostics complete, 2026-10-12.
+See the [comparison report](RESULTS.md) and [run record](RUNS.md). Persistence and training-only seasonal
+climatology references are queued; remaining report work is explicitly listed in the report.
 The user authorized B/C/D on Beta, Torch, or Engaging, using Rust loading and no `hfds_anomalies`.
 Reuse A; do not retrain it.
 Experiment record, not intended to merge. Later waves remain subject to approval.

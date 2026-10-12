@@ -228,11 +228,35 @@ first-step physical predictions also match their primary annual outputs. All fou
 [D](https://wandb.ai/ocean_emulators/default/runs/f3pmxfjn).
 Twelve local tests and scoped code checks passed. Its callback was received and retired.
 
-Full job **212420** is queued on production Beta with four B200s and a one-hour wall limit, using the same
-immutable source and epoch-70 EMA checkpoints. Output will be in `outputs/continuous-full-212420/{A,B,C,D}/`.
-It has an EXIT callback and a one-hour fallback reminder. The receiver was checked from the qualification
-compute allocation and the full registration from the login node; full-job bring-up remains pending.
+Full job **212420** completed on production Beta with four B200s in **5:38** (0.376 allocated GPU-hours),
+exit 0, using the same immutable source and epoch-70 EMA checkpoints. All four arms produced 598 states
+through 2022-12-24, with 46,046 unique finite score rows each. Full read-back checks verified common timestamps,
+channels, truth moments and bulk quantities, finite physical diagnostics, saved target/mask equality and
+mean/member consistency. The final actual lead is 2,992 days (2,990 nominal days). W&B synchronized at
+[A](https://wandb.ai/ocean_emulators/default/runs/ykv0ko06),
+[B](https://wandb.ai/ocean_emulators/default/runs/vfhjnj23),
+[C](https://wandb.ai/ocean_emulators/default/runs/2d6qhgkc),
+[D](https://wandb.ai/ocean_emulators/default/runs/b6z4e9hg).
+Outputs are in `outputs/continuous-full-212420/{A,B,C,D}/`; the completion callback was received and retired.
+`analyze_continuous.py` audits and summarizes those outputs. Its physical structure, bulk and score assets
+are included in `results/`. A post-hoc split by output-block phase identifies larger salinity increments
+between calls than within calls, in both stochastic and deterministic arms. It does not establish a cause.
 
-Remaining report work includes the continuous analysis, persistence and training-only climatology references,
-observation metrics where applicable, and secondary checkpoint sensitivities. Proposed next-wave choices in
-`RESULTS.md` are provisional pending these diagnostics. No additional training seed or later wave has started.
+## Persistence and training-only seasonal references
+
+Job **212427** is queued on production Beta with four B200s and a one-hour wall limit, from immutable
+source `dcdda50e2`. It uses the common annual evaluator's 30 origins, seven leads, all 77 channels, masks
+and existing normalization. P holds the latest true input fixed. S uses 73 seasonal bins fitted only to
+1975-01-03 through 2013-10-05 source states. Julian-calendar centers are day-of-year 3, 8, ..., 363;
+leap years have the same bins and a six-day year-end transition. All 4,745 source timestamps were checked
+against this bin definition before submission. Counts, fitting bounds, source and normalization are written
+to the reference manifest; 32,340 metric rows are required before marking completion.
+
+Output will be in `outputs/references-212427/`. The batch script has an EXIT callback, compute-node receiver
+check, and hourly fallback reminder; the login-node receiver check passed before release. All ranks wait
+for online W&B initialization before fitting the climatology. Thirteen local model/numerical tests and scoped
+pre-commit checks passed. These deterministic references do not train another neural model.
+
+Remaining report work includes these references, observation metrics where applicable, and secondary
+checkpoint sensitivities. Proposed next-wave choices in `RESULTS.md` remain provisional. No additional
+training seed or later wave has started.

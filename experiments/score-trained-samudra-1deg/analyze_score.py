@@ -35,7 +35,14 @@ def save_figure(fig, path):
 
 
 def save_csv(frame, path):
-    frame.to_csv(path, index=False, float_format="%.10g")
+    if path.suffix == ".gz":
+        path.write_bytes(
+            gzip.compress(
+                frame.to_csv(index=False, float_format="%.10g").encode(), mtime=0
+            )
+        )
+    else:
+        frame.to_csv(path, index=False, float_format="%.10g")
     path.with_suffix(path.suffix + ".license").write_text(LICENSE)
 
 

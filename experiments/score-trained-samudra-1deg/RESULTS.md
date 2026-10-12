@@ -3,12 +3,12 @@ SPDX-FileCopyrightText: 2026 Samudra Authors
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
-# Score-trained Samudra: first-wave annual forecast results
+# Score-trained Samudra: first-wave forecast and continuous-rollout results
 
-**Status, 2026-10-12:** all training and all four primary annual evaluations completed successfully.
-This report covers repeated forecasts. Continuous-rollout drift/structure diagnostics passed qualification
-and are queued as Beta job 212420;
-persistence, training-period climatology and observational comparisons are still outstanding. This is an
+**Status, 2026-10-12:** all training, all four primary annual evaluations, and the continuous eight-year
+drift/structure diagnostics completed successfully. Persistence and training-period seasonal-climatology
+references are queued as Beta job 212427; observational comparisons and checkpoint sensitivities remain
+outstanding. This is an
 experiment/results record, not intended to merge. The first-wave report is not yet complete.
 
 ## What the completed comparison establishes
@@ -25,9 +25,9 @@ There are three qualifications:
   time, versus 88.24% for 16 exchangeable forecast members and a verifying target. Their finite-member-adjusted
   RMS spread/error ratios are 0.84 and 0.86, with 1 as the calibrated reference under the usual exchangeability
   assumptions. Positive spread alone did not establish this.
-- **D has no clear advantage over C in aggregate RMSE/CRPS.** Their 360-day differences are smaller than the
-  paired year-block intervals below. Whether D improves structure is a separate question for the pending
-  diagnostics; a null aggregate comparison does not settle it.
+- **D has no clear advantage over C in aggregate RMSE/CRPS, but does improve several structure diagnostics.**
+  Its members better match OM4's velocity and SSH increments in the continuous rollout. Temperature/salinity
+  results are mixed; 550 m salinity still changes too much, especially between successive model calls.
 
 These are OM4-to-OM4 forecasts initialized with complete ocean states, not surface-only initialization,
 observational interior verification, or a demonstration that the model has learned the full joint ocean
@@ -170,31 +170,114 @@ Other fixed-date assets:
 - 550 m U velocity: [fields](results/annual-uo_9-360d.jpg), [errors](results/annual-error-uo_9-360d.jpg).
 - 550 m salinity at 40 nominal days: [fields](results/annual-so_9-040d.jpg).
 
+## Continuous eight-year rollout
+
+All four arms initialize once, with the latest input at 2014-10-15 12:00, and evolve through 2022-12-24 12:00
+without resets: **299 model calls, 598 predicted states, 2,992 actual elapsed days** (2,990 nominal days).
+C/D each use four independently evolving members here. All predictions and reported diagnostics are finite.
+This is one initial condition and one training seed, not a test of 100-year stability.
+
+![Continuous scores and regional errors](results/continuous-scores.jpg)
+
+The mean normalized channel RMSE over output dates in 2022 is **0.3774 / 0.3782 / 0.3767 / 0.3764** for
+A/B/C/D. The annual-forecast gain therefore does not translate into a large point-score improvement at this
+long horizon. Regional rankings also differ. C/D's empirical CRPS is 0.1863/0.1854, versus 0.2362/0.2366 for
+A/B. These four-member scores should not be compared directly with the 16-member annual CRPS: the lead times,
+verification dates and finite-ensemble biases differ. C/D's member-range coverage in 2022 is 55.6%/55.9%,
+below the four-member exchangeability reference of 60%.
+
+### What the members preserve, and what they miss
+
+![Member and ensemble-mean structure relative to OM4](results/continuous-structure.jpg)
+
+The table reports model/OM4 ratios of physical RMS increments, averaged over all 598 output dates. The time
+diagnostic includes the transition from the last true input to the first prediction. One is the reference,
+not a fitted optimum. For C/D, each
+member's nonlinear statistic is computed first, then averaged across members; the figure separately shows
+statistics of the ensemble mean with hatching.
+
+| Diagnostic | A | B | C members | D members |
+| --- | ---: | ---: | ---: | ---: |
+| SSH, adjacent-longitude increment | 0.922 | 0.941 | 0.970 | 1.008 |
+| SSH, consecutive-time increment | 0.609 | 0.876 | 1.202 | 1.016 |
+| 550 m U velocity, adjacent-longitude increment | 0.868 | 0.874 | 0.883 | 0.923 |
+| 550 m U velocity, consecutive-time increment | 0.710 | 0.710 | 1.128 | 0.987 |
+| Surface temperature, adjacent-longitude increment | 0.903 | 0.964 | 0.922 | 0.970 |
+| Surface temperature, consecutive-time increment | 0.938 | 1.203 | 1.222 | 1.281 |
+| 550 m salinity, adjacent-longitude increment | 0.875 | 0.880 | 0.830 | 0.881 |
+| 550 m salinity, consecutive-time increment | 1.270 | 2.393 | 1.943 | 1.912 |
+
+D improves these velocity/SSH diagnostics relative to C, despite their almost identical annual aggregate
+scores. It also improves adjacent-depth velocity differences: depth-averaged U/V RMS-difference ratios are
+**0.985/0.972** for D versus **1.100/1.244** for C. These are adjacent-depth field differences, not vertical
+derivatives divided by layer separation. Temperature and salinity show mixed results: D's surface temperature
+varies too much between dates, and its 550 m salinity still has weaker spatial increments and much stronger
+temporal increments than OM4. Matching a few moments does not establish a correct joint distribution.
+
+Zonal differences use periodic offsets of 1, 4 and 16 grid cells and joint wet masks. They are not isotropic
+spectra or differences at a fixed physical distance. Time differences have the source's nominal five-day
+support, with two six-day intervals shared by all arms. The [vertical/covariance table](results/continuous-vertical.csv)
+retains every depth pair; the per-arm structure tables retain all 77 channels.
+
+### A discontinuity between two-output blocks
+
+A post-hoc diagnostic splits consecutive salinity differences by their position in the two-output model
+call. Each call predicts two states. The difference between those states is "within call"; the difference
+from the previous call's second state to this call's first state is "between calls." That group includes
+the initial transition from the last true input to the first prediction.
+
+| 550 m salinity, temporal-increment RMS / OM4 | Within call | Between calls |
+| --- | ---: | ---: |
+| A | 0.954 | 1.587 |
+| B | 1.957 | 2.830 |
+| C members | 1.131 | 2.757 |
+| D members | 1.234 | 2.591 |
+| C ensemble mean | 0.829 | 1.628 |
+| D ensemble mean | 0.856 | 1.561 |
+
+OM4 itself has almost equal RMS changes for these two phases (0.00803 and 0.00802 salinity units), so the
+alternation is not explained by that reference. Fresh noise is drawn for each stochastic model call, shared
+through its two-output prediction; that is one possible contributor. **A/B also show the alternation**, so
+this is not evidence that noise alone causes it. Output-head differences and autoregressive feedback are
+other hypotheses. This diagnostic was added after seeing the temporal-increment error and was not used for
+checkpoint or date selection. Raw phase summaries are retained for
+[A](results/continuous-phase-A.csv), [B](results/continuous-phase-B.csv),
+[C](results/continuous-phase-C.csv) and [D](results/continuous-phase-D.csv).
+
+### Bulk behavior
+
+![Depth-weighted temperature, salinity and kinetic-energy proxies](results/continuous-bulk.jpg)
+
+The volume-proxy mean temperature errors in 2022 are approximately **−0.017 / −0.018 / −0.022 / −0.019 °C**
+for A/B/C/D. For C/D, kinetic energy computed from the ensemble-mean velocity is about **0.759× OM4**,
+whereas the mean of member kinetic energies is **0.951×/0.962× OM4**. Reporting only the mean field would
+therefore obscure variability retained by individual members. The corresponding deterministic A/B ratios
+are 0.865/0.884. This does not demonstrate energy conservation: the quantities use cosine-latitude weights,
+binary wet masks and nominal full-layer thicknesses, not exact OM4 partial-cell geometry. They are bulk
+proxies, not exact heat/salt inventories.
+
 ## Remaining diagnostics and proposed decisions
 
-The continuous-rollout runner initializes once and evolves through the held-out period without resets,
-using four members for C/D. It measures member and mean errors, regional RMSE, physical spatial variance,
-wet-pair zonal structure functions, temporal increments, adjacent-depth differences, T/S and U/V covariance,
-and depth-weighted mean-state/kinetic-energy proxies. Nonlinear quantities are calculated separately on each
-member and on the ensemble mean. The bulk quantities use cosine-latitude weights, binary masks and nominal
-layer thicknesses; they are not exact OM4 heat/salt inventories with partial-cell geometry.
+Persistence and training-only seasonal-climatology references are queued as job 212427. Secondary observation
+scoring where applicable and raw/validation-selected checkpoint sensitivities remain outstanding. Continuous
+diagnostics retain summary statistics and selected field maps; observation scoring needs an additional
+trajectory export. No conclusion about observational skill or 100-year climate stability is claimed.
 
-Still outstanding are that continuous analysis, persistence and training-only seasonal climatology references,
-secondary observation scoring where applicable, and raw/validation-selected checkpoint sensitivities.
-No conclusion about climate stability, observational skill or improved joint structure is claimed yet.
+Provisional next-wave suggestions, for review after the remaining evaluations:
 
-Provisional next-wave suggestions, for review after those diagnostics:
-
-1. **Reproducibility:** repeat B/C at seeds 16/17. Include D if the joint diagnostics show a useful structural
-   benefit; its aggregate scores alone do not currently justify preferring its extra loss terms.
-2. **Underdispersion:** compare C's four-member training with an eight-member version at the same exposure,
+1. **Reproducibility:** repeat B/C/D at seeds 16/17. D's structural improvements now justify retaining it in
+   this comparison, while its aggregate RMSE/CRPS remains effectively tied with C.
+2. **Continuity between calls:** compare persistent or temporally correlated noise with the current fresh
+   noise, alongside a deterministic control for output-head/feedback alternation. Check whether salinity
+   jumps improve without erasing calibrated spread; the present diagnostic does not identify the cause.
+3. **Underdispersion:** compare C's four-member training with an eight-member version at the same exposure,
    while reporting the additional compute. Add a validation-only spread-calibration diagnostic as a cheap
    reference, clearly separated from dynamically generated, physically coherent members.
-3. **Variable trade-offs:** compare C against a version with fixed, training-derived channel weights motivated
+4. **Variable trade-offs:** compare C against a version with fixed, training-derived channel weights motivated
    by A's temperature/salinity advantage. Check whether thermodynamic gains cost velocity/SSH skill instead
    of optimizing only the 77-channel headline.
-4. **Structured multitask learning:** use C as the simpler provisional generative baseline. Add masking/tasks
-   with a matched forecast-only control once calibration and structural behavior are understood. These
+5. **Structured multitask learning:** use C as the simpler provisional generative baseline and retain D for
+   structural comparison. Add masking/tasks with a matched forecast-only control. These
    results do not require changing to diffusion, nor do they establish that diffusion would be inferior.
 
 No next-wave training has been submitted.
@@ -208,8 +291,8 @@ all using evaluator `0ed45a791` and epoch-70 EMA checkpoints. W&B links and exac
 SHA-256 and container fingerprints.
 
 New B/C/D training consumed about **121.89 allocated B200 GPU-hours**. Including qualification, cancelled
-notification preflights and all annual evaluations, approximately **124.5 GPU-hours** have been used before
-the continuous diagnostics, within the approximately 200-GPU-hour first-wave envelope. These are allocation
+notification preflights, annual evaluations and continuous diagnostics, approximately **125.0 GPU-hours**
+have been used before the reference evaluation, within the approximately 200-GPU-hour first-wave envelope. These are allocation
 costs, not kernel-active GPU time. A's historical training cost is excluded; it was reused. Equal epochs and
 training contexts are not equal compute, and no equal-compute superiority claim is made.
 
@@ -224,3 +307,12 @@ Reproduce with `uv run python experiments/score-trained-samudra-1deg/analyze_sco
 `--C`, `--D` paths to the downloaded `outputs/eval-full-<arm>-<job>/` directories, `--data-manifest` pointing
 to B's `outputs/train-B/data-manifest.json`, and `--output` for the generated assets. All remote paths are
 relative to the campaign root documented in `RUNS.md`.
+
+Continuous results use source `1c76b81ca` and job 212420. Reproduce their analysis with
+`uv run python experiments/score-trained-samudra-1deg/analyze_continuous.py <downloaded-continuous-full-212420> <output>`.
+The analyzer checks all 46,046 unique score rows per arm, finite diagnostics, matching truth statistics,
+epoch-70 checkpoints, 598 timestamps and saved field/mask consistency. Per-arm `continuous-scores-*.csv`
+retain date-level scores; `continuous-global-*.csv.gz` retain every date/slot bulk diagnostic;
+`continuous-structure-*.csv`, `continuous-phase-*.csv` and `continuous-vertical.csv` retain physical
+structure summaries. Year/family summaries are also included. Original per-channel/date score files,
+manifests, full diagnostic arrays and selected field maps remain under the recorded Beta output directory.

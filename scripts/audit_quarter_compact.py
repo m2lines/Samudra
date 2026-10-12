@@ -17,6 +17,7 @@ import hashlib
 import json
 import platform
 import resource
+import sys
 import time
 from pathlib import Path
 
@@ -167,6 +168,24 @@ def main():
     if not Path(native.__file__).resolve().is_relative_to(args.runtime.resolve()):
         raise RuntimeError("Loaded native extension outside the isolated runtime")
     result = audit(args.store, native)
+    # Keep binary identity valid when the qualified sidecar is mounted at a
+    # different path in training. Record the package entrypoint separately.
+    result["module_file_sha256"] = hashlib.sha256(
+        Path(native.__file__).read_bytes()
+    ).hexdigest()
+    result["module_binary_sha256"] = {}
+    for name, module in list(sys.modules.items()):
+        filename = getattr(module, "__file__", None)
+        if (
+            (name == native.__name__ or name.startswith(native.__name__ + "."))
+            and filename is not None
+            and Path(filename).suffix == ".so"
+        ):
+            result["module_binary_sha256"][Path(filename).name] = hashlib.sha256(
+                Path(filename).read_bytes()
+            ).hexdigest()
+    if not result["module_binary_sha256"]:
+        raise RuntimeError("No loaded native reader binary found for audit identity")
     args.output.write_text(json.dumps(result, indent=2) + "\n")
     print(json.dumps(result, indent=2), flush=True)
 

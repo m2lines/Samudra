@@ -1,0 +1,66 @@
+-------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------
+                                                   Name    Self CPU %      Self CPU   CPU total %     CPU total  CPU time avg     Self CUDA   Self CUDA %    CUDA total  CUDA time avg    # of Calls
+-------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------
+                             aten::convolution_backward         5.88%        3.588s         9.24%        5.640s     162.408us        5.307s        27.99%        5.310s     152.902us         34727
+                                aten::cudnn_convolution         5.14%        3.138s         8.17%        4.982s      71.713us        4.653s        24.53%        4.655s      66.996us         69475
+void cudnn::engines_precompiled::nchwToNhwcKernel<__...         0.00%       0.000us         0.00%       0.000us       0.000us        2.620s        13.81%        2.620s      13.675us        191579
+void cudnn::engines_precompiled::nhwcToNchwKernel<__...         0.00%       0.000us         0.00%       0.000us       0.000us        1.157s         6.10%        1.157s      11.877us         97424
+cutlass3x_sm100_tensorop_s128x128x16implicit_gemm_fp...         0.00%       0.000us         0.00%       0.000us       0.000us        1.125s         5.93%        1.125s      42.872us         26250
+                       aten::replication_pad2d_backward         0.66%     400.864ms         2.31%        1.410s      61.411us        1.063s         5.60%        1.216s      52.959us         22966
+cutlass3x_sm100_tensorop_s256x256x16implicit_gemm_fp...         0.00%       0.000us         0.00%       0.000us       0.000us     994.175ms         5.24%     994.175ms      50.579us         19656
+void at::native::(anonymous namespace)::replication_...         0.00%       0.000us         0.00%       0.000us       0.000us     930.928ms         4.91%     930.928ms      43.673us         21316
+cutlass3x_sm100_tensorop_s128x256x16implicit_gemm_wg...         0.00%       0.000us         0.00%       0.000us       0.000us     770.730ms         4.06%     770.730ms      78.422us          9828
+cutlass3x_sm100_tensorop_s256x256x16implicit_gemm_dg...         0.00%       0.000us         0.00%       0.000us       0.000us     647.806ms         3.42%     647.806ms      39.510us         16396
+cutlass3x_sm100_tensorop_s128x128x16implicit_gemm_wg...         0.00%       0.000us         0.00%       0.000us       0.000us     529.671ms         2.79%     529.671ms     105.449us          5023
+void at::native::vectorized_elementwise_kernel<4, at...         0.00%       0.000us         0.00%       0.000us       0.000us     455.871ms         2.40%     455.871ms       3.188us        142996
+                                             aten::add_         0.89%     545.907ms         1.96%        1.199s       8.440us     412.787ms         2.18%     412.787ms       2.907us        142013
+                    triton_poi_fused_copy_silu_slice_17         0.11%      69.794ms         0.25%     150.140ms      15.523us     364.546ms         1.92%     364.546ms      37.691us          9672
+                    triton_poi_fused_copy_silu_slice_17         0.00%       0.000us         0.00%       0.000us       0.000us     364.546ms         1.92%     364.546ms      37.691us          9672
+                    triton_poi_fused_copy_silu_slice_74         0.04%      23.679ms         0.08%      49.448ms      15.337us     333.141ms         1.76%     333.244ms     103.364us          3224
+                    triton_poi_fused_copy_silu_slice_74         0.00%       0.000us         0.00%       0.000us       0.000us     333.141ms         1.76%     333.141ms     103.332us          3224
+cutlass3x_sm100_tensorop_s256x128x16implicit_gemm_dg...         0.00%       0.000us         0.00%       0.000us       0.000us     310.949ms         1.64%     310.949ms      63.098us          4928
+cutlass3x_sm100_tensorop_s256x64x8tf32implicit_gemm_...         0.00%       0.000us         0.00%       0.000us       0.000us     274.121ms         1.45%     274.121ms       5.272ms            52
+cutlass3x_sm100_tensorop_s256x128x16implicit_gemm_wg...         0.00%       0.000us         0.00%       0.000us       0.000us     228.615ms         1.21%     228.615ms      46.523us          4914
+triton_poi_fused__to_copy__unsafe_index_add_cat_conv...         0.09%      54.815ms         0.14%      86.656ms      26.878us     220.640ms         1.16%     220.777ms      68.479us          3224
+triton_poi_fused__to_copy__unsafe_index_add_cat_conv...         0.00%       0.000us         0.00%       0.000us       0.000us     220.640ms         1.16%     220.640ms      68.437us          3224
+cutlass3x_sm100_tensorop_s256x256x16implicit_gemm_st...         0.00%       0.000us         0.00%       0.000us       0.000us     214.025ms         1.13%     214.025ms     130.663us          1638
+triton_poi_fused__to_copy_add_clone_native_group_nor...         0.04%      25.072ms         0.07%      41.185ms      25.143us     198.127ms         1.04%     198.127ms     120.957us          1638
+triton_poi_fused__to_copy_add_clone_native_group_nor...         0.00%       0.000us         0.00%       0.000us       0.000us     198.127ms         1.04%     198.127ms     120.957us          1638
+                    triton_poi_fused_copy_silu_slice_65         0.04%      24.689ms         0.08%      50.679ms      15.719us     191.811ms         1.01%     191.811ms      59.495us          3224
+                    triton_poi_fused_copy_silu_slice_65         0.00%       0.000us         0.00%       0.000us       0.000us     191.811ms         1.01%     191.811ms      59.495us          3224
+                                              aten::mul         0.25%     150.644ms         0.45%     271.890ms      26.277us     188.226ms         0.99%     188.264ms      18.195us         10347
+                                            aten::fill_         0.38%     233.204ms         0.90%     551.642ms      20.597us     162.513ms         0.86%     162.513ms       6.068us         26782
+         triton_red_fused__to_copy_native_group_norm_14         0.22%     133.667ms         0.38%     232.166ms      24.004us     162.350ms         0.86%     162.367ms      16.787us          9672
+         triton_red_fused__to_copy_native_group_norm_14         0.00%       0.000us         0.00%       0.000us       0.000us     162.350ms         0.86%     162.350ms      16.786us          9672
+         triton_red_fused__to_copy_native_group_norm_71         0.05%      32.173ms         0.10%      59.915ms      18.584us     159.709ms         0.84%     159.709ms      49.538us          3224
+         triton_red_fused__to_copy_native_group_norm_71         0.00%       0.000us         0.00%       0.000us       0.000us     159.709ms         0.84%     159.709ms      49.538us          3224
+         triton_poi_fused__to_copy_replication_pad2d_18         0.11%      67.297ms         0.24%     147.713ms      15.272us     148.984ms         0.79%     148.984ms      15.404us          9672
+         triton_poi_fused__to_copy_replication_pad2d_18         0.00%       0.000us         0.00%       0.000us       0.000us     148.984ms         0.79%     148.984ms      15.404us          9672
+void at::native::vectorized_elementwise_kernel<4, at...         0.00%       0.000us         0.00%       0.000us       0.000us     145.552ms         0.77%     145.552ms       6.094us         23884
+                    triton_poi_fused_copy_silu_slice_38         0.08%      48.591ms         0.17%     105.650ms      16.385us     138.346ms         0.73%     138.346ms      21.456us          6448
+                    triton_poi_fused_copy_silu_slice_38         0.00%       0.000us         0.00%       0.000us       0.000us     138.346ms         0.73%     138.346ms      21.456us          6448
+cutlass3x_sm100_tensorop_s256x128x16implicit_gemm_wg...         0.00%       0.000us         0.00%       0.000us       0.000us     135.435ms         0.71%     135.435ms      41.078us          3297
+         triton_poi_fused__to_copy_replication_pad2d_75         0.04%      22.531ms         0.08%      48.268ms      14.971us     132.987ms         0.70%     132.987ms      41.249us          3224
+         triton_poi_fused__to_copy_replication_pad2d_75         0.00%       0.000us         0.00%       0.000us       0.000us     132.987ms         0.70%     132.987ms      41.249us          3224
+void at::native::(anonymous namespace)::replication_...         0.00%       0.000us         0.00%       0.000us       0.000us     131.696ms         0.69%     131.696ms      79.816us          1650
+triton_red_fused__to_copy_clone_native_group_norm_na...         0.06%      33.856ms         0.08%      50.256ms      30.682us     129.600ms         0.68%     129.600ms      79.121us          1638
+triton_red_fused__to_copy_clone_native_group_norm_na...         0.00%       0.000us         0.00%       0.000us       0.000us     129.600ms         0.68%     129.600ms      79.121us          1638
+         triton_poi_fused__to_copy_native_group_norm_73         0.07%      43.600ms         0.12%      70.778ms      21.953us     124.061ms         0.65%     124.100ms      38.492us          3224
+         triton_poi_fused__to_copy_native_group_norm_73         0.00%       0.000us         0.00%       0.000us       0.000us     124.061ms         0.65%     124.061ms      38.480us          3224
+triton_poi_fused__to_copy_add_clone_native_group_nor...         0.04%      23.128ms         0.06%      39.330ms      24.011us     116.506ms         0.61%     116.506ms      71.127us          1638
+triton_poi_fused__to_copy_add_clone_native_group_nor...         0.00%       0.000us         0.00%       0.000us       0.000us     116.506ms         0.61%     116.506ms      71.127us          1638
+                    triton_poi_fused_copy_silu_slice_55         0.13%      76.325ms         0.26%     156.418ms      16.172us     115.973ms         0.61%     116.009ms      11.994us          9672
+                    triton_poi_fused_copy_silu_slice_55         0.00%       0.000us         0.00%       0.000us       0.000us     115.973ms         0.61%     115.973ms      11.991us          9672
+triton_poi_fused__to_copy_add_mul_native_group_norm_...         0.17%     102.319ms         0.27%     167.473ms      25.973us     112.261ms         0.59%     112.278ms      17.413us          6448
+triton_poi_fused__to_copy_add_mul_native_group_norm_...         0.00%       0.000us         0.00%       0.000us       0.000us     112.261ms         0.59%     112.261ms      17.410us          6448
+triton_red_fused__to_copy_add_clone_convolution_back...         0.09%      52.057ms         0.14%      84.447ms      25.777us     110.517ms         0.58%     110.517ms      33.735us          3276
+triton_red_fused__to_copy_add_clone_convolution_back...         0.00%       0.000us         0.00%       0.000us       0.000us     110.517ms         0.58%     110.517ms      33.735us          3276
+void at::native::vectorized_elementwise_kernel<4, at...         0.00%       0.000us         0.00%       0.000us       0.000us     107.722ms         0.57%     107.722ms      16.097us          6692
+                                              aten::div         0.13%      76.553ms         0.23%     138.019ms      27.336us     106.211ms         0.56%     106.211ms      21.036us          5049
+triton_poi_fused__to_copy__unsafe_index_add_arange_c...         0.11%      66.007ms         0.17%     102.767ms      31.876us     105.104ms         0.55%     105.104ms      32.601us          3224
+triton_poi_fused__to_copy__unsafe_index_add_arange_c...         0.00%       0.000us         0.00%       0.000us       0.000us     105.104ms         0.55%     105.104ms      32.601us          3224
+                                            aten::addmm         2.34%        1.427s         3.31%        2.019s      58.686us     103.535ms         0.55%     103.535ms       3.010us         34398
+triton_red_fused__to_copy_add_clone_mul_native_group...         0.14%      84.051ms         0.20%     118.986ms      36.320us     103.059ms         0.54%     103.059ms      31.459us          3276
+-------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------
+Self CPU time total: 61.017s
+Self CUDA time total: 18.963s

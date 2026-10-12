@@ -16,6 +16,9 @@ The user authorized B/C/D on Beta, Torch, or Engaging, using Rust loading and no
 Reuse A; do not retrain it.
 Experiment record, not intended to merge. Later waves remain subject to approval.
 
+The user authorized the [C structured-multitask wave](MULTITASK.md) on 2026-10-12: the confirmed task mix
+and a matched forecast-only control. Its execution and results are separate from the completed first wave.
+
 ## Question and scope
 
 Can a convolutional Samudra forecast trained to generate ensembles improve probabilistic skill and preserve

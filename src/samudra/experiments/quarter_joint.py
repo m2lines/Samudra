@@ -2,9 +2,12 @@
 # SPDX-License-Identifier: Apache-2.0
 """Native-quarter baseline runner, with separate reference/qualification/train modes.
 
-Launch qualification and training with torchrun --nproc_per_node=4. Reference
+Launch qualification, qualify-replay and training with torchrun --nproc_per_node=4. Reference
 construction needs one GPU. No mode submits work. Production requires measured
 four-rank qualification from this exact producer/runtime/data/science contract.
+Qualification writes diagnostic checkpoints and QUALIFICATION_PENDING.json.
+Run qualify-replay --replay-task TASK in a separate torchrun invocation for each
+trained task. Only successful fresh-process replays publish QUALIFIED.json.
 """
 
 import argparse
@@ -46,6 +49,8 @@ from samudra.experiments.quarter_distributed import (
 from samudra.experiments.task_schedule import TaskSchedule
 
 ARMS = {"u-global": (3000, 3000, "mixed"), "observation-only": (0, 6000, "scratch")}
+# Fixed for this Python process, independent of all training RNG streams.
+PROCESS_TOKEN = f"{os.uname().nodename}:{os.getpid()}:{time.monotonic_ns()}"
 RUNTIME_MODULES = frozenset(
     {
         "torch",
@@ -397,6 +402,8 @@ def check_qualification(record, contract):
         raise ValueError("Missing matching measured DDP replica hashes")
     if set(evidence["resume"].get("tasks", [])) != set(tasks):
         raise ValueError("Resume replay must cover every trained task")
+    if evidence["resume"].get("fresh_process") is not True:
+        raise ValueError("Qualification requires fresh-process four-rank replay")
     for task in tasks:
         seconds = evidence["throughput"].get("task_seconds_per_update", {}).get(task, 0)
         if not math.isfinite(seconds) or seconds <= 0:
@@ -424,6 +431,94 @@ def check_qualification(record, contract):
         raise ValueError("Missing measured observation reads")
     if "om4" in tasks and evidence["io"].get("om4_windows", 0) < 1:
         raise ValueError("Missing measured native OM4 window reads")
+    if "om4" in tasks:
+        check_retention(evidence.get("retention", {}))
+
+
+def check_retention(record):
+    metrics = record.get("metrics", {})
+    seconds = record.get("seconds", 0)
+    if (
+        record.get("passed") is not True
+        or metrics.get("origins") != 12
+        or not math.isfinite(seconds)
+        or seconds <= 0
+        or any(
+            not math.isfinite(metrics.get(key, math.nan)) or metrics[key] < 0
+            for key in ("ts_mse", "reconstruction_ts_mse", "full_mse")
+        )
+    ):
+        raise ValueError("Missing finite measured 12-origin OM4 retention")
+
+
+def process_tokens():
+    tokens = [None] * dist.get_world_size()
+    dist.all_gather_object(tokens, PROCESS_TOKEN)
+    return tokens
+
+
+def replay_inputs(out, pending, task):
+    """Bind both diagnostic replay artifacts before loading pickle payloads."""
+    record = pending["quarter_evidence"]["resume"]["inputs"][task]
+    for kind, filename in (
+        ("checkpoint", f"qualification-resume-{task}.pt"),
+        ("expected", f"qualification-expected-{task}.pt"),
+    ):
+        if (
+            record[kind]["file"] != filename
+            or digest(out / filename) != record[kind]["sha256"]
+        ):
+            raise ValueError(f"Diagnostic {task} {kind} hash/path differs")
+    return record
+
+
+def finalize_qualification(out, contract):
+    """Rank zero publishes the final gate only after distinct task restarts."""
+    pending_path = out / "QUALIFICATION_PENDING.json"
+    pending = json.loads(pending_path.read_text())
+    if (
+        pending.get("quarter_contract") != contract
+        or pending.get("diagnostic_only") is not True
+    ):
+        raise ValueError("Pending qualification contract/diagnostic scope differs")
+    resume = pending["quarter_evidence"]["resume"]
+    tasks = ["om4", "observation"] if contract["arm"] == "u-global" else ["observation"]
+    if resume["tasks"] != tasks:
+        raise ValueError("Pending replay tasks differ")
+    paths = [out / f"qualification-replay-{task}.json" for task in tasks]
+    if not all(path.exists() for path in paths):
+        return False
+    seen = set(resume["producer_processes"])
+    if len(seen) != 4:
+        raise ValueError("Qualification producer requires four distinct processes")
+    receipts = {}
+    for task, path in zip(tasks, paths, strict=True):
+        inputs = replay_inputs(out, pending, task)
+        receipt = json.loads(path.read_text())
+        tokens = receipt.get("processes", [])
+        if (
+            receipt.get("passed") is not True
+            or receipt.get("diagnostic_only") is not True
+            or receipt.get("quarter_contract") != contract
+            or receipt.get("task") != task
+            or receipt.get("pending_sha256") != digest(pending_path)
+            or receipt.get("inputs") != inputs
+            or len(tokens) != 4
+            or len(set(tokens)) != 4
+            or seen.intersection(tokens)
+        ):
+            raise ValueError(f"Invalid fresh-process {task} replay receipt")
+        seen.update(tokens)
+        receipts[task] = {"file": path.name, "sha256": digest(path)}
+    resume.update(
+        passed=True,
+        fresh_process=True,
+        receipts=receipts,
+        scope="exact next model/optimizer/counters/all-rank RNG after separate four-rank process restart per task",
+    )
+    check_qualification(pending, contract)
+    atomic_json(pending, out / "QUALIFIED.json")
+    return True
 
 
 class Om4Adapter:
@@ -690,6 +785,7 @@ class QuarterRunner:
                     "rng": rng,
                     "quarter_contract": self.contract,
                     "best": self.best,
+                    "diagnostic_only": self.args.mode != "train",
                 },
                 path,
             )
@@ -697,6 +793,10 @@ class QuarterRunner:
 
     def restore(self, path):
         state = torch.load(path, map_location="cpu", weights_only=False)
+        if self.args.mode == "train" and state.get("diagnostic_only", False):
+            raise ValueError(
+                "Diagnostic qualification weights cannot initialize production"
+            )
         if state["quarter_contract"] != self.contract or state[
             "task_counts"
         ] != self.schedule.counts(state["completed"]):
@@ -708,8 +808,16 @@ class QuarterRunner:
         restore_rank_rng(state["rng"], cuda_device=self.device)
 
     def qualify(self):
-        from samudra.experiments.observation_joint import assert_exact_state, cpu_copy
+        from samudra.experiments.observation_joint import assert_exact_state
 
+        if any(
+            (self.out / name).exists()
+            for name in ("QUALIFICATION_PENDING.json", "QUALIFIED.json")
+        ):
+            raise ValueError(
+                "Qualification evidence already exists; use qualify-replay or a new output"
+            )
+        producer_processes = process_tokens()
         initial = self.out / "qualification-initial.pt"
         self.checkpoint(initial)
         task_losses, reached_all = {}, {}
@@ -750,6 +858,7 @@ class QuarterRunner:
         )
         scheduled_update_seconds = []
         task_update_seconds: dict[str, list[float]] = {task: [] for task in tasks}
+        inputs = {}
 
         def scheduled_update():
             torch.cuda.synchronize(self.device)
@@ -769,22 +878,20 @@ class QuarterRunner:
             before = self.out / f"qualification-resume-{replay_task}.pt"
             self.checkpoint(before)
             scheduled_update()
-            expected = {
-                "model": cpu_copy(self.pilot.model.state_dict()),
-                "optimizer": cpu_copy(self.optimizer.state_dict()),
-                "completed": self.completed,
-                "counts": self.schedule.counts(self.completed),
-                "rng": gather_rank_rng(cuda_device=self.device),
-            }
+            expected = self.replay_state()
+            expected_path = self.out / f"qualification-expected-{replay_task}.pt"
+            if self.rank == 0:
+                atomic_torch(expected, expected_path)
+                inputs[replay_task] = {
+                    "checkpoint": {"file": before.name, "sha256": digest(before)},
+                    "expected": {
+                        "file": expected_path.name,
+                        "sha256": digest(expected_path),
+                    },
+                }
             self.restore(before)
             self.update()
-            actual = {
-                "model": cpu_copy(self.pilot.model.state_dict()),
-                "optimizer": cpu_copy(self.optimizer.state_dict()),
-                "completed": self.completed,
-                "counts": self.schedule.counts(self.completed),
-                "rng": gather_rank_rng(cuda_device=self.device),
-            }
+            actual = self.replay_state()
             assert_exact_state(actual, expected)
             del actual, expected
         rank_measurements: list[Any] = [None] * dist.get_world_size()
@@ -811,6 +918,7 @@ class QuarterRunner:
             selection_score(metrics, self.pilot.control, [], metric="rmse-only")
             torch.cuda.synchronize(self.device)
             observation_validation_seconds = time.monotonic() - validation_started
+            retention = self.qualify_retention()
             rank_measurements[0]["max_gpu_memory_bytes"] = (
                 torch.cuda.max_memory_allocated()
             )
@@ -828,10 +936,15 @@ class QuarterRunner:
                     "task_model_hashes": task_hashes,
                 },
                 "resume": {
-                    "passed": True,
-                    "scope": "exact next model/optimizer/counters/all-rank RNG",
+                    "passed": False,
+                    "in_process_passed": True,
+                    "fresh_process": False,
+                    "scope": "fresh-process replay pending; in-process replay passed",
                     "tasks": replay_tasks,
+                    "producer_processes": producer_processes,
+                    "inputs": inputs,
                 },
+                "retention": retention,
                 "io": {
                     "passed": self.io_samples > 0,
                     "observation_samples": self.io_samples,
@@ -864,6 +977,7 @@ class QuarterRunner:
                 },
             }
             qualification = {
+                "diagnostic_only": True,
                 "quarter_contract": self.contract,
                 "quarter_evidence": evidence,
                 "code_commit": self.contract["code_commit"],
@@ -881,8 +995,95 @@ class QuarterRunner:
                 "gradient_reached": reached_all,
                 "losses": task_losses["observation"],
             }
-            check_qualification(qualification, self.contract)
-            atomic_json(qualification, self.out / "QUALIFIED.json")
+            atomic_json(qualification, self.out / "QUALIFICATION_PENDING.json")
+        dist.barrier()
+
+    def qualify_retention(self):
+        if self.om4 is None:
+            return None
+        torch.cuda.synchronize(self.device)
+        started = time.monotonic()
+        metrics = self.om4.retention()
+        torch.cuda.synchronize(self.device)
+        result = {
+            "passed": True,
+            "metrics": metrics,
+            "seconds": time.monotonic() - started,
+        }
+        check_retention(result)
+        return result
+
+    def replay_state(self):
+        from samudra.experiments.observation_joint import cpu_copy
+
+        return {
+            "diagnostic_only": True,
+            "quarter_contract": self.contract,
+            "model": cpu_copy(self.pilot.model.state_dict()),
+            "optimizer": cpu_copy(self.optimizer.state_dict()),
+            "completed": self.completed,
+            "counts": self.schedule.counts(self.completed),
+            "rng": gather_rank_rng(cuda_device=self.device),
+        }
+
+    def qualify_replay(self, task):
+        from samudra.experiments.observation_joint import assert_exact_state
+
+        pending_path = self.out / "QUALIFICATION_PENDING.json"
+        pending = json.loads(pending_path.read_text())
+        if (
+            pending.get("quarter_contract") != self.contract
+            or pending.get("diagnostic_only") is not True
+        ):
+            raise ValueError("Pending qualification contract/diagnostic scope differs")
+        resume = pending["quarter_evidence"]["resume"]
+        if task not in resume["tasks"]:
+            raise ValueError("Requested replay task is not trained by this arm")
+        tokens = process_tokens()
+        if (
+            len(tokens) != 4
+            or len(set(tokens)) != 4
+            or set(tokens).intersection(resume["producer_processes"])
+        ):
+            raise ValueError("Replay requires four fresh processes")
+        inputs = replay_inputs(self.out, pending, task)
+        self.restore(self.out / inputs["checkpoint"]["file"])
+        if self.schedule.task(self.completed) != task:
+            raise ValueError("Replay checkpoint next scheduled task differs")
+        self.update()
+        actual = self.replay_state()
+        expected = torch.load(
+            self.out / inputs["expected"]["file"],
+            map_location="cpu",
+            weights_only=False,
+        )
+        assert_exact_state(actual, expected)
+        # Every rank must pass the exact comparison before rank zero publishes.
+        dist.barrier()
+        if self.rank == 0:
+            atomic_json(
+                {
+                    "diagnostic_only": True,
+                    "passed": True,
+                    "task": task,
+                    "quarter_contract": self.contract,
+                    "pending_sha256": digest(pending_path),
+                    "inputs": inputs,
+                    "processes": tokens,
+                },
+                self.out / f"qualification-replay-{task}.json",
+            )
+            complete = finalize_qualification(self.out, self.contract)
+            print(
+                json.dumps(
+                    {
+                        "event": "quarter_fresh_replay",
+                        "task": task,
+                        "qualified": complete,
+                    }
+                ),
+                flush=True,
+            )
         dist.barrier()
 
     def validate(self):
@@ -1037,16 +1238,27 @@ class QuarterRunner:
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=["reference", "qualify", "train"])
+    parser.add_argument(
+        "mode", choices=["reference", "qualify", "qualify-replay", "train"]
+    )
     parser.add_argument("--arm", choices=list(ARMS), required=True)
     for name in ["data", "output", "name", "runtime-contract", "selection-reference"]:
         parser.add_argument(f"--{name}", required=True)
     parser.add_argument("--om4-data")
     parser.add_argument("--compact-audit")
     parser.add_argument("--qualification")
+    parser.add_argument("--replay-task", choices=["om4", "observation"])
     parser.add_argument("--validate-every", type=int, default=100)
     parser.add_argument("--train-hours", type=float, default=22.0)
     args = parser.parse_args()
+    if (args.mode == "qualify-replay") != (args.replay_task is not None):
+        parser.error("qualify-replay requires --replay-task; other modes forbid it")
+    if (
+        args.mode == "qualify-replay"
+        and args.arm == "observation-only"
+        and args.replay_task == "om4"
+    ):
+        parser.error("Observation-only cannot replay OM4")
     invocation_started = time.monotonic()
     if args.validate_every < 1:
         parser.error("validate-every must be positive")
@@ -1101,6 +1313,8 @@ def main():
         runner = QuarterRunner(args, contract)
         if args.mode == "qualify":
             runner.qualify()
+        elif args.mode == "qualify-replay":
+            runner.qualify_replay(args.replay_task)
         else:
             runner.train(stop)
     finally:

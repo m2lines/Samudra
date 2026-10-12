@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
+import math
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -33,6 +34,8 @@ def args(tmp_path, mode="qualify", arm="observation-only"):
 
 def test_frozen_science_and_production_never_bypasses_fit(tmp_path):
     qualification = runner.pilot_arguments(args(tmp_path))
+    replay = runner.pilot_arguments(args(tmp_path, "qualify-replay"))
+    assert vars(replay) == vars(qualification)
     production = runner.pilot_arguments(args(tmp_path, "train"))
     assert qualification.fit_probe is True
     assert production.fit_probe is False
@@ -205,7 +208,17 @@ def test_qualification_requires_both_real_task_curves_and_replays():
             "model_hashes": hashes,
             "task_model_hashes": {task: hashes for task in tasks},
         },
-        "resume": {"passed": True, "tasks": tasks},
+        "resume": {"passed": True, "tasks": tasks, "fresh_process": True},
+        "retention": {
+            "passed": True,
+            "seconds": 1.0,
+            "metrics": {
+                "origins": 12,
+                "ts_mse": 1.0,
+                "reconstruction_ts_mse": 2.0,
+                "full_mse": 3.0,
+            },
+        },
         "io": {"passed": True, "observation_samples": 2, "om4_windows": 2},
         "throughput": {
             "passed": True,
@@ -216,6 +229,10 @@ def test_qualification_requires_both_real_task_curves_and_replays():
     contract = {"arm": "u-global"}
     record = {"quarter_contract": contract, "quarter_evidence": evidence}
     runner.check_qualification(record, contract)
+    evidence["resume"]["fresh_process"] = False
+    with pytest.raises(ValueError, match="fresh-process"):
+        runner.check_qualification(record, contract)
+    evidence["resume"]["fresh_process"] = True
     evidence["resume"]["tasks"] = ["observation"]
     with pytest.raises(ValueError, match="every trained task"):
         runner.check_qualification(record, contract)
@@ -426,3 +443,323 @@ def test_terminal_marker_matches_selected_evaluation_contract(tmp_path, corrupt_
     assert complete["completed_utc"]
     assert not (tmp_path / "PARTIAL.json").exists()
     assert not (tmp_path / "COMPLETE.json").exists()
+
+
+@pytest.mark.parametrize("bad", [None, "nan", "origins"])
+def test_qualification_measures_actual_retention_once(monkeypatch, bad):
+    subject: Any = object.__new__(runner.QuarterRunner)
+    calls = []
+    metrics = dict(origins=12, ts_mse=1.0, reconstruction_ts_mse=2.0, full_mse=3.0)
+    if bad == "nan":
+        metrics["full_mse"] = math.nan
+    if bad == "origins":
+        metrics["origins"] = 11
+    subject.device = "cpu"
+
+    def retention():
+        calls.append("retention")
+        return metrics
+
+    subject.om4 = SimpleNamespace(retention=retention)
+    monkeypatch.setattr(
+        runner.torch.cuda, "synchronize", lambda device: calls.append("sync")
+    )
+    times = iter([10.0, 12.5])
+    monkeypatch.setattr(runner.time, "monotonic", lambda: next(times))
+    if bad:
+        with pytest.raises(ValueError, match="12-origin OM4 retention"):
+            subject.qualify_retention()
+    else:
+        assert subject.qualify_retention() == {
+            "passed": True,
+            "metrics": metrics,
+            "seconds": 2.5,
+        }
+    assert calls == ["sync", "retention", "sync"]
+    subject.om4 = None
+    assert subject.qualify_retention() is None
+
+
+def pending_fixture(tmp_path, tasks):
+    contract = {"arm": "u-global" if "om4" in tasks else "observation-only"}
+    hashes = ["a" * 64] * 4
+    inputs: dict[str, Any] = {}
+    for task in tasks:
+        inputs[task] = {}
+        for kind, prefix in (("checkpoint", "resume"), ("expected", "expected")):
+            path = tmp_path / f"qualification-{prefix}-{task}.pt"
+            path.write_bytes(f"diagnostic {task} {kind}".encode())
+            inputs[task][kind] = {"file": path.name, "sha256": runner.digest(path)}
+    evidence = {
+        "fit": {
+            "passed": True,
+            "losses": {t: list(range(11, 0, -1)) for t in tasks},
+            "gradients": {
+                f"{t}/{c}": True
+                for t in tasks
+                for c in ("initializer", "evolution", "completion_head", "adapter")
+            },
+        },
+        "ddp": {
+            "passed": True,
+            "world_size": 4,
+            "model_hashes": hashes,
+            "task_model_hashes": {t: hashes for t in tasks},
+        },
+        "resume": {
+            "passed": False,
+            "fresh_process": False,
+            "tasks": tasks,
+            "producer_processes": [f"producer{i}" for i in range(4)],
+            "inputs": inputs,
+        },
+        "io": {"passed": True, "observation_samples": 2, "om4_windows": 2},
+        "throughput": {
+            "passed": True,
+            "seconds_per_update": 2,
+            "task_seconds_per_update": {t: 2 for t in tasks},
+        },
+        "retention": {
+            "passed": True,
+            "seconds": 2,
+            "metrics": dict(origins=12, ts_mse=1, reconstruction_ts_mse=2, full_mse=3),
+        },
+    }
+    pending = dict(
+        diagnostic_only=True, quarter_contract=contract, quarter_evidence=evidence
+    )
+    runner.atomic_json(pending, tmp_path / "QUALIFICATION_PENDING.json")
+    return pending
+
+
+def replay_receipt(tmp_path, pending, task):
+    return dict(
+        diagnostic_only=True,
+        passed=True,
+        task=task,
+        quarter_contract=pending["quarter_contract"],
+        pending_sha256=runner.digest(tmp_path / "QUALIFICATION_PENDING.json"),
+        inputs=pending["quarter_evidence"]["resume"]["inputs"][task],
+        processes=[f"{task}-restart{i}" for i in range(4)],
+    )
+
+
+@pytest.mark.parametrize(
+    "drift",
+    [
+        None,
+        "producer",
+        "same_replay",
+        "contract",
+        "pending",
+        "checkpoint",
+        "expected",
+        "receipt_inputs",
+    ],
+)
+def test_final_gate_requires_separate_hashed_task_restarts(tmp_path, drift):
+    tasks = ["om4", "observation"]
+    pending = pending_fixture(tmp_path, tasks)
+    contract = pending["quarter_contract"]
+    om4 = replay_receipt(tmp_path, pending, "om4")
+    runner.atomic_json(om4, tmp_path / "qualification-replay-om4.json")
+    assert not runner.finalize_qualification(tmp_path, contract)
+    assert not (tmp_path / "QUALIFIED.json").exists()
+    observation = replay_receipt(tmp_path, pending, "observation")
+    if drift == "producer":
+        observation["processes"] = pending["quarter_evidence"]["resume"][
+            "producer_processes"
+        ]
+    elif drift == "same_replay":
+        observation["processes"] = om4["processes"]
+    elif drift == "contract":
+        observation["quarter_contract"] = {"arm": "observation-only"}
+    elif drift == "pending":
+        observation["pending_sha256"] = "changed"
+    elif drift == "receipt_inputs":
+        observation["inputs"] = {}
+    elif drift in ("checkpoint", "expected"):
+        artifact = observation["inputs"][drift]["file"]
+        (tmp_path / artifact).write_bytes(b"changed")
+    runner.atomic_json(observation, tmp_path / "qualification-replay-observation.json")
+    if drift:
+        with pytest.raises(ValueError, match="receipt|hash/path"):
+            runner.finalize_qualification(tmp_path, contract)
+        assert not (tmp_path / "QUALIFIED.json").exists()
+        return
+    assert runner.finalize_qualification(tmp_path, contract)
+    qualified = json.loads((tmp_path / "QUALIFIED.json").read_text())
+    runner.check_qualification(qualified, contract)
+    resume = qualified["quarter_evidence"]["resume"]
+    assert resume["passed"] and resume["fresh_process"]
+    for task in tasks:
+        assert resume["receipts"][task]["sha256"] == runner.digest(
+            tmp_path / f"qualification-replay-{task}.json"
+        )
+
+
+@pytest.mark.parametrize(
+    "failure", [None, "same_process", "wrong_task", "changed_state"]
+)
+def test_fresh_replay_compares_one_update_before_publishing(
+    tmp_path, monkeypatch, failure
+):
+    pending = pending_fixture(tmp_path, ["observation"])
+    task = "observation"
+    expected = {
+        "diagnostic_only": True,
+        "quarter_contract": pending["quarter_contract"],
+        "model": {"weight": torch.tensor(2.0)},
+        "completed": 1,
+        "optimizer": {"step": torch.tensor(1)},
+        "counts": {"om4": 0, "observation": 1},
+        "rng": {"ranks": [torch.tensor(i) for i in range(4)]},
+    }
+    expected_path = tmp_path / "qualification-expected-observation.pt"
+    runner.atomic_torch(expected, expected_path)
+    pending["quarter_evidence"]["resume"]["inputs"][task]["expected"]["sha256"] = (
+        runner.digest(expected_path)
+    )
+    runner.atomic_json(pending, tmp_path / "QUALIFICATION_PENDING.json")
+    subject: Any = object.__new__(runner.QuarterRunner)
+    subject.out, subject.rank, subject.contract = (
+        tmp_path,
+        0,
+        pending["quarter_contract"],
+    )
+    subject.completed = 0
+    subject.schedule = (
+        TaskSchedule(3000, 3000, "mixed")
+        if failure == "wrong_task"
+        else TaskSchedule(0, 6000, "scratch")
+    )
+    events: list[Any] = []
+    subject.restore = lambda path: events.append(("restore", path.name))
+    subject.update = lambda: events.append(("update", task))
+    actual = dict(expected)
+    if failure == "changed_state":
+        actual["model"] = {"weight": torch.tensor(3.0)}
+    subject.replay_state = lambda: actual
+    tokens = (
+        [f"producer{i}" for i in range(4)]
+        if failure == "same_process"
+        else [f"replay{i}" for i in range(4)]
+    )
+    monkeypatch.setattr(runner, "process_tokens", lambda: tokens)
+    monkeypatch.setattr(runner.dist, "barrier", lambda: events.append(("barrier",)))
+    if failure:
+        with pytest.raises((ValueError, AssertionError)):
+            subject.qualify_replay(task)
+        assert not (tmp_path / "QUALIFIED.json").exists()
+    else:
+        subject.qualify_replay(task)
+        assert events[:2] == [
+            ("restore", "qualification-resume-observation.pt"),
+            ("update", task),
+        ]
+        assert (tmp_path / "QUALIFIED.json").exists()
+
+
+def test_production_rejects_diagnostic_weights(tmp_path):
+    subject: Any = object.__new__(runner.QuarterRunner)
+    subject.args = SimpleNamespace(mode="train")
+    path = tmp_path / "quarter-last.pt"
+    runner.atomic_torch({"diagnostic_only": True}, path)
+    with pytest.raises(ValueError, match="cannot initialize production"):
+        subject.restore(path)
+
+
+@pytest.mark.parametrize("arm", ["u-global", "observation-only"])
+def test_qualify_writes_diagnostic_expectations_but_no_final_gate(
+    tmp_path, monkeypatch, arm
+):
+    subject: Any = object.__new__(runner.QuarterRunner)
+    subject.out, subject.rank, subject.device = tmp_path, 0, "cpu"
+    subject.completed, subject.io_samples, subject.io_seconds = 0, 1, 1.0
+    subject.schedule = TaskSchedule(*runner.ARMS[arm])
+    subject.contract = dict(
+        arm=arm,
+        code_commit="code",
+        runtime_extension_sha256="runtime",
+        data={"SHA256SUMS": "data"},
+        selection_reference_sha256="reference",
+    )
+    state = {"step": 0}
+    subject.pilot = SimpleNamespace(
+        model=SimpleNamespace(
+            state_dict=lambda: {"weight": torch.tensor(state["step"])}
+        ),
+        args=runner.pilot_arguments(args(tmp_path, arm=arm)),
+        validation=[],
+        evaluate=lambda paths: {},
+        control={},
+    )
+    subject.optimizer = SimpleNamespace(state_dict=lambda: dict(state))
+    retention_calls = []
+
+    def retention():
+        retention_calls.append(True)
+        return dict(origins=12, ts_mse=1.0, reconstruction_ts_mse=2.0, full_mse=3.0)
+
+    subject.om4 = (
+        SimpleNamespace(reads=1, read_seconds=1.0, retention=retention)
+        if arm == "u-global"
+        else None
+    )
+
+    def checkpoint(path):
+        runner.atomic_torch(
+            dict(state=state.copy(), completed=subject.completed, diagnostic_only=True),
+            path,
+        )
+
+    def restore(path):
+        saved = torch.load(path, weights_only=False)
+        state.update(saved["state"])
+        subject.completed = saved["completed"]
+
+    def update(task=None, fixed=False):
+        state["step"] += 1
+        if not fixed:
+            subject.completed += 1
+        return 1 / state["step"], {
+            c: True for c in ("initializer", "evolution", "adapter", "completion_head")
+        }
+
+    subject.checkpoint, subject.restore, subject.update = checkpoint, restore, update
+    monkeypatch.setattr(
+        runner, "process_tokens", lambda: [f"producer{i}" for i in range(4)]
+    )
+    monkeypatch.setattr(
+        runner, "gather_rank_rng", lambda **kwargs: {"ranks": list(range(4))}
+    )
+    monkeypatch.setattr(runner, "selection_score", lambda *a, **k: 1.0)
+    monkeypatch.setattr(runner.dist, "get_world_size", lambda: 4)
+    monkeypatch.setattr(runner.dist, "barrier", lambda: None)
+    monkeypatch.setattr(
+        runner.dist,
+        "all_gather_object",
+        lambda output, value: output.__setitem__(slice(None), [value] * 4),
+    )
+    monkeypatch.setattr(runner.torch.cuda, "synchronize", lambda device: None)
+    monkeypatch.setattr(runner.torch.cuda, "max_memory_allocated", lambda: 100)
+    subject.qualify()
+    pending = json.loads((tmp_path / "QUALIFICATION_PENDING.json").read_text())
+    assert not (tmp_path / "QUALIFIED.json").exists()
+    assert retention_calls == ([True] if arm == "u-global" else [])
+    assert pending["diagnostic_only"]
+    resume = pending["quarter_evidence"]["resume"]
+    assert (
+        resume["in_process_passed"]
+        and not resume["passed"]
+        and not resume["fresh_process"]
+    )
+    for task in resume["tasks"]:
+        inputs = runner.replay_inputs(tmp_path, pending, task)
+        expected = torch.load(tmp_path / inputs["expected"]["file"], weights_only=False)
+        assert (
+            expected["diagnostic_only"]
+            and expected["quarter_contract"] == subject.contract
+        )
+    with pytest.raises(ValueError, match="resume"):
+        runner.check_qualification(pending, subject.contract)

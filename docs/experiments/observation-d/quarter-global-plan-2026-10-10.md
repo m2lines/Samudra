@@ -57,6 +57,11 @@ limitation. The current early-fine model's 4× encoder/decoder cannot carry over
 unchanged: earlier and recent data now share a resolution. Promoting its result
 therefore tests earlier-data/latent benefit, not the original resolution-adapter
 mechanism. It does not imply introducing an unrequested 1/16° source.
+Recent and earlier OM4 examples will share the native-quarter preprocessing and
+forcing statistics. The historical early-data loader normalized physical fields
+directly, whereas the matched quarter reader preserves the baseline's normalization
+round trip; this is a matched native-resolution recipe, not bitwise reproduction
+of that historical loader.
 
 ## Confirmed inputs and remaining preparation
 

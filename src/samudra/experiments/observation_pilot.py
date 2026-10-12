@@ -213,8 +213,24 @@ class Pilot:
 
     @torch.no_grad()
     def evaluate(
-        self, paths, persistence=False, export=None, climatology=False, anomaly=False
+        self,
+        paths,
+        persistence=False,
+        export=None,
+        climatology=False,
+        anomaly=False,
+        *,
+        common_grid=None,
+        common_export=None,
     ):
+        if (common_grid is None) != (common_export is None):
+            raise ValueError(
+                "Common-grid geometry and export directory are both required"
+            )
+        if common_grid is not None and climatology:
+            raise ValueError("Common-grid reporting uses the frozen legacy climatology")
+        if common_grid is not None:
+            common_grid.validate_source(self.data.grid)
         self.model.eval()
         predictions, references, ohc, reference_ohc = [], [], [], []
         climates = []
@@ -256,6 +272,16 @@ class Pilot:
             if not climatology:
                 fields = self.data.evaluation_fields(prediction, sample)
             surface = fields["surface"][:, :6].cpu().numpy()[0]
+            if common_grid is not None:
+                monthly = (
+                    prediction * sample["month_weights"][None, :, None, None, None]
+                ).sum(1)
+                common_grid.write_sidecar(
+                    Path(common_export) / (sample["name"] + ".npz"),
+                    surface=surface,
+                    model_ohc=self.data.model_ohc(monthly)[0],
+                    origins=[sample["name"]],
+                )
             truth = np.concatenate(
                 [sample["raw"]["surface"][19:25], sample["raw"]["velocity"][19:25]],
                 axis=1,

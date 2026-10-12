@@ -1,0 +1,27 @@
+{
+  "scope": "static geometry only; per-origin truth and velocity stencil supports still depend on archived observations",
+  "quarter_grid_sha256": "8bbe0e235bc041176af70e374fe76ca1553ca5078cbe6d8384c7c9f5aca0755f",
+  "legacy_grid_sha256": "ce96360964a6669d0186b9581abaaffc06f660c4e09e0ac813b3dd1b819e5167",
+  "helper_sha256": "c32ab8f66bcca98785b0f50d32b2bea27a846c63461e061d1dafa1c57ec2e8d6",
+  "min_coverage": 0.9,
+  "supports": {
+    "surface": {
+      "legacy_cells": 44892,
+      "common_cells": 41519,
+      "removed_cells": 3373,
+      "removed_cosine_area_fraction": 0.06624749700991939
+    },
+    "ohc_0_700": {
+      "legacy_cells": 38933,
+      "common_cells": 35803,
+      "removed_cells": 3130,
+      "removed_cosine_area_fraction": 0.07152992455251388
+    },
+    "ohc_700_2000": {
+      "legacy_cells": 37190,
+      "common_cells": 33850,
+      "removed_cells": 3340,
+      "removed_cosine_area_fraction": 0.08259140275259581
+    }
+  }
+}

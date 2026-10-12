@@ -200,6 +200,10 @@ def main():
     parser.add_argument("--fixed-om4-updates", type=int)
     parser.add_argument("--fixed-observation-updates", type=int)
     parser.add_argument(
+        "--common-grid",
+        help="Archived 1-degree grid.npz; write optional reporting sidecars",
+    )
+    parser.add_argument(
         "--global-observations",
         action="store_true",
         help="Also permits globally rescoring historical restricted runs",
@@ -258,6 +262,8 @@ def main():
     }
     if fixed:
         signature["fixed_budget_lineage"] = lineage
+    if args.common_grid:
+        signature["common_grid_sha256"] = digest(Path(args.common_grid))
     if args.data or args.include_persistence:
         signature.update(
             sample_root=str(sample_root),
@@ -303,6 +309,14 @@ def main():
     del state
     del fixed_state
     results = {}
+    common_grid = None
+    if args.common_grid:
+        from samudra.experiments.observation_common_grid import CommonGrid
+
+        with np.load(args.common_grid) as legacy:
+            common_grid = CommonGrid(
+                data.grid, legacy, global_observations=global_observations
+            )
     for origin_path in origins:
         description, raw = read_origin(origin_path.parent)
         origin = description["origin"]
@@ -324,6 +338,7 @@ def main():
             held_ohc = data.ohc(initial[:, -1])[0]
             persistence_arrays["persistence_surface"] = held_surface
         months, monthly_predictions, monthly_references = [], [], []
+        common_monthly = []
         area = data.ohc_area.cpu().numpy()
         for record in description["monthly_interiors"]:
             path = origin_path.parent / record["file"]
@@ -336,6 +351,12 @@ def main():
             weights = data.tensor(month_weights(raw["start"][19:], month))
             state = (prediction * weights[None, :, None, None, None]).sum(1)
             ohc = data.ohc(state)[0]
+            if common_grid is not None:
+                # Retain only two remapped 1-degree maps per month, not states
+                # or twelve full native-quarter OHC maps.
+                common_monthly.append(
+                    common_grid.project(data.model_ohc(state)[0], ohc=True)
+                )
             with np.load(path) as saved:
                 truth = np.where(np.isfinite(ohc), saved["ohc"], np.nan)
             result.setdefault("monthly_ohc", {})[month] = {
@@ -350,6 +371,30 @@ def main():
             months.append(month)
             monthly_predictions.append(ohc)
             monthly_references.append(truth)
+        if common_grid is not None:
+            from samudra.experiments.observation_prepare import save_atomic
+
+            common_output = output / "common-grid"
+            common_output.mkdir(parents=True, exist_ok=True)
+            save_atomic(
+                common_output / f"{origin}.npz",
+                prediction=common_grid.project(surface),
+                predicted_ohc=np.asarray(common_monthly),
+                origins=np.asarray([origin]),
+                months=np.asarray(months),
+                **common_grid.geometry_arrays(),
+            )
+            if args.include_persistence:
+                common_grid.write_sidecar(
+                    common_output / f"{origin}-persistence.npz",
+                    surface=held_surface,
+                    model_ohc=np.broadcast_to(
+                        data.model_ohc(initial[:, -1])[0],
+                        (12, 2, *common_grid.remap.source_shape),
+                    ),
+                    origins=[origin],
+                    months=months,
+                )
         result["scope"] = (
             "Single initialization; 73 five-day steps; no future surface corrections"
         )
@@ -400,7 +445,25 @@ def main():
             json.dumps({"event": "annual_origin_complete", "origin": origin}),
             flush=True,
         )
-    atomic_json({"inputs": signature, "origins": results}, output / "COMPLETE.json")
+    common_receipt = {}
+    if common_grid is not None:
+        from samudra.experiments.observation_common_grid import sidecar_hashes
+
+        expected_origins = [json.loads(path.read_text())["origin"] for path in origins]
+        if len(set(expected_origins)) != len(origins) or set(expected_origins) != set(
+            results
+        ):
+            raise ValueError("Common-grid annual origin inventory differs")
+        expected = [f"{origin}.npz" for origin in expected_origins]
+        if args.include_persistence:
+            expected += [f"{origin}-persistence.npz" for origin in expected_origins]
+        common_receipt = {
+            "common_grid_sidecars": sidecar_hashes(output / "common-grid", expected)
+        }
+    atomic_json(
+        {"inputs": signature, "origins": results, **common_receipt},
+        output / "COMPLETE.json",
+    )
 
 
 if __name__ == "__main__":

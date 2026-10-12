@@ -387,3 +387,42 @@ def test_update_restores_core_training_mode_after_rank_zero_evaluation(monkeypat
     monkeypatch.setattr(runner, "accumulate_task_gradients", inspect_mode)
     with pytest.raises(ForwardBoundaryReached):
         subject.update()
+
+
+@pytest.mark.parametrize("corrupt_best", [False, True])
+def test_terminal_marker_matches_selected_evaluation_contract(tmp_path, corrupt_best):
+    subject: Any = object.__new__(runner.QuarterRunner)
+    subject.out, subject.rank = tmp_path, 0
+    subject.args = SimpleNamespace(validate_every=100)
+    subject.schedule = TaskSchedule(*runner.ARMS["u-global"])
+    subject.completed = subject.last_validated = 6000
+    subject.contract = {"fixture": True}
+    subject.restore = lambda path: None
+    last, selected = tmp_path / "quarter-last.pt", tmp_path / "best.pt"
+    last.write_bytes(b"terminal weights and optimizer")
+    selected.write_bytes(b"selected weights")
+    best = {
+        "global_step": 5700,
+        "score": 0.8,
+        "checkpoint_sha256": runner.digest(selected),
+    }
+    (tmp_path / "best.json").write_text(json.dumps(best))
+    (tmp_path / "PARTIAL.json").write_text("{}")
+    if corrupt_best:
+        selected.write_bytes(b"changed selected weights")
+        with pytest.raises(ValueError, match="Selected checkpoint hash differs"):
+            subject.train(SimpleNamespace())
+        assert not (tmp_path / "TRAIN_COMPLETE.json").exists()
+        return
+    subject.train(SimpleNamespace())
+    complete = json.loads((tmp_path / "TRAIN_COMPLETE.json").read_text())
+    assert complete["global_step"] == complete["updates"] == 6000
+    assert complete["task_counts"] == {"om4": 3000, "observation": 3000}
+    assert complete["best"] == best
+    assert complete["best_score"] == best["score"]
+    assert complete["best_checkpoint_sha256"] == runner.digest(selected)
+    assert complete["checkpoint_sha256"] == runner.digest(last)
+    assert complete["quarter_contract"] == subject.contract
+    assert complete["completed_utc"]
+    assert not (tmp_path / "PARTIAL.json").exists()
+    assert not (tmp_path / "COMPLETE.json").exists()

@@ -122,6 +122,15 @@ cell. If it does not, freeze a common intersection and rescore both the saved
 rescoring rather than the original published numbers. Native-resolution and
 1° blend values are different protocols and must be labelled separately.
 
+The [static geometry audit](artifacts/quarter-bringup-2026-10-11/common-grid-audit.json)
+now confirms that common-support rescoring is required. With at least 90% native
+wet-area coverage, the intersection retains 41,519 of 44,892 legacy surface cells,
+35,803 of 38,933 upper-OHC cells, and 33,850 of 37,190 deeper-OHC cells. Removed
+cosine-weighted areas are 6.62%, 7.15%, and 8.26%, respectively. These are static
+model-mask differences; actual observation availability and velocity stencils
+further restrict each origin. Use the same archived 1° truth and training-only
+climatology for every candidate on the intersection.
+
 Report validation curves/components, fixed endpoints and selected checkpoints,
 own initialized persistence, matched rollout maps and temperature profiles.
 Use the same held-out origins. Retain annual rollouts as an evaluation follow-up

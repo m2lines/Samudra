@@ -31,6 +31,10 @@ def main():
     parser.add_argument("--fixed-om4-updates", type=int)
     parser.add_argument("--fixed-observation-updates", type=int)
     parser.add_argument(
+        "--common-grid",
+        help="Archived 1-degree grid.npz; write optional reporting sidecars",
+    )
+    parser.add_argument(
         "--global-observations",
         action="store_true",
         help="Also permits globally rescoring historical restricted runs",
@@ -88,11 +92,40 @@ def main():
     }
     if fixed:
         fingerprint["fixed_budget_lineage"] = lineage
+    if args.common_grid:
+        fingerprint["common_grid_sha256"] = digest(Path(args.common_grid))
+    if manifest["arguments"].get("iap_grid"):
+        fingerprint["omitted_controls"] = {
+            "inferred-anomaly-persistence": "Native IAP climatology has no defined model-grid anomaly increment; "
+            "report initialized persistence and training-only climatology instead"
+        }
     signature = output / "evaluation-input.json"
     if signature.exists() and json.loads(signature.read_text()) != fingerprint:
         raise ValueError("Evaluation resume input differs")
     atomic_json(fingerprint, signature)
+    common_expected = []
+    if args.common_grid:
+        from samudra.experiments.observation_common_grid import sidecar_hashes
+
+        common_origins = sorted(
+            (Path(manifest["arguments"]["data"]) / args.split).glob("*.npz")
+        )
+        if len(common_origins) != (96 if args.split == "test" else 9):
+            raise ValueError("Incomplete common-grid reporting cohort")
+        common_labels = [label_prefix, label_prefix + "-inferred-persistence"]
+        if not manifest["arguments"].get("iap_grid"):
+            common_labels.append(label_prefix + "-inferred-anomaly-persistence")
+        common_expected = [
+            f"{label}/{p.stem}.npz" for label in common_labels for p in common_origins
+        ]
     if (output / "COMPLETE.json").exists():
+        if args.common_grid:
+            actual = sidecar_hashes(output / "common-grid", common_expected)
+            recorded = json.loads((output / "COMPLETE.json").read_text()).get(
+                "common_grid_sidecars"
+            )
+            if actual != recorded:
+                raise ValueError("Completed common-grid sidecar hashes differ")
         return
     evaluator = Pilot.__new__(Pilot)
     evaluator.args = SimpleNamespace(
@@ -129,15 +162,42 @@ def main():
     del state
     del fixed_state
     paths = evaluator.data.paths(args.split)
+    common_grid = None
+    if args.common_grid:
+        import numpy as np
+
+        from samudra.experiments.observation_common_grid import CommonGrid
+
+        with np.load(args.common_grid) as legacy:
+            common_grid = CommonGrid(
+                evaluator.data.grid, legacy, global_observations=global_observations
+            )
+
+    def common_options(label):
+        return (
+            dict(common_grid=common_grid, common_export=output / "common-grid" / label)
+            if common_grid is not None
+            else {}
+        )
+
+    def common_present(label):
+        return common_grid is None or all(
+            (output / "common-grid" / label / (p.stem + ".npz")).is_file()
+            for p in paths
+        )
+
     expected = 96 if args.split == "test" else 9
     if len(paths) != expected:
         raise ValueError("Incomplete reporting cohort")
     if not (
         (output / (label_prefix + ".json")).exists()
         and (output / (label_prefix + "-predictions.npz")).exists()
+        and common_present(label_prefix)
     ):
         result = evaluator.evaluate(
-            paths, export=output / (label_prefix + "-predictions.npz")
+            paths,
+            export=output / (label_prefix + "-predictions.npz"),
+            **common_options(label_prefix),
         )
         atomic_json(
             {
@@ -152,16 +212,20 @@ def main():
         )
     # Keep both selected weights and their normalization for these controls.
     # They isolate forecast dynamics from improvements to the inferred state.
-    for label, options in [
-        (label_prefix + "-inferred-persistence", {"persistence": True}),
-        (label_prefix + "-inferred-anomaly-persistence", {"anomaly": True}),
-    ]:
-        if (output / (label + ".json")).exists() and (
-            output / (label + ".npz")
-        ).exists():
+    controls = [(label_prefix + "-inferred-persistence", {"persistence": True})]
+    if not manifest["arguments"].get("iap_grid"):
+        controls.append(
+            (label_prefix + "-inferred-anomaly-persistence", {"anomaly": True})
+        )
+    for label, options in controls:
+        if (
+            (output / (label + ".json")).exists()
+            and (output / (label + ".npz")).exists()
+            and common_present(label)
+        ):
             continue
         reference = evaluator.evaluate(
-            paths, export=output / (label + ".npz"), **options
+            paths, export=output / (label + ".npz"), **options, **common_options(label)
         )
         atomic_json(reference, output / (label + ".json"))
     source = None
@@ -228,6 +292,15 @@ def main():
             "source_sha256": digest(source) if source else None,
             "selected_sha256": None if fixed else digest(checkpoint),
             "fixed_budget_lineage": lineage,
+            **(
+                {
+                    "common_grid_sidecars": sidecar_hashes(
+                        output / "common-grid", common_expected
+                    )
+                }
+                if args.common_grid
+                else {}
+            ),
         },
         output / "COMPLETE.json",
     )

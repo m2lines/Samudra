@@ -1014,14 +1014,23 @@ class QuarterRunner:
             self.validate()
             self.checkpoint(last)
         if self.rank == 0:
+            best = json.loads((self.out / "best.json").read_text())
+            best_hash = digest(self.out / "best.pt")
+            if best["checkpoint_sha256"] != best_hash:
+                raise ValueError("Selected checkpoint hash differs at completion")
             atomic_json(
                 {
                     "updates": self.completed,
+                    "global_step": self.completed,
                     "task_counts": self.schedule.counts(self.completed),
                     "quarter_contract": self.contract,
                     "checkpoint_sha256": digest(last),
+                    "best": best,
+                    "best_score": best["score"],
+                    "best_checkpoint_sha256": best_hash,
+                    "completed_utc": datetime.datetime.now(datetime.UTC).isoformat(),
                 },
-                self.out / "COMPLETE.json",
+                self.out / "TRAIN_COMPLETE.json",
             )
             (self.out / "PARTIAL.json").unlink(missing_ok=True)
 

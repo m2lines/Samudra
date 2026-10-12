@@ -1,0 +1,42 @@
+[
+  {
+    "arm": "parent",
+    "file": "outputs/diffusion-interventions-v2/evaluation/replay-bound/annual/2015-01-01.npz",
+    "sha256": "3b78cd23ddbc702955df6a15eb8731362052391fbf8cec7cea66cd792cb132ea"
+  },
+  {
+    "arm": "parent",
+    "file": "outputs/diffusion-interventions-v2/evaluation/replay-bound/annual/members-2015-01-01.npz",
+    "sha256": "cd55afb0ef07c0b92289895fcdf2b0e47cf0acd84316df76d260feb71c1b9780"
+  },
+  {
+    "arm": "residual",
+    "file": "outputs/diffusion-direct-v1/evaluation/residual/annual/2015-01-01.npz",
+    "sha256": "5c7f08aee972d2cd6556429989ca775f9a6775a5b32c6d22c860057552a222aa"
+  },
+  {
+    "arm": "residual",
+    "file": "outputs/diffusion-direct-v1/evaluation/residual/annual/members-2015-01-01.npz",
+    "sha256": "19b1b4610f93cacdd1cd1921b33bdaf2ba3f0b09ebce811e738f84d7ef5d3570"
+  },
+  {
+    "arm": "residual-warm",
+    "file": "outputs/diffusion-direct-v1/evaluation/residual-warm/annual/2015-01-01.npz",
+    "sha256": "20adf9b34583c60ef000e4fba4664d748d6d01209d38139144bccc052e1ccc9a"
+  },
+  {
+    "arm": "residual-warm",
+    "file": "outputs/diffusion-direct-v1/evaluation/residual-warm/annual/members-2015-01-01.npz",
+    "sha256": "6e6db47fbd3015a8cef852e0221f8b8f99bb2da6ddac87c4892634c4ebaaa06d"
+  },
+  {
+    "arm": "direct-warm",
+    "file": "outputs/diffusion-direct-v1/evaluation/direct-warm/annual/2015-01-01.npz",
+    "sha256": "d881651382a98fc6581f64b88c5a65846be9696ae00e483955b9877bf181f4e8"
+  },
+  {
+    "arm": "direct-warm",
+    "file": "outputs/diffusion-direct-v1/evaluation/direct-warm/annual/members-2015-01-01.npz",
+    "sha256": "df32e18292800483e1a114dca5934c3b3d271c5fd991e39010d8c2f369763a2a"
+  }
+]

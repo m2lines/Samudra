@@ -1,0 +1,42 @@
+{
+  "host": "beta",
+  "job_id": "212190",
+  "slurm_state": "FAILED",
+  "aggregate_exit": "1:0",
+  "aggregate_failure_reason": "Un-warmed direct arm failed at update3; three other arms completed training and all evaluations",
+  "elapsed_seconds": 22197,
+  "allocated_gpus": 4,
+  "production_gpu_hours": 24.663333333333334,
+  "qualification_gpu_hours": 3.4477777777777776,
+  "total_allocated_gpu_hours": 28.11111111111111,
+  "cap_gpu_hours": 40,
+  "source_code_id": "direct-v1-b673a95fcd25",
+  "source_commit": "6f12fe53b632ed90e84c1a5371f39b4c86334b01",
+  "per_arm_results": [
+    {
+      "arm": "residual",
+      "success": true,
+      "gpu": 0
+    },
+    {
+      "arm": "direct",
+      "success": false,
+      "exit_code": 1,
+      "gpu": 1
+    },
+    {
+      "arm": "residual-warm",
+      "success": true,
+      "gpu": 2
+    },
+    {
+      "arm": "direct-warm",
+      "success": true,
+      "gpu": 3
+    }
+  ],
+  "report_scripts": {
+    "scripts/report_diffusion_interventions.py": "9b01e7b4ef8cf0bbda17a1be462e558536f2ebf0b652a7e280fafce380422c19",
+    "scripts/report_diffusion_direct.py": "5962d8a18f6d30d2924b68d3a0ebfc6aa29d3845b0195883e51d82d82a34340d"
+  }
+}

@@ -410,10 +410,12 @@ def main():
     p.add_argument("--output", type=Path, required=True)
     p.add_argument("--arms", nargs="+", default=None)
     p.add_argument("--updates", type=int, default=128)
+    p.add_argument("--parent-updates-per-task", type=int, default=8000)
+    p.add_argument("--parent-annual", type=Path)
     args = p.parse_args()
     if args.arms is not None:
         ARMS[:] = args.arms
-    if args.updates <= 0 or args.updates % 2:
+    if args.updates <= 0 or args.updates % 2 or args.parent_updates_per_task < 0:
         raise ValueError("Expected a positive even update count")
     args.output.mkdir(parents=True, exist_ok=True)
     with gzip.open(args.presentation, "rt") as f:
@@ -424,20 +426,25 @@ def main():
     native: list[dict[str, Any]] = []
     annual, validation, calibration, spatial, evidence = [], [], [], [], {}
     roots = {
-        "parent": args.baseline / "final-annual-steps32",
+        "parent": args.parent_annual or args.baseline / "final-annual-steps32",
         "deterministic": args.baseline / "global-endpoint-annual",
     }
     roots.update({a: args.root / a / "annual" for a in ARMS})
     for arm, directory in roots.items():
         inputs, done = read(directory / "input.json"), read(directory / "COMPLETE.json")
         assert manifests(inputs) == expected
+        if arm == "parent":
+            assert inputs["counts"] == {
+                "om4": args.parent_updates_per_task,
+                "observation": args.parent_updates_per_task,
+            }
         if arm in ARMS:
             assert inputs["counts"] == {
-                "om4": 8000 + args.updates // 2,
-                "observation": 8000 + args.updates // 2,
+                "om4": args.parent_updates_per_task + args.updates // 2,
+                "observation": args.parent_updates_per_task + args.updates // 2,
             }
             assert (
-                inputs["step"] == 16000 + args.updates
+                inputs["step"] == 2 * args.parent_updates_per_task + args.updates
                 and inputs["members"] == 8
                 and inputs["sampling_steps"] == 32
             )
@@ -535,6 +542,11 @@ def main():
                 done["checkpoint_sha256"]
                 == evidence[arm]["inputs"]["checkpoint_sha256"]
             )
+        else:
+            assert (
+                done["checkpoint_sha256"]
+                == evidence["parent"]["inputs"]["checkpoint_sha256"]
+            )
         for year in (2015, 2018, 2021):
             record = read(directory / f"{year}.json")
             for day, values in record["metrics"].items():
@@ -552,6 +564,8 @@ def main():
                     )
                 )
     results = dict(
+        continuation_updates=args.updates,
+        parent_updates_per_task=args.parent_updates_per_task,
         annual=annual,
         validation=validation,
         calibration=calibration,

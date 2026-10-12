@@ -3,11 +3,12 @@
 
 # Direct next-latent prediction pilot
 
-**Status:** full-warm-up qualification passed all four arms. Production job
-**212190** started on four Beta GPUs at **2026-10-11 19:04:36 UTC**, with an
-eight-hour allocation limit. At the third hourly check, the two residual arms
-and `direct-warm` are training; the un-warmed `direct` arm stopped on update 3
-at the nonfinite total-gradient-norm guard. Final evaluations are still pending.
+**Status:** complete. Three arms finished their 128-update continuations and all
+forecast evaluations; direct without warm-up failed at mixed update 3.
+See the [final report, maps and numerical results](direct-processor-results.md).
+The warmed direct conversion fails on observational annual rollouts, whereas
+further residual replay-bound training improves annual error from 6.28 to 3.80.
+Total execution used 28.11 allocated GPU-hours; monitoring is retired.
 
 User-authorized follow-up to the [latent-amplitude diagnostics](coastal-decoder-results.md).
 Test whether replacing the persistent residual update

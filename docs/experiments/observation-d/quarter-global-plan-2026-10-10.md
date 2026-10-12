@@ -7,8 +7,8 @@ The [4k/6k auxiliary reproductions](early-rmse-6k-2026-10-10.md#auxiliary-loss-r
 and matched eight-model annual comparison are complete. On October 11 the user authorized **U-global, observation-only, and the
 best one or two variants from the 6k comparison**, judged at both 30 and 365 days.
 All quarter-degree runs use 6,000 total updates. The training dataset is verified;
-four-arm GPU qualification **212374** is held before starting while a CPU preflight
-fix is verified. Quarter-degree production
+four-arm GPU qualification **212376** is queued after the real-data CPU preflight
+passed. Quarter-degree production
 has not yet been qualified or submitted. Reporting both native-resolution and
 matched 1° metrics remains agreed.
 
@@ -257,7 +257,7 @@ comparison on the common support described above. The four recipes are fixed
 in the run table; no auxiliary-loss arm won the promotion rule.
 
 The staged four-arm qualification producer is
-`81eaa1a290bdcf3473e7a351a75c7acb3685cd3c`. The corrected final gate requires native
+`f190debb180d4ecfd9120dd46070c54b39c148ae`. The corrected final gate requires native
 observation validation and, for OM4-trained arms, 11-origin OM4 retention,
 plus exact next-update replay in a separate four-rank process for every trained
 path. Earlier-data arms separately qualify recent, early and observation paths,
@@ -271,13 +271,15 @@ The legacy `--om4-validation-origins=12` was an upper bound: all eight completed
 runner pins stride-six IDs `0,6,…,60` and the historical origin timestamps
 October 30, 2013–August 26, 2014 (noon); forecast targets end September 25, 2014.
 It rejects changed cohorts rather than extending validation into the test period.
-The previous exact-12 guard in `81eaa1a29` must be replaced before qualification.
+CPU preflight caught the previous exact-12 guard in `81eaa1a29` before any GPU
+allocation. The replacement preserves the original validation boundaries.
 The runner, data, schedule, latent-state and early-fine tests passed **109 CPU
 tests**. Each arm has its own two-hour test allocation, at most two concurrently.
-Array **212374** was submitted after data verification, then held before any GPU
-allocation when CPU preflight **131988** found the exact-12 guard error. The
-correction preserves the executed historical 11-origin cohort and passes 90
-focused tests; real data preflight and replacement qualification remain required.
-At 4:15 a.m. ET on October 12, Beta's advisory start estimate was 9:25 a.m. ET;
-the queued jobs are being left in place. There are no production jobs or
-quarter-degree scientific results yet.
+Replacement array **212376** is queued; superseded **212374** was canceled before
+allocation. Corrected CPU preflight **131990** passed actual recent and
+first/last/leap early windows against xarray, including normalization and finite
+six-tensor outputs (53.8 seconds in the audit; 2m31s allocation). Its
+[receipt](artifacts/quarter-bringup-2026-10-11/cpu-windows-131990.json.gz) preserves
+source/runtime/data hashes. Failed CPU attempt **131988** remains saved; neither
+CPU attempt used GPUs. The correction passes 90 focused tests. There are no
+production jobs or quarter-degree scientific results yet.

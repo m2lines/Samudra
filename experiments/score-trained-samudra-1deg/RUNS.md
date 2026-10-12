@@ -5,9 +5,10 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # First-wave execution record
 
-Launched 2026-10-11 EDT / 2026-10-12 UTC. All three new arms completed 70 epochs. A/B/D common annual
-evaluations are complete; C's annual evaluation and the comparative report remain pending. Qualification
-checks are not scientific comparisons. This is an experiment/results record, not intended to merge.
+Launched 2026-10-11 EDT / 2026-10-12 UTC. All three new arms completed 70 epochs, and all four common annual
+evaluations are complete. The [annual comparison report](RESULTS.md) includes plots and numeric artifacts.
+Continuous drift/structure diagnostics are queued following successful qualification; other remaining report
+work is listed below. This is an experiment/results record, not intended to merge.
 
 ## Runs
 
@@ -149,12 +150,12 @@ this short check.
 The following jobs use the qualified evaluator source `0ed45a791` and final EMA checkpoints. They were
 submitted and released on 2026-10-12 with verified callback credentials, EXIT hooks, and one-hour reminders.
 
-| Arm/task | Beta job | Partition | Wall limit | State at 12:28 UTC |
+| Arm/task | Beta job | Partition | Wall limit | Terminal state |
 | --- | --- | --- | --- | --- |
 | A: common annual forecasts | 212403 | beta | 1 hour | Completed, exit 0; 2:36 |
 | B: common annual forecasts | 212404 | beta | 1 hour | Completed, exit 0; 2:32 |
 | D: four-origin, 16-member qualification | 212405 | beta_test | 30 minutes | Completed, exit 0; 2:55 |
-| C: common annual forecasts, 16 members | 212406 | beta | 1 hour | Running; training dependency cleared |
+| C: common annual forecasts, 16 members | 212406 | beta | 1 hour | Completed, exit 0; 2:49 |
 | D: common annual forecasts, 16 members | 212407 | beta | 1 hour | Completed, exit 0; 2:52 |
 
 Each allocation has four B200s. The A/B full evaluations use every prespecified complete 360-day origin;
@@ -190,8 +191,15 @@ Its manifest choices and saved targets/masks match A/B exactly; its source times
 zero dry-cell values, positive spread, bounded coverage, empirical/fair CRPS ordering and 17-bin rank totals
 passed read-back checks. Distinct saved members verify diversity, not calibration. W&B synchronized at
 [D: 5otm4ksi](https://wandb.ai/ocean_emulators/default/runs/5otm4ksi), and artifacts are in
-`outputs/eval-full-D-212407/`. Its callback was received and retired. C is running with online W&B at
-[djjy0rjx](https://wandb.ai/ocean_emulators/default/runs/djjy0rjx), with a completion hook and hourly reminder.
+`outputs/eval-full-D-212407/`. Its callback was received and retired. C subsequently completed with all
+16,170 rows and successful W&B synchronization at
+[djjy0rjx](https://wandb.ai/ocean_emulators/default/runs/djjy0rjx). Its callback was received and retired.
+`analyze_score.py` audited all four complete evaluations together: unique declared keys, finite values,
+physical-unit conversion, common origins/configuration, target/mask equality, rank totals and distinct stochastic
+members. All checks passed. The generated report includes raw metric rows in gzip CSV parts, all-lead/channel
+summaries, paired origin-year intervals, rank histograms and fixed-date maps. Two scanner findings in the
+evaluation contract were verified as a dataset directory and the evaluator's Git commit; only those exact
+file/value findings were marked non-secret in `.secrets.baseline`. Scanner rules remain unchanged.
 
 **Time-coordinate detail:** the source uses a Julian calendar and mostly five-day spacing. Two intervals in
 the held-out period are six days: 2016-12-28 to 2017-01-03 and 2020-12-28 to 2021-01-03, all at 12:00.
@@ -201,7 +209,30 @@ additional day. Every scored target matches the intended source index, and A/B u
 this is a labeling distinction rather than a target-alignment error. Reports should label leads as nominal
 days and retain actual origin/target timestamps from the CSVs.
 
-Complete the common evaluator on all A/B/C/D final EMA checkpoints before drawing conclusions. Remaining
-report work includes matched annual/long rollouts, spatial/vertical/temporal diagnostics,
-climatology/persistence, observation metrics where applicable, plots and a proposed next wave. Do not start
-additional seeds or change the scientific comparison without reviewing this first wave.
+## Continuous drift and structure diagnostics
+
+Source `1c76b81ca` adds `diagnose_score.py` and `diagnose_beta.sbatch`. One four-GPU allocation assigns one
+GPU to each arm; C/D each evolve four members without resets. All four online W&B runs must initialize before
+forecasts begin. Predictions are scored at every output time, with physical moments, wet-pair zonal increments,
+adjacent-depth differences, T/S and U/V covariance, temporal increments and fixed-region RMSE. Temperature,
+salinity and kinetic-energy bulk means use binary wet masks, cosine latitude and nominal layer thicknesses;
+they are explicit proxies, not exact inventories with OM4 partial-cell geometry.
+
+Qualification job **212416** completed three calls/six states per arm in 1:59 (0.132 allocated GPU-hours),
+exit 0. All four output markers, 462 unique score rows per arm, finite physical diagnostics, matching truth
+statistics, zero dry cells, member diversity and mean/member consistency passed read-back checks. The A/B
+first-step physical predictions also match their primary annual outputs. All four W&B runs synchronized:
+[A](https://wandb.ai/ocean_emulators/default/runs/tjypjedp),
+[B](https://wandb.ai/ocean_emulators/default/runs/wq1ddblu),
+[C](https://wandb.ai/ocean_emulators/default/runs/tglclnho),
+[D](https://wandb.ai/ocean_emulators/default/runs/f3pmxfjn).
+Twelve local tests and scoped code checks passed. Its callback was received and retired.
+
+Full job **212420** is queued on production Beta with four B200s and a one-hour wall limit, using the same
+immutable source and epoch-70 EMA checkpoints. Output will be in `outputs/continuous-full-212420/{A,B,C,D}/`.
+It has an EXIT callback and a one-hour fallback reminder. The receiver was checked from the qualification
+compute allocation and the full registration from the login node; full-job bring-up remains pending.
+
+Remaining report work includes the continuous analysis, persistence and training-only climatology references,
+observation metrics where applicable, and secondary checkpoint sensitivities. Proposed next-wave choices in
+`RESULTS.md` are provisional pending these diagnostics. No additional training seed or later wave has started.

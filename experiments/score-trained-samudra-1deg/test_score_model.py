@@ -190,3 +190,37 @@ def test_ensemble_metrics_distinguish_members_mean_and_spread():
     one = field_metrics(pred[:1], target, area)
     assert one["spread"].item() == 0
     assert one["crps_empirical"].item() == one["mae"].item() == 2
+
+
+def test_spatial_diagnostics_exclude_land_and_preserve_constant_fields():
+    from diagnose_score import spatial_diagnostics
+
+    fields = torch.full((2, 3, 4, 32), 7.0)
+    area = torch.ones(3, 4, 32)
+    area[..., 3:6] = 0
+    fields[..., 3:6] = -1000
+    result = spatial_diagnostics(fields, area)
+    torch.testing.assert_close(result["mean"], torch.full((2, 3), 7.0))
+    for key in (
+        "spatial_std",
+        "zonal_increment_rms_1",
+        "zonal_increment_rms_4",
+        "zonal_increment_rms_16",
+    ):
+        assert not result[key].any()
+
+
+def test_physical_depth_difference_and_covariance():
+    from diagnose_score import paired_diagnostics
+
+    grid = torch.tensor([-1.0, 1.0]).reshape(1, 1, 1, 2)
+    fields = grid.expand(1, 77, 1, 2).clone()
+    fields[:, 38:57] *= 2
+    fields[:, 57:76] *= -3
+    fields[:, :19] += torch.arange(19).reshape(1, 19, 1, 1)
+    result = paired_diagnostics(fields, torch.ones(77, 1, 2))
+    torch.testing.assert_close(result["uo_adjacent_depth_rms"], torch.ones(1, 18))
+    torch.testing.assert_close(
+        result["thetao_so_covariance"], torch.full((1, 19), -6.0)
+    )
+    torch.testing.assert_close(result["uo_vo_covariance"], torch.ones(1, 19))

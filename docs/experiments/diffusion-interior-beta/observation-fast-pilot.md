@@ -3,7 +3,10 @@
 
 # One-step observation-training pilot
 
-**Status:** implementation and qualification in progress. No scientific results yet.
+**Status:** qualification submitted as Beta job **212300**, running on four
+B200s. The three-arm production comparison follows after qualification passes.
+No scientific results yet. Implementation passed 37 targeted tests and all
+repository checks, including typing, secret scanning and licensing.
 
 Observation updates currently backpropagate through the 32-step diffusion sampler
 for two members, forecast leads, and the separate monthly reconstruction task.
@@ -88,6 +91,15 @@ eight hours; total ceiling including qualification and recovery is **40 allocate
 GPU-hours**, enforced using Slurm accounting. All allocated GPUs count, including
 idle capacity. Production uses online W&B. Register durable completion follow-up
 and hourly fallback checks.
+
+Qualification runs eight mixed updates per arm, verifies finite nonzero
+initializer/processor/decoder gradients, reloads the resulting checkpoints, and
+compares finite two-member 32-step readouts against the parent on one validation
+month. These checks do not select a checkpoint or establish a quality result.
+The short-test allocation has a one-hour limit (at most four allocated GPU-hours).
+Runtime archive: `obs-fast-v1-04fdba652e9e`; implementation commit: `b5d5e3c11`.
+An independently supervised scheduler watcher and an hourly fallback callback are
+registered for qualification, including the already-authorized production follow-up.
 
 Campaign root:
 `/projects/ny/lz1955/multiscale/jrusak/runs/diffusion-observation-fast-v1`.

@@ -8,9 +8,8 @@ and matched eight-model annual comparison are complete. On October 11 the user a
 best one or two variants from the 6k comparison**, judged at both 30 and 365 days.
 All quarter-degree runs use 6,000 total updates. Training and annual evaluation
 data are verified. U-global and observation-only passed four-GPU qualification,
-but measured throughput motivates using eight GPUs per run. Fresh eight-GPU qualification **212414** is running its first arm after a
-launcher-network recovery; the other three tests are held until that passes.
-Production has not been submitted.
+but measured throughput motivates using eight GPUs per run. Eight-GPU U-global qualification **212414_0** passed; the remaining three
+qualification arms are released. Production has not been submitted.
 Reporting both native-resolution and matched 1° metrics remains agreed.
 
 ## Runs
@@ -278,8 +277,12 @@ transport. A small all-reduce check now precedes the large data read. These are
 launcher-only changes; source and science stay pinned. The recovery harness
 passes 18 tests. Its first actual eight-rank all-reduce passed on
 `b3-11-s1-dgx-03-c01` and `b3-12-s1-dgx-03-c02`, with bond0 bootstrap and
-cross-host NVLink edges verified. Full model qualification is still running;
-this is not yet evidence that eight-GPU training/replay or throughput passes.
+cross-host NVLink edges verified. U-global subsequently passed the complete
+fitting, gradient, validation, retention and bitwise fresh-restart checks in
+26m37s. Measured OM4/observation updates take **11.97/12.79 seconds**, projecting
+about **20.6 hours for training updates plus validation/checkpointing**. This is
+a short diagnostic estimate, not a completed production runtime. Its other
+three arm qualifications have been released; all must pass before production.
 
 OM4 retention preserves the historical **11-origin** cohort. The old
 `--om4-validation-origins=12` setting was an upper bound: all eight completed
@@ -293,9 +296,10 @@ preserves the source/runtime/data hashes. The preceding exact-12 guard failure
 was caught on CPU before any GPU allocation; failed and superseded attempts
 remain saved.
 
-Completed native-quarter diagnostic allocations total **12.4217 GPU-hours**
-before 212414: 7.315 for the successful four-rank/single-GPU checks and 5.1067
-for the failed eight-rank network attempts, including the canceled final item.
+Completed native-quarter diagnostic allocations total **15.9706 GPU-hours**
+through 212414_0: 7.315 for the four-rank/single-GPU checks, 5.1067
+for the failed network attempts (including the canceled final item), and 3.5489
+for the successful eight-rank U-global qualification.
 Canceled unstarted tests used zero. This is separate from the completed 1° campaigns. [Qualification and launch receipts](artifacts/quarter-bringup-2026-10-11/eight-rank-transition.json.gz)
 record the producer and measurements; the [network recovery receipt](artifacts/quarter-bringup-2026-10-11/eight-network-recovery.json.gz)
 records failed-attempt accounting and the replacement submission. There are no native-quarter

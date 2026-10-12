@@ -17,6 +17,7 @@ def main():
     parser.add_argument("root", type=Path)
     parser.add_argument("--config-dir", type=Path)
     parser.add_argument("--auxiliary-calibration", type=Path)
+    parser.add_argument("--structured-scales", type=Path)
     args = parser.parse_args()
     config = yaml.safe_load(Path(__file__).with_name("common.yaml").read_text())
     for mode in ("qualification", "train"):
@@ -36,7 +37,8 @@ def main():
                     # A full D run requires the qualification's frozen weights.
                     continue
                 raw["scales_path"] = str(
-                    args.root / "outputs/qualification-D/structured-scales.json"
+                    args.structured_scales
+                    or args.root / "outputs/qualification-D/structured-scales.json"
                 )
                 calibration = json.loads(args.auxiliary_calibration.read_text())
                 raw["model"]["spatial_weight"] = calibration["spatial_weight"]

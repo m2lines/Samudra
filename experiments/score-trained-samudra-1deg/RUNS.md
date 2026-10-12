@@ -1,0 +1,116 @@
+<!--
+SPDX-FileCopyrightText: 2026 Samudra Authors
+SPDX-License-Identifier: CC-BY-4.0
+-->
+
+# First-wave execution record
+
+Launched 2026-10-11 EDT / 2026-10-12 UTC. Training results are pending; qualification checks are not
+scientific comparisons. This is an experiment/results record, not intended to merge.
+
+## Runs
+
+| Arm | Beta job | W&B | Source | State at bring-up |
+| --- | --- | --- | --- | --- |
+| A: existing dynamic MSE | 210664 | [uaei2vbr](https://wandb.ai/ocean_emulators/default/runs/uaei2vbr) | `a20c44484` | Existing final raw and EMA checkpoints verified; no retraining |
+| B: plain MSE | 212287 | [lpqa4bfi](https://wandb.ai/ocean_emulators/default/runs/lpqa4bfi) | `d87def314` | Training; online tracking verified |
+| C: marginal almost-fair CRPS | 212288 | [mqzdnh28](https://wandb.ai/ocean_emulators/default/runs/mqzdnh28) | `d87def314` | Training; online tracking verified |
+| D: structured almost-fair CRPS | 212295 | [k9973p2u](https://wandb.ai/ocean_emulators/default/runs/k9973p2u) | `338ae95d4` | Training; online tracking verified |
+
+All new arms use four B200 GPUs per job, seed 15, 70 epochs, effective batch 32 forecast contexts,
+InstanceNorm, bfloat16, existing normalization, Rust loading, and `tau_hfds` (no anomalies). C/D have four
+training members per context. The backbone has 84,002,154 parameters; C/D add 13,280 noise-projection parameters.
+Two inputs and two outputs per call, with four autoregressive calls, give eight five-day targets per example.
+At handoff, B had reached epoch 2 and written raw/EMA checkpoints; C had completed its first training epoch;
+D had completed multiple training microbatches. All three had finite training losses and online run URLs.
+
+Allocated wall limits are 12 hours for B and 18 hours each for C/D. The first-wave envelope is approximately
+200 GPU-hours including evaluation, with up to eight GPU-hours for qualification. Wall limits are ceilings,
+not predicted costs; monitor actual elapsed allocation and progress. Do not shorten the 70-epoch exposure
+silently if runtime becomes a problem. Later seeds and experiment waves wait for review.
+
+## Qualification and loss calibration
+
+Job 212277 exercised all original arms on four B200s: three optimizer updates, one-call validation,
+two 90-day validation rollouts, and checkpoint writing. Job 212292 repeated D with training-only coefficient
+calibration. It used a full production Beta node for a short check because a whole `beta_test` node was
+unavailable. Both qualification jobs completed successfully.
+
+| Arm/probe | Job | Peak allocated memory, rank 0 | Outcome |
+| --- | --- | --- | --- |
+| B | 212277 | 13.16 GB | Finite updates, validation and checkpoint |
+| C | 212277 | 39.81 GB | Finite updates; nonzero ensemble spread |
+| D, original 0.1/0.1 auxiliaries | 212277 | 54.30 GB | Numerically finite, but difference gradients dominated |
+| D, calibrated auxiliaries | 212292 | 54.30 GB | Finite updates; nonzero spread; frozen coefficients |
+
+The calibration used 16 **training** contexts at initialization: the first batch on each rank, a subset of
+the 64 training contexts used to estimate transformed-target RMS scales. Measured output-gradient norms were:
+
+| Term | Unweighted objective | Output-gradient L2 norm | Frozen coefficient |
+| --- | --- | --- | --- |
+| Grid CRPS | 0.427931 | 0.000147616 | 1 |
+| Spatial block scores | 0.904904 | 0.000620485 | 0.02379038743674755 |
+| Vertical/temporal difference scores | 25.709143 | 0.068039738 | 0.00021695526083931327 |
+
+Each auxiliary is capped at 10% of the grid term's initial output-gradient norm. These are gradients with
+respect to the output, not the network parameters. The coefficients stay fixed for the full D run. A
+nonzero spread after three updates only verifies that sampling works; it says nothing yet about calibration.
+
+Ten local tests passed, including CRPS formula/gradients, masked block averages, depth boundaries,
+checkpoint-preserved noise, matching backbone initialization, member history, checkpoint round trips,
+exact plain-MSE parity, and ensemble metric arithmetic. Scoped pre-commit checks passed.
+
+## Data and artifact locations
+
+Campaign root on Beta:
+
+```text
+/projects/ny/lz1955/multiscale/jrusak/runs/score-samudra-1deg-20261011
+```
+
+- `sources/<full Git commit>/`: immutable source trees, each with a `COMMIT` file.
+- `configs/train-{B,C,D}.yaml`: complete launch configs. `outputs/train-*/config.yaml` is the saved runtime config.
+- `outputs/train-*/saved_nets/`: raw, EMA, latest and validation-selected checkpoints.
+- `outputs/train-*/data-manifest.json`: source bounds, variables, forcing, normalization values, coordinates,
+  mask fingerprint and upstream preprocessing attributes.
+- `outputs/train-*/{train,validation}-origins.csv.gz`: all eligible windows and target timestamps, with runtime
+  assertions that fitting/validation targets are disjoint.
+- `outputs/qualification-*/qualification.json`: raw resource and validation checks, not trained-model results.
+- `outputs/qualification-D-calibrated/{structured-scales,auxiliary-calibration}.json`: frozen scales, sampled
+  training indices, measured loss/gradient magnitudes, and coefficients used for D.
+- `logs/` and `allocations/`: Slurm output/error logs and resource records.
+
+The shared data directory is
+`/projects/ny/lz1955/multiscale/jrusak/data/om4/v2026-09/om4_onedeg`, containing `OM4.zarr`, `OM4_means.zarr`
+and `OM4_stds.zarr`. A's former home path is a symlink to this project directory. The store has 4,745 times
+on a 180 x 360 Gaussian grid, with upstream preprocessing recorded at commit `42851c09` and
+`--skip_spatial_filtering`. Existing normalization is used as requested.
+
+Observed training targets span 1975-01-13 through 2013-10-05; validation targets span 2013-10-15 through
+2014-10-05 (all at 12:00). The shared boundary timestamp is a validation **input**, not a validation target.
+The held-out source is configured separately for 2014-10-10 through 2022-12-24.
+
+The container digest is pinned in `train_beta.sbatch`. The ARM64 Rust extension is copied from the successful
+existing control campaign and its import was verified inside the container. New B/C/D model and training code
+is experiment-local; the core `src/samudra` tree remains the pulled main snapshot `6b88f2c02`.
+
+## Monitoring and recovery
+
+Beta login and compute nodes timed out connecting to the external callback receiver. The first B/C launch
+attempts, 212283 and 212284, stopped in that notification preflight before model training and were cancelled;
+held job 212285 was also replaced. Their registrations were revoked. Their logs and allocations are retained.
+Training now has no outbound-notification startup dependency.
+
+Qualification consumed 1.028 allocated GPU-hours (643 and 282 seconds on four GPUs). The cancelled notification
+preflights consumed another 0.307 GPU-hours; the held D attempt consumed none.
+
+Durable one-hour reminders on the originating host wake the conversation to inspect Beta over SSH. On every
+wake, check Slurm state, current epoch/loss, W&B syncing, checkpoint progress, and allocated GPU-hours; rearm
+while active, and retire registrations once jobs finish. Remote instant completion callbacks are unavailable;
+terminal states are detected at the next scheduled check. Resume recoverable interruptions from the latest
+completed epoch with the same immutable source and config.
+
+Once training finishes, qualify and run the common evaluator on A/B/C/D final EMA checkpoints before drawing
+conclusions. Remaining report work includes matched annual/long rollouts, spatial/vertical/temporal diagnostics,
+climatology/persistence, observation metrics where applicable, plots and a proposed next wave. Do not start
+additional seeds or change the scientific comparison without reviewing this first wave.

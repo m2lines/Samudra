@@ -5,8 +5,9 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Score-trained stochastic Samudra on 1-degree OM4
 
-Status: implementation and qualification preparation, 2026-10-11. The user authorized B/C/D on Beta,
-Torch, or Engaging, using Rust loading and no `hfds_anomalies`. Reuse A; do not retrain it.
+Status: B/C/D training on Beta, 2026-10-11 (2026-10-12 UTC). See [run record](RUNS.md).
+The user authorized B/C/D on Beta, Torch, or Engaging, using Rust loading and no `hfds_anomalies`.
+Reuse A; do not retrain it.
 Experiment record, not intended to merge. Later waves remain subject to approval.
 
 ## Question and scope
@@ -151,11 +152,18 @@ deliberate to avoid a degeneracy of exactly fair CRPS in small training ensemble
 pairwise formulation and FP32 reductions. Report empirical and fair scores separately at evaluation, with the
 same member count for probabilistic arms. A deterministic forecast's empirical CRPS equals its MAE.
 
-D starts with `L_D = L_grid + 0.1 * L_spatial + 0.1 * L_differences`. These coefficients are proposed pilot
-settings, not empirically tuned results. Normalize each auxiliary group by its fixed training-only target RMS
-and reduce it to an average before weighting; exclude structurally constant features instead of amplifying
-them with tiny denominators. Preserve equal terms/contexts across C/D. If qualification shows pathological
-gradient scales, revise and freeze coefficients using training-only diagnostics before scoring validation.
+D uses `L_D = L_grid + 0.02379038744 * L_spatial + 0.0002169552608 * L_differences`.
+The initial proposal used 0.1 for both auxiliaries, but qualification found that this made the difference-term
+output-gradient norm about 46 times the grid term. The frozen coefficients are
+`min(0.1, 0.1 * ||grad_grid|| / ||grad_aux||)`, measured with respect to the predicted state at initialization
+on the first training batch of each rank (16 contexts total, sampler epoch 0). Each weighted auxiliary then
+has 10% of the grid term's initial output-gradient norm. No validation/test score selects these coefficients.
+They are fixed throughout training; this is not dynamic reweighting or a claim of optimal weights.
+
+Normalize each auxiliary group by its fixed training-only target RMS and reduce it to an average before
+weighting. Exclude features with RMS at most `1e-6` instead of amplifying tiny denominators. Differences here
+are differences of **standardized fields**, not physical-unit vertical gradients. Preserve equal terms and
+contexts across C/D. The exact coefficients, measured norms, and selected training windows are retained.
 
 - `L_spatial`: the same ensemble score on area- and wet-mask-weighted 4 x 4 and 16 x 16 cell averages.
   Empty blocks are excluded and latitude/longitude edges use a pinned boundary convention.
@@ -228,8 +236,9 @@ available at the live check. Production requests are full four-GPU nodes; qualif
   structure or temporal failure. Only then add masked multitask training or surface-only initialization with a
   matched deterministic comparison. New training waves wait for approval.
 
-For submitted jobs, arrange durable completion/failure callbacks to the originating conversation and check
-roughly hourly while active. Preserve job IDs, immutable source/container identifiers, complete configs,
+For submitted jobs, check roughly hourly while active. Beta login and compute hosts timed out reaching the
+callback receiver, so remote completion callbacks are unavailable. Durable local reminders wake this
+conversation to inspect Slurm over SSH; rearm them while jobs remain active. Preserve job IDs, immutable source/container identifiers, complete configs,
 dataset manifests, checkpoint lineage, runtime counters, raw metrics and selected field assets.
 
 ### Implemented first-wave details
@@ -237,6 +246,8 @@ dataset manifests, checkpoint lineage, runtime counters, raw metrics and selecte
 - `common.yaml` pins the recipe; `prepare.py` exports complete resolved configs. `train_score.py` subclasses
   the main trainer, reusing Rust batch loading, DDP, Adam, cosine decay, gradient accumulation/clipping, EMA,
   W&B and atomic epoch checkpoints. Production source under `src/samudra` is unchanged.
+  The inherited `loss: mse` field supplies B's loss; C/D override the model's training objective with the
+  ensemble score identified by `model.arm`.
 - `score_model.py` adds eight Gaussian channels at each of the four encoder resolutions, after the complete
   ConvNeXt block (including its normalization). The projection weights start at standard deviation
   `0.02/sqrt(8)`. Hooks execute inside the existing activation checkpoint, which preserves random draws on
@@ -248,6 +259,8 @@ dataset manifests, checkpoint lineage, runtime counters, raw metrics and selecte
   four GPUs, including all eight target frames per origin. Save the sampled indices and scales before training.
   Spatial scores average the two block sizes; difference scores average vertical and temporal groups. For
   16-cell blocks, retain partial edge blocks using empty padding, with no duplicated geographic cells.
+  Generate its production config with `prepare.py --auxiliary-calibration PATH --structured-scales REMOTE_PATH`
+  after qualification; the generator omits the D training config if frozen coefficients are not supplied.
 - First-wave validation uses eight members for C/D, one for B. Every epoch scores one-call validation windows
   and two validation-only 90-day rollouts, initialized at window indices 0 and 18. Select secondary checkpoints
   with the average score at 10/20/40/90 days (CRPS for C/D, RMSE for B). This replaces the proposed annual

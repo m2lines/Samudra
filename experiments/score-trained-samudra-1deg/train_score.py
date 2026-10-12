@@ -39,6 +39,7 @@ logger = logging.getLogger(__name__)
 class ScoreTrainConfig(TrainConfig):
     model: ScoreModelConfig
     scales_path: str | None = None
+    calibrate_auxiliary: bool = False
 
 
 ScoreTrainConfig.model_rebuild(
@@ -199,6 +200,72 @@ class ScoreTrainer(Trainer):
             torch.manual_seed(15000000 + epoch * 1000 + self.rank)
             return super().train_one_epoch(epoch, **kwargs)
 
+    def calibrate_auxiliary_weights(self):
+        """Cap each auxiliary's initial output-gradient norm at 10% of grid CRPS.
+
+        One batch per rank, from training sampler epoch zero, before any updates.
+        Frozen coefficients use no validation/test targets or scores.
+        """
+        assert self.arm == "D"
+        self.init_data_loaders(4)
+        self.train_sampler.set_epoch(0)
+        batch = next(iter(self.train_loader))
+        initial, boundary = batch.get_initial_input()
+        history = initial[None].expand(4, *initial.shape)
+        with torch.random.fork_rng(
+            devices=[self.device] if self.device.type == "cuda" else []
+        ):
+            torch.manual_seed(55000000 + self.rank)
+            with torch.no_grad():
+                pred = self.score_model.sample_step(history, boundary, batch.ctx)
+        pred = pred.detach().requires_grad_(True)
+        terms = self.score_model.score_components(
+            pred, batch.get_label(0), history[:, :, -77:], initial[:, -77:], batch.ctx
+        )
+        names = ["grid", "spatial", "differences"]
+        squares = torch.stack(
+            [
+                torch.autograd.grad(terms[name].mean(), pred, retain_graph=True)[0]
+                .square()
+                .sum()
+                for name in names
+            ]
+        )
+        values = torch.stack([terms[name].mean().detach() for name in names])
+        if self.distributed:
+            torch.distributed.all_reduce(squares)
+            torch.distributed.all_reduce(values)
+        norms = squares.sqrt()
+        values /= self.world_size
+        assert torch.isfinite(norms).all() and (norms > 0).all()
+        spatial = min(0.1, float(0.1 * norms[0] / norms[1]))
+        differences = min(0.1, float(0.1 * norms[0] / norms[2]))
+        self.score_model.spatial_weight = self.cfg.model.spatial_weight = spatial
+        self.score_model.difference_weight = self.cfg.model.difference_weight = (
+            differences
+        )
+        if is_main_process():
+            payload = {
+                "training_contexts": self.batch_size * self.world_size,
+                "sampler_epoch": 0,
+                "sampler_batch": 0,
+                "model_call": 0,
+                "noise_seed": 55000000,
+                "unweighted_values": dict(
+                    zip(names, values.cpu().tolist(), strict=True)
+                ),
+                "output_gradient_norms": dict(
+                    zip(names, norms.cpu().tolist(), strict=True)
+                ),
+                "spatial_weight": spatial,
+                "difference_weight": differences,
+            }
+            (self.output_dir / "auxiliary-calibration.json").write_text(
+                json.dumps(payload, indent=2) + "\n"
+            )
+            self.cfg.save_yaml(self.output_dir / "config.yaml")
+            logger.info("FROZEN AUXILIARY CALIBRATION: %s", payload)
+
     @torch.no_grad()
     def validate_one_epoch(self, epoch):
         self.model.eval()
@@ -325,6 +392,12 @@ def main():
     try:
         if args.compute_scales:
             trainer.compute_scales()
+        if cfg.calibrate_auxiliary:
+            if not args.qualify:
+                raise ValueError(
+                    "Calibrate only in qualification, then freeze coefficients for training"
+                )
+            trainer.calibrate_auxiliary_weights()
         if args.qualify:
             trainer.init_data_loaders(4)
             trainer.train_sampler.set_epoch(1)

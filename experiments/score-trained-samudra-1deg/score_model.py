@@ -111,7 +111,14 @@ class ScoreModel(BaseModel):
     depth_rms: torch.Tensor
     time_rms: torch.Tensor
 
-    def __init__(self, base: Samudra, arm: str, widths: list[int]):
+    def __init__(
+        self,
+        base: Samudra,
+        arm: str,
+        widths: list[int],
+        spatial_weight=0.1,
+        difference_weight=0.1,
+    ):
         super().__init__(
             in_channels=base.in_channels,
             out_channels=base.out_channels,
@@ -124,6 +131,8 @@ class ScoreModel(BaseModel):
         self.base = base
         self.arm = arm
         self.members = 1 if arm == "B" else 4
+        self.spatial_weight = spatial_weight
+        self.difference_weight = difference_weight
         # A dedicated initialization stream leaves the common backbone unchanged.
         if arm != "B":
             with torch.random.fork_rng(devices=[]):
@@ -149,12 +158,12 @@ class ScoreModel(BaseModel):
             0, (m, b)
         )
 
-    def score(self, pred, target, previous_pred, previous_true, ctx):
+    def score_components(self, pred, target, previous_pred, previous_true, ctx):
         # Same land-inclusive spatial reduction as the existing MSE control.
         wet = weights(ctx, 154, area=False)
         grid = (crps(pred, target) * wet).mean(dim=(0, 2, 3))
         if self.arm != "D":
-            return grid
+            return {"grid": grid}
         area = weights(ctx, 154, area=True)
         spatial = []
         for i, size in enumerate((4, 16)):
@@ -172,7 +181,21 @@ class ScoreModel(BaseModel):
         differences = (
             depth[self.depth_rms > 1e-6].mean() + temporal[self.time_rms > 1e-6].mean()
         ) / 2
-        return grid + 0.1 * torch.stack(spatial).mean() + 0.1 * differences
+        return {
+            "grid": grid,
+            "spatial": torch.stack(spatial).mean(),
+            "differences": differences,
+        }
+
+    def score(self, pred, target, previous_pred, previous_true, ctx):
+        terms = self.score_components(pred, target, previous_pred, previous_true, ctx)
+        if self.arm != "D":
+            return terms["grid"]
+        return (
+            terms["grid"]
+            + self.spatial_weight * terms["spatial"]
+            + self.difference_weight * terms["differences"]
+        )
 
     def forward(self, batch, loss_fn=None):
         if self.arm == "B":
@@ -206,6 +229,14 @@ class ScoreModel(BaseModel):
 
 class ScoreModelConfig(SamudraConfig):
     arm: Literal["B", "C", "D"] = "B"
+    spatial_weight: float = 0.1
+    difference_weight: float = 0.1
 
     def build(self, *args, **kwargs):
-        return ScoreModel(super().build(*args, **kwargs), self.arm, self.unet.ch_width)
+        return ScoreModel(
+            super().build(*args, **kwargs),
+            self.arm,
+            self.unet.ch_width,
+            self.spatial_weight,
+            self.difference_weight,
+        )

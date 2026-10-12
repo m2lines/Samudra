@@ -8,8 +8,9 @@ and matched eight-model annual comparison are complete. On October 11 the user a
 best one or two variants from the 6k comparison**, judged at both 30 and 365 days.
 All quarter-degree runs use 6,000 total updates. Training and annual evaluation
 data are verified. U-global and observation-only passed four-GPU qualification,
-but measured throughput motivates using eight GPUs per run. Fresh all-arm
-eight-GPU qualification **212398** is queued; production has not been submitted.
+but measured throughput motivates using eight GPUs per run. Fresh eight-GPU qualification **212414** is running its first arm after a
+launcher-network recovery; the other three tests are held until that passes.
+Production has not been submitted.
 Reporting both native-resolution and matched 1° metrics remains agreed.
 
 ## Runs
@@ -261,15 +262,24 @@ were 28.34 seconds for OM4 and 24.35 seconds for observations in U-global, and
 validation**, motivating the additional GPUs. Eight-GPU throughput and final
 runtime remain unmeasured.
 
-The pinned producer is `f091232ea8d7a8ee04ea14dd4cdbea5fa828f9ff`; the new array
-**212398** qualifies one eight-GPU arm at a time on `beta_test`. It requires actual
+The pinned producer is `f091232ea8d7a8ee04ea14dd4cdbea5fa828f9ff`; the recovery array
+**212414** qualifies one eight-GPU arm at a time on `beta_test`. It requires actual
 two-host NVLink transport, all fitting/data/gradient checks and bitwise next-update
 replay after separate process restarts for each trained path. The two unstarted
 four-GPU early-data tests were canceled. Only the immutable data-derived
 climatology reference is inherited; old GPU qualifications and diagnostic weights
 cannot initialize or authorize production. **169 source tests passed**, including
 actual four/eight-rank CPU gradient and serialized-RNG replay tests; seven launch
-transport checks passed. All commit checks passed.
+transport checks passed. All commit checks passed. The first eight-rank array
+**212398** failed before training because NCCL bootstrap selected an unreachable
+InfiniBand IP. Recovery explicitly uses `bond0` for setup traffic, matching the
+previous successful two-host launcher, while still requiring actual NVLink
+transport. A small all-reduce check now precedes the large data read. These are
+launcher-only changes; source and science stay pinned. The recovery harness
+passes 18 tests. Its first actual eight-rank all-reduce passed on
+`b3-11-s1-dgx-03-c01` and `b3-12-s1-dgx-03-c02`, with bond0 bootstrap and
+cross-host NVLink edges verified. Full model qualification is still running;
+this is not yet evidence that eight-GPU training/replay or throughput passes.
 
 OM4 retention preserves the historical **11-origin** cohort. The old
 `--om4-validation-origins=12` setting was an upper bound: all eight completed
@@ -283,9 +293,10 @@ preserves the source/runtime/data hashes. The preceding exact-12 guard failure
 was caught on CPU before any GPU allocation; failed and superseded attempts
 remain saved.
 
-Completed native-quarter diagnostic allocations total **7.315 GPU-hours** before
-212398: 1h03m02s × 4 for U-global, 43m42s × 4 for observation-only, plus the two
-single-GPU diagnostics. Canceled unstarted tests used zero. This is separate from
-the completed 1° campaigns. [Qualification and launch receipts](artifacts/quarter-bringup-2026-10-11/eight-rank-transition.json.gz)
-record the producer, measurements and accounting. There are no native-quarter
+Completed native-quarter diagnostic allocations total **12.4217 GPU-hours**
+before 212414: 7.315 for the successful four-rank/single-GPU checks and 5.1067
+for the failed eight-rank network attempts, including the canceled final item.
+Canceled unstarted tests used zero. This is separate from the completed 1° campaigns. [Qualification and launch receipts](artifacts/quarter-bringup-2026-10-11/eight-rank-transition.json.gz)
+record the producer and measurements; the [network recovery receipt](artifacts/quarter-bringup-2026-10-11/eight-network-recovery.json.gz)
+records failed-attempt accounting and the replacement submission. There are no native-quarter
 production jobs or scientific results yet.

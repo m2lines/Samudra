@@ -47,6 +47,7 @@ V2_ARMS = (
     "curvature-replay",
     "block-replay",
 )
+OBS_FAST_ARMS = ("control", "fast", "hybrid")
 DIRECT_ARMS = ("residual", "direct", "residual-warm", "direct-warm")
 DIRECT_PARENT_SHA = "36e99d3c669daa3be0f2120ae1ecb95042dcbb82f66022f2d2b082143f7ba38b"  # pragma: allowlist secret
 TIMESTEP_ARMS = ("control", "supervised", "consistency-weak", "consistency-strong")
@@ -186,17 +187,28 @@ class LatentReplay:
         }
 
 
+def observation_update_is_fast(arm, count):
+    """Use one mode for all eight microbatches; counts are zero-based obs updates."""
+    if arm not in OBS_FAST_ARMS or count < 0:
+        raise ValueError("Unknown observation arm or negative update count")
+    return arm == "fast" or (arm == "hybrid" and count % 4 != 3)
+
+
 def main(campaign_default="v1"):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument(
         "--arm",
-        choices=tuple(dict.fromkeys((*ARMS, *V2_ARMS, *TIMESTEP_ARMS, *DIRECT_ARMS))),
+        choices=tuple(
+            dict.fromkeys(
+                (*ARMS, *V2_ARMS, *TIMESTEP_ARMS, *DIRECT_ARMS, *OBS_FAST_ARMS)
+            )
+        ),
         required=True,
     )
     parser.add_argument(
         "--campaign",
-        choices=("v1", "v2", "timestep", "direct"),
+        choices=("v1", "v2", "timestep", "direct", "obs-fast"),
         default=campaign_default,
     )
     parser.add_argument("--updates", type=int, default=128)
@@ -213,6 +225,7 @@ def main(campaign_default="v1"):
             "v2": V2_ARMS,
             "timestep": TIMESTEP_ARMS,
             "direct": DIRECT_ARMS,
+            "obs-fast": OBS_FAST_ARMS,
         }[args.campaign]
     ):
         raise ValueError("Arm does not belong to campaign")
@@ -223,9 +236,11 @@ def main(campaign_default="v1"):
     output = args.root / ("smoke" if args.smoke else "runs") / args.arm
     output.mkdir(parents=True, exist_ok=True)
     direct_campaign = args.campaign == "direct"
-    parent_step = 16256 if direct_campaign else 16000
-    parent_count = 8128 if direct_campaign else 8000
-    parent_sha = DIRECT_PARENT_SHA if direct_campaign else PARENT_SHA
+    fast_campaign = args.campaign == "obs-fast"
+    new_parent = direct_campaign or fast_campaign
+    parent_step = 16256 if new_parent else 16000
+    parent_count = 8128 if new_parent else 8000
+    parent_sha = DIRECT_PARENT_SHA if new_parent else PARENT_SHA
     parent = args.root / f"checkpoints/parent-{parent_step}.pt"
     if digest(parent) != parent_sha:
         raise ValueError("Parent checkpoint differs")
@@ -263,9 +278,7 @@ def main(campaign_default="v1"):
         ),
         structure_weight=2.0,
         fresh_pushforward=args.arm == "pushforward",
-        latent_bound_weight=0.1
-        if direct_campaign or args.arm == "replay-bound"
-        else 0.0,
+        latent_bound_weight=0.1 if new_parent or args.arm == "replay-bound" else 0.0,
         parent_sha256=parent_sha,
         producer=os.environ["SAMUDRA_CODE_COMMIT"],
         seed=271829,
@@ -326,6 +339,49 @@ def main(campaign_default="v1"):
             warmup_target="Frozen parent next latent on short pre-2013 OM4 trajectories; processor only; separate exposure counts",
             warmup_assessment="Four reserved pre-2013 origins excluded with temporal guard from warmup fitting; teacher-forced and 30-day autoregressive agreement",
             continuation_optimizer="Fresh AdamW after warmup; no warmup optimizer state carried forward",
+            stability="All arms retain replay and soft latent bound on last four OM4 microbatches",
+        )
+    cache_manifest = None
+    if fast_campaign:
+        from samudra.experiments.diffusion_observation_fast import (
+            observation_parts_fast,
+        )
+
+        cache_root = args.root / (
+            "cache-observation-smoke" if args.smoke else "cache-observation"
+        )
+        if args.arm != "control":
+            cache_manifest = json.loads((cache_root / "COMPLETE.json").read_text())
+            if (
+                cache_manifest["parent_sha256"] != parent_sha
+                or cache_manifest["training_contract"] != base_contract
+            ):
+                raise ValueError("Observation imputation cache parent/data mismatch")
+            if not cache_manifest.get("complete"):
+                raise ValueError("Observation imputation cache is incomplete")
+            if (
+                cache_manifest["updates"] != args.updates
+                or cache_manifest["version"] != 1
+            ):
+                raise ValueError("Observation imputation cache budget/version mismatch")
+        spec.update(
+            version=5,
+            processor_prediction="residual",
+            parent_step=parent_step,
+            parent_counts={"om4": parent_count, "observation": parent_count},
+            observation_objective={
+                "control": "full 32-step sampled CRPS",
+                "fast": "single denoiser clean-target projection",
+                "hybrid": "three fast observation updates then one full CRPS",
+            }[args.arm],
+            imputation_cache_manifest_sha256=digest(cache_root / "COMPLETE.json")
+            if cache_manifest
+            else None,
+            imputation_storage="float16 normalized physical states; converted to float32 by objective",
+            observation_training_readouts="Full updates use two sampled members; fast updates use a single denoiser call per state and no generated members",
+            members_train=0 if args.arm == "fast" else 2,
+            fast_readouts_per_state=1,
+            full_crps_members=2,
             stability="All arms retain replay and soft latent bound on last four OM4 microbatches",
         )
     protocol = output / "protocol.json"
@@ -404,7 +460,11 @@ def main(campaign_default="v1"):
             entity="ocean_emulators",
             group=f"diffusion-interventions-{args.campaign}",
             name=args.arm,
-            id=f"diffint-{args.campaign}-{args.arm}",
+            id=(
+                f"diffint-{args.campaign}-{args.root.name}-{args.arm}"
+                if fast_campaign
+                else f"diffint-{args.campaign}-{args.arm}"
+            ),
             resume="allow",
             dir=str(output),
             config=spec,
@@ -451,8 +511,9 @@ def main(campaign_default="v1"):
             auxiliary_state["timestep_adapter"] = (
                 model.processor.timestep_adapter.state_dict()
             )
-        if direct_campaign:
+        if new_parent:
             auxiliary_state["processor_prediction"] = spec["processor_prediction"]
+        if direct_campaign:
             auxiliary_state["warmup"] = warmup_summary
         payload = dict(
             model=model_state,
@@ -494,6 +555,7 @@ def main(campaign_default="v1"):
             output / "state.json",
         )
 
+    verified_cache_months = set()
     started = time.monotonic()
     while completed < args.updates and not stop:
         task = "om4" if completed % 2 == 0 else "observation"
@@ -518,9 +580,44 @@ def main(campaign_default="v1"):
             with torch.autocast("cuda", dtype=torch.bfloat16):
                 if task == "observation":
                     sample = data.load(training[index])
-                    for label, loss, measurements in observation_parts(
-                        model, data, sample, seed, multiscale=spec["multiscale_weight"]
-                    ):
+                    fast_update = fast_campaign and observation_update_is_fast(
+                        args.arm, count
+                    )
+                    if fast_update:
+                        assert cache_manifest is not None
+                        cache_file = cache_root / f"{sample['name']}.pt"
+                        if sample["name"] not in verified_cache_months:
+                            if (
+                                digest(training[index])
+                                != cache_manifest["source_files"][training[index].name]
+                            ):
+                                raise ValueError("Changed imputation training source")
+                            if (
+                                digest(cache_file)
+                                != cache_manifest["files"][cache_file.name]
+                            ):
+                                raise ValueError("Changed observation imputation cache")
+                            verified_cache_months.add(sample["name"])
+                        imputation = torch.load(
+                            cache_file, map_location="cpu", weights_only=True
+                        )
+                        objectives = observation_parts_fast(
+                            model,
+                            data,
+                            sample,
+                            seed,
+                            imputation,
+                            multiscale=spec["multiscale_weight"],
+                        )
+                    else:
+                        objectives = observation_parts(
+                            model,
+                            data,
+                            sample,
+                            seed,
+                            multiscale=spec["multiscale_weight"],
+                        )
+                    for label, loss, measurements in objectives:
                         if not bool(torch.isfinite(loss)):
                             raise FloatingPointError(label)
                         (loss / 8).backward()
@@ -532,9 +629,7 @@ def main(campaign_default="v1"):
                         "validity"
                     ][:, :19]
                     if micro >= 4 and (
-                        direct_campaign
-                        or "replay" in args.arm
-                        or args.arm == "pushforward"
+                        new_parent or "replay" in args.arm or args.arm == "pushforward"
                     ):
                         loss = replay.loss(
                             model,
@@ -584,6 +679,27 @@ def main(campaign_default="v1"):
                         total += float(auxiliary.detach()) / 8
                         for key, value in measurements.items():
                             parts[key] = parts.get(key, 0.0) + float(value) / 8
+        if fast_campaign and args.smoke and task == "observation":
+            for label, module in (
+                ("initializer", model.encoder),
+                ("processor", model.processor),
+                ("decoder", model.decoder),
+            ):
+                grads = [
+                    parameter.grad.detach().float().square().sum()
+                    for parameter in module.parameters()
+                    if parameter.grad is not None
+                ]
+                magnitude = (
+                    torch.stack(grads).sum().sqrt()
+                    if grads
+                    else torch.tensor(0.0, device=device)
+                )
+                if not bool(torch.isfinite(magnitude)) or not bool(magnitude > 0):
+                    raise FloatingPointError(
+                        f"Missing/nonfinite {label} observation gradient"
+                    )
+                parts[f"gradient_norm/{label}"] = float(magnitude)
         norm = torch.nn.utils.clip_grad_norm_(
             model.parameters(), 1.0, error_if_nonfinite=True
         )
@@ -595,6 +711,15 @@ def main(campaign_default="v1"):
             arm=args.arm,
             update=completed,
             task=task,
+            **(
+                {
+                    "observation_mode": "fast"
+                    if observation_update_is_fast(args.arm, count)
+                    else "full"
+                }
+                if fast_campaign and task == "observation"
+                else {}
+            ),
             loss=total,
             parts=parts,
             seconds=time.monotonic() - update_started,
@@ -648,7 +773,7 @@ def main(campaign_default="v1"):
                         "observation": parent_count + completed // 2,
                     },
                 }
-                if direct_campaign
+                if new_parent
                 else {}
             ),
         ),

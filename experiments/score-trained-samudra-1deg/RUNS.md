@@ -117,6 +117,20 @@ At 11:30 UTC on 2026-10-12, B had completed all 70 epochs with exit code 0 after
 B's training reminder was retired. C was training epoch 64 and D epoch 70, with current checkpoints and no
 runtime errors. Their hourly reminders remain active. These progress checks do not establish a held-out ranking.
 
+## Annual evaluator qualification
+
+Job **212400** was submitted on 2026-10-12 using evaluator source `0ed45a791` and B's final EMA checkpoint.
+It is a short four-GPU qualification with a 20-minute wall limit: four fixed held-out origins, each rolled
+forward 360 days, distributed one origin per GPU. It was queued at submission. Output is written beneath
+`outputs/eval-qualification-B-212400/`; the run must produce all 2,156 per-channel/lead rows and `COMPLETE.json`.
+The evaluator requires epoch 70, loads model weights strictly, checks predictions for nonfinite values,
+records checkpoint/source/config provenance, and requires online W&B. Ten local tests and scoped pre-commit
+checks passed. A verified callback credential is attached to the batch EXIT hook, with a one-hour reminder
+covering pending jobs, node loss, and failed notification delivery.
+
+This qualifies execution and data alignment, not model quality. Full common evaluation and stochastic
+16-member qualification remain pending; no scientific comparison is claimed from this short check.
+
 Once training finishes, qualify and run the common evaluator on A/B/C/D final EMA checkpoints before drawing
 conclusions. Remaining report work includes matched annual/long rollouts, spatial/vertical/temporal diagnostics,
 climatology/persistence, observation metrics where applicable, plots and a proposed next wave. Do not start

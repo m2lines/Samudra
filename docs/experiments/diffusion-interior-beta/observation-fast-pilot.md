@@ -3,10 +3,11 @@
 
 # One-step observation-training pilot
 
-**Status:** qualification submitted as Beta job **212300**, running on four
-B200s. The three-arm production comparison follows after qualification passes.
-No scientific results yet. Implementation passed 37 targeted tests and all
-repository checks, including typing, secret scanning and licensing.
+**Status:** qualification **212300 passed** all three arms, gradient checks and
+paired full-sampler readouts. Production **212306 is running** on four Beta B200s,
+started October 12 at 02:34 UTC. No production quality results yet. Implementation
+passed 37 targeted tests and all repository checks, including typing, secret
+scanning and licensing.
 
 Observation updates currently backpropagate through the 32-step diffusion sampler
 for two members, forecast leads, and the separate monthly reconstruction task.
@@ -98,8 +99,37 @@ compares finite two-member 32-step readouts against the parent on one validation
 month. These checks do not select a checkpoint or establish a quality result.
 The short-test allocation has a one-hour limit (at most four allocated GPU-hours).
 Runtime archive: `obs-fast-v1-04fdba652e9e`; implementation commit: `b5d5e3c11`.
-An independently supervised scheduler watcher and an hourly fallback callback are
-registered for qualification, including the already-authorized production follow-up.
+Qualification completed successfully in 34m32s, using **2.3022 allocated GPU-hours**.
+Its callback is retired. An independently supervised scheduler watcher and hourly
+fallback callback are registered for production. The production allocation's
+eight-hour limit gives a combined maximum of **34.3022 allocated GPU-hours**.
+
+### Qualification observations
+
+All arms completed four OM4 and four observation updates, with the hybrid using
+three fast observation updates and one full update. Initializer, processor and
+decoder gradients were finite and nonzero. Every saved checkpoint reloaded and
+produced finite fields under the original 32-step sampler.
+
+| Fixed November 2013 validation example, two draws | Forecast CRPS |
+|---|---:|
+| Parent | 0.053834 |
+| Control | 0.053976 |
+| Fast | 0.054956 |
+| Hybrid | 0.054832 |
+
+Same input fingerprint and sampling seed in all cases. The cheap arm is about
+1.8% worse than the control on this one check. Four observation updates and one
+validation month do not establish retained quality or a meaningful ranking.
+
+After excluding the first observation update's compilation cost, median update
+time was **298.63 seconds control versus 13.23 seconds fast**, approximately
+22.6 times faster. These are only three timing samples per arm; they exclude
+OM4 work, preparation, startup and evaluation. Preparing the 32-example smoke
+cache plus its parent readout took **369 seconds** on a separate GPU. Complete
+smoke training subprocess times were 1,937 seconds control, 641 seconds fast,
+and 1,112 seconds hybrid. Production will provide the amortized comparison with
+all 243 training months cached and substantially more updates.
 
 Campaign root:
 `/projects/ny/lz1955/multiscale/jrusak/runs/diffusion-observation-fast-v1`.

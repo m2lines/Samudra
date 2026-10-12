@@ -125,6 +125,15 @@ seasonal-climatology control and validation denominators established on that
 grid. Full-field errors remain neither detrended nor deseasonalized. Spectra do
 not enter checkpoint selection.
 
+Report both the validation-selected checkpoint and the fixed 6,000-update
+endpoint, with each checkpoint's own initialized persistence. Native subsurface
+profiles and OHC retain IAP's observation grid; the common-grid report uses the
+frozen legacy supports below. Reporting support is implemented in evaluation
+producer `d0fc3c44b142980741ad0f82156fdd2f80ff1f76` (74 focused CPU tests), separately
+from the pinned training producer. Actual annual GPU memory remains to be checked
+on the first completed model; the exporter releases each origin's full state
+before starting the next.
+
 Also evaluate conservatively coarsened predictions through the unchanged 1°
 observation operators and frozen reference for a direct comparison with the
 current runs. Calculate velocity/EKE after the chosen remapping where required

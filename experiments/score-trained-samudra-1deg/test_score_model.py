@@ -224,3 +224,14 @@ def test_physical_depth_difference_and_covariance():
         result["thetao_so_covariance"], torch.full((1, 19), -6.0)
     )
     torch.testing.assert_close(result["uo_vo_covariance"], torch.ones(1, 19))
+
+
+def test_seasonal_reference_bins_respect_source_leap_year_centers():
+    import cftime
+    from evaluate_references import seasonal_bin
+
+    assert seasonal_bin(cftime.DatetimeJulian(2016, 12, 28, 12)) == 72
+    assert seasonal_bin(cftime.DatetimeJulian(2017, 1, 3, 12)) == 0
+    assert seasonal_bin(cftime.DatetimeJulian(2017, 12, 29, 12)) == 72
+    with pytest.raises(ValueError, match="Unexpected OM4 seasonal center"):
+        seasonal_bin(cftime.DatetimeJulian(2016, 12, 29, 12))

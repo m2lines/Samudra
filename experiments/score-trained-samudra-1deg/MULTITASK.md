@@ -25,7 +25,7 @@ losses, denoising score matching, or diffusion.
 Both use the same 84M-parameter stochastic ConvNeXt U-Net plus a shared **94,864-parameter** conditioning
 projection. C's original checkpoint/results remain a historical reference; F controls for the added
 interface and changed validation policy. Training retains four members, almost-fair CRPS alpha 0.95,
-two-input/two-output states, four calls per window, batch 32 over four GPUs, existing normalization,
+two-input/two-output states, four calls per window, effective batch 32, existing normalization,
 InstanceNorm, bf16, EMA, and the Rust loader with tauuo/tauvo/hfds and no hfds_anomalies. Other optimizer
 settings are inherited from `common.yaml`.
 
@@ -84,16 +84,29 @@ or forecasting with unknown future surface fields. Do not select favorable masks
 
 ## Execution and monitoring
 
-Use Beta's existing pinned ARM container and Rust extension. Estimate roughly **90–110 allocated B200
-GPU-hours** for the two 70-epoch runs plus initial evaluation, based on C's measured 43.45 training GPU-hours
-and the new validation/conditioning overhead. Qualification measures actual memory, runtime and all task
-branches before releasing full runs. Short qualification uses beta_test; production uses full four-GPU beta
-nodes. Live capacity at planning was fully occupied, so queue time is additional. Do not use beta_test for
-full training. Preserve immutable source snapshots and resolved configurations.
+Use Torch H100s following the user's request to use available Torch capacity. The initial plan used Beta;
+its held qualification job 212521 was cancelled before allocating resources. Torch's H100 queue estimates
+were earlier than RTX/H200 production capacity on October 12. Qualification uses one H100; both production
+arms request two H100s with batch 4/rank and accumulation 4, retaining effective batch 32. The corresponding
+four-GPU Beta recipe uses accumulation 2. These rank counts change sampling/RNG streams relative to historical
+C; the two new arms remain matched to one another.
 
-Full runs require online W&B before training. EXIT callbacks and hourly reminders cover success/failure and
-queued jobs. Recover straightforward failures and report blockers. Later experiment waves still need approval.
+Reuse Torch's `sd-seeds-base-0b5320248.sif` container, whose `uv.lock` and `pyproject.toml` are byte-identical
+to this source, with its installed x86 Rust loader. Bind an immutable source snapshot read-only; compare
+dependency files again inside every allocation. Data is `/scratch/jr7309/data/om4-v2026-09/om4_onedeg`.
+Compare metadata, coordinates, masks, all normalization chunks, and sampled ocean chunks against the Beta
+first-wave store before submission; this is a sampled cross-host check, not a new full-store verification.
 
-Implementation: `multitask_model.py`, `train_multitask.py`, `prepare_multitask.py`, `multitask_beta.sbatch`.
+The initial estimate of **90–110 allocated B200 GPU-hours** for both runs plus initial evaluation was based
+on C's measured 43.45 training GPU-hours and validation overhead. It is not an H100 timing estimate.
+Qualification measures actual memory/runtime and all task branches before releasing full runs. Preserve
+immutable source snapshots, resolved configurations, allocation records and actual GPU-hours.
+
+Full runs require online W&B before training. CPU-only `afterany` callbacks and hourly reminders cover
+success/failure and queued jobs. Preemption requeues from the latest completed epoch without consuming the
+final callback. Recover straightforward failures and report blockers. Later experiment waves still need approval.
+
+Implementation: `multitask_model.py`, `train_multitask.py`, `prepare_multitask.py`, `multitask_torch.sbatch`
+and the alternative `multitask_beta.sbatch`.
 Local checks cover exact initial C forecast parity, mask leakage under nonzero learned conditioning, copied
 known values, requested-only gradients, dry cells, task-RNG replay and checkpointed backward equivalence.

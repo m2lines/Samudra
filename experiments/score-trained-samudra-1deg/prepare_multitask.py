@@ -16,6 +16,7 @@ def main():
     parser.add_argument("root", type=Path)
     parser.add_argument("data_root")
     parser.add_argument("--config-dir", type=Path)
+    parser.add_argument("--gpus", type=int, choices=[1, 2, 4, 8], default=4)
     args = parser.parse_args()
     common = yaml.safe_load(Path(__file__).with_name("common.yaml").read_text())
     for mode in ("forecast", "multitask"):
@@ -31,6 +32,8 @@ def main():
             raw["preemptible"] = phase == "train"
             if phase == "qualification":
                 raw["experiment"]["wandb"]["mode"] = "disabled"
+            else:
+                raw["gradient_accumulation_steps"] = 8 // args.gpus
             cfg = MultitaskTrainConfig(**raw)
             path = (args.config_dir or args.root / "configs") / f"{phase}-{mode}.yaml"
             path.parent.mkdir(parents=True, exist_ok=True)

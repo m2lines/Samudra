@@ -9,7 +9,7 @@ SPDX-License-Identifier: CC-BY-4.0
 drift/structure diagnostics completed successfully. Persistence and training-period seasonal-climatology
 references and all eight checkpoint sensitivity evaluations also completed and passed their common-target
 audits. Trajectory export for observational comparisons also completed and reproduced the original diagnostics
-exactly. Observation scoring remains outstanding. This is an
+exactly. Secondary observation scoring is submitted as Grace job 132091. This is an
 experiment/results record, not intended to merge. The first-wave report is not yet complete.
 
 ## What the completed comparison establishes
@@ -218,6 +218,8 @@ Selected C/D member-range coverage is **82.71%/83.22%**, still below the 16-memb
 Changing checkpoints does not resolve underdispersion. See the [summary](results/sensitivity-summary.csv),
 [physical family breakdown](results/sensitivity-family.csv), [paired intervals](results/sensitivity-paired-year-intervals.csv),
 and [all per-origin metric rows](results/sensitivity-raw/).
+Continuous structure and observation diagnostics continue to use final epoch-70 EMA; this sensitivity does
+not establish how the earlier selected checkpoints behave on those diagnostics.
 
 ## Fixed-date fields
 
@@ -335,7 +337,9 @@ Secondary observation scoring where applicable remains outstanding. Checkpoint s
 completed. Continuous-trajectory export job **212433** completed and passed exact replay checks for every
 score, structure array and saved field. Twelve trajectory stores supply observation scoring with the A/B
 deterministic forecasts and each C/D ensemble mean plus four members. No conclusion about
-observational skill or 100-year climate stability is claimed.
+observational skill or 100-year climate stability is claimed. Grace job **132091** will score the published
+five-day DUACS/OISST/ARGO-IAP products, with original depth-specific wet masks and exact-timestamp preflight.
+It has a completion callback and hourly fallback reminder.
 
 Provisional next-wave suggestions, for review after the remaining evaluations:
 

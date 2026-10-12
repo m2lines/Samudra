@@ -325,3 +325,22 @@ preflight before spatial scoring.
 Thirteen model/numerical tests, eight existing Zarr-writer tests and scoped pre-commit checks passed before
 submission. These are evaluation/export jobs within the first-wave allocation; no additional training is
 authorized by their callbacks.
+
+## Secondary observational evaluation
+
+Grace job **132091** was submitted through Alpha using immutable source `057e9a61b`, with 32 CPUs, 384 GiB
+RAM, no requested GPUs and a six-hour wall limit. Its output is `outputs/observations-132091/`. Slurm's
+resource check accepted the request. The verified export from job 212433 is the only prediction input.
+
+The job scores A/B deterministic trajectories plus C/D ensemble means and four members each against the
+published five-day DUACS, OISST and ARGO-IAP products. It reapplies the original per-channel wet masks and
+requires identical trajectory timestamps. Metadata-only exact-time checks cover both the primary 2015–2022
+window and the full common span used by residual-variance diagnostics, before expensive interpolation/scoring.
+Individual member metrics remain separate from metrics of the ensemble mean; no mean-field EKE is presented
+as mean member EKE. Observation-product locations, attributes, actual shared dates, checkpoint/export
+provenance and all model labels are retained in the job manifest.
+
+Online W&B is required before scoring. An EXIT callback and hourly fallback reminder are registered; the
+Alpha login-node receiver check passed before release. The script also checks from the compute node.
+Compute-node bring-up and the product time-axis preflight remain to be verified. Relevant analysis code was
+run on all completed artifacts, and scoped pre-commit checks passed before submission.

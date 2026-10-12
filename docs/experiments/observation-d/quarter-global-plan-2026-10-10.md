@@ -1,7 +1,7 @@
 <!-- SPDX-FileCopyrightText: 2026 Samudra Authors -->
 <!-- SPDX-License-Identifier: CC-BY-4.0 -->
 
-# Native quarter-degree observation experiment: proposed follow-on
+# Native quarter-degree observation experiment
 
 Run after the [4k/6k auxiliary reproductions](early-rmse-6k-2026-10-10.md#auxiliary-loss-reproductions)
 finish. On October 11 the user authorized **U-global, observation-only, and the
@@ -93,7 +93,11 @@ Observation sources already exist under:
 | IAP temperature/salinity | ½° monthly, 41 depths | Retain its native observational support for supervision/evaluation through a model-to-observation operator |
 
 The checked pilot caches are still 180×360. A new quarter-degree cache is needed;
-no new primary-product transfer is required. Equal OISST/OM4 array dimensions do
+no new primary-product transfer is required. The verified calendar requires
+10,882 daily dates for 348 monthly examples; the three annual sequences add no
+extra daily coverage. Daily plus materialized monthly/annual arrays total roughly
+1.6 TB before compression, against approximately 35 TB of available project storage.
+Equal OISST/OM4 array dimensions do
 not mean identical coordinates: regular versus Gaussian latitude differs.
 Do not manufacture fine-scale subsurface truth by upsampling IAP and counting
 the interpolated cells as independent observations. Preserve monthly OHC depth
@@ -152,10 +156,21 @@ data preparation; they do not establish effective-batch-eight throughput,
 native-IAP operator behavior, or four-GPU correctness. No weights were saved.
 Production remains unsubmitted.
 
+The static-grid audit and a real-data five-day preparation test passed. The latter
+checked surface fields, all eight finite ERA5 inputs, native IAP profiles/OHC,
+timestamps and output hashes. Four Grace CPU workers (**131367**) are preparing
+the full cache from pinned source `dd79f4630`; this is preprocessing, not training.
+The ARM compact-reader build passed (**131371**): one full 80-channel frame
+and four indexed windows exactly matched independent Xarray decoding, including
+missing values. Beta projection test **212269** passed forward and gradient checks
+on the real grids with synthetic physical fields; repeated results were bitwise
+identical under the pinned runtime. This checks the observation operator, not yet
+end-to-end training on observed values.
+
 Local groundwork now includes a bounded compact-OM4 window reader and explicit
 native-IAP projection in losses and metrics. Legacy scalar-statistics outputs
-were checked for exact equality on a synthetic 243-month fixture; real compact
-reads, real-data operators and four-GPU training are still to be qualified.
+were checked for exact equality on a synthetic 243-month fixture; the integrated OM4 training windows, observed-value losses and four-GPU training
+are still to be qualified.
 
 ## Beta bring-up and decision points
 

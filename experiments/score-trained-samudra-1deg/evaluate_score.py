@@ -1,0 +1,289 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+# SPDX-License-Identifier: Apache-2.0
+
+"""Common held-out forecast scores for reused A and new B/C/D checkpoints.
+
+The table contains per-origin, per-lead, per-channel metrics; it does not rank
+models by their incomparable training losses. All stochastic histories evolve
+independently. Long-trajectory and observational diagnostics are separate tasks.
+"""
+
+import argparse
+import csv
+import json
+from pathlib import Path
+
+import numpy as np
+import torch
+import wandb
+from score_model import crps, reduce_field, weights
+from train_score import ScoreTrainConfig
+
+from samudra.backend import init_train_backend
+from samudra.datasets import InferenceDataset
+
+
+def field_metrics(pred, target, area):
+    """Physical-unit conversion is applied to this normalized metric table."""
+    mean = pred.mean(0)
+    m = pred.shape[0]
+    # Quantile intervals and the member range have distinct finite-M behavior.
+    intervals = torch.quantile(
+        pred, torch.tensor([0.05, 0.95], device=pred.device), dim=0
+    )
+    result = {
+        "rmse": reduce_field((mean - target).square(), area).sqrt(),
+        "bias": reduce_field(mean - target, area),
+        "mae": reduce_field((mean - target).abs(), area),
+        "crps_empirical": reduce_field(crps(pred, target, 0), area),
+        "crps_fair": reduce_field(crps(pred, target, 1), area),
+        "spread": reduce_field(pred.var(0, unbiased=m > 1), area).sqrt(),
+        "member_rmse": torch.stack(
+            [reduce_field((p - target).square(), area).sqrt() for p in pred]
+        ).mean(0),
+        "coverage_q05_q95": reduce_field(
+            ((target >= intervals[0]) & (target <= intervals[1])).float(), area
+        ),
+        "coverage_member_range": reduce_field(
+            ((target >= pred.min(0).values) & (target <= pred.max(0).values)).float(),
+            area,
+        ),
+    }
+    return result
+
+
+@torch.no_grad()
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("config")
+    parser.add_argument("checkpoint")
+    parser.add_argument("output", type=Path)
+    parser.add_argument("--arm", choices=["A", "B", "C", "D"], required=True)
+    parser.add_argument("--members", type=int, default=16)
+    parser.add_argument("--origin-limit", type=int)
+    args = parser.parse_args()
+    cfg = ScoreTrainConfig.from_yaml(args.config)
+    raw = cfg.model_dump(mode="json")
+    raw["data"]["sources"][0]["inference_time"] = {
+        "start": "2014-10-10",
+        "end": "2022-12-24",
+    }
+    cfg = ScoreTrainConfig(**raw)
+    device, dist = init_train_backend("auto")
+    rank = (dist.rank or 0) if dist else 0
+    world = (dist.world_size or 1) if dist else 1
+    args.output.mkdir(parents=True, exist_ok=True)
+    bundle = cfg.data.build(
+        data_root=cfg.experiment.resolved_data_root, include_inference=True
+    )
+    source = bundle.inference_source
+    if source is None:
+        raise ValueError("Missing held-out source")
+    names = list(bundle.data_layout.prognostic_var_names)
+    boundary_names = bundle.data_layout.boundary_var_names
+    dataset = InferenceDataset(
+        source,
+        names,
+        boundary_names,
+        2,
+        2,
+        cfg.data.normalize_before_mask,
+        cfg.data.masked_fill_value,
+        False,
+    ).to(device)
+    net = (
+        cfg.model.build(
+            prog_channels=154,
+            boundary_channels=6,
+            out_channels=154,
+            input_steps=2,
+            grid_sizes=[source.grid_size],
+        )
+        .to(device)
+        .eval()
+    )
+    checkpoint = torch.load(args.checkpoint, map_location="cpu", weights_only=True)
+    state = {k.removeprefix("module."): v for k, v in checkpoint["model"].items()}
+    if args.arm == "A":
+        net.base.load_state_dict(state, strict=True)
+    else:
+        net.load_state_dict(state, strict=True)
+    del checkpoint, state
+    m = 1 if args.arm in ("A", "B") else args.members
+    std = source.statistics(names).std.reshape(-1)
+    origins = [
+        i
+        for i in range(0, len(dataset) - 36 + 1, 9)
+        if str(source.time.values[2 * i + 1])[:4] <= "2021"
+    ]
+    if args.origin_limit:
+        origins = origins[: args.origin_limit]
+    run = None
+    if rank == 0:
+        run = wandb.init(
+            entity=cfg.experiment.wandb.entity,
+            project=cfg.experiment.wandb.project,
+            name=f"score-{args.arm}-heldout",
+            mode="online",
+            config={
+                "arm": args.arm,
+                "members": m,
+                "checkpoint": str(args.checkpoint),
+                "origins": origins,
+                "seed": 35000000,
+                "test_period": ["2014-10-10", "2022-12-24"],
+            },
+        )
+        (args.output / "manifest.json").write_text(
+            json.dumps(
+                {
+                    "wandb_url": run.url,
+                    "arm": args.arm,
+                    "checkpoint": str(args.checkpoint),
+                    "members": m,
+                    "origin_indices": origins,
+                    "origin_times": [
+                        str(source.time.values[2 * i + 1]) for i in origins
+                    ],
+                    "leads_days": [5, 10, 20, 40, 90, 180, 360],
+                    "finite_member_range_reference": (m - 1) / (m + 1),
+                    "rank_ties": "uniform random among equal member values",
+                },
+                indent=2,
+            )
+            + "\n"
+        )
+    rows = []
+    histogram = torch.zeros(7, 77, m + 1, device=device)
+    leads = [5, 10, 20, 40, 90, 180, 360]
+    area = weights(dataset.ctx, 77, area=True)
+    area = area / area.sum((-2, -1), keepdim=True)
+    for origin in origins[rank::world]:
+        torch.manual_seed(35000000 + origin)
+        initial = dataset[origin][0].to(device)
+        history = initial[None].expand(m, *initial.shape)
+        for step in range(36):
+            boundary = dataset.get_boundary(origin + step).to(device)
+            pred = net.sample_step(history, boundary, dataset.ctx)
+            if not torch.isfinite(pred).all():
+                raise FloatingPointError(
+                    f"Nonfinite prediction: origin={origin} step={step}"
+                )
+            history = pred
+            for frame in (0, 1):
+                lead = 10 * step + 5 * (frame + 1)
+                if lead not in leads:
+                    continue
+                target = dataset.inference_target(origin + step).to(device)[
+                    :, frame * 77 : (frame + 1) * 77
+                ]
+                p = pred[:, :, frame * 77 : (frame + 1) * 77]
+                metrics = {
+                    k: v.cpu().numpy()
+                    for k, v in field_metrics(p, target, area).items()
+                }
+                less = (p < target).sum(0)
+                equal = (p == target).sum(0)
+                # Separate tie RNG: diagnostic bookkeeping must not change forecasts.
+                generator = torch.Generator(device=device).manual_seed(
+                    45000000 + origin * 100 + lead
+                )
+                tie = torch.floor(
+                    torch.rand(target.shape, device=device, generator=generator)
+                    * (equal + 1)
+                ).long()
+                ranks = less + tie
+                for r in range(m + 1):
+                    histogram[leads.index(lead), :, r] += reduce_field(
+                        (ranks == r).float(), area
+                    )
+                target_time = str(source.time.values[2 * (origin + step) + 2 + frame])
+                for channel, name in enumerate(names):
+                    row = {
+                        "arm": args.arm,
+                        "origin": str(source.time.values[2 * origin + 1]),
+                        "target": target_time,
+                        "lead_days": lead,
+                        "variable": name,
+                        "members": m,
+                    }
+                    for key, values in metrics.items():
+                        row[
+                            f"{key}_normalized"
+                            if not key.startswith("coverage")
+                            else key
+                        ] = float(values[channel])
+                        if not key.startswith("coverage"):
+                            row[f"{key}_physical"] = float(
+                                values[channel] * std[channel]
+                            )
+                    rows.append(row)
+                if origin == origins[0] and lead in (5, 40, 360):
+                    # Prespecified channels/date/members; 180x360 native grid retained.
+                    selected = [
+                        names.index(v) for v in ("zos", "thetao_0", "so_9", "uo_9")
+                    ]
+                    np.savez_compressed(
+                        args.output / f"fields-{lead:03d}d.npz",
+                        variables=np.array([names[i] for i in selected]),
+                        target=target[0, selected].cpu().numpy(),
+                        mean=p.mean(0)[0, selected].cpu().numpy(),
+                        member0=p[0, 0, selected].cpu().numpy(),
+                        member1=p[min(1, m - 1), 0, selected].cpu().numpy(),
+                        spread=p.std(0, unbiased=m > 1)[0, selected].cpu().numpy(),
+                        mask=dataset.ctx.label_mask[selected].cpu().numpy(),
+                    )
+        print(f"rank={rank} completed origin={origin} members={m}", flush=True)
+        # A per-rank atomic replacement preserves completed origins after failure.
+        path = args.output / f"metrics-rank{rank}.csv"
+        temporary = path.with_suffix(".tmp")
+        with temporary.open("w") as f:
+            writer = csv.DictWriter(f, fieldnames=list(rows[0]))
+            writer.writeheader()
+            writer.writerows(rows)
+        temporary.replace(path)
+    if dist:
+        torch.distributed.all_reduce(histogram)
+        torch.distributed.barrier()
+    if rank == 0:
+        np.savez_compressed(
+            args.output / "rank-histograms.npz",
+            counts=histogram.cpu().numpy(),
+            variables=np.array(names),
+            leads=np.array(leads),
+            origins=len(origins),
+        )
+        assert run is not None
+        all_rows: list[dict[str, str]] = []
+        for path in sorted(args.output.glob("metrics-rank*.csv")):
+            with path.open() as f:
+                all_rows.extend(csv.DictReader(f))
+        for lead in leads:
+            selected_rows = [r for r in all_rows if int(r["lead_days"]) == lead]
+            run.log(
+                {
+                    "lead_days": lead,
+                    **{
+                        name: float(np.mean([float(r[name]) for r in selected_rows]))
+                        for name in (
+                            "rmse_normalized",
+                            "crps_empirical_normalized",
+                            "crps_fair_normalized",
+                            "spread_normalized",
+                            "coverage_q05_q95",
+                            "coverage_member_range",
+                        )
+                    },
+                }
+            )
+        run.finish()
+        (args.output / "COMPLETE.json").write_text(
+            json.dumps({"rows": len(all_rows), "origins": len(origins), "members": m})
+            + "\n"
+        )
+    if dist:
+        torch.distributed.destroy_process_group()
+
+
+if __name__ == "__main__":
+    main()

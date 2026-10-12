@@ -52,6 +52,13 @@ class ScoreTrainer(Trainer):
         super().__init__(cfg)
         self.cfg = cfg
         self.rank = (self.distributed.rank or 0) if self.distributed else 0
+        expected = [
+            f"{v}_{z}" for v in ("uo", "vo", "thetao", "so") for z in range(19)
+        ] + ["zos"]
+        assert list(self.prognostic_var_names) == expected, (
+            "Structured differences require the pinned 77-field ordering"
+        )
+        assert list(self.boundary_var_names) == ["tauuo", "tauvo", "hfds"]
         if cfg.scales_path:
             scales = json.loads(Path(cfg.scales_path).read_text())
             for name in ("spatial_rms", "depth_rms", "time_rms"):
@@ -107,6 +114,20 @@ class ScoreTrainer(Trainer):
         summaries["data_root"] = str(self.cfg.experiment.resolved_data_root)
         summaries["variables"] = list(self.prognostic_var_names)
         summaries["forcing"] = list(self.boundary_var_names)
+        stats = self.primary_source.statistics(self.prognostic_var_names)
+        summaries["normalization_mean"] = stats.mean.reshape(-1).tolist()
+        summaries["normalization_std"] = stats.std.reshape(-1).tolist()
+        summaries["mask_sha256"] = hashlib.sha256(
+            self.primary_source.masks.prognostic.cpu().numpy().tobytes()
+        ).hexdigest()
+        summaries["coordinates"] = [
+            v.cpu().tolist() for v in self.primary_source.resolution
+        ]
+        summaries["upstream_attributes"] = {
+            k: v
+            for k, v in self.primary_source.attrs.items()
+            if k.startswith("m2lines/")
+        }
         summaries["rng"] = (
             "epoch-boundary restart: training seed=15000000+1000*epoch+rank; validation seed=25000000+rank; initialization seed=15; noise projection initialization=150001; sampler seed=15"
         )

@@ -14,6 +14,7 @@ from train_score import ScoreTrainConfig
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("root", type=Path)
+    parser.add_argument("--config-dir", type=Path)
     args = parser.parse_args()
     config = yaml.safe_load(Path(__file__).with_name("common.yaml").read_text())
     for mode in ("qualification", "train"):
@@ -33,7 +34,8 @@ def main():
                     args.root / "outputs/qualification-D/structured-scales.json"
                 )
             cfg = ScoreTrainConfig(**raw)
-            output = args.root / "configs" / f"{mode}-{arm}.yaml"
+            config_dir = args.config_dir or args.root / "configs"
+            output = config_dir / f"{mode}-{arm}.yaml"
             output.parent.mkdir(parents=True, exist_ok=True)
             cfg.save_yaml(output)
 

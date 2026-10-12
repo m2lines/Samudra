@@ -3,6 +3,7 @@
 
 import pytest
 import torch
+from evaluate_score import field_metrics
 from score_model import ScoreModelConfig, crps, depth_difference, pool_field
 
 from samudra.config import UNetBackboneConfig
@@ -175,3 +176,17 @@ def test_plain_mse_matches_unwrapped_backbone():
     torch.testing.assert_close(
         net(data, loss_fn), net.base(data, loss_fn), rtol=0, atol=0
     )
+
+
+def test_ensemble_metrics_distinguish_members_mean_and_spread():
+    pred = torch.tensor([-2.0, 0.0, 2.0]).reshape(3, 1, 1, 1, 1).expand(3, 1, 1, 2, 2)
+    target = torch.zeros(1, 1, 2, 2)
+    area = torch.ones(1, 2, 2)
+    metrics = field_metrics(pred, target, area)
+    assert metrics["rmse"].item() == 0
+    assert metrics["spread"].item() == 2
+    assert metrics["member_rmse"].item() == pytest.approx(4 / 3)
+    assert metrics["coverage_member_range"].item() == 1
+    one = field_metrics(pred[:1], target, area)
+    assert one["spread"].item() == 0
+    assert one["crps_empirical"].item() == one["mae"].item() == 2

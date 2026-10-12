@@ -257,8 +257,14 @@ dataset manifests, checkpoint lineage, runtime counters, raw metrics and selecte
   training-noise stream is deterministically seeded by epoch and rank; validation uses a separate fixed stream
   inside `fork_rng`. Sampler order has its own seeded stream. Mid-epoch resumes are not supported: a preempted
   partial epoch is replayed from the last completed epoch. Qualification checkpoints are explicitly non-resumable.
-- Nine local numerical/model tests cover CRPS values and gradients, dry/edge masking, depth ordering, stochastic
-  checkpoint recomputation, common initialization, member history, model-state round trips and exact B parity.
+- Ten local numerical/model tests cover CRPS values and gradients, dry/edge masking, depth ordering, stochastic
+  checkpoint recomputation, common initialization, member history, model-state round trips, exact B parity,
+  and the distinction between ensemble-mean error, member error and spread.
+- `evaluate_score.py` provides common quarterly-origin 360-day forecasts, empirical/fair CRPS, mean/member
+  RMSE, bias, spread, quantile/range coverage, randomized-tie rank histograms and prespecified native-grid fields.
+  It supports A's original checkpoint names as well as B/C/D. Broader covariance/spectral, long-trajectory,
+  observational and climatology diagnostics remain reporting-stage work; the initial evaluator does not yet
+  implement those. It requires an online W&B run and writes per-rank CSVs plus completion manifests.
 
 ## Decision and deliverables
 

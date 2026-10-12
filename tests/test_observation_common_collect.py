@@ -140,6 +140,53 @@ def test_candidate_rejects_unpinned_tampered_and_different_geometry(tmp_path):
         candidate.sidecar(origins[0], [])
 
 
+@pytest.mark.parametrize("format", ["common", "legacy"])
+def test_monthly_own_persistence_is_checkpoint_bound_and_not_evolved(tmp_path, format):
+    g, arrays = geometry(), monthly_arrays()
+    origins = ["2015-01", "2015-02", "2015-03"]
+    model = candidate_files(tmp_path, format, g, arrays, origins)
+    root = tmp_path / format
+    held = arrays["prediction"] * 0 + 7
+    held_ohc = arrays["predicted_ohc"] * 0 + 9
+    write_json(root / "selected-inferred-persistence.json", dict(origins=origins))
+    if format == "legacy":
+        np.savez(
+            root / "selected-inferred-persistence.npz",
+            **{**arrays, "prediction": held, "predicted_ohc": held_ohc},
+            origins=origins,
+        )
+    else:
+        complete = json.loads((root / "COMPLETE.json").read_text())
+        for i, origin in enumerate(origins):
+            name = f"selected-inferred-persistence/{origin}.npz"
+            path = root / "common-grid" / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            np.savez(
+                path,
+                prediction=held[i],
+                predicted_ohc=held_ohc[i],
+                origins=[origin],
+                months=np.asarray([], dtype=str),
+                **g.geometry_arrays(),
+            )
+            complete["common_grid_sidecars"][name] = digest(path)
+        write_json(root / "COMPLETE.json", complete)
+    model["artifacts"] = {
+        p.relative_to(root).as_posix(): digest(p)
+        for p in root.rglob("*")
+        if p.is_file()
+    }
+    model["forecast"] = "initialized-persistence"
+    actual = Candidate(model, "monthly", "test", origins, g, Audit()).monthly(
+        reference=arrays["reference"], reference_ohc=arrays["reference_ohc"]
+    )
+    np.testing.assert_array_equal(actual[0], held)
+    np.testing.assert_array_equal(actual[1], held_ohc)
+    model["checkpoint_sha256"] = "c" * 64
+    with pytest.raises(ValueError, match="checkpoint"):
+        Candidate(model, "monthly", "test", origins, g, Audit())
+
+
 def test_legacy_truth_mask_cannot_silently_remove_a_wet_cell(tmp_path):
     g, arrays = geometry(), monthly_arrays()
     origins = ["2015-01", "2015-02", "2015-03"]
@@ -187,8 +234,9 @@ def test_endpoint_blend_pools_mse_and_uses_common_pooled_denominators():
         pool_components([dict(sst_rmse=np.nan)])
 
 
+@pytest.mark.parametrize("persistence", [False, True])
 def test_annual_formats_rescore_identical_fields_and_reject_missing_month(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, persistence
 ):
     from samudra.experiments import observation_annual
 
@@ -205,7 +253,10 @@ def test_annual_formats_rescore_identical_fields_and_reject_missing_month(
         root = tmp_path / format
         root.mkdir()
         signature = dict(
-            checkpoint_sha256="b" * 64, split="validation", global_observations=True
+            checkpoint_sha256="b" * 64,
+            split="validation",
+            global_observations=True,
+            include_persistence=persistence,
         )
         complete = dict(
             inputs=signature, origins={origin: dict(arrays=f"{origin}.npz")}
@@ -213,11 +264,13 @@ def test_annual_formats_rescore_identical_fields_and_reject_missing_month(
         if format == "common":
             directory = root / "common-grid"
             directory.mkdir()
-            path = directory / f"{origin}.npz"
+            path = directory / f"{origin}{'-persistence' if persistence else ''}.npz"
             np.savez(
                 path,
-                prediction=prediction,
-                predicted_ohc=ohc,
+                prediction=prediction * 0 + 7 if persistence else prediction,
+                predicted_ohc=np.broadcast_to(ohc[0], ohc.shape)
+                if persistence
+                else ohc,
                 months=months,
                 origins=[origin],
                 **g.geometry_arrays(),
@@ -231,6 +284,8 @@ def test_annual_formats_rescore_identical_fields_and_reject_missing_month(
                 reference=truth,
                 reference_ohc=ohc_truth,
                 months=months,
+                persistence_surface=prediction * 0 + 7,
+                persistence_ohc=ohc[0],
             )
         write_json(root / "COMPLETE.json", complete)
         write_json(root / "input.json", signature)
@@ -239,6 +294,7 @@ def test_annual_formats_rescore_identical_fields_and_reject_missing_month(
             format=format,
             evaluation=str(root),
             checkpoint_sha256="b" * 64,
+            forecast="initialized-persistence" if persistence else "evolved",
             artifacts={
                 p.relative_to(root).as_posix(): digest(p)
                 for p in root.rglob("*")
@@ -248,6 +304,12 @@ def test_annual_formats_rescore_identical_fields_and_reject_missing_month(
         candidate = Candidate(model, "annual", "validation", [origin], g, Audit())
         arrays = candidate.annual(
             origin, months, reference=truth, reference_ohc=ohc_truth
+        )
+        np.testing.assert_array_equal(
+            arrays[0], prediction * 0 + 7 if persistence else prediction
+        )
+        np.testing.assert_array_equal(
+            arrays[1], np.broadcast_to(ohc[0], ohc.shape) if persistence else ohc
         )
         results.append(
             g.score_annual(

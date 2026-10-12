@@ -6,7 +6,9 @@ JSON configuration: mode (annual/monthly), split (test/validation), origins,
 native_grid, legacy_data, annual_data (annual only), and models. Each model has
 name, format (common/legacy), evaluation directory, checkpoint_sha256, and
 artifacts mapping relative filenames to expected SHA256. Monthly models also
-have label (selected or fixed-budget). All paths resolve relative to the config.
+have label (selected or fixed-budget). Optional forecast is evolved (default) or
+initialized-persistence, always using the same pinned checkpoint. All paths
+resolve relative to the config.
 
 Pin COMPLETE.json, input.json (annual) or evaluation-input.json (monthly), and
 the consumed NPZs in artifacts; monthly reports also require <label>.json.
@@ -68,6 +70,10 @@ class Audit:
 class Candidate:
     def __init__(self, model, mode, split, origins, geometry, audit):
         self.model, self.mode, self.geometry, self.audit = model, mode, geometry, audit
+        forecast = model.get("forecast", "evolved")
+        if forecast not in ("evolved", "initialized-persistence"):
+            raise ValueError("Unknown candidate forecast kind")
+        self.persistence = forecast == "initialized-persistence"
         if model["format"] not in ("common", "legacy"):
             raise ValueError("Candidate format must be common or legacy")
         self.root = Path(model["evaluation"])
@@ -88,6 +94,13 @@ class Candidate:
                 or sorted(self.complete["origins"]) != origins
             ):
                 raise ValueError("Annual candidate cohort/signature differs")
+            if (
+                self.persistence
+                and self.signature.get("include_persistence") is not True
+            ):
+                raise ValueError(
+                    "Annual export did not include initialized persistence"
+                )
         else:
             if (
                 self.complete["origins"] != len(origins)
@@ -103,6 +116,10 @@ class Candidate:
                 or metrics["metrics"]["origins"] != origins
             ):
                 raise ValueError("Monthly candidate checkpoint/origin order differs")
+            if self.persistence:
+                control = self.json(model["label"] + "-inferred-persistence.json")
+                if control["origins"] != origins:
+                    raise ValueError("Monthly persistence origin order differs")
 
     def path(self, name):
         if name not in self.model["artifacts"]:
@@ -116,9 +133,9 @@ class Candidate:
 
     def sidecar(self, origin, months):
         name = (
-            f"{origin}.npz"
+            f"{origin}{'-persistence' if self.persistence else ''}.npz"
             if self.mode == "annual"
-            else f"{self.model['label']}/{origin}.npz"
+            else f"{self.model['label']}{'-inferred-persistence' if self.persistence else ''}/{origin}.npz"
         )
         path = self.path("common-grid/" + name)
         if digest(path) != self.complete["common_grid_sidecars"].get(name):
@@ -151,13 +168,19 @@ class Candidate:
         with np.load(self.path(self.complete["origins"][origin]["arrays"])) as saved:
             np.testing.assert_array_equal(saved["months"], months)
             self.verify_legacy_truth(saved, reference, reference_ohc)
+            if self.persistence:
+                return saved["persistence_surface"], np.broadcast_to(
+                    saved["persistence_ohc"], reference_ohc.shape
+                )
             return saved["surface"], saved["predicted_ohc"]
 
     def monthly(self, *, reference, reference_ohc):
         if self.model["format"] == "common":
             pairs = [self.sidecar(origin, []) for origin in self.origins]
             return tuple(np.stack([pair[i] for pair in pairs]) for i in (0, 1))
-        name = self.model["label"] + "-predictions.npz"
+        name = self.model["label"] + (
+            "-inferred-persistence.npz" if self.persistence else "-predictions.npz"
+        )
         with np.load(self.path(name)) as saved:
             np.testing.assert_array_equal(saved["origins"], self.origins)
             self.verify_legacy_truth(saved, reference, reference_ohc)

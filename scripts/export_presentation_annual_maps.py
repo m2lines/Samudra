@@ -34,7 +34,7 @@ GROUPS = {
 }
 
 
-def export(root, results_path, output, groups=None):
+def export(root, results_path, output, groups=None, *, own_persistence=False):
     groups = GROUPS if groups is None else groups
     results = json.loads(results_path.read_text())
     config = results["configuration"]
@@ -90,9 +90,13 @@ def export(root, results_path, output, groups=None):
     artifacts = {}
     for group, names in groups.items():
         for day in (30, 365):
-            labels = names + ["U-global / initialized persistence"]
+            persistence_names = names if own_persistence else ["U-global"]
+            labels = names + [
+                n + " / initialized persistence" for n in persistence_names
+            ]
             map_sources = [sources[n] for n in names] + [
-                {**sources["U-global"], "method": labels[-1]}
+                {**sources[n], "method": n + " / initialized persistence"}
+                for n in persistence_names
             ]
             month = 0 if day == 30 else 11
             provenance = dict(
@@ -135,10 +139,16 @@ if __name__ == "__main__":
     parser.add_argument(
         "--groups", type=Path, help="JSON groups for a matched new cohort"
     )
+    parser.add_argument(
+        "--own-persistence",
+        action="store_true",
+        help="Include each model's own initialized persistence maps",
+    )
     args = parser.parse_args()
     export(
         args.root,
         args.results,
         args.output,
         json.loads(args.groups.read_text()) if args.groups else None,
+        own_persistence=args.own_persistence,
     )

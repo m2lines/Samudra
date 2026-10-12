@@ -215,8 +215,10 @@ All 348 monthly examples and three static/statistics NPZs passed full readback;
 normalization uses exactly 243 training months. The
 [readiness receipt](artifacts/quarter-bringup-2026-10-11/observations-ready.json.gz)
 pins the complete inventory and statistics inputs. Daily preparation used
-`dd79f4630`, and materialization used `ec0e0f0a9`. Annual sample assembly **131377**
-is running separately and does not gate short-lead training qualification.
+`dd79f4630`, and materialization used `ec0e0f0a9`. Annual assembly **131377** and
+verification **131378** also completed: all 312 annual NPZs and three origin
+manifests passed, including exact overlap with the monthly examples
+([annual receipt](artifacts/quarter-bringup-2026-10-11/annual-ready.json.gz)).
 The ARM compact-reader build passed (**131371**): one full 80-channel frame
 and four indexed windows exactly matched independent Xarray decoding, including
 missing values. Beta projection test **212269** passed forward and gradient checks
@@ -264,5 +266,7 @@ OM4 update counter and seed stream; earlier data replaces alternate OM4 updates.
 Qualification weights are diagnostic-only and rejected by production resume.
 The runner, data, schedule, latent-state and early-fine tests passed **109 CPU
 tests**. Each arm has its own two-hour test allocation, at most two concurrently.
-Array **212374** was submitted after data verification and is pending priority;
-there are no production jobs or quarter-degree scientific results yet.
+Array **212374** was submitted after data verification and is pending priority.
+At 4:15 a.m. ET on October 12, Beta's advisory start estimate was 9:25 a.m. ET;
+the queued jobs are being left in place. There are no production jobs or
+quarter-degree scientific results yet.

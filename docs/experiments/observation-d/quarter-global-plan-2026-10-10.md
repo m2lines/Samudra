@@ -7,9 +7,11 @@ The [4k/6k auxiliary reproductions](early-rmse-6k-2026-10-10.md#auxiliary-loss-r
 and matched eight-model annual comparison are complete. On October 11 the user authorized **U-global, observation-only, and the
 best one or two variants from the 6k comparison**, judged at both 30 and 365 days.
 All quarter-degree runs use 6,000 total updates. Training and annual evaluation
-data are verified. U-global and observation-only passed four-GPU qualification,
-but measured throughput motivates using eight GPUs per run. Eight-GPU U-global qualification **212414_0** passed; the remaining three
-qualification arms are released. Production has not been submitted.
+data are verified. **All four eight-GPU qualifications (212414) passed**, including
+fitting, gradients, real data, exact fresh-process replay, and two-host NVLink
+transport. **U-global production 212532_0 is submitted and pending priority**
+(two Beta nodes, eight GPUs). The other three arms await its online W&B and
+initial mixed-task training check. No native-quarter scientific result is available yet.
 Reporting both native-resolution and matched 1° metrics remains agreed.
 
 ## Runs
@@ -197,8 +199,8 @@ cluster artifacts are under
 All prerequisite 1° reproductions and annual evaluations are complete. Annual
 CPU audit **19607393**, eight-model GPU array **19607394**, and collector
 **19607691** passed; no GPU evaluations were repeated. Selected checkpoint and
-output hashes are linked in the annual report. Quarter-degree production remains
-gated on real eight-GPU qualification of each of the four recipes.
+output hashes are linked in the annual report. All four quarter-degree recipes
+have now passed real eight-GPU qualification.
 
 Beta diagnostic **212260** completed all three synthetic 720×1440 full-objective
 backward tests on one GB200 (`beta_test`, 0.1281 allocated GPU-hours). The exact
@@ -215,7 +217,6 @@ All three updates per case had finite gradients reaching the expected components
 configuration hashes. These are synthetic microbatch-one measurements, excluding
 data preparation; they do not establish effective-batch-eight throughput,
 native-IAP operator behavior, or four-GPU correctness. No weights were saved.
-Production remains unsubmitted.
 
 The static-grid audit and a real-data five-day preparation test passed. The latter
 checked surface fields, all eight finite ERA5 inputs, native IAP profiles/OHC,
@@ -239,15 +240,15 @@ end-to-end training on observed values.
 Local groundwork now includes a bounded compact-OM4 window reader and explicit
 native-IAP projection in losses and metrics. Legacy scalar-statistics outputs
 were checked for exact equality on a synthetic 243-month fixture. Actual U-global
-and observation-only four-GPU training passed the checks below; eight-GPU
-execution and the earlier-data arms still require qualification.
+and observation-only four-GPU training passed the checks below; all four
+recipes subsequently passed the eight-GPU checks.
 
 ## Beta bring-up and decision points
 
 Use **two Beta nodes (eight B200s) per run**, preserving global batch eight,
 6,000 updates and the sample/mask/task schedule. Each rank processes one example
 instead of two. Eight-rank reductions can change floating-point trajectories;
-all arms therefore start fresh and must pass new eight-rank qualification.
+all arms therefore start fresh; all four have passed new eight-rank qualification.
 Cross-world checkpoint resume is rejected. The compact OM4 reader uses bounded
 windows. OM4 steps now load observation coverage masks directly, avoiding
 unneeded preparation of observation values; mask equivalence is tested.
@@ -258,11 +259,11 @@ on every trained path. U-global also passed historical OM4 retention. These are
 execution checks, not trained-model results. The cold measured scheduled updates
 were 28.34 seconds for OM4 and 24.35 seconds for observations in U-global, and
 13.74 seconds for observation-only. The mixed estimate is about **44 hours before
-validation**, motivating the additional GPUs. Eight-GPU throughput and final
-runtime remain unmeasured.
+validation**, motivating the additional GPUs. Eight-GPU diagnostic throughput
+is measured below; production runtime remains unmeasured.
 
 The pinned producer is `f091232ea8d7a8ee04ea14dd4cdbea5fa828f9ff`; the recovery array
-**212414** qualifies one eight-GPU arm at a time on `beta_test`. It requires actual
+**212414** completed all four eight-GPU arms on `beta_test`. Each passed actual
 two-host NVLink transport, all fitting/data/gradient checks and bitwise next-update
 replay after separate process restarts for each trained path. The two unstarted
 four-GPU early-data tests were canceled. Only the immutable data-derived
@@ -275,14 +276,29 @@ InfiniBand IP. Recovery explicitly uses `bond0` for setup traffic, matching the
 previous successful two-host launcher, while still requiring actual NVLink
 transport. A small all-reduce check now precedes the large data read. These are
 launcher-only changes; source and science stay pinned. The recovery harness
-passes 18 tests. Its first actual eight-rank all-reduce passed on
-`b3-11-s1-dgx-03-c01` and `b3-12-s1-dgx-03-c02`, with bond0 bootstrap and
-cross-host NVLink edges verified. U-global subsequently passed the complete
-fitting, gradient, validation, retention and bitwise fresh-restart checks in
-26m37s. Measured OM4/observation updates take **11.97/12.79 seconds**, projecting
-about **20.6 hours for training updates plus validation/checkpointing**. This is
-a short diagnostic estimate, not a completed production runtime. Its other
-three arm qualifications have been released; all must pass before production.
+passes 18 tests. All four arms passed the initial all-reduce, real fitting and
+component gradients, matching replicas, native validation, and bitwise
+fresh-process replay for every trained path. All OM4 arms also passed retention;
+both early-data arms passed first/last/leap-window audits. The latent arm's
+initializer and recurrent latent rows received gradients on all three tasks.
+Every qualification and replay verified actual cross-host NVLink; bootstrap used
+`bond0`. Common validation references are byte-identical. The
+[completed receipts and accounting](artifacts/quarter-bringup-2026-10-11/qualification-212414.json.gz)
+retain all four source/data/runtime contracts and transport evidence.
+
+| Model | Seconds per recent / early OM4 update | Seconds per observation update | Estimated 6k update time |
+|---|---:|---:|---:|
+| U-global-quarter | 11.97 / — | 12.79 | 20.6 h |
+| U-obs-only-quarter | — / — | 7.57 | 12.6 h |
+| U-early-quarter | 9.28 / 10.17 | 12.41 | 18.4 h |
+| U-early-latent-quarter | 10.55 / 9.71 | 12.22 | 18.6 h |
+
+These are short qualification measurements weighted by each run's full task
+mix, excluding validation, checkpointing and startup. Observation timing uses
+only one scheduled update per arm, so these are provisional estimates. Native
+observation validation took 65–66 seconds per pass; OM4 retention added about
+30–32 seconds where applicable. The latent arm peaked at 49.8 GiB allocated per
+GPU. Qualification weights are diagnostic only; production starts fresh.
 
 OM4 retention preserves the historical **11-origin** cohort. The old
 `--om4-validation-origins=12` setting was an upper bound: all eight completed
@@ -296,11 +312,22 @@ preserves the source/runtime/data hashes. The preceding exact-12 guard failure
 was caught on CPU before any GPU allocation; failed and superseded attempts
 remain saved.
 
-Completed native-quarter diagnostic allocations total **15.9706 GPU-hours**
-through 212414_0: 7.315 for the four-rank/single-GPU checks, 5.1067
-for the failed network attempts (including the canceled final item), and 3.5489
-for the successful eight-rank U-global qualification.
-Canceled unstarted tests used zero. This is separate from the completed 1° campaigns. [Qualification and launch receipts](artifacts/quarter-bringup-2026-10-11/eight-rank-transition.json.gz)
-record the producer and measurements; the [network recovery receipt](artifacts/quarter-bringup-2026-10-11/eight-network-recovery.json.gz)
-records failed-attempt accounting and the replacement submission. There are no native-quarter
-production jobs or scientific results yet.
+Completed native-quarter diagnostic allocations total **28.0061 GPU-hours**:
+7.3150 for the four-rank/single-GPU checks, 5.1067 for failed network attempts,
+and 15.5844 for the four successful eight-rank qualifications. The final latent
+qualification took 2,333 seconds on eight GPUs (5.1844 GPU-hours). Canceled
+unstarted tests used zero. This is separate from the completed 1° campaigns.
+[Earlier launch receipts](artifacts/quarter-bringup-2026-10-11/eight-rank-transition.json.gz)
+and the [network recovery receipt](artifacts/quarter-bringup-2026-10-11/eight-network-recovery.json.gz)
+preserve failed attempts.
+
+**U-global production 212532_0** was submitted October 12 at 18:33 UTC after both
+independent and submission-time full gates passed. It is **pending priority**,
+with no training updates yet: two Beta nodes/eight GPUs, 24-hour allocation and
+22-hour runner stop. Remaining arms are not submitted; release requires a real
+online W&B run, at least ten finite mixed-task updates, and verified bond0/NVLink
+transport from this production run. The
+[submission evidence](artifacts/quarter-bringup-2026-10-11/production-212532-submission.json.gz)
+preserves gates and actual scheduler state. Outputs will be under
+`native-production-eight-bond0/job-212532/0/u-global` in the run root above.
+No native-quarter scientific results are available yet.

@@ -22,8 +22,8 @@ configuration code are byte-identical to qualification; production adds the GPU-
 | F: forecast-only | 19649331 | 2 H100s, 16 CPUs, 192 GiB RAM, 36-hour ceiling | Still pending priority at 15:33 Eastern; no start estimate |
 | M: structured multitask | 19649333 | Same as F | Still pending priority at 15:33 Eastern; no start estimate |
 | Production notifications | 19649371 / 19649375 | CPU-only, 1 CPU, 512 MiB each | `afterany` dependencies on F / M |
-| RTX qualification | 19656293 | 2 RTX GPUs, 16 CPUs, 192 GiB RAM, 40-minute ceiling | Submitted; eligible after 15:37 Eastern |
-| RTX qualification notification | 19656296 | CPU-only, 1 CPU, 512 MiB | `afterany:19656293` |
+| RTX qualification | 19656293 | 2 RTX GPUs, 16 CPUs, 192 GiB RAM | Failed after 59 seconds on gr103; CUDA illegal memory access |
+| RTX qualification notification | 19656296 | CPU-only, 1 CPU, 512 MiB | Completed; quiet monitor handed result back |
 
 Campaign root: `/scratch/jr7309/runs/score-multitask-1deg-20261012`.
 Resolved inputs: `configs/{qualification,train}-{forecast,multitask}.yaml`.
@@ -60,8 +60,22 @@ whether to replace both. An advisory dry-run start time is not evidence that an 
 
 Following the updated async guidance, the new RTX callback `3936168a-78b7-4f95-8636-1d4deec41f97` uses
 quiet polling by `/root/rtx_qualification_monitor`, with hourly reminders and durable parent fallback.
-The monitor's waiter is active and the CPU completion callback is attached. The earlier H100 callbacks
-remain active until their jobs complete or are explicitly replaced.
+Its terminal event was handled and the registration retired. The earlier H100 callbacks remain active
+until their jobs complete or are explicitly replaced.
+
+The RTX run initialized both DDP ranks on NVIDIA RTX PRO 6000 Blackwell Server Edition GPUs, then failed
+in the first explicit backward probe, before optimizer updates or validation. The asynchronous trace points
+to skip-module Conv2d during activation-checkpoint recomputation; this does not establish the earliest
+failing kernel or library root cause. Its allocated cost was 0.0328 RTX GPU-hours. The qualification used
+effective batch 16 (4/rank × accumulation 2 × two ranks), while both production configs were rechecked
+to retain effective batch 32 (accumulation 4).
+
+A comparable [PR #915 diagnostic](https://github.com/m2lines/Samudra/pull/915#issuecomment-6072906494)
+motivates an opt-in `native_pointwise` runtime option. It routes only 1×1 Conv2d calls through native
+PyTorch with cuDNN disabled in that operation, preserving parameter/checkpoint shapes and all other
+convolutions. Training and held-out forecast evaluation read the same config flag. Tests verify backend
+scope, unchanged state/parameter identity, restored global flags, and output/gradient agreement on CPU.
+This is a candidate mitigation pending a same-node RTX retry; it is not a claimed CUDA root-cause fix.
 
 Torch held job 19648662 could not be released (`scontrol release` returned an unspecified error twice).
 It and dependent notification 19648699 were cancelled before allocation; their callback was revoked.

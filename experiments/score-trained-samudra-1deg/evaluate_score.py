@@ -19,6 +19,7 @@ import numpy as np
 import torch
 import wandb
 from multitask_model import MultitaskModelConfig
+from native_pointwise import configure_native_pointwise
 from score_model import crps, reduce_field, weights
 from train_multitask import MultitaskTrainConfig
 from train_score import ScoreTrainConfig
@@ -84,6 +85,8 @@ def main():
         assert isinstance(cfg.model, MultitaskModelConfig)
         if cfg.model.mode != expected_mode:
             raise ValueError(f"Arm {args.arm} requires mode={expected_mode}")
+        assert isinstance(cfg, MultitaskTrainConfig)
+        configure_native_pointwise(cfg.native_pointwise)
     raw = cfg.model_dump(mode="json")
     raw["data"]["sources"][0]["inference_time"] = {
         "start": "2014-10-10",

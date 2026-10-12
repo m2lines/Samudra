@@ -50,6 +50,39 @@ def completion_model(mode="multitask", checkpointing="all"):
     return net
 
 
+def test_native_pointwise_backend_scope_and_checkpoint_compatibility(monkeypatch):
+    import native_pointwise
+
+    net = torch.nn.Sequential(torch.nn.Conv2d(3, 5, 1), torch.nn.Conv2d(5, 2, 3))
+    x = torch.randn(2, 3, 8, 8, requires_grad=True)
+    parameters = tuple(net.parameters())
+    state = {k: v.clone() for k, v in net.state_dict().items()}
+    expected = net(x)
+    expected_grad = torch.autograd.grad(expected.square().sum(), (x, *parameters))
+    original = torch.nn.Conv2d.forward
+    enabled = torch.backends.cudnn.enabled
+    calls = []
+
+    def observe_backend(self, value):
+        calls.append((self.kernel_size, torch.backends.cudnn.enabled))
+        return original(self, value)
+
+    with monkeypatch.context() as patch:
+        # Restore both the global method and observer even if assertions fail.
+        patch.setattr(torch.nn.Conv2d, "forward", original)
+        patch.setattr(native_pointwise, "_original_forward", observe_backend)
+        native_pointwise.configure_native_pointwise(True)
+        native_pointwise.configure_native_pointwise(True)
+        actual = net(x)
+        actual_grad = torch.autograd.grad(actual.square().sum(), (x, *parameters))
+        assert calls == [((1, 1), False), ((3, 3), enabled)]
+        assert torch.backends.cudnn.enabled == enabled
+        assert all(p is q for p, q in zip(parameters, net.parameters(), strict=True))
+        torch.testing.assert_close(net.state_dict(), state, atol=0, rtol=0)
+        torch.testing.assert_close(actual, expected)
+        torch.testing.assert_close(actual_grad, expected_grad)
+
+
 def test_initial_forecast_and_gradients_match_c():
     c, net = model("C"), completion_model("forecast")
     data = batch()

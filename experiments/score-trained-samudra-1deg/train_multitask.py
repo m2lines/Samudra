@@ -12,6 +12,7 @@ import time
 
 import torch
 from multitask_model import TASK_PROBABILITIES, TASKS, MultitaskModelConfig, task_masks
+from native_pointwise import configure_native_pointwise
 from score_model import crps, reduce_field, weights
 from train_score import ScoreTrainConfig, ScoreTrainer
 
@@ -25,6 +26,7 @@ logger = logging.getLogger(__name__)
 
 class MultitaskTrainConfig(ScoreTrainConfig):
     model: MultitaskModelConfig
+    native_pointwise: bool = False
 
 
 MultitaskTrainConfig.model_rebuild(
@@ -52,6 +54,7 @@ class MultitaskTrainer(ScoreTrainer):
             "note": "same source steps as Samudra; occasional six-day calendar intervals retained in origin manifest",
         }
         record["validation_selection"] = self.validation_checkpoint_identity()
+        record["native_pointwise"] = self.cfg.native_pointwise
         path.write_text(json.dumps(record, indent=2) + "\n")
 
     def train_one_epoch(self, epoch, **kwargs):
@@ -217,9 +220,14 @@ def main():
     parser.add_argument("--qualify", action="store_true")
     args = parser.parse_args()
     cfg = MultitaskTrainConfig.from_yaml(args.config)
+    configure_native_pointwise(cfg.native_pointwise)
     cfg.prepare_output_dirs()
     handle_logging(cfg.debug, cfg.experiment.output_dir)
     handle_warnings()
+    logger.info(
+        "1x1 convolution backend: %s",
+        "native PyTorch" if cfg.native_pointwise else "PyTorch default",
+    )
     trainer = MultitaskTrainer(cfg)
     try:
         run = trainer.wandb_logger.run
@@ -269,6 +277,7 @@ def main():
                     "train_seconds": elapsed,
                     "peak_memory_gb": torch.cuda.max_memory_allocated() / 1e9,
                     "source_commit": os.environ.get("SAMUDRA_CODE_COMMIT"),
+                    "native_pointwise": cfg.native_pointwise,
                     "task_backward_probe": task_probe,
                     "model_parameters": sum(
                         p.numel() for p in trainer.model.parameters()

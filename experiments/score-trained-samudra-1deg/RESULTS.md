@@ -9,7 +9,8 @@ SPDX-License-Identifier: CC-BY-4.0
 drift/structure diagnostics completed successfully. Persistence and training-period seasonal-climatology
 references and all eight checkpoint sensitivity evaluations also completed and passed their common-target
 audits. Trajectory export for observational comparisons also completed and reproduced the original diagnostics
-exactly. Secondary observation scoring is submitted as Grace job 132091. This is an
+exactly. Secondary observation scoring is submitted as Grace job 132094 after correcting its monthly-ARGO
+preflight. This is an
 experiment/results record, not intended to merge. The first-wave report is not yet complete.
 
 ## What the completed comparison establishes
@@ -337,9 +338,13 @@ Secondary observation scoring where applicable remains outstanding. Checkpoint s
 completed. Continuous-trajectory export job **212433** completed and passed exact replay checks for every
 score, structure array and saved field. Twelve trajectory stores supply observation scoring with the A/B
 deterministic forecasts and each C/D ensemble mean plus four members. No conclusion about
-observational skill or 100-year climate stability is claimed. Grace job **132091** will score the published
-five-day DUACS/OISST/ARGO-IAP products, with original depth-specific wet masks and exact-timestamp preflight.
-It has a completion callback and hourly fallback reminder.
+observational skill or 100-year climate stability is claimed. Grace job **132094** will score the published
+five-day DUACS/OISST and monthly ARGO-IAP products, with original depth-specific wet masks. Exact-timestamp
+preflight follows each metric's temporal support: complete monthly means for ARGO-IAP, then complete years
+for OHC RMSE. The surface scoring period is 2015–2022, while OHC RMSE retains 2015–2021 because the final
+December is incomplete. The first CPU attempt, 132091, stopped in an incorrectly configured ARGO preflight
+before scoring; the corrected check passes on the actual exported model clock. The replacement has a
+completion callback and hourly fallback reminder.
 
 Provisional next-wave suggestions, for review after the remaining evaluations:
 

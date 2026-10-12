@@ -8,7 +8,8 @@ SPDX-License-Identifier: CC-BY-4.0
 Status: training, primary annual evaluations and continuous eight-year diagnostics complete, 2026-10-12.
 See the [comparison report](RESULTS.md) and [run record](RUNS.md). Persistence and training-only seasonal
 climatology references, checkpoint sensitivities and trajectory export also completed. Observation scoring
-is submitted as Grace job 132091. The report distinguishes the fixed final-EMA result from checkpoint-policy sensitivity.
+is submitted as Grace job 132094 after correcting the monthly-ARGO preflight. The report distinguishes the
+fixed final-EMA result from checkpoint-policy sensitivity.
 The user authorized B/C/D on Beta, Torch, or Engaging, using Rust loading and no `hfds_anomalies`.
 Reuse A; do not retrain it.
 Experiment record, not intended to merge. Later waves remain subject to approval.
@@ -91,7 +92,8 @@ and test **target timestamps**, including every autoregressive output. Earlier i
 boundary; training targets may not. Common endpoint labels must not occur in both fitting and validation.
 
 Atmospheric forcing is prescribed in this experiment, as in the control. Scores against OM4 are primary.
-Existing five-day observation metrics are secondary and must use precisely matched timestamps and averaging.
+Existing observation metrics are secondary: five-day DUACS/OISST and monthly ARGO-IAP heat content, with
+precisely matched timestamps and the established complete-month/complete-year averaging rules.
 They do not constitute surface-observation initialization or instantaneous daily observational evaluation.
 
 ## First comparison

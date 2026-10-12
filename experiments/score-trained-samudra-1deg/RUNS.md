@@ -307,7 +307,7 @@ It requires bitwise equality with the five saved diagnostic dates from job 21242
 times and selected physical fields before marking completion. A/B each export one deterministic trajectory;
 C/D each export their mean plus all four members. The original diagnostics are retained. There are twelve
 stores, approximately 144 GB uncompressed; project storage reported 32.59 TB available before submission.
-Secondary observation scoring will use the published five-day products and original per-channel masks,
+Secondary observation scoring will use published five-day DUACS/OISST, monthly ARGO-IAP and original per-channel masks,
 with member scores kept separate from scores of ensemble means, especially for nonlinear diagnostics.
 
 The export completed in 11:31 (0.768 allocated GPU-hours), with W&B synchronized at
@@ -328,14 +328,25 @@ authorized by their callbacks.
 
 ## Secondary observational evaluation
 
-Grace job **132091** was submitted through Alpha using immutable source `057e9a61b`, with 32 CPUs, 384 GiB
-RAM, no requested GPUs and a six-hour wall limit. Its output is `outputs/observations-132091/`. Slurm's
-resource check accepted the request. The verified export from job 212433 is the only prediction input.
+Grace job **132091**, using immutable source `057e9a61b`, failed after 2:26 (1.30 allocated CPU-hours) in the
+new metadata preflight, before scoring. DUACS/OISST passed, but the preflight incorrectly required native
+five-day model timestamps to equal monthly ARGO-IAP timestamps. The metric implementation already handles
+monthly ARGO correctly; this was a bug in the new preflight. Its online W&B run was
+[ssnd8xfe](https://wandb.ai/ocean_emulators/default/runs/ssnd8xfe). The failed attempt and logs are retained,
+and its callback was retired.
+
+Replacement Grace job **132094** was submitted through Alpha from immutable source `71c226400`, with
+32 CPUs, 384 GiB RAM, no requested GPUs and a six-hour wall limit. Its output is
+`outputs/observations-132094/`. The verified export from job 212433 is the only prediction input.
 
 The job scores A/B deterministic trajectories plus C/D ensemble means and four members each against the
-published five-day DUACS, OISST and ARGO-IAP products. It reapplies the original per-channel wet masks and
+published five-day DUACS/OISST and monthly ARGO-IAP products. It reapplies the original per-channel wet masks and
 requires identical trajectory timestamps. Metadata-only exact-time checks cover both the primary 2015–2022
-window and the full common span used by residual-variance diagnostics, before expensive interpolation/scoring.
+surface window and the full common span used by residual-variance diagnostics, before expensive interpolation/scoring.
+For ARGO, preflight now uses the same complete-month means and complete-year RMSE rules as `ohc_layer`.
+The actual exported clock yields 84 scored months, January 2015 through December 2021: incomplete December
+2022 excludes that year from OHC RMSE. Surface metrics retain 2015–2022. Two existing edge-month/year tests
+and the actual-clock check passed; no observation metric kernel or temporal interpolation rule changed.
 Individual member metrics remain separate from metrics of the ensemble mean; no mean-field EKE is presented
 as mean member EKE. Observation-product locations, attributes, actual shared dates, checkpoint/export
 provenance and all model labels are retained in the job manifest.

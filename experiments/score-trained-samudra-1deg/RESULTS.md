@@ -289,9 +289,11 @@ proxies, not exact heat/salt inventories.
 
 ## Remaining diagnostics and proposed decisions
 
-Secondary observation scoring where applicable and raw/validation-selected checkpoint sensitivities remain outstanding. Continuous
-diagnostics retain summary statistics and selected field maps; observation scoring needs an additional
-trajectory export. No conclusion about observational skill or 100-year climate stability is claimed.
+Secondary observation scoring where applicable and raw/validation-selected checkpoint sensitivities remain
+outstanding. Checkpoint sensitivity job **212432** and continuous-trajectory export job **212433** are queued.
+The export verifies replay against the completed diagnostic run before supplying observation scoring with
+full states. Both jobs have completion callbacks and hourly fallback reminders. No conclusion about
+observational skill or 100-year climate stability is claimed.
 
 Provisional next-wave suggestions, for review after the remaining evaluations:
 

@@ -263,3 +263,33 @@ pre-commit checks passed. These deterministic references did not train another n
 Remaining report work includes observation metrics where applicable and secondary
 checkpoint sensitivities. Proposed next-wave choices in `RESULTS.md` remain provisional. No additional
 training seed or later wave has started.
+
+## Remaining first-wave evaluations
+
+Two production Beta jobs were submitted on 2026-10-12 from immutable source `46104028f`, each requesting four
+B200s and a one-hour limit. Both have EXIT callbacks, compute-node receiver checks and hourly fallback
+reminders. Login-node credential checks passed before release; compute-node bring-up remains to be verified.
+
+| Job | Task | Output directory beneath campaign root |
+| --- | --- | --- |
+| 212432 | A/B/C/D final-raw and validation-selected annual checkpoint sensitivity | `outputs/sensitivity-212432/` |
+| 212433 | Replay/export the continuous trajectories for secondary observation scoring | `outputs/continuous-export-212433/` |
+
+The sensitivity job evaluates all eight checkpoint choices with the common 30 origins, seven leads and
+16 members for C/D. Primary final-EMA results remain fixed. Final checkpoints must still report epoch 70;
+only the explicitly labeled validation-selected role accepts earlier epochs and requires stored selection
+provenance. The evaluator records the actual epoch and selection identity, and all ranks wait for online
+W&B before forecasting. The original control and B/C/D have different validation-selection policies;
+this is a sensitivity check, not another fully matched training comparison.
+
+The export reuses the continuous evaluation's initialization, checkpoints, seed and four-member sampling.
+It requires bitwise equality with the five saved diagnostic dates from job 212420 and reads back saved Zarr
+times and selected physical fields before marking completion. A/B each export one deterministic trajectory;
+C/D each export their mean plus all four members. The original diagnostics are retained. There are twelve
+stores, approximately 144 GB uncompressed; project storage reported 32.59 TB available before submission.
+Secondary observation scoring will use the published five-day products and original per-channel masks,
+with member scores kept separate from scores of ensemble means, especially for nonlinear diagnostics.
+
+Thirteen model/numerical tests, eight existing Zarr-writer tests and scoped pre-commit checks passed before
+submission. These are evaluation/export jobs within the first-wave allocation; no additional training is
+authorized by their callbacks.

@@ -45,24 +45,73 @@ def pooled(records):
     }
 
 
+def collector_samples(config):
+    """Use the observation archive's native IAP grid when it is present."""
+    root = Path(config["observations"])
+    iap = Path(config.get("iap_grid") or root / "iap-grid.npz")
+    if config.get("iap_grid") and not iap.is_file():
+        raise ValueError("Configured native IAP grid is missing")
+    data = Samples(
+        root,
+        "cpu",
+        "zero",
+        global_observations=True,
+        **({"iap_grid": iap} if iap.is_file() else {}),
+    )
+    data.use_observation_normalization()
+    return data
+
+
+def seasonal_ohc(data):
+    """Keep native IAP climatology on its observation cells and depth support."""
+    if getattr(data, "dual_grid", False):
+        values = data.stats["ohc_climatology"]
+        support = data.ohc_support.cpu().numpy()
+        if values.shape != (12, *support.shape):
+            raise ValueError("Native OHC climatology and IAP support differ")
+        return {month: np.where(support, values[month], np.nan) for month in (0, 11)}
+    result = {}
+    for month in (0, 11):
+        state = torch.zeros((1, 77, *data.grid["mask"].shape[-2:]))
+        indices = data.ts_indices
+        state[:, indices] = (
+            data.tensor(data.interior_climatology[month]) - data.mean[0, 0, indices]
+        ) / data.std[0, 0, indices]
+        state[:, [38, 76]] = (
+            data.tensor(data.stats["surface_climatology"][month])
+            - data.mean[0, 0, [38, 76]]
+        ) / data.std[0, 0, [38, 76]]
+        result[month] = data.ohc(state * data.mask)[0]
+    return result
+
+
 def collect(root, output):
     config = json.loads((root / "paths.json").read_text())
-    other_root = Path(config["reuse_annual_root"])
-    other_config = json.loads((other_root / "paths.json").read_text())
-    if config["origins"] != other_config["origins"]:
-        raise ValueError("Annual cohorts differ")
-    for key in ("image", "observations", "annual_data"):
-        if config[key] != other_config[key]:
-            raise ValueError("Annual evaluation configuration differs: " + key)
-    locations = [(root, r) for r in config["models"]] + [
-        (other_root, r)
-        for r in other_config["models"]
-        if r["name"] in config["reuse_models"]
-    ]
-    expected = [r["name"] for r in config["models"]] + config["reuse_models"]
+    locations = [(root, r) for r in config["models"]]
+    if "reuse_annual_root" in config:
+        other_root = Path(config["reuse_annual_root"])
+        other_config = json.loads((other_root / "paths.json").read_text())
+        if config["origins"] != other_config["origins"]:
+            raise ValueError("Annual cohorts differ")
+        for key in ("image", "observations", "annual_data", "iap_grid"):
+            if config.get(key) != other_config.get(key):
+                raise ValueError("Annual evaluation configuration differs: " + key)
+        locations += [
+            (other_root, r)
+            for r in other_config["models"]
+            if r["name"] in config.get("reuse_models", [])
+        ]
+    elif config.get("reuse_models"):
+        raise ValueError("Reused annual models require reuse_annual_root")
+    expected = [r["name"] for r in config["models"]] + config.get("reuse_models", [])
     actual = [r["name"] for _, r in locations]
     if len(set(actual)) != len(actual) or sorted(actual) != sorted(expected):
         raise ValueError("Missing or duplicate presentation model")
+    data = collector_samples(config)
+    if data.dual_grid and (
+        len(config["origins"]) != 3 or len(set(config["origins"])) != 3
+    ):
+        raise ValueError("Native annual reporting requires three distinct origins")
     records, metadata = {}, {}
     references: dict[str, tuple[np.ndarray, np.ndarray]] = {}
     for location, model in locations:
@@ -111,7 +160,17 @@ def collect(root, output):
                 np.testing.assert_array_equal(arrays["months"], expected_months)
                 if arrays["surface"].shape[0] != 73:
                     raise ValueError("Incomplete continuous annual forecast")
+                if data.dual_grid:
+                    for coordinate in ("lat", "lon"):
+                        np.testing.assert_array_equal(
+                            arrays["iap_" + coordinate], data.iap_grid[coordinate]
+                        )
                 reference = (arrays["reference"], arrays["reference_ohc"])
+                if data.dual_grid and reference[1].shape != (
+                    12,
+                    *data.ohc_support.shape,
+                ):
+                    raise ValueError("Annual OHC truth differs from native IAP support")
                 if origin in references:
                     for a, b in zip(reference, references[origin], strict=True):
                         np.testing.assert_array_equal(a, b)
@@ -119,21 +178,8 @@ def collect(root, output):
                     references[origin] = reference
 
     # Training-only seasonal fields: no test fitting and no forecast reselection.
-    data = Samples(config["observations"], "cpu", "zero", global_observations=True)
-    data.use_observation_normalization()
     climatology = {}
-    ohc_climatology = {}
-    for month in (0, 11):
-        state = torch.zeros((1, 77, *data.grid["mask"].shape[-2:]))
-        indices = data.ts_indices
-        state[:, indices] = (
-            data.tensor(data.interior_climatology[month]) - data.mean[0, 0, indices]
-        ) / data.std[0, 0, indices]
-        state[:, [38, 76]] = (
-            data.tensor(data.stats["surface_climatology"][month])
-            - data.mean[0, 0, [38, 76]]
-        ) / data.std[0, 0, [38, 76]]
-        ohc_climatology[month] = data.ohc(state * data.mask)[0]
+    ohc_climatology = seasonal_ohc(data)
     for origin in config["origins"]:
         _, raw = read_origin(Path(config["annual_data"]) / "test" / origin)
         months = pd.DatetimeIndex(raw["midpoint"][19:]).month.to_numpy() - 1
@@ -149,7 +195,9 @@ def collect(root, output):
             values = ohc_climatology[month]
             ohc_reference = np.where(np.isfinite(values), ohc_truth[month], np.nan)
             result["monthly_ohc"][f"{origin[:4]}-{month + 1:02d}"] = {
-                layer: weighted_rmse(values[i], ohc_reference[i], data.area.numpy())
+                layer: weighted_rmse(
+                    values[i], ohc_reference[i], data.ohc_area.cpu().numpy()
+                )
                 for i, layer in enumerate(("0_700", "700_2000"))
             }
         climatology[origin] = result
@@ -181,7 +229,11 @@ def collect(root, output):
             collector_sha256=digest(__file__),
             models=metadata,
             metrics=records,
-            control_definition="Training monthly mean IAP interior and surface fields; OHC uses calendar-month climatology; surface uses each five-day bin midpoint month",
+            control_definition=(
+                "Training-only monthly OHC climatology on native IAP cells with fixed model-to-IAP support; surface uses each five-day bin midpoint month"
+                if data.dual_grid
+                else "Training monthly mean IAP interior and surface fields; OHC uses calendar-month climatology; surface uses each five-day bin midpoint month"
+            ),
         ),
         output / "results.json",
     )

@@ -17,6 +17,7 @@ from torch import nn
 from samudra.experiments.observation_metrics import selection_score
 from samudra.experiments.observation_model import ObservationTransfer
 from samudra.experiments.observation_pilot import Pilot, atomic_json, digest
+from samudra.experiments.observation_prepare import DEPTHS
 from samudra.experiments.observation_training import Samples
 
 
@@ -62,6 +63,53 @@ class StateIntervention(nn.Module):
         return torch.stack(predictions, 1), initial
 
 
+def diagnostic_data(arguments, device):
+    data = Samples(
+        arguments["data"],
+        device,
+        arguments.get("surface_fill", "climatology"),
+        global_observations=arguments.get("global_observations", False),
+        iap_grid=arguments.get("iap_grid"),
+    )
+    data.use_observation_normalization()
+    return data
+
+
+def interior_diagnostics(data, monthly_normalized, sample):
+    """Compare physical predictions on the prepared observation grid.
+
+    Native IAP labels stay on their own grid; use exactly the training/evaluation
+    projection, fixed wet support, and area weights. Legacy data use the identity
+    projection on their already prepared model grid.
+    """
+    prediction = data.project_interior(monthly_normalized)[0].cpu().numpy()
+    target = sample["interior"][0].cpu().numpy()
+    if prediction.shape != target.shape:
+        raise ValueError("Projected prediction and interior target shapes differ")
+    valid = np.isfinite(target) & data.interior_support.cpu().numpy().astype(bool)
+    if not np.isfinite(prediction[valid]).all():
+        raise ValueError("Nonfinite interior prediction on observed support")
+    support = valid * data.interior_area.cpu().numpy()
+    count = support.sum((-2, -1))
+    error = np.where(valid, prediction - target, 0)
+    mse = (error**2 * support).sum((-2, -1)) / np.maximum(count, 1e-12)
+    return prediction, target, valid, mse, count
+
+
+def diagnostic_reference(run, manifest, origins):
+    path = run / "selection-reference.json"
+    if not path.exists():
+        path = Path(manifest["arguments"]["selection_reference"])
+    reference = json.loads(path.read_text())
+    if (
+        reference["protocol"] != manifest["protocol"]
+        or reference["data_manifest_sha256"] != manifest["data_manifest_sha256"]
+        or reference["control"]["origins"] != origins
+    ):
+        raise ValueError("Diagnostic selection reference protocol/data/cohort differs")
+    return reference, path
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run", required=True)
@@ -77,13 +125,9 @@ def main():
         raise ValueError(
             "This diagnostic requires common observation scaling and InstanceNorm"
         )
-    reference = json.loads((run / "selection-reference.json").read_text())
-    data = Samples(
-        manifest["arguments"]["data"],
-        "cuda",
-        manifest["arguments"].get("surface_fill", "climatology"),
-    )
-    data.use_observation_normalization()
+    arguments = manifest["arguments"]
+    metric = arguments.get("selection_metric", "integrated-spectral")
+    data = diagnostic_data(arguments, "cuda")
     model = (
         ObservationTransfer.from_arguments(
             data.grid["names"].tolist(), manifest["arguments"]
@@ -93,13 +137,21 @@ def main():
     )
     pilot: Any = Pilot.__new__(Pilot)
     pilot.data = data
-    pilot.args = SimpleNamespace(strict_velocity_support=True)
+    pilot.args = SimpleNamespace(
+        strict_velocity_support=arguments.get("strict_velocity_support", True),
+        global_observations=arguments.get("global_observations", False),
+        selection_metric=metric,
+    )
     paths = data.paths("validation")
     if len(paths) != 9:
         raise ValueError("Incomplete validation cohort")
+    reference, reference_path = diagnostic_reference(
+        run, manifest, [p.stem for p in paths]
+    )
     output.mkdir(parents=True, exist_ok=True)
     signature: dict[str, Any] = {
         "manifest_sha256": digest(run / "manifest.json"),
+        "selection_reference_sha256": digest(reference_path),
         "checkpoints": {name: digest(run / name) for name in args.checkpoints},
         "producer": os.environ.get("SAMUDRA_CODE_COMMIT"),
         "validation_origins": [p.stem for p in paths],
@@ -121,14 +173,20 @@ def main():
             pilot.model = model
             baseline = pilot.evaluate(paths)
             score = selection_score(
-                baseline, reference["control"], reference["spectral_keys"]
+                baseline,
+                reference["control"],
+                reference["spectral_keys"],
+                metric=metric,
             )
             interventions = {}
             for mode in ("zero-velocity", "mean-deep-ts"):
                 pilot.model = StateIntervention(model, mode).eval()
                 metrics = pilot.evaluate(paths)
                 value = selection_score(
-                    metrics, reference["control"], reference["spectral_keys"]
+                    metrics,
+                    reference["control"],
+                    reference["spectral_keys"],
+                    metric=metric,
                 )
                 interventions[mode] = {
                     "score": value,
@@ -137,6 +195,7 @@ def main():
                 }
             pilot.model = model
             records, initial_maps, reconstruction_maps, forecast_maps = [], [], [], []
+            projected_maps, target_maps, valid_maps = [], [], []
             weights = data.area.cpu().numpy() * data.grid["mask"]
             denominator = weights.sum((-2, -1))
             for i, path in enumerate(paths):
@@ -148,12 +207,9 @@ def main():
                     )
                 physical = data.physical(initial)[0, -1].cpu().numpy()
                 monthly = data.physical(reconstruction[:, None])[0, 0].cpu().numpy()
-                target = sample["raw"]["interior"].reshape(28, *physical.shape[-2:])
-                valid = np.isfinite(target) & data.ts_mask.cpu().numpy().astype(bool)
-                support = valid * data.area.cpu().numpy()
-                count = support.sum((-2, -1))
-                error = np.where(valid, monthly[data.ts_indices] - target, 0)
-                mse = (error**2 * support).sum((-2, -1)) / np.maximum(count, 1e-12)
+                projected, target, valid, mse, count = interior_diagnostics(
+                    data, reconstruction, sample
+                )
                 records.append(
                     {
                         "origin": path.stem,
@@ -173,11 +229,20 @@ def main():
                     initial_maps.append(physical)
                     reconstruction_maps.append(monthly)
                     forecast_maps.append(data.physical(forecast)[0, 5].cpu().numpy())
+                    projected_maps.append(projected)
+                    target_maps.append(target)
+                    valid_maps.append(valid)
             stem = Path(name).stem
             atomic_json(
                 {
                     "checkpoint_sha256": signature["checkpoints"][name],
                     "baseline_score": score,
+                    "selection_metric": metric,
+                    "interior_geometry": "native IAP"
+                    if data.dual_grid
+                    else "prepared model grid",
+                    "interior_depth_m": DEPTHS.tolist(),
+                    "interior_names": data.grid["names"][data.ts_indices].tolist(),
                     "baseline": baseline,
                     "interventions": interventions,
                     "profiles": records,
@@ -194,6 +259,13 @@ def main():
                 initial=np.array(initial_maps),
                 monthly_reconstruction=np.array(reconstruction_maps),
                 day30=np.array(forecast_maps),
+                interior_lat=(data.iap_grid if data.dual_grid else data.grid)["lat"],
+                interior_lon=(data.iap_grid if data.dual_grid else data.grid)["lon"],
+                interior_depth_m=DEPTHS,
+                interior_names=data.grid["names"][data.ts_indices],
+                monthly_reconstruction_on_observation_grid=np.array(projected_maps),
+                monthly_interior_target=np.array(target_maps),
+                monthly_interior_valid=np.array(valid_maps),
             )
             print(
                 json.dumps({"event": "state_diagnostic_complete", "checkpoint": name}),

@@ -4,6 +4,7 @@
 import json
 import sys
 from types import SimpleNamespace
+from typing import Any
 
 import numpy as np
 import pytest
@@ -11,6 +12,7 @@ import torch
 
 from samudra.experiments import observation_evaluate as evaluation
 from samudra.experiments.observation_checkpoint import load_fixed_checkpoint
+from samudra.experiments.observation_pilot import digest
 
 
 def fixed_run(path):
@@ -128,3 +130,205 @@ def test_fixed_evaluation_does_not_claim_validation_selection(tmp_path, monkeypa
     assert record["fixed_budget_lineage"]["global_step"] == 7
     evaluation.main()
     assert len(seen) == 4
+
+
+def quarter_run(path, arm):
+    from samudra.experiments.quarter_joint import ARMS, exposure_counts, pilot_arguments
+    from samudra.experiments.task_schedule import TaskSchedule
+
+    path.mkdir()
+    arguments = vars(
+        pilot_arguments(
+            SimpleNamespace(
+                arm=arm,
+                mode="train",
+                data=str(path / "data"),
+                output=str(path),
+                name="quarter-test",
+                qualification="qualification.json",
+                selection_reference="selection-reference.json",
+            )
+        )
+    )
+    contract: dict[str, Any] = {
+        "version": 1,
+        "arm": arm,
+        "schedule": list(ARMS[arm]),
+        "code_commit": "a" * 40,
+        "model_options": {
+            key: arguments[key]
+            for key in (
+                "initializer_architecture",
+                "surface_policy",
+                "task_conditioning",
+                "latent_channels",
+            )
+        },
+        "learning_rate": 1e-4,
+        "global_batch": 8,
+        "world_size": 4,
+        **{
+            key: arguments[key]
+            for key in (
+                "normalization",
+                "evolution_architecture",
+                "surface_fill",
+                "completion_weight",
+                "reconstruction_weight",
+                "global_observations",
+                "seed",
+            )
+        },
+        **{
+            key: "b" * 64
+            for key in (
+                "runtime_extension_sha256",
+                "runner_sha256",
+                "pilot_sha256",
+                "distributed_helper_sha256",
+                "selection_reference_sha256",
+            )
+        },
+        "data": {
+            key: "c" * 64
+            for key in ("SHA256SUMS", "grid.npz", "statistics.npz", "iap-grid.npz")
+        },
+    }
+    manifest = {
+        "arguments": arguments,
+        "normalization_mode": "observation-only",
+        "code_commit": contract["code_commit"],
+        "runtime_extension_sha256": contract["runtime_extension_sha256"],
+        **{
+            key: "c" * 64
+            for key in (
+                "data_manifest_sha256",
+                "grid_sha256",
+                "statistics_sha256",
+                "iap_grid_sha256",
+            )
+        },
+    }
+    counts = exposure_counts(arm, TaskSchedule(*ARMS[arm]), 6000)
+    saved = {
+        "model": {"weight": torch.tensor([2.0])},
+        "optimizer": {"opaque": "never returned for evaluation"},
+        "completed": 6000,
+        "last_validated": 6000,
+        "task_counts": counts,
+        "quarter_contract": contract,
+        "diagnostic_only": False,
+    }
+    complete = {
+        "updates": 6000,
+        "global_step": 6000,
+        "task_counts": counts,
+        "quarter_contract": contract,
+    }
+    return manifest, saved, complete
+
+
+def write_quarter_run(path, manifest, saved, complete):
+    (path / "manifest.json").write_text(json.dumps(manifest))
+    torch.save(saved, path / "quarter-last.pt")
+    complete["checkpoint_sha256"] = digest(path / "quarter-last.pt")
+    (path / "TRAIN_COMPLETE.json").write_text(json.dumps(complete))
+
+
+@pytest.mark.parametrize(
+    "arm",
+    ["u-global", "observation-only", "u-multitask-early", "u-multitask-early-latent"],
+)
+@pytest.mark.parametrize("split", ["test", "validation"])
+def test_quarter_endpoint_supports_all_approved_arms_without_conversion(
+    tmp_path, monkeypatch, arm, split
+):
+    path = tmp_path / arm
+    manifest, saved, complete = quarter_run(path, arm)
+    write_quarter_run(path, manifest, saved, complete)
+    # The evaluation producer can differ from immutable training provenance.
+    monkeypatch.setenv("SAMUDRA_CODE_COMMIT", "d" * 40)
+    counts = saved["task_counts"]
+    model, lineage = load_fixed_checkpoint(
+        path, "quarter-last.pt", split, counts["om4"], counts["observation"]
+    )
+    assert model["weight"].item() == 2
+    assert set(model) == {"weight"}
+    assert lineage["global_step"] == 6000
+    assert lineage["task_counts"] == counts
+    assert lineage["training_producer"] == "a" * 40
+    assert lineage["checkpoint_sha256"] == complete["checkpoint_sha256"]
+    assert lineage["training_manifest_sha256"] == digest(path / "manifest.json")
+    assert not list(path.glob("joint-*.pt"))
+
+
+@pytest.mark.parametrize(
+    "corrupt",
+    [
+        "incomplete",
+        "unvalidated",
+        "diagnostic",
+        "early_counts",
+        "contract",
+        "producer",
+        "runtime",
+        "schedule",
+        "latent",
+        "science",
+        "manifest_data",
+        "manifest_model",
+        "manifest_geometry",
+        "terminal_step",
+        "terminal_counts",
+        "hash",
+        "missing_completion",
+        "requested_counts",
+    ],
+)
+def test_quarter_endpoint_rejects_unfinished_or_mismatched_lineage(tmp_path, corrupt):
+    path = tmp_path / "quarter"
+    manifest, saved, complete = quarter_run(path, "u-multitask-early-latent")
+    if corrupt == "incomplete":
+        saved["completed"] = 5999
+    elif corrupt == "unvalidated":
+        saved["last_validated"] = 5900
+    elif corrupt == "diagnostic":
+        saved["diagnostic_only"] = True
+    elif corrupt == "early_counts":
+        saved["task_counts"]["om4_early"] = 1499
+    elif corrupt == "contract":
+        complete["quarter_contract"] = {}
+    elif corrupt == "producer":
+        manifest["code_commit"] = "e" * 40
+    elif corrupt == "runtime":
+        manifest["runtime_extension_sha256"] = "e" * 64
+    elif corrupt == "schedule":
+        saved["quarter_contract"]["schedule"][2] = "scratch"
+    elif corrupt == "latent":
+        saved["quarter_contract"]["model_options"]["latent_channels"] = 0
+    elif corrupt == "science":
+        saved["quarter_contract"]["learning_rate"] = 1e-3
+    elif corrupt == "manifest_data":
+        manifest["statistics_sha256"] = "f" * 64
+    elif corrupt == "manifest_model":
+        manifest["arguments"]["surface_policy"] = "legacy-copy"
+    elif corrupt == "manifest_geometry":
+        del manifest["arguments"]["iap_grid"]
+    elif corrupt == "terminal_step":
+        complete["global_step"] = 5999
+    elif corrupt == "terminal_counts":
+        complete["task_counts"] = {"om4": 3000, "observation": 3000}
+    write_quarter_run(path, manifest, saved, complete)
+    if corrupt == "hash":
+        with (path / "quarter-last.pt").open("ab") as stream:
+            stream.write(b"changed")
+    elif corrupt == "missing_completion":
+        (path / "TRAIN_COMPLETE.json").unlink()
+    with pytest.raises(ValueError, match="Quarter endpoint"):
+        load_fixed_checkpoint(
+            path,
+            "quarter-last.pt",
+            "validation",
+            3000,
+            2999 if corrupt == "requested_counts" else 3000,
+        )

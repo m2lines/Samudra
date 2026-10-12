@@ -445,6 +445,9 @@ def main():
             json.dumps({"event": "annual_origin_complete", "origin": origin}),
             flush=True,
         )
+        # Exports own their arrays; do not retain a full year's GPU states while
+        # constructing the next origin's forecast.
+        del prediction, physical, initial
     common_receipt = {}
     if common_grid is not None:
         from samudra.experiments.observation_common_grid import sidecar_hashes

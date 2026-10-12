@@ -53,7 +53,7 @@ def export(root, results_path, output, groups=None, *, own_persistence=False):
     for name, metadata in results["models"].items():
         evaluation_root = (
             Path(config["reuse_annual_root"])
-            if name in config["reuse_models"]
+            if name in config.get("reuse_models", [])
             else root
         )
         run = evaluation_root / name

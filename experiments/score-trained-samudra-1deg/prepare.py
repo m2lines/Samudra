@@ -5,6 +5,7 @@
 
 import argparse
 import copy
+import json
 from pathlib import Path
 
 import yaml
@@ -15,6 +16,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("root", type=Path)
     parser.add_argument("--config-dir", type=Path)
+    parser.add_argument("--auxiliary-calibration", type=Path)
     args = parser.parse_args()
     config = yaml.safe_load(Path(__file__).with_name("common.yaml").read_text())
     for mode in ("qualification", "train"):
@@ -30,9 +32,15 @@ def main():
             if mode == "qualification":
                 raw["experiment"]["wandb"]["mode"] = "disabled"
             elif arm == "D":
+                if args.auxiliary_calibration is None:
+                    # A full D run requires the qualification's frozen weights.
+                    continue
                 raw["scales_path"] = str(
                     args.root / "outputs/qualification-D/structured-scales.json"
                 )
+                calibration = json.loads(args.auxiliary_calibration.read_text())
+                raw["model"]["spatial_weight"] = calibration["spatial_weight"]
+                raw["model"]["difference_weight"] = calibration["difference_weight"]
             cfg = ScoreTrainConfig(**raw)
             config_dir = args.config_dir or args.root / "configs"
             output = config_dir / f"{mode}-{arm}.yaml"

@@ -307,7 +307,7 @@ It requires bitwise equality with the five saved diagnostic dates from job 21242
 times and selected physical fields before marking completion. A/B each export one deterministic trajectory;
 C/D each export their mean plus all four members. The original diagnostics are retained. There are twelve
 stores, approximately 144 GB uncompressed; project storage reported 32.59 TB available before submission.
-Secondary observation scoring will use published five-day DUACS/OISST, monthly ARGO-IAP and original per-channel masks,
+Secondary observation scoring used published five-day DUACS/OISST, monthly ARGO-IAP and original per-channel masks,
 with member scores kept separate from scores of ensemble means, especially for nonlinear diagnostics.
 
 The export completed in 11:31 (0.768 allocated GPU-hours), with W&B synchronized at
@@ -319,7 +319,7 @@ verified their timestamps and read back the fixed-date fields before writing com
 post-job audit compared every decompressed score/global CSV, every structure array and every saved field
 against job 212420: all were exactly equal. Checkpoint fingerprints, seeds, normalization, depth thicknesses,
 origins and final dates also match. Its callback was received and retired. `observations.py` and
-`observations_grace.sbatch` prepare the next CPU stage on Grace via Alpha, with exact-timestamp metadata
+`observations_grace.sbatch` implement the CPU stage on Grace via Alpha, with exact-timestamp metadata
 preflight before spatial scoring.
 
 Thirteen model/numerical tests, eight existing Zarr-writer tests and scoped pre-commit checks passed before
@@ -351,11 +351,27 @@ Individual member metrics remain separate from metrics of the ensemble mean; no 
 as mean member EKE. Observation-product locations, attributes, actual shared dates, checkpoint/export
 provenance and all model labels are retained in the job manifest.
 
-Online W&B is required before scoring. An EXIT callback and hourly fallback reminder are registered; the
+Online W&B is required before scoring. An EXIT callback and hourly fallback reminder were registered; the
 Alpha login-node receiver check passed before release. The script also checks from the compute node.
 The compute-node receiver check passed. W&B initialized online at
 [g3l9tndq](https://wandb.ai/ocean_emulators/default/runs/g3l9tndq), and all product/time-axis preflights passed.
 DUACS and OISST have 598 full-span timestamps and 583 scored times from 2015-01-03 through 2022-12-24.
 ARGO has 97 common complete months and 84 scored months from January 2015 through December 2021.
-The job has begun scoring A's surface velocity. Relevant analysis code was run on all completed artifacts,
-and scoped pre-commit checks passed before submission.
+The job completed successfully in **1:18:04**, exit 0, consuming **41.64 allocated CPU-hours**. Slurm step
+MaxRSS was 42,009,152 KiB (40.1 GiB), within the 384 GiB request. W&B synchronized its final summaries.
+The completion marker contains all twelve expected labels and **612 rows**: per trajectory, five primary
+scores, 38 annual scores, and eight variance/geometry diagnostics. All metric values are finite; contextual
+uncertainty columns are blank where inapplicable. Invalid-division warnings occurred during masked-array
+calculations, without missing output metric values. The original logs are retained.
+
+The metric CSV, manifest and completion marker were downloaded; local SHA-256 values exactly match the
+remote files. `analyze_observations.py` verifies unique keys, primary/annual aggregation, year/sample counts,
+matching paired-cell support counts, checkpoint paths/epochs, normalization, and all expected diagnostic
+dates. It retains exact compressed raw files and fingerprints alongside readable summary tables and plots.
+Observation scores are mixed; the report separates metrics of ensemble means from average member metrics,
+especially EKE and residual variance. No observational CRPS was computed. Although the inherited preset
+contains `baselines: [om4]`, this direct call supplies only the twelve named trajectories and does not score
+an additional OM4 reference.
+
+The callback was received and retired. All first-wave work is complete; no later training wave has been
+submitted. Reproduction commands and metric interpretation are in `RESULTS.md`.

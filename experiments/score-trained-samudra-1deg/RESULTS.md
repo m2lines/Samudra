@@ -8,10 +8,9 @@ SPDX-License-Identifier: CC-BY-4.0
 **Status, 2026-10-12:** all training, all four primary annual evaluations, and the continuous eight-year
 drift/structure diagnostics completed successfully. Persistence and training-period seasonal-climatology
 references and all eight checkpoint sensitivity evaluations also completed and passed their common-target
-audits. Trajectory export for observational comparisons also completed and reproduced the original diagnostics
-exactly. Secondary observation scoring is running as Grace job 132094 after passing its corrected monthly-ARGO
-preflight. This is an
-experiment/results record, not intended to merge. The first-wave report is not yet complete.
+audits. Trajectory export reproduced the original diagnostics exactly. Secondary observation scoring also
+completed: all 612 rows from twelve trajectories passed coverage, provenance and aggregation checks.
+The first wave is complete. This is an experiment/results record, not intended to merge.
 
 ## What the completed comparison establishes
 
@@ -24,7 +23,7 @@ reduces C/D's 360-day advantage over A to about **0.6%**, with paired year-block
 The CRPS improvement remains about **28%**. Final epoch-70 EMA remains the primary comparison; this
 sensitivity limits how broadly its point-score gain should be interpreted.
 
-There are three qualifications:
+There are four qualifications:
 
 - **A still has the best aggregate RMSE at short and intermediate leads.** C/D overtake A at 180 and 360 days.
   This is not a uniform improvement at every lead or in every variable.
@@ -35,10 +34,15 @@ There are three qualifications:
 - **D has no clear advantage over C in aggregate RMSE/CRPS, but does improve several structure diagnostics.**
   Its members better match OM4's velocity and SSH increments in the continuous rollout. Temperature/salinity
   results are mixed; 550 m salinity still changes too much, especially between successive model calls.
+- **Observation scores show small, mixed changes.** Against A, C/D ensemble means improve geostrophic
+  velocity and heat-content RMSE by less than 1%, but worsen SST by 1.19%/0.90% and EKE by about 0.7%.
+  Members improve SST residual-variance agreement but worsen upper-ocean heat-content variance-map error.
+  The OM4 CRPS gains are not evidence of calibrated distributions against observations.
 
-These are OM4-to-OM4 forecasts initialized with complete ocean states, not surface-only initialization,
-observational interior verification, or a demonstration that the model has learned the full joint ocean
-distribution. “Score-trained” here means an almost-fair **CRPS scoring rule**, not a denoising-score diffusion
+The primary forecast and calibration results are OM4-to-OM4, initialized with complete ocean states.
+Secondary observations verify surface diagnostics and monthly layer-integrated heat content, not individual
+interior profiles. This does not establish surface-only initialization or the full joint ocean distribution.
+“Score-trained” here means an almost-fair **CRPS scoring rule**, not a denoising-score diffusion
 model. Sampling takes one stochastic U-Net call per two output states; it has no iterative diffusion decoder.
 
 ## Matched evaluation and controls
@@ -332,22 +336,99 @@ are 0.865/0.884. This does not demonstrate energy conservation: the quantities u
 binary wet masks and nominal full-layer thicknesses, not exact OM4 partial-cell geometry. They are bulk
 proxies, not exact heat/salt inventories.
 
-## Remaining diagnostics and proposed decisions
+## Secondary observation verification
 
-Secondary observation scoring where applicable remains outstanding. Checkpoint sensitivity job **212432**
-completed. Continuous-trajectory export job **212433** completed and passed exact replay checks for every
-score, structure array and saved field. Twelve trajectory stores supply observation scoring with the A/B
-deterministic forecasts and each C/D ensemble mean plus four members. No conclusion about
-observational skill or 100-year climate stability is claimed. Grace job **132094** is scoring the published
-five-day DUACS/OISST and monthly ARGO-IAP products, with original depth-specific wet masks. Exact-timestamp
-preflight follows each metric's temporal support: complete monthly means for ARGO-IAP, then complete years
-for OHC RMSE. The surface scoring period is 2015–2022, while OHC RMSE retains 2015–2021 because the final
-December is incomplete. The first CPU attempt, 132091, stopped in an incorrectly configured ARGO preflight
-before scoring; the corrected check passes on the actual exported model clock. The replacement has a
-completion callback and hourly fallback reminder. It initialized [online W&B](https://wandb.ai/ocean_emulators/default/runs/g3l9tndq)
-and passed all product-time checks: 583 surface timestamps and 84 scored OHC months.
+Grace job **132094** completed in 1:18:04 with
+[online W&B synchronized](https://wandb.ai/ocean_emulators/default/runs/g3l9tndq). It scored the continuous
+October-2014-initialized forecasts, using final epoch-70 EMA checkpoints and four members for C/D.
+These are prescribed-forcing, full-OM4-state initializations with no observational assimilation or fine-tuning.
+There is one continuous trajectory per deterministic arm and four per stochastic arm, not repeated independent
+eight-year forecasts. Twelve exported stores passed exact replay verification against the original diagnostics.
 
-Provisional next-wave suggestions, for review after the remaining evaluations:
+DUACS/OISST retain **583 five-day timestamps, 2015-01-03 through 2022-12-24**. ARGO-IAP uses complete
+monthly means and whole years, giving **84 months, January 2015 through December 2021**. December 2022 is
+incomplete, so that year is excluded from OHC RMSE. Residual-variance diagnostics use the full common span:
+598 surface samples from October 2014 through December 2022, and 97 complete OHC months from November 2014
+through November 2022. No daily observation skill is measured here.
+
+The metric implementation derives geostrophic velocity from SSH and compares it with absolute DUACS
+geostrophic velocity; it does not score the model's prognostic U/V directly. EKE is formed from geostrophic
+velocity anomalies about each field's time mean. OISST is compared with the top temperature level. OHC
+integrates temperature over each layer with the existing model/observation thickness rules. Fields are
+interpolated horizontally to each observation grid, using original per-channel wet masks. Scalar RMSE is
+the **square root of the equal-year mean annual MSE**, with area weighting within each year.
+
+| Primary RMSE | Units | A | B | C mean | D mean |
+| --- | --- | ---: | ---: | ---: | ---: |
+| Geostrophic velocity | m/s | 0.194195 | 0.195785 | 0.193555 | 0.193755 |
+| Instantaneous EKE | m²/s² | 0.045504 | 0.045566 | 0.045799 | 0.045811 |
+| SST | °C | 0.88802 | 0.91606 | 0.89857 | 0.89598 |
+| OHC 0–700 m | GJ/m² | 4.10265 | 4.09262 | 4.06577 | 4.08593 |
+| OHC 700–2000 m | GJ/m² | 2.70092 | 2.68955 | 2.68272 | 2.68108 |
+
+![Observation RMSE by verification year](results/observation-annual.jpg)
+
+Relative to A, C/D mean-field velocity RMSE improves **0.33%/0.23%**, shallow OHC **0.90%/0.41%**, and
+intermediate OHC **0.67%/0.73%**. SST worsens **1.19%/0.90%**, and EKE worsens **0.65%/0.68%**. C/D beat
+B in four of the five primary metrics; B retains lower EKE error. D's added structure loss does not produce
+a consistent observation advantage over C: it improves SST and intermediate OHC slightly, while worsening
+velocity, EKE and shallow OHC slightly.
+
+![Observation RMSE changes, separating means and members](results/observation-comparison.jpg)
+
+The mean-field intervals use 10,000 paired calendar-year resamples, reconstructing root mean annual MSE
+before computing each relative change. For example, C versus A has velocity **−0.33% [−0.46%, −0.23%]**,
+SST **+1.19% [+0.54%, +1.79%]**, and shallow OHC **−0.90% [−1.26%, −0.51%]**. These are descriptive
+intervals over seven or eight years of **one evolving forecast**. Cross-year dependence, training-seed
+variation, initialization variation and observation systematic errors are not resolved by those intervals.
+
+### Members and variability
+
+The average of individual-member RMSEs is kept separate from RMSE of the ensemble-mean field:
+
+| Metric | C mean-field RMSE | C average member RMSE | D mean-field RMSE | D average member RMSE |
+| --- | ---: | ---: | ---: | ---: |
+| Geostrophic velocity, m/s | 0.193555 | 0.196307 | 0.193755 | 0.197153 |
+| EKE, m²/s² | 0.045799 | 0.045282 | 0.045811 | 0.045191 |
+| SST, °C | 0.89857 | 0.99131 | 0.89598 | 0.96810 |
+| OHC 0–700 m, GJ/m² | 4.06577 | 4.12586 | 4.08593 | 4.12772 |
+| OHC 700–2000 m, GJ/m² | 2.68272 | 2.72992 | 2.68108 | 2.70923 |
+
+Unlike the other point metrics, EKE improves when scoring individual members rather than the ensemble mean.
+Computing kinetic energy after averaging velocities removes energy associated with member spread; these
+operations are not interchangeable. The member-average EKE RMSE beats A by 0.49% for C and 0.69% for D.
+This is not a probabilistic scoring rule and does not establish observational calibration.
+
+![Residual-variance magnitude and pattern agreement](results/observation-variance.jpg)
+
+After detrending and deseasonalizing, the average member SST variance-map RMSE is **0.3224 °C² for C** and
+**0.3366 °C² for D**, versus **0.4493 °C² for A**: approximately 28%/25% lower error. Average member SST
+pattern correlations are 0.703/0.688 versus A's 0.560. This is useful evidence of better SST variability
+despite worse instantaneous SST predictions. It does not extend uniformly to the interior: average member
+upper-OHC variance-map RMSE is **0.9815/0.9034 (GJ/m²)²** for C/D versus **0.5419 for A**, approximately
+81%/67% worse. Their mean-field OHC variance errors are lower than A's, but mean-field pattern correlations
+are lower too. Map-RMSE alone does not reveal whether regional variance is too high or too low.
+
+### Coverage and limits
+
+All twelve trajectories have identical recorded paired-cell counts per metric. The retained fractions of
+observed ocean cells are **94.02% velocity, 92.88% EKE, 98.09% SST, 99.04% shallow OHC and 98.85%
+intermediate OHC**. These are cell-count fractions, not area fractions; coastal erosion from interpolation
+and the geostrophic equatorial exclusion qualify the domain being scored.
+
+Layer-geometry differences are shared across arms: mean absolute model/observation column-thickness
+disagreement is **26.49 m** for 0–700 m and **48.59 m** for 700–2000 m, with model partial-column fractions
+13.27% and 4.48%. Thus absolute OHC RMSE includes representativeness/geometry error as well as temperature
+error; this evaluation does not decompose them. The direct scorer evaluates only the twelve listed forecasts:
+the inherited observation preset's `baselines: [om4]` does **not** add an OM4 reference automatically here.
+There is no matched OM4-versus-observation baseline in this set, so shared model bias and new forecast error
+cannot be separated. These results also do not verify instantaneous interior profiles or interior velocity,
+observational ensemble CRPS/calibration, or 100-year stability.
+
+## Proposed next-wave decisions
+
+The first wave supports C as a useful simple generative baseline, with D retained for structure comparisons.
+The following experiments are proposals for approval:
 
 1. **Reproducibility:** repeat B/C/D at seeds 16/17. D's structural improvements now justify retaining it in
    this comparison, while its aggregate RMSE/CRPS remains effectively tied with C. Prespecify a common
@@ -361,10 +442,14 @@ Provisional next-wave suggestions, for review after the remaining evaluations:
    reference, clearly separated from dynamically generated, physically coherent members.
 4. **Variable trade-offs:** compare C against a version with fixed, training-derived channel weights motivated
    by A's temperature/salinity advantage. Check whether thermodynamic gains cost velocity/SSH skill instead
-   of optimizing only the 77-channel headline.
+   of optimizing only the 77-channel headline. Include member OHC variability as a guard against apparently
+   good mean-field scores hiding poor sampled interiors.
 5. **Structured multitask learning:** use C as the simpler provisional generative baseline and retain D for
    structural comparison. Add masking/tasks with a matched forecast-only control. These
    results do not require changing to diffusion, nor do they establish that diffusion would be inferior.
+6. **Observation interpretation:** add the matching held-out OM4 reference, common-column OHC or
+   layer-mean temperature, and signed regional variance differences. These separate inherited data/geometry
+   mismatch from forecast degradation and distinguish excessive variability from missing variability.
 
 No next-wave training has been submitted.
 
@@ -382,6 +467,8 @@ sensitivities and trajectory export, approximately **127.3 GPU-hours** have been
 approximately 200-GPU-hour first-wave envelope. These are allocation
 costs, not kernel-active GPU time. A's historical training cost is excluded; it was reused. Equal epochs and
 training contexts are not equal compute, and no equal-compute superiority claim is made.
+Observation job 132094 used **41.64 allocated CPU-hours**, with about 40.1 GiB peak RSS; the failed preflight
+adds 1.30 CPU-hours. It requested no GPUs. All campaign callbacks have been retired after completion.
 
 [annual-summary.csv](results/annual-summary.csv) contains the plotted aggregate scores.
 [annual-raw/](results/annual-raw/) retains all per-origin/channel/lead metrics, split by arm/lead into small
@@ -418,3 +505,17 @@ The last directory contains `score-eval-full-A-212403/` for saved-truth comparis
 129,360 secondary rows, common targets and normalization, stored checkpoint roles/epochs, finite fields,
 rank-histogram totals and stochastic diversity. Full [manifests](results/sensitivity-manifests.json.gz) retain
 selection identities, checkpoint fingerprints, source and online W&B URLs. The primary tables are unchanged.
+
+Observation job 132094 used source `71c226400`. Download `observation_metrics.csv`, `manifest.json` and
+`COMPLETE.json` from `outputs/observations-132094/`, then run
+`uv run python experiments/score-trained-samudra-1deg/analyze_observations.py <downloaded-observations-132094> <results-directory>`.
+The results directory must contain `annual-contract.json`. The audit checks all 612 unique finite score rows,
+model labels, checkpoint paths/epochs, variable order and normalization, actual product support, paired-cell
+counts, year/sample completeness, and the primary scalar/annual-MSE aggregation identity. Source and local
+SHA-256 values match for all three downloaded files. Exact raw bytes are retained in
+[observation-raw.csv.gz](results/observation-raw.csv.gz), with [manifest](results/observation-manifest.json.gz),
+[completion marker](results/observation-complete.json.gz) and [audit fingerprints](results/observation-audit.json.gz).
+Readable [primary scores](results/observation-primary.csv), [mean/member summaries](results/observation-member-summary.csv)
+and [paired intervals](results/observation-paired-year-intervals.csv) support the plots. Context columns without
+applicable uncertainty/coverage are blank, while all 612 metric values are finite. Runtime invalid-division
+warnings did not produce missing metric values; masks and paired support remain explicit in these outputs.

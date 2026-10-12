@@ -5,11 +5,13 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Score-trained stochastic Samudra on 1-degree OM4
 
-Status: training, primary annual evaluations and continuous eight-year diagnostics complete, 2026-10-12.
+Status: first wave complete, 2026-10-12.
 See the [comparison report](RESULTS.md) and [run record](RUNS.md). Persistence and training-only seasonal
-climatology references, checkpoint sensitivities and trajectory export also completed. Observation scoring
-is running as Grace job 132094 after passing the corrected monthly-ARGO preflight. The report distinguishes the
-fixed final-EMA result from checkpoint-policy sensitivity.
+climatology references, checkpoint sensitivities, continuous eight-year diagnostics and observation scoring
+all completed. All 612 observation rows passed the coverage and aggregation audit. Observation changes are
+small and mixed; sampled SST variability improves, while sampled upper-OHC variance-map error worsens.
+The report distinguishes mean-field metrics from member metrics and the fixed final-EMA result from
+checkpoint-policy sensitivity. All campaign callbacks are retired.
 The user authorized B/C/D on Beta, Torch, or Engaging, using Rust loading and no `hfds_anomalies`.
 Reuse A; do not retrain it.
 Experiment record, not intended to merge. Later waves remain subject to approval.
@@ -286,9 +288,9 @@ dataset manifests, checkpoint lineage, runtime counters, raw metrics and selecte
   and the distinction between ensemble-mean error, member error and spread.
 - `evaluate_score.py` provides common quarterly-origin 360-day forecasts, empirical/fair CRPS, mean/member
   RMSE, bias, spread, quantile/range coverage, randomized-tie rank histograms and prespecified native-grid fields.
-  It supports A's original checkpoint names as well as B/C/D. Broader covariance/spectral, long-trajectory,
-  observational and climatology diagnostics remain reporting-stage work; the initial evaluator does not yet
-  implement those. It requires an online W&B run and writes per-rank CSVs plus completion manifests.
+  It supports A's original checkpoint names as well as B/C/D. It requires an online W&B run and writes
+  per-rank CSVs plus completion manifests. Separate continuous, reference, checkpoint-sensitivity and
+  observation runners completed the reporting-stage evaluations; their audits and plots are linked in `RESULTS.md`.
   `evaluate_beta.sbatch` launches four independent origin workers; qualification uses four complete annual
   forecasts, while full evaluation uses the common complete-origin manifest. Final checkpoints must report
   epoch 70, and checkpoint checksums, source/container identity, config, and row counts are recorded.

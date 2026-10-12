@@ -27,9 +27,11 @@ the same source as the successful RTX retry, with the opt-in native 1×1 backend
 | RTX qualification notification | 19656296 | CPU-only, 1 CPU, 512 MiB | Completed; quiet monitor handed result back |
 | RTX native-1×1 retry | 19656804 | Same gr103 node, 2 RTX GPUs, 16 CPUs, 192 GiB RAM | Completed, exit 0; 1:52 on gr103 |
 | RTX retry notification | 19656825 | CPU-only, 1 CPU, 512 MiB | Completed; terminal result verified |
-| F: RTX forecast-only | 19657151 | 2 RTX GPUs, 16 CPUs, 192 GiB RAM, 36-hour ceiling | Running on gr103; epoch 1 and online W&B verified |
+| F: RTX forecast-only | 19657151 | 2 RTX GPUs, 16 CPUs, 192 GiB RAM, 36-hour ceiling | Failed near epoch 6 end; epoch 5 checkpoint retained |
 | M: RTX structured multitask | 19657152 | Same as RTX F | Failed before training on gr102; initial NCCL barrier timed out |
-| M: unchanged startup retry | 19657895 | Same as RTX F | Submitted; eligible at 16:16:53 Eastern |
+| M: unchanged startup retry | 19657895 | Same as RTX F | Running on gr106; epoch 6 progress verified |
+| F: checkpoint recovery | 19664764 | Same as RTX F | Submitted; resumes epoch 5 checkpoint |
+| F recovery notification | 19664888 | CPU-only, 1 CPU, 512 MiB | Verified `afterany:19664764` |
 | M retry notification | 19657907 | CPU-only, 1 CPU, 512 MiB | Verified `afterany:19657895` |
 | RTX production notifications | 19657177 / 19657179 | CPU-only, 1 CPU, 512 MiB each | Verified `afterany` dependencies on RTX F / M |
 
@@ -159,3 +161,31 @@ Local validation: 22 model/numerical tests passed, including initial C parity, m
 gradients, checkpointed backward equivalence and the opt-in 1×1 backend. Scoped pre-commit and shell syntax checks passed.
 `evaluate_score.py --arm F|M` loads the new conditioning architecture for the same held-out forecast
 protocol; final completion and continuous-rollout evaluation remain to be qualified before use.
+
+## October 12, 18:07 Eastern: storage recovery
+
+M retry 19657895 started successfully on gr106 with unchanged settings, two RTX GPUs and world size 2.
+[W&B bfjwav3j](https://wandb.ai/ocean_emulators/default/runs/bfjwav3j) is online; finite training progressed
+through epoch 5 into epoch 6. Passing startup on another allocation does not prove a gr102 hardware fault.
+
+F 19657151 stopped near epoch 6 minibatch 330/352, after 1:58:53 (3.9628 allocated RTX GPU-hours),
+with exit 1 and no Python/CUDA traceback. The latest completed checkpoints/annual validation are epoch 5.
+Its CPU notification 19657177 also failed (`0:53`) without a Slurm output file; the hourly reminder
+caught the terminal state. Slurm did not identify a root cancellation or provide GPU utilization evidence.
+
+A direct scratch write failed with `Disk quota exceeded`; `myquota` reported the 5 TB scratch quota
+at 99.97–100%, despite free capacity on the shared filesystem. This is an independently verified storage
+failure, not conclusive proof of F's exit cause. `apptainer cache clean --force` removed 53.09 GiB of
+regenerable download-cache content under `/scratch/jr7309/apptainer-cache`. The actual running SIF,
+datasets and all checkpoints were retained. Writes initially still failed, then succeeded about 30 seconds
+later; M's log writes also resumed, with finite epoch-6 progress. The quota report still showed 100% at
+18:07, so available quota headroom is not yet verified and remains a monitoring concern.
+
+F recovery 19664764 uses the unchanged immutable source/config and existing output directory. The
+`preemptible` path automatically loads `saved_nets/ckpt.pt`; its ZIP structure is readable. Bring-up must
+confirm epoch 6, model/EMA/optimizer/scheduler restoration and W&B run 3uv0p502 resumption. The
+interrupted portion of epoch 6 will be repeated; no bitwise equivalence to uninterrupted training is claimed.
+Callback `306f6f54-abc5-496a-9816-b3f2f0608220` authenticated, and CPU notification 19664888 has a
+verified `afterany` dependency. `/root/rtx_qualification_monitor` checks startup after ten minutes, then
+hourly, including storage and checkpoint advancement. The old F registration is retired; M's callback
+and monitor remain active. This recovery changes no scientific settings or experimental scope.

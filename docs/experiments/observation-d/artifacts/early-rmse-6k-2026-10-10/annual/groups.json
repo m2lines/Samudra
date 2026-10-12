@@ -1,0 +1,4 @@
+{
+  "early": ["U-global", "U-global-seed1730", "U-multitask-early", "U-multitask-early-latent", "U-multitask-early-fine", "U-multitask-early-fine-latent"],
+  "auxiliary": ["U-global", "U-global-seed1730", "U-aux01-6k", "U-aux01-anomaly-6k"]
+}

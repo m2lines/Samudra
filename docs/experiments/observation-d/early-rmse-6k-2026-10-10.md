@@ -17,7 +17,8 @@ The historical [four-arm report](early-fine-wave-2026-10-07.md) and
 protocols. This wave uses RMSE-only selection throughout.
 
 Contents: [Results](#results) · [Runs](#runs) · [Selection](#selection) · [Diagnostics](#diagnostics) ·
-[Execution](#execution) · [Auxiliary reproductions](#auxiliary-loss-reproductions).
+[Execution](#execution) · [Auxiliary reproductions](#auxiliary-loss-reproductions) ·
+[Matched annual comparison](#matched-annual-comparison).
 
 ## Results
 
@@ -272,7 +273,77 @@ qualification and 96-origin evaluation, with no GPU or training retries. Trainin
 producer `56aac9375a59a7204cd54d85a0c5a3b8e9383d59` is unchanged. One CPU-only map
 export failed on a filename and was recovered without changing weights; its
 record is retained in the [completion/accounting audit](artifacts/auxiliary-rmse-2026-10-11/verification.json).
-The matched eight-model annual evaluation is now queued/running under audit
-**19606941** → evaluation **19606942** → collection **19606943**. It will report
-separate four-component day-30/day-365 scores for choosing the quarter-degree
-variants, using fixed validation-selected checkpoints.
+The [matched annual comparison](#matched-annual-comparison) below is complete.
+
+## Matched annual comparison
+
+**Early-latent wins at day 30; early-fine wins at day 365.** Applying the agreed
+promotion rule therefore selects native-quarter early-data variants with and
+without ten latent channels, alongside U-global-quarter and U-obs-only-quarter.
+Neither auxiliary recipe is promoted by this ranking.
+
+These are the same validation-selected 6k checkpoints as above, with no annual
+reselection or retraining. Each forecast starts once on January 1 of **2015,
+2018 or 2021**, then runs 73 five-day steps with prescribed ERA5 forcing. The
+four-component score equally averages climatology-normalized RMSE for SST,
+geostrophic velocity and two OHC layers. Pool equal-origin MSE before taking
+square roots; use separate climatology denominators at each lead. OHC is the
+January/December monthly mean. This differs from the five-component, 96-origin
+monthly test blend above; annual EKE remains a separate diagnostic.
+
+| Model | Day-30 blend | Own persistence | Day-365 blend | Own persistence |
+|---|---:|---:|---:|---:|
+| U-global | 0.8924 | 1.1308 | 1.0286 | 1.0791 |
+| U-global-seed1730 | 0.8956 | 1.1514 | 1.0347 | 1.0856 |
+| U-multitask-early | 0.8955 | 1.1160 | 1.0350 | 1.0685 |
+| U-multitask-early-latent | **0.8714** | 1.1124 | 0.9738 | 1.0549 |
+| U-multitask-early-fine | 0.8812 | 1.0995 | **0.9561** | 1.0719 |
+| U-multitask-early-fine-latent | 0.9040 | 1.1859 | 1.0193 | 1.1207 |
+| U-aux01-6k | 0.8873 | 1.2019 | 1.0403 | 1.1454 |
+| U-aux01-anomaly-6k | 0.8827 | 1.1520 | 1.0018 | 1.0913 |
+| Training seasonal climatology | 1.0000 | — | 1.0000 | — |
+
+![Matched short and annual forecasts](artifacts/early-rmse-6k-2026-10-10/annual/rmse-comparison.png)
+
+Day-30 early-latent improves the blend **2.36%** versus seed-1729 U-global.
+Day-365 early-fine improves it **7.05%**, mainly through SST (**9.95% lower RMSE**)
+and upper OHC (**16.95% lower**); velocity improves only **0.37%**. The annual
+winner beats climatology overall by 4.39%, while its velocity and deep OHC remain
+2.97% and 9.87% worse than climatology. This is predominantly thermodynamic skill,
+not evidence of consistently improved velocity or EKE dynamics.
+
+| Annual origin | Day-30 U-global | Day-30 early-latent | Day-365 U-global | Day-365 early-fine |
+|---|---:|---:|---:|---:|
+| 2015-01-01 | 0.8780 | 0.8667 | 1.1162 | 0.9787 |
+| 2018-01-01 | 0.8610 | 0.8518 | 1.0029 | 0.9314 |
+| 2021-01-01 | 0.9342 | 0.8934 | 0.9481 | 0.9561 |
+
+The day-30 winner improves all three cases. The day-365 winner improves two and
+worsens 2021 by 0.84%; anomaly auxiliary is best for that individual year-end
+case. Both pooled winners remain first when any one origin is omitted and the
+climatology denominators are recomputed. This sensitivity check does not make
+three previously viewed January starts an independent test. Variant uncertainty
+is not estimated by the two baseline seeds, and choosing among these candidates
+is explicitly exploratory model development.
+
+[Per-origin and pooled components](artifacts/early-rmse-6k-2026-10-10/annual/rmse-scores.csv) ·
+[Early-model lead curves](artifacts/early-rmse-6k-2026-10-10/annual/lead-curves-early.png) ·
+[Auxiliary lead curves](artifacts/early-rmse-6k-2026-10-10/annual/lead-curves-auxiliary.png) ·
+[Early-model monthly OHC](artifacts/early-rmse-6k-2026-10-10/annual/ohc-curves-early.png) ·
+[Auxiliary monthly OHC](artifacts/early-rmse-6k-2026-10-10/annual/ohc-curves-auxiliary.png).
+
+[Early-model day-365 SST anomaly maps, 2018](artifacts/early-rmse-6k-2026-10-10/annual/maps/early-day365/day365-2018-01-01-anomalies-sst.png) ·
+[Auxiliary day-365 SST maps, 2018](artifacts/early-rmse-6k-2026-10-10/annual/maps/auxiliary-day365/day365-2018-01-01-anomalies-sst.png) ·
+[All day-30/day-365 SST and ADT maps](artifacts/early-rmse-6k-2026-10-10/annual/maps/).
+Maps use two pixels per grid cell, matched origins and color scales. U-global's
+initialized persistence is shown as the common map reference; the table and CSV
+report each model's own persistence.
+
+
+All eight completion and output-hash records passed collection; scores were
+independently recomputed from per-origin components (maximum discrepancy
+2.22×10⁻¹⁶). GPU allocation was **0.1475 GPU-hours**, with no GPU retries. CPU-only
+runtime-path and collector-launch failures were recovered with their records
+preserved. [Audit, checkpoints and accounting](artifacts/early-rmse-6k-2026-10-10/annual/verification.json) ·
+[Full metric/provenance bundle](artifacts/early-rmse-6k-2026-10-10/annual/results.json.gz).
+Cluster root: `/scratch/jr7309/runs/2026-10-11-rmse-6k-annual`.

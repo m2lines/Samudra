@@ -3,8 +3,8 @@
 
 # Native quarter-degree observation experiment
 
-Run after the [4k/6k auxiliary reproductions](early-rmse-6k-2026-10-10.md#auxiliary-loss-reproductions)
-finish. On October 11 the user authorized **U-global, observation-only, and the
+The [4k/6k auxiliary reproductions](early-rmse-6k-2026-10-10.md#auxiliary-loss-reproductions)
+and matched eight-model annual comparison are complete. On October 11 the user authorized **U-global, observation-only, and the
 best one or two variants from the 6k comparison**, judged at both 30 and 365 days.
 All quarter-degree runs use 6,000 total updates. Quarter-degree production has not yet been
 qualified or submitted; short preparation tests are underway. Reporting both native-resolution and matched 1°
@@ -16,7 +16,8 @@ metrics remains agreed.
 |---|---|---|---|
 | U-global-quarter | Global 720×1440; same U-Net widths/depth and approximately 63M parameters | 3,000 recent-period examples at ¼° | 3,000 at ¼° |
 | U-obs-only-quarter | Same global processor and initializer, both randomly initialized | None | 6,000 at ¼° |
-| Promoted variant(s), names fixed after the 6k comparison | Same native global grid; retain the selected data, latent-state or auxiliary-supervision change where applicable | 3,000; for an earlier-data variant, 1,500 recent + 1,500 from 1958–1974 | 3,000 at ¼° |
+| U-early-quarter | Global 720×1440; same 77 physical channels; native analogue of the day-365 early-fine winner | 1,500 recent + 1,500 from 1958–1974, all at ¼° | 3,000 at ¼° |
+| U-early-latent-quarter | Same global processor plus 10 recurrent latent channels on every task; native analogue of the day-30 early-latent winner | 1,500 recent + 1,500 from 1958–1974, all at ¼° | 3,000 at ¼° |
 
 Train fresh with seed 1729, fixed LR 1e-4, the existing physical losses, effective
 batch of eight, five-day steps and unchanged history/rollout lengths. OM4-plus-obs
@@ -27,7 +28,13 @@ observation exposure or exact FLOPs. Preserve chronological splits.
 
 ## Choosing the variants
 
-First finish the auxiliary reproductions and evaluate the **fixed validation-selected
+The completed [annual comparison](early-rmse-6k-2026-10-10.md#matched-annual-comparison)
+selects **U-multitask-early-latent at day 30 (0.8714)** and
+**U-multitask-early-fine at day 365 (0.9561)**. Their union gives the two early-data
+arms above. Seed-1729 U-global scores 0.8924/1.0286. This is the result of the
+prespecified rule below, not a new ranking based on quarter-degree outcomes.
+
+The rule was to finish the auxiliary reproductions and evaluate the **fixed validation-selected
 checkpoints from the 6k runs** for U-global (both seeds), the four earlier-data
 variants, U-aux01 and U-aux01-anomaly. Do not substitute the older 4k annual results.
 Do not choose a different checkpoint using annual test outcomes.
@@ -143,18 +150,11 @@ to the short-lead comparison; they must not choose the training checkpoint.
 
 ## Execution status
 
-The four auxiliary reproductions and their verified result export are complete.
-The prerequisite annual comparison uses audit **19606941** → eight-model
-evaluation **19606942** (two GPUs concurrently) → collection **19606943**.
-The first CPU report export failed on a map filename; its original dependent
-annual jobs never started. The corrected export preserves all failed records
-and does not change training or selected checkpoints. It uses evaluation producer
-`56aac9375a59a7204cd54d85a0c5a3b8e9383d59` and the existing annual data/runtime at
-`/scratch/jr7309/runs/2026-10-11-rmse-6k-annual`. The audit freezes completed 6k
-selected checkpoint hashes and requires each run's 96-origin short-horizon
-completion record. These are pending/running evaluations, not new training or completed
-annual results. Quarter-degree production remains gated on these results and
-real-data qualification.
+All prerequisite 1° reproductions and annual evaluations are complete. Annual
+CPU audit **19607393**, eight-model GPU array **19607394**, and collector
+**19607691** passed; no GPU evaluations were repeated. Selected checkpoint and
+output hashes are linked in the annual report. Quarter-degree production remains
+gated on prepared data and real four-GPU qualification of each of the four recipes.
 
 Beta diagnostic **212260** completed all three synthetic 720×1440 full-objective
 backward tests on one GB200 (`beta_test`, 0.1281 allocated GPU-hours). The exact

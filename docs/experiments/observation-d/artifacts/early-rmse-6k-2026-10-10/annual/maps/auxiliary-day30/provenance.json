@@ -1,0 +1,360 @@
+{
+  "cases": [
+    "2015-01-01",
+    "2018-01-01",
+    "2021-01-01"
+  ],
+  "lead_bin_end_days": 30,
+  "scope": "Same selected checkpoints, same annual cases, one initialization; all models in the group shown",
+  "grid_sha256": "ce96360964a6669d0186b9581abaaffc06f660c4e09e0ac813b3dd1b819e5167",
+  "statistics_sha256": "7688d483d4c87a8ce0e2f27a1a342db93eecb3e892187506475d6970e865c001",
+  "results_sha256": "3304150914197e22e03244fc3b1cb9316f2da898e71019e523bad2901c512836",
+  "exporter_sha256": "6345caf121773071ea1a10fd8f6ac1299f7bd24e63e6227e64af006c0de1e51c",
+  "sources": [
+    {
+      "method": "U-global",
+      "path": "/scratch/jr7309/runs/2026-10-11-rmse-6k-annual/U-global",
+      "selected_checkpoint_sha256": "83bb1c88639b004f8bd2412f0ff6bb5397b443678c41f32d0a449bb440b854cb",
+      "source_checkpoint_sha256": null,
+      "annual_output_hashes": {
+        "2015-01-01-persistence.json": "e20a3f51005fd9a58ffa6dcc84c4e12d550f69b09d6f8f8b35d9ec677d906220",
+        "2015-01-01.json": "94c8c35e88e03e0d3c14276c360f8a803a705e635c016f381b6a2c0ee0c2fa5c",
+        "2015-01-01.npz": "dfacdd2e4fda3c41f6bfa71438146bedbac194c974262f5ae93a3988f91314fe",
+        "2018-01-01-persistence.json": "251be9b3bd1e5d5c4e8606e457b892ca1937347528f6e9e9c0f84152883632d1",
+        "2018-01-01.json": "bf8dea67dfa8fec579c39983cce292535a3e5f3aa3c568cb62b071a40fd3ed4c",
+        "2018-01-01.npz": "7a94a1efcf2561bb0603bfc1a06936a0632eba1aace34e8056df5f40c01600d4",
+        "2021-01-01-persistence.json": "496188a518fb48aa2f1b6abca6870f6276718a0404fec638844a596883d45437",
+        "2021-01-01.json": "7f63bf9beb37d75a47bc3afb85e8a14a7ba35d935c405fbf7f9bb779a4a5f190",
+        "2021-01-01.npz": "250bcf2b2b0b1af0f0a8f218e807b217862cbe1e1a7fd12c6336cfc8bf4c9a00",
+        "COMPLETE.json": "01d244973c9e81239ef7f1abf3834dcb6233c518ae35cd3d0752ac6dbb67ff79",
+        "input.json": "1908e03d53bef207c21b0d71eeea68d28e26b9b4609868a949f488b7bf01a172"
+      },
+      "weights_used_sha256": "83bb1c88639b004f8bd2412f0ff6bb5397b443678c41f32d0a449bb440b854cb"
+    },
+    {
+      "method": "U-global-seed1730",
+      "path": "/scratch/jr7309/runs/2026-10-11-rmse-6k-annual/U-global-seed1730",
+      "selected_checkpoint_sha256": "c47eea4d69a79510758fd0d570d324c423d8af162c20a0319325f823fa593333",
+      "source_checkpoint_sha256": null,
+      "annual_output_hashes": {
+        "2015-01-01-persistence.json": "9fb5ceb6ae014c70de67bb233998c962f964f121894428baf34410423213801c",
+        "2015-01-01.json": "fac6d5d0d9f8df4d6e56d20d812f5af9af4d6544e977b9d9464ecffa898402a4",
+        "2015-01-01.npz": "283260de81ed83a24a74af9a9c7fb15856c82f9c360396b95ae2ff827c2c4de4",
+        "2018-01-01-persistence.json": "5f198a9ea41a6b679a9816b44610b06f70ae9bf107c8445320fb8ef129daff57",
+        "2018-01-01.json": "1a2c4d77024c869d1a3c2a42db9301fa71296a0a38497f146da9215bc837c7b0",
+        "2018-01-01.npz": "bfaffe97197f12a3c1708b205330bbdaf3b799ed34bad1375095240fc1e46c86",
+        "2021-01-01-persistence.json": "7fabfb40f0a64507e7fb7f833e4e183058175028e11cbede8f24ef2e935915b5",
+        "2021-01-01.json": "52f5e357cb5d65383e8e3b39f6fabb8baf21e20d2cecfbf30f52b9f22fb211aa",
+        "2021-01-01.npz": "a8fd81824046daea7cea7aa3a0b0de35fec173f966b160cac264dbbc0ae23f31",
+        "COMPLETE.json": "444f25f79112743f1ddd8844dd737bb2783b9a4adaa8af1a63171d13a38f4ee9",
+        "input.json": "2589103250b0e1dfe4936a46c30f1f62aa432e051d37f922efaba30540728f88"
+      },
+      "weights_used_sha256": "c47eea4d69a79510758fd0d570d324c423d8af162c20a0319325f823fa593333"
+    },
+    {
+      "method": "U-aux01-6k",
+      "path": "/scratch/jr7309/runs/2026-10-11-rmse-6k-annual/U-aux01-6k",
+      "selected_checkpoint_sha256": "7ff9359acf5180db7b9b0daefb397ecbbabcaa944240d0a87ab9d087a40b6d71",
+      "source_checkpoint_sha256": null,
+      "annual_output_hashes": {
+        "2015-01-01-persistence.json": "617aa7ac5b5e86ae3ea015d5738da988877607e2e5fdeeae5b55f0d26d76c478",
+        "2015-01-01.json": "0e3f49bc9f0eb066c655defb62baae45183ff070d81ba914cd6d074d2eb4d661",
+        "2015-01-01.npz": "c03990538346cd70789e4bb1683e588cb2216abdec010e664e7ecc77de514de5",
+        "2018-01-01-persistence.json": "0c900d8d6590e76a7e57ca32f26602b342fed7f96c9b74070ae280adf62898d9",
+        "2018-01-01.json": "bf2541f5e77a59940dc39d55f515eb3a97a4ba3804917bd4a0ede06da6e5dc66",
+        "2018-01-01.npz": "e639996f6b5c677a69950e8eb211b56349f701a39f85405ce9a9e52b81705172",
+        "2021-01-01-persistence.json": "6b530c3eda596f2638df869e4a486b127ba75d9513a781b215d531cee91be505",
+        "2021-01-01.json": "e6de6b6ffd805f26137a29377cd9c1bcbb12af2126086a69dba9976b04a5713d",
+        "2021-01-01.npz": "5934c0e4f7d7bf8291038fe9f8053e59c918533ca78f0ad0f76b0d449fd1f533",
+        "COMPLETE.json": "a0bb85fd1aa80d3596674f901f28cab6f368370c7f2ae50dae084b673ce6218d",
+        "input.json": "7468e8ff84136fbec2d2fb2c28bf4af7a67eef5fe7518fc40cdc2ab5758ed8cd"
+      },
+      "weights_used_sha256": "7ff9359acf5180db7b9b0daefb397ecbbabcaa944240d0a87ab9d087a40b6d71"
+    },
+    {
+      "method": "U-aux01-anomaly-6k",
+      "path": "/scratch/jr7309/runs/2026-10-11-rmse-6k-annual/U-aux01-anomaly-6k",
+      "selected_checkpoint_sha256": "c550d4b842a14f93682426706c0a440aa39542562a90632a3a5fc482f5543799",
+      "source_checkpoint_sha256": null,
+      "annual_output_hashes": {
+        "2015-01-01-persistence.json": "6fc4752c5af6e9d3a65b6cad7e11396fbdd8f6b7fbf5c28580c527e5fa944aa1",
+        "2015-01-01.json": "61757f8dcb2577ad7bc151b0ace2054e447e13affb2071d9625e7e092a4353e3",
+        "2015-01-01.npz": "88546f5ff5573a9dad7e530986fd2541a5638209d98280aefb0d3b443faa1298",
+        "2018-01-01-persistence.json": "b5ff05688505138b956b13dc0cec54c4d2a52d6b0e241e611a68f7608c0dd2d0",
+        "2018-01-01.json": "d5dc12db57088569c9c861867e5bc906ae3fcd5a51722aa7d1a20cd02ba07deb",
+        "2018-01-01.npz": "b2c5661b0d6ddeaa16240da60d129d50588eea7764102056421046dafcd32bf8",
+        "2021-01-01-persistence.json": "502592ad38c2f7884e3a0540c0594b48de962e112df5664fb03c89d4701012b8",
+        "2021-01-01.json": "d5113b0b831ac52f6cd054dee585334b17272d9bd9c93f15fe0e2488e60d2609",
+        "2021-01-01.npz": "51b2d9d1316527ff87c01310039ca79c706c4980d0869301d51887f277149a9d",
+        "COMPLETE.json": "998e3a94ad4b2960ee4d1af9ab219a9e9eb8cbd006a30c1758d5c25018169954",
+        "input.json": "de7375724eee9c9d574576e4516e54dfeafc61b6d447eb45eb58f7b4517c8e9d"
+      },
+      "weights_used_sha256": "c550d4b842a14f93682426706c0a440aa39542562a90632a3a5fc482f5543799"
+    },
+    {
+      "method": "U-global / initialized persistence",
+      "path": "/scratch/jr7309/runs/2026-10-11-rmse-6k-annual/U-global",
+      "selected_checkpoint_sha256": "83bb1c88639b004f8bd2412f0ff6bb5397b443678c41f32d0a449bb440b854cb",
+      "source_checkpoint_sha256": null,
+      "annual_output_hashes": {
+        "2015-01-01-persistence.json": "e20a3f51005fd9a58ffa6dcc84c4e12d550f69b09d6f8f8b35d9ec677d906220",
+        "2015-01-01.json": "94c8c35e88e03e0d3c14276c360f8a803a705e635c016f381b6a2c0ee0c2fa5c",
+        "2015-01-01.npz": "dfacdd2e4fda3c41f6bfa71438146bedbac194c974262f5ae93a3988f91314fe",
+        "2018-01-01-persistence.json": "251be9b3bd1e5d5c4e8606e457b892ca1937347528f6e9e9c0f84152883632d1",
+        "2018-01-01.json": "bf8dea67dfa8fec579c39983cce292535a3e5f3aa3c568cb62b071a40fd3ed4c",
+        "2018-01-01.npz": "7a94a1efcf2561bb0603bfc1a06936a0632eba1aace34e8056df5f40c01600d4",
+        "2021-01-01-persistence.json": "496188a518fb48aa2f1b6abca6870f6276718a0404fec638844a596883d45437",
+        "2021-01-01.json": "7f63bf9beb37d75a47bc3afb85e8a14a7ba35d935c405fbf7f9bb779a4a5f190",
+        "2021-01-01.npz": "250bcf2b2b0b1af0f0a8f218e807b217862cbe1e1a7fd12c6336cfc8bf4c9a00",
+        "COMPLETE.json": "01d244973c9e81239ef7f1abf3834dcb6233c518ae35cd3d0752ac6dbb67ff79",
+        "input.json": "1908e03d53bef207c21b0d71eeea68d28e26b9b4609868a949f488b7bf01a172"
+      },
+      "weights_used_sha256": "83bb1c88639b004f8bd2412f0ff6bb5397b443678c41f32d0a449bb440b854cb"
+    }
+  ],
+  "case_times": {
+    "2015-01-01": {
+      "day30_bin_midpoint": "2015-01-28T12:00:00"
+    },
+    "2018-01-01": {
+      "day30_bin_midpoint": "2018-01-28T12:00:00"
+    },
+    "2021-01-01": {
+      "day30_bin_midpoint": "2021-01-28T12:00:00"
+    }
+  },
+  "bundle_sha256": "84cc041cf07e2fd50b0651fcf485e70b3bce379630ef511fa9df7604f8f839fc",
+  "plot_script_sha256": "ca768a857cf7564803746f803abc5763e2b7077265e72a9e88ca087b1b500798",
+  "rendered": [
+    {
+      "file": "day30-2015-01-01-anomalies-sst",
+      "limits": [
+        -3,
+        3
+      ],
+      "figure_pixels": [
+        820,
+        2645
+      ],
+      "panel_pixels": [
+        720,
+        360
+      ],
+      "panel_grid_shape_yx": [
+        180,
+        360
+      ],
+      "panel_left_px": 70,
+      "panel_top_px": [
+        80,
+        495,
+        910,
+        1325,
+        1740,
+        2155
+      ]
+    },
+    {
+      "file": "day30-2015-01-01-anomalies-adt",
+      "limits": [
+        -0.25,
+        0.25
+      ],
+      "figure_pixels": [
+        820,
+        2645
+      ],
+      "panel_pixels": [
+        720,
+        360
+      ],
+      "panel_grid_shape_yx": [
+        180,
+        360
+      ],
+      "panel_left_px": 70,
+      "panel_top_px": [
+        80,
+        495,
+        910,
+        1325,
+        1740,
+        2155
+      ]
+    },
+    {
+      "file": "day30-2018-01-01-anomalies-sst",
+      "limits": [
+        -3,
+        3
+      ],
+      "figure_pixels": [
+        820,
+        2645
+      ],
+      "panel_pixels": [
+        720,
+        360
+      ],
+      "panel_grid_shape_yx": [
+        180,
+        360
+      ],
+      "panel_left_px": 70,
+      "panel_top_px": [
+        80,
+        495,
+        910,
+        1325,
+        1740,
+        2155
+      ]
+    },
+    {
+      "file": "day30-2018-01-01-anomalies-adt",
+      "limits": [
+        -0.25,
+        0.25
+      ],
+      "figure_pixels": [
+        820,
+        2645
+      ],
+      "panel_pixels": [
+        720,
+        360
+      ],
+      "panel_grid_shape_yx": [
+        180,
+        360
+      ],
+      "panel_left_px": 70,
+      "panel_top_px": [
+        80,
+        495,
+        910,
+        1325,
+        1740,
+        2155
+      ]
+    },
+    {
+      "file": "day30-2021-01-01-fields-sst",
+      "limits": [
+        -2,
+        32
+      ],
+      "figure_pixels": [
+        820,
+        2645
+      ],
+      "panel_pixels": [
+        720,
+        360
+      ],
+      "panel_grid_shape_yx": [
+        180,
+        360
+      ],
+      "panel_left_px": 70,
+      "panel_top_px": [
+        80,
+        495,
+        910,
+        1325,
+        1740,
+        2155
+      ]
+    },
+    {
+      "file": "day30-2021-01-01-fields-adt",
+      "limits": [
+        -1.5,
+        1.5
+      ],
+      "figure_pixels": [
+        820,
+        2645
+      ],
+      "panel_pixels": [
+        720,
+        360
+      ],
+      "panel_grid_shape_yx": [
+        180,
+        360
+      ],
+      "panel_left_px": 70,
+      "panel_top_px": [
+        80,
+        495,
+        910,
+        1325,
+        1740,
+        2155
+      ]
+    },
+    {
+      "file": "day30-2021-01-01-anomalies-sst",
+      "limits": [
+        -3,
+        3
+      ],
+      "figure_pixels": [
+        820,
+        2645
+      ],
+      "panel_pixels": [
+        720,
+        360
+      ],
+      "panel_grid_shape_yx": [
+        180,
+        360
+      ],
+      "panel_left_px": 70,
+      "panel_top_px": [
+        80,
+        495,
+        910,
+        1325,
+        1740,
+        2155
+      ]
+    },
+    {
+      "file": "day30-2021-01-01-anomalies-adt",
+      "limits": [
+        -0.25,
+        0.25
+      ],
+      "figure_pixels": [
+        820,
+        2645
+      ],
+      "panel_pixels": [
+        720,
+        360
+      ],
+      "panel_grid_shape_yx": [
+        180,
+        360
+      ],
+      "panel_left_px": 70,
+      "panel_top_px": [
+        80,
+        495,
+        910,
+        1325,
+        1740,
+        2155
+      ]
+    }
+  ],
+  "pixel_verification": "Every saved panel RGB pixel equals the source colormap cell repeated exactly 2x2, including the common missing-data mask",
+  "rasterization": "Lossless PNG: exactly 2 x 2 pixels per retained grid cell at native image size; no interpolation. PDF embeds native grid with interpolation disabled.",
+  "coordinates": "Square cells in grid-index space, sorted longitude; ticks label actual cell-center coordinates. No geographic resampling.",
+  "latitude_domain": "global",
+  "mask": "Selected model wet domain intersected with finite target observations, identical across candidates",
+  "interpretation": "Illustrative cases, not aggregate skill; gray is land or unavailable observations. Colorbar extensions mark saturation. Endpoint is the last common exported surface lead, not a multi-year continuous rollout."
+}

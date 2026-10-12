@@ -1,0 +1,224 @@
+{
+  "complete": true,
+  "root": "/scratch/jr7309/runs/2026-10-11-rmse-6k-annual",
+  "audit": {
+    "config_sha256": "be4b8d15396ae329319282068c5c817ccd0bd2871f774263c4baba67f4ea7c4b",
+    "runtime_sha256": "ff904784233031f60809530a5520fb11b317052746cd8e4f25c674f12f5f09ba",
+    "origins": [
+      "2015-01-01",
+      "2018-01-01",
+      "2021-01-01"
+    ],
+    "checkpoints": [
+      {
+        "name": "U-global",
+        "run": "/scratch/jr7309/runs/2026-10-10-early-rmse-6k/U-global",
+        "checkpoint_sha256": "83bb1c88639b004f8bd2412f0ff6bb5397b443678c41f32d0a449bb440b854cb",
+        "training_producer": "eae2b5c56da44eb3686a6eaf72a80aa419a4b5a4",
+        "selected_global_step": 5200,
+        "selected_validation_score": 0.8240594377365837,
+        "manifest_sha256": "36afc152f19a3f1e2d124b663aba68103eeff7d80069bce6492a1ea0e00b04c0",
+        "training_complete_sha256": "8dd0320309eafd56d01b580b99db0cb25b307eb1c80ec380ec92297910257dd1",
+        "test_complete_sha256": "84a6eede646b0df66369ef7c7f15f58a8cbbb2e7bb9c6b97d370b11f0d882416"
+      },
+      {
+        "name": "U-global-seed1730",
+        "run": "/scratch/jr7309/runs/2026-10-10-early-rmse-6k/U-global-seed1730",
+        "checkpoint_sha256": "c47eea4d69a79510758fd0d570d324c423d8af162c20a0319325f823fa593333",
+        "training_producer": "eae2b5c56da44eb3686a6eaf72a80aa419a4b5a4",
+        "selected_global_step": 5800,
+        "selected_validation_score": 0.8419126121184671,
+        "manifest_sha256": "463581df8b134b96106f050a2db68c05fc60e58d0a45a866fb06dd68b5230cb3",
+        "training_complete_sha256": "cb4bab0c40b6b68d67f6f973032a70233d64eac6f513d1a456f2fbf394897a85",
+        "test_complete_sha256": "c73ee44464c54ca9810ca74d2294ef97cca5baee0ce27041498c6c51c1bd4789"
+      },
+      {
+        "name": "U-multitask-early",
+        "run": "/scratch/jr7309/runs/2026-10-10-early-rmse-6k/U-multitask-early",
+        "checkpoint_sha256": "f39dbaee084434de507b7f82f2bcaf862f7accf21a9a4baad73f7c2d67544b39",
+        "training_producer": "eae2b5c56da44eb3686a6eaf72a80aa419a4b5a4",
+        "selected_global_step": 5500,
+        "selected_validation_score": 0.8249685660223006,
+        "manifest_sha256": "354255acf756fd4d8f995c3d949c6c68a43aeaf2e1eebe1783b8a7ce5a9be380",
+        "training_complete_sha256": "032cc7ff15148af58f4e4a61cde8ac7f27200dcf8710367c45f9ef391124d5ae",
+        "test_complete_sha256": "a303656914b1ddca78689a173e2700c5cb2ddf68ebba3a8a381a36c6a93bc312"
+      },
+      {
+        "name": "U-multitask-early-latent",
+        "run": "/scratch/jr7309/runs/2026-10-10-early-rmse-6k/U-multitask-early-latent",
+        "checkpoint_sha256": "4ef2453e9aeadaf7396e3b78a59944a7abe169f213b853b301dad000289de36b",
+        "training_producer": "eae2b5c56da44eb3686a6eaf72a80aa419a4b5a4",
+        "selected_global_step": 5200,
+        "selected_validation_score": 0.8315363574435084,
+        "manifest_sha256": "d82c543a65a76a5a869eca067c2de7803c12e60dc627691281325b21f614d267",
+        "training_complete_sha256": "7dea40dc81e4e9dbf9289ca0e30ff7c32dfbc7ee56c3c7ba1427a4d53d5ae1d3",
+        "test_complete_sha256": "66d4a541c3d09bd91291e13b35051b26347eeeb698afb009197fd5cc0b599b9a"
+      },
+      {
+        "name": "U-multitask-early-fine",
+        "run": "/scratch/jr7309/runs/2026-10-10-early-rmse-6k/U-multitask-early-fine",
+        "checkpoint_sha256": "5a8d7c6987c96fe8011c33d89e95bade7fb9fc506f72d1f72288f4c88877b4c5",
+        "training_producer": "eae2b5c56da44eb3686a6eaf72a80aa419a4b5a4",
+        "selected_global_step": 5500,
+        "selected_validation_score": 0.8160048819155727,
+        "manifest_sha256": "a9e5b6c0c6dab26dd13dbdb162d40bfc822911548e7da9aa246fad357e32cac1",
+        "training_complete_sha256": "78c13c3c5a2d26c5c233624f77f0eccc94570f51978f73a54313aa6b90ede3b8",
+        "test_complete_sha256": "92e98e1f806d340b70ae0c475fce2a8c601791043c2fdf5fbd9e9e6db0e6a036"
+      },
+      {
+        "name": "U-multitask-early-fine-latent",
+        "run": "/scratch/jr7309/runs/2026-10-10-early-rmse-6k/U-multitask-early-fine-latent",
+        "checkpoint_sha256": "467c7322850a93cdc9184e19dcccb79345a410ed34eb909ca4717978f9f4e3a4",
+        "training_producer": "eae2b5c56da44eb3686a6eaf72a80aa419a4b5a4",
+        "selected_global_step": 5600,
+        "selected_validation_score": 0.832872429725086,
+        "manifest_sha256": "56f0031c31904787725edd87d29dfb5ef4f5f0bd2d5d72c8e1fc448fea16367c",
+        "training_complete_sha256": "9c5807bd2c1169f4738637f2edc2ecaae40720cdc14ecd0f298df80749625024",
+        "test_complete_sha256": "f94cecb4f880f1d83f94e88facc3b02c184e60c42ec05782d9d308c87a6b441d"
+      },
+      {
+        "name": "U-aux01-6k",
+        "run": "/scratch/jr7309/runs/2026-10-11-auxiliary-rmse/U-aux01-6k",
+        "checkpoint_sha256": "7ff9359acf5180db7b9b0daefb397ecbbabcaa944240d0a87ab9d087a40b6d71",
+        "training_producer": "56aac9375a59a7204cd54d85a0c5a3b8e9383d59",
+        "selected_global_step": 4900,
+        "selected_validation_score": 0.8205284166559776,
+        "manifest_sha256": "722c1b6edd2138d5900209c2fa628c03696c0cca73d9410748bd84d080b4c41b",
+        "training_complete_sha256": "48fd94981352854808be3de1b7c131beb4be3714a468023688f4fd695b7a766a",
+        "test_complete_sha256": "2bec2e2b01b5a292be7ed32326c14522f806ead2f43123b8f9bf2ce7ee25be63"
+      },
+      {
+        "name": "U-aux01-anomaly-6k",
+        "run": "/scratch/jr7309/runs/2026-10-11-auxiliary-rmse/U-aux01-anomaly-6k",
+        "checkpoint_sha256": "c550d4b842a14f93682426706c0a440aa39542562a90632a3a5fc482f5543799",
+        "training_producer": "56aac9375a59a7204cd54d85a0c5a3b8e9383d59",
+        "selected_global_step": 5700,
+        "selected_validation_score": 0.8189977036739666,
+        "manifest_sha256": "b9ab4a718d7d418450be4d1ef602d16f82a937b15edebc328dfb468ae7db4b6f",
+        "training_complete_sha256": "dc3f8356cb2d9195bf5fbdf3a4e76ee956c15d9f44784885935414ed388d401a",
+        "test_complete_sha256": "2d59823a65853df750feb2f28c848f76ec9245e2915f154061c71399d942743a"
+      }
+    ],
+    "monthly_first_30_days_and_ohc_exact": true,
+    "finite_forcing": true
+  },
+  "models": {
+    "U-global": {
+      "checkpoint_sha256": "83bb1c88639b004f8bd2412f0ff6bb5397b443678c41f32d0a449bb440b854cb",
+      "origins": [
+        "2015-01-01",
+        "2018-01-01",
+        "2021-01-01"
+      ],
+      "verified_sha256": "2c1c6f9335c26128ba6762a637c76f4fc874d66b95e27a289dac45f9b1dfdcb4",
+      "complete_sha256": "01d244973c9e81239ef7f1abf3834dcb6233c518ae35cd3d0752ac6dbb67ff79",
+      "verified_output_count": 11
+    },
+    "U-global-seed1730": {
+      "checkpoint_sha256": "c47eea4d69a79510758fd0d570d324c423d8af162c20a0319325f823fa593333",
+      "origins": [
+        "2015-01-01",
+        "2018-01-01",
+        "2021-01-01"
+      ],
+      "verified_sha256": "ef8aef0ae8be484566f46805cb777ad4c2263e242e8004f94c2fbca9dd570fae",
+      "complete_sha256": "444f25f79112743f1ddd8844dd737bb2783b9a4adaa8af1a63171d13a38f4ee9",
+      "verified_output_count": 11
+    },
+    "U-multitask-early": {
+      "checkpoint_sha256": "f39dbaee084434de507b7f82f2bcaf862f7accf21a9a4baad73f7c2d67544b39",
+      "origins": [
+        "2015-01-01",
+        "2018-01-01",
+        "2021-01-01"
+      ],
+      "verified_sha256": "886261b92994c0c90d5820568b1273ad7140cff1319ad5af45123769715d25a7",
+      "complete_sha256": "d08c6d7ab203bb4b89047638fc55d76896b1a24852f1dc93f0fa518e39671444",
+      "verified_output_count": 11
+    },
+    "U-multitask-early-latent": {
+      "checkpoint_sha256": "4ef2453e9aeadaf7396e3b78a59944a7abe169f213b853b301dad000289de36b",
+      "origins": [
+        "2015-01-01",
+        "2018-01-01",
+        "2021-01-01"
+      ],
+      "verified_sha256": "20e64e598162173289b67851d39c910ddb48d33030bcdc21f5c3e48047fa7a2d",
+      "complete_sha256": "8e67b2a2b3164507dfeb80421b3262cdd479104b895f026c3eeeb8da88a49817",
+      "verified_output_count": 11
+    },
+    "U-multitask-early-fine": {
+      "checkpoint_sha256": "5a8d7c6987c96fe8011c33d89e95bade7fb9fc506f72d1f72288f4c88877b4c5",
+      "origins": [
+        "2015-01-01",
+        "2018-01-01",
+        "2021-01-01"
+      ],
+      "verified_sha256": "ed5fc6a267d1ae7ca767bf926d4d99624cb4a4c42adb334c57c5a540d4f3481c",
+      "complete_sha256": "ab6d53cf2374b7bad362b7a33a12c392cce3e74a8c245fc62a044d8d60748bc7",
+      "verified_output_count": 11
+    },
+    "U-multitask-early-fine-latent": {
+      "checkpoint_sha256": "467c7322850a93cdc9184e19dcccb79345a410ed34eb909ca4717978f9f4e3a4",
+      "origins": [
+        "2015-01-01",
+        "2018-01-01",
+        "2021-01-01"
+      ],
+      "verified_sha256": "11fbbb11c058e22b3a91d1d28957bbe7e81131a5d2493db94c0d67e3338d91e5",
+      "complete_sha256": "9d61dc0dcf7c6fec7ab32f1986e0078df09cd6489ea6c8b4c4e61dd854340e0d",
+      "verified_output_count": 11
+    },
+    "U-aux01-6k": {
+      "checkpoint_sha256": "7ff9359acf5180db7b9b0daefb397ecbbabcaa944240d0a87ab9d087a40b6d71",
+      "origins": [
+        "2015-01-01",
+        "2018-01-01",
+        "2021-01-01"
+      ],
+      "verified_sha256": "6e38f488d09e6573372531e0d2005ac8698e69319c2ea90aa321426fee6d7398",
+      "complete_sha256": "a0bb85fd1aa80d3596674f901f28cab6f368370c7f2ae50dae084b673ce6218d",
+      "verified_output_count": 11
+    },
+    "U-aux01-anomaly-6k": {
+      "checkpoint_sha256": "c550d4b842a14f93682426706c0a440aa39542562a90632a3a5fc482f5543799",
+      "origins": [
+        "2015-01-01",
+        "2018-01-01",
+        "2021-01-01"
+      ],
+      "verified_sha256": "e3179ffe65d63d294f60396d0647e39ce39c0c6d9b7f9119b6463520ffd6b87a",
+      "complete_sha256": "998e3a94ad4b2960ee4d1af9ab219a9e9eb8cbd006a30c1758d5c25018169954",
+      "verified_output_count": 11
+    }
+  },
+  "collector_job": "19607691",
+  "collector_sha256": "5cbdddbba585082567197a83aaccb40a37e6e0821390e123521f3b95171c8d48",
+  "results_sha256": "3304150914197e22e03244fc3b1cb9316f2da898e71019e523bad2901c512836",
+  "scores_sha256": "a600f508e5e57f3a1b6bca8f3af418aa7e77db567c3f4da258ca53cd4a3a807f",
+  "gpu_seconds": {
+    "19607394_0": 68,
+    "19607394_1": 67,
+    "19607394_2": 67,
+    "19607394_3": 70,
+    "19607394_4": 64,
+    "19607394_5": 67,
+    "19607394_6": 64,
+    "19607394_7": 64
+  },
+  "gpu_hours": 0.1475,
+  "gpu_retries": 0,
+  "cpu_failures": [
+    {
+      "job": "19606941",
+      "seconds": 21,
+      "reason": "Broken runtime alias, corrected before any evaluation"
+    },
+    {
+      "job": "19607397",
+      "seconds": 6,
+      "reason": "Unavailable Apptainer module, replaced with verified executable"
+    }
+  ],
+  "selection": "Fixed RMSE-validation-selected checkpoints; no annual checkpoint reselection"
+}

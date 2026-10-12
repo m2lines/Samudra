@@ -54,10 +54,10 @@ uv --version > "$build_root/uv.txt"
 uv pip install --python "$python" --target "$build_root/tools" --only-binary=:all: --no-deps 'maturin==1.9.4'
 export PATH="$build_root/tools/bin:$PATH"
 export PYTHONPATH="$build_root/tools"
-"$python" -m maturin --version > "$build_root/maturin.txt"
+"$build_root/tools/bin/maturin" --version > "$build_root/maturin.txt"
 printf 'bootstrap_seconds=%s\n' "$((SECONDS-start))" > "$build_root/timings.txt"
 compile_start=$SECONDS
-"$python" -m maturin build --release --locked --manifest-path rust/crab_load/Cargo.toml \
+"$build_root/tools/bin/maturin" build --release --locked --manifest-path rust/crab_load/Cargo.toml \
   --features extension-module --interpreter "$python" --out "$build_root/wheels"
 printf 'compile_seconds=%s\n' "$((SECONDS-compile_start))" >> "$build_root/timings.txt"
 wheels=("$build_root"/wheels/*.whl)

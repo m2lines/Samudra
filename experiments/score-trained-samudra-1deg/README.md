@@ -27,13 +27,17 @@ can legitimately be smoother than its members. A visually sharper member alone i
 The planning branch starts from freshly fetched `origin/main`, commit `6b88f2c02`
 ([source](https://github.com/m2lines/Samudra/commit/6b88f2c02)), rather than the older initializer report branch.
 
-**Proposed default: the recent Samudra-current 1-degree deterministic control**, with the Samudra 2-width
-backbone. This follows the comparable recent two-input/two-output experiments. Finalize this choice versus
-the explicitly named `samudra_om4_v2` preset before launch.
+**Samudra 2 uses two input states, two output states per call, and four autoregressive training calls.**
+The `samudra_om4_v2` preset has `steps: [4]` and inherits `input_steps: 2` and `output_steps: 2` from
+`DataConfig`. The recent control has the same temporal setup: eight five-day outputs, through day 40 after
+the last input. Time stepping is not a distinction between these configurations.
 
-These are different baselines. Current main's `samudra_om4` model and recent controls use InstanceNorm and
-bfloat16. The explicit `samudra_om4_v2` model uses BatchNorm. Both currently inherit two input and two output
-steps from `DataConfig`, so model names alone do not establish time stepping.
+**Proposed matched reference: the recent 1-degree deterministic control**, using the same Samudra 2-width
+backbone and temporal setup. Its configuration differences from the named `samudra_om4_v2` preset concern
+normalization and other settings: the recent control uses InstanceNorm and explicit bfloat16, whereas the
+named v2 model specifies BatchNorm. The recent control also uses `tau_hfds` with Rust loading, whereas the
+named v2 preset includes `hfds_anomalies` through its shared data configuration. Record these settings
+explicitly for a matched comparison; they do not change the agreed two-in/two-out, four-call task.
 
 Evidence for the recent control:
 
@@ -230,7 +234,7 @@ an unacceptable regression in mean forecasts or long-run stability. A smooth ens
 underdispersed, noisy, or physically inconsistent members are not evidence of success. Report tradeoffs rather
 than choosing an undisclosed composite that can hide variable-specific failures.
 
-Before launch, freeze: the baseline choice; resolved data and forcing; optimizer/EMA settings; the target
+Before launch, freeze: the resolved baseline configuration; data and forcing; optimizer/EMA settings; the target
 manifest; stochastic projection specification; transformed-score scaling; execution budget and hardware.
 These are configuration/qualification tasks, not grounds for changing scientific inputs silently.
 

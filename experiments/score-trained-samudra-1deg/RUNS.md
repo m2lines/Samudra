@@ -126,15 +126,35 @@ training reminder was retired. C remains active.
 Job **212400** was submitted on 2026-10-12 using evaluator source `0ed45a791` and B's final EMA checkpoint.
 It is a short four-GPU qualification with a 20-minute wall limit: four fixed held-out origins, each rolled
 forward 360 days, distributed one origin per GPU. It was moved to `beta_test` / `test` while pending to use
-the short-test queue, and remains queued. Output is written beneath
+the short-test queue. It completed successfully in 5:50 (0.389 allocated GPU-hours). Output is written beneath
 `outputs/eval-qualification-B-212400/`; the run must produce all 2,156 per-channel/lead rows and `COMPLETE.json`.
 The evaluator requires epoch 70, loads model weights strictly, checks predictions for nonfinite values,
 records checkpoint/source/config provenance, and requires online W&B. Ten local tests and scoped pre-commit
 checks passed. A verified callback credential is attached to the batch EXIT hook, with a one-hour reminder
 covering pending jobs, node loss, and failed notification delivery.
 
-This qualifies execution and data alignment, not model quality. Full common evaluation and stochastic
-16-member qualification remain pending; no scientific comparison is claimed from this short check.
+All 2,156 rows were read back: the origin/lead/channel keys are unique, every metric is finite, the seven lead
+times and four start dates match the manifest, deterministic spread is zero, CRPS equals MAE, and each
+lead/channel rank histogram sums to four origins. The checkpoint reports epoch 70. W&B synchronized at
+[he6t0nab](https://wandb.ai/ocean_emulators/default/runs/he6t0nab), and the completion callback was received.
+This qualifies execution and data alignment, not model quality; no scientific comparison is claimed from
+this short check.
+
+## Common evaluation submissions
+
+The following jobs use the qualified evaluator source `0ed45a791` and final EMA checkpoints. They were
+submitted and released on 2026-10-12 with verified callback credentials, EXIT hooks, and one-hour reminders.
+
+| Arm/task | Beta job | Partition | Wall limit | State at submission |
+| --- | --- | --- | --- | --- |
+| A: common annual forecasts | 212403 | beta | 1 hour | Queued |
+| B: common annual forecasts | 212404 | beta | 1 hour | Queued |
+| D: four-origin, 16-member qualification | 212405 | beta_test | 30 minutes | Queued |
+
+Each allocation has four B200s. The A/B full evaluations use every prespecified complete 360-day origin;
+D's qualification checks ensemble memory use, independent member evolution and probabilistic outputs before
+full C/D evaluation. C's training is still active (epoch 66 at the latest check). Full C/D evaluations and
+the report diagnostics remain pending.
 
 Once training finishes, qualify and run the common evaluator on A/B/C/D final EMA checkpoints before drawing
 conclusions. Remaining report work includes matched annual/long rollouts, spatial/vertical/temporal diagnostics,

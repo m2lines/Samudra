@@ -260,20 +260,21 @@ physical-unit conversion. The fitting manifest contains 2,830 states, with 56 bi
 `analyze_references.py` reproduces the audit, plots and tables. Thirteen local model/numerical tests and scoped
 pre-commit checks passed. These deterministic references did not train another neural model.
 
-Remaining report work includes observation metrics where applicable and secondary
-checkpoint sensitivities. Proposed next-wave choices in `RESULTS.md` remain provisional. No additional
+Remaining report work includes observation metrics where applicable. Checkpoint sensitivities are recorded
+below. Proposed next-wave choices in `RESULTS.md` remain provisional. No additional
 training seed or later wave has started.
 
 ## Remaining first-wave evaluations
 
 Two production Beta jobs were submitted on 2026-10-12 from immutable source `46104028f`, each requesting four
 B200s and a one-hour limit. Both have EXIT callbacks, compute-node receiver checks and hourly fallback
-reminders. Login-node credential checks passed before release; compute-node bring-up remains to be verified.
+reminders. Login-node and compute-node credential checks passed. All checkpoint and export W&B runs
+initialized online before forecasting.
 
-| Job | Task | Output directory beneath campaign root |
-| --- | --- | --- |
-| 212432 | A/B/C/D final-raw and validation-selected annual checkpoint sensitivity | `outputs/sensitivity-212432/` |
-| 212433 | Replay/export the continuous trajectories for secondary observation scoring | `outputs/continuous-export-212433/` |
+| Job | Task | State | Output directory beneath campaign root |
+| --- | --- | --- | --- |
+| 212432 | A/B/C/D final-raw and validation-selected annual checkpoint sensitivity | Completed, exit 0; 16:35 | `outputs/sensitivity-212432/` |
+| 212433 | Replay/export the continuous trajectories for secondary observation scoring | Completed, exit 0; 11:31 | `outputs/continuous-export-212433/` |
 
 The sensitivity job evaluates all eight checkpoint choices with the common 30 origins, seven leads and
 16 members for C/D. Primary final-EMA results remain fixed. Final checkpoints must still report epoch 70;
@@ -282,6 +283,25 @@ provenance. The evaluator records the actual epoch and selection identity, and a
 W&B before forecasting. The original control and B/C/D have different validation-selection policies;
 this is a sensitivity check, not another fully matched training comparison.
 
+All eight evaluations completed in 16:35 total allocation time (1.106 GPU-hours). Each has all 16,170 unique
+finite metric rows, and all 129,360 rows passed common-target, normalization and physical-unit conversion
+checks. Saved target/mask equality, finite fields, stochastic member diversity and rank-histogram totals
+also passed. W&B synchronized for every evaluation. The callback was received and retired.
+
+| Arm | Final raw W&B (epoch 70) | Validation-selected epoch | Selected W&B |
+| --- | --- | ---: | --- |
+| A | [dbf3qjij](https://wandb.ai/ocean_emulators/default/runs/dbf3qjij) | 53 | [cu5dwkre](https://wandb.ai/ocean_emulators/default/runs/cu5dwkre) |
+| B | [8m5pfket](https://wandb.ai/ocean_emulators/default/runs/8m5pfket) | 48 | [wzk1fkab](https://wandb.ai/ocean_emulators/default/runs/wzk1fkab) |
+| C | [m8yqhwhy](https://wandb.ai/ocean_emulators/default/runs/m8yqhwhy) | 65 | [hwhl5qvp](https://wandb.ai/ocean_emulators/default/runs/hwhl5qvp) |
+| D | [75ohh0bq](https://wandb.ai/ocean_emulators/default/runs/75ohh0bq) | 63 | [rk4feqoy](https://wandb.ai/ocean_emulators/default/runs/rk4feqoy) |
+
+The validation-selected weights are EMA: the saved configurations explicitly set `test_using_ema: true`,
+and the source saves best-validation checkpoints inside `_test_context`. This was checked in both the
+current trainer and A's historical source. Their selection identities differ: A uses 360-day validation
+rollout RMSE; B/C/D use the shorter multi-lead policy described in `RESULTS.md`. Selection materially
+improves deterministic point scores and narrows C/D's RMSE advantage over A; the CRPS advantage remains.
+`analyze_sensitivity.py` writes the audited raw rows, summary tables, paired intervals and figures.
+
 The export reuses the continuous evaluation's initialization, checkpoints, seed and four-member sampling.
 It requires bitwise equality with the five saved diagnostic dates from job 212420 and reads back saved Zarr
 times and selected physical fields before marking completion. A/B each export one deterministic trajectory;
@@ -289,6 +309,18 @@ C/D each export their mean plus all four members. The original diagnostics are r
 stores, approximately 144 GB uncompressed; project storage reported 32.59 TB available before submission.
 Secondary observation scoring will use the published five-day products and original per-channel masks,
 with member scores kept separate from scores of ensemble means, especially for nonlinear diagnostics.
+
+The export completed in 11:31 (0.768 allocated GPU-hours), with W&B synchronized at
+[A](https://wandb.ai/ocean_emulators/default/runs/ap16320s),
+[B](https://wandb.ai/ocean_emulators/default/runs/0l5iguor),
+[C](https://wandb.ai/ocean_emulators/default/runs/fljqj619) and
+[D](https://wandb.ai/ocean_emulators/default/runs/lb2yxp7g). All twelve stores contain 598 times. The runner
+verified their timestamps and read back the fixed-date fields before writing completion markers. A separate
+post-job audit compared every decompressed score/global CSV, every structure array and every saved field
+against job 212420: all were exactly equal. Checkpoint fingerprints, seeds, normalization, depth thicknesses,
+origins and final dates also match. Its callback was received and retired. `observations.py` and
+`observations_grace.sbatch` prepare the next CPU stage on Grace via Alpha, with exact-timestamp metadata
+preflight before spatial scoring.
 
 Thirteen model/numerical tests, eight existing Zarr-writer tests and scoped pre-commit checks passed before
 submission. These are evaluation/export jobs within the first-wave allocation; no additional training is

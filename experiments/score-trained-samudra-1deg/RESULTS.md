@@ -7,8 +7,9 @@ SPDX-License-Identifier: CC-BY-4.0
 
 **Status, 2026-10-12:** all training, all four primary annual evaluations, and the continuous eight-year
 drift/structure diagnostics completed successfully. Persistence and training-period seasonal-climatology
-references also completed and passed the common-target audit. Observational comparisons and checkpoint
-sensitivities remain outstanding. This is an
+references and all eight checkpoint sensitivity evaluations also completed and passed their common-target
+audits. Trajectory export for observational comparisons also completed and reproduced the original diagnostics
+exactly. Observation scoring remains outstanding. This is an
 experiment/results record, not intended to merge. The first-wave report is not yet complete.
 
 ## What the completed comparison establishes
@@ -16,6 +17,11 @@ experiment/results record, not intended to merge. The first-wave report is not y
 The stochastic U-Nets produce useful forecast distributions: at 360 nominal days, C/D reduce empirical
 CRPS by about **31% versus plain MSE B**, and ensemble-mean RMSE by **5.8%**. Against the stronger reused
 dynamic-MSE control A, the improvements are about **28% in CRPS and 2.4% in RMSE**.
+
+The **RMSE margin depends materially on checkpoint policy**: comparing validation-selected checkpoints
+reduces C/D's 360-day advantage over A to about **0.6%**, with paired year-block intervals spanning zero.
+The CRPS improvement remains about **28%**. Final epoch-70 EMA remains the primary comparison; this
+sensitivity limits how broadly its point-score gain should be interpreted.
 
 There are three qualifications:
 
@@ -64,7 +70,7 @@ channels, and SSH for one. Physical-unit breakdowns below help expose the result
 A is a historical recipe-matched control, not a bitwise identical training execution. Its training source
 and annual training-time validation differ from the experiment-local B/C/D trainer. B/C/D used the disclosed
 two 90-day validation origins per epoch. These results use final EMA checkpoints and never select checkpoints
-using held-out scores. Raw and validation-selected checkpoint sensitivities have not yet been evaluated.
+using held-out scores. Raw and validation-selected checkpoint sensitivities are reported separately below.
 
 ## Forecast scores
 
@@ -176,6 +182,42 @@ windows can remain dependent across adjacent blocks.
 | D vs C | Empirical CRPS | −0.066% | [−0.221%, +0.062%] |
 
 All leads and comparisons are in [annual-paired-year-intervals.csv](results/annual-paired-year-intervals.csv).
+
+## Checkpoint sensitivity
+
+All eight additional evaluations use the same 30 origins, seven leads and 16 members for C/D. The final raw
+checkpoints contain unaveraged epoch-70 weights. The validation-selected checkpoints contain EMA weights:
+all four training configurations use `test_using_ema: true`, and the trainer saves the best checkpoint inside
+that validation context. Their stored epochs are **A 53, B 48, C 65, D 63**. No checkpoint was selected by
+these held-out scores.
+
+A's stored selection policy is validation rollout RMSE at 360 days. B selects by ensemble-mean RMSE, and C/D
+by empirical CRPS, averaging two validation origins and leads 10/20/40/90 days (eight members for C/D during
+selection). These policies are different. This sensitivity is not a replacement for the fixed final-EMA
+comparison, nor a comparison of identically tuned early-stopping rules.
+
+![Checkpoint sensitivity at all forecast leads](results/sensitivity-scores.jpg)
+
+At 360 nominal days:
+
+| Arm | Final EMA RMSE | Final raw RMSE | Validation-selected RMSE | Selected empirical CRPS |
+| --- | ---: | ---: | ---: | ---: |
+| A | 0.34919 | 0.35201 | 0.34245 | 0.20976 |
+| B | 0.36159 | 0.36402 | 0.34959 | 0.21464 |
+| C | 0.34076 | 0.34124 | 0.34055 | 0.15176 |
+| D | 0.34080 | 0.34140 | 0.34044 | 0.15153 |
+
+Final raw weights slightly worsen every arm. Validation selection helps A/B more than C/D. Comparing
+selected checkpoints, C versus A changes RMSE by **−0.56%**, with the same descriptive paired origin-year
+bootstrap giving **[−1.65%, +0.31%]**; D versus A is **−0.59% [−1.54%, +0.10%]**. The empirical CRPS changes
+are **−27.65%** for C and **−27.76%** for D. Thus the large probabilistic-score improvement persists, but
+the point-score advantage over the strongest deterministic control is small under this policy. The intervals
+still describe forecast-year variation, not training-seed uncertainty or uncertainty over selection policies.
+
+Selected C/D member-range coverage is **82.71%/83.22%**, still below the 16-member reference of 88.24%.
+Changing checkpoints does not resolve underdispersion. See the [summary](results/sensitivity-summary.csv),
+[physical family breakdown](results/sensitivity-family.csv), [paired intervals](results/sensitivity-paired-year-intervals.csv),
+and [all per-origin metric rows](results/sensitivity-raw/).
 
 ## Fixed-date fields
 
@@ -289,16 +331,18 @@ proxies, not exact heat/salt inventories.
 
 ## Remaining diagnostics and proposed decisions
 
-Secondary observation scoring where applicable and raw/validation-selected checkpoint sensitivities remain
-outstanding. Checkpoint sensitivity job **212432** and continuous-trajectory export job **212433** are queued.
-The export verifies replay against the completed diagnostic run before supplying observation scoring with
-full states. Both jobs have completion callbacks and hourly fallback reminders. No conclusion about
+Secondary observation scoring where applicable remains outstanding. Checkpoint sensitivity job **212432**
+completed. Continuous-trajectory export job **212433** completed and passed exact replay checks for every
+score, structure array and saved field. Twelve trajectory stores supply observation scoring with the A/B
+deterministic forecasts and each C/D ensemble mean plus four members. No conclusion about
 observational skill or 100-year climate stability is claimed.
 
 Provisional next-wave suggestions, for review after the remaining evaluations:
 
 1. **Reproducibility:** repeat B/C/D at seeds 16/17. D's structural improvements now justify retaining it in
-   this comparison, while its aggregate RMSE/CRPS remains effectively tied with C.
+   this comparison, while its aggregate RMSE/CRPS remains effectively tied with C. Prespecify a common
+   checkpoint-selection policy and retain the final-EMA comparison: the present A/B point scores are
+   substantially more sensitive to selection than C/D's.
 2. **Continuity between calls:** compare persistent or temporally correlated noise with the current fresh
    noise, alongside a deterministic control for output-head/feedback alternation. Check whether salinity
    jumps improve without erasing calibrated spread; the present diagnostic does not identify the cause.
@@ -323,8 +367,8 @@ all using evaluator `0ed45a791` and epoch-70 EMA checkpoints. W&B links and exac
 SHA-256 and container fingerprints.
 
 New B/C/D training consumed about **121.89 allocated B200 GPU-hours**. Including qualification, cancelled
-notification preflights, annual evaluations, continuous diagnostics and reference evaluation, approximately
-**125.4 GPU-hours** have been used before checkpoint sensitivities and trajectory export, within the
+notification preflights, annual evaluations, continuous diagnostics, reference evaluation and checkpoint
+sensitivities and trajectory export, approximately **127.3 GPU-hours** have been used, within the
 approximately 200-GPU-hour first-wave envelope. These are allocation
 costs, not kernel-active GPU time. A's historical training cost is excluded; it was reused. Equal epochs and
 training contexts are not equal compute, and no equal-compute superiority claim is made.
@@ -357,3 +401,10 @@ Reproduce the audit and comparison with
 `uv run python experiments/score-trained-samudra-1deg/analyze_references.py <downloaded-references-212427> <results-directory>`.
 The results directory must contain the primary `annual-raw/` files and evaluation contract. The audit requires
 all 32,340 unique finite reference rows, exact common targets, expected seasonal counts and physical-unit conversions.
+
+Checkpoint sensitivity job 212432 used source `46104028f`. Reproduce with
+`uv run python experiments/score-trained-samudra-1deg/analyze_sensitivity.py <downloaded-sensitivity-212432> <results-directory> <primary-download-parent>`.
+The last directory contains `score-eval-full-A-212403/` for saved-truth comparisons. The audit checks all
+129,360 secondary rows, common targets and normalization, stored checkpoint roles/epochs, finite fields,
+rank-histogram totals and stochastic diversity. Full [manifests](results/sensitivity-manifests.json.gz) retain
+selection identities, checkpoint fingerprints, source and online W&B URLs. The primary tables are unchanged.

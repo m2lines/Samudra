@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Samudra Authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Score all continuous mean/member trajectories on published five-day products."""
+"""Score trajectories on five-day surface products and monthly ARGO-IAP."""
 
 import argparse
 import json
@@ -108,13 +108,38 @@ def main():
     )
     product_records = {}
     for name, product in products.items():
+        prediction_clock = clock
+        observation_clock = xr.DataArray(
+            np.zeros(product.sizes["time"]),
+            dims="time",
+            coords={"time": product.time},
+        )
+        if name == "argo":
+            # Mirror ohc_layer: complete-month means, then whole years for RMSE.
+            prediction_clock = kernels.monthly_mean_of_complete_months(clock)
+            observation_clock = kernels.monthly_mean_of_complete_months(
+                observation_clock
+            )
         full, _ = comparisons.align(
-            clock, product.time, None, f"{name} full-span cadence preflight"
+            prediction_clock,
+            observation_clock,
+            None,
+            f"{name} full-span cadence preflight",
         )
-        scored, _ = comparisons.align(
-            clock, product.time, obs.window, f"{name} scoring-window cadence preflight"
+        scored, observed = comparisons.align(
+            prediction_clock,
+            observation_clock,
+            obs.window,
+            f"{name} scoring-window cadence preflight",
         )
+        if name == "argo":
+            scored, _ = comparisons.whole_years(
+                scored, observed, "ARGO-IAP scored-year preflight"
+            )
         product_records[name] = {
+            "temporal_support": "complete monthly means, whole years for RMSE"
+            if name == "argo"
+            else "native five-day source support",
             "full_common_samples": full.sizes["time"],
             "scored_samples": scored.sizes["time"],
             "scored_first": str(scored.time.values[0]),

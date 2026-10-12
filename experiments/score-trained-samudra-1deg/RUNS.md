@@ -244,7 +244,7 @@ between calls than within calls, in both stochastic and deterministic arms. It d
 
 ## Persistence and training-only seasonal references
 
-Job **212427** is queued on production Beta with four B200s and a one-hour wall limit, from immutable
+Job **212427** completed on production Beta with four B200s in **5:10** (0.344 allocated GPU-hours), exit 0, from immutable
 source `dcdda50e2`. It uses the common annual evaluator's 30 origins, seven leads, all 77 channels, masks
 and existing normalization. P holds the latest true input fixed. S uses 73 seasonal bins fitted only to
 1975-01-03 through 2013-10-05 source states. Julian-calendar centers are day-of-year 3, 8, ..., 363;
@@ -252,11 +252,14 @@ leap years have the same bins and a six-day year-end transition. All 4,745 sourc
 against this bin definition before submission. Counts, fitting bounds, source and normalization are written
 to the reference manifest; 32,340 metric rows are required before marking completion.
 
-Output will be in `outputs/references-212427/`. The batch script has an EXIT callback, compute-node receiver
-check, and hourly fallback reminder; the login-node receiver check passed before release. All ranks wait
-for online W&B initialization before fitting the climatology. Thirteen local model/numerical tests and scoped
-pre-commit checks passed. These deterministic references do not train another neural model.
+Outputs are in `outputs/references-212427/`; W&B synchronized at
+[6ul9j3mf](https://wandb.ai/ocean_emulators/default/runs/6ul9j3mf). The compute-node receiver check passed,
+the completion callback was received, and its registration was retired. All 32,340 unique finite metric rows
+passed read-back checks, including exact target agreement with A/B/C/D, deterministic metric identities and
+physical-unit conversion. The fitting manifest contains 2,830 states, with 56 bins of 39 years and 17 of 38.
+`analyze_references.py` reproduces the audit, plots and tables. Thirteen local model/numerical tests and scoped
+pre-commit checks passed. These deterministic references did not train another neural model.
 
-Remaining report work includes these references, observation metrics where applicable, and secondary
+Remaining report work includes observation metrics where applicable and secondary
 checkpoint sensitivities. Proposed next-wave choices in `RESULTS.md` remain provisional. No additional
 training seed or later wave has started.

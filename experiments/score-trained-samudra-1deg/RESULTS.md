@@ -7,8 +7,8 @@ SPDX-License-Identifier: CC-BY-4.0
 
 **Status, 2026-10-12:** all training, all four primary annual evaluations, and the continuous eight-year
 drift/structure diagnostics completed successfully. Persistence and training-period seasonal-climatology
-references are queued as Beta job 212427; observational comparisons and checkpoint sensitivities remain
-outstanding. This is an
+references also completed and passed the common-target audit. Observational comparisons and checkpoint
+sensitivities remain outstanding. This is an
 experiment/results record, not intended to merge. The first-wave report is not yet complete.
 
 ## What the completed comparison establishes
@@ -126,6 +126,37 @@ depth average. A's temperature RMSE also remains slightly better than C/D. An ag
 presented as an across-the-board interior-state improvement. The per-channel tables retain every depth:
 [A](results/annual-channel-A.csv), [B](results/annual-channel-B.csv), [C](results/annual-channel-C.csv),
 [D](results/annual-channel-D.csv), plus the [family summary](results/annual-family.csv).
+
+## Persistence and training-only seasonal climatology
+
+![Forecasts versus persistence and seasonal climatology](results/reference-comparison.jpg)
+
+P holds the latest true input fixed. S predicts the mean for each of 73 seasonal centers, fitted only to
+the **2,830 source states from 1975-01-03 through 2013-10-05**. The first 56 bins have 39 contributing years;
+the last 17 have 38. It uses no held-out states or validation targets. The existing normalization remains
+shared with the learned models, as requested. All references use the same 30 origins, seven leads, original
+wet masks and verifying timestamps as A/B/C/D.
+
+| At 360 nominal days | A | B | C | D | P: persistence | S: seasonal |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Mean normalized channel RMSE | 0.34919 | 0.36159 | 0.34076 | 0.34080 | 0.52603 | 0.40056 |
+| Empirical CRPS, normalized | 0.21208 | 0.21942 | 0.15196 | 0.15186 | 0.30098 | 0.23183 |
+
+All learned arms improve aggregate RMSE over both references at every evaluated lead. C/D improve 360-day
+RMSE by about **14.9% over seasonal climatology** and **35.2% over persistence**. S is a deterministic seasonal
+mean, so its CRPS is MAE; this comparison does **not** test against a probabilistic climatological ensemble.
+
+The aggregate gain is not a uniform salinity win. At 360 days, the depth-averaged physical salinity RMSE is
+0.08405/0.08297 for C/D versus 0.08666 for S: only about 3.0%/4.3% better. Moreover, P's **normalized** salinity
+RMSE, 0.05967, is slightly lower than C/D's 0.06111/0.06016, even though its **physical** depth average is worse
+(0.09216). Depth-dependent normalization changes the weighting, so both summaries are retained. B's physical
+salinity RMSE, 0.08767, is slightly worse than S. These results reinforce the thermodynamic weaknesses rather
+than removing them. C/D's physical temperature RMSE is 0.32743/0.32643 °C versus S's 0.42507 °C.
+
+See [all leads](results/reference-comparison.csv), [physical and normalized family scores](results/reference-family.csv),
+[reference depth scores](results/reference-channel.csv), and [all reference metric rows](results/reference-raw/).
+The fall in persistence error from 180 to 360 days is consistent with the seasonal cycle returning toward
+the initialization season; it is not evidence that the model was stepped incorrectly.
 
 ## Paired uncertainty
 
@@ -258,8 +289,7 @@ proxies, not exact heat/salt inventories.
 
 ## Remaining diagnostics and proposed decisions
 
-Persistence and training-only seasonal-climatology references are queued as job 212427. Secondary observation
-scoring where applicable and raw/validation-selected checkpoint sensitivities remain outstanding. Continuous
+Secondary observation scoring where applicable and raw/validation-selected checkpoint sensitivities remain outstanding. Continuous
 diagnostics retain summary statistics and selected field maps; observation scoring needs an additional
 trajectory export. No conclusion about observational skill or 100-year climate stability is claimed.
 
@@ -291,8 +321,9 @@ all using evaluator `0ed45a791` and epoch-70 EMA checkpoints. W&B links and exac
 SHA-256 and container fingerprints.
 
 New B/C/D training consumed about **121.89 allocated B200 GPU-hours**. Including qualification, cancelled
-notification preflights, annual evaluations and continuous diagnostics, approximately **125.0 GPU-hours**
-have been used before the reference evaluation, within the approximately 200-GPU-hour first-wave envelope. These are allocation
+notification preflights, annual evaluations, continuous diagnostics and reference evaluation, approximately
+**125.4 GPU-hours** have been used before checkpoint sensitivities and trajectory export, within the
+approximately 200-GPU-hour first-wave envelope. These are allocation
 costs, not kernel-active GPU time. A's historical training cost is excluded; it was reused. Equal epochs and
 training contexts are not equal compute, and no equal-compute superiority claim is made.
 
@@ -316,3 +347,11 @@ retain date-level scores; `continuous-global-*.csv.gz` retain every date/slot bu
 `continuous-structure-*.csv`, `continuous-phase-*.csv` and `continuous-vertical.csv` retain physical
 structure summaries. Year/family summaries are also included. Original per-channel/date score files,
 manifests, full diagnostic arrays and selected field maps remain under the recorded Beta output directory.
+
+Reference job 212427 used source `dcdda50e2` and synchronized at
+[W&B 6ul9j3mf](https://wandb.ai/ocean_emulators/default/runs/6ul9j3mf). Its
+[manifest](results/reference-manifest.json.gz) records fitting dates/counts, bins, normalization and exact source.
+Reproduce the audit and comparison with
+`uv run python experiments/score-trained-samudra-1deg/analyze_references.py <downloaded-references-212427> <results-directory>`.
+The results directory must contain the primary `annual-raw/` files and evaluation contract. The audit requires
+all 32,340 unique finite reference rows, exact common targets, expected seasonal counts and physical-unit conversions.

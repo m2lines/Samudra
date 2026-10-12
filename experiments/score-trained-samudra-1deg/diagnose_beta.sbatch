@@ -16,7 +16,7 @@ export CAMPAIGN_ROOT="${CAMPAIGN_ROOT:-/projects/ny/lz1955/multiscale/jrusak/run
 : "${SOURCE_ROOT:?Set SOURCE_ROOT to an immutable source snapshot}"
 : "${FOLLOWUP_CREDENTIAL:?Set FOLLOWUP_CREDENTIAL to the private callback file}"
 mode="$1"
-case "$mode" in qualification|full) ;; *) exit 2 ;; esac
+case "$mode" in qualification|full|export) ;; *) exit 2 ;; esac
 on_exit() {
     rc=$?
     trap - EXIT
@@ -36,6 +36,7 @@ export WANDB_DIR="$EVAL_OUTPUT"
 control_root=/projects/ny/lz1955/multiscale/jrusak/runs/current-stochastic-depth-1deg-20261006/control/output/current-1deg-control-ga2-210664/saved_nets
 mkdir -p "$EVAL_OUTPUT" "$CAMPAIGN_ROOT/cache/continuous-$SLURM_JOB_ID" "$CAMPAIGN_ROOT/allocations"
 scontrol show job "$SLURM_JOB_ID" > "$CAMPAIGN_ROOT/allocations/$SLURM_JOB_ID.txt"
+python3 "$CAMPAIGN_ROOT/private/send.py" --credential-file "$FOLLOWUP_CREDENTIAL" --check || true
 mounts="$SOURCE_ROOT/src:/workspace/src,$CAMPAIGN_ROOT/native:/workspace/native,$CAMPAIGN_ROOT:$CAMPAIGN_ROOT,$DATA_ROOT:$DATA_ROOT,$control_root:$control_root:ro,$CAMPAIGN_ROOT/cache/continuous-$SLURM_JOB_ID:/workspace/.data_cache"
 srun --input=none --kill-on-bad-exit=1 --container-image="$SAMUDRA_CONTAINER_IMAGE_REF" --container-mount-home --container-mounts="$mounts" bash -c '
 set -euo pipefail
@@ -43,5 +44,6 @@ export PYTHONPATH=/workspace/src:/workspace/native
 cd "$SOURCE_ROOT/experiments/score-trained-samudra-1deg"
 args=()
 if [[ "$1" == qualification ]]; then args+=(--max-steps 3); fi
+if [[ "$1" == export ]]; then args+=(--write-rollouts --verify-replay "$CAMPAIGN_ROOT/outputs/continuous-full-212420"); fi
 exec /workspace/.venv/bin/python -m torch.distributed.run --standalone --nnodes=1 --nproc-per-node=4 diagnose_score.py "$CAMPAIGN_ROOT" "$EVAL_OUTPUT" "${args[@]}"
 ' bash "$mode"

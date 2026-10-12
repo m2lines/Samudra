@@ -19,12 +19,15 @@ from pathlib import Path
 import numpy as np
 import torch
 import wandb
+import xarray as xr
 from evaluate_score import field_metrics
 from score_model import reduce_field, weights
 from train_score import ScoreTrainConfig
 
 from samudra.backend import init_train_backend
 from samudra.datasets import InferenceDataset
+from samudra.utils.output import ModelInferenceOutput
+from samudra.utils.writer import ZarrWriter
 
 
 def spatial_diagnostics(fields, area):
@@ -93,6 +96,8 @@ def main():
     parser.add_argument("campaign", type=Path)
     parser.add_argument("output", type=Path)
     parser.add_argument("--max-steps", type=int)
+    parser.add_argument("--write-rollouts", action="store_true")
+    parser.add_argument("--verify-replay", type=Path)
     args = parser.parse_args()
     if args.max_steps is not None and args.max_steps < 1:
         parser.error("--max-steps must be positive")
@@ -163,6 +168,33 @@ def main():
     steps = (
         len(dataset) if args.max_steps is None else min(len(dataset), args.max_steps)
     )
+    if args.verify_replay:
+        reference_manifest = json.loads(
+            (args.verify_replay / arm / "manifest.json").read_text()
+        )
+        assert reference_manifest["checkpoint_sha256"] == checkpoint_digest
+        assert reference_manifest["members"] == members
+        assert reference_manifest["seed"] == 55000000
+        assert reference_manifest["calls"] == steps
+    writers = {}
+    if args.write_rollouts:
+        slots = (
+            ["mean"]
+            if members == 1
+            else ["mean"] + [f"member{i}" for i in range(members)]
+        )
+        for slot_name in slots:
+            directory = output / slot_name
+            directory.mkdir()
+            writers[slot_name] = ZarrWriter(
+                directory,
+                dataset.get_coords_dict(),
+                2,
+                checkpoint_path,
+                10,
+                dataset.preprocessor,
+                bundle.data_layout,
+            )
     run = wandb.init(
         entity=cfg.experiment.wandb.entity,
         project=cfg.experiment.wandb.project,
@@ -177,6 +209,8 @@ def main():
             "checkpoint_sha256": checkpoint_digest,
             "seed": 55000000,
             "source_commit": os.environ["SAMUDRA_CODE_COMMIT"],
+            "write_rollouts": args.write_rollouts,
+            "verify_replay": str(args.verify_replay) if args.verify_replay else None,
         },
     )
     print(f"{arm} online continuous evaluation: {run.url}", flush=True)
@@ -286,6 +320,20 @@ def main():
                 )
             previous, previous_true = p, target
             if nominal in (5, 40, 360, 1440) or (step == steps - 1 and frame == 1):
+                if args.verify_replay:
+                    with np.load(
+                        args.verify_replay / arm / f"fields-{nominal:04d}d.npz"
+                    ) as saved:
+                        np.testing.assert_array_equal(
+                            saved["mask"], wet[selected].cpu().numpy()
+                        )
+                        assert str(saved["target_time"]) == str(target_time)
+                        np.testing.assert_allclose(
+                            physical[:, selected].cpu().numpy(),
+                            saved["physical"],
+                            rtol=0,
+                            atol=0,
+                        )
                 np.savez_compressed(
                     output / f"fields-{nominal:04d}d.npz",
                     variables=np.array([names[i] for i in selected]),
@@ -295,6 +343,17 @@ def main():
                     nominal_days=nominal,
                     elapsed_days=elapsed_days,
                 )
+        for slot_name, zarr_writer in writers.items():
+            value = (
+                pred.mean(0)
+                if slot_name == "mean"
+                else pred[int(slot_name.removeprefix("member"))]
+            )
+            zarr_writer.record_batch(
+                ModelInferenceOutput(value, targets, dataset.get_target_time(step, 1))
+            )
+            if (step + 1) % 5 == 0 or step == steps - 1:
+                zarr_writer.write()
         if step % 36 == 0 or step == steps - 1:
             run.log(
                 {
@@ -304,6 +363,29 @@ def main():
                 }
             )
             print(f"{arm} continuous call {step + 1}/{steps}", flush=True)
+    # Read saved coordinates and fixed-date fields back before claiming export success.
+    for slot_name, zarr_writer in writers.items():
+        slot_index = (
+            1 if slot_name == "mean" else 2 + int(slot_name.removeprefix("member"))
+        )
+        with xr.open_zarr(zarr_writer.pred_path, chunks={}) as saved_rollout:
+            assert saved_rollout.sizes["time"] == 2 * steps
+            assert [str(t) for t in saved_rollout.time.values] == times
+            for fields_path in sorted(output.glob("fields-*d.npz")):
+                with np.load(fields_path) as saved_fields:
+                    time_index = int(saved_fields["nominal_days"]) // 5 - 1
+                    for channel, name in enumerate(saved_fields["variables"]):
+                        family, _, depth = str(name).partition("_")
+                        stored = saved_rollout[family].isel(time=time_index)
+                        if depth:
+                            stored = stored.isel(lev=int(depth))
+                        mask = saved_fields["mask"][channel].astype(bool)
+                        np.testing.assert_allclose(
+                            stored.values[mask],
+                            saved_fields["physical"][slot_index, channel][mask],
+                            rtol=2e-6,
+                            atol=1e-7,
+                        )
     for name, rows in (("scores", score_rows), ("global", global_rows)):
         with gzip.open(output / f"{name}.csv.gz", "wt") as stream:
             writer = csv.DictWriter(stream, fieldnames=list(rows[0]))
@@ -339,6 +421,10 @@ def main():
         "regional_empty_support": "NaN, never zero skill",
         "slots": ["truth", "mean"] + [f"member{i}" for i in range(members)],
         "partial": args.max_steps is not None,
+        "rollout_slots": list(writers),
+        "replay_verified_against": str(args.verify_replay)
+        if args.verify_replay
+        else None,
     }
     (output / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
     run.finish()

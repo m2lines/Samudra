@@ -63,6 +63,11 @@ def main():
     parser.add_argument("--arm", choices=["A", "B", "C", "D"], required=True)
     parser.add_argument("--members", type=int, default=16)
     parser.add_argument("--origin-limit", type=int)
+    parser.add_argument(
+        "--checkpoint-role",
+        choices=["final-ema", "final-raw", "validation-selected"],
+        default="final-ema",
+    )
     args = parser.parse_args()
     if args.arm in ("C", "D") and args.members < 2:
         parser.error("Stochastic evaluation requires at least two members")
@@ -114,8 +119,20 @@ def main():
     )
     checkpoint = torch.load(args.checkpoint, map_location="cpu", weights_only=True)
     checkpoint_epoch = checkpoint["epoch"]
-    if checkpoint_epoch != 70:
+    if args.checkpoint_role != "validation-selected" and checkpoint_epoch != 70:
         raise ValueError(f"Expected final epoch 70, got {checkpoint_epoch}")
+    if not 1 <= checkpoint_epoch <= 70:
+        raise ValueError(f"Unexpected checkpoint epoch {checkpoint_epoch}")
+    expected_file = {
+        "final-ema": "ema_ckpt.pt",
+        "final-raw": "ckpt_70.pt",
+        "validation-selected": "best_validation_ckpt.pt",
+    }[args.checkpoint_role]
+    if Path(args.checkpoint).name != expected_file:
+        raise ValueError(f"{args.checkpoint_role} requires {expected_file}")
+    selection_identity = checkpoint.get("validation_checkpoint_identity")
+    if args.checkpoint_role == "validation-selected" and not selection_identity:
+        raise ValueError("Validation-selected checkpoint lacks selection provenance")
     state = {k.removeprefix("module."): v for k, v in checkpoint["model"].items()}
     if args.arm == "A":
         net.base.load_state_dict(state, strict=True)
@@ -141,13 +158,15 @@ def main():
         run = wandb.init(
             entity=cfg.experiment.wandb.entity,
             project=cfg.experiment.wandb.project,
-            name=f"score-{args.arm}-heldout",
+            name=f"score-{args.arm}-heldout-{args.checkpoint_role}",
             mode="online",
             config={
                 "arm": args.arm,
                 "members": m,
                 "checkpoint": str(args.checkpoint),
                 "checkpoint_epoch": checkpoint_epoch,
+                "checkpoint_role": args.checkpoint_role,
+                "validation_selection_identity": selection_identity,
                 "checkpoint_sha256": checkpoint_sha256,
                 "source_commit": os.environ.get("SAMUDRA_CODE_COMMIT"),
                 "origins": origins,
@@ -163,6 +182,8 @@ def main():
                     "arm": args.arm,
                     "checkpoint": str(args.checkpoint),
                     "checkpoint_epoch": checkpoint_epoch,
+                    "checkpoint_role": args.checkpoint_role,
+                    "validation_selection_identity": selection_identity,
                     "checkpoint_sha256": checkpoint_sha256,
                     "source_commit": os.environ.get("SAMUDRA_CODE_COMMIT"),
                     "container": os.environ.get("SAMUDRA_CONTAINER_IMAGE_REF"),
@@ -184,6 +205,8 @@ def main():
             )
             + "\n"
         )
+    if dist:
+        torch.distributed.barrier()  # Require online W&B before any rank forecasts.
     rows = []
     histogram = torch.zeros(7, 77, m + 1, device=device)
     leads = [5, 10, 20, 40, 90, 180, 360]

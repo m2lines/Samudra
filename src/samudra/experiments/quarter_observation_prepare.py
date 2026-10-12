@@ -60,9 +60,11 @@ def prepare_quarter(args):
         "normalization": "not fitted by this preparation command",
     }
     path = root / "iap-operator.json"
-    if path.exists() and json.loads(path.read_text()) != contract:
-        raise ValueError("Existing native IAP preparation contract differs")
-    path.write_text(json.dumps(contract, indent=2) + "\n")
+    if path.exists():
+        if json.loads(path.read_text()) != contract:
+            raise ValueError("Existing native IAP preparation contract differs")
+    else:
+        path.write_text(json.dumps(contract, indent=2) + "\n")
     native_args = argparse.Namespace(**vars(args))
     native_args.grid = str(native_grid)
     return prepare(native_args)

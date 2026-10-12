@@ -149,6 +149,22 @@ def prepare(args):
     start = pd.Timestamp(f"{args.year}-01-01")
     end = pd.Timestamp(f"{args.year + 1}-01-01")
     selected = np.flatnonzero((times >= start) & (times < end))
+    selected_dates = getattr(args, "selected_dates", None)
+    if selected_dates is not None:
+        if args.limit:
+            raise ValueError("selected_dates and limit are mutually exclusive")
+        dates = pd.DatetimeIndex(selected_dates)
+        if (
+            not len(dates)
+            or dates.has_duplicates
+            or not (dates == dates.normalize()).all()
+            or not ((dates >= start) & (dates < end)).all()
+        ):
+            raise ValueError("selected_dates must be unique midnight dates in year")
+        available = times[selected].normalize()
+        if not dates.isin(available).all():
+            raise ValueError("Missing selected source dates")
+        selected = selected[np.asarray(available.isin(dates))]
     if args.limit:
         selected = selected[: args.limit * (24 if args.product == "era5" else 1)]
     if not len(selected):
@@ -167,6 +183,8 @@ def prepare(args):
         "coverage_definition": "finite source area / full target cell area",
         "era5_accumulations": "hour ending at validity time; daily bins (00:00, next 00:00]",
     }
+    if selected_dates is not None:
+        signature["selected_dates"] = sorted(str(date.date()) for date in dates)
     manifest = out / "manifest.json"
     if manifest.exists() and json.loads(manifest.read_text()) != signature:
         raise ValueError("Existing shard preparation signature differs")

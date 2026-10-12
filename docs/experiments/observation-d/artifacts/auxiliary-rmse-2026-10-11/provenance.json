@@ -1,0 +1,44 @@
+{
+  "sources": [
+    {
+      "wave": "original 4k",
+      "path": "/scratch/jr7309/runs/2026-10-11-auxiliary-rmse/reporting/aux-original-aligned-selected.json.gz",
+      "sha256": "b5394d20ecc4cb9179f80c4b6489f4f3296f328f2453be9776dadfc89ad0c6b7"
+    },
+    {
+      "wave": "original 4k",
+      "path": "/scratch/jr7309/runs/2026-10-11-auxiliary-rmse/reporting/aux-original-anomaly-selected.json.gz",
+      "sha256": "0158a961b4aec13751b2cac59b0ae0bf50ec186e5247e679701275c864909a2a"
+    },
+    {
+      "wave": "original 4k",
+      "path": "/scratch/jr7309/runs/2026-10-11-auxiliary-rmse/reporting/early4k-original-global-validation.json.gz",
+      "sha256": "fbbaa69d648aa3c44771005beaafbf520f6a4b23fe6f4c5bb14f18544f0bbe60"
+    },
+    {
+      "wave": "RMSE reproduction",
+      "path": "/scratch/jr7309/runs/2026-10-11-auxiliary-rmse/reporting/aux-global-controls-validation.json.gz",
+      "sha256": "60f6cb676a8ddca1edb146d2c6d484e1c3c669f2ce8b105cbf82cccd343cb6bf"
+    },
+    {
+      "wave": "RMSE reproduction",
+      "path": "/scratch/jr7309/runs/2026-10-11-auxiliary-rmse/reporting-recovery-1/complete-validation.json.gz",
+      "sha256": "ffa8c8cac38dd3514afe54d8a9d15fd3b123dd55127eddd401ae52c6f4774603"
+    }
+  ],
+  "reference_sha256": "d7bf4f3eeaa6a4522f7315ab77ea8468392f800c29d7a17506f5eedfa2b83b60",
+  "script_sha256": "1f79f74935a5532fca07f2afd76cb607efa2fe75c593898fc17ae8f34a54bfdf",
+  "family": "auxiliary",
+  "observation_contract": {
+    "data_manifest_sha256": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+    "grid_sha256": "ce96360964a6669d0186b9581abaaffc06f660c4e09e0ac813b3dd1b819e5167",
+    "statistics_sha256": "7688d483d4c87a8ce0e2f27a1a342db93eecb3e892187506475d6970e865c001",
+    "global_observations": true,
+    "strict_velocity_support": true,
+    "surface_policy": "observed-only",
+    "surface_fill": "zero"
+  },
+  "events": 510,
+  "rescore": "All original checkpoints rescored from saved physical validation components; historical weights are not reselected or re-evaluated on test data.",
+  "caveat": "Historical U-global and auxiliary arms ran on Beta; historical early arms include recorded recoveries. Reproductions use the matched Torch runtime; producer and data contracts are recorded in source manifests. Same-seed repeats do not quantify independent-seed uncertainty."
+}

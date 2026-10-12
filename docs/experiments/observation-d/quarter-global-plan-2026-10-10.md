@@ -143,13 +143,16 @@ to the short-lead comparison; they must not choose the training checkpoint.
 
 ## Execution status
 
-The prerequisite annual comparison is queued on Torch after the auxiliary wave's
-verified result export: audit **19600907** → eight-model evaluation **19600908**
-(two GPUs concurrently) → collection **19600909**. It uses evaluation producer
+The four auxiliary reproductions and their verified result export are complete.
+The prerequisite annual comparison uses audit **19606941** → eight-model
+evaluation **19606942** (two GPUs concurrently) → collection **19606943**.
+The first CPU report export failed on a map filename; its original dependent
+annual jobs never started. The corrected export preserves all failed records
+and does not change training or selected checkpoints. It uses evaluation producer
 `56aac9375a59a7204cd54d85a0c5a3b8e9383d59` and the existing annual data/runtime at
 `/scratch/jr7309/runs/2026-10-11-rmse-6k-annual`. The audit freezes completed 6k
 selected checkpoint hashes and requires each run's 96-origin short-horizon
-completion record. These are queued evaluations, not new training or completed
+completion record. These are pending/running evaluations, not new training or completed
 annual results. Quarter-degree production remains gated on these results and
 real-data qualification.
 
@@ -218,3 +221,11 @@ supervision through a head aggregated to the original 1° support; it cannot
 silently relabel q as finer-scale truth. Document and qualify the head/aggregation
 before submitting that arm. This transfer changes the relation of the auxiliary
 target to the resolved state, so it is not an exact resolution-only reproduction.
+
+The staged baseline qualification producer is
+`17b5be0e52d9cd234604db2501b81b3f09119d24`. Its final gate requires the native
+observation validation and 12-origin OM4 retention path, plus exact next-update
+replay in a separate four-rank process for each trained task. Qualification
+weights are marked diagnostic-only and rejected by production resume. The
+runner and common-grid collector passed 57 focused CPU tests; actual GPU gates
+remain pending prepared data. Staged qualification has not been submitted.

@@ -1,0 +1,263 @@
+{
+  "scope": "Saved day-30 five-day mean forecasts; no new inference or training",
+  "cases": [
+    "2022-01",
+    "2022-07"
+  ],
+  "case_choice": "January and July of the final held-out year, inherited from the original report",
+  "lead_index": 5,
+  "grid_sha256": "ce96360964a6669d0186b9581abaaffc06f660c4e09e0ac813b3dd1b819e5167",
+  "script_sha256": "44b9456cac6c4c95c11c8157247d121c52679712da721c4bccbb6cedd69ab239",
+  "sources": [
+    {
+      "method": "U-global-repro4k",
+      "path": "/scratch/jr7309/runs/2026-10-10-early-rmse-6k/U-global-repro4k/test-selected/selected-predictions.npz",
+      "sha256": "39ae5c8186686ac3d8cc81053d16713be538d92a754b24932023ff97118b96b7",
+      "selected_checkpoint_sha256": "df191e871d10fa850b476edf718063d64c0ac3096e9a2e77c023984d296d1823",
+      "source_checkpoint_sha256": null,
+      "weights_used_sha256": "df191e871d10fa850b476edf718063d64c0ac3096e9a2e77c023984d296d1823"
+    },
+    {
+      "method": "U-aux01-4k",
+      "path": "/scratch/jr7309/runs/2026-10-11-auxiliary-rmse/U-aux01-4k/test-selected/selected-predictions.npz",
+      "sha256": "1aee4c666929ce894528a21c85dc65f04fb89cf58f2a5ee8ca8e39febf12f451",
+      "selected_checkpoint_sha256": "ddc0d0c1e2179b5daf14a28f09335f03e598da2afb023b1a6d9c6dab5a1bc9da",
+      "source_checkpoint_sha256": null,
+      "weights_used_sha256": "ddc0d0c1e2179b5daf14a28f09335f03e598da2afb023b1a6d9c6dab5a1bc9da"
+    },
+    {
+      "method": "U-aux01-anomaly-4k",
+      "path": "/scratch/jr7309/runs/2026-10-11-auxiliary-rmse/U-aux01-anomaly-4k/test-selected/selected-predictions.npz",
+      "sha256": "4eb6cc5f1b6922d7305dcbf905536bcfdf5c35f4049d57b52108d3acaeee2e85",
+      "selected_checkpoint_sha256": "6babab5a79700daa99eb5d0ed6d16418b53bd80721f172f7fa1c5029c4bc61a5",
+      "source_checkpoint_sha256": null,
+      "weights_used_sha256": "6babab5a79700daa99eb5d0ed6d16418b53bd80721f172f7fa1c5029c4bc61a5"
+    },
+    {
+      "method": "U-global-repro4k initialized persistence",
+      "path": "/scratch/jr7309/runs/2026-10-10-early-rmse-6k/U-global-repro4k/test-selected/selected-inferred-persistence.npz",
+      "sha256": "b70806dbd932328dc6f1c68e28dc436204d1c20f5f4efc7aaab6d0c2cfc4d66a",
+      "selected_checkpoint_sha256": "df191e871d10fa850b476edf718063d64c0ac3096e9a2e77c023984d296d1823",
+      "source_checkpoint_sha256": null,
+      "weights_used_sha256": "df191e871d10fa850b476edf718063d64c0ac3096e9a2e77c023984d296d1823"
+    },
+    {
+      "method": "U-aux01-4k initialized persistence",
+      "path": "/scratch/jr7309/runs/2026-10-11-auxiliary-rmse/U-aux01-4k/test-selected/selected-inferred-persistence.npz",
+      "sha256": "ecafe36b470643f71789918092b12e113bdefa7400abab6562f7d49a7a56249a",
+      "selected_checkpoint_sha256": "ddc0d0c1e2179b5daf14a28f09335f03e598da2afb023b1a6d9c6dab5a1bc9da",
+      "source_checkpoint_sha256": null,
+      "weights_used_sha256": "ddc0d0c1e2179b5daf14a28f09335f03e598da2afb023b1a6d9c6dab5a1bc9da"
+    },
+    {
+      "method": "U-aux01-anomaly-4k initialized persistence",
+      "path": "/scratch/jr7309/runs/2026-10-11-auxiliary-rmse/U-aux01-anomaly-4k/test-selected/selected-inferred-persistence.npz",
+      "sha256": "80a72e7861549623060acce2878d616c2e585a2713abb19808846ecf1c446a0b",
+      "selected_checkpoint_sha256": "6babab5a79700daa99eb5d0ed6d16418b53bd80721f172f7fa1c5029c4bc61a5",
+      "source_checkpoint_sha256": null,
+      "weights_used_sha256": "6babab5a79700daa99eb5d0ed6d16418b53bd80721f172f7fa1c5029c4bc61a5"
+    },
+    {
+      "method": "Training seasonal climatology",
+      "path": "/scratch/jr7309/runs/2026-10-10-early-rmse-6k/U-global-repro4k/test-selected/seasonal-climatology.npz",
+      "sha256": "3daaa2cb9a20bc8fafc6ba77d7d090c88b8381fea563a545d71a972bf27e8525",
+      "selected_checkpoint_sha256": "df191e871d10fa850b476edf718063d64c0ac3096e9a2e77c023984d296d1823",
+      "source_checkpoint_sha256": null,
+      "weights_used_sha256": null
+    }
+  ],
+  "case_times": {
+    "2022-01": {
+      "last_history_midpoint": "2021-12-29T12:00:00",
+      "day30_bin_midpoint": "2022-01-28T12:00:00"
+    },
+    "2022-07": {
+      "last_history_midpoint": "2022-06-28T12:00:00",
+      "day30_bin_midpoint": "2022-07-28T12:00:00"
+    }
+  },
+  "bundle_sha256": "0b682ebcd687be428fdcc3e36ebaf9cd8eb5d52601ab7631e322f6b131cf5266",
+  "plot_script_sha256": "ca768a857cf7564803746f803abc5763e2b7077265e72a9e88ca087b1b500798",
+  "rendered": [
+    {
+      "file": "day30-2022-01-anomalies-sst",
+      "limits": [
+        -3,
+        3
+      ],
+      "figure_pixels": [
+        820,
+        3060
+      ],
+      "panel_pixels": [
+        720,
+        360
+      ],
+      "panel_grid_shape_yx": [
+        180,
+        360
+      ],
+      "panel_left_px": 70,
+      "panel_top_px": [
+        80,
+        495,
+        910,
+        1325,
+        1740,
+        2155,
+        2570
+      ]
+    },
+    {
+      "file": "day30-2022-01-anomalies-adt",
+      "limits": [
+        -0.25,
+        0.25
+      ],
+      "figure_pixels": [
+        820,
+        3060
+      ],
+      "panel_pixels": [
+        720,
+        360
+      ],
+      "panel_grid_shape_yx": [
+        180,
+        360
+      ],
+      "panel_left_px": 70,
+      "panel_top_px": [
+        80,
+        495,
+        910,
+        1325,
+        1740,
+        2155,
+        2570
+      ]
+    },
+    {
+      "file": "day30-2022-07-fields-sst",
+      "limits": [
+        -2,
+        32
+      ],
+      "figure_pixels": [
+        820,
+        3060
+      ],
+      "panel_pixels": [
+        720,
+        360
+      ],
+      "panel_grid_shape_yx": [
+        180,
+        360
+      ],
+      "panel_left_px": 70,
+      "panel_top_px": [
+        80,
+        495,
+        910,
+        1325,
+        1740,
+        2155,
+        2570
+      ]
+    },
+    {
+      "file": "day30-2022-07-fields-adt",
+      "limits": [
+        -1.5,
+        1.5
+      ],
+      "figure_pixels": [
+        820,
+        3060
+      ],
+      "panel_pixels": [
+        720,
+        360
+      ],
+      "panel_grid_shape_yx": [
+        180,
+        360
+      ],
+      "panel_left_px": 70,
+      "panel_top_px": [
+        80,
+        495,
+        910,
+        1325,
+        1740,
+        2155,
+        2570
+      ]
+    },
+    {
+      "file": "day30-2022-07-anomalies-sst",
+      "limits": [
+        -3,
+        3
+      ],
+      "figure_pixels": [
+        820,
+        3060
+      ],
+      "panel_pixels": [
+        720,
+        360
+      ],
+      "panel_grid_shape_yx": [
+        180,
+        360
+      ],
+      "panel_left_px": 70,
+      "panel_top_px": [
+        80,
+        495,
+        910,
+        1325,
+        1740,
+        2155,
+        2570
+      ]
+    },
+    {
+      "file": "day30-2022-07-anomalies-adt",
+      "limits": [
+        -0.25,
+        0.25
+      ],
+      "figure_pixels": [
+        820,
+        3060
+      ],
+      "panel_pixels": [
+        720,
+        360
+      ],
+      "panel_grid_shape_yx": [
+        180,
+        360
+      ],
+      "panel_left_px": 70,
+      "panel_top_px": [
+        80,
+        495,
+        910,
+        1325,
+        1740,
+        2155,
+        2570
+      ]
+    }
+  ],
+  "pixel_verification": "Every saved panel RGB pixel equals the source colormap cell repeated exactly 2x2, including the common missing-data mask",
+  "rasterization": "Lossless PNG: exactly 2 x 2 pixels per retained grid cell at native image size; no interpolation. PDF embeds native grid with interpolation disabled.",
+  "coordinates": "Square cells in grid-index space, sorted longitude; ticks label actual cell-center coordinates. No geographic resampling.",
+  "latitude_domain": "global",
+  "mask": "Selected model wet domain intersected with finite target observations, identical across candidates",
+  "interpretation": "Illustrative cases, not aggregate skill; gray is land or unavailable observations. Colorbar extensions mark saturation. Endpoint is the last common exported surface lead, not a multi-year continuous rollout."
+}

@@ -3,7 +3,7 @@
 
 # Longer early-data comparison with RMSE selection
 
-The initial seven fresh runs completed. **Longer U-global training helps:** the selected
+The initial seven fresh runs and four subsequent auxiliary reproductions completed. **Longer U-global training helps:** the selected
 6k model's held-out RMSE blend is 0.8423, versus 0.9082 for the 4k reproduction
 (7.3% lower). Its second seed scores 0.8503. **At 6k, best-checkpoint gains from
 early data are small**, although late-window means favor the fine-task variants.
@@ -36,8 +36,11 @@ initialized ocean state fixed, without applying its evolution processor.
 | U-multitask-early-latent | 5,200 | 0.8315 | 0.8682 | 0.8300 | 0.9099 |
 | U-multitask-early-fine | 5,500 | 0.8160 | 0.8616 | 0.8349 | 0.9160 |
 | U-multitask-early-fine-latent | 5,600 | 0.8329 | 0.8360 | 0.8534 | 0.9681 |
+| U-aux01-6k | 4,900 | 0.8205 | 0.8596 | 0.8538 | 0.9868 |
+| U-aux01-anomaly-6k | 5,700 | 0.8190 | 0.8285 | 0.8349 | 0.9299 |
 
-[All physical components and persistence controls](artifacts/early-rmse-6k-2026-10-10/final/scores.csv) ·
+[Initial-wave physical components and persistence controls](artifacts/early-rmse-6k-2026-10-10/final/scores.csv) ·
+[Combined components including auxiliary reproductions](artifacts/auxiliary-rmse-2026-10-11/scores.csv) ·
 [Independent completion and checkpoint audit](artifacts/early-rmse-6k-2026-10-10/final/verification.json).
 
 The two 6k U-global seeds improve selected validation by 5.0–7.0% and held-out
@@ -62,7 +65,7 @@ exploratory model development, while leaving checkpoint selection unchanged.
 
 [All five normalized components](artifacts/early-rmse-6k-2026-10-10/progress/validation-components.png) ·
 [Numeric validation history, including physical units](artifacts/early-rmse-6k-2026-10-10/progress/validation.csv).
-All 421 saved validation blends were independently recomputed from their five
+All 547 saved validation blends were independently recomputed from their five
 components and the frozen reference.
 
 The best-checkpoint table does not summarize all late-training behavior.
@@ -193,7 +196,7 @@ Runner: `scripts/run_early_fine_rmse_wave.py`; Slurm entry:
 
 ## Auxiliary-loss reproductions
 
-**All qualifications passed; production started October 11. No completed auxiliary result yet.** Two fresh additions,
+**Both 6k reproductions completed training and all 96 held-out origins.** Two fresh additions,
 **U-aux01-6k** and **U-aux01-anomaly-6k**, use 3,000 recent global OM4 updates plus
 3,000 observation updates, the same stretched progressive mixture as U-global,
 seed 1729, fixed LR 1e-4, and the unchanged five-component RMSE-only selection.
@@ -206,16 +209,67 @@ training seasonal mean. Both retain the global 1° physical evolution task and
 62,967,809 total parameters. Full definitions, the original RMSE-only ranking,
 and the matched 4k runs are in the [4k report](early-rmse-4k-reproduction-2026-10-11.md#auxiliary-loss-reproductions).
 
-These additions will be compared with both existing U-global seeds and the
-completed early-data reproductions using validation trajectories, endpoints,
-final-five means, individual physical components, selected 96-origin test
-scores and own persistence. Original auxiliary runs were on Beta; the new
-runs share the Torch runtime with the current controls. This is a same-seed
-repeatability check, not an independent-seed confidence interval.
+The anomaly target modestly improves the selected checkpoint: validation is
+**0.6% lower** and held-out blend **0.9% lower** than seed-1729 U-global. The two
+U-global seeds differ by about 1% on test, so this is promising rather than a
+robustly established gain. The aligned target improves validation by 0.4% but
+**worsens test by 1.4%**. Its SST error is 15.2% higher despite 8.3% lower upper-OHC
+error. A lower blended validation minimum need not improve each physical field.
 
-Shared dependency chain: data audit **19597634** → four fresh qualifications
-**19597635** → training/evaluation **19597636** on Torch RTX6000. Each array
-task requests one GPU, 16 CPUs and 192 GB RAM. All four qualifications must
-pass before any production arm starts. Forty-eight completed diagnostic
-checkpoints (20.25 GB) were copied to archive, fully SHA-256 verified and linked
-from their original paths to make room; production checkpoints were untouched.
+| Model | Best validation | Endpoint validation | Final-five mean | Held-out blend |
+|---|---:|---:|---:|---:|
+| U-global | 0.8241 | 0.8688 | 0.8830 | 0.8423 |
+| U-global-seed1730 | 0.8419 | 0.8633 | 0.8808 | 0.8503 |
+| U-aux01-6k | 0.8205 | 0.8596 | 0.8736 | 0.8538 |
+| U-aux01-anomaly-6k | 0.8190 | 0.8285 | 0.8520 | 0.8349 |
+
+The anomaly recipe's final-five mean improves 3.5% over U-global, similar to
+6k early-fine and fine+latent (0.8524/0.8502). These are correlated diagnostic
+points, not independent trials or a replacement checkpoint selector.
+
+| Model | SST (°C) | Geostrophic velocity (m/s) | EKE (m²/s²) | OHC 0–700 m (10⁸ J/m²) | OHC 700–2000 m (10⁸ J/m²) |
+|---|---:|---:|---:|---:|---:|
+| U-global | 0.6099 | 0.11260 | 0.024978 | 6.879 | 3.928 |
+| U-aux01-6k | 0.7026 | 0.11273 | 0.024953 | 6.308 | 4.017 |
+| U-aux01-anomaly-6k | 0.6028 | 0.11136 | 0.024709 | 6.530 | 4.048 |
+
+Anomaly supervision improves SST, velocity and EKE by about 1.1%, and upper OHC
+by 5.1%, while worsening deep OHC by 3.0%. EKE remains worse than own initialized
+persistence (0.022554 m²/s²). This does not demonstrate recovered fine-scale eddy
+variability. Original auxiliary runs were on Beta; these same-seed reproductions
+share the current controls' Torch runtime, not an independent-seed uncertainty
+estimate.
+
+![Auxiliary and U-global validation curves](artifacts/auxiliary-rmse-2026-10-11/validation-late.png)
+
+[Full trajectories](artifacts/auxiliary-rmse-2026-10-11/validation-full.png) ·
+[Observation-update axis](artifacts/auxiliary-rmse-2026-10-11/validation-observation-exposure.png) ·
+[Numeric minima/endpoints](artifacts/auxiliary-rmse-2026-10-11/minima.csv).
+The main validation, component, training and depth-profile figures above now
+include the two 6k auxiliary runs. The dedicated reproduction comparison contains
+510 verified validation events across ten series, including the original runs.
+
+The accessory loss is learned, not numerically negligible: aligned-target MSE
+falls from **0.4505 to 0.2611**, and anomaly-target MSE from **0.2872 to 0.2669**,
+comparing averages over the first and final quarters of training. At the end,
+the weighted accessory term is about **29% of the OM4 physical objective** for
+both recipes. These scalar ratios do not measure gradient contribution, and the
+accessory loss is absent on observation updates.
+
+![Accessory versus physical training objectives](artifacts/auxiliary-rmse-2026-10-11/accessory-training.png)
+
+[Training-loss values](artifacts/auxiliary-rmse-2026-10-11/accessory-training.csv) ·
+[July day-30 SST anomalies and own persistence](artifacts/auxiliary-rmse-2026-10-11/maps-6k/day30-2022-07-anomalies-sst.png) ·
+[ADT anomalies](artifacts/auxiliary-rmse-2026-10-11/maps-6k/day30-2022-07-anomalies-adt.png) ·
+[January/July absolute and anomaly map set](artifacts/auxiliary-rmse-2026-10-11/maps-6k/).
+Maps retain the established five-day-mean convention and two pixels per grid cell.
+
+The four auxiliary reproductions used **14.2461 allocated GPU-hours** including
+qualification and 96-origin evaluation, with no GPU or training retries. Training
+producer `56aac9375a59a7204cd54d85a0c5a3b8e9383d59` is unchanged. One CPU-only map
+export failed on a filename and was recovered without changing weights; its
+record is retained in the [completion/accounting audit](artifacts/auxiliary-rmse-2026-10-11/verification.json).
+The matched eight-model annual evaluation is now queued/running under audit
+**19606941** → evaluation **19606942** → collection **19606943**. It will report
+separate four-component day-30/day-365 scores for choosing the quarter-degree
+variants, using fixed validation-selected checkpoints.

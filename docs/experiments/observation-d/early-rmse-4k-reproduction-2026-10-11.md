@@ -9,6 +9,10 @@ U-global-repro4k control, early-fine improves validation/test RMSE blend by
 **2.7%/2.6%**, and early-fine+latent by **3.0%/3.7%**. Both selected their final
 checkpoint, so this result also holds at the fixed 4k endpoint.
 
+The subsequent auxiliary reproductions also completed: the anomaly recipe improves
+validation/test by 3.8%/3.8%; the aligned recipe improves selected scores but has
+a worse fixed 4k endpoint. See [auxiliary results](#auxiliary-loss-reproductions).
+
 This supports the earlier-data recipes at this budget. It does not establish
 that latent channels or fine resolution alone cause the gain, or quantify
 variation across independent seeds. The [6k comparison](early-rmse-6k-2026-10-10.md)
@@ -156,7 +160,7 @@ no source data or checkpoints were deleted. Reporting script:
 
 ## Auxiliary-loss reproductions
 
-**All qualifications passed; production started October 11. No completed auxiliary result yet.** The added fresh runs
+**Both 4k reproductions completed training and all 96 held-out origins.** The added fresh runs
 are **U-aux01-4k** and **U-aux01-anomaly-4k**, each matched to U-global-repro4k:
 2,000 recent global OM4 updates plus 2,000 observation updates, seed 1729,
 fixed LR 1e-4, and the same progressive task mixture and RMSE-only validation.
@@ -190,8 +194,46 @@ better minimum. That discrepancy makes replication particularly useful. The
 seasonal-mean variant's RMSE minimum is 0.8611; its stronger ranking under the
 old composite partly reflected spectra. The shuffled target remains a control.
 [All original candidate scores](artifacts/auxiliary-rmse-2026-10-11/original-candidate-ranking.csv).
-New results will include validation curves, fixed endpoints, final-five means,
-all five physical components, selected 96-origin test scores and own persistence.
+
+| Model, matched 4k | Best validation | Selected update | Endpoint validation | Final-five mean | Held-out blend | Own persistence |
+|---|---:|---:|---:|---:|---:|---:|
+| U-global-repro4k | 0.8861 | 4,000 | 0.8861 | 0.9306 | 0.9082 | 0.9829 |
+| U-aux01-4k | 0.8665 | 3,900 | 0.9249 | 0.9187 | 0.8962 | 0.9614 |
+| U-aux01-anomaly-4k | 0.8529 | 4,000 | 0.8529 | 0.8987 | 0.8740 | 0.9563 |
+
+The anomaly recipe repeats its improvement: **3.8% lower validation and test**
+than U-global-repro4k, also at the fixed endpoint. Its test blend is almost equal
+to early-fine+latent (0.8746). The aligned recipe improves selected validation by
+2.2% and test by 1.3%, but its final validation is **4.4% worse** than the control.
+Its original RMSE minimum was 0.8502 versus 0.8665 now, demonstrating substantial
+same-seed execution variation. Neither reproduction measures independent-seed
+uncertainty.
+
+| Model | SST (°C) | Geostrophic velocity (m/s) | EKE (m²/s²) | OHC 0–700 m (10⁸ J/m²) | OHC 700–2000 m (10⁸ J/m²) |
+|---|---:|---:|---:|---:|---:|
+| U-global-repro4k | 0.6478 | 0.11491 | 0.025254 | 8.073 | 4.358 |
+| U-aux01-4k | 0.6661 | 0.11519 | 0.025442 | 7.187 | 4.434 |
+| U-aux01-anomaly-4k | 0.6317 | 0.11492 | 0.025355 | 7.155 | 4.196 |
+
+The anomaly gain is predominantly thermodynamic: upper/deep OHC improve
+11.4%/3.7%, SST 2.5%, while velocity is unchanged and EKE slightly worsens.
+Aligned supervision improves upper OHC by 11.0% but worsens the other four
+components. The blended score should not be read as a general dynamics gain.
+
+![Auxiliary reproductions against original runs and matched controls](artifacts/auxiliary-rmse-2026-10-11/validation-late.png)
+
+[Full curves](artifacts/auxiliary-rmse-2026-10-11/validation-full.png) ·
+[All validation components](artifacts/auxiliary-rmse-2026-10-11/validation.csv) ·
+[All held-out components and controls](artifacts/auxiliary-rmse-2026-10-11/scores.csv) ·
+[July day-30 SST anomalies](artifacts/auxiliary-rmse-2026-10-11/maps-4k/day30-2022-07-anomalies-sst.png) ·
+[January/July map set, including persistence](artifacts/auxiliary-rmse-2026-10-11/maps-4k/).
+
+Accessory target MSE decreases during training: **0.4911→0.3107** for aligned
+and **0.2908→0.2745** for anomaly, comparing first/final-quarter averages.
+After weighting by 0.01, these are respectively 27.5% and 23.9% of the final-quarter
+OM4 physical objective. The scalar magnitudes are not gradient attribution;
+the term is applied only on OM4 steps.
+[Accessory training curves and values](artifacts/auxiliary-rmse-2026-10-11/accessory-training.png).
 
 The reproductions retain the matched Torch container/runtime. CPU observation
 caching is checked against uncached tensors; target files are copied from Beta
@@ -200,9 +242,11 @@ exact serialization replay and throughput gates precede production. Diagnostic
 weights are excluded. Pinned producer: `56aac9375a59a7204cd54d85a0c5a3b8e9383d59`.
 Cluster root: `/scratch/jr7309/runs/2026-10-11-auxiliary-rmse`.
 
-Shared dependency chain: data audit **19597634** → four fresh qualifications
-**19597635** → training/evaluation **19597636** on Torch RTX6000. Each array
-task requests one GPU, 16 CPUs and 192 GB RAM. All four qualifications must
-pass before any production arm starts. Forty-eight completed diagnostic
-checkpoints (20.25 GB) were copied to archive, fully SHA-256 verified and linked
-from their original paths to make room; production checkpoints were untouched.
+The complete 4k/6k auxiliary wave used **14.2461 allocated GPU-hours**, including
+qualification, training and held-out evaluation, with no GPU/training retries.
+All four selected checkpoint hashes, complete update sequences, exposures,
+fixed LR, finite gradients and 96-origin outputs passed independent collection.
+[Completion and accounting evidence](artifacts/auxiliary-rmse-2026-10-11/verification.json).
+One CPU-only map-export filename error was recovered with failed records retained;
+no training or scientific protocol changed. Jobs: audit **19597634**, qualification
+**19597635**, training/evaluation **19597636**, successful report export **19606934**.

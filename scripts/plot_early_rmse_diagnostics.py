@@ -33,12 +33,15 @@ def plot(source, output):
         bins: dict[tuple[str, int], list[dict]] = {}
         previous_early = 0
         for event in arm["training_events"]:
+            # The recent-only auxiliary runner records a different exposure schema.
+            # Require its explicit target contract before supplying a zero here.
+            early_count = (
+                0 if arm.get("auxiliary_targets") is not None else event["om4_early"]
+            )
             task = event["task"]
             if task == "om4":
-                task = (
-                    "early OM4" if event["om4_early"] > previous_early else "recent OM4"
-                )
-            previous_early = event["om4_early"]
+                task = "early OM4" if early_count > previous_early else "recent OM4"
+            previous_early = early_count
             block = (event["global_step"] - 1) // 100
             bins.setdefault((task, block), []).append(event)
         for (task, _), events in bins.items():

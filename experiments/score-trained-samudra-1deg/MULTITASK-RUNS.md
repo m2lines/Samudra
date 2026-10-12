@@ -15,8 +15,8 @@ Source `79cb5003903bb6b800bae16d562de8dbd484948a`, immutable snapshot under
 
 | Stage | Torch job | Resources | Last verified state |
 | --- | --- | --- | --- |
-| All-task qualification | 19648755 | 1 H100, 6 CPUs, 64 GiB RAM, 40-minute ceiling | Submitted; delayed eligibility to attach callback |
-| Completion notification | 19648789 | CPU-only, 1 CPU, 512 MiB | Pending `afterany:19648755` |
+| All-task qualification | 19648755 | 1 H100, 6 CPUs, 64 GiB RAM | Completed, exit 0; 2:01 on gh001 |
+| Completion notification | 19648789 | CPU-only, 1 CPU, 512 MiB | Completed; callback delivered |
 | F and M production | Not yet submitted | Plan: 2 H100s each, 16 CPUs, 192 GiB RAM | Await qualification |
 
 Campaign root: `/scratch/jr7309/runs/score-multitask-1deg-20261012`.
@@ -24,14 +24,18 @@ Resolved inputs: `configs/{qualification,train}-{forecast,multitask}.yaml`.
 Outputs: `outputs/qualification-multitask/`, then `outputs/train-{forecast,multitask}/`.
 Logs: `logs/<job>.{out,err}`; allocation records: `allocations/`.
 
-The qualification explicitly backpropagates all four tasks on real data, runs three optimizer updates,
-checks one-step/completion and 360-day ensemble validation, and writes `qualification.json` plus a
-qualification-only checkpoint. It does not count as a training epoch or initialize production weights.
+The qualification explicitly backpropagated all four tasks on real data, ran three optimizer updates,
+and passed one-step/completion and 360-day ensemble validation. [Raw qualification results](results/multitask-qualification-19648755.json)
+record **42.42 GB peak allocated GPU memory** and 18.74 seconds for the six training minibatches, including
+initial summary overhead. Job cost was 0.0336 allocated H100 GPU-hours. The largest recorded host RSS was
+11.29 GiB. These short-run timings do not establish full epoch throughput. The randomly sampled updates
+did not happen to choose a gap task, but the explicit pre-update backward probe verified it separately.
+The qualification-only checkpoint does not count as a training epoch or initialize production weights.
 Production retains batch 4/rank, accumulation 4, effective batch 32 and 70 epochs. Both arms use online W&B.
 
-The completion callback registration is `f4d1a330-e42b-4131-88f4-6bfc25456181`, with an hourly fallback
-reminder to this conversation. Login-node authentication passed; the batch script repeats the check on
-the compute node. Callback credentials stay in the private remote directory and are not committed.
+The qualification callback `f4d1a330-e42b-4131-88f4-6bfc25456181` delivered and was retired after verification.
+Authentication passed on the login and compute nodes. Callback credentials stay in the private remote
+directory and are not committed. Production receives separate callbacks and hourly reminders.
 
 Torch held job 19648662 could not be released (`scontrol release` returned an unspecified error twice).
 It and dependent notification 19648699 were cancelled before allocation; their callback was revoked.
@@ -43,7 +47,9 @@ was also cancelled without allocation after the user requested available Torch c
 Container: `/scratch/jr7309/.apptainer-images/sd-seeds-base-0b5320248.sif`.
 Its `uv.lock` and `pyproject.toml` match the source byte-for-byte; both are compared again at launch.
 The installed x86 Rust extension imports successfully. PyTorch reports
-`2.12.0a0+0291f960b6.nv26.04.48445190`. Qualification must confirm CUDA and real loader operation.
+`2.12.0a0+0291f960b6.nv26.04.48445190`. Qualification confirmed CUDA and real Rust-loader operation.
+The production harness additionally forwards Slurm's GPU visibility through the clean container environment
+and asserts that the visible GPU count equals the requested process count; training/model code is unchanged.
 
 Torch data: `/scratch/jr7309/data/om4-v2026-09/om4_onedeg`.
 Beta reference: `/projects/ny/lz1955/multiscale/jrusak/data/om4/v2026-09/om4_onedeg`.

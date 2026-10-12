@@ -36,6 +36,8 @@ export PYTHONUNBUFFERED=1 PYTHONNOUSERSITE=1 WANDB_MODE=online
 export NCCL_DEBUG=WARN TORCH_NCCL_ASYNC_ERROR_HANDLING=1
 export SAMUDRA_CODE_COMMIT="$(cat "$SOURCE_ROOT/COMMIT")"
 export SAMUDRA_CODE_REPO_URL=https://github.com/m2lines/Samudra.git
+export WANDB_GIT_COMMIT="$SAMUDRA_CODE_COMMIT"
+export WANDB_GIT_REMOTE_URL="$SAMUDRA_CODE_REPO_URL"
 export SAMUDRA_CONTAINER_IMAGE_REF="$SIF_PATH"
 export WANDB_DIR="$CAMPAIGN_ROOT/wandb/$phase-$mode"
 export NPROC="${NPROC:-2}"
@@ -45,7 +47,8 @@ mkdir -p "$APPTAINER_TMPDIR" "$WANDB_DIR" "$CAMPAIGN_ROOT/cache/$phase-$mode" "$
 scontrol show job "$SLURM_JOB_ID" > "$CAMPAIGN_ROOT/allocations/$SLURM_JOB_ID-${SLURM_RESTART_COUNT:-0}.txt"
 python3 "$CAMPAIGN_ROOT/private/send.py" --credential-file "$FOLLOWUP_CREDENTIAL" --check
 export PYTHONPATH="$SOURCE_ROOT/src"
-for name in OMP_NUM_THREADS MKL_NUM_THREADS OPENBLAS_NUM_THREADS NUMEXPR_NUM_THREADS PYTHONUNBUFFERED PYTHONNOUSERSITE WANDB_MODE WANDB_API_KEY WANDB_DIR NCCL_DEBUG TORCH_NCCL_ASYNC_ERROR_HANDLING SAMUDRA_CODE_COMMIT SAMUDRA_CODE_REPO_URL SAMUDRA_CONTAINER_IMAGE_REF PYTHONPATH NPROC SOURCE_ROOT CAMPAIGN_ROOT SLURM_JOB_ID; do
+: "${CUDA_VISIBLE_DEVICES:?Slurm must define allocated GPU visibility}"
+for name in OMP_NUM_THREADS MKL_NUM_THREADS OPENBLAS_NUM_THREADS NUMEXPR_NUM_THREADS PYTHONUNBUFFERED PYTHONNOUSERSITE WANDB_MODE WANDB_API_KEY WANDB_DIR WANDB_GIT_COMMIT WANDB_GIT_REMOTE_URL CUDA_VISIBLE_DEVICES NCCL_DEBUG TORCH_NCCL_ASYNC_ERROR_HANDLING SAMUDRA_CODE_COMMIT SAMUDRA_CODE_REPO_URL SAMUDRA_CONTAINER_IMAGE_REF PYTHONPATH NPROC SOURCE_ROOT CAMPAIGN_ROOT SLURM_JOB_ID; do
     export "APPTAINERENV_$name=${!name}"
 done
 apptainer exec --nv --cleanenv \
@@ -55,7 +58,7 @@ set -euo pipefail
 cmp "$SOURCE_ROOT/uv.lock" /workspace/uv.lock
 cmp "$SOURCE_ROOT/pyproject.toml" /workspace/pyproject.toml
 cd "$SOURCE_ROOT/experiments/score-trained-samudra-1deg"
-/workspace/.venv/bin/python -c "import torch,samudra,samudra_rust_loader; print(torch.__version__,samudra.__file__,samudra_rust_loader.__file__); print(torch.cuda.get_device_name())"
+/workspace/.venv/bin/python -c "import os,torch,samudra,samudra_rust_loader; print(torch.__version__,samudra.__file__,samudra_rust_loader.__file__); print(torch.cuda.get_device_name(),torch.cuda.device_count()); assert torch.cuda.device_count() == int(os.environ[\"NPROC\"])"
 args=()
 if [[ "$2" == qualification ]]; then export WANDB_MODE=disabled; args+=(--qualify); fi
 exec /workspace/.venv/bin/python -m torch.distributed.run --standalone --nnodes=1 --nproc-per-node="$NPROC" train_multitask.py "$CAMPAIGN_ROOT/configs/$2-$1.yaml" "${args[@]}"

@@ -1,13 +1,18 @@
 # SPDX-FileCopyrightText: 2026 Samudra Authors
 # SPDX-License-Identifier: Apache-2.0
-"""Native-quarter baseline runner, with separate reference/qualification/train modes.
+"""Native-quarter baseline and early-data runner with separate qualification/train modes.
 
 Launch qualification, qualify-replay and training with torchrun --nproc_per_node=4. Reference
 construction needs one GPU. No mode submits work. Production requires measured
 four-rank qualification from this exact producer/runtime/data/science contract.
 Qualification writes diagnostic checkpoints and QUALIFICATION_PENDING.json.
 Run qualify-replay --replay-task TASK in a separate torchrun invocation for each
-trained task. Only successful fresh-process replays publish QUALIFIED.json.
+trained path. Only successful fresh-process replays publish QUALIFIED.json.
+Early arms require recent, early and observation replay invocations. Both use
+native extent-unet processing; the latent arm adds ten recurrent channels.
+Pass report names U-early-quarter / U-early-latent-quarter with --name. Early
+and recent data intentionally share compact-source statistics and preprocessing;
+the historical 1-degree early path used a different normalization operation order.
 """
 
 import argparse
@@ -22,6 +27,7 @@ import random
 import signal
 import sys
 import time
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -48,7 +54,71 @@ from samudra.experiments.quarter_distributed import (
 )
 from samudra.experiments.task_schedule import TaskSchedule
 
-ARMS = {"u-global": (3000, 3000, "mixed"), "observation-only": (0, 6000, "scratch")}
+ARMS = {
+    "u-global": (3000, 3000, "mixed"),
+    "observation-only": (0, 6000, "scratch"),
+    "u-multitask-early": (3000, 3000, "mixed"),
+    "u-multitask-early-latent": (3000, 3000, "mixed"),
+}
+EARLY_ARMS = {"u-multitask-early": 0, "u-multitask-early-latent": 10}
+
+
+def training_paths(arm):
+    if arm in EARLY_ARMS:
+        return ["recent", "early", "observation"]
+    return ["om4", "observation"] if arm == "u-global" else ["observation"]
+
+
+def scheduled_path(arm, schedule, completed):
+    task = schedule.task(completed)
+    if arm in EARLY_ARMS and task == "om4":
+        return "early" if schedule.counts(completed)["om4"] % 2 else "recent"
+    return task
+
+
+def exposure_counts(arm, schedule, completed):
+    counts = schedule.counts(completed)
+    if arm in EARLY_ARMS:
+        counts.update(om4_recent=(counts["om4"] + 1) // 2, om4_early=counts["om4"] // 2)
+    return counts
+
+
+def path_samples(
+    path,
+    *,
+    recent_size,
+    observation_size,
+    completed_om4,
+    completed_observation,
+    rank,
+    world_size,
+):
+    """Keep the original OM4 counter/seed stream, including skipped recent indices."""
+    task = "observation" if path == "observation" else "om4"
+    samples = rank_samples(
+        task=task,
+        dataset_size=observation_size if task == "observation" else recent_size,
+        observation_size=observation_size,
+        seed=1729,
+        completed_task_updates=completed_observation
+        if task == "observation"
+        else completed_om4,
+        rank=rank,
+        world_size=world_size,
+    )
+    if path == "early":
+        samples = tuple(
+            replace(
+                sample,
+                sample_index=int(
+                    np.random.default_rng(sample.mask_seed).integers(1217)
+                ),
+            )
+            for sample in samples
+        )
+    return samples
+
+
 # Fixed for this Python process, independent of all training RNG streams.
 PROCESS_TOKEN = f"{os.uname().nodename}:{os.getpid()}:{time.monotonic_ns()}"
 RUNTIME_MODULES = frozenset(
@@ -253,6 +323,8 @@ def pilot_arguments(args):
         ]
     )
     parsed.fit_probe = args.mode != "train"
+    if args.arm in EARLY_ARMS:
+        parsed.latent_channels = EARLY_ARMS[args.arm]
     parsed.qualification = args.qualification
     parsed.selection_reference = args.selection_reference
     return parsed
@@ -287,9 +359,9 @@ def science_contract(args, pilot_args):
     ):
         raise ValueError("Native observation operator/grid hash mismatch")
     om4 = None
-    if args.arm == "u-global":
+    if args.arm != "observation-only":
         if not args.om4_data or not args.compact_audit:
-            raise ValueError("U-global requires compact OM4 source and decoder audit")
+            raise ValueError("OM4 arms require compact source and decoder audit")
         source = Path(args.om4_data)
         om4 = {
             "path": str(source.resolve()),
@@ -307,6 +379,15 @@ def science_contract(args, pilot_args):
             "retention_origins": 12,
             "decoder_audit_sha256": verify_compact_audit(args.compact_audit, source),
         }
+        if args.arm in EARLY_ARMS:
+            om4["early"] = {
+                "time": ["1958-01-03", "1974-12-31"],
+                "origins": 1217,
+                "updates": {"recent": 1500, "early": 1500},
+                "sampling": "even completed OM4 count recent; odd early; recent uses c, not c//2; early default_rng(mask_seed).integers(1217)",
+                "preprocessing": "both periods use native-to-observation state roundtrip and native forcing statistics from this compact source",
+                "historical_difference": "Historical EarlySamples directly normalized physical states to observations and used 1-degree forcing statistics; native quarter uses one unchanged QuarterOm4Windows path for both periods",
+            }
     elif args.om4_data or args.compact_audit:
         raise ValueError("Observation-only must not configure an OM4 source/audit")
     return {
@@ -396,7 +477,7 @@ def check_qualification(record, contract):
     measured_seconds = evidence["throughput"].get("seconds_per_update", 0)
     if not math.isfinite(measured_seconds) or measured_seconds <= 0:
         raise ValueError("Missing measured update throughput")
-    tasks = ["observation"] + (["om4"] if contract["arm"] == "u-global" else [])
+    tasks = training_paths(contract["arm"])
     hashes = evidence["ddp"].get("model_hashes", [])
     if len(hashes) != 4 or len(set(hashes)) != 1 or len(hashes[0]) != 64:
         raise ValueError("Missing matching measured DDP replica hashes")
@@ -421,6 +502,8 @@ def check_qualification(record, contract):
         components = ["initializer", "evolution", "completion_head"] + (
             ["adapter"] if task == "observation" else []
         )
+        if EARLY_ARMS.get(contract["arm"], 0):
+            components += ["latent_initializer_rows", "latent_evolution_rows"]
         for component in components:
             if (
                 evidence["fit"].get("gradients", {}).get(f"{task}/{component}")
@@ -429,10 +512,36 @@ def check_qualification(record, contract):
                 raise ValueError(f"Missing measured {task}/{component} gradients")
     if evidence["io"].get("observation_samples", 0) < 1:
         raise ValueError("Missing measured observation reads")
-    if "om4" in tasks and evidence["io"].get("om4_windows", 0) < 1:
+    if (
+        contract["arm"] != "observation-only"
+        and evidence["io"].get("om4_windows", 0) < 1
+    ):
         raise ValueError("Missing measured native OM4 window reads")
-    if "om4" in tasks:
+    if contract["arm"] != "observation-only":
         check_retention(evidence.get("retention", {}))
+    if contract["arm"] in EARLY_ARMS:
+        audit = evidence["io"].get("early_window_audit", {})
+        if (
+            audit.get("passed") is not True
+            or audit.get("frames") != 1241
+            or audit.get("origins") != 1217
+            or audit.get("shared_masks_statistics") is not True
+            or set(audit.get("windows", {}))
+            != {
+                "first",
+                "last",
+                "leap",
+            }
+        ):
+            raise ValueError("Missing actual first/last/leap early window audit")
+        for case in audit["windows"].values():
+            if (
+                case.get("equal_xarray") is not True
+                or case.get("six_tensors_finite") is not True
+                or case.get("reads") != 3
+                or case.get("normalization_checked") is not True
+            ):
+                raise ValueError("Incomplete early window native/xarray audit")
 
 
 def check_retention(record):
@@ -482,7 +591,7 @@ def finalize_qualification(out, contract):
     ):
         raise ValueError("Pending qualification contract/diagnostic scope differs")
     resume = pending["quarter_evidence"]["resume"]
-    tasks = ["om4", "observation"] if contract["arm"] == "u-global" else ["observation"]
+    tasks = training_paths(contract["arm"])
     if resume["tasks"] != tasks:
         raise ValueError("Pending replay tasks differ")
     paths = [out / f"qualification-replay-{task}.json" for task in tasks]
@@ -521,6 +630,225 @@ def finalize_qualification(out, contract):
     return True
 
 
+def latent_row_gradients(model):
+    """Every recurrent row must learn indirectly from physical targets."""
+    latent = getattr(model, "latent_channels", 0)
+    if not latent:
+        return {}
+    physical = model.physical_channels
+    channels = physical + latent
+    rows = list(range(physical, channels))
+    reached = {}
+    for name in ("initializer", "evolution"):
+        selected = (
+            rows + [row + channels for row in rows] if name == "initializer" else rows
+        )
+        grad = getattr(model, name).net[-1].weight.grad
+        reached[f"latent_{name}_rows"] = grad is not None and bool(
+            grad[selected].flatten(1).ne(0).any(1).all()
+        )
+    if not all(reached.values()):
+        raise ValueError(f"Missing recurrent latent output-row gradients: {reached}")
+    return reached
+
+
+def audit_early_windows(early, recent, raw):
+    """Audit three actual six-tensor windows without retaining a period cache.
+
+    The independent xarray reference reads one packed variable at one physical
+    frame at a time. At most one native request (up to eight 77-channel frames)
+    and one packed reference frame coexist on CPU. No full-period .values read.
+    This diagnostic runs on rank zero during qualification, never training.
+    """
+    if early.names != recent.names or not early.observation_normalization:
+        raise ValueError("Early/recent channels or observation normalization differ")
+    for name in (
+        "mask",
+        "boundary_mask",
+        "lat",
+        "lon",
+        "native_mean",
+        "native_std",
+        "forcing_mean",
+        "forcing_std",
+        "mean",
+        "std",
+    ):
+        torch.testing.assert_close(
+            getattr(early, name), getattr(recent, name), rtol=0, atol=0
+        )
+    np.testing.assert_allclose(early.lat.cpu().numpy(), raw.y.values, rtol=0, atol=1e-5)
+    np.testing.assert_allclose(early.lon.cpu().numpy(), raw.x.values, rtol=0, atol=1e-5)
+    for channel, name in enumerate(early.names):
+        level = int(name.rsplit("_", 1)[1]) if "_" in name else 0
+        mask = (
+            (raw.wetmask.isel(lev=level) if "wetmask" in raw else raw[f"mask_{level}"])
+            .transpose("y", "x")
+            .values
+        )
+        np.testing.assert_array_equal(
+            early.mask[channel].cpu().numpy(), mask.astype(bool)
+        )
+    gaps = [
+        index
+        for index, (left, right) in enumerate(
+            zip(early.times[:-1], early.times[1:], strict=True)
+        )
+        if (right - left).days == 6
+    ]
+    if not gaps:
+        raise ValueError("Early audit requires the published six-day leap boundary")
+    # Put the boundary between the last history frame and the first forecast.
+    leap_start = max(0, gaps[0] - 18)
+    leap = np.flatnonzero(early.origins == leap_start)
+    if len(leap) != 1:
+        raise ValueError("Early leap window is absent")
+    original = early.reader
+    windows = {}
+    # Check normalization independently at wet, dry and interior locations for
+    # every channel/time without allocating a second full native state window.
+    wet = early.mask[0].cpu().numpy().ravel()
+    points = {0, len(wet) // 2, len(wet) - 1}
+    for supported in (wet, ~wet):
+        positions = np.flatnonzero(supported)
+        if len(positions):
+            points.add(int(positions[0]))
+    yy, xx = np.unravel_index(sorted(points), early.shape)
+
+    def normalized(values, mean, std, mask):
+        mean, std = (
+            item.cpu().numpy().astype(values.dtype)[None, :, None]
+            for item in (mean, std)
+        )
+        return np.where(
+            mask.cpu().numpy(), np.nan_to_num((values - mean) / std, nan=0.0), 0.0
+        )
+
+    def state_reference(values, channels):
+        mask = early.mask[channels][..., yy, xx]
+        native = normalized(
+            values, early.native_mean[channels], early.native_std[channels], mask
+        )
+
+        def stats(name):
+            return getattr(early, name)[channels].cpu().numpy()[None, :, None]
+
+        return (
+            (native * stats("native_std") + stats("native_mean") - stats("mean"))
+            / stats("std")
+        ) * mask.cpu().numpy()
+
+    class AuditedReader:
+        reads = 0
+        maximum_bytes = 0
+
+        def __init__(self):
+            self.points = {}
+
+        def physical_indices(self, indices):
+            physical = original.physical_indices(indices)
+            np.testing.assert_array_equal(
+                raw.time.isel(time=physical).values, early.times[indices]
+            )
+            return physical
+
+        def read_unique(self, indices, *, channels):
+            values = original.read_unique(indices, channels=channels)
+            self.points[tuple(channels)] = values[..., yy, xx].numpy().copy()
+            self.reads += 1
+            self.maximum_bytes = max(
+                self.maximum_bytes, values.numel() * values.element_size()
+            )
+            selectors = [
+                name.rsplit("_", 1) if "_" in name else (name, None)
+                for name in channels
+            ]
+            for frame, physical in enumerate(indices):
+                for base in dict.fromkeys(base for base, _ in selectors):
+                    selected = [
+                        (channel, level)
+                        for channel, (name, level) in enumerate(selectors)
+                        if name == base
+                    ]
+                    field = raw[base].isel(time=int(physical))
+                    levels = [int(level) for _, level in selected if level is not None]
+                    reference = (
+                        field.isel(lev=levels).transpose("lev", "y", "x").values
+                        if levels
+                        else field.transpose("y", "x").values[None]
+                    )
+                    for position, (channel, _) in enumerate(selected):
+                        np.testing.assert_array_equal(
+                            values[frame, channel].numpy(),
+                            reference[position],
+                            err_msg=f"early {physical}/{channels[channel]}",
+                        )
+                    del reference
+            return values
+
+    try:
+        for label, index in (
+            ("first", 0),
+            ("last", len(early) - 1),
+            ("leap", int(leap[0])),
+        ):
+            reader = AuditedReader()
+            early.reader = reader
+            started = time.monotonic()
+            sample = early.model_sample([index])
+            if len(sample) != 6 or not all(
+                bool(torch.isfinite(tensor).all()) for tensor in sample
+            ):
+                raise ValueError(f"Nonfinite six-tensor early {label} window")
+            surface = state_reference(
+                reader.points[early.surface_names], early.surface_ids
+            )
+            states = state_reference(reader.points[early.names], slice(None))
+            forcing = normalized(
+                reader.points[early.forcing_names],
+                early.forcing_mean,
+                early.forcing_std,
+                early.boundary_mask[..., yy, xx],
+            )
+            for position, reference in (
+                (0, surface),
+                (1, forcing[:19]),
+                (3, states[:2]),
+                (4, forcing[18:24]),
+                (5, states[2:]),
+            ):
+                np.testing.assert_allclose(
+                    sample[position][0, ..., yy, xx].cpu().numpy(),
+                    reference,
+                    rtol=1e-6,
+                    atol=1e-6,
+                    err_msg=f"{label} tensor {position} normalization",
+                )
+            origin = int(early.origins[index])
+            windows[label] = dict(
+                origin_index=index,
+                first_time=str(early.times[origin]),
+                last_time=str(early.times[origin + 24]),
+                reads=reader.reads,
+                equal_xarray=True,
+                normalization_checked=True,
+                six_tensors_finite=True,
+                maximum_native_request_bytes=reader.maximum_bytes,
+                seconds=time.monotonic() - started,
+            )
+            del sample
+    finally:
+        early.reader = original
+    return dict(
+        passed=True,
+        windows=windows,
+        shared_masks_statistics=True,
+        frames=len(early.times),
+        origins=len(early),
+        normalization="native-to-observation roundtrip",
+    )
+
+
 class Om4Adapter:
     """Bounded six-tensor reader adapted to the existing objective/retention API."""
 
@@ -528,7 +856,7 @@ class Om4Adapter:
     lat: torch.Tensor
     mask: torch.Tensor
 
-    def __init__(self, root, data, model):
+    def __init__(self, root, data, model, *, include_early=False):
         import xarray as xr
 
         from samudra.config import Om4TimeConfig
@@ -564,6 +892,19 @@ class Om4Adapter:
 
         self.trainset = windows({"start": "1975-01-03", "end": "2013-10-04"})
         self.valset = windows({"start": "2013-08-01", "end": "2014-10-05"})
+        self.earlyset = None
+        if include_early:
+            self.earlyset = windows({"start": "1958-01-03", "end": "1974-12-31"})
+            if (
+                len(self.earlyset.times) != 1241
+                or len(self.earlyset) != 1217
+                or str(self.earlyset.times[0])[:10] != "1958-01-03"
+                or str(self.earlyset.times[-1])[:4] != "1974"
+            ):
+                raise ValueError(
+                    "Early compact source must contain 1241 frames / 1217 origins in 1958–1974"
+                )
+            np.testing.assert_array_equal(self.earlyset.origins, np.arange(1217))
         for name in ["names", "mask", "lat", "weights", "mean", "std", "device"]:
             setattr(self, name, getattr(self.trainset, name))
         if tuple(self.names) != tuple(data.grid["names"]):
@@ -584,6 +925,11 @@ class Om4Adapter:
         )
         self.rank, self.world, self.args = 0, 1, SimpleNamespace(batch_size=1)
         self.reads, self.read_seconds = 0, 0.0
+
+    def audit_early(self):
+        if self.earlyset is None:
+            raise ValueError("No early source configured")
+        return audit_early_windows(self.earlyset, self.trainset, self.datasets[0])
 
     def model_sample(self, dataset, ids):
         started = time.monotonic()
@@ -639,6 +985,10 @@ class QuarterRunner:
         self.om4 = (
             Om4Adapter(args.om4_data, self.pilot.data, self.pilot.model)
             if args.arm == "u-global"
+            else Om4Adapter(
+                args.om4_data, self.pilot.data, self.pilot.model, include_early=True
+            )
+            if args.arm in EARLY_ARMS
             else None
         )
         self.schedule = TaskSchedule(*ARMS[args.arm])
@@ -677,9 +1027,22 @@ class QuarterRunner:
     def om4_objective(self, model, batch):
         from samudra.experiments.observation_joint import om4_objective
 
-        sample, coverage = batch
+        sample, coverage, *path = batch
+        if self.om4 is None:
+            raise ValueError("Observation-only cannot request OM4")
+        data: Any = self.om4
+        if path == ["early"]:
+            if self.om4.earlyset is None:
+                raise ValueError("No early source configured")
+            data = SimpleNamespace(
+                **{
+                    name: getattr(self.om4, name)
+                    for name in ("model_sample", "mask", "names", "weights", "lat")
+                },
+                trainset=self.om4.earlyset,
+            )
         return om4_objective(
-            model, self.om4, [sample.sample_index], 0.1, sample.mask_seed, coverage, 0.1
+            model, data, [sample.sample_index], 0.1, sample.mask_seed, coverage, 0.1
         )
 
     def load(self, task, micro):
@@ -694,26 +1057,41 @@ class QuarterRunner:
                     "validity"
                 ][:, :19],
             )
+            if task == "early":
+                result += ("early",)
         self.io_seconds += time.monotonic() - start
         self.io_samples += 1
         return result
 
+    def path(self):
+        return scheduled_path(
+            getattr(self, "contract", {}).get("arm"), self.schedule, self.completed
+        )
+
+    def counts(self, completed=None):
+        return exposure_counts(
+            getattr(self, "contract", {}).get("arm"),
+            self.schedule,
+            self.completed if completed is None else completed,
+        )
+
     def update(self, task=None, fixed=False):
-        task = task or self.schedule.task(self.completed)
+        path = task or self.path()
+        arm = getattr(self, "contract", {}).get("arm")
+        allowed = training_paths(arm) if arm is not None else ["om4", "observation"]
+        if path not in allowed:
+            raise ValueError(f"Untrained path {path} for arm {arm}")
+        task = "observation" if path == "observation" else "om4"
         if task == "om4" and self.om4 is None:
             raise ValueError("Observation-only cannot request OM4")
-        # Rank-zero evaluation leaves the core in eval mode. Restore every rank
-        # explicitly before any sample loading or task forward.
         self.ddp.train()
-        count = 0 if fixed else self.schedule.counts(self.completed)[task]
-        samples = rank_samples(
-            task=task,
-            dataset_size=len(self.om4.trainset)
-            if task == "om4" and self.om4 is not None
-            else len(self.pilot.training),
+        counts = self.schedule.counts(self.completed)
+        samples = path_samples(
+            path,
+            recent_size=len(self.om4.trainset) if self.om4 is not None else 0,
             observation_size=len(self.pilot.training),
-            seed=1729,
-            completed_task_updates=count,
+            completed_om4=int(path == "early") if fixed else counts["om4"],
+            completed_observation=0 if fixed else counts["observation"],
             rank=self.rank,
             world_size=dist.get_world_size(),
         )
@@ -722,7 +1100,7 @@ class QuarterRunner:
             self.ddp,
             task,
             samples,
-            lambda micro: self.load(task, micro),
+            lambda micro: self.load(path, micro),
             autocast=lambda: torch.autocast("cuda", dtype=torch.bfloat16),
         )
         reached = {}
@@ -748,6 +1126,7 @@ class QuarterRunner:
         reached["completion_head"] = head.weight.grad is not None and bool(
             head.weight.grad[rows].count_nonzero()
         )
+        reached.update(latent_row_gradients(self.pilot.model))
         for name in ["initializer", "evolution"]:
             adapters = getattr(getattr(self.pilot.model, name), "input_adapters", None)
             if adapters is not None:
@@ -781,7 +1160,7 @@ class QuarterRunner:
                     "optimizer": self.optimizer.state_dict(),
                     "completed": self.completed,
                     "last_validated": self.last_validated,
-                    "task_counts": self.schedule.counts(self.completed),
+                    "task_counts": self.counts(),
                     "rng": rng,
                     "quarter_contract": self.contract,
                     "best": self.best,
@@ -799,7 +1178,7 @@ class QuarterRunner:
             )
         if state["quarter_contract"] != self.contract or state[
             "task_counts"
-        ] != self.schedule.counts(state["completed"]):
+        ] != self.counts(state["completed"]):
             raise ValueError("Resume contract or counters differ")
         self.pilot.model.load_state_dict(state["model"], strict=True)
         self.optimizer.load_state_dict(state["optimizer"])
@@ -818,12 +1197,19 @@ class QuarterRunner:
                 "Qualification evidence already exists; use qualify-replay or a new output"
             )
         producer_processes = process_tokens()
+        early_audit = None
+        if self.contract["arm"] in EARLY_ARMS and self.rank == 0:
+            assert self.om4 is not None
+            early_audit = self.om4.audit_early()
+        dist.barrier()
         initial = self.out / "qualification-initial.pt"
         self.checkpoint(initial)
         task_losses, reached_all = {}, {}
         task_hashes = {}
         started = time.monotonic()
-        tasks = ["observation"] + (["om4"] if self.om4 is not None else [])
+        tasks = training_paths(self.contract["arm"])
+        if self.contract["arm"] not in EARLY_ARMS:
+            tasks = list(reversed(tasks))  # Preserve baseline fit ordering.
         for task in tasks:
             self.restore(initial)
             losses = []
@@ -853,9 +1239,7 @@ class QuarterRunner:
         torch.cuda.synchronize(self.device)
         elapsed = time.monotonic() - started
         self.restore(initial)
-        replay_tasks = (
-            ["om4", "observation"] if self.om4 is not None else ["observation"]
-        )
+        replay_tasks = training_paths(self.contract["arm"])
         scheduled_update_seconds = []
         task_update_seconds: dict[str, list[float]] = {task: [] for task in tasks}
         inputs = {}
@@ -863,7 +1247,7 @@ class QuarterRunner:
         def scheduled_update():
             torch.cuda.synchronize(self.device)
             started = time.monotonic()
-            task = self.schedule.task(self.completed)
+            task = self.path()
             result = self.update()
             torch.cuda.synchronize(self.device)
             seconds = time.monotonic() - started
@@ -873,7 +1257,7 @@ class QuarterRunner:
 
         for replay_task in replay_tasks:
             # Reach each task through the real schedule, never invented counters.
-            while self.schedule.task(self.completed) != replay_task:
+            while self.path() != replay_task:
                 scheduled_update()
             before = self.out / f"qualification-resume-{replay_task}.pt"
             self.checkpoint(before)
@@ -976,6 +1360,8 @@ class QuarterRunner:
                     "rank_measurements": rank_measurements,
                 },
             }
+            if early_audit is not None:
+                evidence["io"]["early_window_audit"] = early_audit
             qualification = {
                 "diagnostic_only": True,
                 "quarter_contract": self.contract,
@@ -1022,7 +1408,7 @@ class QuarterRunner:
             "model": cpu_copy(self.pilot.model.state_dict()),
             "optimizer": cpu_copy(self.optimizer.state_dict()),
             "completed": self.completed,
-            "counts": self.schedule.counts(self.completed),
+            "counts": self.counts(),
             "rng": gather_rank_rng(cuda_device=self.device),
         }
 
@@ -1048,7 +1434,7 @@ class QuarterRunner:
             raise ValueError("Replay requires four fresh processes")
         inputs = replay_inputs(self.out, pending, task)
         self.restore(self.out / inputs["checkpoint"]["file"])
-        if self.schedule.task(self.completed) != task:
+        if self.path() != task:
             raise ValueError("Replay checkpoint next scheduled task differs")
         self.update()
         actual = self.replay_state()
@@ -1099,7 +1485,7 @@ class QuarterRunner:
                     "phase": "joint",
                     "step": self.schedule.counts(self.completed)["observation"],
                     "global_step": self.completed,
-                    "task_counts": self.schedule.counts(self.completed),
+                    "task_counts": self.counts(),
                     "quarter_contract": self.contract,
                 }
                 atomic_torch(
@@ -1117,7 +1503,7 @@ class QuarterRunner:
             atomic_json(
                 {
                     "global_step": self.completed,
-                    "task_counts": self.schedule.counts(self.completed),
+                    "task_counts": self.counts(),
                     "metrics": metrics,
                     "score": score,
                     "om4_retention": retention,
@@ -1146,7 +1532,7 @@ class QuarterRunner:
                     "reason": reason,
                     "updates": self.completed,
                     "last_validated": self.last_validated,
-                    "task_counts": self.schedule.counts(self.completed),
+                    "task_counts": self.counts(),
                     "quarter_contract": self.contract,
                     "checkpoint_sha256": digest(last),
                 },
@@ -1181,7 +1567,7 @@ class QuarterRunner:
                 self.stop_partial(reason)
                 return
             started = time.monotonic()
-            task = self.schedule.task(self.completed)
+            task = self.path()
             loss, _ = self.update()
             if self.rank == 0:
                 self.pilot.emit(
@@ -1191,7 +1577,7 @@ class QuarterRunner:
                         "task": task,
                         "loss": loss,
                         "seconds": time.monotonic() - started,
-                        **self.schedule.counts(self.completed),
+                        **self.counts(),
                     }
                 )
             reason = stop.check()
@@ -1223,7 +1609,7 @@ class QuarterRunner:
                 {
                     "updates": self.completed,
                     "global_step": self.completed,
-                    "task_counts": self.schedule.counts(self.completed),
+                    "task_counts": self.counts(),
                     "quarter_contract": self.contract,
                     "checkpoint_sha256": digest(last),
                     "best": best,
@@ -1247,18 +1633,18 @@ def main():
     parser.add_argument("--om4-data")
     parser.add_argument("--compact-audit")
     parser.add_argument("--qualification")
-    parser.add_argument("--replay-task", choices=["om4", "observation"])
+    parser.add_argument(
+        "--replay-task", choices=["om4", "recent", "early", "observation"]
+    )
     parser.add_argument("--validate-every", type=int, default=100)
     parser.add_argument("--train-hours", type=float, default=22.0)
     args = parser.parse_args()
     if (args.mode == "qualify-replay") != (args.replay_task is not None):
         parser.error("qualify-replay requires --replay-task; other modes forbid it")
-    if (
-        args.mode == "qualify-replay"
-        and args.arm == "observation-only"
-        and args.replay_task == "om4"
+    if args.mode == "qualify-replay" and args.replay_task not in training_paths(
+        args.arm
     ):
-        parser.error("Observation-only cannot replay OM4")
+        parser.error("Replay path is not trained by this arm")
     invocation_started = time.monotonic()
     if args.validate_every < 1:
         parser.error("validate-every must be positive")
@@ -1270,7 +1656,7 @@ def main():
     if args.mode == "train" and not args.qualification:
         parser.error("Production requires measured native-quarter qualification")
     configure_determinism()
-    verify_runtime(args.runtime_contract, require_om4=args.arm == "u-global")
+    verify_runtime(args.runtime_contract, require_om4=args.arm != "observation-only")
     torch.cuda.set_device(int(os.environ.get("LOCAL_RANK", "0")))
     torch.set_num_threads(1)
     dist.init_process_group("nccl", timeout=datetime.timedelta(hours=2))

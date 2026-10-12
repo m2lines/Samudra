@@ -480,8 +480,8 @@ def test_qualification_measures_actual_retention_once(monkeypatch, bad):
     assert subject.qualify_retention() is None
 
 
-def pending_fixture(tmp_path, tasks):
-    contract = {"arm": "u-global" if "om4" in tasks else "observation-only"}
+def pending_fixture(tmp_path, tasks, arm=None):
+    contract = {"arm": arm or ("u-global" if "om4" in tasks else "observation-only")}
     hashes = ["a" * 64] * 4
     inputs: dict[str, Any] = {}
     for task in tasks:
@@ -525,6 +525,16 @@ def pending_fixture(tmp_path, tasks):
             "metrics": dict(origins=12, ts_mse=1, reconstruction_ts_mse=2, full_mse=3),
         },
     }
+    if contract["arm"] in runner.EARLY_ARMS:
+        evidence["io"]["early_window_audit"] = valid_early_audit()
+        if runner.EARLY_ARMS[contract["arm"]]:
+            evidence["fit"]["gradients"].update(
+                {
+                    f"{task}/latent_{name}_rows": True
+                    for task in tasks
+                    for name in ("initializer", "evolution")
+                }
+            )
     pending = dict(
         diagnostic_only=True, quarter_contract=contract, quarter_evidence=evidence
     )
@@ -669,7 +679,7 @@ def test_production_rejects_diagnostic_weights(tmp_path):
         subject.restore(path)
 
 
-@pytest.mark.parametrize("arm", ["u-global", "observation-only"])
+@pytest.mark.parametrize("arm", list(runner.ARMS))
 def test_qualify_writes_diagnostic_expectations_but_no_final_gate(
     tmp_path, monkeypatch, arm
 ):
@@ -702,8 +712,13 @@ def test_qualify_writes_diagnostic_expectations_but_no_final_gate(
         return dict(origins=12, ts_mse=1.0, reconstruction_ts_mse=2.0, full_mse=3.0)
 
     subject.om4 = (
-        SimpleNamespace(reads=1, read_seconds=1.0, retention=retention)
-        if arm == "u-global"
+        SimpleNamespace(
+            reads=1,
+            read_seconds=1.0,
+            retention=retention,
+            audit_early=valid_early_audit,
+        )
+        if arm != "observation-only"
         else None
     )
 
@@ -723,7 +738,15 @@ def test_qualify_writes_diagnostic_expectations_but_no_final_gate(
         if not fixed:
             subject.completed += 1
         return 1 / state["step"], {
-            c: True for c in ("initializer", "evolution", "adapter", "completion_head")
+            c: True
+            for c in (
+                "initializer",
+                "evolution",
+                "adapter",
+                "completion_head",
+                "latent_initializer_rows",
+                "latent_evolution_rows",
+            )
         }
 
     subject.checkpoint, subject.restore, subject.update = checkpoint, restore, update
@@ -746,9 +769,11 @@ def test_qualify_writes_diagnostic_expectations_but_no_final_gate(
     subject.qualify()
     pending = json.loads((tmp_path / "QUALIFICATION_PENDING.json").read_text())
     assert not (tmp_path / "QUALIFIED.json").exists()
-    assert retention_calls == ([True] if arm == "u-global" else [])
+    assert retention_calls == ([True] if arm != "observation-only" else [])
     assert pending["diagnostic_only"]
     resume = pending["quarter_evidence"]["resume"]
+    assert resume["tasks"] == runner.training_paths(arm)
+    assert set(pending["quarter_evidence"]["fit"]["losses"]) == set(resume["tasks"])
     assert (
         resume["in_process_passed"]
         and not resume["passed"]
@@ -763,3 +788,352 @@ def test_qualify_writes_diagnostic_expectations_but_no_final_gate(
         )
     with pytest.raises(ValueError, match="resume"):
         runner.check_qualification(pending, subject.contract)
+
+
+@pytest.mark.parametrize(
+    "arm,latent,name",
+    [
+        ("u-multitask-early", 0, "U-early-quarter"),
+        ("u-multitask-early-latent", 10, "U-early-latent-quarter"),
+    ],
+)
+def test_early_arm_science_and_exact_exposures(tmp_path, arm, latent, name):
+    supplied = args(tmp_path, arm=arm)
+    supplied.name = name
+    actual = runner.pilot_arguments(supplied)
+    baseline = runner.pilot_arguments(args(tmp_path, arm="u-global"))
+    assert actual.name == name and actual.latent_channels == latent
+    assert (
+        actual.evolution_architecture
+        == baseline.evolution_architecture
+        == "extent-unet"
+    )
+    differing = {
+        key for key in vars(actual) if getattr(actual, key) != getattr(baseline, key)
+    }
+    assert differing <= {"name", "latent_channels"}
+    schedule = TaskSchedule(*runner.ARMS[arm])
+    paths = [runner.scheduled_path(arm, schedule, step) for step in range(6000)]
+    assert {path: paths.count(path) for path in set(paths)} == dict(
+        recent=1500, early=1500, observation=3000
+    )
+    assert [path for path in paths if path != "observation"] == [
+        "recent",
+        "early",
+    ] * 1500
+    assert runner.exposure_counts(arm, schedule, 6000) == dict(
+        om4=3000, observation=3000, om4_recent=1500, om4_early=1500
+    )
+
+
+def test_early_sampling_preserves_counter_seeds_and_global_eight():
+    for completed, path in (
+        (0, "recent"),
+        (1, "early"),
+        (98, "recent"),
+        (2999, "early"),
+    ):
+        all_samples = []
+        for rank in range(4):
+            actual = runner.path_samples(
+                path,
+                recent_size=2800,
+                observation_size=243,
+                completed_om4=completed,
+                completed_observation=20,
+                rank=rank,
+                world_size=4,
+            )
+            expected = runner.rank_samples(
+                task="om4",
+                dataset_size=2800,
+                observation_size=243,
+                seed=1729,
+                completed_task_updates=completed,
+                rank=rank,
+                world_size=4,
+            )
+            for sample, original in zip(actual, expected, strict=True):
+                assert sample.mask_seed == original.mask_seed
+                assert sample.coverage_index == original.coverage_index
+                assert sample.sample_index == (
+                    int(np.random.default_rng(original.mask_seed).integers(1217))
+                    if path == "early"
+                    else original.sample_index
+                )
+            all_samples.extend(actual)
+        assert (
+            len(all_samples) == len({sample.mask_seed for sample in all_samples}) == 8
+        )
+
+
+@pytest.mark.parametrize("missing", [None, "initializer", "evolution"])
+def test_every_latent_output_row_must_receive_gradient(missing):
+    model = SimpleNamespace(latent_channels=10, physical_channels=77)
+    for name, count in (("initializer", 174), ("evolution", 87)):
+        head = torch.nn.Conv2d(2, count, 1)
+        head.weight.grad = torch.ones_like(head.weight)
+        if name == missing:
+            head.weight.grad[86] = 0
+        setattr(model, name, SimpleNamespace(net=[head]))
+    if missing:
+        with pytest.raises(ValueError, match="output-row gradients"):
+            runner.latent_row_gradients(model)
+    else:
+        assert runner.latent_row_gradients(model) == dict(
+            latent_initializer_rows=True, latent_evolution_rows=True
+        )
+    assert runner.latent_row_gradients(SimpleNamespace()) == {}
+
+
+def test_early_objective_routes_only_dataset_and_preserves_recent(monkeypatch):
+    from samudra.experiments import observation_joint
+
+    subject: Any = object.__new__(runner.QuarterRunner)
+    source = SimpleNamespace(
+        trainset="recent",
+        earlyset="early",
+        model_sample="reader",
+        mask="mask",
+        names="names",
+        weights="weights",
+        lat="lat",
+    )
+    subject.om4 = source
+    calls = []
+    monkeypatch.setattr(
+        observation_joint, "om4_objective", lambda *values: calls.append(values)
+    )
+    micro = SimpleNamespace(sample_index=19, mask_seed=123)
+    subject.om4_objective("model", (micro, "coverage"))
+    subject.om4_objective("model", (micro, "coverage", "early"))
+    assert calls[0][1] is source and calls[1][1].trainset == "early"
+    assert source.trainset == "recent"
+    assert calls[0][2:] == calls[1][2:] == ([19], 0.1, 123, "coverage", 0.1)
+
+
+@pytest.fixture
+def early_audit_fixture():
+    import datetime
+
+    import cftime
+    import xarray as xr
+
+    from samudra.experiments.quarter_data import QuarterOm4Windows
+    from samudra.utils.data import ChannelStatistics, Masks
+
+    times = [cftime.DatetimeJulian(1960, 9, 29)]
+    # Calendar points match the published December 28 -> January 3 leap gap.
+    while times[-1] < cftime.DatetimeJulian(1961, 5, 1):
+        date = times[-1]
+        times.append(
+            date
+            + datetime.timedelta(days=6 if (date.month, date.day) == (12, 28) else 5)
+        )
+    names = ("thetao_0", "so_0", "zos")
+    channels = (*names, "tauuo", "tauvo", "hfds")
+    values = np.arange(len(times) * 6 * 6, dtype="f4").reshape(len(times), 6, 2, 3) / 17
+    values[:, :, 0, 0] = np.nan
+    mask = torch.ones(3, 2, 3, dtype=torch.bool)
+    mask[:, 0, 0] = False
+
+    def statistics(channels):
+        return ChannelStatistics(
+            np.arange(len(channels), dtype="f4") + 0.25,
+            np.arange(len(channels), dtype="f4") + 1.5,
+        )
+
+    source = SimpleNamespace(
+        data_layout=SimpleNamespace(prognostic_var_names=names),
+        time=SimpleNamespace(values=np.array(times)),
+        resolution=(torch.tensor([-45.0, 45.0]), torch.tensor([0.0, 120.0, 240.0])),
+        masks=Masks(mask, mask[0]),
+        statistics=statistics,
+    )
+
+    class Reader:
+        def __init__(self):
+            self.calls = []
+
+        def physical_indices(self, indices):
+            return indices
+
+        def read_unique(self, indices, *, channels):
+            self.calls.append((indices.copy(), channels))
+            return torch.from_numpy(
+                values[indices][
+                    :, [(*names, "tauuo", "tauvo", "hfds").index(c) for c in channels]
+                ].copy()
+            )
+
+    reader = Reader()
+    window = QuarterOm4Windows(
+        source,  # type: ignore[arg-type]
+        reader,
+        observation_statistics=ChannelStatistics(
+            np.array([3.0, 2.0, 1.0], dtype="f4"), np.array([2.0, 3.0, 4.0], dtype="f4")
+        ),
+    )
+    data = {
+        name: (("time", "lev", "y", "x"), values[:, i : i + 1])
+        if "_" in name
+        else (("time", "y", "x"), values[:, i])
+        for i, name in enumerate(channels)
+    }
+    data = {name.split("_")[0]: value for name, value in data.items()}
+    data["wetmask"] = (("lev", "y", "x"), mask[:1].numpy())
+    raw = xr.Dataset(
+        data, coords=dict(time=times, lev=[0], y=[-45.0, 45.0], x=[0.0, 120.0, 240.0])
+    )
+    return window, reader, raw
+
+
+def test_actual_early_audit_reads_first_last_leap_bounded(early_audit_fixture):
+    window, reader, raw = early_audit_fixture
+    result = runner.audit_early_windows(window, window, raw)
+    assert result["passed"] and result["shared_masks_statistics"]
+    assert result["windows"]["first"]["origin_index"] == 0
+    assert result["windows"]["last"]["origin_index"] == len(window) - 1
+    assert len(reader.calls) == 9 and window.reader is reader
+    assert [len(indices) for indices, channels in reader.calls] == [19, 8, 24] * 3
+    for case in result["windows"].values():
+        assert case["normalization_checked"] and case["reads"] == 3
+        assert case["maximum_native_request_bytes"] <= 24 * 3 * 2 * 3 * 4
+
+
+@pytest.mark.parametrize("corrupt", ["value", "mask", "time", "normalization"])
+def test_early_audit_rejects_drift_and_restores_reader(early_audit_fixture, corrupt):
+    window, reader, raw = early_audit_fixture
+    if corrupt == "value":
+        raw["thetao"][0, 0, 1, 1] += 1
+        # Raw shares fixture backing; force reader to return a discrepant plane.
+        read = reader.read_unique
+
+        def changed(indices, *, channels):
+            result = read(indices, channels=channels)
+            result[0, 0, 1, 1] += 1
+            return result
+
+        reader.read_unique = changed
+    elif corrupt == "mask":
+        raw["wetmask"][0, 1, 1] = False
+        window.mask = window.mask.clone()
+        window.mask[:, 1, 1] = True
+    elif corrupt == "time":
+        raw = raw.assign_coords(time=raw.time.values[::-1])
+    else:
+        sample = window.model_sample
+
+        def changed_sample(ids):
+            result = list(sample(ids))
+            result[0] = result[0] + 1
+            return tuple(result)
+
+        window.model_sample = changed_sample
+    with pytest.raises(AssertionError):
+        runner.audit_early_windows(window, window, raw)
+    assert window.reader is reader
+
+
+def valid_early_audit():
+    return dict(
+        passed=True,
+        frames=1241,
+        origins=1217,
+        shared_masks_statistics=True,
+        windows={
+            name: dict(
+                equal_xarray=True,
+                six_tensors_finite=True,
+                reads=3,
+                normalization_checked=True,
+            )
+            for name in ("first", "last", "leap")
+        },
+    )
+
+
+@pytest.mark.parametrize("arm", list(runner.EARLY_ARMS))
+@pytest.mark.parametrize(
+    "missing", [None, "early_audit", "normalization", "latent_rows"]
+)
+def test_early_final_gate_requires_three_restarts_and_real_audit(
+    tmp_path, arm, missing
+):
+    tasks = runner.training_paths(arm)
+    pending = pending_fixture(tmp_path, tasks, arm=arm)
+    evidence = pending["quarter_evidence"]
+    if missing == "early_audit":
+        del evidence["io"]["early_window_audit"]
+    elif missing == "normalization":
+        evidence["io"]["early_window_audit"]["windows"]["leap"][
+            "normalization_checked"
+        ] = False
+    elif missing == "latent_rows":
+        evidence["fit"]["gradients"].pop("early/latent_initializer_rows", None)
+    runner.atomic_json(pending, tmp_path / "QUALIFICATION_PENDING.json")
+    for task in tasks[:-1]:
+        runner.atomic_json(
+            replay_receipt(tmp_path, pending, task),
+            tmp_path / f"qualification-replay-{task}.json",
+        )
+        assert not runner.finalize_qualification(tmp_path, pending["quarter_contract"])
+    task = tasks[-1]
+    runner.atomic_json(
+        replay_receipt(tmp_path, pending, task),
+        tmp_path / f"qualification-replay-{task}.json",
+    )
+    failure = missing in {"early_audit", "normalization"} or (
+        missing == "latent_rows" and runner.EARLY_ARMS[arm]
+    )
+    if failure:
+        with pytest.raises(ValueError, match="early|gradients"):
+            runner.finalize_qualification(tmp_path, pending["quarter_contract"])
+        assert not (tmp_path / "QUALIFIED.json").exists()
+    else:
+        assert runner.finalize_qualification(tmp_path, pending["quarter_contract"])
+        final = json.loads((tmp_path / "QUALIFIED.json").read_text())
+        assert set(final["quarter_evidence"]["resume"]["receipts"]) == set(tasks)
+
+
+@pytest.mark.parametrize("task", ["recent", "early", "observation"])
+def test_early_fresh_replay_uses_path_and_subtype_counters(tmp_path, monkeypatch, task):
+    arm = "u-multitask-early-latent"
+    pending = pending_fixture(tmp_path, runner.training_paths(arm), arm=arm)
+    schedule = TaskSchedule(*runner.ARMS[arm])
+    completed = next(
+        index
+        for index in range(6000)
+        if runner.scheduled_path(arm, schedule, index) == task
+    )
+    expected = dict(
+        diagnostic_only=True,
+        quarter_contract=pending["quarter_contract"],
+        completed=completed + 1,
+        counts=runner.exposure_counts(arm, schedule, completed + 1),
+        model={"weights": torch.tensor(1.0)},
+        optimizer={"step": 1},
+        rng={"ranks": [torch.tensor(rank) for rank in range(4)]},
+    )
+    path = tmp_path / f"qualification-expected-{task}.pt"
+    runner.atomic_torch(expected, path)
+    pending["quarter_evidence"]["resume"]["inputs"][task]["expected"]["sha256"] = (
+        runner.digest(path)
+    )
+    runner.atomic_json(pending, tmp_path / "QUALIFICATION_PENDING.json")
+    subject: Any = object.__new__(runner.QuarterRunner)
+    subject.contract, subject.schedule = pending["quarter_contract"], schedule
+    subject.completed, subject.rank, subject.out = completed, 0, tmp_path
+    updates = []
+    subject.restore = lambda path: None
+    subject.update = lambda: updates.append(subject.path())
+    subject.replay_state = lambda: expected
+    monkeypatch.setattr(
+        runner, "process_tokens", lambda: [f"{task}{rank}" for rank in range(4)]
+    )
+    monkeypatch.setattr(runner.dist, "barrier", lambda: None)
+    subject.qualify_replay(task)
+    assert updates == [task]
+    receipt = json.loads((tmp_path / f"qualification-replay-{task}.json").read_text())
+    assert receipt["task"] == task and receipt["passed"] and receipt["diagnostic_only"]
+    assert not (tmp_path / "QUALIFIED.json").exists()

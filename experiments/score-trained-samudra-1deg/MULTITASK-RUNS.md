@@ -207,3 +207,25 @@ in epoch 70, minibatch 81/352 at 15:15; its completion callback and hourly fallb
 Both arms progressed and saved checkpoints after the quota incident. The last successful quota check
 at 14:48 showed 92.75% usage. No scientific comparison conclusion is drawn before F and paired
 held-out evaluation are complete.
+
+## October 13, 15:34 Eastern: both training arms complete; evaluation qualification
+
+F recovery 19664764 completed epoch 70 with exit 0 after 21:20:23 (42.6794 allocated RTX GPU-hours),
+and its CPU notification completed. Final/latest/EMA checkpoints were saved at 15:30 and W&B run
+3uv0p502 synchronized five files. Including the interrupted F allocation, F training used 46.6422 RTX
+GPU-hours. The F completion registration is retired. Final training-time 360-day validation CRPS is
+0.15344198 and ensemble-mean RMSE 0.33556029; these do not replace the paired held-out comparison.
+
+Paired held-out qualification jobs F19735932 and M19735934 use two RTX GPUs each, sixteen members,
+two fixed test origins and all seven leads. Evaluation source remains the immutable training snapshot
+`a4b90dfddcb11f45be0c4ab378915c916c0fd9aa`; the new Torch launcher is from `c1bc434d2`.
+Outputs are `outputs/eval-qualification-{F,M}-<job>/`. The evaluator requires final EMA epoch 70,
+strictly loads model state, records checkpoint SHA256, requires online W&B, and writes `COMPLETE.json`
+only after verifying expected row counts (1,078 per arm here). Actual execution and these artifacts
+remain to be verified. After qualification, the approved full comparison uses thirty origins and sixteen
+members; completion-task and continuous-rollout evaluation still require their adapters/qualification.
+
+Shared callback `8d36e604-ed01-4530-a17a-89d1a48775d2` authenticated from Torch. CPU notification
+19735988 has verified `afterany` dependencies on both qualification jobs. Quiet monitor
+`/root/rtx_qualification_monitor` owns the pair with an hourly reminder. No further training wave was
+submitted. Launcher shell syntax and scoped pre-commit checks passed.

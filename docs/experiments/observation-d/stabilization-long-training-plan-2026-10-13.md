@@ -3,7 +3,9 @@
 
 # Stabilize observation training, then replicate the earlier-OM4 family at longer budgets
 
-**Draft for review; no new training or evaluation is launched by this PR.**
+**Stages 1–2 approved on October 13; implementation and job status are in the
+[stability screen report](stability-screen-2026-10-13.md). Stage 3 remains provisional
+until the post-screen review.**
 The user clarified that “U-multitask” means the **earlier-OM4 family**, not the
 original regional-patch task. This plan proposes a small stabilization screen,
 then a review of follow-up stabilization/modeling tests before paired fresh runs
@@ -269,7 +271,7 @@ than introducing new variants until a favorable minimum appears.
 
 ## Implementation and execution
 
-This PR contains the plan and CI configuration; it launches no experiments.
+This PR contains the plan, CI configuration, and authorized Stage-1 implementation.
 Implementation will need: an explicit
 prefix-preserving task schedule, EMA state/evaluation, a recent-only latent
 arm, and diagnostic logging. Use the existing experiment runners and tests;
@@ -293,8 +295,8 @@ Recommended first scope is the three-treatment diagnostic screen, followed by
 a review of stabilization and modeling alternatives. The six literal models above,
 two paired seeds and 16k total updates are the provisional longer-run matrix;
 freeze or revise it at that review, including the observation-heavy schedule.
-Approval is needed before implementation/compute for this new wave; this draft itself authorizes
-none. The first long four-run pair is reviewed before releasing the remaining
+The user authorized Stages 1–2 on October 13. Additional tests and the Stage-3
+recipe will be agreed at the post-screen review. The first long four-run pair is reviewed before releasing the remaining
 models. A 20k extension, third seed, changed accumulation/mixing algorithm, modeling
 change or changed loss weights would be separate decisions. The current
 native-quarter runs are independent.

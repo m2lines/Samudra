@@ -467,6 +467,9 @@ class Pilot:
         if phase == "joint":
             prediction, initial = self.model.forecast(*arguments)
             loss = self.data.forecast_loss(prediction, sample)
+            forecast_component = loss
+            completion_component = loss.new_zeros(())
+            reconstruction_component = loss.new_zeros(())
             if completion_weight:
                 extra = completion_loss(
                     initial[:, :, self.model.initializer.surface],
@@ -475,13 +478,25 @@ class Pilot:
                     self.data.grid["lat"],
                 )
                 self.last_completion_loss = float(extra.detach())
-                loss = loss + completion_weight * extra
+                completion_component = completion_weight * extra
+                loss = loss + completion_component
             if self.args.reconstruction_weight:
                 reconstructed = self.model.reconstruct_month(
                     *arguments, sample["month_weights"]
                 )
-                loss = loss + self.args.reconstruction_weight * self.data.interior_loss(
-                    reconstructed, sample
+                reconstruction_component = (
+                    self.args.reconstruction_weight
+                    * self.data.interior_loss(reconstructed, sample)
+                )
+                loss = loss + reconstruction_component
+            observer = getattr(self, "loss_observer", None)
+            if observer is not None:
+                observer(
+                    dict(
+                        forecast=forecast_component.detach(),
+                        completion=completion_component.detach(),
+                        reconstruction=reconstruction_component.detach(),
+                    )
                 )
         else:
             reconstructed = self.model.reconstruct_month(

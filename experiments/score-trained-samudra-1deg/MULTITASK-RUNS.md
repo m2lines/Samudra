@@ -189,3 +189,21 @@ Callback `306f6f54-abc5-496a-9816-b3f2f0608220` authenticated, and CPU notificat
 verified `afterany` dependency. `/root/rtx_qualification_monitor` checks startup after ten minutes, then
 hourly, including storage and checkpoint advancement. The old F registration is retired; M's callback
 and monitor remain active. This recovery changes no scientific settings or experimental scope.
+
+## October 13, 15:15 Eastern: multitask training complete
+
+M job 19657895 completed all 70 epochs with exit 0 after 22:56:44 on gr106 (45.8911 allocated RTX
+GPU-hours). CPU notification 19657907 also completed; its delivered registration was retired.
+Epoch-70 latest, numbered, EMA and best-validation checkpoint files were saved at 15:14. Terminal
+[W&B bfjwav3j](https://wandb.ai/ocean_emulators/default/runs/bfjwav3j) sync confirmed five files; checkpoint
+contents will be read back during evaluation preparation. The exposure log contains all 70 epochs and
+197,120 contexts: 97,684 forecast (49.56%), 49,824 surface (25.28%), 24,476 variable (12.42%) and
+25,136 gap (12.75%), consistent with the approved random mixture.
+
+Final training-time annual validation is finite: normalized 360-day empirical CRPS 0.1632009 and
+ensemble-mean RMSE 0.3535590. The selection score is 0.13045144, with best selection at epoch 70.
+These are validation results, not the held-out paired comparison. F recovery 19664764 remains running
+in epoch 70, minibatch 81/352 at 15:15; its completion callback and hourly fallback remain active.
+Both arms progressed and saved checkpoints after the quota incident. The last successful quota check
+at 14:48 showed 92.75% usage. No scientific comparison conclusion is drawn before F and paired
+held-out evaluation are complete.

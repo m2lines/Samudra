@@ -49,6 +49,11 @@ Boxes: Gulf Stream 25–50°N, 80–40°W; Kuroshio 25–45°N, 125–180°E;
 ACC 65–40°S; tropics 20°S–20°N; rest excludes those four boxes. These are broad
 regional definitions, not dynamically diagnosed current boundaries.
 
+The lossless PNG maps render each grid cell as an exact **2×2 square-pixel**
+block, with nearest-neighbor rendering and pixel-aligned panel boundaries.
+Every map panel is 720×320 pixels (360 columns × 160 displayed latitude rows).
+The renderer verifies panel dimensions and uniform pixels within every cell.
+
 Maps use physical units and original per-channel wet support, with shared
 control/treatment color scales and a shared symmetric difference scale per
 variable/depth. In RMSE maps, differences are treatment minus control; blue means lower RMSE.
@@ -151,18 +156,18 @@ regional tradeoff, not adopting this auxiliary loss as a general improvement.
 
 ![Global forecast RMSE changes](lead-summary.png)
 
-Full-resolution PNG figures are retained in the local `.LOCAL/ke-analysis/figures`
-directory and the runtime artifact archive. The portable atlas below is checked
-into this experiment record.
+The full-resolution lossless PNG atlas below is checked into this experiment
+record and retained locally in `.LOCAL/ke-analysis/figures`. Open the PNG at its
+native resolution to see the exact cell-to-pixel mapping.
 
 | Field | 30-day RMSE | 180-day RMSE | 360-day RMSE | 360-day bias |
 | --- | --- | --- | --- | --- |
-| thetao | [map](maps/thetao-rmse-30d.jpg) | [map](maps/thetao-rmse-180d.jpg) | [map](maps/thetao-rmse-360d.jpg) | [map](maps/thetao-bias-360d.jpg) |
-| so | [map](maps/so-rmse-30d.jpg) | [map](maps/so-rmse-180d.jpg) | [map](maps/so-rmse-360d.jpg) | [map](maps/so-bias-360d.jpg) |
-| uo | [map](maps/uo-rmse-30d.jpg) | [map](maps/uo-rmse-180d.jpg) | [map](maps/uo-rmse-360d.jpg) | [map](maps/uo-bias-360d.jpg) |
-| vo | [map](maps/vo-rmse-30d.jpg) | [map](maps/vo-rmse-180d.jpg) | [map](maps/vo-rmse-360d.jpg) | [map](maps/vo-bias-360d.jpg) |
-| zos | [map](maps/zos-rmse-30d.jpg) | [map](maps/zos-rmse-180d.jpg) | [map](maps/zos-rmse-360d.jpg) | [map](maps/zos-bias-360d.jpg) |
+| thetao | [map](maps/thetao-rmse-30d.png) | [map](maps/thetao-rmse-180d.png) | [map](maps/thetao-rmse-360d.png) | [map](maps/thetao-bias-360d.png) |
+| so | [map](maps/so-rmse-30d.png) | [map](maps/so-rmse-180d.png) | [map](maps/so-rmse-360d.png) | [map](maps/so-bias-360d.png) |
+| uo | [map](maps/uo-rmse-30d.png) | [map](maps/uo-rmse-180d.png) | [map](maps/uo-rmse-360d.png) | [map](maps/uo-bias-360d.png) |
+| vo | [map](maps/vo-rmse-30d.png) | [map](maps/vo-rmse-180d.png) | [map](maps/vo-rmse-360d.png) | [map](maps/vo-bias-360d.png) |
+| zos | [map](maps/zos-rmse-30d.png) | [map](maps/zos-rmse-180d.png) | [map](maps/zos-rmse-360d.png) | [map](maps/zos-bias-360d.png) |
 
 Example: zonal velocity across four depths.
 
-![Zonal velocity RMSE and differences at one year](maps/uo-rmse-360d.jpg)
+![Zonal velocity RMSE and differences at one year](maps/uo-rmse-360d.png)

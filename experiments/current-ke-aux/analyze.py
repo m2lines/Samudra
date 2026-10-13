@@ -83,25 +83,89 @@ def compare(base, treatment, indices):
     )
 
 
-def draw_maps(output, grid, channels, channel_indices, lead_index, *, bias=False):
+def map_canvas(rows, shape, pixels_per_cell):
+    """Give every map an integer-aligned raster of square grid cells."""
+    if pixels_per_cell < 1:
+        raise ValueError("Map pixels per cell must be positive")
+    height, width = np.array(shape) * pixels_per_cell
+    left, right, top, bottom, gap_x, gap_y = 80, 100, 100, 65, 100, 90
+    canvas_width = left + 5 * width + 4 * gap_x + right
+    canvas_height = top + rows * height + (rows - 1) * gap_y + bottom
+    fig = plt.figure(figsize=(canvas_width / 100, canvas_height / 100), dpi=100)
+    axes, bars = [], []
+    for row in range(rows):
+        y = canvas_height - top - height - row * (height + gap_y)
+        map_row, bar_row = [], []
+        for col in range(5):
+            x = left + col * (width + gap_x)
+            map_row.append(
+                fig.add_axes(
+                    (
+                        x / canvas_width,
+                        y / canvas_height,
+                        width / canvas_width,
+                        height / canvas_height,
+                    )
+                )
+            )
+            bar_row.append(
+                fig.add_axes(
+                    (
+                        (x + width + 10) / canvas_width,
+                        (y + 20) / canvas_height,
+                        10 / canvas_width,
+                        (height - 40) / canvas_height,
+                    )
+                )
+            )
+        axes.append(map_row)
+        bars.append(bar_row)
+    return fig, axes, bars
+
+
+def verify_map_pixels(fig, axes, shape, pixels_per_cell):
+    """Check the rendered bitmap, including uniform pixels within each cell."""
+    fig.canvas.draw()
+    bitmap = np.asarray(fig.canvas.buffer_rgba())
+    ny, nx = shape
+    for row in axes:
+        for ax in row:
+            bounds = np.array(ax.get_window_extent().extents)
+            np.testing.assert_allclose(bounds, np.round(bounds), atol=1e-7, rtol=0)
+            x0, y0, x1, y1 = np.round(bounds).astype(int)
+            assert (x1 - x0, y1 - y0) == (nx * pixels_per_cell, ny * pixels_per_cell)
+            pixels = bitmap[len(bitmap) - y1 : len(bitmap) - y0, x0:x1]
+            blocks = pixels.reshape(ny, pixels_per_cell, nx, pixels_per_cell, 4)
+            np.testing.assert_array_equal(
+                blocks, np.broadcast_to(blocks[:, :1, :, :1], blocks.shape)
+            )
+
+
+def draw_maps(
+    output,
+    grid,
+    channels,
+    channel_indices,
+    lead_index,
+    *,
+    bias=False,
+    pixels_per_cell=2,
+):
     # Common physical-unit range per variable/depth, symmetric common delta range.
     loaded = {arm: dict(np.load(output / f"{arm}-ema-maps.npz")) for arm in ARMS}
     figures = output / "figures"
     figures.mkdir(exist_ok=True)
     lon = (grid["lon"] + 180) % 360 - 180
     order = np.argsort(lon)
+    visible = np.flatnonzero(np.abs(grid["lat"]) <= 80)
+    lat = grid["lat"][visible]
+    shape = (len(visible), len(lon))
     units = {"thetao": "°C", "so": "psu", "uo": "m/s", "vo": "m/s", "zos": "m"}
     for variable in ("thetao", "so", "uo", "vo", "zos"):
         selected = [i for i in channel_indices if channels[i].split("_")[0] == variable]
         if not selected:
             continue
-        fig, axes = plt.subplots(
-            len(selected),
-            5,
-            figsize=(18, 2.6 * len(selected)),
-            squeeze=False,
-            layout="constrained",
-        )
+        fig, axes, bars = map_canvas(len(selected), shape, pixels_per_cell)
         for row, channel in enumerate(selected):
             std = float(grid["std"].reshape(-1)[channel])
             arrays = {}
@@ -126,23 +190,29 @@ def draw_maps(output, grid, channels, channel_indices, lead_index, *, bias=False
                 1e-10,
             )
             for col, values in enumerate([*arrays.values(), *diffs]):
-                ax = axes[row, col]
+                ax = axes[row][col]
                 delta = col >= 3
                 vmax = delta_scale if delta else max(scale, 1e-10)
-                image = ax.pcolormesh(
-                    lon[order],
-                    grid["lat"],
-                    values,
-                    shading="auto",
+                image = ax.imshow(
+                    values[visible],
+                    origin="lower",
+                    interpolation="nearest",
+                    resample=False,
+                    aspect="equal",
                     cmap="RdBu_r" if delta or bias else "viridis",
                     vmin=-vmax if delta or bias else 0,
                     vmax=vmax,
-                    rasterized=True,
                 )
                 ax.set_facecolor("#dddddd")
-                ax.set_xlim(-180, 180)
-                ax.set_ylim(-80, 80)
-                ax.set_xticks([-180, -90, 0, 90, 180])
+                for spine in ax.spines.values():
+                    spine.set_visible(False)
+                ax.tick_params(length=0)
+                ax.set_xticks(
+                    np.linspace(-0.5, shape[1] - 0.5, 5), [-180, -90, 0, 90, 180]
+                )
+                lat_ticks = np.array([-60, -30, 0, 30, 60])
+                ax.set_yticks(np.interp(lat_ticks, lat, np.arange(len(lat))), lat_ticks)
+                ax.set_xlabel("Longitude")
                 if col == 0:
                     level = (
                         "surface"
@@ -160,7 +230,7 @@ def draw_maps(output, grid, channels, channel_indices, lead_index, *, bias=False
                             "Seasonal − control",
                         ][col]
                     )
-                fig.colorbar(image, ax=ax, shrink=0.76, label=units[variable])
+                fig.colorbar(image, cax=bars[row][col], label=units[variable])
         kind = "bias" if bias else "rmse"
         fig.suptitle(
             f"{variable}: {LEADS[lead_index]}-day nominal {kind}, final EMA; 28 starts\n"
@@ -170,23 +240,51 @@ def draw_maps(output, grid, channels, channel_indices, lead_index, *, bias=False
                 else "Blue differences = lower RMSE; gray = land; limits clipped at pooled 98th percentile"
             )
         )
-        fig.savefig(figures / f"{variable}-{kind}-{LEADS[lead_index]}d.png", dpi=140)
+        verify_map_pixels(fig, axes, shape, pixels_per_cell)
         fig.savefig(
-            figures / f"{variable}-{kind}-{LEADS[lead_index]}d.jpg",
-            dpi=75,
-            pil_kwargs={"quality": 60, "optimize": True},
+            figures / f"{variable}-{kind}-{LEADS[lead_index]}d.png",
+            dpi=100,
+            pil_kwargs={"optimize": True},
         )
         plt.close(fig)
+
+
+def draw_atlas(output, grid, channels, pixels_per_cell):
+    indices: list[int] = []
+    for target in (0, 100, 700, 2000):
+        depth_index = int(np.argmin(abs(grid["depths"] - target)))
+        indices.extend(
+            i for i, c in enumerate(channels) if c.endswith(f"_{depth_index}")
+        )
+    indices.append(channels.index("zos"))
+    indices = list(dict.fromkeys(indices))
+    for lead_index in (1, 3, 4):
+        draw_maps(
+            output, grid, channels, indices, lead_index, pixels_per_cell=pixels_per_cell
+        )
+    draw_maps(
+        output, grid, channels, indices, 4, bias=True, pixels_per_cell=pixels_per_cell
+    )
+    return indices
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--maps-only", action="store_true", help="Render cached map arrays"
+    )
+    parser.add_argument(
+        "--map-pixels", type=int, default=2, help="Square pixels per cell"
+    )
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
     grid = dict(np.load(args.input / "control-ema/grid.npz"))
     channels = grid["channels"].tolist()
+    if args.maps_only:
+        draw_atlas(args.output, grid, channels, args.map_pixels)
+        return
     masks = regions(grid["lat"], grid["lon"])
     weights = normalized_weights(grid["wet"], grid["area"], masks)
     reference = json.loads((args.input / "control-ema/COMPLETE.json").read_text())
@@ -291,17 +389,7 @@ def main():
             )
         )
     write_csv(args.output / "continuous.csv", continuous)
-    indices: list[int] = []
-    for target in (0, 100, 700, 2000):
-        depth_index = int(np.argmin(abs(grid["depths"] - target)))
-        indices.extend(
-            i for i, c in enumerate(channels) if c.endswith(f"_{depth_index}")
-        )
-    indices.append(channels.index("zos"))
-    indices = list(dict.fromkeys(indices))
-    for lead_index in (1, 3, 4):
-        draw_maps(args.output, grid, channels, indices, lead_index)
-    draw_maps(args.output, grid, channels, indices, 4, bias=True)
+    indices = draw_atlas(args.output, grid, channels, args.map_pixels)
     fig, ax = plt.subplots(figsize=(8, 4), layout="constrained")
     for arm, color in [("aligned", "#2468b4"), ("seasonal", "#c66327")]:
         for kind, style in [("ema", "-"), ("raw", "--")]:

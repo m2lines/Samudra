@@ -53,3 +53,25 @@ The new unchanged-control repetitions use the same new runtime as the treatments
 Implementation: [diagnostic runner](../../../scripts/run_observation_stability.py),
 [Slurm harness](../../../scripts/slurm_observation_stability.sbatch), and
 [isolation/migration tests](../../../tests/test_observation_stability.py).
+
+## Submitted first stage
+
+Pinned producer: `72c06e2e92d007315542c5c255bc3ad1937b3927`.
+Torch root: `/scratch/jr7309/runs/2026-10-13-observation-stability`.
+The source-only archive was verified after transfer. The source audit passed:
+both checkpoints have the expected 2,667-update optimizer state, observation
+metadata match their original manifests, and the container/runtime hashes match.
+
+| Job | Work | Dependency |
+|---|---|---|
+| 19725599 | CPU source/checkpoint/runtime audit | None; audit marker passed |
+| 19725600, array 0–1 | Fresh U-global / earlier-OM4 fit and replay qualification | Successful source audit |
+| 19725601, array 0–1 | Exact-state migration and common 3,000-update forks | Both qualifications successful |
+| 19725618 | CPU-only qualification completion callback | Qualification termination, including failure |
+
+Slurm confirmed H100 routing, the preemption comment and requeue enabled.
+These submissions do not establish that qualification or training has succeeded.
+The separate repeatability/trace jobs follow inspection of the common forks.
+A quiet callback monitor uses a two-hour queue/audit backstop; notifications
+report meaningful completion or blockers. Local validation: 45 targeted tests
+and all repository pre-commit checks passed.

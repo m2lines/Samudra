@@ -639,6 +639,16 @@ def test_a_rank_local_block_run_advances_end_to_end(face_root, caplog) -> None:
         assert trainer._loss_denominator_is_fixed
 
 
+def test_a_bf16_resident_batch_trains_like_the_fp32_one(face_root) -> None:
+    """bf16 resident labels, upcast per chunk: the run advances and nothing diverges."""
+    with MultitonScope():
+        trainer = Trainer(_block_config(face_root, **{"--replay.resident_dtype": "bfloat16"}))
+        trainer.run()
+        assert trainer.resident_dtype == torch.bfloat16
+        assert trainer._diverged_writebacks == 0
+        assert trainer._loss_denominator_is_fixed
+
+
 def test_blocks_are_chunk_aligned_runs_of_nine(face_root) -> None:
     """Each block is nine consecutive sources filling 3x3 store chunks exactly."""
     with MultitonScope():

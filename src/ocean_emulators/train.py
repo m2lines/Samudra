@@ -2,6 +2,7 @@ import contextlib
 import dataclasses
 import datetime
 import itertools
+import json
 import logging
 import math
 import multiprocessing
@@ -9,7 +10,9 @@ import os
 import shutil
 import queue
 import random
+import resource
 import signal
+import socket
 import tempfile
 import threading
 import time
@@ -120,6 +123,7 @@ from ocean_emulators.utils.data import (
 from ocean_emulators.utils.device import using_gpu
 from ocean_emulators.utils.distributed import (
     all_reduce_mean,
+    any_rank,
     get_rank,
     get_world_size,
     is_main_process,
@@ -1194,6 +1198,7 @@ class Trainer:
         self.lr_warmup_steps = 0
         self.lr_warmup_start_factor = cfg.lr_warmup_start_factor
         self._lr_warmup_applied = 1.0
+        self._lr_warmup_origin = 0
         self.lr_multipliers = cfg.lr_multipliers
         self.lr_multiplier_transition = cfg.lr_multiplier_transition
         self.use_lr_multipliers = (
@@ -1314,6 +1319,9 @@ class Trainer:
                             but wandb is not enabled now!"
                     )
             loaded_checkpoint = True
+            if cfg.restart_lr_warmup_on_resume and not cfg.finetune:
+                self._lr_warmup_origin = self.num_batches_seen
+                logger.info("LR warmup restarts at resumed step %d.", self._lr_warmup_origin)
         else:
             self.start_epoch = 1
             self.start_batch_in_epoch = 0
@@ -1331,6 +1339,16 @@ class Trainer:
         self._active_epoch: int | None = None
         self._last_completed_batch_in_epoch = -1
         self._finished = False
+
+        if cfg.compile_model:
+            # Checkpointing compiles each block shape separately; the default limit of 8 falls back to eager.
+            torch._dynamo.config.cache_size_limit = max(64, torch._dynamo.config.cache_size_limit)
+            torch._dynamo.config.accumulated_cache_size_limit = max(
+                512, torch._dynamo.config.accumulated_cache_size_limit
+            )
+            # In place, so state_dict keys and the EMA's parameter names stay the same.
+            self.model.compile()
+            logger.info("Model compiled in place with nn.Module.compile().")
 
         # The DP model was distributed before optimizer/checkpoint/EMA setup so
         # all of them reference the final DTensor parameters.
@@ -1418,6 +1436,11 @@ class Trainer:
         self.save_freq = cfg.save_freq
         self.output_dir = cfg.experiment.output_dir
         self.debug = cfg.debug
+        self.rank_timing = cfg.rank_timing and torch.cuda.is_available()
+        self.resident_dtype = getattr(torch, cfg.replay.resident_dtype)
+        self._step_events: dict[str, torch.cuda.Event] = {}
+        self._step_started = 0.0
+        self._timing_file = None
         self.surface_snapshot: bool = cfg.surface_snapshot
 
         # Validation
@@ -2040,7 +2063,7 @@ class Trainer:
                     batch_in_epoch=global_data_iter_step,
                 )
 
-            if self._stop_requested and sync_gradients:
+            if sync_gradients and self._stop_agreed():
                 reason = self._stop_reason or "stop requested"
                 self.save_emergency_checkpoint(
                     epoch=epoch,
@@ -2210,6 +2233,7 @@ class Trainer:
                         self._nonfinite_grad_steps,
                     )
                 self.optimizer.zero_grad()
+            self._write_rank_timing(prepared, metric_logger)
 
             # The optimizer, not the scheduler: a scheduler reports what it
             # assigned, which during warmup is not what the step will use.
@@ -2311,7 +2335,7 @@ class Trainer:
                     batch_in_epoch=global_data_iter_step,
                 )
 
-            if self._stop_requested and sync_gradients:
+            if sync_gradients and self._stop_agreed():
                 reason = self._stop_reason or "stop requested"
                 self.save_emergency_checkpoint(
                     epoch=epoch,
@@ -2616,7 +2640,7 @@ class Trainer:
                     dataset, transition, entry, prognostic_state=state
                 )
                 inputs.append(input)
-                labels.append(label)
+                labels.append(label.to(getattr(self, "resident_dtype", label.dtype)))
             cursors.append(slot.cursor)
 
         seed_entries: dict[int, ReplayEntry] = {}
@@ -3091,7 +3115,7 @@ class Trainer:
         if not self.lr_warmup_steps:
             return
         target = linear_warmup_factor(
-            self.num_batches_seen,
+            self.num_batches_seen - getattr(self, "_lr_warmup_origin", 0),
             self.lr_warmup_steps,
             self.lr_warmup_start_factor,
         )
@@ -3173,6 +3197,7 @@ class Trainer:
         Syncing per chunk would all-reduce the full parameter set three times
         per face advance for no benefit.
         """
+        self._mark_step("start", reset=True)
         spans = self._microbatch_spans(data)
         samples = data.get_input(0).shape[0]
         sample_weight = self._batch_wet_weight(prepared.request.train_slots)
@@ -3202,12 +3227,15 @@ class Trainer:
                     pred = self._blend_microbatch_predictions(pred, prepared)
                 loss_per_channel = self.train_loss_fn(
                     pred,
-                    chunk.get_label(0),
+                    chunk.get_label(0).float(),
                     sample_weight=(
                         None if sample_weight is None else sample_weight[start:stop]
                     ),
                 )
                 loss = torch.mean(loss_per_channel)
+                if sync_now:
+                    # Everything before the synced backward is local, so this splits compute from sync.
+                    self._mark_step("pre_sync")
                 (loss * share / scale).backward()
 
             # Detached: the blend and the buffer write-back that consume these
@@ -5422,7 +5450,7 @@ class Trainer:
             assert masks is not None
             denominator, gradient_z = face_wide_loss_norms(
                 self.domain_wet.cpu(),
-                masks.to(dtype=torch.float32),
+                masks,
                 face_tiles=masks.shape[0],
                 rank_tiles=self._block_tiles_per_row,
             )
@@ -5768,6 +5796,63 @@ class Trainer:
 
         for signum in handled_signals:
             signal.signal(signum, self._handle_signal)
+
+    def _mark_step(self, name: str, *, reset: bool = False) -> None:
+        """Record a CUDA timing event for `rank_timing`."""
+        if not getattr(self, "rank_timing", False):
+            return
+        if reset:
+            self._step_events = {}
+            self._step_started = time.perf_counter()
+        event = torch.cuda.Event(enable_timing=True)
+        event.record()
+        self._step_events[name] = event
+
+    def _write_rank_timing(self, prepared, metric_logger) -> None:
+        """Append this rank's step timings to <output_dir>/rank_timing/rank{r}.jsonl."""
+        if not getattr(self, "rank_timing", False):
+            return
+        self._mark_step("end")
+        events = self._step_events
+        events["end"].synchronize()
+
+        def seconds(first: str, last: str) -> float | None:
+            if first not in events or last not in events:
+                return None
+            return events[first].elapsed_time(events[last]) / 1000
+
+        load_stats = getattr(prepared, "load_stats", None)
+        free, total = torch.cuda.mem_get_info()
+        record = {
+            "step": self.num_batches_seen,
+            "rank": get_rank(),
+            "host": socket.gethostname(),
+            "compute_s": seconds("start", "pre_sync"),
+            "tail_s": seconds("pre_sync", "end"),
+            "body_s": time.perf_counter() - self._step_started,
+            "data_wait_s": metric_logger.meters["data_wait_time"].value,
+            "data_load_s": None if load_stats is None else load_stats.load_time_seconds,
+            "max_rss_gb": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024**2,
+            # Peaks since the logger's per-step reset, so they are this step's.
+            "gpu_alloc_gib": torch.cuda.max_memory_allocated() / 2**30,
+            "gpu_reserved_gib": torch.cuda.max_memory_reserved() / 2**30,
+            "gpu_free_gib": free / 2**30,
+            "gpu_total_gib": total / 2**30,
+            "t": time.time(),
+        }
+        if self._timing_file is None:
+            path = self.output_dir / "rank_timing" / f"rank{get_rank():03d}.jsonl"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            self._timing_file = open(path, "a")
+        self._timing_file.write(json.dumps(record) + "\n")
+        self._timing_file.flush()
+
+    def _stop_agreed(self) -> bool:
+        """Whether any rank was asked to stop, so every rank stops at the same step."""
+        if any_rank(self._stop_requested, self.device) and not self._stop_requested:
+            self._stop_requested = True
+            self._stop_reason = "stop requested on another rank"
+        return self._stop_requested
 
     def _handle_signal(self, signum: int, _frame: Any) -> None:
         if self._stop_requested:
@@ -6222,6 +6307,8 @@ class Trainer:
         self._finished = True
         if self.executor is not None:
             self.executor.shutdown()
+        if self._timing_file is not None:
+            self._timing_file.close()
         self.wandb_logger.finish()
 
 

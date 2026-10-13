@@ -123,24 +123,20 @@ class EMATracker:
             )
         self.cur_decay = decay
         with torch.no_grad():
-            module_parameters = dict(model.named_parameters())
-
-            for key in module_parameters:
+            averages, params = [], []
+            for key, param in model.named_parameters():
                 ema_name = self._get_ema_name(key)
-                if module_parameters[key].requires_grad:
-                    self._ema_params[ema_name] = self._ema_params[ema_name].type_as(
-                        module_parameters[key]
-                    )
-                    # EMA_params = decay * EMA_params + (1 - decay) * model_params
-                    self._ema_params[ema_name].sub_(
-                        (1.0 - decay)
-                        * (self._ema_params[ema_name] - module_parameters[key])
-                    )
+                if param.requires_grad:
+                    self._ema_params[ema_name] = self._ema_params[ema_name].type_as(param)
+                    averages.append(self._ema_params[ema_name])
+                    params.append(param)
                 elif ema_name in self._ema_params:
                     raise ValueError(
                         f"Expected model parameter {key} to require gradient, "
                         "but it does not"
                     )
+            # EMA_params = decay * EMA_params + (1 - decay) * model_params, in one foreach call.
+            torch._foreach_lerp_(averages, params, 1.0 - float(decay))
 
     def copy_to(self, model: BaseModel | nn.parallel.DistributedDataParallel):
         """

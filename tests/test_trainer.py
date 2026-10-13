@@ -294,6 +294,25 @@ def test_step_warmup_scales_without_compounding_previous_factors():
     assert trainer.optimizer.param_groups[0]["lr"] == pytest.approx(0.1)
 
 
+def test_step_warmup_can_restart_at_the_resumed_step():
+    """A resume at step 1000 with restart_lr_warmup_on_resume ramps over steps 1001-1010."""
+    parameter = torch.nn.Parameter(torch.zeros(1))
+    trainer = Trainer.__new__(Trainer)
+    trainer.optimizer = torch.optim.SGD([parameter], lr=0.1)
+    trainer.lr_warmup_steps = 10
+    trainer.lr_warmup_start_factor = 0.5
+    trainer._lr_warmup_applied = 1.0
+    trainer._lr_warmup_origin = 1000
+
+    trainer.num_batches_seen = 1001
+    trainer._apply_lr_warmup()
+    assert trainer.optimizer.param_groups[0]["lr"] == pytest.approx(0.05)
+
+    trainer.num_batches_seen = 1010
+    trainer._apply_lr_warmup()
+    assert trainer.optimizer.param_groups[0]["lr"] == pytest.approx(0.1)
+
+
 def test_step_warmup_is_removed_before_cosine_advances_an_epoch():
     parameter = torch.nn.Parameter(torch.zeros(1))
     trainer = Trainer.__new__(Trainer)

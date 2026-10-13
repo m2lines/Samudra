@@ -30,7 +30,11 @@ from ocean_emulators.tiling import (
     ownership_masks,
     tile_catalog_from_windows,
 )
-from ocean_emulators.utils.loss import decomposed_mse
+from ocean_emulators.utils.loss import (
+    decomposed_mse,
+    gradient_z_norms,
+    weighted_channel_denominator,
+)
 from ocean_emulators.utils.multiton import MultitonScope
 
 EXTENT = 240
@@ -353,6 +357,26 @@ def test_rank_local_loss_and_gradient_scale_do_not_depend_on_world_size(
     assert ddp_mean.item() == pytest.approx(1.0)
     assert parameter.grad is not None
     assert parameter.grad.item() == pytest.approx(2.0)
+
+
+@pytest.mark.parametrize("face_tiles", [18, 19])
+def test_chunked_loss_norms_equal_the_unchunked_ones(face_tiles: int) -> None:
+    """Nine-tile chunks give the same constants, including a one-tile remainder."""
+    generator = torch.Generator().manual_seed(3)
+    with MultitonScope():
+        TensorMap.init_instance("single_2", "single")
+        wet = torch.rand(2, 5, 5, generator=generator) > 0.2
+        masks = torch.rand(face_tiles, 2, 5, 5, generator=generator) > 0.3
+        denominator, norms = face_wide_loss_norms(
+            wet, masks, face_tiles=face_tiles, rank_tiles=9
+        )
+        share = 9 / face_tiles
+        expected = weighted_channel_denominator(wet=wet, batch=face_tiles, extra_weight=masks)
+        expected_norms = gradient_z_norms(wet=wet, batch=face_tiles, sample_weight=masks)
+    torch.testing.assert_close(denominator, (expected.double() * share).float())
+    torch.testing.assert_close(norms.count_by_time, expected_norms.count_by_time * share)
+    for variable, cells in expected_norms.valid_cells.items():
+        torch.testing.assert_close(norms.valid_cells[variable], cells)
 
 
 def _norm_worker(rank: int, world_size: int, port: str, queue) -> None:

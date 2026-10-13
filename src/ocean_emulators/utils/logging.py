@@ -2,6 +2,7 @@ import datetime
 import functools
 import logging
 import math
+import os
 import resource
 import sys
 import time
@@ -33,17 +34,18 @@ def handle_logging(debug: bool, output_dir: Path):
     stdout_handler.setFormatter(fmt)
     logger.addHandler(stdout_handler)
 
+    # Only global rank 0 writes the shared log files; every rank still logs to stdout.
+    if int(os.environ.get("RANK", "0")) != 0:
+        return
+
     # Add experiment log file handler
-    experiment_log_path = output_dir / "experiment.log"
-    experiment_handler = logging.FileHandler(experiment_log_path)
-    experiment_handler = logging.FileHandler(experiment_log_path)
+    experiment_handler = logging.FileHandler(output_dir / "experiment.log")
     experiment_handler.setLevel(logging.INFO)  # Capture info and above
     experiment_handler.setFormatter(fmt)
     logger.addHandler(experiment_handler)
 
     # Add separate error log file handler
-    error_log_path = output_dir / "error.log"
-    error_handler = logging.FileHandler(error_log_path)
+    error_handler = logging.FileHandler(output_dir / "error.log")
     error_handler.setLevel(logging.WARNING)  # Capture warnings and errors
     error_handler.setFormatter(fmt)
     logger.addHandler(error_handler)

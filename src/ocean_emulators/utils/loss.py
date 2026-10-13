@@ -127,6 +127,7 @@ def weighted_channel_denominator(
     spatial_weight: torch.Tensor | None = None,
     extra_weight: torch.Tensor | None = None,
     dtype: torch.dtype = torch.float32,
+    chunk: int | None = None,
 ) -> torch.Tensor:
     """The denominator `_weighted_channel_mean` would derive for this batch.
 
@@ -136,11 +137,15 @@ def weighted_channel_denominator(
     over its own cells and the pieces cannot be added, whereas
     ``numerator_chunk / D`` sums to ``numerator_total / D`` exactly.
     """
-    weight = _channel_weight(
-        dtype, wet=wet, spatial_weight=spatial_weight, extra_weight=extra_weight
+    # `chunk` sums `chunk` samples at a time, so a large extra_weight never becomes one float copy.
+    parts = [extra_weight] if extra_weight is None or chunk is None else extra_weight.split(chunk)
+    weight_sum = sum(
+        _channel_weight(
+            dtype, wet=wet, spatial_weight=spatial_weight, extra_weight=part
+        ).sum(dim=(0, 2, 3))
+        for part in parts
     )
-    weight_sum = weight.sum(dim=(0, 2, 3))
-    if weight.shape[0] == 1:
+    if extra_weight is None or extra_weight.shape[0] == 1:
         return weight_sum.clamp_min(1e-8) * batch
     return weight_sum.clamp_min(1e-8)
 
@@ -485,6 +490,7 @@ def gradient_z_norms(
     sample_weight: torch.Tensor | None = None,
     dtype: torch.dtype = torch.float32,
     reduce: Callable[[torch.Tensor], torch.Tensor] | None = None,
+    chunk: int | None = None,
 ) -> GradientZNorms:
     """Denominators `gradient_z_l1_loss` would derive, over a whole domain.
 
@@ -513,25 +519,33 @@ def gradient_z_norms(
         if indices.numel() < 2:
             continue
         lower, upper = indices[:-1], indices[1:]
-        weight = _gradient_z_weight(
-            midpoint_weight=_gradient_z_midpoint_weight(
-                wet=wet,
-                spatial_weight=spatial_weight,
-                variable=variable,
-                lower=lower,
-                upper=upper,
-                num_times=num_times,
-                num_vars=num_vars,
-                dtype=dtype,
-            ),
-            sample_weight=sample_weight,
+        midpoint_weight = _gradient_z_midpoint_weight(
+            wet=wet,
+            spatial_weight=spatial_weight,
+            variable=variable,
             lower=lower,
             upper=upper,
             num_times=num_times,
             num_vars=num_vars,
-            batch=batch,
+            dtype=dtype,
         )
-        cells = weight.sum(dim=(0, 3, 4))
+        # `chunk` sums sample_weight `chunk` samples at a time, as in weighted_channel_denominator.
+        if sample_weight is None or chunk is None:
+            pieces = [(sample_weight, batch)]
+        else:
+            pieces = [(part, part.shape[0]) for part in sample_weight.split(chunk)]
+        cells = sum(
+            _gradient_z_weight(
+                midpoint_weight=midpoint_weight,
+                sample_weight=part,
+                lower=lower,
+                upper=upper,
+                num_times=num_times,
+                num_vars=num_vars,
+                batch=rows,
+            ).sum(dim=(0, 3, 4))
+            for part, rows in pieces
+        )
         if reduce is not None:
             cells = reduce(cells)
         valid_cells[variable] = cells

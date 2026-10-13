@@ -1108,6 +1108,13 @@ class ReplayConfig(BaseConfig):
             "transition epochs."
         ),
     )
+    resident_dtype: Literal["float32", "bfloat16"] = Field(
+        default="float32",
+        description=(
+            "Dtype of the GPU-resident microbatch labels, upcast per chunk for the loss. "
+            "bfloat16 is lossless when replay transport is bf16 (storage_dtype auto + bf16)."
+        ),
+    )
     storage_dtype: Literal["auto", "float16", "bfloat16", "float32"] = Field(
         default="auto",
         description=(
@@ -1387,7 +1394,28 @@ class TrainConfig(TopLevelConfig):
             "and the scheduler's epoch position are preserved."
         ),
     )
+    restart_lr_warmup_on_resume: bool = Field(
+        default=False,
+        description=(
+            "Count lr_warmup_steps from the resumed step rather than step 0, so a "
+            "resume can ramp into a new learning_rate (start at lr_warmup_start_factor)."
+        ),
+    )
     debug: bool = False
+    compile_model: bool = Field(
+        default=False,
+        description=(
+            "Compile the model in place with nn.Module.compile(); checkpoint keys "
+            "are unchanged. Adds compile time at startup."
+        ),
+    )
+    rank_timing: bool = Field(
+        default=False,
+        description=(
+            "Write each rank's per-step compute, sync-tail and data timings to "
+            "<output_dir>/rank_timing/rank{r}.jsonl, to find slow GPUs and readers."
+        ),
+    )
     surface_snapshot: bool = Field(
         default=False,
         description=(

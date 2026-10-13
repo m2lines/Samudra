@@ -144,6 +144,8 @@ def _validation_signature(raw: Mapping[str, Any]) -> dict[str, Any]:
         "rust_read_threads",
         "concurrent_compute",
         "loader_backend",
+        # Training windows (face or rank-local blocks); the validator scores the face with its own.
+        "llc_tiles",
     ):
         data.pop(key, None)
 

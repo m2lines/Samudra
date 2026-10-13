@@ -155,6 +155,15 @@ def init_distributed_mode(timeout_minutes: int = 60) -> DistributedConfig:
     return cfg
 
 
+def any_rank(flag: bool, device) -> bool:
+    """True on every rank if it is true on any rank."""
+    if get_world_size() == 1:
+        return flag
+    value = torch.tensor([float(flag)], device=device)
+    dist.all_reduce(value, op=dist.ReduceOp.MAX)
+    return bool(value.item())
+
+
 def all_reduce_mean(x):
     world_size = get_world_size()
     if world_size > 1:

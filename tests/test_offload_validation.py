@@ -19,6 +19,7 @@ from ocean_emulators.offload_validate import (
     validate_snapshot,
     validation_config_mismatches,
 )
+from ocean_emulators.tiling import block_tile_windows, face_tile_windows
 from ocean_emulators.train import Trainer
 from ocean_emulators.utils.multiton import MultitonScope
 from tests.test_face_training_e2e import _face_config, face_root
@@ -50,6 +51,16 @@ def _run_and_validator_configs(tmp_path):
 
 def test_config_guard_accepts_runtime_and_branch_only_differences(tmp_path):
     run, validator = _run_and_validator_configs(tmp_path)
+    assert validation_config_mismatches(run, validator) == []
+
+
+def test_config_guard_accepts_the_rental_run_against_the_face_validator(tmp_path):
+    """Block windows, compile and bf16 labels change training only; the validator scores the face."""
+    run, validator = _run_and_validator_configs(tmp_path)
+    run["data"]["llc_tiles"] = [list(w) for w in block_tile_windows(1, extent=96, tile=16, overlap=2)]
+    run["compile_model"] = True
+    run["replay"]["resident_dtype"] = "bfloat16"
+    validator["data"]["llc_tiles"] = [list(w) for w in face_tile_windows(1, extent=96, tile=16, overlap=2)]
     assert validation_config_mismatches(run, validator) == []
 
 

@@ -528,11 +528,12 @@ def face_wide_loss_norms(
         weighted_channel_denominator,
     )
 
+    # Nine tiles at a time, so all of a face's block masks are never one float copy.
     local = weighted_channel_denominator(
-        wet=wet, batch=face_tiles, extra_weight=sample_weight
+        wet=wet, batch=face_tiles, extra_weight=sample_weight, chunk=9
     )
     norms = gradient_z_norms(
-        wet=wet, batch=face_tiles, sample_weight=sample_weight, reduce=None
+        wet=wet, batch=face_tiles, sample_weight=sample_weight, reduce=None, chunk=9
     )
     rank_share = rank_tiles / face_tiles
     return (

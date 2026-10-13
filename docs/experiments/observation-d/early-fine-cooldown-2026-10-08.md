@@ -158,6 +158,26 @@ constant-rate parents; these are not isolated causal estimates of LR decay.
 
 ## Validation curves
 
+### RMSE-only comparison
+
+The following figure rescales the five physical validation errors by the same
+frozen climatology denominators as the 4k/6k RMSE plots, excluding spectra.
+It compares all five cooldown runs with their original constant-rate parents.
+The 75 saved post-fork validation events were checked against the common
+reference; no models were rerun and checkpoint selection is unchanged.
+
+![RMSE-only cooldown and parent validation](artifacts/cooldown-rmse-2026-10-13/rmse-validation-cooldown.png)
+
+[PDF](artifacts/cooldown-rmse-2026-10-13/rmse-validation-cooldown.pdf) ·
+[RMSE values](artifacts/cooldown-rmse-2026-10-13/rmse-validation-cooldown.csv) ·
+[Saved physical metrics, references and source hashes](artifacts/cooldown-rmse-2026-10-13/source.json.gz).
+Reproduce with `scripts/plot_cooldown_rmse.py`. Each panel has its own vertical
+scale. Fork is at update 2,667; linear decay starts after 3,000 and reaches
+1e-6 at 4,000. The pre-decay divergence and U-global runtime change described
+above mean these are not isolated estimates of the learning-rate effect.
+
+### Original integrated-plus-spectral comparison
+
 Each panel pairs the same model and seed under the two learning-rate schedules.
 Dotted lines mark the update-2,667 fork; dashed lines mark the start of decay
 at update 3,000. Stars indicate validation-selected checkpoints. The inherited

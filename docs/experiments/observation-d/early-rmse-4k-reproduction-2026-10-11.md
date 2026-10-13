@@ -108,6 +108,8 @@ shown. Early variants use seed 1729. The 6k schedule is stretched, so its update
 [Curve inventory and source hash](artifacts/early-rmse-by-budget-2026-10-13/provenance.json.gz).
 Reproduce with `scripts/plot_early_rmse_by_budget.py` using the validation CSV below.
 
+[Separate RMSE-only cooldown curves and matched parents](early-fine-cooldown-2026-10-08.md#rmse-only-comparison) show the additional 4k cooldown experiments.
+
 ### Cross-budget and reproduction views
 
 The complete comparison contains **722 verified validation events across 14

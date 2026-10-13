@@ -34,6 +34,7 @@ class Samudra(BaseModel):
         grid_size: GridSize,
         gradient_detach_interval: int,
         use_bfloat16: bool,
+        auxiliary_ke_outputs: int = 0,
     ):
         super().__init__(
             in_channels=in_channels,
@@ -56,10 +57,45 @@ class Samudra(BaseModel):
         self.decoder = nn.Conv2d(unet.out_channels, out_channels, last_kernel_size)
 
         self.use_bfloat16 = use_bfloat16
+        self.auxiliary_head = None
+        if auxiliary_ke_outputs:
+            # Preserve shared weights and the subsequent sampler RNG sequence.
+            with torch.random.fork_rng(devices=[]):
+                torch.random.default_generator.manual_seed(271828)
+                self.auxiliary_head = nn.Conv2d(
+                    unet.out_channels, auxiliary_ke_outputs, 1
+                )
 
     def forward_once(
         self, prognostic: Prognostic, boundary: Boundary, ctx: BatchGrid
     ) -> Prognostic:
+        fts = self.forward_features(prognostic, boundary, ctx)
+        return torch.where(ctx.label_mask, self.decoder(fts), 0.0)
+
+    def forward_training_step(self, prognostic, boundary, batch, step):
+        if self.auxiliary_head is None:
+            raise ValueError("Auxiliary targets require the KE head")
+        fts = self.forward_features(prognostic, boundary, batch.ctx)
+        prediction = torch.where(batch.ctx.label_mask, self.decoder(fts), 0.0)
+        interior = (
+            fts[:, :, self.N_pad : -self.N_pad, self.N_pad : -self.N_pad]
+            if self.N_pad
+            else fts
+        )
+        auxiliary = self.auxiliary_head(interior)
+        target = batch.auxiliary_targets[step]
+        if auxiliary.shape != target.shape:
+            raise ValueError("KE head and target shapes differ")
+        loss = (
+            ((auxiliary - target).square() * batch.auxiliary_weights)
+            .sum((-2, -1))
+            .mean()
+        )
+        return prediction, loss
+
+    def forward_features(
+        self, prognostic: Prognostic, boundary: Boundary, ctx: BatchGrid
+    ) -> torch.Tensor:
         # Samudra is a single-scale model; fuse prognostic + boundary into
         # the single channel-stacked input its backbone expects.
         fts = torch.cat((prognostic, boundary), dim=1)
@@ -84,6 +120,4 @@ class Samudra(BaseModel):
         # TODO(jder): would be nice to keep inputs in bfloat16 and
         # have the convolution use float32 internally & in output dtype.
         fts = fts.to(torch.float32)
-        fts = self.decoder(fts)
-
-        return torch.where(ctx.label_mask, fts, 0.0)
+        return fts

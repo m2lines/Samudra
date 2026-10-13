@@ -145,6 +145,14 @@ def test_shared_pipeline_accepts_an_independent_bulk_reader(
     monkeypatch.setattr(loader, "_prepare_batch", record_prepare)
     try:
         for actual, indices in zip(loader, schedule, strict=True):
+            plan = windows(native).window_plan(indices)
+            for times, planned in zip(actual.label_times, plan.steps, strict=True):
+                np.testing.assert_array_equal(
+                    times,
+                    planned.label.source.time.values[
+                        planned.label.request.time_indices
+                    ],
+                )
             expected = reference.to_model_batch(
                 collate_host_batches([reference[index] for index in indices]),
                 torch.device("cpu"),

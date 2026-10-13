@@ -18,6 +18,11 @@ concurrency:
 
 jobs:
   test-rust-loader:
+    if: >-
+      github.event_name != 'pull_request' || (
+        !startsWith(github.head_ref, 'experiment/') &&
+        !contains(github.event.pull_request.labels.*.name, 'experiment')
+      )
     strategy:
       fail-fast: false
       matrix:

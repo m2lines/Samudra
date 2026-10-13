@@ -216,6 +216,12 @@ def build_om4_layout(
     boundary_vars_key: str = "tau_hfds",
     grid_type: GridType = "gaussian",
 ) -> DataLayout:
+    """Build an OM4 layout from named prognostic and boundary presets.
+
+    Add a preset here for different channels on otherwise OM4-compatible data.
+    For another depth grid or dataset convention, construct a separate
+    ``DataLayout`` in a source adapter.
+    """
     return DataLayout(
         depth_levels=(
             2.5,

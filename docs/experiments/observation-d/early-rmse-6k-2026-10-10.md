@@ -128,6 +128,9 @@ select checkpoints. Training losses remain unchanged.
 
 ## Diagnostics
 
+[All U-global seeds and early variants, in separate 4k and 6k figures](early-rmse-4k-reproduction-2026-10-11.md#all-u-global-seeds-and-early-variants-separated-by-budget)
+include full training and final-1,000-update views on the same RMSE-only scale.
+
 Validation ran every 100 total updates and at saved observation-exposure
 milestones. The blend is plotted against both total and observation updates;
 component, dynamics and retention curves use total updates. SST diagnostics use

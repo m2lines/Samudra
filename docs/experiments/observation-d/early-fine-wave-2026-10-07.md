@@ -3,6 +3,9 @@
 
 # Earlier OM4, fine encoder/decoder, and recurrent memory
 
+[RMSE-only validation curves for U-global and every early variant, separated into 4k and 6k figures](early-rmse-4k-reproduction-2026-10-11.md#all-u-global-seeds-and-early-variants-separated-by-budget)
+include the available baseline seeds and original/reproduction executions.
+
 This four-arm wave tests whether
 broader temporal coverage helps observation forecasts, whether learning from
 fine-resolution examples improves transfer, and whether fine supervision makes

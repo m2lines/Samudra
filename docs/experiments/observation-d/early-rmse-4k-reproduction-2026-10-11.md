@@ -86,6 +86,30 @@ historical selector could choose different weights.
 
 ## Curves
 
+### All U-global seeds and early variants, separated by budget
+
+These figures include every archived U-global execution and all four early-data
+variants, with separate 4k and 6k schedules. Each shows the full trajectory and
+an unsmoothed final-1,000-update zoom. All 722 validation events use the same
+five-component RMSE-only blend; historical spectral-selected runs are rescored
+from their physical errors. This does not change their saved checkpoint selection.
+
+At 4k, both U-global executions use seed 1729; they are original/reproduction
+executions, not independent seeds. At 6k, U-global seeds 1729 and 1730 are both
+shown. Early variants use seed 1729. The 6k schedule is stretched, so its update
+4,000 is not equivalent to the endpoint of the 4k schedule.
+
+![All U-global and early variants, 4k](artifacts/early-rmse-by-budget-2026-10-13/rmse-validation-4k.png)
+
+![All U-global and early variants, 6k](artifacts/early-rmse-by-budget-2026-10-13/rmse-validation-6k.png)
+
+[4k vector figure](artifacts/early-rmse-by-budget-2026-10-13/rmse-validation-4k.pdf) ·
+[6k vector figure](artifacts/early-rmse-by-budget-2026-10-13/rmse-validation-6k.pdf) ·
+[Curve inventory and source hash](artifacts/early-rmse-by-budget-2026-10-13/provenance.json.gz).
+Reproduce with `scripts/plot_early_rmse_by_budget.py` using the validation CSV below.
+
+### Cross-budget and reproduction views
+
 The complete comparison contains **722 verified validation events across 14
 series**. All lines use the same RMSE blend. Solid lines are current 4k
 reproductions, dotted lines original 4k runs, and dashed lines stretched 6k

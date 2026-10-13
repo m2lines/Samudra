@@ -80,7 +80,7 @@ specify `data_location`, `data_means_location`, and `data_stds_location`. To use
 your local copies of the three OM4 stores, set their parent directory:
 
 ```bash
-uv run samudra train samudra_om4/train.yaml --data_root /path/to/om4
+uv run samudra train samudra_om4/train.yaml --experiment.data_root /path/to/om4
 ```
 
 For different filenames or time coverage, copy the preset and its included YAML

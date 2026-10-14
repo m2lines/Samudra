@@ -50,3 +50,22 @@ Local checks cover resetting EMA only on fresh fine-tune and restoring it on res
 and existing multitask masks/gradients. After training, use the established fixed held-out forecasts,
 completion retention and continuous salinity diagnostics to compare F/M with original/cooldown results.
 Interpret short-lead temperature/salinity separately from annual all-channel aggregate scores.
+
+## Bring-up record
+
+Source38c5a514d passed twelve local tests and scoped checks. Initial qualification19831107 failed
+before training after43seconds (0.0239RTX GPU-hours): the new EMA reset override accessed `self.cfg`
+during base checkpoint loading before ScoreTrainer assigned it. Dependent production jobs19831437/38
+were automatically canceled before allocation. The reset now happens after trainer construction and
+checkpoint loading; a constructor-order regression test covers this failure, and ordinary resume retains
+its checkpoint EMA. Corrected source949fdf818 passes the same twelve tests and scoped checks.
+
+Saved-checkpoint validation diagnostics F19831109 / M19831110 use the unaffected source38c5a514d
+and one RTX GPU each. Outputs `outputs/eval-adaptation-diagnostic-F-19831109` and
+`outputs/eval-adaptation-diagnostic-M-19831110`. CPU callback19831113 and quiet monitor
+`/root/forecast_cooldown_monitor` own webhook9e7b38cd-0441-44b5-99fd-83e0ba166f0e.
+The failed production callback e2f62862-3278-4a3f-8b0f-88aa6f3647b1 was retired.
+
+Corrected qualification and production use webhook853d037e-35da-41ea-ab20-f06b406f99af and quiet
+monitor `/root/strong_adaptation_monitor`, with a ten-minute first check and hourly checks thereafter.
+Full runs depend on qualification success; invalid dependencies cancel automatically.

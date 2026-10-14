@@ -590,12 +590,6 @@ class CLI:
         ds_input.attrs["m2lines/samudra_git_hash"] = git_hash
         ds_input.attrs["m2lines/date_created"] = datetime.datetime.now().isoformat()
         ds_input.attrs["m2lines/cli_args"] = " ".join(sys.argv)
-        for attr in (
-            "m2lines/wfo_surgery_source",
-            "m2lines/wfo_surgery_alignment",
-        ):
-            if attr in ds_processed.attrs:
-                ds_input.attrs[attr] = ds_processed.attrs[attr]
         # Horizontal grid geometry: this pipeline conservatively regrids onto a
         # regular (rectilinear) lat-lon grid, so downstream code may treat the 2-D
         # lat/lon as separable. Curvilinear (e.g. tripolar) outputs must set this to

@@ -409,6 +409,11 @@ class CLI:
                 nc_mosaic_path,
                 wfo_source_path=self.wfo_source_path,
             )
+        source_coverage = {
+            "start": str(ds_processed.time.values[0]),
+            "end": str(ds_processed.time.values[-1]),
+            "steps": ds_processed.sizes["time"],
+        }
         # Interval bounds are small, non-spatial metadata. Keep them out of the
         # filtering/regridding graphs and reattach them to the final time axis.
         time_bounds = ds_processed.get("time_bnds")
@@ -548,6 +553,27 @@ class CLI:
         for var, attr in saved_attrs.items():
             ds_input[var].attrs = attr
             ds_input.attrs[var] = attr
+        ds_input.attrs["m2lines/preprocessing"] = {
+            "source_type": source_type,
+            "source": zarr_data_path,
+            "source_coverage": source_coverage,
+            "native_grid": native_grid_path,
+            "supergrid": nc_mosaic_path,
+            "target_grid": None if self.skip_regridding else target_grid_path,
+            "time_bounds_source": time_bounds_path,
+            "vector_rotation": ["uo/vo", "tauuo/tauvo"],
+            "spatial_filter": None
+            if self.skip_spatial_filtering
+            else {
+                "type": "Gaussian",
+                "scale": spatial_filter_scale
+                or FILTER_SCALE_BY_GRID[
+                    os.path.splitext(os.path.basename(target_grid_path))[0]
+                ],
+                "dx_min": 1,
+            },
+            "flattened": not self.skip_flattening,
+        }
         # Add provenance hash and metadata
         # Write both provenance keys during the rename. `ocean_emulators_git_hash`
         # is the established name -- it is documented in AGENTS.md and docs/data.md

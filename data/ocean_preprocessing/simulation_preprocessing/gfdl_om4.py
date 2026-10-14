@@ -87,7 +87,13 @@ def select_om4_variables(ds: xr.Dataset) -> xr.Dataset:
     ignored = available - selected
     if ignored:
         logger.info("ignoring undeclared OM4 source variables: %s", sorted(ignored))
-    return ds[sorted(selected)]
+    result = ds[sorted(selected)]
+    # Interface depths are not dimensions of the state variables, so selecting
+    # those variables alone drops the coordinate and loses the source geometry.
+    for name in ("z_i", "ilev"):
+        if name in ds.coords:
+            result = result.assign_coords({name: ds[name]})
+    return result
 
 
 def transplant_wfo(

@@ -133,9 +133,9 @@ endpoint, with each checkpoint's own initialized persistence. Native subsurface
 profiles and OHC retain IAP's observation grid; the common-grid report uses the
 frozen legacy supports below. Reporting support is implemented in evaluation
 producer `d0fc3c44b142980741ad0f82156fdd2f80ff1f76` (74 focused CPU tests), separately
-from the pinned training producer. Actual annual GPU memory remains to be checked
-on the first completed model; the exporter releases each origin's full state
-before starting the next.
+from the pinned training producer. A full 73-step, one-origin GPU export has
+passed for U-global’s selected checkpoint (capacity details below); the exporter
+releases each origin’s full state before starting the next.
 
 Also evaluate conservatively coarsened predictions through the unchanged 1°
 observation operators and frozen reference for a direct comparison with the
@@ -342,12 +342,25 @@ held-out test results or the common-support 1° comparison. Observation-only is
 unfinished, and both earlier-data variants are pending; no final model ranking
 is claimed. Selected checkpoints will receive the agreed 30-/365-day evaluation.
 
-A short `beta_test` memory qualification, **213258**, is submitted and queued.
-It runs one existing 2015 origin for all 73 steps with U-global’s selected
-checkpoint, own persistence and common-grid exports. Its one-origin output is
-capacity evidence only; final annual reporting still requires all three starts.
-Evaluation producer `8bad9c34a` adds only an optional, provenance-bound origin
-subset; the training producer and weights are unchanged.
+Annual memory qualification **213258 passed** on one GB200: U-global’s
+validation-selected checkpoint completed the 2015 origin’s **73 forecast steps and 12 monthly
+targets**, including own persistence and common-grid exports. Export took **192 s**;
+peak GPU memory was **67.04 GiB allocated / 120.86 GiB reserved**, and peak CPU RSS
+was **19.32 GiB**. This demonstrates export capacity, not a one-origin scientific
+comparison. Full reporting still requires all three annual starts and the 96-origin
+monthly cohort for both selected and fixed-6k checkpoints.
+All seven exports passed independent SHA256 and byte-count readback. The
+[capacity receipt and accounting](artifacts/quarter-bringup-2026-10-11/annual-memory-213258.json.gz)
+preserve that audit and producer/checkpoint/output hashes. Evaluation producer `8bad9c34a` adds
+only an optional, provenance-bound origin subset; training and weights are unchanged.
+The completed memory allocation adds **0.1133 GPU-hours** (408 seconds × one GPU),
+reported separately from the earlier timestamped training totals below.
+
+Full U-global evaluation **213261** is submitted to production Beta (one host,
+four GPUs). It evaluates the validation-selected and fixed-6k checkpoints
+separately over all 96 monthly test origins and all three annual starts, with
+each checkpoint’s own persistence and common-grid exports. No retraining or
+checkpoint reselection is involved; scores remain pending.
 
 ![Native quarter-degree validation curves through October 14](artifacts/quarter-bringup-2026-10-11/native-validation-2026-10-14.png)
 

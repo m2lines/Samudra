@@ -229,3 +229,24 @@ Shared callback `8d36e604-ed01-4530-a17a-89d1a48775d2` authenticated from Torch.
 19735988 has verified `afterany` dependencies on both qualification jobs. Quiet monitor
 `/root/rtx_qualification_monitor` owns the pair with an hourly reminder. No further training wave was
 submitted. Launcher shell syntax and scoped pre-commit checks passed.
+
+## October 13, 21:25 Eastern: evaluation communication failure and single-GPU retry
+
+Both two-GPU qualification jobs 19735932/19735934 failed on gr105 at the first NCCL barrier, before
+checkpoint loading or W&B initialization. Each ran 11:30 with exit 1, costing 0.3833 RTX GPU-hours
+(0.7667 combined). No evaluation artifacts were produced. CPU notification 19735988 succeeded;
+its delivered registration was retired. The 600-second first-collective timeout does not identify a
+library or hardware root cause; the launcher already used standalone rendezvous.
+
+Retry F19757973 / M19757974 uses one RTX GPU, eight CPUs and 96 GiB per arm, with a 30-minute ceiling.
+Launcher revision `663029deb` runs Python directly when `NPROC=1`, avoiding distributed initialization.
+The evaluator source, final EMA checkpoints, two origins, sixteen members, seven leads and metrics are
+unchanged. Each origin seeds sampling with `35000000 + origin`, independently of rank; changing origin
+partitioning does not change that scientific protocol. This does not claim bitwise agreement across hardware.
+The immutable remote launcher is `evaluate_multitask_single_torch.sbatch`. Output directories are
+`outputs/eval-qualification-F-19757973/` and `outputs/eval-qualification-M-19757974/`.
+
+Callback `668233a3-4aaa-41ef-8761-203fd5100a48` authenticated; CPU notification 19757976 has verified
+`afterany` dependencies on both jobs. `/root/rtx_qualification_monitor` checks both artifacts on completion
+with an hourly fallback. Full evaluation still awaits a successful qualification. Shell syntax and scoped
+pre-commit checks passed; this changes only the launcher, not the evaluator/model implementation.

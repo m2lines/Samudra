@@ -39,6 +39,9 @@ from ocean_preprocessing.preprocessing import (
     rotate_vectors,
     spatially_filter,
 )
+from ocean_preprocessing.simulation_preprocessing.gfdl_cm4 import (
+    cm4_ocean_preprocessing,
+)
 from ocean_preprocessing.simulation_preprocessing.gfdl_om4 import om4_preprocessing
 from ocean_preprocessing.utils import get_git_url_hash
 
@@ -199,6 +202,7 @@ class CLI:
         wfo_source_path: Optional OM4 Zarr store containing five-day-mean ``wfo``
             on the primary source's native grid and intervals. Its end-of-interval
             time labels are validated before transplantation.
+        time_bounds_path: Optional CM4 companion NetCDF containing time_bnds.
         cluster: Type of Dask cluster to use for distributed computation. Options are:
             'off' (no cluster, single-threaded), 'local' (LocalCluster), 'kube'
             (KubeCluster), 'slurm' (SlurmCluster), 'coiled' (Coiled cluster).
@@ -219,6 +223,7 @@ class CLI:
         small_run: bool = False,
         write_retries: int = 5,
         wfo_source_path: str | None = None,
+        time_bounds_path: str | None = None,
         cluster: Cluster = "off",
         **cluster_opts,
     ):
@@ -233,6 +238,7 @@ class CLI:
         self.small_run = small_run
         self.write_retries = write_retries
         self.wfo_source_path = wfo_source_path
+        self.time_bounds_path = time_bounds_path
         self.dask_client = init_cluster(cluster, **cluster_opts)
 
     def _collect(self, ds: xr.Dataset, *, compress: bool = False):
@@ -335,6 +341,8 @@ class CLI:
                 this value will be used instead of the scale inferred from the target grid name.
                 By default (None), the scale is automatically estimated from the target grid basename.
         """
+        if self.time_bounds_path is not None:
+            raise ValueError("--time_bounds_path applies to CM4 only")
         self._preprocess_ocean(
             zarr_data_path,
             native_grid_path,
@@ -342,6 +350,37 @@ class CLI:
             target_grid_path,
             spatial_filter_scale=spatial_filter_scale,
             source_type="om4",
+        )
+
+    def cm4(
+        self,
+        zarr_data_path: str,
+        native_grid_path: str,
+        nc_mosaic_path: str,
+        target_grid_path: str,
+        spatial_filter_scale: None | int = None,
+    ) -> None:
+        """Process the complete no-leap CM4 ocean record, including wfo.
+
+        Uses the same vector rotation and conservative regridding as OM4.
+        For unfiltered, depth-stacked outputs with one time per chunk, pass
+        --skip_spatial_filtering --skip_flattening. No dates are truncated
+        unless --small_run is explicitly requested. time_bounds_path may point
+        to the raw run's companion time_bnds.nc; otherwise bounds are recovered
+        from its five-day average_DT values.
+        """
+        if self.wfo_source_path is not None:
+            raise ValueError(
+                "CM4 reads wfo from its ocean source; omit --wfo_source_path"
+            )
+        self._preprocess_ocean(
+            zarr_data_path,
+            native_grid_path,
+            nc_mosaic_path,
+            target_grid_path,
+            spatial_filter_scale=spatial_filter_scale,
+            source_type="cm4",
+            time_bounds_path=self.time_bounds_path,
         )
 
     def _preprocess_ocean(
@@ -352,15 +391,24 @@ class CLI:
         target_grid_path: str,
         *,
         spatial_filter_scale: int | None,
-        source_type: Literal["om4"],
+        source_type: Literal["om4", "cm4"],
+        time_bounds_path: str | None = None,
     ) -> None:
         logger.info("preprocessing %s.", source_type)
-        ds_processed = om4_preprocessing(
-            zarr_data_path,
-            native_grid_path,
-            nc_mosaic_path,
-            wfo_source_path=self.wfo_source_path,
-        )
+        if source_type == "cm4":
+            ds_processed = cm4_ocean_preprocessing(
+                zarr_data_path,
+                native_grid_path,
+                nc_mosaic_path,
+                time_bounds_path=time_bounds_path,
+            )
+        else:
+            ds_processed = om4_preprocessing(
+                zarr_data_path,
+                native_grid_path,
+                nc_mosaic_path,
+                wfo_source_path=self.wfo_source_path,
+            )
         # Interval bounds are small, non-spatial metadata. Keep them out of the
         # filtering/regridding graphs and reattach them to the final time axis.
         time_bounds = ds_processed.get("time_bnds")
@@ -594,10 +642,6 @@ class CLI:
         )
 
         self._collect(masks, compress=True)
-
-    def cm4(self):
-        """Process the CM4 oceans dataset (a coupled ocean model from CMIP)."""
-        raise NotImplementedError("Not yet implemented, please come back later!")
 
 
 if __name__ == "__main__":

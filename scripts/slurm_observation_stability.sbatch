@@ -36,10 +36,15 @@ telemetry=$!
 trap 'kill "$telemetry" 2>/dev/null || true' EXIT
 stopping=0
 trap 'stopping=1; scancel --signal=USR1 "$SLURM_JOB_ID.0" || true' USR1
+runner=( -m scripts.run_observation_stability --root "$root" --stage "$stage" --arm "$arm" --trial "$trial" )
+if [[ "$stage" == screen || "$stage" == screen-qualify ]]; then
+  policies=(S0 S0-repeat S1 S2)
+  runner=( -m scripts.run_observation_stability_screen --root "$root" --arm "$arm" --policy "${policies[$trial]}" )
+  if [[ "$stage" == screen-qualify ]]; then runner+=( --qualify ); fi
+fi
 srun /share/apps/apptainer/bin/apptainer exec --nv --bind "$binds" "$image" \
  env PYTHONPATH="/pilot-code/src:/pilot-code:/scratch/jr7309/runs/2026-10-08-early-fine-rtx/runtime" \
- /workspace/.venv/bin/python -m scripts.run_observation_stability \
- --root "$root" --stage "$stage" --arm "$arm" --trial "$trial" &
+ /workspace/.venv/bin/python "${runner[@]}" &
 child=$!
 set +e
 wait "$child"

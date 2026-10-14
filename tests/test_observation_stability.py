@@ -104,3 +104,75 @@ def test_observation_component_logging_preserves_loss_and_gradients():
     torch.testing.assert_close(weight.grad, expected_gradient, rtol=0, atol=0)
     torch.testing.assert_close(sum(records[0].values()), observed.detach())
     assert all(not value.requires_grad for value in records[0].values())
+
+
+def test_screen_lr_endpoints_and_fixed_policies():
+    from scripts.run_observation_stability_screen import learning_rate
+
+    assert learning_rate("S0", 3001) == learning_rate("S0-repeat", 4000) == 1e-4
+    assert learning_rate("S1", 3001) == learning_rate("S1", 4000) == 3e-5
+    assert learning_rate("S2", 3001) == pytest.approx(0.000099901)
+    assert learning_rate("S2", 4000) == pytest.approx(1e-6)
+    with pytest.raises(ValueError):
+        learning_rate("S2", 4001)
+
+
+def test_ema_half_life_buffer_policy_and_exception_safe_raw_restore():
+    from scripts.run_observation_stability_screen import WeightEMA
+
+    model = torch.nn.Linear(1, 1, bias=False)
+    model.register_buffer("counter", torch.tensor(0))
+    with torch.no_grad():
+        model.weight.zero_()
+    ema = WeightEMA(model)
+    with torch.no_grad():
+        model.weight.fill_(1)
+        model.get_buffer("counter").fill_(7)
+    for _ in range(100):
+        ema.update(model)
+    torch.testing.assert_close(ema.state["weight"], torch.tensor([[0.5]]))
+    assert ema.state["counter"].item() == 7 and ema.updates == 100
+    with pytest.raises(RuntimeError), ema.applied(model):
+        torch.testing.assert_close(model.weight, torch.tensor([[0.5]]))
+        raise RuntimeError("evaluation failed")
+    torch.testing.assert_close(model.weight, torch.ones(1, 1))
+
+
+def test_atomic_screen_checkpoint_replays_optimizer_rng_and_ema(tmp_path, monkeypatch):
+    import time
+
+    from samudra.experiments.observation_joint import assert_exact_state
+    from scripts.run_observation_stability_screen import ScreenPilot, WeightEMA, restore
+
+    monkeypatch.setattr(torch.cuda, "get_rng_state", torch.get_rng_state)
+    monkeypatch.setattr(torch.cuda, "set_rng_state", lambda _: None)
+    pilot: Any = ScreenPilot.__new__(ScreenPilot)
+    pilot.model = torch.nn.Linear(2, 1)
+    pilot.optimizer = torch.optim.AdamW(pilot.model.parameters(), lr=1e-4)
+    pilot.ema = WeightEMA(pilot.model)
+    pilot.policy = "S0"
+    pilot.completed = 3000
+    pilot.schedule = TaskSchedule(2000, 2000, "mixed")
+    pilot.manifest = {"code_commit": "test"}
+    pilot.elapsed_seconds = 0
+    pilot.started = time.monotonic()
+    pilot.in_update = False
+    path = tmp_path / "checkpoint.pt"
+    pilot.checkpoint(path)
+    saved = torch.load(path, weights_only=False)
+    snapshots = []
+    for _ in range(2):
+        restore(pilot, saved)
+        for _ in range(3):
+            pilot.optimizer.zero_grad()
+            pilot.model(torch.randn(4, 2)).square().mean().backward()
+            pilot.optimizer.step()
+            pilot.ema.update(pilot.model)
+            pilot.completed += 1
+        pilot.checkpoint(path)
+        snapshots.append(torch.load(path, weights_only=False))
+    for key in ("model", "optimizer", "ema", "ema_updates", "rng_cpu", "task_counts"):
+        assert_exact_state(snapshots[0][key], snapshots[1][key])
+    pilot.policy = "S1"
+    with pytest.raises(ValueError, match="policy"):
+        restore(pilot, saved)

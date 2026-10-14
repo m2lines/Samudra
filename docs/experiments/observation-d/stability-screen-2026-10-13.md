@@ -122,3 +122,43 @@ forks are mounted read-only in these jobs, and diagnostic weights will not becom
 treatment checkpoints. `diagnostic-submission.json` records full submissions;
 CPU callback 19810170 covers termination of both arrays. No stabilization result
 is established yet.
+
+## Stage 1 findings
+
+All diagnostic tasks completed successfully. Five ordinary evaluations of each
+fixed checkpoint produced identical predictions and metrics, including the two
+fresh-process reloads. The deterministic references also agreed with each other;
+switching numerical backends shifted the blend by only 0.010% (U-global) and
+0.006% (earlier-OM4). Evaluation repeatability is comfortably below the 0.1% target.
+
+![Duplicate training trajectories](assets/stability-screen/duplicate-traces.png)
+
+Both executions use identical starting model/optimizer/RNG state and sample order.
+Their substantial common fluctuations therefore reflect training updates, rather
+than evaluation randomness. This does not measure variability across random seeds.
+
+| Model | Execution 1 at 3,100 | Execution 2 at 3,100 | Relative endpoint difference |
+|---|---:|---:|---:|
+| U-global | 0.90328 | 0.90264 | 0.071% |
+| U-multitask-early | 0.97976 | 0.98156 | 0.184% |
+
+The measured source-gradient cosines were positive at both endpoints for the
+initializer and processor. These small fixed-batch probes do not support a
+blanket task-conflict explanation, nor rule out conflict on other examples.
+All four traces contain 100 finite updates and eleven full validation scores.
+The common checkpoints are unchanged; trace weights are excluded from Stage 2.
+Total allocated GPU time through Stage 1: **2.1136 GPU-hours**.
+
+### Stage 2 implementation
+
+The paired screen starts from the same immutable 3,000-update checkpoints.
+S0 and its duplicate keep 1e-4, S1 uses 3e-5, and S2 linearly reaches 1e-6 at
+4,000 updates. Both task learning rates follow the selected policy. Original
+optimizer moments, RNG and sample ordering are preserved at the fork.
+
+EMA averages parameters with a 100-update half-life and copies raw model buffers
+after each update. Raw weights, EMA, optimizer, counters and RNG share one atomic
+restart file. EMA evaluation restores raw weights even on failure. Validation
+runs every 100 updates for both weight versions; the declared last-five-score
+screening rule remains unchanged. Fresh producer/I/O qualification and a separate
+bitwise deterministic restart check including EMA must pass before production.

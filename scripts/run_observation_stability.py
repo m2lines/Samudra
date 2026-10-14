@@ -100,7 +100,7 @@ def close(pilot):
         pilot.wandb.finish()
 
 
-def make_pilot(root, arm, out, source, checksum):
+def make_pilot(root, arm, out, source, checksum, pilot_class=EarlyPilot):
     probe = root / ("probe-" + arm)
     q = json.loads((probe / "JOINT_QUALIFIED.json").read_text())
     io = json.loads((probe / "IO_EQUIVALENT.json").read_text())
@@ -130,7 +130,7 @@ def make_pilot(root, arm, out, source, checksum):
     args = SimpleNamespace(**options)
     if q["contract"] != qualification_contract(args):
         raise ValueError("Qualification contract differs")
-    pilot = EarlyPilot(args)
+    pilot = pilot_class(args)
     if not pilot.wandb or not pilot.wandb.url:
         raise RuntimeError("Online W&B run was not established")
     atomic_json({"url": pilot.wandb.url}, out / "WANDB.json")

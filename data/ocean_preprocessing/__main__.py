@@ -528,7 +528,7 @@ class CLI:
         ds = ds.drop_dims([x for x in list(ds.dims) if x not in dims_to_keep])
 
         logger.info("preparing final chunks for output zarr (time=1)")
-        ds = ds.chunk({"time": 1})
+        ds = ds.chunk({dim: 1 if dim == "time" else -1 for dim in ds.dims})
         if time_bounds is not None:
             ds = ds.assign_coords(time_bnds=time_bounds.sel(time=ds.time))
 

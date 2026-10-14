@@ -256,9 +256,9 @@ class Trainer:
             self.wandb_logger.log(initial_metrics, step=0)
 
         self.num_batches_seen = 0
-        self.checkpoint_validation_metric = cfg.checkpoint_validation_metric
+        self.validation_score = cfg.validation_score
         self.rollout_validation = cfg.rollout_validation
-        self.best_val_loss = float("inf")
+        self.best_validation_score = float("inf")
         self.train_progress = TrainProgress()
         loaded_checkpoint = False
         if cfg.resume_ckpt_path is not None:
@@ -481,10 +481,8 @@ class Trainer:
             "complete": epoch == self.epochs,
             "train_loss": train_loss,
             "validation_loss": validation_loss,
-            "best_validation_score": float(self.best_val_loss),
+            "best_validation_score": float(self.best_validation_score),
             "validation_checkpoint_identity": self.validation_checkpoint_identity(),
-            # Compatibility alias for existing search configurations.
-            "best_validation_loss": float(self.best_val_loss),
             "epoch_train_seconds": train_seconds,
             "epoch_validation_seconds": validation_seconds,
             "epoch_total_seconds": total_seconds,
@@ -1074,8 +1072,10 @@ class Trainer:
     def validation_checkpoint_score(
         self, epoch: int, val_stats: dict[str, Any], rollout_val_stats: dict[str, Any]
     ) -> float | None:
-        if self.checkpoint_validation_metric == "one_step_loss":
+        if self.validation_score == "validation_loss":
             return float(val_stats["val/mean/loss"])
+        if self.validation_score == "one_step_rmse":
+            return float(val_stats["val/reduced/normalized_rmse/channel_mean"])
         assert self.rollout_validation is not None
         if not should_run_on_epoch_freq(epoch, self.rollout_validation.frequency):
             return None
@@ -1086,8 +1086,8 @@ class Trainer:
         return float(rollout_val_stats[f"{label}/normalized_rmse/channel_mean"])
 
     def validation_checkpoint_identity(self) -> dict[str, Any]:
-        identity: dict[str, Any] = {"metric": self.checkpoint_validation_metric}
-        if self.checkpoint_validation_metric == "rollout_rmse":
+        identity: dict[str, Any] = {"metric": self.validation_score}
+        if self.validation_score == "rollout_rmse":
             assert self.rollout_validation is not None
             identity["horizon"] = (
                 {"days": max(self.rollout_validation.days)}
@@ -1098,23 +1098,23 @@ class Trainer:
 
     def save_all_checkpoints(self, epoch: int, v_loss: float | None):
         with self._test_context():
-            is_best_val_loss = False
+            is_best_validation_score = False
             if (
                 v_loss is not None
                 and math.isfinite(v_loss)
-                and v_loss <= self.best_val_loss
+                and v_loss <= self.best_validation_score
             ):
                 logger.info(
                     f"Epoch validation checkpoint score ({v_loss:.3f}) is lower than "
-                    f"previous best score ({self.best_val_loss:.3f})."
+                    f"previous best score ({self.best_validation_score:.3f})."
                 )
                 logger.info(
                     "Saving best validation checkpoint to "
                     f"{self.ckpt_paths.best_validation_checkpoint_path}"
                 )
-                self.best_val_loss = v_loss
-                is_best_val_loss = True
-            if is_best_val_loss:
+                self.best_validation_score = v_loss
+                is_best_validation_score = True
+            if is_best_validation_score:
                 self.save_checkpoint(
                     epoch, self.ckpt_paths.best_validation_checkpoint_path
                 )
@@ -1155,7 +1155,7 @@ class Trainer:
                     "model": self.model.state_dict(),
                     "optimizer": self.optimizer.state_dict(),
                     "epoch": epoch,
-                    "best_val_loss": self.best_val_loss,
+                    "best_validation_score": self.best_validation_score,
                     "validation_checkpoint_identity": self.validation_checkpoint_identity(),
                     "ema": self._ema.get_state(include_ema_params=not for_inference),
                     "num_batches_seen": self.num_batches_seen,
@@ -1227,10 +1227,10 @@ class Trainer:
             logger.info(f"Optimizer LR: {self.optimizer.param_groups[-1]['lr']}")
 
             saved_identity = checkpoint.get(
-                "validation_checkpoint_identity", {"metric": "one_step_loss"}
+                "validation_checkpoint_identity", {"metric": "validation_loss"}
             )
-            self.best_val_loss = (
-                checkpoint["best_val_loss"]
+            self.best_validation_score = (
+                checkpoint["best_validation_score"]
                 if saved_identity == self.validation_checkpoint_identity()
                 else float("inf")
             )

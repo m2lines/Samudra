@@ -13,19 +13,25 @@ budget, retain the best fraction, and give progressively larger budgets only to
 the survivors. This is useful for comparing model architectures as well as
 ordinary hyperparameters such as learning rate and batch size.
 
-Search minimizes `best_validation_score` by default: the best score seen so far
-under each candidate's `checkpoint_validation_metric`. This is validation loss
-for `one_step_loss`, or normalized rollout RMSE for `rollout_rmse` (using the
-longest configured horizon). A rung ending between rollout epochs uses the
-best score from earlier scheduled rollouts. Results retain
-`validation_checkpoint_identity` with the metric and horizon; use comparable
-metrics and horizons across competing candidates.
+Search always minimizes `best_validation_score`, the best value observed under
+`validation_score` in each training config. Options are `rollout_rmse` (normalized
+RMSE at the longest configured rollout horizon), `one_step_rmse` (normalized,
+area-weighted one-step RMSE averaged equally over channels and samples), and
+`validation_loss` (the configured training loss on validation data). Dynamic loss
+weighting cannot be used with `validation_loss` scoring.
 
-`validation_loss` still reports ordinary validation loss at the final epoch of
-the rung. To rank by that value, explicitly set
-`objective: {metric: validation_loss, mode: min}` and include `validation_loss`
-in `metrics`. Existing explicit objectives keep their behavior.
-`best_validation_loss` remains a compatibility alias for `best_validation_score`.
+Search rejects competing candidates with different score methods or rollout
+horizons before launching training. Use the same validation data and normalization
+for meaningful comparisons. Rollout validation must be scheduled at every rung
+endpoint; choose compatible rung budgets and `rollout_validation.frequency`.
+Promotion resumes from the latest checkpoint. `validation_loss` remains a
+diagnostic, while checkpoint state and search ranking use `best_validation_score`.
+There is no separate search objective or compatibility alias for the best score.
+Older configs must rename `checkpoint_validation_metric` to `validation_score`
+and `one_step_loss` to `validation_loss`, and remove `objective`. Older checkpoints
+need their `best_val_loss` key renamed to `best_validation_score` and their saved
+score identity updated before resuming. Existing search records require migration
+to the new score column before reuse.
 
 Successive halving is the resource-allocation primitive used by
 [Hyperband](https://jmlr.org/papers/v18/16-558.html). Samudra currently runs one
@@ -226,7 +232,6 @@ algorithm:
   promotion_fraction: 0.5
   minimum_promoted: 1
 
-objective: {metric: best_validation_score, mode: min}
 metrics: [best_validation_score, validation_loss, train_loss]
 
 executor: !include torch.yaml
@@ -240,7 +245,7 @@ candidates:
     args: [--batch_size=2, --learning_rate=0.0006]
 ```
 
-The objective is the single metric used for promotion. `metrics` controls the
+`best_validation_score` is the sole promotion score. `metrics` controls the
 additional columns collected in `results.csv`. Any finite scalar emitted by
 training, validation, or inference can be named here, including namespaced
 diagnostics such as `val/seam/window_jump_ratio/zos`. A missing or non-finite

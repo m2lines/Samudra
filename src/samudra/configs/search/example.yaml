@@ -10,7 +10,6 @@ algorithm:
   rungs: [1, 3, 6, 12]
   promotion_fraction: 0.5
   minimum_promoted: 1
-objective: { metric: best_validation_score, mode: min }
 metrics: [best_validation_score, validation_loss, train_loss]
 
 # Swap this include for local.yaml to run sequentially on the current machine.

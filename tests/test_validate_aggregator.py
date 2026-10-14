@@ -266,3 +266,32 @@ def test_map_aggregator__non_main_rank__still_reduces_but_skips_plot_rendering(
 
     assert aggregator.get_logs("mean_map") == {}
     assert len(reduce_calls) == 2
+
+
+@pytest.mark.parametrize("invalid_prediction", [False, True])
+def test_normalized_one_step_rmse_weights_samples_and_channels(invalid_prediction):
+    from samudra.aggregator.validate.reduced import MeanAggregator
+
+    agg = MeanAggregator(torch.tensor([[1.0, 3.0], [1.0, 3.0]]), target_time=0)
+    # One land cell and spatially varying errors distinguish area weighting
+    # from uniform weighting; unequal batches distinguish sample averaging.
+    target = torch.zeros(1, 1, 2, 2)
+    target[..., 0, 0] = float("nan")
+    prediction = torch.tensor([[[[float("nan"), 2.0], [4.0, 2.0]]]])
+    if invalid_prediction:
+        prediction[..., 1, 1] = float("nan")
+    for batch_size, scale in [(2, 1.0), (1, 2.0)]:
+        agg.record_batch(
+            target_data={"a": target.expand(batch_size, -1, -1, -1)},
+            gen_data={"a": prediction.expand(batch_size, -1, -1, -1)},
+            target_data_norm={
+                name: target.expand(batch_size, -1, -1, -1) for name in ("a", "b")
+            },
+            gen_data_norm={
+                name: prediction.expand(batch_size, -1, -1, -1) * scale * factor
+                for name, factor in [("a", 1.0), ("b", 2.0)]
+            },
+        )
+    score = agg.get_logs("reduced")["reduced/normalized_rmse/channel_mean"]
+    expected = float("inf") if invalid_prediction else (40 / 7) ** 0.5 * 4 / 3 * 1.5
+    assert score == pytest.approx(expected)

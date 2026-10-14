@@ -54,7 +54,7 @@ rollout_validation:
   days: [360]
   frequency: 1
   steps_forward: 1
-checkpoint_validation_metric: rollout_rmse
+validation_score: rollout_rmse
 ```
 
 For multiple horizons, checkpoint selection uses the longest horizon. If
@@ -63,12 +63,14 @@ checkpoint; latest and periodic checkpoints continue to be saved. A requested
 day horizon must fit the configured validation split.
 
 To use single-step checkpoint selection and disable rollout validation,
-set `checkpoint_validation_metric: one_step_loss` and
+set `validation_score: one_step_rmse` and
 `rollout_validation: null`. Rollout selection currently requires a single data
 source. When resuming, changing the selection metric or configured horizon resets
 the saved best score so incompatible scores are not compared. The checkpoint's
-`best_val_loss` stores the selected score. Search minimizes this score by default
-as `best_validation_score`; `best_validation_loss` remains a compatibility alias.
+`best_validation_score` stores the selected score. Search minimizes this score by default
+as `best_validation_score`. The multi-source preset uses `one_step_rmse`, a
+normalized, area-weighted score independent of dynamic training loss weights.
+`validation_score: validation_loss` is available only with a fixed loss.
 `validation_loss` continues to report single-step loss.
 
 ### Data Paths

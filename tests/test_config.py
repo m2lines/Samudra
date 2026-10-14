@@ -545,13 +545,27 @@ def test_rust_loading_rejects_derived_channels_before_opening_data(
 def test_rollout_checkpoint_selection_requires_supported_validation():
     with open(TEST_CONFIGS_DIR / DEFAULT_CONFIG) as f:
         data = yaml.safe_load(f)
-    data["checkpoint_validation_metric"] = "rollout_rmse"
+    data["validation_score"] = "rollout_rmse"
     with pytest.raises(ValidationError, match="requires rollout_validation"):
         TrainConfig.model_validate(data)
     data["rollout_validation"] = {"days": [360]}
-    assert (
-        TrainConfig.model_validate(data).checkpoint_validation_metric == "rollout_rmse"
-    )
+    assert TrainConfig.model_validate(data).validation_score == "rollout_rmse"
     data["data"]["sources"] *= 2
     with pytest.raises(ValidationError, match="requires a single data source"):
         TrainConfig.model_validate(data)
+
+
+def test_validation_loss_score_rejects_dynamic_weighting():
+    value = TrainConfig.from_yaml_and_cli(
+        [str(TEST_CONFIGS_DIR / DEFAULT_CONFIG)]
+    ).model_dump()
+    value.update(loss={"type": "dynamic"}, validation_score="validation_loss")
+    with pytest.raises(ValidationError, match="dynamically weighted"):
+        TrainConfig.model_validate(value)
+    value["validation_score"] = "one_step_rmse"
+    assert TrainConfig.model_validate(value).validation_score == "one_step_rmse"
+
+
+def test_multi_source_preset_uses_one_step_rmse():
+    cfg = TrainConfig.from_yaml_and_cli(["samudra_multi_om4/train.yaml"])
+    assert cfg.validation_score == "one_step_rmse"

@@ -41,8 +41,7 @@ def config(tmp_path: Path, *, executor: str = "local") -> SearchConfig:
             "name": "test-search",
             "run_id": "test-search--run",
             "algorithm": {"type": "successive_halving", "rungs": [1, 3]},
-            "objective": {"metric": "validation_loss", "mode": "min"},
-            "metrics": ["validation_loss", "train_loss"],
+            "metrics": ["best_validation_score", "train_loss"],
             "executor": executor_config,
             "allow_dirty": executor == "local",
             "candidates": [
@@ -86,10 +85,8 @@ def test_default_objective_promotes_by_configured_checkpoint_score(
     tmp_path, monkeypatch
 ):
     value = config(tmp_path).model_dump(mode="json")
-    value.pop("objective")
     value.pop("metrics")
     search = SearchConfig.model_validate(value).build()
-    assert search.config.objective.metric == "best_validation_score"
     assert search.config.metrics == ["best_validation_score"]
     search.search_dir.mkdir(parents=True)
     search.config_path.write_text("test", encoding="utf-8")
@@ -102,7 +99,9 @@ def test_default_objective_promotes_by_configured_checkpoint_score(
         path = search.output_dir(name, 0) / "training_summary.json"
         summary = json.loads(path.read_text())
         summary.update(
-            best_validation_score=score, validation_checkpoint_identity=identity
+            validation_loss=loss,
+            best_validation_score=score,
+            validation_checkpoint_identity=identity,
         )
         path.write_text(json.dumps(summary), encoding="utf-8")
     monkeypatch.setattr(search.executor, "submit_rung", lambda *args: None)
@@ -116,10 +115,10 @@ def test_default_objective_promotes_by_configured_checkpoint_score(
 def test_config_validates_objective_and_rungs(tmp_path):
     value = config(tmp_path).model_dump(mode="json")
     value["metrics"] = ["train_loss"]
-    with pytest.raises(ValidationError, match="objective.metric"):
+    with pytest.raises(ValidationError, match="best_validation_score"):
         SearchConfig.model_validate(value)
 
-    value["metrics"] = ["validation_loss"]
+    value["metrics"] = ["best_validation_score"]
     value["algorithm"]["rungs"] = [3, 1]
     with pytest.raises(ValidationError, match="strictly increasing"):
         SearchConfig.model_validate(value)
@@ -305,7 +304,9 @@ def test_local_artifact_publisher_writes_queryable_research_record(
     assert published_state["status"] == "running"
     initial_results = pd.read_parquet(published / "results.parquet")
     assert initial_results.empty
-    assert {"candidate", "rung", "validation_loss"}.issubset(initial_results.columns)
+    assert {"candidate", "rung", "best_validation_score"}.issubset(
+        initial_results.columns
+    )
     output = search.output_dir("a", 1)
     (output / "saved_nets").mkdir(parents=True)
     (output / "saved_nets/ckpt.pt").write_bytes(b"checkpoint")
@@ -322,7 +323,7 @@ def test_local_artifact_publisher_writes_queryable_research_record(
             "rung": 1,
             "epochs": 3,
             "eligible": True,
-            "validation_loss": 0.25,
+            "best_validation_score": 0.25,
             "train_loss": 0.2,
             "output_dir": str(output),
         }
@@ -483,7 +484,7 @@ def write_result(search, name: str, rung: int, validation: float) -> None:
             {
                 "epoch": search.rungs[rung],
                 "complete": True,
-                "validation_loss": validation,
+                "best_validation_score": validation,
                 "train_loss": validation + 0.1,
                 "optimizer_steps": 10,
                 "executor": "local",
@@ -531,7 +532,7 @@ def test_nonfinite_metric_is_reported_as_divergence_not_missing_summary(tmp_path
         {
             "epoch": 1,
             "complete": True,
-            "validation_loss": float("nan"),
+            "best_validation_score": float("nan"),
             "train_loss": 1.0,
             "code_commit": "f" * 40,
         },
@@ -540,7 +541,7 @@ def test_nonfinite_metric_is_reported_as_divergence_not_missing_summary(tmp_path
     result = search._result("a", 0)
 
     assert result["eligible"] is False
-    assert result["error"] == "metric 'validation_loss' is not finite"
+    assert result["error"] == "metric 'best_validation_score' is not finite"
 
 
 def test_worker_status_path_matches_published_catalog_key(tmp_path):
@@ -641,7 +642,7 @@ def test_successive_halving_promotes_with_dataframe_and_reports_metrics(
     assert updated["rungs"][0]["promoted"] == ["b", "c"]
     assert submitted == [(1, ["b", "c"])]
     report = search.results_path.read_text(encoding="utf-8")
-    assert "validation_loss" in report
+    assert "best_validation_score" in report
     assert "train_loss" in report
     markdown = (search.search_dir / "analysis/report.md").read_text(encoding="utf-8")
     assert "## Latest eligible result per candidate" in markdown
@@ -1039,3 +1040,34 @@ def test_failed_probe_terminates_search_before_array(tmp_path, monkeypatch):
     assert updated["status"] == "failed"
     assert updated["failure"]["stage"] == "rung_probe"
     assert updated["rungs"][0]["probe"]["status"] == "failed"
+
+
+@pytest.mark.parametrize("problem", ["schedule", "score", "horizon"])
+def test_search_rejects_incomparable_scores_before_launch(
+    tmp_path, monkeypatch, problem
+):
+    search_config = config(tmp_path)
+    source = str(Path("tests/configs/train_default.yaml").resolve())
+    for candidate in search_config.candidates:
+        candidate.config = source
+        candidate.args = [
+            "--validation_score=rollout_rmse",
+            "--rollout_validation.days=[90]",
+            "--rollout_validation.frequency=1",
+        ]
+    if problem == "schedule":
+        search_config.candidates[1].args[-1] = "--rollout_validation.frequency=4"
+        message = "every rung endpoint"
+    elif problem == "score":
+        search_config.candidates[1].args[0] = "--validation_score=one_step_rmse"
+        message = "same validation score and horizon"
+    else:
+        search_config.candidates[1].args[1] = "--rollout_validation.days=[360]"
+        message = "same validation score and horizon"
+    monkeypatch.setattr(
+        "samudra.search.successive_halving._git_provenance", lambda **kw: {}
+    )
+    search = search_config.build()
+    with pytest.raises(ValueError, match=message):
+        search.start()
+    assert not search.search_dir.exists()

@@ -91,3 +91,20 @@ H100 jobs **19725600/19725601** and callback **19725618** were confirmed cancele
 with zero elapsed GPU time. Their original submission records remain intact;
 `rtx-submission.json` records the replacement. Both model families will use RTX
 for this comparison. The passing source audit remains applicable.
+
+### RTX qualification passed
+
+Both elements of **19808531** completed successfully: U-global in 11m44s and
+earlier-OM4 in 11m38s (**0.3894 allocated GPU-hours** combined). Both passed
+finite-loss fitting, required gradient routing, exact prepared-observation/I/O
+checks, and bitwise-zero deterministic native-versus-serialized replay.
+Peak allocated GPU memory was 71.68 GiB. Measured update throughput extrapolates
+to 4.0–4.5 hours per 4,000 updates, excluding validation and initial cache warming;
+this is not an end-to-end campaign ETA.
+
+Online qualification runs:
+[U-global](https://wandb.ai/ocean_emulators/observational-transfer/runs/44909495de01)
+and [earlier-OM4](https://wandb.ai/ocean_emulators/observational-transfer/runs/78a32608c69d).
+Common-fork preparation **19808532** is running on RTX. Its migration receipts,
+3,000-update checkpoint hashes and completion markers still need verification
+before diagnostic copies are released. No stabilization result is established yet.

@@ -75,3 +75,19 @@ The separate repeatability/trace jobs follow inspection of the common forks.
 A quiet callback monitor uses a two-hour queue/audit backstop; notifications
 report meaningful completion or blockers. Local validation: 45 targeted tests
 and all repository pre-commit checks passed.
+
+### October 14: RTX capacity became preferable
+
+At 11:49 a.m. ET, the H100 qualifications remained queued after about 22 hours,
+with no start estimate for the existing array. All 60 H100 GPUs were allocated;
+four RTX GPUs were unallocated. Complete-request scheduler dry runs estimated
+an immediate RTX start, versus 1:22 p.m. ET for a fresh H100 request and several
+days for H200/L40S. Unallocated GPUs alone were not treated as proof of access.
+
+The unchanged producer/data/runtime were resubmitted on `rtx6000_lzanna`:
+qualification **19808531** (both elements observed RUNNING on gr102), then
+common-fork preparation **19808532** after both qualifications pass. The old
+H100 jobs **19725600/19725601** and callback **19725618** were confirmed canceled
+with zero elapsed GPU time. Their original submission records remain intact;
+`rtx-submission.json` records the replacement. Both model families will use RTX
+for this comparison. The passing source audit remains applicable.

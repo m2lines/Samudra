@@ -335,7 +335,26 @@ class CLI:
                 this value will be used instead of the scale inferred from the target grid name.
                 By default (None), the scale is automatically estimated from the target grid basename.
         """
-        logger.info("preprocessing.")
+        self._preprocess_ocean(
+            zarr_data_path,
+            native_grid_path,
+            nc_mosaic_path,
+            target_grid_path,
+            spatial_filter_scale=spatial_filter_scale,
+            source_type="om4",
+        )
+
+    def _preprocess_ocean(
+        self,
+        zarr_data_path: str,
+        native_grid_path: str,
+        nc_mosaic_path: str,
+        target_grid_path: str,
+        *,
+        spatial_filter_scale: int | None,
+        source_type: Literal["om4"],
+    ) -> None:
+        logger.info("preprocessing %s.", source_type)
         ds_processed = om4_preprocessing(
             zarr_data_path,
             native_grid_path,

@@ -3,10 +3,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
+from types import ModuleType
 
 import fsspec
 import numpy as np
 import xarray as xr
+from fsspec.spec import AbstractFileSystem
 from xgcm import Grid
 
 from ocean_preprocessing.dataset_validation import ds_processed_validate
@@ -285,6 +287,16 @@ def om4_preprocessing(
         )
         ds = transplant_wfo(ds, donor, donor_path=wfo_source_path)
 
+    return native_ocean_preprocessing(ds, nc_grid_path, nc_mosaic_path, fs=fs)
+
+
+def native_ocean_preprocessing(
+    ds: xr.Dataset,
+    nc_grid_path: str,
+    nc_mosaic_path: str,
+    fs: ModuleType | AbstractFileSystem = fsspec,
+) -> xr.Dataset:
+    """Center MOM6 ocean fields and attach the native grid geometry."""
     time_bounds = ds.get("time_bnds")
     ds = select_om4_variables(ds)
     ds = normalize_vertical_coords(ds)

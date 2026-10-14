@@ -737,7 +737,7 @@ def test_search_summary_uses_best_configured_checkpoint_score(metric, monkeypatc
 
     trainer = cast(Any, object.__new__(Trainer))
     trainer.validation_score = metric
-    trainer.rollout_validation = RolloutValidationConfig(days=[90, 360], frequency=2)
+    trainer.rollout_validation = RolloutValidationConfig(days=[90, 360], frequency=1)
     trainer.best_validation_score = 2.5
     trainer.epochs = 2
     trainer.search_run = SimpleNamespace(model_dump=lambda: {})
@@ -747,11 +747,6 @@ def test_search_summary_uses_best_configured_checkpoint_score(metric, monkeypatc
     trainer.device = "cpu"
     trainer.world_size = 1
     monkeypatch.setattr("samudra.train.using_gpu", lambda: False)
-    # A skipped rollout at the rung boundary preserves the earlier best score.
-    if metric == "rollout_rmse":
-        assert (
-            trainer.validation_checkpoint_score(2, {"val/mean/loss": 0.1}, {}) is None
-        )
     summary = trainer._search_summary(
         2,
         train_loss=0.2,
@@ -775,6 +770,7 @@ def test_rollout_checkpoint_selection_and_skipped_epochs():
 
     trainer = cast(Any, object.__new__(Trainer))
     trainer.validation_score = "rollout_rmse"
+    trainer.search_run = None
     trainer.rollout_validation = RolloutValidationConfig(days=[360, 90], frequency=2)
     trainer.best_validation_score = float("inf")
     trainer.save_freq = 100
@@ -900,3 +896,14 @@ def test_one_step_rmse_selection_ignores_weighted_loss():
     trainer.validation_score = "one_step_rmse"
     stats = {"val/mean/loss": 0.01, "val/reduced/normalized_rmse/channel_mean": 2.0}
     assert trainer.validation_checkpoint_score(1, stats, {}) == 2.0
+
+
+def test_search_trainer_rejects_skipped_rollout_at_rung_endpoint():
+    from samudra.config import RolloutValidationConfig
+
+    trainer = cast(Any, object.__new__(Trainer))
+    trainer.validation_score = "rollout_rmse"
+    trainer.rollout_validation = RolloutValidationConfig(days=[90], frequency=2)
+    trainer.search_run = SimpleNamespace(target_epochs=2)
+    with pytest.raises(ValueError, match="every rung endpoint"):
+        trainer.validation_checkpoint_score(2, {}, {})

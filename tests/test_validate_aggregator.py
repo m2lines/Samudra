@@ -280,6 +280,14 @@ def test_normalized_one_step_rmse_weights_samples_and_channels(invalid_predictio
     prediction = torch.tensor([[[[float("nan"), 2.0], [4.0, 2.0]]]])
     if invalid_prediction:
         prediction[..., 1, 1] = float("nan")
+        with pytest.raises(ValueError, match="Non-finite prediction"):
+            agg.record_batch(
+                target_data={"a": target},
+                gen_data={"a": prediction},
+                target_data_norm={"a": target},
+                gen_data_norm={"a": prediction},
+            )
+        return
     for batch_size, scale in [(2, 1.0), (1, 2.0)]:
         agg.record_batch(
             target_data={"a": target.expand(batch_size, -1, -1, -1)},
@@ -293,5 +301,5 @@ def test_normalized_one_step_rmse_weights_samples_and_channels(invalid_predictio
             },
         )
     score = agg.get_logs("reduced")["reduced/normalized_rmse/channel_mean"]
-    expected = float("inf") if invalid_prediction else (40 / 7) ** 0.5 * 4 / 3 * 1.5
+    expected = (40 / 7) ** 0.5 * 4 / 3 * 1.5
     assert score == pytest.approx(expected)

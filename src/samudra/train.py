@@ -1078,6 +1078,8 @@ class Trainer:
             return float(val_stats["val/reduced/normalized_rmse/channel_mean"])
         assert self.rollout_validation is not None
         if not should_run_on_epoch_freq(epoch, self.rollout_validation.frequency):
+            if self.search_run is not None and epoch == self.search_run.target_epochs:
+                raise ValueError("Rollout validation must run at every rung endpoint")
             return None
         label = "rollout_val"
         if self.rollout_validation.days:

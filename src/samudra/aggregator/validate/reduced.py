@@ -125,16 +125,10 @@ class MeanAggregator(ValidateSubAggregator):
             input_data_norm = {}
 
         for name, target in target_data_norm.items():
-            error = gen_data_norm[name] - target
-            # Preserve land NaNs; non-finite wet predictions must fail scoring.
-            error = torch.where(
-                torch.isnan(target),
-                float("nan"),
-                torch.where(torch.isfinite(error), error, float("inf")),
-            )
-            rmse = area_weighted_rmse(
-                torch.zeros_like(error), error, self._area_weights
-            )
+            prediction = gen_data_norm[name]
+            if ((~torch.isfinite(prediction)) & torch.isfinite(target)).any():
+                raise ValueError("Non-finite prediction at a valid validation cell")
+            rmse = area_weighted_rmse(target, prediction, self._area_weights)
             total = rmse.sum()
             self._normalized_rmse_sum = (
                 total

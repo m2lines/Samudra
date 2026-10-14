@@ -21,17 +21,12 @@ area-weighted one-step RMSE averaged equally over channels and samples), and
 weighting cannot be used with `validation_loss` scoring.
 
 Search rejects competing candidates with different score methods or rollout
-horizons before launching training. Use the same validation data and normalization
+configs before launching training. Use the same validation data and normalization
 for meaningful comparisons. Rollout validation must be scheduled at every rung
 endpoint; choose compatible rung budgets and `rollout_validation.frequency`.
 Promotion resumes from the latest checkpoint. `validation_loss` remains a
 diagnostic, while checkpoint state and search ranking use `best_validation_score`.
 There is no separate search objective or compatibility alias for the best score.
-Older configs must rename `checkpoint_validation_metric` to `validation_score`
-and `one_step_loss` to `validation_loss`, and remove `objective`. Older checkpoints
-need their `best_val_loss` key renamed to `best_validation_score` and their saved
-score identity updated before resuming. Existing search records require migration
-to the new score column before reuse.
 
 Successive halving is the resource-allocation primitive used by
 [Hyperband](https://jmlr.org/papers/v18/16-558.html). Samudra currently runs one
@@ -245,7 +240,7 @@ candidates:
     args: [--batch_size=2, --learning_rate=0.0006]
 ```
 
-`best_validation_score` is the sole promotion score. `metrics` controls the
+The `best_validation_score` metric is used for promotion. `metrics` controls the
 additional columns collected in `results.csv`. Any finite scalar emitted by
 training, validation, or inference can be named here, including namespaced
 diagnostics such as `val/seam/window_jump_ratio/zos`. A missing or non-finite

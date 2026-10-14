@@ -165,18 +165,13 @@ class SuccessiveHalving:
                     raise ValueError(
                         f"Candidate {candidate.name}: rollout validation must run at every rung endpoint"
                     )
-                horizon = (
-                    {"days": max(rollout.days)}
-                    if rollout.days
-                    else {"model_steps": rollout.model_steps}
-                )
-            else:
-                horizon = None
             if not candidate.fixed:
-                identities.append((train_config.validation_score, horizon))
+                identities.append(
+                    (train_config.validation_score, train_config.rollout_validation)
+                )
         if any(identity != identities[0] for identity in identities[1:]):
             raise ValueError(
-                "Competing candidates must use the same validation score and horizon"
+                "Competing candidates must use the same validation score and rollout config"
             )
         self.search_dir.mkdir(parents=True)
         if code_layer_metadata is not None:

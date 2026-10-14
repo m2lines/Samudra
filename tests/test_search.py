@@ -1042,7 +1042,7 @@ def test_failed_probe_terminates_search_before_array(tmp_path, monkeypatch):
     assert updated["rungs"][0]["probe"]["status"] == "failed"
 
 
-@pytest.mark.parametrize("problem", ["schedule", "score", "horizon"])
+@pytest.mark.parametrize("problem", ["schedule", "score", "horizon", "steps_forward"])
 def test_search_rejects_incomparable_scores_before_launch(
     tmp_path, monkeypatch, problem
 ):
@@ -1060,10 +1060,13 @@ def test_search_rejects_incomparable_scores_before_launch(
         message = "every rung endpoint"
     elif problem == "score":
         search_config.candidates[1].args[0] = "--validation_score=one_step_rmse"
-        message = "same validation score and horizon"
+        message = "same validation score and rollout config"
+    elif problem == "steps_forward":
+        search_config.candidates[1].args.append("--rollout_validation.steps_forward=7")
+        message = "same validation score and rollout config"
     else:
         search_config.candidates[1].args[1] = "--rollout_validation.days=[360]"
-        message = "same validation score and horizon"
+        message = "same validation score and rollout config"
     monkeypatch.setattr(
         "samudra.search.successive_halving._git_provenance", lambda **kw: {}
     )

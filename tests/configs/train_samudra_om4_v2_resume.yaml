@@ -44,7 +44,7 @@ data:
       boundary_vars_key: tau_hfds_hfds_anom
       train_time:
         start: "1975-08-15"
-        end: "1975-10-25"
+        end: "1975-10-20"
       val_time:
         start: "1975-10-25"
         end: "1975-11-25"

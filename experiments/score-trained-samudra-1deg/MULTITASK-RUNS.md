@@ -250,3 +250,22 @@ Callback `668233a3-4aaa-41ef-8761-203fd5100a48` authenticated; CPU notification 
 `afterany` dependencies on both jobs. `/root/rtx_qualification_monitor` checks both artifacts on completion
 with an hourly fallback. Full evaluation still awaits a successful qualification. Shell syntax and scoped
 pre-commit checks passed; this changes only the launcher, not the evaluator/model implementation.
+
+## October 13, 21:35 Eastern: qualification passed; full forecast evaluation submitted
+
+Single-GPU qualifications F19757973 and M19757974 completed with exit 0 in 55 seconds each on gr105
+(0.0153 RTX GPU-hours each). Each strictly loaded final EMA epoch 70 and produced exactly 1,078 finite
+metric rows, two origins and sixteen members. Rank histograms have shape (7,77,17), finite entries and
+total 1,078; saved 5/40/360-day field arrays are finite. Saved configs retain `native_pointwise: true`.
+[W&B F ijwuebf8](https://wandb.ai/ocean_emulators/default/runs/ijwuebf8) and
+[W&B M ic9py3vg](https://wandb.ai/ocean_emulators/default/runs/ic9py3vg) both synchronized five files.
+CPU notification 19757976 succeeded, and the qualification registration was retired.
+
+Full final-EMA forecast jobs F19758710 and M19758711 use the same single-GPU launcher, source and
+checkpoints, now with all thirty fixed test origins and sixteen members. Each requests one RTX GPU,
+eight CPUs, 96 GiB and a two-hour ceiling. Outputs are `outputs/eval-full-F-19758710/` and
+`outputs/eval-full-M-19758711/`; expected metric rows are 16,170 per arm. Submission is not completion.
+Shared callback `f704d5c7-70c4-4f4f-953f-0132a6ec9804` authenticated and CPU notification 19758717 has
+verified `afterany` dependencies on both runs. Quiet monitor `/root/rtx_qualification_monitor` owns the
+pair with an hourly fallback. Validation-selected secondary evaluation, held-out completion tasks and
+continuous-rollout diagnostics remain outstanding; this forecast stage alone does not finish the wave.

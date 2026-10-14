@@ -269,3 +269,40 @@ Shared callback `f704d5c7-70c4-4f4f-953f-0132a6ec9804` authenticated and CPU not
 verified `afterany` dependencies on both runs. Quiet monitor `/root/rtx_qualification_monitor` owns the
 pair with an hourly fallback. Validation-selected secondary evaluation, held-out completion tasks and
 continuous-rollout diagnostics remain outstanding; this forecast stage alone does not finish the wave.
+
+## October 13, 22:10 Eastern: final-EMA forecasts verified; secondary checks submitted
+
+Full F19758710 and M19758711 completed with exit 0 in 7:23 and 7:10, respectively (0.1231 and
+0.1194 RTX GPU-hours). Each has 30 origins, sixteen members and 16,170 finite metric rows; target
+keys, source/data/normalization metadata and saved map targets/masks match. Rank histograms have
+shape (7,77,17), with each channel/lead summing to thirty origins. All saved maps are finite.
+[W&B F f47v3esh](https://wandb.ai/ocean_emulators/default/runs/f47v3esh) and
+[W&B M un6tp9aw](https://wandb.ai/ocean_emulators/default/runs/un6tp9aw) synchronized. CPU notification
+19758717 succeeded and its callback was retired. Per-channel, per-origin and aggregate lead scores are
+in [results/multitask-forecast](results/multitask-forecast/). Full raw rows remain in each remote output
+`metrics-rank0.csv` and verified local copies under `/tmp/eval-full-{F,M}-<job>/`. The repository
+250 KB/file check rejected full compressed tables; summaries follow the existing first-wave format.
+
+Preliminary equal-channel/equal-origin aggregate 360-day final-EMA RMSE is 0.33690 F versus 0.34580 M
+(+2.64%); empirical CRPS is 0.15085 versus 0.15678 (+3.93%). M has worse aggregate RMSE/CRPS at all
+seven leads, but wider ensembles and somewhat higher coverage (360-day empirical 5–95% interval
+coverage 73.65% F versus 74.62% M). These are point estimates from one training seed, not uncertainty
+intervals or the completed wave report. M has roughly half F's forecast-training exposure. Completion
+benefit and long-rollout structure still require evaluation.
+
+Source `8150d606e` adds requested-only held-out completion evaluation and optional single-process F/M
+continuous diagnostics, preserving the original A/B/C/D path. Completion uses the same thirty fixed
+origins, one two-date pair per task/origin, no historical ocean values, deterministic masks/sample seeds,
+sixteen members, physical/normalized scores, coverage and rank histograms. Known values are asserted
+unchanged, inactive channels are excluded, and masks plus first-origin fields are saved. F completion
+is an unfamiliar-task transfer diagnostic, not a task-trained baseline. Continuous diagnostics retain
+four members and the original seed/geometry/metrics. Twenty-two model tests, shell syntax and scoped
+pre-commit including mypy passed; real-data checks remain necessary.
+
+Jobs F19760788 / M19760790 each request one RTX GPU, eight CPUs, 96 GiB and a one-hour ceiling. Each
+sequentially runs full validation-selected forecast evaluation, then two-origin completion and two-call
+continuous qualification. Outputs are `outputs/eval-secondary-qualification-{F,M}-<job>/`, with
+`selected/`, `completion/`, and `continuous/<arm>/` subdirectories. Callback
+`75c231f1-aca9-4ae7-b22d-c6b44a79ab99` authenticated, and CPU notification 19760799 has verified
+`afterany` dependencies on both jobs. Quiet monitor `/root/rtx_qualification_monitor` checks all stages
+with an hourly fallback. Full completion/continuous evaluation and final report remain outstanding.

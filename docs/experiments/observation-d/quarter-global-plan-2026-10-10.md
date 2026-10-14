@@ -9,9 +9,10 @@ best one or two variants from the 6k comparison**, judged at both 30 and 365 day
 All quarter-degree runs use 6,000 total updates. Training and annual evaluation
 data are verified. **All four eight-GPU qualifications (212414) passed**, including
 fitting, gradients, real data, exact fresh-process replay, and two-host NVLink
-transport. **U-global production 212532_0 is submitted and pending priority**
-(two Beta nodes, eight GPUs). The other three arms await its online W&B and
-initial mixed-task training check. No native-quarter scientific result is available yet.
+transport. **U-global 212532_0 is training**: 71/6,000 updates at October 13,
+9:00 p.m. ET. Online W&B and actual two-host NVLink were verified. The remaining
+three arms are submitted as **212896_[1–3]**, pending priority, with at most two
+of those arms running concurrently. Final native-quarter results are not available yet.
 Reporting both native-resolution and matched 1° metrics remains agreed.
 
 ## Runs
@@ -321,13 +322,25 @@ unstarted tests used zero. This is separate from the completed 1° campaigns.
 and the [network recovery receipt](artifacts/quarter-bringup-2026-10-11/eight-network-recovery.json.gz)
 preserve failed attempts.
 
-**U-global production 212532_0** was submitted October 12 at 18:33 UTC after both
-independent and submission-time full gates passed. It is **pending priority**,
-with no training updates yet: two Beta nodes/eight GPUs, 24-hour allocation and
-22-hour runner stop. Remaining arms are not submitted; release requires a real
-online W&B run, at least ten finite mixed-task updates, and verified bond0/NVLink
-transport from this production run. The
-[submission evidence](artifacts/quarter-bringup-2026-10-11/production-212532-submission.json.gz)
-preserves gates and actual scheduler state. Outputs will be under
-`native-production-eight-bond0/job-212532/0/u-global` in the run root above.
-No native-quarter scientific results are available yet.
+**Production snapshot: October 14, 01:00 UTC (October 13, 9:00 p.m. ET).**
+U-global **212532_0** started at 00:37:43 UTC on two Beta nodes/eight GPUs and
+reached **71/6,000 updates: 62 OM4 and 9 observation updates**. Losses are finite;
+measured update times average **10.94 seconds for OM4 and 12.39 for observations**.
+The initial, untrained validation RMSE blend is 15.0074; validation after the
+first 100 updates is still pending, so no validation improvement is claimed.
+[Online W&B](https://wandb.ai/ocean_emulators/observational-transfer/runs/526c08186ad8)
+and all eight ranks' bond0 setup/two-host NVLink transport passed the bring-up check.
+
+The remaining **212896_1/2/3** jobs (observation-only, early, early-latent) are
+submitted and pending priority, with a concurrency limit of two for that array.
+Every run retains the 24-hour allocation, 22-hour checkpointed stop, and unchanged
+6k protocol. U-global has used **3.0689 allocated GPU-hours** at this snapshot;
+pending arms have used zero. This running-production total is separate from the
+**28.0061 GPU-hours** of completed diagnostics/retries above. The
+[startup evidence](artifacts/quarter-bringup-2026-10-11/production-212532-startup.json.gz)
+contains the verified bring-up receipt, training/validation events, scheduler
+snapshot and remaining-array submission. Original
+[submission gates](artifacts/quarter-bringup-2026-10-11/production-212532-submission.json.gz)
+remain preserved. U-global outputs are under
+`native-production-eight-bond0/job-212532/0/u-global`; other arms use
+`native-production-eight-bond0/job-212896/INDEX/ARM` in the run root above.

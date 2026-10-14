@@ -9,10 +9,10 @@ best one or two variants from the 6k comparison**, judged at both 30 and 365 day
 All quarter-degree runs use 6,000 total updates. Training and annual evaluation
 data are verified. **All four eight-GPU qualifications (212414) passed**, including
 fitting, gradients, real data, exact fresh-process replay, and two-host NVLink
-transport. **U-global 212532_0 is training**: 71/6,000 updates at October 13,
-9:00 p.m. ET. Online W&B and actual two-host NVLink were verified. The remaining
-three arms are submitted as **212896_[1–3]**, pending priority, with at most two
-of those arms running concurrently. Final native-quarter results are not available yet.
+transport. **U-global completed all 6,000 updates**; observation-only reached
+5,709/6,000 at October 14, 6:14 p.m. ET. Both earlier-data variants remain queued.
+The [training snapshot and validation curves](#production-snapshot) are below;
+held-out 30-/365-day evaluation and the common-grid 1° comparison are still pending.
 Reporting both native-resolution and matched 1° metrics remains agreed.
 
 ## Runs
@@ -322,25 +322,48 @@ unstarted tests used zero. This is separate from the completed 1° campaigns.
 and the [network recovery receipt](artifacts/quarter-bringup-2026-10-11/eight-network-recovery.json.gz)
 preserve failed attempts.
 
-**Production snapshot: October 14, 01:00 UTC (October 13, 9:00 p.m. ET).**
-U-global **212532_0** started at 00:37:43 UTC on two Beta nodes/eight GPUs and
-reached **71/6,000 updates: 62 OM4 and 9 observation updates**. Losses are finite;
-measured update times average **10.94 seconds for OM4 and 12.39 for observations**.
-The initial, untrained validation RMSE blend is 15.0074; validation after the
-first 100 updates is still pending, so no validation improvement is claimed.
-[Online W&B](https://wandb.ai/ocean_emulators/observational-transfer/runs/526c08186ad8)
-and all eight ranks' bond0 setup/two-host NVLink transport passed the bring-up check.
+## Production snapshot
 
-The remaining **212896_1/2/3** jobs (observation-only, early, early-latent) are
-submitted and pending priority, with a concurrency limit of two for that array.
-Every run retains the 24-hour allocation, 22-hour checkpointed stop, and unchanged
-6k protocol. U-global has used **3.0689 allocated GPU-hours** at this snapshot;
-pending arms have used zero. This running-production total is separate from the
-**28.0061 GPU-hours** of completed diagnostics/retries above. The
-[startup evidence](artifacts/quarter-bringup-2026-10-11/production-212532-startup.json.gz)
-contains the verified bring-up receipt, training/validation events, scheduler
-snapshot and remaining-array submission. Original
-[submission gates](artifacts/quarter-bringup-2026-10-11/production-212532-submission.json.gz)
-remain preserved. U-global outputs are under
-`native-production-eight-bond0/job-212532/0/u-global`; other arms use
-`native-production-eight-bond0/job-212896/INDEX/ARM` in the run root above.
+**October 14, 22:14 UTC (6:14 p.m. ET).** U-global **212532_0** completed in
+20h38m, with verified terminal receipt and selected/final checkpoint hashes.
+Observation-only **212896_1** is still training; **212896_2/3** (early and
+early-latent) are pending priority.
+
+| Model | Training status / updates | Best native validation RMSE blend (update) | Latest native validation RMSE blend (update) |
+|---|---|---:|---:|
+| U-global-quarter | Complete: 6,000 (3,000 OM4 + 3,000 observation) | **0.8817** (4,900) | 0.9131 (6,000) |
+| U-obs-only-quarter | Running: 5,709 observation updates | **0.8528** (5,300; provisional) | 0.8968 (5,700) |
+| U-early-quarter | Queued | — | — |
+| U-early-latent-quarter | Queued | — | — |
+
+These are **native-resolution validation scores**, on the same nine validation
+origins and frozen climatology denominators (1 means climatology). They are not
+held-out test results or the common-support 1° comparison. Observation-only is
+unfinished, and both earlier-data variants are pending; no final model ranking
+is claimed. Selected checkpoints will receive the agreed 30-/365-day evaluation.
+
+![Native quarter-degree validation curves through October 14](artifacts/quarter-bringup-2026-10-11/native-validation-2026-10-14.png)
+
+Raw curves are unsmoothed; stars mark the best observed validation checkpoints
+and circles the latest validated checkpoints. The right panel zooms the same
+curves. The horizontal axis counts all optimizer updates: observation-only uses
+an observation task every time, whereas U-global mixes OM4 and observations.
+[Curve values](artifacts/quarter-bringup-2026-10-11/native-validation-2026-10-14.csv)
+and [saved receipts, events and accounting](artifacts/quarter-bringup-2026-10-11/production-progress-2026-10-14.json.gz)
+retain the snapshot and plotting provenance.
+
+U-global's selected checkpoint is update 4,900, SHA
+`57489d504cb73f4c893eba04422ea51ff1f7b60055567689419927aaffb395af`;
+its final checkpoint SHA is
+`f13bcbc01febc542c91c1c92573e6e3c4ea288195881089bc531524b4509665c`.
+The training producer remains `f091232ea8d7a8ee04ea14dd4cdbea5fa828f9ff`.
+[U-global W&B](https://wandb.ai/ocean_emulators/observational-transfer/runs/526c08186ad8)
+and the [startup verification](artifacts/quarter-bringup-2026-10-11/production-212532-startup.json.gz)
+remain available.
+
+Allocated production compute is **331.2778 GPU-hours** at this snapshot:
+74,269 seconds for completed U-global and 74,806 seconds for running observation-only,
+each on eight GPUs. Adding **28.0061 GPU-hours** of diagnostics/retries gives
+**359.2839 GPU-hours** so far. Pending jobs use zero; Slurm steps are not counted
+again. Outputs are under `native-production-eight-bond0/job-212532/0/u-global`
+and `native-production-eight-bond0/job-212896/INDEX/ARM` in the run root above.

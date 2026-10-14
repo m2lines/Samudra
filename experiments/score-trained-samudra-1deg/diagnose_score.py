@@ -101,7 +101,9 @@ def main():
     parser.add_argument("--arm", choices=["F", "M"])
     parser.add_argument("--write-rollouts", action="store_true")
     parser.add_argument("--verify-replay", type=Path)
+    parser.add_argument("--forecast-cooldown", action="store_true")
     args = parser.parse_args()
+    expected_epoch = 10 if args.forecast_cooldown else 70
     if args.max_steps is not None and args.max_steps < 1:
         parser.error("--max-steps must be positive")
     device, dist = init_train_backend("auto" if args.arm else "nccl")
@@ -116,9 +118,15 @@ def main():
         config_type = MultitaskTrainConfig
         mode = {"F": "forecast", "M": "multitask"}[arm]
         cfg = config_type.from_yaml(
-            args.campaign / "configs" / f"train-{mode}-rtx.yaml"
+            args.campaign
+            / "configs"
+            / (
+                f"cooldown-{arm}.yaml"
+                if args.forecast_cooldown
+                else f"train-{mode}-rtx.yaml"
+            )
         )
-        if cfg.model.mode != mode:
+        if cfg.model.mode != ("forecast" if args.forecast_cooldown else mode):
             raise ValueError("Mismatched arm/config")
         configure_native_pointwise(cfg.native_pointwise)
     else:
@@ -129,6 +137,11 @@ def main():
         cfg = config_type.from_yaml(
             args.campaign / "configs" / f"train-{'B' if arm == 'A' else arm}.yaml"
         )
+    if args.forecast_cooldown:
+        if args.arm not in ("F", "M") or not cfg.finetune or cfg.epochs != 10:
+            raise ValueError(
+                "Cooldown evaluation requires a ten-epoch F/M finetune config"
+            )
     raw = cfg.model_dump(mode="json")
     raw["data"]["sources"][0]["inference_time"] = {
         "start": "2014-10-10",
@@ -174,7 +187,11 @@ def main():
         checkpoint_path = (
             args.campaign
             / "outputs"
-            / f"train-{mode}-rtx"
+            / (
+                f"cooldown-{arm}-forecast"
+                if args.forecast_cooldown
+                else f"train-{mode}-rtx"
+            )
             / "saved_nets"
             / "ema_ckpt.pt"
         )
@@ -184,7 +201,7 @@ def main():
             / "current-stochastic-depth-1deg-20261006/control/output/current-1deg-control-ga2-210664/saved_nets/ema_ckpt.pt"
         )
     ckpt = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
-    assert ckpt["epoch"] == 70
+    assert ckpt["epoch"] == expected_epoch
     state = {k.removeprefix("module."): v for k, v in ckpt["model"].items()}
     (net.base if arm == "A" else net).load_state_dict(state, strict=True)
     del ckpt, state
@@ -436,7 +453,7 @@ def main():
         "last_target": times[-1],
         "variables": names,
         "checkpoint": str(checkpoint_path),
-        "checkpoint_epoch": 70,
+        "checkpoint_epoch": expected_epoch,
         "checkpoint_sha256": checkpoint_digest,
         "source_commit": os.environ["SAMUDRA_CODE_COMMIT"],
         "wandb_url": run.url,

@@ -30,12 +30,23 @@ def main():
     parser.add_argument("output", type=Path)
     parser.add_argument("--arm", choices=["F", "M"], required=True)
     parser.add_argument("--origin-limit", type=int)
+    parser.add_argument("--forecast-cooldown", action="store_true")
     args = parser.parse_args()
+    expected_epoch = 10 if args.forecast_cooldown else 70
     if args.origin_limit is not None and args.origin_limit < 1:
         parser.error("origin-limit must be positive")
     cfg = MultitaskTrainConfig.from_yaml(args.config)
-    assert cfg.model.mode == {"F": "forecast", "M": "multitask"}[args.arm]
+    assert cfg.model.mode == (
+        "forecast"
+        if args.forecast_cooldown
+        else {"F": "forecast", "M": "multitask"}[args.arm]
+    )
     configure_native_pointwise(cfg.native_pointwise)
+    if args.forecast_cooldown:
+        if args.arm not in ("F", "M") or not cfg.finetune or cfg.epochs != 10:
+            raise ValueError(
+                "Cooldown evaluation requires a ten-epoch F/M finetune config"
+            )
     raw = cfg.model_dump(mode="json")
     raw["data"]["sources"][0]["inference_time"] = {
         "start": "2014-10-10",
@@ -76,7 +87,7 @@ def main():
         .eval()
     )
     ckpt = torch.load(args.checkpoint, map_location="cpu", weights_only=True)
-    assert ckpt["epoch"] == 70 and args.checkpoint.name == "ema_ckpt.pt"
+    assert ckpt["epoch"] == expected_epoch and args.checkpoint.name == "ema_ckpt.pt"
     net.load_state_dict(
         {k.removeprefix("module."): v for k, v in ckpt["model"].items()}, strict=True
     )
@@ -97,7 +108,7 @@ def main():
         origins=origins,
         members=16,
         checkpoint=str(args.checkpoint),
-        checkpoint_epoch=70,
+        checkpoint_epoch=expected_epoch,
         checkpoint_sha256=digest,
         source_commit=os.environ["SAMUDRA_CODE_COMMIT"],
         variables=names,

@@ -71,7 +71,9 @@ def main():
         choices=["final-ema", "final-raw", "validation-selected"],
         default="final-ema",
     )
+    parser.add_argument("--forecast-cooldown", action="store_true")
     args = parser.parse_args()
+    expected_epoch = 10 if args.forecast_cooldown else 70
     if args.arm in ("C", "D", "F", "M") and args.members < 2:
         parser.error("Stochastic evaluation requires at least two members")
     if args.origin_limit is not None and args.origin_limit < 1:
@@ -81,12 +83,21 @@ def main():
     )
     cfg = config_type.from_yaml(args.config)
     if args.arm in ("F", "M"):
-        expected_mode = {"F": "forecast", "M": "multitask"}[args.arm]
+        expected_mode = (
+            "forecast"
+            if args.forecast_cooldown
+            else {"F": "forecast", "M": "multitask"}[args.arm]
+        )
         assert isinstance(cfg.model, MultitaskModelConfig)
         if cfg.model.mode != expected_mode:
             raise ValueError(f"Arm {args.arm} requires mode={expected_mode}")
         assert isinstance(cfg, MultitaskTrainConfig)
         configure_native_pointwise(cfg.native_pointwise)
+    if args.forecast_cooldown:
+        if args.arm not in ("F", "M") or not cfg.finetune or cfg.epochs != 10:
+            raise ValueError(
+                "Cooldown evaluation requires a ten-epoch F/M finetune config"
+            )
     raw = cfg.model_dump(mode="json")
     raw["data"]["sources"][0]["inference_time"] = {
         "start": "2014-10-10",
@@ -132,13 +143,18 @@ def main():
     )
     checkpoint = torch.load(args.checkpoint, map_location="cpu", weights_only=True)
     checkpoint_epoch = checkpoint["epoch"]
-    if args.checkpoint_role != "validation-selected" and checkpoint_epoch != 70:
-        raise ValueError(f"Expected final epoch 70, got {checkpoint_epoch}")
-    if not 1 <= checkpoint_epoch <= 70:
+    if (
+        args.checkpoint_role != "validation-selected"
+        and checkpoint_epoch != expected_epoch
+    ):
+        raise ValueError(
+            f"Expected final epoch {expected_epoch}, got {checkpoint_epoch}"
+        )
+    if not 1 <= checkpoint_epoch <= expected_epoch:
         raise ValueError(f"Unexpected checkpoint epoch {checkpoint_epoch}")
     expected_file = {
         "final-ema": "ema_ckpt.pt",
-        "final-raw": "ckpt_70.pt",
+        "final-raw": f"ckpt_{expected_epoch}.pt",
         "validation-selected": "best_validation_ckpt.pt",
     }[args.checkpoint_role]
     if Path(args.checkpoint).name != expected_file:

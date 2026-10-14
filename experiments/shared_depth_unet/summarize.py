@@ -161,7 +161,7 @@ def main():
 
 # Local shared-depth U-Net experiment
 
-A paired 2×2 test of shared versus independent coarse/fine parameters, with and without current coarse-global context. This is an experiment/results record, not intended to merge. These synthetic results do not establish ocean forecasting skill or cross-source transfer.
+A paired 2×2 test of shared versus independent coarse/fine parameters, with and without current coarse-global context. This is an experiment/results record, not intended to merge. These synthetic results do not establish ocean forecasting skill or cross-source transfer. See the [doubled-update follow-up](../results_longer/REPORT.md) for the independent-context optimization-budget control and gradient-path audit.
 
 ## Results
 

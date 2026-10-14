@@ -5,6 +5,8 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Matched forecast-only cooldown after F/M training
 
+**Complete:** see the [results and before/after comparisons](RESULTS.md).
+
 User-authorized October 14, 2026: a small fine-tune of both models on 100% forecast data, with a
 cooldown. This tests whether forecast adaptation recovers M's deficit while giving F the same additional
 training. It does not erase the unequal forecast exposure during the original 70 epochs.
@@ -82,3 +84,6 @@ one-hour ceiling. Source `2b2b3dbeed6f30b3f0ef127d3ad3386bcc25f292`. Outputs are
 `outputs/eval-cooldown-F-19815733` and `outputs/eval-cooldown-M-19815734`, with `ema/`, `raw/`,
 `completion/` and `continuous/<arm>/` subdirectories. CPU callback19815738 uses afterany on both;
 webhook `ddda0034-e9eb-4e57-b12d-8aa122b8618d` and the quiet monitor cover hourly follow-up.
+
+All held-out evaluations completed successfully. Final checks, W&B links, allocation costs and artifact
+locations are recorded in the results report. Completion callbacks are retired; no later wave submitted.

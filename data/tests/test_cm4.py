@@ -7,7 +7,6 @@
 import datetime
 import json
 from pathlib import Path
-from typing import Any
 
 import cftime
 import numpy as np
@@ -33,31 +32,69 @@ def _cm4_source() -> xr.Dataset:
     )
 
 
+def _cm4_bounds() -> xr.Dataset:
+    times = _cm4_source().time
+    return xr.Dataset(
+        {
+            "time_bnds": (
+                ("time", "nv"),
+                [[t - datetime.timedelta(days=5), t] for t in times.values],
+            )
+        },
+        coords={"time": times},
+    )
+
+
+def _write_bounds(companion: xr.Dataset, path: Path) -> None:
+    # Explicit integer days round-trip with older xarray's NetCDF3 writer.
+    companion.to_netcdf(
+        path,
+        engine="scipy",
+        encoding={
+            name: {
+                "units": "days since 0151-01-01",
+                "calendar": "noleap",
+                "dtype": "int32",
+            }
+            for name in ("time", "time_bnds")
+        },
+    )
+
+
 def _prepare_time(
-    monkeypatch: pytest.MonkeyPatch, source: xr.Dataset, **kwargs: Any
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    source: xr.Dataset,
+    companion: xr.Dataset,
 ) -> xr.Dataset:
-    monkeypatch.setattr(gfdl_cm4.xr, "open_dataset", lambda *args, **kw: source)
+    source_path = tmp_path / "source.zarr"
+    source.to_zarr(source_path)
+    bounds_path = tmp_path / "time_bnds.nc"
+    _write_bounds(companion, bounds_path)
     monkeypatch.setattr(
         gfdl_cm4, "native_ocean_preprocessing", lambda ds, *args, **kw: ds
     )
-    return gfdl_cm4.cm4_ocean_preprocessing("source", "grid", "mosaic", **kwargs)
+    return gfdl_cm4.cm4_ocean_preprocessing(
+        str(source_path), "grid", "mosaic", time_bounds_path=str(bounds_path)
+    )
 
 
-def test_cm4_recovers_interval_bounds_without_relabeling(
-    monkeypatch: pytest.MonkeyPatch,
+def test_cm4_reads_companion_bounds_without_relabeling(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     source = _cm4_source()
-    out = _prepare_time(monkeypatch, source)
+    out = _prepare_time(monkeypatch, tmp_path, source, _cm4_bounds())
     xr.testing.assert_equal(out.time, source.time.assign_attrs(bounds="time_bnds"))
     assert out.sizes["time"] == 12
     assert out.time_bnds.values[0, 0] == cftime.DatetimeNoLeap(151, 1, 1)
     np.testing.assert_array_equal(out.time_bnds[:, 1], out.time)
     assert "wfo" in out
+    assert "time_sampling" not in out.attrs
 
 
-@pytest.mark.parametrize("invalid", ["calendar", "cadence", "duration", "wfo"])
+@pytest.mark.parametrize("invalid", ["calendar", "cadence", "wfo"])
 def test_cm4_rejects_invalid_source(
-    monkeypatch: pytest.MonkeyPatch, invalid: str
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, invalid: str
 ) -> None:
     source = _cm4_source()
     if invalid == "calendar":
@@ -66,8 +103,6 @@ def test_cm4_rejects_invalid_source(
         values = source.time.values.copy()
         values[1] += datetime.timedelta(days=1)
         source = source.assign_coords(time=values)
-    elif invalid == "duration":
-        source["average_DT"][0] = 4
     else:
         source = source.drop_vars("wfo")
     with pytest.raises(
@@ -75,11 +110,47 @@ def test_cm4_rejects_invalid_source(
         match={
             "calendar": "no-leap",
             "cadence": "five days",
-            "duration": "five days",
             "wfo": "wfo",
         }[invalid],
     ):
-        _prepare_time(monkeypatch, source)
+        _prepare_time(monkeypatch, tmp_path, source, _cm4_bounds())
+
+
+def test_cm4_requires_separate_bounds_file(tmp_path: Path) -> None:
+    # Neither embedded bounds nor average_DT should act as a fallback.
+    source = _cm4_source().assign_coords(time_bnds=_cm4_bounds().time_bnds)
+    source_path = tmp_path / "source.zarr"
+    source.to_zarr(source_path)
+    pipeline = main.CLI(output_path=str(tmp_path / "unused.zarr"))
+    with pytest.raises(ValueError, match="requires --time_bounds_path"):
+        pipeline.cm4(str(source_path), "grid", "mosaic", "target")
+
+
+@pytest.mark.parametrize("invalid", ["timestamps", "dimensions", "duration", "label"])
+def test_cm4_rejects_invalid_companion_bounds(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, invalid: str
+) -> None:
+    companion = _cm4_bounds()
+    if invalid == "timestamps":
+        companion = companion.assign_coords(
+            time=[t + datetime.timedelta(days=1) for t in companion.time.values]
+        )
+    elif invalid == "dimensions":
+        companion = companion.rename({"nv": "other"})
+    elif invalid == "duration":
+        companion["time_bnds"][0, 0] += datetime.timedelta(days=1)
+    else:
+        companion["time_bnds"][0, 1] -= datetime.timedelta(days=1)
+    with pytest.raises(
+        ValueError,
+        match={
+            "timestamps": "must match the source timestamps",
+            "dimensions": "dimensions",
+            "duration": "ends of five-day",
+            "label": "ends of five-day",
+        }[invalid],
+    ):
+        _prepare_time(monkeypatch, tmp_path, _cm4_source(), companion)
 
 
 @requires_xesmf
@@ -144,7 +215,6 @@ def test_cm4_publication_rotates_stress_preserves_metadata_and_chunks(
         },
         attrs={
             "title": "test CM4 piControl",
-            "time_sampling": "five-day mean, timestamp at interval end",
         },
     ).chunk({"time": 3, "lev": 1})
     source.time.attrs["bounds"] = "time_bnds"
@@ -171,24 +241,9 @@ def test_cm4_publication_rotates_stress_preserves_metadata_and_chunks(
         )
         native[name] = xr.DataArray(field.data, dims=dims, attrs=field.attrs)
     native = native.assign_coords(xq=lon[0], yq=lat[:, 0])
-    bounds_args = []
-    if nx == 4:
-        bounds_path = tmp_path / "time_bnds.nc"
-        # Explicit integer days also round-trip with older xarray's NetCDF3 writer.
-        native[["time_bnds"]].to_netcdf(
-            bounds_path,
-            engine="scipy",
-            encoding={
-                name: {
-                    "units": "days since 0151-01-01",
-                    "calendar": "noleap",
-                    "dtype": "int32",
-                }
-                for name in ("time", "time_bnds")
-            },
-        )
-        native = native.drop_vars("time_bnds")
-        bounds_args = [f"--time_bounds_path={bounds_path}"]
+    bounds_path = tmp_path / "time_bnds.nc"
+    _write_bounds(native[["time_bnds"]], bounds_path)
+    native = native.drop_vars("time_bnds")
     native_path = tmp_path / "raw.zarr"
     native.to_zarr(native_path, consolidated=True)
     static_path = tmp_path / "native.nc"
@@ -232,7 +287,7 @@ def test_cm4_publication_rotates_stress_preserves_metadata_and_chunks(
             "--skip_spatial_filtering",
             "--skip_flattening",
             "--skip_validation",
-            *bounds_args,
+            f"--time_bounds_path={bounds_path}",
         ],
     )
     actual = xr.open_zarr(out, chunks=None)

@@ -76,8 +76,9 @@ labeled by interval end, covering intervals beginning `0151-01-01`.
 The output retains the depth-dependent wet mask, cell area, depth centers and
 thicknesses, ocean fraction, horizontal bounds, variable attributes, and time
 bounds. It records source paths, source coverage, rotation, filtering, code
-version, and command arguments. Supply the companion `time_bnds.nc` to validate
-and carry its bounds; when omitted, the command derives them from `average_DT`.
+version, and command arguments. `--time_bounds_path` is required and must point
+to the companion `time_bnds.nc`; its bounds are validated against the source
+timestamps and retained in the output.
 
 From the repository root, in the preprocessing environment:
 

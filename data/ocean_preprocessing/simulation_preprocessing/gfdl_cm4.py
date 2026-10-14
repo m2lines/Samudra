@@ -2,7 +2,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import datetime
 from types import ModuleType
 from typing import Any
 
@@ -20,15 +19,15 @@ def cm4_ocean_preprocessing(
     zarr_data_path: str,
     nc_grid_path: str,
     nc_mosaic_path: str,
+    *,
+    time_bounds_path: str,
     fs: ModuleType | AbstractFileSystem = fsspec,
     backend_kwargs: dict[str, Any] | None = None,
-    time_bounds_path: str | None = None,
 ) -> xr.Dataset:
     """Prepare CM4 ocean output, preserving five-day interval-end times.
 
-    The published raw CM4 store keeps ``average_DT`` but stores its time bounds
-    in a separate file. Accept that companion file, or reconstruct the bounds
-    from the verified averaging durations without shifting the timestamps.
+    Read the published raw CM4 run's companion ``time_bnds.nc`` and verify its
+    intervals against the source timestamps without shifting those timestamps.
     """
     ds = xr.open_dataset(
         zarr_data_path, engine="zarr", chunks={}, backend_kwargs=backend_kwargs
@@ -43,26 +42,11 @@ def cm4_ocean_preprocessing(
     if "wfo" not in ds.data_vars:
         raise ValueError("CM4 source must contain freshwater flux 'wfo'")
 
-    if time_bounds_path is not None:
-        with fs.open(time_bounds_path, "rb") as handle:
-            companion = xr.open_dataset(handle).load()
-        if not np.array_equal(companion.time.values, times):
-            raise ValueError(
-                "CM4 companion time bounds must match the source timestamps"
-            )
-        bounds = companion.time_bnds
-    elif "time_bnds" in ds:
-        bounds = ds.time_bnds
-    else:
-        if "average_DT" not in ds or ds.average_DT.attrs.get("units") != "days":
-            raise ValueError("CM4 requires time_bnds or average_DT in days")
-        if not np.all(ds.average_DT.values == 5):
-            raise ValueError("CM4 averaging intervals must be exactly five days")
-        bounds = xr.DataArray(
-            [[t - datetime.timedelta(days=5), t] for t in times],
-            dims=("time", "nv"),
-            coords={"time": ds.time},
-        )
+    with fs.open(time_bounds_path, "rb") as handle:
+        companion = xr.open_dataset(handle).load()
+    if not np.array_equal(companion.time.values, times):
+        raise ValueError("CM4 companion time bounds must match the source timestamps")
+    bounds = companion.time_bnds
     if bounds.dims != ("time", "nv") or bounds.sizes["nv"] != 2:
         raise ValueError("CM4 time_bnds must have dimensions (time, nv=2)")
     if not np.array_equal(bounds.isel(nv=1).values, times) or any(
@@ -80,7 +64,6 @@ def cm4_ocean_preprocessing(
     )
     ds = ds.assign_coords(time_bnds=bounds)
     ds.time.attrs["bounds"] = "time_bnds"
-    ds.attrs["time_sampling"] = "five-day mean, timestamp at interval end"
     return native_ocean_preprocessing(ds, nc_grid_path, nc_mosaic_path, fs=fs)
 
 

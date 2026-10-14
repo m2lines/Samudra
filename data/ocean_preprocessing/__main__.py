@@ -202,7 +202,7 @@ class CLI:
         wfo_source_path: Optional OM4 Zarr store containing five-day-mean ``wfo``
             on the primary source's native grid and intervals. Its end-of-interval
             time labels are validated before transplantation.
-        time_bounds_path: Optional CM4 companion NetCDF containing time_bnds.
+        time_bounds_path: Companion NetCDF containing time_bnds, required for CM4.
         cluster: Type of Dask cluster to use for distributed computation. Options are:
             'off' (no cluster, single-threaded), 'local' (LocalCluster), 'kube'
             (KubeCluster), 'slurm' (SlurmCluster), 'coiled' (Coiled cluster).
@@ -365,9 +365,8 @@ class CLI:
         Uses the same vector rotation and conservative regridding as OM4.
         For unfiltered, depth-stacked outputs with one time per chunk, pass
         --skip_spatial_filtering --skip_flattening. No dates are truncated
-        unless --small_run is explicitly requested. time_bounds_path may point
-        to the raw run's companion time_bnds.nc; otherwise bounds are recovered
-        from its five-day average_DT values.
+        unless --small_run is explicitly requested. --time_bounds_path must
+        point to the raw run's companion time_bnds.nc.
         """
         if self.wfo_source_path is not None:
             raise ValueError(
@@ -396,6 +395,10 @@ class CLI:
     ) -> None:
         logger.info("preprocessing %s.", source_type)
         if source_type == "cm4":
+            if time_bounds_path is None:
+                raise ValueError(
+                    "CM4 requires --time_bounds_path pointing to the companion time_bnds.nc"
+                )
             ds_processed = cm4_ocean_preprocessing(
                 zarr_data_path,
                 native_grid_path,

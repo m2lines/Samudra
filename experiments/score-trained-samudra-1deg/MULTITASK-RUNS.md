@@ -306,3 +306,26 @@ continuous qualification. Outputs are `outputs/eval-secondary-qualification-{F,M
 `75c231f1-aca9-4ae7-b22d-c6b44a79ab99` authenticated, and CPU notification 19760799 has verified
 `afterany` dependencies on both jobs. Quiet monitor `/root/rtx_qualification_monitor` checks all stages
 with an hourly fallback. Full completion/continuous evaluation and final report remain outstanding.
+
+## October 13, 22:27 Eastern: secondary checks passed; full diagnostics submitted
+
+F19760788 / M19760790 completed with exit 0 in 7:45 / 7:47 (0.1292 / 0.1297 RTX GPU-hours).
+Selected forecasts contain 16,170 finite rows each; selected epochs are F60 and M70. Summaries are
+saved alongside the final-EMA forecast tables. Two-origin completion produced 676 finite requested-only
+rows per arm; all six known/request masks match across arms, remain disjoint, and row cell counts and
+rank-histogram totals match the active requested support. Continuous checks produced four frames,
+308 finite score rows and 24 finite bulk rows each; structure/map arrays are finite. All six W&B stages
+synced: selected F/M `bd0v589z` / `mc0xclki`, completion `qpyysqel` / `hyc0h58g`, continuous
+`p1o2r40s` / `aeq5fim5`. CPU callback19760799 succeeded and its registration was retired.
+
+Using the same qualified source `8150d606e`, full completion jobs F19762850 / M19762851 score all
+thirty fixed origins with sixteen members. Full continuous jobs F19762854 / M19762855 retain four
+members for the entire 2014–2022 held-out trajectory. Each requests one RTX GPU, eight CPUs, 96 GiB
+and a two-hour ceiling. Outputs are `outputs/eval-completion-{F,M}-<job>/` and
+`outputs/eval-continuous-{F,M}-<job>/<arm>/`. Continuous expected coverage is 299 calls / 598 frames /
+46,046 score rows per arm; manifests and actual output counts still require verification.
+
+Callback `40f25e3e-99f4-45f9-bbd0-4ba99898c20e` authenticated; CPU notification19762880 has verified
+`afterany` dependencies on all four jobs. Quiet monitor `/root/rtx_qualification_monitor` owns them
+with an hourly fallback. Full diagnostic results and final analysis/report remain outstanding. No new
+training wave or observation trajectory export was submitted.

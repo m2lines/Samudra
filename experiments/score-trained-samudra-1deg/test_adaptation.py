@@ -14,21 +14,27 @@ from samudra.utils.schedule import CosineWithWarmupConfig
 
 @pytest.mark.parametrize("finetune", [True, False])
 def test_reset_only_when_starting_finetune(monkeypatch, finetune):
-    trainer = object.__new__(MultitaskTrainer)
-    trainer.cfg = SimpleNamespace(
-        reset_ema_on_finetune=True, ema_decay=0.99, faster_decay_at_start=False
+    cfg = SimpleNamespace(
+        reset_ema_on_finetune=True,
+        ema_decay=0.99,
+        faster_decay_at_start=False,
+        finetune=finetune,
     )
-    trainer.model = torch.nn.Linear(2, 1)  # type: ignore[assignment]
-    old = EMATracker(trainer.model)
+    model = torch.nn.Linear(2, 1)
+    old = EMATracker(model)
     old.num_updates = torch.tensor(6160)
 
-    def load(self, path, finetune=False):
+    def initialize(self, config):
+        # ScoreTrainer assigns cfg after base construction/checkpoint loading.
+        assert not hasattr(self, "cfg")
+        self.model = model
         self._ema = old
         with torch.no_grad():
             self.model.weight.fill_(3)
+        self.cfg = config
 
-    monkeypatch.setattr(ScoreTrainer, "load_checkpoint", load)
-    trainer.load_checkpoint("unused", finetune=finetune)
+    monkeypatch.setattr(ScoreTrainer, "__init__", initialize)
+    trainer = MultitaskTrainer(cfg)
     if finetune:
         assert trainer._ema is not old
         assert trainer._ema.num_updates == 0

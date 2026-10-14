@@ -39,9 +39,9 @@ MultitaskTrainConfig.model_rebuild(
 
 
 class MultitaskTrainer(ScoreTrainer):
-    def load_checkpoint(self, checkpoint_path, finetune=False):
-        super().load_checkpoint(checkpoint_path, finetune=finetune)
-        if finetune and self.cfg.reset_ema_on_finetune:
+    def __init__(self, cfg):
+        super().__init__(cfg)
+        if cfg.finetune and cfg.reset_ema_on_finetune:
             self._ema = EMATracker(
                 self.model, self.cfg.ema_decay, self.cfg.faster_decay_at_start
             )

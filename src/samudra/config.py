@@ -191,9 +191,10 @@ class Om4TimeConfig(BaseConfig):
         return slice(self.start.datetime, self.end.datetime)
 
     def overlaps(self, other: Self) -> bool:
+        """Match the inclusive endpoints used by xarray time selection."""
         return (
-            self.start.datetime < other.end.datetime
-            and self.end.datetime > other.start.datetime
+            self.start.datetime <= other.end.datetime
+            and self.end.datetime >= other.start.datetime
         )
 
     def __str__(self) -> str:
@@ -230,9 +231,10 @@ class Cm4TimeConfig(BaseConfig):
         return slice(self.start.datetime, self.end.datetime)
 
     def overlaps(self, other: Self) -> bool:
+        """Match the inclusive endpoints used by xarray time selection."""
         return (
-            self.start.datetime < other.end.datetime
-            and self.end.datetime > other.start.datetime
+            self.start.datetime <= other.end.datetime
+            and self.end.datetime >= other.start.datetime
         )
 
     def __str__(self) -> str:
@@ -497,9 +499,10 @@ class OceanDataSourceConfig[OceanTimeConfigT: Om4TimeConfig | Cm4TimeConfig](
 
     @pydantic.model_validator(mode="after")
     def validate_time_splits(self) -> Self:
+        # Label slices include both endpoints, so touching ranges share a state.
         if (
-            self.train_time.start.datetime < self.val_time.end.datetime
-            and self.train_time.end.datetime > self.val_time.start.datetime
+            self.train_time.start.datetime <= self.val_time.end.datetime
+            and self.train_time.end.datetime >= self.val_time.start.datetime
         ):
             raise ValueError(
                 f"Training time range {self.train_time} overlaps "

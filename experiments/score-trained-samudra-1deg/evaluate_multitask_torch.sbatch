@@ -57,6 +57,10 @@ cd "$SOURCE_ROOT/experiments/score-trained-samudra-1deg"
 /workspace/.venv/bin/python -c "import os,torch,samudra,samudra_rust_loader; print(torch.__version__,samudra.__file__,samudra_rust_loader.__file__); print(torch.cuda.get_device_name(),torch.cuda.device_count()); assert torch.cuda.device_count() == int(os.environ[\"NPROC\"])"
 args=()
 if [[ "$EVAL_PHASE" == qualification ]]; then args+=(--origin-limit 2); fi
-exec /workspace/.venv/bin/python -m torch.distributed.run --standalone --nnodes=1 --nproc-per-node="$NPROC" evaluate_score.py "$CONFIG_PATH" "$EVAL_CHECKPOINT" "$EVAL_OUTPUT" --arm "$EVAL_ARM" --members 16 "${args[@]}"
+launcher=()
+if [[ "$NPROC" != 1 ]]; then
+    launcher=(-m torch.distributed.run --standalone --nnodes=1 --nproc-per-node="$NPROC")
+fi
+exec /workspace/.venv/bin/python "${launcher[@]}" evaluate_score.py "$CONFIG_PATH" "$EVAL_CHECKPOINT" "$EVAL_OUTPUT" --arm "$EVAL_ARM" --members 16 "${args[@]}"
 ' bash "$mode" "$phase" &
 wait "$!"

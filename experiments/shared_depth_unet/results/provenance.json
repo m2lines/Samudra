@@ -12,6 +12,9 @@
     "device": "cuda",
     "verify_only": false
   },
+  "git_head": "6b88f2c0204828ef77d41b3ab2733679615f53e8",
+  "source_sha256": "0887f91690eb9bdab64a07c8eea1fbf049a402a41d4be59d68fed0f3f9fddc5e",
+  "blocks_sha256": "bd9332e96d327c305b168b21bcd03528517e383cd015b5b53b955b69a2bd3f80",
   "torch": "2.9.1+cu130",
   "gpu": "NVIDIA GB10",
   "geometry": {
@@ -32,5 +35,6 @@
     48,
     12,
     12
-  ]
+  ],
+  "data_sha256": "527a6578e7fc71fce30ac03dd2ca0486b6e353464145e8d92ff35670ebad19c1"
 }

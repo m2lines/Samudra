@@ -32,13 +32,8 @@ def main():
     for runs in by.values():
         assert [r["seed"] for r in runs] == [0, 1, 2]
     args.output.mkdir(parents=True, exist_ok=True)
-    for name in ["results.json", "checks.json", "loss_scales.json"]:
+    for name in ["results.json", "provenance.json", "checks.json", "loss_scales.json"]:
         shutil.copy2(args.input / name, args.output / name)
-
-    environment = json.loads((args.input / "provenance.json").read_text())
-    for key in ("git_head", "source_sha256", "blocks_sha256", "data_sha256"):
-        environment.pop(key)
-    (args.output / "environment.json").write_text(json.dumps(environment, indent=2))
 
     def values(arm, lead, metric):
         return np.array([r["test"][str(lead)][metric] for r in by[arm]])
@@ -215,7 +210,7 @@ Dealiased pseudo-spectral incompressible 2D vorticity evolution on [0,2π) × [0
 - Aligned patch restriction equals cropping the restricted global field; detail has zero block mean.
 - All four models start at persistence and have finite backward passes; parameter identity checked for tied versus untied routes.
 - Full-domain versus aligned cropped core interior maximum discrepancy: {checks["crop_core_max_abs_error"]:.3g}.
-- Saved checkpoints are reloaded before held-out evaluation. Final metrics and environment metadata are in the adjacent JSON files; complete source/data hashes remain in the local run directory.
+- Saved checkpoints are reloaded before held-out evaluation. Final metrics, environment metadata, and source/data hashes are in the adjacent JSON files.
 
 ## Cost and scope
 
@@ -232,13 +227,13 @@ python experiments/shared_depth_unet/run.py --output experiments/shared_depth_un
 python experiments/shared_depth_unet/summarize.py --input experiments/shared_depth_unet/outputs/reproduction --output experiments/shared_depth_unet/reproduced_results
 ```
 
-`outputs/main/` holds the generated dataset, all twelve checkpoints, training histories, and exact run source snapshot. It is ignored by Git. The local `outputs/main/provenance.json` contains source, imported block, and dataset SHA256 hashes. Checked-in `environment.json` preserves the remaining configuration and runtime metadata. The repository secret-scanner baseline remains unchanged. The final script adds lint/type cleanups and a guard against reusing incompatible run directories. Exact executed source can be reconstructed with the adjacent `executed-source.patch`:
+`outputs/main/` holds the generated dataset, all twelve checkpoints, training histories, and exact run source snapshot. It is ignored by Git. Checked-in `provenance.json` contains the configuration, runtime metadata, base commit, and source, imported block, and dataset SHA256 hashes. The four hash strings are explicitly recorded as non-secret false positives in the scanner baseline. The final script adds lint/type cleanups and a guard against reusing incompatible run directories. Exact executed source can be reconstructed with the adjacent `executed-source.patch`:
 
 ```bash
 patch -o /tmp/shared-depth-executed.py experiments/shared_depth_unet/run.py < experiments/shared_depth_unet/results/executed-source.patch
 ```
 
-The reconstructed file SHA256 matches the local `outputs/main/provenance.json`. `final_verification.json` records bit-identical checkpoint forward outputs for all four arms (seed 0) between the executed and final source. Dataset and checkpoint binaries remain local; they are not uploaded to W&B or committed to Git.
+The reconstructed file SHA256 matches `provenance.json`. `final_verification.json` records bit-identical checkpoint forward outputs for all four arms (seed 0) between the executed and final source. Dataset and checkpoint binaries remain local; they are not uploaded to W&B or committed to Git.
 """
     (args.output / "REPORT.md").write_text(report)
     print("\n".join(table))

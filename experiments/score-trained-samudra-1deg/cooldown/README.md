@@ -58,3 +58,27 @@ changes. This is a documented mitigation, not proof of the cause; scheduler-sele
 Retry F19804782 was observed running on gr102 and M19804783 on gr103. CPU callback19804785 depends
 on both via `afterany`. Webhook `055806e5-b121-4f5d-9abd-c3a743a08c9f` and the same quiet monitor
 cover a ten-minute bring-up check, then hourly monitoring. First-step verification remains pending.
+
+## Cooldown training complete
+
+Retry F19804782 completed all ten epochs in 3:18:33 (6.6183 RTX GPU-hours); M19804783 completed
+in 3:18:08 (6.6044 RTX GPU-hours). Both exit 0. Combined training including the failed startup pair:
+13.9861 RTX GPU-hours. Every epoch has task contexts `[2816,0,0,0]`, exactly forecast-only.
+Each saved final raw, EMA and epoch-10 checkpoints. Online W&B synchronized:
+[F i2jjrv1e](https://wandb.ai/ocean_emulators/default/runs/i2jjrv1e),
+[M 65959rip](https://wandb.ai/ocean_emulators/default/runs/65959rip).
+Final training-validation 360-day empirical CRPS is 0.153687 F / 0.161608 M. These are validation
+scores, not held-out conclusions. Callback19804785 completed and its registration was retired.
+
+The evaluation scripts now accept an explicit `--forecast-cooldown` option, checking the ten-epoch
+fine-tune configuration, forecast-only task mode and checkpoint epoch/filename. Default original-wave
+checks remain unchanged. The single-GPU evaluation harness first audits both checkpoint epochs and
+terminal optimizer LR=0, then runs final-EMA forecasts, final-raw forecasts, EMA completion retention,
+and the EMA continuous trajectory with the original seeds, origins, sample counts and diagnostics.
+Scoped lint/type/schema/license checks and shell syntax passed. Real-data evaluation is pending.
+
+Evaluation jobs **F19815733 / M19815734** are submitted, each one RTX GPU, eight CPUs, 96 GiB,
+one-hour ceiling. Source `2b2b3dbeed6f30b3f0ef127d3ad3386bcc25f292`. Outputs are
+`outputs/eval-cooldown-F-19815733` and `outputs/eval-cooldown-M-19815734`, with `ema/`, `raw/`,
+`completion/` and `continuous/<arm>/` subdirectories. CPU callback19815738 uses afterany on both;
+webhook `ddda0034-e9eb-4e57-b12d-8aa122b8618d` and the quiet monitor cover hourly follow-up.

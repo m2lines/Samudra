@@ -37,7 +37,9 @@ classifiers = [
 dependencies = [
   "bokeh>=3.1",
   "cartopy>=0.23",
+  "cftime>=1.6.4.post1", # CM4 no-leap and OM4 Julian calendars
   "copernicusmarine>=2", # DUACS downloads; needs a free Copernicus Marine account
+  "dask[distributed]",   # Cluster-backed processing and normalization writes
   "fire>=0.7.1",
   "gcm-filters",         # to avoid https://stackoverflow.com/questions/7446187/no-module-named-pkg-resources which seemed to have https://github.com/m2lines/ocean_emulators/actions/runs/10392595642/job/28778202015?pr=53
   "gcsfs>=2025.10",
@@ -47,9 +49,10 @@ dependencies = [
   "s3fs>=2025.10",
   "setuptools",
   "xarray<2026.4",       # Keep using version of xarray compatible with zarr library version 2
+  "xarrayutils",         # Vector-rotation QC plotting
   "xarrera",
   "xesmf>=0.8.10",
-  "xmip",
+  "xgcm>=0.8.1,<0.10",   # Native-grid interpolation uses the boundary/periodic API.
   "zarr>=2.18.2,<3",
 ]
 

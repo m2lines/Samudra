@@ -299,7 +299,8 @@ def om4_preprocessing(
             "Y": {"center": "yh", "right": "yq"},
         },
         boundary="extend",
-        periodic=["xh", "xq"],
+        periodic=["X"],
+        autoparse_metadata=False,
     )
     ds_interpolated = interpolate_to_cell_centers(ds, ds.thetao, grid)
 

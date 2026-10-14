@@ -9,8 +9,54 @@ import pandas as pd
 import pytest
 import torch
 
-from samudra.experiments.observation_annual import inputs, month_weights
+from samudra.experiments.observation_annual import inputs, month_weights, select_origins
 from samudra.experiments.observation_model import ObservationTransfer
+
+
+@pytest.fixture
+def annual_cohort(tmp_path):
+    for origin in ("2015-01-01", "2018-01-01", "2021-01-01"):
+        directory = tmp_path / "test" / origin
+        directory.mkdir(parents=True)
+        (directory / "COMPLETE.json").write_text('{"origin": "' + origin + '"}')
+    return tmp_path
+
+
+def test_annual_default_cohort_and_signature_unchanged(annual_cohort):
+    paths, signature = select_origins(annual_cohort, "test")
+    assert paths == sorted((annual_cohort / "test").glob("*/COMPLETE.json"))
+    assert len(paths) == 3
+    assert signature == {}
+
+
+def test_annual_subset_signature_binds_complete_source_cohort(annual_cohort):
+    from samudra.experiments.observation_pilot import digest
+
+    paths, signature = select_origins(annual_cohort, "test", "2018-01-01")
+    assert paths == [annual_cohort / "test/2018-01-01/COMPLETE.json"]
+    subset = signature["diagnostic_origin_subset"]
+    assert subset["origin"] == "2018-01-01"
+    assert "not a complete reporting cohort" in subset["purpose"]
+    assert subset["full_cohort_manifests"] == {
+        str(path.relative_to(annual_cohort)): digest(path)
+        for path in (annual_cohort / "test").glob("*/COMPLETE.json")
+    }
+    (annual_cohort / "test/2021-01-01/COMPLETE.json").write_text("changed")
+    _, changed = select_origins(annual_cohort, "test", "2018-01-01")
+    assert changed != signature
+
+
+@pytest.mark.parametrize("origin", ["2014-01-01", "../2018-01-01"])
+def test_annual_subset_rejects_unknown_origin(annual_cohort, origin):
+    with pytest.raises(ValueError, match="Unknown annual diagnostic origin"):
+        select_origins(annual_cohort, "test", origin)
+
+
+@pytest.mark.parametrize("origin", [None, "2018-01-01"])
+def test_annual_subset_cannot_bypass_incomplete_cohort(annual_cohort, origin):
+    (annual_cohort / "test/2021-01-01/COMPLETE.json").unlink()
+    with pytest.raises(ValueError, match="Incomplete annual cohort"):
+        select_origins(annual_cohort, "test", origin)
 
 
 def test_annual_relocated_data_rejects_changed_statistics(tmp_path):

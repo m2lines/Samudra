@@ -24,6 +24,32 @@ from samudra.metrics import kernels, spectra
 LEADS = [5, 15, 30, 90, 180, 365]
 
 
+def select_origins(annual, split, origin=None):
+    """Validate the full cohort before an optional capacity-diagnostic subset.
+
+    The default returns the original cohort and no additional signature fields.
+    A subset is never a complete annual reporting cohort or a selection metric.
+    """
+    annual = Path(annual)
+    origins = sorted((annual / split).glob("*/COMPLETE.json"))
+    if len(origins) != {"validation": 1, "test": 3}[split]:
+        raise ValueError("Incomplete annual cohort")
+    if origin is None:
+        return origins, {}
+    selected = [path for path in origins if path.parent.name == origin]
+    if len(selected) != 1:
+        raise ValueError(f"Unknown annual diagnostic origin: {origin}")
+    return selected, {
+        "diagnostic_origin_subset": {
+            "origin": origin,
+            "purpose": "Capacity diagnostic only; not a complete reporting cohort",
+            "full_cohort_manifests": {
+                str(path.relative_to(annual)): digest(path) for path in origins
+            },
+        }
+    }
+
+
 def verify_sample_root(root, manifest):
     """Permit relocated data only when all training data fingerprints match."""
     for filename, key in (
@@ -197,6 +223,10 @@ def main():
     parser.add_argument("--output", required=True)
     parser.add_argument("--checkpoint", default="best.pt")
     parser.add_argument("--split", choices=("validation", "test"), default="validation")
+    parser.add_argument(
+        "--origin",
+        help="One existing origin for a capacity diagnostic; validates the full cohort first",
+    )
     parser.add_argument("--fixed-om4-updates", type=int)
     parser.add_argument("--fixed-observation-updates", type=int)
     parser.add_argument(
@@ -245,9 +275,7 @@ def main():
             raise ValueError("Selected checkpoint hash differs")
     if not (annual / "DATA_READY.json").exists():
         raise ValueError("Annual data must pass full transfer verification")
-    origins = sorted((annual / args.split).glob("*/COMPLETE.json"))
-    if len(origins) != (1 if args.split == "validation" else 3):
-        raise ValueError("Incomplete annual cohort")
+    origins, subset_signature = select_origins(annual, args.split, args.origin)
     signature = {
         "protocol": "continuous-365-day-v1",
         "training_manifest_sha256": digest(run / "manifest.json"),
@@ -260,6 +288,7 @@ def main():
         "eke": "Anomalies relative to each sequence's own year mean",
         "forcing": "Prescribed ERA5 through trained adapter; not an operational forcing forecast",
     }
+    signature.update(subset_signature)
     if fixed:
         signature["fixed_budget_lineage"] = lineage
     if args.common_grid:

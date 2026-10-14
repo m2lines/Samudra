@@ -447,13 +447,6 @@ class CLI:
         saved_attrs = {}
         for var in ds_processed.data_vars:
             saved_attrs[var] = ds_processed[var].attrs.copy()
-        for name, standard_name in {
-            "uo": "eastward_sea_water_velocity",
-            "vo": "northward_sea_water_velocity",
-            "tauuo": "surface_downward_eastward_stress",
-            "tauvo": "surface_downward_northward_stress",
-        }.items():
-            saved_attrs[name]["standard_name"] = standard_name
 
         logger.info("rechunking for vector rotation.")
         # Rechunk to avoid chunk explosion in xr.dot()
@@ -481,6 +474,17 @@ class CLI:
 
         ds_processed["uo"], ds_processed["vo"] = u_rotated, v_rotated
         ds_processed["tauuo"], ds_processed["tauvo"] = tau_uo_rotated, tau_vo_rotated
+
+        # Rotation converts native-grid x/y components to geographic east/north.
+        # Update the saved metadata restored after filtering and regridding so
+        # the output standard names describe the rotated components.
+        for name, standard_name in {
+            "uo": "eastward_sea_water_velocity",
+            "vo": "northward_sea_water_velocity",
+            "tauuo": "surface_downward_eastward_stress",
+            "tauvo": "surface_downward_northward_stress",
+        }.items():
+            saved_attrs[name]["standard_name"] = standard_name
 
         time_blocks = {"x": -1, "y": -1, "time": 1}
 

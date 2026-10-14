@@ -3,7 +3,7 @@
 
 # Fresh direct and residual models with replay
 
-Status: both eight-GPU production runs are active as of 2026-10-13, with checkpoint saving and online W&B verified. Direct reached 2k observation updates; early evaluation job **212865** is submitted. Both training jobs continue; no held-out scientific results yet.
+Status: both eight-GPU production runs are active as of 2026-10-13, with checkpoint saving and online W&B verified. Direct reached 2k observation updates; [its early evaluation is complete](scratch-replay-early-direct.md) and shows severe observation-path annual instability despite bounded OM4-path latents. Both training jobs continue; the matching residual early result is not yet available.
 
 The question is whether training stable evolution from scratch makes annual error growth more comparable to the deterministic control, while retaining plausible individual diffusion members. Beating the deterministic control's absolute score is not the primary criterion.
 

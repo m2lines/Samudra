@@ -105,6 +105,20 @@ this is not an end-to-end campaign ETA.
 Online qualification runs:
 [U-global](https://wandb.ai/ocean_emulators/observational-transfer/runs/44909495de01)
 and [earlier-OM4](https://wandb.ai/ocean_emulators/observational-transfer/runs/78a32608c69d).
-Common-fork preparation **19808532** is running on RTX. Its migration receipts,
-3,000-update checkpoint hashes and completion markers still need verification
-before diagnostic copies are released. No stabilization result is established yet.
+Common-fork preparation **19808532** completed for both models. Exact-state
+migration receipts and checkpoint hash readbacks passed; each fork contains
+3,000 updates (1,782 OM4 and 1,218 observation). Qualification plus fork
+preparation used **1.0886 allocated GPU-hours**, including both model families.
+
+The isolated diagnostics are now submitted on the same RTX runtime:
+
+| Array | Diagnostic | Copies |
+|---|---|---|
+| 19810145 | Fixed-checkpoint validation repeatability | Five ordinary and two deterministic evaluations per model |
+| 19810146 | Training variability and gradient/loss traces | Two independent 100-update continuations per model |
+
+Initial elements were observed running; remaining elements were queued. Common
+forks are mounted read-only in these jobs, and diagnostic weights will not become
+treatment checkpoints. `diagnostic-submission.json` records full submissions;
+CPU callback 19810170 covers termination of both arrays. No stabilization result
+is established yet.

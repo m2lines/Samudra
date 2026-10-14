@@ -342,6 +342,12 @@ class CLI:
             nc_mosaic_path,
             wfo_source_path=self.wfo_source_path,
         )
+        # Interval bounds are small, non-spatial metadata. Keep them out of the
+        # filtering/regridding graphs and reattach them to the final time axis.
+        time_bounds = ds_processed.get("time_bnds")
+        if time_bounds is not None:
+            time_bounds = time_bounds.compute()
+            ds_processed = ds_processed.drop_vars("time_bnds")
         # This publication-specific invariant must run even when expensive
         # schema/deep validation is disabled. Shared validators remain backward
         # compatible with legacy OM4 and CM4 datasets that predate wfo.
@@ -514,7 +520,7 @@ class CLI:
         # (dz, lev, ocean_fraction, lon_b/lat_b) survive into the written dataset.
         # `lev` is kept even when flattening, since dz/lev/ocean_fraction remain
         # indexed by it after the prognostic vars are split out.
-        for extra in ("lev", "ilev", "x_b", "y_b"):
+        for extra in ("lev", "ilev", "x_b", "y_b", "nv"):
             if extra in ds.dims:
                 dims_to_keep.append(extra)
 
@@ -523,6 +529,8 @@ class CLI:
 
         logger.info("preparing final chunks for output zarr (time=1)")
         ds = ds.chunk({"time": 1})
+        if time_bounds is not None:
+            ds = ds.assign_coords(time_bnds=time_bounds.sel(time=ds.time))
 
         logger.info("validating final output structure")
         if self.skip_flattening:

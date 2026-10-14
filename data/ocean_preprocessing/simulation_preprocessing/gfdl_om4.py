@@ -285,6 +285,7 @@ def om4_preprocessing(
         )
         ds = transplant_wfo(ds, donor, donor_path=wfo_source_path)
 
+    time_bounds = ds.get("time_bnds")
     ds = select_om4_variables(ds)
     ds = normalize_vertical_coords(ds)
 
@@ -360,8 +361,9 @@ def om4_preprocessing(
 
     ds = ds.assign_coords(lon_b=lon_b, lat_b=lat_b, angle=a, lon=lon, lat=lat)
     ds = ds.rename({"xh": "x", "yh": "y", "xh_b": "x_b", "yh_b": "y_b"})
-    if "time_bnds" in ds.data_vars:
-        ds = ds.drop_vars(["time_bnds"])
+    if time_bounds is not None:
+        ds = ds.assign_coords(time_bnds=time_bounds)
+        ds.time.attrs["bounds"] = "time_bnds"
     ds = ds.astype(np.float32)
     # higher precision for the area
     ds = ds.assign_coords(areacello=ds.areacello.astype("float64"))

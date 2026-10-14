@@ -1,0 +1,562 @@
+{
+    "metadata": {
+        ".zattrs": {
+            "associated_files": "areacello: 19580101.ocean_static.nc",
+            "grid_tile": "N/A",
+            "grid_type": "regular",
+            "title": "OM4p25_5daily_cycle1"
+        },
+        ".zgroup": {
+            "zarr_format": 2
+        },
+        "hfds/.zarray": {
+            "chunks": [
+                1,
+                1080,
+                1440
+            ],
+            "compressor": {
+                "blocksize": 0,
+                "clevel": 5,
+                "cname": "lz4",
+                "id": "blosc",
+                "shuffle": 1
+            },
+            "dimension_separator": ".",
+            "dtype": "<f4",
+            "fill_value": "NaN",
+            "filters": null,
+            "order": "C",
+            "shape": [
+                4745,
+                1080,
+                1440
+            ],
+            "zarr_format": 2
+        },
+        "hfds/.zattrs": {
+            "_ARRAY_DIMENSIONS": [
+                "time",
+                "yh",
+                "xh"
+            ],
+            "cell_measures": "area: areacello",
+            "cell_methods": "area:mean yh:mean xh:mean time: mean",
+            "long_name": "Surface ocean heat flux from SW+LW+latent+sensible+masstransfer+frazil+seaice_melt_heat",
+            "standard_name": "surface_downward_heat_flux_in_sea_water",
+            "time_avg_info": "average_T1,average_T2,average_DT",
+            "units": "W m-2"
+        },
+        "lev/.zarray": {
+            "chunks": [
+                19
+            ],
+            "compressor": {
+                "blocksize": 0,
+                "clevel": 5,
+                "cname": "lz4",
+                "id": "blosc",
+                "shuffle": 1
+            },
+            "dtype": "<f8",
+            "fill_value": "NaN",
+            "filters": null,
+            "order": "C",
+            "shape": [
+                19
+            ],
+            "zarr_format": 2
+        },
+        "lev/.zattrs": {
+            "_ARRAY_DIMENSIONS": [
+                "lev"
+            ],
+            "axis": "Z",
+            "edges": "z_i",
+            "long_name": "Depth at cell center",
+            "positive": "down",
+            "units": "meters"
+        },
+        "nv/.zarray": {
+            "chunks": [
+                2
+            ],
+            "compressor": {
+                "blocksize": 0,
+                "clevel": 5,
+                "cname": "lz4",
+                "id": "blosc",
+                "shuffle": 1
+            },
+            "dtype": "<f8",
+            "fill_value": "NaN",
+            "filters": null,
+            "order": "C",
+            "shape": [
+                2
+            ],
+            "zarr_format": 2
+        },
+        "nv/.zattrs": {
+            "_ARRAY_DIMENSIONS": [
+                "nv"
+            ],
+            "long_name": "vertex number"
+        },
+        "so/.zarray": {
+            "chunks": [
+                1,
+                19,
+                1080,
+                1440
+            ],
+            "compressor": {
+                "blocksize": 0,
+                "clevel": 5,
+                "cname": "lz4",
+                "id": "blosc",
+                "shuffle": 1
+            },
+            "dimension_separator": ".",
+            "dtype": "<f4",
+            "fill_value": "NaN",
+            "filters": null,
+            "order": "C",
+            "shape": [
+                4745,
+                19,
+                1080,
+                1440
+            ],
+            "zarr_format": 2
+        },
+        "so/.zattrs": {
+            "_ARRAY_DIMENSIONS": [
+                "time",
+                "lev",
+                "yh",
+                "xh"
+            ],
+            "cell_measures": "area: areacello",
+            "cell_methods": "area:mean z_l:mean yh:mean xh:mean time: mean",
+            "long_name": "Sea Water Salinity",
+            "standard_name": "sea_water_salinity",
+            "time_avg_info": "average_T1,average_T2,average_DT",
+            "units": "psu"
+        },
+        "tauuo/.zarray": {
+            "chunks": [
+                1,
+                1080,
+                1441
+            ],
+            "compressor": {
+                "blocksize": 0,
+                "clevel": 5,
+                "cname": "lz4",
+                "id": "blosc",
+                "shuffle": 1
+            },
+            "dimension_separator": ".",
+            "dtype": "<f4",
+            "fill_value": "NaN",
+            "filters": null,
+            "order": "C",
+            "shape": [
+                4745,
+                1080,
+                1441
+            ],
+            "zarr_format": 2
+        },
+        "tauuo/.zattrs": {
+            "_ARRAY_DIMENSIONS": [
+                "time",
+                "yh",
+                "xq"
+            ],
+            "cell_methods": "yh:mean xq:point time: mean",
+            "interp_method": "none",
+            "long_name": "Surface Downward X Stress",
+            "standard_name": "surface_downward_x_stress",
+            "time_avg_info": "average_T1,average_T2,average_DT",
+            "units": "N m-2"
+        },
+        "tauvo/.zarray": {
+            "chunks": [
+                1,
+                1081,
+                1440
+            ],
+            "compressor": {
+                "blocksize": 0,
+                "clevel": 5,
+                "cname": "lz4",
+                "id": "blosc",
+                "shuffle": 1
+            },
+            "dimension_separator": ".",
+            "dtype": "<f4",
+            "fill_value": "NaN",
+            "filters": null,
+            "order": "C",
+            "shape": [
+                4745,
+                1081,
+                1440
+            ],
+            "zarr_format": 2
+        },
+        "tauvo/.zattrs": {
+            "_ARRAY_DIMENSIONS": [
+                "time",
+                "yq",
+                "xh"
+            ],
+            "cell_methods": "yq:point xh:mean time: mean",
+            "interp_method": "none",
+            "long_name": "Surface Downward Y Stress",
+            "standard_name": "surface_downward_y_stress",
+            "time_avg_info": "average_T1,average_T2,average_DT",
+            "units": "N m-2"
+        },
+        "thetao/.zarray": {
+            "chunks": [
+                1,
+                19,
+                1080,
+                1440
+            ],
+            "compressor": {
+                "blocksize": 0,
+                "clevel": 5,
+                "cname": "lz4",
+                "id": "blosc",
+                "shuffle": 1
+            },
+            "dimension_separator": ".",
+            "dtype": "<f4",
+            "fill_value": "NaN",
+            "filters": null,
+            "order": "C",
+            "shape": [
+                4745,
+                19,
+                1080,
+                1440
+            ],
+            "zarr_format": 2
+        },
+        "thetao/.zattrs": {
+            "_ARRAY_DIMENSIONS": [
+                "time",
+                "lev",
+                "yh",
+                "xh"
+            ],
+            "cell_measures": "area: areacello",
+            "cell_methods": "area:mean z_l:mean yh:mean xh:mean time: mean",
+            "long_name": "Sea Water Potential Temperature",
+            "standard_name": "sea_water_potential_temperature",
+            "time_avg_info": "average_T1,average_T2,average_DT",
+            "units": "degC"
+        },
+        "time/.zarray": {
+            "chunks": [
+                1500
+            ],
+            "compressor": {
+                "blocksize": 0,
+                "clevel": 5,
+                "cname": "lz4",
+                "id": "blosc",
+                "shuffle": 1
+            },
+            "dimension_separator": ".",
+            "dtype": "<f8",
+            "fill_value": "NaN",
+            "filters": null,
+            "order": "C",
+            "shape": [
+                4745
+            ],
+            "zarr_format": 2
+        },
+        "time/.zattrs": {
+            "_ARRAY_DIMENSIONS": [
+                "time"
+            ],
+            "axis": "T",
+            "bounds": "time_bnds",
+            "calendar": "julian",
+            "calendar_type": "JULIAN",
+            "long_name": "time",
+            "units": "days since 1958-01-01"
+        },
+        "time_bnds/.zarray": {
+            "chunks": [
+                1500,
+                2
+            ],
+            "compressor": {
+                "blocksize": 0,
+                "clevel": 5,
+                "cname": "lz4",
+                "id": "blosc",
+                "shuffle": 1
+            },
+            "dimension_separator": ".",
+            "dtype": "<f8",
+            "fill_value": "NaN",
+            "filters": null,
+            "order": "C",
+            "shape": [
+                4745,
+                2
+            ],
+            "zarr_format": 2
+        },
+        "time_bnds/.zattrs": {
+            "_ARRAY_DIMENSIONS": [
+                "time",
+                "nv"
+            ],
+            "calendar": "julian",
+            "long_name": "time axis boundaries",
+            "units": "days since 1958-01-01"
+        },
+        "uo/.zarray": {
+            "chunks": [
+                1,
+                19,
+                1080,
+                1441
+            ],
+            "compressor": {
+                "blocksize": 0,
+                "clevel": 5,
+                "cname": "lz4",
+                "id": "blosc",
+                "shuffle": 1
+            },
+            "dimension_separator": ".",
+            "dtype": "<f4",
+            "fill_value": "NaN",
+            "filters": null,
+            "order": "C",
+            "shape": [
+                4745,
+                19,
+                1080,
+                1441
+            ],
+            "zarr_format": 2
+        },
+        "uo/.zattrs": {
+            "_ARRAY_DIMENSIONS": [
+                "time",
+                "lev",
+                "yh",
+                "xq"
+            ],
+            "cell_methods": "z_l:mean yh:mean xq:point time: mean",
+            "interp_method": "none",
+            "long_name": "Sea Water X Velocity",
+            "standard_name": "sea_water_x_velocity",
+            "time_avg_info": "average_T1,average_T2,average_DT",
+            "units": "m s-1"
+        },
+        "vo/.zarray": {
+            "chunks": [
+                1,
+                19,
+                1081,
+                1440
+            ],
+            "compressor": {
+                "blocksize": 0,
+                "clevel": 5,
+                "cname": "lz4",
+                "id": "blosc",
+                "shuffle": 1
+            },
+            "dimension_separator": ".",
+            "dtype": "<f4",
+            "fill_value": "NaN",
+            "filters": null,
+            "order": "C",
+            "shape": [
+                4745,
+                19,
+                1081,
+                1440
+            ],
+            "zarr_format": 2
+        },
+        "vo/.zattrs": {
+            "_ARRAY_DIMENSIONS": [
+                "time",
+                "lev",
+                "yq",
+                "xh"
+            ],
+            "cell_methods": "z_l:mean yq:point xh:mean time: mean",
+            "interp_method": "none",
+            "long_name": "Sea Water Y Velocity",
+            "standard_name": "sea_water_y_velocity",
+            "time_avg_info": "average_T1,average_T2,average_DT",
+            "units": "m s-1"
+        },
+        "xh/.zarray": {
+            "chunks": [
+                1440
+            ],
+            "compressor": {
+                "blocksize": 0,
+                "clevel": 5,
+                "cname": "lz4",
+                "id": "blosc",
+                "shuffle": 1
+            },
+            "dtype": "<f8",
+            "fill_value": "NaN",
+            "filters": null,
+            "order": "C",
+            "shape": [
+                1440
+            ],
+            "zarr_format": 2
+        },
+        "xh/.zattrs": {
+            "_ARRAY_DIMENSIONS": [
+                "xh"
+            ],
+            "axis": "X",
+            "long_name": "h point nominal longitude",
+            "units": "degrees_east"
+        },
+        "xq/.zarray": {
+            "chunks": [
+                1441
+            ],
+            "compressor": {
+                "blocksize": 0,
+                "clevel": 5,
+                "cname": "lz4",
+                "id": "blosc",
+                "shuffle": 1
+            },
+            "dtype": "<f8",
+            "fill_value": "NaN",
+            "filters": null,
+            "order": "C",
+            "shape": [
+                1441
+            ],
+            "zarr_format": 2
+        },
+        "xq/.zattrs": {
+            "_ARRAY_DIMENSIONS": [
+                "xq"
+            ],
+            "axis": "X",
+            "long_name": "q point nominal longitude",
+            "units": "degrees_east"
+        },
+        "yh/.zarray": {
+            "chunks": [
+                1080
+            ],
+            "compressor": {
+                "blocksize": 0,
+                "clevel": 5,
+                "cname": "lz4",
+                "id": "blosc",
+                "shuffle": 1
+            },
+            "dtype": "<f8",
+            "fill_value": "NaN",
+            "filters": null,
+            "order": "C",
+            "shape": [
+                1080
+            ],
+            "zarr_format": 2
+        },
+        "yh/.zattrs": {
+            "_ARRAY_DIMENSIONS": [
+                "yh"
+            ],
+            "axis": "Y",
+            "long_name": "h point nominal latitude",
+            "units": "degrees_north"
+        },
+        "yq/.zarray": {
+            "chunks": [
+                1081
+            ],
+            "compressor": {
+                "blocksize": 0,
+                "clevel": 5,
+                "cname": "lz4",
+                "id": "blosc",
+                "shuffle": 1
+            },
+            "dtype": "<f8",
+            "fill_value": "NaN",
+            "filters": null,
+            "order": "C",
+            "shape": [
+                1081
+            ],
+            "zarr_format": 2
+        },
+        "yq/.zattrs": {
+            "_ARRAY_DIMENSIONS": [
+                "yq"
+            ],
+            "axis": "Y",
+            "long_name": "q point nominal latitude",
+            "units": "degrees_north"
+        },
+        "zos/.zarray": {
+            "chunks": [
+                1,
+                1080,
+                1440
+            ],
+            "compressor": {
+                "blocksize": 0,
+                "clevel": 5,
+                "cname": "lz4",
+                "id": "blosc",
+                "shuffle": 1
+            },
+            "dimension_separator": ".",
+            "dtype": "<f4",
+            "fill_value": "NaN",
+            "filters": null,
+            "order": "C",
+            "shape": [
+                4745,
+                1080,
+                1440
+            ],
+            "zarr_format": 2
+        },
+        "zos/.zattrs": {
+            "_ARRAY_DIMENSIONS": [
+                "time",
+                "yh",
+                "xh"
+            ],
+            "cell_measures": "area: areacello",
+            "cell_methods": "area:mean yh:mean xh:mean time: mean",
+            "long_name": "Sea surface height above geoid",
+            "standard_name": "sea_surface_height_above_geoid",
+            "time_avg_info": "average_T1,average_T2,average_DT",
+            "units": "m"
+        }
+    },
+    "zarr_consolidated_format": 1
+}

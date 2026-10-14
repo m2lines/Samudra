@@ -1,0 +1,29 @@
+{
+  "benchmark_job_id": "19803626",
+  "host": "torch",
+  "node": "cs604",
+  "partition": "cpu_short",
+  "account": "torch_pr_347_lzanna",
+  "remote_root": "/scratch/jr7309/benchmarks/osn-20261014",
+  "remote_results": "/scratch/jr7309/benchmarks/osn-20261014/results-19803626",
+  "dataset_url": "https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/raw/om4_5daily.zarr",
+  "plan": "60 seconds at each concurrency 1 through 10, excluding warm-up; distinct full-depth thetao/so/uo/vo chunks; measure first-byte, full GET and decode latency, network and decoded bandwidth; report only after all ten phases finish.",
+  "completion_checks": [
+    "Slurm accounting",
+    "COMPLETE.json",
+    "10 summary rows",
+    "zero request errors",
+    "request byte totals",
+    "copy outputs locally"
+  ],
+  "repo_base_commit": "6b88f2c0204828ef77d41b3ab2733679615f53e8",
+  "initial_outcome": "Levels 1-7 valid; level 8 invalid after 6 immediate RemoteDisconnected errors; levels 9-10 not reached.",
+  "recovery_job_id": "19803911",
+  "recovery_node": "cs630",
+  "recovery_results": "/scratch/jr7309/benchmarks/osn-20261014/results-19803911",
+  "recovery_method": "Levels 8-10; skip first 1691 shuffled keys consumed by the initial job including warmup/failures; one timed reconnect allowed for stale connections.",
+  "status": "complete",
+  "valid_phases": 10,
+  "verified_wire_bytes": 131842519233,
+  "verified_decoded_bytes": 337104803520
+}

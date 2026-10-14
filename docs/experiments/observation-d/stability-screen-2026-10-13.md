@@ -172,3 +172,13 @@ and eight policy/EMA replay qualifications **19814959**, chained by successful
 completion. These were initially queued. Production continuations have not been
 submitted; they require inspection of all qualification markers. Callback
 **19814963** and a quiet monitor cover the qualification chain.
+
+All eight screen qualifications passed, including exact model/optimizer/EMA/RNG
+replay and raw-weight restoration. Qualification used **1.4578 GPU-hours**;
+cumulative allocated time before production is **3.5714 GPU-hours**.
+Production array **19818038** now continues the original common forks to 4,000
+updates, with at most four RTX GPUs concurrently. Its first two elements were
+observed running; remaining elements were queued. Array indices alternate
+U-global/earlier-OM4 within S0, S0-repeat, S1 and S2. No qualification or diagnostic
+weights were promoted. Callback **19818105** covers the complete array; results
+will be compared only after all eight continuations and validations are verified.

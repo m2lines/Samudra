@@ -1,0 +1,36 @@
+{
+  "args": {
+    "output": "experiments/shared_depth_unet/outputs/main",
+    "steps": 2000,
+    "seeds": [
+      0,
+      1,
+      2
+    ],
+    "batch": 4,
+    "eval_every": 100,
+    "device": "cuda",
+    "verify_only": false
+  },
+  "torch": "2.9.1+cu130",
+  "gpu": "NVIDIA GB10",
+  "geometry": {
+    "fine": [
+      128,
+      256
+    ],
+    "ratio": 4,
+    "patch": 112,
+    "halo": 40
+  },
+  "data_seeds": [
+    12001,
+    12002,
+    12003
+  ],
+  "train_val_test_trajectories": [
+    48,
+    12,
+    12
+  ]
+}

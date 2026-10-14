@@ -162,3 +162,13 @@ restart file. EMA evaluation restores raw weights even on failure. Validation
 runs every 100 updates for both weight versions; the declared last-five-score
 screening rule remains unchanged. Fresh producer/I/O qualification and a separate
 bitwise deterministic restart check including EMA must pass before production.
+
+Pinned screen producer: `a0dbb7a34c424b23afe303553cefd5bfdddda090`;
+48 targeted tests and all pre-commit checks passed. The transferred code archive
+matches SHA-256 `ebd0fd36a1632add782dc6b58b07f275b62d13930a01e67f3bbc980d9998e153`.
+Screen root: `/scratch/jr7309/runs/2026-10-14-observation-stability-screen`.
+Submitted source audit **19814956**, new producer qualification **19814958**,
+and eight policy/EMA replay qualifications **19814959**, chained by successful
+completion. These were initially queued. Production continuations have not been
+submitted; they require inspection of all qualification markers. Callback
+**19814963** and a quiet monitor cover the qualification chain.

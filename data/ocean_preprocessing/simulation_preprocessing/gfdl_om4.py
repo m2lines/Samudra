@@ -365,12 +365,5 @@ def om4_preprocessing(
     ds = ds.astype(np.float32)
     # higher precision for the area
     ds = ds.assign_coords(areacello=ds.areacello.astype("float64"))
-    if wfo_source_path is not None:
-        ds.attrs.update(
-            {
-                "m2lines/wfo_surgery_source": wfo_source_path,
-                "m2lines/wfo_surgery_alignment": WFO_SURGERY_ALIGNMENT,
-            }
-        )
     ds_processed_validate(ds)
     return ds

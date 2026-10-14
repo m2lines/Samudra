@@ -368,7 +368,14 @@ class CLI:
 
         saved_attrs = {}
         for var in ds_processed.data_vars:
-            saved_attrs[var] = ds_processed[var].attrs
+            saved_attrs[var] = ds_processed[var].attrs.copy()
+        for name, standard_name in {
+            "uo": "eastward_sea_water_velocity",
+            "vo": "northward_sea_water_velocity",
+            "tauuo": "surface_downward_eastward_stress",
+            "tauvo": "surface_downward_northward_stress",
+        }.items():
+            saved_attrs[name]["standard_name"] = standard_name
 
         logger.info("rechunking for vector rotation.")
         # Rechunk to avoid chunk explosion in xr.dot()
@@ -466,6 +473,7 @@ class CLI:
         logger.info("fixing attributes")
         # Resume attributes
         for var, attr in saved_attrs.items():
+            ds_input[var].attrs = attr
             ds_input.attrs[var] = attr
         # Add provenance hash and metadata
         # Write both provenance keys during the rename. `ocean_emulators_git_hash`

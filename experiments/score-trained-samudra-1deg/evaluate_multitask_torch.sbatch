@@ -20,11 +20,14 @@ set -euo pipefail
 arm="$1"
 phase="$2"
 case "$arm" in F) mode=forecast ;; M) mode=multitask ;; *) exit 2 ;; esac
-case "$phase" in qualification|full) ;; *) exit 2 ;; esac
+case "$phase" in qualification|full|selected|secondary-qualification|continuous-qualification|continuous|completion-qualification|completion) ;; *) exit 2 ;; esac
 export EVAL_ARM="$arm"
 export EVAL_PHASE="$phase"
 export EVAL_OUTPUT="$CAMPAIGN_ROOT/outputs/eval-$phase-$arm-$SLURM_JOB_ID"
 export EVAL_CHECKPOINT="$CAMPAIGN_ROOT/outputs/train-$mode-rtx/saved_nets/ema_ckpt.pt"
+if [[ "$phase" == selected ]]; then
+    export EVAL_CHECKPOINT="$CAMPAIGN_ROOT/outputs/train-$mode-rtx/saved_nets/best_validation_ckpt.pt"
+fi
 # Completion is delivered by a separate CPU-only afterany job.
 export OMP_NUM_THREADS=4 MKL_NUM_THREADS=4 OPENBLAS_NUM_THREADS=4 NUMEXPR_NUM_THREADS=4
 export PYTHONUNBUFFERED=1 PYTHONNOUSERSITE=1 WANDB_MODE=online
@@ -55,7 +58,24 @@ cmp "$SOURCE_ROOT/uv.lock" /workspace/uv.lock
 cmp "$SOURCE_ROOT/pyproject.toml" /workspace/pyproject.toml
 cd "$SOURCE_ROOT/experiments/score-trained-samudra-1deg"
 /workspace/.venv/bin/python -c "import os,torch,samudra,samudra_rust_loader; print(torch.__version__,samudra.__file__,samudra_rust_loader.__file__); print(torch.cuda.get_device_name(),torch.cuda.device_count()); assert torch.cuda.device_count() == int(os.environ[\"NPROC\"])"
+if [[ "$EVAL_PHASE" == secondary-qualification ]]; then
+    selected="$(dirname "$EVAL_CHECKPOINT")/best_validation_ckpt.pt"
+    /workspace/.venv/bin/python evaluate_score.py "$CONFIG_PATH" "$selected" "$EVAL_OUTPUT/selected" --arm "$EVAL_ARM" --members 16 --checkpoint-role validation-selected
+    /workspace/.venv/bin/python evaluate_completion.py "$CONFIG_PATH" "$EVAL_CHECKPOINT" "$EVAL_OUTPUT/completion" --arm "$EVAL_ARM" --origin-limit 2
+    exec /workspace/.venv/bin/python diagnose_score.py "$CAMPAIGN_ROOT" "$EVAL_OUTPUT/continuous" --arm "$EVAL_ARM" --max-steps 2
+fi
+if [[ "$EVAL_PHASE" == continuous* ]]; then
+    args=()
+    if [[ "$EVAL_PHASE" == continuous-qualification ]]; then args+=(--max-steps 2); fi
+    exec /workspace/.venv/bin/python diagnose_score.py "$CAMPAIGN_ROOT" "$EVAL_OUTPUT" --arm "$EVAL_ARM" "${args[@]}"
+fi
+if [[ "$EVAL_PHASE" == completion* ]]; then
+    args=()
+    if [[ "$EVAL_PHASE" == completion-qualification ]]; then args+=(--origin-limit 2); fi
+    exec /workspace/.venv/bin/python evaluate_completion.py "$CONFIG_PATH" "$EVAL_CHECKPOINT" "$EVAL_OUTPUT" --arm "$EVAL_ARM" "${args[@]}"
+fi
 args=()
+if [[ "$EVAL_PHASE" == selected ]]; then args+=(--checkpoint-role validation-selected); fi
 if [[ "$EVAL_PHASE" == qualification ]]; then args+=(--origin-limit 2); fi
 launcher=()
 if [[ "$NPROC" != 1 ]]; then

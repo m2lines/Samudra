@@ -21,7 +21,9 @@ import torch
 import wandb
 import xarray as xr
 from evaluate_score import field_metrics
+from native_pointwise import configure_native_pointwise
 from score_model import reduce_field, weights
+from train_multitask import MultitaskTrainConfig
 from train_score import ScoreTrainConfig
 
 from samudra.backend import init_train_backend
@@ -96,24 +98,43 @@ def main():
     parser.add_argument("campaign", type=Path)
     parser.add_argument("output", type=Path)
     parser.add_argument("--max-steps", type=int)
+    parser.add_argument("--arm", choices=["F", "M"])
     parser.add_argument("--write-rollouts", action="store_true")
     parser.add_argument("--verify-replay", type=Path)
     args = parser.parse_args()
     if args.max_steps is not None and args.max_steps < 1:
         parser.error("--max-steps must be positive")
-    device, dist = init_train_backend("nccl")
-    if dist is None or dist.world_size != 4 or dist.rank is None:
-        raise ValueError("Use four ranks, one per arm")
-    arm = "ABCD"[dist.rank]
-    cfg = ScoreTrainConfig.from_yaml(
-        args.campaign / "configs" / f"train-{'B' if arm == 'A' else arm}.yaml"
-    )
+    device, dist = init_train_backend("auto" if args.arm else "nccl")
+    config_type: type[ScoreTrainConfig] | type[MultitaskTrainConfig]
+    cfg: ScoreTrainConfig | MultitaskTrainConfig
+    if args.arm:
+        if dist is not None:
+            raise ValueError(
+                "F/M continuous evaluation requires direct single-process execution"
+            )
+        arm = args.arm
+        config_type = MultitaskTrainConfig
+        mode = {"F": "forecast", "M": "multitask"}[arm]
+        cfg = config_type.from_yaml(
+            args.campaign / "configs" / f"train-{mode}-rtx.yaml"
+        )
+        if cfg.model.mode != mode:
+            raise ValueError("Mismatched arm/config")
+        configure_native_pointwise(cfg.native_pointwise)
+    else:
+        if dist is None or dist.world_size != 4 or dist.rank is None:
+            raise ValueError("Use four ranks, one per arm")
+        arm = "ABCD"[dist.rank]
+        config_type = ScoreTrainConfig
+        cfg = config_type.from_yaml(
+            args.campaign / "configs" / f"train-{'B' if arm == 'A' else arm}.yaml"
+        )
     raw = cfg.model_dump(mode="json")
     raw["data"]["sources"][0]["inference_time"] = {
         "start": "2014-10-10",
         "end": "2022-12-24",
     }
-    cfg = ScoreTrainConfig(**raw)
+    cfg = config_type(**raw)
     bundle = cfg.data.build(
         data_root=cfg.experiment.resolved_data_root, include_inference=True
     )
@@ -149,6 +170,14 @@ def main():
     checkpoint_path = (
         args.campaign / "outputs" / f"train-{arm}" / "saved_nets" / "ema_ckpt.pt"
     )
+    if args.arm:
+        checkpoint_path = (
+            args.campaign
+            / "outputs"
+            / f"train-{mode}-rtx"
+            / "saved_nets"
+            / "ema_ckpt.pt"
+        )
     if arm == "A":
         checkpoint_path = (
             args.campaign.parent
@@ -215,7 +244,8 @@ def main():
     )
     print(f"{arm} online continuous evaluation: {run.url}", flush=True)
     # All online runs must initialize successfully before any forecast starts.
-    torch.distributed.barrier()
+    if dist:
+        torch.distributed.barrier()
     stats = source.statistics(names)
     mean = torch.as_tensor(stats.mean, device=device).reshape(77, 1, 1)
     std = torch.as_tensor(stats.std, device=device).reshape(77, 1, 1)
@@ -431,8 +461,10 @@ def main():
     (output / "COMPLETE.json").write_text(
         json.dumps({"frames": 2 * steps, "score_rows": len(score_rows)}) + "\n"
     )
-    torch.distributed.barrier()
-    torch.distributed.destroy_process_group()
+    if dist:
+        torch.distributed.barrier()
+    if dist:
+        torch.distributed.destroy_process_group()
 
 
 if __name__ == "__main__":

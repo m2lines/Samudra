@@ -52,6 +52,98 @@ be paired with an unfiltered finer source so each scale sees boundary forcings w
 scale. To copy a dataset or time slice to your cluster or local filesystem, see
 [How to get the data](#how-to-get-the-data).
 
+OM4 and CM4 date ranges include both endpoints. Training and validation ranges
+must not share an endpoint; for five-day data, end training on the sample before
+validation starts. Configurations with overlapping or touching ranges are rejected.
+
+### Reprocessing CM4 piControl
+
+The `cm4` preprocessing command uses the same native-grid interpolation, vector
+rotation, and conservative regridding as `om4`. It rotates both ocean velocity
+and wind stress **before** spatial filtering/regridding, keeps `wfo` from the raw
+CM4 ocean store, and retains its full no-leap time axis. Sea-ice input is not
+required. The older `CM4_5daily_v0.4.0.zarr` is already filtered and has unrotated
+wind stress; start from the raw ocean store below to produce these new products.
+
+For the requested unfiltered, compact output, use both `--skip_spatial_filtering`
+and `--skip_flattening`. Each physical variable is a separate Zarr array:
+`thetao`, `so`, `uo`, and `vo` have chunks `(1, 19, y, x)`; `zos`, `hfds`, `wfo`,
+`tauuo`, and `tauvo` have chunks `(1, y, x)`. No heat-flux anomaly is generated.
+There is no date truncation unless `--small_run` is supplied. The source has
+14,600 records from `0151-01-06` through `0351-01-01`; they are five-day means
+labeled by interval end, covering intervals beginning `0151-01-01`.
+
+The output retains the depth-dependent wet mask, cell area, depth centers and
+thicknesses, ocean fraction, horizontal bounds, variable attributes, and time
+bounds. It records source paths, source coverage, rotation, filtering, code
+version, and command arguments. Supply the companion `time_bnds.nc` to validate
+and carry its bounds; when omitted, the command derives them from `average_DT`.
+
+From the repository root, in the preprocessing environment:
+
+```bash
+export FSSPEC_S3_ENDPOINT_URL=https://nyu1.osn.mghpcc.org/
+# Provide the usual OSN credentials in the environment.
+CM4_RAW=s3://emulators/ai2_colab/2024-11-01-CM4-pre-industrial-control-simulation
+CM4_STATIC=s3://emulators/ai2_colab/2024-11-11-static-data
+
+# First qualify a ten-record sample without writing a dataset.
+PYTHONPATH=data python -m ocean_preprocessing cm4 \
+  "$CM4_RAW/ocean_5daily.zarr" \
+  "$CM4_RAW/ocean_static_no_mask_table.zarr" \
+  "$CM4_STATIC/ocean_hgrid.nc" \
+  "$CM4_STATIC/gaussian_grid_180_by_360.nc" \
+  --time_bounds_path="$CM4_RAW/time_bnds.nc" \
+  --output_path=/tmp/cm4-smoke-unused.zarr \
+  --skip_spatial_filtering --skip_flattening --skip_validation \
+  --small_run --dry_run
+```
+
+After deciding to run full preprocessing, use the following recipe. It processes
+both resolutions and writes to fresh local destinations under `CM4_OUTPUT_ROOT`.
+These commands have no small-run or date-selection flag, so each output retains
+the full source range. Choose CPU/Dask resources appropriate for the full stores.
+
+```bash
+CM4_OUTPUT_ROOT=/path/to/new/cm4-release
+for CM4_GRID in onedeg quarterdeg; do
+  case "$CM4_GRID" in
+    onedeg) CM4_TARGET="$CM4_STATIC/gaussian_grid_180_by_360.nc" ;;
+    quarterdeg) CM4_TARGET=s3://m2lines-pubs/Samudra/raw/grids/gaussian_grid_720_by_1440.zarr ;;
+  esac
+  PYTHONPATH=data python -m ocean_preprocessing cm4 \
+    "$CM4_RAW/ocean_5daily.zarr" \
+    "$CM4_RAW/ocean_static_no_mask_table.zarr" \
+    "$CM4_STATIC/ocean_hgrid.nc" \
+    "$CM4_TARGET" \
+    --time_bounds_path="$CM4_RAW/time_bnds.nc" \
+    --output_path="$CM4_OUTPUT_ROOT/cm4_$CM4_GRID/CM4.zarr" \
+    --skip_spatial_filtering --skip_flattening --skip_validation \
+    --cluster=local --n_workers=16 --threads_per_worker=1
+done
+```
+
+`--skip_validation` bypasses the expensive full-record NaN check and QC plots;
+CM4 calendar/interval checks and final output-structure checks still run. For
+validation and training use `type: cm4`, which parses dates as no-leap midnight
+instead of OM4's Julian noon. The example [CM4 data config](../src/samudra/configs/data/cm4.yaml)
+uses 77 state channels plus `tauuo`, `tauvo`, `hfds`, and `wfo`. It illustrates
+disjoint time splits; these are independent of the full preprocessing range.
+Both compact and flattened layouts work with the CPU and native loaders.
+
+Normalization is a separate operation. Generate CM4-specific statistics from
+**only the chosen training interval**. The normalization script supports compact
+fields, keeps the depth axis, and masks land before reducing space and time:
+
+```bash
+PYTHONPATH=data python -m ocean_preprocessing.make_norm_datasets \
+  "$CM4_OUTPUT_ROOT/cm4_onedeg/CM4.zarr" \
+  --start 0151-01-06 --end 0189-10-08
+```
+
+Repeat for the quarter-degree store using the same chosen training dates. This
+writes `CM4_means.zarr` and `CM4_stds.zarr`; it does not change the source data.
+
 ### Basin masks
 
 The ocean-basin masks used by the visualization step (`samudra viz`) for basin-averaged plots live

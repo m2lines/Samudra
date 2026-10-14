@@ -69,3 +69,11 @@ The failed production callback e2f62862-3278-4a3f-8b0f-88aa6f3647b1 was retired.
 Corrected qualification and production use webhook853d037e-35da-41ea-ab20-f06b406f99af and quiet
 monitor `/root/strong_adaptation_monitor`, with a ten-minute first check and hourly checks thereafter.
 Full runs depend on qualification success; invalid dependencies cancel automatically.
+
+Corrected qualification **19831716** was observed running on gr105. Production **F19831717 /
+M19831718** each requests two RTX GPUs and depends on `afterok:19831716`. CPU notification
+**19831719** has afterany dependencies on qualification and both production jobs. Production logs:
+`logs/adaptation-F-19831717.{out,err}` and `logs/adaptation-M-19831718.{out,err}`; qualification logs
+`logs/adaptation-qualification-19831716.{out,err}` and output `outputs/adaptation-qualification-retry-M`.
+The submitted configurations preserve the original parent checkpoint paths. Successful qualification
+and first-epoch production verification remain monitoring gates, not conclusions from submission.

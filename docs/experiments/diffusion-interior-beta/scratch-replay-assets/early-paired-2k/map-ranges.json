@@ -1,0 +1,226 @@
+{
+  "obs-2018-sst.png": {
+    "color_limits": [
+      -1.7977991032600402,
+      29.966329002380377
+    ],
+    "panels": [
+      {
+        "lead": 30,
+        "panel": "Reference",
+        "minimum": -1.7999999523162842,
+        "maximum": 30.989538192749023,
+        "clipped_fraction": 0.015571269433816051,
+        "unit": "\u00b0C"
+      },
+      {
+        "lead": 30,
+        "panel": "Mean of 8",
+        "minimum": -6.166146278381348,
+        "maximum": 29.997220993041992,
+        "clipped_fraction": 0.10598770382250736,
+        "unit": "\u00b0C"
+      },
+      {
+        "lead": 30,
+        "panel": "Draw 1",
+        "minimum": -13.419727325439453,
+        "maximum": 31.57924461364746,
+        "clipped_fraction": 0.10429475184888176,
+        "unit": "\u00b0C"
+      },
+      {
+        "lead": 365,
+        "panel": "Reference",
+        "minimum": -1.7999999523162842,
+        "maximum": 31.319561004638672,
+        "clipped_fraction": 0.024434542548554268,
+        "unit": "\u00b0C"
+      },
+      {
+        "lead": 365,
+        "panel": "Mean of 8",
+        "minimum": -6.47758674621582,
+        "maximum": 34.03489685058594,
+        "clipped_fraction": 0.06947785797023968,
+        "unit": "\u00b0C"
+      },
+      {
+        "lead": 365,
+        "panel": "Draw 1",
+        "minimum": -12.292922973632812,
+        "maximum": 32.56310272216797,
+        "clipped_fraction": 0.07515815735543081,
+        "unit": "\u00b0C"
+      }
+    ]
+  },
+  "obs-2018-ssh.png": {
+    "color_limits": [
+      -1.3532392477989197,
+      1.3937618577480322
+    ],
+    "panels": [
+      {
+        "lead": 30,
+        "panel": "Reference",
+        "minimum": -1.4389264583587646,
+        "maximum": 1.9367191791534424,
+        "clipped_fraction": 0.016436733384338213,
+        "unit": "m"
+      },
+      {
+        "lead": 30,
+        "panel": "Mean of 8",
+        "minimum": -1.5114372968673706,
+        "maximum": 1.5954688787460327,
+        "clipped_fraction": 0.018355163503519557,
+        "unit": "m"
+      },
+      {
+        "lead": 30,
+        "panel": "Draw 1",
+        "minimum": -1.740993857383728,
+        "maximum": 1.632863998413086,
+        "clipped_fraction": 0.02049362915441504,
+        "unit": "m"
+      },
+      {
+        "lead": 365,
+        "panel": "Reference",
+        "minimum": -1.4491255283355713,
+        "maximum": 2.0554611682891846,
+        "clipped_fraction": 0.02359386954268368,
+        "unit": "m"
+      },
+      {
+        "lead": 365,
+        "panel": "Mean of 8",
+        "minimum": -1.6577801704406738,
+        "maximum": 1.476186990737915,
+        "clipped_fraction": 0.0499866345896819,
+        "unit": "m"
+      },
+      {
+        "lead": 365,
+        "panel": "Draw 1",
+        "minimum": -1.775873064994812,
+        "maximum": 1.5772762298583984,
+        "clipped_fraction": 0.04996435890581841,
+        "unit": "m"
+      }
+    ]
+  },
+  "om4-2018-sst.png": {
+    "color_limits": [
+      -1.78756778717041,
+      29.959147396087644
+    ],
+    "panels": [
+      {
+        "lead": 30,
+        "panel": "Reference",
+        "minimum": -1.99609375,
+        "maximum": 32.36277770996094,
+        "clipped_fraction": 0.01995901274169117,
+        "unit": "\u00b0C"
+      },
+      {
+        "lead": 30,
+        "panel": "Mean of 8",
+        "minimum": -5.723592281341553,
+        "maximum": 30.603511810302734,
+        "clipped_fraction": 0.1020449077786688,
+        "unit": "\u00b0C"
+      },
+      {
+        "lead": 30,
+        "panel": "Draw 1",
+        "minimum": -11.504968643188477,
+        "maximum": 33.02876281738281,
+        "clipped_fraction": 0.11169027889156197,
+        "unit": "\u00b0C"
+      },
+      {
+        "lead": 365,
+        "panel": "Reference",
+        "minimum": -1.950155258178711,
+        "maximum": 32.80937576293945,
+        "clipped_fraction": 0.020048115477145148,
+        "unit": "\u00b0C"
+      },
+      {
+        "lead": 365,
+        "panel": "Mean of 8",
+        "minimum": -6.6786394119262695,
+        "maximum": 29.23287582397461,
+        "clipped_fraction": 0.08355609017196829,
+        "unit": "\u00b0C"
+      },
+      {
+        "lead": 365,
+        "panel": "Draw 1",
+        "minimum": -13.26556396484375,
+        "maximum": 33.30104446411133,
+        "clipped_fraction": 0.10030740443731623,
+        "unit": "\u00b0C"
+      }
+    ]
+  },
+  "om4-2018-ssh.png": {
+    "color_limits": [
+      -1.8146962189674378,
+      0.8143725669384002
+    ],
+    "panels": [
+      {
+        "lead": 30,
+        "panel": "Reference",
+        "minimum": -1.901814341545105,
+        "maximum": 1.2683639526367188,
+        "clipped_fraction": 0.017419584781252783,
+        "unit": "m"
+      },
+      {
+        "lead": 30,
+        "panel": "Mean of 8",
+        "minimum": -2.0029335021972656,
+        "maximum": 0.8802444338798523,
+        "clipped_fraction": 0.015748908491490687,
+        "unit": "m"
+      },
+      {
+        "lead": 30,
+        "panel": "Draw 1",
+        "minimum": -2.2373061180114746,
+        "maximum": 1.0449501276016235,
+        "clipped_fraction": 0.02503786866256794,
+        "unit": "m"
+      },
+      {
+        "lead": 365,
+        "panel": "Reference",
+        "minimum": -1.937214732170105,
+        "maximum": 1.1140779256820679,
+        "clipped_fraction": 0.022587543437583534,
+        "unit": "m"
+      },
+      {
+        "lead": 365,
+        "panel": "Mean of 8",
+        "minimum": -2.0225563049316406,
+        "maximum": 0.8309423923492432,
+        "clipped_fraction": 0.014946983872404883,
+        "unit": "m"
+      },
+      {
+        "lead": 365,
+        "panel": "Draw 1",
+        "minimum": -2.209564685821533,
+        "maximum": 0.9993857741355896,
+        "clipped_fraction": 0.021384656508954825,
+        "unit": "m"
+      }
+    ]
+  }
+}

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-FileCopyrightText: 2026 Samudra Authors
 # SPDX-License-Identifier: Apache-2.0
-"""Verify and report the scratch direct observation-2k checkpoint."""
+"""Verify and report the scratch observation-2k checkpoint."""
 
 import argparse
 import gzip
@@ -31,6 +31,7 @@ from samudra.experiments.diffusion_scratch_evaluate import verify_output
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--evaluation", type=Path, required=True)
+    p.add_argument("--comparison", type=Path)
     p.add_argument("--baseline", type=Path, required=True)
     p.add_argument("--presentation", type=Path, required=True)
     p.add_argument("--output", type=Path, required=True)
@@ -39,7 +40,8 @@ def main():
     signature = read(a.evaluation / "input.json")
     receipt = read(a.evaluation / "COMPLETE.json")
     assert signature["counts"] == {"om4": 5561, "observation": 2000}
-    assert signature["processor_prediction"] == "direct"
+    assert signature["processor_prediction"] in ("direct", "residual")
+    label = signature["processor_prediction"].capitalize()
     assert receipt["inputs"] == signature
     for section in ("validation", "native", "annual"):
         assert verify_output(a.evaluation, section, signature)
@@ -53,10 +55,18 @@ def main():
     climate = source["metrics"]["Training seasonal climatology"]
     expected = manifests(source["models"]["U-global"]["inputs"])
     roots = {
-        "Direct scratch: 2k obs / 5,561 OM4": a.evaluation / "annual",
+        f"{label} scratch: 2k obs / 5,561 OM4": a.evaluation / "annual",
         "Historical deterministic: 8k / 8k": a.baseline / "global-endpoint-annual",
         "Historical diffusion: 8k / 8k": a.baseline / "final-annual-steps32",
     }
+    if a.comparison:
+        other = read(a.comparison / "input.json")
+        assert other["counts"] == signature["counts"]
+        for section in ("validation", "native", "annual"):
+            assert verify_output(a.comparison, section, other)
+        roots[
+            f"{other['processor_prediction'].capitalize()} scratch: 2k obs / 5,561 OM4"
+        ] = a.comparison / "annual"
     rows = []
     curves = []
     for arm, directory in roots.items():
@@ -83,7 +93,7 @@ def main():
     table(a.output / "blended-components.csv", rows)
     table(a.output / "surface-leads.csv", curves)
     fig, axes = plt.subplots(1, 3, figsize=(13, 4), layout="constrained")
-    markers = ["o", "s", "^"]
+    markers = ["o", "s", "^", "D"][: len(roots)]
     for arm, marker in zip(roots, markers, strict=True):
         selected = [r for r in rows if r["arm"] == arm and r["origin"] == "pooled"]
         axes[0].plot(
@@ -136,7 +146,7 @@ def main():
         xlabel="Lead (days)",
         ylabel="Latent RMS (log scale)",
         yscale="log",
-        title="Same checkpoint: observation and OM4 paths diverge",
+        title=f"{label} checkpoint: observation and OM4 latent evolution",
     )
     ax.grid(alpha=0.25)
     ax.legend(ncol=2, fontsize=8)

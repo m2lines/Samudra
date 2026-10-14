@@ -121,6 +121,8 @@ def maps(truth, draws, mask, output, title, unit, temporal):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--surface-only", action="store_true")
+    parser.add_argument("--arm", choices=("direct", "residual"), default="direct")
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
@@ -140,7 +142,7 @@ def main():
                 members[:, :, channel].swapaxes(0, 1),
                 ensemble["mask"][channel],
                 path,
-                f"Observation initialization, 2018-01-01: {name.upper()} — direct scratch, 2k obs",
+                f"Observation initialization, 2018-01-01: {name.upper()} — {args.arm} scratch, 2k obs",
                 unit,
                 "Surface comparison uses five-day verification bins labeled day 30 and day 365.",
             )
@@ -151,6 +153,8 @@ def main():
             ("zos", "ssh", "m"),
             ("so_9", "so9", "practical salinity"),
         ):
+            if args.surface_only and label == "so9":
+                continue
             channel = native["channels"].tolist().index(name)
             path = args.output / f"om4-2018-{label}.png"
             summary[path.name] = maps(
@@ -158,7 +162,7 @@ def main():
                 native["members"][:, indices, channel].swapaxes(0, 1),
                 native["mask"][channel],
                 path,
-                f"OM4 surface initialization, 2018: {name} — direct scratch, 2k obs",
+                f"OM4 surface initialization, 2018: {name} — {args.arm} scratch, 2k obs",
                 unit,
                 "Matched OM4 targets on native five-day output cadence; interiors are inferred from surface history.",
             )

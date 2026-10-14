@@ -488,8 +488,8 @@ class InferenceDataLoadingConfig(BaseConfig):
     persistent_workers: bool = True
 
 
-class OceanDataSourceConfig[OceanTimeConfigT: Om4TimeConfig | Cm4TimeConfig](
-    BaseDataSourceConfig[OceanTimeConfigT]
+class Om4FamilyDataSourceConfig[Om4FamilyTimeConfigT: Om4TimeConfig | Cm4TimeConfig](
+    BaseDataSourceConfig[Om4FamilyTimeConfigT]
 ):
     """Shared physical channels and layouts for the OM4 and CM4 oceans."""
 
@@ -558,11 +558,11 @@ class OceanDataSourceConfig[OceanTimeConfigT: Om4TimeConfig | Cm4TimeConfig](
         return canonical_data, canonical_means, canonical_stds, data_layout
 
 
-class Om4DataSourceConfig(OceanDataSourceConfig[Om4TimeConfig]):
+class Om4DataSourceConfig(Om4FamilyDataSourceConfig[Om4TimeConfig]):
     type: Literal["om4"] = "om4"
 
 
-class Cm4DataSourceConfig(OceanDataSourceConfig[Cm4TimeConfig]):
+class Cm4DataSourceConfig(Om4FamilyDataSourceConfig[Cm4TimeConfig]):
     type: Literal["cm4"] = "cm4"
     boundary_vars_key: str = "tau_hfds_wfo"
 

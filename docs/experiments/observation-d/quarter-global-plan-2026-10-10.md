@@ -342,6 +342,13 @@ held-out test results or the common-support 1° comparison. Observation-only is
 unfinished, and both earlier-data variants are pending; no final model ranking
 is claimed. Selected checkpoints will receive the agreed 30-/365-day evaluation.
 
+A short `beta_test` memory qualification, **213258**, is submitted and queued.
+It runs one existing 2015 origin for all 73 steps with U-global’s selected
+checkpoint, own persistence and common-grid exports. Its one-origin output is
+capacity evidence only; final annual reporting still requires all three starts.
+Evaluation producer `8bad9c34a` adds only an optional, provenance-bound origin
+subset; the training producer and weights are unchanged.
+
 ![Native quarter-degree validation curves through October 14](artifacts/quarter-bringup-2026-10-11/native-validation-2026-10-14.png)
 
 Raw curves are unsmoothed; stars mark the best observed validation checkpoints

@@ -52,7 +52,7 @@ dependencies = [
   "xarrayutils",         # Vector-rotation QC plotting
   "xarrera",
   "xesmf>=0.8.10",
-  "xgcm>=0.8.1,<0.10",   # Native-grid interpolation uses the boundary/periodic API.
+  "xgcm>=0.9,<0.10",     # Explicit boundary padding and autoparse_metadata API.
   "zarr>=2.18.2,<3",
 ]
 

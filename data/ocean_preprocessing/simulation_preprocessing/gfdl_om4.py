@@ -317,7 +317,9 @@ def native_ocean_preprocessing(
             "X": {"center": "xh", "right": "xq"},
             "Y": {"center": "yh", "right": "yq"},
         },
-        boundary="extend",
+        # Explicit padding takes precedence over periodic in xgcm >= 0.8.1.
+        # Wrap longitude while retaining edge extension in latitude.
+        boundary={"X": "periodic", "Y": "extend"},
         periodic=["X"],
         autoparse_metadata=False,
     )

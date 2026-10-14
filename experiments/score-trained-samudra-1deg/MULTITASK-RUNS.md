@@ -329,3 +329,21 @@ Callback `40f25e3e-99f4-45f9-bbd0-4ba99898c20e` authenticated; CPU notification1
 `afterany` dependencies on all four jobs. Quiet monitor `/root/rtx_qualification_monitor` owns them
 with an hourly fallback. Full diagnostic results and final analysis/report remain outstanding. No new
 training wave or observation trajectory export was submitted.
+
+## Full diagnostics verified and final report
+
+All four jobs completed with exit 0: completion F19762850 in 1:55 and M19762851 in 2:17;
+continuous F19762854 in 4:05 and M19762855 in 4:03 (0.2056 RTX GPU-hours combined).
+Completion produced 9,992 finite requested-only rows per arm; all ninety known/request masks match,
+are disjoint, and agree with active row counts and rank-histogram mass. Continuous produced 598 frames,
+46,046 finite score rows and 3,588 finite bulk rows per arm through 2022-12-24, with finite saved arrays.
+CPU notification19762880 completed. W&B runs synchronized:
+[completion F](https://wandb.ai/ocean_emulators/default/runs/srq1e1d7),
+[completion M](https://wandb.ai/ocean_emulators/default/runs/fprfixyd),
+[continuous F](https://wandb.ai/ocean_emulators/default/runs/8evnkm7u),
+[continuous M](https://wandb.ai/ocean_emulators/default/runs/igbu1dna).
+
+The [completed report](MULTITASK-RESULTS.md) combines primary/selected forecasts, completion,
+continuous diagnostics, figures and suggested next experiments. Raw artifacts retain the paths above;
+summary tables and reproducible analysis are committed alongside the report. No new training wave or
+F/M observational export/scoring was launched.

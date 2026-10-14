@@ -85,12 +85,11 @@ or forecasting with unknown future surface fields. Do not select favorable masks
 
 ## Execution and monitoring
 
-Use Torch H100s following the user's request to use available Torch capacity. The initial plan used Beta;
-its held qualification job 212521 was cancelled before allocating resources. Torch's H100 queue estimates
-were earlier than RTX/H200 production capacity on October 12. Qualification uses one H100; both production
-arms request two H100s with batch 4/rank and accumulation 4, retaining effective batch 32. The corresponding
-four-GPU Beta recipe uses accumulation 2. These rank counts change sampling/RNG streams relative to historical
-C; the two new arms remain matched to one another.
+Completed on two Torch RTX PRO 6000 Blackwell GPUs per arm, with batch 4/rank and accumulation 4
+(effective batch 32). H100 qualification passed, but pending H100 production allocations were replaced
+with available RTX capacity before starting. Both arms used the qualified native-pointwise workaround.
+These rank counts/backends differ from historical C; the two new arms use the same recipe.
+See [the completed results](MULTITASK-RESULTS.md) and [execution history](MULTITASK-RUNS.md).
 
 Reuse Torch's `sd-seeds-base-0b5320248.sif` container, whose `uv.lock` and `pyproject.toml` are byte-identical
 to this source, with its installed x86 Rust loader. Bind an immutable source snapshot read-only; compare

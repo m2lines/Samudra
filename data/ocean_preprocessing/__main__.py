@@ -611,6 +611,8 @@ class CLI:
         # (dz, lev, ocean_fraction, lon_b/lat_b) survive into the written dataset.
         # `lev` is kept even when flattening, since dz/lev/ocean_fraction remain
         # indexed by it after the prognostic vars are split out.
+        # nv is the two-element bounds dimension of time_bnds(time, nv):
+        # index 0 is the averaging interval's start; index 1 is its end.
         for extra in ("lev", "ilev", "x_b", "y_b", "nv"):
             if extra in ds.dims:
                 dims_to_keep.append(extra)

@@ -31,14 +31,23 @@ def main():
     parser.add_argument("--arm", choices=["F", "M"], required=True)
     parser.add_argument("--origin-limit", type=int)
     parser.add_argument("--forecast-cooldown", action="store_true")
+    parser.add_argument(
+        "--validation-epoch",
+        type=int,
+        help="Score this checkpoint epoch on validation only",
+    )
     args = parser.parse_args()
     expected_epoch = 10 if args.forecast_cooldown else 70
+    if args.validation_epoch is not None:
+        if args.validation_epoch < 1 or args.arm not in ("F", "M"):
+            parser.error("validation-epoch requires a positive epoch and F/M arm")
+        expected_epoch = args.validation_epoch
     if args.origin_limit is not None and args.origin_limit < 1:
         parser.error("origin-limit must be positive")
     cfg = MultitaskTrainConfig.from_yaml(args.config)
     assert cfg.model.mode == (
         "forecast"
-        if args.forecast_cooldown
+        if args.forecast_cooldown or args.validation_epoch is not None
         else {"F": "forecast", "M": "multitask"}[args.arm]
     )
     configure_native_pointwise(cfg.native_pointwise)
@@ -52,6 +61,10 @@ def main():
         "start": "2014-10-10",
         "end": "2022-12-24",
     }
+    if args.validation_epoch is not None:
+        raw["data"]["sources"][0]["inference_time"] = raw["data"]["sources"][0][
+            "val_time"
+        ]
     cfg = MultitaskTrainConfig(**raw)
     device, dist = init_train_backend("auto")
     if dist is not None:
@@ -87,7 +100,11 @@ def main():
         .eval()
     )
     ckpt = torch.load(args.checkpoint, map_location="cpu", weights_only=True)
-    assert ckpt["epoch"] == expected_epoch and args.checkpoint.name == "ema_ckpt.pt"
+    assert ckpt["epoch"] == expected_epoch
+    allowed_files = {"ema_ckpt.pt"}
+    if args.validation_epoch is not None:
+        allowed_files.add(f"ckpt_{expected_epoch}.pt")
+    assert args.checkpoint.name in allowed_files
     net.load_state_dict(
         {k.removeprefix("module."): v for k, v in ckpt["model"].items()}, strict=True
     )
@@ -99,6 +116,8 @@ def main():
         for i in range(0, len(dataset) - 36 + 1, 9)
         if str(source.time.values[2 * i + 1])[:4] <= "2021"
     ]
+    if args.validation_epoch is not None:
+        origins = list(range(0, min(len(dataset), 36), 9))
     if args.origin_limit:
         origins = origins[: args.origin_limit]
     assert origins
@@ -109,6 +128,9 @@ def main():
         members=16,
         checkpoint=str(args.checkpoint),
         checkpoint_epoch=expected_epoch,
+        evaluation_split="validation"
+        if args.validation_epoch is not None
+        else "heldout",
         checkpoint_sha256=digest,
         source_commit=os.environ["SAMUDRA_CODE_COMMIT"],
         variables=names,

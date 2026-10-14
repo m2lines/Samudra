@@ -72,8 +72,17 @@ def main():
         default="final-ema",
     )
     parser.add_argument("--forecast-cooldown", action="store_true")
+    parser.add_argument(
+        "--validation-epoch",
+        type=int,
+        help="Score this checkpoint epoch on validation only",
+    )
     args = parser.parse_args()
     expected_epoch = 10 if args.forecast_cooldown else 70
+    if args.validation_epoch is not None:
+        if args.validation_epoch < 1 or args.arm not in ("F", "M"):
+            parser.error("validation-epoch requires a positive epoch and F/M arm")
+        expected_epoch = args.validation_epoch
     if args.arm in ("C", "D", "F", "M") and args.members < 2:
         parser.error("Stochastic evaluation requires at least two members")
     if args.origin_limit is not None and args.origin_limit < 1:
@@ -85,7 +94,7 @@ def main():
     if args.arm in ("F", "M"):
         expected_mode = (
             "forecast"
-            if args.forecast_cooldown
+            if args.forecast_cooldown or args.validation_epoch is not None
             else {"F": "forecast", "M": "multitask"}[args.arm]
         )
         assert isinstance(cfg.model, MultitaskModelConfig)
@@ -103,6 +112,10 @@ def main():
         "start": "2014-10-10",
         "end": "2022-12-24",
     }
+    if args.validation_epoch is not None:
+        raw["data"]["sources"][0]["inference_time"] = raw["data"]["sources"][0][
+            "val_time"
+        ]
     cfg = config_type(**raw)
     device, dist = init_train_backend("auto")
     rank = (dist.rank or 0) if dist else 0
@@ -175,6 +188,8 @@ def main():
         for i in range(0, len(dataset) - 36 + 1, 9)
         if str(source.time.values[2 * i + 1])[:4] <= "2021"
     ]
+    if args.validation_epoch is not None:
+        origins = [0] if len(dataset) >= 36 else []
     if args.origin_limit:
         origins = origins[: args.origin_limit]
     if not origins:
@@ -199,7 +214,10 @@ def main():
                 "checkpoint_sha256": checkpoint_sha256,
                 "source_commit": os.environ.get("SAMUDRA_CODE_COMMIT"),
                 "origins": origins,
-                "seed": 35000000,
+                "seed": 26000000 if args.validation_epoch is not None else 35000000,
+                "evaluation_split": "validation"
+                if args.validation_epoch is not None
+                else "heldout",
                 "test_period": ["2014-10-10", "2022-12-24"],
             },
         )
@@ -242,7 +260,9 @@ def main():
     area = weights(dataset.ctx, 77, area=True)
     area = area / area.sum((-2, -1), keepdim=True)
     for origin in origins[rank::world]:
-        torch.manual_seed(35000000 + origin)
+        torch.manual_seed(
+            (26000000 if args.validation_epoch is not None else 35000000) + origin
+        )
         initial = dataset[origin][0].to(device)
         history = initial[None].expand(m, *initial.shape)
         for step in range(36):

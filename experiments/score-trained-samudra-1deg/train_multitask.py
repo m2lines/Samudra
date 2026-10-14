@@ -4,6 +4,7 @@
 """Matched forecast/completion training with annual validation and task audits."""
 
 import argparse
+import contextlib
 import itertools
 import json
 import logging
@@ -19,6 +20,7 @@ from train_score import ScoreTrainConfig, ScoreTrainer
 from samudra.config import PostTrainEvalConfig
 from samudra.datasets import InferenceDataset
 from samudra.utils.distributed import is_main_process
+from samudra.utils.ema import EMATracker
 from samudra.utils.logging import handle_logging, handle_warnings
 
 logger = logging.getLogger(__name__)
@@ -27,6 +29,8 @@ logger = logging.getLogger(__name__)
 class MultitaskTrainConfig(ScoreTrainConfig):
     model: MultitaskModelConfig
     native_pointwise: bool = False
+    reset_ema_on_finetune: bool = False
+    log_raw_rollout_validation: bool = False
 
 
 MultitaskTrainConfig.model_rebuild(
@@ -35,6 +39,19 @@ MultitaskTrainConfig.model_rebuild(
 
 
 class MultitaskTrainer(ScoreTrainer):
+    def load_checkpoint(self, checkpoint_path, finetune=False):
+        super().load_checkpoint(checkpoint_path, finetune=finetune)
+        if finetune and self.cfg.reset_ema_on_finetune:
+            self._ema = EMATracker(
+                self.model, self.cfg.ema_decay, self.cfg.faster_decay_at_start
+            )
+            logger.info(
+                "Reset finetune EMA: updates=%s decay=%s faster_start=%s",
+                self._ema.num_updates,
+                self._ema.decay,
+                self.cfg.faster_decay_at_start,
+            )
+
     def write_manifest(self):
         super().write_manifest()
         path = self.output_dir / "data-manifest.json"
@@ -149,6 +166,18 @@ class MultitaskTrainer(ScoreTrainer):
 
     @torch.no_grad()
     def validate_rollout_one_epoch(self, epoch):
+        result = self._validate_rollout_weights(epoch)
+        if self.cfg.log_raw_rollout_validation:
+            raw = self._validate_rollout_weights(epoch, raw_weights=True)
+            result.update(
+                {
+                    key.replace("rollout_val/", "raw_rollout_val/"): value
+                    for key, value in raw.items()
+                }
+            )
+        return result
+
+    def _validate_rollout_weights(self, epoch, *, raw_weights=False):
         with self._rank0_rollout_validation_context() as active:
             if not active:
                 return {}
@@ -168,7 +197,7 @@ class MultitaskTrainer(ScoreTrainer):
             self.model.eval()
             metrics, selection = {}, []
             with (
-                self._test_context(),
+                contextlib.nullcontext() if raw_weights else self._test_context(),
                 torch.random.fork_rng(
                     devices=[self.device] if self.device.type == "cuda" else []
                 ),

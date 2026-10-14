@@ -44,3 +44,17 @@ retention diagnostic, and continuous rollout/within-versus-across-call salinity 
 EMA is primary, with final **raw** weights as a sensitivity check so inherited EMA lag cannot hide the
 response to this short fine-tune. Report each arm before/after and the between-arm difference. Keep
 validation selection separate from final-checkpoint results; do not select on held-out performance.
+
+## Initial startup failure and recovery
+
+F19804204 and M19804205 both failed on gr105 at the initial NCCL barrier, before checkpoint loading,
+W&B initialization or training steps. Each exited 1 after 11:27; combined failed allocation cost was
+0.7633 RTX GPU-hours. Callback19804212 completed and its registration was retired. Thus the initial
+running scheduler state did not establish successful training bring-up.
+
+The launcher now explicitly exports `NCCL_P2P_DISABLE=1` and forwards it through `APPTAINERENV_`
+into the clean container, as recommended by `docs/torch.md` for RTX NCCL hangs. No training/configuration
+changes. This is a documented mitigation, not proof of the cause; scheduler-selected nodes also differ.
+Retry F19804782 was observed running on gr102 and M19804783 on gr103. CPU callback19804785 depends
+on both via `afterany`. Webhook `055806e5-b121-4f5d-9abd-c3a743a08c9f` and the same quiet monitor
+cover a ten-minute bring-up check, then hourly monitoring. First-step verification remains pending.

@@ -77,3 +77,18 @@ M19831718** each requests two RTX GPUs and depends on `afterok:19831716`. CPU no
 `logs/adaptation-qualification-19831716.{out,err}` and output `outputs/adaptation-qualification-retry-M`.
 The submitted configurations preserve the original parent checkpoint paths. Successful qualification
 and first-epoch production verification remain monitoring gates, not conclusions from submission.
+
+
+## Qualification passed; production bring-up verified
+
+Corrected qualification19831716 completed exit0 in2:32, with three optimizer steps and finite raw/EMA
+annual validation. Both production jobs loaded their respective parent EMA and logged resetEMAupdates0,
+decay0.99,faster_startFalse. F19831717(gr104) / M19831718(gr105) reached epoch1step125/126 with
+finite losses at about3.3seconds/step, LR1e-4, about39GB peak allocated GPU memory and negligible data
+wait. Online W&B: [F932ko1t1](https://wandb.ai/ocean_emulators/default/runs/932ko1t1),
+[Mo2u9aowm](https://wandb.ai/ocean_emulators/default/runs/o2u9aowm).
+Qualification W&B [wkr18kow](https://wandb.ai/ocean_emulators/default/runs/wkr18kow).
+
+The [saved-checkpoint validation diagnostic](DIAGNOSTIC-RESULTS.md) is complete and published.
+Its callback9e7b38cd-0441-44b5-99fd-83e0ba166f0e is retired. The production monitor and callback
+853d037e-35da-41ea-ab20-f06b406f99af remain active; no production-result conclusions yet.

@@ -137,7 +137,7 @@ def main():
         tasks=["surface", "variable", "gap"],
         mask_seed=61000000,
         sample_seed=62000000,
-        protocol="Same thirty forecast origins; one two-date completion per task; no history; score requested wet entries only",
+        protocol=f"{len(origins)} origins; one two-date completion per task; no history; score requested wet entries only",
     )
     run = wandb.init(
         entity=cfg.experiment.wandb.entity,

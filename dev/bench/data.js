@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792105508339,
+  "lastUpdate": 1792105516250,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -26085,6 +26085,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.5827070195962067",
             "extra": "mean: 12.586687576400015 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse+bot@openathena.ai",
+            "name": "oa-jder-bot",
+            "username": "oa-jder-bot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "f1e7132209ea5d4839b5b2c37f078f2c276c3f5f",
+          "message": "Allow separate output credentials for preprocessing (#930)\n\nCM4 raw inputs and published outputs use separate OSN credentials. Add\n`--output_profile` so the writer can use a named AWS profile while input\nreads keep their default credentials, allowing direct bucket-to-bucket\nprocessing.\n\nValidation: 107 data tests and pre-commit checks pass; the production\nstorage pilot will exercise both profiles on Torch.",
+          "timestamp": "2026-10-15T22:38:46Z",
+          "tree_id": "cfcbbfec17325a6e38ba1bcf6db34ddd349c5f63",
+          "url": "https://github.com/m2lines/Samudra/commit/f1e7132209ea5d4839b5b2c37f078f2c276c3f5f"
+        },
+        "date": 1792105515875,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 1.0357257300693177,
+            "unit": "iter/sec",
+            "range": "stddev: 0.004555533313224313",
+            "extra": "mean: 965.5065727999954 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_dataset__1gb[cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.3543260649728201,
+            "unit": "iter/sec",
+            "range": "stddev: 0.09660237547807636",
+            "extra": "mean: 2.822259209399988 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.08062826651618238,
+            "unit": "iter/sec",
+            "range": "stddev: 0.02859754492621282",
+            "extra": "mean: 12.40259828479999 sec\nrounds: 5"
           }
         ]
       }

@@ -101,3 +101,16 @@ New audit **19875157** → base qualification **19875158** → branch qualificat
 **19875159** were submitted with successful-completion dependencies and were
 initially queued. Callback **19875169** covers termination; quiet monitoring is
 active. Production remains gated on the new verified receipts.
+
+All eight recovered branch qualifications passed bitwise-exact replay, including
+optimizer and EMA state, with finite validation outputs. The recovery consumed
+1.4733 GPU-hours, bringing this cooldown comparison's pre-production total to
+**3.0097 GPU-hours**, including failed attempts. The earlier stability campaign
+remains separately accounted.
+
+Production array **19878748** now contains the eight approved continuations from
+the original S0 checkpoints. Initial status was **PENDING (QOSGrpCpuLimit)**,
+with a maximum of four concurrent RTX GPUs. Callback **19878751** and quiet
+monitoring cover startup and completion. Production has not yet been verified
+running. Annual validation and initializer diagnostics remain required before
+choosing the standard cooldown.

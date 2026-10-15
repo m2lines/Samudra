@@ -115,3 +115,10 @@ Quiet hourly local reminder93e450c9-cd96-4af6-9c39-0212cc7ba421 is owned by
 `/root/strong_adaptation_monitor`. No new callback credential is exported to Torch; completion is
 verified through scheduler, logs and artifacts on reminder wake-up. This evaluation remains within
 the approved proposals1/2; no exposure-matched third wave has been launched.
+
+
+## Held-out evaluation complete
+
+Both evaluation jobs completed successfully. See [results and interpretation](RESULTS.md) for
+forecast recovery, completion forgetting and remaining temporal errors. The local monitoring
+registration93e450c9-cd96-4af6-9c39-0212cc7ba421 is retired. No later wave was submitted.

@@ -98,6 +98,8 @@ MODEL_DETAILS = {
 
 def description(model, info):
     """Describe the selected checkpoint without conflating exposure and lead."""
+    if "description" in info:
+        return info["description"]
     lineage = info["lineage"]
     if model in MODEL_DETAILS:
         parameters, architecture, training = MODEL_DETAILS[model]

@@ -61,7 +61,8 @@ class Viewer:
         self.catalog = catalog
         for record in catalog.meta["records"].values():
             if "temperature_reference" not in record or any(
-                "temperature" not in row for row in record["models"].values()
+                "heat" in row and "temperature" not in row
+                for row in record["models"].values()
             ):
                 raise ValueError("Viewer requires monthly profiles for every model")
         self._changing = False
@@ -502,7 +503,14 @@ class Viewer:
         models = {
             label: key
             for label, key in self.model_options.items()
-            if record is None or key in record["models"]
+            if (
+                key in record["models"]
+                if record is not None
+                else self.mode.value
+                in self.catalog.meta["records"][self.origin.value]["models"].get(
+                    key, {}
+                )
+            )
         }
         model = self.model.value
         self.model.options = models
@@ -708,6 +716,12 @@ class Viewer:
             "Model and comparison share a color scale; difference is centered on zero. Limits use the pooled 2nd–98th percentiles and may clip extremes. "
             "The prepared catalog retains original source paths, hashes, and report receipts."
         )
+        if "description" in info:
+            self.context.object = self.context.object.replace(
+                "Surface temperature at 2.5 m is copied from available inputs.",
+                "Diffusion fields are decoded predictions, not copied surface inputs.",
+            )
+            self.context.object += " " + info["description"]
         self.update_point()
 
     def update_point(self):

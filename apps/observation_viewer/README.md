@@ -287,3 +287,16 @@ uv run --project apps/observation_viewer python apps/observation_viewer/extend_a
   --base /path/to/current-bundle --source /path/to/verified-annual-mirror \
   --output /path/to/new-bundle
 ```
+
+### Diffusion predictions
+
+`extend_diffusion.py --base BUNDLE --evaluation EVAL --output NEW_BUNDLE
+--key UNIQUE_KEY --label LABEL` adds a verified completed diffusion evaluation.
+It preserves existing arrays and verifies every base checksum, evaluation receipt,
+reference field and coordinate. New arrays are fully read back and checksummed.
+The surface view offers all 73 five-day means for both the eight-member mean and
+one draw. Draw indices are independently sampled at each lead and do not define
+coherent stochastic trajectories. Initialization offers all saved mean physical
+fields; draw initialization only includes T at 2.5/550 m and S at 550 m, with
+unavailable depths/variables explicitly missing. Monthly-profile views only list
+models with saved monthly profiles; no fields are fabricated for diffusion.

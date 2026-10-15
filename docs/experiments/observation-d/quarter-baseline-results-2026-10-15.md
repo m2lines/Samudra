@@ -5,6 +5,8 @@
 
 This compares fresh U-global and observation-only models at native quarter-degree resolution. Both completed 6,000 optimizer updates. The earlier-data variants are held at the user's request until these 365-day rollouts are reviewed.
 
+**Obs-only has lower short-lead error; U-global has lower 365-day error under both checkpoint policies, mainly through better OHC.** Neither beats seasonal climatology on the overall year-long blend. These are native-resolution results from one seed and three annual starts; the matched 1° comparison remains pending.
+
 ## Models and checkpoint policies
 
 All four table labels below refer to two trained models, each evaluated at two checkpoints. Both use the same 62,967,680-parameter initializer/evolution architecture, a global 720×1440 grid, 77 physical state channels, seed 1729, global batch eight and fixed learning rate 1e-4. Neither starts from the earlier D checkpoint. Training details and data provenance are in the [experiment plan](quarter-global-plan-2026-10-10.md).

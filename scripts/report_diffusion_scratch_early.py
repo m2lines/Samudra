@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-FileCopyrightText: 2026 Samudra Authors
 # SPDX-License-Identifier: Apache-2.0
-"""Verify and report the scratch observation-2k checkpoint."""
+"""Verify and report the scratch checkpoint."""
 
 import argparse
 import gzip
@@ -28,6 +28,14 @@ from report_diffusion_interventions import (  # type: ignore[import-not-found]
 from samudra.experiments.diffusion_scratch_evaluate import verify_output
 
 
+def checkpoint_label(signature):
+    counts = signature["counts"]
+    return (
+        f"{signature['processor_prediction'].capitalize()} scratch: "
+        f"{counts['observation']:,} obs / {counts['om4']:,} OM4"
+    )
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--evaluation", type=Path, required=True)
@@ -39,7 +47,7 @@ def main():
     a.output.mkdir(parents=True, exist_ok=True)
     signature = read(a.evaluation / "input.json")
     receipt = read(a.evaluation / "COMPLETE.json")
-    assert signature["counts"] == {"om4": 5561, "observation": 2000}
+    assert sum(signature["counts"].values()) == signature["step"]
     assert signature["processor_prediction"] in ("direct", "residual")
     label = signature["processor_prediction"].capitalize()
     assert receipt["inputs"] == signature
@@ -55,18 +63,16 @@ def main():
     climate = source["metrics"]["Training seasonal climatology"]
     expected = manifests(source["models"]["U-global"]["inputs"])
     roots = {
-        f"{label} scratch: 2k obs / 5,561 OM4": a.evaluation / "annual",
+        checkpoint_label(signature): a.evaluation / "annual",
         "Historical deterministic: 8k / 8k": a.baseline / "global-endpoint-annual",
         "Historical diffusion: 8k / 8k": a.baseline / "final-annual-steps32",
     }
     if a.comparison:
         other = read(a.comparison / "input.json")
-        assert other["counts"] == signature["counts"]
+        assert sum(other["counts"].values()) == other["step"]
         for section in ("validation", "native", "annual"):
             assert verify_output(a.comparison, section, other)
-        roots[
-            f"{other['processor_prediction'].capitalize()} scratch: 2k obs / 5,561 OM4"
-        ] = a.comparison / "annual"
+        roots[checkpoint_label(other)] = a.comparison / "annual"
     rows = []
     curves = []
     for arm, directory in roots.items():

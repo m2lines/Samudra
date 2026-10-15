@@ -126,6 +126,9 @@ def main():
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
+    signature = json.loads((args.root / "input.json").read_text())
+    assert signature["processor_prediction"] == args.arm
+    obs_count = signature["counts"]["observation"]
     args.output.mkdir(parents=True, exist_ok=True)
     summary = {}
     with (
@@ -142,7 +145,7 @@ def main():
                 members[:, :, channel].swapaxes(0, 1),
                 ensemble["mask"][channel],
                 path,
-                f"Observation initialization, 2018-01-01: {name.upper()} — {args.arm} scratch, 2k obs",
+                f"Observation initialization, 2018-01-01: {name.upper()} — {args.arm} scratch, {obs_count:,} obs",
                 unit,
                 "Surface comparison uses five-day verification bins labeled day 30 and day 365.",
             )
@@ -162,7 +165,7 @@ def main():
                 native["members"][:, indices, channel].swapaxes(0, 1),
                 native["mask"][channel],
                 path,
-                f"OM4 surface initialization, 2018: {name} — {args.arm} scratch, 2k obs",
+                f"OM4 surface initialization, 2018: {name} — {args.arm} scratch, {obs_count:,} obs",
                 unit,
                 "Matched OM4 targets on native five-day output cadence; interiors are inferred from surface history.",
             )

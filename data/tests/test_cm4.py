@@ -318,6 +318,14 @@ def test_cm4_publication_rotates_stress_preserves_metadata_and_chunks(
     assert actual.ilev.attrs == source.ilev.attrs
     assert actual.dz.attrs == {"units": "meters", "long_name": "Ocean layer thickness"}
     assert actual.tauuo.attrs["standard_name"] == "surface_downward_eastward_stress"
+    for name, long_name in {
+        "uo": "Eastward Sea Water Velocity",
+        "vo": "Northward Sea Water Velocity",
+        "tauuo": "Surface Downward Eastward Stress",
+        "tauvo": "Surface Downward Northward Stress",
+    }.items():
+        assert actual[name].attrs["long_name"] == long_name
+        assert actual.attrs[name]["long_name"] == long_name
     assert actual.attrs["title"] == "test CM4 piControl"
     assert actual.attrs["m2lines/preprocessing"]["spatial_filter"] is None
     assert actual.attrs["m2lines/preprocessing"]["source_coverage"]["steps"] == 12

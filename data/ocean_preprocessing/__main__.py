@@ -480,14 +480,20 @@ class CLI:
 
         # Rotation converts native-grid x/y components to geographic east/north.
         # Update the saved metadata restored after filtering and regridding so
-        # the output standard names describe the rotated components.
-        for name, standard_name in {
-            "uo": "eastward_sea_water_velocity",
-            "vo": "northward_sea_water_velocity",
-            "tauuo": "surface_downward_eastward_stress",
-            "tauvo": "surface_downward_northward_stress",
+        # the output names describe the rotated components.
+        for name, (standard_name, long_name) in {
+            "uo": ("eastward_sea_water_velocity", "Eastward Sea Water Velocity"),
+            "vo": ("northward_sea_water_velocity", "Northward Sea Water Velocity"),
+            "tauuo": (
+                "surface_downward_eastward_stress",
+                "Surface Downward Eastward Stress",
+            ),
+            "tauvo": (
+                "surface_downward_northward_stress",
+                "Surface Downward Northward Stress",
+            ),
         }.items():
-            saved_attrs[name]["standard_name"] = standard_name
+            saved_attrs[name].update(standard_name=standard_name, long_name=long_name)
 
         time_blocks = {"x": -1, "y": -1, "time": 1}
 

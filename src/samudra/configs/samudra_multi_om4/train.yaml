@@ -43,7 +43,7 @@ data:
       boundary_vars_key: tau_hfds
       train_time: &train_time
         start: "1975-01-03"
-        end: "2013-10-05"
+        end: "2013-09-30"
       val_time: &val_time
         start: "2013-10-05"
         end: "2014-10-05"

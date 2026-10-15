@@ -21,7 +21,7 @@ def interpolate_to_cell_centers(
     """
     xh, yh = grid.axes["X"].coords["center"], grid.axes["Y"].coords["center"]
     xq, yq = grid.axes["X"].coords["right"], grid.axes["Y"].coords["right"]
-    ds_interpolated = xr.Dataset()
+    ds_interpolated = xr.Dataset(attrs=ds.attrs)
     for var in ds.data_vars:
         da = ds[var]
         if set([xh, yh]).issubset(da.dims):

@@ -73,9 +73,9 @@ class NativeOm4SourceBackend:
         source_type: DataSourceType,
         data_layout: DataLayout,
     ) -> None:
-        if source_type != "om4":
+        if source_type != "om4" and source_type != "cm4":
             raise ValueError(
-                f"loading.type={self._name!r} currently supports OM4 sources only; "
+                f"loading.type={self._name!r} currently supports OM4/CM4 sources only; "
                 f"got {source_type!r}"
             )
         locations = {

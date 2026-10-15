@@ -34,6 +34,7 @@ from samudra.train import Trainer
 from samudra.utils.atomic import atomic_path
 from samudra.utils.distributed import is_main_process
 from samudra.utils.logging import handle_logging, handle_warnings
+from samudra.utils.rollout_validation import should_run_on_epoch_freq
 from samudra.utils.training_summary import (
     SEARCH_WORKER_STATUS_NAME,
     TRAINING_SUMMARY_NAME,
@@ -152,6 +153,26 @@ class SuccessiveHalving:
             )
             for candidate in self.config.candidates
         ]
+        identities = []
+        for candidate, train_config in resolved_candidates:
+            if train_config.validation_score == "rollout_rmse":
+                rollout = train_config.rollout_validation
+                assert rollout is not None
+                if any(
+                    not should_run_on_epoch_freq(epoch, rollout.frequency)
+                    for epoch in self.rungs
+                ):
+                    raise ValueError(
+                        f"Candidate {candidate.name}: rollout validation must run at every rung endpoint"
+                    )
+            if not candidate.fixed:
+                identities.append(
+                    (train_config.validation_score, train_config.rollout_validation)
+                )
+        if any(identity != identities[0] for identity in identities[1:]):
+            raise ValueError(
+                "Competing candidates must use the same validation score and rollout config"
+            )
         self.search_dir.mkdir(parents=True)
         if code_layer_metadata is not None:
             _atomic_json(self.search_dir / "code-layer.json", code_layer_metadata)
@@ -306,7 +327,6 @@ class SuccessiveHalving:
             candidate=name,
             rung=rung,
             target_epochs=self.rungs[rung],
-            objective=self.config.objective.metric,
             executor=self.config.executor.type,
             code_commit=os.environ.get(
                 "SAMUDRA_CODE_COMMIT",
@@ -464,6 +484,9 @@ class SuccessiveHalving:
                 result[metric] = float(score)
             result.update(
                 eligible=True,
+                validation_checkpoint_identity=summary.get(
+                    "validation_checkpoint_identity"
+                ),
                 optimizer_steps=summary.get("optimizer_steps"),
                 wandb_id=summary.get("wandb_id"),
                 wandb_name=summary.get("wandb_name"),
@@ -606,8 +629,7 @@ class SuccessiveHalving:
             self._write_report(state)
             self.publish(state)
             raise ValueError(f"No candidate completed rung {rung}")
-        ascending = self.config.objective.mode == "min"
-        ranked = eligible.sort_values(self.config.objective.metric, ascending=ascending)
+        ranked = eligible.sort_values("best_validation_score", ascending=True)
         keep = min(
             len(ranked),
             max(

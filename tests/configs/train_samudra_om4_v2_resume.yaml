@@ -16,6 +16,7 @@ gradient_accumulation_steps: 1
 # Keep the scheduler horizon fixed when the test simulates interruption by
 # stopping the first run after one epoch.
 scheduler: { type: cosine, target_epochs: 2 }
+validation_score: one_step_rmse
 loss:
   type: dynamic
   metric: mse

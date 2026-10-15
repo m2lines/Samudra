@@ -13,6 +13,21 @@ budget, retain the best fraction, and give progressively larger budgets only to
 the survivors. This is useful for comparing model architectures as well as
 ordinary hyperparameters such as learning rate and batch size.
 
+Search always minimizes `best_validation_score`, the best value observed under
+`validation_score` in each training config. Options are `rollout_rmse` (normalized
+RMSE at the longest configured rollout horizon), `one_step_rmse` (normalized,
+area-weighted one-step RMSE averaged equally over channels and samples), and
+`validation_loss` (the configured training loss on validation data). Dynamic loss
+weighting cannot be used with `validation_loss` scoring.
+
+Search rejects competing candidates with different score methods or rollout
+configs before launching training. Use the same validation data and normalization
+for meaningful comparisons. Rollout validation must be scheduled at every rung
+endpoint; choose compatible rung budgets and `rollout_validation.frequency`.
+Promotion resumes from the latest checkpoint. `validation_loss` remains a
+diagnostic, while checkpoint state and search ranking use `best_validation_score`.
+There is no separate search objective or compatibility alias for the best score.
+
 Successive halving is the resource-allocation primitive used by
 [Hyperband](https://jmlr.org/papers/v18/16-558.html). Samudra currently runs one
 successive-halving bracket. It does not yet run Hyperband's collection of
@@ -98,7 +113,7 @@ import pandas as pd
 results = pd.read_csv(
     "/scratch/USER/searches/my-search--20260813T192612.123456Z/results.csv"
 )
-print(results.sort_values(["rung", "validation_loss"]))
+print(results.sort_values(["rung", "best_validation_score"]))
 ```
 
 ## Publish an inspectable research record
@@ -169,11 +184,11 @@ The Parquet tables can be queried in place by agents or collaborators. For a
 public HTTP endpoint, DuckDB needs no local download:
 
 ```sql
-SELECT candidate, rung, epochs, validation_loss, error
+SELECT candidate, rung, epochs, best_validation_score, error
 FROM read_parquet(
   'https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/experiments/searches/my-search--20260813T192612.123456Z/results.parquet'
 )
-ORDER BY rung, validation_loss;
+ORDER BY rung, best_validation_score;
 ```
 
 `epochs.parquet` supports deeper questions such as which model learned fastest,
@@ -212,8 +227,7 @@ algorithm:
   promotion_fraction: 0.5
   minimum_promoted: 1
 
-objective: {metric: validation_loss, mode: min}
-metrics: [validation_loss, train_loss, best_validation_loss]
+metrics: [best_validation_score, validation_loss, train_loss]
 
 executor: !include torch.yaml
 
@@ -226,7 +240,7 @@ candidates:
     args: [--batch_size=2, --learning_rate=0.0006]
 ```
 
-The objective is the single metric used for promotion. `metrics` controls the
+The `best_validation_score` metric is used for promotion. `metrics` controls the
 additional columns collected in `results.csv`. Any finite scalar emitted by
 training, validation, or inference can be named here, including namespaced
 diagnostics such as `val/seam/window_jump_ratio/zos`. A missing or non-finite

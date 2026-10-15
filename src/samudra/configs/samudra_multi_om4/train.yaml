@@ -11,6 +11,7 @@ epochs: 70
 batch_size: 2
 learning_rate: 0.0006
 scheduler: { type: cosine }
+validation_score: one_step_rmse
 loss:
   type: dynamic
   metric: mse

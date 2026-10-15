@@ -1194,7 +1194,6 @@ class SearchRunConfig(BaseConfig):
     candidate: str
     rung: int = Field(ge=0)
     target_epochs: int = Field(ge=1)
-    objective: str
     executor: str
     code_commit: str | None = None
     code_layer_sha256: str | None = None
@@ -1381,13 +1380,17 @@ class TrainConfig(TopLevelConfig):
         ),
     )
     rollout_validation: RolloutValidationConfig | None = None
-    checkpoint_validation_metric: Literal["one_step_loss", "rollout_rmse"] = Field(
-        default="one_step_loss",
-        description=(
-            "Score for the best-validation checkpoint. rollout_rmse uses normalized, "
-            "area-weighted RMSE averaged over channels and time at the longest "
-            "configured rollout horizon. Only rollout epochs can update it."
-        ),
+    validation_score: Literal["validation_loss", "one_step_rmse", "rollout_rmse"] = (
+        Field(
+            default="validation_loss",
+            description=(
+                "Score for checkpoint selection and search. one_step_rmse uses normalized, "
+                "area-weighted RMSE averaged over channels and validation samples. "
+                "rollout_rmse uses normalized, "
+                "area-weighted RMSE averaged over channels and time at the longest "
+                "configured rollout horizon. Only rollout epochs can update it."
+            ),
+        )
     )
 
     epochs: int = 120
@@ -1422,7 +1425,13 @@ class TrainConfig(TopLevelConfig):
 
     @pydantic.model_validator(mode="after")
     def validate_checkpoint_metric(self) -> Self:
-        if self.checkpoint_validation_metric == "rollout_rmse":
+        if self.validation_score == "validation_loss" and isinstance(
+            self.loss, DynamicLossConfig
+        ):
+            raise ValueError(
+                "validation_loss scoring cannot use a dynamically weighted loss"
+            )
+        if self.validation_score == "rollout_rmse":
             if self.rollout_validation is None:
                 raise ValueError(
                     "rollout_rmse checkpoint selection requires rollout_validation"

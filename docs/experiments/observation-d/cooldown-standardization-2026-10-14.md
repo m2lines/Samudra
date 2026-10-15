@@ -65,3 +65,15 @@ The prior stability campaign consumed 10.5378 GPU-hours; this comparison is
 accounted separately, including qualification and retries. Existing unrelated
 forecast-adaptation jobs are left unchanged. No hyperparameter-search campaign
 or longer main-training runs are launched by this approval.
+
+Pinned producer: `5b49d2133eb73a83b0a6f47e06146d322ec332c6`.
+Transferred archive SHA-256:
+`8d3f123b5c22f9fdc53133379c35b6a2aaa6e8a1b4f32469f2eb1151e250699b`.
+Scratch usage before staging was 4.74/5.00 TB; datasets and image are reused.
+Root: `/scratch/jr7309/runs/2026-10-14-observation-cooldown-standardization`.
+
+Submitted CPU audit **19850076**, base qualification **19850077**, and eight
+branch qualifications **19850078**, with successful-completion dependencies.
+Initial state was queued. Callback **19850080** and a quiet 30-minute startup
+backstop cover the qualification chain. The eight production continuations
+require verified qualification outputs; they are not yet submitted.

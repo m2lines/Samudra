@@ -85,10 +85,8 @@ PYTHONPATH=data python -m ocean_preprocessing.make_norm_datasets \
 ```
 
 This writes `CM4_means.zarr` and `CM4_stds.zarr` alongside the processed data.
-The `--compress` option uses lossless Blosc Zstd at level 5 with byte shuffle
-for fields, coordinates, masks, and depth-dependent normalization arrays.
-Zarr v2 leaves zero-dimensional scalar statistics uncompressed. Simulation
-fields remain uncompressed unless this option is enabled.
+Both commands use `--compress` to compress all fields, coordinates, and masks
+with Blosc Zstd (level 5, byte shuffle); only scalar statistics stay uncompressed.
 
 ### Basin masks
 

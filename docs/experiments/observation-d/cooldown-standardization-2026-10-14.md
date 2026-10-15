@@ -77,3 +77,19 @@ branch qualifications **19850078**, with successful-completion dependencies.
 Initial state was queued. Callback **19850080** and a quiet 30-minute startup
 backstop cover the qualification chain. The eight production continuations
 require verified qualification outputs; they are not yet submitted.
+
+### Replay qualification recovery
+
+The source audit and both base qualifications passed. All eight branch replay
+checks failed before production. A regression with populated Adam state reproduced
+the cause: `optimizer.load_state_dict` can retain references to CPU optimizer
+state tensors, allowing replay one to mutate the in-memory baseline for replay
+two. The restore helper now clones the saved state before loading it. The test
+also verifies that the original snapshot stays unchanged after each replay.
+All 54 targeted tests pass, including the previously failing populated-optimizer
+case. The acceptance requirement remains bitwise equality; no tolerance was
+relaxed. Production and original source checkpoints were not modified.
+
+Failed branch outputs and the passing original checks remain at the original
+root. Their combined allocated cost is **1.5364 GPU-hours**. Recovery uses a new
+producer and a separate `recovery-snapshot-copy` directory with fresh qualification.

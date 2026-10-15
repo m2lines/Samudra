@@ -149,6 +149,10 @@ def test_atomic_screen_checkpoint_replays_optimizer_rng_and_ema(tmp_path, monkey
     pilot: Any = ScreenPilot.__new__(ScreenPilot)
     pilot.model = torch.nn.Linear(2, 1)
     pilot.optimizer = torch.optim.AdamW(pilot.model.parameters(), lr=1e-4)
+    # A real resumed run has populated Adam moments and tensor step counters.
+    pilot.model(torch.ones(4, 2)).square().mean().backward()
+    pilot.optimizer.step()
+    pilot.optimizer.zero_grad()
     pilot.ema = WeightEMA(pilot.model)
     pilot.policy = "S0"
     pilot.completed = 3000
@@ -160,6 +164,7 @@ def test_atomic_screen_checkpoint_replays_optimizer_rng_and_ema(tmp_path, monkey
     path = tmp_path / "checkpoint.pt"
     pilot.checkpoint(path)
     saved = torch.load(path, weights_only=False)
+    immutable = copy.deepcopy(saved)
     snapshots = []
     for _ in range(2):
         restore(pilot, saved)
@@ -171,6 +176,7 @@ def test_atomic_screen_checkpoint_replays_optimizer_rng_and_ema(tmp_path, monkey
             pilot.completed += 1
         pilot.checkpoint(path)
         snapshots.append(torch.load(path, weights_only=False))
+        assert_exact_state(saved, immutable)
     for key in ("model", "optimizer", "ema", "ema_updates", "rng_cpu", "task_counts"):
         assert_exact_state(snapshots[0][key], snapshots[1][key])
     pilot.policy = "S1"

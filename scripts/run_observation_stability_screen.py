@@ -145,6 +145,9 @@ class ScreenPilot(EarlyPilot):
 
 
 def restore(pilot, saved):
+    # load_state_dict can retain CPU Adam step/moment tensors by reference.
+    # Every replay needs a private copy so updates cannot mutate its baseline.
+    saved = cpu_copy(saved)
     if saved["screen"] != pilot.contract():
         raise ValueError("Replay policy changed")
     pilot.model.load_state_dict(saved["model"], strict=True)

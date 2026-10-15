@@ -62,5 +62,13 @@ The provisional estimate is **11–12 hours of training, plus queue time and
 evaluation**. This is a target, not a guarantee; checkpoint availability,
 qualification, allocation delays and measured throughput determine feasibility.
 Record actual job IDs, source hashes, timing and completion receipts when the
-branch runs. The main residual training job continues independently, including
-its separately scheduled final cooldown.
+branch runs. The main residual training job is temporarily paused to prioritize this branch
+in its existing allocation, then resumes its original budget and final cooldown.
+
+## Requested grain diagnostics and viewer comparison
+
+The cooldown report will include error maps alongside the usual rollout and reconstruction metrics. Show the reference, ensemble mean, a fixed individual draw, their respective errors, and spread; use common physical color limits across methods and explicit clipping. Include initialization where a correctly aligned target exists, and rollout leads 30 and 365 days (additional saved leads may be exposed in the viewer). Keep member noise distinct from mean bias and do not infer spatial coherence from pointwise calibration alone.
+
+Use existing U-global mixed and observation-only exports as context baselines. These need not match the diffusion architecture or training exposure; label checkpoint selection, update counts, normalization, grid, origins and temporal aggregation differences. Reuse common origins and verification bins where available rather than silently mixing dates or instantaneous and averaged fields.
+
+The saved diffusion annual exports include eight draws at five-day leads through day 365, initial readouts, and selected full-state mean fields. Native OM4 exports include aligned initialization targets. Observation interior monthly targets must not be presented as instantaneous day-zero truth. Add saved-array entries to the existing results viewer with explicit raw/EMA and mean/member labels; missing channels or unavailable reference fields should remain unavailable rather than fabricated.

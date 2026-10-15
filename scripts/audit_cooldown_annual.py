@@ -36,7 +36,7 @@ def main():
             np.testing.assert_array_equal(raw[key][:25], sample[key][:25])
     months = [str(m) for m in pd.period_range("2013-11", periods=12, freq="M")]
     if [p["file"] for p in description["monthly_interiors"]] != [
-        f"{m}.npz" for m in months
+        f"{m}-interior.npz" for m in months
     ]:
         raise ValueError("Monthly target inventory differs")
     for entry in description["monthly_interiors"]:

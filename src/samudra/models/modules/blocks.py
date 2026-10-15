@@ -282,6 +282,7 @@ class ConvNeXtBlock(CoreBlock):
         norm="batch",
         checkpoint_simple: bool = False,
         pointwise_linear: bool = False,
+        instance_affine: bool = False,
     ):
         super().__init__(in_channels, out_channels, kernel_size, dilation, pad)
         assert n_layers == 1, "Can only use a single layer here!"
@@ -307,7 +308,11 @@ class ConvNeXtBlock(CoreBlock):
             convblock.append(torch.nn.BatchNorm2d(in_channels * upscale_factor))
         # Instance Norm
         elif norm == "instance":
-            convblock.append(torch.nn.InstanceNorm2d(in_channels * upscale_factor))
+            convblock.append(
+                torch.nn.InstanceNorm2d(
+                    in_channels * upscale_factor, affine=instance_affine
+                )
+            )
         elif norm == "nonorm":
             pass
         else:
@@ -327,7 +332,11 @@ class ConvNeXtBlock(CoreBlock):
             convblock.append(torch.nn.BatchNorm2d(in_channels * upscale_factor))
         # Instance Norm
         elif norm == "instance":
-            convblock.append(torch.nn.InstanceNorm2d(in_channels * upscale_factor))
+            convblock.append(
+                torch.nn.InstanceNorm2d(
+                    in_channels * upscale_factor, affine=instance_affine
+                )
+            )
         elif norm == "nonorm":
             pass
         else:

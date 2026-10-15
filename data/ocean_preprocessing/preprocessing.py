@@ -323,11 +323,6 @@ def horizontal_regrid(ds, ds_target):
         ocean_fraction=ocean_frac,
     )
     ds_regridded.attrs = ds.attrs | ds_regridded.attrs
-    # xESMF retains the vertical coordinates' values but drops their attributes.
-    for name in ("lev", "ilev", "dz"):
-        if name in ds.coords and name in ds_regridded.coords:
-            ds_regridded[name].attrs = ds[name].attrs.copy()
-
     return ds_regridded
 
 

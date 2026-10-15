@@ -18,7 +18,7 @@ import datetime
 import logging
 import sys
 import warnings
-from typing import Literal
+from typing import Any, Literal
 
 import fire
 import fsspec
@@ -438,6 +438,13 @@ class CLI:
             logger.info("validating preprocessing.")
             ds_processed_validate(ds_processed, deep=True)
 
+        # Rotation/regridding can drop or mutate coordinate attrs, depending on
+        # xarray version. Snapshot these before transforms, as for field attrs.
+        saved_coordinate_attrs: dict[str, dict[str, Any]] = {
+            name: ds_processed[name].attrs.copy()
+            for name in ("lev", "ilev", "dz")
+            if name in ds_processed.coords
+        }
         if self.account_for_partial_depths:
             logger.info("Apply processing to account for partial depths levels.")
             if native_grid_path.endswith(".zarr"):
@@ -566,6 +573,9 @@ class CLI:
         for var, attr in saved_attrs.items():
             ds_input[var].attrs = attr
             ds_input.attrs[var] = attr
+        for name, attr in saved_coordinate_attrs.items():
+            if name in ds_input.coords:
+                ds_input[name].attrs = attr
         ds_input.attrs["m2lines/preprocessing"] = {
             "source_type": source_type,
             "source": zarr_data_path,

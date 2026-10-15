@@ -114,6 +114,12 @@ Every source retains its native grid, including the legacy model's 1° frequency
 
 [Numerical spectra, per-origin powers and reproducibility details](artifacts/quarter-baseline-results-2026-10-15/spectra/README.md) include the shared-support fractions and exact OM4 time-bin interpretation. These twelve diagnostic plots required no new inference or GPU time.
 
+## Regional maps matching the spectra
+
+[Browse maps for all six regions](artifacts/quarter-baseline-results-2026-10-15/regional-maps/README.md). Each comparison shows all five sources at days 30 and 365 for the 2015, 2018 and 2021 starts, with shared colors and the same wet masks as the spectra. SST and ADT are absolute physical fields; geostrophic KE is derived from ADT. These are individual snapshots, not averages across starts.
+
+![Gulf Stream SST at both leads and all three starts](artifacts/quarter-baseline-results-2026-10-15/regional-maps/gulf-stream-sst.png)
+
 ## Initialized and evolved temperature profiles
 
 ![Temperature profiles at initialization, day 30 and day 365](artifacts/quarter-baseline-results-2026-10-15/native-annual/temperature-profiles.png)

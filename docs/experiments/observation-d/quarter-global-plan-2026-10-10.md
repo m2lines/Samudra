@@ -10,7 +10,8 @@ All quarter-degree runs use 6,000 total updates. Training and annual evaluation
 data are verified. **All four eight-GPU qualifications (212414) passed**, including
 fitting, gradients, real data, exact fresh-process replay, and two-host NVLink
 transport. **U-global and observation-only both completed all 6,000 updates**.
-At October 14, 8:15 p.m. ET, both earlier-data variants remain queued.
+Both earlier-data variants are now **held at the user’s request**, pending
+review of the baseline 365-day rollouts. U-global and observation-only evaluations continue.
 The [training snapshot and validation curves](#production-snapshot) are below;
 held-out 30-/365-day evaluation and the common-grid 1° comparison are still pending.
 Reporting both native-resolution and matched 1° metrics remains agreed.
@@ -327,18 +328,18 @@ preserve failed attempts.
 **October 15, 00:15 UTC (October 14, 8:15 p.m. ET).** U-global **212532_0** completed in
 20h38m, with verified terminal receipt and selected/final checkpoint hashes.
 Observation-only **212896_1** completed in 21h50m; **212896_2/3** (early and
-early-latent) are pending priority.
+early-latent) were subsequently held at the user’s request.
 
 | Model | Training status / updates | Best native validation RMSE blend (update) | Latest native validation RMSE blend (update) |
 |---|---|---:|---:|
 | U-global-quarter | Complete: 6,000 (3,000 OM4 + 3,000 observation) | **0.8817** (4,900) | 0.9131 (6,000) |
 | U-obs-only-quarter | Complete: 6,000 observation updates | **0.8528** (5,300) | 0.8867 (6,000) |
-| U-early-quarter | Queued | — | — |
-| U-early-latent-quarter | Queued | — | — |
+| U-early-quarter | Held pending baseline annual results | — | — |
+| U-early-latent-quarter | Held pending baseline annual results | — | — |
 
 These are **native-resolution validation scores**, on the same nine validation
 origins and frozen climatology denominators (1 means climatology). They are not
-held-out test results or the common-support 1° comparison. Both earlier-data variants are pending; no final model ranking
+held-out test results or the common-support 1° comparison. Both earlier-data variants are held; no final model ranking
 is claimed. Selected checkpoints will receive the agreed 30-/365-day evaluation.
 
 Annual memory qualification **213258 passed** on one GB200: U-global’s

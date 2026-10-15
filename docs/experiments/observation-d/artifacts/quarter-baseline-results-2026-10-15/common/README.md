@@ -1,0 +1,16 @@
+<!-- SPDX-FileCopyrightText: 2026 Samudra Authors -->
+<!-- SPDX-License-Identifier: CC-BY-4.0 -->
+
+Matched common-1° scores for the completed native-quarter U-global and observation-only models. `comparison.csv` is the compact table; each `common-*` directory contains every component, per-origin annual scores, original collection receipt, and result records.
+
+Selected comparison retains the eight frozen legacy selected models and each model's own initialized persistence. Fixed-budget results evaluate the native-quarter 6,000-update checkpoints separately; they do not assert a fixed-budget comparison to legacy selected checkpoints. The two held quarter early-data arms are omitted.
+
+Monthly: 96 origins (2015–2022), established five-component RMSE/climatology blend with surface lead metrics averaged over days 5, 15, 30 and fixed-lead cross-origin EKE. Annual: January 2015, 2018, 2021 starts, four-component blend at day 30 or 365, pooling equal-origin MSE before square root. Annual OHC uses January or December calendar-month targets. ADT is reported separately and is not part of either blend. Lower is better; training seasonal climatology is 1. Annual and monthly blends are different metrics.
+
+Every comparison uses the same canonical legacy observations, training climatology, and frozen native-quarter/legacy wet-support intersection. No candidate-dependent truth mask or checkpoint reselection is used. All original legacy result records reproduce exactly. These are matched scoring supports, not a claim that every training hyperparameter was identical across resolutions.
+
+Source export producer: `8bad9c34ac5fce91a7a3d8a7018299b4bcd3f0dc`. CPU job `19855971` completed in 982 seconds with two CPUs and zero GPUs (0.546 CPU-hours). Only 844 common-grid sidecars/JSON receipts, totaling 2,257,731,325 bytes, were transferred; no native forecast arrays or legacy datasets were copied. `INDEPENDENT_VERIFICATION.json.gz` records output/readback hashes, exact frozen controls, identical geometry and denominators, recomputed blend arithmetic, and source-code identity.
+
+Model labels in `comparison.csv`: `U-global` and `U-global-seed1730` are the 1° 6k baseline and its independent-seed reproduction. `U-multitask-early` replaces half the OM4 examples with earlier 1° data; `U-multitask-early-latent` additionally evolves ten latent channels. `U-multitask-early-fine` uses earlier quarter-degree global fields through a resolution-specific encoder/decoder; `U-multitask-early-fine-latent` also evolves ten latent channels. `U-aux01-6k` adds the fine-scale auxiliary target at weight 0.01, and `U-aux01-anomaly-6k` uses its anomaly variant. These are the already-reported 1° runs, not the held native-quarter early-data jobs. Their detailed recipes are in `early-rmse-6k-2026-10-10.md`.
+
+`Quarter u-global selected` and `Quarter observation-only selected` correspond to `U-global selected` and `Observation-only selected` in the report. Their `endpoint6000` labels correspond to the report's `fixed6000` labels. A `/ initialized persistence` suffix always holds that specific checkpoint's inferred initial state fixed. JSON provenance is gzip-compressed; decompression restores the original bytes and hashes.

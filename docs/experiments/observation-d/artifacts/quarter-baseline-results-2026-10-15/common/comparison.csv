@@ -1,0 +1,25 @@
+model,checkpoint_policy,resolution,forecast,monthly_five_component,annual_day30_four_component,annual_day365_four_component
+U-global,selected,legacy_1degree,evolved,0.841847261691109,0.8919804332905379,1.0280555570627126
+U-global / initialized persistence,selected,legacy_1degree,initialized-persistence,0.937986112551869,1.1298226105462361,1.07869466021799
+U-global-seed1730,selected,legacy_1degree,evolved,0.8500302094875977,0.8953609773599611,1.0343984953169154
+U-global-seed1730 / initialized persistence,selected,legacy_1degree,initialized-persistence,0.9502503840867581,1.1510703462083698,1.0833665987051413
+U-multitask-early,selected,legacy_1degree,evolved,0.8402469418810876,0.8952584015018052,1.0344352295073416
+U-multitask-early / initialized persistence,selected,legacy_1degree,initialized-persistence,0.9206846337097794,1.115939669764677,1.0666595796167169
+U-multitask-early-latent,selected,legacy_1degree,evolved,0.8294628053067719,0.8708725811277397,0.9730934682022826
+U-multitask-early-latent / initialized persistence,selected,legacy_1degree,initialized-persistence,0.9085982254450536,1.1117070739215962,1.054171150396665
+U-multitask-early-fine,selected,legacy_1degree,evolved,0.8345426442634736,0.8808632084062313,0.9550848295762004
+U-multitask-early-fine / initialized persistence,selected,legacy_1degree,initialized-persistence,0.9150425677536347,1.0995978402546216,1.0688808844744366
+U-multitask-early-fine-latent,selected,legacy_1degree,evolved,0.8531425036110336,0.903627427334549,1.0185465288666973
+U-multitask-early-fine-latent / initialized persistence,selected,legacy_1degree,initialized-persistence,0.9670954693449305,1.184901901416094,1.1202811170739557
+U-aux01-6k,selected,legacy_1degree,evolved,0.8534999166969266,0.8870345838869549,1.0395628108579649
+U-aux01-6k / initialized persistence,selected,legacy_1degree,initialized-persistence,0.9857842028798837,1.2011677596380712,1.1449945449676835
+U-aux01-anomaly-6k,selected,legacy_1degree,evolved,0.8345157604929865,0.8821410023316962,1.001344217241508
+U-aux01-anomaly-6k / initialized persistence,selected,legacy_1degree,initialized-persistence,0.9288477834738685,1.151689730331053,1.0898201260795053
+Quarter u-global selected,selected,quarter_native_to_common_1degree,evolved,0.8162945474092979,0.8655123945504911,1.0276457292652226
+Quarter u-global selected / initialized persistence,selected,quarter_native_to_common_1degree,initialized-persistence,0.955039895115048,1.1619421443802702,1.116566064616396
+Quarter observation-only selected,selected,quarter_native_to_common_1degree,evolved,0.8009914086680773,0.8445227320200753,1.1773127642329944
+Quarter observation-only selected / initialized persistence,selected,quarter_native_to_common_1degree,initialized-persistence,0.9301657562218075,1.1242072028163417,1.0839112813659892
+Quarter u-global endpoint6000,fixed-budget,quarter_native_to_common_1degree,evolved,0.858720101223834,0.9013862319632129,1.030306398411162
+Quarter u-global endpoint6000 / initialized persistence,fixed-budget,quarter_native_to_common_1degree,initialized-persistence,0.9125592734555228,1.118838253934138,1.0656646921420234
+Quarter observation-only endpoint6000,fixed-budget,quarter_native_to_common_1degree,evolved,0.840724369961249,0.8930678933065839,1.214853816310303
+Quarter observation-only endpoint6000 / initialized persistence,fixed-budget,quarter_native_to_common_1degree,initialized-persistence,0.929558526118354,1.122532787410393,1.092235495479993

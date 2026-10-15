@@ -5,7 +5,7 @@
 
 This compares fresh U-global and observation-only models at native quarter-degree resolution. Both completed 6,000 optimizer updates. The earlier-data variants are held at the user's request until these 365-day rollouts are reviewed.
 
-**Obs-only has lower short-lead error; U-global has lower 365-day error under both checkpoint policies, mainly through better OHC.** Neither beats seasonal climatology on the overall year-long blend. These are native-resolution results from one seed and three annual starts; the matched 1° comparison remains pending.
+**Obs-only has lower short-lead error; U-global has lower 365-day error under both checkpoint policies, mainly through better OHC.** Neither beats seasonal climatology on the overall year-long blend. These are native-resolution results from one seed and three annual starts; the matched 1° comparison is now complete.
 
 ## Models and checkpoint policies
 
@@ -30,7 +30,7 @@ Native results retain IAP's observation grid for subsurface/OHC comparisons. The
 
 ## Results
 
-**Observation-only has lower short-lead error, but U-global has lower year-long error under both checkpoint policies.** In this three-start annual cohort, U-global improves over its own day-365 persistence; observation-only does worse than its own persistence. All four evolved day-365 blends are worse than training seasonal climatology. The matched 1° comparison is still being collected; these native results alone do not establish a benefit from quarter-degree resolution.
+**Observation-only has lower short-lead error, but U-global has lower year-long error under both checkpoint policies.** In this three-start annual cohort, U-global improves over its own day-365 persistence; observation-only does worse than its own persistence. All four evolved day-365 blends are worse than training seasonal climatology. The matched 1° results below show a short-lead improvement for quarter-degree U-global but essentially no change in its annual blend.
 
 | Model/checkpoint | Monthly test blend | Annual day 30 | Annual day 365 | Own persistence day 365 |
 |---|---:|---:|---:|---:|
@@ -58,6 +58,30 @@ Observation-only still has better year-end SST. Its larger OHC errors outweigh t
 
 The per-origin scores and component errors are available in the [annual CSV](artifacts/quarter-baseline-results-2026-10-15/native-annual/rmse-scores.csv). [Monthly results and frozen denominators](artifacts/quarter-baseline-results-2026-10-15/native-monthly/results.json.gz) preserve the independent 96-start calculation.
 
+## Matched 1° comparison
+
+Both resolutions are scored against identical legacy observations, climatology denominators and the frozen intersection of their wet supports. All eight archived legacy models and their own persistence were retained; their previously frozen common-grid records reproduce exactly. These controls differ slightly from the original reports’ unrestricted-support scores.
+
+“Legacy U-global (seed 1729)” is the original 1° 6k U-global reproduction, selected by its nine-origin RMSE validation blend. “Legacy U-global (seed 1730)” is its independent-seed repetition with the same recipe. The quarter-degree labels retain the definitions above. This matches the scoring protocol; it does not establish that all training settings or geographic receptive fields were identical across resolutions.
+
+| Selected model | Monthly five-component blend | Annual day 30 | Annual day 365 | Own persistence day 365 |
+|---|---:|---:|---:|---:|
+| Legacy U-global (seed 1729) | 0.8418 | 0.8920 | 1.0281 | 1.0787 |
+| Legacy U-global (seed 1730) | 0.8500 | 0.8954 | 1.0344 | 1.0834 |
+| U-global selected | 0.8163 | 0.8655 | 1.0276 | 1.1166 |
+| Observation-only selected | 0.8010 | 0.8445 | 1.1773 | 1.0839 |
+
+Quarter-degree U-global improves the monthly blend by **3.0%** relative to the seed-1729 1° run and the annual day-30 blend by **3.0%**. Its day-365 blend changes by only **0.04%**: effectively unchanged at the precision justified by these runs. The stronger native-quarter annual difference between U-global and observation-only survives matched scoring, but it is not evidence that increasing resolution improved U-global’s year-long blend.
+
+The fixed-endpoint quarter results are reported separately; there is no corresponding fixed-endpoint legacy comparison in this export:
+
+| Fixed-endpoint model | Monthly blend | Annual day 30 | Annual day 365 | Own persistence day 365 |
+|---|---:|---:|---:|---:|
+| U-global fixed6000 | 0.8587 | 0.9014 | 1.0303 | 1.0657 |
+| Observation-only fixed6000 | 0.8407 | 0.8931 | 1.2149 | 1.0922 |
+
+[All common-grid scores](artifacts/quarter-baseline-results-2026-10-15/common/comparison.csv) include eight legacy selected models, both quarter models, both quarter endpoints and each own persistence. The [common-grid provenance and component tables](artifacts/quarter-baseline-results-2026-10-15/common/README.md) record frozen supports, full cohort checks and identical normalization across policies. No quarter early-data models have been trained or included.
+
 ## Day-365 maps
 
 The following maps use the 2021 start and validation-selected checkpoints. Each includes observations, both evolved models, and each model's own initialized persistence, with shared color limits.
@@ -78,5 +102,5 @@ Profiles are wet-area means at each of the 19 model depths, averaged equally acr
 
 Both training runs and all eight evaluation modes completed. Each model's evaluation used the full 96-month and three-year-start cohorts, with selected/final checkpoint hashes and all 434 output files independently verified. Training consumed 339.7467 GPU-hours; training qualification/retries added 28.0061. The annual memory check and both full evaluations added 8.3967 GPU-hours, for 376.1494 GPU-hours so far. Score/map collection uses CPU jobs; no diagnostic weights or single-origin scores enter these results.
 
-The [native annual provenance](artifacts/quarter-baseline-results-2026-10-15/native-annual/README.md) records source, data, checkpoint, artifact and pixel checks. The early-data jobs remain held pending discussion of these rollouts. The matched 1° report is pending; no early-data jobs have been released.
+The [native annual provenance](artifacts/quarter-baseline-results-2026-10-15/native-annual/README.md) records source, data, checkpoint, artifact and pixel checks. The early-data jobs remain held pending discussion of these rollouts. Both native and matched 1° reporting are complete; no early-data jobs have been released. Common-grid collection added 0.5456 allocated CPU-core-hours and no GPU time.
 

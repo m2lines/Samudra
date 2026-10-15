@@ -11,10 +11,10 @@ data are verified. **All four eight-GPU qualifications (212414) passed**, includ
 fitting, gradients, real data, exact fresh-process replay, and two-host NVLink
 transport. **U-global and observation-only both completed all 6,000 updates**.
 Both earlier-data variants are now **held at the user’s request**, pending
-review of the baseline 365-day rollouts. U-global and observation-only evaluations continue.
+review of the baseline 365-day rollouts. U-global and observation-only evaluations are complete.
 The [native baseline report](quarter-baseline-results-2026-10-15.md) now includes
 verified monthly/annual scores, day-365 maps and temperature profiles. The
-common-grid 1° comparison is still being collected. [Training curves](#production-snapshot) remain below.
+common-grid 1° comparison is also complete. [Training curves](#production-snapshot) remain below.
 Reporting both native-resolution and matched 1° metrics remains agreed.
 
 ## Runs
@@ -362,10 +362,9 @@ four GPUs). It evaluates the validation-selected and fixed-6k checkpoints
 separately over all 96 monthly test origins and all three annual starts, with
 each checkpoint’s own persistence and common-grid exports. No retraining or
 checkpoint reselection is involved. [All four modes and 434 output hashes are verified](artifacts/quarter-bringup-2026-10-11/evaluation-213261-verified.json.gz).
-The allocation took 57m46s (3.8511 GPU-hours); score/map collection is proceeding
-on CPU. Matching observation-only evaluation **213293** also completed, with all
+The allocation took 57m46s (3.8511 GPU-hours); score/map collection used CPU jobs. Matching observation-only evaluation **213293** also completed, with all
 434 files verified across the same four modes and cohorts. Native score/map collection
-is complete; matched 1° collection is still running.
+and matched 1° collection are complete; see the [baseline comparison](quarter-baseline-results-2026-10-15.md).
 
 ![Native quarter-degree validation curves through October 14](artifacts/quarter-bringup-2026-10-11/native-validation-2026-10-14.png)
 

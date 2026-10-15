@@ -68,7 +68,10 @@ def normalize_vertical_coords(ds: xr.Dataset) -> xr.Dataset:
         for raw, new in (("z_l", "lev"), ("z_i", "ilev"))
         if raw in ds.coords or raw in ds.dims
     }
-    return ds.rename(vertical_rename) if vertical_rename else ds
+    ds = ds.rename(vertical_rename) if vertical_rename else ds
+    if "lev" in ds.coords and ds.lev.attrs.get("edges") == "z_i":
+        ds.lev.attrs["edges"] = "ilev"
+    return ds
 
 
 def select_om4_variables(ds: xr.Dataset) -> xr.Dataset:
@@ -258,8 +261,18 @@ def vertical_cell_metadata(ds: xr.Dataset) -> tuple[xr.DataArray, xr.DataArray]:
                 6500,
             ],
             dims=["ilev"],
+            attrs={
+                "units": "m",
+                "long_name": "Depth at interface",
+                "positive": "down",
+                "axis": "Z",
+            },
         )
 
+    # dz is newly derived from interface differences, so it has no source attrs.
+    dz.attrs.update(
+        units=ilev.attrs.get("units", "m"), long_name="Ocean layer thickness"
+    )
     # The processed coordinate contract is float64 for both averaged sources
     # (which provide ilev) and snapshot sources (which use the fallback above).
     return dz.astype("float64"), ilev.astype("float64")

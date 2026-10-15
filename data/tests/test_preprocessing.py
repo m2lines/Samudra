@@ -31,7 +31,9 @@ def test_flatten_by_depth_level_preserves_grid_coords():
     (`angle`, `ilev`) are dropped.
     """
     n_lev, ny, nx = 3, 2, 2
-    lev = xr.DataArray([2.5, 10.0, 22.5][:n_lev], dims="lev")
+    lev = xr.DataArray(
+        [2.5, 10.0, 22.5][:n_lev], dims="lev", attrs={"units": "m", "edges": "ilev"}
+    )
     base3d = np.ones((1, n_lev, ny, nx), dtype="float32")
     base2d = np.ones((1, ny, nx), dtype="float32")
     ds = xr.Dataset(
@@ -78,6 +80,7 @@ def test_flatten_by_depth_level_preserves_grid_coords():
 
     # Stacked wetmask (now mask_i) and native-only coords are gone.
     assert "wetmask" not in out.coords
+    assert out.lev.attrs == {"units": "m"}
     assert "angle" not in out.coords
     assert "ilev" not in out.variables
 

@@ -323,6 +323,10 @@ def horizontal_regrid(ds, ds_target):
         ocean_fraction=ocean_frac,
     )
     ds_regridded.attrs = ds.attrs | ds_regridded.attrs
+    # xESMF retains the vertical coordinates' values but drops their attributes.
+    for name in ("lev", "ilev", "dz"):
+        if name in ds.coords and name in ds_regridded.coords:
+            ds_regridded[name].attrs = ds[name].attrs.copy()
 
     return ds_regridded
 
@@ -413,6 +417,9 @@ def flatten_by_depth_level(ds: xr.Dataset) -> xr.Dataset:
     }
     drop_coords = [co for co in ds.coords if co not in keep_coords]
     ds = ds.drop_vars(drop_coords)
+    if ds.lev.attrs.get("edges") in drop_coords:
+        # The flattened layout omits the interface coordinate.
+        ds.lev.attrs.pop("edges")
 
     return ds
 

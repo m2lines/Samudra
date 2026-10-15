@@ -218,6 +218,12 @@ def test_cm4_publication_rotates_stress_preserves_metadata_and_chunks(
         },
     ).chunk({"time": 3, "lev": 1})
     source.time.attrs["bounds"] = "time_bnds"
+    source.lev.attrs.update(
+        units="meters", long_name="Depth at cell center", positive="down", edges="ilev"
+    )
+    source.ilev.attrs.update(
+        units="meters", long_name="Depth at interface", positive="down"
+    )
     target = xr.Dataset(
         {
             "grid_lont": (("grid_yt", "grid_xt"), lon),
@@ -231,6 +237,7 @@ def test_cm4_publication_rotates_stress_preserves_metadata_and_chunks(
     native = source.drop_vars(
         ["lon", "lat", "lon_b", "lat_b", "areacello", "wetmask", "angle", "dz"]
     ).rename({"x": "xh", "y": "yh", "lev": "z_l", "ilev": "z_i"})
+    native.z_l.attrs["edges"] = "z_i"
     for name in ("uo", "tauuo", "vo", "tauvo"):
         field = native[name]
         dims = tuple(
@@ -307,6 +314,9 @@ def test_cm4_publication_rotates_stress_preserves_metadata_and_chunks(
     np.testing.assert_allclose(actual.tauvo, 2)
     np.testing.assert_allclose(actual.uo, -3)
     assert actual.wfo.attrs["units"] == "kg m-2 s-1"
+    assert actual.lev.attrs == source.lev.attrs
+    assert actual.ilev.attrs == source.ilev.attrs
+    assert actual.dz.attrs == {"units": "meters", "long_name": "Ocean layer thickness"}
     assert actual.tauuo.attrs["standard_name"] == "surface_downward_eastward_stress"
     assert actual.attrs["title"] == "test CM4 piControl"
     assert actual.attrs["m2lines/preprocessing"]["spatial_filter"] is None

@@ -34,7 +34,7 @@ def write_zarr_with_retries(
 
 def normalization_fields(ds: xr.Dataset) -> xr.Dataset:
     """Mask flat or depth-stacked ocean fields without reducing their depth axis."""
-    fields = {}
+    fields: dict[str, xr.DataArray] = {}
     for name, field in ds.data_vars.items():
         if "time" not in field.dims:
             continue
@@ -47,7 +47,11 @@ def normalization_fields(ds: xr.Dataset) -> xr.Dataset:
                 mask = ds.wetmask.isel(lev=level, drop=True)
             else:
                 mask = ds[f"mask_{level}"]
-        fields[name] = field.where(mask > 0)
+        # Selecting a mask depth also slices auxiliary coordinates such as
+        # ocean_fraction. Those slices conflict with the full-depth coordinates
+        # on 3-D fields or with slices for other flattened levels. Mask only
+        # with its values and dimension coordinates, retaining field metadata.
+        fields[name] = field.where(mask.reset_coords(drop=True) > 0)
     return xr.Dataset(fields, attrs=ds.attrs)
 
 

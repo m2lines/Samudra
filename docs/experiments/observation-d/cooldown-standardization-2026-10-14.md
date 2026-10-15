@@ -93,3 +93,11 @@ relaxed. Production and original source checkpoints were not modified.
 Failed branch outputs and the passing original checks remain at the original
 root. Their combined allocated cost is **1.5364 GPU-hours**. Recovery uses a new
 producer and a separate `recovery-snapshot-copy` directory with fresh qualification.
+
+Recovery producer: `d72f7b192ea8319547ec61f6d35f5418087e8612`;
+source archive readback SHA-256:
+`3717bbcb209ac8e448fca6f9d00a8789ba56494f303b07c317a90cda54b4c17b`.
+New audit **19875157** → base qualification **19875158** → branch qualifications
+**19875159** were submitted with successful-completion dependencies and were
+initially queued. Callback **19875169** covers termination; quiet monitoring is
+active. Production remains gated on the new verified receipts.

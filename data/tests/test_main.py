@@ -4,7 +4,7 @@
 
 import json
 from pathlib import Path
-from unittest.mock import sentinel
+from unittest.mock import MagicMock, sentinel
 
 import numpy as np
 import ocean_preprocessing.__main__ as main
@@ -148,3 +148,20 @@ def test_wfo_source_path_is_not_forwarded_to_cluster(monkeypatch, tmp_path):
     assert pipeline.wfo_source_path == "s3://example/wfo.zarr"
     assert pipeline.dask_client is sentinel.client
     assert cluster_calls == [("local", {"n_workers": 4})]
+
+
+def test_output_profile_only_applies_to_the_output_store(monkeypatch) -> None:
+    cluster = MagicMock(return_value=None)
+    monkeypatch.setattr(main, "init_cluster", cluster)
+    writer = MagicMock()
+    monkeypatch.setattr(xr.Dataset, "to_zarr", writer)
+    pipeline = CLI(
+        output_path="s3://destination/CM4.zarr",
+        output_profile="publication",
+        n_workers=4,
+    )
+
+    pipeline._collect(xr.Dataset({"value": ("time", np.arange(3))}))
+
+    cluster.assert_called_once_with("off", n_workers=4)
+    assert writer.call_args.kwargs["storage_options"] == {"profile": "publication"}

@@ -205,6 +205,10 @@ class CLI:
         time_bounds_path: Companion NetCDF containing time_bnds, required for CM4.
         compress: Also compress physical fields with Blosc Zstd level 5 and byte
             shuffle. Coordinates and static arrays are compressed by default.
+        output_profile: Optional named AWS profile for the output S3 store. Inputs
+            continue using the default credentials, allowing cross-bucket processing.
+            The profile and its credentials must be configured on the client and
+            every Dask worker performing writes; this option does not distribute them.
         cluster: Type of Dask cluster to use for distributed computation. Options are:
             'off' (no cluster, single-threaded), 'local' (LocalCluster), 'kube'
             (KubeCluster), 'slurm' (SlurmCluster), 'coiled' (Coiled cluster).
@@ -227,6 +231,7 @@ class CLI:
         wfo_source_path: str | None = None,
         time_bounds_path: str | None = None,
         compress: bool = False,
+        output_profile: str | None = None,
         cluster: Cluster = "off",
         **cluster_opts,
     ):
@@ -243,6 +248,7 @@ class CLI:
         self.wfo_source_path = wfo_source_path
         self.time_bounds_path = time_bounds_path
         self.compress = compress
+        self.output_profile = output_profile
         self.dask_client = init_cluster(cluster, **cluster_opts)
 
     def _collect(self, ds: xr.Dataset) -> None:
@@ -279,6 +285,9 @@ class CLI:
             consolidated=True,
             zarr_format=2,
             encoding=encoding,
+            storage_options={"profile": self.output_profile}
+            if self.output_profile is not None
+            else None,
             compute=False,
         )
         # Reading blosc-compressed source chunks over S3 occasionally returns a

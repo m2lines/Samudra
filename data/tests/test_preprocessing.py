@@ -207,3 +207,21 @@ def test_horizontal_regrid_idealized():
     a = test_grid_fine.thetao.weighted(test_grid_fine.areacello).mean()
     b = out.thetao.weighted(out.areacello * out.ocean_fraction).mean()
     assert np.isclose(a, b)
+
+
+@requires_xesmf
+def test_regridded_area_is_labelled_and_scaled_in_square_metres() -> None:
+    grid = xe.util.grid_2d(-180, 180, 90, -90, 90, 45)
+    field = xr.DataArray(
+        np.ones((1, 1, 4, 4)),
+        dims=("time", "lev", "y", "x"),
+        coords={"time": [0], "lev": [2.5]},
+    )
+    source = grid.assign(thetao=field).assign_coords(
+        wetmask=field.isel(time=0, drop=True)
+    )
+
+    actual = horizontal_regrid(source, grid)
+
+    assert actual.areacello.attrs["units"] == "m2"
+    assert float(actual.areacello.sum()) == pytest.approx(4 * np.pi * 6_356_000**2)

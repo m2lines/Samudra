@@ -303,6 +303,8 @@ def horizontal_regrid(ds, ds_target):
     # calculate new area
     r_earth = 6356  # in km
     new_area = xe.util.cell_area(ds_target, r_earth) * 1e6
+    # Heat and volume integrals consume m²; xESMF's km² label survives scaling.
+    new_area.attrs["units"] = "m2"
 
     ## calculate the wetmask afterwards...
     wetmask = ~np.isnan(ds_regridded.thetao.isel(time=0).drop_vars("time"))

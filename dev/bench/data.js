@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792089876056,
+  "lastUpdate": 1792094704344,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -12948,6 +12948,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 1.3883806446937303",
             "extra": "mean: 19.219967721199986 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse+bot@openathena.ai",
+            "name": "oa-jder-bot",
+            "username": "oa-jder-bot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b05e9a61e2597dea73880671c24fbfedb7c6afef",
+          "message": "Add Zstd byte-shuffle compression to ocean outputs (#929)\n\nUse lossless Blosc Zstd (level 5, byte shuffle) by default for\ncoordinates, static masks and normalization profiles. Add `--compress`\nto enable the same codec for physical fields; omitting it keeps only\nthose fields uncompressed. Explicit encoding overrides inherited source\ncodecs while preserving values, attributes and chunks. Zarr v2 scalar\nstatistics remain uncompressed.\n\nShare the encoding policy between both writers and invoke normalization\nas a module so it imports the helper from the selected checkout. Update\nthe CM4 examples to show the defaults and physical-field flag.\n\nValidation: all 106 data tests pass with xarray 2025.6.1 and 2026.2.0;\npre-commit passes. Tests verify both flag settings, stored codecs,\nlossless round trips, masks, no-leap dates, normalization\nprofiles/scalars and inherited LZ4 encodings. No production data has\nbeen rewritten.",
+          "timestamp": "2026-10-15T19:40:05Z",
+          "tree_id": "f1000caa0fa742153a6879ac8831d018ee04d71a",
+          "url": "https://github.com/m2lines/Samudra/commit/b05e9a61e2597dea73880671c24fbfedb7c6afef"
+        },
+        "date": 1792094703203,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 1.0297017521904355,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00228548306849384",
+            "extra": "mean: 971.1549950000062 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_dataset__1gb[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.3461315999617354,
+            "unit": "iter/sec",
+            "range": "stddev: 0.016797606940375145",
+            "extra": "mean: 2.889074560400002 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.05745202174029091,
+            "unit": "iter/sec",
+            "range": "stddev: 0.1367684618244574",
+            "extra": "mean: 17.405827849200012 sec\nrounds: 5"
           }
         ]
       }

@@ -1,0 +1,40 @@
+--- run.py
++++ run.py
+@@ -106 +105,0 @@
+-        assert self.head.bias is not None
+@@ -122 +120,0 @@
+-        assert self.fine_head.bias is not None
+@@ -190,3 +188,3 @@
+-    trajectory = torch.stack(result, 1)
+-    assert torch.isfinite(trajectory).all()
+-    return trajectory
++    result = torch.stack(result, 1)
++    assert torch.isfinite(result).all()
++    return result
+@@ -225 +223 @@
+-    sums: dict[str, dict[str, float]] = {str(k): {} for k in leads}
++    sums = {str(k): {} for k in leads}
+@@ -230,4 +228 @@
+-
+-        def center(a):
+-            return a[..., margin:-margin, margin:-margin]
+-
++        center = lambda a: a[..., margin:-margin, margin:-margin]
+@@ -244,4 +239 @@
+-
+-            def hp(a):
+-                return a - lift(restrict(a))
+-
++            hp = lambda a: a - lift(restrict(a))
+@@ -361,10 +353 @@
+-    provenance_path = args.output / "provenance.json"
+-    if provenance_path.exists():
+-        previous = json.loads(provenance_path.read_text())
+-        for key in ("args", "source_sha256", "blocks_sha256", "geometry", "data_seeds"):
+-            if previous[key] != provenance[key]:
+-                raise ValueError(
+-                    f"Existing output differs in {key}; use a fresh output directory"
+-                )
+-    (args.output / "run_source.py").write_bytes(source.read_bytes())
+-    provenance_path.write_text(json.dumps(provenance, indent=2))
++    (args.output / "provenance.json").write_text(json.dumps(provenance, indent=2))

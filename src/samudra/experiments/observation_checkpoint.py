@@ -12,6 +12,56 @@ import torch
 from samudra.experiments.observation_pilot import digest
 
 
+def load_screen_endpoint(run, weights):
+    """Read a completed stability/cooldown endpoint, never a qualification copy."""
+    run = Path(run)
+    if weights not in ("raw", "ema"):
+        raise ValueError("Endpoint weights must be raw or ema")
+    complete = json.loads((run / "COMPLETE.json").read_text())
+    path = run / "joint-last.pt"
+    checksum = digest(path)
+    if checksum != complete["sha256"]:
+        raise ValueError("Screen endpoint checkpoint hash differs")
+    saved = torch.load(path, map_location="cpu", weights_only=False)
+    manifest = json.loads((run / "manifest.json").read_text())
+    contract = saved["screen"]
+    policy = contract["policy"]
+    cooldown = contract["start"] == 4000
+    end = 5000 if cooldown else 4000
+    om4 = 2125 if cooldown and policy == "A" else 2000
+    counts = {"om4": om4, "observation": end - om4}
+    ema_updates = 2000 if cooldown and policy == "D" else 1000
+    if (
+        policy not in (("A", "B", "C", "D") if cooldown else ("S0",))
+        or contract["start"] != (4000 if cooldown else 3000)
+        or contract["end"] != end
+        or contract["producer"] != manifest["code_commit"]
+        or contract["ema_half_life"] != 100
+        or saved["manifest"] != manifest
+        or saved["global_step"] != end
+        or complete["global_step"] != end
+        or saved["task_counts"] != counts
+        or complete["task_counts"] != counts
+        or saved["step"] != counts["observation"]
+        or saved["phase"] != "joint"
+        or saved["ema_updates"] != ema_updates
+        or complete["ema_updates"] != ema_updates
+        or complete.get("branch", complete.get("policy")) != policy
+    ):
+        raise ValueError("Screen endpoint completion/lineage/counts differ")
+    if saved["model"].keys() != saved["ema"].keys():
+        raise ValueError("EMA state inventory differs")
+    return saved["ema" if weights == "ema" else "model"], {
+        "checkpoint_policy": "completed fixed endpoint; not validation selected",
+        "checkpoint_sha256": checksum,
+        "weights": weights,
+        "global_step": end,
+        "task_counts": counts,
+        "screen_contract": contract,
+        "complete_sha256": digest(run / "COMPLETE.json"),
+    }
+
+
 def load_quarter_endpoint(run, manifest, om4_updates, observation_updates):
     """Read a completed native-quarter endpoint without converting checkpoints."""
     complete_path = run / "TRAIN_COMPLETE.json"

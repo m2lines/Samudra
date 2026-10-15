@@ -46,71 +46,54 @@ annual test or the previously examined 2015/2018/2021 cohort. If its full payloa
 cannot be verified, report the blocker rather than substitute a test cohort into
 selection. No final cooldown policy is chosen from short-lead scores alone.
 
-## Qualification and execution
+## Completed short-lead comparison
 
-New producer source audit checks both completed S0 model/optimizer/EMA checkpoints.
-Fresh fitting, I/O and deterministic restart checks gate branch-specific
-qualification. Each branch qualification replays 16 updates twice under the
-deterministic reference, covering both recent and early OM4 updates in A, and
-requires exact model/optimizer/RNG/EMA equality and raw restoration after EMA
-validation. Qualification copies are never promoted. Production uses normal
-numerical settings and the original immutable S0 source checkpoints.
+All eight runs completed 5,000 total updates. The table uses the predeclared
+last-five-validation mean, equally weighted across U-global and U-multitask-early.
+Lower is better; the blend uses RMSE components, with no spectral term.
 
-Implementation: [runner](../../../scripts/run_observation_cooldown_comparison.py),
-[schedule, EMA migration and loss-isolation tests](../../../tests/test_observation_cooldown_comparison.py).
-The shared trainer now exposes a schedule factory; existing runs retain their
-original TaskSchedule. Local validation: 54 targeted tests passed.
+| Branch | Raw last-five mean | EMA last-five mean | U-global EMA endpoint | Early EMA endpoint |
+|---|---:|---:|---:|---:|
+| A: 7:1 obs/OM4, reset EMA | 0.844162 | 0.844298 | 0.843605 | 0.844648 |
+| B: obs only, reset EMA | 0.842810 | 0.842485 | 0.840992 | 0.843016 |
+| C: obs forecast loss only, reset EMA | 0.841616 | 0.841681 | 0.840119 | 0.841359 |
+| D: obs only, retain EMA | 0.842699 | 0.842539 | 0.841085 | 0.843018 |
 
-The prior stability campaign consumed 10.5378 GPU-hours; this comparison is
-accounted separately, including qualification and retries. Existing unrelated
-forecast-adaptation jobs are left unchanged. No hyperparameter-search campaign
-or longer main-training runs are launched by this approval.
+B improves on A by **0.21%** in the EMA summary; removing auxiliary loss in C
+improves on B by **0.10%**. Retaining versus resetting EMA is effectively tied
+(**0.007%**). These are small, single-seed effects, below the previous 1%
+confirmation threshold. B and D also differ slightly in their raw trajectories
+because of ordinary production numerical variation; that difference cannot be
+caused by EMA history, which is not used for gradient updates.
 
-Pinned producer: `5b49d2133eb73a83b0a6f47e06146d322ec332c6`.
-Transferred archive SHA-256:
-`8d3f123b5c22f9fdc53133379c35b6a2aaa6e8a1b4f32469f2eb1151e250699b`.
-Scratch usage before staging was 4.74/5.00 TB; datasets and image are reused.
-Root: `/scratch/jr7309/runs/2026-10-14-observation-cooldown-standardization`.
+![Raw and EMA validation curves for both families](assets/cooldown-standardization/validation-curves.png)
 
-Submitted CPU audit **19850076**, base qualification **19850077**, and eight
-branch qualifications **19850078**, with successful-completion dependencies.
-Initial state was queued. Callback **19850080** and a quiet 30-minute startup
-backstop cover the qualification chain. The eight production continuations
-require verified qualification outputs; they are not yet submitted.
+[Per-family summary](assets/cooldown-standardization/summary.csv) ·
+[All curve values](assets/cooldown-standardization/curves.csv).
+ABC begin with EMA reset to raw weights, so their initial EMA point is not the
+parent's existing EMA. D retains it. No final cooldown choice is made yet:
+annual validation and initializer diagnostics remain outstanding.
 
-### Replay qualification recovery
+## Execution and reproducibility
 
-The source audit and both base qualifications passed. All eight branch replay
-checks failed before production. A regression with populated Adam state reproduced
-the cause: `optimizer.load_state_dict` can retain references to CPU optimizer
-state tensors, allowing replay one to mutate the in-memory baseline for replay
-two. The restore helper now clones the saved state before loading it. The test
-also verifies that the original snapshot stays unchanged after each replay.
-All 54 targeted tests pass, including the previously failing populated-optimizer
-case. The acceptance requirement remains bitwise equality; no tolerance was
-relaxed. Production and original source checkpoints were not modified.
+Producer `d72f7b192ea8319547ec61f6d35f5418087e8612` completed all eight branches
+in Torch array **19878748**. Every endpoint has 1,000 cooldown updates, a verified
+checkpoint hash, and preserved source model/Adam/RNG state. ABC have 1,000 EMA
+updates; D has 2,000 including its parent history. Each run has 11 raw and 11 EMA
+validation points. Source checkpoints and failed qualification attempts remain
+immutable.
 
-Failed branch outputs and the passing original checks remain at the original
-root. Their combined allocated cost is **1.5364 GPU-hours**. Recovery uses a new
-producer and a separate `recovery-snapshot-copy` directory with fresh qualification.
+The initial replay qualification exposed an optimizer-state alias in the diagnostic
+restore helper. Cloning the saved state before restore fixed it; populated-Adam
+regression tests and all eight bitwise model/optimizer/RNG/EMA replay checks passed.
+No acceptance tolerance or scientific training setting changed. The production
+cost was **6.9000 GPU-hours**; including qualification and retries, this comparison
+used **9.9097 GPU-hours**. The preceding stability campaign's **10.5378 GPU-hours**
+is separate.
 
-Recovery producer: `d72f7b192ea8319547ec61f6d35f5418087e8612`;
-source archive readback SHA-256:
-`3717bbcb209ac8e448fca6f9d00a8789ba56494f303b07c317a90cda54b4c17b`.
-New audit **19875157** → base qualification **19875158** → branch qualifications
-**19875159** were submitted with successful-completion dependencies and were
-initially queued. Callback **19875169** covers termination; quiet monitoring is
-active. Production remains gated on the new verified receipts.
-
-All eight recovered branch qualifications passed bitwise-exact replay, including
-optimizer and EMA state, with finite validation outputs. The recovery consumed
-1.4733 GPU-hours, bringing this cooldown comparison's pre-production total to
-**3.0097 GPU-hours**, including failed attempts. The earlier stability campaign
-remains separately accounted.
-
-Production array **19878748** now contains the eight approved continuations from
-the original S0 checkpoints. Initial status was **PENDING (QOSGrpCpuLimit)**,
-with a maximum of four concurrent RTX GPUs. Callback **19878751** and quiet
-monitoring cover startup and completion. Production has not yet been verified
-running. Annual validation and initializer diagnostics remain required before
-choosing the standard cooldown.
+Implementation: [cooldown runner](../../../scripts/run_observation_cooldown_comparison.py),
+[protocol tests](../../../tests/test_observation_cooldown_comparison.py).
+Training root:
+`/scratch/jr7309/runs/2026-10-14-observation-cooldown-standardization/recovery-snapshot-copy`.
+The annual follow-up uses frozen final raw/EMA weights and the two parent S0
+endpoints, with no retraining or new checkpoint selection.

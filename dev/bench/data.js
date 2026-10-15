@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792089866781,
+  "lastUpdate": 1792089876056,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -25905,6 +25905,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.062464405456943074",
             "extra": "mean: 12.417682830799993 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse+bot@openathena.ai",
+            "name": "oa-jder-bot",
+            "username": "oa-jder-bot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5d8c291b8fac13008ba11fb9bf9cfdf84d35e9f1",
+          "message": "Add CM4 preprocessing and no-leap data support (#928)\n\nAdds ocean-only CM4 preprocessing and a `cm4` training-source type that\nuses native no-leap dates. CM4 requires the separate `time_bnds.nc`\ncompanion file via `--time_bounds_path`. The documented recipes prepare\nthe full record at 1° and ¼° without spatial filtering, including `wfo`\nand excluding heat-flux anomalies. Compact output uses separate\nvariables with one timestep, all depths, and the full horizontal grid\nper chunk; CM4-specific normalization is supported.\n\nShared OM4/CM4 processing also gains correct longitude wrapping during\nvector centering, preservation of source metadata and averaging bounds,\nand rejection of shared train/validation endpoints. Individual commits\nexplain the rationale and scope of each change.\n\nLocal validation: 89 preprocessing tests passed with 3 xESMF-dependent\nskips; targeted tests including xESMF passed, as did repository hooks.\nCoverage includes synthetic raw-to-Zarr publication, numerical boundary\nregressions, native calendars, metadata, chunking, normalization, and\ndate splits. No full-scale preprocessing or training was run.",
+          "timestamp": "2026-10-15T18:19:15Z",
+          "tree_id": "bbddc59768034ba6667a9cdfaf8968dc496ab53b",
+          "url": "https://github.com/m2lines/Samudra/commit/5d8c291b8fac13008ba11fb9bf9cfdf84d35e9f1"
+        },
+        "date": 1792089875675,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 1.0463261825536725,
+            "unit": "iter/sec",
+            "range": "stddev: 0.004208450456003899",
+            "extra": "mean: 955.7249132000038 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_dataset__1gb[cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.3540281479436692,
+            "unit": "iter/sec",
+            "range": "stddev: 0.09531835343099024",
+            "extra": "mean: 2.824634159200002 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.0805416286588491,
+            "unit": "iter/sec",
+            "range": "stddev: 0.04075562438670829",
+            "extra": "mean: 12.415939640800024 sec\nrounds: 5"
           }
         ]
       }

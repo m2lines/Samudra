@@ -16,7 +16,6 @@ set -euo pipefail
 : "${SOURCE_ROOT:?Set immutable source directory}"
 : "${DATA_ROOT:?Set existing OM4 data directory}"
 : "${SIF_PATH:?Set verified container path}"
-: "${FOLLOWUP_CREDENTIAL:?Set private callback credential path}"
 arm="$1"
 phase="$2"
 case "$arm" in F) mode=forecast ;; M) mode=multitask ;; *) exit 2 ;; esac
@@ -28,7 +27,7 @@ export EVAL_CHECKPOINT="$CAMPAIGN_ROOT/outputs/adaptation-$arm-forecast/saved_ne
 if [[ "$phase" == selected ]]; then
     export EVAL_CHECKPOINT="$CAMPAIGN_ROOT/outputs/train-$mode-rtx/saved_nets/best_validation_ckpt.pt"
 fi
-# Completion is delivered by a separate CPU-only afterany job.
+# Completion is checked by durable local reminders; no callback credential is exported.
 export OMP_NUM_THREADS=4 MKL_NUM_THREADS=4 OPENBLAS_NUM_THREADS=4 NUMEXPR_NUM_THREADS=4
 export PYTHONUNBUFFERED=1 PYTHONNOUSERSITE=1 WANDB_MODE=online
 export NCCL_DEBUG=WARN TORCH_NCCL_ASYNC_ERROR_HANDLING=1
@@ -44,7 +43,6 @@ export APPTAINER_CACHEDIR=/scratch/jr7309/apptainer-cache
 export APPTAINER_TMPDIR="${SLURM_TMPDIR:-/tmp}/apptainer-$SLURM_JOB_ID"
 mkdir -p "$APPTAINER_TMPDIR" "$WANDB_DIR" "$CAMPAIGN_ROOT/cache/$phase-$mode" "$CAMPAIGN_ROOT/allocations"
 scontrol show job "$SLURM_JOB_ID" > "$CAMPAIGN_ROOT/allocations/$SLURM_JOB_ID-${SLURM_RESTART_COUNT:-0}.txt"
-python3 "$CAMPAIGN_ROOT/private/send.py" --credential-file "$FOLLOWUP_CREDENTIAL" --check
 export PYTHONPATH="$SOURCE_ROOT/src"
 : "${CUDA_VISIBLE_DEVICES:?Slurm must define allocated GPU visibility}"
 for name in OMP_NUM_THREADS MKL_NUM_THREADS OPENBLAS_NUM_THREADS NUMEXPR_NUM_THREADS PYTHONUNBUFFERED PYTHONNOUSERSITE WANDB_MODE WANDB_API_KEY WANDB_DIR WANDB_GIT_COMMIT WANDB_GIT_REMOTE_URL CUDA_VISIBLE_DEVICES NCCL_DEBUG TORCH_NCCL_ASYNC_ERROR_HANDLING SAMUDRA_CODE_COMMIT SAMUDRA_CODE_REPO_URL SAMUDRA_CONTAINER_IMAGE_REF PYTHONPATH NPROC SOURCE_ROOT CAMPAIGN_ROOT CONFIG_PATH EVAL_ARM EVAL_PHASE EVAL_OUTPUT EVAL_CHECKPOINT SLURM_JOB_ID; do

@@ -6,6 +6,8 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Data
 
+For other datasets or variable sets, see [Training on your own data](custom-data.md).
+
 ## What is OM4?
 
 [OM4](https://www.gfdl.noaa.gov/om4-0/) is a physical Ocean simulation produced by [NOAA's Geophysical Fluid Dynamics Laboratory](https://www.gfdl.noaa.gov/).

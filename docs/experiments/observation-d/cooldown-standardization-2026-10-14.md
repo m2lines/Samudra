@@ -37,8 +37,8 @@ it. A vs B isolates data mixture, B vs C isolates auxiliary loss removal, and
 B vs D isolates EMA history. The unchanged S0 checkpoint is a zero-extra-training
 reference, not a matched-compute control for cooldown versus continued constant LR.
 
-Before choosing a standard, add annual rollout and initializer temperature/OHC
-diagnostics. The short validation cohort is November 2013–July 2014; observation
+The protocol also requires annual rollout and initializer temperature/OHC
+diagnostics before choosing a standard; the completed checks are below. The short validation cohort is November 2013–July 2014; observation
 training ends July 2013. Audit an annual rollout beginning **2013-11-01** through
 November 2014, including OM4 training-date exclusion, target coverage and forcing,
 before using it as annual validation. This is one validation case, not a robust
@@ -71,8 +71,104 @@ caused by EMA history, which is not used for gradient updates.
 [Per-family summary](assets/cooldown-standardization/summary.csv) ·
 [All curve values](assets/cooldown-standardization/curves.csv).
 ABC begin with EMA reset to raw weights, so their initial EMA point is not the
-parent's existing EMA. D retains it. No final cooldown choice is made yet:
-annual validation and initializer diagnostics remain outstanding.
+parent's existing EMA. D retains it. The completed annual and initializer checks below favor B as a practical
+standard, with the limitations stated there.
+
+## Annual validation and initializer checks
+
+All 20 frozen evaluations completed: raw and EMA for A/B/C/D and the pre-cooldown
+S0 endpoint in each family. One initialization on **2013-11-01**, followed by 73
+five-day steps with prescribed ERA5 and no future surface corrections. Forecast
+targets are later than recent OM4's final training date, 2013-10-04, and observation
+training's final month, July 2013. Initialization history partly overlaps OM4
+training dates; forecast targets do not. Earlier OM4 targets end before 1975.
+The full annual payload passed timestamp, hash, finite-forcing and exact
+first-30-day overlap checks against the monthly validation sample.
+
+These are **one-origin validation diagnostics**, not held-out multi-origin test
+results. OHC columns below average 12 calendar-month spatial RMSEs; they are not
+RMSE of an annual-average field. Surface columns are the day-365 five-day bin.
+No spectral term is used to rank these runs, and no new annual composite is
+substituted for the short-lead RMSE blend.
+
+| Model family | Branch, EMA | Day-365 SST RMSE (°C) | Day-365 velocity RMSE (m/s) | Monthly OHC RMSE, 0–700 m (GJ/m²) | Monthly OHC RMSE, 700–2000 m (GJ/m²) |
+|---|---|---:|---:|---:|---:|
+| U-global | S0: before cooldown | 0.8267 | 0.1504 | 0.7770 | 0.4486 |
+| U-global | A | 0.7074 | 0.1496 | 0.7810 | 0.4552 |
+| U-global | B | 0.6872 | 0.1495 | 0.7697 | 0.4450 |
+| U-global | C | 0.6928 | 0.1494 | 0.7737 | 0.4427 |
+| U-global | D | 0.6867 | 0.1494 | 0.7694 | 0.4449 |
+| U-multitask-early | S0: before cooldown | 0.8039 | 0.1507 | 0.7579 | 0.4389 |
+| U-multitask-early | A | 0.7283 | 0.1496 | 0.8354 | 0.4813 |
+| U-multitask-early | B | 0.6985 | 0.1493 | 0.8223 | 0.4737 |
+| U-multitask-early | C | 0.7088 | 0.1491 | 0.8301 | 0.4715 |
+| U-multitask-early | D | 0.7000 | 0.1493 | 0.8230 | 0.4741 |
+
+B reduces day-365 SST error versus S0 by **16.9% for U-global and 13.1% for
+early-OM4**. Its OHC errors improve by about 1% for U-global but worsen by
+**8.5% / 7.9%** for early-OM4. Thus improvement is not uniform across variables.
+B and D remain almost indistinguishable; C does not improve day-365 SST over B.
+Because S0 has 1,000 fewer updates, this comparison does not isolate LR decay
+from the benefit of additional observation training.
+
+Own initialized surface persistence gives day-365 SST **0.8216°C** and velocity
+**0.1740 m/s** for every run: the observed-only surface policy fixes those
+initial surface fields. Interior persistence differs by model. For B its monthly
+OHC errors are **1.043 / 0.546 GJ/m²** (U-global) and **1.030 / 0.546 GJ/m²**
+(early-OM4), both worse than evolving B. All raw/EMA, ADT, lead, monthly OHC and
+own-persistence components are in the [component table](assets/cooldown-standardization/annual-components.csv).
+
+![Annual EMA validation curves](assets/cooldown-standardization/annual-validation.png)
+
+### What changed in the initializer?
+
+The following profiles compare each final EMA initializer with its own S0 EMA,
+on the same inputs, at the last five-day bin before November 1. They use global
+wet-cell cosine-area weights and physical temperature. **These are changes,
+not errors against an independent subsurface truth**; larger change alone does
+not prove forgetting. In particular, the last inferred state is not compared
+as though it were a calendar-month IAP mean.
+
+| Model family | Branch | RMS temperature change at 105 m (°C) | RMS initial OHC change, 0–700 m (GJ/m²) | RMS initial OHC change, 700–2000 m (GJ/m²) |
+|---|---|---:|---:|---:|
+| U-global | B: existing losses | 0.180 | 0.170 | 0.161 |
+| U-global | C: forecast only | 0.612 | 0.622 | 0.611 |
+| U-multitask-early | B: existing losses | 0.187 | 0.167 | 0.177 |
+| U-multitask-early | C: forecast only | 0.467 | 0.584 | 0.528 |
+
+Removing initializer reconstruction/completion losses allows substantially larger
+changes in the inferred interior. Forecast supervision can still reward an
+initializer/processor pair that compensates for those changes. That is a plausible
+interpretation, not a demonstrated causal decomposition. The tiny 0.10% pooled
+short-lead gain does not establish a benefit from accepting this extra freedom.
+A/B/D retain much more similar inferred temperature structures.
+
+![Initializer temperature changes by depth](assets/cooldown-standardization/initializer-temperature-profiles.png)
+
+![U-global initial temperature changes at 105 m](assets/cooldown-standardization/initializer-map-U-global.png)
+
+![Early-OM4 initial temperature changes at 105 m](assets/cooldown-standardization/initializer-map-U-multitask-early.png)
+
+The maps use two pixels per grid cell in each direction, with a common ±1°C
+color scale. [Profiles for temperature, salinity and both velocities](assets/cooldown-standardization/initializer-profiles.csv)
+and [initial OHC changes](assets/cooldown-standardization/initializer-ohc.csv)
+include both raw and EMA weights.
+
+### Recommended common cooldown
+
+Use **B: 1,000 observation-only updates with the existing forecast,
+reconstruction and completion losses; linear LR decay to 1% of the starting LR;
+reset EMA from raw weights at the cooldown fork, half-life 100 updates**.
+Preserve Adam state and sample ordering, and compare the fixed final EMA
+checkpoint as well as the pre-cooldown checkpoint. Retained EMA D is effectively
+tied; reset is a reproducible convention for comparing parents with different
+EMA histories, not an empirically superior treatment here.
+
+This is a practical default for the proposed search, not a statistically confirmed
+optimum. Keep annual OHC and initializer diagnostics as safeguards, particularly
+for early-OM4 models: the pooled short score did not reveal their annual OHC
+regression. The frozen-endpoint comparison is complete; no search campaign or
+longer training was launched.
 
 ## Execution and reproducibility
 
@@ -98,20 +194,19 @@ Training root:
 The annual follow-up uses frozen final raw/EMA weights and the two parent S0
 endpoints, with no retraining or new checkpoint selection.
 
-Annual validation is submitted as CPU audit **19930200** followed by GPU array
-**19930201** (initially waiting on the running audit). Evaluation producer
-`da3061c3b3d25e0f925f5c20137210a8364cd52b` adds explicit raw/EMA endpoint loading;
-45 checkpoint/annual tests and repository commit checks passed. All source
-checkpoints are mounted read-only. The existing 2013-11-01 annual payload must
-pass full hash/timestamp/forcing checks and exact overlap with the monthly
-validation sample. Twenty evaluations cover ten checkpoints, each raw and EMA,
-with own initialized persistence. Outputs include inferred initial states,
-physical states at six leads, and monthly OHC for the remaining diagnostics.
-This single-origin validation does not establish multi-year generalization.
+Annual evaluation producer `1e90c7b1dbea5954ee658c57b6f02112e84dc56f`
+passed 45 checkpoint/annual tests and repository commit checks. CPU audit
+**19930550** and ten-task evaluation array **19930551** completed, producing all
+20 raw/EMA output sets with verified lineage and finite metrics. Initial audit
+**19930200** failed only because the checker expected the newer quarter-builder
+filename convention; the existing archived files use `YYYY-MM-interior.npz`.
+The corrected audit retains exact inventory and payload checks; the failed attempt
+and zero-GPU dependent cancellation are preserved.
 
-The initial CPU audit stopped on a filename assumption: this archived dataset
-uses `YYYY-MM-interior.npz`, whereas the newer quarter-degree builder uses
-`YYYY-MM.npz`. Producer `1e90c7b1d` corrects the exact expected inventory without
-relaxing coverage or hash checks. The failed attempt used zero GPU-hours and is
-preserved. Recovery audit **19930550** gates evaluation **19930551** under
+Annual evaluation used **0.1617 GPU-hours**; combined with this cooldown wave,
+the total is **10.0714 GPU-hours**. CPU reduction **19932914** generated initializer
+profiles from the saved physical outputs using
+[this script](../../../scripts/summarize_cooldown_initializers.py).
+Evaluation root:
 `/scratch/jr7309/runs/2026-10-15-cooldown-annual/recovery-inventory`.
+All completed callbacks are retired.

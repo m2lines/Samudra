@@ -8,6 +8,7 @@ from unittest.mock import sentinel
 
 import numpy as np
 import ocean_preprocessing.__main__ as main
+import pytest
 import xarray as xr
 from numcodecs import Blosc
 from ocean_preprocessing.__main__ import CLI
@@ -33,8 +34,7 @@ def test_collect_explicitly_writes_zarr_v2(tmp_path):
     assert metadata["zarr_format"] == 2
 
 
-def test_collect_turns_compression_off_by_default(tmp_path):
-    """The training stores are read without a decompression pass."""
+def test_collect_keeps_physical_fields_uncompressed_by_default(tmp_path):
     output = tmp_path / "output.zarr"
     pipeline = CLI(output_path=str(output))
     ds = xr.Dataset({"value": ("time", np.arange(3))}).chunk({"time": 1})
@@ -45,26 +45,32 @@ def test_collect_turns_compression_off_by_default(tmp_path):
     assert metadata["compressor"] is None
 
 
-def test_collect_can_explicitly_compress_basin_masks(tmp_path: Path) -> None:
+def test_collect_compresses_basin_masks_by_default(tmp_path: Path) -> None:
     output = tmp_path / "output.zarr"
     pipeline = CLI(output_path=str(output))
-    ds = xr.Dataset({"value": ("time", np.arange(3))}).chunk({"time": 1})
+    ds = xr.Dataset({"basin_arctic": (("y", "x"), np.ones((2, 3), dtype=bool))})
 
-    pipeline._collect(ds, compress=True)
+    pipeline._collect(ds)
 
-    metadata = json.loads((output / "value" / ".zarray").read_text(encoding="utf-8"))
+    metadata = json.loads((output / "basin_arctic" / ".zarray").read_text())
     assert metadata["compressor"]["id"] == "blosc"
     assert metadata["compressor"]["cname"] == "zstd"
     assert metadata["compressor"]["shuffle"] == Blosc.SHUFFLE
 
 
-def test_collect_compresses_fields_and_coordinates_losslessly(tmp_path: Path) -> None:
+@pytest.mark.parametrize("compress", [False, True])
+def test_collect_compression_only_toggles_physical_fields(
+    tmp_path: Path, compress: bool
+) -> None:
     output = tmp_path / "output.zarr"
-    pipeline = CLI(output_path=str(output), compress=True)
+    pipeline = CLI(output_path=str(output), compress=compress)
     values = np.arange(24, dtype=np.float32).reshape(2, 2, 2, 3)
     values[:, :, 0, 0] = np.nan
     ds = xr.Dataset(
-        {"thetao": (("time", "lev", "y", "x"), values, {"units": "degC"})},
+        {
+            "thetao": (("time", "lev", "y", "x"), values, {"units": "degC"}),
+            "mask_0": (("y", "x"), np.isfinite(values[0, 0])),
+        },
         coords={
             "time": xr.date_range(
                 "0151-01-06", periods=2, freq="5D", calendar="noleap", use_cftime=True
@@ -85,6 +91,9 @@ def test_collect_compresses_fields_and_coordinates_losslessly(tmp_path: Path) ->
 
     for name in ds.variables:
         metadata = json.loads((output / name / ".zarray").read_text())
+        if name == "thetao" and not compress:
+            assert metadata["compressor"] is None
+            continue
         assert metadata["compressor"]["id"] == "blosc"
         assert metadata["compressor"]["cname"] == "zstd"
         assert metadata["compressor"]["clevel"] == 5

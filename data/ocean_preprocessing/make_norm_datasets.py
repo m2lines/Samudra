@@ -25,8 +25,6 @@ def write_zarr_with_retries(
     path: str,
     client: Client,
     write_retries: int,
-    *,
-    compress: bool = False,
 ) -> None:
     """Write a derived dataset, retrying failed Dask tasks in place."""
     delayed = ds.to_zarr(
@@ -34,7 +32,7 @@ def write_zarr_with_retries(
         mode="w",
         zarr_format=2,
         consolidated=True,
-        encoding=zstd_encoding(ds) if compress else None,
+        encoding=zstd_encoding(ds),
         compute=False,
     )
     client.compute(delayed, retries=write_retries, sync=True)
@@ -69,7 +67,6 @@ def main(
     *,
     start: str | None = None,
     end: str | None = None,
-    compress: bool = False,
 ) -> None:
     """Calculate and write normalization statistics for ``src``."""
     from dask.distributed import LocalCluster
@@ -113,14 +110,10 @@ def main(
     print(f"Writing mean Zarr to {mean_path!r}.")
     # These stores are derived entirely from ``src``. Replace a partial store
     # left by an interrupted/requeued attempt so that restarting is safe.
-    write_zarr_with_retries(
-        ds_means, mean_path, client, write_retries, compress=compress
-    )
+    write_zarr_with_retries(ds_means, mean_path, client, write_retries)
     stds_path = os.path.join(path, f"{ds_name}_stds{ds_ext}")
     print(f"Writing std Zarr to {stds_path!r}.")
-    write_zarr_with_retries(
-        ds_stds, stds_path, client, write_retries, compress=compress
-    )
+    write_zarr_with_retries(ds_stds, stds_path, client, write_retries)
 
     print("done.")
 
@@ -140,20 +133,9 @@ def parse_args() -> argparse.Namespace:
         "--start", help="First training date to include (source calendar)"
     )
     parser.add_argument("--end", help="Last training date to include (source calendar)")
-    parser.add_argument(
-        "--compress",
-        action="store_true",
-        help="Blosc Zstd level 5 with byte shuffle for non-scalar output arrays",
-    )
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     args = parse_args()
-    main(
-        args.src,
-        args.write_retries,
-        start=args.start,
-        end=args.end,
-        compress=args.compress,
-    )
+    main(args.src, args.write_retries, start=args.start, end=args.end)

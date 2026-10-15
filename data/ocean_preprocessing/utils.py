@@ -11,7 +11,7 @@ import xarray as xr
 from numcodecs import Blosc
 
 
-def zstd_encoding(ds: xr.Dataset) -> dict[Hashable, dict[str, Blosc]]:
+def zstd_encoding(ds: xr.Dataset) -> dict[Hashable, dict[str, Blosc | None]]:
     """Compress fields and coordinates with Blosc Zstd and byte shuffle.
 
     Zarr v2 always stores zero-dimensional scalar arrays without compression.

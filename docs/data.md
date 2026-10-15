@@ -81,12 +81,12 @@ Generate normalization statistics using the chosen training interval:
 
 ```bash
 PYTHONPATH=data python -m ocean_preprocessing.make_norm_datasets \
-  cm4_onedeg/CM4.zarr --start "$TRAIN_START" --end "$TRAIN_END" --compress
+  cm4_onedeg/CM4.zarr --start "$TRAIN_START" --end "$TRAIN_END"
 ```
 
 This writes `CM4_means.zarr` and `CM4_stds.zarr` alongside the processed data.
-Both commands use `--compress` to compress all fields, coordinates, and masks
-with Blosc Zstd (level 5, byte shuffle); only scalar statistics stay uncompressed.
+Coordinates, masks, and normalization profiles use Blosc Zstd (level 5, byte
+shuffle) by default. `--compress` additionally compresses the physical fields.
 
 ### Basin masks
 

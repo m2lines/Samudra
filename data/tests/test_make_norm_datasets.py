@@ -15,6 +15,7 @@ from ocean_preprocessing.make_norm_datasets import write_zarr_with_retries
 
 def test_write_zarr_uses_dask_task_retries():
     ds = Mock()
+    ds.variables = {}
     client = Mock()
     delayed = object()
     ds.to_zarr.return_value = delayed
@@ -26,7 +27,7 @@ def test_write_zarr_uses_dask_task_retries():
         mode="w",
         zarr_format=2,
         consolidated=True,
-        encoding=None,
+        encoding={},
         compute=False,
     )
     client.compute.assert_called_once_with(delayed, retries=7, sync=True)
@@ -49,7 +50,7 @@ def test_compressed_normalization_round_trip(tmp_path: Path, statistic: str) -> 
     client = Mock()
     client.compute.side_effect = lambda task, **kwargs: task.compute()
 
-    write_zarr_with_retries(ds, str(output), client, 5, compress=True)
+    write_zarr_with_retries(ds, str(output), client, 5)
 
     for name, field in ds.variables.items():
         metadata = json.loads((output / name / ".zarray").read_text())

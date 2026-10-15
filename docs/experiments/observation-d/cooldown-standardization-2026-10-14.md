@@ -97,3 +97,14 @@ Training root:
 `/scratch/jr7309/runs/2026-10-14-observation-cooldown-standardization/recovery-snapshot-copy`.
 The annual follow-up uses frozen final raw/EMA weights and the two parent S0
 endpoints, with no retraining or new checkpoint selection.
+
+Annual validation is submitted as CPU audit **19930200** followed by GPU array
+**19930201** (initially waiting on the running audit). Evaluation producer
+`da3061c3b3d25e0f925f5c20137210a8364cd52b` adds explicit raw/EMA endpoint loading;
+45 checkpoint/annual tests and repository commit checks passed. All source
+checkpoints are mounted read-only. The existing 2013-11-01 annual payload must
+pass full hash/timestamp/forcing checks and exact overlap with the monthly
+validation sample. Twenty evaluations cover ten checkpoints, each raw and EMA,
+with own initialized persistence. Outputs include inferred initial states,
+physical states at six leads, and monthly OHC for the remaining diagnostics.
+This single-origin validation does not establish multi-year generalization.

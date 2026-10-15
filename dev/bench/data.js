@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792077702842,
+  "lastUpdate": 1792077710897,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -25815,6 +25815,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.4075798070339438",
             "extra": "mean: 12.701226060199996 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fomobot640@gmail.com",
+            "name": "fomo-bot",
+            "username": "fomo-bot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b284c1ba9a972e12d1532b9cc488df91bba16e52",
+          "message": "Use configured checkpoint score as default search objective (#919)\n\nSearch currently ranks candidates by ordinary validation loss even when\ntheir training config selects best checkpoints by rollout RMSE. Make the\ndefault search objective `best_validation_score`, the best score seen\nunder each candidate's `checkpoint_validation_metric`. Update the\nbundled search example, report label, and documentation to use that\nname.\n\nTraining summaries retain `best_validation_loss` as a compatibility\nalias and keep `validation_loss` as the ordinary loss at the rung's\nfinal epoch. Explicit search objectives remain unchanged. Results record\nthe checkpoint metric and horizon; competing candidates should use\ncomparable metrics and horizons. Rungs ending between rollout epochs use\nthe best earlier scheduled rollout score, and promotion still resumes\nfrom the latest checkpoint.\n\nValidation: CPU search and trainer tests; pre-commit checks on all\nchanged files. Regression coverage exercises rollout scores ranking\ncandidates differently from ordinary loss, both checkpoint metric\nchoices, and skipped rollout epochs.\n\nRefs #914.",
+          "timestamp": "2026-10-15T14:55:10Z",
+          "tree_id": "be86b296f630042058b9afa6a356b4d55a3a51ab",
+          "url": "https://github.com/m2lines/Samudra/commit/b284c1ba9a972e12d1532b9cc488df91bba16e52"
+        },
+        "date": 1792077710495,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.9588900444847945,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0022693381850083984",
+            "extra": "mean: 1.0428724395999893 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_dataset__1gb[cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.35533864880893257,
+            "unit": "iter/sec",
+            "range": "stddev: 0.10127053950994107",
+            "extra": "mean: 2.8142168135999897 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.08053032225301057,
+            "unit": "iter/sec",
+            "range": "stddev: 0.062464405456943074",
+            "extra": "mean: 12.417682830799993 sec\nrounds: 5"
           }
         ]
       }

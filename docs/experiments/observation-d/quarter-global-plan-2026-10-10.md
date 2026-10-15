@@ -12,8 +12,9 @@ fitting, gradients, real data, exact fresh-process replay, and two-host NVLink
 transport. **U-global and observation-only both completed all 6,000 updates**.
 Both earlier-data variants are now **held at the user’s request**, pending
 review of the baseline 365-day rollouts. U-global and observation-only evaluations continue.
-The [training snapshot and validation curves](#production-snapshot) are below;
-held-out 30-/365-day evaluation and the common-grid 1° comparison are still pending.
+The [native baseline report](quarter-baseline-results-2026-10-15.md) now includes
+verified monthly/annual scores, day-365 maps and temperature profiles. The
+common-grid 1° comparison is still being collected. [Training curves](#production-snapshot) remain below.
 Reporting both native-resolution and matched 1° metrics remains agreed.
 
 ## Runs
@@ -339,8 +340,8 @@ early-latent) were subsequently held at the user’s request.
 
 These are **native-resolution validation scores**, on the same nine validation
 origins and frozen climatology denominators (1 means climatology). They are not
-held-out test results or the common-support 1° comparison. Both earlier-data variants are held; no final model ranking
-is claimed. Selected checkpoints will receive the agreed 30-/365-day evaluation.
+held-out test results or the common-support 1° comparison. Both earlier-data variants are held. The completed baseline test results are
+in the [native comparison report](quarter-baseline-results-2026-10-15.md).
 
 Annual memory qualification **213258 passed** on one GB200: U-global’s
 validation-selected checkpoint completed the 2015 origin’s **73 forecast steps and 12 monthly
@@ -362,8 +363,9 @@ separately over all 96 monthly test origins and all three annual starts, with
 each checkpoint’s own persistence and common-grid exports. No retraining or
 checkpoint reselection is involved. [All four modes and 434 output hashes are verified](artifacts/quarter-bringup-2026-10-11/evaluation-213261-verified.json.gz).
 The allocation took 57m46s (3.8511 GPU-hours); score/map collection is proceeding
-on CPU. Matching observation-only evaluation **213293** is running, with the same four evaluation
-modes and cohorts and the completed 0-OM4/6,000-observation checkpoint contracts.
+on CPU. Matching observation-only evaluation **213293** also completed, with all
+434 files verified across the same four modes and cohorts. Native score/map collection
+is complete; matched 1° collection is still running.
 
 ![Native quarter-degree validation curves through October 14](artifacts/quarter-bringup-2026-10-11/native-validation-2026-10-14.png)
 

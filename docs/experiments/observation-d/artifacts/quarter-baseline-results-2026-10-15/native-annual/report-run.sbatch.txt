@@ -1,0 +1,31 @@
+#!/bin/bash
+#SBATCH --job-name=quarter-native-report
+#SBATCH --account=ny_lz1955_multiscale
+#SBATCH --partition=grace
+#SBATCH --exclude=betagg03
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=16
+#SBATCH --mem=128G
+#SBATCH --time=02:00:00
+set -euo pipefail
+root=/projects/ny/lz1955/multiscale/jrusak/runs/2026-10-11-quarter-global
+stage="$root/native-baseline-report-20261015-v3"
+source="$root/annual-memory-8bad9c34a/source"
+output="$stage/job-$SLURM_JOB_ID"
+mkdir "$output"
+cd "$stage"
+sha256sum --check SHA256SUMS > "$output/harness-verified.txt"
+test "$(sha256sum "$root/annual-memory-8bad9c34a/source.sha256" | cut -d' ' -f1)" = 35c20679e4ec4f9daf00b4aa02abd0f63fa6be79a1134b9d61bf94ee4b98ef65
+(cd "$root/annual-memory-8bad9c34a"; sha256sum --check source.sha256) > "$output/source-verified.txt"
+scontrol show job "$SLURM_JOB_ID" > "$output/allocation.txt"
+export SAMUDRA_RUNTIME_SHA256=692888785be12552c19ef0f70767152cdff0ed93bc6c49ce66d725fd1a3e572e
+export SAMUDRA_CODE_COMMIT=8bad9c34ac5fce91a7a3d8a7018299b4bcd3f0dc
+export PYTHONPATH="$root/native-runtime-binary/runtime-build/job-131371/runtime:$source:$source/src"
+export PYTHONUNBUFFERED=1 PYTHONNOUSERSITE=1 PYTHONDONTWRITEBYTECODE=1 WANDB_MODE=disabled
+export ENROOT_CACHE_PATH="$root/native-report-enroot-cache"
+mkdir -p "$ENROOT_CACHE_PATH"
+export NVIDIA_VISIBLE_DEVICES=void CUDA_VISIBLE_DEVICES=
+export OMP_NUM_THREADS=4 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1
+export MPLCONFIGDIR="$output/matplotlib"
+srun --kill-on-bad-exit=1 --container-env=NVIDIA_VISIBLE_DEVICES,CUDA_VISIBLE_DEVICES --container-image=ghcr.io/m2lines/ocean-emulator-physicsnemo@sha256:7d78e8fb9592abdf046d88e55004f15cfe34f0c8ee38b17d83e98cc05b6f82c4 --container-mounts=/projects:/projects:ro,"$output:$output:rw" --container-workdir="$stage" /workspace/.venv/bin/python "$stage/report.py" "$output" > "$output/report.log" 2>&1

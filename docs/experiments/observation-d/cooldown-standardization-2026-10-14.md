@@ -108,3 +108,10 @@ validation sample. Twenty evaluations cover ten checkpoints, each raw and EMA,
 with own initialized persistence. Outputs include inferred initial states,
 physical states at six leads, and monthly OHC for the remaining diagnostics.
 This single-origin validation does not establish multi-year generalization.
+
+The initial CPU audit stopped on a filename assumption: this archived dataset
+uses `YYYY-MM-interior.npz`, whereas the newer quarter-degree builder uses
+`YYYY-MM.npz`. Producer `1e90c7b1d` corrects the exact expected inventory without
+relaxing coverage or hash checks. The failed attempt used zero GPU-hours and is
+preserved. Recovery audit **19930550** gates evaluation **19930551** under
+`/scratch/jr7309/runs/2026-10-15-cooldown-annual/recovery-inventory`.

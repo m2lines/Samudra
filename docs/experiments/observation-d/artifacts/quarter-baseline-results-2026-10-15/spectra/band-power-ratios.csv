@@ -1,0 +1,73 @@
+variable,lead_days,region,source,wavelength_min_km,wavelength_max_km,bins,ratio_to_observations
+SST,30,Gulf Stream,U-global selected (¼°),200,500,4,0.1443656491110593
+SST,30,Gulf Stream,Observation-only selected (¼°),200,500,4,0.1851728413450195
+SST,30,Gulf Stream,OM4 (¼°),200,500,4,0.21914949982158036
+SST,30,Kuroshio,U-global selected (¼°),200,500,4,0.3037175424529507
+SST,30,Kuroshio,Observation-only selected (¼°),200,500,4,0.27714198737280776
+SST,30,Kuroshio,OM4 (¼°),200,500,4,0.15150728282278683
+SST,30,Agulhas,U-global selected (¼°),200,500,4,0.36154110473664847
+SST,30,Agulhas,Observation-only selected (¼°),200,500,4,0.4076525897474927
+SST,30,Agulhas,OM4 (¼°),200,500,4,0.6791144940089261
+SST,30,Malvinas,U-global selected (¼°),200,500,4,0.1212042667285754
+SST,30,Malvinas,Observation-only selected (¼°),200,500,4,0.17362738921858162
+SST,30,Malvinas,OM4 (¼°),200,500,4,0.35879857013971317
+SST,365,Gulf Stream,U-global selected (¼°),200,500,4,0.05571544456376964
+SST,365,Gulf Stream,Observation-only selected (¼°),200,500,4,0.1337497365533204
+SST,365,Gulf Stream,OM4 (¼°),200,500,4,0.1747937281337241
+SST,365,Kuroshio,U-global selected (¼°),200,500,4,0.0655125524086787
+SST,365,Kuroshio,Observation-only selected (¼°),200,500,4,0.3962128995084515
+SST,365,Kuroshio,OM4 (¼°),200,500,4,0.28621311912906017
+SST,365,Agulhas,U-global selected (¼°),200,500,4,0.2689485764690259
+SST,365,Agulhas,Observation-only selected (¼°),200,500,4,0.5327526332497381
+SST,365,Agulhas,OM4 (¼°),200,500,4,0.7429286916616018
+SST,365,Malvinas,U-global selected (¼°),200,500,4,0.055513559082875176
+SST,365,Malvinas,Observation-only selected (¼°),200,500,4,0.29089142846007043
+SST,365,Malvinas,OM4 (¼°),200,500,4,0.4027770032066793
+SSH,30,Gulf Stream,U-global selected (¼°),200,500,4,0.25321348205919486
+SSH,30,Gulf Stream,Observation-only selected (¼°),200,500,4,0.38964710111471745
+SSH,30,Gulf Stream,OM4 (¼°),200,500,4,0.07756481771226154
+SSH,30,Kuroshio,U-global selected (¼°),200,500,4,0.3988423931803662
+SSH,30,Kuroshio,Observation-only selected (¼°),200,500,4,0.44587070118180694
+SSH,30,Kuroshio,OM4 (¼°),200,500,4,0.0737437809516685
+SSH,30,Agulhas,U-global selected (¼°),200,500,4,0.607016338054698
+SSH,30,Agulhas,Observation-only selected (¼°),200,500,4,0.5983513701030213
+SSH,30,Agulhas,OM4 (¼°),200,500,4,0.5122125410243248
+SSH,30,Malvinas,U-global selected (¼°),200,500,4,0.22410705340926812
+SSH,30,Malvinas,Observation-only selected (¼°),200,500,4,0.3130836656212143
+SSH,30,Malvinas,OM4 (¼°),200,500,4,0.27904243370789367
+SSH,365,Gulf Stream,U-global selected (¼°),200,500,4,0.041307478069913785
+SSH,365,Gulf Stream,Observation-only selected (¼°),200,500,4,0.486935539208066
+SSH,365,Gulf Stream,OM4 (¼°),200,500,4,0.05950414224392936
+SSH,365,Kuroshio,U-global selected (¼°),200,500,4,0.1058386187343801
+SSH,365,Kuroshio,Observation-only selected (¼°),200,500,4,0.7427568652183109
+SSH,365,Kuroshio,OM4 (¼°),200,500,4,0.1043291208032246
+SSH,365,Agulhas,U-global selected (¼°),200,500,4,0.3401799524141516
+SSH,365,Agulhas,Observation-only selected (¼°),200,500,4,0.8003526871302382
+SSH,365,Agulhas,OM4 (¼°),200,500,4,0.4701698689479709
+SSH,365,Malvinas,U-global selected (¼°),200,500,4,0.042067285699457516
+SSH,365,Malvinas,Observation-only selected (¼°),200,500,4,0.3662729501330375
+SSH,365,Malvinas,OM4 (¼°),200,500,4,0.24193414594384463
+Geostrophic KE,30,Gulf Stream,U-global selected (¼°),200,500,4,0.17205001369218853
+Geostrophic KE,30,Gulf Stream,Observation-only selected (¼°),200,500,4,0.2878037980511057
+Geostrophic KE,30,Gulf Stream,OM4 (¼°),200,500,4,0.08423130683809704
+Geostrophic KE,30,Kuroshio,U-global selected (¼°),200,500,4,0.305398550120179
+Geostrophic KE,30,Kuroshio,Observation-only selected (¼°),200,500,4,0.34127564783108477
+Geostrophic KE,30,Kuroshio,OM4 (¼°),200,500,4,0.07988749592520016
+Geostrophic KE,30,Agulhas,U-global selected (¼°),200,500,4,0.43227782772755086
+Geostrophic KE,30,Agulhas,Observation-only selected (¼°),200,500,4,0.4652094979159337
+Geostrophic KE,30,Agulhas,OM4 (¼°),200,500,4,0.363246550997816
+Geostrophic KE,30,Malvinas,U-global selected (¼°),200,500,4,0.15483840641285454
+Geostrophic KE,30,Malvinas,Observation-only selected (¼°),200,500,4,0.22463422111000828
+Geostrophic KE,30,Malvinas,OM4 (¼°),200,500,4,0.29754298962845044
+Geostrophic KE,365,Gulf Stream,U-global selected (¼°),200,500,4,0.017800120402800546
+Geostrophic KE,365,Gulf Stream,Observation-only selected (¼°),200,500,4,0.2648080192452758
+Geostrophic KE,365,Gulf Stream,OM4 (¼°),200,500,4,0.07495827828116375
+Geostrophic KE,365,Kuroshio,U-global selected (¼°),200,500,4,0.06490720677935731
+Geostrophic KE,365,Kuroshio,Observation-only selected (¼°),200,500,4,0.626205579907182
+Geostrophic KE,365,Kuroshio,OM4 (¼°),200,500,4,0.11293621507429386
+Geostrophic KE,365,Agulhas,U-global selected (¼°),200,500,4,0.2051226682077949
+Geostrophic KE,365,Agulhas,Observation-only selected (¼°),200,500,4,0.7489365304694409
+Geostrophic KE,365,Agulhas,OM4 (¼°),200,500,4,0.4379290335126367
+Geostrophic KE,365,Malvinas,U-global selected (¼°),200,500,4,0.020840350869478958
+Geostrophic KE,365,Malvinas,Observation-only selected (¼°),200,500,4,0.32989538392799467
+Geostrophic KE,365,Malvinas,OM4 (¼°),200,500,4,0.28029658185475315

@@ -1,0 +1,181 @@
+lead_days,variable,region,source,shared_valid_cells,source_valid_cells,common_fraction_of_box,retained_fraction_of_source_valid
+30,SST,Gulf Stream,U-global selected (¼°),6400,6400,1.0,1.0
+30,SST,Gulf Stream,Observation-only selected (¼°),6400,6400,1.0,1.0
+30,SST,Gulf Stream,"Legacy U-global (1°, seed 1729)",400,400,1.0,1.0
+30,SST,Gulf Stream,OM4 (¼°),6400,6400,1.0,1.0
+30,SST,Gulf Stream,Observations (¼°),6400,6400,1.0,1.0
+30,SST,Kuroshio,U-global selected (¼°),6400,6400,1.0,1.0
+30,SST,Kuroshio,Observation-only selected (¼°),6400,6400,1.0,1.0
+30,SST,Kuroshio,"Legacy U-global (1°, seed 1729)",400,400,1.0,1.0
+30,SST,Kuroshio,OM4 (¼°),6400,6400,1.0,1.0
+30,SST,Kuroshio,Observations (¼°),6400,6400,1.0,1.0
+30,SST,Agulhas,U-global selected (¼°),6400,6400,1.0,1.0
+30,SST,Agulhas,Observation-only selected (¼°),6400,6400,1.0,1.0
+30,SST,Agulhas,"Legacy U-global (1°, seed 1729)",400,400,1.0,1.0
+30,SST,Agulhas,OM4 (¼°),6400,6400,1.0,1.0
+30,SST,Agulhas,Observations (¼°),6400,6400,1.0,1.0
+30,SST,Malvinas,U-global selected (¼°),6400,6400,1.0,1.0
+30,SST,Malvinas,Observation-only selected (¼°),6400,6400,1.0,1.0
+30,SST,Malvinas,"Legacy U-global (1°, seed 1729)",400,400,1.0,1.0
+30,SST,Malvinas,OM4 (¼°),6400,6400,1.0,1.0
+30,SST,Malvinas,Observations (¼°),6400,6400,1.0,1.0
+30,SST,Niño 3.4,U-global selected (¼°),8000,8000,1.0,1.0
+30,SST,Niño 3.4,Observation-only selected (¼°),8000,8000,1.0,1.0
+30,SST,Niño 3.4,"Legacy U-global (1°, seed 1729)",500,500,1.0,1.0
+30,SST,Niño 3.4,OM4 (¼°),8000,8000,1.0,1.0
+30,SST,Niño 3.4,Observations (¼°),8000,8000,1.0,1.0
+30,SST,Tropical Pacific,U-global selected (¼°),136528,140247,0.8888541666666666,0.9734824987343758
+30,SST,Tropical Pacific,Observation-only selected (¼°),136528,140247,0.8888541666666666,0.9734824987343758
+30,SST,Tropical Pacific,"Legacy U-global (1°, seed 1729)",8533,8915,0.8888541666666666,0.9571508693213685
+30,SST,Tropical Pacific,OM4 (¼°),136528,140247,0.8888541666666666,0.9734824987343758
+30,SST,Tropical Pacific,Observations (¼°),136528,139823,0.8888541666666666,0.9764344921793983
+30,SSH,Gulf Stream,U-global selected (¼°),6400,6400,1.0,1.0
+30,SSH,Gulf Stream,Observation-only selected (¼°),6400,6400,1.0,1.0
+30,SSH,Gulf Stream,"Legacy U-global (1°, seed 1729)",400,400,1.0,1.0
+30,SSH,Gulf Stream,OM4 (¼°),6400,6400,1.0,1.0
+30,SSH,Gulf Stream,Observations (¼°),6400,6400,1.0,1.0
+30,SSH,Kuroshio,U-global selected (¼°),6400,6400,1.0,1.0
+30,SSH,Kuroshio,Observation-only selected (¼°),6400,6400,1.0,1.0
+30,SSH,Kuroshio,"Legacy U-global (1°, seed 1729)",400,400,1.0,1.0
+30,SSH,Kuroshio,OM4 (¼°),6400,6400,1.0,1.0
+30,SSH,Kuroshio,Observations (¼°),6400,6400,1.0,1.0
+30,SSH,Agulhas,U-global selected (¼°),6400,6400,1.0,1.0
+30,SSH,Agulhas,Observation-only selected (¼°),6400,6400,1.0,1.0
+30,SSH,Agulhas,"Legacy U-global (1°, seed 1729)",400,400,1.0,1.0
+30,SSH,Agulhas,OM4 (¼°),6400,6400,1.0,1.0
+30,SSH,Agulhas,Observations (¼°),6400,6400,1.0,1.0
+30,SSH,Malvinas,U-global selected (¼°),6400,6400,1.0,1.0
+30,SSH,Malvinas,Observation-only selected (¼°),6400,6400,1.0,1.0
+30,SSH,Malvinas,"Legacy U-global (1°, seed 1729)",400,400,1.0,1.0
+30,SSH,Malvinas,OM4 (¼°),6400,6400,1.0,1.0
+30,SSH,Malvinas,Observations (¼°),6400,6400,1.0,1.0
+30,SSH,Niño 3.4,U-global selected (¼°),8000,8000,1.0,1.0
+30,SSH,Niño 3.4,Observation-only selected (¼°),8000,8000,1.0,1.0
+30,SSH,Niño 3.4,"Legacy U-global (1°, seed 1729)",500,500,1.0,1.0
+30,SSH,Niño 3.4,OM4 (¼°),8000,8000,1.0,1.0
+30,SSH,Niño 3.4,Observations (¼°),8000,8000,1.0,1.0
+30,SSH,Tropical Pacific,U-global selected (¼°),135920,140247,0.8848958333333333,0.9691472901381135
+30,SSH,Tropical Pacific,Observation-only selected (¼°),135920,140247,0.8848958333333333,0.9691472901381135
+30,SSH,Tropical Pacific,"Legacy U-global (1°, seed 1729)",8495,8915,0.8848958333333333,0.9528883903533371
+30,SSH,Tropical Pacific,OM4 (¼°),135920,140247,0.8848958333333333,0.9691472901381135
+30,SSH,Tropical Pacific,Observations (¼°),135920,139521,0.8848958333333333,0.9741902652647272
+30,Geostrophic KE,Gulf Stream,U-global selected (¼°),6400,6400,1.0,1.0
+30,Geostrophic KE,Gulf Stream,Observation-only selected (¼°),6400,6400,1.0,1.0
+30,Geostrophic KE,Gulf Stream,"Legacy U-global (1°, seed 1729)",400,400,1.0,1.0
+30,Geostrophic KE,Gulf Stream,OM4 (¼°),6400,6400,1.0,1.0
+30,Geostrophic KE,Gulf Stream,Observations (¼°),6400,6400,1.0,1.0
+30,Geostrophic KE,Kuroshio,U-global selected (¼°),6400,6400,1.0,1.0
+30,Geostrophic KE,Kuroshio,Observation-only selected (¼°),6400,6400,1.0,1.0
+30,Geostrophic KE,Kuroshio,"Legacy U-global (1°, seed 1729)",400,400,1.0,1.0
+30,Geostrophic KE,Kuroshio,OM4 (¼°),6400,6400,1.0,1.0
+30,Geostrophic KE,Kuroshio,Observations (¼°),6400,6400,1.0,1.0
+30,Geostrophic KE,Agulhas,U-global selected (¼°),6400,6400,1.0,1.0
+30,Geostrophic KE,Agulhas,Observation-only selected (¼°),6400,6400,1.0,1.0
+30,Geostrophic KE,Agulhas,"Legacy U-global (1°, seed 1729)",400,400,1.0,1.0
+30,Geostrophic KE,Agulhas,OM4 (¼°),6400,6400,1.0,1.0
+30,Geostrophic KE,Agulhas,Observations (¼°),6400,6400,1.0,1.0
+30,Geostrophic KE,Malvinas,U-global selected (¼°),6400,6400,1.0,1.0
+30,Geostrophic KE,Malvinas,Observation-only selected (¼°),6400,6400,1.0,1.0
+30,Geostrophic KE,Malvinas,"Legacy U-global (1°, seed 1729)",400,400,1.0,1.0
+30,Geostrophic KE,Malvinas,OM4 (¼°),6400,6400,1.0,1.0
+30,Geostrophic KE,Malvinas,Observations (¼°),6400,6400,1.0,1.0
+30,Geostrophic KE,Niño 3.4,U-global selected (¼°),0,0,0.0,0.0
+30,Geostrophic KE,Niño 3.4,Observation-only selected (¼°),0,0,0.0,0.0
+30,Geostrophic KE,Niño 3.4,"Legacy U-global (1°, seed 1729)",0,0,0.0,0.0
+30,Geostrophic KE,Niño 3.4,OM4 (¼°),0,0,0.0,0.0
+30,Geostrophic KE,Niño 3.4,Observations (¼°),0,0,0.0,0.0
+30,Geostrophic KE,Tropical Pacific,U-global selected (¼°),111360,115356,0.725,0.9653594091334651
+30,Geostrophic KE,Tropical Pacific,Observation-only selected (¼°),111360,115356,0.725,0.9653594091334651
+30,Geostrophic KE,Tropical Pacific,"Legacy U-global (1°, seed 1729)",6960,7242,0.725,0.9610604805302403
+30,Geostrophic KE,Tropical Pacific,OM4 (¼°),111360,115356,0.725,0.9653594091334651
+30,Geostrophic KE,Tropical Pacific,Observations (¼°),111360,114532,0.725,0.9723046834072574
+365,SST,Gulf Stream,U-global selected (¼°),6400,6400,1.0,1.0
+365,SST,Gulf Stream,Observation-only selected (¼°),6400,6400,1.0,1.0
+365,SST,Gulf Stream,"Legacy U-global (1°, seed 1729)",400,400,1.0,1.0
+365,SST,Gulf Stream,OM4 (¼°),6400,6400,1.0,1.0
+365,SST,Gulf Stream,Observations (¼°),6400,6400,1.0,1.0
+365,SST,Kuroshio,U-global selected (¼°),6400,6400,1.0,1.0
+365,SST,Kuroshio,Observation-only selected (¼°),6400,6400,1.0,1.0
+365,SST,Kuroshio,"Legacy U-global (1°, seed 1729)",400,400,1.0,1.0
+365,SST,Kuroshio,OM4 (¼°),6400,6400,1.0,1.0
+365,SST,Kuroshio,Observations (¼°),6400,6400,1.0,1.0
+365,SST,Agulhas,U-global selected (¼°),6400,6400,1.0,1.0
+365,SST,Agulhas,Observation-only selected (¼°),6400,6400,1.0,1.0
+365,SST,Agulhas,"Legacy U-global (1°, seed 1729)",400,400,1.0,1.0
+365,SST,Agulhas,OM4 (¼°),6400,6400,1.0,1.0
+365,SST,Agulhas,Observations (¼°),6400,6400,1.0,1.0
+365,SST,Malvinas,U-global selected (¼°),6400,6400,1.0,1.0
+365,SST,Malvinas,Observation-only selected (¼°),6400,6400,1.0,1.0
+365,SST,Malvinas,"Legacy U-global (1°, seed 1729)",400,400,1.0,1.0
+365,SST,Malvinas,OM4 (¼°),6400,6400,1.0,1.0
+365,SST,Malvinas,Observations (¼°),6400,6400,1.0,1.0
+365,SST,Niño 3.4,U-global selected (¼°),8000,8000,1.0,1.0
+365,SST,Niño 3.4,Observation-only selected (¼°),8000,8000,1.0,1.0
+365,SST,Niño 3.4,"Legacy U-global (1°, seed 1729)",500,500,1.0,1.0
+365,SST,Niño 3.4,OM4 (¼°),8000,8000,1.0,1.0
+365,SST,Niño 3.4,Observations (¼°),8000,8000,1.0,1.0
+365,SST,Tropical Pacific,U-global selected (¼°),136528,140247,0.8888541666666666,0.9734824987343758
+365,SST,Tropical Pacific,Observation-only selected (¼°),136528,140247,0.8888541666666666,0.9734824987343758
+365,SST,Tropical Pacific,"Legacy U-global (1°, seed 1729)",8533,8915,0.8888541666666666,0.9571508693213685
+365,SST,Tropical Pacific,OM4 (¼°),136528,140247,0.8888541666666666,0.9734824987343758
+365,SST,Tropical Pacific,Observations (¼°),136528,139823,0.8888541666666666,0.9764344921793983
+365,SSH,Gulf Stream,U-global selected (¼°),6400,6400,1.0,1.0
+365,SSH,Gulf Stream,Observation-only selected (¼°),6400,6400,1.0,1.0
+365,SSH,Gulf Stream,"Legacy U-global (1°, seed 1729)",400,400,1.0,1.0
+365,SSH,Gulf Stream,OM4 (¼°),6400,6400,1.0,1.0
+365,SSH,Gulf Stream,Observations (¼°),6400,6400,1.0,1.0
+365,SSH,Kuroshio,U-global selected (¼°),6400,6400,1.0,1.0
+365,SSH,Kuroshio,Observation-only selected (¼°),6400,6400,1.0,1.0
+365,SSH,Kuroshio,"Legacy U-global (1°, seed 1729)",400,400,1.0,1.0
+365,SSH,Kuroshio,OM4 (¼°),6400,6400,1.0,1.0
+365,SSH,Kuroshio,Observations (¼°),6400,6400,1.0,1.0
+365,SSH,Agulhas,U-global selected (¼°),6400,6400,1.0,1.0
+365,SSH,Agulhas,Observation-only selected (¼°),6400,6400,1.0,1.0
+365,SSH,Agulhas,"Legacy U-global (1°, seed 1729)",400,400,1.0,1.0
+365,SSH,Agulhas,OM4 (¼°),6400,6400,1.0,1.0
+365,SSH,Agulhas,Observations (¼°),6400,6400,1.0,1.0
+365,SSH,Malvinas,U-global selected (¼°),6400,6400,1.0,1.0
+365,SSH,Malvinas,Observation-only selected (¼°),6400,6400,1.0,1.0
+365,SSH,Malvinas,"Legacy U-global (1°, seed 1729)",400,400,1.0,1.0
+365,SSH,Malvinas,OM4 (¼°),6400,6400,1.0,1.0
+365,SSH,Malvinas,Observations (¼°),6400,6400,1.0,1.0
+365,SSH,Niño 3.4,U-global selected (¼°),8000,8000,1.0,1.0
+365,SSH,Niño 3.4,Observation-only selected (¼°),8000,8000,1.0,1.0
+365,SSH,Niño 3.4,"Legacy U-global (1°, seed 1729)",500,500,1.0,1.0
+365,SSH,Niño 3.4,OM4 (¼°),8000,8000,1.0,1.0
+365,SSH,Niño 3.4,Observations (¼°),8000,8000,1.0,1.0
+365,SSH,Tropical Pacific,U-global selected (¼°),135920,140247,0.8848958333333333,0.9691472901381135
+365,SSH,Tropical Pacific,Observation-only selected (¼°),135920,140247,0.8848958333333333,0.9691472901381135
+365,SSH,Tropical Pacific,"Legacy U-global (1°, seed 1729)",8495,8915,0.8848958333333333,0.9528883903533371
+365,SSH,Tropical Pacific,OM4 (¼°),135920,140247,0.8848958333333333,0.9691472901381135
+365,SSH,Tropical Pacific,Observations (¼°),135920,139521,0.8848958333333333,0.9741902652647272
+365,Geostrophic KE,Gulf Stream,U-global selected (¼°),6400,6400,1.0,1.0
+365,Geostrophic KE,Gulf Stream,Observation-only selected (¼°),6400,6400,1.0,1.0
+365,Geostrophic KE,Gulf Stream,"Legacy U-global (1°, seed 1729)",400,400,1.0,1.0
+365,Geostrophic KE,Gulf Stream,OM4 (¼°),6400,6400,1.0,1.0
+365,Geostrophic KE,Gulf Stream,Observations (¼°),6400,6400,1.0,1.0
+365,Geostrophic KE,Kuroshio,U-global selected (¼°),6400,6400,1.0,1.0
+365,Geostrophic KE,Kuroshio,Observation-only selected (¼°),6400,6400,1.0,1.0
+365,Geostrophic KE,Kuroshio,"Legacy U-global (1°, seed 1729)",400,400,1.0,1.0
+365,Geostrophic KE,Kuroshio,OM4 (¼°),6400,6400,1.0,1.0
+365,Geostrophic KE,Kuroshio,Observations (¼°),6400,6400,1.0,1.0
+365,Geostrophic KE,Agulhas,U-global selected (¼°),6400,6400,1.0,1.0
+365,Geostrophic KE,Agulhas,Observation-only selected (¼°),6400,6400,1.0,1.0
+365,Geostrophic KE,Agulhas,"Legacy U-global (1°, seed 1729)",400,400,1.0,1.0
+365,Geostrophic KE,Agulhas,OM4 (¼°),6400,6400,1.0,1.0
+365,Geostrophic KE,Agulhas,Observations (¼°),6400,6400,1.0,1.0
+365,Geostrophic KE,Malvinas,U-global selected (¼°),6400,6400,1.0,1.0
+365,Geostrophic KE,Malvinas,Observation-only selected (¼°),6400,6400,1.0,1.0
+365,Geostrophic KE,Malvinas,"Legacy U-global (1°, seed 1729)",400,400,1.0,1.0
+365,Geostrophic KE,Malvinas,OM4 (¼°),6400,6400,1.0,1.0
+365,Geostrophic KE,Malvinas,Observations (¼°),6400,6400,1.0,1.0
+365,Geostrophic KE,Niño 3.4,U-global selected (¼°),0,0,0.0,0.0
+365,Geostrophic KE,Niño 3.4,Observation-only selected (¼°),0,0,0.0,0.0
+365,Geostrophic KE,Niño 3.4,"Legacy U-global (1°, seed 1729)",0,0,0.0,0.0
+365,Geostrophic KE,Niño 3.4,OM4 (¼°),0,0,0.0,0.0
+365,Geostrophic KE,Niño 3.4,Observations (¼°),0,0,0.0,0.0
+365,Geostrophic KE,Tropical Pacific,U-global selected (¼°),111360,115356,0.725,0.9653594091334651
+365,Geostrophic KE,Tropical Pacific,Observation-only selected (¼°),111360,115356,0.725,0.9653594091334651
+365,Geostrophic KE,Tropical Pacific,"Legacy U-global (1°, seed 1729)",6960,7242,0.725,0.9610604805302403
+365,Geostrophic KE,Tropical Pacific,OM4 (¼°),111360,115356,0.725,0.9653594091334651
+365,Geostrophic KE,Tropical Pacific,Observations (¼°),111360,114532,0.725,0.9723046834072574

@@ -92,6 +92,28 @@ The following maps use the 2021 start and validation-selected checkpoints. Each 
 
 Additional maps: [selected checkpoints](artifacts/quarter-baseline-results-2026-10-15/native-annual/maps/native-selected/) and [fixed-6k checkpoints](artifacts/quarter-baseline-results-2026-10-15/native-annual/maps/native-fixed6000/). Anomaly maps cover all three starts; absolute-field maps cover the 2021 start. ADT maps are diagnostic: ADT itself is not a component of the reported RMSE blend.
 
+## Regional spectra at 30 and 365 days
+
+**Both quarter-degree models have too little regional surface power at day 365; observation-only retains more 200–500 km power than U-global in all four extratropical boxes.** For SST, U-global retains about 6–27% of observed power in that band, versus 13–53% for observation-only. This describes spatial amplitude, not phase accuracy. It also shows why U-global’s better OHC-dominated annual RMSE blend does not imply better surface spectra.
+
+These diagnostics compare **U-global selected (¼°)** and **Observation-only selected (¼°)** from the table above, **Legacy U-global (1°, seed 1729)** from the matched comparison, **OM4 (¼°)** and **Observations (¼°)**. OM4 is a date-matched simulation reference, not an observation-initialized forecast. No additional model is selected or trained for this analysis.
+
+The panels follow the six-region layout and spatial transform in [Samudra 2, Appendix A.5](https://arxiv.org/html/2606.02610v1#A1.SS5): remove a fitted spatial plane, apply a Hann taper, compute the spatial Fourier power and average it into radial wavenumber bins. They show SST, ADT and geostrophic kinetic-energy spectra. Geostrophic velocities are derived from each source's sea level with the same operator; this is not the spectrum of the models' prognostic velocities or temporal-anomaly EKE. Geostrophy is excluded within 5° of the equator.
+
+The main plots average **powers**, computed separately at each lead for the three January starts (2015, 2018, 2021). They retain structure whose position differs between starts. Supplementary plots instead average the three **fields before transforming**, following the paper's averaging order; displaced features can cancel in that view. Both use five-day-bin means from the same continuous annual rollouts. The paper's multi-year evaluation and this three-case fixed-lead comparison are different cohorts.
+
+Every source retains its native grid, including the legacy model's 1° frequency limit. Fields are restricted to shared geographic wet support held fixed across both leads, with holes treated as a mask and a taper-power correction. These are masked pseudo-spectra, not a correction for all mask-induced spectral leakage. The broad Tropical Pacific panel also uses an approximate regional Cartesian distance conversion. Spectral amplitude agreement does not establish phase accuracy or change the RMSE-based checkpoint selection.
+
+| Variable | Day 30 | Day 365 | Paper-order supplement |
+|---|---|---|---|
+| SST | [View](artifacts/quarter-baseline-results-2026-10-15/spectra/day30-snapshot-power-sst.png) | [View](artifacts/quarter-baseline-results-2026-10-15/spectra/day365-snapshot-power-sst.png) | [Day 30](artifacts/quarter-baseline-results-2026-10-15/spectra/day30-mean-field-sst.png), [day 365](artifacts/quarter-baseline-results-2026-10-15/spectra/day365-mean-field-sst.png) |
+| ADT | [View](artifacts/quarter-baseline-results-2026-10-15/spectra/day30-snapshot-power-ssh.png) | [View](artifacts/quarter-baseline-results-2026-10-15/spectra/day365-snapshot-power-ssh.png) | [Day 30](artifacts/quarter-baseline-results-2026-10-15/spectra/day30-mean-field-ssh.png), [day 365](artifacts/quarter-baseline-results-2026-10-15/spectra/day365-mean-field-ssh.png) |
+| Geostrophic KE | [View](artifacts/quarter-baseline-results-2026-10-15/spectra/day30-snapshot-power-geostrophic-ke.png) | [View](artifacts/quarter-baseline-results-2026-10-15/spectra/day365-snapshot-power-geostrophic-ke.png) | [Day 30](artifacts/quarter-baseline-results-2026-10-15/spectra/day30-mean-field-geostrophic-ke.png), [day 365](artifacts/quarter-baseline-results-2026-10-15/spectra/day365-mean-field-geostrophic-ke.png) |
+
+![Day-365 SST spectra](artifacts/quarter-baseline-results-2026-10-15/spectra/day365-snapshot-power-sst.png)
+
+[Numerical spectra, per-origin powers and reproducibility details](artifacts/quarter-baseline-results-2026-10-15/spectra/README.md) include the shared-support fractions and exact OM4 time-bin interpretation. These twelve diagnostic plots required no new inference or GPU time.
+
 ## Initialized and evolved temperature profiles
 
 ![Temperature profiles at initialization, day 30 and day 365](artifacts/quarter-baseline-results-2026-10-15/native-annual/temperature-profiles.png)

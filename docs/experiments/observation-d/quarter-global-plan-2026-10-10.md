@@ -9,8 +9,8 @@ best one or two variants from the 6k comparison**, judged at both 30 and 365 day
 All quarter-degree runs use 6,000 total updates. Training and annual evaluation
 data are verified. **All four eight-GPU qualifications (212414) passed**, including
 fitting, gradients, real data, exact fresh-process replay, and two-host NVLink
-transport. **U-global completed all 6,000 updates**; observation-only reached
-5,709/6,000 at October 14, 6:14 p.m. ET. Both earlier-data variants remain queued.
+transport. **U-global and observation-only both completed all 6,000 updates**.
+At October 14, 8:15 p.m. ET, both earlier-data variants remain queued.
 The [training snapshot and validation curves](#production-snapshot) are below;
 held-out 30-/365-day evaluation and the common-grid 1° comparison are still pending.
 Reporting both native-resolution and matched 1° metrics remains agreed.
@@ -324,22 +324,21 @@ preserve failed attempts.
 
 ## Production snapshot
 
-**October 14, 22:14 UTC (6:14 p.m. ET).** U-global **212532_0** completed in
+**October 15, 00:15 UTC (October 14, 8:15 p.m. ET).** U-global **212532_0** completed in
 20h38m, with verified terminal receipt and selected/final checkpoint hashes.
-Observation-only **212896_1** is still training; **212896_2/3** (early and
+Observation-only **212896_1** completed in 21h50m; **212896_2/3** (early and
 early-latent) are pending priority.
 
 | Model | Training status / updates | Best native validation RMSE blend (update) | Latest native validation RMSE blend (update) |
 |---|---|---:|---:|
 | U-global-quarter | Complete: 6,000 (3,000 OM4 + 3,000 observation) | **0.8817** (4,900) | 0.9131 (6,000) |
-| U-obs-only-quarter | Running: 5,709 observation updates | **0.8528** (5,300; provisional) | 0.8968 (5,700) |
+| U-obs-only-quarter | Complete: 6,000 observation updates | **0.8528** (5,300) | 0.8867 (6,000) |
 | U-early-quarter | Queued | — | — |
 | U-early-latent-quarter | Queued | — | — |
 
 These are **native-resolution validation scores**, on the same nine validation
 origins and frozen climatology denominators (1 means climatology). They are not
-held-out test results or the common-support 1° comparison. Observation-only is
-unfinished, and both earlier-data variants are pending; no final model ranking
+held-out test results or the common-support 1° comparison. Both earlier-data variants are pending; no final model ranking
 is claimed. Selected checkpoints will receive the agreed 30-/365-day evaluation.
 
 Annual memory qualification **213258 passed** on one GB200: U-global’s
@@ -356,11 +355,13 @@ only an optional, provenance-bound origin subset; training and weights are uncha
 The completed memory allocation adds **0.1133 GPU-hours** (408 seconds × one GPU),
 reported separately from the earlier timestamped training totals below.
 
-Full U-global evaluation **213261** is submitted to production Beta (one host,
+Full U-global evaluation **213261** is running on production Beta (one host,
 four GPUs). It evaluates the validation-selected and fixed-6k checkpoints
 separately over all 96 monthly test origins and all three annual starts, with
 each checkpoint’s own persistence and common-grid exports. No retraining or
-checkpoint reselection is involved; scores remain pending.
+checkpoint reselection is involved; scores remain pending. Matching observation-only
+evaluation **213293** is submitted and queued, with the same four evaluation
+modes and cohorts and the completed 0-OM4/6,000-observation checkpoint contracts.
 
 ![Native quarter-degree validation curves through October 14](artifacts/quarter-bringup-2026-10-11/native-validation-2026-10-14.png)
 
@@ -381,9 +382,9 @@ The training producer remains `f091232ea8d7a8ee04ea14dd4cdbea5fa828f9ff`.
 and the [startup verification](artifacts/quarter-bringup-2026-10-11/production-212532-startup.json.gz)
 remain available.
 
-Allocated production compute is **331.2778 GPU-hours** at this snapshot:
-74,269 seconds for completed U-global and 74,806 seconds for running observation-only,
-each on eight GPUs. Adding **28.0061 GPU-hours** of diagnostics/retries gives
-**359.2839 GPU-hours** so far. Pending jobs use zero; Slurm steps are not counted
+Completed training used **339.7467 GPU-hours**:
+74,269 seconds for U-global and 78,617 seconds for observation-only,
+each on eight GPUs. Adding **28.0061 GPU-hours** of training diagnostics/retries gives
+**367.7528 GPU-hours**, excluding the separately accounted evaluation work. Pending jobs use zero; Slurm steps are not counted
 again. Outputs are under `native-production-eight-bond0/job-212532/0/u-global`
 and `native-production-eight-bond0/job-212896/INDEX/ARM` in the run root above.

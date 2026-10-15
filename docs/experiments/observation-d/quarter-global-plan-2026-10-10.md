@@ -356,12 +356,13 @@ only an optional, provenance-bound origin subset; training and weights are uncha
 The completed memory allocation adds **0.1133 GPU-hours** (408 seconds × one GPU),
 reported separately from the earlier timestamped training totals below.
 
-Full U-global evaluation **213261** is running on production Beta (one host,
+Full U-global evaluation **213261 completed** on production Beta (one host,
 four GPUs). It evaluates the validation-selected and fixed-6k checkpoints
 separately over all 96 monthly test origins and all three annual starts, with
 each checkpoint’s own persistence and common-grid exports. No retraining or
-checkpoint reselection is involved; scores remain pending. Matching observation-only
-evaluation **213293** is submitted and queued, with the same four evaluation
+checkpoint reselection is involved. [All four modes and 434 output hashes are verified](artifacts/quarter-bringup-2026-10-11/evaluation-213261-verified.json.gz).
+The allocation took 57m46s (3.8511 GPU-hours); score/map collection is proceeding
+on CPU. Matching observation-only evaluation **213293** is running, with the same four evaluation
 modes and cohorts and the completed 0-OM4/6,000-observation checkpoint contracts.
 
 ![Native quarter-degree validation curves through October 14](artifacts/quarter-bringup-2026-10-11/native-validation-2026-10-14.png)

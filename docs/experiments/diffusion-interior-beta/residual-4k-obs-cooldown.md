@@ -1,6 +1,8 @@
 <!-- SPDX-FileCopyrightText: 2026 Samudra Authors -->
 <!-- SPDX-License-Identifier: CC-BY-4.0 -->
 
+**Execution update:** The user prioritized this over the main residual run and authorized a shorter cooldown for the deadline. The first run uses **500 observation-only updates**, with the entire linear LR decay over those 500 updates and the same 100-update EMA half-life. Final counts are 7,721 OM4 + 4,500 observation updates. The main residual run is checkpointed and paused while its allocation is reused, then resumed. The original 1,000-update reference recipe is documented below.
+
 # Observation-only cooldown from the residual 4k checkpoint
 
 Test whether a short observation-only cooldown improves the residual model's

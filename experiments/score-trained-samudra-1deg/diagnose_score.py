@@ -102,8 +102,14 @@ def main():
     parser.add_argument("--write-rollouts", action="store_true")
     parser.add_argument("--verify-replay", type=Path)
     parser.add_argument("--forecast-cooldown", action="store_true")
+    parser.add_argument("--forecast-adaptation", action="store_true")
     args = parser.parse_args()
-    expected_epoch = 10 if args.forecast_cooldown else 70
+    if args.forecast_adaptation and args.forecast_cooldown:
+        parser.error("Choose cooldown or adaptation, not both")
+    args.forecast_cooldown = args.forecast_cooldown or args.forecast_adaptation
+    expected_epoch = (
+        30 if args.forecast_adaptation else (10 if args.forecast_cooldown else 70)
+    )
     if args.max_steps is not None and args.max_steps < 1:
         parser.error("--max-steps must be positive")
     device, dist = init_train_backend("auto" if args.arm else "nccl")
@@ -121,7 +127,7 @@ def main():
             args.campaign
             / "configs"
             / (
-                f"cooldown-{arm}.yaml"
+                f"{'adaptation' if args.forecast_adaptation else 'cooldown'}-{arm}.yaml"
                 if args.forecast_cooldown
                 else f"train-{mode}-rtx.yaml"
             )
@@ -138,9 +144,13 @@ def main():
             args.campaign / "configs" / f"train-{'B' if arm == 'A' else arm}.yaml"
         )
     if args.forecast_cooldown:
-        if args.arm not in ("F", "M") or not cfg.finetune or cfg.epochs != 10:
+        if (
+            args.arm not in ("F", "M")
+            or not cfg.finetune
+            or cfg.epochs != expected_epoch
+        ):
             raise ValueError(
-                "Cooldown evaluation requires a ten-epoch F/M finetune config"
+                f"Forecast adaptation evaluation requires an epoch-{expected_epoch} F/M finetune config"
             )
     raw = cfg.model_dump(mode="json")
     raw["data"]["sources"][0]["inference_time"] = {
@@ -188,7 +198,7 @@ def main():
             args.campaign
             / "outputs"
             / (
-                f"cooldown-{arm}-forecast"
+                f"{'adaptation' if args.forecast_adaptation else 'cooldown'}-{arm}-forecast"
                 if args.forecast_cooldown
                 else f"train-{mode}-rtx"
             )

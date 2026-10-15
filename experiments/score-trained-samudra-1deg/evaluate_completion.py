@@ -36,8 +36,14 @@ def main():
         type=int,
         help="Score this checkpoint epoch on validation only",
     )
+    parser.add_argument("--forecast-adaptation", action="store_true")
     args = parser.parse_args()
-    expected_epoch = 10 if args.forecast_cooldown else 70
+    if args.forecast_adaptation and args.forecast_cooldown:
+        parser.error("Choose cooldown or adaptation, not both")
+    args.forecast_cooldown = args.forecast_cooldown or args.forecast_adaptation
+    expected_epoch = (
+        30 if args.forecast_adaptation else (10 if args.forecast_cooldown else 70)
+    )
     if args.validation_epoch is not None:
         if args.validation_epoch < 1 or args.arm not in ("F", "M"):
             parser.error("validation-epoch requires a positive epoch and F/M arm")
@@ -52,9 +58,13 @@ def main():
     )
     configure_native_pointwise(cfg.native_pointwise)
     if args.forecast_cooldown:
-        if args.arm not in ("F", "M") or not cfg.finetune or cfg.epochs != 10:
+        if (
+            args.arm not in ("F", "M")
+            or not cfg.finetune
+            or cfg.epochs != expected_epoch
+        ):
             raise ValueError(
-                "Cooldown evaluation requires a ten-epoch F/M finetune config"
+                f"Forecast adaptation evaluation requires an epoch-{expected_epoch} F/M finetune config"
             )
     raw = cfg.model_dump(mode="json")
     raw["data"]["sources"][0]["inference_time"] = {

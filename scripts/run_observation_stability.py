@@ -561,6 +561,27 @@ def audit(root, config):
             global_step=2667,
         )
         del saved
+    for arm, source in config.get("cooldown_sources", {}).items():
+        if digest(source["checkpoint"]) != source["sha256"]:
+            raise ValueError("Cooldown source checksum differs")
+        saved = torch.load(source["checkpoint"], map_location="cpu", weights_only=False)
+        if (
+            saved["global_step"] != 4000
+            or saved["optimizer"] is None
+            or saved["ema_updates"] != 1000
+            or saved["screen"]["policy"] != "S0"
+            or saved["task_counts"] != dict(om4=2000, observation=2000)
+        ):
+            raise ValueError("Cooldown source is not completed S0")
+        if saved["ema"].keys() != saved["model"].keys():
+            raise ValueError("Source EMA parameter structure differs")
+        evidence["cooldown-" + arm] = dict(
+            source=source,
+            global_step=4000,
+            source_producer=saved["manifest"]["code_commit"],
+            ema_updates=1000,
+        )
+        del saved
     reference = json.loads((root / "selection-reference.json").read_text())
     if reference["data_manifest_sha256"] != digest(
         Path(config["observations"]) / "SHA256SUMS"

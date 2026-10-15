@@ -42,6 +42,11 @@ if [[ "$stage" == screen || "$stage" == screen-qualify ]]; then
   runner=( -m scripts.run_observation_stability_screen --root "$root" --arm "$arm" --policy "${policies[$trial]}" )
   if [[ "$stage" == screen-qualify ]]; then runner+=( --qualify ); fi
 fi
+if [[ "$stage" == cooldown || "$stage" == cooldown-qualify ]]; then
+  branches=(A B C D)
+  runner=( -m scripts.run_observation_cooldown_comparison --root "$root" --arm "$arm" --branch "${branches[$trial]}" )
+  if [[ "$stage" == cooldown-qualify ]]; then runner+=( --qualify ); fi
+fi
 srun /share/apps/apptainer/bin/apptainer exec --nv --bind "$binds" "$image" \
  env PYTHONPATH="/pilot-code/src:/pilot-code:/scratch/jr7309/runs/2026-10-08-early-fine-rtx/runtime" \
  /workspace/.venv/bin/python "${runner[@]}" &

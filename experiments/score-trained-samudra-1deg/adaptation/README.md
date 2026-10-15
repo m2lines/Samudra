@@ -90,5 +90,28 @@ wait. Online W&B: [F932ko1t1](https://wandb.ai/ocean_emulators/default/runs/932k
 Qualification W&B [wkr18kow](https://wandb.ai/ocean_emulators/default/runs/wkr18kow).
 
 The [saved-checkpoint validation diagnostic](DIAGNOSTIC-RESULTS.md) is complete and published.
-Its callback9e7b38cd-0441-44b5-99fd-83e0ba166f0e is retired. The production monitor and callback
-853d037e-35da-41ea-ab20-f06b406f99af remain active; no production-result conclusions yet.
+Its callback9e7b38cd-0441-44b5-99fd-83e0ba166f0e is retired. Production completion is recorded below.
+
+
+## Thirty-epoch training completed; held-out evaluation submitted
+
+F19831717 and M19831718 completed successfully in9:53:40 and9:53:46 respectively,
+using39.5811 RTX GPU-hours combined. Both saved epoch30 checkpoints with2640 fresh EMA updates,
+fixed decay0.99, faster-start disabled and terminal learning rate0. Each completed30 all-forecast task
+rows and60 finite annual-validation records (raw and EMA each epoch). W&B runs above synced.
+The training callback853d037e-35da-41ea-ab20-f06b406f99af is retired.
+
+Final validation-only annual EMA RMSE is0.3362413(F) versus0.3363389(M), and CRPS0.1541266
+versus0.1551998. These are not held-out results and do not establish recovery across targets or leads.
+
+Final held-out evaluation jobs **F19874047 / M19874048** use immutable source6383f0a07,
+one RTX GPU each and a one-hour ceiling. The [harness](evaluate_torch.sbatch) audits epoch30,
+EMA state and terminal LR before evaluating the established30-origin,16-member forecast protocol
+for final EMA and raw checkpoints, EMA completion retention and continuous trajectories.
+Outputs: `outputs/eval-adaptation-F-19874047` and `outputs/eval-adaptation-M-19874048`.
+Logs: `logs/adaptation-eval-F-19874047.{out,err}` and corresponding M files.
+
+Quiet hourly local reminder93e450c9-cd96-4af6-9c39-0212cc7ba421 is owned by
+`/root/strong_adaptation_monitor`. No new callback credential is exported to Torch; completion is
+verified through scheduler, logs and artifacts on reminder wake-up. This evaluation remains within
+the approved proposals1/2; no exposure-matched third wave has been launched.

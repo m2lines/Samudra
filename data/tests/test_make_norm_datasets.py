@@ -2,14 +2,20 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import json
+from pathlib import Path
 from unittest.mock import Mock
 
+import numpy as np
 import pytest
+import xarray as xr
+from numcodecs import Blosc
 from ocean_preprocessing.make_norm_datasets import write_zarr_with_retries
 
 
 def test_write_zarr_uses_dask_task_retries():
     ds = Mock()
+    ds.variables = {}
     client = Mock()
     delayed = object()
     ds.to_zarr.return_value = delayed
@@ -21,9 +27,43 @@ def test_write_zarr_uses_dask_task_retries():
         mode="w",
         zarr_format=2,
         consolidated=True,
+        encoding={},
         compute=False,
     )
     client.compute.assert_called_once_with(delayed, retries=7, sync=True)
+
+
+@pytest.mark.parametrize("statistic", ["mean", "std"])
+def test_compressed_normalization_round_trip(tmp_path: Path, statistic: str) -> None:
+    output = tmp_path / f"CM4_{statistic}.zarr"
+    source = xr.Dataset(
+        {
+            "thetao": (("time", "lev"), np.array([[1, 10], [3, 20]], dtype=np.float32)),
+            "wfo": ("time", np.array([2, 4], dtype=np.float32)),
+        },
+        coords={"lev": [5.0, 20.0], "dz": ("lev", [10.0, 20.0])},
+    )
+    ds = getattr(source, statistic)("time")
+    ds.attrs["normalization_steps"] = 2
+    for field in ds.variables.values():
+        field.encoding["compressor"] = Blosc(cname="lz4")
+    client = Mock()
+    client.compute.side_effect = lambda task, **kwargs: task.compute()
+
+    write_zarr_with_retries(ds, str(output), client, 5)
+
+    for name, field in ds.variables.items():
+        metadata = json.loads((output / name / ".zarray").read_text())
+        if field.ndim:
+            assert metadata["compressor"]["id"] == "blosc"
+            assert metadata["compressor"]["cname"] == "zstd"
+            assert metadata["compressor"]["clevel"] == 5
+            assert metadata["compressor"]["shuffle"] == Blosc.SHUFFLE
+        else:
+            # Zarr v2 always leaves zero-dimensional scalars uncompressed.
+            assert metadata["compressor"] is None
+    with xr.open_zarr(output) as actual:
+        xr.testing.assert_identical(actual.load(), ds)
 
 
 def test_compact_normalization_keeps_depth_and_excludes_land() -> None:

@@ -118,7 +118,8 @@ if [[ ! "${NORM_WRITE_RETRIES}" =~ ^[0-9]+$ ]]; then
 fi
 
 echo "Building means/stds for: ${OUTPUT_PATH}"
-python ocean_preprocessing/make_norm_datasets.py \
+# Import the shared encoding helper from the selected checkout, as preprocessing does.
+python -m ocean_preprocessing.make_norm_datasets \
   "${OUTPUT_PATH}" \
   --write-retries="${NORM_WRITE_RETRIES}"
 

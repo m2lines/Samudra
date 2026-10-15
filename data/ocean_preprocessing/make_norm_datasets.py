@@ -14,12 +14,17 @@ from typing import TYPE_CHECKING
 
 import xarray as xr
 
+from ocean_preprocessing.utils import zstd_encoding
+
 if TYPE_CHECKING:
     from dask.distributed import Client
 
 
 def write_zarr_with_retries(
-    ds: xr.Dataset, path: str, client: Client, write_retries: int
+    ds: xr.Dataset,
+    path: str,
+    client: Client,
+    write_retries: int,
 ) -> None:
     """Write a derived dataset, retrying failed Dask tasks in place."""
     delayed = ds.to_zarr(
@@ -27,6 +32,7 @@ def write_zarr_with_retries(
         mode="w",
         zarr_format=2,
         consolidated=True,
+        encoding=zstd_encoding(ds),
         compute=False,
     )
     client.compute(delayed, retries=write_retries, sync=True)

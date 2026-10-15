@@ -294,6 +294,7 @@ def test_cm4_publication_rotates_stress_preserves_metadata_and_chunks(
             "--skip_spatial_filtering",
             "--skip_flattening",
             "--skip_validation",
+            "--compress",
             f"--time_bounds_path={bounds_path}",
         ],
     )
@@ -348,3 +349,10 @@ def test_cm4_publication_rotates_stress_preserves_metadata_and_chunks(
         metadata = json.loads((out / name / ".zarray").read_text())
         assert metadata["chunks"] == [1, 2, ny, nx]
     assert json.loads((out / "wfo" / ".zarray").read_text())["chunks"] == [1, ny, nx]
+    for name, field in actual.variables.items():
+        if field.ndim:
+            compressor = json.loads((out / name / ".zarray").read_text())["compressor"]
+            assert compressor["id"] == "blosc"
+            assert compressor["cname"] == "zstd"
+            assert compressor["clevel"] == 5
+            assert compressor["shuffle"] == 1  # byte shuffle, not bit shuffle

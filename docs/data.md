@@ -74,7 +74,7 @@ PYTHONPATH=data python -m ocean_preprocessing cm4 \
   "$CM4_STATIC/gaussian_grid_180_by_360.nc" \
   --time_bounds_path="$CM4_RAW/time_bnds.nc" \
   --output_path=cm4_onedeg/CM4.zarr \
-  --skip_spatial_filtering --skip_flattening
+  --skip_spatial_filtering --skip_flattening --compress
 ```
 
 Generate normalization statistics using the chosen training interval:
@@ -85,6 +85,8 @@ PYTHONPATH=data python -m ocean_preprocessing.make_norm_datasets \
 ```
 
 This writes `CM4_means.zarr` and `CM4_stds.zarr` alongside the processed data.
+Coordinates, masks, and normalization profiles use Blosc Zstd (level 5, byte
+shuffle) by default. `--compress` additionally compresses the physical fields.
 
 ### Basin masks
 

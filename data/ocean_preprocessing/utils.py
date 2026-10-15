@@ -3,10 +3,24 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import subprocess
+from collections.abc import Hashable
 from urllib.parse import urlsplit
 
 import numpy as np
 import xarray as xr
+from numcodecs import Blosc
+
+
+def zstd_encoding(ds: xr.Dataset) -> dict[Hashable, dict[str, Blosc]]:
+    """Compress fields and coordinates with Blosc Zstd and byte shuffle.
+
+    Zarr v2 always stores zero-dimensional scalar arrays without compression.
+    """
+    return {
+        name: {"compressor": Blosc(cname="zstd", clevel=5, shuffle=Blosc.SHUFFLE)}
+        for name, variable in ds.variables.items()
+        if variable.ndim
+    }
 
 
 def get_git_url_hash() -> str:

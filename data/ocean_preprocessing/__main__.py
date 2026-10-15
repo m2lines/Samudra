@@ -43,7 +43,7 @@ from ocean_preprocessing.simulation_preprocessing.gfdl_cm4 import (
     cm4_ocean_preprocessing,
 )
 from ocean_preprocessing.simulation_preprocessing.gfdl_om4 import om4_preprocessing
-from ocean_preprocessing.utils import get_git_url_hash
+from ocean_preprocessing.utils import get_git_url_hash, zstd_encoding
 
 logger = logging.getLogger("ocean_preprocessing")
 logging.basicConfig(
@@ -203,6 +203,8 @@ class CLI:
             on the primary source's native grid and intervals. Its end-of-interval
             time labels are validated before transplantation.
         time_bounds_path: Companion NetCDF containing time_bnds, required for CM4.
+        compress: Write fields, coordinates and masks with Blosc Zstd level 5
+            and byte shuffle. Default False keeps physical fields uncompressed.
         cluster: Type of Dask cluster to use for distributed computation. Options are:
             'off' (no cluster, single-threaded), 'local' (LocalCluster), 'kube'
             (KubeCluster), 'slurm' (SlurmCluster), 'coiled' (Coiled cluster).
@@ -224,6 +226,7 @@ class CLI:
         write_retries: int = 5,
         wfo_source_path: str | None = None,
         time_bounds_path: str | None = None,
+        compress: bool = False,
         cluster: Cluster = "off",
         **cluster_opts,
     ):
@@ -239,14 +242,15 @@ class CLI:
         self.write_retries = write_retries
         self.wfo_source_path = wfo_source_path
         self.time_bounds_path = time_bounds_path
+        self.compress = compress
         self.dask_client = init_cluster(cluster, **cluster_opts)
 
-    def _collect(self, ds: xr.Dataset, *, compress: bool = False):
+    def _collect(self, ds: xr.Dataset, *, compress: bool | None = None) -> None:
         """Finalize and write the processed dataset to disk.
 
         Args:
             ds: The processed dataset to write. Should already be chunked appropriately.
-            compress: Compress the resulting dataset.
+            compress: Override the CLI compression setting for this output.
 
         Note:
             Respects dry_run and small_run flags.
@@ -262,6 +266,8 @@ class CLI:
             return
 
         logger.info(f"writing dataset to {self.output_path}")
+        if compress is None:
+            compress = self.compress
 
         delayed = ds.to_zarr(
             self.output_path,
@@ -269,7 +275,7 @@ class CLI:
             consolidated=True,
             zarr_format=2,
             encoding=(
-                None  # by default zarr uses compression
+                zstd_encoding(ds)
                 if compress
                 else {var_name: {"compressor": None} for var_name in ds.data_vars}
             ),

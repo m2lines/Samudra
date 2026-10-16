@@ -7,4 +7,6 @@ from model_info import description
 
 def test_diffusion_description_preserves_sampling_and_missing_data_caveats():
     note = "Eight independently sampled decodes; missing depths remain unavailable."
-    assert description("diffusion-test-draw1", {"description": note}) == note
+    assert description("diffusion-test-draw1", {"description": note}) == (
+        "### What is this model?\n\n" + note
+    )

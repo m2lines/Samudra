@@ -512,9 +512,7 @@ def test_new_annual_models_descriptions_persistence_and_profile_availability():
             "window.Bokeh?.documents?.[0]?.get_model_by_name('source-prediction')?.data.value.length > 0",
             timeout=60000,
         )
-        assert page.locator(".model-select option").count() == len(
-            catalog.meta["models"]
-        )
+        assert page.locator(".model-select option").count() == len(catalog.all_models)
         assert not any(
             "cooldown" in label
             for label in page.locator(".model-select option").all_text_contents()

@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Coordinate-aware access and diagnostics for immutable viewer exports."""
 
+import hashlib
 import json
 from datetime import date, timedelta
 from functools import lru_cache
@@ -60,14 +61,82 @@ def interval(origin, index):
 
 
 class Catalog:
-    def __init__(self, root):
+    def __init__(self, root, extra_catalogs=(), _ancestors=()):
         self.root = Path(root).resolve()
+        if self.root in _ancestors:
+            raise ValueError("Catalog registry contains a cycle")
         self.meta = json.loads((self.root / "catalog.json").read_text())
         if self.meta["schema_version"] != 1:
             raise ValueError("Unsupported viewer catalog schema")
         self.lat = np.array(self.meta["lat"])
         self.lon = np.array(self.meta["lon"])
         self.depths = np.array(self.meta["depths"])
+        self.children = []
+        for path in [*self.meta.get("extra_catalogs", []), *extra_catalogs]:
+            child_root = self.root / path
+            expected = self.meta.get("extra_catalog_hashes", {}).get(path)
+            if (
+                expected
+                and hashlib.sha256(
+                    (child_root / "catalog.json").read_bytes()
+                ).hexdigest()
+                != expected
+            ):
+                raise ValueError("Child catalog checksum differs")
+            self.children.append(
+                Catalog(child_root, _ancestors=(*_ancestors, self.root))
+            )
+        self.all_models = dict(self.meta.get("models", {}))
+        for child in self.children:
+            if self.all_models.keys() & child.all_models.keys():
+                raise ValueError("Model IDs must be unique across catalogs")
+            self.all_models.update(child.all_models)
+
+    def for_model(self, model):
+        """Route a saved model to its immutable geometry and arrays."""
+        if model in self.meta.get("models", {}):
+            return self
+        for child in self.children:
+            if model in child.all_models:
+                return child.for_model(model)
+        raise KeyError(model)
+
+    def geometry(self, mode):
+        if mode == "heat" and "heat_lat" in self.meta:
+            return np.asarray(self.meta["heat_lat"]), np.asarray(self.meta["heat_lon"])
+        return self.lat, self.lon
+
+    @property
+    def depth_interfaces(self):
+        interfaces = np.asarray(
+            self.meta.get(
+                "depth_interfaces",
+                [0, 5, 15, 30, 50, 80, 130, 200, 300, 450, 650, 900, 1200, 1600, 2100],
+            )
+        )
+        if not np.array_equal((interfaces[:-1] + interfaces[1:]) / 2, self.depths):
+            raise ValueError("Depth interfaces do not match saved layer centers")
+        return interfaces
+
+    def models_for(self, mode, origin):
+        if mode == "interior" and "interior_examples" in self.meta:
+            return set(self.meta["interior_examples"].get(origin, {}).get("models", {}))
+        return {
+            model
+            for model, record in self.meta.get("records", {})
+            .get(origin, {})
+            .get("models", {})
+            .items()
+            if mode in record
+        }
+
+    def available_modes(self, model):
+        modes = set()
+        for origin in self.meta.get("origins", []):
+            for mode in ("surface", "interior", "forecast_interior", "heat"):
+                if model in self.models_for(mode, origin):
+                    modes.add(mode)
+        return modes
 
     @lru_cache(maxsize=64)
     def array(self, name):
@@ -81,6 +150,11 @@ class Catalog:
         return result
 
     def values(self, mode, model, origin, reference="observations"):
+        owner = self.for_model(model) if self.all_models else self
+        if reference in self.all_models and self.for_model(reference) is not owner:
+            raise ValueError("Comparison models must use the same catalog geometry")
+        if owner is not self:
+            return owner.values(mode, model, origin, reference)
         if mode == "interior" and "interior_examples" in self.meta:
             record = self.meta["interior_examples"][origin]
             prediction = self.array(record["models"][model])
@@ -93,6 +167,9 @@ class Catalog:
         record = self.meta["records"][origin]
         prediction = self.array(record["models"][model][mode])
         if reference == "persistence":
+            if mode == "forecast_interior":
+                name = self.meta["interior_examples"][origin]["models"][model]
+                return prediction, np.broadcast_to(self.array(name), prediction.shape)
             kind = "heat" if mode == "report_heat" else mode
             comparison = self.array(record["models"][model][kind + "_persistence"])
         elif reference == "observations":
@@ -106,3 +183,44 @@ class Catalog:
         else:
             comparison = self.array(record["models"][reference][mode])
         return prediction, comparison
+
+
+def raster_rows(values, wet, lat, lon, palette, low, high):
+    """Exact native row strips, retaining irregular latitude cell boundaries.
+
+    RGB pixels encode display colors only; the separate values keep every native
+    physical value for hover/testing. Land is gray and missing wet cells white.
+    """
+    values, wet = np.asarray(values), np.asarray(wet, bool)
+    if values.shape != (len(lat), len(lon)) or wet.shape != values.shape:
+        raise ValueError("Raster values/mask/coordinates differ")
+    longitude_edges = edges(lon, (0, 360))
+    if not np.allclose(np.diff(longitude_edges), np.diff(longitude_edges)[0]):
+        raise ValueError("Row-strip rendering requires uniform longitude cells")
+    latitude_edges = edges(lat, (-90, 90))
+    colors = np.array(
+        [
+            [int(color.lstrip("#")[i : i + 2], 16) for i in (0, 2, 4)]
+            for color in palette
+        ],
+        dtype=np.uint8,
+    )
+    valid = wet & np.isfinite(values)
+    normalized = np.where(valid, (values - low) / max(high - low, 1e-12), 0)
+    indices = np.clip(np.floor(normalized * len(colors)), 0, len(colors) - 1).astype(
+        int
+    )
+    rgba = np.empty((*values.shape, 4), dtype=np.uint8)
+    rgba[..., :3] = colors[indices]
+    rgba[..., 3] = 255
+    rgba[~wet] = [213, 219, 224, 255]
+    rgba[wet & ~valid] = [255, 255, 255, 255]
+    packed = rgba.view(np.uint32).reshape(values.shape)
+    return dict(
+        image=[row[None] for row in packed],
+        values=[row[None] for row in values],
+        x=np.zeros(len(lat)),
+        y=latitude_edges[:-1],
+        dw=np.full(len(lat), 360.0),
+        dh=np.diff(latitude_edges),
+    )

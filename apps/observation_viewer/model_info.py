@@ -98,6 +98,20 @@ MODEL_DETAILS = {
 
 def description(model, info):
     """Describe the selected checkpoint without conflating exposure and lead."""
+    if model in ("quarter-uglobal-selected", "quarter-obs-only-selected"):
+        lineage = info["lineage"]
+        counts = lineage["task_counts"]
+        training = (
+            "Fresh native-quarter-degree U-global: joint global OM4 and observation training, with increasing observation frequency. The 6,000-update training endpoint has 3,000 OM4 and 3,000 observation updates."
+            if model == "quarter-uglobal-selected"
+            else "Fresh native-quarter-degree observation-only control. No OM4 data or pretrained weights; the training endpoint has 6,000 observation updates."
+        )
+        return (
+            f"### What is this model?\n\n**{info['label']}** — ConvNeXt U-Net initializer and evolution processor, **62,967,680 parameters (~63.0M)**. Native **720×1440 (¼°)** grid and 77 physical state channels at 19 depths.\n\n"
+            f"{training} Neither model starts from D. Seed 1729, global batch eight, fixed learning rate 1e-4.\n\n"
+            f"**Displayed checkpoint:** update {lineage['global_step']:,}, with {counts['om4']:,} OM4 and {counts['observation']:,} observation updates. Selected by the frozen nine-origin RMSE validation blend; no spectra or annual test cases enter selection.\n\n"
+            "Each annual forecast initializes once and evolves 73 five-day steps under prescribed ERA5 forcing. Three January starts (2015, 2018, 2021) are saved. Full interiors are available at initialization and days 5, 15, 30, 90, 180 and 365; monthly temperatures are not saved. OHC uses the native half-degree IAP comparison grid. Own persistence holds this checkpoint's inferred initial state fixed. These one-seed results do not establish reproducibility across training randomness."
+        )
     if "description" in info:
         return "### What is this model?\n\n" + info["description"]
     lineage = info["lineage"]

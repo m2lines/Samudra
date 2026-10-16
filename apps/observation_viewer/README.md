@@ -238,8 +238,9 @@ arrays, check profiles and sections, and check independence of two sessions.
 Screenshots are written to the ignored `.screenshots` directory.
 
 This first version focuses on saved report examples. It does not yet browse
-individual training batches, arbitrary forecast interior time sequences, 3D
-volumes, or diffusion outputs.
+individual training batches, arbitrary forecast interior time sequences or 3D
+volumes. Saved diffusion outputs and six-lead native-quarter interiors are
+available where the selected model has those arrays.
 
 ## Additional annual comparison models
 
@@ -300,3 +301,41 @@ coherent stochastic trajectories. Initialization offers all saved mean physical
 fields; draw initialization only includes T at 2.5/550 m and S at 550 m, with
 unavailable depths/variables explicitly missing. Monthly-profile views only list
 models with saved monthly profiles; no fields are fabricated for diffusion.
+
+### Native quarter-degree selected models
+
+The unified model selector also supports **U-global selected (¼°)** and
+**Observation-only selected (¼°)**. Each model routes to its own immutable
+catalog; comparisons are restricted to models and references on the same grid.
+Selecting a model keeps that model selected when the previous view is unavailable,
+returns to its surface view and explains the available views.
+
+The native quarter-degree views retain every 720×1440 grid cell. Maps use raster
+row strips with the actual latitude cell boundaries, including the irregular
+Gaussian latitude spacing; no interpolation or spatial averaging is applied.
+They expose 73 five-day surface forecasts, the 19-depth initial T/S/U/V state,
+and saved forecast interiors at days 5, 15, 30, 90, 180 and 365. The forecast
+interior view provides depth profiles and sections at those six saved leads.
+Own initialized persistence holds each model's actual initializer fixed.
+
+Monthly heat content uses its separate native IAP 360×720 grid and GJ/m² units.
+Monthly temperature profiles and interior observational truth were not exported
+for these models and are not fabricated or inferred from the six saved states.
+Existing one-degree models retain their available monthly profiles and all
+original diffusion controls.
+
+A new root catalog can register child catalogs without changing its old arrays:
+
+```json
+{
+  "extra_catalogs": ["native-quarter"],
+  "extra_catalog_hashes": {"native-quarter": "SHA256_OF_CHILD_CATALOG"}
+}
+```
+
+These keys extend the existing schema-version-1 catalog; model IDs must be
+unique across catalogs, and supplied child-catalog hashes are verified.
+`SAMUDRA_VIEWER_CATALOGS` can provide additional local catalog paths separated
+by the platform path separator for preview testing. Prepared arrays remain
+outside Git. `prepare_quarter.py` creates the native bundle from verified saved
+evaluation files; no model inference is performed by the viewer.

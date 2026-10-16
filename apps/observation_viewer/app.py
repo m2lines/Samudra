@@ -23,7 +23,7 @@ from bokeh.plotting import figure
 sys.path.insert(0, str(Path(__file__).parent))
 from model_info import description
 
-from data import Catalog, edges, interval, limits, paired_stats
+from data import Catalog, edges, interval, limits, paired_stats, raster_rows
 
 pn.extension(sizing_mode="stretch_width")
 APP_ROOT = Path(__file__).resolve().parent
@@ -31,16 +31,24 @@ DIFFERENCE_PALETTE = list(RdBu[11])
 MODES = {
     "Annual surface forecasts": "surface",
     "Initialized ocean interior": "interior",
+    "Saved forecast interior": "forecast_interior",
     "Monthly ocean heat content": "heat",
 }
 VARIABLES = {
     "surface": {"Sea surface temperature": 0, "Sea surface height": 1},
     "interior": {"Temperature": 0, "Salinity": 1},
+    "forecast_interior": {
+        "Temperature": 0,
+        "Salinity": 1,
+        "Zonal velocity (U)": 2,
+        "Meridional velocity (V)": 3,
+    },
     "heat": {"0–700 m": 0, "700–2000 m": 1},
 }
 UNITS = {
     "surface": ["°C", "m"],
     "interior": ["°C", "psu", "m/s", "m/s"],
+    "forecast_interior": ["°C", "psu", "m/s", "m/s"],
     "heat": ["GJ/m²", "GJ/m²"],
 }
 
@@ -58,16 +66,20 @@ class Viewer:
     """A linked map/section viewer with independent state for every session."""
 
     def __init__(self, catalog):
-        self.catalog = catalog
-        for record in catalog.meta["records"].values():
-            if "temperature_reference" not in record or any(
-                "heat" in row and "temperature" not in row
-                for row in record["models"].values()
-            ):
-                raise ValueError("Viewer requires monthly profiles for every model")
+        self.registry = catalog
+        default = (
+            "obs08000"
+            if "obs08000" in catalog.all_models
+            else next(iter(catalog.all_models))
+        )
+        self.catalog = catalog = catalog.for_model(default)
+        self.lat, self.lon = catalog.geometry("surface")
+        self.availability_message = ""
         self._changing = False
         self.wet = None
-        self.model_options = {v["label"]: k for k, v in catalog.meta["models"].items()}
+        self.model_options = {
+            v["label"]: k for k, v in self.registry.all_models.items()
+        }
         self.interior_examples = catalog.meta.get("interior_examples", {})
         self.mode = pn.widgets.Select(
             name="View", options=MODES, value="surface", css_classes=["view-select"]
@@ -75,7 +87,7 @@ class Viewer:
         self.model = pn.widgets.Select(
             name="Model / checkpoint",
             options=self.model_options,
-            value="obs08000",
+            value=default,
             css_classes=["model-select"],
         )
         self.origin = pn.widgets.Select(
@@ -129,6 +141,13 @@ class Viewer:
             visible=False,
             css_classes=["month-slider"],
         )
+        self.saved_lead = pn.widgets.Select(
+            name="Saved forecast lead (days)",
+            options=[5, 15, 30, 90, 180, 365],
+            value=30,
+            visible=False,
+            css_classes=["saved-lead-select"],
+        )
         self.latitude = pn.widgets.FloatInput(
             name="Latitude (°N)",
             value=30.0,
@@ -167,6 +186,7 @@ class Viewer:
             "", css_classes=["model-description"], sizing_mode="stretch_width"
         )
         self.maps, self.sources, self.mappers, self.crosshairs = [], [], [], []
+        self.quad_renderers, self.raster_renderers, self.raster_sources = [], [], []
         self.xrange, self.yrange = Range1d(start=0, end=360), Range1d(start=-90, end=90)
         le, la = edges(catalog.lon, (0, 360)), edges(catalog.lat, (-90, 90))
         left, bottom = np.meshgrid(le[:-1], la[:-1])
@@ -230,6 +250,32 @@ class Viewer:
                 line_color=None,
                 fill_color={"field": "value", "transform": mapper},
                 nonselection_fill_alpha=1,
+            )
+            self.quad_renderers.append(renderer)
+            raster_source = ColumnDataSource(
+                dict(image=[], values=[], x=[], y=[], dw=[], dh=[]),
+                name=f"raster-{key}",
+            )
+            raster_renderer = plot.image_rgba(
+                image="image",
+                x="x",
+                y="y",
+                dw="dw",
+                dh="dh",
+                source=raster_source,
+                visible=False,
+            )
+            self.raster_sources.append(raster_source)
+            self.raster_renderers.append(raster_renderer)
+            plot.add_tools(
+                HoverTool(
+                    renderers=[raster_renderer],
+                    tooltips=[
+                        ("Longitude", "$x{0.00}°E"),
+                        ("Latitude", "$y{0.00}°N"),
+                        ("Value", "@values{0.0000}"),
+                    ],
+                )
             )
             plot.add_tools(
                 HoverTool(
@@ -437,14 +483,24 @@ class Viewer:
         self.player.param.watch(self.play, "value")
         self.depth.param.watch(self.change_depth, "value")
         self.month.param.watch(self.change_depth, "value")
+        self.saved_lead.param.watch(self.change_depth, "value")
         for point_control in [self.latitude, self.longitude, self.orientation]:
             point_control.param.watch(self.change_point, "value")
         self.rescale.on_click(lambda event: self.refresh(rescale=True))
+        self._changing = True
+        self.configure_view()
+        self._changing = False
         self.refresh(rescale=True)
 
     @property
     def monthly_profiles(self):
-        return self.mode.value == "heat"
+        return (
+            self.mode.value == "heat"
+            and "temperature"
+            in self.catalog.meta["records"][self.origin.value]["models"][
+                self.model.value
+            ]
+        )
 
     @property
     def index(self):
@@ -457,14 +513,30 @@ class Viewer:
             else self.depth.value
         )
 
-    def change_mode(self, event):
-        self._changing = True
-        self.player.direction = 0
-        interior = event.new == "interior"
-        heat = event.new == "heat"
-        origin = self.origin.value
-        date = self.interior_examples.get(origin, {}).get("origin", origin)
-        self.origin.options = (
+    def configure_view(self, reset_variable=False):
+        """Keep the model while adapting controls to its saved fields and grid."""
+        previous_origin = self.origin.value
+        origin_date = self.interior_examples.get(previous_origin, {}).get(
+            "origin", previous_origin
+        )
+        self.catalog = self.registry.for_model(self.model.value)
+        self.interior_examples = self.catalog.meta.get("interior_examples", {})
+        available = self.catalog.available_modes(self.model.value)
+        modes = {label: value for label, value in MODES.items() if value in available}
+        mode = self.mode.value
+        self.mode.options = modes
+        self.availability_message = ""
+        if mode not in available:
+            old_label = next(label for label, value in MODES.items() if value == mode)
+            mode = "surface" if "surface" in available else next(iter(modes.values()))
+            self.availability_message = f"{old_label} is not saved for this model; displaying {next(label for label, value in MODES.items() if value == mode).lower()}. "
+        self.mode.value = mode
+        interior, forecast, heat = (
+            mode == "interior",
+            mode == "forecast_interior",
+            mode == "heat",
+        )
+        origins = (
             {record["label"]: key for key, record in self.interior_examples.items()}
             if interior and self.interior_examples
             else {
@@ -472,78 +544,126 @@ class Viewer:
                 for value in self.catalog.meta["origins"]
             }
         )
-        if origin not in self.origin.options.values():
-            origin = date
-        self.origin.value = origin
-        self.variable.name = "Layer" if heat else "Variable"
-        self.variable.options = (
+        self.origin.options = origins
+        self.origin.value = (
+            previous_origin
+            if previous_origin in origins.values()
+            else origin_date
+            if origin_date in origins.values()
+            else next(iter(origins.values()))
+        )
+        variables = (
             {
                 **VARIABLES["interior"],
                 "Zonal velocity (U)": 2,
                 "Meridional velocity (V)": 3,
             }
             if interior and self.interior_examples
-            else VARIABLES[event.new]
+            else VARIABLES[mode]
         )
-        self.variable.value = 0
-        self.configure_comparisons(reset=True)
-        self.frame.visible = event.new == "surface"
-        self.player.visible = event.new == "surface"
+        variable = self.variable.value
+        self.variable.options = variables
+        self.variable.value = (
+            0 if reset_variable or variable not in variables.values() else variable
+        )
+        self.variable.name = "Layer" if heat else "Variable"
+        depth = self.depth.value
+        self.depth.options = {
+            f"{value:g} m": i for i, value in enumerate(self.catalog.depths)
+        }
+        self.depth.value = (
+            depth
+            if depth in self.depth.options.values()
+            else min(9, len(self.catalog.depths) - 1)
+        )
+        leads = self.catalog.meta.get(
+            "forecast_interior_leads_days", [5, 15, 30, 90, 180, 365]
+        )
+        saved_lead = self.saved_lead.value
+        self.saved_lead.options = leads
+        self.saved_lead.value = saved_lead if saved_lead in leads else leads[0]
+        self.frame.visible = self.player.visible = mode == "surface"
+        self.saved_lead.visible = forecast
         self.detail.visible = not interior
         self.month.visible = heat
-        self.profile_pane.visible = interior or (self.monthly_profiles)
-        self.depth_marker.visible = interior
-        self.depth.visible = interior
-        self._changing = False
+        self.depth_marker.visible = self.depth.visible = interior or forecast
+        maximum_depth = float(self.catalog.depth_interfaces[-1])
+        self.profile.y_range.start = maximum_depth
+        for section in self.sections:
+            section.y_range.start = maximum_depth
+        self.configure_comparisons()
+
+    def change_mode(self, event):
+        if self._changing:
+            return
+        self._changing = True
+        try:
+            self.player.direction = 0
+            self.configure_view(reset_variable=True)
+        finally:
+            self._changing = False
         self.refresh(rescale=True)
 
     def configure_comparisons(self, reset=False):
-        interior, heat = self.mode.value == "interior", self.mode.value == "heat"
-        record = self.interior_examples.get(self.origin.value) if interior else None
-        models = {
-            label: key
-            for label, key in self.model_options.items()
-            if (
-                key in record["models"]
-                if record is not None
-                else self.mode.value
-                in self.catalog.meta["records"][self.origin.value]["models"].get(
-                    key, {}
-                )
-            )
-        }
-        model = self.model.value
-        self.model.options = models
-        self.model.value = (
-            model if model in models.values() else next(iter(models.values()))
+        mode = self.mode.value
+        interior, forecast, heat = (
+            mode == "interior",
+            mode == "forecast_interior",
+            mode == "heat",
         )
-        options = {
-            "IAP monthly context"
-            if interior
-            else "IAP monthly heat content"
-            if heat
-            else "Observations": "observations"
+        record = self.interior_examples.get(self.origin.value) if interior else None
+        compatible = self.catalog.models_for(mode, self.origin.value)
+        models = {
+            v["label"]: key
+            for key, v in self.catalog.meta["models"].items()
+            if key in compatible
         }
+        # OM4-input examples historically have only their saved mixed endpoint.
+        choices = (
+            models
+            if record is not None and record.get("source") == "om4"
+            else self.model_options
+        )
+        model = self.model.value
+        self.model.options = choices
+        if model not in compatible:
+            self.model.value = next(iter(models.values()))
+        elif self.model.value != model:
+            self.model.value = model
+        options = {}
+        data_record = self.catalog.meta["records"].get(self.origin.value, {})
         if interior:
-            options["Training December climatology"] = "climatology"
-        if record is not None:
-            options = {}
-            if "observations" in record["references"] and self.variable.value < 2:
-                options["IAP monthly context"] = "observations"
-                options["Training December climatology"] = "climatology"
-            if "om4" in record["references"]:
-                options[
-                    "OM4 gold"
-                    if record["source"] == "om4"
-                    else "OM4 contemporaneous context"
-                ] = "om4"
-        if not interior:
-            available = self.catalog.meta["records"][self.origin.value]["models"][
-                self.model.value
-            ]
-            if ("heat" if heat else "surface") + "_persistence" in available:
+            if record is not None:
+                if "observations" in record["references"] and self.variable.value < 2:
+                    options["IAP monthly context"] = "observations"
+                    if "climatology" in record["references"]:
+                        options["Training December climatology"] = "climatology"
+                if "om4" in record["references"]:
+                    options[
+                        "OM4 gold"
+                        if record["source"] == "om4"
+                        else "OM4 contemporaneous context"
+                    ] = "om4"
+            else:
+                options = {
+                    "IAP monthly context": "observations",
+                    "Training December climatology": "climatology",
+                }
+        else:
+            if f"{mode}_reference" in data_record:
+                options["IAP monthly heat content" if heat else "Observations"] = (
+                    "observations"
+                )
+            available = data_record["models"][self.model.value]
+            if forecast or mode + "_persistence" in available:
                 options["Own initialized persistence"] = "persistence"
-        options.update(models)
+        # Prefer another saved model when no observational reference exists.
+        options.update(
+            {label: key for label, key in models.items() if key != self.model.value}
+        )
+        options.update(
+            {label: key for label, key in models.items() if key == self.model.value}
+        )
         reference = self.reference.value
         self.reference.options = options
         self.reference.value = (
@@ -555,18 +675,25 @@ class Viewer:
     def change_sample(self, event):
         if not self._changing:
             self._changing = True
-            self.configure_comparisons()
-            self._changing = False
-            self.refresh(rescale=True)
-
-    def select(self, event):
-        if not self._changing:
-            self._changing = True
             try:
                 self.configure_comparisons()
             finally:
                 self._changing = False
             self.refresh(rescale=True)
+
+    def select(self, event):
+        if self._changing:
+            return
+        self._changing = True
+        try:
+            if event.obj is self.model:
+                self.player.direction = 0
+                self.configure_view()
+            else:
+                self.configure_comparisons()
+        finally:
+            self._changing = False
+        self.refresh(rescale=True)
 
     def step(self, event):
         if self._changing:
@@ -597,7 +724,48 @@ class Viewer:
         if not self._changing:
             self.update_point()
 
+    def set_geometry(self):
+        lat, lon = self.catalog.geometry(self.mode.value)
+        signature = (lat.tobytes(), lon.tobytes())
+        if signature == getattr(self, "geometry_signature", None):
+            return
+        self.geometry_signature = signature
+        self.lat, self.lon = lat, lon
+        self.wet = None
+        self.use_raster = len(lat) * len(lon) > 100_000
+        if self.use_raster:
+            self.geometry = {}
+        else:
+            le, la = edges(lon, (0, 360)), edges(lat, (-90, 90))
+            left, bottom = np.meshgrid(le[:-1], la[:-1])
+            right, top = np.meshgrid(le[1:], la[1:])
+            longitude, latitude = np.meshgrid(lon, lat)
+            self.geometry = dict(
+                left=left.ravel(),
+                right=right.ravel(),
+                bottom=bottom.ravel(),
+                top=top.ravel(),
+                lon=longitude.ravel(),
+                lat=latitude.ravel(),
+            )
+        for quad, raster, source, raster_source in zip(
+            self.quad_renderers,
+            self.raster_renderers,
+            self.sources,
+            self.raster_sources,
+            strict=True,
+        ):
+            quad.visible, raster.visible = not self.use_raster, self.use_raster
+            if self.use_raster:
+                source.data = {
+                    key: []
+                    for key in ("left", "right", "bottom", "top", "lon", "lat", "value")
+                }
+            else:
+                raster_source.data = dict(image=[], values=[], x=[], y=[], dw=[], dh=[])
+
     def refresh(self, rescale=False):
+        self.set_geometry()
         if self.mode.value == "heat":
             options = {
                 month: index
@@ -611,11 +779,25 @@ class Viewer:
             self.month.value = selected if selected in options.values() else 0
             self._changing = False
         mode, variable, index = self.mode.value, self.variable.value, self.index
-        self.profile_pane.visible = mode == "interior" or self.monthly_profiles
+        self.profile_pane.visible = (
+            mode in ("interior", "forecast_interior") or self.monthly_profiles
+        )
         self.orientation.visible = self.section_row.visible = self.profile_pane.visible
         self.prediction, self.comparison = self.catalog.values(
             mode, self.model.value, self.origin.value, self.reference.value
         )
+        if mode == "forecast_interior":
+            self.forecast_prediction, self.forecast_comparison = (
+                self.prediction,
+                self.comparison,
+            )
+            lead_index = self.catalog.meta["forecast_interior_leads_days"].index(
+                self.saved_lead.value
+            )
+            self.prediction, self.comparison = (
+                self.prediction[lead_index],
+                self.comparison[lead_index],
+            )
         a, b = self.prediction[index, variable], self.comparison[index, variable]
         difference = a - b
         self.unit = UNITS[mode][variable]
@@ -626,23 +808,41 @@ class Viewer:
             self.mappers[2].low, self.mappers[2].high = limits(
                 difference, symmetric=True
             )
-        mask = self.catalog.array(self.catalog.meta[f"{mode}_mask"])
-        wet = mask[index, variable] if mode == "interior" else mask[variable]
+        mask_mode = "interior" if mode == "forecast_interior" else mode
+        mask = self.catalog.array(self.catalog.meta[f"{mask_mode}_mask"])
+        wet = (
+            mask[index, variable]
+            if mode in ("interior", "forecast_interior")
+            else mask[variable]
+        )
         geometry_changed = self.wet is None or not np.array_equal(wet, self.wet)
         self.wet = wet
-        coords = (
-            {k: v[self.wet.ravel()] for k, v in self.geometry.items()}
-            if geometry_changed
-            else None
-        )
-        for source, values in zip(self.sources, [a, b, difference], strict=True):
-            if geometry_changed:
-                assert coords is not None
-                source.data = {**coords, "value": values[self.wet]}
-            else:
-                source.patch(
-                    {"value": [(slice(0, int(self.wet.sum())), values[self.wet])]}
+        if self.use_raster:
+            for source, values, mapper in zip(
+                self.raster_sources, [a, b, difference], self.mappers, strict=True
+            ):
+                source.data = raster_rows(
+                    values,
+                    wet,
+                    self.lat,
+                    self.lon,
+                    mapper.palette,
+                    mapper.low,
+                    mapper.high,
                 )
+        else:
+            coords = (
+                {key: values[self.wet.ravel()] for key, values in self.geometry.items()}
+                if geometry_changed
+                else None
+            )
+            for source, values in zip(self.sources, [a, b, difference], strict=True):
+                if geometry_changed:
+                    source.data = {**coords, "value": values[self.wet]}
+                else:
+                    source.patch(
+                        {"value": [(slice(0, int(self.wet.sum())), values[self.wet])]}
+                    )
         reference_label = next(
             k for k, v in self.reference.options.items() if v == self.reference.value
         )
@@ -679,7 +879,13 @@ class Viewer:
             self.context.object = "Monthly layer-integrated heat content compared with IAP analyses, in GJ/m² relative to 0 °C. Gray cells lack a complete model column for the selected layer. Click a map for the monthly series."
             if self.monthly_profiles:
                 self.context.object += " Move the month slider to explore temperature sections and the selected-cell profile. Use Along longitude / Along latitude to choose the section direction; click a map to move the slice."
-            self.context.object += " Heat maps and profiles use the same calendar-month forecast means. Profiles show IAP monthly temperatures at model depths."
+            if self.monthly_profiles:
+                self.context.object += " Heat maps and profiles use the same calendar-month forecast means. Profiles show IAP monthly temperatures at model depths."
+            else:
+                self.context.object += " Heat maps use the native IAP half-degree comparison grid. Monthly temperature profiles were not saved; use Saved forecast interior for the available five-day states."
+        elif mode == "forecast_interior":
+            self.caption.object = f"### {variable_label} · {self.catalog.depths[index]:g} m · {interval(self.origin.value, self.saved_lead.value // 5 - 1)}"
+            self.context.object = "Saved full-state snapshots at days 5, 15, 30, 90, 180 and 365. These are five-day means, not monthly temperature profiles. Compare against the other native model or this checkpoint's initialized persistence; no full-depth observational truth is implied."
         else:
             record = self.interior_examples.get(self.origin.value)
             label = record["label"] if record else f"{self.origin.value} (obs)"
@@ -688,7 +894,8 @@ class Viewer:
                 self.context.object = record["description"]
             else:
                 self.context.object = f"Initialized state from the last five-day history interval. IAP {self.catalog.meta['records'][self.origin.value]['context_month']} is monthly context, not instantaneous truth. Surface temperature at 2.5 m is copied from available inputs."
-        stats = paired_stats(a, b, self.catalog.lat)
+        self.context.object = self.availability_message + self.context.object
+        stats = paired_stats(a, b, self.lat)
         if stats["cells"]:
             qualifier = (
                 "Context difference"
@@ -716,7 +923,10 @@ class Viewer:
             "Model and comparison share a color scale; difference is centered on zero. Limits use the pooled 2nd–98th percentiles and may clip extremes. "
             "The prepared catalog retains original source paths, hashes, and report receipts."
         )
-        if "description" in info:
+        if (
+            info.get("family") == "diffusion"
+            or "diffusion" in info.get("description", "").lower()
+        ):
             self.context.object = self.context.object.replace(
                 "Surface temperature at 2.5 m is copied from available inputs.",
                 "Diffusion fields are decoded predictions, not copied surface inputs.",
@@ -725,12 +935,10 @@ class Viewer:
 
     def update_point(self):
         variable = self.variable.value
-        y = int(np.abs(self.catalog.lat - self.latitude.value).argmin())
-        longitude_distance = np.abs(
-            (self.catalog.lon - self.longitude.value + 180) % 360 - 180
-        )
+        y = int(np.abs(self.lat - self.latitude.value).argmin())
+        longitude_distance = np.abs((self.lon - self.longitude.value + 180) % 360 - 180)
         x = int(longitude_distance.argmin())
-        lat, lon = self.catalog.lat[y], self.catalog.lon[x]
+        lat, lon = self.lat[y], self.lon[x]
         for horizontal, vertical in self.crosshairs:
             horizontal.location, vertical.location = float(lat), float(lon)
         a, b = self.prediction[:, variable, y, x], self.comparison[:, variable, y, x]
@@ -739,7 +947,7 @@ class Viewer:
             return f"{value:.4g} {self.unit}" if np.isfinite(value) else "unavailable"
 
         self.location.object = f"**Selected cell:** {lat:.2f}°N, {lon:.2f}°E · model {number(a[self.index])} · comparison {number(b[self.index])}"
-        if self.mode.value != "interior":
+        if self.mode.value not in ("interior", "forecast_interior"):
             heat = self.mode.value == "heat"
             self.line_source.data = dict(
                 x=np.arange(1, 13) if heat else np.arange(5, 366, 5),
@@ -788,6 +996,27 @@ class Viewer:
                     f"Monthly temperature · {month} · {lat:.2f}°N, {lon:.2f}°E"
                 )
         else:
+            if self.mode.value == "forecast_interior":
+                self.line_source.data = dict(
+                    x=self.catalog.meta["forecast_interior_leads_days"],
+                    prediction=self.forecast_prediction[
+                        :, self.depth.value, variable, y, x
+                    ],
+                    reference=self.forecast_comparison[
+                        :, self.depth.value, variable, y, x
+                    ],
+                )
+                self.line.xaxis.axis_label = (
+                    "Saved forecast lead (days; five-day means)"
+                )
+                self.line.yaxis.axis_label = self.unit
+                self.line.title.text = f"Saved states · {self.catalog.depths[self.depth.value]:g} m · {lat:.2f}°N, {lon:.2f}°E"
+                self.marker.location = self.saved_lead.value
+                self.line_hover.tooltips = [
+                    ("Saved forecast lead (days)", "@x"),
+                    ("Model", "@prediction{0.0000}"),
+                    ("Comparison", "@reference{0.0000}"),
+                ]
             self.profile_source.data = dict(
                 depth=self.catalog.depths, prediction=a, reference=b
             )
@@ -805,16 +1034,12 @@ class Viewer:
 
     def update_sections(self, prediction, comparison, wet, y, x, unit, period=""):
         """Render a depth/longitude or depth/latitude slice without spatial averaging."""
-        lat, lon = self.catalog.lat[y], self.catalog.lon[x]
+        lat, lon = self.lat[y], self.lon[x]
         along_lon = self.orientation.value == "Along longitude"
-        coordinate = self.catalog.lon if along_lon else self.catalog.lat
+        coordinate = self.lon if along_lon else self.lat
         bounds = (0, 360) if along_lon else (-90, 90)
         ce = edges(coordinate, bounds)
-        # The report uses these OM4 layer centers and corresponding interfaces.
-        de = np.array(
-            [0, 5, 15, 30, 50, 80, 130, 200, 300, 450, 650, 900, 1200, 1600, 2100]
-        )
-        np.testing.assert_array_equal((de[:-1] + de[1:]) / 2, self.catalog.depths)
+        de = self.catalog.depth_interfaces
         left, top = np.meshgrid(ce[:-1], de[:-1])
         right, bottom = np.meshgrid(ce[1:], de[1:])
         coord, depth = np.meshgrid(coordinate, self.catalog.depths)
@@ -864,6 +1089,7 @@ class Viewer:
             pn.layout.Divider(),
             self.frame,
             self.player,
+            self.saved_lead,
             self.depth,
             self.month,
             self.lock_colors,
@@ -902,6 +1128,13 @@ class Viewer:
         )
 
 
-catalog = Catalog(os.environ.get("SAMUDRA_VIEWER_DATA", str(APP_ROOT / ".data")))
+catalog = Catalog(
+    os.environ.get("SAMUDRA_VIEWER_DATA", str(APP_ROOT / ".data")),
+    extra_catalogs=[
+        path
+        for path in os.environ.get("SAMUDRA_VIEWER_CATALOGS", "").split(os.pathsep)
+        if path
+    ],
+)
 viewer = Viewer(catalog)
 viewer.view().servable()

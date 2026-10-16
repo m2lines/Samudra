@@ -721,7 +721,6 @@ class Viewer:
                 "Surface temperature at 2.5 m is copied from available inputs.",
                 "Diffusion fields are decoded predictions, not copied surface inputs.",
             )
-            self.context.object += " " + info["description"]
         self.update_point()
 
     def update_point(self):

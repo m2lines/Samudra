@@ -1,7 +1,7 @@
 <!-- SPDX-FileCopyrightText: 2026 Samudra Authors -->
 <!-- SPDX-License-Identifier: CC-BY-4.0 -->
 
-**Execution update:** The user prioritized this over the main residual run and authorized a shorter cooldown for the deadline. The first run uses **500 observation-only updates**, with the entire linear LR decay over those 500 updates and the same 100-update EMA half-life. Final counts are 7,721 OM4 + 4,500 observation updates. The main residual run is checkpointed and paused while its allocation is reused, then resumed. The original 1,000-update reference recipe is documented below.
+**Completed:** 500 observation-only updates with raw and EMA evaluation. See the [results](residual-4k-cooldown-results.md) and [error maps](residual-4k-cooldown-maps.md). Final counts are 7,721 OM4 + 4,500 observation updates. The main residual run resumes from its unchanged pre-cooldown checkpoint.
 
 # Observation-only cooldown from the residual 4k checkpoint
 
@@ -18,20 +18,20 @@ RNG state and task counters. Preserve the optimizer moments and sample-stream
 position; do not restart Adam or initialize training from averaged weights.
 Record the source checkpoint hash and verify the restored state before training.
 
-Run **1,000 observation-only optimizer updates**, retaining the existing
+Run **500 observation-only optimizer updates**, retaining the existing
 observation objective and all its auxiliary losses and penalties. This branch
 performs **no OM4 updates and no OM4 replay updates**. Keep the parent's batch
 size, data, masks, diffusion sampling and architecture settings unchanged.
 Linearly decay the learning rate from **1e-4 to 1e-6**, using
-`1e-4 * (1 - 0.99 * cooldown_update / 1000)` for updates 1 through 1,000.
+`1e-4 * (1 - 0.99 * (cooldown_update - 1) / 499)` for updates 1 through 500.
 
 Reset parameter EMA to the raw source weights at the fork, with **100-update
 half-life** (`decay = 2**(-1/100)`). Average parameters after each optimizer
 update and copy buffers from the raw model. Save raw weights, EMA, Adam and RNG
 state together so restarting does not reset the averaging history. The final
-cumulative task counts are **5,000 observation + 7,721 OM4 updates**.
+cumulative task counts are **4,500 observation + 7,721 OM4 updates**.
 
-This follows the recommended observation-only recipe in the
+This shortens the 1,000-update reference to 500 updates at the user's request while retaining its EMA half-life and LR endpoints. It follows the recommended observation-only recipe in the
 [OE multitask cooldown comparison](https://github.com/m2lines/Samudra/blob/experiment/observation-stability-long-training/docs/experiments/observation-d/cooldown-standardization-2026-10-14.md#recommended-common-cooldown).
 Its [runner at the verified source commit](https://github.com/m2lines/Samudra/blob/1e90c7b1dbea5954ee658c57b6f02112e84dc56f/scripts/run_observation_cooldown_comparison.py)
 preserves Adam and resets EMA. That experiment's source was 4,000 **total**
@@ -57,13 +57,9 @@ or calibration.
 
 ## Timing and execution
 
-Target initial rollout results before **9am Eastern on October 16, 2026**.
-The provisional estimate is **11–12 hours of training, plus queue time and
-evaluation**. This is a target, not a guarantee; checkpoint availability,
-qualification, allocation delays and measured throughput determine feasibility.
-Record actual job IDs, source hashes, timing and completion receipts when the
-branch runs. The main residual training job is temporarily paused to prioritize this branch
-in its existing allocation, then resumes its original budget and final cooldown.
+Training and raw/EMA evaluation completed in retained Beta allocation **212419**, step **212419.10** (6h03m including startup and evaluation). The parent evaluation then completed in step **212419.11** (32m25s). The controller launched the main residual continuation in step **212419.12**, preserving its original training budget. The direct arm remains stopped.
+
+The fixed 500-update fork preserved Adam and reset EMA; final raw and EMA checkpoints both contain 7,721 OM4 and 4,500 observation updates. The source archive is `obs-cooldown-41f023f73fa3` (Git `195efec62`). Results and assets were collected before the requested October 16 morning review.
 
 ## Requested grain diagnostics and viewer comparison
 

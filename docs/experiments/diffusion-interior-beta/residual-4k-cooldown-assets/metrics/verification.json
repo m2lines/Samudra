@@ -1,0 +1,44 @@
+{
+  "residual-obs4000": {
+    "input_sha256": "43af9d0b014c5791e64e16bf9dfbf6875b8e1efa607bc77f654bb4849c2b185b",
+    "complete_sha256": "5fc1e0093e83d9fc31a4da27c4907ae73b14d85afcabc404fb3fefa1562c656b",
+    "checkpoint_sha256": "cc60bf73bdd4f01fe1f28fffa4925f40d269c06767822862378cacbb31da9fdd",
+    "counts": {
+      "om4": 7721,
+      "observation": 4000
+    },
+    "section_receipts": {
+      "validation": "a49e2247fcd632055f1ddc27d79df6acf64d6832cec657bab473d000a364bbb6",
+      "native": "f14373eaed19e3b0bd65ffa83492ca099a3e3b512597f07d73a1ebacfb1f050d",
+      "annual": "132991891ebc45f0b35e74b53d6384dbbb32410145ad6d5c23e49fb74cc5f264"
+    }
+  },
+  "cooldown-raw": {
+    "input_sha256": "ed7ef772e15e6bcbddc73febe2c83620134bfb0e5253017ef19524a6f5952189",
+    "complete_sha256": "7368b139dc0247e518bca328b9a6cf1213b80ec8f4c7109277a883bb7619e9fb",
+    "checkpoint_sha256": "3ef4d148bf2e9b5a216caf799a97ab9d075c0294f8b6adefbc31d2cfb9dcc2c6",
+    "counts": {
+      "om4": 7721,
+      "observation": 4500
+    },
+    "section_receipts": {
+      "validation": "0e7ab0183096e971858d412c62afd57aad4f547bd3e228164b1e4d222b2c9bb1",
+      "native": "81fe93aff0f2cbc846134208d5dfd777435de18a7e90487c2f3e21022c4a34ab",
+      "annual": "602725720dd810939e783c15cbe5957fb7e90dd8c1a7eb6b01a8f50b2b7d680b"
+    }
+  },
+  "cooldown-ema": {
+    "input_sha256": "a8419ad8f3c155c6e073988c1554b6d8c062c497f46dff0e724765e1842df0e0",
+    "complete_sha256": "7c76d52a51afa3d1461dd40100437a987705fb42bc7c7749b991173e1826f412",
+    "checkpoint_sha256": "20bb68f2c1c4003fa8a3da2f2ac82581043ec6a09e8e94c43fa87013855915a9",
+    "counts": {
+      "om4": 7721,
+      "observation": 4500
+    },
+    "section_receipts": {
+      "validation": "821bd1ef356454d4876884c14d68d2b7ef97448473ec02386dd0234545307dbf",
+      "native": "91988ec82e374adc593c06846d48459416bacb317fc64b8652fd0730dff63386",
+      "annual": "51b20ee970308603088640e759d0a5d26b5b0ab9b095713b2088b7591a5eedc9"
+    }
+  }
+}

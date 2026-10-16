@@ -64,7 +64,14 @@ def compute(root, data_root, output):
         for dim in ("x", "y"):
             np.testing.assert_array_equal(ds[dim], datasets["control"][dim])
         for coord in ("lat", "lon"):
-            np.testing.assert_allclose(ds[coord], grid[coord], rtol=0, atol=1e-6)
+            actual = ds[coord].values
+            expected = grid[coord]
+            if actual.ndim == 2:
+                expected = np.broadcast_to(
+                    expected[:, None] if coord == "lat" else expected[None, :],
+                    actual.shape,
+                )
+            np.testing.assert_allclose(actual, expected, rtol=0, atol=1e-6)
     shape = grid["wet"].shape
     result = {
         arm: {

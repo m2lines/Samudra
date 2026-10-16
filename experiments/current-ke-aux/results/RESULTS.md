@@ -123,7 +123,7 @@ Downloaded metrics and completion receipt match remote SHA-256s.
 
 ## Residual-anomaly errors against OM4
 
-Grace CPU analysis **137485** is computing this additional geographic diagnostic
+Grace CPU analysis **137491** is computing this additional geographic diagnostic
 from the saved final-EMA control, aligned, and seasonal continuous rollouts.
 It compares each model with OM4 at all 598 original timestamps, on the original
 per-channel wet support, without temporal or spatial interpolation.
@@ -149,7 +149,9 @@ errors from wrong-phase residuals that have the correct variance.
 These are errors along a continuous free trajectory, whose phase may diverge
 from OM4 over years. Interpret them alongside the existing quarterly forecast
 scores and raw errors; they intentionally exclude mean-state, seasonal-cycle,
-and trend errors. No training or model inference is rerun for this analysis.
+and trend errors. No training or model inference is rerun for this analysis. The first pass
+(137485) rejected a two-dimensional versus one-dimensional coordinate-metadata
+representation before scoring; the retry verifies their broadcast equivalence.
 
 ## Provenance
 

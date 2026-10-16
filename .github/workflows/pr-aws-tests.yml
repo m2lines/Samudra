@@ -1,0 +1,172 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+name: PR AWS tests
+run-name: "AWS tests for PR #${{ inputs.pr_number }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Open PR number whose reviewed code may run on AWS
+        type: string
+        required: true
+      expected_head_sha:
+        description: Optional full reviewed head SHA; fail if the PR has changed
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-aws-tests-${{ inputs.pr_number }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      head_sha: ${{ steps.resolve.outputs.head_sha }}
+      merge_sha: ${{ steps.resolve.outputs.merge_sha }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+      - uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd
+        id: resolve
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+          EXPECTED_HEAD: ${{ inputs.expected_head_sha }}
+        with:
+          script: |
+            await require('./.github/scripts/pr-aws-ci.cjs').prepare(
+              {github, context, core}, process.env.PR_NUMBER, process.env.EXPECTED_HEAD);
+
+  record:
+    needs: prepare
+    # Machine-readable proof from trusted workflow code, not from the PR runner.
+    name: "PR #${{ inputs.pr_number }} head ${{ needs.prepare.outputs.head_sha }} merge ${{ needs.prepare.outputs.merge_sha }}"
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - run: echo "PR revisions validated; maintainer-authorized tests follow."
+
+  ec2:
+    needs: [prepare, record]
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/ec2-runner.yml
+    with:
+      ec2_instance_type: g5.xlarge
+      ec2_image_id: ami-0365bff494b18bf93
+      ec2_root_device_size: "200"
+    secrets:
+      GH_SA_TOKEN: ${{ secrets.GH_SA_TOKEN }}
+
+  ec2-container:
+    needs: [prepare, record]
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/ec2-runner.yml
+    with:
+      ec2_instance_type: g5.xlarge
+      ec2_image_id: ami-0365bff494b18bf93
+      ec2_root_device_size: "200"
+    secrets:
+      GH_SA_TOKEN: ${{ secrets.GH_SA_TOKEN }}
+
+  gpu-tests:
+    needs: [prepare, ec2]
+    runs-on: ${{ needs.ec2.outputs.id }}
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    steps:
+      - name: Check out reviewed merge commit
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: ${{ needs.prepare.outputs.merge_sha }}
+          persist-credentials: false
+
+      - name: Install uv and set the python version
+        uses: astral-sh/setup-uv@d0d8abe699bfb85fec6de9f7adb5ae17292296ff
+        with:
+          enable-cache: false
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+
+      # Use runner-local homes rather than stale root-owned rustup state baked
+      # into the ephemeral EC2 image. With no toolchain argument, rustup resolves
+      # the repository's rust-toolchain.toml.
+      - name: Set up Rust
+        run: |
+          export CARGO_HOME="$RUNNER_TEMP/cargo"
+          export RUSTUP_HOME="$RUNNER_TEMP/rustup"
+          curl --proto '=https' --tlsv1.2 --retry 10 --retry-connrefused -fsSL https://sh.rustup.rs \
+            | sh -s -- --default-toolchain none --profile minimal -y
+          export PATH="$CARGO_HOME/bin:$PATH"
+          rustup toolchain install
+          rustc --version --verbose
+          echo "$CARGO_HOME/bin" >> "$GITHUB_PATH"
+          echo "CARGO_HOME=$CARGO_HOME" >> "$GITHUB_ENV"
+          echo "RUSTUP_HOME=$RUSTUP_HOME" >> "$GITHUB_ENV"
+
+      - name: Install dependencies
+        run: uv sync --locked --dev --extra cuda --extra rust
+
+      # Each test runs with a 5-minute timeout. The `-x` flag will stop on the first failure or hang.
+      - name: Run pytest
+        run: uv run --with pytest-timeout --locked pytest -n 2 -v -m "not manual and cuda" --timeout=300 --timeout-method=signal -x --durations=20 --durations-min=1.0
+        timeout-minutes: 30
+
+  container-tests:
+    needs: [prepare, ec2-container]
+    runs-on: ${{ needs.ec2-container.outputs.id }}
+    timeout-minutes: 240
+    permissions:
+      contents: read
+    env:
+      LOCAL_IMAGE_TAG: samudra-pr-test:${{ needs.prepare.outputs.merge_sha }}
+    steps:
+      - name: Check out reviewed merge commit
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: ${{ needs.prepare.outputs.merge_sha }}
+          persist-credentials: false
+      - name: Build and smoke-test container
+        env:
+          BUILD_APPTAINER: "0"
+          DOCKERFILE: containers/Dockerfile.physicsnemo-26.05
+        run: |
+          docker version
+          IMAGE_TAG="$LOCAL_IMAGE_TAG" bash scripts/container/build_physicsnemo_26_05.sh
+      - name: Run CPU tests in container
+        timeout-minutes: 90
+        run: |
+          docker run --rm --ipc=host --workdir /workspace --entrypoint bash \
+            "$LOCAL_IMAGE_TAG" -lc '
+              set -euo pipefail
+              . .venv/bin/activate
+              python -m pytest -p no:zarr -n 2 -v -m "not manual and not cuda" --durations=20 --durations-min=1.0
+            '
+      - name: Run GPU tests in container
+        timeout-minutes: 90
+        run: |
+          docker run --rm --gpus all --ipc=host --workdir /workspace --entrypoint bash \
+            "$LOCAL_IMAGE_TAG" -lc '
+              set -euo pipefail
+              . .venv/bin/activate
+              python -m pytest -p no:zarr -v -m "not manual and cuda" -x --durations=20 --durations-min=1.0
+            '

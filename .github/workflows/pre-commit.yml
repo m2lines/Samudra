@@ -29,6 +29,9 @@ jobs:
       - name: Check out code
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
 
+      - name: Test PR AWS CI controller
+        run: node --test .github/scripts/pr-aws-ci.test.cjs
+
       - name: Install uv
         uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081
 

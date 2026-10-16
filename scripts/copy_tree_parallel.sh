@@ -2,6 +2,7 @@
 # Copy a directory tree (e.g. a zarr store) with N parallel rsync streams.
 #
 # Usage: copy_tree_parallel.sh SRC DST [STREAMS]
+# Set FILE_LIST to a file of paths relative to SRC to copy only those files.
 #
 # Restartable: rsync skips files whose size+mtime already match, and writes each
 # file to a temp name before renaming, so a killed job never leaves a truncated
@@ -13,6 +14,7 @@ SRC="${1:?usage: $0 SRC DST [STREAMS]}"
 DST="${2:?usage: $0 SRC DST [STREAMS]}"
 STREAMS="${3:-32}"
 PROGRESS_EVERY="${PROGRESS_EVERY:-300}"
+FILE_LIST="${FILE_LIST:-}"
 SRC="${SRC%/}"
 DST="${DST%/}"
 
@@ -26,8 +28,12 @@ RSYNC=(rsync -rlt --whole-file)
 LIST_DIR="$(mktemp -d "${DST}.copy_lists.XXXXXX")"
 trap 'kill "${MONITOR_PID:-}" 2>/dev/null; rm -rf "${LIST_DIR}"' EXIT
 
-echo "$(date +%T) listing ${SRC}"
-(cd "${SRC}" && find . -type f) > "${LIST_DIR}/all"
+if [[ -n "${FILE_LIST}" ]]; then
+  cp "${FILE_LIST}" "${LIST_DIR}/all"
+else
+  echo "$(date +%T) listing ${SRC}"
+  (cd "${SRC}" && find . -type f) > "${LIST_DIR}/all"
+fi
 TOTAL_FILES="$(wc -l < "${LIST_DIR}/all")"
 echo "$(date +%T) ${TOTAL_FILES} files, ${STREAMS} streams"
 
@@ -55,5 +61,7 @@ echo "$(date +%T) parallel pass done"
 
 # Serial catch-up/verify pass: copies anything missed (e.g. empty dirs) and
 # should report ~0 files transferred.
-"${RSYNC[@]}" --stats "${SRC}/" "${DST}/" | grep -E "Number of (regular )?files( transferred)?:|Total transferred"
+VERIFY_FROM=()
+[[ -n "${FILE_LIST}" ]] && VERIFY_FROM=(--files-from="${LIST_DIR}/all")
+"${RSYNC[@]}" "${VERIFY_FROM[@]}" --stats "${SRC}/" "${DST}/" | grep -E "Number of (regular )?files( transferred)?:|Total transferred"
 echo "$(date +%T) done: ${DST}"

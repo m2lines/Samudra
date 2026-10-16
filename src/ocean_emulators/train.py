@@ -5826,6 +5826,7 @@ class Trainer:
         record = {
             "step": self.num_batches_seen,
             "rank": get_rank(),
+            "local_rank": int(os.environ.get("LOCAL_RANK", 0)),
             "host": socket.gethostname(),
             "compute_s": seconds("start", "pre_sync"),
             "tail_s": seconds("pre_sync", "end"),

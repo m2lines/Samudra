@@ -2,6 +2,10 @@
 
 Job logs are `logs/1-face/10-16-26/speedtests/<job>.out`. Per-cell logs are `logs/speed_test/speed-test-<job>-<cell>.out` and `logs/read_sim/<job>/`. The tooling is in `JOBS/other/speedtests/`.
 
+## Current config
+
+`JOBS/train_llc_1face.sh` (checked at 10-13-26) trains rank-local 3x3 blocks of chunk-aligned 752² tiles (9 chunks per array), with `torch.compile` on. The model runs in bf16 autocast with weights and optimizer in fp32, and `checkpointing=simple` with 2 tiles per chunk. The cache is stored as z-scored float16; replay rows and the resident labels are bf16, upcast to fp32 for the loss. Both hosts read the scratch copy.
+
 ## 10-13-26
 
 Pre-rental suite on 2 nodes x 2 H200 (node2433 + node3400), 20 + 180 steps per cell (job 25686318). Logs: `logs/1face-speed-25686318.out`, cells `logs/speed_test/speed-test-25686318-*.out`.

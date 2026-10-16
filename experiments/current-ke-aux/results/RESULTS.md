@@ -10,6 +10,53 @@ are offset by increased tropical errors. The raw-checkpoint sensitivity agrees
 with this pattern. The [earlier-pilot OM4 audit](OM4-AUDIT.md) finds that its
 observation-score gain did not establish a consistent OM4-wide forecast gain.
 
+## What “aligned” and “seasonal” mean
+
+Both conditions add a training-only prediction task for **surface spatial
+subcell kinetic-energy variance**. The target is derived from quarter-degree
+OM4 five-day-mean surface velocities inside each 1° cell:
+
+```text
+q(x,t) = 0.5 * (area_mean(u² + v²) - area_mean(u)² - area_mean(v)²)
+z(x,t) = (log1p(q(x,t) / scale) - log_mean) / log_std
+```
+
+The area averages use spherical overlaps and common wet U/V support, with at
+least 50% native wet coverage. This measures velocity variation within a coarse
+cell; using five-day-mean velocities means it does not include all unresolved
+kinetic energy. The transform's scale, mean, and standard deviation are frozen
+training-only statistics.
+
+| Condition | Target supplied to the auxiliary head |
+| --- | --- |
+| **Control** | No auxiliary loss; the original physical forecasting objective. |
+| **Aligned KE** | The date-specific transformed variance `z(x,t)` at the exact future timestamp of each physical forecast label. This retains year-specific and other time-varying target information. |
+| **Seasonal KE** | Each cell's mean `z(x,t)` over all training dates in the target's calendar month. Every January shares one target map, every February another, and so on. It retains geographic and monthly seasonal structure while removing year-specific target variability. |
+
+The seasonal average is taken **after the log transform and standardization**;
+it is not the transformed average of raw `q`. Neither condition uses held-out
+target values or supplies fine-grid fields as model inputs.
+
+A linear 1×1 head on the final U-Net features predicts two target maps per
+autoregressive call, one per output state. Its area-weighted squared error is
+averaged over examples, both output slots, and all four calls (eight future
+states). Both conditions optimize:
+
+```text
+L_total = L_physical + 0.0340550269485343 * L_auxiliary
+```
+
+The physical objective and its four-call sum are unchanged. The coefficient
+was fixed using aligned targets so the median initial auxiliary backbone
+gradient norm was 10% of the physical gradient norm over four training batches;
+the same coefficient is used for seasonal targets. It is not adjusted during
+training. Auxiliary predictions are neither fed back into the forecast state
+nor used at inference: any RMSE effect comes through changes to the shared
+model weights.
+
+See the [target construction and calibration record](../README.md) and
+[implemented target transforms](../../../src/samudra/auxiliary_ke.py).
+
 ## Matched quarterly forecasts
 
 Final epoch-70 EMA, 28 starts (four per year, 2015–2021). The primary score is

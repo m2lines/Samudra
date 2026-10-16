@@ -166,9 +166,15 @@ The sums stay float64 until the final float32 cast, so the 1° result matches a
 direct 48×48 average up to float rounding.
 
 **Guard against silent zeros.** A missing raw chunk reads back as NaN, and step
-1 of the velocity recipe would turn it into 0. So each tile asserts there is no
-NaN where `mask_c` is 1 (and, for U/V, before centring, where `mask_w` /
-`mask_s` is 1).
+1 of the velocity recipe would turn it into 0. So every tile checks three things:
+
+- Theta's wet boxes (`den > 0`) equal `wet_frac > 0`.
+- Salt's NaNs equal Theta's.
+- A U/V tile whose coarse boxes include any wet cell must have its chunk file
+  on disk.
+
+An all-NaN U/V tile is not itself an error. Isolated lakes have wet cells but
+no open faces; Lake Victoria (face 1, tile (3600, 2880)) is one.
 
 **Velocities** (U/V in the prognostic pass, oceTAUX/oceTAUY in the boundary
 pass), for a whole face at a time:
@@ -241,7 +247,10 @@ Modes:
 - **`verify`**:
   - Count markers (10311 per part).
   - Check that every step's coarse chunk files exist.
-  - Delete leftover `.partial` files from killed writes.
+  - Delete leftover `<chunk>.<uuid>.partial` files from killed writes in the
+    coarse stores. Run it only when no fill is running, since in-flight writes
+    use the same names. Leftovers in the rechunk store are harmless, because
+    zarr never reads them, and walking ~24M files to remove them isn't worth it.
   - Check shapes and chunks.
   - Re-run the conservation check on a few random steps.
   - Consolidate metadata.
@@ -277,9 +286,11 @@ Modes:
 **Job script:** `JOBS/coarsen_llc.sh`, copied from
 `JOBS/other/old/build_llc_face_cache.sh`.
 
-- Env vars: `MODE`, `PART`, `WORKERS`, `READ_THREADS`, `STRIDE`.
-- Slurm: `-p pi_abodner`, `--cpus-per-task=120`, `--mem=340G`, 48 h,
-  `-x node4005`.
+- Env vars: `MODE`, `PART`, `WORKERS`, `READ_THREADS`, `STRIDE`, `OFFSET`,
+  `STEPS`, `LIMIT`, `COARSE_ROOT`, `RECHUNK_ROOT`, `FORCE`.
+- Slurm: `-p pi_abodner`, `--cpus-per-task=120`, `--mem=320G`, 48 h,
+  `-x node4005`. 320G rather than 340G so the job still fits next to a 40 GB
+  interactive session on node4006 (377 GB).
 - Run python with `.venv/bin/python`, never `uv run`.
 - Before any work, run `timeout 20 ls` on the scratch path.
 - To finish, resubmit until `verify` passes.
@@ -287,18 +298,18 @@ Modes:
 ## Reuse
 
 - `scripts/build_llc_face_cache.py`: `open_source_array`, `SourceArray`,
-  `create_array` (its fill-value rules), `resolve_time_axis`, the time-split
-  logic and the blosc/thread settings. Import them by module name; the
-  script's directory is on `sys.path`.
+  `create_array` (its fill-value rules, plus a new `dimension_separator`
+  argument), the time-split logic and the blosc/thread settings. Import them by
+  module name; the script's directory is on `sys.path`.
 - `scripts/add_boundary_channels.py`: the init → fill → finalize shape.
 - `src/ocean_emulators/utils/data.py`: `_packed_spatial_features`, for the
   position/area channels at load time.
 - `llc_cross_face.ipynb`: the formulas in `interp_to_center` /
   `rotate_to_geo`, ported to numpy. xgcm is not installed in `.venv`.
 - New pure functions go in `src/ocean_emulators/llc_coarse.py`, so training
-  code can import `faces_to_latlon` later: `center_velocity`,
-  `rotate_to_east_north`, `box_sum`, `coarse_mean`, `bottom_hfac`,
-  `faces_to_latlon`.
+  code can import `faces_to_latlon` later: `box_sum`, `weighted_box_sum`,
+  `ratio`, `center_inplace`, `rotate_to_east_north`, `bottom_hfac`,
+  `unit_vector`, `lonlat_from_vector`, `fill_sources`, `faces_to_latlon`.
 
 ## Phases
 
@@ -379,6 +390,15 @@ The 3 GB/s figure is the filesystem ceiling measured by the face-cache build
 help only until that ceiling. If several nodes together go past it, split the
 time axis across them.
 
+**Measured on 2026-10-16, the ceiling was much lower.** The raw store is
+served over NFS by a single server (`hstor002-n2`). It delivered:
+
+- 0.6–0.75 GB/s to one node;
+- about 1.4 GB/s in total to three nodes reading at once (0.47 GB/s each).
+
+At those rates the prognostic pass takes about **11 days on one node** and
+about **6 days on three nodes**. See Implementation status.
+
 ## Later, not in this script
 
 - How the coarse model handles the Arctic cap (`faces_to_latlon` returns it
@@ -394,3 +414,95 @@ time axis across them.
 - Unit tests pass.
 - The one-step conservation, seam and rechunk checks are recorded in an
   "Implementation status" section at the end of this doc.
+
+## Implementation status (2026-10-16)
+
+Built:
+
+- `src/ocean_emulators/llc_coarse.py`: pure helpers.
+- `tests/test_llc_coarse.py`: 11 tests, all passing. One checks the stitch
+  layout against the real XC/YC.
+- `scripts/coarsen_llc.py`: modes `init`, `fill`, `stats`, `verify`.
+- `scripts/check_coarsen_llc.py`: the one-step checks below.
+- `JOBS/coarsen_llc.sh`: the production job.
+- `JOBS/other/bench_coarsen_llc.sh`: the throughput sweep.
+- `create_array` in `scripts/build_llc_face_cache.py` gained a
+  `dimension_separator` argument.
+
+The preflight (Phase 0) was skipped: write access for ~24M files is still
+pending.
+
+All test output went to `/orcd/scratch/seedfund/001/llc_emulator/coarse_test`,
+with its rechunk store under `coarse_test/rechunk`. The production paths were
+not touched.
+
+**init:** 110 s on 2 CPUs, 2.8 GB peak. Missing 2D steps: oceTAUX 60,
+oceTAUY 59, oceQnet 60, oceFWflx 60, Eta 0, all isolated. The fine
+`hFacC_2d` is 1 (full column) on 49% of pixels, partial on 8.5% and land on
+42%.
+
+**One-step checks:** 0 failures for boundary steps 1, 288 (filled) and 6
+(redone after a kill), and for prognostic steps 1 and 2000.
+
+- **Rechunk:** every tile equals the raw globe chunk bit for bit. On t=288 it
+  equals the mean of steps 287 and 289, and the step is listed in all three
+  stores' attrs.
+- **Conservation** (relative error):
+  - Eta: ≤ 1.3e-9 on faces 1, 6 and 9.
+  - Theta, all levels: ≤ 1.5e-7 on faces 1, 6 and 9. The Arctic face is the
+    largest, from cancellation with near-zero temperatures.
+- **Hand checks:** U/V (k = 0, 20) and wind-stress east/north at a tile-corner
+  cell on faces 1, 6 and 9 match an independent numpy recomputation (rtol
+  1e-4). That cell uses the next tile's U column and V row.
+- **NaN patterns:** raw Theta NaNs equal `mask_c == 0` on 9 sampled tiles.
+  Coarse NaNs equal `wet_frac == 0` at every level, for both resolutions.
+- **Seams:** across the 11|1, 2|5, 5|7 and 8|7 seams, the stitched surface U/V
+  jump is 0.6–1.3× the jump between neighbouring cells inside a face.
+- **Quick-look:** the stitched Theta, U, V, Eta and `wet_frac` look physically
+  right. The equatorial Pacific current flows west and the Antarctic
+  Circumpolar Current east, with no visible facet edges.
+
+**Guard change found by the first run:** the "all-NaN U tile on a wet tile"
+check fired on face 1, tile (3600, 2880). That tile holds a single wet column
+of Lake Victoria with no open U faces, so U is legitimately all NaN there. The
+guard now checks that the chunk file exists, which is the actual failure mode.
+Isolated lakes count as ocean under the "≥ 1 wet pixel" rule, with tiny
+`wet_frac`.
+
+**Restart:** I killed a 3-step boundary fill (main process and workers) during
+its second step. Only the first step's marker existed afterwards. The rerun
+skipped it, redid the other two, and the redone step passes every check.
+
+**Throughput** (120-CPU job on node4006; `s/step wall` is the time per finished
+step across all workers):
+
+| part | workers × threads | s/step wall | read GB/s | worker peak |
+|---|---|---|---|---|
+| boundary | 2 × 36 | 6.0 | 0.33 | 12 GB |
+| boundary | 4 × 30 | **2.6** | 0.83 | 12 GB |
+| boundary | 8 × 15 | 3.1 | 0.64 | 12 GB |
+| boundary | 12 × 10 | 5.5 | 0.36 | 11 GB |
+| prognostic | 2 × 36 | **95** | 0.75 | 32 GB |
+| prognostic | 4 × 30 | 118 | 0.61 | 29 GB |
+
+- **Per-step time split (prognostic, 2 workers):** read U/V 98 s, centring
+  11 s, tiles (Theta/Salt reads + maths) 63 s, write 13 s per worker step.
+- **Centring fix:** the first version centred U/V level by level in one thread,
+  which took ~150 s per step. It now runs one level per thread.
+- **Plain `cat` agrees:** 64 parallel `cat`s give 0.72 GB/s from one node and
+  0.47 GB/s per node from three nodes at once. So the limit is the raw store's
+  server, not this code.
+- **W=8 and W=12 prognostic weren't run.** W=4 was already slower than W=2.
+- **Caveat on the boundary rows:** they were measured while a small restart
+  test also ran. They were also writing to scratch (fstor012), not to
+  `/orcd/data/abodner/002` (hstor009).
+
+**Projected run time at these rates:**
+
+- Boundary pass: ~7.4 h on one node.
+- Prognostic daily subset (430 steps): ~11 h on one node.
+- Full prognostic pass: ~11 days on one node, or ~6 days split across three
+  nodes (`--array=0-2`).
+
+The job script defaults to 4×30 for boundary and 2×32 for prognostic. For the
+prognostic part, submit with `-c 64 --mem=128G`.

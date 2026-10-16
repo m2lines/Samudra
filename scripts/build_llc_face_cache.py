@@ -275,7 +275,7 @@ def build_compressor(args: argparse.Namespace) -> numcodecs.Blosc:
 
 
 def create_array(group, name, shape, chunks, dtype, dims, compressor=None,
-                 fill_value="auto"):
+                 fill_value="auto", dimension_separator=None):
     """Create one array with xarray-compatible fill-value semantics.
 
     `fill_value` is not cosmetic. xarray treats a zarr `fill_value` as
@@ -296,6 +296,7 @@ def create_array(group, name, shape, chunks, dtype, dims, compressor=None,
     array = group.create_dataset(
         name, shape=shape, chunks=chunks, dtype=dtype,
         compressor=compressor, overwrite=True, fill_value=fill_value,
+        dimension_separator=dimension_separator,
     )
     array.attrs["_ARRAY_DIMENSIONS"] = list(dims)
     return array

@@ -263,6 +263,8 @@ class Viewer:
                 dw="dw",
                 dh="dh",
                 source=raster_source,
+                # Tapping selects a profile location, not a subset of map rows.
+                nonselection_alpha=1,
                 visible=False,
             )
             self.raster_sources.append(raster_source)

@@ -153,6 +153,37 @@ def draw_maps(
 ):
     # Common physical-unit range per variable/depth, symmetric common delta range.
     loaded = {arm: dict(np.load(output / f"{arm}-ema-maps.npz")) for arm in ARMS}
+    fields = {}
+    for arm in ARMS:
+        values = loaded[arm]["bias" if bias else "mse"][lead_index]
+        fields[arm] = (values if bias else np.sqrt(values)) * grid["std"][:, None, None]
+    kind = "bias" if bias else "rmse"
+    draw_fields(
+        output,
+        grid,
+        channels,
+        channel_indices,
+        fields,
+        signed=bias,
+        title=f"{LEADS[lead_index]}-day nominal {kind}, final EMA; 28 starts",
+        filename_tag=f"{kind}-{LEADS[lead_index]}d",
+        pixels_per_cell=pixels_per_cell,
+    )
+
+
+def draw_fields(
+    output,
+    grid,
+    channels,
+    channel_indices,
+    fields,
+    *,
+    signed,
+    title,
+    filename_tag,
+    pixels_per_cell=2,
+):
+    """Draw physical-unit error fields with shared scales and exact cell pixels."""
     figures = output / "figures"
     figures.mkdir(exist_ok=True)
     lon = (grid["lon"] + 180) % 360 - 180
@@ -167,18 +198,15 @@ def draw_maps(
             continue
         fig, axes, bars = map_canvas(len(selected), shape, pixels_per_cell)
         for row, channel in enumerate(selected):
-            std = float(grid["std"].reshape(-1)[channel])
             arrays = {}
             for arm in ARMS:
-                values = loaded[arm]["bias" if bias else "mse"][lead_index, channel]
-                values = values if bias else np.sqrt(values)
-                arrays[arm] = np.where(grid["wet"][channel], values * std, np.nan)[
-                    :, order
-                ]
+                arrays[arm] = np.where(
+                    grid["wet"][channel], fields[arm][channel], np.nan
+                )[:, order]
             scale = np.nanpercentile(
                 np.concatenate([v.ravel() for v in arrays.values()]), 98
             )
-            if bias:
+            if signed:
                 scale = np.nanpercentile(
                     np.abs(np.concatenate([v.ravel() for v in arrays.values()])), 98
                 )
@@ -199,8 +227,8 @@ def draw_maps(
                     interpolation="nearest",
                     resample=False,
                     aspect="equal",
-                    cmap="RdBu_r" if delta or bias else "viridis",
-                    vmin=-vmax if delta or bias else 0,
+                    cmap="RdBu_r" if delta or signed else "viridis",
+                    vmin=-vmax if delta or signed else 0,
                     vmax=vmax,
                 )
                 ax.set_facecolor("#dddddd")
@@ -231,25 +259,24 @@ def draw_maps(
                         ][col]
                     )
                 fig.colorbar(image, cax=bars[row][col], label=units[variable])
-        kind = "bias" if bias else "rmse"
         fig.suptitle(
-            f"{variable}: {LEADS[lead_index]}-day nominal {kind}, final EMA; 28 starts\n"
+            f"{variable}: {title}\n"
             + (
                 "Signed bias differences; gray = land"
-                if bias
+                if signed
                 else "Blue differences = lower RMSE; gray = land; limits clipped at pooled 98th percentile"
             )
         )
         verify_map_pixels(fig, axes, shape, pixels_per_cell)
         fig.savefig(
-            figures / f"{variable}-{kind}-{LEADS[lead_index]}d.png",
+            figures / f"{variable}-{filename_tag}.png",
             dpi=100,
             pil_kwargs={"optimize": True},
         )
         plt.close(fig)
 
 
-def draw_atlas(output, grid, channels, pixels_per_cell):
+def selected_depth_channels(grid, channels):
     indices: list[int] = []
     for target in (0, 100, 700, 2000):
         depth_index = int(np.argmin(abs(grid["depths"] - target)))
@@ -258,6 +285,11 @@ def draw_atlas(output, grid, channels, pixels_per_cell):
         )
     indices.append(channels.index("zos"))
     indices = list(dict.fromkeys(indices))
+    return indices
+
+
+def draw_atlas(output, grid, channels, pixels_per_cell):
+    indices = selected_depth_channels(grid, channels)
     for lead_index in (1, 3, 4):
         draw_maps(
             output, grid, channels, indices, lead_index, pixels_per_cell=pixels_per_cell

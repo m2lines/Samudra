@@ -121,6 +121,36 @@ diagnostics measure different properties of the trajectory.
 [reproducible summary script](../summarize_observations.py).
 Downloaded metrics and completion receipt match remote SHA-256s.
 
+## Residual-anomaly errors against OM4
+
+Grace CPU analysis **137485** is computing this additional geographic diagnostic
+from the saved final-EMA control, aligned, and seasonal continuous rollouts.
+It compares each model with OM4 at all 598 original timestamps, on the original
+per-channel wet support, without temporal or spatial interpolation.
+
+For each model and OM4 independently, at each cell, subtract the field's own
+pentad climatology and then its own fitted linear trend including an intercept,
+using the production `detrended_deseasonalized` kernel. This removes the own
+mean state as well as the seasonal cycle and trend. Climatologies and trends
+are fitted over the complete common rollout; this is a retrospective diagnostic.
+The mapped quantity is `sqrt(mean_time((model_residual - OM4_residual)**2))`.
+It measures errors in the residual fluctuations, including their timing, rather
+than differences between variance maps. Signed residual means would be nearly
+zero by construction and are not the error metric used here.
+
+All 77 physical channels are scored in physical units, with normalized regional
+summaries. The planned five PNG atlases retain control/aligned/seasonal fields
+and both treatment-minus-control differences at the same selected depths as
+the raw-error atlas. Pixel geometry and shared color scales are preserved.
+The script first checks that the saved physical forecasts reproduce the
+original raw normalized error maps. Tests distinguish removed mean/seasonal
+errors from wrong-phase residuals that have the correct variance.
+
+These are errors along a continuous free trajectory, whose phase may diverge
+from OM4 over years. Interpret them alongside the existing quarterly forecast
+scores and raw errors; they intentionally exclude mean-state, seasonal-cycle,
+and trend errors. No training or model inference is rerun for this analysis.
+
 ## Provenance
 
 - Control: Beta 210664, W&B `uaei2vbr`, source `a20c44484`.

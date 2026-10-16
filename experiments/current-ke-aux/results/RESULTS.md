@@ -170,35 +170,94 @@ Downloaded metrics and completion receipt match remote SHA-256s.
 
 ## Residual-anomaly errors against OM4
 
-Grace CPU analysis **137491** is computing this additional geographic diagnostic
-from the saved final-EMA control, aligned, and seasonal continuous rollouts.
-It compares each model with OM4 at all 598 original timestamps, on the original
-per-channel wet support, without temporal or spatial interpolation.
+Grace CPU analysis **137491** completed in 10m37s, exit 0, using the saved
+final-EMA control, aligned, and seasonal continuous rollouts. The comparison
+covers all **598 dates, October 20, 2014–December 24, 2022**, on the original
+per-channel wet support, with no temporal or spatial interpolation.
 
 For each model and OM4 independently, at each cell, subtract the field's own
 pentad climatology and then its own fitted linear trend including an intercept,
-using the production `detrended_deseasonalized` kernel. This removes the own
-mean state as well as the seasonal cycle and trend. Climatologies and trends
-are fitted over the complete common rollout; this is a retrospective diagnostic.
-The mapped quantity is `sqrt(mean_time((model_residual - OM4_residual)**2))`.
-It measures errors in the residual fluctuations, including their timing, rather
-than differences between variance maps. Signed residual means would be nearly
-zero by construction and are not the error metric used here.
+using the production `detrended_deseasonalized` kernel in float64. This removes
+the own mean state as well as the seasonal cycle and trend. Climatologies and
+trends are fitted over the complete common rollout; this is a retrospective
+diagnostic. The mapped quantity is:
 
-All 77 physical channels are scored in physical units, with normalized regional
-summaries. The planned five PNG atlases retain control/aligned/seasonal fields
-and both treatment-minus-control differences at the same selected depths as
-the raw-error atlas. Pixel geometry and shared color scales are preserved.
-The script first checks that the saved physical forecasts reproduce the
-original raw normalized error maps. Tests distinguish removed mean/seasonal
-errors from wrong-phase residuals that have the correct variance.
+```text
+residual_RMSE(x) = sqrt(mean_time((model_residual(x,t) - OM4_residual(x,t))**2))
+```
 
-These are errors along a continuous free trajectory, whose phase may diverge
-from OM4 over years. Interpret them alongside the existing quarterly forecast
-scores and raw errors; they intentionally exclude mean-state, seasonal-cycle,
-and trend errors. No training or model inference is rerun for this analysis. The first pass
-(137485) rejected a two-dimensional versus one-dimensional coordinate-metadata
-representation before scoring; the retry verifies their broadcast equivalence.
+It measures errors in the residual fluctuations, including their timing.
+It is distinct from the RMSE between variance maps. Averaging signed residual
+errors would give nearly zero by construction and is not used here.
+
+The all-channel regional score normalizes each channel by its original training
+standard deviation, area-averages MSE on that channel's wet support, averages
+across channels, and takes the square root. Negative change means lower RMSE.
+
+| Region | Aligned residual RMSE change | Seasonal residual RMSE change |
+| --- | ---: | ---: |
+| Global | +0.79% | -0.35% |
+| Gulf Stream | +1.73% | -3.17% |
+| Kuroshio | +6.15% | +4.28% |
+| ACC | +1.06% | +0.36% |
+| Tropics | +1.55% | +0.52% |
+| Rest | -2.43% | -3.70% |
+
+Global normalized residual RMSE is **0.412379 control, 0.415646 aligned,
+0.410935 seasonal**. Seasonal gains in the Gulf Stream include surface u
+(-2.88%), v (-3.64%), and SSH (-1.53%); its surface temperature and salinity
+errors there increase by 2.20% and 3.88%. Kuroshio surface errors increase for
+both treatments. Across global channel scores, aligned improves 6/77 channels,
+and seasonal improves 28/77; those counts do not weight effect magnitudes.
+The maps show local changes within these broad boxes.
+
+These are errors along one continuous free trajectory, whose phase can diverge
+from OM4 over years. The earlier regional table instead describes one-year
+forecasts from 28 quarterly initializations; the Kuroshio improvement in that
+table does not persist in this full-trajectory diagnostic. These regional
+changes are descriptive, with no seed or temporal uncertainty intervals.
+Mean-state, seasonal-cycle, and trend errors are intentionally excluded.
+
+Residual RMSE can also fall when a free-running model damps fluctuations.
+The channel CSV therefore includes gold, control, and treatment residual
+standard deviations. For example, global surface-temperature residual standard
+deviation is 0.5332 °C in OM4 and 0.4058/0.4090/0.4123 °C in control/aligned/
+seasonal. All three underrepresent that variability; neither auxiliary run's
+surface-temperature residual RMSE improves globally.
+
+All 77 physical channels were scored. Saved physical forecasts reproduce the
+original normalized raw MSE maps within the declared floating-point tolerance:
+maximum absolute discrepancies are 1.17e-5 control, 9.49e-6 aligned, and 1.22e-5
+seasonal. Recomputed global raw scores reproduce the earlier continuous-rollout
+scores. All output moments are finite and nonnegative on original wet cells;
+metadata and downloaded arrays pass SHA-256 readback verification. Tests
+exclude pure mean/seasonal differences but penalize wrong-phase anomalies even
+when their variances match. The shared renderer reproduces the original SSH
+PNG exactly and checks integer panel bounds and constant 2×2-pixel cells.
+
+The first pass (137485) rejected a two-dimensional versus one-dimensional
+coordinate representation before scoring. The successful retry verifies their
+broadcast equivalence. No training or model inference was rerun.
+
+| Field | Full-rollout residual-anomaly RMSE and treatment differences |
+| --- | --- |
+| Temperature | [lossless PNG](maps/thetao-residual-rmse-rollout.png) |
+| Salinity | [lossless PNG](maps/so-residual-rmse-rollout.png) |
+| Zonal velocity | [lossless PNG](maps/uo-residual-rmse-rollout.png) |
+| Meridional velocity | [lossless PNG](maps/vo-residual-rmse-rollout.png) |
+| SSH | [lossless PNG](maps/zos-residual-rmse-rollout.png) |
+
+Each atlas shows control, aligned, seasonal, aligned-minus-control, and
+seasonal-minus-control. Blue differences mean lower RMSE. Displayed depths
+are 2.5, 105, 775, and 1850 m, plus surface SSH. Scales are shared across
+conditions for each channel, clipped at the pooled 98th percentile as above.
+Scalar scores retain all wet cells, including outside the displayed ±80° band.
+
+[Regional and variable summaries](residual-summary.csv),
+[all channel scores and residual standard deviations](residual-channels.csv),
+[execution/data provenance](residual-provenance.json.gz), and
+[reproducible analysis](../residual_maps.py). Full MSE/variance arrays remain
+with the saved forecasts under `residual-maps-137491` on project storage.
 
 ## Provenance
 

@@ -204,6 +204,9 @@ def summarize_and_render(output):
                     mv = np.nansum(
                         maps[arm]["model_variance"] * weights[r], axis=(-2, -1)
                     )
+                    cv = np.nansum(
+                        maps["control"]["model_variance"] * weights[r], axis=(-2, -1)
+                    )
                     for i, name in enumerate(channels):
                         if active[i]:
                             detailed.append(
@@ -215,6 +218,7 @@ def summarize_and_render(output):
                                     treatment_rmse=np.sqrt(t[i]),
                                     change_percent=100 * (np.sqrt(t[i] / b[i]) - 1),
                                     gold_residual_std=np.sqrt(gv[i]),
+                                    control_residual_std=np.sqrt(cv[i]),
                                     model_residual_std=np.sqrt(mv[i]),
                                 )
                             )

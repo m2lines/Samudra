@@ -194,9 +194,14 @@ def raster_rows(values, wet, lat, lon, palette, low, high):
     values, wet = np.asarray(values), np.asarray(wet, bool)
     if values.shape != (len(lat), len(lon)) or wet.shape != values.shape:
         raise ValueError("Raster values/mask/coordinates differ")
-    longitude_edges = edges(lon, (0, 360))
-    if not np.allclose(np.diff(longitude_edges), np.diff(longitude_edges)[0]):
-        raise ValueError("Row-strip rendering requires uniform longitude cells")
+    longitude_edges = edges(lon)
+    widths = np.diff(longitude_edges)
+    if not np.allclose(widths, widths[0]) or not np.isclose(widths.sum(), 360):
+        raise ValueError(
+            "Row-strip rendering requires uniform longitude cells over a full globe"
+        )
+    if longitude_edges[0] < -widths[0] or longitude_edges[-1] > 360 + widths[0]:
+        raise ValueError("Longitude centers must use the 0–360 convention")
     latitude_edges = edges(lat, (-90, 90))
     colors = np.array(
         [
@@ -216,11 +221,28 @@ def raster_rows(values, wet, lat, lon, palette, low, high):
     rgba[~wet] = [213, 219, 224, 255]
     rgba[wet & ~valid] = [255, 255, 255, 255]
     packed = rgba.view(np.uint32).reshape(values.shape)
-    return dict(
+    result = dict(
         image=[row[None] for row in packed],
         values=[row[None] for row in values],
-        x=np.zeros(len(lat)),
+        x=np.full(len(lat), longitude_edges[0]),
         y=latitude_edges[:-1],
         dw=np.full(len(lat), 360.0),
         dh=np.diff(latitude_edges),
     )
+
+    # A cell centered at zero crosses the plotting seam. Draw its identical
+    # periodic copy at 360, rather than shifting coordinates or stretching cells.
+    seam = (
+        (0, longitude_edges[0] + 360)
+        if longitude_edges[0] < 0
+        else ((-1, longitude_edges[-2] - 360) if longitude_edges[-1] > 360 else None)
+    )
+    if seam is not None:
+        column, x = seam
+        result["image"].extend(row[[column]][None] for row in packed)
+        result["values"].extend(row[[column]][None] for row in values)
+        result["x"] = np.r_[result["x"], np.full(len(lat), x)]
+        result["y"] = np.tile(result["y"], 2)
+        result["dw"] = np.r_[result["dw"], np.full(len(lat), widths[0])]
+        result["dh"] = np.tile(result["dh"], 2)
+    return result

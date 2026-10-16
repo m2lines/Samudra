@@ -319,6 +319,8 @@ interior view provides depth profiles and sections at those six saved leads.
 Own initialized persistence holds each model's actual initializer fixed.
 
 Monthly heat content uses its separate native IAP 360×720 grid and GJ/m² units.
+Its zero-centered longitude cell is drawn identically on both sides of the
+periodic map seam; coordinates and values are neither shifted nor resampled.
 Monthly temperature profiles and interior observational truth were not exported
 for these models and are not fabricated or inferred from the six saved states.
 Existing one-degree models retain their available monthly profiles and all
@@ -339,3 +341,9 @@ unique across catalogs, and supplied child-catalog hashes are verified.
 by the platform path separator for preview testing. Prepared arrays remain
 outside Git. `prepare_quarter.py` creates the native bundle from verified saved
 evaluation files; no model inference is performed by the viewer.
+
+```bash
+python prepare_quarter.py --config /path/to/verified-config.json --output /path/to/new-native-bundle
+```
+
+The exact extraction configuration is retained in the prepared bundle.

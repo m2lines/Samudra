@@ -269,3 +269,23 @@ def test_actual_widget_callbacks_route_views_without_changing_selected_model(
     assert "forecast_interior" not in viewer.mode.options.values()
     viewer.model.value = "obs08000"
     assert viewer.prediction.shape == (73, 2, 2, 4)
+
+
+def test_zero_centered_iap_longitude_wraps_one_exact_cell_without_resampling():
+    lat = np.array([-89.5, 0.0, 90.0])
+    lon = np.arange(0, 360, 0.5)
+    values = np.arange(3 * len(lon), dtype=np.float32).reshape(3, -1)
+    result = raster_rows(
+        values, np.ones_like(values, bool), lat, lon, ["#123456"], 0, 3000
+    )
+    np.testing.assert_array_equal(np.concatenate(result["values"][:3]), values)
+    np.testing.assert_array_equal(np.concatenate(result["values"][3:]), values[:, :1])
+    np.testing.assert_array_equal(result["x"], [-0.25] * 3 + [359.75] * 3)
+    np.testing.assert_array_equal(result["dw"], [360] * 3 + [0.5] * 3)
+    for index in range(3):
+        np.testing.assert_array_equal(
+            result["image"][index][:, :1], result["image"][index + 3]
+        )
+    # Visible clipped row coverage is exactly 360 degrees; no seam gap or overlap.
+    assert min(360, result["x"][0] + result["dw"][0]) == result["x"][3]
+    assert min(360, result["x"][3] + result["dw"][3]) == 360

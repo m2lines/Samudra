@@ -22,6 +22,7 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--root", type=Path, required=True)
     p.add_argument("--output", type=Path, required=True)
+    p.add_argument("--clipping-only", action="store_true")
     a = p.parse_args()
     a.output.mkdir(parents=True, exist_ok=False)
     torch.set_num_threads(8)
@@ -73,6 +74,22 @@ def main():
         assert all(groups.values()), list(dict(model.named_parameters()))
         gradients: dict[str, list[torch.Tensor]] = {k: [] for k in groups}
         records = []
+        forcing_records = []
+        if a.clipping_only:
+            from monthly_clipping_probe import (  # type: ignore[import-not-found]
+                channel_stats,
+                update_probe,
+            )
+
+            def capture_adapter(module, inputs, output):
+                forcing_records.append(
+                    {"source": "obs_adapter", **channel_stats(output)}
+                )
+
+            adapter_hook = model.atmosphere_adapter.register_forward_hook(
+                capture_adapter
+            )
+
         for source in ("obs", "om4"):
             for repeat in range(4):
                 model.zero_grad(set_to_none=True)
@@ -92,9 +109,19 @@ def main():
                             )
                             components.append(component)
                         else:
+                            model_batch = om4.sample(
+                                int(rng.integers(len(om4.windows))), "cuda"
+                            )
+                            if a.clipping_only:
+                                forcing_records.append(
+                                    {
+                                        "source": "om4",
+                                        **channel_stats(model_batch["forcing"]),
+                                    }
+                                )
                             loss = model_loss(
                                 model,
-                                om4.sample(int(rng.integers(len(om4.windows))), "cuda"),
+                                model_batch,
                                 "surface",
                                 gen,
                                 data.area,
@@ -122,6 +149,8 @@ def main():
                     )
                     gradients[name].append(vec)
                     record["norms"][name] = float(vec.norm())
+                if a.clipping_only:
+                    record["adamw_probe"] = update_probe(model, saved["optimizer"])
                 records.append(record)
         alignment = {}
         for name, values in gradients.items():
@@ -145,9 +174,28 @@ def main():
                 ),
             }
         result["gradient_probes"].append(
-            {"step": step, "weights": "raw", "records": records, "alignment": alignment}
+            {
+                "step": step,
+                "weights": "raw",
+                "records": records,
+                "alignment": alignment,
+                "forcing_statistics": forcing_records,
+            }
         )
+        if a.clipping_only:
+            adapter_hook.remove()
         (a.output / "diagnostics.json").write_text(json.dumps(result, indent=2))
+    if a.clipping_only:
+        (a.output / "COMPLETE.json").write_text(
+            json.dumps(
+                {
+                    "kind": "clipping-and-forcing",
+                    "checkpoints": [2000, 3000],
+                    "training_updates": 0,
+                }
+            )
+        )
+        return
     del gradients, matrix, values, saved
     model.zero_grad(set_to_none=True)
     for arm in "ABCDE":

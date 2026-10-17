@@ -444,9 +444,8 @@ The adapter begins exactly at the old interface, avoiding an initial input shift
 This is the minimal learned-affine interface test, not a capacity-matched nonlinear
 adapter test. No CM4 or extra seeds are added.
 
-Beta job **214212** is submitted (pending at release), one four-GPU node with
-a 12-hour limit and three concurrent arms. Completion callback and quiet
-monitoring are installed. Producer `6a76e61ee`; thirteen focused CPU tests and all repository pre-commit
+Beta job **214212 completed** all three qualifications and continuations in
+2h57m01s on one four-GPU node. Monitoring is closed. Producer `6a76e61ee`; thirteen focused CPU tests and all repository pre-commit
 checks pass. Source checkpoint hash is pinned in the launcher. All three branches
 must pass real obs/OM4 batch-eight updates, finite gradients, checkpoint reload,
 and (adapter branch) identity-output and nonzero-learning checks before any
@@ -460,3 +459,63 @@ for its first 2k mixed updates and 1h15m for its obs-only cooldown. Approximatel
 three hours per new 1k mixed continuation is a rough estimate, excluding queue;
 the three arms run concurrently. The earlier five-pilot allocation's 10h20m
 included E running after A and should not be interpreted as A's runtime.
+
+## Clipping and adapter continuation results
+
+All branches completed 1,000 additional mixed updates (500 obs + 500 OM4),
+ending at 3k total with 1,500 updates from each source. No cooldown or EMA reset.
+All four validation checkpoints were finite; all three select their 3k endpoints.
+
+| Branch | Final RMSE blend ↓ | Obs updates clipped | OM4 updates clipped |
+|---|---:|---:|---:|
+| clip1 | 1.165185 | 100.0% | 100.0% |
+| clip5 | 1.164020 | 25.2% | 6.0% |
+| adapter | 1.161374 | 100.0% | 100.0% |
+
+![Matched continuation curves](assets/monthly-latent-pilots-2026-10-16/continuation-curves.png)
+
+Clip5 initially destabilizes the continuation: its EMA blend rises to about
+1.75 at update 2,250, versus 1.25 for clip1, before recovering. Both source
+training losses also spike. The threshold change is abrupt while retaining Adam
+moments accumulated under clip1; this test does not isolate whether a gradual
+change or training with clip5 from the beginning would behave differently.
+
+Clip5 improves the final blend by 0.10% versus clip1; the adapter improves it by
+0.33%. These are tiny single-seed differences, not convincing evidence of improved
+forecast skill. Heavy clipping was real and changing it substantially altered
+optimization, but this test does not show that clipping1 was the main obstacle.
+Likewise this small affine forcing adapter does not show a meaningful benefit;
+it does not rule out more expressive or physically constrained forcing alignment.
+
+| Branch | SST °C | Velocity m/s | EKE m²/s² | OHC 0–700 GJ/m² | OHC 700–2,000 GJ/m² |
+|---|---:|---:|---:|---:|---:|
+| clip1 | 0.75890 | 0.139835 | 0.021602 | 0.85163 | 0.63128 |
+| clip5 | 0.72716 | 0.140836 | 0.021636 | 0.83540 | 0.64846 |
+| adapter | 0.76309 | 0.139859 | 0.021592 | 0.83195 | 0.63282 |
+
+Clip5 has 4.2% lower SST RMSE but 2.7% worse deep OHC and 0.7% worse velocity
+RMSE than clip1; the pooled blend hides these tradeoffs. The adapter lowers
+upper-ocean OHC error by about 2.3%, with little change in the other components.
+These component differences also need replication before a scientific claim.
+
+The adapter learned rather than remaining frozen: raw diagonal weights end at
+0.96085/0.95912/0.96833, largest absolute off-diagonal about 0.01009, and largest
+absolute bias about 0.00159. Both new Adam parameter states record exactly 500
+OM4 updates. Saved weights are finite. This mainly resembles a modest rescaling
+of normalized forcing, not a large change of representation.
+
+For context, the previous obs-only cooldown endpoint scored 1.11824 versus
+1.16518 for continued mixed training at clip1. That is not an isolated cooldown
+comparison: both the LR schedule and source mixture differ. The continuation
+results support prioritizing objective/data-exposure questions over interpreting
+the original large pre-clipping norms as a sufficient explanation of performance.
+
+[Full curves and component records](assets/monthly-latent-pilots-2026-10-16/continuation-results.json).
+- [clip1 W&B](https://wandb.ai/ocean_emulators/observational-transfer/runs/5a7ce70bf5f6)
+- [clip5 W&B](https://wandb.ai/ocean_emulators/observational-transfer/runs/9ad43d840011)
+- [adapter W&B](https://wandb.ai/ocean_emulators/observational-transfer/runs/4ff5004a2eac)
+
+This allocation used 11.8011 GPU-hours including qualification (three active
+training GPUs on a required four-GPU host). Total completed campaign allocation,
+including earlier pilots and diagnostics: **54.3739 GPU-hours**. This report adds
+no test-set or annual-rollout claims and launches no further experiments.

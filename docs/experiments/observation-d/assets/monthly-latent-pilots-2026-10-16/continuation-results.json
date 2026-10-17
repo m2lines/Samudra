@@ -1,0 +1,653 @@
+{
+  "clip1": {
+    "validation": [
+      {
+        "step": 2250,
+        "blend": 1.25072968700312,
+        "metrics": {
+          "metrics": {
+            "sst_rmse/day5": 0.7163495940148935,
+            "velocity_rmse/day5": 0.13929211293658153,
+            "eke_rmse/day5": 0.021527984274548342,
+            "sst_variance_map_rmse/day5": 1.1453340670585224,
+            "sst_dynamics/day5/bias_celsius": 0.015242294845177903,
+            "sst_dynamics/day5/anomaly_correlation": 0.6261404019964302,
+            "sst_dynamics/day5/anomaly_rms_ratio": 0.8822763299894478,
+            "sst_rmse/day15": 0.7776292042495501,
+            "velocity_rmse/day15": 0.14197560908220394,
+            "eke_rmse/day15": 0.021912996200638305,
+            "sst_variance_map_rmse/day15": 1.3119851953680945,
+            "sst_dynamics/day15/bias_celsius": -0.03339915426749937,
+            "sst_dynamics/day15/anomaly_correlation": 0.43352143706614876,
+            "sst_dynamics/day15/anomaly_rms_ratio": 0.9254118110324343,
+            "sst_rmse/day30": 0.8851795572084776,
+            "velocity_rmse/day30": 0.14597816928240778,
+            "eke_rmse/day30": 0.02184579690842979,
+            "sst_variance_map_rmse/day30": 1.7478249954305176,
+            "sst_dynamics/day30/bias_celsius": -0.08592152093739668,
+            "sst_dynamics/day30/anomaly_correlation": 0.39005460191920666,
+            "sst_dynamics/day30/anomaly_rms_ratio": 0.8548012456103367,
+            "sst_rmse": 0.7930527851576404,
+            "velocity_rmse": 0.14241529710039777,
+            "eke_rmse": 0.021762259127872146,
+            "ohc_0_700_rmse": 937292311.8725781,
+            "ohc_700_2000_rmse": 718848184.3113332
+          },
+          "spectra": {},
+          "origins": [
+            "2013-11",
+            "2013-12",
+            "2014-01",
+            "2014-02",
+            "2014-03",
+            "2014-04",
+            "2014-05",
+            "2014-06",
+            "2014-07"
+          ],
+          "members": 8,
+          "sampler_steps": 32,
+          "readout": "five-day surface mean plus direct-monthly interior; top OHC layer from mean surface",
+          "persistence": null
+        }
+      },
+      {
+        "step": 2500,
+        "blend": 1.218685402568282,
+        "metrics": {
+          "metrics": {
+            "sst_rmse/day5": 0.7109784134452545,
+            "velocity_rmse/day5": 0.13824462117373185,
+            "eke_rmse/day5": 0.021428264933048995,
+            "sst_variance_map_rmse/day5": 1.1505848977626638,
+            "sst_dynamics/day5/bias_celsius": 0.05225778258278724,
+            "sst_dynamics/day5/anomaly_correlation": 0.6354353557657341,
+            "sst_dynamics/day5/anomaly_rms_ratio": 0.894798368225588,
+            "sst_rmse/day15": 0.7709182000009895,
+            "velocity_rmse/day15": 0.14111475377989394,
+            "eke_rmse/day15": 0.021837669989062353,
+            "sst_variance_map_rmse/day15": 1.3107733588597754,
+            "sst_dynamics/day15/bias_celsius": -0.03368589992196918,
+            "sst_dynamics/day15/anomaly_correlation": 0.43794891162397365,
+            "sst_dynamics/day15/anomaly_rms_ratio": 0.9151287268157786,
+            "sst_rmse/day30": 0.8829102419139199,
+            "velocity_rmse/day30": 0.14524490034181559,
+            "eke_rmse/day30": 0.021805959666639747,
+            "sst_variance_map_rmse/day30": 1.724483647154044,
+            "sst_dynamics/day30/bias_celsius": -0.10115218091833902,
+            "sst_dynamics/day30/anomaly_correlation": 0.38604489623063687,
+            "sst_dynamics/day30/anomaly_rms_ratio": 0.8414894955490619,
+            "sst_rmse": 0.7882689517867213,
+            "velocity_rmse": 0.1415347584318138,
+            "eke_rmse": 0.021690631529583698,
+            "ohc_0_700_rmse": 895713926.3026437,
+            "ohc_700_2000_rmse": 687427517.0848744
+          },
+          "spectra": {},
+          "origins": [
+            "2013-11",
+            "2013-12",
+            "2014-01",
+            "2014-02",
+            "2014-03",
+            "2014-04",
+            "2014-05",
+            "2014-06",
+            "2014-07"
+          ],
+          "members": 8,
+          "sampler_steps": 32,
+          "readout": "five-day surface mean plus direct-monthly interior; top OHC layer from mean surface",
+          "persistence": null
+        }
+      },
+      {
+        "step": 2750,
+        "blend": 1.1816387744299373,
+        "metrics": {
+          "metrics": {
+            "sst_rmse/day5": 0.6918861842009288,
+            "velocity_rmse/day5": 0.13719169738484532,
+            "eke_rmse/day5": 0.021372870272923818,
+            "sst_variance_map_rmse/day5": 1.1329220528939405,
+            "sst_dynamics/day5/bias_celsius": 0.0635906978470653,
+            "sst_dynamics/day5/anomaly_correlation": 0.6531211111756338,
+            "sst_dynamics/day5/anomaly_rms_ratio": 0.8874342678119991,
+            "sst_rmse/day15": 0.7491449666634067,
+            "velocity_rmse/day15": 0.14022804174262765,
+            "eke_rmse/day15": 0.021804647774893528,
+            "sst_variance_map_rmse/day15": 1.297768311319533,
+            "sst_dynamics/day15/bias_celsius": 0.0008632065259700008,
+            "sst_dynamics/day15/anomaly_correlation": 0.4597430697138583,
+            "sst_dynamics/day15/anomaly_rms_ratio": 0.8951473659116249,
+            "sst_rmse/day30": 0.8447170640452252,
+            "velocity_rmse/day30": 0.14449763256247927,
+            "eke_rmse/day30": 0.021790728817403963,
+            "sst_variance_map_rmse/day30": 1.6816467105037005,
+            "sst_dynamics/day30/bias_celsius": -0.05464168041446238,
+            "sst_dynamics/day30/anomaly_correlation": 0.4313793345112797,
+            "sst_dynamics/day30/anomaly_rms_ratio": 0.8249511340158922,
+            "sst_rmse": 0.7619160716365202,
+            "velocity_rmse": 0.14063912389665076,
+            "eke_rmse": 0.0216560822884071,
+            "ohc_0_700_rmse": 862594330.771127,
+            "ohc_700_2000_rmse": 651378772.9225181
+          },
+          "spectra": {},
+          "origins": [
+            "2013-11",
+            "2013-12",
+            "2014-01",
+            "2014-02",
+            "2014-03",
+            "2014-04",
+            "2014-05",
+            "2014-06",
+            "2014-07"
+          ],
+          "members": 8,
+          "sampler_steps": 32,
+          "readout": "five-day surface mean plus direct-monthly interior; top OHC layer from mean surface",
+          "persistence": null
+        }
+      },
+      {
+        "step": 3000,
+        "blend": 1.165184998590752,
+        "metrics": {
+          "metrics": {
+            "sst_rmse/day5": 0.6861602612393765,
+            "velocity_rmse/day5": 0.13629756063072718,
+            "eke_rmse/day5": 0.02128814470579752,
+            "sst_variance_map_rmse/day5": 1.1364448608212034,
+            "sst_dynamics/day5/bias_celsius": 0.033436750055444296,
+            "sst_dynamics/day5/anomaly_correlation": 0.6594282180488937,
+            "sst_dynamics/day5/anomaly_rms_ratio": 0.889263160678775,
+            "sst_rmse/day15": 0.7508004362484536,
+            "velocity_rmse/day15": 0.13940796999814195,
+            "eke_rmse/day15": 0.021753600265252266,
+            "sst_variance_map_rmse/day15": 1.2939402132042694,
+            "sst_dynamics/day15/bias_celsius": -0.01526652775453847,
+            "sst_dynamics/day15/anomaly_correlation": 0.45876731833203355,
+            "sst_dynamics/day15/anomaly_rms_ratio": 0.8980949576865881,
+            "sst_rmse/day30": 0.8397353926602719,
+            "velocity_rmse/day30": 0.1437981165695672,
+            "eke_rmse/day30": 0.021765546294497593,
+            "sst_variance_map_rmse/day30": 1.639765769207803,
+            "sst_dynamics/day30/bias_celsius": -0.04896547337846205,
+            "sst_dynamics/day30/anomaly_correlation": 0.44694216761852706,
+            "sst_dynamics/day30/anomaly_rms_ratio": 0.8433947058460418,
+            "sst_rmse": 0.758898696716034,
+            "velocity_rmse": 0.13983454906614545,
+            "eke_rmse": 0.021602430421849127,
+            "ohc_0_700_rmse": 851625364.9971792,
+            "ohc_700_2000_rmse": 631276910.9906523
+          },
+          "spectra": {},
+          "origins": [
+            "2013-11",
+            "2013-12",
+            "2014-01",
+            "2014-02",
+            "2014-03",
+            "2014-04",
+            "2014-05",
+            "2014-06",
+            "2014-07"
+          ],
+          "members": 8,
+          "sampler_steps": 32,
+          "readout": "five-day surface mean plus direct-monthly interior; top OHC layer from mean surface",
+          "persistence": null
+        }
+      }
+    ],
+    "statistics": {
+      "obs": {
+        "clip_fraction": 1.0,
+        "mean_clip_scale": 0.21133807521170536,
+        "last250_mean_loss": 0.14348820475488902
+      },
+      "om4": {
+        "clip_fraction": 1.0,
+        "mean_clip_scale": 0.24925106707476033,
+        "last250_mean_loss": 0.5021368789970875
+      }
+    },
+    "wandb": "https://wandb.ai/ocean_emulators/observational-transfer/runs/5a7ce70bf5f6"
+  },
+  "clip5": {
+    "validation": [
+      {
+        "step": 2250,
+        "blend": 1.7530154845257606,
+        "metrics": {
+          "metrics": {
+            "sst_rmse/day5": 0.9728322435763066,
+            "velocity_rmse/day5": 0.14459756571061133,
+            "eke_rmse/day5": 0.022043060217822315,
+            "sst_variance_map_rmse/day5": 1.8405160650211574,
+            "sst_dynamics/day5/bias_celsius": -0.2887990827864124,
+            "sst_dynamics/day5/anomaly_correlation": 0.4289617453427932,
+            "sst_dynamics/day5/anomaly_rms_ratio": 1.081822520655079,
+            "sst_rmse/day15": 1.0444079641741517,
+            "velocity_rmse/day15": 0.1463306843516261,
+            "eke_rmse/day15": 0.022363866668249112,
+            "sst_variance_map_rmse/day15": 2.203485524657393,
+            "sst_dynamics/day15/bias_celsius": -0.2874039793374203,
+            "sst_dynamics/day15/anomaly_correlation": 0.25084967736917824,
+            "sst_dynamics/day15/anomaly_rms_ratio": 1.2327805912384817,
+            "sst_rmse/day30": 1.2969023868014347,
+            "velocity_rmse/day30": 0.14907700754762018,
+            "eke_rmse/day30": 0.022227094333002344,
+            "sst_variance_map_rmse/day30": 3.2028384386013977,
+            "sst_dynamics/day30/bias_celsius": -0.3142524310270865,
+            "sst_dynamics/day30/anomaly_correlation": -0.04943662260321573,
+            "sst_dynamics/day30/anomaly_rms_ratio": 1.0846274516598131,
+            "sst_rmse": 1.1047141981839643,
+            "velocity_rmse": 0.14666841920328588,
+            "eke_rmse": 0.022211340406357926,
+            "ohc_0_700_rmse": 1381481255.3311095,
+            "ohc_700_2000_rmse": 1251324214.8054621
+          },
+          "spectra": {},
+          "origins": [
+            "2013-11",
+            "2013-12",
+            "2014-01",
+            "2014-02",
+            "2014-03",
+            "2014-04",
+            "2014-05",
+            "2014-06",
+            "2014-07"
+          ],
+          "members": 8,
+          "sampler_steps": 32,
+          "readout": "five-day surface mean plus direct-monthly interior; top OHC layer from mean surface",
+          "persistence": null
+        }
+      },
+      {
+        "step": 2500,
+        "blend": 1.3069031792733112,
+        "metrics": {
+          "metrics": {
+            "sst_rmse/day5": 0.7371208491454323,
+            "velocity_rmse/day5": 0.1402709383496963,
+            "eke_rmse/day5": 0.02163192649697892,
+            "sst_variance_map_rmse/day5": 1.3459404989071988,
+            "sst_dynamics/day5/bias_celsius": -0.05920405233198373,
+            "sst_dynamics/day5/anomaly_correlation": 0.6009617108917223,
+            "sst_dynamics/day5/anomaly_rms_ratio": 0.8736076155614443,
+            "sst_rmse/day15": 0.7981220523372166,
+            "velocity_rmse/day15": 0.14314707637265237,
+            "eke_rmse/day15": 0.022001722205390494,
+            "sst_variance_map_rmse/day15": 1.6815059480280974,
+            "sst_dynamics/day15/bias_celsius": -0.13558217008887957,
+            "sst_dynamics/day15/anomaly_correlation": 0.40315253837515164,
+            "sst_dynamics/day15/anomaly_rms_ratio": 0.9254859152802875,
+            "sst_rmse/day30": 1.008509516352852,
+            "velocity_rmse/day30": 0.14713082158228363,
+            "eke_rmse/day30": 0.02192055593355102,
+            "sst_variance_map_rmse/day30": 2.5898178282165984,
+            "sst_dynamics/day30/bias_celsius": -0.17345382545152663,
+            "sst_dynamics/day30/anomaly_correlation": 0.1560023239371709,
+            "sst_dynamics/day30/anomaly_rms_ratio": 0.7926196833723896,
+            "sst_rmse": 0.8479174726118336,
+            "velocity_rmse": 0.14351627876821077,
+            "eke_rmse": 0.02185140154530681,
+            "ohc_0_700_rmse": 982765366.6409806,
+            "ohc_700_2000_rmse": 769463933.6472437
+          },
+          "spectra": {},
+          "origins": [
+            "2013-11",
+            "2013-12",
+            "2014-01",
+            "2014-02",
+            "2014-03",
+            "2014-04",
+            "2014-05",
+            "2014-06",
+            "2014-07"
+          ],
+          "members": 8,
+          "sampler_steps": 32,
+          "readout": "five-day surface mean plus direct-monthly interior; top OHC layer from mean surface",
+          "persistence": null
+        }
+      },
+      {
+        "step": 2750,
+        "blend": 1.2118172818356037,
+        "metrics": {
+          "metrics": {
+            "sst_rmse/day5": 0.6827856965600992,
+            "velocity_rmse/day5": 0.13821744300289046,
+            "eke_rmse/day5": 0.02147373487576861,
+            "sst_variance_map_rmse/day5": 1.1448155038112113,
+            "sst_dynamics/day5/bias_celsius": -0.013349072547623603,
+            "sst_dynamics/day5/anomaly_correlation": 0.6515083072009372,
+            "sst_dynamics/day5/anomaly_rms_ratio": 0.842238638893081,
+            "sst_rmse/day15": 0.7331690291769428,
+            "velocity_rmse/day15": 0.14140578395486528,
+            "eke_rmse/day15": 0.021878124826274187,
+            "sst_variance_map_rmse/day15": 1.3586771858709843,
+            "sst_dynamics/day15/bias_celsius": -0.06680942705590955,
+            "sst_dynamics/day15/anomaly_correlation": 0.4660885125801906,
+            "sst_dynamics/day15/anomaly_rms_ratio": 0.8587393639583658,
+            "sst_rmse/day30": 0.8748509122085393,
+            "velocity_rmse/day30": 0.1459652859373843,
+            "eke_rmse/day30": 0.021833459003506413,
+            "sst_variance_map_rmse/day30": 1.9852859533585925,
+            "sst_dynamics/day30/bias_celsius": -0.11367516772610603,
+            "sst_dynamics/day30/anomaly_correlation": 0.35068381243664476,
+            "sst_dynamics/day30/anomaly_rms_ratio": 0.7533549094016316,
+            "sst_rmse": 0.7636018793151939,
+            "velocity_rmse": 0.14186283763171337,
+            "eke_rmse": 0.021728439568516403,
+            "ohc_0_700_rmse": 877618755.2357441,
+            "ohc_700_2000_rmse": 693701646.403158
+          },
+          "spectra": {},
+          "origins": [
+            "2013-11",
+            "2013-12",
+            "2014-01",
+            "2014-02",
+            "2014-03",
+            "2014-04",
+            "2014-05",
+            "2014-06",
+            "2014-07"
+          ],
+          "members": 8,
+          "sampler_steps": 32,
+          "readout": "five-day surface mean plus direct-monthly interior; top OHC layer from mean surface",
+          "persistence": null
+        }
+      },
+      {
+        "step": 3000,
+        "blend": 1.1640204446086326,
+        "metrics": {
+          "metrics": {
+            "sst_rmse/day5": 0.6465152711910965,
+            "velocity_rmse/day5": 0.13700140699242913,
+            "eke_rmse/day5": 0.02134328404487505,
+            "sst_variance_map_rmse/day5": 1.089855951745369,
+            "sst_dynamics/day5/bias_celsius": -0.023795594255504246,
+            "sst_dynamics/day5/anomaly_correlation": 0.6854534327260575,
+            "sst_dynamics/day5/anomaly_rms_ratio": 0.821382700910734,
+            "sst_rmse/day15": 0.7105893018528021,
+            "velocity_rmse/day15": 0.14035486948026532,
+            "eke_rmse/day15": 0.021787246309728087,
+            "sst_variance_map_rmse/day15": 1.2649226871751529,
+            "sst_dynamics/day15/bias_celsius": -0.08662512801880795,
+            "sst_dynamics/day15/anomaly_correlation": 0.48314500992066456,
+            "sst_dynamics/day15/anomaly_rms_ratio": 0.8201071587601222,
+            "sst_rmse/day30": 0.8243779088677078,
+            "velocity_rmse/day30": 0.14515106742238773,
+            "eke_rmse/day30": 0.021777144552715837,
+            "sst_variance_map_rmse/day30": 1.7270221989131187,
+            "sst_dynamics/day30/bias_celsius": -0.12740115462696974,
+            "sst_dynamics/day30/anomaly_correlation": 0.422350482412992,
+            "sst_dynamics/day30/anomaly_rms_ratio": 0.7403096864874072,
+            "sst_rmse": 0.7271608273038689,
+            "velocity_rmse": 0.14083578129836072,
+            "eke_rmse": 0.02163589163577299,
+            "ohc_0_700_rmse": 835402209.6098192,
+            "ohc_700_2000_rmse": 648460524.3332076
+          },
+          "spectra": {},
+          "origins": [
+            "2013-11",
+            "2013-12",
+            "2014-01",
+            "2014-02",
+            "2014-03",
+            "2014-04",
+            "2014-05",
+            "2014-06",
+            "2014-07"
+          ],
+          "members": 8,
+          "sampler_steps": 32,
+          "readout": "five-day surface mean plus direct-monthly interior; top OHC layer from mean surface",
+          "persistence": null
+        }
+      }
+    ],
+    "statistics": {
+      "obs": {
+        "clip_fraction": 0.252,
+        "mean_clip_scale": 0.9584422987973417,
+        "last250_mean_loss": 0.13787481890246273
+      },
+      "om4": {
+        "clip_fraction": 0.06,
+        "mean_clip_scale": 0.9910541131879577,
+        "last250_mean_loss": 0.4885297949016094
+      }
+    },
+    "wandb": "https://wandb.ai/ocean_emulators/observational-transfer/runs/9ad43d840011"
+  },
+  "adapter": {
+    "validation": [
+      {
+        "step": 2250,
+        "blend": 1.2518012344135108,
+        "metrics": {
+          "metrics": {
+            "sst_rmse/day5": 0.7245635409939474,
+            "velocity_rmse/day5": 0.13928442797548854,
+            "eke_rmse/day5": 0.021525198246267693,
+            "sst_variance_map_rmse/day5": 1.1487047104456067,
+            "sst_dynamics/day5/bias_celsius": 0.03667798646292767,
+            "sst_dynamics/day5/anomaly_correlation": 0.6210639265258188,
+            "sst_dynamics/day5/anomaly_rms_ratio": 0.8945766982978404,
+            "sst_rmse/day15": 0.7806819739660075,
+            "velocity_rmse/day15": 0.14189706094916935,
+            "eke_rmse/day15": 0.021911610989175663,
+            "sst_variance_map_rmse/day15": 1.3157278096735399,
+            "sst_dynamics/day15/bias_celsius": -0.013227238810863679,
+            "sst_dynamics/day15/anomaly_correlation": 0.4337399044076289,
+            "sst_dynamics/day15/anomaly_rms_ratio": 0.9341771445312517,
+            "sst_rmse/day30": 0.8851166616510218,
+            "velocity_rmse/day30": 0.14587200394867547,
+            "eke_rmse/day30": 0.02184711957401413,
+            "sst_variance_map_rmse/day30": 1.7466936377288487,
+            "sst_dynamics/day30/bias_celsius": -0.07184823261987035,
+            "sst_dynamics/day30/anomaly_correlation": 0.3890048577939664,
+            "sst_dynamics/day30/anomaly_rms_ratio": 0.8527078379182867,
+            "sst_rmse": 0.7967873922036589,
+            "velocity_rmse": 0.14235116429111114,
+            "eke_rmse": 0.021761309603152493,
+            "ohc_0_700_rmse": 935101617.4014293,
+            "ohc_700_2000_rmse": 720489653.1719809
+          },
+          "spectra": {},
+          "origins": [
+            "2013-11",
+            "2013-12",
+            "2014-01",
+            "2014-02",
+            "2014-03",
+            "2014-04",
+            "2014-05",
+            "2014-06",
+            "2014-07"
+          ],
+          "members": 8,
+          "sampler_steps": 32,
+          "readout": "five-day surface mean plus direct-monthly interior; top OHC layer from mean surface",
+          "persistence": null
+        }
+      },
+      {
+        "step": 2500,
+        "blend": 1.2070530192868527,
+        "metrics": {
+          "metrics": {
+            "sst_rmse/day5": 0.6989922120434205,
+            "velocity_rmse/day5": 0.13826678703470646,
+            "eke_rmse/day5": 0.021436161335437444,
+            "sst_variance_map_rmse/day5": 1.13820286230908,
+            "sst_dynamics/day5/bias_celsius": -0.05788547396572635,
+            "sst_dynamics/day5/anomaly_correlation": 0.6372659292525144,
+            "sst_dynamics/day5/anomaly_rms_ratio": 0.8550187063810638,
+            "sst_rmse/day15": 0.765047831831153,
+            "velocity_rmse/day15": 0.1411215716240022,
+            "eke_rmse/day15": 0.021844747437336314,
+            "sst_variance_map_rmse/day15": 1.291107402675647,
+            "sst_dynamics/day15/bias_celsius": -0.09522498192535167,
+            "sst_dynamics/day15/anomaly_correlation": 0.4297060784720972,
+            "sst_dynamics/day15/anomaly_rms_ratio": 0.8822902113195816,
+            "sst_rmse/day30": 0.8773467312867581,
+            "velocity_rmse/day30": 0.14516647789538462,
+            "eke_rmse/day30": 0.02181351209217716,
+            "sst_variance_map_rmse/day30": 1.7198310126403533,
+            "sst_dynamics/day30/bias_celsius": -0.12055354857468899,
+            "sst_dynamics/day30/anomaly_correlation": 0.38070962622689836,
+            "sst_dynamics/day30/anomaly_rms_ratio": 0.8166480596392979,
+            "sst_rmse": 0.7804622583871105,
+            "velocity_rmse": 0.14151827885136445,
+            "eke_rmse": 0.021698140288316972,
+            "ohc_0_700_rmse": 888728137.112145,
+            "ohc_700_2000_rmse": 673120825.8394663
+          },
+          "spectra": {},
+          "origins": [
+            "2013-11",
+            "2013-12",
+            "2014-01",
+            "2014-02",
+            "2014-03",
+            "2014-04",
+            "2014-05",
+            "2014-06",
+            "2014-07"
+          ],
+          "members": 8,
+          "sampler_steps": 32,
+          "readout": "five-day surface mean plus direct-monthly interior; top OHC layer from mean surface",
+          "persistence": null
+        }
+      },
+      {
+        "step": 2750,
+        "blend": 1.1773655067003064,
+        "metrics": {
+          "metrics": {
+            "sst_rmse/day5": 0.6916532313575956,
+            "velocity_rmse/day5": 0.13720647398840777,
+            "eke_rmse/day5": 0.02135281354877021,
+            "sst_variance_map_rmse/day5": 1.1177247390911018,
+            "sst_dynamics/day5/bias_celsius": 0.0443352116275749,
+            "sst_dynamics/day5/anomaly_correlation": 0.6500925282214501,
+            "sst_dynamics/day5/anomaly_rms_ratio": 0.8748873780655029,
+            "sst_rmse/day15": 0.7512649424104766,
+            "velocity_rmse/day15": 0.1402635329521433,
+            "eke_rmse/day15": 0.021783912278691094,
+            "sst_variance_map_rmse/day15": 1.2778334473557158,
+            "sst_dynamics/day15/bias_celsius": 0.0017502391093330637,
+            "sst_dynamics/day15/anomaly_correlation": 0.4577751939103976,
+            "sst_dynamics/day15/anomaly_rms_ratio": 0.8974518779099446,
+            "sst_rmse/day30": 0.8499045876400501,
+            "velocity_rmse/day30": 0.14459601976484826,
+            "eke_rmse/day30": 0.02177398174086008,
+            "sst_variance_map_rmse/day30": 1.6643920371426941,
+            "sst_dynamics/day30/bias_celsius": -0.02644733958137013,
+            "sst_dynamics/day30/anomaly_correlation": 0.43277282990489374,
+            "sst_dynamics/day30/anomaly_rms_ratio": 0.8426980540288348,
+            "sst_rmse": 0.7642742538027073,
+            "velocity_rmse": 0.14068867556846645,
+            "eke_rmse": 0.021636902522773796,
+            "ohc_0_700_rmse": 847511935.17621,
+            "ohc_700_2000_rmse": 650566104.6343852
+          },
+          "spectra": {},
+          "origins": [
+            "2013-11",
+            "2013-12",
+            "2014-01",
+            "2014-02",
+            "2014-03",
+            "2014-04",
+            "2014-05",
+            "2014-06",
+            "2014-07"
+          ],
+          "members": 8,
+          "sampler_steps": 32,
+          "readout": "five-day surface mean plus direct-monthly interior; top OHC layer from mean surface",
+          "persistence": null
+        }
+      },
+      {
+        "step": 3000,
+        "blend": 1.1613738259344975,
+        "metrics": {
+          "metrics": {
+            "sst_rmse/day5": 0.6890101627699541,
+            "velocity_rmse/day5": 0.13626378361769229,
+            "eke_rmse/day5": 0.021279891462758587,
+            "sst_variance_map_rmse/day5": 1.0925803749308578,
+            "sst_dynamics/day5/bias_celsius": 0.06596585931409142,
+            "sst_dynamics/day5/anomaly_correlation": 0.6605781454237627,
+            "sst_dynamics/day5/anomaly_rms_ratio": 0.904475876307245,
+            "sst_rmse/day15": 0.753708146608771,
+            "velocity_rmse/day15": 0.13942654807026397,
+            "eke_rmse/day15": 0.021740882740166063,
+            "sst_variance_map_rmse/day15": 1.2461270610398614,
+            "sst_dynamics/day15/bias_celsius": 0.02083329583811922,
+            "sst_dynamics/day15/anomaly_correlation": 0.46624337215026135,
+            "sst_dynamics/day15/anomaly_rms_ratio": 0.9218192064086472,
+            "sst_rmse/day30": 0.8465554117502974,
+            "velocity_rmse/day30": 0.14388713327665592,
+            "eke_rmse/day30": 0.021754221055082644,
+            "sst_variance_map_rmse/day30": 1.634605745015836,
+            "sst_dynamics/day30/bias_celsius": 0.004908037551912664,
+            "sst_dynamics/day30/anomaly_correlation": 0.44679155867450254,
+            "sst_dynamics/day30/anomaly_rms_ratio": 0.8623089939540961,
+            "sst_rmse": 0.7630912403763408,
+            "velocity_rmse": 0.13985915498820406,
+            "eke_rmse": 0.021591665086002427,
+            "ohc_0_700_rmse": 831950274.1268526,
+            "ohc_700_2000_rmse": 632824734.6533816
+          },
+          "spectra": {},
+          "origins": [
+            "2013-11",
+            "2013-12",
+            "2014-01",
+            "2014-02",
+            "2014-03",
+            "2014-04",
+            "2014-05",
+            "2014-06",
+            "2014-07"
+          ],
+          "members": 8,
+          "sampler_steps": 32,
+          "readout": "five-day surface mean plus direct-monthly interior; top OHC layer from mean surface",
+          "persistence": null
+        }
+      }
+    ],
+    "statistics": {
+      "obs": {
+        "clip_fraction": 1.0,
+        "mean_clip_scale": 0.21036896445679623,
+        "last250_mean_loss": 0.14381250249035657
+      },
+      "om4": {
+        "clip_fraction": 1.0,
+        "mean_clip_scale": 0.24829691113867575,
+        "last250_mean_loss": 0.503374161541462
+      }
+    },
+    "wandb": "https://wandb.ai/ocean_emulators/observational-transfer/runs/4ff5004a2eac"
+  }
+}

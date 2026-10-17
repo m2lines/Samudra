@@ -211,6 +211,16 @@ def main():
             lr=lr,
             seconds=time.monotonic() - started,
         )
+        # Sparse per-source series retain the common optimizer-update axis.
+        # Missing sources are omitted, never logged as zero-valued losses.
+        record.update(
+            {
+                f"train/{source}/loss": record["loss"],
+                f"train/{source}/gradient_norm_preclip": record["gradient_norm"],
+                f"train/{source}/clip_scale": min(1.0, 1.0 / (float(norm) + 1e-6)),
+                f"train/{source}/clipped": float(norm) > 1.0,
+            }
+        )
         if step % 250 == 0:
             metrics = evaluate(ema, data, validation)
             value = selection_score(metrics, control, [], metric="rmse-only")

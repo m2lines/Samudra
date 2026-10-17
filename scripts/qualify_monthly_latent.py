@@ -21,6 +21,9 @@ def main():
     p.add_argument("--observations", required=True)
     p.add_argument("--output", required=True)
     p.add_argument("--producer", required=True)
+    p.add_argument("--om4")
+    p.add_argument("--cm4")
+    p.add_argument("--cm4-verification")
     a = p.parse_args()
     out = Path(a.output)
     out.mkdir(parents=True, exist_ok=False)
@@ -129,6 +132,64 @@ def main():
             (out / "diagnostic.pt").read_bytes()
         ).hexdigest(),
     )
+    if a.cm4:
+        from samudra.experiments.monthly_model_data import ModelMonths, model_loss
+        from samudra.experiments.monthly_pilot_evaluation import evaluate
+        from samudra.experiments.observation_metrics import selection_score
+
+        if not a.om4 or not a.cm4_verification:
+            raise ValueError("Full qualification requires CM4 read-back verification")
+        transfer = json.loads(Path(a.cm4_verification).read_text())
+        if transfer.get("destination") != a.cm4:
+            raise ValueError("CM4 destination differs from transfer proof")
+        if transfer.get(
+            "verification"
+        ) != "all files compared by rclone check --download" or hashlib.sha256(
+            (Path(a.cm4) / ".zmetadata").read_bytes()
+        ).hexdigest() != transfer.get("metadata_sha256"):
+            raise ValueError("CM4 verified metadata contract changed")
+        model_checks = []
+        for kind, path in [("om4", Path(a.om4) / "OM4.zarr"), ("cm4", Path(a.cm4))]:
+            reader = ModelMonths(path, kind, data.grid, a.om4)
+            for task in ("surface", "variable", "gap"):
+                beginning = time.monotonic()
+                batch = reader.sample(0, "cuda")
+                optimizer.zero_grad(set_to_none=True)
+                with torch.autocast("cuda", dtype=torch.bfloat16):
+                    loss = model_loss(model, batch, task, gen, data.area)
+                loss.backward()
+                norm = torch.nn.utils.clip_grad_norm_(
+                    model.parameters(), 1.0, error_if_nonfinite=True
+                )
+                if not torch.isfinite(loss) or norm <= 0:
+                    raise ValueError("Model-data fitting failed")
+                optimizer.step()
+                torch.cuda.synchronize()
+                record = dict(
+                    source=kind,
+                    task=task,
+                    loss=float(loss.detach()),
+                    seconds=time.monotonic() - beginning,
+                    windows=len(reader.windows),
+                    gap_exclusions=reader.excluded_gap_months,
+                )
+                model_checks.append(record)
+                print(json.dumps(record), flush=True)
+        beginning = time.monotonic()
+        paths = data.paths("validation")[:1]
+        metrics = evaluate(model, data, paths)
+        control = evaluate(model, data, paths, climatology=True)
+        value = selection_score(metrics, control, [], metric="rmse-only")
+        result.update(
+            phase="full-pilot-qualification",
+            production_qualified=True,
+            model_checks=model_checks,
+            evaluation_seconds_one_origin=time.monotonic() - beginning,
+            validation_smoke_score=value,
+            validation_smoke=metrics,
+            cm4_transfer_proof=transfer,
+        )
+        (out / "QUALIFIED.json").write_text(json.dumps(result, indent=2) + "\n")
     (out / "INITIAL_QUALIFIED.json").write_text(json.dumps(result, indent=2) + "\n")
     print(json.dumps(result), flush=True)
 

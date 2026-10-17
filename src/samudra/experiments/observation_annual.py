@@ -13,7 +13,10 @@ import numpy as np
 import pandas as pd
 import torch
 
-from samudra.experiments.observation_checkpoint import load_fixed_checkpoint
+from samudra.experiments.observation_checkpoint import (
+    load_fixed_checkpoint,
+    load_screen_endpoint,
+)
 from samudra.experiments.observation_data import context_planes
 from samudra.experiments.observation_metrics import _field, spatial_error, weighted_rmse
 from samudra.experiments.observation_model import ObservationTransfer
@@ -222,6 +225,7 @@ def main():
     parser.add_argument("--include-persistence", action="store_true")
     parser.add_argument("--output", required=True)
     parser.add_argument("--checkpoint", default="best.pt")
+    parser.add_argument("--screen-endpoint", choices=("raw", "ema"))
     parser.add_argument("--split", choices=("validation", "test"), default="validation")
     parser.add_argument(
         "--origin",
@@ -246,6 +250,10 @@ def main():
         args.fixed_om4_updates is None or args.fixed_observation_updates is None
     ):
         parser.error("Fixed-budget evaluation requires both task counts")
+    if args.screen_endpoint and (fixed or args.split != "validation"):
+        parser.error("Screen endpoints are validation diagnostics only")
+    if args.screen_endpoint:
+        args.checkpoint = "joint-last.pt"
     run, annual, output = Path(args.run), Path(args.annual_data), Path(args.output)
     manifest = json.loads((run / "manifest.json").read_text())
     sample_root = args.data or manifest["arguments"]["data"]
@@ -263,6 +271,8 @@ def main():
             args.fixed_om4_updates,
             args.fixed_observation_updates,
         )
+    if args.screen_endpoint:
+        fixed_state, lineage = load_screen_endpoint(run, args.screen_endpoint)
     if args.split == "test" and not fixed:
         if not (run / "TRAIN_COMPLETE.json").exists() or args.checkpoint != "best.pt":
             raise ValueError(
@@ -291,6 +301,9 @@ def main():
     signature.update(subset_signature)
     if fixed:
         signature["fixed_budget_lineage"] = lineage
+    if args.screen_endpoint:
+        signature["screen_endpoint_lineage"] = lineage
+        signature["selection"] = "Fixed endpoint cooldown validation diagnostic"
     if args.common_grid:
         signature["common_grid_sha256"] = digest(Path(args.common_grid))
     if args.data or args.include_persistence:
@@ -329,7 +342,7 @@ def main():
     )
     state = (
         fixed_state
-        if fixed
+        if fixed or args.screen_endpoint
         else torch.load(checkpoint, map_location="cuda", weights_only=False)["model"]
     )
     if state is None:

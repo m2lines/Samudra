@@ -340,3 +340,50 @@ def test_quarter_endpoint_rejects_unfinished_or_mismatched_lineage(tmp_path, cor
             3000,
             2999 if corrupt == "requested_counts" else 3000,
         )
+
+
+def test_screen_endpoint_preserves_weight_choice_and_rejects_tampering(tmp_path):
+    from samudra.experiments.observation_checkpoint import load_screen_endpoint
+
+    run = tmp_path / "screen"
+    saved = fixed_run(run)
+    manifest = saved["manifest"]
+    manifest["code_commit"] = "producer"
+    (run / "manifest.json").write_text(json.dumps(manifest))
+    saved.update(
+        global_step=5000,
+        step=3000,
+        task_counts={"om4": 2000, "observation": 3000},
+        screen={
+            "policy": "D",
+            "start": 4000,
+            "end": 5000,
+            "producer": "producer",
+            "ema_half_life": 100,
+        },
+        ema={"weight": torch.tensor([2.0])},
+        ema_updates=2000,
+    )
+    checkpoint = run / "joint-last.pt"
+    torch.save(saved, checkpoint)
+    complete = dict(
+        global_step=5000,
+        task_counts=saved["task_counts"],
+        branch="D",
+        ema_updates=2000,
+        sha256=digest(checkpoint),
+    )
+    (run / "COMPLETE.json").write_text(json.dumps(complete))
+    raw, _ = load_screen_endpoint(run, "raw")
+    ema, lineage = load_screen_endpoint(run, "ema")
+    assert raw["weight"].item() == 1
+    assert ema["weight"].item() == 2
+    assert lineage["weights"] == "ema"
+    complete["ema_updates"] = 1000
+    (run / "COMPLETE.json").write_text(json.dumps(complete))
+    with pytest.raises(ValueError, match="lineage"):
+        load_screen_endpoint(run, "ema")
+    complete["sha256"] = "wrong"
+    (run / "COMPLETE.json").write_text(json.dumps(complete))
+    with pytest.raises(ValueError, match="hash"):
+        load_screen_endpoint(run, "raw")

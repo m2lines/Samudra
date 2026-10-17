@@ -103,7 +103,7 @@ def main(arms=ARMS):
         "--seed",
         str(run.get("seed", 1729)),
         "--wandb-mode",
-        "offline",
+        config.get("wandb_mode", "offline"),
         "--selection-reference",
         root / "selection-reference.json",
     ]

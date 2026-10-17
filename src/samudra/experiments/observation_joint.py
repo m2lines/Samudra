@@ -269,13 +269,16 @@ class JointPilot(Pilot):
     def om4_objective(self, *args):
         return om4_objective(*args)
 
-    def __init__(self, args):
-        self.schedule = TaskSchedule(
+    def make_schedule(self, args):
+        return TaskSchedule(
             args.om4_updates,
             args.joint_steps,
             args.ordering,
             getattr(args, "observation_finish", 0),
         )
+
+    def __init__(self, args):
+        self.schedule = self.make_schedule(args)
         self.deadline = datetime.datetime.fromisoformat(
             args.deadline.replace("Z", "+00:00")
         )

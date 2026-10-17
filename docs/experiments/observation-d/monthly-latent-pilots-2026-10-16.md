@@ -3,14 +3,20 @@
 
 # Small latent/diffusion pilots
 
-Status: CM4 transfer **verified complete**. Initial observation qualification
-**214088 passed**. Combined qualification **214094** passed OM4/CM4 fitting but
-failed its one-origin metric smoke: EKE requires the full validation cohort.
-Producer `1c9817d44` fixes that smoke to use all nine origins and adds exact OM4
-packing; CPU preparation recovery **138253 passed** with all 2,702 frames verified.
-Replacement full qualification **214096** is queued on `beta_test` (Priority),
-with a completion hook and two-hour fallback. No production pilot has started. This plan
-supersedes the broad screen's early-OM4 and processor-completion proposals.
+Status: CM4 transfer and packed OM4 read-back **verified complete**. Full
+qualification **214096 passed** for producer `1c9817d44`: all observation and
+OM4/CM4 tasks, exact checkpoint replay, and nine-origin/eight-member/32-step
+validation. Five-arm production **214108** is submitted on one four-GPU Beta
+node (24-hour allocation); it is pending, not yet training. A–D run concurrently,
+then E uses A's GPU. Completion callback and quiet monitoring are installed.
+This plan supersedes the broad screen's early-OM4 and processor-completion proposals.
+
+Qualification measured 0.707 seconds per observation microbatch (excluding I/O),
+1.32–1.51 seconds for warmed packed OM4 examples and 2.01–2.05 seconds for warmed
+CM4 examples including I/O and fitting. The first reads were slower. Full
+nine-origin validation took about 250 seconds. These short timings suggest the
+wave fits the allocation; actual concurrent training throughput remains to be
+verified. Qualification attempts total **0.205 GPU-hours**, including failures.
 
 ## Question and arms
 

@@ -102,7 +102,7 @@ Other questions suggested by this audit:
 - Direct monthly and native-window readouts need not agree. Native day-5/day-30
   OHC is especially diagnostic for E, which has no native interior supervision.
 
-Read-only diagnostic job **214194** is queued on production Beta. Script commit
+Read-only diagnostic job **214194** completed on production Beta (11m56s). Script commit
 `c7160b76e` imports the unchanged training producer `1c9817d44`; no optimizer
 steps or checkpoint writes are performed. It measures A's raw 2k/3k gradients
 using four batch-eight replicates per source, with within-source cosine controls,
@@ -110,7 +110,7 @@ and exports all five cooled EMA models at two validation origins and leads 5/30.
 The initializer probe covers the U-Net; its input projection is not included.
 OM4 has no adapter gradients, so adapter cross-source cosine is not informative.
 Maps use five-day-bin means; monthly OHC observations are not matching daily
-truth. Completion and map plotting remain pending.
+truth. All twenty map exports and both gradient probes passed finite-value and archive checks.
 
 Additional read-only job **214195** (diagnostic commit `f022e38b2`) follows the
 map job and computes counterfactual AdamW update norms relative to module weight
@@ -129,6 +129,70 @@ The eight ERA5 inputs, in order, are 10 m zonal wind, 10 m meridional wind,
 2 m temperature, 2 m dewpoint temperature, surface pressure, downward surface
 solar radiation, downward surface thermal radiation, and total precipitation.
 Their preparation names are defined in `observation_prepare.py::FORCING`.
+
+## Gradient alignment and example maps
+
+Four independent batch-eight probes per source use A's raw weights at each
+endpoint, identical batch/noise draws across the two checkpoints, and the actual
+training objectives. These are training examples, not validation performance.
+Cosines are averaged over all cross-source batch pairs; within-source means
+exclude the diagonal. Global clipping preserves each gradient direction.
+
+| Module | Cross-source cosine at 2k | Cross-source at 3k | Obs/obs at 3k | OM4/OM4 at 3k |
+|---|---:|---:|---:|---:|
+| Initializer U-Net | 0.597 | 0.062 | 0.274 | 0.990 |
+| Processor | 0.599 | -0.016 | 0.112 | 0.963 |
+| Decoder | 0.695 | -0.040 | 0.393 | 0.998 |
+
+The tasks align positively before cooldown; afterwards they are approximately
+orthogonal, with weak negative processor/decoder cosines. Observation gradients
+also become substantially less consistent across batches. This does not support
+a claim of strong persistent task conflict throughout training.
+
+| Checkpoint/source | Probe loss | Initializer norm | Processor norm | Decoder norm | Adapter norm |
+|---|---:|---:|---:|---:|---:|
+| 2k / obs | 0.1806 | 0.582 | 0.299 | 6.480 | 0.0136 |
+| 2k / OM4 | 0.5487 | 0.182 | 0.105 | 3.029 | 0 |
+| 3k / obs | 0.0909 | 0.078 | 0.054 | 0.481 | 0.0050 |
+| 3k / OM4 | 0.8746 | 1.051 | 0.819 | 24.506 | 0 |
+
+These are mean pre-clipping module norms, not parameter updates. The decoder
+dominates the probed gradients; the ERA5 adapter does not. The same OM4 probes
+get worse after observation-only cooldown while observation probes improve:
+evidence of lost model-data fit during specialization. That makes decoder/loss
+balance and retaining some model supervision worth investigating. It does not
+isolate forcing as the cause, nor prove that retaining OM4 improves obs forecasts.
+The measured norm breakdown omits the initial frame projection; the additional
+Adam diagnostic includes it. Frozen-checkpoint probe gradients differ from
+online training gradients and should not be substituted for the training trace.
+
+Latent RMS increases over 30 days by 5.6–6.0% for A, 4.1–4.2% for B, 4.9–5.1% for
+C, 2.1–2.3% for D and 13.0–13.8% for E in these two examples. This is not explosive
+short-horizon growth; longer-rollout stability remains untested here.
+[Full gradient records](assets/monthly-latent-pilots-2026-10-16/gradient-diagnostics.json)
+and [latent RMS traces](assets/monthly-latent-pilots-2026-10-16/latent-rms.json).
+
+Maps use the cooled 3k EMA endpoints, eight-member means, and matched origins
+November 2013 and April 2014. Each grid cell occupies exactly 2×2 pixels, with
+shared per-variable scales across arms and leads within each panel. Color limits
+use pooled 1st/99th percentiles; gray marks missing support. Longitude runs 0–360°,
+north at top. The separately sampled map ensembles are not the identical random
+stream used for the aggregate validation scores. OHC panels are native five-day
+readouts, not the directly supervised monthly product; they have no matching
+five-day observation target. Model fields are smooth at this resolution; these
+absolute maps alone cannot establish dynamical skill or ensemble calibration.
+
+![November surface forecasts](assets/monthly-latent-pilots-2026-10-16/surface-maps-2013-11.png)
+
+![November native OHC](assets/monthly-latent-pilots-2026-10-16/ohc-maps-2013-11.png)
+
+![April surface forecasts](assets/monthly-latent-pilots-2026-10-16/surface-maps-2014-04.png)
+
+![April native OHC](assets/monthly-latent-pilots-2026-10-16/ohc-maps-2014-04.png)
+
+This diagnostic consumed 0.7956 allocated GPU-hours (one GPU active on a required
+four-GPU Beta node), bringing completed allocation time to 42.3183 GPU-hours.
+Clipping/forcing diagnostic 214195 is tracked separately and remains in progress.
 
 ## Question and arms
 

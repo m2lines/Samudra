@@ -52,3 +52,6 @@ The run directory retains the exact source archive/hash, extension hash, expande
 config, qualification report, allocation, logs, checkpoints, and completion hook.
 
 Run root: `/projects/ny/lz1955/multiscale/jrusak/runs/cm4-onedeg-samudra-20261017`.
+
+Training job: **214219**. Qualification job: **214211**, completed successfully.
+See [the launch record](results/LAUNCH.md) for verified checks and provenance.

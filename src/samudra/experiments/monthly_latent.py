@@ -208,7 +208,7 @@ class MonthlyLatentOcean(nn.Module):
             if self.training
             else self.initializer(inputs)
         )
-        latent = F.adaptive_avg_pool2d(latent, self.latent_shape)
+        latent = F.avg_pool2d(latent, 4)
         return latent.reshape(b, 2, self.latent_width, *self.latent_shape)
 
     def trajectory(self, fields, available, forcing, contexts):

@@ -85,9 +85,18 @@ class PersistentLatentProcessor(nn.Module):
             raise ValueError("Coarse forcing shape changed")
         if tuple(context.shape[1:]) != (5, *self.conditioning_shape):
             raise ValueError("Coarse context shape changed")
-        condition = F.adaptive_avg_pool2d(
-            torch.cat((forcing, context), 1), self.latent_shape
+        if any(
+            a % b
+            for a, b in zip(self.conditioning_shape, self.latent_shape, strict=True)
+        ):
+            raise ValueError(
+                "Conditioning grid must be an integer multiple of latent grid"
+            )
+        factors = tuple(
+            a // b
+            for a, b in zip(self.conditioning_shape, self.latent_shape, strict=True)
         )
+        condition = F.avg_pool2d(torch.cat((forcing, context), 1), factors)
         inputs = torch.cat((latent.flatten(1, 2), condition), 1)
         if hasattr(self, "input_adapters"):
             inputs = self.input_adapters[task](inputs)

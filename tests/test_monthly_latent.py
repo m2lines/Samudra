@@ -87,3 +87,50 @@ def test_calendar_rejects_overlap_even_when_total_duration_matches():
     first, last = datetime(2001, 1, 1), datetime(2001, 1, 11)
     with pytest.raises(ValueError):
         calendar_weights([first, first], [first + timedelta(days=5)] * 2, first, last)
+
+
+def test_exact_source_mix_and_cooldown():
+    from collections import Counter
+
+    from samudra.experiments.monthly_model_data import task_source
+
+    assert Counter(task_source("A", i) for i in range(2000)) == {
+        "obs": 1000,
+        "om4": 1000,
+    }
+    assert Counter(task_source("D", i) for i in range(2000)) == {
+        "obs": 1000,
+        "om4": 500,
+        "cm4": 500,
+    }
+    assert Counter(task_source("E", i) for i in range(2000)) == {"obs": 2000}
+    assert all(
+        task_source(a, i, cooldown=True) == "obs" for a in "ABCDE" for i in range(1000)
+    )
+
+
+def test_noleap_calendar_stays_native():
+    import cftime
+
+    from samudra.experiments.monthly_model_data import calendar_context
+
+    first, last = cftime.DatetimeNoLeap(152, 2, 1), cftime.DatetimeNoLeap(152, 3, 1)
+    starts = [first - timedelta(days=2) + timedelta(days=i * 5) for i in range(6)]
+    weights = calendar_weights(
+        starts, [s + timedelta(days=5) for s in starts], first, last
+    )
+    assert weights == pytest.approx([3 / 28] + [5 / 28] * 5)
+    contexts = calendar_context([0.0], [0.0], [first, last])
+    assert contexts.shape == (2, 5, 1, 1)
+
+
+def test_fixed_pool_matches_adaptive_values_and_gradients():
+    from torch.nn import functional as F
+
+    value = torch.randn(1, 3, 16, 32, requires_grad=True)
+    fixed = F.avg_pool2d(value, 4)
+    adaptive = F.adaptive_avg_pool2d(value, (4, 8))
+    torch.testing.assert_close(fixed, adaptive)
+    a = torch.autograd.grad(fixed.square().sum(), value, retain_graph=True)[0]
+    b = torch.autograd.grad(adaptive.square().sum(), value)[0]
+    torch.testing.assert_close(a, b)

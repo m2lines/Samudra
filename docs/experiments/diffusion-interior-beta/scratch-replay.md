@@ -3,7 +3,7 @@
 
 # Fresh direct and residual models with replay
 
-Status: both eight-GPU production runs are active as of 2026-10-13, with checkpoint saving and online W&B verified. Direct reached 2k observation updates; [its early evaluation is complete](scratch-replay-early-direct.md) and shows severe observation-path annual instability despite bounded OM4-path latents. Both training jobs continue; the matching residual early result is not yet available.
+Status: the direct arm was stopped at the user's request after its annual observation-path instability persisted. The residual arm continues its original training budget; [6k observation results](scratch-replay-residual-6k.md) are now available, alongside the [4k observation-only cooldown comparison](residual-4k-cooldown-results.md). That separate cooldown did not replace the main trajectory. The historical launch notes below describe the original two-arm plan.
 
 The question is whether training stable evolution from scratch makes annual error growth more comparable to the deterministic control, while retaining plausible individual diffusion members. Beating the deterministic control's absolute score is not the primary criterion.
 

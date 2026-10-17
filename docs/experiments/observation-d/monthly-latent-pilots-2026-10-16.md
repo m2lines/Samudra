@@ -4,7 +4,8 @@
 # Small latent/diffusion pilots
 
 Status: authorized five-arm pilot wave; CM4 transfer running. Initial observation
-qualification is being prepared. No production pilot has started. This plan
+qualification **214088** is running on Beta with producer `307b1d2ef`.
+No production pilot has started. This plan
 supersedes the broad screen's early-OM4 and processor-completion proposals.
 
 ## Question and arms
@@ -70,11 +71,24 @@ Source inventory: 131,466 objects, 140,827,879,002 bytes. Grace transfer job
 138228 performs full read-back verification and verifies source metadata did not
 change before publishing `COMPLETE.json`. Callback job 138229 follows termination.
 
+Live static audit: CM4, the existing OM4 store, and the observation grid have
+exactly equal latitude/longitude coordinates; CM4 has the expected 19 layer
+depths and thicknesses. No horizontal regridding is required. This verifies
+geometry, not completeness of dynamic fields.
+
 CM4 uses its own tauuo/tauvo/hfds and actual noleap interval bounds. Retain the
 fixed OM4 normalization for model fields/forcings, including CM4; do not relabel
 CM4 dates as OM4 dates. Observation physical outputs use the same fixed reference
 scales; ERA5 has its existing training-only normalization and learned forcing
 adapter. E has no model-data training examples but shares reference normalization.
+
+OM4 uses the existing recent period (1975 onward, through the training cutoff),
+not early OM4 in addition to CM4. The draft model-data adapter reserves the last
+20 CM4 model years and uses its first 180 years. The OM4 timestamp axis has sixteen
+six-day jumps at leap-year boundaries. It must not silently become contiguous
+five-day calendar coverage: the adapter records and excludes monthly windows
+whose history or targets cross these gaps. Full data qualification will report
+the resulting sample inventory before production.
 
 Use existing observation train/validation/test splits and raw RMSE-blend reporting,
 not spectra for checkpoint selection. Hold evaluation starts, sampler seeds and
@@ -96,3 +110,24 @@ sufficient to qualify CM4 or the complete production protocol. Production also
 requires verified CM4 transfer, channel/grid/calendar/forcing audits, model-data
 loss and gradient checks, a frozen evaluation contract, and online W&B bring-up.
 Diagnostic weights are never promoted to production.
+
+Implementation: [model](../../../src/samudra/experiments/monthly_latent.py),
+[observation objective](../../../src/samudra/experiments/monthly_pilot_data.py),
+[model-data adapter](../../../src/samudra/experiments/monthly_model_data.py), and
+[initial qualification](../../../scripts/qualify_monthly_latent.py).
+The persistent-latent processor and diffusion core were imported from the
+diffusion worktree at `2b98db3deb4370c3b641cf0d1055a8b394917589`; unused auxiliary
+loss helpers were omitted. Fixed 4× pooling replaces adaptive pooling where
+the grids have an exact integer ratio, enabling deterministic CUDA replay.
+Eleven CPU tests pass, including pooling value/gradient equivalence, masking,
+native-calendar weighting, exact source allocation, and rejection of missing
+wet CM4 values. Repository pre-commit checks pass for the pinned producer.
+
+Preserved qualification attempts: 214083 failed before Python because Slurm
+rounded CPU allocation inconsistently; 214086 was held and canceled without
+running; 214087 reached backward but deterministic CUDA rejected adaptive pooling.
+Their allocated GPU time is 106 seconds (0.02944 GPU-hours). The replacement
+214088 is not included until its accounting is final. Completion hook and
+two-hour fallback reminder are installed; CM4 transfer has a separate monitor.
+Production runner, final evaluation contract, and full model-data qualification
+remain to finish after these initial checks. No diagnostic weights will be used.

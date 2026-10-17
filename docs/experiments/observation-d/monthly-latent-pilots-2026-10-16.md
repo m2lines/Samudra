@@ -420,3 +420,35 @@ GPU-hours. Replacement full Beta qualification 214096 uses `FULL_QUALIFICATION=1
 Run root: `/projects/ny/lz1955/multiscale/jrusak/runs/monthly-latent-pilots-20261016`.
 Proofs live in `initial-qualification-JOBID/`; producer-matched `QUALIFIED.json`
 and unchanged data/normalization hashes are required before production updates.
+
+## Approved clipping and OM4-adapter continuations
+
+All three branches fork A's raw and EMA **2,000-update main endpoint**, preserving
+its Adam moments and RNG/data-draw state. Each trains 1,000 more updates with
+constant LR 1e-4, batch eight, seed 1729, and exactly 50% obs / 50% OM4. This is
+continued mixed training, not another obs-only cooldown. Retain EMA half-life
+100 without reset; evaluate the same nine-origin/eight-member/32-step raw-RMSE
+blend every 250 updates. Compare both curves and the common 3k endpoint.
+
+| Name | Global clipping threshold | OM4 forcing interface |
+|---|---:|---|
+| clip1 | 1 | Existing normalized physical forcings |
+| clip5 | 5 | Existing normalized physical forcings |
+| adapter | 1 | Identity-started learned affine 3→3 transform |
+
+The adapter has 12 parameters (3×3 weights plus three biases), operates pointwise
+on normalized OM4 forcings for initialization and evolution, and restores zero
+on model land. ERA5 retains its existing learned adapter. Only the new parameters
+receive fresh Adam state; the backbone and its optimizer history are preserved.
+The adapter begins exactly at the old interface, avoiding an initial input shift.
+This is the minimal learned-affine interface test, not a capacity-matched nonlinear
+adapter test. No CM4 or extra seeds are added.
+
+Producer `6a76e61ee`; thirteen focused CPU tests and all repository pre-commit
+checks pass. Source checkpoint hash is pinned in the launcher. All three branches
+must pass real obs/OM4 batch-eight updates, finite gradients, checkpoint reload,
+and (adapter branch) identity-output and nonzero-learning checks before any
+production branch starts. Qualification weights are discarded: production reloads
+the original immutable 2k checkpoint. Source-specific W&B losses/clipping are
+logged alongside the mixed trace. New run root:
+`/projects/ny/lz1955/multiscale/jrusak/runs/monthly-clip-adapter-20261017`.

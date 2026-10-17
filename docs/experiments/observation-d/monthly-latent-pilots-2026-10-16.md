@@ -62,6 +62,56 @@ claim a separate post-training checkpoint reload evaluation.
 - [D: OM4 + CM4 + obs / multitask](https://wandb.ai/ocean_emulators/observational-transfer/runs/c8ed764155f9)
 - [E: Obs only / surface](https://wandb.ai/ocean_emulators/observational-transfer/runs/b0723b64e7ab)
 
+## Training diagnostics (initial log audit)
+
+The logged gradient norm is the **pre-clipping** global norm of the accumulated
+batch-eight gradient. Every update clips it to at most 1 before AdamW. During
+updates 1,001–2,000, all five arms clipped every update. For A:
+
+| Source | Mean loss ± SD | Median gradient norm | 90th percentile | Clipped updates |
+|---|---:|---:|---:|---:|
+| Observation | 0.2630 ± 0.0708 | 4.839 | 7.015 | 100% |
+| OM4 | 0.6412 ± 0.0655 | 3.113 | 4.571 | 100% |
+
+A's source-dependent mean accounts for 88.5% of loss variance in that interval
+(87.7–89.5% across A–D). This explains most of the alternating trace; it does
+not establish harmful gradient conflict. The denoising objective averages
+area-weighted error within each supported channel and then averages channels,
+so extra output channels do not mechanically multiply the loss. Observation
+and model updates nevertheless differ in target distributions, support, native
+versus monthly weights, and diffusion noise. Compare each source's trajectory
+and physical validation, not the pooled scalar alone.
+
+Heavy clipping is an optimization question, not evidence by itself of exploding
+updates: norms are finite and validation improves, and the logged norm is not
+Adam's actual parameter-step magnitude. Observation gradients are larger even
+though their scalar loss is smaller. In A's final 500 cooldown updates, clipping
+still occurs 91.8% of the time (median norm 2.452). Clipping therefore substantially
+changes the gradient scale supplied to Adam; it should be measured before
+changing the threshold or interpreting nominal task weights.
+
+Other questions suggested by this audit:
+
+- The composite favors subsurface OHC while surface errors favor obs-only; inspect
+  gradient alignment and per-component validation before changing data ratios.
+- OM4 and observations use different forcing paths: the learned ERA5 adapter is
+  observation-only, while OM4 supplies its native three forcings. Transfer could
+  depend on this interface as well as ocean fields.
+- The diffusion decoder is stochastic but latent evolution is deterministic;
+  decoder spread alone does not establish calibrated trajectory uncertainty.
+- Direct monthly and native-window readouts need not agree. Native day-5/day-30
+  OHC is especially diagnostic for E, which has no native interior supervision.
+
+Read-only diagnostic job **214194** is queued on production Beta. Script commit
+`c7160b76e` imports the unchanged training producer `1c9817d44`; no optimizer
+steps or checkpoint writes are performed. It measures A's raw 2k/3k gradients
+using four batch-eight replicates per source, with within-source cosine controls,
+and exports all five cooled EMA models at two validation origins and leads 5/30.
+The initializer probe covers the U-Net; its input projection is not included.
+OM4 has no adapter gradients, so adapter cross-source cosine is not informative.
+Maps use five-day-bin means; monthly OHC observations are not matching daily
+truth. Completion and map plotting remain pending.
+
 ## Question and arms
 
 Does model-data supervision improve observation forecasts with a shared latent

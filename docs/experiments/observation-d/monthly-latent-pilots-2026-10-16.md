@@ -112,6 +112,24 @@ OM4 has no adapter gradients, so adapter cross-source cosine is not informative.
 Maps use five-day-bin means; monthly OHC observations are not matching daily
 truth. Completion and map plotting remain pending.
 
+Additional read-only job **214195** (diagnostic commit `f022e38b2`) follows the
+map job and computes counterfactual AdamW update norms relative to module weight
+norms under clipping thresholds 1, 5 and no clipping, using the same gradients
+and saved optimizer moments. This is a mathematical single-step calculation,
+not a training intervention or evidence of longer-term benefit. The calculation
+was checked against an actual float64 AdamW step at three gradient scales to
+1e-14 tolerance. Each checkpoint retains its saved LR, so compare clipping
+choices within a checkpoint before comparing 2k and 3k absolute updates.
+It also records mean/RMS/max of learned ERA5 adapter outputs and normalized
+OM4 forcings; these are distribution diagnostics, not paired physical errors.
+OM4 batches do not use the adapter, whose absent gradients correctly skip both
+Adam moments and weight decay. Original checkpoint files remain read-only.
+
+The eight ERA5 inputs, in order, are 10 m zonal wind, 10 m meridional wind,
+2 m temperature, 2 m dewpoint temperature, surface pressure, downward surface
+solar radiation, downward surface thermal radiation, and total precipitation.
+Their preparation names are defined in `observation_prepare.py::FORCING`.
+
 ## Question and arms
 
 Does model-data supervision improve observation forecasts with a shared latent

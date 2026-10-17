@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 """Native-calendar OM4/CM4 windows on the verified common Gaussian grid."""
 
+import hashlib
+import json
 from datetime import timedelta
 from pathlib import Path
 
@@ -54,7 +56,7 @@ class ModelMonths:
     years for training, reserving the final twenty for future diagnostics.
     """
 
-    def __init__(self, path, kind, reference, om4_statistics):
+    def __init__(self, path, kind, reference, om4_statistics, packed=None):
         if kind not in ("om4", "cm4"):
             raise ValueError(kind)
         self.kind = kind
@@ -65,6 +67,32 @@ class ModelMonths:
             f"{v}_{i}" for v in ("uo", "vo", "thetao", "so") for i in range(19)
         ] + ["zos"]:
             raise ValueError("Unexpected physical channel order")
+        self.packed = None
+        if packed is not None:
+            packed = Path(packed)
+            proof = json.loads((packed / "COMPLETE.json").read_text())
+            if (
+                proof["source"] != str(path)
+                or proof["source_metadata_sha256"]
+                != hashlib.sha256((Path(path) / ".zmetadata").read_bytes()).hexdigest()
+            ):
+                raise ValueError("Packed source contract differs")
+            if (
+                proof["verification"]
+                != "every packed frame read back and byte-hash matched to source"
+            ):
+                raise ValueError("Packed data lacks exact verification")
+            self.packed = np.load(packed / "frames.npy", mmap_mode="r")
+            if (
+                list(self.packed.shape) != proof["shape"]
+                or self.packed.dtype != np.float32
+            ):
+                raise ValueError("Packed shape/dtype differs")
+            self.packed_indices = {
+                original: offset for offset, original in enumerate(proof["indices"])
+            }
+            self.packed_hashes = proof["frame_sha256"]
+            self.verified_frames = set()
         z = self.store
         lat = z["lat"][:, 0] if kind == "cm4" else z["y"][:]
         lon = z["lon"][0] if kind == "cm4" else z["x"][:]
@@ -171,7 +199,18 @@ class ModelMonths:
         start, stop, weights, duration = self.windows[index % len(self.windows)]
         interval = slice(start - 19, stop)
         z = self.store
-        if self.kind == "cm4":
+        if self.packed is not None:
+            positions = [self.packed_indices[i] for i in range(start - 19, stop)]
+            for offset in positions:
+                if offset not in self.verified_frames:
+                    if (
+                        hashlib.sha256(self.packed[offset].tobytes()).hexdigest()
+                        != self.packed_hashes[offset]
+                    ):
+                        raise ValueError("Packed frame checksum changed")
+                    self.verified_frames.add(offset)
+            values = np.asarray(self.packed[positions])
+        elif self.kind == "cm4":
             values = np.concatenate(
                 [z[v][interval] for v in ("uo", "vo", "thetao", "so")]
                 + [z["zos"][interval][:, None]],

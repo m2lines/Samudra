@@ -71,3 +71,38 @@ def test_cm4_rejects_missing_wet_chunk_and_changed_grid(tmp_path):
     ref["lat"] = ref["lat"] + 1
     with pytest.raises(AssertionError):
         ModelMonths(tmp_path / "CM4.zarr", "cm4", ref, tmp_path)
+
+
+def test_packed_frames_match_native_and_detect_corruption(tmp_path):
+    import hashlib
+    import json
+
+    z, ref = fixture(tmp_path)
+    native = ModelMonths(tmp_path / "CM4.zarr", "cm4", ref, tmp_path)
+    values = np.concatenate(
+        [z[v][:] for v in ["uo", "vo", "thetao", "so"]] + [z["zos"][:][:, None]], axis=1
+    )
+    packed = tmp_path / "packed"
+    packed.mkdir()
+    np.save(packed / "frames.npy", values)
+    proof = dict(
+        source=str(tmp_path / "CM4.zarr"),
+        source_metadata_sha256=hashlib.sha256(
+            (tmp_path / "CM4.zarr" / ".zmetadata").read_bytes()
+        ).hexdigest(),
+        shape=list(values.shape),
+        indices=list(range(len(values))),
+        frame_sha256=[hashlib.sha256(v.tobytes()).hexdigest() for v in values],
+        verification="every packed frame read back and byte-hash matched to source",
+    )
+    (packed / "COMPLETE.json").write_text(json.dumps(proof))
+    cache = ModelMonths(tmp_path / "CM4.zarr", "cm4", ref, tmp_path, packed=packed)
+    a, b = native.sample(0, "cpu"), cache.sample(0, "cpu")
+    for key in ["fields", "forcing", "contexts", "mask", "weights"]:
+        torch.testing.assert_close(a[key], b[key], rtol=0, atol=0)
+    modified = np.load(packed / "frames.npy", mmap_mode="r+")
+    modified[:] = 100
+    modified.flush()
+    fresh = ModelMonths(tmp_path / "CM4.zarr", "cm4", ref, tmp_path, packed=packed)
+    with pytest.raises(ValueError, match="checksum changed"):
+        fresh.sample(0, "cpu")

@@ -22,6 +22,7 @@ def main():
     p.add_argument("--output", required=True)
     p.add_argument("--producer", required=True)
     p.add_argument("--om4")
+    p.add_argument("--packed-om4")
     p.add_argument("--cm4")
     p.add_argument("--cm4-verification")
     a = p.parse_args()
@@ -170,9 +171,21 @@ def main():
             str(path): hashlib.sha256(path.read_bytes()).hexdigest()
             for path in contracts
         }
+        if a.packed_om4:
+            packed_proof = Path(a.packed_om4) / "COMPLETE.json"
+            result["packed_om4"] = a.packed_om4
+            result["data_contracts"][str(packed_proof)] = hashlib.sha256(
+                packed_proof.read_bytes()
+            ).hexdigest()
         model_checks = []
         for kind, path in [("om4", Path(a.om4) / "OM4.zarr"), ("cm4", Path(a.cm4))]:
-            reader = ModelMonths(path, kind, data.grid, a.om4)
+            reader = ModelMonths(
+                path,
+                kind,
+                data.grid,
+                a.om4,
+                packed=a.packed_om4 if kind == "om4" else None,
+            )
             for task in ("surface", "variable", "gap"):
                 beginning = time.monotonic()
                 batch = reader.sample(0, "cuda")
@@ -198,7 +211,7 @@ def main():
                 model_checks.append(record)
                 print(json.dumps(record), flush=True)
         beginning = time.monotonic()
-        paths = data.paths("validation")[:1]
+        paths = data.paths("validation")
         metrics = evaluate(model, data, paths)
         control = evaluate(model, data, paths, climatology=True)
         value = selection_score(metrics, control, [], metric="rmse-only")
@@ -206,7 +219,7 @@ def main():
             phase="full-pilot-qualification",
             production_qualified=True,
             model_checks=model_checks,
-            evaluation_seconds_one_origin=time.monotonic() - beginning,
+            evaluation_seconds_one_origin=(time.monotonic() - beginning) / len(paths),
             validation_smoke_score=value,
             validation_smoke=metrics,
             cm4_transfer_proof=transfer,

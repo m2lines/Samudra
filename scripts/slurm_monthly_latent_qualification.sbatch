@@ -23,6 +23,7 @@ if [[ "${FULL_QUALIFICATION:-0}" == 1 ]]; then
     --cm4 /projects/ny/lz1955/multiscale/jrusak/data/cm4_onedeg/CM4.zarr
     --cm4-verification /projects/ny/lz1955/multiscale/jrusak/transfers/2026-10-16-cm4-pilot/COMPLETE.json)
 fi
+if [[ -n "${PACKED_OM4:-}" ]]; then args+=(--packed-om4 "$PACKED_OM4"); fi
 image=ghcr.io/m2lines/ocean-emulator-physicsnemo@sha256:7d78e8fb9592abdf046d88e55004f15cfe34f0c8ee38b17d83e98cc05b6f82c4 # pragma: allowlist secret
 scontrol show job "$SLURM_JOB_ID" > "$PILOT_ROOT/logs/allocation-$SLURM_JOB_ID.txt"
 srun --cpus-per-task="$SLURM_CPUS_PER_TASK" --kill-on-bad-exit=1 --container-image="$image" --container-mount-home \

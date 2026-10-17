@@ -62,13 +62,17 @@ def main():
         "cuda",
         surface_fill="zero",
         global_observations=True,
-        cache_size=8,
+        cache_size=256,
     )
     data.cache_prepared = True
     stores = {}
     if args.arm != "E":
         stores["om4"] = ModelMonths(
-            Path(args.om4) / "OM4.zarr", "om4", data.grid, args.om4
+            Path(args.om4) / "OM4.zarr",
+            "om4",
+            data.grid,
+            args.om4,
+            packed=proof.get("packed_om4"),
         )
     if args.arm in "CD":
         stores["cm4"] = ModelMonths(args.cm4, "cm4", data.grid, args.om4)

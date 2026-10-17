@@ -4,8 +4,11 @@
 # Small latent/diffusion pilots
 
 Status: CM4 transfer **verified complete**. Initial observation qualification
-**214088 passed**. Combined model-data/evaluation qualification **214094** is
-submitted on Beta with producer `4554b1d3e`. No production pilot has started. This plan
+**214088 passed**. Combined qualification **214094** passed OM4/CM4 fitting but
+failed its one-origin metric smoke: EKE requires the full validation cohort.
+Producer `1c9817d44` fixes that smoke to use all nine origins and adds exact OM4
+packing; CPU preparation **138249** is running before the replacement full
+qualification. No production pilot has started. This plan
 supersedes the broad screen's early-OM4 and processor-completion proposals.
 
 ## Question and arms
@@ -145,8 +148,23 @@ Including successful 214088 (94 seconds), completed qualification GPU time is
 214088 verified finite nonzero gradients in all four trainable components for
 all three tasks, and bitwise-identical checkpoint replay. Its diagnostic weights
 will not be used. The production runner and validation path are implemented;
-full model-data/evaluation qualification remains the launch gate. Completion hook
-and two-hour fallback reminder are installed for 214094.
+full model-data/evaluation qualification remains the launch gate.
+
+214094 subsequently verified the retained OM4 normalization and all three fitting
+tasks on both model sources. It found 409 eligible recent-OM4 months and 2,156
+CM4 months. OM4 loading/fitting took 7.5–17.3 seconds per example versus
+1.9–3.1 seconds for CM4, so production will use a packed OM4 copy whose every
+frame is read back and byte-hash matched to the existing store. No values, masks,
+normalization, or sampling are changed by packing. Twelve CPU tests now pass,
+including exact packed/native equality and corruption rejection. Completed GPU
+time including failed 214094 is 366 seconds (0.10167 GPU-hours).
+
+Grace preparation job 138249 has CPU callback 138250 and a quiet monitor with a
+one-hour fallback. After its completion marker is verified, rerun full Beta
+qualification with `FULL_QUALIFICATION=1`, `PRODUCER=1c9817d44`, and
+`PACKED_OM4=RUN_ROOT/packed-om4`. Then submit the five-arm production request if
+its measured runtime fits the allocation. The latest advisory full-node start
+estimate was about 13 hours away; waiting in the production queue is intentional.
 
 Run root: `/projects/ny/lz1955/multiscale/jrusak/runs/monthly-latent-pilots-20261016`.
 Proofs live in `initial-qualification-JOBID/`; producer-matched `QUALIFIED.json`

@@ -3,9 +3,9 @@
 
 # Small latent/diffusion pilots
 
-Status: authorized five-arm pilot wave; CM4 transfer running. Initial observation
-qualification **214088** is running on Beta with producer `307b1d2ef`.
-No production pilot has started. This plan
+Status: CM4 transfer **verified complete**. Initial observation qualification
+**214088 passed**. Combined model-data/evaluation qualification **214094** is
+submitted on Beta with producer `4554b1d3e`. No production pilot has started. This plan
 supersedes the broad screen's early-OM4 and processor-completion proposals.
 
 ## Question and arms
@@ -43,8 +43,10 @@ state containing two memory slots, each 128 channels on a 45 × 90 grid. The
 processor autoregresses that state using forcings and geographic/seasonal context;
 decoded physical samples never feed back. A shared denoiser decodes 77 physical
 channels, conditioned on latent state, target support, window duration and lead.
-All arms use this same architecture. Parameter counts and measured throughput
-will be reported from qualification.
+All arms use this same **48,702,016-parameter** architecture. Initial real-observation
+qualification measured 0.736 seconds per microbatch and 4.32 GB peak allocated
+CUDA memory. This is a short timing including three training examples; it excludes
+model-data I/O and validation and is not an end-to-end production estimate.
 
 The proposed monthly speedup is **direct monthly-target denoising**, conditioned
 on a calendar-weighted average of evolved latent states. Native five-day targets
@@ -61,15 +63,20 @@ its expectation is the mean over all forecast leads. Missing targets are exclude
 from both corrupted inputs and scoring. This is masked marginal denoising, not a
 complete-field likelihood or invented interior labels. Reconstruction uses the
 last historical surface, not the future month's interior average. Model-data
-native and monthly objectives still need full qualification before production.
+loss is 0.5 full-field monthly denoising + 0.5 full-field native forecast denoising
++ 0.1 full-field initial reconstruction. Model-data objectives still need full
+qualification before production.
 
 ## Data and evaluation contracts
 
 CM4 source: `s3://m2lines-pubs/Samudra/v2026-09/cm4_onedeg/CM4.zarr`.
 Destination: `/projects/ny/lz1955/multiscale/jrusak/data/cm4_onedeg/CM4.zarr`.
 Source inventory: 131,466 objects, 140,827,879,002 bytes. Grace transfer job
-138228 performs full read-back verification and verifies source metadata did not
-change before publishing `COMPLETE.json`. Callback job 138229 follows termination.
+138228 completed in 21m08s, with full read-back verification, zero differences,
+and byte-identical source-before/source-after/destination metadata. Its
+`COMPLETE.json` records metadata SHA256
+`5bfbf9fb994bdbe7247f0d5b88546c8c0a025ada3a632b8d59f556e4272d2e43`.
+Callback job 138229 also completed; transfer monitoring is retired.
 
 Live static audit: CM4, the existing OM4 store, and the observation grid have
 exactly equal latitude/longitude coordinates; CM4 has the expected 19 layer
@@ -91,11 +98,18 @@ whose history or targets cross these gaps. Full data qualification will report
 the resulting sample inventory before production.
 
 Use existing observation train/validation/test splits and raw RMSE-blend reporting,
-not spectra for checkpoint selection. Hold evaluation starts, sampler seeds and
-ensemble size fixed across arms. Report both main and cooled endpoints, component
-errors, initialized persistence, and the gap between native-averaged and directly
-decoded monthly predictions. Exact validation cadence and sampling cost will be
-frozen after qualification, before any production updates.
+not spectra for checkpoint selection. Validation runs every 250 optimizer updates
+over all nine existing validation origins: eight members, 32 Heun steps, fixed
+sampler seeds, EMA weights, and the existing five-component normalized RMSE score
+with a fixed seasonal-climatology denominator. Report both main and cooled
+endpoints and component errors. Full qualification measures this sampling cost.
+
+Surface metrics use the ensemble-mean five-day surface predictions. OHC uses
+directly sampled monthly interior temperature/salinity, with its top temperature
+layer supplied by the calendar average of native SST predictions (SST is excluded
+from IAP interior supervision). This readout is explicit; it is not a claim that
+the two decoder windows are physically identical. A frozen-initial-latent readout
+is a separate diagnostic, not a physically constant persistence forecast.
 
 ## Launch gates
 
@@ -126,8 +140,14 @@ wet CM4 values. Repository pre-commit checks pass for the pinned producer.
 Preserved qualification attempts: 214083 failed before Python because Slurm
 rounded CPU allocation inconsistently; 214086 was held and canceled without
 running; 214087 reached backward but deterministic CUDA rejected adaptive pooling.
-Their allocated GPU time is 106 seconds (0.02944 GPU-hours). The replacement
-214088 is not included until its accounting is final. Completion hook and
-two-hour fallback reminder are installed; CM4 transfer has a separate monitor.
-Production runner, final evaluation contract, and full model-data qualification
-remain to finish after these initial checks. No diagnostic weights will be used.
+Including successful 214088 (94 seconds), completed qualification GPU time is
+200 seconds (0.05556 GPU-hours); 214094 is excluded until its accounting is final.
+214088 verified finite nonzero gradients in all four trainable components for
+all three tasks, and bitwise-identical checkpoint replay. Its diagnostic weights
+will not be used. The production runner and validation path are implemented;
+full model-data/evaluation qualification remains the launch gate. Completion hook
+and two-hour fallback reminder are installed for 214094.
+
+Run root: `/projects/ny/lz1955/multiscale/jrusak/runs/monthly-latent-pilots-20261016`.
+Proofs live in `initial-qualification-JOBID/`; producer-matched `QUALIFIED.json`
+and unchanged data/normalization hashes are required before production updates.

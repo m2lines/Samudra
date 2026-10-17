@@ -8,7 +8,8 @@ Status: CM4 transfer **verified complete**. Initial observation qualification
 failed its one-origin metric smoke: EKE requires the full validation cohort.
 Producer `1c9817d44` fixes that smoke to use all nine origins and adds exact OM4
 packing; CPU preparation recovery **138253 passed** with all 2,702 frames verified.
-Replacement full qualification is next. No production pilot has started. This plan
+Replacement full qualification **214096** is queued on `beta_test` (Priority),
+with a completion hook and two-hour fallback. No production pilot has started. This plan
 supersedes the broad screen's early-OM4 and processor-completion proposals.
 
 ## Question and arms
@@ -168,8 +169,7 @@ store contains 2,702 × 77 × 180 × 360 float32 values (53,927,596,928 bytes in
 the NPY header). Every frame passed source-byte-hash read-back; the complete digest
 inventory, file header/size, and unchanged source/grid metadata were also checked.
 All three CPU attempts together used 20m36s elapsed allocation time and zero
-GPU-hours. Next, rerun full Beta
-qualification with `FULL_QUALIFICATION=1`, `PRODUCER=1c9817d44`, and
+GPU-hours. Replacement full Beta qualification 214096 uses `FULL_QUALIFICATION=1`, `PRODUCER=1c9817d44`, and
 `PACKED_OM4=RUN_ROOT/packed-om4`. Then submit the five-arm production request if
 its measured runtime fits the allocation. The latest advisory full-node start
 estimate was about 13 hours away; waiting in the production queue is intentional.

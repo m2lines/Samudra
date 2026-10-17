@@ -3,7 +3,11 @@
 
 # Proposed broad observation-model screen
 
-Status: proposal for review; no jobs submitted. This supersedes the proposed
+Status: broad screen deferred. The authorized next step is the
+[five small monthly-latent pilots](monthly-latent-pilots-2026-10-16.md), using
+CM4 instead of early OM4, initializer-only multitask masking, and a shared
+diffusion decoder. The design below is historical, not a launch specification.
+This supersedes the proposed
 long-run matrix in the October 13 stabilization plan, not its completed results.
 The common cooldown follows the [completed comparison](cooldown-standardization-2026-10-14.md).
 The question is which data, task and capacity allocation gives the best

@@ -444,7 +444,9 @@ The adapter begins exactly at the old interface, avoiding an initial input shift
 This is the minimal learned-affine interface test, not a capacity-matched nonlinear
 adapter test. No CM4 or extra seeds are added.
 
-Producer `6a76e61ee`; thirteen focused CPU tests and all repository pre-commit
+Beta job **214212** is submitted (pending at release), one four-GPU node with
+a 12-hour limit and three concurrent arms. Completion callback and quiet
+monitoring are installed. Producer `6a76e61ee`; thirteen focused CPU tests and all repository pre-commit
 checks pass. Source checkpoint hash is pinned in the launcher. All three branches
 must pass real obs/OM4 batch-eight updates, finite gradients, checkpoint reload,
 and (adapter branch) identity-output and nonzero-learning checks before any
@@ -452,3 +454,9 @@ production branch starts. Qualification weights are discarded: production reload
 the original immutable 2k checkpoint. Source-specific W&B losses/clipping are
 logged alongside the mixed trace. New run root:
 `/projects/ny/lz1955/multiscale/jrusak/runs/monthly-clip-adapter-20261017`.
+
+Runtime reference: original A used 6h34m including validation, comprising 5h19m
+for its first 2k mixed updates and 1h15m for its obs-only cooldown. Approximately
+three hours per new 1k mixed continuation is a rough estimate, excluding queue;
+the three arms run concurrently. The earlier five-pilot allocation's 10h20m
+included E running after A and should not be interpreted as A's runtime.

@@ -3,20 +3,64 @@
 
 # Small latent/diffusion pilots
 
-Status: CM4 transfer and packed OM4 read-back **verified complete**. Full
-qualification **214096 passed** for producer `1c9817d44`: all observation and
-OM4/CM4 tasks, exact checkpoint replay, and nine-origin/eight-member/32-step
-validation. Five-arm production **214108** is submitted on one four-GPU Beta
-node (24-hour allocation); it is pending, not yet training. A–D run concurrently,
-then E uses A's GPU. Completion callback and quiet monitoring are installed.
-This plan supersedes the broad screen's early-OM4 and processor-completion proposals.
+Status: **All five pilots completed** in Beta job **214108** (10h19m46s).
+Each reached 2,000 main updates and 1,000 observation-only cooldown updates,
+with online W&B, twelve validation checkpoints, and saved main/cooled endpoints.
+Producer `1c9817d44`; full qualification **214096** passed. Allocated production
+GPU time was 41.3178 hours; including qualification attempts, **41.5228 GPU-hours**.
 
-Qualification measured 0.707 seconds per observation microbatch (excluding I/O),
-1.32–1.51 seconds for warmed packed OM4 examples and 2.01–2.05 seconds for warmed
-CM4 examples including I/O and fitting. The first reads were slower. Full
-nine-origin validation took about 250 seconds. These short timings suggest the
-wave fits the allocation; actual concurrent training throughput remains to be
-verified. Qualification attempts total **0.205 GPU-hours**, including failures.
+## Pilot results
+
+These are **validation results**, not held-out test or annual rollout results.
+The shared blend is the mean of five raw-RMSE ratios to fixed seasonal climatology:
+SST, geostrophic velocity, EKE, and OHC at 0–700 m and 700–2,000 m. No spectra enter
+selection. A score of one equals the climatology blend. Nine monthly origins,
+eight ensemble members, and 32 sampler steps are fixed across arms.
+
+| Arm and meaning | Main endpoint (2k) | Cooled endpoint (3k) | Selected step / score |
+|---|---:|---:|---:|
+| A: OM4 + obs / surface | 1.3037 | 1.1182 | 3000 / 1.1182 |
+| B: OM4 + obs / multitask | 1.3677 | 1.1257 | 3000 / 1.1257 |
+| C: OM4 + CM4 + obs / surface | 1.3639 | 1.1330 | 3000 / 1.1330 |
+| D: OM4 + CM4 + obs / multitask | 1.4121 | 1.1393 | 3000 / 1.1393 |
+| E: Obs only / surface | 1.1821 | 1.1443 | 2750 / 1.1421 |
+
+![Validation curves](assets/monthly-latent-pilots-2026-10-16/validation-curves.png)
+
+The simple OM4+obs arm A finishes best, 2.27% below obs-only E at the matched
+3k endpoint. Multitask initialization and replacing half of OM4 with CM4 show
+no improvement in this pilot. Before cooldown, obs-only is best. The mix arms
+receive 1,000 observation updates during main training versus 2,000 for E;
+after cooldown those counts are 2,000 versus 3,000. Thus this is a matched total
+update budget, not a matched observation exposure comparison. Cooldown changes
+both the learning rate and the mix for A–D, so its improvement cannot be attributed
+to learning rate alone. One seed and small final differences do not establish a
+reliable ranking. All final blends remain above seasonal climatology overall;
+component performance should guide objective and training-setup follow-ups.
+Obs-only E has the best surface SST, velocity and EKE errors, while A has the
+best OHC errors in both depth ranges. The composite winner therefore reflects
+better subsurface heat content, not uniformly better forecasts.
+
+Cooled endpoint components (SST/velocity/EKE averaged over leads 5, 15 and 30 days):
+
+| Arm | SST (°C) | Velocity (m/s) | EKE (m²/s²) | OHC 0–700 m (GJ/m²) | OHC 700–2,000 m (GJ/m²) |
+|---|---:|---:|---:|---:|---:|
+| A | 0.7879 | 0.13712 | 0.02144 | 0.7585 | 0.5908 |
+| B | 0.7845 | 0.13708 | 0.02151 | 0.7779 | 0.5950 |
+| C | 0.7418 | 0.13736 | 0.02145 | 0.7734 | 0.6298 |
+| D | 0.7565 | 0.13714 | 0.02149 | 0.8099 | 0.6155 |
+| E | 0.6998 | 0.13534 | 0.02121 | 0.8142 | 0.6570 |
+
+[Machine-readable curves and component metrics](assets/monthly-latent-pilots-2026-10-16/results.json).
+[Checkpoint byte hashes](assets/monthly-latent-pilots-2026-10-16/checkpoint-sha256.txt)
+are relative to the run root. These verify retained files; this report does not
+claim a separate post-training checkpoint reload evaluation.
+
+- [A: OM4 + obs / surface](https://wandb.ai/ocean_emulators/observational-transfer/runs/5488bc38064c)
+- [B: OM4 + obs / multitask](https://wandb.ai/ocean_emulators/observational-transfer/runs/66188f65768e)
+- [C: OM4 + CM4 + obs / surface](https://wandb.ai/ocean_emulators/observational-transfer/runs/ba6af0dc0924)
+- [D: OM4 + CM4 + obs / multitask](https://wandb.ai/ocean_emulators/observational-transfer/runs/c8ed764155f9)
+- [E: Obs only / surface](https://wandb.ai/ocean_emulators/observational-transfer/runs/b0723b64e7ab)
 
 ## Question and arms
 
@@ -155,7 +199,7 @@ Including successful 214088 (94 seconds), completed qualification GPU time is
 214088 verified finite nonzero gradients in all four trainable components for
 all three tasks, and bitwise-identical checkpoint replay. Its diagnostic weights
 will not be used. The production runner and validation path are implemented;
-full model-data/evaluation qualification remains the launch gate.
+full model-data/evaluation qualification subsequently passed in 214096.
 
 214094 subsequently verified the retained OM4 normalization and all three fitting
 tasks on both model sources. It found 409 eligible recent-OM4 months and 2,156
@@ -176,9 +220,7 @@ the NPY header). Every frame passed source-byte-hash read-back; the complete dig
 inventory, file header/size, and unchanged source/grid metadata were also checked.
 All three CPU attempts together used 20m36s elapsed allocation time and zero
 GPU-hours. Replacement full Beta qualification 214096 uses `FULL_QUALIFICATION=1`, `PRODUCER=1c9817d44`, and
-`PACKED_OM4=RUN_ROOT/packed-om4`. Then submit the five-arm production request if
-its measured runtime fits the allocation. The latest advisory full-node start
-estimate was about 13 hours away; waiting in the production queue is intentional.
+`PACKED_OM4=RUN_ROOT/packed-om4`. It passed, and production 214108 completed all five arms.
 
 Run root: `/projects/ny/lz1955/multiscale/jrusak/runs/monthly-latent-pilots-20261016`.
 Proofs live in `initial-qualification-JOBID/`; producer-matched `QUALIFIED.json`

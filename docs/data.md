@@ -23,7 +23,7 @@ The canonical processed OM4 release used for training lives on the NYU OSN pod u
 `https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/v2026-09/`). Every directory below contains the dataset
 `OM4.zarr` alongside its normalization statistics `OM4_means.zarr` and `OM4_stds.zarr`.
 
-All datasets share the same layout: 4745 five-day timesteps, 19 depth levels, on a regular lat–lon
+All OM4 datasets share the same layout: 4745 five-day timesteps, 19 depth levels, on a regular lat–lon
 (`grid_type = "gaussian"`) grid, with the grid-metadata coordinates needed for physical analysis
 (`areacello`, `dz`, `lev`, 2D `lat`/`lon`, and cell bounds `lat_b`/`lon_b`).
 
@@ -51,6 +51,29 @@ Use an unfiltered dataset for ordinary single-scale training. For multi-scale tr
 be paired with an unfiltered finer source so each scale sees boundary forcings with variance appropriate to its spatial
 scale. To copy a dataset or time slice to your cluster or local filesystem, see
 [How to get the data](#how-to-get-the-data).
+
+### CM4 pre-industrial control
+
+The unfiltered 1° CM4 dataset is available under
+`s3://m2lines-pubs/Samudra/v2026-09/cm4_onedeg/`, with `CM4.zarr`,
+`CM4_means.zarr`, and `CM4_stds.zarr`. It contains 14,600 five-day means on the
+180 × 360 Gaussian grid with 19 depth levels. The no-leap interval-end dates
+run from `0151-01-06` through `0351-01-01`, covering 200 years of averaging
+intervals. Use `type: cm4` in training configurations.
+
+The nine physical fields are `thetao`, `so`, `uo`, `vo`, `zos`, `hfds`,
+`tauuo`, `tauvo`, and `wfo`. Depth is retained: chunks are `(1, 19, 180, 360)`
+for depth-dependent fields and `(1, 180, 360)` for surface fields. Non-scalar
+arrays use Blosc Zstd level 5 with byte shuffle; the dataset occupies 131.2 GiB
+(140.8 GB), compared with 285.5 GiB of logical arrays. No spatial filtering,
+clipping, or heat-flux anomalies are applied.
+
+Normalization uses the entire 200-year record: unweighted population mean/std
+over finite wet space and time, retaining depth. Every output chunk was read
+back, and all 81 means and 81 standard deviations were checked against
+independent float64 reductions. The
+[validation report](https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/v2026-09/cm4_onedeg/CM4-onedeg-validation.pdf)
+contains metadata, maps, normalization profiles, and full-record extrema.
 
 ### Processing CM4
 

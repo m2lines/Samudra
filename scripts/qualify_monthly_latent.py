@@ -133,6 +133,9 @@ def main():
         ).hexdigest(),
     )
     if a.cm4:
+        import numpy as np
+        import zarr  # type: ignore[import-untyped]
+
         from samudra.experiments.monthly_model_data import ModelMonths, model_loss
         from samudra.experiments.monthly_pilot_evaluation import evaluate
         from samudra.experiments.observation_metrics import selection_score
@@ -148,6 +151,25 @@ def main():
             (Path(a.cm4) / ".zmetadata").read_bytes()
         ).hexdigest() != transfer.get("metadata_sha256"):
             raise ValueError("CM4 verified metadata contract changed")
+        contracts = [
+            Path(a.observations) / name
+            for name in ("grid.npz", "statistics.npz", "SHA256SUMS")
+        ]
+        contracts += [
+            Path(a.om4) / "OM4.zarr" / ".zmetadata",
+            Path(a.cm4) / ".zmetadata",
+            Path(a.cm4_verification),
+        ]
+        for label, field in (("means", "mean"), ("stds", "std")):
+            path = Path(a.om4) / f"OM4_{label}.zarr"
+            store = zarr.open_consolidated(str(path), mode="r")
+            values = np.array([float(store[name][...]) for name in data.grid["names"]])
+            np.testing.assert_allclose(values, data.grid[field], rtol=1e-6, atol=1e-7)
+            contracts.append(path / ".zmetadata")
+        result["data_contracts"] = {
+            str(path): hashlib.sha256(path.read_bytes()).hexdigest()
+            for path in contracts
+        }
         model_checks = []
         for kind, path in [("om4", Path(a.om4) / "OM4.zarr"), ("cm4", Path(a.cm4))]:
             reader = ModelMonths(path, kind, data.grid, a.om4)

@@ -44,6 +44,11 @@ def main():
         or proof.get("production_qualified") is not True
     ):
         raise ValueError("Missing full producer-matched qualification")
+    if not proof.get("data_contracts"):
+        raise ValueError("Missing qualified data contracts")
+    for path, expected in proof["data_contracts"].items():
+        if hashlib.sha256(Path(path).read_bytes()).hexdigest() != expected:
+            raise ValueError("Qualified data contract changed: " + path)
     out = Path(args.root) / args.arm
     out.mkdir(parents=True, exist_ok=True)
     torch.set_num_threads(8)

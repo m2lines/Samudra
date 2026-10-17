@@ -148,7 +148,9 @@ def main():
                         ]
                     )
                     gradients[name].append(vec)
-                    record["norms"][name] = float(vec.norm())
+                    record["norms"][name] = float(
+                        torch.linalg.vector_norm(vec, dtype=torch.float64)
+                    )
                 if a.clipping_only:
                     record["adamw_probe"] = update_probe(model, saved["optimizer"])
                 records.append(record)
@@ -157,8 +159,12 @@ def main():
             # Four independent batch/noise replicates per source. Compare cross-source
             # alignment with within-source stochastic variation, before global clipping.
             matrix = torch.stack(values)
-            unit = matrix / matrix.norm(dim=1, keepdim=True).clamp_min(1e-30)
-            cosine = unit @ unit.T
+            # Long float32 reductions can disagree between norm and dot kernels.
+            # Form one float64 Gram matrix and derive both norms from its diagonal.
+            matrix = matrix.double()
+            gram = matrix @ matrix.T
+            lengths = gram.diag().clamp_min(0).sqrt()
+            cosine = gram / (lengths[:, None] * lengths[None, :]).clamp_min(1e-30)
             alignment[name] = {
                 "cosine_matrix": cosine.tolist(),
                 "obs_om4_mean": float(cosine[:4, 4:].mean()),

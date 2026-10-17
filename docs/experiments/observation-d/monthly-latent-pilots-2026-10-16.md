@@ -140,9 +140,9 @@ exclude the diagonal. Global clipping preserves each gradient direction.
 
 | Module | Cross-source cosine at 2k | Cross-source at 3k | Obs/obs at 3k | OM4/OM4 at 3k |
 |---|---:|---:|---:|---:|
-| Initializer U-Net | 0.597 | 0.062 | 0.274 | 0.990 |
+| Initializer U-Net | 0.593 | 0.062 | 0.273 | 0.983 |
 | Processor | 0.599 | -0.016 | 0.112 | 0.963 |
-| Decoder | 0.695 | -0.040 | 0.393 | 0.998 |
+| Decoder | 0.695 | -0.040 | 0.392 | 0.997 |
 
 The tasks align positively before cooldown; afterwards they are approximately
 orthogonal, with weak negative processor/decoder cosines. Observation gradients
@@ -192,7 +192,70 @@ absolute maps alone cannot establish dynamical skill or ensemble calibration.
 
 This diagnostic consumed 0.7956 allocated GPU-hours (one GPU active on a required
 four-GPU Beta node), bringing completed allocation time to 42.3183 GPU-hours.
-Clipping/forcing diagnostic 214195 is tracked separately and remains in progress.
+Clipping/forcing diagnostic 214195 also completed (3m49s, 0.2544 allocated GPU-hours); total completed campaign allocation is now 42.5728 GPU-hours.
+
+## Clipping and forcing follow-up
+
+Job **214195** completed without updating weights. Results use four batch-eight
+replicates per source, raw A checkpoints and their saved AdamW moments. At 2k,
+median predicted next-step size as a percentage of each module's weight norm:
+
+| Source/module | Clip 1 | Clip 5 | No clipping |
+|---|---:|---:|---:|
+| Obs initializer | 0.0396% | 0.1396% | 0.1632% |
+| Obs processor | 0.0383% | 0.1351% | 0.1590% |
+| Obs decoder | 0.0506% | 0.1662% | 0.2036% |
+| OM4 initializer | 0.0459% | 0.0912% | 0.0912% |
+| OM4 processor | 0.0387% | 0.0645% | 0.0645% |
+| OM4 decoder | 0.0596% | 0.1299% | 0.1299% |
+
+Clipping materially changes the update; Adam does not cancel its effect when
+existing moments are held fixed. These small relative update norms do not suggest
+an immediate giant-step problem. They also do not prove that increasing the
+threshold improves training. Global clipping is driven mainly by decoder
+gradients and scales down initializer/processor gradients at the same time.
+This supports testing clipping policy before changing physical normalization.
+
+At the cooled endpoint, these four obs probes have total norms 0.41–0.64, so
+threshold choice has no effect on their next step. OM4 probes have norms 20–28;
+clip 1 to 5 raises the median decoder update about 2.6-fold. This is an endpoint
+probe, not a contradiction of frequent clipping during the preceding online
+cooldown trajectory. The endpoint LR is 1e-6 rather than 1e-4 at 2k; do not
+attribute their smaller absolute updates solely to clipping.
+
+Forcing summaries at 2k (means and RMS averaged across sampled examples and all
+spatial cells, including land):
+
+| Representation | Channel means | Channel RMS |
+|---|---|---|
+| Learned ERA5 adapter | -0.147, 0.598, 0.979 | 0.537, 1.153, 1.880 |
+| Normalized OM4 stress-x/stress-y/heat-flux | 0.009, 0.007, -0.011 | 0.845, 0.826, 0.856 |
+
+The learned representation differs from the physical forcing representation;
+that alone is not a defect because its channels have no physical calibration.
+The comparison also includes zero-filled land for OM4, while the adapter can emit
+nonzero values on land, so these are not matched ocean-only statistics. Adapter
+gradients remain small; there is no evidence that they directly dominate clipping.
+A separate lead is OM4 heat-flux tails: the largest sampled normalized absolute
+value is approximately 180, despite global RMS below one. Locate those values,
+check raw units and saved normalization, and examine spatial support before
+changing scales or adding an OM4 adapter. A global mean/RMS cannot resolve that.
+
+Recommended next experiment, subject to approval: matched short continuations
+from 2k with threshold 1 versus 5, same LR/data draws, monitoring module update
+sizes and both source losses. If decoder domination remains limiting, compare
+module-wise clipping against that control rather than immediately changing data
+normalization. Forcing interpretation needs ocean-only, geographically localized
+checks; these diagnostics have not established forcing as the cause of lost OM4 fit.
+
+Numerical audit: the original float32 cosine calculation produced self-cosines
+up to 1.007 because its vector normalization and dot-product reductions differed.
+Published matrices now normalize the saved Gram entries by their own diagonal,
+which algebraically cancels the original normalization factors; zero-gradient
+adapter rows remain zero and are not evidence of alignment. Source now uses a
+float64 Gram calculation. This correction changes the 2k initializer cross-source
+mean from 0.597 to 0.593, without changing the interpretation. Raw cluster output
+is preserved. [Full clipping and forcing records](assets/monthly-latent-pilots-2026-10-16/clipping-diagnostics.json).
 
 ## Question and arms
 

@@ -78,10 +78,16 @@ def rollout(model, data, description, raw, *, origin_index, first_month_only=Fal
                 duration_days=duration,
                 position_days=position,
             ).mean(0, keepdim=True)
-        monthly[:, 38] = sum(
-            native[int(i)][:, 0].to(data.device) * float(w)
-            for i, w in zip(indices, weights, strict=True)
-        )
+        # Reconstruct the original native tensor layout and reduction order so
+        # the first-month SST contribution is bitwise replayable.
+        native_window = monthly.new_zeros(1, len(indices), 77, *model.shape)
+        for j, index in enumerate(indices):
+            native_window[:, j, [38, 76]] = native[int(index)].to(
+                data.device, dtype=monthly.dtype
+            )
+        monthly[:, 38] = (
+            native_window[:, :, 38] * data.tensor(weights)[None, :, None, None]
+        ).sum(1)
         ohc = data.ohc(monthly)[0]
         if np.isinf(ohc).any() or not all(np.isfinite(layer).any() for layer in ohc):
             raise ValueError("Nonfinite OHC readout on model support")
@@ -89,8 +95,12 @@ def rollout(model, data, description, raw, *, origin_index, first_month_only=Fal
         months.append(month)
     ordered = torch.stack([native[i] for i in sorted(native)], 1)
     physical = (
-        ordered.numpy()[0] * data.grid["std"][[38, 76]][None, :, None, None]
-        + data.grid["mean"][[38, 76]][None, :, None, None]
+        (
+            ordered.to(data.device) * data.std[:, :, [38, 76]]
+            + data.mean[:, :, [38, 76]]
+        )[0]
+        .cpu()
+        .numpy()
     )
     norms = [float(state.float().square().mean().sqrt()) for state in states]
     return dict(

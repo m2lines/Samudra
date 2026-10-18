@@ -833,3 +833,77 @@ diagnostic records. Maximum reconstruction error is2.7e-15. Recovered denominato
 are SST0.829498851°C, velocity0.139780864m/s, EKE0.0221360379m²/s²; full-precision
 constants and all plotted points are in the [data file](assets/monthly-latent-pilots-2026-10-16/surface-only-results.json).
 No training, model evaluation or new compute allocation was needed.
+
+## OHC learning curves and interpretation
+
+![Late-training OHC curves](assets/monthly-latent-pilots-2026-10-16/ohc-curves-late.png)
+
+[Full training range](assets/monthly-latent-pilots-2026-10-16/ohc-curves-full.png) ·
+[Early-checkpoint cooldowns](assets/monthly-latent-pilots-2026-10-16/ohc-curves-early.png) ·
+[All plotted values](assets/monthly-latent-pilots-2026-10-16/ohc-curves-results.json).
+Units are GJ/m²; upper and deep layers have separate axes, shared between sweeps.
+The vertical line marks cooldown/EMA reset; horizontal dotted lines are seasonal
+climatology errors. These are calendar-month OHC targets, not day30 snapshots.
+
+The original mixed models begin cooldown with worse OHC than obs-only E, then
+improve substantially and overtake it. A's upper/deep errors fall from1.011/0.767
+to0.758/0.591 GJ/m², while E falls from0.879/0.668 to0.814/0.657. A finishes
+6.8%/10.1% below E, despite E's better surface skill and greater observation
+exposure. This supports a reusable interior representation from mixed training
+that benefits from observation adaptation; it does not isolate OM4 data from
+training schedule and optimizer effects. The early-checkpoint results likewise
+show that interior skill needs more prior training than surface skill here.
+
+In the new sweep, clip5's upper-OHC advantage persists through cooldown
+(0.726 versus control0.757), but its deep error is worse (0.597 versus0.560).
+The forcing adapter has the same direction of tradeoff at smaller magnitude.
+The final pooled scores are therefore similar partly because improvements in
+surface/upper-ocean quantities cancel losses at depth. This is a multi-objective
+tradeoff, not evidence that every treatment has learned the same predictor.
+
+All cooled OHC errors remain above this cohort's seasonal-climatology errors
+(0.702/0.367). Deep OHC is a particular weakness even for the best model.
+Absolute OHC RMSE alone cannot distinguish spatial/seasonal bias from failure
+to predict anomalies, nor show that the learned deep state evolves physically.
+The history-swap diagnostic found weak deep-OHC sensitivity relative to SST;
+that keeps learned spatial/seasonal priors a live explanation. Both layer-wise
+anomaly/change scores and longer continuous rollouts are useful follow-ups.
+These observations do not establish an observed dynamical benefit or a replicated
+winner for the clipping/adapter interventions.
+
+## Continuous 365-day follow-up
+
+User-authorized annual evaluation uses the fixed cooled3k EMA endpoints of
+original A/B/C/D/E (seed1729) and new clip1/clip5/adapter (seed1730). No retraining
+or annual checkpoint selection. The early-cooldown branches and the older
+fixed-LR continuations are excluded from this first annual comparison.
+
+Initialize once from19 historical five-day surface/ERA5 bins; evolve73 successive
+five-day latent steps using prescribed future ERA5 and calendar/geographic
+context. Future surface/interior observations are scored only. Decode each
+five-day surface with the same eight-member,32-step readout as the monthly
+validation; decode calendar-month interiors from overlap-weighted latent states.
+Top-layer OHC continues to use overlap-weighted decoded SST. Calendar windows
+are never treated as fresh ocean initializations. Prescribed ERA5 means this
+is ocean evolution under known atmospheric forcing.
+
+Use the existing three annual cases: January1 in2015,2018 and2021. Plot SST,
+ADT and geostrophic-velocity RMSE every five days, EKE RMSE across the three
+origins at each fixed lead, and OHC RMSE in both layers for each calendar month.
+This EKE convention preserves the monthly report's fixed-lead aggregation axis;
+it differs from the older early/fine report's within-year temporal-anomaly EKE.
+Include seasonal climatology and the surface-only blend, preserving individual
+components. The three same-season cases are a small diagnostic cohort.
+
+Annual payload hashes/timestamps, all12 monthly targets, full first-month input
+overlap and frozen checkpoint hashes must pass audit. Before evaluation, the
+new rollout/readout must reproduce first-month surface/OHC predictions from the
+existing monthly evaluator exactly for all three origins using the control.
+The source checkpoints are read-only. Save prediction/reference maps and latent
+RMS along the full trajectory, with online W&B evaluation tracking.
+
+The decoder's requested position is the true absolute forecast lead (surface
+midpoint2.5…362.5 days; monthly midpoint15.5…349.5), while durations remain5days
+or the calendar-month length. Training only covered roughly the first month:
+**both processor evolution and decoder lead conditioning extrapolate** in this
+annual test. An annual failure cannot by itself identify which causes it.

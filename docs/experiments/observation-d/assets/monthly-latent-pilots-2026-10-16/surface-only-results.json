@@ -1,0 +1,1199 @@
+{
+  "definition": "Arithmetic mean of SST, geostrophic velocity and EKE RMSE divided by their original fixed seasonal climatology RMSE; each component averaged over leads 5,15,30 days.",
+  "normalization": {
+    "sst_rmse": 0.8294988513321775,
+    "velocity_rmse": 0.13978086414056617,
+    "eke_rmse": 0.022136037910438614,
+    "ohc_0_700_rmse": 702138048.0417442,
+    "ohc_700_2000_rmse": 366625942.3025446
+  },
+  "normalization_recovery": "Solved recorded five-component blend equations using original A; verified all original, scratch, continuation and diagnostic records.",
+  "records_verified": 141,
+  "maximum_original_blend_reconstruction_error": 2.6645352591003757e-15,
+  "curves": {
+    "original": {
+      "A": [
+        {
+          "step": 250,
+          "surface_blend": 6.498248426447648,
+          "components": {
+            "sst_rmse": 4.3061131792470215,
+            "velocity_rmse": 0.48588604265203245,
+            "eke_rmse": 0.23967722390695878
+          }
+        },
+        {
+          "step": 500,
+          "surface_blend": 3.513336570276452,
+          "components": {
+            "sst_rmse": 2.5166218284231996,
+            "velocity_rmse": 0.3488482603713486,
+            "eke_rmse": 0.110910928955237
+          }
+        },
+        {
+          "step": 750,
+          "surface_blend": 1.2714870940698182,
+          "components": {
+            "sst_rmse": 1.1607296888333727,
+            "velocity_rmse": 0.18353052303383657,
+            "eke_rmse": 0.024397442515516645
+          }
+        },
+        {
+          "step": 1000,
+          "surface_blend": 1.0507626655785602,
+          "components": {
+            "sst_rmse": 0.9039519101902936,
+            "velocity_rmse": 0.14911206457578116,
+            "eke_rmse": 0.02204252200210241
+          }
+        },
+        {
+          "step": 1250,
+          "surface_blend": 1.026415935170011,
+          "components": {
+            "sst_rmse": 0.8605403497963429,
+            "velocity_rmse": 0.1466457191848787,
+            "eke_rmse": 0.021974760572567222
+          }
+        },
+        {
+          "step": 1500,
+          "surface_blend": 1.0160822043749906,
+          "components": {
+            "sst_rmse": 0.844467723870942,
+            "velocity_rmse": 0.14542627239690087,
+            "eke_rmse": 0.021910546271511306
+          }
+        },
+        {
+          "step": 1750,
+          "surface_blend": 1.0058450183070107,
+          "components": {
+            "sst_rmse": 0.827184690160993,
+            "velocity_rmse": 0.14442170810831403,
+            "eke_rmse": 0.02185101499617854
+          }
+        },
+        {
+          "step": 2000,
+          "surface_blend": 0.9960851734750392,
+          "components": {
+            "sst_rmse": 0.8111986363069054,
+            "velocity_rmse": 0.14325891055140438,
+            "eke_rmse": 0.021813630003704537
+          }
+        },
+        {
+          "step": 2250,
+          "surface_blend": 0.9894930071991208,
+          "components": {
+            "sst_rmse": 0.8088244506368457,
+            "velocity_rmse": 0.1414240260152721,
+            "eke_rmse": 0.02172979106680691
+          }
+        },
+        {
+          "step": 2500,
+          "surface_blend": 0.9689934143029424,
+          "components": {
+            "sst_rmse": 0.7720288979771196,
+            "velocity_rmse": 0.13978919696363445,
+            "eke_rmse": 0.021609274796961953
+          }
+        },
+        {
+          "step": 2750,
+          "surface_blend": 0.9634198943232204,
+          "components": {
+            "sst_rmse": 0.7705816773083963,
+            "velocity_rmse": 0.13825805318575346,
+            "eke_rmse": 0.021520244089990547
+          }
+        },
+        {
+          "step": 3000,
+          "surface_blend": 0.9665322301316706,
+          "components": {
+            "sst_rmse": 0.7879050648959374,
+            "velocity_rmse": 0.1371215812752859,
+            "eke_rmse": 0.021444610318211224
+          }
+        }
+      ],
+      "B": [
+        {
+          "step": 250,
+          "surface_blend": 6.507666112424133,
+          "components": {
+            "sst_rmse": 4.199406596066137,
+            "velocity_rmse": 0.4882535551853742,
+            "eke_rmse": 0.24277528555953828
+          }
+        },
+        {
+          "step": 500,
+          "surface_blend": 3.42925189214564,
+          "components": {
+            "sst_rmse": 2.4346735793903815,
+            "velocity_rmse": 0.3441850725662126,
+            "eke_rmse": 0.10825237195112498
+          }
+        },
+        {
+          "step": 750,
+          "surface_blend": 1.3064060577446204,
+          "components": {
+            "sst_rmse": 1.1788706281968642,
+            "velocity_rmse": 0.18904992224427608,
+            "eke_rmse": 0.025358169733762353
+          }
+        },
+        {
+          "step": 1000,
+          "surface_blend": 1.0895411119646183,
+          "components": {
+            "sst_rmse": 0.9969343991927401,
+            "velocity_rmse": 0.14913177710136313,
+            "eke_rmse": 0.022133269516839516
+          }
+        },
+        {
+          "step": 1250,
+          "surface_blend": 1.0731863789596603,
+          "components": {
+            "sst_rmse": 0.9706244121786277,
+            "velocity_rmse": 0.14705842651794135,
+            "eke_rmse": 0.022077632707494896
+          }
+        },
+        {
+          "step": 1500,
+          "surface_blend": 1.0529920680099998,
+          "components": {
+            "sst_rmse": 0.9300732941715495,
+            "velocity_rmse": 0.1457839080037824,
+            "eke_rmse": 0.022020551141829003
+          }
+        },
+        {
+          "step": 1750,
+          "surface_blend": 1.0428221737843775,
+          "components": {
+            "sst_rmse": 0.9142380587847843,
+            "velocity_rmse": 0.14445056916972676,
+            "eke_rmse": 0.02197891812702141
+          }
+        },
+        {
+          "step": 2000,
+          "surface_blend": 1.03812993091431,
+          "components": {
+            "sst_rmse": 0.9104162638263268,
+            "velocity_rmse": 0.14368784178826355,
+            "eke_rmse": 0.021890091059355077
+          }
+        },
+        {
+          "step": 2250,
+          "surface_blend": 1.017033396008693,
+          "components": {
+            "sst_rmse": 0.8750417982550275,
+            "velocity_rmse": 0.14145937275084672,
+            "eke_rmse": 0.021786020085771157
+          }
+        },
+        {
+          "step": 2500,
+          "surface_blend": 0.9838511059310209,
+          "components": {
+            "sst_rmse": 0.8081207503838895,
+            "velocity_rmse": 0.13953490912809985,
+            "eke_rmse": 0.02167306716634503
+          }
+        },
+        {
+          "step": 2750,
+          "surface_blend": 0.96899454391746,
+          "components": {
+            "sst_rmse": 0.7836554854791599,
+            "velocity_rmse": 0.13805945647776274,
+            "eke_rmse": 0.02157300817004879
+          }
+        },
+        {
+          "step": 3000,
+          "surface_blend": 0.965961601812746,
+          "components": {
+            "sst_rmse": 0.784463253979231,
+            "velocity_rmse": 0.13707874731498723,
+            "eke_rmse": 0.021505347555222088
+          }
+        }
+      ],
+      "C": [
+        {
+          "step": 250,
+          "surface_blend": 6.471034161901028,
+          "components": {
+            "sst_rmse": 4.206292566923568,
+            "velocity_rmse": 0.48656585387595364,
+            "eke_rmse": 0.240426136030366
+          }
+        },
+        {
+          "step": 500,
+          "surface_blend": 3.5061533674976624,
+          "components": {
+            "sst_rmse": 2.4803739132129494,
+            "velocity_rmse": 0.3497169113834951,
+            "eke_rmse": 0.1112636575639218
+          }
+        },
+        {
+          "step": 750,
+          "surface_blend": 1.2693441853681395,
+          "components": {
+            "sst_rmse": 1.1292632274653298,
+            "velocity_rmse": 0.18573180435978906,
+            "eke_rmse": 0.024746250906854533
+          }
+        },
+        {
+          "step": 1000,
+          "surface_blend": 1.0489466852777847,
+          "components": {
+            "sst_rmse": 0.8997499420475782,
+            "velocity_rmse": 0.14905810615532034,
+            "eke_rmse": 0.02204260504431678
+          }
+        },
+        {
+          "step": 1250,
+          "surface_blend": 1.0300698198946132,
+          "components": {
+            "sst_rmse": 0.8694804967368949,
+            "velocity_rmse": 0.14671258479092622,
+            "eke_rmse": 0.02196824206333393
+          }
+        },
+        {
+          "step": 1500,
+          "surface_blend": 1.0126382486141263,
+          "components": {
+            "sst_rmse": 0.8361160287616013,
+            "velocity_rmse": 0.1454142175568486,
+            "eke_rmse": 0.02190662235295722
+          }
+        },
+        {
+          "step": 1750,
+          "surface_blend": 1.0038922902520484,
+          "components": {
+            "sst_rmse": 0.8226475363581657,
+            "velocity_rmse": 0.14432395689319033,
+            "eke_rmse": 0.02185789678882703
+          }
+        },
+        {
+          "step": 2000,
+          "surface_blend": 0.9992534640094105,
+          "components": {
+            "sst_rmse": 0.8186654075221801,
+            "velocity_rmse": 0.14349176069131125,
+            "eke_rmse": 0.02178789694609418
+          }
+        },
+        {
+          "step": 2250,
+          "surface_blend": 0.9778517823865286,
+          "components": {
+            "sst_rmse": 0.7813822323231902,
+            "velocity_rmse": 0.14124275697747624,
+            "eke_rmse": 0.021717749573704117
+          }
+        },
+        {
+          "step": 2500,
+          "surface_blend": 0.9620497241792316,
+          "components": {
+            "sst_rmse": 0.7552231020736732,
+            "velocity_rmse": 0.13970815878544807,
+            "eke_rmse": 0.021609470945645803
+          }
+        },
+        {
+          "step": 2750,
+          "surface_blend": 0.9521408916080527,
+          "components": {
+            "sst_rmse": 0.742018980830741,
+            "velocity_rmse": 0.13830644938567144,
+            "eke_rmse": 0.021525787859937213
+          }
+        },
+        {
+          "step": 3000,
+          "surface_blend": 0.9486011944000073,
+          "components": {
+            "sst_rmse": 0.7417954742537813,
+            "velocity_rmse": 0.1373620759675591,
+            "eke_rmse": 0.021446241023545837
+          }
+        }
+      ],
+      "D": [
+        {
+          "step": 250,
+          "surface_blend": 6.524604587029606,
+          "components": {
+            "sst_rmse": 4.3362981547478325,
+            "velocity_rmse": 0.4862833625941057,
+            "eke_rmse": 0.24055904885839097
+          }
+        },
+        {
+          "step": 500,
+          "surface_blend": 3.2768901084682427,
+          "components": {
+            "sst_rmse": 2.366771498157767,
+            "velocity_rmse": 0.3349273062402303,
+            "eke_rmse": 0.10141243322726574
+          }
+        },
+        {
+          "step": 750,
+          "surface_blend": 1.2594264288396468,
+          "components": {
+            "sst_rmse": 1.1447807331379212,
+            "velocity_rmse": 0.18271503518331322,
+            "eke_rmse": 0.02415127356693977
+          }
+        },
+        {
+          "step": 1000,
+          "surface_blend": 1.0920665280684647,
+          "components": {
+            "sst_rmse": 1.0061036082034418,
+            "velocity_rmse": 0.14867624292626405,
+            "eke_rmse": 0.022128427276984056
+          }
+        },
+        {
+          "step": 1250,
+          "surface_blend": 1.074242338738212,
+          "components": {
+            "sst_rmse": 0.9765131445743327,
+            "velocity_rmse": 0.14660069627021577,
+            "eke_rmse": 0.02206309734404834
+          }
+        },
+        {
+          "step": 1500,
+          "surface_blend": 1.0501412723834582,
+          "components": {
+            "sst_rmse": 0.9262554451509205,
+            "velocity_rmse": 0.14544017504763626,
+            "eke_rmse": 0.02198755283355282
+          }
+        },
+        {
+          "step": 1750,
+          "surface_blend": 1.043533425101901,
+          "components": {
+            "sst_rmse": 0.9190258522126253,
+            "velocity_rmse": 0.1442784334085376,
+            "eke_rmse": 0.021925643585976113
+          }
+        },
+        {
+          "step": 2000,
+          "surface_blend": 1.0343013838286876,
+          "components": {
+            "sst_rmse": 0.9024495119502495,
+            "velocity_rmse": 0.1434465073791219,
+            "eke_rmse": 0.021886663817286434
+          }
+        },
+        {
+          "step": 2250,
+          "surface_blend": 0.9977927680915561,
+          "components": {
+            "sst_rmse": 0.8309242730970107,
+            "velocity_rmse": 0.141088289313362,
+            "eke_rmse": 0.021744373910378242
+          }
+        },
+        {
+          "step": 2500,
+          "surface_blend": 0.9746235269545949,
+          "components": {
+            "sst_rmse": 0.7870063252268991,
+            "velocity_rmse": 0.1393980660390447,
+            "eke_rmse": 0.021645412210088255
+          }
+        },
+        {
+          "step": 2750,
+          "surface_blend": 0.9593252673784952,
+          "components": {
+            "sst_rmse": 0.7602268249153883,
+            "velocity_rmse": 0.13803451958834664,
+            "eke_rmse": 0.021560056947764528
+          }
+        },
+        {
+          "step": 3000,
+          "surface_blend": 0.9547204803873752,
+          "components": {
+            "sst_rmse": 0.7565474345594371,
+            "velocity_rmse": 0.1371361142084181,
+            "eke_rmse": 0.02149472374352721
+          }
+        }
+      ],
+      "E": [
+        {
+          "step": 250,
+          "surface_blend": 5.887491591346264,
+          "components": {
+            "sst_rmse": 3.762124355990499,
+            "velocity_rmse": 0.4648156951945615,
+            "eke_rmse": 0.2169716724908521
+          }
+        },
+        {
+          "step": 500,
+          "surface_blend": 1.8610581960806398,
+          "components": {
+            "sst_rmse": 1.5711310164606538,
+            "velocity_rmse": 0.2419060923438385,
+            "eke_rmse": 0.04335326460689265
+          }
+        },
+        {
+          "step": 750,
+          "surface_blend": 1.0441812338399268,
+          "components": {
+            "sst_rmse": 0.8780298364500125,
+            "velocity_rmse": 0.1514176125554192,
+            "eke_rmse": 0.021932106790504252
+          }
+        },
+        {
+          "step": 1000,
+          "surface_blend": 1.000468935503607,
+          "components": {
+            "sst_rmse": 0.7993121973113498,
+            "velocity_rmse": 0.14632712720171057,
+            "eke_rmse": 0.0219360590767753
+          }
+        },
+        {
+          "step": 1250,
+          "surface_blend": 0.9760539464554484,
+          "components": {
+            "sst_rmse": 0.7539401679414267,
+            "velocity_rmse": 0.14431518801876247,
+            "eke_rmse": 0.021844120996188047
+          }
+        },
+        {
+          "step": 1500,
+          "surface_blend": 0.9611438451405244,
+          "components": {
+            "sst_rmse": 0.7301940499047879,
+            "velocity_rmse": 0.14269986780731017,
+            "eke_rmse": 0.02174346514264558
+          }
+        },
+        {
+          "step": 1750,
+          "surface_blend": 0.952219402807522,
+          "components": {
+            "sst_rmse": 0.7200962862396852,
+            "velocity_rmse": 0.14120676051498587,
+            "eke_rmse": 0.021656731172057377
+          }
+        },
+        {
+          "step": 2000,
+          "surface_blend": 0.9452603491265991,
+          "components": {
+            "sst_rmse": 0.7148325509861495,
+            "velocity_rmse": 0.13981662550990215,
+            "eke_rmse": 0.02155520694639861
+          }
+        },
+        {
+          "step": 2250,
+          "surface_blend": 0.9385044667673869,
+          "components": {
+            "sst_rmse": 0.7106275926703529,
+            "velocity_rmse": 0.13839039923597202,
+            "eke_rmse": 0.021444635884520846
+          }
+        },
+        {
+          "step": 2500,
+          "surface_blend": 0.9317492517742241,
+          "components": {
+            "sst_rmse": 0.7043428748106858,
+            "velocity_rmse": 0.1371851508000859,
+            "eke_rmse": 0.021354615095135986
+          }
+        },
+        {
+          "step": 2750,
+          "surface_blend": 0.9261228305128015,
+          "components": {
+            "sst_rmse": 0.6993265217460573,
+            "velocity_rmse": 0.1361685010601711,
+            "eke_rmse": 0.021275840788488765
+          }
+        },
+        {
+          "step": 3000,
+          "surface_blend": 0.9232725468621045,
+          "components": {
+            "sst_rmse": 0.6997589746461403,
+            "velocity_rmse": 0.13534134048187976,
+            "eke_rmse": 0.021206009535814585
+          }
+        }
+      ]
+    },
+    "scratch": {
+      "A (1729)": [
+        {
+          "step": 250,
+          "surface_blend": 6.498248426447648,
+          "components": {
+            "sst_rmse": 4.3061131792470215,
+            "velocity_rmse": 0.48588604265203245,
+            "eke_rmse": 0.23967722390695878
+          }
+        },
+        {
+          "step": 500,
+          "surface_blend": 3.513336570276452,
+          "components": {
+            "sst_rmse": 2.5166218284231996,
+            "velocity_rmse": 0.3488482603713486,
+            "eke_rmse": 0.110910928955237
+          }
+        },
+        {
+          "step": 750,
+          "surface_blend": 1.2714870940698182,
+          "components": {
+            "sst_rmse": 1.1607296888333727,
+            "velocity_rmse": 0.18353052303383657,
+            "eke_rmse": 0.024397442515516645
+          }
+        },
+        {
+          "step": 1000,
+          "surface_blend": 1.0507626655785602,
+          "components": {
+            "sst_rmse": 0.9039519101902936,
+            "velocity_rmse": 0.14911206457578116,
+            "eke_rmse": 0.02204252200210241
+          }
+        },
+        {
+          "step": 1250,
+          "surface_blend": 1.026415935170011,
+          "components": {
+            "sst_rmse": 0.8605403497963429,
+            "velocity_rmse": 0.1466457191848787,
+            "eke_rmse": 0.021974760572567222
+          }
+        },
+        {
+          "step": 1500,
+          "surface_blend": 1.0160822043749906,
+          "components": {
+            "sst_rmse": 0.844467723870942,
+            "velocity_rmse": 0.14542627239690087,
+            "eke_rmse": 0.021910546271511306
+          }
+        },
+        {
+          "step": 1750,
+          "surface_blend": 1.0058450183070107,
+          "components": {
+            "sst_rmse": 0.827184690160993,
+            "velocity_rmse": 0.14442170810831403,
+            "eke_rmse": 0.02185101499617854
+          }
+        },
+        {
+          "step": 2000,
+          "surface_blend": 0.9960851734750392,
+          "components": {
+            "sst_rmse": 0.8111986363069054,
+            "velocity_rmse": 0.14325891055140438,
+            "eke_rmse": 0.021813630003704537
+          }
+        },
+        {
+          "step": 2250,
+          "surface_blend": 0.9894930071991208,
+          "components": {
+            "sst_rmse": 0.8088244506368457,
+            "velocity_rmse": 0.1414240260152721,
+            "eke_rmse": 0.02172979106680691
+          }
+        },
+        {
+          "step": 2500,
+          "surface_blend": 0.9689934143029424,
+          "components": {
+            "sst_rmse": 0.7720288979771196,
+            "velocity_rmse": 0.13978919696363445,
+            "eke_rmse": 0.021609274796961953
+          }
+        },
+        {
+          "step": 2750,
+          "surface_blend": 0.9634198943232204,
+          "components": {
+            "sst_rmse": 0.7705816773083963,
+            "velocity_rmse": 0.13825805318575346,
+            "eke_rmse": 0.021520244089990547
+          }
+        },
+        {
+          "step": 3000,
+          "surface_blend": 0.9665322301316706,
+          "components": {
+            "sst_rmse": 0.7879050648959374,
+            "velocity_rmse": 0.1371215812752859,
+            "eke_rmse": 0.021444610318211224
+          }
+        }
+      ],
+      "clip1 (1730)": [
+        {
+          "step": 250,
+          "surface_blend": 6.55986752324896,
+          "components": {
+            "sst_rmse": 4.31127576179085,
+            "velocity_rmse": 0.4885141798365173,
+            "eke_rmse": 0.24321526481900682
+          }
+        },
+        {
+          "step": 500,
+          "surface_blend": 3.445037472762298,
+          "components": {
+            "sst_rmse": 2.5913571874320547,
+            "velocity_rmse": 0.34267155953092865,
+            "eke_rmse": 0.1053590814663385
+          }
+        },
+        {
+          "step": 750,
+          "surface_blend": 1.3485626127856645,
+          "components": {
+            "sst_rmse": 1.2163772823671744,
+            "velocity_rmse": 0.1934947769800807,
+            "eke_rmse": 0.02645290501910687
+          }
+        },
+        {
+          "step": 1000,
+          "surface_blend": 1.0259636772722491,
+          "components": {
+            "sst_rmse": 0.849212779911341,
+            "velocity_rmse": 0.14837118560587995,
+            "eke_rmse": 0.021973765876950005
+          }
+        },
+        {
+          "step": 1250,
+          "surface_blend": 1.0041584335429774,
+          "components": {
+            "sst_rmse": 0.8129478455755598,
+            "velocity_rmse": 0.14565281670053223,
+            "eke_rmse": 0.02192397570617201
+          }
+        },
+        {
+          "step": 1500,
+          "surface_blend": 0.9957286616804005,
+          "components": {
+            "sst_rmse": 0.8008174746665974,
+            "velocity_rmse": 0.14451693393390766,
+            "eke_rmse": 0.02186776315722429
+          }
+        },
+        {
+          "step": 1750,
+          "surface_blend": 0.9890137530935258,
+          "components": {
+            "sst_rmse": 0.79350846153201,
+            "velocity_rmse": 0.14330392869329792,
+            "eke_rmse": 0.021808981809413156
+          }
+        },
+        {
+          "step": 2000,
+          "surface_blend": 0.9811226491303136,
+          "components": {
+            "sst_rmse": 0.7814948495364819,
+            "velocity_rmse": 0.14228251022558272,
+            "eke_rmse": 0.021767298501770154
+          }
+        },
+        {
+          "step": 2250,
+          "surface_blend": 0.9695784426240429,
+          "components": {
+            "sst_rmse": 0.7659921646010174,
+            "velocity_rmse": 0.14065359925698684,
+            "eke_rmse": 0.02167233306945923
+          }
+        },
+        {
+          "step": 2500,
+          "surface_blend": 0.9578150399440597,
+          "components": {
+            "sst_rmse": 0.7510676730300808,
+            "velocity_rmse": 0.1388263263981436,
+            "eke_rmse": 0.02157879461439501
+          }
+        },
+        {
+          "step": 2750,
+          "surface_blend": 0.952886455141976,
+          "components": {
+            "sst_rmse": 0.7503068627691353,
+            "velocity_rmse": 0.1374479692792386,
+            "eke_rmse": 0.021490079594548277
+          }
+        },
+        {
+          "step": 3000,
+          "surface_blend": 0.9522332300977271,
+          "components": {
+            "sst_rmse": 0.7568836375844703,
+            "velocity_rmse": 0.1365367263300383,
+            "eke_rmse": 0.02141549874019037
+          }
+        }
+      ],
+      "clip5 (1730)": [
+        {
+          "step": 250,
+          "surface_blend": 6.814569493310081,
+          "components": {
+            "sst_rmse": 4.554868326157968,
+            "velocity_rmse": 0.4961062759859749,
+            "eke_rmse": 0.2524267189451375
+          }
+        },
+        {
+          "step": 500,
+          "surface_blend": 3.642725471269209,
+          "components": {
+            "sst_rmse": 2.6426888319591604,
+            "velocity_rmse": 0.35502002873213084,
+            "eke_rmse": 0.11516179669311936
+          }
+        },
+        {
+          "step": 750,
+          "surface_blend": 1.3269263635859048,
+          "components": {
+            "sst_rmse": 1.2100328033305425,
+            "velocity_rmse": 0.1905691887275606,
+            "eke_rmse": 0.02564869480787649
+          }
+        },
+        {
+          "step": 1000,
+          "surface_blend": 1.019200352705131,
+          "components": {
+            "sst_rmse": 0.8394202234308864,
+            "velocity_rmse": 0.1475172378500563,
+            "eke_rmse": 0.021921184030111607
+          }
+        },
+        {
+          "step": 1250,
+          "surface_blend": 0.9899855264740882,
+          "components": {
+            "sst_rmse": 0.7874689478782632,
+            "velocity_rmse": 0.1445041240976782,
+            "eke_rmse": 0.021844620271923895
+          }
+        },
+        {
+          "step": 1500,
+          "surface_blend": 0.9764278590381431,
+          "components": {
+            "sst_rmse": 0.7668581611015411,
+            "velocity_rmse": 0.14269912073660865,
+            "eke_rmse": 0.021780146117238566
+          }
+        },
+        {
+          "step": 1750,
+          "surface_blend": 0.9686743799114627,
+          "components": {
+            "sst_rmse": 0.758323024606247,
+            "velocity_rmse": 0.14137799908484827,
+            "eke_rmse": 0.02170223721161681
+          }
+        },
+        {
+          "step": 2000,
+          "surface_blend": 0.9651618195630763,
+          "components": {
+            "sst_rmse": 0.7567280836118723,
+            "velocity_rmse": 0.14040873699508885,
+            "eke_rmse": 0.021665032064564358
+          }
+        },
+        {
+          "step": 2250,
+          "surface_blend": 0.9550142973780491,
+          "components": {
+            "sst_rmse": 0.7461341408638761,
+            "velocity_rmse": 0.13859195174968805,
+            "eke_rmse": 0.021561575150517445
+          }
+        },
+        {
+          "step": 2500,
+          "surface_blend": 0.9416776063995337,
+          "components": {
+            "sst_rmse": 0.7257626904759441,
+            "velocity_rmse": 0.13690840258038625,
+            "eke_rmse": 0.02148615490410934
+          }
+        },
+        {
+          "step": 2750,
+          "surface_blend": 0.938091887506463,
+          "components": {
+            "sst_rmse": 0.7271165230277874,
+            "velocity_rmse": 0.13563497361830182,
+            "eke_rmse": 0.0214135689593684
+          }
+        },
+        {
+          "step": 3000,
+          "surface_blend": 0.9374231195441783,
+          "components": {
+            "sst_rmse": 0.7314827278004291,
+            "velocity_rmse": 0.13494284985823976,
+            "eke_rmse": 0.021362247037228565
+          }
+        }
+      ],
+      "adapter (1730)": [
+        {
+          "step": 250,
+          "surface_blend": 6.583090006731286,
+          "components": {
+            "sst_rmse": 4.337578120246543,
+            "velocity_rmse": 0.48916858746542463,
+            "eke_rmse": 0.24395188681950608
+          }
+        },
+        {
+          "step": 500,
+          "surface_blend": 3.496681016126162,
+          "components": {
+            "sst_rmse": 2.612348638205567,
+            "velocity_rmse": 0.3456631457388413,
+            "eke_rmse": 0.10775469823920299
+          }
+        },
+        {
+          "step": 750,
+          "surface_blend": 1.3957539101387837,
+          "components": {
+            "sst_rmse": 1.274233513165833,
+            "velocity_rmse": 0.19734329805611597,
+            "eke_rmse": 0.027433375318282244
+          }
+        },
+        {
+          "step": 1000,
+          "surface_blend": 1.0281178323830662,
+          "components": {
+            "sst_rmse": 0.8545480573186613,
+            "velocity_rmse": 0.14838184174123967,
+            "eke_rmse": 0.021972754307100734
+          }
+        },
+        {
+          "step": 1250,
+          "surface_blend": 1.0017680391516282,
+          "components": {
+            "sst_rmse": 0.8079294042883017,
+            "velocity_rmse": 0.14530256440272674,
+            "eke_rmse": 0.02195462324521133
+          }
+        },
+        {
+          "step": 1500,
+          "surface_blend": 0.9902901052030909,
+          "components": {
+            "sst_rmse": 0.7890068340757971,
+            "velocity_rmse": 0.1441728309238591,
+            "eke_rmse": 0.021876271074678044
+          }
+        },
+        {
+          "step": 1750,
+          "surface_blend": 0.9872010960234182,
+          "components": {
+            "sst_rmse": 0.7895480380152696,
+            "velocity_rmse": 0.14313290974582946,
+            "eke_rmse": 0.021821377662042257
+          }
+        },
+        {
+          "step": 2000,
+          "surface_blend": 0.9804126485990152,
+          "components": {
+            "sst_rmse": 0.779786332401045,
+            "velocity_rmse": 0.14223128434874133,
+            "eke_rmse": 0.021773854513581038
+          }
+        },
+        {
+          "step": 2250,
+          "surface_blend": 0.9664698033763649,
+          "components": {
+            "sst_rmse": 0.7596259641324687,
+            "velocity_rmse": 0.1402263364613245,
+            "eke_rmse": 0.021703445245094283
+          }
+        },
+        {
+          "step": 2500,
+          "surface_blend": 0.9533935009970763,
+          "components": {
+            "sst_rmse": 0.7402125191548721,
+            "velocity_rmse": 0.13875633241801563,
+            "eke_rmse": 0.021585934019584172
+          }
+        },
+        {
+          "step": 2750,
+          "surface_blend": 0.9486181613549194,
+          "components": {
+            "sst_rmse": 0.740465080922213,
+            "velocity_rmse": 0.13735254203592295,
+            "eke_rmse": 0.021484380510709295
+          }
+        },
+        {
+          "step": 3000,
+          "surface_blend": 0.947916748193636,
+          "components": {
+            "sst_rmse": 0.7471982591033136,
+            "velocity_rmse": 0.1364152632770729,
+            "eke_rmse": 0.021406548882419104
+          }
+        }
+      ]
+    },
+    "continuation": {
+      "clip1": [
+        {
+          "step": 2250,
+          "surface_blend": 0.9860079646496603,
+          "components": {
+            "sst_rmse": 0.7930527851576404,
+            "velocity_rmse": 0.14241529710039777,
+            "eke_rmse": 0.021762259127872146
+          }
+        },
+        {
+          "step": 2500,
+          "surface_blend": 0.9809071812414961,
+          "components": {
+            "sst_rmse": 0.7882689517867213,
+            "velocity_rmse": 0.1415347584318138,
+            "eke_rmse": 0.021690631529583698
+          }
+        },
+        {
+          "step": 2750,
+          "surface_blend": 0.9676612385483532,
+          "components": {
+            "sst_rmse": 0.7619160716365202,
+            "velocity_rmse": 0.14063912389665076,
+            "eke_rmse": 0.0216560822884071
+          }
+        },
+        {
+          "step": 3000,
+          "surface_blend": 0.9637221404092893,
+          "components": {
+            "sst_rmse": 0.758898696716034,
+            "velocity_rmse": 0.13983454906614545,
+            "eke_rmse": 0.021602430421849127
+          }
+        }
+      ],
+      "clip5": [
+        {
+          "step": 2250,
+          "surface_blend": 1.128153612896945,
+          "components": {
+            "sst_rmse": 1.1047141981839643,
+            "velocity_rmse": 0.14666841920328588,
+            "eke_rmse": 0.022211340406357926
+          }
+        },
+        {
+          "step": 2500,
+          "surface_blend": 1.0120231244616953,
+          "components": {
+            "sst_rmse": 0.8479174726118336,
+            "velocity_rmse": 0.14351627876821077,
+            "eke_rmse": 0.02185140154530681
+          }
+        },
+        {
+          "step": 2750,
+          "surface_blend": 0.9723464355284976,
+          "components": {
+            "sst_rmse": 0.7636018793151939,
+            "velocity_rmse": 0.14186283763171337,
+            "eke_rmse": 0.021728439568516403
+          }
+        },
+        {
+          "step": 3000,
+          "surface_blend": 0.9538598033164435,
+          "components": {
+            "sst_rmse": 0.7271608273038689,
+            "velocity_rmse": 0.14083578129836072,
+            "eke_rmse": 0.02163589163577299
+          }
+        }
+      ],
+      "adapter": [
+        {
+          "step": 2250,
+          "surface_blend": 0.9873414781052756,
+          "components": {
+            "sst_rmse": 0.7967873922036589,
+            "velocity_rmse": 0.14235116429111114,
+            "eke_rmse": 0.021761309603152493
+          }
+        },
+        {
+          "step": 2500,
+          "surface_blend": 0.9778438401310248,
+          "components": {
+            "sst_rmse": 0.7804622583871105,
+            "velocity_rmse": 0.14151827885136445,
+            "eke_rmse": 0.021698140288316972
+          }
+        },
+        {
+          "step": 2750,
+          "surface_blend": 0.9684382203636502,
+          "components": {
+            "sst_rmse": 0.7642742538027073,
+            "velocity_rmse": 0.14068867556846645,
+            "eke_rmse": 0.021636902522773796
+          }
+        },
+        {
+          "step": 3000,
+          "surface_blend": 0.9653034787672055,
+          "components": {
+            "sst_rmse": 0.7630912403763408,
+            "velocity_rmse": 0.13985915498820406,
+            "eke_rmse": 0.021591665086002427
+          }
+        }
+      ]
+    }
+  },
+  "early_cooldowns": {
+    "0": [
+      {
+        "cooldown_update": 250,
+        "surface_blend": 5.70391073693414
+      },
+      {
+        "cooldown_update": 500,
+        "surface_blend": 2.0772639981930596
+      },
+      {
+        "cooldown_update": 750,
+        "surface_blend": 1.0348566319661143
+      },
+      {
+        "cooldown_update": 1000,
+        "surface_blend": 1.008365780049816
+      }
+    ],
+    "100": [
+      {
+        "cooldown_update": 250,
+        "surface_blend": 3.7934003866132664
+      },
+      {
+        "cooldown_update": 500,
+        "surface_blend": 1.223483889570342
+      },
+      {
+        "cooldown_update": 750,
+        "surface_blend": 1.0003082218116308
+      },
+      {
+        "cooldown_update": 1000,
+        "surface_blend": 0.9867981826430232
+      }
+    ],
+    "1000": [
+      {
+        "cooldown_update": 250,
+        "surface_blend": 0.9848922682579037
+      },
+      {
+        "cooldown_update": 500,
+        "surface_blend": 0.9821603257890755
+      },
+      {
+        "cooldown_update": 750,
+        "surface_blend": 0.9775096787280034
+      },
+      {
+        "cooldown_update": 1000,
+        "surface_blend": 0.9766265896957652
+      }
+    ],
+    "2000": [
+      {
+        "cooldown_update": 250,
+        "surface_blend": 0.9695784426240429
+      },
+      {
+        "cooldown_update": 500,
+        "surface_blend": 0.9578150399440597
+      },
+      {
+        "cooldown_update": 750,
+        "surface_blend": 0.952886455141976
+      },
+      {
+        "cooldown_update": 1000,
+        "surface_blend": 0.9522332300977271
+      }
+    ]
+  }
+}

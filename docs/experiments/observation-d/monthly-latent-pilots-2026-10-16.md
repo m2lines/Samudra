@@ -768,3 +768,68 @@ Prediction/reference archives remain at the run root under `diagnostics/`.
 Allocation cost including replay, qualification and diagnostics: **17.2244 GPU-hours**;
 completed campaign total: **97.6250 GPU-hours**. No further compute is running for
 this follow-up.
+
+
+## Validation learning curves without OHC
+
+Drop both OHC terms and average the three remaining original ratios equally:
+SST RMSE / climatology SST RMSE, geostrophic velocity RMSE / its climatology
+RMSE, and EKE RMSE / its climatology RMSE. Each component retains the original
+5/15/30-day lead averaging; nine origins, EMA weights and decoder noise are
+unchanged. A score below1 beats climatology on this reduced blend. Velocity and
+EKE both derive from SSH; they are not independent physical quantities. This
+is a post-hoc view of existing checkpoints, not a change to training or selection.
+
+![Validation curves excluding OHC](assets/monthly-latent-pilots-2026-10-16/surface-only-curves.png)
+
+Top panels show full training, bottom panels use matching late-training axes.
+The dashed vertical line at2k marks the obs-only cooldown and EMA reset.
+
+| Model | Seed | Main 2k ↓ | Cooled 3k ↓ |
+|---|---:|---:|---:|
+| A: OM4 + obs | 1729 | 0.9961 | 0.9665 |
+| B: OM4 + obs, multitask | 1729 | 1.0381 | 0.9660 |
+| C: OM4 + CM4 + obs | 1729 | 0.9993 | 0.9486 |
+| D: OM4 + CM4 + obs, multitask | 1729 | 1.0343 | 0.9547 |
+| E: obs only | 1729 | 0.9453 | 0.9233 |
+| clip1 (1730) | 1730 | 0.9811 | 0.9522 |
+| clip5 (1730) | 1730 | 0.9652 | 0.9374 |
+| adapter (1730) | 1730 | 0.9804 | 0.9479 |
+
+The ranking changes materially. Original obs-only E has the best reduced score,
+4.48% lower than A at3k; its advantage is visible before cooldown as well.
+It sees more observation updates at the same total update budget (3k versus2k
+for mixed arms), so this does not isolate whether model data are intrinsically
+unhelpful. C, which replaces half of OM4 with CM4, finishes1.86% below A on this
+blend despite its worse original OHC-inclusive blend. Multitask B is essentially
+tied with A; D improves over B but does not beat C.
+
+In the matched seed1730 sweep, clip5 finishes1.56% below clip1, and the forcing
+adapter0.45% below clip1. Thus the interventions do have surface benefits that
+were offset by interior errors; cooldown does not erase clip5's surface advantage.
+The control seed difference on this reduced blend is1.48%, similar in size to
+the clip5 improvement. These single-seed comparisons do not establish a robust
+ranking. All rows above compare fixed3k endpoints, not reselected checkpoints.
+
+![Individual surface components](assets/monthly-latent-pilots-2026-10-16/surface-only-components.png)
+
+The component plots use shared vertical scales between sweeps and physical
+units. They show how much of each blend difference is SST versus velocity/EKE.
+
+![Reduced-metric follow-ups](assets/monthly-latent-pilots-2026-10-16/surface-only-followups.png)
+
+For the early-cooldown experiment, final reduced scores from0/100/1000/2000
+mixed updates are **1.0084 / 0.9868 / 0.9766 / 0.9522**. The large gaps in the
+OHC-inclusive score mostly disappear, although earlier mixed training still
+helps the reduced metric in this recipe. The separate right panel shows the
+older fixed-LR mixed continuations; those received no cooldown and should not
+be conflated with the matched2k+1k sweep.
+
+Normalization provenance: runners retained component metrics and full blended
+scores but not the separate climatology result. The five fixed denominator
+constants were recovered by solving the redundant blend equations from A's12
+checkpoints, then checked against141 original, reproduction, continuation and
+diagnostic records. Maximum reconstruction error is2.7e-15. Recovered denominators
+are SST0.829498851°C, velocity0.139780864m/s, EKE0.0221360379m²/s²; full-precision
+constants and all plotted points are in the [data file](assets/monthly-latent-pilots-2026-10-16/surface-only-results.json).
+No training, model evaluation or new compute allocation was needed.

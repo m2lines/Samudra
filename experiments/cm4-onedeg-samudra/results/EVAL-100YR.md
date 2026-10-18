@@ -32,7 +32,11 @@ The third attempt retains the exact tensor checks and permits 0.1% relative
 variation in the bfloat16 validation score. It uses `-attempt3` and a 1h50m limit,
 so the two failed allocations plus this limit remain under the original
 two-hour/eight-GPU-hour cap. Model weights, forcing, data, and forecast protocol
-are unchanged. Submission and first-write verification are pending.
+are unchanged. **Beta job 214351** was submitted and released with source
+[ee03af282](https://github.com/m2lines/Samudra/commit/ee03af282).
+A verified completion hook and quiet monitor are installed, with a two-hour
+scheduler/accounting fallback. Both prior callbacks are retired. First-write
+verification remains pending.
 
 Run the selected epoch-40 EMA model continuously over the reserved CM4 control
 period, **0251-01-06 through 0351-01-01**, using the same 1-degree grid, 19 depths,

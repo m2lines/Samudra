@@ -519,3 +519,33 @@ This allocation used 11.8011 GPU-hours including qualification (three active
 training GPUs on a required four-GPU host). Total completed campaign allocation,
 including earlier pilots and diagnostics: **54.3739 GPU-hours**. This report adds
 no test-set or annual-rollout claims and launches no further experiments.
+
+## From-scratch reproduction: seed 1730
+
+Beta job **214259** is submitted and pending at release; completion callback
+and quiet monitoring are active.
+
+User-approved follow-up reproduces the **original 2k mixed + 1k cooldown sweep**,
+not the later fixed-LR 3k continuation schedule. All three arms start from random
+initialization with **seed 1730** (original A used 1729), identical backbone
+initialization and matched data draws. No learned checkpoint or optimizer state
+is loaded. Arms are clip1, clip5, and clip1 with the identity-started 12-parameter
+OM4 forcing adapter. Clipping choice applies from the first update through cooldown.
+
+Main: 2,000 updates at LR 1e-4, 50% obs / 50% recent OM4, effective batch eight.
+Cooldown: reset EMA to raw at 2k, retain Adam, use 1,000 obs-only updates and
+linearly decay LR to 1e-6; EMA half-life 100. All targets, loss weights, evaluation
+origins, eight-member/32-step sampler and raw-RMSE blend remain unchanged. Report
+both 2k and cooled 3k endpoints, curves and components; compare new clip1 with
+original A to assess seed variability, and compare new arms within seed 1730.
+
+Producer `bc66ef3e6`; fourteen focused tests and pre-commit checks pass, including
+exact main/cooldown allocation and endpoint LRs. GPU qualification checks both
+source tasks, adapter identity/learning and checkpoint reload; all initial
+backbone hashes must agree across arms before any training starts. Qualification
+weights are discarded and production reinitializes from seed 1730. Online W&B
+and source-specific losses/clipping remain enabled.
+
+Run root: `/projects/ny/lz1955/multiscale/jrusak/runs/monthly-scratch-seed1730-20261017`.
+One Beta node, three concurrent GPU runs, 12-hour allocation limit. Previous A
+runtime suggests roughly 6–7 hours after allocation, plus queue time.

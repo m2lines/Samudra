@@ -1,0 +1,1693 @@
+{
+  "source": "native",
+  "origin": "2018-01-01",
+  "runs": {
+    "Residual6k": "/home/jder/.codex/worktrees/9357/Ocean_Emulator/outputs/diffusion-scratch-replay-v1/evaluation/residual-obs6000",
+    "Residual8k": "/home/jder/.codex/worktrees/9357/Ocean_Emulator/outputs/diffusion-scratch-replay-v1/evaluation/residual-obs8000"
+  },
+  "missing_requested_leads": [],
+  "semantics": "Native: physical OM4 targets. Annual: five-day observed surface bins. Draw 1 is independently sampled at each lead, not a coherent trajectory. Spread is pointwise sample standard deviation (ddof=1), not error.",
+  "scales": "Physical limits use pooled reference 1st/99th percentiles across selected leads. Error and spread limits use pooled 99th percentiles across runs and selected leads. Errors are prediction minus reference. RMSE is unweighted over finite ocean cells, a map diagnostic, not the blended rollout score.",
+  "panels": {
+    "Residual6k-thetao_0-day0-reference.png": {
+      "minimum": -1.9497737884521484,
+      "maximum": 33.4443473815918,
+      "clipped_fraction": 0.023812706050075738,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -1.7870817184448242,
+        30.061095714569092
+      ]
+    },
+    "Residual6k-thetao_0-day0-mean.png": {
+      "minimum": -1.9497737884521484,
+      "maximum": 33.4443473815918,
+      "clipped_fraction": 0.023812706050075738,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -1.7870817184448242,
+        30.061095714569092
+      ]
+    },
+    "Residual6k-thetao_0-day0-draw1.png": {
+      "minimum": -1.9497737884521484,
+      "maximum": 33.4443473815918,
+      "clipped_fraction": 0.023812706050075738,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -1.7870817184448242,
+        30.061095714569092
+      ]
+    },
+    "Residual6k-thetao_0-day0-mean-error.png": {
+      "minimum": 0.0,
+      "maximum": 0.0,
+      "clipped_fraction": 0.0,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -3.431853895187376,
+        3.431853895187376
+      ],
+      "unweighted_rmse": 0.0,
+      "unweighted_bias": 0.0
+    },
+    "Residual6k-thetao_0-day0-draw1-error.png": {
+      "minimum": 0.0,
+      "maximum": 0.0,
+      "clipped_fraction": 0.0,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -3.431853895187376,
+        3.431853895187376
+      ],
+      "unweighted_rmse": 0.0,
+      "unweighted_bias": 0.0
+    },
+    "Residual6k-thetao_0-day0-spread.png": {
+      "minimum": 0.0,
+      "maximum": 0.0,
+      "clipped_fraction": 0.0,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        0.0,
+        2.586684758626823
+      ]
+    },
+    "Residual6k-thetao_0-day30-reference.png": {
+      "minimum": -1.99609375,
+      "maximum": 32.36277770996094,
+      "clipped_fraction": 0.01808785529715762,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -1.7870817184448242,
+        30.061095714569092
+      ]
+    },
+    "Residual6k-thetao_0-day30-mean.png": {
+      "minimum": -6.474173307418823,
+      "maximum": 32.77571511268616,
+      "clipped_fraction": 0.10750245032522499,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -1.7870817184448242,
+        30.061095714569092
+      ]
+    },
+    "Residual6k-thetao_0-day30-draw1.png": {
+      "minimum": -12.974815368652344,
+      "maximum": 32.549259185791016,
+      "clipped_fraction": 0.10716831506727256,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -1.7870817184448242,
+        30.061095714569092
+      ]
+    },
+    "Residual6k-thetao_0-day30-mean-error.png": {
+      "minimum": -6.548601984977722,
+      "maximum": 9.371201157569885,
+      "clipped_fraction": 0.0037645905729305888,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -3.431853895187376,
+        3.431853895187376
+      ],
+      "unweighted_rmse": 0.8705808555053075,
+      "unweighted_bias": -0.11474073784274659
+    },
+    "Residual6k-thetao_0-day30-draw1-error.png": {
+      "minimum": -17.614721298217773,
+      "maximum": 16.348172187805176,
+      "clipped_fraction": 0.016996346787846388,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -3.431853895187376,
+        3.431853895187376
+      ],
+      "unweighted_rmse": 1.3372805561963852,
+      "unweighted_bias": -0.1333383916268361
+    },
+    "Residual6k-thetao_0-day30-spread.png": {
+      "minimum": 0.12878614022526605,
+      "maximum": 10.435682313893311,
+      "clipped_fraction": 0.01541477323353827,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        0.0,
+        2.586684758626823
+      ]
+    },
+    "Residual6k-thetao_0-day365-reference.png": {
+      "minimum": -1.950155258178711,
+      "maximum": 32.80937576293945,
+      "clipped_fraction": 0.018110130981021117,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -1.7870817184448242,
+        30.061095714569092
+      ]
+    },
+    "Residual6k-thetao_0-day365-mean.png": {
+      "minimum": -6.105475187301636,
+      "maximum": 33.026424407958984,
+      "clipped_fraction": 0.1206896551724138,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -1.7870817184448242,
+        30.061095714569092
+      ]
+    },
+    "Residual6k-thetao_0-day365-draw1.png": {
+      "minimum": -12.269718170166016,
+      "maximum": 39.499473571777344,
+      "clipped_fraction": 0.12253853693308385,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -1.7870817184448242,
+        30.061095714569092
+      ]
+    },
+    "Residual6k-thetao_0-day365-mean-error.png": {
+      "minimum": -7.756830811500549,
+      "maximum": 8.176999688148499,
+      "clipped_fraction": 0.007796489352223113,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -3.431853895187376,
+        3.431853895187376
+      ],
+      "unweighted_rmse": 1.0842746785727677,
+      "unweighted_bias": -0.40806861981121517
+    },
+    "Residual6k-thetao_0-day365-draw1-error.png": {
+      "minimum": -14.159902572631836,
+      "maximum": 15.400161743164062,
+      "clipped_fraction": 0.02900294039026998,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -3.431853895187376,
+        3.431853895187376
+      ],
+      "unweighted_rmse": 1.5417488435838722,
+      "unweighted_bias": -0.3977395169802722
+    },
+    "Residual6k-thetao_0-day365-spread.png": {
+      "minimum": 0.14781980809280157,
+      "maximum": 9.906559948377799,
+      "clipped_fraction": 0.01532567049808429,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        0.0,
+        2.586684758626823
+      ]
+    },
+    "Residual8k-thetao_0-day0-reference.png": {
+      "minimum": -1.9497737884521484,
+      "maximum": 33.4443473815918,
+      "clipped_fraction": 0.023812706050075738,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -1.7870817184448242,
+        30.061095714569092
+      ]
+    },
+    "Residual8k-thetao_0-day0-mean.png": {
+      "minimum": -1.9497737884521484,
+      "maximum": 33.4443473815918,
+      "clipped_fraction": 0.023812706050075738,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -1.7870817184448242,
+        30.061095714569092
+      ]
+    },
+    "Residual8k-thetao_0-day0-draw1.png": {
+      "minimum": -1.9497737884521484,
+      "maximum": 33.4443473815918,
+      "clipped_fraction": 0.023812706050075738,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -1.7870817184448242,
+        30.061095714569092
+      ]
+    },
+    "Residual8k-thetao_0-day0-mean-error.png": {
+      "minimum": 0.0,
+      "maximum": 0.0,
+      "clipped_fraction": 0.0,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -3.431853895187376,
+        3.431853895187376
+      ],
+      "unweighted_rmse": 0.0,
+      "unweighted_bias": 0.0
+    },
+    "Residual8k-thetao_0-day0-draw1-error.png": {
+      "minimum": 0.0,
+      "maximum": 0.0,
+      "clipped_fraction": 0.0,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -3.431853895187376,
+        3.431853895187376
+      ],
+      "unweighted_rmse": 0.0,
+      "unweighted_bias": 0.0
+    },
+    "Residual8k-thetao_0-day0-spread.png": {
+      "minimum": 0.0,
+      "maximum": 0.0,
+      "clipped_fraction": 0.0,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        0.0,
+        2.586684758626823
+      ]
+    },
+    "Residual8k-thetao_0-day30-reference.png": {
+      "minimum": -1.99609375,
+      "maximum": 32.36277770996094,
+      "clipped_fraction": 0.01808785529715762,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -1.7870817184448242,
+        30.061095714569092
+      ]
+    },
+    "Residual8k-thetao_0-day30-mean.png": {
+      "minimum": -6.207155227661133,
+      "maximum": 31.76045536994934,
+      "clipped_fraction": 0.07088122605363985,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -1.7870817184448242,
+        30.061095714569092
+      ]
+    },
+    "Residual8k-thetao_0-day30-draw1.png": {
+      "minimum": -13.249187469482422,
+      "maximum": 32.91566467285156,
+      "clipped_fraction": 0.09188719593691526,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -1.7870817184448242,
+        30.061095714569092
+      ]
+    },
+    "Residual8k-thetao_0-day30-mean-error.png": {
+      "minimum": -5.560824990272522,
+      "maximum": 9.345505714416504,
+      "clipped_fraction": 0.0037868662567940837,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -3.431853895187376,
+        3.431853895187376
+      ],
+      "unweighted_rmse": 0.907370185401778,
+      "unweighted_bias": 0.1347955332118475
+    },
+    "Residual8k-thetao_0-day30-draw1-error.png": {
+      "minimum": -17.291175842285156,
+      "maximum": 16.921576499938965,
+      "clipped_fraction": 0.019936737057827676,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -3.431853895187376,
+        3.431853895187376
+      ],
+      "unweighted_rmse": 1.4177143793264566,
+      "unweighted_bias": 0.1178559539556652
+    },
+    "Residual8k-thetao_0-day30-spread.png": {
+      "minimum": 0.17614772844253399,
+      "maximum": 10.330028266566126,
+      "clipped_fraction": 0.014612848614452464,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        0.0,
+        2.586684758626823
+      ]
+    },
+    "Residual8k-thetao_0-day365-reference.png": {
+      "minimum": -1.950155258178711,
+      "maximum": 32.80937576293945,
+      "clipped_fraction": 0.018110130981021117,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -1.7870817184448242,
+        30.061095714569092
+      ]
+    },
+    "Residual8k-thetao_0-day365-mean.png": {
+      "minimum": -5.046947240829468,
+      "maximum": 30.986729621887207,
+      "clipped_fraction": 0.06992337164750957,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -1.7870817184448242,
+        30.061095714569092
+      ]
+    },
+    "Residual8k-thetao_0-day365-draw1.png": {
+      "minimum": -12.653961181640625,
+      "maximum": 35.53044509887695,
+      "clipped_fraction": 0.09578544061302682,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -1.7870817184448242,
+        30.061095714569092
+      ]
+    },
+    "Residual8k-thetao_0-day365-mean-error.png": {
+      "minimum": -6.486836791038513,
+      "maximum": 9.323418021202087,
+      "clipped_fraction": 0.007996970506994565,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -3.431853895187376,
+        3.431853895187376
+      ],
+      "unweighted_rmse": 1.067045263978812,
+      "unweighted_bias": 0.010754725299586399
+    },
+    "Residual8k-thetao_0-day365-draw1-error.png": {
+      "minimum": -13.914746284484863,
+      "maximum": 16.67425537109375,
+      "clipped_fraction": 0.03074044373162256,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -3.431853895187376,
+        3.431853895187376
+      ],
+      "unweighted_rmse": 1.5836474677591907,
+      "unweighted_bias": 0.02334509197110364
+    },
+    "Residual8k-thetao_0-day365-spread.png": {
+      "minimum": 0.13575075032749964,
+      "maximum": 9.401319352562393,
+      "clipped_fraction": 0.014657399982179452,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        0.0,
+        2.586684758626823
+      ]
+    },
+    "Residual6k-zos-day0-reference.png": {
+      "minimum": -1.9077609777450562,
+      "maximum": 1.2703094482421875,
+      "clipped_fraction": 0.0202485966319166,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -1.8157442212104797,
+        0.8145144283771515
+      ]
+    },
+    "Residual6k-zos-day0-mean.png": {
+      "minimum": -1.9077609777450562,
+      "maximum": 1.2703094482421875,
+      "clipped_fraction": 0.0202485966319166,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -1.8157442212104797,
+        0.8145144283771515
+      ]
+    },
+    "Residual6k-zos-day0-draw1.png": {
+      "minimum": -1.9077609777450562,
+      "maximum": 1.2703094482421875,
+      "clipped_fraction": 0.0202485966319166,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -1.8157442212104797,
+        0.8145144283771515
+      ]
+    },
+    "Residual6k-zos-day0-mean-error.png": {
+      "minimum": 0.0,
+      "maximum": 0.0,
+      "clipped_fraction": 0.0,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -0.2797761672735214,
+        0.2797761672735214
+      ],
+      "unweighted_rmse": 0.0,
+      "unweighted_bias": 0.0
+    },
+    "Residual6k-zos-day0-draw1-error.png": {
+      "minimum": 0.0,
+      "maximum": 0.0,
+      "clipped_fraction": 0.0,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -0.2797761672735214,
+        0.2797761672735214
+      ],
+      "unweighted_rmse": 0.0,
+      "unweighted_bias": 0.0
+    },
+    "Residual6k-zos-day0-spread.png": {
+      "minimum": 0.0,
+      "maximum": 0.0,
+      "clipped_fraction": 0.0,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        0.0,
+        0.16769130306766683
+      ]
+    },
+    "Residual6k-zos-day30-reference.png": {
+      "minimum": -1.901814341545105,
+      "maximum": 1.2683639526367188,
+      "clipped_fraction": 0.017241379310344827,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -1.8157442212104797,
+        0.8145144283771515
+      ]
+    },
+    "Residual6k-zos-day30-mean.png": {
+      "minimum": -1.8336677551269531,
+      "maximum": 1.2046769261360168,
+      "clipped_fraction": 0.012986723692417356,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -1.8157442212104797,
+        0.8145144283771515
+      ]
+    },
+    "Residual6k-zos-day30-draw1.png": {
+      "minimum": -1.9885648488998413,
+      "maximum": 1.2744882106781006,
+      "clipped_fraction": 0.01632807627194155,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -1.8157442212104797,
+        0.8145144283771515
+      ]
+    },
+    "Residual6k-zos-day30-mean-error.png": {
+      "minimum": -0.6313491426408291,
+      "maximum": 0.5118413716554642,
+      "clipped_fraction": 0.005813953488372093,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -0.2797761672735214,
+        0.2797761672735214
+      ],
+      "unweighted_rmse": 0.0888370557242683,
+      "unweighted_bias": 0.054676944749838266
+    },
+    "Residual6k-zos-day30-draw1-error.png": {
+      "minimum": -0.6683169603347778,
+      "maximum": 1.0976355075836182,
+      "clipped_fraction": 0.021273278089637353,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -0.2797761672735214,
+        0.2797761672735214
+      ],
+      "unweighted_rmse": 0.11550073302843804,
+      "unweighted_bias": 0.05573457118001286
+    },
+    "Residual6k-zos-day30-spread.png": {
+      "minimum": 0.012366603644844269,
+      "maximum": 0.6154204723333928,
+      "clipped_fraction": 0.014523745878998484,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        0.0,
+        0.16769130306766683
+      ]
+    },
+    "Residual6k-zos-day365-reference.png": {
+      "minimum": -1.937214732170105,
+      "maximum": 1.1140779256820679,
+      "clipped_fraction": 0.02252071638599305,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -1.8157442212104797,
+        0.8145144283771515
+      ]
+    },
+    "Residual6k-zos-day365-mean.png": {
+      "minimum": -1.876227080821991,
+      "maximum": 1.0266337394714355,
+      "clipped_fraction": 0.015102913659449345,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -1.8157442212104797,
+        0.8145144283771515
+      ]
+    },
+    "Residual6k-zos-day365-draw1.png": {
+      "minimum": -1.992961049079895,
+      "maximum": 1.2893143892288208,
+      "clipped_fraction": 0.02140693219281832,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -1.8157442212104797,
+        0.8145144283771515
+      ]
+    },
+    "Residual6k-zos-day365-mean-error.png": {
+      "minimum": -0.6499302759766579,
+      "maximum": 0.5699778534471989,
+      "clipped_fraction": 0.007618283881315156,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -0.2797761672735214,
+        0.2797761672735214
+      ],
+      "unweighted_rmse": 0.0946981034802851,
+      "unweighted_bias": 0.04182335292870846
+    },
+    "Residual6k-zos-day365-draw1-error.png": {
+      "minimum": -0.9043895602226257,
+      "maximum": 1.3542728424072266,
+      "clipped_fraction": 0.025394279604383854,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -0.2797761672735214,
+        0.2797761672735214
+      ],
+      "unweighted_rmse": 0.12190251535499211,
+      "unweighted_bias": 0.04001378334323788
+    },
+    "Residual6k-zos-day365-spread.png": {
+      "minimum": 0.009775457080320174,
+      "maximum": 0.568469901943314,
+      "clipped_fraction": 0.015459324601265258,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        0.0,
+        0.16769130306766683
+      ]
+    },
+    "Residual8k-zos-day0-reference.png": {
+      "minimum": -1.9077609777450562,
+      "maximum": 1.2703094482421875,
+      "clipped_fraction": 0.0202485966319166,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -1.8157442212104797,
+        0.8145144283771515
+      ]
+    },
+    "Residual8k-zos-day0-mean.png": {
+      "minimum": -1.9077609777450562,
+      "maximum": 1.2703094482421875,
+      "clipped_fraction": 0.0202485966319166,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -1.8157442212104797,
+        0.8145144283771515
+      ]
+    },
+    "Residual8k-zos-day0-draw1.png": {
+      "minimum": -1.9077609777450562,
+      "maximum": 1.2703094482421875,
+      "clipped_fraction": 0.0202485966319166,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -1.8157442212104797,
+        0.8145144283771515
+      ]
+    },
+    "Residual8k-zos-day0-mean-error.png": {
+      "minimum": 0.0,
+      "maximum": 0.0,
+      "clipped_fraction": 0.0,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -0.2797761672735214,
+        0.2797761672735214
+      ],
+      "unweighted_rmse": 0.0,
+      "unweighted_bias": 0.0
+    },
+    "Residual8k-zos-day0-draw1-error.png": {
+      "minimum": 0.0,
+      "maximum": 0.0,
+      "clipped_fraction": 0.0,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -0.2797761672735214,
+        0.2797761672735214
+      ],
+      "unweighted_rmse": 0.0,
+      "unweighted_bias": 0.0
+    },
+    "Residual8k-zos-day0-spread.png": {
+      "minimum": 0.0,
+      "maximum": 0.0,
+      "clipped_fraction": 0.0,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        0.0,
+        0.16769130306766683
+      ]
+    },
+    "Residual8k-zos-day30-reference.png": {
+      "minimum": -1.901814341545105,
+      "maximum": 1.2683639526367188,
+      "clipped_fraction": 0.017241379310344827,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -1.8157442212104797,
+        0.8145144283771515
+      ]
+    },
+    "Residual8k-zos-day30-mean.png": {
+      "minimum": -1.8703905493021011,
+      "maximum": 1.1791829392313957,
+      "clipped_fraction": 0.004922926133832308,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -1.8157442212104797,
+        0.8145144283771515
+      ]
+    },
+    "Residual8k-zos-day30-draw1.png": {
+      "minimum": -2.0089597702026367,
+      "maximum": 1.2518608570098877,
+      "clipped_fraction": 0.012117972021741067,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -1.8157442212104797,
+        0.8145144283771515
+      ]
+    },
+    "Residual8k-zos-day30-mean-error.png": {
+      "minimum": -0.6613047420978546,
+      "maximum": 0.4977523535490036,
+      "clipped_fraction": 0.004922926133832308,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -0.2797761672735214,
+        0.2797761672735214
+      ],
+      "unweighted_rmse": 0.07662791734126205,
+      "unweighted_bias": 0.020144213602835748
+    },
+    "Residual8k-zos-day30-draw1-error.png": {
+      "minimum": -0.7438206076622009,
+      "maximum": 0.9946540594100952,
+      "clipped_fraction": 0.019268466541922838,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -0.2797761672735214,
+        0.2797761672735214
+      ],
+      "unweighted_rmse": 0.10922606233437186,
+      "unweighted_bias": 0.021542351247128198
+    },
+    "Residual8k-zos-day30-spread.png": {
+      "minimum": 0.00873773318622367,
+      "maximum": 0.6088190692298742,
+      "clipped_fraction": 0.014345540408090529,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        0.0,
+        0.16769130306766683
+      ]
+    },
+    "Residual8k-zos-day365-reference.png": {
+      "minimum": -1.937214732170105,
+      "maximum": 1.1140779256820679,
+      "clipped_fraction": 0.02252071638599305,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -1.8157442212104797,
+        0.8145144283771515
+      ]
+    },
+    "Residual8k-zos-day365-mean.png": {
+      "minimum": -1.903710275888443,
+      "maximum": 0.9632240533828735,
+      "clipped_fraction": 0.005346164127238706,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -1.8157442212104797,
+        0.8145144283771515
+      ]
+    },
+    "Residual8k-zos-day365-draw1.png": {
+      "minimum": -2.0045900344848633,
+      "maximum": 1.2829720973968506,
+      "clipped_fraction": 0.012853069589236389,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -1.8157442212104797,
+        0.8145144283771515
+      ]
+    },
+    "Residual8k-zos-day365-mean-error.png": {
+      "minimum": -0.6673616543412209,
+      "maximum": 0.7320959717035294,
+      "clipped_fraction": 0.00859841397130892,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -0.2797761672735214,
+        0.2797761672735214
+      ],
+      "unweighted_rmse": 0.0917773066367949,
+      "unweighted_bias": 0.009624478113940854
+    },
+    "Residual8k-zos-day365-draw1-error.png": {
+      "minimum": -1.0775848031044006,
+      "maximum": 1.1530234813690186,
+      "clipped_fraction": 0.027131782945736434,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -0.2797761672735214,
+        0.2797761672735214
+      ],
+      "unweighted_rmse": 0.12274091272244875,
+      "unweighted_bias": 0.008155568158877233
+    },
+    "Residual8k-zos-day365-spread.png": {
+      "minimum": 0.010511264300737554,
+      "maximum": 0.5614788682944409,
+      "clipped_fraction": 0.015682081439900204,
+      "finite_ocean_cells": 44892,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        0.0,
+        0.16769130306766683
+      ]
+    },
+    "Residual6k-thetao_9-day0-reference.png": {
+      "minimum": -1.8817763328552246,
+      "maximum": 23.055686950683594,
+      "clipped_fraction": 0.019994963485268195,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -1.265316858291626,
+        14.80733962059021
+      ]
+    },
+    "Residual6k-thetao_9-day0-mean.png": {
+      "minimum": -3.2566604614257812,
+      "maximum": 24.40288782119751,
+      "clipped_fraction": 0.013195668597330647,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -1.265316858291626,
+        14.80733962059021
+      ]
+    },
+    "Residual6k-thetao_9-day0-draw1.png": {
+      "minimum": -4.222878932952881,
+      "maximum": 26.296897888183594,
+      "clipped_fraction": 0.017275245530093176,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -1.265316858291626,
+        14.80733962059021
+      ]
+    },
+    "Residual6k-thetao_9-day0-mean-error.png": {
+      "minimum": -10.47039258480072,
+      "maximum": 3.5133139193058014,
+      "clipped_fraction": 0.0035003777386048854,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -2.315933322906494,
+        2.315933322906494
+      ],
+      "unweighted_rmse": 0.5588007421253381,
+      "unweighted_bias": -0.05583892288645699
+    },
+    "Residual6k-thetao_9-day0-draw1-error.png": {
+      "minimum": -10.61583423614502,
+      "maximum": 4.567569732666016,
+      "clipped_fraction": 0.014807353311508436,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -2.315933322906494,
+        2.315933322906494
+      ],
+      "unweighted_rmse": 0.9159378123120929,
+      "unweighted_bias": -0.05584937522285863
+    },
+    "Residual6k-thetao_9-day0-spread.png": {
+      "minimum": 0.1304120741203218,
+      "maximum": 2.954036522958361,
+      "clipped_fraction": 0.008839083354318811,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        0.0,
+        1.4144519743283395
+      ]
+    },
+    "Residual6k-thetao_9-day30-reference.png": {
+      "minimum": -1.881009578704834,
+      "maximum": 23.063907623291016,
+      "clipped_fraction": 0.019717955175018887,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -1.265316858291626,
+        14.80733962059021
+      ]
+    },
+    "Residual6k-thetao_9-day30-mean.png": {
+      "minimum": -3.5697884559631348,
+      "maximum": 23.95011043548584,
+      "clipped_fraction": 0.011835809619743138,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -1.265316858291626,
+        14.80733962059021
+      ]
+    },
+    "Residual6k-thetao_9-day30-draw1.png": {
+      "minimum": -4.440359592437744,
+      "maximum": 26.046043395996094,
+      "clipped_fraction": 0.01571392596323344,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -1.265316858291626,
+        14.80733962059021
+      ]
+    },
+    "Residual6k-thetao_9-day30-mean-error.png": {
+      "minimum": -9.853233337402344,
+      "maximum": 4.536526441574097,
+      "clipped_fraction": 0.003978846638126417,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -2.315933322906494,
+        2.315933322906494
+      ],
+      "unweighted_rmse": 0.5856212766480516,
+      "unweighted_bias": 0.004357303369408499
+    },
+    "Residual6k-thetao_9-day30-draw1-error.png": {
+      "minimum": -10.559578895568848,
+      "maximum": 4.633388996124268,
+      "clipped_fraction": 0.017929992445227902,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -2.315933322906494,
+        2.315933322906494
+      ],
+      "unweighted_rmse": 0.9452262696065832,
+      "unweighted_bias": 0.003813844734581914
+    },
+    "Residual6k-thetao_9-day30-spread.png": {
+      "minimum": 0.12870989008626524,
+      "maximum": 2.968814032893794,
+      "clipped_fraction": 0.011332158146562578,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        0.0,
+        1.4144519743283395
+      ]
+    },
+    "Residual6k-thetao_9-day365-reference.png": {
+      "minimum": -1.8756537437438965,
+      "maximum": 23.529850006103516,
+      "clipped_fraction": 0.02032233694283556,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -1.265316858291626,
+        14.80733962059021
+      ]
+    },
+    "Residual6k-thetao_9-day365-mean.png": {
+      "minimum": -3.3442695140838623,
+      "maximum": 23.570764541625977,
+      "clipped_fraction": 0.011659531604129941,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -1.265316858291626,
+        14.80733962059021
+      ]
+    },
+    "Residual6k-thetao_9-day365-draw1.png": {
+      "minimum": -4.267872333526611,
+      "maximum": 24.25407600402832,
+      "clipped_fraction": 0.017476706119365398,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -1.265316858291626,
+        14.80733962059021
+      ]
+    },
+    "Residual6k-thetao_9-day365-mean-error.png": {
+      "minimum": -9.589516520500183,
+      "maximum": 4.291150331497192,
+      "clipped_fraction": 0.004381767816670864,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -2.315933322906494,
+        2.315933322906494
+      ],
+      "unweighted_rmse": 0.6079657662441528,
+      "unweighted_bias": -0.006725484560551256
+    },
+    "Residual6k-thetao_9-day365-draw1-error.png": {
+      "minimum": -11.5325927734375,
+      "maximum": 5.191740989685059,
+      "clipped_fraction": 0.01941576429111055,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -2.315933322906494,
+        2.315933322906494
+      ],
+      "unweighted_rmse": 0.9599507091158618,
+      "unweighted_bias": -0.012378950468450972
+    },
+    "Residual6k-thetao_9-day365-spread.png": {
+      "minimum": 0.12017498870897053,
+      "maximum": 3.141709887421972,
+      "clipped_fraction": 0.011609166456811886,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        0.0,
+        1.4144519743283395
+      ]
+    },
+    "Residual8k-thetao_9-day0-reference.png": {
+      "minimum": -1.8817763328552246,
+      "maximum": 23.055686950683594,
+      "clipped_fraction": 0.019994963485268195,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -1.265316858291626,
+        14.80733962059021
+      ]
+    },
+    "Residual8k-thetao_9-day0-mean.png": {
+      "minimum": -2.7128039598464966,
+      "maximum": 23.4992094039917,
+      "clipped_fraction": 0.009569377990430622,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -1.265316858291626,
+        14.80733962059021
+      ]
+    },
+    "Residual8k-thetao_9-day0-draw1.png": {
+      "minimum": -3.7992281913757324,
+      "maximum": 25.2935848236084,
+      "clipped_fraction": 0.013875598086124402,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -1.265316858291626,
+        14.80733962059021
+      ]
+    },
+    "Residual8k-thetao_9-day0-mean-error.png": {
+      "minimum": -9.967777848243713,
+      "maximum": 3.872298389673233,
+      "clipped_fraction": 0.003298917149332662,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -2.315933322906494,
+        2.315933322906494
+      ],
+      "unweighted_rmse": 0.5392620102127185,
+      "unweighted_bias": 0.0013297219693405567
+    },
+    "Residual8k-thetao_9-day0-draw1-error.png": {
+      "minimum": -10.271902084350586,
+      "maximum": 5.070046424865723,
+      "clipped_fraction": 0.012490556534877864,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -2.315933322906494,
+        2.315933322906494
+      ],
+      "unweighted_rmse": 0.8781781893940056,
+      "unweighted_bias": -0.002415437765608984
+    },
+    "Residual8k-thetao_9-day0-spread.png": {
+      "minimum": 0.0776565862142692,
+      "maximum": 2.97865792834339,
+      "clipped_fraction": 0.0075295895240493575,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        0.0,
+        1.4144519743283395
+      ]
+    },
+    "Residual8k-thetao_9-day30-reference.png": {
+      "minimum": -1.881009578704834,
+      "maximum": 23.063907623291016,
+      "clipped_fraction": 0.019717955175018887,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -1.265316858291626,
+        14.80733962059021
+      ]
+    },
+    "Residual8k-thetao_9-day30-mean.png": {
+      "minimum": -3.0725746154785156,
+      "maximum": 22.95336365699768,
+      "clipped_fraction": 0.008914631075295896,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -1.265316858291626,
+        14.80733962059021
+      ]
+    },
+    "Residual8k-thetao_9-day30-draw1.png": {
+      "minimum": -3.7986903190612793,
+      "maximum": 25.33888816833496,
+      "clipped_fraction": 0.012969025434399395,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -1.265316858291626,
+        14.80733962059021
+      ]
+    },
+    "Residual8k-thetao_9-day30-mean-error.png": {
+      "minimum": -9.354305863380432,
+      "maximum": 4.31483256816864,
+      "clipped_fraction": 0.003298917149332662,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -2.315933322906494,
+        2.315933322906494
+      ],
+      "unweighted_rmse": 0.5608819573984198,
+      "unweighted_bias": 0.0331614799979531
+    },
+    "Residual8k-thetao_9-day30-draw1-error.png": {
+      "minimum": -10.183024406433105,
+      "maximum": 4.953578948974609,
+      "clipped_fraction": 0.015537647947620246,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -2.315933322906494,
+        2.315933322906494
+      ],
+      "unweighted_rmse": 0.9195035288916075,
+      "unweighted_bias": 0.0324050536416274
+    },
+    "Residual8k-thetao_9-day30-spread.png": {
+      "minimum": 0.13320551320491533,
+      "maximum": 2.879529158187192,
+      "clipped_fraction": 0.010249307479224376,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        0.0,
+        1.4144519743283395
+      ]
+    },
+    "Residual8k-thetao_9-day365-reference.png": {
+      "minimum": -1.8756537437438965,
+      "maximum": 23.529850006103516,
+      "clipped_fraction": 0.02032233694283556,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -1.265316858291626,
+        14.80733962059021
+      ]
+    },
+    "Residual8k-thetao_9-day365-mean.png": {
+      "minimum": -3.198409914970398,
+      "maximum": 22.7228045463562,
+      "clipped_fraction": 0.007781415260639637,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -1.265316858291626,
+        14.80733962059021
+      ]
+    },
+    "Residual8k-thetao_9-day365-draw1.png": {
+      "minimum": -3.936384677886963,
+      "maximum": 24.269325256347656,
+      "clipped_fraction": 0.013925963233442458,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -1.265316858291626,
+        14.80733962059021
+      ]
+    },
+    "Residual8k-thetao_9-day365-mean-error.png": {
+      "minimum": -9.356623768806458,
+      "maximum": 4.303908079862595,
+      "clipped_fraction": 0.004054394359103501,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -2.315933322906494,
+        2.315933322906494
+      ],
+      "unweighted_rmse": 0.5985331442941388,
+      "unweighted_bias": 0.004087040940540259
+    },
+    "Residual8k-thetao_9-day365-draw1-error.png": {
+      "minimum": -10.426021575927734,
+      "maximum": 5.697360038757324,
+      "clipped_fraction": 0.017325610677411233,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -2.315933322906494,
+        2.315933322906494
+      ],
+      "unweighted_rmse": 0.9386548921245912,
+      "unweighted_bias": 0.0015456641599952468
+    },
+    "Residual8k-thetao_9-day365-spread.png": {
+      "minimum": 0.11548070762700184,
+      "maximum": 3.2070460085624406,
+      "clipped_fraction": 0.0104507680684966,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        0.0,
+        1.4144519743283395
+      ]
+    },
+    "Residual6k-so_9-day0-reference.png": {
+      "minimum": 20.93631362915039,
+      "maximum": 40.25765609741211,
+      "clipped_fraction": 0.019818685469654998,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        33.84897022247314,
+        36.241216964721666
+      ]
+    },
+    "Residual6k-so_9-day0-mean.png": {
+      "minimum": 20.73081946372986,
+      "maximum": 40.75792694091797,
+      "clipped_fraction": 0.01941576429111055,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        33.84897022247314,
+        36.241216964721666
+      ]
+    },
+    "Residual6k-so_9-day0-draw1.png": {
+      "minimum": 20.300310134887695,
+      "maximum": 41.06975555419922,
+      "clipped_fraction": 0.024880382775119617,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        33.84897022247314,
+        36.241216964721666
+      ]
+    },
+    "Residual6k-so_9-day0-mean-error.png": {
+      "minimum": -1.212841510772705,
+      "maximum": 2.373302459716797,
+      "clipped_fraction": 0.004155124653739612,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -0.3510093688964844,
+        0.3510093688964844
+      ],
+      "unweighted_rmse": 0.09238537955204174,
+      "unweighted_bias": -0.04790615018384939
+    },
+    "Residual6k-so_9-day0-draw1-error.png": {
+      "minimum": -1.1937179565429688,
+      "maximum": 2.029766082763672,
+      "clipped_fraction": 0.01415260639637371,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -0.3510093688964844,
+        0.3510093688964844
+      ],
+      "unweighted_rmse": 0.13488926865003245,
+      "unweighted_bias": -0.04759899452572594
+    },
+    "Residual6k-so_9-day0-spread.png": {
+      "minimum": 0.01379007125778403,
+      "maximum": 0.6839588791876057,
+      "clipped_fraction": 0.00921682195920423,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        0.0,
+        0.22128441878698457
+      ]
+    },
+    "Residual6k-so_9-day30-reference.png": {
+      "minimum": 20.94639778137207,
+      "maximum": 40.262413024902344,
+      "clipped_fraction": 0.019843868043314027,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        33.84897022247314,
+        36.241216964721666
+      ]
+    },
+    "Residual6k-so_9-day30-mean.png": {
+      "minimum": 20.910863637924194,
+      "maximum": 40.75422286987305,
+      "clipped_fraction": 0.01649458574666331,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        33.84897022247314,
+        36.241216964721666
+      ]
+    },
+    "Residual6k-so_9-day30-draw1.png": {
+      "minimum": 20.70281219482422,
+      "maximum": 40.95117950439453,
+      "clipped_fraction": 0.023293880634600857,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        33.84897022247314,
+        36.241216964721666
+      ]
+    },
+    "Residual6k-so_9-day30-mean-error.png": {
+      "minimum": -1.3176887035369873,
+      "maximum": 1.7657225131988525,
+      "clipped_fraction": 0.004356585243011836,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -0.3510093688964844,
+        0.3510093688964844
+      ],
+      "unweighted_rmse": 0.09128494598354715,
+      "unweighted_bias": -0.0450051371320553
+    },
+    "Residual6k-so_9-day30-draw1-error.png": {
+      "minimum": -1.2862739562988281,
+      "maximum": 2.689523696899414,
+      "clipped_fraction": 0.01437924955930496,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -0.3510093688964844,
+        0.3510093688964844
+      ],
+      "unweighted_rmse": 0.13677890333327725,
+      "unweighted_bias": -0.04557115631180367
+    },
+    "Residual6k-so_9-day30-spread.png": {
+      "minimum": 0.016268234622817696,
+      "maximum": 0.7696503713870969,
+      "clipped_fraction": 0.01057668093679174,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        0.0,
+        0.22128441878698457
+      ]
+    },
+    "Residual6k-so_9-day365-reference.png": {
+      "minimum": 20.907791137695312,
+      "maximum": 40.25830078125,
+      "clipped_fraction": 0.020372702090153613,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        33.84897022247314,
+        36.241216964721666
+      ]
+    },
+    "Residual6k-so_9-day365-mean.png": {
+      "minimum": 20.91772198677063,
+      "maximum": 40.66377782821655,
+      "clipped_fraction": 0.01561319566859733,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        33.84897022247314,
+        36.241216964721666
+      ]
+    },
+    "Residual6k-so_9-day365-draw1.png": {
+      "minimum": 20.178550720214844,
+      "maximum": 40.96507263183594,
+      "clipped_fraction": 0.023873079828758498,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        33.84897022247314,
+        36.241216964721666
+      ]
+    },
+    "Residual6k-so_9-day365-mean-error.png": {
+      "minimum": -1.417003870010376,
+      "maximum": 1.287973165512085,
+      "clipped_fraction": 0.004104759506421556,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -0.3510093688964844,
+        0.3510093688964844
+      ],
+      "unweighted_rmse": 0.08844506751522659,
+      "unweighted_bias": -0.03798867485379728
+    },
+    "Residual6k-so_9-day365-draw1-error.png": {
+      "minimum": -1.1689643859863281,
+      "maximum": 1.5822334289550781,
+      "clipped_fraction": 0.014202971543691765,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -0.3510093688964844,
+        0.3510093688964844
+      ],
+      "unweighted_rmse": 0.1345568775701964,
+      "unweighted_bias": -0.03837338353668344
+    },
+    "Residual6k-so_9-day365-spread.png": {
+      "minimum": 0.021439814854272012,
+      "maximum": 0.7260992600779934,
+      "clipped_fraction": 0.011105514983631328,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        0.0,
+        0.22128441878698457
+      ]
+    },
+    "Residual8k-so_9-day0-reference.png": {
+      "minimum": 20.93631362915039,
+      "maximum": 40.25765609741211,
+      "clipped_fraction": 0.019818685469654998,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        33.84897022247314,
+        36.241216964721666
+      ]
+    },
+    "Residual8k-so_9-day0-mean.png": {
+      "minimum": 20.88292622566223,
+      "maximum": 40.357396602630615,
+      "clipped_fraction": 0.018786199949634853,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        33.84897022247314,
+        36.241216964721666
+      ]
+    },
+    "Residual8k-so_9-day0-draw1.png": {
+      "minimum": 20.46137046813965,
+      "maximum": 40.668060302734375,
+      "clipped_fraction": 0.02425081843364392,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        33.84897022247314,
+        36.241216964721666
+      ]
+    },
+    "Residual8k-so_9-day0-mean-error.png": {
+      "minimum": -1.2024531364440918,
+      "maximum": 2.0958564281463623,
+      "clipped_fraction": 0.005867539662553513,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -0.3510093688964844,
+        0.3510093688964844
+      ],
+      "unweighted_rmse": 0.09855227297420471,
+      "unweighted_bias": -0.05591092217151658
+    },
+    "Residual8k-so_9-day0-draw1-error.png": {
+      "minimum": -1.3557853698730469,
+      "maximum": 1.9105339050292969,
+      "clipped_fraction": 0.014631075295895241,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -0.3510093688964844,
+        0.3510093688964844
+      ],
+      "unweighted_rmse": 0.13668484535752778,
+      "unweighted_bias": -0.055974894571412394
+    },
+    "Residual8k-so_9-day0-spread.png": {
+      "minimum": 0.018519248581375675,
+      "maximum": 0.6715292580691865,
+      "clipped_fraction": 0.00848652732309242,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        0.0,
+        0.22128441878698457
+      ]
+    },
+    "Residual8k-so_9-day30-reference.png": {
+      "minimum": 20.94639778137207,
+      "maximum": 40.262413024902344,
+      "clipped_fraction": 0.019843868043314027,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        33.84897022247314,
+        36.241216964721666
+      ]
+    },
+    "Residual8k-so_9-day30-mean.png": {
+      "minimum": 21.147841215133667,
+      "maximum": 40.418381214141846,
+      "clipped_fraction": 0.016796776630571643,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        33.84897022247314,
+        36.241216964721666
+      ]
+    },
+    "Residual8k-so_9-day30-draw1.png": {
+      "minimum": 20.811246871948242,
+      "maximum": 40.658042907714844,
+      "clipped_fraction": 0.023092420045328632,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        33.84897022247314,
+        36.241216964721666
+      ]
+    },
+    "Residual8k-so_9-day30-mean-error.png": {
+      "minimum": -1.1705317497253418,
+      "maximum": 1.6602249145507812,
+      "clipped_fraction": 0.005338705615713926,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -0.3510093688964844,
+        0.3510093688964844
+      ],
+      "unweighted_rmse": 0.09596755593962486,
+      "unweighted_bias": -0.0511799526766967
+    },
+    "Residual8k-so_9-day30-draw1-error.png": {
+      "minimum": -1.2739791870117188,
+      "maximum": 2.549459457397461,
+      "clipped_fraction": 0.01583983883152858,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -0.3510093688964844,
+        0.3510093688964844
+      ],
+      "unweighted_rmse": 0.14008606947903138,
+      "unweighted_bias": -0.05144087638461119
+    },
+    "Residual8k-so_9-day30-spread.png": {
+      "minimum": 0.01542684211251986,
+      "maximum": 0.7733726353441605,
+      "clipped_fraction": 0.010022664316293126,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        0.0,
+        0.22128441878698457
+      ]
+    },
+    "Residual8k-so_9-day365-reference.png": {
+      "minimum": 20.907791137695312,
+      "maximum": 40.25830078125,
+      "clipped_fraction": 0.020372702090153613,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        33.84897022247314,
+        36.241216964721666
+      ]
+    },
+    "Residual8k-so_9-day365-mean.png": {
+      "minimum": 21.042028427124023,
+      "maximum": 40.33207845687866,
+      "clipped_fraction": 0.015361369932007051,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        33.84897022247314,
+        36.241216964721666
+      ]
+    },
+    "Residual8k-so_9-day365-draw1.png": {
+      "minimum": 20.35177230834961,
+      "maximum": 40.63579559326172,
+      "clipped_fraction": 0.02349534122387308,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        33.84897022247314,
+        36.241216964721666
+      ]
+    },
+    "Residual8k-so_9-day365-mean-error.png": {
+      "minimum": -1.1060867309570312,
+      "maximum": 1.5395634174346924,
+      "clipped_fraction": 0.006421556283052128,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -0.3510093688964844,
+        0.3510093688964844
+      ],
+      "unweighted_rmse": 0.09701816903242422,
+      "unweighted_bias": -0.04735095838970875
+    },
+    "Residual8k-so_9-day365-draw1-error.png": {
+      "minimum": -1.1820793151855469,
+      "maximum": 1.675119400024414,
+      "clipped_fraction": 0.016544950893981364,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        -0.3510093688964844,
+        0.3510093688964844
+      ],
+      "unweighted_rmse": 0.1392133814091526,
+      "unweighted_bias": -0.04712223047214682
+    },
+    "Residual8k-so_9-day365-spread.png": {
+      "minimum": 0.018383259331167606,
+      "maximum": 0.7257865401629316,
+      "clipped_fraction": 0.010601863510450768,
+      "finite_ocean_cells": 39710,
+      "nonfinite_ocean_cells": 0,
+      "limits": [
+        0.0,
+        0.22128441878698457
+      ]
+    }
+  }
+}

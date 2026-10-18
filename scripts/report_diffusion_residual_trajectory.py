@@ -32,6 +32,7 @@ def main():
     p.add_argument("--root", type=Path, required=True)
     p.add_argument("--presentation", type=Path, required=True)
     p.add_argument("--output", type=Path, required=True)
+    p.add_argument("--milestones", type=int, nargs="+", default=[2000, 4000, 6000])
     a = p.parse_args()
     a.output.mkdir(parents=True, exist_ok=True)
     with gzip.open(a.presentation, "rt") as f:
@@ -39,7 +40,7 @@ def main():
     climate = source["metrics"]["Training seasonal climatology"]
     expected = manifests(source["models"]["U-global"]["inputs"])
     rows, native, validation = [], [], []
-    for count in (2000, 4000, 6000):
+    for count in a.milestones:
         root = a.root / f"residual-obs{count}"
         sig = read(root / "input.json")
         done = read(root / "COMPLETE.json")
@@ -101,7 +102,7 @@ def main():
         ylabel="Blended normalized RMSE",
         title="Residual + replay + bound: frozen milestones",
     )
-    ax.set_xticks([2000, 4000, 6000])
+    ax.set_xticks(a.milestones)
     ax.grid(alpha=0.25)
     ax.legend()
     for ext in ("png", "pdf"):

@@ -35,8 +35,16 @@ two-hour/eight-GPU-hour cap. Model weights, forcing, data, and forecast protocol
 are unchanged. **Beta job 214351** was submitted and released with source
 [ee03af282](https://github.com/m2lines/Samudra/commit/ee03af282).
 A verified completion hook and quiet monitor are installed, with a two-hour
-scheduler/accounting fallback. Both prior callbacks are retired. First-write
-verification remains pending.
+scheduler/accounting fallback. Both prior callbacks are retired.
+
+Bring-up verified: the exact EMA export SHA256 again matches attempt 1, and the
+validation recheck reproduced 0.2945153798867946 exactly. Online W&B is
+[run 8sui8ikd](https://wandb.ai/ocean_emulators/default/runs/8sui8ikd).
+After multiple appends, prediction metadata showed 200 forecast times with
+matching `time_bnds` shape `(200, 2)`, `thetao` shape `(200, 19, 180, 360)`,
+and `zos` shape `(200, 180, 360)`. Thus the first-write failure is resolved in
+this real run. This is startup/write verification, not completion or a stability
+result; the complete saved-field audit is still pending.
 
 Run the selected epoch-40 EMA model continuously over the reserved CM4 control
 period, **0251-01-06 through 0351-01-01**, using the same 1-degree grid, 19 depths,

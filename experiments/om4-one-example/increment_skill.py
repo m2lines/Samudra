@@ -9,17 +9,27 @@ import numpy as np
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--root", type=Path, required=True)
+    parser.add_argument("--root", type=Path)
+    parser.add_argument("--map", type=Path, help="Alternative final map; persistence taken from prepared input")
+    parser.add_argument("--label", default="Residual model")
     parser.add_argument("--data", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--plot", action="store_true")
     args = parser.parse_args()
-    with np.load(args.root / "maps-0.npz") as z:
-        initial, truth, wet = z["prediction"][0], z["truth"][0], z["mask"]
     prepared = np.load(args.data / "prognostic.npy", mmap_mode="r")
-    assert np.array_equal(initial, prepared[1]), "Reference must be latest-input persistence"
-    assert np.array_equal(truth, prepared[2]), "Target differs from prepared first target"
-    with np.load(args.root / "maps-5000.npz") as z:
+    if args.map:
+        assert not args.root, "Provide either --root or --map"
+        initial, truth = prepared[1], prepared[2]
+        wet = np.load(args.data / "mask.npy")
+        final_map = args.map
+    else:
+        assert args.root, "Provide --root or --map"
+        with np.load(args.root / "maps-0.npz") as z:
+            initial, truth, wet = z["prediction"][0], z["truth"][0], z["mask"]
+        assert np.array_equal(initial, prepared[1]), "Reference must be latest-input persistence"
+        assert np.array_equal(truth, prepared[2]), "Target differs from prepared first target"
+        final_map = args.root / "maps-5000.npz"
+    with np.load(final_map) as z:
         assert np.array_equal(z["truth"][0], truth) and np.array_equal(z["mask"], wet)
         prediction = z["prediction"][0].astype(np.float64)
     initial, truth = initial.astype(np.float64), truth.astype(np.float64)
@@ -52,7 +62,7 @@ def main():
             }
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps({
-        "metrics": metrics,
+        "label": args.label, "metrics": metrics,
         "notes": "Reference and target verified bitwise against prepared frames1/2. "
                  "Ratios use actual five-day increments, not total-state variance. "
                  "Global excludes mask edges; fixed patch rows50:82,cols200:232. "
@@ -80,7 +90,7 @@ def main():
             axes[row, 0].set_ylabel(name)
         for ax, title in zip(axes[0], ("True five-day change", "Learned correction", "Prediction error")):
             ax.set_title(title)
-        fig.suptitle("What the residual model learns in the fixed quiet-ocean patch\n"
+        fig.suptitle(args.label + ": learned change in the fixed quiet-ocean patch\n"
                      "Same physical scale within each row; no interpolation or output smoothing")
         fig.savefig(args.output.with_suffix(".png"), dpi=150)
         plt.close(fig)

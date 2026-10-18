@@ -5,6 +5,48 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Held-out 100-year evaluation
 
+**Completed:** Beta job **214351** and all job steps exited `0:0` in **26m10s**.
+[W&B run 8sui8ikd](https://wandb.ai/ocean_emulators/default/runs/8sui8ikd)
+finished and synced five files and 234 media files. Across all three attempts,
+allocation time was **30m22s**, or **2.0244 allocated GPU-hours**, below the
+original two-hour/eight-GPU-hour cap.
+
+The selected epoch-40 EMA model completed the continuous held-out century without
+truth-state resets. Full read-back of all five saved physical fields passed in
+199.2 seconds: **7,298 forecast dates**, from **0251-01-16 through 0351-01-01**,
+matched the source exactly; depth coordinates, shapes, and float32 types matched;
+all ocean values were finite and all dry cells were NaN. Final `time_bnds` has
+shape `(7298, 2)`.
+
+The normalized RMSE of the **time-mean states**, averaged over the 77 prognostic
+channels, was **0.10901514**. This measures mean-state bias, not average
+per-timestep forecast error, and is not comparable to the 360-day rollout score.
+The existing aggregate including derived heat content remains unsuitable for
+prognostic skill interpretation.
+
+**Physical limitation:** finite forecasts over a century do not establish
+physical realism. Salinity attained negative values and a broad range; temperature
+also reached -4.31. These extrema alone do not establish their frequency,
+location, timing, or change relative to the CM4 reference. Those require separate
+diagnostics; no clipping or other corrections were applied.
+
+| Saved field | Minimum | Maximum | Shape |
+| --- | ---: | ---: | --- |
+| Temperature (`thetao`) | -4.3130 | 34.7686 | `(7298, 19, 180, 360)` |
+| Salinity (`so`) | -14.2768 | 69.2833 | `(7298, 19, 180, 360)` |
+| Eastward velocity (`uo`) | -2.2374 | 2.2225 | `(7298, 19, 180, 360)` |
+| Northward velocity (`vo`) | -2.0453 | 1.7369 | `(7298, 19, 180, 360)` |
+| Sea-surface height (`zos`) | -1.9369 | 1.6613 | `(7298, 180, 360)` |
+
+Physical fields are uncompressed, with 25-time/all-depth/spatial chunks. The
+prediction store has **145,696,755,420 apparent bytes** (`du -sb`, including store
+metadata and directory sizes). The final store and completion audit are retained
+under the run root below, in
+`output/cm4-100yr-best-epoch40-ema-attempt3/predictions.zarr` and the adjacent
+`COMPLETE.json`.
+
+## Attempts and verification
+
 **Beta job 214347** was submitted and released on 2026-10-18. Its executed
 source is [e5a9fd80a](https://github.com/m2lines/Samudra/commit/e5a9fd80a602b89fefe7e0836c7f285689c0dfd1).
 That attempt failed at its first write after 2m31s: full-source `time_bnds` had
@@ -34,8 +76,8 @@ so the two failed allocations plus this limit remain under the original
 two-hour/eight-GPU-hour cap. Model weights, forcing, data, and forecast protocol
 are unchanged. **Beta job 214351** was submitted and released with source
 [ee03af282](https://github.com/m2lines/Samudra/commit/ee03af282).
-A verified completion hook and quiet monitor are installed, with a two-hour
-scheduler/accounting fallback. Both prior callbacks are retired.
+Completion was verified against scheduler accounting, W&B sync logs, and the
+saved-field audit; all attempt callbacks are retired.
 
 Bring-up verified: the exact EMA export SHA256 again matches attempt 1, and the
 validation recheck reproduced 0.2945153798867946 exactly. Online W&B is
@@ -43,15 +85,16 @@ validation recheck reproduced 0.2945153798867946 exactly. Online W&B is
 After multiple appends, prediction metadata showed 200 forecast times with
 matching `time_bnds` shape `(200, 2)`, `thetao` shape `(200, 19, 180, 360)`,
 and `zos` shape `(200, 180, 360)`. Thus the first-write failure is resolved in
-this real run. This is startup/write verification, not completion or a stability
-result; the complete saved-field audit is still pending.
+this real run; the final full-store audit also passed, as reported above.
 
-Run the selected epoch-40 EMA model continuously over the reserved CM4 control
+## Scientific setup
+
+The evaluation ran the selected epoch-40 EMA model continuously over the reserved CM4 control
 period, **0251-01-06 through 0351-01-01**, using the same 1-degree grid, 19 depths,
-77 prognostics, and `tauuo`, `tauvo`, `hfds`, `wfo` forcing as training. Initialize
-with two held-out states; subsequent ocean states are autoregressive predictions.
-There are no periodic truth-state resets. Reuse the explicitly selected full-record
-normalization. This is CM4-reference evaluation, with no observational scoring.
+77 prognostics, and `tauuo`, `tauvo`, `hfds`, `wfo` forcing as training. Two held-out states initialized the forecast; subsequent ocean states
+were autoregressive predictions.
+There were no periodic truth-state resets. It used the explicitly selected
+full-record normalization. This is CM4-reference evaluation, with no observational scoring.
 
 The input period contains 7,300 five-day records. The first two states provide
 context; the remaining **7,298 predictions**, from **0251-01-16 through 0351-01-01**,

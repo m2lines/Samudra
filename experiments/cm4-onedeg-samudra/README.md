@@ -61,7 +61,11 @@ for the curve, checkpoints, and a diagnosed ordinary-validation logging defect.
 The [100-year held-out evaluation](results/EVAL-100YR.md) is submitted as
 **Beta job 214351**, using the selected epoch-40 EMA state. Two short attempts stopped on the writer
 bug (fixed in PR #935) and an overly strict numerical score recheck, respectively.
-The third attempt is running; results are pending.
+Job 214351 completed in 26m10s. Full read-back of all 7,298 predictions passed;
+all wet cells stayed finite. The 77-channel normalized RMSE of time-mean states
+was 0.10901514 (not per-timestep forecast RMSE). Salinity nevertheless reached
+-14.28 to 69.28, so this does not establish physical realism. W&B and full results
+are linked in the evaluation report.
 
 Qualification job **214211** completed successfully.
 See [the launch record](results/LAUNCH.md) for verified checks and provenance.

@@ -58,7 +58,8 @@ Training job **214219 completed all 70 epochs** in 5h21m31s on four GPUs
 The best configured 360-day validation rollout score was **0.294515 at epoch 40**;
 the final score was 0.312688. See the [completion report](results/COMPLETION.md)
 for the curve, checkpoints, and a diagnosed ordinary-validation logging defect.
-The held-out long-term evaluation remains unrun.
+The [100-year held-out evaluation](results/EVAL-100YR.md) is submitted as
+**Beta job 214347**, using the selected epoch-40 EMA state. Results are pending.
 
 Qualification job **214211** completed successfully.
 See [the launch record](results/LAUNCH.md) for verified checks and provenance.

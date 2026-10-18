@@ -5,6 +5,13 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Held-out 100-year evaluation
 
+**Beta job 214347** was submitted and released on 2026-10-18. Its executed
+source is [e5a9fd80a](https://github.com/m2lines/Samudra/commit/e5a9fd80a602b89fefe7e0836c7f285689c0dfd1).
+At submission, it was queued; no completed held-out result is claimed here.
+The authenticated completion hook and quiet monitoring agent are installed, with
+a durable two-hour scheduler/accounting fallback check. Local validation passed
+16 focused eval/writer/rollout tests and all pre-commit hooks.
+
 Run the selected epoch-40 EMA model continuously over the reserved CM4 control
 period, **0251-01-06 through 0351-01-01**, using the same 1-degree grid, 19 depths,
 77 prognostics, and `tauuo`, `tauvo`, `hfds`, `wfo` forcing as training. Initialize

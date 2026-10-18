@@ -17,6 +17,8 @@ def main():
     p.add_argument("--root", required=True)
     p.add_argument("--parent", required=True)
     p.add_argument("--producer", required=True)
+    p.add_argument("--reproduce-pilot", action="store_true")
+    p.add_argument("--seed", type=int, default=1729)
     a = p.parse_args()
     root = Path(a.root)
     (root / "logs").mkdir(parents=True, exist_ok=True)
@@ -27,6 +29,8 @@ def main():
         command = [
             sys.executable,
             str(Path(__file__).with_name("run_monthly_clipping_continuation.py")),
+            "--seed",
+            str(a.seed),
             "--arm",
             arm,
             "--root",
@@ -35,11 +39,18 @@ def main():
             a.producer,
             "--qualification",
             str(parent / "initial-qualification-214096/QUALIFIED.json"),
-            "--source-checkpoint",
-            str(parent / "A/endpoint-02000.pt"),
-            "--source-sha256",
-            "3888a09b570d1efcd362d07162f746ce484010b651335421732786cea3412bdf",  # pragma: allowlist secret
         ]
+        if a.reproduce_pilot:
+            command.append("--reproduce-pilot")
+        else:
+            command.extend(
+                [
+                    "--source-checkpoint",
+                    str(parent / "A/endpoint-02000.pt"),
+                    "--source-sha256",
+                    "3888a09b570d1efcd362d07162f746ce484010b651335421732786cea3412bdf",  # pragma: allowlist secret
+                ]
+            )
         for key in ("observations", "om4", "cm4"):
             command.extend(["--" + key, paths[key]])
         if qualify:
@@ -59,6 +70,15 @@ def main():
         return arm, result.returncode
 
     for qualify in (True, False):
+        if not qualify:
+            proofs = [
+                json.loads(
+                    (root / "qualification" / arm / "QUALIFIED.json").read_text()
+                )
+                for arm in ("clip1", "clip5", "adapter")
+            ]
+            if len({p["initial_backbone_sha256"] for p in proofs}) != 1:
+                raise ValueError("Initial backbones differ across arms")
         with ThreadPoolExecutor(max_workers=3) as pool:
             futures = [
                 pool.submit(worker, i, arm, qualify)

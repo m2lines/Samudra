@@ -7,6 +7,7 @@ import argparse
 import copy
 import hashlib
 import json
+import math
 import time
 from pathlib import Path
 
@@ -28,6 +29,15 @@ def atomic_save(value, path):
     temporary.replace(path)
 
 
+def phase_settings(step, reproduce_pilot):
+    """Zero-based update index; reproduce the original two-phase pilot schedule."""
+    if not 0 <= step < 3000:
+        raise ValueError("Update index outside experiment")
+    cooldown = reproduce_pilot and step >= 2000
+    lr = 1e-4 if not cooldown else 1e-4 + (1e-6 - 1e-4) * (step - 1999) / 1000
+    return cooldown, task_source("A", step, cooldown), lr
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--arm", choices=["clip1", "clip5", "adapter"], required=True)
@@ -37,11 +47,25 @@ def main():
     p.add_argument("--cm4", required=True)
     p.add_argument("--producer", required=True)
     p.add_argument("--qualification", required=True)
-    p.add_argument("--source-checkpoint", required=True)
-    p.add_argument("--source-sha256", required=True)
+    p.add_argument("--source-checkpoint")
+    p.add_argument("--source-sha256")
     p.add_argument("--qualify", action="store_true")
+    p.add_argument("--seed", type=int, default=1729)
+    p.add_argument(
+        "--reproduce-pilot",
+        action="store_true",
+        help="Random initialization, 2k mixed updates plus 1k obs-only cooldown",
+    )
     args = p.parse_args()
-    if (
+    start_step = 0 if args.reproduce_pilot else 2000
+    if args.reproduce_pilot:
+        if args.source_checkpoint or args.source_sha256:
+            raise ValueError(
+                "Random-initialized reproduction must not supply a source checkpoint"
+            )
+    elif not args.source_checkpoint or not args.source_sha256:
+        raise ValueError("Continuation requires a source checkpoint and hash")
+    elif (
         hashlib.sha256(Path(args.source_checkpoint).read_bytes()).hexdigest()
         != args.source_sha256
     ):
@@ -63,8 +87,8 @@ def main():
     )
     out.mkdir(parents=True, exist_ok=True)
     torch.set_num_threads(8)
-    torch.manual_seed(1729)
-    torch.cuda.manual_seed_all(1729)
+    torch.manual_seed(args.seed)
+    torch.cuda.manual_seed_all(args.seed)
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
     torch.use_deterministic_algorithms(True)
@@ -86,13 +110,22 @@ def main():
     )
     model = MonthlyLatentOcean().cuda()
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
-    source_state = torch.load(
-        args.source_checkpoint, map_location="cpu", weights_only=False
-    )
-    if source_state["step"] != 2000 or source_state["protocol"]["arm"] != "A":
-        raise ValueError("Expected original A main endpoint at 2000")
-    model.load_state_dict(source_state["model"])
-    optimizer.load_state_dict(source_state["optimizer"])
+    source_state = None
+    if not args.reproduce_pilot:
+        source_state = torch.load(
+            args.source_checkpoint, map_location="cpu", weights_only=False
+        )
+        if source_state["step"] != 2000 or source_state["protocol"]["arm"] != "A":
+            raise ValueError("Expected original A main endpoint at 2000")
+        if source_state["protocol"]["seed"] != args.seed:
+            raise ValueError("Continuation seed must match source")
+        model.load_state_dict(source_state["model"])
+        optimizer.load_state_dict(source_state["optimizer"])
+    initial_hash = hashlib.sha256()
+    for name, value in model.state_dict().items():
+        initial_hash.update(name.encode())
+        initial_hash.update(value.detach().cpu().numpy().tobytes())
+    backbone_sha256 = initial_hash.hexdigest()
     forcing_adapter = ModelForcingAdapter().cuda() if args.arm == "adapter" else None
     if forcing_adapter is not None:
         model.add_module("model_forcing_adapter", forcing_adapter)
@@ -100,34 +133,38 @@ def main():
             {"params": list(forcing_adapter.parameters()), "lr": 1e-4}
         )
     ema = copy.deepcopy(model).eval().requires_grad_(False)
-    ema_state = dict(source_state["ema"])
-    if forcing_adapter is not None:
-        ema_state.update(
-            {
-                "model_forcing_adapter." + k: v
-                for k, v in forcing_adapter.state_dict().items()
-            }
-        )
-    ema.load_state_dict(ema_state)
-    for name, value in source_state["model"].items():
-        assert torch.equal(model.state_dict()[name].cpu(), value), name
-    generator = torch.Generator(device="cuda").manual_seed(1729)
-    rng = np.random.default_rng(1729)
+    if source_state is not None:
+        ema_state = dict(source_state["ema"])
+        if forcing_adapter is not None:
+            ema_state.update(
+                {
+                    "model_forcing_adapter." + k: v
+                    for k, v in forcing_adapter.state_dict().items()
+                }
+            )
+        ema.load_state_dict(ema_state)
+        for name, value in source_state["model"].items():
+            assert torch.equal(model.state_dict()[name].cpu(), value), name
+    generator = torch.Generator(device="cuda").manual_seed(args.seed)
+    rng = np.random.default_rng(args.seed)
     paths, validation = data.paths("train"), data.paths("validation")
     protocol = dict(
         arm=args.arm,
         producer=args.producer,
-        seed=1729,
-        start=2000,
-        updates=1000,
-        cooldown=0,
+        seed=args.seed,
+        start=start_step,
+        updates=2000 if args.reproduce_pilot else 1000,
+        cooldown=1000 if args.reproduce_pilot else 0,
+        reproduce_pilot=args.reproduce_pilot,
+        initial_backbone_sha256=backbone_sha256,
+        initialization="random" if args.reproduce_pilot else "A-2k",
         source_sha256=args.source_sha256,
         clip_threshold=clip_threshold,
         model_forcing_adapter=args.arm == "adapter",
         qualify=args.qualify,
         effective_batch=8,
         lr=1e-4,
-        final_lr=1e-4,
+        final_lr=1e-6 if args.reproduce_pilot else 1e-4,
         ema_half_life=100,
         validation_every=250,
         members=8,
@@ -152,6 +189,8 @@ def main():
         if (
             qualified["producer"] != args.producer
             or qualified["source_sha256"] != args.source_sha256
+            or qualified["reproduce_pilot"] != args.reproduce_pilot
+            or qualified["initial_backbone_sha256"] != backbone_sha256
         ):
             raise ValueError("Qualification producer/source mismatch")
     import wandb
@@ -159,7 +198,8 @@ def main():
     run = wandb.init(
         entity="ocean_emulators",
         project="observational-transfer",
-        name="monthly-clip-adapter-" + args.arm,
+        name=("monthly-scratch-" if args.reproduce_pilot else "monthly-clip-adapter-")
+        + args.arm,
         id=hashlib.sha256(str(out).encode()).hexdigest()[:12],
         resume="allow",
         dir=str(out),
@@ -171,12 +211,15 @@ def main():
     if run.url:
         (out / "wandb-url.txt").write_text(run.url + "\n")
     print(json.dumps(dict(wandb_url=run.url)), flush=True)
-    step, best = 2000, source_state["best"]
-    counts = dict(source_state["counts"])
-    generator.set_state(source_state["generator"].cpu())
-    rng.bit_generator.state = source_state["rng"]
-    torch.set_rng_state(source_state["cpu_rng"].cpu())
-    torch.cuda.set_rng_state_all([v.cpu() for v in source_state["cuda_rng"]])
+    step, best = start_step, math.inf
+    counts = dict(obs=0, om4=0, cm4=0)
+    if source_state is not None:
+        best = source_state["best"]
+        counts = dict(source_state["counts"])
+        generator.set_state(source_state["generator"].cpu())
+        rng.bit_generator.state = source_state["rng"]
+        torch.set_rng_state(source_state["cpu_rng"].cpu())
+        torch.cuda.set_rng_state_all([v.cpu() for v in source_state["cuda_rng"]])
     state_path = out / "last.pt"
     if state_path.exists():
         saved = torch.load(state_path, map_location="cuda", weights_only=False)
@@ -210,13 +253,13 @@ def main():
             path,
         )
 
-    if step == 2000:
-        save(out / "fork-02000.pt")
+    if step == start_step:
+        save(out / f"fork-{start_step:05d}.pt")
         save(out / "best.pt")
-    while step < (2002 if args.qualify else 3000):
-        cooldown = False
-        source = task_source("A", step, cooldown)
-        lr = 1e-4
+    while step < (start_step + 2 if args.qualify else 3000):
+        if args.reproduce_pilot and step == 2000:
+            ema.load_state_dict(model.state_dict())
+        cooldown, source, lr = phase_settings(step, args.reproduce_pilot)
         for group in optimizer.param_groups:
             group["lr"] = lr
         model.train()
@@ -240,7 +283,7 @@ def main():
                         batch["forcing"] = forcing_adapter(
                             original_forcing, batch["mask"][38]
                         )
-                        if step == 2001:
+                        if step == start_step + 1:
                             torch.testing.assert_close(
                                 batch["forcing"], original_forcing, rtol=0, atol=0
                             )
@@ -302,7 +345,13 @@ def main():
     save(state_path)
     (out / "TRAIN_COMPLETE.json").write_text(
         json.dumps(
-            dict(step=step, counts=counts, best=best, producer=args.producer), indent=2
+            dict(
+                step=step,
+                counts=counts,
+                best=best if math.isfinite(best) else None,
+                producer=args.producer,
+            ),
+            indent=2,
         )
         + "\n"
     )
@@ -312,7 +361,7 @@ def main():
             live = model.state_dict() if key == "model" else ema.state_dict()
             for name, value in live.items():
                 assert torch.equal(value, reloaded[key][name]), (key, name)
-        assert reloaded["step"] == 2002
+        assert reloaded["step"] == start_step + 2
         if forcing_adapter is not None:
             assert not torch.equal(forcing_adapter.weight.detach().cpu(), torch.eye(3))
         (out / "QUALIFIED.json").write_text(
@@ -320,6 +369,8 @@ def main():
                 dict(
                     producer=args.producer,
                     source_sha256=args.source_sha256,
+                    reproduce_pilot=args.reproduce_pilot,
+                    initial_backbone_sha256=backbone_sha256,
                     step=step,
                     finite_two_task_updates=True,
                 )

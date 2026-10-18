@@ -603,3 +603,57 @@ new test-set or annual-rollout claim.
 The completed allocation, including qualification, used **26.0267 GPU-hours**;
 total campaign allocation including earlier pilots, diagnostics and continuations
 is **80.4006 GPU-hours**. No additional experiments were launched.
+
+## Early-cooldown and convergence diagnosis
+
+The final blends are close, but the models are not identical: clipping5 trades
+better surface/upper OHC against worse deep OHC. This follow-up tests whether
+observation-only adaptation overwhelms earlier mixed training, whether EMA hides
+raw-weight differences, and whether the forecast uses ocean-state evolution.
+
+Three authorized clip1 branches use seed1730 control states at 0, 100 and 1,000
+mixed updates, each followed by exactly 1,000 observation-only cooldown updates.
+Each retains its own Adam state and resets EMA to its raw weights. Observation
+sampling and diffusion RNG streams are paired to the original control's 2k
+cooldown; no weights or moments are taken from that 2k checkpoint. LR decays
+from 1e-4 to 1e-6, batch8, EMA half-life100, unchanged losses and nine-origin
+RMSE validation every250 cooldown updates. Both raw and EMA weights are scored.
+The existing 2k→3k control is the comparison. This varies prior mixed-data
+exposure; it does not hold total training compute or observation exposure fixed.
+
+Only the random fork and 2k/3k endpoints were retained. Reconstruct the first
+1,000 control updates and retain states100/1000. Require exact agreement with
+saved losses, gradient norms, LR/source schedule and all four validation payloads
+before branching. Each cooldown passes two real observation updates and an exact
+saved-weight reload check, then restarts from its source; qualification weights
+are discarded. A failed replay blocks the cooldowns, rather than silently using
+an approximate reconstruction.
+
+Read-only diagnostics on all three completed treatments:
+
+- Raw versus EMA at 2k and 3k, with the identical eight-member/32-step noise stream
+  and full nine-origin cohort; unchanged EMA evaluations must reproduce saved metrics.
+- At 3k EMA, hold the initialized latent fixed while preserving requested lead and
+  monthly duration. This isolates processor evolution more cleanly than the older
+  persistence diagnostic, which also changed decoder position to the initial time.
+- Swap only surface history/availability between validation cases (fixed cyclic
+  shift by four), retaining recipient forcing, calendar/context and targets.
+- Zero the adapted forcing while retaining surface history and context. This is
+  an out-of-distribution sensitivity probe, not an alternative physical forecast.
+- Save prediction/reference arrays for paired per-origin, field and spatial
+  comparisons, rather than relying on the pooled blend alone.
+
+A near-matching 0→1k result would show that the cooldown can learn most of this
+short-lead validation skill without model-data pretraining. A worse 0→1k but
+similar 100/1000→cooldown result would suggest rapidly acquired reusable features.
+Raw-weight separation with EMA convergence would implicate averaging; convergence
+in both would implicate training/objective dynamics instead. Small degradation
+under history swapping or fixed latents would motivate checking seasonal/spatial
+priors and whether the decoder is carrying evolution. Perturbation sensitivity
+alone does not establish physically correct dynamics. The initializer's code
+slices physical inputs to historical frames; a regression test verifies future
+physical-field values cannot enter the trajectory through that interface.
+
+EMA after1,000 cooldown updates retains only 2^-10 of its reset starting weights.
+It can still smooth the late trajectory, but is not predominantly retaining the
+pre-cooldown model. No new annual or test-set claim is made by these diagnostics.

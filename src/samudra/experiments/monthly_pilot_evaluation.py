@@ -11,8 +11,21 @@ from samudra.experiments.observation_metrics import score
 
 @torch.no_grad()
 def evaluate(
-    model, data, paths, *, members=8, steps=32, persistence=False, climatology=False
+    model,
+    data,
+    paths,
+    *,
+    members=8,
+    steps=32,
+    persistence=False,
+    climatology=False,
+    diagnostic=None,
+    prediction_path=None,
 ):
+    if diagnostic not in (None, "hold_latent", "shuffle_history", "zero_forcing"):
+        raise ValueError("Unknown diagnostic")
+    if diagnostic and (persistence or climatology):
+        raise ValueError("Diagnostic cannot modify a baseline")
     model.eval()
     predictions, references, ohc, reference_ohc, climates = [], [], [], [], []
     for origin, path in enumerate(paths):
@@ -25,13 +38,32 @@ def evaluate(
         else:
             gen = torch.Generator(device=data.device).manual_seed(904001 + origin)
             batch = observation_batch(data, sample, "surface", gen)
+            if diagnostic == "shuffle_history":
+                # Fixed nonzero cyclic shift; swap history only, not targets,
+                # recipient calendar/geography or atmospheric forcing.
+                donor = data.load(paths[(origin + 4) % len(paths)])
+                donor_batch = observation_batch(data, donor, "surface", gen)
+                batch["fields"] = batch["fields"].clone()
+                batch["available"] = batch["available"].clone()
+                batch["fields"][:, : model.history] = donor_batch["fields"][
+                    :, : model.history
+                ]
+                batch["available"][:, : model.history] = donor_batch["available"][
+                    :, : model.history
+                ]
             with torch.autocast("cuda", dtype=torch.bfloat16):
+                forcing = model.adapt(sample["atmosphere"])
+                if diagnostic == "zero_forcing":
+                    forcing = torch.zeros_like(forcing)
                 states = model.trajectory(
                     batch["fields"],
                     batch["available"],
-                    model.adapt(sample["atmosphere"]),
+                    forcing,
                     sample["contexts"],
                 )
+            if diagnostic == "hold_latent":
+                # Keep the requested decoder lead/window conditioning unchanged.
+                states = [states[0]] * len(states)
             native_support = torch.zeros_like(data.mask, dtype=torch.bool)
             native_support[[38, 76]] = data.mask[[38, 76]].bool()
             monthly_support = torch.zeros_like(native_support)
@@ -84,6 +116,14 @@ def evaluate(
         reference_ohc.append(
             np.where(np.isfinite(monthly_ohc), sample["raw"]["ohc"], np.nan)
         )
+    if prediction_path is not None:
+        np.savez_compressed(
+            prediction_path,
+            surface=np.stack(predictions),
+            ohc=np.stack(ohc),
+            reference_surface=np.stack(references),
+            reference_ohc=np.stack(reference_ohc),
+        )
     result = score(
         np.stack(predictions),
         np.stack(references),
@@ -105,4 +145,6 @@ def evaluate(
         readout="five-day surface mean plus direct-monthly interior; top OHC layer from mean surface",
         persistence="fixed initialized latent" if persistence else None,
     )
+    if diagnostic:
+        result["diagnostic"] = diagnostic
     return result

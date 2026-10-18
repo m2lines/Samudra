@@ -56,8 +56,36 @@ def main():
         action="store_true",
         help="Random initialization, 2k mixed updates plus 1k obs-only cooldown",
     )
+    p.add_argument("--replay-prefix-reference", type=Path)
+    p.add_argument("--early-cooldown-step", type=int, choices=[0, 100, 1000, 2000])
+    p.add_argument("--cooldown-stream-checkpoint")
+    p.add_argument("--cooldown-stream-sha256")
     args = p.parse_args()
-    start_step = 0 if args.reproduce_pilot else 2000
+    early = args.early_cooldown_step is not None
+    if early and (args.reproduce_pilot or args.arm != "clip1"):
+        raise ValueError(
+            "Early cooldown requires the clip1 source, not random reproduction"
+        )
+    if args.replay_prefix_reference and (
+        not args.reproduce_pilot or args.arm != "clip1"
+    ):
+        raise ValueError("Prefix replay must reproduce clip1")
+    if early:
+        if not args.cooldown_stream_checkpoint or not args.cooldown_stream_sha256:
+            raise ValueError("Paired cooldown stream requires a pinned checkpoint")
+        if (
+            hashlib.sha256(
+                Path(args.cooldown_stream_checkpoint).read_bytes()
+            ).hexdigest()
+            != args.cooldown_stream_sha256
+        ):
+            raise ValueError("Cooldown stream hash mismatch")
+    start_step = (
+        args.early_cooldown_step if early else (0 if args.reproduce_pilot else 2000)
+    )
+    end_step = (
+        start_step + 1000 if early else (1000 if args.replay_prefix_reference else 3000)
+    )
     if args.reproduce_pilot:
         if args.source_checkpoint or args.source_sha256:
             raise ValueError(
@@ -115,8 +143,12 @@ def main():
         source_state = torch.load(
             args.source_checkpoint, map_location="cpu", weights_only=False
         )
-        if source_state["step"] != 2000 or source_state["protocol"]["arm"] != "A":
-            raise ValueError("Expected original A main endpoint at 2000")
+        expected_arm = "clip1" if early else "A"
+        if (
+            source_state["step"] != start_step
+            or source_state["protocol"]["arm"] != expected_arm
+        ):
+            raise ValueError("Source arm/update mismatch")
         if source_state["protocol"]["seed"] != args.seed:
             raise ValueError("Continuation seed must match source")
         model.load_state_dict(source_state["model"])
@@ -153,18 +185,23 @@ def main():
         producer=args.producer,
         seed=args.seed,
         start=start_step,
-        updates=2000 if args.reproduce_pilot else 1000,
-        cooldown=1000 if args.reproduce_pilot else 0,
+        updates=0 if early else (2000 if args.reproduce_pilot else 1000),
+        cooldown=1000 if (early or args.reproduce_pilot) else 0,
+        early_cooldown_step=args.early_cooldown_step,
+        cooldown_stream_sha256=args.cooldown_stream_sha256,
+        replay_prefix_reference=str(args.replay_prefix_reference)
+        if args.replay_prefix_reference
+        else None,
         reproduce_pilot=args.reproduce_pilot,
         initial_backbone_sha256=backbone_sha256,
-        initialization="random" if args.reproduce_pilot else "A-2k",
+        initialization="random" if args.reproduce_pilot else f"source-{start_step}",
         source_sha256=args.source_sha256,
         clip_threshold=clip_threshold,
         model_forcing_adapter=args.arm == "adapter",
         qualify=args.qualify,
         effective_batch=8,
         lr=1e-4,
-        final_lr=1e-6 if args.reproduce_pilot else 1e-4,
+        final_lr=1e-6 if (early or args.reproduce_pilot) else 1e-4,
         ema_half_life=100,
         validation_every=250,
         members=8,
@@ -190,6 +227,8 @@ def main():
             qualified["producer"] != args.producer
             or qualified["source_sha256"] != args.source_sha256
             or qualified["reproduce_pilot"] != args.reproduce_pilot
+            or qualified.get("early_cooldown_step") != args.early_cooldown_step
+            or qualified.get("cooldown_stream_sha256") != args.cooldown_stream_sha256
             or qualified["initial_backbone_sha256"] != backbone_sha256
         ):
             raise ValueError("Qualification producer/source mismatch")
@@ -198,7 +237,13 @@ def main():
     run = wandb.init(
         entity="ocean_emulators",
         project="observational-transfer",
-        name=("monthly-scratch-" if args.reproduce_pilot else "monthly-clip-adapter-")
+        name=(
+            f"monthly-early-cooldown-{start_step}-"
+            if early
+            else (
+                "monthly-scratch-" if args.reproduce_pilot else "monthly-clip-adapter-"
+            )
+        )
         + args.arm,
         id=hashlib.sha256(str(out).encode()).hexdigest()[:12],
         resume="allow",
@@ -220,6 +265,33 @@ def main():
         rng.bit_generator.state = source_state["rng"]
         torch.set_rng_state(source_state["cpu_rng"].cpu())
         torch.cuda.set_rng_state_all([v.cpu() for v in source_state["cuda_rng"]])
+    if early:
+        # Retain source Adam, but pair observation draws/noise with the original
+        # 2k cooldown. No weights or moments come from this stream checkpoint.
+        stream = torch.load(
+            args.cooldown_stream_checkpoint, map_location="cpu", weights_only=False
+        )
+        if stream["step"] != 2000 or stream["protocol"]["seed"] != args.seed:
+            raise ValueError("Expected same-seed control 2k RNG stream")
+        generator.set_state(stream["generator"].cpu())
+        rng.bit_generator.state = stream["rng"]
+        torch.set_rng_state(stream["cpu_rng"].cpu())
+        torch.cuda.set_rng_state_all([v.cpu() for v in stream["cuda_rng"]])
+        ema.load_state_dict(model.state_dict())
+        best = math.inf
+    reference_events = None
+    if args.replay_prefix_reference:
+        reference_events = [
+            json.loads(line)
+            for line in (args.replay_prefix_reference / "events.jsonl")
+            .read_text()
+            .splitlines()
+        ]
+        reference_protocol = json.loads(
+            (args.replay_prefix_reference / "protocol.json").read_text()
+        )
+        if reference_protocol["initial_backbone_sha256"] != backbone_sha256:
+            raise ValueError("Replay initialization differs")
     state_path = out / "last.pt"
     if state_path.exists():
         saved = torch.load(state_path, map_location="cuda", weights_only=False)
@@ -256,10 +328,14 @@ def main():
     if step == start_step:
         save(out / f"fork-{start_step:05d}.pt")
         save(out / "best.pt")
-    while step < (start_step + 2 if args.qualify else 3000):
+    while step < (start_step + 2 if args.qualify else end_step):
         if args.reproduce_pilot and step == 2000:
             ema.load_state_dict(model.state_dict())
-        cooldown, source, lr = phase_settings(step, args.reproduce_pilot)
+        cooldown, source, lr = (
+            phase_settings(2000 + step - start_step, True)
+            if early
+            else phase_settings(step, args.reproduce_pilot)
+        )
         for group in optimizer.param_groups:
             group["lr"] = lr
         model.train()
@@ -312,6 +388,8 @@ def main():
             lr=lr,
             seconds=time.monotonic() - started,
         )
+        if early:
+            record["cooldown_update"] = step - start_step
         # Sparse per-source series retain the common optimizer-update axis.
         # Missing sources are omitted, never logged as zero-valued losses.
         record.update(
@@ -324,7 +402,7 @@ def main():
                 f"train/{source}/clipped": float(norm) > clip_threshold,
             }
         )
-        if step % 250 == 0:
+        if (step - start_step if early else step) % 250 == 0:
             metrics = evaluate(ema, data, validation)
             value = selection_score(metrics, control, [], metric="rmse-only")
             record["validation_rmse_blend"] = value
@@ -334,7 +412,42 @@ def main():
             if value < best:
                 best = value
                 save(out / "best.pt")
-            if step in (2000, 3000):
+            if early:
+                raw_metrics = evaluate(model, data, validation)
+                record["validation_raw_rmse_blend"] = selection_score(
+                    raw_metrics, control, [], metric="rmse-only"
+                )
+                (out / f"validation-raw-{step:05d}.json").write_text(
+                    json.dumps(raw_metrics, indent=2) + "\n"
+                )
+            if step in (2000, 3000) or (early and step == end_step):
+                save(out / f"endpoint-{step:05d}.pt")
+        if reference_events is not None:
+            expected = reference_events[step - 1]
+            for key in (
+                "step",
+                "source",
+                "cooldown",
+                "loss",
+                "gradient_norm",
+                "lr",
+                "validation_rmse_blend",
+            ):
+                if record.get(key) != expected.get(key):
+                    raise ValueError(
+                        f"Replay differs at step {step}, {key}: {record.get(key)} != {expected.get(key)}"
+                    )
+            if step % 250 == 0:
+                expected_metrics = json.loads(
+                    (
+                        args.replay_prefix_reference / f"validation-{step:05d}.json"
+                    ).read_text()
+                )
+                if json.dumps(metrics, sort_keys=True) != json.dumps(
+                    expected_metrics, sort_keys=True
+                ):
+                    raise ValueError("Replay validation payload differs")
+            if step in (100, 1000):
                 save(out / f"endpoint-{step:05d}.pt")
         if step % 50 == 0:
             save(state_path)
@@ -372,7 +485,20 @@ def main():
                     reproduce_pilot=args.reproduce_pilot,
                     initial_backbone_sha256=backbone_sha256,
                     step=step,
-                    finite_two_task_updates=True,
+                    finite_two_task_updates=not early,
+                    finite_observation_updates=early,
+                    early_cooldown_step=args.early_cooldown_step,
+                    cooldown_stream_sha256=args.cooldown_stream_sha256,
+                )
+            )
+        )
+    if reference_events is not None and not args.qualify:
+        (out / "REPLAY_VERIFIED.json").write_text(
+            json.dumps(
+                dict(
+                    steps=step,
+                    reference=str(args.replay_prefix_reference),
+                    producer=args.producer,
                 )
             )
         )

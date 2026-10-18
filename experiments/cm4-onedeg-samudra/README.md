@@ -59,7 +59,8 @@ The best configured 360-day validation rollout score was **0.294515 at epoch 40*
 the final score was 0.312688. See the [completion report](results/COMPLETION.md)
 for the curve, checkpoints, and a diagnosed ordinary-validation logging defect.
 The [100-year held-out evaluation](results/EVAL-100YR.md) is submitted as
-**Beta job 214347**, using the selected epoch-40 EMA state. Results are pending.
+**Beta job 214349**, using the selected epoch-40 EMA state. It replaces a short
+failed attempt after the time-coordinate writer fix in PR #935. Results are pending.
 
 Qualification job **214211** completed successfully.
 See [the launch record](results/LAUNCH.md) for verified checks and provenance.

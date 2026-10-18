@@ -14,11 +14,16 @@ That attempt failed at its first write after 2m31s: full-source `time_bnds` had
 prediction store was created. All first-attempt artifacts are retained.
 
 The shared writer now selects time-dependent auxiliary coordinates at each
-forecast batch's actual timestamps. A separate code PR carries that fix; no
+forecast batch's actual timestamps. [Code PR #935](https://github.com/m2lines/Samudra/pull/935) carries that fix; no
 model/forcing/split changes are involved. Regression checks now include both
 no-leap and Julian multi-append cases (18 focused tests passed). The replacement
 uses a separate `-attempt2` directory and a 1h55m cap, keeping both allocations
 within the original two-hour/eight-GPU-hour maximum.
+
+**Replacement job 214349** was submitted and released with executed source
+[bc8845fc4](https://github.com/m2lines/Samudra/commit/bc8845fc46adda836f81637a8ad3de5735fb53ce).
+Its completion callback and quiet monitoring are installed, with a two-hour
+scheduler/accounting fallback. The first attempt's callback was retired.
 
 Run the selected epoch-40 EMA model continuously over the reserved CM4 control
 period, **0251-01-06 through 0351-01-01**, using the same 1-degree grid, 19 depths,

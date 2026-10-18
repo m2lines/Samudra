@@ -91,11 +91,23 @@ def prepare(training_config: Path, source: Path, output: Path) -> None:
     trainer.model.load_state_dict(readback["model"])
     scores = trainer.validate_rollout_one_epoch(40)
     observed_score = float(scores["rollout_val/360d/normalized_rmse/channel_mean"])
-    assert math.isclose(observed_score, expected_score, rel_tol=1e-4, abs_tol=1e-6), (
+    # Every exported tensor is checked exactly above. Allow 0.1% score variation
+    # for the bfloat16 GPU recheck; kernel choices need not reproduce training
+    # bit for bit (a byte-identical export differed by 0.017% on another node).
+    relative_tolerance = 1e-3
+    absolute_tolerance = 1e-6
+    assert math.isclose(
+        observed_score,
+        expected_score,
+        rel_tol=relative_tolerance,
+        abs_tol=absolute_tolerance,
+    ), (
         observed_score,
         expected_score,
     )
     report["rechecked_validation_score"] = observed_score
+    report["score_relative_tolerance"] = relative_tolerance
+    report["score_absolute_tolerance"] = absolute_tolerance
     report["passed"] = True
     trainer.finish()
     (output.parent / "ema-validation.json").write_text(

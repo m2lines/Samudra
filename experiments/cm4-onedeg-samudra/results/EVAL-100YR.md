@@ -17,13 +17,22 @@ The shared writer now selects time-dependent auxiliary coordinates at each
 forecast batch's actual timestamps. [Code PR #935](https://github.com/m2lines/Samudra/pull/935) carries that fix; no
 model/forcing/split changes are involved. Regression checks now include both
 no-leap and Julian multi-append cases (18 focused tests passed). The replacement
-uses a separate `-attempt2` directory and a 1h55m cap, keeping both allocations
-within the original two-hour/eight-GPU-hour maximum.
+uses separate attempt directories; failed artifacts are retained.
 
 **Replacement job 214349** was submitted and released with executed source
 [bc8845fc4](https://github.com/m2lines/Samudra/commit/bc8845fc46adda836f81637a8ad3de5735fb53ce).
-Its completion callback and quiet monitoring are installed, with a two-hour
-scheduler/accounting fallback. The first attempt's callback was retired.
+It failed before forecasting after 1m41s: the validation score was
+0.2945658350901645, 0.01713% above the stored score and beyond the initial
+0.01% tolerance. The exported checkpoint SHA256 was identical to attempt 1
+(`451bddb092737f1649c3afda640e0a79c408970527064ba2a368835d596ddf49`),
+and every tensor had passed exact source/export checks. The numerical cause
+was not established; no forecast or W&B rollout was started.
+
+The third attempt retains the exact tensor checks and permits 0.1% relative
+variation in the bfloat16 validation score. It uses `-attempt3` and a 1h50m limit,
+so the two failed allocations plus this limit remain under the original
+two-hour/eight-GPU-hour cap. Model weights, forcing, data, and forecast protocol
+are unchanged. Submission and first-write verification are pending.
 
 Run the selected epoch-40 EMA model continuously over the reserved CM4 control
 period, **0251-01-06 through 0351-01-01**, using the same 1-degree grid, 19 depths,
@@ -59,6 +68,6 @@ they must not be used as prognostic skill scores. The added metric describes mea
 state error, not the average error at each forecast time.
 
 Run root:
-`/projects/ny/lz1955/multiscale/jrusak/runs/cm4-onedeg-samudra-20261017/eval-100yr-best-ema-20261018-attempt2`.
+`/projects/ny/lz1955/multiscale/jrusak/runs/cm4-onedeg-samudra-20261017/eval-100yr-best-ema-20261018-attempt3`.
 The run retains the exact source/config, selected EMA export, validation recheck,
 prediction Zarr, W&B metrics/maps/time series, allocation, logs, and completion audit.

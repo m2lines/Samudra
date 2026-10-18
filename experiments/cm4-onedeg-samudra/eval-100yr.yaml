@@ -7,12 +7,12 @@ disk_mode: true
 num_model_steps_forward: 25
 backend: cuda
 observations: null
-ckpt_path: /projects/ny/lz1955/multiscale/jrusak/runs/cm4-onedeg-samudra-20261017/eval-100yr-best-ema-20261018-attempt2/best-epoch40-ema.pt
+ckpt_path: /projects/ny/lz1955/multiscale/jrusak/runs/cm4-onedeg-samudra-20261017/eval-100yr-best-ema-20261018-attempt3/best-epoch40-ema.pt
 
 experiment:
-  name: cm4-100yr-best-epoch40-ema-attempt2
+  name: cm4-100yr-best-epoch40-ema-attempt3
   rand_seed: 15
-  base_output_dir: /projects/ny/lz1955/multiscale/jrusak/runs/cm4-onedeg-samudra-20261017/eval-100yr-best-ema-20261018-attempt2/output
+  base_output_dir: /projects/ny/lz1955/multiscale/jrusak/runs/cm4-onedeg-samudra-20261017/eval-100yr-best-ema-20261018-attempt3/output
   data_root: /projects/ny/lz1955/multiscale/jrusak/data/cm4_onedeg
   wandb: {mode: online, entity: ocean_emulators, project: default}
 

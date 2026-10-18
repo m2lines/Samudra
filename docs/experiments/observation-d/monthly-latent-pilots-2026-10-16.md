@@ -522,8 +522,8 @@ no test-set or annual-rollout claims and launches no further experiments.
 
 ## From-scratch reproduction: seed 1730
 
-Beta job **214259** is submitted and pending at release; completion callback
-and quiet monitoring are active.
+Beta job **214259 completed successfully** in 6h30m24s. All three arms passed
+qualification and completed the matched schedule.
 
 User-approved follow-up reproduces the **original 2k mixed + 1k cooldown sweep**,
 not the later fixed-LR 3k continuation schedule. All three arms start from random
@@ -547,5 +547,59 @@ weights are discarded and production reinitializes from seed 1730. Online W&B
 and source-specific losses/clipping remain enabled.
 
 Run root: `/projects/ny/lz1955/multiscale/jrusak/runs/monthly-scratch-seed1730-20261017`.
-One Beta node, three concurrent GPU runs, 12-hour allocation limit. Previous A
-runtime suggests roughly 6–7 hours after allocation, plus queue time.
+One Beta node, three concurrent GPU runs, 12-hour allocation limit.
+
+
+### Reproduction results
+
+| Model (seed) | Main 2k RMSE blend ↓ | Cooled 3k RMSE blend ↓ |
+|---|---:|---:|
+| A (1729) | 1.303730 | 1.118241 |
+| clip1 (1730) | 1.316232 | 1.092317 |
+| clip5 (1730) | 1.269390 | 1.095043 |
+| adapter (1730) | 1.325215 | 1.097456 |
+
+![Scratch reproduction validation curves](assets/monthly-latent-pilots-2026-10-16/scratch1730-curves.png)
+
+Every run selects its 3k endpoint. Clip5 is 3.56% better than the matched control
+at 2k, but finishes 0.25% worse after cooldown. The forcing adapter finishes
+0.47% worse. Neither intervention improves the final blend in this seed.
+The new control finishes 2.32% better than original A: the observed seed difference
+is larger than either final intervention difference. Two control seeds do not
+estimate the full seed distribution, but these results do not support a robust
+benefit from either change. Clip5's earlier advantage warrants distinguishing
+optimization speed from final cooled performance; it is not evidence of a lasting
+skill improvement. The dashed line marks both the EMA reset and switch to
+obs-only, decreasing-LR training, so improvement across it is not an isolated LR effect.
+
+All rows below use the cooled 3k EMA and the same nine validation origins.
+
+| Model (seed) | SST °C | Velocity m/s | EKE m²/s² | OHC 0–700 GJ/m² | OHC 700–2,000 GJ/m² |
+|---|---:|---:|---:|---:|---:|
+| A (1729) | 0.78791 | 0.137122 | 0.021445 | 0.75846 | 0.59078 |
+| clip1 (1730) | 0.75688 | 0.136537 | 0.021415 | 0.75655 | 0.55998 |
+| clip5 (1730) | 0.73148 | 0.134943 | 0.021362 | 0.72598 | 0.59723 |
+| adapter (1730) | 0.74720 | 0.136415 | 0.021407 | 0.74480 | 0.58028 |
+
+The aggregate hides a depth tradeoff: clip5 improves SST by 3.4% and upper OHC
+by 4.0% versus clip1, but worsens deep OHC by 6.7%. The adapter improves SST
+by 1.3% and upper OHC by 1.6%, but worsens deep OHC by 3.6%. Thus neither
+change is uniformly worse; their surface/upper-ocean gains do not improve the blend.
+
+[All validation curves and component records](assets/monthly-latent-pilots-2026-10-16/scratch1730-results.json).
+
+- [clip1 W&B](https://wandb.ai/ocean_emulators/observational-transfer/runs/8c77f721cd68)
+- [clip5 W&B](https://wandb.ai/ocean_emulators/observational-transfer/runs/b8a1825f9051)
+- [adapter W&B](https://wandb.ai/ocean_emulators/observational-transfer/runs/eea9787c44c6)
+
+Verified all 3,000 ordered finite training events per arm, exactly 1,000 OM4 and
+2,000 obs updates, all twelve nine-origin validation records, the shared random
+backbone hash, and the cooldown LR endpoint. Adapter checkpoint reload verified
+finite model/EMA state and exactly 1,000 Adam updates for its 12 parameters;
+obs-only cooldown leaves that adapter unchanged after the EMA reset. No diagnostic
+or qualification weights were promoted. This is validation evidence, with no
+new test-set or annual-rollout claim.
+
+The completed allocation, including qualification, used **26.0267 GPU-hours**;
+total campaign allocation including earlier pilots, diagnostics and continuations
+is **80.4006 GPU-hours**. No additional experiments were launched.

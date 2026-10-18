@@ -658,8 +658,113 @@ EMA after1,000 cooldown updates retains only 2^-10 of its reset starting weights
 It can still smooth the late trajectory, but is not predominantly retaining the
 pre-cooldown model. No new annual or test-set claim is made by these diagnostics.
 
-Submitted as **Beta214322**, producer `f31344f86`, one four-GPU node, 12h cap;
-currently queued. Sixteen focused tests and pre-commit checks pass. Root:
+**Beta214322 completed successfully** in 4h18m22s, producer `f31344f86`,
+on one four-GPU node. Sixteen focused tests and pre-commit checks pass. Root:
 `/projects/ny/lz1955/multiscale/jrusak/runs/monthly-early-cooldown-20261018`.
-The source run is mounted read-only. Completion callback and quiet monitoring
-are attached; estimated runtime is about five hours after allocation, plus queue.
+The source run was mounted read-only. All cooldowns and diagnostics are complete;
+monitoring is closed.
+
+
+### Early cooldown results
+
+The last 1k observation updates do **not** recover the final control's skill from
+random or minimally trained weights. Earlier mixed training matters in this
+recipe. Each row gets the same 1k cooldown examples/noise and LR schedule, while
+retaining its source Adam state. Counts include pre-cooldown training.
+
+| Mixed updates before cooldown | Total obs / OM4 updates | Final EMA blend ↓ | Final raw blend ↓ |
+|---|---:|---:|---:|
+| 0 | 1,000 / 0 | 1.880664 | 1.842059 |
+| 100 | 1,050 / 50 | 1.702661 | 1.681825 |
+| 1,000 | 1,500 / 500 | 1.205722 | 1.182247 |
+| 2,000 | 2,000 / 1,000 | 1.092317 | 1.085411 |
+
+![Early cooldown and raw versus EMA](assets/monthly-latent-pilots-2026-10-16/early-cooldown-curves.png)
+
+This is not an OM4-versus-observation causal comparison: longer main training
+adds both kinds of examples, changes optimizer state, and keeps LR high longer.
+In particular, 0→1k starts decaying LR immediately; its poor result does not show
+that an adequately trained obs-only model cannot match the control. The experiment
+rejects the narrower hypothesis that this final 1k cooldown learns essentially
+the same predictor regardless of its starting checkpoint.
+
+| Mixed updates before cooldown | SST °C | Velocity m/s | EKE m²/s² | OHC 0–700 GJ/m² | OHC 700–2,000 GJ/m² |
+|---|---:|---:|---:|---:|---:|
+| 0 | 0.8116 | 0.146970 | 0.022030 | 1.7003 | 1.4506 |
+| 100 | 0.7712 | 0.145110 | 0.021970 | 1.4455 | 1.2811 |
+| 1,000 | 0.7873 | 0.140018 | 0.021673 | 0.8648 | 0.6845 |
+| 2,000 | 0.7569 | 0.136537 | 0.021415 | 0.7565 | 0.5600 |
+
+Most of the early-checkpoint deficit is interior heat content: 0→1k SST error
+is 0.812°C versus 0.757°C for 2k→3k, but upper/deep OHC errors are 1.700/1.451
+versus 0.757/0.560 GJ/m². Thus surface skill is acquired much sooner than the
+interior skill dominating the remaining blend gap.
+
+### Is EMA concealing the treatment effect?
+
+| Treatment | 2k raw | 2k EMA | 3k raw | 3k EMA |
+|---|---:|---:|---:|---:|
+| clip1 | 1.481499 | 1.316232 | 1.085411 | 1.092317 |
+| clip5 | 1.529351 | 1.269390 | 1.089390 | 1.095043 |
+| adapter | 1.933963 | 1.325215 | 1.091019 | 1.097456 |
+
+At 2k EMA changes the picture substantially: the adapter's raw score is much
+worse, and clip5's EMA advantage is absent in its raw endpoint. After cooldown,
+raw weights are slightly better than EMA in every arm, and both have the same
+ordering (clip1, clip5, adapter) and similarly small separation. Therefore EMA
+is **not hiding a large final blend improvement** from either treatment. One
+raw endpoint cannot establish typical raw-weight performance during the main
+phase; its larger differences may reflect training fluctuations. The raw final
+results also retain surface/depth tradeoffs, rather than identical errors.
+
+### Does the predictor use the ocean state and evolution?
+
+All following scores use the cooled 3k EMA and paired sampling noise. Holding
+latents fixed preserves the requested decoder lead and duration. History swapping
+retains recipient forcing/calendar; zero forcing removes adapted atmospheric
+inputs from both initialization and evolution.
+
+| Treatment | Standard | Hold latent fixed | Swap surface history | Zero adapted forcing |
+|---|---:|---:|---:|---:|
+| clip1 | 1.092317 | 1.807704 | 1.591100 | 2.330314 |
+| clip5 | 1.095043 | 1.987767 | 1.588688 | 2.656751 |
+| adapter | 1.097456 | 1.823128 | 1.593098 | 2.273209 |
+
+For clip1 these interventions worsen the blend by approximately 65%, 46% and
+113%, respectively. Thus the model is sensitive to initialized ocean history,
+processor evolution, and atmospheric conditioning. A decoder ignoring all these
+and emitting only a static spatial pattern is inconsistent with these results.
+These are out-of-distribution perturbations: they do not prove physically correct
+eddy dynamics, or separate seasonal information from dynamically useful anomalies.
+A fixed latent may also be outside the decoder's usual forecast-state distribution.
+
+The component sensitivities are informative too. For clip1, swapping history
+raises SST error from 0.757 to 2.047°C, but deep OHC only from 0.560 to 0.599
+GJ/m² (about7%). Holding latents fixed raises deep OHC to1.476; zero forcing
+raises it to1.424. This leaves open that deep-ocean prediction relies heavily
+on a learned spatial/seasonal representation driven by forcing/context, with
+less dependence on the particular surface history. The perturbations do not
+rule out that more specific shortcut; same-season cross-year swaps are needed
+to separate seasonal conditioning from state-dependent prediction.
+
+The strongest current interpretation is that cooldown genuinely brings these
+particular treatments toward similar validation performance, while retaining
+component tradeoffs. Earlier training remains valuable; EMA alone does not explain
+the convergence. Whether this reflects a shared optimization regime, objective
+limitations or observation-domain adaptation remains unresolved. Useful next
+controls would be same-season history/forcing swaps across years (preserving
+seasonality), paired anomaly/change scores, and replicated treatment comparisons.
+These are suggestions, not newly launched runs.
+
+The reconstructed first1,000 updates match all saved losses, gradient norms,
+sources/LRs and four full validation payloads exactly. All three cooldowns passed
+qualification, produced1,000 finite obs updates and four raw/EMA validation pairs;
+all six unmodified diagnostic EMA scores exactly reproduce saved evaluations.
+Twenty-one prediction archives passed integrity checks. These remain nine-origin
+validation results, with no new test or annual evaluation.
+
+[Full curves, components and diagnostic records](assets/monthly-latent-pilots-2026-10-16/early-cooldown-results.json).
+Prediction/reference archives remain at the run root under `diagnostics/`.
+Allocation cost including replay, qualification and diagnostics: **17.2244 GPU-hours**;
+completed campaign total: **97.6250 GPU-hours**. No further compute is running for
+this follow-up.

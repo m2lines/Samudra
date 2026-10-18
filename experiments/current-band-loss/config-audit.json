@@ -1,0 +1,45 @@
+{
+  "status": "matched",
+  "baseline_source": "a20c444849",
+  "changes": [
+    {
+      "path": "experiment.name",
+      "baseline": "current-1deg-control",
+      "band": "current-1deg-band-seed15"
+    },
+    {
+      "path": "loss.band_scales_file",
+      "baseline": null,
+      "band": "/projects/ny/lz1955/multiscale/jrusak/runs/current-band-loss-20261018/band-scales.json"
+    },
+    {
+      "path": "loss.band_weight",
+      "baseline": null,
+      "band": 0.1
+    },
+    {
+      "path": "loss.limit",
+      "baseline": 20.0,
+      "band": null
+    },
+    {
+      "path": "loss.metric",
+      "baseline": "mse",
+      "band": null
+    },
+    {
+      "path": "loss.type",
+      "baseline": "dynamic",
+      "band": "band"
+    },
+    {
+      "path": "post_train_eval.eval_config_path",
+      "baseline": "/projects/ny/lz1955/multiscale/jrusak/runs/current-stochastic-depth-1deg-20261006/control/eval.yaml",
+      "band": "/projects/ny/lz1955/multiscale/jrusak/runs/current-band-loss-20261018/eval.yaml"
+    }
+  ],
+  "effective_batch": 32,
+  "seed": 15,
+  "stochastic_depth": 0,
+  "epochs": 70
+}

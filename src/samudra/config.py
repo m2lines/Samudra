@@ -1338,6 +1338,12 @@ class DynamicLossConfig(pydantic.BaseModel):
     )
 
 
+class BandLossConfig(pydantic.BaseModel):
+    type: Literal["band"] = "band"
+    band_weight: float = Field(default=0.1, gt=0)
+    band_scales_file: str
+
+
 class GradientLossConfig(pydantic.BaseModel):
     type: Literal["gradient"] = "gradient"
     # at the moment this metric is only used for the non-gradient loss
@@ -1352,7 +1358,7 @@ class GradientLossConfig(pydantic.BaseModel):
     )
 
 
-Loss = LossMetric | DynamicLossConfig | GradientLossConfig
+Loss = LossMetric | DynamicLossConfig | GradientLossConfig | BandLossConfig
 
 
 def build_loss_fn(
@@ -1371,6 +1377,19 @@ def build_loss_fn(
                 limit=limit,
                 device=device,
                 num_channels=num_channels,
+            )
+        case BandLossConfig():
+            import json
+
+            from samudra.utils.band_loss import BandLoss
+
+            with open(loss_cfg.band_scales_file) as handle:
+                calibration = json.load(handle)
+            return BandLoss(
+                device=device,
+                num_channels=num_channels,
+                band_scales=calibration["scales"],
+                band_weight=loss_cfg.band_weight,
             )
         case GradientLossConfig(metric=metric, alpha=alpha):
             loss_fn = loss_fn_from_metric(metric)

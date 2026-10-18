@@ -1,0 +1,75 @@
+{
+  "metrics": {
+    "U1850": {
+      "global": {
+        "mse_over_persistence": 0.00015717464366822999,
+        "increment_correlation": 0.9999214154581186,
+        "learned_over_true_increment_rms": 0.9998637273490676,
+        "hp_error_over_true_increment_rms": 0.02267919141833462
+      },
+      "patch": {
+        "mse_over_persistence": 0.0011753779873014578,
+        "increment_correlation": 0.9993839028116316,
+        "learned_over_true_increment_rms": 0.9997163677057735,
+        "hp_error_over_true_increment_rms": 0.1351191159508021
+      }
+    },
+    "V1850": {
+      "global": {
+        "mse_over_persistence": 6.861588566652683e-05,
+        "increment_correlation": 0.9999656722180218,
+        "learned_over_true_increment_rms": 0.9999173603731141,
+        "hp_error_over_true_increment_rms": 0.015333937975122789
+      },
+      "patch": {
+        "mse_over_persistence": 0.0009874543402387857,
+        "increment_correlation": 0.9995059058697366,
+        "learned_over_true_increment_rms": 0.9995656436292483,
+        "hp_error_over_true_increment_rms": 0.10043456997677205
+      }
+    },
+    "T1850": {
+      "global": {
+        "mse_over_persistence": 0.32334856253157146,
+        "increment_correlation": 0.8239339516277858,
+        "learned_over_true_increment_rms": 0.8710043333876769,
+        "hp_error_over_true_increment_rms": 0.6326669252116685
+      },
+      "patch": {
+        "mse_over_persistence": 3.0695587113783507,
+        "increment_correlation": 0.2675303902904044,
+        "learned_over_true_increment_rms": 1.7328262088449384,
+        "hp_error_over_true_increment_rms": 2.207123371084386
+      }
+    },
+    "S1850": {
+      "global": {
+        "mse_over_persistence": 0.37555577390604233,
+        "increment_correlation": 0.7910603637449153,
+        "learned_over_true_increment_rms": 0.8276931771458624,
+        "hp_error_over_true_increment_rms": 0.6473218836875403
+      },
+      "patch": {
+        "mse_over_persistence": 4.56162567420145,
+        "increment_correlation": 0.416926141196756,
+        "learned_over_true_increment_rms": 2.342425928206902,
+        "hp_error_over_true_increment_rms": 2.522540446880645
+      }
+    },
+    "SSH": {
+      "global": {
+        "mse_over_persistence": 0.016694376909288162,
+        "increment_correlation": 0.9916216920612259,
+        "learned_over_true_increment_rms": 0.9949897847330295,
+        "hp_error_over_true_increment_rms": 0.417869964007629
+      },
+      "patch": {
+        "mse_over_persistence": 0.05768521701326333,
+        "increment_correlation": 0.9712766154237175,
+        "learned_over_true_increment_rms": 1.0067154256281698,
+        "hp_error_over_true_increment_rms": 1.242762485866653
+      }
+    }
+  },
+  "notes": "Reference and target verified bitwise against prepared frames1/2. Ratios use actual five-day increments, not total-state variance. Global excludes mask edges; fixed patch rows50:82,cols200:232. Correlations flatten each selected domain before computation."
+}

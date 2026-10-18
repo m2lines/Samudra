@@ -657,3 +657,9 @@ physical-field values cannot enter the trajectory through that interface.
 EMA after1,000 cooldown updates retains only 2^-10 of its reset starting weights.
 It can still smooth the late trajectory, but is not predominantly retaining the
 pre-cooldown model. No new annual or test-set claim is made by these diagnostics.
+
+Submitted as **Beta214322**, producer `f31344f86`, one four-GPU node, 12h cap;
+currently queued. Sixteen focused tests and pre-commit checks pass. Root:
+`/projects/ny/lz1955/multiscale/jrusak/runs/monthly-early-cooldown-20261018`.
+The source run is mounted read-only. Completion callback and quiet monitoring
+are attached; estimated runtime is about five hours after allocation, plus queue.

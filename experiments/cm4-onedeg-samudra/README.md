@@ -53,5 +53,12 @@ config, qualification report, allocation, logs, checkpoints, and completion hook
 
 Run root: `/projects/ny/lz1955/multiscale/jrusak/runs/cm4-onedeg-samudra-20261017`.
 
-Training job: **214219**. Qualification job: **214211**, completed successfully.
+Training job **214219 completed all 70 epochs** in 5h21m31s on four GPUs
+(about 21.43 GPU-hours). [W&B](https://wandb.ai/ocean_emulators/default/runs/4yoy3b6s).
+The best configured 360-day validation rollout score was **0.294515 at epoch 40**;
+the final score was 0.312688. See the [completion report](results/COMPLETION.md)
+for the curve, checkpoints, and a diagnosed ordinary-validation logging defect.
+The held-out long-term evaluation remains unrun.
+
+Qualification job **214211** completed successfully.
 See [the launch record](results/LAUNCH.md) for verified checks and provenance.

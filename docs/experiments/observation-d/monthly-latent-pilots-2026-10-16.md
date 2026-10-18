@@ -907,3 +907,20 @@ midpoint2.5…362.5 days; monthly midpoint15.5…349.5), while durations remain5
 or the calendar-month length. Training only covered roughly the first month:
 **both processor evolution and decoder lead conditioning extrapolate** in this
 annual test. An annual failure cannot by itself identify which causes it.
+
+
+For clip5 versus clip1, changes in contributions to the original five-term blend
+are: surface terms combined **−0.0089**, upper OHC **−0.0087**, deep OHC
+**+0.0203**, for net **+0.0027** (worse). The numerical cancellation explains
+the near-tie without requiring identical model behavior. Climatology-normalizing
+also makes a fixed absolute deep-OHC error count about1.9× as much as the same
+GJ/m² error in upper OHC, because its climatology RMSE is0.367 versus0.702.
+This is a consequence of the chosen relative-skill weighting, not evidence that
+the deep layer is inherently1.9× more scientifically important.
+
+Annual evaluation submitted as **Beta214352**, pinned producer `cd6f25f2c`,
+one full node with an8h cap; currently queued at release. Eighteen focused tests
+and pre-commit checks pass. Root:
+`/projects/ny/lz1955/multiscale/jrusak/runs/monthly-annual-20261018`.
+Durable completion callback and quiet monitoring are attached. No annual results
+are available yet.

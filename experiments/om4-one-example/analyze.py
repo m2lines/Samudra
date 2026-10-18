@@ -12,7 +12,7 @@ from common import DEPTHS, PROG
 
 
 def main():
-    ap=argparse.ArgumentParser();ap.add_argument('--root',required=True);ap.add_argument('--data',required=True);ap.add_argument('--output',required=True)
+    ap=argparse.ArgumentParser();ap.add_argument('--root',required=True);ap.add_argument('--data',required=True);ap.add_argument('--output',required=True);ap.add_argument('--reference-arm')
     a=ap.parse_args();root=Path(a.root);out=Path(a.output);out.mkdir(parents=True,exist_ok=True)
     meta=json.loads((Path(a.data)/'metadata.json').read_text());std=np.asarray(meta['stds'][:77]);mean=np.asarray(meta['means'][:77])
     histories={}
@@ -30,7 +30,7 @@ def main():
         for ax,key in zip(axs,('eval_mse','highpass_mse')):
             ax.semilogy([r['step'] for r in h],[r[key] for r in h],label=name)
     axs[0].set_ylabel('Normalized wet-cell MSE');axs[1].set_ylabel('Interior high-pass error MSE')
-    for ax in axs:ax.set_xlabel('Additional optimizer updates (LBFGS: outer iterations)');ax.grid(alpha=.2)
+    for ax in axs:ax.set_xlabel('Optimizer updates' if a.reference_arm else 'Additional optimizer updates (LBFGS: outer iterations)');ax.grid(alpha=.2)
     axs[1].legend(fontsize=8);fig.savefig(out/'curves.png',dpi=170);plt.close(fig)
     completed=[n for n in histories if summary[n]['complete']]
     if not completed:return
@@ -39,9 +39,14 @@ def main():
     z=np.load(final);pred=z['prediction'][0];truth=z['truth'][0];wet=z['mask'];initial=np.load(root/chosen/'maps-0.npz')['prediction'][0]
     # For scratch architecture screens compare against the trained baseline.
     reference='checkpoint before continuation'
-    if (root/'baseline'/'COMPLETE').exists():
-        baseline=max((root/'baseline').glob('maps-*.npz'),key=lambda p:int(p.stem.split('-')[-1]))
-        initial=np.load(baseline)['prediction'][0];reference='trained tiny baseline'
+    reference_arm=a.reference_arm or ('baseline' if (root/'baseline'/'COMPLETE').exists() else None)
+    if reference_arm:
+        assert (root/reference_arm/'COMPLETE').exists(), 'Reference arm is incomplete'
+        baseline=max((root/reference_arm).glob('maps-*.npz'),key=lambda p:int(p.stem.split('-')[-1]))
+        with np.load(baseline) as baseline_maps:
+            assert np.array_equal(baseline_maps['truth'][0],truth) and np.array_equal(baseline_maps['mask'],wet)
+            initial=baseline_maps['prediction'][0]
+        reference='trained '+reference_arm
     channels=[38,51,57,70,76,13]
     fig,axs=plt.subplots(len(channels),3,figsize=(12,15),layout='constrained')
     for row,c in enumerate(channels):

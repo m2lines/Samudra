@@ -4,7 +4,21 @@ Authorized through 2026-10-19 09:00 America/New_York (13:00 UTC), or earlier if 
 
 ## Current result (investigation still running)
 
-No tested change has yet nearly eliminated the residual texture. Continuing optimization reduces overall MSE by up to 2.92-fold, and high-pass error MSE by up to 3.93-fold in a different arm. The original BatchNorm inference statistics are already accurate. Exact least squares cannot remove most residual error with the existing frozen backbone features. The corrected gradient probe finds locally compatible total-MSE and fine-error directions. Very small Adam updates often fail to change FP32 weights, but the completed matched master-precision test improves high-pass error by at most 0.20%. Thus update rounding is unlikely to be the main texture mechanism in this test. These observations do not establish a hard architectural floor.
+A strong candidate now awaits replication: predicting a correction to the latest input, with a zero-initialized output head, reduces overall MSE **15.31-fold** and high-pass error MSE **16.86-fold** versus the matched absolute-output control after the same 5,000 updates. The deep-ocean maps become substantially smoother without an output filter. This is one seed and one training example, not yet a confirmed general remedy. Two new matched seeds and the missing latest-input/random-head control are queued.
+
+| Seed-15 output representation | Final normalized MSE | High-pass error MSE |
+| --- | ---: | ---: |
+| Absolute output, random head | 3.09540e-4 | 3.95740e-4 |
+| Absolute output, zero head | 9.21364e-2 | 3.61198e-2 |
+| First-input residual, random head | 1.84281e-4 | 2.39656e-4 |
+| First-input residual, zero head | 2.95380e-5 | 3.54167e-5 |
+| Latest-input residual, zero head | 2.02142e-5 | 2.34713e-5 |
+
+The successful initial prediction is persistence: `prediction = latest_input + network_correction`, with the correction head initialized to zero. The initial backbone weights are identical across arms. Zero head **without** the input skip performs much worse, so the result is not explained by zero initialization alone. First-input residuals use October 10 as the anchor; latest-input residuals use October 15; both predict October 20 and use both input times. This is a fixed input-to-output skip, not temporal backpropagation or a latent-state intervention. Adding the skip changes the model's output parameterization and should not be described as proof that the original absolute-output function class has unlimited capacity.
+
+[Common-scale representation comparison](report/representation/patch-before-after.png), [convergence curves](report/representation/curves.png), [physical depth RMSE](report/representation/depth-rmse.png), [endpoint data](report/representation/summary.json), and [selected-field metrics](report/representation/selected-fields.json). In the fixed fully wet patch, T1850m high-pass residual/target RMS falls 1.885→0.225 and S1850m 5.894→0.345. Global physical RMSE falls 0.02557→0.00646°C and 0.00735→0.00114psu, respectively. These are raw saved model arrays with matching targets, masks, and display limits.
+
+Other completed checks constrain alternatives: continuing ordinary optimization improves MSE up to 2.92-fold, while exact frozen-feature head fitting cannot remove most residual error. Original BatchNorm inference statistics are accurate. Corrected gradients find locally compatible total-MSE/fine-error directions. Higher master-update precision improves overall high-pass error by at most 0.20%, making update rounding an unlikely main cause in this test. Neither decoder-dilation change materially improved the tiny model.
 
 Selected review artifacts (from the completed nine-arm continuation wave):
 
@@ -131,3 +145,11 @@ At 19:58 UTC local decoder-dilation-1 completed at MSE 0.01340540, high-pass MSE
 At 20:09 UTC all six master-update tasks were verified COMPLETED 0:0, with COMPLETE markers, 5,000-step histories and actual-model Adam parity checks. Independently retrieved all protocols, histories, and maps. FP64/FP32 endpoint ratios (MSE; overall high-pass MSE) are 0.99985787;0.99989915 at LR1e-7, 0.99998730;0.99999330 at LR1e-6, and 0.98904275;0.99804558 at LR1e-5. Higher master-update precision is not a texture remedy under these matched conditions. At LR1e-5, T1850m/S1850m high-pass MSE improves only 0.022%/0.021%; the largest individual-channel gain is 8.35% for V6000m. Thus the aggregate does not conceal a large improvement in the illustrated scalar fields. Completed precision webhook retired. Representation bring-up reminder advanced to 20:19 UTC now its dependency has finished.
 
 The freed precision monitor **/root/monitor_master** now owns the longer L-BFGS job via replacement poll webhook **1d4ae35e-d87c-4945-9c37-684278757a97**, first check about 20:54 UTC. Remote callback credential path updated and old direct registration 6075957a retired. No job or scientific setting changed. Draft experiment PR: **https://github.com/m2lines/Samudra/pull/934**, first commit **9ad29dd18**, experiment label/draft state verified; all automatic PR jobs skipped as intended.
+
+At 20:59 UTC representation array **20256284** verified all five tasks COMPLETED 0:0, 5,000 updates and COMPLETE/final-map artifacts. All initial backbone hashes are `698e81675df0cb49787240cc945ddb1bffc14406979a55840414e8001e43e0ad`. Retrieved all artifacts and independently recomputed physical/patch metrics. Train/eval losses closely agree even for the failed absolute/zero-head arm. Initial absolute/random predictions and targets are bitwise equal to the original overfit experiment; its final MSE differs by about 0.3%, so use the new matched absolute/random arm for representation ratios. Completed webhook 8e122ad1 retired.
+
+## Seed replication and missing initialization control
+
+Array **20263515**, seven tasks, at most three concurrent preemptible RTX GPUs: task0 adds seed15 latest-input/random-head; tasks1–3 repeat absolute/random, first-input/zero, latest-input/zero at seed16; tasks4–6 repeat those three at seed17. Same 5,000 updates, data, MSE, normalization, and train/eval handling. `representation_repeats.py` imports the unchanged initial representation training loop and only appends the missing arm. Outputs `representation-repeats/seed{15,16,17}/{arm}` under the Torch scratch root. These are still separate single-example fits, not full-training confirmation.
+
+Initially pending QOSGrpCpuLimit at 21:02 UTC; routing, throttle, requeue and resources verified. Callback **20263738**, webhook **8d34052c-c89d-414b-9c2b-4e93acf8757b**, quiet monitor **/root/monitor_representation**, first bring-up check about21:12UTC, then a normal >=10-minute cadence. The longer L-BFGS and local tiny sweep continue separately. No additional-example dataset has been prepared or launched yet.

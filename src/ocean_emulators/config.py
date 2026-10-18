@@ -1115,6 +1115,13 @@ class ReplayConfig(BaseConfig):
             "bfloat16 is lossless when replay transport is bf16 (storage_dtype auto + bf16)."
         ),
     )
+    source_rows: tuple[int, int] | None = Field(
+        default=None,
+        description=(
+            "Keep every replay read inside train_time rows [start, stop), e.g. per node "
+            "when each host holds part of the training data on node-local disk."
+        ),
+    )
     storage_dtype: Literal["auto", "float16", "bfloat16", "float32"] = Field(
         default="auto",
         description=(
@@ -1414,6 +1421,20 @@ class TrainConfig(TopLevelConfig):
         description=(
             "Write each rank's per-step compute, sync-tail and data timings to "
             "<output_dir>/rank_timing/rank{r}.jsonl, to find slow GPUs and readers."
+        ),
+    )
+    drop_page_cache: bool = Field(
+        default=False,
+        description=(
+            "Drop each chunk file from the page cache after the block reader decodes it. "
+            "Replay never rereads a chunk, and a full cache makes big allocations reclaim first."
+        ),
+    )
+    disable_thp: bool = Field(
+        default=False,
+        description=(
+            "Opt the trainer and its children out of transparent huge pages "
+            "(prctl PR_SET_THP_DISABLE), avoiding compaction stalls on fragmented nodes."
         ),
     )
     surface_snapshot: bool = Field(

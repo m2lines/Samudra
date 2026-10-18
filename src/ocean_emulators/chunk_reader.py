@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import dataclasses
 import logging
+import os
 from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 
@@ -133,6 +134,7 @@ class GroupChunkReader:
         windows: Sequence[tuple[int, int, int, int, int]],
         var_names: Sequence[str],
         threads: int = 8,
+        drop_page_cache: bool = False,
     ) -> None:
         if not windows:
             raise ValueError("GroupChunkReader needs at least one tile window")
@@ -170,6 +172,10 @@ class GroupChunkReader:
         metadata.close()
 
         self.chunk_shape = tuple(self.array.chunks[-2:])
+        # The array's chunk-file names, to drop each from the page cache after its decode.
+        self._drop_page_cache = drop_page_cache
+        self._chunk_dir = os.path.join(self.store, prefix)
+        self._separator = getattr(self.array, "_dimension_separator", None) or "."
         # A read can name its own tiles, so the plan is per tile-set rather
         # than per reader. Cached because the arithmetic is cheap but not free
         # and a face offers only sixteen distinct 3x3 blocks.
@@ -302,6 +308,9 @@ class GroupChunkReader:
                 buffers[copy.tile][:, copy.destination[0], copy.destination[1]] = chunk[
                     :, copy.source[0], copy.source[1]
                 ]
+            if self._drop_page_cache:
+                key = self._separator.join(map(str, (store_row, 0, chunk_row, chunk_col)))
+                _drop_from_page_cache(os.path.join(self._chunk_dir, key))
 
         # Surface the first worker error rather than leaving a half-filled
         # buffer to become a silently wrong training target.
@@ -326,6 +335,18 @@ class GroupChunkReader:
             pool.shutdown(wait=False)
 
 
+def _drop_from_page_cache(path: str) -> None:
+    """Ask the kernel to forget a file's cached pages; a missing file is skipped."""
+    try:
+        fd = os.open(path, os.O_RDONLY)
+    except FileNotFoundError:
+        return
+    try:
+        os.posix_fadvise(fd, 0, 0, os.POSIX_FADV_DONTNEED)
+    finally:
+        os.close(fd)
+
+
 class GroupFrameReader:
     """Both arrays of a packed cache, read a whole tile group at a time.
 
@@ -346,6 +367,7 @@ class GroupFrameReader:
         prognostic_var_names: Sequence[str],
         boundary_var_names: Sequence[str],
         threads: int = 8,
+        drop_page_cache: bool = False,
     ) -> None:
         self.prognostic = GroupChunkReader(
             store,
@@ -353,6 +375,7 @@ class GroupFrameReader:
             windows=windows,
             var_names=prognostic_var_names,
             threads=threads,
+            drop_page_cache=drop_page_cache,
         )
         self.boundary = GroupChunkReader(
             store,
@@ -360,6 +383,7 @@ class GroupFrameReader:
             windows=windows,
             var_names=boundary_var_names,
             threads=threads,
+            drop_page_cache=drop_page_cache,
         )
         self.num_tiles = len(windows)
 

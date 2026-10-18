@@ -209,6 +209,22 @@ def test_torch_train_dataset_temporal_stride_subsamples_window_starts() -> None:
     third_start = int(every_other._get_x_index(2, step=0).values[0])
     assert (first_start, second_start, third_start) == (0, 2, 4)
 
+    def rollout_rows(dataset, seed, max_lead):
+        try:
+            return [int(r) for lead in range(max_lead) for r in dataset._get_x_index(seed, lead).values]
+        except IndexError:
+            return None
+
+    # The seed range is exactly the seeds whose rollout to the lead cap stays inside the rows.
+    for dataset in (every_point, every_other):
+        for rows in (None, (4, 15)):
+            start, stop = rows or (0, 20)
+            fits = [
+                seed for seed in range(len(dataset))
+                if (read := rollout_rows(dataset, seed, 5)) is not None and start <= min(read) and max(read) < stop
+            ]
+            assert list(dataset.replay_seed_range(5, rows)) == fits
+
 
 def test_torch_train_dataset_compact_llc_like_loader_matches_flat() -> None:
     levels = len(DEPTH_I_LEVELS)

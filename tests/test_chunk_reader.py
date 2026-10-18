@@ -7,6 +7,7 @@ scatter without needing the 37 TB face cache.
 """
 
 import json
+import os
 
 import numpy as np
 import pytest
@@ -168,6 +169,22 @@ def test_every_tile_matches_the_per_tile_read_exactly(packed_store, threads) -> 
                 f"tile {index} at row {row}"
             )
     reader.close()
+
+
+def test_dropping_the_page_cache_names_real_chunk_files_and_changes_no_values(packed_store, monkeypatch) -> None:
+    dropped = []
+    monkeypatch.setattr("ocean_emulators.chunk_reader._drop_from_page_cache", dropped.append)
+    windows = face_windows()
+    plain = GroupChunkReader(packed_store, prefix="prognostic", windows=windows, var_names=CHANNELS)
+    dropping = GroupChunkReader(
+        packed_store, prefix="prognostic", windows=windows, var_names=CHANNELS, drop_page_cache=True
+    )
+    for got, want in zip(dropping.read(1), plain.read(1)):
+        assert torch.equal(got.nan_to_num(-1.0), want.nan_to_num(-1.0))
+    assert len(dropped) == dropping.num_chunks
+    assert all(os.path.isfile(path) and os.path.basename(path).startswith("1.") for path in dropped)
+    plain.close()
+    dropping.close()
 
 
 def test_the_store_dtype_survives_so_this_is_a_drop_in(packed_store) -> None:

@@ -1,4 +1,5 @@
 import contextlib
+import ctypes
 import dataclasses
 import datetime
 import itertools
@@ -1437,6 +1438,7 @@ class Trainer:
         self.output_dir = cfg.experiment.output_dir
         self.debug = cfg.debug
         self.rank_timing = cfg.rank_timing and torch.cuda.is_available()
+        self.drop_page_cache = cfg.drop_page_cache
         self.resident_dtype = getattr(torch, cfg.replay.resident_dtype)
         self._step_events: dict[str, torch.cuda.Event] = {}
         self._step_started = 0.0
@@ -2453,9 +2455,14 @@ class Trainer:
             ).item()
         )
         dataset_index, dataset = eligible_datasets[choice]
-        source_index = int(
+        # A row advances up to the largest lead cap, so seed only where that whole rollout stays in range.
+        max_lead = max(self.replay_cfg.max_lead_steps)
+        seeds = dataset.replay_seed_range(max_lead, self.replay_cfg.source_rows)
+        if not seeds:
+            raise RuntimeError(f"No replay seed fits rows {self.replay_cfg.source_rows} at lead cap {max_lead}")
+        source_index = seeds.start + int(
             torch.randint(
-                len(dataset), (1,), generator=self.replay_generator, device="cpu"
+                len(seeds), (1,), generator=self.replay_generator, device="cpu"
             ).item()
         )
         return ReplayCursor(
@@ -5399,6 +5406,7 @@ class Trainer:
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
             threads=self.face_parallel_cfg.read_threads,
+            drop_page_cache=self.drop_page_cache,
         )
         logger.info(
             "Group frame reader: %d tiles, %d chunk decode(s) per frame "
@@ -5621,6 +5629,11 @@ class Trainer:
             for stride in self.data_stride
         ]
         self.train_datasets = train_datasets
+        if self.replay_enabled and (rows := self.replay_cfg.source_rows) is not None:
+            times = train_datasets[0]._prognostic_src.data["time"].to_numpy()
+            if not 0 <= rows[0] < rows[1] <= len(times):
+                raise ValueError(f"replay.source_rows {rows} is outside the {len(times)} train_time rows")
+            logger.info(f"Rank {get_rank()} replays train_time rows {rows}: {times[rows[0]]} to {times[rows[1] - 1]}")
 
         # Replay rows address groups, not datasets. Face-parallel runs build
         # their own groups from the tile catalog, which only exists once the
@@ -5825,6 +5838,7 @@ class Trainer:
         free, total = torch.cuda.mem_get_info()
         record = {
             "step": self.num_batches_seen,
+            "time": time.time(),
             "rank": get_rank(),
             "local_rank": int(os.environ.get("LOCAL_RANK", 0)),
             "host": socket.gethostname(),
@@ -6316,6 +6330,11 @@ class Trainer:
 def main():
     # Load config from YAML
     cfg = TrainConfig.from_yaml_and_cli()
+    if cfg.disable_thp:
+        # Before the big allocations; children (loader workers) inherit it.
+        PR_SET_THP_DISABLE = 41
+        if ctypes.CDLL(None, use_errno=True).prctl(PR_SET_THP_DISABLE, 1, 0, 0, 0) != 0:
+            raise OSError(ctypes.get_errno(), "prctl(PR_SET_THP_DISABLE) failed")
     cfg.prepare_output_dirs()  # we do this first so logging can use them
 
     handle_logging(cfg.debug, cfg.experiment.output_dir)

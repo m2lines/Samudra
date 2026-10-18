@@ -889,6 +889,13 @@ class TorchTrainDataset(Dataset[RawTrainData]):
     def __len__(self) -> int:
         return self.size
 
+    def replay_seed_range(self, max_lead: int, rows: tuple[int, int] | None = None) -> range:
+        """Seed indices whose rollout up to lead max_lead - 1 reads only time rows in [rows) (default: all)."""
+        start, stop = rows or (0, self._prognostic_src.data.sizes["time"])
+        reach = (max_lead - 1) * (self.hist + 1) * self.stride + (2 * self.hist + 1) * self.stride
+        first = -(-start // self.temporal_stride)
+        return range(first, min(self.size, (stop - 1 - reach) // self.temporal_stride + 1))
+
     @elapsed(level=logging.DEBUG)
     def __getitem__(self, idx: int):
         start_time = time.perf_counter()

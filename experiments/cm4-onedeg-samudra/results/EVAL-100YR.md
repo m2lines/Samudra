@@ -7,10 +7,18 @@ SPDX-License-Identifier: CC-BY-4.0
 
 **Beta job 214347** was submitted and released on 2026-10-18. Its executed
 source is [e5a9fd80a](https://github.com/m2lines/Samudra/commit/e5a9fd80a602b89fefe7e0836c7f285689c0dfd1).
-At submission, it was queued; no completed held-out result is claimed here.
-The authenticated completion hook and quiet monitoring agent are installed, with
-a durable two-hour scheduler/accounting fallback check. Local validation passed
-16 focused eval/writer/rollout tests and all pre-commit hooks.
+That attempt failed at its first write after 2m31s: full-source `time_bnds` had
+7,300 rows while the prediction batch had 50. EMA validation reproduced
+0.2945153798867946 exactly, and W&B initialized
+[run bktc4eon](https://wandb.ai/ocean_emulators/default/runs/bktc4eon), but no
+prediction store was created. All first-attempt artifacts are retained.
+
+The shared writer now selects time-dependent auxiliary coordinates at each
+forecast batch's actual timestamps. A separate code PR carries that fix; no
+model/forcing/split changes are involved. Regression checks now include both
+no-leap and Julian multi-append cases (18 focused tests passed). The replacement
+uses a separate `-attempt2` directory and a 1h55m cap, keeping both allocations
+within the original two-hour/eight-GPU-hour maximum.
 
 Run the selected epoch-40 EMA model continuously over the reserved CM4 control
 period, **0251-01-06 through 0351-01-01**, using the same 1-degree grid, 19 depths,
@@ -46,6 +54,6 @@ they must not be used as prognostic skill scores. The added metric describes mea
 state error, not the average error at each forecast time.
 
 Run root:
-`/projects/ny/lz1955/multiscale/jrusak/runs/cm4-onedeg-samudra-20261017/eval-100yr-best-ema-20261018`.
+`/projects/ny/lz1955/multiscale/jrusak/runs/cm4-onedeg-samudra-20261017/eval-100yr-best-ema-20261018-attempt2`.
 The run retains the exact source/config, selected EMA export, validation recheck,
 prediction Zarr, W&B metrics/maps/time series, allocation, logs, and completion audit.

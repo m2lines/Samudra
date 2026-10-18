@@ -13,11 +13,11 @@
 #SBATCH --mem=0
 #SBATCH --exclusive
 #SBATCH --no-requeue
-#SBATCH --time=02:00:00
+#SBATCH --time=01:55:00
 set -euo pipefail
 
 export TRAIN_ROOT=/projects/ny/lz1955/multiscale/jrusak/runs/cm4-onedeg-samudra-20261017
-export ROOT="$TRAIN_ROOT/eval-100yr-best-ema-20261018"
+export ROOT="$TRAIN_ROOT/eval-100yr-best-ema-20261018-attempt2"
 export DATA_ROOT=/projects/ny/lz1955/multiscale/jrusak/data/cm4_onedeg
 export OMP_NUM_THREADS=8 MKL_NUM_THREADS=8 OPENBLAS_NUM_THREADS=8 NUMEXPR_NUM_THREADS=8
 export PYTHONUNBUFFERED=1 PYTHONNOUSERSITE=1

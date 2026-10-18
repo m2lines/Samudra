@@ -159,6 +159,14 @@ class ZarrWriter:
             # those to the emitted `lev` count instead of conflicting with it.
             if "lev" in da.dims:
                 da = da.isel(lev=slice(0, n_levels))
+            # Auxiliary coordinates such as time_bnds describe the full source
+            # record. Each append must carry only the forecast batch's times.
+            if "time" in da.dims:
+                if self.time_buffer is None:
+                    raise ValueError(
+                        "Time-dependent coordinates require forecast times"
+                    )
+                da = da.sel(time=self.time_buffer)
             dims = tuple(rename.get(str(d), str(d)) for d in da.dims)
             coords[name] = (dims, np.asarray(da.values))
 

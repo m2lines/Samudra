@@ -45,6 +45,7 @@ def main():
     parser.add_argument('--data',type=Path,required=True)
     parser.add_argument('--source',type=Path,required=True)
     parser.add_argument('--output',type=Path,required=True)
+    parser.add_argument('--expected-steps',type=int,default=1000)
     args=parser.parse_args()
     truth=np.load(args.data/'prognostic.npy',mmap_mode='r')[2]
     wet=np.load(args.data/'mask.npy').astype(bool)
@@ -54,7 +55,7 @@ def main():
         path=args.root/arm
         assert (path/'COMPLETE').exists()
         protocol=json.loads((path/'protocol.json').read_text())
-        assert protocol['boundary']==arm and protocol['weight']==100 and protocol['steps']==1000
+        assert protocol['boundary']==arm and protocol['weight']==100 and protocol['steps']==args.expected_steps
         if expected_source is None:expected_source=protocol['source']
         assert protocol['source']==expected_source
         with np.load(args.source/'maps-5000.npz') as source,np.load(path/'maps-0.npz') as initial:
@@ -62,8 +63,8 @@ def main():
             assert all(np.array_equal(source[k],initial[k]) for k in source.files)
         history=[json.loads(line) for line in (path/'history.jsonl').read_text().splitlines()]
         end=history[-1]
-        assert end['step']==1000
-        with np.load(path/'maps-1000.npz') as saved:
+        assert end['step']==args.expected_steps
+        with np.load(path/f'maps-{args.expected_steps}.npz') as saved:
             assert np.array_equal(saved['truth'][0],truth) and np.array_equal(saved['mask'],wet)
             values=components(saved['prediction'][0],truth,wet)
         loss=values['state_mse']+100*values['highpass_mse']

@@ -20,6 +20,7 @@ def main():
     parser.add_argument("--data", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--expected-arms", type=int, required=True)
+    parser.add_argument("--expected-steps", type=int, default=5000)
     args = parser.parse_args()
     prepared = np.load(args.data / "prognostic.npy", mmap_mode="r")
     truth = prepared[2].astype(np.float64)
@@ -45,8 +46,8 @@ def main():
             assert protocol["training_channel_slice"] == [None, None]
         history = [json.loads(line) for line in (arm / "history.jsonl").read_text().splitlines()]
         end = history[-1]
-        assert end["step"] == protocol["steps"] == 5000
-        with np.load(arm / "maps-5000.npz") as saved:
+        assert end["step"] == protocol["steps"] == args.expected_steps
+        with np.load(arm / f"maps-{args.expected_steps}.npz") as saved:
             assert np.array_equal(saved["truth"][0], truth)
             assert np.array_equal(saved["mask"], wet)
             prediction = saved["prediction"][0].astype(np.float64)

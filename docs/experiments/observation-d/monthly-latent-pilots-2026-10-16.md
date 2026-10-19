@@ -918,37 +918,42 @@ GJ/m² error in upper OHC, because its climatology RMSE is0.367 versus0.702.
 This is a consequence of the chosen relative-skill weighting, not evidence that
 the deep layer is inherently1.9× more scientifically important.
 
-Annual evaluation submitted as **Beta214352**, pinned producer `cd6f25f2c`,
-one full node with an8h cap. Initial qualification stopped before production
-on a float-to-bool validity-mask assignment; no annual metrics were produced. Root:
-`/projects/ny/lz1955/multiscale/jrusak/runs/monthly-annual-20261018`.
-Durable completion callback and quiet monitoring are attached. No annual results
-are available yet.
+Annual evaluation is now gated by short qualification **214407**, followed by
+production **214408**, producer `8973278c9`. Current root:
+`/projects/ny/lz1955/multiscale/jrusak/runs/monthly-annual-20261018/recovery-ohc-support`.
+Twenty-three focused tests and pre-commit checks pass. All source checkpoints
+remain read-only, the scientific protocol is unchanged, and monitoring is active.
 
+The first-month replay already passed exactly in214379. A–D then saved all three
+full annual rollouts, but scoring stopped on seven shallow reference cells outside
+the model's complete-column temperature support. The repair derives a **fixed**
+support from depth masks and layer overlap (38,933 shallow/37,190 deep cells),
+matching the model's OHC integration and existing monthly comparison. It does
+not use prediction-dependent masking; missing predictions inside this geometry
+still fail. Every saved A–D prediction has exactly this support in every month.
 
-Annual recovery **Beta214378** uses producer `cfce65aee` at
-`/projects/ny/lz1955/multiscale/jrusak/runs/monthly-annual-20261018/recovery-mask`.
-The fix converts sample validity to bool explicitly, matching the existing monthly
-input path; twenty focused tests (including both validity dtypes) and pre-commit
-checks pass. The new audit requires data/checkpoint hashes to equal the previous
-audited contracts and repeats exact first-month qualification before production.
-Failed job214352, logs and reference arrays remain preserved; its0.2244 allocated
-GPU-hours bring the completed campaign total to97.8494 before this recovery.
-Replacement monitoring is attached. The eight models, three origins and scoring
-protocol are unchanged; annual scientific results remain pending.
+The12 completed rollouts will be reused via pinned hashes, verified source/audit/
+qualification lineage and fresh reference-array comparisons; old files are mounted
+read-only and copied with byte-for-byte checks. Remaining inference is only E
+and the three seed1730 models. Fresh qualification repeats first-month agreement
+and scores actual preserved annual OHC plus climatology before releasing production.
 
+All attempts are retained under the parent annual root:
 
-The mask recovery214378 reached the calendar readout but stopped on pandas'
-conversion of saved NumPy-string timestamps; no annual production ran. Producer
-`cbe24dde8` normalizes timestamps to a DatetimeIndex and adds a full annual-readout
-regression using NPZ-style strings, float validity,73steps and12months, including
-future-ocean-target noninterference. All22 focused tests and pre-commit pass.
+| Job(s) | Outcome | Allocated GPU-hours |
+|---|---|---:|
+| 214352 | Qualification stopped on validity dtype; fixed | 0.2244 |
+| 214378 | Qualification stopped on NumPy timestamp conversion; fixed | 0.2133 |
+| 214379 | Exact first-month qualification passed | 0.0811 |
+| 214380 | Twelve annual rollouts saved; common OHC support scoring failure | 1.1322 |
 
-Current recovery root:
-`/projects/ny/lz1955/multiscale/jrusak/runs/monthly-annual-20261018/recovery-timestamps`.
-Short qualification **214379** runs on beta_test; annual evaluation **214380**
-runs on production beta only after qualification succeeds. Each evaluation worker
-still verifies the qualified producer, data audit, configuration and checkpoint
-hashes. Both previous failed attempts remain preserved; together they used
-**0.4378 GPU-hours**, campaign total **98.0628** before this recovery chain.
-The new callback covers qualification failure or production completion.
+Annual allocation so far: **1.6511 GPU-hours**; campaign total **99.2761** before
+this recovery. Source/data hashes match across all attempts. No training or new
+checkpoint selection occurred.
+
+The support correction successfully scores all12 preserved annual cases locally.
+Their forecasts are finite but have severe long-lead drift: A's pooled day365
+SST RMSE is approximately11.2°C, and its2015 latent RMS grows from0.43 to2.35.
+These partial results are not a completed eight-model comparison, nor does the
+scoring exception explain the drift. The extrapolation of both latent evolution
+and decoder lead conditioning remains a material interpretation limit.

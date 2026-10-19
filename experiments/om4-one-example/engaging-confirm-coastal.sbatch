@@ -12,6 +12,7 @@
 #SBATCH --signal=B:USR1@300
 set -uo pipefail
 ROOT=/orcd/scratch/orcd/014/jrusak/om4-one-example-20261019
+test -f "$ROOT/INPUTS_VERIFIED" || exit 1
 export OMP_NUM_THREADS=4 WANDB_MODE=disabled REQUEUE_ON_USR1=1
 export APPTAINER_CACHEDIR="$ROOT/cache"
 export APPTAINER_TMPDIR="${SLURM_TMPDIR:-/tmp}"

@@ -33,7 +33,7 @@ export SAMUDRA_CONTAINER_IMAGE_REF=ghcr.io/m2lines/ocean-emulator-physicsnemo@sh
 mkdir -p "$ROOT/cache" "$WANDB_DIR" "$ROOT/output"
 scontrol show job "$SLURM_JOB_ID" > "$ROOT/allocation.txt"
 (cd "$ROOT" && sha256sum --check source.sha256)
-mounts="$ROOT/source/src:/workspace/src,$BASE/native:/workspace/native,$ROOT:$ROOT,$DATA_ROOT:$DATA_ROOT,$ROOT/cache:/workspace/.data_cache"
+mounts="$ROOT/source/src:/workspace/src,$BASE/native:/workspace/native,$BASE/control/output:$BASE/control/output,$ROOT:$ROOT,$DATA_ROOT:$DATA_ROOT,$ROOT/cache:/workspace/.data_cache"
 srun --kill-on-bad-exit=1 --container-image="$SAMUDRA_CONTAINER_IMAGE_REF" --container-mount-home --container-mounts="$mounts" bash -c '
 set -euo pipefail
 export PYTHONPATH=/workspace/src:/workspace/native

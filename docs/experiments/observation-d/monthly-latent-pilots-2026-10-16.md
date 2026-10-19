@@ -936,3 +936,19 @@ Failed job214352, logs and reference arrays remain preserved; its0.2244 allocate
 GPU-hours bring the completed campaign total to97.8494 before this recovery.
 Replacement monitoring is attached. The eight models, three origins and scoring
 protocol are unchanged; annual scientific results remain pending.
+
+
+The mask recovery214378 reached the calendar readout but stopped on pandas'
+conversion of saved NumPy-string timestamps; no annual production ran. Producer
+`cbe24dde8` normalizes timestamps to a DatetimeIndex and adds a full annual-readout
+regression using NPZ-style strings, float validity,73steps and12months, including
+future-ocean-target noninterference. All22 focused tests and pre-commit pass.
+
+Current recovery root:
+`/projects/ny/lz1955/multiscale/jrusak/runs/monthly-annual-20261018/recovery-timestamps`.
+Short qualification **214379** runs on beta_test; annual evaluation **214380**
+runs on production beta only after qualification succeeds. Each evaluation worker
+still verifies the qualified producer, data audit, configuration and checkpoint
+hashes. Both previous failed attempts remain preserved; together they used
+**0.4378 GPU-hours**, campaign total **98.0628** before this recovery chain.
+The new callback covers qualification failure or production completion.

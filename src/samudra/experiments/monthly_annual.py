@@ -12,6 +12,10 @@ from samudra.metrics import kernels
 
 
 def month_layout(starts, month):
+    # NPZ payloads carry numpy.str_ scalars; older pandas rejects those in
+    # Timestamp even though DatetimeIndex accepts the containing array.
+    starts = pd.DatetimeIndex(starts)
+    month = str(month)
     weights = month_weights(starts, month).astype(np.float32)
     indices = np.flatnonzero(weights)
     duration = float(pd.Timestamp(month).days_in_month)

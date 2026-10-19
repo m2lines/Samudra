@@ -1,0 +1,44 @@
+{
+  "state_mse_reduction_fraction": 0.001555925016419657,
+  "highpass_mse_reduction_fraction": 0.0019693073916652315,
+  "per_channel_mse_ratio_min_max": [
+    0.9971277570815404,
+    0.9990975186612842
+  ],
+  "per_channel_highpass_mse_ratio_min_max": [
+    0.9971061331829852,
+    1.0135642318499982
+  ],
+  "endpoints": {
+    "eps_1e-8": {
+      "step": 10000,
+      "seconds": 1809.1489388132468,
+      "eval_mse": 4.071617149747908e-05,
+      "training_objective": 0.00011936612281715497,
+      "highpass_mse": 7.864995268391795e-07,
+      "objective_gradient_norm": 7.804404420980268e-05,
+      "logical_gradient_evaluations": 10101,
+      "adam_damping": {
+        "positive_second_moment_parameters": 83872357,
+        "zero_second_moment_parameters": 194117,
+        "fraction_positive_rms_below_epsilon": 0.33841723322500644,
+        "mean_epsilon_share_of_denominator_positive_only": 0.36074798753642323
+      }
+    },
+    "eps_1e-12": {
+      "step": 10000,
+      "seconds": 1819.443458543159,
+      "eval_mse": 4.065282337251119e-05,
+      "training_objective": 0.00011914788046851754,
+      "highpass_mse": 7.849506005186413e-07,
+      "objective_gradient_norm": 7.817748979639831e-05,
+      "logical_gradient_evaluations": 10101,
+      "adam_damping": {
+        "positive_second_moment_parameters": 83872357,
+        "zero_second_moment_parameters": 194117,
+        "fraction_positive_rms_below_epsilon": 0.0,
+        "mean_epsilon_share_of_denominator_positive_only": 0.00015374902565129517
+      }
+    }
+  }
+}

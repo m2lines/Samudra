@@ -47,6 +47,10 @@ def main():
         with np.load(root / "weight_0/maps-0.npz") as a, np.load(root / "weight_100/maps-0.npz") as b:
             assert set(a.files) == set(b.files)
             assert all(np.array_equal(a[key], b[key]) for key in a.files)
+        pretrain = args.results / ("absolute-relative-loss/identity_weight_100" if name == "seed15_oct" else f"spatial-confirm-pretrain/{name}/identity_weight_100")
+        with np.load(pretrain / "maps-5000.npz") as source, np.load(root / "weight_100/maps-0.npz") as initial:
+            assert set(source.files) == set(initial.files)
+            assert all(np.array_equal(source[key], initial[key]) for key in source.files)
         maps = []
         for arm in ("weight_0", "weight_100"):
             with np.load(root / arm / "maps-1000.npz") as saved:

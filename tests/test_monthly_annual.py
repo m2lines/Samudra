@@ -5,6 +5,7 @@ from types import SimpleNamespace
 import numpy as np
 import pandas as pd
 import pytest
+import torch
 
 from samudra.experiments.monthly_annual import lead_metrics, month_layout
 from samudra.experiments.observation_metrics import _field
@@ -50,3 +51,19 @@ def test_fixed_lead_metrics_zero_for_perfect_case_predictions():
         for r in result
         for k in ["sst_rmse", "adt_rmse", "velocity_rmse", "eke_rmse"]
     )
+
+
+@pytest.mark.parametrize("mask_dtype", [torch.bool, torch.float32])
+def test_annual_history_accepts_samples_float_validity(mask_dtype):
+    from samudra.experiments.monthly_annual import history_fields
+
+    surface = torch.randn(1, 19, 2, 3, 4)
+    valid = torch.ones_like(surface, dtype=mask_dtype)
+    valid[:, :, 0, 0, 0] = 0
+    fields, available = history_fields(surface, valid)
+    assert fields.dtype == surface.dtype and available.dtype == torch.bool
+    torch.testing.assert_close(fields[:, :, [38, 76]], surface, rtol=0, atol=0)
+    torch.testing.assert_close(available[:, :, [38, 76]], valid.bool(), rtol=0, atol=0)
+    assert not available[:, :, :38].any()
+    with pytest.raises(ValueError, match="19-bin"):
+        history_fields(surface[:, :18], valid[:, :18])

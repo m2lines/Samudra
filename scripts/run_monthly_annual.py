@@ -64,6 +64,12 @@ def audit(config, root):
         complete = json.loads((path.parent / "TRAIN_COMPLETE.json").read_text())
         if complete["step"] != 3000:
             raise ValueError("Model incomplete")
+    if config.get("prior_audit"):
+        prior = json.loads(Path(config["prior_audit"]).read_text())
+        if prior["contracts"] != contracts:
+            raise ValueError(
+                "Recovery source/data hashes differ from the failed attempt"
+            )
     atomic_json(
         dict(config_sha256=digest(root / "paths.json"), contracts=contracts),
         root / "AUDITED.json",

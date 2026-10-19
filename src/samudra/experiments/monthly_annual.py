@@ -22,13 +22,26 @@ def month_layout(starts, month):
     return indices, weights[indices], duration, position
 
 
+def history_fields(surface, validity):
+    """Lift surface history into masked physical inputs; sample masks may be floats."""
+    if (
+        surface.shape != validity.shape
+        or surface.ndim != 5
+        or surface.shape[1:3] != (19, 2)
+    ):
+        raise ValueError("Expected aligned 19-bin SST/SSH history and validity")
+    fields = surface.new_zeros(surface.shape[0], 19, 77, *surface.shape[-2:])
+    available = torch.zeros_like(fields, dtype=torch.bool)
+    fields[:, :, [38, 76]] = surface
+    available[:, :, [38, 76]] = validity.bool()
+    return fields, available
+
+
 @torch.no_grad()
 def rollout(model, data, description, raw, *, origin_index, first_month_only=False):
     """Initialize once; never consume future ocean observations during evolution."""
     surface, atmosphere, contexts, _, valid = inputs(data, raw)
-    fields = surface.new_zeros(1, 19, 77, *model.shape)
-    available = torch.zeros_like(fields, dtype=torch.bool)
-    fields[:, :, [38, 76]], available[:, :, [38, 76]] = surface, valid
+    fields, available = history_fields(surface, valid)
     monthly_sample = data.load(
         data.root / "test" / (description["origin"][:7] + ".npz")
     )

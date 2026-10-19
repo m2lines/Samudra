@@ -20,6 +20,14 @@
           "closure_evaluations": 11217,
           "measured_seconds": 2672.652127610985,
           "worst_global_hp_error_over_target_rms": 0.03126396815326721,
+          "state_mse_contribution_fraction_by_group": {
+            "U": 0.11412812318829468,
+            "V": 0.07026088644564556,
+            "T": 0.390431924415161,
+            "S": 0.416081753083688,
+            "SSH": 0.009097312867210895,
+            "T_shallowest_two": 0.13032067405151984
+          },
           "quiet_patch": {
             "T1850": {
               "mse": 1.4527470834358948e-08,
@@ -52,6 +60,14 @@
           "closure_evaluations": 11201,
           "measured_seconds": 2659.6637281049043,
           "worst_global_hp_error_over_target_rms": 0.03447721955983342,
+          "state_mse_contribution_fraction_by_group": {
+            "U": 0.021754694964782845,
+            "V": 0.018448975716747112,
+            "T": 0.8465367426861473,
+            "S": 0.10940637151965169,
+            "SSH": 0.003853215112671007,
+            "T_shallowest_two": 0.7142398919071892
+          },
           "quiet_patch": {
             "T1850": {
               "mse": 1.806736554359523e-08,

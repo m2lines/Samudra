@@ -37,6 +37,14 @@ def main():
                 arm: {
                     **{key: objective[arm][key] for key in ("state_mse", "highpass_mse", "boundary_state_mse_contribution", "interior_state_mse_contribution", "closure_evaluations", "measured_seconds")},
                     "worst_global_hp_error_over_target_rms": max(values["per_channel_hp_error_over_target_rms"]),
+                    "state_mse_contribution_fraction_by_group": {
+                        group: float(np.array(values["per_channel_mse"])[indices].sum() / np.sum(values["per_channel_mse"]))
+                        for group, indices in {
+                            "U": slice(0, 19), "V": slice(19, 38), "T": slice(38, 57),
+                            "S": slice(57, 76), "SSH": slice(76, 77),
+                            "T_shallowest_two": slice(38, 40),
+                        }.items()
+                    },
                     "quiet_patch": {field: values["selected_fields"][field]["patch"] for field in ("T1850", "S1850", "SSH")},
                 } for arm, values in maps.items()
             },

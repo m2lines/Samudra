@@ -1,0 +1,33 @@
+{
+  "scope": "Intermediate training-log measurements; final maps independently verified separately. Last logged lowered-threshold point at or below the default endpoint budget, not interpolated or exactly equal compute. Closure counts exclude periodic diagnostic gradients; measured time includes periodic checkpoints.",
+  "within_default_budget": {
+    "extra_closures": {
+      "control_budget": 1781,
+      "lowered_budget": 1660,
+      "lowered_step": 2150,
+      "control_over_lowered_state_mse": 1.3247502157511093,
+      "control_over_lowered_highpass_mse": 1.3325089746196603
+    },
+    "extra_seconds": {
+      "control_budget": 526.076970138005,
+      "lowered_budget": 505.6553004310699,
+      "lowered_step": 2200,
+      "control_over_lowered_state_mse": 1.4265635563581438,
+      "control_over_lowered_highpass_mse": 1.469652092682687
+    }
+  },
+  "endpoints": {
+    "default": {
+      "extra_closures": 1781,
+      "extra_seconds": 526.076970138005,
+      "curvature_candidates": 781,
+      "curvature_accepted": 0
+    },
+    "lowered": {
+      "extra_closures": 5527,
+      "extra_seconds": 1278.3607801230391,
+      "curvature_candidates": 5000,
+      "curvature_accepted": 4999
+    }
+  }
+}

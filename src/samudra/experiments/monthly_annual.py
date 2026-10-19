@@ -178,3 +178,48 @@ def lead_metrics(prediction, reference, data):
             )
         )
     return results
+
+
+def fixed_ohc_support(grid):
+    """Complete model temperature columns intersecting each fixed OHC layer."""
+    from samudra.constants import build_om4_layout
+
+    edges = np.r_[0.0, np.cumsum(build_om4_layout().depth_thickness)]
+    wet = np.asarray(grid["mask"][38:57], dtype=bool)
+    return np.stack(
+        [
+            wet[(edges[:-1] < layer.max_depth) & (edges[1:] > layer.min_depth)].all(0)
+            for layer in kernels.OHC_LAYERS
+        ]
+    )
+
+
+def monthly_ohc_metrics(prediction, reference, climatology, area, support):
+    """Mask target by fixed geometry; missing predictions within it remain errors."""
+    prediction, reference, climatology = map(
+        np.asarray, (prediction, reference, climatology)
+    )
+    support = np.asarray(support, dtype=bool)
+    if (
+        prediction.shape != reference.shape
+        or climatology.shape != prediction.shape
+        or prediction.ndim != 5
+        or prediction.shape[1:3] != (12, 2)
+        or support.shape != prediction.shape[2:]
+    ):
+        raise ValueError("Annual OHC arrays or fixed geometry differ")
+    if not np.isfinite(np.where(support, prediction, 0)).all():
+        raise ValueError("Nonfinite OHC prediction on fixed model support")
+    truth = np.where(support, reference, np.nan)
+    result = []
+    for month in range(12):
+        entry = {"month": month + 1}
+        for channel, label in enumerate(("0_700", "700_2000")):
+            entry[label] = weighted_rmse(
+                prediction[:, month, channel], truth[:, month, channel], area
+            )
+            entry[label + "_climatology"] = weighted_rmse(
+                climatology[:, month, channel], truth[:, month, channel], area
+            )
+        result.append(entry)
+    return result

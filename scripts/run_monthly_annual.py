@@ -6,18 +6,23 @@
 import argparse
 import json
 import os
+import shutil
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import torch
 
-from samudra.experiments.monthly_annual import lead_metrics, rollout
+from samudra.experiments.monthly_annual import (
+    fixed_ohc_support,
+    lead_metrics,
+    monthly_ohc_metrics,
+    rollout,
+)
 from samudra.experiments.monthly_forcing_adapter import ModelForcingAdapter
 from samudra.experiments.monthly_latent import MonthlyLatentOcean
 from samudra.experiments.monthly_pilot_evaluation import evaluate
 from samudra.experiments.observation_annual import read_origin
-from samudra.experiments.observation_metrics import weighted_rmse
 from samudra.experiments.observation_pilot import atomic_json, digest
 from samudra.experiments.observation_training import Samples
 
@@ -70,6 +75,28 @@ def audit(config, root):
             raise ValueError(
                 "Recovery source/data hashes differ from the failed attempt"
             )
+    reuse = config.get("rollout_reuse")
+    if reuse:
+        prior_root = Path(reuse["root"])
+        for name, expected in reuse["metadata"].items():
+            if digest(prior_root / name) != expected:
+                raise ValueError("Reused rollout provenance changed")
+        qualified = json.loads((prior_root / "QUALIFIED.json").read_text())
+        if (
+            qualified["producer"] != reuse["producer"]
+            or qualified["first_month_readout_exact"] is not True
+            or qualified["audit_sha256"] != digest(prior_root / "AUDITED.json")
+        ):
+            raise ValueError("Reused producer was not qualified")
+        prior_config = json.loads((prior_root / "paths.json").read_text())
+        if (
+            prior_config["models"] != config["models"]
+            or prior_config["origins"] != config["origins"]
+        ):
+            raise ValueError("Reused model/origin cohort differs")
+        for name, expected in reuse["files"].items():
+            if digest(prior_root / name) != expected:
+                raise ValueError("Reused rollout hash changed")
     atomic_json(
         dict(config_sha256=digest(root / "paths.json"), contracts=contracts),
         root / "AUDITED.json",
@@ -175,7 +202,8 @@ def main():
     if not run.url:
         raise ValueError("Online evaluation tracking unavailable")
     (output / "wandb-url.txt").write_text(run.url + "\n")
-    model = load_model(row)
+    reuse = config.get("rollout_reuse", {})
+    model = None
     predictions = []
     refs = []
     pred_ohc = []
@@ -184,7 +212,31 @@ def main():
     climate_ohc = []
     for i, origin in enumerate(config["origins"]):
         desc, raw = read_origin(Path(config["annual"]) / "test" / origin)
-        result = rollout(model, data, desc, raw, origin_index=i)
+        relative = row["name"] + "/" + origin + ".npz"
+        reuse_sha = reuse.get("files", {}).get(relative)
+        if reuse_sha:
+            source = Path(reuse["root"]) / relative
+            if digest(source) != reuse_sha:
+                raise ValueError("Reused rollout changed after audit")
+            with np.load(source) as saved:
+                result = {
+                    key: saved[key]
+                    for key in ("surface", "ohc", "months", "latent_rms")
+                }
+                saved_reference = saved["reference_surface"]
+                saved_ohc = saved["reference_ohc"]
+            if (
+                result["surface"].shape != (73, 2, 180, 360)
+                or result["ohc"].shape != (12, 2, 180, 360)
+                or result["latent_rms"].shape != (74,)
+                or not np.isfinite(result["surface"]).all()
+                or not np.isfinite(result["latent_rms"]).all()
+            ):
+                raise ValueError("Reused annual payload incomplete or nonfinite")
+        else:
+            if model is None:
+                model = load_model(row)
+            result = rollout(model, data, desc, raw, origin_index=i)
         reference = np.concatenate([raw["surface"][19:], raw["velocity"][19:]], 1)
         targets = []
         clim_ohc = []
@@ -195,12 +247,23 @@ def main():
                 targets.append(z["ohc"])
             sample = data.load(data.root / "test" / (record["file"][:7] + ".npz"))
             clim_ohc.append(data.climatology_fields(sample)["ohc"][0])
-        np.savez_compressed(
-            output / (origin + ".npz"),
-            **result,
-            reference_surface=reference,
-            reference_ohc=np.stack(targets),
-        )
+        if reuse_sha:
+            np.testing.assert_array_equal(saved_reference, reference)
+            np.testing.assert_array_equal(saved_ohc, np.stack(targets))
+            np.testing.assert_array_equal(
+                result["months"],
+                [record["file"][:7] for record in desc["monthly_interiors"]],
+            )
+            shutil.copyfile(source, output / (origin + ".npz"))
+            if digest(output / (origin + ".npz")) != reuse_sha:
+                raise ValueError("Reused copy differs")
+        else:
+            np.savez_compressed(
+                output / (origin + ".npz"),
+                **result,
+                reference_surface=reference,
+                reference_ohc=np.stack(targets),
+            )
         predictions.append(result["surface"])
         refs.append(reference)
         pred_ohc.append(result["ohc"])
@@ -211,18 +274,14 @@ def main():
         print(json.dumps(dict(origin=origin, complete=True)), flush=True)
     lead = lead_metrics(np.stack(predictions), np.stack(refs), data)
     baseline = lead_metrics(np.stack(climates), np.stack(refs), data)
-    ohc = []
-    area = data.ohc_area.cpu().numpy()
-    for m in range(12):
-        entry = {"month": m + 1}
-        for k, label in enumerate(["0_700", "700_2000"]):
-            entry[label] = weighted_rmse(
-                np.stack(pred_ohc)[:, m, k], np.stack(ref_ohc)[:, m, k], area
-            )
-            entry[label + "_climatology"] = weighted_rmse(
-                np.stack(climate_ohc)[:, m, k], np.stack(ref_ohc)[:, m, k], area
-            )
-        ohc.append(entry)
+    support = fixed_ohc_support(data.grid)
+    ohc = monthly_ohc_metrics(
+        np.stack(pred_ohc),
+        np.stack(ref_ohc),
+        np.stack(climate_ohc),
+        data.ohc_area.cpu().numpy(),
+        support,
+    )
     for row_lead, control in zip(lead, baseline, strict=True):
         row_lead["surface_blend"] = float(
             np.mean(
@@ -238,6 +297,12 @@ def main():
             leads=lead,
             climatology_leads=baseline,
             monthly_ohc=ohc,
+            fixed_ohc_support_cells=support.sum((1, 2)).tolist(),
+            reused_rollouts={
+                key: value
+                for key, value in reuse.get("files", {}).items()
+                if key.startswith(row["name"] + "/")
+            },
             eke_definition="Across the three origins at each fixed lead, matching short-horizon aggregation axis",
             checkpoint_sha256=proof["contracts"][row["checkpoint"]],
             producer=config["producer"],

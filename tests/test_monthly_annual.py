@@ -162,3 +162,30 @@ def test_full_annual_readout_with_saved_string_timestamps(tmp_path):
     result2 = rollout(model, data, description, raw, origin_index=0)
     np.testing.assert_array_equal(result2["surface"], result["surface"])
     np.testing.assert_array_equal(result2["ohc"], result["ohc"])
+
+
+def test_ohc_scoring_uses_fixed_complete_columns_and_rejects_missing_inside():
+    from samudra.experiments.monthly_annual import (
+        fixed_ohc_support,
+        monthly_ohc_metrics,
+    )
+
+    grid = {"mask": np.ones((77, 2, 3), dtype=bool)}
+    grid["mask"][38, 0, 0] = False
+    support = fixed_ohc_support(grid)
+    assert not support[0, 0, 0] and support[1, 0, 0]
+    prediction = np.ones((3, 12, 2, 2, 3))
+    reference = np.ones_like(prediction)
+    prediction[:, :, 0, 0, 0] = np.nan
+    result = monthly_ohc_metrics(
+        prediction, reference, prediction, np.ones((2, 3)), support
+    )
+    assert len(result) == 12
+    assert all(
+        r[k] == 0
+        for r in result
+        for k in ["0_700", "700_2000", "0_700_climatology", "700_2000_climatology"]
+    )
+    prediction[0, 5, 1, 1, 1] = np.nan
+    with pytest.raises(ValueError, match="fixed model support"):
+        monthly_ohc_metrics(prediction, reference, prediction, np.ones((2, 3)), support)

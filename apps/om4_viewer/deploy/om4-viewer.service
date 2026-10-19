@@ -1,0 +1,15 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+# SPDX-License-Identifier: Apache-2.0
+[Unit]
+Description=Samudra OM4 data viewer
+
+[Service]
+Type=exec
+WorkingDirectory=%h/.codex/worktrees/2948/Ocean_Emulator/apps/om4_viewer
+Environment=PYTHONUNBUFFERED=1
+ExecStart=%h/.codex/worktrees/2948/Ocean_Emulator/apps/om4_viewer/.venv/bin/python3 %h/.codex/worktrees/2948/Ocean_Emulator/apps/om4_viewer/server.py --data %h/data/om4_onedeg --host 127.0.0.1 --port 8766
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

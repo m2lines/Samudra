@@ -919,8 +919,20 @@ This is a consequence of the chosen relative-skill weighting, not evidence that
 the deep layer is inherently1.9× more scientifically important.
 
 Annual evaluation submitted as **Beta214352**, pinned producer `cd6f25f2c`,
-one full node with an8h cap; currently queued at release. Eighteen focused tests
-and pre-commit checks pass. Root:
+one full node with an8h cap. Initial qualification stopped before production
+on a float-to-bool validity-mask assignment; no annual metrics were produced. Root:
 `/projects/ny/lz1955/multiscale/jrusak/runs/monthly-annual-20261018`.
 Durable completion callback and quiet monitoring are attached. No annual results
 are available yet.
+
+
+Annual recovery **Beta214378** uses producer `cfce65aee` at
+`/projects/ny/lz1955/multiscale/jrusak/runs/monthly-annual-20261018/recovery-mask`.
+The fix converts sample validity to bool explicitly, matching the existing monthly
+input path; twenty focused tests (including both validity dtypes) and pre-commit
+checks pass. The new audit requires data/checkpoint hashes to equal the previous
+audited contracts and repeats exact first-month qualification before production.
+Failed job214352, logs and reference arrays remain preserved; its0.2244 allocated
+GPU-hours bring the completed campaign total to97.8494 before this recovery.
+Replacement monitoring is attached. The eight models, three origins and scoring
+protocol are unchanged; annual scientific results remain pending.

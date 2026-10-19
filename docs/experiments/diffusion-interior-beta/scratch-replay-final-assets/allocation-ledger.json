@@ -1,0 +1,70 @@
+{
+  "scope": "Fresh scratch pair qualification, training, cooldown fork, and checkpoint evaluations; earlier pilots excluded. Zero-allocation cancelled jobs213605/213606 excluded.",
+  "source": "Beta sacct top-level allocations, checked2026-10-19; do not add child steps again.",
+  "total_gpu_hours": 1641.6722222222222,
+  "jobs": [
+    {
+      "job": 212417,
+      "purpose": "qualification",
+      "allocated_seconds": 2011,
+      "gpus": 8,
+      "gpu_hours": 4.4688888888888885
+    },
+    {
+      "job": 212418,
+      "purpose": "direct training, user-cancelled",
+      "allocated_seconds": 240288,
+      "gpus": 8,
+      "gpu_hours": 533.9733333333334
+    },
+    {
+      "job": 212419,
+      "purpose": "residual allocation, includes cooldown fork and in-allocation evaluations",
+      "allocated_seconds": 490368,
+      "gpus": 8,
+      "gpu_hours": 1089.7066666666667
+    },
+    {
+      "job": 212865,
+      "purpose": "direct2k evaluation",
+      "allocated_seconds": 2056,
+      "gpus": 4,
+      "gpu_hours": 2.2844444444444445
+    },
+    {
+      "job": 213179,
+      "purpose": "residual2k evaluation",
+      "allocated_seconds": 2117,
+      "gpus": 4,
+      "gpu_hours": 2.352222222222222
+    },
+    {
+      "job": 213310,
+      "purpose": "direct4k evaluation",
+      "allocated_seconds": 2031,
+      "gpus": 4,
+      "gpu_hours": 2.256666666666667
+    },
+    {
+      "job": 214126,
+      "purpose": "residual6k evaluation",
+      "allocated_seconds": 2004,
+      "gpus": 4,
+      "gpu_hours": 2.2266666666666666
+    },
+    {
+      "job": 214266,
+      "purpose": "residual8k evaluation",
+      "allocated_seconds": 2008,
+      "gpus": 4,
+      "gpu_hours": 2.2311111111111113
+    },
+    {
+      "job": 214448,
+      "purpose": "residual final evaluation",
+      "allocated_seconds": 1955,
+      "gpus": 4,
+      "gpu_hours": 2.172222222222222
+    }
+  ]
+}

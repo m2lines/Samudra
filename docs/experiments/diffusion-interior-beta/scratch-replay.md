@@ -3,7 +3,7 @@
 
 # Fresh direct and residual models with replay
 
-Status: the direct arm was stopped at the user's request after its annual observation-path instability persisted. The residual arm continues its original training budget; [8k observation results](scratch-replay-residual-8k.md) are now available, alongside the [4k observation-only cooldown comparison](residual-4k-cooldown-results.md). That separate cooldown did not replace the main trajectory. The historical launch notes below describe the original two-arm plan.
+Status: campaign complete. The residual model reached 10,160 updates of each task and finished its scheduled cooldown; [final results](scratch-replay-final.md) and [error maps](scratch-replay-final-maps.md) are published. The direct arm was stopped at the user's request after persistent annual instability. The separate [4k observation-only cooldown](residual-4k-cooldown-results.md) did not replace the main trajectory. Historical launch notes below describe the original plan.
 
 The question is whether training stable evolution from scratch makes annual error growth more comparable to the deterministic control, while retaining plausible individual diffusion members. Beating the deterministic control's absolute score is not the primary criterion.
 

@@ -32,6 +32,8 @@ def main():
         inside &= np.roll(wet, shift, axis)
     inside[:, (0, -1), :] = False
     target_hp = highpass(truth)
+    target_hp_mse = (target_hp**2 * inside).sum((-2, -1)) / inside.sum((-2, -1))
+    assert np.all(target_hp_mse > 0)
     increment = truth - previous
     increment_hp = highpass(increment)
     selected = {13: "U1850", 32: "V1850", 51: "T1850", 70: "S1850", 76: "SSH"}
@@ -80,6 +82,7 @@ def main():
             "highpass_mse": float(channel_hp.mean()),
             "per_channel_mse": channel_mse.tolist(),
             "per_channel_highpass_mse": channel_hp.tolist(),
+            "per_channel_hp_error_over_target_rms": np.sqrt(channel_hp / target_hp_mse).tolist(),
             "selected_fields": fields,
         }
     args.output.parent.mkdir(parents=True, exist_ok=True)

@@ -1,0 +1,21 @@
+{
+  "producer": "8973278c9",
+  "origins": [
+    "2015-01-01",
+    "2018-01-01",
+    "2021-01-01"
+  ],
+  "model_count": 8,
+  "annual_payloads": 24,
+  "verified_output_hashes": 32,
+  "source_checkpoints_match_audit": true,
+  "first_month_readout_exact": true,
+  "fixed_ohc_support_cells": [
+    38933,
+    37190
+  ],
+  "reused_payloads": 12,
+  "new_payloads": 12,
+  "annual_gpu_hours_including_retries": 2.888611,
+  "campaign_gpu_hours": 100.513611
+}

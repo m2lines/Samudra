@@ -9,6 +9,10 @@ with online W&B, twelve validation checkpoints, and saved main/cooled endpoints.
 Producer `1c9817d44`; full qualification **214096** passed. Allocated production
 GPU time was 41.3178 hours; including qualification attempts, **41.5228 GPU-hours**.
 
+The [365-day follow-up](monthly-latent-annual-2026-10-18.md) is also complete for
+all eight cooled endpoints. Every model drifts badly at long leads; the annual
+report includes the full metric curves and maps.
+
 ## Pilot results
 
 These are **validation results**, not held-out test or annual rollout results.
@@ -918,25 +922,17 @@ GJ/m² error in upper OHC, because its climatology RMSE is0.367 versus0.702.
 This is a consequence of the chosen relative-skill weighting, not evidence that
 the deep layer is inherently1.9× more scientifically important.
 
-Annual evaluation is now gated by short qualification **214407**, followed by
-production **214408**, producer `8973278c9`. Current root:
-`/projects/ny/lz1955/multiscale/jrusak/runs/monthly-annual-20261018/recovery-ohc-support`.
-Twenty-three focused tests and pre-commit checks pass. All source checkpoints
-remain read-only, the scientific protocol is unchanged, and monitoring is active.
+**Annual evaluation is complete.** All eight models passed first-month replay
+qualification and completed all three365-day cases. Their year-end skill is poor:
+SST RMSE10.25–17.04°C and strong OHC/latent drift. The [annual report](monthly-latent-annual-2026-10-18.md)
+contains all lead curves, monthly OHC, case-level results, maps and interpretation.
+The short-horizon improvements above do not establish long-horizon skill.
 
-The first-month replay already passed exactly in214379. A–D then saved all three
-full annual rollouts, but scoring stopped on seven shallow reference cells outside
-the model's complete-column temperature support. The repair derives a **fixed**
-support from depth masks and layer overlap (38,933 shallow/37,190 deep cells),
-matching the model's OHC integration and existing monthly comparison. It does
-not use prediction-dependent masking; missing predictions inside this geometry
-still fail. Every saved A–D prediction has exactly this support in every month.
-
-The12 completed rollouts will be reused via pinned hashes, verified source/audit/
-qualification lineage and fresh reference-array comparisons; old files are mounted
-read-only and copied with byte-for-byte checks. Remaining inference is only E
-and the three seed1730 models. Fresh qualification repeats first-month agreement
-and scores actual preserved annual OHC plus climatology before releasing production.
+Qualification214407 and evaluation214408 used producer `8973278c9`. Twelve saved
+A–D archives were reused after hash/reference checks; the remaining twelve were
+newly inferred. The OHC scoring repair derives fixed support from temperature
+column geometry (38,933/37,190 cells), excluding seven unsupported shallow
+reference cells and still rejecting missing predictions within support.
 
 All attempts are retained under the parent annual root:
 
@@ -946,14 +942,9 @@ All attempts are retained under the parent annual root:
 | 214378 | Qualification stopped on NumPy timestamp conversion; fixed | 0.2133 |
 | 214379 | Exact first-month qualification passed | 0.0811 |
 | 214380 | Twelve annual rollouts saved; common OHC support scoring failure | 1.1322 |
+| 214407 | First-month replay and fixed-support scoring qualified | 0.0831 |
+| 214408 | All eight annual models completed | 1.1544 |
 
-Annual allocation so far: **1.6511 GPU-hours**; campaign total **99.2761** before
-this recovery. Source/data hashes match across all attempts. No training or new
-checkpoint selection occurred.
-
-The support correction successfully scores all12 preserved annual cases locally.
-Their forecasts are finite but have severe long-lead drift: A's pooled day365
-SST RMSE is approximately11.2°C, and its2015 latent RMS grows from0.43 to2.35.
-These partial results are not a completed eight-model comparison, nor does the
-scoring exception explain the drift. The extrapolation of both latent evolution
-and decoder lead conditioning remains a material interpretation limit.
+Annual allocation including retries: **2.8886 GPU-hours**; campaign total
+**100.5136**. All source/data identities and32 output hashes verified. Monitoring
+is closed and no further experiments were launched.

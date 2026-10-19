@@ -1,0 +1,110 @@
+{
+  "training_job": 214293,
+  "diagnostics_job": 214376,
+  "observation_job": 140147,
+  "source_commit": "c177a372c",
+  "diagnostics_fix": "aadc3692f",
+  "observation_source": "2d1b0e6",
+  "seed": 15,
+  "epochs": 70,
+  "held_out_dates": 16,
+  "leads_days": [
+    5,
+    10
+  ],
+  "date_seed": 1718,
+  "target_dates": [
+    [
+      "2015-10-30 12:00:00",
+      "2015-11-04 12:00:00"
+    ],
+    [
+      "2016-10-24 12:00:00",
+      "2016-10-29 12:00:00"
+    ],
+    [
+      "2016-02-02 12:00:00",
+      "2016-02-07 12:00:00"
+    ],
+    [
+      "2018-09-25 12:00:00",
+      "2018-09-30 12:00:00"
+    ],
+    [
+      "2017-10-25 12:00:00",
+      "2017-10-30 12:00:00"
+    ],
+    [
+      "2021-10-15 12:00:00",
+      "2021-10-20 12:00:00"
+    ],
+    [
+      "2019-12-14 12:00:00",
+      "2019-12-19 12:00:00"
+    ],
+    [
+      "2018-04-03 12:00:00",
+      "2018-04-08 12:00:00"
+    ],
+    [
+      "2016-05-22 12:00:00",
+      "2016-05-27 12:00:00"
+    ],
+    [
+      "2019-02-02 12:00:00",
+      "2019-02-07 12:00:00"
+    ],
+    [
+      "2015-09-30 12:00:00",
+      "2015-10-05 12:00:00"
+    ],
+    [
+      "2016-07-01 12:00:00",
+      "2016-07-06 12:00:00"
+    ],
+    [
+      "2020-05-02 12:00:00",
+      "2020-05-07 12:00:00"
+    ],
+    [
+      "2015-12-09 12:00:00",
+      "2015-12-14 12:00:00"
+    ],
+    [
+      "2022-07-27 12:00:00",
+      "2022-08-01 12:00:00"
+    ],
+    [
+      "2020-03-28 12:00:00",
+      "2020-04-02 12:00:00"
+    ]
+  ],
+  "aggregation": "RMSE of mean squared error over dates and cosine-latitude-weighted channel-specific wet cells; HF correlation is mean per-date spatial correlation; HF energy ratio is ratio of pooled energies",
+  "field_order_in_maps": [
+    "zos",
+    "thetao_0",
+    "so_0",
+    "uo_0",
+    "vo_0"
+  ],
+  "map_region": "North Atlantic 85W-10E,15N-65N; first two sampled held-out dates",
+  "training_objective": "Fixed MSE in original globally standardized field units, versus same plus 0.1 training-calibrated band term. No dynamic weights in new arms.",
+  "historical_dynamic": "Beta control seed15 uaei2vbr; contextual comparator",
+  "status": "Complete: both training runs, all four raw/EMA evaluations, six-model diagnostics, and observation scoring verified",
+  "runs": {
+    "mse": "https://wandb.ai/ocean_emulators/default/runs/h9lh3c0a",
+    "band": "https://wandb.ai/ocean_emulators/default/runs/5vl0zwi4"
+  },
+  "observations": {
+    "job": 140147,
+    "exit_code": "0:0",
+    "elapsed": "00:28:25",
+    "rows": 255,
+    "primary_surface_years": "2015-2022",
+    "primary_ohc_years": "2015-2021",
+    "source_products": "DUACS, OISST, Argo-IAP",
+    "paired_comparison": "Same grid, paired cells, wet fractions and date windows verified. Root mean annual MSE; equal calendar-year weights.",
+    "bootstrap": "Paired year resampling,10000 draws,seed0; excludes training-seed uncertainty",
+    "historical_controls": "Seeds15 Beta and16/17 Torch; different hardware/backend, contextual range only"
+  }
+}

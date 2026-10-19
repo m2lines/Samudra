@@ -1,0 +1,19 @@
+{
+  "job_id": 214293,
+  "host": "beta",
+  "state_at_submission": "PENDING Resources",
+  "source_commit": "c177a372c",
+  "arms_in_order": [
+    "mse",
+    "mse_plus_band"
+  ],
+  "seed_each": 15,
+  "epochs_each": 70,
+  "gpu_count": 4,
+  "time_limit_hours": 24,
+  "recent_baseline_search": "194 W&B ocean_emulators/default runs created since 2026-09-25; no fixed-MSE candidates",
+  "callback": "4f18547b-b497-4758-b248-51e829f09f99",
+  "monitor": "/root/monitor_mse_band_pair",
+  "runtime_verification": "Pending: neither training nor W&B startup has been observed yet",
+  "source_archive_manifest": "Remote ROOT/source.sha256 (verified before submission)"
+}

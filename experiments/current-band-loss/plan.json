@@ -1,0 +1,34 @@
+{
+  "purpose": "Matched seed15 pair: ordinary MSE versus MSE plus fixed band penalty; architecture/data/optimizer otherwise match the three stochastic-depth-OFF controls",
+  "baseline_source": "a20c444849",
+  "primary_baseline": {
+    "seed": 15,
+    "host": "beta",
+    "arm": "new ordinary MSE"
+  },
+  "additional_controls": [
+    {
+      "seed": 16,
+      "host": "torch",
+      "job": 19521808
+    },
+    {
+      "seed": 17,
+      "host": "torch",
+      "job": 19521810
+    }
+  ],
+  "model": "samudra_om4 ConvNeXt U-Net, instance normalization, stochastic depth0; exact original source and defaults",
+  "matching": "70epochs,lr0.0006cosine,4autoregressivecalls,2input/2outputstates,bfloat16,batch4perGPU,4GPUs,accumulation2,effectivebatch32,seed15; Rust8readers,deviceprefetch;1degree,tau_hfds; all original date splits and normalization",
+  "intervention": "loss: mse versus MSE + 0.1 * per-channel high-pass error MSE / fixed training target high-pass energy. No dynamic weighting or reference-forecast b weights in either new arm.",
+  "filter": "sigma1radius3 Gaussian; mask-normalized separately for each field/depth; periodic longitude and replicated latitude. Signed-error filtering, not spectral-power matching. Float32 loss under bfloat16 model autocast.",
+  "calibration": "16unique dates from training split strictly before2013-10-05,RNG2718; exact source normalization/masks; full-grid mean matches historical MSE spatial convention; per-channel energy floor1e-6. Calibration runs in a separate process before model seeding.",
+  "evaluation": "Same 360-day fixed rollout validation every epoch and epoch70/final EMA598-time forecasts. Primary comparison is new MSE versus new MSE+band. Historical dynamic controls provide context. Follow with observation scoring and paired fixed one-call diagnostics.",
+  "provenance": "Data formerly under home now resolves to identical project-backed store; use resolved project path. Same pinned ARM64 image and same baseline native loader. Train configuration audit permits only loss fields,run name,eval output path changes.",
+  "budget": "Two 70-epoch runs sequentially in one production Beta full-node allocation,4GPUs,144CPU,mem0,24h cap including both original raw/EMA evaluations and paired diagnostics.",
+  "historical_dynamic_baseline": {
+    "seed": 15,
+    "job": 210664,
+    "wandb": "https://wandb.ai/ocean_emulators/default/runs/uaei2vbr"
+  }
+}

@@ -1,0 +1,82 @@
+{
+  "scope": "Matched independent single-example fits; fixed continuation budget, not converged minima or held-out forecasting. Ratios compare added wet-boundary term with the unchanged interior-only term. Raw-map CPU float64 verification is prerequisite.",
+  "contexts": {
+    "seed15_oct": {
+      "state_mse_reduction": 11.903782831450119,
+      "boundary_state_contribution_reduction": 68.91807637968256,
+      "interior_state_contribution_ratio": 0.6939662767309025,
+      "interior_highpass_mse_ratio": 1.567219672533556,
+      "channels_with_lower_state_mse": 77,
+      "per_channel_state_ratio_min_max": [
+        0.0025781636192502037,
+        0.5114885043199666
+      ],
+      "arms": {
+        "interior": {
+          "state_mse": 1.1030361634290049e-06,
+          "highpass_mse": 1.4574593578801584e-08,
+          "boundary_state_mse_contribution": 9.902141542596081e-07,
+          "interior_state_mse_contribution": 1.1282200916939678e-07,
+          "closure_evaluations": 11217,
+          "measured_seconds": 2672.652127610985,
+          "worst_global_hp_error_over_target_rms": 0.03126396815326721,
+          "quiet_patch": {
+            "T1850": {
+              "mse": 1.4527470834358948e-08,
+              "highpass_mse": 6.726256548754646e-09,
+              "hp_error_over_target_rms": 0.012330761989965081,
+              "hp_error_over_increment_rms": 0.12093378768633156,
+              "mse_over_persistence": 0.010863853349151086
+            },
+            "S1850": {
+              "mse": 9.100712843892154e-08,
+              "highpass_mse": 7.639332602258058e-08,
+              "hp_error_over_target_rms": 0.1578231568378493,
+              "hp_error_over_increment_rms": 1.1528819947607345,
+              "mse_over_persistence": 0.7253031199931415
+            },
+            "SSH": {
+              "mse": 2.4306465824450174e-08,
+              "highpass_mse": 1.539773429956202e-08,
+              "hp_error_over_target_rms": 0.011284588908479776,
+              "hp_error_over_increment_rms": 0.054373830825106335,
+              "mse_over_persistence": 0.00010814811804978647
+            }
+          }
+        },
+        "wet_neighbors": {
+          "state_mse": 9.26626585050555e-08,
+          "highpass_mse": 2.2841589775879088e-08,
+          "boundary_state_mse_contribution": 1.4367988868469476e-08,
+          "interior_state_mse_contribution": 7.829466963658603e-08,
+          "closure_evaluations": 11201,
+          "measured_seconds": 2659.6637281049043,
+          "worst_global_hp_error_over_target_rms": 0.03447721955983342,
+          "quiet_patch": {
+            "T1850": {
+              "mse": 1.806736554359523e-08,
+              "highpass_mse": 9.73579236573164e-09,
+              "hp_error_over_target_rms": 0.014835044475201394,
+              "hp_error_over_increment_rms": 0.14549450555783308,
+              "mse_over_persistence": 0.013511037943844905
+            },
+            "S1850": {
+              "mse": 1.7630519638460983e-07,
+              "highpass_mse": 1.845224861878839e-07,
+              "hp_error_over_target_rms": 0.2452831220500851,
+              "hp_error_over_increment_rms": 1.7917680820488164,
+              "mse_over_persistence": 1.4051065142065522
+            },
+            "SSH": {
+              "mse": 4.458954459829467e-08,
+              "highpass_mse": 4.437595378290436e-08,
+              "hp_error_over_target_rms": 0.019157162460153206,
+              "hp_error_over_increment_rms": 0.09230715617072273,
+              "mse_over_persistence": 0.00019839475503476134
+            }
+          }
+        }
+      }
+    }
+  }
+}

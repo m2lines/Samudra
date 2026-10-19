@@ -1,0 +1,44 @@
+{
+  "verification": "Identical copied checkpoint hashes, source history prefix, restored optimizer counters, recomputed starting errors; exact saved initial maps and prepared truth/mask; CPU float64 endpoint objectives agree with logs and independent all77 map verifier.",
+  "scope": "Matched continuation of a single example; only curvature acceptance threshold differs. This is not a test of the earlier Adam plateau or rollout generalization.",
+  "arms": {
+    "default": {
+      "threshold": 1e-10,
+      "state_mse": 5.590393795709894e-07,
+      "highpass_mse": 6.791680232471495e-09,
+      "objective": 1.2382074028181388e-06,
+      "curvature_candidates": 6120,
+      "curvature_accepted": 3519,
+      "curvature_acceptance_fraction": 0.575,
+      "additional_closures": 9232,
+      "additional_measured_seconds": 2372.971057486022,
+      "quiet_salinity": {
+        "mse": 1.867665672594318e-08,
+        "highpass_mse": 1.3819955947108457e-08,
+        "hp_error_over_target_rms": 0.06579149254886127,
+        "hp_error_over_increment_rms": 0.50782465376415,
+        "mse_over_persistence": 0.11634889494151968
+      }
+    },
+    "lowered": {
+      "threshold": 1e-20,
+      "state_mse": 1.1978726917247807e-07,
+      "highpass_mse": 1.4007585719520214e-09,
+      "objective": 2.598631263676802e-07,
+      "curvature_candidates": 15000,
+      "curvature_accepted": 15000,
+      "curvature_acceptance_fraction": 1.0,
+      "additional_closures": 16575,
+      "additional_measured_seconds": 3860.5951245940523,
+      "quiet_salinity": {
+        "mse": 2.592247148923768e-09,
+        "highpass_mse": 1.7938709950533586e-09,
+        "hp_error_over_target_rms": 0.023703474671663866,
+        "hp_error_over_increment_rms": 0.18295995959060124,
+        "mse_over_persistence": 0.016148773071019445
+      }
+    }
+  },
+  "default_over_lowered_state_mse": 4.666934837341066,
+  "default_over_lowered_highpass_mse": 4.8485730292601215
+}

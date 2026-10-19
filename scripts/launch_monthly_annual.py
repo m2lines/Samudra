@@ -38,6 +38,11 @@ def main():
         or qualified["producer"] != config["producer"]
     ):
         raise ValueError("Annual qualification has not passed")
+    if (
+        config.get("rollout_reuse")
+        and qualified.get("fixed_ohc_scoring_on_reused_cases") is not True
+    ):
+        raise ValueError("Reused annual OHC scoring was not qualified")
     if a.qualify_only:
         return
 

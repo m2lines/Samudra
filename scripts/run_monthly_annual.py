@@ -164,11 +164,38 @@ def main():
                 result["surface"][:6], reference_payload["surface"][i]
             )
             np.testing.assert_array_equal(result["ohc"][0], reference_payload["ohc"][i])
+        if config.get("rollout_reuse"):
+            reused = config["rollout_reuse"]
+            reused_ohc, reused_truth, climate = [], [], []
+            for origin in config["origins"]:
+                name = "A-1729/" + origin + ".npz"
+                with np.load(Path(reused["root"]) / name) as saved:
+                    reused_ohc.append(saved["ohc"])
+                    reused_truth.append(saved["reference_ohc"])
+                    months = saved["months"]
+                climate.append(
+                    np.stack(
+                        [
+                            data.climatology_fields(
+                                data.load(data.root / "test" / (str(month) + ".npz"))
+                            )["ohc"][0]
+                            for month in months
+                        ]
+                    )
+                )
+            monthly_ohc_metrics(
+                np.stack(reused_ohc),
+                np.stack(reused_truth),
+                np.stack(climate),
+                data.ohc_area.cpu().numpy(),
+                fixed_ohc_support(data.grid),
+            )
         atomic_json(
             dict(
                 producer=config["producer"],
                 audit_sha256=digest(a.root / "AUDITED.json"),
                 first_month_readout_exact=True,
+                fixed_ohc_scoring_on_reused_cases=bool(config.get("rollout_reuse")),
             ),
             a.root / "QUALIFIED.json",
         )

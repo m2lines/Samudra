@@ -2,6 +2,26 @@
 
 Authorization extended to 2026-10-19 15:00 America/New_York (19:00 UTC), or earlier if a convincing small-test mechanism/remedy is found or useful directions are exhausted. Full-model confirmation is a subsequent decision. This thread does not manage the four full-training arms.
 
+## Completed Adam follow-ups (2026-10-19)
+
+Both follow-ups finished successfully: salinity-head array 20337688 (three 10,000-update continuations,30:06–30:17 each) and local-range array 20341706 (three 5,000-update fresh fits,15:08–15:20 each), all COMPLETED/0:0. Torch access was temporarily unavailable; after access returned, final maps, exact initial identities, complete objectives and all 77 channel metrics were independently verified using CPU float64. Stderr contains only the duplicate `/scratch` mount warning. Local-range callback 20341722 succeeded; head callback 20337745 failed HTTPS delivery, while its training jobs succeeded. Both monitoring registrations are retired. The initial campaign and these later authorized comparisons are now complete; no further training was launched.
+
+**Separate salinity-head learning rates did not help under this protocol.** Relative to 1×, 0.1×/10× change total state MSE by +0.746%/+0.585% and texture MSE by +0.520%/+0.994%. Salinity-only, all 19 depths, state MSE changes +1.764%/+0.284%; texture MSE changes +0.926%/+1.019%. Quiet 1850 m salinity texture-error/target RMS remains 1.168/1.168/1.172 for 0.1×/1×/10×. These small differences provide no demonstrated benefit; this is one matched continuation seed, not an exhaustive optimizer search. [Verified summary](report/salinity-head/summary.json), [all 77 raw-map verification](report/salinity-head/verification.json), [curves](report/salinity-head/comparison-curves.png), [matched patch](report/salinity-head/matched-patch.png).
+
+**The proposed local-range weighting failed globally in its first Adam test.** The exact implementation and frozen scales are described in the protocol below. These are three matched random-init 5,000-update fits:
+
+| Objective | Ordinary state MSE | Texture-error MSE | Local-weighted MSE, evaluated for every arm |
+| --- | ---: | ---: | ---: |
+| Ordinary MSE | 3.09624e-4 | 3.96216e-4 | 1.86682e-4 |
+| Existing spatial-error loss | 8.59508e-5 | 2.00824e-6 | 3.39898e-5 |
+| New local-range-weighted MSE | 6.58916e-2 | 3.65781e-2 | 4.15552e-4 |
+
+Compared with ordinary MSE, local weighting is 212.8× worse in global state MSE and 92.3× worse in texture MSE. It is also **2.226× worse on its own weighted objective**. Therefore this is not merely a successful weighted fit trading off the original metric; optimization under these settings is also less successful. The curve is finite and decreases, and final train/eval MSE agree within 0.0081%, so neither numerical divergence nor a large BatchNorm evaluation mismatch explains this result. The evidence does not establish which optimizer/loss-conditioning mechanism caused the poor fit, nor disprove all local-normalization approaches.
+
+The quiet patch alone would give a misleadingly favorable impression: local weighting improves T1850 state MSE 2.22×/texture MSE 3.88× and S1850 state MSE 5.54×/texture MSE 8.07× versus ordinary MSE. Nevertheless, global salinity MSE across 19 depths worsens 138.6×. The spatial-error arm improves total state MSE 3.60×/texture MSE 197.3× and also achieves the best locally weighted objective (5.49× below the ordinary MSE control). It outperforms local weighting on both quiet T/S state and texture errors too. [Verified summary](report/local-range/summary.json), [all 77 checks](report/local-range/verification.json), [curves including the common weighted metric](report/local-range/comparison-curves.png), [raw matched-patch maps](report/local-range/matched-patch.png).
+
+Interpretation: the separate-head LR adjustment is not a useful remedy in this tested range. The inverse-local-variance objective changes weights over a very broad range (minimum 1.57e-5, maximum 8.72), suppressing some errors substantially; its specific floor/kernel and from-scratch Adam schedule should not be treated as a validated recipe. A future bounded-weight/additive-loss or continuation experiment could separate aggressive reweighting from optimizer conditioning, but none has been launched. The first spatial-error result remains reproducible with ordinary Adam.
+
 ## Final result: smooth outputs are representable without a residual model
 
 **Campaign complete, 2026-10-19.** All scheduled single-example jobs finished and their final raw maps were independently verified. Final scheduler accounting is COMPLETED/0:0 for both confirmation arrays and callbacks; no campaign jobs or live monitoring registrations remain. The investigation reached its early-stop criterion: a repeated non-residual intervention nearly removes the visible texture, with a specific cause identified for a later optimization stall. No full-training or rollout-stability confirmation was launched. The four unrelated full-training arms were untouched.

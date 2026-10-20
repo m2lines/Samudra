@@ -300,7 +300,7 @@ def test_cm4_publication_rotates_stress_preserves_metadata_and_chunks(
     )
     actual = xr.open_zarr(out, chunks=None)
     assert actual.sizes["time"] == 12  # no historical 7,302-state truncation
-    assert set(actual.data_vars) == {
+    physical_fields = {
         "thetao",
         "so",
         "uo",
@@ -309,8 +309,30 @@ def test_cm4_publication_rotates_stress_preserves_metadata_and_chunks(
         "tauuo",
         "tauvo",
         "hfds",
+        "hfds_anomalies",
         "wfo",
     }
+    assert set(actual.data_vars) == physical_fields | {
+        f"profile_{name}" for name in physical_fields
+    }
+    # This fixture has constant heat flux, so removing its seasonal cycle
+    # leaves zero at every cell and timestamp.
+    np.testing.assert_allclose(actual.hfds_anomalies, 0)
+    assert actual.hfds_anomalies.dtype == np.dtype("float32")
+    assert actual.hfds_anomalies.attrs["units"] == actual.hfds.attrs["units"]
+    expected_weights = actual.areacello / actual.areacello.sum()
+    xr.testing.assert_allclose(actual.areacello_weights, expected_weights)
+    for name in physical_fields:
+        field = actual[name]
+        mask = actual.wetmask
+        if "lev" not in field.dims:
+            mask = mask.isel(lev=0, drop=True)
+        expected_profile = field.where(mask).weighted(expected_weights).mean(("y", "x"))
+        profile = actual[f"profile_{name}"]
+        assert profile.dims == (("time", "lev") if "lev" in field.dims else ("time",))
+        xr.testing.assert_allclose(
+            profile.reset_coords(drop=True), expected_profile.reset_coords(drop=True)
+        )
     np.testing.assert_allclose(actual.tauuo, -3)
     np.testing.assert_allclose(actual.tauvo, 2)
     np.testing.assert_allclose(actual.uo, -3)
@@ -335,6 +357,7 @@ def test_cm4_publication_rotates_stress_preserves_metadata_and_chunks(
     np.testing.assert_array_equal(actual.time_bnds[:, 1], times)
     assert {
         "areacello",
+        "areacello_weights",
         "dz",
         "lev",
         "lat",
@@ -349,6 +372,14 @@ def test_cm4_publication_rotates_stress_preserves_metadata_and_chunks(
         metadata = json.loads((out / name / ".zarray").read_text())
         assert metadata["chunks"] == [1, 2, ny, nx]
     assert json.loads((out / "wfo" / ".zarray").read_text())["chunks"] == [1, ny, nx]
+    assert json.loads((out / "hfds_anomalies" / ".zarray").read_text())["chunks"] == [
+        1,
+        ny,
+        nx,
+    ]
+    for name in physical_fields:
+        metadata = json.loads((out / f"profile_{name}" / ".zarray").read_text())
+        assert metadata["chunks"] == ([1, 2] if "lev" in actual[name].dims else [1])
     for name, field in actual.variables.items():
         if field.ndim:
             compressor = json.loads((out / name / ".zarray").read_text())["compressor"]

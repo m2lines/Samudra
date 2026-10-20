@@ -65,3 +65,21 @@ routing and requeue enabled. Dependent callback 20441724 and durable
 30-minute reminder 388bf327-13c4-4598-a543-751235619040 cover bring-up and
 completion. Preparation callback's outbound HTTPS failed; the local
 reminder recovered status. Full training remains gated on pilot results.
+
+All three pilots completed 0:0 (7m52s, 7m04s, 8m50s), with finite training
+and validation losses, completed 360-day validation, four checkpoint files,
+and online W&B sync. Pilot run IDs: local `7qnfv530`, spatial `79ptq2e2`,
+gradient `3lwtwa3u`. Six updates only: do not interpret these as forecast
+skill comparisons. A separate CPU job 20443913 reloads each latest
+checkpoint and checks every model/optimizer tensor is finite.
+
+Full 70-epoch array **20443921** is submitted with `afterok:20443913` and
+the PILOTS_VERIFIED marker guard. It allows three concurrent RTX6000 jobs,
+one per loss, from fresh matched seed-15 initialization (not pilot resume).
+Checkpoint each epoch; 12-hour allocations with preemptible automatic
+requeue/resume. Submission verified in scheduler; at this update all three
+are waiting for checkpoint verification, not yet training. Callback 20443926
+and 45-minute reminder `d28989d0-b669-4bd7-a497-5f8fecbae5b1` cover startup
+and completion. Watch sustained loader throughput/GPU utilization and
+scratch quota before extending runs; initial pilot batches are not a
+reliable full-dataset throughput estimate.

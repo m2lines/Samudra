@@ -80,7 +80,14 @@ def test_writer_output_is_analysis_ready(tmp_path):
     out = xr.open_zarr(writer.pred_path)
 
     # (#1) 3D vars are depth-stacked; (#2) on y/x dims; zos stays 2D.
-    assert set(out.data_vars) == {"thetao", "so", "uo", "vo", "zos"}
+    assert set(out.data_vars) == {"thetao", "so", "uo", "vo", "zos"} | {
+        f"profile_{name}" for name in ("thetao", "so", "uo", "vo", "zos")
+    }
+    for name in ("thetao", "so", "uo", "vo", "zos"):
+        xr.testing.assert_allclose(
+            out[f"profile_{name}"].reset_coords(drop=True),
+            out[name].weighted(out.areacello).mean(("y", "x")).reset_coords(drop=True),
+        )
     assert out["thetao"].dims == ("time", "lev", "y", "x")
     assert out["zos"].dims == ("time", "y", "x")
     assert not any(f"thetao_{i}" in out.variables for i in range(n_lev))
@@ -263,6 +270,11 @@ def test_writer_appends_along_time(tmp_path):
     out = xr.open_zarr(writer.pred_path)
     np.testing.assert_array_equal(out["time"].values, [0, 1, 2, 3, 4])
     assert out["thetao"].sizes["time"] == 5
+    assert out["profile_thetao"].sizes["time"] == 5
+    xr.testing.assert_allclose(
+        out.profile_thetao.reset_coords(drop=True),
+        out.thetao.weighted(out.areacello).mean(("y", "x")).reset_coords(drop=True),
+    )
     assert out["areacello"].dims == ("y", "x")  # static coord unaffected
 
 

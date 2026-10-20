@@ -42,7 +42,7 @@ def normalization_fields(ds: xr.Dataset) -> xr.Dataset:
     """Mask flat or depth-stacked ocean fields without reducing their depth axis."""
     fields: dict[str, xr.DataArray] = {}
     for name, field in ds.data_vars.items():
-        if "time" not in field.dims:
+        if not {"time", "y", "x"}.issubset(field.dims):
             continue
         if "lev" in field.dims:
             mask = ds["wetmask"]

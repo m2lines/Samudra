@@ -64,9 +64,7 @@ from samudra.utils.data import (
     CanonicalSource,
     DataBundle,
     SourceSplits,
-    compute_anomalies,
     flatten_masks,
-    get_anomalies_vars,
     with_lat_lon_coords,
     with_level_index_vars,
 )
@@ -534,10 +532,6 @@ class Om4FamilyDataSourceConfig[Om4FamilyTimeConfigT: Om4TimeConfig | Cm4TimeCon
         means = with_level_index_vars(means, depth_levels=data_layout.depth_levels)
         stds = with_level_index_vars(stds, depth_levels=data_layout.depth_levels)
         data = flatten_masks(data)
-
-        anomalies_vars = get_anomalies_vars(data_layout.boundary_var_names)
-        if anomalies_vars:
-            data, means, stds = compute_anomalies(data, means, stds, anomalies_vars)
 
         def expand_levels(dataset: xr.Dataset) -> xr.Dataset:
             canonical = xr.Dataset(attrs=dataset.attrs)

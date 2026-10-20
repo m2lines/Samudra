@@ -197,3 +197,27 @@ intact on Torch. Asked user to refresh Engaging login before checking an
 alternative host; previous failed authentication must not be retried until
 refresh is confirmed under engaging-train policy. No results ETA until
 compute access/capacity and a qualified resume are established.
+
+Engaging login refreshed successfully. Personal pool has ~487 GB free;
+scratch only ~204 GB, so use pool for this campaign's checkpoint outputs.
+Matching container is already available in personal scratch. Existing
+shared 1-degree data audit matches all 312 selected raw chunks, masks,
+coordinates and metadata files byte-for-byte; this is sampled data
+verification, not a full-store checksum. Shared means/stds differ, so the
+exact original Torch statistics were copied directly into the personal
+Engaging run's normalization directory; all 600 extracted files match
+source SHA256. Resume configs point explicitly to these statistics.
+
+Prepared engaging.sbatch and prepare_engaging.py retain loss/model/data
+and eight loader workers, restore epoch eight, and first complete epoch
+nine for qualification with scheduler target70. Full phase remains gated
+on ENGAGING_QUALIFIED. Test-only Slurm submission accepted RTX PRO6000,
+16 CPUs,128GB,mit_preemptable. No Engaging GPU job has been submitted.
+
+Checkpoint transfer is awaiting user response: automatic approval review
+rejected intermediate OSN staging of learned checkpoints without explicit
+approval for that destination. No upload/export began. Asked permission
+for the concrete user-owned OSN staging prefix, with direct Engaging
+transfer as an alternative. Code/runtime preparation and normalization
+verification are complete; no ETA or monitoring registration while this
+transfer approval remains outstanding.

@@ -13,6 +13,7 @@ import torch
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'om4-temporal-memory'))
 from common import OceanModel, Prepared, mse, highpass, interior_mask
+from llc_gradient_loss import gradient_components
 
 
 def weighted_mse(pred, target, wet, weights):
@@ -23,6 +24,9 @@ def objective(pred,target,wet,inside,weights,arm):
     if arm=='local_range':return weighted_mse(pred,target,wet,weights)
     state=mse(pred,target,wet)
     if arm=='mse':return state
+    if arm in ('gradient_h', 'gradient_hz'):
+        h,z=gradient_components(pred,target,wet)
+        return state + .1*h + (.1*z if arm=='gradient_hz' else 0)
     assert arm=='spatial_100'
     h=highpass(pred-target,inside)
     return state+100*mse(h,torch.zeros_like(h),inside)
@@ -49,7 +53,7 @@ def self_test():
 def main():
     ap=argparse.ArgumentParser()
     ap.add_argument('--data',required=True);ap.add_argument('--scales',required=True)
-    ap.add_argument('--output',required=True);ap.add_argument('--arm',choices=['mse','spatial_100','local_range'],required=True)
+    ap.add_argument('--output',required=True);ap.add_argument('--arm',choices=['mse','spatial_100','local_range','gradient_h','gradient_hz'],required=True)
     ap.add_argument('--steps',type=int,default=5000);ap.add_argument('--seed',type=int,default=15)
     a=ap.parse_args();out=Path(a.output);out.mkdir(parents=True,exist_ok=True)
     if (out/'COMPLETE').exists():return
@@ -73,7 +77,7 @@ def main():
         'schedule':f'cosine6e-4 to1e-7 over{a.steps}updates',
         'supervision':'first target all77 channels; two input timestamps; train-mode BatchNorm; no temporal feedback',
         'torch':torch.__version__,'gpu':torch.cuda.get_device_name(),
-        'objective':{'mse':'original normalized wet equal-channel MSE','spatial_100':'MSE+100*interior curvature-error MSE','local_range':'fixed local inverse-max-variance weighted MSE; no derivative term'}[a.arm]}
+        'objective':{'mse':'original normalized wet equal-channel MSE','spatial_100':'MSE+100*interior curvature-error MSE','local_range':'fixed spatial weighting loaded from recorded scale archive; no derivative term','gradient_h':'MSE+0.1*horizontal forward-difference L1','gradient_hz':'MSE+0.1*horizontal L1+0.1*spacing-normalized vertical L1'}[a.arm]}
     start=0;elapsed=0.
     if (out/'latest.pt').exists():
         old=json.loads((out/'protocol.json').read_text())
@@ -100,11 +104,13 @@ def main():
             model.train();train=model(x,b)[0][:,:77]
             for n,v in model.named_buffers():v.copy_(buffers[n])
             model.eval();pred=model(x,b)[0][:,:77];e=pred-y;h=highpass(e,inside)
+            gh,gz=gradient_components(pred,y,wet)
             row={'step':step,'seconds':elapsed+time.monotonic()-began,
                  'train_mse':float(mse(train,y,wet)),'eval_mse':float(mse(pred,y,wet)),
                  'training_objective_eval':float(objective(pred,y,wet,inside,weights,a.arm)),
                  'weighted_mse_eval':float(weighted_mse(pred,y,wet,weights)),
                  'highpass_mse':float(mse(h,torch.zeros_like(h),inside)),
+                 'horizontal_l1':float(gh),'vertical_l1':float(gz),
                  'per_channel_mse':((e.square()*wet).sum((-2,-1))/wet.sum((-2,-1))).mean(0).tolist(),
                  'per_channel_highpass_mse':((h.square()*inside).sum((-2,-1))/inside.sum((-2,-1))).mean(0).tolist()}
             if step in (0, a.steps//2, a.steps):

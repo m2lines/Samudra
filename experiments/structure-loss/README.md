@@ -57,3 +57,11 @@ checks preparation and continues the pilot/full-training sequence.
 Existing recent MSE and dynamic-MSE controls differ in data version,
 gradient accumulation, forcing configuration, and loader; treat them as
 contextual controls, not strictly matched loss-only comparisons.
+
+Preparation 20439512 completed 0:0 in 1m47s. All 77 channel weight means
+and all sampled training-date bounds verified. Pilot array 20441707
+(local/spatial/gradient, one concurrent RTX6000) submitted with preemptible
+routing and requeue enabled. Dependent callback 20441724 and durable
+30-minute reminder 388bf327-13c4-4598-a543-751235619040 cover bring-up and
+completion. Preparation callback's outbound HTTPS failed; the local
+reminder recovered status. Full training remains gated on pilot results.

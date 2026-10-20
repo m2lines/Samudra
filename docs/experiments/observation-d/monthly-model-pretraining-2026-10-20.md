@@ -7,9 +7,15 @@ Question: do the model datasets and multitask initializer help when observations
 are introduced only during the final adaptation stage, rather than jointly
 throughout training?
 
-Status: preparing qualification and submission. This is a separate four-run
-comparison alongside the [longer-training and replay wave](monthly-replay-2026-10-20.md).
-No replay or latent-size regularizer is introduced here.
+Status: **26 targeted tests and repository checks passed**. GPU qualification
+**215045 is running** on Beta; its compute-node callback check passed. Production
+waits for all four arms to qualify. Pinned producer: `a1e74e188`. Run root:
+`beta:/projects/ny/lz1955/multiscale/jrusak/runs/monthly-pretraining-20261020`.
+No new scientific results yet.
+
+This is a separate four-run comparison alongside the
+[longer-training and replay wave](monthly-replay-2026-10-20.md). No replay or
+latent-size regularizer is introduced here.
 
 ## Runs and data exposure
 

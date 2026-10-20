@@ -135,3 +135,18 @@ the original run names/W&B IDs. CLI override and scheduler test passed.
 Wait for the final epoch-2 checkpoint before interrupting the old array.
 Original per-run configs are archived remotely before the trainer can
 write its updated configs. Raw CPU benchmark timings are in results/.
+
+After all three epoch-2 checkpoints were fully saved and the last arm
+started epoch 3, cancelled original array 20443921 deliberately and
+submitted replacement **20453279** with afterany dependency to prevent
+concurrent writers. Latest checkpoint remains epoch 2 for all arms;
+unsaved epoch-3 work in the faster arms is intentionally replayed.
+Only loader worker count changes (4 to 8); resource request becomes
+16 CPUs / 128 GB per GPU. Two tasks initially RUNNING, gradient task
+queued for QOSMaxGRESPerUser. Original tasks confirmed cancelled by us,
+not by an inferred utilization-policy action.
+
+Completion callback **20453294**, 30-minute reminder
+**61b9f274-aca8-48dd-8720-5a23421ba2a5** replaces the original full-run
+monitor. Verify checkpoint/optimizer restoration, original W&B IDs, and
+measured throughput after startup. All earlier stage registrations retired.

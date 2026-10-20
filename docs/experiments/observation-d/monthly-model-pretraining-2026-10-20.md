@@ -7,9 +7,8 @@ Question: do the model datasets and multitask initializer help when observations
 are introduced only during the final adaptation stage, rather than jointly
 throughout training?
 
-Status: **26 targeted tests and repository checks passed**. GPU qualification
-**215045 is running** on Beta; its compute-node callback check passed. Production
-waits for all four arms to qualify. Pinned producer: `a1e74e188`. Run root:
+Status: **all four qualifications passed**. Beta production **215049 is queued**;
+26 targeted tests and repository checks passed. Pinned producer: `a1e74e188`. Run root:
 `beta:/projects/ny/lz1955/multiscale/jrusak/runs/monthly-pretraining-20261020`.
 No new scientific results yet.
 
@@ -96,3 +95,8 @@ adaptation does. Diagnostic weights never initialize production.
 Use one four-GPU Beta node for the four production processes, with online W&B
 and `async-job-followup` quiet monitoring. Queue estimates are advisory; waiting
 is acceptable. Retain producer hashes, qualification artifacts and GPU accounting.
+
+Qualification job 215045 completed in 24m05s (0.4014 GPU-hours), including every
+applicable task, identical random backbone hashes, original data contracts and
+bitwise-exact observation-adaptation restart. Production starts from random
+weights, not the qualification states.

@@ -44,7 +44,8 @@ def main():
     for arm in arms:
         protocol = json.loads((arm / "protocol.json").read_text())
         assert protocol["supervision"] in ("first target, all 77 channels", "all",
-            "first target all77 channels; two input timestamps; train-mode BatchNorm; no temporal feedback")
+            "first target all77 channels; two input timestamps; train-mode BatchNorm; no temporal feedback",
+            "first target all77 channels; two input timestamps; current-main InstanceNorm BF16; no temporal feedback")
         if protocol["supervision"] == "all":
             assert protocol["training_channel_slice"] == [None, None]
         history = [json.loads(line) for line in (arm / "history.jsonl").read_text().splitlines()]

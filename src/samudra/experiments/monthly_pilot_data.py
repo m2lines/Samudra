@@ -39,12 +39,34 @@ def observation_batch(data, sample, task, generator):
     return dict(fields=fields, available=available, target=target, support=mask)
 
 
-def observation_loss(model, data, sample, task, generator):
+def observation_loss(model, data, sample, task, generator, *, capture=None):
     batch = observation_batch(data, sample, task, generator)
     forcing = model.adapt(sample["atmosphere"])
     states = model.trajectory(
         batch["fields"], batch["available"], forcing, sample["contexts"]
     )
+    if capture is not None:
+        capture(states)
+    return observation_window_loss(model, data, sample, batch, states, generator)
+
+
+def observation_window_loss(
+    model,
+    data,
+    sample,
+    batch,
+    states,
+    generator,
+    *,
+    surface_offset_days=0.0,
+    monthly_position_days=None,
+    reconstruction_state=None,
+):
+    """Same observation objective on a fresh or detached replay trajectory.
+
+    Replay uses a separate fresh initializer for the reconstruction term. Its
+    surface history must never overwrite the continued forecast's latent state.
+    """
     weights = sample["month_weights"]
     monthly = model.monthly_condition(states[1:], weights)
     # Exact calendar duration is recovered from the named observational month.
@@ -58,7 +80,9 @@ def observation_loss(model, data, sample, task, generator):
         data.area,
         generator,
         duration_days=duration,
-        position_days=duration / 2,
+        position_days=duration / 2
+        if monthly_position_days is None
+        else monthly_position_days,
     )
     # Uniform lead subsampling is an unbiased estimator of the mean native-lead
     # surface loss. Every initializer task retains the same future targets.
@@ -75,7 +99,7 @@ def observation_loss(model, data, sample, task, generator):
         support,
         data.area,
         generator,
-        position_days=2.5 + 5 * lead,
+        position_days=surface_offset_days + 2.5 + 5 * lead,
     )
     # Completion at the initial time uses only available surface truth. It never
     # uses the forecast month's interior average as an initial-state label.
@@ -84,7 +108,12 @@ def observation_loss(model, data, sample, task, generator):
     target0[:, [38, 76]] = sample["surface"][:, 18]
     support0[:, [38, 76]] = sample["validity"][:, 18].bool()
     reconstruction = model.decoder.loss(
-        states[0], target0, support0, data.area, generator, position_days=-2.5
+        states[0] if reconstruction_state is None else reconstruction_state,
+        target0,
+        support0,
+        data.area,
+        generator,
+        position_days=-2.5,
     )
     return 0.8 * interior + 0.2 * surface + 0.1 * reconstruction, dict(
         interior=float(interior.detach()),

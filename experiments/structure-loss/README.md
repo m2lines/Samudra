@@ -108,3 +108,20 @@ on/off, checking bitwise equality of every returned input/forcing/target
 on the same 16 windows. No training settings changed. Callback 20449222,
 20-minute reminder 7d8628ad-3ec1-429c-a213-ed078be3c3be; full-run completion
 monitor remains active with a two-hour fallback.
+
+Loader job 20449205 completed 0:0, peak RSS 11.1 GB. All four variants
+returned bitwise-identical tensors. Steady seconds/sample: 4 workers with
+concurrent reads 1.373; 4 without 1.601; 8 without 0.839; 8 with 0.831.
+Eight workers thus provide ~1.65x benchmark throughput; this is not yet a
+measured end-to-end training gain. Full runs remain on four workers and
+are progressing in epoch 2.
+
+Expanded CPU benchmark 20451207 compares 8/16 concurrent workers on 32
+training windows, with identical-tensor checks, 16 CPUs and 64 GB RAM.
+128 GB requests were rejected by CPU submission policy; the earlier
+11.1 GB measured usage supports a 64 GB allocation. Initial expanded job
+20451197 was cancelled before execution to correct window indices to stay
+within the training split. Callback 20451211 and 20-minute reminder
+91db9858-3ace-4ec8-a8f2-c6c5c481351e track the replacement. Choose restart
+settings from this evidence, retain scientific configuration, and resume
+from saved epoch checkpoints rather than restarting initialization.

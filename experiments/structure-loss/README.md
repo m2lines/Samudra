@@ -159,3 +159,14 @@ sustained speedup; assess after warmup at the next callback. W&B rejects
 replayed step numbers already logged before interruption (local through
 1413, spatial through 1585); stdout retains replay metrics. Checkpoint
 and final validation evidence remain the comparison source.
+
+At the 30-minute resumed-run check, all three tasks RUNNING in epoch 4;
+epoch-3 checkpoint files exist (1,344,736,251 bytes each). Saved config
+diffs confirm the only change was loading.num_workers 4 -> 8. Over the
+last 200 logged batches, mean iteration seconds local/spatial/gradient
+were 1.972/1.968/1.823, versus the earlier 4.494/3.887/3.895; observed
+throughput roughly doubled, though these windows are not a controlled
+same-node benchmark. Data-wait fractions remain 61.7%/60.2%/57.3%.
+Epoch-3 fixed validation scores improved to 0.294/0.364/0.293 respectively.
+No final loss ranking is inferred from these early results. Settings remain
+fixed; durable follow-up rearmed for one hour, completion callback retained.

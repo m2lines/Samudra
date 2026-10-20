@@ -150,3 +150,12 @@ Completion callback **20453294**, 30-minute reminder
 **61b9f274-aca8-48dd-8720-5a23421ba2a5** replaces the original full-run
 monitor. Verify checkpoint/optimizer restoration, original W&B IDs, and
 measured throughput after startup. All earlier stage registrations retired.
+
+Observed local/spatial resume: checkpoint loaded, Start Epoch 3, optimizer
+LR 0.0005987923, original W&B IDs resumed online, saved configs confirm
+8 workers, and finite epoch-3 per-batch logs. Gradient remains queued at
+last scheduler observation. Initial prefetch batches do not establish a
+sustained speedup; assess after warmup at the next callback. W&B rejects
+replayed step numbers already logged before interruption (local through
+1413, spatial through 1585); stdout retains replay metrics. Checkpoint
+and final validation evidence remain the comparison source.

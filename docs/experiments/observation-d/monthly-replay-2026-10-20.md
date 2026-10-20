@@ -8,7 +8,18 @@ rollouts improve the monthly forecasts and the severe annual drift documented
 in the [original pilots](monthly-latent-pilots-2026-10-16.md) and
 [365-day evaluation](monthly-latent-annual-2026-10-18.md)?
 
-Status: implementation and qualification preparation; no new results yet.
+Status: implementation passed **24 targeted tests** and repository checks.
+Pinned training producer: `ed020de4b`. CPU preparation is submitted as Grace
+**141793**; the first attempt, **141790**, failed before Python because the GPU
+container tried to initialize NVIDIA on a CPU node. The retry changes only the
+container's CPU launch environment. GPU qualification and production follow
+successful cache verification; no new training results yet.
+
+Run root: `beta:/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-20261020`.
+The staged `paths.json` pins original A/E checkpoint hashes and all four run
+definitions. One four-GPU production node is planned. Beta's October 20
+scheduler dry run estimated an October 21 morning start; that is advisory and
+does not mean a production job has started.
 
 ## Four runs
 

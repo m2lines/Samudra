@@ -13,6 +13,10 @@ The [365-day follow-up](monthly-latent-annual-2026-10-18.md) is also complete fo
 all eight cooled endpoints. Every model drifts badly at long leads; the annual
 report includes the full metric curves and maps.
 
+The next [longer-training and observation-replay comparison](monthly-replay-2026-10-20.md)
+extends A/E's uncooled 2k checkpoints and separately trains matched replay
+pilots from scratch. Its protocol and qualification status are recorded there.
+
 ## Pilot results
 
 These are **validation results**, not held-out test or annual rollout results.

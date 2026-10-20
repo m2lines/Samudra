@@ -99,3 +99,12 @@ switching loaders directly would require changing the specified forcing
 or implementing/parity-testing support, so do not silently substitute it.
 Next durable check is in 25 minutes, to capture first-epoch validation and
 checkpoints and address sustained loader overhead.
+
+All full runs saved epoch-1 checkpoints and reached epoch 2. First fixed
+360-day checkpoint scores were local 0.350, spatial 0.429, gradient 0.346;
+these early values do not establish final ranking. Input waits persist.
+CPU-only job 20449205 benchmarks four/eight workers with concurrent reads
+on/off, checking bitwise equality of every returned input/forcing/target
+on the same 16 windows. No training settings changed. Callback 20449222,
+20-minute reminder 7d8628ad-3ec1-429c-a213-ed078be3c3be; full-run completion
+monitor remains active with a two-hour fallback.

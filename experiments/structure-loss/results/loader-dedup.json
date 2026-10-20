@@ -1,0 +1,26 @@
+[
+  {
+    "variant": "baseline",
+    "seconds": 47.18052408192307,
+    "steady_seconds_per_sample": 1.1941490142489783,
+    "identical": true
+  },
+  {
+    "variant": "dedup",
+    "seconds": 74.64750337786973,
+    "steady_seconds_per_sample": 2.1668888824351598,
+    "identical": true
+  },
+  {
+    "variant": "baseline_repeat",
+    "seconds": 44.59892128966749,
+    "steady_seconds_per_sample": 1.2049973077664617,
+    "identical": true
+  },
+  {
+    "variant": "dedup_repeat",
+    "seconds": 66.0776794590056,
+    "steady_seconds_per_sample": 1.951989254070213,
+    "identical": true
+  }
+]

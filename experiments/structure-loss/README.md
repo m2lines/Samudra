@@ -187,3 +187,13 @@ target equality. No production code or scientific settings changed yet.
 Callback 20462544; 20-minute reminder a019c638-389b-4370-82eb-71da5f58955c
 replaces cancelled-array monitoring. Next: inspect benchmark, validate a
 material I/O fix, then resume from epoch 8 with appropriate compute.
+
+Dedup benchmark 20462512 completed 0:0 in 6m39; all returned tensors
+match bitwise. Baseline steady seconds/sample 1.194/1.205 versus dedup
+2.167/1.952: dedup is 1.62-1.81x slower and will NOT be deployed. Quiet
+monitor handed back results; completed registration a019c638 retired.
+No full-training restart has been submitted. Epoch-8 checkpoints remain
+intact on Torch. Asked user to refresh Engaging login before checking an
+alternative host; previous failed authentication must not be retried until
+refresh is confirmed under engaging-train policy. No results ETA until
+compute access/capacity and a qualified resume are established.

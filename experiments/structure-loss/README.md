@@ -125,3 +125,13 @@ within the training split. Callback 20451211 and 20-minute reminder
 91db9858-3ace-4ec8-a8f2-c6c5c481351e track the replacement. Choose restart
 settings from this evidence, retain scientific configuration, and resume
 from saved epoch checkpoints rather than restarting initialization.
+
+Expanded benchmark completed 0:0 in 2m13s with bitwise-identical tensors.
+Eight versus sixteen workers: 0.783 versus 0.761 steady seconds/sample,
+only ~3% benefit from doubling further. Select eight concurrent workers.
+Replacement harness requests 16 CPUs / 128 GB per RTX6000, preserves all
+scientific settings and resumes latest model/optimizer checkpoints with
+the original run names/W&B IDs. CLI override and scheduler test passed.
+Wait for the final epoch-2 checkpoint before interrupting the old array.
+Original per-run configs are archived remotely before the trainer can
+write its updated configs. Raw CPU benchmark timings are in results/.

@@ -75,8 +75,11 @@ def add_derived_fields(ds: xr.Dataset) -> xr.Dataset:
     if "hfds" in ds:
         ds["hfds_anomalies"] = heat_flux_anomalies(ds)
     derived = visualization_fields(ds)
+    # Older xarray versions drop coordinate attrs on reduced profiles. Merging
+    # those coordinates can erase the source's depth/grid metadata, so retain
+    # the original coordinates when attaching the new arrays.
     ds = ds.assign(derived.data_vars).assign_coords(
-        areacello_weights=derived.areacello_weights
+        {**ds.coords, "areacello_weights": derived.areacello_weights}
     )
     return ds.chunk({dim: 1 if dim == "time" else -1 for dim in ds.dims})
 

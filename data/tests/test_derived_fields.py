@@ -28,7 +28,15 @@ def source(request):
         },
         coords={
             "time": time,
-            "lev": [2.5, 10.0],
+            "lev": (
+                "lev",
+                [2.5, 10.0],
+                {
+                    "units": "meters",
+                    "long_name": "Depth at cell center",
+                    "positive": "down",
+                },
+            ),
             "y": [-1.0, 1.0],
             "x": [0.0, 1.0, 2.0],
             "wetmask": (("lev", "y", "x"), mask),
@@ -48,6 +56,8 @@ def test_derived_fields_match_previous_computations(source, flat, tmp_path):
             source[f"mask_{level}"] = source.wetmask.isel(lev=level, drop=True)
         source = source.drop_vars(["thetao", "wetmask"])
     actual = add_derived_fields(source)
+    for name in source.coords:
+        assert actual[name].attrs == source[name].attrs
     assert actual.hfds_anomalies.dtype == np.float32
     assert actual.hfds_anomalies.chunks[0] == (1,) * source.sizes["time"]
     expected = source.hfds.groupby("time.dayofyear") - source.hfds.groupby(

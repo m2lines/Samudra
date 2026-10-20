@@ -16,13 +16,28 @@ from samudra.constants import build_om4_layout
 from samudra.experiments.monthly_latent import calendar_weights, initializer_visibility
 
 
-def task_source(arm, update, cooldown=False):
+def task_source(arm, update, cooldown=False, *, model_only_pretraining=False):
     """Exact four-update allocation; update is zero based."""
     if arm not in "ABCDE" or len(arm) != 1 or update < 0:
         raise ValueError("Invalid arm/update")
+    if model_only_pretraining:
+        if arm == "E":
+            raise ValueError("Obs-only arm cannot use model-only pretraining")
+        if cooldown:
+            return "obs"
+        return "cm4" if arm in "CD" and update % 2 else "om4"
     if cooldown or arm == "E" or update % 2 == 0:
         return "obs"
     return "cm4" if arm in "CD" and update % 4 == 3 else "om4"
+
+
+def initializer_task(arm, draw, *, cooldown=False):
+    """The original initialization-task mix; all cooldown inputs are surface-only."""
+    if arm not in "ABCDE" or len(arm) != 1 or not 0 <= draw < 1:
+        raise ValueError("Invalid arm/task draw")
+    if cooldown or arm not in "BD" or draw < 0.5:
+        return "surface"
+    return "variable" if draw < 0.75 else "gap"
 
 
 def calendar_context(lat, lon, dates):

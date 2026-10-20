@@ -15,7 +15,12 @@ import numpy as np
 import torch
 
 from samudra.experiments.monthly_latent import MonthlyLatentOcean
-from samudra.experiments.monthly_model_data import ModelMonths, model_loss, task_source
+from samudra.experiments.monthly_model_data import (
+    ModelMonths,
+    initializer_task,
+    model_loss,
+    task_source,
+)
 from samudra.experiments.monthly_pilot_data import observation_loss
 from samudra.experiments.monthly_pilot_evaluation import evaluate
 from samudra.experiments.observation_metrics import selection_score
@@ -37,19 +42,40 @@ def main():
     p.add_argument("--cm4", required=True)
     p.add_argument("--producer", required=True)
     p.add_argument("--qualification", required=True)
+    p.add_argument("--model-only-pretraining", action="store_true")
+    p.add_argument("--pretraining-qualification", type=Path)
     args = p.parse_args()
     proof = json.loads(Path(args.qualification).read_text())
     if (
-        proof.get("producer") != args.producer
+        proof.get("producer")
+        != ("1c9817d44" if args.model_only_pretraining else args.producer)
         or proof.get("production_qualified") is not True
     ):
         raise ValueError("Missing full producer-matched qualification")
+    if args.model_only_pretraining:
+        if args.arm == "E" or args.pretraining_qualification is None:
+            raise ValueError("Model-only pretraining requires an A-D qualification")
+        qualified = json.loads(args.pretraining_qualification.read_text())
+        if (
+            qualified["producer"] != args.producer
+            or qualified["arm"] != args.arm
+            or qualified["qualification_sha256"]
+            != hashlib.sha256(Path(args.qualification).read_bytes()).hexdigest()
+            or not qualified["exact_observation_cooldown_resume"]
+            or qualified["paths"]
+            != {key: getattr(args, key) for key in ("observations", "om4", "cm4")}
+        ):
+            raise ValueError("Model-only qualification contract differs")
     if not proof.get("data_contracts"):
         raise ValueError("Missing qualified data contracts")
     for path, expected in proof["data_contracts"].items():
         if hashlib.sha256(Path(path).read_bytes()).hexdigest() != expected:
             raise ValueError("Qualified data contract changed: " + path)
-    out = Path(args.root) / args.arm
+    out = (
+        Path(args.root) / "production" / args.arm
+        if args.model_only_pretraining
+        else Path(args.root) / args.arm
+    )
     out.mkdir(parents=True, exist_ok=True)
     torch.set_num_threads(8)
     torch.manual_seed(1729)
@@ -102,6 +128,17 @@ def main():
         om4=args.om4,
         cm4=args.cm4,
     )
+    if args.model_only_pretraining:
+        protocol.update(
+            model_only_pretraining=True,
+            observation_training_start=2000,
+            pretraining_qualification_sha256=hashlib.sha256(
+                args.pretraining_qualification.read_bytes()
+            ).hexdigest(),
+            latent_magnitude_penalty=0,
+            replay=False,
+            checkpoint_selection="observation cooldown only",
+        )
     manifest = out / "protocol.json"
     if manifest.exists() and json.loads(manifest.read_text()) != protocol:
         raise ValueError("Frozen protocol differs")
@@ -111,7 +148,8 @@ def main():
     run = wandb.init(
         entity="ocean_emulators",
         project="observational-transfer",
-        name="monthly-latent-" + args.arm,
+        name=("monthly-pretrain-" if args.model_only_pretraining else "monthly-latent-")
+        + args.arm,
         id=hashlib.sha256(str(out).encode()).hexdigest()[:12],
         resume="allow",
         dir=str(out),
@@ -160,8 +198,15 @@ def main():
     while step < 3000:
         if step == 2000:
             ema.load_state_dict(model.state_dict())
+            if args.model_only_pretraining:
+                best = math.inf
         cooldown = step >= 2000
-        source = task_source(args.arm, step, cooldown)
+        source = task_source(
+            args.arm,
+            step,
+            cooldown,
+            model_only_pretraining=args.model_only_pretraining,
+        )
         lr = 1e-4 if not cooldown else 1e-4 + (1e-6 - 1e-4) * (step - 1999) / 1000
         for group in optimizer.param_groups:
             group["lr"] = lr
@@ -169,15 +214,11 @@ def main():
         optimizer.zero_grad(set_to_none=True)
         started = time.monotonic()
         losses = []
+        task_counts = dict(surface=0, variable=0, gap=0)
         for _ in range(8):
             draw = rng.random()
-            task = (
-                "surface"
-                if cooldown or args.arm not in "BD" or draw < 0.5
-                else "variable"
-                if draw < 0.75
-                else "gap"
-            )
+            task = initializer_task(args.arm, draw, cooldown=cooldown)
+            task_counts[task] += 1
             if source == "obs":
                 sample = data.load(paths[int(rng.integers(len(paths)))])
                 with torch.autocast("cuda", dtype=torch.bfloat16):
@@ -211,6 +252,10 @@ def main():
             lr=lr,
             seconds=time.monotonic() - started,
         )
+        if args.model_only_pretraining:
+            record.update(
+                {f"train/tasks/{key}": value for key, value in task_counts.items()}
+            )
         # Sparse per-source series retain the common optimizer-update axis.
         # Missing sources are omitted, never logged as zero-valued losses.
         record.update(
@@ -228,10 +273,18 @@ def main():
             (out / f"validation-{step:05d}.json").write_text(
                 json.dumps(metrics, indent=2) + "\n"
             )
-            if value < best:
+            if value < best and (not args.model_only_pretraining or step > 2000):
                 best = value
                 save(out / "best.pt")
             if step in (2000, 3000):
+                if args.model_only_pretraining:
+                    raw = evaluate(model, data, validation)
+                    record["validation_raw_rmse_blend"] = selection_score(
+                        raw, control, [], metric="rmse-only"
+                    )
+                    (out / f"validation-raw-{step:05d}.json").write_text(
+                        json.dumps(raw, indent=2) + "\n"
+                    )
                 save(out / f"endpoint-{step:05d}.pt")
         if step % 50 == 0:
             save(state_path)

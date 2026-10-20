@@ -6,7 +6,42 @@ import torch
 import zarr  # type: ignore[import-untyped]
 
 from samudra.constants import build_om4_layout
-from samudra.experiments.monthly_model_data import ModelMonths
+from samudra.experiments.monthly_model_data import (
+    ModelMonths,
+    initializer_task,
+    task_source,
+)
+
+
+def test_model_only_pretraining_has_no_observation_updates():
+    from collections import Counter
+
+    for arm in "ABCD":
+        main = Counter(
+            task_source(arm, i, model_only_pretraining=True) for i in range(2000)
+        )
+        expected = {"om4": 2000} if arm in "AB" else {"om4": 1000, "cm4": 1000}
+        assert main == expected
+        assert all(
+            task_source(arm, i, cooldown=True, model_only_pretraining=True) == "obs"
+            for i in range(2000, 3000)
+        )
+    with pytest.raises(ValueError, match="Obs-only"):
+        task_source("E", 0, model_only_pretraining=True)
+
+
+def test_initializer_task_mix_changes_only_initialization_and_ends_at_cooldown():
+    from collections import Counter
+
+    draws = (np.arange(100) + 0.5) / 100
+    for arm in "ABCD":
+        tasks = Counter(initializer_task(arm, x) for x in draws)
+        assert tasks == (
+            {"surface": 100}
+            if arm in "AC"
+            else {"surface": 50, "variable": 25, "gap": 25}
+        )
+        assert all(initializer_task(arm, x, cooldown=True) == "surface" for x in draws)
 
 
 def fixture(tmp_path):

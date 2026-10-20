@@ -8,12 +8,17 @@ rollouts improve the monthly forecasts and the severe annual drift documented
 in the [original pilots](monthly-latent-pilots-2026-10-16.md) and
 [365-day evaluation](monthly-latent-annual-2026-10-18.md)?
 
-Status: implementation passed **24 targeted tests** and repository checks.
-Pinned training producer: `ed020de4b`. CPU preparation is submitted as Grace
-**141793**; the first attempt, **141790**, failed before Python because the GPU
-container tried to initialize NVIDIA on a CPU node. The retry changes only the
-container's CPU launch environment. GPU qualification and production follow
-successful cache verification; no new training results yet.
+Status: all four runtime qualifications passed in Beta **214974**; production
+**215046** is queued. No new training results yet. Pinned training producer:
+`ed020de4b` (24 targeted tests and repository checks passed).
+
+Grace **141793** prepared and independently hash-verified 19.17 GB covering
+7,397 five-day intervals; every future surface/forcing payload in the 243
+original training months matched exactly. The CPU-only retry corrected a
+container GPU-hook failure before Python in **141790**, with no source change.
+Qualification verified exact serialized optimizer/EMA/RNG/replay updates in all
+four arms and finite replay loss ending at day 365 in both replay arms. Its
+29m19s cost was **0.489 GPU-hours**; no qualification weights enter production.
 
 Run root: `beta:/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-20261020`.
 The staged `paths.json` pins original A/E checkpoint hashes and all four run

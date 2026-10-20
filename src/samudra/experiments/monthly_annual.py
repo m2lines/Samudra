@@ -11,6 +11,23 @@ from samudra.experiments.observation_metrics import _field, weighted_rmse
 from samudra.metrics import kernels
 
 
+def require_endpoint_step(saved, row):
+    """Keep annual reporting tied to each explicitly frozen training endpoint."""
+    expected = row.get("step", 3000)
+    if type(expected) is not int or expected <= 0:
+        raise ValueError("Invalid fixed endpoint step")
+    if saved["step"] != expected:
+        raise ValueError(f"Expected fixed cooled endpoint at step {expected}")
+
+
+def qualification_model(config):
+    """Select the readout replay control without assuming a six-model cohort."""
+    index = config.get("qualification_model_index", 5)
+    if type(index) is not int or not 0 <= index < len(config["models"]):
+        raise ValueError("Invalid annual qualification model index")
+    return config["models"][index]
+
+
 def month_layout(starts, month):
     # NPZ payloads carry numpy.str_ scalars; older pandas rejects those in
     # Timestamp even though DatetimeIndex accepts the containing array.

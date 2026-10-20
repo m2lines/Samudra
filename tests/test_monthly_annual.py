@@ -12,6 +12,32 @@ from samudra.experiments.observation_metrics import _field
 from samudra.metrics import kernels
 
 
+def test_frozen_endpoint_contract_accepts_mixed_training_budgets():
+    from samudra.experiments.monthly_annual import require_endpoint_step
+
+    require_endpoint_step({"step": 3000}, {})
+    require_endpoint_step({"step": 5000}, {"step": 5000})
+    with pytest.raises(ValueError, match="step 5000"):
+        require_endpoint_step({"step": 3000}, {"step": 5000})
+    with pytest.raises(ValueError, match="Invalid"):
+        require_endpoint_step({"step": 3000}, {"step": "3000"})
+
+
+def test_qualification_model_is_explicit_for_smaller_cohorts():
+    from samudra.experiments.monthly_annual import qualification_model
+
+    models = [{"name": str(i)} for i in range(8)]
+    assert qualification_model({"models": models}) is models[5]
+    assert (
+        qualification_model({"models": models[:4], "qualification_model_index": 0})
+        is models[0]
+    )
+    with pytest.raises(ValueError, match="index"):
+        qualification_model({"models": models[:4]})
+    with pytest.raises(ValueError, match="index"):
+        qualification_model({"models": models, "qualification_model_index": -1})
+
+
 @pytest.mark.parametrize("npz_strings", [False, True])
 def test_month_layout_covers_calendar_and_keeps_absolute_lead(npz_strings):
     dates = pd.date_range("2015-01-01", periods=73, freq="5D")

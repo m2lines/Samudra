@@ -17,6 +17,8 @@ from samudra.experiments.monthly_annual import (
     fixed_ohc_support,
     lead_metrics,
     monthly_ohc_metrics,
+    qualification_model,
+    require_endpoint_step,
     rollout,
 )
 from samudra.experiments.monthly_forcing_adapter import ModelForcingAdapter
@@ -67,8 +69,7 @@ def audit(config, root):
         path = Path(row["checkpoint"])
         contracts[str(path)] = digest(path)
         complete = json.loads((path.parent / "TRAIN_COMPLETE.json").read_text())
-        if complete["step"] != 3000:
-            raise ValueError("Model incomplete")
+        require_endpoint_step(complete, row)
     if config.get("prior_audit"):
         prior = json.loads(Path(config["prior_audit"]).read_text())
         if prior["contracts"] != contracts:
@@ -105,8 +106,7 @@ def audit(config, root):
 
 def load_model(row):
     saved = torch.load(row["checkpoint"], map_location="cpu", weights_only=False)
-    if saved["step"] != 3000:
-        raise ValueError("Expected fixed cooled 3k endpoint")
+    require_endpoint_step(saved, row)
     model = MonthlyLatentOcean().cuda().eval()
     if row["adapter"]:
         model.add_module("model_forcing_adapter", ModelForcingAdapter().cuda())
@@ -148,7 +148,7 @@ def main():
     )
     data.cache_prepared = True
     if a.stage == "qualify":
-        model = load_model(config["models"][5])
+        model = load_model(qualification_model(config))
         paths = [data.root / "test" / (o[:7] + ".npz") for o in config["origins"]]
         evaluate(
             model, data, paths, prediction_path=a.root / "qualification-reference.npz"

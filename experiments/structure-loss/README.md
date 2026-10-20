@@ -83,3 +83,19 @@ and 45-minute reminder `d28989d0-b669-4bd7-a497-5f8fecbae5b1` cover startup
 and completion. Watch sustained loader throughput/GPU utilization and
 scratch quota before extending runs; initial pilot batches are not a
 reliable full-dataset throughput estimate.
+
+At the first full-run check, verification job 20443913 completed 0:0 and
+all 370 saved tensors per pilot were finite. All three full tasks are
+RUNNING after ~42 minutes, epoch 1 at batches 502/543/543 of 705, with
+finite losses. Online W&B IDs: local `0l15g248`, spatial `cpkbm74n`,
+gradient `dc598v1x`. No full-run checkpoint yet at this observation.
+
+The last 200 batches average 4.49/3.89/3.89 seconds per iteration, with
+82.6%/79.0%/79.3% spent waiting for data. These are log-derived wait
+fractions, not GPU-utilization telemetry. Investigate after first-epoch
+checkpoints before accepting this throughput for the full campaign.
+The pinned Rust backend explicitly rejects derived anomaly forcing;
+switching loaders directly would require changing the specified forcing
+or implementing/parity-testing support, so do not silently substitute it.
+Next durable check is in 25 minutes, to capture first-epoch validation and
+checkpoints and address sustained loader overhead.

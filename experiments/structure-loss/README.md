@@ -170,3 +170,20 @@ same-node benchmark. Data-wait fractions remain 61.7%/60.2%/57.3%.
 Epoch-3 fixed validation scores improved to 0.294/0.364/0.293 respectively.
 No final loss ranking is inferred from these early results. Settings remain
 fixed; durable follow-up rearmed for one hour, completion callback retained.
+
+At 17:34 UTC all three resumed jobs were found CANCELLED by UID 0 around
+17:32, after 2h27-2h29. This was not our cancellation or a model exception.
+Accounting provides no administrator explanation or GPU-utilization
+telemetry; low utilization is plausible given the measured loader waits,
+but not confirmed. All three epoch-8 checkpoints are intact; interrupted
+epoch-9 work can be replayed. Best logged scores: local 0.280, spatial
+0.337, gradient 0.273. Scratch usage 4.45/5 TB. Do not repeatedly submit
+identical inefficient allocations.
+
+CPU job 20462512 tests reusing duplicate frame reads within each four-call
+sample, with copies to prevent tensor aliasing. It compares baseline and
+candidate twice on the same 32 windows and requires bitwise input/forcing/
+target equality. No production code or scientific settings changed yet.
+Callback 20462544; 20-minute reminder a019c638-389b-4370-82eb-71da5f58955c
+replaces cancelled-array monitoring. Next: inspect benchmark, validate a
+material I/O fix, then resume from epoch 8 with appropriate compute.

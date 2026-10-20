@@ -142,3 +142,41 @@ report their measured truth variation/roughness and errors rather than asserting
 they are uniformly quiet. No spatial regridding or display smoothing. Plot scales
 use pooled 1st/99th percentiles across all shown arms/checkpoints, with saturation
 explicitly marked. Single-origin maps supplement, not replace, six-origin scores.
+
+## Standard observation-metrics and spectra extension (October 20)
+
+For each original arm (`full`, `detach`, `latent_full`, `latent_only`) and both
+selected/final EMA checkpoints, export one continuous physical rollout from the
+October 10/15, 2014 input pair through the last available 2022 timestamp. This
+extension uses the standard suite window **2015-01-01 through 2022-12-31**, eight
+complete calendar years. It is separate from the earlier six-origin, 720-day
+model-truth comparison. The standard window was stated as the default while an
+optional user question about retaining the shorter multi-origin protocol was
+pending; later user steering takes precedence.
+
+`export_suite_rollout.py` writes the 77 normalized physical channels and retains
+latent state throughout each rollout. The final odd timestamp is kept while the
+second output beyond the source end is discarded. Checkpoint hashes, state keys,
+initial timestamps, and output timestamps are recorded. Before marking an export
+complete, the first 720 days' sampled MSE values must exactly reproduce the
+previous same-checkpoint/origin evaluation. No latent-reset intervention is used.
+
+`run_standard_suite.py` calls the repository's unchanged
+`samudra.metrics.report.compute_observation_metrics` and
+`samudra.viz.observations.spectra_figures`, from a staged copy of this checkout.
+The adapter restores physical units, depth-dependent missing/dry cells as NaN,
+native OM4 depth centers/thicknesses, and spherical cell areas computed with the
+suite's native-coordinate fallback. The same OM4 truth trajectory is included as
+a baseline. Standard metrics include geostrophic velocity/eddy energy, SST, OHC,
+and residual-variance diagnostics; standard spectra cover surface EKE, SST
+anomalies, and temporal geostrophic KE, including interannual bands. These are
+observation comparisons, not replacements for the original normalized MSE or
+local high-pass error. They do not by themselves provide deep-temperature spectra.
+
+Required observation variables are staged once from the anonymously accessible
+`m2lines-pubs/Samudra/v2026-07/obs` release on NYU OSN: DUACS `ugos/vgos`, OISST
+`sst`, ARGO-IAP `temp`, restricted to October 2014–December 2022. Scoring and
+spectral inputs are then restricted to 2015–2022. Record observation manifests,
+source checksums, finite data coverage, metric tables, and spectral outputs.
+Bootstrap uncertainty describes calendar-year variability, not training-seed
+uncertainty. All scratch artifacts remain under the user's personal space.

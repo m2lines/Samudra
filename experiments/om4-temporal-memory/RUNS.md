@@ -317,3 +317,29 @@ Final EMA day720 worsens14–18% acrossarms; detachment advantage remains~22%.
 Fine pilot26429562 completed exit0 in1m47s; FINE_QUALIFIED verified. Both new
 training arms remain queued until after maintenance; no fine-arm result yet.
 Only the completed eval callback is retired; fine-training monitoring remains.
+
+## Access restored and standard suite submitted (2026-10-20)
+
+At user confirmation around14:38Eastern, SSH succeeded and monthly_maint no
+longer existed. Removed array26429592's artificial21:05 BeginTime via
+`scontrol update JobId=26429592 StartTime=now`. Bothtasks now RUNNING node3102,
+with onlineW&B and optimizer updates verified. Continuation26429593 unchanged.
+Newfinecallback681d3476-f915-4d70-9c57-af1f43ecac1b, quietmonitor
+/root/fine_training_monitor, localwatcherom4-fine-watch-resumed-20261020.
+Superseded5pmaccess reminder519c7446-17e9-4976-a605-a35c55978c93 revoked.
+
+Public observation metadata accessible; remoteinstalledsamudra lacksmetrics.
+Staged currentrepository package and adapter at code-suite-v1, with sourcehashes.
+Adapterunit/mask/depth test passedlocal+remote. No localGPU. Personal scratchquota
+702.6/1024GB beforeexports; eightfullnormalizedrollouts~95GB plusobservations fit.
+Observationstage26440785 CPU16GB4h; exportarray26440786_0..7%2 GPU32GB1h;
+metricsarray26440787_0..7%2 CPU192GB12h, dependenciesaftercorr26440786 and
+afterok26440785. Taskorder armindex=task//2,selected/epoch70=task%2.
+Outputsstandard-suite/{rollouts,observations,results}; logslogs-suite.
+
+Suitecallback722f77f9-21e2-469f-936e-5719c061859b, initial30mreminder, quietmonitor
+/root/checkpoint_maps_monitor. Localsupervisedwatcherom4-suite-watch-26440787
+pollsfinalarray; credentialsremainlocal. Startupverifiedexporttask0RUNNING,
+obsPriority,metricsDependency. Completionrequiresall8COMPLETEmarkers,
+matchedpriorMSEonexport, observationcoverage/finiteoutputs, reportandfigures
+publishedinPR938. This is a submission record, not a scientific result.

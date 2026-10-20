@@ -38,7 +38,14 @@ DEPTHS = [
 ]
 PROG = [f"{v}_{k}" for v in ("uo", "vo", "thetao", "so") for k in range(19)] + ["zos"]
 BOUND = ["tauuo", "tauvo", "hfds", "hfds_anomalies"]
-ARMS = ("full", "detach", "latent_full", "latent_only")
+ARMS = (
+    "full",
+    "detach",
+    "latent_full",
+    "latent_only",
+    "fine_latent",
+    "fine_latent_detach",
+)
 
 
 def sha256(path):
@@ -119,6 +126,31 @@ class OceanModel(nn.Module):
             nn.init.zeros_(self.latent_read.weight)
             self.latent_channels = latent_channels
 
+        if arm.startswith("fine_latent"):
+            # Two latent timestamps, concatenated after the physical/forcing inputs.
+            # Widen only the input convolutions, not the hidden feature widths.
+            self.latent_channels = latent_channels
+            self.register_buffer("fine_wet", mask[:1][None], persistent=False)
+            first = self.unet.layers[0]
+            for owner, key in ((first, "skip_module"), (first.convblock, "0")):
+                old = getattr(owner, key)
+                new = nn.Conv2d(
+                    old.in_channels + 2 * latent_channels,
+                    old.out_channels,
+                    old.kernel_size,
+                    stride=old.stride,
+                    padding=old.padding,
+                    dilation=old.dilation,
+                    bias=old.bias is not None,
+                )
+                with torch.no_grad():
+                    new.weight.zero_()
+                    new.weight[:, : old.in_channels].copy_(old.weight)
+                    if old.bias is not None:
+                        new.bias.copy_(old.bias)
+                setattr(owner, key, new)
+            self.fine_decoder = nn.Conv2d(widths[0], 2 * latent_channels, 3)
+
     def _block(self, layer, x):
         if self.checkpointing and torch.is_grad_enabled():
             return checkpoint(
@@ -150,12 +182,18 @@ class OceanModel(nn.Module):
 
     def forward(self, physical, boundary, h=None):
         x = torch.cat((physical, boundary), dim=1)
+        if self.arm.startswith("fine_latent"):
+            if h is None:
+                h = x.new_zeros(x.shape[0], 2 * self.latent_channels, *x.shape[-2:])
+            x = torch.cat((x, h.masked_fill(~self.fine_wet, 0)), dim=1)
         x, h = self._features(x, h)
         x = F.pad(F.pad(x, (1, 1, 0, 0), mode="circular"), (0, 0, 1, 1))
+        if self.arm.startswith("fine_latent"):
+            h = torch.tanh(self.fine_decoder(x)).masked_fill(~self.fine_wet, 0)
         return self.decoder(x).masked_fill(~self.wet, 0), h
 
     def feedback(self, physical, h):
-        if self.arm in ("detach", "latent_only"):
+        if self.arm in ("detach", "latent_only", "fine_latent_detach"):
             physical = physical.detach()
         return physical, h
 

@@ -92,7 +92,12 @@ def main():
         "output_steps": 2,
         "precision": "fp32",
         "normalization": "batch",
-        "latent_channels": 16 if args.arm.startswith("latent") else 0,
+        "latent_channels": 16 if "latent" in args.arm else 0,
+        "latent_grid": "full_resolution_two_timestamps"
+        if args.arm.startswith("fine_latent")
+        else "bottleneck"
+        if args.arm.startswith("latent")
+        else None,
         "checkpoint_batchnorm_replay": "running stats restored after replay",
         "train_dates": ["1975-01-03", "2013-10-05"],
         "validation_dates": ["2013-10-05", "2014-10-05"],

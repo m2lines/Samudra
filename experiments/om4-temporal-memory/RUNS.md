@@ -277,3 +277,33 @@ One paired seed and correlated origins; no historical-information mechanism proo
 All scheduled follow-ups retired after verifying completed workload artifacts.
 Active campaign artifacts are in the user's scratch space; original002/jrusak
 run directories already checksum-verified and removed, shared datasets unchanged.
+
+## Fine-latent and epoch-70 comparison extension (2026-10-19)
+
+User authorized fine-latent, fine-latent-detach, global/quiet-region maps, and
+selected-versus-70epoch EMA comparison for all arms. Source staged separately as
+scratch root/code-fine-v1, preserving original code-v4. Source checksums in its
+SOURCE_SHA256SUMS. Eight CPU mechanism tests passed locally; no local GPU work.
+
+GPU pilot26429562 gates production via FINE_QUALIFIED + afterok dependency.
+New training array26429592 (fine_latent/fine_latent_detach), begin2026-10-20
+21:05Eastern after verified monthly maintenance00:00–21:00. Continuation26429593
+resumes afterok26429592; each segment36h limit, checkpoint exit after125400s.
+Existing-four-arm selected/final evaluation array26429563 started immediately.
+Logs under scratch root/logs-fine. All new outputs under personal scratch.
+
+Quiet evaluation webhook b58a58dd-3b27-4670-ba91-4e32d6e1fb62, initial20m reminder,
+monitor /root/checkpoint_maps_monitor. Training webhook
+45543461-72b0-46b4-8c49-da00fc89bde9, initial30m reminder, monitor
+/root/fine_training_monitor. Parentthread01a144d3-d415-7072-8cf0-ff06eb2db174.
+Automatic approval review rejected remote callback credential transfer; tokens
+remain local. Active local systemd services om4-epoch70-watch-26429563 and
+om4-fine-watch-26429593 poll Slurm every5min and invoke the local callback sender
+on termination or SSH failure. An SSH failure ends that watcher; monitoring must
+request login refresh. Durable reminders cover watcher/reboot/network failures.
+No remote callback jobs or credential copies were created.
+
+Completion requires both new arms70epochs plus selected/epoch70 evaluations,
+all four existing-arm comparison evaluations, matching selected metrics against
+prior records, map generation and inclusion in the experiment/results PR938.
+This entry is a submission record, not a claim of successful training/results.

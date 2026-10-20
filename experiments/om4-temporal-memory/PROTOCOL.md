@@ -88,3 +88,57 @@ equal-parameter control. Improvement alone therefore does not prove a memory mec
 
 CPU tests cover exact archived-backbone equivalence, paired initialization, real gradient
 connectivity in every arm, checkpoint/BatchNorm equivalence, and masking of the texture operator.
+
+## Extension: full-resolution physical-like latent channels (October 19)
+
+User-requested arms `fine_latent` (display: fine-latent) and `fine_latent_detach`
+(display: fine-latent-detach) retain the same seed, data, four-call exposure,
+physical normalization/masking, loss, optimizer, batch size, 70-epoch schedule,
+and EMA selection rule as the original four arms. These start from random
+initialization, not from a coarse-latent or official checkpoint.
+
+The state contains **16 latent channels per timestamp at 180×360**, or 32 channels
+for the two-timestamp pair. It is concatenated after the physical/forcing inputs
+before the first ConvNeXt block. Only that block's initial 3×3 convolution and
+1×1 skip projection are widened; their original weights/biases and all other
+physical weights are copied from the identically seeded physical model. The new
+input slices start at zero, preserving the initial physical prediction function.
+Hidden feature widths stay unchanged. A separate 3×3 head on the final decoder
+features emits 32 latent channels; `tanh` bounds them to [-1,1], and the surface
+wet mask zeros land in every latent channel. This head uses default convolution
+initialization. It is unsupervised: there is no latent target or regularizer.
+There is no direct latent skip or bottleneck recurrent update in these two arms.
+The extra convolutions add 182,944 parameters. Both inputs and outputs have two
+latent timestamps, while the earlier coarse treatment carried one 16-channel
+11×22 state per call; this is therefore a physical-like state design comparison,
+not an isolated spatial-resolution-only ablation or parameter-matched control.
+
+At each call, the two latent outputs become the next call's two latent inputs,
+alongside the two physical predictions. State starts at zero per training window
+and evaluation origin and is retained for the whole rollout. In `fine_latent`,
+both physical and latent feedback retain gradients. In `fine_latent_detach`,
+only physical feedback is detached. All physical outputs still receive their
+own loss, and every model parameter remains trainable. GPU qualification must
+pass a full-size optimizer update, checkpoint/optimizer reload, and another
+update for both arms before the production jobs can run.
+
+## Extension: checkpoint comparison and spatial illustrations
+
+Evaluate **both** `best-ema.pt` (`model` entry) and epoch-70 `latest.pt` (`ema`
+entry, not its raw `model` weights) for every arm. Require the latter checkpoint
+to have epoch=70 and next_group=0. Use the same six held-out origins, forcings,
+72-call horizon, and metrics; keep these evaluations in separate directories
+so the original endpoint is preserved. Report checkpoint file hashes and state
+keys. Repeat the latent reset control for latent-bearing arms.
+
+Save map subsets at calls 1,36,72 for origin 0. Initial figures focus on the first
+predicted timestamp to inspect the immediate texture: T at 2.5/1850/4000m, S at
+2.5/1850m, SSH, U and V at1850m. Show physical predictions, signed errors, and
+high-pass errors for selected and final EMA weights on shared scales. Use global
+maps plus fixed South Pacific (140–110°W,40–20°S) and North Pacific
+(160–130°W,20–40°N) interior-gyre cutouts. These geographical boxes are chosen
+before inspecting treatment results, not selected for a favorable difference;
+report their measured truth variation/roughness and errors rather than asserting
+they are uniformly quiet. No spatial regridding or display smoothing. Plot scales
+use pooled 1st/99th percentiles across all shown arms/checkpoints, with saturation
+explicitly marked. Single-origin maps supplement, not replace, six-origin scores.

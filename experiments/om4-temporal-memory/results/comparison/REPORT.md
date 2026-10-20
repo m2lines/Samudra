@@ -57,6 +57,10 @@ All arms use seed 15, the same chronological data split, identical epoch-specifi
 
 EMA uses `min(0.999, (1 + updates)/(10 + updates))` as its decay, including floating-point BatchNorm buffers. Activation-checkpoint recomputation restores BatchNorm buffers to avoid counting the replay as a second statistics update. Each arm independently selects its EMA checkpoint by the same 360-day validation criterion; the selected epoch is not forced to match across arms. See the [protocol](../../PROTOCOL.md) and accompanying per-arm configurations for data bounds and the evaluation schedule.
 
+## Follow-up experiments
+
+Two full-resolution latent arms and selected-versus-epoch-70 EMA map comparisons are now scheduled. Their exact definitions and evaluation plan are in the [protocol extension](../../PROTOCOL.md#extension-full-resolution-physical-like-latent-channels-october-19). The results below remain the completed original four-arm comparison; no fine-latent result is claimed yet.
+
 ## Held-out results
 
 Each number averages all 77 channels and both timestamps in the indicated block, then six origins. Day 720 denotes the days 715/720 block, not a cumulative loss.

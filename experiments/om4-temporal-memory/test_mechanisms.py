@@ -96,3 +96,48 @@ def test_repeated_gradients_through_checkpoint_match_uncheckpointed():
             torch.testing.assert_close(ga, gb)
         for key, value in a.state_dict().items():
             torch.testing.assert_close(value, b.state_dict()[key], rtol=0, atol=0)
+
+
+def test_fine_latent_initial_function_and_physical_parameters():
+    base = model().eval()
+    physical = torch.randn(1, 4, 16, 32)
+    boundary = torch.randn(1, 2, 16, 32)
+    expected, _ = base(physical, boundary)
+    for arm in ("fine_latent", "fine_latent_detach"):
+        fine = model(arm).eval()
+        for key, value in base.state_dict().items():
+            other = fine.state_dict()[key]
+            if other.shape != value.shape:
+                assert key in (
+                    "unet.layers.0.skip_module.weight",
+                    "unet.layers.0.convblock.0.weight",
+                )
+                torch.testing.assert_close(
+                    other[:, : value.shape[1]], value, rtol=0, atol=0
+                )
+                assert other[:, value.shape[1] :].count_nonzero() == 0
+            else:
+                torch.testing.assert_close(other, value, rtol=0, atol=0)
+        actual, state = fine(physical, boundary)
+        torch.testing.assert_close(actual, expected)
+        assert state.shape == (1, 6, 16, 32)
+        assert state.abs().max() <= 1
+
+
+def test_fine_latent_feedback_gradient_and_dry_mask():
+    for arm in ("fine_latent", "fine_latent_detach"):
+        fine = model(arm).eval()
+        fine.fine_wet[..., 3, 7] = False
+        # Exercise the trained connectivity after the zero-initialized reader learns.
+        with torch.no_grad():
+            fine.unet.layers[0].skip_module.weight[:, 6:].normal_(std=0.1)
+        first, state = fine(torch.randn(1, 4, 16, 32), torch.randn(1, 2, 16, 32))
+        assert state[..., 3, 7].count_nonzero() == 0
+        feedback, carried = fine.feedback(first, state)
+        assert carried is state
+        second, _ = fine(feedback, torch.randn(1, 2, 16, 32), carried)
+        gp, gh = torch.autograd.grad(
+            second.square().mean(), (first, state), allow_unused=True
+        )
+        assert (gp is None) == (arm == "fine_latent_detach")
+        assert gh is not None and gh.abs().sum() > 0

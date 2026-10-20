@@ -59,7 +59,7 @@ EMA uses `min(0.999, (1 + updates)/(10 + updates))` as its decay, including floa
 
 ## Follow-up experiments
 
-Two full-resolution latent arms and selected-versus-epoch-70 EMA map comparisons are now scheduled. Their exact definitions and evaluation plan are in the [protocol extension](../../PROTOCOL.md#extension-full-resolution-physical-like-latent-channels-october-19). The results below remain the completed original four-arm comparison; no fine-latent result is claimed yet.
+Two full-resolution latent arms are scheduled. The [selected-versus-epoch-70 EMA map comparison](../checkpoint-comparison/REPORT.md) is complete for the original four arms. Their exact definitions and evaluation plan are in the [protocol extension](../../PROTOCOL.md#extension-full-resolution-physical-like-latent-channels-october-19). The results below remain the completed original four-arm comparison; no fine-latent result is claimed yet.
 
 ## Held-out results
 

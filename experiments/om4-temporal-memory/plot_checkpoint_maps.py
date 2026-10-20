@@ -146,7 +146,7 @@ def main():
         for region, (xmin, xmax, ymin, ymax) in REGIONS.items():
             box = (lat[:, None] >= ymin) & (lat[:, None] <= ymax)
             raw_lon = (np.array(meta["longitude"]) + 180) % 360 - 180
-            box &= (raw_lon[None, :] >= xmin) & (raw_lon[None, :] <= xmax)
+            box = box & (raw_lon[None, :] >= xmin) & (raw_lon[None, :] <= xmax)
             valid = wet & box
             lo, hi = np.percentile(
                 np.concatenate([truth[valid]] + [z[valid] for z in physical.values()]),
@@ -178,7 +178,7 @@ def main():
             for row in range(6):
                 selection = "selected" if row < 3 else "epoch70"
                 kind = row % 3
-                for col, arm in enumerate([None] + arms):
+                for col, arm in enumerate((None, *arms)):
                     ax = axs[row, col]
                     if arm is None and kind:
                         ax.axis("off")

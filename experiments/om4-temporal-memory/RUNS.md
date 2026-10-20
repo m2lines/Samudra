@@ -307,3 +307,13 @@ Completion requires both new arms70epochs plus selected/epoch70 evaluations,
 all four existing-arm comparison evaluations, matching selected metrics against
 prior records, map generation and inclusion in the experiment/results PR938.
 This entry is a submission record, not a claim of successful training/results.
+
+Evaluation26429563_0..3 verified COMPLETED exit0, runtime1m49s–2m57s. All8
+selected/final evaluations retrieved; selected hashes and entire metric records
+exactly match original report. Published results/checkpoint-comparison with24
+maps, regional metrics, final-vs-selected summary and checksums. Fixed plotting
+region-mask broadcasting (`box = box & ...`); figures use this corrected logic.
+Final EMA day720 worsens14–18% acrossarms; detachment advantage remains~22%.
+Fine pilot26429562 completed exit0 in1m47s; FINE_QUALIFIED verified. Both new
+training arms remain queued until after maintenance; no fine-arm result yet.
+Only the completed eval callback is retired; fine-training monitoring remains.

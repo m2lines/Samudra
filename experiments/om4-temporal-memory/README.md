@@ -3,6 +3,7 @@
 Experiment/results record, not intended to merge.
 
 - **[Four-arm training comparison and final report](results/comparison/REPORT.md)**: full gradients, detached physical feedback, persistent latents, and temporal gradients only through latents.
+- **[Global maps, quiet-region cutouts, and epoch-70 EMA comparison](results/checkpoint-comparison/REPORT.md)**.
 - [Official checkpoint intervention and gradient diagnostics](results/diagnostics/REPORT.md).
 - [Single-example overfitting report](results/overfit-one/REPORT.md).
 - [Experiment protocol](PROTOCOL.md) and [execution history](RUNS.md).

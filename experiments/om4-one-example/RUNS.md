@@ -4,6 +4,26 @@ Authorization extended to 2026-10-19 15:00 America/New_York (19:00 UTC), or earl
 
 ## Bounded local-range iteration and current-main training plan (2026-10-20)
 
+### First bounded/gradient sweep complete; mild-weight follow-up running
+
+Array **20430648** completed all eight tasks (4:47–4:54, exit 0:0). CPU callback 20430672 failed its HTTPS retry window; the durable reminder recovered the work. Its registration is revoked. Retrieved only protocols, histories and initial/final maps. Independent CPU float64 checks reproduce all 77 state/texture metrics, full objectives, horizontal/vertical components and weighted losses; all eight starting predictions are bitwise identical. [Verification](report/bounded-range/verification.json), [summary](report/bounded-range/summary.json).
+
+| Arm | State MSE / MSE control | Texture MSE / MSE control |
+| --- | ---: | ---: |
+| Original unbounded weights | 36.53 | 16.18 |
+| Square-root variance, bounds 0.5–2 | 2.018 | 1.810 |
+| Square-root variance, bounds 0.25–4 | 2.816 | 2.379 |
+| Inverse variance, bounds 0.25–4 | 3.626 | 2.910 |
+| Horizontal gradient L1 | 0.772 | 0.655 |
+| Horizontal + vertical gradient L1 | 0.798 | 0.699 |
+| Existing spatial-error loss | 0.333 | 0.01266 |
+
+Bounded weighting cures much of the extreme failure but is not yet a successful replacement. Gradient penalties improve the matched MSE control; the spatial-error objective remains stronger at this budget. The vertical term reduces its own metric but does not beat horizontal-only state/texture error. These are 1,500-update legacy-model single-example tests, not full training or current-main qualification.
+
+Next short sweep **20435707** tests `w=1+0.25*(sqrt_cap2_weight-1)`, preserving per-channel mean 1 while restricting weights to **0.875–1.25**. Five tasks, concurrency 2, each 1,500 updates: mild weights at LR6e-4, ordinary MSE at LR2e-4, mild weights at LR2e-4, then paired MSE/mild continuations from the completed MSE pilot checkpoint at LR1e-4. The previous MSE6e-4 arm is the unchanged cold-start control. Both continuations load identical model/buffer state and reset Adam moments; they are not directly budget-matched to cold starts. Trainer records source hash and initial parameter hash; all learning rates cosine-decay to1e-7. CPU loss checks and staged trainer/weight SHA read-back passed. Output root `/scratch/jr7309/om4-mild-range-20261020`. CPU callback **20435762** depends afterany on the entire array. Durable registration **1e1890b7-203a-4c6e-a214-bd15ba0ddb4e**, reminder30m, parent thread unchanged. Full-training runs remain unsubmitted pending a useful stable loss and main-model qualification.
+
+When porting to current main, explicitly reconcile reduction semantics: its ordinary MSE averages masked-zero errors over all grid cells, whereas these legacy tests divide by each channel's wet-cell count. Do not silently change the base-loss denominator relative to recent full-training controls. Likewise use the actual selected data normalization to regenerate fixed weights, and preserve two-output time-major handling.
+
 **Resumed after cleanup, 2026-10-20:** Torch `myquota` initially still showed 5.00 TB/100%, then 4.95 TB/99.02% as the user's separate cleanup job ran. No cleanup was performed by this experiment. Engaging still announced scheduled maintenance and rejected login on the single authorized retry; do not retry until login is refreshed. With roughly 50 GB headroom, submitted fresh Torch array **20430648**, eight 1,500-update arms, concurrency 2, RTX6000, preemption enabled and Requeue=1. Output root `/scratch/jr7309/om4-bounded-range-v2-20261020` preserves the earlier failed attempt separately. Tasks 0–7: MSE, spatial_100, original weights, sqrt_cap2, sqrt_cap4, inverse_cap4, gradient_h, gradient_hz. CPU callback **20430672** is verified pending afterany on the whole array in `cpu_short`; durable registration **3a96a633-fb71-400b-a1aa-44aefb344427**, parent thread `01a1503c-b083-7513-aba5-d7bf5b01c821`, fallback reminder 45 minutes. On completion, retrieve protocol/history/maps only, verify all endpoints and starting identities, assess all-depth/global errors and concentrations, then proceed with authorized main-model qualification and three full runs only after the local loss passes. Do not mistake a callback for training success.
 
 `llc_gradient_loss.py` implements the documented OM4 adaptation. CPU checks passed exact-target zero, masked land gradients, finite differences, batch replication, two-time grouping, and a separate explicit-loop vertical reference. Both gradient arms use MSE+0.1*horizontal L1; gradient_hz additionally uses 0.1*vertical L1. Trainer logs both gradient components for every arm. Local/staged trainer, gradient module and scale archives passed matching SHA256 read-back. First GPU bring-up confirms identical step-0 prediction metrics for MSE/spatial arms, and MSE decreased from 1.0676 to 0.06929 by update 100. This is bring-up evidence, not a scientific result. Full runs remain unsubmitted pending results.

@@ -8,9 +8,10 @@ rollouts improve the monthly forecasts and the severe annual drift documented
 in the [original pilots](monthly-latent-pilots-2026-10-16.md) and
 [365-day evaluation](monthly-latent-annual-2026-10-18.md)?
 
-Status: all four runtime qualifications passed in Beta **214974**; production
-**215046** is queued. No new training results yet. Pinned training producer:
-`ed020de4b` (24 targeted tests and repository checks passed).
+Status: **all four training runs completed**, including their cooldowns, in
+Beta **215046** (6h16m49s on one four-GPU node). Pinned training producer:
+`ed020de4b` (24 targeted tests and repository checks passed). Fixed-endpoint
+annual qualification **215336** is queued; annual results are not available yet.
 
 Grace **141793** prepared and independently hash-verified 19.17 GB covering
 7,397 five-day intervals; every future surface/forcing payload in the 243
@@ -22,9 +23,59 @@ four arms and finite replay loss ending at day 365 in both replay arms. Its
 
 Run root: `beta:/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-20261020`.
 The staged `paths.json` pins original A/E checkpoint hashes and all four run
-definitions. One four-GPU production node is planned. Beta's October 20
-scheduler dry run estimated an October 21 morning start; that is advisory and
-does not mean a production job has started.
+definitions. Training allocated **25.121 GPU-hours**, plus **0.489 GPU-hours**
+for qualification, totaling **25.610 GPU-hours** before annual evaluation.
+
+## Monthly validation results
+
+Longer mixed OM4/observation training improves A's endpoint blend by **4.64%**.
+Longer observation-only training improves surface prediction but worsens OHC,
+so its five-component blend deteriorates. Replay does not improve the monthly
+blend at this budget; its intended longer-horizon benefit requires the pending
+annual evaluation. These are nine-origin validation results, not annual or
+held-out-test results, and all models use seed 1729.
+
+| Literal run name | Main + cooldown updates | Final EMA blend | Final raw blend | Surface-only blend | SST (°C) | OHC 0–700 m (GJ/m²) | OHC 700–2,000 m (GJ/m²) |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| A | 2k + 1k | 1.1182 | — | 0.9665 | 0.7879 | 0.7585 | 0.5908 |
+| E | 2k + 1k | 1.1443 | — | 0.9233 | 0.6998 | 0.8142 | 0.6570 |
+| A-extend | 4k + 1k | **1.0664** | 1.0692 | 0.9163 | 0.7133 | 0.7748 | **0.5424** |
+| E-extend | 4k + 1k | 1.1793 | 1.1867 | **0.8693** | **0.6334** | 0.8534 | 0.7601 |
+| A-replay | 2k + 1k | 1.1794 | 1.1803 | 0.9646 | 0.7672 | 0.8372 | 0.6639 |
+| E-replay | 2k + 1k | 1.1601 | 1.1513 | 0.9266 | 0.6960 | 0.8376 | 0.6701 |
+
+All columns use the fixed cooled endpoints. Original A/E raw endpoints were
+not part of their original saved validation curves. A/E are the original
+OM4+obs and obs-only models; all six literal names are defined below. SST and
+surface blends average leads 5, 15 and 30 days; OHC scores the calendar-month
+mean. The full blend averages SST, velocity, EKE and both OHC RMSEs after dividing
+by the same fixed seasonal-climatology errors; no spectra or detrending enter.
+
+![Monthly validation curves](assets/monthly-replay-2026-10-20/validation-curves.png)
+
+Curves focus on updates 1.5k onward. Dashed A/E curves cool after 2k; extensions
+share their first 2k and cool after 4k; replay models start from scratch and cool
+after 2k. A-extend's SST and deep OHC improve by 9.5% and 8.2%, respectively,
+while upper OHC worsens 2.2%. E-extend's surface-only blend improves 5.8%, but
+deep OHC worsens 15.7%. Its best full blend is 1.1338 at update 2750, followed by
+a sustained OHC-driven rise; more training is not uniformly beneficial under
+the current objective. Its surface-only improvement continues through cooldown.
+
+The replay endpoints' full-blend penalties relative to original A/E are 5.5%
+and 1.4%; surface-only changes are −0.2% and +0.4%. Raw and EMA endpoint scores
+are close, so EMA does not conceal a large monthly benefit. Replay halves the
+number of fresh short-horizon observation examples, making a short/long lead
+tradeoff plausible; these results alone do not diagnose its cause.
+
+Both replay runs really reached **335-day start leads**, followed by the next
+month's supervised continuation, with no observed-ocean resets. A-replay used
+8,000 fresh and 8,000 replay examples; E-replay used 12,000 of each. Maximum
+cached-state ages were 250 and 246 optimizer updates. Thus long-lead exposure
+occurred in production, rather than only in qualification. The saved per-update
+lead summaries do not reconstruct an exact per-example lead histogram.
+
+[Machine-readable curves, components, exposure and endpoint hashes](assets/monthly-replay-2026-10-20/results.json).
+Reproduce with [the report generator](../../../scripts/summarize_monthly_replay.py).
 
 ## Four runs
 
@@ -40,6 +91,12 @@ matching the existing pilots. The new computation is 3k updates / 24k examples
 per run. The replay pilots compare with original A/E at the same 2k+1k budget;
 the extensions compare with A/E before their original cooldown. None resumes
 cooled 3k weights, and qualification weights never initialize production.
+
+The comparison rows **A** and **E** refer to the original 2k-main + 1k-cooldown
+runs: A uses the same 50% OM4 / 50% observation main mix, and E uses observations
+only. Their architecture, losses and evaluation match the new runs. The
+extensions preserve their raw 2k checkpoint state and add another 2k main
+updates before the new cooldown; they do not add onto the old cooled weights.
 
 All runs retain the same 48,702,016-parameter latent processor and physical
 diffusion decoder, 1° fields (180×360), 19 five-day history bins, OM4

@@ -7,8 +7,9 @@ Question: do the model datasets and multitask initializer help when observations
 are introduced only during the final adaptation stage, rather than jointly
 throughout training?
 
-Status: **all four monthly runs completed** in Beta production **215049**;
-annual qualification **215379** is running. Pinned training producer: `a1e74e188`. Run root:
+Status: **all four monthly runs and annual evaluations completed** (Beta training
+215049, annual qualification 215379, annual evaluation 215384). Pinned training
+producer: `a1e74e188`; annual evaluator: `57e42cc32`. Run root:
 `beta:/projects/ny/lz1955/multiscale/jrusak/runs/monthly-pretraining-20261020`.
 
 This is a separate four-run comparison alongside the
@@ -65,8 +66,67 @@ long-lead exposure and addresses annual stability.
 
 [Verified results](assets/monthly-model-pretraining-2026-10-20/results.json) and
 [input/checkpoint hashes](assets/monthly-model-pretraining-2026-10-20/checksums.txt)
-include all components, curves and online W&B links. Annual diagnostics are
-pending and will use fixed 3k endpoints without annual selection.
+include all components, curves and online W&B links.
+
+## Annual results
+
+Model-only pretraining **does not fix annual drift**. The surface-only OM4 model
+has the lowest year-end errors in this comparison, but day-365 SST error remains
+8.94°C versus 1.00°C for seasonal climatology. The new runs are worse at day 30
+and somewhat better at day 365 than their corresponding original joint models;
+that crossover is a warning against selecting a long-range recipe from monthly
+scores alone. Every model shown still deteriorates badly through the year.
+
+| Model | SST day 30 °C ↓ | SST day 180 °C ↓ | SST day 365 °C ↓ | December OHC 0–700 / 700–2,000 m GJ/m² ↓ |
+|---|---:|---:|---:|---:|
+| P-OM4-surface | 0.941 | 3.245 | 8.940 | 10.077 / 6.020 |
+| P-OM4-multitask | 1.071 | 3.955 | 11.344 | 12.560 / 8.698 |
+| P-mix-surface | 0.902 | 3.251 | 10.159 | 11.167 / 7.717 |
+| P-mix-multitask | 0.965 | 3.937 | 11.678 | 16.399 / 9.544 |
+| Original joint A | 0.825 | 3.413 | 11.194 | 13.329 / 9.303 |
+| Original joint B | 0.825 | 3.498 | 13.697 | 14.240 / 10.727 |
+| Original joint C | 0.820 | 3.501 | 12.103 | 13.976 / 9.992 |
+| Original joint D | 0.809 | 2.810 | 12.885 | 15.228 / 9.264 |
+| Original obs-only E | 0.764 | 2.982 | 10.245 | 15.001 / 9.186 |
+| Seasonal climatology | — | — | 1.002 | 0.881 / 0.370 |
+
+These are **three held-out continuous years**, initialized once on January 1 of
+2015, 2018 and 2021, with prescribed future ERA5. The same fixed 3k EMA endpoints
+are evolved for 73 five-day steps without resets or future ocean inputs. Surface
+metrics are five-day-bin means; OHC is a calendar-month readout. This cohort is
+different from the nine monthly validation origins above, and no model is
+selected using these annual tests. EKE measures variability across the three
+origins at each lead, not temporal EKE within a year.
+
+![Annual surface errors](assets/monthly-model-pretraining-2026-10-20/annual-surface-curves.png)
+
+![Monthly OHC and latent growth](assets/monthly-model-pretraining-2026-10-20/annual-ohc-latent.png)
+
+Latent RMS grows from 0.626→2.833, 0.352→2.453, 0.494→3.392 and 0.368→3.965
+for the four P models, respectively. No latent-size penalty or replay is present.
+The processor sees only short windows during training, and decoder lead
+conditioning also extrapolates beyond its trained range. These diagnostics do
+not separate their contributions. By contrast, the separately trained
+[A/E replay models](monthly-replay-2026-10-20.md#annual-results) reach day-365 SST
+RMSE 1.028/0.916°C; the present result provides no reason to replace that
+long-lead exposure with more model-only pretraining.
+
+Maps show prediction minus observation for 2021, with matched color scales and
+one image pixel per grid cell. SST is the final five-day bin; OHC is December.
+
+![OM4 surface and multitask annual errors](assets/monthly-model-pretraining-2026-10-20/annual-errors-2021-OM4.png)
+
+![OM4/CM4 surface and multitask annual errors](assets/monthly-model-pretraining-2026-10-20/annual-errors-2021-mix.png)
+
+The annual audit checked fixed checkpoint/data hashes, finite future forcings,
+exact monthly/annual payload overlap and first-month readout. All 12 new annual
+cases and 16 output hashes passed; report generation additionally reverified the
+15 original cases and matching grids/references. OHC uses the unchanged fixed
+complete-column support (38,933 upper / 37,190 deep cells). See
+[annual results](assets/monthly-model-pretraining-2026-10-20/annual-results.json)
+and [hashes](assets/monthly-model-pretraining-2026-10-20/annual-checksums.txt).
+The small three-case cohort and a single training seed limit claims about
+relative model rankings.
 
 ## Runs and data exposure
 
@@ -153,4 +213,8 @@ applicable task, identical random backbone hashes, original data contracts and
 bitwise-exact observation-adaptation restart. Production starts from random
 weights, not the qualification states. Production 215049 completed in 10h02m53s
 on four GPUs (40.1922 GPU-hours); training plus qualification cost 40.5936
-GPU-hours, with no failed attempts. Annual evaluation is accounted separately.
+GPU-hours, with no failed attempts. Annual qualification 215379 took 4m53s on
+one GPU; evaluation 215384 took 16m43s on four GPUs (1.1958 GPU-hours together).
+This wave totals **41.7894 GPU-hours**, including qualification, training and
+annual evaluation. Annual artifacts are under
+`/projects/ny/lz1955/multiscale/jrusak/runs/monthly-pretraining-annual-20261020`.

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-FileCopyrightText: 2026 Samudra Authors
 # SPDX-License-Identifier: Apache-2.0
-"""Compare verified annual replay/extension endpoints with original A and E."""
+"""Compare verified annual replay or model-pretraining runs with original pilots."""
 
 import argparse
 import json
@@ -23,11 +23,16 @@ def main():
     p.add_argument("--root", type=Path, required=True)
     p.add_argument("--original", type=Path, required=True)
     p.add_argument("--out", type=Path, required=True)
+    p.add_argument("--comparison", choices=["replay", "pretraining"], default="replay")
+    p.add_argument("--qualification-seconds", type=int, default=288)
+    p.add_argument("--evaluation-seconds", type=int, default=994)
     a = p.parse_args()
     a.out.mkdir(parents=True, exist_ok=True)
     models, cases, references, checksums = {}, {}, {}, []
     origins, baseline, grid = None, None, None
     output_count = 0
+    original_arms = "AE" if a.comparison == "replay" else "ABCDE"
+    original_names = [arm + "-1729" for arm in original_arms]
     for source in [a.original, a.root]:
         config = json.loads((source / "paths.json").read_text())
         audit = json.loads((source / "AUDITED.json").read_text())
@@ -36,6 +41,10 @@ def main():
         assert qualified["audit_sha256"] == digest(source / "AUDITED.json")
         assert qualified["producer"] == config["producer"]
         assert qualified["first_month_readout_exact"]
+        finished = json.loads((source / "COMPLETE.json").read_text())
+        assert finished["producer"] == config["producer"]
+        assert finished["models"] == config["models"]
+        assert finished["origins"] == config["origins"]
         grid_path = next(k for k in audit["contracts"] if k.endswith("/grid.npz"))
         assert digest(source / "grid.npz") == audit["contracts"][grid_path]
         current_grid = dict(np.load(source / "grid.npz"))
@@ -48,7 +57,7 @@ def main():
         support = fixed_ohc_support(current_grid)
         assert support.sum((1, 2)).tolist() == [38933, 37190]
         for row in config["models"]:
-            if source == a.original and row["name"] not in ["A-1729", "E-1729"]:
+            if source == a.original and row["name"] not in original_names:
                 continue
             name = row["name"].removesuffix("-1729")
             directory = source / row["name"]
@@ -107,8 +116,8 @@ def main():
             metrics["latent_rms_mean"] = np.mean(latents, 0).tolist()
             metrics["per_origin_sst"] = per_origin
             models[name] = metrics
-    assert len(models) == 6 and output_count == 24
-    assert grid is not None and baseline is not None
+    assert len(models) == len(original_arms) + 4 and output_count == len(models) * 4
+    assert grid is not None and baseline is not None and origins is not None
     colors = dict(
         zip(models, plt.get_cmap("tab10")(np.arange(len(models))), strict=True)
     )
@@ -125,7 +134,7 @@ def main():
                 [v[key] for v in model["leads"]],
                 label=name,
                 color=colors[name],
-                ls="--" if name in ["A", "E"] else "-",
+                ls="--" if name in original_arms else "-",
             )
         ax.plot(
             [v["day"] for v in baseline],
@@ -140,6 +149,10 @@ def main():
     fig.tight_layout()
     fig.savefig(a.out / "annual-surface-curves.png", dpi=115)
     plt.close(fig)
+    if a.comparison == "pretraining":
+        path = a.out / "annual-surface-curves.png"
+        with Image.open(path) as saved:
+            saved.convert("RGB").quantize(colors=256).save(path, optimize=True)
     fig, axes = plt.subplots(1, 3, figsize=(14, 4))
     for name, model in models.items():
         for ax, key in zip(axes[:2], ["0_700", "700_2000"], strict=True):
@@ -174,8 +187,15 @@ def main():
     fig.tight_layout()
     fig.savefig(a.out / "annual-ohc-latent.png", dpi=110)
     plt.close(fig)
-    for arm in ["A", "E"]:
-        names = [arm, arm + "-extend", arm + "-replay"]
+    map_groups = (
+        {arm: [arm, arm + "-extend", arm + "-replay"] for arm in "AE"}
+        if a.comparison == "replay"
+        else {
+            "OM4": ["A", "P-OM4-surface", "P-OM4-multitask"],
+            "mix": ["C", "P-mix-surface", "P-mix-multitask"],
+        }
+    )
+    for arm, names in map_groups.items():
         width, height = 1220, 740
         fig = plt.figure(figsize=(width / 100, height / 100), dpi=100)
         rectangles, images = [], []
@@ -202,7 +222,9 @@ def main():
                     field,
                     origin="lower",
                     interpolation="nearest",
-                    cmap=plt.get_cmap("RdBu_r", 128),
+                    cmap=plt.get_cmap(
+                        "RdBu_r", 128 if a.comparison == "replay" else 64
+                    ),
                     vmin=-[20, 30, 30][col],
                     vmax=[20, 30, 30][col],
                     aspect="auto",
@@ -275,13 +297,14 @@ def main():
                 )
             indexed.save(path, optimize=True)
     verification = dict(
-        model_count=6,
-        annual_cases=18,
-        output_hashes_verified=24,
+        model_count=len(models),
+        annual_cases=len(models) * len(origins),
+        output_hashes_verified=output_count,
         origins=origins,
         exact_cell_pixels=1,
         support_cells=support.sum((1, 2)).tolist(),
-        new_annual_gpu_hours=288 / 3600 + 994 * 4 / 3600,
+        new_annual_gpu_hours=(a.qualification_seconds + a.evaluation_seconds * 4)
+        / 3600,
     )
     (a.out / "annual-results.json").write_text(
         json.dumps(
@@ -292,8 +315,9 @@ def main():
     )
     (a.out / "annual-checksums.txt").write_text("\n".join(checksums) + "\n")
     for f in a.out.iterdir():
-        if not f.name.endswith(".license"):
-            f.with_name(f.name + ".license").write_text(
+        license_path = f.with_name(f.name + ".license")
+        if not f.name.endswith(".license") and not license_path.exists():
+            license_path.write_text(
                 "SPDX-FileCopyrightText: 2026 Samudra Authors\nSPDX-License-Identifier: CC-BY-4.0\n"
             )
     for name, model in models.items():

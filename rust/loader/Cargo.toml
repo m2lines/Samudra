@@ -19,7 +19,9 @@ numpy = "0.25"
 pyo3 = "0.25.0"
 rayon = "1.11.0"
 serde_json = "1.0"
-zarrs = { version = "0.21.2", features = ["filesystem"] }
+zarrs = { version = "0.21.2", features = ["filesystem", "async"] }
+zarrs_object_store = { version = "0.4", features = ["aws"] }
+tokio = { version = "1", features = ["rt-multi-thread", "time", "net"] }
 
 [features]
 extension-module = ["pyo3/extension-module"]

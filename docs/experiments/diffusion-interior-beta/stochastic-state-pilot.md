@@ -3,7 +3,7 @@
 
 # Observation-initialized stochastic state pilot
 
-Status: GPU qualification passed; production job **215378** submitted on Beta. This page records the new pilot,
+Status: production job **215378** completed. See [results](stochastic-state-results.md). This page records the new pilot,
 not results from the completed independent-diffusion-readout campaign.
 
 The question is whether uncertainty carried by evolving member-specific latent

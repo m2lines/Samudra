@@ -125,7 +125,7 @@ def coherent_reconstruction(model, data, sample, generator, members=2):
     return monthly, excess_latent_loss(states, states[0])
 
 
-def observation_parts(model, data, original, seed):
+def observation_parts(model, data, original, seed, capture=None):
     """Separate graphs permit forecast and reconstruction backprop independently."""
     sample = corrupt_sample(original, seed)
     adapted = model.adapt(sample["atmosphere"])
@@ -145,6 +145,8 @@ def observation_parts(model, data, original, seed):
         members=2,
         task="observation",
     )
+    if capture is not None:
+        capture(states)
     initial = model.decode_members(states[0], data.mask, known, anchor)
     predictions = torch.stack(
         [model.decode_members(state, data.mask)[:, :, -1] for state in states[1:]], 2
@@ -180,7 +182,7 @@ def observation_parts(model, data, original, seed):
     )
 
 
-def native_objective(model, wave, index, coverage, seed):
+def native_objective(model, wave, index, coverage, seed, capture=None):
     """Physical normalized channel CRPS, with every member evolved separately."""
     surface, past, context, truth, forcing, targets = wave.model_sample(
         wave.trainset, [index]
@@ -205,6 +207,8 @@ def native_objective(model, wave, index, coverage, seed):
         members=2,
         task="om4",
     )
+    if capture is not None:
+        capture(states)
     decoded_initial = model.decode_members(states[0], wave.mask, known, anchor)
 
     def score(prediction, target, support):
@@ -238,6 +242,118 @@ def native_objective(model, wave, index, coverage, seed):
     return loss
 
 
+def qualify_replay(model, data, wave, intervals, output):
+    """Backpropagate each calendar continuation to day 365 without ocean resets."""
+    from samudra.experiments.stochastic_state_replay import (
+        ReplayPool,
+        replay_parts,
+        window_layout,
+    )
+
+    origin = "1993-05"
+    pool = ReplayPool()
+    captured = []
+
+    def fresh_capture(states):
+        pool.add_next(origin, origin, states, 0)
+
+    with torch.autocast("cuda", dtype=torch.bfloat16):
+        for _, loss, _ in observation_parts(
+            model,
+            data,
+            data.load(data.root / "train" / (origin + ".npz")),
+            87291,
+            capture=fresh_capture,
+        ):
+            if not bool(torch.isfinite(loss)):
+                raise FloatingPointError("Fresh replay qualification")
+            loss.backward()
+    for depth in range(1, 12):
+        entry = pool.entries[depth][-1]
+        model.zero_grad(set_to_none=True)
+
+        def capture(states):
+            pool.add_next(entry["origin"], entry["month"], states, 0, origin_step=0)
+
+        with torch.autocast("cuda", dtype=torch.bfloat16):
+            values = []
+            for _, loss, _ in replay_parts(
+                model, data, intervals, entry, 87291 + depth, capture=capture
+            ):
+                if not bool(torch.isfinite(loss)):
+                    raise FloatingPointError("Long replay qualification")
+                loss.backward()
+                values.append(float(loss.detach()))
+        if any(
+            p.grad is not None and not bool(torch.isfinite(p.grad).all())
+            for p in model.parameters()
+        ):
+            raise FloatingPointError("Nonfinite long-replay gradients")
+        end = window_layout(entry["origin"], entry["month"])[1] * 5
+        captured.append(
+            dict(
+                month=entry["month"],
+                start_days=entry["bin_index"] * 5,
+                end_days=end,
+                loss=sum(values),
+            )
+        )
+    from samudra.experiments.stochastic_state_native_replay import (
+        OM4ReplayPool,
+        native_replay_objective,
+    )
+
+    native = OM4ReplayPool(len(wave.trainset))
+    coverage = data.load(data.root / "train" / (origin + ".npz"))["validity"][:, :19]
+
+    def native_fresh_capture(states):
+        native.add_next(0, 0, states, 0)
+
+    model.zero_grad(set_to_none=True)
+    with torch.autocast("cuda", dtype=torch.bfloat16):
+        loss = native_objective(
+            model, wave, 0, coverage, 91723, capture=native_fresh_capture
+        )
+        if not bool(torch.isfinite(loss)):
+            raise FloatingPointError("Fresh OM4 qualification")
+        loss.backward()
+    native_windows = []
+    for lead in range(6, 72, 6):
+        entry = native.entries[lead][-1]
+        model.zero_grad(set_to_none=True)
+
+        def native_capture(states):
+            native.add_next(0, lead, states, 0, origin_step=0)
+
+        with torch.autocast("cuda", dtype=torch.bfloat16):
+            loss = native_replay_objective(
+                model, wave, entry, coverage, 91723 + lead, capture=native_capture
+            )
+            if not bool(torch.isfinite(loss)):
+                raise FloatingPointError("Long OM4 replay qualification")
+            loss.backward()
+        if any(
+            p.grad is not None and not bool(torch.isfinite(p.grad).all())
+            for p in model.parameters()
+        ):
+            raise FloatingPointError("Nonfinite OM4 replay gradients")
+        native_windows.append(
+            dict(
+                start_days=lead * 5, end_days=(lead + 6) * 5, loss=float(loss.detach())
+            )
+        )
+    atomic_json(
+        dict(
+            native_windows=native_windows,
+            native_max_end_days=native_windows[-1]["end_days"],
+            windows=captured,
+            max_end_days=captured[-1]["end_days"],
+            observed_ocean_resets=False,
+        ),
+        output / "replay-longlead.json",
+    )
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, required=True)
@@ -253,6 +369,8 @@ def main():
     parser.add_argument("--hours", type=float, default=10)
     parser.add_argument("--checkpoint-every", type=int, default=50)
     parser.add_argument("--compile-decoder", action="store_true")
+    parser.add_argument("--replay-cache", type=Path)
+    parser.add_argument("--qualify-replay", action="store_true")
     parser.add_argument("--wandb-project", default="default")
     parser.add_argument("--wandb-entity", default="ocean_emulators")
     parser.add_argument(
@@ -267,6 +385,8 @@ def main():
         raise ValueError("Pilot trainer is single GPU, not DDP")
     if args.updates_per_task < 1 or args.checkpoint_every < 1:
         raise ValueError("Positive update counts required")
+    if args.qualify_replay and (not args.smoke or not args.replay_cache):
+        raise ValueError("Replay qualification requires smoke and replay cache")
     device = torch.device("cuda")
     torch.set_num_threads(1)
     torch.manual_seed(args.seed)
@@ -304,7 +424,7 @@ def main():
         reconstruction="one coherent trajectory initialized at first target-month surface bin",
         global_observations=True,
         surface_fill="zero",
-        replay=False,
+        replay=bool(args.replay_cache),
         latent_bound=0.1,
         deterministic_decoder=True,
         noise_scale=0.05,
@@ -322,6 +442,45 @@ def main():
         reference=digest(args.reference),
         producer=os.environ["SAMUDRA_CODE_COMMIT"],
     )
+    pool = intervals = None
+    replay_rng = np.random.default_rng(1729001)
+    replay_examples = fresh_examples = 0
+    native_replay_examples = 0
+    native_replay_rng = np.random.default_rng(1729002)
+    native_pool = None
+    if args.replay_cache:
+        from samudra.experiments.stochastic_state_replay import (
+            ReplayIntervals,
+            ReplayPool,
+        )
+
+        if args.arm == "ar1":
+            raise ValueError("Replay of AR1 requires cached innovation history")
+        proof = json.loads((args.replay_cache / "COMPLETE.json").read_text())
+        if proof["exact_original_months"] != 243:
+            raise ValueError("Replay cache differs from original 243 training months")
+        for path, sha in proof["contracts"].items():
+            if digest(path) != sha:
+                raise ValueError("Replay data contract changed: " + path)
+        for name, sha in proof["files"].items():
+            if (args.qualify_replay or name != "values.npy") and digest(
+                args.replay_cache / name
+            ) != sha:
+                raise ValueError("Replay payload hash changed: " + name)
+        if (args.replay_cache / "values.npy").stat().st_size != proof["bytes"]:
+            raise ValueError("Replay cache size changed")
+        pool = ReplayPool()
+        intervals = ReplayIntervals(args.replay_cache)
+        contract.update(
+            replay_fraction_of_obs=0.5,
+            replay_max_age=250,
+            replay_entries_per_lead_month=8,
+            replay_max_months=11,
+            native_replay_fraction=0.5,
+            native_replay_max_days=360,
+            native_replay_chunk_days=30,
+            replay_proof_sha256=digest(args.replay_cache / "COMPLETE.json"),
+        )
     protocol = args.output / "protocol.json"
     if protocol.exists() and json.loads(protocol.read_text()) != contract:
         raise ValueError("Output protocol differs")
@@ -387,6 +546,10 @@ def main():
     atomic_json(native_contract, native_path)
     if args.compile_decoder:
         model.decoder.compile()
+    if args.replay_cache:
+        from samudra.experiments.stochastic_state_native_replay import OM4ReplayPool
+
+        native_pool = OM4ReplayPool(len(wave.trainset))
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=0.01)
     last = args.output / "last.pt"
     completed = 0
@@ -407,6 +570,15 @@ def main():
         torch.cuda.set_rng_state(saved["cuda_rng"])
         np.random.set_state(saved["numpy_rng"])
         random.setstate(saved["python_rng"])
+        if pool is not None:
+            pool.load_state_dict(saved["replay_pool"])
+            replay_rng.bit_generator.state = saved["replay_rng"]
+            replay_examples = saved["replay_examples"]
+            fresh_examples = saved["fresh_examples"]
+            assert native_pool is not None
+            native_pool.load_state_dict(saved["native_replay_pool"])
+            native_replay_rng.bit_generator.state = saved["native_replay_rng"]
+            native_replay_examples = saved["native_replay_examples"]
         del saved
     import wandb
 
@@ -448,6 +620,17 @@ def main():
             numpy_rng=np.random.get_state(),
             python_rng=random.getstate(),
         )
+        if pool is not None:
+            assert native_pool is not None
+            payload.update(
+                replay_pool=pool.state_dict(),
+                replay_rng=replay_rng.bit_generator.state,
+                replay_examples=replay_examples,
+                fresh_examples=fresh_examples,
+                native_replay_pool=native_pool.state_dict(),
+                native_replay_rng=native_replay_rng.bit_generator.state,
+                native_replay_examples=native_replay_examples,
+            )
         atomic_torch(payload, last)
         if snapshot:
             atomic_torch(payload, args.output / f"step-{completed:05d}.pt")
@@ -476,13 +659,45 @@ def main():
         model.train()
         measured: dict[str, float] = {}
         value = 0.0
+        replay_leads, replay_ages = [], []
+        native_leads, native_ages = [], []
         for micro, index in enumerate(indices):
             noise_seed = seed + 1000000 + count * 8 + micro
             with torch.autocast("cuda", dtype=torch.bfloat16):
                 if task == "observation":
-                    parts = observation_parts(
-                        model, data, data.load(training[index]), noise_seed
+                    path = training[index]
+                    entry = (
+                        pool.draw(replay_rng, completed)
+                        if pool is not None and micro % 2
+                        else None
                     )
+
+                    def capture(states):
+                        if pool is not None:
+                            pool.add_next(
+                                entry["origin"] if entry else path.stem,
+                                entry["month"] if entry else path.stem,
+                                states,
+                                completed,
+                                origin_step=entry["origin_step"] if entry else None,
+                            )
+
+                    if entry is None:
+                        parts = observation_parts(
+                            model, data, data.load(path), noise_seed, capture=capture
+                        )
+                        fresh_examples += 1
+                    else:
+                        from samudra.experiments.stochastic_state_replay import (
+                            replay_parts,
+                        )
+
+                        parts = replay_parts(
+                            model, data, intervals, entry, noise_seed, capture=capture
+                        )
+                        replay_examples += 1
+                        replay_leads.append(entry["bin_index"] * 5)
+                        replay_ages.append(completed - entry["origin_step"])
                     for label, loss, detail in parts:
                         if not bool(torch.isfinite(loss)):
                             raise FloatingPointError(label)
@@ -494,7 +709,51 @@ def main():
                     coverage = data.load(training[(count * 8 + micro) % len(training)])[
                         "validity"
                     ][:, :19]
-                    loss = native_objective(model, wave, index, coverage, noise_seed)
+                    native_entry = (
+                        native_pool.draw(native_replay_rng, completed)
+                        if native_pool is not None and micro % 2
+                        else None
+                    )
+
+                    def native_capture(states):
+                        if native_pool is not None:
+                            native_pool.add_next(
+                                native_entry["origin_index"]
+                                if native_entry
+                                else int(index),
+                                native_entry["start_lead"] if native_entry else 0,
+                                states,
+                                completed,
+                                origin_step=native_entry["origin_step"]
+                                if native_entry
+                                else None,
+                            )
+
+                    if native_entry is None:
+                        loss = native_objective(
+                            model,
+                            wave,
+                            index,
+                            coverage,
+                            noise_seed,
+                            capture=native_capture,
+                        )
+                    else:
+                        from samudra.experiments.stochastic_state_native_replay import (
+                            native_replay_objective,
+                        )
+
+                        loss = native_replay_objective(
+                            model,
+                            wave,
+                            native_entry,
+                            coverage,
+                            noise_seed,
+                            capture=native_capture,
+                        )
+                        native_replay_examples += 1
+                        native_leads.append(native_entry["start_lead"] * 5)
+                        native_ages.append(completed - native_entry["origin_step"])
                     if not bool(torch.isfinite(loss)):
                         raise FloatingPointError("native loss")
                     (loss / 8).backward()
@@ -533,6 +792,13 @@ def main():
             seconds=time.monotonic() - started,
             learning_rate=optimizer.param_groups[0]["lr"],
             peak_gib=torch.cuda.max_memory_allocated() / 2**30,
+            replay_examples=replay_examples,
+            fresh_examples=fresh_examples,
+            replay_lead_days=replay_leads,
+            replay_age_updates=replay_ages,
+            native_replay_examples=native_replay_examples,
+            native_replay_lead_days=native_leads,
+            native_replay_age_updates=native_ages,
         )
         print(json.dumps(event), flush=True)
         with (args.output / "events.jsonl").open("a") as stream:
@@ -569,6 +835,8 @@ def main():
             save(snapshot=milestone or completed == total)
         if due:
             break
+    if args.qualify_replay:
+        qualify_replay(model, data, wave, intervals, args.output)
     run.finish()
     print(
         json.dumps(

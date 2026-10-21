@@ -8,10 +8,15 @@ rollouts improve the monthly forecasts and the severe annual drift documented
 in the [original pilots](monthly-latent-pilots-2026-10-16.md) and
 [365-day evaluation](monthly-latent-annual-2026-10-18.md)?
 
-Status: **all four training runs completed**, including their cooldowns, in
-Beta **215046** (6h16m49s on one four-GPU node). Pinned training producer:
-`ed020de4b` (24 targeted tests and repository checks passed). Fixed-endpoint
-annual qualification **215336** is queued; annual results are not available yet.
+Status: **all four training runs and their fixed-endpoint annual evaluations
+completed**. Training was Beta **215046** (6h16m49s on one four-GPU node), producer
+`ed020de4b` (24 targeted tests and repository checks passed). Annual qualification
+**215336** and evaluation **215337** passed, using evaluation-only producer
+`57e42cc32`. The annual evaluator accepts explicitly frozen 3k/5k endpoints;
+its metric, support, noise, readout and cohort definitions are unchanged.
+
+**Replay greatly reduces the annual drift**, while more short-horizon training
+alone does not. The monthly tradeoff and annual gains are shown separately below.
 
 Grace **141793** prepared and independently hash-verified 19.17 GB covering
 7,397 five-day intervals; every future surface/forcing payload in the 243
@@ -25,14 +30,17 @@ Run root: `beta:/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-202610
 The staged `paths.json` pins original A/E checkpoint hashes and all four run
 definitions. Training allocated **25.121 GPU-hours**, plus **0.489 GPU-hours**
 for qualification, totaling **25.610 GPU-hours** before annual evaluation.
+Annual qualification and evaluation added **1.184 GPU-hours**, for **26.794
+GPU-hours** across this new wave. No GPU retries were needed; the failed CPU
+container launch is retained separately.
 
 ## Monthly validation results
 
 Longer mixed OM4/observation training improves A's endpoint blend by **4.64%**.
 Longer observation-only training improves surface prediction but worsens OHC,
 so its five-component blend deteriorates. Replay does not improve the monthly
-blend at this budget; its intended longer-horizon benefit requires the pending
-annual evaluation. These are nine-origin validation results, not annual or
+blend at this budget, despite its large annual benefit below.
+These are nine-origin validation results, not annual or
 held-out-test results, and all models use seed 1729.
 
 | Literal run name | Main + cooldown updates | Final EMA blend | Final raw blend | Surface-only blend | SST (°C) | OHC 0–700 m (GJ/m²) | OHC 700–2,000 m (GJ/m²) |
@@ -76,6 +84,76 @@ lead summaries do not reconstruct an exact per-example lead histogram.
 
 [Machine-readable curves, components, exposure and endpoint hashes](assets/monthly-replay-2026-10-20/results.json).
 Reproduce with [the report generator](../../../scripts/summarize_monthly_replay.py).
+
+## Annual results
+
+These are continuous rollouts from **January 2015, 2018 and 2021**: one
+initialization, 73 five-day steps, prescribed future ERA5, no observed-ocean
+reset, and the same fixed cooled EMA endpoints as the monthly table. They are
+held-out reporting cases, not selection targets. Surface values are five-day
+means; OHC below is the December monthly mean. Three starts provide a small
+cohort, not a precise estimate of global long-range skill.
+
+| Literal run name | Day30 SST (°C) | Day90 SST (°C) | Day180 SST (°C) | Day365 SST (°C) |
+|---|---:|---:|---:|---:|
+| A | 0.825 | 1.137 | 3.413 | 11.194 |
+| E | 0.764 | 1.133 | 2.982 | 10.245 |
+| A-extend | 0.745 | 0.988 | 2.896 | 12.882 |
+| E-extend | 0.675 | 1.000 | 3.002 | 14.677 |
+| A-replay | 0.837 | 0.843 | 1.069 | 1.028 |
+| E-replay | 0.775 | 0.787 | 0.927 | **0.916** |
+
+![Annual surface error curves](assets/monthly-replay-2026-10-20/annual-surface-curves.png)
+
+Seasonal-climatology SST RMSE at day365 is **1.002°C**. Replay therefore largely
+removes the previous catastrophic growth but only reaches approximately
+climatological error at a year. E-replay is below climatology for SST on this
+cohort; neither replay model beats climatology on velocity or OHC. The improvement
+over the original models occurs in every case: A-replay's day365 SST errors are
+1.132/0.993/0.951°C, and E-replay's are 0.974/0.885/0.885°C, in chronological
+origin order. Original A/E were above 10°C in every case.
+Seasonal climatology uses the retained training-split calendar-month means;
+the three annual cases do not determine those means.
+
+| Literal run name | Day365 ADT (m) | Day365 velocity (m/s) | Day365 EKE (m²/s²) | December OHC 0–700 m (GJ/m²) | December OHC 700–2,000 m (GJ/m²) | Mean latent RMS, initial → day365 |
+|---|---:|---:|---:|---:|---:|---:|
+| A | 0.749 | 0.907 | 0.1154 | 13.329 | 9.303 | 0.431 → 2.350 |
+| E | 0.717 | 0.801 | 0.1549 | 15.001 | 9.186 | 0.394 → 3.257 |
+| A-extend | 0.829 | 1.022 | 0.1572 | 20.316 | 9.047 | 0.428 → 3.771 |
+| E-extend | 0.839 | 1.066 | 0.2022 | 15.918 | 11.324 | 0.384 → 6.868 |
+| A-replay | 0.103 | 0.160 | 0.0180 | 1.068 | 0.652 | 0.417 → 0.514 |
+| E-replay | 0.104 | 0.158 | 0.0180 | 1.087 | 0.663 | 0.452 → 0.613 |
+| Seasonal climatology | 0.096 | 0.146 | 0.0184 | 0.881 | 0.370 | — |
+
+EKE is computed across the three origins at each fixed lead, matching the prior
+report's aggregation axis; it is not within-year temporal-anomaly EKE. There is
+no new combined 365-day/OHC selection score.
+
+![Annual OHC and latent magnitude](assets/monthly-replay-2026-10-20/annual-ohc-latent.png)
+
+Replay keeps latent RMS near its initialized scale **without any added latent
+penalty or soft bound**. Longer monthly-only training improves early SST but
+still develops large annual surface/interior errors and latent growth. This
+supports longer-lead exposure as a useful training change. It does not establish
+which part fixes the failure: replay changes both the processor's state
+distribution and the decoder's exposure to true long-lead conditioning. It also
+does not demonstrate useful century-long dynamics or retained initialized-state
+information at long leads. A matched seasonal-climatology/history-sensitivity
+analysis would distinguish those questions.
+
+The 2021 day365 SST and December OHC error maps use matched limits across each
+original/extended/replay trio, north up and 0–360° longitude, at exactly one image
+pixel per grid cell:
+
+![A annual error maps](assets/monthly-replay-2026-10-20/annual-errors-2021-A.png)
+
+![E annual error maps](assets/monthly-replay-2026-10-20/annual-errors-2021-E.png)
+
+[Full annual metrics and per-origin SST curves](assets/monthly-replay-2026-10-20/annual-results.json),
+[verified annual output/checkpoint hashes](assets/monthly-replay-2026-10-20/annual-checksums.txt)
+and [reproducible annual figure generator](../../../scripts/summarize_monthly_replay_annual.py).
+All 18 annual payloads in the six-model comparison and 24 recorded output hashes
+were checked, with identical observation references and fixed OHC support.
 
 ## Four runs
 

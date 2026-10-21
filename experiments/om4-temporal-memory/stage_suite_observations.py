@@ -28,6 +28,9 @@ with dask.config.set(scheduler="threads", num_workers=4):
                 chunks={},
             )
             ds = source[variables].sel(time=slice("2014-10-01", "2022-12-31"))
+            # Slicing can leave an offset first Dask chunk that overlaps encoded
+            # Zarr chunks. Restore time alignment before the parallel write.
+            ds = ds.chunk({"time": source.chunks["time"][0]})
             print(
                 "Staging",
                 name,

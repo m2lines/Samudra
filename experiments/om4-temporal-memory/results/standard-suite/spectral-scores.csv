@@ -1,0 +1,73 @@
+arm,selection,spectrum,region,model_log10_rmse_dex,om4_log10_rmse_dex
+full,selected,ssta_spatial_spectra_vs_oisst,North Pacific,1.182,0.87
+full,selected,ssta_spatial_spectra_vs_oisst,Gulf Stream,0.625,0.555
+full,selected,ssta_spatial_spectra_vs_oisst,Agulhas,0.649,0.739
+full,selected,ke_temporal_spectra_vs_duacs,Global,1.107,1.296
+full,selected,ke_temporal_spectra_vs_duacs,Gulf Stream,2.832,3.248
+full,selected,ke_temporal_spectra_vs_duacs,Agulhas,1.275,1.689
+full,selected,eke_spatial_spectra_vs_duacs,North Pacific,4.249,3.31
+full,selected,eke_spatial_spectra_vs_duacs,Gulf Stream,4.274,3.637
+full,selected,eke_spatial_spectra_vs_duacs,Agulhas,2.191,2.07
+full,epoch70,ssta_spatial_spectra_vs_oisst,North Pacific,1.315,0.87
+full,epoch70,ssta_spatial_spectra_vs_oisst,Gulf Stream,0.828,0.555
+full,epoch70,ssta_spatial_spectra_vs_oisst,Agulhas,0.848,0.739
+full,epoch70,ke_temporal_spectra_vs_duacs,Global,1.208,1.296
+full,epoch70,ke_temporal_spectra_vs_duacs,Gulf Stream,2.837,3.248
+full,epoch70,ke_temporal_spectra_vs_duacs,Agulhas,1.377,1.689
+full,epoch70,eke_spatial_spectra_vs_duacs,North Pacific,4.465,3.31
+full,epoch70,eke_spatial_spectra_vs_duacs,Gulf Stream,4.106,3.637
+full,epoch70,eke_spatial_spectra_vs_duacs,Agulhas,2.186,2.07
+detach,selected,ssta_spatial_spectra_vs_oisst,North Pacific,1.17,0.87
+detach,selected,ssta_spatial_spectra_vs_oisst,Gulf Stream,0.753,0.555
+detach,selected,ssta_spatial_spectra_vs_oisst,Agulhas,0.718,0.739
+detach,selected,ke_temporal_spectra_vs_duacs,Global,1.242,1.296
+detach,selected,ke_temporal_spectra_vs_duacs,Gulf Stream,2.822,3.248
+detach,selected,ke_temporal_spectra_vs_duacs,Agulhas,1.231,1.689
+detach,selected,eke_spatial_spectra_vs_duacs,North Pacific,3.974,3.31
+detach,selected,eke_spatial_spectra_vs_duacs,Gulf Stream,4.337,3.637
+detach,selected,eke_spatial_spectra_vs_duacs,Agulhas,2.17,2.07
+detach,epoch70,ssta_spatial_spectra_vs_oisst,North Pacific,1.313,0.87
+detach,epoch70,ssta_spatial_spectra_vs_oisst,Gulf Stream,0.917,0.555
+detach,epoch70,ssta_spatial_spectra_vs_oisst,Agulhas,0.852,0.739
+detach,epoch70,ke_temporal_spectra_vs_duacs,Global,1.274,1.296
+detach,epoch70,ke_temporal_spectra_vs_duacs,Gulf Stream,2.946,3.248
+detach,epoch70,ke_temporal_spectra_vs_duacs,Agulhas,1.376,1.689
+detach,epoch70,eke_spatial_spectra_vs_duacs,North Pacific,3.227,3.31
+detach,epoch70,eke_spatial_spectra_vs_duacs,Gulf Stream,4.414,3.637
+detach,epoch70,eke_spatial_spectra_vs_duacs,Agulhas,2.253,2.07
+latent_full,selected,ssta_spatial_spectra_vs_oisst,North Pacific,1.155,0.87
+latent_full,selected,ssta_spatial_spectra_vs_oisst,Gulf Stream,0.707,0.555
+latent_full,selected,ssta_spatial_spectra_vs_oisst,Agulhas,0.658,0.739
+latent_full,selected,ke_temporal_spectra_vs_duacs,Global,1.18,1.296
+latent_full,selected,ke_temporal_spectra_vs_duacs,Gulf Stream,2.953,3.248
+latent_full,selected,ke_temporal_spectra_vs_duacs,Agulhas,1.22,1.689
+latent_full,selected,eke_spatial_spectra_vs_duacs,North Pacific,4.237,3.31
+latent_full,selected,eke_spatial_spectra_vs_duacs,Gulf Stream,4.397,3.637
+latent_full,selected,eke_spatial_spectra_vs_duacs,Agulhas,2.258,2.07
+latent_full,epoch70,ssta_spatial_spectra_vs_oisst,North Pacific,1.269,0.87
+latent_full,epoch70,ssta_spatial_spectra_vs_oisst,Gulf Stream,0.864,0.555
+latent_full,epoch70,ssta_spatial_spectra_vs_oisst,Agulhas,0.837,0.739
+latent_full,epoch70,ke_temporal_spectra_vs_duacs,Global,1.22,1.296
+latent_full,epoch70,ke_temporal_spectra_vs_duacs,Gulf Stream,2.897,3.248
+latent_full,epoch70,ke_temporal_spectra_vs_duacs,Agulhas,1.274,1.689
+latent_full,epoch70,eke_spatial_spectra_vs_duacs,North Pacific,3.845,3.31
+latent_full,epoch70,eke_spatial_spectra_vs_duacs,Gulf Stream,4.144,3.637
+latent_full,epoch70,eke_spatial_spectra_vs_duacs,Agulhas,2.185,2.07
+latent_only,selected,ssta_spatial_spectra_vs_oisst,North Pacific,1.222,0.87
+latent_only,selected,ssta_spatial_spectra_vs_oisst,Gulf Stream,0.779,0.555
+latent_only,selected,ssta_spatial_spectra_vs_oisst,Agulhas,0.726,0.739
+latent_only,selected,ke_temporal_spectra_vs_duacs,Global,1.189,1.296
+latent_only,selected,ke_temporal_spectra_vs_duacs,Gulf Stream,2.843,3.248
+latent_only,selected,ke_temporal_spectra_vs_duacs,Agulhas,1.249,1.689
+latent_only,selected,eke_spatial_spectra_vs_duacs,North Pacific,3.811,3.31
+latent_only,selected,eke_spatial_spectra_vs_duacs,Gulf Stream,4.371,3.637
+latent_only,selected,eke_spatial_spectra_vs_duacs,Agulhas,2.177,2.07
+latent_only,epoch70,ssta_spatial_spectra_vs_oisst,North Pacific,1.377,0.87
+latent_only,epoch70,ssta_spatial_spectra_vs_oisst,Gulf Stream,0.913,0.555
+latent_only,epoch70,ssta_spatial_spectra_vs_oisst,Agulhas,0.893,0.739
+latent_only,epoch70,ke_temporal_spectra_vs_duacs,Global,1.257,1.296
+latent_only,epoch70,ke_temporal_spectra_vs_duacs,Gulf Stream,2.921,3.248
+latent_only,epoch70,ke_temporal_spectra_vs_duacs,Agulhas,1.4,1.689
+latent_only,epoch70,eke_spatial_spectra_vs_duacs,North Pacific,4.473,3.31
+latent_only,epoch70,eke_spatial_spectra_vs_duacs,Gulf Stream,4.309,3.637
+latent_only,epoch70,eke_spatial_spectra_vs_duacs,Agulhas,2.2,2.07

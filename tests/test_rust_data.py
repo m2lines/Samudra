@@ -233,7 +233,7 @@ def compact_om4_source(tmp_path):
 
     canonicalizer = Om4DataSourceConfig(
         train_time=Om4TimeConfig.model_validate(
-            {"start": "2000-01-01", "end": "2000-02-01"}
+            {"start": "2000-01-01", "end": "2000-01-31"}
         ),
         val_time=Om4TimeConfig.model_validate(
             {"start": "2000-02-01", "end": "2000-03-01"}

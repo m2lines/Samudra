@@ -136,9 +136,8 @@ def _run_single_checkpoint_eval(
 
         evaluator = Eval(cfg)
         start = time.perf_counter()
-        metrics = evaluator.standalone_inference()
+        metrics = evaluator.run()
         elapsed_seconds = time.perf_counter() - start
-        evaluator.finish()
 
         # Serialize metrics to JSON-safe primitives, dropping non-scalar tensors.
         serialized: dict[str, float | int | str | bool] = {}

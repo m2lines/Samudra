@@ -51,7 +51,7 @@ class ZarrWriter:
             pred_tensor, "n (hi c) h w -> (n hi) c h w", hi=self.output_steps
         )
         pred_tensor = self.preprocessor.unnormalize_tensor_prognostic(
-            pred_tensor, fill_value=0.0
+            pred_tensor, fill_value=float("nan")
         )
         if self.buffer is None:
             self.buffer = pred_tensor

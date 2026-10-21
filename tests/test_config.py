@@ -12,6 +12,7 @@ import yaml
 from pydantic import ValidationError
 
 from samudra.config import (
+    Cm4DataSourceConfig,
     CpuDataLoadingConfig,
     DataConfig,
     EvalConfig,
@@ -34,7 +35,7 @@ from tests.llc_fixtures import write_raw_llc_datasets
 def om4_source_config(**kwargs) -> Om4DataSourceConfig:
     return Om4DataSourceConfig(
         train_time=Om4TimeConfig(
-            start=JulianDate("1975-01-03"), end=JulianDate("2013-10-05")
+            start=JulianDate("1975-01-03"), end=JulianDate("2013-09-30")
         ),
         val_time=Om4TimeConfig(
             start=JulianDate("2013-10-05"), end=JulianDate("2014-10-05")
@@ -55,7 +56,7 @@ def test_data_config_rejects_legacy_num_workers_field():
                         "type": "om4",
                         "train_time": {
                             "start": "1975-01-03",
-                            "end": "2013-10-05",
+                            "end": "2013-09-30",
                         },
                         "val_time": {
                             "start": "2013-10-05",
@@ -319,7 +320,7 @@ def test_data_source_rejects_overlapping_time_splits():
     with pytest.raises(ValidationError, match="Training time range.*overlaps"):
         Om4DataSourceConfig(
             train_time=Om4TimeConfig(
-                start=JulianDate("1975-01-03"), end=JulianDate("2013-10-05")
+                start=JulianDate("1975-01-03"), end=JulianDate("2013-09-30")
             ),
             val_time=Om4TimeConfig(
                 start=JulianDate("2013-01-01"), end=JulianDate("2014-10-05")
@@ -328,6 +329,38 @@ def test_data_source_rejects_overlapping_time_splits():
             data_means_location=UnresolvedLocation(path="means.zarr"),
             data_stds_location=UnresolvedLocation(path="stds.zarr"),
         )
+
+
+@pytest.mark.parametrize("source_class", [Om4DataSourceConfig, Cm4DataSourceConfig])
+@pytest.mark.parametrize(
+    "val_start,val_end,overlaps",
+    [
+        ("2000-01-11", "2000-01-21", True),  # shared training end
+        ("2000-01-01", "2000-01-06", True),  # shared training start
+        ("2000-01-11", "2000-01-11", True),  # single shared timestamp
+        ("2000-01-08", "2000-01-16", True),  # interior overlap
+        ("2000-01-16", "2000-01-21", False),  # next five-day sample
+        ("1999-12-27", "2000-01-01", False),  # disjoint earlier range
+    ],
+)
+def test_ocean_source_splits_use_inclusive_endpoints(
+    source_class: type[Om4DataSourceConfig] | type[Cm4DataSourceConfig],
+    val_start: str,
+    val_end: str,
+    overlaps: bool,
+) -> None:
+    config = {
+        "train_time": {"start": "2000-01-06", "end": "2000-01-11"},
+        "val_time": {"start": val_start, "end": val_end},
+        "data_location": "data.zarr",
+        "data_means_location": "means.zarr",
+        "data_stds_location": "stds.zarr",
+    }
+    if overlaps:
+        with pytest.raises(ValidationError, match="Training time range.*overlaps"):
+            source_class.model_validate(config)
+    else:
+        source_class.model_validate(config)
 
 
 def test_data_config_builds_llc_source_from_local_files(tmp_path):
@@ -440,7 +473,7 @@ def test_data_config_accepts_gpu_loading():
                     "type": "om4",
                     "train_time": {
                         "start": "1975-01-03",
-                        "end": "2013-10-05",
+                        "end": "2013-09-30",
                     },
                     "val_time": {
                         "start": "2013-10-05",
@@ -545,13 +578,27 @@ def test_rust_loading_rejects_derived_channels_before_opening_data(
 def test_rollout_checkpoint_selection_requires_supported_validation():
     with open(TEST_CONFIGS_DIR / DEFAULT_CONFIG) as f:
         data = yaml.safe_load(f)
-    data["checkpoint_validation_metric"] = "rollout_rmse"
+    data["validation_score"] = "rollout_rmse"
     with pytest.raises(ValidationError, match="requires rollout_validation"):
         TrainConfig.model_validate(data)
     data["rollout_validation"] = {"days": [360]}
-    assert (
-        TrainConfig.model_validate(data).checkpoint_validation_metric == "rollout_rmse"
-    )
+    assert TrainConfig.model_validate(data).validation_score == "rollout_rmse"
     data["data"]["sources"] *= 2
     with pytest.raises(ValidationError, match="requires a single data source"):
         TrainConfig.model_validate(data)
+
+
+def test_validation_loss_score_rejects_dynamic_weighting():
+    value = TrainConfig.from_yaml_and_cli(
+        [str(TEST_CONFIGS_DIR / DEFAULT_CONFIG)]
+    ).model_dump()
+    value.update(loss={"type": "dynamic"}, validation_score="validation_loss")
+    with pytest.raises(ValidationError, match="dynamically weighted"):
+        TrainConfig.model_validate(value)
+    value["validation_score"] = "one_step_rmse"
+    assert TrainConfig.model_validate(value).validation_score == "one_step_rmse"
+
+
+def test_multi_source_preset_uses_one_step_rmse():
+    cfg = TrainConfig.from_yaml_and_cli(["samudra_multi_om4/train.yaml"])
+    assert cfg.validation_score == "one_step_rmse"

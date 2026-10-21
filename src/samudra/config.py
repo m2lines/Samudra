@@ -132,6 +132,30 @@ JulianDateConfig = Annotated[
 ]
 
 
+class NoLeapDate:
+    """A CM4 simulation date at midnight on the 365-day calendar."""
+
+    datetime: cftime.datetime
+
+    def __init__(self, value: str) -> None:
+        self.datetime = cftime.datetime.strptime(value, "%Y-%m-%d", calendar="noleap")
+
+    def __str__(self) -> str:
+        return self.datetime.strftime("%Y-%m-%d")
+
+
+def _no_leap_date_validator(value: str | NoLeapDate) -> NoLeapDate:
+    return NoLeapDate(value) if isinstance(value, str) else value
+
+
+NoLeapDateConfig = Annotated[
+    NoLeapDate,
+    PlainValidator(_no_leap_date_validator),
+    PlainSerializer(NoLeapDate.__str__),
+    WithJsonSchema({"type": "string", "format": "date"}),
+]
+
+
 # We reuse pydantic's AwareDatetime to match JSONSchema's expected RFC3339 format
 _aware_datetime_adapter = pydantic.TypeAdapter(pydantic.AwareDatetime)
 
@@ -167,9 +191,10 @@ class Om4TimeConfig(BaseConfig):
         return slice(self.start.datetime, self.end.datetime)
 
     def overlaps(self, other: Self) -> bool:
+        """Match the inclusive endpoints used by xarray time selection."""
         return (
-            self.start.datetime < other.end.datetime
-            and self.end.datetime > other.start.datetime
+            self.start.datetime <= other.end.datetime
+            and self.end.datetime >= other.start.datetime
         )
 
     def __str__(self) -> str:
@@ -193,7 +218,30 @@ class LlcTimeConfig(BaseConfig):
         return f"{self.start} to {self.end}"
 
 
-TimeConfig = Om4TimeConfig | LlcTimeConfig
+class Cm4TimeConfig(BaseConfig):
+    """Date bounds for CM4's native no-leap, interval-end timestamps."""
+
+    model_config = pydantic.ConfigDict(frozen=True)
+
+    start: NoLeapDateConfig
+    end: NoLeapDateConfig
+
+    @property
+    def time_slice(self) -> slice:
+        return slice(self.start.datetime, self.end.datetime)
+
+    def overlaps(self, other: Self) -> bool:
+        """Match the inclusive endpoints used by xarray time selection."""
+        return (
+            self.start.datetime <= other.end.datetime
+            and self.end.datetime >= other.start.datetime
+        )
+
+    def __str__(self) -> str:
+        return f"{self.start} to {self.end}"
+
+
+TimeConfig = Om4TimeConfig | Cm4TimeConfig | LlcTimeConfig
 
 
 LOCATION_DOCS = (
@@ -202,7 +250,7 @@ LOCATION_DOCS = (
 )
 
 
-type DataSourceType = Literal["om4", "llc"]
+type DataSourceType = Literal["om4", "cm4", "llc"]
 
 
 class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
@@ -440,15 +488,22 @@ class InferenceDataLoadingConfig(BaseConfig):
     persistent_workers: bool = True
 
 
-class Om4DataSourceConfig(BaseDataSourceConfig[Om4TimeConfig]):
-    type: Literal["om4"] = "om4"
+class Om4FamilyDataSourceConfig[Om4FamilyTimeConfigT: Om4TimeConfig | Cm4TimeConfig](
+    BaseDataSourceConfig[Om4FamilyTimeConfigT]
+):
+    """Shared physical channels and layouts for the OM4 and CM4 oceans."""
+
     prognostic_vars_key: str = "thermo_dynamic_all"
     boundary_vars_key: str = "tau_hfds"
     grid_type: GridType = "gaussian"
 
     @pydantic.model_validator(mode="after")
     def validate_time_splits(self) -> Self:
-        if self.train_time.overlaps(self.val_time):
+        # Label slices include both endpoints, so touching ranges share a state.
+        if (
+            self.train_time.start.datetime <= self.val_time.end.datetime
+            and self.train_time.end.datetime >= self.val_time.start.datetime
+        ):
             raise ValueError(
                 f"Training time range {self.train_time} overlaps "
                 f"with validation time range {self.val_time}"
@@ -501,6 +556,24 @@ class Om4DataSourceConfig(BaseDataSourceConfig[Om4TimeConfig]):
         canonical_means = expand_levels(means)
         canonical_stds = expand_levels(stds)
         return canonical_data, canonical_means, canonical_stds, data_layout
+
+
+class Om4DataSourceConfig(Om4FamilyDataSourceConfig[Om4TimeConfig]):
+    type: Literal["om4"] = "om4"
+
+
+class Cm4DataSourceConfig(Om4FamilyDataSourceConfig[Cm4TimeConfig]):
+    type: Literal["cm4"] = "cm4"
+    boundary_vars_key: str = "tau_hfds_wfo"
+
+    def canonicalize_datasets(
+        self, data: xr.Dataset, means: xr.Dataset, stds: xr.Dataset
+    ) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset, DataLayout]:
+        if data.sizes.get("time", 0) == 0 or getattr(
+            data.time.values[0], "calendar", None
+        ) not in {"noleap", "365_day"}:
+            raise ValueError("CM4 data must use the no-leap calendar")
+        return super().canonicalize_datasets(data, means, stds)
 
 
 class LlcDataSourceConfig(BaseDataSourceConfig[LlcTimeConfig]):
@@ -558,7 +631,7 @@ class LlcDataSourceConfig(BaseDataSourceConfig[LlcTimeConfig]):
 
 
 DataSourceConfig = Annotated[
-    Om4DataSourceConfig | LlcDataSourceConfig,
+    Om4DataSourceConfig | Cm4DataSourceConfig | LlcDataSourceConfig,
     Field(discriminator="type"),
 ]
 
@@ -1194,7 +1267,6 @@ class SearchRunConfig(BaseConfig):
     candidate: str
     rung: int = Field(ge=0)
     target_epochs: int = Field(ge=1)
-    objective: str
     executor: str
     code_commit: str | None = None
     code_layer_sha256: str | None = None
@@ -1381,13 +1453,17 @@ class TrainConfig(TopLevelConfig):
         ),
     )
     rollout_validation: RolloutValidationConfig | None = None
-    checkpoint_validation_metric: Literal["one_step_loss", "rollout_rmse"] = Field(
-        default="one_step_loss",
-        description=(
-            "Score for the best-validation checkpoint. rollout_rmse uses normalized, "
-            "area-weighted RMSE averaged over channels and time at the longest "
-            "configured rollout horizon. Only rollout epochs can update it."
-        ),
+    validation_score: Literal["validation_loss", "one_step_rmse", "rollout_rmse"] = (
+        Field(
+            default="validation_loss",
+            description=(
+                "Score for checkpoint selection and search. one_step_rmse uses normalized, "
+                "area-weighted RMSE averaged over channels and validation samples. "
+                "rollout_rmse uses normalized, "
+                "area-weighted RMSE averaged over channels and time at the longest "
+                "configured rollout horizon. Only rollout epochs can update it."
+            ),
+        )
     )
 
     epochs: int = 120
@@ -1422,7 +1498,13 @@ class TrainConfig(TopLevelConfig):
 
     @pydantic.model_validator(mode="after")
     def validate_checkpoint_metric(self) -> Self:
-        if self.checkpoint_validation_metric == "rollout_rmse":
+        if self.validation_score == "validation_loss" and isinstance(
+            self.loss, DynamicLossConfig
+        ):
+            raise ValueError(
+                "validation_loss scoring cannot use a dynamically weighted loss"
+            )
+        if self.validation_score == "rollout_rmse":
             if self.rollout_validation is None:
                 raise ValueError(
                     "rollout_rmse checkpoint selection requires rollout_validation"

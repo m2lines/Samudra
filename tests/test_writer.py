@@ -348,3 +348,41 @@ def test_writer_curvilinear_grid_without_real_coords_raises(tmp_path):
 
     with pytest.raises(ValueError, match="grid_type"):
         writer.write()
+
+
+def test_writer_preserves_dry_cells_as_missing_for_observation_scoring(tmp_path):
+    layout = TEST_FULL_DATA_LAYOUT
+    names = list(layout.prognostic_var_names)
+    n_channels = len(names)
+    preprocessor = object.__new__(BatchPreprocessor)
+    preprocessor._prognostic_mean_np = np.zeros(n_channels, dtype=np.float32)
+    preprocessor._prognostic_std_np = np.ones(n_channels, dtype=np.float32)
+    preprocessor.prognostic_mask = torch.ones(n_channels, 2, 3, dtype=torch.bool)
+    preprocessor.prognostic_mask[:, 0, 0] = False
+    # A shallow column is wet at the surface and dry at the deepest level.
+    preprocessor.prognostic_mask[names.index("thetao_18"), 1, 1] = False
+    writer = ZarrWriter(
+        tmp_path,
+        coords=_source_coords(2, 3),
+        output_steps=1,
+        model_path="dummy.ckpt",
+        time_chunk_size=4,
+        preprocessor=preprocessor,
+        data_layout=layout,
+    )
+    prediction = torch.zeros(1, n_channels, 2, 3)
+    writer.record_batch(
+        ModelInferenceOutput(
+            prediction=prediction,
+            target=prediction.clone(),
+            time=xr.DataArray([0], dims="time"),
+        )
+    )
+    writer.write()
+
+    with xr.open_zarr(writer.pred_path) as result:
+        assert np.isnan(result.zos.isel(time=0, y=0, x=0).compute().item())
+        assert result.zos.isel(time=0, y=0, x=1).compute().item() == 0.0
+        column = result.thetao.isel(time=0, y=1, x=1).compute()
+        assert column.isel(lev=0).item() == 0.0
+        assert np.isnan(column.isel(lev=-1).item())

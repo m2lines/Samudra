@@ -3,11 +3,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
-from unittest.mock import sentinel
+from pathlib import Path
+from unittest.mock import MagicMock, sentinel
 
 import numpy as np
 import ocean_preprocessing.__main__ as main
+import pytest
 import xarray as xr
+from numcodecs import Blosc
 from ocean_preprocessing.__main__ import CLI
 
 
@@ -31,8 +34,7 @@ def test_collect_explicitly_writes_zarr_v2(tmp_path):
     assert metadata["zarr_format"] == 2
 
 
-def test_collect_turns_compression_off_by_default(tmp_path):
-    """The training stores are read without a decompression pass."""
+def test_collect_keeps_physical_fields_uncompressed_by_default(tmp_path):
     output = tmp_path / "output.zarr"
     pipeline = CLI(output_path=str(output))
     ds = xr.Dataset({"value": ("time", np.arange(3))}).chunk({"time": 1})
@@ -43,16 +45,67 @@ def test_collect_turns_compression_off_by_default(tmp_path):
     assert metadata["compressor"] is None
 
 
-def test_collect_can_keep_zarrs_default_compressor(tmp_path):
-    """The basin masks keep the compression the published masks use."""
+def test_collect_compresses_basin_masks_by_default(tmp_path: Path) -> None:
     output = tmp_path / "output.zarr"
     pipeline = CLI(output_path=str(output))
-    ds = xr.Dataset({"value": ("time", np.arange(3))}).chunk({"time": 1})
+    ds = xr.Dataset({"basin_arctic": (("y", "x"), np.ones((2, 3), dtype=bool))})
 
-    pipeline._collect(ds, compress=True)
+    pipeline._collect(ds)
 
-    metadata = json.loads((output / "value" / ".zarray").read_text(encoding="utf-8"))
+    metadata = json.loads((output / "basin_arctic" / ".zarray").read_text())
     assert metadata["compressor"]["id"] == "blosc"
+    assert metadata["compressor"]["cname"] == "zstd"
+    assert metadata["compressor"]["shuffle"] == Blosc.SHUFFLE
+
+
+@pytest.mark.parametrize("compress", [False, True])
+def test_collect_compression_only_toggles_physical_fields(
+    tmp_path: Path, compress: bool
+) -> None:
+    output = tmp_path / "output.zarr"
+    pipeline = CLI(output_path=str(output), compress=compress)
+    values = np.arange(24, dtype=np.float32).reshape(2, 2, 2, 3)
+    values[:, :, 0, 0] = np.nan
+    ds = xr.Dataset(
+        {
+            "thetao": (("time", "lev", "y", "x"), values, {"units": "degC"}),
+            "mask_0": (("y", "x"), np.isfinite(values[0, 0])),
+        },
+        coords={
+            "time": xr.date_range(
+                "0151-01-06", periods=2, freq="5D", calendar="noleap", use_cftime=True
+            ),
+            "lev": ("lev", [5.0, 20.0], {"units": "meters"}),
+            "y": [-1.0, 1.0],
+            "x": [0.0, 1.0, 2.0],
+            "wetmask": (("lev", "y", "x"), np.isfinite(values[0])),
+            "dz": ("lev", [10.0, 20.0], {"units": "meters"}),
+        },
+        attrs={"grid_type": "gaussian"},
+    ).chunk({"time": 1})
+    # Explicit output encoding must override codecs inherited from source stores.
+    for field in ds.variables.values():
+        field.encoding["compressor"] = Blosc(cname="lz4")
+
+    pipeline._collect(ds)
+
+    for name in ds.variables:
+        metadata = json.loads((output / name / ".zarray").read_text())
+        if name == "thetao" and not compress:
+            assert metadata["compressor"] is None
+            continue
+        assert metadata["compressor"]["id"] == "blosc"
+        assert metadata["compressor"]["cname"] == "zstd"
+        assert metadata["compressor"]["clevel"] == 5
+        assert metadata["compressor"]["shuffle"] == Blosc.SHUFFLE
+    assert json.loads((output / "thetao" / ".zarray").read_text())["chunks"] == [
+        1,
+        2,
+        2,
+        3,
+    ]
+    with xr.open_zarr(output) as actual:
+        xr.testing.assert_identical(actual.load(), ds.compute())
 
 
 def test_small_run_leaves_a_dataset_without_time_alone(tmp_path):
@@ -95,3 +148,20 @@ def test_wfo_source_path_is_not_forwarded_to_cluster(monkeypatch, tmp_path):
     assert pipeline.wfo_source_path == "s3://example/wfo.zarr"
     assert pipeline.dask_client is sentinel.client
     assert cluster_calls == [("local", {"n_workers": 4})]
+
+
+def test_output_profile_only_applies_to_the_output_store(monkeypatch) -> None:
+    cluster = MagicMock(return_value=None)
+    monkeypatch.setattr(main, "init_cluster", cluster)
+    writer = MagicMock()
+    monkeypatch.setattr(xr.Dataset, "to_zarr", writer)
+    pipeline = CLI(
+        output_path="s3://destination/CM4.zarr",
+        output_profile="publication",
+        n_workers=4,
+    )
+
+    pipeline._collect(xr.Dataset({"value": ("time", np.arange(3))}))
+
+    cluster.assert_called_once_with("off", n_workers=4)
+    assert writer.call_args.kwargs["storage_options"] == {"profile": "publication"}

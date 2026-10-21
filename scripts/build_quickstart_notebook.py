@@ -171,6 +171,7 @@ gradient_accumulation_steps: 1
 scheduler: {type: cosine}
 # Evaluate the directly trained weights after this one-epoch quickstart.
 test_using_ema: false
+validation_score: one_step_rmse
 loss:
   type: dynamic
   metric: mse

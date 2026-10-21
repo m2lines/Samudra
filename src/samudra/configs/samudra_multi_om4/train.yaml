@@ -11,6 +11,7 @@ epochs: 70
 batch_size: 2
 learning_rate: 0.0006
 scheduler: { type: cosine }
+validation_score: one_step_rmse
 loss:
   type: dynamic
   metric: mse
@@ -42,7 +43,7 @@ data:
       boundary_vars_key: tau_hfds
       train_time: &train_time
         start: "1975-01-03"
-        end: "2013-10-05"
+        end: "2013-09-30"
       val_time: &val_time
         start: "2013-10-05"
         end: "2014-10-05"

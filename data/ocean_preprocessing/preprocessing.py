@@ -303,6 +303,8 @@ def horizontal_regrid(ds, ds_target):
     # calculate new area
     r_earth = 6356  # in km
     new_area = xe.util.cell_area(ds_target, r_earth) * 1e6
+    # Heat and volume integrals consume m²; xESMF's km² label survives scaling.
+    new_area.attrs["units"] = "m2"
 
     ## calculate the wetmask afterwards...
     wetmask = ~np.isnan(ds_regridded.thetao.isel(time=0).drop_vars("time"))
@@ -321,7 +323,6 @@ def horizontal_regrid(ds, ds_target):
         ocean_fraction=ocean_frac,
     )
     ds_regridded.attrs = ds.attrs | ds_regridded.attrs
-
     return ds_regridded
 
 
@@ -411,6 +412,9 @@ def flatten_by_depth_level(ds: xr.Dataset) -> xr.Dataset:
     }
     drop_coords = [co for co in ds.coords if co not in keep_coords]
     ds = ds.drop_vars(drop_coords)
+    if ds.lev.attrs.get("edges") in drop_coords:
+        # The flattened layout omits the interface coordinate.
+        ds.lev.attrs.pop("edges")
 
     return ds
 

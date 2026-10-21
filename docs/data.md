@@ -52,6 +52,42 @@ be paired with an unfiltered finer source so each scale sees boundary forcings w
 scale. To copy a dataset or time slice to your cluster or local filesystem, see
 [How to get the data](#how-to-get-the-data).
 
+### Processing CM4
+
+The preprocessing package also supports CM4 ocean data through the `cm4`
+command. It shares OM4's interpolation, vector rotation, spatial filtering,
+and regridding options. CM4 supplies `wfo` directly in its ocean store and
+requires the companion `time_bnds.nc` through `--time_bounds_path`. Its native
+no-leap calendar and interval-end timestamps are preserved; use `type: cm4`
+in training configurations.
+
+For example, produce unfiltered 1° data with depth retained as a dimension:
+
+```bash
+CM4_RAW=s3://emulators/ai2_colab/2024-11-01-CM4-pre-industrial-control-simulation
+CM4_STATIC=s3://emulators/ai2_colab/2024-11-11-static-data
+
+PYTHONPATH=data python -m ocean_preprocessing cm4 \
+  "$CM4_RAW/ocean_5daily.zarr" \
+  "$CM4_RAW/ocean_static_no_mask_table.zarr" \
+  "$CM4_STATIC/ocean_hgrid.nc" \
+  "$CM4_STATIC/gaussian_grid_180_by_360.nc" \
+  --time_bounds_path="$CM4_RAW/time_bnds.nc" \
+  --output_path=cm4_onedeg/CM4.zarr \
+  --skip_spatial_filtering --skip_flattening --compress
+```
+
+Generate normalization statistics using the chosen training interval:
+
+```bash
+PYTHONPATH=data python -m ocean_preprocessing.make_norm_datasets \
+  cm4_onedeg/CM4.zarr --start "$TRAIN_START" --end "$TRAIN_END"
+```
+
+This writes `CM4_means.zarr` and `CM4_stds.zarr` alongside the processed data.
+Coordinates, masks, and normalization profiles use Blosc Zstd (level 5, byte
+shuffle) by default. `--compress` additionally compresses the physical fields.
+
 ### Basin masks
 
 The ocean-basin masks used by the visualization step (`samudra viz`) for basin-averaged plots live

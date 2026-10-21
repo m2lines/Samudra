@@ -31,11 +31,10 @@ def write_search_report(search: SuccessiveHalving, state: dict[str, Any]) -> Pat
         candidate = str(row["candidate"])
         if candidate not in latest or int(row["rung"]) > int(latest[candidate]["rung"]):
             latest[candidate] = row
-    ascending = search.config.objective.mode == "min"
     eligible = [row for row in latest.values() if row.get("eligible")]
     eligible.sort(
-        key=lambda row: float(row[search.config.objective.metric]),
-        reverse=not ascending,
+        key=lambda row: float(row["best_validation_score"]),
+        reverse=False,
     )
     failures = [row for row in latest.values() if not row.get("eligible")]
     final_rung = len(search.rungs) - 1
@@ -51,8 +50,7 @@ def write_search_report(search: SuccessiveHalving, state: dict[str, Any]) -> Pat
         "",
         f"- Search run: `{search.run_id}`",
         f"- Status: **{_markdown(state.get('status'))}**",
-        f"- Objective: `{search.config.objective.metric}` "
-        f"({search.config.objective.mode})",
+        "- Score: `best_validation_score` (min)",
         f"- Code commit: `{_markdown(state.get('provenance', {}).get('commit'))}`",
         f"- Created: {_markdown(state.get('created_at'))}",
         "",
@@ -78,8 +76,8 @@ def write_search_report(search: SuccessiveHalving, state: dict[str, Any]) -> Pat
                 "",
                 f"**{label}: `{_markdown(outcome['candidate'])}`** at "
                 f"{_markdown(outcome.get('epochs'))} epochs with "
-                f"`{search.config.objective.metric}="
-                f"{_markdown(outcome[search.config.objective.metric])}`.",
+                "`best_validation_score="
+                f"{_markdown(outcome['best_validation_score'])}`.",
                 "",
             ]
         )
@@ -88,9 +86,9 @@ def write_search_report(search: SuccessiveHalving, state: dict[str, Any]) -> Pat
         [
             "## Latest eligible result per candidate",
             "",
-            "| Rank | Candidate | Rung | Epochs | Objective | Train loss | "
-            "Best validation loss | Optimizer steps | W&B ID |",
-            "|---:|---|---:|---:|---:|---:|---:|---:|---|",
+            "| Rank | Candidate | Rung | Epochs | Best validation score | "
+            "Train loss | Optimizer steps | W&B ID |",
+            "|---:|---|---:|---:|---:|---:|---:|---|",
         ]
     )
     for rank, row in enumerate(eligible, start=1):
@@ -99,15 +97,14 @@ def write_search_report(search: SuccessiveHalving, state: dict[str, Any]) -> Pat
             f"`{_markdown(row['candidate'])}`",
             row["rung"],
             row.get("epochs"),
-            row.get(search.config.objective.metric),
+            row.get("best_validation_score"),
             row.get("train_loss"),
-            row.get("best_validation_loss"),
             row.get("optimizer_steps"),
             row.get("wandb_id"),
         ]
         lines.append("| " + " | ".join(_markdown(value) for value in values) + " |")
     if not eligible:
-        lines.append("| — | No eligible results yet | — | — | — | — | — | — | — |")
+        lines.append("| — | No eligible results yet | — | — | — | — | — | — |")
 
     lines.extend(
         [
@@ -161,7 +158,7 @@ def write_search_report(search: SuccessiveHalving, state: dict[str, Any]) -> Pat
             "",
             "## Interpretation",
             "",
-            "Promotion uses only the configured objective at each cumulative "
+            "Promotion minimizes best_validation_score at each cumulative "
             "epoch budget. Use [`results.parquet`](../results.parquet) for "
             "rung-level comparisons and [`epochs.parquet`](../epochs.parquet) "
             "for learning curves, timing, and metric breakdowns. Short-budget "

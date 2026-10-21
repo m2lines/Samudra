@@ -31,9 +31,11 @@ def test_normalize_renames_z_l_without_z_i():
 def test_normalize_renames_both_when_present():
     # Averaged sources carry both interfaces and centers.
     ds = _ds_with_vertical(["z_l", "z_i"])
+    ds.z_l.attrs.update(units="meters", edges="z_i")
     out = normalize_vertical_coords(ds)
     assert {"lev", "ilev"} <= set(out.coords)
     assert "z_l" not in out.coords and "z_i" not in out.coords
+    assert out.lev.attrs == {"units": "meters", "edges": "ilev"}
 
 
 def test_normalize_is_noop_without_raw_vertical_coords():
@@ -47,7 +49,11 @@ def test_averaged_vertical_cell_metadata_matches_processed_schema_dtype():
     ds = xr.Dataset(
         coords={
             "lev": ("lev", [2.5, 10.0]),
-            "ilev": ("ilev", [0, 5, 15]),
+            "ilev": (
+                "ilev",
+                [0, 5, 15],
+                {"units": "meters", "long_name": "Source interface depth"},
+            ),
         }
     )
 
@@ -57,6 +63,20 @@ def test_averaged_vertical_cell_metadata_matches_processed_schema_dtype():
     assert dz.dtype == np.dtype("float64")
     assert ilev.dtype == np.dtype("float64")
     np.testing.assert_array_equal(dz, [5.0, 10.0])
+    assert dz.attrs == {"units": "meters", "long_name": "Ocean layer thickness"}
+    assert ilev.attrs == ds.ilev.attrs
+
+
+def test_snapshot_vertical_metadata_labels_generated_coordinates() -> None:
+    dz, ilev = vertical_cell_metadata(xr.Dataset())
+
+    assert dz.attrs == {"units": "m", "long_name": "Ocean layer thickness"}
+    assert ilev.attrs == {
+        "units": "m",
+        "long_name": "Depth at interface",
+        "positive": "down",
+        "axis": "Z",
+    }
 
 
 def _om4_source(*extra_vars: str) -> xr.Dataset:

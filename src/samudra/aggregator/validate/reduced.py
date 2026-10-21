@@ -62,6 +62,8 @@ class MeanAggregator(ValidateSubAggregator):
     """
 
     def __init__(self, area_weights: torch.Tensor, target_time: int):
+        self._normalized_rmse_sum: torch.Tensor | None = None
+        self._normalized_rmse_count = 0
         self._n_batches = 0
         self._variable_metrics: dict | None = None
         self._target_time = target_time
@@ -122,6 +124,19 @@ class MeanAggregator(ValidateSubAggregator):
         if input_data_norm is None:
             input_data_norm = {}
 
+        for name, target in target_data_norm.items():
+            prediction = gen_data_norm[name]
+            if ((~torch.isfinite(prediction)) & torch.isfinite(target)).any():
+                raise ValueError("Non-finite prediction at a valid validation cell")
+            rmse = area_weighted_rmse(target, prediction, self._area_weights)
+            total = rmse.sum()
+            self._normalized_rmse_sum = (
+                total
+                if self._normalized_rmse_sum is None
+                else self._normalized_rmse_sum + total
+            )
+            self._normalized_rmse_count += rmse.numel()
+
         variable_metrics = self._get_variable_metrics(gen_data)
         time_dim = 1
         time_len = gen_data[list(gen_data.keys())[0]].shape[time_dim]
@@ -160,6 +175,13 @@ class MeanAggregator(ValidateSubAggregator):
         Args:
             label: Label to prepend to all log keys.
         """
-        return {
+        logs = {
             f"{label}/{key}": data for key, data in sorted(self._get_data().items())
         }
+        if self._normalized_rmse_sum is not None:
+            total = all_reduce_mean(self._normalized_rmse_sum.detach())
+            count = all_reduce_mean(
+                torch.tensor(float(self._normalized_rmse_count), device=total.device)
+            )
+            logs[f"{label}/normalized_rmse/channel_mean"] = float((total / count).cpu())
+        return logs

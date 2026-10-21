@@ -19,7 +19,7 @@ from samudra.stepper import run_rollout
 from samudra.utils.data import BatchPreprocessor, get_inference_steps
 from samudra.utils.distributed import is_main_process, set_seed
 from samudra.utils.logging import get_model_summary, handle_logging, handle_warnings
-from samudra.utils.wandb import WandBLogger
+from samudra.utils.wandb import MetricsDict, WandBLogger
 
 logger = logging.getLogger(__name__)
 
@@ -161,26 +161,23 @@ class Eval:
             long_rollout=True,
         )
 
-    def run(self) -> None:
+    def run(self) -> MetricsDict:
         start_time = time.perf_counter()
-        inf_stats = self.standalone_inference()
-        time_elapsed = time.perf_counter() - start_time
-
-        log_stats = {
-            **inf_stats,
-            "eval_total_seconds": time_elapsed,
-        }
-
-        if is_main_process():
-            self.wandb_logger.log(log_stats, step=None)
-
-        # Logged after the rollout's own metrics, deliberately: the observation
-        # phase reads the rollout back off disk and can fail on data problems
-        # that have nothing to do with the model. When it does, it should raise
-        # loudly without also costing us the rollout results already computed.
         try:
+            inf_stats = self.standalone_inference()
+            # Time only the rollout, excluding logging and observation scoring.
+            rollout_seconds = time.perf_counter() - start_time
+            log_stats = {
+                **inf_stats,
+                "eval_total_seconds": rollout_seconds,
+            }
+            if is_main_process():
+                self.wandb_logger.log(log_stats, step=None)
+
+            # Preserve rollout logs even if observation scoring fails.
             if self.observations is not None and is_main_process():
-                self.report_observation_metrics(self.observations)
+                log_stats.update(self.report_observation_metrics(self.observations))
+            return log_stats
         finally:
             # The observation phase reads ~65 GB back off remote storage, so it
             # can fail for reasons unrelated to the model. It should still
@@ -192,7 +189,7 @@ class Eval:
             logger.info(f"Eval time (Including wandb logging) {total_time_str}")
             self.finish()
 
-    def report_observation_metrics(self, obs_cfg: ObsMetricsConfig) -> None:
+    def report_observation_metrics(self, obs_cfg: ObsMetricsConfig) -> MetricsDict:
         """Score the finished rollout against observation products."""
         logger.info("Computing observation metrics")
         baselines = {}
@@ -215,6 +212,7 @@ class Eval:
             {**scalars, "obs/metrics_table": self.wandb_logger.Table(dataframe=frame)},
             step=None,
         )
+        return scalars
 
     @torch.no_grad()
     def standalone_inference(self):

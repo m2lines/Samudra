@@ -207,9 +207,9 @@ class ModelMonths:
             return None
         start, stop, _, _, origin_start, next_start = window
         return dict(
-            start_lead=start - origin_start,
-            end_lead=stop - origin_start,
-            next_start_lead=next_start - origin_start,
+            start_lead=int(start - origin_start),
+            end_lead=int(stop - origin_start),
+            next_start_lead=int(next_start - origin_start),
         )
 
     def continuation(self, index, month_offset, device):
@@ -271,10 +271,10 @@ class ModelMonths:
             )[None],
             mask=tensor(self.mask),
             weights=tensor(np.asarray(weights, dtype=np.float32)),
-            duration=duration,
+            duration=int(duration),
             first=str(self.bounds[start, 0]),
-            start_lead=start - origin_start,
-            end_lead=stop - origin_start,
-            next_start_lead=next_start - origin_start,
-            origin_index=origin_start,
+            start_lead=int(start - origin_start),
+            end_lead=int(stop - origin_start),
+            next_start_lead=int(next_start - origin_start),
+            origin_index=int(origin_start),
         )

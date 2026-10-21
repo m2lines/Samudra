@@ -3,6 +3,7 @@
 """Calendar/missingness contracts that make monthly replay scientifically valid."""
 
 import importlib.util
+import json
 from pathlib import Path
 
 import cftime
@@ -223,3 +224,28 @@ def test_model_replay_rejects_a_gap_even_when_target_month_itself_is_valid(tmp_p
 def test_leap_year_replay_does_not_extend_to_370_days():
     with pytest.raises(ValueError, match="one year"):
         trajectory(None, "2000-01-01", target_month="2000-12-01")
+
+
+@pytest.mark.parametrize("kind", ["om4", "cm4"])
+def test_model_replay_metadata_can_be_logged_without_json_coercion(tmp_path, kind):
+    path, reference = model_store(tmp_path, kind)
+    data = ModelMonths(path, kind, reference, tmp_path)
+    layout = data.continuation_layout(0, 1)
+    assert layout is not None
+    assert all(type(value) is int for value in layout.values())
+    assert json.loads(json.dumps(layout)) == layout
+    for sample in (data.sample(0, "cpu"), data.continuation(0, 1, "cpu")):
+        metadata = {
+            key: sample[key]
+            for key in (
+                "start_lead",
+                "end_lead",
+                "next_start_lead",
+                "origin_index",
+                "duration",
+            )
+        }
+        assert all(type(value) is int for value in metadata.values())
+        # This arithmetic feeds production training logs and qualification reports.
+        metadata["max_start_lead_days"] = max(0, sample["start_lead"] * 5)
+        assert json.loads(json.dumps(metadata)) == metadata

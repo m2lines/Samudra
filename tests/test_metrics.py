@@ -1289,3 +1289,30 @@ def test_two_products_shallow_in_different_places_disagree_more():
     # Yet one pair integrates the same water and the other does not.
     assert agreeing == pytest.approx(0.0)
     assert disagreeing > 0.0
+
+
+def test_default_om4_rollout_keeps_final_december_pentad():
+    """Two-output calls must reach the final pentad, not truncate it."""
+    from samudra.config import EvalConfig
+
+    cfg = EvalConfig.from_yaml("samudra_om4/eval.yaml")
+    period = cfg.data.sources[0].inference_time
+    time = xr.date_range(
+        str(period.start),
+        str(period.end),
+        freq="5D",
+        calendar="noleap",
+        use_cftime=True,
+    )
+    count = (len(time) - cfg.data.input_steps) // cfg.data.output_steps
+    forecast = time[
+        cfg.data.input_steps : cfg.data.input_steps + count * cfg.data.output_steps
+    ]
+    assert str(forecast[-1])[:10] == "2022-12-29"
+    field = xr.DataArray(
+        np.ones(len(forecast)),
+        dims="time",
+        coords={"time": kernels.coerce_datetime_values(forecast)},
+    )
+    monthly = kernels.monthly_mean_of_complete_months(field)
+    assert 2022 in kernels.complete_calendar_years(monthly.time)

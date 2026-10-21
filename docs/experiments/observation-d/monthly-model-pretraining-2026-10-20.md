@@ -7,14 +7,66 @@ Question: do the model datasets and multitask initializer help when observations
 are introduced only during the final adaptation stage, rather than jointly
 throughout training?
 
-Status: **all four qualifications passed**. Beta production **215049 is queued**;
-26 targeted tests and repository checks passed. Pinned producer: `a1e74e188`. Run root:
+Status: **all four monthly runs completed** in Beta production **215049**;
+annual qualification **215379** is running. Pinned training producer: `a1e74e188`. Run root:
 `beta:/projects/ny/lz1955/multiscale/jrusak/runs/monthly-pretraining-20261020`.
-No new scientific results yet.
 
 This is a separate four-run comparison alongside the
 [longer-training and replay wave](monthly-replay-2026-10-20.md). No replay or
 latent-size regularizer is introduced here.
+
+## Monthly results
+
+With this 2k-model/1k-observation allocation, **model-only pretraining followed by
+cooldown is worse than the original joint training**. Every new model selects
+the final 3k checkpoint. Multitask initializer training is worse than surface-only
+at both fixed model-data mixtures in this seed. Replacing half the OM4 updates
+with CM4 improves surface error but does not improve the full blend.
+
+| Model | Full blend ↓ | Surface blend ↓ | SST °C ↓ | Velocity m/s ↓ | EKE m²/s² ↓ | OHC 0–700 / 700–2,000 m GJ/m² ↓ |
+|---|---:|---:|---:|---:|---:|---:|
+| P-OM4-surface | 1.1838 | 1.0287 | 0.9011 | 0.14157 | 0.02185 | 0.8665 / 0.5862 |
+| P-OM4-multitask | 1.3050 | 1.0831 | 1.0218 | 0.14339 | 0.02195 | 1.0226 / 0.6670 |
+| P-mix-surface | 1.1969 | 1.0053 | 0.8408 | 0.14180 | 0.02187 | 0.8787 / 0.6295 |
+| P-mix-multitask | 1.3123 | 1.0433 | 0.9222 | 0.14351 | 0.02194 | 1.0184 / 0.7263 |
+| Original joint A | 1.1182 | 0.9665 | 0.7879 | 0.13712 | 0.02144 | 0.7585 / 0.5908 |
+| Original joint B | 1.1257 | 0.9660 | 0.7845 | 0.13708 | 0.02151 | 0.7779 / 0.5950 |
+| Original joint C | 1.1330 | 0.9486 | 0.7418 | 0.13736 | 0.02145 | 0.7734 / 0.6298 |
+| Original joint D | 1.1393 | 0.9547 | 0.7565 | 0.13714 | 0.02149 | 0.8099 / 0.6155 |
+| Original obs-only E | 1.1443 | 0.9233 | 0.6998 | 0.13534 | 0.02121 | 0.8142 / 0.6570 |
+
+These are the **fixed 3k EMA endpoints**, evaluated on the same nine validation
+origins. E's selected checkpoint is 2750 (full blend 1.1421); all other rows select
+3k. Surface components average leads 5/15/30 days, and OHC is a direct monthly
+readout. The surface blend excludes both OHC terms; both blends retain the
+original fixed seasonal-climatology normalization. A value below one beats that
+reference on the aggregate. These are raw-field errors, without deseasonalizing
+or detrending. Definitions of the P models appear in the next section; original
+[joint A–D and obs-only E](monthly-latent-pilots-2026-10-16.md#question-and-arms)
+use the same source/task matrix with observation updates during main training.
+
+![Monthly validation during observation cooldown](assets/monthly-model-pretraining-2026-10-20/validation-cooldown.png)
+
+[Complete curves, including model-only pretraining](assets/monthly-model-pretraining-2026-10-20/validation-full.png)
+use logarithmic vertical axes to retain the large initial adaptation gap. Full
+blends at 2k are 4.9368 / 7.0696 / 4.6587 / 7.3550 for the four P models, falling
+to 1.1838 / 1.3050 / 1.1969 / 1.3123 after cooldown. The ERA5 adapter is still
+untrained at 2k, so those pretraining validation scores are **not a clean test of
+ocean transfer independently of forcing adaptation**. The original joint models
+have already trained that adapter before cooldown.
+
+The final difference is not hidden by EMA: raw-weight full blends are 1.1806,
+1.2946, 1.1861 and 1.2989, respectively. Interpretation remains limited by one
+seed and unequal observation exposure: the P runs receive 1k observation
+updates, original joint A–D 2k and obs-only E 3k. This result disfavors this
+allocation/ordering recipe; it does not show that model pretraining is inherently
+unhelpful. The [replay comparison](monthly-replay-2026-10-20.md) separately changes
+long-lead exposure and addresses annual stability.
+
+[Verified results](assets/monthly-model-pretraining-2026-10-20/results.json) and
+[input/checkpoint hashes](assets/monthly-model-pretraining-2026-10-20/checksums.txt)
+include all components, curves and online W&B links. Annual diagnostics are
+pending and will use fixed 3k endpoints without annual selection.
 
 ## Runs and data exposure
 
@@ -99,4 +151,6 @@ is acceptable. Retain producer hashes, qualification artifacts and GPU accountin
 Qualification job 215045 completed in 24m05s (0.4014 GPU-hours), including every
 applicable task, identical random backbone hashes, original data contracts and
 bitwise-exact observation-adaptation restart. Production starts from random
-weights, not the qualification states.
+weights, not the qualification states. Production 215049 completed in 10h02m53s
+on four GPUs (40.1922 GPU-hours); training plus qualification cost 40.5936
+GPU-hours, with no failed attempts. Annual evaluation is accounted separately.

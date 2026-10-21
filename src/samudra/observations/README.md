@@ -47,8 +47,12 @@ ERA5. The scripts preserve conservative remapping, finite-coverage thresholds,
 strict five-day means, ERA5 accumulation timing, depth interpolation and salinity
 conversion. Provider downloads and transfers are separate operations.
 
-Run from this repository with Samudra installed, or `PYTHONPATH=src`. IAP
-preparation additionally needs the pinned `gsw==3.6.23` preprocessing dependency.
+Run these observation scripts in Samudra's Python 3.12 environment (the root
+package requires `>=3.12,<3.13`), with Samudra installed or `PYTHONPATH=src`.
+IAP preparation additionally needs the pinned `gsw==3.6.23` dependency, which
+requires Python >=3.11. The older standalone data package still supports Python
+3.10; its dependency marker excludes GSW there, and these new observation scripts
+are not supported in that Python 3.10 environment.
 
 ```bash
 python data/prepare_observation_baseline.py grid \

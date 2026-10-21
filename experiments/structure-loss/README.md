@@ -221,3 +221,29 @@ for the concrete user-owned OSN staging prefix, with direct Engaging
 transfer as an alternative. Code/runtime preparation and normalization
 verification are complete; no ETA or monitoring registration while this
 transfer approval remains outstanding.
+
+### Engaging resume, 2026-10-21
+
+The user approved temporary OSN staging. The 7.58 GiB code/checkpoint
+payload was transferred into
+`/orcd/pool/008/jrusak/om4-current-structure-20261020` and every listed
+file passed destination SHA256 read-back. The source `CLAUDE.md` symlink
+was restored after rclone skipped it. Original normalization also passed
+all 600 file checks. Shared group data remains read-only.
+
+Qualification array 26459715 completed all three arms with exit 0 through
+epoch 9. Each checkpoint has 6345 batches seen, restored optimizer,
+cosine scheduler T_max=70 and last_epoch=9, and LR=0.0005758583317654353.
+Original online W&B IDs remain local=0l15g248, spatial=cpkbm74n,
+gradient=dc598v1x. The qualification summary and ENGAGING_QUALIFIED marker
+are in the pool root. Total qualification runtimes were 55m19s, 94m45s,
+and 94m48s respectively; shared-data I/O stalls dominated, so these are
+not clean GPU throughput comparisons.
+
+Full continuation array **26500347** was submitted on Engaging for epochs
+10–70, using the same three configs, one RTX PRO 6000 per arm, 16 CPUs,
+128 GiB RAM and preemptible/requeue execution. Logs are
+`logs/full-26500347_{0,1,2}.log`. Submission is not evidence of running or
+completion. Qualification rates imply roughly 50–90 hours remaining
+once running, with substantial I/O and preemption uncertainty. Final
+scientific comparisons remain pending completion of all arms.

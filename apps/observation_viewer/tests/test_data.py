@@ -99,3 +99,38 @@ def test_monthly_temperature_integrates_to_matching_heat_layers():
     np.testing.assert_allclose(heat[:, :, 0, 0], expected)
     assert np.isnan(heat[:, 1, 0, 1]).all()
     assert np.isfinite(heat[:, 0, 0, 1]).all()
+
+
+def test_origins_follow_model_and_view_availability(tmp_path):
+    import json
+
+    from data import Catalog
+
+    meta = dict(
+        schema_version=1,
+        lat=[-30, 30],
+        lon=[90, 270],
+        depths=[2.5, 10],
+        models={"cooled": {}, "precool": {}},
+        origins=["2015-01-01", "2015-01-01-om4"],
+        records={
+            "2015-01-01": {
+                "models": {"cooled": {"surface": "a"}, "precool": {"surface": "b"}}
+            },
+            "2015-01-01-om4": {
+                "models": {
+                    "cooled": {"interior": "a"},
+                    "precool": {"surface": "b", "interior": "b"},
+                }
+            },
+        },
+        interior_examples={
+            "2015-01-01": {"models": {"cooled": "a", "precool": "b"}},
+            "2015-01-01-om4": {"models": {"cooled": "a", "precool": "b"}},
+        },
+    )
+    (tmp_path / "catalog.json").write_text(json.dumps(meta))
+    catalog = Catalog(tmp_path)
+    assert catalog.origins_for("cooled", "surface") == ["2015-01-01"]
+    assert catalog.origins_for("precool", "surface") == meta["origins"]
+    assert catalog.origins_for("cooled", "interior") == meta["origins"]

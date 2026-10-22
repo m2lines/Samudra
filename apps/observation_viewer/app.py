@@ -538,14 +538,17 @@ class Viewer:
             mode == "forecast_interior",
             mode == "heat",
         )
-        origins = (
-            {record["label"]: key for key, record in self.interior_examples.items()}
-            if interior and self.interior_examples
-            else {
-                f"{value} (obs)" if interior else value: value
-                for value in self.catalog.meta["origins"]
-            }
-        )
+        saved_origins = self.catalog.origins_for(self.model.value, mode)
+        origins = {
+            (
+                self.interior_examples[key]["label"]
+                if interior and self.interior_examples
+                else self.catalog.meta["records"][key].get(
+                    "label", f"{key} (obs)" if interior else key
+                )
+            ): key
+            for key in saved_origins
+        }
         self.origin.options = origins
         self.origin.value = (
             previous_origin
@@ -653,9 +656,12 @@ class Viewer:
                 }
         else:
             if f"{mode}_reference" in data_record:
-                options["IAP monthly heat content" if heat else "Observations"] = (
-                    "observations"
+                truth = (
+                    ("OM4 monthly heat content" if heat else "OM4 gold")
+                    if data_record.get("source") == "om4"
+                    else ("IAP monthly heat content" if heat else "Observations")
                 )
+                options[truth] = "observations"
             available = data_record["models"][self.model.value]
             if forecast or mode + "_persistence" in available:
                 options["Own initialized persistence"] = "persistence"
@@ -868,25 +874,37 @@ class Viewer:
         variable_label = next(
             k for k, v in self.variable.options.items() if v == variable
         )
+        source_record = self.catalog.meta["records"].get(self.origin.value, {})
+        origin_date = source_record.get("origin", self.origin.value)
+        is_om4 = source_record.get("source") == "om4"
         if mode == "surface":
             self.caption.object = (
-                f"### {variable_label} · {interval(self.origin.value, index)}"
+                f"### {variable_label} · {interval(origin_date, index)}"
             )
-            self.context.object = "Five-day means on the model grid. Observations: OISST temperature / DUACS sea level. Click a map to inspect a cell; pan and zoom are linked across all three maps."
+            self.context.object = (
+                (
+                    "Five-day OM4 means on the model grid, with OM4 surface-history inputs and OM4's own prescribed forcing. Reference fields are OM4 simulation fields, not observations. "
+                    if is_om4
+                    else "Five-day means on the model grid. Observations: OISST temperature / DUACS sea level. "
+                )
+                + "Click a map to inspect a cell; pan and zoom are linked across all three maps."
+            )
         elif mode == "heat":
             month = self.catalog.meta["records"][self.origin.value]["heat_months"][
                 index
             ]
             self.caption.object = f"### Ocean heat content · {variable_label} · {month}"
-            self.context.object = "Monthly layer-integrated heat content compared with IAP analyses, in GJ/m² relative to 0 °C. Gray cells lack a complete model column for the selected layer. Click a map for the monthly series."
+            truth = "OM4 simulation fields" if is_om4 else "IAP analyses"
+            self.context.object = f"Monthly layer-integrated heat content compared with {truth}, in GJ/m² relative to 0 °C. Gray cells lack a complete model column for the selected layer. Click a map for the monthly series."
             if self.monthly_profiles:
                 self.context.object += " Move the month slider to explore temperature sections and the selected-cell profile. Use Along longitude / Along latitude to choose the section direction; click a map to move the slice."
             if self.monthly_profiles:
-                self.context.object += " Heat maps and profiles use the same calendar-month forecast means. Profiles show IAP monthly temperatures at model depths."
+                truth = "OM4" if is_om4 else "IAP"
+                self.context.object += f" Heat maps and profiles use the same calendar-month forecast means. Profiles show {truth} monthly temperatures at model depths."
             else:
                 self.context.object += " Heat maps use the native IAP half-degree comparison grid. Monthly temperature profiles were not saved; use Saved forecast interior for the available five-day states."
         elif mode == "forecast_interior":
-            self.caption.object = f"### {variable_label} · {self.catalog.depths[index]:g} m · {interval(self.origin.value, self.saved_lead.value // 5 - 1)}"
+            self.caption.object = f"### {variable_label} · {self.catalog.depths[index]:g} m · {interval(origin_date, self.saved_lead.value // 5 - 1)}"
             self.context.object = "Saved full-state snapshots at days 5, 15, 30, 90, 180 and 365. These are five-day means, not monthly temperature profiles. Compare against the other native model or this checkpoint's initialized persistence; no full-depth observational truth is implied."
         else:
             record = self.interior_examples.get(self.origin.value)

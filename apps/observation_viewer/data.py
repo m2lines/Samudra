@@ -130,6 +130,20 @@ class Catalog:
             if mode in record
         }
 
+    def origins_for(self, model, mode):
+        """Only offer origins with saved fields for the selected model and view."""
+        owner = self.for_model(model)
+        if owner is not self:
+            return owner.origins_for(model, mode)
+        candidates = (
+            self.meta.get("interior_examples", {})
+            if mode == "interior" and "interior_examples" in self.meta
+            else self.meta.get("origins", [])
+        )
+        return [
+            origin for origin in candidates if model in self.models_for(mode, origin)
+        ]
+
     def available_modes(self, model):
         modes = set()
         for origin in self.meta.get("origins", []):

@@ -156,6 +156,43 @@ both displayed heat layers agree. It preserves existing arrays, checks all new
 arrays by full read-back, and retains the source, contract and receipts under
 `monthly-temperature-provenance/`. Complete profiles for every model before serving the updated viewer.
 
+### Monthly pre-cooldown and OM4 examples
+
+The monthly-diffusion comparison includes paired eight-draw means and single
+member-zero decodes for A, E, their longer-training and replay variants, and
+**A-replay-pre-cooldown**. The latter is the fixed EMA checkpoint at 2,000 main
+updates, before its observation cooldown and EMA reset. The other six models
+retain their fixed cooled endpoints. Single draws come from the same decoder
+batches as the means; fresh decoder noise at each readout shares a deterministic
+latent trajectory and does not constitute a separate stochastic rollout.
+
+`extend_monthly_precool.py` merges audited offline inference into an existing
+monthly catalog without changing any prior arrays:
+
+```bash
+uv run --project apps/observation_viewer python apps/observation_viewer/extend_monthly_precool.py \
+  --base /path/to/monthly-mean-and-member-catalog \
+  --export /path/to/pre-cooldown-inference-export \
+  --output /path/to/new-monthly-catalog
+```
+
+Pre-cooldown A-replay has observation forecasts for 2015/2018/2021 and OM4
+forecasts for 2015/2018, including monthly temperatures and heat integrals.
+All seven physical checkpoints have OM4-input initialized T/S/U/V examples
+for 2015/2018. Choose an `(om4)` forecast origin in the same selector used for
+observations. OM4 histories expose only SST/SSH, with OM4's own normalized
+three-field forcing; full-depth gold remains held out. The source's native
+Julian calendar is retained. The 2021 OM4 case is excluded because its final
+history interval ends one day before the forecast begins. No gap is filled.
+
+OM4 initialization reference fields are the final five-day full simulation
+state. Observation initialization references remain preceding-December IAP
+context. E's OM4-input examples are out-of-distribution probes: E has no
+full-field model-data training. Annual OM4 forecasts are saved only for the
+pre-cooldown checkpoint, so switching a cooled model from OM4 initialization
+to forecast views falls back to an available observation origin while retaining
+the selected model. Origin availability is always specific to model and view.
+
 ## Run and access
 
 ```bash

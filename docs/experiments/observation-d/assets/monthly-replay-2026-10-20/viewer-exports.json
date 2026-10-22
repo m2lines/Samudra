@@ -67,5 +67,18 @@
       ]
     }
   },
-  "hash_receipt": "viewer-checksums.txt"
+  "hash_receipt": "viewer-checksums.txt",
+  "paired_single_draws": {
+    "producer": "618489001",
+    "qualification_job": 215921,
+    "export_job": 215922,
+    "gpu_hours": 2.217222,
+    "retained_member": 0,
+    "same_noise_batch_as_mean": true,
+    "all_previous_means_and_references_byte_identical": true,
+    "readout_semantics": "New noise at each decode; shared deterministic latent trajectory, not an independent stochastic trajectory",
+    "viewer_deployment": "c34685d",
+    "physical_models": 6,
+    "model_readout_entries": 12
+  }
 }

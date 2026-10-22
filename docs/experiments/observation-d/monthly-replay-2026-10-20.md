@@ -168,14 +168,15 @@ were checked, with identical observation references and fixed OHC support.
 ## Results viewer
 
 All six literal models—**A, E, A-extend, E-extend, A-replay and E-replay**—have
-complete viewer exports for the same three annual starts. The entries are labeled
-`Monthly diffusion · <model name>`. They contain all 73 surface readouts,
+complete viewer exports for the same three annual starts. Each has paired
+`Monthly diffusion · <model name> · 8-draw mean` and `· 1 draw` entries.
+They contain all 73 surface readouts,
 14-depth initialized T/S/U/V reconstructions, twelve monthly OHC maps, and the
 actual 14-depth temperature profiles underlying those heat maps. Each includes
 its own decoded initialized persistence and a model description. The live
-viewer is deployed at `238ff9f`; browser/WebSocket checks exercised all six
-models' surface, initialized-interior, monthly-heat, profile and persistence
-controls successfully.
+viewer deployment `c34685d` passed browser/WebSocket checks of all twelve
+model/readout entries, including surface, initialized-interior, monthly-heat,
+profile, persistence and paired mean-versus-single comparisons.
 
 All 18 regenerated surface, OHC and latent arrays matched the published annual
 outputs byte-for-byte, including masks. Independent native-layer integration
@@ -186,10 +187,22 @@ only initial surface reconstruction is directly observation-supervised, and
 E has no full-field model supervision. IAP is preceding-December monthly T/S
 context, not instantaneous interior truth; it provides no U/V.
 
+The single-draw view retains **member zero from the same eight-member decoder
+batch**. Noise is sampled anew at each readout; the paired views share one
+deterministic latent trajectory. It is therefore a single decoder draw, not an
+independently evolving stochastic ocean trajectory. Native surface fields are
+five-day means; forecast interior temperatures and OHC are calendar-month
+means in both views. Initial T/S/U/V is a separate readout of the initial
+latent state. All reported learning curves and annual scores remain eight-draw
+means. Regenerating the paired exports left every prior mean and reference
+array byte-identical for all 18 model/origin pairs.
+
 Inference producer `f2c493d4a` used the same fixed cooled EMA checkpoints,
 eight diffusion draws and 32 sampler steps. Qualification and the full export
 used **2.336 GPU-hours**, including the preserved context-lookup failure;
-this is additional to the training/evaluation budget above. See the
+paired-member producer `618489001` added **2.217 GPU-hours** (qualification
+215921 and export 215922). Both are additional to the training/evaluation
+budget above. See the
 [export receipt and checkpoint/output hashes](assets/monthly-replay-2026-10-20/viewer-exports.json),
 [inference exporter](../../../scripts/export_monthly_replay_viewer.py), and
 [viewer preparation code](https://github.com/m2lines/Samudra/blob/codex/observation-viewer/apps/observation_viewer/prepare_monthly_replay.py).

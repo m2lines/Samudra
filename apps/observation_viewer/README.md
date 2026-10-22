@@ -347,3 +347,36 @@ python prepare_quarter.py --config /path/to/verified-config.json --output /path/
 ```
 
 The exact extraction configuration is retained in the prepared bundle.
+
+
+### Monthly latent/diffusion replay comparison
+
+`prepare_monthly_replay.py` builds a separate complete child catalog for **A, E,
+A-extend, E-extend, A-replay and E-replay** from frozen annual inference exports.
+It requires exact replay of the published surface/OHC/latent outputs, verifies
+checkpoint and payload hashes, and independently integrates the retained monthly
+temperature profiles to both OHC layers. It does not train or select models.
+
+```bash
+uv run --project apps/observation_viewer python apps/observation_viewer/prepare_monthly_replay.py \
+  --export /path/to/verified-monthly-export \
+  --context-catalog /path/to/existing-verified-viewer-bundle \
+  --output /path/to/new-monthly-child-catalog
+```
+
+Register the resulting directory through `extra_catalogs` and
+`extra_catalog_hashes` in a new immutable root bundle. Existing models remain in
+the same selector. Each entry includes annual surface fields, a decoded initial
+interior, calendar-month OHC and its exact underlying temperature profiles, plus
+its own decoded initialized persistence. All three January starts are retained.
+
+The initial reconstruction uses a separate eight-draw decoder noise stream and
+does not change the forecast. Full-field initial decoding is an exploratory
+readout: the observation reconstruction objective directly supervises only
+surface temperature/height, and E has no full-field model-data supervision.
+IAP initial T/S comes from the existing checksum-verified preceding-December
+monthly context; it is not instantaneous interior truth and contains no U/V.
+
+Use `tests/test_monthly_replay_browser.py` against an actual server to exercise
+all six models' surface, initialization, monthly heat, temperature-profile and
+persistence controls over WebSockets.

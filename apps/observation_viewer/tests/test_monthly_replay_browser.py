@@ -1,0 +1,82 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+# SPDX-License-Identifier: Apache-2.0
+"""Check all six monthly-replay entries through real WebSocket interactions."""
+
+import os
+from pathlib import Path
+
+import numpy as np
+import pytest
+from playwright.sync_api import expect, sync_playwright
+from test_browser import select, verify_maps
+
+from data import Catalog
+
+URL = os.environ.get("SAMUDRA_VIEWER_TEST_URL")
+pytestmark = pytest.mark.skipif(not URL, reason="Requires a running viewer")
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_six_monthly_models_surface_reconstruction_and_consistent_heat_profiles():
+    root = Catalog(os.environ.get("SAMUDRA_VIEWER_DATA", ROOT / ".data"))
+    names = ("A", "E", "A-extend", "E-extend", "A-replay", "E-replay")
+    if "monthly-A-replay" not in root.all_models:
+        pytest.skip("Monthly replay exports are not registered")
+    errors = []
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True, args=["--no-sandbox"])
+        page = browser.new_page(viewport=dict(width=1600, height=1100))
+        page.on("pageerror", lambda error: errors.append(str(error)))
+        page.goto(URL, wait_until="networkidle")
+        page.wait_for_function(
+            "window.Bokeh?.documents?.[0]?.get_model_by_name('source-prediction')?.data.value.length > 0",
+            timeout=60000,
+        )
+        for name in names:
+            model = "monthly-" + name
+            catalog = root.for_model(model)
+            select(page, "model-select", f"Monthly diffusion · {name}")
+            select(page, "view-select", "Annual surface forecasts")
+            select(page, "origin-select", "2021-01-01")
+            select(page, "variable-select", "Sea surface temperature")
+            select(page, "reference-select", "Observations")
+            slider = page.locator(".lead-slider [role=slider]")
+            slider.focus()
+            slider.press("End")
+            verify_maps(page, catalog, "surface", model, "2021-01-01", 0, 72)
+            expect(page.locator(".model-description")).to_contain_text(name)
+            select(page, "view-select", "Initialized ocean interior")
+            select(page, "variable-select", "Temperature")
+            select(page, "depth-select", "1050 m")
+            select(page, "reference-select", "IAP monthly context")
+            verify_maps(page, catalog, "interior", model, "2021-01-01", 0, 11)
+            select(page, "view-select", "Monthly ocean heat content")
+            select(page, "variable-select", "0–700 m")
+            select(page, "reference-select", "IAP monthly heat content")
+            month = page.locator(".month-slider [role=slider]")
+            month.focus()
+            month.press("End")
+            verify_maps(page, catalog, "heat", model, "2021-01-01", 0, 11)
+            latitude = float(page.locator(".latitude-input input").input_value())
+            longitude = float(page.locator(".longitude-input input").input_value())
+            y = np.abs(catalog.lat - latitude).argmin()
+            x = np.abs((catalog.lon - longitude + 180) % 360 - 180).argmin()
+            expected = catalog.values("temperature", model, "2021-01-01")[0][
+                11, :, y, x
+            ]
+            actual = page.evaluate(
+                "Array.from(Bokeh.documents[0].get_model_by_name('profile-source').data.prediction)"
+            )
+            np.testing.assert_allclose(
+                np.array(actual, dtype=float),
+                expected,
+                rtol=1e-6,
+                atol=1e-6,
+                equal_nan=True,
+            )
+            select(page, "reference-select", "Own initialized persistence")
+            verify_maps(
+                page, catalog, "heat", model, "2021-01-01", 0, 11, "persistence"
+            )
+        assert not errors
+        browser.close()

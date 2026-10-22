@@ -1,0 +1,113 @@
+{
+  "producer": "db89dfa89",
+  "checkpoint_name": "A-replay-pre-cooldown",
+  "checkpoint_policy": "fixed main endpoint EMA before cooldown reset",
+  "step": 2000,
+  "task_counts": {
+    "obs": 1000,
+    "om4": 1000,
+    "cm4": 0
+  },
+  "decoder_readouts": [
+    "mean8",
+    "member0"
+  ],
+  "same_decoder_batch": true,
+  "deterministic_latent_trajectory": true,
+  "forecast_cases": [
+    {
+      "source": "obs",
+      "origin": "2015-01-01",
+      "source_index": 0
+    },
+    {
+      "source": "obs",
+      "origin": "2018-01-01",
+      "source_index": 1
+    },
+    {
+      "source": "obs",
+      "origin": "2021-01-01",
+      "source_index": 2
+    },
+    {
+      "source": "om4",
+      "origin": "2015-01-01",
+      "source_index": 0
+    },
+    {
+      "source": "om4",
+      "origin": "2018-01-01",
+      "source_index": 1
+    }
+  ],
+  "om4_initialization_models": [
+    "A",
+    "E",
+    "A-extend",
+    "E-extend",
+    "A-replay",
+    "E-replay",
+    "A-replay-pre-cooldown"
+  ],
+  "om4_initialization_origins": [
+    "2015-01-01",
+    "2018-01-01"
+  ],
+  "om4_initialization_fields": [
+    "temperature",
+    "salinity",
+    "zonal velocity",
+    "meridional velocity"
+  ],
+  "initializer_visible_fields": [
+    "SST",
+    "SSH"
+  ],
+  "history_five_day_bins": 19,
+  "native_om4_forcing": [
+    "tauuo",
+    "tauvo",
+    "hfds"
+  ],
+  "om4_calendar": "julian",
+  "excluded_om4_origins": {
+    "2021-01-01": "Model time gap: 2020-12-31 00:00:00 \u2192 2021-01-01 00:00:00"
+  },
+  "slurm": {
+    "failed_qualification": {
+      "job_id": 215946,
+      "state": "FAILED",
+      "seconds": 97,
+      "gpus": 1
+    },
+    "canceled_dependency": {
+      "job_id": 215947,
+      "state": "CANCELLED",
+      "seconds": 0,
+      "gpus": 0
+    },
+    "qualification": {
+      "job_id": 215958,
+      "state": "COMPLETED",
+      "seconds": 327,
+      "gpus": 1
+    },
+    "production": {
+      "job_id": 215959,
+      "state": "COMPLETED",
+      "seconds": 720,
+      "gpus": 4
+    }
+  },
+  "gpu_hours_all_attempts": 0.9177777777777778,
+  "verified_forecasts": 5,
+  "verified_comparison_initializations": 12,
+  "previous_arrays_unchanged": true,
+  "hash_receipt": "viewer-checksums.txt",
+  "viewer_deployment": "1e3e294",
+  "monthly_model_readout_entries": 14,
+  "om4_initialization_model_readout_pairs": 28,
+  "new_arrays": 102,
+  "prior_arrays_preserved": 282
+}

@@ -207,6 +207,45 @@ budget above. See the
 [inference exporter](../../../scripts/export_monthly_replay_viewer.py), and
 [viewer preparation code](https://github.com/m2lines/Samudra/blob/codex/observation-viewer/apps/observation_viewer/prepare_monthly_replay.py).
 
+**A-replay-pre-cooldown** adds the frozen **2,000-update main-endpoint EMA**:
+1,000 OM4 and 1,000 observation updates, before the observation-only cooldown
+and its EMA reset. It uses the same architecture, seed, replay protocol and
+normalization as A-replay. This is an existing checkpoint readout, with no
+additional training or checkpoint selection. Both readouts include 365-day
+observation rollouts for 2015/2018/2021 and OM4 rollouts for 2015/2018, with
+surface maps, monthly temperature/OHC, initialization and own persistence.
+
+All seven physical checkpoints also have **OM4-input initialization examples**
+for 2015 and 2018. Select an `(om4)` origin under **Initialized ocean interior**
+to compare T/S/U/V maps, sections and profiles against **OM4 gold**. Only the
+19 five-day SST/SSH history bins are exposed; OM4's own normalized stress and
+heat-flux forcings replace ERA5. Full-depth gold is held out and represents
+the final five-day history interval. It is a matching simulation state, unlike
+the preceding-December IAP context shown for observation inputs. E's OM4-input
+examples are out-of-distribution probes because E receives no full-field model
+supervision. Annual OM4 forecasts are saved only for A-replay-pre-cooldown.
+
+The source OM4 **Julian calendar is retained**. Its December 2020 history ends
+at 2020-12-31 00:00, while the 2021 forecast begins at 2021-01-01 00:00. That
+one-day gap excludes 2021 from OM4 examples; no interval is filled or
+interpolated. The 2015/2018 cases have exact contiguous native five-day history
+and forecast intervals. Origins shown by the viewer are specific to the
+selected model and view, with OM4 references labeled separately from observations.
+
+Viewer deployment `1e3e294` contains fourteen monthly model/readout entries
+without changing the 282 existing array files.
+
+The added source-matched inference uses producer `db89dfa89`, qualification
+215958 and export 215959, totaling **0.918 GPU-hours** including a 97-second
+failed counter-contract check. That check was corrected to include the
+checkpoint's explicit zero CM4 count; no weights or scientific inputs changed.
+Qualification verified observation first-month overlap, paired mean/member
+invariance and equality of standalone versus annual OM4 initialization.
+The converter independently checks source grids, masks, profile/OHC integration,
+all export hashes, and preservation of every existing viewer array.
+[Source/readout coverage and accounting](assets/monthly-replay-2026-10-20/viewer-om4-precool-exports.json);
+[source-matched exporter](../../../scripts/export_monthly_precool_viewer.py).
+
 ## Four runs
 
 | Literal run name | Initialization | Main training | Cooldown | Observation replay |

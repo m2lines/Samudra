@@ -246,6 +246,60 @@ all export hashes, and preservation of every existing viewer array.
 [Source/readout coverage and accounting](assets/monthly-replay-2026-10-20/viewer-om4-precool-exports.json);
 [source-matched exporter](../../../scripts/export_monthly_precool_viewer.py).
 
+### Full-field decoder noise
+
+**The added OM4/observation views do not isolate input source:** OM4 native
+readouts jointly request all 77 physical channels, whereas observation native
+readouts request only SST/SSH. Observation monthly readouts request T/S;
+OM4 monthly readouts request all channels. These are different denoising
+tasks through the same shared decoder, not separate decoder heads.
+Both sources' initialized interiors use the full 77-channel readout.
+
+A frozen-checkpoint diagnostic crosses input source and decoder target mask,
+holding the latent state and initial sampling seed fixed within each source.
+For pre-cooldown A-replay at **2015-01-01, day 5**, eight-draw-mean SST gives:
+
+| Input history/forcing | Decoder request | SST RMSE (°C) | Adjacent-cell roughness (°C) |
+|---|---|---:|---:|
+| Obs / ERA5 adapter | SST/SSH only | 0.763 | 0.194 |
+| Obs / ERA5 adapter | Joint 77 fields | 3.524 | 2.110 |
+| OM4 / native forcing | SST/SSH only | 3.257 | 0.701 |
+| OM4 / native forcing | Joint 77 fields | 2.864 | 2.125 |
+
+These are unweighted wet-cell diagnostics for one origin, not the official
+multi-origin validation blend. Roughness is RMS longitude-neighbor difference
+divided by √2, using pairs of wet cells; it includes real spatial gradients.
+The original training pairings were obs→SST/SSH and OM4→full fields. The crossed
+requests are diagnostic interventions outside those native forecasting task
+pairings, not newly validated baselines.
+For single draws, joint-77 roughness is about **5.8°C for either input source**;
+surface-only roughness is 0.40°C for obs and 1.78°C for OM4. The noise is already
+present at initialization. All six cooled checkpoints also show noisy full-field
+initial SST readouts for both sources (single-draw roughness 4.5–6.3°C).
+
+Increasing joint-field sampling from **32 to 128 steps** barely changes day-5
+mean SST roughness: obs 2.110→2.084°C and OM4 2.125→2.100°C. This is not resolved
+by taking more integration steps. Changing only the target mask greatly reduces
+speckle, proving a decoder-task dependence independent of the latent trajectory.
+It does **not** fix OM4 prediction: its surface-only RMSE actually worsens.
+OM4 training always requested full-field outputs, so surface-only readout of
+OM4 latents is an untrained task combination, rather than a validated substitute.
+
+The full-field generative decoder is therefore a real model limitation; the
+visual contrast is not evidence that OM4 forcing alone causes the noise, nor
+that the latent processor suddenly becomes noisy during the annual rollout.
+The underlying cause of poor full-field denoising remains unresolved. Model
+and observation losses average over different channel sets and use different
+weights, so good sparse-task validation does not establish full-state quality.
+Export/hash/replay qualification did not check this quality criterion.
+The viewer now labels the task difference and noisy reconstruction limitation;
+the original arrays and reported observation metrics are preserved.
+
+Diagnostic **215974**, producer `d3ebc6024`, used **0.0414 GPU-hours**, no training,
+and byte-reproduced the original mean and member-zero readouts before testing
+the alternative masks and step counts. [All diagnostic components](assets/monthly-replay-2026-10-20/readout-noise-diagnostic.json);
+[diagnostic runner](../../../scripts/diagnose_monthly_readout_noise.py).
+
 ## Four runs
 
 | Literal run name | Initialization | Main training | Cooldown | Observation replay |

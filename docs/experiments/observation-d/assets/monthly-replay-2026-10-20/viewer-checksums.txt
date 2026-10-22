@@ -73,3 +73,10 @@ e90129c1cfff46c3d70fe371ef16bca3a95be153e1ad2b373df4354340fe0ec9  precool/initia
 92f65fe6ebc5d3b232785f35723b7229030450cfaca93ad748be0e29e43aed46  precool/initialization/E-replay/om4/2018-01-01.npz # pragma: allowlist secret
 71d3accc96dae06d7c62759c821c26c0316b7217cfae85587ef393c995b37bd1  precool/prepared/2015-01-01.npz # pragma: allowlist secret
 e6aff58227991264d0244ae6a07ffb60cc4555aec7181c469ea732548f8fd812  precool/prepared/2018-01-01.npz # pragma: allowlist secret
+
+# Fixed-latent decoder-task noise diagnostic, job 215974
+d3ebc60245ef4d8fbf51654d3296b920ea3dc3f2  readout-diagnostic-producer # pragma: allowlist secret
+e3d8e9e517d6d1f91447e9b174f54a61cdc100b81764d62f3a23645012944149  readout-diagnostic-checkpoint_sha256 # pragma: allowlist secret
+b9abfa20e4b1e82326acec18c25b45f195b476b31a22dfde748445b51766cd11  readout-diagnostic-source_audit_sha256 # pragma: allowlist secret
+094ba80982128b188f3aa543d3da3832cba31bbe732e87f3a7b8e5a11787ae31  readout-diagnostic-script_sha256 # pragma: allowlist secret
+d888fa0c76cb3df0bc01b7c594d742adba62a5efdd342c940143b6c92734017d  readout-diagnostic-readouts_sha256 # pragma: allowlist secret

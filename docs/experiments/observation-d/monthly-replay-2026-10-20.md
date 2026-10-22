@@ -225,6 +225,13 @@ the preceding-December IAP context shown for observation inputs. E's OM4-input
 examples are out-of-distribution probes because E receives no full-field model
 supervision. Annual OM4 forecasts are saved only for A-replay-pre-cooldown.
 
+The **observation-input** initialized interiors also offer **OM4 contemporaneous
+context** for 2015/2018, for all seven checkpoints and both decoder readouts.
+Selecting that comparison retains observation inputs and the saved model
+reconstruction; it displays the same full T/S/U/V simulation array used as gold
+by the matching OM4-input example. It is simulation context, not observational
+truth. No new inference or prediction arrays are needed to expose this option.
+
 The source OM4 **Julian calendar is retained**. Its December 2020 history ends
 at 2020-12-31 00:00, while the 2021 forecast begins at 2021-01-01 00:00. That
 one-day gap excludes 2021 from OM4 examples; no interval is filled or

@@ -193,6 +193,16 @@ pre-cooldown checkpoint, so switching a cooled model from OM4 initialization
 to forecast views falls back to an available observation origin while retaining
 the selected model. Origin availability is always specific to model and view.
 
+The current full 77-channel decoder readouts retain substantial diffusion
+noise, including initialized surface fields for both input sources. Observation
+annual native readouts request only SST/SSH; OM4 native readouts request all 77
+channels. Monthly tasks likewise request T/S versus all channels. A fixed-latent
+crossed-mask diagnostic reproduced the large noise difference, while increasing
+sampling from 32 to 128 steps barely helped. The viewer labels these differences;
+it retains the original arrays rather than hiding the full-field failure.
+Surface-only decoding of OM4 latents reduces speckle but remains biased, so it
+is not a validated substitute for the full model task.
+
 ## Run and access
 
 ```bash

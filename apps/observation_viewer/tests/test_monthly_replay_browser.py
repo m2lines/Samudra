@@ -165,6 +165,12 @@ def test_precool_source_forecasts_and_all_om4_initializations(readout):
             slider.focus()
             slider.press("End")
             verify_maps(page, catalog, "surface", precool, origin, 0, 72)
+            if source == "om4":
+                expect(
+                    page.get_by_text(
+                        "This OM4 forecast jointly decodes all 77", exact=False
+                    )
+                ).to_be_visible()
             select(page, "view-select", "Monthly ocean heat content")
             select(page, "variable-select", "0–700 m")
             select(

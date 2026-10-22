@@ -16,6 +16,30 @@ from prepare_monthly_replay import NAMES, REPORT
 NAME = "A-replay-pre-cooldown"
 
 
+def annotate_readouts(meta):
+    """Make the measured decoder-task limitation explicit without changing arrays."""
+    for record in meta["records"].values():
+        om4 = record.get("source") == "om4"
+        record["surface_readout_description"] = (
+            "This OM4 forecast jointly decodes all 77 physical channels. Observation surface forecasts decode only SST/SSH. Full-field decodes retain substantial diffusion noise in these checkpoints, so the source comparison also changes the decoder task."
+            if om4
+            else "This surface forecast decodes only SST/SSH; initialized interiors use a separate joint 77-channel readout."
+        )
+        record["heat_readout_description"] = (
+            "The monthly OM4 decoder requests all 77 physical channels; the observation monthly decoder requests T/S only. These are different readout tasks."
+            if om4
+            else "The monthly decoder requests T/S only; initialized interiors use a separate joint 77-channel readout."
+        )
+    for example in meta["interior_examples"].values():
+        example["description"] += (
+            " Full-field initialization jointly decodes all 77 channels for both input sources. These checkpoints retain substantial diffusion noise in that readout, including their surface fields; this is not a validated full-state reconstruction."
+        )
+    for info in meta["models"].values():
+        info["description"] += (
+            "\n\n**Readout limitation:** full 77-channel reconstructions retain much more diffusion noise than two-channel surface forecasts, for both observation and OM4 inputs. OM4 annual readouts use the full task; observation annual readouts use surface-only or T/S-only tasks. Source comparisons therefore also change the decoder task. Holding the latent state fixed reproduces this difference; increasing the sampler from 32 to 128 steps barely helps. The existing arrays are retained so this failure remains visible."
+        )
+
+
 def extend(base, export, output):
     meta = json.loads((base / "catalog.json").read_text())
     config = json.loads((export / "paths.json").read_text())
@@ -293,6 +317,7 @@ def extend(base, export, output):
         om4_initialization_physical_models=7,
         no_retraining=True,
     )
+    annotate_readouts(meta)
     (output / "catalog.json").write_text(json.dumps(meta, indent=2) + "\n")
     for name, info in meta["files"].items():
         assert sha(output / name) == info["sha256"], name

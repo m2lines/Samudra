@@ -914,6 +914,9 @@ class Viewer:
                 self.context.object = record["description"]
             else:
                 self.context.object = f"Initialized state from the last five-day history interval. IAP {self.catalog.meta['records'][self.origin.value]['context_month']} is monthly context, not instantaneous truth. Surface temperature at 2.5 m is copied from available inputs."
+        readout_note = source_record.get(f"{mode}_readout_description")
+        if readout_note:
+            self.context.object += " " + readout_note
         self.context.object = self.availability_message + self.context.object
         stats = paired_stats(a, b, self.lat)
         if stats["cells"]:

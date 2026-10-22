@@ -1,0 +1,21 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+# SPDX-License-Identifier: Apache-2.0
+
+base_output_dir: /projects/ny/lz1955/multiscale/jrusak/runs/cm4-onedeg-samudra-20261017/viz-100yr-20261022-attempt3 # pragma: allowlist secret
+name: cm4-100yr-epoch40-ema
+dataset_name: CM4 1° reference
+variables: [thetao, so, uo, vo, zos]
+data_root: /projects/ny/lz1955/multiscale/jrusak/data/cm4_onedeg
+groundtruth_location: CM4.zarr
+basins_location:
+  type: s3
+  anon: true
+  bucket: m2lines-pubs
+  path: Samudra/basins/basin_masks_original.zarr
+  endpoint_url: https://nyu1.osn.mghpcc.org
+groundtruth_time_range: {start: "0251-01-16", end: "0351-01-01"}
+runs:
+  - name: CM4 epoch-40 EMA forecast
+    location: /projects/ny/lz1955/multiscale/jrusak/runs/cm4-onedeg-samudra-20261017/eval-100yr-best-ema-20261018-attempt3/output/cm4-100yr-best-epoch40-ema-attempt3/predictions.zarr
+    variables: [thetao, so, uo, vo, zos]
+observations: null

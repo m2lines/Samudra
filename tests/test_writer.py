@@ -2,6 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import datetime
+from pathlib import Path
 from typing import cast
 
 import numpy as np
@@ -19,6 +21,44 @@ from tests.conftest import TEST_FULL_DATA_LAYOUT
 # write() never touches preprocessing (record_batch does), so these tests drive
 # the writer directly with a buffer and omit a real preprocessor.
 _NO_PREPROCESSOR = cast(BatchPreprocessor, None)
+
+
+@pytest.mark.parametrize("calendar", ["noleap", "julian"])
+def test_writer_slices_time_coordinates_for_each_append(
+    tmp_path: Path, calendar: str
+) -> None:
+    times = xr.date_range(
+        "0251-01-06", periods=8, freq="5D", calendar=calendar, use_cftime=True
+    )
+    bounds = np.array([[t - datetime.timedelta(days=5), t] for t in times])
+    coords = _source_coords(2, 3)
+    coords["time_bnds"] = xr.DataArray(
+        bounds, dims=("time", "nv"), coords={"time": times}
+    )
+    coords["average_DT"] = xr.DataArray(
+        np.arange(8, dtype="float32"), dims="time", coords={"time": times}
+    )
+    writer = ZarrWriter(
+        tmp_path,
+        coords=coords,
+        output_steps=2,
+        model_path="dummy.ckpt",
+        time_chunk_size=2,
+        preprocessor=_NO_PREPROCESSOR,
+        data_layout=TEST_FULL_DATA_LAYOUT,
+    )
+    for batch in (slice(2, 4), slice(4, 8)):
+        selected = times[batch]
+        writer.buffer = torch.zeros(
+            len(selected), len(TEST_FULL_DATA_LAYOUT.prognostic_var_names), 2, 3
+        )
+        writer.time_buffer = xr.DataArray(selected, dims="time")
+        writer.write()
+    result = xr.open_zarr(writer.pred_path)
+    np.testing.assert_array_equal(result.time.values, times[2:])
+    np.testing.assert_array_equal(result.time_bnds.values, bounds[2:])
+    np.testing.assert_array_equal(result.average_DT.values, np.arange(8)[2:])
+    assert result.time_bnds.dims == ("time", "nv")
 
 
 class _IdentityNormalize:

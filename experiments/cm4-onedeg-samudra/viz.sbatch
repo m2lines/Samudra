@@ -9,9 +9,9 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=64
 #SBATCH --mem=384G
-#SBATCH --time=11:50:00
+#SBATCH --time=10:45:00
 set -euo pipefail
-export ROOT=/projects/ny/lz1955/multiscale/jrusak/runs/cm4-onedeg-samudra-20261017/viz-100yr-20261022-attempt3
+export ROOT=/projects/ny/lz1955/multiscale/jrusak/runs/cm4-onedeg-samudra-20261017/viz-100yr-20261022-attempt4
 # The pinned NVIDIA image also serves CPU analysis: do not request driver
 # injection on Grace nodes, which have no NVIDIA GPU driver.
 export NVIDIA_VISIBLE_DEVICES=void
@@ -35,16 +35,17 @@ srun --kill-on-bad-exit=1 --container-image="$SAMUDRA_CONTAINER_IMAGE_REF" --con
 set -euo pipefail
 export PYTHONPATH=/workspace/src
 cd "$ROOT"
-echo "Preparing movie tooling inside the writable container"
-if ! command -v ffmpeg || ! command -v ffprobe; then
+echo "Preparing movie and plotting dependencies inside the writable container"
+if ! command -v ffmpeg || ! command -v ffprobe || ! /workspace/.venv/bin/python -c "import tkinter"; then
     export DEBIAN_FRONTEND=noninteractive
     apt-get -o Acquire::Retries=3 update > "$ROOT/ffmpeg-install.log" 2>&1
-    apt-get -o Acquire::Retries=3 install -y --no-install-recommends ffmpeg >> "$ROOT/ffmpeg-install.log" 2>&1
+    apt-get -o Acquire::Retries=3 install -y --no-install-recommends ffmpeg python3-tk >> "$ROOT/ffmpeg-install.log" 2>&1
 fi
 command -v ffmpeg
 command -v ffprobe
 ffmpeg -version > "$ROOT/ffmpeg-version.txt"
 dpkg-query -W > "$ROOT/runtime-packages.txt"
+/workspace/.venv/bin/python -c "from xarrayutils.plotting import linear_piecewise_scale, box_plot; print("Profile/ENSO plotting imports passed")"
 echo "Starting full CM4 visualization"
 exec /workspace/.venv/bin/python "$ROOT/source/experiments/cm4-onedeg-samudra/run_viz.py" "$ROOT/viz.yaml"
 '

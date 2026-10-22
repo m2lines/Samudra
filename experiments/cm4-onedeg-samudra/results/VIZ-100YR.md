@@ -29,7 +29,7 @@ have the expected 7,298 frames. Figure and movie generation is not evidence of
 physical skill; the rollout's salinity extrema remain a known limitation.
 
 Run root:
-`/projects/ny/lz1955/multiscale/jrusak/runs/cm4-onedeg-samudra-20261017/viz-100yr-20261022-attempt3`.
+`/projects/ny/lz1955/multiscale/jrusak/runs/cm4-onedeg-samudra-20261017/viz-100yr-20261022-attempt4`.
 Figures are under `cm4-100yr-epoch40-ema/`.
 
 Grace job **144384** was submitted via Alpha on 2026-10-22, using source
@@ -62,3 +62,18 @@ Bring-up confirmed FFmpeg/FFprobe installation and entry into the Python
 visualization launcher. Installed package versions and logs are retained.
 Its callback and quiet monitor are active; both failed-attempt callbacks are
 retired. Plotting and final artifact verification remain pending.
+
+Attempt 3, job 144395, completed 11 steps and produced 87 PNGs before failing
+at `ocean_temperature_profile_plots` after 1h04m11s. The delayed import of
+`xarrayutils.plotting` requires `tkinter`, which is absent from the image.
+Peak RSS was about 58.8 GiB; the failure was unrelated to input dates or memory.
+No movies or final audit were completed. All partial figures and progress records
+are preserved under the attempt-3 root.
+
+Attempt 4 installs Ubuntu's matching `python3-tk` alongside FFmpeg, then imports
+both delayed plotting functions before doing the large reference reductions.
+It restarts all steps in a separate directory: early steps populate shared
+in-memory values consumed by later steps, and the previous process state is not
+available. The 10h45m limit plus the prior 1h07m32s of allocations stays within
+the original 12-hour budget. Plotting algorithms and input values are unchanged.
+Replacement submission is pending.

@@ -30,4 +30,10 @@ physical skill; the rollout's salinity extrema remain a known limitation.
 
 Run root:
 `/projects/ny/lz1955/multiscale/jrusak/runs/cm4-onedeg-samudra-20261017/viz-100yr-20261022`.
-Figures are under `cm4-100yr-epoch40-ema/`. Submission is pending.
+Figures are under `cm4-100yr-epoch40-ema/`.
+
+Grace job **144384** was submitted via Alpha on 2026-10-22, using source
+[0b72ec219](https://github.com/m2lines/Samudra/commit/0b72ec219).
+The archive checksum was verified before extraction; the completion hook was
+staged and authenticated before job release. Quiet monitoring and a two-hour
+progress check are installed. Results remain pending.

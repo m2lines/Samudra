@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792699412422,
+  "lastUpdate": 1792699422053,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -26265,6 +26265,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.53465822335949",
             "extra": "mean: 12.528539641400016 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "d321000e10f7d3f0e91cc6f33e2c25ed7ad9e3bd",
+          "message": "Drop Python 3.10 support and fix data dependency compatibility (#943)\n\nThe data preprocessing package was the only package still declaring\nPython 3.10 support. Require Python 3.11 or newer and remove 3.10 from\nboth data-test CI matrices and package classifiers.\n\nFresh installs could also select Zarr 2.18.6 with Numcodecs 0.16.6,\nwhich fails importing the removed cbuffer_sizes helper. Constrain\nNumcodecs to <0.16 in both the package dependencies and Mamba\nenvironment so the supported Zarr 2 versions retain the required Blosc\nAPI.\n\nDocument the new Python minimum, update the stale Python 3.10 benchmark\nexample, and explicitly target Python 3.11 for data files in Ruff so the\nroot package's Python 3.12 requirement cannot introduce incompatible\nupgrades. No Python 3.10 compatibility shims or additional pyupgrade\nfixes were found.\n\nValidation:\n- Fresh Python 3.11.14 environment, installed with `uv pip install -e\n'./data[test]'` and no additional dependency overrides: 103 passed, 4\nskipped (xESMF/ESMF unavailable locally).\n- Fresh resolution selected Zarr 2.18.7 and Numcodecs 0.15.2; both\nimport successfully, and `uv pip check` passes.\n- Ruff lint and format checks for all data files; pyproject formatting,\nmetadata/CI matrix consistency checks, and all commit hooks passed.\n\n---------\n\nCo-authored-by: OA jder bot <jesse+bot@openathena.ai>",
+          "timestamp": "2026-10-22T19:35:49Z",
+          "tree_id": "6cc4812b47b197a9d27a6f322ba6a0e2a061a5c7",
+          "url": "https://github.com/m2lines/Samudra/commit/d321000e10f7d3f0e91cc6f33e2c25ed7ad9e3bd"
+        },
+        "date": 1792699421668,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 1.0096269333495453,
+            "unit": "iter/sec",
+            "range": "stddev: 0.005433589109958296",
+            "extra": "mean: 990.4648608000116 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_dataset__1gb[cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.33304000415336926,
+            "unit": "iter/sec",
+            "range": "stddev: 0.09259631826186004",
+            "extra": "mean: 3.0026422878000174 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.06365293612871614,
+            "unit": "iter/sec",
+            "range": "stddev: 0.13986367586867546",
+            "extra": "mean: 15.710194388799982 sec\nrounds: 5"
           }
         ]
       }

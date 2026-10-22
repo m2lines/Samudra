@@ -93,13 +93,6 @@ def export_case(model, data, config, row, i, *, first=False):
         reference_temperature.append(
             sample["raw"]["interior"].reshape(2, 14, *model.shape)[0]
         )
-    year = int(origin[:4]) - 1
-    context = data.load(data.root / "test" / f"{year}-12.npz")
-    # IAP is monthly T/S context only; it is not instantaneous 3D truth.
-    reference_initial = np.full((14, 4, *model.shape), np.nan, np.float32)
-    reference_initial[:, :2] = (
-        context["raw"]["interior"].reshape(2, 14, *model.shape).transpose(1, 0, 2, 3)
-    )
     with np.load(path) as saved:
         result.update(
             reference_surface=saved["reference_surface"],
@@ -107,7 +100,6 @@ def export_case(model, data, config, row, i, *, first=False):
         )
     result.update(
         reference_temperature=np.stack(reference_temperature),
-        reference_initial=reference_initial,
     )
     return result
 

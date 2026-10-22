@@ -247,3 +247,29 @@ Full continuation array **26500347** was submitted on Engaging for epochs
 completion. Qualification rates imply roughly 50–90 hours remaining
 once running, with substantial I/O and preemption uncertainty. Final
 scientific comparisons remain pending completion of all arms.
+
+### Full training complete, 2026-10-22
+
+Array 26500347 finished all three arms with exit 0. Destination verification
+loaded each final checkpoint: epoch70, 49,350 batches, finite model parameters,
+optimizer state retained, cosine T_max=70 and last_epoch=70, final LR=0.
+Original W&B IDs synced successfully. The machine-readable verification is
+`full-checkpoint-summary.json` beside `FULL_TRAINING_VERIFIED` in the pool root.
+
+| Arm | Best shared 360-day rollout_rmse | Selected epoch | W&B |
+| --- | ---: | ---: | --- |
+| Local range weighting | 0.2746139613 | 17 | https://wandb.ai/ocean_emulators/default/runs/0l15g248 |
+| Spatial curvature error | 0.3285814927 | 18 | https://wandb.ai/ocean_emulators/default/runs/cpkbm74n |
+| Forward gradient L1 | 0.2702421144 | 23 | https://wandb.ai/ocean_emulators/default/runs/dc598v1x |
+
+Lower is better. Gradient is 1.59% below local on this selection score;
+curvature is 19.65% above local. These are best-checkpoint validation scores
+from one matched seed, not held-out test results or proof of reduced texture.
+The previously identified MSE/dynamic controls are not strictly matched and
+must not be presented as causal controls for these loss changes. Spatial maps,
+field/depth breakdowns, and long-rollout behavior still require comparison.
+
+Full continuation runtimes were local11h40 (with an earlier preemption),
+spatial16h37, gradient13h43. Improved throughput made the original 50–90h
+estimate pessimistic. No further training was submitted. Completion callback
+ee5c3336-4341-4507-b7f4-19ec668fe78f was retired after verification.

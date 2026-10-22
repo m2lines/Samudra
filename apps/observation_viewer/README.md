@@ -198,6 +198,14 @@ pre-cooldown checkpoint, so switching a cooled model from OM4 initialization
 to forecast views falls back to an available observation origin while retaining
 the selected model. Origin availability is always specific to model and view.
 
+For all fourteen monthly model/readout entries, observation-input initialized
+interiors at 2015/2018 can also select **OM4 contemporaneous context**. This
+uses the same saved simulation array as the matched OM4-input case's gold,
+including T/S/U/V at all fourteen depths. The selected model keeps its
+observation-history initialization. This comparison is simulation context,
+not observational truth. It is unavailable for 2021 because no exactly matched
+OM4 initialization interval is saved. No new inference is needed to add it.
+
 The current full 77-channel decoder readouts retain substantial diffusion
 noise, including initialized surface fields for both input sources. Observation
 annual native readouts request only SST/SSH; OM4 native readouts request all 77

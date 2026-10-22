@@ -16,6 +16,23 @@ from prepare_monthly_replay import NAMES, REPORT
 NAME = "A-replay-pre-cooldown"
 
 
+def add_contemporaneous_context(meta):
+    """Share matched simulation references without changing observation inputs."""
+    for example in meta["interior_examples"].values():
+        if example["source"] != "obs":
+            continue
+        matched = meta["interior_examples"].get(example["origin"] + "-om4")
+        if matched is None:
+            continue
+        assert matched["source"] == "om4" and matched["origin"] == example["origin"]
+        reference = matched["references"]["om4"]
+        assert reference in meta["files"]
+        example["references"]["om4"] = reference
+        example["description"] += (
+            " OM4 contemporaneous context is the full simulation state for the same final five-day history interval as the matched OM4-input example. It is simulation context, not observational truth; selecting it does not change the observation-history initialization or forcing."
+        )
+
+
 def annotate_readouts(meta):
     """Make the measured decoder-task limitation explicit without changing arrays."""
     for record in meta["records"].values():
@@ -317,6 +334,7 @@ def extend(base, export, output):
         om4_initialization_physical_models=7,
         no_retraining=True,
     )
+    add_contemporaneous_context(meta)
     annotate_readouts(meta)
     (output / "catalog.json").write_text(json.dumps(meta, indent=2) + "\n")
     for name, info in meta["files"].items():

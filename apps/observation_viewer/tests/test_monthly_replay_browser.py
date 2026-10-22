@@ -228,7 +228,41 @@ def test_precool_source_forecasts_and_all_om4_initializations(readout):
             verify_maps(
                 page, catalog, "interior", model, "2018-01-01-om4", 2, 11, "om4"
             )
-            print(f"Verified OM4 initialization {name} ({readout})", flush=True)
+            select(page, "origin-select", "2018-01-01 (obs)")
+            select(page, "variable-select", "Temperature")
+            select(page, "reference-select", "OM4 contemporaneous context")
+            verify_maps(page, catalog, "interior", model, "2018-01-01", 0, 11, "om4")
+            expected = catalog.values("interior", model, "2018-01-01", "om4")[1][
+                :, 0, y, x
+            ]
+            actual = page.evaluate(
+                "Array.from(Bokeh.documents[0].get_model_by_name('profile-source').data.reference)"
+            )
+            np.testing.assert_allclose(
+                np.array(actual, dtype=float),
+                expected,
+                rtol=1e-6,
+                atol=1e-6,
+                equal_nan=True,
+            )
+            select(page, "variable-select", "Meridional velocity (V)")
+            verify_maps(page, catalog, "interior", model, "2018-01-01", 3, 11, "om4")
+            print(
+                f"Verified OM4 gold and observation-input context: {name} ({readout})",
+                flush=True,
+            )
+        select(page, "model-select", root.all_models[precool]["label"])
+        select(page, "origin-select", "2015-01-01 (obs)")
+        select(page, "variable-select", "Temperature")
+        select(page, "reference-select", "OM4 contemporaneous context")
+        verify_maps(page, catalog, "interior", precool, "2015-01-01", 0, 11, "om4")
+        select(page, "origin-select", "2021-01-01 (obs)")
+        expect(
+            page.locator(".reference-select option").filter(
+                has_text="OM4 contemporaneous context"
+            )
+        ).to_have_count(0)
+        select(page, "origin-select", "2018-01-01 (obs)")
         select(page, "model-select", root.all_models["monthly-A" + suffix]["label"])
         select(page, "view-select", "Annual surface forecasts")
         select(page, "variable-select", "Sea surface temperature")

@@ -9,9 +9,9 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=64
 #SBATCH --mem=384G
-#SBATCH --time=11:55:00
+#SBATCH --time=11:50:00
 set -euo pipefail
-export ROOT=/projects/ny/lz1955/multiscale/jrusak/runs/cm4-onedeg-samudra-20261017/viz-100yr-20261022-attempt2
+export ROOT=/projects/ny/lz1955/multiscale/jrusak/runs/cm4-onedeg-samudra-20261017/viz-100yr-20261022-attempt3
 # The pinned NVIDIA image also serves CPU analysis: do not request driver
 # injection on Grace nodes, which have no NVIDIA GPU driver.
 export NVIDIA_VISIBLE_DEVICES=void
@@ -29,13 +29,22 @@ trap on_exit EXIT
 mkdir -p "$MPLCONFIGDIR"
 scontrol show job "$SLURM_JOB_ID" > "$ROOT/allocation.txt"
 python3 "$ROOT/private/send.py" --credential-file "$ROOT/private/completion.json" --check
-srun --kill-on-bad-exit=1 --container-image="$SAMUDRA_CONTAINER_IMAGE_REF" --container-mount-home --container-env=NVIDIA_VISIBLE_DEVICES \
+srun --kill-on-bad-exit=1 --container-image="$SAMUDRA_CONTAINER_IMAGE_REF" --container-mount-home --container-env=NVIDIA_VISIBLE_DEVICES --container-remap-root --container-writable \
     --container-mounts="$ROOT/source/src:/workspace/src,/projects/ny/lz1955/multiscale:/projects/ny/lz1955/multiscale,$ROOT/cache:/workspace/.data_cache" \
     bash -c '
 set -euo pipefail
 export PYTHONPATH=/workspace/src
 cd "$ROOT"
+echo "Preparing movie tooling inside the writable container"
+if ! command -v ffmpeg || ! command -v ffprobe; then
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get -o Acquire::Retries=3 update > "$ROOT/ffmpeg-install.log" 2>&1
+    apt-get -o Acquire::Retries=3 install -y --no-install-recommends ffmpeg >> "$ROOT/ffmpeg-install.log" 2>&1
+fi
 command -v ffmpeg
 command -v ffprobe
+ffmpeg -version > "$ROOT/ffmpeg-version.txt"
+dpkg-query -W > "$ROOT/runtime-packages.txt"
+echo "Starting full CM4 visualization"
 exec /workspace/.venv/bin/python "$ROOT/source/experiments/cm4-onedeg-samudra/run_viz.py" "$ROOT/viz.yaml"
 '

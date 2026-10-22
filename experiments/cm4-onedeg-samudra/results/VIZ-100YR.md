@@ -29,7 +29,7 @@ have the expected 7,298 frames. Figure and movie generation is not evidence of
 physical skill; the rollout's salinity extrema remain a known limitation.
 
 Run root:
-`/projects/ny/lz1955/multiscale/jrusak/runs/cm4-onedeg-samudra-20261017/viz-100yr-20261022-attempt2`.
+`/projects/ny/lz1955/multiscale/jrusak/runs/cm4-onedeg-samudra-20261017/viz-100yr-20261022-attempt3`.
 Figures are under `cm4-100yr-epoch40-ema/`.
 
 Grace job **144384** was submitted via Alpha on 2026-10-22, using source
@@ -49,3 +49,11 @@ logs are preserved. Replacement Grace job **144392** was released with source
 [5b3b8b98b](https://github.com/m2lines/Samudra/commit/5b3b8b98b).
 Its separate completion hook and quiet monitor are installed; the old callback
 is retired. Results remain pending.
+
+Job 144392 resolved NVIDIA initialization but failed after 1m38s at the movie-tool
+preflight, before Python started. The container lacks an FFmpeg executable on its
+PATH. Attempt 3 uses a writable container with user-namespace root mapping
+(no elevated host permissions) to install FFmpeg if absent, records package
+versions and installation logs, and preserves the pinned Python environment.
+Its 11h50m limit plus prior failed allocations remains below 12 hours. All prior
+artifacts are retained; replacement submission is pending.

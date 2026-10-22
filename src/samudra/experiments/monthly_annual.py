@@ -69,6 +69,7 @@ def rollout(
     first_month_only=False,
     export_profiles=False,
     export_member=None,
+    model_batch=None,
 ):
     """Initialize once; never consume future ocean observations during evolution."""
     if export_member is not None and (
@@ -77,18 +78,35 @@ def rollout(
         or not export_profiles
     ):
         raise ValueError("A retained member must be 0–7 and include profile exports")
-    surface, atmosphere, contexts, _, valid = inputs(data, raw)
-    fields, available = history_fields(surface, valid)
-    monthly_sample = data.load(
-        data.root / "test" / (description["origin"][:7] + ".npz")
-    )
-    prefix = monthly_sample["atmosphere"].shape[1]
-    # Match the first month's adapter batch shape exactly for replay qualification.
-    with torch.autocast("cuda", dtype=torch.bfloat16):
-        forcing = torch.cat(
-            [model.adapt(atmosphere[:, :prefix]), model.adapt(atmosphere[:, prefix:])],
-            1,
+    if model_batch is None:
+        surface, atmosphere, contexts, _, valid = inputs(data, raw)
+        fields, available = history_fields(surface, valid)
+        monthly_sample = data.load(
+            data.root / "test" / (description["origin"][:7] + ".npz")
         )
+        prefix = monthly_sample["atmosphere"].shape[1]
+        # Match the first month's adapter batch shape exactly for replay qualification.
+        with torch.autocast("cuda", dtype=torch.bfloat16):
+            forcing = torch.cat(
+                [
+                    model.adapt(atmosphere[:, :prefix]),
+                    model.adapt(atmosphere[:, prefix:]),
+                ],
+                1,
+            )
+    else:
+        fields, available, forcing, contexts = (
+            model_batch[k] for k in ("fields", "available", "forcing", "contexts")
+        )
+        if (
+            forcing.shape[1:3] != (92, 3)
+            or available[:, :, :38].any()
+            or available[:, :, 39:76].any()
+        ):
+            raise ValueError(
+                "Expected OM4 native forcing and surface-only availability"
+            )
+    with torch.autocast("cuda", dtype=torch.bfloat16):
         states = model.trajectory(fields, available, forcing, contexts)
     if len(states) != 74 or not all(torch.isfinite(s).all() for s in states):
         raise ValueError("Annual latent trajectory is incomplete or nonfinite")
@@ -97,6 +115,9 @@ def rollout(
     native_support[[38, 76]] = data.mask[[38, 76]].bool()
     monthly_support = torch.zeros_like(native_support)
     monthly_support[data.ts_indices] = data.ts_mask.bool()
+    if model_batch is not None:
+        native_support = data.mask.bool()
+        monthly_support = data.mask.bool()
     native, native_members = {}, {}
     monthly_ohc, months, temperatures = [], [], []
     member_ohc, member_temperatures = [], []

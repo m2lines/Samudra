@@ -235,6 +235,31 @@ def test_full_annual_readout_with_saved_string_timestamps(tmp_path):
                 export_profiles=True,
                 export_member=bad,
             )
+    native_batch = dict(
+        fields=torch.zeros(1, 19, 77, h, w),
+        available=torch.zeros(1, 19, 77, h, w, dtype=torch.bool),
+        forcing=torch.ones(1, 92, 3, h, w),
+        contexts=torch.zeros(1, 92, 5, h, w),
+    )
+    native_batch["available"][:, :, [38, 76]] = True
+    adapt = model.adapt
+    model.adapt = lambda _: pytest.fail("OM4 native forcing must bypass ERA5 adapter")
+    native = rollout(
+        model,
+        data,
+        description,
+        raw,
+        origin_index=0,
+        export_profiles=True,
+        export_member=0,
+        model_batch=native_batch,
+    )
+    assert native["surface"].shape == (73, 2, h, w)
+    assert native["member_initial_interior"].shape == (14, 4, h, w)
+    native_batch["available"][:, :, 0] = True
+    with pytest.raises(ValueError, match="surface-only availability"):
+        rollout(model, data, description, raw, origin_index=0, model_batch=native_batch)
+    model.adapt = adapt
     raw["surface"][19:] = 999
     result2 = rollout(model, data, description, raw, origin_index=0)
     np.testing.assert_array_equal(result2["surface"], result["surface"])
@@ -266,3 +291,32 @@ def test_ohc_scoring_uses_fixed_complete_columns_and_rejects_missing_inside():
     prediction[0, 5, 1, 1, 1] = np.nan
     with pytest.raises(ValueError, match="fixed model support"):
         monthly_ohc_metrics(prediction, reference, prediction, np.ones((2, 3)), support)
+
+
+def test_model_annual_origins_reject_a_missing_day_in_initial_history():
+    from datetime import timedelta
+
+    import cftime
+
+    from samudra.experiments.monthly_model_annual import annual_indices
+
+    origin = cftime.DatetimeJulian(2015, 1, 1)
+    bounds = np.array(
+        [
+            [
+                origin + timedelta(days=5 * (i - 19)),
+                origin + timedelta(days=5 * (i - 18)),
+            ]
+            for i in range(92)
+        ],
+        dtype=object,
+    )
+    np.testing.assert_array_equal(annual_indices(bounds, "2015-01-01"), np.arange(92))
+    # The published 2020/2021 OM4 boundary drops a day. Neither interpolate
+    # that gap nor silently call the preceding history exactly matched.
+    bounds[:19] = np.array(
+        [[a - timedelta(days=1), b - timedelta(days=1)] for a, b in bounds[:19]],
+        dtype=object,
+    )
+    with pytest.raises(ValueError, match="Model time gap"):
+        annual_indices(bounds, "2015-01-01")

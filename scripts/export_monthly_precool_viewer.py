@@ -29,7 +29,7 @@ def saved_model(row, device="cuda"):
     saved = torch.load(row["checkpoint"], map_location="cpu", weights_only=False)
     require_endpoint_step(saved, row)
     if row["name"] == "A-replay-pre-cooldown":
-        assert saved["counts"] == {"om4": 1000, "obs": 1000}
+        assert saved["counts"] == {"om4": 1000, "obs": 1000, "cm4": 0}
         assert saved["protocol"]["mode"] == "replay"
         assert saved["protocol"]["seed"] == 1729
         assert saved["protocol"]["main_end"] == saved["step"] == 2000

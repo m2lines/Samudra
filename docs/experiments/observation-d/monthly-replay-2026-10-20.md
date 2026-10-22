@@ -172,7 +172,10 @@ complete viewer exports for the same three annual starts. The entries are labele
 `Monthly diffusion · <model name>`. They contain all 73 surface readouts,
 14-depth initialized T/S/U/V reconstructions, twelve monthly OHC maps, and the
 actual 14-depth temperature profiles underlying those heat maps. Each includes
-its own decoded initialized persistence and a model description.
+its own decoded initialized persistence and a model description. The live
+viewer is deployed at `238ff9f`; browser/WebSocket checks exercised all six
+models' surface, initialized-interior, monthly-heat, profile and persistence
+controls successfully.
 
 All 18 regenerated surface, OHC and latent arrays matched the published annual
 outputs byte-for-byte, including masks. Independent native-layer integration

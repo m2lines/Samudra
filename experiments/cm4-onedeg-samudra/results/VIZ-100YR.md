@@ -29,7 +29,7 @@ have the expected 7,298 frames. Figure and movie generation is not evidence of
 physical skill; the rollout's salinity extrema remain a known limitation.
 
 Run root:
-`/projects/ny/lz1955/multiscale/jrusak/runs/cm4-onedeg-samudra-20261017/viz-100yr-20261022`.
+`/projects/ny/lz1955/multiscale/jrusak/runs/cm4-onedeg-samudra-20261017/viz-100yr-20261022-attempt2`.
 Figures are under `cm4-100yr-epoch40-ema/`.
 
 Grace job **144384** was submitted via Alpha on 2026-10-22, using source
@@ -37,3 +37,12 @@ Grace job **144384** was submitted via Alpha on 2026-10-22, using source
 The archive checksum was verified before extraction; the completion hook was
 staged and authenticated before job release. Quiet monitoring and a two-hour
 progress check are installed. Results remain pending.
+
+The first allocation, job 144384, failed before Python started after 1m43s:
+Enroot attempted NVIDIA driver injection on a CPU-only Grace node. The site
+`98-nvidia.sh` explicitly exits without driver setup when
+`NVIDIA_VISIBLE_DEVICES=void`; the replacement exports that supported setting
+and passes it into the container. It retains the same image, input stores, and
+plotting implementation, uses a separate attempt directory, and has an 11h55m
+limit to stay within the original 12-hour allocation budget. First-attempt
+logs are preserved. Replacement submission is pending.

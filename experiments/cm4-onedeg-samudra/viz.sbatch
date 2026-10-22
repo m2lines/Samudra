@@ -9,9 +9,12 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=64
 #SBATCH --mem=384G
-#SBATCH --time=12:00:00
+#SBATCH --time=11:55:00
 set -euo pipefail
-export ROOT=/projects/ny/lz1955/multiscale/jrusak/runs/cm4-onedeg-samudra-20261017/viz-100yr-20261022
+export ROOT=/projects/ny/lz1955/multiscale/jrusak/runs/cm4-onedeg-samudra-20261017/viz-100yr-20261022-attempt2
+# The pinned NVIDIA image also serves CPU analysis: do not request driver
+# injection on Grace nodes, which have no NVIDIA GPU driver.
+export NVIDIA_VISIBLE_DEVICES=void
 export PYTHONUNBUFFERED=1 PYTHONNOUSERSITE=1 MPLBACKEND=Agg
 export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 NUMEXPR_NUM_THREADS=1
 export MPLCONFIGDIR="$ROOT/cache/matplotlib" SAMUDRA_CODE_COMMIT="$(cat "$ROOT/commit.txt")"
@@ -26,7 +29,7 @@ trap on_exit EXIT
 mkdir -p "$MPLCONFIGDIR"
 scontrol show job "$SLURM_JOB_ID" > "$ROOT/allocation.txt"
 python3 "$ROOT/private/send.py" --credential-file "$ROOT/private/completion.json" --check
-srun --kill-on-bad-exit=1 --container-image="$SAMUDRA_CONTAINER_IMAGE_REF" --container-mount-home \
+srun --kill-on-bad-exit=1 --container-image="$SAMUDRA_CONTAINER_IMAGE_REF" --container-mount-home --container-env=NVIDIA_VISIBLE_DEVICES \
     --container-mounts="$ROOT/source/src:/workspace/src,/projects/ny/lz1955/multiscale:/projects/ny/lz1955/multiscale,$ROOT/cache:/workspace/.data_cache" \
     bash -c '
 set -euo pipefail

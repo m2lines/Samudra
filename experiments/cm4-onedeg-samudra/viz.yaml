@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Samudra Authors
 # SPDX-License-Identifier: Apache-2.0
 
-base_output_dir: /projects/ny/lz1955/multiscale/jrusak/runs/cm4-onedeg-samudra-20261017/viz-100yr-20261022 # pragma: allowlist secret
+base_output_dir: /projects/ny/lz1955/multiscale/jrusak/runs/cm4-onedeg-samudra-20261017/viz-100yr-20261022-attempt2 # pragma: allowlist secret
 name: cm4-100yr-epoch40-ema
 dataset_name: CM4 1° reference
 variables: [thetao, so, uo, vo, zos]

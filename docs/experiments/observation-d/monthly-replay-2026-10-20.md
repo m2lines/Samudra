@@ -103,7 +103,10 @@ cohort, not a precise estimate of global long-range skill.
 | A-replay | 0.837 | 0.843 | 1.069 | 1.028 |
 | E-replay | 0.775 | 0.787 | 0.927 | **0.916** |
 
-![Annual surface error curves](assets/monthly-replay-2026-10-20/annual-surface-curves.png)
+![Replay-only annual surface error curves](assets/monthly-replay-2026-10-20/annual-replay-only-surface.png)
+
+The replay-only panels retain seasonal climatology as a reference.
+[Original six-model surface comparison](assets/monthly-replay-2026-10-20/annual-surface-curves.png).
 
 Seasonal-climatology SST RMSE at day365 is **1.002°C**. Replay therefore largely
 removes the previous catastrophic growth but only reaches approximately
@@ -129,7 +132,11 @@ EKE is computed across the three origins at each fixed lead, matching the prior
 report's aggregation axis; it is not within-year temporal-anomaly EKE. There is
 no new combined 365-day/OHC selection score.
 
-![Annual OHC and latent magnitude](assets/monthly-replay-2026-10-20/annual-ohc-latent.png)
+![Replay-only annual OHC and latent magnitude](assets/monthly-replay-2026-10-20/annual-replay-only-ohc-latent.png)
+
+[Original six-model OHC/latent comparison](assets/monthly-replay-2026-10-20/annual-ohc-latent.png).
+Replay-only panels are generated from the same verified metrics with
+[the replay-only plotting script](../../../scripts/plot_monthly_replay_curves.py).
 
 Replay keeps latent RMS near its initialized scale **without any added latent
 penalty or soft bound**. Longer monthly-only training improves early SST but

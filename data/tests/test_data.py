@@ -106,6 +106,29 @@ def test_flattened_input_contract_is_resolution_independent(include_wfo):
     ds_flattened_input_validate(_flattened_input(include_wfo=include_wfo))
 
 
+@pytest.mark.parametrize("flat", [True, False])
+def test_input_contract_accepts_precomputed_fields(flat):
+    from ocean_preprocessing.derived_fields import add_derived_fields
+
+    ds = _flattened_input().assign_coords(time=xr.date_range("2001-01-01", periods=2))
+    if not flat:
+        for name in ("thetao", "so", "uo", "vo", "mask"):
+            ds[name] = xr.concat([ds[f"{name}_{level}"] for level in range(2)], ds.lev)
+            ds = ds.drop_vars([f"{name}_{level}" for level in range(2)])
+        ds = (
+            ds.rename(mask="wetmask")
+            .set_coords("wetmask")
+            .transpose("time", "lev", ...)
+        )
+    ds = add_derived_fields(ds)
+    validate = ds_flattened_input_validate if flat else ds_input_validate
+    validate(ds)
+    name = "profile_thetao_0" if flat else "profile_thetao"
+    ds[name] = ds[name].expand_dims(x=ds.x)
+    with pytest.raises(ValueError, match="has dimensions"):
+        validate(ds)
+
+
 def test_flattened_input_contract_rejects_undeclared_variable():
     ds = _flattened_input()
     ds["hfgeou"] = ds["hfds"]

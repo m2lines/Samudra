@@ -8,14 +8,12 @@ import numpy as np
 import pytest
 import torch
 import xarray as xr
-from scipy.stats import pearsonr
 
 from samudra.constants import build_llc_layout
 from samudra.utils.data import (
     BatchPreprocessor,
     CanonicalSource,
     Masks,
-    compute_anomalies,
     flatten_masks,
     get_aggregator_dicts,
     stack_levels,
@@ -192,46 +190,6 @@ def test_rename_vars_invalid_depth():
     # Should raise ValueError because 9999.0 is not an OM4 depth level
     with pytest.raises(ValueError):
         with_level_index_vars(ds, depth_levels=TEST_DATA_LAYOUT.depth_levels)
-
-
-def test_compute_anomalies():
-    """Test the compute_anomalies function."""
-    # Create test dataset with OM4 format variables
-    daterange = xr.cftime_range(
-        "2000-08-05", "2010-12-31", freq="5D", calendar="julian"
-    )
-    N = len(daterange)
-
-    clim = np.sin(np.linspace(-20 * np.pi, 20 * np.pi, N))
-    true_anomaly = np.random.normal(0, 1, N)
-    test_data = {
-        "thetao_0": (
-            ["lat", "lon", "time"],
-            [[[clim[t] + true_anomaly[t] + 10 for t in range(N)]]],
-        ),
-    }
-
-    ds = xr.Dataset(
-        test_data,
-        coords={
-            "time": daterange,
-            "lat": [0],
-            "lon": [0],
-        },
-    )
-    ds_mean = ds.mean().compute()
-    ds_std = ds.std().compute()
-
-    # compute anomalies
-    anomalies, _, _ = compute_anomalies(ds, ds_mean, ds_std, ("thetao_0_anomalies",))
-    anomalies_np = anomalies["thetao_0_anomalies"].to_numpy()
-    anomalies_np_flat = anomalies_np[0][0]
-
-    # check that anomalies are more correlated with true anomaly than climatology
-    assert (
-        pearsonr(anomalies_np_flat, true_anomaly)[0]
-        > pearsonr(anomalies_np_flat, clim)[0]
-    )
 
 
 @pytest.fixture

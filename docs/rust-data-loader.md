@@ -154,8 +154,9 @@ retain at most one physical array's scratch per concurrent time index.
   sentinels. Arrays with `scale_factor`, `add_offset`, or non-NaN `_FillValue` /
   `missing_value` sentinels are rejected before the native reader opens them.
 - **Channels:** the configured channels must map to stored physical variables.
-  Derived anomaly channels such as `hfds_anomalies` are rejected before datasets
-  are opened or canonicalized.
+  `hfds_anomalies` is read like any other float32 boundary channel. Generate it
+  with the [data pipeline](data.md#precomputed-anomalies-and-visualization-profiles)
+  and include it in the mean/std stores; neither loader computes it at startup.
 
 Each batch belongs to one set of `TrainingWindows`, preserving a single source
 pair and preparation policy throughout the batch.

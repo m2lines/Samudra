@@ -8,6 +8,40 @@ SPDX-License-Identifier: CC-BY-4.0
 
 Data engineering routines to prepare ocean simulations for neural emulation.
 
+## Precomputed training and visualization fields
+
+The OM4/CM4 pipeline writes `hfds_anomalies`, normalized `areacello_weights`,
+and `profile_<variable>` arrays after the spatial transforms. Anomalies retain
+the existing full-record day-of-year climatology definition and float32
+`(time, y, x)` layout, with one time step per chunk. Profiles are area-weighted
+wet-ocean means at each time and depth; flattened inputs have names such as
+`profile_thetao_0`, while stacked inputs have `profile_thetao(time, lev)`.
+
+Run `make_norm_datasets` after preprocessing to include the anomaly channel in
+the normalization stores. Profile arrays are excluded from normalization.
+Training now requires stored anomalies and statistics when configured to use
+them; this applies to both the Python and Rust loaders.
+
+To backfill an existing processed store without rerunning regridding:
+
+```bash
+python -m ocean_preprocessing.derived_fields /path/to/OM4.zarr
+python -m ocean_preprocessing.make_norm_datasets /path/to/OM4.zarr \
+  --start "$TRAIN_START" --end "$TRAIN_END"
+```
+
+The first command updates derived arrays in place and can be rerun. It keeps
+the physical fields and source metadata. Use the same normalization interval
+as the existing training setup (omit the dates for full-record statistics).
+The anomaly climatology still uses the entire source record, independently
+of the normalization interval, matching the former training behavior.
+
+Visualization requires the saved profiles and reads only those small arrays
+at startup. New prediction stores include profiles computed from each output
+buffer during writing. Backfill older `predictions.zarr` stores with the same
+`derived_fields` command; these must carry `areacello` and NaNs on land (or
+wet masks). Prediction stores do not need normalization statistics.
+
 ## Usage via command line interface
 
 First, please clone this repository and change into the `data/` directory (the root of the data engineering subproject).

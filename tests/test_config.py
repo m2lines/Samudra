@@ -561,18 +561,17 @@ def test_shipped_train_presets_load(preset: pathlib.Path):
     TrainConfig.from_yaml_and_cli([str(preset)])
 
 
-def test_rust_loading_rejects_derived_channels_before_opening_data(
-    tmp_path, monkeypatch
-):
+def test_rust_loading_accepts_stored_anomaly_channels(tmp_path):
     source = om4_source_config(boundary_vars_key="tau_hfds_hfds_anom")
-    cfg = DataConfig(sources=[source], loading=RustDataLoadingConfig())
-
-    def unexpected_open(*args, **kwargs):
-        pytest.fail("Unsupported native config opened data before validation")
-
-    monkeypatch.setattr(LocalLocation, "open", unexpected_open)
-    with pytest.raises(ValueError, match="does not yet support derived boundary"):
-        cfg.build(LocalLocation(path=tmp_path), include_inference=False)
+    backend = RustDataLoadingConfig().build_source_backend()
+    location = LocalLocation(path=tmp_path)
+    backend.validate_source(
+        data_location=location,
+        means_location=location,
+        stds_location=location,
+        source_type="om4",
+        data_layout=source.build_layout(),
+    )
 
 
 def test_rollout_checkpoint_selection_requires_supported_validation():

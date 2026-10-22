@@ -4,6 +4,7 @@
 
 import json
 import os
+import re
 import sys
 from pathlib import Path
 from urllib.parse import parse_qs
@@ -194,7 +195,9 @@ class Viewer:
         self.caption = pn.pane.Markdown("")
         self.summary = pn.pane.Markdown("", css_classes=["snapshot-summary"])
         self.location = pn.pane.Markdown("", css_classes=["point-summary"])
-        self.context = pn.pane.Alert("", alert_type="info")
+        self.context = pn.pane.Markdown(
+            "", css_classes=["task-description"], sizing_mode="stretch_width"
+        )
         self.provenance = pn.pane.Markdown("", sizing_mode="stretch_width")
         self.model_description = pn.pane.Markdown(
             "", css_classes=["model-description"], sizing_mode="stretch_width"
@@ -987,7 +990,7 @@ class Viewer:
                     if is_om4
                     else "Five-day means on the model grid. Observations: OISST temperature / DUACS sea level. "
                 )
-                + "Click a map to inspect a cell; pan and zoom are linked across all three maps."
+                + "\n\n**Explore:** Click a map to inspect a cell; pan and zoom are linked across all three maps."
             )
         elif mode == "heat":
             month = self.catalog.meta["records"][self.origin.value]["heat_months"][
@@ -995,14 +998,14 @@ class Viewer:
             ]
             self.caption.object = f"### Ocean heat content · {variable_label} · {month}"
             truth = "OM4 simulation fields" if is_om4 else "IAP analyses"
-            self.context.object = f"Monthly layer-integrated heat content compared with {truth}, in GJ/m² relative to 0 °C. Gray cells lack a complete model column for the selected layer. Click a map for the monthly series."
+            self.context.object = f"Monthly layer-integrated heat content compared with {truth}, in GJ/m² relative to 0 °C. Gray cells lack a complete model column for the selected layer.\n\n**Explore:** Click a map for the monthly series."
             if self.monthly_profiles:
                 self.context.object += " Move the month slider to explore temperature sections and the selected-cell profile. Use Along longitude / Along latitude to choose the section direction; click a map to move the slice."
             if self.monthly_profiles:
                 truth = "OM4" if is_om4 else "IAP"
-                self.context.object += f" Heat maps and profiles use the same calendar-month forecast means. Profiles show {truth} monthly temperatures at model depths."
+                self.context.object += f"\n\n**Fields and comparison:** Heat maps and profiles use the same calendar-month forecast means. Profiles show {truth} monthly temperatures at model depths."
             else:
-                self.context.object += " Heat maps use the native IAP half-degree comparison grid. Monthly temperature profiles were not saved; use Saved forecast interior for the available five-day states."
+                self.context.object += "\n\n**Available fields:** Heat maps use the native IAP half-degree comparison grid. Monthly temperature profiles were not saved; use Saved forecast interior for the available five-day states."
         elif mode == "forecast_interior":
             self.caption.object = f"### {variable_label} · {self.catalog.depths[index]:g} m · {interval(origin_date, self.saved_lead.value // 5 - 1)}"
             self.context.object = "Saved full-state snapshots at days 5, 15, 30, 90, 180 and 365. These are five-day means, not monthly temperature profiles. Compare against the other native model or this checkpoint's initialized persistence; no full-depth observational truth is implied."
@@ -1011,13 +1014,20 @@ class Viewer:
             label = record["label"] if record else f"{self.origin.value} (obs)"
             self.caption.object = f"### {variable_label} · {self.catalog.depths[index]:g} m · initialization {label}"
             if record:
-                self.context.object = record["description"]
+                # Older catalogs store the task explanation as one long paragraph.
+                paragraphs: list[str] = []
+                for paragraph in record["description"].split("\n\n"):
+                    sentences = re.split(r"(?<=[.!?])\s+(?=[A-Z])", paragraph)
+                    paragraphs.extend(
+                        " ".join(sentences[i : i + 3])
+                        for i in range(0, len(sentences), 3)
+                    )
+                self.context.object = "\n\n".join(paragraphs)
             else:
                 self.context.object = f"Initialized state from the last five-day history interval. IAP {self.catalog.meta['records'][self.origin.value]['context_month']} is monthly context, not instantaneous truth. Surface temperature at 2.5 m is copied from available inputs."
         readout_note = source_record.get(f"{mode}_readout_description")
         if readout_note:
-            self.context.object += " " + readout_note
-        self.context.object = self.availability_message + self.context.object
+            self.context.object += "\n\n**Decoder readout:** " + readout_note
         stats = paired_stats(a, b, self.lat)
         if stats["cells"]:
             qualifier = (
@@ -1054,6 +1064,17 @@ class Viewer:
                 "Surface temperature at 2.5 m is copied from available inputs.",
                 "Diffusion fields are decoded predictions, not copied surface inputs.",
             )
+        task_label = next(label for label, value in MODES.items() if value == mode)
+        availability = (
+            f"**Availability:** {self.availability_message}\n\n"
+            if self.availability_message
+            else ""
+        )
+        self.context.object = (
+            f"### What is this task?\n\n**{task_label}**\n\n"
+            + availability
+            + self.context.object
+        )
         self.update_point()
 
     def update_point(self):
@@ -1236,7 +1257,6 @@ class Viewer:
             main=[
                 pn.Column(
                     self.caption,
-                    self.context,
                     self.map_row,
                     self.summary,
                     self.location,
@@ -1246,6 +1266,7 @@ class Viewer:
                     pn.Accordion(
                         ("Data, masks & provenance", self.provenance), active=[]
                     ),
+                    self.context,
                     self.model_description,
                 )
             ],

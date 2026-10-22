@@ -159,6 +159,17 @@ decoder. Global 1° fields are 180×360; latent slots are 128×45×90 each. Hist
 contain nineteen five-day bins. Multitask changes only the initializer's
 available input fields; the processor still evolves a full latent state.
 Pretraining target fields and forecast windows are the same across tasks.
+Every initializer task uses **the same initializer, processor and diffusion
+decoder weights**. There are no task-specific heads, decoders or processors.
+Monthly and native readouts use that shared decoder with different requested
+supports and time-window conditioning. Forecast losses backpropagate through
+the processor; the initial reconstruction loss directly reads the initialized
+latent state and therefore bypasses time evolution.
+
+Unequal observation exposure is a caveat for comparisons between recipes; it
+does not explain deterioration of an observation metric within one run. That
+change occurs in the shared weights. The current results do not isolate whether
+initializer interference, processor dynamics or decoder adaptation causes it.
 
 Model loss remains 0.5 full-field monthly denoising + 0.5 full-field native
 five-day denoising + 0.1 initial reconstruction. The observation cooldown retains

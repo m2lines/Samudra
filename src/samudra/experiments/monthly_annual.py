@@ -59,7 +59,16 @@ def history_fields(surface, validity):
 
 
 @torch.no_grad()
-def rollout(model, data, description, raw, *, origin_index, first_month_only=False):
+def rollout(
+    model,
+    data,
+    description,
+    raw,
+    *,
+    origin_index,
+    first_month_only=False,
+    export_profiles=False,
+):
     """Initialize once; never consume future ocean observations during evolution."""
     surface, atmosphere, contexts, _, valid = inputs(data, raw)
     fields, available = history_fields(surface, valid)
@@ -82,7 +91,7 @@ def rollout(model, data, description, raw, *, origin_index, first_month_only=Fal
     monthly_support = torch.zeros_like(native_support)
     monthly_support[data.ts_indices] = data.ts_mask.bool()
     native = {}
-    monthly_ohc, months = [], []
+    monthly_ohc, months, temperatures = [], [], []
     for record in description["monthly_interiors"][: 1 if first_month_only else 12]:
         month = record["file"][:7]
         indices, weights, duration, position = month_layout(raw["start"][19:], month)
@@ -126,6 +135,10 @@ def rollout(model, data, description, raw, *, origin_index, first_month_only=Fal
         if np.isinf(ohc).any() or not all(np.isfinite(layer).any() for layer in ohc):
             raise ValueError("Nonfinite OHC readout on model support")
         monthly_ohc.append(ohc)
+        if export_profiles:
+            temperatures.append(
+                data.physical(monthly[:, None])[0, 0, 38:52].cpu().numpy()
+            )
         months.append(month)
     ordered = torch.stack([native[i] for i in sorted(native)], 1)
     physical = (
@@ -137,12 +150,39 @@ def rollout(model, data, description, raw, *, origin_index, first_month_only=Fal
         .numpy()
     )
     norms = [float(state.float().square().mean().sqrt()) for state in states]
-    return dict(
+    result = dict(
         surface=physical,
         ohc=np.stack(monthly_ohc),
         months=np.asarray(months),
         latent_rms=np.asarray(norms),
     )
+    if export_profiles:
+        # A separate stream and a final readout leave the annual readouts and
+        # their noise sequence untouched. This is a decoded initialization,
+        # not an observed interior or a correction to the forecast trajectory.
+        initial_gen = torch.Generator(device=data.device).manual_seed(
+            905001 + origin_index
+        )
+        with torch.autocast("cuda", dtype=torch.bfloat16):
+            initial = model.decoder.sample(
+                states[0].expand(8, -1, -1, -1, -1),
+                data.mask.bool(),
+                initial_gen,
+                steps=32,
+                position_days=-2.5,
+            ).mean(0, keepdim=True)
+        physical_initial = data.physical(initial[:, None])[0, 0].cpu().numpy()
+        indices = np.array([[38 + i, 57 + i, i, 19 + i] for i in range(14)])
+        result.update(
+            temperature=np.stack(temperatures),
+            initial_interior=physical_initial[indices],
+            initial_surface=physical_initial[[38, 76]],
+            initial_ohc=data.ohc(initial)[0],
+        )
+        for key in ("temperature", "initial_interior", "initial_surface"):
+            if not np.isfinite(result[key]).all():
+                raise ValueError(f"Nonfinite exported {key}")
+    return result
 
 
 def lead_metrics(prediction, reference, data):

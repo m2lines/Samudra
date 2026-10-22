@@ -149,6 +149,7 @@ def test_full_annual_readout_with_saved_string_timestamps(tmp_path):
         std=torch.ones(1, 1, 77, 1, 1),
         load=lambda _: {"atmosphere": torch.zeros(1, 26, 8, h, w)},
         ohc=lambda x: x[:, [38, 39]].numpy(),
+        physical=lambda x: x.float(),
     )
     calls = []
 
@@ -184,6 +185,14 @@ def test_full_annual_readout_with_saved_string_timestamps(tmp_path):
     assert len(calls) == 73 + 12
     assert calls[-1] == (349.5, 31.0)
     assert np.isfinite(result["surface"]).all() and np.isfinite(result["ohc"]).all()
+    exported = rollout(
+        model, data, description, raw, origin_index=0, export_profiles=True
+    )
+    for key in result:
+        np.testing.assert_array_equal(exported[key], result[key])
+    assert exported["temperature"].shape == (12, 14, h, w)
+    assert exported["initial_interior"].shape == (14, 4, h, w)
+    assert calls[-1] == (-2.5, 5.0)
     raw["surface"][19:] = 999
     result2 = rollout(model, data, description, raw, origin_index=0)
     np.testing.assert_array_equal(result2["surface"], result["surface"])

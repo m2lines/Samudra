@@ -24,7 +24,15 @@ def test_six_monthly_models_surface_reconstruction_and_consistent_heat_profiles(
         pytest.skip("Monthly replay exports are not registered")
     errors = []
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(headless=True, args=["--no-sandbox"])
+        browser = playwright.chromium.launch(
+            headless=True,
+            args=[
+                "--no-sandbox",
+                "--disable-gpu",
+                "--disable-webgl",
+                "--disable-webgl2",
+            ],
+        )
         page = browser.new_page(viewport=dict(width=1600, height=1100))
         page.on("pageerror", lambda error: errors.append(str(error)))
         page.goto(URL, wait_until="networkidle")
@@ -33,6 +41,7 @@ def test_six_monthly_models_surface_reconstruction_and_consistent_heat_profiles(
             timeout=60000,
         )
         for name in names:
+            print("Checking monthly model " + name, flush=True)
             model = "monthly-" + name
             catalog = root.for_model(model)
             select(page, "model-select", f"Monthly diffusion · {name}")
@@ -78,5 +87,6 @@ def test_six_monthly_models_surface_reconstruction_and_consistent_heat_profiles(
             verify_maps(
                 page, catalog, "heat", model, "2021-01-01", 0, 11, "persistence"
             )
+            print("Verified monthly model " + name, flush=True)
         assert not errors
         browser.close()

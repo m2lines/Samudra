@@ -17,15 +17,21 @@ pytestmark = pytest.mark.skipif(not URL, reason="Requires a running viewer")
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_six_monthly_models_surface_reconstruction_and_consistent_heat_profiles():
+@pytest.mark.parametrize("readout", ["mean8", "draw1"])
+def test_six_monthly_models_surface_reconstruction_and_consistent_heat_profiles(
+    readout,
+):
     root = Catalog(os.environ.get("SAMUDRA_VIEWER_DATA", ROOT / ".data"))
     names = ("A", "E", "A-extend", "E-extend", "A-replay", "E-replay")
     if "monthly-A-replay" not in root.all_models:
         pytest.skip("Monthly replay exports are not registered")
+    if readout == "draw1" and "monthly-A-replay-draw1" not in root.all_models:
+        pytest.skip("Single-draw exports are not registered")
     errors = []
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(
             headless=True,
+            executable_path=os.environ.get("CHROMIUM_EXECUTABLE"),
             args=[
                 "--no-sandbox",
                 "--disable-gpu",
@@ -41,10 +47,14 @@ def test_six_monthly_models_surface_reconstruction_and_consistent_heat_profiles(
             timeout=60000,
         )
         for name in names:
-            print("Checking monthly model " + name, flush=True)
-            model = "monthly-" + name
+            print(f"Checking monthly model {name} ({readout})", flush=True)
+            model = "monthly-" + name + ("-draw1" if readout == "draw1" else "")
             catalog = root.for_model(model)
-            select(page, "model-select", f"Monthly diffusion · {name}")
+            select(page, "model-select", root.all_models[model]["label"])
+            assert (
+                root.all_models[model]["lineage"].get("decoder_readout", "mean8")
+                == readout
+            )
             select(page, "view-select", "Annual surface forecasts")
             select(page, "origin-select", "2021-01-01")
             select(page, "variable-select", "Sea surface temperature")
@@ -87,6 +97,23 @@ def test_six_monthly_models_surface_reconstruction_and_consistent_heat_profiles(
             verify_maps(
                 page, catalog, "heat", model, "2021-01-01", 0, 11, "persistence"
             )
-            print("Verified monthly model " + name, flush=True)
+            partner = "monthly-" + name + ("-draw1" if readout == "mean8" else "")
+            if partner in root.all_models:
+                select(page, "reference-select", root.all_models[partner]["label"])
+                verify_maps(page, catalog, "heat", model, "2021-01-01", 0, 11, partner)
+                expected_reference = catalog.values(
+                    "temperature", model, "2021-01-01", partner
+                )[1][11, :, y, x]
+                actual_reference = page.evaluate(
+                    "Array.from(Bokeh.documents[0].get_model_by_name('profile-source').data.reference)"
+                )
+                np.testing.assert_allclose(
+                    np.array(actual_reference, dtype=float),
+                    expected_reference,
+                    rtol=1e-6,
+                    atol=1e-6,
+                    equal_nan=True,
+                )
+            print(f"Verified monthly model {name} ({readout})", flush=True)
         assert not errors
         browser.close()

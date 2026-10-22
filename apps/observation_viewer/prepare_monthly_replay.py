@@ -16,7 +16,10 @@ REPORT = "https://github.com/m2lines/Samudra/blob/experiment/observation-stabili
 NAMES = ("A", "E", "A-extend", "E-extend", "A-replay", "E-replay")
 
 
-def prepare(export, output, context_catalog):
+def prepare(export, output, context_catalog, readout="mean8"):
+    if readout not in ("mean8", "draw1"):
+        raise ValueError("Choose mean8 or draw1")
+    single = readout == "draw1"
     context_meta = json.loads((context_catalog / "catalog.json").read_text())
     config = json.loads((export / "paths.json").read_text())
     audit = json.loads((export / "AUDITED.json").read_text())
@@ -25,6 +28,9 @@ def prepare(export, output, context_catalog):
     assert qualified["audit_sha256"] == sha(export / "AUDITED.json")
     assert qualified["first_month_readouts_exact"]
     assert qualified["producer"] == config["producer"]
+    if single:
+        assert config["retained_member"] == qualified["retained_member"] == 0
+        assert qualified["paired_mean_profiles_exact"]
     assert tuple(row["name"] for row in config["models"]) == NAMES
     assert config["origins"] == ["2015-01-01", "2018-01-01", "2021-01-01"]
     grid_path = next(p for p in audit["contracts"] if p.endswith("/grid.npz"))
@@ -43,7 +49,7 @@ def prepare(export, output, context_catalog):
     files = {}
 
     def write(name, value):
-        path = output / (name + ".npy")
+        path = output / (("draw1-" if single else "") + name + ".npy")
         np.save(path, value, allow_pickle=False)
         np.testing.assert_array_equal(np.load(path, allow_pickle=False), value)
         files[path.name] = dict(
@@ -78,7 +84,13 @@ def prepare(export, output, context_catalog):
     )
     for row in config["models"]:
         name = row["name"]
-        model_id = "monthly-" + name
+        model_id = "monthly-" + name + ("-draw1" if single else "")
+        readout_label = "1 draw" if single else "8-draw mean"
+        readout_description = (
+            "One decoder draw (member zero of the original eight-draw batch), with 32 sampler steps. At each readout the noise is sampled anew; all readouts share the same deterministic latent trajectory as the paired eight-draw mean. This is not an independently evolving stochastic ocean trajectory. The paired mean fields exactly reproduce the published annual results and prior temperature/initialization exports."
+            if single
+            else "Displayed fields average eight diffusion draws with 32 sampler steps. Surface forecasts and monthly heat content exactly reproduce the published annual outputs."
+        )
         directory = export / name
         receipt = json.loads((directory / "COMPLETE.json").read_text())
         assert receipt["producer"] == config["producer"]
@@ -95,12 +107,20 @@ def prepare(export, output, context_catalog):
             f"{'Half of observation examples use detached long-lead replay, including cooldown.' if replay else 'No observation replay.'} "
             f"{'Extended from the original raw 2k checkpoint before its first cooldown.' if 'extend' in name else 'Trained from random initialization.'} "
             f"Displayed weights are the fixed cooled EMA endpoint at total update {main + 1000:,}, not validation-selected. No latent magnitude penalty or bound.\n\n"
-            "Annual rollouts initialize once, then evolve 73 five-day steps under prescribed ERA5. Displayed fields average eight diffusion draws with 32 sampler steps. Surface forecasts and monthly heat content exactly reproduce the published annual outputs. Monthly profiles are the actual decoder temperature fields used in those OHC integrals. Initial interiors use an independent eight-draw reconstruction of the initial latent state; they are not fed back into the rollout.\n\n"
+            "Annual rollouts initialize once, then evolve 73 five-day steps under prescribed ERA5. "
+            + readout_description
+            + " Monthly profiles are the actual decoder temperature fields used in those OHC integrals. Initial interiors use "
+            + (
+                "member zero from the separate initial decoder batch"
+                if single
+                else "an independent eight-draw mean"
+            )
+            + " to reconstruct the initial latent state; they are not fed back into the rollout.\n\n"
             "IAP T/S is preceding-December monthly context, not instantaneous truth. Initialized U/V are decoder outputs without observed-current reconstruction supervision; observation-only runs never receive full-field model supervision. Own persistence holds the decoded initial physical state fixed. Three annual starts and one seed do not establish reproducibility."
         )
         meta["models"][model_id] = dict(
-            label=f"Monthly diffusion · {name}",
-            short_label=name,
+            label=f"Monthly diffusion · {name} · {readout_label}",
+            short_label=f"{name} ({readout})",
             report_url=REPORT,
             description=description,
             lineage=dict(
@@ -113,6 +133,8 @@ def prepare(export, output, context_catalog):
                     observation=main // 2 + 1000 if mixed else main + 1000,
                 ),
                 export_producer=config["producer"],
+                decoder_readout=readout,
+                retained_member=0 if single else None,
             ),
         )
         assert len(receipt["files"]) == 3
@@ -121,6 +143,18 @@ def prepare(export, output, context_catalog):
             assert sha(directory / filename) == receipt["files"][filename]
             with np.load(directory / filename) as saved:
                 c = dict(saved)
+            if single:
+                assert receipt["retained_member"] == 0
+                assert receipt["paired_mean_profiles_exact"]
+                for key in (
+                    "surface",
+                    "ohc",
+                    "temperature",
+                    "initial_interior",
+                    "initial_surface",
+                    "initial_ohc",
+                ):
+                    c[key] = c["member_" + key]
             for key, shape in dict(
                 surface=(73, 2, h, w),
                 ohc=(12, 2, h, w),
@@ -218,7 +252,7 @@ def prepare(export, output, context_catalog):
                     source="obs",
                     models={},
                     references=dict(observations=record["interior_reference"]),
-                    description="Eight-draw physical reconstruction of the initial latent state from 19 five-day surface-history bins; not copied physical input fields. Preceding-December IAP T/S is monthly context, not instantaneous truth, and contains no observed U/V. Initial U/V outputs have no observation reconstruction supervision. This reconstruction is not used to evolve the forecast.",
+                    description="Physical decoder reconstruction of the initial latent state from 19 five-day surface-history bins; not copied physical input fields. Preceding-December IAP T/S is monthly context, not instantaneous truth, and contains no observed U/V. Initial U/V outputs have no observation reconstruction supervision. This reconstruction is not used to evolve the forecast.",
                 ),
             )
             example["models"][model_id] = initial_name
@@ -247,7 +281,10 @@ def prepare(export, output, context_catalog):
     )
     meta["export_provenance"] = dict(
         producer=config["producer"],
-        exact_published_annual_overlap=True,
+        exact_published_annual_overlap=not single,
+        paired_mean_profiles_exact=single,
+        decoder_readout=readout,
+        retained_member=0 if single else None,
         independently_integrated_ohc=True,
         model_count=6,
         origin_count=3,
@@ -258,10 +295,95 @@ def prepare(export, output, context_catalog):
     return meta
 
 
+def add_mean_catalog(draw_catalog, mean_catalog, export):
+    """Keep paired means and members in one geometry so the UI can compare them."""
+    draw = json.loads((draw_catalog / "catalog.json").read_text())
+    mean = json.loads((mean_catalog / "catalog.json").read_text())
+    for key in ("lat", "lon", "depths", "origins"):
+        assert draw[key] == mean[key]
+    for key in ("surface_mask", "interior_mask", "heat_mask"):
+        np.testing.assert_array_equal(
+            np.load(draw_catalog / draw[key]), np.load(mean_catalog / mean[key])
+        )
+    assert not (draw["models"].keys() & mean["models"].keys())
+    assert not (draw["files"].keys() & mean["files"].keys())
+    for name, info in mean["files"].items():
+        if sha(mean_catalog / name) != info["sha256"]:
+            raise ValueError("Prior mean catalog changed")
+        shutil.copyfile(mean_catalog / name, draw_catalog / name)
+    interior_mask = np.load(mean_catalog / mean["interior_mask"])
+    surface_mask = np.load(mean_catalog / mean["surface_mask"])
+    heat_mask = np.load(mean_catalog / mean["heat_mask"])
+    for origin in mean["origins"]:
+        for key in (
+            "surface_reference",
+            "heat_reference",
+            "temperature_reference",
+            "interior_reference",
+        ):
+            np.testing.assert_array_equal(
+                np.load(mean_catalog / mean["records"][origin][key]),
+                np.load(draw_catalog / draw["records"][origin][key]),
+            )
+        for name in NAMES:
+            model = "monthly-" + name
+            record = mean["records"][origin]["models"][model]
+            with np.load(export / name / (origin + ".npz")) as saved:
+                expected = dict(
+                    surface=np.where(surface_mask, saved["surface"], np.nan),
+                    heat=np.where(heat_mask, saved["ohc"] / 1e9, np.nan),
+                    temperature=np.where(
+                        interior_mask[:, 0], saved["temperature"], np.nan
+                    ),
+                    interior=np.where(interior_mask, saved["initial_interior"], np.nan),
+                )
+                for mode, values in expected.items():
+                    np.testing.assert_array_equal(
+                        np.load(mean_catalog / record[mode]), values
+                    )
+        mean["records"][origin]["models"].update(draw["records"][origin]["models"])
+        mean["interior_examples"][origin]["models"].update(
+            draw["interior_examples"][origin]["models"]
+        )
+        mean["interior_examples"][origin]["description"] = (
+            draw["interior_examples"][origin]["description"]
+            + " The selected entry identifies one decoder draw or the eight-draw mean."
+        )
+    for name in NAMES:
+        info = mean["models"]["monthly-" + name]
+        info["label"] = f"Monthly diffusion · {name} · 8-draw mean"
+        info["short_label"] = name + " (mean8)"
+        info["lineage"]["decoder_readout"] = "mean8"
+    mean["models"].update(draw["models"])
+    mean["files"].update(draw["files"])
+    mean["single_draw_provenance"] = draw["export_provenance"]
+    mean["single_draw_context_provenance"] = draw["initial_context_provenance"]
+    mean["readout_entries"] = dict(
+        physical_models=6,
+        displayed_entries=12,
+        single_draw_member=0,
+        paired_means_exact=True,
+    )
+    mean["monthly_temperature"]["source"] = (
+        "Calendar-month temperatures used in the selected mean or single-member heat-content readout"
+    )
+    shutil.copytree(mean_catalog / "provenance", draw_catalog / "mean-provenance")
+    (draw_catalog / "catalog.json").write_text(json.dumps(mean, indent=2) + "\n")
+    for name, info in mean["files"].items():
+        assert sha(draw_catalog / name) == info["sha256"]
+    return mean
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--export", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--context-catalog", type=Path, required=True)
+    parser.add_argument("--readout", choices=["mean8", "draw1"], default="mean8")
+    parser.add_argument("--paired-mean-catalog", type=Path)
     args = parser.parse_args()
-    prepare(args.export, args.output, args.context_catalog)
+    prepare(args.export, args.output, args.context_catalog, args.readout)
+    if args.paired_mean_catalog:
+        if args.readout != "draw1":
+            raise ValueError("Only draw1 can be paired with a mean catalog")
+        add_mean_catalog(args.output, args.paired_mean_catalog, args.export)

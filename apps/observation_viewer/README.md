@@ -380,3 +380,27 @@ monthly context; it is not instantaneous interior truth and contains no U/V.
 Use `tests/test_monthly_replay_browser.py` against an actual server to exercise
 all six models' surface, initialization, monthly heat, temperature-profile and
 persistence controls over WebSockets.
+
+
+To add paired single draws, use an export that retains `member_` fields and
+certifies every mean field unchanged against the prior complete profile export:
+
+```bash
+uv run --project apps/observation_viewer python apps/observation_viewer/prepare_monthly_replay.py \
+  --export /path/to/paired-single-draw-export \
+  --context-catalog /path/to/existing-verified-viewer-bundle \
+  --output /path/to/new-combined-monthly-catalog \
+  --readout draw1 --paired-mean-catalog /path/to/prior-six-mean-catalog
+```
+
+This preserves the original six mean IDs and arrays, labels them **8-draw mean**,
+and adds six **1 draw** entries. Both versions live in the same comparison
+catalog, so users can compare their maps and profiles directly. A single draw
+is member zero from the very same eight-member decoder batch; each readout
+samples fresh decoder noise from the original stream. The latent trajectory is
+shared and deterministic, with no sampled physical fields fed back into it.
+Monthly top-layer temperature retains the annual operator: calendar-weighted
+native SST, using the selected member rather than the mean for single draws.
+OHC is independently integrated from each selected readout's own monthly
+temperature profiles, and persistence holds its own decoded initial fields.
+The published score curves continue to evaluate eight-draw mean fields.

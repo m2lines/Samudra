@@ -2,9 +2,11 @@
 # SPDX-License-Identifier: Apache-2.0
 """Serve with panel serve app.py; each browser session owns its controls."""
 
+import json
 import os
 import sys
 from pathlib import Path
+from urllib.parse import parse_qs
 
 import numpy as np
 import panel as pn
@@ -66,6 +68,18 @@ class Viewer:
     """A linked map/section viewer with independent state for every session."""
 
     def __init__(self, catalog):
+        self._restoring_url = True
+        self.url_state = ColumnDataSource(data=dict(state=[]))
+        self.url_state.js_on_change(
+            "data",
+            CustomJS(
+                code="""
+            const url = new URL(window.location.href);
+            url.searchParams.set("view", cb_obj.data.state[0]);
+            window.history.replaceState(window.history.state, "", url);
+        """
+            ),
+        )
         self.registry = catalog
         default = (
             "obs08000"
@@ -464,6 +478,10 @@ class Viewer:
             self.sections.append(plot)
             self.section_sources.append(source)
             self.section_mappers.append(mapper)
+        # Keep the URL state source attached to the rendered Bokeh document.
+        self.maps[0].js_on_event(
+            "document_ready", CustomJS(args=dict(state=self.url_state), code="")
+        )
         self.map_row = pn.Row(
             *(pn.pane.Bokeh(p, sizing_mode="stretch_width") for p in self.maps)
         )
@@ -488,11 +506,93 @@ class Viewer:
         self.saved_lead.param.watch(self.change_depth, "value")
         for point_control in [self.latitude, self.longitude, self.orientation]:
             point_control.param.watch(self.change_point, "value")
+        self.lock_colors.param.watch(self.sync_url, "value")
         self.rescale.on_click(lambda event: self.refresh(rescale=True))
         self._changing = True
         self.configure_view()
         self._changing = False
         self.refresh(rescale=True)
+        self.restore_url()
+        self._restoring_url = False
+
+    def url_controls(self):
+        return {
+            name: getattr(self, name)
+            for name in (
+                "model",
+                "mode",
+                "origin",
+                "variable",
+                "reference",
+                "frame",
+                "depth",
+                "month",
+                "saved_lead",
+                "latitude",
+                "longitude",
+                "orientation",
+                "lock_colors",
+            )
+        }
+
+    def sync_url(self, event=None):
+        if self._restoring_url or self._changing:
+            return
+        state = {name: control.value for name, control in self.url_controls().items()}
+        state["colors"] = [[mapper.low, mapper.high] for mapper in self.mappers]
+        self.url_state.data = dict(state=[json.dumps(state, separators=(",", ":"))])
+
+    def restore_url(self):
+        location = pn.state.location
+        if location is None:
+            return
+        raw = parse_qs(location.search).get("view", [""])[0]
+        try:
+            state = json.loads(raw)
+        except (ValueError, TypeError):
+            return
+        if not isinstance(state, dict):
+            return
+        # Apply in dependency order; existing callbacks rebuild each option list.
+        for name, control in self.url_controls().items():
+            value = state.get(name)
+            if (
+                isinstance(control.value, float)
+                and isinstance(value, (int, float))
+                and not isinstance(value, bool)
+            ):
+                value = float(value)
+            if value is None or type(value) is not type(control.value):
+                continue
+            if hasattr(control, "options"):
+                options = control.options
+                if value not in (
+                    options.values() if isinstance(options, dict) else options
+                ):
+                    continue
+            if isinstance(value, (float, int)) and not isinstance(value, bool):
+                if not np.isfinite(value):
+                    continue
+                if (
+                    getattr(control, "start", None) is not None
+                    and value < control.start
+                ):
+                    continue
+                if getattr(control, "end", None) is not None and value > control.end:
+                    continue
+                if name == "frame" and value % 5:
+                    continue
+            control.value = value
+        colors = state.get("colors")
+        if isinstance(colors, list) and len(colors) == len(self.mappers):
+            for mapper, bounds in zip(self.mappers, colors, strict=True):
+                if (
+                    isinstance(bounds, list)
+                    and len(bounds) == 2
+                    and all(type(v) in (int, float) and np.isfinite(v) for v in bounds)
+                    and bounds[0] < bounds[1]
+                ):
+                    mapper.low, mapper.high = bounds
 
     @property
     def monthly_profiles(self):
@@ -845,7 +945,7 @@ class Viewer:
                 else None
             )
             for source, values in zip(self.sources, [a, b, difference], strict=True):
-                if geometry_changed:
+                if coords is not None:
                     source.data = {**coords, "value": values[self.wet]}
                 else:
                     source.patch(
@@ -1054,6 +1154,8 @@ class Viewer:
                 x,
                 self.unit,
             )
+
+        self.sync_url()
 
     def update_sections(self, prediction, comparison, wet, y, x, unit, period=""):
         """Render a depth/longitude or depth/latitude slice without spatial averaging."""

@@ -7,6 +7,11 @@ A live Panel/Bokeh application for the saved **Obs data report** arrays. The
 Python server reads memory-mapped files and sends the selected slice to the
 browser. No training runtime or inference is required.
 
+Changing view controls updates the current URL without adding browser-history entries.
+Copy the address bar to share the selected model, view, origin, comparison, field,
+time/depth, coordinates, section direction, and color settings. Opening that link
+restores the selection in an independent session.
+
 ## Views
 
 | View | Fields | Controls and linked plots |

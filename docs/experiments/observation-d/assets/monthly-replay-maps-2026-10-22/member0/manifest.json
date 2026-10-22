@@ -1,0 +1,1105 @@
+{
+  "source": "monthly-replay-2026-10-20",
+  "mode": "member0",
+  "models": [
+    "A",
+    "A-extend",
+    "A-replay",
+    "E",
+    "E-extend",
+    "E-replay"
+  ],
+  "origins": [
+    "2015-01-01",
+    "2018-01-01",
+    "2021-01-01"
+  ],
+  "inference_performed": false,
+  "lead_days": 30,
+  "native_bin_index": 5,
+  "surface_window_days": [
+    25,
+    30
+  ],
+  "monthly_ohc": "January calendar-month mean",
+  "cell_pixels": [
+    2,
+    2
+  ],
+  "ohc_support_cells": [
+    38933,
+    37190
+  ],
+  "raw_color_limits": [
+    [
+      -3,
+      33
+    ],
+    [
+      -1.6,
+      1.6
+    ],
+    [
+      -5,
+      55
+    ],
+    [
+      -5,
+      45
+    ]
+  ],
+  "error_color_limits": [
+    [
+      -5,
+      5
+    ],
+    [
+      -0.5,
+      0.5
+    ],
+    [
+      -5,
+      5
+    ],
+    [
+      -5,
+      5
+    ]
+  ],
+  "error_color_limit_method": "Nice-rounded 99.5th percentile of absolute errors pooled across all six models and three starts, per quantity",
+  "grid_sha256": "ce96360964a6669d0186b9581abaaffc06f660c4e09e0ac813b3dd1b819e5167",
+  "inputs": [
+    {
+      "model": "A",
+      "origin": "2015-01-01",
+      "file": "/tmp/monthly-replay-single-members-215879/A/2015-01-01.npz",
+      "sha256": "d5c02aa903471ebd0f44f3d809504f3a64793e1f4a21ac860b8221dcecfceeb3",
+      "checkpoint": {
+        "name": "A",
+        "checkpoint": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-latent-pilots-20261016/A/endpoint-03000.pt",
+        "adapter": false,
+        "annual_name": "A-1729",
+        "annual_root": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-annual-20261018/recovery-ohc-support"
+      }
+    },
+    {
+      "model": "A-extend",
+      "origin": "2015-01-01",
+      "file": "/tmp/monthly-replay-single-members-215879/A-extend/2015-01-01.npz",
+      "sha256": "a3c85e49f7845cd94895db2a045695f68a13c339f4a2656096d067d1435afa84",
+      "checkpoint": {
+        "name": "A-extend",
+        "checkpoint": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-20261020/production/A-extend/endpoint-05000.pt",
+        "adapter": false,
+        "step": 5000,
+        "annual_name": "A-extend",
+        "annual_root": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-annual-20261020"
+      }
+    },
+    {
+      "model": "A-replay",
+      "origin": "2015-01-01",
+      "file": "/tmp/monthly-replay-single-members-215879/A-replay/2015-01-01.npz",
+      "sha256": "b9b69b76864bb3ffb17816c756f62add3ffe2e60360a7d0665b200f6172a9426",
+      "checkpoint": {
+        "name": "A-replay",
+        "checkpoint": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-20261020/production/A-replay/endpoint-03000.pt",
+        "adapter": false,
+        "step": 3000,
+        "annual_name": "A-replay",
+        "annual_root": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-annual-20261020"
+      }
+    },
+    {
+      "model": "E",
+      "origin": "2015-01-01",
+      "file": "/tmp/monthly-replay-single-members-215879/E/2015-01-01.npz",
+      "sha256": "09b046d8c9f5eb367baf1f3e629f26eeb6141c213183ffb73f173c862474ad08",
+      "checkpoint": {
+        "name": "E",
+        "checkpoint": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-latent-pilots-20261016/E/endpoint-03000.pt",
+        "adapter": false,
+        "annual_name": "E-1729",
+        "annual_root": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-annual-20261018/recovery-ohc-support"
+      }
+    },
+    {
+      "model": "E-extend",
+      "origin": "2015-01-01",
+      "file": "/tmp/monthly-replay-single-members-215879/E-extend/2015-01-01.npz",
+      "sha256": "e12ba8b74eb4d07f5d309f7e7123a714cf6f18607490835665bc3a19f6cf6655",
+      "checkpoint": {
+        "name": "E-extend",
+        "checkpoint": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-20261020/production/E-extend/endpoint-05000.pt",
+        "adapter": false,
+        "step": 5000,
+        "annual_name": "E-extend",
+        "annual_root": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-annual-20261020"
+      }
+    },
+    {
+      "model": "E-replay",
+      "origin": "2015-01-01",
+      "file": "/tmp/monthly-replay-single-members-215879/E-replay/2015-01-01.npz",
+      "sha256": "b0c21ef4e480fc38ce80cdc897b1a6094be8c84dc83ee43167b8e116e2487678",
+      "checkpoint": {
+        "name": "E-replay",
+        "checkpoint": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-20261020/production/E-replay/endpoint-03000.pt",
+        "adapter": false,
+        "step": 3000,
+        "annual_name": "E-replay",
+        "annual_root": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-annual-20261020"
+      }
+    },
+    {
+      "model": "A",
+      "origin": "2018-01-01",
+      "file": "/tmp/monthly-replay-single-members-215879/A/2018-01-01.npz",
+      "sha256": "d301e1d02b8e057157c126f2da24b430be0722329b3433b228fa70be8f9549d5",
+      "checkpoint": {
+        "name": "A",
+        "checkpoint": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-latent-pilots-20261016/A/endpoint-03000.pt",
+        "adapter": false,
+        "annual_name": "A-1729",
+        "annual_root": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-annual-20261018/recovery-ohc-support"
+      }
+    },
+    {
+      "model": "A-extend",
+      "origin": "2018-01-01",
+      "file": "/tmp/monthly-replay-single-members-215879/A-extend/2018-01-01.npz",
+      "sha256": "0058bd9421600c28c0fb2d0a16e9c47d1352128576e6acf21bdf9f5dbad42aa2",
+      "checkpoint": {
+        "name": "A-extend",
+        "checkpoint": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-20261020/production/A-extend/endpoint-05000.pt",
+        "adapter": false,
+        "step": 5000,
+        "annual_name": "A-extend",
+        "annual_root": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-annual-20261020"
+      }
+    },
+    {
+      "model": "A-replay",
+      "origin": "2018-01-01",
+      "file": "/tmp/monthly-replay-single-members-215879/A-replay/2018-01-01.npz",
+      "sha256": "6517bbf6cb1ee76ea39b7c727da19f8ad4fadcee58c2b0f795a611bfe54b8bea",
+      "checkpoint": {
+        "name": "A-replay",
+        "checkpoint": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-20261020/production/A-replay/endpoint-03000.pt",
+        "adapter": false,
+        "step": 3000,
+        "annual_name": "A-replay",
+        "annual_root": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-annual-20261020"
+      }
+    },
+    {
+      "model": "E",
+      "origin": "2018-01-01",
+      "file": "/tmp/monthly-replay-single-members-215879/E/2018-01-01.npz",
+      "sha256": "6a5d8d632ca6547ac9210d454f420a3413cd5f710dc6dc1059fcfffde69381ec",
+      "checkpoint": {
+        "name": "E",
+        "checkpoint": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-latent-pilots-20261016/E/endpoint-03000.pt",
+        "adapter": false,
+        "annual_name": "E-1729",
+        "annual_root": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-annual-20261018/recovery-ohc-support"
+      }
+    },
+    {
+      "model": "E-extend",
+      "origin": "2018-01-01",
+      "file": "/tmp/monthly-replay-single-members-215879/E-extend/2018-01-01.npz",
+      "sha256": "cf7704b4474b4f5b8b4d86eb0c80a003df32f815f486b1b9916e7cddacc20aab",
+      "checkpoint": {
+        "name": "E-extend",
+        "checkpoint": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-20261020/production/E-extend/endpoint-05000.pt",
+        "adapter": false,
+        "step": 5000,
+        "annual_name": "E-extend",
+        "annual_root": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-annual-20261020"
+      }
+    },
+    {
+      "model": "E-replay",
+      "origin": "2018-01-01",
+      "file": "/tmp/monthly-replay-single-members-215879/E-replay/2018-01-01.npz",
+      "sha256": "66ad92280dd81218eb10dbb82f2c847d9b4f6d317cfcf9c963a09f04f3c5538f",
+      "checkpoint": {
+        "name": "E-replay",
+        "checkpoint": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-20261020/production/E-replay/endpoint-03000.pt",
+        "adapter": false,
+        "step": 3000,
+        "annual_name": "E-replay",
+        "annual_root": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-annual-20261020"
+      }
+    },
+    {
+      "model": "A",
+      "origin": "2021-01-01",
+      "file": "/tmp/monthly-replay-single-members-215879/A/2021-01-01.npz",
+      "sha256": "184e67f8f60a1420623b4e8567cb5f88fbb23f22e2dee4f1bcf0ee8076320a59",
+      "checkpoint": {
+        "name": "A",
+        "checkpoint": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-latent-pilots-20261016/A/endpoint-03000.pt",
+        "adapter": false,
+        "annual_name": "A-1729",
+        "annual_root": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-annual-20261018/recovery-ohc-support"
+      }
+    },
+    {
+      "model": "A-extend",
+      "origin": "2021-01-01",
+      "file": "/tmp/monthly-replay-single-members-215879/A-extend/2021-01-01.npz",
+      "sha256": "68c00fed1a01b045150f1ee54051121c086d86f550cd2459c2e2992520ab06c1",
+      "checkpoint": {
+        "name": "A-extend",
+        "checkpoint": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-20261020/production/A-extend/endpoint-05000.pt",
+        "adapter": false,
+        "step": 5000,
+        "annual_name": "A-extend",
+        "annual_root": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-annual-20261020"
+      }
+    },
+    {
+      "model": "A-replay",
+      "origin": "2021-01-01",
+      "file": "/tmp/monthly-replay-single-members-215879/A-replay/2021-01-01.npz",
+      "sha256": "1f2ae7061e1af6fd8925419830bfcb62864d8a461a44a0e153e3cad3371223a0",
+      "checkpoint": {
+        "name": "A-replay",
+        "checkpoint": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-20261020/production/A-replay/endpoint-03000.pt",
+        "adapter": false,
+        "step": 3000,
+        "annual_name": "A-replay",
+        "annual_root": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-annual-20261020"
+      }
+    },
+    {
+      "model": "E",
+      "origin": "2021-01-01",
+      "file": "/tmp/monthly-replay-single-members-215879/E/2021-01-01.npz",
+      "sha256": "ebdaaafb6bce1a249256d2acd4f4cac0d6b32327696c34dbee1a565c17d72b76",
+      "checkpoint": {
+        "name": "E",
+        "checkpoint": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-latent-pilots-20261016/E/endpoint-03000.pt",
+        "adapter": false,
+        "annual_name": "E-1729",
+        "annual_root": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-annual-20261018/recovery-ohc-support"
+      }
+    },
+    {
+      "model": "E-extend",
+      "origin": "2021-01-01",
+      "file": "/tmp/monthly-replay-single-members-215879/E-extend/2021-01-01.npz",
+      "sha256": "e6a7018067c9f0043b7c0c3fa038c07edcd3b7a35f4a24eee26c44032a074bfa",
+      "checkpoint": {
+        "name": "E-extend",
+        "checkpoint": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-20261020/production/E-extend/endpoint-05000.pt",
+        "adapter": false,
+        "step": 5000,
+        "annual_name": "E-extend",
+        "annual_root": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-annual-20261020"
+      }
+    },
+    {
+      "model": "E-replay",
+      "origin": "2021-01-01",
+      "file": "/tmp/monthly-replay-single-members-215879/E-replay/2021-01-01.npz",
+      "sha256": "c54fce68763b41b04694745f528afce6777b7f9aab284607547035989bf55cc4",
+      "checkpoint": {
+        "name": "E-replay",
+        "checkpoint": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-20261020/production/E-replay/endpoint-03000.pt",
+        "adapter": false,
+        "step": 3000,
+        "annual_name": "E-replay",
+        "annual_root": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-annual-20261020"
+      }
+    }
+  ],
+  "outputs": [
+    {
+      "file": "day30-2015-01-01-A-fields.png",
+      "sha256": "d1dde907e90b45f8f8eed2ed27d8edddad79e8d183355fc0c8c729fe41714531",
+      "size": [
+        3196,
+        2060
+      ],
+      "origin": "2015-01-01",
+      "family": "A",
+      "errors": false
+    },
+    {
+      "file": "day30-2015-01-01-A-errors.png",
+      "sha256": "c885775a188d4aee775411bbebd54864df262e46bbdf04b5bd40af53e53c829e",
+      "size": [
+        3196,
+        1636
+      ],
+      "origin": "2015-01-01",
+      "family": "A",
+      "errors": true
+    },
+    {
+      "file": "day30-2015-01-01-E-fields.png",
+      "sha256": "f568f07631d2f8f8ab71b45a6eaad287854394d0727fec61c0979a82f11f638e",
+      "size": [
+        3196,
+        2060
+      ],
+      "origin": "2015-01-01",
+      "family": "E",
+      "errors": false
+    },
+    {
+      "file": "day30-2015-01-01-E-errors.png",
+      "sha256": "6ee613f99e25e06026262cc76e26e191b1a9a49cff0aa2fbbbdf633302ce6095",
+      "size": [
+        3196,
+        1636
+      ],
+      "origin": "2015-01-01",
+      "family": "E",
+      "errors": true
+    },
+    {
+      "file": "day30-2018-01-01-A-fields.png",
+      "sha256": "a6aae1a4bac99dab6eb09696e891ad97989c0450e7e5d61b246574d593095b56",
+      "size": [
+        3196,
+        2060
+      ],
+      "origin": "2018-01-01",
+      "family": "A",
+      "errors": false
+    },
+    {
+      "file": "day30-2018-01-01-A-errors.png",
+      "sha256": "c3d6cb0df7ade0e93e203d2f59cf92a2938d9802125805cfeafb09e923ef58c4",
+      "size": [
+        3196,
+        1636
+      ],
+      "origin": "2018-01-01",
+      "family": "A",
+      "errors": true
+    },
+    {
+      "file": "day30-2018-01-01-E-fields.png",
+      "sha256": "20bca350046bd2f646c3879c2039a25b15e9f9d400d98ab69076c79822ea75ab",
+      "size": [
+        3196,
+        2060
+      ],
+      "origin": "2018-01-01",
+      "family": "E",
+      "errors": false
+    },
+    {
+      "file": "day30-2018-01-01-E-errors.png",
+      "sha256": "57cc18436099c602d217307a31362f7976c388a36db0805906b714d3cb4818a2",
+      "size": [
+        3196,
+        1636
+      ],
+      "origin": "2018-01-01",
+      "family": "E",
+      "errors": true
+    },
+    {
+      "file": "day30-2021-01-01-A-fields.png",
+      "sha256": "8ffce6f688e787214f8699b5e7d5373dd6b49f7311fabfe534ec46375242fed2",
+      "size": [
+        3196,
+        2060
+      ],
+      "origin": "2021-01-01",
+      "family": "A",
+      "errors": false
+    },
+    {
+      "file": "day30-2021-01-01-A-errors.png",
+      "sha256": "909f91281105675e1cacda100e1e40d9adf40ec3f856b18a496c72a581980fa6",
+      "size": [
+        3196,
+        1636
+      ],
+      "origin": "2021-01-01",
+      "family": "A",
+      "errors": true
+    },
+    {
+      "file": "day30-2021-01-01-E-fields.png",
+      "sha256": "279069ccfe62cb23686c11f0fbf763e2c0c50236816f7fab660bf001ea57af65",
+      "size": [
+        3196,
+        2060
+      ],
+      "origin": "2021-01-01",
+      "family": "E",
+      "errors": false
+    },
+    {
+      "file": "day30-2021-01-01-E-errors.png",
+      "sha256": "27646328d7d89a53c8c42dacdb333af040086830250d1cb345ecec8732a4a4c4",
+      "size": [
+        3196,
+        1636
+      ],
+      "origin": "2021-01-01",
+      "family": "E",
+      "errors": true
+    }
+  ],
+  "panel_metrics": [
+    {
+      "origin": "2015-01-01",
+      "model": "A",
+      "quantity": "Day-30 SST (\u00b0C)",
+      "rmse": 1.0188289996488447,
+      "saturated_fraction": 0.00048433186419334526,
+      "min_error": -8.667188286781311,
+      "max_error": 7.091814041137695
+    },
+    {
+      "origin": "2015-01-01",
+      "model": "A",
+      "quantity": "Day-30 SSH / ADT (m)",
+      "rmse": 0.09386922421679406,
+      "saturated_fraction": 0.0020731015079345494,
+      "min_error": -1.1262909173965454,
+      "max_error": 1.108997255563736
+    },
+    {
+      "origin": "2015-01-01",
+      "model": "A",
+      "quantity": "January OHC: 0\u2013700 m (GJ/m\u00b2)",
+      "rmse": 1.0374526298458775,
+      "saturated_fraction": 0.003484221048122233,
+      "min_error": -13.840454164276856,
+      "max_error": 10.753901504249104
+    },
+    {
+      "origin": "2015-01-01",
+      "model": "A",
+      "quantity": "January OHC: 700\u20132,000 m (GJ/m\u00b2)",
+      "rmse": 0.8178817777679379,
+      "saturated_fraction": 0.00277517929529155,
+      "min_error": -28.71940445311394,
+      "max_error": 7.926656036434788
+    },
+    {
+      "origin": "2015-01-01",
+      "model": "A-extend",
+      "quantity": "Day-30 SST (\u00b0C)",
+      "rmse": 0.9217470699772504,
+      "saturated_fraction": 0.000363248898145009,
+      "min_error": -7.3731689453125,
+      "max_error": 6.271995544433594
+    },
+    {
+      "origin": "2015-01-01",
+      "model": "A-extend",
+      "quantity": "Day-30 SSH / ADT (m)",
+      "rmse": 0.0886478954600915,
+      "saturated_fraction": 0.0018509834892272762,
+      "min_error": -1.0442122220993042,
+      "max_error": 1.1261512339115143
+    },
+    {
+      "origin": "2015-01-01",
+      "model": "A-extend",
+      "quantity": "January OHC: 0\u2013700 m (GJ/m\u00b2)",
+      "rmse": 0.9664274999314096,
+      "saturated_fraction": 0.0016849921462230473,
+      "min_error": -11.227271998389034,
+      "max_error": 8.93424982813848
+    },
+    {
+      "origin": "2015-01-01",
+      "model": "A-extend",
+      "quantity": "January OHC: 700\u20132,000 m (GJ/m\u00b2)",
+      "rmse": 0.6689193036053056,
+      "saturated_fraction": 0.001091362644215778,
+      "min_error": -18.284489094092137,
+      "max_error": 6.806080574415344
+    },
+    {
+      "origin": "2015-01-01",
+      "model": "A-replay",
+      "quantity": "Day-30 SST (\u00b0C)",
+      "rmse": 1.0412043469511292,
+      "saturated_fraction": 0.0006780646098706834,
+      "min_error": -8.10196077823639,
+      "max_error": 7.364158630371094
+    },
+    {
+      "origin": "2015-01-01",
+      "model": "A-replay",
+      "quantity": "Day-30 SSH / ADT (m)",
+      "rmse": 0.09813800439533828,
+      "saturated_fraction": 0.0021965004072163675,
+      "min_error": -1.1303824186325073,
+      "max_error": 1.079995185136795
+    },
+    {
+      "origin": "2015-01-01",
+      "model": "A-replay",
+      "quantity": "January OHC: 0\u2013700 m (GJ/m\u00b2)",
+      "rmse": 1.1526774842645542,
+      "saturated_fraction": 0.003512780237041268,
+      "min_error": -11.736450521315007,
+      "max_error": 11.127926001622805
+    },
+    {
+      "origin": "2015-01-01",
+      "model": "A-replay",
+      "quantity": "January OHC: 700\u20132,000 m (GJ/m\u00b2)",
+      "rmse": 0.8914520814727106,
+      "saturated_fraction": 0.0034611786716557532,
+      "min_error": -34.3143333755347,
+      "max_error": 8.717144065020697
+    },
+    {
+      "origin": "2015-01-01",
+      "model": "E",
+      "quantity": "Day-30 SST (\u00b0C)",
+      "rmse": 0.9740113084829142,
+      "saturated_fraction": 0.0006296314234513488,
+      "min_error": -9.24259340763092,
+      "max_error": 6.676797866821289
+    },
+    {
+      "origin": "2015-01-01",
+      "model": "E",
+      "quantity": "Day-30 SSH / ADT (m)",
+      "rmse": 0.09354972184729488,
+      "saturated_fraction": 0.0018016239295145487,
+      "min_error": -1.259854942560196,
+      "max_error": 1.132822424173355
+    },
+    {
+      "origin": "2015-01-01",
+      "model": "E",
+      "quantity": "January OHC: 0\u2013700 m (GJ/m\u00b2)",
+      "rmse": 1.047004885003197,
+      "saturated_fraction": 0.0030272740254176783,
+      "min_error": -14.552967255335716,
+      "max_error": 9.456266989941726
+    },
+    {
+      "origin": "2015-01-01",
+      "model": "E",
+      "quantity": "January OHC: 700\u20132,000 m (GJ/m\u00b2)",
+      "rmse": 0.8341087341328841,
+      "saturated_fraction": 0.00268163392578734,
+      "min_error": -35.85794328108757,
+      "max_error": 8.513798978851455
+    },
+    {
+      "origin": "2015-01-01",
+      "model": "E-extend",
+      "quantity": "Day-30 SST (\u00b0C)",
+      "rmse": 0.8420096079415362,
+      "saturated_fraction": 0.000363248898145009,
+      "min_error": -8.483167290687561,
+      "max_error": 5.325950622558594
+    },
+    {
+      "origin": "2015-01-01",
+      "model": "E-extend",
+      "quantity": "Day-30 SSH / ADT (m)",
+      "rmse": 0.08743480954610378,
+      "saturated_fraction": 0.0016782250302327304,
+      "min_error": -1.025042176246643,
+      "max_error": 1.2040542662143707
+    },
+    {
+      "origin": "2015-01-01",
+      "model": "E-extend",
+      "quantity": "January OHC: 0\u2013700 m (GJ/m\u00b2)",
+      "rmse": 1.0287402040067957,
+      "saturated_fraction": 0.0022276167356847067,
+      "min_error": -18.442319127077727,
+      "max_error": 8.308792785754331
+    },
+    {
+      "origin": "2015-01-01",
+      "model": "E-extend",
+      "quantity": "January OHC: 700\u20132,000 m (GJ/m\u00b2)",
+      "rmse": 0.8733028695945206,
+      "saturated_fraction": 0.00473963205487995,
+      "min_error": -33.619800748750855,
+      "max_error": 10.094172849180723
+    },
+    {
+      "origin": "2015-01-01",
+      "model": "E-replay",
+      "quantity": "Day-30 SST (\u00b0C)",
+      "rmse": 0.97392289864705,
+      "saturated_fraction": 0.000460115270983678,
+      "min_error": -7.38478946685791,
+      "max_error": 6.757654190063477
+    },
+    {
+      "origin": "2015-01-01",
+      "model": "E-replay",
+      "quantity": "Day-30 SSH / ADT (m)",
+      "rmse": 0.09576717182233727,
+      "saturated_fraction": 0.0020484217280781853,
+      "min_error": -1.1750710904598236,
+      "max_error": 1.1566244661808014
+    },
+    {
+      "origin": "2015-01-01",
+      "model": "E-replay",
+      "quantity": "January OHC: 0\u2013700 m (GJ/m\u00b2)",
+      "rmse": 1.1020757971495734,
+      "saturated_fraction": 0.003055833214336713,
+      "min_error": -13.964493575085072,
+      "max_error": 10.127881146076449
+    },
+    {
+      "origin": "2015-01-01",
+      "model": "E-replay",
+      "quantity": "January OHC: 700\u20132,000 m (GJ/m\u00b2)",
+      "rmse": 0.8785499990586382,
+      "saturated_fraction": 0.0024009978172747116,
+      "min_error": -38.74046000721779,
+      "max_error": 8.41389507481577
+    },
+    {
+      "origin": "2018-01-01",
+      "model": "A",
+      "quantity": "Day-30 SST (\u00b0C)",
+      "rmse": 0.963229408241752,
+      "saturated_fraction": 0.0007022812030803506,
+      "min_error": -6.022685766220093,
+      "max_error": 7.4295737743377686
+    },
+    {
+      "origin": "2018-01-01",
+      "model": "A",
+      "quantity": "Day-30 SSH / ADT (m)",
+      "rmse": 0.09411841591892572,
+      "saturated_fraction": 0.0026160566647745504,
+      "min_error": -0.9558945894241333,
+      "max_error": 1.0513897985219955
+    },
+    {
+      "origin": "2018-01-01",
+      "model": "A",
+      "quantity": "January OHC: 0\u2013700 m (GJ/m\u00b2)",
+      "rmse": 1.0359310691195533,
+      "saturated_fraction": 0.0035984578037983723,
+      "min_error": -16.740436894138455,
+      "max_error": 8.939952415880395
+    },
+    {
+      "origin": "2018-01-01",
+      "model": "A",
+      "quantity": "January OHC: 700\u20132,000 m (GJ/m\u00b2)",
+      "rmse": 0.7918285144337281,
+      "saturated_fraction": 0.0021203617087620827,
+      "min_error": -28.62686676070446,
+      "max_error": 8.592980559136688
+    },
+    {
+      "origin": "2018-01-01",
+      "model": "A-extend",
+      "quantity": "Day-30 SST (\u00b0C)",
+      "rmse": 0.8744845727720564,
+      "saturated_fraction": 0.0003874654913546762,
+      "min_error": -5.528573989868164,
+      "max_error": 6.480527877807617
+    },
+    {
+      "origin": "2018-01-01",
+      "model": "A-extend",
+      "quantity": "Day-30 SSH / ADT (m)",
+      "rmse": 0.08876585704997816,
+      "saturated_fraction": 0.0019497026086527309,
+      "min_error": -0.8981265425682068,
+      "max_error": 1.0311529487371445
+    },
+    {
+      "origin": "2018-01-01",
+      "model": "A-extend",
+      "quantity": "January OHC: 0\u2013700 m (GJ/m\u00b2)",
+      "rmse": 0.9744535104453917,
+      "saturated_fraction": 0.0023132943024418108,
+      "min_error": -15.300146176283958,
+      "max_error": 9.666747952056099
+    },
+    {
+      "origin": "2018-01-01",
+      "model": "A-extend",
+      "quantity": "January OHC: 700\u20132,000 m (GJ/m\u00b2)",
+      "rmse": 0.6733545179861814,
+      "saturated_fraction": 0.001403180542563143,
+      "min_error": -20.42015090431923,
+      "max_error": 8.120417640686398
+    },
+    {
+      "origin": "2018-01-01",
+      "model": "A-replay",
+      "quantity": "Day-30 SST (\u00b0C)",
+      "rmse": 0.9785884136537697,
+      "saturated_fraction": 0.0006780646098706834,
+      "min_error": -5.704994201660156,
+      "max_error": 8.295468091964722
+    },
+    {
+      "origin": "2018-01-01",
+      "model": "A-replay",
+      "quantity": "Day-30 SSH / ADT (m)",
+      "rmse": 0.09748318838200938,
+      "saturated_fraction": 0.002467977985636368,
+      "min_error": -0.9699519872665405,
+      "max_error": 1.0167553275823593
+    },
+    {
+      "origin": "2018-01-01",
+      "model": "A-replay",
+      "quantity": "January OHC: 0\u2013700 m (GJ/m\u00b2)",
+      "rmse": 1.1365750634930238,
+      "saturated_fraction": 0.003512780237041268,
+      "min_error": -16.499888625943065,
+      "max_error": 10.877586983618905
+    },
+    {
+      "origin": "2018-01-01",
+      "model": "A-replay",
+      "quantity": "January OHC: 700\u20132,000 m (GJ/m\u00b2)",
+      "rmse": 0.8701716011899723,
+      "saturated_fraction": 0.0034611786716557532,
+      "min_error": -33.60042856665076,
+      "max_error": 7.755323074846684
+    },
+    {
+      "origin": "2018-01-01",
+      "model": "E",
+      "quantity": "Day-30 SST (\u00b0C)",
+      "rmse": 0.9049174226348025,
+      "saturated_fraction": 0.000920230541967356,
+      "min_error": -6.683536767959595,
+      "max_error": 9.004318952560425
+    },
+    {
+      "origin": "2018-01-01",
+      "model": "E",
+      "quantity": "Day-30 SSH / ADT (m)",
+      "rmse": 0.09407082173238095,
+      "saturated_fraction": 0.002640736444630914,
+      "min_error": -0.917742520570755,
+      "max_error": 0.9293588250875473
+    },
+    {
+      "origin": "2018-01-01",
+      "model": "E",
+      "quantity": "January OHC: 0\u2013700 m (GJ/m\u00b2)",
+      "rmse": 1.0426599645159038,
+      "saturated_fraction": 0.004712266171640726,
+      "min_error": -20.296946943020227,
+      "max_error": 9.518553411433762
+    },
+    {
+      "origin": "2018-01-01",
+      "model": "E",
+      "quantity": "January OHC: 700\u20132,000 m (GJ/m\u00b2)",
+      "rmse": 0.8288032379120582,
+      "saturated_fraction": 0.0024009978172747116,
+      "min_error": -36.28867952345365,
+      "max_error": 6.946074779828606
+    },
+    {
+      "origin": "2018-01-01",
+      "model": "E-extend",
+      "quantity": "Day-30 SST (\u00b0C)",
+      "rmse": 0.8017681733266968,
+      "saturated_fraction": 0.0005085484574030125,
+      "min_error": -6.001107215881348,
+      "max_error": 6.390139222145081
+    },
+    {
+      "origin": "2018-01-01",
+      "model": "E-extend",
+      "quantity": "Day-30 SSH / ADT (m)",
+      "rmse": 0.0881163548814446,
+      "saturated_fraction": 0.001999062168365458,
+      "min_error": -0.9191608428955078,
+      "max_error": 1.023090586066246
+    },
+    {
+      "origin": "2018-01-01",
+      "model": "E-extend",
+      "quantity": "January OHC: 0\u2013700 m (GJ/m\u00b2)",
+      "rmse": 1.0235087705909112,
+      "saturated_fraction": 0.004226759960017135,
+      "min_error": -24.022229172450903,
+      "max_error": 8.744996397779053
+    },
+    {
+      "origin": "2018-01-01",
+      "model": "E-extend",
+      "quantity": "January OHC: 700\u20132,000 m (GJ/m\u00b2)",
+      "rmse": 0.885734176208178,
+      "saturated_fraction": 0.00464608668537574,
+      "min_error": -35.26353333195203,
+      "max_error": 11.917504814055263
+    },
+    {
+      "origin": "2018-01-01",
+      "model": "E-replay",
+      "quantity": "Day-30 SST (\u00b0C)",
+      "rmse": 0.9191801489981808,
+      "saturated_fraction": 0.0005085484574030125,
+      "min_error": -5.987049102783203,
+      "max_error": 8.393872022628784
+    },
+    {
+      "origin": "2018-01-01",
+      "model": "E-replay",
+      "quantity": "Day-30 SSH / ADT (m)",
+      "rmse": 0.09459360080976671,
+      "saturated_fraction": 0.0021471408475036403,
+      "min_error": -0.943755567073822,
+      "max_error": 1.0192023366689682
+    },
+    {
+      "origin": "2018-01-01",
+      "model": "E-replay",
+      "quantity": "January OHC: 0\u2013700 m (GJ/m\u00b2)",
+      "rmse": 1.0868885260083603,
+      "saturated_fraction": 0.0043981150935313434,
+      "min_error": -16.67027885494888,
+      "max_error": 8.586551897554564
+    },
+    {
+      "origin": "2018-01-01",
+      "model": "E-replay",
+      "quantity": "January OHC: 700\u20132,000 m (GJ/m\u00b2)",
+      "rmse": 0.8834217582683445,
+      "saturated_fraction": 0.0034611786716557532,
+      "min_error": -39.88680777296776,
+      "max_error": 10.242428118770539
+    },
+    {
+      "origin": "2021-01-01",
+      "model": "A",
+      "quantity": "Day-30 SST (\u00b0C)",
+      "rmse": 0.936486394113418,
+      "saturated_fraction": 0.0005569816438223471,
+      "min_error": -6.403910875320435,
+      "max_error": 7.842172622680664
+    },
+    {
+      "origin": "2021-01-01",
+      "model": "A",
+      "quantity": "Day-30 SSH / ADT (m)",
+      "rmse": 0.09297574435611528,
+      "saturated_fraction": 0.0023445790863545497,
+      "min_error": -1.2290312349796295,
+      "max_error": 1.177369236946106
+    },
+    {
+      "origin": "2021-01-01",
+      "model": "A",
+      "quantity": "January OHC: 0\u2013700 m (GJ/m\u00b2)",
+      "rmse": 0.9895023535496121,
+      "saturated_fraction": 0.0035413394259603027,
+      "min_error": -14.634845328665577,
+      "max_error": 11.577367321990828
+    },
+    {
+      "origin": "2021-01-01",
+      "model": "A",
+      "quantity": "January OHC: 700\u20132,000 m (GJ/m\u00b2)",
+      "rmse": 0.8093402504235812,
+      "saturated_fraction": 0.0033052697224820703,
+      "min_error": -23.63276663403211,
+      "max_error": 8.030041712706398
+    },
+    {
+      "origin": "2021-01-01",
+      "model": "A-extend",
+      "quantity": "Day-30 SST (\u00b0C)",
+      "rmse": 0.8445375278775842,
+      "saturated_fraction": 0.000363248898145009,
+      "min_error": -6.062867164611816,
+      "max_error": 7.022461891174316
+    },
+    {
+      "origin": "2021-01-01",
+      "model": "A-extend",
+      "quantity": "Day-30 SSH / ADT (m)",
+      "rmse": 0.08850999298907515,
+      "saturated_fraction": 0.0021965004072163675,
+      "min_error": -1.275582194328308,
+      "max_error": 1.2017467021942139
+    },
+    {
+      "origin": "2021-01-01",
+      "model": "A-extend",
+      "quantity": "January OHC: 0\u2013700 m (GJ/m\u00b2)",
+      "rmse": 0.9024042630764916,
+      "saturated_fraction": 0.0016564329573040125,
+      "min_error": -10.902024173753464,
+      "max_error": 9.673102990440228
+    },
+    {
+      "origin": "2021-01-01",
+      "model": "A-extend",
+      "quantity": "January OHC: 700\u20132,000 m (GJ/m\u00b2)",
+      "rmse": 0.65778806981459,
+      "saturated_fraction": 0.0014655441222326162,
+      "min_error": -16.180627979664376,
+      "max_error": 6.165581407397102
+    },
+    {
+      "origin": "2021-01-01",
+      "model": "A-replay",
+      "quantity": "Day-30 SST (\u00b0C)",
+      "rmse": 0.9528985136080634,
+      "saturated_fraction": 0.000823364169128687,
+      "min_error": -6.661566734313965,
+      "max_error": 8.0606107711792
+    },
+    {
+      "origin": "2021-01-01",
+      "model": "A-replay",
+      "quantity": "Day-30 SSH / ADT (m)",
+      "rmse": 0.09565308951467784,
+      "saturated_fraction": 0.0025173375453490954,
+      "min_error": -1.2673792839050293,
+      "max_error": 1.1310835853219032
+    },
+    {
+      "origin": "2021-01-01",
+      "model": "A-replay",
+      "quantity": "January OHC: 0\u2013700 m (GJ/m\u00b2)",
+      "rmse": 1.1135731744409787,
+      "saturated_fraction": 0.0030843924032557474,
+      "min_error": -13.184052268446889,
+      "max_error": 12.595090074682929
+    },
+    {
+      "origin": "2021-01-01",
+      "model": "A-replay",
+      "quantity": "January OHC: 700\u20132,000 m (GJ/m\u00b2)",
+      "rmse": 0.8906386229562504,
+      "saturated_fraction": 0.004583723105706267,
+      "min_error": -30.324215081438396,
+      "max_error": 9.935998271714759
+    },
+    {
+      "origin": "2021-01-01",
+      "model": "E",
+      "quantity": "Day-30 SST (\u00b0C)",
+      "rmse": 0.8668948183278922,
+      "saturated_fraction": 0.0007991475759190197,
+      "min_error": -8.115273714065552,
+      "max_error": 8.455140113830566
+    },
+    {
+      "origin": "2021-01-01",
+      "model": "E",
+      "quantity": "Day-30 SSH / ADT (m)",
+      "rmse": 0.09243422739923919,
+      "saturated_fraction": 0.002245859966929095,
+      "min_error": -1.3151165544986725,
+      "max_error": 1.2274279594421387
+    },
+    {
+      "origin": "2021-01-01",
+      "model": "E",
+      "quantity": "January OHC: 0\u2013700 m (GJ/m\u00b2)",
+      "rmse": 1.0151186134121384,
+      "saturated_fraction": 0.003227188347850921,
+      "min_error": -16.08989685065707,
+      "max_error": 8.488903641460595
+    },
+    {
+      "origin": "2021-01-01",
+      "model": "E",
+      "quantity": "January OHC: 700\u20132,000 m (GJ/m\u00b2)",
+      "rmse": 0.8521822604575171,
+      "saturated_fraction": 0.003086997193638915,
+      "min_error": -34.18122492876432,
+      "max_error": 11.605523706083606
+    },
+    {
+      "origin": "2021-01-01",
+      "model": "E-extend",
+      "quantity": "Day-30 SST (\u00b0C)",
+      "rmse": 0.7692106630083397,
+      "saturated_fraction": 0.00043589867777401074,
+      "min_error": -7.05254864692688,
+      "max_error": 8.937654972076416
+    },
+    {
+      "origin": "2021-01-01",
+      "model": "E-extend",
+      "quantity": "Day-30 SSH / ADT (m)",
+      "rmse": 0.0879761009700637,
+      "saturated_fraction": 0.002788815123769096,
+      "min_error": -1.3951691389083862,
+      "max_error": 1.2520616054534912
+    },
+    {
+      "origin": "2021-01-01",
+      "model": "E-extend",
+      "quantity": "January OHC: 0\u2013700 m (GJ/m\u00b2)",
+      "rmse": 0.9660501166311236,
+      "saturated_fraction": 0.0021419391689276026,
+      "min_error": -18.183270607484186,
+      "max_error": 8.248965031928464
+    },
+    {
+      "origin": "2021-01-01",
+      "model": "E-extend",
+      "quantity": "January OHC: 700\u20132,000 m (GJ/m\u00b2)",
+      "rmse": 0.8431744599978723,
+      "saturated_fraction": 0.0042407234175241655,
+      "min_error": -27.616626942996,
+      "max_error": 11.610135958392618
+    },
+    {
+      "origin": "2021-01-01",
+      "model": "E-replay",
+      "quantity": "Day-30 SST (\u00b0C)",
+      "rmse": 0.8807792619977636,
+      "saturated_fraction": 0.0007749309827093524,
+      "min_error": -6.846543312072754,
+      "max_error": 7.183382987976074
+    },
+    {
+      "origin": "2021-01-01",
+      "model": "E-replay",
+      "quantity": "Day-30 SSH / ADT (m)",
+      "rmse": 0.09344969415937512,
+      "saturated_fraction": 0.002467977985636368,
+      "min_error": -1.2526273727416992,
+      "max_error": 1.1538620963692665
+    },
+    {
+      "origin": "2021-01-01",
+      "model": "E-replay",
+      "quantity": "January OHC: 0\u2013700 m (GJ/m\u00b2)",
+      "rmse": 1.0640675602904865,
+      "saturated_fraction": 0.0028844780808225047,
+      "min_error": -12.40185182412883,
+      "max_error": 9.724639015693338
+    },
+    {
+      "origin": "2021-01-01",
+      "model": "E-replay",
+      "quantity": "January OHC: 700\u20132,000 m (GJ/m\u00b2)",
+      "rmse": 0.9017335597729091,
+      "saturated_fraction": 0.0027128157156220767,
+      "min_error": -38.581846157559724,
+      "max_error": 10.262971384160828
+    }
+  ],
+  "geometry_verified": true,
+  "input_output_hashes_verified": true
+}

@@ -1,0 +1,206 @@
+{
+  "job_id": 215879,
+  "cluster": "EAI Beta",
+  "state": "COMPLETED",
+  "exit_code": "0:0",
+  "elapsed_seconds": 303,
+  "gpus": 4,
+  "gpu_hours": 0.33666666666666667,
+  "models": [
+    {
+      "model": {
+        "name": "A",
+        "checkpoint": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-latent-pilots-20261016/A/endpoint-03000.pt",
+        "adapter": false,
+        "annual_name": "A-1729",
+        "annual_root": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-annual-20261018/recovery-ohc-support"
+      },
+      "checkpoint_sha256": "e5a9a814fdce137b9ce3394fb693b3d2a7cc244782184e39acf0ab128eaab18c",
+      "producer": "f2c493d4af9523a4f3542d6b9b080ba7c1392c62",
+      "source_contracts": {
+        "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-annual-20261018/recovery-ohc-support/A-1729/2015-01-01.npz": "e5f656ad3d193b95f6a413603739daeb857430e7b07243bcfaae0c16da0cf73e",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-annual-20261018/recovery-ohc-support/A-1729/2018-01-01.npz": "ab083262ac4ef673a29f5ef72b2a907451b11d42f35523546fc3dc9313987c17",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-annual-20261018/recovery-ohc-support/A-1729/2021-01-01.npz": "76d60fc089373cf8eaea7d17a5b57062a21d10414bd498e5583a6cc0d0e00ea7"
+      },
+      "exporter_sha256": "cac8515661e42791ade444588b2433093c2c3563eea9dbc4ec4e4bbc87f180a6",
+      "outputs": {
+        "2015-01-01.npz": "d5c02aa903471ebd0f44f3d809504f3a64793e1f4a21ac860b8221dcecfceeb3",
+        "2018-01-01.npz": "d301e1d02b8e057157c126f2da24b430be0722329b3433b228fa70be8f9549d5",
+        "2021-01-01.npz": "184e67f8f60a1420623b4e8567cb5f88fbb23f22e2dee4f1bcf0ee8076320a59"
+      },
+      "origins": [
+        "2015-01-01",
+        "2018-01-01",
+        "2021-01-01"
+      ],
+      "member_index": 0,
+      "eight_member_means_bitwise_exact": true,
+      "latent_trajectory_bitwise_exact": true,
+      "monthly_sst_consistent_with_member_native_draws": true
+    },
+    {
+      "model": {
+        "name": "E",
+        "checkpoint": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-latent-pilots-20261016/E/endpoint-03000.pt",
+        "adapter": false,
+        "annual_name": "E-1729",
+        "annual_root": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-annual-20261018/recovery-ohc-support"
+      },
+      "checkpoint_sha256": "3f5bf8680cb1d8d26d7994e14a3c4fbaa9a6585a42d22970c56e9b99a4ae806b",
+      "producer": "f2c493d4af9523a4f3542d6b9b080ba7c1392c62",
+      "source_contracts": {
+        "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-annual-20261018/recovery-ohc-support/E-1729/2015-01-01.npz": "4c76b68725cb1c78642764581355291492d301d9057646e52026f87b0520997e",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-annual-20261018/recovery-ohc-support/E-1729/2018-01-01.npz": "410f990e5851b9140c8fd80180e1756a7513cc0ad0ab6c36613dda5f3d169b24",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-annual-20261018/recovery-ohc-support/E-1729/2021-01-01.npz": "2bfeaa468ce3423efac30399cfd6de87f788ef9b73672e19dba50af795043828"
+      },
+      "exporter_sha256": "cac8515661e42791ade444588b2433093c2c3563eea9dbc4ec4e4bbc87f180a6",
+      "outputs": {
+        "2015-01-01.npz": "09b046d8c9f5eb367baf1f3e629f26eeb6141c213183ffb73f173c862474ad08",
+        "2018-01-01.npz": "6a5d8d632ca6547ac9210d454f420a3413cd5f710dc6dc1059fcfffde69381ec",
+        "2021-01-01.npz": "ebdaaafb6bce1a249256d2acd4f4cac0d6b32327696c34dbee1a565c17d72b76"
+      },
+      "origins": [
+        "2015-01-01",
+        "2018-01-01",
+        "2021-01-01"
+      ],
+      "member_index": 0,
+      "eight_member_means_bitwise_exact": true,
+      "latent_trajectory_bitwise_exact": true,
+      "monthly_sst_consistent_with_member_native_draws": true
+    },
+    {
+      "model": {
+        "name": "A-extend",
+        "checkpoint": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-20261020/production/A-extend/endpoint-05000.pt",
+        "adapter": false,
+        "step": 5000,
+        "annual_name": "A-extend",
+        "annual_root": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-annual-20261020"
+      },
+      "checkpoint_sha256": "5418ec5c6b062ae63f839a0b9992636a47be15e86ad7f63fc0ab0e132c1ad5d7",
+      "producer": "f2c493d4af9523a4f3542d6b9b080ba7c1392c62",
+      "source_contracts": {
+        "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-annual-20261020/A-extend/2015-01-01.npz": "acc00417f7e9f4408105bc06f196d29ca9e8a3c5ffbdda7f2429413c76c5b6ca",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-annual-20261020/A-extend/2018-01-01.npz": "648c4d093e1fa42561c33d7c5862c86cfad792aeea780aca3e4f1ed84c05dd29",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-annual-20261020/A-extend/2021-01-01.npz": "f8393d7efb04cd00c57335c3571076120fb14f2330b42e0ce0c7cd13ece88bcf"
+      },
+      "exporter_sha256": "cac8515661e42791ade444588b2433093c2c3563eea9dbc4ec4e4bbc87f180a6",
+      "outputs": {
+        "2015-01-01.npz": "a3c85e49f7845cd94895db2a045695f68a13c339f4a2656096d067d1435afa84",
+        "2018-01-01.npz": "0058bd9421600c28c0fb2d0a16e9c47d1352128576e6acf21bdf9f5dbad42aa2",
+        "2021-01-01.npz": "68c00fed1a01b045150f1ee54051121c086d86f550cd2459c2e2992520ab06c1"
+      },
+      "origins": [
+        "2015-01-01",
+        "2018-01-01",
+        "2021-01-01"
+      ],
+      "member_index": 0,
+      "eight_member_means_bitwise_exact": true,
+      "latent_trajectory_bitwise_exact": true,
+      "monthly_sst_consistent_with_member_native_draws": true
+    },
+    {
+      "model": {
+        "name": "E-extend",
+        "checkpoint": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-20261020/production/E-extend/endpoint-05000.pt",
+        "adapter": false,
+        "step": 5000,
+        "annual_name": "E-extend",
+        "annual_root": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-annual-20261020"
+      },
+      "checkpoint_sha256": "5f83d034a84ccff3f5cd0bb4b17f87725713150844cde1cba4ca12953bd73020",
+      "producer": "f2c493d4af9523a4f3542d6b9b080ba7c1392c62",
+      "source_contracts": {
+        "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-annual-20261020/E-extend/2015-01-01.npz": "dca0b8fc4f06a2235dd6e2f32fd9adcdfcc60f97fa862fa8837c30234a40ce1a",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-annual-20261020/E-extend/2018-01-01.npz": "a61a9b6ec020c45b7c9721c7d58034fde85d424082015547e80b0fdf90ed6377",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-annual-20261020/E-extend/2021-01-01.npz": "c33e7a52b1600a3433ad7f4899e60f9206adf4e178560b84aa0461b9fc4eaa53"
+      },
+      "exporter_sha256": "cac8515661e42791ade444588b2433093c2c3563eea9dbc4ec4e4bbc87f180a6",
+      "outputs": {
+        "2015-01-01.npz": "e12ba8b74eb4d07f5d309f7e7123a714cf6f18607490835665bc3a19f6cf6655",
+        "2018-01-01.npz": "cf7704b4474b4f5b8b4d86eb0c80a003df32f815f486b1b9916e7cddacc20aab",
+        "2021-01-01.npz": "e6a7018067c9f0043b7c0c3fa038c07edcd3b7a35f4a24eee26c44032a074bfa"
+      },
+      "origins": [
+        "2015-01-01",
+        "2018-01-01",
+        "2021-01-01"
+      ],
+      "member_index": 0,
+      "eight_member_means_bitwise_exact": true,
+      "latent_trajectory_bitwise_exact": true,
+      "monthly_sst_consistent_with_member_native_draws": true
+    },
+    {
+      "model": {
+        "name": "A-replay",
+        "checkpoint": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-20261020/production/A-replay/endpoint-03000.pt",
+        "adapter": false,
+        "step": 3000,
+        "annual_name": "A-replay",
+        "annual_root": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-annual-20261020"
+      },
+      "checkpoint_sha256": "d9c86b04fc675d448eb8500afd27576a18b17fa2de9add549922171c3ace6434",
+      "producer": "f2c493d4af9523a4f3542d6b9b080ba7c1392c62",
+      "source_contracts": {
+        "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-annual-20261020/A-replay/2015-01-01.npz": "383848bdeb0a1466aa0c2e2798148c4288a17c54b264b727853ba0ddf6ee7bb7",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-annual-20261020/A-replay/2018-01-01.npz": "656cd90dad825215e265ab3f689a80ee53a11a192fe93c482b5bf4f600566d9a",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-annual-20261020/A-replay/2021-01-01.npz": "5a1ccd4198f046a65b071e4a417d9dd4a4b0ecea55312e4400f325fa871d4fec"
+      },
+      "exporter_sha256": "cac8515661e42791ade444588b2433093c2c3563eea9dbc4ec4e4bbc87f180a6",
+      "outputs": {
+        "2015-01-01.npz": "b9b69b76864bb3ffb17816c756f62add3ffe2e60360a7d0665b200f6172a9426",
+        "2018-01-01.npz": "6517bbf6cb1ee76ea39b7c727da19f8ad4fadcee58c2b0f795a611bfe54b8bea",
+        "2021-01-01.npz": "1f2ae7061e1af6fd8925419830bfcb62864d8a461a44a0e153e3cad3371223a0"
+      },
+      "origins": [
+        "2015-01-01",
+        "2018-01-01",
+        "2021-01-01"
+      ],
+      "member_index": 0,
+      "eight_member_means_bitwise_exact": true,
+      "latent_trajectory_bitwise_exact": true,
+      "monthly_sst_consistent_with_member_native_draws": true
+    },
+    {
+      "model": {
+        "name": "E-replay",
+        "checkpoint": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-20261020/production/E-replay/endpoint-03000.pt",
+        "adapter": false,
+        "step": 3000,
+        "annual_name": "E-replay",
+        "annual_root": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-annual-20261020"
+      },
+      "checkpoint_sha256": "045fb67ff588fa33f95158cef6e447de472eb8c51a3b8c2abc8ea820caccc790",
+      "producer": "f2c493d4af9523a4f3542d6b9b080ba7c1392c62",
+      "source_contracts": {
+        "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-annual-20261020/E-replay/2015-01-01.npz": "9117f1384859e4aa437554af449227a8c976e3adfb74a38af8ba9ea0f6290b1c",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-annual-20261020/E-replay/2018-01-01.npz": "3c965f7fe510ce12340065124cbd8b21339ef827b40299338a13daeeb60a4f74",
+        "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-annual-20261020/E-replay/2021-01-01.npz": "38f0747bae18429a2d763b0924319d314f15f3cccf16db1f58cbc70a7c647331"
+      },
+      "exporter_sha256": "cac8515661e42791ade444588b2433093c2c3563eea9dbc4ec4e4bbc87f180a6",
+      "outputs": {
+        "2015-01-01.npz": "b0c21ef4e480fc38ce80cdc897b1a6094be8c84dc83ee43167b8e116e2487678",
+        "2018-01-01.npz": "66ad92280dd81218eb10dbb82f2c847d9b4f6d317cfcf9c963a09f04f3c5538f",
+        "2021-01-01.npz": "c54fce68763b41b04694745f528afce6777b7f9aab284607547035989bf55cc4"
+      },
+      "origins": [
+        "2015-01-01",
+        "2018-01-01",
+        "2021-01-01"
+      ],
+      "member_index": 0,
+      "eight_member_means_bitwise_exact": true,
+      "latent_trajectory_bitwise_exact": true,
+      "monthly_sst_consistent_with_member_native_draws": true
+    }
+  ],
+  "exporter_sha256": "cac8515661e42791ade444588b2433093c2c3563eea9dbc4ec4e4bbc87f180a6",
+  "inference_only": true,
+  "member_index": 0,
+  "latent_dynamics": "deterministic",
+  "eight_member_mean_overlap": "bitwise exact in all 18 cases"
+}

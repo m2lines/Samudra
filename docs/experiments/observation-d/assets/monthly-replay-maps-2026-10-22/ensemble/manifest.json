@@ -1,0 +1,1069 @@
+{
+  "source": "monthly-replay-2026-10-20",
+  "mode": "ensemble-mean",
+  "models": [
+    "A",
+    "A-extend",
+    "A-replay",
+    "E",
+    "E-extend",
+    "E-replay"
+  ],
+  "origins": [
+    "2015-01-01",
+    "2018-01-01",
+    "2021-01-01"
+  ],
+  "inference_performed": false,
+  "lead_days": 30,
+  "native_bin_index": 5,
+  "surface_window_days": [
+    25,
+    30
+  ],
+  "monthly_ohc": "January calendar-month mean",
+  "cell_pixels": [
+    2,
+    2
+  ],
+  "ohc_support_cells": [
+    38933,
+    37190
+  ],
+  "raw_color_limits": [
+    [
+      -3,
+      33
+    ],
+    [
+      -1.6,
+      1.6
+    ],
+    [
+      -5,
+      55
+    ],
+    [
+      -5,
+      45
+    ]
+  ],
+  "error_color_limits": [
+    [
+      -5,
+      5
+    ],
+    [
+      -0.5,
+      0.5
+    ],
+    [
+      -5,
+      5
+    ],
+    [
+      -5,
+      5
+    ]
+  ],
+  "error_color_limit_method": "Nice-rounded 99.5th percentile of absolute errors pooled across all six models and three starts, per quantity",
+  "grid_sha256": "ce96360964a6669d0186b9581abaaffc06f660c4e09e0ac813b3dd1b819e5167",
+  "inputs": [
+    {
+      "model": "A",
+      "origin": "2015-01-01",
+      "file": "/tmp/monthly-annual-214408/A-1729/2015-01-01.npz",
+      "sha256": "e5f656ad3d193b95f6a413603739daeb857430e7b07243bcfaae0c16da0cf73e",
+      "checkpoint": {
+        "name": "A-1729",
+        "checkpoint": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-latent-pilots-20261016/A/endpoint-03000.pt",
+        "adapter": false
+      }
+    },
+    {
+      "model": "A-extend",
+      "origin": "2015-01-01",
+      "file": "/tmp/monthly-replay-annual-215337/A-extend/2015-01-01.npz",
+      "sha256": "acc00417f7e9f4408105bc06f196d29ca9e8a3c5ffbdda7f2429413c76c5b6ca",
+      "checkpoint": {
+        "name": "A-extend",
+        "checkpoint": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-20261020/production/A-extend/endpoint-05000.pt",
+        "adapter": false,
+        "step": 5000
+      }
+    },
+    {
+      "model": "A-replay",
+      "origin": "2015-01-01",
+      "file": "/tmp/monthly-replay-annual-215337/A-replay/2015-01-01.npz",
+      "sha256": "383848bdeb0a1466aa0c2e2798148c4288a17c54b264b727853ba0ddf6ee7bb7",
+      "checkpoint": {
+        "name": "A-replay",
+        "checkpoint": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-20261020/production/A-replay/endpoint-03000.pt",
+        "adapter": false,
+        "step": 3000
+      }
+    },
+    {
+      "model": "E",
+      "origin": "2015-01-01",
+      "file": "/tmp/monthly-annual-214408/E-1729/2015-01-01.npz",
+      "sha256": "4c76b68725cb1c78642764581355291492d301d9057646e52026f87b0520997e",
+      "checkpoint": {
+        "name": "E-1729",
+        "checkpoint": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-latent-pilots-20261016/E/endpoint-03000.pt",
+        "adapter": false
+      }
+    },
+    {
+      "model": "E-extend",
+      "origin": "2015-01-01",
+      "file": "/tmp/monthly-replay-annual-215337/E-extend/2015-01-01.npz",
+      "sha256": "dca0b8fc4f06a2235dd6e2f32fd9adcdfcc60f97fa862fa8837c30234a40ce1a",
+      "checkpoint": {
+        "name": "E-extend",
+        "checkpoint": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-20261020/production/E-extend/endpoint-05000.pt",
+        "adapter": false,
+        "step": 5000
+      }
+    },
+    {
+      "model": "E-replay",
+      "origin": "2015-01-01",
+      "file": "/tmp/monthly-replay-annual-215337/E-replay/2015-01-01.npz",
+      "sha256": "9117f1384859e4aa437554af449227a8c976e3adfb74a38af8ba9ea0f6290b1c",
+      "checkpoint": {
+        "name": "E-replay",
+        "checkpoint": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-20261020/production/E-replay/endpoint-03000.pt",
+        "adapter": false,
+        "step": 3000
+      }
+    },
+    {
+      "model": "A",
+      "origin": "2018-01-01",
+      "file": "/tmp/monthly-annual-214408/A-1729/2018-01-01.npz",
+      "sha256": "ab083262ac4ef673a29f5ef72b2a907451b11d42f35523546fc3dc9313987c17",
+      "checkpoint": {
+        "name": "A-1729",
+        "checkpoint": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-latent-pilots-20261016/A/endpoint-03000.pt",
+        "adapter": false
+      }
+    },
+    {
+      "model": "A-extend",
+      "origin": "2018-01-01",
+      "file": "/tmp/monthly-replay-annual-215337/A-extend/2018-01-01.npz",
+      "sha256": "648c4d093e1fa42561c33d7c5862c86cfad792aeea780aca3e4f1ed84c05dd29",
+      "checkpoint": {
+        "name": "A-extend",
+        "checkpoint": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-20261020/production/A-extend/endpoint-05000.pt",
+        "adapter": false,
+        "step": 5000
+      }
+    },
+    {
+      "model": "A-replay",
+      "origin": "2018-01-01",
+      "file": "/tmp/monthly-replay-annual-215337/A-replay/2018-01-01.npz",
+      "sha256": "656cd90dad825215e265ab3f689a80ee53a11a192fe93c482b5bf4f600566d9a",
+      "checkpoint": {
+        "name": "A-replay",
+        "checkpoint": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-20261020/production/A-replay/endpoint-03000.pt",
+        "adapter": false,
+        "step": 3000
+      }
+    },
+    {
+      "model": "E",
+      "origin": "2018-01-01",
+      "file": "/tmp/monthly-annual-214408/E-1729/2018-01-01.npz",
+      "sha256": "410f990e5851b9140c8fd80180e1756a7513cc0ad0ab6c36613dda5f3d169b24",
+      "checkpoint": {
+        "name": "E-1729",
+        "checkpoint": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-latent-pilots-20261016/E/endpoint-03000.pt",
+        "adapter": false
+      }
+    },
+    {
+      "model": "E-extend",
+      "origin": "2018-01-01",
+      "file": "/tmp/monthly-replay-annual-215337/E-extend/2018-01-01.npz",
+      "sha256": "a61a9b6ec020c45b7c9721c7d58034fde85d424082015547e80b0fdf90ed6377",
+      "checkpoint": {
+        "name": "E-extend",
+        "checkpoint": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-20261020/production/E-extend/endpoint-05000.pt",
+        "adapter": false,
+        "step": 5000
+      }
+    },
+    {
+      "model": "E-replay",
+      "origin": "2018-01-01",
+      "file": "/tmp/monthly-replay-annual-215337/E-replay/2018-01-01.npz",
+      "sha256": "3c965f7fe510ce12340065124cbd8b21339ef827b40299338a13daeeb60a4f74",
+      "checkpoint": {
+        "name": "E-replay",
+        "checkpoint": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-20261020/production/E-replay/endpoint-03000.pt",
+        "adapter": false,
+        "step": 3000
+      }
+    },
+    {
+      "model": "A",
+      "origin": "2021-01-01",
+      "file": "/tmp/monthly-annual-214408/A-1729/2021-01-01.npz",
+      "sha256": "76d60fc089373cf8eaea7d17a5b57062a21d10414bd498e5583a6cc0d0e00ea7",
+      "checkpoint": {
+        "name": "A-1729",
+        "checkpoint": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-latent-pilots-20261016/A/endpoint-03000.pt",
+        "adapter": false
+      }
+    },
+    {
+      "model": "A-extend",
+      "origin": "2021-01-01",
+      "file": "/tmp/monthly-replay-annual-215337/A-extend/2021-01-01.npz",
+      "sha256": "f8393d7efb04cd00c57335c3571076120fb14f2330b42e0ce0c7cd13ece88bcf",
+      "checkpoint": {
+        "name": "A-extend",
+        "checkpoint": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-20261020/production/A-extend/endpoint-05000.pt",
+        "adapter": false,
+        "step": 5000
+      }
+    },
+    {
+      "model": "A-replay",
+      "origin": "2021-01-01",
+      "file": "/tmp/monthly-replay-annual-215337/A-replay/2021-01-01.npz",
+      "sha256": "5a1ccd4198f046a65b071e4a417d9dd4a4b0ecea55312e4400f325fa871d4fec",
+      "checkpoint": {
+        "name": "A-replay",
+        "checkpoint": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-20261020/production/A-replay/endpoint-03000.pt",
+        "adapter": false,
+        "step": 3000
+      }
+    },
+    {
+      "model": "E",
+      "origin": "2021-01-01",
+      "file": "/tmp/monthly-annual-214408/E-1729/2021-01-01.npz",
+      "sha256": "2bfeaa468ce3423efac30399cfd6de87f788ef9b73672e19dba50af795043828",
+      "checkpoint": {
+        "name": "E-1729",
+        "checkpoint": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-latent-pilots-20261016/E/endpoint-03000.pt",
+        "adapter": false
+      }
+    },
+    {
+      "model": "E-extend",
+      "origin": "2021-01-01",
+      "file": "/tmp/monthly-replay-annual-215337/E-extend/2021-01-01.npz",
+      "sha256": "c33e7a52b1600a3433ad7f4899e60f9206adf4e178560b84aa0461b9fc4eaa53",
+      "checkpoint": {
+        "name": "E-extend",
+        "checkpoint": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-20261020/production/E-extend/endpoint-05000.pt",
+        "adapter": false,
+        "step": 5000
+      }
+    },
+    {
+      "model": "E-replay",
+      "origin": "2021-01-01",
+      "file": "/tmp/monthly-replay-annual-215337/E-replay/2021-01-01.npz",
+      "sha256": "38f0747bae18429a2d763b0924319d314f15f3cccf16db1f58cbc70a7c647331",
+      "checkpoint": {
+        "name": "E-replay",
+        "checkpoint": "/projects/ny/lz1955/multiscale/jrusak/runs/monthly-replay-20261020/production/E-replay/endpoint-03000.pt",
+        "adapter": false,
+        "step": 3000
+      }
+    }
+  ],
+  "outputs": [
+    {
+      "file": "day30-2015-01-01-A-fields.png",
+      "sha256": "2d84e83d2c33113f236585d544e1c2eb7aa4509541014d389aede2495d117bbb",
+      "size": [
+        3196,
+        2060
+      ],
+      "origin": "2015-01-01",
+      "family": "A",
+      "errors": false
+    },
+    {
+      "file": "day30-2015-01-01-A-errors.png",
+      "sha256": "bb358f7ef6e03c5d069cfcd171763e8673d4b0f0e173304d4a623caeb5ff78a3",
+      "size": [
+        3196,
+        1636
+      ],
+      "origin": "2015-01-01",
+      "family": "A",
+      "errors": true
+    },
+    {
+      "file": "day30-2015-01-01-E-fields.png",
+      "sha256": "a4102e5f784bea0a223789db425928b3d7ef5c9cf6d9de299a11cd0125264821",
+      "size": [
+        3196,
+        2060
+      ],
+      "origin": "2015-01-01",
+      "family": "E",
+      "errors": false
+    },
+    {
+      "file": "day30-2015-01-01-E-errors.png",
+      "sha256": "4d444fd7eb416d70e8fa4344e4876d3ff80f445f5e4b10a5eee746db78b1033e",
+      "size": [
+        3196,
+        1636
+      ],
+      "origin": "2015-01-01",
+      "family": "E",
+      "errors": true
+    },
+    {
+      "file": "day30-2018-01-01-A-fields.png",
+      "sha256": "dd3432c32af8122892ced12f95523a3f73909e152b6fb9ed9cc7b74840a140cc",
+      "size": [
+        3196,
+        2060
+      ],
+      "origin": "2018-01-01",
+      "family": "A",
+      "errors": false
+    },
+    {
+      "file": "day30-2018-01-01-A-errors.png",
+      "sha256": "4162e386982bac824c80956955744831e4929a7254301ab9d4d85d084f0d1785",
+      "size": [
+        3196,
+        1636
+      ],
+      "origin": "2018-01-01",
+      "family": "A",
+      "errors": true
+    },
+    {
+      "file": "day30-2018-01-01-E-fields.png",
+      "sha256": "5c1e551a8dd4cd3b192c37c463d882a72d938db58a492b873b4e014e95de52de",
+      "size": [
+        3196,
+        2060
+      ],
+      "origin": "2018-01-01",
+      "family": "E",
+      "errors": false
+    },
+    {
+      "file": "day30-2018-01-01-E-errors.png",
+      "sha256": "97fd236a67cec658fcec64499eef1b8b0bc7f996d30bf2f42a9296c74ecd9cb9",
+      "size": [
+        3196,
+        1636
+      ],
+      "origin": "2018-01-01",
+      "family": "E",
+      "errors": true
+    },
+    {
+      "file": "day30-2021-01-01-A-fields.png",
+      "sha256": "6a0caed7aa6e4289cdf1ecfaddf73c49dc39aad83468ef2f0dd5f762b18b35ad",
+      "size": [
+        3196,
+        2060
+      ],
+      "origin": "2021-01-01",
+      "family": "A",
+      "errors": false
+    },
+    {
+      "file": "day30-2021-01-01-A-errors.png",
+      "sha256": "2c84c4c0fccc0cee619a9a82536d76a53677ef62be3fb8784ee42ae9277ec1ce",
+      "size": [
+        3196,
+        1636
+      ],
+      "origin": "2021-01-01",
+      "family": "A",
+      "errors": true
+    },
+    {
+      "file": "day30-2021-01-01-E-fields.png",
+      "sha256": "321e94b381d72bf1001beffed27433db0b50775fb43196b64e1062931a09d62c",
+      "size": [
+        3196,
+        2060
+      ],
+      "origin": "2021-01-01",
+      "family": "E",
+      "errors": false
+    },
+    {
+      "file": "day30-2021-01-01-E-errors.png",
+      "sha256": "83ecbc10e0277c0371ae53682b50e3b26bf9f073d7bf92e31c465e61d405637f",
+      "size": [
+        3196,
+        1636
+      ],
+      "origin": "2021-01-01",
+      "family": "E",
+      "errors": true
+    }
+  ],
+  "panel_metrics": [
+    {
+      "origin": "2015-01-01",
+      "model": "A",
+      "quantity": "Day-30 SST (\u00b0C)",
+      "rmse": 0.8750584962257472,
+      "saturated_fraction": 0.00012108296604833631,
+      "min_error": -6.264928817749023,
+      "max_error": 5.234979629516602
+    },
+    {
+      "origin": "2015-01-01",
+      "model": "A",
+      "quantity": "Day-30 SSH / ADT (m)",
+      "rmse": 0.07716540622006333,
+      "saturated_fraction": 0.0009378316345418199,
+      "min_error": -0.7665031552314758,
+      "max_error": 0.7463393211364746
+    },
+    {
+      "origin": "2015-01-01",
+      "model": "A",
+      "quantity": "January OHC: 0\u2013700 m (GJ/m\u00b2)",
+      "rmse": 0.759687070777642,
+      "saturated_fraction": 0.0008282164786520063,
+      "min_error": -7.3407610567667625,
+      "max_error": 5.285771595441982
+    },
+    {
+      "origin": "2015-01-01",
+      "model": "A",
+      "quantity": "January OHC: 700\u20132,000 m (GJ/m\u00b2)",
+      "rmse": 0.663637656493614,
+      "saturated_fraction": 0.0009042719052073589,
+      "min_error": -28.006310165432353,
+      "max_error": 4.0072318741293635
+    },
+    {
+      "origin": "2015-01-01",
+      "model": "A-extend",
+      "quantity": "Day-30 SST (\u00b0C)",
+      "rmse": 0.7951408356269467,
+      "saturated_fraction": 4.843318641933453e-05,
+      "min_error": -6.032225608825684,
+      "max_error": 4.441309928894043
+    },
+    {
+      "origin": "2015-01-01",
+      "model": "A-extend",
+      "quantity": "Day-30 SSH / ADT (m)",
+      "rmse": 0.07345129162725769,
+      "saturated_fraction": 0.000691033835978183,
+      "min_error": -0.7378062605857849,
+      "max_error": 0.7327679395675659
+    },
+    {
+      "origin": "2015-01-01",
+      "model": "A-extend",
+      "quantity": "January OHC: 0\u2013700 m (GJ/m\u00b2)",
+      "rmse": 0.7743560244517558,
+      "saturated_fraction": 0.0007996572897329716,
+      "min_error": -7.052493278812456,
+      "max_error": 6.742070308225333
+    },
+    {
+      "origin": "2015-01-01",
+      "model": "A-extend",
+      "quantity": "January OHC: 700\u20132,000 m (GJ/m\u00b2)",
+      "rmse": 0.5707876693873191,
+      "saturated_fraction": 0.0004989086373557842,
+      "min_error": -18.408687120965382,
+      "max_error": 5.848062435311945
+    },
+    {
+      "origin": "2015-01-01",
+      "model": "A-replay",
+      "quantity": "Day-30 SST (\u00b0C)",
+      "rmse": 0.8885574396954592,
+      "saturated_fraction": 9.686637283866905e-05,
+      "min_error": -5.8124847412109375,
+      "max_error": 5.299581527709961
+    },
+    {
+      "origin": "2015-01-01",
+      "model": "A-replay",
+      "quantity": "Day-30 SSH / ADT (m)",
+      "rmse": 0.08038003261484024,
+      "saturated_fraction": 0.0009625114143981836,
+      "min_error": -0.8206589221954346,
+      "max_error": 0.755415678024292
+    },
+    {
+      "origin": "2015-01-01",
+      "model": "A-replay",
+      "quantity": "January OHC: 0\u2013700 m (GJ/m\u00b2)",
+      "rmse": 0.84606593864777,
+      "saturated_fraction": 0.0009138940454091103,
+      "min_error": -6.535134195267372,
+      "max_error": 6.120198541347314
+    },
+    {
+      "origin": "2015-01-01",
+      "model": "A-replay",
+      "quantity": "January OHC: 700\u20132,000 m (GJ/m\u00b2)",
+      "rmse": 0.7241547647095377,
+      "saturated_fraction": 0.0016526348612410351,
+      "min_error": -33.15805165517654,
+      "max_error": 3.7148986451352357
+    },
+    {
+      "origin": "2015-01-01",
+      "model": "E",
+      "quantity": "Day-30 SST (\u00b0C)",
+      "rmse": 0.8226786431882949,
+      "saturated_fraction": 7.26497796290018e-05,
+      "min_error": -5.659579277038574,
+      "max_error": 5.152567386627197
+    },
+    {
+      "origin": "2015-01-01",
+      "model": "E",
+      "quantity": "Day-30 SSH / ADT (m)",
+      "rmse": 0.07562373678695379,
+      "saturated_fraction": 0.0007650731755472741,
+      "min_error": -0.7883132696151733,
+      "max_error": 0.740902304649353
+    },
+    {
+      "origin": "2015-01-01",
+      "model": "E",
+      "quantity": "January OHC: 0\u2013700 m (GJ/m\u00b2)",
+      "rmse": 0.8212944997305258,
+      "saturated_fraction": 0.0012851635013565615,
+      "min_error": -10.098342039279819,
+      "max_error": 5.941081330549775
+    },
+    {
+      "origin": "2015-01-01",
+      "model": "E",
+      "quantity": "January OHC: 700\u20132,000 m (GJ/m\u00b2)",
+      "rmse": 0.7212757786503973,
+      "saturated_fraction": 0.0010601808543810414,
+      "min_error": -34.761490231052306,
+      "max_error": 4.106209077743301
+    },
+    {
+      "origin": "2015-01-01",
+      "model": "E-extend",
+      "quantity": "Day-30 SST (\u00b0C)",
+      "rmse": 0.7194530863717821,
+      "saturated_fraction": 4.843318641933453e-05,
+      "min_error": -5.60260009765625,
+      "max_error": 4.174609184265137
+    },
+    {
+      "origin": "2015-01-01",
+      "model": "E-extend",
+      "quantity": "Day-30 SSH / ADT (m)",
+      "rmse": 0.07130871827850561,
+      "saturated_fraction": 0.000616994496409092,
+      "min_error": -0.7365819811820984,
+      "max_error": 0.753515899181366
+    },
+    {
+      "origin": "2015-01-01",
+      "model": "E-extend",
+      "quantity": "January OHC: 0\u2013700 m (GJ/m\u00b2)",
+      "rmse": 0.8508221497957063,
+      "saturated_fraction": 0.0015421962016278737,
+      "min_error": -15.86951020245421,
+      "max_error": 6.497464655203977
+    },
+    {
+      "origin": "2015-01-01",
+      "model": "E-extend",
+      "quantity": "January OHC: 700\u20132,000 m (GJ/m\u00b2)",
+      "rmse": 0.7827011716990532,
+      "saturated_fraction": 0.0031493607733083877,
+      "min_error": -30.950400606349373,
+      "max_error": 11.155983403176933
+    },
+    {
+      "origin": "2015-01-01",
+      "model": "E-replay",
+      "quantity": "Day-30 SST (\u00b0C)",
+      "rmse": 0.8265447445997468,
+      "saturated_fraction": 9.686637283866905e-05,
+      "min_error": -5.923648834228516,
+      "max_error": 4.5928192138671875
+    },
+    {
+      "origin": "2015-01-01",
+      "model": "E-replay",
+      "quantity": "Day-30 SSH / ADT (m)",
+      "rmse": 0.07703961933606582,
+      "saturated_fraction": 0.0009131518546854562,
+      "min_error": -0.7914049029350281,
+      "max_error": 0.7439154386520386
+    },
+    {
+      "origin": "2015-01-01",
+      "model": "E-replay",
+      "quantity": "January OHC: 0\u2013700 m (GJ/m\u00b2)",
+      "rmse": 0.8309646240294076,
+      "saturated_fraction": 0.0010852491789233186,
+      "min_error": -8.173814816316614,
+      "max_error": 6.134577978278799
+    },
+    {
+      "origin": "2015-01-01",
+      "model": "E-replay",
+      "quantity": "January OHC: 700\u20132,000 m (GJ/m\u00b2)",
+      "rmse": 0.7452718868077816,
+      "saturated_fraction": 0.0009978172747115684,
+      "min_error": -38.814405678633115,
+      "max_error": 4.080554239896543
+    },
+    {
+      "origin": "2018-01-01",
+      "model": "A",
+      "quantity": "Day-30 SST (\u00b0C)",
+      "rmse": 0.815473201186663,
+      "saturated_fraction": 0.00021794933888700537,
+      "min_error": -5.623514175415039,
+      "max_error": 7.142232894897461
+    },
+    {
+      "origin": "2018-01-01",
+      "model": "A",
+      "quantity": "Day-30 SSH / ADT (m)",
+      "rmse": 0.07767106200771637,
+      "saturated_fraction": 0.0008637922949727288,
+      "min_error": -0.7715049386024475,
+      "max_error": 0.8965454753488302
+    },
+    {
+      "origin": "2018-01-01",
+      "model": "A",
+      "quantity": "January OHC: 0\u2013700 m (GJ/m\u00b2)",
+      "rmse": 0.7577095333481876,
+      "saturated_fraction": 0.0007139797229758674,
+      "min_error": -8.76826865849997,
+      "max_error": 6.514666486787455
+    },
+    {
+      "origin": "2018-01-01",
+      "model": "A",
+      "quantity": "January OHC: 700\u20132,000 m (GJ/m\u00b2)",
+      "rmse": 0.6510684460777881,
+      "saturated_fraction": 0.0008107265357031494,
+      "min_error": -26.933256997022568,
+      "max_error": 3.914154265048971
+    },
+    {
+      "origin": "2018-01-01",
+      "model": "A-extend",
+      "quantity": "Day-30 SST (\u00b0C)",
+      "rmse": 0.7288536836695928,
+      "saturated_fraction": 0.00016951615246767085,
+      "min_error": -5.860312461853027,
+      "max_error": 6.625112533569336
+    },
+    {
+      "origin": "2018-01-01",
+      "model": "A-extend",
+      "quantity": "Day-30 SSH / ADT (m)",
+      "rmse": 0.07381247812055462,
+      "saturated_fraction": 0.0006416742762654557,
+      "min_error": -0.7283096313476562,
+      "max_error": 0.8683328088372946
+    },
+    {
+      "origin": "2018-01-01",
+      "model": "A-extend",
+      "quantity": "January OHC: 0\u2013700 m (GJ/m\u00b2)",
+      "rmse": 0.7709360131691926,
+      "saturated_fraction": 0.0005140654005426246,
+      "min_error": -5.801345602229858,
+      "max_error": 6.49935401433315
+    },
+    {
+      "origin": "2018-01-01",
+      "model": "A-extend",
+      "quantity": "January OHC: 700\u20132,000 m (GJ/m\u00b2)",
+      "rmse": 0.5662824234221416,
+      "saturated_fraction": 0.0004677268475210477,
+      "min_error": -18.26764391062678,
+      "max_error": 6.152004295161078
+    },
+    {
+      "origin": "2018-01-01",
+      "model": "A-replay",
+      "quantity": "Day-30 SST (\u00b0C)",
+      "rmse": 0.8228975530294543,
+      "saturated_fraction": 0.0002905991185160072,
+      "min_error": -6.51215934753418,
+      "max_error": 7.455810546875
+    },
+    {
+      "origin": "2018-01-01",
+      "model": "A-replay",
+      "quantity": "Day-30 SSH / ADT (m)",
+      "rmse": 0.08065696981765501,
+      "saturated_fraction": 0.0008884720748290925,
+      "min_error": -0.7793386578559875,
+      "max_error": 0.8590965922921896
+    },
+    {
+      "origin": "2018-01-01",
+      "model": "A-replay",
+      "quantity": "January OHC: 0\u2013700 m (GJ/m\u00b2)",
+      "rmse": 0.8412693468823655,
+      "saturated_fraction": 0.000571183778380694,
+      "min_error": -7.1752423898460975,
+      "max_error": 6.507925048903042
+    },
+    {
+      "origin": "2018-01-01",
+      "model": "A-replay",
+      "quantity": "January OHC: 700\u20132,000 m (GJ/m\u00b2)",
+      "rmse": 0.7333294852014077,
+      "saturated_fraction": 0.0015902712815715622,
+      "min_error": -33.41981733016194,
+      "max_error": 3.409454529779012
+    },
+    {
+      "origin": "2018-01-01",
+      "model": "E",
+      "quantity": "Day-30 SST (\u00b0C)",
+      "rmse": 0.743460638945768,
+      "saturated_fraction": 0.00024216593209667263,
+      "min_error": -6.231332778930664,
+      "max_error": 7.003717422485352
+    },
+    {
+      "origin": "2018-01-01",
+      "model": "E",
+      "quantity": "Day-30 SSH / ADT (m)",
+      "rmse": 0.07668431889744187,
+      "saturated_fraction": 0.0008637922949727288,
+      "min_error": -0.7486072182655334,
+      "max_error": 0.8647689279168844
+    },
+    {
+      "origin": "2018-01-01",
+      "model": "E",
+      "quantity": "January OHC: 0\u2013700 m (GJ/m\u00b2)",
+      "rmse": 0.7991964257381898,
+      "saturated_fraction": 0.0017421105240611166,
+      "min_error": -9.40642335972528,
+      "max_error": 6.69975736349668
+    },
+    {
+      "origin": "2018-01-01",
+      "model": "E",
+      "quantity": "January OHC: 700\u20132,000 m (GJ/m\u00b2)",
+      "rmse": 0.7266978427605875,
+      "saturated_fraction": 0.001028999064546305,
+      "min_error": -35.719134357265844,
+      "max_error": 4.520189065429747
+    },
+    {
+      "origin": "2018-01-01",
+      "model": "E-extend",
+      "quantity": "Day-30 SST (\u00b0C)",
+      "rmse": 0.6559274465202882,
+      "saturated_fraction": 0.00012108296604833631,
+      "min_error": -6.053653717041016,
+      "max_error": 6.645764350891113
+    },
+    {
+      "origin": "2018-01-01",
+      "model": "E-extend",
+      "quantity": "Day-30 SSH / ADT (m)",
+      "rmse": 0.07288128933955682,
+      "saturated_fraction": 0.0012586687726745477,
+      "min_error": -0.7558528184890747,
+      "max_error": 0.9259186442941427
+    },
+    {
+      "origin": "2018-01-01",
+      "model": "E-extend",
+      "quantity": "January OHC: 0\u2013700 m (GJ/m\u00b2)",
+      "rmse": 0.8198415886247113,
+      "saturated_fraction": 0.0023418534913608453,
+      "min_error": -15.321237864970797,
+      "max_error": 6.327913499780756
+    },
+    {
+      "origin": "2018-01-01",
+      "model": "E-extend",
+      "quantity": "January OHC: 700\u20132,000 m (GJ/m\u00b2)",
+      "rmse": 0.7993994397433111,
+      "saturated_fraction": 0.0031805425631431243,
+      "min_error": -34.36780349021376,
+      "max_error": 11.646095174386815
+    },
+    {
+      "origin": "2018-01-01",
+      "model": "E-replay",
+      "quantity": "Day-30 SST (\u00b0C)",
+      "rmse": 0.7602875054682715,
+      "saturated_fraction": 0.0002905991185160072,
+      "min_error": -6.801080703735352,
+      "max_error": 7.074716567993164
+    },
+    {
+      "origin": "2018-01-01",
+      "model": "E-replay",
+      "quantity": "Day-30 SSH / ADT (m)",
+      "rmse": 0.07757648433528667,
+      "saturated_fraction": 0.0008144327352600015,
+      "min_error": -0.7097797393798828,
+      "max_error": 0.880316561087966
+    },
+    {
+      "origin": "2018-01-01",
+      "model": "E-replay",
+      "quantity": "January OHC: 0\u2013700 m (GJ/m\u00b2)",
+      "rmse": 0.8254818761692186,
+      "saturated_fraction": 0.0015421962016278737,
+      "min_error": -7.157472896041131,
+      "max_error": 6.133326234499222
+    },
+    {
+      "origin": "2018-01-01",
+      "model": "E-replay",
+      "quantity": "January OHC: 700\u20132,000 m (GJ/m\u00b2)",
+      "rmse": 0.7611047768451483,
+      "saturated_fraction": 0.0006548175865294668,
+      "min_error": -39.53692799885029,
+      "max_error": 4.994930110714023
+    },
+    {
+      "origin": "2021-01-01",
+      "model": "A",
+      "quantity": "Day-30 SST (\u00b0C)",
+      "rmse": 0.7820808664499216,
+      "saturated_fraction": 9.686637283866905e-05,
+      "min_error": -7.107582092285156,
+      "max_error": 5.937429428100586
+    },
+    {
+      "origin": "2021-01-01",
+      "model": "A",
+      "quantity": "Day-30 SSH / ADT (m)",
+      "rmse": 0.07795320632329622,
+      "saturated_fraction": 0.0009871911942545472,
+      "min_error": -0.781008780002594,
+      "max_error": 0.7551397830247879
+    },
+    {
+      "origin": "2021-01-01",
+      "model": "A",
+      "quantity": "January OHC: 0\u2013700 m (GJ/m\u00b2)",
+      "rmse": 0.7450749768588517,
+      "saturated_fraction": 0.0010566899900042838,
+      "min_error": -8.626399635618835,
+      "max_error": 5.161146430599146
+    },
+    {
+      "origin": "2021-01-01",
+      "model": "A",
+      "quantity": "January OHC: 700\u20132,000 m (GJ/m\u00b2)",
+      "rmse": 0.6742520692072148,
+      "saturated_fraction": 0.0009354536950420954,
+      "min_error": -26.638716927441926,
+      "max_error": 3.823165179950653
+    },
+    {
+      "origin": "2021-01-01",
+      "model": "A-extend",
+      "quantity": "Day-30 SST (\u00b0C)",
+      "rmse": 0.7094201903535726,
+      "saturated_fraction": 9.686637283866905e-05,
+      "min_error": -6.6930341720581055,
+      "max_error": 5.785579681396484
+    },
+    {
+      "origin": "2021-01-01",
+      "model": "A-extend",
+      "quantity": "Day-30 SSH / ADT (m)",
+      "rmse": 0.07475334622171351,
+      "saturated_fraction": 0.0009131518546854562,
+      "min_error": -0.8073729872703552,
+      "max_error": 0.8341771513223648
+    },
+    {
+      "origin": "2021-01-01",
+      "model": "A-extend",
+      "quantity": "January OHC: 0\u2013700 m (GJ/m\u00b2)",
+      "rmse": 0.7393225992539278,
+      "saturated_fraction": 0.00022847351135227758,
+      "min_error": -7.203457822090581,
+      "max_error": 5.830720541689011
+    },
+    {
+      "origin": "2021-01-01",
+      "model": "A-extend",
+      "quantity": "January OHC: 700\u20132,000 m (GJ/m\u00b2)",
+      "rmse": 0.5991041516745306,
+      "saturated_fraction": 0.0006548175865294668,
+      "min_error": -18.157403637578504,
+      "max_error": 6.6443497181412425
+    },
+    {
+      "origin": "2021-01-01",
+      "model": "A-replay",
+      "quantity": "Day-30 SST (\u00b0C)",
+      "rmse": 0.7968492016978722,
+      "saturated_fraction": 0.00012108296604833631,
+      "min_error": -7.220675468444824,
+      "max_error": 5.705007553100586
+    },
+    {
+      "origin": "2021-01-01",
+      "model": "A-replay",
+      "quantity": "Day-30 SSH / ADT (m)",
+      "rmse": 0.08035562002865954,
+      "saturated_fraction": 0.0011352698733927294,
+      "min_error": -0.7773478031158447,
+      "max_error": 0.7526433020830154
+    },
+    {
+      "origin": "2021-01-01",
+      "model": "A-replay",
+      "quantity": "January OHC: 0\u2013700 m (GJ/m\u00b2)",
+      "rmse": 0.8189732497973096,
+      "saturated_fraction": 0.0005140654005426246,
+      "min_error": -5.954632634327009,
+      "max_error": 5.511429101954924
+    },
+    {
+      "origin": "2021-01-01",
+      "model": "A-replay",
+      "quantity": "January OHC: 700\u20132,000 m (GJ/m\u00b2)",
+      "rmse": 0.747581671775698,
+      "saturated_fraction": 0.00205799812909261,
+      "min_error": -32.17891982209382,
+      "max_error": 3.7374579307155607
+    },
+    {
+      "origin": "2021-01-01",
+      "model": "E",
+      "quantity": "Day-30 SST (\u00b0C)",
+      "rmse": 0.7226450509933998,
+      "saturated_fraction": 0.0001452995592580036,
+      "min_error": -6.6819305419921875,
+      "max_error": 5.699005126953125
+    },
+    {
+      "origin": "2021-01-01",
+      "model": "E",
+      "quantity": "Day-30 SSH / ADT (m)",
+      "rmse": 0.07688655387248287,
+      "saturated_fraction": 0.0010365507539672747,
+      "min_error": -0.8633096218109131,
+      "max_error": 0.7900665551424026
+    },
+    {
+      "origin": "2021-01-01",
+      "model": "E",
+      "quantity": "January OHC: 0\u2013700 m (GJ/m\u00b2)",
+      "rmse": 0.804803606664844,
+      "saturated_fraction": 0.0010852491789233186,
+      "min_error": -10.635886314385353,
+      "max_error": 5.689950571964431
+    },
+    {
+      "origin": "2021-01-01",
+      "model": "E",
+      "quantity": "January OHC: 700\u20132,000 m (GJ/m\u00b2)",
+      "rmse": 0.7503878944876261,
+      "saturated_fraction": 0.0009978172747115684,
+      "min_error": -35.09413680991313,
+      "max_error": 5.1684871483402475
+    },
+    {
+      "origin": "2021-01-01",
+      "model": "E-extend",
+      "quantity": "Day-30 SST (\u00b0C)",
+      "rmse": 0.6483261828995465,
+      "saturated_fraction": 9.686637283866905e-05,
+      "min_error": -6.557340621948242,
+      "max_error": 5.2154998779296875
+    },
+    {
+      "origin": "2021-01-01",
+      "model": "E-extend",
+      "quantity": "Day-30 SSH / ADT (m)",
+      "rmse": 0.07377416093300118,
+      "saturated_fraction": 0.0017275845899454576,
+      "min_error": -0.8636611104011536,
+      "max_error": 0.7889781147241592
+    },
+    {
+      "origin": "2021-01-01",
+      "model": "E-extend",
+      "quantity": "January OHC: 0\u2013700 m (GJ/m\u00b2)",
+      "rmse": 0.8256823600056384,
+      "saturated_fraction": 0.0011138083678423534,
+      "min_error": -16.99171424752158,
+      "max_error": 5.991371987803596
+    },
+    {
+      "origin": "2021-01-01",
+      "model": "E-extend",
+      "quantity": "January OHC: 700\u20132,000 m (GJ/m\u00b2)",
+      "rmse": 0.8288049096905745,
+      "saturated_fraction": 0.00339881509198628,
+      "min_error": -33.190249149600476,
+      "max_error": 11.580445404100104
+    },
+    {
+      "origin": "2021-01-01",
+      "model": "E-replay",
+      "quantity": "Day-30 SST (\u00b0C)",
+      "rmse": 0.7354732711735769,
+      "saturated_fraction": 0.00012108296604833631,
+      "min_error": -6.7971391677856445,
+      "max_error": 5.84929084777832
+    },
+    {
+      "origin": "2021-01-01",
+      "model": "E-replay",
+      "quantity": "Day-30 SSH / ADT (m)",
+      "rmse": 0.0774168293169574,
+      "saturated_fraction": 0.001085910313680002,
+      "min_error": -0.7830170392990112,
+      "max_error": 0.7348213940858841
+    },
+    {
+      "origin": "2021-01-01",
+      "model": "E-replay",
+      "quantity": "January OHC: 0\u2013700 m (GJ/m\u00b2)",
+      "rmse": 0.8105040960816017,
+      "saturated_fraction": 0.0007425389118949022,
+      "min_error": -6.997217626801923,
+      "max_error": 5.997585053547176
+    },
+    {
+      "origin": "2021-01-01",
+      "model": "E-replay",
+      "quantity": "January OHC: 700\u20132,000 m (GJ/m\u00b2)",
+      "rmse": 0.77916634550626,
+      "saturated_fraction": 0.0008107265357031494,
+      "min_error": -39.1408875331491,
+      "max_error": 5.094514353926172
+    }
+  ],
+  "geometry_verified": true,
+  "input_output_hashes_verified": true
+}

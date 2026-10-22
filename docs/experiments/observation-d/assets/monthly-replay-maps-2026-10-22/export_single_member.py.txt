@@ -1,0 +1,128 @@
+"""Capture member zero while exactly replaying the published first-month means."""
+
+import argparse
+import hashlib
+import json
+import os
+from pathlib import Path
+
+import numpy as np
+import torch
+
+from samudra.experiments.monthly_annual import month_layout, require_endpoint_step, rollout
+from samudra.experiments.monthly_latent import MonthlyLatentOcean
+from samudra.experiments.observation_annual import read_origin
+from samudra.experiments.observation_pilot import atomic_json, digest
+from samudra.experiments.observation_training import Samples
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--root', type=Path, required=True)
+    parser.add_argument('--index', type=int, required=True)
+    args = parser.parse_args()
+    config = json.loads((args.root / 'paths.json').read_text())
+    assert config['producer'] == os.environ['SAMUDRA_CODE_COMMIT']
+    row = config['models'][args.index]
+    source = Path(row['annual_root'])
+    old_config = json.loads((source / 'paths.json').read_text())
+    audit = json.loads((source / 'AUDITED.json').read_text())
+    qualified = json.loads((source / 'QUALIFIED.json').read_text())
+    assert audit['config_sha256'] == digest(source / 'paths.json')
+    assert qualified['audit_sha256'] == digest(source / 'AUDITED.json')
+    assert qualified['first_month_readout_exact'] is True
+    old = next(m for m in old_config['models'] if m['name'] == row['annual_name'])
+    assert old['checkpoint'] == row['checkpoint']
+    assert old_config['origins'] == config['origins']
+    assert old_config['samples'] == config['samples']
+    assert old_config['annual'] == config['annual']
+    checkpoint_sha = digest(row['checkpoint'])
+    assert checkpoint_sha == audit['contracts'][row['checkpoint']]
+    for path, sha in audit['contracts'].items():
+        if path.endswith(('grid.npz', 'statistics.npz', 'SHA256SUMS', 'COMPLETE.json')):
+            assert digest(path) == sha, path
+    completed = json.loads((source / row['annual_name'] / 'COMPLETE.json').read_text())
+    torch.set_num_threads(8)
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = True
+    torch.use_deterministic_algorithms(True)
+    saved = torch.load(row['checkpoint'], map_location='cpu', weights_only=False)
+    require_endpoint_step(saved, row)
+    assert not row['adapter']
+    model = MonthlyLatentOcean().cuda().eval()
+    model.load_state_dict(saved['ema'], strict=True)
+    del saved
+    data = Samples(config['samples'], 'cuda', surface_fill='zero',
+                   global_observations=True, cache_size=32)
+    data.cache_prepared = True
+    out = args.root / row['name']
+    out.mkdir()
+    outputs, contracts = {}, {}
+    for i, origin in enumerate(config['origins']):
+        path = source / row['annual_name'] / (origin + '.npz')
+        contracts[str(path)] = digest(path)
+        assert contracts[str(path)] == completed['outputs'][path.name]
+        description, raw = read_origin(Path(config['annual']) / 'test' / origin)
+        native, monthly = [], []
+        original_sample = model.decoder.sample
+
+        def capture(*a, **kw):
+            draws = original_sample(*a, **kw)
+            assert draws.shape[0] == 8
+            if kw.get('duration_days', 5.0) == 5.0:
+                native.append(draws[0, [38, 76]].float().cpu().clone())
+            else:
+                monthly.append(draws[:1].detach().clone())
+            return draws
+
+        model.decoder.sample = capture
+        try:
+            result = rollout(model, data, description, raw, origin_index=i,
+                             first_month_only=True)
+        finally:
+            model.decoder.sample = original_sample
+        with np.load(path) as baseline:
+            for key in ('surface', 'ohc', 'months'):
+                np.testing.assert_array_equal(result[key], baseline[key][:len(result[key])],
+                                              err_msg=f'Published mean changed: {key}')
+            np.testing.assert_array_equal(result['latent_rms'], baseline['latent_rms'])
+            references = dict(reference_surface=baseline['reference_surface'][:len(native)],
+                              reference_ohc=baseline['reference_ohc'][:1])
+        assert len(monthly) == 1 and len(native) >= 6
+        month = str(result['months'][0])
+        indices, weights, _, _ = month_layout(raw['start'][19:], month)
+        sample = monthly[0]
+        # Match the annual evaluator's native-SST substitution and reduction order.
+        window = sample.new_zeros(1, len(indices), 77, *model.shape)
+        for j, index in enumerate(indices):
+            window[:, j, [38, 76]] = native[int(index)].to(sample.device, dtype=sample.dtype)
+        sample[:, 38] = (window[:, :, 38] * data.tensor(weights)[None, :, None, None]).sum(1)
+        member_ohc = data.ohc(sample)[0][None]
+        ordered = torch.stack(native, 0)[None].to(data.device)
+        member_surface = (ordered * data.std[:, :, [38, 76]]
+                          + data.mean[:, :, [38, 76]])[0].cpu().numpy()
+        assert np.isfinite(member_surface).all()
+        result = dict(surface=member_surface, ohc=member_ohc, months=np.asarray([month]),
+                      latent_rms=result['latent_rms'], member_index=np.asarray(0),
+                      generator_seed=np.asarray(904001 + i), **references)
+        filename = origin + '.npz'
+        np.savez_compressed(out / filename, **result)
+        with np.load(out / filename) as check:
+            for key, value in result.items():
+                np.testing.assert_array_equal(check[key], value)
+        outputs[filename] = digest(out / filename)
+        print(json.dumps(dict(model=row['name'], origin=origin,
+                              eight_member_mean_exact=True, member_index=0)), flush=True)
+    atomic_json(dict(model=row, checkpoint_sha256=checkpoint_sha,
+                     producer=config['producer'], source_contracts=contracts,
+                     exporter_sha256=digest(Path(__file__)), outputs=outputs,
+                     origins=config['origins'], member_index=0,
+                     eight_member_means_bitwise_exact=True,
+                     latent_trajectory_bitwise_exact=True,
+                     monthly_sst_consistent_with_member_native_draws=True),
+                out / 'COMPLETE.json')
+
+
+if __name__ == '__main__':
+    with torch.no_grad():
+        main()

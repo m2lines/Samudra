@@ -1,0 +1,274 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+# SPDX-License-Identifier: Apache-2.0
+"""Render saved monthly-replay fields, without inference or changing the repo."""
+
+import argparse
+import hashlib
+import json
+import math
+from pathlib import Path
+
+import matplotlib
+import numpy as np
+from matplotlib import colormaps, colors, font_manager
+from PIL import Image, ImageDraw, ImageFont
+
+from samudra.constants import build_om4_layout
+
+
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--member-root', type=Path)
+parser.add_argument('--out', type=Path)
+parser.add_argument('--error-limits', help='JSON array of four symmetric color limits')
+args = parser.parse_args()
+MODE = 'member0' if args.member_root else 'ensemble-mean'
+OUT = args.out or (Path(__file__).resolve().parent / 'member0' if args.member_root
+                   else Path(__file__).resolve().parent)
+OUT.mkdir(parents=True, exist_ok=True)
+OLD = Path('/tmp/monthly-annual-214408')
+NEW = Path('/tmp/monthly-replay-annual-215337')
+NAMES = ['A', 'A-extend', 'A-replay', 'E', 'E-extend', 'E-replay']
+ORIGINS = ['2015-01-01', '2018-01-01', '2021-01-01']
+PATHS = {
+    name: (args.member_root / name if args.member_root else
+           OLD / (name + '-1729') if name in ('A', 'E') else NEW / name)
+    for name in NAMES
+}
+TITLES = ['Day-30 SST (°C)', 'Day-30 SSH / ADT (m)',
+          'January OHC: 0–700 m (GJ/m²)', 'January OHC: 700–2,000 m (GJ/m²)']
+RAW_LIMITS = [(-3, 33), (-1.6, 1.6), (-5, 55), (-5, 45)]
+RAW_CMAPS = ['turbo', 'RdBu_r', 'viridis', 'viridis']
+WET_COLOR = (225, 229, 233)
+PANEL_W, PANEL_H = 720, 360
+LEFT, GAP, TOP, ROW_H = 188, 28, 210, 424
+WIDTH = LEFT + 4 * PANEL_W + 3 * GAP + 44
+FONT_PATH = font_manager.findfont('DejaVu Sans')
+FONT_BOLD = font_manager.findfont(matplotlib.font_manager.FontProperties(
+    family='DejaVu Sans', weight='bold'))
+
+
+def digest(path):
+    h = hashlib.sha256()
+    with path.open('rb') as f:
+        for block in iter(lambda: f.read(8 << 20), b''):
+            h.update(block)
+    return h.hexdigest()
+
+
+def text(draw, xy, value, size=23, bold=False, anchor=None):
+    font = ImageFont.truetype(FONT_BOLD if bold else FONT_PATH, size)
+    draw.text(xy, value, font=font, fill=(28, 34, 41), anchor=anchor)
+
+
+def raster(field, cmap_name, limits):
+    cmap = colormaps[cmap_name].copy()
+    cmap.set_bad(np.asarray(WET_COLOR) / 255)
+    rgba = cmap(colors.Normalize(*limits)(np.ma.masked_invalid(field)), bytes=True)
+    return Image.fromarray(rgba[::-1, :, :3]).resize(
+        (PANEL_W, PANEL_H), resample=Image.Resampling.NEAREST)
+
+
+def rmse(field, mask):
+    valid = mask & np.isfinite(field)
+    weights = area * valid
+    return float(np.sqrt(np.sum(np.where(valid, field * field, 0) * weights)
+                         / weights.sum()))
+
+
+grid = dict(np.load(NEW / 'grid.npz'))
+original_grid = dict(np.load(OLD / 'grid.npz'))
+for key in grid:
+    np.testing.assert_array_equal(grid[key], original_grid[key])
+assert grid['lat'][0] < grid['lat'][-1]
+assert grid['lon'][0] == 0.5 and grid['lon'][-1] == 359.5
+np.testing.assert_array_equal(grid['mask'][38], grid['mask'][76])
+edges = np.r_[0, np.cumsum(build_om4_layout().depth_thickness)]
+wet_temperature = grid['mask'][38:57]
+ohc_masks = [wet_temperature[(edges[:-1] < hi) & (edges[1:] > lo)].all(0)
+             for lo, hi in [(0, 700), (700, 2000)]]
+assert [int(m.sum()) for m in ohc_masks] == [38933, 37190]
+masks = [grid['mask'][38], grid['mask'][76], *ohc_masks]
+area = np.cos(np.deg2rad(grid['lat']))[:, None]
+data, reference, provenance = {}, {}, []
+
+for origin in ORIGINS:
+    data[origin] = {}
+    for name, directory in PATHS.items():
+        complete = json.loads((directory / 'COMPLETE.json').read_text())
+        path = directory / (origin + '.npz')
+        sha = digest(path)
+        assert sha == complete['outputs'][path.name], f'Hash mismatch: {path}'
+        with np.load(path) as z:
+            assert z['surface'].shape[0] >= 6
+            assert z['surface'].shape[1:] == (2, 180, 360)
+            if args.member_root:
+                assert int(z['member_index']) == 0
+                assert complete['eight_member_means_bitwise_exact']
+                assert complete['latent_trajectory_bitwise_exact']
+            assert z['months'][0] == origin[:7]
+            fields = [z['surface'][5, k].astype(float).copy() for k in range(2)]
+            fields += [z['ohc'][0, k].copy() / 1e9 for k in range(2)]
+            refs = [z['reference_surface'][5, k].astype(float).copy() for k in range(2)]
+            refs += [z['reference_ohc'][0, k].astype(float).copy() / 1e9
+                     for k in range(2)]
+        if origin not in reference:
+            reference[origin] = refs
+        else:
+            for a, b in zip(reference[origin], refs, strict=True):
+                np.testing.assert_array_equal(a, b)
+        for f, mask in zip(fields, masks, strict=True):
+            assert np.isfinite(f[mask]).all(), (name, origin)
+        data[origin][name] = fields
+        provenance.append(dict(model=name, origin=origin, file=str(path), sha256=sha,
+                               checkpoint=complete['model']))
+
+
+def round_limit(value):
+    power = 10 ** math.floor(math.log10(max(value, 1e-12)))
+    return next(m * power for m in (1, 2, 2.5, 5, 10) if m * power >= value)
+
+
+# A single signed-error scale per physical quantity, shared by every figure.
+error_limits = []
+for k in range(4):
+    errors = np.concatenate([
+        np.abs(data[origin][name][k] - reference[origin][k])[
+            masks[k] & np.isfinite(reference[origin][k])]
+        for origin in ORIGINS for name in NAMES
+    ])
+    hi = round_limit(float(np.quantile(errors, 0.995)))
+    error_limits.append((-hi, hi))
+if args.error_limits:
+    requested_limits = json.loads(args.error_limits)
+    assert len(requested_limits) == 4
+    assert all(hi >= auto[1] for hi, auto in zip(requested_limits, error_limits, strict=True))
+    error_limits = [(-hi, hi) for hi in requested_limits]
+
+outputs, panel_metrics = [], []
+
+
+def figure(origin, family, errors=False):
+    names = [family, family + '-extend', family + '-replay']
+    row_names = names if errors else ['Observations', *names]
+    height = TOP + ROW_H * len(row_names) + 154
+    image = Image.new('RGB', (WIDTH, height), 'white')
+    draw = ImageDraw.Draw(image)
+    title = ('Prediction − observation' if errors else 'Physical fields')
+    if args.member_root:
+        title += ' · member 0'
+    family_desc = 'OM4 + observations' if family == 'A' else 'Observations only'
+    text(draw, (LEFT, 20), f'{title} — {family_desc}', 38, True)
+    text(draw, (LEFT, 78),
+         f'Start {origin}  ·  surface window: days 25–30 (five-day mean)  ·  '
+         'OHC: January mean', 25)
+    forecast_type = ('decoder draw 0 from the original 8-member batches' if args.member_root
+                     else '8-member diffusion ensemble mean')
+    text(draw, (LEFT, 116),
+         f'One initialization; prescribed ERA5. Forecasts: {forecast_type}. '
+         'North up; longitude 0–360°.', 23)
+    rectangles = []
+    for k, title in enumerate(TITLES):
+        x = LEFT + k * (PANEL_W + GAP)
+        text(draw, (x, 169), title, 24, True)
+    for row, name in enumerate(row_names):
+        y = TOP + row * ROW_H
+        text(draw, (20, y + 149), 'Observed' if name == 'Observations' else name, 25, True)
+        if name != 'Observations':
+            text(draw, (20, y + 191), '3k updates' if 'extend' not in name else '5k updates', 20)
+        fields = reference[origin] if name == 'Observations' else data[origin][name]
+        for k, field in enumerate(fields):
+            valid = masks[k] & np.isfinite(reference[origin][k])
+            diff = field - reference[origin][k]
+            plotted = np.where(valid, diff if errors else field, np.nan)
+            limits = error_limits[k] if errors else RAW_LIMITS[k]
+            x = LEFT + k * (PANEL_W + GAP)
+            image.paste(raster(plotted, 'RdBu_r' if errors else RAW_CMAPS[k], limits), (x, y))
+            rectangles.append((x, y, PANEL_W, PANEL_H))
+            if name != 'Observations':
+                score = rmse(diff, valid)
+                unit = ['°C', 'm', 'GJ/m²', 'GJ/m²'][k]
+                text(draw, (x, y + PANEL_H + 10), f'Area-weighted RMSE: {score:.3f} {unit}', 23)
+                if errors:
+                    clipped = float(np.mean(np.abs(diff[valid]) > limits[1]))
+                    panel_metrics.append(dict(origin=origin, model=name, quantity=TITLES[k],
+                                              rmse=score, saturated_fraction=clipped,
+                                              min_error=float(diff[valid].min()),
+                                              max_error=float(diff[valid].max())))
+    bar_y = TOP + ROW_H * len(row_names) + 3
+    for k in range(4):
+        x = LEFT + k * (PANEL_W + GAP)
+        lo, hi = error_limits[k] if errors else RAW_LIMITS[k]
+        gradient = np.tile(np.linspace(lo, hi, PANEL_W), (20, 1))
+        cmap = colormaps['RdBu_r' if errors else RAW_CMAPS[k]]
+        bar = (cmap(colors.Normalize(lo, hi)(gradient), bytes=True)[:, :, :3])
+        image.paste(Image.fromarray(bar), (x, bar_y))
+        for t, anchor in [(lo, 'la'), ((lo + hi) / 2, 'ma'), (hi, 'ra')]:
+            px = x + (t - lo) / (hi - lo) * (PANEL_W - 1)
+            text(draw, (px, bar_y + 29), f'{t:g}', 22, anchor=anchor)
+    text(draw, (LEFT, height - 66),
+         'Color limits shared across all models and starts; outliers saturate. '
+         'Gray: land / missing target / incomplete depth support.', 22)
+    text(draw, (LEFT, height - 34),
+         'Native 180×360 cells, exactly 2×2 pixels per cell. '
+         'A: 50/50 obs–OM4 main training; E: obs-only; all have obs-only cooldown.', 22)
+    filename = f'day30-{origin}-{family}-' + ('errors' if errors else 'fields') + '.png'
+    path = OUT / filename
+    image.save(path, compress_level=9)
+    # Verify saved panels preserve exactly two identical pixels in each direction.
+    with Image.open(path) as saved:
+        pixels = np.asarray(saved)
+        for x, y, w, h in rectangles:
+            block = pixels[y:y+h, x:x+w].reshape(180, 2, 360, 2, 3)
+            np.testing.assert_array_equal(block[:, 0, :, 0], block[:, 1, :, 0])
+            np.testing.assert_array_equal(block[:, 0, :, 0], block[:, 0, :, 1])
+    outputs.append(dict(file=filename, sha256=digest(path), size=list(image.size),
+                        origin=origin, family=family, errors=errors))
+    print(filename, image.size, flush=True)
+
+
+for origin in ORIGINS:
+    for family in ('A', 'E'):
+        for errors in (False, True):
+            figure(origin, family, errors)
+
+manifest = dict(source='monthly-replay-2026-10-20', mode=MODE, models=NAMES, origins=ORIGINS,
+                inference_performed=False, lead_days=30, native_bin_index=5,
+                surface_window_days=[25, 30], monthly_ohc='January calendar-month mean',
+                cell_pixels=[2, 2], ohc_support_cells=[int(x.sum()) for x in ohc_masks],
+                raw_color_limits=RAW_LIMITS, error_color_limits=error_limits,
+                error_color_limit_method='Nice-rounded 99.5th percentile of absolute '
+                'errors pooled across all six models and three starts, per quantity',
+                grid_sha256=digest(NEW / 'grid.npz'), inputs=provenance,
+                outputs=outputs, panel_metrics=panel_metrics,
+                geometry_verified=True, input_output_hashes_verified=True)
+(OUT / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
+readme = [
+    '# Day-30 maps: monthly replay comparison (' + MODE + ')', '',
+    'All six fixed endpoints from the monthly replay report. This plotting script reads '
+    'saved outputs and performs no inference or retraining.', '',
+    'Surface SST/SSH panels show the five-day mean over forecast days 25–30. '
+    'OHC panels show the first calendar-month mean (January), at 0–700 m and '
+    '700–2,000 m. Physical fields and prediction-minus-observation errors are '
+    'provided separately. ' + ('Forecasts show decoder member 0, captured while reproducing '
+    'the published eight-member means and latent trajectories bit for bit. The latent '
+    'evolution is deterministic; this is not a stochastic dynamics rollout.' if args.member_root
+    else 'Forecasts are means of eight diffusion members.'), '',
+    'A mixes OM4 and observations 50/50 during main training. E is observation-only. '
+    'Original and replay runs have 2k main updates + 1k observation-only cooldown; '
+    'extended runs have 4k main + 1k cooldown. Replay adds detached long-lead latent '
+    'continuations to half the observation examples. All use the same architecture.', '',
+    'Color limits are fixed across all models and starts. Error limits cover at least '
+    '99.5% of pooled valid cells; outliers saturate. Gray cells have no valid '
+    'observation or lack the fixed model-depth support. Each native grid cell is '
+    'exactly 2×2 pixels; saved-image pixel replication was verified.', '',
+    '[Provenance, SHA-256 checksums, pixel verification, RMSE and saturation fractions](manifest.json)', '',
+]
+for origin in reversed(ORIGINS):
+    readme += [f'## Start {origin}', '']
+    for family, label in [('A', 'OM4 + observations'), ('E', 'Observations only')]:
+        prefix = f'day30-{origin}-{family}-'
+        readme += [f'- {label}: [physical fields]({prefix}fields.png) · '
+                   f'[prediction errors]({prefix}errors.png)']
+    readme += ['']
+(OUT / 'README.md').write_text('\n'.join(readme))
+print('Verified 18 input hashes and 12 figures; exact 2×2 pixels per cell.', flush=True)

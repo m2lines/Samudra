@@ -3,6 +3,9 @@
 
 # Longer training and observation replay
 
+[Day-30 map addendum: ensemble means and individual decoder draws](monthly-replay-map-addendum-2026-10-22.md)
+for all six comparison models and three held-out starts.
+
 Question: does additional training or exposure to the model's own longer latent
 rollouts improve the monthly forecasts and the severe annual drift documented
 in the [original pilots](monthly-latent-pilots-2026-10-16.md) and

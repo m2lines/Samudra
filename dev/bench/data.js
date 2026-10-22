@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792682845759,
+  "lastUpdate": 1792682853370,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -26175,6 +26175,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.02859754492621282",
             "extra": "mean: 12.40259828479999 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse+bot@openathena.ai",
+            "name": "oa-jder-bot",
+            "username": "oa-jder-bot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "1e449b1f4f1a992e594ad72936396f79b61b0e2b",
+          "message": "Slice auxiliary time coordinates to each prediction batch (#935)\n\nPrediction writing fails when a source carries time-dependent auxiliary\ncoordinates such as `time_bnds`: a 50-state forecast batch was combined\nwith all 7,300 CM4 source bounds. Select these coordinates at the\ncurrent forecast timestamps before each write, preserving bounds and\nother time-varying metadata through appends.\n\nRegression tests cover both CM4 no-leap and OM4 Julian dates, skipped\ninitial states, and multiple appends. Validation: 18 focused\nwriter/eval/rollout tests and pre-commit checks passed. Discovered while\nrunning the held-out evaluation recorded in #932.\n\n---------\n\nCo-authored-by: fomo-bot <266121006+fomo-bot@users.noreply.github.com>",
+          "timestamp": "2026-10-22T15:00:55Z",
+          "tree_id": "dd02f38192f008c9b89ff57dc61daed503c08925",
+          "url": "https://github.com/m2lines/Samudra/commit/1e449b1f4f1a992e594ad72936396f79b61b0e2b"
+        },
+        "date": 1792682852966,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 1.0385887077688007,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0027558069715816562",
+            "extra": "mean: 962.8450535999946 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_dataset__1gb[cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.3579408224931396,
+            "unit": "iter/sec",
+            "range": "stddev: 0.09942074917906725",
+            "extra": "mean: 2.793757898399997 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.07981776237475782,
+            "unit": "iter/sec",
+            "range": "stddev: 0.53465822335949",
+            "extra": "mean: 12.528539641400016 sec\nrounds: 5"
           }
         ]
       }

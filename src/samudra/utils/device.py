@@ -7,8 +7,12 @@ import torch
 _CHOSEN_DEVICE: torch.device | None = None
 
 
-def autocast(enabled: bool, dtype: torch.dtype) -> torch.autocast:
-    if using_gpu():
+def autocast(
+    enabled: bool, dtype: torch.dtype, *, device: str | torch.device | None = None
+) -> torch.autocast:
+    """Use the caller's device when supplied, otherwise Samudra's chosen device."""
+    chosen = get_device() if device is None else torch.device(device)
+    if chosen.type == "cuda":
         return torch.autocast("cuda", dtype=dtype, enabled=enabled)
     else:
         return torch.autocast("cpu", dtype=dtype, enabled=enabled)

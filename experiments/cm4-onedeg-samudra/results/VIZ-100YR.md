@@ -80,3 +80,8 @@ Replacement Grace job **144455** was released with source
 [2b988487d](https://github.com/m2lines/Samudra/commit/2b988487d).
 Its callback and quiet monitor are active; the failed-attempt callback is retired.
 Results remain pending.
+
+Attempt-4 bring-up verified: both `linear_piecewise_scale` and `box_plot` import
+successfully after dependency installation, all 7,298 native no-leap timestamps
+and source depths/thicknesses match again, and reference profile computation has
+started. Final plots, movies, and completion audit remain pending.

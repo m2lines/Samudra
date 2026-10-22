@@ -76,4 +76,7 @@ It restarts all steps in a separate directory: early steps populate shared
 in-memory values consumed by later steps, and the previous process state is not
 available. The 10h45m limit plus the prior 1h07m32s of allocations stays within
 the original 12-hour budget. Plotting algorithms and input values are unchanged.
-Replacement submission is pending.
+Replacement Grace job **144455** was released with source
+[2b988487d](https://github.com/m2lines/Samudra/commit/2b988487d).
+Its callback and quiet monitor are active; the failed-attempt callback is retired.
+Results remain pending.

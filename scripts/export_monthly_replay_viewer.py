@@ -59,6 +59,31 @@ def verify_sources(config):
         contracts[str(directory / "COMPLETE.json")] = digest(
             directory / "COMPLETE.json"
         )
+    if config.get("retained_member") is not None:
+        if config["retained_member"] != 0:
+            raise ValueError(
+                "This paired export retains member zero of the eight draws"
+            )
+        prior = Path(config["mean_profile_export"])
+        prior_config = json.loads((prior / "paths.json").read_text())
+        if (
+            prior_config["models"] != config["models"]
+            or prior_config["origins"] != config["origins"]
+        ):
+            raise ValueError("Paired mean profile cohort differs")
+        for row in config["models"]:
+            directory = prior / row["name"]
+            receipt = json.loads((directory / "COMPLETE.json").read_text())
+            if (
+                receipt["producer"] != prior_config["producer"]
+                or receipt["exact_annual_overlap"] is not True
+            ):
+                raise ValueError("Prior mean profile export was not verified")
+            for name, sha in receipt["files"].items():
+                path = directory / name
+                if digest(path) != sha:
+                    raise ValueError("Prior mean profile payload changed")
+                contracts[str(path)] = sha
     return contracts
 
 
@@ -84,9 +109,27 @@ def export_case(model, data, config, row, i, *, first=False):
         origin_index=i,
         first_month_only=first,
         export_profiles=True,
+        export_member=config.get("retained_member"),
     )
     path = Path(row["annual_root"]) / row["annual_name"] / (origin + ".npz")
     check_overlap(result, path, first)
+    if config.get("retained_member") is not None:
+        prior = Path(config["mean_profile_export"]) / row["name"] / (origin + ".npz")
+        proof = json.loads((Path(config["output_root"]) / "AUDITED.json").read_text())
+        if digest(prior) != proof["contracts"][str(prior)]:
+            raise ValueError("Paired mean export changed after audit")
+        with np.load(prior) as saved:
+            for key, value in result.items():
+                if key.startswith("member_"):
+                    if np.isinf(value).any():
+                        raise ValueError(f"Nonfinite retained draw: {key}")
+                    continue
+                expected = saved[key]
+                if first and key in ("surface", "ohc", "months", "temperature"):
+                    expected = expected[: len(value)]
+                np.testing.assert_array_equal(
+                    value, expected, err_msg=f"Paired eight-draw {key} changed"
+                )
     reference_temperature = []
     for month in result["months"]:
         sample = data.load(data.root / "test" / (str(month) + ".npz"))
@@ -146,6 +189,8 @@ def main():
                 audit_sha256=digest(a.root / "AUDITED.json"),
                 first_month_readouts_exact=True,
                 independent_initial_noise=True,
+                retained_member=config.get("retained_member"),
+                paired_mean_profiles_exact=config.get("retained_member") is not None,
             ),
             a.root / "QUALIFIED.json",
         )
@@ -191,6 +236,8 @@ def main():
             origins=config["origins"],
             files=files,
             exact_annual_overlap=True,
+            retained_member=config.get("retained_member"),
+            paired_mean_profiles_exact=config.get("retained_member") is not None,
             wandb_url=run.url,
         ),
         output / "COMPLETE.json",

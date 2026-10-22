@@ -152,12 +152,17 @@ def test_full_annual_readout_with_saved_string_timestamps(tmp_path):
         physical=lambda x: x.float(),
     )
     calls = []
+    random_draws = []
 
     def sample(latent, support, generator, *, steps, position_days, duration_days=5.0):
         calls.append((position_days, duration_days))
-        return (latent[:, 0, 0, 0, 0, None, None, None] + position_days / 365.0).expand(
-            -1, 77, h, w
-        ) * support
+        draw = (
+            latent[:, 0, 0, 0, 0, None, None, None]
+            + position_days / 365.0
+            + torch.rand(len(latent), 1, 1, 1, generator=generator)
+        ).expand(-1, 77, h, w) * support
+        random_draws.append(draw.clone())
+        return draw
 
     def trajectory(fields, available, forcing, contexts):
         assert available.dtype == torch.bool
@@ -193,6 +198,43 @@ def test_full_annual_readout_with_saved_string_timestamps(tmp_path):
     assert exported["temperature"].shape == (12, 14, h, w)
     assert exported["initial_interior"].shape == (14, 4, h, w)
     assert calls[-1] == (-2.5, 5.0)
+    before = len(random_draws)
+    paired = rollout(
+        model,
+        data,
+        description,
+        raw,
+        origin_index=0,
+        export_profiles=True,
+        export_member=0,
+    )
+    for key in exported:
+        np.testing.assert_array_equal(paired[key], exported[key])
+    np.testing.assert_array_equal(
+        paired["member_surface"][0], random_draws[before][0, [38, 76]].numpy()
+    )
+    np.testing.assert_array_equal(
+        paired["member_initial_interior"],
+        random_draws[-1][0].numpy()[
+            np.array([[38 + i, 57 + i, i, 19 + i] for i in range(14)])
+        ],
+    )
+    assert not np.array_equal(paired["member_surface"], paired["surface"])
+    assert paired["member_temperature"].shape == paired["temperature"].shape
+    np.testing.assert_array_equal(
+        paired["member_ohc"][:, 0], paired["member_temperature"][:, 0]
+    )
+    for bad in [-1, 8, True]:
+        with pytest.raises(ValueError, match="retained member"):
+            rollout(
+                model,
+                data,
+                description,
+                raw,
+                origin_index=0,
+                export_profiles=True,
+                export_member=bad,
+            )
     raw["surface"][19:] = 999
     result2 = rollout(model, data, description, raw, origin_index=0)
     np.testing.assert_array_equal(result2["surface"], result["surface"])

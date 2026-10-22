@@ -68,8 +68,15 @@ def rollout(
     origin_index,
     first_month_only=False,
     export_profiles=False,
+    export_member=None,
 ):
     """Initialize once; never consume future ocean observations during evolution."""
+    if export_member is not None and (
+        type(export_member) is not int
+        or not 0 <= export_member < 8
+        or not export_profiles
+    ):
+        raise ValueError("A retained member must be 0–7 and include profile exports")
     surface, atmosphere, contexts, _, valid = inputs(data, raw)
     fields, available = history_fields(surface, valid)
     monthly_sample = data.load(
@@ -90,8 +97,9 @@ def rollout(
     native_support[[38, 76]] = data.mask[[38, 76]].bool()
     monthly_support = torch.zeros_like(native_support)
     monthly_support[data.ts_indices] = data.ts_mask.bool()
-    native = {}
+    native, native_members = {}, {}
     monthly_ohc, months, temperatures = [], [], []
+    member_ohc, member_temperatures = [], []
     for record in description["monthly_interiors"][: 1 if first_month_only else 12]:
         month = record["file"][:7]
         indices, weights, duration, position = month_layout(raw["start"][19:], month)
@@ -99,28 +107,34 @@ def rollout(
             if int(index) in native:
                 continue
             with torch.autocast("cuda", dtype=torch.bfloat16):
-                draw = model.decoder.sample(
+                draws = model.decoder.sample(
                     states[1 + index].expand(8, -1, -1, -1, -1),
                     native_support,
                     gen,
                     steps=32,
                     position_days=2.5 + 5 * int(index),
-                ).mean(0, keepdim=True)
+                )
+                draw = draws.mean(0, keepdim=True)
             if not torch.isfinite(draw).all():
                 raise ValueError("Nonfinite native readout")
             native[int(index)] = draw[:, [38, 76]].float().cpu()
+            if export_member is not None:
+                native_members[int(index)] = (
+                    draws[export_member : export_member + 1, [38, 76]].float().cpu()
+                )
         with torch.autocast("cuda", dtype=torch.bfloat16):
             latent = model.monthly_condition(
                 [states[1 + i] for i in indices], data.tensor(weights)
             )
-            monthly = model.decoder.sample(
+            monthly_draws = model.decoder.sample(
                 latent.expand(8, -1, -1, -1, -1),
                 monthly_support,
                 gen,
                 steps=32,
                 duration_days=duration,
                 position_days=position,
-            ).mean(0, keepdim=True)
+            )
+            monthly = monthly_draws.mean(0, keepdim=True)
         # Reconstruct the original native tensor layout and reduction order so
         # the first-month SST contribution is bitwise replayable.
         native_window = monthly.new_zeros(1, len(indices), 77, *model.shape)
@@ -138,6 +152,20 @@ def rollout(
         if export_profiles:
             temperatures.append(
                 data.physical(monthly[:, None])[0, 0, 38:52].cpu().numpy()
+            )
+        if export_member is not None:
+            member = monthly_draws[export_member : export_member + 1].clone()
+            member_window = torch.stack(
+                [native_members[int(i)] for i in indices], 1
+            ).to(data.device, dtype=member.dtype)
+            # Retain the annual operator: top-layer T is the calendar-weighted
+            # native SST, here using the same member index in every readout.
+            member[:, 38] = (
+                member_window[:, :, 0] * data.tensor(weights)[None, :, None, None]
+            ).sum(1)
+            member_ohc.append(data.ohc(member)[0])
+            member_temperatures.append(
+                data.physical(member[:, None])[0, 0, 38:52].cpu().numpy()
             )
         months.append(month)
     ordered = torch.stack([native[i] for i in sorted(native)], 1)
@@ -164,13 +192,14 @@ def rollout(
             905001 + origin_index
         )
         with torch.autocast("cuda", dtype=torch.bfloat16):
-            initial = model.decoder.sample(
+            initial_draws = model.decoder.sample(
                 states[0].expand(8, -1, -1, -1, -1),
                 data.mask.bool(),
                 initial_gen,
                 steps=32,
                 position_days=-2.5,
-            ).mean(0, keepdim=True)
+            )
+            initial = initial_draws.mean(0, keepdim=True)
         physical_initial = data.physical(initial[:, None])[0, 0].cpu().numpy()
         indices = np.array([[38 + i, 57 + i, i, 19 + i] for i in range(14)])
         result.update(
@@ -182,6 +211,25 @@ def rollout(
         for key in ("temperature", "initial_interior", "initial_surface"):
             if not np.isfinite(result[key]).all():
                 raise ValueError(f"Nonfinite exported {key}")
+        if export_member is not None:
+            member_initial = initial_draws[export_member : export_member + 1]
+            physical_member = data.physical(member_initial[:, None])[0, 0].cpu().numpy()
+            member_ordered = torch.stack(
+                [native_members[i] for i in sorted(native_members)], 1
+            ).to(data.device)
+            result.update(
+                member_surface=(
+                    member_ordered * data.std[:, :, [38, 76]]
+                    + data.mean[:, :, [38, 76]]
+                )[0]
+                .cpu()
+                .numpy(),
+                member_ohc=np.stack(member_ohc),
+                member_temperature=np.stack(member_temperatures),
+                member_initial_interior=physical_member[indices],
+                member_initial_surface=physical_member[[38, 76]],
+                member_initial_ohc=data.ohc(member_initial)[0],
+            )
     return result
 
 

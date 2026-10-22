@@ -56,4 +56,9 @@ PATH. Attempt 3 uses a writable container with user-namespace root mapping
 (no elevated host permissions) to install FFmpeg if absent, records package
 versions and installation logs, and preserves the pinned Python environment.
 Its 11h50m limit plus prior failed allocations remains below 12 hours. All prior
-artifacts are retained; replacement submission is pending.
+artifacts are retained. Replacement Grace job **144395** uses source
+[bc816d33d](https://github.com/m2lines/Samudra/commit/bc816d33d).
+Bring-up confirmed FFmpeg/FFprobe installation and entry into the Python
+visualization launcher. Installed package versions and logs are retained.
+Its callback and quiet monitor are active; both failed-attempt callbacks are
+retired. Plotting and final artifact verification remain pending.

@@ -45,4 +45,7 @@ Enroot attempted NVIDIA driver injection on a CPU-only Grace node. The site
 and passes it into the container. It retains the same image, input stores, and
 plotting implementation, uses a separate attempt directory, and has an 11h55m
 limit to stay within the original 12-hour allocation budget. First-attempt
-logs are preserved. Replacement submission is pending.
+logs are preserved. Replacement Grace job **144392** was released with source
+[5b3b8b98b](https://github.com/m2lines/Samudra/commit/5b3b8b98b).
+Its separate completion hook and quiet monitor are installed; the old callback
+is retired. Results remain pending.

@@ -127,14 +127,95 @@ Implementation: [replay adapter](../../../src/samudra/experiments/stochastic_sta
 [worker runner](../../../scripts/stochastic_replay_beta_workers.sh),
 [qualification](../../../scripts/qualify_stochastic_replay.py).
 
-## Submission status
+## Completed results
 
-Qualification job **215523** and production job **215524** are queued on Beta.
-Production has an `afterok:215523` dependency: it cannot start unless all three
-arms pass replay, resume, long-lead gradient and evaluation checks. Source
-snapshot: `stochastic-replay-54d95f82609e` (231 staged files verified). All 23
-focused CPU tests and repository checks passed. Each job has a durable completion
-watcher and quiet monitoring. Queue time is unknown; the preceding no-replay
-wave took 3h51m, so this wave retains an eight-hour production allocation with
-room for replay/cache overhead and evaluation. Online W&B startup will be
-verified once the job starts.
+Qualification **215523** and production **215524** both completed successfully.
+Production took 5h26m46s; total allocated compute including qualification was
+**22.42 GPU-hours**. Every arm completed 500 observation + 500 OM4 updates and
+cooled to 1e-6. All 84 final payload hashes were verified remotely; retrieved
+metrics and map archives also matched their completion receipts.
+
+**Replay strongly stabilizes the deterministic arm, partially helps initial-only
+noise, and does not resolve fresh-transition-noise SST drift.** This reverses the
+ranking of the no-replay pilot and argues against selecting an uncertainty
+mechanism without training it on long trajectories.
+
+| Arm | Day30 SST, no replay → replay (°C) | Day365 SST, no replay → replay (°C) | Day365 SSH, no replay → replay (m) |
+| --- | ---: | ---: | ---: |
+| Deterministic | 0.782 → 0.860 | 14.767 → **1.595** | 0.878 → **0.129** |
+| Initial noise only | 0.913 → 1.187 | 9.494 → **4.076** | 0.641 → **0.184** |
+| Fresh transition noise | 0.950 → 1.201 | 8.862 → **8.846** | 0.577 → **0.443** |
+
+These are eight-member mean metrics, pooled as the square root of the mean of
+squared per-origin RMSEs, across January 2015/2018/2021. Day30 and day365 refer to
+five-day bins ending at those leads. They are not whole-year RMSEs. Each origin
+uses the same cosine-area-weighted wet support as the earlier pilot.
+
+![Matched replay comparison](stochastic-state-replay-assets/replay-comparison.png)
+
+[Exact replay scores](stochastic-state-replay-assets/annual-rmse.csv).
+The deterministic SST error reduction is about 89%; the initial-only reduction
+is about 57%. Fresh-noise SSH improves despite its essentially unchanged
+end-of-year SST. Short-lead SST worsens in all arms. One seed and three annual
+origins do not establish a universal ordering or explain the mechanism.
+
+### Actual replay exposure
+
+Every arm consumed **2,000 replay observation examples and 2,000 replay OM4
+examples**, alongside the same number of fresh examples for each task. Observation
+start leads reached 335 days, and OM4 start leads reached 330 days, followed by
+their supervised continuation windows. Both pools' observed ages stayed within
+250 optimizer updates. Long-lead sampling really occurred; it was not merely a
+permitted configuration. The full lead histograms are retained in
+[replay exposure](stochastic-state-replay-assets/replay-exposure.json).
+
+### Mean and member maps
+
+![SST errors](stochastic-state-replay-assets/sst-errors.jpg)
+
+![SSH errors](stochastic-state-replay-assets/ssh-errors.jpg)
+
+These compare the same January 2018 origin, with matched limits within each lead.
+The year-end limits are deliberately wider, so the faint deterministic panel
+should not be read as zero error. Large-scale drift remains visible in stochastic
+members, especially the fresh-noise arm. These are compressed previews rendered
+without smoothing; numerical maps and full members remain in the remote NPZ files.
+Member identities are persistent throughout each rollout.
+
+Short-lead nominal 90% empirical eight-member interval coverage was about
+69%/84% for initial-noise SST/SSH and 65%/70% for fresh-noise SST/SSH, pooled over
+the nine validation months. These are pointwise metrics with finite-ensemble
+quantile limitations, not evidence of calibrated annual uncertainty.
+[Calibration summary](stochastic-state-replay-assets/calibration-summary.json).
+
+### What this suggests
+
+The deterministic result shows that the present data, processor and decoder can
+learn substantially more stable evolution with this replay recipe. The failure
+of fresh transition noise therefore deserves focused diagnosis rather than a
+blanket increase in training budget. Plausible causes include overly large learned
+innovations, an unstable response to state perturbations, and difficulty learning
+from cached stochastic states produced by older parameters. These remain
+hypotheses; the current comparison does not distinguish them.
+
+Before another training wave, measure latent/innovation RMS versus lead and
+perform paired rollouts of the trained fresh-noise model with its transition
+innovations scaled to zero, 0.25, 0.5 and one, while preserving the initial draw.
+Zero-noise evaluation changes its training distribution, so it is a diagnostic,
+not a replacement matched control. A second useful test is refreshing replay
+states more frequently while keeping the sampled lead distribution matched.
+No additional experiments have been launched.
+
+### Provenance and retained outputs
+
+Source snapshot `stochastic-replay-54d95f82609e`, implementation commit `f9ef9bdbf`.
+The source was staged with 231 verified file hashes. All 23 focused tests and
+repository checks passed. Qualification exercised both full-year paths with
+finite local gradients and checkpoint resume before production was released.
+
+Full metrics, calibration, regional member spectra, temporal statistics,
+initialization maps, member fields and receipts are under
+`beta:/projects/ny/lz1955/multiscale/jrusak/runs/stochastic-state-replay-v1/runs/{arm}/evaluation/final-obs500`.
+The earlier no-replay comparisons retain their separate root and source. The two
+sources of replay were added together, so this wave does not identify whether
+observation replay, OM4 replay, or their combination produced the improvement.

@@ -1,0 +1,71 @@
+{
+  "producer": "f2c493d4a",
+  "origins": [
+    "2015-01-01",
+    "2018-01-01",
+    "2021-01-01"
+  ],
+  "source_inference_job": 215877,
+  "failed_qualification_job": 215874,
+  "successful_qualification_job": 215876,
+  "gpu_hours_including_failed_attempt": 2.335833,
+  "annual_overlap": "Byte-identical surface, OHC, latent RMS and month arrays for all 18 model/origin pairs",
+  "views": [
+    "73 five-day SST/ADT means",
+    "14-depth initial T/S/U/V decoder reconstruction",
+    "12 calendar-month OHC means for 0\u2013700 and 700\u20132000 m",
+    "14-depth temperature fields underlying those monthly heat maps"
+  ],
+  "initial_reconstruction": "Separate decoder stream, seed 905001 + origin index; eight draws, 32 sampler steps; not used to evolve the forecast",
+  "models": {
+    "A": {
+      "fixed_cooled_ema_step": 3000,
+      "outputs": [
+        "2015-01-01.npz",
+        "2018-01-01.npz",
+        "2021-01-01.npz"
+      ]
+    },
+    "E": {
+      "fixed_cooled_ema_step": 3000,
+      "outputs": [
+        "2015-01-01.npz",
+        "2018-01-01.npz",
+        "2021-01-01.npz"
+      ]
+    },
+    "A-extend": {
+      "fixed_cooled_ema_step": 5000,
+      "outputs": [
+        "2015-01-01.npz",
+        "2018-01-01.npz",
+        "2021-01-01.npz"
+      ]
+    },
+    "E-extend": {
+      "fixed_cooled_ema_step": 5000,
+      "outputs": [
+        "2015-01-01.npz",
+        "2018-01-01.npz",
+        "2021-01-01.npz"
+      ]
+    },
+    "A-replay": {
+      "fixed_cooled_ema_step": 3000,
+      "outputs": [
+        "2015-01-01.npz",
+        "2018-01-01.npz",
+        "2021-01-01.npz"
+      ]
+    },
+    "E-replay": {
+      "fixed_cooled_ema_step": 3000,
+      "outputs": [
+        "2015-01-01.npz",
+        "2018-01-01.npz",
+        "2021-01-01.npz"
+      ]
+    }
+  },
+  "hash_receipt": "viewer-checksums.txt"
+}

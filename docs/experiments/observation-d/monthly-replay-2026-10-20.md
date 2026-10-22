@@ -165,6 +165,32 @@ and [reproducible annual figure generator](../../../scripts/summarize_monthly_re
 All 18 annual payloads in the six-model comparison and 24 recorded output hashes
 were checked, with identical observation references and fixed OHC support.
 
+## Results viewer
+
+All six literal models—**A, E, A-extend, E-extend, A-replay and E-replay**—have
+complete viewer exports for the same three annual starts. The entries are labeled
+`Monthly diffusion · <model name>`. They contain all 73 surface readouts,
+14-depth initialized T/S/U/V reconstructions, twelve monthly OHC maps, and the
+actual 14-depth temperature profiles underlying those heat maps. Each includes
+its own decoded initialized persistence and a model description.
+
+All 18 regenerated surface, OHC and latent arrays matched the published annual
+outputs byte-for-byte, including masks. Independent native-layer integration
+of the retained temperature profiles matched both OHC layers in every case.
+The initial reconstruction uses a separate eight-draw decoder noise stream and
+does not alter the latent forecast. It is an exploratory full-field readout:
+only initial surface reconstruction is directly observation-supervised, and
+E has no full-field model supervision. IAP is preceding-December monthly T/S
+context, not instantaneous interior truth; it provides no U/V.
+
+Inference producer `f2c493d4a` used the same fixed cooled EMA checkpoints,
+eight diffusion draws and 32 sampler steps. Qualification and the full export
+used **2.336 GPU-hours**, including the preserved context-lookup failure;
+this is additional to the training/evaluation budget above. See the
+[export receipt and checkpoint/output hashes](assets/monthly-replay-2026-10-20/viewer-exports.json),
+[inference exporter](../../../scripts/export_monthly_replay_viewer.py), and
+[viewer preparation code](https://github.com/m2lines/Samudra/blob/codex/observation-viewer/apps/observation_viewer/prepare_monthly_replay.py).
+
 ## Four runs
 
 | Literal run name | Initialization | Main training | Cooldown | Observation replay |

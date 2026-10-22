@@ -247,6 +247,34 @@ ssh -N -L 61997:127.0.0.1:61015 spark
 `PORT` selects the server's listening port; `BROWSER_PORT` selects the port in
 the browser URL. Both localhost origins are allowed, with no wildcard origins.
 
+### Development and tests
+
+Use a separate `codex/viewer-<change>` branch per task, starting from the latest
+`origin/codex/observation-viewer`. That shared branch is the integration and
+deployment branch; the live checkout is only for deployment.
+
+Run the standalone viewer suite (no training environment or production data needed):
+
+```bash
+uv sync --frozen --project apps/observation_viewer --group dev
+uv run --frozen --project apps/observation_viewer pytest \
+  -c apps/observation_viewer/pyproject.toml apps/observation_viewer/tests -q
+```
+
+`Viewer tests` CI runs this suite on viewer feature branches, the integration
+branch, and PRs changing the viewer. Fixture tests cover catalog preparation,
+geometry, real widget callbacks, and initial state restoration. Browser tests
+in the same suite run when `SAMUDRA_VIEWER_TEST_URL` and matching
+`SAMUDRA_VIEWER_DATA` are set; otherwise they are explicitly skipped. Use a
+separate local server for browser tests before deployment.
+
+Publish the feature branch, then fetch and incorporate any newer integration
+commits and rerun the suite. Integrate only with a normal fast-forward push to
+`codex/observation-viewer`; a rejected push means integrate and test again.
+Deploy the tested commit from the clean live checkout and verify its SHA before
+restarting. Never force-push the integration branch or edit live source files.
+The detailed service procedure is in [the deployment skill](deploy/samudra-viewer/SKILL.md).
+
 ### Managed deployment
 
 The deployed user service `samudra-observation-viewer.service` listens on all

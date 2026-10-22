@@ -11,9 +11,10 @@ description: Maintain the Samudra observation-results Panel viewer and its fomo-
 ## Locations and ownership
 
 - Repository: `https://github.com/m2lines/Samudra.git`
-- Development and deployment branch: **`codex/observation-viewer`**.
+- Integration and deployment branch: **`codex/observation-viewer`**.
+- Each change uses its own **`codex/viewer-<change>`** feature branch.
 - The bot receives a fresh Samudra working checkout with each message. Use that
-  checkout for edits; switch to the branch before changing files.
+  checkout for edits; create a feature branch from the current integration branch.
 - App: `apps/observation_viewer/` (standalone uv project).
 - Live checkout: `/home/fomo-bot/samudra_viewer`.
 - Live data: `/home/fomo-bot/samudra_viewer/apps/observation_viewer/.data`.
@@ -34,18 +35,16 @@ Run as `fomo-bot`. The user's requested workflow is to publish changes to this
 branch before updating the live service; do not edit the live checkout directly.
 
 1. In the supplied working checkout, inspect `git status` and the origin URL.
-   Fetch and switch to the branch, then fast-forward it:
+   Fetch the integration branch and create an isolated feature branch:
 
    ```bash
    git fetch origin codex/observation-viewer
-   git switch codex/observation-viewer
-   git pull --ff-only origin codex/observation-viewer
+   git switch -c codex/viewer-<change> origin/codex/observation-viewer
    ```
 
-   If the local branch does not exist, use
-   `git switch -c codex/observation-viewer FETCH_HEAD` after fetching. Preserve
-   unrelated work. If branch checkout or fast-forward fails, inspect the cause;
-   do not discard changes, force-push, or deploy a divergent tree.
+   Use a unique feature name for each task. Preserve unrelated work. Never
+   develop in the live checkout, discard another task's changes, or force-push
+   the integration branch.
 
 2. Read `apps/observation_viewer/README.md` and make the requested changes in
    this working checkout. Use `/home/fomo-bot/.local/bin/uv` if uv is not on PATH.
@@ -57,7 +56,7 @@ branch before updating the live service; do not edit the live checkout directly.
    uv run --project apps/observation_viewer ruff check apps/observation_viewer
    uv run --project apps/observation_viewer ruff format --check apps/observation_viewer
    uv run --project apps/observation_viewer pytest \
-     -c apps/observation_viewer/pyproject.toml apps/observation_viewer/tests/test_data.py
+     -c apps/observation_viewer/pyproject.toml apps/observation_viewer/tests
    ```
 
    For interactive changes, exercise actual browser controls. The browser tests
@@ -67,9 +66,18 @@ branch before updating the live service; do not edit the live checkout directly.
    read-only bundle; do not compete with the production port or run inference.
 
 3. Review the diff for accidental data, environment files, or public hostnames.
-   Stage the intended files, commit, then
+   Stage and commit the intended files. Publish the feature branch with
+   `git push -u origin HEAD`; the **Viewer tests** workflow runs its self-contained
+   suite without production data. Browser tests are part of the same suite and
+   run when a test server and matching data are configured; skipped browser tests
+   do not count as browser validation.
+
+   Before integrating, fetch `codex/observation-viewer` again. If it advanced,
+   rebase the feature branch onto it, resolve conflicts, and rerun the suite on
+   that combined tree. Publish with a normal fast-forward push:
    `git push origin HEAD:refs/heads/codex/observation-viewer`.
-   Verify the remote branch points to the new commit before deployment. If Git
+   If rejected, repeat integration and testing; never force the push. Verify
+   that the remote branch points to the tested commit before deployment. If Git
    author identity is missing, use repository-local `user.name=fomo-bot` and
    `user.email=266121006+fomo-bot@users.noreply.github.com`.
 

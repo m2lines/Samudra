@@ -546,7 +546,7 @@ class Viewer:
         location = pn.state.location
         if location is None:
             return
-        raw = parse_qs(location.search).get("view", [""])[0]
+        raw = parse_qs(location.search.removeprefix("?")).get("view", [""])[0]
         try:
             state = json.loads(raw)
         except (ValueError, TypeError):

@@ -13,7 +13,8 @@ URL = os.environ.get("SAMUDRA_VIEWER_TEST_URL")
 pytestmark = pytest.mark.skipif(not URL, reason="Requires a running viewer")
 
 
-def test_share_url_restores_controls_without_history_entries():
+@pytest.mark.parametrize("suffix", ["", "?unrelated=keep#anchor"])
+def test_share_url_restores_controls_without_history_entries(suffix):
     assert URL is not None
     with sync_playwright() as p:
         browser = p.chromium.launch(
@@ -23,7 +24,7 @@ def test_share_url_restores_controls_without_history_entries():
         page = browser.new_page()
         errors = []
         page.on("pageerror", lambda error: errors.append(str(error)))
-        page.goto(URL + "?unrelated=keep#anchor")
+        page.goto(URL + suffix)
         expect(page.locator(".variable-select select")).to_be_visible(timeout=60000)
         history_length = page.evaluate("history.length")
 
@@ -33,8 +34,9 @@ def test_share_url_restores_controls_without_history_entries():
                 arg=[name, value],
             )
             assert page.evaluate("history.length") == history_length
-            assert parse_qs(urlsplit(page.url).query)["unrelated"] == ["keep"]
-            assert urlsplit(page.url).fragment == "anchor"
+            if suffix:
+                assert parse_qs(urlsplit(page.url).query)["unrelated"] == ["keep"]
+                assert urlsplit(page.url).fragment == "anchor"
 
         page.locator(".variable-select select").select_option(
             label="Sea surface height"

@@ -6,9 +6,14 @@ import hashlib
 import importlib.util
 import json
 from pathlib import Path
+from typing import Any
+from unittest.mock import PropertyMock
+from urllib.parse import urlencode
 
 import numpy as np
+import panel as pn
 import pytest
+from panel.io.location import Location
 
 from data import Catalog, edges, raster_rows
 
@@ -75,7 +80,7 @@ def write_catalog(root, native=False):
         heat_reference=heat_reference,
         heat_months=[f"2015-{m:02}" for m in range(1, 13)],
     )
-    example = dict(
+    example: dict[str, Any] = dict(
         origin="2015-01-01",
         label="2015-01-01 (obs)",
         source="obs",
@@ -229,6 +234,7 @@ def test_actual_widget_callbacks_route_views_without_changing_selected_model(
     monkeypatch.delenv("SAMUDRA_VIEWER_CATALOGS", raising=False)
     path = Path(__file__).parents[1] / "app.py"
     spec = importlib.util.spec_from_file_location("viewer_multires_test", path)
+    assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     viewer = module.viewer
@@ -289,3 +295,34 @@ def test_zero_centered_iap_longitude_wraps_one_exact_cell_without_resampling():
     # Visible clipped row coverage is exactly 360 degrees; no seam gap or overlap.
     assert min(360, result["x"][0] + result["dw"][0]) == result["x"][3]
     assert min(360, result["x"][3] + result["dw"][3]) == 360
+
+
+@pytest.mark.parametrize("prefix", ["?", "?unrelated=keep&"])
+def test_initial_view_restores_across_catalogs(registry, monkeypatch, prefix):
+    state = dict(
+        model="quarter-uglobal-selected",
+        mode="interior",
+        origin="2015-01-01",
+        variable=3,
+        reference="quarter-uglobal-selected",
+        depth=11,
+        latitude=25,
+        longitude=210,
+        orientation="Along latitude",
+        lock_colors=False,
+    )
+    location = Location(search=prefix + urlencode({"view": json.dumps(state)}))
+    monkeypatch.setattr(type(pn.state), "location", PropertyMock(return_value=location))
+    monkeypatch.setenv("SAMUDRA_VIEWER_DATA", str(registry.root))
+    monkeypatch.delenv("SAMUDRA_VIEWER_CATALOGS", raising=False)
+    spec = importlib.util.spec_from_file_location(
+        "viewer_restore_test", Path(__file__).parents[1] / "app.py"
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    viewer = module.viewer
+    for name, value in state.items():
+        assert getattr(viewer, name).value == value
+    assert len(viewer.catalog.depths) == 19
+    assert len(viewer.profile_source.data["prediction"]) == 19

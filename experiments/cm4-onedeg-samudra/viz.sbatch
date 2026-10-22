@@ -45,7 +45,8 @@ command -v ffmpeg
 command -v ffprobe
 ffmpeg -version > "$ROOT/ffmpeg-version.txt"
 dpkg-query -W > "$ROOT/runtime-packages.txt"
-/workspace/.venv/bin/python -c "from xarrayutils.plotting import linear_piecewise_scale, box_plot; print("Profile/ENSO plotting imports passed")"
+/workspace/.venv/bin/python -c "from xarrayutils.plotting import linear_piecewise_scale, box_plot"
+echo "Profile/ENSO plotting imports passed"
 echo "Starting full CM4 visualization"
 exec /workspace/.venv/bin/python "$ROOT/source/experiments/cm4-onedeg-samudra/run_viz.py" "$ROOT/viz.yaml"
 '

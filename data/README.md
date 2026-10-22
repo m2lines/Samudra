@@ -8,6 +8,8 @@ SPDX-License-Identifier: CC-BY-4.0
 
 Data engineering routines to prepare ocean simulations for neural emulation.
 
+Requires Python 3.11 or newer.
+
 ## Usage via command line interface
 
 First, please clone this repository and change into the `data/` directory (the root of the data engineering subproject).

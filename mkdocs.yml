@@ -42,6 +42,7 @@ nav:
   - Getting Started:
       - Installation: getting-started/installation.md
       - Quick Start: getting-started/quick-start.md
+      - Training on your own data: custom-data.md
   - Concepts:
       - Architecture: concepts/architecture.md
       - Data: data.md

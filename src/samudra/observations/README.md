@@ -3,176 +3,103 @@
 
 # Observation/model-data baseline
 
-Read [`baseline.py`](baseline.py): the model construction, losses, source cycle,
-replay updates, validation and cooldown are ordinary commented Python. Edit that
-code to change the experiment. The CLI supplies paths and operational controls;
-there is no YAML, config builder or generic task framework on this path.
+Start with [`baseline.py`](baseline.py). It constructs the model, optimizer and
+sources directly, then runs an explicit training, replay, validation and cooldown
+loop. Scientific choices are named Python constants beside that code. The CLI
+supplies data paths, output paths and runtime controls.
 
-## Model and targets
+## Model and learning problem
 
-The deterministic U-global model initializes two states from 19 five-day SST/SSH
-and forcing histories, with explicit validity and geographic/seasonal context.
-Each state contains 77 channels: U, V, temperature and salinity at 19 depths,
-plus SSH. The ConvNeXt U-Net uses widths 128/192/256/384, affine InstanceNorm,
-task-specific input adapters and zero-initialized geometry conditioning. It has
-62,967,680 parameters and no extra recurrent memory channels. OM4 and CM4 also
-initialize from surface histories. Their dense interior targets never become
-initializer inputs.
+[U-global](../models/surface_initialized.py) infers physical ocean states from
+surface observations and atmospheric history, then advances those states
+with prescribed forcing. The state contains velocity, temperature, salinity and
+sea-surface height. Observation examples provide surface and monthly profile
+supervision; model examples provide dense physical-field targets. Reconstruction
+and artificial-gap completion train the initializer alongside forecasting.
+The loss composition is visible in `baseline.objective`.
 
-All sources use observation-fitted **state** normalization. Unobserved velocity
-slots use mean zero/std one; the five deepest T/S slots repeat the deepest
-observed scales. OISST sets the surface-temperature scale. These conventions
-do not create labels in unobserved channels. The fitting domain remains the
-historical ±60° domain and repeated-history sample weighting; inputs, training
-losses and evaluation have **global** finite wet support.
+State normalization uses a shared artifact fitted over **global finite wet
+support** in the observation training cohort. Observation, OM4 and CM4 states all
+use those same means/stds. Conventions for velocity and depths beyond observation
+coverage are explicit in
+[`state_statistics`](../../../data/prepare_observation_normalization.py).
 
-Observations use the learned eight-channel ERA5-to-three-channel forcing adapter.
-Model sources retain their own tauuo/tauvo/hfds, scaled by the existing OM4
-forcing statistics. CM4 keeps its no-leap calendar, interval-end labels and
-native wet mask. Source calendars are never joined into a single timeline.
+Forcing has separate variables and units. ERA5 inputs use their observation-fitted
+statistics. Both model sources use the OM4 statistics for their native wind stress
+and heat flux (`tauuo`, `tauvo`, `hfds`). Each source retains its own calendar and
+wet mask.
 
-The observation forecast loss is 0.8 monthly T/S + 0.1 five-day SST + 0.1 SSH,
-with 0.1 interior reconstruction and 0.1 missing-surface completion auxiliaries.
-Model data supervise all physical fields with variable-balanced MSE and the
-original reconstruction/completion auxiliaries. Artificial hiding modifies
-inputs, not labels. Later ocean observations enter the separate reconstruction
-branch only; they never correct or reset a forecast. No extra multitask tasks,
-diffusion objectives or latent penalties are included.
+## Prepare data
 
-## Data preparation
+From the repository root, use the existing **data environment**, which supplies
+xESMF/ESMF and the preprocessing dependencies. `PYTHONPATH=src` exposes the
+checkout's lightweight preparation modules.
 
-Start from the identified stores `oisst.zarr`, `duacs.zarr`, `argo-iap.zarr`,
-and `era5-surface.zarr`. These contain daily SST/ADT, monthly IAP T/S and hourly
-ERA5. The scripts preserve conservative remapping, finite-coverage thresholds,
-strict five-day means, ERA5 accumulation timing, depth interpolation and salinity
-conversion. Provider downloads and transfers are separate operations.
-
-Run these observation scripts in Samudra's Python 3.12 environment (the root
-package requires `>=3.12,<3.13`), with Samudra installed or `PYTHONPATH=src`.
-IAP preparation additionally needs the pinned `gsw==3.6.23` dependency, which
-requires Python >=3.11. The older standalone data package still supports Python
-3.10; its dependency marker excludes GSW there, and these new observation scripts
-are not supported in that Python 3.10 environment.
+The top-level scripts consume the existing OISST, DUACS, IAP and ERA5 stores and
+produce the common grid, daily shards, monthly samples and normalization artifact:
 
 ```bash
-python data/prepare_observation_baseline.py grid \
+PYTHONPATH=src python data/prepare_observation_baseline.py grid \
   --om4 /data/om4_onedeg_v3/OM4.zarr --output /data/obs/grid.npz
-python data/prepare_observation_baseline.py daily \
+PYTHONPATH=src python data/prepare_observation_baseline.py daily \
   --source /data/products --grid /data/obs/grid.npz --output /data/obs/daily \
   --product sst --year 1993
-# Repeat daily preparation for sst, adt, era5 and iap for 1993–2014.
-python data/prepare_observation_baseline.py months --root /data/obs
-python data/prepare_observation_normalization.py /data/obs
+# Prepare each product/year needed by the splits in archive.py.
+PYTHONPATH=src python data/prepare_observation_baseline.py months --root /data/obs
+PYTHONPATH=src python data/prepare_observation_normalization.py /data/obs
 ```
 
-Normalization is a separate artifact (`normalization.npz`, `statistics.npz`,
-`normalization.json`), fitted only to the 243 May 1993–July 2013 training months.
-An existing prepared archive can write these artifacts elsewhere with `--output`.
-The trainer accepts that directory through `--normalization`, and an existing
-daily archive through `--daily`. It never refits normalization while training.
-Retain daily shards: replay must reconstruct intervals anchored at the original
-forecast origin, rather than concatenate differently anchored monthly samples.
+Normalization can be written separately with `--output` and supplied to training
+with `--normalization`. Retain daily shards: replay reconstructs intervals on the
+original forecast-origin timeline. The normalization manifest records the global
+fitting policy and input hashes; regenerate it when that policy changes.
 
-OM4 uses the unblurred 1° `om4_onedeg_v3` with its original means/stds stores;
-eligible histories and targets lie in the late-OM4 1975–July 2013 period.
-CM4 uses `s3://m2lines-pubs/Samudra/v2026-09/cm4_onedeg/CM4.zarr`, with its first
-180 model years eligible and the final twenty held out. The readers check the
-common grid, masks and interval bounds. Windows crossing missing intervals are
-excluded, including OM4 leap-boundary gaps. A replay chain cannot cross a gap.
+OM4 and CM4 readers enforce the source splits and interval eligibility defined in
+[`model_data.py`](model_data.py). Model windows require contiguous five-day
+support. When an archive supplies only timestamps, the reader interprets them as
+centers of five-day intervals.
 
-## Train, resume, evaluate
+## Train and inspect
+
+Use the Samudra environment for training. Select `obs`, `om4-obs` or
+`om4-cm4-obs` through `--mix`, supplying model paths for the selected sources:
 
 ```bash
-python -m samudra.observations.baseline train \
-  --observations /data/obs --output /runs/obs --mix obs
-python -m samudra.observations.baseline train \
-  --observations /data/obs --om4 /data/om4_onedeg_v3 \
-  --output /runs/om4-obs --mix om4-obs
 python -m samudra.observations.baseline train \
   --observations /data/obs --om4 /data/om4_onedeg_v3 --cm4 /data/CM4.zarr \
-  --output /runs/om4-cm4-obs --mix om4-cm4-obs
+  --mix om4-cm4-obs --output /runs/baseline
 ```
 
-Each recipe runs 2,000 main updates and 1,000 observation-only cooldown updates,
-with eight accumulated examples per update. Main source cycles are `obs`,
-`obs→OM4`, and `obs→OM4→obs→CM4`; these mean 100/0/0, 50/50/0, and 50/25/25
-percent obs/OM4/CM4. Total updates match, not observation exposure. Seed is 1729,
-AdamW uses LR 1e-4 and weight decay 0.01, and gradients clip at one. Cooldown
-retains Adam moments, resets EMA to raw weights, and linearly reduces LR to 1e-6.
-EMA has a 100-update half-life.
+The recipe uses a fixed source mixture followed by an observation-only cooldown.
+Each source has its own replay pool of detached forecast states. Fresh examples
+and replay continuations share optimizer updates; replay advances by complete
+calendar months while preserving five-day overlap. Source ratios, update budgets,
+learning rates and replay limits are defined beside their use in the code.
 
-Each source has its own replay pool. Four examples are fresh and four continue
-cached states (falling back to fresh only when no eligible entry exists). Pools
-sample uniformly across occupied lead-month buckets, then entries. Two entries
-per bucket bound full-resolution physical-state RAM; a full float32 pool is
-about 0.9 GiB per source. States expire 250 global updates after their original
-initialization; replaying does not refresh their age. They remain detached CPU
-tensors in their original precision. Replay backpropagates through one target
-month, and never beyond the saved state. Source/calendars stay fixed throughout
-each chain. Target bins stop at 73 five-day steps; a terminal calendar month that
-cannot be fully supervised within that horizon is ineligible.
+The entrypoint runs in one training process. It uses Samudra's device selection,
+autocast, logging, EMA and spatial RMSE utilities. Logs include local scalar
+records and W&B metrics. `--stop-after` supports short checks, and restarting the
+same command restores `latest.pt`, including optimizer, EMA, random streams and
+replay. Checkpoint boundaries are optimizer updates.
 
-The next month's state precedes its first overlapping five-day bin. For January
-31, seven bins predict January, but the next snapshot is taken after six calls
-at day 30. February recomputes the overlapping bin. This preserves complete
-calendar-month T/S supervision without retaining a gradient graph across months.
-Cooldown uses only observation updates and observation replay.
+Annual validation follows a continuous forecast and combines surface and profile
+RMSE using their observation support. It averages times within each channel and
+then channels equally, dividing errors by the shared observation-training standard
+deviations. See [`evaluate.py`](evaluate.py) for the scoring contract and
+`baseline.py` for the validation origin, cadence and selection key. Raw-unit
+channel metrics accompany the selection score.
 
-Restart an identical command to resume `latest.pt`; `--checkpoint` selects an
-explicit trusted checkpoint. `--stop-after` stops after an absolute update count
-without changing the 3k scientific plan. SIGTERM/USR1 finish the current update
-and checkpoint. Model/Adam/EMA, source exposure, random streams, replay entries,
-ages and training phase are restored. There is no mid-update resume. Checkpoints
-use Python serialization and must come from a trusted run.
+`best.pt` records the selected annual-validation model; `main.pt` and `endpoint.pt`
+record the phase endpoints. Use the `evaluate` subcommand with `--checkpoint` to
+score a saved model.
 
-W&B defaults to online (`--entity`, `--project`); use `--wandb-mode disabled` for
-a qualification without network logging. The same scalar records go to local
-`metrics.jsonl`. Source-specific losses, LR, clipping norm, fresh/replay exposure,
-maximum sampled lead and annual channel metrics are recorded.
+## Verification
 
-## Annual checkpoint selection
+Focused tests exercise calendar overlap, missingness, global normalization,
+source exposure, replay, input isolation, checkpoint restoration and annual RMSE.
+[`qualify_observation_baseline.py`](../../../scripts/qualify_observation_baseline.py)
+checks these paths with the full model and real archives under a short schedule.
+Its receipt records code/data identity, runtime and checkpoint hashes.
 
-Validation is one continuous 365-day rollout from **November 1, 2013**, with one
-initialization, prescribed future ERA5 and no observed-ocean resets. It ends
-November 1, 2014, before the 2015–2022 test cohort. Validation every 250 updates
-uses EMA weights and Samudra's spatial area-weighted RMSE kernel.
-
-The selection key is `rollout_val/365d/normalized_rmse/channel_mean`. RMSE is
-divided by observation-training standard deviation, **not climatology error**.
-We average times within each observed channel, then average 29 channels equally:
-five-day SST/SSH, monthly T at depths 1–13 and monthly S at depths 0–13. This
-matches Samudra's equal channel/time reduction when cadences agree, while avoiding
-giving surfaces six times the weight solely because they are sampled more often.
-Monthly T at depth zero is an optional diagnostic, not a second SST vote. The
-monthly predictions are exact calendar-weighted means of the continuous forecast.
-Raw-unit RMSE and support counts are logged separately. No U/V or unobserved deep
-target is invented. Nonfinite forecasts at observed cells fail loudly.
-
-`best.pt` is the best annual validation checkpoint across both phases;
-`main.pt` is the uncooled endpoint and `endpoint.pt` is the final cooled model.
-A run stopped before its first validation has `latest.pt` but no selected model.
-Only a fully completed 3k run writes `COMPLETE.json`.
-
-```bash
-python -m samudra.observations.baseline evaluate \
-  --observations /data/obs --output /runs/obs --mix obs \
-  --checkpoint /runs/obs/best.pt
-```
-
-Evaluation reconstructs the same source/model definitions and scores EMA weights.
-It does not select on or automatically evaluate the held-out test cohort.
-
-## Qualification and provenance
-
-The focused tests cover model continuation and future-input isolation, calendar
-overlap, missingness, native calendars, all source cycles, replay aging, annual
-RMSE parity, cooldown and exact next-update resume. The real-data qualification
-script uses small explicitly labeled update counts and never produces baseline
-training results. Full training and comparative reports are follow-up work.
-
-Run manifests pin code hashes, normalization and model Zarr metadata. Normalization
-inputs are content-hash verified on startup. Daily-archive file names/sizes/mtimes
-and preparation manifests are fingerprinted for change detection. Model field
-chunks are checked for support/finiteness as read; this is not a full content
-read-back of every model/daily archive chunk. Retain versioned, immutable input
-stores and the preprocessing manifests. Checkpoints reject changed manifests.
+Run manifests identify source code, normalization inputs, daily-archive inventories
+and model metadata. Preserve versioned input stores alongside these manifests.

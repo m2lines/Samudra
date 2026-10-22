@@ -6,7 +6,7 @@
 import random
 from collections import Counter
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import pytest
@@ -115,7 +115,12 @@ def test_training_startup_populates_each_source_and_cooldown_is_obs_only(
     state = make_state()
     records: list[dict[str, Any]] = []
     baseline.train(
-        state, TinySources(), tmp_path, {"mix": "om4-cm4-obs"}, validate, records.append
+        state,
+        cast(baseline.Sources, TinySources()),
+        tmp_path,
+        {"mix": "om4-cm4-obs"},
+        validate,
+        records.append,
     )
     assert state.cooled and state.updates == 6
     assert (
@@ -148,13 +153,18 @@ def test_exact_resume_across_cooldown_preserves_rng_optimizer_and_replay(
     uninterrupted = make_state()
     full_records: list[dict[str, Any]] = []
     baseline.train(
-        uninterrupted, TinySources(), full_dir, manifest, validate, full_records.append
+        uninterrupted,
+        cast(baseline.Sources, TinySources()),
+        full_dir,
+        manifest,
+        validate,
+        full_records.append,
     )
     prefix = make_state()
     resumed_records: list[dict[str, Any]] = []
     baseline.train(
         prefix,
-        TinySources(),
+        cast(baseline.Sources, TinySources()),
         resumed_dir,
         manifest,
         validate,
@@ -165,7 +175,12 @@ def test_exact_resume_across_cooldown_preserves_rng_optimizer_and_replay(
     restored = make_state()
     restored.restore(resumed_dir / "latest.pt", manifest)
     baseline.train(
-        restored, TinySources(), resumed_dir, manifest, validate, resumed_records.append
+        restored,
+        cast(baseline.Sources, TinySources()),
+        resumed_dir,
+        manifest,
+        validate,
+        resumed_records.append,
     )
     torch.testing.assert_close(
         restored.model.weight, uninterrupted.model.weight, rtol=0, atol=0
@@ -213,7 +228,7 @@ def test_replay_objective_forecast_does_not_read_auxiliary_ocean_state():
         )
     )
     surface = torch.randn(1, 19 + steps, 2, height, width)
-    sample: dict[str, Any] = dict(
+    sample: baseline.ForecastSample = dict(
         surface=surface,
         atmosphere=torch.randn(1, 19 + steps, 8, height, width),
         contexts=context[None, None].expand(1, 19 + steps, -1, -1, -1),
@@ -221,6 +236,7 @@ def test_replay_objective_forecast_does_not_read_auxiliary_ocean_state():
         validity=torch.ones_like(surface, dtype=torch.bool),
         month_weights=torch.ones(steps) / steps,
         start_lead=6,
+        end_lead=8,
         next_start_lead=8,
     )
     captured = []
@@ -230,7 +246,7 @@ def test_replay_objective_forecast_does_not_read_auxiliary_ocean_state():
         error = prediction.square().mean()
         return dict(monthly_ts=error, sst=error, ssh=error)
 
-    data = SimpleNamespace(
+    data: Any = SimpleNamespace(
         device="cpu",
         grid={"lat": lat},
         forecast_losses=forecast_losses,
@@ -240,7 +256,7 @@ def test_replay_objective_forecast_does_not_read_auxiliary_ocean_state():
     first_loss, first_parts, first_states = baseline.objective(
         model, data, "obs", sample, sample, 5, cached=cache
     )
-    modified = {**sample, "surface": sample["surface"] + 100}
+    modified: baseline.ForecastSample = {**sample, "surface": sample["surface"] + 100}
     second_loss, second_parts, second_states = baseline.objective(
         model, data, "obs", sample, modified, 5, cached=cache
     )
@@ -275,7 +291,7 @@ def test_annual_driver_initializes_once_and_never_reads_future_ocean():
     )
     profile_mask = torch.ones(28, 1, 1, dtype=torch.bool)
     profile_mask[0] = False
-    data = SimpleNamespace(
+    data: Any = SimpleNamespace(
         std=torch.ones(77),
         area=torch.ones(1, 1),
         mask=torch.ones(77, 1, 1, dtype=torch.bool),
@@ -303,8 +319,21 @@ def test_annual_driver_initializes_once_and_never_reads_future_ocean():
             predicted = states[:, -1:] + 1
             return predicted, torch.cat((states[:, -1:], predicted), dim=1)
 
-    model = ContinuousModel()
-    logs = baseline.annual_metrics(model, data, trajectory)
+    model: Any = ContinuousModel()
+    logs = baseline.annual_metrics(
+        model, data, cast(baseline.ForecastSample, trajectory)
+    )
     assert model.initializations == 1 and model.steps == 73
     assert logs["rollout_val/365d/weighted_rmse/thetao_0"] == 37
     assert np.isfinite(logs[baseline.SELECTION_METRIC])
+
+
+def test_shared_autocast_honors_explicit_cpu_device(monkeypatch):
+    from samudra.utils import device
+
+    monkeypatch.setattr(device, "_CHOSEN_DEVICE", torch.device("cuda"))
+    values = torch.ones(2, 2)
+    with device.autocast(True, torch.bfloat16, device="cpu"):
+        assert (values @ values).dtype == torch.bfloat16
+    with device.autocast(False, torch.bfloat16, device="cpu"):
+        assert (values @ values).dtype == torch.float32

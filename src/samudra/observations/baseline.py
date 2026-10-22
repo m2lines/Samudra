@@ -12,19 +12,31 @@ losses, source ratios, replay policy and training phases are ordinary Python.
 import argparse
 import hashlib
 import json
+import logging
 import math
 import os
 import random
 import signal
-from contextlib import nullcontext
+from collections.abc import Callable, Mapping
 from pathlib import Path
+from types import FrameType
+from typing import Any, TypedDict
 
 import numpy as np
 import pandas as pd
 import torch
 
 from samudra.models.surface_initialized import SurfaceInitializedModel
-from samudra.observations.archive import SPLITS
+from samudra.observations.archive import SPLITS, validate_normalization_policy
+from samudra.observations.constants import (
+    FORECAST_STEPS,
+    HISTORY_STEPS,
+    INITIAL_STATE_START,
+    LAST_HISTORY_STEP,
+    MAX_REPLAY_MONTHS,
+    STEP_DAYS,
+    SURFACE_CHANNELS,
+)
 from samudra.observations.evaluate import AnnualObservationEvaluator
 from samudra.observations.intervals import replay_month
 from samudra.observations.losses import balanced_loss, completion_loss, corrupt_sample
@@ -32,6 +44,48 @@ from samudra.observations.model_data import ModelMonths
 from samudra.observations.replay import ReplayEntry, states_at
 from samudra.observations.samples import Samples
 from samudra.observations.state import TrainingState, write_json
+from samudra.utils.device import autocast, get_device, set_device
+from samudra.utils.logging import handle_logging
+
+logger = logging.getLogger(__name__)
+
+
+class ReplayLayout(TypedDict):
+    """Five-day bin offsets from the original forecast origin."""
+
+    start_lead: int
+    end_lead: int
+    next_start_lead: int
+
+
+class ForecastSample(TypedDict, total=False):
+    """A source window; tensors have batch/time/channel/latitude/longitude axes.
+
+    Observation windows carry surface and monthly profile labels; model windows
+    additionally carry dense physical fields. Validity stays separate from values.
+    """
+
+    surface: torch.Tensor
+    atmosphere: torch.Tensor
+    contexts: torch.Tensor
+    validity: torch.Tensor
+    mask: torch.Tensor
+    month_weights: torch.Tensor
+    fields: torch.Tensor
+    interior: torch.Tensor
+    raw_surface: torch.Tensor
+    completion_target: torch.Tensor
+    completion_valid: torch.Tensor
+    start_lead: int
+    end_lead: int
+    next_start_lead: int
+
+
+Origin = str | int  # Observation calendar month, or index into native model windows.
+Metrics = dict[str, float | int]
+Manifest = dict[
+    str, Any
+]  # JSON provenance includes nested hashes and runtime metadata.
 
 SEED = 1729
 MAIN_UPDATES, COOLDOWN_UPDATES = 2000, 1000
@@ -47,7 +101,7 @@ MIXES = {
 }
 
 
-def source_at(mix, update):
+def source_at(mix: str, update: int) -> str:
     """Whole optimizer updates have one source; cooldown is exclusively obs."""
     if update < 0 or update >= MAIN_UPDATES + COOLDOWN_UPDATES:
         raise ValueError("Update outside the training plan")
@@ -55,7 +109,7 @@ def source_at(mix, update):
     return "obs" if update >= MAIN_UPDATES else cycle[update % len(cycle)]
 
 
-def learning_rate(update):
+def learning_rate(update: int) -> float:
     if update < MAIN_UPDATES:
         return LEARNING_RATE
     fraction = (update - MAIN_UPDATES + 1) / COOLDOWN_UPDATES
@@ -65,7 +119,9 @@ def learning_rate(update):
 class Sources:
     """One observation normalization shared by the explicitly opened sources."""
 
-    def __init__(self, observations, models):
+    def __init__(
+        self, observations: Samples, models: Mapping[str, ModelMonths]
+    ) -> None:
         self.obs, self.models = observations, models
         self.paths = observations.paths("train")
         expected = [str(m) for m in pd.period_range(*SPLITS["train"], freq="M")]
@@ -73,58 +129,77 @@ class Sources:
             raise ValueError("Observation training cohort is incomplete")
         self.names = ("obs", *models)
 
-    def fresh_origin(self, source, rng):
+    def fresh_origin(self, source: str, rng: np.random.Generator) -> Origin:
         if source == "obs":
             return self.paths[int(rng.integers(len(self.paths)))].stem
         return int(rng.integers(len(self.models[source].windows)))
 
-    def layout(self, source, origin, month):
-        if month > 11:
+    def layout(self, source: str, origin: Origin, month: int) -> ReplayLayout | None:
+        if month >= MAX_REPLAY_MONTHS:
             return None
         if source != "obs":
             return self.models[source].continuation_layout(int(origin), month)
         target = pd.Timestamp(origin) + pd.DateOffset(months=month)
-        if not SPLITS["train"][0] <= str(target)[:7] <= SPLITS["train"][1]:
+        if not SPLITS["train"][0] <= target.strftime("%Y-%m") <= SPLITS["train"][1]:
             return None
         start, stop, next_start = replay_month(origin, target)
-        if stop > 73:
+        if stop > FORECAST_STEPS:
             return None
         return dict(start_lead=start, end_lead=stop, next_start_lead=next_start)
 
-    def load(self, source, origin, month=0):
+    def load(self, source: str, origin: Origin, month: int = 0) -> ForecastSample:
         if source == "obs":
             target = pd.Timestamp(origin) + pd.DateOffset(months=month)
             if month:
                 sample = self.obs.trajectory(origin, target_month=target, split="train")
             else:
                 sample = self.obs.load(
-                    self.obs.root / "train" / (str(origin)[:7] + ".npz")
+                    self.obs.root / "train" / (target.strftime("%Y-%m") + ".npz")
                 )
-                sample.update(self.layout(source, origin, month))
+                layout = self.layout(source, origin, month)
+                if layout is None:
+                    raise ValueError(
+                        "Observation window is outside the training cohort"
+                    )
+                sample.update(layout)
             sample["mask"] = self.obs.mask
             return sample
         raw = self.models[source].continuation(int(origin), month, self.obs.device)
         fields = raw["fields"]
         return {
             **raw,
-            "surface": fields[:, :, [38, 76]],
+            "surface": fields[:, :, SURFACE_CHANNELS],
             "atmosphere": raw["forcing"],
             "month_weights": raw["weights"],
-            "validity": raw["mask"][[38, 76]].bool().expand_as(fields[:, :, [38, 76]]),
+            "validity": raw["mask"][SURFACE_CHANNELS]
+            .bool()
+            .expand_as(fields[:, :, SURFACE_CHANNELS]),
         }
 
-    def auxiliary(self, source, origin, month, sample):
+    def auxiliary(
+        self, source: str, origin: Origin, month: int, sample: ForecastSample
+    ) -> ForecastSample:
         if source != "obs" or month == 0:
             return sample
         target = pd.Timestamp(origin) + pd.DateOffset(months=month)
-        result = self.obs.load(self.obs.root / "train" / (str(target)[:7] + ".npz"))
+        result = self.obs.load(
+            self.obs.root / "train" / (target.strftime("%Y-%m") + ".npz")
+        )
         result["mask"] = self.obs.mask
         return result
 
 
 def objective(
-    model, data, source, sample, auxiliary, seed, *, cached=None, coverage=None
-):
+    model: SurfaceInitializedModel,
+    data: Samples,
+    source: str,
+    sample: ForecastSample,
+    auxiliary: ForecastSample,
+    seed: int,
+    *,
+    cached: torch.Tensor | None = None,
+    coverage: torch.Tensor | None = None,
+) -> tuple[torch.Tensor, dict[str, torch.Tensor], torch.Tensor]:
     """One forecast window plus separate initializer reconstruction/completion.
 
     Replay never sees the auxiliary branch's contemporaneous ocean observations.
@@ -136,12 +211,14 @@ def objective(
         if coverage is None:
             raise ValueError("Model initialization needs observation coverage")
         visible = auxiliary["validity"].clone()
-        visible[:, :19] &= coverage[:, :19].bool()
+        visible[:, :HISTORY_STEPS] &= coverage[:, :HISTORY_STEPS].bool()
         auxiliary["validity"] = visible
         auxiliary["surface"] = torch.where(visible, auxiliary["surface"], 0)
         auxiliary["completion_valid"] = (
-            sample["mask"][[38, 76]].bool().expand_as(visible[:, 17:19])
-            & ~visible[:, 17:19]
+            sample["mask"][SURFACE_CHANNELS]
+            .bool()
+            .expand_as(visible[:, INITIAL_STATE_START:HISTORY_STEPS])
+            & ~visible[:, INITIAL_STATE_START:HISTORY_STEPS]
         )
     args = (
         auxiliary["surface"],
@@ -157,23 +234,23 @@ def objective(
         replay_initial = cached.detach().to(data.device)
         prediction, _ = model.continue_forecast(
             replay_initial,
-            sample["atmosphere"][:, 19:],
-            sample["contexts"][:, 19:],
+            sample["atmosphere"][:, HISTORY_STEPS:],
+            sample["contexts"][:, HISTORY_STEPS:],
             sample["mask"],
             start_lead=sample["start_lead"] + 1,
             task=task,
         )
         initial = model.initialize(
-            args[0][:, :19],
-            args[1][:, :19],
-            args[2][:, 18],
+            args[0][:, :HISTORY_STEPS],
+            args[1][:, :HISTORY_STEPS],
+            args[2][:, LAST_HISTORY_STEP],
             args[3],
-            args[4][:, :19],
+            args[4][:, :HISTORY_STEPS],
             task,
         )
     parts = {
         "completion": completion_loss(
-            initial[:, :, [38, 76]],
+            initial[:, :, SURFACE_CHANNELS],
             auxiliary["completion_target"],
             auxiliary["completion_valid"],
             data.grid["lat"],
@@ -187,11 +264,11 @@ def objective(
     else:
         weights = sample["mask"] * data.area
         parts["forecast"] = balanced_loss(
-            prediction, sample["fields"][:, 19:], weights, model.names
+            prediction, sample["fields"][:, HISTORY_STEPS:], weights, model.names
         )
         parts["reconstruction"] = balanced_loss(
             initial,
-            auxiliary["fields"][:, 17:19],
+            auxiliary["fields"][:, INITIAL_STATE_START:HISTORY_STEPS],
             weights,
             model.names,
             interior_only=True,
@@ -205,37 +282,37 @@ def objective(
     return loss, parts, next_states
 
 
-def autocast(device):
-    return (
-        torch.autocast("cuda", dtype=torch.bfloat16)
-        if torch.device(device).type == "cuda"
-        else nullcontext()
-    )
-
-
 @torch.no_grad()
-def annual_metrics(model, data, trajectory):
+def annual_metrics(
+    model: SurfaceInitializedModel, data: Samples, trajectory: ForecastSample
+) -> dict[str, float]:
     model.eval()
     evaluator = AnnualObservationEvaluator(
         trajectory,
         data.std,
         data.area.expand(data.mask.shape[-2:]),
-        surface_mask=data.mask[[38, 76]].bool(),
+        surface_mask=data.mask[SURFACE_CHANNELS].bool(),
         profile_mask=data.ts_mask.bool(),
     )
-    with autocast(data.device):
+    with autocast(
+        torch.device(data.device).type == "cuda", torch.bfloat16, device=data.device
+    ):
         states = model.initialize(
-            trajectory["surface"][:, :19],
-            trajectory["atmosphere"][:, :19],
-            trajectory["contexts"][:, 18],
+            trajectory["surface"][:, :HISTORY_STEPS],
+            trajectory["atmosphere"][:, :HISTORY_STEPS],
+            trajectory["contexts"][:, LAST_HISTORY_STEP],
             data.mask,
-            trajectory["validity"][:, :19],
+            trajectory["validity"][:, :HISTORY_STEPS],
         )
-        for step in range(73):
+        for step in range(FORECAST_STEPS):
             prediction, states = model.continue_forecast(
                 states,
-                trajectory["atmosphere"][:, 19 + step : 20 + step],
-                trajectory["contexts"][:, 19 + step : 20 + step],
+                trajectory["atmosphere"][
+                    :, HISTORY_STEPS + step : HISTORY_STEPS + step + 1
+                ],
+                trajectory["contexts"][
+                    :, HISTORY_STEPS + step : HISTORY_STEPS + step + 1
+                ],
                 data.mask,
                 start_lead=step + 1,
             )
@@ -244,16 +321,16 @@ def annual_metrics(model, data, trajectory):
 
 
 def train(
-    state,
-    sources,
-    output,
-    manifest,
-    validate,
-    emit,
+    state: TrainingState,
+    sources: Sources,
+    output: Path,
+    manifest: Manifest,
+    validate: Callable[[SurfaceInitializedModel], dict[str, float]],
+    emit: Callable[[Metrics], None],
     *,
-    stop_after=None,
-    stopping=lambda: False,
-):
+    stop_after: int | None = None,
+    stopping: Callable[[], bool] = lambda: False,
+) -> None:
     """The complete scientific sequence is visible and editable here."""
     total = MAIN_UPDATES + COOLDOWN_UPDATES
     limit = total if stop_after is None else min(stop_after, total)
@@ -270,8 +347,7 @@ def train(
             group["lr"] = learning_rate(update)
         state.model.train()
         state.optimizer.zero_grad(set_to_none=True)
-        record = {
-            "source": source,
+        record: Metrics = {
             "lr": learning_rate(update),
             "max_start_lead_days": 0,
         }
@@ -291,8 +367,13 @@ def train(
             if source != "obs":
                 coverage_origin = sources.fresh_origin("obs", state.rng)
                 coverage = sources.load("obs", coverage_origin)["validity"]
+            # A fresh signed-32-bit seed controls artificial gaps for this example.
             seed = int(state.rng.integers(2**31))
-            with autocast(sources.obs.device):
+            with autocast(
+                torch.device(sources.obs.device).type == "cuda",
+                torch.bfloat16,
+                device=sources.obs.device,
+            ):
                 loss, parts, next_states = objective(
                     state.model,
                     sources.obs,
@@ -308,7 +389,7 @@ def train(
             state.exposure[source][exposure] += 1
             record[exposure] = record.get(exposure, 0) + 1
             record["max_start_lead_days"] = max(
-                record["max_start_lead_days"], sample["start_lead"] * 5
+                record["max_start_lead_days"], sample["start_lead"] * STEP_DAYS
             )
             for name, value in {"loss": loss, **parts}.items():
                 record[name] = (
@@ -341,11 +422,7 @@ def train(
             {
                 "updates": state.updates,
                 "train/gradient_norm": float(norm),
-                **{
-                    f"train/{source}/{key}": value
-                    for key, value in record.items()
-                    if key != "source"
-                },
+                **{f"train/{source}/{key}": value for key, value in record.items()},
                 **{
                     f"exposure/{name}/{key}": value
                     for name, counts in state.exposure.items()
@@ -376,22 +453,21 @@ def train(
         )
 
 
-def digest(path):
+def digest(path: str | Path) -> str:
     with Path(path).open("rb") as stream:
         return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
-def verify_normalization(directory):
+def verify_normalization(directory: Path) -> None:
     """Read back fitted samples; a saved manifest alone is not proof."""
     proof = json.loads((directory / "normalization.json").read_text())
-    if proof["training_split"] != list(SPLITS["train"]):
-        raise ValueError("Normalization uses a different training split")
+    validate_normalization_policy(proof)
     for path, expected in proof["sha256"].items():
         if digest(path) != expected:
             raise ValueError(f"Normalization input changed: {path}")
 
 
-def archive_identity(root):
+def archive_identity(root: Path) -> dict[str, str | int]:
     """Change detection, not a full content read-back of the daily archive.
 
     Record names, sizes, mtimes and preparation manifests. Content hashes where
@@ -412,7 +488,7 @@ def archive_identity(root):
     return {"inventory_sha256": identity.hexdigest(), "files": count}
 
 
-def run_manifest(args, data, sources):
+def run_manifest(args: argparse.Namespace, data: Samples, sources: Sources) -> Manifest:
     package = Path(__file__).resolve().parents[1]
     normalization = Path(args.normalization or args.observations)
     verify_normalization(normalization)
@@ -455,7 +531,7 @@ def run_manifest(args, data, sources):
     }
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("command", choices=("train", "evaluate"))
     parser.add_argument("--observations", type=Path, required=True)
@@ -467,7 +543,11 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--checkpoint", type=Path)
     parser.add_argument("--stop-after", type=int)
-    parser.add_argument("--device", default="cuda")
+    parser.add_argument(
+        "--device",
+        default=None,
+        help="PyTorch device; defaults to Samudra device detection",
+    )
     parser.add_argument(
         "--wandb-mode", choices=("online", "offline", "disabled"), default="online"
     )
@@ -482,6 +562,11 @@ def main():
         parser.error("Model mixes require --om4 (including native forcing statistics)")
     if "cm4" in MIXES[args.mix] and args.cm4 is None:
         parser.error("OM4/CM4 mix requires --cm4")
+    args.device = torch.device(args.device) if args.device is not None else get_device()
+    set_device(args.device)
+    args.output.mkdir(parents=True, exist_ok=True)
+    handle_logging(False, args.output)
+    logger.info("Observation baseline on %s, mix %s", args.device, args.mix)
     random.seed(SEED)
     np.random.seed(SEED)
     os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
@@ -519,9 +604,11 @@ def main():
     if checkpoint is not None:
         state.restore(checkpoint, manifest)
     write_json(manifest, manifest_path)
-    trajectory = data.trajectory(VALIDATION_ORIGIN, steps=73, split="validation")
+    trajectory = data.trajectory(
+        VALIDATION_ORIGIN, steps=FORECAST_STEPS, split="validation"
+    )
 
-    def validate(current_model):
+    def validate(current_model: SurfaceInitializedModel) -> dict[str, float]:
         return annual_metrics(current_model, data, trajectory)
 
     if args.command == "evaluate":
@@ -531,7 +618,7 @@ def main():
             {"checkpoint_sha256": digest(checkpoint), **metrics},
             args.output / "evaluation.json",
         )
-        print(json.dumps(metrics, allow_nan=False), flush=True)
+        logger.info("%s", json.dumps(metrics, allow_nan=False))
         return
     import wandb
 
@@ -549,18 +636,18 @@ def main():
     )
     stopped = False
 
-    def request_stop(signum, frame):
+    def request_stop(signum: int, frame: FrameType | None) -> None:
         nonlocal stopped
         stopped = True
 
     signal.signal(signal.SIGTERM, request_stop)
     signal.signal(signal.SIGUSR1, request_stop)
 
-    def emit(record):
+    def emit(record: Metrics) -> None:
         with (args.output / "metrics.jsonl").open("a") as stream:
             stream.write(json.dumps(record, allow_nan=False) + "\n")
         run.log(record, step=record["updates"])
-        print(json.dumps(record, allow_nan=False), flush=True)
+        logger.info("%s", json.dumps(record, allow_nan=False))
 
     try:
         train(

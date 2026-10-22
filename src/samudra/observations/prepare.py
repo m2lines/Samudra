@@ -16,11 +16,14 @@ import json
 import os
 import time
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pandas as pd
 import xarray as xr
-from scipy.sparse import csr_matrix
+from numpy.typing import ArrayLike, NDArray
+
+from samudra.observations.constants import OBSERVED_DEPTHS
 
 FORCING = (
     "10m_u_component_of_wind",
@@ -32,79 +35,14 @@ FORCING = (
     "surface_thermal_radiation_downwards",
     "total_precipitation",
 )
-DEPTHS = np.array(
-    [2.5, 10, 22.5, 40, 65, 105, 165, 250, 375, 550, 775, 1050, 1400, 1850]
-)
 
 
-def bounds(centers, latitude=False):
-    centers = np.asarray(centers, dtype=np.float64)
-    if centers.ndim != 1 or len(centers) < 2 or not np.all(np.diff(centers) > 0):
-        raise ValueError("Coordinates must be strictly increasing")
-    edges = np.r_[
-        centers[0] - (centers[1] - centers[0]) / 2,
-        (centers[:-1] + centers[1:]) / 2,
-        centers[-1] + (centers[-1] - centers[-2]) / 2,
-    ]
-    if latitude:
-        edges = np.clip(edges, -90, 90)
-        # All supported sources are global, including pole-centered ERA5/IAP.
-        edges[0], edges[-1] = -90, 90
-        return np.sin(np.deg2rad(edges))
-    return edges
-
-
-def overlap(source, target, periodic=False):
-    matrix = np.zeros((len(target) - 1, len(source) - 1))
-    for shift in [-360, 0, 360] if periodic else [0]:
-        matrix += np.maximum(
-            0,
-            np.minimum(target[1:, None], source[None, 1:] + shift)
-            - np.maximum(target[:-1, None], source[None, :-1] + shift),
-        )
-    return csr_matrix(matrix)
-
-
-class ConservativeRemap:
-    def __init__(self, lat, lon, target_lat, target_lon):
-        self.y = overlap(bounds(lat, True), bounds(target_lat, True))
-        self.x = overlap(bounds(lon), bounds(target_lon), True)
-        self.area = (
-            np.diff(bounds(target_lat, True))[:, None]
-            * np.diff(bounds(target_lon))[None, :]
-        )
-        self.source_shape = (len(lat), len(lon))
-        self.shape = (len(target_lat), len(target_lon))
-
-    def integral(self, values):
-        return self.x.dot(self.y.dot(values).T).T
-
-    def __call__(self, values, min_coverage=0.9):
-        values = np.asarray(values)
-        if values.shape[-2:] != self.source_shape:
-            raise ValueError("Source shape does not match coordinates")
-        output, coverage = [], []
-        for field in values.reshape((-1,) + self.source_shape):
-            valid = np.isfinite(field)
-            supported = self.integral(valid.astype(np.float64))
-            fraction = supported / self.area
-            numerator = self.integral(np.where(valid, field, 0).astype(np.float64))
-            mean = np.divide(
-                numerator,
-                supported,
-                out=np.full(self.shape, np.nan),
-                where=supported > 0,
-            )
-            mean[fraction < min_coverage - 1e-10] = np.nan
-            output.append(mean.astype(np.float32))
-            coverage.append(fraction.astype(np.float32))
-        shape = values.shape[:-2] + self.shape
-        return np.array(output).reshape(shape), np.array(coverage).reshape(shape)
-
-
-def interpolate_depth(values, source_depth, target_depth=DEPTHS):
+def interpolate_depth(
+    values: NDArray, source_depth: ArrayLike, target_depth: ArrayLike
+) -> NDArray[np.float32]:
     """Linear center interpolation; require both bracketing levels, never bridge gaps."""
     source_depth = np.asarray(source_depth)
+    target_depth = np.asarray(target_depth)
     if not np.all(np.diff(source_depth) > 0):
         raise ValueError("Depth must increase")
     result = []
@@ -124,14 +62,24 @@ def interpolate_depth(values, source_depth, target_depth=DEPTHS):
     return np.stack(result, axis=-3).astype(np.float32)
 
 
-def save_atomic(path, **arrays):
+def save_atomic(path: Path, **arrays: Any) -> None:
     temp = path.with_name(path.name + f".{os.getpid()}.tmp")
     with temp.open("wb") as stream:
         np.savez_compressed(stream, **arrays)
     temp.replace(path)
 
 
-def prepare(args):
+def prepare(args: argparse.Namespace) -> None:
+    from importlib.metadata import version
+
+    # The separate data environment supplies this preprocessing package.
+    from ocean_preprocessing import (  # type: ignore[import-not-found]
+        regridding,
+        vertical_grid,
+    )
+
+    target_depth = vertical_grid.OM4_DEPTH_LEVELS[:OBSERVED_DEPTHS]
+
     grid = np.load(args.grid)
     names = {
         "sst": ("oisst", ["sst"]),
@@ -142,7 +90,9 @@ def prepare(args):
     product, variables = names[args.product]
     source = Path(args.source) / (product + ".zarr")
     ds = xr.open_zarr(source, chunks=None)
-    remap = ConservativeRemap(ds.lat.values, ds.lon.values, grid["lat"], grid["lon"])
+    remap = regridding.FiniteCoverageRemap(
+        ds.lat.values, ds.lon.values, grid["lat"], grid["lon"]
+    )
     out = Path(args.output) / args.product / str(args.year)
     out.mkdir(parents=True, exist_ok=True)
     times = pd.DatetimeIndex(ds.time.values)
@@ -164,6 +114,12 @@ def prepare(args):
         "source": str(source),
         "limit": args.limit,
         "code_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+        "horizontal_backend": "ESMF conservative spherical-cell weights",
+        "xesmf_version": version("xesmf"),
+        "esmpy_version": version("esmpy"),
+        "regridding_code_sha256": hashlib.sha256(
+            Path(regridding.__file__).read_bytes()
+        ).hexdigest(),
         "coverage_definition": "finite source area / full target cell area",
         "era5_accumulations": "hour ending at validity time; daily bins (00:00, next 00:00]",
     }
@@ -220,14 +176,14 @@ def prepare(args):
                         ds.lat.values[None, :, None],
                     )
                 # Interpolate before horizontal averaging: missing depth brackets stay missing.
-                raw = interpolate_depth(raw, z)
+                raw = interpolate_depth(raw, z, target_depth)
                 field, coverage = remap(raw)
                 fields.append(field)
             save_atomic(
                 path,
                 values=np.stack(fields),
                 time=np.array(stamp),
-                depth=DEPTHS,
+                depth=target_depth,
                 ohc=ohc,
             )
             print(
@@ -314,7 +270,7 @@ def prepare(args):
     )
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", required=True)
     parser.add_argument("--grid", required=True)

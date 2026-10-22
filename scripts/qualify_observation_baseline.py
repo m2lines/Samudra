@@ -26,6 +26,17 @@ import numpy as np
 import torch
 
 from samudra.observations import baseline
+from samudra.observations.archive import validate_normalization_policy
+from samudra.observations.constants import (
+    FORECAST_STEPS,
+    MAX_REPLAY_MONTHS,
+    MODEL_DEPTHS,
+    OBSERVED_DEPTHS,
+    SALINITY_OFFSET,
+    STATE_CHANNELS,
+    SURFACE_CHANNELS,
+    TEMPERATURE_OFFSET,
+)
 from samudra.observations.model_data import ModelMonths
 from samudra.observations.replay import ReplayEntry
 from samudra.observations.samples import Samples
@@ -63,7 +74,72 @@ def equal_tree(actual, expected, path="checkpoint"):
         raise AssertionError(f"{path}: {actual!r} != {expected!r}")
 
 
-def data_parity(data):
+def verify_global_moments(data):
+    """Independently check fitted scales using standardized residual moments.
+
+    The fitter accumulates raw first/second moments. Here we independently
+    require E[(x-mean)/std]=0 and E[((x-mean)/std)^2]=1 over all training samples,
+    all latitudes, and each channel's finite wet support. This intentionally does
+    not compare with the historical latitude-restricted statistics artifact.
+    """
+    metadata = json.loads((data.normalization / "normalization.json").read_text())
+    validate_normalization_policy(metadata)
+    grid = data.grid
+    profile = [
+        offset + depth
+        for offset in (TEMPERATURE_OFFSET, SALINITY_OFFSET)
+        for depth in range(OBSERVED_DEPTHS)
+    ]
+    masks = {
+        "surface": grid["mask"][SURFACE_CHANNELS],
+        "atmosphere": grid["mask"][TEMPERATURE_OFFSET][None],
+        "interior": grid["mask"][profile],
+    }
+    latitude = grid["lat"][:, None]
+    area = np.cos(np.deg2rad(latitude))
+    moments = {name: np.zeros((4, len(data.stats[f"{name}_mean"]))) for name in masks}
+    for path in data.paths("train"):
+        with np.load(path) as sample:
+            for name, accum in moments.items():
+                values = np.asarray(sample[name], dtype=np.float64)
+                if name == "interior":
+                    values = values.reshape(
+                        1, 2 * OBSERVED_DEPTHS, *grid["mask"].shape[-2:]
+                    )
+                valid = np.isfinite(values) & masks[name].astype(bool)
+                weight = np.where(valid, area, 0)
+                mean = data.stats[f"{name}_mean"][None, :, None, None]
+                std = data.stats[f"{name}_std"][None, :, None, None]
+                standardized = np.where(valid, (values - mean) / std, 0)
+                accum[0] += weight.sum((0, 2, 3))
+                accum[1] += (standardized * weight).sum((0, 2, 3))
+                accum[2] += (standardized**2 * weight).sum((0, 2, 3))
+                accum[3] += (weight * (np.abs(latitude) > 60)).sum((0, 2, 3))
+    checks = {}
+    for name, (weight, first, second, polar_weight) in moments.items():
+        if not (weight > 0).all():
+            raise AssertionError(f"No finite-wet normalization support for {name}")
+        # Artifacts are float32; a salinity mean near 35 with a small standard
+        # deviation can have appreciable standardized rounding error.
+        mean_roundoff = (
+            np.abs(np.spacing(data.stats[f"{name}_mean"])) / data.stats[f"{name}_std"]
+            + 1e-6
+        )
+        np.testing.assert_array_less(np.abs(first / weight), mean_roundoff)
+        np.testing.assert_array_less(
+            np.abs(second / weight - 1), 1e-5 + mean_roundoff**2
+        )
+        checks[name] = {
+            "max_abs_standardized_mean": float(np.abs(first / weight).max()),
+            "max_abs_standardized_second_moment_minus_one": float(
+                np.abs(second / weight - 1).max()
+            ),
+            "polar_weight_fraction_by_channel": (polar_weight / weight).tolist(),
+        }
+    return checks
+
+
+def data_parity(data, models):
     """Daily replay preparation agrees with two independently materialized months."""
     checks = []
     for month in ("1993-05", "2001-01"):
@@ -88,32 +164,47 @@ def data_parity(data):
                 "exact": True,
             }
         )
-    # Independently reproduce the original use_observation_normalization algebra.
-    with np.load(data.root / "statistics.npz") as original:
-        for key in original.files:
-            np.testing.assert_array_equal(
-                data.stats[key], original[key], err_msg=f"training statistics {key}"
-            )
-        mean, std = np.zeros(77, np.float32), np.ones(77, np.float32)
-        for offset, group in ((38, 0), (57, 1)):
-            mean[offset : offset + 14] = original["interior_mean"][
-                group * 14 : (group + 1) * 14
-            ]
-            std[offset : offset + 14] = original["interior_std"][
-                group * 14 : (group + 1) * 14
-            ]
-            mean[offset + 14 : offset + 19] = mean[offset + 13]
-            std[offset + 14 : offset + 19] = std[offset + 13]
-        mean[[38, 76]], std[[38, 76]] = (
-            original["surface_mean"],
-            original["surface_std"],
+    global_moments = verify_global_moments(data)
+    # Independently check the 77-channel map of the newly fitted global scales.
+    mean = np.zeros(STATE_CHANNELS, np.float32)
+    std = np.ones(STATE_CHANNELS, np.float32)
+    for offset, group in ((TEMPERATURE_OFFSET, 0), (SALINITY_OFFSET, 1)):
+        mean[offset : offset + OBSERVED_DEPTHS] = data.stats["interior_mean"][
+            group * OBSERVED_DEPTHS : (group + 1) * OBSERVED_DEPTHS
+        ]
+        std[offset : offset + OBSERVED_DEPTHS] = data.stats["interior_std"][
+            group * OBSERVED_DEPTHS : (group + 1) * OBSERVED_DEPTHS
+        ]
+        mean[offset + OBSERVED_DEPTHS : offset + MODEL_DEPTHS] = mean[
+            offset + OBSERVED_DEPTHS - 1
+        ]
+        std[offset + OBSERVED_DEPTHS : offset + MODEL_DEPTHS] = std[
+            offset + OBSERVED_DEPTHS - 1
+        ]
+    mean[SURFACE_CHANNELS], std[SURFACE_CHANNELS] = (
+        data.stats["surface_mean"],
+        data.stats["surface_std"],
+    )
+    for source, grid in [
+        ("obs", data.grid),
+        *((name, model.grid) for name, model in models.items()),
+    ]:
+        np.testing.assert_array_equal(
+            grid["mean"], mean, err_msg=f"{source} state mean"
         )
-    np.testing.assert_array_equal(data.grid["mean"], mean)
-    np.testing.assert_array_equal(data.grid["std"], std)
+        np.testing.assert_array_equal(grid["std"], std, err_msg=f"{source} state std")
+    # Native model forcing still has its own three-channel normalization. It is
+    # never substituted for the shared observation-derived physical-state scales.
+    for name, model in models.items():
+        if model.forcing_mean.shape != (3,) or model.forcing_std.shape != (3,):
+            raise AssertionError(f"Unexpected {name} native forcing scales")
+        np.testing.assert_array_equal(model.forcing_mean, models["om4"].forcing_mean)
+        np.testing.assert_array_equal(model.forcing_std, models["om4"].forcing_std)
     return {
         "fresh_months": checks,
-        "original_statistics_exact": True,
-        "original_state_normalization_exact": True,
+        "global_training_moment_checks": global_moments,
+        "state_normalization_shared_by_all_sources": True,
+        "native_forcing_uses_only_three_om4_scales": True,
     }
 
 
@@ -123,7 +214,7 @@ def chain_origin(sources, source):
     return next(
         index
         for index in range(len(sources.models[source].windows))
-        if sources.layout(source, index, 11) is not None
+        if sources.layout(source, index, MAX_REPLAY_MONTHS - 1) is not None
     )
 
 
@@ -137,13 +228,17 @@ def qualify_chains(state, sources):
     for source in sources.names:
         origin = chain_origin(sources, source)
         cached, chain = None, []
-        for month in range(12):
+        for month in range(MAX_REPLAY_MONTHS):
             layout = sources.layout(source, origin, month)
             if layout is None:
                 break
             sample = sources.load(source, origin, month)
             auxiliary = sources.auxiliary(source, origin, month, sample)
-            with baseline.autocast(sources.obs.device):
+            with baseline.autocast(
+                torch.device(sources.obs.device).type == "cuda",
+                torch.bfloat16,
+                device=sources.obs.device,
+            ):
                 loss, parts, following_states = baseline.objective(
                     model,
                     sources.obs,
@@ -179,7 +274,7 @@ def qualify_chains(state, sources):
                 )
             cached = following_states
             emit({"event": "replay_chain", "source": source, **chain[-1]})
-        if len(chain) != 12 or chain[-1]["end_lead"] != 73:
+        if len(chain) != MAX_REPLAY_MONTHS or chain[-1]["end_lead"] != FORECAST_STEPS:
             raise AssertionError(
                 f"{source} did not complete a native contiguous one-year chain"
             )
@@ -216,7 +311,7 @@ def main():
         "cm4": ModelMonths(args.cm4, "cm4", data.grid, args.om4),
     }
     sources = baseline.Sources(data, models)
-    parity = data_parity(data)
+    parity = data_parity(data, models)
     emit({"event": "data_parity", **parity})
     model = baseline.SurfaceInitializedModel(data.grid["names"].tolist()).to(
         args.device
@@ -239,7 +334,7 @@ def main():
 
     def validate(current):
         trajectory = data.trajectory(
-            baseline.VALIDATION_ORIGIN, steps=73, split="validation"
+            baseline.VALIDATION_ORIGIN, steps=FORECAST_STEPS, split="validation"
         )
         metrics.update(baseline.annual_metrics(current, data, trajectory))
         if metrics["rollout_val/365d/scored_channels"] != 29:

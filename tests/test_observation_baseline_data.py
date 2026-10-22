@@ -16,7 +16,7 @@ from samudra.constants import build_om4_layout
 from samudra.observations.archive import month_intervals, strict_mean, trajectory
 from samudra.observations.intervals import calendar_weights, replay_month
 from samudra.observations.model_data import ModelMonths
-from samudra.observations.prepare import ConservativeRemap, interpolate_depth
+from samudra.observations.prepare import interpolate_depth
 
 
 def test_replay_recomputes_straddling_bin_and_exact_month_weights():
@@ -55,14 +55,6 @@ def test_missing_temporal_and_depth_support_never_invents_labels():
     actual = interpolate_depth(values, [0, 10, 20], [5, 20, 25])
     assert np.isnan(actual[0]).all() and np.isnan(actual[2]).all()
     assert actual[1, 0, 0] == 3
-
-
-def test_conservative_identity_and_missing_cell_coverage():
-    remap = ConservativeRemap([-45, 45], [90, 270], [-45, 45], [90, 270])
-    raw = np.array([[1.0, np.nan], [3.0, 4.0]])
-    actual, coverage = remap(raw)
-    np.testing.assert_allclose(actual, raw, equal_nan=True)
-    np.testing.assert_allclose(coverage, [[1, 0], [1, 1]])
 
 
 def test_train_and_validation_boundaries_rejected_before_io():

@@ -24,7 +24,7 @@ from samudra.observations.grid import export_grid
 from samudra.observations.prepare import prepare
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="stage", required=True)
     grid = commands.add_parser("grid")

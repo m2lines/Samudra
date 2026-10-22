@@ -3,9 +3,11 @@
 # SPDX-License-Identifier: Apache-2.0
 """Fit and record the shared observation-only normalization, separately from training.
 
-Run: uv run python data/prepare_observation_normalization.py PREPARED_ROOT
+Run from the repository with the existing data environment:
+  PYTHONPATH=src data/.venv/bin/python data/prepare_observation_normalization.py PREPARED_ROOT
 Only the 243 May 1993--July 2013 training samples enter these statistics. Repeated
-history intervals intentionally receive the same weighting as in original U-global.
+history intervals retain the original weighting; finite wet cells at ALL latitudes
+contribute. Historical latitude-restricted artifacts must be regenerated.
 """
 
 import argparse
@@ -15,23 +17,41 @@ from pathlib import Path
 
 import numpy as np
 
-from samudra.observations.archive import SPLITS, fit_statistics
+from samudra.observations.archive import (
+    NORMALIZATION_POLICY,
+    NORMALIZATION_VERSION,
+    SPLITS,
+    fit_statistics,
+)
+from samudra.observations.constants import (
+    MODEL_DEPTHS,
+    OBSERVED_DEPTHS,
+    SALINITY_OFFSET,
+    STATE_CHANNELS,
+    SURFACE_CHANNELS,
+    TEMPERATURE_OFFSET,
+)
 from samudra.observations.prepare import save_atomic
 
 
 def state_statistics(statistics):
     """Original U-global conventions for all 77 channels, including unobserved ones."""
-    mean, std = np.zeros(77, dtype=np.float32), np.ones(77, dtype=np.float32)
-    for offset, group in ((38, 0), (57, 1)):
-        mean[offset : offset + 14] = statistics["interior_mean"][
-            group * 14 : (group + 1) * 14
+    mean = np.zeros(STATE_CHANNELS, dtype=np.float32)
+    std = np.ones(STATE_CHANNELS, dtype=np.float32)
+    for offset, group in ((TEMPERATURE_OFFSET, 0), (SALINITY_OFFSET, 1)):
+        mean[offset : offset + OBSERVED_DEPTHS] = statistics["interior_mean"][
+            group * OBSERVED_DEPTHS : (group + 1) * OBSERVED_DEPTHS
         ]
-        std[offset : offset + 14] = statistics["interior_std"][
-            group * 14 : (group + 1) * 14
+        std[offset : offset + OBSERVED_DEPTHS] = statistics["interior_std"][
+            group * OBSERVED_DEPTHS : (group + 1) * OBSERVED_DEPTHS
         ]
-        mean[offset + 14 : offset + 19] = mean[offset + 13]
-        std[offset + 14 : offset + 19] = std[offset + 13]
-    mean[[38, 76]], std[[38, 76]] = (
+        mean[offset + OBSERVED_DEPTHS : offset + MODEL_DEPTHS] = mean[
+            offset + OBSERVED_DEPTHS - 1
+        ]
+        std[offset + OBSERVED_DEPTHS : offset + MODEL_DEPTHS] = std[
+            offset + OBSERVED_DEPTHS - 1
+        ]
+    mean[SURFACE_CHANNELS], std[SURFACE_CHANNELS] = (
         statistics["surface_mean"],
         statistics["surface_std"],
     )
@@ -62,8 +82,9 @@ def prepare_normalization(root, output=None):
     (output / "normalization.json").write_text(
         json.dumps(
             {
+                "normalization_version": NORMALIZATION_VERSION,
+                "normalization_policy": NORMALIZATION_POLICY,
                 "training_split": SPLITS["train"],
-                "weighting": "cos(latitude), abs(latitude)<=60, original repeated-history sample distribution",
                 "unobserved_velocity": "mean=0,std=1",
                 "deep_ts": "repeat deepest observed mean/std",
                 "surface_temperature": "OISST overrides profile thetao_0",

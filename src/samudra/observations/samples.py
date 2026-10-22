@@ -4,13 +4,14 @@
 
 """Observation-fitted state scales, bounded CPU samples, and explicit replay windows."""
 
+import json
 from functools import cached_property, lru_cache
 from pathlib import Path
 
 import numpy as np
 import torch
 
-from samudra.observations.archive import context_planes
+from samudra.observations.archive import context_planes, validate_normalization_policy
 
 
 class Samples:
@@ -20,6 +21,9 @@ class Samples:
         self.daily = Path(daily) if daily is not None else self.root / "daily"
         self.normalization = (
             Path(normalization) if normalization is not None else self.root
+        )
+        validate_normalization_policy(
+            json.loads((self.normalization / "normalization.json").read_text())
         )
         self.grid = dict(np.load(self.root / "grid.npz"))
         self.stats = dict(np.load(self.normalization / "statistics.npz"))

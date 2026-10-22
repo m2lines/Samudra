@@ -35,8 +35,8 @@ class ZarrWriter:
             )
 
         self.output_steps = output_steps
-        self.buffer: torch.Tensor | None = None
-        self.time_buffer: xr.DataArray | None = None
+        self._buffer: torch.Tensor | None = None
+        self._time_buffer: xr.DataArray | None = None
         self.coords = coords
         self.model_path = model_path
         self.time_chunk_size = time_chunk_size
@@ -53,31 +53,31 @@ class ZarrWriter:
         pred_tensor = self.preprocessor.unnormalize_tensor_prognostic(
             pred_tensor, fill_value=float("nan")
         )
-        if self.buffer is None:
-            self.buffer = pred_tensor
+        if self._buffer is None:
+            self._buffer = pred_tensor
         else:
-            self.buffer = torch.cat([self.buffer, pred_tensor], dim=0)
+            self._buffer = torch.cat([self._buffer, pred_tensor], dim=0)
 
-        if self.time_buffer is None:
-            self.time_buffer = pred_time
+        if self._time_buffer is None:
+            self._time_buffer = pred_time
         else:
-            self.time_buffer = xr.concat([self.time_buffer, pred_time], dim="time")
+            self._time_buffer = xr.concat([self._time_buffer, pred_time], dim="time")
 
     def write(self):
         # Write to zarr
-        if self.buffer is None:
+        if self._buffer is None:
             raise ValueError("No tensor to write")
 
-        if self.time_buffer is None:
+        if self._time_buffer is None:
             raise ValueError("No time buffer to write")
 
-        buffer = self.buffer.cpu().numpy()  # (time, channel, y, x)
+        buffer = self._buffer.cpu().numpy()  # (time, channel, y, x)
 
         # Lay the flat per-level channels out as a Dataset, then reassemble into
         # depth-stacked variables with `stack_levels` -- the same helper used to
         # put ground-truth inputs into analysis-ready form, so predictions match.
         coords = self._output_coords()
-        coords["time"] = self.time_buffer
+        coords["time"] = self._time_buffer
         per_level = xr.Dataset(
             {
                 name: (["time", "y", "x"], buffer[:, channel, :, :])
@@ -99,8 +99,8 @@ class ZarrWriter:
             )
 
         # Reset
-        self.buffer = None
-        self.time_buffer = None
+        self._buffer = None
+        self._time_buffer = None
 
     def _output_coords(self) -> dict:
         """Build output coordinates that match the ground-truth OM4 dataset layout.
@@ -159,6 +159,11 @@ class ZarrWriter:
             # those to the emitted `lev` count instead of conflicting with it.
             if "lev" in da.dims:
                 da = da.isel(lev=slice(0, n_levels))
+            # Auxiliary coordinates such as time_bnds describe the full source
+            # record. Each append must carry only the forecast batch's times.
+            if "time" in da.dims:
+                assert self._time_buffer is not None
+                da = da.sel(time=self._time_buffer)
             dims = tuple(rename.get(str(d), str(d)) for d in da.dims)
             coords[name] = (dims, np.asarray(da.values))
 

@@ -93,6 +93,22 @@ channel metrics accompany the selection score.
 record the phase endpoints. Use the `evaluate` subcommand with `--checkpoint` to
 score a saved model.
 
+Save a continuous forecast for later analysis with
+[`rollout_observation_baseline.py`](../../../scripts/rollout_observation_baseline.py):
+
+```bash
+python scripts/rollout_observation_baseline.py \
+  --checkpoint /runs/baseline/best.pt --observations /data/obs \
+  --normalization /data/obs --daily /data/obs/daily \
+  --geometry /data/om4_onedeg_v3/OM4.zarr --output /runs/baseline/rollout-best \
+  --origin 2015-01-01 --end-exclusive 2023-01-01
+```
+
+The exporter uses the checkpoint's EMA weights, initializes once from observation
+history, and advances with prescribed ERA5 forcing. `predictions.zarr` contains
+physical fields, five-day interval bounds, wet masks and source-grid geometry.
+Its completion receipt records the checkpoint, inputs and actual forecast coverage.
+
 ## Verification
 
 Focused tests exercise calendar overlap, missingness, global normalization,

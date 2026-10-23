@@ -1,0 +1,18 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+# SPDX-License-Identifier: Apache-2.0
+# User service for a deployment checkout at ~/samudra_viewer.
+[Unit]
+Description=Samudra observation results Panel viewer
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/samudra_viewer/apps/observation_viewer
+Environment=PYTHONUNBUFFERED=1
+EnvironmentFile=%h/.config/samudra-viewer/environment
+ExecStart=%h/samudra_viewer/apps/observation_viewer/.venv/bin/panel serve app.py --address 0.0.0.0 --port 61015
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target

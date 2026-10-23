@@ -20,6 +20,55 @@ def load(path):
         return dict(z)
 
 
+@lru_cache(maxsize=32)
+def denoiser_rmse(directory):
+    """Normalized, unweighted wet-cell RMSE for every saved denoiser call."""
+    directory = Path(directory)
+    cache = directory / "denoiser-rmse.json"
+    if cache.exists():
+        values = json.loads(cache.read_text())
+        return np.asarray(values["calls"]), np.asarray(values["rmse"], dtype=float)
+    with np.load(directory / "final.npz") as final:
+        gold = final["gold"].astype(np.float64)
+        support = final["support"].astype(bool) & np.isfinite(gold)
+    calls, rows = [], []
+    for path in sorted(directory.glob("call-*.npz")):
+        with np.load(path) as trace:
+            error = trace["clean"].astype(np.float64) - gold
+        valid = support & np.isfinite(error)
+        count = valid.sum(axis=(-2, -1))
+        mse = np.divide(
+            np.where(valid, error**2, 0).sum(axis=(-2, -1)),
+            count,
+            out=np.full(len(count), np.nan),
+            where=count > 0,
+        )
+        rows.append(np.sqrt(mse))
+        calls.append(int(path.stem.split("-")[1]))
+    return np.asarray(calls), np.asarray(rows)
+
+
+def rmse_sparkline(calls, values, selected, unit):
+    valid = np.isfinite(values)
+    if not valid.any():
+        return ""
+    ceiling = max(float(np.max(values[valid])), 1e-12)
+    x = 5 + 140 * calls / max(float(calls[-1]), 1)
+    y = 39 - 34 * values / ceiling
+    points = " ".join(f"{a:.2f},{b:.2f}" for a, b in zip(x[valid], y[valid]))
+    marker = ""
+    for j in np.flatnonzero((calls == selected) & valid):
+        marker = f'<circle cx="{x[j]:.2f}" cy="{y[j]:.2f}" r="3" fill="#dc2626"/>'
+    title = f"Denoiser RMSE ({unit}); calls 0–{calls[-1]} including Heun correctors; y: 0–{ceiling:.4g}; red dot: call {selected}"
+    return (
+        f'<svg class="rmse-sparkline" role="img" aria-label="{title}" '
+        'width="150" height="48" viewBox="0 0 150 48">'
+        f'<title>{title}</title><path d="M5 5 V39 H145" fill="none" stroke="#999"/>'
+        f'<polyline points="{points}" fill="none" stroke="#2563eb" stroke-width="1.5"/>'
+        f"{marker}</svg>"
+    )
+
+
 def image_html(values, low, high, divergent=False, width=180):
     values = np.asarray(values)
     valid = np.isfinite(values)
@@ -109,13 +158,18 @@ class Anatomy:
         self.tiles = pn.GridBox(ncols=4, sizing_mode="stretch_width")
         self.latents = pn.pane.HTML()
         self.panels = []
+        self.sparks = {}
         # Stable variable-by-depth order for all three examples. SSH retains its own tile.
         for i in [v * 19 + d for d in range(19) for v in range(4)] + [76]:
             button = pn.widgets.Button(label=self.labels[i], color="light", width=210)
             button.on_click(lambda event, i=i: setattr(self.field, "value", i))
             pane = pn.pane.HTML(sizing_mode="stretch_width")
             self.panels.append((i, pane))
-            self.tiles.append(pn.Column(button, pane, sizing_mode="stretch_width"))
+            spark = pn.pane.HTML(width=150, height=48, margin=0, visible=False)
+            self.sparks[i] = spark
+            self.tiles.append(
+                pn.Column(pn.Row(button, spark), pane, sizing_mode="stretch_width")
+            )
         for widget in [
             self.source,
             self.stage,
@@ -305,6 +359,7 @@ Maps use native grid pixels, south-to-north, with longitude increasing left-to-r
 
 **Training vs sampling:** this is one fixed draw, not an eight-member mean. The 32 Heun intervals use 63 denoiser calls.
 With NN input scaling enabled, only the noisy-input panel shows the dimensionless first-convolution input, divided by √(1+σ²), on a fixed −3 to +3 scale. The physical/normalized units selector still controls predictions and gold.
+Sparklines show unweighted denoiser-prediction RMSE versus gold across all 63 calls, including Heun correctors. Each has a zero-based vertical scale; hover for its range and units. The red dot marks the selected call.
 Training uses individual noisy-target denoising calls. Gold never enters latent evolution or this sampler.
 Monthly fields are direct raw decoder outputs from the averaged latent, **without replacing top temperature with predicted SST**.
 OBS monthly support excludes top temperature; missing channels remain blank.
@@ -328,6 +383,8 @@ OBS monthly support excludes top temperature; missing channels remain blank.
                 if i not in self.scales:
                     self.scales[i] = self.limits(i)
                 pane.object = self.render(i, 120)
+                self.sparks[i].object = self.sparkline(i)
+                self.sparks[i].visible = bool(self.sparks[i].object)
             self.update_auxiliary()
             self.update_latents()
 
@@ -338,13 +395,34 @@ OBS monthly support excludes top temperature; missing channels remain blank.
         else:
             render_remaining()
 
+    def sparkline(self, i):
+        if self.stage.value == "inputs" or self.readout.value == "Final sample":
+            return ""
+        if not self.current[2][i].any():
+            return ""
+        calls, errors = denoiser_rmse(
+            str(self.root / self.source.value / self.stage_for(self.source.value))
+        )
+        values = errors[:, i]
+        if self.units.value == "Physical":
+            values = values * abs(self.grid["std"][i])
+        selected = 2 * (self.step.value - 1) + (
+            self.corrector.value and self.step.value < 32
+        )
+        return rmse_sparkline(calls, values, selected, self.unit(i))
+
     def update_detail(self, *events):
         i = self.field.value
         if events:
             self.inspector.active = [0]
         if i not in self.scales:
             self.scales[i] = self.limits(i)
-        self.detail.object = f"<h3>{self.labels[i]}</h3>" + self.render(i, 360)
+        self.detail.object = (
+            f'<div style="display:flex;align-items:center;gap:16px"><h3>{self.labels[i]}</h3>'
+            + self.sparkline(i)
+            + "</div>"
+            + self.render(i, 360)
+        )
 
     def update_auxiliary(self):
         z = load(str(self.root / self.source.value / "inputs.npz"))

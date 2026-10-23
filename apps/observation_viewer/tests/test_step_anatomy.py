@@ -130,3 +130,20 @@ def test_field_groups_follow_support_and_preserve_selection(anatomy):
     anatomy.stage.value = "initial-full"
     assert list(anatomy.field.groups) == ["Available"]
     assert len(anatomy.field.groups["Available"]) == 77
+
+
+def test_denoiser_rmse_and_sparkline(tmp_path):
+    from step_anatomy import denoiser_rmse, rmse_sparkline
+
+    gold = np.zeros((2, 2, 2))
+    support = np.array([[[1, 1], [0, 0]], [[0, 0], [0, 0]]], dtype=bool)
+    np.savez(tmp_path / "final.npz", gold=gold, support=support)
+    clean = np.array([[[3, 4], [999, 999]], [[999, 999], [999, 999]]])
+    np.savez(tmp_path / "call-00.npz", clean=clean)
+    np.savez(tmp_path / "call-01.npz", clean=clean * 2)
+    calls, errors = denoiser_rmse(str(tmp_path))
+    np.testing.assert_allclose(errors[:, 0], [np.sqrt(12.5), np.sqrt(50)])
+    assert np.isnan(errors[:, 1]).all()
+    svg = rmse_sparkline(calls, errors[:, 0], 1, "m/s")
+    assert "circle" in svg and "call 1" in svg and "m/s" in svg
+    assert rmse_sparkline(calls, errors[:, 1], 1, "m/s") == ""

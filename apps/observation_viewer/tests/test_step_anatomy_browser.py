@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Samudra Authors
 # SPDX-License-Identifier: Apache-2.0
 import os
+import re
 
 import pytest
 from playwright.sync_api import expect, sync_playwright
@@ -64,6 +65,10 @@ def test_anatomy_real_controls():
         expect(page.get_by_text("Denoiser prediction", exact=True).first).to_be_visible(
             timeout=120000
         )
+        spark = page.locator("svg.rmse-sparkline").first
+        expect(spark).to_be_visible()
+        expect(spark.locator("circle")).to_have_count(1)
+        expect(spark).to_have_attribute("aria-label", re.compile(".*call 62"))
         comparison = page.locator(".xray-field-grid").first
         maps = comparison.locator("img")
         first, second = maps.nth(0).bounding_box(), maps.nth(1).bounding_box()

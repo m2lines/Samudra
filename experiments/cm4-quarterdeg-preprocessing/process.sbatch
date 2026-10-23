@@ -30,9 +30,11 @@ scontrol show job "$SLURM_JOB_ID" > "$ROOT/records/${stage}-allocation.txt"
 on_exit() {
     rc=$?
     trap - EXIT
-    python3 "$ROOT/private/send.py" --credential-file "$ROOT/private/${stage}-completion.json" || true
+    timeout 35 python3 "$ROOT/private/send.py" --credential-file "$ROOT/private/${stage}-completion.json" || true
     exit "$rc"
 }
 trap on_exit EXIT
-python3 "$ROOT/private/send.py" --credential-file "$ROOT/private/${stage}-completion.json" --check
+if ! timeout 25 python3 "$ROOT/private/send.py" --credential-file "$ROOT/private/${stage}-completion.json" --check; then
+    echo "Callback endpoint unavailable; durable local reminders remain active." >&2
+fi
 srun --mpi=none --cpu-bind=cores /scratch/am16581/miniforge3/envs/ocean_preprocessing/bin/python -u "$ROOT/source/experiments/cm4-quarterdeg-preprocessing/run.py" "$stage"

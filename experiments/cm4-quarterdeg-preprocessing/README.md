@@ -44,3 +44,9 @@ read-back statistics, logs and completion records are retained.
 User authorization covers the pilot followed by full processing after the
 qualification gates pass. Durable callbacks/monitoring carry the task forward;
 no further confirmation is needed for promotion. Model training is out of scope.
+
+Torch login and DTN callback connectivity timed out during setup. The installed
+callback remains best-effort, with a bounded startup check and exit delivery;
+durable local reminders and scheduler/artifact checks provide follow-up even
+when that endpoint is unreachable. Notification connectivity does not determine
+scientific-job success or bypass any pilot qualification check.

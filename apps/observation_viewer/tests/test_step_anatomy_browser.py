@@ -43,6 +43,13 @@ def test_anatomy_real_controls():
             page.get_by_text("Original A · OBS · initial", exact=False)
         ).to_be_visible(timeout=120000)
         selects = page.locator("select")
+        expect(selects.nth(2).locator("optgroup")).to_have_count(2)
+        expect(selects.nth(2).locator("optgroup").first).to_have_attribute(
+            "label", "Available"
+        )
+        expect(
+            selects.nth(2).locator("optgroup").first.locator("option")
+        ).to_have_count(2)
         selects.nth(0).select_option(label="One processor step → day 5 decode")
         expect(page.get_by_text("Original A · OBS · day5", exact=False)).to_be_visible(
             timeout=120000

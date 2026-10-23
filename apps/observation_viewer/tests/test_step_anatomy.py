@@ -119,3 +119,14 @@ def test_nn_input_scaling_uses_normalized_values(anatomy, monkeypatch):
     images.clear()
     anatomy.render(38)
     np.testing.assert_allclose(images[0], 81 * 2 + 38)
+
+
+def test_field_groups_follow_support_and_preserve_selection(anatomy):
+    anatomy.field.value = 0
+    anatomy.source.value = "obs_pre"
+    assert list(anatomy.field.groups["Available"].values()) == [38, 76]
+    assert 0 in anatomy.field.groups["Not present in this view"].values()
+    assert anatomy.field.value == 0
+    anatomy.stage.value = "initial-full"
+    assert list(anatomy.field.groups) == ["Available"]
+    assert len(anatomy.field.groups["Available"]) == 77

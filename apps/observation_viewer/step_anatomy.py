@@ -94,7 +94,7 @@ class Anatomy:
         )
         self.field = pn.widgets.Select(
             label="Inspect field",
-            options={n: i for i, n in enumerate(self.labels)},
+            groups={"Available": {n: i for i, n in enumerate(self.labels)}},
             value=38,
         )
         self.latent_channel = pn.widgets.IntSlider(
@@ -129,6 +129,7 @@ class Anatomy:
             widget.param.watch(self.update, "value")
         self.field.param.watch(self.update_detail, "value")
         self.latent_channel.param.watch(self.update_latents, "value")
+        self._render_generation = 0
         self.update()
 
     def transform(self, value, channel, difference=False):
@@ -248,7 +249,17 @@ class Anatomy:
 
     def update(self, *events):
         self.current = self.values(self.source.value)
-        self.scales = [self.limits(i) for i in range(77)]
+        self._render_generation += 1
+        generation = self._render_generation
+        present = self.current[2].any(axis=(-2, -1))
+        groups = {"Available": {self.labels[i]: i for i in range(77) if present[i]}}
+        if not present.all():
+            groups["Not present in this view"] = {
+                self.labels[i]: i for i in range(77) if not present[i]
+            }
+        selected = self.field.value
+        self.field.param.update(groups=groups, value=selected)
+        self.scales = {selected: self.limits(selected)}
         case = self.manifest["cases"][self.source.value]
         source = self.source.value
         self.caption.object = f"""## Original A · {source.upper()} · {self.stage.value}
@@ -275,16 +286,31 @@ OBS monthly support excludes top temperature; missing channels remain blank.
             self.caption.object += f"\nSelected call {call}: {meta['role']}; noise sigma **{meta['sigma']:.6g}**. Early noise may exceed the fixed color range; clipping percentages are shown.\n"
         if self.stage.value.endswith("-full"):
             self.caption.object += "\n**Diagnostic full77 request:** for OBS this differs from its trained surface-only task. The reference is contemporaneous OM4 simulation context, not observational truth or OBS supervision.\n"
-        for i, pane in self.panels:
-            pane.object = self.render(i, 120)
         self.update_detail()
-        self.update_auxiliary()
-        self.update_latents()
+
+        def render_remaining():
+            if generation != self._render_generation:
+                return
+            for i, pane in self.panels:
+                if i not in self.scales:
+                    self.scales[i] = self.limits(i)
+                pane.object = self.render(i, 120)
+            self.update_auxiliary()
+            self.update_latents()
+
+        document = pn.state.curdoc
+        if document is not None and document.session_context is not None:
+            # Let the selected-field patch reach the browser before bulk rendering.
+            document.add_timeout_callback(render_remaining, 50)
+        else:
+            render_remaining()
 
     def update_detail(self, *events):
         i = self.field.value
         if events:
             self.inspector.active = [0]
+        if i not in self.scales:
+            self.scales[i] = self.limits(i)
         self.detail.object = f"<h3>{self.labels[i]}</h3>" + self.render(i, 360)
 
     def update_auxiliary(self):

@@ -492,3 +492,22 @@ native SST, using the selected member rather than the mean for single draws.
 OHC is independently integrated from each selected readout's own monthly
 temperature profiles, and persistence holds its own decoded initial fields.
 The published score curves continue to evaluate eight-draw mean fields.
+
+## Original A step anatomy
+
+Open `app?anatomy=1` for the saved three-case diagnostic: original A at 2k on
+OM4 surfaces, the identical checkpoint on observations, and A after cooldown
+on the same observations. The separate `.step-anatomy` bundle (or
+`SAMUDRA_ANATOMY_DATA`) contains hash-verified inputs, gold, latents and 13
+diffusion traces. No inference runs in the server.
+
+Field positions and pooled color limits stay fixed when switching examples.
+Ocean fields can be shown in physical units or shared OM4-normalized coordinates.
+Select an individual field to expand the native-resolution inspection panel.
+The 32-step slider exposes the noisy input or estimated clean field; an optional
+Heun-corrector toggle exposes the second call. Full77 observation requests are
+explicit diagnostics with OM4 context, not observational gold. Monthly fields
+are raw direct decodes without the report's surface-temperature substitution.
+
+Browser coverage: set `SAMUDRA_ANATOMY_TEST_URL` to the running diagnostic URL
+and run `tests/test_step_anatomy_browser.py`.

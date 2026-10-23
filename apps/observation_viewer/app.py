@@ -1252,7 +1252,14 @@ class Viewer:
             title="Samudra Results Viewer",
             accent_base_color="#087f8c",
             header_background="#143b4a",
-            sidebar=[pn.Column(*sidebar)],
+            sidebar=[
+                pn.Column(
+                    *sidebar,
+                    pn.pane.Markdown(
+                        "[A: initialization & diffusion anatomy](?anatomy=1)"
+                    ),
+                )
+            ],
             sidebar_width=285,
             main=[
                 pn.Column(

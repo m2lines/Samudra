@@ -56,9 +56,9 @@ class Anatomy:
         self.source = pn.widgets.RadioButtonGroup(
             label="Example",
             options={
-                "A 2k · OM4 surface inputs": "om4",
-                "A 2k · OBS surface inputs": "obs_pre",
-                "A 3k cooled · OBS surface inputs": "obs",
+                "OM4 · 2k": "om4",
+                "OBS · 2k": "obs_pre",
+                "OBS · 3k cooled": "obs",
             },
             value="om4",
         )
@@ -102,6 +102,9 @@ class Anatomy:
         self.caption = pn.pane.Markdown()
         self.detail = pn.pane.HTML()
         self.auxiliary = pn.pane.HTML()
+        self.inspector = pn.Accordion(
+            ("Selected field at native resolution", self.detail), active=[]
+        )
         self.tiles = pn.GridBox(ncols=4, sizing_mode="stretch_width")
         self.latents = pn.pane.HTML()
         self.panels = []
@@ -248,7 +251,9 @@ OBS monthly support excludes top temperature; missing channels remain blank.
 
     def update_detail(self, *events):
         i = self.field.value
-        self.detail.object = f"<h3>{self.labels[i]}</h3>" + self.render(i, 480)
+        if events:
+            self.inspector.active = [0]
+        self.detail.object = f"<h3>{self.labels[i]}</h3>" + self.render(i, 360)
 
     def update_auxiliary(self):
         z = load(str(self.root / self.source.value / "inputs.npz"))
@@ -322,7 +327,7 @@ OBS monthly support excludes top temperature; missing channels remain blank.
             ],
             main=[
                 self.caption,
-                self.detail,
+                self.inspector,
                 pn.Accordion(
                     ("Forcings and geographic/seasonal inputs", self.auxiliary),
                     ("Latent state", self.latents),

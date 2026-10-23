@@ -1125,6 +1125,7 @@ dependencies = [
     { name = "bokeh" },
     { name = "numpy" },
     { name = "panel" },
+    { name = "pillow" },
 ]
 
 [package.dev-dependencies]
@@ -1140,6 +1141,7 @@ requires-dist = [
     { name = "bokeh", specifier = ">=3.8,<4" },
     { name = "numpy", specifier = ">=1.26,<3" },
     { name = "panel", specifier = ">=1.8,<2" },
+    { name = "pillow", specifier = ">=11,<13" },
 ]
 
 [package.metadata.requires-dev]

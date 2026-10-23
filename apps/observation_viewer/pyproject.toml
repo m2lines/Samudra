@@ -15,6 +15,7 @@ dependencies = [
   "bokeh>=3.8,<4",
   "numpy>=1.26,<3",
   "panel>=1.8,<2",
+  "pillow>=11,<13",
 ]
 
 [dependency-groups]

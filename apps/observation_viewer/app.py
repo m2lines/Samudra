@@ -1274,13 +1274,20 @@ class Viewer:
         )
 
 
-catalog = Catalog(
-    os.environ.get("SAMUDRA_VIEWER_DATA", str(APP_ROOT / ".data")),
-    extra_catalogs=[
-        path
-        for path in os.environ.get("SAMUDRA_VIEWER_CATALOGS", "").split(os.pathsep)
-        if path
-    ],
-)
-viewer = Viewer(catalog)
-viewer.view().servable()
+if pn.state.session_args.get("anatomy", [b"0"])[0] == b"1":
+    from step_anatomy import Anatomy
+
+    Anatomy(
+        os.environ.get("SAMUDRA_ANATOMY_DATA", str(APP_ROOT / ".step-anatomy"))
+    ).view().servable()
+else:
+    catalog = Catalog(
+        os.environ.get("SAMUDRA_VIEWER_DATA", str(APP_ROOT / ".data")),
+        extra_catalogs=[
+            path
+            for path in os.environ.get("SAMUDRA_VIEWER_CATALOGS", "").split(os.pathsep)
+            if path
+        ],
+    )
+    viewer = Viewer(catalog)
+    viewer.view().servable()

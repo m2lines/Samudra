@@ -94,6 +94,11 @@ Availability on 2026-10-23: Torch's four-GPU test submission estimated a later
 start, Engaging's H200/B200 tests estimated the following day; no immediate
 alternative allocation was established. Use production Beta as requested.
 
-Completion hooks plus six-hour fallback checks must verify accounting, training
+Durable local six-hour scheduler checks must verify accounting, training
 completion, both prediction stores and latitude/stability metrics for every arm
 before publishing a scientific comparison.
+
+Remote callback credential installation was blocked by automatic approval review.
+No remote callback is installed; local quiet polling is the active mechanism,
+so completion/failure detection can lag by up to six hours. GitHub publication
+is separately blocked pending explicit approval to publish cluster path metadata.

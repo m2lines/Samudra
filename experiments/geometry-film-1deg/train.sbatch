@@ -15,12 +15,7 @@ set -euo pipefail
 export ROOT=/projects/ny/lz1955/multiscale/jrusak/runs/geometry-film-1deg-20261023
 export ARM="$1"
 case "$ARM" in control|concat|film) ;; *) exit 2 ;; esac
-on_exit() {
-  rc=$?; trap - EXIT
-  python3 "$ROOT/followup/send.py" --credential-file "$ROOT/followup/$ARM.json" || true
-  exit "$rc"
-}
-trap on_exit EXIT
+# Completion is checked by durable local scheduler polling; no remote credentials.
 export DATA_ROOT=/projects/ny/lz1955/multiscale/jrusak/data/om4/v2026-09/om4_onedeg
 export OMP_NUM_THREADS=8 MKL_NUM_THREADS=8 OPENBLAS_NUM_THREADS=8 NUMEXPR_NUM_THREADS=8
 export PYTHONUNBUFFERED=1 PYTHONNOUSERSITE=1 WANDB_MODE=online

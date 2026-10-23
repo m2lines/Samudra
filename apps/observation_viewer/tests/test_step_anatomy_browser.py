@@ -64,6 +64,15 @@ def test_anatomy_real_controls():
         expect(page.get_by_text("Denoiser prediction", exact=True).first).to_be_visible(
             timeout=120000
         )
+        comparison = page.locator(".xray-field-grid").first
+        maps = comparison.locator("img")
+        first, second = maps.nth(0).bounding_box(), maps.nth(1).bounding_box()
+        assert abs(first["y"] - second["y"]) < 1
+        assert abs(first["height"] - second["height"]) < 1
+        bars = comparison.locator('span[style*="linear-gradient"]')
+        assert (
+            abs(bars.nth(0).bounding_box()["y"] - bars.nth(1).bounding_box()["y"]) < 1
+        )
         selects.nth(0).select_option(label="Monthly decode (separate task)")
         expect(
             page.get_by_text("Original A · OBS · monthly", exact=False)

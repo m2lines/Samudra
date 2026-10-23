@@ -217,7 +217,7 @@ class Anatomy:
             else "Gold"
         )
         prediction_label = "Prediction"
-        noisy_panel = ""
+        panels = []
         if self.readout.value != "Final sample":
             call = 2 * (self.step.value - 1) + (
                 self.corrector.value and self.step.value < 32
@@ -243,9 +243,42 @@ class Anatomy:
             else:
                 noisy = self.transform(noisy, i)
                 input_label += f" · {self.unit(i)}"
-            noisy_panel = f"<div><span>Noisy input</span><br><small>{input_label}</small><br>{image_html(noisy, input_lo, input_hi, width=width)}</div>"
+            panels.append(
+                (
+                    f"<span>Noisy input</span><br><small>{input_label}</small>",
+                    image_html(noisy, input_lo, input_hi, width=width),
+                )
+            )
             prediction_label = "Denoiser prediction"
-        return f'<div><b>{self.unit(i)}</b> · prediction RMSE {rmse:.4g}<br><div style="display:grid;grid-template-columns:repeat(2,max-content);gap:6px">{noisy_panel}<div><span>{prediction_label}</span><br>{image_html(p, lo, hi, width=width)}</div><div>{gold_label}<br>{image_html(g, lo, hi, width=width)}</div><div>Prediction error<br>{image_html(error, -error_scale, error_scale, True, width)}</div></div></div>'
+        panels.extend(
+            [
+                (
+                    f"<span>{prediction_label}</span>",
+                    image_html(p, lo, hi, width=width),
+                ),
+                (gold_label, image_html(g, lo, hi, width=width)),
+                (
+                    "Prediction error",
+                    image_html(error, -error_scale, error_scale, True, width),
+                ),
+            ]
+        )
+        rows = []
+        for start in range(0, len(panels), 2):
+            pair = panels[start : start + 2]
+            # Share the header row so wrapped subtitles cannot offset the maps.
+            headers = "".join(f"<div>{title}</div>" for title, _ in pair)
+            images = "".join(f"<div>{content}</div>" for _, content in pair)
+            if len(pair) == 1:
+                headers += "<div></div>"
+            rows.append(headers + images)
+        return (
+            f"<div><b>{self.unit(i)}</b> · prediction RMSE {rmse:.4g}<br>"
+            f'<div class="xray-field-grid" style="display:grid;'
+            f'grid-template-columns:repeat(2,{width}px);gap:6px">'
+            + "".join(rows)
+            + "</div></div>"
+        )
 
     def update(self, *events):
         self.current = self.values(self.source.value)

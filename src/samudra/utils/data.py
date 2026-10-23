@@ -38,6 +38,7 @@ from samudra.constants import (
     SingleTimeSeriesOutput,
     TimeIndices,
     construct_metadata,
+    is_rectilinear,
 )
 from samudra.derived_variables import add_derived_variables
 
@@ -207,10 +208,15 @@ class XarrayCanonicalReader:
         return values
 
     def coordinates(self) -> Mapping[str, xr.DataArray]:
+        # Cell areas are static grid metadata even in stores that encode them
+        # as a data variable rather than an xarray coordinate.
+        coordinates = dict(self.data.coords)
+        if "areacello" in self.data:
+            coordinates["areacello"] = self.data["areacello"]
         return MappingProxyType(
             {
                 str(name): coordinate.copy(deep=True)
-                for name, coordinate in self.data.coords.items()
+                for name, coordinate in coordinates.items()
             }
         )
 
@@ -305,10 +311,59 @@ class CanonicalSource:
         return res[0].shape[0], res[1].shape[0]
 
     @cached_property
-    def spherical_area_weights(self) -> Grid:
-        lat, lon = self.resolution
-        weights = torch.cos(torch.deg2rad(lat)).repeat(lon.shape[0], 1).t()
-        return weights / weights.sum()
+    def area_weights(self) -> Grid:
+        """Normalized physical cell areas for spatial metric reductions.
+
+        Prefer source areas on every grid. Only legacy rectilinear sources
+        without areas retain cosine-latitude weighting. Wet masks are applied
+        by metric consumers per variable/depth, not folded into these weights.
+        """
+        source_area = self.coordinates().get("areacello")
+        if source_area is None:
+            if not is_rectilinear(self.data_layout.grid_type):
+                raise ValueError(
+                    f"Source {self.name!r} with grid_type="
+                    f"{self.data_layout.grid_type!r} requires 'areacello' "
+                    "for area weighting; preserve native cell areas during "
+                    "preprocessing. Cosine-latitude weights are invalid on "
+                    "curvilinear grids."
+                )
+            lat, lon = self.resolution
+            weights = torch.cos(torch.deg2rad(lat)).repeat(lon.shape[0], 1).t()
+            return weights / weights.sum()
+
+        if set(source_area.dims) != {"lat", "lon"}:
+            raise ValueError(
+                f"Source 'areacello' has dimensions {source_area.dims}; "
+                "expected ('lat', 'lon') on the canonical horizontal grid."
+            )
+        area = np.asarray(source_area.transpose("lat", "lon").values, dtype=np.float64)
+        if area.shape != self.grid_size:
+            raise ValueError(
+                f"Source 'areacello' has shape {area.shape}; expected {self.grid_size}."
+            )
+        if np.isinf(area).any() or np.any(area < 0):
+            raise ValueError("Source 'areacello' contains infinite or negative areas.")
+        wet = (
+            (
+                self.masks.prognostic.any(dim=0)
+                | self.masks.boundary.reshape(-1, *self.grid_size).any(dim=0)
+            )
+            .cpu()
+            .numpy()
+        )
+        if np.any(wet & (~np.isfinite(area) | (area <= 0))):
+            raise ValueError(
+                "Source 'areacello' must be finite and positive on wet cells."
+            )
+        # Missing land areas must not propagate NaNs into weighted reductions.
+        area = np.where(np.isnan(area), 0.0, area)
+        total = area.sum()
+        if not np.isfinite(total) or total <= 0:
+            raise ValueError(
+                "Source 'areacello' must have a finite positive total area."
+            )
+        return torch.from_numpy(area / total)
 
     @cached_property
     def metadata(self) -> dict:

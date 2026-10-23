@@ -314,6 +314,13 @@ def test_cm4_publication_rotates_stress_preserves_metadata_and_chunks(
     np.testing.assert_allclose(actual.tauuo, -3)
     np.testing.assert_allclose(actual.tauvo, 2)
     np.testing.assert_allclose(actual.uo, -3)
+    assert "angle" not in actual.coords
+    assert actual.attrs["m2lines/preprocessing"]["vector_basis"] == "geographic"
+    assert actual.attrs["m2lines/preprocessing"]["vector_rotation"] == [
+        "uo/vo",
+        "tauuo/tauvo",
+    ]
+    assert actual.uo.attrs["vector_basis"] == "geographic"
     assert actual.wfo.attrs["units"] == "kg m-2 s-1"
     assert actual.lev.attrs == source.lev.attrs
     assert actual.ilev.attrs == source.ilev.attrs

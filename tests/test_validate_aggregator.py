@@ -193,7 +193,7 @@ def test_validation_aggregator__reduced_only__omits_image_logs(
         dummy_source.metadata,
         input_steps=1,
         output_steps=1,
-        area_weights=dummy_source.spherical_area_weights,
+        area_weights=dummy_source.area_weights,
         num_prognostic_channels=num_prog_channels,
         data_layout=data_layout,
         preprocessor=preprocessor,

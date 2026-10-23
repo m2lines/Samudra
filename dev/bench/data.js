@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792782100036,
+  "lastUpdate": 1792782103478,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -26445,6 +26445,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.507588317584059",
             "extra": "mean: 12.751459759399973 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse+bot@openathena.ai",
+            "name": "oa-jder-bot",
+            "username": "oa-jder-bot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4f86be45a09cb9eba1b51b6273e0189941b02495",
+          "message": "Document the validated 1-degree CM4 release (#931)\n\nDocument the completed unfiltered 1° CM4 release, its full-record\nnormalization policy, and the standalone validation report.\n\nValidation: preprocessing job `19979721` and normalization/read-back job\n`20095217` completed successfully; all chunks and all 81 means and 81\nstandard deviations passed independent float64 checks. Documentation\npre-commit checks pass.",
+          "timestamp": "2026-10-23T18:31:18Z",
+          "tree_id": "7b825e802739adc9715810b5785364a6af013398",
+          "url": "https://github.com/m2lines/Samudra/commit/4f86be45a09cb9eba1b51b6273e0189941b02495"
+        },
+        "date": 1792782102027,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 1.0459622098882737,
+            "unit": "iter/sec",
+            "range": "stddev: 0.002286535209293615",
+            "extra": "mean: 956.0574851999831 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_dataset__1gb[cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.35700187536826483,
+            "unit": "iter/sec",
+            "range": "stddev: 0.09704754262762198",
+            "extra": "mean: 2.8011057336000023 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.08061649986605803,
+            "unit": "iter/sec",
+            "range": "stddev: 0.025547897232892747",
+            "extra": "mean: 12.404408547399987 sec\nrounds: 5"
           }
         ]
       }

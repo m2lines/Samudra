@@ -59,7 +59,7 @@ def assert_exact(left, right, path="state"):
 
 
 def phase_settings(step, mode, arm):
-    main = 4000 if mode == "extend" else 2000
+    main = 4000 if mode in ("extend", "fresh-4k") else 2000
     if step < (2000 if mode == "extend" else 0) or step >= main + 1000:
         raise ValueError("Update outside authorized experiment")
     cooldown = step >= main
@@ -76,6 +76,10 @@ def main():
     config = json.loads((a.root / "paths.json").read_text())
     row = next(r for r in config["runs"] if r["name"] == a.name)
     replay = row["mode"] == "replay"
+    fresh = replay or row["mode"] == "fresh-4k"
+    architecture = row.get("architecture", {})
+    if architecture and architecture != {"latent_width": 64, "latent_stride": 1}:
+        raise ValueError("Unqualified architecture requested")
     source_path = Path(row["checkpoint"])
     if digest(source_path) != row["sha256"]:
         raise ValueError("Source checkpoint changed")
@@ -115,7 +119,7 @@ def main():
         qualification=a.qualify,
         seed=1729,
         effective_batch=8,
-        new_main_updates=2000,
+        new_main_updates=4000 if row["mode"] == "fresh-4k" else 2000,
         cooldown=1000,
         main_end=2000 if replay else 4000,
         lr=1e-4,
@@ -170,7 +174,7 @@ def main():
             config["om4"],
             packed=legacy["packed_om4"],
         )
-    model = MonthlyLatentOcean().cuda()
+    model = MonthlyLatentOcean(**architecture).cuda()
     ema = copy.deepcopy(model).eval().requires_grad_(False)
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
     generator = torch.Generator(device="cuda").manual_seed(1729)
@@ -206,7 +210,7 @@ def main():
                 saved["fresh_examples"],
             )
 
-    if not replay:
+    if not fresh:
         source = torch.load(source_path, map_location="cpu", weights_only=False)
         if (
             source["step"] != 2000
@@ -444,7 +448,10 @@ def main():
                     records=records,
                     replay_examples=replay_examples,
                     peak_cuda_bytes=torch.cuda.max_memory_allocated(),
-                    source_loading_exact=not replay,
+                    parameters=sum(p.numel() for p in model.parameters()),
+                    latent_shape=list(model.latent_shape),
+                    latent_width=model.latent_width,
+                    source_loading_exact=not fresh,
                     longest_replay=longest,
                 ),
                 indent=2,
@@ -468,7 +475,7 @@ def main():
         raise ValueError("No online W&B URL")
     (out / "wandb-url.txt").write_text(run.url + "\n")
     print(json.dumps(dict(wandb_url=run.url, step=step)), flush=True)
-    if step == (0 if replay else 2000):
+    if step == (0 if fresh else 2000):
         save(out / "fork.pt")
     while step < end:
         record = update()

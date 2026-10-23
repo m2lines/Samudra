@@ -24,10 +24,13 @@ def test_calendar_partial_bins_and_missing_interval():
         calendar_weights(starts[:-1], ends[:-1], first, last)
 
 
-def test_initializer_never_reads_hidden_values_and_forecast_reaches_encoder():
+@pytest.mark.parametrize("stride", [1, 4])
+def test_initializer_never_reads_hidden_values_and_forecast_reaches_encoder(stride):
     torch.set_num_threads(1)
     torch.manual_seed(17)
-    model = MonthlyLatentOcean(8, 8, (16, 32), history=2, encoder_width=8)
+    model = MonthlyLatentOcean(
+        8, 8, (16, 32), history=2, encoder_width=8, latent_stride=stride
+    )
     fields = torch.randn(1, 2, 77, 16, 32, requires_grad=True)
     wet = torch.ones(77, 16, 32, dtype=torch.bool)
     mask = initializer_visibility(wet, "surface", torch.Generator().manual_seed(1))[
@@ -36,6 +39,7 @@ def test_initializer_never_reads_hidden_values_and_forecast_reaches_encoder():
     forcing = torch.randn(1, 3, 3, 16, 32)
     context = torch.randn(1, 3, 5, 16, 32)
     a = model.initialize(fields, mask, forcing[:, :2], context[:, 1])
+    assert a.shape == (1, 2, 8, 16 // stride, 32 // stride)
     altered = torch.where(mask, fields, torch.full_like(fields, float("nan")))
     b = model.initialize(altered, mask, forcing[:, :2], context[:, 1])
     torch.testing.assert_close(a, b, rtol=0, atol=0)

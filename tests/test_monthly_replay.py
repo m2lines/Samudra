@@ -86,7 +86,11 @@ def test_extension_and_replay_schedules_match_authorized_mix():
         "om4": 1000,
     }
     assert all(phase_settings(i, "extend", "E")[1] == "obs" for i in range(2000, 5000))
-    for mode, start in (("extend", 4000), ("replay", 2000)):
+    assert Counter(phase_settings(i, "fresh-4k", "A")[1] for i in range(4000)) == {
+        "obs": 2000,
+        "om4": 2000,
+    }
+    for mode, start in (("extend", 4000), ("replay", 2000), ("fresh-4k", 4000)):
         assert all(
             phase_settings(i, mode, "A")[1] == "obs" for i in range(start, start + 1000)
         )

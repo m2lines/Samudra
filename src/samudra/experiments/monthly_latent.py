@@ -162,11 +162,15 @@ class MonthlyLatentOcean(nn.Module):
         shape=(180, 360),
         history=19,
         encoder_width=64,
+        latent_stride=4,
     ):
         super().__init__()
         self.history, self.shape = history, shape
         self.latent_width = latent_width
-        self.latent_shape = (shape[0] // 4, shape[1] // 4)
+        if latent_stride not in (1, 2, 4) or any(s % latent_stride for s in shape):
+            raise ValueError("Latent stride must divide the physical grid")
+        self.latent_stride = latent_stride
+        self.latent_shape = tuple(s // latent_stride for s in shape)
         self.frame = nn.Conv2d(154, 16, 1)
         self.initializer = make_unet(
             history * (16 + 3) + 5,
@@ -208,7 +212,7 @@ class MonthlyLatentOcean(nn.Module):
             if self.training
             else self.initializer(inputs)
         )
-        latent = F.avg_pool2d(latent, 4)
+        latent = F.avg_pool2d(latent, self.latent_stride)
         return latent.reshape(b, 2, self.latent_width, *self.latent_shape)
 
     def trajectory(self, fields, available, forcing, contexts):

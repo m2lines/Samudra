@@ -982,6 +982,10 @@ class BaseModelConfig(BaseConfig, abc.ABC):
 
 
 class SamudraConfig(BaseModelConfig):
+    persistence_gate: bool = Field(
+        default=False,
+        description="Blend the decoder forecast with the latest state using a feature-conditioned sigmoid gate.",
+    )
     unet: UNetBackboneConfig = UNetBackboneConfig()
     pos_channels: int = Field(
         default=0,
@@ -1026,6 +1030,7 @@ class SamudraConfig(BaseModelConfig):
             grid_size=grid_sizes[0],
             gradient_detach_interval=self.gradient_detach_interval,
             use_bfloat16=self.use_bfloat16,
+            persistence_gate=self.persistence_gate,
         )
 
 

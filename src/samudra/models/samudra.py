@@ -34,6 +34,7 @@ class Samudra(BaseModel):
         grid_size: GridSize,
         gradient_detach_interval: int,
         use_bfloat16: bool,
+        persistence_gate: bool = False,
     ):
         super().__init__(
             in_channels=in_channels,
@@ -55,6 +56,17 @@ class Samudra(BaseModel):
         self.unet = unet
         self.decoder = nn.Conv2d(unet.out_channels, out_channels, last_kernel_size)
 
+        self.persistence_gate: nn.Conv2d | None = None
+        if persistence_gate:
+            if pred_residuals:
+                raise ValueError("persistence_gate requires pred_residuals=False")
+            # Preserve the paired backbone initialization and subsequent RNG stream.
+            with torch.random.fork_rng(devices=[]):
+                self.persistence_gate = nn.Conv2d(unet.out_channels, out_channels, 1)
+            nn.init.zeros_(self.persistence_gate.weight)
+            assert self.persistence_gate.bias is not None
+            nn.init.constant_(self.persistence_gate.bias, -6.0)
+
         self.use_bfloat16 = use_bfloat16
 
     def forward_once(
@@ -75,6 +87,7 @@ class Samudra(BaseModel):
                 fts = self.add_3d_coordinates(fts, ctx.input_resolution_cpu)
 
             fts = self.unet(fts)
+            decoder_features = fts
             fts = torch.nn.functional.pad(
                 fts, (self.N_pad, self.N_pad, 0, 0), mode=self.pad
             )
@@ -85,5 +98,15 @@ class Samudra(BaseModel):
         # have the convolution use float32 internally & in output dtype.
         fts = fts.to(torch.float32)
         fts = self.decoder(fts)
+
+        if self.persistence_gate is not None:
+            channels = prognostic.shape[1] // self.input_steps
+            if prognostic.shape[1] % self.input_steps or self.out_channels % channels:
+                raise ValueError("Gate requires complete prognostic frames")
+            latest = prognostic[:, -channels:].repeat(
+                1, self.out_channels // channels, 1, 1
+            )
+            gate = self.persistence_gate(decoder_features.float()).sigmoid()
+            fts = fts + gate * (latest - fts)
 
         return torch.where(ctx.label_mask, fts, 0.0)

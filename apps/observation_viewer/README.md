@@ -511,3 +511,8 @@ are raw direct decodes without the report's surface-temperature substitution.
 
 Browser coverage: set `SAMUDRA_ANATOMY_TEST_URL` to the running diagnostic URL
 and run `tests/test_step_anatomy_browser.py`.
+
+The Xray **NN input scaling** checkbox defaults on: the noisy panel shows
+`x / sqrt(1 + sigma²)` in dimensionless network coordinates, with fixed limits
+−3 to +3 across cases and steps. Turn it off to inspect the unscaled noisy field
+in the selected physical/OM4-normalized units. Prediction and gold are unaffected.

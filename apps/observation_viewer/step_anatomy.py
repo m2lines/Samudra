@@ -82,6 +82,7 @@ class Anatomy:
             options=["Final sample", "Diffusion step: input + prediction"],
             value="Final sample",
         )
+        self.nn_input = pn.widgets.Checkbox(label="NN input scaling", value=True)
         self.step = pn.widgets.IntSlider(
             label="Diffusion interval", start=1, end=32, value=32
         )
@@ -120,6 +121,7 @@ class Anatomy:
             self.stage,
             self.units,
             self.readout,
+            self.nn_input,
             self.step,
             self.corrector,
             self.history,
@@ -225,9 +227,22 @@ class Anatomy:
                 / self.stage_for(self.source.value)
                 / f"call-{call:02d}.npz"
             )
-            noisy = np.where(mask[i], load(str(path))["noisy"][i], np.nan)
-            noisy = self.transform(noisy, i)
-            noisy_panel = f"<div><span>Noisy input</span><br>{image_html(noisy, lo, hi, width=width)}</div>"
+            trace = load(str(path))
+            noisy = np.where(mask[i], trace["noisy"][i], np.nan)
+            input_lo, input_hi = lo, hi
+            input_label = "Before NN scaling"
+            if self.nn_input.value:
+                sigma = float(trace["sigma"])
+                factor = 1 / np.sqrt(1 + sigma**2)
+                noisy = noisy * factor
+                input_lo, input_hi = -3.0, 3.0
+                input_label = (
+                    f"NN input · dimensionless · ×{factor:.5g} · fixed ±3 scale"
+                )
+            else:
+                noisy = self.transform(noisy, i)
+                input_label += f" · {self.unit(i)}"
+            noisy_panel = f"<div><span>Noisy input</span><br><small>{input_label}</small><br>{image_html(noisy, input_lo, input_hi, width=width)}</div>"
             prediction_label = "Denoiser prediction"
         return f'<div><b>{self.unit(i)}</b> · prediction RMSE {rmse:.4g}<br><div style="display:grid;grid-template-columns:repeat(2,max-content);gap:6px">{noisy_panel}<div><span>{prediction_label}</span><br>{image_html(p, lo, hi, width=width)}</div><div>{gold_label}<br>{image_html(g, lo, hi, width=width)}</div><div>Prediction error<br>{image_html(error, -error_scale, error_scale, True, width)}</div></div></div>'
 
@@ -245,6 +260,7 @@ Color limits pool final predictions and gold across all three examples (2nd–98
 Maps use native grid pixels, south-to-north, with longitude increasing left-to-right; Gaussian latitude spacing is not uniform in degrees.
 
 **Training vs sampling:** this is one fixed draw, not an eight-member mean. The 32 Heun intervals use 63 denoiser calls.
+With NN input scaling enabled, only the noisy-input panel shows the dimensionless first-convolution input, divided by √(1+σ²), on a fixed −3 to +3 scale. The physical/normalized units selector still controls predictions and gold.
 Training uses individual noisy-target denoising calls. Gold never enters latent evolution or this sampler.
 Monthly fields are direct raw decoder outputs from the averaged latent, **without replacing top temperature with predicted SST**.
 OBS monthly support excludes top temperature; missing channels remain blank.
@@ -341,6 +357,7 @@ OBS monthly support excludes top temperature; missing channels remain blank.
                 self.stage,
                 self.units,
                 self.readout,
+                self.nn_input,
                 self.step,
                 self.corrector,
                 self.history,

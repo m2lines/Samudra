@@ -58,6 +58,7 @@ def anatomy(tmp_path):
                     d / f"call-{call:02d}.npz",
                     clean=np.full(support.shape, offset + call),
                     noisy=np.full(support.shape, offset + 80),
+                    sigma=80.0,
                 )
             (d / "trace.json").write_text(
                 json.dumps(dict(calls=[dict(role="predictor", sigma=80)] * 63))
@@ -98,3 +99,23 @@ def test_trace_and_context_are_explicit(anatomy):
     anatomy.stage.value = "inputs"
     assert not anatomy.current[2][0].any()
     assert anatomy.current[2][38].all()
+
+
+def test_nn_input_scaling_uses_normalized_values(anatomy, monkeypatch):
+    import step_anatomy
+
+    anatomy.source.value = "obs_pre"
+    anatomy.readout.value = "Diffusion step: input + prediction"
+    anatomy.step.value = 1
+    images = []
+    monkeypatch.setattr(
+        step_anatomy,
+        "image_html",
+        lambda values, *a, **kw: images.append(np.array(values)) or "image",
+    )
+    anatomy.render(38)
+    np.testing.assert_allclose(images[0], 81 / np.sqrt(6401))
+    anatomy.nn_input.value = False
+    images.clear()
+    anatomy.render(38)
+    np.testing.assert_allclose(images[0], 81 * 2 + 38)

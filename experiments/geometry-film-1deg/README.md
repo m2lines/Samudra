@@ -100,5 +100,4 @@ before publishing a scientific comparison.
 
 Remote callback credential installation was blocked by automatic approval review.
 No remote callback is installed; local quiet polling is the active mechanism,
-so completion/failure detection can lag by up to six hours. GitHub publication
-is separately blocked pending explicit approval to publish cluster path metadata.
+so completion/failure detection can lag by up to six hours.

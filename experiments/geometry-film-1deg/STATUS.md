@@ -29,6 +29,5 @@ remote callback credentials were transferred. Completion/failure detection can
 lag by six hours. No completion ETA is set while queue timing is uncertain.
 
 Runtime and log paths, evaluation criteria and the shared date-split correction
-are documented in README.md. The branch is committed locally. Automatic approval
-review blocked pushing it to the public repository because it includes cluster
-and storage paths; draft PR publication awaits explicit user approval.
+are documented in README.md. This is an experiment/results record, not intended
+to merge.

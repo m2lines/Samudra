@@ -232,13 +232,18 @@ def test_selected_checkpoint_loads_ema_not_raw_weights(exporter, tmp_path, monke
     daily = tmp_path / "daily"
     daily.mkdir()
     (daily / "input.npz").write_text("fixed archive identity")
+    package = tmp_path / "package"
+    package.mkdir()
+    source = package / "__init__.py"
+    source.write_text("# checkpoint source\n")
+    monkeypatch.setattr(exporter.samudra, "__file__", str(source))
     payload = {
         "model": raw,
         "ema": ema,
         "updates": 250,
         "best_score": 0.5,
         "manifest": {
-            "code_sha256": {},
+            "code_sha256": {source.name: exporter.digest(source)},
             "daily_identity": exporter.archive_identity(daily),
             "data_sha256": {str(path): exporter.digest(path) for path in files},
         },
@@ -261,6 +266,12 @@ def test_selected_checkpoint_loads_ema_not_raw_weights(exporter, tmp_path, monke
     torch.testing.assert_close(selected.weight, torch.full((1, 1), 7.0))
     assert provenance["weights"] == "ema"
     assert provenance["checkpoint_updates"] == 250
+
+    source.write_text("# changed source\n")
+    with pytest.raises(ValueError, match="Training source changed"):
+        exporter.verify_checkpoint_source(payload["manifest"])
+    with pytest.raises(ValueError, match="Training source changed"):
+        exporter.load_selected_model(checkpoint, data)
 
     (daily / "input.npz").write_text("changed archive")
     with pytest.raises(ValueError, match="differs from the checkpoint inventory"):

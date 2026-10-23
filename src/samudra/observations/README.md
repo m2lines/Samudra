@@ -61,8 +61,9 @@ centers of five-day intervals.
 
 ## Train and inspect
 
-Use the Samudra environment for training. Select `obs`, `om4-obs` or
-`om4-cm4-obs` through `--mix`, supplying model paths for the selected sources:
+Use the Samudra environment for training. Select `obs`, `om4-obs`,
+`om4-cm4-obs` or `om4-cm4` through `--mix`, supplying model paths for the selected
+sources:
 
 ```bash
 python -m samudra.observations.baseline train \
@@ -71,6 +72,9 @@ python -m samudra.observations.baseline train \
 ```
 
 The recipe uses a fixed source mixture followed by an observation-only cooldown.
+`om4-cm4` alternates equally between the two model sources during the main phase,
+then switches to observations for cooldown. Observation data also supply the shared
+normalization, validation and artificial-gap coverage patterns during model training.
 Each source has its own replay pool of detached forecast states. Fresh examples
 and replay continuations share optimizer updates; replay advances by complete
 calendar months while preserving five-day overlap. Source ratios, update budgets,

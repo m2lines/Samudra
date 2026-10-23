@@ -5,7 +5,8 @@
     python -m samudra.observations.baseline train --observations OBS --output RUN
 
 Use --mix om4-obs --om4 OM4_ROOT, or --mix om4-cm4-obs --om4 OM4_ROOT
---cm4 CM4.zarr. Paths and runtime controls are CLI arguments; architecture,
+--cm4 CM4.zarr. Use --mix om4-cm4 for model-only main updates before the
+observation-only cooldown. Paths and runtime controls are CLI arguments; architecture,
 losses, source ratios, replay policy and training phases are ordinary Python.
 """
 
@@ -98,6 +99,7 @@ MIXES = {
     "obs": ("obs",),
     "om4-obs": ("obs", "om4"),
     "om4-cm4-obs": ("obs", "om4", "obs", "cm4"),
+    "om4-cm4": ("om4", "cm4"),
 }
 
 

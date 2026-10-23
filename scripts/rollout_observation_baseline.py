@@ -389,6 +389,18 @@ def export_rollout(
     )
 
 
+def verify_checkpoint_source(manifest: dict[str, Any]) -> None:
+    """Require the current source revision even when reusing a completed export."""
+    assert samudra.__file__ is not None
+    package = Path(samudra.__file__).parent
+    current = {
+        str(path.relative_to(package)): digest(path)
+        for path in sorted(package.rglob("*.py"))
+    }
+    if current != manifest["code_sha256"]:
+        raise ValueError("Training source changed since checkpoint creation")
+
+
 def load_selected_model(
     checkpoint: Path, data: Samples
 ) -> tuple[SurfaceInitializedModel, dict[str, Any]]:
@@ -400,13 +412,7 @@ def load_selected_model(
         raise ValueError(
             "Daily observation/forcing archive differs from the checkpoint inventory"
         )
-    assert samudra.__file__ is not None
-    package = Path(samudra.__file__).parent
-    for relative, expected in manifest["code_sha256"].items():
-        if digest(package / relative) != expected:
-            raise ValueError(
-                f"Training source changed since checkpoint creation: {relative}"
-            )
+    verify_checkpoint_source(manifest)
     for path in (
         data.root / "grid.npz",
         *(

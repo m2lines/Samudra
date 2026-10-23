@@ -31,6 +31,7 @@ def small_cpu_pool():
         ("obs", {"obs": 2000}),
         ("om4-obs", {"obs": 1000, "om4": 1000}),
         ("om4-cm4-obs", {"obs": 1000, "om4": 500, "cm4": 500}),
+        ("om4-cm4", {"om4": 1000, "cm4": 1000}),
     ],
 )
 def test_default_recipe_allocates_exact_optimizer_updates(mix, main_counts):
@@ -108,8 +109,15 @@ def validate(model):
     return {baseline.SELECTION_METRIC: float(model.weight.detach().square().mean())}
 
 
+@pytest.mark.parametrize(
+    "mix, main_counts",
+    [
+        ("om4-cm4-obs", {"obs": 2, "om4": 1, "cm4": 1}),
+        ("om4-cm4", {"obs": 0, "om4": 2, "cm4": 2}),
+    ],
+)
 def test_training_startup_populates_each_source_and_cooldown_is_obs_only(
-    monkeypatch, tmp_path
+    monkeypatch, tmp_path, mix, main_counts
 ):
     small_recipe(monkeypatch)
     state = make_state()
@@ -118,7 +126,21 @@ def test_training_startup_populates_each_source_and_cooldown_is_obs_only(
         state,
         cast(baseline.Sources, TinySources()),
         tmp_path,
-        {"mix": "om4-cm4-obs"},
+        {"mix": mix},
+        validate,
+        records.append,
+        stop_after=4,
+    )
+    assert {
+        name: counts["updates"] for name, counts in state.exposure.items()
+    } == main_counts
+    if mix == "om4-cm4":
+        assert state.pools["obs"].draw(state.updates) is None
+    baseline.train(
+        state,
+        cast(baseline.Sources, TinySources()),
+        tmp_path,
+        {"mix": mix},
         validate,
         records.append,
     )
@@ -127,9 +149,8 @@ def test_training_startup_populates_each_source_and_cooldown_is_obs_only(
         state.ema.num_updates == 2
     )  # Reset at cooldown, retained for both obs updates.
     assert {name: counts["updates"] for name, counts in state.exposure.items()} == {
-        "obs": 4,
-        "om4": 1,
-        "cm4": 1,
+        **main_counts,
+        "obs": main_counts["obs"] + 2,
     }
     for name, counts in state.exposure.items():
         assert counts["fresh"] == counts["updates"] * 4
@@ -142,11 +163,12 @@ def test_training_startup_populates_each_source_and_cooldown_is_obs_only(
     assert (tmp_path / "COMPLETE.json").exists()
 
 
+@pytest.mark.parametrize("mix", ["om4-cm4-obs", "om4-cm4"])
 def test_exact_resume_across_cooldown_preserves_rng_optimizer_and_replay(
-    monkeypatch, tmp_path
+    monkeypatch, tmp_path, mix
 ):
     small_recipe(monkeypatch)
-    manifest = {"mix": "om4-cm4-obs"}
+    manifest = {"mix": mix}
     full_dir, resumed_dir = tmp_path / "full", tmp_path / "resumed"
     full_dir.mkdir()
     resumed_dir.mkdir()

@@ -1,9 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Samudra Authors
 # SPDX-License-Identifier: Apache-2.0
-"""Run three independent baseline recipes, then save their selected-checkpoint rollouts.
+"""Run four independent baseline recipes, then save their selected-checkpoint rollouts.
 
-One full Beta node supplies three disjoint 40-CPU/single-GPU workers. The fourth
-GPU is idle: the production recipe is deliberately single-process, not DDP.
+One full Beta node supplies four disjoint 32-CPU/single-GPU workers.
 Scientific budgets remain the visible constants in observations/baseline.py.
 """
 
@@ -23,8 +22,8 @@ from types import FrameType
 from samudra.observations.baseline import COOLDOWN_UPDATES, MAIN_UPDATES, digest
 from samudra.observations.constants import STEP_DAYS
 
-MIXES = ("obs", "om4-obs", "om4-cm4-obs")
-CPUS_PER_WORKER = 40
+MIXES = ("obs", "om4-obs", "om4-cm4-obs", "om4-cm4")
+CPUS_PER_WORKER = 32
 PROJECT_ROOT = Path("/projects/ny/lz1955/multiscale/jrusak")
 WAND_B_URL = re.compile(r"https://wandb\.ai/[^\s/]+/[^\s/]+/runs/[A-Za-z0-9]+")
 
@@ -219,8 +218,7 @@ def main() -> None:
     parser.add_argument(
         "--smoke-checkpoint",
         type=Path,
-        default=PROJECT_ROOT
-        / "runs/observation-baseline-global-20261022/qualification/best.pt",
+        help="Qualified checkpoint from this source revision; otherwise qualify first",
     )
     parser.add_argument("--entity", default="ocean_emulators")
     parser.add_argument("--project", default="observational-transfer")
@@ -230,17 +228,17 @@ def main() -> None:
     args.output.mkdir(parents=True, exist_ok=True)
     available_cpus = sorted(os.sched_getaffinity(0))
     if len(available_cpus) < CPUS_PER_WORKER * len(MIXES):
-        raise RuntimeError("Campaign requires at least 120 allocated CPUs")
+        raise RuntimeError("Campaign requires at least 128 allocated CPUs")
     import torch
 
     if torch.cuda.device_count() != 4:
         raise RuntimeError("Campaign requires the full four-GPU Beta allocation")
-    devices = os.environ.get("CUDA_VISIBLE_DEVICES", "0,1,2,3").split(",")[:3]
+    devices = os.environ.get("CUDA_VISIBLE_DEVICES", "0,1,2,3").split(",")
     if len(devices) != len(MIXES):
-        raise RuntimeError("Cannot identify three assigned CUDA devices")
+        raise RuntimeError("Cannot identify four assigned CUDA devices")
     cpu_sets = [
         available_cpus[i * CPUS_PER_WORKER : (i + 1) * CPUS_PER_WORKER]
-        for i in range(3)
+        for i in range(len(MIXES))
     ]
     write_json(
         args.output / "startup.json",
@@ -271,6 +269,7 @@ def main() -> None:
     from rollout_observation_baseline import (  # type: ignore[import-not-found]
         forecast_intervals,
         preflight_archive,
+        verify_checkpoint_source,
     )
 
     rollout_starts, rollout_ends = forecast_intervals(
@@ -278,6 +277,45 @@ def main() -> None:
     )
     coverage = preflight_archive(args.daily, rollout_starts[0], rollout_ends[-1])
     write_json(args.output / "rollout-input-coverage.json", coverage)
+    # Checkpoints pin every training source file. Qualify this revision before
+    # the export smoke so an older checkpoint cannot hide changed source code.
+    if args.smoke_checkpoint is None:
+        qualification = args.output / "qualification"
+        if not (qualification / "QUALIFIED.json").exists():
+            command = [
+                sys.executable,
+                str(Path(__file__).with_name("qualify_observation_baseline.py")),
+                *common,
+                "--om4",
+                str(args.om4),
+                "--cm4",
+                str(args.cm4),
+                "--output",
+                str(qualification),
+            ]
+            with (args.output / "qualification.log").open("a") as log:
+                subprocess.run(
+                    [
+                        "taskset",
+                        "--cpu-list",
+                        ",".join(map(str, cpu_sets[0])),
+                        *command,
+                    ],
+                    env=dict(os.environ, CUDA_VISIBLE_DEVICES=devices[0]),
+                    stdout=log,
+                    stderr=subprocess.STDOUT,
+                    check=True,
+                )
+        if not (qualification / "QUALIFIED.json").exists():
+            raise RuntimeError("Qualification returned without its completion receipt")
+        args.smoke_checkpoint = qualification / "best.pt"
+    # A completed smoke may be reused below, but its checkpoint must still pin
+    # this source revision. mmap keeps its replay buffers off the resident heap.
+    smoke_state = torch.load(
+        args.smoke_checkpoint, map_location="cpu", weights_only=False, mmap=True
+    )
+    verify_checkpoint_source(smoke_state["manifest"])
+    del smoke_state
     # Check archive writing on an already-qualified model before starting costly
     # training. This two-step smoke is not an evaluation or a trained result.
     smoke = [

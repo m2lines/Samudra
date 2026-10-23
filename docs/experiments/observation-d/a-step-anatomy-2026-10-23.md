@@ -64,10 +64,45 @@ multitask treatment beyond surface-only initialization, no replay, and no latent
 norm penalty. See [the pilot methods](monthly-latent-pilots-2026-10-16.md) and
 [the pretraining methods](monthly-model-pretraining-2026-10-20.md#model-objective-and-sources).
 
-## Export and verification status
+## What this example shows
 
-The frozen inference export is submitted as Beta **216421**, producer
-`6735615ac`. No training or model selection is performed. The exporter is
-[`export_monthly_step_anatomy.py`](../../../scripts/export_monthly_step_anatomy.py).
-Final sampling-equality checks, data checksums, browser verification and observed
-findings will be recorded after the export completes.
+These are **single-draw, unweighted spatial RMSEs**, not eight-member means or
+pooled validation metrics. Surface comparisons use their respective source's
+truth and decoder task; they are not a controlled ranking across data sources.
+
+| Case | Initial SST (°C) | Day-5 SST (°C) | Initial SSH (m) | Day-5 SSH (m) |
+|---|---:|---:|---:|---:|
+| A 2k, OM4 full77 | 7.562 | 7.503 | 0.427 | 0.424 |
+| A 2k, OBS surface-only | 0.805 | 0.920 | 0.082 | 0.090 |
+| A 3k cooled, OBS surface-only | 0.574 | 0.722 | 0.069 | 0.076 |
+
+The noisy full-field OM4 output is already present in the initial decode;
+it is not created solely by the first processor step. Interior-temperature
+RMSE (all wet cells in the 18 subsurface layers, equally weighted per cell)
+is 3.586°C initially and 3.532°C after one step. This does not separate poor
+latent initialization from poor conditional decoding; inspect both the latent
+changes and the denoising trajectory before assigning a cause.
+
+For the same OBS example, cooldown improves native surface reconstruction and
+forecasting. Monthly subsurface-temperature RMSE against IAP declines from
+2.034°C to 0.897°C; monthly salinity RMSE from 0.487 to 0.318 in source salinity
+units. Those monthly metrics cover the available IAP layers, unlike the deeper
+OM4 comparison. This example is consistent with better OBS-task readout after
+cooldown, but does not establish its generalization or full-state accuracy.
+
+## Export and verification
+
+Beta **216421** completed in 13m27s, **0.224167 GPU-hours**, with no retries.
+Producer `6735615ac`; no training or model selection was performed. The exporter
+is [`export_monthly_step_anatomy.py`](../../../scripts/export_monthly_step_anatomy.py).
+All 851 data files (11.54 GB) were downloaded and SHA256-verified, then verified
+again after installing the viewer bundle. All 13 traces have 32 intervals,
+63 denoiser calls and bitwise agreement with the uninstrumented sampler.
+
+The UI is published on `codex/observation-viewer`, commit `ca734ca`.
+Use the **A: initialization & diffusion anatomy** link in the existing viewer,
+or add `?anatomy=1` to its app URL. Thirty-two lightweight tests pass; a real-data
+browser test exercises all three cases, normalized units, forecast and monthly
+views, diffusion clean estimates and full77 context. The installed service is
+verified separately after deployment. Arrays stay outside Git; source checkpoint
+hashes, exact normalization and latent fields are retained in the bundle manifest.

@@ -64,3 +64,22 @@ The pilot has a two-hour fallback check; production has six-hour fallback checks
 The monitor verifies Slurm exit status and output artifacts rather than treating
 a callback as proof of successful processing. The experiment record is
 [PR #947](https://github.com/m2lines/Samudra/pull/947).
+
+## Pilot results
+
+Pilot **20750392** completed successfully on October 23, 2026, in **6m54s**.
+Independent read-back passed for all ten records, including chunk inventory,
+dates and bounds, masks, metadata, compression, and every normalization value.
+All 81 physical channels matched Xarray exactly through the Rust reader, using
+nonmonotonic and repeated time positions `[9, 0, 1, 1]`.
+
+The three pilot stores occupy **1,351,947,113 bytes**. Linear scaling by the
+record count suggests approximately **1.97 TB** for the full release; this is
+a pilot-derived estimate, not a measured production size. Fixed grid overhead
+and compression differences across the full record can change that estimate.
+The largest recorded Slurm step MaxRSS was 20,673,576 KiB (19.7 GiB), which is
+not a measurement of the sum of all worker peaks.
+
+Production **20750393** cleared its dependency automatically and is now queued
+for scheduling priority. Production results and full-record normalization remain
+pending; the pilot's normalization is not used for the final release.

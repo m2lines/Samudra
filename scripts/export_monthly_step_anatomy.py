@@ -215,7 +215,17 @@ def main():
             ("initial", "day5"), states[:2], targets, supports, (-2.5, 2.5), strict=True
         ):
             trace(model, state, support, target, dest / name, position=position)
-            print(json.dumps(dict(case=source, stage=name)), flush=True)
+            print(json.dumps(dict(case=case, stage=name)), flush=True)
+            if source == "obs":
+                context_index = 18 if name == "initial" else 19
+                trace(
+                    model,
+                    state,
+                    data.mask.bool()[None],
+                    data.tensor(normalized[context_index])[None],
+                    dest / (name + "-full"),
+                    position=position,
+                )
         monthly = model.monthly_condition(states[1:], weights)
         if source == "om4":
             target = (

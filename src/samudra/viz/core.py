@@ -50,6 +50,7 @@ class PreparedVizGroundtruth:
     time_indices: list[int]
     prediction_coords: dict[str, xr.DataArray]
     wetmask: xr.DataArray
+    observation_data: xr.Dataset | None = None
 
 
 @dataclasses.dataclass
@@ -112,6 +113,7 @@ class Viz:
             }
 
         key1 = runs[0].name
+        self.obs_baseline = prepared_groundtruth.observation_data
         self.data_layout = prepared_groundtruth.data_layout
         levels = len(self.data_layout.depth_levels)
 
@@ -2947,16 +2949,16 @@ class Viz:
         # same objects during construction; scoring what was read keeps this
         # independent of whatever the other steps have done to them.
         runs = {run.name: run.data.copy() for run in self.raw_runs}
-        if self.observations.baselines:
-            # `baselines` adds the ground-truth comparison to an eval job, which
-            # scores whatever it was handed. viz draws the runs its config
-            # lists, so the key has no effect here; saying so beats a figure
-            # quietly missing a panel the CSV beside it would have had.
-            logger.info(
-                "Ignoring observations.baselines=%s: viz draws the runs in its "
-                "own `runs:` list. Add the baseline there to see it.",
-                self.observations.baselines,
-            )
+        if "om4" in self.observations.baselines:
+            if "om4" in runs:
+                raise ValueError(
+                    "Run name 'om4' is reserved for the configured baseline"
+                )
+            if self.obs_baseline is None:
+                raise ValueError(
+                    "OM4 observation baseline requires the original ground truth"
+                )
+            runs["om4"] = self.obs_baseline.sel(time=next(iter(runs.values())).time)
         scored = score_rollouts(
             self.observations,
             rollouts=runs,
@@ -2965,6 +2967,7 @@ class Viz:
             primary_label=next(iter(runs)),
             output_dir=Path(self.obs_path),
         )
+        self._obs_spectra = scored.spectra
         self._obs_cache = (scored.rollouts, scored.products, scored.frame)
         return self._obs_cache
 
@@ -3040,7 +3043,11 @@ class Viz:
         rollouts, products, _ = self._obs_inputs()
         assert self.observations is not None  # established by _obs_inputs
         obs_figures.spectra_figures(
-            rollouts, products, self.obs_path, self.observations.velocity_kind
+            rollouts,
+            products,
+            self.obs_path,
+            self.observations.velocity_kind,
+            diagnostics=self._obs_spectra,
         )
 
 
@@ -3244,6 +3251,7 @@ def prepare_viz_groundtruth(
         time_indices=time_indices,
         prediction_coords=prediction_coords,
         wetmask=wetmask,
+        observation_data=groundtruth_rollout,
     )
 
 

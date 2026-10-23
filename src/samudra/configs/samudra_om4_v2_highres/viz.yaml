@@ -15,8 +15,8 @@ basins_location:
   path: "Samudra/basins/basin_masks_original.zarr"
   endpoint_url: "https://nyu1.osn.mghpcc.org"
 groundtruth_time_range:
-  start: "2014-10-20"
-  end: "2022-12-24"
+  start: "2014-10-15"
+  end: "2022-12-29"
 runs:
   - name: "samudra_om4_v2_highres_eval"
     location: ".LOCAL/samudra_om4_v2_highres_eval/predictions.zarr"

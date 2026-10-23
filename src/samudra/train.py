@@ -168,6 +168,9 @@ class Trainer:
         logger.info(f"Loading data")
 
         self.primary_source = self.data_bundle.train_sources[0]
+        # Validate geometry before training starts, rather than at the first
+        # validation epoch, and reuse the device weights for all metrics.
+        self.area_weights = self.primary_source.area_weights.to(self.device)
 
         self.loader_version = self.data_bundle.loader_version
 
@@ -736,7 +739,7 @@ class Trainer:
             self.primary_source.metadata,
             self.input_steps,
             self.output_steps,
-            self.primary_source.spherical_area_weights.to(self.device),
+            self.area_weights,
             self.num_out,
             self.data_layout,
             self.preprocessor,
@@ -879,9 +882,7 @@ class Trainer:
                     )
                     rollout_aggregator = RolloutValidationAggregator(
                         output_steps=self.output_steps,
-                        area_weights=self.primary_source.spherical_area_weights.to(
-                            self.device
-                        ),
+                        area_weights=self.area_weights,
                         preprocessor=self.preprocessor,
                         data_layout=self.data_layout,
                         prognostic_var_names=self.prognostic_var_names,

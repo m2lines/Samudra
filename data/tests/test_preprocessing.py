@@ -27,8 +27,8 @@ def test_flatten_by_depth_level_preserves_grid_coords():
 
     Regression guard for the eval-usability fix: areacello/ocean_fraction/cell
     bounds/depth axis used to be discarded here, forcing analysis to recompute
-    them. The stacked `wetmask` becomes per-level `mask_i`, and native-only coords
-    (`angle`, `ilev`) are dropped.
+    them. The stacked `wetmask` becomes per-level `mask_i`; the native grid
+    angle is retained and the unused `ilev` axis is dropped.
     """
     n_lev, ny, nx = 3, 2, 2
     lev = xr.DataArray(
@@ -81,7 +81,7 @@ def test_flatten_by_depth_level_preserves_grid_coords():
     # Stacked wetmask (now mask_i) and native-only coords are gone.
     assert "wetmask" not in out.coords
     assert out.lev.attrs == {"units": "m"}
-    assert "angle" not in out.coords
+    xr.testing.assert_identical(out.angle, ds.angle)
     assert "ilev" not in out.variables
 
 

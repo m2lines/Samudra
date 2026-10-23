@@ -396,8 +396,10 @@ def flatten_by_depth_level(ds: xr.Dataset) -> xr.Dataset:
     # discarded here via `.drop_dims("lev").reset_coords(drop=True)`, which forced
     # eval/analysis to recompute them from external grid files. The stacked
     # `wetmask` coord has just been flattened into the per-level `mask_i` vars, so
-    # it (and native-grid-only coords like `angle`/`ilev`) are dropped instead.
+    # it and the unused interface axis `ilev` are dropped instead. Preserve
+    # `angle` when present so native-grid vectors can be converted to east/north.
     keep_coords = {
+        "angle",
         "lon",
         "lat",
         "lon_b",

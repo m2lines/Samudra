@@ -83,7 +83,7 @@ class Eval:
         self.source = self.data_bundle.inference_source
         self.metadata = self.source.metadata
         self.wet = self.source.masks.prognostic_for_steps(self.output_steps)
-        self.area_weights: Grid = self.source.spherical_area_weights
+        self.area_weights: Grid = self.source.area_weights
         self.area_weights = self.area_weights.to(self.device)
 
         self.preprocessor = BatchPreprocessor(

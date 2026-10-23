@@ -165,3 +165,79 @@ def test_output_profile_only_applies_to_the_output_store(monkeypatch) -> None:
 
     cluster.assert_called_once_with("off", n_workers=4)
     assert writer.call_args.kwargs["storage_options"] == {"profile": "publication"}
+
+
+@pytest.mark.parametrize("flatten", [False, True])
+def test_native_publication_preserves_vector_basis_and_angles(
+    monkeypatch, tmp_path, flatten
+):
+    angles = np.array([[0.0, 30.0, 90.0], [-45.0, 120.0, 180.0]])
+    source = xr.Dataset(
+        {
+            name: (("time", "lev", "y", "x"), np.full((1, 2, 2, 3), value))
+            for name, value in [
+                ("uo", 2.0),
+                ("vo", 3.0),
+                ("thetao", 10.0),
+                ("so", 35.0),
+            ]
+        }
+        | {
+            name: (("time", "y", "x"), np.full((1, 2, 3), value))
+            for name, value in [
+                ("tauuo", 4.0),
+                ("tauvo", 5.0),
+                ("zos", 0.1),
+                ("hfds", 1.0),
+                ("wfo", 0.0),
+            ]
+        },
+        coords={
+            "time": [0],
+            "lev": [5.0, 15.0],
+            "x": [0, 1, 2],
+            "y": [0, 1],
+            "dz": ("lev", [10.0, 10.0]),
+            "lon": (("y", "x"), np.zeros((2, 3))),
+            "lat": (("y", "x"), np.zeros((2, 3))),
+            "lon_b": (("y_b", "x_b"), np.zeros((3, 4))),
+            "lat_b": (("y_b", "x_b"), np.zeros((3, 4))),
+            "areacello": (("y", "x"), np.ones((2, 3))),
+            "wetmask": (("lev", "y", "x"), np.ones((2, 2, 3), dtype=bool)),
+            "angle": (("y", "x"), angles),
+        },
+    )
+    source.uo.attrs["standard_name"] = "eastward_sea_water_velocity"
+    monkeypatch.setattr(main, "om4_preprocessing", lambda *args, **kwargs: source)
+    monkeypatch.setattr(
+        main,
+        "rotate_vectors",
+        lambda *args: pytest.fail("Native vectors must not rotate"),
+    )
+    output = tmp_path / "native.zarr"
+    CLI(
+        output_path=str(output),
+        skip_regridding=True,
+        skip_spatial_filtering=True,
+        skip_validation=True,
+        skip_flattening=not flatten,
+    ).om4("raw", "static", "supergrid", "unused")
+    with xr.open_zarr(output, chunks=None) as actual:
+        np.testing.assert_array_equal(actual.angle, angles)
+        assert actual.angle.dims == ("y", "x")
+        assert actual.angle.attrs["units"] == "degrees"
+        assert "Counterclockwise" in actual.angle.attrs["long_name"]
+        for name, value in [("uo", 2), ("vo", 3), ("tauuo", 4), ("tauvo", 5)]:
+            fields = (
+                [f"{name}_{level}" for level in range(2)]
+                if flatten and name in ("uo", "vo")
+                else [name]
+            )
+            for field in fields:
+                np.testing.assert_array_equal(actual[field], value)
+                assert actual[field].attrs["vector_basis"] == "native_grid"
+                assert "standard_name" not in actual[field].attrs
+        provenance = actual.attrs["m2lines/preprocessing"]
+        assert provenance["vector_rotation"] == []
+        assert provenance["vector_basis"] == "native_grid"
+        assert provenance["target_grid"] is None

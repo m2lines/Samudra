@@ -183,7 +183,8 @@ class CLI:
             Gaussian kernel. Produces raw (unfiltered) output. Default is False
             (filtering is applied).
         skip_regridding: If True, skips horizontal regridding and keeps data on the
-            native grid resolution. Useful for producing native-resolution outputs.
+            native grid with grid-relative velocities/stresses and the cell-center
+            rotation angle. Regridded outputs use geographic east/north components.
             Default is False (regridding is performed).
         skip_flattening: If True, keeps 3D variables (with depth dimension) in their
             original form. If False, flattens 3D variables by creating separate 2D
@@ -318,7 +319,7 @@ class CLI:
         1. Model-specific preprocessing (interpolate velocities to tracer grid)
         2. Account for partial depths (if --account-for-partial-depths)
         3. Validation of preprocessed dataset (unless --skip-validation)
-        4. Vector rotation to zonal/meridional coordinates
+        4. Vector rotation to east/north components only when regridding
         5. QC plots for rotated vectors (unless --skip-plots)
         6. Spatial filtering with Gaussian kernel (unless --skip-spatial-filtering)
         7. Horizontal regridding to target resolution (unless --skip-regridding)
@@ -473,49 +474,82 @@ class CLI:
         for var in ds_processed.data_vars:
             saved_attrs[var] = ds_processed[var].attrs.copy()
 
-        logger.info("rechunking for vector rotation.")
-        # Rechunk to avoid chunk explosion in xr.dot()
-        # Use larger spatial chunks to reduce task graph size
-        ds_processed = ds_processed.chunk({"x": -1, "y": -1, "time": 1})
-
-        logger.info("rotating vectors.")
-        u_rotated, v_rotated = rotate_vectors(
-            ds_processed.uo, ds_processed.vo, ds_processed.angle
-        )
-        tau_uo_rotated, tau_vo_rotated = rotate_vectors(
-            ds_processed.tauuo, ds_processed.tauvo, ds_processed.angle
-        )
-        if not self.skip_validation:
-            logger.info("validating rotated vectors (uo + vo)")
-            rotated_vectors_qc_plots(
-                ds_processed.uo, ds_processed.vo, u_rotated, v_rotated
+        if self.skip_regridding:
+            # Components remain aligned with the native array directions after
+            # interpolation to tracer centers. Do not label these east/north.
+            for name, direction, quantity in (
+                ("uo", "x", "Sea Water Velocity"),
+                ("vo", "y", "Sea Water Velocity"),
+                ("tauuo", "x", "Surface Downward Stress"),
+                ("tauvo", "y", "Surface Downward Stress"),
+            ):
+                saved_attrs[name].pop("standard_name", None)
+                saved_attrs[name].update(
+                    long_name=f"Native Grid {direction.upper()} {quantity}",
+                    vector_basis="native_grid",
+                )
+            ds_processed.angle.attrs.update(
+                units="degrees",
+                long_name="Counterclockwise angle from geographic east to native grid x",
             )
-            logger.warning(
-                "¡the next rotated vectors are labeled u and v, but they are actually tau_uo and tau_vo!"
+            saved_coordinate_attrs["angle"] = ds_processed.angle.attrs.copy()
+        else:
+            logger.info("rechunking for vector rotation.")
+            # Rechunk to avoid chunk explosion in xr.dot()
+            # Use larger spatial chunks to reduce task graph size
+            ds_processed = ds_processed.chunk({"x": -1, "y": -1, "time": 1})
+
+            logger.info("rotating vectors.")
+            u_rotated, v_rotated = rotate_vectors(
+                ds_processed.uo, ds_processed.vo, ds_processed.angle
             )
-            rotated_vectors_qc_plots(
-                ds_processed.tauuo, ds_processed.tauvo, tau_uo_rotated, tau_vo_rotated
+            tau_uo_rotated, tau_vo_rotated = rotate_vectors(
+                ds_processed.tauuo, ds_processed.tauvo, ds_processed.angle
+            )
+            if not self.skip_validation:
+                logger.info("validating rotated vectors (uo + vo)")
+                rotated_vectors_qc_plots(
+                    ds_processed.uo, ds_processed.vo, u_rotated, v_rotated
+                )
+                logger.warning(
+                    "¡the next rotated vectors are labeled u and v, but they are actually tau_uo and tau_vo!"
+                )
+                rotated_vectors_qc_plots(
+                    ds_processed.tauuo,
+                    ds_processed.tauvo,
+                    tau_uo_rotated,
+                    tau_vo_rotated,
+                )
+
+            ds_processed["uo"], ds_processed["vo"] = u_rotated, v_rotated
+            ds_processed["tauuo"], ds_processed["tauvo"] = (
+                tau_uo_rotated,
+                tau_vo_rotated,
             )
 
-        ds_processed["uo"], ds_processed["vo"] = u_rotated, v_rotated
-        ds_processed["tauuo"], ds_processed["tauvo"] = tau_uo_rotated, tau_vo_rotated
+            # Rotation converts native-grid x/y components to geographic east/north.
+            # Update the saved metadata restored after filtering and regridding so
+            # the output names describe the rotated components.
+            for name, (standard_name, long_name) in {
+                "uo": ("eastward_sea_water_velocity", "Eastward Sea Water Velocity"),
+                "vo": ("northward_sea_water_velocity", "Northward Sea Water Velocity"),
+                "tauuo": (
+                    "surface_downward_eastward_stress",
+                    "Surface Downward Eastward Stress",
+                ),
+                "tauvo": (
+                    "surface_downward_northward_stress",
+                    "Surface Downward Northward Stress",
+                ),
+            }.items():
+                saved_attrs[name].update(
+                    standard_name=standard_name, long_name=long_name
+                )
 
-        # Rotation converts native-grid x/y components to geographic east/north.
-        # Update the saved metadata restored after filtering and regridding so
-        # the output names describe the rotated components.
-        for name, (standard_name, long_name) in {
-            "uo": ("eastward_sea_water_velocity", "Eastward Sea Water Velocity"),
-            "vo": ("northward_sea_water_velocity", "Northward Sea Water Velocity"),
-            "tauuo": (
-                "surface_downward_eastward_stress",
-                "Surface Downward Eastward Stress",
-            ),
-            "tauvo": (
-                "surface_downward_northward_stress",
-                "Surface Downward Northward Stress",
-            ),
-        }.items():
-            saved_attrs[name].update(standard_name=standard_name, long_name=long_name)
+            for name in ("uo", "vo", "tauuo", "tauvo"):
+                saved_attrs[name]["vector_basis"] = "geographic"
+            # The source-grid angle has no meaning on the regridded output.
+            ds_processed = ds_processed.drop_vars("angle")
 
         time_blocks = {"x": -1, "y": -1, "time": 1}
 
@@ -599,7 +633,8 @@ class CLI:
             "supergrid": nc_mosaic_path,
             "target_grid": None if self.skip_regridding else target_grid_path,
             "time_bounds_source": time_bounds_path,
-            "vector_rotation": ["uo/vo", "tauuo/tauvo"],
+            "vector_rotation": [] if self.skip_regridding else ["uo/vo", "tauuo/tauvo"],
+            "vector_basis": "native_grid" if self.skip_regridding else "geographic",
             "spatial_filter": None
             if self.skip_spatial_filtering
             else {

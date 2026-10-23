@@ -504,7 +504,7 @@ diffusion traces. No inference runs in the server.
 Field positions and pooled color limits stay fixed when switching examples.
 Ocean fields can be shown in physical units or shared OM4-normalized coordinates.
 Select an individual field to expand the native-resolution inspection panel.
-The 32-step slider exposes the noisy input or estimated clean field; an optional
+The 32-step slider shows noisy input and denoiser prediction together, alongside gold and prediction error; an optional
 Heun-corrector toggle exposes the second call. Full77 observation requests are
 explicit diagnostics with OM4 context, not observational gold. Monthly fields
 are raw direct decodes without the report's surface-temperature substitution.

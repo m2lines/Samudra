@@ -38,9 +38,7 @@ def test_anatomy_real_controls():
                 "OM4 standard deviations (zero = OM4 mean)", exact=False
             ).first
         ).to_be_visible(timeout=120000)
-        page.get_by_role(
-            "button", name="OBS · 3k cooled", exact=True
-        ).click()
+        page.get_by_role("button", name="OBS · 3k cooled", exact=True).click()
         expect(
             page.get_by_text("Original A · OBS · initial", exact=False)
         ).to_be_visible(timeout=120000)
@@ -49,8 +47,14 @@ def test_anatomy_real_controls():
         expect(page.get_by_text("Original A · OBS · day5", exact=False)).to_be_visible(
             timeout=120000
         )
-        selects.nth(1).select_option(label="Denoiser clean estimate")
+        selects.nth(1).select_option(label="Diffusion step: input + prediction")
         expect(page.get_by_text("Selected call 62:", exact=False)).to_be_visible(
+            timeout=120000
+        )
+        expect(page.get_by_text("Noisy input", exact=True).first).to_be_visible(
+            timeout=120000
+        )
+        expect(page.get_by_text("Denoiser prediction", exact=True).first).to_be_visible(
             timeout=120000
         )
         selects.nth(0).select_option(label="Monthly decode (separate task)")

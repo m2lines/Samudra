@@ -79,7 +79,7 @@ class Anatomy:
         )
         self.readout = pn.widgets.Select(
             label="Display",
-            options=["Final sample", "Denoiser clean estimate", "Noisy sampler input"],
+            options=["Final sample", "Diffusion step: input + prediction"],
             value="Final sample",
         )
         self.step = pn.widgets.IntSlider(
@@ -158,7 +158,7 @@ class Anatomy:
                 self.corrector.value and self.step.value < 32
             )
             value = load(str(base / self.stage_for(source) / f"call-{call:02d}.npz"))[
-                "clean" if self.readout.value == "Denoiser clean estimate" else "noisy"
+                "clean"
             ]
         return np.where(mask, value, np.nan), np.where(mask, z["gold"], np.nan), mask
 
@@ -213,7 +213,25 @@ class Anatomy:
             if self.stage.value.endswith("-full") and self.source.value != "om4"
             else "Gold"
         )
-        return f'<div><b>{self.unit(i)}</b> · spatial RMSE {rmse:.4g}<br><div style="display:flex;flex-wrap:wrap"><div>Prediction<br>{image_html(p, lo, hi, width=width)}</div><div>{gold_label}<br>{image_html(g, lo, hi, width=width)}</div><div>Error<br>{image_html(error, -error_scale, error_scale, True, width)}</div></div></div>'
+        prediction_label = "Prediction"
+        noisy_panel = ""
+        if self.readout.value != "Final sample":
+            call = 2 * (self.step.value - 1) + (
+                self.corrector.value and self.step.value < 32
+            )
+            path = (
+                self.root
+                / self.source.value
+                / self.stage_for(self.source.value)
+                / f"call-{call:02d}.npz"
+            )
+            noisy = np.where(mask[i], load(str(path))["noisy"][i], np.nan)
+            noisy = self.transform(noisy, i)
+            noisy_panel = (
+                f"<div>Noisy input<br>{image_html(noisy, lo, hi, width=width)}</div>"
+            )
+            prediction_label = "Denoiser prediction"
+        return f'<div><b>{self.unit(i)}</b> · prediction RMSE {rmse:.4g}<br><div style="display:grid;grid-template-columns:repeat(2,max-content);gap:6px">{noisy_panel}<div>{prediction_label}<br>{image_html(p, lo, hi, width=width)}</div><div>{gold_label}<br>{image_html(g, lo, hi, width=width)}</div><div>Prediction error<br>{image_html(error, -error_scale, error_scale, True, width)}</div></div></div>'
 
     def update(self, *events):
         self.current = self.values(self.source.value)

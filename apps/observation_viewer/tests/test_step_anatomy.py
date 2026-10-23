@@ -88,10 +88,11 @@ def test_trace_and_context_are_explicit(anatomy):
     anatomy.source.value = "obs_pre"
     anatomy.stage.value = "initial-full"
     assert "not OBS truth" in anatomy.render(0)
-    anatomy.readout.value = "Noisy sampler input"
+    anatomy.readout.value = "Diffusion step: input + prediction"
     anatomy.step.value = 1
-    assert anatomy.current[0][0, 0, 0] == 81
-    anatomy.readout.value = "Denoiser clean estimate"
+    assert anatomy.current[0][0, 0, 0] == 1
+    assert "Noisy input" in anatomy.render(0)
+    assert "Denoiser prediction" in anatomy.render(0)
     anatomy.corrector.value = True
     assert anatomy.current[0][0, 0, 0] == 2
     anatomy.stage.value = "inputs"

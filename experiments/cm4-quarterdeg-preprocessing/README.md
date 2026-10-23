@@ -32,8 +32,8 @@ before publishing `COMPLETE.json`. A partial store without completion is not
 ready for training.
 
 Torch run root: `/scratch/jr7309/cm4-quarterdeg-20261023`.
-The pilot requests 16 CPUs/192 GiB/4h; proposed production resources are
-32 CPUs/448 GiB/72h, subject to the measured pilot. Both are CPU-only. The
+The pilot requests 16 CPUs/192 GiB/4h; production requests
+32 CPUs/448 GiB/72h. Both are CPU-only; wall limits are ceilings, not estimates. The
 processing environment reuses the verified package overlay at
 `/scratch/jr7309/cm4-pr928-smoke-20261015/python_overlay`, rather than the drifted
 shared base environment. Runtime checks enforce the original nine recorded
@@ -50,3 +50,17 @@ callback remains best-effort, with a bounded startup check and exit delivery;
 durable local reminders and scheduler/artifact checks provide follow-up even
 when that endpoint is unreachable. Notification connectivity does not determine
 scientific-job success or bypass any pilot qualification check.
+
+## Submission record
+
+On October 23, 2026, Torch accepted pilot **20750392** and production **20750393**.
+Production has an `afterok:20750392` dependency and also checks the qualification
+record before touching its destination. Both execute processing source
+`ab0e5e4a4`; subsequent documentation changes do not alter that pinned checkout.
+Earlier held submissions were canceled before execution because Slurm refused
+to release them. The active jobs were submitted without holds.
+
+The pilot has a two-hour fallback check; production has six-hour fallback checks.
+The monitor verifies Slurm exit status and output artifacts rather than treating
+a callback as proof of successful processing. The experiment record is
+[PR #947](https://github.com/m2lines/Samudra/pull/947).

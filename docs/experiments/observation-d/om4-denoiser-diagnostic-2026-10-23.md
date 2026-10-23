@@ -85,3 +85,7 @@ producer `6735615ac072a9fdbe301f68e4613e031fee3934`.
 
 Code: [diagnostic](../../../scripts/diagnose_om4_denoiser_trajectory.py) and
 [plotter](../../../scripts/plot_om4_denoiser_diagnostic.py).
+
+The [follow-up controls and possible fixes](om4-denoiser-controls-2026-10-23.md)
+add correction decomposition, latent perturbations, solver convergence, four
+additional histories, and the matched A-2k versus A-4k training-length comparison.

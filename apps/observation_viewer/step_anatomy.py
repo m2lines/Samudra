@@ -227,11 +227,9 @@ class Anatomy:
             )
             noisy = np.where(mask[i], load(str(path))["noisy"][i], np.nan)
             noisy = self.transform(noisy, i)
-            noisy_panel = (
-                f"<div>Noisy input<br>{image_html(noisy, lo, hi, width=width)}</div>"
-            )
+            noisy_panel = f"<div><span>Noisy input</span><br>{image_html(noisy, lo, hi, width=width)}</div>"
             prediction_label = "Denoiser prediction"
-        return f'<div><b>{self.unit(i)}</b> · prediction RMSE {rmse:.4g}<br><div style="display:grid;grid-template-columns:repeat(2,max-content);gap:6px">{noisy_panel}<div>{prediction_label}<br>{image_html(p, lo, hi, width=width)}</div><div>{gold_label}<br>{image_html(g, lo, hi, width=width)}</div><div>Prediction error<br>{image_html(error, -error_scale, error_scale, True, width)}</div></div></div>'
+        return f'<div><b>{self.unit(i)}</b> · prediction RMSE {rmse:.4g}<br><div style="display:grid;grid-template-columns:repeat(2,max-content);gap:6px">{noisy_panel}<div><span>{prediction_label}</span><br>{image_html(p, lo, hi, width=width)}</div><div>{gold_label}<br>{image_html(g, lo, hi, width=width)}</div><div>Prediction error<br>{image_html(error, -error_scale, error_scale, True, width)}</div></div></div>'
 
     def update(self, *events):
         self.current = self.values(self.source.value)
@@ -325,8 +323,14 @@ OBS monthly support excludes top temperature; missing channels remain blank.
             )
             limit = max(limit, 1e-6)
             html += f"<p>Slot {slot}, channel {c}; full-slot RMS {np.sqrt(np.mean(z[0, slot] ** 2)):.4g} → {np.sqrt(np.mean(z[1, slot] ** 2)):.4g}</p>"
-            for a in [first, next_, next_ - first]:
-                html += image_html(a, -limit, limit, True, 300)
+            html += '<div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start">'
+            for label, a in zip(
+                ["Initialized", "After one step", "Difference (after − initialized)"],
+                [first, next_, next_ - first],
+                strict=True,
+            ):
+                html += f'<div style="width:300px;max-width:100%"><strong>{label}</strong><br>{image_html(a, -limit, limit, True, 300)}</div>'
+            html += "</div>"
         self.latents.object = html
 
     def view(self):

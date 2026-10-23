@@ -67,5 +67,15 @@ def test_anatomy_real_controls():
         expect(
             page.get_by_text("OM4 context (not OBS truth)", exact=False).first
         ).to_be_visible(timeout=120000)
+        page.get_by_text("Latent state", exact=True).click()
+        expect(page.get_by_text("Initialized", exact=True).first).to_be_visible(
+            timeout=120000
+        )
+        expect(page.get_by_text("After one step", exact=True).first).to_be_visible(
+            timeout=120000
+        )
+        expect(
+            page.get_by_text("Difference (after − initialized)", exact=True).first
+        ).to_be_visible(timeout=120000)
         assert not errors, errors
         browser.close()

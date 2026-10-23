@@ -59,8 +59,15 @@ def assert_exact(left, right, path="state"):
 
 
 def phase_settings(step, mode, arm):
-    main = 4000 if mode in ("extend", "fresh-4k") else 2000
-    if step < (2000 if mode == "extend" else 0) or step >= main + 1000:
+    main = (
+        8000
+        if mode == "shared-8k"
+        else (4000 if mode in ("extend", "fresh-4k", "shared-cool4k") else 2000)
+    )
+    if (
+        step < (4000 if mode == "shared-cool4k" else (2000 if mode == "extend" else 0))
+        or step >= main + 1000
+    ):
         raise ValueError("Update outside authorized experiment")
     cooldown = step >= main
     lr = 1e-4 if not cooldown else 1e-4 + (1e-6 - 1e-4) * (step - main + 1) / 1000
@@ -76,13 +83,17 @@ def main():
     config = json.loads((a.root / "paths.json").read_text())
     row = next(r for r in config["runs"] if r["name"] == a.name)
     replay = row["mode"] == "replay"
-    fresh = replay or row["mode"] == "fresh-4k"
+    shared = row["mode"] in ("shared-8k", "shared-cool4k")
+    fresh = replay or row["mode"] in ("fresh-4k", "shared-8k")
     architecture = row.get("architecture", {})
     if architecture and architecture != {"latent_width": 64, "latent_stride": 1}:
         raise ValueError("Unqualified architecture requested")
     source_path = Path(row["checkpoint"])
-    if digest(source_path) != row["sha256"]:
+    source_sha256 = digest(source_path)
+    if row["sha256"] is not None and source_sha256 != row["sha256"]:
         raise ValueError("Source checkpoint changed")
+    if row["sha256"] is None and row["mode"] != "shared-cool4k":
+        raise ValueError("Only an audited same-run fork may omit its advance hash")
     legacy = json.loads(Path(config["legacy_qualification"]).read_text())
     if legacy["producer"] != "1c9817d44" or not legacy["production_qualified"]:
         raise ValueError("Original data/runtime qualification missing")
@@ -119,9 +130,17 @@ def main():
         qualification=a.qualify,
         seed=1729,
         effective_batch=8,
-        new_main_updates=4000 if row["mode"] == "fresh-4k" else 2000,
+        new_main_updates=(
+            8000
+            if row["mode"] == "shared-8k"
+            else (
+                0
+                if row["mode"] == "shared-cool4k"
+                else (4000 if row["mode"] == "fresh-4k" else 2000)
+            )
+        ),
         cooldown=1000,
-        main_end=2000 if replay else 4000,
+        main_end=8000 if row["mode"] == "shared-8k" else (2000 if replay else 4000),
         lr=1e-4,
         final_lr=1e-6,
         clip=1.0,
@@ -137,6 +156,12 @@ def main():
         else None,
         selection="original nine-origin monthly five-component rmse-only blend",
     )
+    if shared:
+        protocol.update(
+            shared_era5=True,
+            forcing_proof_sha256=config["forcing_proof_sha256"],
+            source_sha256=source_sha256,
+        )
     manifest = out / "protocol.json"
     if manifest.exists() and json.loads(manifest.read_text()) != protocol:
         raise ValueError("Frozen protocol changed")
@@ -173,6 +198,17 @@ def main():
             data.grid,
             config["om4"],
             packed=legacy["packed_om4"],
+        )
+    forcing_cache = None
+    if shared:
+        from samudra.experiments.shared_era5 import SharedEra5
+
+        forcing_cache = SharedEra5(
+            config["forcing_cache"],
+            reader,
+            data,
+            config["forcing_proof_sha256"],
+            full_readback=a.qualify,
         )
     model = MonthlyLatentOcean(**architecture).cuda()
     ema = copy.deepcopy(model).eval().requires_grad_(False)
@@ -213,11 +249,19 @@ def main():
     if not fresh:
         source = torch.load(source_path, map_location="cpu", weights_only=False)
         if (
-            source["step"] != 2000
+            source["step"] != (4000 if row["mode"] == "shared-cool4k" else 2000)
             or source["protocol"]["arm"] != row["arm"]
             or source["protocol"]["seed"] != 1729
         ):
             raise ValueError("Source arm/step/seed differs")
+        if row["mode"] == "shared-cool4k" and (
+            source["protocol"].get("shared_era5") is not True
+            or source["protocol"]["producer"] != config["producer"]
+            or source["protocol"]["mode"] != "shared-8k"
+            or source["protocol"]["forcing_proof_sha256"]
+            != config["forcing_proof_sha256"]
+        ):
+            raise ValueError("Cooldown fork is not this qualified shared-ERA5 run")
         restore(source, continuation=True)
         # Loading is exact; no qualification weights or cooled optimizer state.
         for name, value in source["model"].items():
@@ -311,13 +355,30 @@ def main():
             else:
                 if reader is None:
                     raise ValueError("Model data missing")
-                batch = reader.sample(int(rng.integers(len(reader.windows))), "cuda")
+                window_index = int(rng.integers(len(reader.windows)))
+                batch = reader.sample(window_index, "cuda")
                 with torch.autocast("cuda", dtype=torch.bfloat16):
+                    if forcing_cache is not None:
+                        batch["forcing"] = model.adapt(
+                            forcing_cache.load(reader, window_index, data)
+                        )
                     loss = model_loss(model, batch, "surface", generator, data.area)
             if not torch.isfinite(loss):
                 raise ValueError("Nonfinite training loss")
             (loss / 8).backward()
             losses.append(float(loss.detach()))
+        adapter_norm = (
+            sum(
+                float(p.grad.detach().float().square().sum())
+                for p in model.atmosphere_adapter.parameters()
+                if p.grad is not None
+            )
+            ** 0.5
+        )
+        if shared and (not math.isfinite(adapter_norm) or adapter_norm == 0):
+            raise ValueError(
+                "Shared ERA5 adapter did not receive finite nonzero gradients"
+            )
         norm = torch.nn.utils.clip_grad_norm_(
             model.parameters(), 1.0, error_if_nonfinite=True
         )
@@ -336,6 +397,7 @@ def main():
             loss=float(np.mean(losses)),
             gradient_norm=float(norm),
             lr=lr,
+            adapter_gradient_norm=adapter_norm,
             seconds=time.monotonic() - started,
         )
         record.update(
@@ -489,7 +551,7 @@ def main():
             if value < best:
                 best = value
                 save(out / "best.pt")
-            if step in (main_end, end):
+            if step in ((2000, 4000, main_end, end) if shared else (main_end, end)):
                 raw = evaluate(model, data, validation)
                 record["validation_raw_rmse_blend"] = selection_score(
                     raw, control, [], metric="rmse-only"
@@ -514,7 +576,7 @@ def main():
                 best=best,
                 replay_examples=replay_examples,
                 fresh_examples=fresh_examples,
-                source_sha256=row["sha256"],
+                source_sha256=source_sha256,
             ),
             indent=2,
         )

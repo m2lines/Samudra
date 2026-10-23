@@ -10,7 +10,7 @@ from pathlib import Path
 
 import numpy as np
 import panel as pn
-from bokeh.palettes import Cividis256, RdBu11
+from bokeh.palettes import RdBu11, Turbo256
 from PIL import Image
 
 
@@ -26,7 +26,7 @@ def image_html(values, low, high, divergent=False, width=180):
     scale = np.clip(
         (np.nan_to_num(values, nan=low) - low) / max(high - low, 1e-10), 0, 1
     )
-    colors = RdBu11[::-1] if divergent else Cividis256
+    colors = RdBu11[::-1] if divergent else Turbo256[40:216]
     palette = np.array([tuple(bytes.fromhex(c[1:])) for c in colors], dtype=np.uint8)
     rgb = palette[(scale * (len(palette) - 1)).astype(int)]
     rgb[~valid] = [220, 220, 220]

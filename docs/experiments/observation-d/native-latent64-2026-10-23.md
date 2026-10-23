@@ -40,3 +40,15 @@ Runner: `scripts/run_monthly_replay.py`, mode `fresh-4k`, architecture
 `{"latent_width":64,"latent_stride":1}`. Existing modes/default model shapes
 remain unchanged. All real data, training and full-size qualifications run on
 Beta; local checks use tiny synthetic unit-test tensors only.
+
+## Launch
+
+Producer `6f27ab95d`; fifteen targeted tiny-tensor unit tests and repository
+checks passed. Beta qualification **216604** and production **216605** are
+submitted. Production has an `afterok:216604` dependency and also verifies the
+producer-matched qualification marker itself. Full training uses the production
+partition; the test partition runs qualification only. Both jobs have verified
+completion hooks and a dedicated quiet monitor. They are queued, not yet
+confirmed training. Runtime/ETA will be based on qualification measurements.
+
+Run root: `beta:/projects/ny/lz1955/multiscale/jrusak/runs/native-latent64-20261023`.

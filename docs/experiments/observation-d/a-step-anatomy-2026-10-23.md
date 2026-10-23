@@ -106,3 +106,11 @@ browser test exercises all three cases, normalized units, forecast and monthly
 views, diffusion clean estimates and full77 context. The installed service is
 verified separately after deployment. Arrays stay outside Git; source checkpoint
 hashes, exact normalization and latent fields are retained in the bundle manifest.
+
+## Follow-up: denoising failure localization
+
+The [matched corrupted-gold diagnostic](om4-denoiser-diagnostic-2026-10-23.md)
+compares the supervised OM4 sampler trajectory with training-style corrupted
+truth across all 32 predictor noise levels, holding the saved latent fixed.
+It includes per-variable curves and distinguishes mid-noise denoising weakness
+from low-noise persistence of sampling errors.

@@ -28,7 +28,7 @@ from samudra.config import (
     GpuDataLoadingConfig,
     TrainConfig,
 )
-from samudra.constants import DataLayout, LoaderVersion
+from samudra.constants import OM4_TIME_STEP, DataLayout, LoaderVersion
 from samudra.datasets import (
     InferenceDataset,
     ModelBatch,
@@ -36,7 +36,12 @@ from samudra.datasets import (
     TorchTrainDataset,
     TrainingWindows,
 )
-from samudra.utils.data import BatchPreprocessor, CanonicalSource, Masks
+from samudra.utils.data import (
+    BatchPreprocessor,
+    CanonicalSource,
+    Masks,
+    XarrayCanonicalReader,
+)
 from samudra.utils.location import LocalLocation
 from samudra.utils.multiton import MultitonScope
 from samudra.utils.samplers import EquivalenceGroupBatchSampler
@@ -969,3 +974,69 @@ def test_profile__inference_dataset__1gb(inference_dataset_pair, benchmark):
     # Warm the restored Zarr cache before timing steady-state loader throughput.
     bench()
     benchmark(bench)
+
+
+@pytest.mark.parametrize("calendar", ["julian", "noleap", "numpy"])
+@pytest.mark.parametrize(
+    "input_steps,output_steps,steps,stride",
+    [
+        (1, 1, 1, 1),
+        (2, 1, 3, 1),
+        (2, 2, 2, 1),
+        (2, 1, 1, 2),
+    ],
+)
+def test_training_windows_exclude_full_gap_crossing_span(
+    calendar, input_steps, output_steps, steps, stride
+):
+    source, _ = _equivalent_om4_sources()
+    # A six-day interval at the leap-year boundary, surrounded by five-day ones.
+    offsets = np.arange(8) * 5
+    offsets[4:] += 1
+    if calendar == "numpy":
+        times = np.datetime64("1976-12-13T12:00") + offsets.astype("timedelta64[D]")
+    else:
+        start = cftime.datetime(1976, 12, 13, 12, calendar=calendar)
+        times = np.array([start + datetime.timedelta(days=int(d)) for d in offsets])
+    reader = source.reader
+    assert isinstance(reader, XarrayCanonicalReader)
+    source = dataclasses.replace(
+        source,
+        expected_time_step=OM4_TIME_STEP,
+        _reader=dataclasses.replace(reader, data=reader.data.assign_coords(time=times)),
+    )
+    windows = TrainingWindows(
+        source,
+        None,
+        ["so_0", "so_2", "zos"],
+        ["hfds"],
+        input_steps,
+        output_steps,
+        steps,
+        True,
+        -1.0,
+        stride,
+    )
+    span = (input_steps - 1 + steps * output_steps) * stride
+    expected_starts = [i for i in range(max(0, 8 - span)) if not i <= 3 < i + span]
+    assert len(windows) == len(expected_starts)
+    for index, start in enumerate(expected_starts):
+        plan = windows.window_plan([index])
+        for step, reads in enumerate(plan.steps):
+            expected = (
+                start
+                + (step * output_steps + np.arange(input_steps + output_steps)) * stride
+            )
+            np.testing.assert_array_equal(
+                reads.input.request.time_indices[0], expected[:input_steps]
+            )
+            np.testing.assert_array_equal(
+                reads.label.request.time_indices[0], expected[input_steps:]
+            )
+    # Long inference still visits every record, preserving the real gap in dates.
+    inference = InferenceDataset(
+        source, ["so_0", "so_2", "zos"], ["hfds"], 1, 1, True, -1.0, True
+    )
+    np.testing.assert_array_equal(
+        inference.get_target_time(0, 7).values, source.time.values[1:]
+    )

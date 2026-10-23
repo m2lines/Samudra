@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import dataclasses
+import datetime
 import enum
 import logging
 from typing import Literal, NamedTuple, Self
@@ -58,6 +59,10 @@ HistChanneled = Float[Tensor, "batch hist_prognostic_vars lat lon"]
 
 
 MAX_TRAIN_MODEL_STEPS_FORWARD = 200
+
+# Nominal interval between OM4 records. Leap-year restart gaps are not valid
+# model steps, even if a selected time slice contains only such an interval.
+OM4_TIME_STEP = datetime.timedelta(days=5)
 
 # Horizontal grid geometry. "gaussian" is a regular/rectilinear lat-lon grid whose
 # 2D lat/lon are the outer product of the 1D axes, so they can be reconstructed by

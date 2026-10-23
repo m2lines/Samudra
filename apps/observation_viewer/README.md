@@ -493,9 +493,9 @@ OHC is independently integrated from each selected readout's own monthly
 temperature profiles, and persistence holds its own decoded initial fields.
 The published score curves continue to evaluate eight-draw mean fields.
 
-## Original A step anatomy
+## Original A step Xray
 
-Open `app?anatomy=1` for the saved three-case diagnostic: original A at 2k on
+Open `app?xray=1` for the saved three-case diagnostic: original A at 2k on
 OM4 surfaces, the identical checkpoint on observations, and A after cooldown
 on the same observations. The separate `.step-anatomy` bundle (or
 `SAMUDRA_ANATOMY_DATA`) contains hash-verified inputs, gold, latents and 13

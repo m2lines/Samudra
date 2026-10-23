@@ -1256,7 +1256,7 @@ class Viewer:
                 pn.Column(
                     *sidebar,
                     pn.pane.Markdown(
-                        "[A: initialization & diffusion anatomy](?anatomy=1)"
+                        "[A: initialization & diffusion Xray](?xray=1)"
                     ),
                 )
             ],
@@ -1281,7 +1281,7 @@ class Viewer:
         )
 
 
-if pn.state.session_args.get("anatomy", [b"0"])[0] == b"1":
+if pn.state.session_args.get("xray", [b"0"])[0] == b"1":
     from step_anatomy import Anatomy
 
     Anatomy(

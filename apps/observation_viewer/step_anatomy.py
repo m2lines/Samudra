@@ -335,7 +335,7 @@ OBS monthly support excludes top temperature; missing channels remain blank.
 
     def view(self):
         return pn.template.FastListTemplate(
-            title="A · initializer and processor anatomy",
+            title="A · initializer and processor Xray",
             sidebar=[
                 self.source,
                 self.stage,

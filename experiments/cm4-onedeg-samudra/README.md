@@ -70,5 +70,8 @@ are linked in the evaluation report.
 Qualification job **214211** completed successfully.
 See [the launch record](results/LAUNCH.md) for verified checks and provenance.
 
-The [full-century visualization](results/VIZ-100YR.md) is submitted as CPU-only
-Grace job **144455**, comparing the saved rollout with the fixed CM4 1° reference.
+The [full-century visualization](results/VIZ-100YR.md) completed as CPU-only
+Grace job **144455** in 7h53m34s: 107 fully decoded PNGs, three CSV tables, and
+four verified 1080p movies, each containing all 7,298 frames. It compares the
+saved rollout against the fixed CM4 1° reference. Artifact locations and the
+heat-content trend limitation are documented in the report.

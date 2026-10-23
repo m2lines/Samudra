@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792766477179,
+  "lastUpdate": 1792766484053,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -26355,6 +26355,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.13986367586867546",
             "extra": "mean: 15.710194388799982 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fomobot640@gmail.com",
+            "name": "fomo-bot",
+            "username": "fomo-bot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "e630ba6ff3fee6dca59b12a4a5b29872d3290e4d",
+          "message": "Remove movie visualization (#944)\n\n## Summary\n\nRemove the slow movie visualization step, which fails in the default\nenvironment without ffmpeg. Delete its frame-rendering and encoding\nhelpers, unused imports, and `Movies` output directory setup. Available\nsteps, default execution, and the generated config schema now exclude\nmovies automatically.\n\nUpdate the curvilinear guard tests to cover the remaining supported\nsteps.\n\nCloses #511\n\n## Validation\n\n- 76 visualization tests passed across config, core, observations, and\nOHC.\n- All pre-commit checks passed for the changed files.\n- Confirmed movies is absent from available steps and the generated\nvisualization schema.",
+          "timestamp": "2026-10-23T14:14:59Z",
+          "tree_id": "d5f04bff3c8cf1fcf5fcf0b17a9b8e67a91cf78e",
+          "url": "https://github.com/m2lines/Samudra/commit/e630ba6ff3fee6dca59b12a4a5b29872d3290e4d"
+        },
+        "date": 1792766483695,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 1.0463121730430147,
+            "unit": "iter/sec",
+            "range": "stddev: 0.002282676959056558",
+            "extra": "mean: 955.7377098000075 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_dataset__1gb[cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.35863979466910734,
+            "unit": "iter/sec",
+            "range": "stddev: 0.1055701843565636",
+            "extra": "mean: 2.78831299499999 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.07842239389594839,
+            "unit": "iter/sec",
+            "range": "stddev: 0.507588317584059",
+            "extra": "mean: 12.751459759399973 sec\nrounds: 5"
           }
         ]
       }

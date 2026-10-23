@@ -147,15 +147,20 @@ def main():
         config_sha256=digest(args.config),
         cases={},
     )
-    for source, step in [("om4", 2000), ("obs", 3000)]:
-        checkpoint = Path(config[source + "_checkpoint"])
-        expected = config[source + "_sha256"]
+    for case, source, step in [
+        ("om4", "om4", 2000),
+        ("obs_pre", "obs", 2000),
+        ("obs", "obs", 3000),
+    ]:
+        checkpoint_key = "om4" if step == 2000 else "obs"
+        checkpoint = Path(config[checkpoint_key + "_checkpoint"])
+        expected = config[checkpoint_key + "_sha256"]
         assert digest(checkpoint) == expected
         saved = torch.load(checkpoint, map_location="cpu", weights_only=False)
         assert saved["step"] == step
         model = MonthlyLatentOcean().cuda().eval()
         model.load_state_dict(saved["ema"], strict=True)
-        dest = args.output / source
+        dest = args.output / case
         dest.mkdir()
         batch = om4 if source == "om4" else obs
         if source == "om4":
@@ -183,6 +188,8 @@ def main():
             contexts=contexts[0, :length],
             latents=torch.stack(states)[:, 0],
             om4_context=normalized[[18, 19]],
+            forcing_mean=reader.forcing_mean,
+            forcing_std=reader.forcing_std,
         )
         if source == "obs":
             save(
@@ -227,7 +234,7 @@ def main():
             duration=31.0,
             position=15.5,
         )
-        manifest["cases"][source] = dict(
+        manifest["cases"][case] = dict(
             checkpoint=str(checkpoint),
             checkpoint_sha256=expected,
             step=step,

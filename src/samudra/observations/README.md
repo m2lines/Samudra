@@ -55,9 +55,10 @@ original forecast-origin timeline. The normalization manifest records the global
 fitting policy and input hashes; regenerate it when that policy changes.
 
 OM4 and CM4 readers enforce the source splits and interval eligibility defined in
-[`model_data.py`](model_data.py). Model windows require contiguous five-day
-support. When an archive supplies only timestamps, the reader interprets them as
-centers of five-day intervals.
+[`model_data.py`](model_data.py). Initializer histories may contain gaps;
+forecast transitions require contiguous five-day support, including the first
+step from the final history frame. When an archive supplies only timestamps,
+the reader interprets them as centers of five-day intervals.
 
 ## Train and inspect
 

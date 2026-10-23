@@ -213,6 +213,34 @@ def test_model_replay_rejects_a_gap_even_when_target_month_itself_is_valid(tmp_p
         data.continuation(origin, 10, "cpu")
 
 
+def test_om4_leap_year_gap_allowed_only_inside_initializer_history(tmp_path):
+    path, reference = model_store(tmp_path, "om4")
+    store = zarr.open_consolidated(str(path), mode="r+")
+    # The archive contains 73 five-day bins per year. December 31, 1976 is
+    # missing; January 1977 resumes at its true date, one day later.
+    store["time"][2 * 73 :] += 1
+    zarr.consolidate_metadata(str(path))
+    data = ModelMonths(path, "om4", reference, tmp_path)
+    windows = {
+        (stamp.year, stamp.month): i for i, stamp in enumerate(data.window_months)
+    }
+    assert (1976, 12) not in windows  # Target month lacks its last day.
+    assert (1977, 1) not in windows  # First forecast step would cross the gap.
+    for month in (2, 3, 4):
+        index = windows[1977, month]
+        sample = data.sample(index, "cpu")
+        assert sample["start_lead"] == 0
+        assert data.continuation_layout(index, 0) is not None
+        assert (
+            data.continuation(index, 1, "cpu")["start_lead"]
+            == sample["next_start_lead"]
+        )
+    # February can initialize afresh, but a pre-gap forecast cannot jump to it.
+    before_gap = windows[1976, 11]
+    assert data.continuation_layout(before_gap, 1) is None
+    assert data.continuation_layout(before_gap, 3) is None
+
+
 def test_leap_year_replay_does_not_extend_to_370_days():
     with pytest.raises(ValueError, match="one year"):
         trajectory(None, "2000-01-01", target_month="2000-12-01")

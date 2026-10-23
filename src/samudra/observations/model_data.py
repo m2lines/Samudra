@@ -151,7 +151,12 @@ class ModelMonths:
                     continue
                 if kind == "cm4" and year >= first_year + 180:
                     continue
-                if gaps[indices[0] - 19 : indices[-1]].any():
+                # History frames may straddle missing days. Every forecast
+                # transition, including the last history frame -> first target,
+                # must still span exactly one contiguous five-day interval.
+                # TODO: add temporal encoding and random history dropout during
+                # training to improve initializer robustness to missing days.
+                if gaps[indices[0] - 1 : indices[-1]].any():
                     self.excluded_gap_months.append(str(first))
                     continue
                 weights = calendar_weights(
@@ -193,7 +198,8 @@ class ModelMonths:
         start, stop, weights, duration = self.windows[candidates[0]]
         if any(
             self.bounds[k, 1] != self.bounds[k + 1, 0]
-            for k in range(origin_start - 19, stop - 1)
+            # Check from the original forecast boundary, not its input history.
+            for k in range(origin_start - 1, stop - 1)
         ):
             return None
         if stop - origin_start > 73:

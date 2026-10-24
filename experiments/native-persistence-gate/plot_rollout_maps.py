@@ -96,7 +96,7 @@ for slot, (channel, title, unit) in enumerate(zip(meta["channels"], labels, unit
                     )
                     ax.set_title(label, fontsize=9)
                     ax.set_xlabel("Longitude (°E)", fontsize=8)
-                    ax.tick_params(labelsize=7)
+                    ax.tick_params(labelsize=7, length=0)
                     if col == 0:
                         ax.set_ylabel("Latitude (°N)", fontsize=8)
                     # Keep the outermost map pixels intact.
@@ -118,7 +118,7 @@ for slot, (channel, title, unit) in enumerate(zip(meta["channels"], labels, unit
                 )
                 cb = fig.colorbar(im, cax=cax)
                 cb.set_label(unit, fontsize=8)
-                cb.ax.tick_params(labelsize=7)
+                cb.ax.tick_params(labelsize=7, length=0)
                 filename = f"{channel}-{'regional' if regional else 'global'}-day{day}-{kind}.png"
                 fig.savefig(
                     a.output / filename, dpi=100, pil_kwargs={"compress_level": 9}

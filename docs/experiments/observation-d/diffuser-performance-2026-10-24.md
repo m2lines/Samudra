@@ -212,3 +212,32 @@ The combined defaults and microbatch eight are recommended for the next
 baseline qualification. Recheck memory/throughput for the larger Samudra-like
 processor and then choose its microbatch. No current scientific run was altered.
 All performance diagnostics together consumed **0.3281 GPU-hours**.
+
+## Shared-ERA5 migration qualification
+
+The user authorized applying the optimized setup to the still-unstarted shared
+ERA5 experiment, subject to avoiding large behavioral changes. Job **217213**
+(one-GPU Beta_test, two-hour cap), producer **55b2939e1**, compares 16 matched
+mixed updates before any production switch. Original production remains held
+and its placement must respect the requirement against reserving four GPUs for
+one-GPU work without explicit confirmation.
+
+The production helper preserves the original eight sequential sample draws and
+consumes every per-example sigma/noise/native-lead draw in the original order.
+It groups only within that update by compatible trajectory length: no dropped
+months, no resampling, no cross-update grouping, and count/8 gradient weights.
+Month weights, masks, targets, and duration remain individual. Scalar-weight
+BF16 monthly aggregation semantics are preserved, rather than promoting the
+monthly latent by broadcasting a float32 weight array. Twenty targeted tests
+pass, including original-objective/RNG and single-example gradient agreement.
+
+Frozen engineering gates: exact sample/draw/post-update generator hashes; first
+gradient relative L2 below 1%; first Adam update difference below 5%; all 16
+matched loss differences below 2%; each of five fixed-noise raw and EMA
+validation RMSE components within 1%; exact serialized optimizer/EMA/RNG replay
+for both implementations. Failure is investigated or falls back to a smaller
+optimization subset; thresholds are not loosened after looking at results.
+These checks do not establish identical long-training trajectories.
+
+Artifacts: `beta:/projects/ny/lz1955/multiscale/jrusak/runs/shared-era5-optimized-20261024`.
+Remote callback: `dc1369af-a989-4873-ab55-0b2c432a1b2e`.

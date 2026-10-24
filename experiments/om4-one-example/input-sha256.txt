@@ -1,0 +1,4 @@
+fff3d60b56048acdd21a6f9546930877acad76697026557113b1c850960a14ed  /tmp/om4-overfit-torch-input/boundary.npy
+8e9f9ef3d20c544105805e85189be8d8457e9234b7f8c2762e8c729f65f81e11  /tmp/om4-overfit-torch-input/mask.npy
+d579e1c9d079af684876832b4ca7c541df4c1ac7952821b022fc3f90c65d5c6a  /tmp/om4-overfit-torch-input/prognostic.npy
+894b6edbdfeee9ba665a7558389c4a38313c719b4b62d466ea571d2c04f5bdc3  /tmp/om4-overfit-torch-input/metadata.json

@@ -1,0 +1,26 @@
+{
+  "57": {
+    "mean_channel_weight": 0.788101077079773,
+    "median_weight_worst_1pct_error": 0.0008684307686053216,
+    "median_weight_all": 0.3222450017929077,
+    "error_share_weight_below_0_01": 0.956473171710968
+  },
+  "70": {
+    "mean_channel_weight": 5.506404876708984,
+    "median_weight_worst_1pct_error": 0.03228840231895447,
+    "median_weight_all": 7.25031852722168,
+    "error_share_weight_below_0_01": 0.9839704632759094
+  },
+  "13": {
+    "mean_channel_weight": 0.027439279481768608,
+    "median_weight_worst_1pct_error": 0.0009069442166946828,
+    "median_weight_all": 0.011986681260168552,
+    "error_share_weight_below_0_01": 0.9047473073005676
+  },
+  "76": {
+    "mean_channel_weight": 0.4610559344291687,
+    "median_weight_worst_1pct_error": 0.022230518981814384,
+    "median_weight_all": 0.24215130507946014,
+    "error_share_weight_below_0_01": 0.059465546160936356
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "qualification": {
+    "seed16_oct": {
+      "boundary": "interior",
+      "torch": "2.12.0a0+0291f960b6.nv26.04.48445190",
+      "gpu": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+      "initial_source_maps_bitwise_equal": true,
+      "prepared_target_mask_exact": true,
+      "initial_objective": 0.0002674762508831918,
+      "final_objective": 0.00026644032553509487,
+      "state_mse": 8.113542233257992e-05,
+      "highpass_mse": 1.8530490320251493e-06
+    },
+    "seed15_jan": {
+      "boundary": "wet_neighbors",
+      "torch": "2.12.0a0+0291f960b6.nv26.04.48445190",
+      "gpu": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+      "initial_source_maps_bitwise_equal": true,
+      "prepared_target_mask_exact": true,
+      "initial_objective": 0.013094359077513218,
+      "final_objective": 0.00884564525965538,
+      "state_mse": 0.00016160330132927465,
+      "highpass_mse": 1.645284568036078e-05
+    }
+  }
+}

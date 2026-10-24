@@ -1,0 +1,66 @@
+{
+  "gradient_h": {
+    "eval_mse": 0.00280796829611063,
+    "highpass_mse": 0.0023913411423563957,
+    "horizontal_l1": 0.04252228885889053,
+    "vertical_l1": 0.04743358492851257,
+    "state_ratio_vs_mse": 0.7718601061750436,
+    "texture_ratio_vs_mse": 0.6545419552521495
+  },
+  "gradient_hz": {
+    "eval_mse": 0.0029024570249021053,
+    "highpass_mse": 0.002554030390456319,
+    "horizontal_l1": 0.04237386956810951,
+    "vertical_l1": 0.024075059220194817,
+    "state_ratio_vs_mse": 0.7978333624751068,
+    "texture_ratio_vs_mse": 0.699072171649838
+  },
+  "inverse_cap4": {
+    "eval_mse": 0.013191910460591316,
+    "highpass_mse": 0.010632090270519257,
+    "horizontal_l1": 0.08212880790233612,
+    "vertical_l1": 0.07239215821027756,
+    "state_ratio_vs_mse": 3.626219506419425,
+    "texture_ratio_vs_mse": 2.910144868425413
+  },
+  "mse": {
+    "eval_mse": 0.0036379238590598106,
+    "highpass_mse": 0.003653457388281822,
+    "horizontal_l1": 0.055628690868616104,
+    "vertical_l1": 0.05580536648631096,
+    "state_ratio_vs_mse": 1.0,
+    "texture_ratio_vs_mse": 1.0
+  },
+  "original": {
+    "eval_mse": 0.13289646804332733,
+    "highpass_mse": 0.059095755219459534,
+    "horizontal_l1": 0.14415384829044342,
+    "vertical_l1": 0.09615764021873474,
+    "state_ratio_vs_mse": 36.530854738029966,
+    "texture_ratio_vs_mse": 16.175296147973295
+  },
+  "spatial_100": {
+    "eval_mse": 0.001211774069815874,
+    "highpass_mse": 4.6243032556958497e-05,
+    "horizontal_l1": 0.015585742890834808,
+    "vertical_l1": 0.023984644562005997,
+    "state_ratio_vs_mse": 0.3330949510661409,
+    "texture_ratio_vs_mse": 0.012657334585392838
+  },
+  "sqrt_cap2": {
+    "eval_mse": 0.00734039256349206,
+    "highpass_mse": 0.006612787023186684,
+    "horizontal_l1": 0.0697150006890297,
+    "vertical_l1": 0.06526387482881546,
+    "state_ratio_vs_mse": 2.0177422199784907,
+    "texture_ratio_vs_mse": 1.8100079788522179
+  },
+  "sqrt_cap4": {
+    "eval_mse": 0.01024552620947361,
+    "highpass_mse": 0.008692091330885887,
+    "horizontal_l1": 0.07548393309116364,
+    "vertical_l1": 0.06776881217956543,
+    "state_ratio_vs_mse": 2.8163113375664426,
+    "texture_ratio_vs_mse": 2.3791412919622625
+  }
+}

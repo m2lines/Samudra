@@ -1,0 +1,47 @@
+{
+  "initialization": "All six initial parameter hashes identical; exact SHA256 retained in raw protocol.json and initial-parameters.sha256",
+  "arms": {
+    "all_dilation1": {
+      "parameters": 1843890,
+      "seed": 15,
+      "fraction_full": 0.021933714027306532,
+      "eval_mse": 0.013470936566591263,
+      "highpass_mse": 0.00424967473372817
+    },
+    "baseline": {
+      "parameters": 1843890,
+      "seed": 15,
+      "fraction_full": 0.021933714027306532,
+      "eval_mse": 0.01334760244935751,
+      "highpass_mse": 0.004249345976859331
+    },
+    "decoder_dilation1": {
+      "parameters": 1843890,
+      "seed": 15,
+      "fraction_full": 0.021933714027306532,
+      "eval_mse": 0.013405397534370422,
+      "highpass_mse": 0.004185320343822241
+    },
+    "exact_upsample": {
+      "parameters": 1843890,
+      "seed": 15,
+      "fraction_full": 0.021933714027306532,
+      "eval_mse": 0.013372848741710186,
+      "highpass_mse": 0.004261458292603493
+    },
+    "final_dilation1": {
+      "parameters": 1843890,
+      "seed": 15,
+      "fraction_full": 0.021933714027306532,
+      "eval_mse": 0.013549823313951492,
+      "highpass_mse": 0.00425257021561265
+    },
+    "uncapped": {
+      "parameters": 1843890,
+      "seed": 15,
+      "fraction_full": 0.021933714027306532,
+      "eval_mse": 0.01331956684589386,
+      "highpass_mse": 0.004219302907586098
+    }
+  }
+}

@@ -1,0 +1,4 @@
+# Live checkpoints, raw arrays, and transient histories stay on scratch/local disk.
+results/
+__pycache__/
+*.pyc

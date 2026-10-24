@@ -1,0 +1,329 @@
+{
+  "verification": "Exact identical initial maps and source hashes; independent CPU float64 objectives reproduce logs; all77 endpoints verified separately",
+  "arms": {
+    "multiplier_1": {
+      "state_mse": 4.07197202629402e-05,
+      "highpass_mse": 7.865829311519334e-07,
+      "local_weighted_mse": 1.956924789442047e-05,
+      "seconds": 1797.9453486781567,
+      "selected_fields": {
+        "U1850": {
+          "global": {
+            "mse": 2.6385711197144155e-06,
+            "highpass_mse": 9.424701684560099e-08,
+            "hp_error_over_target_rms": 0.0004870540904034664,
+            "hp_error_over_increment_rms": 0.0014982804383963178,
+            "mse_over_persistence": 3.342045393125848e-05
+          },
+          "patch": {
+            "mse": 1.8319108348061623e-07,
+            "highpass_mse": 7.977855472287862e-08,
+            "hp_error_over_target_rms": 0.0016424704536065243,
+            "hp_error_over_increment_rms": 0.00528467026513555,
+            "mse_over_persistence": 7.0190291424898215e-06
+          }
+        },
+        "V1850": {
+          "global": {
+            "mse": 1.801236557590554e-06,
+            "highpass_mse": 6.290227875666789e-08,
+            "hp_error_over_target_rms": 0.00036463404433496427,
+            "hp_error_over_increment_rms": 0.0008888006085388821,
+            "mse_over_persistence": 1.2155903602508908e-05
+          },
+          "patch": {
+            "mse": 1.5605629274173164e-07,
+            "highpass_mse": 6.218451455924094e-08,
+            "hp_error_over_target_rms": 0.0013531287347156406,
+            "hp_error_over_increment_rms": 0.003678963624779303,
+            "mse_over_persistence": 6.50390541577546e-06
+          }
+        },
+        "T1850": {
+          "global": {
+            "mse": 4.630064247963508e-06,
+            "highpass_mse": 5.86704524974465e-07,
+            "hp_error_over_target_rms": 0.020062578040529525,
+            "hp_error_over_increment_rms": 0.13296777303764704,
+            "mse_over_persistence": 0.11188974625318515
+          },
+          "patch": {
+            "mse": 2.109295060636096e-06,
+            "highpass_mse": 1.4550494716555705e-06,
+            "hp_error_over_target_rms": 0.18136023959605876,
+            "hp_error_over_increment_rms": 1.7786881887673274,
+            "mse_over_persistence": 1.5773614327032628
+          }
+        },
+        "S1850": {
+          "global": {
+            "mse": 9.438023192739423e-06,
+            "highpass_mse": 2.5674996903226047e-06,
+            "hp_error_over_target_rms": 0.13257204529450162,
+            "hp_error_over_increment_rms": 0.5609223157062271,
+            "mse_over_persistence": 0.9136426724618107
+          },
+          "patch": {
+            "mse": 1.1024304749957144e-05,
+            "highpass_mse": 4.186723821862585e-06,
+            "hp_error_over_target_rms": 1.1683693980509195,
+            "hp_error_over_increment_rms": 8.534818775842062,
+            "mse_over_persistence": 87.86083868436229
+          }
+        },
+        "SSH": {
+          "global": {
+            "mse": 3.7995095434073557e-06,
+            "highpass_mse": 1.6119442811039182e-06,
+            "hp_error_over_target_rms": 0.031554887604393615,
+            "hp_error_over_increment_rms": 0.10424327329207055,
+            "mse_over_persistence": 0.002597545531162853
+          },
+          "patch": {
+            "mse": 3.619206146007227e-06,
+            "highpass_mse": 4.081791264835626e-06,
+            "hp_error_over_target_rms": 0.18373112232126923,
+            "hp_error_over_increment_rms": 0.8852927690521829,
+            "mse_over_persistence": 0.016103136356877427
+          }
+        }
+      },
+      "group_state_mse": {
+        "U": 3.194413522784869e-05,
+        "V": 2.5042329352649386e-05,
+        "T": 4.7398130582982005e-05,
+        "S": 5.909510479782527e-05,
+        "SSH": 2.9304160981592984e-05
+      },
+      "group_highpass_mse": {
+        "U": 1.726253385676987e-07,
+        "V": 1.1470218541000496e-07,
+        "T": 1.4805240401837354e-06,
+        "S": 1.3350400893961903e-06,
+        "SSH": 1.6119442811039182e-06
+      },
+      "relative_to_control": {
+        "state_mse": 1.0,
+        "highpass_mse": 1.0,
+        "local_weighted_mse": 1.0
+      },
+      "salinity_state_ratio_to_control": 1.0
+    },
+    "multiplier_0.1": {
+      "state_mse": 4.102366162287329e-05,
+      "highpass_mse": 7.906735726927224e-07,
+      "local_weighted_mse": 1.984263989571193e-05,
+      "seconds": 1795.1978663057089,
+      "selected_fields": {
+        "U1850": {
+          "global": {
+            "mse": 2.641658761900382e-06,
+            "highpass_mse": 9.453001360463596e-08,
+            "hp_error_over_target_rms": 0.00048778478416536616,
+            "hp_error_over_increment_rms": 0.0015005282055159939,
+            "mse_over_persistence": 3.345956237243761e-05
+          },
+          "patch": {
+            "mse": 1.8457276105594933e-07,
+            "highpass_mse": 8.001995537446785e-08,
+            "hp_error_over_target_rms": 0.001644953539169026,
+            "hp_error_over_increment_rms": 0.005292659625558519,
+            "mse_over_persistence": 7.071968592284679e-06
+          }
+        },
+        "V1850": {
+          "global": {
+            "mse": 1.803025403217851e-06,
+            "highpass_mse": 6.297378449430182e-08,
+            "hp_error_over_target_rms": 0.00036484123890029465,
+            "hp_error_over_increment_rms": 0.0008893056482043018,
+            "mse_over_persistence": 1.2167975884138744e-05
+          },
+          "patch": {
+            "mse": 1.5716713238559094e-07,
+            "highpass_mse": 6.223179135155915e-08,
+            "hp_error_over_target_rms": 0.0013536430060931968,
+            "hp_error_over_increment_rms": 0.0036803618551492254,
+            "mse_over_persistence": 6.550201504506155e-06
+          }
+        },
+        "T1850": {
+          "global": {
+            "mse": 4.633113896932453e-06,
+            "highpass_mse": 5.85482125856002e-07,
+            "hp_error_over_target_rms": 0.02004166694799396,
+            "hp_error_over_increment_rms": 0.13282918160634538,
+            "mse_over_persistence": 0.11196344381568586
+          },
+          "patch": {
+            "mse": 2.1019967164565634e-06,
+            "highpass_mse": 1.4551777696828394e-06,
+            "hp_error_over_target_rms": 0.18136823507955516,
+            "hp_error_over_increment_rms": 1.7787666043676273,
+            "mse_over_persistence": 1.5719036250943466
+          }
+        },
+        "S1850": {
+          "global": {
+            "mse": 9.360364325908194e-06,
+            "highpass_mse": 2.5628300431663476e-06,
+            "hp_error_over_target_rms": 0.1324514325414984,
+            "hp_error_over_increment_rms": 0.5604119940575871,
+            "mse_over_persistence": 0.9061249483385407
+          },
+          "patch": {
+            "mse": 1.0921458002268814e-05,
+            "highpass_mse": 4.186327743695969e-06,
+            "hp_error_over_target_rms": 1.168314130904803,
+            "hp_error_over_increment_rms": 8.534415055000734,
+            "mse_over_persistence": 87.04117688139092
+          }
+        },
+        "SSH": {
+          "global": {
+            "mse": 3.804457848306124e-06,
+            "highpass_mse": 1.616189968258342e-06,
+            "hp_error_over_target_rms": 0.031596416359901125,
+            "hp_error_over_increment_rms": 0.10438046577597743,
+            "mse_over_persistence": 0.0026009284539137457
+          },
+          "patch": {
+            "mse": 3.6229177900063206e-06,
+            "highpass_mse": 4.094946258090444e-06,
+            "hp_error_over_target_rms": 0.184026952908713,
+            "hp_error_over_increment_rms": 0.8867182035491784,
+            "mse_over_persistence": 0.01611965078214484
+          }
+        }
+      },
+      "group_state_mse": {
+        "U": 3.198107514804766e-05,
+        "V": 2.507339920770224e-05,
+        "T": 4.7517135028627554e-05,
+        "S": 6.013780549658952e-05,
+        "SSH": 2.9343062222871316e-05
+      },
+      "group_highpass_mse": {
+        "U": 1.731002786128579e-07,
+        "V": 1.1500796051821151e-07,
+        "T": 1.4837387971547462e-06,
+        "S": 1.347399023139515e-06,
+        "SSH": 1.6161899682583416e-06
+      },
+      "relative_to_control": {
+        "state_mse": 1.0074642300578307,
+        "highpass_mse": 1.005200521621793,
+        "local_weighted_mse": 1.0139704909849605
+      },
+      "salinity_state_ratio_to_control": 1.0176444513015335
+    },
+    "multiplier_10": {
+      "state_mse": 4.0958084191624744e-05,
+      "highpass_mse": 7.944014603137251e-07,
+      "local_weighted_mse": 1.9614722434530213e-05,
+      "seconds": 1794.1476928689517,
+      "selected_fields": {
+        "U1850": {
+          "global": {
+            "mse": 2.660345009169759e-06,
+            "highpass_mse": 9.538814810187919e-08,
+            "hp_error_over_target_rms": 0.0004899938141524067,
+            "hp_error_over_increment_rms": 0.0015073236446317435,
+            "mse_over_persistence": 3.369624459083539e-05
+          },
+          "patch": {
+            "mse": 1.8606327693266434e-07,
+            "highpass_mse": 8.102597843241204e-08,
+            "hp_error_over_target_rms": 0.0016552615450363762,
+            "hp_error_over_increment_rms": 0.005325825769875096,
+            "mse_over_persistence": 7.129078218895482e-06
+          }
+        },
+        "V1850": {
+          "global": {
+            "mse": 1.8162346603306658e-06,
+            "highpass_mse": 6.375488774976858e-08,
+            "hp_error_over_target_rms": 0.0003670969428242829,
+            "hp_error_over_increment_rms": 0.0008948039582262883,
+            "mse_over_persistence": 1.225712045287819e-05
+          },
+          "patch": {
+            "mse": 1.584826933063146e-07,
+            "highpass_mse": 6.337183614517654e-08,
+            "hp_error_over_target_rms": 0.0013659856526183289,
+            "hp_error_over_increment_rms": 0.003713919746896319,
+            "mse_over_persistence": 6.6050296927627955e-06
+          }
+        },
+        "T1850": {
+          "global": {
+            "mse": 4.671196029616513e-06,
+            "highpass_mse": 5.94760907362365e-07,
+            "hp_error_over_target_rms": 0.02019985388004864,
+            "hp_error_over_increment_rms": 0.1338775894448832,
+            "mse_over_persistence": 0.11288373345630451
+          },
+          "patch": {
+            "mse": 2.1362997876081624e-06,
+            "highpass_mse": 1.47691025116113e-06,
+            "hp_error_over_target_rms": 0.18271754589667827,
+            "hp_error_over_increment_rms": 1.7919999526403159,
+            "mse_over_persistence": 1.597555959121759
+          }
+        },
+        "S1850": {
+          "global": {
+            "mse": 9.516476215214388e-06,
+            "highpass_mse": 2.5940733830876526e-06,
+            "hp_error_over_target_rms": 0.1332563413982026,
+            "hp_error_over_increment_rms": 0.5638176240969518,
+            "mse_over_persistence": 0.9212372743877602
+          },
+          "patch": {
+            "mse": 1.1119332116114747e-05,
+            "highpass_mse": 4.2153202235346865e-06,
+            "hp_error_over_target_rms": 1.1723527397198465,
+            "hp_error_over_increment_rms": 8.563916678717016,
+            "mse_over_persistence": 88.61818205230624
+          }
+        },
+        "SSH": {
+          "global": {
+            "mse": 3.831675844354843e-06,
+            "highpass_mse": 1.6289892101138078e-06,
+            "hp_error_over_target_rms": 0.0317212818357478,
+            "hp_error_over_increment_rms": 0.10479296561076108,
+            "mse_over_persistence": 0.002619536114506738
+          },
+          "patch": {
+            "mse": 3.650678977154022e-06,
+            "highpass_mse": 4.1114523234435135e-06,
+            "hp_error_over_target_rms": 0.18439747133493703,
+            "hp_error_over_increment_rms": 0.8885035150380135,
+            "mse_over_persistence": 0.01624317018502865
+          }
+        }
+      },
+      "group_state_mse": {
+        "U": 3.220567038172864e-05,
+        "V": 2.5252069253132026e-05,
+        "T": 4.771546085057396e-05,
+        "S": 5.926275470308745e-05,
+        "SSH": 2.9489334173186063e-05
+      },
+      "group_highpass_mse": {
+        "U": 1.747698842948715e-07,
+        "V": 1.1623215734102068e-07,
+        "T": 1.4940312013604883e-06,
+        "S": 1.34864692721641e-06,
+        "SSH": 1.6289892101138082e-06
+      },
+      "relative_to_control": {
+        "state_mse": 1.0058537712721343,
+        "highpass_mse": 1.0099398662901846,
+        "local_weighted_mse": 1.002323775566393
+      },
+      "salinity_state_ratio_to_control": 1.0028369508072748
+    }
+  }
+}

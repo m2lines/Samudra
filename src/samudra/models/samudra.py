@@ -35,6 +35,8 @@ class Samudra(BaseModel):
         gradient_detach_interval: int,
         use_bfloat16: bool,
         persistence_gate: bool = False,
+        persistence_gate_kind: str = "features",
+        prognostic_channels: int | None = None,
     ):
         super().__init__(
             in_channels=in_channels,
@@ -56,16 +58,31 @@ class Samudra(BaseModel):
         self.unet = unet
         self.decoder = nn.Conv2d(unet.out_channels, out_channels, last_kernel_size)
 
-        self.persistence_gate: nn.Conv2d | None = None
+        self.persistence_gate_kind = persistence_gate_kind
+        self.persistence_gate: nn.Module | None = None
         if persistence_gate:
             if pred_residuals:
                 raise ValueError("persistence_gate requires pred_residuals=False")
-            # Preserve the paired backbone initialization and subsequent RNG stream.
+            if persistence_gate_kind not in ("features", "direct", "nonlinear"):
+                raise ValueError("Unknown persistence gate kind")
+            gate_inputs = unet.out_channels
+            if persistence_gate_kind != "features":
+                if prognostic_channels is None or prognostic_channels % input_steps:
+                    raise ValueError("Direct gates require complete prognostic frames")
+                gate_inputs += prognostic_channels // input_steps + out_channels
+            # Preserve common parameters and the subsequent RNG stream across arms.
             with torch.random.fork_rng(devices=[]):
-                self.persistence_gate = nn.Conv2d(unet.out_channels, out_channels, 1)
-            nn.init.zeros_(self.persistence_gate.weight)
-            assert self.persistence_gate.bias is not None
-            nn.init.constant_(self.persistence_gate.bias, -6.0)
+                if persistence_gate_kind == "nonlinear":
+                    projection = nn.Conv2d(64, out_channels, 1)
+                    self.persistence_gate = nn.Sequential(
+                        nn.Conv2d(gate_inputs, 64, 1), nn.GELU(), projection
+                    )
+                else:
+                    projection = nn.Conv2d(gate_inputs, out_channels, 1)
+                    self.persistence_gate = projection
+            nn.init.zeros_(projection.weight)
+            assert projection.bias is not None
+            nn.init.constant_(projection.bias, -6.0)
 
         self.use_bfloat16 = use_bfloat16
 
@@ -106,7 +123,12 @@ class Samudra(BaseModel):
             latest = prognostic[:, -channels:].repeat(
                 1, self.out_channels // channels, 1, 1
             )
-            gate = self.persistence_gate(decoder_features.float()).sigmoid()
+            gate_inputs = decoder_features.float()
+            if self.persistence_gate_kind != "features":
+                gate_inputs = torch.cat(
+                    (gate_inputs, prognostic[:, -channels:], fts), dim=1
+                )
+            gate = self.persistence_gate(gate_inputs).sigmoid()
             fts = fts + gate * (latest - fts)
 
         return torch.where(ctx.label_mask, fts, 0.0)

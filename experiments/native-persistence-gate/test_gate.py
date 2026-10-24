@@ -13,6 +13,12 @@ from samudra.models.samudra import Samudra
 
 
 class GateTests(unittest.TestCase):
+    kind = "features"
+
+    def projection(self, model):
+        gate = model.persistence_gate
+        return gate[-1] if isinstance(gate, nn.Sequential) else gate
+
     def make(self, enabled=True, outputs=6):
         torch.manual_seed(15)
         unet = nn.Conv2d(8, 8, 1)
@@ -31,6 +37,8 @@ class GateTests(unittest.TestCase):
             0,
             False,
             persistence_gate=enabled,
+            persistence_gate_kind=self.kind,
+            prognostic_channels=6,
         )
 
     def setUp(self):
@@ -62,7 +70,7 @@ class GateTests(unittest.TestCase):
         for outputs in (3, 6):
             model = self.make(outputs=outputs)
             with torch.no_grad():
-                model.persistence_gate.bias.fill_(30.0)
+                self.projection(model).bias.fill_(30.0)
             ctx = SimpleNamespace(label_mask=self.mask[:, :outputs])
             result = model.forward_once(self.x, self.b, ctx)
             latest = self.x[:, 3:].repeat(1, outputs // 3, 1, 1)
@@ -75,7 +83,7 @@ class GateTests(unittest.TestCase):
         pred2 = model.forward_once(pred, self.b, self.ctx)
         pred2.square().mean().backward()
         for param in (
-            model.persistence_gate.weight,
+            self.projection(model).weight,
             model.decoder.weight,
             model.unet.weight,
             x,
@@ -98,6 +106,48 @@ class GateTests(unittest.TestCase):
             o.step()
         for a, b in zip(model.parameters(), restored.parameters()):
             torch.testing.assert_close(a, b, rtol=0, atol=0)
+
+
+class DirectGateTests(GateTests):
+    kind = "direct"
+
+    def test_gate_receives_latest_and_forecasts_without_detaching(self):
+        model = self.make()
+        captured = []
+        decoder = []
+
+        def capture_gate(module, inputs):
+            captured.append(inputs[0])
+
+        def capture_decoder(module, inputs, output):
+            decoder.append(output)
+
+        h = model.persistence_gate.register_forward_pre_hook(capture_gate)
+        d = model.decoder.register_forward_hook(capture_decoder)
+        x = self.x.clone().requires_grad_()
+        model.forward_once(x, self.b, self.ctx)
+        h.remove()
+        d.remove()
+        gate_input = captured[0]
+        torch.testing.assert_close(gate_input[:, 8:11], x[:, 3:])
+        torch.testing.assert_close(gate_input[:, 11:], decoder[0])
+        gate_input[:, 8:].square().mean().backward()
+        assert x.grad is not None
+        self.assertGreater(float(x.grad.abs().sum()), 0)
+        self.assertGreater(float(model.decoder.weight.grad.abs().sum()), 0)
+
+
+class NonlinearGateTests(DirectGateTests):
+    kind = "nonlinear"
+
+    def test_hidden_layer_learns_after_zero_projection_first_step(self):
+        model = self.make()
+        opt = torch.optim.Adam(model.parameters(), lr=0.001)
+        for _ in range(2):
+            opt.zero_grad()
+            model.forward_once(self.x, self.b, self.ctx).square().mean().backward()
+            opt.step()
+        self.assertGreater(float(model.persistence_gate[0].weight.grad.abs().sum()), 0)
 
 
 if __name__ == "__main__":

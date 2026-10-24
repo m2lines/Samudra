@@ -14,7 +14,12 @@ from samudra.utils.ctx import BatchGrid
 
 p = Path(__file__).parent
 control = yaml.safe_load((p / "control-train.yaml").read_text())
-treatment = yaml.safe_load((p / "train.yaml").read_text())
+config_path = (
+    Path(sys.argv[sys.argv.index("--config") + 1])
+    if "--config" in sys.argv
+    else p / "train.yaml"
+)
+treatment = yaml.safe_load(config_path.read_text())
 expected = json.loads(json.dumps(control))
 expected["model"]["persistence_gate"] = True
 expected["experiment"]["name"] = treatment["experiment"]["name"]
@@ -22,8 +27,12 @@ expected["experiment"]["wandb"]["project"] = "tocean"
 expected["post_train_eval"]["eval_config_path"] = treatment["post_train_eval"][
     "eval_config_path"
 ]
+if "persistence_gate_kind" in treatment["model"]:
+    expected["model"]["persistence_gate_kind"] = treatment["model"][
+        "persistence_gate_kind"
+    ]
 assert expected == treatment
-cfg = TrainConfig.from_yaml(p / "train.yaml")
+cfg = TrainConfig.from_yaml(config_path)
 assert isinstance(cfg.model, SamudraConfig)
 assert (
     cfg.model.persistence_gate and cfg.data.sources[0].boundary_vars_key == "tau_hfds"
@@ -54,7 +63,7 @@ for _ in range(2):
     loss = out2.square().mean()
     loss.backward()
     for parameter in (
-        model.persistence_gate.weight,
+        list(model.persistence_gate.parameters())[-2],
         model.decoder.weight,
         next(model.unet.parameters()),
     ):

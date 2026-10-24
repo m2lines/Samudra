@@ -20,7 +20,7 @@ must not be confused with the 360-day validation trajectory metric above.
 The diagnostic evaluation compared epoch 70 raw/EMA gated and control
 checkpoints at 16 fixed held-out dates, 5/10-day leads, all 77 channels. It measured physical RMSE, persistence, and mask-aware center-minus-four-neighbor
 high-pass error and saved fields including the previous state. No new training.
-Diagnostics completed successfully. All monitoring is closed.
+Diagnostics completed successfully.
 
 ## Matched short-range results
 
@@ -62,7 +62,15 @@ and small-scale errors, but does not improve the matched 360-day validation scor
 Both models already use four-call, 40-day training, so merely adding a short
 unroll is not a new intervention. Longer-horizon objectives or targeted gate
 ablations would be next hypotheses, not established fixes. One seed only.
-No further runs launched. All monitoring is closed.
+Two new from-scratch arms are now submitted: a direct linear gate and a nonlinear
+gate, both receiving final decoder features, the latest state, and both candidate
+output fields. Their results are pending; the completed results here are for the
+original feature-conditioned gate.
+
+## Continuous 5-day and 360-day endpoint fields
+
+See the [paired field and error-map gallery](rollout-maps/README.md) for seven
+fields, global views, and fixed regional crops from one continuous rollout.
 
 ## Example fields
 

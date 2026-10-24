@@ -1,0 +1,145 @@
+{
+  "origin_time": "2015-10-25 12:00:00",
+  "rows": [
+    {
+      "channel": "zos",
+      "day": 5,
+      "region": "global",
+      "control_rmse": 0.025521860672330005,
+      "gated_rmse": 0.01988183787713544
+    },
+    {
+      "channel": "zos",
+      "day": 360,
+      "region": "global",
+      "control_rmse": 0.04595251318696858,
+      "gated_rmse": 0.05823766435390749
+    },
+    {
+      "channel": "thetao_0",
+      "day": 5,
+      "region": "global",
+      "control_rmse": 0.3121213027298539,
+      "gated_rmse": 0.21252097571123407
+    },
+    {
+      "channel": "thetao_0",
+      "day": 360,
+      "region": "global",
+      "control_rmse": 0.553617716424793,
+      "gated_rmse": 0.7411727115389621
+    },
+    {
+      "channel": "thetao_0",
+      "day": 5,
+      "region": "equatorial-Pacific",
+      "control_rmse": 0.33097576428365255,
+      "gated_rmse": 0.15375429023586182
+    },
+    {
+      "channel": "thetao_0",
+      "day": 360,
+      "region": "equatorial-Pacific",
+      "control_rmse": 0.5813554071999412,
+      "gated_rmse": 0.46108380690387
+    },
+    {
+      "channel": "so_0",
+      "day": 5,
+      "region": "global",
+      "control_rmse": 0.11138754777781665,
+      "gated_rmse": 0.0850649697431003
+    },
+    {
+      "channel": "so_0",
+      "day": 360,
+      "region": "global",
+      "control_rmse": 0.24116948795927323,
+      "gated_rmse": 0.3094575321337514
+    },
+    {
+      "channel": "uo_0",
+      "day": 5,
+      "region": "global",
+      "control_rmse": 0.04123590194747345,
+      "gated_rmse": 0.04085911042724557
+    },
+    {
+      "channel": "uo_0",
+      "day": 360,
+      "region": "global",
+      "control_rmse": 0.06857545458956174,
+      "gated_rmse": 0.07233716766885857
+    },
+    {
+      "channel": "vo_0",
+      "day": 5,
+      "region": "global",
+      "control_rmse": 0.038453013049382125,
+      "gated_rmse": 0.03694768154708164
+    },
+    {
+      "channel": "vo_0",
+      "day": 360,
+      "region": "global",
+      "control_rmse": 0.0670559810244306,
+      "gated_rmse": 0.069716895069738
+    },
+    {
+      "channel": "thetao_11",
+      "day": 5,
+      "region": "global",
+      "control_rmse": 0.060273550786771574,
+      "gated_rmse": 0.028833434726552018
+    },
+    {
+      "channel": "thetao_11",
+      "day": 360,
+      "region": "global",
+      "control_rmse": 0.17215219863167414,
+      "gated_rmse": 0.1881702730147568
+    },
+    {
+      "channel": "thetao_11",
+      "day": 5,
+      "region": "equatorial-Pacific",
+      "control_rmse": 0.047254936896445145,
+      "gated_rmse": 0.021047426304320358
+    },
+    {
+      "channel": "thetao_11",
+      "day": 360,
+      "region": "equatorial-Pacific",
+      "control_rmse": 0.0776970340288014,
+      "gated_rmse": 0.08338203228331233
+    },
+    {
+      "channel": "so_11",
+      "day": 5,
+      "region": "global",
+      "control_rmse": 0.015953133766810075,
+      "gated_rmse": 0.004214777764356413
+    },
+    {
+      "channel": "so_11",
+      "day": 360,
+      "region": "global",
+      "control_rmse": 0.029733145742309675,
+      "gated_rmse": 0.029352603231442544
+    },
+    {
+      "channel": "so_11",
+      "day": 5,
+      "region": "equatorial-Pacific",
+      "control_rmse": 0.011261692223602387,
+      "gated_rmse": 0.000873962009675085
+    },
+    {
+      "channel": "so_11",
+      "day": 360,
+      "region": "equatorial-Pacific",
+      "control_rmse": 0.012924652083483555,
+      "gated_rmse": 0.007718654690293863
+    }
+  ]
+}

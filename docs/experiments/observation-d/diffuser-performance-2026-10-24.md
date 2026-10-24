@@ -267,3 +267,23 @@ No independent worker occupies GPU1 while a four-rank job is active.
 
 Four-rank artifacts: `beta:/projects/ny/lz1955/multiscale/jrusak/runs/shared-era5-ddp-20261024`.
 Callback: `ab7b78fd-13d9-49f0-8375-80b0525831d6`.
+
+### Migration gate failure: no production promotion
+
+Reference job 217213 completed both training qualifications and exact serialized
+replay, but the final comparison **failed the raw validation gate**. All 16
+sample/noise/RNG traces match exactly; maximum training-loss relative difference
+is 0.0058%, first gradient difference 0.217%, and first update difference 2.51%.
+EMA validation differs by at most 0.0036%. Raw validation differs substantially:
+SST 7.029→7.566°C (+7.6%), upper OHC +26.6%, velocity -68.5%.
+
+The optimized raw model uses compiled inference whereas EMA validation uses
+eager inference. This is a lead, not an established cause. Short evaluation job
+**217228**, producer **6284f0d7e**, evaluates optimized raw weights eagerly and
+baseline raw weights with compilation, using the same fixed noise/origin and
+unaltered saved checkpoints. Callback: `2e49f0eb-319a-4367-a0a0-9155ba28bbbb`.
+
+Dependent DDP qualification 217218 never started and was canceled after the
+prerequisite failure. No qualification threshold was relaxed and production
+remains held. Failed attempts and all outputs remain preserved. Reference
+qualification consumed 15m56s = 0.2656 GPU-hours; DDP attempt consumed zero.

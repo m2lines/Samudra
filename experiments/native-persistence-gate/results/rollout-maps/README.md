@@ -4,15 +4,19 @@
 # Continuous rollout: day 5 and day 360
 
 Final epoch-70 EMA checkpoints, identical initial state on 2015-10-25.
-Top row: day 5 (2015-10-30). Bottom row: day 360 (2016-10-19).
-Columns: truth, ungated control, native feature-conditioned gate, control minus truth,
-gate minus truth. The model feeds back its own predictions throughout 36 two-output
+Separate panels show day 5 (2015-10-30) and day 360 (2016-10-19).
+Field columns: truth, ungated control, native feature-conditioned gate.
+Error columns: control minus truth, gate minus truth. The model feeds back its own predictions throughout 36 two-output
 calls; the 360-day panel is not a fresh one-step forecast.
 
 Fields share color limits across models within each row (pooled 1st–99th percentiles).
 Errors use a shared symmetric 99th-percentile absolute-error limit within each row.
 Limits change between lead times; compare color bars before comparing error magnitude.
-No spatial smoothing. Global figures are JPEG previews; regional figures are PNG.
+All figures are lossless PNGs with square, whole-pixel grid cells and no
+interpolation: global maps use 360 × 180 pixels (one pixel per cell), regional maps
+use 270 × 180 pixels (6 × 6 pixels per cell). Colorbars do not resize map axes.
+Open an image at native size to avoid browser rescaling; coordinates label the
+array grid, with uniform cell spacing in the image. No spatial smoothing.
 Regional crops use the same fixed equatorial-Pacific indices as the earlier examples.
 These are illustrative fields from one origin, not the multi-date aggregate evaluation.
 
@@ -33,35 +37,135 @@ Full-precision global and regional metrics are in [map-metrics.json](map-metrics
 
 ## Surface temperature
 
-![Surface temperature, global](thetao_0-global.jpg)
+### Global, day 5
 
-![Surface temperature, equatorial Pacific](thetao_0-regional.png)
+![Surface temperature: global, day 5, fields](thetao_0-global-day5-fields.png)
+
+![Surface temperature: global, day 5, errors](thetao_0-global-day5-errors.png)
+
+### Global, day 360
+
+![Surface temperature: global, day 360, fields](thetao_0-global-day360-fields.png)
+
+![Surface temperature: global, day 360, errors](thetao_0-global-day360-errors.png)
+
+### Regional, day 5
+
+![Surface temperature: regional, day 5, fields](thetao_0-regional-day5-fields.png)
+
+![Surface temperature: regional, day 5, errors](thetao_0-regional-day5-errors.png)
+
+### Regional, day 360
+
+![Surface temperature: regional, day 360, fields](thetao_0-regional-day360-fields.png)
+
+![Surface temperature: regional, day 360, errors](thetao_0-regional-day360-errors.png)
 
 ## Salinity at 1050 m
 
-![Salinity at 1050 m, global](so_11-global.jpg)
+### Global, day 5
 
-![Salinity at 1050 m, equatorial Pacific](so_11-regional.png)
+![Salinity at 1050 m: global, day 5, fields](so_11-global-day5-fields.png)
+
+![Salinity at 1050 m: global, day 5, errors](so_11-global-day5-errors.png)
+
+### Global, day 360
+
+![Salinity at 1050 m: global, day 360, fields](so_11-global-day360-fields.png)
+
+![Salinity at 1050 m: global, day 360, errors](so_11-global-day360-errors.png)
+
+### Regional, day 5
+
+![Salinity at 1050 m: regional, day 5, fields](so_11-regional-day5-fields.png)
+
+![Salinity at 1050 m: regional, day 5, errors](so_11-regional-day5-errors.png)
+
+### Regional, day 360
+
+![Salinity at 1050 m: regional, day 360, fields](so_11-regional-day360-fields.png)
+
+![Salinity at 1050 m: regional, day 360, errors](so_11-regional-day360-errors.png)
 
 ## Temperature at 1050 m
 
-![Temperature at 1050 m, global](thetao_11-global.jpg)
+### Global, day 5
 
-![Temperature at 1050 m, equatorial Pacific](thetao_11-regional.png)
+![Temperature at 1050 m: global, day 5, fields](thetao_11-global-day5-fields.png)
+
+![Temperature at 1050 m: global, day 5, errors](thetao_11-global-day5-errors.png)
+
+### Global, day 360
+
+![Temperature at 1050 m: global, day 360, fields](thetao_11-global-day360-fields.png)
+
+![Temperature at 1050 m: global, day 360, errors](thetao_11-global-day360-errors.png)
+
+### Regional, day 5
+
+![Temperature at 1050 m: regional, day 5, fields](thetao_11-regional-day5-fields.png)
+
+![Temperature at 1050 m: regional, day 5, errors](thetao_11-regional-day5-errors.png)
+
+### Regional, day 360
+
+![Temperature at 1050 m: regional, day 360, fields](thetao_11-regional-day360-fields.png)
+
+![Temperature at 1050 m: regional, day 360, errors](thetao_11-regional-day360-errors.png)
 
 ## SSH
 
-![SSH, global](zos-global.jpg)
+### Global, day 5
+
+![SSH: global, day 5, fields](zos-global-day5-fields.png)
+
+![SSH: global, day 5, errors](zos-global-day5-errors.png)
+
+### Global, day 360
+
+![SSH: global, day 360, fields](zos-global-day360-fields.png)
+
+![SSH: global, day 360, errors](zos-global-day360-errors.png)
 
 ## Surface salinity
 
-![Surface salinity, global](so_0-global.jpg)
+### Global, day 5
+
+![Surface salinity: global, day 5, fields](so_0-global-day5-fields.png)
+
+![Surface salinity: global, day 5, errors](so_0-global-day5-errors.png)
+
+### Global, day 360
+
+![Surface salinity: global, day 360, fields](so_0-global-day360-fields.png)
+
+![Surface salinity: global, day 360, errors](so_0-global-day360-errors.png)
 
 ## Surface U
 
-![Surface U, global](uo_0-global.jpg)
+### Global, day 5
+
+![Surface U: global, day 5, fields](uo_0-global-day5-fields.png)
+
+![Surface U: global, day 5, errors](uo_0-global-day5-errors.png)
+
+### Global, day 360
+
+![Surface U: global, day 360, fields](uo_0-global-day360-fields.png)
+
+![Surface U: global, day 360, errors](uo_0-global-day360-errors.png)
 
 ## Surface V
 
-![Surface V, global](vo_0-global.jpg)
+### Global, day 5
+
+![Surface V: global, day 5, fields](vo_0-global-day5-fields.png)
+
+![Surface V: global, day 5, errors](vo_0-global-day5-errors.png)
+
+### Global, day 360
+
+![Surface V: global, day 360, fields](vo_0-global-day360-fields.png)
+
+![Surface V: global, day 360, errors](vo_0-global-day360-errors.png)
 

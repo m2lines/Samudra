@@ -17,7 +17,8 @@ repos:
     hooks:
       - id: check-added-large-files
         args: [--maxkb=250]
-        exclude: ^notebooks/
+        # Lossless scientific maps preserve exact grid pixels (largest ~322 KiB).
+        exclude: ^(notebooks/|experiments/native-persistence-gate/results/rollout-maps/.*\.png$)
       - id: trailing-whitespace
         exclude: ^notebooks/
       - id: check-yaml

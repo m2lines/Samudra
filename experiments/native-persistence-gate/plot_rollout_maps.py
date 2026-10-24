@@ -43,8 +43,7 @@ for slot, (channel, title, unit) in enumerate(zip(meta["channels"], labels, unit
         lon = control["lon"][200:245] if regional else control["lon"]
         wet = control["mask"][slot][crop]
         weights = np.cos(np.deg2rad(lat))[:, None] * wet
-        fig, axes = plt.subplots(2, 5, figsize=(16, 6), layout="constrained")
-        for row, day in enumerate((5, 360)):
+        for day in (5, 360):
             truth = control[f"truth_{day}"][slot][crop]
             base = control[f"prediction_{day}"][slot][crop]
             pred = gated[f"prediction_{day}"][slot][crop]
@@ -53,46 +52,78 @@ for slot, (channel, title, unit) in enumerate(zip(meta["channels"], labels, unit
                 np.concatenate([v[wet] for v in (truth, base, pred)]), [0.01, 0.99]
             )
             lim = np.quantile(np.abs(np.concatenate([v[wet] for v in (eb, eg)])), 0.99)
-            vals = (truth, base, pred, eb, eg)
-            for col, (ax, val, label) in enumerate(
-                zip(
-                    axes[row],
-                    vals,
-                    (
-                        "Truth",
-                        "Ungated control",
-                        "Native gate",
-                        "Control error",
-                        "Gated error",
-                    ),
-                )
+            # Explicit integer-pixel axes; layout engines/colorbars must not resize them.
+            scale = 6 if regional else 1
+            height, width = np.array(wet.shape) * scale
+            extent = (lon[0] - 0.5, lon[-1] + 0.5, lat[0] - 0.5, lat[-1] + 0.5)
+            for kind, vals, names in (
+                (
+                    "fields",
+                    (truth, base, pred),
+                    ("Truth", "Ungated control", "Native gate"),
+                ),
+                ("errors", (eb, eg), ("Control minus truth", "Gate minus truth")),
             ):
-                error = col >= 3
-                im = ax.pcolormesh(
-                    lon,
-                    lat,
-                    np.where(wet, val, np.nan),
-                    shading="nearest",
-                    cmap="RdBu_r" if error else "viridis",
-                    vmin=-lim if error else lo,
-                    vmax=lim if error else hi,
-                    rasterized=True,
+                total_width = 65 + len(vals) * (width + 35) + 85
+                total_height = height + 125
+                fig = plt.figure(
+                    figsize=(total_width / 100, total_height / 100), dpi=100
                 )
-                ax.set_title(label, fontsize=10)
-                ax.set_xlabel("Longitude (°E)", fontsize=8)
-                if col == 0:
-                    date = meta["models"]["control"][str(day)]["date"][:10]
-                    ax.set_ylabel(f"Day {day}: {date}\nLatitude (°N)", fontsize=8)
-                ax.tick_params(labelsize=7)
-                if col in (2, 4):
-                    cb = fig.colorbar(
-                        im,
-                        ax=axes[row, :3] if col == 2 else axes[row, 3:],
-                        shrink=0.7,
-                        pad=0.02,
+                date = meta["models"]["control"][str(day)]["date"][:10]
+                fig.suptitle(
+                    f"{title} — day {day} ({date})\nFinal EMA; origin {meta['origin_time'][:10]}",
+                    fontsize=11,
+                )
+                for col, (val, label) in enumerate(zip(vals, names)):
+                    ax = fig.add_axes(
+                        (
+                            (65 + col * (width + 35)) / total_width,
+                            45 / total_height,
+                            width / total_width,
+                            height / total_height,
+                        )
                     )
-                    cb.set_label(unit, fontsize=8)
-                    cb.ax.tick_params(labelsize=7)
+                    im = ax.imshow(
+                        np.where(wet, val, np.nan),
+                        origin="lower",
+                        extent=extent,
+                        interpolation="nearest",
+                        resample=False,
+                        aspect="auto",
+                        cmap="RdBu_r" if kind == "errors" else "viridis",
+                        vmin=-lim if kind == "errors" else lo,
+                        vmax=lim if kind == "errors" else hi,
+                    )
+                    ax.set_title(label, fontsize=9)
+                    ax.set_xlabel("Longitude (°E)", fontsize=8)
+                    ax.tick_params(labelsize=7)
+                    if col == 0:
+                        ax.set_ylabel("Latitude (°N)", fontsize=8)
+                    # Keep the outermost map pixels intact.
+                    for spine in ax.spines.values():
+                        spine.set_visible(False)
+                    fig.canvas.draw()
+                    np.testing.assert_allclose(
+                        ax.get_window_extent().bounds,
+                        (65 + col * (width + 35), 45, width, height),
+                        atol=1e-8,
+                    )
+                cax = fig.add_axes(
+                    (
+                        (total_width - 65) / total_width,
+                        45 / total_height,
+                        12 / total_width,
+                        height / total_height,
+                    )
+                )
+                cb = fig.colorbar(im, cax=cax)
+                cb.set_label(unit, fontsize=8)
+                cb.ax.tick_params(labelsize=7)
+                filename = f"{channel}-{'regional' if regional else 'global'}-day{day}-{kind}.png"
+                fig.savefig(
+                    a.output / filename, dpi=100, pil_kwargs={"compress_level": 9}
+                )
+                plt.close(fig)
             records.append(
                 dict(
                     channel=channel,
@@ -104,19 +135,6 @@ for slot, (channel, title, unit) in enumerate(zip(meta["channels"], labels, unit
                     gated_rmse=float(np.sqrt((eg**2 * weights).sum() / weights.sum())),
                 )
             )
-        fig.suptitle(
-            f"{title} — final EMA checkpoints, one continuous rollout\nOrigin {meta['origin_time'][:10]}; shared model/error scales within each row",
-            fontsize=12,
-        )
-        filename = f"{channel}-regional.png" if regional else f"{channel}-global.jpg"
-        fig.savefig(
-            a.output / filename,
-            dpi=85,
-            pil_kwargs={"compress_level": 9}
-            if regional
-            else {"quality": 85, "optimize": True},
-        )
-        plt.close(fig)
 (a.output / "map-metrics.json").write_text(
     json.dumps(dict(origin_time=meta["origin_time"], rows=records), indent=2) + "\n"
 )

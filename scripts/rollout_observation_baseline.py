@@ -141,10 +141,13 @@ def analysis_coords(
         coords["wetmask"] = coords["wetmask_thetao"]
     if "ocean_fraction" in geometry:
         fraction = np.asarray(geometry["ocean_fraction"])
+        # Conservative weights can sum just above one in float64 (the published
+        # OM4 maximum is 1 + 8.5e-14). Preserve source values within roundoff.
+        tolerance = 1e-12
         if (
             fraction.shape != (MODEL_DEPTHS, ny, nx)
             or not np.isfinite(fraction).all()
-            or ((fraction < 0) | (fraction > 1)).any()
+            or ((fraction < -tolerance) | (fraction > 1 + tolerance)).any()
         ):
             raise ValueError("Invalid source ocean_fraction geometry")
         coords["ocean_fraction"] = xr.DataArray(fraction, dims=("lev", "y", "x"))

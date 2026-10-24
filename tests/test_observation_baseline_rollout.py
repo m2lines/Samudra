@@ -213,6 +213,23 @@ def test_geometry_mismatch_is_not_silently_reconstructed(exporter):
         exporter.analysis_coords(grid, geometry)
 
 
+def test_ocean_fraction_preserves_conservative_remapping_roundoff(exporter):
+    grid, geometry = grid_and_geometry()
+    fraction = geometry.ocean_fraction.values
+    fraction[0, 1, 2] = 1.0000000000000844  # Published OM4 maximum.
+    fraction[0, 0, 0] = -1e-14
+    coords = exporter.analysis_coords(grid, geometry)
+    np.testing.assert_array_equal(coords["ocean_fraction"], fraction)
+
+
+@pytest.mark.parametrize("invalid", [float("nan"), float("inf"), -1e-6, 1 + 1e-6])
+def test_ocean_fraction_rejects_invalid_geometry(exporter, invalid):
+    grid, geometry = grid_and_geometry()
+    geometry.ocean_fraction.values[0, 1, 2] = invalid
+    with pytest.raises(ValueError, match="Invalid source ocean_fraction"):
+        exporter.analysis_coords(grid, geometry)
+
+
 def test_selected_checkpoint_loads_ema_not_raw_weights(exporter, tmp_path, monkeypatch):
     model = torch.nn.Linear(1, 1, bias=False)
     model.weight.data.fill_(7)

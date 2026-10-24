@@ -59,7 +59,13 @@ class PersistentLatentProcessor(nn.Module):
     input_adapters: nn.ModuleDict
 
     def __init__(
-        self, width=128, depth=4, latent_shape=(45, 90), conditioning_shape=(180, 360)
+        self,
+        width=128,
+        depth=4,
+        latent_shape=(45, 90),
+        conditioning_shape=(180, 360),
+        *,
+        forcing_enabled=True,
     ):
         super().__init__()
         if width < 8 or width % 8 or depth < 1:
@@ -71,6 +77,7 @@ class PersistentLatentProcessor(nn.Module):
             latent_shape,
             conditioning_shape,
         )
+        self.forcing_enabled = forcing_enabled
         self.stem = OceanConv(2 * width + 3 + 5, width)
         self.blocks = nn.Sequential(*[LatentResidualBlock(width) for _ in range(depth)])
         self.head = OceanConv(width, width)
@@ -96,6 +103,8 @@ class PersistentLatentProcessor(nn.Module):
             a // b
             for a, b in zip(self.conditioning_shape, self.latent_shape, strict=True)
         )
+        if not self.forcing_enabled:
+            forcing = torch.zeros_like(forcing)
         condition = F.avg_pool2d(torch.cat((forcing, context), 1), factors)
         inputs = torch.cat((latent.flatten(1, 2), condition), 1)
         if hasattr(self, "input_adapters"):

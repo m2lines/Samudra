@@ -163,6 +163,7 @@ class MonthlyLatentOcean(nn.Module):
         history=19,
         encoder_width=64,
         latent_stride=4,
+        processor_forcing=True,
     ):
         super().__init__()
         self.history, self.shape = history, shape
@@ -179,7 +180,7 @@ class MonthlyLatentOcean(nn.Module):
         )
         configure_normalization(self.initializer, "instance")
         self.processor = PersistentLatentProcessor(
-            latent_width, 4, self.latent_shape, shape
+            latent_width, 4, self.latent_shape, shape, forcing_enabled=processor_forcing
         )
         self.decoder = WindowDecoder(latent_width, decoder_width)
         self.atmosphere_adapter = nn.Sequential(

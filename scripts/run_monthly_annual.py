@@ -107,7 +107,9 @@ def audit(config, root):
 def load_model(row):
     saved = torch.load(row["checkpoint"], map_location="cpu", weights_only=False)
     require_endpoint_step(saved, row)
-    model = MonthlyLatentOcean().cuda().eval()
+    model = (
+        MonthlyLatentOcean(**saved["protocol"].get("architecture", {})).cuda().eval()
+    )
     if row["adapter"]:
         model.add_module("model_forcing_adapter", ModelForcingAdapter().cuda())
     model.load_state_dict(saved["ema"], strict=True)

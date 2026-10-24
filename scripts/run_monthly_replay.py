@@ -84,9 +84,13 @@ def main():
     row = next(r for r in config["runs"] if r["name"] == a.name)
     replay = row["mode"] == "replay"
     shared = row["mode"] in ("shared-8k", "shared-cool4k")
-    fresh = replay or row["mode"] in ("fresh-4k", "shared-8k")
+    fresh = replay or row["mode"] in ("fresh-2k", "fresh-4k", "shared-8k")
     architecture = row.get("architecture", {})
-    if architecture and architecture != {"latent_width": 64, "latent_stride": 1}:
+    if architecture not in (
+        {},
+        {"latent_width": 64, "latent_stride": 1},
+        {"processor_forcing": False},
+    ):
         raise ValueError("Unqualified architecture requested")
     source_path = Path(row["checkpoint"])
     source_sha256 = digest(source_path)
@@ -140,7 +144,9 @@ def main():
             )
         ),
         cooldown=1000,
-        main_end=8000 if row["mode"] == "shared-8k" else (2000 if replay else 4000),
+        main_end=8000
+        if row["mode"] == "shared-8k"
+        else (2000 if replay or row["mode"] == "fresh-2k" else 4000),
         lr=1e-4,
         final_lr=1e-6,
         clip=1.0,
@@ -398,6 +404,8 @@ def main():
             gradient_norm=float(norm),
             lr=lr,
             adapter_gradient_norm=adapter_norm,
+            obs_updates=counts["obs"],
+            model_updates=counts["om4"] + counts["cm4"],
             seconds=time.monotonic() - started,
         )
         record.update(
@@ -513,6 +521,7 @@ def main():
                     parameters=sum(p.numel() for p in model.parameters()),
                     latent_shape=list(model.latent_shape),
                     latent_width=model.latent_width,
+                    processor_forcing_enabled=model.processor.forcing_enabled,
                     source_loading_exact=not fresh,
                     longest_replay=longest,
                 ),
@@ -542,7 +551,14 @@ def main():
     while step < end:
         record = update()
         if step % 250 == 0:
-            metrics = evaluate(ema, data, validation)
+            metrics = evaluate(
+                ema,
+                data,
+                validation,
+                prediction_path=(out / f"validation-predictions-{step:05d}.npz")
+                if row.get("save_validation_predictions")
+                else None,
+            )
             value = selection_score(metrics, control, [], metric="rmse-only")
             record["validation_rmse_blend"] = value
             (out / f"validation-{step:05d}.json").write_text(
@@ -551,7 +567,10 @@ def main():
             if value < best:
                 best = value
                 save(out / "best.pt")
-            if step in ((2000, 4000, main_end, end) if shared else (main_end, end)):
+            endpoint = step in (
+                (2000, 4000, main_end, end) if shared else (main_end, end)
+            )
+            if endpoint or row.get("raw_validation_every") == 250:
                 raw = evaluate(model, data, validation)
                 record["validation_raw_rmse_blend"] = selection_score(
                     raw, control, [], metric="rmse-only"
@@ -559,7 +578,8 @@ def main():
                 (out / f"validation-raw-{step:05d}.json").write_text(
                     json.dumps(raw, indent=2) + "\n"
                 )
-                save(out / f"endpoint-{step:05d}.pt")
+                if endpoint:
+                    save(out / f"endpoint-{step:05d}.pt")
         if step % 50 == 0:
             save(state_path)
         with (out / "events.jsonl").open("a") as stream:

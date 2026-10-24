@@ -124,12 +124,14 @@ def batched_loss(model, items, source, area):
     states = model.trajectory(
         fields, available, forcing, torch.cat([item["contexts"] for item in items])
     )
-    monthly = sum(
-        state
-        * torch.stack([item["weights"][index] for item in items])[
-            :, None, None, None, None
+    # Preserve scalar-weight autocast/type-promotion behavior exactly per item.
+    monthly = torch.cat(
+        [
+            model.monthly_condition(
+                [state[index : index + 1] for state in states[1:]], item["weights"]
+            )
+            for index, item in enumerate(items)
         ]
-        for index, state in enumerate(states[1:])
     )
     native = torch.cat(
         [

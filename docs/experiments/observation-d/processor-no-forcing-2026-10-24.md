@@ -49,3 +49,12 @@ gradients, while historical forcing still affects initialization. Qualification
 checks real data, finite losses and exact serialized optimizer/EMA/RNG replay.
 The annual loader restores the stored architecture flag, preventing accidental
 re-enabling of forcing when evaluating these checkpoints.
+
+## Launch status
+
+Producer `cae7f15b4`;19 targeted tests and repository checks passed. Beta
+qualification **217000** is queued; production **217001** requires it to pass
+and verifies matching proof files for both arms. Both callbacks were checked
+and dedicated quiet monitoring is configured. No training result or reliable
+completion ETA yet. Root:
+`beta:/projects/ny/lz1955/multiscale/jrusak/runs/processor-no-forcing-20261024`.

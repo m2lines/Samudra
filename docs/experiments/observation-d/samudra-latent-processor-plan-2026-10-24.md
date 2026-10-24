@@ -87,22 +87,34 @@ Treat one-seed differences as screening evidence. Replicate the promising
 contrast before claiming a model-data benefit. The completed shared-ERA5 study
 will determine whether decoder/forcing issues need fixing before this launch.
 
-## Performance defaults and microbatch qualification
+## Performance defaults and distributed batch comparison
 
-For future runs, use activation checkpointing **off**, compiled denoising, and
-fused AdamW as the agreed baseline. The current compilation is partial because
-of deterministic padding graph breaks; retain that known numerical caveat.
-A short real-data microbatch screen will compare 1/2/4/8 examples per device
-while keeping effective batch eight through accumulation. Choose the fastest
-stable size with memory headroom, then requalify it when the larger processor,
-resolution, hardware, or numerical implementation changes. Checkpointing is a
-memory fallback, not another default ablation. Existing shared-ERA5 runs remain
-unchanged, and no new scientific campaign launches before reviewing them.
+Use activation checkpointing **off**, compiled denoising, and fused AdamW as
+the agreed baseline. Current compilation is partial because of deterministic
+padding graph breaks. Checkpointing is a memory fallback. Recheck memory and
+throughput when the processor, resolution or numerical implementation changes.
+The [single-GPU screen](diffuser-performance-2026-10-24.md#microbatch-results)
+favored microbatch eight (~54 GB allocated), but its effective batch was eight
+on one GPU; that does not imply microbatch eight on each of four GPUs.
 
+The user now authorizes migrating shared-ERA5 to **four data-parallel GPUs,
+microbatch two per rank, accumulation one: effective batch eight**. Qualify
+identical global examples, per-example targets/noise, gradient weighting,
+optimizer/EMA/RNG resume and validation behavior before switching. Preserve
+the 8k main schedule, sample exposure, and original 4k/8k cooldowns. Each
+cooldown must also use four GPUs; do not overlap the old independent GPU1 fork
+with a four-rank main process. Keep the original pending production held until
+the replacement passes its qualification gate.
 
-The completed Beta screen favors **microbatch eight, accumulation one** for the
-current model: ~2.2× cached training throughput over microbatch one with the
-same effective batch eight, at ~54 GB allocated. Treat this as the starting
-candidate for the larger processor, with microbatch four as a lower-memory
-fallback; requalify instead of assuming its memory requirement is unchanged.
-See [performance results](diffuser-performance-2026-10-24.md#microbatch-results).
+After reviewing shared-ERA5, add a **batch-eight versus batch-32 comparison**
+before or alongside the new processor experiments: four GPUs with microbatch
+two versus eight, no accumulation, same architecture/data mix/optimizer/seed.
+Start with unchanged LR to isolate batch size rather than automatically scaling
+it. Report curves against examples seen, optimizer updates and wall time. The
+primary comparison should match total example exposure and cooldown exposure,
+with the LR/EMA schedules expressed in equivalent exposure units; at batch32,
+a matched-example run has one quarter as many updates. An equal-update endpoint
+is a separate comparison using four times as much data exposure, not a matched
+batch-size ablation. Fix these budgets explicitly before launching this future
+comparison. No batch32 or new-architecture scientific run launches until the
+shared-ERA5 results are reviewed.

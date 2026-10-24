@@ -159,3 +159,9 @@ microbatch-one. This measures numerical effects of batching, not equivalence
 to the original uncompiled implementation. Data are cached before timing;
 loading, EMA, and validation are excluded. Compilation cold-start time is
 separate. All updates and weights remain disposable.
+
+Submitted microbatch diagnostic **217212** on Beta_test (one GPU, two-hour cap),
+producer **46ee56f5d**. Artifacts:
+`beta:/projects/ny/lz1955/multiscale/jrusak/runs/monthly-microbatch-performance-20261024`.
+Remote host-authenticated callback `6cc604c3-901f-4833-bac5-67b92b4453c6`
+is monitored by `/root/diffuser_performance`. Results remain pending.

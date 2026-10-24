@@ -335,6 +335,30 @@ class RolloutDataset(Dataset):
         return result
 
 
+class LocalRolloutDataset(Dataset):
+    """A prepared physical rollout with its own explicit masks and provenance."""
+
+    rollout = True
+
+    def __init__(self, path):
+        super().__init__(path)
+        self.name = self.data.attrs["viewer_name"]
+        for levels in self.fields.values():
+            for entry in levels:
+                if self.keys[entry["key"]][1] is None:
+                    raise ValueError(f"Local rollout has no ocean mask: {entry['key']}")
+                entry["sampling"] = "forecast · five-day mean"
+
+    def metadata(self):
+        result = super().metadata()
+        result.update(
+            rollout=True,
+            source_link=self.data.attrs.get("source_link"),
+            source_run=self.data.attrs.get("title"),
+        )
+        return result
+
+
 def create_app(
     paths: list[str],
     native=False,
@@ -342,6 +366,7 @@ def create_app(
     snapshots=False,
     rollouts=False,
     cm4=False,
+    local_rollouts=(),
 ) -> web.Application:
     datasets: list[Dataset | NativeDataset] = [Dataset(path) for path in paths]
     cache = (
@@ -369,6 +394,7 @@ def create_app(
         datasets.extend(RolloutDataset(cache, *entry) for entry in OFFICIAL_EVALS)
     if cm4:
         datasets.append(CM4Dataset(cache))
+    datasets.extend(LocalRolloutDataset(path) for path in local_rollouts)
     # Serialize disk reads/cache mutations; leave the event loop free to serve UI.
     read_lock = asyncio.Lock()
 
@@ -489,6 +515,12 @@ def main():
         action="append",
         help="Zarr store or directory containing OM4.zarr; repeat for a dataset selector",
     )
+    parser.add_argument(
+        "--local-rollout",
+        action="append",
+        default=[],
+        help="Prepared local physical rollout with masks and provenance; repeatable",
+    )
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8766)
     parser.add_argument(
@@ -529,6 +561,7 @@ def main():
             snapshots=args.native and args.snapshots,
             rollouts=args.rollouts,
             cm4=args.cm4,
+            local_rollouts=args.local_rollout,
         ),
         host=args.host,
         port=args.port,

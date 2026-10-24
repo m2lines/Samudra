@@ -97,8 +97,10 @@ All configured datasets, including official rollouts, are accessible without
 login. OSN credentials remain in the server's existing rclone configuration;
 the HTTP routes serve only the UI, metadata and selected data arrays.
 
-The host-specific unit files are in `deploy/` and reference this checkout and
-its standalone environment. Both the viewer and public socket are enabled at
+The host-specific unit files are in `deploy/` and reference the persistent
+`~/services/om4-viewer` checkout and its standalone environment. Do not deploy
+from a disposable Codex worktree: deleting it removes static assets even while
+the Python server remains alive. Both the viewer and public socket are enabled at
 user-manager startup; user lingering is enabled on this host. The viewer restarts
 automatically on failure. Keep this checkout and environment available while
 these services are installed.
@@ -296,3 +298,32 @@ remembered positions, linked zoom, URL restoration and computed-map restrictions
 Snapshot checks additionally cover `z_l` depth normalization, ten-time/one-depth
 chunk reuse, Julian leap-day alignment, instantaneous versus forcing-mean labels,
 and live mean/snapshot comparisons with the 2½-day timestamp offset.
+
+## Local native gated rollout
+
+`--local-rollout ~/data/samudra-native-gate-ema/viewer.zarr` adds the completed
+native persistence-gated model's final epoch-70 EMA forecast. It is a continuous
+598-frame rollout from October 2014 through December 2022, not the separate
+October 2015-origin example used in the experiment's PNG maps. All 77 state
+channels are available; this is the original feature-conditioned gate, not the
+new direct-input/nonlinear training arms.
+
+Prepare the downloaded `predictions.zarr` with:
+
+```bash
+uv run --project apps/om4_viewer python apps/om4_viewer/prepare_gated_rollout.py \
+  --root ~/data/samudra-native-gate-ema --truth ~/data/om4_onedeg/OM4.zarr
+```
+
+The prepared store contains physical values, per-depth ocean masks, units,
+original Julian timestamps, and a W&B provenance link. Preparing it flattens
+`lev` into the viewer's field names and rechunks losslessly to individual frames;
+no regridding or normalization is applied. Grid coordinates and times must match
+the source OM4 store. All prepared values are compared with the saved predictions
+on full read-back before enabling the dataset.
+
+Choose **Samudra 1° · native gated · final EMA** in the dataset selector.
+Use **Computed difference** against **OM4 1° · local** for forecast errors.
+The official 1° rollout remains selectable but is not the matched ungated
+training control. Local rollouts require explicit masks and do not alter the
+existing official-rollout catalog or shared URL source identifiers.

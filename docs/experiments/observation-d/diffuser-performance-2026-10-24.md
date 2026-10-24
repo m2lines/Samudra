@@ -287,3 +287,26 @@ Dependent DDP qualification 217218 never started and was canceled after the
 prerequisite failure. No qualification threshold was relaxed and production
 remains held. Failed attempts and all outputs remain preserved. Reference
 qualification consumed 15m56s = 0.2656 GPU-hours; DDP attempt consumed zero.
+
+### Inference isolation and safe compilation scope
+
+Job 217228 completed in 3m13s. Optimized raw weights evaluated **eagerly** give
+SST 7.03268°C versus baseline 7.02903°C (+0.052%), upper OHC +0.050%, deep OHC
+-0.018%, and effectively unchanged velocity. Fresh compiled baseline weights
+also match their eager evaluation closely. Thus the large failed raw metric
+was specific to the in-process compiled evaluation; the exact compiler-state
+cause is not established, but a consistent eager evaluation removes it without
+changing trained weights or loosening the gate.
+
+Producer **6e326a55e** compiles only an explicit training-denoiser callable.
+`core.forward` and both raw/EMA diffusion sampling remain eager. Twenty-two
+local synthetic tests pass, including that a compiled training hook cannot
+change evaluation routing. Actual four-GPU qualification **217230** uses this
+implementation and validates against both original and optimized single-GPU
+references. The latter uses the independently measured eager raw evaluation,
+with its source checkpoint SHA checked before substitution; the failed compiled
+evaluation remains unchanged in the original proof and report.
+
+Artifacts: `beta:/projects/ny/lz1955/multiscale/jrusak/runs/shared-era5-ddp-20261024/eager-evaluation`.
+Remote callback: `657648d1-93d2-4326-b976-169b540dad27`.
+Production remains held pending the actual four-GPU result.

@@ -128,7 +128,7 @@ titles above each map.
   the **×** button removes a panel. Keep between one and sixteen maps, and choose
   one to four **Columns**. Narrow screens stack maps into a single column.
 - The URL automatically saves the maps' datasets, fields, depths, difference
-  calculations and color ranges, along with the current time, active calendar, time alignment,
+  calculations, color ranges and Match settings, along with the current time, active calendar, time alignment,
   linked zoom/pan, column count and playback settings. Copy or bookmark it to
   restore that view. Updates replace the current browser history entry;
   Back/Forward still restores views when navigating between saved links, without
@@ -163,13 +163,25 @@ titles above each map.
   all panels, so OSN/network throughput may limit the actual frame rate.
 - Hover to see a physical value at the cursor. Colors clip at the displayed
   range, but hover preserves the original value.
-- Initial color ranges are the local reference's pooled 2nd/98th percentiles
-  from its first, middle and last frames, with symmetric velocity/flux/stress
-  limits. Fields absent from the local reference, such as `wfo`, use the selected
-  source's first, middle and last frames instead. The range label identifies
-  the reference. Matching fields/depths share these ranges across resolutions. Editing
-  limits or selecting **Fit this frame** also updates matching panels. Ranges
-  remain fixed through playback; **Reset range** restores the reference range.
+- **Match** defaults on. Checked panels share the same color range and palette
+  whenever their recorded unit string and mode (**absolute field** or **delta**)
+  agree. Field names, depths, datasets, calendars and difference formulas do not
+  split the group. Thus U/V velocities match, and model errors match temporal
+  changes of the same unit. Missing units stay independent; no unit conversion
+  is inferred. Broader shared ranges can reduce contrast for quieter fields.
+- Uncheck **Match** to retain the current scale and edit that panel independently.
+  Rechecking adopts the existing group's scale. The checkbox is saved in shared
+  URLs; older links default to checked. Conflicting saved ranges within a matched
+  group resolve to their union, independently of panel order.
+- Initial absolute-field suggestions use the local reference's pooled 2nd/98th
+  percentiles from its first, middle and last frames, with symmetric
+  velocity/flux/stress limits. Fields absent from that reference use their own
+  source. On initial load or **Reset range**, the shared scale covers all
+  available suggestions in the group. Reset ignores unchecked panels.
+- Ranges remain fixed through playback, zoom, and when another panel joins.
+  Editing limits or **Fit this frame** updates every checked panel in that unit
+  and mode. Fit uses the selected panel's visible-frame 2nd/98th percentiles,
+  symmetric for diverging palettes. It does not refit automatically each frame.
 
 ## Difference maps
 
@@ -210,8 +222,10 @@ deduplication; subtraction runs on the displayed float arrays in the browser.
 
 Difference maps use a zero-centered diverging palette, initialized from the
 98th percentile of absolute finite differences in the first available frame.
-The range stays fixed during playback. Matching calculations share range edits;
-raw-field ranges remain separate. **Fit this frame**, custom limits, and
+The range stays fixed during playback. Checked delta panels share ranges by
+unit, including different model errors, depths and current-minus-previous maps;
+absolute-field ranges remain separate. Initial/reset shared delta limits cover
+all available panels' percentile suggestions. **Fit this frame**, custom limits, and
 **Reset range** are available as for ordinary maps.
 
 ## Native data and display
@@ -279,6 +293,7 @@ node apps/om4_viewer/tests/timeline.browser.cjs
 node apps/om4_viewer/tests/differences.browser.cjs
 node apps/om4_viewer/tests/view-state.browser.cjs
 node apps/om4_viewer/tests/calendars.browser.cjs
+node apps/om4_viewer/tests/matching.browser.cjs
 ```
 
 The tests cover local and native orientation, vector centering/rotation, depth

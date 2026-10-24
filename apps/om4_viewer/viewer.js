@@ -24,7 +24,27 @@ const fmt=v=>Number(v).toLocaleString(undefined,{maximumSignificantDigits:4});
 const isComputed=p=>p.dataset.value.startsWith('computed:');
 const info=p=>isComputed(p)?p.computed.metadata:datasets[Number(p.dataset.value)];
 const panelSources=p=>isComputed(p)?[p.computed.a,p.computed.b]:[Number(p.dataset.value)];
-const rangeKey=p=>isComputed(p)?`difference/${p.computed.mode}/${p.computed.a}/${p.computed.b}/${p.computed.alignment}/${p.depth.value}`:`field/${p.depth.value}`;
+const rangeUnits=p=>info(p).fields.flatMap(f=>f.levels).find(l=>l.key===p.depth.value)?.units||'';
+const rangeMode=p=>isComputed(p)?'delta':'absolute';
+// Missing units cannot establish comparability. Unmatched panels key by identity.
+const rangeKey=p=>p.match.checked&&rangeUnits(p)?JSON.stringify([rangeUnits(p),rangeMode(p)]):p;
+function rangeNote(p){return `${p.match.checked&&rangeUnits(p)?`Matched ${rangeUnits(p)} · ${rangeMode(p)}`:'Independent range'} · ${p.range.note||p.range.reference||'fixed during playback'}`;}
+function combinedRange(ranges){
+  return {...ranges[0],min:Math.min(...ranges.map(r=>r.min)),max:Math.max(...ranges.map(r=>r.max)),palette:ranges.some(r=>r.palette==='balance')?'balance':'thermal'};
+}
+function matchRanges(candidates){
+  const groups=new Map();
+  panels.forEach((p,i)=>{const key=rangeKey(p);if(!groups.has(key))groups.set(key,[]);groups.get(key).push(i);});
+  for(const members of groups.values()){
+    // Existing ranges stay fixed during playback and when a new map joins.
+    // Conflicting old URL ranges resolve to their union, independent of panel order.
+    const existing=members.map(i=>panels[i].range).filter(Boolean);
+    const choices=existing.length?existing:members.map(i=>candidates[i]).filter(Boolean);
+    if(!choices.length)continue;
+    const shared=combinedRange(choices);
+    for(const i of members)panels[i].range={...shared};
+  }
+}
 const status=(text,error=false)=>{$('status').textContent=text;$('status').classList.toggle('error',error);};
 async function request(url, binary=false) {
   const response=await fetch(url);
@@ -68,10 +88,10 @@ function makePanel(i){
   <div class="map"><canvas width="1024" height="512" aria-label="Panel ${i+1} ocean map" role="img" tabindex="0"></canvas><div class="latlabels"></div><div class="empty-state" hidden><div class="empty-message"></div><div class="available-dates">Available: <button data-boundary="first"></button><span>–</span><button data-boundary="last"></button></div><div class="calendar-description" hidden></div><button class="switch-calendar" hidden></button></div></div>
   <div class="lonlabels"></div><div class="legend"><div class="colorbar"></div><div class="ticks"><span></span><span></span><span></span></div></div>
   <div class="readout">Hover for values · scroll to zoom · drag to pan</div>
-  <div class="range-controls"><label>Min <input type="number" step="any" aria-label="Panel ${i+1} color minimum"></label><label>Max <input type="number" step="any" aria-label="Panel ${i+1} color maximum"></label><button class="rescale">Fit this frame</button><button class="reset">Reset range</button></div><div class="range-note">Matched fixed range · local 1° reference</div>`;
+  <div class="range-controls"><label>Min <input type="number" step="any" aria-label="Panel ${i+1} color minimum"></label><label>Max <input type="number" step="any" aria-label="Panel ${i+1} color maximum"></label><button class="rescale">Fit this frame</button><button class="reset">Reset range</button><label><input class="match-range" type="checkbox" checked aria-label="Panel ${i+1} Match">Match</label></div><div class="range-note">Matched fixed range · local 1° reference</div>`;
   $('panels').append(root);
   const selects=root.querySelectorAll('select'),inputs=root.querySelectorAll('input');
-  const p={root,dataset:selects[0],field:selects[1],depth:selects[2],min:inputs[0],max:inputs[1],canvas:root.querySelector('canvas'),values:null,range:null,units:'',image:document.createElement('canvas')};
+  const p={root,dataset:selects[0],field:selects[1],depth:selects[2],min:inputs[0],max:inputs[1],match:root.querySelector('.match-range'),canvas:root.querySelector('canvas'),values:null,range:null,units:'',image:document.createElement('canvas')};
   populateDatasetOptions(p);
   p.dataset.value=datasets.length>2&&i===3?2:(datasets.length>1?i%2:0);
   p.selection=p.dataset.value;
@@ -85,6 +105,12 @@ function makePanel(i){
   p.depth.onchange=()=>{p.range=null;stop();show(requested);};
   function manual(){const min=Number(p.min.value),max=Number(p.max.value);if(p.min.value===''||p.max.value===''||!Number.isFinite(min)||!Number.isFinite(max)||min>=max){status('Color minimum must be less than maximum.',true);return;}p.range={...p.range,min,max};applyRange(p,'Custom range · fixed during playback');}
   p.min.onchange=manual;p.max.onchange=manual;
+  p.match.onchange=()=>{
+    stop();
+    if(p.match.checked){const other=panels.find(q=>q!==p&&rangeKey(q)===rangeKey(p)&&q.range);if(other)p.range={...other.range};}
+    if(p.range)applyRange(p,p.range.note||p.range.reference||'fixed during playback');
+    else show(requested);
+  };
   root.querySelector('.rescale').onclick=()=>{
     if(!p.values)return;
     const finite=Array.from(p.values).filter(Number.isFinite).sort((a,b)=>a-b);
@@ -107,7 +133,7 @@ function makePanel(i){
 }
 function applyRange(p,note){
   p.range.note=note;
-  for(const q of panels){if(rangeKey(q)===rangeKey(p)&&q.units===p.units){q.range={...p.range};q.root.querySelector('.range-note').textContent=note;colorize(q);render(q);}}
+  for(const q of panels){if(rangeKey(q)===rangeKey(p)){q.range={...p.range};q.root.querySelector('.range-note').textContent=rangeNote(q);colorize(q);render(q);}}
   updateUrl();
 }
 function populateFields(p,desired){
@@ -192,7 +218,7 @@ function configureDifference(p,config){
   p.dataset.value=p.selection=key;
 }
 function panelState(p){
-  const state={field:p.field.value,depth:p.depth.value};
+  const state={field:p.field.value,depth:p.depth.value,match:p.match.checked};
   if(isComputed(p)){
     const c=p.computed;state.difference={mode:c.mode,a:datasets[c.a].path,b:datasets[c.b].path,alignment:c.alignment};
   }else state.source=info(p).path;
@@ -217,7 +243,7 @@ function refreshLayout(){
   panels.forEach((p,i)=>{
     p.root.querySelector('.number').textContent=String(i+1).padStart(2,'0');
     [p.dataset,p.field,p.depth].forEach((node,j)=>node.setAttribute('aria-label',`Panel ${i+1} ${['dataset','field','depth'][j]}`));
-    p.min.setAttribute('aria-label',`Panel ${i+1} color minimum`);p.max.setAttribute('aria-label',`Panel ${i+1} color maximum`);
+    p.min.setAttribute('aria-label',`Panel ${i+1} color minimum`);p.max.setAttribute('aria-label',`Panel ${i+1} color maximum`);p.match.setAttribute('aria-label',`Panel ${i+1} Match`);
     const remove=p.root.querySelector('.remove-map');remove.disabled=panels.length===1;remove.setAttribute('aria-label',`Remove map ${i+1}`);
   });
 }
@@ -229,6 +255,7 @@ function statePlan(state){
   if(typeof state.time!=='string'||!/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(state.time))throw new Error('Invalid time in view URL.');
   const source=path=>{const i=datasets.findIndex(d=>d.path===path);if(i<0)throw new Error('A dataset saved in this link is unavailable.');return i;};
   const entries=state.panels.map(saved=>{
+    if(saved.match!==undefined&&typeof saved.match!=='boolean')throw new Error('Invalid Match setting in view URL.');
     let ds,computed;
     if(saved.difference){
       const c=saved.difference;
@@ -262,6 +289,7 @@ function restorePanels(plan){
     if(entry){
       if(entry.computed)configureDifference(p,entry.computed);else p.dataset.value=p.selection=String(entry.source);
       populateFields(p,entry.saved.field);p.depth.value=entry.saved.depth;
+      p.match.checked=entry.saved.match!==false;
       if(entry.saved.range)p.range={...entry.saved.range,note:'Saved range · fixed during playback'};
     }else populateFields(p,i<2?'vo':'uo');
   }
@@ -282,7 +310,7 @@ $('add-map').onclick=()=>{
   if(panels.length>=MAX_MAPS)return;
   stop();const saved=panelState(panels.at(-1));const p=makePanel(panels.length);panels.push(p);
   if(saved.difference){const c=panels.at(-2).computed;configureDifference(p,{...c});}else p.dataset.value=p.selection=String(datasets.findIndex(d=>d.path===saved.source));
-  populateFields(p,saved.field);p.depth.value=saved.depth;if(saved.range)p.range={...saved.range,note:'Saved range · fixed during playback'};
+  populateFields(p,saved.field);p.depth.value=saved.depth;p.match.checked=saved.match!==false;if(saved.range)p.range={...saved.range,note:'Saved range · fixed during playback'};
   refreshLayout();rebuildTimeline();show(requested);
 };
 $('map-columns').onchange=()=>{stop();refreshLayout();redraw();show(requested);};
@@ -385,18 +413,20 @@ async function show(index){
     else {p.root.querySelector('.empty-state').hidden=true;p.root.classList.add('loading');}
   });
   try{
-    const rangePromises=specs.map((s,i)=>s.index===undefined||s.other?null:panels[i].range||panels.find(q=>q!==panels[i]&&rangeKey(q)===rangeKey(panels[i])&&q.range)?.range||limits(s.ds,s.key));
+    const rangePromises=specs.map((s,i)=>s.index===undefined||s.other?null:panels[i].range||limits(s.ds,s.key));
     const [frames,ranges]=await Promise.all([
       Promise.all(specs.map(s=>s.index===undefined?null:panelFrame(s,extent))),Promise.all(rangePromises)
     ]);
     if(myRevision!==revision)return false;
     current=requested;
+    const candidates=specs.map((s,i)=>s.index===undefined?null:panels[i].range||(s.other?differenceLimits(frames[i]):ranges[i]));
+    matchRanges(candidates);
     panels.forEach((p,i)=>{
-      if(specs[i].index===undefined)return;
+      if(specs[i].index===undefined){if(p.range){p.root.querySelector('.range-note').textContent=rangeNote(p);render(p);}return;}
       p.emptyMessage=null;p.emptyDetail='';
-      p.values=frames[i];p.range=specs[i].other?(p.range||panels.find(q=>q!==p&&rangeKey(q)===rangeKey(p)&&q.range)?.range||differenceLimits(frames[i])):ranges[i];p.extent=extent;p.width=specs[i].width;p.height=specs[i].height;p.shownDate=info(p).times[specs[i].index];
+      p.values=frames[i];p.extent=extent;p.width=specs[i].width;p.height=specs[i].height;p.shownDate=info(p).times[specs[i].index];
       p.root.querySelector('.readout').textContent='Hover for values · scroll to zoom · drag to pan';
-      p.root.querySelector('.range-note').textContent=p.range.note||`Matched fixed range · ${p.range.reference}`;
+      p.root.querySelector('.range-note').textContent=rangeNote(p);
       const sampling=info(p).fields.flatMap(f=>f.levels).find(l=>l.key===specs[i].key).sampling||info(p).sampling||'five-day mean';
       p.root.querySelector('.source-time').textContent=`${p.shownDate.slice(0,16)} · ${sampling}`;
       if(specs[i].other){const other=specs[i].other;p.root.querySelector('.source-time').textContent=`A: ${p.shownDate.slice(0,16)} − B: ${datasets[other.ds].times[other.index].slice(0,16)} · difference`;}
@@ -407,7 +437,7 @@ async function show(index){
     $('frame-label').textContent=`${current+1} / ${times.length}`;$('play').disabled=false;
     updateUrl();
     const missing=specs.filter(s=>s.index===undefined).length;
-    status(`${$('time-link').value==='interval'?'Same five-day interval; actual source times shown above each map':'Exact timestamps linked'}${missing?` · ${missing} panel${missing===1?'':'s'} without data on this date`:''} · matched color scales · gray: land · white: missing`);
+    status(`${$('time-link').value==='interval'?'Same five-day interval; actual source times shown above each map':'Exact timestamps linked'}${missing?` · ${missing} panel${missing===1?'':'s'} without data on this date`:''} · checked Match panels share unit + absolute/delta scales · gray: land · white: missing`);
     return true;
   }catch(error){if(myRevision===revision){status(`Could not load frame: ${error.message}`,true);panels.forEach(p=>p.root.classList.remove('loading'));stop();}return false;}
 }

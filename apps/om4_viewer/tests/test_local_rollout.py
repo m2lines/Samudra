@@ -1,5 +1,6 @@
 # SPDX-FileCopyrightText: 2026 Samudra Authors
 # SPDX-License-Identifier: Apache-2.0
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -61,3 +62,45 @@ class LocalRolloutTests(AioHTTPTestCase):
         self.data.drop_vars("mask_0").to_zarr(path, consolidated=True)
         with self.assertRaisesRegex(ValueError, "no ocean mask"):
             LocalRolloutDataset(path)
+
+    async def test_preparation_preserves_provenance_after_appends(self):
+        root = Path(self.temp.name) / "prepared"
+        root.mkdir()
+        truth = self.data.copy()
+        source = xr.Dataset(
+            coords={"time": truth.time, "y": truth.y, "x": truth.x, "lev": [2.5]}
+        )
+        for field in ("thetao", "so", "uo", "vo"):
+            truth[f"{field}_0"] = truth.thetao_0.copy()
+            truth[f"{field}_0"].attrs["units"] = "test units"
+            source[field] = truth.thetao_0.expand_dims(lev=[2.5]).transpose(
+                "time", "lev", "y", "x"
+            )
+        truth["zos"] = truth.thetao_0.copy()
+        truth.zos.attrs["units"] = "m"
+        source["zos"] = truth.zos
+        lon, lat = np.meshgrid(truth.x.values, truth.y.values)
+        source["lon"] = (("y", "x"), lon)
+        source["lat"] = (("y", "x"), lat)
+        source.to_zarr(root / "predictions.zarr", consolidated=True)
+        truth.to_zarr(root / "truth.zarr", consolidated=True)
+        subprocess.run(
+            [
+                sys.executable,
+                str(Path(__file__).resolve().parents[1] / "prepare_gated_rollout.py"),
+                "--root",
+                str(root),
+                "--truth",
+                str(root / "truth.zarr"),
+            ],
+            check=True,
+            capture_output=True,
+        )
+        prepared = LocalRolloutDataset(str(root / "viewer.zarr"))
+        self.assertEqual(len(prepared.keys), 5)
+        self.assertIn("native gated", prepared.name)
+        self.assertIn("q5mz68j4", prepared.metadata()["source_link"])
+        np.testing.assert_array_equal(
+            prepared.data.thetao_0.values, truth.thetao_0.values
+        )
+        prepared.close()

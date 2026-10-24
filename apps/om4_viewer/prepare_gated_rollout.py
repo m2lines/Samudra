@@ -76,6 +76,8 @@ for field in ("thetao", "so", "uo", "vo", "zos"):
             },
         )
         print(key, flush=True)
+# Appending xarray datasets replaces root attributes; restore provenance last.
+zarr.open_group(str(root / "viewer.zarr"), mode="a").attrs.update(d.attrs)
 zarr.consolidate_metadata(str(root / "viewer.zarr"))
 r = xr.open_zarr(root / "viewer.zarr", chunks=None)
 for field in ("thetao", "so", "uo", "vo", "zos"):

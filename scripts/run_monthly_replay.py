@@ -580,6 +580,9 @@ def main():
                 )
                 if endpoint:
                     save(out / f"endpoint-{step:05d}.pt")
+        # Extra continuation anchors must not add evaluation or consume RNG.
+        if row["mode"] == "shared-8k" and step in (3000, 5000, 6000, 7000):
+            save(out / f"endpoint-{step:05d}.pt")
         if step % 50 == 0:
             save(state_path)
         with (out / "events.jsonl").open("a") as stream:

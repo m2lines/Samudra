@@ -1,0 +1,121 @@
+{
+  "slurm_array": "26429563",
+  "state": "all four tasks COMPLETED ExitCode 0:0",
+  "selected_reproduction": "All four checkpoint SHA256 and entire records arrays exactly equal previously published comparison/{arm}/heldout.json",
+  "evaluations": [
+    {
+      "arm": "full",
+      "selection": "selected",
+      "selected_epoch": 29,
+      "checkpoint_sha256": "b8b7ba147316f470c277dd550ff4354ef5c649cf405380a5cc0985bfe188d2df",
+      "checkpoint_path": "/home/jrusak/orcd/scratch/om4-temporal-memory-20261016/training/full/best-ema.pt",
+      "state_key": "model"
+    },
+    {
+      "arm": "full",
+      "selection": "epoch70",
+      "selected_epoch": 70,
+      "checkpoint_sha256": "ae48cfdadf40d880d17637f36cae0fb0011e63a0c9812df4f5e3802999488d0a",
+      "checkpoint_path": "/home/jrusak/orcd/scratch/om4-temporal-memory-20261016/training/full/latest.pt",
+      "state_key": "ema"
+    },
+    {
+      "arm": "detach",
+      "selection": "selected",
+      "selected_epoch": 30,
+      "checkpoint_sha256": "1520f529f46bedb32b88feccb029dfcc6ffdda3b06472ead9b4558c143c65d59",
+      "checkpoint_path": "/home/jrusak/orcd/scratch/om4-temporal-memory-20261016/training/detach/best-ema.pt",
+      "state_key": "model"
+    },
+    {
+      "arm": "detach",
+      "selection": "epoch70",
+      "selected_epoch": 70,
+      "checkpoint_sha256": "89f715584676cb2700a84cc7a4769e990e4a09bd8e935c51f537c037845e4c4e",
+      "checkpoint_path": "/home/jrusak/orcd/scratch/om4-temporal-memory-20261016/training/detach/latest.pt",
+      "state_key": "ema"
+    },
+    {
+      "arm": "latent_full",
+      "selection": "selected",
+      "selected_epoch": 31,
+      "checkpoint_sha256": "7b3206ecd33ae55e87c5829ca8695905e153ce469eae1a999022fc9b1a819cf8",
+      "checkpoint_path": "/home/jrusak/orcd/scratch/om4-temporal-memory-20261016/training/latent_full/best-ema.pt",
+      "state_key": "model"
+    },
+    {
+      "arm": "latent_full",
+      "selection": "epoch70",
+      "selected_epoch": 70,
+      "checkpoint_sha256": "77d2b95024663d0080848a87e4910ec6ab5d544cf8c2be704d6a45653b39d082",
+      "checkpoint_path": "/home/jrusak/orcd/scratch/om4-temporal-memory-20261016/training/latent_full/latest.pt",
+      "state_key": "ema"
+    },
+    {
+      "arm": "latent_only",
+      "selection": "selected",
+      "selected_epoch": 31,
+      "checkpoint_sha256": "535fb8faeb04299476bc8a4f8d6b4343a10c763d8c516f65debc8db350b9d262",
+      "checkpoint_path": "/home/jrusak/orcd/scratch/om4-temporal-memory-20261016/training/latent_only/best-ema.pt",
+      "state_key": "model"
+    },
+    {
+      "arm": "latent_only",
+      "selection": "epoch70",
+      "selected_epoch": 70,
+      "checkpoint_sha256": "26e6f8f3bf83dd7c0545f521ee27f5d4f40aaf82c89685927ec3111c73431e57",
+      "checkpoint_path": "/home/jrusak/orcd/scratch/om4-temporal-memory-20261016/training/latent_only/latest.pt",
+      "state_key": "ema"
+    }
+  ],
+  "files": {
+    "raw/detach/epoch70/EVAL_COMPLETE": "37a40f08d8548dba289b9b0bb35bcf63b359f6d37ee86044ebc6b6da080b9ec1",
+    "raw/detach/epoch70/heldout.json": "e926069ed738d2463245b8eefaa95feb8122da46613a03dc6e59444dbc4d5e08",
+    "raw/detach/epoch70/map-metadata.json": "872e09b13cb4787c3f613ba8231cfd8667466850a9277d0e64c720b6214d483a",
+    "raw/detach/epoch70/maps-call-01.npz": "3b8f77bb3268996ed608a253a1bf8be69478f5b360e5ad3954a4c35e693356b2",
+    "raw/detach/epoch70/maps-call-36.npz": "57b23f902264fec2c0a2054cec42eedf4937e102a6f63a2a6ed361762f11548a",
+    "raw/detach/epoch70/maps-call-72.npz": "e86ce59a89a485ff803fff4742b33016a93c92711b39d54785d0e772d4f52113",
+    "raw/detach/selected/EVAL_COMPLETE": "37a40f08d8548dba289b9b0bb35bcf63b359f6d37ee86044ebc6b6da080b9ec1",
+    "raw/detach/selected/heldout.json": "c713d7ad0ea82c0fc9f70a2c82b65722071a17c04171e13a4adc68d7cbf8c50f",
+    "raw/detach/selected/map-metadata.json": "75af5cc4f4f3e919557b2709af3e4f268e138821d49e8e905565d64bf605a045",
+    "raw/detach/selected/maps-call-01.npz": "c6863dff27e5a0c39bacfdb68574d226b10ef77e4d1825a549477459c3480c27",
+    "raw/detach/selected/maps-call-36.npz": "0f3288e37cf302202a61ef9ad9144dc04e4608719ddde653c9053d1e949e506b",
+    "raw/detach/selected/maps-call-72.npz": "9a7bc529bf7adae48b616ab1208ee264d80ea0897eadc065656e1d38e87a9e49",
+    "raw/full/epoch70/EVAL_COMPLETE": "37a40f08d8548dba289b9b0bb35bcf63b359f6d37ee86044ebc6b6da080b9ec1",
+    "raw/full/epoch70/heldout.json": "9b6a91adf72c31aa2057ffbc3e9fb6aafc50e523250fb2ac1261474edb19ca52",
+    "raw/full/epoch70/map-metadata.json": "872e09b13cb4787c3f613ba8231cfd8667466850a9277d0e64c720b6214d483a",
+    "raw/full/epoch70/maps-call-01.npz": "0cfe191098654d99ce252f39b1e884ecf792ed6e9fa75278e5e7de7f5475441e",
+    "raw/full/epoch70/maps-call-36.npz": "df94e6e28df8d5b16cca8d26958c950821513f383d08b8791c2b6e772b640c20",
+    "raw/full/epoch70/maps-call-72.npz": "b3e8f81aafa349d59eaf02889777316343506d71f15b674ac06bdb2d1caa038c",
+    "raw/full/selected/EVAL_COMPLETE": "37a40f08d8548dba289b9b0bb35bcf63b359f6d37ee86044ebc6b6da080b9ec1",
+    "raw/full/selected/heldout.json": "8879e4cf7008526e444cdc855af2e05bf371893721e46efdb92aa2a8ea17fd0c",
+    "raw/full/selected/map-metadata.json": "75af5cc4f4f3e919557b2709af3e4f268e138821d49e8e905565d64bf605a045",
+    "raw/full/selected/maps-call-01.npz": "fbd1992c44bebadc9f01427d3defbaf99ccc7cfe00aded9b6a70c3e561c534b2",
+    "raw/full/selected/maps-call-36.npz": "1cd2ff8bffb8b3aeeca9326e5be658b295bfdfd44d0ab782fc3b39798c00c371",
+    "raw/full/selected/maps-call-72.npz": "9e52eafeefd39b89d0ea381999b2ad7874df8c4c53515815148b4e2f404496b5",
+    "raw/latent_full/epoch70/EVAL_COMPLETE": "37a40f08d8548dba289b9b0bb35bcf63b359f6d37ee86044ebc6b6da080b9ec1",
+    "raw/latent_full/epoch70/heldout.json": "1ded59f95c86eb6d95a29987cb1803f1dcb7058d4c075bbf1e162be9273b546a",
+    "raw/latent_full/epoch70/map-metadata.json": "872e09b13cb4787c3f613ba8231cfd8667466850a9277d0e64c720b6214d483a",
+    "raw/latent_full/epoch70/maps-call-01.npz": "7c573d0df748c479f398fe4c301ce390a5e4eea7e7ae7652b584c640fc3f30a6",
+    "raw/latent_full/epoch70/maps-call-36.npz": "f6e1dd24bb1e87f98d0928ec2e82536351c4ee8810dde93ed5510587db0764fb",
+    "raw/latent_full/epoch70/maps-call-72.npz": "30116825b57d2471ea12218186894b1376057ce682d3bc94b4e0e1ba06de9e21",
+    "raw/latent_full/selected/EVAL_COMPLETE": "37a40f08d8548dba289b9b0bb35bcf63b359f6d37ee86044ebc6b6da080b9ec1",
+    "raw/latent_full/selected/heldout.json": "6a5239cc3754e5053c5b76f9b249fdbeeb8e669c1e3a738380b9e64f7b97fb0a",
+    "raw/latent_full/selected/map-metadata.json": "75af5cc4f4f3e919557b2709af3e4f268e138821d49e8e905565d64bf605a045",
+    "raw/latent_full/selected/maps-call-01.npz": "57a249e516d12d0dc917b32ae635cde6ccf869ae3d9e163fdfd81570adca847c",
+    "raw/latent_full/selected/maps-call-36.npz": "9b12e2fd9e626494dd1f143c523d4547d94a8d5ec217ee6851e2a91ed5816606",
+    "raw/latent_full/selected/maps-call-72.npz": "e07da2c8ef8cf34106a03e0961d62ebd838d8ee2a9cda332070f94a5e2fec387",
+    "raw/latent_only/epoch70/EVAL_COMPLETE": "37a40f08d8548dba289b9b0bb35bcf63b359f6d37ee86044ebc6b6da080b9ec1",
+    "raw/latent_only/epoch70/heldout.json": "ab5bc4127a934cac4828c4d710e569e534120871e929f17c03ccf266be2cc14b",
+    "raw/latent_only/epoch70/map-metadata.json": "872e09b13cb4787c3f613ba8231cfd8667466850a9277d0e64c720b6214d483a",
+    "raw/latent_only/epoch70/maps-call-01.npz": "5abd68e938d614bdd8ea7e744d24f3fe07a52fef63d1956b6f08072d231cb0df",
+    "raw/latent_only/epoch70/maps-call-36.npz": "d933c8fcc8bcf774c79c95eb3152635f60e210379b37adff4d013a995357dc3c",
+    "raw/latent_only/epoch70/maps-call-72.npz": "b55e43b8b36b0646a1506ace9beba985411a0ad3c15de99946ca678a2be8cc97",
+    "raw/latent_only/selected/EVAL_COMPLETE": "37a40f08d8548dba289b9b0bb35bcf63b359f6d37ee86044ebc6b6da080b9ec1",
+    "raw/latent_only/selected/heldout.json": "cffda2cff75b864f176ae0b8cfcdfada636c19a2324f1f7541cf466beef9f8ba",
+    "raw/latent_only/selected/map-metadata.json": "75af5cc4f4f3e919557b2709af3e4f268e138821d49e8e905565d64bf605a045",
+    "raw/latent_only/selected/maps-call-01.npz": "d6ae21d7ee99a2d4852c6ae260c952783c8ca451e5d76b6df42678a273cd603d",
+    "raw/latent_only/selected/maps-call-36.npz": "98adca29e6f0533f5122fa5b04f3189d1899185b7b009e17d3801cb621636489",
+    "raw/latent_only/selected/maps-call-72.npz": "039f39f9d40ef6b24b6f2c591406618ebce81de6a2f423caccf3667168cc913b"
+  }
+}

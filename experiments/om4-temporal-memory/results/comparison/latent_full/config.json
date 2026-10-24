@@ -1,0 +1,39 @@
+{
+  "data": "/home/jrusak/orcd/scratch/om4-temporal-memory-20261016/training-data-archive",
+  "output": "/home/jrusak/orcd/scratch/om4-temporal-memory-20261016/training/latent_full",
+  "arm": "latent_full",
+  "seed": 15,
+  "epochs": 70,
+  "microbatch": 2,
+  "batch_size": 32,
+  "workers": 4,
+  "max_seconds": 125400,
+  "smoke": false,
+  "lr": 0.0006,
+  "loss": "fixed normalized wet-cell MSE, equal channel weight",
+  "calls": 4,
+  "input_steps": 2,
+  "output_steps": 2,
+  "precision": "fp32",
+  "normalization": "batch",
+  "latent_channels": 16,
+  "checkpoint_batchnorm_replay": "running stats restored after replay",
+  "train_dates": [
+    "1975-01-03",
+    "2013-10-05"
+  ],
+  "validation_dates": [
+    "2013-10-05",
+    "2014-10-05"
+  ],
+  "initialization": "paired seed; identical physical parameters",
+  "ema_decay": 0.999,
+  "ema_faster_start": true,
+  "selection": "minimum normalized 360-day validation MSE from 2013-10-05 origin",
+  "source_data": {
+    "m2lines/cli_args": "/Users/alxmrs/git/ocean_emulators/ocean_emulators/__main__.py om4 s3://emulators/jbusecke/ocean_emulators/OM4/OM4_raw_test.zarr s3://emulators/am16581/ocean_static_no_mask_table.zarr s3://emulators/am16581/grids/ocean_hgrid.zarr s3://emulators/am16581/grids/gaussian_grid_180_by_360.zarr --output_path=s3://emulators/am16581/data/2025-11/om4_onedeg_v3/OM4.zarr --skip_spatial_filtering --skip_validation --cluster=coiled --n_workers=40 --wait_for_workers=True",
+    "m2lines/date_created": "2025-11-26T12:51:52.411906",
+    "m2lines/ocean_emulators_git_hash": "https://github.com/m2lines/ocean_emulators/commit/680fccb0fa9804476be53b1b5b9e726faacb5538",
+    "regrid_method": "conservative"
+  }
+}

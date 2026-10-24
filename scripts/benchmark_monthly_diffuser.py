@@ -42,6 +42,8 @@ def main():
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--variant", choices=VARIANTS, required=True)
     parser.add_argument("--measured", type=int, default=3)
+    parser.add_argument("--allow-graph-breaks", action="store_true")
+    parser.add_argument("--reference-root", type=Path)
     args = parser.parse_args()
     out = args.root / args.variant
     out.mkdir(parents=True, exist_ok=True)
@@ -107,6 +109,7 @@ def main():
     monthly_latent.checkpoint = diagnostic_checkpoint
     results = dict(
         variant=args.variant,
+        fullgraph=not args.allow_graph_breaks,
         data_load=loads,
         observation=sample_path.name,
         model_window=0,
@@ -124,7 +127,9 @@ def main():
         model = MonthlyLatentOcean().cuda().train()
         if args.variant.startswith("compile-"):
             model.decoder.core.forward = torch.compile(  # type: ignore[method-assign]
-                model.decoder.core.forward, mode="default", fullgraph=True
+                model.decoder.core.forward,
+                mode="default",
+                fullgraph=not args.allow_graph_breaks,
             )
         optimizer = torch.optim.AdamW(
             model.parameters(),
@@ -178,7 +183,9 @@ def main():
             ]
         )
         after = torch.cat([p.detach().flatten().cpu() for p in model.parameters()])
-        reference_path = args.root / "baseline" / f"{source}-reference.pt"
+        reference_path = (
+            (args.reference_root or args.root) / "baseline" / f"{source}-reference.pt"
+        )
         if args.variant == "baseline":
             torch.save(
                 dict(

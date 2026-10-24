@@ -98,3 +98,11 @@ stable size with memory headroom, then requalify it when the larger processor,
 resolution, hardware, or numerical implementation changes. Checkpointing is a
 memory fallback, not another default ablation. Existing shared-ERA5 runs remain
 unchanged, and no new scientific campaign launches before reviewing them.
+
+
+The completed Beta screen favors **microbatch eight, accumulation one** for the
+current model: ~2.2× cached training throughput over microbatch one with the
+same effective batch eight, at ~54 GB allocated. Treat this as the starting
+candidate for the larger processor, with microbatch four as a lower-memory
+fallback; requalify instead of assuming its memory requirement is unchanged.
+See [performance results](diffuser-performance-2026-10-24.md#microbatch-results).

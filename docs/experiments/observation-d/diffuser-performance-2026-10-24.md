@@ -164,4 +164,51 @@ Submitted microbatch diagnostic **217212** on Beta_test (one GPU, two-hour cap),
 producer **46ee56f5d**. Artifacts:
 `beta:/projects/ny/lz1955/multiscale/jrusak/runs/monthly-microbatch-performance-20261024`.
 Remote host-authenticated callback `6cc604c3-901f-4833-bac5-67b92b4453c6`
-is monitored by `/root/diffuser_performance`. Results remain pending.
+was monitored by `/root/diffuser_performance`; all four sizes completed.
+
+## Microbatch results
+
+Job 217212 completed in **6m56s (0.1156 GPU-hours)**. All four sizes fit; no
+OOMs or failed variants. Effective batch remains eight in every row. Median
+seconds/update excludes loading, EMA, validation, and cold compilation.
+
+| Microbatch | Accumulation | OM4 seconds | OBS seconds | OM4 examples/s | OBS examples/s | Peak allocated GB (OM4 / OBS) |
+|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 8 | 2.804 | 2.826 | 2.85 | 2.83 | 11.51 / 13.42 |
+| 2 | 4 | 1.977 | 1.936 | 4.05 | 4.13 | 17.08 / 19.21 |
+| 4 | 2 | 1.436 | 1.448 | 5.57 | 5.52 | 28.20 / 30.80 |
+| 8 | 1 | 1.283 | 1.281 | 6.23 | 6.24 | 50.27 / 53.80 |
+
+**Microbatch eight is the preferred size for the present model on Beta.** It
+provides **2.18× OM4 / 2.21× OBS throughput** versus optimized microbatch one,
+with no change in effective batch. Peak allocated memory is 50.3/53.8 GB;
+maximum reserved across sources is 58.2 GB on a 197.6 GB device. This includes
+the eight cached real examples, but excludes a production EMA model and loader
+prefetch buffers. Microbatch four is a useful lower-memory fallback (~31 GB).
+
+First-update microbatch-eight loss differs by 1.23e-7 relative on OM4 and
+2.18e-8 on OBS. Gradient relative L2 differences are **0.259% / 0.239%**, and
+Adam update relative L2 differences are **1.46% / 1.70%**, compared with optimized
+microbatch one using matching per-example targets and noise. Maximum individual
+parameter differences are 1.87e-4 / 1.93e-4. This is ordinary finite-precision
+batch-kernel/reduction sensitivity at this scale, not bitwise equivalence;
+it does not establish identical long-training trajectories.
+
+Cold first OM4 updates take 38–45 seconds as new batch shapes compile. OBS
+uses those shapes and begins at 1.3–2.9 seconds depending on size. Existing
+compiler disk caches can affect cold timing. The known deterministic-padding
+graph breaks and eight-recompile-limit fallback occur at every microbatch size.
+This remains the explicitly partial-compiled baseline agreed with the user.
+
+The cohort contains eight different OM4 windows and eight different observation
+months, not eight repeats of one example. Month lengths and masks remain
+individual. Forecast leads are independently seeded per example and held fixed
+across this short timing screen; noise changes by update. Common trajectory
+length was selected for batching, so future production batching must bucket
+compatible lengths or implement explicit padding without dropping examples.
+The standalone benchmark wrapper is not yet production-loader integration.
+
+The combined defaults and microbatch eight are recommended for the next
+baseline qualification. Recheck memory/throughput for the larger Samudra-like
+processor and then choose its microbatch. No current scientific run was altered.
+All performance diagnostics together consumed **0.3281 GPU-hours**.

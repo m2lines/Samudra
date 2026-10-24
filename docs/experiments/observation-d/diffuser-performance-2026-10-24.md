@@ -241,3 +241,29 @@ These checks do not establish identical long-training trajectories.
 
 Artifacts: `beta:/projects/ny/lz1955/multiscale/jrusak/runs/shared-era5-optimized-20261024`.
 Remote callback: `dc1369af-a989-4873-ab55-0b2c432a1b2e`.
+
+### Four-GPU execution qualification
+
+The user subsequently authorized all four GPUs for shared-ERA5 production with
+**two examples per rank and global effective batch eight**. Job **217218** is
+an actual four-GPU short qualification, dependent on reference job 217213,
+using producer **a1216ce4e**. Production is still held, not launched.
+
+Rank zero prepares the same original eight examples/draws and broadcasts tensor
+payloads through NCCL. Each rank gets exactly two examples. Different trajectory
+lengths are handled inside one local DDP forward/backward; each local example
+has weight 1/2, and DDP averages four rank gradients to the original global1/8
+weight. This avoids unequal collective counts or weighting different months by
+number of groups. All four ranks' CPU/CUDA RNG states are saved; model, optimizer,
+EMA, common data/diffusion RNG, and counters retain their existing checkpoint
+contracts. Qualification also requires identical model hashes across ranks.
+
+The same frozen numerical gates compare DDP against **both** original and
+optimized single-GPU references, including fixed-noise raw/EMA validation and
+exact serialized replay. Twenty-one targeted local synthetic tests pass.
+The eventual launcher runs the main8k-plus-cooldown trajectory first and then
+qualifies/runs the independent saved4k cooldown, each using all four GPUs.
+No independent worker occupies GPU1 while a four-rank job is active.
+
+Four-rank artifacts: `beta:/projects/ny/lz1955/multiscale/jrusak/runs/shared-era5-ddp-20261024`.
+Callback: `ab7b78fd-13d9-49f0-8375-80b0525831d6`.

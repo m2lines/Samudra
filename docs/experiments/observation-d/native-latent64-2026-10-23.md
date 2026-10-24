@@ -3,6 +3,8 @@
 
 # A with 1° latent states and 64 channels
 
+> **Status: canceled.** Canceled at the user’s request on 2026-10-24: production216605 stopped after 51m52s. Qualification216604 passed, but this is not a completed scientific result. Existing fork.pt, last.pt and logs are retained. No resume or further evaluation is planned; callbacks are retired.
+
 User-authorized separate comparison with A-extend: train from scratch, seed1729,
 4,000 mixed updates (50% OM4 / 50% OBS), then 1,000 OBS-only cooldown updates.
 Effective batch eight, LR1e-4 in main training, linear cooldown to1e-6 with EMA

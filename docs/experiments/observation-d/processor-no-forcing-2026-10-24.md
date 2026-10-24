@@ -3,6 +3,8 @@
 
 # Do future forcings explain the A/E gap?
 
+> **Status: canceled.** Canceled at the user’s request on 2026-10-24: qualification217000 and production217001 were canceled while pending, before any training. Callbacks are retired. The shared-ERA5 experiment and all its cooldowns remain authorized and unchanged.
+
 Train two fresh, seed1729 models against the original A/E controls:
 
 | Model | Main phase | Cooldown | Processor forcing |

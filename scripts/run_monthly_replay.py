@@ -180,6 +180,21 @@ def main():
             forcing_proof_sha256=config["forcing_proof_sha256"],
             source_sha256=source_sha256,
         )
+    optimization = config.get("optimization")
+    if optimization is not None:
+        if (
+            not shared
+            or replay
+            or optimization
+            != dict(
+                activation_checkpointing=False,
+                compile_decoder=True,
+                fused_adamw=True,
+                microbatch=8,
+            )
+        ):
+            raise ValueError("Unqualified optimization settings")
+        protocol["optimization"] = optimization
     manifest = out / "protocol.json"
     if manifest.exists() and json.loads(manifest.read_text()) != protocol:
         raise ValueError("Frozen protocol changed")
@@ -230,7 +245,16 @@ def main():
         )
     model = MonthlyLatentOcean(**architecture).cuda()
     ema = copy.deepcopy(model).eval().requires_grad_(False)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
+    if optimization is not None:
+        for network in (model, ema):
+            network.activation_checkpointing = False
+            network.decoder.activation_checkpointing = False
+        model.decoder.core.forward = torch.compile(  # type: ignore[method-assign]
+            model.decoder.core.forward, mode="default", fullgraph=False
+        )
+    optimizer = torch.optim.AdamW(
+        model.parameters(), lr=1e-4, fused=True if optimization else None
+    )
     generator = torch.Generator(device="cuda").manual_seed(1729)
     rng = np.random.default_rng(1729)
     replay_rng = np.random.default_rng(1729001)
@@ -334,6 +358,9 @@ def main():
         optimizer.zero_grad(set_to_none=True)
         losses, lead_days, ages, components, rms = [], [], [], [], []
         started = time.monotonic()
+        sample_trace: list[str | int] = []
+        draw_trace = []
+        staged = []
         for micro in range(8):
             rng.random()  # Preserve the original task-draw stream.
             if source == "obs":
@@ -359,9 +386,39 @@ def main():
                 with torch.autocast("cuda", dtype=torch.bfloat16):
                     if entry is None:
                         sample = data.load(path)
+                        sample_trace.append(str(path))
+                        if optimization is not None:
+                            from samudra.experiments.monthly_batching import (
+                                draw_digest,
+                                prepare_observation,
+                            )
+
+                            item = prepare_observation(data, sample, generator)
+                            staged.append(item)
+                            if a.qualify:
+                                draw_trace.append(draw_digest(item))
+                            fresh_examples += 1
+                            lead_days.append(0)
+                            continue
+                        if a.qualify:
+                            from samudra.experiments.monthly_batching import (
+                                draw_digest,
+                                prepare_observation,
+                            )
+
+                            before_draw = generator.get_state()
+                            probe = prepare_observation(data, sample, generator)
+                            expected_draw_state = generator.get_state()
+                            draw_trace.append(draw_digest(probe))
+                            del probe
+                            generator.set_state(before_draw)
                         loss, pieces = observation_loss(
                             model, data, sample, "surface", generator, capture=capture
                         )
+                        if a.qualify and not torch.equal(
+                            generator.get_state(), expected_draw_state
+                        ):
+                            raise ValueError("Prepared OBS draw order differs")
                         fresh_examples += 1
                         lead_days.append(0)
                     else:
@@ -378,16 +435,70 @@ def main():
                     raise ValueError("Model data missing")
                 window_index = int(rng.integers(len(reader.windows)))
                 batch = reader.sample(window_index, "cuda")
+                sample_trace.append(window_index)
                 with torch.autocast("cuda", dtype=torch.bfloat16):
-                    if forcing_cache is not None:
-                        batch["forcing"] = model.adapt(
-                            forcing_cache.load(reader, window_index, data)
+                    atmosphere = (
+                        forcing_cache.load(reader, window_index, data)
+                        if forcing_cache is not None
+                        else None
+                    )
+                    if optimization is not None:
+                        from samudra.experiments.monthly_batching import (
+                            draw_digest,
+                            prepare_model,
                         )
+
+                        item = prepare_model(batch, generator)
+                        if atmosphere is not None:
+                            item["atmosphere"] = atmosphere
+                        staged.append(item)
+                        if a.qualify:
+                            draw_trace.append(draw_digest(item))
+                        continue
+                    if atmosphere is not None:
+                        batch["forcing"] = model.adapt(atmosphere)
+                    if a.qualify:
+                        from samudra.experiments.monthly_batching import (
+                            draw_digest,
+                            prepare_model,
+                        )
+
+                        before_draw = generator.get_state()
+                        probe = prepare_model(batch, generator)
+                        expected_draw_state = generator.get_state()
+                        draw_trace.append(draw_digest(probe))
+                        del probe
+                        generator.set_state(before_draw)
                     loss = model_loss(model, batch, "surface", generator, data.area)
+                    if a.qualify and not torch.equal(
+                        generator.get_state(), expected_draw_state
+                    ):
+                        raise ValueError("Prepared model draw order differs")
             if not torch.isfinite(loss):
                 raise ValueError("Nonfinite training loss")
             (loss / 8).backward()
             losses.append(float(loss.detach()))
+        if optimization is not None:
+            from samudra.experiments.monthly_batching import batched_loss, groups
+
+            for group in groups(staged, optimization["microbatch"]):
+                with torch.autocast("cuda", dtype=torch.bfloat16):
+                    loss, pieces, latent_rms = batched_loss(
+                        model, group, source, data.area
+                    )
+                if not torch.isfinite(loss):
+                    raise ValueError("Nonfinite batched loss")
+                (loss * (len(group) / 8)).backward()
+                losses.extend([float(loss.detach())] * len(group))
+                if source == "obs":
+                    components.extend(
+                        [
+                            {key: float(value[index]) for key, value in pieces.items()}
+                            for index in range(len(group))
+                        ]
+                    )
+                    rms.extend(latent_rms.tolist())
+            del staged
         adapter_norm = (
             sum(
                 float(p.grad.detach().float().square().sum())
@@ -423,6 +534,14 @@ def main():
             model_updates=counts["om4"] + counts["cm4"],
             seconds=time.monotonic() - started,
         )
+        if a.qualify:
+            from samudra.experiments.monthly_batching import digest_tensor
+
+            record.update(
+                sample_trace=sample_trace,
+                draw_trace=draw_trace,
+                generator_sha256=digest_tensor(generator.get_state()),
+            )
         record.update(
             {
                 f"train/{source}/loss": record["loss"],
@@ -450,7 +569,19 @@ def main():
     if a.qualify:
         # Exercise both sources and actual replay, then compare an entire
         # serialized optimizer update including pool and all random streams.
-        records = [update() for _ in range(4)]
+        records = []
+        for qualification_index in range(config.get("qualification_updates", 4)):
+            records.append(update())
+            if qualification_index == 0:
+                save(out / "first-update.pt")
+                torch.save(
+                    {
+                        name: parameter.grad.detach().cpu()
+                        for name, parameter in model.named_parameters()
+                        if parameter.grad is not None
+                    },
+                    out / "first-gradients.pt",
+                )
         if replay and replay_examples == 0:
             raise ValueError("No real observation replay was exercised")
         save(out / "serialization-source.pt")
@@ -522,6 +653,7 @@ def main():
             if end_bin != 73 or not math.isfinite(longest["loss"]):
                 raise ValueError("Long-lead replay qualification failed")
         metrics = evaluate(ema, data, validation[:1])
+        raw_metrics = evaluate(model, data, validation[:1])
         if not math.isfinite(selection_score(metrics, control, [], metric="rmse-only")):
             raise ValueError("Invalid diffusion evaluation")
         (out / "QUALIFIED.json").write_text(
@@ -531,6 +663,8 @@ def main():
                     exact_serialized_update=True,
                     initial_random_backbone_sha256=initial_hash,
                     records=records,
+                    validation_ema=metrics,
+                    validation_raw=raw_metrics,
                     replay_examples=replay_examples,
                     peak_cuda_bytes=torch.cuda.max_memory_allocated(),
                     parameters=sum(p.numel() for p in model.parameters()),

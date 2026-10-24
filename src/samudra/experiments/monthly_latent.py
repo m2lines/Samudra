@@ -78,6 +78,7 @@ class WindowDecoder(nn.Module):
     def __init__(self, latent_width=128, width=192):
         super().__init__()
         # Two latent memory slots, support masks, log duration and position.
+        self.activation_checkpointing = True
         self.core = JointInteriorDecoder(2 * latent_width + 77 + 2, 77, width, 0.5)
 
     def condition(self, latent, support, duration_days, position_days):
@@ -117,7 +118,7 @@ class WindowDecoder(nn.Module):
             checkpoint(
                 self.core, noisy, sigma, conditioning, support, use_reentrant=False
             )
-            if self.training
+            if self.training and self.activation_checkpointing
             else self.core(noisy, sigma, conditioning, support)
         )
         weights = support * area
@@ -167,6 +168,7 @@ class MonthlyLatentOcean(nn.Module):
     ):
         super().__init__()
         self.history, self.shape = history, shape
+        self.activation_checkpointing = True
         self.latent_width = latent_width
         if latent_stride not in (1, 2, 4) or any(s % latent_stride for s in shape):
             raise ValueError("Latent stride must divide the physical grid")
@@ -210,7 +212,7 @@ class MonthlyLatentOcean(nn.Module):
         )
         latent = (
             checkpoint(self.initializer, inputs, use_reentrant=False)
-            if self.training
+            if self.training and self.activation_checkpointing
             else self.initializer(inputs)
         )
         latent = F.avg_pool2d(latent, self.latent_stride)

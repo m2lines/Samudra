@@ -7,9 +7,9 @@ SPDX-License-Identifier: CC-BY-4.0
 
 This diagnostic measures training speed outside the processor. It does not change
 any scientific run or promote its disposable weights. Beta_test job **217084**
-uses one GPU, a two-hour cap, and producer **921025144**. Five eager variants completed; compiled variants failed full-graph tracing and
-are being retried with explicitly permitted graph breaks in job **217194**,
-producer **ac1d1b4c0**. Original failures are preserved.
+uses one GPU, a two-hour cap, and producer **921025144**. All seven comparisons are complete. Compiled variants failed full-graph tracing;
+job **217194**, producer **ac1d1b4c0**, completed both with explicitly permitted
+graph breaks. Original failures are preserved.
 
 ## Comparisons
 
@@ -92,3 +92,50 @@ model-training failure. Recovery keeps deterministic settings and permits graph
 breaks; it measures the actual partially compiled implementation rather than
 silently claiming full compilation. Recovery callback:
 `d27bc2c1-911d-4967-8d8d-3f08afbad65d`, job 217194.
+
+## Compilation results and recommendation
+
+Recovery job 217194 completed in 3m54s. Both sources and variants have complete
+metric artifacts. Total diagnostic allocation across both jobs: **12m45s =
+0.2125 GPU-hours**. Login and compute-node callback checks succeeded.
+
+| Variant | OM4 seconds | OBS seconds | OM4 GB | OBS GB |
+|---|---:|---:|---:|---:|
+| Partially compiled decoder, checkpoints on | 3.224 | 3.220 | 3.70 | 4.45 |
+| Partially compiled decoder, decoder checkpoint off | 2.826 | 2.902 | 5.57 | 6.77 |
+
+The combined treatment reduced cached update time **21.3% OM4 / 20.4% OBS**
+relative to the original baseline. Relative to simply disabling decoder
+checkpointing, its incremental reductions were **14.2% / 14.4%**. These short
+measurements ran in a different allocation from the eager baseline, without
+randomized order or repetitions; treat percentages as screening estimates.
+
+This is **partial compilation**, not a fully compiled denoiser: deterministic
+replicate padding creates graph breaks, and the resumed convolution frame hit
+Dynamo's eight-recompile limit and falls back to eager for further variants.
+All raw graph-break/recompile logs and counters are retained. No unsupported
+operation was silently removed and deterministic settings stayed enabled.
+
+The first compiled OM4 update took **39.50s** versus the eager baseline's
+5.34s. With the measured warmed savings, that extra cold cost would amortize
+in roughly **90 OM4 updates**. OBS reused already compiled shapes. The second
+compile variant's 9.36s cold update benefited from persistent compiler caches;
+it is not an independent fresh-compilation measurement. For 50/50 mixed
+updates, the first variant's rough amortization is also under 100 updates,
+excluding loader/validation effects and future shape recompilations.
+
+Compilation changed first-update numerics: loss relative errors 4.1e-8 OM4 /
+1.6e-7 OBS; gradient relative L2 errors **0.171% / 0.175%**; Adam update relative
+L2 errors **2.08% / 2.70%**. Maximum individual parameter differences reached
+approximately **2e-4**, reflecting near-zero gradient sign differences amplified
+by Adam's first step. These pass the loose screening thresholds but are **not
+bitwise or scientifically demonstrated equivalent**. Do not silently apply
+compilation to an in-progress matched experiment.
+
+Recommended next implementation is optional activation-checkpoint disabling
+with default unchanged: it provided exact agreement here and a useful speedup
+at modest absolute GPU memory. Compilation is a plausible additional gain, but
+needs clean padding graph capture and a matched short learning-curve check
+before scientific adoption. Fused AdamW is low priority. Re-test memory with
+the planned larger processor; these peaks describe the current small processor.
+No optimizations have been applied to shared-ERA5 or other scientific runs.

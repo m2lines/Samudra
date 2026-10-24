@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+mod s3;
+
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use anyhow::{Context, bail};
@@ -167,6 +169,18 @@ impl FlatOm4Reader {
             FilesystemStore::new(&path)
                 .with_context(|| format!("opening local Zarr store {}", path.display()))?,
         );
+        Self::open_store(path, variables, thread_pool, store)
+    }
+
+    fn open_store(
+        path: PathBuf,
+        variables: Vec<String>,
+        thread_pool: Arc<ThreadPool>,
+        store: ReadableWritableListableStorage,
+    ) -> anyhow::Result<Self> {
+        if variables.is_empty() {
+            bail!("at least one variable is required");
+        }
         let mut arrays = HashMap::with_capacity(variables.len());
         let mut common_shape = None;
 
@@ -319,6 +333,30 @@ impl FlatOm4Reader {
 // adjacent impl above: they accept native buffers and return anyhow::Result.
 #[pymethods]
 impl FlatOm4Reader {
+    #[staticmethod]
+    #[pyo3(signature = (bucket, prefix, variables, read_pool, *, endpoint=None, anon=false))]
+    fn from_s3(
+        py: Python<'_>,
+        bucket: String,
+        prefix: String,
+        variables: Vec<String>,
+        read_pool: PyRef<'_, ZarrReadPool>,
+        endpoint: Option<String>,
+        anon: bool,
+    ) -> PyResult<Self> {
+        let pool = read_pool.thread_pool.clone();
+        py.allow_threads(|| {
+            let store = s3::open(&bucket, &prefix, endpoint.as_deref(), anon)?;
+            Self::open_store(
+                PathBuf::from(format!("s3://{bucket}/{prefix}")),
+                variables,
+                pool,
+                store,
+            )
+        })
+        .map_err(python_error)
+    }
+
     #[new]
     fn new(
         py: Python<'_>,
@@ -478,6 +516,18 @@ impl CompactOm4Reader {
             FilesystemStore::new(&path)
                 .with_context(|| format!("opening local Zarr store {}", path.display()))?,
         );
+        Self::open_store(path, variable_selectors, thread_pool, store)
+    }
+
+    fn open_store(
+        path: PathBuf,
+        variable_selectors: Vec<(String, Option<u64>)>,
+        thread_pool: Arc<ThreadPool>,
+        store: ReadableWritableListableStorage,
+    ) -> anyhow::Result<Self> {
+        if variable_selectors.is_empty() {
+            bail!("at least one variable is required");
+        }
         let mut physical_arrays: HashMap<String, Arc<OpenArray>> = HashMap::new();
         let mut variables = HashMap::with_capacity(variable_selectors.len());
         let mut common_shape = None;
@@ -704,6 +754,30 @@ impl CompactOm4Reader {
 // Python bindings; Rust-only helpers above are intentionally not exported.
 #[pymethods]
 impl CompactOm4Reader {
+    #[staticmethod]
+    #[pyo3(signature = (bucket, prefix, variable_selectors, read_pool, *, endpoint=None, anon=false))]
+    fn from_s3(
+        py: Python<'_>,
+        bucket: String,
+        prefix: String,
+        variable_selectors: Vec<(String, Option<u64>)>,
+        read_pool: PyRef<'_, ZarrReadPool>,
+        endpoint: Option<String>,
+        anon: bool,
+    ) -> PyResult<Self> {
+        let pool = read_pool.thread_pool.clone();
+        py.allow_threads(|| {
+            let store = s3::open(&bucket, &prefix, endpoint.as_deref(), anon)?;
+            Self::open_store(
+                PathBuf::from(format!("s3://{bucket}/{prefix}")),
+                variable_selectors,
+                pool,
+                store,
+            )
+        })
+        .map_err(python_error)
+    }
+
     #[new]
     fn new(
         py: Python<'_>,

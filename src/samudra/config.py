@@ -431,7 +431,7 @@ class GpuDataLoadingConfig(BaseConfig):
 
 
 class RustDataLoadingConfig(BaseConfig):
-    """Configuration for the local Rust Zarr data loader."""
+    """Configuration for the local and S3 Rust Zarr data loader."""
 
     type: Literal["rust"] = "rust"
     max_concurrent_reads: int = Field(

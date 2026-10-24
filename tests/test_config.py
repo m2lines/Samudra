@@ -134,13 +134,17 @@ def test_rust_loading_requires_positive_bounds(field):
         RustDataLoadingConfig.model_validate({field: 0})
 
 
-def test_rust_loading_rejects_non_local_locations_before_open(tmp_path):
+def test_rust_loading_accepts_s3_locations_without_opening(tmp_path):
     source = om4_source_config()
-    source.data_location = S3Location(bucket="example", path="data.zarr")
-    cfg = DataConfig(sources=[source], loading=RustDataLoadingConfig())
-
-    with pytest.raises(ValueError, match="requires local data"):
-        cfg.build(LocalLocation(path=tmp_path), include_inference=False)
+    source.boundary_vars_key = "tau_hfds"
+    backend = RustDataLoadingConfig().build_source_backend()
+    backend.validate_source(
+        data_location=S3Location(bucket="example", path="data.zarr"),
+        means_location=S3Location(bucket="example", path="means.zarr"),
+        stds_location=LocalLocation(path=tmp_path / "stds.zarr"),
+        source_type="om4",
+        data_layout=source.build_layout(),
+    )
 
 
 def test_data_config_output_steps_default_and_override():

@@ -7,11 +7,11 @@
 import importlib
 from collections.abc import Sequence
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 
 from samudra.constants import CanonicalPlanes
 from samudra.native_reader import PhysicalVariable, PlaneReader
+from samudra.utils.location import LocalLocation, S3Location
 
 
 def _load_extension() -> Any:
@@ -54,17 +54,28 @@ class RustIoRuntime:
     def __init__(self, max_concurrent_reads: int) -> None:
         self._read_pool = _load_extension().ZarrReadPool(max_concurrent_reads)
 
-    def open(self, path: Path, variables: Sequence[PhysicalVariable]) -> PlaneReader:
+    def open(
+        self,
+        location: LocalLocation | S3Location,
+        variables: Sequence[PhysicalVariable],
+    ) -> PlaneReader:
         extension = _load_extension()
         compact = any(variable.level is not None for variable in variables)
+        cls = extension.CompactOm4Reader if compact else extension.FlatOm4Reader
+        selectors: list[tuple[str, int | None]] | list[str]
         if compact:
-            reader = extension.CompactOm4Reader(
-                path,
-                [(variable.name, variable.level) for variable in variables],
+            selectors = [(variable.name, variable.level) for variable in variables]
+        else:
+            selectors = [variable.name for variable in variables]
+        if isinstance(location, S3Location):
+            reader = cls.from_s3(
+                location.bucket,
+                location.path,
+                selectors,
                 self._read_pool,
+                endpoint=location.endpoint_url,
+                anon=location.anon,
             )
         else:
-            reader = extension.FlatOm4Reader(
-                path, [variable.name for variable in variables], self._read_pool
-            )
+            reader = cls(location.path, selectors, self._read_pool)
         return _RustPlaneReader(reader, compact)

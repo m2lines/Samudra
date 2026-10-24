@@ -139,3 +139,23 @@ needs clean padding graph capture and a matched short learning-curve check
 before scientific adoption. Fused AdamW is low priority. Re-test memory with
 the planned larger processor; these peaks describe the current small processor.
 No optimizations have been applied to shared-ERA5 or other scientific runs.
+
+## Follow-up: genuine microbatches (approved)
+
+The user adopted checkpointing off + compiled denoising + fused AdamW as future
+baseline defaults. The follow-up only selects microbatch size 1/2/4/8 with
+accumulation 8/4/2/1, holding effective batch eight fixed. It uses eight distinct
+real months per source, selected to have a common trajectory length. Each
+retains its own calendar weights, duration, lead target, and support masks.
+The benchmark-specific loss computes per-example normalized errors before
+averaging, matching the single-example objective. Independent per-example/task
+noise streams are identical across microbatch variants; this changes random
+stream ordering relative to production, but not the noise distribution. A tiny
+synthetic test checks the batched denoising loss against the original decoder
+loss for different masks, durations, and forecast positions.
+
+First-update gradients and parameters will be compared to optimized
+microbatch-one. This measures numerical effects of batching, not equivalence
+to the original uncompiled implementation. Data are cached before timing;
+loading, EMA, and validation are excluded. Compilation cold-start time is
+separate. All updates and weights remain disposable.

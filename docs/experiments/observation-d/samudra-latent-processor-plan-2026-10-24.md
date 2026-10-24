@@ -86,3 +86,15 @@ accurate interior structure.
 Treat one-seed differences as screening evidence. Replicate the promising
 contrast before claiming a model-data benefit. The completed shared-ERA5 study
 will determine whether decoder/forcing issues need fixing before this launch.
+
+## Performance defaults and microbatch qualification
+
+For future runs, use activation checkpointing **off**, compiled denoising, and
+fused AdamW as the agreed baseline. The current compilation is partial because
+of deterministic padding graph breaks; retain that known numerical caveat.
+A short real-data microbatch screen will compare 1/2/4/8 examples per device
+while keeping effective batch eight through accumulation. Choose the fastest
+stable size with memory headroom, then requalify it when the larger processor,
+resolution, hardware, or numerical implementation changes. Checkpointing is a
+memory fallback, not another default ablation. Existing shared-ERA5 runs remain
+unchanged, and no new scientific campaign launches before reviewing them.

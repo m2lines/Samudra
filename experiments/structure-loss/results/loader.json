@@ -1,0 +1,30 @@
+[
+  {
+    "workers": 4,
+    "concurrent": true,
+    "seconds": 25.67953325016424,
+    "steady_seconds_per_sample": 1.3733477622736245,
+    "identical": true
+  },
+  {
+    "workers": 4,
+    "concurrent": false,
+    "seconds": 28.540461495984346,
+    "steady_seconds_per_sample": 1.6013944141450338,
+    "identical": true
+  },
+  {
+    "workers": 8,
+    "concurrent": false,
+    "seconds": 20.508207948878407,
+    "steady_seconds_per_sample": 0.8385579276364297,
+    "identical": true
+  },
+  {
+    "workers": 8,
+    "concurrent": true,
+    "seconds": 16.969730546697974,
+    "steady_seconds_per_sample": 0.831269791466184,
+    "identical": true
+  }
+]

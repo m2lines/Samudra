@@ -1409,7 +1409,14 @@ class GradientLossConfig(pydantic.BaseModel):
     )
 
 
-Loss = LossMetric | DynamicLossConfig | GradientLossConfig
+class StructureLossConfig(pydantic.BaseModel):
+    type: Literal["structure"] = "structure"
+    kind: Literal["local", "curvature", "horizontal"]
+    coefficient: float = Field(default=0.1, ge=0)
+    weights_path: str | None = None
+
+
+Loss = LossMetric | DynamicLossConfig | GradientLossConfig | StructureLossConfig
 
 
 def build_loss_fn(
@@ -1419,6 +1426,9 @@ def build_loss_fn(
     pad_mode: str,
 ) -> LossFnWithContext:
     match loss_cfg:
+        case StructureLossConfig(kind=kind, coefficient=coefficient, weights_path=weights_path):
+            from samudra.utils.structure_loss import StructureLoss
+            return StructureLoss(kind, coefficient, weights_path)
         case str():
             return loss_fn_from_metric(loss_cfg)
         case DynamicLossConfig(metric=metric, limit=limit):

@@ -1,0 +1,16 @@
+[
+  {
+    "workers": 8,
+    "concurrent": true,
+    "seconds": 30.323346786201,
+    "steady_seconds_per_sample": 0.7830387173744384,
+    "identical": true
+  },
+  {
+    "workers": 16,
+    "concurrent": true,
+    "seconds": 27.97346414020285,
+    "steady_seconds_per_sample": 0.7612696338619571,
+    "identical": true
+  }
+]

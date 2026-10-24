@@ -94,3 +94,26 @@ def test_observation_preparation_preserves_rng_and_masked_objective():
     assert torch.equal(expected_rng, generator.get_state())
     actual, _, _ = batched_loss(model, [item], "obs", data.area)
     torch.testing.assert_close(actual, expected, rtol=1e-6, atol=1e-6)
+
+
+def test_ddp_local_weighting_is_equal_two_examples_with_unequal_lengths():
+    from samudra.experiments.monthly_distributed import UpdateLoss
+
+    torch.set_num_threads(1)
+    torch.manual_seed(33)
+    model = MonthlyLatentOcean(8, 8, (16, 32), history=19, encoder_width=8).eval()
+    items = []
+    for length in (2, 3):
+        batch = dict(
+            fields=torch.randn(1, 19 + length, 77, 16, 32),
+            forcing=torch.randn(1, 19 + length, 3, 16, 32),
+            contexts=torch.randn(1, 19 + length, 5, 16, 32),
+            mask=torch.ones(77, 16, 32, dtype=torch.bool),
+            weights=torch.ones(length) / length,
+            duration=float(5 * length),
+        )
+        items.append(prepare_model(batch, torch.Generator().manual_seed(length)))
+    area = torch.ones(16, 32)
+    expected = sum(batched_loss(model, [item], "om4", area)[0] for item in items) / 2
+    actual, _, _ = UpdateLoss(model)(items, "om4", area)
+    torch.testing.assert_close(actual, expected, rtol=0, atol=0)

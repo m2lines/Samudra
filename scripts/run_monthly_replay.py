@@ -14,10 +14,11 @@ from pathlib import Path
 import numpy as np
 import torch
 
+from samudra.experiments.monthly_distributed import DistributedUpdate
 from samudra.experiments.monthly_latent import MonthlyLatentOcean
 from samudra.experiments.monthly_model_data import ModelMonths, model_loss, task_source
 from samudra.experiments.monthly_pilot_data import observation_loss
-from samudra.experiments.monthly_pilot_evaluation import evaluate
+from samudra.experiments.monthly_pilot_evaluation import evaluate as evaluate_local
 from samudra.experiments.monthly_replay import (
     ReplayIntervals,
     ReplayPool,
@@ -81,6 +82,11 @@ def phase_settings(step, mode, arm, fork_step=None):
 
 
 def main():
+    runtime = DistributedUpdate()
+
+    def evaluate(*args, **kwargs):
+        return runtime.evaluate(evaluate_local, *args, **kwargs)
+
     p = argparse.ArgumentParser()
     p.add_argument("--root", type=Path, required=True)
     p.add_argument("--name", required=True)
@@ -190,15 +196,22 @@ def main():
                 activation_checkpointing=False,
                 compile_decoder=True,
                 fused_adamw=True,
-                microbatch=8,
+                microbatch=2 if runtime.world == 4 else 8,
             )
         ):
             raise ValueError("Unqualified optimization settings")
         protocol["optimization"] = optimization
+    if runtime.world > 1:
+        if optimization is None:
+            raise ValueError("DDP requires qualified optimized batching")
+        protocol["distributed"] = dict(
+            world_size=4, local_examples=2, effective_batch=8
+        )
     manifest = out / "protocol.json"
     if manifest.exists() and json.loads(manifest.read_text()) != protocol:
         raise ValueError("Frozen protocol changed")
-    manifest.write_text(json.dumps(protocol, indent=2) + "\n")
+    runtime.write(manifest, json.dumps(protocol, indent=2) + "\n")
+    runtime.barrier()
     if not a.qualify:
         proof = json.loads(
             (a.root / "qualification" / a.name / "QUALIFIED.json").read_text()
@@ -255,6 +268,7 @@ def main():
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=1e-4, fused=True if optimization else None
     )
+    distributed_loss = runtime.wrap(model)
     generator = torch.Generator(device="cuda").manual_seed(1729)
     rng = np.random.default_rng(1729)
     replay_rng = np.random.default_rng(1729001)
@@ -276,8 +290,13 @@ def main():
         optimizer.load_state_dict(saved["optimizer"])
         generator.set_state(saved["generator"].cpu())
         rng.bit_generator.state = saved["rng"]
-        torch.set_rng_state(saved["cpu_rng"].cpu())
-        torch.cuda.set_rng_state_all([v.cpu() for v in saved["cuda_rng"]])
+        if runtime.world > 1 and "distributed_rng" in saved:
+            rank_rng = saved["distributed_rng"][runtime.rank]
+            torch.set_rng_state(rank_rng["cpu"].cpu())
+            torch.cuda.set_rng_state(rank_rng["cuda"].cpu())
+        else:
+            torch.set_rng_state(saved["cpu_rng"].cpu())
+            torch.cuda.set_rng_state(saved["cuda_rng"][0].cpu())
         step, counts = saved["step"], saved["counts"]
         if not continuation:
             best = saved["best"]
@@ -324,26 +343,31 @@ def main():
     end = main_end + 1000
 
     def save(path):
-        atomic_save(
-            dict(
-                protocol=protocol,
-                model=model.state_dict(),
-                ema=ema.state_dict(),
-                optimizer=optimizer.state_dict(),
-                generator=generator.get_state(),
-                rng=rng.bit_generator.state,
-                replay_rng=replay_rng.bit_generator.state,
-                replay_pool=pool.state_dict(),
-                cpu_rng=torch.get_rng_state(),
-                cuda_rng=torch.cuda.get_rng_state_all(),
-                step=step,
-                best=best,
-                counts=counts,
-                replay_examples=replay_examples,
-                fresh_examples=fresh_examples,
-            ),
-            path,
-        )
+        distributed_rng = runtime.rng_states()
+        if runtime.rank == 0:
+            atomic_save(
+                dict(
+                    protocol=protocol,
+                    model=model.state_dict(),
+                    ema=ema.state_dict(),
+                    optimizer=optimizer.state_dict(),
+                    generator=generator.get_state(),
+                    rng=rng.bit_generator.state,
+                    replay_rng=replay_rng.bit_generator.state,
+                    replay_pool=pool.state_dict(),
+                    cpu_rng=torch.get_rng_state(),
+                    cuda_rng=[torch.cuda.get_rng_state()],
+                    distributed_rng=distributed_rng,
+                    step=step,
+                    best=best,
+                    counts=counts,
+                    replay_examples=replay_examples,
+                    fresh_examples=fresh_examples,
+                ),
+                path,
+            )
+
+        runtime.barrier()
 
     def update():
         nonlocal step, replay_examples, fresh_examples
@@ -361,7 +385,7 @@ def main():
         sample_trace: list[str | int] = []
         draw_trace = []
         staged = []
-        for micro in range(8):
+        for micro in range(8 if runtime.rank == 0 else 0):
             rng.random()  # Preserve the original task-draw stream.
             if source == "obs":
                 path = train[int(rng.integers(len(train)))]
@@ -478,7 +502,44 @@ def main():
                 raise ValueError("Nonfinite training loss")
             (loss / 8).backward()
             losses.append(float(loss.detach()))
-        if optimization is not None:
+        if runtime.world > 1:
+            staged = runtime.prepared(staged if runtime.rank == 0 else None)
+            metadata = runtime.share(
+                dict(
+                    sample_trace=sample_trace,
+                    draw_trace=draw_trace,
+                    generator=generator.get_state(),
+                    rng=rng.bit_generator.state,
+                    fresh_examples=fresh_examples,
+                    lead_days=lead_days,
+                )
+                if runtime.rank == 0
+                else None
+            )
+            sample_trace, draw_trace = metadata["sample_trace"], metadata["draw_trace"]
+            generator.set_state(metadata["generator"].cpu())
+            rng.bit_generator.state = metadata["rng"]
+            fresh_examples, lead_days = (
+                metadata["fresh_examples"],
+                metadata["lead_days"],
+            )
+            local_items = staged[2 * runtime.rank : 2 * runtime.rank + 2]
+            with torch.autocast("cuda", dtype=torch.bfloat16):
+                loss, local_pieces, local_rms = distributed_loss(
+                    local_items, source, data.area
+                )
+            if not torch.isfinite(loss):
+                raise ValueError("Nonfinite distributed loss")
+            loss.backward()
+            summaries = runtime.gather(
+                dict(loss=float(loss.detach()), pieces=local_pieces, rms=local_rms)
+            )
+            losses = [entry["loss"] for entry in summaries]
+            if source == "obs":
+                components = [piece for entry in summaries for piece in entry["pieces"]]
+                rms = [value for entry in summaries for value in entry["rms"]]
+            del staged, local_items
+        elif optimization is not None:
             from samudra.experiments.monthly_batching import batched_loss, groups
 
             for group in groups(staged, optimization["microbatch"]):
@@ -574,14 +635,15 @@ def main():
             records.append(update())
             if qualification_index == 0:
                 save(out / "first-update.pt")
-                torch.save(
-                    {
-                        name: parameter.grad.detach().cpu()
-                        for name, parameter in model.named_parameters()
-                        if parameter.grad is not None
-                    },
-                    out / "first-gradients.pt",
-                )
+                if runtime.rank == 0:
+                    torch.save(
+                        {
+                            name: parameter.grad.detach().cpu()
+                            for name, parameter in model.named_parameters()
+                            if parameter.grad is not None
+                        },
+                        out / "first-gradients.pt",
+                    )
         if replay and replay_examples == 0:
             raise ValueError("No real observation replay was exercised")
         save(out / "serialization-source.pt")
@@ -656,7 +718,16 @@ def main():
         raw_metrics = evaluate(model, data, validation[:1])
         if not math.isfinite(selection_score(metrics, control, [], metric="rmse-only")):
             raise ValueError("Invalid diffusion evaluation")
-        (out / "QUALIFIED.json").write_text(
+        final_hash = hashlib.sha256()
+        for name, value in model.state_dict().items():
+            final_hash.update(name.encode())
+            final_hash.update(value.detach().cpu().numpy().tobytes())
+        rank_hashes = runtime.gather(final_hash.hexdigest())
+        if len(set(rank_hashes)) != 1:
+            raise ValueError("Distributed model weights differ across ranks")
+        peak_cuda_bytes = max(runtime.gather(torch.cuda.max_memory_allocated()))
+        runtime.write(
+            out / "QUALIFIED.json",
             json.dumps(
                 dict(
                     protocol=protocol,
@@ -666,7 +737,8 @@ def main():
                     validation_ema=metrics,
                     validation_raw=raw_metrics,
                     replay_examples=replay_examples,
-                    peak_cuda_bytes=torch.cuda.max_memory_allocated(),
+                    peak_cuda_bytes=peak_cuda_bytes,
+                    rank_model_hashes=rank_hashes,
                     parameters=sum(p.numel() for p in model.parameters()),
                     latent_shape=list(model.latent_shape),
                     latent_width=model.latent_width,
@@ -676,25 +748,27 @@ def main():
                 ),
                 indent=2,
             )
-            + "\n"
+            + "\n",
         )
         return
     import wandb
 
-    run = wandb.init(
-        entity="ocean_emulators",
-        project="observational-transfer",
-        name="monthly-" + a.name,
-        id=hashlib.sha256(str(out).encode()).hexdigest()[:12],
-        resume="allow",
-        dir=str(out),
-        mode="online",
-        config=protocol,
-    )
-    if not run.url:
-        raise ValueError("No online W&B URL")
-    (out / "wandb-url.txt").write_text(run.url + "\n")
-    print(json.dumps(dict(wandb_url=run.url, step=step)), flush=True)
+    run = None
+    if runtime.rank == 0:
+        run = wandb.init(
+            entity="ocean_emulators",
+            project="observational-transfer",
+            name="monthly-" + a.name,
+            id=hashlib.sha256(str(out).encode()).hexdigest()[:12],
+            resume="allow",
+            dir=str(out),
+            mode="online",
+            config=protocol,
+        )
+        if not run.url:
+            raise ValueError("No online W&B URL")
+        (out / "wandb-url.txt").write_text(run.url + "\n")
+        print(json.dumps(dict(wandb_url=run.url, step=step)), flush=True)
     if step == (0 if fresh else 2000):
         save(out / "fork.pt")
     while step < end:
@@ -710,8 +784,9 @@ def main():
             )
             value = selection_score(metrics, control, [], metric="rmse-only")
             record["validation_rmse_blend"] = value
-            (out / f"validation-{step:05d}.json").write_text(
-                json.dumps(metrics, indent=2) + "\n"
+            runtime.write(
+                out / f"validation-{step:05d}.json",
+                json.dumps(metrics, indent=2) + "\n",
             )
             if value < best:
                 best = value
@@ -724,8 +799,9 @@ def main():
                 record["validation_raw_rmse_blend"] = selection_score(
                     raw, control, [], metric="rmse-only"
                 )
-                (out / f"validation-raw-{step:05d}.json").write_text(
-                    json.dumps(raw, indent=2) + "\n"
+                runtime.write(
+                    out / f"validation-raw-{step:05d}.json",
+                    json.dumps(raw, indent=2) + "\n",
                 )
                 if endpoint:
                     save(out / f"endpoint-{step:05d}.pt")
@@ -734,12 +810,15 @@ def main():
             save(out / f"endpoint-{step:05d}.pt")
         if step % 50 == 0:
             save(state_path)
-        with (out / "events.jsonl").open("a") as stream:
-            stream.write(json.dumps(record) + "\n")
-        print(json.dumps(record), flush=True)
-        run.log(record, step=step)
+        if runtime.rank == 0:
+            with (out / "events.jsonl").open("a") as stream:
+                stream.write(json.dumps(record) + "\n")
+            print(json.dumps(record), flush=True)
+            assert run is not None
+            run.log(record, step=step)
     save(state_path)
-    (out / "TRAIN_COMPLETE.json").write_text(
+    runtime.write(
+        out / "TRAIN_COMPLETE.json",
         json.dumps(
             dict(
                 producer=config["producer"],
@@ -752,9 +831,10 @@ def main():
             ),
             indent=2,
         )
-        + "\n"
+        + "\n",
     )
-    run.finish()
+    if run is not None:
+        run.finish()
 
 
 if __name__ == "__main__":

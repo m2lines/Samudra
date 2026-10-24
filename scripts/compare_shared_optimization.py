@@ -23,9 +23,16 @@ def norm_difference(left, right):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", type=Path, required=True)
+    parser.add_argument("--baseline-root", type=Path)
+    parser.add_argument("--candidate-root", type=Path)
+    parser.add_argument("--output", default="COMPARISON.json")
     args = parser.parse_args()
-    base = args.root / "baseline/qualification/A-shared-era5-8k"
-    opt = args.root / "optimized/qualification/A-shared-era5-8k"
+    base = (
+        args.baseline_root or args.root / "baseline"
+    ) / "qualification/A-shared-era5-8k"
+    opt = (
+        args.candidate_root or args.root / "optimized"
+    ) / "qualification/A-shared-era5-8k"
     left = json.loads((base / "QUALIFIED.json").read_text())
     right = json.loads((opt / "QUALIFIED.json").read_text())
     records = []
@@ -111,7 +118,7 @@ def main():
         peak_cuda_optimized=right["peak_cuda_bytes"],
         gate="exact draws; gradient<1%; update<5%; all16loss<2%; each5RMSEcomponent raw/EMA<=1%; exact serialization",
     )
-    (args.root / "COMPARISON.json").write_text(json.dumps(result, indent=2))
+    (args.root / args.output).write_text(json.dumps(result, indent=2))
     print(json.dumps(result), flush=True)
     if not passed:
         raise RuntimeError("Optimization engineering gate failed; do not promote")

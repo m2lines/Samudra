@@ -3,7 +3,8 @@
 
 # Gaussian geometry conditioning: 1 degree, seed 15
 
-Experiment/results record, not intended to merge. No scientific results yet.
+Experiment/results record, not intended to merge. All runs and evaluations are complete.
+See [results](results/RESULTS.md): no clear FiLM benefit in this single-seed pilot.
 
 Compare scratch training of the original convolutional Samudra U-Net with no
 geometry, input-concatenated geometry, and spatial FiLM after every encoder,
@@ -74,8 +75,8 @@ The batch harness runs full-shape, batch-4, four-call forward/backward CUDA
 qualification before starting DDP training. It records five compute-only timing
 samples after three warm-ups, parameter count and peak allocated memory.
 This excludes optimizer, DDP and I/O. Compare actual steady-state training batch
-and epoch times separately from this microbenchmark. Bring-up is pending queue
-allocation; CPU tests alone do not establish GPU/runtime success.
+and epoch times separately from this microbenchmark. GPU qualification and
+all training/evaluation stages have now completed successfully.
 
 ## Runtime and provenance
 
@@ -94,9 +95,9 @@ Availability on 2026-10-23: Torch's four-GPU test submission estimated a later
 start, Engaging's H200/B200 tests estimated the following day; no immediate
 alternative allocation was established. Use production Beta as requested.
 
-Durable local six-hour scheduler checks must verify accounting, training
-completion, both prediction stores and latitude/stability metrics for every arm
-before publishing a scientific comparison.
+Durable local scheduler checks verified accounting, training completion, both
+prediction stores and latitude/stability metrics for every arm. All monitoring
+registrations are now retired.
 
 Remote callback credential installation was blocked by automatic approval review.
 No remote callback is installed; local quiet polling is the active mechanism,

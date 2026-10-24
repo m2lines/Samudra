@@ -72,7 +72,10 @@ Working directory: `/scratch/jr7309/benchmarks/quarterdeg-local-s3-20261021`.
   pytest plugin import (`zarr.testing`). CPU build/test retry: 20560851, with
   explicit plugin selection.
 - Transfer and actual-data parity gate: 20560858, after successful build.
-- Matched GPU training: 20560884, after successful parity gate.
+- Initial GPU job 20560884 failed before training (26 seconds): disabled rollout
+  validation conflicted with the preset checkpoint score. Both arms now use
+  `one_step_rmse` for this unused setting; both configs revalidated on CPU.
+- Successful replacement GPU job: 20793560.
 
 CPU job 20560851 completed successfully: 28 native-extension tests and 164
 Samudra config/native-loader tests passed (11 CUDA/manual tests deselected).
@@ -85,10 +88,46 @@ normalization fields from the actual uploaded stores. No GPU allocation starts
 until build tests and full transfer verification succeed.
 
 Expected artifacts: `TRANSFER_COMPLETE.json`, `PREFLIGHT_COMPLETE.json`,
-`runs-20560884/{local,remote}/COMPLETE-rank*.json`, per-rank batch JSONL,
-GPU telemetry, and `runs-20560884/COMPARISON_COMPLETE.json`.
+`runs-20793560/{local,remote}/COMPLETE-rank*.json`, per-rank batch JSONL,
+GPU telemetry, and `runs-20793560/COMPARISON_COMPLETE.json`.
 The initially queued dependency jobs 20560539 and 20560552 were cancelled
 without GPU execution after the test-runner failure.
 
-Final throughput, data-wait distributions, matching common-prefix losses, and
-telemetry will determine the conclusion; no training result is available yet.
+## Measured results (2026-10-24)
+
+Job 20793560 completed with exit 0 in 2:03:54 on `gr103`, using eight NVIDIA
+RTX PRO 6000 Blackwell Server Edition GPUs. Both arms completed on all eight
+ranks; initialization and sampler hashes match for each corresponding rank.
+Saved configs differ only in data source and arm name. See
+`results-20793560.json` for the compact measured summary.
+
+| Metric | Local scratch | Direct OSN S3 |
+|---|---:|---:|
+| Measured seconds | 3601.46 | 3606.35 |
+| Optimizer batches | 998 | 882 |
+| Global sample windows/s | 2.217 | 1.957 |
+| Model examples/s (four rollout steps) | 8.868 | 7.826 |
+| Mean batch wall time (s) | 3.609 | 4.085 |
+| Mean exposed data wait (s) | 0.066 | 0.206 |
+| p95 exposed data wait (s) | 0.002 | 0.866 |
+| Exposed wait / batch wall time | 1.83% | 5.05% |
+| Mean measured GPU utilization | 98.31% | 95.47% |
+| Trainer startup (s) | 17.26 | 24.75 |
+
+Direct OSN achieved **88.26% of local throughput**, an **11.74% throughput
+reduction**, or about **13.31% longer for equal training work**. This supports
+using direct pod reads for this workload when avoiding local staging is worth
+that overhead. It does not establish performance for other models, concurrency,
+network conditions, or cold caches. Fixed local-first ordering and one paired
+allocation cannot separate storage effects from time-varying system load.
+
+All 380,432 uploaded files (616,603,934,184 bytes including normalization and
+metadata) passed full `rclone check --download` with zero differences. Native
+loader parity passed for all 80 physical arrays at times 0, 2372, and 4744, plus
+all normalization fields.
+
+Training losses were not bitwise identical: the common 887-batch prefix had a
+maximum absolute loss difference of 0.42715 despite matched initialization and
+samplers. No deterministic-kernel setting was enforced; this is a throughput
+comparison, not evidence of model-quality equivalence or an S3-induced numerical
+effect. No additional training runs were launched to investigate that difference.

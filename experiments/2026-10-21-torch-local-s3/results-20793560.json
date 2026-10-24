@@ -1,0 +1,83 @@
+{
+  "local": {
+    "summary": {
+      "arm": "local",
+      "rank": 0,
+      "host": "gr103.hpc.nyu.edu",
+      "job_id": "20793560",
+      "startup_seconds": 17.258665286935866,
+      "warmup_batches": 5,
+      "measured_seconds": 3601.46304895496,
+      "measured_start_unix": 1792828601.358606,
+      "measured_end_unix": 1792832202.823614,
+      "measured_batches": 998,
+      "global_sample_windows": 7984,
+      "global_model_examples": 31936,
+      "sample_windows_per_second": 2.2168768335181794,
+      "model_examples_per_second": 8.867507334072718,
+      "peak_gpu_bytes": 46293595648
+    },
+    "mean_batch_wall_seconds": 3.60867823924472,
+    "median_data_wait_seconds": 0.0016206605359911919,
+    "p95_data_wait_seconds": 0.0019528146367520094,
+    "mean_data_wait_seconds": 0.06588506670676887,
+    "data_wait_fraction": 0.0182573957384902,
+    "mean_gpu_utilization_percent": 98.30729166666667,
+    "gpu_utilization_samples": 5760,
+    "first_losses": [
+      2.8590288162231445,
+      6.937001705169678,
+      7.421077728271484,
+      2.9376165866851807,
+      2.7657370567321777,
+      2.717113494873047,
+      2.383249521255493,
+      2.454512596130371,
+      2.125164270401001,
+      2.1136560440063477
+    ]
+  },
+  "remote": {
+    "summary": {
+      "arm": "remote",
+      "rank": 0,
+      "host": "gr103.hpc.nyu.edu",
+      "job_id": "20793560",
+      "startup_seconds": 24.74633084377274,
+      "warmup_batches": 5,
+      "measured_seconds": 3606.3532222257927,
+      "measured_start_unix": 1792832327.1032124,
+      "measured_end_unix": 1792835933.4564605,
+      "measured_batches": 882,
+      "global_sample_windows": 7056,
+      "global_model_examples": 28224,
+      "sample_windows_per_second": 1.956547117047268,
+      "model_examples_per_second": 7.826188468189072,
+      "peak_gpu_bytes": 46293629952
+    },
+    "mean_batch_wall_seconds": 4.085037569546556,
+    "median_data_wait_seconds": 0.0008513431530445814,
+    "p95_data_wait_seconds": 0.8656598126748577,
+    "mean_data_wait_seconds": 0.20618058434644526,
+    "data_wait_fraction": 0.05047213907737243,
+    "mean_gpu_utilization_percent": 95.46671289875174,
+    "gpu_utilization_samples": 5768,
+    "first_losses": [
+      2.8590240478515625,
+      6.935514450073242,
+      7.40990686416626,
+      2.9399750232696533,
+      2.7631478309631348,
+      2.7213540077209473,
+      2.3646316528320312,
+      2.4267563819885254,
+      2.1278908252716064,
+      2.125096559524536
+    ]
+  },
+  "remote_over_local_throughput": 0.8825691565111586,
+  "matched_initialization_and_sampler": true,
+  "common_prefix_batches": 887,
+  "common_prefix_max_absolute_loss_difference": 0.42715024948120117,
+  "hash_provenance": "Full per-rank hashes retained in raw COMPLETE-rank*.json artifacts; equality checked across all eight ranks."
+}

@@ -104,6 +104,7 @@ def main(arm, seconds, warmup):
     cfg.gradient_accumulation_steps = 1
     cfg.steps = [4]
     cfg.rollout_validation = None
+    cfg.validation_score = "one_step_rmse"
     cfg.post_train_eval = None
     cfg.experiment.rand_seed = 20261021
     cfg.experiment.name = arm

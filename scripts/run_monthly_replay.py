@@ -58,7 +58,13 @@ def assert_exact(left, right, path="state"):
         raise ValueError("Serialized value changed: " + path)
 
 
-def phase_settings(step, mode, arm):
+def phase_settings(step, mode, arm, fork_step=None):
+    if mode == "shared-cooldown":
+        if fork_step not in (2000, 3000, 5000, 6000, 7000):
+            raise ValueError("Unauthorized cooldown checkpoint")
+        if not fork_step <= step < fork_step + 1000:
+            raise ValueError("Update outside cooldown")
+        return True, "obs", 1e-4 + (1e-6 - 1e-4) * (step - fork_step + 1) / 1000
     main = (
         8000
         if mode == "shared-8k"
@@ -83,7 +89,7 @@ def main():
     config = json.loads((a.root / "paths.json").read_text())
     row = next(r for r in config["runs"] if r["name"] == a.name)
     replay = row["mode"] == "replay"
-    shared = row["mode"] in ("shared-8k", "shared-cool4k")
+    shared = row["mode"] in ("shared-8k", "shared-cool4k", "shared-cooldown")
     fresh = replay or row["mode"] in ("fresh-2k", "fresh-4k", "shared-8k")
     architecture = row.get("architecture", {})
     if architecture not in (
@@ -96,7 +102,10 @@ def main():
     source_sha256 = digest(source_path)
     if row["sha256"] is not None and source_sha256 != row["sha256"]:
         raise ValueError("Source checkpoint changed")
-    if row["sha256"] is None and row["mode"] != "shared-cool4k":
+    if row["sha256"] is None and row["mode"] not in (
+        "shared-cool4k",
+        "shared-cooldown",
+    ):
         raise ValueError("Only an audited same-run fork may omit its advance hash")
     legacy = json.loads(Path(config["legacy_qualification"]).read_text())
     if legacy["producer"] != "1c9817d44" or not legacy["production_qualified"]:
@@ -139,7 +148,7 @@ def main():
             if row["mode"] == "shared-8k"
             else (
                 0
-                if row["mode"] == "shared-cool4k"
+                if row["mode"] in ("shared-cool4k", "shared-cooldown")
                 else (4000 if row["mode"] == "fresh-4k" else 2000)
             )
         ),
@@ -162,6 +171,9 @@ def main():
         else None,
         selection="original nine-origin monthly five-component rmse-only blend",
     )
+    if row["mode"] == "shared-cooldown":
+        phase_settings(row["fork_step"], row["mode"], row["arm"], row["fork_step"])
+        protocol["main_end"] = row["fork_step"]
     if shared:
         protocol.update(
             shared_era5=True,
@@ -255,14 +267,15 @@ def main():
     if not fresh:
         source = torch.load(source_path, map_location="cpu", weights_only=False)
         if (
-            source["step"] != (4000 if row["mode"] == "shared-cool4k" else 2000)
+            source["step"] != (protocol["main_end"] if shared else 2000)
             or source["protocol"]["arm"] != row["arm"]
             or source["protocol"]["seed"] != 1729
         ):
             raise ValueError("Source arm/step/seed differs")
-        if row["mode"] == "shared-cool4k" and (
+        if row["mode"] in ("shared-cool4k", "shared-cooldown") and (
             source["protocol"].get("shared_era5") is not True
-            or source["protocol"]["producer"] != config["producer"]
+            or source["protocol"]["producer"]
+            != row.get("source_producer", config["producer"])
             or source["protocol"]["mode"] != "shared-8k"
             or source["protocol"]["forcing_proof_sha256"]
             != config["forcing_proof_sha256"]
@@ -312,7 +325,9 @@ def main():
         nonlocal step, replay_examples, fresh_examples
         if step == main_end:
             ema.load_state_dict(model.state_dict())
-        cooldown, source, lr = phase_settings(step, row["mode"], row["arm"])
+        cooldown, source, lr = phase_settings(
+            step, row["mode"], row["arm"], row.get("fork_step")
+        )
         for group in optimizer.param_groups:
             group["lr"] = lr
         model.train()

@@ -35,3 +35,23 @@ def test_forcing_cache_uses_history_and_same_observation_scales():
     actual = cache.load(reader, 0, data)
     assert actual.shape == (1, 23, 8, 2, 3)
     np.testing.assert_allclose(actual[0, :, 0, 0, 0], (np.arange(23) - 2) / 3)
+
+
+@pytest.mark.parametrize("start", [2000, 3000, 5000, 6000, 7000])
+def test_extra_cooldowns_are_exactly_1000_obs_updates(start):
+    schedule = [
+        phase_settings(step, "shared-cooldown", "A", start)
+        for step in range(start, start + 1000)
+    ]
+    assert all(cool and source == "obs" for cool, source, _ in schedule)
+    assert schedule[0][2] == pytest.approx(1e-4 + (1e-6 - 1e-4) / 1000)
+    assert schedule[-1][2] == pytest.approx(1e-6)
+    for outside in (start - 1, start + 1000):
+        with pytest.raises(ValueError):
+            phase_settings(outside, "shared-cooldown", "A", start)
+
+
+def test_extra_cooldowns_do_not_duplicate_existing_branches():
+    for start in (0, 4000, 8000, None):
+        with pytest.raises(ValueError):
+            phase_settings(0, "shared-cooldown", "A", start)

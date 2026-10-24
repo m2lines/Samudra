@@ -80,6 +80,39 @@ and compression differences across the full record can change that estimate.
 The largest recorded Slurm step MaxRSS was 20,673,576 KiB (19.7 GiB), which is
 not a measurement of the sum of all worker peaks.
 
-Production **20750393** cleared its dependency automatically and is now queued
-for scheduling priority. Production results and full-record normalization remain
-pending; the pilot's normalization is not used for the final release.
+Production **20750393** cleared its dependency automatically after pilot success.
+The pilot's normalization is not used for the final release.
+
+## Full production results
+
+Production **20750393** completed with exit status **0:0** on Torch `cs782`,
+October 23 at 21:23:38 through October 24 at 03:36:51, 2026 (America/New_York),
+for **6h13m13s** total. Processing source remained
+`ab0e5e4a45dd852cfd0102a865b05d72abc35df0`.
+
+Published artifacts:
+
+- `s3://m2lines-pubs/Samudra/v2026-09/cm4_quarterdeg/CM4.zarr`
+- `s3://m2lines-pubs/Samudra/v2026-09/cm4_quarterdeg/CM4_means.zarr`
+- `s3://m2lines-pubs/Samudra/v2026-09/cm4_quarterdeg/CM4_stds.zarr`
+- `s3://m2lines-pubs/Samudra/v2026-09/cm4_quarterdeg/COMPLETE.json`
+
+The dataset contains **14,600 five-day means**, native no-leap timestamps from
+**0151-01-06 through 0351-01-01**, Gaussian **720×1440**, and **19 depths**.
+The nine physical variables represent 81 channels, including `wfo`.
+The main store occupies **1,934,981,093,312 bytes (1.935 TB)** across **131,466
+objects**, versus **4,904,697,887,536 logical bytes** (2.535× compression).
+
+Independent full read-back passed for every expected physical chunk, native
+dates and bounds, wet/dry-mask finiteness, metadata, float32/time-one/full-depth
+layout, and Blosc Zstd level 5 with byte shuffle. All **81 means and 81 stds**
+use the full **14,600-record** period and passed comparison against independent
+float64 reductions. A fresh OSN read of `COMPLETE.json` confirms
+`validated=true`, `steps=14600`, and `job_id=20750393`.
+
+Measured stages were **4h03m14s** preprocessing, **39m09s** normalization,
+and **1h29m05s** independent read-back. The largest recorded step MaxRSS was
+108,169,480 KiB (103.2 GiB; not the sum of all worker peaks).
+Callback delivery remained unavailable; durable local monitoring verified
+scheduler status and the published artifacts. No Beta copy or training job has
+been started as part of this production run.

@@ -7,7 +7,9 @@ SPDX-License-Identifier: CC-BY-4.0
 
 This diagnostic measures training speed outside the processor. It does not change
 any scientific run or promote its disposable weights. Beta_test job **217084**
-uses one GPU, a two-hour cap, and producer **921025144**. Results are pending.
+uses one GPU, a two-hour cap, and producer **921025144**. Five eager variants completed; compiled variants failed full-graph tracing and
+are being retried with explicitly permitted graph breaks in job **217194**,
+producer **ac1d1b4c0**. Original failures are preserved.
 
 ## Comparisons
 
@@ -55,3 +57,38 @@ Remote host-authenticated callback:
 `b75a42b9-2bad-4a87-805b-fa9743ace303`, owned by the parent conversation and
 monitored by `/root/diffuser_performance`. Queue uncertainty leaves the results
 ETA unset until useful runtime evidence is available.
+
+## Initial results
+
+Job 217084 completed in 8m51s (0.1475 GPU-hours). Median seconds per cached
+effective-batch-eight update; memory is peak allocated GB (decimal).
+
+| Variant | OM4 seconds | OBS seconds | OM4 GB | OBS GB |
+|---|---:|---:|---:|---:|
+| baseline | 3.590 | 3.646 | 4.25 | 4.51 |
+| decoder-no-checkpoint | 3.293 | 3.392 | 7.56 | 8.52 |
+| initializer-no-checkpoint | 3.350 | 3.447 | 5.39 | 5.65 |
+| all-no-checkpoint | 3.188 | 3.058 | 8.66 | 9.63 |
+| fused-adamw | 3.534 | 3.525 | 4.25 | 4.51 |
+
+Removing both initializer and decoder checkpoints reduced cached update time
+by **11.2% on OM4 and 16.1% on OBS**, at roughly twice the allocated memory.
+Every checkpoint-removal variant matched first-update loss, clipped gradients,
+and parameters **bitwise exactly** in both examples. This is the strongest
+initial candidate, subject to an end-to-end loader/memory check before adoption.
+
+Fused AdamW saved only 1.6–3.3%, within the uncertainty of three measurements;
+maximum parameter difference was 5.96e-8. It is a lower-priority change.
+
+Baseline cold/repeated OM4 loads took 4.94/0.93 seconds per example, compared
+with OBS 0.49/0.003 seconds. These two observations are not an I/O distribution,
+but illustrate why the compute speedup need not translate directly to full
+training speed. No validation or EMA costs are included above.
+
+Both compiled variants failed before a completed first update: deterministic
+CUDA replicate padding in `F.pad` executes a dynamic import that `fullgraph=True`
+refuses to trace. This is a compiler compatibility failure, not a numerical or
+model-training failure. Recovery keeps deterministic settings and permits graph
+breaks; it measures the actual partially compiled implementation rather than
+silently claiming full compilation. Recovery callback:
+`d27bc2c1-911d-4967-8d8d-3f08afbad65d`, job 217194.

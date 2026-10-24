@@ -201,6 +201,7 @@ def main():
         ):
             raise ValueError("Unqualified optimization settings")
         protocol["optimization"] = optimization
+        protocol["compile_scope"] = "training-only; raw and EMA inference eager"
     if runtime.world > 1:
         if optimization is None:
             raise ValueError("DDP requires qualified optimized batching")
@@ -262,9 +263,7 @@ def main():
         for network in (model, ema):
             network.activation_checkpointing = False
             network.decoder.activation_checkpointing = False
-        model.decoder.core.forward = torch.compile(  # type: ignore[method-assign]
-            model.decoder.core.forward, mode="default", fullgraph=False
-        )
+        model.decoder.compile_training()
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=1e-4, fused=True if optimization else None
     )

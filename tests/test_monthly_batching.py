@@ -117,3 +117,26 @@ def test_ddp_local_weighting_is_equal_two_examples_with_unequal_lengths():
     expected = sum(batched_loss(model, [item], "om4", area)[0] for item in items) / 2
     actual, _, _ = UpdateLoss(model)(items, "om4", area)
     torch.testing.assert_close(actual, expected, rtol=0, atol=0)
+
+
+def test_training_compilation_hook_cannot_change_eval_denoising():
+    from samudra.experiments.monthly_latent import WindowDecoder
+
+    torch.set_num_threads(1)
+    decoder = WindowDecoder(8, 8)
+    noisy = torch.randn(1, 77, 16, 32)
+    sigma = torch.ones(1)
+    latent = torch.randn(1, 2, 8, 4, 8)
+    support = torch.ones_like(noisy, dtype=torch.bool)
+    condition = decoder.condition(latent, support, 5.0, 0.0)
+    decoder._compiled_training = lambda *args: torch.zeros_like(noisy)
+    decoder.train()
+    assert not decoder.training_denoise(noisy, sigma, condition, support).any()
+    decoder.eval()
+    expected = decoder.core(noisy, sigma, condition, support)
+    torch.testing.assert_close(
+        decoder.training_denoise(noisy, sigma, condition, support),
+        expected,
+        rtol=0,
+        atol=0,
+    )

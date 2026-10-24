@@ -79,7 +79,22 @@ class WindowDecoder(nn.Module):
         super().__init__()
         # Two latent memory slots, support masks, log duration and position.
         self.activation_checkpointing = True
+        self._compiled_training = None
         self.core = JointInteriorDecoder(2 * latent_width + 77 + 2, 77, width, 0.5)
+
+    def compile_training(self):
+        """Keep inference eager: training graph caching must not alter sampling."""
+        self._compiled_training = torch.compile(
+            self.core.forward, mode="default", fullgraph=False
+        )
+
+    def training_denoise(self, noisy, sigma, conditioning, support):
+        function = (
+            self._compiled_training
+            if self.training and self._compiled_training is not None
+            else self.core
+        )
+        return function(noisy, sigma, conditioning, support)
 
     def condition(self, latent, support, duration_days, position_days):
         h, w = latent.shape[-2:]
@@ -114,12 +129,17 @@ class WindowDecoder(nn.Module):
         )
         noisy = (clean + sigma[:, None, None, None] * noise) * support
         conditioning = self.condition(latent, support, duration_days, position_days)
+        denoiser = (
+            self._compiled_training
+            if self.training and self._compiled_training is not None
+            else self.core
+        )
         predicted = (
             checkpoint(
-                self.core, noisy, sigma, conditioning, support, use_reentrant=False
+                denoiser, noisy, sigma, conditioning, support, use_reentrant=False
             )
             if self.training and self.activation_checkpointing
-            else self.core(noisy, sigma, conditioning, support)
+            else denoiser(noisy, sigma, conditioning, support)
         )
         weights = support * area
         denominator = weights.sum((-2, -1))

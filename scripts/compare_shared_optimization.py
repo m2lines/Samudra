@@ -4,6 +4,7 @@
 """Frozen engineering gates for the shared-ERA5 optimization migration."""
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 
@@ -26,6 +27,8 @@ def main():
     parser.add_argument("--baseline-root", type=Path)
     parser.add_argument("--candidate-root", type=Path)
     parser.add_argument("--output", default="COMPARISON.json")
+    parser.add_argument("--baseline-raw-evaluation", type=Path)
+    parser.add_argument("--candidate-raw-evaluation", type=Path)
     args = parser.parse_args()
     base = (
         args.baseline_root or args.root / "baseline"
@@ -35,6 +38,25 @@ def main():
     ) / "qualification/A-shared-era5-8k"
     left = json.loads((base / "QUALIFIED.json").read_text())
     right = json.loads((opt / "QUALIFIED.json").read_text())
+    evaluation_overrides = {}
+    for label, proof, directory, override in (
+        ("baseline", left, base, args.baseline_raw_evaluation),
+        ("candidate", right, opt, args.candidate_raw_evaluation),
+    ):
+        if override is not None:
+            evidence = json.loads(override.read_text())
+            with (directory / "serialization-expected.pt").open("rb") as stream:
+                checksum = hashlib.file_digest(stream, "sha256").hexdigest()
+            if (
+                evidence["compiled"]
+                or evidence["source_sha256"] != checksum
+                or evidence["step"] != 17
+            ):
+                raise ValueError(
+                    "Eager evaluation does not match the exact qualified raw weights"
+                )
+            proof["validation_raw"] = evidence["validation"]
+            evaluation_overrides[label] = str(override)
     records = []
     traces_exact = True
     for a, b in zip(left["records"], right["records"], strict=True):
@@ -107,6 +129,7 @@ def main():
     )
     result = dict(
         passed=bool(passed),
+        evaluation_overrides=evaluation_overrides,
         traces_exact=traces_exact,
         first_gradient_relative_l2=grad,
         first_update_relative_l2=update,

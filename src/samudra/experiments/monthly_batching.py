@@ -161,7 +161,7 @@ def batched_loss(model, items, source, area):
             key: torch.cat([item["decodes"][task][key] for item in items])
             for key in ("clean", "support", "noisy", "sigma")
         }
-        predicted = model.decoder.core(
+        predicted = model.decoder.training_denoise(
             tensors["noisy"],
             tensors["sigma"],
             torch.cat(conditions),

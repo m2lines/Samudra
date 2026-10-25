@@ -33,7 +33,7 @@ base = [
     "--effective-batch",
     "8",
     "--microbatch",
-    "8",
+    "4",
     "--fused-adam",
     "--members",
     "2",

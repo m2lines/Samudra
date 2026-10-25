@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Instrument a disposable copy of the qualified runner; never writes production."""
 
+import os
 from pathlib import Path
 
 source = Path(__file__).with_name("run_monthly_replay.py").read_text()
@@ -133,4 +134,11 @@ source = (
 """
     + source[stop:]
 )
+if os.environ.get("PROFILE_SEQUENTIAL") == "1":
+    source = source.replace("if step >= 4:", "if False:")
+    source = source.replace(
+        "rng.bit_generator.state = copy.deepcopy(profile_rng[source])",
+        "pass  # Preserve the original sequential sample stream.",
+    )
+    source = source.replace("cached_inputs=step > 4", "cached_inputs=False")
 exec(compile(source, __file__ + ":instrumented", "exec"))

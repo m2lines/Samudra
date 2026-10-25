@@ -154,6 +154,9 @@ lint.per-file-ignores."test_*.py" = [ "D", "F811" ]
 lint.isort.split-on-trailing-comma = false
 lint.pydocstyle.convention = "google"
 
+# The data package supports Python 3.11; the main package requires Python 3.12.
+per-file-target-version = { "data/**/*.py" = "py311" }
+
 [tool.pytest]
 ini_options.markers = [
   "manual: marks tests as manually run (deselect with '-m \"not manual\"').",

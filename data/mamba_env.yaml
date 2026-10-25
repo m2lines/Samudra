@@ -16,6 +16,7 @@ dependencies:
     - fire==0.7.1
     - cartopy
     - zarr==2.18.2
+    - numcodecs<0.16  # Zarr 2 imports Blosc helpers removed in Numcodecs 0.16.
     - gcsfs
     - s3fs
     - xesmf

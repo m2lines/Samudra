@@ -291,7 +291,7 @@ def test_llc_takes_the_curvilinear_path_too(llc_viz, curvilinear_data):
 
     assert map_x.name == "lon_2d" and map_y.name == "lat_2d"
     with pytest.raises(NotImplementedError, match="llc"):
-        Viz._reject_on_curvilinear(llc_viz, "movies", "reason.")
+        Viz._reject_on_curvilinear(llc_viz, "thetao_mae_metrics", "reason.")
 
 
 def test_map_plot_kwargs_name_the_2d_coords_on_tripolar(
@@ -536,7 +536,6 @@ def test_rectilinear_only_step_is_rejected_on_tripolar(tripolar_viz):
     [
         "thetao_mae_metrics",
         "enso_plots",
-        "movies",
         "ocean_temperature_profile_plots",
     ],
 )

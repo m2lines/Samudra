@@ -61,6 +61,37 @@ def normalization_fields(ds: xr.Dataset) -> xr.Dataset:
     return xr.Dataset(fields, attrs=ds.attrs)
 
 
+def normalization_statistics(
+    source: xr.Dataset, *, start: str | None = None, end: str | None = None
+) -> tuple[xr.Dataset, xr.Dataset]:
+    """Reduce physical fields over the interval, preserving legacy anomaly scaling."""
+    selected = source.sel(time=slice(start, end))
+    if not selected.sizes.get("time", 0):
+        raise ValueError("Normalization interval selects no timestamps")
+    fields = normalization_fields(selected)
+    dims = [dim for dim in ("time", "y", "x") if dim in fields.dims]
+    means = fields.mean(dims, skipna=True)
+    stds = fields.std(dims, skipna=True)
+    for name in fields.data_vars:
+        if not str(name).endswith("_anomalies"):
+            continue
+        # Former compute_anomalies ran before time slicing and reduced the
+        # entire unmasked anomaly array. Preserve that exact population,
+        # including finite land values, for existing checkpoint compatibility.
+        anomaly = source[name]
+        means[name] = anomaly.mean(skipna=True)
+        stds[name] = anomaly.std(skipna=True)
+        attrs = {
+            "normalization_start": str(source.time.values[0]),
+            "normalization_end": str(source.time.values[-1]),
+            "normalization_steps": source.sizes["time"],
+            "normalization_method": "legacy full-record finite-sample mean/std",
+        }
+        means[name].attrs.update(attrs)
+        stds[name].attrs.update(attrs)
+    return means, stds
+
+
 def main(
     src: str,
     write_retries: int = 5,
@@ -87,15 +118,13 @@ def main(
     print(f"Reading Zarr dataset at {src=}.")
     ds = xr.open_zarr(src, chunks={})
 
-    if start is not None or end is not None:
-        ds = ds.sel(time=slice(start, end))
+    ds_means, ds_stds = normalization_statistics(ds, start=start, end=end)
+    ds = ds.sel(time=slice(start, end))
     if not ds.sizes.get("time", 0):
         raise ValueError("Normalization interval selects no timestamps")
-    ds = normalization_fields(ds)
-    dims = [dim for dim in ("time", "y", "x") if dim in ds.dims]
-    print("Computing mean and std over wet space and time, retaining depth.")
-    ds_means = ds.mean(dims, skipna=True)
-    ds_stds = ds.std(dims, skipna=True)
+    print(
+        "Computing wet-ocean statistics; anomaly channels retain full-record scaling."
+    )
     attrs = {
         "normalization_source": src,
         "normalization_start": str(ds.time.values[0]),

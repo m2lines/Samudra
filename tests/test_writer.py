@@ -2,6 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import datetime
+from pathlib import Path
 from typing import cast
 
 import numpy as np
@@ -16,14 +18,61 @@ from samudra.utils.output import ModelInferenceOutput
 from samudra.utils.writer import ZarrWriter
 from tests.conftest import TEST_FULL_DATA_LAYOUT
 
-# write() never touches preprocessing (record_batch does), so these tests drive
-# the writer directly with a buffer and omit a real preprocessor.
-_NO_PREPROCESSOR = cast(BatchPreprocessor, None)
-
 
 class _IdentityNormalize:
     def unnormalize_tensor_prognostic(self, data, fill_value):
         return data
+
+
+# Use identity preprocessing to exercise the public recording/writing API.
+_IDENTITY_PREPROCESSOR = cast(BatchPreprocessor, _IdentityNormalize())
+
+
+@pytest.mark.parametrize("calendar", ["noleap", "julian"])
+def test_writer_slices_time_coordinates_for_each_append(
+    tmp_path: Path, calendar: str
+) -> None:
+    times = xr.date_range(
+        "0251-01-06", periods=8, freq="5D", calendar=calendar, use_cftime=True
+    )
+    bounds = np.array([[t - datetime.timedelta(days=5), t] for t in times])
+    coords = _source_coords(2, 3)
+    coords["time_bnds"] = xr.DataArray(
+        bounds, dims=("time", "nv"), coords={"time": times}
+    )
+    coords["average_DT"] = xr.DataArray(
+        np.arange(8, dtype="float32"), dims="time", coords={"time": times}
+    )
+    writer = ZarrWriter(
+        tmp_path,
+        coords=coords,
+        output_steps=2,
+        model_path="dummy.ckpt",
+        time_chunk_size=2,
+        preprocessor=_IDENTITY_PREPROCESSOR,
+        data_layout=TEST_FULL_DATA_LAYOUT,
+    )
+    for batch in (slice(2, 4), slice(4, 8)):
+        selected = times[batch]
+        prediction = torch.zeros(
+            len(selected) // 2,
+            2 * len(TEST_FULL_DATA_LAYOUT.prognostic_var_names),
+            2,
+            3,
+        )
+        writer.record_batch(
+            ModelInferenceOutput(
+                prediction=prediction,
+                target=prediction.clone(),
+                time=xr.DataArray(selected, dims="time"),
+            )
+        )
+        writer.write()
+    result = xr.open_zarr(writer.pred_path)
+    np.testing.assert_array_equal(result.time.values, times[2:])
+    np.testing.assert_array_equal(result.time_bnds.values, bounds[2:])
+    np.testing.assert_array_equal(result.average_DT.values, np.arange(8)[2:])
+    assert result.time_bnds.dims == ("time", "nv")
 
 
 def _source_coords(ny, nx):
@@ -63,7 +112,7 @@ def test_writer_output_is_analysis_ready(tmp_path):
         output_steps=1,
         model_path="dummy.ckpt",
         time_chunk_size=4,
-        preprocessor=_NO_PREPROCESSOR,
+        preprocessor=_IDENTITY_PREPROCESSOR,
         data_layout=data_layout,
     )
 
@@ -73,8 +122,14 @@ def test_writer_output_is_analysis_ready(tmp_path):
         np.arange(n_channels)[None, :, None, None],
         (nt, n_channels, ny, nx),
     ).astype("float32")
-    writer.buffer = torch.from_numpy(buffer.copy())
-    writer.time_buffer = xr.DataArray(np.arange(nt), dims="time")
+    prediction = torch.from_numpy(buffer.copy())
+    writer.record_batch(
+        ModelInferenceOutput(
+            prediction=prediction,
+            target=prediction.clone(),
+            time=xr.DataArray(np.arange(nt), dims="time"),
+        )
+    )
 
     writer.write()
     out = xr.open_zarr(writer.pred_path)
@@ -135,8 +190,8 @@ def test_writer_flattens_configured_output_steps(tmp_path):
 
     writer.record_batch(output)
 
-    assert writer.buffer is not None
-    assert writer.buffer.shape == (3, n_channels, 2, 3)
+    assert writer._buffer is not None
+    assert writer._buffer.shape == (3, n_channels, 2, 3)
 
 
 def test_writer_prefers_real_2d_lat_lon(tmp_path):
@@ -166,11 +221,17 @@ def test_writer_prefers_real_2d_lat_lon(tmp_path):
         output_steps=1,
         model_path="dummy.ckpt",
         time_chunk_size=4,
-        preprocessor=_NO_PREPROCESSOR,
+        preprocessor=_IDENTITY_PREPROCESSOR,
         data_layout=data_layout,
     )
-    writer.buffer = torch.zeros(1, n_channels, ny, nx)
-    writer.time_buffer = xr.DataArray(np.arange(1), dims="time")
+    prediction = torch.zeros(1, n_channels, ny, nx)
+    writer.record_batch(
+        ModelInferenceOutput(
+            prediction=prediction,
+            target=prediction.clone(),
+            time=xr.DataArray(np.arange(1), dims="time"),
+        )
+    )
 
     writer.write()
     out = xr.open_zarr(writer.pred_path)
@@ -230,11 +291,17 @@ def test_tripolar_om4_canonicalization_preserves_writer_geometry(tmp_path):
         output_steps=1,
         model_path="dummy.ckpt",
         time_chunk_size=4,
-        preprocessor=_NO_PREPROCESSOR,
+        preprocessor=_IDENTITY_PREPROCESSOR,
         data_layout=data_layout,
     )
-    writer.buffer = torch.zeros(1, len(data_layout.prognostic_var_names), ny, nx)
-    writer.time_buffer = xr.DataArray([0], dims="time")
+    prediction = torch.zeros(1, len(data_layout.prognostic_var_names), ny, nx)
+    writer.record_batch(
+        ModelInferenceOutput(
+            prediction=prediction,
+            target=prediction.clone(),
+            time=xr.DataArray([0], dims="time"),
+        )
+    )
     writer.write()
 
     out = xr.open_zarr(writer.pred_path)
@@ -255,13 +322,19 @@ def test_writer_appends_along_time(tmp_path):
         output_steps=1,
         model_path="dummy.ckpt",
         time_chunk_size=4,
-        preprocessor=_NO_PREPROCESSOR,
+        preprocessor=_IDENTITY_PREPROCESSOR,
         data_layout=data_layout,
     )
 
     def _write(times):
-        writer.buffer = torch.zeros(len(times), n_channels, ny, nx)
-        writer.time_buffer = xr.DataArray(np.array(times), dims="time")
+        prediction = torch.zeros(len(times), n_channels, ny, nx)
+        writer.record_batch(
+            ModelInferenceOutput(
+                prediction=prediction,
+                target=prediction.clone(),
+                time=xr.DataArray(np.array(times), dims="time"),
+            )
+        )
         writer.write()
 
     _write([0, 1])
@@ -309,11 +382,17 @@ def test_writer_shallow_spec_slices_depth_metadata(tmp_path):
         output_steps=1,
         model_path="dummy.ckpt",
         time_chunk_size=4,
-        preprocessor=_NO_PREPROCESSOR,
+        preprocessor=_IDENTITY_PREPROCESSOR,
         data_layout=data_layout,
     )
-    writer.buffer = torch.zeros(nt, n_channels, ny, nx)
-    writer.time_buffer = xr.DataArray(np.arange(nt), dims="time")
+    prediction = torch.zeros(nt, n_channels, ny, nx)
+    writer.record_batch(
+        ModelInferenceOutput(
+            prediction=prediction,
+            target=prediction.clone(),
+            time=xr.DataArray(np.arange(nt), dims="time"),
+        )
+    )
 
     writer.write()  # must not raise on conflicting lev sizes
     out = xr.open_zarr(writer.pred_path)
@@ -352,11 +431,17 @@ def test_writer_curvilinear_grid_without_real_coords_raises(tmp_path):
         output_steps=1,
         model_path="dummy.ckpt",
         time_chunk_size=4,
-        preprocessor=_NO_PREPROCESSOR,
+        preprocessor=_IDENTITY_PREPROCESSOR,
         data_layout=data_layout,
     )
-    writer.buffer = torch.zeros(1, n_channels, ny, nx)
-    writer.time_buffer = xr.DataArray(np.arange(1), dims="time")
+    prediction = torch.zeros(1, n_channels, ny, nx)
+    writer.record_batch(
+        ModelInferenceOutput(
+            prediction=prediction,
+            target=prediction.clone(),
+            time=xr.DataArray(np.arange(1), dims="time"),
+        )
+    )
 
     with pytest.raises(ValueError, match="grid_type"):
         writer.write()

@@ -136,3 +136,36 @@ def test_backfill_refreshes_existing_buffer_chunked_profiles(source, tmp_path):
             actual.profile_thetao.reset_coords(drop=True),
             expected.reset_coords(drop=True),
         )
+
+
+@pytest.mark.parametrize("flat", [False, True])
+def test_interval_normalization_preserves_legacy_anomaly_scaling(source, flat):
+    from ocean_preprocessing.make_norm_datasets import normalization_statistics
+
+    if flat:
+        source["thetao_0"] = source.thetao.isel(lev=0, drop=True)
+        source["mask_0"] = source.wetmask.isel(lev=0, drop=True)
+        source = source.drop_vars(["thetao", "wetmask"])
+    enriched = add_derived_fields(source)
+    start, end = (str(t).split()[0] for t in source.time.values[[0, 20]])
+    means, stds = normalization_statistics(enriched, start=start, end=end)
+    # Legacy reductions include finite land and all years, even when ordinary
+    # normalization uses a short training interval.
+    xr.testing.assert_allclose(means.hfds_anomalies, enriched.hfds_anomalies.mean())
+    xr.testing.assert_allclose(stds.hfds_anomalies, enriched.hfds_anomalies.std())
+    selected = normalization_fields(enriched.sel(time=slice(start, end)))
+    assert not np.isclose(
+        float(stds.hfds_anomalies.compute()),
+        float(selected.hfds_anomalies.std().compute()),
+    )
+    xr.testing.assert_allclose(means.hfds, selected.hfds.mean())
+    xr.testing.assert_allclose(stds.hfds, selected.hfds.std())
+    assert means.hfds_anomalies.attrs["normalization_steps"] == source.sizes["time"]
+    assert not any(str(name).startswith("profile_") for name in means)
+
+
+def test_normalization_empty_interval_is_rejected(source):
+    from ocean_preprocessing.make_norm_datasets import normalization_statistics
+
+    with pytest.raises(ValueError, match="no timestamps"):
+        normalization_statistics(add_derived_fields(source), start="2100-01-01")

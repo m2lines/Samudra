@@ -20,7 +20,7 @@ authors = [
   { name = "Adam Subel", email = "adam.subel@nyu.edu" },
   { name = "Julius Busecke", email = "julius@ldeo.columbia.edu" },
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 classifiers = [
   "Development Status :: 1 - Planning",
   "Intended Audience :: Science/Research",
@@ -28,7 +28,6 @@ classifiers = [
   "Operating System :: OS Independent",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
@@ -45,7 +44,7 @@ dependencies = [
   "gcsfs>=2025.10",
   "h5netcdf>=1.7.3",
   "h5py",                # h5netcdf's backend for the HDF5-based OISST/ARGO NetCDF files
-  "numcodecs",           # Explicit Blosc Zstd + byte-shuffle output encoding
+  "numcodecs<0.16",      # Zarr 2 imports Blosc helpers removed in Numcodecs 0.16.
   "pypdl>=1.5",          # concurrent, segmented downloads of the observation archives
   "s3fs>=2025.10",
   "setuptools",

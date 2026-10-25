@@ -8,6 +8,8 @@ SPDX-License-Identifier: CC-BY-4.0
 
 Data engineering routines to prepare ocean simulations for neural emulation.
 
+Requires Python 3.11 or newer.
+
 ## Precomputed training and visualization fields
 
 The OM4/CM4 pipeline writes `hfds_anomalies`, normalized `areacello_weights`,
@@ -33,8 +35,10 @@ python -m ocean_preprocessing.make_norm_datasets /path/to/OM4.zarr \
 The first command updates derived arrays in place and can be rerun. It keeps
 the physical fields and source metadata. Use the same normalization interval
 as the existing training setup (omit the dates for full-record statistics).
-The anomaly climatology still uses the entire source record, independently
-of the normalization interval, matching the former training behavior.
+Both anomaly climatology and anomaly mean/std use the entire source record,
+independently of the normalization interval, matching the former training
+behavior (including finite land values, if present). Other fields keep the
+requested interval and wet-ocean mask.
 
 Visualization requires the saved profiles and reads only those small arrays
 at startup. New prediction stores include profiles computed from each output

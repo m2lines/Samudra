@@ -46,6 +46,7 @@ nav:
       - Architecture: concepts/architecture.md
       - Data: data.md
       - How to Run: run.md
+      - Observation Evaluation: observation-evaluation.md
       - Torch: torch.md
       - Architecture Search: search.md
   - Development:

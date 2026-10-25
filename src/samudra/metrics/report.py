@@ -35,6 +35,7 @@ COLUMNS = [
     "metric",
     "model",
     "depth",
+    "region",
     "value",
     "units",
     "period_kind",
@@ -458,6 +459,10 @@ def to_wandb(frame: pd.DataFrame, primary_model: str) -> MetricsDict:
     for _, row in scored.iterrows():
         depth = row["depth"] if isinstance(row["depth"], str) else None
         suffix = _WANDB_KEYS.get((row["metric"], depth))
+        if suffix is None and str(row["metric"]).endswith(
+            ("_spectra_vs_duacs_log10_rmse", "_spectra_vs_oisst_log10_rmse")
+        ):
+            suffix = f"spectra/{_slug(str(row['metric']))}/{_slug(str(row['region']))}"
         if suffix is None:
             continue
         model = str(row["model"])

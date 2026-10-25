@@ -201,6 +201,10 @@ def run_variant(args):
                 if p.grad is not None
             ]
         )
+        # Large CPU fp32 reductions can yield even self-cosines above one.
+        # Accumulate diagnostic dot products/norms in float64, outside timing.
+        reference_grad = reference_grad.double()
+        candidate_grad = candidate_grad.double()
         relative = float(
             (candidate_grad - reference_grad).norm()
             / reference_grad.norm().clamp_min(1e-12)

@@ -1,0 +1,214 @@
+{
+  "events": [
+    {
+      "step": 1,
+      "task": "om4",
+      "phase": "mixed",
+      "replay_examples": {
+        "om4": 0,
+        "observation": 0
+      },
+      "fresh_examples": {
+        "om4": 8,
+        "observation": 0
+      },
+      "replay_lead_days": [],
+      "replay_age_updates": [],
+      "counts": {
+        "om4": 1,
+        "observation": 0
+      },
+      "loss": 2.525413751602173,
+      "gradient_norm": 3.959232807159424,
+      "gradient_norms": {
+        "initializer": 3.186044931411743,
+        "processor": 2.3504559993743896
+      },
+      "seconds": 13.424449607729912,
+      "learning_rate": 0.0001,
+      "peak_gib": 9.302361011505127
+    },
+    {
+      "step": 2,
+      "task": "observation",
+      "phase": "mixed",
+      "replay_examples": {
+        "om4": 0,
+        "observation": 0
+      },
+      "fresh_examples": {
+        "om4": 8,
+        "observation": 8
+      },
+      "replay_lead_days": [],
+      "replay_age_updates": [],
+      "counts": {
+        "om4": 1,
+        "observation": 1
+      },
+      "loss": 1.2207428514957428,
+      "gradient_norm": 5.2226243019104,
+      "gradient_norms": {
+        "initializer": 1.4944782257080078,
+        "processor": 5.004231929779053
+      },
+      "seconds": 34.288863950874656,
+      "learning_rate": 0.0001,
+      "peak_gib": 20.16495180130005
+    },
+    {
+      "step": 3,
+      "task": "om4",
+      "phase": "mixed",
+      "replay_examples": {
+        "om4": 4,
+        "observation": 0
+      },
+      "fresh_examples": {
+        "om4": 12,
+        "observation": 8
+      },
+      "replay_lead_days": [
+        30,
+        30,
+        30,
+        30
+      ],
+      "replay_age_updates": [
+        2,
+        2,
+        2,
+        2
+      ],
+      "counts": {
+        "om4": 2,
+        "observation": 1
+      },
+      "loss": 1.9543879330158234,
+      "gradient_norm": 3.112114191055298,
+      "gradient_norms": {
+        "initializer": 1.9380221366882324,
+        "processor": 2.4350204467773438
+      },
+      "seconds": 16.814593938179314,
+      "learning_rate": 0.0001,
+      "peak_gib": 20.16495180130005
+    },
+    {
+      "step": 4,
+      "task": "observation",
+      "phase": "mixed",
+      "replay_examples": {
+        "om4": 4,
+        "observation": 4
+      },
+      "fresh_examples": {
+        "om4": 12,
+        "observation": 12
+      },
+      "replay_lead_days": [
+        30,
+        30,
+        30,
+        30
+      ],
+      "replay_age_updates": [
+        2,
+        2,
+        2,
+        2
+      ],
+      "counts": {
+        "om4": 2,
+        "observation": 2
+      },
+      "loss": 1.0320928394794464,
+      "gradient_norm": 4.875548362731934,
+      "gradient_norms": {
+        "initializer": 0.4187571704387665,
+        "processor": 4.857532024383545
+      },
+      "seconds": 33.52157940529287,
+      "learning_rate": 0.0001,
+      "peak_gib": 20.16495180130005
+    },
+    {
+      "step": 5,
+      "task": "om4",
+      "phase": "mixed",
+      "replay_examples": {
+        "om4": 8,
+        "observation": 4
+      },
+      "fresh_examples": {
+        "om4": 16,
+        "observation": 12
+      },
+      "replay_lead_days": [
+        60,
+        30,
+        60,
+        60
+      ],
+      "replay_age_updates": [
+        4,
+        2,
+        4,
+        4
+      ],
+      "counts": {
+        "om4": 3,
+        "observation": 2
+      },
+      "loss": 1.6998255252838135,
+      "gradient_norm": 1.043287992477417,
+      "gradient_norms": {
+        "initializer": 0.558073103427887,
+        "processor": 0.8814783692359924
+      },
+      "seconds": 43.42193774692714,
+      "learning_rate": 0.0001,
+      "peak_gib": 7.51681661605835
+    },
+    {
+      "step": 6,
+      "task": "observation",
+      "phase": "mixed",
+      "replay_examples": {
+        "om4": 8,
+        "observation": 8
+      },
+      "fresh_examples": {
+        "om4": 16,
+        "observation": 16
+      },
+      "replay_lead_days": [
+        60,
+        60,
+        30,
+        60
+      ],
+      "replay_age_updates": [
+        4,
+        4,
+        2,
+        4
+      ],
+      "counts": {
+        "om4": 3,
+        "observation": 3
+      },
+      "loss": 0.892856277525425,
+      "gradient_norm": 3.0500011444091797,
+      "gradient_norms": {
+        "initializer": 0.3187347948551178,
+        "processor": 3.0333011150360107
+      },
+      "seconds": 36.40877716988325,
+      "learning_rate": 0.0001,
+      "peak_gib": 19.538841247558594
+    }
+  ],
+  "producer": "390e901ad",
+  "scope": "six full-grid effective-batch-eight updates including both replay sources and resume; no long-horizon skill claim"
+}

@@ -1,0 +1,294 @@
+[
+  {
+    "variant": "baseline",
+    "microbatch": 1,
+    "effective_batch": 8,
+    "checkpointing": true,
+    "compiled": false,
+    "fused": false,
+    "samples": "same first training month repeated eight times; no I/O timed",
+    "noise_note": "same noise within parity test; microbatch variants assign different noise",
+    "device": "NVIDIA GB200",
+    "tasks": {
+      "om4": {
+        "cold_seconds": 2.1575844092294574,
+        "warm_seconds": [
+          2.2525882041081786,
+          2.444229817017913
+        ],
+        "peak_gib": [
+          3.193978786468506,
+          3.5133090019226074
+        ],
+        "loss": 2.3839469254016876,
+        "reference_loss": 2.527900218963623,
+        "candidate_loss": 2.527900218963623,
+        "gradient_relative_l2": 0.0,
+        "gradient_cosine": 1.0262396335601807
+      },
+      "observation": {
+        "cold_seconds": 36.683560540899634,
+        "warm_seconds": [
+          36.577972281724215,
+          36.506459914613515
+        ],
+        "peak_gib": [
+          9.980755805969238,
+          10.308945178985596
+        ],
+        "loss": 1.2713289707899094,
+        "reference_loss": 1.3841746002435684,
+        "candidate_loss": 1.3841746002435684,
+        "gradient_relative_l2": 0.0008890533936209977,
+        "gradient_cosine": 1.0099642276763916
+      }
+    },
+    "fixed_denoiser_batch_parity": {
+      "precision": "fp32",
+      "examples": 2,
+      "output_max_abs": 0.002756834030151367,
+      "gradient_relative_l2": 0.0001695235987426713
+    },
+    "status": "completed"
+  },
+  {
+    "variant": "batch2",
+    "microbatch": 2,
+    "effective_batch": 8,
+    "checkpointing": true,
+    "compiled": false,
+    "fused": false,
+    "samples": "same first training month repeated eight times; no I/O timed",
+    "noise_note": "same noise within parity test; microbatch variants assign different noise",
+    "device": "NVIDIA GB200",
+    "tasks": {
+      "om4": {
+        "cold_seconds": 1.54853491531685,
+        "warm_seconds": [
+          1.6079232012853026,
+          1.5627490659244359
+        ],
+        "peak_gib": [
+          5.1516008377075195,
+          5.471463680267334
+        ],
+        "loss": 2.3785887360572815,
+        "reference_loss": 2.5296831130981445,
+        "candidate_loss": 2.5296831130981445,
+        "gradient_relative_l2": 0.0002744497614912689,
+        "gradient_cosine": 1.0259621143341064
+      },
+      "observation": {
+        "cold_seconds": 31.467071775812656,
+        "warm_seconds": [
+          31.493204604368657,
+          31.458682804368436
+        ],
+        "peak_gib": [
+          18.86444330215454,
+          19.190276622772217
+        ],
+        "loss": 1.2739705741405487,
+        "reference_loss": 1.386558711528778,
+        "candidate_loss": 1.386558711528778,
+        "gradient_relative_l2": 0.0010739646386355162,
+        "gradient_cosine": 1.0099513530731201
+      }
+    },
+    "status": "completed"
+  },
+  {
+    "variant": "batch4",
+    "microbatch": 4,
+    "effective_batch": 8,
+    "checkpointing": true,
+    "compiled": false,
+    "fused": false,
+    "samples": "same first training month repeated eight times; no I/O timed",
+    "noise_note": "same noise within parity test; microbatch variants assign different noise",
+    "device": "NVIDIA GB200",
+    "tasks": {
+      "om4": {
+        "cold_seconds": 1.3762639621272683,
+        "warm_seconds": [
+          1.4417163599282503,
+          1.3891551969572902
+        ],
+        "peak_gib": [
+          9.061498165130615,
+          9.38504409790039
+        ],
+        "loss": 2.3741166591644287,
+        "reference_loss": 2.528771162033081,
+        "candidate_loss": 2.528771162033081,
+        "gradient_relative_l2": 0.00017166582983918488,
+        "gradient_cosine": 1.025620460510254
+      },
+      "observation": {
+        "cold_seconds": 28.755240886006504,
+        "warm_seconds": [
+          29.03974708309397,
+          28.718013283330947
+        ],
+        "peak_gib": [
+          36.50944995880127,
+          36.834431648254395
+        ],
+        "loss": 1.2725343704223633,
+        "reference_loss": 1.3842467665672302,
+        "candidate_loss": 1.3842467665672302,
+        "gradient_relative_l2": 0.0013118699425831437,
+        "gradient_cosine": 1.0098426342010498
+      }
+    },
+    "status": "completed"
+  },
+  {
+    "variant": "batch8",
+    "microbatch": 8,
+    "effective_batch": 8,
+    "checkpointing": true,
+    "compiled": false,
+    "fused": false,
+    "samples": "same first training month repeated eight times; no I/O timed",
+    "noise_note": "same noise within parity test; microbatch variants assign different noise",
+    "device": "NVIDIA GB200",
+    "tasks": {
+      "om4": {
+        "cold_seconds": 1.0406048451550305,
+        "warm_seconds": [
+          1.089326353278011,
+          1.0373320691287518
+        ],
+        "peak_gib": [
+          16.729917526245117,
+          17.051842212677002
+        ],
+        "loss": 2.371126174926758,
+        "reference_loss": 2.5266687870025635,
+        "candidate_loss": 2.5266687870025635,
+        "gradient_relative_l2": 0.00015902046288829297,
+        "gradient_cosine": 1.0258452892303467
+      },
+      "observation": {
+        "cold_seconds": 28.19810962304473,
+        "warm_seconds": [
+          28.127953161951154,
+          28.308416831772774
+        ],
+        "peak_gib": [
+          71.63235473632812,
+          71.95561981201172
+        ],
+        "loss": 1.2722136974334717,
+        "reference_loss": 1.3849124908447266,
+        "candidate_loss": 1.3849124908447266,
+        "gradient_relative_l2": 0.0015472661470994353,
+        "gradient_cosine": 1.0099292993545532
+      }
+    },
+    "status": "completed"
+  },
+  {
+    "variant": "no-checkpoint",
+    "status": "oom",
+    "error": "CUDA out of memory. Tried to allocate 168.00 MiB. GPU 0 has a total capacity of 184.00 GiB of which 137.69 MiB is free. Including non-PyTorch memory, this process has 181.49 GiB memory in use. Of the allocated memory 179.79 GiB is allocated by PyTorch, and 758.58 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)"
+  },
+  {
+    "variant": "compile",
+    "microbatch": 1,
+    "effective_batch": 8,
+    "checkpointing": true,
+    "compiled": true,
+    "fused": false,
+    "samples": "same first training month repeated eight times; no I/O timed",
+    "noise_note": "same noise within parity test; microbatch variants assign different noise",
+    "device": "NVIDIA GB200",
+    "tasks": {
+      "om4": {
+        "cold_seconds": 61.893498335033655,
+        "warm_seconds": [
+          1.976147461682558,
+          1.847988585010171
+        ],
+        "peak_gib": [
+          3.3679251670837402,
+          3.691403388977051
+        ],
+        "loss": 2.383881390094757,
+        "reference_loss": 2.527900218963623,
+        "candidate_loss": 2.5277717411518097,
+        "gradient_relative_l2": 0.0027012170758098364,
+        "gradient_cosine": 1.0262036323547363
+      },
+      "observation": {
+        "cold_seconds": 44.11675612907857,
+        "warm_seconds": [
+          37.95434340508655,
+          40.50120866065845
+        ],
+        "peak_gib": [
+          9.977224349975586,
+          10.302051544189453
+        ],
+        "loss": 1.271328628063202,
+        "reference_loss": 1.3841746002435684,
+        "candidate_loss": 1.3841724544763565,
+        "gradient_relative_l2": 0.0016598409274592996,
+        "gradient_cosine": 1.0099616050720215
+      }
+    },
+    "status": "completed"
+  },
+  {
+    "variant": "fused",
+    "microbatch": 1,
+    "effective_batch": 8,
+    "checkpointing": true,
+    "compiled": false,
+    "fused": true,
+    "samples": "same first training month repeated eight times; no I/O timed",
+    "noise_note": "same noise within parity test; microbatch variants assign different noise",
+    "device": "NVIDIA GB200",
+    "tasks": {
+      "om4": {
+        "cold_seconds": 2.070228086784482,
+        "warm_seconds": [
+          2.1689393990673125,
+          2.360145205166191
+        ],
+        "peak_gib": [
+          3.196943759918213,
+          3.5198311805725098
+        ],
+        "loss": 2.38394957780838,
+        "reference_loss": 2.527900218963623,
+        "candidate_loss": 2.527900218963623,
+        "gradient_relative_l2": 5.69793010072317e-05,
+        "gradient_cosine": 1.0262391567230225
+      },
+      "observation": {
+        "cold_seconds": 36.50146890711039,
+        "warm_seconds": [
+          36.624873225111514,
+          36.39075597608462
+        ],
+        "peak_gib": [
+          9.978622436523438,
+          10.306219577789307
+        ],
+        "loss": 1.2713257372379303,
+        "reference_loss": 1.3841746002435684,
+        "candidate_loss": 1.3841746002435684,
+        "gradient_relative_l2": 0.0008885355200618505,
+        "gradient_cosine": 1.0099620819091797
+      }
+    },
+    "status": "completed"
+  },
+  {
+    "variant": "batch2-no-checkpoint",
+    "status": "oom",
+    "error": "CUDA out of memory. Tried to allocate 78.00 MiB. GPU 0 has a total capacity of 184.00 GiB of which 34.44 MiB is free. Including non-PyTorch memory, this process has 181.57 GiB memory in use. Of the allocated memory 179.63 GiB is allocated by PyTorch, and 1007.75 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)"
+  }
+]

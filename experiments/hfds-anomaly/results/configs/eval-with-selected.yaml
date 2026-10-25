@@ -1,0 +1,92 @@
+backend: cuda
+ckpt_path: /orcd/pool/008/jrusak/om4-hfds-ablation-20261021/outputs/hfds-with/saved_nets/best_validation_ckpt.pt
+data:
+  input_steps: 2
+  loading:
+    concurrent_compute: true
+    num_workers: 0
+    persistent_workers: false
+    pin_mem: true
+    type: cpu
+  output_steps: 2
+  sources:
+  - boundary_vars_key: tau_hfds_hfds_anom
+    data_location: OM4.zarr
+    data_means_location: /orcd/pool/008/jrusak/om4-current-structure-20261020/normalization/OM4_means.zarr
+    data_stds_location: /orcd/pool/008/jrusak/om4-current-structure-20261020/normalization/OM4_stds.zarr
+    inference_time:
+      end: '2022-12-24'
+      start: '2014-10-10'
+    prognostic_vars_key: thermo_dynamic_all
+    train_time:
+      end: '2013-09-30'
+      start: '1975-01-03'
+    type: om4
+    val_time:
+      end: '2014-10-05'
+      start: '2013-10-05'
+debug: false
+disk_mode: true
+experiment:
+  base_output_dir: /orcd/pool/008/jrusak/om4-hfds-ablation-20261021/evaluations
+  data_root: /orcd/data/abodner/002/jrusak/om4_onedeg_v3
+  name: with-selected
+  rand_seed: 15
+  wandb:
+    entity: ocean_emulators
+    group: hfds-anomaly-eval-20261021
+    mode: online
+    project: default
+model:
+  checkpointing: all
+  last_kernel_size: 3
+  pad: circular
+  pred_residuals: false
+  unet:
+    ch_width:
+    - 280
+    - 380
+    - 480
+    - 520
+    core_block:
+      activation: capped_gelu
+      block_type: conv_next_block
+      kernel_size: 3
+      norm: instance
+      upscale_factor: 2
+    dilation:
+    - 1
+    - 2
+    - 4
+    - 8
+    down_sampling_block: avg_pool
+    n_layers:
+    - 1
+    - 1
+    - 1
+    - 1
+    up_sampling_block: zonally_periodic_upsample
+  use_bfloat16: true
+num_model_steps_forward: 25
+observations:
+  argo_iap_location:
+    anon: true
+    bucket: m2lines-pubs
+    endpoint_url: https://nyu1.osn.mghpcc.org
+    path: Samudra/v2026-07/obs/argo-iap.zarr
+    type: s3
+  duacs_location:
+    anon: true
+    bucket: m2lines-pubs
+    endpoint_url: https://nyu1.osn.mghpcc.org
+    path: Samudra/v2026-07/obs/duacs.zarr
+    type: s3
+  oisst_location:
+    anon: true
+    bucket: m2lines-pubs
+    endpoint_url: https://nyu1.osn.mghpcc.org
+    path: Samudra/v2026-07/obs/oisst.zarr
+    type: s3
+  rmse_end: '2022-12-31'
+  rmse_start: '2015-01-01'
+save_zarr: true

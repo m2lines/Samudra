@@ -342,3 +342,45 @@ runs the 8k trajectory and independent 4k cooldown sequentially on all four GPUs
 
 Total performance and migration checks, including the failed raw-validation
 attempt, consumed **1.5339 GPU-hours**. Failed proofs remain preserved.
+
+### Four-rank bottleneck profiles
+
+Disposable four-GPU jobs **217296** (4m45s) and **217299** (5m10s) completed.
+The first repeats fixed windows, then reuses already-loaded input tensors; the
+second preserves the original sequential sample stream without that substitution.
+Both use synchronized per-stage timings and CPU profiles, with unchanged model
+operations. Diagnostic sources are `ed4d63610` and `747e7731b`; qualified
+production source remains **6e326a55e**. No diagnostic weights are retained for
+training. The added synchronization and profiler can affect timing.
+
+| Warm stage, global batch eight | Sequential OM4 | Sequential OBS |
+|---|---:|---:|
+| Input sampling/loading and integrity checks | 8.84–9.30s | 2.40–3.06s |
+| Shared ERA5 loading | 0.22–0.23s | included above |
+| Corruption preparation | 0.15–0.17s | 0.16–0.17s |
+| Qualification-only corruption hashing | 0.61s | 0.61s |
+| Actual prepared-payload broadcast on rank zero | 0.020s | 0.019–0.020s |
+| Forward + backward/allreduce | 0.54–0.81s | 0.55–0.79s |
+| Optimizer + EMA | about 0.006s | about 0.006s |
+
+Other ranks wait for rank-zero preparation inside their broadcast call, so their
+longer apparent broadcast time must not be called communication cost. Fixed
+OM4 windows still require 6.92s to reload; reusing the same loaded tensors removes
+that cost and leaves about 0.77s forward/backward. First-source compilation is
+substantial: about 85s for OBS and 44s for OM4 forward/backward in the sequential
+profile; subsequent steps reuse compiled graphs. Across 32 OM4 examples, CPU
+`sample` consumes 34.2s cumulatively. Hashing across the whole profile consumes
+10.8s, including both data-integrity and diagnostic hashes.
+
+The earlier 48–68s warmed OM4 qualification timing **did not reproduce**. These
+profiles establish that warmed GPU compute and actual payload communication are
+fast, and input preparation dominates the measured sequential path; they do not
+fully attribute the earlier slowdown. Filesystem/cache state and profiling
+synchronization differ. Proceed with the numerically qualified source and check
+real production throughput before giving a confident completion ETA. Do not
+promote the fixed-window input cache or remove integrity checks from this evidence.
+
+Artifacts are under `shared-era5-ddp-20261024/profile` and
+`shared-era5-ddp-20261024/profile-sequential`, including `PROFILE_COMPLETE.json`,
+per-rank stage JSONL, and CPU profiles. These two jobs add 0.6611 GPU-hours;
+all performance/migration work so far totals **2.1950 GPU-hours**.

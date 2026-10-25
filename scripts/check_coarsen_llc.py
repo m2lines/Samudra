@@ -1,13 +1,18 @@
 #!/usr/bin/env python
-"""One-step checks of coarsen_llc.py output (plan: Verification items 2-3).
+"""Checks of coarsen_llc.py output (plan: Verification items 2-3).
 
-For each --boundary-steps step: the rechunk equals the raw globe (or the mean of
-its neighbours on a filled step) tile for tile, Eta is conserved, coarse NaNs
-match wet_frac, and the wind stress is hand-checked. For each
---prognostic-steps step: Theta is conserved on faces 1, 6, 9, one coarse cell
-per face is recomputed independently from raw, raw Theta NaNs match mask_c,
-coarse NaNs match wet_frac, surface U/V are continuous across face seams, and a
-quick-look PNG is saved.
+Always: store layout, and the regrid weights (each 1/48-degree cell shares out
+exactly its rA; each 1/4-degree cell's total against its spherical area; no
+empty cells). For each --steps hour:
+
+- the rechunk equals the raw globe (or the mean of its neighbours on a filled
+  step);
+- Eta and Theta are conserved globally;
+- one aligned cell is recomputed independently from raw edges;
+- one Arctic cell is compared with an 8x8 sub-cell estimate;
+- coarse NaNs match `wet_area == 0`;
+- there are no jumps along LLC face boundaries;
+- quick-look PNGs are saved.
 """
 
 from __future__ import annotations
@@ -21,14 +26,15 @@ import numpy as np
 import zarr
 
 from coarsen_llc import (
-    BOXES, CHANNELS_3D, COARSE_NAMES, F32, LEVELS, ONE, QUARTER, RECHUNK_NAME, SOURCE, TILE,
-    VARS_2D, conservation_error,
+    F32, LEVELS, NATIVE_BOX, NATIVE_NAME, ONE, QUARTER, RECHUNK_NAME, RESOLUTIONS, SOURCE, STORE_NAMES,
+    TILE, TILES, TARGET_GRID, VARS_2D, VARS_3D, conservation_errors, target_grids,
 )
 
-from ocean_emulators.llc_coarse import N_FACES, faces_to_latlon  # noqa: E402
+from ocean_emulators.llc_coarse import (  # noqa: E402
+    center_inplace, corner_grid, rotate_to_east_north, subcell_weights,
+)
 
 logger = logging.getLogger(__name__)
-CHECK_FACES = (1, 6, 9)
 FAILURES: list[str] = []
 
 
@@ -38,205 +44,292 @@ def check(ok: bool, message: str) -> None:
         FAILURES.append(message)
 
 
-def check_layout(coarse: dict, rechunk: zarr.Group, n_time: int) -> None:
-    for b, group in coarse.items():
-        n = 4320 // b
-        expected = {
-            "vars_3d": ((n_time, len(CHANNELS_3D), N_FACES, n, n), (1, len(CHANNELS_3D), N_FACES, n, n)),
-            "vars_2d": ((n_time, len(VARS_2D), N_FACES, n, n), (1, len(VARS_2D), N_FACES, n, n)),
-            "wet_frac": ((LEVELS, N_FACES, n, n), (LEVELS, 1, n, n)),
-            "XC": ((N_FACES, n, n), (N_FACES, n, n)),
-        }
-        for name, (shape, chunks) in expected.items():
-            a = group[name]
-            check(a.shape == shape and a.chunks == chunks and a.dtype == np.float32,
-                  f"{COARSE_NAMES[b]}/{name} shape {a.shape} chunks {a.chunks} {a.dtype}")
+def check_layout(coarse: dict, rechunk: zarr.Group, grids: dict) -> None:
+    n_time = coarse[QUARTER]["Theta"].shape[0]
+    for res, group in coarse.items():
+        shape = (grids[res]["lat"].size, grids[res]["lon"].size)
+        for var in VARS_3D + VARS_2D:
+            a = group[var]
+            want = (n_time, LEVELS, *shape) if var in VARS_3D else (n_time, *shape)
+            ok = a.shape == want and a.chunks == (1, *want[1:]) and a.dtype == np.float32
+            ok &= a.compressor.cname == "zstd" and a.compressor.clevel == 3 and a.compressor.shuffle == 1
+            check(ok, f"{STORE_NAMES[res]}/{var} {a.shape} chunks {a.chunks} {a.compressor}")
+        check(np.array_equal(group["lat"][:], grids[res]["lat"]) and np.array_equal(group["lon"][:], grids[res]["lon"]),
+              f"{STORE_NAMES[res]} lat/lon equal the target grid's")
     for var in VARS_2D:
         a = rechunk[var]
-        check(a.chunks == (1, 1, TILE, TILE) and a._dimension_separator == "/",
-              f"rechunk/{var} chunks {a.chunks} separator {a._dimension_separator!r}")
+        check(a.chunks == (1, 1, TILE, TILE) and a._dimension_separator == "/" and a.compressor.clevel == 3,
+              f"rechunk/{var} chunks {a.chunks} separator {a._dimension_separator!r} {a.compressor}")
 
 
-def hand_cell(source, t: int, f: int, k: int, y: int, x: int, b: int,
-              u_name: str, v_name: str) -> tuple[float, float]:
-    """East/north mean of one coarse cell, from raw arrays with plain numpy."""
-    j0, i0 = y * b, x * b
-    j1, i1 = j0 + b, i0 + b
-    sel3 = (t, k, f) if u_name == "U" else (t, f)
-
-    def raw(name, rows, cols):
-        return np.asarray(source[name][sel3 + (rows, cols)], dtype=np.float64)
-
-    # One extra column of U and row of V, copying the edge at the face boundary.
-    u = np.nan_to_num(raw(u_name, slice(j0, j1), slice(i0, min(i1 + 1, 4320))))
-    v = np.nan_to_num(raw(v_name, slice(j0, min(j1 + 1, 4320)), slice(i0, i1)))
-    if u.shape[1] == b:
-        u = np.concatenate([u, u[:, -1:]], axis=1)
-    if v.shape[0] == b:
-        v = np.concatenate([v, v[-1:]], axis=0)
-    uc, vc = (u[:, :-1] + u[:, 1:]) / 2, (v[:-1] + v[1:]) / 2
-    cs = np.asarray(source["CS"][f, j0:j1, i0:i1], dtype=np.float64)
-    sn = np.asarray(source["SN"][f, j0:j1, i0:i1], dtype=np.float64)
-    ra = np.asarray(source["rA"][f, j0:j1, i0:i1], dtype=np.float64)
-    if u_name == "U":
-        wet = np.isfinite(np.asarray(source["Theta"][t, k, f, j0:j1, i0:i1]))
-    else:
-        wet = np.asarray(source["hFacC"][0, f, j0:j1, i0:i1]) > 0
-    w = np.where(wet, ra, 0)
-    east, north = uc * cs - vc * sn, uc * sn + vc * cs
-    return float((east * w).sum() / w.sum()), float((north * w).sum() / w.sum())
-
-
-def pick_cell(wet_frac: np.ndarray, f: int, k: int) -> tuple[int, int]:
-    """A wet 1/4-degree cell at a tile's north-east corner, so tile-edge centring is used."""
-    ys, xs = np.nonzero(wet_frac[k, f] > 0.5)
-    corner = (ys % 60 == 59) & (xs % 60 == 59) & (ys < 359) & (xs < 359)
-    pool = np.flatnonzero(corner) if corner.any() else np.arange(ys.size)
-    i = pool[len(pool) // 2]
-    return int(ys[i]), int(xs[i])
+def check_weights(source: zarr.Group, quarter: zarr.Group) -> None:
+    regrid = quarter["regrid"]
+    start, method = regrid["tile_start"][:], regrid["tile_method"][:]
+    pixel, cell, area = (regrid[k][:] for k in ("pixel", "cell", "area"))
+    fill_tile, fill_pixel, fill_area = (regrid[f"fill_{k}"][:] for k in ("tile", "pixel", "area"))
+    worst = 0.0
+    for n, (a, b) in enumerate(zip(start[:-1], start[1:])):
+        f, j0, i0 = TILES[n]
+        share = np.bincount(pixel[a:b], weights=area[a:b], minlength=TILE * TILE)
+        sel = fill_tile == n
+        share -= np.bincount(fill_pixel[sel], weights=fill_area[sel], minlength=TILE * TILE)
+        ra = np.asarray(source["rA"][f, j0:j0 + TILE, i0:i0 + TILE], np.float64).ravel()
+        worst = max(worst, float(np.max(np.abs(share - ra) / ra)))
+    check(worst < 1e-5, f"each 1/48-degree cell shares out its rA (worst relative error {worst:.1e})")
+    n_cells = quarter["rA"].size
+    cover = np.bincount(cell, weights=area, minlength=n_cells)
+    rel = np.abs(cover - quarter["rA"][:].ravel()) / quarter["rA"][:].ravel()
+    curved = np.zeros(n_cells, bool)
+    for n in np.flatnonzero(method):
+        curved[cell[start[n]:start[n + 1]]] = True
+    if fill_tile.size:
+        curved[regrid["fill_cell"][:]] = True
+    check(cover.min() > 0, f"every 1/4-degree cell has area ({np.sum(cover == 0)} empty)")
+    check(rel[~curved].max() < 1e-3,
+          f"cells from aligned tiles: area vs spherical max rel error {rel[~curved].max():.1e}")
+    logger.info("INFO cells touched by sub-cell tiles or polar fill (%d): rel area error median %.1e, "
+                "99.9%% %.1e, max %.1e; %d sub-cell tiles (%d at 16x16), %d polar-fill cells", curved.sum(),
+                np.median(rel[curved]), np.quantile(rel[curved], 0.999), rel[curved].max(),
+                int((method > 0).sum()), int((method == 2).sum()), fill_tile.size)
+    lat = np.repeat(quarter["lat"][:], quarter["lon"].size)
+    for lo, hi in ((-90, 85), (85, 89), (89, 90.1)):
+        band = curved & (lat >= lo) & (lat < hi) & (quarter["land_frac"][0].ravel() < 1)
+        if band.any():
+            logger.info("INFO ocean cells from sub-cells, lat %g..%g: rel area error max %.1e, 99%% %.1e",
+                        lo, min(hi, 90), rel[band].max(), np.quantile(rel[band], 0.99))
 
 
-def check_boundary_step(source, coarse, rechunk, t: int, missing: dict) -> None:
+def check_rechunk(source, coarse, rechunk, t: int, missing: dict) -> None:
     for var in VARS_2D:
         if t in missing[var]:
-            steps = [s for s in (t - 1, t + 1) if 0 <= s < source[var].shape[0]]
-            expected = np.asarray(source[var][steps[0]], dtype=F32)
-            for s in steps[1:]:
-                expected += source[var][s]
-            if len(steps) > 1:
-                expected *= F32(1 / len(steps))
-            check(all(t in json.loads(g.attrs["filled_time_steps_json"])[var]
-                      for g in (*coarse.values(), rechunk)),
-                  f"t={t} {var} listed as filled in all three stores")
+            s = t - 1 if t > 0 else t + 1  # the previous hour (assumed clean here)
+            expected = np.asarray(source[var][s], dtype=F32)
+            names = list(rechunk["repaired"].attrs["variables"])
+            check(rechunk["repaired"][t, names.index(var)] == 1, f"t={t} {var} marked repaired in the rechunk")
         else:
             expected = np.asarray(source[var][t], dtype=F32)
-        got = rechunk[var][t]
-        check(np.array_equal(got, expected, equal_nan=True),
+        check(np.array_equal(rechunk[var][t], expected, equal_nan=True),
               f"t={t} rechunk/{var} equals raw{' (filled)' if t in missing[var] else ''}")
-    hf2 = rechunk["hFacC_2d"][:]
-    for f in range(N_FACES):
-        if "Eta" in missing and t in missing["Eta"]:
-            break
-        for b in BOXES:
-            err = conservation_error(source, coarse[b], hf2[f] > 0, "Eta", t, f, b)
-            if f in CHECK_FACES or err > 1e-5:
-                check(err < 1e-5, f"t={t} Eta conservation face {f} box {b}: {err:.1e}")
-    for b in BOXES:
-        nan = np.isnan(coarse[b]["vars_2d"][t])
-        land = coarse[b]["wet_frac"][0] == 0
-        check(all(np.array_equal(nan[c], land) for c in range(len(VARS_2D))),
-              f"t={t} box {b} vars_2d NaNs match wet_frac[0] == 0")
-    if any(t in missing[v] for v in ("oceTAUX", "oceTAUY")):
-        return
-    wet_frac = coarse[QUARTER]["wet_frac"][:]
-    for f in CHECK_FACES:
-        y, x = pick_cell(wet_frac, f, 0)
-        east, north = hand_cell(source, t, f, 0, y, x, QUARTER, "oceTAUX", "oceTAUY")
-        got = coarse[QUARTER]["vars_2d"][t, 1:3, f, y, x]
-        check(np.allclose(got, [east, north], rtol=1e-4, atol=1e-7),
-              f"t={t} face {f} cell ({y},{x}) wind stress east/north {got} vs {east:.4g}, {north:.4g}")
 
 
-def seam_ratios(field: np.ndarray, n: int) -> dict[str, float]:
-    """Mean |jump| across a face seam over the mean |jump| a few cells inside."""
-    seams = {  # name: (axis, last index before the seam, slice along the seam)
-        "11|1": (1, -1, slice(n, 2 * n)),
-        "2|5": (1, n - 1, slice(2 * n, 3 * n)),
-        "5|7": (1, 2 * n - 1, slice(2 * n, 3 * n)),
-        "8|7": (0, 2 * n - 1, slice(2 * n, 3 * n)),
-    }
+def hand_aligned_cell(source, quarter, grid, t: int) -> None:
+    """Recompute one face-1 cell from raw edges: rows split by sin(lat), columns by centre."""
+    f, y = 1, int(np.searchsorted(grid["lat"], -10.0))
+    x = int(np.searchsorted(grid["lon"], 10.0))
+    s, n, w, e = grid["lat_b"][y], grid["lat_b"][y + 1], grid["lon_b"][x], grid["lon_b"][x + 1]
+    yg = np.asarray(source["YG"][f, :, 0], np.float64)   # face 1: rows of constant latitude
+    xc = np.asarray(source["XC"][f, 0, :], np.float64)
+    cols = np.flatnonzero((np.mod(xc, 360) >= w) & (np.mod(xc, 360) < e))
+    south, north = yg, np.r_[yg[1:], 2 * yg[-1] - yg[-2]]
+    overlap = np.clip(np.sin(np.deg2rad(np.minimum(north, n))) - np.sin(np.deg2rad(np.maximum(south, s))), 0, None)
+    frac = overlap / (np.sin(np.deg2rad(north)) - np.sin(np.deg2rad(south)))
+    rows = np.flatnonzero(frac > 0)
+    jr, ic = slice(rows[0], rows[-1] + 1), slice(cols[0], cols[-1] + 1)
+    ra = np.asarray(source["rA"][f, jr, ic], np.float64) * frac[rows][:, None]
+    for k in (0, 20):
+        theta = np.asarray(source["Theta"][t, k, f, jr, ic], np.float64)
+        u = np.asarray(source["U"][t, k, f, jr, slice(cols[0], cols[-1] + 2)], F32)
+        v = np.asarray(source["V"][t, k, f, slice(rows[0], rows[-1] + 2), ic], F32)
+        uc, vc = center_inplace(u, -1)[:, :-1], center_inplace(v, -2)[:-1]
+        east, north_v = rotate_to_east_north(uc, vc, source["CS"][f, jr, ic], source["SN"][f, jr, ic])
+        wet = np.isfinite(theta)
+        mean = {name: float((np.where(wet, a, 0) * ra).sum() / (ra * wet).sum())
+                for name, a in (("Theta", theta), ("U", east), ("V", north_v))}
+        got = {name: float(quarter[name][t, k, y, x]) for name in mean}
+        check(all(np.isclose(got[m], mean[m], rtol=1e-4, atol=1e-6) for m in mean),
+              f"t={t} k={k} aligned cell (lat {grid['lat'][y]:.2f}, lon {grid['lon'][x]:.3f}) on face 1: "
+              + ", ".join(f"{m} {got[m]:.5g} vs {mean[m]:.5g}" for m in mean))
+    eta = np.asarray(source["Eta"][t, f], np.float64)[jr, ic]
+    wet0 = np.asarray(source["hFacC"][0, f, jr, ic]) > 0
+    mean = float((np.where(wet0, eta, 0) * ra).sum() / (ra * wet0).sum())
+    got = float(quarter["Eta"][t, y, x])
+    check(np.isclose(got, mean, rtol=1e-4, atol=1e-6), f"t={t} aligned cell Eta {got:.6g} vs {mean:.6g}")
+
+
+def hand_arctic_cell(source, quarter, grid, t: int) -> None:
+    """Compare one cap cell with an 8x8 sub-cell estimate over the same neighbourhood."""
+    regrid = quarter["regrid"]
+    start = regrid["tile_start"][:]
+    y = int(np.searchsorted(grid["lat"], 85.0))
+    x = int(np.searchsorted(grid["lon"], 30.0))
+    target = y * grid["lon"].size + x
+    hits = []
+    for n in range(6 * 36, 7 * 36):
+        a, b = start[n], start[n + 1]
+        cell = regrid["cell"][a:b]
+        sel = np.flatnonzero(cell == target)
+        if sel.size:
+            hits += [(n, p) for p in regrid["pixel"][a:b][sel]]
+    n0 = hits[0][0]
+    f, j0, i0 = TILES[n0]
+    js, is_ = zip(*(divmod(int(p), TILE) for n, p in hits if n == n0))
+    ja, jb = max(min(js) - 3, 0), min(max(js) + 4, TILE)
+    ia, ib = max(min(is_) - 3, 0), min(max(is_) + 4, TILE)
+    xg = source["XG"][f, j0 + ja:j0 + jb + 1, i0 + ia:i0 + ib + 1]
+    yg = source["YG"][f, j0 + ja:j0 + jb + 1, i0 + ia:i0 + ib + 1]
+    lon_c, lat_c = corner_grid(xg, yg)
+    lon_c, lat_c = lon_c[:jb - ja + 1, :ib - ia + 1], lat_c[:jb - ja + 1, :ib - ia + 1]
+    ra = source["rA"][f, j0 + ja:j0 + jb, i0 + ia:i0 + ib]
+    pixel, cell, area = subcell_weights(lon_c, lat_c, ra, grid["lat_b"], grid["lon"].size, n_sub=8)
+    sel = cell == target
+    theta = np.asarray(source["Theta"][t, 0, f, j0 + ja:j0 + jb, i0 + ia:i0 + ib], np.float64).ravel()
+    wet = np.isfinite(theta[pixel[sel]])
+    estimate = float((theta[pixel[sel]][wet] * area[sel][wet]).sum() / area[sel][wet].sum())
+    got = float(quarter["Theta"][t, 0, y, x])
+    spread = float(np.nanmax(theta[pixel[sel]]) - np.nanmin(theta[pixel[sel]]))
+    check(abs(got - estimate) <= 0.02 * spread + 1e-6,
+          f"t={t} Arctic cell (lat {grid['lat'][y]:.2f}, lon {grid['lon'][x]:.3f}) Theta_0 {got:.5f} vs "
+          f"8x8 estimate {estimate:.5f} (spread {spread:.4f})")
+
+
+def seam_ratios(field: np.ndarray, grid: dict) -> dict[str, float]:
+    """Mean |jump| across LLC face boundaries over the mean |jump| a few cells away."""
+    lat = grid["lat"]
+    band = (lat > -55) & (lat < 60)
     out = {}
-    for name, (axis, last, along) in seams.items():
-        a = np.moveaxis(field, axis, -1)[along]
-        first = (last + 1) % a.shape[-1]
-        seam = np.nanmean(np.abs(a[:, last] - a[:, first]))
-        inside = np.nanmean(np.abs(a[:, first + 4] - a[:, first + 5]))
-        out[name] = float(seam / inside)
+    for lon in (322.0, 52.0, 142.0, 232.0):  # -38, 52, 142, -128 degrees E
+        c = int(round(lon / 360 * grid["lon"].size))
+        a = field[band]
+        seam = np.nanmean(np.abs(a[:, c] - a[:, c - 1]))
+        inside = np.nanmean(np.abs(a[:, c + 5] - a[:, c + 4]))
+        out[f"{lon - 360 if lon > 180 else lon:g}E"] = float(seam / inside)
+    r = int(np.searchsorted(grid["lat_b"], 67.5)) - 1  # the row holding the cap boundary
+    seam = max(np.nanmean(np.abs(field[r] - field[r - 1])), np.nanmean(np.abs(field[r + 1] - field[r])))
+    out["67.5N"] = float(seam / np.nanmean(np.abs(field[r - 4] - field[r - 5])))
     return out
 
 
-def check_prognostic_step(source, coarse, t: int, png_dir: Path) -> None:
-    wet_frac = {b: coarse[b]["wet_frac"][:] for b in BOXES}
-    for f in CHECK_FACES:
-        for b in BOXES:
-            err = conservation_error(source, coarse[b], None, "Theta", t, f, b)
-            check(err < 1e-5, f"t={t} Theta conservation face {f} box {b} (all levels): {err:.1e}")
-    for f in CHECK_FACES:
-        for k in (0, 20):
-            y, x = pick_cell(wet_frac[QUARTER], f, k)
-            east, north = hand_cell(source, t, f, k, y, x, QUARTER, "U", "V")
-            c = [CHANNELS_3D.index(f"U_{k}"), CHANNELS_3D.index(f"V_{k}")]
-            got = coarse[QUARTER]["vars_3d"][t, c, f, y, x]
-            check(np.allclose(got, [east, north], rtol=1e-4, atol=1e-6),
-                  f"t={t} face {f} k={k} cell ({y},{x}) U/V east/north {got} vs {east:.5g}, {north:.5g}")
-        for (j0, i0) in ((0, 0), (1440, 2160), (3600, 3600)):
-            theta = np.asarray(source["Theta"][t, :, f, j0:j0 + TILE, i0:i0 + TILE])
-            mask = np.asarray(source["mask_c"][:, f, j0:j0 + TILE, i0:i0 + TILE]) > 0
-            check(np.array_equal(np.isfinite(theta), mask),
-                  f"t={t} face {f} tile ({j0},{i0}) Theta NaNs equal mask_c == 0")
-    for b in BOXES:
-        x = coarse[b]["vars_3d"][t]
-        land = wet_frac[b] == 0
-        ok = all(np.array_equal(np.isnan(x[n * LEVELS:(n + 1) * LEVELS]), land) for n in range(4))
-        check(ok, f"t={t} box {b} vars_3d NaNs match wet_frac == 0 at every level")
-    n = 4320 // QUARTER
-    for name in ("U_0", "V_0"):
-        grid, _ = faces_to_latlon(coarse[QUARTER]["vars_3d"][t, CHANNELS_3D.index(name)])
-        ratios = seam_ratios(grid, n)
+def check_hour(source, coarse, rechunk, grids, t: int, png_dir: Path) -> None:
+    wet0 = rechunk["hFacC_2d"][:] > 0  # hFacC[0] > 0, without reading all 51 levels
+    for var in ("Eta", "Theta"):
+        errors = conservation_errors(source, coarse, wet0, var, t)
+        check(all(e < 1e-5 for e in errors.values()),
+              f"t={t} global {var} conservation: " + ", ".join(f"{r} {e:.1e}" for r, e in errors.items()))
+    for res, group in coarse.items():
+        land = group["wet_area"][:] == 0
+        ok = all(np.array_equal(np.isnan(group[v][t]), land) for v in VARS_3D)
+        ok &= all(np.array_equal(np.isnan(group[v][t]), land[0]) for v in VARS_2D)
+        check(ok, f"t={t} {res}: coarse NaNs equal wet_area == 0 at every level")
+        lf = group["land_frac"][:]
+        check(np.array_equal(lf == 1, land), f"{res}: land_frac == 1 exactly where wet_area == 0")
+    q, grid = coarse[QUARTER], grids[QUARTER]
+    hand_aligned_cell(source, q, grid, t)
+    hand_arctic_cell(source, q, grid, t)
+    for var in ("U", "V", "Theta"):
+        ratios = seam_ratios(q[var][t, 0], grid)
         check(all(r < 2.5 for r in ratios.values()),
-              f"t={t} {name} seam jump / interior jump: "
+              f"t={t} {var}_0 jump across face boundaries / jump inside: "
               + ", ".join(f"{k} {v:.2f}" for k, v in ratios.items()))
-    save_png(coarse, t, png_dir)
+    save_pngs(q, grid, t, png_dir)
 
 
-def save_png(coarse, t: int, png_dir: Path) -> None:
+def save_pngs(q: zarr.Group, grid: dict, t: int, png_dir: Path) -> None:
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    group = coarse[QUARTER]
-    panels = {
-        "Theta_0": group["vars_3d"][t, CHANNELS_3D.index("Theta_0")],
-        "U_0 (east)": group["vars_3d"][t, CHANNELS_3D.index("U_0")],
-        "V_0 (north)": group["vars_3d"][t, CHANNELS_3D.index("V_0")],
-        "Eta": group["vars_2d"][t, 0],
-        "wet_frac k=0": group["wet_frac"][0],
-        "wet_frac k=40": group["wet_frac"][40],
-    }
+    panels = {"Theta_0": q["Theta"][t, 0], "U_0 (east)": q["U"][t, 0], "V_0 (north)": q["V"][t, 0],
+              "Eta": q["Eta"][t], "land_frac k=0": q["land_frac"][0], "land_frac k=40": q["land_frac"][40]}
+    png_dir.mkdir(parents=True, exist_ok=True)
     fig, axes = plt.subplots(3, 2, figsize=(16, 13), constrained_layout=True)
     for ax, (title, field) in zip(axes.flat, panels.items()):
-        grid, _ = faces_to_latlon(field)
-        lo, hi = np.nanpercentile(grid, [2, 98])
-        if title.startswith(("U", "V")):
+        lo, hi = np.nanpercentile(field, [2, 98])
+        diverging = title.startswith(("U", "V"))
+        if diverging:
             lo, hi = -max(abs(lo), abs(hi)), max(abs(lo), abs(hi))
-        im = ax.imshow(grid, origin="lower", vmin=lo, vmax=hi,
-                       cmap="RdBu_r" if title.startswith(("U", "V")) else "viridis")
-        ax.set_title(f"{title}, t={t}, 1/4 deg stitched (no Arctic)")
+        im = ax.pcolormesh(grid["lon_b"], grid["lat_b"], field, vmin=lo, vmax=hi,
+                           cmap="RdBu_r" if diverging else "viridis", shading="flat")
+        ax.set_title(f"{title}, t={t}, Samudra 1/4 deg")
         fig.colorbar(im, ax=ax, shrink=0.8)
-    png_dir.mkdir(parents=True, exist_ok=True)
-    path = png_dir / f"coarse_quicklook_t{t:05d}.png"
-    fig.savefig(path, dpi=80)
-    logger.info("saved %s", path)
+    fig.savefig(png_dir / f"samudra_quicklook_t{t:05d}.png", dpi=80)
+    plt.close(fig)
+
+    north = grid["lat_b"] >= 60
+    rows = slice(int(np.argmax(north)), None)
+    fig = plt.figure(figsize=(14, 7), constrained_layout=True)
+    for k, (title, field) in enumerate((("Theta_0", q["Theta"][t, 0]), ("U_0 (east)", q["U"][t, 0]))):
+        ax = fig.add_subplot(1, 2, k + 1, projection="polar")
+        sub = field[rows.start:]
+        lo, hi = np.nanpercentile(sub, [2, 98])
+        if title.startswith("U"):
+            lo, hi = -max(abs(lo), abs(hi)), max(abs(lo), abs(hi))
+        im = ax.pcolormesh(np.deg2rad(grid["lon_b"]), 90 - grid["lat_b"][rows.start:], sub, vmin=lo, vmax=hi,
+                           cmap="RdBu_r" if title.startswith("U") else "viridis", shading="flat")
+        ax.set_title(f"{title} north of 60N, t={t}")
+        fig.colorbar(im, ax=ax, shrink=0.7)
+    fig.savefig(png_dir / f"samudra_arctic_t{t:05d}.png", dpi=80)
+    plt.close(fig)
+    logger.info("saved quick-looks to %s", png_dir)
+
+
+def check_native(source, native: zarr.Group, rechunk: zarr.Group, t: int) -> None:
+    """Per-face conservation, NaN pattern, and one face-9 box recomputed from raw."""
+    wet_area = native["wet_area"][:].astype(np.float64)
+    wet0 = rechunk["hFacC_2d"][:] > 0
+    eta = np.asarray(source["Eta"][t], F32)
+    worst = {"Eta": 0.0, "Theta": 0.0}
+    for f in range(13):
+        ra = np.asarray(source["rA"][f], F32)
+        pairs = [("Eta", eta[f][None], wet0[f][None], 1)]
+        if f in (1, 6, 9):
+            theta = np.asarray(source["Theta"][t, :, f], F32)
+            pairs.append(("Theta", theta, np.isfinite(theta), LEVELS))
+        for var, x, wet, levels in pairs:
+            fine = (np.where(wet, x, F32(0)) * ra).sum(axis=(-2, -1), dtype=np.float64)
+            c = np.asarray(native[var][t], np.float64).reshape(levels, 13, *wet_area.shape[-2:])[:, f]
+            total = np.nansum(c * wet_area[:levels, f], axis=(-2, -1))
+            worst[var] = max(worst[var], float(np.max(np.abs(total - fine) / np.maximum(np.abs(fine), 1e-30))))
+    check(all(e < 1e-5 for e in worst.values()),
+          f"t={t} native per-face conservation: Eta {worst['Eta']:.1e} (13 faces), Theta {worst['Theta']:.1e} (faces 1,6,9)")
+    land = wet_area == 0
+    ok = all(np.array_equal(np.isnan(native[v][t]), land) for v in VARS_3D)
+    ok &= all(np.array_equal(np.isnan(native[v][t]), land[0]) for v in VARS_2D)
+    check(ok, f"t={t} native: NaNs equal wet_area == 0")
+    # Face 9 is rotated (+i south, +j east); one 16x16 box, centred and rotated by hand.
+    f, y, x, b = 9, 150, 150, NATIVE_BOX
+    j0, i0 = y * b, x * b
+    for k in (0, 20):
+        u = np.nan_to_num(np.asarray(source["U"][t, k, f, j0:j0 + b, i0:i0 + b + 1], np.float64))
+        v = np.nan_to_num(np.asarray(source["V"][t, k, f, j0:j0 + b + 1, i0:i0 + b], np.float64))
+        uc, vc = (u[:, :-1] + u[:, 1:]) / 2, (v[:-1] + v[1:]) / 2
+        cs, sn = (np.asarray(source[n][f, j0:j0 + b, i0:i0 + b], np.float64) for n in ("CS", "SN"))
+        theta = np.asarray(source["Theta"][t, k, f, j0:j0 + b, i0:i0 + b], np.float64)
+        w = np.where(np.isfinite(theta), np.asarray(source["rA"][f, j0:j0 + b, i0:i0 + b], np.float64), 0)
+        want = {"U": uc * cs - vc * sn, "V": uc * sn + vc * cs, "Theta": np.nan_to_num(theta)}
+        want = {n: float((a * w).sum() / w.sum()) for n, a in want.items()}
+        got = {n: float(native[n][t, k, f, y, x]) for n in want}
+        check(all(np.isclose(got[n], want[n], rtol=1e-4, atol=1e-6) for n in want),
+              f"t={t} k={k} native face-9 box ({y},{x}): " + ", ".join(f"{n} {got[n]:.5g} vs {want[n]:.5g}" for n in want))
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(description=__doc__)
+    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--source", type=Path, default=SOURCE)
+    p.add_argument("--target-grid", type=Path, default=TARGET_GRID)
     p.add_argument("--coarse-root", type=Path, required=True)
     p.add_argument("--rechunk-root", type=Path, required=True)
-    p.add_argument("--boundary-steps", default="")
-    p.add_argument("--prognostic-steps", default="")
+    p.add_argument("--steps", default="", help="Comma-separated hours to check")
+    p.add_argument("--skip-weights", action="store_true")
+    p.add_argument("--native-only", action="store_true", help="Only the native 1/3-degree checks")
     p.add_argument("--png-dir", type=Path, default=None)
     args = p.parse_args()
     source = zarr.open_group(str(args.source), mode="r")
-    coarse = {b: zarr.open_group(str(args.coarse_root / COARSE_NAMES[b]), mode="r") for b in BOXES}
+    coarse = {res: zarr.open_group(str(args.coarse_root / STORE_NAMES[res]), mode="r") for res in RESOLUTIONS}
     rechunk = zarr.open_group(str(args.rechunk_root / RECHUNK_NAME), mode="r")
+    grids = target_grids(args.target_grid)
     missing = {v: set(s) for v, s in json.loads(coarse[ONE].attrs["filled_time_steps_json"]).items()}
-    check_layout(coarse, rechunk, coarse[QUARTER]["vars_3d"].shape[0])
-    for t in (int(s) for s in args.boundary_steps.split(",") if s):
-        check_boundary_step(source, coarse, rechunk, t, missing)
-    for t in (int(s) for s in args.prognostic_steps.split(",") if s):
-        check_prognostic_step(source, coarse, t, args.png_dir or args.coarse_root / "_check")
+    native = zarr.open_group(str(args.coarse_root / NATIVE_NAME), mode="r") \
+        if (args.coarse_root / NATIVE_NAME).exists() else None
+    if not args.native_only:
+        check_layout(coarse, rechunk, grids)
+        if not args.skip_weights:
+            check_weights(source, coarse[QUARTER])
+    for t in (int(s) for s in args.steps.split(",") if s):
+        if not args.native_only:
+            check_rechunk(source, coarse, rechunk, t, missing)
+            check_hour(source, coarse, rechunk, grids, t, args.png_dir or args.coarse_root / "_check")
+        if native is not None:
+            check_native(source, native, rechunk, t)
     logger.info("%d failure(s)", len(FAILURES))
     raise SystemExit(1 if FAILURES else 0)
 

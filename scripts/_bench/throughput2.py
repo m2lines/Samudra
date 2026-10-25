@@ -1,93 +1,144 @@
-"""Phase C v2. Fixes two flaws in v1:
+"""Read speed and CPU decode time of the stores scripts/_bench/build_stores.py writes.
 
- * configs were measured in contiguous blocks, so shared-filesystem contention
-   was confounded with the config under test. Now reps are the OUTER loop, so
-   every rep sweeps all 12 configs and a noisy minute is spread across all of
-   them. Report median across reps, with the full range.
- * the warm phase never evicted, so page cache accumulated across stores and
-   cgroup v2 charged it to the job -- OOM at ~190 GB. Now each store is evicted
-   once measured, bounding page cache to roughly one store.
+  cold: tiles/s with the store's page cache evicted, W reader processes; reps are the OUTER loop so a noisy
+        filesystem minute is spread across every store, and each store is evicted once measured.
+  warm: the same read with the files cached (decompress only).
+  decode: single-thread CPU time per chunk, compressed bytes already in RAM, plus the cast to float32.
+
+  .venv/bin/python scripts/_bench/throughput2.py [--root DIR] [--workers 16,32] [--reps 3]
 """
-import os, random, statistics, time
+import argparse, os, random, statistics, time
 from concurrent.futures import ThreadPoolExecutor
 from multiprocessing import Pool
-import numpy as np, zarr
+import numcodecs, numpy as np, torch, zarr
 
-ROOT="/orcd/data/abodner/002/cody/LLC_patch/_layout_bench"
-TILE=720; NSIDE=6; NT=4; VARS=["Theta","Salt","U","V"]
-SAMPLE_BYTES=205*TILE*TILE*2
-JOBS=[(t,j*TILE,i*TILE) for t in range(NT) for j in range(NSIDE) for i in range(NSIDE)]
-random.Random(0).shuffle(JOBS)
-WS=[16,32]; REPS=3
+numcodecs.blosc.use_threads = False
+TILE, NSIDE = 720, 6
+TORCH = {"bf16": (torch.int16, torch.bfloat16), "fp8e4m3": (torch.uint8, torch.float8_e4m3fn),
+         "fp8e5m2": (torch.uint8, torch.float8_e5m2)}
 
-_G=None;_L=None
-def _init(p,l):
-    global _G,_L; _G=zarr.open_group(p,mode="r"); _L=l
+_ARRAY = None
+
+
+def _init(path):
+    global _ARRAY
+    _ARRAY = zarr.open_group(path, mode="r")["prognostic"]
+
+
 def _read(job):
-    t,j0,i0=job
-    if _L=="packed":
-        a=np.asarray(_G["prognostic"][t,:,j0:j0+TILE,i0:i0+TILE])
-    else:
-        ps=[np.asarray(_G[v][t,:,j0:j0+TILE,i0:i0+TILE]) for v in VARS]
-        ps.append(np.asarray(_G["Eta"][t,j0:j0+TILE,i0:i0+TILE])[None])
-        a=np.concatenate(ps,axis=0)
-    return a.nbytes
+    slot, j0, i0 = job
+    return np.asarray(_ARRAY[slot, :, j0:j0 + TILE, i0:i0 + TILE]).nbytes
+
+
+def to_float32(stored: np.ndarray, fmt: str) -> torch.Tensor:
+    if fmt in TORCH:
+        bits, dtype = TORCH[fmt]
+        return torch.from_numpy(stored.view(np.int16) if bits is torch.int16 else stored).view(dtype).float()
+    return torch.from_numpy(stored).float()
+
 
 def evict(path):
-    fs=[os.path.join(d,f) for d,_,x in os.walk(path) for f in x]
+    files = [os.path.join(d, f) for d, _, x in os.walk(path) for f in x]
+
     def drop(p):
         try:
-            fd=os.open(p,os.O_RDONLY)
-            try: os.posix_fadvise(fd,0,0,os.POSIX_FADV_DONTNEED)
-            finally: os.close(fd)
-        except OSError: pass
-    with ThreadPoolExecutor(max_workers=32) as ex: list(ex.map(drop,fs))
+            fd = os.open(p, os.O_RDONLY)
+            try:
+                os.posix_fadvise(fd, 0, 0, os.POSIX_FADV_DONTNEED)
+            finally:
+                os.close(fd)
+        except OSError:
+            pass
 
-def run(path,layout,w):
-    with Pool(w,initializer=_init,initargs=(path,layout)) as pool:
-        t0=time.perf_counter(); sum(pool.imap_unordered(_read,JOBS,chunksize=1))
-        return time.perf_counter()-t0
+    with ThreadPoolExecutor(max_workers=32) as ex:
+        list(ex.map(drop, files))
 
-stores=sorted(d for d in os.listdir(ROOT) if d.endswith(".zarr"))
-lay=lambda s:"packed" if s.startswith("packed") else "compact"
 
-CSV=f"{ROOT}/results.csv"
-if not os.path.exists(CSV):
-    with open(CSV,"w") as f: f.write("phase,store,workers,seconds\n")
-def record(phase,store,w,dt):
-    with open(CSV,"a") as f: f.write(f"{phase},{store},{w},{dt:.4f}\n"); f.flush()
+def run(path, jobs, workers):
+    with Pool(workers, initializer=_init, initargs=(path,)) as pool:
+        t0 = time.perf_counter()
+        sum(pool.imap_unordered(_read, jobs, chunksize=1))
+        return time.perf_counter() - t0
 
-cold={}
-for rep in range(REPS):
-    order=stores[:]; random.Random(100+rep).shuffle(order)
-    for st in order:
-        p=f"{ROOT}/{st}"
-        for w in WS:
-            evict(p); dt=run(p,lay(st),w)
-            cold.setdefault((st,w),[]).append(dt); record("cold",st,w,dt)
-        evict(p)
-    print(f"[cold] rep {rep+1}/{REPS} done",flush=True)
 
-warm={}
-for st in stores:
-    p=f"{ROOT}/{st}"
-    run(p,lay(st),32)                      # prime
-    warm[st]=min(run(p,lay(st),32) for _ in range(2)); record("warm",st,32,warm[st])
-    evict(p)                               # bound page cache -> no OOM
-    print(f"[warm] {st[:-5]}",flush=True)
+def chunks(path):
+    """(slot, j0, i0) of every chunk file the store holds."""
+    names = [k for k in os.listdir(f"{path}/prognostic") if not k.startswith(".")]
+    return [(int(t), int(j) * TILE, int(i) * TILE) for t, _, j, i in (k.split(".") for k in names)]
 
-print(f"\n{'store':38s} " + " ".join(f"{'cold W='+str(w):>16s}" for w in WS) + f" {'warm W=32':>12s} {'io share':>9s}")
-for st in stores:
-    row=f"{st[:-5]:38s} "
-    for w in WS:
-        v=cold[(st,w)]; med=statistics.median(v)
-        row+=f" {len(JOBS)*SAMPLE_BYTES/med/1e9:5.2f} GB/s({min(v):4.1f}-{max(v):4.1f})"
-    c32=statistics.median(cold[(st,32)])
-    row+=f" {len(JOBS)*SAMPLE_BYTES/warm[st]/1e9:7.1f} GB/s {100*(1-warm[st]/c32):7.0f}%"
-    print(row,flush=True)
 
-# absolute cost of the compact->contiguous reorder, no I/O in the way
-a=[np.empty((51,TILE,TILE),dtype=np.float16) for _ in range(4)]+[np.empty((1,TILE,TILE),dtype=np.float16)]
-t0=time.perf_counter()
-for _ in range(20): np.concatenate(a,axis=0)
-print(f"\npure reorder (concatenate 5 -> (205,720,720)): {(time.perf_counter()-t0)/20*1000:.1f} ms/sample")
+def decode(path, fmt, n=8):
+    """Median single-thread ms per chunk: decompress, then decompress + cast to float32."""
+    arr = zarr.open_group(path, mode="r")["prognostic"]
+    blobs = [arr.store[f"prognostic/{t}.0.{j // TILE}.{i // TILE}"] for t, j, i in sorted(chunks(path))[:n]]
+    dz, dc = [], []
+    for blob in blobs:
+        t0 = time.perf_counter()
+        raw = np.frombuffer(arr.compressor.decode(blob), dtype=arr.dtype).reshape(arr.chunks)
+        t1 = time.perf_counter()
+        to_float32(raw, fmt)
+        t2 = time.perf_counter()
+        dz.append(t1 - t0)
+        dc.append(t2 - t0)
+    return 1e3 * statistics.median(dz), 1e3 * statistics.median(dc), statistics.mean(len(b) for b in blobs) / 1e6
+
+
+def main():
+    p = argparse.ArgumentParser()
+    p.add_argument("--root", default="/orcd/data/abodner/002/cody/LLC_patch/_precision_bench")
+    p.add_argument("--workers", default="16,32")
+    p.add_argument("--reps", type=int, default=3)
+    a = p.parse_args()
+    ws = [int(w) for w in a.workers.split(",")]
+    stores = sorted(d for d in os.listdir(a.root) if d.endswith(".zarr"))
+    meta = {s: zarr.open_group(f"{a.root}/{s}", mode="r") for s in stores}
+    host = os.uname().nodename
+    csv = f"{a.root}/results.csv"
+    if not os.path.exists(csv):
+        with open(csv, "w") as f:
+            f.write("host,phase,store,workers,seconds,tiles\n")
+
+    def record(phase, store, w, dt, tiles):
+        with open(csv, "a") as f:
+            f.write(f"{host},{phase},{store},{w},{dt:.4f},{tiles}\n")
+
+    jobs = {s: chunks(f"{a.root}/{s}") for s in stores}
+    for s in stores:
+        random.Random(0).shuffle(jobs[s])
+    cold = {}
+    for rep in range(a.reps):
+        order = stores[:]
+        random.Random(100 + rep).shuffle(order)
+        for st in order:
+            path = f"{a.root}/{st}"
+            for w in ws:
+                evict(path)
+                dt = run(path, jobs[st], w)
+                cold.setdefault((st, w), []).append(dt)
+                record("cold", st, w, dt, len(jobs[st]))
+            evict(path)
+        print(f"[cold] rep {rep + 1}/{a.reps} done", flush=True)
+    warm, dec = {}, {}
+    for st in stores:
+        path = f"{a.root}/{st}"
+        run(path, jobs[st], ws[-1])  # prime
+        warm[st] = min(run(path, jobs[st], ws[-1]) for _ in range(2))
+        record("warm", st, ws[-1], warm[st], len(jobs[st]))
+        dec[st] = decode(path, meta[st].attrs["format"])
+        evict(path)  # bound the page cache, or cgroup v2 charges it to the job
+        print(f"[warm] {st[:-5]}", flush=True)
+    print(f"\n{host}: tiles/s (one tile = 205 x 720 x 720), median over {a.reps} reps (min-max); decode is single-thread")
+    print(f"{'store':20s} {'MB/chunk':>9s}" + "".join(f"{'cold W=' + str(w):>22s}" for w in ws)
+          + f"{'warm W=' + str(ws[-1]):>13s}{'decomp ms':>11s}{'+cast ms':>10s}")
+    for st in stores:
+        row = f"{st[:-5]:20s} {dec[st][2]:9.1f}"
+        for w in ws:
+            v = cold[(st, w)]
+            n = len(jobs[st])
+            row += f"   {n / statistics.median(v):7.1f} ({n / max(v):5.1f}-{n / min(v):5.1f})"
+        row += f"{len(jobs[st]) / warm[st]:13.1f}{dec[st][0]:11.0f}{dec[st][1]:10.0f}"
+        print(row, flush=True)
+
+
+if __name__ == "__main__":
+    main()

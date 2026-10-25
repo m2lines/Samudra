@@ -1,18 +1,34 @@
 #!/usr/bin/env python
-"""Coarsen LLC4320 to 1/4 and 1 degree, and rechunk its 2D fields into 720 tiles.
+"""Regrid LLC4320 onto Samudra's 1/4- and 1-degree lat/lon grid, box-average it to
+1/3 degree on the native LLC faces, and rechunk its 2D fields into 720 tiles, in
+one pass per hour.
+
+Products (--products): `samudra` = rechunk + 1/4 + 1 degree, `native` = 1/3 degree
+on the 13 faces. Each has its own markers, so an hour already done for one only
+computes the other.
 
 Plan and decisions: docs/10-15-26-coarsen_LLC_plan.md. Modes:
 
-  init     create the two coarse stores and the rechunk store, write statics
-  fill     --part boundary:   2D fields -> rechunk store + coarse vars_2d
-           --part prognostic: U, V, Theta, Salt -> coarse vars_3d
-  stats    per-channel area-weighted mean/std over 96 finished train steps
+  init     create the three stores; build the regrid weights and static fields
+  fill     for each pending hour: rechunk the 2D fields, regrid every field
+  stats    per-variable, per-level mean/std over 96 finished train hours
+  prepare  add the `repaired` arrays to stores made before they existed
+  report   merge the per-hour repair records into repairs.log and store attrs
   verify   markers, chunk files, conservation spot checks, consolidate
            (run it only when no fill is running: it deletes *.partial files)
 
-A step is done once `<coarse-root>/_progress/<part>/<t>` exists. The marker is
-written after every chunk of that step, and zarr writes chunks by rename, so a
-killed fill just redoes its unfinished steps.
+An hour is done for a product once `<coarse-root>/_progress[_native]/<t>` exists.
+The marker is written after every chunk of that hour, and zarr writes chunks by
+rename, so a killed fill just redoes its unfinished hours.
+
+Bad raw pixels are replaced by the same pixel at the nearest earlier hour where it
+is clean: a pixel is bad if it is outside LIMITS or infinite, if Theta/Salt's
+NaN-ness disagrees with mask_c there, or if a 2D field is NaN on a wet cell. A
+missing raw chunk or 2D step is all bad, so it copies the whole field. Hour 0
+uses the next hour. Each repair
+is recorded in `<coarse-root>/_repairs/<t>.json`, merged into the single log
+`<coarse-root>/repairs.log` by `--mode report` (and at the end of every fill),
+and noted per hour and variable in every store's `repaired` array.
 """
 
 from __future__ import annotations
@@ -37,59 +53,134 @@ from build_llc_face_cache import FACE_SIZE, TILE, create_array, open_source_arra
 
 from ocean_emulators.llc_coarse import (  # noqa: E402  (src is put on sys.path above)
     N_FACES,
+    POLAR_LAT,
+    POLAR_SUBCELLS,
+    SUBCELLS,
+    aligned_weights,
+    apply_weights,
     bottom_hfac,
     box_sum,
+    cell_area,
     center_inplace,
-    fill_sources,
+    corner_grid,
     lonlat_from_vector,
+    nearest,
+    repair_candidates,
     ratio,
     rotate_to_east_north,
+    split_edges,
+    subcell_weights,
+    tile_matrix,
     unit_vector,
-    weighted_box_sum,
 )
 
 logger = logging.getLogger(__name__)
 
 SOURCE = Path("/orcd/data/abodner/003/LLC4320/LLC4320")
+TARGET_GRID = Path("/orcd/data/abodner/002/cody/OM4.zarr")
 COARSE_ROOT = Path("/orcd/scratch/seedfund/001/llc_emulator/coarse")
 RECHUNK_ROOT = Path("/orcd/data/abodner/002/cody/LLC_boundary_rechunk")
-QUARTER, ONE = 12, 48
-BOXES = (QUARTER, ONE)
-COARSE_NAMES = {QUARTER: "LLC4320_coarse_0p25deg.zarr", ONE: "LLC4320_coarse_1deg.zarr"}
+QUARTER, ONE = "0p25deg", "1deg"
+RESOLUTIONS = (QUARTER, ONE)
+SPLIT = 4  # 1/4-degree cells per 1-degree cell, along each axis
+STORE_NAMES = {res: f"LLC4320_samudra_{res}.zarr" for res in RESOLUTIONS}
 RECHUNK_NAME = "LLC4320_2d_720.zarr"
 LEVELS = 51
 VARS_3D = ("U", "V", "Theta", "Salt")
 VARS_2D = ("Eta", "oceTAUX", "oceTAUY", "oceQnet", "oceFWflx")
-CHANNELS_3D = [f"{v}_{k}" for v in VARS_3D for k in range(LEVELS)]
 TRAIN_STEPS = 8808  # 2011-09-13 .. 2012-09-13, as in the face-1 cache
-TILES = [(j, i) for j in range(0, FACE_SIZE, TILE) for i in range(0, FACE_SIZE, TILE)]
+#: (face, j0, i0) of every 720 tile; a tile's index is its position here.
+TILES = [(f, j, i) for f in range(N_FACES)
+         for j in range(0, FACE_SIZE, TILE) for i in range(0, FACE_SIZE, TILE)]
+TILE_PIXELS = TILE * TILE
+FILL_LAT = 88.0  # fine cells poleward of this are candidates for the polar fill
 F32 = np.float32
+SAMUDRA, NATIVE = "samudra", "native"
+PRODUCTS = (SAMUDRA, NATIVE)
+NATIVE_BOX = 16  # 1/48-degree cells per native 1/3-degree cell, along each axis
+NATIVE_NAME = "LLC4320_native_0p33deg.zarr"
+REPAIR_RULE = ("each bad raw pixel (outside LIMITS, infinite, NaN-ness disagreeing with mask_c, or a 2D NaN on "
+               "a wet cell) is replaced by the same pixel at the nearest earlier hour where it is clean; a missing "
+               "chunk or 2D step copies the whole field. Hour 0 uses the next hour. See repairs.log and `repaired`.")
+#: Raw values outside these are corrupted data, replaced by the previous clean hour.
+LIMITS = {"Theta": (-5, 50), "Salt": (0, 100), "U": (-20, 20), "V": (-20, 20), "Eta": (-50, 50),
+          "oceTAUX": (-50, 50), "oceTAUY": (-50, 50), "oceQnet": (-1e6, 1e6), "oceFWflx": (-1, 1)}
 
 
-def coarse_path(args, b: int) -> Path:
-    return args.coarse_root / COARSE_NAMES[b]
+def compressor() -> numcodecs.Blosc:
+    """zstd-3 with byte shuffle, as chosen for the 1-face cache."""
+    return numcodecs.Blosc(cname="zstd", clevel=3, shuffle=numcodecs.Blosc.SHUFFLE)
+
+
+def coarse_path(args, res: str) -> Path:
+    return args.coarse_root / STORE_NAMES[res]
 
 
 def rechunk_path(args) -> Path:
     return args.rechunk_root / RECHUNK_NAME
 
 
-def marker_dir(args, part: str) -> Path:
-    return args.coarse_root / "_progress" / part
+def native_path(args) -> Path:
+    return args.coarse_root / NATIVE_NAME
 
 
-def done_steps(args, part: str) -> set[int]:
-    path = marker_dir(args, part)
+def marker_dir(args, product: str = SAMUDRA) -> Path:
+    return args.coarse_root / ("_progress" if product == SAMUDRA else f"_progress_{product}")
+
+
+def done_steps(args, product: str = SAMUDRA) -> set[int]:
+    path = marker_dir(args, product)
     return {int(n) for n in os.listdir(path)} if path.exists() else set()
 
 
-def compressor(args) -> numcodecs.Blosc:
-    return numcodecs.Blosc(cname="zstd", clevel=args.clevel, shuffle=numcodecs.Blosc.BITSHUFFLE)
+def bad_pixels(var: str, x: np.ndarray, wet: np.ndarray | None = None,
+               wet_finite: np.ndarray | None = None) -> dict[str, np.ndarray]:
+    """Masks of bad pixels by reason. `wet`: where x must be finite (and NaN elsewhere);
+    `wet_finite`: cells that must be finite (2D fields, whose land may be 0 or NaN)."""
+    lo, hi = LIMITS[var]
+    masks = {"out_of_range": np.isinf(x) | (x < lo) | (x > hi)}
+    if wet is not None:
+        masks["nan_pattern"] = np.isfinite(x) != wet
+    if wet_finite is not None:
+        masks["nan_on_wet"] = wet_finite & np.isnan(x)
+    return masks
 
 
-def tile_slices(j0: int, i0: int, b: int) -> tuple[slice, slice]:
-    """Coarse rows/cols covered by the 720 tile at (j0, i0)."""
-    return slice(j0 // b, (j0 + TILE) // b), slice(i0 // b, (i0 + TILE) // b)
+def repair_pixels(x: np.ndarray, bad: np.ndarray, t: int, n_time: int, fetch, check) -> list[int]:
+    """Replace `x[bad]` in place with the same pixels at the nearest hour where each is clean.
+
+    `fetch(s)` gives the raw field at hour s (None if that chunk is missing too);
+    `check(y)` gives y's bad-pixel mask. Returns the hours copied from.
+    """
+    remaining, sources = bad.copy(), []
+    for s in repair_candidates(t, n_time):
+        y = fetch(s)
+        if y is None:
+            continue
+        ok = remaining & ~check(y)
+        if ok.any():
+            x[ok] = y[ok]
+            remaining &= ~ok
+            sources.append(s)
+        if not remaining.any():
+            return sources
+    raise RuntimeError(f"t={t}: {int(remaining.sum())} bad pixels have no clean copy nearby")
+
+
+def record(repairs: list, t: int, var: str, masks: dict, sources: list, **where) -> None:
+    """One repair record: why, how many pixels, and which hours they came from."""
+    kinds = [k for k, m in masks.items() if m.any()]
+    repairs.append({"t": t, "var": var, "kind": "+".join(kinds),
+                    "pixels": int(np.logical_or.reduce(list(masks.values())).sum()),
+                    "copied_from": sources} | where)
+
+
+def create_repaired(group: zarr.Group, n_time: int, variables) -> None:
+    """`repaired[t, v]`: -1 not written yet, 0 original data, 1 some of it copied from another hour."""
+    a = create_array(group, "repaired", (n_time, len(variables)), (1, len(variables)), "i1",
+                     ("time", "variable"), compressor(), fill_value=-1)
+    a.attrs.update({"variables": list(variables), "meaning": "-1 not written, 0 original, 1 repaired",
+                    "rule": REPAIR_RULE})
 
 
 @contextmanager
@@ -107,177 +198,365 @@ def chunk_bytes(path: Path) -> int:
         return 0
 
 
+def target_grids(path: Path) -> dict[str, dict[str, np.ndarray]]:
+    """Samudra's 1-degree grid, and the 1/4-degree grid that splits each of its cells 4x4."""
+    g = zarr.open_group(str(path), mode="r")
+    lat_b, lon_b = g["lat_b"][:, 0], g["lon_b"][0, :]
+    q_lat_b, q_lon_b = split_edges(lat_b, SPLIT), split_edges(lon_b, SPLIT)
+    if not np.allclose(q_lon_b, np.arange(q_lon_b.size) * 360 / (q_lon_b.size - 1)):
+        raise ValueError("target longitudes must be equal columns starting at 0E")
+    return {
+        ONE: {"lat": g["lat"][:, 0], "lon": g["lon"][0, :], "lat_b": lat_b, "lon_b": lon_b},
+        QUARTER: {"lat": (q_lat_b[:-1] + q_lat_b[1:]) / 2, "lon": (q_lon_b[:-1] + q_lon_b[1:]) / 2,
+                  "lat_b": q_lat_b, "lon_b": q_lon_b},
+    }
+
+
+def to_one_degree(x: np.ndarray, shape: tuple[int, int]) -> np.ndarray:
+    """1/4-degree sums `[..., cells]` -> 1-degree sums `[..., 180, 360]`."""
+    return box_sum(x.reshape(*x.shape[:-1], *shape), SPLIT)
+
+
 # ---------------------------------------------------------------- init
 
 
 def find_missing(source_path: Path, n_time: int) -> dict[str, list[int]]:
-    """2D steps whose whole-globe chunk is absent; fill_sources rejects back-to-back gaps."""
+    """2D steps whose whole-globe chunk is absent."""
     missing = {}
     for var in VARS_2D:
         present = {int(n) for n in os.listdir(source_path / var) if n.isdigit()}
         steps = sorted(set(range(n_time)) - present)
-        for t in steps:
-            fill_sources(t, n_time, set(steps))
         missing[var] = steps
     return missing
 
 
-GRID_VARS = ("XC", "YC", "rA", "dxF", "dyF", "Depth", "CS", "SN", "hFacC")
+def build_weights(source: zarr.Group, grid: dict, threads: int):
+    """Per-tile `(pixel, cell, area)` and method, plus polar candidates and total LLC area."""
+    lat_edges, n_lon = grid["lat_b"], grid["lon"].size
+    weights, methods, polar, total_area = [None] * len(TILES), np.zeros(len(TILES), np.int8), [], 0.0
+    started = _time.perf_counter()
+    for f in range(N_FACES):
+        lon_c, lat_c = corner_grid(source["XG"][f], source["YG"][f])
+        xc, yc, ra = (np.asarray(source[n][f]) for n in ("XC", "YC", "rA"))
+        total_area += ra.sum(dtype=np.float64)
+
+        def job(n, f=f, lon_c=lon_c, lat_c=lat_c, xc=xc, yc=yc, ra=ra):
+            _, j0, i0 = TILES[n]
+            tj, ti, cj, ci = (slice(j0, j0 + TILE), slice(i0, i0 + TILE),
+                              slice(j0, j0 + TILE + 1), slice(i0, i0 + TILE + 1))
+            w = aligned_weights(lon_c[cj, ci], lat_c[cj, ci], xc[tj, ti], ra[tj, ti], lat_edges, n_lon)
+            method = 0
+            if w is None:
+                n_sub = POLAR_SUBCELLS if np.abs(yc[tj, ti]).max() > POLAR_LAT else SUBCELLS
+                w = subcell_weights(lon_c[cj, ci], lat_c[cj, ci], ra[tj, ti], lat_edges, n_lon, n_sub)
+                method = 1 if n_sub == SUBCELLS else 2
+            pixels = np.flatnonzero(np.abs(yc[tj, ti]) > FILL_LAT)
+            xyz = unit_vector(xc[tj, ti].ravel()[pixels], yc[tj, ti].ravel()[pixels])
+            return n, w, method, (np.full(pixels.size, n), pixels, xyz)
+
+        with ThreadPoolExecutor(threads) as pool:
+            for n, w, method, cand in pool.map(job, range(f * 36, (f + 1) * 36)):
+                weights[n], methods[n] = w, method
+                if cand[1].size:
+                    polar.append(cand)
+        logger.info("weights: face %d done (%d sub-cell tiles so far, %.0f s)", f,
+                    int((methods > 0).sum()), _time.perf_counter() - started)
+    return weights, methods, polar, total_area
 
 
-def static_sums(grids: dict, f: int, j0: int, i0: int) -> tuple[dict, np.ndarray]:
-    """1/4-degree sums of every static field for one tile, plus its fine hFacC_2d."""
-    def read(name):
-        return grids[name].read(None, f, j0, j0 + TILE, i0, i0 + TILE)
-
-    xc, yc, ra, dx, dy, depth, cs, sn = (
-        read(n) for n in ("XC", "YC", "rA", "dxF", "dyF", "Depth", "CS", "SN"))
-    hfac = np.nan_to_num(read("hFacC"))
-    wet0 = hfac[0] > 0
-    if np.any(np.abs(cs * cs + sn * sn - 1)[wet0] > 1e-3):
-        raise ValueError(f"CS^2 + SN^2 != 1 on wet cells of face {f} tile ({j0}, {i0})")
-    hf2 = bottom_hfac(hfac)
-    one = F32(1)
-    return {
-        "xyz": box_sum(unit_vector(xc, yc) * ra, QUARTER),
-        "rA": box_sum(ra, QUARTER),
-        "dxF": box_sum(dx, QUARTER),
-        "dyF": box_sum(dy, QUARTER),
-        "Depth": weighted_box_sum(np.nan_to_num(depth), ra, wet0, QUARTER),
-        "hFacC_2d": weighted_box_sum(hf2, ra, wet0, QUARTER),
-        "wet_area": weighted_box_sum(one, ra, wet0, QUARTER),
-        "hfac_area": box_sum(hfac * ra, QUARTER),
-    }, hf2
-
-
-def statics_from_sums(sums: dict, b: int) -> dict[str, np.ndarray]:
-    """Static coarse fields at box size `b` from the 1/4-degree sums."""
-    def up(s):
-        return box_sum(s, b // QUARTER) if b > QUARTER else s
-
-    xc, yc = lonlat_from_vector(up(sums["xyz"]))
-    ra, wet_area = up(sums["rA"]), up(sums["wet_area"])
-    return {
-        "XC": xc, "YC": yc, "rA": ra.astype(F32),
-        "dxF": (up(sums["dxF"]) / b).astype(F32),
-        "dyF": (up(sums["dyF"]) / b).astype(F32),
-        "Depth": ratio(up(sums["Depth"]), wet_area),
-        "hFacC_2d": ratio(up(sums["hFacC_2d"]), wet_area),
-        "wet_frac": ratio(up(sums["hfac_area"]), ra),
-    }
+def polar_fill(weights, polar, grid, radius) -> dict[str, np.ndarray]:
+    """Give each target cell with no area one entry from the fine cell nearest its centre."""
+    n_lon = grid["lon"].size
+    n_cells = (grid["lat"].size) * n_lon
+    cover = np.zeros(n_cells)
+    for pixel, cell, area in weights:
+        cover += np.bincount(cell, weights=area, minlength=n_cells)
+    empty = np.flatnonzero(cover == 0)
+    fill = {"tile": [], "pixel": [], "cell": [], "area": []}
+    if empty.size:
+        tiles, pixels, xyz = (np.concatenate(p, axis=-1) for p in zip(*polar))
+        row, col = np.divmod(empty, n_lon)
+        centres = unit_vector(grid["lon"][col], grid["lat"][row])
+        index, chord = nearest(centres, xyz)
+        if np.max(chord) * radius > 5e3:
+            raise RuntimeError(f"polar fill: nearest fine cell is {np.max(chord) * radius:.0f} m away")
+        area = cell_area(grid["lat_b"], grid["lon_b"], radius).ravel()[empty]
+        fill = {"tile": tiles[index], "pixel": pixels[index], "cell": empty, "area": area}
+        for n in np.unique(fill["tile"]):
+            sel = fill["tile"] == n
+            pixel, cell, a = weights[n]
+            weights[n] = (np.r_[pixel, fill["pixel"][sel]].astype(np.int32),
+                          np.r_[cell, fill["cell"][sel]].astype(np.int32),
+                          np.r_[a, fill["area"][sel]].astype(F32))
+    logger.info("polar fill: %d empty 1/4-degree cells filled", empty.size)
+    return {k: np.asarray(v) for k, v in fill.items()}
 
 
-STATIC_DIMS = {"wet_frac": ("k", "face", "y", "x")}
-STATIC_ATTRS = {
-    "XC": "box centre longitude (area-weighted mean of the unit vector)",
-    "YC": "box centre latitude (area-weighted mean of the unit vector)",
-    "rA": "box area: sum of 1/48-degree rA",
-    "dxF": "box width along the face's own i axis (mean row sum)",
-    "dyF": "box height along the face's own j axis (mean column sum)",
-    "Depth": "rA-weighted mean over surface-wet pixels",
-    "hFacC_2d": "rA-weighted mean of the bottom cell's open-water fraction, surface-wet pixels",
-    "wet_frac": "coarse hFacC: rA-weighted box mean of 1/48-degree hFacC; mask = wet_frac > 0",
-}
+def write_weights(group: zarr.Group, weights, methods, fill, tile_wet) -> None:
+    counts = np.array([w[0].size for w in weights])
+    start = np.r_[0, np.cumsum(counts)]
+    regrid = group.require_group("regrid")
+    comp = compressor()
+    for name, dtype in (("pixel", "i4"), ("cell", "i4"), ("area", "f4")):
+        k = ("pixel", "cell", "area").index(name)
+        data = np.concatenate([w[k] for w in weights]).astype(dtype)
+        create_array(regrid, name, data.shape, (4_194_304,), dtype, ("entry",), comp)[:] = data
+    create_array(regrid, "tile_start", start.shape, start.shape, "i8", ("tile_edge",))[:] = start
+    create_array(regrid, "tile_method", methods.shape, methods.shape, "i1", ("tile",))[:] = methods
+    create_array(regrid, "tile_wet", tile_wet.shape, tile_wet.shape, "i1", ("tile",))[:] = tile_wet
+    for name, value in fill.items():
+        dtype = "f4" if name == "area" else "i4"
+        create_array(regrid, f"fill_{name}", value.shape, (max(value.size, 1),), dtype,
+                     ("fill",))[:] = value.astype(dtype)
+    regrid.attrs.update({
+        "description": "1/48-degree pixel -> 1/4-degree cell overlap areas, grouped by 720 tile",
+        "pixel": "index within the tile, j*720 + i",
+        "cell": "flat 1/4-degree index, y*1440 + x",
+        "tile_order": "face-major, then tile row, then tile column",
+        "tile_method": "0 = exact lon/lat-rectangle overlap, 1 = 4x4 sub-cells, "
+                       "2 = 16x16 sub-cells (tiles reaching 85 degrees)",
+        "fill": "polar cells with no overlap, given the fine cell nearest their centre",
+    })
+
+
+def read_weights(group: zarr.Group) -> list[tuple[np.ndarray, object]]:
+    """Per-tile `(cells, area matrix)` from a 1/4-degree store's `regrid/` group."""
+    regrid = group["regrid"]
+    start = regrid["tile_start"][:]
+    pixel, cell, area = (regrid[k][:] for k in ("pixel", "cell", "area"))
+    return [tile_matrix(pixel[a:b], cell[a:b], area[a:b], TILE_PIXELS)
+            for a, b in zip(start[:-1], start[1:])]
+
+
+def static_sums(source: zarr.Group, matrices, hf2_out, n_cells: int, threads: int):
+    """Area sums of hFacC, wet cells, Depth and hFacC_2d over every tile."""
+    hfac_src, depth_src, cs_src, sn_src = (open_source_array(source, n)
+                                           for n in ("hFacC", "Depth", "CS", "SN"))
+    sums = {"cover": np.zeros(n_cells), "hfac_area": np.zeros((LEVELS, n_cells)),
+            "wet_area": np.zeros((LEVELS, n_cells)), "Depth": np.zeros(n_cells),
+            "hFacC_2d": np.zeros(n_cells)}
+    tile_wet = np.zeros(len(TILES), np.int8)
+
+    def job(n):
+        f, j0, i0 = TILES[n]
+        cells, matrix = matrices[n]
+        hfac = np.nan_to_num(hfac_src.read(None, f, j0, j0 + TILE, i0, i0 + TILE))
+        cs, sn = (s.read(None, f, j0, j0 + TILE, i0, i0 + TILE) for s in (cs_src, sn_src))
+        wet = hfac > 0
+        if np.any(np.abs(cs * cs + sn * sn - 1)[wet[0]] > 1e-3):
+            raise ValueError(f"CS^2 + SN^2 != 1 on wet cells of tile {TILES[n]}")
+        hf2 = bottom_hfac(hfac)
+        hf2_out[f, j0:j0 + TILE, i0:i0 + TILE] = hf2
+        depth = np.nan_to_num(depth_src.read(None, f, j0, j0 + TILE, i0, i0 + TILE))
+        wet0 = wet[0].ravel()
+        return n, cells, {
+            "cover": np.asarray(matrix.sum(axis=1)).ravel(),
+            "hfac_area": apply_weights(matrix, hfac.reshape(LEVELS, -1)),
+            "wet_area": apply_weights(matrix, wet.reshape(LEVELS, -1).astype(F32)),
+            "Depth": apply_weights(matrix, np.where(wet0, depth.ravel(), F32(0))),
+            "hFacC_2d": apply_weights(matrix, np.where(wet0, hf2.ravel(), F32(0))),
+        }, bool(wet.any())
+
+    started = _time.perf_counter()
+    with ThreadPoolExecutor(threads) as pool:
+        for count, (n, cells, part, any_wet) in enumerate(pool.map(job, range(len(TILES))), 1):
+            for name, value in part.items():
+                sums[name][..., cells] += value
+            tile_wet[n] = any_wet
+            if count % 52 == 0:
+                logger.info("statics %d/%d tiles (%.0f s)", count, len(TILES), _time.perf_counter() - started)
+    return sums, tile_wet
 
 
 def init(args) -> None:
-    paths = [coarse_path(args, b) for b in BOXES] + [rechunk_path(args)]
-    existing = [p for p in paths if p.exists()]
+    products = args.products
+    paths = {SAMUDRA: [coarse_path(args, res) for res in RESOLUTIONS] + [rechunk_path(args)],
+             NATIVE: [native_path(args)]}
+    existing = [p for prod in products for p in paths[prod] if p.exists()]
     if existing and not args.force:
         raise FileExistsError(f"{existing} exist; init would erase them. Pass --force.")
-    for p in existing + [args.coarse_root / "_progress"]:
-        shutil.rmtree(p, ignore_errors=True)
+    for prod in products:
+        for p in paths[prod] + [marker_dir(args, prod)]:
+            shutil.rmtree(p, ignore_errors=True)
 
     source = zarr.open_group(str(args.source), mode="r")
     n_time = source["Theta"].shape[0]
-    logger.info("Scanning %s for missing 2D steps", args.source)
     missing = find_missing(args.source, n_time)
-    logger.info("Missing steps: %s", {v: len(s) for v, s in missing.items()})
+    logger.info("missing 2D steps: %s", {v: len(s) for v, s in missing.items()})
     time_values = source["time"][:]
     time_attrs = {k: v for k, v in source["time"].attrs.items() if k != "_ARRAY_DIMENSIONS"}
-
     common = {
         "built_by": "coarsen_llc.py",
         "plan": "docs/10-15-26-coarsen_LLC_plan.md",
         "source_path": str(args.source),
         "filled_time_steps_json": json.dumps(missing),
-        "fill_rule": "mean of steps t-1 and t+1; t=0 copies t=1",
+        "fill_rule": REPAIR_RULE,
         "train_steps": [0, TRAIN_STEPS],
         "val_steps": [TRAIN_STEPS, n_time],
+        "compression": "blosc zstd level 3, byte shuffle",
     }
+    if SAMUDRA in products:
+        init_samudra(args, source, n_time, time_values, time_attrs, common)
+    if NATIVE in products:
+        init_native(args, source, n_time, time_values, time_attrs, common)
+    for prod in products:
+        marker_dir(args, prod).mkdir(parents=True, exist_ok=True)
 
-    # Rechunk store: raw values, raw compressor, one array per variable.
+
+def init_samudra(args, source, n_time, time_values, time_attrs, common) -> None:
+    started = _time.perf_counter()
+    grids = target_grids(args.target_grid)
+    q = grids[QUARTER]
+    shape_q, shape_1 = (q["lat"].size, q["lon"].size), (grids[ONE]["lat"].size, grids[ONE]["lon"].size)
+    n_cells = shape_q[0] * shape_q[1]
+
+    weights, methods, polar, total_area = build_weights(source, q, args.read_threads)
+    radius = float(np.sqrt(total_area / (4 * np.pi)))
+    fill = polar_fill(weights, polar, q, radius)
+    matrices = [tile_matrix(*w, TILE_PIXELS) for w in weights]
+
+    common = common | {"target_grid_path": str(args.target_grid)}
+
     rechunk = zarr.open_group(str(rechunk_path(args)), mode="w")
     for var in VARS_2D:
         raw = source[var]
         create_array(rechunk, var, raw.shape, (1, 1, TILE, TILE), "f4",
-                     raw.attrs["_ARRAY_DIMENSIONS"], raw.compressor, dimension_separator="/")
+                     raw.attrs["_ARRAY_DIMENSIONS"], compressor(), dimension_separator="/")
     hf2_out = create_array(rechunk, "hFacC_2d", (N_FACES, FACE_SIZE, FACE_SIZE), (1, TILE, TILE),
-                           "f4", ("face", "j", "i"), source["rA"].compressor,
-                           dimension_separator="/")
+                           "f4", ("face", "j", "i"), compressor(), dimension_separator="/")
     hf2_out.attrs["description"] = "open-water fraction of each column's bottom cell (deep=1, land=0)"
     create_array(rechunk, "time", (n_time,), (1024,), time_values.dtype, ("time",))[:] = time_values
     rechunk["time"].attrs.update(time_attrs)
+    create_repaired(rechunk, n_time, VARS_2D)
     rechunk.attrs.update(common | {"description": "LLC4320 2D fields rechunked to 720x720 tiles; raw values"})
 
-    # Statics, tile by tile.
-    n_q = FACE_SIZE // QUARTER
-    sums: dict[str, np.ndarray] = {}
-    grids = {name: open_source_array(source, name) for name in GRID_VARS}
+    sums, tile_wet = static_sums(source, matrices, hf2_out, n_cells, args.read_threads)
+    analytic = cell_area(q["lat_b"], q["lon_b"], radius).ravel()
+    rel = np.abs(sums["cover"] - analytic) / analytic
+    logger.info("cover vs spherical area: median %.1e, 99.9%% %.1e, max %.1e (radius %.1f m)",
+                np.median(rel), np.quantile(rel, 0.999), rel.max(), radius)
 
-    def tile_job(job):
-        f, (j0, i0) = job
-        tile_sums, hf2 = static_sums(grids, f, j0, i0)
-        hf2_out[f, j0:j0 + TILE, i0:i0 + TILE] = hf2
-        return f, j0, i0, tile_sums
-
-    jobs = [(f, origin) for f in range(N_FACES) for origin in TILES]
-    started = _time.perf_counter()
-    with ThreadPoolExecutor(args.read_threads) as pool:
-        for count, (f, j0, i0, tile_sums) in enumerate(pool.map(tile_job, jobs), 1):
-            rows, cols = tile_slices(j0, i0, QUARTER)
-            for name, value in tile_sums.items():
-                if name not in sums:
-                    sums[name] = np.zeros(value.shape[:-2] + (N_FACES, n_q, n_q))
-                sums[name][..., f, rows, cols] = value
-            if count % 52 == 0:
-                logger.info("statics %d/%d tiles (%.0f s)", count, len(jobs),
-                            _time.perf_counter() - started)
-
-    for b in BOXES:
-        n = FACE_SIZE // b
-        group = zarr.open_group(str(coarse_path(args, b)), mode="w")
-        comp = compressor(args)
-        create_array(group, "vars_3d", (n_time, len(CHANNELS_3D), N_FACES, n, n),
-                     (1, len(CHANNELS_3D), N_FACES, n, n), "f4",
-                     ("time", "channel_3d", "face", "y", "x"), comp)
-        create_array(group, "vars_2d", (n_time, len(VARS_2D), N_FACES, n, n),
-                     (1, len(VARS_2D), N_FACES, n, n), "f4",
-                     ("time", "channel_2d", "face", "y", "x"), comp)
-        for name, value in statics_from_sums(sums, b).items():
-            dims = STATIC_DIMS.get(name, ("face", "y", "x"))
-            chunks = (LEVELS, 1, n, n) if name == "wet_frac" else value.shape
-            out = create_array(group, name, value.shape, chunks, "f4", dims, comp)
-            out[:] = value
-            out.attrs["description"] = STATIC_ATTRS[name]
+    for res in RESOLUTIONS:
+        grid, shape = grids[res], (shape_q if res == QUARTER else shape_1)
+        s = {k: (v.reshape(*v.shape[:-1], *shape) if res == QUARTER else to_one_degree(v, shape_q))
+             for k, v in sums.items()}
+        lat_b, lon_b, lat = grid["lat_b"], grid["lon_b"], grid["lat"]
+        dlon, dlat = np.deg2rad(np.diff(lon_b)), np.deg2rad(np.diff(lat_b))
+        statics = {
+            "XC": np.broadcast_to(grid["lon"][None, :], shape),
+            "YC": np.broadcast_to(lat[:, None], shape),
+            "rA": cell_area(lat_b, lon_b, radius),
+            "dxF": radius * np.cos(np.deg2rad(lat))[:, None] * dlon[None, :],
+            "dyF": np.broadcast_to((radius * dlat)[:, None], shape),
+            "Depth": ratio(s["Depth"], s["wet_area"][0]),
+            "hFacC_2d": ratio(s["hFacC_2d"], s["wet_area"][0]),
+            "land_frac": 1 - ratio(s["hfac_area"], s["cover"]),
+            "wet_area": s["wet_area"],
+        }
+        group = zarr.open_group(str(coarse_path(args, res)), mode="w")
+        for var in VARS_3D:
+            create_array(group, var, (n_time, LEVELS, *shape), (1, LEVELS, *shape), "f4",
+                         ("time", "k", "y", "x"), compressor())
+        for var in VARS_2D:
+            create_array(group, var, (n_time, *shape), (1, *shape), "f4", ("time", "y", "x"), compressor())
+        for name in ("lat", "lon", "lat_b", "lon_b"):
+            value = grid[name]
+            create_array(group, name, value.shape, value.shape, "f8", (name.replace("lat", "y").replace("lon", "x"),),
+                         compressor())[:] = value
+        for name, value in statics.items():
+            dims = ("k", "y", "x") if value.ndim == 3 else ("y", "x")
+            create_array(group, name, value.shape, value.shape, "f4", dims, compressor())[:] = value
         create_array(group, "time", (n_time,), (1024,), time_values.dtype, ("time",))[:] = time_values
         group["time"].attrs.update(time_attrs)
+        create_repaired(group, n_time, VARS_3D + VARS_2D)
         group.attrs.update(common | {
-            "box_size": b,
-            "nominal_resolution_deg": b / 48,
-            "channel_names_3d_json": json.dumps(CHANNELS_3D),
-            "channel_names_2d_json": json.dumps(list(VARS_2D)),
-            "velocity_frame": "east/north: U, V, oceTAUX, oceTAUY centred and rotated with CS/SN",
+            "resolution": res,
+            "grid": "Samudra OM4 1-degree grid" + (" split 4x4" if res == QUARTER else ""),
+            "earth_radius_m": radius,
+            "variables_3d_json": json.dumps(VARS_3D),
+            "variables_2d_json": json.dumps(VARS_2D),
+            "velocity_frame": "east/north: U, V, oceTAUX, oceTAUY centred and rotated with CS/SN at 1/48 degree",
             "face_edge_velocity": "edge value copied (xgcm boundary='extend')",
-            "weights": "rA over wet pixels; partial bottom cells count as full cells",
+            "regrid": "conservative: exact on lon/lat-aligned tiles, 4x4 sub-cells elsewhere "
+                      "(16x16 poleward of 85 degrees), polar fill",
             "land_fill": "NaN",
-            "layout": "native faces; stitch with ocean_emulators.llc_coarse.faces_to_latlon",
+            "land_frac": "1 - overlap-area-weighted mean of 1/48-degree hFacC; 1 = all land",
+            "wet_area": "area of wet 1/48-degree cells in the cell (m^2); the averaging weight",
         })
-        zarr.consolidate_metadata(str(coarse_path(args, b)))
+        if res == QUARTER:
+            write_weights(group, weights, methods, fill, tile_wet)
+        zarr.consolidate_metadata(str(coarse_path(args, res)))
     zarr.consolidate_metadata(str(rechunk_path(args)))
-    for part in ("boundary", "prognostic"):
-        marker_dir(args, part).mkdir(parents=True, exist_ok=True)
-    logger.info("init done in %.0f s", _time.perf_counter() - started)
+    logger.info("samudra init done in %.0f s: %d sub-cell tiles (%d at 16x16), %d regrid entries",
+                _time.perf_counter() - started, int((methods > 0).sum()), int((methods == 2).sum()),
+                sum(w[0].size for w in weights))
+
+
+def init_native(args, source, n_time, time_values, time_attrs, common) -> None:
+    """The 1/3-degree native-face store: 16x16 boxes of 1/48-degree cells, 270x270 per face."""
+    started, b = _time.perf_counter(), NATIVE_BOX
+    n, nt = FACE_SIZE // b, TILE // b
+    srcs = {name: open_source_array(source, name) for name in ("XC", "YC", "rA", "dxF", "dyF", "Depth", "hFacC")}
+    sums = {"xyz": np.zeros((3, N_FACES, n, n)), "hfac_area": np.zeros((LEVELS, N_FACES, n, n)),
+            "wet_area": np.zeros((LEVELS, N_FACES, n, n))}
+    sums |= {k: np.zeros((N_FACES, n, n)) for k in ("rA", "dxF", "dyF", "Depth", "hFacC_2d")}
+
+    def job(k):
+        f, j0, i0 = TILES[k]
+        xc, yc, ra, dx, dy, depth, hfac = (np.nan_to_num(srcs[name].read(None, f, j0, j0 + TILE, i0, i0 + TILE))
+                                           for name in srcs)
+        wet = hfac > 0
+        return k, {
+            "xyz": box_sum(unit_vector(xc, yc) * ra, b), "rA": box_sum(ra, b),
+            "dxF": box_sum(dx, b), "dyF": box_sum(dy, b),
+            "Depth": box_sum(np.where(wet[0], depth * ra, F32(0)), b),
+            "hFacC_2d": box_sum(np.where(wet[0], bottom_hfac(hfac) * ra, F32(0)), b),
+            "wet_area": box_sum(np.where(wet, ra, F32(0)), b), "hfac_area": box_sum(hfac * ra, b),
+        }
+
+    with ThreadPoolExecutor(args.read_threads) as pool:
+        for k, part in pool.map(job, range(len(TILES))):
+            f, j0, i0 = TILES[k]
+            for name, value in part.items():
+                sums[name][..., f, j0 // b:j0 // b + nt, i0 // b:i0 // b + nt] = value
+    xc, yc = lonlat_from_vector(sums["xyz"])
+    statics = {
+        "XC": xc, "YC": yc, "rA": sums["rA"], "dxF": sums["dxF"] / b, "dyF": sums["dyF"] / b,
+        "Depth": ratio(sums["Depth"], sums["wet_area"][0]),
+        "hFacC_2d": ratio(sums["hFacC_2d"], sums["wet_area"][0]),
+        "land_frac": 1 - ratio(sums["hfac_area"], sums["rA"]),
+        "wet_area": sums["wet_area"],
+    }
+    group = zarr.open_group(str(native_path(args)), mode="w")
+    for var in VARS_3D:
+        create_array(group, var, (n_time, LEVELS, N_FACES, n, n), (1, LEVELS, N_FACES, n, n), "f4",
+                     ("time", "k", "face", "y", "x"), compressor())
+    for var in VARS_2D:
+        create_array(group, var, (n_time, N_FACES, n, n), (1, N_FACES, n, n), "f4",
+                     ("time", "face", "y", "x"), compressor())
+    for name, value in statics.items():
+        dims = ("k", "face", "y", "x") if value.ndim == 4 else ("face", "y", "x")
+        create_array(group, name, value.shape, value.shape, "f4", dims, compressor())[:] = value
+    create_array(group, "time", (n_time,), (1024,), time_values.dtype, ("time",))[:] = time_values
+    group["time"].attrs.update(time_attrs)
+    create_repaired(group, n_time, VARS_3D + VARS_2D)
+    group.attrs.update(common | {
+        "resolution": "0p33deg",
+        "grid": "native LLC4320 faces (face, j, i), 16x16 boxes of 1/48-degree cells; nominal 1/3 degree",
+        "box_size": b,
+        "variables_3d_json": json.dumps(VARS_3D),
+        "variables_2d_json": json.dumps(VARS_2D),
+        "velocity_frame": "east/north: U, V, oceTAUX, oceTAUY centred and rotated with CS/SN at 1/48 degree",
+        "face_edge_velocity": "edge value copied (xgcm boundary='extend')",
+        "weights": "rA over wet 1/48-degree cells",
+        "land_fill": "NaN",
+        "land_frac": "1 - rA-weighted mean of 1/48-degree hFacC; 1 = all land",
+        "wet_area": "area of wet 1/48-degree cells in the cell (m^2); the averaging weight",
+        "XC_YC": "area-weighted mean of the cell's unit vectors, converted back to lon/lat",
+        "dxF_dyF": "box width/height along the face's own i/j axes",
+    })
+    zarr.consolidate_metadata(str(native_path(args)))
+    logger.info("native init done in %.0f s", _time.perf_counter() - started)
 
 
 # ---------------------------------------------------------------- fill
@@ -289,76 +568,190 @@ _W: dict = {}
 def init_worker(cfg: dict) -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
     numcodecs.blosc.use_threads = False
-    part = cfg["part"]
     source = zarr.open_group(cfg["source"], mode="r")
     pool = ThreadPoolExecutor(cfg["read_threads"])
+    quarter = zarr.open_group(cfg["coarse"][QUARTER], mode="r")
+    rechunk = Path(cfg["rechunk"])
     _W.update(cfg=cfg, source=source, pool=pool)
-    _W["grid"] = {
-        name: np.stack(list(pool.map(lambda f, a=source[name]: a[f], range(N_FACES))))
-        for name in ("rA", "CS", "SN")
-    }
-    name = "vars_3d" if part == "prognostic" else "vars_2d"
-    _W["out"] = {b: zarr.open_array(str(Path(cfg["coarse"][b]) / name), mode="r+") for b in BOXES}
-    if part == "prognostic":
-        _W["src"] = {v: open_source_array(source, v) for v in VARS_3D}
-        wet_frac = zarr.open_array(str(Path(cfg["coarse"][QUARTER]) / "wet_frac"), mode="r")
-        _W["wet_q"] = wet_frac[:] > 0
-    else:
-        rechunk = Path(cfg["rechunk"])
-        _W["wet0"] = zarr.open_array(str(rechunk / "hFacC_2d"), mode="r")[:] > 0
-        _W["src"] = {v: source[v] for v in VARS_2D}
-        _W["rechunk"] = {
-            v: zarr.open_array(str(rechunk / v), mode="r+", write_empty_chunks=False)
-            for v in VARS_2D
-        }
-        _W["missing"] = {v: set(s) for v, s in json.loads(cfg["missing"]).items()}
+    names = ("CS", "SN", "rA") if NATIVE in cfg["products"] else ("CS", "SN")
+    _W["grid"] = {name: np.stack(list(pool.map(lambda f, a=source[name]: a[f], range(N_FACES))))
+                  for name in names}
+    _W["wet0"] = zarr.open_array(str(rechunk / "hFacC_2d"), mode="r")[:] > 0
+    _W["tile_wet"] = quarter["regrid/tile_wet"][:].astype(bool)
+    _W["src3d"] = {v: open_source_array(source, v) for v in VARS_3D}
+    _W["mask"] = open_source_array(source, "mask_c")
+    _W["src2d"] = {v: source[v] for v in VARS_2D}
+    _W["missing"] = {v: set(s) for v, s in json.loads(cfg["missing"]).items()}
+    if SAMUDRA in cfg["products"]:
+        _W["matrices"] = read_weights(quarter)
+        _W["wet_area"] = quarter["wet_area"][:].reshape(LEVELS, -1).astype(np.float64)
+        _W["shape"] = quarter["wet_area"].shape[1:]
+        _W["out"] = {res: {v: zarr.open_array(str(Path(cfg["coarse"][res]) / v), mode="r+")
+                           for v in VARS_3D + VARS_2D} for res in RESOLUTIONS}
+        _W["rechunk"] = {v: zarr.open_array(str(rechunk / v), mode="r+", write_empty_chunks=False)
+                         for v in VARS_2D}
+        _W["out"][QUARTER]["repaired"] = zarr.open_array(str(Path(cfg["coarse"][QUARTER]) / "repaired"), mode="r+")
+        _W["out"][ONE]["repaired"] = zarr.open_array(str(Path(cfg["coarse"][ONE]) / "repaired"), mode="r+")
+        _W["rechunk"]["repaired"] = zarr.open_array(str(rechunk / "repaired"), mode="r+")
+    if NATIVE in cfg["products"]:
+        _W["out_native"] = {v: zarr.open_array(str(Path(cfg["native"]) / v), mode="r+")
+                            for v in VARS_3D + VARS_2D + ("repaired",)}
 
 
-def write_step(t: int, out: dict[int, np.ndarray], timing: dict) -> None:
-    """1 degree first, then 1/4 degree, then the marker."""
-    with timed(timing, "write"):
-        for b in (ONE, QUARTER):
-            _W["out"][b][t] = out[b]
-        (Path(_W["cfg"]["markers"]) / f"{t:05d}").touch()
-
-
-def run_step(t: int) -> tuple[int, float, int, float, dict]:
+def run_step(job: tuple[int, tuple[str, ...]]) -> tuple[int, float, int, float, dict]:
+    t, needs = job
     started = _time.perf_counter()
-    step = prognostic_step if _W["cfg"]["part"] == "prognostic" else boundary_step
     timing: dict[str, float] = {}
-    nbytes = step(t, timing)
+    nbytes = hour(t, needs, timing)
     rss_gb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1e6
     return t, _time.perf_counter() - started, nbytes, rss_gb, timing
 
 
-def prognostic_step(t: int, timing: dict) -> int:
-    pool, src, wet_q = _W["pool"], _W["src"], _W["wet_q"]
-    ra, cs, sn = (_W["grid"][k] for k in ("rA", "CS", "SN"))
-    source_path = Path(_W["cfg"]["source"])
-    out = {b: np.full((len(CHANNELS_3D), N_FACES, FACE_SIZE // b, FACE_SIZE // b), np.nan, F32)
-           for b in BOXES}
+def read_planes(t: int, repairs: list) -> tuple[dict[str, np.ndarray], int]:
+    """The five whole-globe 2D fields at hour t, bad pixels taken from the nearest clean hour."""
+    pool, wet0, source_path = _W["pool"], _W["wet0"], Path(_W["cfg"]["source"])
+
+    def one(var):
+        array, missing = _W["src2d"][var], _W["missing"][var]
+        n_time = array.shape[0]
+        cache: dict[int, np.ndarray] = {}
+
+        def plane(s):
+            if s not in cache:
+                cache[s] = np.asarray(array[s], dtype=F32)
+            return cache[s]
+
+        if t in missing:  # every pixel is missing: copy the whole field
+            out = np.full((N_FACES, FACE_SIZE, FACE_SIZE), np.nan, F32)
+            masks = {"missing": np.ones(out.shape, bool)}
+            sources = repair_pixels(out, masks["missing"], t, n_time,
+                                    lambda s: None if s in missing else plane(s), lambda y: np.zeros(y.shape, bool))
+            record(repairs, t, var, masks, sources)
+        else:
+            out = plane(t)
+        for f, j0, i0 in TILES:
+            tj, ti = slice(j0, j0 + TILE), slice(i0, i0 + TILE)
+            wet_finite = wet0[f, tj, ti] if var in ("Eta", "oceQnet", "oceFWflx") else None
+            masks = bad_pixels(var, out[f, tj, ti], wet_finite=wet_finite)
+            bad = np.logical_or.reduce(list(masks.values()))
+            if not bad.any():
+                continue
+            sources = repair_pixels(
+                out[f, tj, ti], bad, t, n_time,
+                lambda s: None if s in missing else plane(s)[f, tj, ti],
+                lambda y: np.logical_or.reduce(list(bad_pixels(var, y, wet_finite=wet_finite).values())))
+            record(repairs, t, var, masks, sources, face=f, j0=j0, i0=i0)
+        return var, out, sum(chunk_bytes(source_path / var / f"{s}/0/0/0") for s in cache)
+
+    planes, nbytes = {}, 0
+    for var, plane_, size in pool.map(one, VARS_2D):
+        planes[var] = plane_
+        nbytes += size
+    return planes, nbytes
+
+
+def read_tile(var: str, t: int, n: int, repairs: list, wet: np.ndarray | None = None) -> tuple[np.ndarray, int]:
+    """One raw (51, 720, 720) tile, bad pixels taken from the nearest clean hour."""
+    src, source_path = _W["src3d"][var], Path(_W["cfg"]["source"])
+    f, j0, i0 = TILES[n]
+    n_time = src.array.shape[0]
+
+    def fetch(s):
+        if chunk_bytes(source_path / var / f"{s}/0/{f}/{j0 // TILE}/{i0 // TILE}") == 0 and _W["tile_wet"][n]:
+            return None  # a missing chunk reads as NaN, which centring would turn into 0
+        return src.read(s, f, j0, j0 + TILE, i0, i0 + TILE)
+
+    def check(y):
+        return np.logical_or.reduce(list(bad_pixels(var, y, wet=wet).values()))
+
+    size = chunk_bytes(source_path / var / f"{t}/0/{f}/{j0 // TILE}/{i0 // TILE}")
+    cube = fetch(t)
+    if cube is None:
+        cube = np.full((LEVELS, TILE, TILE), np.nan, F32)
+        masks = {"missing": np.ones(cube.shape, bool)}
+    else:
+        masks = bad_pixels(var, cube, wet=wet)
+    bad = np.logical_or.reduce(list(masks.values()))
+    if bad.any():
+        sources = repair_pixels(cube, bad, t, n_time, fetch, check)
+        record(repairs, t, var, masks, sources, face=f, j0=j0, i0=i0)
+    return cube, size
+
+
+def regrid_2d(t: int, products, timing: dict, repairs: list):
+    """The five 2D fields (repaired), their 1/4-degree area sums, and native box sums."""
+    pool, wet0 = _W["pool"], _W["wet0"]
+    cs, sn = _W["grid"]["CS"], _W["grid"]["SN"]
+    with timed(timing, "read_2d"):
+        planes, nbytes = read_planes(t, repairs)
+    raw = {var: planes[var] for var in VARS_2D}
+    planes = {var: (p.copy() if var in ("oceTAUX", "oceTAUY") else p) for var, p in planes.items()}
+    taux, tauy = planes["oceTAUX"], planes["oceTAUY"]
+    list(pool.map(lambda f: center_inplace(taux[f], axis=-1), range(N_FACES)))
+    list(pool.map(lambda f: center_inplace(tauy[f], axis=-2), range(N_FACES)))
+
+    def tile(n):
+        f, j0, i0 = TILES[n]
+        tj, ti = slice(j0, j0 + TILE), slice(i0, i0 + TILE)
+        east, north = rotate_to_east_north(taux[f, tj, ti], tauy[f, tj, ti], cs[f, tj, ti], sn[f, tj, ti])
+        fields = (planes["Eta"][f, tj, ti], east, north, planes["oceQnet"][f, tj, ti],
+                  planes["oceFWflx"][f, tj, ti])
+        wet = wet0[f, tj, ti]
+        x = np.stack([np.where(wet, a, F32(0)) for a in fields])
+        part = apply_weights(_W["matrices"][n][1], x.reshape(len(fields), -1)) if SAMUDRA in products else None
+        nat = None
+        if NATIVE in products:
+            ra = _W["grid"]["rA"][f, tj, ti]
+            nat = (box_sum(x * ra, NATIVE_BOX), box_sum(np.where(wet, ra, F32(0)), NATIVE_BOX))
+        return n, part, nat
+
+    num = np.zeros((len(VARS_2D), _W["wet_area"].shape[1])) if SAMUDRA in products else None
+    nat_num = np.zeros((len(VARS_2D), N_FACES, FACE_SIZE // NATIVE_BOX, FACE_SIZE // NATIVE_BOX))
+    nat_den = np.zeros(nat_num.shape[1:])
+    with timed(timing, "regrid_2d"):
+        for n, part, nat in pool.map(tile, range(len(TILES))):
+            if part is not None:
+                num[:, _W["matrices"][n][0]] += part
+            if nat is not None:
+                f, j0, i0 = TILES[n]
+                cj, ci = native_slices(j0, i0)
+                nat_num[:, f, cj, ci], nat_den[f, cj, ci] = nat
+    return raw, num, (nat_num, nat_den), nbytes
+
+
+def native_slices(j0: int, i0: int) -> tuple[slice, slice]:
+    """Native-grid rows/cols covered by the 720 tile at (j0, i0)."""
+    nt = TILE // NATIVE_BOX
+    return slice(j0 // NATIVE_BOX, j0 // NATIVE_BOX + nt), slice(i0 // NATIVE_BOX, i0 // NATIVE_BOX + nt)
+
+
+def regrid_3d(t: int, products, timing: dict, repairs: list):
+    """Area sums of U (east), V (north), Theta, Salt and the wet area: 1/4-degree and native."""
+    pool = _W["pool"]
+    cs, sn = _W["grid"]["CS"], _W["grid"]["SN"]
+    num = den = None
+    if SAMUDRA in products:
+        n_cells = _W["wet_area"].shape[1]
+        num = np.zeros((len(VARS_3D), LEVELS, n_cells))
+        den = np.zeros((LEVELS, n_cells))
+    nn = FACE_SIZE // NATIVE_BOX
+    nat_num = np.zeros((len(VARS_3D), LEVELS, N_FACES, nn, nn)) if NATIVE in products else None
+    nat_den = np.zeros((LEVELS, N_FACES, nn, nn)) if NATIVE in products else None
     nbytes = 0
 
-    def key(var, f, j0, i0):
-        return source_path / var / f"{t}/0/{f}/{j0 // TILE}/{i0 // TILE}"
-
     for f in range(N_FACES):
+        tiles = range(f * 36, (f + 1) * 36)
+
         def read_face(var):
             face = np.empty((LEVELS, FACE_SIZE, FACE_SIZE), F32)
 
-            def one(origin):
-                j0, i0 = origin
-                # A missing chunk reads as NaN, which centring would turn into 0.
-                # (An all-NaN U/V tile alone is legal: isolated lakes have no open faces.)
-                nbytes = chunk_bytes(key(var, f, j0, i0))
-                rows, cols = tile_slices(j0, i0, QUARTER)
-                if nbytes == 0 and wet_q[:, f, rows, cols].any():
-                    raise RuntimeError(f"{var} t={t} face={f} tile=({j0},{i0}): source chunk "
-                                       "missing on a wet tile")
-                face[:, j0:j0 + TILE, i0:i0 + TILE] = src[var].read(t, f, j0, j0 + TILE, i0, i0 + TILE)
-                return nbytes
+            def one(n):
+                _, j0, i0 = TILES[n]
+                cube, size = read_tile(var, t, n, repairs)
+                face[:, j0:j0 + TILE, i0:i0 + TILE] = cube
+                return size
 
-            return face, sum(pool.map(one, TILES))
+            return face, sum(pool.map(one, tiles))
 
         with timed(timing, "read_uv"):
             (u, bu), (v, bv) = read_face("U"), read_face("V")
@@ -368,132 +761,148 @@ def prognostic_step(t: int, timing: dict) -> int:
             list(pool.map(lambda k: center_inplace(u[k], axis=-1), range(LEVELS)))
             list(pool.map(lambda k: center_inplace(v[k], axis=-2), range(LEVELS)))
 
-        def tile(origin):
-            j0, i0 = origin
+        def tile(n):
+            _, j0, i0 = TILES[n]
             tj, ti = slice(j0, j0 + TILE), slice(i0, i0 + TILE)
-            theta = src["Theta"].read(t, f, j0, j0 + TILE, i0, i0 + TILE)
-            salt = src["Salt"].read(t, f, j0, j0 + TILE, i0, i0 + TILE)
-            wet = np.isfinite(theta)
-            area = ra[f, tj, ti]
-            den = weighted_box_sum(F32(1), area, wet, QUARTER)
-            rows, cols = tile_slices(j0, i0, QUARTER)
-            if not np.array_equal(den > 0, wet_q[:, f, rows, cols]):
-                raise RuntimeError(f"Theta wet pattern differs from hFacC: t={t} face={f} "
-                                   f"tile=({j0},{i0})")
-            if not np.array_equal(np.isfinite(salt), wet):
-                raise RuntimeError(f"Salt and Theta NaN patterns differ: t={t} face={f} "
-                                   f"tile=({j0},{i0})")
+            wet = _W["mask"].read(None, f, j0, j0 + TILE, i0, i0 + TILE) > 0
+            theta, size_t = read_tile("Theta", t, n, repairs, wet)
+            salt, size_s = read_tile("Salt", t, n, repairs, wet)
             east, north = rotate_to_east_north(u[:, tj, ti], v[:, tj, ti], cs[f, tj, ti], sn[f, tj, ti])
-            den1 = box_sum(den, ONE // QUARTER)
-            r1, c1 = tile_slices(j0, i0, ONE)
-            for n, field in enumerate((east, north, theta, salt)):
-                num = weighted_box_sum(field, area, wet, QUARTER)
-                c = slice(n * LEVELS, (n + 1) * LEVELS)
-                out[QUARTER][c, f, rows, cols] = ratio(num, den)
-                out[ONE][c, f, r1, c1] = ratio(box_sum(num, ONE // QUARTER), den1)
-            return chunk_bytes(key("Theta", f, j0, i0)) + chunk_bytes(key("Salt", f, j0, i0))
+            masked = [np.where(wet, x, F32(0)) for x in (east, north, theta, salt)]
+            sam = nat = None
+            if SAMUDRA in products:
+                matrix = _W["matrices"][n][1]
+                sam = (np.stack([apply_weights(matrix, x) for x in masked]),
+                       apply_weights(matrix, wet.reshape(LEVELS, -1).astype(F32)))
+            if NATIVE in products:
+                ra = _W["grid"]["rA"][f, tj, ti]
+                nat = (np.stack([box_sum(x * ra, NATIVE_BOX) for x in masked]),
+                       box_sum(np.where(wet, ra, F32(0)), NATIVE_BOX))
+            return n, sam, nat, size_t + size_s
 
         with timed(timing, "tiles"):
-            nbytes += sum(pool.map(tile, TILES))
+            for n, sam, nat, size in pool.map(tile, tiles):
+                if sam is not None:
+                    cells = _W["matrices"][n][0]
+                    num[:, :, cells] += sam[0]
+                    den[:, cells] += sam[1]
+                if nat is not None:
+                    _, j0, i0 = TILES[n]
+                    cj, ci = native_slices(j0, i0)
+                    nat_num[:, :, f, cj, ci], nat_den[:, f, cj, ci] = nat
+                nbytes += size
         del u, v
-    write_step(t, out, timing)
-    return nbytes
+    return num, den, (nat_num, nat_den), nbytes
 
 
-def read_plane(var: str, t: int) -> tuple[np.ndarray, int]:
-    """One whole-globe 2D chunk, filled from its neighbours when it is missing."""
-    array, source_path = _W["src"][var], Path(_W["cfg"]["source"])
-    missing = _W["missing"][var]
-    steps = fill_sources(t, array.shape[0], missing) if t in missing else [t]
-    plane = np.asarray(array[steps[0]], dtype=F32)
-    for s in steps[1:]:
-        plane += array[s]
-    if len(steps) > 1:
-        plane *= F32(1 / len(steps))
-    if np.isnan(plane).all():
-        raise RuntimeError(f"{var} t={t} is all NaN but not listed as missing")
-    return plane, sum(chunk_bytes(source_path / var / f"{s}/0/0/0") for s in steps)
+def write_repairs(t: int, repairs: list) -> None:
+    """This hour's repair records, `<coarse-root>/_repairs/<t>.json` (written before any marker)."""
+    path = Path(_W["cfg"]["repairs"]) / f"{t:05d}.json"
+    if not repairs:
+        path.unlink(missing_ok=True)
+        return
+    tmp = path.with_suffix(f".{os.getpid()}.tmp")
+    tmp.write_text(json.dumps(sorted(repairs, key=lambda r: json.dumps(r, sort_keys=True)), indent=0))
+    tmp.replace(path)
 
 
-def boundary_step(t: int, timing: dict) -> int:
-    pool, wet0 = _W["pool"], _W["wet0"]
-    ra, cs, sn = (_W["grid"][k] for k in ("rA", "CS", "SN"))
-    with timed(timing, "read"):
-        read = dict(zip(VARS_2D, pool.map(lambda var: read_plane(var, t), VARS_2D)))
-    planes = {var: plane for var, (plane, _) in read.items()}
-    for var in ("Eta", "oceQnet", "oceFWflx"):
-        if np.isnan(planes[var][wet0]).any():
-            raise RuntimeError(f"{var} t={t} has NaN on surface-wet cells")
+def hour(t: int, needs, timing: dict) -> int:
+    """Process hour t for every product of the run; write the products in `needs`, and any
+    product already done if this hour needed repairs (its earlier output had the bad data)."""
+    pool, repairs, products = _W["pool"], [], _W["cfg"]["products"]
+    raw2, num2, nat2, bytes2 = regrid_2d(t, products, timing, repairs)
+    num3, den, nat3, bytes3 = regrid_3d(t, products, timing, repairs)
+    write = [p for p in products if p in needs or repairs]
+    codes = {v: int(any(r["var"] == v for r in repairs)) for v in VARS_3D + VARS_2D}
+    out = {}
+    if SAMUDRA in write:
+        wet_area, shape = _W["wet_area"], _W["shape"]
+        # Theta's wet cells must be hFacC's (bad tiles were replaced): same weights, mask and sums.
+        if not (np.array_equal(den > 0, wet_area > 0) and np.allclose(den, wet_area, rtol=1e-5)):
+            bad = np.argwhere((den > 0) != (wet_area > 0))
+            raise RuntimeError(f"t={t}: Theta's wet area differs from hFacC's, e.g. at (k, cell) {bad[:3].tolist()}")
+        den1, wet1 = to_one_degree(den, shape), to_one_degree(wet_area[0], shape)
+        for n, var in enumerate(VARS_3D):
+            out[(QUARTER, var)] = ratio(num3[n], den).reshape(LEVELS, *shape)
+            out[(ONE, var)] = ratio(to_one_degree(num3[n], shape), den1)
+        for n, var in enumerate(VARS_2D):
+            out[(QUARTER, var)] = ratio(num2[n], wet_area[0]).reshape(shape)
+            out[(ONE, var)] = ratio(to_one_degree(num2[n], shape), wet1)
+        row = np.array([codes[v] for v in VARS_3D + VARS_2D], np.int8)
+        out[(QUARTER, "repaired")] = out[(ONE, "repaired")] = row
+        out[("rechunk", "repaired")] = np.array([codes[v] for v in VARS_2D], np.int8)
+    if NATIVE in write:
+        for n, var in enumerate(VARS_3D):
+            out[(NATIVE, var)] = ratio(nat3[0][n], nat3[1])
+        for n, var in enumerate(VARS_2D):
+            out[(NATIVE, var)] = ratio(nat2[0][n], nat2[1])
+        out[(NATIVE, "repaired")] = np.array([codes[v] for v in VARS_3D + VARS_2D], np.int8)
 
-    def put(job):
-        var, f, (j0, i0) = job
-        _W["rechunk"][var][t, f, j0:j0 + TILE, i0:i0 + TILE] = planes[var][f, j0:j0 + TILE, i0:i0 + TILE]
+    def put(item):
+        (res, var), value = item
+        store = {NATIVE: _W.get("out_native"), "rechunk": _W.get("rechunk")}.get(res) or _W["out"][res]
+        store[var][t] = value
 
-    with timed(timing, "rechunk"):
-        list(pool.map(put, [(var, f, o) for var in VARS_2D for f in range(N_FACES) for o in TILES]))
+    def put_tile(job):
+        var, (f, j0, i0) = job
+        _W["rechunk"][var][t, f, j0:j0 + TILE, i0:i0 + TILE] = raw2[var][f, j0:j0 + TILE, i0:i0 + TILE]
 
-    # Only after the raw tiles are written: the wind stress is centred in place.
-    taux, tauy = planes["oceTAUX"], planes["oceTAUY"]
-    list(pool.map(lambda f: center_inplace(taux[f], axis=-1), range(N_FACES)))
-    list(pool.map(lambda f: center_inplace(tauy[f], axis=-2), range(N_FACES)))
-    out = {b: np.full((len(VARS_2D), N_FACES, FACE_SIZE // b, FACE_SIZE // b), np.nan, F32)
-           for b in BOXES}
-
-    def face(f):
-        east, north = rotate_to_east_north(taux[f], tauy[f], cs[f], sn[f])
-        fields = (planes["Eta"][f], east, north, planes["oceQnet"][f], planes["oceFWflx"][f])
-        den = weighted_box_sum(F32(1), ra[f], wet0[f], QUARTER)
-        den1 = box_sum(den, ONE // QUARTER)
-        for n, field in enumerate(fields):
-            num = weighted_box_sum(field, ra[f], wet0[f], QUARTER)
-            out[QUARTER][n, f] = ratio(num, den)
-            out[ONE][n, f] = ratio(box_sum(num, ONE // QUARTER), den1)
-
-    with timed(timing, "coarsen"):
-        list(pool.map(face, range(N_FACES)))
-    write_step(t, out, timing)
-    return sum(nbytes for _, nbytes in read.values())
+    with timed(timing, "write"):
+        # A rewrite of a finished hour drops its marker first, so nothing (the mover) reads it half-written.
+        for product in write:
+            if product not in needs:
+                (Path(_W["cfg"]["markers"][product]) / f"{t:05d}").unlink(missing_ok=True)
+        write_repairs(t, repairs)
+        if SAMUDRA in write:
+            list(pool.map(put_tile, [(var, tile) for var in VARS_2D for tile in TILES]))
+        list(pool.map(put, out.items()))
+        for product in write:
+            (Path(_W["cfg"]["markers"][product]) / f"{t:05d}").touch()
+    timing["repairs"] = timing.get("repairs", 0.0) + len(repairs)
+    return bytes2 + bytes3
 
 
-def pending_steps(args, n_time: int) -> list[int]:
+def pending_steps(args, n_time: int) -> list[tuple[int, tuple[str, ...]]]:
     if args.steps:
         steps = [int(s) for s in args.steps.split(",")]
     else:
-        edges = np.linspace(0, n_time, args.time_splits + 1).astype(int)
-        index = args.time_split_index or 0
-        steps = list(range(edges[index], edges[index + 1]))
+        # Every N-th hour, so tasks stay balanced however earlier runs left the markers.
+        steps = list(range(args.time_split_index or 0, n_time, args.time_splits))
         if args.stride:
             steps = [t for t in steps if t % args.stride == args.offset]
-    done = done_steps(args, args.part)
-    pending = [t for t in steps if t not in done]
+    done = {product: done_steps(args, product) for product in args.products}
+    pending = [(t, needs) for t in steps
+               if (needs := tuple(p for p in args.products if t not in done[p]))]
     return pending[: args.limit] if args.limit else pending
 
 
 def fill(args) -> None:
-    if args.part is None:
-        raise ValueError("fill needs --part boundary or --part prognostic")
     group = zarr.open_group(str(coarse_path(args, QUARTER)), mode="r")
-    n_time = group["vars_3d"].shape[0]
+    n_time = group["Theta"].shape[0]
     pending = pending_steps(args, n_time)
-    logger.info("%s: %d pending step(s), %d workers x %d threads", args.part, len(pending),
-                args.workers, args.read_threads)
+    logger.info("%d pending hour(s), %d workers x %d threads", len(pending), args.workers, args.read_threads)
     if not pending:
         return
     cfg = {
-        "part": args.part,
         "source": str(args.source),
-        "coarse": {b: str(coarse_path(args, b)) for b in BOXES},
+        "products": list(args.products),
+        "coarse": {res: str(coarse_path(args, res)) for res in RESOLUTIONS},
+        "native": str(native_path(args)),
         "rechunk": str(rechunk_path(args)),
-        "markers": str(marker_dir(args, args.part)),
+        "markers": {p: str(marker_dir(args, p)) for p in args.products},
+        "repairs": str(args.coarse_root / "_repairs"),
         "missing": group.attrs["filled_time_steps_json"],
         "read_threads": args.read_threads,
     }
-    marker_dir(args, args.part).mkdir(parents=True, exist_ok=True)
+    for p in args.products:
+        marker_dir(args, p).mkdir(parents=True, exist_ok=True)
+    (args.coarse_root / "_repairs").mkdir(parents=True, exist_ok=True)
+    logger.info("hours needing: %s", {k: sum(k in n for _, n in pending) for k in args.products})
     started = _time.perf_counter()
     total_bytes, step_seconds, max_rss, split = 0, [], 0.0, {}
     with ProcessPoolExecutor(args.workers, mp_context=mp.get_context("spawn"),
                              initializer=init_worker, initargs=(cfg,)) as pool:
-        futures = {pool.submit(run_step, t): t for t in pending}
+        futures = {pool.submit(run_step, job): job[0] for job in pending}
         try:
             for count, future in enumerate(as_completed(futures), 1):
                 t, seconds, nbytes, rss, timing = future.result()
@@ -505,7 +914,7 @@ def fill(args) -> None:
                 if count % args.log_every == 0 or count == len(pending):
                     elapsed = _time.perf_counter() - started
                     logger.info(
-                        "%d/%d done (last t=%d) | %.1f s/step wall, %.0f s/step per worker (%s) | "
+                        "%d/%d done (last t=%d) | %.1f s/hour wall, %.0f s/hour per worker (%s) | "
                         "%.2f GB/s read | worker peak %.1f GB | eta %.1f h",
                         count, len(pending), t, elapsed / count, np.mean(step_seconds),
                         ", ".join(f"{k} {v / count:.0f}" for k, v in split.items()),
@@ -514,145 +923,211 @@ def fill(args) -> None:
         except BaseException:
             pool.shutdown(wait=False, cancel_futures=True)
             raise
+    report(args)
+
+
+def stores(args) -> list[Path]:
+    """Every output store that exists: 1/4 and 1 degree, native, rechunk."""
+    paths = [coarse_path(args, res) for res in RESOLUTIONS] + [native_path(args), rechunk_path(args)]
+    return [p for p in paths if p.exists()]
+
+
+def prepare(args) -> None:
+    """Add `repaired` (and the current repair rule) to stores created before they existed."""
+    n_time = zarr.open_group(str(coarse_path(args, QUARTER)), mode="r")["Theta"].shape[0]
+    for path in stores(args):
+        group = zarr.open_group(str(path), mode="r+")
+        if "repaired" not in group:
+            create_repaired(group, n_time, VARS_2D if path == rechunk_path(args) else VARS_3D + VARS_2D)
+            logger.info("added repaired to %s", path.name)
+        group.attrs["fill_rule"] = REPAIR_RULE
+        zarr.consolidate_metadata(str(path))
+
+
+def report(args) -> None:
+    """Merge `_repairs/<t>.json` into the single log `repairs.log` and note it in every store."""
+    folder = args.coarse_root / "_repairs"
+    records = []
+    for name in sorted(os.listdir(folder)) if folder.exists() else []:
+        if name.endswith(".json"):
+            records += json.loads((folder / name).read_text())
+    columns = ("t", "var", "kind", "pixels", "copied_from", "face", "j0", "i0")
+
+    def cell(r, c):
+        v = r.get(c, "")
+        return ",".join(map(str, v)) if isinstance(v, list) else str(v)
+
+    lines = ["\t".join(columns)] + ["\t".join(cell(r, c) for c in columns)
+                                     for r in sorted(records, key=lambda r: (r["t"], r["var"]))]
+    log = args.coarse_root / "repairs.log"
+    tmp = log.with_suffix(f".{os.getpid()}.tmp")
+    tmp.write_text("\n".join(lines) + "\n")
+    tmp.replace(log)
+    hours = sorted({r["t"] for r in records})
+    for path in stores(args):
+        group = zarr.open_group(str(path), mode="r+")
+        group.attrs.update({"fill_rule": REPAIR_RULE, "repairs_log": str(log),
+                            "repaired_hours_json": json.dumps(hours), "repair_count": len(records)})
+    logger.info("repairs.log: %d records over %d hours", len(records), len(hours))
 
 
 # ---------------------------------------------------------------- stats
 
 
 def stats(args) -> None:
-    both = done_steps(args, "boundary") & done_steps(args, "prognostic")
-    steps = sorted(t for t in both if t < TRAIN_STEPS)
-    if len(steps) < 96:
-        raise RuntimeError(f"only {len(steps)} train steps are done for both parts; need 96")
-    steps = [steps[i] for i in np.unique(np.linspace(0, len(steps) - 1, 96).round().astype(int))]
-    for b in BOXES:
-        group = zarr.open_group(str(coarse_path(args, b)), mode="r+")
-        area = group["rA"][:].astype(np.float64)
-        for name, dim in (("vars_3d", "channel_3d"), ("vars_2d", "channel_2d")):
-            n_ch = group[name].shape[1]
-            s0, s1, s2 = np.zeros(n_ch), np.zeros(n_ch), np.zeros(n_ch)
-            for t in steps:
-                x = group[name][t].astype(np.float64)
-                ok = np.isfinite(x)
-                w = np.where(ok, area, 0.0)
-                xw = np.where(ok, x, 0.0) * w
-                s0 += w.sum(axis=(1, 2, 3))
-                s1 += xw.sum(axis=(1, 2, 3))
-                s2 += (xw * np.where(ok, x, 0.0)).sum(axis=(1, 2, 3))
-            mean = s1 / s0
-            std = np.sqrt(np.maximum(s2 / s0 - mean**2, 0.0))
-            create_array(group, f"{name}_mean", (n_ch,), (n_ch,), "f4", (dim,))[:] = mean
-            create_array(group, f"{name}_std", (n_ch,), (n_ch,), "f4", (dim,))[:] = std
-        group.attrs["stats_steps_json"] = json.dumps(steps)
-        zarr.consolidate_metadata(str(coarse_path(args, b)))
-        logger.info("stats written for %s from %d steps", COARSE_NAMES[b], len(steps))
+    stores = {SAMUDRA: [coarse_path(args, res) for res in RESOLUTIONS], NATIVE: [native_path(args)]}
+    for product in args.products:
+        steps = sorted(t for t in done_steps(args, product) if t < TRAIN_STEPS)
+        if len(steps) < 96:
+            raise RuntimeError(f"{product}: only {len(steps)} train hours are done; need 96")
+        steps = [steps[i] for i in np.unique(np.linspace(0, len(steps) - 1, 96).round().astype(int))]
+        for path in stores[product]:
+            stats_for(path, steps)
+
+
+def stats_for(path: Path, steps: list[int]) -> None:
+    """wet_area-weighted per-level (3D) or scalar (2D) mean/std of every variable."""
+    group = zarr.open_group(str(path), mode="r+")
+    wet_area = group["wet_area"][:].astype(np.float64)
+    for var in VARS_3D + VARS_2D:
+        w = wet_area if var in VARS_3D else wet_area[0]
+        axes = tuple(range(1 if var in VARS_3D else 0, w.ndim))
+        s0 = s1 = s2 = 0.0
+        for t in steps:
+            x = group[var][t].astype(np.float64)
+            ok = np.isfinite(x)
+            xw = np.where(ok, x, 0.0) * w
+            s0 = s0 + np.where(ok, w, 0.0).sum(axis=axes)
+            s1 = s1 + xw.sum(axis=axes)
+            s2 = s2 + (xw * np.where(ok, x, 0.0)).sum(axis=axes)
+        mean = np.atleast_1d(s1 / s0)
+        std = np.sqrt(np.maximum(np.atleast_1d(s2 / s0) - mean**2, 0.0))
+        dim = ("k",) if var in VARS_3D else ("one",)
+        create_array(group, f"{var}_mean", mean.shape, mean.shape, "f4", dim)[:] = mean
+        create_array(group, f"{var}_std", std.shape, std.shape, "f4", dim)[:] = std
+    group.attrs["stats_steps_json"] = json.dumps(steps)
+    group.attrs["stats"] = "wet_area-weighted mean/std over the stats_steps_json hours"
+    zarr.consolidate_metadata(str(path))
+    logger.info("stats written for %s from %d hours", path.name, len(steps))
 
 
 # ---------------------------------------------------------------- verify
 
 
-def conservation_error(source: zarr.Group, coarse: zarr.Group, wet0: np.ndarray | None,
-                       var: str, t: int, face: int, b: int) -> float:
-    """Worst relative mismatch between sum(x*rA) on raw wet pixels and on coarse cells.
-
-    Covers one face: every level of a 3D tracer, or a 2D C-point field with the
-    surface-wet mask `wet0` (from the rechunk store's hFacC_2d > 0).
+def conservation_errors(source: zarr.Group, coarse: dict, wet0: np.ndarray, var: str, t: int) -> dict:
+    """Worst relative mismatch, per resolution, between global sum(x * rA) on raw wet cells
+    and sum(coarse x * wet_area), with the polar-fill entries added to the raw side.
     """
-    ra = np.asarray(source["rA"][face], dtype=F32)
-    if var in VARS_3D:
-        x = np.asarray(source[var][t, :, face], dtype=F32)
-        wet = np.isfinite(x)
-        c = CHANNELS_3D.index(f"{var}_0")
-        coarse_x = coarse["vars_3d"][t, c:c + LEVELS, face]
-    else:
-        x = np.asarray(source[var][t, face], dtype=F32)
-        wet = wet0
-        coarse_x = coarse["vars_2d"][t, VARS_2D.index(var), face]
-    fine = (np.where(wet, x, F32(0)) * ra).sum(axis=(-2, -1), dtype=np.float64)
-    den = weighted_box_sum(F32(1), ra, wet, b)
-    coarse_total = np.nansum(coarse_x.astype(np.float64) * den, axis=(-2, -1))
-    return float(np.max(np.abs(coarse_total - fine) / np.maximum(np.abs(fine), 1e-30)))
+    regrid = coarse[QUARTER]["regrid"]
+    fill_tile, fill_pixel, fill_area = (regrid[f"fill_{k}"][:] for k in ("tile", "pixel", "area"))
+    levels = LEVELS if var in VARS_3D else 1
+    fine = np.zeros(levels)
+    plane = None if var in VARS_3D else np.asarray(source[var][t], F32)
+    for f in range(N_FACES):
+        ra = np.asarray(source["rA"][f], F32)
+        if var in VARS_3D:
+            x = np.asarray(source[var][t, :, f], F32)
+            wet = np.isfinite(x)
+        else:
+            x, wet = plane[f][None], wet0[f][None]
+        fine += (np.where(wet, x, F32(0)) * ra).sum(axis=(-2, -1), dtype=np.float64)
+        for n, p, a in zip(fill_tile, fill_pixel, fill_area):
+            tf, j0, i0 = TILES[n]
+            if tf == f:
+                j, i = divmod(int(p), TILE)
+                value = x[:, j0 + j, i0 + i]
+                fine += np.where(wet[:, j0 + j, i0 + i], value, 0) * a
+    errors = {}
+    for res, group in coarse.items():
+        w = group["wet_area"][:].astype(np.float64)[:levels]
+        c = np.asarray(group[var][t], np.float64).reshape(levels, *w.shape[1:])
+        total = np.nansum(c * w, axis=(-2, -1))
+        errors[res] = float(np.max(np.abs(total - fine) / np.maximum(np.abs(fine), 1e-30)))
+    return errors
 
 
 def verify(args) -> None:
     source = zarr.open_group(str(args.source), mode="r")
-    coarse = {b: zarr.open_group(str(coarse_path(args, b)), mode="r") for b in BOXES}
-    n_time = coarse[QUARTER]["vars_3d"].shape[0]
+    coarse = {res: zarr.open_group(str(coarse_path(args, res)), mode="r") for res in RESOLUTIONS}
+    n_time = coarse[QUARTER]["Theta"].shape[0]
+    done = sorted(done_steps(args))
+    logger.info("%d/%d hours marked done", len(done), n_time)
     problems = []
-    complete = True
-    for part, name in (("boundary", "vars_2d"), ("prognostic", "vars_3d")):
-        done = done_steps(args, part)
-        todo = sorted(set(range(n_time)) - done)
-        logger.info("%s: %d/%d steps marked done", part, len(done), n_time)
-        complete &= not todo
-        for b in BOXES:
-            lost = [t for t in done if not (coarse_path(args, b) / name / f"{t}.0.0.0.0").exists()]
+    for res in RESOLUTIONS:
+        for var in VARS_3D + VARS_2D:
+            suffix = ".0.0.0" if var in VARS_3D else ".0.0"
+            lost = [t for t in done if not (coarse_path(args, res) / var / f"{t}{suffix}").exists()]
             if lost:
-                problems.append(f"{COARSE_NAMES[b]}/{name}: {len(lost)} marked steps lack a chunk, "
-                                f"e.g. {lost[:5]}")
-    for b in BOXES:
-        for entry in os.scandir(coarse_path(args, b) / "vars_3d"):
-            if entry.name.endswith(".partial"):
-                os.remove(entry.path)
-        for entry in os.scandir(coarse_path(args, b) / "vars_2d"):
-            if entry.name.endswith(".partial"):
-                os.remove(entry.path)
-
+                problems.append(f"{STORE_NAMES[res]}/{var}: {len(lost)} marked hours lack a chunk, e.g. {lost[:5]}")
+            for entry in os.scandir(coarse_path(args, res) / var):
+                if entry.name.endswith(".partial"):
+                    os.remove(entry.path)
+    wet0 = zarr.open_array(str(rechunk_path(args) / "hFacC_2d"), mode="r")[:] > 0
     rng = np.random.default_rng(0)
-    wet0 = None
-    for part, var in (("boundary", "Eta"), ("prognostic", "Theta")):
-        done = sorted(done_steps(args, part))
-        for t in rng.choice(done, size=min(2, len(done)), replace=False) if done else []:
-            face = int(rng.integers(N_FACES))
-            if var == "Eta":
-                wet0 = np.asarray(zarr.open_array(str(rechunk_path(args) / "hFacC_2d"), mode="r")[face]) > 0
-            for b in BOXES:
-                err = conservation_error(source, coarse[b], wet0, var, int(t), face, b)
-                logger.info("conservation %s t=%d face=%d box=%d: rel err %.2e", var, t, face, b, err)
-                if err > 1e-5:
-                    problems.append(f"{var} t={t} face={face} box={b}: conservation error {err:.2e}")
-
+    for t in (rng.choice(done, size=min(2, len(done)), replace=False) if done else []):
+        for var in ("Eta", "Theta"):
+            errors = conservation_errors(source, coarse, wet0, var, int(t))
+            logger.info("conservation %s t=%d: %s", var, t, {k: f"{v:.1e}" for k, v in errors.items()})
+            problems += [f"{var} t={t} {res}: conservation error {e:.1e}" for res, e in errors.items() if e > 1e-5]
+    native_done = sorted(done_steps(args, NATIVE)) if native_path(args).exists() else []
+    if native_path(args).exists():
+        logger.info("%d/%d hours marked done for the native store", len(native_done), n_time)
+        for var in VARS_3D + VARS_2D:
+            suffix = ".0.0.0.0" if var in VARS_3D else ".0.0.0"
+            lost = [t for t in native_done if not (native_path(args) / var / f"{t}{suffix}").exists()]
+            if lost:
+                problems.append(f"{NATIVE_NAME}/{var}: {len(lost)} marked hours lack a chunk, e.g. {lost[:5]}")
+            for entry in os.scandir(native_path(args) / var):
+                if entry.name.endswith(".partial"):
+                    os.remove(entry.path)
+        if len(native_done) == n_time:
+            zarr.consolidate_metadata(str(native_path(args)))
     for problem in problems:
         logger.error(problem)
     if problems:
         raise SystemExit(1)
-    if complete:
-        for path in [coarse_path(args, b) for b in BOXES] + [rechunk_path(args)]:
+    if len(done) == n_time:
+        for path in [coarse_path(args, res) for res in RESOLUTIONS] + [rechunk_path(args)]:
             zarr.consolidate_metadata(str(path))
         logger.info("verify passed; metadata consolidated")
     else:
-        logger.info("verify found no errors, but steps are still pending")
+        logger.info("verify found no errors, but %d hours are still pending", n_time - len(done))
 
 
 # ---------------------------------------------------------------- main
 
 
 def parse_args(argv=None) -> argparse.Namespace:
-    p = argparse.ArgumentParser(description=__doc__,
-                                formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--mode", required=True, choices=("init", "fill", "stats", "verify"))
-    p.add_argument("--part", choices=("boundary", "prognostic"))
+    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    p.add_argument("--mode", required=True, choices=("init", "fill", "prepare", "report", "stats", "verify"))
     p.add_argument("--source", type=Path, default=SOURCE)
+    p.add_argument("--target-grid", type=Path, default=TARGET_GRID)
     p.add_argument("--coarse-root", type=Path, default=COARSE_ROOT)
     p.add_argument("--rechunk-root", type=Path, default=RECHUNK_ROOT)
-    p.add_argument("--workers", type=int, default=8, help="Processes; one time step each")
-    p.add_argument("--read-threads", type=int, default=8, help="Threads per process")
+    p.add_argument("--workers", type=int, default=2, help="Processes; one hour each")
+    p.add_argument("--read-threads", type=int, default=32, help="Threads per process")
     p.add_argument("--time-splits", type=int, default=1)
     p.add_argument("--time-split-index", type=int, default=None)
-    p.add_argument("--stride", type=int, default=None, help="Only steps with t %% stride == offset")
+    p.add_argument("--stride", type=int, default=None, help="Only hours with t %% stride == offset")
     p.add_argument("--offset", type=int, default=0)
-    p.add_argument("--steps", default=None, help="Comma-separated steps; overrides the split")
-    p.add_argument("--limit", type=int, default=None, help="At most this many pending steps")
-    p.add_argument("--clevel", type=int, default=5, help="zstd level for the coarse stores")
+    p.add_argument("--steps", default=None, help="Comma-separated hours; overrides the split")
+    p.add_argument("--limit", type=int, default=None, help="At most this many pending hours")
     p.add_argument("--log-every", type=int, default=10)
-    p.add_argument("--force", action="store_true", help="init: erase existing stores and markers")
-    return p.parse_args(argv)
+    p.add_argument("--products", default=",".join(PRODUCTS),
+                   help="Comma-separated subset of samudra,native")
+    p.add_argument("--force", action="store_true", help="init: erase the listed products' stores and markers")
+    args = p.parse_args(argv)
+    args.products = tuple(x for x in args.products.split(",") if x)
+    if not set(args.products) <= set(PRODUCTS):
+        raise ValueError(f"--products must be a subset of {PRODUCTS}")
+    return args
 
 
 def main(argv=None) -> None:
     args = parse_args(argv)
     numcodecs.blosc.use_threads = False
-    {"init": init, "fill": fill, "stats": stats, "verify": verify}[args.mode](args)
+    {"init": init, "fill": fill, "prepare": prepare, "report": report, "stats": stats,
+     "verify": verify}[args.mode](args)
 
 
 if __name__ == "__main__":

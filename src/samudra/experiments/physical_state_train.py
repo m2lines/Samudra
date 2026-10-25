@@ -613,8 +613,8 @@ def main():
             (loss / args.effective_batch).backward()
             value += float(loss.detach()) / args.effective_batch
             replay_counts[task] += 1
-            replay_leads.append(lead)
-            replay_ages.append(completed - entry["origin_step"])
+            replay_leads.append(int(lead))
+            replay_ages.append(int(completed - entry["origin_step"]))
             del loss, states
         gradient_norms = {}
         for name, module in (

@@ -128,7 +128,7 @@ class PhysicalReplayPool:
             origin_index=origin_index,
             window_index=next_index,
             start_index=next_start,
-            lead_days=(next_start - origin_start) * 5,
+            lead_days=int((next_start - origin_start) * 5),
         )
 
     def draw(self, step):

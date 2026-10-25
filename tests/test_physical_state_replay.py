@@ -3,6 +3,7 @@
 """Timestamp alignment and persistent physical members in replay."""
 
 import copy
+import json
 from datetime import datetime, timedelta
 from types import SimpleNamespace
 
@@ -53,11 +54,18 @@ def test_observation_pool_caches_overlapping_bin_not_month_endpoint_and_expires(
 
 def test_native_pool_selects_matching_history_and_rejects_calendar_gap():
     data = reader()
+    data.windows = [
+        (np.int64(start), np.int64(stop), weights, duration)
+        for start, stop, weights, duration in data.windows
+    ]
     pool = PhysicalReplayPool("om4")
     pool.add_native(data, 0, states(), 3)
     entry = pool.draw(3)
     assert entry["window_index"] == 1 and entry["start_index"] == 24
     assert entry["state"].mean() == 5
+    assert json.loads(json.dumps({"lead_days": entry["lead_days"]})) == {
+        "lead_days": 25
+    }
     data.bounds[26, 0] += timedelta(days=1)
     bad = PhysicalReplayPool("om4")
     bad.add_native(data, 0, states(), 3)

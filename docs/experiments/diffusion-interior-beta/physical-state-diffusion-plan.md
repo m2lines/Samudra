@@ -4,17 +4,33 @@
 # Physical-state initializer and processor diffusion
 
 Status: the user approved shared ERA5 with all eight channels supplied directly,
-and a small GPU qualification. Beta job `217301` is submitted to `beta_test`
-for two updates exercising OM4 and observation objectives at full resolution,
-using one GPU and a one-hour limit. Submission does not establish a pass.
+and a small GPU qualification. Beta job `217301` completed successfully in
+2m52s, exercising OM4 and observation objectives at full resolution on one GPU.
+The batch-one OM4 update took 6.43s (3.08 GiB peak); the observation update took
+6.03s (8.17 GiB peak). Both diffusers received finite nonzero gradients on both
+tasks. These are single-update measurements, not warmed-up production benchmarks.
 Production budget and schedule remain subject to the resulting profile.
 Outputs: `beta:/projects/ny/lz1955/multiscale/jrusak/runs/physical-state-era5-v1`.
-The job exit callback and a two-hour fallback reminder are installed.
+The completion callback was verified on the compute node and handled.
 
-Local verification: 16 targeted CPU tests pass, including real 77-channel loss
+Local verification: 27 targeted CPU tests pass, including real 77-channel loss
 backpropagation, per-member monthly averaging, causal state shifting, OM4 window
-and ERA5 alignment, and optimizer/RNG restoration. Required pre-commit checks
-pass. No full-resolution GPU execution or throughput measurement has occurred.
+and ERA5 alignment, optimizer/RNG restoration, both-source replay, and
+microbatch loss equivalence with unequal target support. Member vectorization
+matches serial execution under identical explicit noise. Checkpointing on/off
+preserves outputs and gradients; compilation caches preserve state-dict names,
+bypass evaluation, and are removed when copying EMA models.
+
+Beta job `217306` is queued for a two-hour, one-GPU `beta_test` qualification.
+It will exercise six effective-batch-eight updates and checkpoint resume, then
+run eight isolated profile variants. Production has not launched. The new replay
+and optimization paths have CPU coverage but no measured GPU performance yet.
+
+For the provisional 100 OM4 warmup + 500 updates per source + 100 OBS cooldown,
+there are 600 OM4 and 600 OBS updates. The earlier batch-one measurements project
+serial accumulation to `600 * 8 * (6.43 + 6.03) / 3600 = 16.6` GPU-hours before
+replay, evaluation, checkpoint overhead, and steady-state corrections. This is
+not an estimate for the optimized replay run; that requires the pending profile.
 
 ## Scientific question
 
@@ -107,7 +123,8 @@ implemented objective is initializer denoising plus the mean teacher-forced
 processor denoising loss over all six or seven forecast intervals in the month,
 with equal weights on those two terms. Training samples corruption levels for
 each call. Teacher forcing does not by itself supervise recovery from generated
-states. Replay is not implemented in this starter.
+states. The implemented OM4 replay objective supplies sampled detached past
+states as conditioning while retaining gold next-state denoising targets.
 
 **Observations:** sample complete trajectories through initializer and processor,
 then score observed physical outputs. Compute each member's calendar-month
@@ -131,35 +148,56 @@ roughness, spread, and temporal increments separately.
 
 ## Replay, performance, and launch gates
 
-**This starter does not implement replay.** Both-source replay was requested for
-the preceding pilot, but the current architectural reset is not represented as
-having inherited it. It remains an explicit extension requiring source-specific
-physical-state buffers, correct forcing/calendar offsets, no future observation
-reinitialization, age limits, and restart tests. The newest shared-ERA5 latent
-reference has no replay; its older replay branch only replays observations.
+**Both observation and OM4 replay are implemented.** Each source has a separate
+physical-state buffer with two entries per lead-month, a maximum origin age of
+250 optimizer updates, and eleven replay months. Half the effective-batch slots
+attempt replay; an empty or expired buffer falls back to fresh examples. Sampling
+is uniform across occupied lead-month buckets. Buffers retain each member's two
+physical history states, never their ensemble mean. Checkpoints persist buffers,
+source-specific draw RNG states, and fresh/replay counters.
 
-The implemented starter uses one GPU, microbatch one with accumulation to
-effective batch eight, BF16 with FP32 master weights, and AdamW. It has EMA with
-half-life 100 updates, no compilation, and no distributed runner. The provisional
-configurable schedule is 100 OM4-only warmup updates, alternating mixed training
-with 500 updates per task, then 100 observation-only cooldown updates. Cooldown
-resets EMA to the raw weights and retains Adam moments, with LR decreasing to
-1e-6. This follows the latent thread's cooldown mechanism but does not assume
-that its training lengths are appropriate for this substantially costlier model.
-The qualification can set warmup/cooldown lengths to zero to exercise both tasks
-within two updates. Production lengths will be chosen after profiling.
+Observation replay continues cached members using aligned eight-channel ERA5
+and calendar context, then scores the exact future monthly observation window.
+It does not reinitialize from later surface observations. OM4 replay conditions
+next-state denoising on sampled detached histories and advances those histories
+with sampled states. Original initialization age is retained through successive
+continuations; entries cannot silently refresh their age. Training-split,
+calendar-contiguity, and one-year horizon checks guard both sources. Replay
+provides long-lead conditions but does not backpropagate through the detached
+cached past. Its effectiveness is not yet established for this architecture.
+
+The runner uses one GPU, effective batch eight, BF16 with FP32 master weights,
+and AdamW. Configurable microbatches group compatible temporal lengths; the
+observation objective scores each example with its own monthly weights and
+missing-target normalization before averaging. Ensemble members are vectorized
+along the batch axis with independent noise and InstanceNorm. The supported
+optimization switches are training-only U-Net compilation, fused AdamW, and
+optional denoiser activation checkpointing. Evaluation remains eager; there is
+no distributed runner.
+
+EMA has a half-life of 100 updates. The provisional schedule is 100 OM4-only
+warmup updates, alternating mixed training with 500 updates per task, then 100
+observation-only cooldown updates. Cooldown resets EMA to raw weights and retains
+Adam moments, with LR decreasing to 1e-6. These lengths remain provisional until
+the measured replay-inclusive cost is available.
 
 The starter uses eight Heun noise levels: fifteen denoiser evaluations per
 sample. With two members and an initializer plus six or seven monthly processor
 steps, observation training requires 210 or 240 denoiser evaluations per example
 before backward/recomputation. These are full physical-grid U-Nets. This is
 substantially different from the latent thread's single-call denoising objective;
-its previous speed measurements do not transfer. The first GPU qualification
-must measure memory and update time before promising a run budget or ETA.
+its previous speed measurements do not transfer. The pending effective-batch-eight qualification
+and profiling must measure memory and update time before a production budget or
+ETA can be justified.
 
-Latest latent-thread optimizations (training-only compilation, fused AdamW,
-larger microbatches, and DDP) are possible later additions, not implemented or
-qualified features of this starter.
+The eight profile variants are the baseline, microbatch two/four/eight,
+checkpointing off, training-only compilation, fused AdamW, and microbatch two
+with checkpointing off. They repeat cached examples to isolate network compute
+from data loading; they are not representative sampling or scientific training
+comparisons. Different microbatch shapes assign different stochastic draws.
+Same-shape parity checks and deterministic fixed-input denoiser checks assess
+numerical agreement separately. Timing gains, compile warmup, and memory costs
+remain unmeasured until the profile completes; no speedup is assumed here.
 
 Required qualification before any production: finite gradients into both U-Nets
 on OM4 and observation objectives; no future-observation leakage; reproducible
@@ -183,9 +221,9 @@ Check single-member maps and temporal coherence, not only ensemble averages.
    (surface-only, missing-variable family, spatial gap), or start surface-only?
    Surface-only gives the simplest target-task comparison; extra tasks must not
    leak interior observation labels into initialization.
-5. Both-source replay remains outstanding before a substantive stability
-   comparison. The immediate approved qualification tests the no-replay starter;
-   its results do not establish annual stability.
+5. Both-source replay is now implemented and included in the pending
+   qualification. Its measured overhead and long-rollout behavior remain open;
+   implementation tests do not establish annual stability.
 
 The implementation summary must name the actual resolved settings, parameter
 counts, CPU tests, outstanding GPU qualification, and proposed cost. It must not

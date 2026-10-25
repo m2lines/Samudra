@@ -407,7 +407,10 @@ class DataConfig(BaseConfig):
             source_using_dask = source
         else:
             # If we're not using dask for the main source, create a separate one
-            source_using_dask = load(data_location, dask=True)
+            # A raw store needs a window too, or the face is never selected.
+            source_using_dask = load(
+                data_location, dask=True, window=replay_windows[0] if replay_windows else None
+            )
 
         static_data = (
             source.data[self.static_data_vars]

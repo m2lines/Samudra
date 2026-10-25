@@ -8,6 +8,11 @@ import subprocess
 import sys
 from pathlib import Path
 
+if os.environ.get("PHYSICAL_WANDB_STDIN") == "1":
+    os.environ["WANDB_API_KEY"] = sys.stdin.read().strip()
+    if not os.environ["WANDB_API_KEY"]:
+        raise RuntimeError("Required W&B credential was not provided")
+
 root = Path(os.environ["PHYSICAL_ROOT"])
 reference = Path(os.environ["PHYSICAL_REFERENCE"])
 config = json.loads(reference.read_text())

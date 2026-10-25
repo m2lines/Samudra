@@ -309,4 +309,36 @@ evaluation remains unchanged in the original proof and report.
 
 Artifacts: `beta:/projects/ny/lz1955/multiscale/jrusak/runs/shared-era5-ddp-20261024/eager-evaluation`.
 Remote callback: `657648d1-93d2-4326-b976-169b540dad27`.
-Production remains held pending the actual four-GPU result.
+Four-GPU job **217230 passed** in 13m18s (0.8867 GPU-hours). All 16 original
+sample, corruption, lead, and post-draw RNG traces match exactly; all four rank
+model hashes agree; serialized optimizer/EMA/RNG replay is exact. Comparisons
+against both the original and optimized single-GPU implementations pass.
+
+| DDP versus original | Observed difference | Frozen limit |
+|---|---:|---:|
+| First gradient, relative L2 | 0.198% | 1% |
+| First Adam update, relative L2 | 2.55% | 5% |
+| Largest of 16 training-loss differences | 0.00977% | 2% |
+| Largest raw validation component difference | 0.0646% | 1% |
+| Largest EMA validation component difference | 0.00104% | 1% |
+
+Raw SST is 7.03357 versus 7.02903°C, a 0.00454°C difference. This is an
+engineering continuity check after only 16 disposable updates, not a scientific
+forecast score or proof of identical long-run training. The one-origin EKE
+component is zero in both implementations and is not an informative gate.
+Peak allocated memory across ranks is 29.35 GB per GPU. Proof files are
+`COMPARISON-original.json`, `COMPARISON-optimized.json`, and
+`COMPARISON-single-eager.json` in the artifact directory above.
+
+**Performance remains unresolved:** warm observation updates took about 3–5s,
+but OM4 updates took 48–68s, versus about 13–18s in the optimized single-GPU
+reference. These qualification timings include exact target/noise hashing,
+first-read integrity checks, data loading, and communication; they do not isolate
+GPU compute or establish a four-GPU speedup. The production handoff must inspect
+warm end-to-end timing rather than extrapolate the cached microbatch benchmark.
+No scientific production was launched by this qualification. Production remains
+held for the coordinated handoff using `launch_shared_era5_ddp.py`; that launcher
+runs the 8k trajectory and independent 4k cooldown sequentially on all four GPUs.
+
+Total performance and migration checks, including the failed raw-validation
+attempt, consumed **1.5339 GPU-hours**. Failed proofs remain preserved.

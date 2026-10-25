@@ -33,7 +33,10 @@ def masked_highpass(x, mask):
 
 p = argparse.ArgumentParser()
 p.add_argument("--root", type=Path, required=True)
-p.add_argument("--baseline", type=Path, required=True)
+p.add_argument("--baseline", type=Path)
+p.add_argument("--checkpoint", type=Path)
+p.add_argument("--label", default="gated")
+p.add_argument("--output", type=Path)
 p.add_argument("--data", type=Path, required=True)
 a = p.parse_args()
 torch.set_num_threads(8)
@@ -60,21 +63,26 @@ denom = weights.sum((-2, -1)).clamp_min(1e-12)
 std = torch.as_tensor(source.statistics(names).std, device=device)
 mean = torch.as_tensor(source.statistics(names).mean, device=device)
 dates = np.random.default_rng(1718).choice(len(source.time) - 3, 16, replace=False)
-outputs = list((a.root / "output").glob("native-gated-1deg-seed15-*"))
-assert len(outputs) == 1, outputs
-out = a.root / "diagnostics"
-out.mkdir(exist_ok=True)
+if a.checkpoint:
+    checkpoints = [(a.label, a.checkpoint)]
+else:
+    assert a.baseline is not None, "--baseline required without --checkpoint"
+    outputs = list((a.root / "output").glob("native-gated-1deg-seed15-*"))
+    assert len(outputs) == 1, outputs
+    checkpoints = [
+        ("control_raw", a.baseline / "saved_nets" / "ckpt_70.pt"),
+        ("control_ema", a.baseline / "saved_nets" / "ema_ckpt.pt"),
+        ("gated_raw", outputs[0] / "saved_nets" / "ckpt_70.pt"),
+        ("gated_ema", outputs[0] / "saved_nets" / "ema_ckpt.pt"),
+    ]
+out = a.output or a.root / "diagnostics"
+out.mkdir(parents=True, exist_ok=True)
 surface = [
     names.index(k)
     for k in ["zos", "thetao_0", "so_0", "uo_0", "vo_0", "thetao_11", "so_11"]
 ]
 records = {}
-for label, path in [
-    ("control_raw", a.baseline / "saved_nets" / "ckpt_70.pt"),
-    ("control_ema", a.baseline / "saved_nets" / "ema_ckpt.pt"),
-    ("gated_raw", outputs[0] / "saved_nets" / "ckpt_70.pt"),
-    ("gated_ema", outputs[0] / "saved_nets" / "ema_ckpt.pt"),
-]:
+for label, path in checkpoints:
     cfg.model.persistence_gate = label.startswith("gated")
     model = cfg.model.build(
         prog_channels=2 * n,

@@ -62,10 +62,28 @@ and small-scale errors, but does not improve the matched 360-day validation scor
 Both models already use four-call, 40-day training, so merely adding a short
 unroll is not a new intervention. Longer-horizon objectives or targeted gate
 ablations would be next hypotheses, not established fixes. One seed only.
-Two new from-scratch arms are now submitted: a direct linear gate and a nonlinear
-gate, both receiving final decoder features, the latest state, and both candidate
-output fields. Their results are pending; the completed results here are for the
-original feature-conditioned gate.
+Both new from-scratch arms completed 70 epochs and final raw/EMA evaluations.
+Their fixed 360-day validation trajectory RMSE is:
+
+| Model | Epoch 70 | Change vs control | Best epoch | Best RMSE | Change vs control best |
+|---|---:|---:|---:|---:|---:|
+| Ungated control | 0.285536844 | — | 53 | 0.282532734 | — |
+| Original feature-only gate | 0.293079816 | +2.64% | 45 | 0.286826903 | +1.52% |
+| Direct-input linear gate | 0.294219652 | +3.04% | 47 | 0.286949689 | +1.56% |
+| Nonlinear input-aware gate | 0.302165494 | +5.82% | 48 | 0.293020473 | +3.71% |
+
+The direct gate is similar to the original feature-only gate. The nonlinear gate
+is worse in this seed. Neither improves the matched ungated control on this metric.
+These are the training validation histories, not the post-evaluation time-mean-field
+metric and not an EMA endpoint score. The same seed and training protocol were used;
+this does not establish significance or a general architectural ranking.
+
+[Direct W&B run](https://wandb.ai/ocean_emulators/tocean/runs/6v6sh5v1),
+[nonlinear W&B run](https://wandb.ai/ocean_emulators/tocean/runs/k108v7j0).
+All 70 validation epochs and final raw/EMA evaluation metrics accompany the report
+in `direct-*` and `nonlinear-*` JSON files. Matched 16-date, 5/10-day physical and
+high-pass diagnostics are now queued; short-range claims for these two new arms
+remain pending.
 
 ## Continuous 5-day and 360-day endpoint fields
 

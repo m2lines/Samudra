@@ -81,9 +81,62 @@ this does not establish significance or a general architectural ranking.
 [Direct W&B run](https://wandb.ai/ocean_emulators/tocean/runs/6v6sh5v1),
 [nonlinear W&B run](https://wandb.ai/ocean_emulators/tocean/runs/k108v7j0).
 All 70 validation epochs and final raw/EMA evaluation metrics accompany the report
-in `direct-*` and `nonlinear-*` JSON files. Matched 16-date, 5/10-day physical and
-high-pass diagnostics are now queued; short-range claims for these two new arms
-remain pending.
+in `direct-*` and `nonlinear-*` JSON files. Matched 16-date, 5/10-day physical and high-pass diagnostics completed for both
+raw and EMA checkpoints. The results follow below.
+
+
+## Completed direct-input and nonlinear short-range comparison
+
+Final epoch-70 EMA checkpoints, the same 16 held-out dates and all 77 channels.
+Each ratio is the square root of pooled area-weighted normalized MSE, with equal
+channel weight within the indicated family. Denominator is the matched ungated
+control EMA; below 1 is better. These are one-call 5/10-day diagnostics, separate
+from the 360-day validation trajectories above.
+
+| Metric | Original feature-only gate | Direct-input linear | Nonlinear input-aware |
+|---|---:|---:|---:|
+| All channels, 5-day RMSE ratio | 0.96703 | 1.00918 | 0.99369 |
+| All channels, 10-day RMSE ratio | 0.98506 | 0.99998 | 0.99376 |
+| U, 5-day RMSE ratio | 0.97707 | 1.02751 | 1.02992 |
+| V, 5-day RMSE ratio | 0.96918 | 1.00596 | 0.97637 |
+| Temperature, 5-day RMSE ratio | 0.42374 | 0.43371 | 0.52410 |
+| Salinity, 5-day RMSE ratio | 0.48376 | 0.49505 | 0.53474 |
+| SSH, 5-day RMSE ratio | 0.80087 | 0.80042 | 0.81111 |
+| All channels, 5-day high-pass RMSE ratio | 0.94439 | 0.97773 | 0.96834 |
+| Temperature, 5-day high-pass RMSE ratio | 0.43295 | 0.43928 | 0.45886 |
+| Salinity, 5-day high-pass RMSE ratio | 0.51068 | 0.51623 | 0.53007 |
+| SSH, 5-day high-pass RMSE ratio | 0.57540 | 0.58254 | 0.58365 |
+
+Physical 5-day EMA RMSE, pooled over the same dates:
+
+| Field | Ungated | Original gate | Direct | Nonlinear |
+|---|---:|---:|---:|---:|
+| SST (°C) | 0.32583 | 0.22161 | 0.22253 | 0.31206 |
+| Surface salinity (psu) | 0.11602 | 0.09346 | 0.09349 | 0.10332 |
+| SSH (m) | 0.02716 | 0.02175 | 0.02174 | 0.02203 |
+| Temperature at 1050 m (°C) | 0.06026 | 0.02648 | 0.02702 | 0.02705 |
+| Salinity at 1050 m (psu) | 0.01671 | 0.00369 | 0.00372 | 0.00388 |
+
+Direct inputs retain most of the original T/S/SSH benefit, but worsen velocity
+and lose its overall short-range RMSE improvement. The nonlinear gate is also
+weaker than the original overall, with a particularly large loss of SST benefit:
+only about 4.2% lower SST RMSE than control, versus about 32.0% for the original.
+Both new gates retain strong deep T/S improvements and reduced high-pass error.
+Neither is a broad improvement over the original feature-only gate. Small
+individual wins, such as direct SSH, do not change that conclusion.
+
+Raw checkpoints agree in direction: overall 5-day ratios are 0.96676 original,
+1.00779 direct, and 0.99192 nonlinear. Full raw/EMA family ratios for both leads
+are in `input-gate-ratios.json`; per-date diagnostics are in
+`one-call-{direct,nonlinear}_{raw,ema}.json.gz`.
+
+Validation: all four new diagnostics have finite metrics and predictions. Their
+16 date pairs, previous-state/persistence metrics, truth high-pass energies,
+masks, coordinates, and saved truth/previous maps match the original diagnostic
+exactly. All training and diagnostic jobs are complete; no further runs queued.
+These remain single-seed results, not evidence that candidate-aware gating is
+inherently worse. The auxiliary ungated-output loss discussed in conversation
+has not been run.
 
 ## Continuous 5-day and 360-day endpoint fields
 

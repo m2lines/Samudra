@@ -87,6 +87,18 @@ class ZarrWriter:
         )
         ds = stack_levels(per_level, self.data_layout)
         ds = ds.transpose("time", "lev", "y", "x", ...)
+        if "areacello" in ds:
+            # Reduce while the output buffer is in memory, so visualization never
+            # has to reread a full rollout just to build its startup profiles.
+            area = ds.areacello.astype("float64").fillna(0)
+            weights = area / area.sum()
+            profiles = ds.weighted(weights).mean(("y", "x"), keep_attrs=True)
+            ds = ds.assign(
+                {
+                    f"profile_{name}": field.reset_coords(drop=True)
+                    for name, field in profiles.data_vars.items()
+                }
+            )
         ds.attrs["model_path"] = str(self.model_path)
         ds = ds.chunk({"time": self.time_chunk_size})
         if os.path.exists(self.pred_path):

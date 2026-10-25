@@ -18,7 +18,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import xarray as xr
-from dask.diagnostics.progress import ProgressBar
 from matplotlib.ticker import FixedLocator, MaxNLocator, ScalarFormatter
 
 from samudra.constants import DataLayout, GridType, build_om4_layout, is_rectilinear
@@ -162,14 +161,6 @@ class Viz:
         # Basin masks are built on first use to avoid breaking when no correct mask
         # is available and you're not doing basin-based analyses anyway.
         self._basins: xr.Dataset = prepared_groundtruth.basins
-
-        # Compute profile means
-        with ProgressBar():
-            for k in pred_dict.keys():
-                logger.info("Computing profile for prediction " + k)
-                pred_dict[k]["profile_prediction"] = profile_mean(
-                    pred_dict[k]["ds_prediction"]
-                ).load()
 
         self.time_indices = prepared_groundtruth.time_indices
         self.data: xr.Dataset = prepared_groundtruth.data
@@ -3171,8 +3162,15 @@ def _with_cell_areas(data: xr.Dataset, data_layout: DataLayout) -> xr.Dataset:
     if np.isinf(area).any() or np.any(area < 0):
         raise ValueError("Source 'areacello' contains infinite or negative areas.")
 
-    weights = np.where(np.isfinite(area), area, 0.0)
-    weights = weights / weights.sum()
+    if "areacello_weights" in data:
+        weights = np.asarray(data.areacello_weights.transpose("lat", "lon").values)
+        if not np.isfinite(weights).all() or np.any(weights < 0) or weights.sum() <= 0:
+            raise ValueError(
+                "Stored 'areacello_weights' must be finite, nonnegative and nonzero."
+            )
+    else:
+        weights = np.where(np.isfinite(area), area, 0.0)
+        weights = weights / weights.sum()
 
     # Source areas may be coordinates; expose both fields as data variables.
     data = data.drop_vars(["areacello", "areacello_weights"], errors="ignore")
@@ -3207,6 +3205,7 @@ def prepare_viz_groundtruth(
     ds_groundtruth = with_level_index_vars(
         groundtruth_rollout, depth_levels=data_layout.depth_levels
     )
+    ds_groundtruth, profile_groundtruth = _stored_profiles(ds_groundtruth, data_layout)
     ds_groundtruth = _combine_variables_by_level(
         ds_groundtruth,
         ["thetao", "so", "uo", "vo", "mask"],
@@ -3231,10 +3230,6 @@ def prepare_viz_groundtruth(
 
     last_index = len(data.time) - 1
     time_indices = [0, last_index // 2, last_index]
-
-    with ProgressBar():
-        logger.info("Computing profile for ground truth " + dataset_name)
-        profile_groundtruth = profile_mean(data).load()
 
     return PreparedVizGroundtruth(
         data_layout=data_layout,
@@ -3269,6 +3264,11 @@ def process_prediction_runs(
         if "model_path" in ds_prediction.attrs:
             pred_dict[key]["model_path"] = ds_prediction.attrs["model_path"]
 
+        ds_prediction, profiles = _stored_profiles(
+            ds_prediction, prepared_groundtruth.data_layout
+        )
+        # Prediction time is aligned with truth by position in the plotting path.
+        pred_dict[key]["profile_prediction"] = profiles.assign_coords(time=times)
         ds_prediction = _combine_variables_by_level(
             ds_prediction,
             pred_dict[key]["ls"],
@@ -3286,6 +3286,37 @@ def process_prediction_runs(
         pred_dict[key]["ds_prediction"] = ds_prediction.rename({"lat": "y", "lon": "x"})
 
     return pred_dict
+
+
+def _stored_profiles(
+    ds: xr.Dataset, data_layout: DataLayout
+) -> tuple[xr.Dataset, xr.Dataset]:
+    """Read small saved profiles without touching the full spatial time series."""
+    fields = [
+        str(name)
+        for name, field in ds.data_vars.items()
+        if "time" in field.dims and {"lat", "lon"}.issubset(field.dims)
+    ]
+    names = [f"profile_{name}" for name in fields]
+    missing = set(names).difference(ds.data_vars)
+    if missing:
+        raise ValueError(
+            f"Missing precomputed visualization profiles: {sorted(missing)}. "
+            "Backfill this Zarr with python -m ocean_preprocessing.derived_fields "
+            "before running visualization."
+        )
+    profiles = (
+        ds[names]
+        .reset_coords(drop=True)
+        .rename({f"profile_{name}": name for name in fields})
+    )
+    profiles = _combine_variables_by_level(
+        profiles, ["thetao", "so", "uo", "vo"], data_layout
+    )
+    # Loading here only reads (time, lev) arrays; spatial fields remain lazy.
+    return ds.drop_vars(
+        [name for name in ds.data_vars if str(name).startswith("profile_")]
+    ), profiles.load()
 
 
 def remove_climatology(ds):
@@ -3383,13 +3414,6 @@ def _check_mask_coords_align(data, mask, grid_type: GridType) -> None:
                 "mask is on a different grid than the data, so applying it "
                 "would attribute cells to the wrong basins."
             )
-
-
-def profile_mean(ds: xr.Dataset) -> xr.Dataset:
-    """
-    Compute the mean of each variable for each time step.
-    """
-    return ds.weighted(ds.areacello_weights).mean(["y", "x"])
 
 
 def get_basin_datasets(ds, basin_masks, data):

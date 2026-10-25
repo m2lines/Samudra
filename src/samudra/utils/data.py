@@ -398,11 +398,17 @@ class CanonicalSource:
         missing_means = set(channels).difference(means.data_vars)
         missing_stds = set(channels).difference(stds.data_vars)
         if missing_data or missing_means or missing_stds:
-            raise ValueError(
+            message = (
                 "Canonical channels are missing: "
                 f"data={sorted(missing_data)}, means={sorted(missing_means)}, "
                 f"stds={sorted(missing_stds)}"
             )
+            if "hfds_anomalies" in missing_data | missing_means | missing_stds:
+                message += (
+                    ". Precompute required fields with ocean_preprocessing.derived_fields "
+                    "and regenerate normalization stores with ocean_preprocessing.make_norm_datasets."
+                )
+            raise ValueError(message)
 
         xarray_reader = XarrayCanonicalReader(
             data=data,
@@ -677,36 +683,6 @@ def get_aggregator_dicts(
     # Get unnormalized dict
     data_unnorm_dict = convert_tensor_out_to_dict(data_unnorm, data_layout=data_layout)
     return data_dict, data_unnorm_dict
-
-
-def get_anomalies_vars(var_names: BoundaryVarNames) -> tuple[str, ...]:
-    """Get the variables that need to be computed for anomalies."""
-    return tuple([var for var in var_names if var.endswith("_anomalies")])
-
-
-def compute_anomalies(
-    data: xr.Dataset,
-    means: xr.Dataset,
-    stds: xr.Dataset,
-    anomalies_vars: tuple[str, ...],
-) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
-    """Compute anomalies for the given variables."""
-    for var in anomalies_vars:
-        base_var = var.replace("_anomalies", "")
-        if var not in data.variables and base_var in data.variables:
-            logger.info(f"Computing anomalies for {base_var}")
-            climatology = (
-                data[base_var].groupby("time.dayofyear").mean("time").compute()
-            )
-            # Remove the seasonal cycle (climatology) from the detrended data
-            day_of_year = data[base_var]["time"].dt.dayofyear
-            data[var] = (
-                data[base_var] - climatology.sel(dayofyear=day_of_year)
-            ).compute()
-            data = data.drop_vars(["dayofyear"])
-            means[var] = data[var].mean().compute()
-            stds[var] = data[var].std().compute()
-    return data, means, stds
 
 
 def with_level_index_vars(

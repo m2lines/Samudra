@@ -87,3 +87,28 @@ initialization, and original A OBS initialization. Training exposure differs:
 
 [Initializer mean figure (PNG)](figures/shared-era5-xray/velocity-initial-mean8.png) ·
 [PDF](figures/shared-era5-xray/velocity-initial-mean8.pdf).
+
+### Matched 4k/5k A-extend comparison
+
+The revised before/after figures match main-training exposure: shared-ERA5 A and
+native-forcing **A-extend** each have 4,000 main updates before cooldown and
+4,000 main + 1,000 OBS updates afterward. A-extend continues original A's raw
+2k checkpoint for another 2k mixed updates before its own cooldown. The earlier
+original-A 2k/3k ensemble artifacts remain preserved but are not the matched
+comparison's fourth column.
+
+Shared-ERA5 pre-cooldown means came from Beta **218178**, completed in
+**1m36s / 0.10667 GPU-hours**. Its original-A 2k comparator was superseded.
+Beta **218182** then generated only the missing A-extend 4k and selected 5k
+initializer ensembles, **16 decodes** on four GPUs, completed in
+**1m44s / 0.11556 GPU-hours**. Export producer `8b532a453` regenerated each
+initializer using its own EMA, the same checksum-verified OBS surface history,
+availability, ERA5, and context; it did not reuse original A's 2k/3k latents.
+Each initializer matched bitwise across all four workers, and member zero matched
+an independent repeated sample exactly. No training or day-five inference ran.
+
+The 8-member seeds, 32-step eager sampler, Gaussian grid, physical normalization,
+and four velocity fields are unchanged. The final before/after arrays reuse the
+already verified shared-ERA5 means and replace only the native-forcing comparator.
+Physical OM4 reference arrays and grid coordinates match exactly across sources.
+Native export root: `beta:/projects/ny/lz1955/multiscale/jrusak/runs/xray-velocity-aextend-20261026`.

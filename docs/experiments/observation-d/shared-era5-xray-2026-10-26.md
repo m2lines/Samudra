@@ -82,8 +82,9 @@ The initializer comparison figure uses eight-member means in row order `uo_0`,
 `uo_7`, `vo_0`, `vo_7`, with per-row color limits set by the OM4 reference 2nd–98th percentiles,
 shared across all columns, and the diverging color midpoint fixed at zero.
 Columns are OM4 reference, shared-ERA5 OM4 initialization, shared-ERA5 OBS
-initialization, and original A OBS initialization. Training exposure differs:
-4k + 1k cooldown versus 2k + 1k; this is not a matched forcing ablation.
+initialization, and A-extend OBS initialization. The current figures use matched
+4k main-training exposure, before and after each model’s 1k OBS cooldown.
+The original 2k/3k comparator described above is retained only as export provenance.
 
 [Initializer mean figure (PNG)](figures/shared-era5-xray/velocity-initial-mean8.png) ·
 [PDF](figures/shared-era5-xray/velocity-initial-mean8.pdf).
@@ -112,3 +113,5 @@ and four velocity fields are unchanged. The final before/after arrays reuse the
 already verified shared-ERA5 means and replace only the native-forcing comparator.
 Physical OM4 reference arrays and grid coordinates match exactly across sources.
 Native export root: `beta:/projects/ny/lz1955/multiscale/jrusak/runs/xray-velocity-aextend-20261026`.
+
+Published matched figures: [before cooldown PNG](figures/shared-era5-xray/velocity-initial-mean8-precool.png) · [PDF](figures/shared-era5-xray/velocity-initial-mean8-precool.pdf); [after cooldown PNG](figures/shared-era5-xray/velocity-initial-mean8.png) · [PDF](figures/shared-era5-xray/velocity-initial-mean8.pdf). Both use the same OM4-reference 2nd–98th percentile bounds and dark-grey dry-cell mask.

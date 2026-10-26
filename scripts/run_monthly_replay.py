@@ -278,6 +278,25 @@ def main():
             config["forcing_proof_sha256"],
             full_readback=a.qualify,
         )
+    prefetch = None
+    if row.get("model_prefetch"):
+        if (
+            row["model_prefetch"] != {"workers": 4, "windows": 8}
+            or row["mode"] != "shared-4k"
+            or row["arm"] != "A"
+        ):
+            raise ValueError("Unqualified model prefetch configuration")
+        if runtime.rank == 0:
+            from samudra.experiments.monthly_prefetch import ModelPrefetch
+
+            def load_model_cpu(index):
+                assert reader is not None and forcing_cache is not None
+                return dict(
+                    batch=reader.sample(index, "cpu"),
+                    atmosphere=forcing_cache.load(reader, index, data, cpu=True),
+                )
+
+            prefetch = ModelPrefetch(load_model_cpu, workers=4)
     model = MonthlyLatentOcean(**architecture).cuda()
     ema = copy.deepcopy(model).eval().requires_grad_(False)
     if optimization is not None:
@@ -305,6 +324,8 @@ def main():
 
     def restore(saved, *, continuation=False):
         nonlocal step, best, counts, replay_examples, fresh_examples
+        if prefetch is not None:
+            prefetch.reset()
         model.load_state_dict(saved["model"])
         ema.load_state_dict(saved["ema"])
         optimizer.load_state_dict(saved["optimizer"])
@@ -393,6 +414,8 @@ def main():
 
         runtime.barrier()
 
+    verify_prefetch = True
+
     def update():
         nonlocal step, replay_examples, fresh_examples
         if step == main_end:
@@ -409,6 +432,17 @@ def main():
         sample_trace: list[str | int] = []
         draw_trace = []
         staged = []
+        preparation_wait = 0.0
+        if prefetch is not None:
+            assert reader is not None
+            from samudra.experiments.monthly_prefetch import (
+                next_model_indices,
+                to_device,
+            )
+
+            prefetch.prime(
+                next_model_indices(rng, step, main_end, len(train), len(reader.windows))
+            )
         for micro in range(8 if runtime.rank == 0 else 0):
             rng.random()  # Preserve the original task-draw stream.
             if source == "obs":
@@ -482,11 +516,33 @@ def main():
                 if reader is None:
                     raise ValueError("Model data missing")
                 window_index = int(rng.integers(len(reader.windows)))
-                batch = reader.sample(window_index, "cuda")
+                waiting = time.monotonic()
+                if prefetch is not None:
+                    prepared_cpu = prefetch.take(micro, window_index)
+                    batch = to_device(prepared_cpu["batch"], "cuda")
+                    prefetched_atmosphere = to_device(
+                        prepared_cpu["atmosphere"], "cuda"
+                    )
+                    if a.qualify and verify_prefetch:
+                        assert forcing_cache is not None
+                        reference = reader.sample(window_index, "cuda")
+                        assert_exact(batch, reference, "prefetched_om4")
+                        assert_exact(
+                            prefetched_atmosphere,
+                            forcing_cache.load(reader, window_index, data),
+                            "prefetched_era5",
+                        )
+                        del reference
+                    del prepared_cpu
+                else:
+                    batch = reader.sample(window_index, "cuda")
+                preparation_wait += time.monotonic() - waiting
                 sample_trace.append(window_index)
                 with torch.autocast("cuda", dtype=torch.bfloat16):
                     atmosphere = (
-                        forcing_cache.load(reader, window_index, data)
+                        prefetched_atmosphere
+                        if prefetch is not None
+                        else forcing_cache.load(reader, window_index, data)
                         if forcing_cache is not None
                         else None
                     )
@@ -526,6 +582,13 @@ def main():
                 raise ValueError("Nonfinite training loss")
             (loss / 8).backward()
             losses.append(float(loss.detach()))
+        if prefetch is not None:
+            assert reader is not None
+            prefetch.prime(
+                next_model_indices(
+                    rng, step + 1, main_end, len(train), len(reader.windows)
+                )
+            )
         if runtime.world > 1:
             staged = runtime.prepared(staged if runtime.rank == 0 else None)
             metadata = runtime.share(
@@ -619,6 +682,7 @@ def main():
             gradient_norm=float(norm),
             lr=lr,
             adapter_gradient_norm=adapter_norm,
+            model_preparation_wait_seconds=preparation_wait,
             obs_updates=counts["obs"],
             model_updates=counts["om4"] + counts["cm4"],
             seconds=time.monotonic() - started,
@@ -683,7 +747,7 @@ def main():
             )
         )
         second = update()
-        for key in set(first) - {"seconds"}:
+        for key in set(first) - {"seconds", "model_preparation_wait_seconds"}:
             if first[key] != second[key]:
                 raise ValueError(f"Serialized update metric differs: {key}")
         save(out / "serialization-replayed.pt")
@@ -699,6 +763,11 @@ def main():
                 weights_only=False,
             ),
         )
+        prefetch_performance = []
+        if prefetch is not None or (row.get("model_prefetch") and runtime.world > 1):
+            verify_prefetch = False
+            for _ in range(8):
+                prefetch_performance.append(update())
         longest = None
         if replay:
             assert intervals is not None
@@ -760,6 +829,8 @@ def main():
                 dict(
                     protocol=protocol,
                     exact_serialized_update=True,
+                    prefetch_inputs_exact=bool(row.get("model_prefetch")),
+                    prefetch_performance=prefetch_performance,
                     initial_random_backbone_sha256=initial_hash,
                     records=records,
                     validation_ema=metrics,
@@ -778,6 +849,8 @@ def main():
             )
             + "\n",
         )
+        if prefetch is not None:
+            prefetch.close()
         return
     import wandb
 
@@ -864,6 +937,8 @@ def main():
         )
         + "\n",
     )
+    if prefetch is not None:
+        prefetch.close()
     if run is not None:
         run.finish()
 

@@ -8,6 +8,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import torch
 
 
 def digest(path):
@@ -47,7 +48,7 @@ class SharedEra5:
         self.mean = data.stats["atmosphere_mean"][None, :, None, None]
         self.std = data.stats["atmosphere_std"][None, :, None, None]
 
-    def load(self, reader, index, data):
+    def load(self, reader, index, data, *, cpu=False):
         start, stop, _, _ = reader.windows[index]
         raw = np.array(
             self.values[[self.positions[i] for i in range(start - 19, stop)]]
@@ -55,4 +56,8 @@ class SharedEra5:
         atmosphere = (raw - self.mean) / self.std
         if not np.isfinite(atmosphere).all():
             raise ValueError("Nonfinite shared forcing")
-        return data.tensor(atmosphere)[None]
+        return (
+            torch.as_tensor(atmosphere, dtype=torch.float32)
+            if cpu
+            else data.tensor(atmosphere)
+        )[None]

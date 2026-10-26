@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 Samudra Authors
 # SPDX-License-Identifier: Apache-2.0
-"""Saved original-A denoising anatomy; no inference in the viewer."""
+"""Saved model denoising X-ray; no inference in the viewer."""
 
 import base64
 import io
@@ -92,8 +92,24 @@ def image_html(values, low, high, divergent=False, width=180):
 
 
 class Anatomy:
-    def __init__(self, root):
-        self.root = Path(root)
+    def __init__(self, root, catalog=None, model=None):
+        self.models = {"original-a": {"label": "Original A", "path": str(root)}}
+        if catalog is not None and Path(catalog).exists():
+            catalog_path = Path(catalog)
+            for key, entry in json.loads(catalog_path.read_text())["models"].items():
+                entry = dict(entry)
+                path = Path(entry["path"])
+                entry["path"] = str(
+                    path if path.is_absolute() else catalog_path.parent / path
+                )
+                self.models[key] = entry
+        selected = model if model in self.models else "original-a"
+        self.model = pn.widgets.Select(
+            label="Model",
+            options={v["label"]: k for k, v in self.models.items()},
+            value=selected,
+        )
+        self.root = Path(self.models[selected]["path"])
         self.manifest = json.loads((self.root / "COMPLETE.json").read_text())
         self.grid = load(str(self.root / "grid.npz"))
         self.names = self.grid["names"].tolist()
@@ -104,12 +120,8 @@ class Anatomy:
         ]
         self.source = pn.widgets.RadioButtonGroup(
             label="Example",
-            options={
-                "OM4 · 2k": "om4",
-                "OBS · 2k": "obs_pre",
-                "OBS · 3k cooled": "obs",
-            },
-            value="om4",
+            options=self.case_options(),
+            value=next(iter(self.manifest["cases"])),
         )
         self.stage = pn.widgets.Select(
             label="Stage",
@@ -159,7 +171,7 @@ class Anatomy:
         self.latents = pn.pane.HTML()
         self.panels = []
         self.sparks = {}
-        # Stable variable-by-depth order for all three examples. SSH retains its own tile.
+        # Stable variable-by-depth order for all examples of this model. SSH retains its own tile.
         for i in [v * 19 + d for d in range(19) for v in range(4)] + [76]:
             button = pn.widgets.Button(label=self.labels[i], color="light", width=210)
             button.on_click(partial(self.select_field, i))
@@ -184,6 +196,38 @@ class Anatomy:
         self.field.param.watch(self.update_detail, "value")
         self.latent_channel.param.watch(self.update_latents, "value")
         self._render_generation = 0
+        self.update()
+        self.model.param.watch(self.change_model, "value")
+
+    def case_options(self):
+        legacy = {"om4": "OM4 · 2k", "obs_pre": "OBS · 2k", "obs": "OBS · 3k cooled"}
+        return {
+            case.get("label", legacy.get(key, key)): key
+            for key, case in self.manifest["cases"].items()
+        }
+
+    def is_om4(self, source):
+        return self.manifest["cases"][source].get("source", source) == "om4"
+
+    def native_forcing(self):
+        case = self.manifest["cases"][self.source.value]
+        return (
+            self.is_om4(self.source.value)
+            and case.get("forcing_kind", self.manifest.get("forcing_kind", "native"))
+            == "native"
+        )
+
+    def change_model(self, *events):
+        root = Path(self.models[self.model.value]["path"])
+        manifest = json.loads((root / "COMPLETE.json").read_text())
+        grid = load(str(root / "grid.npz"))
+        if grid["names"].tolist() != self.names:
+            raise ValueError("X-ray models must share field ordering")
+        self.root, self.manifest, self.grid = root, manifest, grid
+        selected = self.source.value
+        if selected not in manifest["cases"]:
+            selected = next(iter(manifest["cases"]))
+        self.source.param.update(options=self.case_options(), value=selected)
         self.update()
 
     def select_field(self, index: int, event):
@@ -211,7 +255,7 @@ class Anatomy:
     def stage_for(self, source):
         return (
             self.stage.value.removesuffix("-full")
-            if source == "om4"
+            if self.is_om4(source)
             else self.stage.value
         )
 
@@ -235,10 +279,10 @@ class Anatomy:
         return np.where(mask, value, np.nan), np.where(mask, z["gold"], np.nan), mask
 
     def limits(self, channel):
-        # Shared scales depend on final/gold values in all three cases, never the
+        # Shared scales depend on final/gold values in all cases, never the
         # selected source or diffusion step. Early high-sigma clipping is explicit.
         values = []
-        for source in ["om4", "obs_pre", "obs"]:
+        for source in self.manifest["cases"]:
             if self.stage.value == "inputs":
                 z = load(str(self.root / source / "inputs.npz"))
                 x = np.where(
@@ -282,7 +326,7 @@ class Anatomy:
         error_scale = max(abs(hi - lo) / 2, 1e-6)
         gold_label = (
             "OM4 context (not OBS truth)"
-            if self.stage.value.endswith("-full") and self.source.value != "om4"
+            if self.stage.value.endswith("-full") and not self.is_om4(self.source.value)
             else "Gold"
         )
         prediction_label = "Prediction"
@@ -364,12 +408,12 @@ class Anatomy:
         self.scales = {selected: self.limits(selected)}
         case = self.manifest["cases"][self.source.value]
         source = self.source.value
-        self.caption.object = f"""## Original A · {source.upper()} · {self.stage.value}
+        self.caption.object = f"""## {self.models[self.model.value]["label"]} · {case.get("label", source.upper())} · {self.stage.value}
 Forecast origin 2015-01-01, global 1°. Initial target: Dec 27–Jan 1; day-5 target: Jan 1–6 (exclusive ends). Monthly target: January. Spatial RMSE is an unweighted map diagnostic, not the official pooled validation score. **{case["step"]} updates, EMA weights**. Checkpoint `{case["checkpoint_sha256"][:12]}`.
-OM4 2k versus OBS 2k holds checkpoint fixed. OBS 2k versus OBS 3k holds data fixed and changes cooldown exposure.
+{self.manifest.get("model_description", "OM4 2k versus OBS 2k holds checkpoint fixed. OBS 2k versus OBS 3k holds data fixed and changes cooldown exposure.")}
 
 Every tile stays in the same variable/depth position. All ocean fields use the **same OM4 normalization**.
-Color limits pool final predictions and gold across all three examples (2nd–98th percentiles); they stay fixed while switching sources or diffusion steps. Gray = unavailable/dry.
+Color limits pool final predictions and gold across all examples of this model (2nd–98th percentiles); they stay fixed while switching sources or diffusion steps. Gray = unavailable/dry.
 Maps use native grid pixels, south-to-north, with longitude increasing left-to-right; Gaussian latitude spacing is not uniform in degrees.
 
 **Training vs sampling:** this is one fixed draw, not an eight-member mean. The 32 Heun intervals use 63 denoiser calls.
@@ -451,16 +495,16 @@ OBS monthly support excludes top temperature; missing channels remain blank.
         html = "<h3>Processor / initializer forcing and context</h3><p>Adapter outputs are in model coordinates, not physical flux units. Forcing at frame 20 drives the first processor step.</p>"
         for i in range(3):
             x = z["forcing"][index, i]
-            if self.source.value == "om4" and self.units.value == "Physical":
+            if self.native_forcing() and self.units.value == "Physical":
                 x = x * z["forcing_std"][i] + z["forcing_mean"][i]
             lo, hi = np.percentile(x, [2, 98])
-            html += f'<div style="display:inline-block">{["tauuo (N/m²)", "tauvo (N/m²)", "hfds (W/m²)"][i] if self.source.value == "om4" and self.units.value == "Physical" else "Model forcing channel " + str(i) + " (normalized/adapter coordinates)"}<br>{image_html(x, lo, hi, width=250)}</div>'
+            html += f'<div style="display:inline-block">{["tauuo (N/m²)", "tauvo (N/m²)", "hfds (W/m²)"][i] if self.native_forcing() and self.units.value == "Physical" else "Model forcing channel " + str(i) + " (normalized/adapter coordinates)"}<br>{image_html(x, lo, hi, width=250)}</div>'
         for i, name in enumerate(
             ["Geographic x", "Geographic y", "Geographic z", "Season sin", "Season cos"]
         ):
             x = z["contexts"][index, i]
             html += f'<div style="display:inline-block">{name}<br>{image_html(x, -1, 1, width=180)}</div>'
-        if self.source.value != "om4":
+        if not self.native_forcing():
             atmosphere = load(str(self.root / self.source.value / "atmosphere.npz"))
             html += "<h3>Eight ERA5 input channels (before learned adapter)</h3>"
             for i in range(8):
@@ -487,7 +531,7 @@ OBS monthly support excludes top temperature; missing channels remain blank.
                         )
                     )
                 )
-                for source in ["om4", "obs_pre", "obs"]
+                for source in self.manifest["cases"]
             )
             limit = max(limit, 1e-6)
             html += f"<p>Slot {slot}, channel {c}; full-slot RMS {np.sqrt(np.mean(z[0, slot] ** 2)):.4g} → {np.sqrt(np.mean(z[1, slot] ** 2)):.4g}</p>"
@@ -503,8 +547,9 @@ OBS monthly support excludes top temperature; missing channels remain blank.
 
     def view(self):
         return pn.template.FastListTemplate(
-            title="A · initializer and processor Xray",
+            title="Initializer and processor Xray",
             sidebar=[
+                self.model,
                 self.source,
                 self.stage,
                 self.units,

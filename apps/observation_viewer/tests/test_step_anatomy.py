@@ -108,11 +108,12 @@ def test_nn_input_scaling_uses_normalized_values(anatomy, monkeypatch):
     anatomy.readout.value = "Diffusion step: input + prediction"
     anatomy.step.value = 1
     images = []
-    monkeypatch.setattr(
-        step_anatomy,
-        "image_html",
-        lambda values, *a, **kw: images.append(np.array(values)) or "image",
-    )
+
+    def capture(values, *a, **kw):
+        images.append(np.array(values))
+        return "image"
+
+    monkeypatch.setattr(step_anatomy, "image_html", capture)
     anatomy.render(38)
     np.testing.assert_allclose(images[0], 81 / np.sqrt(6401))
     anatomy.nn_input.value = False
@@ -147,3 +148,51 @@ def test_denoiser_rmse_and_sparkline(tmp_path):
     svg = rmse_sparkline(calls, errors[:, 0], 1, "m/s")
     assert "circle" in svg and "call 1" in svg and "m/s" in svg
     assert rmse_sparkline(calls, errors[:, 1], 1, "m/s") == ""
+
+
+def test_model_switch_and_shared_era5_om4(anatomy, tmp_path):
+    import shutil
+
+    shared = tmp_path / "shared"
+    shared.mkdir()
+    shutil.copy(anatomy.root / "grid.npz", shared / "grid.npz")
+    cases = {}
+    for key, original in [
+        ("om4", "om4"),
+        ("obs_pre", "obs_pre"),
+        ("om4_post", "om4"),
+        ("obs", "obs"),
+    ]:
+        shutil.copytree(anatomy.root / original, shared / key)
+        cases[key] = dict(
+            source="om4" if key.startswith("om4") else "obs",
+            label=key + " shared",
+            forcing_kind="shared_era5",
+            step=5000,
+            checkpoint_sha256="shared-test",
+        )
+    (shared / "COMPLETE.json").write_text(
+        json.dumps(dict(cases=cases, model_description="ERA5 for both sources."))
+    )
+    catalog = tmp_path / "models.json"
+    catalog.write_text(
+        json.dumps(
+            {"models": {"shared-era5": {"label": "Shared ERA5", "path": "shared"}}}
+        )
+    )
+    viewer = Anatomy(anatomy.root, catalog=catalog)
+    viewer.field.value = 76
+    viewer.stage.value = "day5-full"
+    viewer.model.value = "shared-era5"
+    assert viewer.field.value == 76
+    assert viewer.stage_for("om4_post") == "day5"
+    assert "ERA5 for both sources." in viewer.caption.object
+    assert "Eight ERA5 input channels" in viewer.auxiliary.object
+    assert "tauuo (N/m²)" not in viewer.auxiliary.object
+    viewer.source.value = "om4_post"
+    assert viewer.current[2][0].all()
+    viewer.model.value = "original-a"
+    assert viewer.source.value == "om4"
+    assert "tauuo (N/m²)" in viewer.auxiliary.object
+    restored = Anatomy(anatomy.root, catalog=catalog, model="shared-era5")
+    assert restored.model.value == "shared-era5"

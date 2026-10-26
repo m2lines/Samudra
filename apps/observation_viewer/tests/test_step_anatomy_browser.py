@@ -14,6 +14,7 @@ def test_anatomy_real_controls():
     with sync_playwright() as p:
         browser = p.chromium.launch(
             headless=True,
+            executable_path=os.environ.get("CHROMIUM_EXECUTABLE"),
             args=[
                 "--no-sandbox",
                 "--disable-gpu",
@@ -44,18 +45,18 @@ def test_anatomy_real_controls():
             page.get_by_text("Original A · OBS · initial", exact=False)
         ).to_be_visible(timeout=120000)
         selects = page.locator("select")
-        expect(selects.nth(2).locator("optgroup")).to_have_count(2)
-        expect(selects.nth(2).locator("optgroup").first).to_have_attribute(
+        expect(selects.nth(3).locator("optgroup")).to_have_count(2)
+        expect(selects.nth(3).locator("optgroup").first).to_have_attribute(
             "label", "Available"
         )
         expect(
-            selects.nth(2).locator("optgroup").first.locator("option")
+            selects.nth(3).locator("optgroup").first.locator("option")
         ).to_have_count(2)
-        selects.nth(0).select_option(label="One processor step → day 5 decode")
+        selects.nth(1).select_option(label="One processor step → day 5 decode")
         expect(page.get_by_text("Original A · OBS · day5", exact=False)).to_be_visible(
             timeout=120000
         )
-        selects.nth(1).select_option(label="Diffusion step: input + prediction")
+        selects.nth(2).select_option(label="Diffusion step: input + prediction")
         expect(page.get_by_text("Selected call 62:", exact=False)).to_be_visible(
             timeout=120000
         )
@@ -72,17 +73,18 @@ def test_anatomy_real_controls():
         comparison = page.locator(".xray-field-grid").first
         maps = comparison.locator("img")
         first, second = maps.nth(0).bounding_box(), maps.nth(1).bounding_box()
+        assert first is not None and second is not None
         assert abs(first["y"] - second["y"]) < 1
         assert abs(first["height"] - second["height"]) < 1
         bars = comparison.locator('span[style*="linear-gradient"]')
-        assert (
-            abs(bars.nth(0).bounding_box()["y"] - bars.nth(1).bounding_box()["y"]) < 1
-        )
-        selects.nth(0).select_option(label="Monthly decode (separate task)")
+        first_bar, second_bar = bars.nth(0).bounding_box(), bars.nth(1).bounding_box()
+        assert first_bar is not None and second_bar is not None
+        assert abs(first_bar["y"] - second_bar["y"]) < 1
+        selects.nth(1).select_option(label="Monthly decode (separate task)")
         expect(
             page.get_by_text("Original A · OBS · monthly", exact=False)
         ).to_be_visible(timeout=120000)
-        selects.nth(0).select_option(
+        selects.nth(1).select_option(
             label="Initialized full77 diagnostic (OBS: OM4 context)"
         )
         expect(

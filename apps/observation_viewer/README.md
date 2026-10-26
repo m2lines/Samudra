@@ -536,3 +536,22 @@ observations receive error maps. Interior observations are monthly means and
 are not substituted for instantaneous truth. Member 1 feeds its own sampled state forward; this does not establish
 temporal realism, and the pilot shows excessive short-term member variability. This first page inspects saved outputs; it does not
 yet expose intermediate denoiser calls or perform inference.
+
+### Multiple X-ray models
+
+The X-ray sidebar has a model selector. The original A bundle remains the
+default; additional verified offline exports are registered in the ignored
+`.xray-models.json` file (or `SAMUDRA_XRAY_CATALOG`). For example:
+
+```json
+{"models": {"shared-era5": {"label": "A · shared ERA5", "path": ".step-anatomy-shared-era5"}}}
+```
+
+Paths resolve relative to the catalog. `?xray=1&xray_model=shared-era5` opens
+that model directly. Each bundle retains its own `COMPLETE.json`, checkpoint
+hashes, case labels, and model description. Case metadata distinguishes the
+ocean input source from the forcing source: shared-ERA5 OM4 examples display
+the eight ERA5 channels and adapted processor inputs, not physical OM4 fluxes.
+All existing input, latent, initialized, five-day, monthly, diffusion-trace,
+RMSE-sparkline, and physical/normalized views remain available. Colors pool
+final predictions and gold across cases within the selected model.

@@ -1255,7 +1255,7 @@ class Viewer:
             sidebar=[
                 pn.Column(
                     *sidebar,
-                    pn.pane.Markdown("[A: initialization & diffusion Xray](?xray=1)"),
+                    pn.pane.Markdown("[Initialization & diffusion Xray](?xray=1)"),
                 )
             ],
             sidebar_width=285,
@@ -1289,7 +1289,11 @@ elif pn.state.session_args.get("xray", [b"0"])[0] == b"1":
     from step_anatomy import Anatomy
 
     Anatomy(
-        os.environ.get("SAMUDRA_ANATOMY_DATA", str(APP_ROOT / ".step-anatomy"))
+        os.environ.get("SAMUDRA_ANATOMY_DATA", str(APP_ROOT / ".step-anatomy")),
+        catalog=os.environ.get(
+            "SAMUDRA_XRAY_CATALOG", str(APP_ROOT / ".xray-models.json")
+        ),
+        model=pn.state.session_args.get("xray_model", [b"original-a"])[0].decode(),
     ).view().servable()
 else:
     catalog = Catalog(

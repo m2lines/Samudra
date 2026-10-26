@@ -39,37 +39,41 @@ gated on improvement; they have not been submitted.
 
 ## Execution and qualification
 
-- Producer: `b4135aeee490ad0d1b993e3b14ede2f2b727afbf`.
-- Beta production: `218264`, `standard`, one node / four GPUs, 24-hour limit.
-- Short parallel scheduling candidate: `218265`, `beta_test` / `test`, four
+- Producer: `f3413615cef20828f9928705a9cf6c391d154045`.
+- Beta production: `218269`, `standard`, one node / four GPUs, 24-hour limit.
+- Short parallel scheduling candidate: `218270`, `beta_test` / `test`, four
   GPUs, two-hour limit. An exclusive filesystem lock prevents duplicate
   qualification; production qualifies inline if it starts first. A failed
   qualification stops production rather than silently retrying.
-- Root: `/projects/ny/lz1955/multiscale/jrusak/runs/shared-era5-reweight-20261026/deferred-validation`.
+- Root: `/projects/ny/lz1955/multiscale/jrusak/runs/shared-era5-reweight-20261026/prefetch`.
 - Frozen data paths, normalization, forcing-cache proof and run configuration:
   `paths.json` at that root. The source checkpoint path is a provenance check;
   this fresh mode does not initialize weights from it.
 - Qualification exercises both sources, exact optimizer/EMA/RNG serialization,
   rank agreement, finite evaluation and measured OBS loss equal to
   `0.5 * interior + 0.5 * surface + 0.1 * reconstruction`.
-- Local validation: 36 targeted CPU tests passed; commit hooks passed.
+- Local validation: 39 targeted CPU tests passed; commit hooks passed.
 - W&B configured online: `emulators/observational-transfer`; the URL will be
   recorded after initialization, not inferred while queued.
-- Remote completion callback: `4a1196cb-9469-4c94-a98c-4ee2403d7bb0`, with a
+- Remote completion callback: `60f28934-6501-478e-9653-467794dfbbf6`, with a
   dedicated quiet monitor and fallback reminder. Login-node authentication
   passed; each job also checks callback access inside its compute container.
 
 At submission both revised jobs were pending without a start estimate. The
 completed reference's matched update timing totals 5.67 hours; ten checkpoint
 raw/EMA evaluations, distributed across four GPUs, should add roughly 24 minutes
-instead of the previous 2.6 hours. Allow approximately 6–7 hours after allocation
-including qualification/startup, subject to filesystem variation.
+instead of the previous 2.6 hours. Those measurements describe the old serial loader. The parallel-prefetch
+producer needs measured qualification/production timings before a new ETA;
+do not assume a fourfold improvement from four loading threads.
 
 The initial attempt `218258` was canceled during qualification, before scientific
 training began, when the user changed the validation schedule. Its 8m54s on four
 GPUs (0.5933 allocated GPU-hours) and logs are retained in the parent directory;
 its pending test `218259` never started. The replacement starts fresh and does
-not promote qualification weights.
+not promote qualification weights. The deferred-validation-only jobs `218264`
+and `218265` were subsequently canceled while still pending (zero GPU time),
+when the user requested parallel data preparation. Their artifacts remain in
+the `deferred-validation` sibling directory.
 
 Selection now considers 500-update checkpoints. Compare the baseline on the
 same 500-update candidate grid rather than crediting a difference in selection
@@ -78,17 +82,30 @@ per-pass timing receipts in `validation-receipt-*.json`, and final selection in
 `EVALUATION_COMPLETE.json`. W&B uses `posthoc/checkpoint_step` for these curves
 so resumed logging does not discard earlier optimizer-step measurements.
 
-## Remaining data-preparation opportunity
+## Parallel preparation and bounded prefetch
 
 The reader memory-maps a verified uncompressed float32 `frames.npy` cache at
 `monthly-latent-pilots-20261016/packed-om4`: shape 2702×77×180×360, 53,927,596,928
-bytes. It is not reading 77 separate Zarr arrays per sample. Rank zero nevertheless
-serially gathers eight windows, checks finite values, masks and normalizes on
-CPU, transfers to GPU, and only then broadcasts prepared examples. There is no
-prefetch overlap. Eight 25–26-frame examples traverse about 4 GB of raw fields
-per update, plus repeated memory passes/intermediates. Native OM4 forcing is
-still read from Zarr before the shared ERA5 path replaces it.
+bytes. It does not read 77 separate Zarr arrays per sample. Eight 25–26-frame
+examples traverse about 4 GB of raw fields per update, plus repeated memory
+passes/intermediates. The prior rank-zero implementation prepared all eight
+serially before broadcasting them; no preparation overlapped GPU computation.
 
-Bounded prefetch, GPU normalization and avoiding the unused native-forcing read
-are candidate improvements, not changes included in this producer. Preserve
-normalization numerics, sample order and integrity checks when qualifying them.
+The current producer uses **four CPU loading workers and a bounded queue of
+eight windows**, preparing the next OM4 batch while the current GPU update and
+intervening OBS update execute. Sample lookahead uses a clone of the consumed
+NumPy RNG; it does not advance the checkpointed RNG. Results are consumed in
+sampled order, workers never touch CUDA or diffusion RNG, and speculative work
+is discarded/rebuilt on restore. Loading/hash failures propagate to training.
+
+CPU normalization, finite checks and frame hashes are deliberately unchanged
+for bitwise comparison. Qualification compares the prefetched OM4 fields,
+forcing, masks, geometry and shared ERA5 tensors against the serial reader,
+then exercises exact serialized replay. It additionally records eight warm
+updates without the duplicate-reference reads in `prefetch_performance`.
+`model_preparation_wait_seconds` tracks exposed OM4 preparation/transfer time.
+Actual speedup is pending those remote measurements, not established by CPU tests.
+
+GPU normalization and skipping the unused native OM4 forcing reads are further
+options if they remain material bottlenecks; neither is silently included in
+this first exact-input parallelization change.

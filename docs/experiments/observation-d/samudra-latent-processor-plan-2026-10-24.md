@@ -45,8 +45,8 @@ only if experiment 0 improves the blend. If a gate fails, report it and discuss
 the next step rather than automatically launching the remaining sequence.
 Treat one-seed improvements as screening evidence, not a replicated conclusion.
 
-Experiment 0 is submitted as Beta job `218264`, with gated short qualification
-`218265`; see the [run report](shared-era5-obs-reweight-2026-10-26.md).
+Experiment 0 is submitted as Beta job `218269`, with gated short qualification
+`218270`; see the [run report](shared-era5-obs-reweight-2026-10-26.md).
 Later stages have not been submitted.
 
 ## Baseline change

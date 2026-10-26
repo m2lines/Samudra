@@ -52,3 +52,14 @@ models. Atmospheric forcing is prescribed ERA5, not an operational forecast.
 Artifacts are retained locally under `outputs/physical-state-validation-20261026`
 and at the Beta path above. `VERIFIED_SUMMARY.json` contains reduced metrics;
 per-worker `input.json` and `COMPLETE.json` record provenance and content hashes.
+
+## Individual-member temporal behavior
+
+The annual validation members still fluctuate excessively. Mean member five-day
+SST increment RMS is approximately **2.69°C**, versus **0.414°C** for observations;
+SSH is **0.172 m**, versus **0.0260 m**. Within-year cell-anomaly lag-one
+correlation is approximately **0.48** for member SST versus **0.977** for the
+reference (SSH approximately **0.15** versus **0.930**). These diagnostics are
+cosine-area pooled and computed from the saved five-day trajectories. They show
+that bounded ensemble-mean RMSE does not imply realistic individual evolution,
+even though the implementation propagates each member's own sampled state.

@@ -55,3 +55,16 @@ def test_extra_cooldowns_do_not_duplicate_existing_branches():
     for start in (0, 4000, 8000, None):
         with pytest.raises(ValueError):
             phase_settings(0, "shared-cooldown", "A", start)
+
+
+def test_shared_4k_keeps_matched_source_exposure_and_cooldown():
+    assert Counter(phase_settings(i, "shared-4k", "A")[1] for i in range(4000)) == dict(
+        obs=2000, om4=2000
+    )
+    assert all(
+        phase_settings(i, "shared-4k", "A")[0:2] == (True, "obs")
+        for i in range(4000, 5000)
+    )
+    assert phase_settings(4999, "shared-4k", "A")[2] == pytest.approx(1e-6)
+    with pytest.raises(ValueError):
+        phase_settings(5000, "shared-4k", "A")

@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Samudra Authors
 # SPDX-License-Identifier: Apache-2.0
 
+import pytest
 import torch
 
 from samudra.experiments.monthly_batching import batched_loss, groups, prepare_model
@@ -27,14 +28,18 @@ def test_preparation_preserves_original_draw_order_and_single_loss():
     generator.set_state(state)
     item = prepare_model(batch, generator)
     assert torch.equal(expected_rng, generator.get_state())
-    actual, _, _ = batched_loss(model, [item], "om4", torch.ones(16, 32))
+    actual, _, _ = batched_loss(
+        model, [item], "om4", torch.ones(16, 32), observation_weights=(0.5, 0.5, 0.1)
+    )
     torch.testing.assert_close(actual, expected, rtol=1e-6, atol=1e-6)
     expected.backward()
     expected_grad = {
         n: p.grad.clone() for n, p in model.named_parameters() if p.grad is not None
     }
     model.zero_grad(set_to_none=True)
-    actual, _, _ = batched_loss(model, [item], "om4", torch.ones(16, 32))
+    actual, _, _ = batched_loss(
+        model, [item], "om4", torch.ones(16, 32), observation_weights=(0.5, 0.5, 0.1)
+    )
     actual.backward()
     for name, parameter in model.named_parameters():
         if name in expected_grad:
@@ -60,7 +65,10 @@ def test_grouping_preserves_all_examples_without_cross_update_resampling():
     assert [len(g) for g in grouped] == [2, 1, 2, 1, 2]
 
 
-def test_observation_preparation_preserves_rng_and_masked_objective():
+@pytest.mark.parametrize("observation_weights", [(0.8, 0.2, 0.1), (0.5, 0.5, 0.1)])
+def test_observation_preparation_preserves_rng_and_masked_objective(
+    observation_weights,
+):
     from types import SimpleNamespace
 
     from samudra.experiments.monthly_batching import prepare_observation
@@ -87,12 +95,25 @@ def test_observation_preparation_preserves_rng_and_masked_objective():
     )
     generator = torch.Generator().manual_seed(17)
     state = generator.get_state()
-    expected, _ = observation_loss(model, data, sample, "surface", generator)
+    expected, _ = observation_loss(
+        model,
+        data,
+        sample,
+        "surface",
+        generator,
+        observation_weights=observation_weights,
+    )
     expected_rng = generator.get_state()
     generator.set_state(state)
     item = prepare_observation(data, sample, generator)
     assert torch.equal(expected_rng, generator.get_state())
-    actual, _, _ = batched_loss(model, [item], "obs", data.area)
+    actual, _, _ = batched_loss(
+        model, [item], "obs", data.area, observation_weights=observation_weights
+    )
+    from samudra.experiments.monthly_distributed import UpdateLoss
+
+    distributed, _, _ = UpdateLoss(model, observation_weights)([item], "obs", data.area)
+    torch.testing.assert_close(distributed, actual, rtol=0, atol=0)
     torch.testing.assert_close(actual, expected, rtol=1e-6, atol=1e-6)
 
 

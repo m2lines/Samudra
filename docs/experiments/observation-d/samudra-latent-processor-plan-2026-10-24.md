@@ -3,10 +3,48 @@
 
 # Samudra-style latent processor: proposed next experiments
 
-**Plan only. Do not launch until the shared-ERA5 results have been reviewed.**
-The current experiment retains its original 4k and 8k OBS cooldowns. The five
-additional cooldowns were canceled before execution; main checkpoints at every
-1k from 2k through 8k remain available.
+## Authorized sequence (2026-10-26)
+
+The user approved a sequential, improvement-gated campaign after reviewing
+shared-ERA5. This section supersedes the older exploratory menu below; it does
+not authorize launching that entire menu.
+
+0. Reweight OBS training loss from 0.8 monthly interior / 0.2 SST–SSH forecast /
+   0.1 initializer to **0.5 / 0.5 / 0.1**, in both main training and OBS-only
+   cooldown. Keep the completed shared-ERA5 architecture and forcing adapter.
+   OM4 loss remains 0.5 monthly / 0.5 native forecast / 0.1 initializer.
+   Compare against the completed shared-ERA5 4k + 1k baseline.
+1. If step 0 improves the existing validation RMSE blend, replace the small processor with the Samudra-style latent U-Net; retain
+   shared ERA5 and its existing 8→32→3 adapter.
+2. If step 1 improves the existing validation RMSE blend, remove the three-channel
+   forcing bottleneck: pass all eight normalized ERA5 channels to both
+   initializer and processor, retaining step 1's U-Net.
+3. If step 2 improves the same score, increase latent spatial resolution on
+   top of step 2. Retain 128 channels for a resolution-only comparison if
+   memory qualification permits; a reduction to 64 is a separate capacity
+   tradeoff and must be identified explicitly before launch.
+
+Each arm starts fresh with 4k main updates (50% OM4 / 50% OBS) followed by
+1k OBS-only cooldown, matching the completed shared-ERA5 4k comparison.
+Retain effective batch eight on four GPUs, training targets (with the OBS
+coefficients changed only as specified in step 0),
+main LR, cooldown and EMA-reset protocol, validation cohort and ensemble
+settings. Save 2k and 4k checkpoints and raw/EMA validation curves. These
+architecture/interface changes are not exact resumes of the old processor.
+Use compiled training denoising and eager evaluation, as qualified in the
+shared-ERA5 study. Qualify each changed architecture before production.
+
+**Selection unchanged:** the user retained the existing RMSE blend and withdrew
+v2. Average the five fixed-climatology-normalized RMSEs equally: SST,
+SSH-derived velocity, EKE, upper OHC and deep OHC. Salinity remains supervised
+in monthly OBS training but is not directly part of checkpoint selection.
+Compare each candidate with its immediate predecessor using this same rule;
+report every component and raw/EMA curves. Carry forward the OBS reweighting
+only if experiment 0 improves the blend. If a gate fails, report it and discuss
+the next step rather than automatically launching the remaining sequence.
+Treat one-seed improvements as screening evidence, not a replicated conclusion.
+
+No new production job has been submitted for this sequence yet.
 
 ## Baseline change
 

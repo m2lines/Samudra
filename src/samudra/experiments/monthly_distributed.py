@@ -13,14 +13,21 @@ from samudra.experiments.monthly_batching import batched_loss, groups
 
 
 class UpdateLoss(nn.Module):
-    def __init__(self, model):
+    def __init__(self, model, observation_weights=(0.8, 0.2, 0.1)):
         super().__init__()
         self.model = model
+        self.observation_weights = observation_weights
 
     def forward(self, items, source, area):
         losses, pieces, rms = [], [], []
         for group in groups(items, 2):
-            loss, component, magnitude = batched_loss(self.model, group, source, area)
+            loss, component, magnitude = batched_loss(
+                self.model,
+                group,
+                source,
+                area,
+                observation_weights=self.observation_weights,
+            )
             losses.append(loss * len(group) / len(items))
             pieces.extend(
                 [
@@ -111,11 +118,11 @@ class DistributedUpdate:
 
         return decode(metadata)
 
-    def wrap(self, model):
+    def wrap(self, model, observation_weights=(0.8, 0.2, 0.1)):
         if self.world == 1:
             return None
         return nn.parallel.DistributedDataParallel(
-            UpdateLoss(model),
+            UpdateLoss(model, observation_weights),
             device_ids=[self.local_rank],
             broadcast_buffers=False,
             find_unused_parameters=True,

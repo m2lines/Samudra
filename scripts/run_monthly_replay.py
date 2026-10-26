@@ -69,7 +69,11 @@ def phase_settings(step, mode, arm, fork_step=None):
     main = (
         8000
         if mode == "shared-8k"
-        else (4000 if mode in ("extend", "fresh-4k", "shared-cool4k") else 2000)
+        else (
+            4000
+            if mode in ("extend", "fresh-4k", "shared-cool4k", "shared-4k")
+            else 2000
+        )
     )
     if (
         step < (4000 if mode == "shared-cool4k" else (2000 if mode == "extend" else 0))
@@ -95,8 +99,13 @@ def main():
     config = json.loads((a.root / "paths.json").read_text())
     row = next(r for r in config["runs"] if r["name"] == a.name)
     replay = row["mode"] == "replay"
-    shared = row["mode"] in ("shared-8k", "shared-cool4k", "shared-cooldown")
-    fresh = replay or row["mode"] in ("fresh-2k", "fresh-4k", "shared-8k")
+    shared = row["mode"] in (
+        "shared-8k",
+        "shared-4k",
+        "shared-cool4k",
+        "shared-cooldown",
+    )
+    fresh = replay or row["mode"] in ("fresh-2k", "fresh-4k", "shared-8k", "shared-4k")
     architecture = row.get("architecture", {})
     if architecture not in (
         {},
@@ -155,7 +164,7 @@ def main():
             else (
                 0
                 if row["mode"] in ("shared-cool4k", "shared-cooldown")
-                else (4000 if row["mode"] == "fresh-4k" else 2000)
+                else (4000 if row["mode"] in ("fresh-4k", "shared-4k") else 2000)
             )
         ),
         cooldown=1000,
@@ -185,6 +194,15 @@ def main():
             shared_era5=True,
             forcing_proof_sha256=config["forcing_proof_sha256"],
             source_sha256=source_sha256,
+        )
+    observation_weights = tuple(row.get("observation_loss_weights", (0.8, 0.2, 0.1)))
+    if observation_weights not in ((0.8, 0.2, 0.1), (0.5, 0.5, 0.1)):
+        raise ValueError("Unqualified OBS loss weighting")
+    if observation_weights != (0.8, 0.2, 0.1) and (
+        row["mode"] != "shared-4k" or config.get("optimization") is None
+    ):
+        raise ValueError(
+            "OBS reweighting requires the qualified shared-4k batched path"
         )
     optimization = config.get("optimization")
     if optimization is not None:
@@ -267,7 +285,7 @@ def main():
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=1e-4, fused=True if optimization else None
     )
-    distributed_loss = runtime.wrap(model)
+    distributed_loss = runtime.wrap(model, observation_weights)
     generator = torch.Generator(device="cuda").manual_seed(1729)
     rng = np.random.default_rng(1729)
     replay_rng = np.random.default_rng(1729001)
@@ -544,7 +562,11 @@ def main():
             for group in groups(staged, optimization["microbatch"]):
                 with torch.autocast("cuda", dtype=torch.bfloat16):
                     loss, pieces, latent_rms = batched_loss(
-                        model, group, source, data.area
+                        model,
+                        group,
+                        source,
+                        data.area,
+                        observation_weights=observation_weights,
                     )
                 if not torch.isfinite(loss):
                     raise ValueError("Nonfinite batched loss")
@@ -755,7 +777,7 @@ def main():
     run = None
     if runtime.rank == 0:
         run = wandb.init(
-            entity="ocean_emulators",
+            entity=config.get("wandb_entity", "ocean_emulators"),
             project="observational-transfer",
             name="monthly-" + a.name,
             id=hashlib.sha256(str(out).encode()).hexdigest()[:12],

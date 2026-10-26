@@ -39,7 +39,16 @@ def observation_batch(data, sample, task, generator):
     return dict(fields=fields, available=available, target=target, support=mask)
 
 
-def observation_loss(model, data, sample, task, generator, *, capture=None):
+def observation_loss(
+    model,
+    data,
+    sample,
+    task,
+    generator,
+    *,
+    capture=None,
+    observation_weights=(0.8, 0.2, 0.1),
+):
     batch = observation_batch(data, sample, task, generator)
     forcing = model.adapt(sample["atmosphere"])
     states = model.trajectory(
@@ -47,7 +56,15 @@ def observation_loss(model, data, sample, task, generator, *, capture=None):
     )
     if capture is not None:
         capture(states)
-    return observation_window_loss(model, data, sample, batch, states, generator)
+    return observation_window_loss(
+        model,
+        data,
+        sample,
+        batch,
+        states,
+        generator,
+        observation_weights=observation_weights,
+    )
 
 
 def observation_window_loss(
@@ -61,6 +78,7 @@ def observation_window_loss(
     surface_offset_days=0.0,
     monthly_position_days=None,
     reconstruction_state=None,
+    observation_weights=(0.8, 0.2, 0.1),
 ):
     """Same observation objective on a fresh or detached replay trajectory.
 
@@ -115,8 +133,14 @@ def observation_window_loss(
         generator,
         position_days=-2.5,
     )
-    return 0.8 * interior + 0.2 * surface + 0.1 * reconstruction, dict(
-        interior=float(interior.detach()),
-        surface=float(surface.detach()),
-        reconstruction=float(reconstruction.detach()),
+    interior_weight, surface_weight, reconstruction_weight = observation_weights
+    return (
+        interior_weight * interior
+        + surface_weight * surface
+        + reconstruction_weight * reconstruction,
+        dict(
+            interior=float(interior.detach()),
+            surface=float(surface.detach()),
+            reconstruction=float(reconstruction.detach()),
+        ),
     )

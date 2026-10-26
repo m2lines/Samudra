@@ -114,7 +114,7 @@ def groups(items, maximum=8):
             yield bucket[offset : offset + maximum]
 
 
-def batched_loss(model, items, source, area):
+def batched_loss(model, items, source, area, *, observation_weights=(0.8, 0.2, 0.1)):
     fields = torch.cat([item["fields"] for item in items])
     available = torch.cat([item["available"] for item in items])
     if all("atmosphere" in item for item in items):
@@ -177,7 +177,7 @@ def batched_loss(model, items, source, area):
         per_task.append(
             per_item * (1 + tensors["sigma"].square()) / tensors["sigma"].square()
         )
-    coefficients = (0.8, 0.2, 0.1) if source == "obs" else (0.5, 0.5, 0.1)
+    coefficients = observation_weights if source == "obs" else (0.5, 0.5, 0.1)
     total = sum(
         weight * loss for weight, loss in zip(coefficients, per_task, strict=True)
     )

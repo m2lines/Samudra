@@ -54,3 +54,26 @@ integration tests skipped). A live browser check separately exercised all four
 cases, diffusion RMSE sparklines, monthly fields, shared ERA5 forcing panels,
 latents, and switching back to Original A. The service is active. The direct
 query is `?xray=1&xray_model=shared-era5`.
+
+## Eight-member initialized velocity comparison
+
+A follow-up fixed-example export averages eight independent 32-step eager decoder
+samples for three initialized states: shared-ERA5 cooled A with OM4 inputs,
+shared-ERA5 cooled A with OBS inputs, and original cooled A with OBS inputs.
+These use identical member seeds 905001–905008 across cases. Member zero exactly
+reproduced each original saved single draw across all 77 output channels. The
+saved bfloat16 initializer latent was reconstructed exactly from its float32
+export; no initializer or processor was retrained or rerun.
+
+Beta **218165** completed exit 0 in **1m46s / 0.11778 GPU-hours**, distributing
+24 decodes across four GPUs. Producer `349e40975` passed its provenance test and
+all repository commit checks. The exported means and population standard
+deviations contain U/V at 2.5 m and 250 m, converted to m/s using the original
+OM4 mean/std. Gold is bitwise identical across cases after physical conversion.
+OBS full-77 output remains diagnostic; its velocity reference is OM4 context,
+not observed velocity truth. This comparison isolates sampling variability for
+these fixed latents and does not measure aggregate forecast skill.
+
+The small output `velocity-means.npz` and `COMPLETE.json` are retained under
+`beta:/projects/ny/lz1955/multiscale/jrusak/runs/xray-velocity-ensemble-20261026`.
+The manifest records all 24 member checksums and the final output checksum.

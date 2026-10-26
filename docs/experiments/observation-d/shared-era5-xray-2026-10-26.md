@@ -47,5 +47,10 @@ This remains one example and one draw, not aggregate skill evaluation.
 - Decoder evaluation is eager, matching the qualified evaluation path. Compilation
   is a training optimization and is not activated during this export.
 
-Viewer deployment is a separate step after verified bundle transfer; job completion
-alone does not establish that the live app has been updated.
+The viewer is deployed at `55bdf307d` on `codex/observation-viewer`, with the
+**A · shared ERA5** model selector entry. All 1,065 transferred files passed local
+SHA-256 read-back. Viewer CI passed; the local suite passed 37 tests (13 optional
+integration tests skipped). A live browser check separately exercised all four
+cases, diffusion RMSE sparklines, monthly fields, shared ERA5 forcing panels,
+latents, and switching back to Original A. The service is active. The direct
+query is `?xray=1&xray_model=shared-era5`.

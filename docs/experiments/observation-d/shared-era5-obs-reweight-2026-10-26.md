@@ -29,35 +29,66 @@ checkpointing off, fused AdamW, compiled training denoiser, eager evaluation.
 **Selection is unchanged:** equal average of five RMSE/climatology-RMSE ratios
 (SST, SSH-derived velocity, EKE, upper OHC, deep OHC), original nine validation
 origins and eight-member/32-step decoding. There is no RMSE blend v2. Salinity
-is supervised in training but not directly in selection. Save raw and EMA
-validation every 250 updates, plus immutable 2k/4k/5k checkpoints. Compare both
+is supervised in training but not directly in selection. Save full raw/EMA/optimizer checkpoints every 500 updates. Defer all training
+validation until the end, distributing the ten checkpoints across four GPUs.
+Each retains all nine origins, eight members and 32 diffusion steps for both
+raw and EMA weights. Qualification still includes its small safety evaluation. Compare both
 selected and final models and all individual components; one seed is a screen,
 not a replicated finding. Later processor/forcing/resolution stages remain
 gated on improvement; they have not been submitted.
 
 ## Execution and qualification
 
-- Producer: `a8af22e9ac315be64075f60bd2414bcc1c0346cb`.
-- Beta production: `218258`, `standard`, one node / four GPUs, 24-hour limit.
-- Short parallel scheduling candidate: `218259`, `beta_test` / `test`, four
+- Producer: `b4135aeee490ad0d1b993e3b14ede2f2b727afbf`.
+- Beta production: `218264`, `standard`, one node / four GPUs, 24-hour limit.
+- Short parallel scheduling candidate: `218265`, `beta_test` / `test`, four
   GPUs, two-hour limit. An exclusive filesystem lock prevents duplicate
   qualification; production qualifies inline if it starts first. A failed
   qualification stops production rather than silently retrying.
-- Root: `/projects/ny/lz1955/multiscale/jrusak/runs/shared-era5-reweight-20261026`.
+- Root: `/projects/ny/lz1955/multiscale/jrusak/runs/shared-era5-reweight-20261026/deferred-validation`.
 - Frozen data paths, normalization, forcing-cache proof and run configuration:
   `paths.json` at that root. The source checkpoint path is a provenance check;
   this fresh mode does not initialize weights from it.
 - Qualification exercises both sources, exact optimizer/EMA/RNG serialization,
   rank agreement, finite evaluation and measured OBS loss equal to
   `0.5 * interior + 0.5 * surface + 0.1 * reconstruction`.
-- Local validation: 35 targeted CPU tests passed; commit hooks passed.
+- Local validation: 36 targeted CPU tests passed; commit hooks passed.
 - W&B configured online: `emulators/observational-transfer`; the URL will be
   recorded after initialization, not inferred while queued.
-- Remote completion callback: `2a8b0dea-484f-44ed-baed-bd796be32acc`, with a
+- Remote completion callback: `4a1196cb-9469-4c94-a98c-4ee2403d7bb0`, with a
   dedicated quiet monitor and fallback reminder. Login-node authentication
   passed; each job also checks callback access inside its compute container.
 
-At submission both jobs were pending without a start estimate. Expected runtime
-is approximately eight hours after allocation, extrapolated from the completed
-shared-ERA5 run; qualification and additional raw validation add uncertainty.
-No completion ETA is asserted until scheduling evidence is available.
+At submission both revised jobs were pending without a start estimate. The
+completed reference's matched update timing totals 5.67 hours; ten checkpoint
+raw/EMA evaluations, distributed across four GPUs, should add roughly 24 minutes
+instead of the previous 2.6 hours. Allow approximately 6–7 hours after allocation
+including qualification/startup, subject to filesystem variation.
+
+The initial attempt `218258` was canceled during qualification, before scientific
+training began, when the user changed the validation schedule. Its 8m54s on four
+GPUs (0.5933 allocated GPU-hours) and logs are retained in the parent directory;
+its pending test `218259` never started. The replacement starts fresh and does
+not promote qualification weights.
+
+Selection now considers 500-update checkpoints. Compare the baseline on the
+same 500-update candidate grid rather than crediting a difference in selection
+frequency. Full component curves live in `validation-*.json`, checkpoint SHA and
+per-pass timing receipts in `validation-receipt-*.json`, and final selection in
+`EVALUATION_COMPLETE.json`. W&B uses `posthoc/checkpoint_step` for these curves
+so resumed logging does not discard earlier optimizer-step measurements.
+
+## Remaining data-preparation opportunity
+
+The reader memory-maps a verified uncompressed float32 `frames.npy` cache at
+`monthly-latent-pilots-20261016/packed-om4`: shape 2702×77×180×360, 53,927,596,928
+bytes. It is not reading 77 separate Zarr arrays per sample. Rank zero nevertheless
+serially gathers eight windows, checks finite values, masks and normalizes on
+CPU, transfers to GPU, and only then broadcasts prepared examples. There is no
+prefetch overlap. Eight 25–26-frame examples traverse about 4 GB of raw fields
+per update, plus repeated memory passes/intermediates. Native OM4 forcing is
+still read from Zarr before the shared ERA5 path replaces it.
+
+Bounded prefetch, GPU normalization and avoiding the unused native-forcing read
+are candidate improvements, not changes included in this producer. Preserve
+normalization numerics, sample order and integrity checks when qualifying them.

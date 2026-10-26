@@ -29,7 +29,8 @@ Each arm starts fresh with 4k main updates (50% OM4 / 50% OBS) followed by
 Retain effective batch eight on four GPUs, training targets (with the OBS
 coefficients changed only as specified in step 0),
 main LR, cooldown and EMA-reset protocol, validation cohort and ensemble
-settings. Save 2k and 4k checkpoints and raw/EMA validation curves. These
+settings. Save checkpoints every 500 updates and evaluate raw/EMA curves after training,
+parallelized over checkpoints with the existing full validation precision. These
 architecture/interface changes are not exact resumes of the old processor.
 Use compiled training denoising and eager evaluation, as qualified in the
 shared-ERA5 study. Qualify each changed architecture before production.
@@ -44,8 +45,8 @@ only if experiment 0 improves the blend. If a gate fails, report it and discuss
 the next step rather than automatically launching the remaining sequence.
 Treat one-seed improvements as screening evidence, not a replicated conclusion.
 
-Experiment 0 is submitted as Beta job `218258`, with gated short qualification
-`218259`; see the [run report](shared-era5-obs-reweight-2026-10-26.md).
+Experiment 0 is submitted as Beta job `218264`, with gated short qualification
+`218265`; see the [run report](shared-era5-obs-reweight-2026-10-26.md).
 Later stages have not been submitted.
 
 ## Baseline change

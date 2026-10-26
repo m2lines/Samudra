@@ -81,6 +81,12 @@ def main():
     if not args.qualification_only:
         # Runner independently checks exact producer/config/protocol equality.
         subprocess.run(command, check=True)
+        if row.get("validation_schedule") == "posthoc-500":
+            evaluation = command.copy()
+            evaluation[
+                evaluation.index(str(Path(__file__).with_name("run_monthly_replay.py")))
+            ] = str(Path(__file__).with_name("evaluate_monthly_checkpoints.py"))
+            subprocess.run(evaluation, check=True)
 
 
 if __name__ == "__main__":

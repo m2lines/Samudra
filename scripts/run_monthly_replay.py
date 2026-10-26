@@ -98,6 +98,9 @@ def main():
     a = p.parse_args()
     config = json.loads((a.root / "paths.json").read_text())
     row = next(r for r in config["runs"] if r["name"] == a.name)
+    deferred = row.get("validation_schedule") == "posthoc-500"
+    if row.get("validation_schedule") not in (None, "posthoc-500"):
+        raise ValueError("Unknown validation schedule")
     replay = row["mode"] == "replay"
     shared = row["mode"] in (
         "shared-8k",
@@ -355,7 +358,11 @@ def main():
         restore(saved)
         del saved
     train, validation = data.paths("train"), data.paths("validation")
-    control = evaluate(ema, data, validation, climatology=True)
+    control = (
+        evaluate(ema, data, validation, climatology=True)
+        if a.qualify or not deferred
+        else None
+    )
     main_end = protocol["main_end"]
     end = main_end + 1000
 
@@ -794,7 +801,9 @@ def main():
         save(out / "fork.pt")
     while step < end:
         record = update()
-        if step % 250 == 0:
+        if deferred and step % 500 == 0:
+            save(out / f"endpoint-{step:05d}.pt")
+        if not deferred and step % 250 == 0:
             metrics = evaluate(
                 ema,
                 data,
@@ -845,7 +854,8 @@ def main():
                 producer=config["producer"],
                 step=step,
                 counts=counts,
-                best=best,
+                best=None if deferred else best,
+                validation_pending=deferred,
                 replay_examples=replay_examples,
                 fresh_examples=fresh_examples,
                 source_sha256=source_sha256,

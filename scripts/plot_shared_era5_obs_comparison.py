@@ -70,10 +70,14 @@ def xval(step, exposure, obs_only, boundary):
 
 
 def draw(ax, key, exposure=False, late=False):
+    early_segments = []
     for (name, rows), color, boundary in zip(
         curves.items(), colors, boundaries, strict=True
     ):
         obs_only = name.startswith("OBS-only")
+        if late:
+            early = [r for r in rows if r["step"] <= 1500]
+            early_segments.append((early, color, boundary, obs_only))
         rows = [r for r in rows if not late or r["step"] >= 1500]
 
         def value(r):
@@ -105,6 +109,21 @@ def draw(ax, key, exposure=False, late=False):
                 color=color,
                 ms=5,
             )
+    if late:
+        # Preserve the late-training viewport, but retain the full trajectories.
+        xlim, ylim = ax.get_xlim(), ax.get_ylim()
+        for early, color, boundary, obs_only in early_segments:
+            ax.plot(
+                [xval(r["step"], exposure, obs_only, boundary) for r in early],
+                [value(r) for r in early],
+                color=color,
+                lw=1.6,
+                marker=".",
+                ms=3,
+                clip_on=True,
+            )
+        ax.set_xlim(xlim)
+        ax.set_ylim(ylim)
     ax.set_xlabel("OBS optimizer updates" if exposure else "Total optimizer updates")
     ax.grid(alpha=0.2)
 
@@ -115,7 +134,7 @@ for j, exposure in enumerate([False, True]):
     axs[0, j].set_yscale("log")
     axs[0, j].set_title("Full history · logarithmic y-axis")
     draw(axs[1, j], "blend", exposure, True)
-    axs[1, j].set_title("Later training · from total update 1,500")
+    axs[1, j].set_title("Later-training zoom")
     for ax in axs[:, j]:
         ax.set_ylabel("Climatology-normalized RMSE blend ↓")
         ax.axhline(1, color="#777", ls=":", lw=1)
@@ -149,7 +168,7 @@ for exposure in [False, True]:
         draw(ax, key, exposure, True)
         ax.set_title(label, fontsize=11)
     fig.suptitle(
-        "Shared ERA5 versus OBS-only · components after total update 1,500", fontsize=14
+        "Shared ERA5 versus OBS-only · components · later-training zoom", fontsize=14
     )
     fig.legend(
         handles,

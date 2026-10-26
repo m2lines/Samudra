@@ -40,6 +40,9 @@ def trace(model, latent, support, target, directory, duration=5.0, position=0.0)
     directory.mkdir()
     support = support.bool().expand(1, 77, 180, 360)
     records: list[dict] = []
+    rmse_rows = []
+    gold = array(target[0]).astype(np.float64)
+    gold_support = array(support[0]).astype(bool) & np.isfinite(gold)
 
     def hook(module, args, output):
         call = len(records)
@@ -51,6 +54,16 @@ def trace(model, latent, support, target, directory, duration=5.0, position=0.0)
             clean=output[0],
             sigma=sigma,
         )
+        error = array(output[0]).astype(np.float64) - gold
+        valid = gold_support & np.isfinite(error)
+        count = valid.sum(axis=(-2, -1))
+        mse = np.divide(
+            np.where(valid, error**2, 0).sum(axis=(-2, -1)),
+            count,
+            out=np.full(len(count), np.nan),
+            where=count > 0,
+        )
+        rmse_rows.append([float(x) if np.isfinite(x) else None for x in np.sqrt(mse)])
         records.append(
             dict(
                 call=call,
@@ -84,6 +97,9 @@ def trace(model, latent, support, target, directory, duration=5.0, position=0.0)
         )
     torch.testing.assert_close(output, reference, rtol=0, atol=0)
     assert len(records) == 63
+    atomic_json(
+        dict(calls=list(range(63)), rmse=rmse_rows), directory / "denoiser-rmse.json"
+    )
     save(
         directory / "final.npz",
         prediction=output[0],

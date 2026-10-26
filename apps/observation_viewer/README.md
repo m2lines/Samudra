@@ -555,3 +555,10 @@ the eight ERA5 channels and adapted processor inputs, not physical OM4 fluxes.
 All existing input, latent, initialized, five-day, monthly, diffusion-trace,
 RMSE-sparkline, and physical/normalized views remain available. Colors pool
 final predictions and gold across cases within the selected model.
+
+For held-out OM4 examples, pass their completed evaluation root and
+`--base /path/to/previous-physical-bundle`. The adapter preserves previous arrays
+byte-for-byte and appends `om4/full-state-*.npz` cases with aligned `gold_initial`
+and `gold` interior targets. OM4 targets are explicitly distinguished from
+observations. Initialization displays the last five-day history state; day 30
+displays the five-day forecast bin ending on day 30.

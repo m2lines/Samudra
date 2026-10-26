@@ -10,6 +10,7 @@ from pathlib import Path
 import numpy as np
 import panel as pn
 from step_anatomy import image_html
+from xray_images import XrayImages
 
 
 @lru_cache(maxsize=2)
@@ -50,13 +51,43 @@ class PhysicalXray:
             label="Units", options=["Physical", "Normalized"]
         )
         self.caption = pn.pane.Markdown()
-        self.maps = pn.pane.HTML(sizing_mode="stretch_width")
+        self.maps = XrayImages(sizing_mode="stretch_width")
+        self._render_version = 0
         self.metrics = pn.pane.Markdown()
         for widget in [self.case, self.field, self.readout, self.units]:
+            widget.jscallback(
+                args={
+                    "images": self.maps,
+                    "example": self.case,
+                    "field": self.field,
+                    "readout": self.readout,
+                    "units": self.units,
+                },
+                value="images.data.selection = JSON.stringify([example.value, field.value, readout.value, units.active]); images.data.busy = true;",
+            )
             widget.param.watch(self.update, "value")
         self.update()
 
     def update(self, *_):
+        self._render_version += 1
+        try:
+            self.render_maps()
+        except Exception:
+            self.maps.content = {
+                "selection": self.selection(),
+                "html": f"<!--{self._render_version}--><p>Unable to load this view. Please choose another selection.</p>",
+            }
+            raise
+
+    def selection(self):
+        return [
+            str(self.case.value),
+            str(self.field.value),
+            self.readout.value,
+            0 if self.units.value == "Physical" else 1,
+        ]
+
+    def render_maps(self):
         case = self.cases[self.case.value]
         data = load_case(str(self.root / case["file"]))
         i = self.field.value
@@ -109,11 +140,15 @@ class PhysicalXray:
             panels.append(
                 f"<div><b>{title}</b><br>{image_html(values, lo, hi, divergent, width=720)}</div>"
             )
-        self.maps.object = (
-            '<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px">'
-            + "".join(panels)
-            + "</div>"
-        )
+        self.maps.content = {
+            "selection": self.selection(),
+            "html": (
+                f"<!--render {self._render_version}-->"
+                '<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px">'
+                + "".join(panels)
+                + "</div>"
+            ),
+        }
         unit = (
             "OM4 standard deviations"
             if self.units.value == "Normalized"

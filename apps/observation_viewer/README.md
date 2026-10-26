@@ -562,3 +562,9 @@ byte-for-byte and appends `om4/full-state-*.npz` cases with aligned `gold_initia
 and `gold` interior targets. OM4 targets are explicitly distinguished from
 observations. Initialization displays the last five-day history state; day 30
 displays the five-day forecast bin ending on day 30.
+
+The physical Xray map group shows a small corner “Loading…” indicator immediately
+when a control changes. It clears after the replacement images decode, and an
+older response cannot clear a newer pending selection. Render failures replace
+the maps with a short error message and clear the indicator; selecting another
+view retries normally. The old original-A Xray is unchanged.

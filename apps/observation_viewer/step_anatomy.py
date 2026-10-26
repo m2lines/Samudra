@@ -5,7 +5,7 @@
 import base64
 import io
 import json
-from functools import lru_cache
+from functools import lru_cache, partial
 from pathlib import Path
 
 import numpy as np
@@ -162,7 +162,7 @@ class Anatomy:
         # Stable variable-by-depth order for all three examples. SSH retains its own tile.
         for i in [v * 19 + d for d in range(19) for v in range(4)] + [76]:
             button = pn.widgets.Button(label=self.labels[i], color="light", width=210)
-            button.on_click(lambda event, i=i: setattr(self.field, "value", i))
+            button.on_click(partial(self.select_field, i))
             pane = pn.pane.HTML(sizing_mode="stretch_width")
             self.panels.append((i, pane))
             spark = pn.pane.HTML(width=150, height=48, margin=0, visible=False)
@@ -186,6 +186,21 @@ class Anatomy:
         self._render_generation = 0
         self.update()
 
+    def select_field(self, index: int, event):
+        self.field.value = index
+
+    @property
+    def interval(self) -> int:
+        value = self.step.value
+        assert value is not None
+        return value
+
+    @property
+    def history_index(self) -> int:
+        value = self.history.value
+        assert value is not None
+        return value
+
     def transform(self, value, channel, difference=False):
         if self.units.value == "Normalized":
             return value
@@ -204,15 +219,15 @@ class Anatomy:
         base = self.root / source
         if self.stage.value == "inputs":
             z = load(str(base / "inputs.npz"))
-            i = self.history.value - 1
+            i = self.history_index - 1
             x = np.where(z["available"][i].astype(bool), z["fields"][i], np.nan)
             return x, x, np.isfinite(x)
         z = load(str(base / self.stage_for(source) / "final.npz"))
         mask = z["support"].astype(bool)
         value = z["prediction"]
         if self.readout.value != "Final sample":
-            call = 2 * (self.step.value - 1) + (
-                self.corrector.value and self.step.value < 32
+            call = 2 * (self.interval - 1) + (
+                self.corrector.value and self.interval < 32
             )
             value = load(str(base / self.stage_for(source) / f"call-{call:02d}.npz"))[
                 "clean"
@@ -273,8 +288,8 @@ class Anatomy:
         prediction_label = "Prediction"
         panels = []
         if self.readout.value != "Final sample":
-            call = 2 * (self.step.value - 1) + (
-                self.corrector.value and self.step.value < 32
+            call = 2 * (self.interval - 1) + (
+                self.corrector.value and self.interval < 32
             )
             path = (
                 self.root
@@ -365,8 +380,8 @@ Monthly fields are direct raw decoder outputs from the averaged latent, **withou
 OBS monthly support excludes top temperature; missing channels remain blank.
 """
         if self.stage.value != "inputs" and self.readout.value != "Final sample":
-            call = 2 * (self.step.value - 1) + (
-                self.corrector.value and self.step.value < 32
+            call = 2 * (self.interval - 1) + (
+                self.corrector.value and self.interval < 32
             )
             meta = json.loads(
                 (self.root / source / self.stage_for(source) / "trace.json").read_text()
@@ -406,8 +421,8 @@ OBS monthly support excludes top temperature; missing channels remain blank.
         values = errors[:, i]
         if self.units.value == "Physical":
             values = values * abs(self.grid["std"][i])
-        selected = 2 * (self.step.value - 1) + (
-            self.corrector.value and self.step.value < 32
+        selected = 2 * (self.interval - 1) + (
+            self.corrector.value and self.interval < 32
         )
         return rmse_sparkline(calls, values, selected, self.unit(i))
 
@@ -427,7 +442,7 @@ OBS monthly support excludes top temperature; missing channels remain blank.
     def update_auxiliary(self):
         z = load(str(self.root / self.source.value / "inputs.npz"))
         index = (
-            self.history.value - 1
+            self.history_index - 1
             if self.stage.value == "inputs"
             else 19
             if self.stage.value.startswith("day5")

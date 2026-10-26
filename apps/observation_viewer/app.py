@@ -1255,9 +1255,7 @@ class Viewer:
             sidebar=[
                 pn.Column(
                     *sidebar,
-                    pn.pane.Markdown(
-                        "[A: initialization & diffusion Xray](?xray=1)"
-                    ),
+                    pn.pane.Markdown("[A: initialization & diffusion Xray](?xray=1)"),
                 )
             ],
             sidebar_width=285,
@@ -1281,7 +1279,13 @@ class Viewer:
         )
 
 
-if pn.state.session_args.get("xray", [b"0"])[0] == b"1":
+if pn.state.session_args.get("xray", [b"0"])[0] == b"physical":
+    from physical_xray import PhysicalXray
+
+    PhysicalXray(
+        os.environ.get("SAMUDRA_PHYSICAL_XRAY_DATA", str(APP_ROOT / ".physical-xray"))
+    ).view().servable()
+elif pn.state.session_args.get("xray", [b"0"])[0] == b"1":
     from step_anatomy import Anatomy
 
     Anatomy(

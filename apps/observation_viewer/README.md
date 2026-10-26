@@ -516,3 +516,23 @@ The Xray **NN input scaling** checkbox defaults on: the noisy panel shows
 `x / sqrt(1 + sigma²)` in dimensionless network coordinates, with fixed limits
 −3 to +3 across cases and steps. Turn it off to inspect the unscaled noisy field
 in the selected physical/OM4-normalized units. Prediction and gold are unaffected.
+
+## Physical-state diffusion validation
+
+`app?xray=physical` opens a separate saved-output page for the physical-state
+initializer/processor pilot. Prepare its immutable bundle with:
+
+```bash
+python prepare_physical_xray.py --evaluation /path/to/completed/worker \
+  --output /path/to/physical-xray
+```
+
+Repeat `--evaluation` for additional completed workers. Set
+`SAMUDRA_PHYSICAL_XRAY_DATA` or place the bundle at `.physical-xray`.
+The exporter checks every evaluation artifact checksum; the viewer verifies
+its own bundle before displaying any fields. Initialization and days 30/365
+show full-state ensemble mean, member 1, and spread. Only aligned surface
+observations receive error maps. Interior observations are monthly means and
+are not substituted for instantaneous truth. Member 1 feeds its own sampled state forward; this does not establish
+temporal realism, and the pilot shows excessive short-term member variability. This first page inspects saved outputs; it does not
+yet expose intermediate denoiser calls or perform inference.

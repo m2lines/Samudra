@@ -77,3 +77,12 @@ these fixed latents and does not measure aggregate forecast skill.
 The small output `velocity-means.npz` and `COMPLETE.json` are retained under
 `beta:/projects/ny/lz1955/multiscale/jrusak/runs/xray-velocity-ensemble-20261026`.
 The manifest records all 24 member checksums and the final output checksum.
+
+The initializer comparison figure uses eight-member means in row order `uo_0`,
+`uo_7`, `vo_0`, `vo_7`, with the same color limits as the single-draw figures.
+Columns are OM4 reference, shared-ERA5 OM4 initialization, shared-ERA5 OBS
+initialization, and original A OBS initialization. Training exposure differs:
+4k + 1k cooldown versus 2k + 1k; this is not a matched forcing ablation.
+
+[Initializer mean figure (PNG)](figures/shared-era5-xray/velocity-initial-mean8.png) ·
+[PDF](figures/shared-era5-xray/velocity-initial-mean8.pdf).

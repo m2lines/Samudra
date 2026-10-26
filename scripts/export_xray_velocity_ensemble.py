@@ -42,6 +42,9 @@ def worker(root, rank):
     for row in config["cases"]:
         bundle = Path(row["bundle"])
         source = verify_trace(bundle, row["case"], row["trace"])
+        regenerate = "checkpoint" in row
+        if regenerate:
+            source = row
         checkpoint = Path(source["checkpoint"])
         if digest(checkpoint) != source["checkpoint_sha256"]:
             raise ValueError("Checkpoint checksum changed")
@@ -69,6 +72,37 @@ def worker(root, rank):
                 raise ValueError("Saved initializer latent is not exactly bf16")
             support = torch.from_numpy(saved_trace["support"])[None].cuda().bool()
             original = saved_trace["prediction"]
+        if regenerate:
+            manifest = json.loads((bundle / "COMPLETE.json").read_text())
+            for name in (f"{row['case']}/inputs.npz", f"{row['case']}/atmosphere.npz"):
+                if digest(bundle / name) != manifest["files"][name]:
+                    raise ValueError("Saved initialization inputs changed")
+            with (
+                np.load(bundle / row["case"] / "inputs.npz") as inputs,
+                np.load(bundle / row["case"] / "atmosphere.npz") as atmosphere,
+            ):
+                fields = torch.from_numpy(inputs["fields"])[None].cuda()
+                available = torch.from_numpy(inputs["available"])[None].cuda().bool()
+                context = torch.from_numpy(inputs["contexts"])[None].cuda()
+                raw_atmosphere = torch.from_numpy(atmosphere["normalized"])[None].cuda()
+                with torch.autocast("cuda", dtype=torch.bfloat16):
+                    adapted = model.adapt(raw_atmosphere[:, :19])
+                    latent = model.initialize(
+                        fields, available, adapted, context[:, 18]
+                    )
+            latent_path = directory / f"{row['name']}-latent.npz"
+            np.savez_compressed(latent_path, latent=latent[0].float().cpu().numpy())
+            if rank == 0:
+                with torch.autocast("cuda", dtype=torch.bfloat16):
+                    reference = model.decoder.sample(
+                        latent,
+                        support,
+                        torch.Generator(device="cuda").manual_seed(SEEDS[0]),
+                        steps=32,
+                        duration_days=metadata["duration_days"],
+                        position_days=metadata["position_days"],
+                    )
+                original = reference[0].float().cpu().numpy()
         for member in range(rank, len(SEEDS), 4):
             with torch.autocast("cuda", dtype=torch.bfloat16):
                 result = model.decoder.sample(
@@ -92,6 +126,10 @@ def worker(root, rank):
                     file=str(path),
                     sha256=digest(path),
                     member0_exact=member == 0,
+                    reference_kind="fresh repeated draw"
+                    if regenerate
+                    else "original saved trace",
+                    checkpoint_sha256=source["checkpoint_sha256"],
                 )
             )
             print(json.dumps(records[-1]), flush=True)
@@ -137,6 +175,15 @@ def main():
         )
         if [r["seed"] for r in members] != SEEDS or not members[0]["member0_exact"]:
             raise ValueError("Incomplete or unverified ensemble")
+        if "checkpoint" in row:
+            latents = []
+            for rank in range(4):
+                with np.load(
+                    args.root / f"worker-{rank}" / f"{row['name']}-latent.npz"
+                ) as saved_latent:
+                    latents.append(saved_latent["latent"])
+            for latent in latents[1:]:
+                np.testing.assert_array_equal(latents[0], latent)
         values = []
         for record in members:
             if digest(record["file"]) != record["sha256"]:

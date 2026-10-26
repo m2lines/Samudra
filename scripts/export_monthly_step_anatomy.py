@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import torch
 
 from samudra.experiments.monthly_latent import MonthlyLatentOcean
@@ -103,11 +104,46 @@ def trace(model, latent, support, target, directory, duration=5.0, position=0.0)
     )
 
 
+def era5_for_intervals(daily, bounds, stats):
+    """Read the same strict daily-to-five-day means as the training cache."""
+    from samudra.experiments.observation_data import strict_mean
+
+    values, intervals, hashes = [], [], {}
+    for lo, hi in bounds:
+        start, stop = pd.Timestamp(str(lo)), pd.Timestamp(str(hi))
+        if stop - start != pd.Timedelta(days=5):
+            raise ValueError("Expected exact five-day ERA5 interval")
+        days = []
+        for stamp in pd.date_range(start, periods=5):
+            path = (
+                Path(daily)
+                / "era5"
+                / str(stamp.year)
+                / (stamp.strftime("%Y-%m-%d") + ".npz")
+            )
+            hashes[str(path)] = digest(path)
+            with np.load(path) as payload:
+                if pd.Timestamp(str(payload["time"])) != stamp:
+                    raise ValueError("ERA5 timestamp mismatch")
+                raw = payload["values"]
+                if raw.shape != (8, 180, 360) or not np.isfinite(raw).all():
+                    raise ValueError("Invalid ERA5 daily payload")
+                days.append(raw)
+        values.append(strict_mean(np.stack(days)))
+        intervals.append([start.isoformat(), stop.isoformat()])
+    raw = np.stack(values)
+    normalized = (raw - stats["atmosphere_mean"][None, :, None, None]) / stats[
+        "atmosphere_std"
+    ][None, :, None, None]
+    return normalized.astype("float32"), dict(bounds=intervals, daily_sha256=hashes)
+
+
 @torch.no_grad()
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--config", type=Path, required=True)
     p.add_argument("--output", type=Path, required=True)
+    p.add_argument("--case")
     args = p.parse_args()
     config = json.loads(args.config.read_text())
     args.output.mkdir(exist_ok=False)
@@ -146,25 +182,55 @@ def main():
         producer=os.environ["SAMUDRA_CODE_COMMIT"],
         config_sha256=digest(args.config),
         cases={},
+        model_label=config.get("model_label", "Original A"),
+        model_description=config.get("model_description", ""),
     )
-    for case, source, step in [
-        ("om4", "om4", 2000),
-        ("obs_pre", "obs", 2000),
-        ("obs", "obs", 3000),
-    ]:
-        checkpoint_key = "om4" if step == 2000 else "obs"
-        checkpoint = Path(config[checkpoint_key + "_checkpoint"])
-        expected = config[checkpoint_key + "_sha256"]
+    cases = config.get("cases") or [
+        dict(
+            name=name,
+            source=source,
+            step=step,
+            checkpoint=config[key + "_checkpoint"],
+            sha256=config[key + "_sha256"],
+        )
+        for name, source, step, key in [
+            ("om4", "om4", 2000, "om4"),
+            ("obs_pre", "obs", 2000, "om4"),
+            ("obs", "obs", 3000, "obs"),
+        ]
+    ]
+    if args.case:
+        cases = [row for row in cases if row["name"] == args.case]
+        if len(cases) != 1:
+            raise ValueError("Unknown or duplicate case")
+    shared = config.get("shared_era5", False)
+    if shared:
+        atmosphere, forcing_proof = era5_for_intervals(
+            config["daily"], reader.bounds[indices], data.stats
+        )
+        manifest["shared_era5"] = forcing_proof
+    for row in cases:
+        case, source, step = row["name"], row["source"], row["step"]
+        checkpoint, expected = Path(row["checkpoint"]), row["sha256"]
         assert digest(checkpoint) == expected
         saved = torch.load(checkpoint, map_location="cpu", weights_only=False)
         assert saved["step"] == step
-        model = MonthlyLatentOcean().cuda().eval()
+        if shared and saved["protocol"].get("shared_era5") is not True:
+            raise ValueError("Checkpoint was not trained with shared ERA5")
+        model = (
+            MonthlyLatentOcean(**saved["protocol"].get("architecture", {}))
+            .cuda()
+            .eval()
+        )
         model.load_state_dict(saved["ema"], strict=True)
         dest = args.output / case
         dest.mkdir()
         batch = om4 if source == "om4" else obs
         if source == "om4":
             forcing, contexts = om4["forcing"], om4["contexts"]
+            if shared:
+                with torch.autocast("cuda", dtype=torch.bfloat16):
+                    forcing = model.adapt(data.tensor(atmosphere)[None])
         else:
             with torch.autocast("cuda", dtype=torch.bfloat16):
                 forcing = model.adapt(sample["atmosphere"])
@@ -191,10 +257,10 @@ def main():
             forcing_mean=reader.forcing_mean,
             forcing_std=reader.forcing_std,
         )
-        if source == "obs":
+        if source == "obs" or shared:
             save(
                 dest / "atmosphere.npz",
-                normalized=sample["atmosphere"][0],
+                normalized=atmosphere if source == "om4" else sample["atmosphere"][0],
                 mean=data.stats["atmosphere_mean"],
                 std=data.stats["atmosphere_std"],
             )
@@ -245,10 +311,12 @@ def main():
             position=15.5,
         )
         manifest["cases"][case] = dict(
+            label=row.get("label", case),
             checkpoint=str(checkpoint),
             checkpoint_sha256=expected,
             step=step,
             weights="ema",
+            forcing_kind="shared_era5" if shared else "native",
             counts=saved["counts"],
             monthly_weights=array(weights).tolist(),
             initial_inputs="19 five-day SST/SSH frames only",

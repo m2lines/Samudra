@@ -3,7 +3,7 @@
 
 # Shared ERA5: balance OBS interior and surface training losses
 
-**Submitted, no scientific results yet.** This is experiment 0 of the
+**Numerical qualification passed; logging-only recovery queued, no scientific results yet.** This is experiment 0 of the
 [sequential processor campaign](samudra-latent-processor-plan-2026-10-24.md).
 It tests whether emphasizing surface forecast supervision improves the existing
 [shared-ERA5 4k + cooldown baseline](shared-era5-2026-10-23.md).
@@ -40,12 +40,12 @@ gated on improvement; they have not been submitted.
 ## Execution and qualification
 
 - Producer: `f3413615cef20828f9928705a9cf6c391d154045`.
-- Beta production: `218269`, `standard`, one node / four GPUs, 24-hour limit.
+- Beta production: `218327`, `standard`, one node / four GPUs, 24-hour limit.
 - Short parallel scheduling candidate: `218270`, `beta_test` / `test`, four
   GPUs, two-hour limit. An exclusive filesystem lock prevents duplicate
   qualification; production qualifies inline if it starts first. A failed
   qualification stops production rather than silently retrying.
-- Root: `/projects/ny/lz1955/multiscale/jrusak/runs/shared-era5-reweight-20261026/prefetch`.
+- Root: `/projects/ny/lz1955/multiscale/jrusak/runs/shared-era5-reweight-20261026/prefetch-wandb-team`.
 - Frozen data paths, normalization, forcing-cache proof and run configuration:
   `paths.json` at that root. The source checkpoint path is a provenance check;
   this fresh mode does not initialize weights from it.
@@ -53,9 +53,9 @@ gated on improvement; they have not been submitted.
   rank agreement, finite evaluation and measured OBS loss equal to
   `0.5 * interior + 0.5 * surface + 0.1 * reconstruction`.
 - Local validation: 39 targeted CPU tests passed; commit hooks passed.
-- W&B configured online: `emulators/observational-transfer`; the URL will be
+- W&B configured online: `ocean_emulators/observational-transfer`; the URL will be
   recorded after initialization, not inferred while queued.
-- Remote completion callback: `60f28934-6501-478e-9653-467794dfbbf6`, with a
+- Remote completion callback: `5e58bb7d-360d-41e1-86fc-4ccf35c75bf9`, with a
   dedicated quiet monitor and fallback reminder. Login-node authentication
   passed; each job also checks callback access inside its compute container.
 
@@ -109,3 +109,25 @@ Actual speedup is pending those remote measurements, not established by CPU test
 GPU normalization and skipping the unused native OM4 forcing reads are further
 options if they remain material bottlenecks; neither is silently included in
 this first exact-input parallelization change.
+
+## Qualification result and logging recovery
+
+Job `218269` passed exact prefetched-input comparison, serialized optimizer/EMA/
+RNG replay and four-rank model equality. Peak allocated memory was 20.92 GiB.
+The exposed OM4 preparation wait was about 0.06 seconds, but the eight measured
+updates still had variable compiler-affected total times (OM4 6.8–22.3 seconds).
+These do not establish an end-to-end speedup; measure warm production throughput.
+
+Production then failed during W&B initialization, before any training updates:
+`emulators` is an organization and W&B requires a team entity. Recovery `218327`
+uses the historical `ocean_emulators` team. Source and all scientific settings
+are identical. `QUALIFICATION_INHERITANCE.json` records exact old/new config
+hashes, the sole changed key `wandb_entity`, and the original qualification hash.
+The derived qualification receipt updates only the configuration hash and adds
+explicit inheritance metadata; all measured evidence remains unchanged. No
+qualification weights are used for production. The redundant pending test
+`218270` was canceled.
+
+The failed job used 13m40s × four GPUs = 0.9111 GPU-hours; total attempts before
+recovery production are 1.5044 allocated GPU-hours. Earlier artifacts remain
+untouched in their original directories.

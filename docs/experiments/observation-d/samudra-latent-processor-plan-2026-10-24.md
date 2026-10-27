@@ -47,7 +47,8 @@ Treat one-seed improvements as screening evidence, not a replicated conclusion.
 
 Experiment 0 passed qualification in `218269`; logging-only recovery is Beta job
 `218327`; see the [run report](shared-era5-obs-reweight-2026-10-26.md).
-Later stages have not been submitted.
+Experiment 0 completed: blend 1.06486 versus baseline 1.03533 (+2.85%, worse),
+so the improvement gate failed. Later stages have not been submitted.
 
 ## Baseline change
 

@@ -3,10 +3,41 @@
 
 # Shared ERA5: balance OBS interior and surface training losses
 
-**Numerical qualification passed; logging-only recovery queued, no scientific results yet.** This is experiment 0 of the
-[sequential processor campaign](samudra-latent-processor-plan-2026-10-24.md).
-It tests whether emphasizing surface forecast supervision improves the existing
-[shared-ERA5 4k + cooldown baseline](shared-era5-2026-10-23.md).
+**Completed:** experiment 0 improves surface metrics but worsens interior OHC;
+the selected blend is **1.06486 versus 1.03533** (+2.85%, worse). Both selected
+checkpoints are at 5,000 updates on the same 500-update candidate grid. The
+improvement gate fails; no subsequent architecture arm has been launched.
+
+| EMA validation metric | Baseline 0.8/0.2/0.1 | OBS balanced 0.5/0.5/0.1 | Change |
+|---|---:|---:|---:|
+| RMSE blend | 1.03533 | 1.06486 | +2.85% |
+| SST (°C) | 0.64747 | 0.55262 | −14.65% |
+| SSH-derived velocity (m/s) | 0.13202 | 0.12600 | −4.56% |
+| EKE (m²/s²) | 0.020984 | 0.020446 | −2.56% |
+| OHC 0–700 m (GJ/m²) | 0.73333 | 0.81635 | +11.32% |
+| OHC 700–2000 m (GJ/m²) | 0.53500 | 0.61240 | +14.47% |
+
+This is a one-seed validation comparison, not a held-out annual result. Raw final
+blend is 1.06162. The increased surface weight produces the expected tradeoff;
+it is not a general improvement under the retained selection objective.
+
+![Raw and EMA validation curves](assets/shared-era5-obs-reweight-2026-10-26/validation-curves.png)
+
+[Curve data](assets/shared-era5-obs-reweight-2026-10-26/curves.csv).
+The baseline raw curve is sparse; dotted connecting segments are not additional
+measurements. Vertical lines mark the start of the OBS-only cooldown.
+
+**Runtime:** job `218327` completed with exit 0 in **2h24m05s**, including all ten
+full-precision raw/EMA checkpoint evaluations. Warm mixed-phase updates
+(steps 501–4000) averaged **1.40s OM4 / 1.17s OBS**, versus roughly 8.7s OM4 in
+the prior serial-loader run. Exposed OM4 preparation/transfer wait averaged
+0.38s. This is a cross-run speed comparison, not a controlled filesystem benchmark.
+Production/evaluation cost was **9.6056 allocated GPU-hours**, **11.1100 including
+all failed/canceled allocated attempts**. Prefetch and deferred parallel evaluation
+are successful engineering changes even though the loss-weight scientific gate
+failed. All ten checkpoint receipts and the selected checkpoint hash were verified.
+
+[W&B run and posthoc curves](https://wandb.ai/ocean_emulators/observational-transfer/runs/e3c68fbade87).
 
 ## Matched comparison
 
@@ -104,7 +135,8 @@ forcing, masks, geometry and shared ERA5 tensors against the serial reader,
 then exercises exact serialized replay. It additionally records eight warm
 updates without the duplicate-reference reads in `prefetch_performance`.
 `model_preparation_wait_seconds` tracks exposed OM4 preparation/transfer time.
-Actual speedup is pending those remote measurements, not established by CPU tests.
+The completed production measurements above establish the practical speedup;
+CPU tests alone did not.
 
 GPU normalization and skipping the unused native OM4 forcing reads are further
 options if they remain material bottlenecks; neither is silently included in

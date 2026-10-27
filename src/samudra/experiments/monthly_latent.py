@@ -13,7 +13,10 @@ from torch import nn
 from torch.nn import functional as F
 from torch.utils.checkpoint import checkpoint
 
-from samudra.experiments.diffusion_latent import PersistentLatentProcessor
+from samudra.experiments.diffusion_latent import (
+    PersistentLatentProcessor,
+    SamudraLatentProcessor,
+)
 from samudra.experiments.diffusion_noise import diffusion_noise
 from samudra.experiments.joint_diffusion import JointInteriorDecoder, sample_joint
 from samudra.experiments.normalization import configure_normalization
@@ -185,6 +188,7 @@ class MonthlyLatentOcean(nn.Module):
         encoder_width=64,
         latent_stride=4,
         processor_forcing=True,
+        processor_kind="small",
     ):
         super().__init__()
         self.history, self.shape = history, shape
@@ -208,6 +212,20 @@ class MonthlyLatentOcean(nn.Module):
         self.atmosphere_adapter = nn.Sequential(
             nn.Conv2d(8, 32, 1), nn.GELU(), nn.Conv2d(32, 3, 1)
         )
+
+        if processor_kind not in ("small", "samudra"):
+            raise ValueError("Unknown latent processor")
+        self.processor_kind = processor_kind
+        if processor_kind == "samudra":
+            # Preserve initializer/decoder/adapter initialization and the global
+            # RNG stream when replacing only the processor in a fresh model.
+            with torch.random.fork_rng(devices=[]):
+                self.processor = SamudraLatentProcessor(
+                    latent_width,
+                    self.latent_shape,
+                    shape,
+                    forcing_enabled=processor_forcing,
+                )
 
     def adapt(self, atmosphere):
         b, t, c, h, w = atmosphere.shape

@@ -114,6 +114,7 @@ def main():
         {},
         {"latent_width": 64, "latent_stride": 1},
         {"processor_forcing": False},
+        {"processor_kind": "samudra"},
     ):
         raise ValueError("Unqualified architecture requested")
     source_path = Path(row["checkpoint"])
@@ -839,6 +840,9 @@ def main():
                     peak_cuda_bytes=peak_cuda_bytes,
                     rank_model_hashes=rank_hashes,
                     parameters=sum(p.numel() for p in model.parameters()),
+                    processor_parameters=sum(
+                        p.numel() for p in model.processor.parameters()
+                    ),
                     latent_shape=list(model.latent_shape),
                     latent_width=model.latent_width,
                     processor_forcing_enabled=model.processor.forcing_enabled,

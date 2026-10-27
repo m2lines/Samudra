@@ -57,6 +57,8 @@ class PersistentLatentProcessor(nn.Module):
     """
 
     input_adapters: nn.ModuleDict
+    stem: nn.Module
+    blocks: nn.Module
 
     def __init__(
         self,
@@ -135,3 +137,32 @@ class PersistentLatentProcessor(nn.Module):
             )
             result.append(current)
         return result
+
+
+class SamudraLatentProcessor(PersistentLatentProcessor):
+    """ConvNeXt U-Net recurrence on the same two-slot latent/forcing interface."""
+
+    def __init__(
+        self,
+        width=128,
+        latent_shape=(45, 90),
+        conditioning_shape=(180, 360),
+        *,
+        forcing_enabled=True,
+        widths=(64, 128, 256),
+    ):
+        from samudra.experiments.normalization import configure_normalization
+        from samudra.experiments.surface_state import make_unet
+
+        nn.Module.__init__(self)
+        self.width = width
+        self.latent_shape = latent_shape
+        self.conditioning_shape = conditioning_shape
+        self.forcing_enabled = forcing_enabled
+        self.stem = nn.Identity()
+        self.blocks = make_unet(2 * width + 3 + 5, width, list(widths))
+        configure_normalization(self.blocks, "instance")
+        self.head = OceanConv(width, width)
+        nn.init.normal_(self.head.weight, std=0.001)
+        assert self.head.bias is not None
+        nn.init.zeros_(self.head.bias)

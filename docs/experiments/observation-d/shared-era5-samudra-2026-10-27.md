@@ -3,7 +3,7 @@
 
 # Shared ERA5: Samudra-style latent processor
 
-**Submitted, not yet scientifically evaluated.** Compare against the retained
+**Qualification passed; production remains queued, not yet scientifically evaluated.** Compare against the retained
 [OBS-reweighted baseline](shared-era5-obs-reweight-2026-10-26.md), selected EMA
 blend **1.0648565300778452** at update 5,000. The user accepted that baseline's
 surface/interior tradeoff and authorized conditional follow-ups.
@@ -68,3 +68,17 @@ ask again merely because a successful stage completes. Preserve the same
 training budget, loss, data, validation and batch across stages. Stop and report
 if a gate fails or qualification exposes a constraint requiring a scientific
 change. No subsequent stage is submitted yet.
+
+## Qualification update
+
+Qualification `218496` completed successfully in 9m03s (0.6033 allocated
+GPU-hours). Exact serialized optimizer/EMA/RNG replay and prefetched-input
+checks passed. The model has **60,727,904 total parameters**, including
+**13,660,448 processor parameters**; peak allocated CUDA memory was about
+21.18 GiB per GPU. These are engineering qualification results, not evidence
+of improved forecast skill.
+
+At the October 27 reminder, production `218495` remained pending on priority.
+Slurm's provisional start was October 29 at 16:57 ET; this forecast is volatile.
+The authorized job is left queued rather than resubmitted. Remote completion
+and six-hour fallback monitoring remain active.

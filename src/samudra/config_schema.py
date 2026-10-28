@@ -13,6 +13,7 @@ import pydantic
 import yaml
 
 from samudra.config import EvalConfig, PostTrainEvalCliConfig, TrainConfig
+from samudra.observations.config import ObservationTrainConfig
 from samudra.search.config import SearchConfig
 from samudra.viz import VizConfig, VizTemplateConfig
 
@@ -165,6 +166,7 @@ def main():
 
     # Get all available models
     models = get_pydantic_models(TrainConfig)
+    models.update(get_pydantic_models(ObservationTrainConfig))
     models.update(get_pydantic_models(EvalConfig))
     models.update(get_pydantic_models(VizConfig))
     models.update(get_pydantic_models(SearchConfig))

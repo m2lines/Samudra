@@ -1,0 +1,42 @@
+{
+  "sst-initial": {
+    "vmin": -2.079754889011383,
+    "vmax": 29.74050360918045,
+    "display_limits": "pooled 1st/99th percentiles; no smoothing"
+  },
+  "ssh-initial": {
+    "vmin": -137.40205583162606,
+    "vmax": 134.40597029402852,
+    "display_limits": "pooled 1st/99th percentiles; no smoothing"
+  },
+  "thetao9-initial": {
+    "vmin": 0.40258250944316387,
+    "vmax": 14.01231287047267,
+    "display_limits": "pooled 1st/99th percentiles; no smoothing"
+  },
+  "so9-initial": {
+    "vmin": 34.06022349605337,
+    "vmax": 36.03816700913012,
+    "display_limits": "pooled 1st/99th percentiles; no smoothing"
+  },
+  "sst-day30": {
+    "vmin": -2.157707419595681,
+    "vmax": 29.488400863629067,
+    "display_limits": "pooled 1st/99th percentiles; no smoothing"
+  },
+  "ssh-day30": {
+    "vmin": -136.80777144432068,
+    "vmax": 133.18423045056988,
+    "display_limits": "pooled 1st/99th percentiles; no smoothing"
+  },
+  "thetao9-day30": {
+    "vmin": -0.7850590550806373,
+    "vmax": 14.665274435541535,
+    "display_limits": "pooled 1st/99th percentiles; no smoothing"
+  },
+  "so9-day30": {
+    "vmin": 33.95079945016187,
+    "vmax": 36.28004262955801,
+    "display_limits": "pooled 1st/99th percentiles; no smoothing"
+  }
+}

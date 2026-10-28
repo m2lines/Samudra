@@ -1,0 +1,62 @@
+{
+  "protocol": "pointwise CRPS; cosine-latitude weighted over common wet/finite support and nine origins; day30 five-day surface means; final EMA; 8 members",
+  "units": {
+    "SST": "degC",
+    "SSH": "m"
+  },
+  "origins": [
+    "members-2013-11.npz",
+    "members-2013-12.npz",
+    "members-2014-01.npz",
+    "members-2014-02.npz",
+    "members-2014-03.npz",
+    "members-2014-04.npz",
+    "members-2014-05.npz",
+    "members-2014-06.npz",
+    "members-2014-07.npz"
+  ],
+  "results": {
+    "A": {
+      "SST": {
+        "empirical": 0.4242504553817208,
+        "fair": 0.4242504553817208,
+        "member_mae": 0.4242504553817208,
+        "mean_mae": 0.4242504553817208
+      },
+      "SSH": {
+        "empirical": 0.03411894379738115,
+        "fair": 0.03411894379738115,
+        "member_mae": 0.03411894379738115,
+        "mean_mae": 0.03411894379738115
+      }
+    },
+    "B": {
+      "SST": {
+        "empirical": 0.29657082124816897,
+        "fair": 0.26807728486153537,
+        "member_mae": 0.4960255759546037,
+        "mean_mae": 0.39013457372304244
+      },
+      "SSH": {
+        "empirical": 0.025197193677019655,
+        "fair": 0.022756753151266476,
+        "member_mae": 0.04228027735729192,
+        "mean_mae": 0.03329102648449769
+      }
+    },
+    "C": {
+      "SST": {
+        "empirical": 0.2972584580541003,
+        "fair": 0.2700486693190666,
+        "member_mae": 0.48772697919933583,
+        "mean_mae": 0.39113727891320427
+      },
+      "SSH": {
+        "empirical": 0.025689559680008297,
+        "fair": 0.023125974180998706,
+        "member_mae": 0.043634658173075394,
+        "mean_mae": 0.03413456029260293
+      }
+    }
+  }
+}

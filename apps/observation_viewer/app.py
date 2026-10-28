@@ -740,6 +740,20 @@ class Viewer:
             self.model.value = model
         options = {}
         data_record = self.catalog.meta["records"].get(self.origin.value, {})
+        if mode == "surface":
+            filename = data_record["models"][self.model.value]["surface"]
+            count = self.catalog.array(filename).shape[0]
+            if count < 1:
+                raise ValueError("Surface forecast must contain at least one bin")
+            changing = self._changing
+            self._changing = True
+            try:
+                self.frame.value = min(self.frame.value, count * 5)
+                self.player.value = self.frame.value // 5 - 1
+                self.frame.end = count * 5
+                self.player.end = count - 1
+            finally:
+                self._changing = changing
         if interior:
             if record is not None:
                 if "observations" in record["references"] and self.variable.value < 2:
@@ -1008,7 +1022,10 @@ class Viewer:
                 self.context.object += "\n\n**Available fields:** Heat maps use the native IAP half-degree comparison grid. Monthly temperature profiles were not saved; use Saved forecast interior for the available five-day states."
         elif mode == "forecast_interior":
             self.caption.object = f"### {variable_label} · {self.catalog.depths[index]:g} m · {interval(origin_date, self.saved_lead.value // 5 - 1)}"
-            self.context.object = "Saved full-state snapshots at days 5, 15, 30, 90, 180 and 365. These are five-day means, not monthly temperature profiles. Compare against the other native model or this checkpoint's initialized persistence; no full-depth observational truth is implied."
+            leads = ", ".join(
+                str(day) for day in self.catalog.meta["forecast_interior_leads_days"]
+            )
+            self.context.object = f"Saved full-state snapshots at days {leads}. These are five-day means, not monthly temperature profiles. Compare against another saved model or this checkpoint's initialized persistence; no full-depth observational truth is implied."
         else:
             record = self.interior_examples.get(self.origin.value)
             label = record["label"] if record else f"{self.origin.value} (obs)"
@@ -1094,7 +1111,7 @@ class Viewer:
         if self.mode.value not in ("interior", "forecast_interior"):
             heat = self.mode.value == "heat"
             self.line_source.data = dict(
-                x=np.arange(1, 13) if heat else np.arange(5, 366, 5),
+                x=np.arange(1, len(a) + 1) if heat else np.arange(1, len(a) + 1) * 5,
                 prediction=a,
                 reference=b,
             )

@@ -326,3 +326,46 @@ def test_initial_view_restores_across_catalogs(registry, monkeypatch, prefix):
         assert getattr(viewer, name).value == value
     assert len(viewer.catalog.depths) == 19
     assert len(viewer.profile_source.data["prediction"]) == 19
+
+
+def test_short_forecast_bounds_and_series_restore_after_model_switch(
+    registry, monkeypatch
+):
+    native = registry.for_model("quarter-uglobal-selected")
+    meta = native.meta
+    record = meta["records"]["2015-01-01"]
+    names = {record["surface_reference"]}
+    for row in record["models"].values():
+        names.update(row[k] for k in ("surface", "surface_persistence") if k in row)
+    for name in names:
+        values = np.load(native.root / name)[:6].copy()
+        np.save(native.root / name, values)
+        meta["files"][name]["shape"] = list(values.shape)
+    meta["forecast_interior_leads_days"] = [5, 10, 15, 20, 25, 30]
+    (native.root / "catalog.json").write_text(json.dumps(meta))
+    registry.meta["extra_catalog_hashes"]["../native"] = hashlib.sha256(
+        (native.root / "catalog.json").read_bytes()
+    ).hexdigest()
+    (registry.root / "catalog.json").write_text(json.dumps(registry.meta))
+    monkeypatch.setenv("SAMUDRA_VIEWER_DATA", str(registry.root))
+    monkeypatch.delenv("SAMUDRA_VIEWER_CATALOGS", raising=False)
+    spec = importlib.util.spec_from_file_location(
+        "viewer_short_forecast_test", Path(__file__).parents[1] / "app.py"
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    viewer = module.viewer
+    viewer.frame.value = 365
+    viewer.model.value = "quarter-uglobal-selected"
+    assert viewer.frame.end == viewer.frame.value == 30
+    assert viewer.player.end == viewer.player.value == 5
+    assert list(viewer.line_source.data["x"]) == [5, 10, 15, 20, 25, 30]
+    assert len(viewer.line_source.data["prediction"]) == 6
+    viewer.mode.value = "forecast_interior"
+    assert "days 5, 10, 15, 20, 25, 30" in viewer.context.object
+    assert "365" not in viewer.context.object
+    viewer.mode.value = "surface"
+    viewer.model.value = "obs08000"
+    assert viewer.frame.end == 365 and viewer.player.end == 72
+    assert len(viewer.line_source.data["x"]) == 73

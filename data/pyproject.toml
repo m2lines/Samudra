@@ -42,6 +42,7 @@ dependencies = [
   "fire>=0.7.1",
   "gcm-filters",         # to avoid https://stackoverflow.com/questions/7446187/no-module-named-pkg-resources which seemed to have https://github.com/m2lines/ocean_emulators/actions/runs/10392595642/job/28778202015?pr=53
   "gcsfs>=2025.10",
+  "gsw==3.6.23",         # IAP absolute-to-practical salinity conversion
   "h5netcdf>=1.7.3",
   "h5py",                # h5netcdf's backend for the HDF5-based OISST/ARGO NetCDF files
   "numcodecs<0.16",      # Zarr 2 imports Blosc helpers removed in Numcodecs 0.16.

@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Console-script entry point: ``samudra <train|eval|metrics|viz> CONFIG [OVERRIDES...]``.
+"""Console-script entry point: ``samudra COMMAND CONFIG [OVERRIDES...]``.
 
 Installed as the ``samudra`` command (see ``[project.scripts]`` in
 pyproject.toml), so a user who ``pip install samudra`` can run
@@ -13,7 +13,7 @@ subcommand forwards to the same ``main`` the module entry points use
 
 import sys
 
-_COMMANDS = ("train", "eval", "metrics", "viz")
+_COMMANDS = ("train", "train-obs", "eval", "metrics", "viz")
 
 _HELP = """\
 samudra — train and evaluate emulators of ocean physics
@@ -28,6 +28,7 @@ Usage:
 
 Commands:
   train   Train a model from a config (checkpointing, W&B logging, multi-GPU).
+  train-obs Train an observation/model-data recipe in one process.
   eval    Roll a trained model out autoregressively and collect metrics.
   metrics Score saved predictions against observations without a GPU.
   viz     Render maps, time series, and PDFs from evaluation outputs.
@@ -63,6 +64,10 @@ def main() -> None:
         from samudra.train import main as train_main
 
         train_main()
+    elif command == "train-obs":
+        from samudra.observations.train import main as observation_train_main
+
+        observation_train_main()
     elif command == "eval":
         from samudra.eval import main as eval_main
 

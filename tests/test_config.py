@@ -558,6 +558,11 @@ def test_shipped_eval_presets_load(preset: pathlib.Path):
     ids=lambda path: path.parent.name,
 )
 def test_shipped_train_presets_load(preset: pathlib.Path):
+    if preset.parent.name == "observations":
+        from samudra.observations.config import ObservationTrainConfig
+
+        ObservationTrainConfig.from_yaml_and_cli([str(preset)])
+        return
     TrainConfig.from_yaml_and_cli([str(preset)])
 
 

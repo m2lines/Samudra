@@ -12,6 +12,7 @@ import numpy as np
 import xarray as xr
 from xgcm import Grid
 
+from ocean_preprocessing.regridding import conservative_regridder
 from ocean_preprocessing.schema import OM4_3D_VARS
 from ocean_preprocessing.utils import split_2d_3d
 
@@ -175,24 +176,9 @@ def spatially_filter(
     return ds_filtered
 
 
-def horizontal_regrid(ds, ds_target):
+def horizontal_regrid(ds: xr.Dataset, ds_target: xr.Dataset) -> xr.Dataset:
     """Regrid `ds` horizontally, and conserve the integral in space."""
-    regridder_kwargs = dict(ignore_degenerate=True, periodic=True, unmapped_to_nan=True)
-
-    # try to run this with higher precision (TODO: Test if this actually makes a difference).
-    s = xr.Dataset(
-        coords={
-            co: ds[co].astype(np.float64) for co in ["lon", "lat", "lon_b", "lat_b"]
-        }
-    )
-    t = xr.Dataset(
-        coords={
-            co: ds_target[co].astype(np.float64)
-            for co in ["lon", "lat", "lon_b", "lat_b"]
-        }
-    )
-
-    regridder = xe.Regridder(s, t, "conservative", **regridder_kwargs)
+    regridder = conservative_regridder(ds, ds_target)
     ds_regridded = regridder(ds, skipna=True, na_thres=1)
 
     # get lon/lats from the target grid

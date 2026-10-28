@@ -357,6 +357,13 @@ if [[ -z "${GPUS_PER_NODE}" ]]; then
   fi
 fi
 
+# Observation replay/checkpoint state currently belongs to one process.
+if [[ "${SAMUDRA_MODULE}" == "samudra.observations.train" ]] &&
+   (( SLURM_NNODES != 1 || GPUS_PER_NODE != 1 )); then
+  echo "samudra.observations.train requires one node and one GPU." >&2
+  exit 3
+fi
+
 # Avoid oversubscribing CPU threads when torchrun spawns one process per GPU.
 if [[ -z "${OMP_NUM_THREADS:-}" ]]; then
   if [[ -n "${SLURM_CPUS_PER_TASK:-}" ]]; then
@@ -492,14 +499,18 @@ srun --ntasks="${SLURM_NNODES}" --ntasks-per-node=1 \
         fi
         echo \"Nsight Systems profiling enabled on proc \${SLURM_PROCID:-unset}.\"
       fi
-      if [[ \"${SAMUDRA_MODULE}\" == \"samudra.train\" ]]; then
+      if [[ \"${SAMUDRA_MODULE}\" == \"samudra.train\" || \"${SAMUDRA_MODULE}\" == \"samudra.observations.train\" ]]; then
+        train_backend=nccl
+        if [[ \"${SAMUDRA_MODULE}\" == \"samudra.observations.train\" ]]; then
+          train_backend=cuda
+        fi
         module_args=(
           \"${CONFIG_IN_CONTAINER}\"
           --experiment.name=\"${NAME}\"
           --experiment.data_root=\"${DATA_ROOT}\"
           --experiment.base_output_dir=\"${OUTPUT_BASE}\"
           --experiment.wandb.mode=\"${WANDB_MODE}\"
-          --backend=\"nccl\"
+          --backend=\"\${train_backend}\"
         )
         read -r -a extra_args <<< \"${ARGS}\"
         module_args+=(\"\${extra_args[@]}\")

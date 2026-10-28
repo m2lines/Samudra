@@ -1,0 +1,14 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+# SPDX-License-Identifier: Apache-2.0
+
+backbone:
+  ch_width: [128, 192, 256, 384]
+  dilation: [1, 2, 4, 8]
+  n_layers: [1, 1, 1, 1]
+  core_block:
+    block_type: conv_next_block
+    norm: instance
+    upscale_factor: 2
+  down_sampling_block: avg_pool
+  up_sampling_block: zonally_periodic_upsample
+activation_checkpointing: true

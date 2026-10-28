@@ -1,0 +1,30 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+# SPDX-License-Identifier: Apache-2.0
+# yaml-language-server: $schema=../schemas/ObservationTrainConfig.json
+
+experiment:
+  name: observation-baseline
+  rand_seed: 1729
+  base_output_dir: .LOCAL
+  wandb:
+    mode: disabled
+    project: observational-transfer
+data: !include data.yaml
+model: !include model.yaml
+
+mix: obs
+main_updates: 2000
+cooldown_updates: 1000
+batch_size: 1
+gradient_accumulation_steps: 8
+fresh_examples: 4
+learning_rate: 0.0001
+final_learning_rate: 0.000001
+weight_decay: 0.01
+gradient_clip: 1.0
+validation_freq: 250
+save_freq: 25
+replay:
+  per_month: 2
+  max_age: 250
+backend: auto

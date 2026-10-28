@@ -36,10 +36,12 @@ MODES = {
     "Initialized ocean interior": "interior",
     "Saved forecast interior": "forecast_interior",
     "Monthly ocean heat content": "heat",
+    "Monthly ocean interior": "monthly_interior",
 }
 VARIABLES = {
     "surface": {"Sea surface temperature": 0, "Sea surface height": 1},
     "interior": {"Temperature": 0, "Salinity": 1},
+    "monthly_interior": {"Temperature": 0, "Salinity": 1},
     "forecast_interior": {
         "Temperature": 0,
         "Salinity": 1,
@@ -51,6 +53,7 @@ VARIABLES = {
 UNITS = {
     "surface": ["°C", "m"],
     "interior": ["°C", "psu", "m/s", "m/s"],
+    "monthly_interior": ["°C", "psu"],
     "forecast_interior": ["°C", "psu", "m/s", "m/s"],
     "heat": ["GJ/m²", "GJ/m²"],
 }
@@ -598,6 +601,16 @@ class Viewer:
                     mapper.low, mapper.high = bounds
 
     @property
+    def forecast_leads(self):
+        record = self.catalog.meta["records"].get(self.origin.value, {})
+        return record.get(
+            "forecast_interior_leads_days",
+            self.catalog.meta.get(
+                "forecast_interior_leads_days", [5, 15, 30, 90, 180, 365]
+            ),
+        )
+
+    @property
     def monthly_profiles(self):
         return (
             self.mode.value == "heat"
@@ -684,17 +697,17 @@ class Viewer:
             if depth in self.depth.options.values()
             else min(9, len(self.catalog.depths) - 1)
         )
-        leads = self.catalog.meta.get(
-            "forecast_interior_leads_days", [5, 15, 30, 90, 180, 365]
-        )
+        leads = self.forecast_leads
         saved_lead = self.saved_lead.value
         self.saved_lead.options = leads
         self.saved_lead.value = saved_lead if saved_lead in leads else leads[0]
         self.frame.visible = self.player.visible = mode == "surface"
         self.saved_lead.visible = forecast
         self.detail.visible = not interior
-        self.month.visible = heat
-        self.depth_marker.visible = self.depth.visible = interior or forecast
+        self.month.visible = heat or mode == "monthly_interior"
+        self.depth_marker.visible = self.depth.visible = (
+            interior or forecast or mode == "monthly_interior"
+        )
         maximum_depth = float(self.catalog.depth_interfaces[-1])
         self.profile.y_range.start = maximum_depth
         for section in self.sections:
@@ -714,6 +727,11 @@ class Viewer:
 
     def configure_comparisons(self, reset=False):
         mode = self.mode.value
+        if mode == "forecast_interior":
+            leads = self.forecast_leads
+            selected = self.saved_lead.value
+            self.saved_lead.options = leads
+            self.saved_lead.value = selected if selected in leads else leads[0]
         interior, forecast, heat = (
             mode == "interior",
             mode == "forecast_interior",
@@ -774,9 +792,21 @@ class Viewer:
         else:
             if f"{mode}_reference" in data_record:
                 truth = (
-                    ("OM4 monthly heat content" if heat else "OM4 gold")
+                    (
+                        "OM4 monthly heat content"
+                        if heat
+                        else "OM4 monthly means"
+                        if mode == "monthly_interior"
+                        else "OM4 gold"
+                    )
                     if data_record.get("source") == "om4"
-                    else ("IAP monthly heat content" if heat else "Observations")
+                    else (
+                        "IAP monthly heat content"
+                        if heat
+                        else "IAP monthly T/S"
+                        if mode == "monthly_interior"
+                        else "Observations"
+                    )
                 )
                 options[truth] = "observations"
             available = data_record["models"][self.model.value]
@@ -891,7 +921,7 @@ class Viewer:
 
     def refresh(self, rescale=False):
         self.set_geometry()
-        if self.mode.value == "heat":
+        if self.mode.value in ("heat", "monthly_interior"):
             options = {
                 month: index
                 for index, month in enumerate(
@@ -905,19 +935,22 @@ class Viewer:
             self._changing = False
         mode, variable, index = self.mode.value, self.variable.value, self.index
         self.profile_pane.visible = (
-            mode in ("interior", "forecast_interior") or self.monthly_profiles
+            mode in ("interior", "forecast_interior", "monthly_interior")
+            or self.monthly_profiles
         )
         self.orientation.visible = self.section_row.visible = self.profile_pane.visible
         self.prediction, self.comparison = self.catalog.values(
             mode, self.model.value, self.origin.value, self.reference.value
         )
-        if mode == "forecast_interior":
+        if mode in ("forecast_interior", "monthly_interior"):
             self.forecast_prediction, self.forecast_comparison = (
                 self.prediction,
                 self.comparison,
             )
-            lead_index = self.catalog.meta["forecast_interior_leads_days"].index(
-                self.saved_lead.value
+            lead_index = (
+                self.month.value
+                if mode == "monthly_interior"
+                else self.forecast_leads.index(self.saved_lead.value)
             )
             self.prediction, self.comparison = (
                 self.prediction[lead_index],
@@ -933,11 +966,13 @@ class Viewer:
             self.mappers[2].low, self.mappers[2].high = limits(
                 difference, symmetric=True
             )
-        mask_mode = "interior" if mode == "forecast_interior" else mode
+        mask_mode = (
+            "interior" if mode in ("forecast_interior", "monthly_interior") else mode
+        )
         mask = self.catalog.array(self.catalog.meta[f"{mask_mode}_mask"])
         wet = (
             mask[index, variable]
-            if mode in ("interior", "forecast_interior")
+            if mode in ("interior", "forecast_interior", "monthly_interior")
             else mask[variable]
         )
         geometry_changed = self.wet is None or not np.array_equal(wet, self.wet)
@@ -1020,12 +1055,22 @@ class Viewer:
                 self.context.object += f"\n\n**Fields and comparison:** Heat maps and profiles use the same calendar-month forecast means. Profiles show {truth} monthly temperatures at model depths."
             else:
                 self.context.object += "\n\n**Available fields:** Heat maps use the native IAP half-degree comparison grid. Monthly temperature profiles were not saved; use Saved forecast interior for the available five-day states."
+        elif mode == "monthly_interior":
+            month = self.catalog.meta["records"][self.origin.value]["heat_months"][
+                self.month.value
+            ]
+            self.caption.object = f"### {variable_label} · {self.catalog.depths[index]:g} m · {month} monthly mean"
+            truth = "OM4 simulation means" if is_om4 else "IAP monthly analyses"
+            self.context.object = f"Calendar-month forecast means compared with {truth}. These are monthly averages, not instantaneous or five-day interior observations. White cells indicate unavailable reference depths. Move the month and depth controls to inspect maps, profiles and sections."
         elif mode == "forecast_interior":
             self.caption.object = f"### {variable_label} · {self.catalog.depths[index]:g} m · {interval(origin_date, self.saved_lead.value // 5 - 1)}"
-            leads = ", ".join(
-                str(day) for day in self.catalog.meta["forecast_interior_leads_days"]
+            leads = ", ".join(str(day) for day in self.forecast_leads)
+            comparison_note = (
+                "The reference is exactly time-matched OM4 simulation gold; it is not supplied to the forecast."
+                if is_om4
+                else "Compare against another saved model or this checkpoint's initialized persistence; no full-depth observational truth is implied."
             )
-            self.context.object = f"Saved full-state snapshots at days {leads}. These are five-day means, not monthly temperature profiles. Compare against another saved model or this checkpoint's initialized persistence; no full-depth observational truth is implied."
+            self.context.object = f"Saved full-state snapshots at days {leads}. These are five-day means, not monthly temperature profiles. {comparison_note}"
         else:
             record = self.interior_examples.get(self.origin.value)
             label = record["label"] if record else f"{self.origin.value} (obs)"
@@ -1108,7 +1153,7 @@ class Viewer:
             return f"{value:.4g} {self.unit}" if np.isfinite(value) else "unavailable"
 
         self.location.object = f"**Selected cell:** {lat:.2f}°N, {lon:.2f}°E · model {number(a[self.index])} · comparison {number(b[self.index])}"
-        if self.mode.value not in ("interior", "forecast_interior"):
+        if self.mode.value not in ("interior", "forecast_interior", "monthly_interior"):
             heat = self.mode.value == "heat"
             self.line_source.data = dict(
                 x=np.arange(1, len(a) + 1) if heat else np.arange(1, len(a) + 1) * 5,
@@ -1157,9 +1202,29 @@ class Viewer:
                     f"Monthly temperature · {month} · {lat:.2f}°N, {lon:.2f}°E"
                 )
         else:
-            if self.mode.value == "forecast_interior":
+            if self.mode.value == "monthly_interior":
+                months = self.catalog.meta["records"][self.origin.value]["heat_months"]
                 self.line_source.data = dict(
-                    x=self.catalog.meta["forecast_interior_leads_days"],
+                    x=np.arange(1, len(months) + 1),
+                    prediction=self.forecast_prediction[
+                        :, self.depth.value, variable, y, x
+                    ],
+                    reference=self.forecast_comparison[
+                        :, self.depth.value, variable, y, x
+                    ],
+                )
+                self.line.xaxis.axis_label = "Calendar month index"
+                self.line.yaxis.axis_label = self.unit
+                self.line.title.text = f"Monthly means · {self.catalog.depths[self.depth.value]:g} m · {lat:.2f}°N, {lon:.2f}°E"
+                self.marker.location = self.month.value + 1
+                self.line_hover.tooltips = [
+                    ("Calendar month index", "@x"),
+                    ("Model", "@prediction{0.0000}"),
+                    ("Comparison", "@reference{0.0000}"),
+                ]
+            elif self.mode.value == "forecast_interior":
+                self.line_source.data = dict(
+                    x=self.forecast_leads,
                     prediction=self.forecast_prediction[
                         :, self.depth.value, variable, y, x
                     ],

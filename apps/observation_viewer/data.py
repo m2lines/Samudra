@@ -147,7 +147,13 @@ class Catalog:
     def available_modes(self, model):
         modes = set()
         for origin in self.meta.get("origins", []):
-            for mode in ("surface", "interior", "forecast_interior", "heat"):
+            for mode in (
+                "surface",
+                "interior",
+                "forecast_interior",
+                "heat",
+                "monthly_interior",
+            ):
                 if model in self.models_for(mode, origin):
                     modes.add(mode)
         return modes

@@ -369,3 +369,61 @@ def test_short_forecast_bounds_and_series_restore_after_model_switch(
     viewer.model.value = "obs08000"
     assert viewer.frame.end == 365 and viewer.player.end == 72
     assert len(viewer.line_source.data["x"]) == 73
+
+
+def test_monthly_interior_uses_calendar_means_and_missing_depths(registry, monkeypatch):
+    native = registry.for_model("quarter-uglobal-selected")
+    meta = native.meta
+    record = meta["records"]["2015-01-01"]
+    record["heat_months"] = [f"2015-{month:02}" for month in range(1, 13)]
+    values = np.broadcast_to(
+        np.arange(12, dtype=np.float32)[:, None, None, None, None], (12, 19, 2, 4, 8)
+    ).copy()
+    reference = values + 2
+    reference[:, 14:] = np.nan
+    for name, array in [
+        ("monthly-model.npy", values),
+        ("monthly-reference.npy", reference),
+        ("monthly-persistence.npy", np.zeros_like(values)),
+    ]:
+        np.save(native.root / name, array)
+        meta["files"][name] = dict(shape=list(array.shape), dtype=str(array.dtype))
+    record["monthly_interior_reference"] = "monthly-reference.npy"
+    for row in record["models"].values():
+        row["monthly_interior"] = "monthly-model.npy"
+        row["monthly_interior_persistence"] = "monthly-persistence.npy"
+    (native.root / "catalog.json").write_text(json.dumps(meta))
+    registry.meta["extra_catalog_hashes"]["../native"] = hashlib.sha256(
+        (native.root / "catalog.json").read_bytes()
+    ).hexdigest()
+    (registry.root / "catalog.json").write_text(json.dumps(registry.meta))
+    monkeypatch.setenv("SAMUDRA_VIEWER_DATA", str(registry.root))
+    monkeypatch.delenv("SAMUDRA_VIEWER_CATALOGS", raising=False)
+    spec = importlib.util.spec_from_file_location(
+        "viewer_monthly_test", Path(__file__).parents[1] / "app.py"
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    viewer = module.viewer
+    viewer.model.value = "quarter-uglobal-selected"
+    viewer.mode.value = "monthly_interior"
+    viewer.variable.value = 1
+    viewer.month.value = 11
+    viewer.depth.value = 18
+    assert (
+        viewer.month.visible and viewer.depth.visible and not viewer.saved_lead.visible
+    )
+    assert viewer.prediction.shape == (19, 2, 4, 8)
+    assert np.all(viewer.prediction == 11)
+    assert np.isnan(viewer.comparison[18]).all()
+    assert viewer.profile_source.data["prediction"].shape == (19,)
+    assert len(viewer.line_source.data["x"]) == 12
+    assert "2015-12 monthly mean" in viewer.caption.object
+    assert "IAP monthly T/S" in viewer.reference.options
+    viewer.depth.value = 9
+    assert np.all(viewer.comparison[9] == 13)
+    viewer.reference.value = "persistence"
+    assert np.all(viewer.comparison == 0)
+    viewer.mode.value = "surface"
+    assert viewer.frame.end == 365

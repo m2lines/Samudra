@@ -568,3 +568,20 @@ when a control changes. It clears after the replacement images decode, and an
 older response cannot clear a newer pending selection. Render failures replace
 the maps with a short error message and clear the indicator; selecting another
 view retries normally. The old original-A Xray is unchanged.
+
+### Stochastic ConvNeXt annual comparisons
+
+The annual C catalog adds final-EMA observation-initialized and pre-cooldown-EMA
+OM4-surface-initialized rollouts, each as an eight-member mean and members 1 and 2.
+The checkpoint and input source both change in this comparison. Each member keeps
+its own recurrent physical-state trajectory. C predicts its initial SSH/SST;
+earlier descriptions of copied surface temperature apply only to legacy models.
+
+**Monthly ocean interior** displays calendar-month temperature and salinity means
+with depth maps, sections, profiles and time series. Observation runs compare with
+the matching IAP month. Initialization uses preceding-December IAP context where
+available, which is not instantaneous truth; missing context/depths remain absent.
+OM4 examples compare initialization and selected future five-day states with exact
+simulation gold. Monthly OM4 comparisons use the same calendar averaging weights.
+Only saved finite forecast prefixes and complete calendar months are offered if a
+rollout fails; existing 30-day entries remain available separately.

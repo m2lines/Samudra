@@ -1,0 +1,305 @@
+{
+  "inputs": {
+    "A": {
+      "path": "/tmp/onepass-surface-export/A-members-2014-01.npz",
+      "bytes": 8849006,
+      "sha256": "7a47742e52abab7e9faccafb85c7a24076cde24dfdbbda6e40ea941da630440e"
+    },
+    "B": {
+      "path": "/tmp/onepass-surface-export/B-members-2014-01.npz",
+      "bytes": 8754737,
+      "sha256": "2243529895008f3e4ad012a11ce88dc262e0d5b7f77687cc005662cb0828cc9f"
+    },
+    "C": {
+      "path": "/tmp/onepass-surface-export/C-members-2014-01.npz",
+      "bytes": 8746874,
+      "sha256": "09a4cfe4e177f89bfbb7ba573b43ec9eb770ab16953b002ae1385053f50b8a17"
+    },
+    "OM4": {
+      "path": "/tmp/onepass-surface-export/OM4-comparison-2014-01.npz",
+      "bytes": 1618780,
+      "sha256": "d69b15a714f8533f98bd90b3553aba8c759c2ab7f1c564159362ad31ff6df692"
+    }
+  },
+  "reference": "Contemporaneous published-v3 OM4 comparison, NOT observational ground truth; no pixelwise truth claim.",
+  "bin_dates": {
+    "initial": "Dec 27\u201331, 2013",
+    "day30": "Jan 26\u201330, 2014"
+  },
+  "om4_midpoints": [
+    "2013-12-29T12:00:00",
+    "2014-01-28T12:00:00"
+  ],
+  "rendering": "Native cells, no smoothing; shared pooled 1st/99th percentile limits, tails clipped for display.",
+  "panels": "OM4 / A deterministic; B mean / C mean; then B / C members 1\u20138",
+  "figures": {
+    "uo_0-initial": {
+      "vmin": -0.12350828381022438,
+      "vmax": 0.12350828381022438,
+      "units": "m/s",
+      "cmap": "RdBu_r",
+      "finite_pooled_cells": 897840,
+      "files": [
+        "uo_0-initial.png",
+        "uo_0-initial-summary.png"
+      ]
+    },
+    "vo_0-initial": {
+      "vmin": -0.09209756151540205,
+      "vmax": 0.09209756151540205,
+      "units": "m/s",
+      "cmap": "RdBu_r",
+      "finite_pooled_cells": 897840,
+      "files": [
+        "vo_0-initial.png",
+        "vo_0-initial-summary.png"
+      ]
+    },
+    "so_0-initial": {
+      "vmin": 29.33879542350769,
+      "vmax": 37.021522641181946,
+      "units": "PSU",
+      "cmap": "viridis",
+      "finite_pooled_cells": 897840,
+      "files": [
+        "so_0-initial.png",
+        "so_0-initial-summary.png"
+      ]
+    },
+    "uo_0-day30": {
+      "vmin": -0.2713338241883321,
+      "vmax": 0.2713338241883321,
+      "units": "m/s",
+      "cmap": "RdBu_r",
+      "finite_pooled_cells": 897840,
+      "files": [
+        "uo_0-day30.png",
+        "uo_0-day30-summary.png"
+      ]
+    },
+    "vo_0-day30": {
+      "vmin": -0.14771479729779458,
+      "vmax": 0.14771479729779458,
+      "units": "m/s",
+      "cmap": "RdBu_r",
+      "finite_pooled_cells": 897840,
+      "files": [
+        "vo_0-day30.png",
+        "vo_0-day30-summary.png"
+      ]
+    },
+    "so_0-day30": {
+      "vmin": 24.82051530480385,
+      "vmax": 37.44459545984864,
+      "units": "PSU",
+      "cmap": "viridis",
+      "finite_pooled_cells": 897840,
+      "files": [
+        "so_0-day30.png",
+        "so_0-day30-summary.png"
+      ]
+    }
+  },
+  "export_receipt": {
+    "arms": {
+      "A": {
+        "checkpoint": "/scratch/jr7309/stochastic-transitions-20261027/production/A/step-05000.pt",
+        "checkpoint_sha256": "9577242adc2bb9c2dd35fe9f91babbf163b3c45c188654a7372d78cdb787b4d9",
+        "original_maps": "/scratch/jr7309/stochastic-transitions-20261027/production/A/evaluation/step-05000-ema/members-2014-01.npz",
+        "original_maps_sha256": "a45c6c2d1dd4ea698775aa5615e9b0bdcdd2eff35c84f3d18a5a937e7c2eef30",
+        "output": "/scratch/jr7309/stochastic-transitions-20261027/surface-map-export-2014-01/A-members-2014-01.npz",
+        "output_sha256": "7a47742e52abab7e9faccafb85c7a24076cde24dfdbbda6e40ea941da630440e",
+        "weights": "ema",
+        "step": 5000,
+        "seed": 904003,
+        "origin": "2014-01",
+        "origin_index": 2,
+        "members": 8,
+        "channels": [
+          "uo_0",
+          "vo_0",
+          "so_0",
+          "thetao_0",
+          "zos"
+        ],
+        "crosschecks": {
+          "initial/thetao_0": {
+            "maximum_absolute_difference": 0.0,
+            "rms_difference": 0.0,
+            "bitwise_equal": true,
+            "atol": 1e-06,
+            "rtol": 1e-06
+          },
+          "initial/zos": {
+            "maximum_absolute_difference": 0.0,
+            "rms_difference": 0.0,
+            "bitwise_equal": true,
+            "atol": 1e-06,
+            "rtol": 1e-06
+          },
+          "day30/thetao_0": {
+            "maximum_absolute_difference": 0.0,
+            "rms_difference": 0.0,
+            "bitwise_equal": true,
+            "atol": 1e-06,
+            "rtol": 1e-06
+          },
+          "day30/zos": {
+            "maximum_absolute_difference": 0.0,
+            "rms_difference": 0.0,
+            "bitwise_equal": true,
+            "atol": 1e-06,
+            "rtol": 1e-06
+          }
+        }
+      },
+      "B": {
+        "checkpoint": "/scratch/jr7309/stochastic-transitions-20261027/production/B/step-05000.pt",
+        "checkpoint_sha256": "3234c1f854f29c9bb02c348bac678644b62e06cabdc1b3abcc0f822013c4819f",
+        "original_maps": "/scratch/jr7309/stochastic-transitions-20261027/production/B/evaluation/step-05000-ema/members-2014-01.npz",
+        "original_maps_sha256": "3233dd33428e95a26089d302f6e0651a6548b038c3c833537ab5448c9e059340",
+        "output": "/scratch/jr7309/stochastic-transitions-20261027/surface-map-export-2014-01/B-members-2014-01.npz",
+        "output_sha256": "2243529895008f3e4ad012a11ce88dc262e0d5b7f77687cc005662cb0828cc9f",
+        "weights": "ema",
+        "step": 5000,
+        "seed": 904003,
+        "origin": "2014-01",
+        "origin_index": 2,
+        "members": 8,
+        "channels": [
+          "uo_0",
+          "vo_0",
+          "so_0",
+          "thetao_0",
+          "zos"
+        ],
+        "crosschecks": {
+          "initial/thetao_0": {
+            "maximum_absolute_difference": 0.0,
+            "rms_difference": 0.0,
+            "bitwise_equal": true,
+            "atol": 1e-06,
+            "rtol": 1e-06
+          },
+          "initial/zos": {
+            "maximum_absolute_difference": 0.0,
+            "rms_difference": 0.0,
+            "bitwise_equal": true,
+            "atol": 1e-06,
+            "rtol": 1e-06
+          },
+          "day30/thetao_0": {
+            "maximum_absolute_difference": 0.0,
+            "rms_difference": 0.0,
+            "bitwise_equal": true,
+            "atol": 1e-06,
+            "rtol": 1e-06
+          },
+          "day30/zos": {
+            "maximum_absolute_difference": 0.0,
+            "rms_difference": 0.0,
+            "bitwise_equal": true,
+            "atol": 1e-06,
+            "rtol": 1e-06
+          }
+        }
+      },
+      "C": {
+        "checkpoint": "/scratch/jr7309/stochastic-transitions-20261027/production/C/step-05000.pt",
+        "checkpoint_sha256": "bf2b1a6357245fc0a08d3da5aa40cab6527ee606678a819a88947f404472adb4",
+        "original_maps": "/scratch/jr7309/stochastic-transitions-20261027/production/C/evaluation/step-05000-ema/members-2014-01.npz",
+        "original_maps_sha256": "012ec212acc2b3c3609d5ae4b233fe952d2e487b72fe8d8bcfe98a8341166e30",
+        "output": "/scratch/jr7309/stochastic-transitions-20261027/surface-map-export-2014-01/C-members-2014-01.npz",
+        "output_sha256": "09a4cfe4e177f89bfbb7ba573b43ec9eb770ab16953b002ae1385053f50b8a17",
+        "weights": "ema",
+        "step": 5000,
+        "seed": 904003,
+        "origin": "2014-01",
+        "origin_index": 2,
+        "members": 8,
+        "channels": [
+          "uo_0",
+          "vo_0",
+          "so_0",
+          "thetao_0",
+          "zos"
+        ],
+        "crosschecks": {
+          "initial/thetao_0": {
+            "maximum_absolute_difference": 0.0,
+            "rms_difference": 0.0,
+            "bitwise_equal": true,
+            "atol": 1e-06,
+            "rtol": 1e-06
+          },
+          "initial/zos": {
+            "maximum_absolute_difference": 0.0,
+            "rms_difference": 0.0,
+            "bitwise_equal": true,
+            "atol": 1e-06,
+            "rtol": 1e-06
+          },
+          "day30/thetao_0": {
+            "maximum_absolute_difference": 0.0,
+            "rms_difference": 0.0,
+            "bitwise_equal": true,
+            "atol": 1e-06,
+            "rtol": 1e-06
+          },
+          "day30/zos": {
+            "maximum_absolute_difference": 0.0,
+            "rms_difference": 0.0,
+            "bitwise_equal": true,
+            "atol": 1e-06,
+            "rtol": 1e-06
+          }
+        }
+      }
+    },
+    "om4": {
+      "source": "/scratch/jr7309/data/om4_onedeg_v3/OM4.zarr",
+      "source_metadata_sha256": "8c4e12bbb43cf70826d406d6910461e1b287835e5f7f27729a2eb8d545c4a19c",
+      "source_attributes": {
+        "m2lines/cli_args": "/Users/alxmrs/git/ocean_emulators/ocean_emulators/__main__.py om4 s3://emulators/jbusecke/ocean_emulators/OM4/OM4_raw_test.zarr s3://emulators/am16581/ocean_static_no_mask_table.zarr s3://emulators/am16581/grids/ocean_hgrid.zarr s3://emulators/am16581/grids/gaussian_grid_180_by_360.zarr --output_path=s3://emulators/am16581/data/2025-11/om4_onedeg_v3/OM4.zarr --skip_spatial_filtering --skip_validation --cluster=coiled --n_workers=40 --wait_for_workers=True",
+        "m2lines/date_created": "2025-11-26T12:51:52.411906",
+        "m2lines/ocean_emulators_git_hash": "https://github.com/m2lines/ocean_emulators/commit/680fccb0fa9804476be53b1b5b9e726faacb5538",
+        "regrid_method": "conservative"
+      },
+      "calendar": "julian",
+      "indices": [
+        4087,
+        4093
+      ],
+      "midpoint_labels": [
+        "2013-12-29T12:00:00",
+        "2014-01-28T12:00:00"
+      ],
+      "interval_bounds": [
+        [
+          "2013-12-27 00:00:00",
+          "2014-01-01 00:00:00"
+        ],
+        [
+          "2014-01-26 00:00:00",
+          "2014-01-31 00:00:00"
+        ]
+      ],
+      "label": "Contemporaneous published OM4 v3 comparison; not observation ground truth and not the staged Beta training-store version",
+      "output": "/scratch/jr7309/stochastic-transitions-20261027/surface-map-export-2014-01/OM4-comparison-2014-01.npz",
+      "output_sha256": "d69b15a714f8533f98bd90b3553aba8c759c2ab7f1c564159362ad31ff6df692",
+      "channels": [
+        "uo_0",
+        "vo_0",
+        "so_0",
+        "thetao_0",
+        "zos"
+      ]
+    },
+    "complete": true
+  },
+  "export_receipt_file": {
+    "path": "/tmp/onepass-surface-export/COMPLETE.json",
+    "bytes": 6927,
+    "sha256": "c094bb0f5b0e21efe48de11154da35c5d1e8564986b8922c2e5ced4d0396e7cb"
+  }
+}

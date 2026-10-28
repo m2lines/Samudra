@@ -56,3 +56,31 @@ variables SST/SSH, and units °C/cm. `count` records valid origin counts.
 
 [Scores and experiment report](results.md). Reproduce with
 `scripts/plot_stochastic_member_maps.py` and the saved final EMA member files.
+
+## Surface velocity and salinity with contemporaneous OM4
+
+These panels add predicted surface u, v and salinity at initialization and day
+30. Compact views show OM4, deterministic A, and B/C ensemble means. Full views
+also show all eight B/C members.
+
+| Variable | Initialization: compact / members | Day 30: compact / members |
+|---|---|---|
+| Surface u | [Compact](results/surface-comparison/uo_0-initial-summary.png) / [Members](results/surface-comparison/uo_0-initial.png) | [Compact](results/surface-comparison/uo_0-day30-summary.png) / [Members](results/surface-comparison/uo_0-day30.png) |
+| Surface v | [Compact](results/surface-comparison/vo_0-initial-summary.png) / [Members](results/surface-comparison/vo_0-initial.png) | [Compact](results/surface-comparison/vo_0-day30-summary.png) / [Members](results/surface-comparison/vo_0-day30.png) |
+| Surface salinity | [Compact](results/surface-comparison/so_0-initial-summary.png) / [Members](results/surface-comparison/so_0-initial.png) | [Compact](results/surface-comparison/so_0-day30-summary.png) / [Members](results/surface-comparison/so_0-day30.png) |
+
+OM4 is a contemporaneous model comparison, not observational ground truth or an
+OM4-initialized prediction. All A/B/C predictions remain observation-initialized.
+The comparison comes from Torch's published unfiltered 1-degree OM4 v3 store;
+its metadata differs from the staged Beta training-store version. Calendar labels
+and five-day intervals match exactly: December 27–31, 2013 and January 26–30,
+2014 (midpoints December 29 and January 28). Eddy phases need not agree between
+OM4 and the observed ocean.
+
+The export uses final EMA checkpoints, eight members and the original evaluation
+seed. All twelve initialization/day-30 SST/SSH checks against the earlier maps
+were bitwise identical. Shared display limits and source fingerprints are saved
+in [provenance](results/surface-comparison/display-limits-provenance.json).
+Velocities use symmetric color limits; all figures use native cells without
+smoothing, with pooled percentile limits and clipped tails marked by colorbar
+arrows. Compact and member views share identical limits for each variable/time.

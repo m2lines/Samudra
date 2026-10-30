@@ -189,6 +189,7 @@ class MonthlyLatentOcean(nn.Module):
         latent_stride=4,
         processor_forcing=True,
         processor_kind="small",
+        processor_widths=(64, 128, 256),
     ):
         super().__init__()
         self.history, self.shape = history, shape
@@ -225,6 +226,7 @@ class MonthlyLatentOcean(nn.Module):
                     self.latent_shape,
                     shape,
                     forcing_enabled=processor_forcing,
+                    widths=processor_widths,
                 )
 
     def adapt(self, atmosphere):

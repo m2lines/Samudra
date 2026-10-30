@@ -11,7 +11,7 @@ width; comparison to the earlier 45×90/128-channel runs also changes width.
 | Run | Processor | Latent grid | Channels per slot |
 |---|---|---|---:|
 | A-shared-era5-native64-small | Four residual convolutional blocks | 180×360 | 64 |
-| A-shared-era5-native64-samudra | ConvNeXt U-Net, widths 64/128/256 | 180×360 | 64 |
+| A-shared-era5-native64-samudra-v2 | ConvNeXt U-Net, widths 280/380/480/520 | 180×360 | 64 |
 
 Both use seed 1729, shared ERA5 through the existing 8→32→3 adapter, the same
 OM4/OBS dates and sample order, 4,000 alternating source-specific updates (50% each), and 1,000
@@ -56,7 +56,7 @@ matched validation comparison; it does not yet include new annual rollouts.
 CPU checks: 24 tests passed, including native-grid constructor/RNG agreement,
 shared forcing, prefetch and deferred evaluation. Parameter counts from the
 configured models are 47,372,608 total / 411,776 processor for small, and
-57,715,552 total / 10,754,720 processor for Samudra. GPU qualification must still
+130,253,440 total / 83,292,608 processor for Samudra v2. GPU qualification must still
 establish runtime memory and throughput.
 
 ## Submission
@@ -68,7 +68,7 @@ Each arm has frozen `paths.json`, verified source archive and separate outputs.
 | Model | Production (standard QoS) | Qualification (test QoS) |
 |---|---:|---:|
 | Small | 220340 | 220341 |
-| Samudra | 220342 | 220343 |
+| Superseded small U-Net (canceled before starting) | 220342 | 220343 |
 
 All four jobs were submitted and released on October 30; they were pending at
 the submission check. Production uses one four-GPU node per model with a 24h
@@ -77,3 +77,19 @@ The queue had 201 pending production jobs and 25 pending test jobs when checked;
 start times and native-resolution runtime were unavailable, so no results ETA
 is assigned yet. Remote completion callbacks and dedicated quiet monitors are
 active, with six-hour fallback checks. Runtime and scientific results are pending.
+
+## V2-sized replacement
+
+The user replaced the undersized U-Net arm with widths 280/380/480/520 and
+dilations 1/2/4/8, one block per scale and expansion factor two, following the
+v2 backbone configuration. InstanceNorm follows the v2 high-resolution preset;
+the residual latent update and 64-channel projections remain unchanged. The
+small-processor control (220340/220341) is retained without modification.
+
+The v2 arm retains the existing per-transition processor checkpointing, with
+initializer/decoder checkpointing disabled, matching the small control. The
+monthly objective backpropagates through its sequence of five-day latent
+transitions. Qualification must establish actual memory usage and throughput.
+
+The old pending Samudra jobs were canceled with zero allocated runtime and their
+callback retired. Replacement submission details follow after staging.

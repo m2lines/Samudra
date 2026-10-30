@@ -1,0 +1,167 @@
+{
+  "jobs": [
+    {
+      "job": "21381835",
+      "state": "FAILED",
+      "exit_code": "1:0",
+      "elapsed_seconds": 65,
+      "gpus": 1,
+      "gpu_hours": 0.018055555555555554
+    },
+    {
+      "job": "21381892",
+      "state": "COMPLETED",
+      "exit_code": "0:0",
+      "elapsed_seconds": 133,
+      "gpus": 1,
+      "gpu_hours": 0.036944444444444446
+    },
+    {
+      "job": "21381973",
+      "state": "COMPLETED",
+      "exit_code": "0:0",
+      "elapsed_seconds": 57,
+      "gpus": 1,
+      "gpu_hours": 0.015833333333333335
+    },
+    {
+      "job": "21382062",
+      "state": "COMPLETED",
+      "exit_code": "0:0",
+      "elapsed_seconds": 143,
+      "gpus": 1,
+      "gpu_hours": 0.03972222222222222
+    },
+    {
+      "job": "21382509",
+      "state": "FAILED",
+      "exit_code": "1:0",
+      "elapsed_seconds": 32,
+      "gpus": 1,
+      "gpu_hours": 0.008888888888888889
+    },
+    {
+      "job": "21382511",
+      "state": "FAILED",
+      "exit_code": "1:0",
+      "elapsed_seconds": 33,
+      "gpus": 1,
+      "gpu_hours": 0.009166666666666667
+    },
+    {
+      "job": "21382512",
+      "state": "FAILED",
+      "exit_code": "1:0",
+      "elapsed_seconds": 32,
+      "gpus": 1,
+      "gpu_hours": 0.008888888888888889
+    },
+    {
+      "job": "21382580",
+      "state": "COMPLETED",
+      "exit_code": "0:0",
+      "elapsed_seconds": 5493,
+      "gpus": 1,
+      "gpu_hours": 1.5258333333333334
+    },
+    {
+      "job": "21382582",
+      "state": "COMPLETED",
+      "exit_code": "0:0",
+      "elapsed_seconds": 5224,
+      "gpus": 1,
+      "gpu_hours": 1.451111111111111
+    },
+    {
+      "job": "21382594",
+      "state": "COMPLETED",
+      "exit_code": "0:0",
+      "elapsed_seconds": 5204,
+      "gpus": 1,
+      "gpu_hours": 1.4455555555555555
+    },
+    {
+      "job": "21385413",
+      "state": "COMPLETED",
+      "exit_code": "0:0",
+      "elapsed_seconds": 69,
+      "gpus": 1,
+      "gpu_hours": 0.019166666666666665
+    },
+    {
+      "job": "21386424",
+      "state": "COMPLETED",
+      "exit_code": "0:0",
+      "elapsed_seconds": 106,
+      "gpus": 1,
+      "gpu_hours": 0.029444444444444443
+    },
+    {
+      "job": "21386708",
+      "state": "COMPLETED",
+      "exit_code": "0:0",
+      "elapsed_seconds": 69,
+      "gpus": 1,
+      "gpu_hours": 0.019166666666666665
+    },
+    {
+      "job": "21387009",
+      "state": "COMPLETED",
+      "exit_code": "0:0",
+      "elapsed_seconds": 5531,
+      "gpus": 1,
+      "gpu_hours": 1.5363888888888888
+    },
+    {
+      "job": "21387055",
+      "state": "COMPLETED",
+      "exit_code": "0:0",
+      "elapsed_seconds": 50,
+      "gpus": 1,
+      "gpu_hours": 0.013888888888888888
+    },
+    {
+      "job": "21390923",
+      "state": "COMPLETED",
+      "exit_code": "0:0",
+      "elapsed_seconds": 39,
+      "gpus": 1,
+      "gpu_hours": 0.010833333333333334
+    },
+    {
+      "job": "21381785",
+      "state": "FAILED",
+      "exit_code": "1:0",
+      "elapsed_seconds": 19,
+      "gpus": 1,
+      "gpu_hours": 0.005277777777777778
+    },
+    {
+      "job": "21381888",
+      "state": "FAILED",
+      "exit_code": "1:0",
+      "elapsed_seconds": 21,
+      "gpus": 1,
+      "gpu_hours": 0.005833333333333334
+    },
+    {
+      "job": "21381939",
+      "state": "FAILED",
+      "exit_code": "1:0",
+      "elapsed_seconds": 19,
+      "gpus": 1,
+      "gpu_hours": 0.005277777777777778
+    }
+  ],
+  "total_gpu_hours": 6.205277777777778,
+  "all_failed_jobs_preserved": [
+    "21381835",
+    "21382509",
+    "21382511",
+    "21382512",
+    "21381785",
+    "21381888",
+    "21381939"
+  ],
+  "reconciliation": "Includes three multi-date diagnostic startup failures verified with sacct: 19,21,19 seconds."
+}

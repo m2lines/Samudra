@@ -1,0 +1,62 @@
+[
+  {
+    "arm": "A",
+    "updates": "2000",
+    "om4_updates": "1000",
+    "obs_updates": "1000",
+    "weights": "ema",
+    "field": "SST",
+    "units": "degC",
+    "origins": "9",
+    "members": "8",
+    "ensemble_mean_rmse": "0.4214736811527248",
+    "mean_member_rmse": "0.42147368115272477",
+    "fair_crps": "0.30962234165154956",
+    "checkpoint_sha256": "20d1ba22f3194ac45a1099b21ed095a96953baf3e8a5fa7ed88b95f2e9fefe3c"
+  },
+  {
+    "arm": "A",
+    "updates": "2000",
+    "om4_updates": "1000",
+    "obs_updates": "1000",
+    "weights": "ema",
+    "field": "SSH",
+    "units": "m",
+    "origins": "9",
+    "members": "8",
+    "ensemble_mean_rmse": "0.029413607898675472",
+    "mean_member_rmse": "0.029413607898675476",
+    "fair_crps": "0.020784103347668437",
+    "checkpoint_sha256": "20d1ba22f3194ac45a1099b21ed095a96953baf3e8a5fa7ed88b95f2e9fefe3c"
+  },
+  {
+    "arm": "B",
+    "updates": "2000",
+    "om4_updates": "1000",
+    "obs_updates": "1000",
+    "weights": "ema",
+    "field": "SST",
+    "units": "degC",
+    "origins": "9",
+    "members": "8",
+    "ensemble_mean_rmse": "0.4258928564430941",
+    "mean_member_rmse": "0.6936921782629302",
+    "fair_crps": "0.2146873034331833",
+    "checkpoint_sha256": "090953de381c45269bbb135fd27762bb4b488b2837005e59a690b15befec9358"
+  },
+  {
+    "arm": "B",
+    "updates": "2000",
+    "om4_updates": "1000",
+    "obs_updates": "1000",
+    "weights": "ema",
+    "field": "SSH",
+    "units": "m",
+    "origins": "9",
+    "members": "8",
+    "ensemble_mean_rmse": "0.02441352309453541",
+    "mean_member_rmse": "0.0424431342086259",
+    "fair_crps": "0.012700644376554382",
+    "checkpoint_sha256": "090953de381c45269bbb135fd27762bb4b488b2837005e59a690b15befec9358"
+  }
+]

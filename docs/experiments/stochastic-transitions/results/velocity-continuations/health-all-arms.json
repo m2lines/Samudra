@@ -1,0 +1,38 @@
+{
+  "control": {
+    "finite": true,
+    "updates": 512,
+    "om4_updates": 256,
+    "observation_updates": 256,
+    "mean_seconds": 8.884415703986633,
+    "max_grad_norm": 2.5686287879943848,
+    "max_data_wait_seconds": 1.422667280305177
+  },
+  "velocity-mean-mse": {
+    "finite": true,
+    "updates": 512,
+    "om4_updates": 256,
+    "observation_updates": 256,
+    "mean_seconds": 7.8481781900454735,
+    "max_grad_norm": 2.0431344509124756,
+    "max_data_wait_seconds": 1.732083602808416
+  },
+  "velocity-crps-2p2": {
+    "finite": true,
+    "updates": 512,
+    "om4_updates": 256,
+    "observation_updates": 256,
+    "mean_seconds": 7.886181517734258,
+    "max_grad_norm": 2.404007911682129,
+    "max_data_wait_seconds": 1.7190733207389712
+  },
+  "velocity-mean-mse-corrected": {
+    "finite": true,
+    "updates": 512,
+    "om4_updates": 256,
+    "observation_updates": 256,
+    "mean_seconds": 8.266701872600606,
+    "max_grad_norm": 2.0165517330169678,
+    "max_data_wait_seconds": 1.8350127930752933
+  }
+}

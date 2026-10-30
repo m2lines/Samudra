@@ -1,0 +1,9 @@
+{
+  "scripts": {
+    "scripts/diagnose_stochastic_velocity_loss_toy.py": "69a24709cc8d9c5b4f84a09f7d34c416ef4f2e08086f0a034280b6fbfd6b6402",
+    "scripts/plot_stochastic_velocity_loss_toy.py": "f318e81feedf5c03251503867c6cbcb70316ac5be3a45ee4afa305079e7aa7e0"
+  },
+  "long_prefix_matches_2k": true,
+  "production_loss": "src/samudra/experiments/stochastic_transition_objectives.py",
+  "production_loss_sha256": "919e424262f87ce729463936bcb16179f73900c808edfe453c012c2d1d48c6bd"
+}

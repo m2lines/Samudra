@@ -1,0 +1,20 @@
+[
+  {
+    "arm": "B-initializer-only",
+    "updates": "2000",
+    "weights": "ema",
+    "field": "SST",
+    "ensemble_mean_rmse": "0.24957239170618245",
+    "mean_member_rmse": "0.39984676770700045",
+    "fair_crps": "0.12034078802355502"
+  },
+  {
+    "arm": "B-initializer-only",
+    "updates": "2000",
+    "weights": "ema",
+    "field": "SSH",
+    "ensemble_mean_rmse": "0.02246572706495633",
+    "mean_member_rmse": "0.03263178447980378",
+    "fair_crps": "0.011501085725209807"
+  }
+]

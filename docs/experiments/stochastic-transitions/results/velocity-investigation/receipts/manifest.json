@@ -1,0 +1,107 @@
+[
+  {
+    "variant": "A-control",
+    "step": 500,
+    "path": "/scratch/jr7309/stochastic-transitions-20261027/production/A/step-00500.pt"
+  },
+  {
+    "variant": "A-control",
+    "step": 1000,
+    "path": "/scratch/jr7309/stochastic-transitions-20261027/production/A/step-01000.pt"
+  },
+  {
+    "variant": "A-control",
+    "step": 1500,
+    "path": "/scratch/jr7309/stochastic-transitions-20261027/production/A/step-01500.pt"
+  },
+  {
+    "variant": "A-control",
+    "step": 2000,
+    "path": "/scratch/jr7309/stochastic-transitions-20261027/production/A/step-02000.pt"
+  },
+  {
+    "variant": "B-control",
+    "step": 500,
+    "path": "/scratch/jr7309/stochastic-transitions-20261027/production/B/step-00500.pt"
+  },
+  {
+    "variant": "B-control",
+    "step": 1000,
+    "path": "/scratch/jr7309/stochastic-transitions-20261027/production/B/step-01000.pt"
+  },
+  {
+    "variant": "B-control",
+    "step": 1500,
+    "path": "/scratch/jr7309/stochastic-transitions-20261027/production/B/step-01500.pt"
+  },
+  {
+    "variant": "B-control",
+    "step": 2000,
+    "path": "/scratch/jr7309/stochastic-transitions-20261027/production/B/step-02000.pt"
+  },
+  {
+    "variant": "A-mae",
+    "step": 500,
+    "path": "/scratch/jr7309/stochastic-loss-ablation-20261028/production/A-mae/step-00500.pt"
+  },
+  {
+    "variant": "A-mae",
+    "step": 1000,
+    "path": "/scratch/jr7309/stochastic-loss-ablation-20261028/production/A-mae/step-01000.pt"
+  },
+  {
+    "variant": "A-mae",
+    "step": 1500,
+    "path": "/scratch/jr7309/stochastic-loss-ablation-20261028/production/A-mae/step-01500.pt"
+  },
+  {
+    "variant": "A-mae",
+    "step": 2000,
+    "path": "/scratch/jr7309/stochastic-loss-ablation-20261028/production/A-mae/step-02000.pt"
+  },
+  {
+    "variant": "B-member-mse",
+    "step": 500,
+    "path": "/scratch/jr7309/stochastic-loss-ablation-20261028/production/B-member-mse/step-00500.pt"
+  },
+  {
+    "variant": "B-member-mse",
+    "step": 1000,
+    "path": "/scratch/jr7309/stochastic-loss-ablation-20261028/production/B-member-mse/step-01000.pt"
+  },
+  {
+    "variant": "B-member-mse",
+    "step": 1500,
+    "path": "/scratch/jr7309/stochastic-loss-ablation-20261028/production/B-member-mse/step-01500.pt"
+  },
+  {
+    "variant": "B-member-mse",
+    "step": 2000,
+    "path": "/scratch/jr7309/stochastic-loss-ablation-20261028/production/B-member-mse/step-02000.pt"
+  },
+  {
+    "variant": "B-crps-mean-mse",
+    "step": 2000,
+    "path": "/scratch/jr7309/stochastic-loss-ablation-20261028/production/B-crps-mean-mse/step-02000.pt"
+  },
+  {
+    "variant": "B-multiscale-fair-crps",
+    "step": 2000,
+    "path": "/scratch/jr7309/stochastic-loss-extensions-20261028/production/B-multiscale-fair-crps/step-02000.pt"
+  },
+  {
+    "variant": "B-initializer-only",
+    "step": 2000,
+    "path": "/scratch/jr7309/stochastic-loss-extensions-20261028/production/B-initializer-only/step-02000.pt"
+  },
+  {
+    "variant": "A-control",
+    "step": 4000,
+    "path": "/scratch/jr7309/stochastic-transitions-20261027/production/A/step-04000.pt"
+  },
+  {
+    "variant": "B-control",
+    "step": 4000,
+    "path": "/scratch/jr7309/stochastic-transitions-20261027/production/B/step-04000.pt"
+  }
+]

@@ -1,0 +1,10 @@
+{
+  "passed": true,
+  "mean_gpu_utilization": 72.3917525773196,
+  "mean_seconds": 8.459903986387266,
+  "mean_data_wait_seconds": 0.0001907090578849117,
+  "parent_raw_and_adam_exact": true,
+  "ema_reset_exact": true,
+  "updates": 16,
+  "source": "ddcd09ea76b790d126e837f57be534f3476b2c2bec3dd53b1a83929dce7e6a45"
+}

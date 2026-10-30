@@ -1,0 +1,115 @@
+{
+  "inputs_equal_except_script_sha256": true,
+  "inputs": {
+    "case": "2014-01 OM4 surface-history initializer only",
+    "cohort": "one fixed held-out case, not nine-origin validation",
+    "history_midpoints": [
+      "2013-09-30T12:00:00",
+      "2013-10-05T12:00:00",
+      "2013-10-10T12:00:00",
+      "2013-10-15T12:00:00",
+      "2013-10-20T12:00:00",
+      "2013-10-25T12:00:00",
+      "2013-10-30T12:00:00",
+      "2013-11-04T12:00:00",
+      "2013-11-09T12:00:00",
+      "2013-11-14T12:00:00",
+      "2013-11-19T12:00:00",
+      "2013-11-24T12:00:00",
+      "2013-11-29T12:00:00",
+      "2013-12-04T12:00:00",
+      "2013-12-09T12:00:00",
+      "2013-12-14T12:00:00",
+      "2013-12-19T12:00:00",
+      "2013-12-24T12:00:00",
+      "2013-12-29T12:00:00"
+    ],
+    "history_indices": [
+      4069,
+      4070,
+      4071,
+      4072,
+      4073,
+      4074,
+      4075,
+      4076,
+      4077,
+      4078,
+      4079,
+      4080,
+      4081,
+      4082,
+      4083,
+      4084,
+      4085,
+      4086,
+      4087
+    ],
+    "gold_midpoint": "2013-12-29T12:00:00",
+    "seed": 904003,
+    "members": 8,
+    "ema": true,
+    "normalization": "existing grid.npz statistics",
+    "grid_sha256": "ce96360964a6669d0186b9581abaaffc06f660c4e09e0ac813b3dd1b819e5167",
+    "statistics_sha256": "7688d483d4c87a8ce0e2f27a1a342db93eecb3e892187506475d6970e865c001",
+    "sample": "/scratch/jr7309/data/obs-d-pilot/validation/2014-01.npz",
+    "sample_sha256": "bc126b8b29c9704069c34eb7d2ef5ff92d63106e3fdb83f87f5064e6338d37cb",
+    "om4": "/scratch/jr7309/data/om4_onedeg_v3/OM4.zarr",
+    "om4_metadata_sha256": "8c4e12bbb43cf70826d406d6910461e1b287835e5f7f27729a2eb8d545c4a19c",
+    "om4_version_note": "Published Torch OM4 gold; differs from staged training store metadata",
+    "training_om4": "/scratch/jr7309/data/stochastic-onepass-v1/om4-source",
+    "training_window_count": 409,
+    "training_target_cutoff": "2013-07",
+    "training_latest_target_bin_end": "2013-08-04 00:00:00",
+    "training_window_first": "(1265, 1272, [0.16129032258064516, 0.16129032258064516, 0.16129032258064516, 0.16129032258064516, 0.16129032258064516, 0.16129032258064516, 0.03225806451612903], 31)",
+    "training_window_last": "(4051, 4058, [0.12903225806451613, 0.16129032258064516, 0.16129032258064516, 0.16129032258064516, 0.16129032258064516, 0.16129032258064516, 0.06451612903225806], 31)",
+    "training_reader_source": "class ModelMonths:\n    \"\"\"Read physical fields using fixed OM4 scales, own forcing and own wet mask.\n\n    OM4 uses the established pre-validation cutoff. CM4 uses its first 180 model\n    years for training, reserving the final twenty for future diagnostics.\n    \"\"\"\n\n    def __init__(self, path, kind, reference, om4_statistics, packed=None):\n        if kind not in (\"om4\", \"cm4\"):\n            raise ValueError(kind)\n        self.kind = kind\n        self.store = zarr.open_consolidated(str(path), mode=\"r\")\n        self.grid = reference\n        self.names = reference[\"names\"].tolist()\n        if self.names != [\n            f\"{v}_{i}\" for v in (\"uo\", \"vo\", \"thetao\", \"so\") for i in range(19)\n        ] + [\"zos\"]:\n            raise ValueError(\"Unexpected physical channel order\")\n        self.packed = None\n        if packed is not None:\n            packed = Path(packed)\n            proof = json.loads((packed / \"COMPLETE.json\").read_text())\n            if (\n                proof[\"source\"] != str(path)\n                or proof[\"source_metadata_sha256\"]\n                != hashlib.sha256((Path(path) / \".zmetadata\").read_bytes()).hexdigest()\n            ):\n                raise ValueError(\"Packed source contract differs\")\n            if (\n                proof[\"verification\"]\n                != \"every packed frame read back and byte-hash matched to source\"\n            ):\n                raise ValueError(\"Packed data lacks exact verification\")\n            self.packed = np.load(packed / \"frames.npy\", mmap_mode=\"r\")\n            if (\n                list(self.packed.shape) != proof[\"shape\"]\n                or self.packed.dtype != np.float32\n            ):\n                raise ValueError(\"Packed shape/dtype differs\")\n            self.packed_indices = {\n                original: offset for offset, original in enumerate(proof[\"indices\"])\n            }\n            self.packed_hashes = proof[\"frame_sha256\"]\n            self.verified_frames = set()\n        z = self.store\n        lat = z[\"lat\"][:, 0] if kind == \"cm4\" else z[\"y\"][:]\n        lon = z[\"lon\"][0] if kind == \"cm4\" else z[\"x\"][:]\n        np.testing.assert_allclose(lat, reference[\"lat\"], atol=1e-6, rtol=0)\n        np.testing.assert_allclose(lon, reference[\"lon\"], atol=1e-6, rtol=0)\n        self.lat, self.lon = lat, lon\n        if kind == \"cm4\":\n            np.testing.assert_allclose(\n                z[\"lat\"][:],\n                np.broadcast_to(lat[:, None], (len(lat), len(lon))),\n                atol=1e-6,\n                rtol=0,\n            )\n            np.testing.assert_allclose(\n                z[\"lon\"][:],\n                np.broadcast_to(lon[None], (len(lat), len(lon))),\n                atol=1e-6,\n                rtol=0,\n            )\n            np.testing.assert_allclose(\n                z[\"dz\"][:], build_om4_layout().depth_thickness, rtol=0, atol=1e-6\n            )\n            wet = z[\"wetmask\"][:].astype(bool)\n            self.mask = np.concatenate([wet] * 4 + [wet[:1]])\n            bounds = z[\"time_bnds\"]\n            self.bounds = cftime.num2date(\n                bounds[:], bounds.attrs[\"units\"], bounds.attrs[\"calendar\"]\n            )\n            labels = cftime.num2date(\n                z[\"time\"][:], z[\"time\"].attrs[\"units\"], z[\"time\"].attrs[\"calendar\"]\n            )\n            if not np.array_equal(labels, self.bounds[:, 1]):\n                raise ValueError(\"CM4 timestamps are not verified interval ends\")\n        else:\n            self.mask = np.stack(\n                [z[f\"mask_{i}\"][:] for i in range(19)] * 4 + [z[\"mask_0\"][:]]\n            ).astype(bool)\n            labels = cftime.num2date(\n                z[\"time\"][:],\n                z[\"time\"].attrs[\"units\"],\n                z[\"time\"].attrs.get(\"calendar\", \"standard\"),\n            )\n            # Published OM4 five-day means are centered at 12:00 on day three.\n            self.bounds = np.array(\n                [[t - timedelta(days=2.5), t + timedelta(days=2.5)] for t in labels],\n                dtype=object,\n            )\n        lengths = [(b - a).total_seconds() for a, b in self.bounds]\n        if any(v != 5 * 86400 for v in lengths):\n            raise ValueError(\"Non-five-day source intervals\")\n        gaps = self.bounds[1:, 0] != self.bounds[:-1, 1]\n        if kind == \"cm4\" and gaps.any():\n            raise ValueError(\"CM4 interval bounds are not contiguous\")\n        self.midpoints = [a + (b - a) / 2 for a, b in self.bounds]\n        statistics = Path(om4_statistics)\n        mean = zarr.open_consolidated(str(statistics / \"OM4_means.zarr\"), mode=\"r\")\n        std = zarr.open_consolidated(str(statistics / \"OM4_stds.zarr\"), mode=\"r\")\n        self.forcing_mean = np.array(\n            [float(mean[n][...]) for n in (\"tauuo\", \"tauvo\", \"hfds\")], dtype=np.float32\n        )\n        self.forcing_std = np.array(\n            [float(std[n][...]) for n in (\"tauuo\", \"tauvo\", \"hfds\")], dtype=np.float32\n        )\n        if not np.isfinite(self.forcing_mean).all() or not (self.forcing_std > 0).all():\n            raise ValueError(\"Invalid forcing normalization\")\n        self.windows = []\n        self.excluded_gap_months = []\n        first_year = self.bounds[0, 0].year\n        for year in range(first_year, self.bounds[-1, 1].year + 1):\n            for month in range(1, 13):\n                first = type(self.midpoints[0])(year, month, 1)\n                last = type(first)(year + (month == 12), month % 12 + 1, 1)\n                indices = np.arange(\n                    np.searchsorted(self.bounds[:, 1], first, side=\"right\"),\n                    np.searchsorted(self.bounds[:, 0], last, side=\"left\"),\n                )\n                if (\n                    not len(indices)\n                    or indices[0] < 19\n                    or self.bounds[indices[-1], 1] < last\n                ):\n                    continue\n                if kind == \"om4\" and (\n                    year < 1975\n                    or (year, month) > (2013, 7)\n                    or self.bounds[indices[0] - 19, 0].year < 1975\n                ):\n                    continue\n                if kind == \"cm4\" and year >= first_year + 180:\n                    continue\n                if gaps[indices[0] - 19 : indices[-1]].any():\n                    self.excluded_gap_months.append(str(first))\n                    continue\n                weights = calendar_weights(\n                    self.bounds[indices, 0], self.bounds[indices, 1], first, last\n                )\n                self.windows.append(\n                    (indices[0], indices[-1] + 1, weights, (last - first).days)\n                )\n        if not self.windows:\n            raise ValueError(\"No training months\")\n\n    def sample(self, index, device, *, future_only=False, include_native_forcing=True):\n        \"\"\"Read exact target bins, optionally omitting history and unused fluxes.\"\"\"\n        start, stop, weights, duration = self.windows[index % len(self.windows)]\n        first_index = start if future_only else start - 19\n        interval = slice(first_index, stop)\n        z = self.store\n        if self.packed is not None:\n            positions = [self.packed_indices[i] for i in range(first_index, stop)]\n            for offset in positions:\n                if offset not in self.verified_frames:\n                    if (\n                        hashlib.sha256(self.packed[offset].tobytes()).hexdigest()\n                        != self.packed_hashes[offset]\n                    ):\n                        raise ValueError(\"Packed frame checksum changed\")\n                    self.verified_frames.add(offset)\n            values = np.asarray(self.packed[positions])\n        elif self.kind == \"cm4\":\n            values = np.concatenate(\n                [z[v][interval] for v in (\"uo\", \"vo\", \"thetao\", \"so\")]\n                + [z[\"zos\"][interval][:, None]],\n                axis=1,\n            )\n        else:\n            values = np.stack([z[n][interval] for n in self.names], axis=1)\n        if not np.isfinite(values[:, self.mask]).all():\n            raise ValueError(\"Nonfinite model target on declared wet support\")\n        fields = np.where(\n            self.mask,\n            (values - self.grid[\"mean\"][:, None, None])\n            / self.grid[\"std\"][:, None, None],\n            0,\n        ).astype(np.float32)\n        if include_native_forcing:\n            forcing = np.stack(\n                [z[n][interval] for n in (\"tauuo\", \"tauvo\", \"hfds\")], axis=1\n            )\n            if not np.isfinite(forcing[:, :, self.mask[38]]).all():\n                raise ValueError(\"Nonfinite own-model forcing on wet support\")\n            forcing = np.where(\n                self.mask[38],\n                (forcing - self.forcing_mean[:, None, None])\n                / self.forcing_std[:, None, None],\n                0,\n            ).astype(np.float32)\n\n        def tensor(value):\n            return torch.as_tensor(value, device=device)\n\n        result = dict(\n            fields=tensor(fields)[None],\n            contexts=tensor(\n                calendar_context(self.lat, self.lon, self.midpoints[first_index:stop])\n            )[None],\n            mask=tensor(self.mask),\n            weights=tensor(np.asarray(weights, dtype=np.float32)),\n            duration=duration,\n            first=str(self.bounds[start, 0]),\n        )\n        if include_native_forcing:\n            result[\"forcing\"] = tensor(forcing)[None]\n        return result\n",
+    "training_reader_sha256": "77ddc71cd2099ce9b2de27f7dcb64ccb2559ff1817f46a1fe8586ce7dcb2e5b4",
+    "input_scope": "19 SST/SSH history bins plus same ERA5 history and last context; zero future fields or gold interior passed to model",
+    "area": "cos(latitude), full latitude wet mask; equal-depth variable aggregation"
+  },
+  "sources": [
+    {
+      "label": "controls",
+      "path": "/tmp/stochastic-initializer-curves",
+      "receipt_sha256": "67b3ec5c0e845ebb641336a1dde1214b43fac621e70fe2b083cd1d90cbe8479c",
+      "input_sha256": "346177995db692b442fea799f6a2ed4040b6bb97b135321389bdf294c6818dec",
+      "script_sha256": "6beb27ed124b2dba51340f6925e7e59ed0f3a80e7ee96f70ff7af4d395bf8407"
+    },
+    {
+      "label": "A-mae",
+      "path": "/tmp/stochastic-loss-results/A-mae/initializer-om4",
+      "receipt_sha256": "027c3562e609ea4db6f8da32076eaafb3321e01b839b32e34f69a45d87e041ea",
+      "input_sha256": "47c40a502e052398403f9f63db5bdb536f1db21aa1c707215a62f98146b070ad",
+      "script_sha256": "4ae2fe5797a33959f168fe90b87f8cc2121618ac25c86cbbe867d6b67da86525"
+    },
+    {
+      "label": "B-initializer-only",
+      "path": "/tmp/stochastic-extension-results/initializer-om4",
+      "receipt_sha256": "993b7c957aa89ebf9b5e56131ae80fb0f76ac203b46bc89504073774d816f99c",
+      "input_sha256": "7b652d7e4ee2a50660bff34ce267f6fb821e7f74b2485aaf6d7e829d1a46bd0f",
+      "script_sha256": "95e1690ad389b4fe411fee9138c3e47b72d35d6da159e662a8767e126eb8d0d8"
+    },
+    {
+      "label": "B-member-mse",
+      "path": "/tmp/stochastic-loss-ablation-results/B-member-mse/initializer-om4",
+      "receipt_sha256": "b6a7f1bea83bac7d27e80cf5bad11732614df6b41fde6a0776e68a64e9b23a71",
+      "input_sha256": "47c40a502e052398403f9f63db5bdb536f1db21aa1c707215a62f98146b070ad",
+      "script_sha256": "4ae2fe5797a33959f168fe90b87f8cc2121618ac25c86cbbe867d6b67da86525"
+    },
+    {
+      "label": "B-crps-mean-mse",
+      "path": "/tmp/stochastic-loss-ablation-results/B-crps-mean-mse/initializer-om4",
+      "receipt_sha256": "c7a667554345a99dcc5efcee7b5af0a499a75be0579b2c772ebea8c8ce368b4c",
+      "input_sha256": "47c40a502e052398403f9f63db5bdb536f1db21aa1c707215a62f98146b070ad",
+      "script_sha256": "4ae2fe5797a33959f168fe90b87f8cc2121618ac25c86cbbe867d6b67da86525"
+    },
+    {
+      "label": "B-multiscale-fair-crps",
+      "path": "/tmp/stochastic-extension-results/multiscale/initializer-om4",
+      "receipt_sha256": "a1e8868bfb1db9cd9dd0acd933b890162322edd9e4acb815ddc08a8d865beb82",
+      "input_sha256": "7b652d7e4ee2a50660bff34ce267f6fb821e7f74b2485aaf6d7e829d1a46bd0f",
+      "script_sha256": "95e1690ad389b4fe411fee9138c3e47b72d35d6da159e662a8767e126eb8d0d8"
+    }
+  ]
+}

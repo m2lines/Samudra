@@ -1,0 +1,18 @@
+{
+  "world_size": 1,
+  "microbatch": 1,
+  "compiled": false,
+  "fused_adam": true,
+  "prefetch_workers": 4,
+  "prefetch_updates": 4,
+  "obs_cache_size": 64,
+  "resident_native_cache": {
+    "enabled": true,
+    "bytes": 53927596800,
+    "seconds": 425.90844271099195,
+    "checksum_seconds": 0.02286530565470457,
+    "normalization_seconds": 425.8812003945932,
+    "max_rss_before_kib": 52643640,
+    "max_rss_after_kib": 106039516
+  }
+}

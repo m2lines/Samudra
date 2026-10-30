@@ -1,0 +1,10 @@
+{
+  "complete": true,
+  "variants": [
+    "A-MSE",
+    "B-CRPS",
+    "A-MAE",
+    "B-member-MSE"
+  ],
+  "samples": 3
+}

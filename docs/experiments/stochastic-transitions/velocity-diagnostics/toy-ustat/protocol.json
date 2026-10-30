@@ -1,0 +1,19 @@
+{
+  "device": "cpu",
+  "updates": 2000,
+  "batch": 128,
+  "members": 4,
+  "seeds": [
+    11,
+    23,
+    47
+  ],
+  "learning_rate": 0.003,
+  "auxiliary_weight": 1.0,
+  "member_assumption": "iid conditional on x",
+  "shared_randomness": "same initialization, minibatches, target and member noise across objectives",
+  "source_sha256": {
+    "/home/jder/.codex/worktrees/ecd2/Ocean_Emulator/scripts/diagnose_stochastic_velocity_ustat_toy.py": "d0f989e8bebb66104d01b93d3a51333778a640bfd154d31bebef512921b6d337",
+    "/home/jder/.codex/worktrees/ecd2/Ocean_Emulator/scripts/diagnose_stochastic_velocity_loss_toy.py": "69a24709cc8d9c5b4f84a09f7d34c416ef4f2e08086f0a034280b6fbfd6b6402"
+  }
+}

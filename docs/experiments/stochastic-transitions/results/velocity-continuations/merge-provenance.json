@@ -1,0 +1,749 @@
+{
+  "sources": [
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-ema/control-02256-2014-01.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/control-02256-2014-01.json",
+      "sha256": "e1ad74da461ff476416fc5fcd744ca69823fc128eff51f6d0c3e4bf78622295d"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-ema/velocity-crps-2p2-02384-2014-04.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/velocity-crps-2p2-02384-2014-04.json",
+      "sha256": "f569301b8375fd3f073db845e50791675d605516684e56a0aff9ee5f58d73005"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-ema/velocity-crps-2p2-02512-2014-01-maps.npz",
+      "path": "/tmp/velocity-combined-results/initializers-ema/velocity-crps-2p2-02512-2014-01-maps.npz",
+      "sha256": "a6b1420ee42484cf32e1094725307f97bc56568b8c35b775ba7fd400dccc782f"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-ema/velocity-mean-mse-02512-2014-05-maps.npz",
+      "path": "/tmp/velocity-combined-results/initializers-ema/velocity-mean-mse-02512-2014-05-maps.npz",
+      "sha256": "b0272957c87ca0a906ad71960bf5db2426e3f913195d634ee103c8f4f87c6dca"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-ema/velocity-crps-2p2-02384-2014-05.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/velocity-crps-2p2-02384-2014-05.json",
+      "sha256": "432b008fea35d9a68015aaa3ed079d326261200605148fe3e5893694d8517042"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-ema/velocity-crps-2p2-02512-2014-01.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/velocity-crps-2p2-02512-2014-01.json",
+      "sha256": "b2b75e7eb080eea43e0ed1c2fd45f639519a8bb06afd59083069fc6df2ecf0c8"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-ema/velocity-crps-2p2-02128-2014-05.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/velocity-crps-2p2-02128-2014-05.json",
+      "sha256": "ddb9f8eb08d767f71b365706ca1aefc9f7f475b953b0e81fb6e8dd3e10ac7c97"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-ema/velocity-crps-2p2-02512-2014-05-maps.npz",
+      "path": "/tmp/velocity-combined-results/initializers-ema/velocity-crps-2p2-02512-2014-05-maps.npz",
+      "sha256": "668b81d54052e3dbd82d542bbfc77eda0c744e4529198d1ba1c9ea9f0204788b"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-ema/grid.npz",
+      "path": "/tmp/velocity-combined-results/initializers-ema/grid.npz",
+      "sha256": "129e14065e95ada1c1d1b3713b68b4173ebcbf7e51c0ba2d9ade2f5f18b9ab11"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-ema/control-02512-2014-04.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/control-02512-2014-04.json",
+      "sha256": "413e081d629eff667fc8d881bdb9ea1bc8f9251884bb66aabb3c4e99873ac628"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-ema/velocity-crps-2p2-02128-2014-04.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/velocity-crps-2p2-02128-2014-04.json",
+      "sha256": "5023dd1e1a24b9723cd40743ac71750f055a7b736b70f25821fdcb40d163f7a5"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-ema/velocity-mean-mse-02512-2014-01-maps.npz",
+      "path": "/tmp/velocity-combined-results/initializers-ema/velocity-mean-mse-02512-2014-01-maps.npz",
+      "sha256": "16ba7616592f4cf16637fa28d8d1f8ab2125c25b9e2ebdd310df10d6cc920c9d"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-ema/control-02512-2014-05.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/control-02512-2014-05.json",
+      "sha256": "84a45687594c31a69f4729c900c44b22b0f0849089f8bbceedf2636d7a560fb6"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-ema/control-02512-2014-04-maps.npz",
+      "path": "/tmp/velocity-combined-results/initializers-ema/control-02512-2014-04-maps.npz",
+      "sha256": "a3429b7adc0d8ebfb824ae2b69d9a018cf5a87d1654c2239048c1377b03fc404"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-ema/parent-02000-2014-01.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/parent-02000-2014-01.json",
+      "sha256": "630b8af0a7234ffe8a1509db7c5f8f725294d8c55352fee566f55aeabc9d968e"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-ema/velocity-crps-2p2-02512-2014-04-maps.npz",
+      "path": "/tmp/velocity-combined-results/initializers-ema/velocity-crps-2p2-02512-2014-04-maps.npz",
+      "sha256": "279fae41db69e03b17a467c9c70afecceef746a503c10aabb6208e97ef046941"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-ema/control-02128-2014-05.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/control-02128-2014-05.json",
+      "sha256": "c0cec08258a3d5730007e136cdf557d565476c7ded2e01f15ceec84f4fa9d322"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-ema/velocity-mean-mse-02256-2014-05.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/velocity-mean-mse-02256-2014-05.json",
+      "sha256": "69edfcbd19a176e9e1644b62d3a17be21f57fa3a25bcc702828089abe3ebbd9f"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-ema/control-02256-2014-04.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/control-02256-2014-04.json",
+      "sha256": "3bec2519cb25e5aeb8b675c5c16e62810dc9274ae04b9e107e08353d05c852d6"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-ema/control-02512-2014-05-maps.npz",
+      "path": "/tmp/velocity-combined-results/initializers-ema/control-02512-2014-05-maps.npz",
+      "sha256": "aef5e9078454ecd5973a48e7cfe8b9b7510271272b7429e670fcace6551e9c43"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-ema/parent-02000-2014-01-maps.npz",
+      "path": "/tmp/velocity-combined-results/initializers-ema/parent-02000-2014-01-maps.npz",
+      "sha256": "9eb9a9a7700318e1f6b6c70905020711664cea982f909b28703e12d4c199d74c"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-ema/parent-02000-2014-05-maps.npz",
+      "path": "/tmp/velocity-combined-results/initializers-ema/parent-02000-2014-05-maps.npz",
+      "sha256": "8bb53c60f7b095774571c2d5c6ae0f4f01207ad194ec603ab5476cbe733bbbf9"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-ema/velocity-crps-2p2-02512-2014-05.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/velocity-crps-2p2-02512-2014-05.json",
+      "sha256": "c658527214a02a05d54787d300cf34f48396f03b0eb7518694e05ed7ff7d40df"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-ema/control-02256-2014-05.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/control-02256-2014-05.json",
+      "sha256": "755b6b476cd121c45643865cab886a34fe1ae3a2a565033eba57791be2db1c8c"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-ema/velocity-mean-mse-02512-2014-04.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/velocity-mean-mse-02512-2014-04.json",
+      "sha256": "47245c8acf89607ab4ad874b22bad97f530b859b405ac8084523ccd632d6553c"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-ema/parent-02000-2014-05.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/parent-02000-2014-05.json",
+      "sha256": "f2d4230fff98fa82676d69a690bb629c2c9eebcca45d82c58c1740c3b541cd7b"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-ema/input-2014-04.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/input-2014-04.json",
+      "sha256": "3b14a086802d384f807fe499d442ce4dbd44178435938a08657ea953018a8350"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-ema/velocity-mean-mse-02384-2014-04.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/velocity-mean-mse-02384-2014-04.json",
+      "sha256": "5b10ca793fe140d8afb8232c94b53e8e0320216e3c5420abc1e8ddb5cae5fdcd"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-ema/control-02512-2014-01-maps.npz",
+      "path": "/tmp/velocity-combined-results/initializers-ema/control-02512-2014-01-maps.npz",
+      "sha256": "f88216c6ca0bf6655982412ab724d6f834ee37dc836589ab86f2455be4c603e0"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-ema/velocity-mean-mse-02128-2014-05.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/velocity-mean-mse-02128-2014-05.json",
+      "sha256": "475832ac6deee18eb3fc18afdc995e594da54513260d97c8b37fe23f6aaafae7"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-ema/input-2014-05.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/input-2014-05.json",
+      "sha256": "c6b1851c1f1cbba2e1694997505613f86151a1816cca48aaf351006c1896adb4"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-ema/control-02384-2014-05.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/control-02384-2014-05.json",
+      "sha256": "49fe03de85c89acc0236812cb9a1aa82abf57cdac7438b8e93cea95257855b8e"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-ema/velocity-mean-mse-02256-2014-04.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/velocity-mean-mse-02256-2014-04.json",
+      "sha256": "bdc84740cb6c932a74517127a6171bfe88170c30679247f56b19f7ea31754f7a"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-ema/input-2014-01.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/input-2014-01.json",
+      "sha256": "88817cafeef437fdef94cb6aadf9b2db03db4eb2a50c5e975addf081a14d7533"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-ema/control-02128-2014-04.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/control-02128-2014-04.json",
+      "sha256": "11591264579926257bdc04b4b2f24be6df0f1b42b80f252a6e1bcc9d0d6d6aa3"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-ema/parent-02000-2014-04-maps.npz",
+      "path": "/tmp/velocity-combined-results/initializers-ema/parent-02000-2014-04-maps.npz",
+      "sha256": "22668ece276da3d5673ec0db974bd22d8f0d7b470afcb470c6d3eaf4464b219e"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-ema/velocity-crps-2p2-02256-2014-01.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/velocity-crps-2p2-02256-2014-01.json",
+      "sha256": "ce787241f522825a90f54ae9f0dd47481e9835f19f9047e04b7f4df43e43f4d8"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-ema/velocity-mean-mse-02128-2014-04.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/velocity-mean-mse-02128-2014-04.json",
+      "sha256": "0ede73fa71324f08974c05de569cbd436304732412fc2699b3c66f45fe85b559"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-ema/velocity-crps-2p2-02512-2014-04.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/velocity-crps-2p2-02512-2014-04.json",
+      "sha256": "dbda6fd3ad13f4e4641f6971e0c73499e4f7d31679504c278a9672bd836195ce"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-ema/velocity-crps-2p2-02384-2014-01.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/velocity-crps-2p2-02384-2014-01.json",
+      "sha256": "ff952e27d74619e5273146c93b7c7e36f35c468b2293ac7158a78c35f1cf8763"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-ema/velocity-mean-mse-02512-2014-01.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/velocity-mean-mse-02512-2014-01.json",
+      "sha256": "5e5b8bde2679413732aa41c9d4d7abb646d6f353b5401ea369eeea067cc490c2"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-ema/velocity-mean-mse-02512-2014-04-maps.npz",
+      "path": "/tmp/velocity-combined-results/initializers-ema/velocity-mean-mse-02512-2014-04-maps.npz",
+      "sha256": "eb50448437dd8cf2a1ea600e792104bae8d4c95a486e3274867220a15656524c"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-ema/control-02384-2014-01.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/control-02384-2014-01.json",
+      "sha256": "412db268c1abdb18a901a09b482e2c7850cc89d4c452b14d1e529dd6c062f0eb"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-ema/velocity-crps-2p2-02256-2014-04.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/velocity-crps-2p2-02256-2014-04.json",
+      "sha256": "e070d8a7d4d307141e08cf797fc031b0849b73fceb4caff626211b52731b0f19"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-ema/velocity-crps-2p2-02128-2014-01.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/velocity-crps-2p2-02128-2014-01.json",
+      "sha256": "6b6a15f5c96ebd0517a93b3f05fb7a8f049e1e2412ab269581f01819ad8198c5"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-ema/control-02128-2014-01.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/control-02128-2014-01.json",
+      "sha256": "2a22796ce67f9cf491703c6bc6ba295a1b7a4ae709517e1ec7b7bd683f9009cc"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-ema/velocity-mean-mse-02256-2014-01.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/velocity-mean-mse-02256-2014-01.json",
+      "sha256": "6efdd222ff00ed7346294626a1cbf1a2df40fc35fba3e26ee36c51175283c830"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-ema/parent-02000-2014-04.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/parent-02000-2014-04.json",
+      "sha256": "4e4b0365aa2cee6d6d1710244d1c4f98b4d2c173ea1dcebcb9dc72dd53cbc495"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-ema/velocity-crps-2p2-02256-2014-05.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/velocity-crps-2p2-02256-2014-05.json",
+      "sha256": "c7c1166f46a97817ea88e90d3705879c87ef627d17c877bef373e05ed52dcc28"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-ema/velocity-mean-mse-02384-2014-05.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/velocity-mean-mse-02384-2014-05.json",
+      "sha256": "33fa59e878ac4c2bdbd673539b7f9dc98ecafe83210f956ff2f5bdb794e18d4f"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-ema/velocity-mean-mse-02384-2014-01.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/velocity-mean-mse-02384-2014-01.json",
+      "sha256": "15d54c29a7fbbe8b6d0da6d79c7226308205035d281e476d0b493d00eff02a55"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-ema/velocity-mean-mse-02128-2014-01.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/velocity-mean-mse-02128-2014-01.json",
+      "sha256": "f1818564fcd0f1f07160eb738b5cf3fa1d60ba26d50b3fdc93b35c5ece4822c2"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-ema/control-02384-2014-04.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/control-02384-2014-04.json",
+      "sha256": "4551b7cd8d93fc7de8be5803ede10a272db29d9e86480c6d0ead0b9cef2d4550"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-ema/control-02512-2014-01.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/control-02512-2014-01.json",
+      "sha256": "b2c6545009025c49929ff75af59aea9de21c7bf12a3d325dd345506bfcc22699"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-ema/velocity-mean-mse-02512-2014-05.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/velocity-mean-mse-02512-2014-05.json",
+      "sha256": "859ab3b02020247f1e1781dddba2ae02b868e9896ce88f7acd0ab63c816e6a18"
+    },
+    {
+      "source": "/tmp/velocity-wave3-results/initializers-ema/velocity-mean-mse-corrected-02128-2014-04.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/velocity-mean-mse-corrected-02128-2014-04.json",
+      "sha256": "c3a968a6d84a454d856d3734520cd868cbd82f1cc57506b4b486bcd51868bc3f"
+    },
+    {
+      "source": "/tmp/velocity-wave3-results/initializers-ema/grid.npz",
+      "path": "/tmp/velocity-combined-results/initializers-ema/grid.npz",
+      "sha256": "129e14065e95ada1c1d1b3713b68b4173ebcbf7e51c0ba2d9ade2f5f18b9ab11"
+    },
+    {
+      "source": "/tmp/velocity-wave3-results/initializers-ema/velocity-mean-mse-corrected-02384-2014-01.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/velocity-mean-mse-corrected-02384-2014-01.json",
+      "sha256": "50ad333178f92db84a501ebf9215b313ad5e63234fb565b2e9a5dfe8b62a10b5"
+    },
+    {
+      "source": "/tmp/velocity-wave3-results/initializers-ema/velocity-mean-mse-corrected-02512-2014-05.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/velocity-mean-mse-corrected-02512-2014-05.json",
+      "sha256": "68e65faaabaae9de63b043a3c63837257b8443df5a8d57d2801ff1d3ad3f032c"
+    },
+    {
+      "source": "/tmp/velocity-wave3-results/initializers-ema/velocity-mean-mse-corrected-02128-2014-01.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/velocity-mean-mse-corrected-02128-2014-01.json",
+      "sha256": "604c6b92267ba3ecdf507fbf7bd5d33d950c7d125d2c2b1955a9321a1dc5d87b"
+    },
+    {
+      "source": "/tmp/velocity-wave3-results/initializers-ema/velocity-mean-mse-corrected-02512-2014-05-maps.npz",
+      "path": "/tmp/velocity-combined-results/initializers-ema/velocity-mean-mse-corrected-02512-2014-05-maps.npz",
+      "sha256": "1983f180e7e417572576399efc7f50e2934f242062a836a9645b3f8f3b5d21cb"
+    },
+    {
+      "source": "/tmp/velocity-wave3-results/initializers-ema/velocity-mean-mse-corrected-02128-2014-05.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/velocity-mean-mse-corrected-02128-2014-05.json",
+      "sha256": "39c9810943a2ea3b5ddd82eb85faa3ca6550f81ad8c72b32823f149d651a935d"
+    },
+    {
+      "source": "/tmp/velocity-wave3-results/initializers-ema/velocity-mean-mse-corrected-02384-2014-04.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/velocity-mean-mse-corrected-02384-2014-04.json",
+      "sha256": "e0b01e48bb867bfb226060c71d7cbc8c18d6b34392502358ce6cb58a3296214d"
+    },
+    {
+      "source": "/tmp/velocity-wave3-results/initializers-ema/input-2014-04.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/input-2014-04.json",
+      "sha256": "3b14a086802d384f807fe499d442ce4dbd44178435938a08657ea953018a8350"
+    },
+    {
+      "source": "/tmp/velocity-wave3-results/initializers-ema/velocity-mean-mse-corrected-02512-2014-04-maps.npz",
+      "path": "/tmp/velocity-combined-results/initializers-ema/velocity-mean-mse-corrected-02512-2014-04-maps.npz",
+      "sha256": "495de4fa77564c0141004c9260e82b73c7daefbeb10e9012d5812cf3cac68e83"
+    },
+    {
+      "source": "/tmp/velocity-wave3-results/initializers-ema/velocity-mean-mse-corrected-02256-2014-05.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/velocity-mean-mse-corrected-02256-2014-05.json",
+      "sha256": "224bff22eb779b87b45de54d9c13bd0c80b5890f9a27073eb1c10a37c162efcd"
+    },
+    {
+      "source": "/tmp/velocity-wave3-results/initializers-ema/velocity-mean-mse-corrected-02512-2014-01.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/velocity-mean-mse-corrected-02512-2014-01.json",
+      "sha256": "4c22970cb53fea9741ecea71481357bfdc4a218fb068ff6c15bbdeac2412a466"
+    },
+    {
+      "source": "/tmp/velocity-wave3-results/initializers-ema/velocity-mean-mse-corrected-02512-2014-01-maps.npz",
+      "path": "/tmp/velocity-combined-results/initializers-ema/velocity-mean-mse-corrected-02512-2014-01-maps.npz",
+      "sha256": "ff916ea2d0fb78ea7a1bff634d5ebfb8ec4f0d0a7212d6e9cc38191ef125aee6"
+    },
+    {
+      "source": "/tmp/velocity-wave3-results/initializers-ema/velocity-mean-mse-corrected-02384-2014-05.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/velocity-mean-mse-corrected-02384-2014-05.json",
+      "sha256": "4a6788066a23a23c054744047c2a49b8a0cb3b5a3713481b9dd56d4fd06dfc7b"
+    },
+    {
+      "source": "/tmp/velocity-wave3-results/initializers-ema/input-2014-05.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/input-2014-05.json",
+      "sha256": "c6b1851c1f1cbba2e1694997505613f86151a1816cca48aaf351006c1896adb4"
+    },
+    {
+      "source": "/tmp/velocity-wave3-results/initializers-ema/input-2014-01.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/input-2014-01.json",
+      "sha256": "88817cafeef437fdef94cb6aadf9b2db03db4eb2a50c5e975addf081a14d7533"
+    },
+    {
+      "source": "/tmp/velocity-wave3-results/initializers-ema/velocity-mean-mse-corrected-02256-2014-01.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/velocity-mean-mse-corrected-02256-2014-01.json",
+      "sha256": "2694f56f2549b0f35b83abc6b343deb0c6705c806ab60d411fe88c6cfc2191dd"
+    },
+    {
+      "source": "/tmp/velocity-wave3-results/initializers-ema/velocity-mean-mse-corrected-02512-2014-04.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/velocity-mean-mse-corrected-02512-2014-04.json",
+      "sha256": "9597456eea1cfcafb81c5f3ab4fe0704585d2d08b8a9865592cf87b2a85dccf1"
+    },
+    {
+      "source": "/tmp/velocity-wave3-results/initializers-ema/velocity-mean-mse-corrected-02256-2014-04.json",
+      "path": "/tmp/velocity-combined-results/initializers-ema/velocity-mean-mse-corrected-02256-2014-04.json",
+      "sha256": "7e3ea9b3e662c98c820f4a9e9fafa357d39f16bb26bb00d17ba999ffacfad672"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-raw/control-02256-2014-01.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/control-02256-2014-01.json",
+      "sha256": "faca91c3e7ee4ddf905123902863271cda1eddd2f97d9ea6f9adc20840c6f7e6"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-raw/velocity-crps-2p2-02384-2014-04.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/velocity-crps-2p2-02384-2014-04.json",
+      "sha256": "90de33f94edccd54aa68830d5b3f42d076f831762cef51875f320fd04a30d824"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-raw/velocity-crps-2p2-02512-2014-01-maps.npz",
+      "path": "/tmp/velocity-combined-results/initializers-raw/velocity-crps-2p2-02512-2014-01-maps.npz",
+      "sha256": "5d01e9f2d405730b6bf9f4a9ebb1cbcc09d24a106809105cee92eb16bbc04c88"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-raw/velocity-mean-mse-02512-2014-05-maps.npz",
+      "path": "/tmp/velocity-combined-results/initializers-raw/velocity-mean-mse-02512-2014-05-maps.npz",
+      "sha256": "50653e97c7c2d4045c26c56b7435bf91954b962167309bb48a173413aad44e17"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-raw/velocity-crps-2p2-02384-2014-05.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/velocity-crps-2p2-02384-2014-05.json",
+      "sha256": "d07e12c7139718b3da915be1d5a7d9f1b0469ec6e264d3648f092dcad7120bda"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-raw/velocity-crps-2p2-02512-2014-01.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/velocity-crps-2p2-02512-2014-01.json",
+      "sha256": "d7f1d2b78469e80fb4f7f4b46642e1ff4b9641edf3ccccf9028ec3b872211e10"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-raw/velocity-crps-2p2-02128-2014-05.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/velocity-crps-2p2-02128-2014-05.json",
+      "sha256": "1db3224abd9010cbe9671e3c531ba85611d7b082950b471df9c8de10037a58d3"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-raw/velocity-crps-2p2-02512-2014-05-maps.npz",
+      "path": "/tmp/velocity-combined-results/initializers-raw/velocity-crps-2p2-02512-2014-05-maps.npz",
+      "sha256": "efbe047d9fdc66ca936b0203f8b8eae4388861cdfbead919dc6f21eb25e6d049"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-raw/grid.npz",
+      "path": "/tmp/velocity-combined-results/initializers-raw/grid.npz",
+      "sha256": "129e14065e95ada1c1d1b3713b68b4173ebcbf7e51c0ba2d9ade2f5f18b9ab11"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-raw/control-02512-2014-04.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/control-02512-2014-04.json",
+      "sha256": "7197ccfed6d96d3649c043766e3f71312418082d982e0695edcba51637ace4ea"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-raw/velocity-crps-2p2-02128-2014-04.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/velocity-crps-2p2-02128-2014-04.json",
+      "sha256": "a37d691b55bde3be124604b6e84a2c2dd2bdf79fe81e571b667c8f45e6512dea"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-raw/velocity-mean-mse-02512-2014-01-maps.npz",
+      "path": "/tmp/velocity-combined-results/initializers-raw/velocity-mean-mse-02512-2014-01-maps.npz",
+      "sha256": "bfd2959c31b797ac3f25a60797343d6e6a6f7b01f408a284f9ccaa98b5444dcf"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-raw/control-02512-2014-05.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/control-02512-2014-05.json",
+      "sha256": "6f903e5acf6748d3c586cd5cbc45d9fd5088857c71dea1585e0142e55f287aea"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-raw/control-02512-2014-04-maps.npz",
+      "path": "/tmp/velocity-combined-results/initializers-raw/control-02512-2014-04-maps.npz",
+      "sha256": "c254cec6534a94d9e7860f9c245f2fed7bc3268a0a94e9168d7e9af4d0a458ca"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-raw/parent-02000-2014-01.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/parent-02000-2014-01.json",
+      "sha256": "ebf2d39572dd079e66a3c08a583f8fe56051f0c30e567ee4f9d1ccd7a796fb1c"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-raw/velocity-crps-2p2-02512-2014-04-maps.npz",
+      "path": "/tmp/velocity-combined-results/initializers-raw/velocity-crps-2p2-02512-2014-04-maps.npz",
+      "sha256": "324630eb134a3e3e045e599bfce0f65ace77d81fd8667bded4c99273be75f399"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-raw/control-02128-2014-05.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/control-02128-2014-05.json",
+      "sha256": "506d101cc35a8d56009b26c03162201d0c8bad02a4dc8a1e5e6e1c66b425989e"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-raw/velocity-mean-mse-02256-2014-05.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/velocity-mean-mse-02256-2014-05.json",
+      "sha256": "a50b6afdef8ef85ec3b141396f123611dbed80779be73fe310a7669b976bd5c3"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-raw/control-02256-2014-04.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/control-02256-2014-04.json",
+      "sha256": "66dc8873740bab0b950942182fd9321b78aa089bbf1b1de50d7d4f3c363b7188"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-raw/control-02512-2014-05-maps.npz",
+      "path": "/tmp/velocity-combined-results/initializers-raw/control-02512-2014-05-maps.npz",
+      "sha256": "f1ec5b7656881d5bd37d9c0310614f502ddfbb134c0c801f6ef967fa815bea51"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-raw/parent-02000-2014-01-maps.npz",
+      "path": "/tmp/velocity-combined-results/initializers-raw/parent-02000-2014-01-maps.npz",
+      "sha256": "9eb9a9a7700318e1f6b6c70905020711664cea982f909b28703e12d4c199d74c"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-raw/parent-02000-2014-05-maps.npz",
+      "path": "/tmp/velocity-combined-results/initializers-raw/parent-02000-2014-05-maps.npz",
+      "sha256": "8bb53c60f7b095774571c2d5c6ae0f4f01207ad194ec603ab5476cbe733bbbf9"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-raw/velocity-crps-2p2-02512-2014-05.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/velocity-crps-2p2-02512-2014-05.json",
+      "sha256": "8cb2bec11145b2cc4459d0f2d2579a7e4db8e76b74d7407dfaba538ad15ea952"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-raw/control-02256-2014-05.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/control-02256-2014-05.json",
+      "sha256": "cabba8e2e4b836ec36feb492b349644cc1345f00f7994e9490d3631e79738e31"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-raw/velocity-mean-mse-02512-2014-04.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/velocity-mean-mse-02512-2014-04.json",
+      "sha256": "870172fb79cd833255637902dbbda06bc9b05909ec32005fa04701c3b255a7af"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-raw/parent-02000-2014-05.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/parent-02000-2014-05.json",
+      "sha256": "0ea945e221f7ed0bf8eab1b38f6b71518324e4cf0cf88192516e03d1f3f59285"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-raw/input-2014-04.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/input-2014-04.json",
+      "sha256": "1aeda079e80c7469e9e6ae5655593903fc5835ffb3a23ad062155de53793ef0d"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-raw/velocity-mean-mse-02384-2014-04.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/velocity-mean-mse-02384-2014-04.json",
+      "sha256": "4ace5e4a7f2167234cd4f0d0bb72bdb5d3139cbf05120df83e578f1f8373aa11"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-raw/control-02512-2014-01-maps.npz",
+      "path": "/tmp/velocity-combined-results/initializers-raw/control-02512-2014-01-maps.npz",
+      "sha256": "8aae37c95c26ceab87a051d273febee60c6da46931ef0ede390ace46db786749"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-raw/velocity-mean-mse-02128-2014-05.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/velocity-mean-mse-02128-2014-05.json",
+      "sha256": "ac24d547f3c4d9e63cff57bcfeec4a1bcdf8b48411fa68009e78a7ddfc59dc36"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-raw/input-2014-05.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/input-2014-05.json",
+      "sha256": "c25f6ec0932042dc3d79d80c47f42c6938265e8dc8b4b5a4a76dad98bffe9180"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-raw/control-02384-2014-05.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/control-02384-2014-05.json",
+      "sha256": "af9e0e21aba4339210afeee493b383d49caf8910ebd9320adb80282e8091b7c0"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-raw/velocity-mean-mse-02256-2014-04.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/velocity-mean-mse-02256-2014-04.json",
+      "sha256": "4b64660a1c6b52276b2cff735ac9be78efc4111beb8afece53fc96607da8127c"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-raw/input-2014-01.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/input-2014-01.json",
+      "sha256": "6fc037d87514f4d248cd216062a3ca44b0e23adb4ce0a744f5bce6a4b343769d"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-raw/control-02128-2014-04.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/control-02128-2014-04.json",
+      "sha256": "89f0aa2702e9d60e9140ad5b41f9638f9b43b772679631a363cf592ba4c80da6"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-raw/parent-02000-2014-04-maps.npz",
+      "path": "/tmp/velocity-combined-results/initializers-raw/parent-02000-2014-04-maps.npz",
+      "sha256": "22668ece276da3d5673ec0db974bd22d8f0d7b470afcb470c6d3eaf4464b219e"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-raw/velocity-crps-2p2-02256-2014-01.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/velocity-crps-2p2-02256-2014-01.json",
+      "sha256": "fa46560c7612f717b934728ae0ff378cbf9f223b8a636f70a6fcc39c35fe1902"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-raw/velocity-mean-mse-02128-2014-04.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/velocity-mean-mse-02128-2014-04.json",
+      "sha256": "ee842696a2f384eedd7517148bd52abd5f0d77a67b2c2c2dcdaeb8aaab80dd94"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-raw/velocity-crps-2p2-02512-2014-04.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/velocity-crps-2p2-02512-2014-04.json",
+      "sha256": "a93f70956bc4f83ddab4aba677d5a825934d693201aba78da89997f3e641d8e9"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-raw/velocity-crps-2p2-02384-2014-01.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/velocity-crps-2p2-02384-2014-01.json",
+      "sha256": "2e9328439e69f926c638178b46e88ac71e4c5870a5de5b16552a277db3b7b06b"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-raw/velocity-mean-mse-02512-2014-01.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/velocity-mean-mse-02512-2014-01.json",
+      "sha256": "69222935b49a8cef8a1290de832603c5d32ea8d8e48fde018397f6bd575ea311"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-raw/velocity-mean-mse-02512-2014-04-maps.npz",
+      "path": "/tmp/velocity-combined-results/initializers-raw/velocity-mean-mse-02512-2014-04-maps.npz",
+      "sha256": "d0cdd8b979930c2ea1cb5d80dd8e902fbc5bbc3001375fb3aa94fefc33f4e672"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-raw/control-02384-2014-01.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/control-02384-2014-01.json",
+      "sha256": "77d7a246cb7a71ef4a15734d6b493248de30e71ee13f405cbce525f548c1eaf1"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-raw/velocity-crps-2p2-02256-2014-04.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/velocity-crps-2p2-02256-2014-04.json",
+      "sha256": "bd7bc342c5f96313ed3edbc22bc833beddfab36e32688d89bc99d34abae42319"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-raw/velocity-crps-2p2-02128-2014-01.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/velocity-crps-2p2-02128-2014-01.json",
+      "sha256": "2de4fc135ac1930bb1364e826fc38987509c45c9546655b6d89801058bdf4d1f"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-raw/control-02128-2014-01.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/control-02128-2014-01.json",
+      "sha256": "dfa3cb24be9c48961c9a2b12648aeee36aa8d717c6c898c36b2e7920a64cf329"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-raw/velocity-mean-mse-02256-2014-01.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/velocity-mean-mse-02256-2014-01.json",
+      "sha256": "42e5841ab3c8c664e74aee913ae0ecd9380a8bf23c0b0c9b2b3ac4b75037076f"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-raw/parent-02000-2014-04.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/parent-02000-2014-04.json",
+      "sha256": "db07f6c03b1f806058a829bebf30b98b4a01b015df34465c2a5090e9bf85ff74"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-raw/velocity-crps-2p2-02256-2014-05.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/velocity-crps-2p2-02256-2014-05.json",
+      "sha256": "2264e9942ce773a3e4d663991e05345422c99ac9cc320d26bdf265d64d506340"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-raw/velocity-mean-mse-02384-2014-05.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/velocity-mean-mse-02384-2014-05.json",
+      "sha256": "2edb3592c7faef06dd250a94d8399f13a869547fb5b72629b69964a7ac193b18"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-raw/velocity-mean-mse-02384-2014-01.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/velocity-mean-mse-02384-2014-01.json",
+      "sha256": "4c1af32563944536478cc7d148f7b0e9cd320c1fe07beb2ac9eb3c84726f2c08"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-raw/velocity-mean-mse-02128-2014-01.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/velocity-mean-mse-02128-2014-01.json",
+      "sha256": "f191138743e9af543d6268f3e7d41e027182833871a4f6d358895bffacbc10e7"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-raw/control-02384-2014-04.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/control-02384-2014-04.json",
+      "sha256": "5f8c2a80bf234cb5b5acb8d9f8fcc10ba139690f2c359e73d643e78280dbb05e"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-raw/control-02512-2014-01.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/control-02512-2014-01.json",
+      "sha256": "708a0a1e84c1aac5c3cbe1507f35637269737f3e1fa5881c0d26b8dbb305ce6e"
+    },
+    {
+      "source": "/tmp/velocity-wave2-results/initializers-raw/velocity-mean-mse-02512-2014-05.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/velocity-mean-mse-02512-2014-05.json",
+      "sha256": "6c7d765bca6a0b26d9a1c42bc1c2d973b9ae095c65f0069d97599f65b7f61fda"
+    },
+    {
+      "source": "/tmp/velocity-wave3-results/initializers-raw/velocity-mean-mse-corrected-02128-2014-04.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/velocity-mean-mse-corrected-02128-2014-04.json",
+      "sha256": "0447d516b9aa2e8c89920138dbd70828d8b8db282fdc1f57b0bb26b911e5bd88"
+    },
+    {
+      "source": "/tmp/velocity-wave3-results/initializers-raw/grid.npz",
+      "path": "/tmp/velocity-combined-results/initializers-raw/grid.npz",
+      "sha256": "129e14065e95ada1c1d1b3713b68b4173ebcbf7e51c0ba2d9ade2f5f18b9ab11"
+    },
+    {
+      "source": "/tmp/velocity-wave3-results/initializers-raw/velocity-mean-mse-corrected-02384-2014-01.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/velocity-mean-mse-corrected-02384-2014-01.json",
+      "sha256": "6586fa21c0838988ec7570cd5ec5c43db2406d7e4461f72eea42c0bdf62ce24c"
+    },
+    {
+      "source": "/tmp/velocity-wave3-results/initializers-raw/velocity-mean-mse-corrected-02512-2014-05.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/velocity-mean-mse-corrected-02512-2014-05.json",
+      "sha256": "9466c860ed20c717e30ed9d46fffa127833f9d14e9ff9b39c4cbd2f055381ccd"
+    },
+    {
+      "source": "/tmp/velocity-wave3-results/initializers-raw/velocity-mean-mse-corrected-02128-2014-01.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/velocity-mean-mse-corrected-02128-2014-01.json",
+      "sha256": "6ab4cb0c78bc35ddb062110c7f2738e7d8f9e759a97d0cf0900411b49657019d"
+    },
+    {
+      "source": "/tmp/velocity-wave3-results/initializers-raw/velocity-mean-mse-corrected-02512-2014-05-maps.npz",
+      "path": "/tmp/velocity-combined-results/initializers-raw/velocity-mean-mse-corrected-02512-2014-05-maps.npz",
+      "sha256": "51bb00f69f9f5e6e9330184000066a5f026239ab7876d2c5b3dcbc781f4f6743"
+    },
+    {
+      "source": "/tmp/velocity-wave3-results/initializers-raw/velocity-mean-mse-corrected-02128-2014-05.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/velocity-mean-mse-corrected-02128-2014-05.json",
+      "sha256": "2f19bc23a62a5de6b2dae7f62e6f617423ae4a4f25ea986d28d9140fea4b103f"
+    },
+    {
+      "source": "/tmp/velocity-wave3-results/initializers-raw/velocity-mean-mse-corrected-02384-2014-04.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/velocity-mean-mse-corrected-02384-2014-04.json",
+      "sha256": "f5d6e53ec3ec1b668f48fa6359093ee136dbbe0990d874c9fda6401c0c5a8151"
+    },
+    {
+      "source": "/tmp/velocity-wave3-results/initializers-raw/input-2014-04.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/input-2014-04.json",
+      "sha256": "1aeda079e80c7469e9e6ae5655593903fc5835ffb3a23ad062155de53793ef0d"
+    },
+    {
+      "source": "/tmp/velocity-wave3-results/initializers-raw/velocity-mean-mse-corrected-02512-2014-04-maps.npz",
+      "path": "/tmp/velocity-combined-results/initializers-raw/velocity-mean-mse-corrected-02512-2014-04-maps.npz",
+      "sha256": "e007ef8b9e77ee753c70865e910e5b40645b7be8d3efad5445f9cdb94a3172b1"
+    },
+    {
+      "source": "/tmp/velocity-wave3-results/initializers-raw/velocity-mean-mse-corrected-02256-2014-05.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/velocity-mean-mse-corrected-02256-2014-05.json",
+      "sha256": "5ffba177f195a547f7247de83df68ad71a05001fc61638493b1cc0224e9fbb19"
+    },
+    {
+      "source": "/tmp/velocity-wave3-results/initializers-raw/velocity-mean-mse-corrected-02512-2014-01.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/velocity-mean-mse-corrected-02512-2014-01.json",
+      "sha256": "980f8077951afeacc3872115d53ee76150d3946bc3fe0e77ca69f56d8f6b854a"
+    },
+    {
+      "source": "/tmp/velocity-wave3-results/initializers-raw/velocity-mean-mse-corrected-02512-2014-01-maps.npz",
+      "path": "/tmp/velocity-combined-results/initializers-raw/velocity-mean-mse-corrected-02512-2014-01-maps.npz",
+      "sha256": "140dc6b5605944291bf6f1261f7de7e0edb085ca2942a835042b317cefb59045"
+    },
+    {
+      "source": "/tmp/velocity-wave3-results/initializers-raw/velocity-mean-mse-corrected-02384-2014-05.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/velocity-mean-mse-corrected-02384-2014-05.json",
+      "sha256": "608310704703f11231516286afd3b7b0594c77d4b5d1584c337461e63b01c47c"
+    },
+    {
+      "source": "/tmp/velocity-wave3-results/initializers-raw/input-2014-05.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/input-2014-05.json",
+      "sha256": "c25f6ec0932042dc3d79d80c47f42c6938265e8dc8b4b5a4a76dad98bffe9180"
+    },
+    {
+      "source": "/tmp/velocity-wave3-results/initializers-raw/input-2014-01.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/input-2014-01.json",
+      "sha256": "6fc037d87514f4d248cd216062a3ca44b0e23adb4ce0a744f5bce6a4b343769d"
+    },
+    {
+      "source": "/tmp/velocity-wave3-results/initializers-raw/velocity-mean-mse-corrected-02256-2014-01.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/velocity-mean-mse-corrected-02256-2014-01.json",
+      "sha256": "96dc5fc62927bb4ea54681894ebc55006970aa3704e9abb30250ef534cd3656c"
+    },
+    {
+      "source": "/tmp/velocity-wave3-results/initializers-raw/velocity-mean-mse-corrected-02512-2014-04.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/velocity-mean-mse-corrected-02512-2014-04.json",
+      "sha256": "9ec7b6ea4c996697af1a85240ac2621ad67eba43c9bb1d75cd2734aa4439b0d1"
+    },
+    {
+      "source": "/tmp/velocity-wave3-results/initializers-raw/velocity-mean-mse-corrected-02256-2014-04.json",
+      "path": "/tmp/velocity-combined-results/initializers-raw/velocity-mean-mse-corrected-02256-2014-04.json",
+      "sha256": "cb471fecb3d40d2a26bfbb0a8ee0feadbcaaf4cde0e6f5a8f79f6bdcc440fc18"
+    }
+  ],
+  "campaigns": [
+    "wave2",
+    "wave3"
+  ],
+  "duplicate_inputs": "byte-identical required"
+}

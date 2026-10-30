@@ -1,0 +1,50 @@
+{
+  "config": {
+    "paths": {
+      "samples": "/scratch/jr7309/data/obs-d-pilot",
+      "om4": "/scratch/jr7309/data/stochastic-onepass-v1/om4-source",
+      "packed_om4": "/scratch/jr7309/data/stochastic-onepass-v1/packed-om4",
+      "forcing_cache": "/scratch/jr7309/data/stochastic-onepass-v1/forcing-cache",
+      "forcing_proof_sha256": "21ef32250de13fac7f4ffaf6cd983cc328e93e8aab3ce04a466da21d93263b14"
+    },
+    "sample_indices": [
+      [
+        17,
+        12
+      ],
+      [
+        205,
+        120
+      ],
+      [
+        380,
+        231
+      ]
+    ],
+    "checkpoints": {
+      "A-MSE": "/scratch/jr7309/stochastic-transitions-20261027/production/A/step-02000.pt",
+      "B-CRPS": "/scratch/jr7309/stochastic-transitions-20261027/production/B/step-02000.pt",
+      "A-MAE": "/scratch/jr7309/stochastic-loss-ablation-20261028/production/A-mae/step-02000.pt",
+      "B-member-MSE": "/scratch/jr7309/stochastic-loss-ablation-20261028/production/B-member-mse/step-02000.pt"
+    }
+  },
+  "script_sha256": "ebacf735d69e3fd56840b4b0598273de7fdd422159935dfc8134a59ee0df2dda",
+  "samples": [
+    {
+      "om4_first": "1976-09-27 00:00:00",
+      "obs_path": "/scratch/jr7309/data/obs-d-pilot/train/1994-05.npz"
+    },
+    {
+      "om4_first": "1994-06-30 00:00:00",
+      "obs_path": "/scratch/jr7309/data/obs-d-pilot/train/2003-05.npz"
+    },
+    {
+      "om4_first": "2010-09-28 00:00:00",
+      "obs_path": "/scratch/jr7309/data/obs-d-pilot/train/2012-08.npz"
+    }
+  ],
+  "weights": "raw checkpoint parameters; training-mode BF16, no optimization",
+  "effective_batch_note": "Three individual microbatch probes; each B has4members; not effective-batch8 gradients",
+  "clipping": "No clipping applied. Shared norms exclude processor; cannot infer actual global clipping factor.",
+  "cuda": "NVIDIA RTX PRO 6000 Blackwell Server Edition"
+}

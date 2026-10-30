@@ -1,0 +1,19 @@
+{
+  "device": "cpu",
+  "updates": 8000,
+  "seeds": [
+    11,
+    23,
+    47
+  ],
+  "members": 4,
+  "batch": 128,
+  "learning_rate": 0.003,
+  "objectives": [
+    "mae",
+    "fair-crps"
+  ],
+  "target": "normal conditioned on coordinate; narrow 4-unit jet plus broad 0.2-unit sinusoid; sigma0.15+0.3jet",
+  "interpretation": "Mechanism illustration; no ocean data or ocean architecture; Gaussian family has known true mean and variance; equal random draws across objectives within seed",
+  "gradient_checks": "nine cases match production fair-CRPS values and gradients"
+}

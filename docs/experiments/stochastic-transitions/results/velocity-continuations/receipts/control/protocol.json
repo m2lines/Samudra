@@ -1,0 +1,133 @@
+{
+  "version": 1,
+  "objective": "fair-crps",
+  "ensemble_mean_mse_weight": 0.0,
+  "architecture": "samudra-stochastic-transition",
+  "arm": "B",
+  "widths": [
+    64,
+    128,
+    256
+  ],
+  "history": 19,
+  "physical_history_slots": 2,
+  "state_channels": 77,
+  "forcing_channels": 8,
+  "forcing_adapter": [
+    8,
+    32,
+    3
+  ],
+  "main_updates": 2512,
+  "cooldown_updates": 0,
+  "effective_batch": 8,
+  "training_members": 4,
+  "seed": 1729,
+  "learning_rate": 0.0001,
+  "minimum_lr": 1e-06,
+  "ema_half_life": 100,
+  "ema_reset_at_cooldown": true,
+  "retain_adam": true,
+  "gradient_clip": 1.0,
+  "observation_weights": [
+    0.5,
+    0.5,
+    0.1
+  ],
+  "om4_weights": [
+    0.5,
+    0.5,
+    0.1
+  ],
+  "loss": "fair-CRPS",
+  "spatial_gradient_loss": false,
+  "replay": false,
+  "initialization_task": "surface",
+  "artificial_hiding": false,
+  "initial_reconstruction": "latest state, available surface for OBS; all fields for OM4",
+  "monthly_readout": "calendar-weighted member trajectories, not direct denoising",
+  "native_readout": "all native leads averaged, not random single-lead subsampling",
+  "normalization": "fixed OM4 grid mean/std, frozen OBS ERA5 statistics",
+  "global_observations": true,
+  "precision": "bf16 autocast with fp32 parameters/loss",
+  "activation_checkpointing": false,
+  "grid": "ce96360964a6669d0186b9581abaaffc06f660c4e09e0ac813b3dd1b819e5167",
+  "statistics": "7688d483d4c87a8ce0e2f27a1a342db93eecb3e892187506475d6970e865c001",
+  "observation_manifest": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+  "om4_metadata": "ddd8d3ee72b1e6db0d847e5def41e7c55d57d65348b7d0f641b652ffefc8db77",
+  "packed_proof": "9cd13df5c9654bade619cfd37d10befc24588dbcbdc582fcf7734c97267ee9ed",
+  "shared_era5_proof": "21ef32250de13fac7f4ffaf6cd983cc328e93e8aab3ce04a466da21d93263b14",
+  "reference": null,
+  "producer": "c1dab709045e2c04d1358f280b05e6fde160194115f0b4bde06e527d0cfeed35",
+  "fork_lineage": {
+    "path": "/scratch/jr7309/stochastic-transitions-20261027/production/B/step-02000.pt",
+    "sha256": "090953de381c45269bbb135fd27762bb4b488b2837005e59a690b15befec9358",
+    "step": 2000,
+    "counts": {
+      "om4": 1000,
+      "observation": 1000
+    },
+    "parent_contract": {
+      "version": 1,
+      "architecture": "samudra-stochastic-transition",
+      "arm": "B",
+      "widths": [
+        64,
+        128,
+        256
+      ],
+      "history": 19,
+      "physical_history_slots": 2,
+      "state_channels": 77,
+      "forcing_channels": 8,
+      "forcing_adapter": [
+        8,
+        32,
+        3
+      ],
+      "main_updates": 4000,
+      "cooldown_updates": 1000,
+      "effective_batch": 8,
+      "training_members": 4,
+      "seed": 1729,
+      "learning_rate": 0.0001,
+      "minimum_lr": 1e-06,
+      "ema_half_life": 100,
+      "ema_reset_at_cooldown": true,
+      "retain_adam": true,
+      "gradient_clip": 1.0,
+      "observation_weights": [
+        0.5,
+        0.5,
+        0.1
+      ],
+      "om4_weights": [
+        0.5,
+        0.5,
+        0.1
+      ],
+      "loss": "fair-CRPS",
+      "spatial_gradient_loss": false,
+      "replay": false,
+      "initialization_task": "surface",
+      "artificial_hiding": false,
+      "initial_reconstruction": "latest state, available surface for OBS; all fields for OM4",
+      "monthly_readout": "calendar-weighted member trajectories, not direct denoising",
+      "native_readout": "all native leads averaged, not random single-lead subsampling",
+      "normalization": "fixed OM4 grid mean/std, frozen OBS ERA5 statistics",
+      "global_observations": true,
+      "precision": "bf16 autocast with fp32 parameters/loss",
+      "activation_checkpointing": false,
+      "grid": "ce96360964a6669d0186b9581abaaffc06f660c4e09e0ac813b3dd1b819e5167",
+      "statistics": "7688d483d4c87a8ce0e2f27a1a342db93eecb3e892187506475d6970e865c001",
+      "observation_manifest": "d6e6672ca11aec3491a4fc896d9e99d528075a889cc0e6187b580ef8a52500f3",
+      "om4_metadata": "ddd8d3ee72b1e6db0d847e5def41e7c55d57d65348b7d0f641b652ffefc8db77",
+      "packed_proof": "9cd13df5c9654bade619cfd37d10befc24588dbcbdc582fcf7734c97267ee9ed",
+      "shared_era5_proof": "21ef32250de13fac7f4ffaf6cd983cc328e93e8aab3ce04a466da21d93263b14",
+      "reference": null,
+      "producer": "8ade59f9f0750c869a14b9cb197344522226bbfac24136f3049b2da48d0431ca"
+    },
+    "retain_adam": true,
+    "reset_ema_to_raw": true
+  }
+}

@@ -1,0 +1,5799 @@
+{
+  "om4": {
+    "loss": 0.1584000289440155,
+    "components": {
+      "forecast": 0.13221484422683716,
+      "initializer_velocity": 0.02520647831261158,
+      "initializer_other": 0.0009787010494619608
+    },
+    "members": 4,
+    "parameter_count": 11567005,
+    "preclip_shared_norm": 0.2687393128871918,
+    "gradient_norms": {
+      "shared": {
+        "forecast": 0.25611671805381775,
+        "initializer_velocity": 0.062218401581048965,
+        "initializer_other": 0.008542132563889027
+      },
+      "initializer": {
+        "forecast": 0.2553253769874573,
+        "initializer_velocity": 0.06197752058506012,
+        "initializer_other": 0.008511606603860855
+      },
+      "forcing_adapter": {
+        "forecast": 0.020127691328525543,
+        "initializer_velocity": 0.0054736509919166565,
+        "initializer_other": 0.0007217262173071504
+      }
+    },
+    "cosines": {
+      "shared": {
+        "forecast__initializer_velocity": 0.0533980056643486,
+        "forecast__initializer_other": 0.26116621494293213,
+        "initializer_other__initializer_velocity": -0.16471241414546967
+      },
+      "initializer": {
+        "forecast__initializer_velocity": 0.054502204060554504,
+        "forecast__initializer_other": 0.2615090012550354,
+        "initializer_other__initializer_velocity": -0.16498243808746338
+      },
+      "forcing_adapter": {
+        "forecast__initializer_velocity": -0.10492736846208572,
+        "forecast__initializer_other": 0.2103700339794159,
+        "initializer_other__initializer_velocity": -0.1286170780658722
+      }
+    },
+    "velocity_mean_mse_counterfactual": {
+      "loss": 0.025204170495271683,
+      "initializer_norm": 0.061991557478904724,
+      "cosine_with_actual_velocity": 1.004571795463562,
+      "equal_norm_aux_coefficient": 0.9997735619544983,
+      "crps_multiplier_matching_unit_aux_combined_norm": 2.0002026557922363
+    },
+    "output_objective_swaps": [
+      {
+        "objective": "member-mse",
+        "channel": "uo_0",
+        "speed_band": "all",
+        "count": 179568,
+        "mean_abs_gradient": 5.761860766284599e-09,
+        "rms_gradient": 1.0980481413014331e-08,
+        "zero_fraction": 0.0003174284938722849,
+        "normalized_absolute_residual": 0.359306275844574
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_0",
+        "speed_band": "bottom50",
+        "count": 89784,
+        "mean_abs_gradient": 2.7937965274560383e-09,
+        "rms_gradient": 4.265682029824802e-09,
+        "zero_fraction": 0.0005123407463543117,
+        "normalized_absolute_residual": 0.21658338606357574
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_0",
+        "speed_band": "50to90",
+        "count": 71824,
+        "mean_abs_gradient": 5.9879887714942015e-09,
+        "rms_gradient": 8.1094322368358e-09,
+        "zero_fraction": 0.00015315214113797992,
+        "normalized_absolute_residual": 0.37306737899780273
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_0",
+        "speed_band": "90to99",
+        "count": 16164,
+        "mean_abs_gradient": 1.5754650917187973e-08,
+        "rms_gradient": 2.128043163907023e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.8344038724899292
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_0",
+        "speed_band": "top1",
+        "count": 1796,
+        "mean_abs_gradient": 5.5160391809749854e-08,
+        "rms_gradient": 6.663083951252702e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 2.667975664138794
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_1",
+        "speed_band": "all",
+        "count": 179568,
+        "mean_abs_gradient": 5.783354239952132e-09,
+        "rms_gradient": 1.1772502084284042e-08,
+        "zero_fraction": 0.0004677893593907356,
+        "normalized_absolute_residual": 0.3505106270313263
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_1",
+        "speed_band": "bottom50",
+        "count": 89784,
+        "mean_abs_gradient": 2.5391906355309857e-09,
+        "rms_gradient": 4.000234365975075e-09,
+        "zero_fraction": 0.0007907868130132556,
+        "normalized_absolute_residual": 0.1894264668226242
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_1",
+        "speed_band": "50to90",
+        "count": 71824,
+        "mean_abs_gradient": 5.7610503034766225e-09,
+        "rms_gradient": 8.194626310853437e-09,
+        "zero_fraction": 0.00018099798762705177,
+        "normalized_absolute_residual": 0.35416796803474426
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_1",
+        "speed_band": "90to99",
+        "count": 16164,
+        "mean_abs_gradient": 1.7867799684267993e-08,
+        "rms_gradient": 2.378776997602472e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.9439341425895691
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_1",
+        "speed_band": "top1",
+        "count": 1796,
+        "mean_abs_gradient": 6.009460662426136e-08,
+        "rms_gradient": 7.265369816877865e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 2.916210889816284
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_2",
+        "speed_band": "all",
+        "count": 178016,
+        "mean_abs_gradient": 5.82651438207904e-09,
+        "rms_gradient": 1.2254328218830324e-08,
+        "zero_fraction": 0.0004887201357632875,
+        "normalized_absolute_residual": 0.3468233644962311
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_2",
+        "speed_band": "bottom50",
+        "count": 89008,
+        "mean_abs_gradient": 2.284004541053264e-09,
+        "rms_gradient": 3.6940477343705425e-09,
+        "zero_fraction": 0.000853855861350894,
+        "normalized_absolute_residual": 0.16594219207763672
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_2",
+        "speed_band": "50to90",
+        "count": 71204,
+        "mean_abs_gradient": 5.900390398494437e-09,
+        "rms_gradient": 8.518648897393177e-09,
+        "zero_fraction": 0.00015448570775333792,
+        "normalized_absolute_residual": 0.3594591021537781
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_2",
+        "speed_band": "90to99",
+        "count": 16020,
+        "mean_abs_gradient": 1.879670286086821e-08,
+        "rms_gradient": 2.4935161491157487e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.9931272864341736
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_2",
+        "speed_band": "top1",
+        "count": 1784,
+        "mean_abs_gradient": 6.315221412478422e-08,
+        "rms_gradient": 7.631538068153532e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 3.063399076461792
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_3",
+        "speed_band": "all",
+        "count": 176084,
+        "mean_abs_gradient": 5.717256001958049e-09,
+        "rms_gradient": 1.2151116557390651e-08,
+        "zero_fraction": 0.00042593307443894446,
+        "normalized_absolute_residual": 0.3368360996246338
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_3",
+        "speed_band": "bottom50",
+        "count": 88040,
+        "mean_abs_gradient": 2.2759341078426587e-09,
+        "rms_gradient": 3.7114358253376167e-09,
+        "zero_fraction": 0.0006247160490602255,
+        "normalized_absolute_residual": 0.15911512076854706
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_3",
+        "speed_band": "50to90",
+        "count": 70432,
+        "mean_abs_gradient": 5.792905710677587e-09,
+        "rms_gradient": 8.594210676449165e-09,
+        "zero_fraction": 0.0002697637537494302,
+        "normalized_absolute_residual": 0.3519872725009918
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_3",
+        "speed_band": "90to99",
+        "count": 15848,
+        "mean_abs_gradient": 1.8463394368950503e-08,
+        "rms_gradient": 2.5076918319655306e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.9712103009223938
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_3",
+        "speed_band": "top1",
+        "count": 1764,
+        "mean_abs_gradient": 5.993775431534232e-08,
+        "rms_gradient": 7.383957267848018e-08,
+        "zero_fraction": 0.0005668934318237007,
+        "normalized_absolute_residual": 2.9025187492370605
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_4",
+        "speed_band": "all",
+        "count": 173788,
+        "mean_abs_gradient": 5.5444338009635885e-09,
+        "rms_gradient": 1.194426513251301e-08,
+        "zero_fraction": 0.0004200520343147218,
+        "normalized_absolute_residual": 0.32376742362976074
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_4",
+        "speed_band": "bottom50",
+        "count": 86892,
+        "mean_abs_gradient": 2.1573935971019864e-09,
+        "rms_gradient": 3.5307834433950802e-09,
+        "zero_fraction": 0.0006329696625471115,
+        "normalized_absolute_residual": 0.14927466213703156
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_4",
+        "speed_band": "50to90",
+        "count": 69516,
+        "mean_abs_gradient": 5.560434335194486e-09,
+        "rms_gradient": 8.443038268524106e-09,
+        "zero_fraction": 0.0002157776616513729,
+        "normalized_absolute_residual": 0.335709810256958
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_4",
+        "speed_band": "90to99",
+        "count": 15640,
+        "mean_abs_gradient": 1.824100159808495e-08,
+        "rms_gradient": 2.507669627505038e-08,
+        "zero_fraction": 0.00019181586685590446,
+        "normalized_absolute_residual": 0.9573928117752075
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_4",
+        "speed_band": "top1",
+        "count": 1740,
+        "mean_abs_gradient": 5.992380636143935e-08,
+        "rms_gradient": 7.159834325420888e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 2.865110158920288
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_5",
+        "speed_band": "all",
+        "count": 170740,
+        "mean_abs_gradient": 5.5638840201766016e-09,
+        "rms_gradient": 1.192442145026007e-08,
+        "zero_fraction": 0.0006969661335460842,
+        "normalized_absolute_residual": 0.3183683156967163
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_5",
+        "speed_band": "bottom50",
+        "count": 85368,
+        "mean_abs_gradient": 2.3468198495635306e-09,
+        "rms_gradient": 4.1867895816949385e-09,
+        "zero_fraction": 0.0008316934108734131,
+        "normalized_absolute_residual": 0.1555352360010147
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_5",
+        "speed_band": "50to90",
+        "count": 68296,
+        "mean_abs_gradient": 5.719612783394723e-09,
+        "rms_gradient": 9.15564335457475e-09,
+        "zero_fraction": 0.0006149701657705009,
+        "normalized_absolute_residual": 0.3315644860267639
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_5",
+        "speed_band": "90to99",
+        "count": 15368,
+        "mean_abs_gradient": 1.6376157319086815e-08,
+        "rms_gradient": 2.3620080114028497e-08,
+        "zero_fraction": 0.0003904216573573649,
+        "normalized_absolute_residual": 0.8730427622795105
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_5",
+        "speed_band": "top1",
+        "count": 1708,
+        "mean_abs_gradient": 6.28446841233199e-08,
+        "rms_gradient": 7.047221828315742e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 2.9385366439819336
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_6",
+        "speed_band": "all",
+        "count": 167856,
+        "mean_abs_gradient": 5.408108627591446e-09,
+        "rms_gradient": 1.0686118656622057e-08,
+        "zero_fraction": 0.000488513964228332,
+        "normalized_absolute_residual": 0.3127351403236389
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_6",
+        "speed_band": "bottom50",
+        "count": 83928,
+        "mean_abs_gradient": 2.4001858278666077e-09,
+        "rms_gradient": 4.183666746371273e-09,
+        "zero_fraction": 0.0007506433757953346,
+        "normalized_absolute_residual": 0.15399636328220367
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_6",
+        "speed_band": "50to90",
+        "count": 67140,
+        "mean_abs_gradient": 5.872089037239903e-09,
+        "rms_gradient": 8.862541811538449e-09,
+        "zero_fraction": 0.0002532022772356868,
+        "normalized_absolute_residual": 0.33933112025260925
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_6",
+        "speed_band": "90to99",
+        "count": 15108,
+        "mean_abs_gradient": 1.5084449245250653e-08,
+        "rms_gradient": 2.1253574900015337e-08,
+        "zero_fraction": 0.00013238019892014563,
+        "normalized_absolute_residual": 0.8398082256317139
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_6",
+        "speed_band": "top1",
+        "count": 1680,
+        "mean_abs_gradient": 5.011480297412163e-08,
+        "rms_gradient": 5.7740262349170735e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 2.440086841583252
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_7",
+        "speed_band": "all",
+        "count": 165256,
+        "mean_abs_gradient": 5.952486503701948e-09,
+        "rms_gradient": 1.095252599725427e-08,
+        "zero_fraction": 0.000490148609969765,
+        "normalized_absolute_residual": 0.3506891429424286
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_7",
+        "speed_band": "bottom50",
+        "count": 82628,
+        "mean_abs_gradient": 2.684257482954422e-09,
+        "rms_gradient": 4.1751380130961024e-09,
+        "zero_fraction": 0.0007503509987145662,
+        "normalized_absolute_residual": 0.17213255167007446
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_7",
+        "speed_band": "50to90",
+        "count": 66100,
+        "mean_abs_gradient": 6.839125710200733e-09,
+        "rms_gradient": 1.0034814756920696e-08,
+        "zero_fraction": 0.00027231467538513243,
+        "normalized_absolute_residual": 0.3929145634174347
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_7",
+        "speed_band": "90to99",
+        "count": 14872,
+        "mean_abs_gradient": 1.6559738469368313e-08,
+        "rms_gradient": 2.3014296246515187e-08,
+        "zero_fraction": 6.724044942529872e-05,
+        "normalized_absolute_residual": 0.9511000514030457
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_7",
+        "speed_band": "top1",
+        "count": 1656,
+        "mean_abs_gradient": 3.837353901303686e-08,
+        "rms_gradient": 4.821837507051896e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 2.1824288368225098
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_8",
+        "speed_band": "all",
+        "count": 162432,
+        "mean_abs_gradient": 6.148475062417447e-09,
+        "rms_gradient": 1.0832076569045057e-08,
+        "zero_fraction": 0.0004371059767436236,
+        "normalized_absolute_residual": 0.36565330624580383
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_8",
+        "speed_band": "bottom50",
+        "count": 81216,
+        "mean_abs_gradient": 2.758999029239817e-09,
+        "rms_gradient": 4.068824388525627e-09,
+        "zero_fraction": 0.0006772064371034503,
+        "normalized_absolute_residual": 0.17404137551784515
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_8",
+        "speed_band": "50to90",
+        "count": 64972,
+        "mean_abs_gradient": 7.205086749451084e-09,
+        "rms_gradient": 1.0285606144577741e-08,
+        "zero_fraction": 0.0002462599368300289,
+        "normalized_absolute_residual": 0.41347238421440125
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_8",
+        "speed_band": "90to99",
+        "count": 14616,
+        "mean_abs_gradient": 1.6947883096918304e-08,
+        "rms_gradient": 2.270447829744171e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 1.004878044128418
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_8",
+        "speed_band": "top1",
+        "count": 1628,
+        "mean_abs_gradient": 3.61149083971668e-08,
+        "rms_gradient": 4.506438600060392e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 2.277290105819702
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_9",
+        "speed_band": "all",
+        "count": 158840,
+        "mean_abs_gradient": 6.114854844696538e-09,
+        "rms_gradient": 1.0380503567830601e-08,
+        "zero_fraction": 0.0002770083083305508,
+        "normalized_absolute_residual": 0.36344990134239197
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_9",
+        "speed_band": "bottom50",
+        "count": 79420,
+        "mean_abs_gradient": 2.8644415728251715e-09,
+        "rms_gradient": 4.19119849937033e-09,
+        "zero_fraction": 0.0004029211704619229,
+        "normalized_absolute_residual": 0.17756980657577515
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_9",
+        "speed_band": "50to90",
+        "count": 63536,
+        "mean_abs_gradient": 7.501481213978423e-09,
+        "rms_gradient": 1.0587665855155137e-08,
+        "zero_fraction": 0.0001573910703882575,
+        "normalized_absolute_residual": 0.42591655254364014
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_9",
+        "speed_band": "90to99",
+        "count": 14292,
+        "mean_abs_gradient": 1.505711999527648e-08,
+        "rms_gradient": 2.0366980990615957e-08,
+        "zero_fraction": 0.0001399384200340137,
+        "normalized_absolute_residual": 0.9213346242904663
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_9",
+        "speed_band": "top1",
+        "count": 1592,
+        "mean_abs_gradient": 3.265018477804915e-08,
+        "rms_gradient": 4.095175398788342e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 2.1350719928741455
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_10",
+        "speed_band": "all",
+        "count": 155732,
+        "mean_abs_gradient": 6.399756724562167e-09,
+        "rms_gradient": 1.0845497833145146e-08,
+        "zero_fraction": 0.0002632727846503258,
+        "normalized_absolute_residual": 0.3729100525379181
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_10",
+        "speed_band": "bottom50",
+        "count": 77864,
+        "mean_abs_gradient": 2.9299578319097463e-09,
+        "rms_gradient": 4.207541870471232e-09,
+        "zero_fraction": 0.0003467584610916674,
+        "normalized_absolute_residual": 0.17742738127708435
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_10",
+        "speed_band": "50to90",
+        "count": 62292,
+        "mean_abs_gradient": 8.014699126590585e-09,
+        "rms_gradient": 1.1231023222535441e-08,
+        "zero_fraction": 0.00019264110596850514,
+        "normalized_absolute_residual": 0.44316208362579346
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_10",
+        "speed_band": "90to99",
+        "count": 14016,
+        "mean_abs_gradient": 1.548602135414967e-08,
+        "rms_gradient": 2.1228494517799845e-08,
+        "zero_fraction": 0.0001426940580131486,
+        "normalized_absolute_residual": 0.9425148963928223
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_10",
+        "speed_band": "top1",
+        "count": 1560,
+        "mean_abs_gradient": 3.346478294474764e-08,
+        "rms_gradient": 4.2107451747597224e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 2.207104444503784
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_11",
+        "speed_band": "all",
+        "count": 153372,
+        "mean_abs_gradient": 6.714932165863274e-09,
+        "rms_gradient": 1.1407277789032833e-08,
+        "zero_fraction": 0.0002282033092342317,
+        "normalized_absolute_residual": 0.38979288935661316
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_11",
+        "speed_band": "bottom50",
+        "count": 76684,
+        "mean_abs_gradient": 3.0695044284101414e-09,
+        "rms_gradient": 4.3705004060257124e-09,
+        "zero_fraction": 0.00031297269742935896,
+        "normalized_absolute_residual": 0.18814599514007568
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_11",
+        "speed_band": "50to90",
+        "count": 61348,
+        "mean_abs_gradient": 8.315020672000628e-09,
+        "rms_gradient": 1.1566444690913613e-08,
+        "zero_fraction": 0.00017930494504980743,
+        "normalized_absolute_residual": 0.45756953954696655
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_11",
+        "speed_band": "90to99",
+        "count": 13804,
+        "mean_abs_gradient": 1.6912872879970564e-08,
+        "rms_gradient": 2.3413802452409982e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 1.0022584199905396
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_11",
+        "speed_band": "top1",
+        "count": 1536,
+        "mean_abs_gradient": 3.3154634593302035e-08,
+        "rms_gradient": 4.206724213418056e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 2.2456884384155273
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_12",
+        "speed_band": "all",
+        "count": 151436,
+        "mean_abs_gradient": 7.031308868477026e-09,
+        "rms_gradient": 1.190294796060698e-08,
+        "zero_fraction": 0.00017829313583206385,
+        "normalized_absolute_residual": 0.4093721807003021
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_12",
+        "speed_band": "bottom50",
+        "count": 75716,
+        "mean_abs_gradient": 3.166745532467985e-09,
+        "rms_gradient": 4.446248258460628e-09,
+        "zero_fraction": 0.0002113159716827795,
+        "normalized_absolute_residual": 0.20072928071022034
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_12",
+        "speed_band": "50to90",
+        "count": 60576,
+        "mean_abs_gradient": 8.723447741942891e-09,
+        "rms_gradient": 1.1910704422746221e-08,
+        "zero_fraction": 0.0001485736866015941,
+        "normalized_absolute_residual": 0.47512000799179077
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_12",
+        "speed_band": "90to99",
+        "count": 13628,
+        "mean_abs_gradient": 1.7569098176295483e-08,
+        "rms_gradient": 2.42119053694978e-08,
+        "zero_fraction": 0.0001467566762585193,
+        "normalized_absolute_residual": 1.0413419008255005
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_12",
+        "speed_band": "top1",
+        "count": 1516,
+        "mean_abs_gradient": 3.770230705413269e-08,
+        "rms_gradient": 4.7190724217216484e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 2.521761417388916
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_13",
+        "speed_band": "all",
+        "count": 148760,
+        "mean_abs_gradient": 7.586725914165982e-09,
+        "rms_gradient": 1.2872544807862596e-08,
+        "zero_fraction": 0.00022855606221128255,
+        "normalized_absolute_residual": 0.4279017150402069
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_13",
+        "speed_band": "bottom50",
+        "count": 74380,
+        "mean_abs_gradient": 3.3700413570869614e-09,
+        "rms_gradient": 4.771044004314717e-09,
+        "zero_fraction": 0.00038988975575193763,
+        "normalized_absolute_residual": 0.19851991534233093
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_13",
+        "speed_band": "50to90",
+        "count": 59504,
+        "mean_abs_gradient": 9.356881491839886e-09,
+        "rms_gradient": 1.2530734672111521e-08,
+        "zero_fraction": 8.402796083828434e-05,
+        "normalized_absolute_residual": 0.5016747713088989
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_13",
+        "speed_band": "90to99",
+        "count": 13388,
+        "mean_abs_gradient": 1.9319241317816704e-08,
+        "rms_gradient": 2.6846166178984276e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 1.1152470111846924
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_13",
+        "speed_band": "top1",
+        "count": 1488,
+        "mean_abs_gradient": 4.201606529363744e-08,
+        "rms_gradient": 5.16173734865788e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 2.7595155239105225
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_14",
+        "speed_band": "all",
+        "count": 144880,
+        "mean_abs_gradient": 8.217016400635657e-09,
+        "rms_gradient": 1.3720696578900515e-08,
+        "zero_fraction": 0.00033130866358987987,
+        "normalized_absolute_residual": 0.46205824613571167
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_14",
+        "speed_band": "bottom50",
+        "count": 72440,
+        "mean_abs_gradient": 3.633088496712844e-09,
+        "rms_gradient": 5.036907779754074e-09,
+        "zero_fraction": 0.0005245720385573804,
+        "normalized_absolute_residual": 0.20632734894752502
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_14",
+        "speed_band": "50to90",
+        "count": 57952,
+        "mean_abs_gradient": 9.96664972774397e-09,
+        "rms_gradient": 1.3177353430648964e-08,
+        "zero_fraction": 0.0001725565962260589,
+        "normalized_absolute_residual": 0.5303766131401062
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_14",
+        "speed_band": "90to99",
+        "count": 13036,
+        "mean_abs_gradient": 2.145408117826264e-08,
+        "rms_gradient": 2.822914879629934e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 1.2774553298950195
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_14",
+        "speed_band": "top1",
+        "count": 1452,
+        "mean_abs_gradient": 4.823534638376259e-08,
+        "rms_gradient": 5.859808993591287e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 3.1731112003326416
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_15",
+        "speed_band": "all",
+        "count": 138016,
+        "mean_abs_gradient": 9.36338473422893e-09,
+        "rms_gradient": 1.5817191112432738e-08,
+        "zero_fraction": 0.0002753303851932287,
+        "normalized_absolute_residual": 0.5036357641220093
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_15",
+        "speed_band": "bottom50",
+        "count": 69008,
+        "mean_abs_gradient": 4.0293741676578065e-09,
+        "rms_gradient": 5.485331744381483e-09,
+        "zero_fraction": 0.0004347322101239115,
+        "normalized_absolute_residual": 0.21159030497074127
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_15",
+        "speed_band": "50to90",
+        "count": 55204,
+        "mean_abs_gradient": 1.0977793785116319e-08,
+        "rms_gradient": 1.4112984558778408e-08,
+        "zero_fraction": 0.00014491703768726438,
+        "normalized_absolute_residual": 0.5644654631614685
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_15",
+        "speed_band": "90to99",
+        "count": 12420,
+        "mean_abs_gradient": 2.6009548292904583e-08,
+        "rms_gradient": 3.358123379371136e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 1.4793709516525269
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_15",
+        "speed_band": "top1",
+        "count": 1384,
+        "mean_abs_gradient": 6.154716913897573e-08,
+        "rms_gradient": 7.337646934502118e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 3.8828208446502686
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_16",
+        "speed_band": "all",
+        "count": 120692,
+        "mean_abs_gradient": 1.136419136571476e-08,
+        "rms_gradient": 1.9465588252387533e-08,
+        "zero_fraction": 0.00021542438480537385,
+        "normalized_absolute_residual": 0.5404636263847351
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_16",
+        "speed_band": "bottom50",
+        "count": 60344,
+        "mean_abs_gradient": 4.650627882796243e-09,
+        "rms_gradient": 6.336619229330154e-09,
+        "zero_fraction": 0.0004142913967370987,
+        "normalized_absolute_residual": 0.21362784504890442
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_16",
+        "speed_band": "50to90",
+        "count": 48276,
+        "mean_abs_gradient": 1.3100468265747622e-08,
+        "rms_gradient": 1.662490412002171e-08,
+        "zero_fraction": 2.0714225684059784e-05,
+        "normalized_absolute_residual": 0.5990198254585266
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_16",
+        "speed_band": "90to99",
+        "count": 10864,
+        "mean_abs_gradient": 3.2877437661227304e-08,
+        "rms_gradient": 4.083505444896218e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 1.6381350755691528
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_16",
+        "speed_band": "top1",
+        "count": 1208,
+        "mean_abs_gradient": 8.386659544612485e-08,
+        "rms_gradient": 9.90422108770872e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 4.655215263366699
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_17",
+        "speed_band": "all",
+        "count": 70000,
+        "mean_abs_gradient": 1.9857813171597627e-08,
+        "rms_gradient": 3.318147889785905e-08,
+        "zero_fraction": 4.28571438533254e-05,
+        "normalized_absolute_residual": 0.5527900457382202
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_17",
+        "speed_band": "bottom50",
+        "count": 35000,
+        "mean_abs_gradient": 7.968441906314183e-09,
+        "rms_gradient": 1.028433782579441e-08,
+        "zero_fraction": 5.714285725844093e-05,
+        "normalized_absolute_residual": 0.21326389908790588
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_17",
+        "speed_band": "50to90",
+        "count": 28000,
+        "mean_abs_gradient": 2.3075324762089622e-08,
+        "rms_gradient": 2.8212781444381108e-08,
+        "zero_fraction": 3.571428533177823e-05,
+        "normalized_absolute_residual": 0.6253660917282104
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_17",
+        "speed_band": "90to99",
+        "count": 6300,
+        "mean_abs_gradient": 5.7141168241514606e-08,
+        "rms_gradient": 6.839101018840665e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 1.6287842988967896
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_17",
+        "speed_band": "top1",
+        "count": 700,
+        "mean_abs_gradient": 1.500756496852773e-07,
+        "rms_gradient": 1.757221070874948e-07,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 4.942108154296875
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_18",
+        "speed_band": "all",
+        "count": 19032,
+        "mean_abs_gradient": 6.036118804786383e-08,
+        "rms_gradient": 1.0194570876365106e-07,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.4625178873538971
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_18",
+        "speed_band": "bottom50",
+        "count": 9516,
+        "mean_abs_gradient": 2.7337270225302746e-08,
+        "rms_gradient": 3.505708434659027e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.19850553572177887
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_18",
+        "speed_band": "50to90",
+        "count": 7612,
+        "mean_abs_gradient": 6.60639543070829e-08,
+        "rms_gradient": 8.009214269577569e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.4861505627632141
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_18",
+        "speed_band": "90to99",
+        "count": 1712,
+        "mean_abs_gradient": 1.711081125677083e-07,
+        "rms_gradient": 2.0279006207601924e-07,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 1.3498982191085815
+      },
+      {
+        "objective": "member-mse",
+        "channel": "uo_18",
+        "speed_band": "top1",
+        "count": 192,
+        "mean_abs_gradient": 4.835249001189368e-07,
+        "rms_gradient": 5.90153604207444e-07,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 4.698216438293457
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_0",
+        "speed_band": "all",
+        "count": 179568,
+        "mean_abs_gradient": 6.716941669537846e-09,
+        "rms_gradient": 1.2698956552981144e-08,
+        "zero_fraction": 0.0003229974245186895,
+        "normalized_absolute_residual": 0.4308273494243622
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_0",
+        "speed_band": "bottom50",
+        "count": 89784,
+        "mean_abs_gradient": 3.315405283643713e-09,
+        "rms_gradient": 4.9502610899310184e-09,
+        "zero_fraction": 0.0005346164107322693,
+        "normalized_absolute_residual": 0.27010011672973633
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_0",
+        "speed_band": "50to90",
+        "count": 71824,
+        "mean_abs_gradient": 7.19345827349116e-09,
+        "rms_gradient": 1.0294844976499462e-08,
+        "zero_fraction": 0.000139229217893444,
+        "normalized_absolute_residual": 0.45560508966445923
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_0",
+        "speed_band": "90to99",
+        "count": 16164,
+        "mean_abs_gradient": 1.8387419586929354e-08,
+        "rms_gradient": 2.6559288102134815e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.9733704924583435
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_0",
+        "speed_band": "top1",
+        "count": 1796,
+        "mean_abs_gradient": 5.267266800501602e-08,
+        "rms_gradient": 6.566175159150589e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 2.5919787883758545
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_1",
+        "speed_band": "all",
+        "count": 179568,
+        "mean_abs_gradient": 6.403038543822959e-09,
+        "rms_gradient": 1.2845448260634384e-08,
+        "zero_fraction": 0.0003118595923297107,
+        "normalized_absolute_residual": 0.39948558807373047
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_1",
+        "speed_band": "bottom50",
+        "count": 89784,
+        "mean_abs_gradient": 2.7525703938380275e-09,
+        "rms_gradient": 4.193547287201227e-09,
+        "zero_fraction": 0.0005012028850615025,
+        "normalized_absolute_residual": 0.2197553664445877
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_1",
+        "speed_band": "50to90",
+        "count": 71824,
+        "mean_abs_gradient": 6.793132278914982e-09,
+        "rms_gradient": 9.852240800967138e-09,
+        "zero_fraction": 0.000139229217893444,
+        "normalized_absolute_residual": 0.4255214035511017
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_1",
+        "speed_band": "90to99",
+        "count": 16164,
+        "mean_abs_gradient": 1.938781757360175e-08,
+        "rms_gradient": 2.7773053190571773e-08,
+        "zero_fraction": 6.186587415868416e-05,
+        "normalized_absolute_residual": 1.0187580585479736
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_1",
+        "speed_band": "top1",
+        "count": 1796,
+        "mean_abs_gradient": 5.643065037475026e-08,
+        "rms_gradient": 6.924300777200187e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 2.769740104675293
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_2",
+        "speed_band": "all",
+        "count": 178016,
+        "mean_abs_gradient": 6.432721022520127e-09,
+        "rms_gradient": 1.318719888843134e-08,
+        "zero_fraction": 0.00044939780491404235,
+        "normalized_absolute_residual": 0.393903911113739
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_2",
+        "speed_band": "bottom50",
+        "count": 89008,
+        "mean_abs_gradient": 2.6029824962137127e-09,
+        "rms_gradient": 4.062100433799287e-09,
+        "zero_fraction": 0.0006853316444903612,
+        "normalized_absolute_residual": 0.19552214443683624
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_2",
+        "speed_band": "50to90",
+        "count": 71204,
+        "mean_abs_gradient": 6.872052260575856e-09,
+        "rms_gradient": 9.888140972691417e-09,
+        "zero_fraction": 0.00025279479450546205,
+        "normalized_absolute_residual": 0.43103140592575073
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_2",
+        "speed_band": "90to99",
+        "count": 16020,
+        "mean_abs_gradient": 2.0338672968023275e-08,
+        "rms_gradient": 2.9078330854304113e-08,
+        "zero_fraction": 6.24219755991362e-05,
+        "normalized_absolute_residual": 1.0726423263549805
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_2",
+        "speed_band": "top1",
+        "count": 1784,
+        "mean_abs_gradient": 5.509967948569283e-08,
+        "rms_gradient": 7.095199805462471e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 2.714836835861206
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_3",
+        "speed_band": "all",
+        "count": 176084,
+        "mean_abs_gradient": 6.288316090063972e-09,
+        "rms_gradient": 1.3583601798927702e-08,
+        "zero_fraction": 0.0005054405773989856,
+        "normalized_absolute_residual": 0.38016292452812195
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_3",
+        "speed_band": "bottom50",
+        "count": 88040,
+        "mean_abs_gradient": 2.3982646979447964e-09,
+        "rms_gradient": 3.7862344370864776e-09,
+        "zero_fraction": 0.0007837346638552845,
+        "normalized_absolute_residual": 0.1757642775774002
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_3",
+        "speed_band": "50to90",
+        "count": 70432,
+        "mean_abs_gradient": 6.549016440260402e-09,
+        "rms_gradient": 9.72603331206301e-09,
+        "zero_fraction": 0.00028396182460710406,
+        "normalized_absolute_residual": 0.4125296175479889
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_3",
+        "speed_band": "90to99",
+        "count": 15848,
+        "mean_abs_gradient": 2.095866236118127e-08,
+        "rms_gradient": 3.04382083982091e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 1.096320629119873
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_3",
+        "speed_band": "top1",
+        "count": 1764,
+        "mean_abs_gradient": 5.822870718930062e-08,
+        "rms_gradient": 7.484833730586615e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 2.8551881313323975
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_4",
+        "speed_band": "all",
+        "count": 173788,
+        "mean_abs_gradient": 6.091208870628861e-09,
+        "rms_gradient": 1.3410281773929e-08,
+        "zero_fraction": 0.0002934609947260469,
+        "normalized_absolute_residual": 0.366851806640625
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_4",
+        "speed_band": "bottom50",
+        "count": 86892,
+        "mean_abs_gradient": 2.2822235212771602e-09,
+        "rms_gradient": 3.6433385197653934e-09,
+        "zero_fraction": 0.00043732448830269277,
+        "normalized_absolute_residual": 0.16734597086906433
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_4",
+        "speed_band": "50to90",
+        "count": 69516,
+        "mean_abs_gradient": 6.137234276337722e-09,
+        "rms_gradient": 9.330856087785833e-09,
+        "zero_fraction": 0.00018700730288401246,
+        "normalized_absolute_residual": 0.38698458671569824
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_4",
+        "speed_band": "90to99",
+        "count": 15640,
+        "mean_abs_gradient": 2.1566529895267195e-08,
+        "rms_gradient": 3.113607149884956e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 1.1259756088256836
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_4",
+        "speed_band": "top1",
+        "count": 1740,
+        "mean_abs_gradient": 5.5365195095191666e-08,
+        "rms_gradient": 7.145936109509421e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 2.702033281326294
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_5",
+        "speed_band": "all",
+        "count": 170740,
+        "mean_abs_gradient": 5.792342605559497e-09,
+        "rms_gradient": 1.2466302656832795e-08,
+        "zero_fraction": 0.00038069579750299454,
+        "normalized_absolute_residual": 0.35309287905693054
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_5",
+        "speed_band": "bottom50",
+        "count": 85368,
+        "mean_abs_gradient": 2.3338062593580844e-09,
+        "rms_gradient": 3.665852732481767e-09,
+        "zero_fraction": 0.0005622715689241886,
+        "normalized_absolute_residual": 0.17556695640087128
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_5",
+        "speed_band": "50to90",
+        "count": 68296,
+        "mean_abs_gradient": 5.942783598555934e-09,
+        "rms_gradient": 9.008487289463574e-09,
+        "zero_fraction": 0.0002342743391636759,
+        "normalized_absolute_residual": 0.3703738749027252
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_5",
+        "speed_band": "90to99",
+        "count": 15368,
+        "mean_abs_gradient": 2.0128908317929017e-08,
+        "rms_gradient": 3.0169999831741734e-08,
+        "zero_fraction": 6.507027865154669e-05,
+        "normalized_absolute_residual": 1.0667017698287964
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_5",
+        "speed_band": "top1",
+        "count": 1708,
+        "mean_abs_gradient": 4.364329697637004e-08,
+        "rms_gradient": 5.855628160134074e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 2.114255666732788
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_6",
+        "speed_band": "all",
+        "count": 167856,
+        "mean_abs_gradient": 5.17861309390355e-09,
+        "rms_gradient": 1.019696149739957e-08,
+        "zero_fraction": 0.0005302163772284985,
+        "normalized_absolute_residual": 0.3188505470752716
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_6",
+        "speed_band": "bottom50",
+        "count": 83928,
+        "mean_abs_gradient": 2.300468704419245e-09,
+        "rms_gradient": 3.705036943912887e-09,
+        "zero_fraction": 0.0008459631935693324,
+        "normalized_absolute_residual": 0.1639472097158432
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_6",
+        "speed_band": "50to90",
+        "count": 67140,
+        "mean_abs_gradient": 5.767777810916641e-09,
+        "rms_gradient": 8.567677234339044e-09,
+        "zero_fraction": 0.00023830801364965737,
+        "normalized_absolute_residual": 0.3532973825931549
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_6",
+        "speed_band": "90to99",
+        "count": 15108,
+        "mean_abs_gradient": 1.5432430444661804e-08,
+        "rms_gradient": 2.27681873354868e-08,
+        "zero_fraction": 0.00013238019892014563,
+        "normalized_absolute_residual": 0.8704631328582764
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_6",
+        "speed_band": "top1",
+        "count": 1680,
+        "mean_abs_gradient": 3.320583630284091e-08,
+        "rms_gradient": 4.5909935408872116e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 1.7201629877090454
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_7",
+        "speed_band": "all",
+        "count": 165256,
+        "mean_abs_gradient": 5.123328872258526e-09,
+        "rms_gradient": 9.843623693939207e-09,
+        "zero_fraction": 0.00035097060026600957,
+        "normalized_absolute_residual": 0.3135766386985779
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_7",
+        "speed_band": "bottom50",
+        "count": 82628,
+        "mean_abs_gradient": 2.3558990314143102e-09,
+        "rms_gradient": 3.7356433502111486e-09,
+        "zero_fraction": 0.0005446095601655543,
+        "normalized_absolute_residual": 0.16056030988693237
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_7",
+        "speed_band": "50to90",
+        "count": 66100,
+        "mean_abs_gradient": 5.872458963551708e-09,
+        "rms_gradient": 8.705660192731557e-09,
+        "zero_fraction": 0.00018154311692342162,
+        "normalized_absolute_residual": 0.35053274035453796
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_7",
+        "speed_band": "90to99",
+        "count": 14872,
+        "mean_abs_gradient": 1.402074456535729e-08,
+        "rms_gradient": 2.076797933625585e-08,
+        "zero_fraction": 6.724044942529872e-05,
+        "normalized_absolute_residual": 0.821965754032135
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_7",
+        "speed_band": "top1",
+        "count": 1656,
+        "mean_abs_gradient": 3.3400706200836794e-08,
+        "rms_gradient": 4.5548681271156966e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 1.9076992273330688
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_8",
+        "speed_band": "all",
+        "count": 162432,
+        "mean_abs_gradient": 5.259906732391073e-09,
+        "rms_gradient": 9.844912440826192e-09,
+        "zero_fraction": 0.0004802009498234838,
+        "normalized_absolute_residual": 0.32307547330856323
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_8",
+        "speed_band": "bottom50",
+        "count": 81216,
+        "mean_abs_gradient": 2.36438535416994e-09,
+        "rms_gradient": 3.66824326469839e-09,
+        "zero_fraction": 0.0007880220655351877,
+        "normalized_absolute_residual": 0.15710437297821045
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_8",
+        "speed_band": "50to90",
+        "count": 64972,
+        "mean_abs_gradient": 6.155362441973011e-09,
+        "rms_gradient": 9.04623131958715e-09,
+        "zero_fraction": 0.00020008620049338788,
+        "normalized_absolute_residual": 0.3666360080242157
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_8",
+        "speed_band": "90to99",
+        "count": 14616,
+        "mean_abs_gradient": 1.4229268430199227e-08,
+        "rms_gradient": 2.0404632650183885e-08,
+        "zero_fraction": 6.841817230451852e-05,
+        "normalized_absolute_residual": 0.8598446846008301
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_8",
+        "speed_band": "top1",
+        "count": 1628,
+        "mean_abs_gradient": 3.3446049485519325e-08,
+        "rms_gradient": 4.466737024699796e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 2.0453600883483887
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_9",
+        "speed_band": "all",
+        "count": 158840,
+        "mean_abs_gradient": 5.410249581672133e-09,
+        "rms_gradient": 9.760307229100817e-09,
+        "zero_fraction": 0.0003462603781372309,
+        "normalized_absolute_residual": 0.3272111117839813
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_9",
+        "speed_band": "bottom50",
+        "count": 79420,
+        "mean_abs_gradient": 2.610786031809198e-09,
+        "rms_gradient": 3.966410755396055e-09,
+        "zero_fraction": 0.0005036514485254884,
+        "normalized_absolute_residual": 0.1646166890859604
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_9",
+        "speed_band": "50to90",
+        "count": 63536,
+        "mean_abs_gradient": 6.522382633988855e-09,
+        "rms_gradient": 9.65035606981246e-09,
+        "zero_fraction": 0.00017313018906861544,
+        "normalized_absolute_residual": 0.3809073865413666
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_9",
+        "speed_band": "90to99",
+        "count": 14292,
+        "mean_abs_gradient": 1.3351440841802287e-08,
+        "rms_gradient": 1.9420861363528275e-08,
+        "zero_fraction": 0.0002798768400680274,
+        "normalized_absolute_residual": 0.8190234303474426
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_9",
+        "speed_band": "top1",
+        "count": 1592,
+        "mean_abs_gradient": 2.9391038935955294e-08,
+        "rms_gradient": 4.02147364297889e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 1.8803656101226807
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_10",
+        "speed_band": "all",
+        "count": 155732,
+        "mean_abs_gradient": 5.7419167198702326e-09,
+        "rms_gradient": 1.0212819034904896e-08,
+        "zero_fraction": 0.0004430688568390906,
+        "normalized_absolute_residual": 0.33993789553642273
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_10",
+        "speed_band": "bottom50",
+        "count": 77864,
+        "mean_abs_gradient": 2.881514582497857e-09,
+        "rms_gradient": 4.362368688504148e-09,
+        "zero_fraction": 0.0007063598022796214,
+        "normalized_absolute_residual": 0.1748472899198532
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_10",
+        "speed_band": "50to90",
+        "count": 62292,
+        "mean_abs_gradient": 7.008578162270851e-09,
+        "rms_gradient": 1.0235157610338774e-08,
+        "zero_fraction": 0.000224747956963256,
+        "normalized_absolute_residual": 0.3977351188659668
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_10",
+        "speed_band": "90to99",
+        "count": 14016,
+        "mean_abs_gradient": 1.3247333896515556e-08,
+        "rms_gradient": 1.974374441715554e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.8176119923591614
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_10",
+        "speed_band": "top1",
+        "count": 1560,
+        "mean_abs_gradient": 3.0500597603122515e-08,
+        "rms_gradient": 4.215408466734516e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 1.9804719686508179
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_11",
+        "speed_band": "all",
+        "count": 153372,
+        "mean_abs_gradient": 6.089906801065581e-09,
+        "rms_gradient": 1.0781999293385525e-08,
+        "zero_fraction": 0.00024776358623057604,
+        "normalized_absolute_residual": 0.35725051164627075
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_11",
+        "speed_band": "bottom50",
+        "count": 76684,
+        "mean_abs_gradient": 3.0612945511876433e-09,
+        "rms_gradient": 4.608822212759378e-09,
+        "zero_fraction": 0.00039121590089052916,
+        "normalized_absolute_residual": 0.18506121635437012
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_11",
+        "speed_band": "50to90",
+        "count": 61348,
+        "mean_abs_gradient": 7.42406580656052e-09,
+        "rms_gradient": 1.0708134823289583e-08,
+        "zero_fraction": 0.00013040359772276133,
+        "normalized_absolute_residual": 0.416282594203949
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_11",
+        "speed_band": "90to99",
+        "count": 13804,
+        "mean_abs_gradient": 1.4260601588489408e-08,
+        "rms_gradient": 2.130477838591105e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.8640009164810181
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_11",
+        "speed_band": "top1",
+        "count": 1536,
+        "mean_abs_gradient": 3.05754603857622e-08,
+        "rms_gradient": 4.3458104670435205e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 2.041810989379883
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_12",
+        "speed_band": "all",
+        "count": 151436,
+        "mean_abs_gradient": 6.683392062001303e-09,
+        "rms_gradient": 1.1695444612769279e-08,
+        "zero_fraction": 0.0003103621129412204,
+        "normalized_absolute_residual": 0.3828504979610443
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_12",
+        "speed_band": "bottom50",
+        "count": 75716,
+        "mean_abs_gradient": 3.347005783638224e-09,
+        "rms_gradient": 5.20435117223883e-09,
+        "zero_fraction": 0.0004886681563220918,
+        "normalized_absolute_residual": 0.19501037895679474
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_12",
+        "speed_band": "50to90",
+        "count": 60576,
+        "mean_abs_gradient": 8.15821543653783e-09,
+        "rms_gradient": 1.1710301173195603e-08,
+        "zero_fraction": 0.00013206549920141697,
+        "normalized_absolute_residual": 0.44371330738067627
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_12",
+        "speed_band": "90to99",
+        "count": 13628,
+        "mean_abs_gradient": 1.5640697625940447e-08,
+        "rms_gradient": 2.2754081285825123e-08,
+        "zero_fraction": 0.0001467566762585193,
+        "normalized_absolute_residual": 0.9516318440437317
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_12",
+        "speed_band": "top1",
+        "count": 1516,
+        "mean_abs_gradient": 3.3866008664062974e-08,
+        "rms_gradient": 4.665891495392316e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 2.219477653503418
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_13",
+        "speed_band": "all",
+        "count": 148760,
+        "mean_abs_gradient": 7.3288628499312836e-09,
+        "rms_gradient": 1.2687593198279501e-08,
+        "zero_fraction": 0.0002890561881940812,
+        "normalized_absolute_residual": 0.4149159789085388
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_13",
+        "speed_band": "bottom50",
+        "count": 74380,
+        "mean_abs_gradient": 3.483749733135255e-09,
+        "rms_gradient": 5.207434039533609e-09,
+        "zero_fraction": 0.0004974455805495381,
+        "normalized_absolute_residual": 0.19508646428585052
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_13",
+        "speed_band": "50to90",
+        "count": 59504,
+        "mean_abs_gradient": 8.900671311096175e-09,
+        "rms_gradient": 1.2400394489020528e-08,
+        "zero_fraction": 0.00010083355300594121,
+        "normalized_absolute_residual": 0.48436862230300903
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_13",
+        "speed_band": "90to99",
+        "count": 13388,
+        "mean_abs_gradient": 1.7887707315367152e-08,
+        "rms_gradient": 2.514796193509028e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 1.0784896612167358
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_13",
+        "speed_band": "top1",
+        "count": 1488,
+        "mean_abs_gradient": 4.167613099070877e-08,
+        "rms_gradient": 5.3837283076063613e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 2.655700922012329
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_14",
+        "speed_band": "all",
+        "count": 144880,
+        "mean_abs_gradient": 8.216155755746968e-09,
+        "rms_gradient": 1.4031622086463358e-08,
+        "zero_fraction": 0.00025538375484757125,
+        "normalized_absolute_residual": 0.46236249804496765
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_14",
+        "speed_band": "bottom50",
+        "count": 72440,
+        "mean_abs_gradient": 3.703579665170764e-09,
+        "rms_gradient": 5.355290877417929e-09,
+        "zero_fraction": 0.0003865267790388316,
+        "normalized_absolute_residual": 0.20326270163059235
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_14",
+        "speed_band": "50to90",
+        "count": 57952,
+        "mean_abs_gradient": 9.834923098139825e-09,
+        "rms_gradient": 1.3289595202081728e-08,
+        "zero_fraction": 0.0001553009351482615,
+        "normalized_absolute_residual": 0.5340615510940552
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_14",
+        "speed_band": "90to99",
+        "count": 13036,
+        "mean_abs_gradient": 2.164370371815494e-08,
+        "rms_gradient": 2.907733609447405e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 1.291304588317871
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_14",
+        "speed_band": "top1",
+        "count": 1452,
+        "mean_abs_gradient": 4.8187761336748736e-08,
+        "rms_gradient": 5.978878903079021e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 3.084947109222412
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_15",
+        "speed_band": "all",
+        "count": 138016,
+        "mean_abs_gradient": 9.290766378455828e-09,
+        "rms_gradient": 1.599148902187153e-08,
+        "zero_fraction": 0.00023910272284410894,
+        "normalized_absolute_residual": 0.5030585527420044
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_15",
+        "speed_band": "bottom50",
+        "count": 69008,
+        "mean_abs_gradient": 3.968406048215911e-09,
+        "rms_gradient": 5.520555124149951e-09,
+        "zero_fraction": 0.0003912589745596051,
+        "normalized_absolute_residual": 0.20759156346321106
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_15",
+        "speed_band": "50to90",
+        "count": 55204,
+        "mean_abs_gradient": 1.0704805042394128e-08,
+        "rms_gradient": 1.4082591981434689e-08,
+        "zero_fraction": 9.057315037352964e-05,
+        "normalized_absolute_residual": 0.5654059648513794
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_15",
+        "speed_band": "90to99",
+        "count": 12420,
+        "mean_abs_gradient": 2.703837687079158e-08,
+        "rms_gradient": 3.510222512659311e-08,
+        "zero_fraction": 8.051529584918171e-05,
+        "normalized_absolute_residual": 1.5185810327529907
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_15",
+        "speed_band": "top1",
+        "count": 1384,
+        "mean_abs_gradient": 5.900143307258077e-08,
+        "rms_gradient": 7.081210640080826e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 3.6352531909942627
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_16",
+        "speed_band": "all",
+        "count": 120692,
+        "mean_abs_gradient": 1.0968109087627909e-08,
+        "rms_gradient": 1.8902930776221183e-08,
+        "zero_fraction": 0.0001739966101013124,
+        "normalized_absolute_residual": 0.5246021747589111
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_16",
+        "speed_band": "bottom50",
+        "count": 60344,
+        "mean_abs_gradient": 4.4849719493811335e-09,
+        "rms_gradient": 6.210209679835543e-09,
+        "zero_fraction": 0.0003148614487145096,
+        "normalized_absolute_residual": 0.2090182602405548
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_16",
+        "speed_band": "50to90",
+        "count": 48276,
+        "mean_abs_gradient": 1.245263270277519e-08,
+        "rms_gradient": 1.6060727858757673e-08,
+        "zero_fraction": 4.142845136811957e-05,
+        "normalized_absolute_residual": 0.5757990479469299
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_16",
+        "speed_band": "90to99",
+        "count": 10864,
+        "mean_abs_gradient": 3.305904172634655e-08,
+        "rms_gradient": 4.1128835448489554e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 1.6351068019866943
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_16",
+        "speed_band": "top1",
+        "count": 1208,
+        "mean_abs_gradient": 7.68254437844007e-08,
+        "rms_gradient": 9.084094898526018e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 4.255967140197754
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_17",
+        "speed_band": "all",
+        "count": 70000,
+        "mean_abs_gradient": 1.9223284297709142e-08,
+        "rms_gradient": 3.204719689620106e-08,
+        "zero_fraction": 4.28571438533254e-05,
+        "normalized_absolute_residual": 0.5360406637191772
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_17",
+        "speed_band": "bottom50",
+        "count": 35000,
+        "mean_abs_gradient": 8.222007963354372e-09,
+        "rms_gradient": 1.0809538153466747e-08,
+        "zero_fraction": 8.57142877066508e-05,
+        "normalized_absolute_residual": 0.2214372456073761
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_17",
+        "speed_band": "50to90",
+        "count": 28000,
+        "mean_abs_gradient": 2.1531789684559044e-08,
+        "rms_gradient": 2.712447511044047e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.5842562913894653
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_17",
+        "speed_band": "90to99",
+        "count": 6300,
+        "mean_abs_gradient": 5.738215946848868e-08,
+        "rms_gradient": 6.858681445010006e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 1.6488676071166992
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_17",
+        "speed_band": "top1",
+        "count": 700,
+        "mean_abs_gradient": 1.3351700545172207e-07,
+        "rms_gradient": 1.5840814171497186e-07,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 4.322145462036133
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_18",
+        "speed_band": "all",
+        "count": 19032,
+        "mean_abs_gradient": 6.285900155944546e-08,
+        "rms_gradient": 1.0201990363611912e-07,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.47781726717948914
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_18",
+        "speed_band": "bottom50",
+        "count": 9516,
+        "mean_abs_gradient": 2.8177510102977976e-08,
+        "rms_gradient": 3.706927387270298e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.20330028235912323
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_18",
+        "speed_band": "50to90",
+        "count": 7612,
+        "mean_abs_gradient": 7.002169155612137e-08,
+        "rms_gradient": 8.769924875196011e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.509824275970459
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_18",
+        "speed_band": "90to99",
+        "count": 1712,
+        "mean_abs_gradient": 1.8419545710912644e-07,
+        "rms_gradient": 2.1844947184490593e-07,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 1.4700641632080078
+      },
+      {
+        "objective": "member-mse",
+        "channel": "vo_18",
+        "speed_band": "top1",
+        "count": 192,
+        "mean_abs_gradient": 4.1587207988413866e-07,
+        "rms_gradient": 4.828730766348599e-07,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 3.967088222503662
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_0",
+        "speed_band": "all",
+        "count": 179568,
+        "mean_abs_gradient": 7.232364485076914e-09,
+        "rms_gradient": 7.849997984976653e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.359306275844574
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_0",
+        "speed_band": "bottom50",
+        "count": 89784,
+        "mean_abs_gradient": 6.271146713032749e-09,
+        "rms_gradient": 7.092542553266412e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.21658338606357574
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_0",
+        "speed_band": "50to90",
+        "count": 71824,
+        "mean_abs_gradient": 7.95613086523872e-09,
+        "rms_gradient": 8.328557399295278e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.37306737899780273
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_0",
+        "speed_band": "90to99",
+        "count": 16164,
+        "mean_abs_gradient": 9.049499816171647e-09,
+        "rms_gradient": 9.255226807169947e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.8344038724899292
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_0",
+        "speed_band": "top1",
+        "count": 1796,
+        "mean_abs_gradient": 9.986245608217814e-09,
+        "rms_gradient": 1.007372230077408e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 2.667975664138794
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_1",
+        "speed_band": "all",
+        "count": 179568,
+        "mean_abs_gradient": 7.232364485076914e-09,
+        "rms_gradient": 7.849997984976653e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.3505106270313263
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_1",
+        "speed_band": "bottom50",
+        "count": 89784,
+        "mean_abs_gradient": 6.301605903757945e-09,
+        "rms_gradient": 7.071790264490119e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.1894264668226242
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_1",
+        "speed_band": "50to90",
+        "count": 71824,
+        "mean_abs_gradient": 7.901211240834982e-09,
+        "rms_gradient": 8.332761147755718e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.35416796803474426
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_1",
+        "speed_band": "90to99",
+        "count": 16164,
+        "mean_abs_gradient": 9.123132471700046e-09,
+        "rms_gradient": 9.325810346183516e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.9439341425895691
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_1",
+        "speed_band": "top1",
+        "count": 1796,
+        "mean_abs_gradient": 9.997169314601706e-09,
+        "rms_gradient": 1.0078186285511492e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 2.916210889816284
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_2",
+        "speed_band": "all",
+        "count": 178016,
+        "mean_abs_gradient": 7.295419379715895e-09,
+        "rms_gradient": 7.917001276780411e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.3468233644962311
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_2",
+        "speed_band": "bottom50",
+        "count": 89008,
+        "mean_abs_gradient": 6.465163959745723e-09,
+        "rms_gradient": 7.221639286569825e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.16594219207763672
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_2",
+        "speed_band": "50to90",
+        "count": 71204,
+        "mean_abs_gradient": 7.8575022044447e-09,
+        "rms_gradient": 8.33121749366228e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.3594591021537781
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_2",
+        "speed_band": "90to99",
+        "count": 16020,
+        "mean_abs_gradient": 9.112475218842064e-09,
+        "rms_gradient": 9.325489713774004e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.9931272864341736
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_2",
+        "speed_band": "top1",
+        "count": 1784,
+        "mean_abs_gradient": 9.96783366957743e-09,
+        "rms_gradient": 1.0058950117297627e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 3.063399076461792
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_3",
+        "speed_band": "all",
+        "count": 176084,
+        "mean_abs_gradient": 7.3754646834345294e-09,
+        "rms_gradient": 8.000491824589062e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.3368360996246338
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_3",
+        "speed_band": "bottom50",
+        "count": 88040,
+        "mean_abs_gradient": 6.713253064560831e-09,
+        "rms_gradient": 7.46180273125674e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.15911512076854706
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_3",
+        "speed_band": "50to90",
+        "count": 70432,
+        "mean_abs_gradient": 7.762120723953103e-09,
+        "rms_gradient": 8.278383312187998e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.3519872725009918
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_3",
+        "speed_band": "90to99",
+        "count": 15848,
+        "mean_abs_gradient": 9.050987515024644e-09,
+        "rms_gradient": 9.278276813518005e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.9712103009223938
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_3",
+        "speed_band": "top1",
+        "count": 1764,
+        "mean_abs_gradient": 9.93472237809101e-09,
+        "rms_gradient": 1.0036973030480567e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 2.9025187492370605
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_4",
+        "speed_band": "all",
+        "count": 173788,
+        "mean_abs_gradient": 7.47290584968141e-09,
+        "rms_gradient": 8.102484905236906e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.32376742362976074
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_4",
+        "speed_band": "bottom50",
+        "count": 86892,
+        "mean_abs_gradient": 6.8626766491775015e-09,
+        "rms_gradient": 7.622268149987121e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.14927466213703156
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_4",
+        "speed_band": "50to90",
+        "count": 69516,
+        "mean_abs_gradient": 7.822572811733153e-09,
+        "rms_gradient": 8.345477198190565e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.335709810256958
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_4",
+        "speed_band": "90to99",
+        "count": 15640,
+        "mean_abs_gradient": 9.01640451189678e-09,
+        "rms_gradient": 9.250087806833562e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.9573928117752075
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_4",
+        "speed_band": "top1",
+        "count": 1740,
+        "mean_abs_gradient": 1.0102874092865477e-08,
+        "rms_gradient": 1.0201599565107244e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 2.865110158920288
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_5",
+        "speed_band": "all",
+        "count": 170740,
+        "mean_abs_gradient": 7.60630847196353e-09,
+        "rms_gradient": 8.243627114268293e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.3183683156967163
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_5",
+        "speed_band": "bottom50",
+        "count": 85368,
+        "mean_abs_gradient": 7.034503202163478e-09,
+        "rms_gradient": 7.816940872373834e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.1555352360010147
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_5",
+        "speed_band": "50to90",
+        "count": 68296,
+        "mean_abs_gradient": 7.981144634072734e-09,
+        "rms_gradient": 8.503096893264228e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.3315644860267639
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_5",
+        "speed_band": "90to99",
+        "count": 15368,
+        "mean_abs_gradient": 8.808018314709898e-09,
+        "rms_gradient": 9.059131222954875e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.8730427622795105
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_5",
+        "speed_band": "top1",
+        "count": 1708,
+        "mean_abs_gradient": 1.0385183379924001e-08,
+        "rms_gradient": 1.047664799358472e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 2.9385366439819336
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_6",
+        "speed_band": "all",
+        "count": 167856,
+        "mean_abs_gradient": 7.736995932816626e-09,
+        "rms_gradient": 8.382732730183307e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.3127351403236389
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_6",
+        "speed_band": "bottom50",
+        "count": 83928,
+        "mean_abs_gradient": 7.199070672925245e-09,
+        "rms_gradient": 8.02327626558963e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.15399636328220367
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_6",
+        "speed_band": "50to90",
+        "count": 67140,
+        "mean_abs_gradient": 8.200697898530507e-09,
+        "rms_gradient": 8.700494547042581e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.33933112025260925
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_6",
+        "speed_band": "90to99",
+        "count": 15108,
+        "mean_abs_gradient": 8.4239806241726e-09,
+        "rms_gradient": 8.688931352196505e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.8398082256317139
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_6",
+        "speed_band": "top1",
+        "count": 1680,
+        "mean_abs_gradient": 9.900761988035356e-09,
+        "rms_gradient": 1.0046374399053093e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 2.440086841583252
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_7",
+        "speed_band": "all",
+        "count": 165256,
+        "mean_abs_gradient": 7.858723449771787e-09,
+        "rms_gradient": 8.508536097906472e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.3506891429424286
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_7",
+        "speed_band": "bottom50",
+        "count": 82628,
+        "mean_abs_gradient": 7.423868186862137e-09,
+        "rms_gradient": 8.259781303365799e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.17213255167007446
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_7",
+        "speed_band": "50to90",
+        "count": 66100,
+        "mean_abs_gradient": 8.327496026083736e-09,
+        "rms_gradient": 8.833556108811536e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.3929145634174347
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_7",
+        "speed_band": "90to99",
+        "count": 14872,
+        "mean_abs_gradient": 8.115142335896053e-09,
+        "rms_gradient": 8.375221405287903e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.9511000514030457
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_7",
+        "speed_band": "top1",
+        "count": 1656,
+        "mean_abs_gradient": 8.542226481722537e-09,
+        "rms_gradient": 8.703585407943137e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 2.1824288368225098
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_8",
+        "speed_band": "all",
+        "count": 162432,
+        "mean_abs_gradient": 7.995352824252677e-09,
+        "rms_gradient": 8.639249315933739e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.36565330624580383
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_8",
+        "speed_band": "bottom50",
+        "count": 81216,
+        "mean_abs_gradient": 7.758996112272598e-09,
+        "rms_gradient": 8.56295123696782e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.17404137551784515
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_8",
+        "speed_band": "50to90",
+        "count": 64972,
+        "mean_abs_gradient": 8.304170684425571e-09,
+        "rms_gradient": 8.841308130058678e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.41347238421440125
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_8",
+        "speed_band": "90to99",
+        "count": 14616,
+        "mean_abs_gradient": 7.944417568239714e-09,
+        "rms_gradient": 8.208398405429307e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 1.004878044128418
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_8",
+        "speed_band": "top1",
+        "count": 1628,
+        "mean_abs_gradient": 7.919113365062458e-09,
+        "rms_gradient": 8.019933162017878e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 2.277290105819702
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_9",
+        "speed_band": "all",
+        "count": 158840,
+        "mean_abs_gradient": 8.176161081507871e-09,
+        "rms_gradient": 8.807083951012373e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.36344990134239197
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_9",
+        "speed_band": "bottom50",
+        "count": 79420,
+        "mean_abs_gradient": 8.064315437650293e-09,
+        "rms_gradient": 8.824654784689301e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.17756980657577515
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_9",
+        "speed_band": "50to90",
+        "count": 63536,
+        "mean_abs_gradient": 8.401633166954525e-09,
+        "rms_gradient": 8.954603281097206e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.42591655254364014
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_9",
+        "speed_band": "90to99",
+        "count": 14292,
+        "mean_abs_gradient": 7.84905829220861e-09,
+        "rms_gradient": 8.129880768592557e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.9213346242904663
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_9",
+        "speed_band": "top1",
+        "count": 1592,
+        "mean_abs_gradient": 7.693746972847748e-09,
+        "rms_gradient": 7.778552912895975e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 2.1350719928741455
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_10",
+        "speed_band": "all",
+        "count": 155732,
+        "mean_abs_gradient": 8.339334556239919e-09,
+        "rms_gradient": 8.959973207822713e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.3729100525379181
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_10",
+        "speed_band": "bottom50",
+        "count": 77864,
+        "mean_abs_gradient": 8.268916218412414e-09,
+        "rms_gradient": 9.009884394117762e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.17742738127708435
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_10",
+        "speed_band": "50to90",
+        "count": 62292,
+        "mean_abs_gradient": 8.558335373720638e-09,
+        "rms_gradient": 9.106808640524378e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.44316208362579346
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_10",
+        "speed_band": "90to99",
+        "count": 14016,
+        "mean_abs_gradient": 7.835305737557974e-09,
+        "rms_gradient": 8.112347238409257e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.9425148963928223
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_10",
+        "speed_band": "top1",
+        "count": 1560,
+        "mean_abs_gradient": 7.637785515157702e-09,
+        "rms_gradient": 7.720116101950225e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 2.207104444503784
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_11",
+        "speed_band": "all",
+        "count": 153372,
+        "mean_abs_gradient": 8.467655021604514e-09,
+        "rms_gradient": 9.08526942566823e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.38979288935661316
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_11",
+        "speed_band": "bottom50",
+        "count": 76684,
+        "mean_abs_gradient": 8.418847841085153e-09,
+        "rms_gradient": 9.156269520360638e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.18814599514007568
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_11",
+        "speed_band": "50to90",
+        "count": 61348,
+        "mean_abs_gradient": 8.671772633306318e-09,
+        "rms_gradient": 9.217727026111788e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.45756953954696655
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_11",
+        "speed_band": "90to99",
+        "count": 13804,
+        "mean_abs_gradient": 7.940835544673064e-09,
+        "rms_gradient": 8.208949076049521e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 1.0022584199905396
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_11",
+        "speed_band": "top1",
+        "count": 1536,
+        "mean_abs_gradient": 7.486436359727122e-09,
+        "rms_gradient": 7.566597126640318e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 2.2456884384155273
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_12",
+        "speed_band": "all",
+        "count": 151436,
+        "mean_abs_gradient": 8.575907983754405e-09,
+        "rms_gradient": 9.194757843999923e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.4093721807003021
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_12",
+        "speed_band": "bottom50",
+        "count": 75716,
+        "mean_abs_gradient": 8.490154357332358e-09,
+        "rms_gradient": 9.259548683360208e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.20072928071022034
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_12",
+        "speed_band": "50to90",
+        "count": 60576,
+        "mean_abs_gradient": 8.84450290783434e-09,
+        "rms_gradient": 9.352728369549368e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.47512000799179077
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_12",
+        "speed_band": "90to99",
+        "count": 13628,
+        "mean_abs_gradient": 7.974834126400765e-09,
+        "rms_gradient": 8.233112858135883e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 1.0413419008255005
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_12",
+        "speed_band": "top1",
+        "count": 1516,
+        "mean_abs_gradient": 7.529682655160741e-09,
+        "rms_gradient": 7.642595889478798e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 2.521761417388916
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_13",
+        "speed_band": "all",
+        "count": 148760,
+        "mean_abs_gradient": 8.730178358007379e-09,
+        "rms_gradient": 9.352778995719291e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.4279017150402069
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_13",
+        "speed_band": "bottom50",
+        "count": 74380,
+        "mean_abs_gradient": 8.628144421152228e-09,
+        "rms_gradient": 9.407480128231782e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.19851991534233093
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_13",
+        "speed_band": "50to90",
+        "count": 59504,
+        "mean_abs_gradient": 9.01954599896726e-09,
+        "rms_gradient": 9.51671808024912e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.5016747713088989
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_13",
+        "speed_band": "90to99",
+        "count": 13388,
+        "mean_abs_gradient": 8.12498157642949e-09,
+        "rms_gradient": 8.418778563168416e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 1.1152470111846924
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_13",
+        "speed_band": "top1",
+        "count": 1488,
+        "mean_abs_gradient": 7.704060500657306e-09,
+        "rms_gradient": 7.862391626645149e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 2.7595155239105225
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_14",
+        "speed_band": "all",
+        "count": 144880,
+        "mean_abs_gradient": 8.963978004317141e-09,
+        "rms_gradient": 9.586276661366355e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.46205824613571167
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_14",
+        "speed_band": "bottom50",
+        "count": 72440,
+        "mean_abs_gradient": 8.966720699277175e-09,
+        "rms_gradient": 9.719353322168445e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.20632734894752502
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_14",
+        "speed_band": "50to90",
+        "count": 57952,
+        "mean_abs_gradient": 9.158327429759083e-09,
+        "rms_gradient": 9.663216893329718e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.5303766131401062
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_14",
+        "speed_band": "90to99",
+        "count": 13036,
+        "mean_abs_gradient": 8.219416258725687e-09,
+        "rms_gradient": 8.62280646884983e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 1.2774553298950195
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_14",
+        "speed_band": "top1",
+        "count": 1452,
+        "mean_abs_gradient": 7.754997533027108e-09,
+        "rms_gradient": 7.881649999319507e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 3.1731112003326416
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_15",
+        "speed_band": "all",
+        "count": 138016,
+        "mean_abs_gradient": 9.409787615766163e-09,
+        "rms_gradient": 1.0018344376305777e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.5036357641220093
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_15",
+        "speed_band": "bottom50",
+        "count": 69008,
+        "mean_abs_gradient": 9.462158168105361e-09,
+        "rms_gradient": 1.0179187270864531e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.21159030497074127
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_15",
+        "speed_band": "50to90",
+        "count": 55204,
+        "mean_abs_gradient": 9.54509271622328e-09,
+        "rms_gradient": 1.0046320220169491e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.5644654631614685
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_15",
+        "speed_band": "90to99",
+        "count": 12420,
+        "mean_abs_gradient": 8.660197003962367e-09,
+        "rms_gradient": 9.131581713006653e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 1.4793709516525269
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_15",
+        "speed_band": "top1",
+        "count": 1384,
+        "mean_abs_gradient": 8.1285076447557e-09,
+        "rms_gradient": 8.269721796239082e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 3.8828208446502686
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_16",
+        "speed_band": "all",
+        "count": 120692,
+        "mean_abs_gradient": 1.0760457413994118e-08,
+        "rms_gradient": 1.1381032116730694e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.5404636263847351
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_16",
+        "speed_band": "bottom50",
+        "count": 60344,
+        "mean_abs_gradient": 1.080043610102166e-08,
+        "rms_gradient": 1.150126394122708e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.21362784504890442
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_16",
+        "speed_band": "50to90",
+        "count": 48276,
+        "mean_abs_gradient": 1.0908892456029662e-08,
+        "rms_gradient": 1.1453315629239569e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.5990198254585266
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_16",
+        "speed_band": "90to99",
+        "count": 10864,
+        "mean_abs_gradient": 1.0059517663307815e-08,
+        "rms_gradient": 1.056577048075269e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 1.6381350755691528
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_16",
+        "speed_band": "top1",
+        "count": 1208,
+        "mean_abs_gradient": 9.135261436199471e-09,
+        "rms_gradient": 9.32982935353266e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 4.655215263366699
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_17",
+        "speed_band": "all",
+        "count": 70000,
+        "mean_abs_gradient": 1.8552873015664773e-08,
+        "rms_gradient": 1.9030256481755714e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.5527900457382202
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_17",
+        "speed_band": "bottom50",
+        "count": 35000,
+        "mean_abs_gradient": 1.8722813521776516e-08,
+        "rms_gradient": 1.9173132415062355e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.21326389908790588
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_17",
+        "speed_band": "50to90",
+        "count": 28000,
+        "mean_abs_gradient": 1.86019626369216e-08,
+        "rms_gradient": 1.9084431812643743e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.6253660917282104
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_17",
+        "speed_band": "90to99",
+        "count": 6300,
+        "mean_abs_gradient": 1.773073421418303e-08,
+        "rms_gradient": 1.830764340127189e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 1.6287842988967896
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_17",
+        "speed_band": "top1",
+        "count": 700,
+        "mean_abs_gradient": 1.5491698590608394e-08,
+        "rms_gradient": 1.5794416441394787e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 4.942108154296875
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_18",
+        "speed_band": "all",
+        "count": 19032,
+        "mean_abs_gradient": 6.823776743658527e-08,
+        "rms_gradient": 6.905911931198716e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.4625178873538971
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_18",
+        "speed_band": "bottom50",
+        "count": 9516,
+        "mean_abs_gradient": 6.893102977301169e-08,
+        "rms_gradient": 6.964215515381511e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.19850553572177887
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_18",
+        "speed_band": "50to90",
+        "count": 7612,
+        "mean_abs_gradient": 6.865936796884853e-08,
+        "rms_gradient": 6.945939645675026e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.4861505627632141
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_18",
+        "speed_band": "90to99",
+        "count": 1712,
+        "mean_abs_gradient": 6.430705212778776e-08,
+        "rms_gradient": 6.556216902708911e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 1.3498982191085815
+      },
+      {
+        "objective": "mae",
+        "channel": "uo_18",
+        "speed_band": "top1",
+        "count": 192,
+        "mean_abs_gradient": 5.2212328682799125e-08,
+        "rms_gradient": 5.254170787338808e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 4.698216438293457
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_0",
+        "speed_band": "all",
+        "count": 179568,
+        "mean_abs_gradient": 7.232364485076914e-09,
+        "rms_gradient": 7.849997984976653e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.4308273494243622
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_0",
+        "speed_band": "bottom50",
+        "count": 89784,
+        "mean_abs_gradient": 6.271146713032749e-09,
+        "rms_gradient": 7.092542553266412e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.27010011672973633
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_0",
+        "speed_band": "50to90",
+        "count": 71824,
+        "mean_abs_gradient": 7.95613086523872e-09,
+        "rms_gradient": 8.328557399295278e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.45560508966445923
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_0",
+        "speed_band": "90to99",
+        "count": 16164,
+        "mean_abs_gradient": 9.049499816171647e-09,
+        "rms_gradient": 9.255226807169947e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.9733704924583435
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_0",
+        "speed_band": "top1",
+        "count": 1796,
+        "mean_abs_gradient": 9.986245608217814e-09,
+        "rms_gradient": 1.007372230077408e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 2.5919787883758545
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_1",
+        "speed_band": "all",
+        "count": 179568,
+        "mean_abs_gradient": 7.232364485076914e-09,
+        "rms_gradient": 7.849997984976653e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.39948558807373047
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_1",
+        "speed_band": "bottom50",
+        "count": 89784,
+        "mean_abs_gradient": 6.301605903757945e-09,
+        "rms_gradient": 7.071790264490119e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.2197553664445877
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_1",
+        "speed_band": "50to90",
+        "count": 71824,
+        "mean_abs_gradient": 7.901211240834982e-09,
+        "rms_gradient": 8.332761147755718e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.4255214035511017
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_1",
+        "speed_band": "90to99",
+        "count": 16164,
+        "mean_abs_gradient": 9.123132471700046e-09,
+        "rms_gradient": 9.325810346183516e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 1.0187580585479736
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_1",
+        "speed_band": "top1",
+        "count": 1796,
+        "mean_abs_gradient": 9.997169314601706e-09,
+        "rms_gradient": 1.0078186285511492e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 2.769740104675293
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_2",
+        "speed_band": "all",
+        "count": 178016,
+        "mean_abs_gradient": 7.295419379715895e-09,
+        "rms_gradient": 7.917001276780411e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.393903911113739
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_2",
+        "speed_band": "bottom50",
+        "count": 89008,
+        "mean_abs_gradient": 6.465163959745723e-09,
+        "rms_gradient": 7.221639286569825e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.19552214443683624
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_2",
+        "speed_band": "50to90",
+        "count": 71204,
+        "mean_abs_gradient": 7.8575022044447e-09,
+        "rms_gradient": 8.33121749366228e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.43103140592575073
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_2",
+        "speed_band": "90to99",
+        "count": 16020,
+        "mean_abs_gradient": 9.112475218842064e-09,
+        "rms_gradient": 9.325489713774004e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 1.0726423263549805
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_2",
+        "speed_band": "top1",
+        "count": 1784,
+        "mean_abs_gradient": 9.96783366957743e-09,
+        "rms_gradient": 1.0058950117297627e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 2.714836835861206
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_3",
+        "speed_band": "all",
+        "count": 176084,
+        "mean_abs_gradient": 7.3754646834345294e-09,
+        "rms_gradient": 8.000491824589062e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.38016292452812195
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_3",
+        "speed_band": "bottom50",
+        "count": 88040,
+        "mean_abs_gradient": 6.713253064560831e-09,
+        "rms_gradient": 7.46180273125674e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.1757642775774002
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_3",
+        "speed_band": "50to90",
+        "count": 70432,
+        "mean_abs_gradient": 7.762120723953103e-09,
+        "rms_gradient": 8.278383312187998e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.4125296175479889
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_3",
+        "speed_band": "90to99",
+        "count": 15848,
+        "mean_abs_gradient": 9.050987515024644e-09,
+        "rms_gradient": 9.278276813518005e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 1.096320629119873
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_3",
+        "speed_band": "top1",
+        "count": 1764,
+        "mean_abs_gradient": 9.93472237809101e-09,
+        "rms_gradient": 1.0036973030480567e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 2.8551881313323975
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_4",
+        "speed_band": "all",
+        "count": 173788,
+        "mean_abs_gradient": 7.47290584968141e-09,
+        "rms_gradient": 8.102484905236906e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.366851806640625
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_4",
+        "speed_band": "bottom50",
+        "count": 86892,
+        "mean_abs_gradient": 6.8626766491775015e-09,
+        "rms_gradient": 7.622268149987121e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.16734597086906433
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_4",
+        "speed_band": "50to90",
+        "count": 69516,
+        "mean_abs_gradient": 7.822572811733153e-09,
+        "rms_gradient": 8.345477198190565e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.38698458671569824
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_4",
+        "speed_band": "90to99",
+        "count": 15640,
+        "mean_abs_gradient": 9.01640451189678e-09,
+        "rms_gradient": 9.250087806833562e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 1.1259756088256836
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_4",
+        "speed_band": "top1",
+        "count": 1740,
+        "mean_abs_gradient": 1.0102874092865477e-08,
+        "rms_gradient": 1.0201599565107244e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 2.702033281326294
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_5",
+        "speed_band": "all",
+        "count": 170740,
+        "mean_abs_gradient": 7.60630847196353e-09,
+        "rms_gradient": 8.243627114268293e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.35309287905693054
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_5",
+        "speed_band": "bottom50",
+        "count": 85368,
+        "mean_abs_gradient": 7.034503202163478e-09,
+        "rms_gradient": 7.816940872373834e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.17556695640087128
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_5",
+        "speed_band": "50to90",
+        "count": 68296,
+        "mean_abs_gradient": 7.981144634072734e-09,
+        "rms_gradient": 8.503096893264228e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.3703738749027252
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_5",
+        "speed_band": "90to99",
+        "count": 15368,
+        "mean_abs_gradient": 8.808018314709898e-09,
+        "rms_gradient": 9.059131222954875e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 1.0667017698287964
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_5",
+        "speed_band": "top1",
+        "count": 1708,
+        "mean_abs_gradient": 1.0385183379924001e-08,
+        "rms_gradient": 1.047664799358472e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 2.114255666732788
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_6",
+        "speed_band": "all",
+        "count": 167856,
+        "mean_abs_gradient": 7.736995932816626e-09,
+        "rms_gradient": 8.382732730183307e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.3188505470752716
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_6",
+        "speed_band": "bottom50",
+        "count": 83928,
+        "mean_abs_gradient": 7.199070672925245e-09,
+        "rms_gradient": 8.02327626558963e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.1639472097158432
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_6",
+        "speed_band": "50to90",
+        "count": 67140,
+        "mean_abs_gradient": 8.200697898530507e-09,
+        "rms_gradient": 8.700494547042581e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.3532973825931549
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_6",
+        "speed_band": "90to99",
+        "count": 15108,
+        "mean_abs_gradient": 8.4239806241726e-09,
+        "rms_gradient": 8.688931352196505e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.8704631328582764
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_6",
+        "speed_band": "top1",
+        "count": 1680,
+        "mean_abs_gradient": 9.900761988035356e-09,
+        "rms_gradient": 1.0046374399053093e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 1.7201629877090454
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_7",
+        "speed_band": "all",
+        "count": 165256,
+        "mean_abs_gradient": 7.858723449771787e-09,
+        "rms_gradient": 8.508536097906472e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.3135766386985779
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_7",
+        "speed_band": "bottom50",
+        "count": 82628,
+        "mean_abs_gradient": 7.423868186862137e-09,
+        "rms_gradient": 8.259781303365799e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.16056030988693237
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_7",
+        "speed_band": "50to90",
+        "count": 66100,
+        "mean_abs_gradient": 8.327496026083736e-09,
+        "rms_gradient": 8.833556108811536e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.35053274035453796
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_7",
+        "speed_band": "90to99",
+        "count": 14872,
+        "mean_abs_gradient": 8.115142335896053e-09,
+        "rms_gradient": 8.375221405287903e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.821965754032135
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_7",
+        "speed_band": "top1",
+        "count": 1656,
+        "mean_abs_gradient": 8.542226481722537e-09,
+        "rms_gradient": 8.703585407943137e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 1.9076992273330688
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_8",
+        "speed_band": "all",
+        "count": 162432,
+        "mean_abs_gradient": 7.995352824252677e-09,
+        "rms_gradient": 8.639249315933739e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.32307547330856323
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_8",
+        "speed_band": "bottom50",
+        "count": 81216,
+        "mean_abs_gradient": 7.758996112272598e-09,
+        "rms_gradient": 8.56295123696782e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.15710437297821045
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_8",
+        "speed_band": "50to90",
+        "count": 64972,
+        "mean_abs_gradient": 8.304170684425571e-09,
+        "rms_gradient": 8.841308130058678e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.3666360080242157
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_8",
+        "speed_band": "90to99",
+        "count": 14616,
+        "mean_abs_gradient": 7.944417568239714e-09,
+        "rms_gradient": 8.208398405429307e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.8598446846008301
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_8",
+        "speed_band": "top1",
+        "count": 1628,
+        "mean_abs_gradient": 7.919113365062458e-09,
+        "rms_gradient": 8.019933162017878e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 2.0453600883483887
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_9",
+        "speed_band": "all",
+        "count": 158840,
+        "mean_abs_gradient": 8.176161081507871e-09,
+        "rms_gradient": 8.807083951012373e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.3272111117839813
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_9",
+        "speed_band": "bottom50",
+        "count": 79420,
+        "mean_abs_gradient": 8.064315437650293e-09,
+        "rms_gradient": 8.824654784689301e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.1646166890859604
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_9",
+        "speed_band": "50to90",
+        "count": 63536,
+        "mean_abs_gradient": 8.401633166954525e-09,
+        "rms_gradient": 8.954603281097206e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.3809073865413666
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_9",
+        "speed_band": "90to99",
+        "count": 14292,
+        "mean_abs_gradient": 7.84905829220861e-09,
+        "rms_gradient": 8.129880768592557e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.8190234303474426
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_9",
+        "speed_band": "top1",
+        "count": 1592,
+        "mean_abs_gradient": 7.693746972847748e-09,
+        "rms_gradient": 7.778552912895975e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 1.8803656101226807
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_10",
+        "speed_band": "all",
+        "count": 155732,
+        "mean_abs_gradient": 8.339334556239919e-09,
+        "rms_gradient": 8.959973207822713e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.33993789553642273
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_10",
+        "speed_band": "bottom50",
+        "count": 77864,
+        "mean_abs_gradient": 8.268916218412414e-09,
+        "rms_gradient": 9.009884394117762e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.1748472899198532
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_10",
+        "speed_band": "50to90",
+        "count": 62292,
+        "mean_abs_gradient": 8.558335373720638e-09,
+        "rms_gradient": 9.106808640524378e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.3977351188659668
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_10",
+        "speed_band": "90to99",
+        "count": 14016,
+        "mean_abs_gradient": 7.835305737557974e-09,
+        "rms_gradient": 8.112347238409257e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.8176119923591614
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_10",
+        "speed_band": "top1",
+        "count": 1560,
+        "mean_abs_gradient": 7.637785515157702e-09,
+        "rms_gradient": 7.720116101950225e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 1.9804719686508179
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_11",
+        "speed_band": "all",
+        "count": 153372,
+        "mean_abs_gradient": 8.467655021604514e-09,
+        "rms_gradient": 9.08526942566823e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.35725051164627075
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_11",
+        "speed_band": "bottom50",
+        "count": 76684,
+        "mean_abs_gradient": 8.418847841085153e-09,
+        "rms_gradient": 9.156269520360638e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.18506121635437012
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_11",
+        "speed_band": "50to90",
+        "count": 61348,
+        "mean_abs_gradient": 8.671772633306318e-09,
+        "rms_gradient": 9.217727026111788e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.416282594203949
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_11",
+        "speed_band": "90to99",
+        "count": 13804,
+        "mean_abs_gradient": 7.940835544673064e-09,
+        "rms_gradient": 8.208949076049521e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.8640009164810181
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_11",
+        "speed_band": "top1",
+        "count": 1536,
+        "mean_abs_gradient": 7.486436359727122e-09,
+        "rms_gradient": 7.566597126640318e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 2.041810989379883
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_12",
+        "speed_band": "all",
+        "count": 151436,
+        "mean_abs_gradient": 8.575907983754405e-09,
+        "rms_gradient": 9.194757843999923e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.3828504979610443
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_12",
+        "speed_band": "bottom50",
+        "count": 75716,
+        "mean_abs_gradient": 8.490154357332358e-09,
+        "rms_gradient": 9.259548683360208e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.19501037895679474
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_12",
+        "speed_band": "50to90",
+        "count": 60576,
+        "mean_abs_gradient": 8.84450290783434e-09,
+        "rms_gradient": 9.352728369549368e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.44371330738067627
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_12",
+        "speed_band": "90to99",
+        "count": 13628,
+        "mean_abs_gradient": 7.974834126400765e-09,
+        "rms_gradient": 8.233112858135883e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.9516318440437317
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_12",
+        "speed_band": "top1",
+        "count": 1516,
+        "mean_abs_gradient": 7.529682655160741e-09,
+        "rms_gradient": 7.642595889478798e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 2.219477653503418
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_13",
+        "speed_band": "all",
+        "count": 148760,
+        "mean_abs_gradient": 8.730178358007379e-09,
+        "rms_gradient": 9.352778995719291e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.4149159789085388
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_13",
+        "speed_band": "bottom50",
+        "count": 74380,
+        "mean_abs_gradient": 8.628144421152228e-09,
+        "rms_gradient": 9.407480128231782e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.19508646428585052
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_13",
+        "speed_band": "50to90",
+        "count": 59504,
+        "mean_abs_gradient": 9.01954599896726e-09,
+        "rms_gradient": 9.51671808024912e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.48436862230300903
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_13",
+        "speed_band": "90to99",
+        "count": 13388,
+        "mean_abs_gradient": 8.12498157642949e-09,
+        "rms_gradient": 8.418778563168416e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 1.0784896612167358
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_13",
+        "speed_band": "top1",
+        "count": 1488,
+        "mean_abs_gradient": 7.704060500657306e-09,
+        "rms_gradient": 7.862391626645149e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 2.655700922012329
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_14",
+        "speed_band": "all",
+        "count": 144880,
+        "mean_abs_gradient": 8.963978004317141e-09,
+        "rms_gradient": 9.586276661366355e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.46236249804496765
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_14",
+        "speed_band": "bottom50",
+        "count": 72440,
+        "mean_abs_gradient": 8.966720699277175e-09,
+        "rms_gradient": 9.719353322168445e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.20326270163059235
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_14",
+        "speed_band": "50to90",
+        "count": 57952,
+        "mean_abs_gradient": 9.158327429759083e-09,
+        "rms_gradient": 9.663216893329718e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.5340615510940552
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_14",
+        "speed_band": "90to99",
+        "count": 13036,
+        "mean_abs_gradient": 8.219416258725687e-09,
+        "rms_gradient": 8.62280646884983e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 1.291304588317871
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_14",
+        "speed_band": "top1",
+        "count": 1452,
+        "mean_abs_gradient": 7.754997533027108e-09,
+        "rms_gradient": 7.881649999319507e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 3.084947109222412
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_15",
+        "speed_band": "all",
+        "count": 138016,
+        "mean_abs_gradient": 9.409787615766163e-09,
+        "rms_gradient": 1.0018344376305777e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.5030585527420044
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_15",
+        "speed_band": "bottom50",
+        "count": 69008,
+        "mean_abs_gradient": 9.462158168105361e-09,
+        "rms_gradient": 1.0179187270864531e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.20759156346321106
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_15",
+        "speed_band": "50to90",
+        "count": 55204,
+        "mean_abs_gradient": 9.54509271622328e-09,
+        "rms_gradient": 1.0046320220169491e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.5654059648513794
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_15",
+        "speed_band": "90to99",
+        "count": 12420,
+        "mean_abs_gradient": 8.660197003962367e-09,
+        "rms_gradient": 9.131581713006653e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 1.5185810327529907
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_15",
+        "speed_band": "top1",
+        "count": 1384,
+        "mean_abs_gradient": 8.1285076447557e-09,
+        "rms_gradient": 8.269721796239082e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 3.6352531909942627
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_16",
+        "speed_band": "all",
+        "count": 120692,
+        "mean_abs_gradient": 1.0760457413994118e-08,
+        "rms_gradient": 1.1381032116730694e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.5246021747589111
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_16",
+        "speed_band": "bottom50",
+        "count": 60344,
+        "mean_abs_gradient": 1.080043610102166e-08,
+        "rms_gradient": 1.150126394122708e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.2090182602405548
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_16",
+        "speed_band": "50to90",
+        "count": 48276,
+        "mean_abs_gradient": 1.0908892456029662e-08,
+        "rms_gradient": 1.1453315629239569e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.5757990479469299
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_16",
+        "speed_band": "90to99",
+        "count": 10864,
+        "mean_abs_gradient": 1.0059517663307815e-08,
+        "rms_gradient": 1.056577048075269e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 1.6351068019866943
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_16",
+        "speed_band": "top1",
+        "count": 1208,
+        "mean_abs_gradient": 9.135261436199471e-09,
+        "rms_gradient": 9.32982935353266e-09,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 4.255967140197754
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_17",
+        "speed_band": "all",
+        "count": 70000,
+        "mean_abs_gradient": 1.8552873015664773e-08,
+        "rms_gradient": 1.9030256481755714e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.5360406637191772
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_17",
+        "speed_band": "bottom50",
+        "count": 35000,
+        "mean_abs_gradient": 1.8722813521776516e-08,
+        "rms_gradient": 1.9173132415062355e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.2214372456073761
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_17",
+        "speed_band": "50to90",
+        "count": 28000,
+        "mean_abs_gradient": 1.86019626369216e-08,
+        "rms_gradient": 1.9084431812643743e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.5842562913894653
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_17",
+        "speed_band": "90to99",
+        "count": 6300,
+        "mean_abs_gradient": 1.773073421418303e-08,
+        "rms_gradient": 1.830764340127189e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 1.6488676071166992
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_17",
+        "speed_band": "top1",
+        "count": 700,
+        "mean_abs_gradient": 1.5491698590608394e-08,
+        "rms_gradient": 1.5794416441394787e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 4.322145462036133
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_18",
+        "speed_band": "all",
+        "count": 19032,
+        "mean_abs_gradient": 6.823776743658527e-08,
+        "rms_gradient": 6.905911931198716e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.47781726717948914
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_18",
+        "speed_band": "bottom50",
+        "count": 9516,
+        "mean_abs_gradient": 6.893102977301169e-08,
+        "rms_gradient": 6.964215515381511e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.20330028235912323
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_18",
+        "speed_band": "50to90",
+        "count": 7612,
+        "mean_abs_gradient": 6.865936796884853e-08,
+        "rms_gradient": 6.945939645675026e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 0.509824275970459
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_18",
+        "speed_band": "90to99",
+        "count": 1712,
+        "mean_abs_gradient": 6.430705212778776e-08,
+        "rms_gradient": 6.556216902708911e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 1.4700641632080078
+      },
+      {
+        "objective": "mae",
+        "channel": "vo_18",
+        "speed_band": "top1",
+        "count": 192,
+        "mean_abs_gradient": 5.2212328682799125e-08,
+        "rms_gradient": 5.254170787338808e-08,
+        "zero_fraction": 0.0,
+        "normalized_absolute_residual": 3.967088222503662
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_0",
+        "speed_band": "all",
+        "count": 179568,
+        "mean_abs_gradient": 7.1746506513648e-09,
+        "rms_gradient": 9.583487781128497e-09,
+        "zero_fraction": 0.2053261250257492,
+        "normalized_absolute_residual": 0.359306275844574
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_0",
+        "speed_band": "bottom50",
+        "count": 89784,
+        "mean_abs_gradient": 6.202367952568011e-09,
+        "rms_gradient": 8.704695630967763e-09,
+        "zero_fraction": 0.2238594889640808,
+        "normalized_absolute_residual": 0.21658338606357574
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_0",
+        "speed_band": "50to90",
+        "count": 71824,
+        "mean_abs_gradient": 7.907511978544335e-09,
+        "rms_gradient": 1.016242556772795e-08,
+        "zero_fraction": 0.193333700299263,
+        "normalized_absolute_residual": 0.37306737899780273
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_0",
+        "speed_band": "90to99",
+        "count": 16164,
+        "mean_abs_gradient": 9.006427603708289e-09,
+        "rms_gradient": 1.1157057500099654e-08,
+        "zero_fraction": 0.16382083296775818,
+        "normalized_absolute_residual": 0.8344038724899292
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_0",
+        "speed_band": "top1",
+        "count": 1796,
+        "mean_abs_gradient": 9.986245608217814e-09,
+        "rms_gradient": 1.2015869188530814e-08,
+        "zero_fraction": 0.1319599151611328,
+        "normalized_absolute_residual": 2.667975664138794
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_1",
+        "speed_band": "all",
+        "count": 179568,
+        "mean_abs_gradient": 7.179521865907645e-09,
+        "rms_gradient": 9.578055681913611e-09,
+        "zero_fraction": 0.20701350271701813,
+        "normalized_absolute_residual": 0.3505106270313263
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_1",
+        "speed_band": "bottom50",
+        "count": 89784,
+        "mean_abs_gradient": 6.237039329448635e-09,
+        "rms_gradient": 8.692643049812432e-09,
+        "zero_fraction": 0.228437140583992,
+        "normalized_absolute_residual": 0.1894264668226242
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_1",
+        "speed_band": "50to90",
+        "count": 71824,
+        "mean_abs_gradient": 7.856481687440464e-09,
+        "rms_gradient": 1.0156360197299819e-08,
+        "zero_fraction": 0.19494876265525818,
+        "normalized_absolute_residual": 0.35416796803474426
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_1",
+        "speed_band": "90to99",
+        "count": 16164,
+        "mean_abs_gradient": 9.094808461895809e-09,
+        "rms_gradient": 1.1178745040751892e-08,
+        "zero_fraction": 0.1485399603843689,
+        "normalized_absolute_residual": 0.9439341425895691
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_1",
+        "speed_band": "top1",
+        "count": 1796,
+        "mean_abs_gradient": 9.985383186972285e-09,
+        "rms_gradient": 1.2042620234353762e-08,
+        "zero_fraction": 0.14476615190505981,
+        "normalized_absolute_residual": 2.916210889816284
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_2",
+        "speed_band": "all",
+        "count": 178016,
+        "mean_abs_gradient": 7.236591326176267e-09,
+        "rms_gradient": 9.681656365501112e-09,
+        "zero_fraction": 0.21523907780647278,
+        "normalized_absolute_residual": 0.3468233644962311
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_2",
+        "speed_band": "bottom50",
+        "count": 89008,
+        "mean_abs_gradient": 6.390799445199491e-09,
+        "rms_gradient": 8.872026668882427e-09,
+        "zero_fraction": 0.23205779492855072,
+        "normalized_absolute_residual": 0.16594219207763672
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_2",
+        "speed_band": "50to90",
+        "count": 71204,
+        "mean_abs_gradient": 7.808887758642413e-09,
+        "rms_gradient": 1.018404915953397e-08,
+        "zero_fraction": 0.20555025339126587,
+        "normalized_absolute_residual": 0.3594591021537781
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_2",
+        "speed_band": "90to99",
+        "count": 16020,
+        "mean_abs_gradient": 9.08802544330456e-09,
+        "rms_gradient": 1.1263683319384654e-08,
+        "zero_fraction": 0.16991262137889862,
+        "normalized_absolute_residual": 0.9931272864341736
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_2",
+        "speed_band": "top1",
+        "count": 1784,
+        "mean_abs_gradient": 9.967832781399011e-09,
+        "rms_gradient": 1.2136711191601535e-08,
+        "zero_fraction": 0.16984306275844574,
+        "normalized_absolute_residual": 3.063399076461792
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_3",
+        "speed_band": "all",
+        "count": 176084,
+        "mean_abs_gradient": 7.31421145871991e-09,
+        "rms_gradient": 9.778845289076799e-09,
+        "zero_fraction": 0.20989415049552917,
+        "normalized_absolute_residual": 0.3368360996246338
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_3",
+        "speed_band": "bottom50",
+        "count": 88040,
+        "mean_abs_gradient": 6.6352794370061474e-09,
+        "rms_gradient": 9.160655345397117e-09,
+        "zero_fraction": 0.22727170586585999,
+        "normalized_absolute_residual": 0.15911512076854706
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_3",
+        "speed_band": "50to90",
+        "count": 70432,
+        "mean_abs_gradient": 7.713486738225583e-09,
+        "rms_gradient": 1.0106208314653031e-08,
+        "zero_fraction": 0.19953998923301697,
+        "normalized_absolute_residual": 0.3519872725009918
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_3",
+        "speed_band": "90to99",
+        "count": 15848,
+        "mean_abs_gradient": 9.021742464199178e-09,
+        "rms_gradient": 1.1230152807684135e-08,
+        "zero_fraction": 0.1658884435892105,
+        "normalized_absolute_residual": 0.9712103009223938
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_3",
+        "speed_band": "top1",
+        "count": 1764,
+        "mean_abs_gradient": 9.916520049557676e-09,
+        "rms_gradient": 1.2088461787129745e-08,
+        "zero_fraction": 0.15136054158210754,
+        "normalized_absolute_residual": 2.9025187492370605
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_4",
+        "speed_band": "all",
+        "count": 173788,
+        "mean_abs_gradient": 7.397296553079968e-09,
+        "rms_gradient": 9.92133664112771e-09,
+        "zero_fraction": 0.21987134218215942,
+        "normalized_absolute_residual": 0.32376742362976074
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_4",
+        "speed_band": "bottom50",
+        "count": 86892,
+        "mean_abs_gradient": 6.761791571108233e-09,
+        "rms_gradient": 9.357327357406575e-09,
+        "zero_fraction": 0.2367076426744461,
+        "normalized_absolute_residual": 0.14927466213703156
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_4",
+        "speed_band": "50to90",
+        "count": 69516,
+        "mean_abs_gradient": 7.76710784577972e-09,
+        "rms_gradient": 1.0213852874585427e-08,
+        "zero_fraction": 0.21023936569690704,
+        "normalized_absolute_residual": 0.335709810256958
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_4",
+        "speed_band": "90to99",
+        "count": 15640,
+        "mean_abs_gradient": 8.983275456841966e-09,
+        "rms_gradient": 1.1238960873072301e-08,
+        "zero_fraction": 0.17538362741470337,
+        "normalized_absolute_residual": 0.9573928117752075
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_4",
+        "speed_band": "top1",
+        "count": 1740,
+        "mean_abs_gradient": 1.0102874092865477e-08,
+        "rms_gradient": 1.2470112054074889e-08,
+        "zero_fraction": 0.16379310190677643,
+        "normalized_absolute_residual": 2.865110158920288
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_5",
+        "speed_band": "all",
+        "count": 170740,
+        "mean_abs_gradient": 7.53620366111818e-09,
+        "rms_gradient": 1.0064428401790337e-08,
+        "zero_fraction": 0.20879700779914856,
+        "normalized_absolute_residual": 0.3183683156967163
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_5",
+        "speed_band": "bottom50",
+        "count": 85368,
+        "mean_abs_gradient": 6.942586505687132e-09,
+        "rms_gradient": 9.580570115019782e-09,
+        "zero_fraction": 0.2269117385149002,
+        "normalized_absolute_residual": 0.1555352360010147
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_5",
+        "speed_band": "50to90",
+        "count": 68296,
+        "mean_abs_gradient": 7.928421474900915e-09,
+        "rms_gradient": 1.037034724760133e-08,
+        "zero_fraction": 0.19793252646923065,
+        "normalized_absolute_residual": 0.3315644860267639
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_5",
+        "speed_band": "90to99",
+        "count": 15368,
+        "mean_abs_gradient": 8.774032167480073e-09,
+        "rms_gradient": 1.0931361593691236e-08,
+        "zero_fraction": 0.1615695059299469,
+        "normalized_absolute_residual": 0.8730427622795105
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_5",
+        "speed_band": "top1",
+        "count": 1708,
+        "mean_abs_gradient": 1.0385183379924001e-08,
+        "rms_gradient": 1.27531105675871e-08,
+        "zero_fraction": 0.16276346147060394,
+        "normalized_absolute_residual": 2.9385366439819336
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_6",
+        "speed_band": "all",
+        "count": 167856,
+        "mean_abs_gradient": 7.650816868931543e-09,
+        "rms_gradient": 1.024941642668864e-08,
+        "zero_fraction": 0.21853254735469818,
+        "normalized_absolute_residual": 0.3127351403236389
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_6",
+        "speed_band": "bottom50",
+        "count": 83928,
+        "mean_abs_gradient": 7.088295728152616e-09,
+        "rms_gradient": 9.829966174379479e-09,
+        "zero_fraction": 0.23255647718906403,
+        "normalized_absolute_residual": 0.15399636328220367
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_6",
+        "speed_band": "50to90",
+        "count": 67140,
+        "mean_abs_gradient": 8.132194473375876e-09,
+        "rms_gradient": 1.0628842694870855e-08,
+        "zero_fraction": 0.21053023636341095,
+        "normalized_absolute_residual": 0.33933112025260925
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_6",
+        "speed_band": "90to99",
+        "count": 15108,
+        "mean_abs_gradient": 8.387281091870591e-09,
+        "rms_gradient": 1.056313525538144e-08,
+        "zero_fraction": 0.1818242073059082,
+        "normalized_absolute_residual": 0.8398082256317139
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_6",
+        "speed_band": "top1",
+        "count": 1680,
+        "mean_abs_gradient": 9.89186599298364e-09,
+        "rms_gradient": 1.2267791227316138e-08,
+        "zero_fraction": 0.16785715520381927,
+        "normalized_absolute_residual": 2.440086841583252
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_7",
+        "speed_band": "all",
+        "count": 165256,
+        "mean_abs_gradient": 7.792058553945935e-09,
+        "rms_gradient": 1.0417336326895565e-08,
+        "zero_fraction": 0.21307547390460968,
+        "normalized_absolute_residual": 0.3506891429424286
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_7",
+        "speed_band": "bottom50",
+        "count": 82628,
+        "mean_abs_gradient": 7.337774388105345e-09,
+        "rms_gradient": 1.0136875339128437e-08,
+        "zero_fraction": 0.22670280933380127,
+        "normalized_absolute_residual": 0.17213255167007446
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_7",
+        "speed_band": "50to90",
+        "count": 66100,
+        "mean_abs_gradient": 8.274042784250923e-09,
+        "rms_gradient": 1.08045812297064e-08,
+        "zero_fraction": 0.2058396339416504,
+        "normalized_absolute_residual": 0.3929145634174347
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_7",
+        "speed_band": "90to99",
+        "count": 14872,
+        "mean_abs_gradient": 8.091317837966017e-09,
+        "rms_gradient": 1.0178172971109234e-08,
+        "zero_fraction": 0.17448896169662476,
+        "normalized_absolute_residual": 0.9511000514030457
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_7",
+        "speed_band": "top1",
+        "count": 1656,
+        "mean_abs_gradient": 8.532920148240919e-09,
+        "rms_gradient": 1.060006837860783e-08,
+        "zero_fraction": 0.16847826540470123,
+        "normalized_absolute_residual": 2.1824288368225098
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_8",
+        "speed_band": "all",
+        "count": 162432,
+        "mean_abs_gradient": 7.91815768508286e-09,
+        "rms_gradient": 1.0609548795059709e-08,
+        "zero_fraction": 0.22294868528842926,
+        "normalized_absolute_residual": 0.36565330624580383
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_8",
+        "speed_band": "bottom50",
+        "count": 81216,
+        "mean_abs_gradient": 7.651286715315564e-09,
+        "rms_gradient": 1.0511517878342147e-08,
+        "zero_fraction": 0.23359929025173187,
+        "normalized_absolute_residual": 0.17404137551784515
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_8",
+        "speed_band": "50to90",
+        "count": 64972,
+        "mean_abs_gradient": 8.25278601013224e-09,
+        "rms_gradient": 1.0871982425442184e-08,
+        "zero_fraction": 0.21815551817417145,
+        "normalized_absolute_residual": 0.41347238421440125
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_8",
+        "speed_band": "90to99",
+        "count": 14616,
+        "mean_abs_gradient": 7.915667232794021e-09,
+        "rms_gradient": 1.0052915833114184e-08,
+        "zero_fraction": 0.1911603808403015,
+        "normalized_absolute_residual": 1.004878044128418
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_8",
+        "speed_band": "top1",
+        "count": 1628,
+        "mean_abs_gradient": 7.899125797905526e-09,
+        "rms_gradient": 9.701849990051414e-09,
+        "zero_fraction": 0.1683046668767929,
+        "normalized_absolute_residual": 2.277290105819702
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_9",
+        "speed_band": "all",
+        "count": 158840,
+        "mean_abs_gradient": 8.098941073342303e-09,
+        "rms_gradient": 1.0818440365767401e-08,
+        "zero_fraction": 0.22268320620059967,
+        "normalized_absolute_residual": 0.36344990134239197
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_9",
+        "speed_band": "bottom50",
+        "count": 79420,
+        "mean_abs_gradient": 7.958751879755255e-09,
+        "rms_gradient": 1.0840139452739095e-08,
+        "zero_fraction": 0.23186853528022766,
+        "normalized_absolute_residual": 0.17756980657577515
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_9",
+        "speed_band": "50to90",
+        "count": 63536,
+        "mean_abs_gradient": 8.347749158588158e-09,
+        "rms_gradient": 1.1011802136806637e-08,
+        "zero_fraction": 0.21974942088127136,
+        "normalized_absolute_residual": 0.42591655254364014
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_9",
+        "speed_band": "90to99",
+        "count": 14292,
+        "mean_abs_gradient": 7.81701103846899e-09,
+        "rms_gradient": 9.938679212950774e-09,
+        "zero_fraction": 0.1907360702753067,
+        "normalized_absolute_residual": 0.9213346242904663
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_9",
+        "speed_band": "top1",
+        "count": 1592,
+        "mean_abs_gradient": 7.693746972847748e-09,
+        "rms_gradient": 9.437662207290032e-09,
+        "zero_fraction": 0.1683417111635208,
+        "normalized_absolute_residual": 2.1350719928741455
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_10",
+        "speed_band": "all",
+        "count": 155732,
+        "mean_abs_gradient": 8.275599761020658e-09,
+        "rms_gradient": 1.1001088928708214e-08,
+        "zero_fraction": 0.21447743475437164,
+        "normalized_absolute_residual": 0.3729100525379181
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_10",
+        "speed_band": "bottom50",
+        "count": 77864,
+        "mean_abs_gradient": 8.181237909354877e-09,
+        "rms_gradient": 1.1065647065322537e-08,
+        "zero_fraction": 0.22480222582817078,
+        "normalized_absolute_residual": 0.17742738127708435
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_10",
+        "speed_band": "50to90",
+        "count": 62292,
+        "mean_abs_gradient": 8.516654048662531e-09,
+        "rms_gradient": 1.1203888483635183e-08,
+        "zero_fraction": 0.21211391687393188,
+        "normalized_absolute_residual": 0.44316208362579346
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_10",
+        "speed_band": "90to99",
+        "count": 14016,
+        "mean_abs_gradient": 7.799474843750431e-09,
+        "rms_gradient": 9.844080217646933e-09,
+        "zero_fraction": 0.1742294430732727,
+        "normalized_absolute_residual": 0.9425148963928223
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_10",
+        "speed_band": "top1",
+        "count": 1560,
+        "mean_abs_gradient": 7.637785515157702e-09,
+        "rms_gradient": 9.31641164214625e-09,
+        "zero_fraction": 0.15512821078300476,
+        "normalized_absolute_residual": 2.207104444503784
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_11",
+        "speed_band": "all",
+        "count": 153372,
+        "mean_abs_gradient": 8.401540796398876e-09,
+        "rms_gradient": 1.116370196285743e-08,
+        "zero_fraction": 0.21633023023605347,
+        "normalized_absolute_residual": 0.38979288935661316
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_11",
+        "speed_band": "bottom50",
+        "count": 76684,
+        "mean_abs_gradient": 8.329573475407415e-09,
+        "rms_gradient": 1.1241107600312716e-08,
+        "zero_fraction": 0.22209325432777405,
+        "normalized_absolute_residual": 0.18814599514007568
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_11",
+        "speed_band": "50to90",
+        "count": 61348,
+        "mean_abs_gradient": 8.62713456228903e-09,
+        "rms_gradient": 1.1348075368289301e-08,
+        "zero_fraction": 0.2156386524438858,
+        "normalized_absolute_residual": 0.45756953954696655
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_11",
+        "speed_band": "90to99",
+        "count": 13804,
+        "mean_abs_gradient": 7.903993015645483e-09,
+        "rms_gradient": 1.005064653725185e-08,
+        "zero_fraction": 0.19146625697612762,
+        "normalized_absolute_residual": 1.0022584199905396
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_11",
+        "speed_band": "top1",
+        "count": 1536,
+        "mean_abs_gradient": 7.455779993392753e-09,
+        "rms_gradient": 9.191236216565812e-09,
+        "zero_fraction": 0.1796875,
+        "normalized_absolute_residual": 2.2456884384155273
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_12",
+        "speed_band": "all",
+        "count": 151436,
+        "mean_abs_gradient": 8.510571802844424e-09,
+        "rms_gradient": 1.1316440229336422e-08,
+        "zero_fraction": 0.21935337781906128,
+        "normalized_absolute_residual": 0.4093721807003021
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_12",
+        "speed_band": "bottom50",
+        "count": 75716,
+        "mean_abs_gradient": 8.394113848453344e-09,
+        "rms_gradient": 1.1382145892468998e-08,
+        "zero_fraction": 0.2245892584323883,
+        "normalized_absolute_residual": 0.20072928071022034
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_12",
+        "speed_band": "50to90",
+        "count": 60576,
+        "mean_abs_gradient": 8.808596518861123e-09,
+        "rms_gradient": 1.1538178412706657e-08,
+        "zero_fraction": 0.21903063356876373,
+        "normalized_absolute_residual": 0.47512000799179077
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_12",
+        "speed_band": "90to99",
+        "count": 13628,
+        "mean_abs_gradient": 7.943113722319595e-09,
+        "rms_gradient": 1.009489913883499e-08,
+        "zero_fraction": 0.1957734078168869,
+        "normalized_absolute_residual": 1.0413419008255005
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_12",
+        "speed_band": "top1",
+        "count": 1516,
+        "mean_abs_gradient": 7.519807887490515e-09,
+        "rms_gradient": 9.28424448431997e-09,
+        "zero_fraction": 0.1827176809310913,
+        "normalized_absolute_residual": 2.521761417388916
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_13",
+        "speed_band": "all",
+        "count": 148760,
+        "mean_abs_gradient": 8.664626349741411e-09,
+        "rms_gradient": 1.1519666998083267e-08,
+        "zero_fraction": 0.21798871457576752,
+        "normalized_absolute_residual": 0.4279017150402069
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_13",
+        "speed_band": "bottom50",
+        "count": 74380,
+        "mean_abs_gradient": 8.533345585703955e-09,
+        "rms_gradient": 1.1577882652602511e-08,
+        "zero_fraction": 0.2248319536447525,
+        "normalized_absolute_residual": 0.19851991534233093
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_13",
+        "speed_band": "50to90",
+        "count": 59504,
+        "mean_abs_gradient": 8.980621579723902e-09,
+        "rms_gradient": 1.174522878955031e-08,
+        "zero_fraction": 0.21670810878276825,
+        "normalized_absolute_residual": 0.5016747713088989
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_13",
+        "speed_band": "90to99",
+        "count": 13388,
+        "mean_abs_gradient": 8.096265879942166e-09,
+        "rms_gradient": 1.0317199539144895e-08,
+        "zero_fraction": 0.18987153470516205,
+        "normalized_absolute_residual": 1.1152470111846924
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_13",
+        "speed_band": "top1",
+        "count": 1488,
+        "mean_abs_gradient": 7.704060500657306e-09,
+        "rms_gradient": 9.58602708323042e-09,
+        "zero_fraction": 0.18010753393173218,
+        "normalized_absolute_residual": 2.7595155239105225
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_14",
+        "speed_band": "all",
+        "count": 144880,
+        "mean_abs_gradient": 8.908526361040003e-09,
+        "rms_gradient": 1.1808090505383007e-08,
+        "zero_fraction": 0.2184152454137802,
+        "normalized_absolute_residual": 0.46205824613571167
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_14",
+        "speed_band": "bottom50",
+        "count": 72440,
+        "mean_abs_gradient": 8.884708968537325e-09,
+        "rms_gradient": 1.1968245061666494e-08,
+        "zero_fraction": 0.2273881882429123,
+        "normalized_absolute_residual": 0.20632734894752502
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_14",
+        "speed_band": "50to90",
+        "count": 57952,
+        "mean_abs_gradient": 9.126446265383947e-09,
+        "rms_gradient": 1.1923820153469933e-08,
+        "zero_fraction": 0.2142980396747589,
+        "normalized_absolute_residual": 0.5303766131401062
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_14",
+        "speed_band": "90to99",
+        "count": 13036,
+        "mean_abs_gradient": 8.202945878110768e-09,
+        "rms_gradient": 1.0557350549333933e-08,
+        "zero_fraction": 0.19200675189495087,
+        "normalized_absolute_residual": 1.2774553298950195
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_14",
+        "speed_band": "top1",
+        "count": 1452,
+        "mean_abs_gradient": 7.733850893032468e-09,
+        "rms_gradient": 9.538553946697448e-09,
+        "zero_fraction": 0.1721763163805008,
+        "normalized_absolute_residual": 3.1731112003326416
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_15",
+        "speed_band": "all",
+        "count": 138016,
+        "mean_abs_gradient": 9.366162956325752e-09,
+        "rms_gradient": 1.2359210543877452e-08,
+        "zero_fraction": 0.22014838457107544,
+        "normalized_absolute_residual": 0.5036357641220093
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_15",
+        "speed_band": "bottom50",
+        "count": 69008,
+        "mean_abs_gradient": 9.395971112269308e-09,
+        "rms_gradient": 1.2560506412739869e-08,
+        "zero_fraction": 0.22979944944381714,
+        "normalized_absolute_residual": 0.21159030497074127
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_15",
+        "speed_band": "50to90",
+        "count": 55204,
+        "mean_abs_gradient": 9.520436883292405e-09,
+        "rms_gradient": 1.2399271831498027e-08,
+        "zero_fraction": 0.21469458937644958,
+        "normalized_absolute_residual": 0.5644654631614685
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_15",
+        "speed_band": "90to99",
+        "count": 12420,
+        "mean_abs_gradient": 8.652758509697378e-09,
+        "rms_gradient": 1.1233932895038379e-08,
+        "zero_fraction": 0.1955716609954834,
+        "normalized_absolute_residual": 1.4793709516525269
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_15",
+        "speed_band": "top1",
+        "count": 1384,
+        "mean_abs_gradient": 8.1285076447557e-09,
+        "rms_gradient": 1.0065910771572817e-08,
+        "zero_fraction": 0.17702311277389526,
+        "normalized_absolute_residual": 3.8828208446502686
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_16",
+        "speed_band": "all",
+        "count": 120692,
+        "mean_abs_gradient": 1.0710815345760238e-08,
+        "rms_gradient": 1.4064946540770507e-08,
+        "zero_fraction": 0.22659330070018768,
+        "normalized_absolute_residual": 0.5404636263847351
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_16",
+        "speed_band": "bottom50",
+        "count": 60344,
+        "mean_abs_gradient": 1.0723354648689565e-08,
+        "rms_gradient": 1.4203141773805328e-08,
+        "zero_fraction": 0.23172146081924438,
+        "normalized_absolute_residual": 0.21362784504890442
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_16",
+        "speed_band": "50to90",
+        "count": 48276,
+        "mean_abs_gradient": 1.0882619250196512e-08,
+        "rms_gradient": 1.417037776008101e-08,
+        "zero_fraction": 0.22433505952358246,
+        "normalized_absolute_residual": 0.5990198254585266
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_16",
+        "speed_band": "90to99",
+        "count": 10864,
+        "mean_abs_gradient": 1.0052911392222086e-08,
+        "rms_gradient": 1.3049666236497615e-08,
+        "zero_fraction": 0.2118004411458969,
+        "normalized_absolute_residual": 1.6381350755691528
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_16",
+        "speed_band": "top1",
+        "count": 1208,
+        "mean_abs_gradient": 9.135261436199471e-09,
+        "rms_gradient": 1.1458216597759474e-08,
+        "zero_fraction": 0.1937086135149002,
+        "normalized_absolute_residual": 4.655215263366699
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_17",
+        "speed_band": "all",
+        "count": 70000,
+        "mean_abs_gradient": 1.8463929052359163e-08,
+        "rms_gradient": 2.353713846048322e-08,
+        "zero_fraction": 0.23080000281333923,
+        "normalized_absolute_residual": 0.5527900457382202
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_17",
+        "speed_band": "bottom50",
+        "count": 35000,
+        "mean_abs_gradient": 1.8585243566349163e-08,
+        "rms_gradient": 2.369420748493667e-08,
+        "zero_fraction": 0.23471428453922272,
+        "normalized_absolute_residual": 0.21326389908790588
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_17",
+        "speed_band": "50to90",
+        "count": 28000,
+        "mean_abs_gradient": 1.8556630010380104e-08,
+        "rms_gradient": 2.3634859402932307e-08,
+        "zero_fraction": 0.22928571701049805,
+        "normalized_absolute_residual": 0.6253660917282104
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_17",
+        "speed_band": "90to99",
+        "count": 6300,
+        "mean_abs_gradient": 1.770822422031415e-08,
+        "rms_gradient": 2.2620563200348442e-08,
+        "zero_fraction": 0.218253955245018,
+        "normalized_absolute_residual": 1.6287842988967896
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_17",
+        "speed_band": "top1",
+        "count": 700,
+        "mean_abs_gradient": 1.5491700366965233e-08,
+        "rms_gradient": 1.9479156065926873e-08,
+        "zero_fraction": 0.2085714191198349,
+        "normalized_absolute_residual": 4.942108154296875
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_18",
+        "speed_band": "all",
+        "count": 19032,
+        "mean_abs_gradient": 6.775887584353768e-08,
+        "rms_gradient": 8.519162264519764e-08,
+        "zero_fraction": 0.23076923191547394,
+        "normalized_absolute_residual": 0.4625178873538971
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_18",
+        "speed_band": "bottom50",
+        "count": 9516,
+        "mean_abs_gradient": 6.814058650661536e-08,
+        "rms_gradient": 8.56892228284778e-08,
+        "zero_fraction": 0.23528793454170227,
+        "normalized_absolute_residual": 0.19850553572177887
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_18",
+        "speed_band": "50to90",
+        "count": 7612,
+        "mean_abs_gradient": 6.846990885378545e-08,
+        "rms_gradient": 8.595520739618223e-08,
+        "zero_fraction": 0.22858643531799316,
+        "normalized_absolute_residual": 0.4861505627632141
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_18",
+        "speed_band": "90to99",
+        "count": 1712,
+        "mean_abs_gradient": 6.421933562705817e-08,
+        "rms_gradient": 8.09947522384391e-08,
+        "zero_fraction": 0.2202102690935135,
+        "normalized_absolute_residual": 1.3498982191085815
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "uo_18",
+        "speed_band": "top1",
+        "count": 192,
+        "mean_abs_gradient": 5.2212328682799125e-08,
+        "rms_gradient": 6.388427209458314e-08,
+        "zero_fraction": 0.1875,
+        "normalized_absolute_residual": 4.698216438293457
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_0",
+        "speed_band": "all",
+        "count": 179568,
+        "mean_abs_gradient": 7.1756653952093075e-09,
+        "rms_gradient": 9.63702984080328e-09,
+        "zero_fraction": 0.22164863348007202,
+        "normalized_absolute_residual": 0.4308273494243622
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_0",
+        "speed_band": "bottom50",
+        "count": 89784,
+        "mean_abs_gradient": 6.21276674550586e-09,
+        "rms_gradient": 8.732559564350595e-09,
+        "zero_fraction": 0.23008553683757782,
+        "normalized_absolute_residual": 0.27010011672973633
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_0",
+        "speed_band": "50to90",
+        "count": 71824,
+        "mean_abs_gradient": 7.900355925016811e-09,
+        "rms_gradient": 1.0215399193214125e-08,
+        "zero_fraction": 0.216181218624115,
+        "normalized_absolute_residual": 0.45560508966445923
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_0",
+        "speed_band": "90to99",
+        "count": 16164,
+        "mean_abs_gradient": 8.993476185992222e-09,
+        "rms_gradient": 1.1296902080459859e-08,
+        "zero_fraction": 0.20230141282081604,
+        "normalized_absolute_residual": 0.9733704924583435
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_0",
+        "speed_band": "top1",
+        "count": 1796,
+        "mean_abs_gradient": 9.970498204836531e-09,
+        "rms_gradient": 1.2310697350415012e-08,
+        "zero_fraction": 0.19265033304691315,
+        "normalized_absolute_residual": 2.5919787883758545
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_1",
+        "speed_band": "all",
+        "count": 179568,
+        "mean_abs_gradient": 7.168448945549244e-09,
+        "rms_gradient": 9.632561415173768e-09,
+        "zero_fraction": 0.22207187116146088,
+        "normalized_absolute_residual": 0.39948558807373047
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_1",
+        "speed_band": "bottom50",
+        "count": 89784,
+        "mean_abs_gradient": 6.222346193851536e-09,
+        "rms_gradient": 8.69353744548107e-09,
+        "zero_fraction": 0.2345295399427414,
+        "normalized_absolute_residual": 0.2197553664445877
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_1",
+        "speed_band": "50to90",
+        "count": 71824,
+        "mean_abs_gradient": 7.847983596320773e-09,
+        "rms_gradient": 1.021781326215887e-08,
+        "zero_fraction": 0.21295109391212463,
+        "normalized_absolute_residual": 0.4255214035511017
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_1",
+        "speed_band": "90to99",
+        "count": 16164,
+        "mean_abs_gradient": 9.089850649957043e-09,
+        "rms_gradient": 1.1406200428609736e-08,
+        "zero_fraction": 0.19642415642738342,
+        "normalized_absolute_residual": 1.0187580585479736
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_1",
+        "speed_band": "top1",
+        "count": 1796,
+        "mean_abs_gradient": 9.997168426423286e-09,
+        "rms_gradient": 1.2354452572083119e-08,
+        "zero_fraction": 0.1948775053024292,
+        "normalized_absolute_residual": 2.769740104675293
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_2",
+        "speed_band": "all",
+        "count": 178016,
+        "mean_abs_gradient": 7.232902277110043e-09,
+        "rms_gradient": 9.726484506700217e-09,
+        "zero_fraction": 0.2224743813276291,
+        "normalized_absolute_residual": 0.393903911113739
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_2",
+        "speed_band": "bottom50",
+        "count": 89008,
+        "mean_abs_gradient": 6.384950346216556e-09,
+        "rms_gradient": 8.884563307276494e-09,
+        "zero_fraction": 0.23387785255908966,
+        "normalized_absolute_residual": 0.19552214443683624
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_2",
+        "speed_band": "50to90",
+        "count": 71204,
+        "mean_abs_gradient": 7.809390467627964e-09,
+        "rms_gradient": 1.0234553649013378e-08,
+        "zero_fraction": 0.21466490626335144,
+        "normalized_absolute_residual": 0.43103140592575073
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_2",
+        "speed_band": "90to99",
+        "count": 16020,
+        "mean_abs_gradient": 9.077287366210385e-09,
+        "rms_gradient": 1.1400874910805214e-08,
+        "zero_fraction": 0.19544321298599243,
+        "normalized_absolute_residual": 1.0726423263549805
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_2",
+        "speed_band": "top1",
+        "count": 1784,
+        "mean_abs_gradient": 9.96783366957743e-09,
+        "rms_gradient": 1.240675562286242e-08,
+        "zero_fraction": 0.20795965194702148,
+        "normalized_absolute_residual": 2.714836835861206
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_3",
+        "speed_band": "all",
+        "count": 176084,
+        "mean_abs_gradient": 7.304180815737027e-09,
+        "rms_gradient": 9.848419857405588e-09,
+        "zero_fraction": 0.22836828231811523,
+        "normalized_absolute_residual": 0.38016292452812195
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_3",
+        "speed_band": "bottom50",
+        "count": 88040,
+        "mean_abs_gradient": 6.625773707469307e-09,
+        "rms_gradient": 9.182730131840344e-09,
+        "zero_fraction": 0.23609723150730133,
+        "normalized_absolute_residual": 0.1757642775774002
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_3",
+        "speed_band": "50to90",
+        "count": 70432,
+        "mean_abs_gradient": 7.706798754725241e-09,
+        "rms_gradient": 1.0196226085668059e-08,
+        "zero_fraction": 0.22246989607810974,
+        "normalized_absolute_residual": 0.4125296175479889
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_3",
+        "speed_band": "90to99",
+        "count": 15848,
+        "mean_abs_gradient": 8.994426536901301e-09,
+        "rms_gradient": 1.140772987184846e-08,
+        "zero_fraction": 0.21359163522720337,
+        "normalized_absolute_residual": 1.096320629119873
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_3",
+        "speed_band": "top1",
+        "count": 1764,
+        "mean_abs_gradient": 9.902104025627523e-09,
+        "rms_gradient": 1.2375243940709879e-08,
+        "zero_fraction": 0.21088436245918274,
+        "normalized_absolute_residual": 2.8551881313323975
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_4",
+        "speed_band": "all",
+        "count": 173788,
+        "mean_abs_gradient": 7.3926962329551316e-09,
+        "rms_gradient": 9.978245785191575e-09,
+        "zero_fraction": 0.23094230890274048,
+        "normalized_absolute_residual": 0.366851806640625
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_4",
+        "speed_band": "bottom50",
+        "count": 86892,
+        "mean_abs_gradient": 6.769180327381719e-09,
+        "rms_gradient": 9.381039944855729e-09,
+        "zero_fraction": 0.23757077753543854,
+        "normalized_absolute_residual": 0.16734597086906433
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_4",
+        "speed_band": "50to90",
+        "count": 69516,
+        "mean_abs_gradient": 7.75146968834406e-09,
+        "rms_gradient": 1.0282848350584572e-08,
+        "zero_fraction": 0.22581851482391357,
+        "normalized_absolute_residual": 0.38698458671569824
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_4",
+        "speed_band": "90to99",
+        "count": 15640,
+        "mean_abs_gradient": 8.963411346485373e-09,
+        "rms_gradient": 1.1396169341537643e-08,
+        "zero_fraction": 0.2188618928194046,
+        "normalized_absolute_residual": 1.1259756088256836
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_4",
+        "speed_band": "top1",
+        "count": 1740,
+        "mean_abs_gradient": 1.0077786605222627e-08,
+        "rms_gradient": 1.256740489452568e-08,
+        "zero_fraction": 0.21321839094161987,
+        "normalized_absolute_residual": 2.702033281326294
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_5",
+        "speed_band": "all",
+        "count": 170740,
+        "mean_abs_gradient": 7.517241940036001e-09,
+        "rms_gradient": 1.0139891593041739e-08,
+        "zero_fraction": 0.23083050549030304,
+        "normalized_absolute_residual": 0.35309287905693054
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_5",
+        "speed_band": "bottom50",
+        "count": 85368,
+        "mean_abs_gradient": 6.938812635581826e-09,
+        "rms_gradient": 9.614008256164652e-09,
+        "zero_fraction": 0.23613063991069794,
+        "normalized_absolute_residual": 0.17556695640087128
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_5",
+        "speed_band": "50to90",
+        "count": 68296,
+        "mean_abs_gradient": 7.894576548039822e-09,
+        "rms_gradient": 1.0461962851593398e-08,
+        "zero_fraction": 0.2290324568748474,
+        "normalized_absolute_residual": 0.3703738749027252
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_5",
+        "speed_band": "90to99",
+        "count": 15368,
+        "mean_abs_gradient": 8.736179779589293e-09,
+        "rms_gradient": 1.1127870180871469e-08,
+        "zero_fraction": 0.21082770824432373,
+        "normalized_absolute_residual": 1.0667017698287964
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_5",
+        "speed_band": "top1",
+        "count": 1708,
+        "mean_abs_gradient": 1.0372205316855343e-08,
+        "rms_gradient": 1.2948301097992498e-08,
+        "zero_fraction": 0.21779859066009521,
+        "normalized_absolute_residual": 2.114255666732788
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_6",
+        "speed_band": "all",
+        "count": 167856,
+        "mean_abs_gradient": 7.647079414141444e-09,
+        "rms_gradient": 1.031342300450433e-08,
+        "zero_fraction": 0.23240157961845398,
+        "normalized_absolute_residual": 0.3188505470752716
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_6",
+        "speed_band": "bottom50",
+        "count": 83928,
+        "mean_abs_gradient": 7.0893486636691705e-09,
+        "rms_gradient": 9.857639149402075e-09,
+        "zero_fraction": 0.23851396143436432,
+        "normalized_absolute_residual": 0.1639472097158432
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_6",
+        "speed_band": "50to90",
+        "count": 67140,
+        "mean_abs_gradient": 8.127017281367444e-09,
+        "rms_gradient": 1.0720134113739732e-08,
+        "zero_fraction": 0.22899910807609558,
+        "normalized_absolute_residual": 0.3532973825931549
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_6",
+        "speed_band": "90to99",
+        "count": 15108,
+        "mean_abs_gradient": 8.363841175196285e-09,
+        "rms_gradient": 1.068607868859317e-08,
+        "zero_fraction": 0.2166401892900467,
+        "normalized_absolute_residual": 0.8704631328582764
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_6",
+        "speed_band": "top1",
+        "count": 1680,
+        "mean_abs_gradient": 9.883685869738201e-09,
+        "rms_gradient": 1.2385564573946795e-08,
+        "zero_fraction": 0.20476190745830536,
+        "normalized_absolute_residual": 1.7201629877090454
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_7",
+        "speed_band": "all",
+        "count": 165256,
+        "mean_abs_gradient": 7.758404585445078e-09,
+        "rms_gradient": 1.0471557843061419e-08,
+        "zero_fraction": 0.2347569763660431,
+        "normalized_absolute_residual": 0.3135766386985779
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_7",
+        "speed_band": "bottom50",
+        "count": 82628,
+        "mean_abs_gradient": 7.310859029274752e-09,
+        "rms_gradient": 1.0161646635253874e-08,
+        "zero_fraction": 0.240911066532135,
+        "normalized_absolute_residual": 0.16056030988693237
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_7",
+        "speed_band": "50to90",
+        "count": 66100,
+        "mean_abs_gradient": 8.234225745695767e-09,
+        "rms_gradient": 1.0880383705114127e-08,
+        "zero_fraction": 0.23198184370994568,
+        "normalized_absolute_residual": 0.35053274035453796
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_7",
+        "speed_band": "90to99",
+        "count": 14872,
+        "mean_abs_gradient": 8.043724797346385e-09,
+        "rms_gradient": 1.0283317308790174e-08,
+        "zero_fraction": 0.2158418446779251,
+        "normalized_absolute_residual": 0.821965754032135
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_7",
+        "speed_band": "top1",
+        "count": 1656,
+        "mean_abs_gradient": 8.5342177769121e-09,
+        "rms_gradient": 1.0740938805042788e-08,
+        "zero_fraction": 0.2083333283662796,
+        "normalized_absolute_residual": 1.9076992273330688
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_8",
+        "speed_band": "all",
+        "count": 162432,
+        "mean_abs_gradient": 7.896486131642177e-09,
+        "rms_gradient": 1.0639039871307432e-08,
+        "zero_fraction": 0.2340240776538849,
+        "normalized_absolute_residual": 0.32307547330856323
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_8",
+        "speed_band": "bottom50",
+        "count": 81216,
+        "mean_abs_gradient": 7.63577734375076e-09,
+        "rms_gradient": 1.05325073107565e-08,
+        "zero_fraction": 0.240937739610672,
+        "normalized_absolute_residual": 0.15710437297821045
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_8",
+        "speed_band": "50to90",
+        "count": 64972,
+        "mean_abs_gradient": 8.223517866667862e-09,
+        "rms_gradient": 1.0905724323606591e-08,
+        "zero_fraction": 0.23154591023921967,
+        "normalized_absolute_residual": 0.3666360080242157
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_8",
+        "speed_band": "90to99",
+        "count": 14616,
+        "mean_abs_gradient": 7.889718212084063e-09,
+        "rms_gradient": 1.0096519176272523e-08,
+        "zero_fraction": 0.21065954864025116,
+        "normalized_absolute_residual": 0.8598446846008301
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_8",
+        "speed_band": "top1",
+        "count": 1628,
+        "mean_abs_gradient": 7.91170418068532e-09,
+        "rms_gradient": 9.869193462463954e-09,
+        "zero_fraction": 0.19778870046138763,
+        "normalized_absolute_residual": 2.0453600883483887
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_9",
+        "speed_band": "all",
+        "count": 158840,
+        "mean_abs_gradient": 8.094029446681361e-09,
+        "rms_gradient": 1.0857107213269046e-08,
+        "zero_fraction": 0.23361873626708984,
+        "normalized_absolute_residual": 0.3272111117839813
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_9",
+        "speed_band": "bottom50",
+        "count": 79420,
+        "mean_abs_gradient": 7.966299619965866e-09,
+        "rms_gradient": 1.0876758160804911e-08,
+        "zero_fraction": 0.2397129088640213,
+        "normalized_absolute_residual": 0.1646166890859604
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_9",
+        "speed_band": "50to90",
+        "count": 63536,
+        "mean_abs_gradient": 8.330497180963903e-09,
+        "rms_gradient": 1.1047326609059382e-08,
+        "zero_fraction": 0.23010575771331787,
+        "normalized_absolute_residual": 0.3809073865413666
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_9",
+        "speed_band": "90to99",
+        "count": 14292,
+        "mean_abs_gradient": 7.802270829415647e-09,
+        "rms_gradient": 1.00008614722924e-08,
+        "zero_fraction": 0.21774418652057648,
+        "normalized_absolute_residual": 0.8190234303474426
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_9",
+        "speed_band": "top1",
+        "count": 1592,
+        "mean_abs_gradient": 7.647933841781196e-09,
+        "rms_gradient": 9.519077082131844e-09,
+        "zero_fraction": 0.2123115509748459,
+        "normalized_absolute_residual": 1.8803656101226807
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_10",
+        "speed_band": "all",
+        "count": 155732,
+        "mean_abs_gradient": 8.262604822562025e-09,
+        "rms_gradient": 1.1051738191270033e-08,
+        "zero_fraction": 0.23306064307689667,
+        "normalized_absolute_residual": 0.33993789553642273
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_10",
+        "speed_band": "bottom50",
+        "count": 77864,
+        "mean_abs_gradient": 8.17501089045436e-09,
+        "rms_gradient": 1.1108721054142734e-08,
+        "zero_fraction": 0.23923765122890472,
+        "normalized_absolute_residual": 0.1748472899198532
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_10",
+        "speed_band": "50to90",
+        "count": 62292,
+        "mean_abs_gradient": 8.49506243127962e-09,
+        "rms_gradient": 1.1245377073976215e-08,
+        "zero_fraction": 0.2301097959280014,
+        "normalized_absolute_residual": 0.3977351188659668
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_10",
+        "speed_band": "90to99",
+        "count": 14016,
+        "mean_abs_gradient": 7.785639688506762e-09,
+        "rms_gradient": 9.977326520527185e-09,
+        "zero_fraction": 0.2148972451686859,
+        "normalized_absolute_residual": 0.8176119923591614
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_10",
+        "speed_band": "top1",
+        "count": 1560,
+        "mean_abs_gradient": 7.637785515157702e-09,
+        "rms_gradient": 9.471347262035579e-09,
+        "zero_fraction": 0.20576924085617065,
+        "normalized_absolute_residual": 1.9804719686508179
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_11",
+        "speed_band": "all",
+        "count": 153372,
+        "mean_abs_gradient": 8.387375238783079e-09,
+        "rms_gradient": 1.1205994354668292e-08,
+        "zero_fraction": 0.23201757669448853,
+        "normalized_absolute_residual": 0.35725051164627075
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_11",
+        "speed_band": "bottom50",
+        "count": 76684,
+        "mean_abs_gradient": 8.319654298816204e-09,
+        "rms_gradient": 1.1291258594781084e-08,
+        "zero_fraction": 0.23835480213165283,
+        "normalized_absolute_residual": 0.18506121635437012
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_11",
+        "speed_band": "50to90",
+        "count": 61348,
+        "mean_abs_gradient": 8.608239454588329e-09,
+        "rms_gradient": 1.1382888409627867e-08,
+        "zero_fraction": 0.23024384677410126,
+        "normalized_absolute_residual": 0.416282594203949
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_11",
+        "speed_band": "90to99",
+        "count": 13804,
+        "mean_abs_gradient": 7.88489806780035e-09,
+        "rms_gradient": 1.0079861390011047e-08,
+        "zero_fraction": 0.2098667174577713,
+        "normalized_absolute_residual": 0.8640009164810181
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_11",
+        "speed_band": "top1",
+        "count": 1536,
+        "mean_abs_gradient": 7.462815254655197e-09,
+        "rms_gradient": 9.25409437968483e-09,
+        "zero_fraction": 0.185546875,
+        "normalized_absolute_residual": 2.041810989379883
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_12",
+        "speed_band": "all",
+        "count": 151436,
+        "mean_abs_gradient": 8.497273995544674e-09,
+        "rms_gradient": 1.1354731377366534e-08,
+        "zero_fraction": 0.23624500632286072,
+        "normalized_absolute_residual": 0.3828504979610443
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_12",
+        "speed_band": "bottom50",
+        "count": 75716,
+        "mean_abs_gradient": 8.394799522193352e-09,
+        "rms_gradient": 1.1428890722697815e-08,
+        "zero_fraction": 0.24099266529083252,
+        "normalized_absolute_residual": 0.19501037895679474
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_12",
+        "speed_band": "50to90",
+        "count": 60576,
+        "mean_abs_gradient": 8.780996374468941e-09,
+        "rms_gradient": 1.1564710078459939e-08,
+        "zero_fraction": 0.2352251559495926,
+        "normalized_absolute_residual": 0.44371330738067627
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_12",
+        "speed_band": "90to99",
+        "count": 13628,
+        "mean_abs_gradient": 7.915311073247722e-09,
+        "rms_gradient": 1.0134115768778429e-08,
+        "zero_fraction": 0.21815380454063416,
+        "normalized_absolute_residual": 0.9516318440437317
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_12",
+        "speed_band": "top1",
+        "count": 1516,
+        "mean_abs_gradient": 7.50995798881604e-09,
+        "rms_gradient": 9.38254984816922e-09,
+        "zero_fraction": 0.20250660181045532,
+        "normalized_absolute_residual": 2.219477653503418
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_13",
+        "speed_band": "all",
+        "count": 148760,
+        "mean_abs_gradient": 8.664499340227394e-09,
+        "rms_gradient": 1.155647222361722e-08,
+        "zero_fraction": 0.23439769446849823,
+        "normalized_absolute_residual": 0.4149159789085388
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_13",
+        "speed_band": "bottom50",
+        "count": 74380,
+        "mean_abs_gradient": 8.538798113022494e-09,
+        "rms_gradient": 1.1611936301392234e-08,
+        "zero_fraction": 0.24045442044734955,
+        "normalized_absolute_residual": 0.19508646428585052
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_13",
+        "speed_band": "50to90",
+        "count": 59504,
+        "mean_abs_gradient": 8.977911747365397e-09,
+        "rms_gradient": 1.1781755127060478e-08,
+        "zero_fraction": 0.23196758329868317,
+        "normalized_absolute_residual": 0.48436862230300903
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_13",
+        "speed_band": "90to99",
+        "count": 13388,
+        "mean_abs_gradient": 8.076613156049461e-09,
+        "rms_gradient": 1.0366398406347344e-08,
+        "zero_fraction": 0.21496863663196564,
+        "normalized_absolute_residual": 1.0784896612167358
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_13",
+        "speed_band": "top1",
+        "count": 1488,
+        "mean_abs_gradient": 7.704060500657306e-09,
+        "rms_gradient": 9.685295232486624e-09,
+        "zero_fraction": 0.2036290317773819,
+        "normalized_absolute_residual": 2.655700922012329
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_14",
+        "speed_band": "all",
+        "count": 144880,
+        "mean_abs_gradient": 8.889869285155783e-09,
+        "rms_gradient": 1.1838936941899192e-08,
+        "zero_fraction": 0.23665793240070343,
+        "normalized_absolute_residual": 0.46236249804496765
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_14",
+        "speed_band": "bottom50",
+        "count": 72440,
+        "mean_abs_gradient": 8.862109268648055e-09,
+        "rms_gradient": 1.198990773332298e-08,
+        "zero_fraction": 0.24191054701805115,
+        "normalized_absolute_residual": 0.20326270163059235
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_14",
+        "speed_band": "50to90",
+        "count": 57952,
+        "mean_abs_gradient": 9.109899501424934e-09,
+        "rms_gradient": 1.1956387879763497e-08,
+        "zero_fraction": 0.23517738282680511,
+        "normalized_absolute_residual": 0.5340615510940552
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_14",
+        "speed_band": "90to99",
+        "count": 13036,
+        "mean_abs_gradient": 8.192384548522114e-09,
+        "rms_gradient": 1.0628655289224298e-08,
+        "zero_fraction": 0.2190088927745819,
+        "normalized_absolute_residual": 1.291304588317871
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_14",
+        "speed_band": "top1",
+        "count": 1452,
+        "mean_abs_gradient": 7.754998421205528e-09,
+        "rms_gradient": 9.657629362891385e-09,
+        "zero_fraction": 0.19214875996112823,
+        "normalized_absolute_residual": 3.084947109222412
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_15",
+        "speed_band": "all",
+        "count": 138016,
+        "mean_abs_gradient": 9.362549846514412e-09,
+        "rms_gradient": 1.2386041525758174e-08,
+        "zero_fraction": 0.22920531034469604,
+        "normalized_absolute_residual": 0.5030585527420044
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_15",
+        "speed_band": "bottom50",
+        "count": 69008,
+        "mean_abs_gradient": 9.392572941635535e-09,
+        "rms_gradient": 1.258028881068185e-08,
+        "zero_fraction": 0.23597264289855957,
+        "normalized_absolute_residual": 0.20759156346321106
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_15",
+        "speed_band": "50to90",
+        "count": 55204,
+        "mean_abs_gradient": 9.516839760692619e-09,
+        "rms_gradient": 1.2433852170090631e-08,
+        "zero_fraction": 0.22628796100616455,
+        "normalized_absolute_residual": 0.5654059648513794
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_15",
+        "speed_band": "90to99",
+        "count": 12420,
+        "mean_abs_gradient": 8.648997074089948e-09,
+        "rms_gradient": 1.1263861843247014e-08,
+        "zero_fraction": 0.209098219871521,
+        "normalized_absolute_residual": 1.5185810327529907
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_15",
+        "speed_band": "top1",
+        "count": 1384,
+        "mean_abs_gradient": 8.11473377382299e-09,
+        "rms_gradient": 1.012116701559762e-08,
+        "zero_fraction": 0.18858380615711212,
+        "normalized_absolute_residual": 3.6352531909942627
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_16",
+        "speed_band": "all",
+        "count": 120692,
+        "mean_abs_gradient": 1.0705472064387322e-08,
+        "rms_gradient": 1.4067150111429783e-08,
+        "zero_fraction": 0.22974181175231934,
+        "normalized_absolute_residual": 0.5246021747589111
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_16",
+        "speed_band": "bottom50",
+        "count": 60344,
+        "mean_abs_gradient": 1.0718874676740597e-08,
+        "rms_gradient": 1.420118067585463e-08,
+        "zero_fraction": 0.2323843240737915,
+        "normalized_absolute_residual": 0.2090182602405548
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_16",
+        "speed_band": "50to90",
+        "count": 48276,
+        "mean_abs_gradient": 1.0875384148789635e-08,
+        "rms_gradient": 1.4174164064684192e-08,
+        "zero_fraction": 0.2287057638168335,
+        "normalized_absolute_residual": 0.5757990479469299
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_16",
+        "speed_band": "90to99",
+        "count": 10864,
+        "mean_abs_gradient": 1.005059058201141e-08,
+        "rms_gradient": 1.306659314082026e-08,
+        "zero_fraction": 0.22164948284626007,
+        "normalized_absolute_residual": 1.6351068019866943
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_16",
+        "speed_band": "top1",
+        "count": 1208,
+        "mean_abs_gradient": 9.135261436199471e-09,
+        "rms_gradient": 1.1489272644382709e-08,
+        "zero_fraction": 0.21192052960395813,
+        "normalized_absolute_residual": 4.255967140197754
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_17",
+        "speed_band": "all",
+        "count": 70000,
+        "mean_abs_gradient": 1.8475599716794022e-08,
+        "rms_gradient": 2.349576533333675e-08,
+        "zero_fraction": 0.22517143189907074,
+        "normalized_absolute_residual": 0.5360406637191772
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_17",
+        "speed_band": "bottom50",
+        "count": 35000,
+        "mean_abs_gradient": 1.8622140274260346e-08,
+        "rms_gradient": 2.3678163429963206e-08,
+        "zero_fraction": 0.2289428561925888,
+        "normalized_absolute_residual": 0.2214372456073761
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_17",
+        "speed_band": "50to90",
+        "count": 28000,
+        "mean_abs_gradient": 1.8545076585496645e-08,
+        "rms_gradient": 2.35729800124318e-08,
+        "zero_fraction": 0.22442856431007385,
+        "normalized_absolute_residual": 0.5842562913894653
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_17",
+        "speed_band": "90to99",
+        "count": 6300,
+        "mean_abs_gradient": 1.7684250508409605e-08,
+        "rms_gradient": 2.25306528989222e-08,
+        "zero_fraction": 0.21142856776714325,
+        "normalized_absolute_residual": 1.6488676071166992
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_17",
+        "speed_band": "top1",
+        "count": 700,
+        "mean_abs_gradient": 1.5491698590608394e-08,
+        "rms_gradient": 1.939685212448694e-08,
+        "zero_fraction": 0.1899999976158142,
+        "normalized_absolute_residual": 4.322145462036133
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_18",
+        "speed_band": "all",
+        "count": 19032,
+        "mean_abs_gradient": 6.79467007103085e-08,
+        "rms_gradient": 8.537006124242907e-08,
+        "zero_fraction": 0.22971835732460022,
+        "normalized_absolute_residual": 0.47781726717948914
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_18",
+        "speed_band": "bottom50",
+        "count": 9516,
+        "mean_abs_gradient": 6.850387279655479e-08,
+        "rms_gradient": 8.603198864420847e-08,
+        "zero_fraction": 0.23318620026111603,
+        "normalized_absolute_residual": 0.20330028235912323
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_18",
+        "speed_band": "50to90",
+        "count": 7612,
+        "mean_abs_gradient": 6.846563849194354e-08,
+        "rms_gradient": 8.596192202503516e-08,
+        "zero_fraction": 0.22990015149116516,
+        "normalized_absolute_residual": 0.509824275970459
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_18",
+        "speed_band": "90to99",
+        "count": 1712,
+        "mean_abs_gradient": 6.430705212778776e-08,
+        "rms_gradient": 8.099260639937711e-08,
+        "zero_fraction": 0.21612149477005005,
+        "normalized_absolute_residual": 1.4700641632080078
+      },
+      {
+        "objective": "fair-crps",
+        "channel": "vo_18",
+        "speed_band": "top1",
+        "count": 192,
+        "mean_abs_gradient": 5.2212328682799125e-08,
+        "rms_gradient": 6.432843946413414e-08,
+        "zero_fraction": 0.171875,
+        "normalized_absolute_residual": 3.967088222503662
+      }
+    ]
+  },
+  "observation": {
+    "loss": 0.00455216970294714,
+    "components": {
+      "forecast": 0.004379182122647762,
+      "initializer_surface": 0.0001729875075398013
+    },
+    "members": 4,
+    "parameter_count": 11567005,
+    "preclip_shared_norm": 0.16060708463191986,
+    "gradient_norms": {
+      "shared": {
+        "forecast": 0.13618934154510498,
+        "initializer_surface": 0.027043046429753304
+      },
+      "initializer": {
+        "forecast": 0.13600976765155792,
+        "initializer_surface": 0.026944173499941826
+      },
+      "forcing_adapter": {
+        "forecast": 0.006996306125074625,
+        "initializer_surface": 0.002312304452061653
+      }
+    },
+    "cosines": {
+      "shared": {
+        "forecast__initializer_surface": 0.8847417235374451
+      },
+      "initializer": {
+        "forecast__initializer_surface": 0.8859325051307678
+      },
+      "forcing_adapter": {
+        "forecast__initializer_surface": 0.7312753200531006
+      }
+    }
+  },
+  "cross_source_cosines": {
+    "forecast": -0.013926194980740547,
+    "initializer_surface": 0.01616428792476654
+  },
+  "variant": "B-member-MSE",
+  "checkpoint_sha256": "21bf9be0d7b253226f38140f49a6233ba4fe1aa078c5965e4a1fb46506bd4a5c",
+  "sample": 2,
+  "seconds": 8.683311722008511
+}

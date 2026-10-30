@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Samudra Authors
 # SPDX-License-Identifier: Apache-2.0
 
+import pytest
 import torch
 
 from samudra.experiments.diffusion_latent import SamudraLatentProcessor
@@ -28,13 +29,21 @@ def test_odd_grid_recurrence_forcing_gradients_and_state_roundtrip():
     assert not any(isinstance(m, torch.nn.BatchNorm2d) for m in model.modules())
 
 
-def test_replacing_processor_preserves_other_initial_weights_and_rng():
+@pytest.mark.parametrize("stride", [1, 4])
+def test_replacing_processor_preserves_other_initial_weights_and_rng(stride):
     torch.set_num_threads(1)
     torch.manual_seed(1729)
-    old = MonthlyLatentOcean(8, 8, (16, 32), encoder_width=8)
+    old = MonthlyLatentOcean(8, 8, (16, 32), encoder_width=8, latent_stride=stride)
     old_rng = torch.get_rng_state()
     torch.manual_seed(1729)
-    new = MonthlyLatentOcean(8, 8, (16, 32), encoder_width=8, processor_kind="samudra")
+    new = MonthlyLatentOcean(
+        8, 8, (16, 32), encoder_width=8, processor_kind="samudra", latent_stride=stride
+    )
+    assert (
+        old.processor.latent_shape
+        == new.processor.latent_shape
+        == (16 // stride, 32 // stride)
+    )
     assert torch.equal(torch.get_rng_state(), old_rng)
     for name, value in old.state_dict().items():
         if not name.startswith("processor."):

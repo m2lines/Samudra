@@ -115,6 +115,7 @@ def main():
         {"latent_width": 64, "latent_stride": 1},
         {"processor_forcing": False},
         {"processor_kind": "samudra"},
+        {"latent_width": 64, "latent_stride": 1, "processor_kind": "samudra"},
     ):
         raise ValueError("Unqualified architecture requested")
     source_path = Path(row["checkpoint"])

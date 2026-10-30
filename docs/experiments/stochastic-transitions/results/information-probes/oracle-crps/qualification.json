@@ -1,0 +1,9 @@
+{
+  "updates": 16,
+  "passed": true,
+  "threshold": 50.0,
+  "samples": 10,
+  "mean_utilization": 72.6,
+  "minimum_utilization": 65.0,
+  "maximum_utilization": 80.0
+}

@@ -1,0 +1,10 @@
+{
+  "parent_raw_exact": true,
+  "parent_adam_state_exact": true,
+  "ema_reset_exact": true,
+  "adapter_zero": true,
+  "processor_frozen": true,
+  "parent_sha256": "090953de381c45269bbb135fd27762bb4b488b2837005e59a690b15befec9358",
+  "objective": "fair-crps",
+  "oracle": false
+}

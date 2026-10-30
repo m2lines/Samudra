@@ -1,0 +1,116 @@
+{
+  "complete": true,
+  "sources": [
+    {
+      "path": "/tmp/stochastic-noise-results/initializer-ema/B-control-02000-2014-01-maps.npz",
+      "sha256": "5dd8223fd43fa37d78484653a4004532ffd8d79b8cf473215772f5f8278181b2",
+      "receipt_sha256": "c15c5e34a6965767cdb2df20d86c03f95230bbec8edbfb4adea3b2502dcbfd6a",
+      "checkpoint_sha256": "fae9c01aaba29c61c490e249c8529a90e4e99180621fd04a4dbaff7152f35f27"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/initializer-ema/B-control-02000-2014-04-maps.npz",
+      "sha256": "75348e4ea27cdf71cdf7f8261304742a5c69e766d81131e031751e4ddcbb6494",
+      "receipt_sha256": "61504360ce26324879860fac03caf92ccbf6f9800d9b88b46dfddf102ea6a7f6",
+      "checkpoint_sha256": "fae9c01aaba29c61c490e249c8529a90e4e99180621fd04a4dbaff7152f35f27"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/initializer-ema/B-control-02000-2014-05-maps.npz",
+      "sha256": "8b54d55b6f127d30b8082ed07bd840e9769b660f8443788f2c74d3e5f40377c8",
+      "receipt_sha256": "a699098529c790719be0eb08a0c84650842fef6a6ae6767abcfc947cc030f256",
+      "checkpoint_sha256": "fae9c01aaba29c61c490e249c8529a90e4e99180621fd04a4dbaff7152f35f27"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/initializer-ema/B-multiscale-noise-02000-2014-01-maps.npz",
+      "sha256": "250e5e88b8ce7343157e865ac6720737b56c26e19aa5d9302107168a8a48e834",
+      "receipt_sha256": "d86e28b14fda5dd126f2a1a2ccfd95e112010d3fd27341c20db65a40b784a4f7",
+      "checkpoint_sha256": "5fd8c0f0d646f2e6bb7fe0941e8e4c13672266619ee1bca7bcb79ba871785c55"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/initializer-ema/B-multiscale-noise-02000-2014-04-maps.npz",
+      "sha256": "cbc334fccae8d3fa09f493dd12e1a3934f82f01ac6655c530c39f5780c5dc99f",
+      "receipt_sha256": "e1d7199d1dd0c53db1be44d0e783c0b370c25aac423e0b832204944738b65255",
+      "checkpoint_sha256": "5fd8c0f0d646f2e6bb7fe0941e8e4c13672266619ee1bca7bcb79ba871785c55"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/initializer-ema/B-multiscale-noise-02000-2014-05-maps.npz",
+      "sha256": "bd19a044a22daeeea099d281a51e5fe67477cc175d2ad654cc2393c158eccd21",
+      "receipt_sha256": "69b86c96a9d1fa0dd352704cce8ab91a95ad9a80eced4c0e9e2f37c5463eccb3",
+      "checkpoint_sha256": "5fd8c0f0d646f2e6bb7fe0941e8e4c13672266619ee1bca7bcb79ba871785c55"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/initializer-ema/B-noise-processing-02000-2014-01-maps.npz",
+      "sha256": "282fdb9b85c9e9750cff34a88b121b132f2e724b8b79efd29b7fb14a12cc9557",
+      "receipt_sha256": "413e1d47c6fe2df754c24ea13ba29993420ed98ee9c688abefca273f79918c0d",
+      "checkpoint_sha256": "8479cf641031842a92785327537a526ca65f5629fb42fb3d5723e18a2c91de4e"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/initializer-ema/B-noise-processing-02000-2014-04-maps.npz",
+      "sha256": "b1235ff5ccaccab191b66a76331a362af1eddc69ad7efb81625b56cc2d6672bb",
+      "receipt_sha256": "161b7c9f70ec009d03cb5767382173c8e3d3c243067842b0a31e6af2f32226dd",
+      "checkpoint_sha256": "8479cf641031842a92785327537a526ca65f5629fb42fb3d5723e18a2c91de4e"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/initializer-ema/B-noise-processing-02000-2014-05-maps.npz",
+      "sha256": "ca3a2bbf07d382b45e4185c80fe42d0f319eacbb22436ba4cc6fd5138dd6362f",
+      "receipt_sha256": "42f9df0d1da846f2261f51c20cd5e50bff009e10d1e7597033029aeddd7d950d",
+      "checkpoint_sha256": "8479cf641031842a92785327537a526ca65f5629fb42fb3d5723e18a2c91de4e"
+    }
+  ],
+  "script_sha256": "7f7b558bb540a6327e3fb1be0413c5933da106fe0e94e4c3f6dbd123147d84a8",
+  "grid_sha256": "129e14065e95ada1c1d1b3713b68b4173ebcbf7e51c0ba2d9ade2f5f18b9ab11",
+  "regions": {
+    "global": [
+      -90,
+      90,
+      0,
+      360
+    ],
+    "north-pacific": [
+      20,
+      40,
+      150,
+      190
+    ],
+    "gulf-stream": [
+      25,
+      45,
+      280,
+      320
+    ],
+    "equatorial-pacific": [
+      -10,
+      10,
+      140,
+      260
+    ]
+  },
+  "thresholds_m_s": [
+    0.03,
+    0.1,
+    0.3,
+    1.0
+  ],
+  "radii_grid_cells": [
+    0,
+    1,
+    2,
+    4,
+    8
+  ],
+  "members_are_scored_separately": true,
+  "dates": [
+    "2014-01",
+    "2014-04",
+    "2014-05"
+  ],
+  "notes": [
+    "All amplitudes use all paired wet u/v cells in a fixed region, never reference-speed-selected cells.",
+    "Vector power is u\u00b2+v\u00b2, twice kinetic energy per unit mass; ensemble-mean velocity is averaged before speed.",
+    "Cosine latitude weights; grid-cell neighborhoods have latitude-dependent physical distances.",
+    "Neighborhood FSS relaxes placement; it is not a proper probabilistic score, a transport estimate or proof of realistic members.",
+    "Neighborhoods exclude dry-cell area but can connect across land geometrically; outer neighborhood windows may extend beyond regional boundaries.",
+    "Spectra are demeaned masked Hann-window FFTs in cycles/grid cell, not DEX or spherical physical-wavenumber spectra; compare identical masks only.",
+    "Reference and zero are provided. No velocity climatology or persistence field is available in this input export.",
+    "Legacy receipts without a weights field are EMA as specified by their producer."
+  ]
+}

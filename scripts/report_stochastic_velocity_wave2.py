@@ -184,7 +184,7 @@ def plots(summary, out, parent_step):
         plt.close(fig)
 
 
-def maps(records, out):
+def maps(records, out, checkpoint_label="final continuation"):
     for weights in sorted({entry[3] for entry in records}):
         group = [entry for entry in records if entry[3] == weights]
         latest = max(entry[2]["step"] for entry in group)
@@ -260,7 +260,7 @@ def maps(records, out):
                     else "Northward velocity"
                 )
                 fig.suptitle(
-                    f"{month}: {component} at {depth:g} m; {weights}; final continuation"
+                    f"{month}: {component} at {depth:g} m; {weights}; {checkpoint_label}"
                 )
                 for suffix in ["png", "pdf"]:
                     fig.savefig(

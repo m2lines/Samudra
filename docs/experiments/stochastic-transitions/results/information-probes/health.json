@@ -1,0 +1,38 @@
+{
+  "training_job": 21423395,
+  "callback_job": 21423435,
+  "host": "torch",
+  "node": "gr103",
+  "state": "COMPLETED",
+  "exit_code": "0:0",
+  "elapsed_seconds": 1314,
+  "gpus": 1,
+  "gpu_hours": 0.365,
+  "step_zero_metrics_exactly_identical_across_four_arms": true,
+  "arms": {
+    "standard-crps": {
+      "updates": 128,
+      "all_losses_and_grad_norms_finite": true,
+      "mean_update_seconds": 1.2439914960414171,
+      "mean_data_wait_seconds": 0.4280523081724823
+    },
+    "oracle-crps": {
+      "updates": 128,
+      "all_losses_and_grad_norms_finite": true,
+      "mean_update_seconds": 1.2531577479094267,
+      "mean_data_wait_seconds": 0.42488214189506834
+    },
+    "standard-mse": {
+      "updates": 128,
+      "all_losses_and_grad_norms_finite": true,
+      "mean_update_seconds": 1.2178440932184458,
+      "mean_data_wait_seconds": 0.42636100007075584
+    },
+    "oracle-mse": {
+      "updates": 128,
+      "all_losses_and_grad_norms_finite": true,
+      "mean_update_seconds": 1.232400694862008,
+      "mean_data_wait_seconds": 0.4259353403431305
+    }
+  }
+}

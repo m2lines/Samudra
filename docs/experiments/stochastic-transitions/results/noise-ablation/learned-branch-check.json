@@ -1,0 +1,636 @@
+{
+  "root": "/scratch/jr7309/stochastic-noise-20261030",
+  "source_manifest_sha256": "bb2641068790ec2e7bbe4b97026f6695d65951ac8c8c6acaaed5383cfd549372",
+  "source": "33f172fd27507fc35f43b89611c573df29c3d10c4d9b6012ad9c8d54c1c57c4c",
+  "device": "cpu",
+  "common_initial_weights": {
+    "B-control": {
+      "same_keys": true,
+      "exact_equal": true,
+      "tensor_count": 188,
+      "mismatches": []
+    },
+    "B-multiscale-noise": {
+      "same_keys": true,
+      "exact_equal": true,
+      "tensor_count": 188,
+      "mismatches": []
+    },
+    "B-noise-processing": {
+      "same_keys": true,
+      "exact_equal": true,
+      "tensor_count": 188,
+      "mismatches": []
+    }
+  },
+  "initial_rng": {
+    "B-control": {
+      "tensor_states": [
+        {
+          "cpu": "2298c48f1bb614ea9aea3fc746ab2220b8567c4750e79a8fd44dd2d953eac383",
+          "cuda": "7b11bf13c0fc41d16f6ba7e8334c913631d3b354c063d60729355ebe7d0a574d"
+        }
+      ],
+      "same_tensor_states_as_control": true,
+      "all_rank_rng_keys": [
+        [
+          "cpu",
+          "cuda",
+          "numpy",
+          "python"
+        ]
+      ]
+    },
+    "B-multiscale-noise": {
+      "tensor_states": [
+        {
+          "cpu": "2298c48f1bb614ea9aea3fc746ab2220b8567c4750e79a8fd44dd2d953eac383",
+          "cuda": "7b11bf13c0fc41d16f6ba7e8334c913631d3b354c063d60729355ebe7d0a574d"
+        }
+      ],
+      "same_tensor_states_as_control": true,
+      "all_rank_rng_keys": [
+        [
+          "cpu",
+          "cuda",
+          "numpy",
+          "python"
+        ]
+      ]
+    },
+    "B-noise-processing": {
+      "tensor_states": [
+        {
+          "cpu": "2298c48f1bb614ea9aea3fc746ab2220b8567c4750e79a8fd44dd2d953eac383",
+          "cuda": "7b11bf13c0fc41d16f6ba7e8334c913631d3b354c063d60729355ebe7d0a574d"
+        }
+      ],
+      "same_tensor_states_as_control": true,
+      "all_rank_rng_keys": [
+        [
+          "cpu",
+          "cuda",
+          "numpy",
+          "python"
+        ]
+      ]
+    }
+  },
+  "checkpoint_files": {
+    "B-control/step-00000.pt": "3e64ab42155cec03bfe11be28e84c294565c478e11930895bff15dd758372ea0",
+    "B-multiscale-noise/step-00000.pt": "73244f0dbf6dbad27a8de0c6861f2199785129cebcc3d01be7a4058947782e48",
+    "B-noise-processing/step-00000.pt": "3875d2a67d0f2982696e7f496f1455143a5e6b251e9262f54c2312eded4f7728",
+    "B-noise-processing/step-02000.pt": "8479cf641031842a92785327537a526ca65f5629fb42fb3d5723e18a2c91de4e"
+  },
+  "branch": {
+    "model": {
+      "changed_tensors": 22,
+      "tensor_count": 28,
+      "output_delta_rms_on_two_fixed_standard_gaussian_fields": 1.845182180404663,
+      "output_rms": 2.228861093521118,
+      "input_rms": 0.9949473738670349,
+      "finite": true,
+      "groups": {
+        "input.": {
+          "initial_norm": 3.6821413719035596,
+          "final_norm": 3.714025252724577,
+          "delta_norm": 0.11913063339780451,
+          "changed_elements": 160
+        },
+        "blocks.0.": {
+          "initial_norm": 15.91635497874126,
+          "final_norm": 16.009041755671582,
+          "delta_norm": 2.155452110912849,
+          "changed_elements": 57504
+        },
+        "blocks.1.": {
+          "initial_norm": 15.926809972454828,
+          "final_norm": 16.00428320046138,
+          "delta_norm": 1.9724615538340815,
+          "changed_elements": 57504
+        },
+        "blocks.2.": {
+          "initial_norm": 15.930925174230785,
+          "final_norm": 16.00544288282535,
+          "delta_norm": 1.889115461048135,
+          "changed_elements": 57504
+        },
+        "output.": {
+          "initial_norm": 0.0,
+          "final_norm": 0.21821352960120202,
+          "delta_norm": 0.21821352960120202,
+          "changed_elements": 132
+        }
+      },
+      "initial_output_projection_exactly_zero": true,
+      "total_state_elements": 172810,
+      "state_tensor_stats": {
+        "input.weight": {
+          "numel": 128,
+          "norm": 3.301056550235754,
+          "initial_norm": 3.2630580544315215,
+          "delta_norm": 0.11888022415588986,
+          "max_abs_change": 0.024582937359809875,
+          "changed_elements": 128
+        },
+        "input.bias": {
+          "numel": 32,
+          "norm": 1.7020602897728048,
+          "initial_norm": 1.7060531105722938,
+          "delta_norm": 0.007720111295018662,
+          "max_abs_change": 0.002730727195739746,
+          "changed_elements": 32
+        },
+        "blocks.0.convblock.0.weight": {
+          "numel": 18432,
+          "norm": 4.6715436043424425,
+          "initial_norm": 4.616923694438444,
+          "delta_norm": 1.0853769802538737,
+          "max_abs_change": 0.027155224233865738,
+          "changed_elements": 18432
+        },
+        "blocks.0.convblock.0.bias": {
+          "numel": 64,
+          "norm": 0.2742269243892413,
+          "initial_norm": 0.27326637615930904,
+          "delta_norm": 0.030472566469663474,
+          "max_abs_change": 0.00935434177517891,
+          "changed_elements": 64
+        },
+        "blocks.0.convblock.2.cap": {
+          "numel": 1,
+          "norm": 10.0,
+          "initial_norm": 10.0,
+          "delta_norm": 0.0,
+          "max_abs_change": 0.0,
+          "changed_elements": 0
+        },
+        "blocks.0.convblock.3.weight": {
+          "numel": 36864,
+          "norm": 4.743239475267181,
+          "initial_norm": 4.6212867319127815,
+          "delta_norm": 1.703902163752585,
+          "max_abs_change": 0.02606833726167679,
+          "changed_elements": 36864
+        },
+        "blocks.0.convblock.3.bias": {
+          "numel": 64,
+          "norm": 0.18088564505696297,
+          "initial_norm": 0.18131430040997318,
+          "delta_norm": 0.019738331729949564,
+          "max_abs_change": 0.005842575803399086,
+          "changed_elements": 64
+        },
+        "blocks.0.convblock.5.cap": {
+          "numel": 1,
+          "norm": 10.0,
+          "initial_norm": 10.0,
+          "delta_norm": 0.0,
+          "max_abs_change": 0.0,
+          "changed_elements": 0
+        },
+        "blocks.0.convblock.6.weight": {
+          "numel": 2048,
+          "norm": 3.4246489228739523,
+          "initial_norm": 3.227717733814522,
+          "delta_norm": 0.750551075773127,
+          "max_abs_change": 0.021957222372293472,
+          "changed_elements": 2048
+        },
+        "blocks.0.convblock.6.bias": {
+          "numel": 32,
+          "norm": 0.36281855002360636,
+          "initial_norm": 0.3638257734524886,
+          "delta_norm": 0.0017126418101290847,
+          "max_abs_change": 0.0007456429302692413,
+          "changed_elements": 32
+        },
+        "blocks.1.convblock.0.weight": {
+          "numel": 18432,
+          "norm": 4.681989580810349,
+          "initial_norm": 4.632680537043039,
+          "delta_norm": 1.0992542246825232,
+          "max_abs_change": 0.02524679247289896,
+          "changed_elements": 18432
+        },
+        "blocks.1.convblock.0.bias": {
+          "numel": 64,
+          "norm": 0.3067588975848506,
+          "initial_norm": 0.3072169887642007,
+          "delta_norm": 0.01691370518031257,
+          "max_abs_change": 0.005483614280819893,
+          "changed_elements": 64
+        },
+        "blocks.1.convblock.2.cap": {
+          "numel": 1,
+          "norm": 10.0,
+          "initial_norm": 10.0,
+          "delta_norm": 0.0,
+          "max_abs_change": 0.0,
+          "changed_elements": 0
+        },
+        "blocks.1.convblock.3.weight": {
+          "numel": 36864,
+          "norm": 4.669172102979643,
+          "initial_norm": 4.609456793930465,
+          "delta_norm": 1.3971620898861266,
+          "max_abs_change": 0.03365753823891282,
+          "changed_elements": 36864
+        },
+        "blocks.1.convblock.3.bias": {
+          "numel": 64,
+          "norm": 0.19957242783216764,
+          "initial_norm": 0.2012868557012264,
+          "delta_norm": 0.01425765428608638,
+          "max_abs_change": 0.004997162148356438,
+          "changed_elements": 64
+        },
+        "blocks.1.convblock.5.cap": {
+          "numel": 1,
+          "norm": 10.0,
+          "initial_norm": 10.0,
+          "delta_norm": 0.0,
+          "max_abs_change": 0.0,
+          "changed_elements": 0
+        },
+        "blocks.1.convblock.6.weight": {
+          "numel": 2048,
+          "norm": 3.4828004384721507,
+          "initial_norm": 3.2661993993411085,
+          "delta_norm": 0.854219318768547,
+          "max_abs_change": 0.024605363607406616,
+          "changed_elements": 2048
+        },
+        "blocks.1.convblock.6.bias": {
+          "numel": 32,
+          "norm": 0.3886606863193718,
+          "initial_norm": 0.3892271991495854,
+          "delta_norm": 0.0016813001357772563,
+          "max_abs_change": 0.0005846992135047913,
+          "changed_elements": 32
+        },
+        "blocks.2.convblock.0.weight": {
+          "numel": 18432,
+          "norm": 4.674247784597137,
+          "initial_norm": 4.631395164731425,
+          "delta_norm": 0.9814878801125764,
+          "max_abs_change": 0.022704660892486572,
+          "changed_elements": 18432
+        },
+        "blocks.2.convblock.0.bias": {
+          "numel": 64,
+          "norm": 0.2663133903751646,
+          "initial_norm": 0.26566499231168605,
+          "delta_norm": 0.011182638711396062,
+          "max_abs_change": 0.0038060396909713745,
+          "changed_elements": 64
+        },
+        "blocks.2.convblock.2.cap": {
+          "numel": 1,
+          "norm": 10.0,
+          "initial_norm": 10.0,
+          "delta_norm": 0.0,
+          "max_abs_change": 0.0,
+          "changed_elements": 0
+        },
+        "blocks.2.convblock.3.weight": {
+          "numel": 36864,
+          "norm": 4.685140922923831,
+          "initial_norm": 4.623251232925502,
+          "delta_norm": 1.3717432538671084,
+          "max_abs_change": 0.02171102538704872,
+          "changed_elements": 36864
+        },
+        "blocks.2.convblock.3.bias": {
+          "numel": 64,
+          "norm": 0.1719877585394179,
+          "initial_norm": 0.17490395305532033,
+          "delta_norm": 0.01591179875368612,
+          "max_abs_change": 0.006885385140776634,
+          "changed_elements": 64
+        },
+        "blocks.2.convblock.5.cap": {
+          "numel": 1,
+          "norm": 10.0,
+          "initial_norm": 10.0,
+          "delta_norm": 0.0,
+          "max_abs_change": 0.0,
+          "changed_elements": 0
+        },
+        "blocks.2.convblock.6.weight": {
+          "numel": 2048,
+          "norm": 3.475900745980481,
+          "initial_norm": 3.2673661976307886,
+          "delta_norm": 0.8505163106047314,
+          "max_abs_change": 0.02537626028060913,
+          "changed_elements": 2048
+        },
+        "blocks.2.convblock.6.bias": {
+          "numel": 32,
+          "norm": 0.43894811655772625,
+          "initial_norm": 0.43960507497152007,
+          "delta_norm": 0.001726406816193619,
+          "max_abs_change": 0.0005631819367408752,
+          "changed_elements": 32
+        },
+        "output.weight": {
+          "numel": 128,
+          "norm": 0.2182134991482783,
+          "initial_norm": 0.0,
+          "delta_norm": 0.2182134991482783,
+          "max_abs_change": 0.021664921194314957,
+          "changed_elements": 128
+        },
+        "output.bias": {
+          "numel": 4,
+          "norm": 0.00011528433982165063,
+          "initial_norm": 0.0,
+          "delta_norm": 0.00011528433982165063,
+          "max_abs_change": 9.687356214271858e-05,
+          "changed_elements": 4
+        }
+      },
+      "interpretation": "28 state tensors include six unchanged scalar activation-cap buffers. All 22 parameter tensors changed.",
+      "trainable_parameters": 172804
+    },
+    "ema": {
+      "changed_tensors": 22,
+      "tensor_count": 28,
+      "output_delta_rms_on_two_fixed_standard_gaussian_fields": 1.8218393325805664,
+      "output_rms": 2.2099380493164062,
+      "input_rms": 0.9949473738670349,
+      "finite": true,
+      "groups": {
+        "input.": {
+          "initial_norm": 3.6821413719035596,
+          "final_norm": 3.714132542492317,
+          "delta_norm": 0.11828201934986554,
+          "changed_elements": 160
+        },
+        "blocks.0.": {
+          "initial_norm": 15.91635497874126,
+          "final_norm": 16.006259005188678,
+          "delta_norm": 2.1300843731931827,
+          "changed_elements": 57504
+        },
+        "blocks.1.": {
+          "initial_norm": 15.926809972454828,
+          "final_norm": 16.001943683443354,
+          "delta_norm": 1.9588144656255682,
+          "changed_elements": 57504
+        },
+        "blocks.2.": {
+          "initial_norm": 15.930925174230785,
+          "final_norm": 16.003392861089836,
+          "delta_norm": 1.8730221970341643,
+          "changed_elements": 57504
+        },
+        "output.": {
+          "initial_norm": 0.0,
+          "final_norm": 0.2169830894593796,
+          "delta_norm": 0.2169830894593796,
+          "changed_elements": 132
+        }
+      },
+      "initial_output_projection_exactly_zero": true,
+      "total_state_elements": 172810,
+      "state_tensor_stats": {
+        "input.weight": {
+          "numel": 128,
+          "norm": 3.3011140584832743,
+          "initial_norm": 3.2630580544315215,
+          "delta_norm": 0.11804759324545086,
+          "max_abs_change": 0.024629831314086914,
+          "changed_elements": 128
+        },
+        "input.bias": {
+          "numel": 32,
+          "norm": 1.7021828679917235,
+          "initial_norm": 1.7060531105722938,
+          "delta_norm": 0.007443240587173796,
+          "max_abs_change": 0.0028353631496429443,
+          "changed_elements": 32
+        },
+        "blocks.0.convblock.0.weight": {
+          "numel": 18432,
+          "norm": 4.668224894982253,
+          "initial_norm": 4.616923694438444,
+          "delta_norm": 1.0688847581824585,
+          "max_abs_change": 0.026303406804800034,
+          "changed_elements": 18432
+        },
+        "blocks.0.convblock.0.bias": {
+          "numel": 64,
+          "norm": 0.2748238443673684,
+          "initial_norm": 0.27326637615930904,
+          "delta_norm": 0.028104388198608516,
+          "max_abs_change": 0.00843014195561409,
+          "changed_elements": 64
+        },
+        "blocks.0.convblock.2.cap": {
+          "numel": 1,
+          "norm": 10.0,
+          "initial_norm": 10.0,
+          "delta_norm": 0.0,
+          "max_abs_change": 0.0,
+          "changed_elements": 0
+        },
+        "blocks.0.convblock.3.weight": {
+          "numel": 36864,
+          "norm": 4.737856587513611,
+          "initial_norm": 4.6212867319127815,
+          "delta_norm": 1.6845484820939522,
+          "max_abs_change": 0.026108961552381516,
+          "changed_elements": 36864
+        },
+        "blocks.0.convblock.3.bias": {
+          "numel": 64,
+          "norm": 0.1814810158574608,
+          "initial_norm": 0.18131430040997318,
+          "delta_norm": 0.019445858832864323,
+          "max_abs_change": 0.005758220329880714,
+          "changed_elements": 64
+        },
+        "blocks.0.convblock.5.cap": {
+          "numel": 1,
+          "norm": 10.0,
+          "initial_norm": 10.0,
+          "delta_norm": 0.0,
+          "max_abs_change": 0.0,
+          "changed_elements": 0
+        },
+        "blocks.0.convblock.6.weight": {
+          "numel": 2048,
+          "norm": 3.423535398838355,
+          "initial_norm": 3.227717733814522,
+          "delta_norm": 0.745567200812418,
+          "max_abs_change": 0.022078800946474075,
+          "changed_elements": 2048
+        },
+        "blocks.0.convblock.6.bias": {
+          "numel": 32,
+          "norm": 0.362850514064132,
+          "initial_norm": 0.3638257734524886,
+          "delta_norm": 0.0016652726359958061,
+          "max_abs_change": 0.0006767585873603821,
+          "changed_elements": 32
+        },
+        "blocks.1.convblock.0.weight": {
+          "numel": 18432,
+          "norm": 4.679013636892104,
+          "initial_norm": 4.632680537043039,
+          "delta_norm": 1.0912784667130866,
+          "max_abs_change": 0.02561286184936762,
+          "changed_elements": 18432
+        },
+        "blocks.1.convblock.0.bias": {
+          "numel": 64,
+          "norm": 0.306087734660141,
+          "initial_norm": 0.3072169887642007,
+          "delta_norm": 0.015799254726144015,
+          "max_abs_change": 0.005308201536536217,
+          "changed_elements": 64
+        },
+        "blocks.1.convblock.2.cap": {
+          "numel": 1,
+          "norm": 10.0,
+          "initial_norm": 10.0,
+          "delta_norm": 0.0,
+          "max_abs_change": 0.0,
+          "changed_elements": 0
+        },
+        "blocks.1.convblock.3.weight": {
+          "numel": 36864,
+          "norm": 4.665658166140125,
+          "initial_norm": 4.609456793930465,
+          "delta_norm": 1.3881364123145983,
+          "max_abs_change": 0.03395911864936352,
+          "changed_elements": 36864
+        },
+        "blocks.1.convblock.3.bias": {
+          "numel": 64,
+          "norm": 0.19872051520602604,
+          "initial_norm": 0.2012868557012264,
+          "delta_norm": 0.013610868293675112,
+          "max_abs_change": 0.003647051751613617,
+          "changed_elements": 64
+        },
+        "blocks.1.convblock.5.cap": {
+          "numel": 1,
+          "norm": 10.0,
+          "initial_norm": 10.0,
+          "delta_norm": 0.0,
+          "max_abs_change": 0.0,
+          "changed_elements": 0
+        },
+        "blocks.1.convblock.6.weight": {
+          "numel": 2048,
+          "norm": 3.480857756723731,
+          "initial_norm": 3.2661993993411085,
+          "delta_norm": 0.8477647964474438,
+          "max_abs_change": 0.024309858679771423,
+          "changed_elements": 2048
+        },
+        "blocks.1.convblock.6.bias": {
+          "numel": 32,
+          "norm": 0.38873724234174734,
+          "initial_norm": 0.3892271991495854,
+          "delta_norm": 0.0016423633839494813,
+          "max_abs_change": 0.0005922913551330566,
+          "changed_elements": 32
+        },
+        "blocks.2.convblock.0.weight": {
+          "numel": 18432,
+          "norm": 4.6711783592002405,
+          "initial_norm": 4.631395164731425,
+          "delta_norm": 0.9684218041181395,
+          "max_abs_change": 0.023641828447580338,
+          "changed_elements": 18432
+        },
+        "blocks.2.convblock.0.bias": {
+          "numel": 64,
+          "norm": 0.26615132167755323,
+          "initial_norm": 0.26566499231168605,
+          "delta_norm": 0.010584385286957316,
+          "max_abs_change": 0.003861851990222931,
+          "changed_elements": 64
+        },
+        "blocks.2.convblock.2.cap": {
+          "numel": 1,
+          "norm": 10.0,
+          "initial_norm": 10.0,
+          "delta_norm": 0.0,
+          "max_abs_change": 0.0,
+          "changed_elements": 0
+        },
+        "blocks.2.convblock.3.weight": {
+          "numel": 36864,
+          "norm": 4.6822853673249405,
+          "initial_norm": 4.623251232925502,
+          "delta_norm": 1.362183249515739,
+          "max_abs_change": 0.022380394861102104,
+          "changed_elements": 36864
+        },
+        "blocks.2.convblock.3.bias": {
+          "numel": 64,
+          "norm": 0.17231768671281902,
+          "initial_norm": 0.17490395305532033,
+          "delta_norm": 0.015113386630001209,
+          "max_abs_change": 0.007021930068731308,
+          "changed_elements": 64
+        },
+        "blocks.2.convblock.5.cap": {
+          "numel": 1,
+          "norm": 10.0,
+          "initial_norm": 10.0,
+          "delta_norm": 0.0,
+          "max_abs_change": 0.0,
+          "changed_elements": 0
+        },
+        "blocks.2.convblock.6.weight": {
+          "numel": 2048,
+          "norm": 3.47442126605173,
+          "initial_norm": 3.2673661976307886,
+          "delta_norm": 0.8452720943267864,
+          "max_abs_change": 0.02520502358675003,
+          "changed_elements": 2048
+        },
+        "blocks.2.convblock.6.bias": {
+          "numel": 32,
+          "norm": 0.43902903853603564,
+          "initial_norm": 0.43960507497152007,
+          "delta_norm": 0.0016725773749389887,
+          "max_abs_change": 0.0005327649414539337,
+          "changed_elements": 32
+        },
+        "output.weight": {
+          "numel": 128,
+          "norm": 0.21698303144802145,
+          "initial_norm": 0.0,
+          "delta_norm": 0.21698303144802145,
+          "max_abs_change": 0.021542102098464966,
+          "changed_elements": 128
+        },
+        "output.bias": {
+          "numel": 4,
+          "norm": 0.0001586662033037195,
+          "initial_norm": 0.0,
+          "delta_norm": 0.0001586662033037195,
+          "max_abs_change": 0.00012914169928990304,
+          "changed_elements": 4
+        }
+      },
+      "interpretation": "28 state tensors include six unchanged scalar activation-cap buffers. All 22 parameter tensors changed.",
+      "trainable_parameters": 172804
+    }
+  },
+  "interpretation": "Branch changed in learned parameters and in CPU random-field output; this does not establish useful forecast contribution or spatial quality. Exact saved step0 checkpoint comparison establishes common physical-model weights; tensor RNG states compared separately.",
+  "local_validation": {
+    "tests": [
+      "test_noise_modes_consume_identical_rng_and_preserve_backbone",
+      "test_spatial_noise_processor_starts_identically_and_learns_with_checkpointing"
+    ],
+    "result": "2 passed, 10 deselected",
+    "gpu_used": false
+  }
+}

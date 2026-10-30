@@ -1,0 +1,11 @@
+{
+  "complete": true,
+  "variants": [
+    "standard-crps",
+    "oracle-crps",
+    "standard-mse",
+    "oracle-mse"
+  ],
+  "updates_per_arm": 128,
+  "qualification_only": false
+}

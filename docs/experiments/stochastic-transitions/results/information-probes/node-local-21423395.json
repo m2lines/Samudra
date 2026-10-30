@@ -1,0 +1,19 @@
+{
+  "local": "/state/partition1/job-21423395/onepass-21423395.kYfp4I",
+  "bytes": 59536168328,
+  "filesystem": "xfs",
+  "seconds": 95.10138034820557,
+  "verified": true,
+  "caches": {
+    "packed_om4": {
+      "source": "/scratch/jr7309/data/stochastic-onepass-v1/packed-om4",
+      "destination": "/state/partition1/job-21423395/onepass-21423395.kYfp4I/packed_om4",
+      "proof_sha256": "9cd13df5c9654bade619cfd37d10befc24588dbcbdc582fcf7734c97267ee9ed"
+    },
+    "forcing_cache": {
+      "source": "/scratch/jr7309/data/stochastic-onepass-v1/forcing-cache",
+      "destination": "/state/partition1/job-21423395/onepass-21423395.kYfp4I/forcing_cache",
+      "proof_sha256": "21ef32250de13fac7f4ffaf6cd983cc328e93e8aab3ce04a466da21d93263b14"
+    }
+  }
+}

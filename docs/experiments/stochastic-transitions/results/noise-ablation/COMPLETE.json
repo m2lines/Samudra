@@ -1,0 +1,810 @@
+{
+  "complete": true,
+  "variants": [
+    "B-control",
+    "B-multiscale-noise",
+    "B-noise-processing"
+  ],
+  "steps": [
+    500,
+    1000,
+    2000
+  ],
+  "weights": [
+    "raw",
+    "ema"
+  ],
+  "initializer_dates": [
+    "2014-01",
+    "2014-04",
+    "2014-05"
+  ],
+  "forecast_origins": 9,
+  "sources": [
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-control/initializer-raw/grid.npz",
+      "sha256": "129e14065e95ada1c1d1b3713b68b4173ebcbf7e51c0ba2d9ade2f5f18b9ab11"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-control/initializer-raw/input-2014-01.json",
+      "sha256": "6fc037d87514f4d248cd216062a3ca44b0e23adb4ce0a744f5bce6a4b343769d"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-control/initializer-raw/input-2014-04.json",
+      "sha256": "1aeda079e80c7469e9e6ae5655593903fc5835ffb3a23ad062155de53793ef0d"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-control/initializer-raw/input-2014-05.json",
+      "sha256": "c25f6ec0932042dc3d79d80c47f42c6938265e8dc8b4b5a4a76dad98bffe9180"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-control/initializer-raw/B-control-02000-2014-01-maps.npz",
+      "sha256": "026bde7f2191b654dce62d93069db909f7cf08ef02519a223830cb54684a4b3a"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-control/initializer-raw/B-control-02000-2014-04-maps.npz",
+      "sha256": "064800a90a0f6c8fd934fa21a323317adf4875f5342a2cbda28a6620c9c1ee52"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-control/initializer-raw/B-control-02000-2014-05-maps.npz",
+      "sha256": "18c5f8125acb4fd44d3e9e7693aa691a4d907529082c313f56eccd7298b90513"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-control/initializer-raw/B-control-00500-2014-01.json",
+      "sha256": "e5eb8f02f78f3d63fbadfd6193d0e311dba9631f919a3a21a5b27ccee07144cb"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-control/initializer-raw/B-control-00500-2014-04.json",
+      "sha256": "bf365b5357312725e4a44c08cb7292eca0e8e9b7c489f414feae3dea85db93e3"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-control/initializer-raw/B-control-00500-2014-05.json",
+      "sha256": "265c8c0e640b414b37995ae64f0fc64f73b216575617314581dc410e10843000"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-control/initializer-raw/B-control-01000-2014-01.json",
+      "sha256": "7dfe64367cad1de214f8d0e6aa3c2aaac3b21656c0863d75eafe5a0f9a0cbe56"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-control/initializer-raw/B-control-01000-2014-04.json",
+      "sha256": "c23e4e67b234f365bd96f19682ecf33650aa8a115e4557fdd3452a5a0a7e67de"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-control/initializer-raw/B-control-01000-2014-05.json",
+      "sha256": "739ca027ea1f447f169c431e82b88ae606b4534f1f7c46b3c857486105c927f9"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-control/initializer-raw/B-control-02000-2014-01.json",
+      "sha256": "049d9912d9521f2c9082118ca95840add1f673b11ecc6b4e43ce23cda7bcbbbd"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-control/initializer-raw/B-control-02000-2014-04.json",
+      "sha256": "aa70c8d240c1570915a677e33d0201ea93f65ee889e1792070def58c9ac57417"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-control/initializer-raw/B-control-02000-2014-05.json",
+      "sha256": "7d7ab5a148c1bfd948c124e030f4ec66e7f2a49f4845ccbd66688f7739170c5a"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-control/initializer-ema/grid.npz",
+      "sha256": "129e14065e95ada1c1d1b3713b68b4173ebcbf7e51c0ba2d9ade2f5f18b9ab11"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-control/initializer-ema/input-2014-01.json",
+      "sha256": "88817cafeef437fdef94cb6aadf9b2db03db4eb2a50c5e975addf081a14d7533"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-control/initializer-ema/input-2014-04.json",
+      "sha256": "3b14a086802d384f807fe499d442ce4dbd44178435938a08657ea953018a8350"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-control/initializer-ema/input-2014-05.json",
+      "sha256": "c6b1851c1f1cbba2e1694997505613f86151a1816cca48aaf351006c1896adb4"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-control/initializer-ema/B-control-02000-2014-01-maps.npz",
+      "sha256": "5dd8223fd43fa37d78484653a4004532ffd8d79b8cf473215772f5f8278181b2"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-control/initializer-ema/B-control-02000-2014-04-maps.npz",
+      "sha256": "75348e4ea27cdf71cdf7f8261304742a5c69e766d81131e031751e4ddcbb6494"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-control/initializer-ema/B-control-02000-2014-05-maps.npz",
+      "sha256": "8b54d55b6f127d30b8082ed07bd840e9769b660f8443788f2c74d3e5f40377c8"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-control/initializer-ema/B-control-00500-2014-01.json",
+      "sha256": "1d1e5923651e11b5cea2925935abd76f0d6cec15e7fb7a5fb2f49811b0387c1f"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-control/initializer-ema/B-control-00500-2014-04.json",
+      "sha256": "531084586895abaac18ef0182af82383a00f45558c6b45c584be118cef2d4dec"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-control/initializer-ema/B-control-00500-2014-05.json",
+      "sha256": "d887dc004913469c010393b4485f0b29d9fb7935810273e515e32d9338888cbb"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-control/initializer-ema/B-control-01000-2014-01.json",
+      "sha256": "e5628a4a0207208c3650ec83d109399724299eb094ce4e41dad684250908d4d5"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-control/initializer-ema/B-control-01000-2014-04.json",
+      "sha256": "cd6494fa7477b8849560b54e9ba73f9fef2651c13bd73523d1001c3196104071"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-control/initializer-ema/B-control-01000-2014-05.json",
+      "sha256": "4a71be736297a5858f344e675f33fd576965206f439dc6cf0fee49056cc5f78c"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-control/initializer-ema/B-control-02000-2014-01.json",
+      "sha256": "c15c5e34a6965767cdb2df20d86c03f95230bbec8edbfb4adea3b2502dcbfd6a"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-control/initializer-ema/B-control-02000-2014-04.json",
+      "sha256": "61504360ce26324879860fac03caf92ccbf6f9800d9b88b46dfddf102ea6a7f6"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-control/initializer-ema/B-control-02000-2014-05.json",
+      "sha256": "a699098529c790719be0eb08a0c84650842fef6a6ae6767abcfc947cc030f256"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-multiscale-noise/initializer-raw/grid.npz",
+      "sha256": "129e14065e95ada1c1d1b3713b68b4173ebcbf7e51c0ba2d9ade2f5f18b9ab11"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-multiscale-noise/initializer-raw/input-2014-01.json",
+      "sha256": "6fc037d87514f4d248cd216062a3ca44b0e23adb4ce0a744f5bce6a4b343769d"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-multiscale-noise/initializer-raw/input-2014-04.json",
+      "sha256": "1aeda079e80c7469e9e6ae5655593903fc5835ffb3a23ad062155de53793ef0d"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-multiscale-noise/initializer-raw/input-2014-05.json",
+      "sha256": "c25f6ec0932042dc3d79d80c47f42c6938265e8dc8b4b5a4a76dad98bffe9180"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-multiscale-noise/initializer-raw/B-multiscale-noise-02000-2014-01-maps.npz",
+      "sha256": "e399ea4d94ba0baef0e0b55c36cf4a1ec1cb4ff0fe7914ae6538797344718a0c"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-multiscale-noise/initializer-raw/B-multiscale-noise-02000-2014-04-maps.npz",
+      "sha256": "8d71d73b95ee9dba0c80d462a652a24070ff289f565beac507d62b68c6d65874"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-multiscale-noise/initializer-raw/B-multiscale-noise-02000-2014-05-maps.npz",
+      "sha256": "7594026b965aeff32ff90ad28fbc76a2f4158c8e00ec6903684615abfc679837"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-multiscale-noise/initializer-raw/B-multiscale-noise-00500-2014-01.json",
+      "sha256": "2ffe9c56ba6996a8f6d4feca1c0c8e64098c5fc3563f68df9ed6328350b56e15"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-multiscale-noise/initializer-raw/B-multiscale-noise-00500-2014-04.json",
+      "sha256": "4835e91c8aea367e20fa0009967120c774e80d0401189f11074db3139325dbba"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-multiscale-noise/initializer-raw/B-multiscale-noise-00500-2014-05.json",
+      "sha256": "9445d6b71436d36e83c62ae9a30e6c25c99e1cfdb5eb02681c69818c9d4e8118"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-multiscale-noise/initializer-raw/B-multiscale-noise-01000-2014-01.json",
+      "sha256": "76e2faa12087db5cfadd89d4df46c88a37023b8977307f5aefb452a2c7754a9b"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-multiscale-noise/initializer-raw/B-multiscale-noise-01000-2014-04.json",
+      "sha256": "ec309a71ac9944b7bb77106bb8dd5c634455142967d4fbec8d5a878fce95111c"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-multiscale-noise/initializer-raw/B-multiscale-noise-01000-2014-05.json",
+      "sha256": "2ea4caa9b482098accc912c767c6702be087f38e6217e8f49b15c56ceca1b9d1"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-multiscale-noise/initializer-raw/B-multiscale-noise-02000-2014-01.json",
+      "sha256": "ce7a0828c16e2b959e82a4003ea89cd5c5940571f97866fcc1e679c22a29ee53"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-multiscale-noise/initializer-raw/B-multiscale-noise-02000-2014-04.json",
+      "sha256": "14d7d01cf48975008b354dbc27cc0f6778875589373d315a33a7464c1d19e78c"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-multiscale-noise/initializer-raw/B-multiscale-noise-02000-2014-05.json",
+      "sha256": "26ab0e07404f239f7262ba395042ea9efab8106798cf421927a68f081e45f8b6"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-multiscale-noise/initializer-ema/grid.npz",
+      "sha256": "129e14065e95ada1c1d1b3713b68b4173ebcbf7e51c0ba2d9ade2f5f18b9ab11"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-multiscale-noise/initializer-ema/input-2014-01.json",
+      "sha256": "88817cafeef437fdef94cb6aadf9b2db03db4eb2a50c5e975addf081a14d7533"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-multiscale-noise/initializer-ema/input-2014-04.json",
+      "sha256": "3b14a086802d384f807fe499d442ce4dbd44178435938a08657ea953018a8350"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-multiscale-noise/initializer-ema/input-2014-05.json",
+      "sha256": "c6b1851c1f1cbba2e1694997505613f86151a1816cca48aaf351006c1896adb4"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-multiscale-noise/initializer-ema/B-multiscale-noise-02000-2014-01-maps.npz",
+      "sha256": "250e5e88b8ce7343157e865ac6720737b56c26e19aa5d9302107168a8a48e834"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-multiscale-noise/initializer-ema/B-multiscale-noise-02000-2014-04-maps.npz",
+      "sha256": "cbc334fccae8d3fa09f493dd12e1a3934f82f01ac6655c530c39f5780c5dc99f"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-multiscale-noise/initializer-ema/B-multiscale-noise-02000-2014-05-maps.npz",
+      "sha256": "bd19a044a22daeeea099d281a51e5fe67477cc175d2ad654cc2393c158eccd21"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-multiscale-noise/initializer-ema/B-multiscale-noise-00500-2014-01.json",
+      "sha256": "dc557bd8008e53865f3ef7420caa680515adcd695fa9b01c28cdb163175533ee"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-multiscale-noise/initializer-ema/B-multiscale-noise-00500-2014-04.json",
+      "sha256": "034c151f64cab594321a13caae63add790efd90ffc4cdae0fcd38d0b29010e3f"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-multiscale-noise/initializer-ema/B-multiscale-noise-00500-2014-05.json",
+      "sha256": "81abd8bddb66f46fe07f2ed696d46e6d2909ff0e7acf7b1510eb07826674db57"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-multiscale-noise/initializer-ema/B-multiscale-noise-01000-2014-01.json",
+      "sha256": "31b26415ebd66f6b5294f9b83f90335db7fc24430210e57f76a42979f512c67c"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-multiscale-noise/initializer-ema/B-multiscale-noise-01000-2014-04.json",
+      "sha256": "a65fbd1cd7e576c1d25875a4b2b8ca2abc5db2776a49d15b71b6859fa5a9ab71"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-multiscale-noise/initializer-ema/B-multiscale-noise-01000-2014-05.json",
+      "sha256": "da46251ad5e8091dfa6ee16607a5d184a001f1ea824dedf19af95cce47366240"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-multiscale-noise/initializer-ema/B-multiscale-noise-02000-2014-01.json",
+      "sha256": "d86e28b14fda5dd126f2a1a2ccfd95e112010d3fd27341c20db65a40b784a4f7"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-multiscale-noise/initializer-ema/B-multiscale-noise-02000-2014-04.json",
+      "sha256": "e1d7199d1dd0c53db1be44d0e783c0b370c25aac423e0b832204944738b65255"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-multiscale-noise/initializer-ema/B-multiscale-noise-02000-2014-05.json",
+      "sha256": "69b86c96a9d1fa0dd352704cce8ab91a95ad9a80eced4c0e9e2f37c5463eccb3"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-noise-processing/initializer-raw/grid.npz",
+      "sha256": "129e14065e95ada1c1d1b3713b68b4173ebcbf7e51c0ba2d9ade2f5f18b9ab11"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-noise-processing/initializer-raw/input-2014-01.json",
+      "sha256": "6fc037d87514f4d248cd216062a3ca44b0e23adb4ce0a744f5bce6a4b343769d"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-noise-processing/initializer-raw/input-2014-04.json",
+      "sha256": "1aeda079e80c7469e9e6ae5655593903fc5835ffb3a23ad062155de53793ef0d"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-noise-processing/initializer-raw/input-2014-05.json",
+      "sha256": "c25f6ec0932042dc3d79d80c47f42c6938265e8dc8b4b5a4a76dad98bffe9180"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-noise-processing/initializer-raw/B-noise-processing-02000-2014-01-maps.npz",
+      "sha256": "bbc89881fbf575909bc34db27a7ffb6ca4464e85bc74845bbc3ab9169ceea0ab"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-noise-processing/initializer-raw/B-noise-processing-02000-2014-04-maps.npz",
+      "sha256": "4dbeb4f5c40b2f1a9ca71d233ef600009bc294ab659e5272010de3590f22bbfc"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-noise-processing/initializer-raw/B-noise-processing-02000-2014-05-maps.npz",
+      "sha256": "5ac1529ebc8f745167b20ce47a57561ce2d9a2dd0351d89450755bf0ae036fc3"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-noise-processing/initializer-raw/B-noise-processing-00500-2014-01.json",
+      "sha256": "89d6cacb39a6725b1e91024f33d70b9b9bbd7660ac5ea707680d2fd993340911"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-noise-processing/initializer-raw/B-noise-processing-00500-2014-04.json",
+      "sha256": "06dba346b044ac5020b1cd745cede502a1a731daaa0c82881a9956303811a007"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-noise-processing/initializer-raw/B-noise-processing-00500-2014-05.json",
+      "sha256": "284b55f4797cacd5abcbd048863a0f1cc9e7cf294762ca93ce74e6c4015357c6"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-noise-processing/initializer-raw/B-noise-processing-01000-2014-01.json",
+      "sha256": "04a35f61c0db50887b3f27b738565884f794f82675e85f34342276f34d4eb42b"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-noise-processing/initializer-raw/B-noise-processing-01000-2014-04.json",
+      "sha256": "b876f948d903b1a017b7a24923668bf152b52fe69818316ff7d41007d5ab1acc"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-noise-processing/initializer-raw/B-noise-processing-01000-2014-05.json",
+      "sha256": "4037f4577d8cc805fa0eb2b698d819c653b732f0bd9beb22c7aefe533d45c1bf"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-noise-processing/initializer-raw/B-noise-processing-02000-2014-01.json",
+      "sha256": "f6e337ce34d1d964ccc4422430eb441ac12431cc17069c908984b9d266c5f9d1"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-noise-processing/initializer-raw/B-noise-processing-02000-2014-04.json",
+      "sha256": "c1e1ce21b8966408390cdcc1256ee59ff0d54e0b62db4e6956e886e354b39a7f"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-noise-processing/initializer-raw/B-noise-processing-02000-2014-05.json",
+      "sha256": "7ef212bfcc0bf84618d9fc06b75c804ad48374fb2e195ad878f6fd5db2e5394b"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-noise-processing/initializer-ema/grid.npz",
+      "sha256": "129e14065e95ada1c1d1b3713b68b4173ebcbf7e51c0ba2d9ade2f5f18b9ab11"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-noise-processing/initializer-ema/input-2014-01.json",
+      "sha256": "88817cafeef437fdef94cb6aadf9b2db03db4eb2a50c5e975addf081a14d7533"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-noise-processing/initializer-ema/input-2014-04.json",
+      "sha256": "3b14a086802d384f807fe499d442ce4dbd44178435938a08657ea953018a8350"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-noise-processing/initializer-ema/input-2014-05.json",
+      "sha256": "c6b1851c1f1cbba2e1694997505613f86151a1816cca48aaf351006c1896adb4"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-noise-processing/initializer-ema/B-noise-processing-02000-2014-01-maps.npz",
+      "sha256": "282fdb9b85c9e9750cff34a88b121b132f2e724b8b79efd29b7fb14a12cc9557"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-noise-processing/initializer-ema/B-noise-processing-02000-2014-04-maps.npz",
+      "sha256": "b1235ff5ccaccab191b66a76331a362af1eddc69ad7efb81625b56cc2d6672bb"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-noise-processing/initializer-ema/B-noise-processing-02000-2014-05-maps.npz",
+      "sha256": "ca3a2bbf07d382b45e4185c80fe42d0f319eacbb22436ba4cc6fd5138dd6362f"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-noise-processing/initializer-ema/B-noise-processing-00500-2014-01.json",
+      "sha256": "9d46fd17d04632ec8d78babb16c814476964305e6c563a3b8c3fac2914b7140b"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-noise-processing/initializer-ema/B-noise-processing-00500-2014-04.json",
+      "sha256": "3d0f9ccf249be00de48176f135552afbb5e3bcb1fad4ae7d398becb685888c85"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-noise-processing/initializer-ema/B-noise-processing-00500-2014-05.json",
+      "sha256": "7d85e6450502d4dfa9a2dc0c33454c8652c9aa5d9ec77d728a3f4c2922072461"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-noise-processing/initializer-ema/B-noise-processing-01000-2014-01.json",
+      "sha256": "2895ed128e6d906150c3b9471f8348bc16f5e00ef376c4651ee350873b52eac0"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-noise-processing/initializer-ema/B-noise-processing-01000-2014-04.json",
+      "sha256": "02c40b0528a45b528bd0efb7c24577a3f406654cf36a7ecc2b1f7528385eec25"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-noise-processing/initializer-ema/B-noise-processing-01000-2014-05.json",
+      "sha256": "411f78123ac44dab0aa4077e0aa8291c733104b8f90fdadb7c3cbaf0f3ae58e1"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-noise-processing/initializer-ema/B-noise-processing-02000-2014-01.json",
+      "sha256": "413e1d47c6fe2df754c24ea13ba29993420ed98ee9c688abefca273f79918c0d"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-noise-processing/initializer-ema/B-noise-processing-02000-2014-04.json",
+      "sha256": "161b7c9f70ec009d03cb5767382173c8e3d3c243067842b0a31e6af2f32226dd"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-noise-processing/initializer-ema/B-noise-processing-02000-2014-05.json",
+      "sha256": "42f9df0d1da846f2261f51c20cd5e50bff009e10d1e7597033029aeddd7d950d"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-control/evaluation/step-02000-ema/COMPLETE.json",
+      "sha256": "4c08ab5802d3d4429274c5149ba8a0a21b096246e2119d5d141476acbeb63f59"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-control/evaluation/step-02000-raw/COMPLETE.json",
+      "sha256": "ff39b3a5f4687246a85e1887c122b4f5dea9749d15a8ae35b2db45cfd999881d"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-multiscale-noise/evaluation/step-02000-ema/COMPLETE.json",
+      "sha256": "e38e5f1b2680425ee1a3899c7b731fb90917640efd8207eb9a924ebcd3fbd06a"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-multiscale-noise/evaluation/step-02000-raw/COMPLETE.json",
+      "sha256": "b81f2a31ca24626046b098f526a228ba9ac05e88f8233a1d664719fb0ad7dae4"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-noise-processing/evaluation/step-02000-ema/COMPLETE.json",
+      "sha256": "71c6427163f68fd38031d100c97d1beccba351519d57534d6585f84a31137a48"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-noise-processing/evaluation/step-02000-raw/COMPLETE.json",
+      "sha256": "d6bbb920dc05cae743af36cbdfcca59c56cf5bad94113b766b1186efe558e810"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-control/evaluation/step-02000-ema/members-2013-11.npz",
+      "sha256": "0a1cd8801fcbef96e878c4bfc5e6a88b30d32549ce5415b2ac6fa457d49aba0e"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-control/evaluation/step-02000-ema/members-2013-12.npz",
+      "sha256": "44904f055f23b7cb03e1a3b5a004dfa03fe56b22ab2c290db75e3a349f77d234"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-control/evaluation/step-02000-ema/members-2014-01.npz",
+      "sha256": "0449b64508e960db02583cff50b793ff064f3b46d647b8bd16b6a82e5278bb06"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-control/evaluation/step-02000-ema/members-2014-02.npz",
+      "sha256": "9921309100bd4e8eeb46772f092daaa7a40b12d0262e38a1fa2a7f6024d495b2"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-control/evaluation/step-02000-ema/members-2014-03.npz",
+      "sha256": "a86da644e2e944375fcaedab86f9fca6fada7602efddcb53939b8bcf330d1a7d"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-control/evaluation/step-02000-ema/members-2014-04.npz",
+      "sha256": "46243e4d6222f393debf2b96b6a784a986c75434e7d6cdea4d776313bcefe339"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-control/evaluation/step-02000-ema/members-2014-05.npz",
+      "sha256": "0aa2a46c3b7fa2227714865be3ab9404be51fec5d3e93c4a83c754dea8463ae4"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-control/evaluation/step-02000-ema/members-2014-06.npz",
+      "sha256": "3fee160ead71e1b4d2d69af3d4f4f49acf014e5dfaa938bc472df72c328b31db"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-control/evaluation/step-02000-ema/members-2014-07.npz",
+      "sha256": "3aeb4de877ace3eb0120c4f5405fe885102ee41cc801ea3696e01cda0635556a"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-control/evaluation/step-02000-raw/members-2013-11.npz",
+      "sha256": "eaef8e2f49880552676d7be379aff2fa2ffc444014087185b1c0ee6b86001424"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-control/evaluation/step-02000-raw/members-2013-12.npz",
+      "sha256": "8d2aad993f5a80e5f206e8123996cbbc3936bffc7a3415c294221fbbd030464a"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-control/evaluation/step-02000-raw/members-2014-01.npz",
+      "sha256": "e51b319f5b4381afc8358709f62d07788d4062008f58ac8273b5e88a4fc9155e"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-control/evaluation/step-02000-raw/members-2014-02.npz",
+      "sha256": "4952425c80d897d8910bb2ed5728f5b37dee6b134c0becf7570a58c03f318dfe"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-control/evaluation/step-02000-raw/members-2014-03.npz",
+      "sha256": "e36442793ee00910038ec3988ed7cc70f4c5efad5bd341f15f7096482c508add"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-control/evaluation/step-02000-raw/members-2014-04.npz",
+      "sha256": "95840eaf0208301fe769f8faef3abfcd92d18476d6bcf2a8f05d636d4bd28c73"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-control/evaluation/step-02000-raw/members-2014-05.npz",
+      "sha256": "734972371b7d8692486ec2034dff2ffb12eaf7dd77d11619c4502ecd099bdf71"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-control/evaluation/step-02000-raw/members-2014-06.npz",
+      "sha256": "05a4b66bbbbca3653c6d23886919b362fe3b7e567f79ba91b1ff986c2b3bb10d"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-control/evaluation/step-02000-raw/members-2014-07.npz",
+      "sha256": "e9a325a3c987f67ce7ec3de8934f78faa83d7ad83ebd8d5013f1339ca46a2ccf"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-multiscale-noise/evaluation/step-02000-ema/members-2013-11.npz",
+      "sha256": "b6c91a2f4556599dde251b31213033f9a01734757f0256ac75f53210095dab14"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-multiscale-noise/evaluation/step-02000-ema/members-2013-12.npz",
+      "sha256": "2440a597729d976489c873a0dbf249d52c0c7588edc62b980e67bfd759b1bdfb"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-multiscale-noise/evaluation/step-02000-ema/members-2014-01.npz",
+      "sha256": "baec658844a11e07c76866f226c2770c7886e804b6dcfb86cedf347b538c8851"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-multiscale-noise/evaluation/step-02000-ema/members-2014-02.npz",
+      "sha256": "1a21a10eb27e6f14605190b203ff45308bdae2631f3d4103ccc7d93a445a1916"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-multiscale-noise/evaluation/step-02000-ema/members-2014-03.npz",
+      "sha256": "517741b2d24491769f7389e3c240f3a64c0e0ca3dc3cdc48bd6c40b95a19ea5d"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-multiscale-noise/evaluation/step-02000-ema/members-2014-04.npz",
+      "sha256": "a70c2a0cc08acd5bf99231ea33ba49b72f4e81069c4ff7fde6f80a11b918eff1"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-multiscale-noise/evaluation/step-02000-ema/members-2014-05.npz",
+      "sha256": "8acf51bd1ebf11655e609233b2f381593c4b9e9c6835e61f08d4974de8cde652"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-multiscale-noise/evaluation/step-02000-ema/members-2014-06.npz",
+      "sha256": "80f6c74f879c0bd64c55e817007afb5c6967cb9f2f08692ea3071d5c5838e489"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-multiscale-noise/evaluation/step-02000-ema/members-2014-07.npz",
+      "sha256": "01fccbb8a63504498f1cea40f600ae80c6566cc004ce4c8e9dd10ca45c7dbd42"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-multiscale-noise/evaluation/step-02000-raw/members-2013-11.npz",
+      "sha256": "4d264edfe1fb17b9115655d62d1e26db214338341ed40f258b0502ca8743377c"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-multiscale-noise/evaluation/step-02000-raw/members-2013-12.npz",
+      "sha256": "a4dab5f0965d58b43d3948f720e0f3b4ec6c52c92d37e024310aa1ae1578e1cb"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-multiscale-noise/evaluation/step-02000-raw/members-2014-01.npz",
+      "sha256": "e86aa2b845d9f16787fe802a63f265df6ebc195f8b814e20f3c4c4c8bb8a40aa"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-multiscale-noise/evaluation/step-02000-raw/members-2014-02.npz",
+      "sha256": "6fc5e13517e668cb54eb23badfc945264acf065e0964ad13e3e4b9a0753dc520"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-multiscale-noise/evaluation/step-02000-raw/members-2014-03.npz",
+      "sha256": "86f05f6cbb4eb728480a8423fb47590c395b72ba244816050e13877f35de84b6"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-multiscale-noise/evaluation/step-02000-raw/members-2014-04.npz",
+      "sha256": "fe38f711b5b41b7884c3eb4a5b75a68b8dc5c1a66f12fcb29c66d39d0646f050"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-multiscale-noise/evaluation/step-02000-raw/members-2014-05.npz",
+      "sha256": "2c32e595a04a164f554387a36aa9c08a14460b8a0d251ba77f2bcb21edda4ea7"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-multiscale-noise/evaluation/step-02000-raw/members-2014-06.npz",
+      "sha256": "3b8946dd57e054d20e21bbb6c90bbbcda867ccd31637433805ae1f34a52af272"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-multiscale-noise/evaluation/step-02000-raw/members-2014-07.npz",
+      "sha256": "b1ed5a16fbc1843acbd0f160d3d1d15c81cbcfff36a6d32f7beb3529f6db2b1d"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-noise-processing/evaluation/step-02000-ema/members-2013-11.npz",
+      "sha256": "b45662e6e97fb172eb48386e9f446143302bf51e4dbf378ae1e898d0c146de02"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-noise-processing/evaluation/step-02000-ema/members-2013-12.npz",
+      "sha256": "6b7f7071a701c8773a05d7783e9e2b030af18b58e7ca8e28a59eed8eccff8197"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-noise-processing/evaluation/step-02000-ema/members-2014-01.npz",
+      "sha256": "96a65f03d4be0946653506c13e48758ecc28c77fa664e3c1284a1775fb76fffb"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-noise-processing/evaluation/step-02000-ema/members-2014-02.npz",
+      "sha256": "b7423dbc4a2bc9129ea9a25b9582a5d0cc517d74ab325bdf68f3507e9fc97965"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-noise-processing/evaluation/step-02000-ema/members-2014-03.npz",
+      "sha256": "88fb9a7cdbf8aec83a28e5d8b271cdd11725e235ff7a3ac55067284f19c80c75"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-noise-processing/evaluation/step-02000-ema/members-2014-04.npz",
+      "sha256": "4e00974f5b8f976fd3087bab0b2cdc517257372028e3aaf7162492f934ec4366"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-noise-processing/evaluation/step-02000-ema/members-2014-05.npz",
+      "sha256": "2ed7e2b625225bae6b733d1c03fe39a66d8cd40a5f393c7fc482dd32c347333d"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-noise-processing/evaluation/step-02000-ema/members-2014-06.npz",
+      "sha256": "8a18d3737f47a0e020594b3f02b921f2bc518934283abddb22d06ab118c018b5"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-noise-processing/evaluation/step-02000-ema/members-2014-07.npz",
+      "sha256": "e728cb38644626a6b64ff83296b457c7111f278c1658a64781a51d4b32e867e9"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-noise-processing/evaluation/step-02000-raw/members-2013-11.npz",
+      "sha256": "9f369c93c133b65179591936aa449ed5dc4efbc06a5e1a9acae7b8af3c7d8232"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-noise-processing/evaluation/step-02000-raw/members-2013-12.npz",
+      "sha256": "538a1b6c61d1e4dad414108182aeacd5e217fd2fa12f68cf6a6c4891bdfdb2ba"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-noise-processing/evaluation/step-02000-raw/members-2014-01.npz",
+      "sha256": "a62f6fa3c410f2ffff2525c4659a3857ec553050791ed5f2f5a29ce9ea8f66cf"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-noise-processing/evaluation/step-02000-raw/members-2014-02.npz",
+      "sha256": "28816dafdc7d7d2b988b31cbf734d0cad449e1d1fb97c98e09bed17d921d3f15"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-noise-processing/evaluation/step-02000-raw/members-2014-03.npz",
+      "sha256": "496b1501ee78b14b61b1d3dfdf9b280095e319c5cf0f3b9e133b7f4d949f3348"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-noise-processing/evaluation/step-02000-raw/members-2014-04.npz",
+      "sha256": "baddf66f3299390bc6a2a6e7a92418f32cedb238e00cb897bafbb87cf20c9e9c"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-noise-processing/evaluation/step-02000-raw/members-2014-05.npz",
+      "sha256": "5dfc616e33f8f8f0d54d5ad82ddf507e59bc43891a7ab9f524e4e7aabb434216"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-noise-processing/evaluation/step-02000-raw/members-2014-06.npz",
+      "sha256": "cf31aca10d5fd930874a49d93a1ad9e2fb363af412bae7a909c96feb78494d2b"
+    },
+    {
+      "path": "/tmp/stochastic-noise-results/production/B-noise-processing/evaluation/step-02000-raw/members-2014-07.npz",
+      "sha256": "239cb5312f73404c81dead947af03698d8a7f7d63c628b55ebd5cb74b6485b31"
+    }
+  ],
+  "input_proofs": {
+    "2014-01": {
+      "month": "2014-01",
+      "history_midpoints": [
+        "2013-09-30T12:00:00",
+        "2013-10-05T12:00:00",
+        "2013-10-10T12:00:00",
+        "2013-10-15T12:00:00",
+        "2013-10-20T12:00:00",
+        "2013-10-25T12:00:00",
+        "2013-10-30T12:00:00",
+        "2013-11-04T12:00:00",
+        "2013-11-09T12:00:00",
+        "2013-11-14T12:00:00",
+        "2013-11-19T12:00:00",
+        "2013-11-24T12:00:00",
+        "2013-11-29T12:00:00",
+        "2013-12-04T12:00:00",
+        "2013-12-09T12:00:00",
+        "2013-12-14T12:00:00",
+        "2013-12-19T12:00:00",
+        "2013-12-24T12:00:00",
+        "2013-12-29T12:00:00"
+      ],
+      "history_indices": [
+        4069,
+        4070,
+        4071,
+        4072,
+        4073,
+        4074,
+        4075,
+        4076,
+        4077,
+        4078,
+        4079,
+        4080,
+        4081,
+        4082,
+        4083,
+        4084,
+        4085,
+        4086,
+        4087
+      ],
+      "sample_sha256": "bc126b8b29c9704069c34eb7d2ef5ff92d63106e3fdb83f87f5064e6338d37cb",
+      "seed": 904003,
+      "members": 8,
+      "grid_sha256": "ce96360964a6669d0186b9581abaaffc06f660c4e09e0ac813b3dd1b819e5167",
+      "om4_metadata_sha256": "8c4e12bbb43cf70826d406d6910461e1b287835e5f7f27729a2eb8d545c4a19c",
+      "training_latest_target_bin_end": "2013-08-04",
+      "input_scope": "OM4 surface history plus matched ERA5; no interior or future input"
+    },
+    "2014-04": {
+      "month": "2014-04",
+      "history_midpoints": [
+        "2013-12-29T12:00:00",
+        "2014-01-03T12:00:00",
+        "2014-01-08T12:00:00",
+        "2014-01-13T12:00:00",
+        "2014-01-18T12:00:00",
+        "2014-01-23T12:00:00",
+        "2014-01-28T12:00:00",
+        "2014-02-02T12:00:00",
+        "2014-02-07T12:00:00",
+        "2014-02-12T12:00:00",
+        "2014-02-17T12:00:00",
+        "2014-02-22T12:00:00",
+        "2014-02-27T12:00:00",
+        "2014-03-04T12:00:00",
+        "2014-03-09T12:00:00",
+        "2014-03-14T12:00:00",
+        "2014-03-19T12:00:00",
+        "2014-03-24T12:00:00",
+        "2014-03-29T12:00:00"
+      ],
+      "history_indices": [
+        4087,
+        4088,
+        4089,
+        4090,
+        4091,
+        4092,
+        4093,
+        4094,
+        4095,
+        4096,
+        4097,
+        4098,
+        4099,
+        4100,
+        4101,
+        4102,
+        4103,
+        4104,
+        4105
+      ],
+      "sample_sha256": "85dc7368a7cfb6ad1dd3bc34faad9671e340542fc805929124d1a9a5b95c613d",
+      "seed": 904003,
+      "members": 8,
+      "grid_sha256": "ce96360964a6669d0186b9581abaaffc06f660c4e09e0ac813b3dd1b819e5167",
+      "om4_metadata_sha256": "8c4e12bbb43cf70826d406d6910461e1b287835e5f7f27729a2eb8d545c4a19c",
+      "training_latest_target_bin_end": "2013-08-04",
+      "input_scope": "OM4 surface history plus matched ERA5; no interior or future input"
+    },
+    "2014-05": {
+      "month": "2014-05",
+      "history_midpoints": [
+        "2014-01-28T12:00:00",
+        "2014-02-02T12:00:00",
+        "2014-02-07T12:00:00",
+        "2014-02-12T12:00:00",
+        "2014-02-17T12:00:00",
+        "2014-02-22T12:00:00",
+        "2014-02-27T12:00:00",
+        "2014-03-04T12:00:00",
+        "2014-03-09T12:00:00",
+        "2014-03-14T12:00:00",
+        "2014-03-19T12:00:00",
+        "2014-03-24T12:00:00",
+        "2014-03-29T12:00:00",
+        "2014-04-03T12:00:00",
+        "2014-04-08T12:00:00",
+        "2014-04-13T12:00:00",
+        "2014-04-18T12:00:00",
+        "2014-04-23T12:00:00",
+        "2014-04-28T12:00:00"
+      ],
+      "history_indices": [
+        4093,
+        4094,
+        4095,
+        4096,
+        4097,
+        4098,
+        4099,
+        4100,
+        4101,
+        4102,
+        4103,
+        4104,
+        4105,
+        4106,
+        4107,
+        4108,
+        4109,
+        4110,
+        4111
+      ],
+      "sample_sha256": "d4ad3c04b23737c5dccc86fb9a36efcf4b9c5d95add2d8d309e53475c9b7edcb",
+      "seed": 904003,
+      "members": 8,
+      "grid_sha256": "ce96360964a6669d0186b9581abaaffc06f660c4e09e0ac813b3dd1b819e5167",
+      "om4_metadata_sha256": "8c4e12bbb43cf70826d406d6910461e1b287835e5f7f27729a2eb8d545c4a19c",
+      "training_latest_target_bin_end": "2013-08-04",
+      "input_scope": "OM4 surface history plus matched ERA5; no interior or future input"
+    }
+  },
+  "script_sha256": "8773bbebbd0a66a0a1c6925b02c24c39f0448cc93520d6193f367f2914a47427",
+  "aggregation": "Cosine-weighted wet spatial MSE per channel, equal mean over variable depths and three dates, then square root. CRPS and coverage equal mean over depths and dates. Forecast blend unchanged five-component climatology-relative mean.",
+  "checks": "Initializer masks/normalization/input receipts/gold maps match; final checkpoint fingerprints match raw/EMA and forecasts; forecast masks/scales/channel names/day30 references match across arms and weights; nine origins and climatology receipts match."
+}

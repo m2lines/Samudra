@@ -1,0 +1,134 @@
+{
+  "complete": true,
+  "sources": [
+    {
+      "path": "/tmp/stochastic-velocity-diagnostics/results/A-control-02000-2014-01-maps.npz",
+      "sha256": "03212dfddf83da8928643efd721446d7ae182ae080b75f8a274180981acbb1a7",
+      "receipt_sha256": "da252e9a0673cb8f7f93eb2545d8eb91904f136e484cba8d588e8ce4cf40bbd7",
+      "checkpoint_sha256": "20d1ba22f3194ac45a1099b21ed095a96953baf3e8a5fa7ed88b95f2e9fefe3c"
+    },
+    {
+      "path": "/tmp/stochastic-velocity-diagnostics/results/A-control-02000-2014-04-maps.npz",
+      "sha256": "aacd12b9b20bbdf19e2c9b072cb977d46833a267bd67a50c080a3d647705f34f",
+      "receipt_sha256": "4a16300bc5f739c41ab5124efbaa83646d45b1712c52664cd5b7989d989f4bbd",
+      "checkpoint_sha256": "20d1ba22f3194ac45a1099b21ed095a96953baf3e8a5fa7ed88b95f2e9fefe3c"
+    },
+    {
+      "path": "/tmp/stochastic-velocity-diagnostics/results/A-control-02000-2014-05-maps.npz",
+      "sha256": "cd91498f758f665be65438760375e6f28c9bf6ee7d9b91da58197dda068c50cf",
+      "receipt_sha256": "8be3c7d0751fab14ed0b68cde0790bf2ab9b2303aa101ae7a7cf4192ab5192df",
+      "checkpoint_sha256": "20d1ba22f3194ac45a1099b21ed095a96953baf3e8a5fa7ed88b95f2e9fefe3c"
+    },
+    {
+      "path": "/tmp/stochastic-velocity-diagnostics/results/B-control-02000-2014-01-maps.npz",
+      "sha256": "b758e04f8389c68ecb97ca2fb8c02e80045603fb88c647afecf4e6eb367f1ee8",
+      "receipt_sha256": "bdc2adbf5a0a3b7e2a660dc470e90ebbfa7e81765af7aec3dc707105720d2135",
+      "checkpoint_sha256": "090953de381c45269bbb135fd27762bb4b488b2837005e59a690b15befec9358"
+    },
+    {
+      "path": "/tmp/stochastic-velocity-diagnostics/results/B-control-02000-2014-04-maps.npz",
+      "sha256": "46a950e321ab1346777f57c9c1effeed6c387c75743ba1a266fae27062e67e54",
+      "receipt_sha256": "469b43522912865b7de0de3ad47db3f1e5cdd4da5ba392dc10194e69569800b0",
+      "checkpoint_sha256": "090953de381c45269bbb135fd27762bb4b488b2837005e59a690b15befec9358"
+    },
+    {
+      "path": "/tmp/stochastic-velocity-diagnostics/results/B-control-02000-2014-05-maps.npz",
+      "sha256": "d6b007a8d85062704bb39e854a3c88ae5b79e1b62123dd770faca3b99a48fb75",
+      "receipt_sha256": "2512d8ae6764d2b48af40119473515ff4d5ef5cd5ae5a591e6ed94873acb13cc",
+      "checkpoint_sha256": "090953de381c45269bbb135fd27762bb4b488b2837005e59a690b15befec9358"
+    },
+    {
+      "path": "/tmp/stochastic-velocity-diagnostics/results/B-member-mse-02000-2014-01-maps.npz",
+      "sha256": "6fdb3f4a5b7a42d21262ae3685f87d865b48a90c80a02f1e6fbfe1e92d4a3191",
+      "receipt_sha256": "31e71ce12a2478db94e51b6d672d1acdd19508cac4ab0f184d9025551f03daee",
+      "checkpoint_sha256": "21bf9be0d7b253226f38140f49a6233ba4fe1aa078c5965e4a1fb46506bd4a5c"
+    },
+    {
+      "path": "/tmp/stochastic-velocity-diagnostics/results/B-member-mse-02000-2014-04-maps.npz",
+      "sha256": "f7bfc0b836c50e955067c395568888ecd9b4ba9764312b41da9875924e44f56e",
+      "receipt_sha256": "ff9614cabde9c6b3cca0839d74f1e6e05e7aa14353ba5cad365c31648f8cf76c",
+      "checkpoint_sha256": "21bf9be0d7b253226f38140f49a6233ba4fe1aa078c5965e4a1fb46506bd4a5c"
+    },
+    {
+      "path": "/tmp/stochastic-velocity-diagnostics/results/B-member-mse-02000-2014-05-maps.npz",
+      "sha256": "e5a7a5fffadffee6a69b30b85216eaaa1d5279625620c26145dff2e32b38b66c",
+      "receipt_sha256": "4a0738d22545798495f67a7c4b6bf18fc2f503de5e9394fb251facf2a28eae36",
+      "checkpoint_sha256": "21bf9be0d7b253226f38140f49a6233ba4fe1aa078c5965e4a1fb46506bd4a5c"
+    },
+    {
+      "path": "/tmp/stochastic-velocity-diagnostics/results/B-multiscale-fair-crps-02000-2014-01-maps.npz",
+      "sha256": "544873c964b7e32c7097de094d2647d9b7e11064c9a2a528e3487d831a62b50a",
+      "receipt_sha256": "5795f16cbee4cf51f23bd332216421f7194457010abc86f699074c5d44cf3df2",
+      "checkpoint_sha256": "b484ef14e42e05a026cab6d9d4bfb26428717a81cdb8bfd7a6d691aaad3efaa4"
+    },
+    {
+      "path": "/tmp/stochastic-velocity-diagnostics/results/B-multiscale-fair-crps-02000-2014-04-maps.npz",
+      "sha256": "e6a462afbbe0ba8a3ed121896190790e200ef886d1da04c42a33e0978a46becd",
+      "receipt_sha256": "fe174f797ea6cd74df721135e5d0cc8d7d536f08a7e27dc786e0a947c80148df",
+      "checkpoint_sha256": "b484ef14e42e05a026cab6d9d4bfb26428717a81cdb8bfd7a6d691aaad3efaa4"
+    },
+    {
+      "path": "/tmp/stochastic-velocity-diagnostics/results/B-multiscale-fair-crps-02000-2014-05-maps.npz",
+      "sha256": "217912ffc1469f26a426d8287480d8ceb459f53a2b243f265ab0f15a061b4ac0",
+      "receipt_sha256": "a2a2b7871b391aeedf80f7a31dff4876cf581305b81ccfa73d4f78f1aaca72d2",
+      "checkpoint_sha256": "b484ef14e42e05a026cab6d9d4bfb26428717a81cdb8bfd7a6d691aaad3efaa4"
+    }
+  ],
+  "script_sha256": "7f7b558bb540a6327e3fb1be0413c5933da106fe0e94e4c3f6dbd123147d84a8",
+  "grid_sha256": "129e14065e95ada1c1d1b3713b68b4173ebcbf7e51c0ba2d9ade2f5f18b9ab11",
+  "regions": {
+    "global": [
+      -90,
+      90,
+      0,
+      360
+    ],
+    "north-pacific": [
+      20,
+      40,
+      150,
+      190
+    ],
+    "gulf-stream": [
+      25,
+      45,
+      280,
+      320
+    ],
+    "equatorial-pacific": [
+      -10,
+      10,
+      140,
+      260
+    ]
+  },
+  "thresholds_m_s": [
+    0.03,
+    0.1,
+    0.3,
+    1.0
+  ],
+  "radii_grid_cells": [
+    0,
+    1,
+    2,
+    4,
+    8
+  ],
+  "members_are_scored_separately": true,
+  "dates": [
+    "2014-01",
+    "2014-04",
+    "2014-05"
+  ],
+  "notes": [
+    "All amplitudes use all paired wet u/v cells in a fixed region, never reference-speed-selected cells.",
+    "Vector power is u\u00b2+v\u00b2, twice kinetic energy per unit mass; ensemble-mean velocity is averaged before speed.",
+    "Cosine latitude weights; grid-cell neighborhoods have latitude-dependent physical distances.",
+    "Neighborhood FSS relaxes placement; it is not a proper probabilistic score, a transport estimate or proof of realistic members.",
+    "Neighborhoods exclude dry-cell area but can connect across land geometrically; outer neighborhood windows may extend beyond regional boundaries.",
+    "Spectra are demeaned masked Hann-window FFTs in cycles/grid cell, not DEX or spherical physical-wavenumber spectra; compare identical masks only.",
+    "Reference and zero are provided. No velocity climatology or persistence field is available in this input export.",
+    "Legacy receipts without a weights field are EMA as specified by their producer."
+  ]
+}

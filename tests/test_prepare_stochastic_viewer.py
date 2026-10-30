@@ -48,7 +48,7 @@ def make_export(root, learned=False, om4=False):
         receipt.update(
             variant="B-noise-processing",
             counts=dict(om4=1000, observation=1000),
-            contract=dict(noise_processing_blocks=3, noise_mode="iid"),
+            contract=dict(noise_processing_blocks=3, noise_processing_width=32),
         )
     for month in ["2013-11", "2014-01", "2014-07"]:
         start: np.ndarray = (

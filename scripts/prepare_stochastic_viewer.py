@@ -36,7 +36,7 @@ def prepare(source, output, report_url=None, *, profile="C-final"):
             receipt["variant"] != "B-noise-processing"
             or receipt["counts"] != dict(om4=1000, observation=1000)
             or contract["noise_processing_blocks"] != 3
-            or contract["noise_mode"] != "iid"
+            or contract.get("noise_mode", "iid") != "iid"
         ):
             raise ValueError("Learned-noise export lineage differs")
         if sorted(receipt["origins"]) != ["2013-11", "2014-01", "2014-07"]:

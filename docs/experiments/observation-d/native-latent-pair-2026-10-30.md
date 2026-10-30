@@ -92,4 +92,10 @@ monthly objective backpropagates through its sequence of five-day latent
 transitions. Qualification must establish actual memory usage and throughput.
 
 The old pending Samudra jobs were canceled with zero allocated runtime and their
-callback retired. Replacement submission details follow after staging.
+callback retired. Replacement production **220346** and qualification **220347** are submitted
+and released, with standard/test QoS respectively. Both were pending at the
+release check. Root suffix: `samudra-v2`; producer
+`97bd0feb9110ebdee5051066bbd17b3959908e7e`. All 27 targeted CPU tests and commit
+checks passed. Source archive integrity and the remote completion hook were
+verified. A dedicated quiet monitor covers the replacement; the small arm keeps
+its existing monitor.

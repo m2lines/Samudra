@@ -1,0 +1,12 @@
+{
+  "shared_context": {
+    "fine_loss_global_core_gradient_norm": 1.4838212728500366,
+    "with_context_detached_gradient_norm": 1.2773104906082153,
+    "context_path_gradient_norm": 0.7278445959091187
+  },
+  "independent_context": {
+    "fine_loss_global_core_gradient_norm": 1.6827905178070068,
+    "with_context_detached_gradient_norm": 0.0,
+    "context_path_gradient_norm": 1.6827905178070068
+  }
+}

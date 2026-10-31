@@ -1,0 +1,349 @@
+<!--
+SPDX-FileCopyrightText: 2026 Samudra Authors
+SPDX-License-Identifier: CC-BY-4.0
+-->
+
+# Structured multitask execution record
+
+The [approved F/M comparison](MULTITASK.md) uses the user-confirmed 50/25/12.5/12.5 mixture.
+This is an experiment/results record, not intended to merge.
+
+## October 12: Torch qualification
+
+Qualification source `79cb5003903bb6b800bae16d562de8dbd484948a`, immutable snapshot under
+`/scratch/jr7309/runs/score-multitask-1deg-20261012/sources/`.
+The original H100 submission used source `480bcc7df886a808ab324c3410a055f4a8fa73b1`, adding a GPU-visibility
+guard to qualification. Replacement RTX production uses `a4b90dfddcb11f45be0c4ab378915c916c0fd9aa`,
+the same source as the successful RTX retry, with the opt-in native 1×1 backend described below.
+
+| Stage | Torch job | Resources | Last verified state |
+| --- | --- | --- | --- |
+| All-task qualification | 19648755 | 1 H100, 6 CPUs, 64 GiB RAM | Completed, exit 0; 2:01 on gh001 |
+| Completion notification | 19648789 | CPU-only, 1 CPU, 512 MiB | Completed; callback delivered |
+| F: forecast-only | 19649331 | 2 H100s, 16 CPUs, 192 GiB RAM, 36-hour ceiling | Cancelled while pending; replaced by RTX pair |
+| M: structured multitask | 19649333 | Same as F | Cancelled while pending; replaced by RTX pair |
+| Original production notifications | 19649371 / 19649375 | CPU-only, 1 CPU, 512 MiB each | Cancelled before replacing H100 jobs |
+| RTX qualification | 19656293 | 2 RTX GPUs, 16 CPUs, 192 GiB RAM | Failed after 59 seconds on gr103; CUDA illegal memory access |
+| RTX qualification notification | 19656296 | CPU-only, 1 CPU, 512 MiB | Completed; quiet monitor handed result back |
+| RTX native-1×1 retry | 19656804 | Same gr103 node, 2 RTX GPUs, 16 CPUs, 192 GiB RAM | Completed, exit 0; 1:52 on gr103 |
+| RTX retry notification | 19656825 | CPU-only, 1 CPU, 512 MiB | Completed; terminal result verified |
+| F: RTX forecast-only | 19657151 | 2 RTX GPUs, 16 CPUs, 192 GiB RAM, 36-hour ceiling | Failed near epoch 6 end; epoch 5 checkpoint retained |
+| M: RTX structured multitask | 19657152 | Same as RTX F | Failed before training on gr102; initial NCCL barrier timed out |
+| M: unchanged startup retry | 19657895 | Same as RTX F | Running on gr106; epoch 6 progress verified |
+| F: checkpoint recovery | 19664764 | Same as RTX F | Submitted; resumes epoch 5 checkpoint |
+| F recovery notification | 19664888 | CPU-only, 1 CPU, 512 MiB | Verified `afterany:19664764` |
+| M retry notification | 19657907 | CPU-only, 1 CPU, 512 MiB | Verified `afterany:19657895` |
+| RTX production notifications | 19657177 / 19657179 | CPU-only, 1 CPU, 512 MiB each | Verified `afterany` dependencies on RTX F / M |
+
+Campaign root: `/scratch/jr7309/runs/score-multitask-1deg-20261012`.
+Original inputs: `configs/{qualification,train}-{forecast,multitask}.yaml`.
+Current production inputs: `configs/train-{forecast,multitask}-rtx.yaml`.
+Current production outputs: `outputs/train-{forecast,multitask}-rtx/`.
+Logs: `logs/<job>.{out,err}`; allocation records: `allocations/`.
+
+The qualification explicitly backpropagated all four tasks on real data, ran three optimizer updates,
+and passed one-step/completion and 360-day ensemble validation. [Raw qualification results](results/multitask-qualification-19648755.json)
+record **42.42 GB peak allocated GPU memory** and 18.74 seconds for the six training minibatches, including
+initial summary overhead. Job cost was 0.0336 allocated H100 GPU-hours. The largest recorded host RSS was
+11.29 GiB. These short-run timings do not establish full epoch throughput. The randomly sampled updates
+did not happen to choose a gap task, but the explicit pre-update backward probe verified it separately.
+The published JSON retains every metric and represents its verified Git fingerprint as a commit URL.
+The qualification-only checkpoint does not count as a training epoch or initialize production weights.
+Production retains batch 4/rank, accumulation 4, effective batch 32 and 70 epochs. Both arms use online W&B.
+
+The qualification callback `f4d1a330-e42b-4131-88f4-6bfc25456181` delivered and was retired after verification.
+Authentication passed on the login and compute nodes. Callback credentials stay in the private remote
+directory and are not committed. Production receives separate callbacks and hourly reminders.
+
+F callback: `ccd71a7c-9edf-4134-86e9-e3e9ccd08321`; M callback: `6e8c72d6-35e1-4d8c-a7ed-75ae5b950b43`.
+Both authenticated successfully from Torch; both registrations were retired when the pending H100 jobs
+were replaced. Original production routing was verified:
+account `torch_pr_347_lzanna`, partition `h100`, constraint `h100`, two GPUs per job,
+`Comment=preemption=yes;requeue=true`, `Requeue=1`. Neither run is claimed to have started merely from
+submission or an advisory start estimate. Neither H100 job reached W&B or training startup.
+
+At the 15:33 check both H100 jobs were still pending priority and had consumed no GPU time. A fresh
+two-GPU RTX dry run estimated an immediate start on gr103 through `rtx6000_lzanna`; H200 capacity was
+estimated several days away. RTX qualification 19656293 therefore checked the same model/container with
+two ranks before moving production. It used the previously unused `qualification-forecast` configuration
+and output directory; the explicit backward probes and completion validation still exercise all four tasks.
+The production H100 pair remained queued through qualification, then was replaced after the successful
+retry described below. An advisory dry-run start time is not evidence that an allocation has begun.
+
+Following the updated async guidance, the new RTX callback `3936168a-78b7-4f95-8636-1d4deec41f97` uses
+quiet polling by `/root/rtx_qualification_monitor`, with hourly reminders and durable parent fallback.
+Its terminal event was handled and the registration retired. The earlier H100 callbacks were subsequently
+retired when the pending pair was replaced.
+
+The RTX run initialized both DDP ranks on NVIDIA RTX PRO 6000 Blackwell Server Edition GPUs, then failed
+in the first explicit backward probe, before optimizer updates or validation. The asynchronous trace points
+to skip-module Conv2d during activation-checkpoint recomputation; this does not establish the earliest
+failing kernel or library root cause. Its allocated cost was 0.0328 RTX GPU-hours. The qualification used
+effective batch 16 (4/rank × accumulation 2 × two ranks), while both production configs were rechecked
+to retain effective batch 32 (accumulation 4).
+
+A comparable [PR #915 diagnostic](https://github.com/m2lines/Samudra/pull/915#issuecomment-6072906494)
+motivates an opt-in `native_pointwise` runtime option. It routes only 1×1 Conv2d calls through native
+PyTorch with cuDNN disabled in that operation, preserving parameter/checkpoint shapes and all other
+convolutions. Training and held-out forecast evaluation read the same config flag. Tests verify backend
+scope, unchanged state/parameter identity, restored global flags, and output/gradient agreement on CPU.
+The same-node RTX retry passed with this mitigation; it is not a claimed CUDA root-cause fix.
+
+Retry 19656804 used immutable source `a4b90dfddcb11f45be0c4ab378915c916c0fd9aa`, the same gr103 node,
+container, two-rank allocation and qualification recipe. Its configuration is
+`configs/qualification-forecast-native1x1.yaml`, with `native_pointwise: true` and a distinct output name.
+[Raw RTX qualification results](results/multitask-qualification-19656804.json) record all four finite backward
+probes, three optimizer updates, and finite completion plus 360-day validation. Both ranks and two RTX PRO
+6000 Blackwell GPUs were verified in logs. Peak allocated memory was 42.55 GB; elapsed time was 1:52,
+exit 0, with no stderr, costing 0.0622 RTX GPU-hours. A short qualification does not establish 70-epoch
+stability. Callback `5ec6985f-dc5b-464c-b5ef-b2207e04ee6d` delivered and was retired.
+
+Both H100 jobs were freshly confirmed pending before cancellation. Their CPU notifications were cancelled
+first, then the pending workloads; neither used GPU time. A full RTX dry-run request was accepted before
+replacement. Production F/M jobs 19657151/19657152 use the exact successful RTX source and immutable
+`configs/train-{forecast,multitask}-rtx.yaml`, with output directories `outputs/train-{forecast,multitask}-rtx/`.
+Both enable `native_pointwise`, use batch 4/rank × accumulation 4 × two ranks = effective batch 32,
+and preserve all other approved training settings, including 70 epochs, online W&B and annual validation.
+Slurm read-back confirmed `rtx6000_lzanna`, two RTX GPUs, 16 CPUs, 192 GiB, `Requeue=1` and
+`Comment=preemption=yes;requeue=true`. The five-minute submission delay allowed callback installation.
+
+F callback: `3ddc6737-a24d-4751-8344-b7c8cb335704`, monitor `/root/rtx_qualification_monitor`.
+M callback: `ca26508f-2b5d-4351-bc1f-bac024efe117`, monitor `/root/multitask_rtx_monitor`.
+Both login authentication checks passed, and CPU `afterany` dependencies were verified. Quiet monitors
+check startup once, then hourly. Subsequent startup findings and the replacement M callback are below. The within-wave hardware/backend recipe is matched;
+comparison to historical C must disclose the backend, hardware and rank-count differences.
+
+
+F startup was verified on gr103: two RTX PRO 6000 GPUs, world size 2, native pointwise backend and
+effective batch 32. [Online W&B run 3uv0p502](https://wandb.ai/ocean_emulators/default/runs/3uv0p502)
+is active; epoch 1 reached minibatch 62/352 with finite losses, about 3.30 seconds/batch and negligible
+loader wait. This establishes startup, not full-epoch performance or scientific results.
+
+M 19657152 failed on gr102 after 11:29, exit 1, costing 0.3828 allocated RTX GPU-hours. Both ranks
+hit a 600-second timeout at the initial NCCL barrier (`init_distributed_mode`, first one-element
+ALLREDUCE), before W&B/model/data/training initialization. This is distinct from the convolution error.
+No checkpoints or metrics were produced; the empty checkpoint directory, config and startup/error logs
+are preserved under `outputs/failed-19657152-train-multitask-rtx/`.
+
+Torch rejected a dry-run request with `--exclude=gr102` and asked that the issue be reported to HPC;
+no exclusion or equivalent placement workaround was used, and no external message was sent. An
+unchanged retry 19657895 tests whether startup failure was transient; scheduler placement may again
+choose gr102. Config, source, model settings and communication settings are unchanged. The original
+M callback was retired. Replacement callback `43b3cabc-9d6b-4b4a-90fa-e9dac5d57c62` authenticated,
+and CPU notification 19657907 has a verified `afterany` dependency. `/root/multitask_rtx_monitor`
+checks bring-up after ten minutes, then hourly; another initial-barrier failure requires diagnosis before
+further resubmission. F continues under its existing monitor and callback.
+
+Torch held job 19648662 could not be released (`scontrol release` returned an unspecified error twice).
+It and dependent notification 19648699 were cancelled before allocation; their callback was revoked.
+The replacement uses a two-minute delayed start to attach monitoring. Beta held qualification 212521
+was also cancelled without allocation after the user requested available Torch capacity.
+
+## Environment and data verification
+
+Container: `/scratch/jr7309/.apptainer-images/sd-seeds-base-0b5320248.sif`.
+Its `uv.lock` and `pyproject.toml` match the source byte-for-byte; both are compared again at launch.
+The installed x86 Rust extension imports successfully. PyTorch reports
+`2.12.0a0+0291f960b6.nv26.04.48445190`. Qualification confirmed CUDA and real Rust-loader operation.
+The production harness additionally forwards Slurm's GPU visibility through the clean container environment
+and asserts that the visible GPU count equals the requested process count; training/model code is unchanged.
+
+Torch data: `/scratch/jr7309/data/om4-v2026-09/om4_onedeg`.
+Beta reference: `/projects/ny/lz1955/multiscale/jrusak/data/om4/v2026-09/om4_onedeg`.
+[Fingerprint utility](fingerprint_data.py) checks metadata, static arrays including masks/coordinates,
+all normalization chunks, and first/middle/last time chunks of each ocean array. Both hosts returned
+identical hashes: 504 files / 67,652,886 bytes for `OM4.zarr`, and 303 files / 66,587 bytes for each
+normalization store. This sampled comparison is not a full reread of every ocean field. The machine-readable
+record is `data-sample-fingerprint.json` in the Torch campaign root. Training additionally saves the
+resolved normalization, masks, coordinates, variable order, time splits and upstream attributes.
+
+Local validation: 22 model/numerical tests passed, including initial C parity, mask leakage, requested-only
+gradients, checkpointed backward equivalence and the opt-in 1×1 backend. Scoped pre-commit and shell syntax checks passed.
+`evaluate_score.py --arm F|M` loads the new conditioning architecture for the same held-out forecast
+protocol; final completion and continuous-rollout evaluation remain to be qualified before use.
+
+## October 12, 18:07 Eastern: storage recovery
+
+M retry 19657895 started successfully on gr106 with unchanged settings, two RTX GPUs and world size 2.
+[W&B bfjwav3j](https://wandb.ai/ocean_emulators/default/runs/bfjwav3j) is online; finite training progressed
+through epoch 5 into epoch 6. Passing startup on another allocation does not prove a gr102 hardware fault.
+
+F 19657151 stopped near epoch 6 minibatch 330/352, after 1:58:53 (3.9628 allocated RTX GPU-hours),
+with exit 1 and no Python/CUDA traceback. The latest completed checkpoints/annual validation are epoch 5.
+Its CPU notification 19657177 also failed (`0:53`) without a Slurm output file; the hourly reminder
+caught the terminal state. Slurm did not identify a root cancellation or provide GPU utilization evidence.
+
+A direct scratch write failed with `Disk quota exceeded`; `myquota` reported the 5 TB scratch quota
+at 99.97–100%, despite free capacity on the shared filesystem. This is an independently verified storage
+failure, not conclusive proof of F's exit cause. `apptainer cache clean --force` removed 53.09 GiB of
+regenerable download-cache content under `/scratch/jr7309/apptainer-cache`. The actual running SIF,
+datasets and all checkpoints were retained. Writes initially still failed, then succeeded about 30 seconds
+later; M's log writes also resumed, with finite epoch-6 progress. The quota report still showed 100% at
+18:07, so available quota headroom is not yet verified and remains a monitoring concern.
+
+F recovery 19664764 uses the unchanged immutable source/config and existing output directory. The
+`preemptible` path automatically loads `saved_nets/ckpt.pt`; its ZIP structure is readable. Bring-up must
+confirm epoch 6, model/EMA/optimizer/scheduler restoration and W&B run 3uv0p502 resumption. The
+interrupted portion of epoch 6 will be repeated; no bitwise equivalence to uninterrupted training is claimed.
+Callback `306f6f54-abc5-496a-9816-b3f2f0608220` authenticated, and CPU notification 19664888 has a
+verified `afterany` dependency. `/root/rtx_qualification_monitor` checks startup after ten minutes, then
+hourly, including storage and checkpoint advancement. The old F registration is retired; M's callback
+and monitor remain active. This recovery changes no scientific settings or experimental scope.
+
+## October 13, 15:15 Eastern: multitask training complete
+
+M job 19657895 completed all 70 epochs with exit 0 after 22:56:44 on gr106 (45.8911 allocated RTX
+GPU-hours). CPU notification 19657907 also completed; its delivered registration was retired.
+Epoch-70 latest, numbered, EMA and best-validation checkpoint files were saved at 15:14. Terminal
+[W&B bfjwav3j](https://wandb.ai/ocean_emulators/default/runs/bfjwav3j) sync confirmed five files; checkpoint
+contents will be read back during evaluation preparation. The exposure log contains all 70 epochs and
+197,120 contexts: 97,684 forecast (49.56%), 49,824 surface (25.28%), 24,476 variable (12.42%) and
+25,136 gap (12.75%), consistent with the approved random mixture.
+
+Final training-time annual validation is finite: normalized 360-day empirical CRPS 0.1632009 and
+ensemble-mean RMSE 0.3535590. The selection score is 0.13045144, with best selection at epoch 70.
+These are validation results, not the held-out paired comparison. F recovery 19664764 remains running
+in epoch 70, minibatch 81/352 at 15:15; its completion callback and hourly fallback remain active.
+Both arms progressed and saved checkpoints after the quota incident. The last successful quota check
+at 14:48 showed 92.75% usage. No scientific comparison conclusion is drawn before F and paired
+held-out evaluation are complete.
+
+## October 13, 15:34 Eastern: both training arms complete; evaluation qualification
+
+F recovery 19664764 completed epoch 70 with exit 0 after 21:20:23 (42.6794 allocated RTX GPU-hours),
+and its CPU notification completed. Final/latest/EMA checkpoints were saved at 15:30 and W&B run
+3uv0p502 synchronized five files. Including the interrupted F allocation, F training used 46.6422 RTX
+GPU-hours. The F completion registration is retired. Final training-time 360-day validation CRPS is
+0.15344198 and ensemble-mean RMSE 0.33556029; these do not replace the paired held-out comparison.
+
+Paired held-out qualification jobs F19735932 and M19735934 use two RTX GPUs each, sixteen members,
+two fixed test origins and all seven leads. Evaluation source remains the immutable training snapshot
+`a4b90dfddcb11f45be0c4ab378915c916c0fd9aa`; the new Torch launcher is from `c1bc434d2`.
+Outputs are `outputs/eval-qualification-{F,M}-<job>/`. The evaluator requires final EMA epoch 70,
+strictly loads model state, records checkpoint SHA256, requires online W&B, and writes `COMPLETE.json`
+only after verifying expected row counts (1,078 per arm here). Actual execution and these artifacts
+remain to be verified. After qualification, the approved full comparison uses thirty origins and sixteen
+members; completion-task and continuous-rollout evaluation still require their adapters/qualification.
+
+Shared callback `8d36e604-ed01-4530-a17a-89d1a48775d2` authenticated from Torch. CPU notification
+19735988 has verified `afterany` dependencies on both qualification jobs. Quiet monitor
+`/root/rtx_qualification_monitor` owns the pair with an hourly reminder. No further training wave was
+submitted. Launcher shell syntax and scoped pre-commit checks passed.
+
+## October 13, 21:25 Eastern: evaluation communication failure and single-GPU retry
+
+Both two-GPU qualification jobs 19735932/19735934 failed on gr105 at the first NCCL barrier, before
+checkpoint loading or W&B initialization. Each ran 11:30 with exit 1, costing 0.3833 RTX GPU-hours
+(0.7667 combined). No evaluation artifacts were produced. CPU notification 19735988 succeeded;
+its delivered registration was retired. The 600-second first-collective timeout does not identify a
+library or hardware root cause; the launcher already used standalone rendezvous.
+
+Retry F19757973 / M19757974 uses one RTX GPU, eight CPUs and 96 GiB per arm, with a 30-minute ceiling.
+Launcher revision `663029deb` runs Python directly when `NPROC=1`, avoiding distributed initialization.
+The evaluator source, final EMA checkpoints, two origins, sixteen members, seven leads and metrics are
+unchanged. Each origin seeds sampling with `35000000 + origin`, independently of rank; changing origin
+partitioning does not change that scientific protocol. This does not claim bitwise agreement across hardware.
+The immutable remote launcher is `evaluate_multitask_single_torch.sbatch`. Output directories are
+`outputs/eval-qualification-F-19757973/` and `outputs/eval-qualification-M-19757974/`.
+
+Callback `668233a3-4aaa-41ef-8761-203fd5100a48` authenticated; CPU notification 19757976 has verified
+`afterany` dependencies on both jobs. `/root/rtx_qualification_monitor` checks both artifacts on completion
+with an hourly fallback. Full evaluation still awaits a successful qualification. Shell syntax and scoped
+pre-commit checks passed; this changes only the launcher, not the evaluator/model implementation.
+
+## October 13, 21:35 Eastern: qualification passed; full forecast evaluation submitted
+
+Single-GPU qualifications F19757973 and M19757974 completed with exit 0 in 55 seconds each on gr105
+(0.0153 RTX GPU-hours each). Each strictly loaded final EMA epoch 70 and produced exactly 1,078 finite
+metric rows, two origins and sixteen members. Rank histograms have shape (7,77,17), finite entries and
+total 1,078; saved 5/40/360-day field arrays are finite. Saved configs retain `native_pointwise: true`.
+[W&B F ijwuebf8](https://wandb.ai/ocean_emulators/default/runs/ijwuebf8) and
+[W&B M ic9py3vg](https://wandb.ai/ocean_emulators/default/runs/ic9py3vg) both synchronized five files.
+CPU notification 19757976 succeeded, and the qualification registration was retired.
+
+Full final-EMA forecast jobs F19758710 and M19758711 use the same single-GPU launcher, source and
+checkpoints, now with all thirty fixed test origins and sixteen members. Each requests one RTX GPU,
+eight CPUs, 96 GiB and a two-hour ceiling. Outputs are `outputs/eval-full-F-19758710/` and
+`outputs/eval-full-M-19758711/`; expected metric rows are 16,170 per arm. Submission is not completion.
+Shared callback `f704d5c7-70c4-4f4f-953f-0132a6ec9804` authenticated and CPU notification 19758717 has
+verified `afterany` dependencies on both runs. Quiet monitor `/root/rtx_qualification_monitor` owns the
+pair with an hourly fallback. Validation-selected secondary evaluation, held-out completion tasks and
+continuous-rollout diagnostics remain outstanding; this forecast stage alone does not finish the wave.
+
+## October 13, 22:10 Eastern: final-EMA forecasts verified; secondary checks submitted
+
+Full F19758710 and M19758711 completed with exit 0 in 7:23 and 7:10, respectively (0.1231 and
+0.1194 RTX GPU-hours). Each has 30 origins, sixteen members and 16,170 finite metric rows; target
+keys, source/data/normalization metadata and saved map targets/masks match. Rank histograms have
+shape (7,77,17), with each channel/lead summing to thirty origins. All saved maps are finite.
+[W&B F f47v3esh](https://wandb.ai/ocean_emulators/default/runs/f47v3esh) and
+[W&B M un6tp9aw](https://wandb.ai/ocean_emulators/default/runs/un6tp9aw) synchronized. CPU notification
+19758717 succeeded and its callback was retired. Per-channel, per-origin and aggregate lead scores are
+in [results/multitask-forecast](results/multitask-forecast/). Full raw rows remain in each remote output
+`metrics-rank0.csv` and verified local copies under `/tmp/eval-full-{F,M}-<job>/`. The repository
+250 KB/file check rejected full compressed tables; summaries follow the existing first-wave format.
+
+Preliminary equal-channel/equal-origin aggregate 360-day final-EMA RMSE is 0.33690 F versus 0.34580 M
+(+2.64%); empirical CRPS is 0.15085 versus 0.15678 (+3.93%). M has worse aggregate RMSE/CRPS at all
+seven leads, but wider ensembles and somewhat higher coverage (360-day empirical 5–95% interval
+coverage 73.65% F versus 74.62% M). These are point estimates from one training seed, not uncertainty
+intervals or the completed wave report. M has roughly half F's forecast-training exposure. Completion
+benefit and long-rollout structure still require evaluation.
+
+Source `8150d606e` adds requested-only held-out completion evaluation and optional single-process F/M
+continuous diagnostics, preserving the original A/B/C/D path. Completion uses the same thirty fixed
+origins, one two-date pair per task/origin, no historical ocean values, deterministic masks/sample seeds,
+sixteen members, physical/normalized scores, coverage and rank histograms. Known values are asserted
+unchanged, inactive channels are excluded, and masks plus first-origin fields are saved. F completion
+is an unfamiliar-task transfer diagnostic, not a task-trained baseline. Continuous diagnostics retain
+four members and the original seed/geometry/metrics. Twenty-two model tests, shell syntax and scoped
+pre-commit including mypy passed; real-data checks remain necessary.
+
+Jobs F19760788 / M19760790 each request one RTX GPU, eight CPUs, 96 GiB and a one-hour ceiling. Each
+sequentially runs full validation-selected forecast evaluation, then two-origin completion and two-call
+continuous qualification. Outputs are `outputs/eval-secondary-qualification-{F,M}-<job>/`, with
+`selected/`, `completion/`, and `continuous/<arm>/` subdirectories. Callback
+`75c231f1-aca9-4ae7-b22d-c6b44a79ab99` authenticated, and CPU notification 19760799 has verified
+`afterany` dependencies on both jobs. Quiet monitor `/root/rtx_qualification_monitor` checks all stages
+with an hourly fallback. Full completion/continuous evaluation and final report remain outstanding.
+
+## October 13, 22:27 Eastern: secondary checks passed; full diagnostics submitted
+
+F19760788 / M19760790 completed with exit 0 in 7:45 / 7:47 (0.1292 / 0.1297 RTX GPU-hours).
+Selected forecasts contain 16,170 finite rows each; selected epochs are F60 and M70. Summaries are
+saved alongside the final-EMA forecast tables. Two-origin completion produced 676 finite requested-only
+rows per arm; all six known/request masks match across arms, remain disjoint, and row cell counts and
+rank-histogram totals match the active requested support. Continuous checks produced four frames,
+308 finite score rows and 24 finite bulk rows each; structure/map arrays are finite. All six W&B stages
+synced: selected F/M `bd0v589z` / `mc0xclki`, completion `qpyysqel` / `hyc0h58g`, continuous
+`p1o2r40s` / `aeq5fim5`. CPU callback19760799 succeeded and its registration was retired.
+
+Using the same qualified source `8150d606e`, full completion jobs F19762850 / M19762851 score all
+thirty fixed origins with sixteen members. Full continuous jobs F19762854 / M19762855 retain four
+members for the entire 2014–2022 held-out trajectory. Each requests one RTX GPU, eight CPUs, 96 GiB
+and a two-hour ceiling. Outputs are `outputs/eval-completion-{F,M}-<job>/` and
+`outputs/eval-continuous-{F,M}-<job>/<arm>/`. Continuous expected coverage is 299 calls / 598 frames /
+46,046 score rows per arm; manifests and actual output counts still require verification.
+
+Callback `40f25e3e-99f4-45f9-bbd0-4ba99898c20e` authenticated; CPU notification19762880 has verified
+`afterany` dependencies on all four jobs. Quiet monitor `/root/rtx_qualification_monitor` owns them
+with an hourly fallback. Full diagnostic results and final analysis/report remain outstanding. No new
+training wave or observation trajectory export was submitted.
+
+## Full diagnostics verified and final report
+
+All four jobs completed with exit 0: completion F19762850 in 1:55 and M19762851 in 2:17;
+continuous F19762854 in 4:05 and M19762855 in 4:03 (0.2056 RTX GPU-hours combined).
+Completion produced 9,992 finite requested-only rows per arm; all ninety known/request masks match,
+are disjoint, and agree with active row counts and rank-histogram mass. Continuous produced 598 frames,
+46,046 finite score rows and 3,588 finite bulk rows per arm through 2022-12-24, with finite saved arrays.
+CPU notification19762880 completed. W&B runs synchronized:
+[completion F](https://wandb.ai/ocean_emulators/default/runs/srq1e1d7),
+[completion M](https://wandb.ai/ocean_emulators/default/runs/fprfixyd),
+[continuous F](https://wandb.ai/ocean_emulators/default/runs/8evnkm7u),
+[continuous M](https://wandb.ai/ocean_emulators/default/runs/igbu1dna).
+
+The [completed report](MULTITASK-RESULTS.md) combines primary/selected forecasts, completion,
+continuous diagnostics, figures and suggested next experiments. Raw artifacts retain the paths above;
+summary tables and reproducible analysis are committed alongside the report. No new training wave or
+F/M observational export/scoring was launched.

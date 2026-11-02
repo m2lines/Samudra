@@ -1,0 +1,25 @@
+{
+  "complete": true,
+  "sources": [
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/events.jsonl",
+      "sha256": "1231c1260bbf8d6108be962043c3ce355d53ba4270436481a31e1187e108a9ea"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/events.jsonl",
+      "sha256": "597adc845b31adfd118e7ecaae5460ec773aa72155c608dea1a92877a5d7a985"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/events.jsonl",
+      "sha256": "8f7427a9a5630720977dc599687d7ca1b3ece35c629a16db0b81db3850017b47"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/events.jsonl",
+      "sha256": "2d699238ed335e90473e66566ac4b0a8f0dd9c5a417658bf0088ecf843d4f333"
+    }
+  ],
+  "generator_updates_per_arm": 2000,
+  "critic_updates": 5000,
+  "script_sha256": "2f690aab147a5d87efa3a0185db2735969acd701067748efed65f7f88071b911",
+  "limitations": "Training log summaries; aggregate gradient norms do not identify the separate adversarial gradient contribution. Critic score offsets are not forecast error."
+}

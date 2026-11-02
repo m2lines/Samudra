@@ -1,0 +1,1019 @@
+{
+  "complete": true,
+  "variants": [
+    "B-learned-control",
+    "B-joint-coarse",
+    "B-joint-multires",
+    "B-conditional-gan"
+  ],
+  "steps": [
+    500,
+    1000,
+    2000
+  ],
+  "weights": [
+    "raw",
+    "ema"
+  ],
+  "initializer_dates": [
+    "2014-01",
+    "2014-04",
+    "2014-05"
+  ],
+  "forecast_origins": 9,
+  "sources": [
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/initializer-raw/grid.npz",
+      "sha256": "129e14065e95ada1c1d1b3713b68b4173ebcbf7e51c0ba2d9ade2f5f18b9ab11"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/initializer-raw/input-2014-01.json",
+      "sha256": "6fc037d87514f4d248cd216062a3ca44b0e23adb4ce0a744f5bce6a4b343769d"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/initializer-raw/input-2014-04.json",
+      "sha256": "1aeda079e80c7469e9e6ae5655593903fc5835ffb3a23ad062155de53793ef0d"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/initializer-raw/input-2014-05.json",
+      "sha256": "c25f6ec0932042dc3d79d80c47f42c6938265e8dc8b4b5a4a76dad98bffe9180"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/initializer-raw/B-learned-control-02000-2014-01-maps.npz",
+      "sha256": "1ba85e02d491c5eca29acf08d311d1e44e534564f9a714b0ff649fa7f85b0a9b"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/initializer-raw/B-learned-control-02000-2014-04-maps.npz",
+      "sha256": "08950b06810af4b4276cff155767418671160272632c35a7cac94127fa92d1a9"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/initializer-raw/B-learned-control-02000-2014-05-maps.npz",
+      "sha256": "d5458703ced801ee5a295e9eb65b695fb1adbd9927762f93552b8ed246741a7f"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/initializer-raw/B-learned-control-00500-2014-01.json",
+      "sha256": "f78ddb48ecb251cf2dee25356230dc5ef5364fefa305aeeaa1764b86dc71e210"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/initializer-raw/B-learned-control-00500-2014-04.json",
+      "sha256": "45666f3e7e1b24e736f5aa6c398c3e0b28af99ef538a14d9bd9cf3b4a8e70918"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/initializer-raw/B-learned-control-00500-2014-05.json",
+      "sha256": "e1586a3c181e4da97d5813d6e8b06a54dd18c2a3259f94950ab20b8099707581"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/initializer-raw/B-learned-control-01000-2014-01.json",
+      "sha256": "a87120fcffad36a3bf4890d5a3a48a85c8249a0162008a82d4078ddc654636c2"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/initializer-raw/B-learned-control-01000-2014-04.json",
+      "sha256": "b2b35be685e5f9e3322c0f9c667c44bf1c7f0f489ae965a4ec3de95b44dfb36c"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/initializer-raw/B-learned-control-01000-2014-05.json",
+      "sha256": "2da12fedd336492aa4c784216a45b4fd26f85514497611a4939e80580e46a468"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/initializer-raw/B-learned-control-02000-2014-01.json",
+      "sha256": "2f34640d9c618ba7b9d58d7e9d058c6a4bb4f04b8d4a596ae301bb5fe4f24429"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/initializer-raw/B-learned-control-02000-2014-04.json",
+      "sha256": "150d344cb8fcc5ac467e5caefe1115a0da0e4c9d776e424324cc5378cdcdcdd6"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/initializer-raw/B-learned-control-02000-2014-05.json",
+      "sha256": "d1f9de14882fcf66cafc93096eab0f467a93ffb3e305cf013929b62c60e4cb75"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/initializer-ema/grid.npz",
+      "sha256": "129e14065e95ada1c1d1b3713b68b4173ebcbf7e51c0ba2d9ade2f5f18b9ab11"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/initializer-ema/input-2014-01.json",
+      "sha256": "88817cafeef437fdef94cb6aadf9b2db03db4eb2a50c5e975addf081a14d7533"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/initializer-ema/input-2014-04.json",
+      "sha256": "3b14a086802d384f807fe499d442ce4dbd44178435938a08657ea953018a8350"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/initializer-ema/input-2014-05.json",
+      "sha256": "c6b1851c1f1cbba2e1694997505613f86151a1816cca48aaf351006c1896adb4"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/initializer-ema/B-learned-control-02000-2014-01-maps.npz",
+      "sha256": "cc0f79e427a60f5dfe93a6f7a2cbc7cd24525deca5a7788858901e4eeaa51694"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/initializer-ema/B-learned-control-02000-2014-04-maps.npz",
+      "sha256": "0e354a406db38cc13c1deabc48a2fa2c22b6ca3c968b8baff67b315b790e9d34"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/initializer-ema/B-learned-control-02000-2014-05-maps.npz",
+      "sha256": "8f300c164cbe9eb5643a8e4431e6bae9f9b54206eb6605d3efeff9e9c27f96c9"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/initializer-ema/B-learned-control-00500-2014-01.json",
+      "sha256": "83080374bdeb47416a7440da2eb43134807568b8b3074b53277c40b4b7a9f004"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/initializer-ema/B-learned-control-00500-2014-04.json",
+      "sha256": "bd847828f11ee33ebf37700caea2645a31cef232747dfb877c181983d3ca786f"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/initializer-ema/B-learned-control-00500-2014-05.json",
+      "sha256": "6328fff5bbb77a373f6b3970fd54dd9bc58bc387a3281f5582237194fd4ff287"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/initializer-ema/B-learned-control-01000-2014-01.json",
+      "sha256": "14afbcc4584fcc174f73d5a905dd41fa5ec440d74e77f07a1af1174e4a36154f"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/initializer-ema/B-learned-control-01000-2014-04.json",
+      "sha256": "dd8b9b2d70217efc2f4b404f1f01ef9c07ef9194cfaeb1f865e7fba3e67c808f"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/initializer-ema/B-learned-control-01000-2014-05.json",
+      "sha256": "887251b99bc0857c4e6fee732977c8845918a5107fac06c802a55e988432eba4"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/initializer-ema/B-learned-control-02000-2014-01.json",
+      "sha256": "4e63db42377d2e1546143bca458ba218f34333b8cb9243bb60dc5339c5fe0249"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/initializer-ema/B-learned-control-02000-2014-04.json",
+      "sha256": "09d277c3f115f5fca870350fb776a3707cb245151c6eeda2b018add8190f4cc9"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/initializer-ema/B-learned-control-02000-2014-05.json",
+      "sha256": "8bf8da09ef654883de2bf31e90486fc5838041f326938f5b76d91020315572c6"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/initializer-raw/grid.npz",
+      "sha256": "129e14065e95ada1c1d1b3713b68b4173ebcbf7e51c0ba2d9ade2f5f18b9ab11"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/initializer-raw/input-2014-01.json",
+      "sha256": "6fc037d87514f4d248cd216062a3ca44b0e23adb4ce0a744f5bce6a4b343769d"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/initializer-raw/input-2014-04.json",
+      "sha256": "1aeda079e80c7469e9e6ae5655593903fc5835ffb3a23ad062155de53793ef0d"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/initializer-raw/input-2014-05.json",
+      "sha256": "c25f6ec0932042dc3d79d80c47f42c6938265e8dc8b4b5a4a76dad98bffe9180"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/initializer-raw/B-joint-coarse-02000-2014-01-maps.npz",
+      "sha256": "437784d8dbb67534d5c1145b2c8b9f167c0ab4de9130a77c0b6623bb81607192"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/initializer-raw/B-joint-coarse-02000-2014-04-maps.npz",
+      "sha256": "a6e430409e521a6d5957a75a4bf45200416305c51598da869a7d58c1b5464a6f"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/initializer-raw/B-joint-coarse-02000-2014-05-maps.npz",
+      "sha256": "99bd5a2ac33d58e41b6003505afa7d50254f1fb752d72a269202b4ce55065dad"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/initializer-raw/B-joint-coarse-00500-2014-01.json",
+      "sha256": "ae05065a393753c4e1de72980427ff8617b95dabed3ad3802ce45fa73589202e"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/initializer-raw/B-joint-coarse-00500-2014-04.json",
+      "sha256": "407030409eba7a64a12a616557bb5030204e77b94649edb7ae5f21ea532b26bd"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/initializer-raw/B-joint-coarse-00500-2014-05.json",
+      "sha256": "b8471f6de8320ab0d27815d9413602f3e24090fbfc71f22750d7d63e2833e405"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/initializer-raw/B-joint-coarse-01000-2014-01.json",
+      "sha256": "d06bc6a2c123eb92fd79ede6127a3eadd3395ed104da732ecac18e7371f7d7fd"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/initializer-raw/B-joint-coarse-01000-2014-04.json",
+      "sha256": "c5bf0ee04169f7e71acfd4f61fde4517e4ffbbb0eb525eb469b13fb7da8b72d5"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/initializer-raw/B-joint-coarse-01000-2014-05.json",
+      "sha256": "edf89fa6897752efcf2e18c4d2d54d76bd5fc7ff9d1cbaa7502ca725dbe1e778"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/initializer-raw/B-joint-coarse-02000-2014-01.json",
+      "sha256": "b110712e304ad5bf0e0e51610da30ed64b0c67befa0ee963d0698106792c3260"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/initializer-raw/B-joint-coarse-02000-2014-04.json",
+      "sha256": "67a102180dc9471ab2991b7cc1e4d4ade89ddd8df83419153595ae0a05f34ab4"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/initializer-raw/B-joint-coarse-02000-2014-05.json",
+      "sha256": "e869aed1d0dc9e09151ffc486ab1cba259a3794d69aa91c56fc7dfb367a5c45a"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/initializer-ema/grid.npz",
+      "sha256": "129e14065e95ada1c1d1b3713b68b4173ebcbf7e51c0ba2d9ade2f5f18b9ab11"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/initializer-ema/input-2014-01.json",
+      "sha256": "88817cafeef437fdef94cb6aadf9b2db03db4eb2a50c5e975addf081a14d7533"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/initializer-ema/input-2014-04.json",
+      "sha256": "3b14a086802d384f807fe499d442ce4dbd44178435938a08657ea953018a8350"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/initializer-ema/input-2014-05.json",
+      "sha256": "c6b1851c1f1cbba2e1694997505613f86151a1816cca48aaf351006c1896adb4"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/initializer-ema/B-joint-coarse-02000-2014-01-maps.npz",
+      "sha256": "732f457a3784bb5c9dd461e58b6bdca2e7f93afcf5ef85c13b288f81a08a6352"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/initializer-ema/B-joint-coarse-02000-2014-04-maps.npz",
+      "sha256": "cf1fdfb262528aba9d0bba7bcb77f20362b38ed0dbe76e83afee77b9dea21208"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/initializer-ema/B-joint-coarse-02000-2014-05-maps.npz",
+      "sha256": "31e8ad23fac90f17144472748eb450afbc7620bcc4672c7594c7f377cb25bae6"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/initializer-ema/B-joint-coarse-00500-2014-01.json",
+      "sha256": "2cbe6f59cff3af522b24a2eefce6a4950e043ea668bbca36f4b8eed3ddcb40a0"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/initializer-ema/B-joint-coarse-00500-2014-04.json",
+      "sha256": "36b6a3063561532b7f865869ed50b17d8bda5a2b9a9abb913b7770f97e5ac341"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/initializer-ema/B-joint-coarse-00500-2014-05.json",
+      "sha256": "9269db7b589358b6a564e93972f7619715ab7f676eff06ea5506e2a5421994ad"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/initializer-ema/B-joint-coarse-01000-2014-01.json",
+      "sha256": "30bf128b2c40b84eb32def68470b8f567833ce3b7769e4fc3926ed754ac2de78"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/initializer-ema/B-joint-coarse-01000-2014-04.json",
+      "sha256": "001194e02fdc6f7fa76b4f2789a94d747d330ef8dd3659cb625542cd30d2fe28"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/initializer-ema/B-joint-coarse-01000-2014-05.json",
+      "sha256": "e4180f71d11e8c43118f3638562abcc665626d2eabd1eeb443f2c7729eaa159a"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/initializer-ema/B-joint-coarse-02000-2014-01.json",
+      "sha256": "626f1a1d6fb7099e35c3ac47135991d04910395a6f9805d0c8ca45271d04333d"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/initializer-ema/B-joint-coarse-02000-2014-04.json",
+      "sha256": "864d84523443d99ca592f5087082f22e60e5cb9d39afdfaa32241b7b69846a4e"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/initializer-ema/B-joint-coarse-02000-2014-05.json",
+      "sha256": "ec09eb1288e3645f343813c47bf773b9398b02bb474524342f5d9bc5e4c9ca6a"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/initializer-raw/grid.npz",
+      "sha256": "129e14065e95ada1c1d1b3713b68b4173ebcbf7e51c0ba2d9ade2f5f18b9ab11"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/initializer-raw/input-2014-01.json",
+      "sha256": "6fc037d87514f4d248cd216062a3ca44b0e23adb4ce0a744f5bce6a4b343769d"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/initializer-raw/input-2014-04.json",
+      "sha256": "1aeda079e80c7469e9e6ae5655593903fc5835ffb3a23ad062155de53793ef0d"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/initializer-raw/input-2014-05.json",
+      "sha256": "c25f6ec0932042dc3d79d80c47f42c6938265e8dc8b4b5a4a76dad98bffe9180"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/initializer-raw/B-joint-multires-02000-2014-01-maps.npz",
+      "sha256": "f1c8c8894ea26e85690fc07b3257bf94335e0a89eaff85d3ebcbdb53aba799ce"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/initializer-raw/B-joint-multires-02000-2014-04-maps.npz",
+      "sha256": "ef91e2971401234a6799ab6b8fdf02d4c3336f99d51b689e8469d28641d66c35"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/initializer-raw/B-joint-multires-02000-2014-05-maps.npz",
+      "sha256": "3c471ecdd1f37aa77d56d5ec67eab065cd77525734ef41a752a193ff0f614beb"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/initializer-raw/B-joint-multires-00500-2014-01.json",
+      "sha256": "a913f2a1d1fed247d5510deca6e805c52bec9b452f0e20e23a7dd219d423a5ba"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/initializer-raw/B-joint-multires-00500-2014-04.json",
+      "sha256": "d388eaa83a7fb864e4bb937094969f8fcf487fe2e557b606d32e3cceb7089d77"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/initializer-raw/B-joint-multires-00500-2014-05.json",
+      "sha256": "41520164af3d2b1895fcf5ca17b1bf7635c7487b45a02628e8b612b9897b8b5d"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/initializer-raw/B-joint-multires-01000-2014-01.json",
+      "sha256": "fea95221be4215af790eaefba351b78c8ea271ab7c26a65beb6a6351e67b0a4f"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/initializer-raw/B-joint-multires-01000-2014-04.json",
+      "sha256": "08e213a1ea1b28ce403135224e5ef80266aceebf464eecc1099baf400363cc3b"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/initializer-raw/B-joint-multires-01000-2014-05.json",
+      "sha256": "2d1df55cec07fc65743a91782188d60516181ea900ea4b0a713a6db078d1a6f6"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/initializer-raw/B-joint-multires-02000-2014-01.json",
+      "sha256": "ae04814915ff63ff405a72749fbe2082dd1ac27113bca0683b20a65e56dd6c3d"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/initializer-raw/B-joint-multires-02000-2014-04.json",
+      "sha256": "c43ba30bb835276498420104296d2f187c7d37760e1f01c816a6a6b04e5239f7"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/initializer-raw/B-joint-multires-02000-2014-05.json",
+      "sha256": "f969f56097308836bed5ec969f7b47c4599e1c87e0fe775c44a3f9732d9b31d8"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/initializer-ema/grid.npz",
+      "sha256": "129e14065e95ada1c1d1b3713b68b4173ebcbf7e51c0ba2d9ade2f5f18b9ab11"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/initializer-ema/input-2014-01.json",
+      "sha256": "88817cafeef437fdef94cb6aadf9b2db03db4eb2a50c5e975addf081a14d7533"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/initializer-ema/input-2014-04.json",
+      "sha256": "3b14a086802d384f807fe499d442ce4dbd44178435938a08657ea953018a8350"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/initializer-ema/input-2014-05.json",
+      "sha256": "c6b1851c1f1cbba2e1694997505613f86151a1816cca48aaf351006c1896adb4"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/initializer-ema/B-joint-multires-02000-2014-01-maps.npz",
+      "sha256": "c0a8aa4772b5a3320253a5f1906d13ef83246820a7cceb770dbf710df1e265bd"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/initializer-ema/B-joint-multires-02000-2014-04-maps.npz",
+      "sha256": "64442a4ae9302f8f6b0142a14f40c572feee2e047811e2400c066ab85329ca82"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/initializer-ema/B-joint-multires-02000-2014-05-maps.npz",
+      "sha256": "9b1b7a29cece48ab62e5ce65bbc8d47f9d964b0573a2b4416e37747850e30437"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/initializer-ema/B-joint-multires-00500-2014-01.json",
+      "sha256": "b9b7a5bfb92077f40b94d5ed197f5fc7360a714b3e93d686c0cc45415cd3c04e"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/initializer-ema/B-joint-multires-00500-2014-04.json",
+      "sha256": "1e721f77d87433092373aa981d9c2485396b8bda2feffae607733d7f340f8ed7"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/initializer-ema/B-joint-multires-00500-2014-05.json",
+      "sha256": "eb11b8b024c3a5a90305e57d6b1ff03e793f2704eded66eee26f08d482383fad"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/initializer-ema/B-joint-multires-01000-2014-01.json",
+      "sha256": "39046c88760dd7de77924faab63f07104109ee3d9b23bb150c751af3ac52c6b8"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/initializer-ema/B-joint-multires-01000-2014-04.json",
+      "sha256": "786199b308e912b3156323d60da89640ad4e99fe3822adc07b21495c272fe49d"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/initializer-ema/B-joint-multires-01000-2014-05.json",
+      "sha256": "b377d4f58f333e44aa3d979d99fc653dd1fe84cef747deeba75075fbf805a532"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/initializer-ema/B-joint-multires-02000-2014-01.json",
+      "sha256": "f5c1e1a0b78f47b3b57e6c0bdac4b9bed82eb7247233f0e72891fbb5a9285316"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/initializer-ema/B-joint-multires-02000-2014-04.json",
+      "sha256": "653f9737e1ca1e44b3cbfb819a49e7ed743fc1bf91fec1ecd379e5d7c419d107"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/initializer-ema/B-joint-multires-02000-2014-05.json",
+      "sha256": "f10abebd1dc789a2c893f9f49f4ad8813dc96ec8720995731e2f924fea7d5d2d"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/initializer-raw/grid.npz",
+      "sha256": "129e14065e95ada1c1d1b3713b68b4173ebcbf7e51c0ba2d9ade2f5f18b9ab11"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/initializer-raw/input-2014-01.json",
+      "sha256": "6fc037d87514f4d248cd216062a3ca44b0e23adb4ce0a744f5bce6a4b343769d"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/initializer-raw/input-2014-04.json",
+      "sha256": "1aeda079e80c7469e9e6ae5655593903fc5835ffb3a23ad062155de53793ef0d"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/initializer-raw/input-2014-05.json",
+      "sha256": "c25f6ec0932042dc3d79d80c47f42c6938265e8dc8b4b5a4a76dad98bffe9180"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/initializer-raw/B-conditional-gan-02000-2014-01-maps.npz",
+      "sha256": "5ffcd79e67550d72d89c2dc038ce44f08038d04fb592bf5dd297dce101d1e317"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/initializer-raw/B-conditional-gan-02000-2014-04-maps.npz",
+      "sha256": "2650c3982f739eff6c1d6ab33dc48e0dcc30da4b64e6f20a9c7b63a8d1b9851e"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/initializer-raw/B-conditional-gan-02000-2014-05-maps.npz",
+      "sha256": "e7988d8d3cbf1cb3025378214f042610e92dbb00427138b5f3f52e8b90d3bd22"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/initializer-raw/B-conditional-gan-00500-2014-01.json",
+      "sha256": "2389d5aec8c441fd7fc06a5addf27391d6a39eed0d03222cd9bb0f0697ee7691"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/initializer-raw/B-conditional-gan-00500-2014-04.json",
+      "sha256": "f94e84d1d2e733ec3718b1f9c0f06649325347fe8733cf23b8d39082dc82b3fd"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/initializer-raw/B-conditional-gan-00500-2014-05.json",
+      "sha256": "b394a477aaaff1a4646c9cc4e530a7da4521aa666a4e6d6bb13a11375a531be6"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/initializer-raw/B-conditional-gan-01000-2014-01.json",
+      "sha256": "88fb6d5009fd1fc6a3efaac68adaf336bd10c203033bfc80ad14e90785fcd3c5"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/initializer-raw/B-conditional-gan-01000-2014-04.json",
+      "sha256": "d9aeac71f5c26dd0915cb4bbb0e4f4a95e79d123333db7ab85e66108895b53be"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/initializer-raw/B-conditional-gan-01000-2014-05.json",
+      "sha256": "ccdf904f8160ebccc3e3e0e6603151654ceb5ef9e380e76d7bf63cb0937f7888"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/initializer-raw/B-conditional-gan-02000-2014-01.json",
+      "sha256": "0faceb1b2fd6fe8f3e473421aec18c3b94b590ac7a007dc2bbcc36e7be4315d3"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/initializer-raw/B-conditional-gan-02000-2014-04.json",
+      "sha256": "c728a284615e2e5377af2584a706ad18b9bac2042f20acb77e57e50a24cc06db"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/initializer-raw/B-conditional-gan-02000-2014-05.json",
+      "sha256": "4c11db0c93e35c6137a2d2a88f46d1b84df08a2a7c21092e485ec264c798b337"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/initializer-ema/grid.npz",
+      "sha256": "129e14065e95ada1c1d1b3713b68b4173ebcbf7e51c0ba2d9ade2f5f18b9ab11"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/initializer-ema/input-2014-01.json",
+      "sha256": "88817cafeef437fdef94cb6aadf9b2db03db4eb2a50c5e975addf081a14d7533"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/initializer-ema/input-2014-04.json",
+      "sha256": "3b14a086802d384f807fe499d442ce4dbd44178435938a08657ea953018a8350"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/initializer-ema/input-2014-05.json",
+      "sha256": "c6b1851c1f1cbba2e1694997505613f86151a1816cca48aaf351006c1896adb4"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/initializer-ema/B-conditional-gan-02000-2014-01-maps.npz",
+      "sha256": "accf108e4904446c9c57e08dab491db298511a106065d6c34647fff18ae121b7"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/initializer-ema/B-conditional-gan-02000-2014-04-maps.npz",
+      "sha256": "4650d18f811b6d3cd5942969949492438942910883642634b3ca438def97bdcd"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/initializer-ema/B-conditional-gan-02000-2014-05-maps.npz",
+      "sha256": "871b8c04f673295ee2c6238edbd70d69e5a7fb8dd58d88962f287167b4b80fda"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/initializer-ema/B-conditional-gan-00500-2014-01.json",
+      "sha256": "35519800e09b4f994713aecfac32f0d69643a99f5de4b90cb3ebba3ef4ba287a"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/initializer-ema/B-conditional-gan-00500-2014-04.json",
+      "sha256": "2c072d61941e8b8c51b10b6bebe0089e6d0464f092e0e0e33fef631fc1372113"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/initializer-ema/B-conditional-gan-00500-2014-05.json",
+      "sha256": "2287011276b2dc9e58eaee51dab11c67346261f3e05de0969bfb4d0db326e34e"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/initializer-ema/B-conditional-gan-01000-2014-01.json",
+      "sha256": "248e06d313638e598cdb04c224a25d546cd7bd2071ab7be453cf48b7e33eba39"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/initializer-ema/B-conditional-gan-01000-2014-04.json",
+      "sha256": "cfdd7d575be3ed7fa2f87417cc6e7ed1ed896ae74e521e2c754ffe38e4d84032"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/initializer-ema/B-conditional-gan-01000-2014-05.json",
+      "sha256": "f99ede00d66ee805bd6b28f863233290e97de49377eae79fe15a517683771e8d"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/initializer-ema/B-conditional-gan-02000-2014-01.json",
+      "sha256": "857a7c46fed56f42573a21db8f714c986ddc9ae3d97ccc851d5cd2d096e96f2c"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/initializer-ema/B-conditional-gan-02000-2014-04.json",
+      "sha256": "d75784dff48e46f69e8b9dc58bf33030efec954471ecda8ccddff24609ec980c"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/initializer-ema/B-conditional-gan-02000-2014-05.json",
+      "sha256": "c8090d6ed5a6c5d70800ab571ca42ae05ac9b043cdf298cb00de11e76b4fade9"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/evaluation/step-02000-ema/COMPLETE.json",
+      "sha256": "dabeedc2d1dc4447e30ee5a9516d422d6df6e9a5b27516403ae8d5c2bdef6f8b"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/evaluation/step-02000-raw/COMPLETE.json",
+      "sha256": "c7f01e0b792df29e1167767c1d415848d9568823ce5d0cf40f7169cf2ad8460e"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/evaluation/step-02000-ema/COMPLETE.json",
+      "sha256": "ba2c07ea9fd3eed66f71d8ecefdf2f26c10d37e0f91a7a0accddda0c223bf553"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/evaluation/step-02000-raw/COMPLETE.json",
+      "sha256": "c1c4f0bb39e49a6ee69bdb1db975f2a26a05205d599a41c39175ad3495eed0ec"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/evaluation/step-02000-ema/COMPLETE.json",
+      "sha256": "35a8affe1840098c73b13dd86e560e9e34a3e20a429e87984791797252988796"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/evaluation/step-02000-raw/COMPLETE.json",
+      "sha256": "89acc1569a6ad8fb50b988b089dc3dfb73eff0939843a40573ad4a6601611299"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/evaluation/step-02000-ema/COMPLETE.json",
+      "sha256": "e6cdfd33c9a4738169c9eb3e56dcc6467a5f17906e6eeec895e18cb01d82bc34"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/evaluation/step-02000-raw/COMPLETE.json",
+      "sha256": "4422695301c96caade11ec4b09b83af54422508c1bde929aea484a70f7c2a3c2"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/evaluation/step-02000-ema/members-2013-11.npz",
+      "sha256": "4fd88bc684fabfdf0be8fbcf7a19b9165e55f1813ea5147993b04cdf2aa36aa3"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/evaluation/step-02000-ema/members-2013-12.npz",
+      "sha256": "e170da68fcc6b23b0cf976330cf1a94efec25d2090d30dde44abe3984cac6812"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/evaluation/step-02000-ema/members-2014-01.npz",
+      "sha256": "76c3c68e2ab3d91928c5de80c52cd33ecb206797a92549b431b506026b5f550f"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/evaluation/step-02000-ema/members-2014-02.npz",
+      "sha256": "bd387db101fb51429679a0faeed374d4a32f8cc8817a8c4c9c5c2f85e7b0f014"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/evaluation/step-02000-ema/members-2014-03.npz",
+      "sha256": "bcfc89492ed6afc60b83259a061ea32f2213d0b47ce531d4182c8ad700e16911"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/evaluation/step-02000-ema/members-2014-04.npz",
+      "sha256": "a9aec3ace5a5f771bf4181c7fb897d9bddd7d2daf86cb0c63d6067b5a8505845"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/evaluation/step-02000-ema/members-2014-05.npz",
+      "sha256": "e53061b135ed296c45b91c156bc803f06aca9677e5cb349b0af24b1c7c2e3c25"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/evaluation/step-02000-ema/members-2014-06.npz",
+      "sha256": "ec48700c4963c5d1d2f8983c57d1e23647cf1f127e4726c2cc38c64978f8c750"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/evaluation/step-02000-ema/members-2014-07.npz",
+      "sha256": "d87fcf3e614f8a3ff39ea96850d6e78598932900d1a847c46a9aef0df43edbcf"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/evaluation/step-02000-raw/members-2013-11.npz",
+      "sha256": "90fbf5c4a1f584e0a0a58159c1356454517797a45a99a37b21e1d0772936b4d3"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/evaluation/step-02000-raw/members-2013-12.npz",
+      "sha256": "747a939ca64a98664eac234f8f04357dbb4a7d7d0e32af0a1bdaa1a0645df507"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/evaluation/step-02000-raw/members-2014-01.npz",
+      "sha256": "0cc8f86cbbc4160108e4845a318dba21658f425ecba8422b4b5017fcb74f9b3f"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/evaluation/step-02000-raw/members-2014-02.npz",
+      "sha256": "168bf132137d764eaeef76c265c413804fcb20d1bcfac507501eef56ab9356ba"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/evaluation/step-02000-raw/members-2014-03.npz",
+      "sha256": "4a18048aa8f762cf66b15ef7a2adf719c496f1100d0ad2f34bcc2a211d34cf1f"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/evaluation/step-02000-raw/members-2014-04.npz",
+      "sha256": "e6c076b938cfaffadc867e3ebddbe8d378eb82d8f726e4eb57b288e81d4f9fcb"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/evaluation/step-02000-raw/members-2014-05.npz",
+      "sha256": "4621d77aa56ac851c1d1dcae29c2462c494ba4d4912cf75419ab9dfa0cb1e4c6"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/evaluation/step-02000-raw/members-2014-06.npz",
+      "sha256": "4074f8eb65294e28cec76450097bb2691384d51030750f8cd55e6d8f0db4dee2"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/evaluation/step-02000-raw/members-2014-07.npz",
+      "sha256": "72634a3ebf40ad0c9921d6d3983acb1fc110c7b893568563c0e0836c6c461a49"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/evaluation/step-02000-ema/members-2013-11.npz",
+      "sha256": "6671eb5c6dcf42280a0cf3d855f689f60432c8af9e06f03452169f2e45c0612b"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/evaluation/step-02000-ema/members-2013-12.npz",
+      "sha256": "b044eac636b6080779488f415e53c6028b63e8937f2b7c60a927e35160e9a17a"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/evaluation/step-02000-ema/members-2014-01.npz",
+      "sha256": "af472c45ffe90ce23a9b2627f97b2cb1ab4467b5ef1fe0519f9b7bca3aa56de4"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/evaluation/step-02000-ema/members-2014-02.npz",
+      "sha256": "e7d67cc96e9421291a976218797d145545004b10ae13de12eba3ece87b9060b3"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/evaluation/step-02000-ema/members-2014-03.npz",
+      "sha256": "85d8552a8e26f8e0a90e291862e711e172da9f1ad092089b838cdc143966f70a"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/evaluation/step-02000-ema/members-2014-04.npz",
+      "sha256": "7b130dba20f7caf57b8bb56b2290b93f91fb9dc05ee5117cf4628f577eae8f2a"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/evaluation/step-02000-ema/members-2014-05.npz",
+      "sha256": "73092cf34d2fd7deda2efc93bf59f2e79ecd733ac830c4827cbc479c61f2b259"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/evaluation/step-02000-ema/members-2014-06.npz",
+      "sha256": "3e5c9bee49078dab0c9608664be18e9227831640888056bb287a0fd74b9a0698"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/evaluation/step-02000-ema/members-2014-07.npz",
+      "sha256": "93ed1b4d80c765b51fae43fe9e322f29cc075b515e919a65482663045ebc3938"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/evaluation/step-02000-raw/members-2013-11.npz",
+      "sha256": "f0a62daa3f478d3c27d24063eab7ca5b21ac126d7b104e4e816c245b490cc142"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/evaluation/step-02000-raw/members-2013-12.npz",
+      "sha256": "9e047079361e60c63ddd853dc058983579ad03c25ee6e82e25bec465986450f7"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/evaluation/step-02000-raw/members-2014-01.npz",
+      "sha256": "10d1c289b21ce8cb0c19f5c864de4d81be82c400aab586e06b115d8ccf345890"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/evaluation/step-02000-raw/members-2014-02.npz",
+      "sha256": "86a085e8fed756cfbfb4e624489070a1db2520c3f82e2c079d5377452c2ba1d0"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/evaluation/step-02000-raw/members-2014-03.npz",
+      "sha256": "7f7b96a82237e34eafda397d4c16ff52d947b2a2969762370d488e042f5cac74"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/evaluation/step-02000-raw/members-2014-04.npz",
+      "sha256": "0fb4a8c464ec6da4a5cacddee3a73035c03dac110034dcacf99cd821c6cb1660"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/evaluation/step-02000-raw/members-2014-05.npz",
+      "sha256": "05f9a44b36cddbecc2d249c67187bf2cbbf9a4c9a5a4c4d2a87bef4d9af6e282"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/evaluation/step-02000-raw/members-2014-06.npz",
+      "sha256": "e4522f2da594b5bf8c8171ac446b1a9edee71a86237a86f6f4e226570dea5738"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/evaluation/step-02000-raw/members-2014-07.npz",
+      "sha256": "5a6352b5b91eb69e69ddf317665e7eef8e65135c977cd17d23be32ae31ffb524"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/evaluation/step-02000-ema/members-2013-11.npz",
+      "sha256": "8fd9f0af37d7d1f7fa521cc971864152f5edb08b4822aa93ad0425300e365371"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/evaluation/step-02000-ema/members-2013-12.npz",
+      "sha256": "6e7e9ba52e78af0fb13d2c198b3f653c0ec44f2cfb9fb65793b4ed05e6286c8b"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/evaluation/step-02000-ema/members-2014-01.npz",
+      "sha256": "7809d5119d77300c86146747a39f91b1b69e5d50c2ff86611a979af2cc664ac7"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/evaluation/step-02000-ema/members-2014-02.npz",
+      "sha256": "26539cee8d492d99acef8fbdb37ac8dd2a08173677d4c589f9a76ef08fc48ded"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/evaluation/step-02000-ema/members-2014-03.npz",
+      "sha256": "1c2fdb6c0a373ed223972774465df9b970219008191b9766de0b3848b34149bc"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/evaluation/step-02000-ema/members-2014-04.npz",
+      "sha256": "f56aaf808cf460db079da06a6c0b180d5158dfd0bcbd7ba8853a936bbfb2ee58"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/evaluation/step-02000-ema/members-2014-05.npz",
+      "sha256": "48b7753df6a1f6be9026911ced16d01ce44fbaffb408a591ee7566d656fdb802"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/evaluation/step-02000-ema/members-2014-06.npz",
+      "sha256": "f3ea233e25c20139cabfd9b2de4487b524650ae8daf8fe5bfa1ef9f4e9ccbae1"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/evaluation/step-02000-ema/members-2014-07.npz",
+      "sha256": "2fad15d4c2d80e0d87ab81e8eb48f067fa3a28c5fe5c6dca9fde873aeb4fc7cf"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/evaluation/step-02000-raw/members-2013-11.npz",
+      "sha256": "6bec2c0b8ba2f9e512adcc27a674f96b0c10a99bd55242ee2fceb03434143e11"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/evaluation/step-02000-raw/members-2013-12.npz",
+      "sha256": "5c09e1fa33581d35a80956f8f3d31f8f3fe36f7ea58c24423e538b0aa21706f7"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/evaluation/step-02000-raw/members-2014-01.npz",
+      "sha256": "040d98b0fb1482e80cfae6a15c7f5057d3ab84b0e6dd6a9de6a8d3bcba732d9a"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/evaluation/step-02000-raw/members-2014-02.npz",
+      "sha256": "5d05c217a0ebf06edca6d16e60f064ad2d3400fe777df7334d6130a2f01701bf"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/evaluation/step-02000-raw/members-2014-03.npz",
+      "sha256": "5db1e286957fc1e26531500273fe160b1f6a26f55c7e8cc1bb557cbbd7a3e2bf"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/evaluation/step-02000-raw/members-2014-04.npz",
+      "sha256": "4ea677733f73242dd1dc28fd6673c5f81de7dedf8f0a29cc69dcc0baebc65539"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/evaluation/step-02000-raw/members-2014-05.npz",
+      "sha256": "db9d53165e7e4b824db7a7715f6216c703ed9e1230de4430250037a5f1058bb8"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/evaluation/step-02000-raw/members-2014-06.npz",
+      "sha256": "2ff937f8a2d5ccf2e0b3b59ac48d19622b12dad4eea0b1b0e393adcb45b09036"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/evaluation/step-02000-raw/members-2014-07.npz",
+      "sha256": "d29539a68f6ad555d6b221307653f4f0dbdafc18040b32e68a720f24661c38ec"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/evaluation/step-02000-ema/members-2013-11.npz",
+      "sha256": "0dacbe89380d42b9802ebbfe95b47ba854b411d32df9793706ffc0db1cb4418a"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/evaluation/step-02000-ema/members-2013-12.npz",
+      "sha256": "88e6c4ee3c9500624e960a3c7f28c537cb50ea21a601369155884c322a2ea976"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/evaluation/step-02000-ema/members-2014-01.npz",
+      "sha256": "0130dc10c5cf7b8e079c64a4f744e0221a52f7d610a38ee565fecb31e99d79e5"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/evaluation/step-02000-ema/members-2014-02.npz",
+      "sha256": "c959862cf4a7aa27f71c2434cc1e959f2e84d12befb00bf06058dfb546ba3429"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/evaluation/step-02000-ema/members-2014-03.npz",
+      "sha256": "004d556977838cfec96a1a43301158e601c07f2a1d76c44b539b7a64b2c21527"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/evaluation/step-02000-ema/members-2014-04.npz",
+      "sha256": "58089bbff90cb2f890345da107f5da19faa0a1f8c9eedc5cf197a8ae6587b8b9"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/evaluation/step-02000-ema/members-2014-05.npz",
+      "sha256": "a86b7a8d24495d1451c640846df415625d0c5482f0afe24de340592ec7c39a93"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/evaluation/step-02000-ema/members-2014-06.npz",
+      "sha256": "a38bcc15801c772262650adea8e476f0e03139ec6c1ca958eb7efa1d80e4824d"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/evaluation/step-02000-ema/members-2014-07.npz",
+      "sha256": "6b087c325cefe5c515cce205c04fe69a7fb0c5285fe15c89f0fb8a06b2836d7b"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/evaluation/step-02000-raw/members-2013-11.npz",
+      "sha256": "5057b12745233297829dea7a53ef92aab5878fbb564b0dd3fcc47a8213e6f9fa"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/evaluation/step-02000-raw/members-2013-12.npz",
+      "sha256": "b07ed80fdfbb88f08651064f069d2c0d049f228f43af7335c8f9e84f14aea95e"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/evaluation/step-02000-raw/members-2014-01.npz",
+      "sha256": "18c3b24a087a385d580f5bdc0845c4633c7187625b514370df090173c0b772f1"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/evaluation/step-02000-raw/members-2014-02.npz",
+      "sha256": "6a83310ddd61001a890c0df8f4912e9daa1472e38b79659c71945d90d468c584"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/evaluation/step-02000-raw/members-2014-03.npz",
+      "sha256": "370a183ef6f773b5b48c948f490dc43d09f4c958c4b0df1de43a8b1daecee858"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/evaluation/step-02000-raw/members-2014-04.npz",
+      "sha256": "70497dad61b9040ecdcb71dec388cca8a54d5af0a1d23c342ff78ac4bc7efac1"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/evaluation/step-02000-raw/members-2014-05.npz",
+      "sha256": "95c708d5f4df521ea3e3ccc35b3abd97579bf71c36fccd3bf23413a8160a429d"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/evaluation/step-02000-raw/members-2014-06.npz",
+      "sha256": "f240331e635d544e0b6c3bd6506f8bd54631c3ab701a0bcafb9611e489dd448a"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/evaluation/step-02000-raw/members-2014-07.npz",
+      "sha256": "7eb798f73620f96e33df7d0ea6237be1866f869308d028d19ba958c3fcc85e76"
+    }
+  ],
+  "input_proofs": {
+    "2014-01": {
+      "month": "2014-01",
+      "history_midpoints": [
+        "2013-09-30T12:00:00",
+        "2013-10-05T12:00:00",
+        "2013-10-10T12:00:00",
+        "2013-10-15T12:00:00",
+        "2013-10-20T12:00:00",
+        "2013-10-25T12:00:00",
+        "2013-10-30T12:00:00",
+        "2013-11-04T12:00:00",
+        "2013-11-09T12:00:00",
+        "2013-11-14T12:00:00",
+        "2013-11-19T12:00:00",
+        "2013-11-24T12:00:00",
+        "2013-11-29T12:00:00",
+        "2013-12-04T12:00:00",
+        "2013-12-09T12:00:00",
+        "2013-12-14T12:00:00",
+        "2013-12-19T12:00:00",
+        "2013-12-24T12:00:00",
+        "2013-12-29T12:00:00"
+      ],
+      "history_indices": [
+        4069,
+        4070,
+        4071,
+        4072,
+        4073,
+        4074,
+        4075,
+        4076,
+        4077,
+        4078,
+        4079,
+        4080,
+        4081,
+        4082,
+        4083,
+        4084,
+        4085,
+        4086,
+        4087
+      ],
+      "sample_sha256": "bc126b8b29c9704069c34eb7d2ef5ff92d63106e3fdb83f87f5064e6338d37cb",
+      "seed": 904003,
+      "members": 8,
+      "grid_sha256": "ce96360964a6669d0186b9581abaaffc06f660c4e09e0ac813b3dd1b819e5167",
+      "om4_metadata_sha256": "8c4e12bbb43cf70826d406d6910461e1b287835e5f7f27729a2eb8d545c4a19c",
+      "training_latest_target_bin_end": "2013-08-04",
+      "input_scope": "OM4 surface history plus matched ERA5; no interior or future input"
+    },
+    "2014-04": {
+      "month": "2014-04",
+      "history_midpoints": [
+        "2013-12-29T12:00:00",
+        "2014-01-03T12:00:00",
+        "2014-01-08T12:00:00",
+        "2014-01-13T12:00:00",
+        "2014-01-18T12:00:00",
+        "2014-01-23T12:00:00",
+        "2014-01-28T12:00:00",
+        "2014-02-02T12:00:00",
+        "2014-02-07T12:00:00",
+        "2014-02-12T12:00:00",
+        "2014-02-17T12:00:00",
+        "2014-02-22T12:00:00",
+        "2014-02-27T12:00:00",
+        "2014-03-04T12:00:00",
+        "2014-03-09T12:00:00",
+        "2014-03-14T12:00:00",
+        "2014-03-19T12:00:00",
+        "2014-03-24T12:00:00",
+        "2014-03-29T12:00:00"
+      ],
+      "history_indices": [
+        4087,
+        4088,
+        4089,
+        4090,
+        4091,
+        4092,
+        4093,
+        4094,
+        4095,
+        4096,
+        4097,
+        4098,
+        4099,
+        4100,
+        4101,
+        4102,
+        4103,
+        4104,
+        4105
+      ],
+      "sample_sha256": "85dc7368a7cfb6ad1dd3bc34faad9671e340542fc805929124d1a9a5b95c613d",
+      "seed": 904003,
+      "members": 8,
+      "grid_sha256": "ce96360964a6669d0186b9581abaaffc06f660c4e09e0ac813b3dd1b819e5167",
+      "om4_metadata_sha256": "8c4e12bbb43cf70826d406d6910461e1b287835e5f7f27729a2eb8d545c4a19c",
+      "training_latest_target_bin_end": "2013-08-04",
+      "input_scope": "OM4 surface history plus matched ERA5; no interior or future input"
+    },
+    "2014-05": {
+      "month": "2014-05",
+      "history_midpoints": [
+        "2014-01-28T12:00:00",
+        "2014-02-02T12:00:00",
+        "2014-02-07T12:00:00",
+        "2014-02-12T12:00:00",
+        "2014-02-17T12:00:00",
+        "2014-02-22T12:00:00",
+        "2014-02-27T12:00:00",
+        "2014-03-04T12:00:00",
+        "2014-03-09T12:00:00",
+        "2014-03-14T12:00:00",
+        "2014-03-19T12:00:00",
+        "2014-03-24T12:00:00",
+        "2014-03-29T12:00:00",
+        "2014-04-03T12:00:00",
+        "2014-04-08T12:00:00",
+        "2014-04-13T12:00:00",
+        "2014-04-18T12:00:00",
+        "2014-04-23T12:00:00",
+        "2014-04-28T12:00:00"
+      ],
+      "history_indices": [
+        4093,
+        4094,
+        4095,
+        4096,
+        4097,
+        4098,
+        4099,
+        4100,
+        4101,
+        4102,
+        4103,
+        4104,
+        4105,
+        4106,
+        4107,
+        4108,
+        4109,
+        4110,
+        4111
+      ],
+      "sample_sha256": "d4ad3c04b23737c5dccc86fb9a36efcf4b9c5d95add2d8d309e53475c9b7edcb",
+      "seed": 904003,
+      "members": 8,
+      "grid_sha256": "ce96360964a6669d0186b9581abaaffc06f660c4e09e0ac813b3dd1b819e5167",
+      "om4_metadata_sha256": "8c4e12bbb43cf70826d406d6910461e1b287835e5f7f27729a2eb8d545c4a19c",
+      "training_latest_target_bin_end": "2013-08-04",
+      "input_scope": "OM4 surface history plus matched ERA5; no interior or future input"
+    }
+  },
+  "script_sha256": "74ba4a394836fabb25eb4b42c00f5acfd089399d59d420f3be5e62b531eee029",
+  "aggregation": "Cosine-weighted wet spatial MSE per channel, equal mean over variable depths and three dates, then square root. CRPS and coverage equal mean over depths and dates. Forecast blend unchanged five-component climatology-relative mean.",
+  "checks": "Initializer masks/normalization/input receipts/gold maps match; final checkpoint fingerprints match raw/EMA and forecasts; forecast masks/scales/channel names/day30 references match across arms and weights; nine origins and climatology receipts match."
+}

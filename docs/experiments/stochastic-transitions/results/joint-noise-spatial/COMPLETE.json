@@ -1,0 +1,136 @@
+{
+  "complete": true,
+  "sources": [
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/initializer-ema/B-learned-control-02000-2014-01-maps.npz",
+      "sha256": "cc0f79e427a60f5dfe93a6f7a2cbc7cd24525deca5a7788858901e4eeaa51694",
+      "checkpoint_sha256": "35954d2ad7a5d41d7ab781e3ebcd2cb1e1a7ebde58dff307b1f2d3e72505ee5b"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/initializer-ema/B-learned-control-02000-2014-04-maps.npz",
+      "sha256": "0e354a406db38cc13c1deabc48a2fa2c22b6ca3c968b8baff67b315b790e9d34",
+      "checkpoint_sha256": "35954d2ad7a5d41d7ab781e3ebcd2cb1e1a7ebde58dff307b1f2d3e72505ee5b"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/initializer-ema/B-learned-control-02000-2014-05-maps.npz",
+      "sha256": "8f300c164cbe9eb5643a8e4431e6bae9f9b54206eb6605d3efeff9e9c27f96c9",
+      "checkpoint_sha256": "35954d2ad7a5d41d7ab781e3ebcd2cb1e1a7ebde58dff307b1f2d3e72505ee5b"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/initializer-raw/B-learned-control-02000-2014-01-maps.npz",
+      "sha256": "1ba85e02d491c5eca29acf08d311d1e44e534564f9a714b0ff649fa7f85b0a9b",
+      "checkpoint_sha256": "35954d2ad7a5d41d7ab781e3ebcd2cb1e1a7ebde58dff307b1f2d3e72505ee5b"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/initializer-raw/B-learned-control-02000-2014-04-maps.npz",
+      "sha256": "08950b06810af4b4276cff155767418671160272632c35a7cac94127fa92d1a9",
+      "checkpoint_sha256": "35954d2ad7a5d41d7ab781e3ebcd2cb1e1a7ebde58dff307b1f2d3e72505ee5b"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-learned-control/initializer-raw/B-learned-control-02000-2014-05-maps.npz",
+      "sha256": "d5458703ced801ee5a295e9eb65b695fb1adbd9927762f93552b8ed246741a7f",
+      "checkpoint_sha256": "35954d2ad7a5d41d7ab781e3ebcd2cb1e1a7ebde58dff307b1f2d3e72505ee5b"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/initializer-ema/B-joint-coarse-02000-2014-01-maps.npz",
+      "sha256": "732f457a3784bb5c9dd461e58b6bdca2e7f93afcf5ef85c13b288f81a08a6352",
+      "checkpoint_sha256": "f5be32b8f8a5b7005e124fe2da985fd49810c21081853d7d6535a4a69f6f94fe"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/initializer-ema/B-joint-coarse-02000-2014-04-maps.npz",
+      "sha256": "cf1fdfb262528aba9d0bba7bcb77f20362b38ed0dbe76e83afee77b9dea21208",
+      "checkpoint_sha256": "f5be32b8f8a5b7005e124fe2da985fd49810c21081853d7d6535a4a69f6f94fe"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/initializer-ema/B-joint-coarse-02000-2014-05-maps.npz",
+      "sha256": "31e8ad23fac90f17144472748eb450afbc7620bcc4672c7594c7f377cb25bae6",
+      "checkpoint_sha256": "f5be32b8f8a5b7005e124fe2da985fd49810c21081853d7d6535a4a69f6f94fe"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/initializer-raw/B-joint-coarse-02000-2014-01-maps.npz",
+      "sha256": "437784d8dbb67534d5c1145b2c8b9f167c0ab4de9130a77c0b6623bb81607192",
+      "checkpoint_sha256": "f5be32b8f8a5b7005e124fe2da985fd49810c21081853d7d6535a4a69f6f94fe"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/initializer-raw/B-joint-coarse-02000-2014-04-maps.npz",
+      "sha256": "a6e430409e521a6d5957a75a4bf45200416305c51598da869a7d58c1b5464a6f",
+      "checkpoint_sha256": "f5be32b8f8a5b7005e124fe2da985fd49810c21081853d7d6535a4a69f6f94fe"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-coarse/initializer-raw/B-joint-coarse-02000-2014-05-maps.npz",
+      "sha256": "99bd5a2ac33d58e41b6003505afa7d50254f1fb752d72a269202b4ce55065dad",
+      "checkpoint_sha256": "f5be32b8f8a5b7005e124fe2da985fd49810c21081853d7d6535a4a69f6f94fe"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/initializer-ema/B-joint-multires-02000-2014-01-maps.npz",
+      "sha256": "c0a8aa4772b5a3320253a5f1906d13ef83246820a7cceb770dbf710df1e265bd",
+      "checkpoint_sha256": "ab2fbc0c76e1dcdadd2e50f6b83310c9dcbcaee8896752c67ee809324a5fb234"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/initializer-ema/B-joint-multires-02000-2014-04-maps.npz",
+      "sha256": "64442a4ae9302f8f6b0142a14f40c572feee2e047811e2400c066ab85329ca82",
+      "checkpoint_sha256": "ab2fbc0c76e1dcdadd2e50f6b83310c9dcbcaee8896752c67ee809324a5fb234"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/initializer-ema/B-joint-multires-02000-2014-05-maps.npz",
+      "sha256": "9b1b7a29cece48ab62e5ce65bbc8d47f9d964b0573a2b4416e37747850e30437",
+      "checkpoint_sha256": "ab2fbc0c76e1dcdadd2e50f6b83310c9dcbcaee8896752c67ee809324a5fb234"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/initializer-raw/B-joint-multires-02000-2014-01-maps.npz",
+      "sha256": "f1c8c8894ea26e85690fc07b3257bf94335e0a89eaff85d3ebcbdb53aba799ce",
+      "checkpoint_sha256": "ab2fbc0c76e1dcdadd2e50f6b83310c9dcbcaee8896752c67ee809324a5fb234"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/initializer-raw/B-joint-multires-02000-2014-04-maps.npz",
+      "sha256": "ef91e2971401234a6799ab6b8fdf02d4c3336f99d51b689e8469d28641d66c35",
+      "checkpoint_sha256": "ab2fbc0c76e1dcdadd2e50f6b83310c9dcbcaee8896752c67ee809324a5fb234"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-joint-multires/initializer-raw/B-joint-multires-02000-2014-05-maps.npz",
+      "sha256": "3c471ecdd1f37aa77d56d5ec67eab065cd77525734ef41a752a193ff0f614beb",
+      "checkpoint_sha256": "ab2fbc0c76e1dcdadd2e50f6b83310c9dcbcaee8896752c67ee809324a5fb234"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/initializer-ema/B-conditional-gan-02000-2014-01-maps.npz",
+      "sha256": "accf108e4904446c9c57e08dab491db298511a106065d6c34647fff18ae121b7",
+      "checkpoint_sha256": "968074295c9e2756c27f843a9553c34f61bc7836241fa4546688b1a75e13c190"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/initializer-ema/B-conditional-gan-02000-2014-04-maps.npz",
+      "sha256": "4650d18f811b6d3cd5942969949492438942910883642634b3ca438def97bdcd",
+      "checkpoint_sha256": "968074295c9e2756c27f843a9553c34f61bc7836241fa4546688b1a75e13c190"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/initializer-ema/B-conditional-gan-02000-2014-05-maps.npz",
+      "sha256": "871b8c04f673295ee2c6238edbd70d69e5a7fb8dd58d88962f287167b4b80fda",
+      "checkpoint_sha256": "968074295c9e2756c27f843a9553c34f61bc7836241fa4546688b1a75e13c190"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/initializer-raw/B-conditional-gan-02000-2014-01-maps.npz",
+      "sha256": "5ffcd79e67550d72d89c2dc038ce44f08038d04fb592bf5dd297dce101d1e317",
+      "checkpoint_sha256": "968074295c9e2756c27f843a9553c34f61bc7836241fa4546688b1a75e13c190"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/initializer-raw/B-conditional-gan-02000-2014-04-maps.npz",
+      "sha256": "2650c3982f739eff6c1d6ab33dc48e0dcc30da4b64e6f20a9c7b63a8d1b9851e",
+      "checkpoint_sha256": "968074295c9e2756c27f843a9553c34f61bc7836241fa4546688b1a75e13c190"
+    },
+    {
+      "path": "/tmp/stochastic-joint-noise-results/production/B-conditional-gan/initializer-raw/B-conditional-gan-02000-2014-05-maps.npz",
+      "sha256": "e7988d8d3cbf1cb3025378214f042610e92dbb00427138b5f3f52e8b90d3bd22",
+      "checkpoint_sha256": "968074295c9e2756c27f843a9553c34f61bc7836241fa4546688b1a75e13c190"
+    }
+  ],
+  "script_sha256": "5226d94b9b7bb31d20465b3ae88a1064535fcd1b745d5486071e5b4b356f156b",
+  "notes": [
+    "Final 2000-update initialization only; raw and EMA remain separate.",
+    "All 24 members receive equal weight within arm; ratios divide their mean power by mean reference power across three dates.",
+    "Relative vorticity and horizontal divergence use spherical metric, centered differences, five-point all-wet support and |latitude|<75degrees.",
+    "Spectral bands are masked Hann-window computational-grid frequencies; not DEX or physical isotropic wavenumbers. Fine band starts at0.13258cycles/cell (~7.54cells), aligned to existing histogram bins.",
+    "Vector alignment includes mean flow, while component vertical correlations subtract spatial means.",
+    "Producer resets generator seed904003 for each date; same member index uses identical random input within an architecture. Cross-date perturbation correlation/change measures sensitivity to all conditioning changes together (surface history, forcing, calendar). It does not establish correct jet placement or compare identical noise across different architectures.",
+    "No SSH or temperature maps are present: no velocity-SSH or heat-transport coherence claim is possible from this export.",
+    "Power or vertical alignment alone does not establish realism; exact-position correlation penalizes plausible displaced stochastic structures."
+  ]
+}

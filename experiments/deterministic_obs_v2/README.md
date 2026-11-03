@@ -8,10 +8,11 @@ training for a deterministic ocean forecast initialized from surface history.
 Implementation is stacked on the config-based observation harness in
 [PR #955](https://github.com/m2lines/Samudra/pull/955).
 
-As of 2026-11-03, 81 focused CPU tests and relevant pre-commit checks pass.
+As of 2026-11-03, 82 focused CPU tests and relevant pre-commit checks pass.
 **GPU qualification is pending. No full scientific training has been submitted.**
 Torch array `21785317` contains the five qualification arms and depends on CPU
-data-preparation job `21784710`. Each arm requests one GPU, eight CPU cores,
+data-preparation job `21784710`, which completed successfully in 11m54s. The first
+two GPU arms have started; the remaining arms are queued. Each arm requests one GPU, eight CPU cores,
 96 GiB host memory and a two-hour limit. Scheduler routing permits preemptible
 L40S, A100, RTX6000, H100, H200 and B200 capacity. All jobs use account
 `torch_pr_347_lzanna`, preemption-only routing and requeue.
@@ -94,7 +95,8 @@ sources. These checks establish engineering behavior; six updates do not
 establish scientific performance.
 
 Timing receipts separate source-specific optimizer-update time, data loading,
-annual validation, checkpoint writing and restore. Full replay-capacity checkpoint
+annual validation (including an improved-best checkpoint), separate checkpoint
+writing and restore. The runtime calculation counts that best-checkpoint save once. Full replay-capacity checkpoint
 timing includes populated Adam moments. The
 [runtime estimator](../../src/samudra/observations/runtime_estimate.py) accounts for
 validation every 250 updates and saves every 25 updates. It reports observed timing
@@ -114,8 +116,10 @@ Daily data were copied from the existing Beta observation preparation and histor
 shared-ERA5 preparation. Download/read-back checks found zero differences across
 24,546 observation files and 6,611 historical ERA5 files; the
 [transfer receipts](receipts/) record those checks. Forty ERA5 year manifests
-(1975–2014) agree on field order and grid hash. Cache construction remains pending: the preparation job will average exact native
-OM4 five-day intervals, record input hashes and verify the written values. No upstream
+(1975–2014) agree on field order and grid hash. The completed cache contains all 439 eligible native OM4 windows and 2,812 five-day
+intervals, with input hashes and exact read-back verification in its proof. Global
+normalization and all ten screen/qualification configs are prepared; see the
+[preparation receipt](receipts/PREPARED.json). No upstream
 raw data were reprocessed or transferred in this task.
 
 Before a full campaign, use the qualification measurements to settle checkpoint

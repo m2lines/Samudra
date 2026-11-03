@@ -51,10 +51,12 @@ def estimate(
     checkpoint = max(
         receipt["checkpoint_seconds"], receipt.get("full_pool_checkpoint_seconds", 0)
     )
-    # Upper-bound one improved-best checkpoint at every validation.
-    overhead = math.ceil(updates / save_freq) * checkpoint + math.ceil(
-        updates / validation_freq
-    ) * (validation + checkpoint)
+    # The measured validation block already includes its improved-best save.
+    # Count that save once, and budget separate scheduled/latest checkpoints.
+    overhead = (
+        math.ceil(updates / save_freq) * checkpoint
+        + math.ceil(updates / validation_freq) * validation
+    )
     low = (sum(counts[s] * min(times[s]) for s in sources) + overhead) / 3600
     high = (sum(counts[s] * max(times[s]) for s in sources) + overhead) / 3600
     return {

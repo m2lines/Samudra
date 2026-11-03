@@ -90,3 +90,25 @@ def test_five_arm_screen_and_winner_budget():
     )
     assert [c.main_updates for c in branches] == [8000, 12000]
     assert all(c.cooldown_updates == 1000 for c in branches)
+
+
+def test_runtime_estimate_counts_validation_checkpoint_once():
+    from samudra.observations.runtime_estimate import estimate
+
+    receipt = {
+        "training_records": [
+            {"updates": 2, "train/om4/seconds": 20, "train/om4/data_seconds": 2},
+            {"updates": 3, "train/obs/seconds": 10, "train/obs/data_seconds": 1},
+            {"updates": 6, "timing/validation_seconds": 100},
+        ],
+        "exposure": {"obs": {}, "om4": {}},
+        "gpu": "test",
+        "checkpoint_seconds": 5,
+    }
+    screen = estimate(receipt)
+    continuation = estimate(receipt, 16000, 3000, main_start=4000)
+    assert screen["source_updates"] == {"obs": 3000, "om4": 2000}
+    assert continuation["source_updates"] == {"obs": 9000, "om4": 6000}
+    assert screen["hours_observed_range"][0] == pytest.approx(
+        (70000 + 200 * 5 + 20 * 100) / 3600
+    )

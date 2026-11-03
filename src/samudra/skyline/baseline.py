@@ -48,7 +48,9 @@ def main():
     device = torch.device("cuda")
     set_device(device)
     torch.set_num_threads(config["torch_threads"])
-    source = OceanSource(config["source"], config["readers"])
+    source = OceanSource(
+        config["source"], config["readers"], config.get("reference_root")
+    )
     try:
         model = SamudraConfig(**baseline_config["model"]).build(
             prog_channels=154,

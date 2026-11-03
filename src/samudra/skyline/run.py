@@ -465,7 +465,9 @@ def main():
     args = parser.parse_args()
     config = json.loads(args.config.read_text())
     torch.set_num_threads(config.get("torch_threads", 4))
-    source = OceanSource(config["source"], config["readers"])
+    source = OceanSource(
+        config["source"], config["readers"], config.get("reference_root")
+    )
     try:
         if args.mode == "audit":
             print(audit_support(source, args.output, args.audit_dates), flush=True)

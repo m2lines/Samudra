@@ -49,17 +49,18 @@ SPLITS = {
 
 
 class OceanSource:
-    def __init__(self, root, readers=16):
+    def __init__(self, root, readers=16, reference_root=None):
         self.root = root.rstrip("/")
+        self.reference_root = (reference_root or root).rstrip("/")
         mapper = fsspec.get_mapper(self.root + "/OM4.zarr")
         self.metadata_sha256 = hashlib.sha256(mapper[".zmetadata"]).hexdigest()
         self.zarr = zarr.open_consolidated(mapper, mode="r")
         self.metadata = xr.open_zarr(mapper, consolidated=True, chunks=None)
         means = xr.open_zarr(
-            fsspec.get_mapper(self.root + "/OM4_means.zarr"), chunks=None
+            fsspec.get_mapper(self.reference_root + "/OM4_means.zarr"), chunks=None
         )
         stds = xr.open_zarr(
-            fsspec.get_mapper(self.root + "/OM4_stds.zarr"), chunks=None
+            fsspec.get_mapper(self.reference_root + "/OM4_stds.zarr"), chunks=None
         )
         self.mean = np.array(
             [float(means[n].values) for n in CHANNELS], dtype=np.float32
@@ -91,7 +92,40 @@ class OceanSource:
         self.xyz = np.stack(
             (np.cos(lat) * np.cos(lon), np.cos(lat) * np.sin(lon), np.sin(lat)), -1
         ).astype(np.float32)
-        self.area = np.asarray(self.zarr["areacello"][:], dtype=np.float64)
+        reference = self.zarr
+        self.reference_checks: dict[str, object] = {}
+        if self.reference_root != self.root:
+            ref_map = fsspec.get_mapper(self.reference_root + "/OM4.zarr")
+            reference = zarr.open_consolidated(ref_map, mode="r")
+            self.reference_checks["metadata_sha256"] = hashlib.sha256(
+                ref_map[".zmetadata"]
+            ).hexdigest()
+            for name in ("x", "y", "time"):
+                np.testing.assert_allclose(
+                    self.zarr[name][:], reference[name][:], rtol=0, atol=1e-10
+                )
+            if dict(self.zarr["time"].attrs) != dict(reference["time"].attrs):
+                raise ValueError("Local/reference time metadata differ")
+            for z in range(19):
+                np.testing.assert_array_equal(
+                    self.wet[z], reference[f"mask_{z}"][:].astype(bool)
+                )
+            differences = {}
+            for suffix, expected in (("means", self.mean), ("stds", self.std)):
+                local = xr.open_zarr(
+                    fsspec.get_mapper(self.root + f"/OM4_{suffix}.zarr"), chunks=None
+                )
+                actual = np.array(
+                    [float(local[n].values) for n in CHANNELS], dtype=np.float32
+                )
+                differences[suffix] = float(np.max(np.abs(actual - expected)))
+                local.close()
+            self.reference_checks.update(
+                coordinates_times_masks_match=True,
+                local_normalization_max_abs_difference=differences,
+                normalization_used="reference release",
+            )
+        self.area = np.asarray(reference["areacello"][:], dtype=np.float64)
         if self.area.shape != (self.height, self.width):
             raise ValueError("Expected native horizontal cell areas")
         self.locations, self.probabilities = [], []
@@ -203,6 +237,8 @@ class OceanSource:
     def receipt(self):
         return {
             "root": self.root,
+            "reference_root": self.reference_root,
+            "reference_checks": self.reference_checks,
             "metadata_sha256": self.metadata_sha256,
             "channels": CHANNELS,
             "depths_m": DEPTHS.tolist(),

@@ -1,6 +1,7 @@
 {
-  "source": "https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/v2026-09/om4_quarterdeg",
-  "support": "/scratch/jr7309/temperature-skyline-20261102/audit/pilot-support.json",
+  "source": "/scratch/jr7309/data/om4_quarterdeg_v2",
+  "reference_root": "https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/v2026-09/om4_quarterdeg",
+  "support": "/scratch/jr7309/temperature-skyline-20261102/audit-local/pilot-support.json",
   "readers": 16,
   "torch_threads": 4,
   "seed": 41,

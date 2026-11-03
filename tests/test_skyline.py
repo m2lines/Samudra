@@ -245,6 +245,16 @@ def test_validation_locations_match_between_objectives(ocean, tmp_path):
             json.loads(line)
             for line in (path / "predictions-0000001.jsonl").read_text().splitlines()
         ]
+        for row in rows:
+            metric = result["per_depth"][row["depth"]]
+            assert metric["rmse_c"] == pytest.approx(
+                abs(row["prediction_c"] - row["truth_c"]), abs=2e-5
+            )
+            assert (
+                row["nll"] == pytest.approx(metric["bin_nll"])
+                if row["nll"] is not None
+                else metric["bin_nll"] is None
+            )
         locations.append([(r["origin"], r["row"], r["col"], r["depth"]) for r in rows])
     assert locations[0] == locations[1]
 
@@ -268,6 +278,11 @@ def test_baseline_cache_scores_identical_targets(ocean, tmp_path):
     assert all(
         m["samudra_rmse_c"] == 0 and m["samudra_nmse"] == 0 for m in result["per_depth"]
     )
+    records = [
+        json.loads(line)
+        for line in (tmp_path / "predictions-0000001.jsonl").read_text().splitlines()
+    ]
+    assert all(row["samudra_c"] == row["truth_c"] for row in records)
 
 
 def test_support_fit_and_precision_audit(ocean, tmp_path):

@@ -168,11 +168,14 @@ def evaluate(model, vocab, source, config, device, output, step):
                 oracle = target
             error = (pred - target) * scale
             persist = (batch["current"] - target) * scale
+            # Transfer metadata in batches; scalar GPU indexing in the Python
+            # record loop otherwise synchronizes the device for every field.
+            locations = torch.stack((batch["row"], batch["col"]), -1).cpu().numpy()
             baseline_values, baseline_log_density = None, None
             if baseline is not None:
                 baseline_values = torch.tensor(
                     [
-                        float(baseline[z, int(batch["row"][i]), int(batch["col"][i])])
+                        float(baseline[z, locations[i, 0], locations[i, 1]])
                         for i, z in enumerate(selected)
                     ],
                     device=device,
@@ -211,27 +214,48 @@ def evaluate(model, vocab, source, config, device, output, step):
             )
             for z, row in zip(selected, rows, strict=True):
                 sums[z] += row
+            means = torch.as_tensor(
+                source.mean[38:57], device=device, dtype=target.dtype
+            )[depth]
+            physical = (
+                torch.stack(
+                    (
+                        target * scale + means,
+                        pred * scale + means,
+                        nll,
+                        log_density,
+                        outside.float(),
+                        baseline_values * scale + means
+                        if baseline_values is not None
+                        else torch.zeros_like(target),
+                        baseline_log_density
+                        if baseline_log_density is not None
+                        else torch.zeros_like(target),
+                    ),
+                    -1,
+                )
+                .cpu()
+                .numpy()
+            )
             for i, z in enumerate(selected):
+                values = physical[i]
                 sample_records.append(
                     {
                         "origin": int(origin),
-                        "row": int(batch["row"][i]),
-                        "col": int(batch["col"][i]),
+                        "row": int(locations[i, 0]),
+                        "col": int(locations[i, 1]),
                         "depth": int(z),
-                        "truth_c": float(target[i] * scale[i] + source.mean[38 + z]),
-                        "prediction_c": float(pred[i] * scale[i] + source.mean[38 + z]),
-                        "nll": float(nll[i]) if categorical else None,
-                        "log_density": float(log_density[i])
-                        if categorical and not outside[i]
+                        "truth_c": float(values[0]),
+                        "prediction_c": float(values[1]),
+                        "nll": float(values[2]) if categorical else None,
+                        "log_density": float(values[3])
+                        if categorical and not values[4]
                         else None,
-                        "samudra_c": float(
-                            baseline_values[i] * scale[i] + source.mean[38 + z]
-                        )
+                        "samudra_c": float(values[5])
                         if baseline_values is not None
                         else None,
-                        "samudra_log_density": float(baseline_log_density[i])
-                        if baseline_log_density is not None
-                        and torch.isfinite(baseline_log_density[i])
+                        "samudra_log_density": float(values[6])
+                        if baseline_log_density is not None and np.isfinite(values[6])
                         else None,
                     }
                 )

@@ -420,6 +420,26 @@ def run(cfg):
             raise AssertionError("No-replay control used replay")
     if not state.cooled or state.ema.num_updates != 2:
         raise AssertionError("Cooldown must reset EMA once and retain optimizer")
+    if cfg.qualify_chains:
+        # Include populated Adam moments AND full replay capacity in the storage
+        # benchmark. This diagnostic checkpoint is never used for training.
+        saturated = torch.load(
+            output / "full-pool.pt", map_location="cpu", weights_only=False
+        )
+        for name, pool in state.pools.items():
+            pool.load_state_dict(saturated["pools"][name])
+        del saturated
+        before_save = time.perf_counter()
+        saturated_path = output / "full-pool-trained.pt"
+        state.save(saturated_path, manifest)
+        write_json(
+            {
+                "seconds": time.perf_counter() - before_save,
+                "bytes": saturated_path.stat().st_size,
+            },
+            pool_timing_path,
+        )
+        state.restore(output / "endpoint.pt", manifest)
     report = {
         "purpose": "engineering qualification; not a scientific training result",
         "gpu": torch.cuda.get_device_name(),

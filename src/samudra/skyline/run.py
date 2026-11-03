@@ -514,7 +514,7 @@ def train(config, source, output):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("mode", choices=["audit", "train"])
+    parser.add_argument("mode", choices=["audit", "precision", "train"])
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--audit-dates", type=int)
@@ -527,6 +527,10 @@ def main():
     try:
         if args.mode == "audit":
             print(audit_support(source, args.output, args.audit_dates), flush=True)
+        elif args.mode == "precision":
+            from .precision import audit_precision
+
+            audit_precision(source, config, args.output)
         else:
             train(config, source, args.output)
     finally:

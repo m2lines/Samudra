@@ -1,0 +1,122 @@
+{
+  "utc_start": "2026-10-14T13:23:36.025518+00:00",
+  "hostname": "cs604.hpc.nyu.edu",
+  "job_id": "19803626",
+  "cpus": "10",
+  "url": "https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/raw/om4_5daily.zarr",
+  "seconds_per_concurrency": 60,
+  "max_concurrency": 10,
+  "variables": {
+    "thetao": {
+      "chunks": [
+        1,
+        19,
+        1080,
+        1440
+      ],
+      "compressor": {
+        "blocksize": 0,
+        "clevel": 5,
+        "cname": "lz4",
+        "id": "blosc",
+        "shuffle": 1
+      },
+      "dimension_separator": ".",
+      "dtype": "<f4",
+      "fill_value": "NaN",
+      "filters": null,
+      "order": "C",
+      "shape": [
+        4745,
+        19,
+        1080,
+        1440
+      ],
+      "zarr_format": 2
+    },
+    "so": {
+      "chunks": [
+        1,
+        19,
+        1080,
+        1440
+      ],
+      "compressor": {
+        "blocksize": 0,
+        "clevel": 5,
+        "cname": "lz4",
+        "id": "blosc",
+        "shuffle": 1
+      },
+      "dimension_separator": ".",
+      "dtype": "<f4",
+      "fill_value": "NaN",
+      "filters": null,
+      "order": "C",
+      "shape": [
+        4745,
+        19,
+        1080,
+        1440
+      ],
+      "zarr_format": 2
+    },
+    "uo": {
+      "chunks": [
+        1,
+        19,
+        1080,
+        1441
+      ],
+      "compressor": {
+        "blocksize": 0,
+        "clevel": 5,
+        "cname": "lz4",
+        "id": "blosc",
+        "shuffle": 1
+      },
+      "dimension_separator": ".",
+      "dtype": "<f4",
+      "fill_value": "NaN",
+      "filters": null,
+      "order": "C",
+      "shape": [
+        4745,
+        19,
+        1080,
+        1441
+      ],
+      "zarr_format": 2
+    },
+    "vo": {
+      "chunks": [
+        1,
+        19,
+        1081,
+        1440
+      ],
+      "compressor": {
+        "blocksize": 0,
+        "clevel": 5,
+        "cname": "lz4",
+        "id": "blosc",
+        "shuffle": 1
+      },
+      "dimension_separator": ".",
+      "dtype": "<f4",
+      "fill_value": "NaN",
+      "filters": null,
+      "order": "C",
+      "shape": [
+        4745,
+        19,
+        1081,
+        1440
+      ],
+      "zarr_format": 2
+    }
+  },
+  "metadata_sha256": "d22e699a3b540143ca1e8a2696940831084e530b03894e1664dc4b0922330c7a",
+  "script_sha256": "78d0dd2cdc093a9029bc226da5e8388026a5be9f0c7fff60d4b663c8c897d0be",
+  "method": "Distinct random complete chunks; one persistent HTTPS connection per worker; one excluded warm-up GET per worker per phase; full Blosc decode and byte-count validation; no retry or data disk cache; throughput includes final request drain; 1 codec thread per worker."
+}

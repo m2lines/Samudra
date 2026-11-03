@@ -1,0 +1,183 @@
+#!/usr/bin/env python3
+"""Bounded OSN GET/decode benchmark; no data files or caches are written."""
+import argparse
+import concurrent.futures
+import csv
+import datetime
+import hashlib
+import http.client
+import itertools
+import json
+import math
+import os
+from pathlib import Path
+import random
+import socket
+import ssl
+import statistics
+import threading
+import time
+import urllib.parse
+import urllib.request
+
+from numcodecs import get_codec
+from numcodecs import blosc
+
+
+def percentile(values, q):
+    values = sorted(values)
+    idx = (len(values) - 1) * q
+    lo, hi = math.floor(idx), math.ceil(idx)
+    return values[lo] + (values[hi] - values[lo]) * (idx - lo)
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--url', default='https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/raw/om4_5daily.zarr')
+    parser.add_argument('--seconds', type=float, default=60)
+    parser.add_argument('--max-concurrency', type=int, default=10)
+    parser.add_argument('--start-concurrency', type=int, default=1)
+    parser.add_argument('--skip-keys', type=int, default=0)
+    parser.add_argument('--out', type=Path, required=True)
+    args = parser.parse_args()
+    args.out.mkdir(parents=True, exist_ok=True)
+    blosc.set_nthreads(1)
+    context = ssl.create_default_context()
+    parsed = urllib.parse.urlsplit(args.url)
+    with urllib.request.urlopen(args.url + '/.zmetadata', timeout=30) as response:
+        metadata_bytes = response.read()
+    metadata = json.loads(metadata_bytes)['metadata']
+    variables = ['thetao', 'so', 'uo', 'vo']
+    specs = {v: metadata[v + '/.zarray'] for v in variables}
+    for spec in specs.values():
+        assert spec['chunks'][0] == 1 and spec['chunks'][1:] == spec['shape'][1:]
+        assert spec['dtype'] == '<f4' and not spec.get('filters')
+    ntime = specs['thetao']['shape'][0]
+    assert all(s['shape'][0] == ntime for s in specs.values())
+    # One shuffled, non-repeating order across all phases, including warm-up.
+    keys = [(v, t) for v in variables for t in range(ntime)]
+    random.Random(20261014).shuffle(keys)
+    key_iterator = iter(keys[args.skip_keys:])
+    key_lock = threading.Lock()
+    provenance = {
+        'utc_start': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        'hostname': socket.gethostname(), 'job_id': os.getenv('SLURM_JOB_ID'),
+        'cpus': os.getenv('SLURM_CPUS_PER_TASK'), 'url': args.url,
+        'seconds_per_concurrency': args.seconds, 'max_concurrency': args.max_concurrency,
+        'start_concurrency': args.start_concurrency, 'skip_keys': args.skip_keys,
+        'variables': specs, 'metadata_sha256': hashlib.sha256(metadata_bytes).hexdigest(),
+        'script_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+        'method': 'Distinct random complete chunks; one persistent HTTPS connection per worker; one excluded warm-up GET per worker per phase; full Blosc decode and byte-count validation; at most one reconnect for a closed connection, recorded and timed; no data disk cache; throughput includes final request drain; 1 codec thread per worker.',
+    }
+    (args.out / 'metadata.json').write_bytes(metadata_bytes)
+    (args.out / 'provenance.json').write_text(json.dumps(provenance, indent=2) + '\n')
+    print(json.dumps(provenance), flush=True)
+    summaries = []
+    record_fields = ['concurrency', 'worker', 'key', 'start_s', 'finish_s', 'wire_bytes', 'decoded_bytes', 'ttfb_s', 'get_s', 'decode_s', 'load_s', 'reconnects', 'error']
+    with (args.out / 'requests.csv').open('w', newline='') as request_file:
+        request_writer = csv.DictWriter(request_file, fieldnames=record_fields)
+        request_writer.writeheader()
+        for concurrency in range(args.start_concurrency, args.max_concurrency + 1):
+            barrier = threading.Barrier(concurrency + 1)
+            start_event = threading.Event()
+            phase = {}
+
+            def worker(worker_id):
+                conn = http.client.HTTPSConnection(parsed.hostname, parsed.port or 443, timeout=30, context=context)
+                codecs = {v: get_codec(s['compressor']) for v, s in specs.items()}
+                def load():
+                    with key_lock:
+                        variable, timestep = next(key_iterator)
+                    spec = specs[variable]
+                    key = variable + '/' + '.'.join([str(timestep)] + ['0'] * (len(spec['chunks']) - 1))
+                    begin = time.perf_counter()
+                    reconnects = 0
+                    for attempt in range(2):
+                        try:
+                            conn.request('GET', parsed.path + '/' + key, headers={'Accept-Encoding': 'identity'})
+                            response = conn.getresponse()
+                            break
+                        except (http.client.RemoteDisconnected, BrokenPipeError, ConnectionResetError):
+                            if attempt:
+                                raise
+                            conn.close()
+                            reconnects += 1
+                    if response.status != 200:
+                        raise RuntimeError(f'{key}: HTTP {response.status}')
+                    first_byte = response.read(1)
+                    first = time.perf_counter()
+                    payload = first_byte + response.read()
+                    fetched = time.perf_counter()
+                    assert len(payload) == int(response.getheader('Content-Length'))
+                    decoded = codecs[variable].decode(payload)
+                    end = time.perf_counter()
+                    decoded_size = len(decoded)
+                    assert decoded_size == math.prod(spec['chunks']) * 4
+                    return {'concurrency': concurrency, 'worker': worker_id, 'key': key,
+                            'start_s': begin, 'finish_s': end, 'wire_bytes': len(payload),
+                            'decoded_bytes': decoded_size, 'ttfb_s': first-begin,
+                            'get_s': fetched-begin, 'decode_s': end-fetched,
+                            'load_s': end-begin, 'reconnects': reconnects, 'error': ''}
+                rows = []
+                try:
+                    load()
+                    barrier.wait(timeout=90)
+                    start_event.wait()
+                    while time.perf_counter() < phase['deadline']:
+                        begin = time.perf_counter()
+                        try:
+                            rows.append(load())
+                        except Exception as exc:
+                            rows.append({'concurrency': concurrency, 'worker': worker_id,
+                                         'start_s': begin, 'finish_s': time.perf_counter(),
+                                         'error': repr(exc)})
+                            break
+                except BaseException:
+                    barrier.abort()
+                    raise
+                finally:
+                    conn.close()
+                return rows
+
+            print(f'START concurrency={concurrency} warmup', flush=True)
+            with concurrent.futures.ThreadPoolExecutor(max_workers=concurrency) as executor:
+                futures = [executor.submit(worker, i) for i in range(concurrency)]
+                barrier.wait(timeout=120)
+                phase['start'] = time.perf_counter()
+                phase['deadline'] = phase['start'] + args.seconds
+                start_event.set()
+                rows = list(itertools.chain.from_iterable(f.result() for f in futures))
+            elapsed = max(r['finish_s'] for r in rows) - phase['start']
+            for row in rows:
+                row['start_s'] -= phase['start']
+                row['finish_s'] -= phase['start']
+            request_writer.writerows(rows)
+            request_file.flush()
+            good = [r for r in rows if not r['error']]
+            assert good, f'No successful requests at concurrency {concurrency}'
+            summary = {'concurrency': concurrency, 'elapsed_s': elapsed,
+                       'requests': len(good), 'errors': len(rows)-len(good),
+                       'reconnects': sum(r['reconnects'] for r in good),
+                       'wire_bytes': sum(r['wire_bytes'] for r in good),
+                       'decoded_bytes': sum(r['decoded_bytes'] for r in good)}
+            summary['wire_MB_s'] = summary['wire_bytes'] / elapsed / 1e6
+            summary['decoded_MB_s'] = summary['decoded_bytes'] / elapsed / 1e6
+            summary['requests_s'] = len(good) / elapsed
+            for metric in ['ttfb_s', 'get_s', 'decode_s', 'load_s']:
+                values = [r[metric] for r in good]
+                for label, value in [('mean', statistics.mean(values)), ('p50', percentile(values, .5)), ('p95', percentile(values, .95))]:
+                    summary[metric.replace('_s', '_' + label + '_ms')] = value * 1000
+            summaries.append(summary)
+            (args.out / 'summary.json').write_text(json.dumps(summaries, indent=2) + '\n')
+            with (args.out / 'summary.csv').open('w', newline='') as file:
+                writer = csv.DictWriter(file, fieldnames=list(summary))
+                writer.writeheader()
+                writer.writerows(summaries)
+            print('RESULT ' + json.dumps(summary), flush=True)
+            if summary['errors']:
+                raise RuntimeError('GET/decode failures recorded in requests.csv')
+    (args.out / 'COMPLETE.json').write_text(json.dumps({'utc_end': datetime.datetime.now(datetime.timezone.utc).isoformat(), 'phases': len(summaries)}) + '\n')
+
+
+if __name__ == '__main__':
+    main()

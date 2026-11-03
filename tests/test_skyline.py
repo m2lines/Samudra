@@ -180,3 +180,24 @@ def test_validation_locations_match_between_objectives(ocean, tmp_path):
         ]
         locations.append([(r["origin"], r["row"], r["col"], r["depth"]) for r in rows])
     assert locations[0] == locations[1]
+
+
+def test_baseline_cache_scores_identical_targets(ocean, tmp_path):
+    baseline = tmp_path / "baseline"
+    baseline.mkdir()
+    (baseline / "manifest.json").write_text(json.dumps({"source": ocean.receipt()}))
+    np.save(baseline / "temperature-0004.npy", ocean.read(4)["target"])
+    config = {
+        "validation_dates": 1,
+        "validation_seed": 42,
+        "validation_points_per_depth": 1,
+        "microbatch": 2,
+        "crop": 3,
+        "baseline_cache": str(baseline),
+    }
+    model = PointTransformer(ModelConfig(width=16, layers=1, heads=2, bins=17))
+    vocab = Vocabulary(np.full(19, 100.0), 17)
+    result = evaluate(model, vocab, ocean, config, torch.device("cpu"), tmp_path, 1)
+    assert all(
+        m["samudra_rmse_c"] == 0 and m["samudra_nmse"] == 0 for m in result["per_depth"]
+    )

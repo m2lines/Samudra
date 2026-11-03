@@ -82,4 +82,18 @@ both bare and prefixed UUIDs (15 focused tests pass). Replacement jobs 21762617
 checkpoints with unchanged training budgets and utilization thresholds. Prior
 attempt receipts are retained under each run's `attempts/<old-job-id>/`.
 
+At the November 3 14:47 EST health check, classifier 21762617 had passed 2,590
+updates on RTX6000 with a measured time-weighted GPU utilization of 94.8%.
+Regression 21762622 resumed correctly on B200 and exceeded 70% before its first
+validation. That validation took 79.14 seconds and lowered its five-minute mean
+to 55.8%; the 60% guard saved step 2,000 and stopped the run after 14m18s.
+Classifier training continues. Source
+`3e7501961e2563c1889c1708e40fd634857920bf` batches prediction-record transfers
+to the CPU to remove per-sample scalar GPU synchronizations. All 15 tests pass,
+including physical-unit record/metric agreement. Regression replacement
+21769554 is queued to resume step 2,000 with the same validation samples,
+cadence, training budget, and utilization guard. Improved validation utilization
+still requires a live measurement. Previous telemetry and failure receipts are
+archived under `attempts/21762622/` in the regression output directory.
+
 Torch root: `/scratch/jr7309/temperature-skyline-20261102`.

@@ -102,10 +102,24 @@ class TrainingState:
             path,
         )
 
-    def restore(self, path, manifest):
+    def restore(self, path, manifest, *, fork=False):
         # Only load trusted, locally produced checkpoints (optimizer/RNG objects).
         saved = torch.load(path, map_location="cpu", weights_only=False)
-        if saved["manifest"] != manifest:
+        parent, current = saved["manifest"], manifest
+        if fork:
+            # Forks may only change the duration and snapshot schedule. Data,
+            # architecture, optimizer, sources, loss and code remain identical.
+            import copy
+
+            parent, current = copy.deepcopy(parent), copy.deepcopy(current)
+            for item in (parent, current):
+                for key in ("main_updates", "cooldown_updates", "milestone_updates"):
+                    item["config"].pop(key, None)
+            if saved["cooled"] or saved["updates"] > manifest["config"]["main_updates"]:
+                raise ValueError(
+                    "Fork requires an uncooled checkpoint before the new main endpoint"
+                )
+        if parent != current:
             raise ValueError("Checkpoint code/data/recipe manifest differs")
         if set(saved["pools"]) != set(self.pools):
             raise ValueError("Checkpoint source mixture differs")
@@ -114,6 +128,8 @@ class TrainingState:
         self.ema = EMATracker.from_state(saved["ema"], self.model)
         for key in ("updates", "cooled", "best_score", "exposure"):
             setattr(self, key, saved[key])
+        if fork:
+            self.best_score = float("inf")
         for name, pool in self.pools.items():
             pool.load_state_dict(saved["pools"][name])
         self.rng.bit_generator.state = saved["sampler_rng"]

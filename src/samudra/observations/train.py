@@ -17,6 +17,7 @@ from samudra.observations.config import MIXES, ObservationTrainConfig
 from samudra.observations.constants import FORECAST_STEPS
 from samudra.observations.model_data import ModelMonths
 from samudra.observations.samples import Samples
+from samudra.observations.shared_era5 import SharedEra5
 from samudra.observations.state import TrainingState, write_json
 from samudra.observations.training import Sources, annual_metrics, run_manifest, train
 from samudra.utils.distributed import set_seed
@@ -48,14 +49,7 @@ def run_training(cfg: ObservationTrainConfig) -> None:
             torch.distributed.destroy_process_group()
 
 
-def _run_training(cfg: ObservationTrainConfig, device: torch.device) -> None:
-    set_seed(cfg.experiment.rand_seed)
-    torch.use_deterministic_algorithms(True)
-    torch.backends.cudnn.benchmark = False
-    torch.backends.cudnn.deterministic = True
-    output = cfg.experiment.output_dir
-    nets = cfg.experiment.nets_dir
-
+def build_sources(cfg: ObservationTrainConfig, device: torch.device) -> Sources:
     def path(name: str) -> Path:
         return cfg.data.local_path(name, cfg.experiment)
 
@@ -70,9 +64,51 @@ def _run_training(cfg: ObservationTrainConfig, device: torch.device) -> None:
         models["om4"] = ModelMonths(
             path("om4") / "OM4.zarr", "om4", data.grid, path("om4")
         )
+        if cfg.model.forcing_mode == "shared_era5":
+            models["om4"].era5 = SharedEra5(
+                path("era5_cache"), models["om4"], data, cfg.data.era5_proof_sha256
+            )
     if "cm4" in MIXES[cfg.mix]:
         models["cm4"] = ModelMonths(path("cm4"), "cm4", data.grid, path("om4"))
-    sources = Sources(data, models)
+    return Sources(data, models)
+
+
+def init_tracking(cfg, manifest):
+    output = cfg.experiment.output_dir
+    tracker = WandBLogger.init_instance()
+    tracker.configure(
+        enabled=cfg.experiment.wandb.mode == "online", is_main_process=True
+    )
+    # DUPLICATED: setup_run assumes DataBundle and Trainer checkpoint keys.
+    # Keep run identity here while sharing the existing logger and WandBConfig.
+    id_path = output / "wandb-id.txt"
+    if not id_path.exists():
+        id_path.write_text(wandb.util.generate_id())
+    tracker.init(
+        **cfg.experiment.wandb.model_dump(),
+        id=id_path.read_text().strip(),
+        resume="allow",
+        name=cfg.experiment.name,
+        dir=output,
+        config={"config": cfg.model_dump(mode="json"), "provenance": manifest},
+    )
+    if cfg.experiment.wandb.mode == "online" and tracker.run is None:
+        raise RuntimeError(
+            "Online W&B initialization failed; inspect the preceding error"
+        )
+    return tracker
+
+
+def _run_training(cfg: ObservationTrainConfig, device: torch.device) -> None:
+    set_seed(cfg.experiment.rand_seed)
+    torch.use_deterministic_algorithms(True)
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = True
+    output = cfg.experiment.output_dir
+    nets = cfg.experiment.nets_dir
+
+    sources = build_sources(cfg, device)
+    data = sources.obs
     manifest = run_manifest(cfg, data, sources)
     manifest_path = output / "manifest.json"
     if manifest_path.exists() and json.loads(manifest_path.read_text()) != manifest:
@@ -103,32 +139,24 @@ def _run_training(cfg: ObservationTrainConfig, device: torch.device) -> None:
     )
     if cfg.resume_ckpt_path or checkpoint.exists():
         state.restore(checkpoint, manifest)
+    elif cfg.fork_ckpt_path:
+        state.restore(cfg.fork_ckpt_path, manifest, fork=True)
+        from samudra.observations.training import digest
+
+        write_json(
+            {
+                "parent": cfg.fork_ckpt_path,
+                "sha256": digest(cfg.fork_ckpt_path),
+                "updates": state.updates,
+            },
+            output / "lineage.json",
+        )
     cfg.save_yaml(output / "config.yaml")
     write_json(manifest, manifest_path)
     trajectory = data.trajectory(
         cfg.validation_origin, steps=FORECAST_STEPS, split="validation"
     )
-    tracker = WandBLogger.init_instance()
-    tracker.configure(
-        enabled=cfg.experiment.wandb.mode == "online", is_main_process=True
-    )
-    # DUPLICATED: setup_run assumes DataBundle and Trainer checkpoint keys.
-    # Keep run identity here while sharing the existing logger and WandBConfig.
-    id_path = output / "wandb-id.txt"
-    if not id_path.exists():
-        id_path.write_text(wandb.util.generate_id())
-    tracker.init(
-        **cfg.experiment.wandb.model_dump(),
-        id=id_path.read_text().strip(),
-        resume="allow",
-        name=cfg.experiment.name,
-        dir=output,
-        config={"config": cfg.model_dump(mode="json"), "provenance": manifest},
-    )
-    if cfg.experiment.wandb.mode == "online" and tracker.run is None:
-        raise RuntimeError(
-            "Online W&B initialization failed; inspect the preceding error"
-        )
+    tracker = init_tracking(cfg, manifest)
     stopped = False
 
     def request_stop(signum: int, frame: FrameType | None) -> None:

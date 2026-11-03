@@ -29,6 +29,8 @@ class ObservationDataConfig(BaseConfig):
     normalization: Location = UnresolvedLocation(path="obs/normalization")
     om4: Location | None = None
     cm4: Location | None = None
+    era5_cache: Location | None = None
+    era5_proof_sha256: str | None = None
 
     def local_path(self, name: str, experiment: ExperimentConfig) -> Path:
         location = getattr(self, name)
@@ -47,6 +49,14 @@ class ObservationReplayConfig(BaseConfig):
     max_age: int = Field(
         default=250, ge=0, description="Maximum age in optimizer updates"
     )
+
+
+class ObservationLossConfig(BaseConfig):
+    monthly_ts: float = Field(default=0.8, ge=0)
+    sst: float = Field(default=0.1, ge=0)
+    ssh: float = Field(default=0.1, ge=0)
+    reconstruction: float = Field(default=0.1, ge=0)
+    completion: float = Field(default=0.1, ge=0)
 
 
 class ObservationTrainConfig(TopLevelConfig):
@@ -77,9 +87,13 @@ class ObservationTrainConfig(TopLevelConfig):
     ema_decay: float = Field(default=0.5 ** (1 / 100), ge=0, lt=1)
     faster_decay_at_start: bool = False
     replay: ObservationReplayConfig = ObservationReplayConfig()
+    loss: ObservationLossConfig = ObservationLossConfig()
+    milestone_updates: list[int] = Field(default_factory=list)
+    measure_timing: bool = False
     backend: TrainBackendConfig = "auto"
     debug: bool = False
     resume_ckpt_path: str | None = None
+    fork_ckpt_path: str | None = None
     stop_after: int | None = Field(default=None, ge=0)
 
     @model_validator(mode="after")
@@ -88,6 +102,19 @@ class ObservationTrainConfig(TopLevelConfig):
             raise ValueError("fresh_examples exceeds gradient_accumulation_steps")
         if self.final_learning_rate > self.learning_rate:
             raise ValueError("final_learning_rate must not exceed learning_rate")
+        if self.resume_ckpt_path and self.fork_ckpt_path:
+            raise ValueError("Specify resume or an uncooled main checkpoint fork")
+        if any(i < 1 or i > self.main_updates for i in self.milestone_updates):
+            raise ValueError("Milestones must lie within the main trajectory")
+        if self.model.forcing_mode == "shared_era5":
+            if "cm4" in MIXES[self.mix]:
+                raise ValueError(
+                    "Historical ERA5 conditioning is defined only for obs/OM4"
+                )
+            if "om4" in MIXES[self.mix] and (
+                self.data.era5_cache is None or self.data.era5_proof_sha256 is None
+            ):
+                raise ValueError("Shared ERA5 OM4 requires a verified interval cache")
         for source in MIXES[self.mix]:
             if source != "obs" and getattr(self.data, source) is None:
                 raise ValueError(f"mix={self.mix} requires data.{source}")
@@ -123,7 +150,9 @@ class ObservationTrainConfig(TopLevelConfig):
                 "backend",
                 "debug",
                 "resume_ckpt_path",
+                "fork_ckpt_path",
                 "stop_after",
+                "measure_timing",
             },
         )
         values["seed"] = self.experiment.rand_seed

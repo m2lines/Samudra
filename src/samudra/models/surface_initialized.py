@@ -10,7 +10,8 @@ normalization is supplied by the data preparation step, never fitted here.
 
 import math
 from collections.abc import Sequence
-from typing import Self
+from contextlib import nullcontext
+from typing import Literal, Self
 
 import torch
 from pydantic import Field, model_validator
@@ -38,28 +39,58 @@ class SurfaceInitializedConfig(BaseConfig):
     """Surface initializer and evolution networks share a backbone definition."""
 
     backbone: UNetBackboneConfig = Field(default_factory=baseline_backbone)
+    initializer_backbone: UNetBackboneConfig | None = None
+    evolution_backbone: UNetBackboneConfig | None = None
+    forcing_mode: Literal["native", "shared_era5"] = "native"
+    output_kernel_size: Literal[1, 3] = 1
     activation_checkpointing: bool = True
 
     @model_validator(mode="after")
     def valid_backbone(self) -> Self:
-        cfg = self.backbone
-        if not cfg.ch_width or any(width <= 0 for width in cfg.ch_width):
-            raise ValueError("U-Net widths must be positive")
-        if not len(cfg.ch_width) == len(cfg.dilation) == len(cfg.n_layers):
-            raise ValueError("Backbone widths, dilations and layer counts must align")
-        if any(value <= 0 for value in (*cfg.dilation, *cfg.n_layers)):
-            raise ValueError("Backbone dilations and layer counts must be positive")
+        for cfg in (self.backbone, self.initializer_backbone, self.evolution_backbone):
+            if cfg is None:
+                continue
+            if not cfg.ch_width or any(width <= 0 for width in cfg.ch_width):
+                raise ValueError("U-Net widths must be positive")
+            if not len(cfg.ch_width) == len(cfg.dilation) == len(cfg.n_layers):
+                raise ValueError(
+                    "Backbone widths, dilations and layer counts must align"
+                )
+            if any(value <= 0 for value in (*cfg.dilation, *cfg.n_layers)):
+                raise ValueError("Backbone dilations and layer counts must be positive")
         return self
 
     def build(self, names: Sequence[str]) -> "SurfaceInitializedModel":
         return SurfaceInitializedModel(
             names,
             backbone=self.backbone,
+            initializer_backbone=self.initializer_backbone,
+            evolution_backbone=self.evolution_backbone,
+            forcing_mode=self.forcing_mode,
+            output_kernel_size=self.output_kernel_size,
             activation_checkpointing=self.activation_checkpointing,
         )
 
 
-def make_unet(inputs: int, outputs: int, config: UNetBackboneConfig) -> nn.Sequential:
+class PhysicalReadout(nn.Module):
+    """Samudra's zonal/meridional padding and float32 physical output head."""
+
+    def __init__(self, inputs: int, outputs: int, kernel_size: int):
+        super().__init__()
+        self.padding = kernel_size // 2
+        self.conv = nn.Conv2d(inputs, outputs, kernel_size)
+
+    def forward(self, values):
+        p = self.padding
+        values = F.pad(values, (p, p, 0, 0), mode="circular")
+        values = F.pad(values, (0, 0, p, p), mode="constant")
+        with torch.autocast(values.device.type, enabled=False):
+            return self.conv(values.float())
+
+
+def make_unet(
+    inputs: int, outputs: int, config: UNetBackboneConfig, kernel_size=1
+) -> nn.Sequential:
     """Build through shared configuration, with U-global's affine InstanceNorm."""
     backbone = config.build(inputs, pad="circular", checkpointing=None)
     # BlockConfig's InstanceNorm has no affine option. Keep this local adaptation
@@ -70,7 +101,12 @@ def make_unet(inputs: int, outputs: int, config: UNetBackboneConfig) -> nn.Seque
                 setattr(
                     module, name, nn.InstanceNorm2d(layer.num_features, affine=True)
                 )
-    return nn.Sequential(backbone, nn.Conv2d(config.ch_width[0], outputs, 1))
+    head = (
+        nn.Conv2d(config.ch_width[0], outputs, 1)
+        if kernel_size == 1
+        else PhysicalReadout(config.ch_width[0], outputs, kernel_size)
+    )
+    return nn.Sequential(backbone, head)
 
 
 def identity_adapters(channels):
@@ -127,12 +163,19 @@ def geometry_planes(context, mask):
 class HistoryInitializer(nn.Module):
     history = 19
 
-    def __init__(self, names: Sequence[str], backbone: UNetBackboneConfig):
+    def __init__(
+        self,
+        names: Sequence[str],
+        backbone: UNetBackboneConfig,
+        forcing_channels=3,
+        kernel_size=1,
+    ):
         super().__init__()
         self.channels = len(names)
         self.surface = [names.index("thetao_0"), names.index("zos")]
-        self.net = make_unet(self.history * 7 + 5, 2 * self.channels, backbone)
-        self.input_adapters = identity_adapters(self.history * 7 + 5)
+        inputs = self.history * (4 + forcing_channels) + 5
+        self.net = make_unet(inputs, 2 * self.channels, backbone, kernel_size)
+        self.input_adapters = identity_adapters(inputs)
 
     def forward(
         self, surface, past_forcing, context, mask, input_mask=None, task="observation"
@@ -169,12 +212,18 @@ class HistoryInitializer(nn.Module):
 class Evolution(nn.Module):
     input_adapters: nn.ModuleDict
 
-    def __init__(self, channels: int, backbone: UNetBackboneConfig):
+    def __init__(
+        self,
+        channels: int,
+        backbone: UNetBackboneConfig,
+        forcing_channels=3,
+        kernel_size=1,
+    ):
         super().__init__()
-        inputs = 2 * channels + 8
+        inputs = 2 * channels + 5 + forcing_channels
         self.geometry = nn.Conv2d(7, inputs, 1, bias=False)
         nn.init.zeros_(self.geometry.weight)
-        self.net = make_unet(inputs, channels, backbone)
+        self.net = make_unet(inputs, channels, backbone, kernel_size)
         # Input adapters attached after the ERA5 adapter to retain construction order.
 
     def forward(self, states, forcing, context, mask, lead, task="observation"):
@@ -187,6 +236,8 @@ class Evolution(nn.Module):
 class SurfaceInitializedModel(nn.Module):
     """U-global with configurable backbones; OM4 and CM4 share the ``om4`` adapter."""
 
+    adapter: nn.Module
+
     def __init__(
         self,
         names: Sequence[str],
@@ -194,6 +245,10 @@ class SurfaceInitializedModel(nn.Module):
         activation_checkpointing: bool = True,
         *,
         backbone: UNetBackboneConfig | None = None,
+        initializer_backbone: UNetBackboneConfig | None = None,
+        evolution_backbone: UNetBackboneConfig | None = None,
+        forcing_mode: Literal["native", "shared_era5"] = "native",
+        output_kernel_size: Literal[1, 3] = 1,
     ):
         super().__init__()
         self.names = tuple(names)
@@ -203,17 +258,45 @@ class SurfaceInitializedModel(nn.Module):
             backbone=backbone
             or baseline_backbone((128, 192, 256, 384) if widths is None else widths),
             activation_checkpointing=activation_checkpointing,
+            initializer_backbone=initializer_backbone,
+            evolution_backbone=evolution_backbone,
+            forcing_mode=forcing_mode,
+            output_kernel_size=output_kernel_size,
         )
-        self.initializer = HistoryInitializer(names, config.backbone)
-        self.evolution = Evolution(len(names), config.backbone)
-        self.adapter = nn.Sequential(
-            nn.Conv2d(8, 32, 1), nn.GELU(), nn.Conv2d(32, 3, 1)
+        self.forcing_mode = forcing_mode
+        forcing_channels = 8 if forcing_mode == "shared_era5" else 3
+        # Independently configured initializers must not change processor weights
+        # or subsequent data RNG streams when their width changes.
+        with (
+            torch.random.fork_rng(devices=[])
+            if initializer_backbone is not None
+            else nullcontext()
+        ):
+            self.initializer = HistoryInitializer(
+                names,
+                initializer_backbone or config.backbone,
+                forcing_channels,
+                output_kernel_size,
+            )
+        self.evolution = Evolution(
+            len(names),
+            evolution_backbone or config.backbone,
+            forcing_channels,
+            output_kernel_size,
         )
-        final = self.adapter[-1]
-        assert isinstance(final, nn.Conv2d) and final.bias is not None
-        nn.init.zeros_(final.weight)
-        nn.init.zeros_(final.bias)
-        self.evolution.input_adapters = identity_adapters(2 * len(names) + 8)
+        if forcing_mode == "shared_era5":
+            self.adapter = nn.Identity()
+        else:
+            self.adapter = nn.Sequential(
+                nn.Conv2d(8, 32, 1), nn.GELU(), nn.Conv2d(32, 3, 1)
+            )
+            final = self.adapter[-1]
+            assert isinstance(final, nn.Conv2d) and final.bias is not None
+            nn.init.zeros_(final.weight)
+            nn.init.zeros_(final.bias)
+        self.evolution.input_adapters = identity_adapters(
+            2 * len(names) + 5 + forcing_channels
+        )
         self.activation_checkpointing = activation_checkpointing
 
     def call(self, function, *args):
@@ -222,16 +305,24 @@ class SurfaceInitializedModel(nn.Module):
         return function(*args)
 
     def adapt(self, atmosphere):
+        if self.forcing_mode == "shared_era5":
+            return atmosphere
         b, t, _, h, w = atmosphere.shape
         return self.adapter(atmosphere.reshape(b * t, 8, h, w)).reshape(b, t, 3, h, w)
 
     def forcing(self, values, task):
         if task not in ("observation", "om4"):
             raise ValueError("Task must be observation or om4 (also used for CM4)")
-        expected = 8 if task == "observation" else 3
+        expected = (
+            8 if task == "observation" or self.forcing_mode == "shared_era5" else 3
+        )
         if values.ndim != 5 or values.shape[2] != expected:
             raise ValueError(f"{task} forcing requires {expected} channels")
-        return self.adapt(values) if task == "observation" else values
+        return (
+            self.adapt(values)
+            if task == "observation" and self.forcing_mode == "native"
+            else values
+        )
 
     def initialize(
         self, surface, atmosphere, context, mask, validity, task="observation"

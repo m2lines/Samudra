@@ -47,6 +47,7 @@ class ModelMonths:
     """
 
     def __init__(self, path, kind, reference, om4_statistics):
+        self.era5 = None
         if kind not in ("om4", "cm4"):
             raise ValueError(kind)
         self.kind = kind
@@ -256,15 +257,20 @@ class ModelMonths:
             / self.grid["std"][:, None, None],
             0,
         ).astype(np.float32)
-        forcing = np.stack([z[n][interval] for n in ("tauuo", "tauvo", "hfds")], axis=1)
-        if not np.isfinite(forcing[:, :, self.mask[38]]).all():
-            raise ValueError("Nonfinite own-model forcing on wet support")
-        forcing = np.where(
-            self.mask[38],
-            (forcing - self.forcing_mean[:, None, None])
-            / self.forcing_std[:, None, None],
-            0,
-        ).astype(np.float32)
+        if self.era5 is not None:
+            forcing = self.era5.load(start - 19, stop)
+        else:
+            forcing = np.stack(
+                [z[n][interval] for n in ("tauuo", "tauvo", "hfds")], axis=1
+            )
+            if not np.isfinite(forcing[:, :, self.mask[38]]).all():
+                raise ValueError("Nonfinite own-model forcing on wet support")
+            forcing = np.where(
+                self.mask[38],
+                (forcing - self.forcing_mean[:, None, None])
+                / self.forcing_std[:, None, None],
+                0,
+            ).astype(np.float32)
 
         def tensor(value):
             return torch.as_tensor(value, device=device)

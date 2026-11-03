@@ -85,7 +85,16 @@ class TinySources:
 
 
 def tiny_objective(
-    model, data, source, sample, auxiliary, seed, *, cached=None, coverage=None
+    model,
+    data,
+    source,
+    sample,
+    auxiliary,
+    seed,
+    *,
+    cached=None,
+    coverage=None,
+    weights=None,
 ):
     marker = 1000 * (TinySources.names.index(source) + 1)
     if cached is not None:
@@ -433,3 +442,60 @@ def test_configured_accumulation_controls_real_training_exposure(
     assert len(updates) == 3
     assert all(r["train/obs/fresh"] == fresh for r in updates)
     assert all(r["train/obs/replay"] == accumulation - fresh for r in updates)
+
+
+def test_no_replay_has_eight_fresh_examples_and_empty_pools(monkeypatch, tmp_path):
+    cfg = small_recipe(monkeypatch, fresh_examples=8)
+    state = make_state(cfg)
+    baseline.train(
+        cfg,
+        state,
+        cast(baseline.Sources, TinySources()),
+        tmp_path,
+        {"mix": cfg.mix},
+        validate,
+        lambda _: None,
+        stop_after=2,
+    )
+    assert sum(x["fresh"] for x in state.exposure.values()) == 16
+    assert all(x["replay"] == 0 for x in state.exposure.values())
+    assert all(not pool.entries for pool in state.pools.values())
+
+
+def test_fork_only_changes_budget_and_does_not_mutate_parent(monkeypatch, tmp_path):
+    cfg = small_recipe(monkeypatch)
+    state = make_state(cfg)
+    manifest = {"config": cfg.scientific_config()}
+    baseline.train(
+        cfg,
+        state,
+        cast(baseline.Sources, TinySources()),
+        tmp_path,
+        manifest,
+        validate,
+        lambda _: None,
+        stop_after=4,
+    )
+    parent_path = tmp_path / "main.pt"
+    parent_bytes = parent_path.read_bytes()
+    continued = cfg.model_copy(
+        update={"main_updates": 16, "milestone_updates": [8, 12, 16]}
+    )
+    child = make_state(continued)
+    child.restore(parent_path, {"config": continued.scientific_config()}, fork=True)
+    assert child.updates == 4 and not child.cooled
+    torch.testing.assert_close(child.model.weight, state.model.weight, rtol=0, atol=0)
+    assert child.ema == state.ema
+    child.model.weight.data.add_(1)
+    assert parent_path.read_bytes() == parent_bytes
+    with pytest.raises(ValueError, match="manifest differs"):
+        child.restore(parent_path, {"config": continued.scientific_config()})
+    changed = continued.model_copy(update={"learning_rate": 0.002})
+    with pytest.raises(ValueError, match="manifest differs"):
+        child.restore(parent_path, {"config": changed.scientific_config()}, fork=True)
+    state.cooled = True
+    state.save(tmp_path / "cooled.pt", manifest)
+    with pytest.raises(ValueError, match="uncooled"):
+        child.restore(
+            tmp_path / "cooled.pt", {"config": continued.scientific_config()}, fork=True
+        )

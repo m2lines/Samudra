@@ -105,17 +105,21 @@ They measure long-term bias and differ from the single-call and 60-day metrics a
 mixes a dimensional derived heat-content field into its average; it is excluded from these comparisons.</p>
 <p>W&amp;B: <a href="https://wandb.ai/ocean_emulators/default/runs/6c1ca015">original evaluation</a>,
 <a href="https://wandb.ai/ocean_emulators/default/runs/c9d3cf89">edited evaluation</a>, and
-<a href="https://wandb.ai/ocean_emulators/default/runs/1504d256">comparison visualization</a>.
-The first visualization attempts stopped at a GUI-dependent plotting import. A native Matplotlib depth-scale replacement passes a GUI-blocked smoke check and 31 visualization tests; retries are being prepared. Several native spatial stages select only the first model, so a separate
-<a href="https://wandb.ai/ocean_emulators/default/runs/4916b71e">edited-model map run</a> supplies the corresponding edited temperature profiles, SST maps, and salinity maps. Its heat/salt integrals use the native spherical-area fallback because the legacy dataset lacks
+<a href="https://wandb.ai/ocean_emulators/default/runs/876d9188">comparison visualization</a>.
+The 18-stage comparison is running; the separate edited-map run completed all five stages and uploaded 11 figures. A native Matplotlib depth-scale replacement fixes a GUI-dependent import in the HPC container; it passes a GUI-blocked smoke check and 31 visualization tests. Several native spatial stages select only the first model, so a separate
+<a href="https://wandb.ai/ocean_emulators/default/runs/c8da339d">edited-model map run</a> supplies the corresponding edited temperature profiles, SST maps, and salinity maps. Its heat/salt integrals use the native spherical-area fallback because the legacy dataset lacks
 <code>areacello</code>; those diagnostics are not conservation proofs.</p>
 <p>The Torch setup is in <code>torch_eval.yaml</code>, <code>torch_viz.yaml</code>, and <code>torch_job.sbatch</code>, grouped as
 <code>onedeg-weight-edit-20261103</code>. Online W&amp;B is required; the viz wrapper logs progress, figures, and an artifact.
 The older half-degree staging copy was removed with authorization after confirming the public replacement is available.
 The original one-degree evaluation data is preserved, and all 77 normalization means and standard deviations match the local experiment exactly.
 Both checkpoint hashes verified after transfer. Slurm jobs are 21760092 (preparation), 21761165 (original), 21761167 (edited),
-21761837 (comparison viz), and 21762686 (edited-model maps). Current run identifiers, immutable code/container references, and cancelled submissions are recorded in
+21763658 (comparison viz), and 21763659 (edited-model maps). Current run identifiers, immutable code/container references, and cancelled submissions are recorded in
 <a href="torch_runs.json">torch_runs.json</a>.</p>
+<p>The native heat-content diagnostic shows upper-ocean warming in OM4, near-flat behavior in the original model,
+and cooling in the edited model. <a href="torch_depthwise_heat_trends.csv">Depthwise trend values</a> are fitted to deseasonalized heat content
+in ZJ per five-day sample: upper (0–700 m), middle (700–2,000 m), and deep (2,000–6,000 m).
+These use the approximate areas noted above and do not establish closed heat budgets.</p>
 <h2>Next decision</h2>
 <p>Keep the edited checkpoint as a failed long-horizon candidate. First run matched long rollouts of the reservation-only edit,
 the original model with an external persistence blend, and a deep-state persistence control. Those controls distinguish damage from

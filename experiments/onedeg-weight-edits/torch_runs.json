@@ -1,5 +1,5 @@
 {
-  "status": "both H200 evaluations completed; visualization retries being prepared after headless plotting dependency failure",
+  "status": "H200 evaluations and edited-model maps completed; comparison visualization running",
   "cluster": "torch",
   "bundle": "/scratch/am16581/weight-edit-eval-20261103",
   "code_ref": "e5c6b87e",
@@ -16,7 +16,11 @@
     "checkpoint_hashes_verified": true,
     "normalization_means_max_abs_difference": 0.0,
     "normalization_stds_max_abs_difference": 0.0,
-    "wandb_authentication_verified": true
+    "wandb_authentication_verified": true,
+    "public_release_vs_original_cache_max_coordinate_difference": {
+      "latitude": 0.0,
+      "longitude": 0.0
+    }
   },
   "jobs": {
     "prepare": {
@@ -57,22 +61,39 @@
       "checkpoint_sha256": "fa17fb91111aeb5fdacbbf4f014ba1c81c965efe5d20144203ba807a8d7703d9"
     },
     "viz": {
-      "slurm_id": 21761837,
-      "wandb_id": "1504d256",
-      "state": "failed",
-      "wandb_url": "https://wandb.ai/ocean_emulators/default/runs/1504d256",
-      "output": "/scratch/am16581/runs/2026-11-03-onedeg-weight-edit-comparison-viz",
-      "failure": "xarrayutils.plotting imports tkinter, unavailable in HPC container"
+      "wandb_id": "876d9188",
+      "bundle": "/scratch/am16581/weight-edit-comparison-viz-v2-20261103",
+      "output": "/scratch/am16581/runs/2026-11-03-onedeg-weight-edit-comparison-viz-v2",
+      "slurm_id": 21763658,
+      "state": "running",
+      "wandb_url": "https://wandb.ai/ocean_emulators/default/runs/876d9188",
+      "code_ref": "5724a6edb12929aba48ed8a8efe15887d817dcf2",
+      "resources": {
+        "account": "torch_pr_347_courant",
+        "partition": "cpu_short",
+        "cpus": 12,
+        "memory": "72G"
+      }
     },
     "edited_maps": {
-      "slurm_id": 21762686,
-      "wandb_id": "4916b71e",
-      "wandb_url": "https://wandb.ai/ocean_emulators/default/runs/4916b71e",
-      "state": "failed",
-      "output": "/scratch/am16581/runs/2026-11-03-onedeg-weight-edit-edited-maps",
-      "bundle": "/scratch/am16581/weight-edit-edited-maps-20261103",
-      "reason": "Native spatial map stages select the first model; separate run supplies edited-model maps.",
-      "failure": "xarrayutils.plotting imports tkinter, unavailable in HPC container"
+      "wandb_id": "c8da339d",
+      "bundle": "/scratch/am16581/weight-edit-edited-maps-v2-20261103",
+      "output": "/scratch/am16581/runs/2026-11-03-onedeg-weight-edit-edited-maps-v2",
+      "slurm_id": 21763659,
+      "state": "completed",
+      "wandb_url": "https://wandb.ai/ocean_emulators/default/runs/c8da339d",
+      "code_ref": "5724a6edb12929aba48ed8a8efe15887d817dcf2",
+      "resources": {
+        "account": "torch_pr_347_courant",
+        "partition": "cpu_short",
+        "cpus": 8,
+        "memory": "48G"
+      },
+      "exit_code": 0,
+      "elapsed": "00:03:57",
+      "stages_completed": 5,
+      "figure_count": 11,
+      "artifact_files": 14
     }
   },
   "cancelled_before_start": {
@@ -91,6 +112,14 @@
     "viz_large_cpu": {
       "slurm_id": 21761168,
       "reason": "replaced by smaller CPU resource request before starting"
+    },
+    "viz_v2_cs": {
+      "slurm_id": 21763432,
+      "reason": "moved to short CPU partition due to estimated hour wait"
+    },
+    "edited_maps_v2_cs": {
+      "slurm_id": 21763433,
+      "reason": "moved to short CPU partition due to estimated hour wait"
     }
   },
   "eval_resources": {
@@ -100,10 +129,24 @@
     "cpus_per_eval": 16,
     "memory_per_eval": "175G"
   },
-  "viz_resources": {
-    "account": "torch_pr_347_courant",
-    "partition": "cs",
-    "cpus": 16,
-    "memory": "112G"
+  "failed_visualization_attempts": {
+    "viz": {
+      "slurm_id": 21761837,
+      "wandb_id": "1504d256",
+      "state": "failed",
+      "wandb_url": "https://wandb.ai/ocean_emulators/default/runs/1504d256",
+      "output": "/scratch/am16581/runs/2026-11-03-onedeg-weight-edit-comparison-viz",
+      "failure": "xarrayutils.plotting imports tkinter, unavailable in HPC container"
+    },
+    "edited_maps": {
+      "slurm_id": 21762686,
+      "wandb_id": "4916b71e",
+      "wandb_url": "https://wandb.ai/ocean_emulators/default/runs/4916b71e",
+      "state": "failed",
+      "output": "/scratch/am16581/runs/2026-11-03-onedeg-weight-edit-edited-maps",
+      "bundle": "/scratch/am16581/weight-edit-edited-maps-20261103",
+      "reason": "Native spatial map stages select the first model; separate run supplies edited-model maps.",
+      "failure": "xarrayutils.plotting imports tkinter, unavailable in HPC container"
+    }
   }
 }

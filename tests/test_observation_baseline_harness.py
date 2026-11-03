@@ -499,3 +499,70 @@ def test_fork_only_changes_budget_and_does_not_mutate_parent(monkeypatch, tmp_pa
         child.restore(
             tmp_path / "cooled.pt", {"config": continued.scientific_config()}, fork=True
         )
+
+
+def test_uncooled_fork_continuation_matches_uninterrupted_main(monkeypatch, tmp_path):
+    short = small_recipe(monkeypatch)
+    long = short.model_copy(
+        update={"main_updates": 16, "milestone_updates": [8, 12, 16]}
+    )
+    left, right = tmp_path / "short", tmp_path / "long"
+    left.mkdir()
+    right.mkdir()
+    parent = make_state(short)
+    baseline.train(
+        short,
+        parent,
+        cast(baseline.Sources, TinySources()),
+        left,
+        {"config": short.scientific_config()},
+        validate,
+        lambda _: None,
+        stop_after=4,
+    )
+    child = make_state(long)
+    identity = {"config": long.scientific_config()}
+    child.restore(left / "main.pt", identity, fork=True)
+    baseline.train(
+        long,
+        child,
+        cast(baseline.Sources, TinySources()),
+        left,
+        identity,
+        validate,
+        lambda _: None,
+        stop_after=5,
+    )
+    uninterrupted = make_state(long)
+    baseline.train(
+        long,
+        uninterrupted,
+        cast(baseline.Sources, TinySources()),
+        right,
+        identity,
+        validate,
+        lambda _: None,
+        stop_after=5,
+    )
+    torch.testing.assert_close(
+        child.model.weight, uninterrupted.model.weight, rtol=0, atol=0
+    )
+    assert child.ema == uninterrupted.ema
+    assert child.exposure == uninterrupted.exposure
+    assert child.rng.bit_generator.state == uninterrupted.rng.bit_generator.state
+    for key, value in child.optimizer.state[child.model.weight].items():
+        torch.testing.assert_close(
+            value,
+            uninterrupted.optimizer.state[uninterrupted.model.weight][key],
+            rtol=0,
+            atol=0,
+        )
+    for name in child.pools:
+        for _ in range(10):
+            a, b = child.pools[name].draw(5), uninterrupted.pools[name].draw(5)
+            assert (a.origin, a.month, a.origin_update) == (
+                b.origin,
+                b.month,
+                b.origin_update,
+            )
+            torch.testing.assert_close(a.states, b.states, rtol=0, atol=0)

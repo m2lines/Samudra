@@ -96,4 +96,14 @@ cadence, training budget, and utilization guard. Improved validation utilization
 still requires a live measurement. Previous telemetry and failure receipts are
 archived under `attempts/21762622/` in the regression output directory.
 
+The user subsequently removed automatic utilization termination, accepting
+brief validation dips. Source `775d5111cfa450cf3814f6906f7eff0453ffdaab` retains
+telemetry without enforcing a minimum percentage. All 17 focused tests pass,
+including full low-utilization windows that continue without a stop. To apply
+the pinned source update, classifier 21762617 was canceled just after saving
+step 3,000; queued regression 21769554 was canceled before starting. Replacement
+jobs 21770500 (classifier, step 3,000) and 21770502 (regression, step 2,000) are
+queued with unchanged total training budgets. Telemetry query errors still
+fail explicitly; low utilization itself no longer terminates either run.
+
 Torch root: `/scratch/jr7309/temperature-skyline-20261102`.

@@ -1,0 +1,31 @@
+{
+  "source": "https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/v2026-09/om4_quarterdeg",
+  "support": "/scratch/jr7309/temperature-skyline-20261102/audit/pilot-support.json",
+  "readers": 16,
+  "torch_threads": 4,
+  "seed": 41,
+  "validation_seed": 20261102,
+  "crop": 33,
+  "microbatch": 1,
+  "accumulation": 4,
+  "samples_per_frame": 16,
+  "steps": 8,
+  "warmup": 2,
+  "learning_rate": 0.0001,
+  "weight_decay": 0.1,
+  "validate_every": 8,
+  "save_every": 4,
+  "validation_dates": 2,
+  "validation_points_per_depth": 2,
+  "qualification": true,
+  "resume": false,
+  "wandb": true,
+  "model": {
+    "width": 2048,
+    "layers": 32,
+    "heads": 16,
+    "bins": 2048,
+    "objective": "absolute_ce",
+    "checkpoint_blocks": true
+  }
+}

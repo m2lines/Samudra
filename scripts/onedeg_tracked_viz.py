@@ -50,7 +50,10 @@ def main():
                 }
             )
             for path in sorted(cfg.output_path.rglob("*.png")):
-                relative = path.relative_to(cfg.output_path).as_posix()
+                relative_path = path.relative_to(cfg.output_path)
+                if "wandb" in relative_path.parts:
+                    continue
+                relative = relative_path.as_posix()
                 if relative not in logged_images:
                     run.log({f"figures/{relative}": wandb.Image(str(path))})
                     logged_images.add(relative)

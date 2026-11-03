@@ -57,4 +57,18 @@ Execution receipts:
 
 [Qualification run in W&B](https://wandb.ai/ocean_emulators/temperature-skyline/runs/ce73e0a348ff).
 
+Initial smaller training pair submitted November 3, source
+`e176caa58027a3a1e1f5bffb8e868b40fa86f348`:
+
+- Job 21760465: absolute-temperature classifier, 210,067,456 parameters.
+- Job 21760475: scalar regression control, 207,969,281 parameters.
+
+Each run uses one preemptible GPU, 20,000 updates, batch 32, and matched data and
+validation sampling. Both were queued at submission. Checkpoints occur every
+500 updates; validation every 2,000. The assigned GPU is sampled every five
+seconds, including I/O and validation. After startup and a five-minute window,
+a mean utilization below 60% triggers checkpoint-and-stop for diagnosis.
+Actual utilization and model skill are not yet established. Configurations are
+`src/samudra/configs/temperature_skyline/small_{absolute,regression}.json`.
+
 Torch root: `/scratch/jr7309/temperature-skyline-20261102`.

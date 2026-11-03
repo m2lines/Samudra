@@ -83,6 +83,32 @@ def test_gpu_monitor_targets_assigned_uuid_and_fails_closed(
     assert "telemetry unavailable" in monitor.reason
 
 
+@pytest.mark.parametrize("utilization", [0, 55])
+def test_low_utilization_is_logged_without_stopping(tmp_path, monkeypatch, utilization):
+    from types import SimpleNamespace
+
+    monitor = GpuMonitor(
+        tmp_path, "GPU-test", 0, {"warmup_seconds": 0, "window_seconds": 10}
+    )
+    monitor.window.add(0, utilization)
+    monitor.window.add(5, utilization)
+    clock = iter([100, 110])
+    monkeypatch.setattr(
+        "samudra.skyline.utilization.time.monotonic", lambda: next(clock)
+    )
+
+    def query(*args, **kwargs):
+        monitor.stop.set()
+        return SimpleNamespace(stdout=f"{utilization}, 12000, 350\n")
+
+    monkeypatch.setattr("samudra.skyline.utilization.subprocess.run", query)
+    monitor.run()
+    record = json.loads(monitor.path.read_text())
+    assert record["rolling_utilization_percent"] == utilization
+    assert record["stop_reason"] is None
+    assert monitor.reason is None
+
+
 @pytest.fixture
 def ocean(tmp_path):
     dates = [

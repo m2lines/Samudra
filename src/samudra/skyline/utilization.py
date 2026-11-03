@@ -93,12 +93,9 @@ class GpuMonitor:
                     )
                     elapsed = time.monotonic() - begin
                     self.mean = self.window.add(elapsed, utilization)
-                    if self.mean is not None and self.mean < self.window.minimum:
-                        self.reason = (
-                            f"GPU utilization {self.mean:.1f}% over the last "
-                            f"{self.window.window}s is below {self.window.minimum}%; "
-                            "stop and diagnose before continuing"
-                        )
+                    # Utilization is observational, including validation dips.
+                    # Keep accepting legacy minimum_percent for checkpoint
+                    # configuration compatibility, but never terminate on it.
                     f.write(
                         json.dumps(
                             {

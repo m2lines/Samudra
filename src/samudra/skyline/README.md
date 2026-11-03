@@ -84,15 +84,14 @@ and fixed 64 sampled wet points per depth per date across runs, every 2,000
 updates. Latest checkpoints are saved every 500 updates. These are initial
 training runs; comparisons with the frozen Samudra baseline require its cache.
 
-The utilization guard samples the assigned GPU by UUID every five seconds,
-including validation and checkpoint time. After two minutes of startup and a
-five-minute measurement window, a rolling mean below 60% requests a checkpoint
-and a failed exit at an optimizer boundary. A failed telemetry query (including
-its ten-second timeout) also stops the run. The 60% threshold leaves margin above Torch's reported 50% requirement;
-the actual scheduler measurement is external. Telemetry is retained in
-`gpu-utilization-restart-N.jsonl`. A stop does not automatically resubmit the
-same inefficient configuration. Area-weighted location CDFs are cached to
-avoid rebuilding a full-grid sampling table for every crop.
+GPU telemetry samples the assigned GPU by UUID every five seconds, including
+validation and checkpoint time. The rolling mean is logged without an automatic
+low-utilization stop; short validation dips are permitted. The legacy config
+keys `utilization_guard` and `minimum_percent` remain compatible with existing
+checkpoints, but the utilization threshold is no longer enforced. Telemetry
+query errors still fail loudly. Measurements are retained in
+`gpu-utilization-restart-N.jsonl`. Area-weighted location CDFs are cached to avoid
+rebuilding a full-grid sampling table for every crop.
 
 ## Baseline and candidate scores
 

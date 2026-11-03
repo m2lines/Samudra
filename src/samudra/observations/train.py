@@ -73,7 +73,7 @@ def build_sources(cfg: ObservationTrainConfig, device: torch.device) -> Sources:
     return Sources(data, models)
 
 
-def init_tracking(cfg, manifest):
+def init_tracking(cfg: ObservationTrainConfig, manifest: dict) -> WandBLogger:
     output = cfg.experiment.output_dir
     tracker = WandBLogger.init_instance()
     tracker.configure(

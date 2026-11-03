@@ -273,7 +273,7 @@ def qualify_chains(state, sources, cfg):
     return records
 
 
-def run(cfg):
+def run(cfg: QualificationConfig) -> None:
     require_single_process()
     if cfg.main_updates != 4 or cfg.cooldown_updates != 2:
         raise ValueError(
@@ -288,6 +288,14 @@ def run(cfg):
     torch.backends.cudnn.deterministic = True
     if not torch.cuda.is_available() or not torch.cuda.is_bf16_supported():
         raise ValueError("Qualification requires a BF16-capable CUDA GPU")
+    emit(
+        {
+            "event": "qualification_started",
+            "gpu": torch.cuda.get_device_name(),
+            "torch": str(torch.__version__),
+            "slurm_job_id": os.environ.get("SLURM_JOB_ID"),
+        }
+    )
     output = cfg.experiment.output_dir
     output.mkdir(parents=True, exist_ok=True)
     if (output / "QUALIFIED.json").exists():
@@ -344,12 +352,14 @@ def run(cfg):
             replay_max_age=cfg.replay.max_age,
         )
     tracker = init_tracking(cfg, manifest)
-    records = []
-    metrics = {}
+    records: list[dict[str, float | int]] = []
+    metrics: dict[str, float] = {}
 
-    def record(value):
+    def record(value: dict[str, float | int]) -> None:
         records.append(value)
-        tracker.log(value)
+        # Resume qualification intentionally repeats one optimizer update.
+        # Use event order for W&B; the payload retains the optimizer update.
+        tracker.log(value, step=len(records))
         with (output / "qualification.jsonl").open("a") as stream:
             stream.write(json.dumps(value, allow_nan=False) + "\n")
         emit(value)

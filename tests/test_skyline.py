@@ -54,13 +54,17 @@ def test_utilization_guard_includes_idle_intervals_and_warmup():
         window.add(60, float("nan"))
 
 
-def test_gpu_monitor_targets_assigned_uuid_and_fails_closed(tmp_path, monkeypatch):
+@pytest.mark.parametrize("prefix", ["", "GPU-"])
+def test_gpu_monitor_targets_assigned_uuid_and_fails_closed(
+    tmp_path, monkeypatch, prefix
+):
     from types import SimpleNamespace
 
-    monitor = GpuMonitor(tmp_path, "GPU-assigned", 0, {})
+    assigned = "bef7083f-59fb-c045-0bf1-89e763150c98"
+    monitor = GpuMonitor(tmp_path, prefix + assigned, 0, {})
 
     def query(args, **kwargs):
-        assert args[1:3] == ["-i", "GPU-assigned"]
+        assert args[1:3] == ["-i", "GPU-" + assigned]
         monitor.stop.set()
         return SimpleNamespace(stdout="91, 12000, 350\n")
 

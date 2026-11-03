@@ -45,7 +45,10 @@ class GpuMonitor:
             raise ValueError("GPU sampling interval must be between 1 and 10 seconds")
         self.window = UtilizationWindow(**config)
         self.path = output / f"gpu-utilization-restart-{restart_count}.jsonl"
+        # CUDA/PyTorch can return the bare UUID; nvidia-smi requires GPU-.
         self.uuid = str(uuid)
+        if not self.uuid.startswith("GPU-"):
+            self.uuid = f"GPU-{self.uuid}"
         self.stop = threading.Event()
         self.reason: str | None = None
         self.mean: float | None = None

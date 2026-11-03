@@ -1,0 +1,38 @@
+{
+  "status": "submitted; awaiting container preparation",
+  "cluster": "torch",
+  "bundle": "/scratch/am16581/weight-edit-eval-20261103",
+  "code_ref": "e5c6b87e",
+  "bundle_ref": "9beb6f38",
+  "container_ref": "4f86be45",
+  "wandb_group": "onedeg-weight-edit-20261103",
+  "cleanup": {
+    "removed": "/scratch/am16581/data/om4_halfdeg_v4",
+    "public_replacement": "s3://m2lines-pubs/Samudra/v2026-09/om4_halfdeg/",
+    "preserved_eval_data": "/scratch/am16581/data/om4_onedeg_v3"
+  },
+  "checks": {
+    "checkpoint_hashes_verified": true,
+    "normalization_means_max_abs_difference": 0.0,
+    "normalization_stds_max_abs_difference": 0.0,
+    "wandb_authentication_verified": true
+  },
+  "jobs": {
+    "prepare": {
+      "slurm_id": 21760092,
+      "wandb_id": null
+    },
+    "original": {
+      "slurm_id": 21760554,
+      "wandb_id": "d7f75538"
+    },
+    "edited": {
+      "slurm_id": 21760555,
+      "wandb_id": "a998ed5f"
+    },
+    "viz": {
+      "slurm_id": 21760556,
+      "wandb_id": "59bf7335"
+    }
+  }
+}

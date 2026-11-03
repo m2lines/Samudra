@@ -287,6 +287,21 @@ def save_atomic(value, path):
     os.replace(temporary, path)
 
 
+def resume_checkpoint(config, latest, restart_count):
+    """Only explicit resume or a scheduler restart may reuse an output directory."""
+    automatic = config.get("preemptible", False) and restart_count > 0
+    if latest.exists():
+        if not (config["resume"] or automatic):
+            raise FileExistsError(
+                f"Checkpoint exists; explicit resume required: {latest}"
+            )
+        return True
+    if config["resume"]:
+        raise FileNotFoundError("Resume requested without latest.pt")
+    # Eviction before the first atomic checkpoint restarts from the original seed.
+    return False
+
+
 def train(config, source, output):
     output.mkdir(parents=True, exist_ok=True)
     if config["steps"] < 1 or config["accumulation"] < 1 or config["microbatch"] < 1:
@@ -334,11 +349,8 @@ def train(config, source, output):
     )
     start_step, best_nll, best_nmse, stream_state = 0, math.inf, math.inf, None
     latest = output / "latest.pt"
-    if latest.exists():
-        if not config["resume"]:
-            raise FileExistsError(
-                f"Checkpoint exists; explicit resume required: {latest}"
-            )
+    restart_count = int(os.environ.get("SLURM_RESTART_COUNT", "0"))
+    if resume_checkpoint(config, latest, restart_count):
         state = torch.load(latest, map_location="cpu", weights_only=False)
         # Budgets are fixed: extending a schedule is a new explicit experiment.
         saved_config = dict(state["config"])
@@ -359,8 +371,6 @@ def train(config, source, output):
         torch.cuda.set_rng_state_all(state["cuda_rng"])
         stream_state = state["stream"]
         del state
-    elif config["resume"]:
-        raise FileNotFoundError("Resume requested without latest.pt")
     provenance = {
         "config": config,
         "model": asdict(model_config),
@@ -371,6 +381,8 @@ def train(config, source, output):
         "torch": torch.__version__,
         "gpu": torch.cuda.get_device_name(),
         "slurm_job": os.environ.get("SLURM_JOB_ID"),
+        "slurm_restart_count": restart_count,
+        "resumed_step": start_step,
         "source_commit": os.environ.get("SKYLINE_COMMIT"),
         "source_archive_sha256": os.environ.get("SKYLINE_ARCHIVE_SHA256"),
     }
@@ -385,7 +397,9 @@ def train(config, source, output):
             name=output.name,
             config=provenance,
             id=hashlib.sha256(str(output).encode()).hexdigest()[:12],
-            resume="allow" if config["resume"] else "never",
+            resume="allow"
+            if config["resume"] or config.get("preemptible", False)
+            else "never",
         )
     emit(
         {

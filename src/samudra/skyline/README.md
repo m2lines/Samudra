@@ -65,6 +65,14 @@ checkpoint and the best error/likelihood weights are separate. Full validation
 uses all valid origins when `validation_dates` is zero. Persisted predictions
 allow paired comparisons; regression and classification use identical locations.
 
+Preemptible runs set `preemptible: true` and resume automatically when Slurm's
+restart count is positive. An eviction before the first checkpoint restarts from
+the original seed. The batch warning requests requeue; each restart restores the
+last atomic checkpoint, including optimizer, RNG, and data sampling state.
+Interrupted work since that checkpoint is repeated. Use `save_every: 1` for the
+eight-update qualification. Torch routing uses the preemption Slurm comment,
+`--requeue --signal=B:USR1@300`, and `REQUEUE_ON_USR1=1`.
+
 ## Baseline and candidate scores
 
 `python -m samudra.skyline.baseline --config CONFIG --baseline-config TRAIN_YAML

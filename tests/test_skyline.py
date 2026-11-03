@@ -14,7 +14,26 @@ import xarray as xr
 from samudra.skyline.data import CHANNELS, OceanSource, audit_support
 from samudra.skyline.model import ModelConfig, PointTransformer, Vocabulary
 from samudra.skyline.precision import audit_precision
-from samudra.skyline.run import FrameStream, evaluate
+from samudra.skyline.run import FrameStream, evaluate, resume_checkpoint
+
+
+def test_preemption_resume_policy(tmp_path):
+    latest = tmp_path / "latest.pt"
+    config = {"resume": False, "preemptible": True}
+    assert not resume_checkpoint(config, latest, 0)
+    assert not resume_checkpoint(config, latest, 1)
+    latest.write_bytes(b"checkpoint")
+    assert resume_checkpoint(config, latest, 1)
+    with pytest.raises(FileExistsError):
+        resume_checkpoint(config, latest, 0)
+    with pytest.raises(FileExistsError):
+        resume_checkpoint(dict(config, preemptible=False), latest, 1)
+    assert resume_checkpoint(dict(config, resume=True), latest, 0)
+    latest.unlink()
+    with pytest.raises(FileNotFoundError):
+        resume_checkpoint(dict(config, resume=True), latest, 1)
+
+
 from samudra.skyline.score import score_values
 
 

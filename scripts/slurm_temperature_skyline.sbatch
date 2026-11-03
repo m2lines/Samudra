@@ -7,6 +7,19 @@
 set -euo pipefail
 : "${SKYLINE_ROOT:?}" "${SKYLINE_COMMIT:?}" "${SKYLINE_ARCHIVE_SHA256:?}"
 : "${SKYLINE_CONFIG:?}" "${SKYLINE_OUTPUT:?}" "${SIF_PATH:?}"
+# Requeue stops the entire allocation. Recovery uses the last atomic checkpoint;
+# an interrupted update is replayed, never restored with partial gradients.
+requeue_job() {
+    printf 'USR1: requeue job %s from its latest atomic checkpoint\n' "$SLURM_JOB_ID"
+    scontrol requeue "$SLURM_JOB_ID"
+}
+if [[ "${REQUEUE_ON_USR1:-0}" == 1 ]]; then
+    trap requeue_job USR1
+fi
+if [[ "${SLURM_RESTART_COUNT:-0}" -gt 0 && -f "${SKYLINE_OUTPUT}/COMPLETE.json" ]]; then
+    printf 'Run already complete; no work to replay.\n'
+    exit 0
+fi
 export APPTAINER_CACHEDIR=/scratch/jr7309/apptainer-cache
 export SINGULARITY_CACHEDIR=/scratch/jr7309/singularity-cache
 export APPTAINER_TMPDIR="${SLURM_TMPDIR:-/tmp}"
@@ -37,4 +50,11 @@ apptainer exec "${gpu_flags[@]}" \
     PYTHONPATH=/opt/skyline-source/src \
     TORCH_CUDNN_V8_API_DISABLED=1 \
     /workspace/.venv/bin/python -m samudra.skyline.run "${SKYLINE_MODE:-train}" \
-    --config "$SKYLINE_CONFIG" --output "$SKYLINE_OUTPUT" "${extra[@]}"
+    --config "$SKYLINE_CONFIG" --output "$SKYLINE_OUTPUT" "${extra[@]}" &
+child=$!
+# A background child plus wait lets Bash handle the batch-only warning promptly.
+while true; do
+    status=0
+    wait "$child" || status=$?
+    if ! kill -0 "$child" 2>/dev/null; then exit "$status"; fi
+done

@@ -42,11 +42,19 @@ Execution receipts:
   source commit `f799a0b1805be6a615546d4dd5aa4ec3df8e19e5`.
 - GPU qualification 21707350: canceled before start on November 3 after the
   shared RTX6000 pool's eight-GPU quota blocked it.
-- Replacement qualification 21759055: queued on November 3 for preemptible
-  `rtx6000,h100,h200,b200` capacity, source
-  `a5cfd7670486ae0373e45ba2d2cd2281214c1f39`. Its eight-update, 1.658B-parameter
-  run is an engineering qualification only. It uses the full training support,
-  saves every update, and resumes automatically on scheduler restart. Callback
-  job 21759089 covers final termination. GPU execution is not yet established.
+- Replacement qualification 21759055: completed `0:0` on November 3,
+  12:53:41–12:57:04 EST, on B200 node `gb013`, source
+  `a5cfd7670486ae0373e45ba2d2cd2281214c1f39`. All eight optimizer updates had
+  finite losses and gradients, with no targets outside the audited support.
+  Peak allocated GPU memory was 28.53 GiB. Total job time was 3m23s; logged
+  optimizer-step timings exclude checkpoint and other overhead.
+  `COMPLETE.json` confirms step 8 and qualification status; latest optimizer
+  checkpoint and both best-weight checkpoints exist. Validation ran, with
+  mean-depth bin NLL 8.131 and normalized MSE 1.400. This short run establishes
+  engineering qualification only. There were no preemptions or restarts, so
+  eviction recovery remains untested. The pending completion callback 21759089
+  was canceled after direct verification, and its reminder was revoked.
+
+[Qualification run in W&B](https://wandb.ai/ocean_emulators/temperature-skyline/runs/ce73e0a348ff).
 
 Torch root: `/scratch/jr7309/temperature-skyline-20261102`.

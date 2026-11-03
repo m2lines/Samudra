@@ -40,7 +40,13 @@ Execution receipts:
   source commit `ddb594fe18c0087f25dfe8856daaf92d66c6c2db`.
 - Whole-validation precision audit 21708346: completed 0:0 in 29 seconds;
   source commit `f799a0b1805be6a615546d4dd5aa4ec3df8e19e5`.
-- GPU qualification 21707350: queued at the last check with `QOSGrpGRES`.
-  Its eight-update, 1.658B-parameter run is an engineering qualification only.
+- GPU qualification 21707350: canceled before start on November 3 after the
+  shared RTX6000 pool's eight-GPU quota blocked it.
+- Replacement qualification 21759055: queued on November 3 for preemptible
+  `rtx6000,h100,h200,b200` capacity, source
+  `a5cfd7670486ae0373e45ba2d2cd2281214c1f39`. Its eight-update, 1.658B-parameter
+  run is an engineering qualification only. It uses the full training support,
+  saves every update, and resumes automatically on scheduler restart. Callback
+  job 21759089 covers final termination. GPU execution is not yet established.
 
 Torch root: `/scratch/jr7309/temperature-skyline-20261102`.

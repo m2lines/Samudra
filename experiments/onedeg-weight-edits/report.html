@@ -82,7 +82,7 @@ uv run python -m scripts.onedeg_weight_edit diagnose --splits test
 uv run python -m scripts.onedeg_weight_circuit run --basis balanced --min-level 15 --alpha 0.5 --splits test
 uv run python -m scripts.onedeg_weight_circuit export --basis balanced --min-level 15 --alpha 0.5
 uv run python -m scripts.onedeg_weight_circuit verify --basis balanced --min-level 15 --alpha 0.5
-uv run python -m pytest tests/test_onedeg_weight_edit.py -q</pre>
+uv run python -m pytest tests/test_onedeg_weight_edit.py tests/test_onedeg_tracking.py tests/test_viz_core.py -q</pre>
 <p>Commands default to float32 on Apple MPS; use <code>--device cpu</code> or <code>--device cuda</code> where appropriate.
 Output defaults to the ignored <code>.LOCAL/weight-edit-original</code> directory. Export refuses to overwrite an existing artifact.
 The CPU/MPS comparison on one original-model window had normalized RMS difference 9.85×10<sup>−7</sup>.
@@ -107,7 +107,7 @@ mixes a dimensional derived heat-content field into its average; it is excluded 
 <p>W&amp;B: <a href="https://wandb.ai/ocean_emulators/default/runs/6c1ca015">original evaluation</a>,
 <a href="https://wandb.ai/ocean_emulators/default/runs/c9d3cf89">edited evaluation</a>, and
 <a href="https://wandb.ai/ocean_emulators/default/runs/876d9188">comparison visualization</a>.
-The comparison completed all 18 stages and uploaded 97 figures plus its artifact (106 files). The separate edited-map run completed all five stages and uploaded 11 figures. Both main visualization runs and both evaluations finished successfully in Slurm and W&amp;B. Review found that legacy hard-coded axis limits clip the total-salt figure; a focused rerender with automatic limits is being prepared. The numerical trends are unaffected. A native Matplotlib depth-scale replacement fixes a GUI-dependent import in the HPC container; it passes a GUI-blocked smoke check and 31 visualization tests. Several native spatial stages select only the first model, so a separate
+The comparison completed all 18 stages and uploaded 97 figures plus its artifact (106 files). The separate edited-map run completed all five stages and uploaded 11 figures. Both main visualization runs and both evaluations finished successfully in Slurm and W&amp;B. Review found that legacy hard-coded axis limits clip the total-salt figure in the main bundle. Use the <a href="https://wandb.ai/ocean_emulators/default/runs/6620b166">corrected total-salt figure</a>, regenerated successfully with automatic limits; all three numerical trend values are unchanged. A native Matplotlib depth-scale replacement fixes a GUI-dependent import in the HPC container; it passes a GUI-blocked smoke check and 42 focused weight-edit, tracking, and visualization tests. Several native spatial stages select only the first model, so a separate
 <a href="https://wandb.ai/ocean_emulators/default/runs/c8da339d">edited-model map run</a> supplies the corresponding edited temperature profiles, SST maps, and salinity maps. Its heat/salt integrals use the native spherical-area fallback because the legacy dataset lacks
 <code>areacello</code>; those diagnostics are not conservation proofs.</p>
 <p>The Torch setup is in <code>torch_eval.yaml</code>, <code>torch_viz.yaml</code>, and <code>torch_job.sbatch</code>, grouped as
@@ -115,7 +115,7 @@ The comparison completed all 18 stages and uploaded 97 figures plus its artifact
 The older half-degree staging copy was removed with authorization after confirming the public replacement is available.
 The original one-degree evaluation data is preserved, and all 77 normalization means and standard deviations match the local experiment exactly.
 Both checkpoint hashes verified after transfer. Slurm jobs are 21760092 (preparation), 21761165 (original), 21761167 (edited),
-21763658 (comparison viz), and 21763659 (edited-model maps). Current run identifiers, immutable code/container references, and cancelled submissions are recorded in
+21763658 (comparison viz), 21763659 (edited-model maps), and 21765602 (corrected total-salt plot). Current run identifiers, immutable code/container references, and cancelled submissions are recorded in
 <a href="torch_runs.json">torch_runs.json</a>.</p>
 <p>The native heat-content diagnostic shows upper-ocean warming in OM4, near-flat behavior in the original model,
 and cooling in the edited model. <a href="torch_depthwise_heat_trends.csv">Depthwise trend values</a> are fitted to deseasonalized heat content

@@ -1,5 +1,5 @@
 {
-  "status": "completed: both matched H200 evaluations, full comparison visualization, and edited-model maps",
+  "status": "completed: matched H200 evaluations, full comparison visualization, edited-model maps, and corrected total-salt plot",
   "cluster": "torch",
   "bundle": "/scratch/am16581/weight-edit-eval-20261103",
   "code_ref": "e5c6b87e",
@@ -20,7 +20,9 @@
     "public_release_vs_original_cache_max_coordinate_difference": {
       "latitude": 0.0,
       "longitude": 0.0
-    }
+    },
+    "focused_tests_passed": 42,
+    "corrected_salt_trend_values_unchanged": true
   },
   "jobs": {
     "prepare": {
@@ -102,6 +104,28 @@
       "stages_completed": 5,
       "figure_count": 11,
       "artifact_files": 14,
+      "wandb_state": "finished"
+    },
+    "salt_plot": {
+      "slurm_id": 21765602,
+      "wandb_id": "6620b166",
+      "wandb_url": "https://wandb.ai/ocean_emulators/default/runs/6620b166",
+      "state": "completed",
+      "code_ref": "7158b886ad8a2b1b5b0387bb7b57ee116a242d38",
+      "bundle": "/scratch/am16581/weight-edit-salt-plot-20261103",
+      "output": "/scratch/am16581/runs/2026-11-03-onedeg-weight-edit-salt-plot",
+      "reason": "Replace legacy total-salt figure clipped by hard-coded y-axis limits; numerical metrics unchanged.",
+      "exit_code": 0,
+      "elapsed": "00:04:20",
+      "stages_completed": 1,
+      "figure_count": 1,
+      "artifact_files": 5,
+      "resources": {
+        "account": "torch_pr_347_courant",
+        "partition": "cpu_short",
+        "cpus": 12,
+        "memory": "72G"
+      },
       "wandb_state": "finished"
     }
   },

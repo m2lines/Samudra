@@ -453,5 +453,22 @@
     "These climatology errors measure long-term bias, not single-step coastal artifacts or conservation.",
     "Derived ocean_heat_content is excluded from normalized channel averages; the existing mean_step_20 normalized channel_mean includes that dimensional derived field and is not used.",
     "Viz uses the existing spherical area fallback because original staged OM4 data lacks areacello; integrated heat/salt trends are diagnostics, not conservation proofs."
-  ]
+  ],
+  "native_visualization_metrics": {
+    "sst_climatology_mae": {
+      "definition": "Unweighted spatial MAE of time-average 2.5 m temperature (native sst_mae_metrics).",
+      "units": "degrees Celsius",
+      "original": 0.22913195192813873,
+      "edited": 0.28142306208610535,
+      "change_percent": 22.8213960200393
+    },
+    "temperature_section_climatology_mae": {
+      "definition": "Unweighted MAE over depth/latitude of area-weighted zonal and temporal mean temperature (native thetao_mae_metrics).",
+      "units": "degrees Celsius",
+      "original": 0.08721605385005776,
+      "edited": 0.09581468341266337,
+      "change_percent": 9.8589986396179
+    }
+  },
+  "native_visualization_run": "https://wandb.ai/ocean_emulators/default/runs/876d9188"
 }

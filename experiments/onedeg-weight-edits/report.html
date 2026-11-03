@@ -103,10 +103,11 @@ it tests long-horizon behavior but is not a new independent temporal holdout.</p
 They measure long-term bias and differ from the single-call and 60-day metrics above. All channel values are in
 <a href="torch_eval_results.json">torch_eval_results.json</a>. The existing <code>mean_step_20/normalized_rmse/channel_mean</code>
 mixes a dimensional derived heat-content field into its average; it is excluded from these comparisons.</p>
+<p>The native visualization also reports SST time-average-field MAE rising from 0.2291 to 0.2814 °C (+22.8%), and zonal/depth temperature-section MAE from 0.0872 to 0.0958 °C (+9.9%). Their distinct averaging definitions are recorded in <code>torch_eval_results.json</code>.</p>
 <p>W&amp;B: <a href="https://wandb.ai/ocean_emulators/default/runs/6c1ca015">original evaluation</a>,
 <a href="https://wandb.ai/ocean_emulators/default/runs/c9d3cf89">edited evaluation</a>, and
 <a href="https://wandb.ai/ocean_emulators/default/runs/876d9188">comparison visualization</a>.
-The 18-stage comparison is running; the separate edited-map run completed all five stages and uploaded 11 figures. A native Matplotlib depth-scale replacement fixes a GUI-dependent import in the HPC container; it passes a GUI-blocked smoke check and 31 visualization tests. Several native spatial stages select only the first model, so a separate
+The comparison completed all 18 stages and uploaded 97 figures plus its artifact (106 files). The separate edited-map run completed all five stages and uploaded 11 figures. Both main visualization runs and both evaluations finished successfully in Slurm and W&amp;B. Review found that legacy hard-coded axis limits clip the total-salt figure; a focused rerender with automatic limits is being prepared. The numerical trends are unaffected. A native Matplotlib depth-scale replacement fixes a GUI-dependent import in the HPC container; it passes a GUI-blocked smoke check and 31 visualization tests. Several native spatial stages select only the first model, so a separate
 <a href="https://wandb.ai/ocean_emulators/default/runs/c8da339d">edited-model map run</a> supplies the corresponding edited temperature profiles, SST maps, and salinity maps. Its heat/salt integrals use the native spherical-area fallback because the legacy dataset lacks
 <code>areacello</code>; those diagnostics are not conservation proofs.</p>
 <p>The Torch setup is in <code>torch_eval.yaml</code>, <code>torch_viz.yaml</code>, and <code>torch_job.sbatch</code>, grouped as
@@ -119,7 +120,7 @@ Both checkpoint hashes verified after transfer. Slurm jobs are 21760092 (prepara
 <p>The native heat-content diagnostic shows upper-ocean warming in OM4, near-flat behavior in the original model,
 and cooling in the edited model. <a href="torch_depthwise_heat_trends.csv">Depthwise trend values</a> are fitted to deseasonalized heat content
 in ZJ per five-day sample: upper (0–700 m), middle (700–2,000 m), and deep (2,000–6,000 m).
-These use the approximate areas noted above and do not establish closed heat budgets.</p>
+<a href="torch_integral_trends.csv">Global heat and salt trends</a> retain both improvements and regressions: the salinity trend changes to the reference sign but has about 2.9 times its magnitude. Heat-content slopes are in ZJ per five-day sample; salt-content slopes are in grams per sample. These use the approximate areas noted above and do not establish closed heat or salt budgets.</p>
 <h2>Next decision</h2>
 <p>Keep the edited checkpoint as a failed long-horizon candidate. First run matched long rollouts of the reservation-only edit,
 the original model with an external persistence blend, and a deep-state persistence control. Those controls distinguish damage from

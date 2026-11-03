@@ -1638,7 +1638,6 @@ class Viz:
             ls="--",
         )
         f.write(f"\nSalinity GT Trend Slope : {coeffs_salinity_trend[0]}")
-        ax.set_ylim((5.861e22, 5.8632e22))
         ax.legend(ncol=3)
         ax.set_title("")
         f.write("\n")

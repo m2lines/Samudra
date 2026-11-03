@@ -1,5 +1,5 @@
 {
-  "status": "submitted; awaiting container preparation",
+  "status": "both H200 evaluations completed; visualization retries being prepared after headless plotting dependency failure",
   "cluster": "torch",
   "bundle": "/scratch/am16581/weight-edit-eval-20261103",
   "code_ref": "e5c6b87e",
@@ -9,7 +9,8 @@
   "cleanup": {
     "removed": "/scratch/am16581/data/om4_halfdeg_v4",
     "public_replacement": "s3://m2lines-pubs/Samudra/v2026-09/om4_halfdeg/",
-    "preserved_eval_data": "/scratch/am16581/data/om4_onedeg_v3"
+    "preserved_eval_data": "/scratch/am16581/data/om4_onedeg_v3",
+    "scratch_usage_after_eval": "4.68 TB of 5.00 TB (93.51%)"
   },
   "checks": {
     "checkpoint_hashes_verified": true,
@@ -20,8 +21,61 @@
   "jobs": {
     "prepare": {
       "slurm_id": 21760092,
-      "wandb_id": null
+      "wandb_id": null,
+      "state": "completed"
     },
+    "original": {
+      "slurm_id": 21761165,
+      "wandb_id": "6c1ca015",
+      "wandb_url": "https://wandb.ai/ocean_emulators/default/runs/6c1ca015",
+      "state": "completed",
+      "exit_code": 0,
+      "elapsed": "00:06:20",
+      "prediction_shape": {
+        "time": 598,
+        "lev": 19,
+        "y": 180,
+        "x": 360
+      },
+      "output": "/scratch/am16581/runs/2026-11-03-onedeg-original-eval",
+      "checkpoint_sha256": "ff6160cb7e2a2b5b8ee2c5731c16bd114a1bb5a267245cc5ed766fb00c7f797a"
+    },
+    "edited": {
+      "slurm_id": 21761167,
+      "wandb_id": "c9d3cf89",
+      "state": "completed",
+      "wandb_url": "https://wandb.ai/ocean_emulators/default/runs/c9d3cf89",
+      "exit_code": 0,
+      "elapsed": "00:04:21",
+      "prediction_shape": {
+        "time": 598,
+        "lev": 19,
+        "y": 180,
+        "x": 360
+      },
+      "output": "/scratch/am16581/runs/2026-11-03-onedeg-carry-balanced-l15-a05-eval",
+      "checkpoint_sha256": "fa17fb91111aeb5fdacbbf4f014ba1c81c965efe5d20144203ba807a8d7703d9"
+    },
+    "viz": {
+      "slurm_id": 21761837,
+      "wandb_id": "1504d256",
+      "state": "failed",
+      "wandb_url": "https://wandb.ai/ocean_emulators/default/runs/1504d256",
+      "output": "/scratch/am16581/runs/2026-11-03-onedeg-weight-edit-comparison-viz",
+      "failure": "xarrayutils.plotting imports tkinter, unavailable in HPC container"
+    },
+    "edited_maps": {
+      "slurm_id": 21762686,
+      "wandb_id": "4916b71e",
+      "wandb_url": "https://wandb.ai/ocean_emulators/default/runs/4916b71e",
+      "state": "failed",
+      "output": "/scratch/am16581/runs/2026-11-03-onedeg-weight-edit-edited-maps",
+      "bundle": "/scratch/am16581/weight-edit-edited-maps-20261103",
+      "reason": "Native spatial map stages select the first model; separate run supplies edited-model maps.",
+      "failure": "xarrayutils.plotting imports tkinter, unavailable in HPC container"
+    }
+  },
+  "cancelled_before_start": {
     "original": {
       "slurm_id": 21760554,
       "wandb_id": "d7f75538"
@@ -33,6 +87,23 @@
     "viz": {
       "slurm_id": 21760556,
       "wandb_id": "59bf7335"
+    },
+    "viz_large_cpu": {
+      "slurm_id": 21761168,
+      "reason": "replaced by smaller CPU resource request before starting"
     }
+  },
+  "eval_resources": {
+    "account": "torch_pr_347_courant",
+    "partition": "h200_courant",
+    "gpus_per_eval": 1,
+    "cpus_per_eval": 16,
+    "memory_per_eval": "175G"
+  },
+  "viz_resources": {
+    "account": "torch_pr_347_courant",
+    "partition": "cs",
+    "cpus": 16,
+    "memory": "112G"
   }
 }

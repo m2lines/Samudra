@@ -1,0 +1,457 @@
+{
+  "status": "completed; candidate rejected for promotion based on multiyear regression",
+  "metric": "Arithmetic mean of per-channel area-weighted normalized spatial RMSE of time-average fields, not mean timestep RMSE. Normalized using original training standard deviations.",
+  "wandb_metric_prefix": "inference/time_mean_norm/rmse/",
+  "inference_input_range": [
+    "2014-10-10",
+    "2022-12-24"
+  ],
+  "prediction_range": [
+    "2014-10-20",
+    "2022-12-24"
+  ],
+  "model_calls": 299,
+  "predicted_states": 598,
+  "runs": {
+    "original": {
+      "id": "6c1ca015",
+      "state": "finished",
+      "url": "https://wandb.ai/ocean_emulators/default/runs/6c1ca015"
+    },
+    "edited": {
+      "id": "c9d3cf89",
+      "state": "finished",
+      "url": "https://wandb.ai/ocean_emulators/default/runs/c9d3cf89"
+    }
+  },
+  "group_metrics": {
+    "all_77_channels": {
+      "original": 0.12241886536068654,
+      "edited": 0.12815183173872655,
+      "change_percent": 4.683074264043197
+    },
+    "edited_deep_tracers": {
+      "original": 0.034588693076512786,
+      "edited": 0.04020744742165344,
+      "change_percent": 16.24448293756444
+    },
+    "uo": {
+      "original": 0.21243144007128087,
+      "edited": 0.2178411085813375,
+      "change_percent": 2.5465479630705445
+    },
+    "vo": {
+      "original": 0.2022296692692138,
+      "edited": 0.20148919046616012,
+      "change_percent": -0.3661573525435169
+    },
+    "thetao": {
+      "original": 0.04337479759394258,
+      "edited": 0.05203204049012219,
+      "change_percent": 19.959154569953807
+    },
+    "so": {
+      "original": 0.03628120320313328,
+      "edited": 0.04598410203024247,
+      "change_percent": 26.743597153556454
+    },
+    "zos": {
+      "original": 0.03422754015902342,
+      "edited": 0.03810865409256124,
+      "change_percent": 11.33915529864522
+    }
+  },
+  "channel_metrics": {
+    "uo_0": {
+      "original": 0.1564268438321384,
+      "edited": 0.15909946982371995,
+      "change_percent": 1.7085469003322418
+    },
+    "uo_1": {
+      "original": 0.17030522785502364,
+      "edited": 0.17302056679791755,
+      "change_percent": 1.5943955315367075
+    },
+    "uo_2": {
+      "original": 0.18270593110110436,
+      "edited": 0.18538135536997863,
+      "change_percent": 1.4643335619979103
+    },
+    "uo_3": {
+      "original": 0.19106100177568033,
+      "edited": 0.19448341641680372,
+      "change_percent": 1.7912680292242689
+    },
+    "uo_4": {
+      "original": 0.189527485924198,
+      "edited": 0.1946345516406399,
+      "change_percent": 2.6946306450160495
+    },
+    "uo_5": {
+      "original": 0.1939831506349014,
+      "edited": 0.1981676159454998,
+      "change_percent": 2.1571282335103747
+    },
+    "uo_6": {
+      "original": 0.2038741886205148,
+      "edited": 0.2010282703157456,
+      "change_percent": -1.3959188870477868
+    },
+    "uo_7": {
+      "original": 0.2344692836609725,
+      "edited": 0.22707093853873972,
+      "change_percent": -3.155357924379687
+    },
+    "uo_8": {
+      "original": 0.2441658907615041,
+      "edited": 0.23863552367353705,
+      "change_percent": -2.2650039572353675
+    },
+    "uo_9": {
+      "original": 0.2368256833239337,
+      "edited": 0.24260135624333076,
+      "change_percent": 2.4387865531869
+    },
+    "uo_10": {
+      "original": 0.2261163733994767,
+      "edited": 0.24137535805182692,
+      "change_percent": 6.7482882477477135
+    },
+    "uo_11": {
+      "original": 0.2236342121443071,
+      "edited": 0.23535004230576617,
+      "change_percent": 5.238836244741951
+    },
+    "uo_12": {
+      "original": 0.22418818804999377,
+      "edited": 0.2356060304356427,
+      "change_percent": 5.092972330506007
+    },
+    "uo_13": {
+      "original": 0.22445669393797707,
+      "edited": 0.2335847392687997,
+      "change_percent": 4.066728940302822
+    },
+    "uo_14": {
+      "original": 0.22590984064641237,
+      "edited": 0.23679568625751712,
+      "change_percent": 4.8186681819420984
+    },
+    "uo_15": {
+      "original": 0.22911643551422653,
+      "edited": 0.2389383403128413,
+      "change_percent": 4.286861733236469
+    },
+    "uo_16": {
+      "original": 0.2163593822965137,
+      "edited": 0.22476820092449795,
+      "change_percent": 3.8865051927631455
+    },
+    "uo_17": {
+      "original": 0.23739172946616885,
+      "edited": 0.24459452115269376,
+      "change_percent": 3.0341375846252516
+    },
+    "uo_18": {
+      "original": 0.2256798184092892,
+      "edited": 0.23384507956991415,
+      "change_percent": 3.6180732589108144
+    },
+    "vo_0": {
+      "original": 0.16103166727196008,
+      "edited": 0.1575802206011779,
+      "change_percent": -2.1433341213273005
+    },
+    "vo_1": {
+      "original": 0.16563309634908646,
+      "edited": 0.1614893974579661,
+      "change_percent": -2.501733640471926
+    },
+    "vo_2": {
+      "original": 0.1712840752076766,
+      "edited": 0.16528277161318294,
+      "change_percent": -3.503713691548538
+    },
+    "vo_3": {
+      "original": 0.17795680537417663,
+      "edited": 0.17183750251811983,
+      "change_percent": -3.438645037030308
+    },
+    "vo_4": {
+      "original": 0.18315409933483107,
+      "edited": 0.17573320019610522,
+      "change_percent": -4.051724294283698
+    },
+    "vo_5": {
+      "original": 0.19129748986807776,
+      "edited": 0.18084973006957847,
+      "change_percent": -5.461524772595949
+    },
+    "vo_6": {
+      "original": 0.2033949021032291,
+      "edited": 0.19080275601469343,
+      "change_percent": -6.190984119230669
+    },
+    "vo_7": {
+      "original": 0.21078841061419007,
+      "edited": 0.1965942518806508,
+      "change_percent": -6.733842098899401
+    },
+    "vo_8": {
+      "original": 0.2131758908557485,
+      "edited": 0.2002757841443661,
+      "change_percent": -6.05139101781057
+    },
+    "vo_9": {
+      "original": 0.20849665138468695,
+      "edited": 0.20140576346190947,
+      "change_percent": -3.400960099687378
+    },
+    "vo_10": {
+      "original": 0.2016813075681714,
+      "edited": 0.20179655196846763,
+      "change_percent": 0.05714183514864413
+    },
+    "vo_11": {
+      "original": 0.20458857130897096,
+      "edited": 0.20736831467712,
+      "change_percent": 1.3586992422714772
+    },
+    "vo_12": {
+      "original": 0.20851809634920937,
+      "edited": 0.2112195240026472,
+      "change_percent": 1.29553631110928
+    },
+    "vo_13": {
+      "original": 0.21120958865295184,
+      "edited": 0.21534838977310708,
+      "change_percent": 1.9595706551731817
+    },
+    "vo_14": {
+      "original": 0.21376344820576484,
+      "edited": 0.2202317799290003,
+      "change_percent": 3.0259297263062424
+    },
+    "vo_15": {
+      "original": 0.2143586851056187,
+      "edited": 0.22071224469765705,
+      "change_percent": 2.9639851489608793
+    },
+    "vo_16": {
+      "original": 0.2107374114521517,
+      "edited": 0.2183303631216466,
+      "change_percent": 3.6030392596992256
+    },
+    "vo_17": {
+      "original": 0.2628802863436711,
+      "edited": 0.27128281164409834,
+      "change_percent": 3.196331462239188
+    },
+    "vo_18": {
+      "original": 0.22841323276488917,
+      "edited": 0.26015326108554787,
+      "change_percent": 13.895879821170176
+    },
+    "thetao_0": {
+      "original": 0.027302713835122117,
+      "edited": 0.03319150761883531,
+      "change_percent": 21.568529118661715
+    },
+    "thetao_1": {
+      "original": 0.027269884355865765,
+      "edited": 0.03308896862059914,
+      "change_percent": 21.338866673564326
+    },
+    "thetao_2": {
+      "original": 0.027447863088390843,
+      "edited": 0.03317041458261163,
+      "change_percent": 20.848805153947136
+    },
+    "thetao_3": {
+      "original": 0.028903258782332273,
+      "edited": 0.03483560536617503,
+      "change_percent": 20.524836415570658
+    },
+    "thetao_4": {
+      "original": 0.03319210566705017,
+      "edited": 0.03966126849914267,
+      "change_percent": 19.49006458639484
+    },
+    "thetao_5": {
+      "original": 0.03993860364069507,
+      "edited": 0.04785766589566253,
+      "change_percent": 19.828089950792393
+    },
+    "thetao_6": {
+      "original": 0.04966299172999783,
+      "edited": 0.06316713524028379,
+      "change_percent": 27.191562650320723
+    },
+    "thetao_7": {
+      "original": 0.05828319625879135,
+      "edited": 0.07351742022522506,
+      "change_percent": 26.138278173335074
+    },
+    "thetao_8": {
+      "original": 0.06335693662720641,
+      "edited": 0.08563036967872771,
+      "change_percent": 35.15547663325116
+    },
+    "thetao_9": {
+      "original": 0.06389123921824073,
+      "edited": 0.0799492545760482,
+      "change_percent": 25.133360307750863
+    },
+    "thetao_10": {
+      "original": 0.05812549954542055,
+      "edited": 0.06535545807135919,
+      "change_percent": 12.438531423354027
+    },
+    "thetao_11": {
+      "original": 0.06403000269458478,
+      "edited": 0.08087646114583036,
+      "change_percent": 26.31025728922909
+    },
+    "thetao_12": {
+      "original": 0.059621556531902105,
+      "edited": 0.06894448196326938,
+      "change_percent": 15.636836697443135
+    },
+    "thetao_13": {
+      "original": 0.03816957549643217,
+      "edited": 0.04061375421581957,
+      "change_percent": 6.403473676608917
+    },
+    "thetao_14": {
+      "original": 0.03164459633229275,
+      "edited": 0.033573050904158526,
+      "change_percent": 6.094103876742518
+    },
+    "thetao_15": {
+      "original": 0.025396005529185812,
+      "edited": 0.027487649451979217,
+      "change_percent": 8.236113826600121
+    },
+    "thetao_16": {
+      "original": 0.03910473329710517,
+      "edited": 0.04451006831577838,
+      "change_percent": 13.822712912028368
+    },
+    "thetao_17": {
+      "original": 0.04615573049609385,
+      "edited": 0.05472529875148201,
+      "change_percent": 18.56663985875686
+    },
+    "thetao_18": {
+      "original": 0.04262466115819931,
+      "edited": 0.04845293618933383,
+      "change_percent": 13.673481202591065
+    },
+    "so_0": {
+      "original": 0.03490473914974797,
+      "edited": 0.04245763856610605,
+      "change_percent": 21.63860725030693
+    },
+    "so_1": {
+      "original": 0.03279891528301855,
+      "edited": 0.04247718838664048,
+      "change_percent": 29.50790603929758
+    },
+    "so_2": {
+      "original": 0.03237839603310327,
+      "edited": 0.04147869990115119,
+      "change_percent": 28.106098457576103
+    },
+    "so_3": {
+      "original": 0.03315248893574198,
+      "edited": 0.04450917737275289,
+      "change_percent": 34.255915020507466
+    },
+    "so_4": {
+      "original": 0.036272347539521674,
+      "edited": 0.04728647526680469,
+      "change_percent": 30.36508104495368
+    },
+    "so_5": {
+      "original": 0.04172047008404885,
+      "edited": 0.05532866305437808,
+      "change_percent": 32.617544679900675
+    },
+    "so_6": {
+      "original": 0.05372804743568367,
+      "edited": 0.07175580886811574,
+      "change_percent": 33.55372527544871
+    },
+    "so_7": {
+      "original": 0.05822943343300875,
+      "edited": 0.07710718853804069,
+      "change_percent": 32.41960979536276
+    },
+    "so_8": {
+      "original": 0.05323087731470107,
+      "edited": 0.07762145790993724,
+      "change_percent": 45.82036183818465
+    },
+    "so_9": {
+      "original": 0.04299829058303975,
+      "edited": 0.05612758020298057,
+      "change_percent": 30.534445537050114
+    },
+    "so_10": {
+      "original": 0.033000582846022045,
+      "edited": 0.03976946960914073,
+      "change_percent": 20.511415797417108
+    },
+    "so_11": {
+      "original": 0.04263702053185373,
+      "edited": 0.05379488321204523,
+      "change_percent": 26.16942399118991
+    },
+    "so_12": {
+      "original": 0.0382306515566752,
+      "edited": 0.04349974859484669,
+      "change_percent": 13.782388799626633
+    },
+    "so_13": {
+      "original": 0.019311467373925233,
+      "edited": 0.02028585327923919,
+      "change_percent": 5.04563369756974
+    },
+    "so_14": {
+      "original": 0.0133207186279225,
+      "edited": 0.01371447914777335,
+      "change_percent": 2.9560005796193556
+    },
+    "so_15": {
+      "original": 0.01394804155304889,
+      "edited": 0.01449654236458762,
+      "change_percent": 3.932457538591394
+    },
+    "so_16": {
+      "original": 0.02173089100783871,
+      "edited": 0.02433137417274811,
+      "change_percent": 11.966758123131527
+    },
+    "so_17": {
+      "original": 0.04719397368031902,
+      "edited": 0.057373534439069104,
+      "change_percent": 21.569619942800443
+    },
+    "so_18": {
+      "original": 0.04055550789031151,
+      "edited": 0.050282175688249255,
+      "change_percent": 23.983592621364735
+    },
+    "zos": {
+      "original": 0.03422754015902342,
+      "edited": 0.03810865409256124,
+      "change_percent": 11.33915529864522
+    }
+  },
+  "limitations": [
+    "One free-running trajectory per checkpoint; interval overlaps earlier discovery/selection/test years and is not a new independent temporal holdout.",
+    "These climatology errors measure long-term bias, not single-step coastal artifacts or conservation.",
+    "Derived ocean_heat_content is excluded from normalized channel averages; the existing mean_step_20 normalized channel_mean includes that dimensional derived field and is not used.",
+    "Viz uses the existing spherical area fallback because original staged OM4 data lacks areacello; integrated heat/salt trends are diagnostics, not conservation proofs."
+  ]
+}

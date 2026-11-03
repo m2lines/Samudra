@@ -8,11 +8,11 @@ body{font:17px/1.55 system-ui,sans-serif;max-width:1050px;margin:3em auto;paddin
 table{border-collapse:collapse;width:100%}td,th{text-align:left;padding:.6em;border-bottom:1px solid #ccd6da}
 pre{background:#edf3f5;padding:1em;overflow:auto;font-size:13px}img{width:100%}a{color:#006a89}
 </style>
-<h1>Direct weight edits reduce deep artifacts, with tradeoffs</h1>
+<h1>Direct weight edits reduce single-step artifacts but worsen long-term bias</h1>
 <p>Experiment/results record, November 2026. <strong>Not intended to merge or replace the production checkpoint.</strong>
 The frozen edit reduces single-call temperature and salinity error at 3,100–6,000 m by 45.3% on four untouched 2019 windows.
 Coastal-gradient error in those fields falls 41.4%. Global normalized RMSE rises 0.18%, and the largest individual channel/window/lead regression is 5.2%.
-This is a partial mitigation: visible artifacts remain, and physical consistency is not guaranteed.</p>
+The subsequent standard 2014–2022 Torch rollout worsens normalized time-average-field RMSE by 4.7% overall and 16.2% in the edited deep tracers. <strong>Do not promote this checkpoint.</strong> Visible artifacts remain, and physical consistency is not guaranteed.</p>
 
 <h2>What changed</h2>
 <p>The 84-million-parameter ConvNeXt U-Net predicts two future states from two input states.
@@ -87,16 +87,41 @@ uv run python -m pytest tests/test_onedeg_weight_edit.py -q</pre>
 Output defaults to the ignored <code>.LOCAL/weight-edit-original</code> directory. Export refuses to overwrite an existing artifact.
 The CPU/MPS comparison on one original-model window had normalized RMS difference 9.85×10<sup>−7</sup>.
 No synthetic zero-input result was used to claim a physical improvement.</p>
-<h2>Next decision</h2>
-<p>The Torch validation setup is in <code>torch_eval.yaml</code>, <code>torch_viz.yaml</code>, and <code>torch_job.sbatch</code>.
-It requests matched standard 2014–2022 rollouts and an 18-stage comparison visualization, grouped in W&amp;B as
-<code>onedeg-weight-edit-20261103</code>. The eval wrapper aborts if online W&amp;B initialization fails; the viz wrapper logs progress, figures, and an artifact.
+<h2>Multiyear Torch validation</h2>
+<p>Both native evaluations completed successfully on one H200 each, producing 598 states from 299 two-output model calls.
+The matched predictions cover October 20, 2014 through December 24, 2022. This interval overlaps earlier experiment windows;
+it tests long-horizon behavior but is not a new independent temporal holdout.</p>
+<table>
+<tr><th>Normalized RMSE of time-average fields</th><th>Original</th><th>Edited</th><th>Change</th></tr>
+<tr><td>All 77 prognostic channels</td><td>0.12242</td><td>0.12815</td><td>+4.7%</td></tr>
+<tr><td>Edited deep temperature/salinity channels</td><td>0.03459</td><td>0.04021</td><td>+16.2%</td></tr>
+<tr><td>Temperature, all depths</td><td>0.04337</td><td>0.05203</td><td>+20.0%</td></tr>
+<tr><td>Salinity, all depths</td><td>0.03628</td><td>0.04598</td><td>+26.7%</td></tr>
+</table>
+<img src="torch_climatology.svg" alt="Temperature and salinity climatology errors by depth for original and edited checkpoints; shading marks edited depths">
+<p>These are arithmetic means of per-channel spatial RMSEs of time-average fields, normalized by the original training standard deviations.
+They measure long-term bias and differ from the single-call and 60-day metrics above. All channel values are in
+<a href="torch_eval_results.json">torch_eval_results.json</a>. The existing <code>mean_step_20/normalized_rmse/channel_mean</code>
+mixes a dimensional derived heat-content field into its average; it is excluded from these comparisons.</p>
+<p>W&amp;B: <a href="https://wandb.ai/ocean_emulators/default/runs/6c1ca015">original evaluation</a>,
+<a href="https://wandb.ai/ocean_emulators/default/runs/c9d3cf89">edited evaluation</a>, and
+<a href="https://wandb.ai/ocean_emulators/default/runs/1504d256">comparison visualization</a>.
+The first visualization attempts stopped at a GUI-dependent plotting import. A native Matplotlib depth-scale replacement passes a GUI-blocked smoke check and 31 visualization tests; retries are being prepared. Several native spatial stages select only the first model, so a separate
+<a href="https://wandb.ai/ocean_emulators/default/runs/4916b71e">edited-model map run</a> supplies the corresponding edited temperature profiles, SST maps, and salinity maps. Its heat/salt integrals use the native spherical-area fallback because the legacy dataset lacks
+<code>areacello</code>; those diagnostics are not conservation proofs.</p>
+<p>The Torch setup is in <code>torch_eval.yaml</code>, <code>torch_viz.yaml</code>, and <code>torch_job.sbatch</code>, grouped as
+<code>onedeg-weight-edit-20261103</code>. Online W&amp;B is required; the viz wrapper logs progress, figures, and an artifact.
 The older half-degree staging copy was removed with authorization after confirming the public replacement is available.
 The original one-degree evaluation data is preserved, and all 77 normalization means and standard deviations match the local experiment exactly.
-Both checkpoint hashes verified after transfer. Slurm jobs are 21760092 (container/code preparation), 21760554 (original eval),
-21760555 (edited eval), and 21760556 (comparison viz, dependent on both evaluations). Current run identifiers and provenance are recorded in
-<a href="torch_runs.json">torch_runs.json</a>; submission alone is not evidence of successful evaluation.</p>
-<p>Keep this checkpoint as an experimental comparison. Before considering deployment, evaluate longer independent rollouts, integrated heat/salt tendencies,
-velocity artifacts and coastal regions, and whether the persistence prior suppresses real deep signals.
-The current evidence does not justify declaring the original objective—eliminating unphysical single-step behavior—solved.</p>
+Both checkpoint hashes verified after transfer. Slurm jobs are 21760092 (preparation), 21761165 (original), 21761167 (edited),
+21761837 (comparison viz), and 21762686 (edited-model maps). Current run identifiers, immutable code/container references, and cancelled submissions are recorded in
+<a href="torch_runs.json">torch_runs.json</a>.</p>
+<h2>Next decision</h2>
+<p>Keep the edited checkpoint as a failed long-horizon candidate. First run matched long rollouts of the reservation-only edit,
+the original model with an external persistence blend, and a deep-state persistence control. Those controls distinguish damage from
+reserving hidden directions from distortion caused by damping real evolution. Compare time-resolved errors, depth/basin heat and salt drift,
+coastal increments, and untouched channels. Restore physical cell areas before interpreting integrated budgets.</p>
+<p>Use the resulting diagnosis to construct a smaller targeted edit, with explicit limits on untouched-channel error and tendency distortion.
+Freeze its selection criteria and reserve new initial conditions for final evaluation. Do not increase the blend or expand to shallower levels
+based only on smoother plots. The original objective—eliminating unphysical single-step behavior—remains unsolved.</p>
 </html>

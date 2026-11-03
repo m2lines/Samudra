@@ -88,6 +88,10 @@ Output defaults to the ignored <code>.LOCAL/weight-edit-original</code> director
 The CPU/MPS comparison on one original-model window had normalized RMS difference 9.85×10<sup>−7</sup>.
 No synthetic zero-input result was used to claim a physical improvement.</p>
 <h2>Next decision</h2>
+<p>The Torch validation setup is in <code>torch_eval.yaml</code>, <code>torch_viz.yaml</code>, and <code>torch_job.sbatch</code>.
+It requests matched standard 2014–2022 rollouts and an 18-stage comparison visualization, grouped in W&amp;B as
+<code>onedeg-weight-edit-20261103</code>. The eval wrapper aborts if online W&amp;B initialization fails; the viz wrapper logs progress, figures, and an artifact.
+Initial submission is blocked by the Torch scratch quota: 5.00 TB used against a 5.00 TB allocation. No HPC job has been submitted yet.</p>
 <p>Keep this checkpoint as an experimental comparison. Before considering deployment, evaluate longer independent rollouts, integrated heat/salt tendencies,
 velocity artifacts and coastal regions, and whether the persistence prior suppresses real deep signals.
 The current evidence does not justify declaring the original objective—eliminating unphysical single-step behavior—solved.</p>

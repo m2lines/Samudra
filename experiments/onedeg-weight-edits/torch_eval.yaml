@@ -1,0 +1,96 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+debug: false
+save_zarr: true
+disk_mode: true
+ckpt_path: null
+num_model_steps_forward: 25
+backend: cuda
+experiment:
+  name: 2026-11-03-onedeg-weight-edit-eval
+  rand_seed: 15
+  base_output_dir: /scratch/am16581/runs
+  data_root: /scratch/am16581/data/om4_onedeg_v3
+  wandb:
+    mode: online
+    project: default
+    entity: ocean_emulators
+    group: onedeg-weight-edit-20261103
+    tags:
+    - experiment
+    - direct-weight-edit
+    - onedeg
+    - long-rollout
+    notes: Paired original and carry_balanced_l15_0.5 evaluation on original November
+      2025 OM4 data; frozen edit from PR 957. Standard 2014-2022 rollout. No retraining.
+  search: null
+data:
+  sources:
+  - type: om4
+    train_time:
+      start: '1975-01-03'
+      end: '2013-09-30'
+    val_time:
+      start: '2013-10-05'
+      end: '2014-10-05'
+    inference_time:
+      start: '2014-10-10'
+      end: '2022-12-24'
+    data_location: OM4.zarr
+    data_means_location: OM4_means.zarr
+    data_stds_location: OM4_stds.zarr
+    prognostic_vars_key: thermo_dynamic_all
+    boundary_vars_key: tau_hfds_hfds_anom
+    grid_type: gaussian
+  loading:
+    type: cpu
+    num_workers: 4
+    persistent_workers: true
+    pin_mem: true
+    concurrent_compute: true
+  inference_loading:
+    num_workers: 4
+    persistent_workers: true
+  input_steps: 2
+  output_steps: 2
+  loader_version: om4-torch
+  normalize_before_mask: true
+  masked_fill_value: 0.0
+model:
+  pred_residuals: false
+  last_kernel_size: 3
+  pad: circular
+  checkpointing: null
+  gradient_detach_interval: 0
+  add_3d_coordinates: false
+  unet:
+    ch_width:
+    - 280
+    - 380
+    - 480
+    - 520
+    dilation:
+    - 1
+    - 2
+    - 4
+    - 8
+    n_layers:
+    - 1
+    - 1
+    - 1
+    - 1
+    core_block:
+      block_type: conv_next_block
+      kernel_size: 3
+      activation: capped_gelu
+      upscale_factor: 2
+      norm: batch
+      pointwise_linear: false
+    down_sampling_block: avg_pool
+    up_sampling_block: zonally_periodic_upsample
+    drop_path_rate: 0.0
+  pos_channels: 0
+  use_bfloat16: false
+observations: null

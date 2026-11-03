@@ -1,0 +1,53 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+base_output_dir: /scratch/am16581/runs
+dataset_name: OM4
+variables:
+- thetao
+- so
+- uo
+- vo
+- tos
+- zos
+data_root: /scratch/am16581/data/om4_onedeg_v3
+data: null
+groundtruth_location: OM4.zarr
+basins_location:
+  type: s3
+  endpoint_url: https://nyu1.osn.mghpcc.org
+  anon: true
+  bucket: m2lines-pubs
+  path: Samudra/basins/basin_masks_original.zarr
+groundtruth_time_range:
+  start: '2014-10-20'
+  end: '2022-12-24'
+observations: null
+steps:
+- timeseries_plots
+- short_timeseries_plots
+- global_thetao_time_series
+- global_salinity_timeseries_plots
+- ohc_noanomaly_plots
+- ohc_plots
+- depthwise_ohc_plots
+- basin_ohc_plots
+- ocean_temperature_profile_plots
+- ocean_salinity_profile_plots
+- create_ohc_salinity_slopes_table
+- thetao_mae_metrics
+- sst_mae_metrics
+- pdf_plots_short
+- sst_mean_maps
+- sst_time_snapshot_maps
+- salinity_mean_map
+- salinity_snapshot_maps
+not_steps: []
+debug: false
+name: 2026-11-03-onedeg-weight-edit-comparison-viz
+runs:
+- name: original
+  location: /scratch/am16581/runs/2026-11-03-onedeg-original-eval/predictions.zarr
+- name: carry-balanced-l15-a05
+  location: /scratch/am16581/runs/2026-11-03-onedeg-carry-balanced-l15-a05-eval/predictions.zarr

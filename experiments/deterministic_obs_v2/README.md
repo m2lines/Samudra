@@ -10,12 +10,20 @@ Implementation is stacked on the config-based observation harness in
 
 As of 2026-11-03, 82 focused CPU tests and relevant pre-commit checks pass.
 **GPU qualification is pending. No full scientific training has been submitted.**
-Torch array `21785317` contains the five qualification arms and depends on CPU
-data-preparation job `21784710`, which completed successfully in 11m54s. The first
-two GPU arms have started; the remaining arms are queued. Each arm requests one GPU, eight CPU cores,
+Torch array `21786733` contains the five qualification arms. CPU
+data-preparation job `21784710` completed successfully in 11m54s. Each arm requests one GPU, eight CPU cores,
 96 GiB host memory and a two-hour limit. Scheduler routing permits preemptible
 L40S, A100, RTX6000, H100, H200 and B200 capacity. All jobs use account
 `torch_pr_347_lzanna`, preemption-only routing and requeue.
+
+The first GPU attempt, array `21785317`, reached one optimizer update in arms A,
+B and C, then failed because the qualification wrapper omitted the shared W&B
+logger's required step argument. Arm D was cancelled after allocation and E before
+allocation. That attempt consumed 313 allocated GPU-seconds (0.087 GPU-hours).
+The wrapper now passes an explicit logging step and has typed logger/config
+interfaces so type checking covers this call. The replacement array uses a new
+output directory and preserves the failed attempt's artifacts. See the
+[attempt receipt](receipts/attempt-21785317.json).
 
 | Arm | Main data, by optimizer update | Initializer widths | Replay | Total parameters |
 | --- | --- | --- | --- | ---: |
@@ -25,8 +33,11 @@ L40S, A100, RTX6000, H100, H200 and B200 capacity. All jobs use account
 | D | 50% OM4, 50% observations | 280/380/480/520 | yes | 169,773,168 |
 | E | 50% OM4, 50% observations | 280/380/480/520 | no | 169,773,168 |
 
-Each initializer maps 19 five-day SST/SSH samples spanning 95 days, validity, ERA5 history and
-geographic/calendar context into two physical states. Each state has 77 channels:
+Each initializer maps 19 five-day SST/SSH samples, validity, ERA5 history and
+geographic/calendar context into two physical states corresponding to the final
+two history intervals. For observations, the history covers the 95 days before
+the forecast origin; retained surface values come from its final ten days.
+Each state has 77 channels:
 u/v/temperature/salinity at 19 depths, plus SSH. Measured initial surface values
 are retained; missing surface values and the interior are predicted.
 
@@ -56,13 +67,21 @@ calendar-month means. Replay continuation recomputes a boundary-straddling bin
 when needed. Buckets 1–11 follow the fresh month (bucket 0). Arm E uses eight fresh windows. Replay pools are separate for OM4 and
 observations, with two detached two-frame states per lead-month bucket and a
 maximum age of 250 optimizer updates measured from original initialization.
-Forecast and replay transitions cannot cross OM4 calendar gaps. Earlier
-initializer history may span such a gap.
+Forecast and replay transitions cannot cross OM4 calendar gaps. OM4 history uses
+19 native samples without inserting a missing-day placeholder; it can span more
+than 95 calendar days when an earlier interval gap is present.
 
 The observation loss is `0.5 monthly T/S + 0.25 SST + 0.25 SSH`, plus separate
-`0.1 reconstruction + 0.1 missing-surface completion` auxiliaries. Losses use
-finite wet support and area weighting. T/S groups receive equal weight. OM4 uses
-a variable-balanced dense forecast loss with the same auxiliary weights. All
+`0.1 reconstruction + 0.1 missing-surface completion` auxiliaries. Reconstruction
+trains the initializer against monthly observed T/S using contemporaneous surface
+history in a separate branch; that branch does not feed the forecast. Observation
+completion scores deliberately hidden, originally valid SST/SSH values in the two
+initial states; naturally missing observations supply no completion labels.
+Losses use finite wet support and area weighting. Temperature and salinity each
+receive half of the monthly T/S loss after averaging their observed depths.
+OM4 uses a variable-balanced dense forecast loss; its reconstruction scores the
+two initialized physical states excluding SST/SSH, and its completion uses dense
+OM4 surfaces wherever inputs were hidden. Both auxiliary weights remain 0.1. All
 physical state normalization comes from global observation training statistics;
 unobserved velocity uses mean zero and standard deviation one, and unobserved deep
 T/S repeats the deepest observed scale.
@@ -104,13 +123,15 @@ ranges and a separately labeled 30% planning allowance. Queue delay and unknown
 preemption frequency are excluded. **Measured run-duration estimates remain
 pending GPU execution.**
 
-The qualification code is frozen at `acecbf86c9032fb3e13c25886b9d6c1a24acbc40`.
+The replacement qualification code is frozen at `024177bc7b612042275381f3470d37e795e5d396`.
 The matching PhysicsNeMo container is built from
 `4f86be45a09cb9eba1b51b6273e0189941b02495`; CPU pull job `21784191` completed in
 9m24s. The source-overlay builder requires byte-identical dependency lockfiles.
 [Preparation](prepare_torch.sbatch), [GPU launch](qualify_torch.sbatch) and
 [data paths](torch-data-paths.json) preserve the Torch setup. Checkpoints and full
 receipts live under `/scratch/jr7309/deterministic-obs-v2/`.
+The replacement run writes to `qualification-v2/`; its completion callback is
+CPU job `21786737` with an `afterany:21786733` dependency.
 
 Daily data were copied from the existing Beta observation preparation and historical
 shared-ERA5 preparation. Download/read-back checks found zero differences across

@@ -1,0 +1,17 @@
+{
+  "array_job": "21785317",
+  "code_commit": "acecbf86c9032fb3e13c25886b9d6c1a24acbc40",
+  "status": "failed; replaced by 21786733",
+  "reason": "Qualification wrapper called WandBLogger.log without its required step argument after the first optimizer update.",
+  "output_root": "/scratch/jr7309/deterministic-obs-v2/qualification",
+  "log_pattern": "/scratch/jr7309/deterministic-obs-v2/qualify-21785317_%a.out",
+  "allocated_gpu_seconds": 313,
+  "accounting_basis": "sacct array task ElapsedRaw, one GPU each; batch/extern/step records excluded to avoid double counting",
+  "arms": [
+    {"arm": "A", "index": 0, "state": "FAILED", "exit_code": "1:0", "elapsed_seconds": 88, "node": "gh115"},
+    {"arm": "B", "index": 1, "state": "FAILED", "exit_code": "1:0", "elapsed_seconds": 110, "node": "gh115"},
+    {"arm": "C", "index": 2, "state": "FAILED", "exit_code": "1:0", "elapsed_seconds": 88, "node": "gr101"},
+    {"arm": "D", "index": 3, "state": "CANCELLED", "elapsed_seconds": 27, "node": "gb015"},
+    {"arm": "E", "index": 4, "state": "CANCELLED", "elapsed_seconds": 0, "node": null}
+  ]
+}

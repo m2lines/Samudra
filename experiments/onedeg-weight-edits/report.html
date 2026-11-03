@@ -8,7 +8,23 @@ body{font:17px/1.55 system-ui,sans-serif;max-width:1050px;margin:3em auto;paddin
 table{border-collapse:collapse;width:100%}td,th{text-align:left;padding:.6em;border-bottom:1px solid #ccd6da}
 pre{background:#edf3f5;padding:1em;overflow:auto;font-size:13px}img{width:100%}a{color:#006a89}
 </style>
-<h1>Direct weight edits reduce single-step artifacts but worsen long-term bias</h1>
+<h1>Direct weight edits and step-to-step ocean consistency</h1>
+<h2>Current priority: transition benchmark</h2>
+<p>The primary objective is now local transition quality. Long rollouts remain regression checks.
+The <a href="transition_protocol.json">frozen transition protocol</a> compares the original checkpoint, existing carry edit,
+reservation-only edit, external 50% deep persistence blend, and deep persistence control. It covers four seasonal windows in each of
+2015 (threshold calibration), 2017 (selection), 2019 (previous local test), and 2021 (new to local selection).
+Each window evaluates 12 nominal five-day transitions, using both true-state reinitialization and 60-day autoregressive sequences.</p>
+<p>Metrics distinguish first leads, transitions within output pairs, and transitions between autoregressive model calls.
+They include increment bias, wet-neighbor gradient error, increment magnitude and spatial correlation, reference-calibrated tails,
+and state-error guardrails for all channels. Candidate maps use identical OM4-derived color limits. Original cell areas and depth-specific masks
+come from the verified OSN static cache. These are empirical diagnostics; they do not establish closed physical budgets.</p>
+<p>Submitted to Torch as Slurm job <strong>21787164</strong>, with online W&amp;B required, immutable code and checksummed inputs.
+The run writes full transition CSVs, paired seasonal acceptance results and bootstrap intervals, and aligned increment maps.
+Only four seasonal windows support each split's uncertainty estimate; these intervals are exploratory.
+No new candidate has been selected using 2021 local results. The earlier eight-year evaluation includes 2021, so this is not an untouched temporal holdout.</p>
+
+<h2>Previous edit: evidence and limitations</h2>
 <p>Experiment/results record, November 2026. <strong>Not intended to merge or replace the production checkpoint.</strong>
 The frozen edit reduces single-call temperature and salinity error at 3,100–6,000 m by 45.3% on four untouched 2019 windows.
 Coastal-gradient error in those fields falls 41.4%. Global normalized RMSE rises 0.18%, and the largest individual channel/window/lead regression is 5.2%.
@@ -122,11 +138,10 @@ and cooling in the edited model. <a href="torch_depthwise_heat_trends.csv">Depth
 in ZJ per five-day sample: upper (0–700 m), middle (700–2,000 m), and deep (2,000–6,000 m).
 <a href="torch_integral_trends.csv">Global heat and salt trends</a> retain both improvements and regressions: the salinity trend changes to the reference sign but has about 2.9 times its magnitude. Heat-content slopes are in ZJ per five-day sample; salt-content slopes are in grams per sample. These use the approximate areas noted above and do not establish closed heat or salt budgets.</p>
 <h2>Next decision</h2>
-<p>Keep the edited checkpoint as a failed long-horizon candidate. First run matched long rollouts of the reservation-only edit,
-the original model with an external persistence blend, and a deep-state persistence control. Those controls distinguish damage from
-reserving hidden directions from distortion caused by damping real evolution. Compare time-resolved errors, depth/basin heat and salt drift,
-coastal increments, and untouched channels. Restore physical cell areas before interpreting integrated budgets.</p>
-<p>Use the resulting diagnosis to construct a smaller targeted edit, with explicit limits on untouched-channel error and tendency distortion.
-Freeze its selection criteria and reserve new initial conditions for final evaluation. Do not increase the blend or expand to shallower levels
-based only on smoother plots. The original objective—eliminating unphysical single-step behavior—remains unsolved.</p>
+<p>First complete the paired transition benchmark above. Use its within-pair and between-call results to distinguish damage from reserving
+hidden directions, suppression of real tendencies, and temporal-head artifacts. Then test a smaller targeted weight correction against
+the frozen local criteria. Longer rollouts are guardrails for promising local candidates, rather than the primary selection objective.</p>
+<p>The current carry edit remains a diagnostic control and is not a production replacement. Smoother fields alone are insufficient:
+an acceptable edit must retain genuine evolution while reducing artifacts and limiting regressions in untargeted fields.
+Eliminating unphysical single-step behavior remains unsolved.</p>
 </html>

@@ -71,4 +71,15 @@ a mean utilization below 60% triggers checkpoint-and-stop for diagnosis.
 Actual utilization and model skill are not yet established. Configurations are
 `src/samudra/configs/temperature_skyline/small_{absolute,regression}.json`.
 
+Both initial jobs stopped after one update because CUDA supplied a bare GPU
+UUID and the monitor passed it to `nvidia-smi` without its required `GPU-`
+prefix. They saved checkpoints before failing: 21760465 used 42 seconds on
+H200 `gh125`; 21760475 used 39 seconds on RTX6000 `gr102` (0.0225 GPU-hours
+combined). No utilization measurement was obtained. Source
+`73e13c8bd52b2d89bc6a39f60021bb1ac0d8d177` fixes the identifier, with tests for
+both bare and prefixed UUIDs (15 focused tests pass). Replacement jobs 21762617
+(classifier) and 21762622 (regression) were queued to resume their step-1
+checkpoints with unchanged training budgets and utilization thresholds. Prior
+attempt receipts are retained under each run's `attempts/<old-job-id>/`.
+
 Torch root: `/scratch/jr7309/temperature-skyline-20261102`.

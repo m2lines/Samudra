@@ -1,0 +1,94 @@
+<!doctype html>
+<!-- SPDX-FileCopyrightText: 2026 Samudra Authors -->
+<!-- SPDX-License-Identifier: CC-BY-4.0 -->
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<title>Samudra 1° direct weight-edit experiment</title>
+<style>
+body{font:17px/1.55 system-ui,sans-serif;max-width:1050px;margin:3em auto;padding:0 1.2em;color:#152b39}
+table{border-collapse:collapse;width:100%}td,th{text-align:left;padding:.6em;border-bottom:1px solid #ccd6da}
+pre{background:#edf3f5;padding:1em;overflow:auto;font-size:13px}img{width:100%}a{color:#006a89}
+</style>
+<h1>Direct weight edits reduce deep artifacts, with tradeoffs</h1>
+<p>Experiment/results record, November 2026. <strong>Not intended to merge or replace the production checkpoint.</strong>
+The frozen edit reduces single-call temperature and salinity error at 3,100–6,000 m by 45.3% on four untouched 2019 windows.
+Coastal-gradient error in those fields falls 41.4%. Global normalized RMSE rises 0.18%, and the largest individual channel/window/lead regression is 5.2%.
+This is a partial mitigation: visible artifacts remain, and physical consistency is not guaranteed.</p>
+
+<h2>What changed</h2>
+<p>The 84-million-parameter ConvNeXt U-Net predicts two future states from two input states.
+Eight directions in its 280-channel high-resolution skip stream now carry the latest input temperature and salinity at the four deepest levels.
+Linear projections in existing convolution weights keep the nonlinear branches from reading or overwriting those directions.
+The decoder combines the remaining learned prediction with this carried state at a 50/50 weight, for both output times.
+No layers or parameters were added; no gradients, optimizer, or target regression were used.</p>
+<p>The directions were chosen from feature moments on four 2015 input windows, with a penalty for disturbing decoder tracer readouts.
+Prediction targets were used to compare candidate edits, so this is a data-guided experiment.
+The projections modify about 4.7% of dense parameter entries; it is a low-rank construction, not a sparse or small-norm edit.
+Reserving the directions perturbs other predictions, which is why the result differs from simply blending the original model output with persistence.</p>
+
+<h2>Evidence</h2>
+<table>
+<tr><th>Single-call evaluation</th><th>Deep-tracer RMSE</th><th>Deep coastal-gradient RMSE</th><th>Global RMSE</th></tr>
+<tr><td>2015 discovery, four seasons</td><td>−44.7%</td><td>−41.8%</td><td>+0.20%</td></tr>
+<tr><td>2017 selection, four seasons</td><td>−44.5%</td><td>−41.4%</td><td>+0.27%</td></tr>
+<tr><td>2019 final test, four seasons</td><td>−45.3%</td><td>−41.4%</td><td>+0.18%</td></tr>
+</table>
+<p>Each window evaluates 5- and 10-day leads. Spatial errors use wet-cell area weights, normalized by the original per-channel standard deviations.
+Summary RMSE is the square root of the mean squared channel/window/lead RMSE, with equal channel weighting.
+Gradients use wet-to-wet neighbors and physical grid spacing, including periodic longitude; no derivative crosses a land mask.
+“Coastal” means wet cells adjacent to a dry cell at that channel's depth. These are prediction-error diagnostics, not conservation tests.</p>
+<img src="metrics.svg" alt="Single-call RMSE ratios and 60-day rollout errors for the original, edited, external blend, and persistence controls">
+<p>On one 60-day January 2015 autoregressive rollout, deep-tracer RMSE improves 11.1% at day 60 while global RMSE increases 0.37%.
+Pure deep-state persistence does better than the edited model. The improvement therefore supports damping spurious changes, not better learned deep-ocean dynamics.
+This rollout is a discovery diagnostic; it is not an independent rollout test. No multiyear stability claim is made.</p>
+<p>Controls included reserving the same directions with zero persistence blend, applying the blend externally to the original model, and expanding edits to shallower depths.
+The broader edit caused larger regressions. Simple zero-DC spatial decoder edits worsened errors; averaging the two temporal heads helped modestly but left their shared spatial noise.
+All decoder screening outcomes are retained in <a href="decoder_screen.json">decoder_screen.json</a>.
+Detailed numerical results, controls, window dates, hashes, and limitations are in <a href="results.json">results.json</a>.</p>
+
+<h2>Why this strategy</h2>
+<p>The <a href="https://rikiyat.github.io/blog/weight-space-programming/">weight-space programming article</a>
+motivated constructing an explicit operation in weights and testing it through forward passes.
+The <a href="https://m2lines.github.io/Samudra/samudra2/">Samudra 2 paper</a> describes imprinting into deep tracers and remaining variance/spectral shortcomings.
+That argues for checking physical reference fields and untouched variables, rather than accepting a smoother image as success.</p>
+<p>The architecture and preprocessing were reconstructed from <a href="https://forge.coreweave.com/wandb/ocean_emulators/default/runs/3o112ot4">run 3o112ot4</a>.
+The original November 2025 OM4 data and original means/stds were loaded from OSN after the credentials were updated.
+The full-record heat-flux anomaly climatology reproduces the training convention, including forcing observations from later evaluation years.
+Training ended in 2013 and validation in 2014; the experiment uses 2015, 2017, and 2019 windows.</p>
+
+<h2>Artifacts and reproduction</h2>
+<p>The inference-only edited checkpoint is stored locally at
+<code>.LOCAL/weight-edit-original/samudra2_onedeg_ema_carry_balanced_l15_0.5.pt</code> (336 MB).
+It contains the model state, chosen basis, and edit provenance. Load its <code>model</code> state dictionary into the unchanged v2 architecture.
+The exported file was strictly loaded and reproduced the cached test prediction exactly. The original checkpoint's SHA-256 is unchanged.
+The large checkpoint and source data are not committed.</p>
+<p><a href="../../.LOCAL/weight-edit-original/test_2019_01_carry_balanced_l15_0.5_increments.png">Full-resolution before/after increment maps</a>
+(local workspace only). Maps share a color scale per variable; values beyond the pooled 99th percentile saturate.</p>
+<pre>uv sync --dev
+# Place the original checkpoint in the repository root and OSN credentials in alex.env.
+uv run python -m scripts.onedeg_weight_edit prepare
+uv run python -m scripts.onedeg_weight_edit baseline --splits discovery selection
+uv run python -m scripts.onedeg_weight_edit diagnose --splits discovery
+uv run python -m scripts.onedeg_weight_edit diagnose --splits selection
+uv run python -m scripts.onedeg_weight_edit screen --splits discovery
+uv run python -m scripts.onedeg_weight_circuit inspect --splits discovery
+uv run python -m scripts.onedeg_weight_circuit run --basis balanced --min-level 15 --alpha 0.5 --splits discovery
+uv run python -m scripts.onedeg_weight_circuit run --basis balanced --min-level 15 --alpha 0 --splits discovery
+uv run python -m scripts.onedeg_weight_circuit run --basis balanced --min-level 10 --alpha 0.5 --splits discovery
+uv run python -m scripts.onedeg_weight_circuit run --basis balanced --min-level 15 --alpha 0.5 --splits selection
+uv run python -m scripts.onedeg_weight_circuit rollout --basis balanced --min-level 15 --alpha 0.5
+# The final candidate was frozen before opening these test windows.
+uv run python -m scripts.onedeg_weight_edit baseline --splits test
+uv run python -m scripts.onedeg_weight_edit diagnose --splits test
+uv run python -m scripts.onedeg_weight_circuit run --basis balanced --min-level 15 --alpha 0.5 --splits test
+uv run python -m scripts.onedeg_weight_circuit export --basis balanced --min-level 15 --alpha 0.5
+uv run python -m scripts.onedeg_weight_circuit verify --basis balanced --min-level 15 --alpha 0.5
+uv run python -m pytest tests/test_onedeg_weight_edit.py -q</pre>
+<p>Commands default to float32 on Apple MPS; use <code>--device cpu</code> or <code>--device cuda</code> where appropriate.
+Output defaults to the ignored <code>.LOCAL/weight-edit-original</code> directory. Export refuses to overwrite an existing artifact.
+The CPU/MPS comparison on one original-model window had normalized RMS difference 9.85×10<sup>−7</sup>.
+No synthetic zero-input result was used to claim a physical improvement.</p>
+<h2>Next decision</h2>
+<p>Keep this checkpoint as an experimental comparison. Before considering deployment, evaluate longer independent rollouts, integrated heat/salt tendencies,
+velocity artifacts and coastal regions, and whether the persistence prior suppresses real deep signals.
+The current evidence does not justify declaring the original objective—eliminating unphysical single-step behavior—solved.</p>
+</html>

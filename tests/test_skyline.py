@@ -11,8 +11,9 @@ import pytest
 import torch
 import xarray as xr
 
-from samudra.skyline.data import CHANNELS, OceanSource
+from samudra.skyline.data import CHANNELS, OceanSource, audit_support
 from samudra.skyline.model import ModelConfig, PointTransformer, Vocabulary
+from samudra.skyline.precision import audit_precision
 from samudra.skyline.run import FrameStream, evaluate
 from samudra.skyline.score import score_values
 
@@ -200,4 +201,22 @@ def test_baseline_cache_scores_identical_targets(ocean, tmp_path):
     result = evaluate(model, vocab, ocean, config, torch.device("cpu"), tmp_path, 1)
     assert all(
         m["samudra_rmse_c"] == 0 and m["samudra_nmse"] == 0 for m in result["per_depth"]
+    )
+
+
+def test_support_fit_and_precision_audit(ocean, tmp_path):
+    support_path = audit_support(ocean, tmp_path / "support")
+    support = json.loads(support_path.read_text())
+    assert support["complete_training_scan"]
+    assert support["dates_scanned"] == 3
+    result = audit_precision(
+        ocean,
+        {"support": str(support_path), "model": {"bins": 2048}},
+        tmp_path / "precision",
+    )
+    assert result["validation_dates"] == 1
+    assert len(result["per_depth"]) == 19
+    assert all(
+        row["persistence_rmse_c"] == pytest.approx(0.4, abs=1e-5)
+        for row in result["per_depth"]
     )

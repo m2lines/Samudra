@@ -99,3 +99,26 @@ release check. Root suffix: `samudra-v2`; producer
 checks passed. Source archive integrity and the remote completion hook were
 verified. A dedicated quiet monitor covers the replacement; the small arm keeps
 its existing monitor.
+
+## Short allocations for backfilling (November 3)
+
+Production jobs 220340 and 220346 now request **four hours per allocation**,
+updated in place from 24 hours. Their original October 30 submit/eligible times,
+producers, configs and qualification proofs are preserved. Both qualifications
+passed; production was still pending when the limits changed.
+
+The existing runner atomically saves `last.pt` every 50 updates, including
+optimizer, EMA, sample-generator and per-rank RNG state. After a verified Slurm
+timeout, the monitor checks checkpoint progress, archives the attempt log and
+accounting, installs a successor callback, and requeues the same job. This can
+repeat until training and evaluation finish, within the original 24 allocated
+production hours per arm (at most six four-hour attempts). Genuine code/data
+failures and attempts without checkpoint progress require diagnosis, not blind
+requeueing. User cancellations must not be resumed automatically.
+
+A timeout may require replaying at most 49 unsaved updates; duplicated event-log
+steps must be identified by attempt/checkpoint lineage when plotting. Deferred
+validation restarts from the saved training endpoints if interrupted. The
+selected model is valid only after all ten complete raw/EMA receipts and the
+final completion marker pass verification. Repeated evaluation timeouts require
+review rather than an indefinite restart loop. Training science is unchanged.

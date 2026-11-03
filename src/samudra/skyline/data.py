@@ -148,6 +148,7 @@ class OceanSource:
                 for i in range(len(dates) - 1)
             ]
         )
+        self.valid_transitions = deltas == 5
         self.origins = {}
         for split, (start, stop) in SPLITS.items():
             # Require both history records and target within the declared split.
@@ -161,12 +162,19 @@ class OceanSource:
         self.pool.shutdown(wait=True)
         self.metadata.close()
 
-    def read(self, origin):
+    def read(self, origin, with_target=True):
+        if origin < 1 or origin >= len(self.date_strings) - int(with_target):
+            raise ValueError("Origin lacks the requested history/target")
+        if not self.valid_transitions[origin - 1] or (
+            with_target and not self.valid_transitions[origin]
+        ):
+            raise ValueError("Window violates the declared five-day cadence")
         start = time.monotonic()
         requests = [
             (t, i, n) for t in (origin - 1, origin) for i, n in enumerate(CHANNELS)
         ]
-        requests += [(origin + 1, i + 38, n) for i, n in enumerate(TEMPERATURES)]
+        if with_target:
+            requests += [(origin + 1, i + 38, n) for i, n in enumerate(TEMPERATURES)]
 
         def read_plane(request):
             t, i, n = request
@@ -179,12 +187,12 @@ class OceanSource:
         planes = list(self.pool.map(read_plane, requests))
         return {
             "input": np.stack(planes[:160]).reshape(2, 80, self.height, self.width),
-            "target": np.stack(planes[160:]),
+            "target": np.stack(planes[160:]) if with_target else None,
             "origin": int(origin),
             "read_seconds": time.monotonic() - start,
         }
 
-    def sample(self, frame, rng, size, crop, depth_sequence=None):
+    def sample(self, frame, rng, size, crop, depth_sequence=None, points=None):
         if crop < 3 or crop % 2 != 1:
             raise ValueError("Crop must have odd side length >= 3")
         depths = (
@@ -194,11 +202,24 @@ class OceanSource:
         )
         if len(depths) != size:
             raise ValueError("Depth sequence length mismatch")
+        if points is not None and len(points) != size:
+            raise ValueError("Point sequence length mismatch")
         samples = []
         offsets = np.arange(crop) - crop // 2
-        for depth in depths:
-            flat = rng.choice(self.locations[depth], p=self.probabilities[depth])
-            row, col = divmod(int(flat), self.width)
+        for i, depth in enumerate(depths):
+            if not 0 <= depth < 19:
+                raise ValueError("Invalid target depth")
+            if points is None:
+                flat = rng.choice(self.locations[depth], p=self.probabilities[depth])
+                row, col = divmod(int(flat), self.width)
+            else:
+                row, col = points[i]
+                if not (
+                    0 <= row < self.height
+                    and 0 <= col < self.width
+                    and self.wet[depth, row, col]
+                ):
+                    raise ValueError("Query must be a wet cell at its target depth")
             raw_rows = row + offsets
             rows = raw_rows.clip(0, self.height - 1)
             cols = (col + offsets) % self.width
@@ -223,7 +244,9 @@ class OceanSource:
                     "depth": np.int64(depth),
                     "depth_m": DEPTHS[depth],
                     "current": frame["input"][1, 38 + depth, row, col],
-                    "target": frame["target"][depth, row, col],
+                    "target": frame["target"][depth, row, col]
+                    if frame["target"] is not None
+                    else np.float32(np.nan),
                     "row": np.int64(row),
                     "col": np.int64(col),
                     "origin": np.int64(frame["origin"]),

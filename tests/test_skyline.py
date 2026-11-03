@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import copy
+import json
 from typing import Any
 
 import cftime
@@ -12,7 +13,8 @@ import xarray as xr
 
 from samudra.skyline.data import CHANNELS, OceanSource
 from samudra.skyline.model import ModelConfig, PointTransformer, Vocabulary
-from samudra.skyline.run import FrameStream
+from samudra.skyline.run import FrameStream, evaluate
+from samudra.skyline.score import score_values
 
 
 @pytest.fixture
@@ -132,3 +134,49 @@ def test_frame_stream_resume():
         assert a.state() == b.state()
     a.close()
     b.close()
+
+
+def test_candidate_scores_do_not_require_future_truth(ocean):
+    # Last record has no next truth, but still has a valid observed history.
+    frame = ocean.read(8, with_target=False)
+    assert frame["target"] is None
+    batch = ocean.sample(
+        frame, np.random.default_rng(0), 2, 3, [0, 18], [(0, 0), (4, 7)]
+    )
+    assert torch.isnan(batch["target"]).all()
+    model = PointTransformer(ModelConfig(width=32, layers=1, heads=4, bins=17)).eval()
+    vocab = Vocabulary(np.full(19, 100.0), 17)
+    means, stds = torch.zeros(19), torch.ones(19)
+    scores = score_values(model, vocab, batch, torch.tensor([10.0, 20.0]), means, stds)
+    assert torch.isfinite(scores["log_density_per_c"]).all()
+    assert not scores["outside_support"].any()
+    with pytest.raises(ValueError, match="five-day"):
+        ocean.read(3, with_target=False)
+    with pytest.raises(ValueError, match="wet cell"):
+        ocean.sample(frame, np.random.default_rng(0), 1, 3, [0], [(2, 3)])
+
+
+def test_validation_locations_match_between_objectives(ocean, tmp_path):
+    config = {
+        "validation_dates": 1,
+        "validation_seed": 42,
+        "validation_points_per_depth": 1,
+        "microbatch": 2,
+        "crop": 3,
+    }
+    locations = []
+    for objective in ("absolute_ce", "regression"):
+        model = PointTransformer(
+            ModelConfig(width=16, layers=1, heads=2, bins=17, objective=objective)
+        )
+        vocab = Vocabulary(np.full(19, 100.0), 17)
+        path = tmp_path / objective
+        path.mkdir()
+        result = evaluate(model, vocab, ocean, config, torch.device("cpu"), path, 1)
+        assert len(result["per_depth"]) == 19
+        rows = [
+            json.loads(line)
+            for line in (path / "predictions-0000001.jsonl").read_text().splitlines()
+        ]
+        locations.append([(r["origin"], r["row"], r["col"], r["depth"]) for r in rows])
+    assert locations[0] == locations[1]

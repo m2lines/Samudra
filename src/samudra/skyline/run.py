@@ -96,15 +96,31 @@ def evaluate(model, vocab, source, config, device, output, step):
             np.linspace(0, len(origins) - 1, min(limit, len(origins)), dtype=int)
         ]
     rng = np.random.default_rng(config["validation_seed"])
+    pit_rng = np.random.default_rng(config["validation_seed"] + 1)
     # Columns: count, error squared in C, persistence squared in C, normalized
     # error squared, bias in C, NLL, finite density NLL, outside count,
     # quantization error squared in C, density count.
     sums = np.zeros((19, 10), dtype=np.float64)
     pit = np.zeros((19, 20), dtype=np.int64)
+    baseline_sse = np.zeros(19, dtype=np.float64)
+    baseline_nmse = np.zeros(19, dtype=np.float64)
+    baseline_root = (
+        Path(config["baseline_cache"]) if config.get("baseline_cache") else None
+    )
+    if baseline_root:
+        baseline_receipt = json.loads((baseline_root / "manifest.json").read_text())
+        for key in ("metadata_sha256", "mean", "std"):
+            if baseline_receipt["source"][key] != source.receipt()[key]:
+                raise ValueError(f"Baseline cache mismatch: {key}")
     target_std = torch.tensor(source.std[38:57], device=device)
     sample_records = []
     for origin in origins:
         frame = source.read(int(origin))
+        baseline = (
+            np.load(baseline_root / f"temperature-{origin:04d}.npy", mmap_mode="r")
+            if baseline_root
+            else None
+        )
         depths = np.tile(np.arange(19), config["validation_points_per_depth"])
         for start in range(0, len(depths), config["microbatch"]):
             selected = depths[start : start + config["microbatch"]]
@@ -139,7 +155,7 @@ def evaluate(model, vocab, source, config, device, output, step):
                 cdf = probabilities.cumsum(-1)
                 mass = probabilities.gather(1, ids[:, None]).squeeze(1)
                 cdf_at = cdf.gather(1, ids[:, None]).squeeze(1)
-                u = torch.tensor(rng.uniform(size=len(selected)), device=device)
+                u = torch.tensor(pit_rng.uniform(size=len(selected)), device=device)
                 randomized_pit = (cdf_at - mass + u * mass).cpu().numpy()
                 for z, p in zip(selected, randomized_pit, strict=True):
                     pit[z, min(19, max(0, int(p * 20)))] += 1
@@ -151,6 +167,28 @@ def evaluate(model, vocab, source, config, device, output, step):
                 oracle = target
             error = (pred - target) * scale
             persist = (batch["current"] - target) * scale
+            baseline_values, baseline_log_density = None, None
+            if baseline is not None:
+                baseline_values = torch.tensor(
+                    [
+                        float(baseline[z, int(batch["row"][i]), int(batch["col"][i])])
+                        for i, z in enumerate(selected)
+                    ],
+                    device=device,
+                )
+                baseline_errors = (baseline_values - target).square().cpu().numpy()
+                for z, squared_error in zip(selected, baseline_errors, strict=True):
+                    baseline_nmse[z] += squared_error
+                    baseline_sse[z] += squared_error * source.std[38 + z] ** 2
+                if categorical:
+                    candidate = (
+                        baseline_values - batch["current"]
+                        if residual
+                        else baseline_values
+                    )
+                    baseline_log_density = vocab.log_density(
+                        logits, candidate, depth, target_std
+                    )
             rows = (
                 torch.stack(
                     (
@@ -185,6 +223,15 @@ def evaluate(model, vocab, source, config, device, output, step):
                         "log_density": float(log_density[i])
                         if categorical and not outside[i]
                         else None,
+                        "samudra_c": float(
+                            baseline_values[i] * scale[i] + source.mean[38 + z]
+                        )
+                        if baseline_values is not None
+                        else None,
+                        "samudra_log_density": float(baseline_log_density[i])
+                        if baseline_log_density is not None
+                        and torch.isfinite(baseline_log_density[i])
+                        else None,
                     }
                 )
     metrics = []
@@ -207,6 +254,10 @@ def evaluate(model, vocab, source, config, device, output, step):
                 else None,
                 "outside_support": int(row[7]) if categorical else None,
                 "quantization_rmse_c": math.sqrt(row[8] / n) if categorical else None,
+                "samudra_rmse_c": math.sqrt(baseline_sse[z] / n)
+                if baseline_root
+                else None,
+                "samudra_nmse": baseline_nmse[z] / n if baseline_root else None,
             }
         )
     result = {
@@ -245,6 +296,11 @@ def train(config, source, output):
     support = json.loads(Path(config["support"]).read_text())
     if support["source"]["metadata_sha256"] != source.metadata_sha256:
         raise ValueError("Support and data release differ")
+    if (
+        support["source"]["mean"] != source.mean.tolist()
+        or support["source"]["std"] != source.std.tolist()
+    ):
+        raise ValueError("Support audit and training normalization differ")
     if not support["complete_training_scan"] and not config["qualification"]:
         raise ValueError(
             "Scientific training requires the complete training-only support audit"

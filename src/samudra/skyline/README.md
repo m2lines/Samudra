@@ -73,6 +73,27 @@ Interrupted work since that checkpoint is repeated. Use `save_every: 1` for the
 eight-update qualification. Torch routing uses the preemption Slurm comment,
 `--requeue --signal=B:USR1@300`, and `REQUEUE_ON_USR1=1`.
 
+The first training pair uses `small_absolute.json` and `small_regression.json`:
+the 1,024-wide, 16-layer backbone, 20,000 updates, one GPU with microbatch 32 and
+no accumulation, 500 warmup updates, and a peak learning rate of 0.0002. The
+objectives are absolute-temperature categorical CE and scalar-temperature MSE.
+Both use the full training-only support audit. Four updates share each decoded
+two-history/target date window (128 sample draws); cells and depths are sampled
+independently with replacement. Validation uses the same eight held-out dates
+and fixed 64 sampled wet points per depth per date across runs, every 2,000
+updates. Latest checkpoints are saved every 500 updates. These are initial
+training runs; comparisons with the frozen Samudra baseline require its cache.
+
+The utilization guard samples the assigned GPU by UUID every five seconds,
+including validation and checkpoint time. After two minutes of startup and a
+five-minute measurement window, a rolling mean below 60% requests a checkpoint
+and a failed exit at an optimizer boundary. A failed telemetry query (including
+its ten-second timeout) also stops the run. The 60% threshold leaves margin above Torch's reported 50% requirement;
+the actual scheduler measurement is external. Telemetry is retained in
+`gpu-utilization-restart-N.jsonl`. A stop does not automatically resubmit the
+same inefficient configuration. Area-weighted location CDFs are cached to
+avoid rebuilding a full-grid sampling table for every crop.
+
 ## Baseline and candidate scores
 
 `python -m samudra.skyline.baseline --config CONFIG --baseline-config TRAIN_YAML

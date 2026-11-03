@@ -128,7 +128,7 @@ class OceanSource:
         self.area = np.asarray(reference["areacello"][:], dtype=np.float64)
         if self.area.shape != (self.height, self.width):
             raise ValueError("Expected native horizontal cell areas")
-        self.locations, self.probabilities = [], []
+        self.locations, self.probabilities, self.location_cdfs = [], [], []
         for wet in self.wet:
             indices = np.flatnonzero(wet)
             weights = self.area.ravel()[indices]
@@ -140,6 +140,9 @@ class OceanSource:
                 raise ValueError("Invalid wet-cell area weights")
             self.locations.append(indices)
             self.probabilities.append(weights / weights.sum())
+            cdf = np.cumsum(self.probabilities[-1])
+            cdf /= cdf[-1]
+            self.location_cdfs.append(cdf)
         dates = self.metadata.time.values
         self.date_strings = np.array([str(t)[:10] for t in dates])
         deltas = np.array(
@@ -210,7 +213,12 @@ class OceanSource:
             if not 0 <= depth < 19:
                 raise ValueError("Invalid target depth")
             if points is None:
-                flat = rng.choice(self.locations[depth], p=self.probabilities[depth])
+                # Reuse the area CDF instead of rebuilding a million-cell table
+                # for every crop. One uniform draw preserves the sampling law.
+                index = np.searchsorted(
+                    self.location_cdfs[depth], rng.random(), side="right"
+                )
+                flat = self.locations[depth][index]
                 row, col = divmod(int(flat), self.width)
             else:
                 row, col = points[i]

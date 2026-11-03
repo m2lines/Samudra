@@ -10,6 +10,7 @@ import os
 import random
 import time
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import nullcontext
 from dataclasses import asdict
 from pathlib import Path
 
@@ -302,7 +303,7 @@ def resume_checkpoint(config, latest, restart_count):
     return False
 
 
-def train(config, source, output):
+def train(config, source, output, monitor=None):
     output.mkdir(parents=True, exist_ok=True)
     if config["steps"] < 1 or config["accumulation"] < 1 or config["microbatch"] < 1:
         raise ValueError("Positive steps and batch sizes required")
@@ -413,6 +414,7 @@ def train(config, source, output):
     stream = FrameStream(source, seed + 100, stream_state)
     torch.cuda.reset_peak_memory_stats()
     model.train()
+    training_begin = time.monotonic()
     for step in range(start_step + 1, config["steps"] + 1):
         begin = time.monotonic()
         optimizer.zero_grad(set_to_none=True)
@@ -469,13 +471,27 @@ def train(config, source, output):
             "origin": stream.current_origin,
             "peak_allocated_gib": torch.cuda.max_memory_allocated() / 2**30,
             "outside_support": outside_count,
+            "elapsed_seconds": time.monotonic() - training_begin,
+            "rolling_gpu_utilization_percent": monitor.mean if monitor else None,
         }
-        emit(record, output / "training.jsonl")
-        if wandb_run:
-            wandb_run.log({"train/" + k: v for k, v in record.items()}, step=step)
-        if step % config["validate_every"] == 0 or step == config["steps"]:
+        if (
+            step == 1
+            or step % config.get("log_every", 1) == 0
+            or step == config["steps"]
+        ):
+            emit(record, output / "training.jsonl")
+            if wandb_run:
+                wandb_run.log({"train/" + k: v for k, v in record.items()}, step=step)
+        stop_reason = monitor.reason if monitor else None
+        if not stop_reason and (
+            step % config["validate_every"] == 0 or step == config["steps"]
+        ):
+            validation_begin = time.monotonic()
             validation = evaluate(model, vocab, source, config, device, output, step)
-            scores = {"validation/nmse": validation["mean_depth_nmse"]}
+            scores = {
+                "validation/nmse": validation["mean_depth_nmse"],
+                "validation/seconds": time.monotonic() - validation_begin,
+            }
             nll = validation["mean_depth_bin_nll"]
             if nll is not None:
                 scores["validation/nll"] = nll
@@ -500,7 +516,9 @@ def train(config, source, output):
             if nll is not None and nll < best_nll:
                 best_nll = nll
                 save_atomic(weights, output / "best-likelihood.pt")
-        if step % config["save_every"] == 0 or step == config["steps"]:
+        stop_reason = monitor.reason if monitor else None
+        if stop_reason or step % config["save_every"] == 0 or step == config["steps"]:
+            checkpoint_begin = time.monotonic()
             save_atomic(
                 {
                     "model": model.state_dict(),
@@ -517,9 +535,27 @@ def train(config, source, output):
                 },
                 latest,
             )
+            emit(
+                {
+                    "event": "checkpoint",
+                    "step": step,
+                    "seconds": time.monotonic() - checkpoint_begin,
+                },
+                output / "training.jsonl",
+            )
+        if stop_reason:
+            (output / "STOPPED.json").write_text(
+                json.dumps({"step": step, "reason": stop_reason}) + "\n"
+            )
+            stream.close()
+            if wandb_run:
+                wandb_run.finish(exit_code=1)
+            raise RuntimeError(stop_reason)
     stream.close()
     if wandb_run:
         wandb_run.finish()
+    if monitor and monitor.reason:
+        raise RuntimeError(monitor.reason)
     (output / "COMPLETE.json").write_text(
         json.dumps({"step": config["steps"], "qualification": config["qualification"]})
         + "\n"
@@ -546,7 +582,20 @@ def main():
 
             audit_precision(source, config, args.output)
         else:
-            train(config, source, args.output)
+            from .utilization import GpuMonitor
+
+            monitor_context = (
+                GpuMonitor(
+                    args.output,
+                    torch.cuda.get_device_properties(0).uuid,
+                    int(os.environ.get("SLURM_RESTART_COUNT", "0")),
+                    config["utilization_guard"],
+                )
+                if config.get("utilization_guard")
+                else nullcontext(None)
+            )
+            with monitor_context as monitor:
+                train(config, source, args.output, monitor)
     finally:
         source.close()
 

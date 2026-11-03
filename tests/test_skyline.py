@@ -35,6 +35,48 @@ def test_preemption_resume_policy(tmp_path):
 
 
 from samudra.skyline.score import score_values
+from samudra.skyline.utilization import GpuMonitor, UtilizationWindow
+
+
+def test_utilization_guard_includes_idle_intervals_and_warmup():
+    window = UtilizationWindow(minimum_percent=60, warmup_seconds=10, window_seconds=20)
+    for t in range(0, 10, 5):
+        assert window.add(t, 0) is None
+    for t in range(10, 30, 5):
+        assert window.add(t, 100) is None
+    assert window.add(30, 100) == 100
+    # GPU-idle checkpoint/I/O intervals count, not just optimizer execution.
+    for t in range(35, 60, 5):
+        mean = window.add(t, 0)
+    assert mean == 0
+    assert mean < window.minimum
+    with pytest.raises(ValueError):
+        window.add(60, float("nan"))
+
+
+def test_gpu_monitor_targets_assigned_uuid_and_fails_closed(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    monitor = GpuMonitor(tmp_path, "GPU-assigned", 0, {})
+
+    def query(args, **kwargs):
+        assert args[1:3] == ["-i", "GPU-assigned"]
+        monitor.stop.set()
+        return SimpleNamespace(stdout="91, 12000, 350\n")
+
+    monkeypatch.setattr("samudra.skyline.utilization.subprocess.run", query)
+    monitor.run()
+    assert json.loads(monitor.path.read_text())["utilization_percent"] == 91
+    assert monitor.reason is None
+    monitor.stop.clear()
+
+    def failed_query(*args, **kwargs):
+        raise RuntimeError("telemetry unavailable")
+
+    monkeypatch.setattr("samudra.skyline.utilization.subprocess.run", failed_query)
+    monitor.run()
+    assert monitor.reason is not None
+    assert "telemetry unavailable" in monitor.reason
 
 
 @pytest.fixture
@@ -80,6 +122,7 @@ def test_split_and_cadence(ocean):
 def test_crop_wrap_padding_masks_and_target_isolation(ocean):
     ocean.locations = [np.array([0])] * 19
     ocean.probabilities = [np.array([1.0])] * 19
+    ocean.location_cdfs = [np.array([1.0])] * 19
     frame = ocean.read(1)
     batch = ocean.sample(frame, np.random.default_rng(2), 2, 3, [0, 18])
     assert batch["values"].shape == (2, 18, 80)

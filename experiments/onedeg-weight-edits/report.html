@@ -20,6 +20,7 @@ They include increment bias, wet-neighbor gradient error, increment magnitude an
 and state-error guardrails for all channels. Candidate maps use identical OM4-derived color limits. Original cell areas and depth-specific masks
 come from the verified OSN static cache. These are empirical diagnostics; they do not establish closed physical budgets.</p>
 <p>Submitted to Torch as Slurm job <strong>21787164</strong>, with online W&amp;B required, immutable code and checksummed inputs.
+Submission provenance and output paths are in <a href="transition_runs.json">transition_runs.json</a>.
 The run writes full transition CSVs, paired seasonal acceptance results and bootstrap intervals, and aligned increment maps.
 Only four seasonal windows support each split's uncertainty estimate; these intervals are exploratory.
 No new candidate has been selected using 2021 local results. The earlier eight-year evaluation includes 2021, so this is not an untouched temporal holdout.</p>

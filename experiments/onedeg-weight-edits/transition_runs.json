@@ -1,0 +1,53 @@
+{
+  "benchmark_version": 1,
+  "code_commit": "cb8e25c9d9d274cf2b4d29f72af709f2e63d3e30",
+  "protocol": "transition_protocol.json",
+  "slurm_job_id": "21787164",
+  "recorded_state": "PENDING",
+  "results_available": false,
+  "wandb": {
+    "entity": "ocean_emulators",
+    "project": "default",
+    "group": "onedeg-transition-benchmark-v1",
+    "mode": "online; required before inference",
+    "run_url_file": "/scratch/am16581/runs/2026-11-03-onedeg-transition-benchmark-v1/wandb-url.txt"
+  },
+  "bundle": "/scratch/am16581/transition-benchmark-v1-20261103",
+  "output": "/scratch/am16581/runs/2026-11-03-onedeg-transition-benchmark-v1",
+  "data_root": "/scratch/am16581/data/om4_onedeg_v3",
+  "source_data": "s3://emulators/am16581/data/2025-11/om4_onedeg_v3/",
+  "checkpoint_directory": "/scratch/am16581/weight-edit-eval-20261103/checkpoints",
+  "container": "/scratch/am16581/.apptainer-images/physicsnemo-26.05-4f86be45.sif",
+  "code_layer": "/scratch/am16581/.apptainer-code-layers/samudra-code-cb8e25c9d9d274cf2b4d29f72af709f2e63d3e30.img",
+  "resources": {
+    "partition": "h200_courant",
+    "account": "torch_pr_347_courant",
+    "gpus": 1,
+    "cpus": 16,
+    "memory_gb": 175,
+    "time_limit_hours": 2
+  },
+  "preflight": {
+    "slurm_job_id": "21787268",
+    "scope": "CPU data preparation for calibration_2015_01; no model inference",
+    "recorded_state": "COMPLETED",
+    "exit_code": "0:0",
+    "result": "Coordinates, depth masks, original normalization, timestamps and full first normalized-window SHA256 match the original cache exactly."
+  },
+  "validation": {
+    "focused_tests_passed": 54,
+    "code_checks": "Ruff, formatting, mypy, schemas, secret detection, file sizes and whitespace pass",
+    "existing_repository_check_failure": "REUSE: original untracked checkpoint lacks license metadata"
+  },
+  "expected_artifacts": [
+    "provenance.json",
+    "prepared_data_checksums.json",
+    "tail_thresholds_normalized.json",
+    "transitions.csv",
+    "window_summaries.json",
+    "acceptance.json",
+    "figures/"
+  ],
+  "status_note": "Submission record; consult Slurm and the output directory for live status. No control or candidate result is claimed here.",
+  "recorded_at_utc": "2026-11-03T23:41:38.800713+00:00"
+}

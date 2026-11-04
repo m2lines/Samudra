@@ -1,0 +1,117 @@
+{
+  "root": "/scratch/jr7309/stochastic-shared-noise-20261103",
+  "host": "torch",
+  "qualification_job": "21764381",
+  "qualification_callback_job": "21764391",
+  "callback": null,
+  "parent_thread": "01a18031-ca03-73b3-b31b-e7de3ccd0800",
+  "monitor": "/root/shared_noise_monitor",
+  "source": "9e9618833d33c4a6c76d4ea1968a852f3ce339ee30064f7d2bc55f7056860755",
+  "total_gpu_hour_cap": 40,
+  "variants": [
+    "B-shared",
+    "B-shared-deep",
+    "B-shared-wide",
+    "B-shared-deep-wide"
+  ],
+  "state": "all_training_and_evaluation_complete",
+  "next_action": "Publish verified report and artifacts on stochastic-transition-gallery branch; new OM4-only reconstruction remains proposed.",
+  "qualification_callback_retired": true,
+  "production_callback_job": "21788702",
+  "production_jobs": [
+    {
+      "variant": "B-shared",
+      "job": "21788687",
+      "wall_minutes": 360,
+      "command": [
+        "sbatch",
+        "--parsable",
+        "--array=0",
+        "--time=360",
+        "--job-name=B-shared",
+        "--chdir=/scratch/jr7309",
+        "--output=/scratch/jr7309/stochastic-shared-noise-20261103/production-%A_%a.out",
+        "--error=/scratch/jr7309/stochastic-shared-noise-20261103/production-%A_%a.err",
+        "/scratch/jr7309/stochastic-shared-noise-20261103/code/scripts/slurm_stochastic_shared_noise.sbatch"
+      ]
+    },
+    {
+      "variant": "B-shared-deep",
+      "job": "21788688",
+      "wall_minutes": 420,
+      "command": [
+        "sbatch",
+        "--parsable",
+        "--array=1",
+        "--time=420",
+        "--job-name=B-shared-deep",
+        "--chdir=/scratch/jr7309",
+        "--output=/scratch/jr7309/stochastic-shared-noise-20261103/production-%A_%a.out",
+        "--error=/scratch/jr7309/stochastic-shared-noise-20261103/production-%A_%a.err",
+        "/scratch/jr7309/stochastic-shared-noise-20261103/code/scripts/slurm_stochastic_shared_noise.sbatch"
+      ]
+    },
+    {
+      "variant": "B-shared-wide",
+      "job": "21788689",
+      "wall_minutes": 375,
+      "command": [
+        "sbatch",
+        "--parsable",
+        "--array=2",
+        "--time=375",
+        "--job-name=B-shared-wide",
+        "--chdir=/scratch/jr7309",
+        "--output=/scratch/jr7309/stochastic-shared-noise-20261103/production-%A_%a.out",
+        "--error=/scratch/jr7309/stochastic-shared-noise-20261103/production-%A_%a.err",
+        "/scratch/jr7309/stochastic-shared-noise-20261103/code/scripts/slurm_stochastic_shared_noise.sbatch"
+      ]
+    },
+    {
+      "variant": "B-shared-deep-wide",
+      "job": "21788690",
+      "wall_minutes": 465,
+      "command": [
+        "sbatch",
+        "--parsable",
+        "--array=3",
+        "--time=465",
+        "--job-name=B-shared-deep-wide",
+        "--chdir=/scratch/jr7309",
+        "--output=/scratch/jr7309/stochastic-shared-noise-20261103/production-%A_%a.out",
+        "--error=/scratch/jr7309/stochastic-shared-noise-20261103/production-%A_%a.err",
+        "/scratch/jr7309/stochastic-shared-noise-20261103/code/scripts/slurm_stochastic_shared_noise.sbatch"
+      ]
+    }
+  ],
+  "release": {
+    "source": "9e9618833d33c4a6c76d4ea1968a852f3ce339ee30064f7d2bc55f7056860755",
+    "qualification_allocated_gpu_hours": 0.6875,
+    "wall_minutes": {
+      "B-shared": 360,
+      "B-shared-deep": 420,
+      "B-shared-wide": 375,
+      "B-shared-deep-wide": 465
+    },
+    "maximum_total_gpu_hours": 27.6875,
+    "training_updates_per_arm": 2000,
+    "qualification_updates_included": 24,
+    "budget_gpu_hours": 40,
+    "allocation_policy": "Per-arm hard cap covers >=25% training estimate margin plus45min staging/evaluation. Remaining40hour budget reserved for recovery; charge anyretry before release."
+  },
+  "recovery_job": "21817530",
+  "recovery_callback_job": "21817554",
+  "recovery_gpu_hours_cap": 1,
+  "maximum_reserved_gpu_hours_including_recovery": 29.6875,
+  "recovery_reason": "Shared baseline finished2000updates but nvidia-smi15secondtimeout causedtelemetryharnessfailurebeforeeval. Recoveryruns evaluationonly.",
+  "monitoring_retired": true,
+  "final_recovery_job": "21820489",
+  "final_recovery_callback_job": "21820494",
+  "final_allocated_gpu_seconds": 75347,
+  "final_allocated_gpu_hours": 20.92972222222222,
+  "additional_training_submitted": false,
+  "artifact_transfer": {
+    "files": 252,
+    "check": "rclone check zero differences,252matchingfiles;exactfilechecksumsinanalysisreceipts"
+  }
+}

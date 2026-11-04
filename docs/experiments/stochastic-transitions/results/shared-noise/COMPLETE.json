@@ -1,0 +1,1228 @@
+{
+  "complete": true,
+  "variants": [
+    "B-learned-control",
+    "B-shared",
+    "B-shared-deep",
+    "B-shared-wide",
+    "B-shared-deep-wide"
+  ],
+  "steps": [
+    500,
+    1000,
+    2000
+  ],
+  "weights": [
+    "raw",
+    "ema"
+  ],
+  "initializer_dates": [
+    "2014-01",
+    "2014-04",
+    "2014-05"
+  ],
+  "forecast_origins": 9,
+  "sources": [
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-learned-control/initializer-raw/grid.npz",
+      "sha256": "129e14065e95ada1c1d1b3713b68b4173ebcbf7e51c0ba2d9ade2f5f18b9ab11"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-learned-control/initializer-raw/input-2014-01.json",
+      "sha256": "6fc037d87514f4d248cd216062a3ca44b0e23adb4ce0a744f5bce6a4b343769d"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-learned-control/initializer-raw/input-2014-04.json",
+      "sha256": "1aeda079e80c7469e9e6ae5655593903fc5835ffb3a23ad062155de53793ef0d"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-learned-control/initializer-raw/input-2014-05.json",
+      "sha256": "c25f6ec0932042dc3d79d80c47f42c6938265e8dc8b4b5a4a76dad98bffe9180"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-learned-control/initializer-raw/B-learned-control-02000-2014-01-maps.npz",
+      "sha256": "1ba85e02d491c5eca29acf08d311d1e44e534564f9a714b0ff649fa7f85b0a9b"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-learned-control/initializer-raw/B-learned-control-02000-2014-04-maps.npz",
+      "sha256": "08950b06810af4b4276cff155767418671160272632c35a7cac94127fa92d1a9"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-learned-control/initializer-raw/B-learned-control-02000-2014-05-maps.npz",
+      "sha256": "d5458703ced801ee5a295e9eb65b695fb1adbd9927762f93552b8ed246741a7f"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-learned-control/initializer-raw/B-learned-control-00500-2014-01.json",
+      "sha256": "f78ddb48ecb251cf2dee25356230dc5ef5364fefa305aeeaa1764b86dc71e210"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-learned-control/initializer-raw/B-learned-control-00500-2014-04.json",
+      "sha256": "45666f3e7e1b24e736f5aa6c398c3e0b28af99ef538a14d9bd9cf3b4a8e70918"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-learned-control/initializer-raw/B-learned-control-00500-2014-05.json",
+      "sha256": "e1586a3c181e4da97d5813d6e8b06a54dd18c2a3259f94950ab20b8099707581"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-learned-control/initializer-raw/B-learned-control-01000-2014-01.json",
+      "sha256": "a87120fcffad36a3bf4890d5a3a48a85c8249a0162008a82d4078ddc654636c2"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-learned-control/initializer-raw/B-learned-control-01000-2014-04.json",
+      "sha256": "b2b35be685e5f9e3322c0f9c667c44bf1c7f0f489ae965a4ec3de95b44dfb36c"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-learned-control/initializer-raw/B-learned-control-01000-2014-05.json",
+      "sha256": "2da12fedd336492aa4c784216a45b4fd26f85514497611a4939e80580e46a468"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-learned-control/initializer-raw/B-learned-control-02000-2014-01.json",
+      "sha256": "2f34640d9c618ba7b9d58d7e9d058c6a4bb4f04b8d4a596ae301bb5fe4f24429"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-learned-control/initializer-raw/B-learned-control-02000-2014-04.json",
+      "sha256": "150d344cb8fcc5ac467e5caefe1115a0da0e4c9d776e424324cc5378cdcdcdd6"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-learned-control/initializer-raw/B-learned-control-02000-2014-05.json",
+      "sha256": "d1f9de14882fcf66cafc93096eab0f467a93ffb3e305cf013929b62c60e4cb75"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-learned-control/initializer-ema/grid.npz",
+      "sha256": "129e14065e95ada1c1d1b3713b68b4173ebcbf7e51c0ba2d9ade2f5f18b9ab11"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-learned-control/initializer-ema/input-2014-01.json",
+      "sha256": "88817cafeef437fdef94cb6aadf9b2db03db4eb2a50c5e975addf081a14d7533"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-learned-control/initializer-ema/input-2014-04.json",
+      "sha256": "3b14a086802d384f807fe499d442ce4dbd44178435938a08657ea953018a8350"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-learned-control/initializer-ema/input-2014-05.json",
+      "sha256": "c6b1851c1f1cbba2e1694997505613f86151a1816cca48aaf351006c1896adb4"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-learned-control/initializer-ema/B-learned-control-02000-2014-01-maps.npz",
+      "sha256": "cc0f79e427a60f5dfe93a6f7a2cbc7cd24525deca5a7788858901e4eeaa51694"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-learned-control/initializer-ema/B-learned-control-02000-2014-04-maps.npz",
+      "sha256": "0e354a406db38cc13c1deabc48a2fa2c22b6ca3c968b8baff67b315b790e9d34"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-learned-control/initializer-ema/B-learned-control-02000-2014-05-maps.npz",
+      "sha256": "8f300c164cbe9eb5643a8e4431e6bae9f9b54206eb6605d3efeff9e9c27f96c9"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-learned-control/initializer-ema/B-learned-control-00500-2014-01.json",
+      "sha256": "83080374bdeb47416a7440da2eb43134807568b8b3074b53277c40b4b7a9f004"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-learned-control/initializer-ema/B-learned-control-00500-2014-04.json",
+      "sha256": "bd847828f11ee33ebf37700caea2645a31cef232747dfb877c181983d3ca786f"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-learned-control/initializer-ema/B-learned-control-00500-2014-05.json",
+      "sha256": "6328fff5bbb77a373f6b3970fd54dd9bc58bc387a3281f5582237194fd4ff287"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-learned-control/initializer-ema/B-learned-control-01000-2014-01.json",
+      "sha256": "14afbcc4584fcc174f73d5a905dd41fa5ec440d74e77f07a1af1174e4a36154f"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-learned-control/initializer-ema/B-learned-control-01000-2014-04.json",
+      "sha256": "dd8b9b2d70217efc2f4b404f1f01ef9c07ef9194cfaeb1f865e7fba3e67c808f"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-learned-control/initializer-ema/B-learned-control-01000-2014-05.json",
+      "sha256": "887251b99bc0857c4e6fee732977c8845918a5107fac06c802a55e988432eba4"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-learned-control/initializer-ema/B-learned-control-02000-2014-01.json",
+      "sha256": "4e63db42377d2e1546143bca458ba218f34333b8cb9243bb60dc5339c5fe0249"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-learned-control/initializer-ema/B-learned-control-02000-2014-04.json",
+      "sha256": "09d277c3f115f5fca870350fb776a3707cb245151c6eeda2b018add8190f4cc9"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-learned-control/initializer-ema/B-learned-control-02000-2014-05.json",
+      "sha256": "8bf8da09ef654883de2bf31e90486fc5838041f326938f5b76d91020315572c6"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared/initializer-raw/grid.npz",
+      "sha256": "129e14065e95ada1c1d1b3713b68b4173ebcbf7e51c0ba2d9ade2f5f18b9ab11"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared/initializer-raw/input-2014-01.json",
+      "sha256": "6fc037d87514f4d248cd216062a3ca44b0e23adb4ce0a744f5bce6a4b343769d"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared/initializer-raw/input-2014-04.json",
+      "sha256": "1aeda079e80c7469e9e6ae5655593903fc5835ffb3a23ad062155de53793ef0d"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared/initializer-raw/input-2014-05.json",
+      "sha256": "c25f6ec0932042dc3d79d80c47f42c6938265e8dc8b4b5a4a76dad98bffe9180"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared/initializer-raw/B-shared-02000-2014-01-maps.npz",
+      "sha256": "0223242d1b0e4eb439434258097a31f089cae8e367f76302760d085644476fd9"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared/initializer-raw/B-shared-02000-2014-04-maps.npz",
+      "sha256": "7339ae4390dee67e44a9a065160eabad42c095e1bfcd8110ca8a5d8e4806a95e"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared/initializer-raw/B-shared-02000-2014-05-maps.npz",
+      "sha256": "694a52e82aedb90d191e774e50413ff70b9b410f8e776156432ad0528348849d"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared/initializer-raw/B-shared-00500-2014-01.json",
+      "sha256": "385909cf343f5f50efd612f595cfbba31f5bf0e6c22d9019fe37e796a4c508d4"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared/initializer-raw/B-shared-00500-2014-04.json",
+      "sha256": "33907086d5a4dbd57db0013c6fdd70dfa7f426b794979a13230e28eeb123d996"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared/initializer-raw/B-shared-00500-2014-05.json",
+      "sha256": "c0856bc23aa0b8cd50040c4b00c29e92a2c5fe31fbe9d587a6951dc619787da0"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared/initializer-raw/B-shared-01000-2014-01.json",
+      "sha256": "28e364cebebbe9eb8b7f992f7fa20d4912599b06b240cfc7d073e4c72a8d3db1"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared/initializer-raw/B-shared-01000-2014-04.json",
+      "sha256": "4fe71a1135a56af9fa3417c7737956148b7d799df735c71459a3cb2e31649f15"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared/initializer-raw/B-shared-01000-2014-05.json",
+      "sha256": "07d2789fa4a15bfc4862a28eb472bdb4e05bb03ffaa9e58677ca5224a6f4eec0"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared/initializer-raw/B-shared-02000-2014-01.json",
+      "sha256": "fbfc5557937af871ed28bdf4f00a3fe634be072265f56c8a6b91f5ff973962c8"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared/initializer-raw/B-shared-02000-2014-04.json",
+      "sha256": "e6fb86ed95272ae798db5c66ba01219d39c47d161ccc2d8ab26a768065ac089f"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared/initializer-raw/B-shared-02000-2014-05.json",
+      "sha256": "6b09bf689415e374abc750d9371a7adfbcc2003f611375cf94ef5f6b20793a79"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared/initializer-ema/grid.npz",
+      "sha256": "129e14065e95ada1c1d1b3713b68b4173ebcbf7e51c0ba2d9ade2f5f18b9ab11"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared/initializer-ema/input-2014-01.json",
+      "sha256": "88817cafeef437fdef94cb6aadf9b2db03db4eb2a50c5e975addf081a14d7533"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared/initializer-ema/input-2014-04.json",
+      "sha256": "3b14a086802d384f807fe499d442ce4dbd44178435938a08657ea953018a8350"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared/initializer-ema/input-2014-05.json",
+      "sha256": "c6b1851c1f1cbba2e1694997505613f86151a1816cca48aaf351006c1896adb4"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared/initializer-ema/B-shared-02000-2014-01-maps.npz",
+      "sha256": "78c20e0a807d9218b6fadaab699aaebb05f5bd233f207acf38a322f3e7c63f76"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared/initializer-ema/B-shared-02000-2014-04-maps.npz",
+      "sha256": "6c6a0aac7c252ca6599f7ff1a52b56267b67d02fde23cf5122d280b32638a41c"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared/initializer-ema/B-shared-02000-2014-05-maps.npz",
+      "sha256": "98bd51dac277384a4cca6c160c367aac0964d9f569b6d6f1909f8951b1a6387e"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared/initializer-ema/B-shared-00500-2014-01.json",
+      "sha256": "85cd8273b54421abd74407943869d8ea6130068af89682ba580b3c2b0ff47b15"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared/initializer-ema/B-shared-00500-2014-04.json",
+      "sha256": "344bc65e24b4ef944517e30a632aea65bbe7592b2ea12080804917517c716ed0"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared/initializer-ema/B-shared-00500-2014-05.json",
+      "sha256": "7536980c9f683795a4a09241cb54c2fd97c41363314e17e04e972147d9b36f89"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared/initializer-ema/B-shared-01000-2014-01.json",
+      "sha256": "0e1cf827efedea9888838a7064f750dbe0990a6e581e325d72272966b5885df9"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared/initializer-ema/B-shared-01000-2014-04.json",
+      "sha256": "87dc14c4fdf0efe758d8dfacf269446860c1937e723335bc4a35be5544d933da"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared/initializer-ema/B-shared-01000-2014-05.json",
+      "sha256": "389976728ae728b7cc15ccbf5c6d15a3439cc7013cccba66c743e46f2fa87418"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared/initializer-ema/B-shared-02000-2014-01.json",
+      "sha256": "238fe67087ad4f84249e3b3cb0363c842479daf9911e2c90bb0aba448b4b80bd"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared/initializer-ema/B-shared-02000-2014-04.json",
+      "sha256": "e567f51c7cf9a40bd61545c8733f46d01ce28e24e8d92b0ca59205d434814bd0"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared/initializer-ema/B-shared-02000-2014-05.json",
+      "sha256": "747f14e3560c7143bcc01a04d90c8da189a861d94c3e2a6f698512894b6b205c"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep/initializer-raw/grid.npz",
+      "sha256": "129e14065e95ada1c1d1b3713b68b4173ebcbf7e51c0ba2d9ade2f5f18b9ab11"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep/initializer-raw/input-2014-01.json",
+      "sha256": "6fc037d87514f4d248cd216062a3ca44b0e23adb4ce0a744f5bce6a4b343769d"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep/initializer-raw/input-2014-04.json",
+      "sha256": "1aeda079e80c7469e9e6ae5655593903fc5835ffb3a23ad062155de53793ef0d"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep/initializer-raw/input-2014-05.json",
+      "sha256": "c25f6ec0932042dc3d79d80c47f42c6938265e8dc8b4b5a4a76dad98bffe9180"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep/initializer-raw/B-shared-deep-02000-2014-01-maps.npz",
+      "sha256": "b2d101dc0b71f7a4d19df11a6081689cc9b0d4cb9b535b8e2df1df914c3a86a8"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep/initializer-raw/B-shared-deep-02000-2014-04-maps.npz",
+      "sha256": "3e75daa9750910878210cbbfcb2bdaab05a2c9278f171690118f90f573ee4785"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep/initializer-raw/B-shared-deep-02000-2014-05-maps.npz",
+      "sha256": "79c9898be4ab86fe4a0cb7d26e8648f82e82094879bf4aaf71ca5c38fd83a2d6"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep/initializer-raw/B-shared-deep-00500-2014-01.json",
+      "sha256": "16441ec427000a7c5a4cd2a13aab8f36f391bfe27ea87a5dd3ae6da574754c9d"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep/initializer-raw/B-shared-deep-00500-2014-04.json",
+      "sha256": "30283dc791b6e450b2520c0915a4fe1fadde3cc72f1148db1ceb525332a9bd70"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep/initializer-raw/B-shared-deep-00500-2014-05.json",
+      "sha256": "c11435945aef4f8a5655835f0b727973cb6de3d84920e59d521599a4ff8c9270"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep/initializer-raw/B-shared-deep-01000-2014-01.json",
+      "sha256": "9eb324023b6c7c1382a74fb01f2e3d6401853312fc9564baddb0c354c61ec919"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep/initializer-raw/B-shared-deep-01000-2014-04.json",
+      "sha256": "a3198bc89284f38b77e8f3f341987624a1acecc9de796f23fd9b8b62e5b7a47e"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep/initializer-raw/B-shared-deep-01000-2014-05.json",
+      "sha256": "4dca789bcdc1c339cde5f87ea831e42c2a06c4cea835cc06dc94c77a2f9ab500"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep/initializer-raw/B-shared-deep-02000-2014-01.json",
+      "sha256": "3670bb224ddbd07c31f4bd5365c5b98e6586f8f3f9ee71d07801efdff6c6ef29"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep/initializer-raw/B-shared-deep-02000-2014-04.json",
+      "sha256": "005a26df103eee810b575f534b0e224aad598beeac8fe9d1f1c68b8709835a40"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep/initializer-raw/B-shared-deep-02000-2014-05.json",
+      "sha256": "d4fa51188fe26840196f3d9215d9ed01fec5ae14e4326a95ce1a229e6f9a341e"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep/initializer-ema/grid.npz",
+      "sha256": "129e14065e95ada1c1d1b3713b68b4173ebcbf7e51c0ba2d9ade2f5f18b9ab11"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep/initializer-ema/input-2014-01.json",
+      "sha256": "88817cafeef437fdef94cb6aadf9b2db03db4eb2a50c5e975addf081a14d7533"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep/initializer-ema/input-2014-04.json",
+      "sha256": "3b14a086802d384f807fe499d442ce4dbd44178435938a08657ea953018a8350"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep/initializer-ema/input-2014-05.json",
+      "sha256": "c6b1851c1f1cbba2e1694997505613f86151a1816cca48aaf351006c1896adb4"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep/initializer-ema/B-shared-deep-02000-2014-01-maps.npz",
+      "sha256": "c4e861f55a8e488503d1088ac353231295d843d543c649fff9c96e4701ddb458"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep/initializer-ema/B-shared-deep-02000-2014-04-maps.npz",
+      "sha256": "b80faf02cb6bd95efff9431f4071ca67f7db4914da237a7810c47d22adc61f40"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep/initializer-ema/B-shared-deep-02000-2014-05-maps.npz",
+      "sha256": "3747ff7afcd6d7ef9511a47b69a178acb05c24eacce51ff05491b9dbbfb0ab07"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep/initializer-ema/B-shared-deep-00500-2014-01.json",
+      "sha256": "9b7c388a91954b2e35d8e3b98695ebd69ca5ec585caf07bf64151fc9707090e3"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep/initializer-ema/B-shared-deep-00500-2014-04.json",
+      "sha256": "30cc08508280c36e5144bb51f56239c5964d23ed2b107be1accf8efad61fcc61"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep/initializer-ema/B-shared-deep-00500-2014-05.json",
+      "sha256": "e216ec0416dfa86fbc5b9ebd2966ed48660cd365d39b4df253cd31be98c293c0"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep/initializer-ema/B-shared-deep-01000-2014-01.json",
+      "sha256": "fa622f20aae65a38dc137a62e00763f47b2668610cabc7264aee2acd85f2b00a"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep/initializer-ema/B-shared-deep-01000-2014-04.json",
+      "sha256": "b43dff797fb4c787d04fb1a808aba5ee2f95a5a74b451c7f47ce2c8262157059"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep/initializer-ema/B-shared-deep-01000-2014-05.json",
+      "sha256": "975272ebec7a538f2f502dcf5b4fd141fe52d90fe91c393ec88aadb2ec0b80b7"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep/initializer-ema/B-shared-deep-02000-2014-01.json",
+      "sha256": "ee9df40208bf9d7f3027fda966673aeea12ac178f8a476a0d53dcc6bd3260af3"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep/initializer-ema/B-shared-deep-02000-2014-04.json",
+      "sha256": "abd5ffc6658045cfd17935acfa5e4086715cfa684b3ca78047f32f24989055e4"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep/initializer-ema/B-shared-deep-02000-2014-05.json",
+      "sha256": "394d95b33e98805732010193a891368a0551724dfdfe45353cc80adbba1bad1a"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-wide/initializer-raw/grid.npz",
+      "sha256": "129e14065e95ada1c1d1b3713b68b4173ebcbf7e51c0ba2d9ade2f5f18b9ab11"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-wide/initializer-raw/input-2014-01.json",
+      "sha256": "6fc037d87514f4d248cd216062a3ca44b0e23adb4ce0a744f5bce6a4b343769d"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-wide/initializer-raw/input-2014-04.json",
+      "sha256": "1aeda079e80c7469e9e6ae5655593903fc5835ffb3a23ad062155de53793ef0d"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-wide/initializer-raw/input-2014-05.json",
+      "sha256": "c25f6ec0932042dc3d79d80c47f42c6938265e8dc8b4b5a4a76dad98bffe9180"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-wide/initializer-raw/B-shared-wide-02000-2014-01-maps.npz",
+      "sha256": "8a691b8a500b264467cc13c690066f06766775eb10c90a54e75b4607286cfb27"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-wide/initializer-raw/B-shared-wide-02000-2014-04-maps.npz",
+      "sha256": "ce2d89c6f99c3ccaddae010098795a6b3f4d73ad737b42c77530a92f2ee4c5e9"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-wide/initializer-raw/B-shared-wide-02000-2014-05-maps.npz",
+      "sha256": "1155fa1353e07e0d4bcc2b6c02cefa9086ef4a36af0fef8aac84905a54ff96d8"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-wide/initializer-raw/B-shared-wide-00500-2014-01.json",
+      "sha256": "f062a8c6697f492853e6a6d73a16fb206247594bbd3bc7be69f1e49bbb54bb19"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-wide/initializer-raw/B-shared-wide-00500-2014-04.json",
+      "sha256": "a63162672923c5ee26261174009672df56362d40ab3ac44b29ed5491b65b7dc3"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-wide/initializer-raw/B-shared-wide-00500-2014-05.json",
+      "sha256": "1b39f40781923758da77f2cc69d19fcf828198e84882b396f31f0cbd458467cc"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-wide/initializer-raw/B-shared-wide-01000-2014-01.json",
+      "sha256": "3219fb09030dcbfc72d6b97fd28ce4aac8c4ba38801f7e41587f919dc7b49918"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-wide/initializer-raw/B-shared-wide-01000-2014-04.json",
+      "sha256": "1d2ed593c5cb760a8a0dafb0e8154c3b43a4f8d1b51b8fdb28c8827b83be4c8c"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-wide/initializer-raw/B-shared-wide-01000-2014-05.json",
+      "sha256": "ca359157576e7bfa07cfbcba52064071414a3bc079100a3e4b3bdafe16bbded9"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-wide/initializer-raw/B-shared-wide-02000-2014-01.json",
+      "sha256": "07b2b5a2e66660f4d51d30bec1fe2f1d7279f303fdf5c79335e43cafa8408aaa"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-wide/initializer-raw/B-shared-wide-02000-2014-04.json",
+      "sha256": "51f2bbec1e171c2129d64086f8f889ed764df285883b9caf0cae5925f8c6cf26"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-wide/initializer-raw/B-shared-wide-02000-2014-05.json",
+      "sha256": "0af0be1c6c934d41076d0660b97cf65e91dda63bf9abab2402867f0536967ef8"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-wide/initializer-ema/grid.npz",
+      "sha256": "129e14065e95ada1c1d1b3713b68b4173ebcbf7e51c0ba2d9ade2f5f18b9ab11"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-wide/initializer-ema/input-2014-01.json",
+      "sha256": "88817cafeef437fdef94cb6aadf9b2db03db4eb2a50c5e975addf081a14d7533"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-wide/initializer-ema/input-2014-04.json",
+      "sha256": "3b14a086802d384f807fe499d442ce4dbd44178435938a08657ea953018a8350"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-wide/initializer-ema/input-2014-05.json",
+      "sha256": "c6b1851c1f1cbba2e1694997505613f86151a1816cca48aaf351006c1896adb4"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-wide/initializer-ema/B-shared-wide-02000-2014-01-maps.npz",
+      "sha256": "4c6d1c729b54018382eb1b6c234daa0966a030cab9ce26de9effeb3ee126d49e"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-wide/initializer-ema/B-shared-wide-02000-2014-04-maps.npz",
+      "sha256": "79d6fc5cdaaa7837d8c30e2886f6f959aac8a517731c5e93ef6ecb1a68d0d6c6"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-wide/initializer-ema/B-shared-wide-02000-2014-05-maps.npz",
+      "sha256": "e7975b9711a86a02290dd7242b30fa6edc3e68dbf58c2d82429968da6bad7420"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-wide/initializer-ema/B-shared-wide-00500-2014-01.json",
+      "sha256": "dc363b27c0c5e4c1df8a84282ae6fdc912905f57eeb5891d2b7bc6850c30cb72"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-wide/initializer-ema/B-shared-wide-00500-2014-04.json",
+      "sha256": "3f21d02401b9f3650236ed1e2dfc048849ca02ed3f6d9264994f8066f8deb359"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-wide/initializer-ema/B-shared-wide-00500-2014-05.json",
+      "sha256": "c18bb43fc3df623c3ef8df23fd33bce79f9feff4d5752d8b5c372a66dad050fd"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-wide/initializer-ema/B-shared-wide-01000-2014-01.json",
+      "sha256": "ebc0bac0ff647ca48c85bb0b9e729f79804fce10e9a4fa7dd55f3cd8084c6b67"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-wide/initializer-ema/B-shared-wide-01000-2014-04.json",
+      "sha256": "509d8cbf0a98d320971c98a20f30f6391f350f680e876058499b34003fdcfac6"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-wide/initializer-ema/B-shared-wide-01000-2014-05.json",
+      "sha256": "e3301d6de647a810a901893236d26c5af28cce34183c13104bf523ad13704e20"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-wide/initializer-ema/B-shared-wide-02000-2014-01.json",
+      "sha256": "aaa0c8fe6535f71158e74ecb5c22546367121a33fc28ca921f6c87e0db78aae1"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-wide/initializer-ema/B-shared-wide-02000-2014-04.json",
+      "sha256": "7bee2e9683621c80fe33599fce4bd0e9683ab29c07fbdf3384ab0d5243e8704e"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-wide/initializer-ema/B-shared-wide-02000-2014-05.json",
+      "sha256": "39f8b3ad757a86fc40b2c93548812a01519dc6ba83c22847182ac91e8e5c2f6e"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep-wide/initializer-raw/grid.npz",
+      "sha256": "129e14065e95ada1c1d1b3713b68b4173ebcbf7e51c0ba2d9ade2f5f18b9ab11"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep-wide/initializer-raw/input-2014-01.json",
+      "sha256": "6fc037d87514f4d248cd216062a3ca44b0e23adb4ce0a744f5bce6a4b343769d"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep-wide/initializer-raw/input-2014-04.json",
+      "sha256": "1aeda079e80c7469e9e6ae5655593903fc5835ffb3a23ad062155de53793ef0d"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep-wide/initializer-raw/input-2014-05.json",
+      "sha256": "c25f6ec0932042dc3d79d80c47f42c6938265e8dc8b4b5a4a76dad98bffe9180"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep-wide/initializer-raw/B-shared-deep-wide-02000-2014-01-maps.npz",
+      "sha256": "48eaf4c8a0d8d8f725c71659f75af91a166243bbdcc2f9ffff020abc24e87990"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep-wide/initializer-raw/B-shared-deep-wide-02000-2014-04-maps.npz",
+      "sha256": "efedb9acd7ba50cfd03c1f4282b40f97221ac51a177160cacc10ac2cea3806a6"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep-wide/initializer-raw/B-shared-deep-wide-02000-2014-05-maps.npz",
+      "sha256": "d91c6ca1554e9ec5f746b70a36a6217db7a7b7dc1f382703edef592179f27e88"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep-wide/initializer-raw/B-shared-deep-wide-00500-2014-01.json",
+      "sha256": "9bc2526b1beef990dade8dc5f9a64315142fc31900e112fe5c2fd46cafa0ba21"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep-wide/initializer-raw/B-shared-deep-wide-00500-2014-04.json",
+      "sha256": "ba9a0dcfd7d2f750bbeffafb6923ce311732168e4ae1bae967db6d3a281d606e"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep-wide/initializer-raw/B-shared-deep-wide-00500-2014-05.json",
+      "sha256": "c8a5d9b8acd3bd57a06b295f31fe6b2387f53763d024e5893562bb6f3363db3f"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep-wide/initializer-raw/B-shared-deep-wide-01000-2014-01.json",
+      "sha256": "2f9beecfbd0036703ba0d2bd7427d38953bfcb449faabc33831cbd867494657b"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep-wide/initializer-raw/B-shared-deep-wide-01000-2014-04.json",
+      "sha256": "3389b359880b872792632f08b169aca023f62f93b66a3135e986a89664696bf4"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep-wide/initializer-raw/B-shared-deep-wide-01000-2014-05.json",
+      "sha256": "21295922fbef64029444a4335aab8d9a2f11e1dee974fca961c65a0af06fb44a"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep-wide/initializer-raw/B-shared-deep-wide-02000-2014-01.json",
+      "sha256": "47ec5554e69551737d8c80fe287fb267d94f5f1087c5a1550a7c57b6b19b9009"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep-wide/initializer-raw/B-shared-deep-wide-02000-2014-04.json",
+      "sha256": "75963d01836e18d1b9497894b2d2aa7705b47f76b61f904303a3fb2200edf2fc"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep-wide/initializer-raw/B-shared-deep-wide-02000-2014-05.json",
+      "sha256": "511a8057e70259ef5e731299f84bc1cd5c12dd5f654f02e083b1f91639bdd9a4"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep-wide/initializer-ema/grid.npz",
+      "sha256": "129e14065e95ada1c1d1b3713b68b4173ebcbf7e51c0ba2d9ade2f5f18b9ab11"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep-wide/initializer-ema/input-2014-01.json",
+      "sha256": "88817cafeef437fdef94cb6aadf9b2db03db4eb2a50c5e975addf081a14d7533"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep-wide/initializer-ema/input-2014-04.json",
+      "sha256": "3b14a086802d384f807fe499d442ce4dbd44178435938a08657ea953018a8350"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep-wide/initializer-ema/input-2014-05.json",
+      "sha256": "c6b1851c1f1cbba2e1694997505613f86151a1816cca48aaf351006c1896adb4"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep-wide/initializer-ema/B-shared-deep-wide-02000-2014-01-maps.npz",
+      "sha256": "76547f8285796ad65490ad1f6e65c83734f4196065651b12e0e4a94b73c310d5"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep-wide/initializer-ema/B-shared-deep-wide-02000-2014-04-maps.npz",
+      "sha256": "f01adb174fb85283b688a940df97c97daf027138733f4ecdca067c10902665f0"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep-wide/initializer-ema/B-shared-deep-wide-02000-2014-05-maps.npz",
+      "sha256": "754bc6a92c39c5de2b7624e5984c43d4d935d6959f073659c41f49b7a8a781b2"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep-wide/initializer-ema/B-shared-deep-wide-00500-2014-01.json",
+      "sha256": "0c130836b7818e0b0d1e5fe460ccaf12d622d905399c3b4fe3d5e65b9a3a5ac4"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep-wide/initializer-ema/B-shared-deep-wide-00500-2014-04.json",
+      "sha256": "baa795750d7e4af349eeeae4070ccaf4590474b31285c2995cc0316becda82e3"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep-wide/initializer-ema/B-shared-deep-wide-00500-2014-05.json",
+      "sha256": "73edb136d228ce73ceab8077a0f818787d469c4fc31adaa3715268522cebed72"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep-wide/initializer-ema/B-shared-deep-wide-01000-2014-01.json",
+      "sha256": "d1bc6464af959b3de71c92e6f1ea45342b4be076b879526aa225ad8185002234"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep-wide/initializer-ema/B-shared-deep-wide-01000-2014-04.json",
+      "sha256": "c9c9bff1844400301866ca69d2e48e355e7bc1429eb50b14b6b195a90dc4f859"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep-wide/initializer-ema/B-shared-deep-wide-01000-2014-05.json",
+      "sha256": "3ff498685ddfa69c93b1925a513c05f466bfde00e92a246c0aaf2c56ccfa68e9"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep-wide/initializer-ema/B-shared-deep-wide-02000-2014-01.json",
+      "sha256": "93186d11548ee5d42b317433621d72b39873fb24b746796f7fd5f40939a43763"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep-wide/initializer-ema/B-shared-deep-wide-02000-2014-04.json",
+      "sha256": "d04b5d5721daf77397ca43685625cbdbf08de1bcbe7faf87d2110eb1674c4031"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep-wide/initializer-ema/B-shared-deep-wide-02000-2014-05.json",
+      "sha256": "c1e502a9b23349ca7b79f9b53f44a3322dc38d1bd19efe433d06741e280c2470"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-learned-control/evaluation/step-02000-ema/COMPLETE.json",
+      "sha256": "e6cdfd33c9a4738169c9eb3e56dcc6467a5f17906e6eeec895e18cb01d82bc34"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-learned-control/evaluation/step-02000-raw/COMPLETE.json",
+      "sha256": "4422695301c96caade11ec4b09b83af54422508c1bde929aea484a70f7c2a3c2"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared/evaluation/step-02000-ema/COMPLETE.json",
+      "sha256": "1d8d27797a4a692de44c16e84f67cde0b03ae3cd564405158737b4f645f20433"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared/evaluation/step-02000-raw/COMPLETE.json",
+      "sha256": "cceffb33f88c466766200ba8aaf05570cf8ea853493ed1f28232598d0177cffa"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep/evaluation/step-02000-ema/COMPLETE.json",
+      "sha256": "7921944d3775b5e2224a5c02ea6d96ffd68e78cb66e828b26491800df7a275ed"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep/evaluation/step-02000-raw/COMPLETE.json",
+      "sha256": "2fd4cb778cdb1c4e7c72699c6fc226df54cf1875dc34aa11c5a89adad5258a75"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep-wide/evaluation/step-02000-ema/COMPLETE.json",
+      "sha256": "7c864c97e06076cd7a984f78aed17607b6bfa280d32aa80b2319c57bc7ffb463"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep-wide/evaluation/step-02000-raw/COMPLETE.json",
+      "sha256": "c57332bb79770c00731e0977c34202ad7ef4bf8308f0853f77c325879cbe1b6b"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-wide/evaluation/step-02000-ema/COMPLETE.json",
+      "sha256": "a82450adac835a97e220317bf6de772a2c8bac64e1bef01569672013e19bbb46"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-wide/evaluation/step-02000-raw/COMPLETE.json",
+      "sha256": "0a0a1ec2339013d50e23ea31fdb3c5acc1116791081bb5df1fbeeddb2061382b"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-learned-control/evaluation/step-02000-ema/members-2013-11.npz",
+      "sha256": "0dacbe89380d42b9802ebbfe95b47ba854b411d32df9793706ffc0db1cb4418a"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-learned-control/evaluation/step-02000-ema/members-2013-12.npz",
+      "sha256": "88e6c4ee3c9500624e960a3c7f28c537cb50ea21a601369155884c322a2ea976"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-learned-control/evaluation/step-02000-ema/members-2014-01.npz",
+      "sha256": "0130dc10c5cf7b8e079c64a4f744e0221a52f7d610a38ee565fecb31e99d79e5"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-learned-control/evaluation/step-02000-ema/members-2014-02.npz",
+      "sha256": "c959862cf4a7aa27f71c2434cc1e959f2e84d12befb00bf06058dfb546ba3429"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-learned-control/evaluation/step-02000-ema/members-2014-03.npz",
+      "sha256": "004d556977838cfec96a1a43301158e601c07f2a1d76c44b539b7a64b2c21527"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-learned-control/evaluation/step-02000-ema/members-2014-04.npz",
+      "sha256": "58089bbff90cb2f890345da107f5da19faa0a1f8c9eedc5cf197a8ae6587b8b9"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-learned-control/evaluation/step-02000-ema/members-2014-05.npz",
+      "sha256": "a86b7a8d24495d1451c640846df415625d0c5482f0afe24de340592ec7c39a93"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-learned-control/evaluation/step-02000-ema/members-2014-06.npz",
+      "sha256": "a38bcc15801c772262650adea8e476f0e03139ec6c1ca958eb7efa1d80e4824d"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-learned-control/evaluation/step-02000-ema/members-2014-07.npz",
+      "sha256": "6b087c325cefe5c515cce205c04fe69a7fb0c5285fe15c89f0fb8a06b2836d7b"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-learned-control/evaluation/step-02000-raw/members-2013-11.npz",
+      "sha256": "5057b12745233297829dea7a53ef92aab5878fbb564b0dd3fcc47a8213e6f9fa"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-learned-control/evaluation/step-02000-raw/members-2013-12.npz",
+      "sha256": "b07ed80fdfbb88f08651064f069d2c0d049f228f43af7335c8f9e84f14aea95e"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-learned-control/evaluation/step-02000-raw/members-2014-01.npz",
+      "sha256": "18c3b24a087a385d580f5bdc0845c4633c7187625b514370df090173c0b772f1"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-learned-control/evaluation/step-02000-raw/members-2014-02.npz",
+      "sha256": "6a83310ddd61001a890c0df8f4912e9daa1472e38b79659c71945d90d468c584"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-learned-control/evaluation/step-02000-raw/members-2014-03.npz",
+      "sha256": "370a183ef6f773b5b48c948f490dc43d09f4c958c4b0df1de43a8b1daecee858"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-learned-control/evaluation/step-02000-raw/members-2014-04.npz",
+      "sha256": "70497dad61b9040ecdcb71dec388cca8a54d5af0a1d23c342ff78ac4bc7efac1"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-learned-control/evaluation/step-02000-raw/members-2014-05.npz",
+      "sha256": "95c708d5f4df521ea3e3ccc35b3abd97579bf71c36fccd3bf23413a8160a429d"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-learned-control/evaluation/step-02000-raw/members-2014-06.npz",
+      "sha256": "f240331e635d544e0b6c3bd6506f8bd54631c3ab701a0bcafb9611e489dd448a"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-learned-control/evaluation/step-02000-raw/members-2014-07.npz",
+      "sha256": "7eb798f73620f96e33df7d0ea6237be1866f869308d028d19ba958c3fcc85e76"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared/evaluation/step-02000-ema/members-2013-11.npz",
+      "sha256": "960f767a74f645931d16f488409522c3e69affd2d3483484f92cd75840c8eec1"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared/evaluation/step-02000-ema/members-2013-12.npz",
+      "sha256": "daf7b8588df0f06de05a25b5bc06033af0c48db7af105d3beabe08f30562b22f"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared/evaluation/step-02000-ema/members-2014-01.npz",
+      "sha256": "6d0ac0e9f7666bd124315939fcfd4a49addef53be815d795608e03acfcdc4669"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared/evaluation/step-02000-ema/members-2014-02.npz",
+      "sha256": "70be9bfbd869f973058883ef368a18b80a8f3170bb491a8ce68f28ae7f9f8e3f"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared/evaluation/step-02000-ema/members-2014-03.npz",
+      "sha256": "20901fb4f76fe3ed20883e7049fb9872d47e21342fcd0b3e1d01c2389edcb0df"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared/evaluation/step-02000-ema/members-2014-04.npz",
+      "sha256": "239bacb850835b6364b983c07d4e43611357e34cbfeef2b16c59240b6a2adbda"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared/evaluation/step-02000-ema/members-2014-05.npz",
+      "sha256": "ddefc2f1570c238ee9cc242005298dc5849a36fd9d04311f5d3d684c56eda899"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared/evaluation/step-02000-ema/members-2014-06.npz",
+      "sha256": "c7615766df179f29ccc6d6b1ffb781a4fcc7e2c47736bc8cb9a3777740231e62"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared/evaluation/step-02000-ema/members-2014-07.npz",
+      "sha256": "7188cb8ddcedbcdb2772c6360dbb5b7fcba5e51d514600c98f50afe629fd38c2"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared/evaluation/step-02000-raw/members-2013-11.npz",
+      "sha256": "bdca84f521ed84748ff7b80ade9df0038b73e93fc6398e07e4876c8d6c4018f0"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared/evaluation/step-02000-raw/members-2013-12.npz",
+      "sha256": "f1e27a24084bbe1bba41ee27a43cf3f017f3a14ce2127a24ddfc5c9bf0b3e9ea"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared/evaluation/step-02000-raw/members-2014-01.npz",
+      "sha256": "93cf0f3fa755fcf1fa10f082aeb832722fab4b0d12f71eb0a91b48014c7da8ef"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared/evaluation/step-02000-raw/members-2014-02.npz",
+      "sha256": "79297fa1cb9b7092ddc4de19608a4d2f387aea4636e60cca06c222d90ed46035"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared/evaluation/step-02000-raw/members-2014-03.npz",
+      "sha256": "264e7a99f2a6748db385fff45d017451f58c7e60220ddf59955d8975d78f13a1"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared/evaluation/step-02000-raw/members-2014-04.npz",
+      "sha256": "f5f00b847f13f07ca24f846d5932c62a4bd3a3c98f0ac7d0118d5dfbd4f69cc5"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared/evaluation/step-02000-raw/members-2014-05.npz",
+      "sha256": "0af0fc052f27e52959d2cefc2b53c27c503881c69349c2e227e8f276d3e876f5"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared/evaluation/step-02000-raw/members-2014-06.npz",
+      "sha256": "5480bb474caff39e161958a8b893df8215f28735c855988d1137fa493d66cc9f"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared/evaluation/step-02000-raw/members-2014-07.npz",
+      "sha256": "3d125135263eee0c4b64ccb262aa7ddcd698ffb611c77a8f63e070132c8eb4ad"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep/evaluation/step-02000-ema/members-2013-11.npz",
+      "sha256": "96c8f8d00faf3df097d165b9cbb984424921c2f21a0c0b133b09bb6ccdb075d7"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep/evaluation/step-02000-ema/members-2013-12.npz",
+      "sha256": "0173b08e1629dcdc5b2609a5f8ecfdb38286200a16603dcf2279ae488524895c"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep/evaluation/step-02000-ema/members-2014-01.npz",
+      "sha256": "136004f29369adf468fa1a97e7aff12237cbde926b106e6770c7c6533ed4116d"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep/evaluation/step-02000-ema/members-2014-02.npz",
+      "sha256": "079c20877c32b4cdb4005b71aa53eb327885d5fcd83a1864e1b786dc2be1cc9e"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep/evaluation/step-02000-ema/members-2014-03.npz",
+      "sha256": "a4e22a1dadc01357d1d4b21417fd685c1a5e62e9fe7aaf0c9113e40a6a0d2e06"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep/evaluation/step-02000-ema/members-2014-04.npz",
+      "sha256": "d96eb1681e0c7a89840c4e76e576b3593ec5a11a7230f442a87027c2b36633de"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep/evaluation/step-02000-ema/members-2014-05.npz",
+      "sha256": "9e0d7740d46bd50738207cfe6f79dc76ea602c27d412a324826aa5247457ad71"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep/evaluation/step-02000-ema/members-2014-06.npz",
+      "sha256": "536b820da9ff104a740201ceec3f99645bd626ded75dd22f2cfe8d575bb6ea0d"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep/evaluation/step-02000-ema/members-2014-07.npz",
+      "sha256": "9fe0668a46ca0e36ea846ed1c77c2781bd449ccac27657fa35d5d66b83a6ee64"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep/evaluation/step-02000-raw/members-2013-11.npz",
+      "sha256": "a6b804ad9e931439e4ea2817f6ada89e39fcd15a3ceaad1cac15f6b2c8c1ca22"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep/evaluation/step-02000-raw/members-2013-12.npz",
+      "sha256": "b3123a416997779b3e8a5ca77565db34e8b49a03a6075295568fa8aa883a56c6"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep/evaluation/step-02000-raw/members-2014-01.npz",
+      "sha256": "aa3da631ab8dbfcd1597e6032a9c90df4f8f3cade77b221bb806fea9b0bdd587"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep/evaluation/step-02000-raw/members-2014-02.npz",
+      "sha256": "3913cc49dbf57f9c31b4108b991cc065996da1afbcf6f733edf58533afa126a6"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep/evaluation/step-02000-raw/members-2014-03.npz",
+      "sha256": "db8aea9479c24e6137dc945fa17e95c846b9c4775f72e2a94cb7bb18f0574077"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep/evaluation/step-02000-raw/members-2014-04.npz",
+      "sha256": "319528c04406150b6ccf5f54576a2159325c6200c9041756399912fa961c517e"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep/evaluation/step-02000-raw/members-2014-05.npz",
+      "sha256": "1bb87fe641d5b5ea8f23db2c7b84a1b6e9c135a12d355ca1f7c3fa751a691b6a"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep/evaluation/step-02000-raw/members-2014-06.npz",
+      "sha256": "3e83dd8eb133e21571e07d5b7960f3d40e273ab6b2806c4016b443f7a31f9964"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep/evaluation/step-02000-raw/members-2014-07.npz",
+      "sha256": "b60531e686423d1698ea7d2dbb84f1a10ab17399d0c6541a9ef8f53a1a8c15a7"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep-wide/evaluation/step-02000-ema/members-2013-11.npz",
+      "sha256": "8da46a360373e28c5cf29b82a52e26b3f2e0d067dc33ccaa66947cc1483a3c4f"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep-wide/evaluation/step-02000-ema/members-2013-12.npz",
+      "sha256": "c3aadb4702e40f08804bfda993ab974eee26484233410b069f08ecef4b09a1ba"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep-wide/evaluation/step-02000-ema/members-2014-01.npz",
+      "sha256": "e2417d8b8bb3615d452f8f6d4a31803cd35a02fa87e7a60794e9832c241e0a42"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep-wide/evaluation/step-02000-ema/members-2014-02.npz",
+      "sha256": "11864f5096bb0ccd36061307d44d1433da23aeb1c6d6b305099985a9392b404b"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep-wide/evaluation/step-02000-ema/members-2014-03.npz",
+      "sha256": "8109b4e6a88652bf3ce0e7a195f0ed075115c5683e40223c466abdd6d8e5fa86"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep-wide/evaluation/step-02000-ema/members-2014-04.npz",
+      "sha256": "1bbc811e6bf012e18e2636e9176d762b586e740ce3f5a36d8d1f8f53e2d1f822"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep-wide/evaluation/step-02000-ema/members-2014-05.npz",
+      "sha256": "0543455948ce5922814a4dd6fae8127ceccb64854883383277f5a4c572611906"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep-wide/evaluation/step-02000-ema/members-2014-06.npz",
+      "sha256": "2e7dcb04f223be1cda96515e1719dc8a8a057ef26f30f580b62b4a644969ff5f"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep-wide/evaluation/step-02000-ema/members-2014-07.npz",
+      "sha256": "25312db1640cd1cd4520e893e55a12dfe15cae2309b581faafaa848801cd650d"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep-wide/evaluation/step-02000-raw/members-2013-11.npz",
+      "sha256": "0a4aaea8e9077c68d142639d9b0817f94c33c923d05f72dd31d5b7b8b8799bc6"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep-wide/evaluation/step-02000-raw/members-2013-12.npz",
+      "sha256": "daa41ab1bcf5a182a1a72af5989109edb139e0e8d8bd6ee2f9910dac7e0f188a"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep-wide/evaluation/step-02000-raw/members-2014-01.npz",
+      "sha256": "a2192dd7c3ccbaad31cbfe223ebd264e2a48511736fef385bf9c384592086ca8"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep-wide/evaluation/step-02000-raw/members-2014-02.npz",
+      "sha256": "2dc9f37e167ec0e91419e94f451c7777509abf7449fc54b1eabfbb84512191d5"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep-wide/evaluation/step-02000-raw/members-2014-03.npz",
+      "sha256": "38e7d14652d8ec6caf9a0f12f84840c4637b8838b658c19dd9a1269db460f242"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep-wide/evaluation/step-02000-raw/members-2014-04.npz",
+      "sha256": "dbdc542edd03abec1e9f7ee411c6e6b68f22cab81f3b9c0eb9e52af449c232aa"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep-wide/evaluation/step-02000-raw/members-2014-05.npz",
+      "sha256": "f479584fce39ecfd0a2b869db8bd707e6edf82da0d87a8e9924c6dce463064bc"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep-wide/evaluation/step-02000-raw/members-2014-06.npz",
+      "sha256": "2d19733e01f91b5ebc75523ae0bdcdf67bd1a9378f876699abf5d2f2e9799057"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-deep-wide/evaluation/step-02000-raw/members-2014-07.npz",
+      "sha256": "3a0590631e567ae5f65c0fc4c751941f237cbab54670204b816a7cf32c537e2a"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-wide/evaluation/step-02000-ema/members-2013-11.npz",
+      "sha256": "bb2d520740d8be1d644210cd057ffdd31cc06a4f863fd7ec940e227846edccbd"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-wide/evaluation/step-02000-ema/members-2013-12.npz",
+      "sha256": "81ed29b6c7555c9962bb840bf742e12d51a323f856316b889eeebb3d9d7ef50a"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-wide/evaluation/step-02000-ema/members-2014-01.npz",
+      "sha256": "45213bd2d4497efab52e281095c18fceee8aa590c0de39e573ec90e67278e8db"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-wide/evaluation/step-02000-ema/members-2014-02.npz",
+      "sha256": "1f956f92cbe0abb33671f5792dae54b0f38506df3e7b097e1dc11761a3428a65"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-wide/evaluation/step-02000-ema/members-2014-03.npz",
+      "sha256": "0b0e6c5d35711182423b42351b44853416d78b794e3787021bc337546c7b0cec"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-wide/evaluation/step-02000-ema/members-2014-04.npz",
+      "sha256": "85678801ce104de6d468872079829e7fe2c531c5545552185307281be1f4152b"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-wide/evaluation/step-02000-ema/members-2014-05.npz",
+      "sha256": "fe90cc7acb852e073223d1062c04f67afbeea7b512b28c2d25f8c174461cfcec"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-wide/evaluation/step-02000-ema/members-2014-06.npz",
+      "sha256": "eee8c5472204cd49f28e5bf779acbc0efaff5ce6b69bf94c9b7be19c223baa96"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-wide/evaluation/step-02000-ema/members-2014-07.npz",
+      "sha256": "912eb16adf943f4a62aceca73eb01d914794f99c6c6b0c56bb7e5f6d45ea8124"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-wide/evaluation/step-02000-raw/members-2013-11.npz",
+      "sha256": "74fe3922587bd65a90dffe1902aa9f4006b6e17c07924961c481b231f3027ece"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-wide/evaluation/step-02000-raw/members-2013-12.npz",
+      "sha256": "4d37c72086e45f1db20acaa64cf8168d28e7c0018df09525e801fdb93a5bb1e4"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-wide/evaluation/step-02000-raw/members-2014-01.npz",
+      "sha256": "98447a5a35ed839630bac95f8d3e7d519e0089f4dd68373e4fc9164bedc900c7"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-wide/evaluation/step-02000-raw/members-2014-02.npz",
+      "sha256": "478393c3ab529a51a087a661c701ff736203c530a637835e15f0cb071c34c287"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-wide/evaluation/step-02000-raw/members-2014-03.npz",
+      "sha256": "eb18e82dd25e4b91b3dc431bafbafb6120a3a35a4032002388fc7ff4d278035a"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-wide/evaluation/step-02000-raw/members-2014-04.npz",
+      "sha256": "c661b74fd57737746d39d25210b3aaaded4f3fff80ece94a80eea86a37d69bcf"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-wide/evaluation/step-02000-raw/members-2014-05.npz",
+      "sha256": "ef62b11303928cb6abe2206767a840695f7f10609dc7a133ddfbd417417dadf8"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-wide/evaluation/step-02000-raw/members-2014-06.npz",
+      "sha256": "84e30a041f92b6ade49d5e44767a1ab0f6c8c1aaf3aeb511464a5b56e1046805"
+    },
+    {
+      "path": "/tmp/stochastic-shared-noise-results/production/B-shared-wide/evaluation/step-02000-raw/members-2014-07.npz",
+      "sha256": "04d95951ba186c10181c638d4ee9b65eb9bd27e59f31a0c68b87a4b33a9c541b"
+    }
+  ],
+  "input_proofs": {
+    "2014-01": {
+      "month": "2014-01",
+      "history_midpoints": [
+        "2013-09-30T12:00:00",
+        "2013-10-05T12:00:00",
+        "2013-10-10T12:00:00",
+        "2013-10-15T12:00:00",
+        "2013-10-20T12:00:00",
+        "2013-10-25T12:00:00",
+        "2013-10-30T12:00:00",
+        "2013-11-04T12:00:00",
+        "2013-11-09T12:00:00",
+        "2013-11-14T12:00:00",
+        "2013-11-19T12:00:00",
+        "2013-11-24T12:00:00",
+        "2013-11-29T12:00:00",
+        "2013-12-04T12:00:00",
+        "2013-12-09T12:00:00",
+        "2013-12-14T12:00:00",
+        "2013-12-19T12:00:00",
+        "2013-12-24T12:00:00",
+        "2013-12-29T12:00:00"
+      ],
+      "history_indices": [
+        4069,
+        4070,
+        4071,
+        4072,
+        4073,
+        4074,
+        4075,
+        4076,
+        4077,
+        4078,
+        4079,
+        4080,
+        4081,
+        4082,
+        4083,
+        4084,
+        4085,
+        4086,
+        4087
+      ],
+      "sample_sha256": "bc126b8b29c9704069c34eb7d2ef5ff92d63106e3fdb83f87f5064e6338d37cb",
+      "seed": 904003,
+      "members": 8,
+      "grid_sha256": "ce96360964a6669d0186b9581abaaffc06f660c4e09e0ac813b3dd1b819e5167",
+      "om4_metadata_sha256": "8c4e12bbb43cf70826d406d6910461e1b287835e5f7f27729a2eb8d545c4a19c",
+      "training_latest_target_bin_end": "2013-08-04",
+      "input_scope": "OM4 surface history plus matched ERA5; no interior or future input"
+    },
+    "2014-04": {
+      "month": "2014-04",
+      "history_midpoints": [
+        "2013-12-29T12:00:00",
+        "2014-01-03T12:00:00",
+        "2014-01-08T12:00:00",
+        "2014-01-13T12:00:00",
+        "2014-01-18T12:00:00",
+        "2014-01-23T12:00:00",
+        "2014-01-28T12:00:00",
+        "2014-02-02T12:00:00",
+        "2014-02-07T12:00:00",
+        "2014-02-12T12:00:00",
+        "2014-02-17T12:00:00",
+        "2014-02-22T12:00:00",
+        "2014-02-27T12:00:00",
+        "2014-03-04T12:00:00",
+        "2014-03-09T12:00:00",
+        "2014-03-14T12:00:00",
+        "2014-03-19T12:00:00",
+        "2014-03-24T12:00:00",
+        "2014-03-29T12:00:00"
+      ],
+      "history_indices": [
+        4087,
+        4088,
+        4089,
+        4090,
+        4091,
+        4092,
+        4093,
+        4094,
+        4095,
+        4096,
+        4097,
+        4098,
+        4099,
+        4100,
+        4101,
+        4102,
+        4103,
+        4104,
+        4105
+      ],
+      "sample_sha256": "85dc7368a7cfb6ad1dd3bc34faad9671e340542fc805929124d1a9a5b95c613d",
+      "seed": 904003,
+      "members": 8,
+      "grid_sha256": "ce96360964a6669d0186b9581abaaffc06f660c4e09e0ac813b3dd1b819e5167",
+      "om4_metadata_sha256": "8c4e12bbb43cf70826d406d6910461e1b287835e5f7f27729a2eb8d545c4a19c",
+      "training_latest_target_bin_end": "2013-08-04",
+      "input_scope": "OM4 surface history plus matched ERA5; no interior or future input"
+    },
+    "2014-05": {
+      "month": "2014-05",
+      "history_midpoints": [
+        "2014-01-28T12:00:00",
+        "2014-02-02T12:00:00",
+        "2014-02-07T12:00:00",
+        "2014-02-12T12:00:00",
+        "2014-02-17T12:00:00",
+        "2014-02-22T12:00:00",
+        "2014-02-27T12:00:00",
+        "2014-03-04T12:00:00",
+        "2014-03-09T12:00:00",
+        "2014-03-14T12:00:00",
+        "2014-03-19T12:00:00",
+        "2014-03-24T12:00:00",
+        "2014-03-29T12:00:00",
+        "2014-04-03T12:00:00",
+        "2014-04-08T12:00:00",
+        "2014-04-13T12:00:00",
+        "2014-04-18T12:00:00",
+        "2014-04-23T12:00:00",
+        "2014-04-28T12:00:00"
+      ],
+      "history_indices": [
+        4093,
+        4094,
+        4095,
+        4096,
+        4097,
+        4098,
+        4099,
+        4100,
+        4101,
+        4102,
+        4103,
+        4104,
+        4105,
+        4106,
+        4107,
+        4108,
+        4109,
+        4110,
+        4111
+      ],
+      "sample_sha256": "d4ad3c04b23737c5dccc86fb9a36efcf4b9c5d95add2d8d309e53475c9b7edcb",
+      "seed": 904003,
+      "members": 8,
+      "grid_sha256": "ce96360964a6669d0186b9581abaaffc06f660c4e09e0ac813b3dd1b819e5167",
+      "om4_metadata_sha256": "8c4e12bbb43cf70826d406d6910461e1b287835e5f7f27729a2eb8d545c4a19c",
+      "training_latest_target_bin_end": "2013-08-04",
+      "input_scope": "OM4 surface history plus matched ERA5; no interior or future input"
+    }
+  },
+  "script_sha256": "89fb63b895e00e94d05a3473c7fc3ca25a2b80de2a8a78d8b55718a87ea0a0c5",
+  "aggregation": "Cosine-weighted wet spatial MSE per channel, equal mean over variable depths and three dates, then square root. CRPS and coverage equal mean over depths and dates. Forecast blend unchanged five-component climatology-relative mean.",
+  "checks": "Initializer masks/normalization/input receipts/gold maps match; final checkpoint fingerprints match raw/EMA and forecasts; forecast masks/scales/channel names/day30 references match across arms and weights; nine origins and climatology receipts match."
+}

@@ -135,9 +135,6 @@ def _run_training(cfg: ObservationTrainConfig, device: torch.device) -> None:
     torch.use_deterministic_algorithms(True)
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
-    torch.use_deterministic_algorithms(True)
-    torch.backends.cudnn.benchmark = False
-    torch.backends.cudnn.deterministic = True
     output = cfg.experiment.output_dir
     nets = cfg.experiment.nets_dir
 

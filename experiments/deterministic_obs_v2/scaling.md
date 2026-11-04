@@ -93,8 +93,8 @@ normalization and input-slicing tests pass. A three-pass real-data comparison
 (original, optimized, original again) is submitted as CPU job `21816667`.
 GPU jobs `21816758` (one GPU) and `21816773` (eight GPUs) depend on that check
 and then on each other. They use [new output directories](configs/scaling-v4/)
-and code `7bef723`; their results are pending. Production training now explicitly uses the same strict
-CUDA determinism settings as qualification.
+and code `7bef723`; their results are pending. Production training and qualification
+use the same strict CUDA determinism settings.
 
 Timing estimates below apply only to arm D: the 170M-parameter mixed-source
 recipe with replay and global batch eight, on one RTX PRO 6000 Blackwell GPU.

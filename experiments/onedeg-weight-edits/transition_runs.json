@@ -3,14 +3,16 @@
   "code_commit": "cb8e25c9d9d274cf2b4d29f72af709f2e63d3e30",
   "protocol": "transition_protocol.json",
   "slurm_job_id": "21787164",
-  "recorded_state": "PENDING",
-  "results_available": false,
+  "recorded_state": "COMPLETED",
+  "results_available": true,
   "wandb": {
     "entity": "ocean_emulators",
     "project": "default",
     "group": "onedeg-transition-benchmark-v1",
     "mode": "online; required before inference",
-    "run_url_file": "/scratch/am16581/runs/2026-11-03-onedeg-transition-benchmark-v1/wandb-url.txt"
+    "run_url_file": "/scratch/am16581/runs/2026-11-03-onedeg-transition-benchmark-v1/wandb-url.txt",
+    "state": "finished",
+    "url": "https://wandb.ai/ocean_emulators/default/runs/r65wrzux"
   },
   "bundle": "/scratch/am16581/transition-benchmark-v1-20261103",
   "output": "/scratch/am16581/runs/2026-11-03-onedeg-transition-benchmark-v1",
@@ -48,6 +50,17 @@
     "acceptance.json",
     "figures/"
   ],
-  "status_note": "Submission record; consult Slurm and the output directory for live status. No control or candidate result is claimed here.",
-  "recorded_at_utc": "2026-11-03T23:41:38.800713+00:00"
+  "status_note": "All controls completed. Carry and external blend pass relative gates, but large deep increments and weak spatial agreement remain; see transition_results.json and transition_acceptance.json.",
+  "recorded_at_utc": "2026-11-04T20:16:32.067047+00:00",
+  "elapsed": "00:56:00",
+  "exit_code": "0:0",
+  "transition_rows": 443520,
+  "figures": 40,
+  "artifact_files": 47,
+  "result_files": [
+    "transition_results.json",
+    "transition_acceptance.json",
+    "transition_phases.csv",
+    "transition_diagnostics.svg"
+  ]
 }

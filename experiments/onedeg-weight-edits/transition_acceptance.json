@@ -1,0 +1,1042 @@
+[
+  {
+    "candidate": "carry",
+    "split": "selection",
+    "mode": "teacher_forced",
+    "windows": [
+      "selection_2017_01",
+      "selection_2017_04",
+      "selection_2017_07",
+      "selection_2017_10"
+    ],
+    "checks": {
+      "deep_coastal_increment_gradient_rmse_ratio": {
+        "value": 0.5735081278030386,
+        "paired_window_bootstrap_95": [
+          0.5699445334021311,
+          0.577872048753045
+        ],
+        "limit": 0.8,
+        "pass": true
+      },
+      "deep_increment_rmse_ratio": {
+        "value": 0.5586042558494275,
+        "paired_window_bootstrap_95": [
+          0.555635189121854,
+          0.56096835022849
+        ],
+        "limit": 0.9,
+        "pass": true
+      },
+      "all_channel_state_rmse_ratio": {
+        "value": 0.9977631992566,
+        "paired_window_bootstrap_95": [
+          0.9974619687918262,
+          0.9980600729996283
+        ],
+        "limit": 1.01,
+        "pass": true
+      },
+      "untargeted_channel_mean_state_rmse_ratio": {
+        "value": 1.0054204421844346,
+        "paired_window_bootstrap_95": [
+          1.0050876897263152,
+          1.0056636876024936
+        ],
+        "limit": 1.02,
+        "pass": true
+      },
+      "worst_window_channel_state_rmse_ratio": {
+        "value": 1.0459126428867087,
+        "limit": 1.1,
+        "pass": true
+      },
+      "increment_spatial_correlation_drop": {
+        "value": 0.0026509068874470115,
+        "limit": 0.05,
+        "pass": true
+      },
+      "increment_rms_ratio_distance_change": {
+        "value": -4.211618156533403,
+        "limit": 0,
+        "pass": true
+      }
+    },
+    "passes_all": true
+  },
+  {
+    "candidate": "reservation_only",
+    "split": "selection",
+    "mode": "teacher_forced",
+    "windows": [
+      "selection_2017_01",
+      "selection_2017_04",
+      "selection_2017_07",
+      "selection_2017_10"
+    ],
+    "checks": {
+      "deep_coastal_increment_gradient_rmse_ratio": {
+        "value": 1.0176012923179523,
+        "paired_window_bootstrap_95": [
+          1.016420192686942,
+          1.0185510179934492
+        ],
+        "limit": 0.8,
+        "pass": false
+      },
+      "deep_increment_rmse_ratio": {
+        "value": 1.0457788149493987,
+        "paired_window_bootstrap_95": [
+          1.043025941535886,
+          1.0482984932861383
+        ],
+        "limit": 0.9,
+        "pass": false
+      },
+      "all_channel_state_rmse_ratio": {
+        "value": 1.0062881093613165,
+        "paired_window_bootstrap_95": [
+          1.0059700458165315,
+          1.0065950671978416
+        ],
+        "limit": 1.01,
+        "pass": true
+      },
+      "untargeted_channel_mean_state_rmse_ratio": {
+        "value": 1.0054204481693505,
+        "paired_window_bootstrap_95": [
+          1.005087697130642,
+          1.0056637058113973
+        ],
+        "limit": 1.02,
+        "pass": true
+      },
+      "worst_window_channel_state_rmse_ratio": {
+        "value": 1.0850832189070188,
+        "limit": 1.1,
+        "pass": true
+      },
+      "increment_spatial_correlation_drop": {
+        "value": 0.002650858682615602,
+        "limit": 0.05,
+        "pass": true
+      },
+      "increment_rms_ratio_distance_change": {
+        "value": 0.41373753990644335,
+        "limit": 0,
+        "pass": false
+      }
+    },
+    "passes_all": false
+  },
+  {
+    "candidate": "external_blend",
+    "split": "selection",
+    "mode": "teacher_forced",
+    "windows": [
+      "selection_2017_01",
+      "selection_2017_04",
+      "selection_2017_07",
+      "selection_2017_10"
+    ],
+    "checks": {
+      "deep_coastal_increment_gradient_rmse_ratio": {
+        "value": 0.5656420549207405,
+        "paired_window_bootstrap_95": [
+          0.5620748425334003,
+          0.5704641571562596
+        ],
+        "limit": 0.8,
+        "pass": true
+      },
+      "deep_increment_rmse_ratio": {
+        "value": 0.5366260591583827,
+        "paired_window_bootstrap_95": [
+          0.5350047154223297,
+          0.5379156801405613
+        ],
+        "limit": 0.9,
+        "pass": true
+      },
+      "all_channel_state_rmse_ratio": {
+        "value": 0.9919773690080959,
+        "paired_window_bootstrap_95": [
+          0.991915755101778,
+          0.9920368773484427
+        ],
+        "limit": 1.01,
+        "pass": true
+      },
+      "untargeted_channel_mean_state_rmse_ratio": {
+        "value": 1.0,
+        "paired_window_bootstrap_95": [
+          1.0,
+          1.0
+        ],
+        "limit": 1.02,
+        "pass": true
+      },
+      "worst_window_channel_state_rmse_ratio": {
+        "value": 1.0,
+        "limit": 1.1,
+        "pass": true
+      },
+      "increment_spatial_correlation_drop": {
+        "value": 1.8920331152499914e-09,
+        "limit": 0.05,
+        "pass": true
+      },
+      "increment_rms_ratio_distance_change": {
+        "value": -4.414608196950212,
+        "limit": 0,
+        "pass": true
+      }
+    },
+    "passes_all": true
+  },
+  {
+    "candidate": "deep_persistence",
+    "split": "selection",
+    "mode": "teacher_forced",
+    "windows": [
+      "selection_2017_01",
+      "selection_2017_04",
+      "selection_2017_07",
+      "selection_2017_10"
+    ],
+    "checks": {
+      "deep_coastal_increment_gradient_rmse_ratio": {
+        "value": 0.28054768289866566,
+        "paired_window_bootstrap_95": [
+          0.27189964004855083,
+          0.29089779574461305
+        ],
+        "limit": 0.8,
+        "pass": true
+      },
+      "deep_increment_rmse_ratio": {
+        "value": 0.19102921308732554,
+        "paired_window_bootstrap_95": [
+          0.18670639702932795,
+          0.19614493303678696
+        ],
+        "limit": 0.9,
+        "pass": true
+      },
+      "all_channel_state_rmse_ratio": {
+        "value": 0.9860639396377835,
+        "paired_window_bootstrap_95": [
+          0.9859330129011667,
+          0.9861682908089778
+        ],
+        "limit": 1.01,
+        "pass": true
+      },
+      "untargeted_channel_mean_state_rmse_ratio": {
+        "value": 1.0,
+        "paired_window_bootstrap_95": [
+          1.0,
+          1.0
+        ],
+        "limit": 1.02,
+        "pass": true
+      },
+      "worst_window_channel_state_rmse_ratio": {
+        "value": 1.0,
+        "limit": 1.1,
+        "pass": true
+      },
+      "increment_spatial_correlation_drop": {
+        "value": null,
+        "limit": 0.05,
+        "pass": false
+      },
+      "increment_rms_ratio_distance_change": {
+        "value": -7.00013538075542,
+        "limit": 0,
+        "pass": true
+      }
+    },
+    "passes_all": false
+  },
+  {
+    "candidate": "carry",
+    "split": "selection",
+    "mode": "autoregressive",
+    "windows": [
+      "selection_2017_01",
+      "selection_2017_04",
+      "selection_2017_07",
+      "selection_2017_10"
+    ],
+    "checks": {
+      "deep_coastal_increment_gradient_rmse_ratio": {
+        "value": 0.59618822627558,
+        "paired_window_bootstrap_95": [
+          0.5916005607491471,
+          0.6020484562460175
+        ],
+        "limit": 0.8,
+        "pass": true
+      },
+      "deep_increment_rmse_ratio": {
+        "value": 0.549451675738846,
+        "paired_window_bootstrap_95": [
+          0.5434701285335748,
+          0.5540290992644381
+        ],
+        "limit": 0.9,
+        "pass": true
+      },
+      "all_channel_state_rmse_ratio": {
+        "value": 1.0023888212826573,
+        "paired_window_bootstrap_95": [
+          1.001924504593267,
+          1.0031101372785525
+        ],
+        "limit": 1.01,
+        "pass": true
+      },
+      "untargeted_channel_mean_state_rmse_ratio": {
+        "value": 1.0052132027331317,
+        "paired_window_bootstrap_95": [
+          1.0046664531664034,
+          1.0059761212133216
+        ],
+        "limit": 1.02,
+        "pass": true
+      },
+      "worst_window_channel_state_rmse_ratio": {
+        "value": 1.0549612496286804,
+        "limit": 1.1,
+        "pass": true
+      },
+      "increment_spatial_correlation_drop": {
+        "value": -0.003994070460976553,
+        "limit": 0.05,
+        "pass": true
+      },
+      "increment_rms_ratio_distance_change": {
+        "value": -3.5608571097174844,
+        "limit": 0,
+        "pass": true
+      }
+    },
+    "passes_all": true
+  },
+  {
+    "candidate": "reservation_only",
+    "split": "selection",
+    "mode": "autoregressive",
+    "windows": [
+      "selection_2017_01",
+      "selection_2017_04",
+      "selection_2017_07",
+      "selection_2017_10"
+    ],
+    "checks": {
+      "deep_coastal_increment_gradient_rmse_ratio": {
+        "value": 1.017021648066795,
+        "paired_window_bootstrap_95": [
+          1.0155986627970162,
+          1.0185415612504751
+        ],
+        "limit": 0.8,
+        "pass": false
+      },
+      "deep_increment_rmse_ratio": {
+        "value": 1.0383167995822444,
+        "paired_window_bootstrap_95": [
+          1.0372470547793047,
+          1.039331309383445
+        ],
+        "limit": 0.9,
+        "pass": false
+      },
+      "all_channel_state_rmse_ratio": {
+        "value": 1.0060720650192496,
+        "paired_window_bootstrap_95": [
+          1.0054500791932437,
+          1.0069485414435593
+        ],
+        "limit": 1.01,
+        "pass": true
+      },
+      "untargeted_channel_mean_state_rmse_ratio": {
+        "value": 1.0051983967377607,
+        "paired_window_bootstrap_95": [
+          1.0045735867090129,
+          1.0060191307541066
+        ],
+        "limit": 1.02,
+        "pass": true
+      },
+      "worst_window_channel_state_rmse_ratio": {
+        "value": 1.1166753293200877,
+        "limit": 1.1,
+        "pass": false
+      },
+      "increment_spatial_correlation_drop": {
+        "value": 0.0026700244560998437,
+        "limit": 0.05,
+        "pass": true
+      },
+      "increment_rms_ratio_distance_change": {
+        "value": 0.28356621168155516,
+        "limit": 0,
+        "pass": false
+      }
+    },
+    "passes_all": false
+  },
+  {
+    "candidate": "external_blend",
+    "split": "selection",
+    "mode": "autoregressive",
+    "windows": [
+      "selection_2017_01",
+      "selection_2017_04",
+      "selection_2017_07",
+      "selection_2017_10"
+    ],
+    "checks": {
+      "deep_coastal_increment_gradient_rmse_ratio": {
+        "value": 0.5887697054909806,
+        "paired_window_bootstrap_95": [
+          0.5837563945701468,
+          0.5950710741751994
+        ],
+        "limit": 0.8,
+        "pass": true
+      },
+      "deep_increment_rmse_ratio": {
+        "value": 0.5318393907834361,
+        "paired_window_bootstrap_95": [
+          0.5261045640244161,
+          0.5366543122076655
+        ],
+        "limit": 0.9,
+        "pass": true
+      },
+      "all_channel_state_rmse_ratio": {
+        "value": 0.9967216908548922,
+        "paired_window_bootstrap_95": [
+          0.9965505749262719,
+          0.9968840304767034
+        ],
+        "limit": 1.01,
+        "pass": true
+      },
+      "untargeted_channel_mean_state_rmse_ratio": {
+        "value": 1.0000203319669907,
+        "paired_window_bootstrap_95": [
+          0.99992067062915,
+          1.000117199277491
+        ],
+        "limit": 1.02,
+        "pass": true
+      },
+      "worst_window_channel_state_rmse_ratio": {
+        "value": 1.0014146654340395,
+        "limit": 1.1,
+        "pass": true
+      },
+      "increment_spatial_correlation_drop": {
+        "value": -0.0070451707180145175,
+        "limit": 0.05,
+        "pass": true
+      },
+      "increment_rms_ratio_distance_change": {
+        "value": -3.6923812210924827,
+        "limit": 0,
+        "pass": true
+      }
+    },
+    "passes_all": true
+  },
+  {
+    "candidate": "deep_persistence",
+    "split": "selection",
+    "mode": "autoregressive",
+    "windows": [
+      "selection_2017_01",
+      "selection_2017_04",
+      "selection_2017_07",
+      "selection_2017_10"
+    ],
+    "checks": {
+      "deep_coastal_increment_gradient_rmse_ratio": {
+        "value": 0.3532910323471483,
+        "paired_window_bootstrap_95": [
+          0.34296767268977624,
+          0.36519454557722114
+        ],
+        "limit": 0.8,
+        "pass": true
+      },
+      "deep_increment_rmse_ratio": {
+        "value": 0.23168577711897015,
+        "paired_window_bootstrap_95": [
+          0.2241550250645959,
+          0.2380887368312893
+        ],
+        "limit": 0.9,
+        "pass": true
+      },
+      "all_channel_state_rmse_ratio": {
+        "value": 0.9915723942633402,
+        "paired_window_bootstrap_95": [
+          0.9912898775921302,
+          0.9918395177235336
+        ],
+        "limit": 1.01,
+        "pass": true
+      },
+      "untargeted_channel_mean_state_rmse_ratio": {
+        "value": 1.000135416186377,
+        "paired_window_bootstrap_95": [
+          1.000017086568198,
+          1.0002472286689819
+        ],
+        "limit": 1.02,
+        "pass": true
+      },
+      "worst_window_channel_state_rmse_ratio": {
+        "value": 1.0084791970346967,
+        "limit": 1.1,
+        "pass": true
+      },
+      "increment_spatial_correlation_drop": {
+        "value": null,
+        "limit": 0.05,
+        "pass": false
+      },
+      "increment_rms_ratio_distance_change": {
+        "value": -5.273235469506951,
+        "limit": 0,
+        "pass": true
+      }
+    },
+    "passes_all": false
+  },
+  {
+    "candidate": "carry",
+    "split": "new_local_test",
+    "mode": "teacher_forced",
+    "windows": [
+      "new_local_test_2021_01",
+      "new_local_test_2021_04",
+      "new_local_test_2021_07",
+      "new_local_test_2021_10"
+    ],
+    "checks": {
+      "deep_coastal_increment_gradient_rmse_ratio": {
+        "value": 0.575087703629057,
+        "paired_window_bootstrap_95": [
+          0.5718112747200955,
+          0.5782501272451583
+        ],
+        "limit": 0.8,
+        "pass": true
+      },
+      "deep_increment_rmse_ratio": {
+        "value": 0.5571831849103728,
+        "paired_window_bootstrap_95": [
+          0.5544195915221735,
+          0.5600025508773877
+        ],
+        "limit": 0.9,
+        "pass": true
+      },
+      "all_channel_state_rmse_ratio": {
+        "value": 0.9971796368125649,
+        "paired_window_bootstrap_95": [
+          0.9967114162907231,
+          0.9976783700918405
+        ],
+        "limit": 1.01,
+        "pass": true
+      },
+      "untargeted_channel_mean_state_rmse_ratio": {
+        "value": 1.0054053865707044,
+        "paired_window_bootstrap_95": [
+          1.005019559839273,
+          1.0057825873551227
+        ],
+        "limit": 1.02,
+        "pass": true
+      },
+      "worst_window_channel_state_rmse_ratio": {
+        "value": 1.0466928118970198,
+        "limit": 1.1,
+        "pass": true
+      },
+      "increment_spatial_correlation_drop": {
+        "value": 0.0032687593527796262,
+        "limit": 0.05,
+        "pass": true
+      },
+      "increment_rms_ratio_distance_change": {
+        "value": -4.263952033902808,
+        "limit": 0,
+        "pass": true
+      }
+    },
+    "passes_all": true
+  },
+  {
+    "candidate": "reservation_only",
+    "split": "new_local_test",
+    "mode": "teacher_forced",
+    "windows": [
+      "new_local_test_2021_01",
+      "new_local_test_2021_04",
+      "new_local_test_2021_07",
+      "new_local_test_2021_10"
+    ],
+    "checks": {
+      "deep_coastal_increment_gradient_rmse_ratio": {
+        "value": 1.017736115525721,
+        "paired_window_bootstrap_95": [
+          1.0166328220836447,
+          1.019079043735045
+        ],
+        "limit": 0.8,
+        "pass": false
+      },
+      "deep_increment_rmse_ratio": {
+        "value": 1.0453452764512277,
+        "paired_window_bootstrap_95": [
+          1.0428069805445805,
+          1.047689088883092
+        ],
+        "limit": 0.9,
+        "pass": false
+      },
+      "all_channel_state_rmse_ratio": {
+        "value": 1.006301717323399,
+        "paired_window_bootstrap_95": [
+          1.0058591860972854,
+          1.0067010949194914
+        ],
+        "limit": 1.01,
+        "pass": true
+      },
+      "untargeted_channel_mean_state_rmse_ratio": {
+        "value": 1.0054053884355094,
+        "paired_window_bootstrap_95": [
+          1.005019549268528,
+          1.0057825954499335
+        ],
+        "limit": 1.02,
+        "pass": true
+      },
+      "worst_window_channel_state_rmse_ratio": {
+        "value": 1.0778600742647357,
+        "limit": 1.1,
+        "pass": true
+      },
+      "increment_spatial_correlation_drop": {
+        "value": 0.003268792949645799,
+        "limit": 0.05,
+        "pass": true
+      },
+      "increment_rms_ratio_distance_change": {
+        "value": 0.41473259665867745,
+        "limit": 0,
+        "pass": false
+      }
+    },
+    "passes_all": false
+  },
+  {
+    "candidate": "external_blend",
+    "split": "new_local_test",
+    "mode": "teacher_forced",
+    "windows": [
+      "new_local_test_2021_01",
+      "new_local_test_2021_04",
+      "new_local_test_2021_07",
+      "new_local_test_2021_10"
+    ],
+    "checks": {
+      "deep_coastal_increment_gradient_rmse_ratio": {
+        "value": 0.5671545991184413,
+        "paired_window_bootstrap_95": [
+          0.5641999475097644,
+          0.570272679571453
+        ],
+        "limit": 0.8,
+        "pass": true
+      },
+      "deep_increment_rmse_ratio": {
+        "value": 0.5352983965445374,
+        "paired_window_bootstrap_95": [
+          0.5327395472913901,
+          0.5369590002356182
+        ],
+        "limit": 0.9,
+        "pass": true
+      },
+      "all_channel_state_rmse_ratio": {
+        "value": 0.9913951710785454,
+        "paired_window_bootstrap_95": [
+          0.9912620271110437,
+          0.9915279718887556
+        ],
+        "limit": 1.01,
+        "pass": true
+      },
+      "untargeted_channel_mean_state_rmse_ratio": {
+        "value": 1.0,
+        "paired_window_bootstrap_95": [
+          1.0,
+          1.0
+        ],
+        "limit": 1.02,
+        "pass": true
+      },
+      "worst_window_channel_state_rmse_ratio": {
+        "value": 1.0,
+        "limit": 1.1,
+        "pass": true
+      },
+      "increment_spatial_correlation_drop": {
+        "value": 1.5044661072494137e-09,
+        "limit": 0.05,
+        "pass": true
+      },
+      "increment_rms_ratio_distance_change": {
+        "value": -4.46707477021031,
+        "limit": 0,
+        "pass": true
+      }
+    },
+    "passes_all": true
+  },
+  {
+    "candidate": "deep_persistence",
+    "split": "new_local_test",
+    "mode": "teacher_forced",
+    "windows": [
+      "new_local_test_2021_01",
+      "new_local_test_2021_04",
+      "new_local_test_2021_07",
+      "new_local_test_2021_10"
+    ],
+    "checks": {
+      "deep_coastal_increment_gradient_rmse_ratio": {
+        "value": 0.28723400343510386,
+        "paired_window_bootstrap_95": [
+          0.28068751857722307,
+          0.29367669489327314
+        ],
+        "limit": 0.8,
+        "pass": true
+      },
+      "deep_increment_rmse_ratio": {
+        "value": 0.18533742845621146,
+        "paired_window_bootstrap_95": [
+          0.17797564958953443,
+          0.1900866854372574
+        ],
+        "limit": 0.9,
+        "pass": true
+      },
+      "all_channel_state_rmse_ratio": {
+        "value": 0.9849653086197344,
+        "paired_window_bootstrap_95": [
+          0.9846944654255341,
+          0.985237853863528
+        ],
+        "limit": 1.01,
+        "pass": true
+      },
+      "untargeted_channel_mean_state_rmse_ratio": {
+        "value": 1.0,
+        "paired_window_bootstrap_95": [
+          1.0,
+          1.0
+        ],
+        "limit": 1.02,
+        "pass": true
+      },
+      "worst_window_channel_state_rmse_ratio": {
+        "value": 1.0,
+        "limit": 1.1,
+        "pass": true
+      },
+      "increment_spatial_correlation_drop": {
+        "value": null,
+        "limit": 0.05,
+        "pass": false
+      },
+      "increment_rms_ratio_distance_change": {
+        "value": -7.11072008362712,
+        "limit": 0,
+        "pass": true
+      }
+    },
+    "passes_all": false
+  },
+  {
+    "candidate": "carry",
+    "split": "new_local_test",
+    "mode": "autoregressive",
+    "windows": [
+      "new_local_test_2021_01",
+      "new_local_test_2021_04",
+      "new_local_test_2021_07",
+      "new_local_test_2021_10"
+    ],
+    "checks": {
+      "deep_coastal_increment_gradient_rmse_ratio": {
+        "value": 0.5991740905795583,
+        "paired_window_bootstrap_95": [
+          0.5949760614968834,
+          0.6032925307340691
+        ],
+        "limit": 0.8,
+        "pass": true
+      },
+      "deep_increment_rmse_ratio": {
+        "value": 0.5530392792940818,
+        "paired_window_bootstrap_95": [
+          0.550027622449806,
+          0.5558501224204181
+        ],
+        "limit": 0.9,
+        "pass": true
+      },
+      "all_channel_state_rmse_ratio": {
+        "value": 1.002851124485893,
+        "paired_window_bootstrap_95": [
+          1.002210373230864,
+          1.0034881805108784
+        ],
+        "limit": 1.01,
+        "pass": true
+      },
+      "untargeted_channel_mean_state_rmse_ratio": {
+        "value": 1.0059049316636635,
+        "paired_window_bootstrap_95": [
+          1.0052703629024513,
+          1.0065357998588633
+        ],
+        "limit": 1.02,
+        "pass": true
+      },
+      "worst_window_channel_state_rmse_ratio": {
+        "value": 1.0563043629109217,
+        "limit": 1.1,
+        "pass": true
+      },
+      "increment_spatial_correlation_drop": {
+        "value": -0.003407231965187635,
+        "limit": 0.05,
+        "pass": true
+      },
+      "increment_rms_ratio_distance_change": {
+        "value": -3.4301488894093004,
+        "limit": 0,
+        "pass": true
+      }
+    },
+    "passes_all": true
+  },
+  {
+    "candidate": "reservation_only",
+    "split": "new_local_test",
+    "mode": "autoregressive",
+    "windows": [
+      "new_local_test_2021_01",
+      "new_local_test_2021_04",
+      "new_local_test_2021_07",
+      "new_local_test_2021_10"
+    ],
+    "checks": {
+      "deep_coastal_increment_gradient_rmse_ratio": {
+        "value": 1.0156597959202387,
+        "paired_window_bootstrap_95": [
+          1.014456112179218,
+          1.017614332112727
+        ],
+        "limit": 0.8,
+        "pass": false
+      },
+      "deep_increment_rmse_ratio": {
+        "value": 1.034998918448691,
+        "paired_window_bootstrap_95": [
+          1.0318033946894634,
+          1.0376876703204532
+        ],
+        "limit": 0.9,
+        "pass": false
+      },
+      "all_channel_state_rmse_ratio": {
+        "value": 1.0069003982312397,
+        "paired_window_bootstrap_95": [
+          1.0062824755241448,
+          1.0075147573611525
+        ],
+        "limit": 1.01,
+        "pass": true
+      },
+      "untargeted_channel_mean_state_rmse_ratio": {
+        "value": 1.0060038698902174,
+        "paired_window_bootstrap_95": [
+          1.0054116677405187,
+          1.0065926185400251
+        ],
+        "limit": 1.02,
+        "pass": true
+      },
+      "worst_window_channel_state_rmse_ratio": {
+        "value": 1.1233868021571702,
+        "limit": 1.1,
+        "pass": false
+      },
+      "increment_spatial_correlation_drop": {
+        "value": 0.0026900069271534894,
+        "limit": 0.05,
+        "pass": true
+      },
+      "increment_rms_ratio_distance_change": {
+        "value": 0.24210943892535441,
+        "limit": 0,
+        "pass": false
+      }
+    },
+    "passes_all": false
+  },
+  {
+    "candidate": "external_blend",
+    "split": "new_local_test",
+    "mode": "autoregressive",
+    "windows": [
+      "new_local_test_2021_01",
+      "new_local_test_2021_04",
+      "new_local_test_2021_07",
+      "new_local_test_2021_10"
+    ],
+    "checks": {
+      "deep_coastal_increment_gradient_rmse_ratio": {
+        "value": 0.5924257606273838,
+        "paired_window_bootstrap_95": [
+          0.5884609784296732,
+          0.5963153759409912
+        ],
+        "limit": 0.8,
+        "pass": true
+      },
+      "deep_increment_rmse_ratio": {
+        "value": 0.5367876534348982,
+        "paired_window_bootstrap_95": [
+          0.5343368186345709,
+          0.538877560012771
+        ],
+        "limit": 0.9,
+        "pass": true
+      },
+      "all_channel_state_rmse_ratio": {
+        "value": 0.9963085577812116,
+        "paired_window_bootstrap_95": [
+          0.9962225776663646,
+          0.9964238681846462
+        ],
+        "limit": 1.01,
+        "pass": true
+      },
+      "untargeted_channel_mean_state_rmse_ratio": {
+        "value": 0.9998667094971406,
+        "paired_window_bootstrap_95": [
+          0.9998130373424686,
+          0.9999714092598316
+        ],
+        "limit": 1.02,
+        "pass": true
+      },
+      "worst_window_channel_state_rmse_ratio": {
+        "value": 1.0013462367570456,
+        "limit": 1.1,
+        "pass": true
+      },
+      "increment_spatial_correlation_drop": {
+        "value": -0.006679780042092635,
+        "limit": 0.05,
+        "pass": true
+      },
+      "increment_rms_ratio_distance_change": {
+        "value": -3.541531131928232,
+        "limit": 0,
+        "pass": true
+      }
+    },
+    "passes_all": true
+  },
+  {
+    "candidate": "deep_persistence",
+    "split": "new_local_test",
+    "mode": "autoregressive",
+    "windows": [
+      "new_local_test_2021_01",
+      "new_local_test_2021_04",
+      "new_local_test_2021_07",
+      "new_local_test_2021_10"
+    ],
+    "checks": {
+      "deep_coastal_increment_gradient_rmse_ratio": {
+        "value": 0.36107391785614273,
+        "paired_window_bootstrap_95": [
+          0.3534071366079928,
+          0.3685953473475538
+        ],
+        "limit": 0.8,
+        "pass": true
+      },
+      "deep_increment_rmse_ratio": {
+        "value": 0.23390106845951789,
+        "paired_window_bootstrap_95": [
+          0.22765153673850141,
+          0.23965199678976662
+        ],
+        "limit": 0.9,
+        "pass": true
+      },
+      "all_channel_state_rmse_ratio": {
+        "value": 0.990267848238887,
+        "paired_window_bootstrap_95": [
+          0.9899719556178385,
+          0.9907247422457945
+        ],
+        "limit": 1.01,
+        "pass": true
+      },
+      "untargeted_channel_mean_state_rmse_ratio": {
+        "value": 0.9998209447310965,
+        "paired_window_bootstrap_95": [
+          0.9995981385990396,
+          1.0001351598641681
+        ],
+        "limit": 1.02,
+        "pass": true
+      },
+      "worst_window_channel_state_rmse_ratio": {
+        "value": 1.008061339677756,
+        "limit": 1.1,
+        "pass": true
+      },
+      "increment_spatial_correlation_drop": {
+        "value": null,
+        "limit": 0.05,
+        "pass": false
+      },
+      "increment_rms_ratio_distance_change": {
+        "value": -5.082057895201073,
+        "limit": 0,
+        "pass": true
+      }
+    },
+    "passes_all": false
+  }
+]

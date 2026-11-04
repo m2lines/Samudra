@@ -9,7 +9,7 @@ table{border-collapse:collapse;width:100%}td,th{text-align:left;padding:.6em;bor
 pre{background:#edf3f5;padding:1em;overflow:auto;font-size:13px}img{width:100%}a{color:#006a89}
 </style>
 <h1>Direct weight edits and step-to-step ocean consistency</h1>
-<h2>Current priority: transition benchmark</h2>
+<h2>Completed transition benchmark: substantial mitigation, physicality still unresolved</h2>
 <p>The primary objective is now local transition quality. Long rollouts remain regression checks.
 The <a href="transition_protocol.json">frozen transition protocol</a> compares the original checkpoint, existing carry edit,
 reservation-only edit, external 50% deep persistence blend, and deep persistence control. It covers four seasonal windows in each of
@@ -19,11 +19,39 @@ Each window evaluates 12 nominal five-day transitions, using both true-state rei
 They include increment bias, wet-neighbor gradient error, increment magnitude and spatial correlation, reference-calibrated tails,
 and state-error guardrails for all channels. Candidate maps use identical OM4-derived color limits. Original cell areas and depth-specific masks
 come from the verified OSN static cache. These are empirical diagnostics; they do not establish closed physical budgets.</p>
-<p>Submitted to Torch as Slurm job <strong>21787164</strong>, with online W&amp;B required, immutable code and checksummed inputs.
+<p>Torch job <strong>21787164 completed successfully in 56 minutes</strong>.
+The <a href="https://wandb.ai/ocean_emulators/default/runs/r65wrzux">finished W&amp;B run</a> contains 40 increment figures and a 47-file results artifact.
+All five controls completed all 16 windows in both modes: 1,920 transitions and 443,520 channel/region metric rows.
 Submission provenance and output paths are in <a href="transition_runs.json">transition_runs.json</a>.
-The run writes full transition CSVs, paired seasonal acceptance results and bootstrap intervals, and aligned increment maps.
+The run saved full transition CSVs, paired seasonal acceptance results and bootstrap intervals, and aligned increment maps.
 Only four seasonal windows support each split's uncertainty estimate; these intervals are exploratory.
 No new candidate has been selected using 2021 local results. The earlier eight-year evaluation includes 2021, so this is not an untouched temporal holdout.</p>
+<p>The carry edit and external blend pass all frozen relative-improvement criteria in both evaluation modes on both 2017 and 2021.
+Reservation alone fails; pure persistence fails the correlation requirement because its zero increments have undefined correlation.
+Passing these relative criteria does not establish physicality: the original model has very oversized tendencies and very weak spatial increment correlation.</p>
+<table>
+<tr><th>2021, 60-day AR windows</th><th>Original</th><th>Carry weight edit</th><th>External 50% blend</th></tr>
+<tr><td>Deep increment RMSE, relative to original</td><td>1.000</td><td>0.553 (−44.7%)</td><td>0.537 (−46.3%)</td></tr>
+<tr><td>Deep coastal increment-gradient RMSE, relative to original</td><td>1.000</td><td>0.599 (−40.1%)</td><td>0.592 (−40.8%)</td></tr>
+<tr><td>All-channel state RMSE, relative to original</td><td>1.000</td><td>1.00285 (+0.29%)</td><td>0.99631 (−0.37%)</td></tr>
+<tr><td>Mean deep increment RMS / OM4 increment RMS</td><td>7.08</td><td>3.53</td><td>3.41</td></tr>
+<tr><td>Mean deep spatial increment correlation with OM4</td><td>0.052</td><td>0.055</td><td>0.058</td></tr>
+<tr><td>Deep coastal area above calibrated extreme-change threshold</td><td>27.83%</td><td>13.49%</td><td>13.02%</td></tr>
+</table>
+<p>OM4 exceeds that same coastal threshold on 0.91% of area on average. Thresholds are the 2015 channel/region 99th percentiles of absolute increments,
+not universal physical limits. RMS ratios and correlations are equal-weight averages over eight deep tracer channels, 12 transitions, and four windows.
+Each spatial RMS and exceedance rate is area weighted. AR increment discrepancies compare diverged trajectories, rather than a reference simulator restarted from the model's generated state.</p>
+<img src="transition_diagnostics.svg" alt="Deep increment magnitude alternates between calls and within pairs; the carry edit halves excessive changes but retains very low spatial correlation and excessive tail rates.">
+<p>A clear alternating pattern remains. For the original model, mean deep increment RMS ratios are 14.03 on the initial transition,
+9.24 between later model calls, and 4.12 within output pairs. The carry edit reduces these to 7.41, 4.47, and 2.11.
+This localizes a useful next diagnostic to the two-output representation and call boundaries; it does not by itself prove which weights cause the error.</p>
+<p>Reservation alone raises deep increment RMSE by 3.5% and has a 12.3% worst window/channel state-error regression in the 2021 AR tests.
+The external blend performs slightly better than the carry circuit and has smaller side effects.
+The current evidence supports damping excessive tendencies, with a measurable cost from reserving hidden directions, rather than recovering accurate deep dynamics.</p>
+<p>Review the <a href="transition_acceptance.json">unchanged acceptance results</a>,
+<a href="transition_results.json">summary and metric definitions</a>, and <a href="transition_phases.csv">phase-by-phase measurements</a>.
+The frozen v1 criteria remain unchanged. Future candidate tests need an absolute plausibility check on increment magnitude, correlation, and tails,
+calibrated before new selection and evaluated on new local test windows.</p>
 
 <h2>Previous edit: evidence and limitations</h2>
 <p>Experiment/results record, November 2026. <strong>Not intended to merge or replace the production checkpoint.</strong>
@@ -139,9 +167,10 @@ and cooling in the edited model. <a href="torch_depthwise_heat_trends.csv">Depth
 in ZJ per five-day sample: upper (0–700 m), middle (700–2,000 m), and deep (2,000–6,000 m).
 <a href="torch_integral_trends.csv">Global heat and salt trends</a> retain both improvements and regressions: the salinity trend changes to the reference sign but has about 2.9 times its magnitude. Heat-content slopes are in ZJ per five-day sample; salt-content slopes are in grams per sample. These use the approximate areas noted above and do not establish closed heat or salt budgets.</p>
 <h2>Next decision</h2>
-<p>First complete the paired transition benchmark above. Use its within-pair and between-call results to distinguish damage from reserving
-hidden directions, suppression of real tendencies, and temporal-head artifacts. Then test a smaller targeted weight correction against
-the frozen local criteria. Longer rollouts are guardrails for promising local candidates, rather than the primary selection objective.</p>
+<p>Next isolate the shared spatial increment error and between-call jump in the deep output decoder, then test a direct correction restricted to
+the affected output rows. This avoids reserving hidden directions throughout the network and can preserve other outputs exactly on identical inputs;
+autoregressive feedback still requires separate checks. Keep the external blend as a reference control, and use stronger, prospectively defined absolute
+tendency criteria before claiming physical improvement. Longer rollouts remain guardrails for promising local candidates.</p>
 <p>The current carry edit remains a diagnostic control and is not a production replacement. Smoother fields alone are insufficient:
 an acceptable edit must retain genuine evolution while reducing artifacts and limiting regressions in untargeted fields.
 Eliminating unphysical single-step behavior remains unsolved.</p>

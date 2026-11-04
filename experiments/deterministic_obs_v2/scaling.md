@@ -4,21 +4,49 @@
 # Rust loading and distributed qualification
 
 The observation trainer now supports the shared Samudra Rust I/O runtime,
-one prefetched update per rank, and distributed training. CPU tests pass;
-GPU performance and utilization remain unqualified. This extends the
+one prefetched update per rank, and distributed training. CPU tests and the
+one-GPU exact prefetch/resume comparison pass. GPU performance and utilization
+remain unqualified. This extends the
 [initial single-GPU qualification](qualification.md). No scientific screening
 or 16k training run has been submitted.
 
-Replacement code `f3aab652e1f090e2b1385d03de92ba4e04c2a313` is frozen in a read-only
-overlay for Torch jobs `21797129` (one RTX GPU) and `21797131` (eight RTX GPUs).
-Both were submitted on 2026-11-03. The eight-GPU job depends on successful
-completion of the one-GPU qualification. Each has a 90-minute allocation
-limit, preemption-only routing, requeue, and account `torch_pr_347_lzanna`.
-The eight-GPU request has 64 CPU cores and 192 GiB host memory; the one-GPU
-request has eight cores and 96 GiB. Their
+Code `f3aab652e1f090e2b1385d03de92ba4e04c2a313` ran in a read-only overlay in Torch
+job `21797129` on one RTX PRO 6000 Blackwell GPU. At 22:10:49 ET on 2026-11-03,
+both synchronous controls matched the prefetched run's saved state exactly.
+The run was stopped after that comparison because OM4 loading remained slow.
+It consumed 2,629 GPU-seconds (0.7303 GPU-hours). Its dependent eight-GPU job
+`21797131` was cancelled before allocation. The one-GPU request had eight CPU
+cores and 96 GiB host memory; the eight-GPU request had 64 cores and 192 GiB.
+Both used a 90-minute limit, preemption-only routing, requeue, and account
+`torch_pr_347_lzanna`. Their
 [configs](configs/scaling-v2/) use the large initializer and 50/50 OM4/observation
 main training, with global batch eight in both cases. Main training alternates entire
 observation and OM4 updates; every cooldown update uses observations.
+
+The [saved records](receipts/scaling-v2/flat-om4-1gpu.jsonl) contain eight updates
+per source in each comparison. Median observation time was 10.95 s with
+synchronous loading and 8.89 s with prefetch; median exposed data wait fell from
+2.20 s to 0.001 s. OM4 medians were 41.53 s, 45.47 s and 108.57 s in the
+synchronous, prefetched and repeated synchronous runs. Loading conditions changed
+too much to infer a speedup from these controls. The prefetched OM4 median still
+included 40.63 s of foreground data wait.
+
+The original utilization recorder rejected PyTorch's unprefixed GPU UUID and
+wrote only `No devices were found`. A corrected recorder captured the end of the
+run, mostly synchronous controls. It does not cover the required steady window.
+Code `710e49603ced7c669c5e504d0b8f6ac626090438` adds the required `GPU-` prefix,
+checks the selected devices before archive/model setup, and fails if telemetry
+exits during training. It also avoids duplicate pinned/GPU copies of tensors
+shared by forecast and reconstruction.
+
+CPU job `21803580` is preparing a lossless packed OM4 cache with that code.
+It includes all 2,812 eligible native frames and all 77 physical channels, with
+one chunk per frame instead of 77 separate variable chunks. Every packed frame
+must match the source through independent Python and Rust decoders. The reader
+checks the pinned proof, original metadata, complete native-index list, interval
+bounds, channel order and cache hashes. Normalization, masks, cohort and calendar
+rules stay in the existing loader. Preparation and the replacement GPU
+qualification are pending; no packed-cache performance result is claimed.
 
 The first scaling attempt used code `aa51d5bfa4e95291333ec73f2314db5ceeef4953`.
 Job `21794028` completed one observation update, then failed while pinning an
@@ -31,10 +59,11 @@ included in the replacement qualification. The failed attempt consumed
 and [first-update metrics](receipts/scaling-v1/failed-1gpu.jsonl) are retained.
 That single warmup update does not support a steady-throughput estimate.
 
-The Rust backend reads native OM4 physical fields directly from the existing
-flat Zarr store. Observation SST, SSH/geostrophic velocities, and eight ERA5
+The Rust backend supports both the existing flat OM4 Zarr store and the packed
+OM4 cache. Observation SST, SSH/geostrophic velocities, and eight ERA5
 fields are packed into a float32 interval cache read by the existing compact
-Rust reader. Monthly IAP profile targets retain their existing file reader;
+Rust reader. The cached geostrophic velocities are unused by this task; surface
+inputs and observed surface targets use SST and SSH. Monthly IAP profile targets retain their existing file reader;
 native-interval ERA5 forcing for OM4 retains its existing memory-mapped adapter.
 Each process shares one eight-thread Rust read pool across OM4 and observations.
 One Python producer thread prepares the next update, including replay targets,
@@ -88,12 +117,17 @@ Each was checked at month offset zero (fresh) and one (the following month's
 targets, with five-day bins anchored at the same origin). Inputs, targets, masks, forcing and
 calendar weights matched. The [receipt](receipts/scaling-v1/real-input-parity.json)
 lists every tensor checked. This establishes real-data parity for those cases;
-GPU prefetch parity and performance remain pending.
+the one-GPU comparison above separately establishes GPU prefetch parity.
+OM4 indices 0 and 1 select the first two eligible months in chronological order;
+these cases do not establish parity at calendar gaps.
 
 Each GPU qualification uses four warmup updates, then replays the same saved
 state through 16 updates with synchronous loading, asynchronous loading, and a
 second synchronous run. Model weights, optimizer, EMA, pending plan, RNG and
-replay payloads must match exactly within that world size. The asynchronous
+replay payloads must match exactly within that world size. All three controls
+use the new N+2 replay-planning rule.
+The comparison does not establish equivalence to the original sequential trainer.
+The asynchronous
 branch then continues through update 128 and two cooldown updates. Cooldown
 linearly lowers the learning rate to 1e-6, retains Adam state, and restarts the
 exponential moving average (EMA) from the current model weights. An uncooled fork
@@ -102,7 +136,7 @@ must agree. Annual validation runs from 2013-11-01 for 365 days and must produce
 finite RMSE metrics for SST, SSH, temperature depths 1–13 and salinity depths 0–13,
 using the [design's depth and normalization conventions](README.md).
 
-NVIDIA telemetry records `utilization.gpu` for each assigned GPU once per second.
+The replacement qualification records NVIDIA `utilization.gpu` for each assigned GPU once per second.
 The release gate is a mean above 50% on every GPU over at least two minutes,
 from the start of steady-stage update 25 through the last validation/checkpoint
 record at update 128. That window includes its data waits, checkpoints and annual

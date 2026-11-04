@@ -10,8 +10,9 @@ Implementation is stacked on the config-based observation harness in
 
 As of 2026-11-03, all five original GPU qualification arms passed.
 **No full scientific training has been submitted.** The new Rust interval reader,
-bounded prefetch and DDP path passes CPU tests and is undergoing separate
-[scaling qualification](scaling.md) on one and eight RTX GPUs.
+bounded prefetch and DDP path passes CPU tests and the one-GPU exact prefetch/resume
+comparison. [Scaling qualification](scaling.md) continues with packed OM4 loading;
+eight-GPU execution and the utilization threshold remain unqualified.
 Torch array `21786733` completed on RTX PRO 6000 Blackwell Server Edition GPUs.
 Peak allocated GPU memory was 5.15–6.61 GiB. Data preparation/loading dominated
 update time; the [qualification report](qualification.md) gives measured runtime
@@ -64,6 +65,8 @@ model, loss and optimizer choices.
 Observation targets are OISST SST, DUACS absolute dynamic topography (SSH), and
 IAP monthly gridded temperature/salinity. Observation training spans May 1993
 through July 2013; OM4 uses eligible native windows from 1975 through July 2013.
+Both sources use the prepared one-degree Gaussian grid, 180 latitude by 360
+longitude cells; the loader checks that their coordinates agree.
 Depth numbers below are indices in the [OM4 level definition](../../src/samudra/constants.py):
 indices 0–13 cover 2.5–1850 m; the complete state extends to 6000 m.
 
@@ -76,6 +79,10 @@ maximum age of 250 optimizer updates measured from original initialization.
 Forecast and replay transitions cannot cross OM4 calendar gaps. OM4 history uses
 19 native samples without inserting a missing-day placeholder; it can span more
 than 95 calendar days when an earlier interval gap is present.
+An eligible OM4 month must have 19 prior frames, full calendar-month target
+coverage, history starting in 1975 or later, and no gap from the last history
+frame through its forecast targets. These rules retain 439 monthly windows.
+The union of their history and target indices contains 2,812 native frames.
 
 The observation loss is `0.5 monthly T/S + 0.25 SST + 0.25 SSH`, plus separate
 `0.1 reconstruction + 0.1 missing-surface completion` auxiliaries. Reconstruction
@@ -127,10 +134,11 @@ timing includes populated Adam moments. The
 validation every 250 updates and saves every 25 updates. It reports observed timing
 ranges and a separately labeled 30% planning allowance. Queue delay and unknown
 preemption frequency are excluded. The five 4k-plus-1k screens are estimated at
-479–524 aggregate GPU-hours with that allowance using the current loader;
+479–524 aggregate GPU-hours with that allowance using the original serial loader;
 see the [per-arm estimates](qualification.md).
 
-The replacement qualification code is frozen at `024177bc7b612042275381f3470d37e795e5d396`.
+The completed original five-arm qualification used frozen code
+`024177bc7b612042275381f3470d37e795e5d396`.
 The matching PhysicsNeMo container is built from
 `4f86be45a09cb9eba1b51b6273e0189941b02495`; CPU pull job `21784191` completed in
 9m24s. The source-overlay builder requires byte-identical dependency lockfiles.
@@ -138,21 +146,25 @@ The matching PhysicsNeMo container is built from
 [data paths](torch-data-paths.json) preserve the Torch setup. Checkpoints and full
 receipts live under `/scratch/jr7309/deterministic-obs-v2/`.
 The replacement run wrote to `qualification-v2/`; its completion callback,
-CPU job `21786737`, also completed. All qualification callbacks are retired.
+CPU job `21786737`, also completed. Callbacks for that original qualification
+are retired.
 
 Daily data were copied from the existing Beta observation preparation and historical
 shared-ERA5 preparation. Download/read-back checks found zero differences across
 24,546 observation files and 6,611 historical ERA5 files; the
 [transfer receipts](receipts/) record those checks. Forty ERA5 year manifests
-(1975–2014) agree on field order and grid hash. The completed cache contains all 439 eligible native OM4 windows and 2,812 five-day
-intervals, with input hashes and exact read-back verification in its proof. Global
+(1975–2014) agree on field order and grid hash. The completed ERA5 cache stores
+eight atmospheric fields aligned to all 439 eligible native OM4 windows and
+2,812 five-day intervals, with input hashes and exact read-back verification.
+It is separate from the packed 77-channel OM4 physical-state cache now being
+prepared for [scaling qualification](scaling.md). Global
 normalization and all ten screen/qualification configs are prepared; see the
 [preparation receipt](receipts/PREPARED.json). No upstream
 raw data were reprocessed or transferred in this task.
 
 Before a full campaign, use the qualification measurements to settle checkpoint
-cadence and GPU capacity. The current harness uses one GPU per arm; parallel arms
-can use several GPUs, but distributed training within one arm is not implemented.
+cadence and GPU capacity. The prefetch path supports distributed training within
+an arm while retaining global batch eight; eight-GPU qualification is pending.
 Exact numerical resume is checked on the assigned GPU type. Changing GPU types
 across preemptions can change floating-point results even though the forecast
 model has no stochastic latent variables. The number of confirmation seeds and

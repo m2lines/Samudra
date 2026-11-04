@@ -1,0 +1,20 @@
+{
+  "purpose": "engineering qualification attempt; not scientific training",
+  "code_commit": "f3aab652e1f090e2b1385d03de92ba4e04c2a313",
+  "single_gpu_job": "21797129",
+  "eight_gpu_job": "21797131",
+  "single_gpu_state": "CANCELLED by owner after exact comparison; remaining steady/cooldown work not completed",
+  "eight_gpu_state": "CANCELLED before allocation",
+  "start": "2026-11-03T21:28:32-05:00",
+  "end": "2026-11-03T22:12:21-05:00",
+  "allocated_gpu_seconds": 2629,
+  "allocated_gpu_hours": 0.7302777777777778,
+  "exact_prefetch_and_resume": true,
+  "comparison_update": 20,
+  "utilization_qualified": false,
+  "telemetry_failure": "nvidia-smi rejected unprefixed PyTorch UUID; partial corrected telemetry covers mostly synchronous controls, not the required steady window",
+  "performance_issue": "OM4 foreground data wait dominated update time despite Rust flat reads and one prefetched update",
+  "wandb_url": "https://wandb.ai/ocean_emulators/observational-transfer/runs/wn29cg5g",
+  "checkpoints": "/scratch/jr7309/deterministic-obs-v2/scaling-v2/D-mixed-large-1gpu",
+  "next": "lossless packed OM4 preparation job 21803580; qualify frozen code 710e49603ced7c669c5e504d0b8f6ac626090438 after proof verification"
+}

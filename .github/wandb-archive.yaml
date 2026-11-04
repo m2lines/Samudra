@@ -1,0 +1,47 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+source:
+  entity: ocean_emulators
+  timeout_seconds: 60
+  projects:
+    # Keep public publication opt-in: new W&B projects must be reviewed here.
+    include:
+      - default
+      - marin
+      - ocean-emulators
+      - samudra-multi-decoder
+    exclude: []
+  runs:
+    states: [finished, failed, crashed, killed, preempted]
+  retry:
+    attempts: 6
+    initial_delay_seconds: 1
+    maximum_delay_seconds: 60
+
+destination:
+  type: s3
+  endpoint_url: https://nyu1.osn.mghpcc.org
+  bucket: m2lines-pubs
+  prefix: Samudra/wandb
+  public_url: https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/wandb
+
+archive:
+  strict: true
+  include:
+    histories: true
+    system_metrics: true
+    media: true
+    tables: true
+    run_files: safe
+    logged_artifacts: safe
+    used_artifacts: references
+    code: false
+    console_logs: false
+  security:
+    profile: public-safe
+    on_sensitive_value: fail
+  transfers:
+    concurrency: 16
+    retries: 5

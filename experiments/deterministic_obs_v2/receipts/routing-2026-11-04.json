@@ -1,0 +1,43 @@
+{
+  "date": "2026-11-04",
+  "reason": "User requested normal lzanna or preemptible eligibility",
+  "account": "torch_pr_347_lzanna",
+  "partitions": [
+    "rtx6000_lzanna",
+    "rtx6000"
+  ],
+  "comment": "preemption=yes;requeue=true",
+  "requeue": true,
+  "gpu_constraint": "rtx6000",
+  "gpus": 8,
+  "cpus": 64,
+  "host_memory_gib": 192,
+  "active_jobs": {
+    "scaling": "21857804",
+    "scheduler_restart": "21857835"
+  },
+  "dependency": "afterok:21857804",
+  "replaced_preemption_only_jobs": [
+    "21816773",
+    "21822548"
+  ],
+  "cancelled_held_replacements": [
+    "21857639",
+    "21857643"
+  ],
+  "superseded_callback_jobs": [
+    "21816827",
+    "21822762",
+    "21857729",
+    "21857730"
+  ],
+  "replacement_reason": "scontrol routing updates and release of user holds returned Unspecified error; submitted final jobs without holds",
+  "queue_age_reset": true,
+  "replaced_gpu_jobs_allocated_seconds": 0,
+  "frozen_runtime_and_training_configuration_unchanged": true,
+  "callback_jobs": {
+    "scaling": "21857882",
+    "scheduler_restart": "21857883"
+  },
+  "initial_scaling_queue_reason": "QOSGrpGRES"
+}

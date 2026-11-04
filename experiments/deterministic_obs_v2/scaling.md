@@ -7,8 +7,17 @@ The optimized Rust/prefetch path passed single-GPU numerical and utilization
 qualification in job `21816758`. It completed 128 main and two cooldown updates
 on one RTX PRO 6000 Blackwell in 28m07s, using code
 `7bef723cb1f60d4e202aeece6fd4c1b11eb2e539`. The allocation cost was 0.4686 GPU-hours.
-Eight-GPU job `21816773` is waiting for capacity. Real Slurm interruption/resume
-job `21822548` depends on its success. No scientific screen or 16k run has been submitted.
+Eight-GPU job `21857804` is waiting for capacity. Real Slurm interruption/resume
+job `21857835` depends on its success. No scientific screen or 16k run has been submitted.
+
+The queued eight-GPU and scheduler-test requests are eligible for both
+`rtx6000_lzanna` and `rtx6000`, using account `torch_pr_347_lzanna`,
+`preemption=yes;requeue=true`, and `Requeue=1`. On 2026-11-04, these replaced
+preemption-only jobs `21816773` and `21822548`, both cancelled before allocation.
+Torch rejected in-place routing changes and release of temporary held replacements,
+so the final requests were resubmitted without holds. Their dependency and
+completion callbacks were rebuilt. The [routing receipt](receipts/routing-2026-11-04.json)
+preserves all replaced job IDs; queue age restarted with the final submissions.
 
 The [single-GPU receipt](receipts/scaling-v4/1gpu/qualification-summary.json)
 records exact synchronous/prefetched comparisons, isolated uncooled checkpoint
@@ -49,7 +58,7 @@ The screen contains 3,000 observation and 2,000 OM4 updates:
 The [estimate receipt](receipts/scaling-v4/1gpu/runtime-estimates.json) records
 inputs and assumptions. These are engineering estimates, not forecast-skill results.
 
-Scheduler job `21822548` will run two 16-main-plus-two-cooldown trajectories
+Scheduler job `21857835` will run two 16-main-plus-two-cooldown trajectories
 through `samudra.observations.train` and the shared Slurm/Apptainer launcher on
 eight GPUs. One is uninterrupted. After the other has saved at least six main
 updates, a bounded watcher sends USR1 to its batch shell, which calls
@@ -162,7 +171,7 @@ the smaller dense payload. The [audit receipt](receipts/scaling-v4/loading-audit
 records the CPU result and limits.
 
 GPU job `21816758` subsequently passed, as reported above. Its eight-GPU
-successor `21816773` uses the same code and [configuration](configs/scaling-v4/)
+successor `21857804` uses the same code and [configuration](configs/scaling-v4/)
 and is waiting for capacity.
 
 The historical estimates below apply only to arm D before optimization: the 170M-parameter mixed-source

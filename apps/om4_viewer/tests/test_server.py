@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Run with python -m unittest discover -s apps/om4_viewer/tests."""
 
+import re
 import sys
 import tempfile
 import unittest
@@ -111,6 +112,26 @@ class ApiTests(AioHTTPTestCase):
             self.assertEqual(
                 (await response.json())["error"], "OSN read failed (403): source object"
             )
+
+    async def test_asset_updates_change_script_url_without_restart(self):
+        with tempfile.TemporaryDirectory() as directory:
+            static = Path(directory)
+            (static / "index.html").write_text('<script src="/viewer.js"></script>')
+            script = static / "viewer.js"
+            script.write_text("// version one")
+            with patch("server.STATIC", static):
+                response = await self.client.get("/")
+                self.assertEqual(response.headers["Cache-Control"], "no-store")
+                first = re.search(r'src="([^"]+)"', await response.text())[1]
+                response = await self.client.get(first)
+                self.assertEqual(await response.text(), "// version one")
+                self.assertEqual(response.headers["Cache-Control"], "no-cache")
+                script.write_text("// version two")
+                response = await self.client.get("/")
+                second = re.search(r'src="([^"]+)"', await response.text())[1]
+                self.assertNotEqual(first, second)
+                response = await self.client.get(second)
+                self.assertEqual(await response.text(), "// version two")
 
     async def test_frame_and_second_dataset(self):
         response = await self.client.get("/api/metadata")

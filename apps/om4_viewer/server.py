@@ -4,6 +4,7 @@
 
 import argparse
 import asyncio
+import hashlib
 import logging
 import re
 from functools import lru_cache
@@ -488,7 +489,14 @@ def create_app(
         return web.json_response(result)
 
     async def index(request):
-        return web.FileResponse(STATIC / "index.html", headers={"Cache-Control": "no-cache"})
+        # Compute from the current asset so edits also work without a restart.
+        version = hashlib.sha256((STATIC / "viewer.js").read_bytes()).hexdigest()[:16]
+        html = (STATIC / "index.html").read_text().replace(
+            'src="/viewer.js"', f'src="/viewer.js?v={version}"'
+        )
+        return web.Response(
+            text=html, content_type="text/html", headers={"Cache-Control": "no-store"}
+        )
 
     async def javascript(request):
         return web.FileResponse(STATIC / "viewer.js", headers={"Cache-Control": "no-cache"})

@@ -529,7 +529,7 @@ function attachNavigation(p){
     // Invert that encoding exactly; zoom() takes the reciprocal map-span ratio.
     // Ordinary scroll has no physical scale, so give it separate gentle tuning.
     const pixels=e.deltaY*(e.deltaMode===1?16:e.deltaMode===2?r.height:1);
-    const change=e.ctrlKey&&e.deltaMode===0?e.deltaY/100:Math.max(-.01,Math.min(.01,pixels*.00005));
+    const change=e.ctrlKey&&e.deltaMode===0?e.deltaY/100:Math.max(-.025,Math.min(.025,pixels*.0002));
     zoom(Math.exp(change),(e.clientX-r.left)/r.width,(e.clientY-r.top)/r.height);
   },{passive:false});
   p.canvas.addEventListener('pointerdown',e=>{

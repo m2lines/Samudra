@@ -184,7 +184,8 @@ def _standardize_daily(ds: xr.Dataset) -> xr.Dataset:
         rename["longitude"] = "lon"
     ds = ds.rename(rename)
     ds = ds.assign_coords(time=_coerce_time(ds.time.values))
-    if float(ds.lon.min()) < 0:
+    # IAP uses 0.5..360.0, so positive coordinates can also need wrapping.
+    if float(ds.lon.min()) < 0 or float(ds.lon.max()) >= 360:
         ds = ds.assign_coords(lon=(ds.lon % 360)).sortby("lon")
     return ds.sortby("lat")
 

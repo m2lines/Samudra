@@ -33,7 +33,7 @@
   },
   "world_size": 8,
   "allocation_seconds": 18000,
-  "finish_reserve_seconds": 360,
+  "finish_reserve_seconds": 600,
   "max_updates": 1000000,
   "initial_checkpoint": "/scratch/jr7309/temperature-skyline-20261102/runs/210m-regression-20k-v1/best-error.pt",
   "learning_rate": 0.0002,
@@ -43,5 +43,9 @@
     "candidate_pool": 8192,
     "clusters_per_depth": 8,
     "base_fraction": 0.5
+  },
+  "ema": {
+    "decay": 0.999,
+    "faster_decay_at_start": true
   }
 }

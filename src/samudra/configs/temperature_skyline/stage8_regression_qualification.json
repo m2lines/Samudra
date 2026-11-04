@@ -43,5 +43,9 @@
     "candidate_pool": 8192,
     "clusters_per_depth": 8,
     "base_fraction": 0.5
+  },
+  "ema": {
+    "decay": 0.999,
+    "faster_decay_at_start": true
   }
 }

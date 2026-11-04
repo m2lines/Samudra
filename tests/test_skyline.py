@@ -583,3 +583,157 @@ def test_map_report_keeps_calibration_separate_and_support_failures_visible(
     assert global_row["gold_in_support_bin_nll"] == 1
     assert global_row["gold_coverage_90"] == 0.5
     assert (tmp_path / "COMPLETE.json").exists()
+
+
+def test_skyline_ema_arithmetic_and_exception_restoration():
+    from samudra.skyline.ema import ema_weights, restore_ema
+
+    model = torch.nn.Linear(1, 1, bias=False)
+    with torch.no_grad():
+        model.weight.zero_()
+    ema = restore_ema(model, dict(decay=0.5, faster_decay_at_start=False))
+    for value in (2.0, 4.0):
+        with torch.no_grad():
+            model.weight.fill_(value)
+        ema(model)
+    assert int(ema.num_updates) == 2
+    parameter = model.weight
+    model.eval()
+    with pytest.raises(RuntimeError, match="validation failed"):
+        with ema_weights(model, ema):
+            assert model.weight.item() == 2.5
+            model.train()
+            raise RuntimeError("validation failed")
+    assert model.weight is parameter
+    assert model.weight.item() == 4.0
+    assert not model.training
+    assert not ema._stored_params
+    assert int(ema.num_updates) == 2
+
+
+def test_skyline_ema_resume_preserves_training_and_average(tmp_path):
+    from samudra.skyline.ema import ema_weights, restore_ema
+
+    config = dict(decay=0.999, faster_decay_at_start=True)
+    model = torch.nn.Linear(2, 1)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=0.03)
+    ema = restore_ema(model, config)
+    x = torch.tensor([[1.0, -2.0]])
+
+    def update(m, opt, average):
+        opt.zero_grad()
+        (m(x) - 3).square().sum().backward()
+        opt.step()
+        average(m)
+
+    initial = {k: v.clone() for k, v in model.state_dict().items()}
+    update(model, optimizer, ema)
+    assert float(ema.cur_decay) == pytest.approx(2 / 11)
+    expected = {
+        k: initial[k] * (2 / 11) + v.detach() * (9 / 11)
+        for k, v in model.state_dict().items()
+    }
+    with ema_weights(model, ema):
+        for key, value in model.state_dict().items():
+            torch.testing.assert_close(value, expected[key])
+    update(model, optimizer, ema)
+    path = tmp_path / "latest.pt"
+    torch.save(
+        dict(
+            model=model.state_dict(),
+            optimizer=optimizer.state_dict(),
+            ema=ema.get_state(True),
+            step=2,
+        ),
+        path,
+    )
+    state = torch.load(path, weights_only=False, mmap=True)
+    other = torch.nn.Linear(2, 1)
+    other.load_state_dict(state["model"])
+    other_opt = torch.optim.AdamW(other.parameters(), lr=0.03)
+    other_opt.load_state_dict(state["optimizer"])
+    other_ema = restore_ema(other, config, state["ema"], state["step"])
+    # EMA validation must not alter optimizer parameters, momentum or RNG.
+    before = copy.deepcopy(other_opt.state_dict())
+    rng = torch.get_rng_state()
+    with ema_weights(other, other_ema):
+        other(x)
+    torch.testing.assert_close(torch.get_rng_state(), rng)
+    for parameter_id, values in before["state"].items():
+        for key, value in values.items():
+            torch.testing.assert_close(
+                other_opt.state_dict()["state"][parameter_id][key], value
+            )
+    update(model, optimizer, ema)
+    update(other, other_opt, other_ema)
+    for a, b in zip(model.parameters(), other.parameters(), strict=True):
+        torch.testing.assert_close(a, b, rtol=0, atol=0)
+    assert ema == other_ema
+    with pytest.raises(ValueError, match="Missing EMA state"):
+        restore_ema(other, config, step=2)
+    with pytest.raises(ValueError, match="update count"):
+        restore_ema(other, config, state["ema"], step=99)
+    with pytest.raises(ValueError, match="configuration changed"):
+        restore_ema(other, dict(config, decay=0.9), other_ema.get_state(True), step=3)
+    with pytest.raises(ValueError, match="not just metadata"):
+        restore_ema(other, config, other_ema.get_state(False), step=3)
+
+
+@pytest.mark.parametrize("objective", ["absolute_ce", "regression"])
+def test_skyline_raw_and_ema_validation_share_targets_and_save_distinct_weights(
+    ocean, tmp_path, objective
+):
+    from samudra.skyline.ema import ema_weights, restore_ema, validation_comparison
+
+    model = PointTransformer(
+        ModelConfig(width=16, layers=1, heads=2, bins=17, objective=objective)
+    )
+    vocab = Vocabulary(np.full(19, 100.0), 17)
+    ema = restore_ema(model, dict(decay=0.5, faster_decay_at_start=False))
+    with torch.no_grad():
+        model.head.bias[0] += 3
+    ema(model)
+    raw_weights = copy.deepcopy(model.state_dict())
+    config = dict(
+        validation_dates=1,
+        validation_seed=42,
+        validation_points_per_depth=2,
+        microbatch=7,
+        crop=3,
+    )
+    raw_dir, ema_dir = tmp_path / "raw", tmp_path / "ema"
+    raw_dir.mkdir()
+    ema_dir.mkdir()
+    raw = evaluate(model, vocab, ocean, config, torch.device("cpu"), raw_dir, 1)
+    with ema_weights(model, ema):
+        averaged = evaluate(
+            model, vocab, ocean, config, torch.device("cpu"), ema_dir, 1
+        )
+        torch.save(
+            dict(model=model.state_dict(), weights_kind="ema"),
+            tmp_path / "best-error-ema.pt",
+        )
+    for key, value in model.state_dict().items():
+        torch.testing.assert_close(value, raw_weights[key], rtol=0, atol=0)
+    rows = [
+        [
+            json.loads(s)
+            for s in (folder / "predictions-0000001.jsonl").read_text().splitlines()
+        ]
+        for folder in (raw_dir, ema_dir)
+    ]
+    paired_keys = ["origin", "row", "col", "depth", "truth_c"]
+    assert [[tuple(r[k] for k in paired_keys) for r in rs] for rs in rows][0] == [
+        tuple(r[k] for k in paired_keys) for r in rows[1]
+    ]
+    comparison = validation_comparison(raw, averaged, int(ema.num_updates))
+    assert comparison["ema_minus_raw"]["mean_depth_nmse"] == pytest.approx(
+        averaged["mean_depth_nmse"] - raw["mean_depth_nmse"]
+    )
+    metric = "mean_depth_bin_nll" if objective == "absolute_ce" else "mean_depth_nmse"
+    assert raw[metric] != averaged[metric]
+    saved = torch.load(tmp_path / "best-error-ema.pt", weights_only=False)
+    assert saved["weights_kind"] == "ema"
+    torch.testing.assert_close(
+        saved["model"]["head.bias"][0], raw_weights["head.bias"][0] - 1.5
+    )

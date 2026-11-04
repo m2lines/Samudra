@@ -9,6 +9,7 @@ import math
 import os
 import random
 import time
+from contextlib import nullcontext
 from datetime import timedelta
 from pathlib import Path
 
@@ -21,6 +22,7 @@ from torch.nn.parallel import DistributedDataParallel
 
 from .coverage import corrected_mean, sample_coverage
 from .data import OceanSource
+from .ema import ema_weights, restore_ema, validation_comparison
 from .model import ModelConfig, PointTransformer, Vocabulary
 from .run import FrameStream, emit, evaluate, save_atomic, to_device
 from .utilization import GpuMonitor
@@ -168,18 +170,20 @@ def _train(
         raise ValueError("Initial model architecture differs")
     model.load_state_dict(state["model"], strict=True)
     vocab.load_state_dict(state["vocabulary"], strict=True)
-    step, best_nll, best_nmse, stream_state = 0, math.inf, math.inf, None
+    step, stream_state = 0, None
+    best_metrics = {kind: dict(nll=math.inf, nmse=math.inf) for kind in ("raw", "ema")}
     initial_step = state.get("initial_step", state["step"])
     if resumed:
         if state["config"] != config:
             raise ValueError("Continuation configuration changed on resume")
-        step, best_nll, best_nmse = state["step"], state["best_nll"], state["best_nmse"]
+        step, best_metrics = state["step"], state["best_metrics"]
         optimizer.load_state_dict(state["optimizer"])
         saved = state["rank_states"][rank]
         rng.bit_generator.state = saved["numpy_rng"]
         torch.set_rng_state(saved["torch_rng"])
         torch.cuda.set_rng_state(saved["cuda_rng"], device)
         stream_state = saved["stream"]
+    ema = restore_ema(model, config["ema"], state.get("ema") if resumed else None, step)
     del state
     ddp = DistributedDataParallel(
         model, device_ids=[device.index], broadcast_buffers=False
@@ -282,6 +286,7 @@ def _train(
                     model.parameters(), 1.0, error_if_nonfinite=True
                 )
                 optimizer.step()
+                ema(model)
                 torch.cuda.synchronize()
                 if step == 1 or step % config["log_every"] == 0:
                     stats = torch.stack(
@@ -302,6 +307,8 @@ def _train(
                             importance_ess_fraction=float(stats[1].square() / stats[2]),
                             grad_norm=float(stats[3]),
                             lr=optimizer.param_groups[0]["lr"],
+                            ema_updates=int(ema.num_updates),
+                            ema_decay=float(ema.cur_decay),
                             seconds=time.monotonic() - begin,
                             allocation_seconds=allocation_used(
                                 config, prior, allocation_start
@@ -330,50 +337,102 @@ def _train(
             )
             dist.broadcast(events, src=0)
             if events[1] and not stop_reason:
-                local = evaluate(
-                    model, vocab, source, config, device, rank_output, step, rank, world
-                )
-                parts: list = [None] * world
-                dist.all_gather_object(parts, local)
-                validation = merge_validation(parts)
-                if rank == 0:
-                    (output / f"validation-{step:07d}.json").write_text(
-                        json.dumps(validation, indent=2) + "\n"
+                validations = {}
+                metrics = {}
+                for kind in ("raw", "ema"):
+                    context = (
+                        ema_weights(model, ema) if kind == "ema" else nullcontext()
                     )
-                    weights = dict(
-                        model=model.state_dict(),
-                        vocabulary=vocab.state_dict(),
-                        config=config,
-                        step=step,
-                        initial_step=initial_step,
-                        validation=validation,
-                    )
-                    if validation["mean_depth_nmse"] < best_nmse:
-                        best_nmse = validation["mean_depth_nmse"]
-                        save_atomic(weights, output / "best-error.pt")
-                    nll = validation["mean_depth_bin_nll"]
-                    if nll is not None and nll < best_nll:
-                        best_nll = nll
-                        save_atomic(weights, output / "best-likelihood.pt")
-                    emit(
-                        dict(
-                            event="validation",
-                            step=step,
-                            nmse=validation["mean_depth_nmse"],
-                            nll=nll,
-                        ),
-                        output / "training.jsonl",
-                    )
-                    if run:
-                        metrics = {"validation/nmse": validation["mean_depth_nmse"]}
-                        if nll is not None:
-                            metrics["validation/nll"] = nll
-                        metrics.update(
-                            {
-                                f"validation/thetao_{r['depth']}/rmse_c": r["rmse_c"]
-                                for r in validation["per_depth"]
-                            }
+                    with context:
+                        variant_output = rank_output / kind
+                        variant_output.mkdir(exist_ok=True)
+                        local = evaluate(
+                            model,
+                            vocab,
+                            source,
+                            config,
+                            device,
+                            variant_output,
+                            step,
+                            rank,
+                            world,
                         )
+                        parts: list = [None] * world
+                        dist.all_gather_object(parts, local)
+                        validation = merge_validation(parts)
+                        validations[kind] = validation
+                        if rank == 0:
+                            suffix = "-ema" if kind == "ema" else ""
+                            (output / f"validation{suffix}-{step:07d}.json").write_text(
+                                json.dumps(validation, indent=2) + "\n"
+                            )
+                            weights = dict(
+                                model=model.state_dict(),
+                                vocabulary=vocab.state_dict(),
+                                config=config,
+                                step=step,
+                                initial_step=initial_step,
+                                validation=validation,
+                                weights_kind=kind,
+                                ema=ema.get_state(include_ema_params=False),
+                            )
+                            nmse, nll = (
+                                validation["mean_depth_nmse"],
+                                validation["mean_depth_bin_nll"],
+                            )
+                            if nmse < best_metrics[kind]["nmse"]:
+                                best_metrics[kind]["nmse"] = nmse
+                                save_atomic(weights, output / f"best-error{suffix}.pt")
+                            if nll is not None and nll < best_metrics[kind]["nll"]:
+                                best_metrics[kind]["nll"] = nll
+                                save_atomic(
+                                    weights, output / f"best-likelihood{suffix}.pt"
+                                )
+                            emit(
+                                dict(
+                                    event="validation",
+                                    weights=kind,
+                                    step=step,
+                                    nmse=nmse,
+                                    nll=nll,
+                                    ema_updates=int(ema.num_updates),
+                                ),
+                                output / "training.jsonl",
+                            )
+                            metrics[f"validation/{kind}/nmse"] = nmse
+                            if nll is not None:
+                                metrics[f"validation/{kind}/nll"] = nll
+                            for row in validation["per_depth"]:
+                                for key, value in row.items():
+                                    if (
+                                        key not in {"depth", "depth_m", "count"}
+                                        and value is not None
+                                    ):
+                                        metrics[
+                                            f"validation/{kind}/thetao_{row['depth']}/{key}"
+                                        ] = value
+                    # EMA context restores raw parameters before training or saving latest.pt.
+                comparison = validation_comparison(
+                    validations["raw"], validations["ema"], int(ema.num_updates)
+                )
+                if rank == 0:
+                    (output / f"validation-comparison-{step:07d}.json").write_text(
+                        json.dumps(comparison, indent=2) + "\n"
+                    )
+                    delta = comparison["ema_minus_raw"]
+                    for key in ("mean_depth_nmse", "mean_depth_bin_nll"):
+                        if delta[key] is not None:
+                            metrics[f"validation/ema_minus_raw/{key}"] = delta[key]
+                    for row in delta["per_depth"]:
+                        for key, value in row.items():
+                            if (
+                                key not in {"depth", "depth_m", "count"}
+                                and value is not None
+                            ):
+                                metrics[
+                                    f"validation/ema_minus_raw/thetao_{row['depth']}/{key}"
+                                ] = value
+                    if run:
                         run.log(metrics, step=step)
                 last_validation = allocation_used(config, prior, allocation_start)
                 model.train()
@@ -396,8 +455,9 @@ def _train(
                             config=config,
                             step=step,
                             initial_step=initial_step,
-                            best_nll=best_nll,
-                            best_nmse=best_nmse,
+                            best_metrics=best_metrics,
+                            ema=ema.get_state(include_ema_params=True),
+                            weights_kind="raw",
                             rank_states=rank_states,
                             allocation_seconds=allocation_used(
                                 config, prior, allocation_start
@@ -411,11 +471,16 @@ def _train(
             if events[0]:
                 break
         # DDP replicas must agree after all updates, including corrected losses.
-        signature = torch.stack([p.detach().float().sum() for p in model.parameters()])
+        if int(ema.num_updates) != step:
+            raise RuntimeError("EMA update count differs from optimizer updates")
+        parameters = list(model.parameters()) + list(
+            ema.get_state(True)["ema_params"].values()
+        )
+        signature = torch.stack([p.detach().float().sum() for p in parameters])
         signatures = [torch.empty_like(signature) for _ in range(world)]
         dist.all_gather(signatures, signature)
         if any(not torch.equal(signature, s) for s in signatures):
-            raise RuntimeError("DDP parameter signatures differ")
+            raise RuntimeError("DDP raw or EMA parameter signatures differ")
         if stop_reason:
             raise RuntimeError(stop_reason)
         complete = True
@@ -428,6 +493,8 @@ def _train(
                     accepted_examples=step * world * config["microbatch"],
                     world_size=world,
                     replicas_agree=True,
+                    ema_updates=int(ema.num_updates),
+                    ema_replicas_agree=True,
                     qualification=config["qualification"],
                 ),
                 output / "completion.pt",
@@ -443,6 +510,8 @@ def _train(
                         world_size=world,
                         qualification=config["qualification"],
                         replicas_agree=True,
+                        ema_updates=int(ema.num_updates),
+                        ema_replicas_agree=True,
                     )
                 )
                 + "\n"

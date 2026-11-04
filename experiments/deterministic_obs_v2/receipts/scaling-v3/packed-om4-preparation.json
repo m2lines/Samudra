@@ -1,0 +1,30 @@
+{
+  "job_id": "21803580",
+  "state": "COMPLETED",
+  "exit_code": "0:0",
+  "elapsed_seconds": 712,
+  "code_commit": "710e49603ced7c669c5e504d0b8f6ac626090438",
+  "cache": "/scratch/jr7309/deterministic-obs-v2/native-om4-v1",
+  "proof_sha256": "fcae8e6573adad1dcfd125459ce0ee6b1152a0f32aa299bc7e70148e9965e5dc",
+  "frames": 2812,
+  "fields": 77,
+  "shape": [
+    180,
+    360
+  ],
+  "raw_float32_bytes": 56123020800,
+  "apparent_cache_bytes": 26774925591,
+  "files_in_proof": 2816,
+  "first_bounds": [
+    "1975-01-26 00:00:00",
+    "1975-01-31 00:00:00"
+  ],
+  "last_bounds": [
+    "2013-07-30 00:00:00",
+    "2013-08-04 00:00:00"
+  ],
+  "source_metadata_sha256": "8c4e12bbb43cf70826d406d6910461e1b287835e5f7f27729a2eb8d545c4a19c",
+  "source_values_sha256": "2963e21679621721c7a89fba913b321dd75d41df16a8adc4a349f2d3c5a2cd2d",
+  "all_frames_rust_readback_exact": true,
+  "all_frames_python_readback_exact": true
+}

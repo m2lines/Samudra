@@ -39,14 +39,26 @@ checks the selected devices before archive/model setup, and fails if telemetry
 exits during training. It also avoids duplicate pinned/GPU copies of tensors
 shared by forecast and reconstruction.
 
-CPU job `21803580` is preparing a lossless packed OM4 cache with that code.
-It includes all 2,812 eligible native frames and all 77 physical channels, with
-one chunk per frame instead of 77 separate variable chunks. Every packed frame
-must match the source through independent Python and Rust decoders. The reader
+CPU job `21803580` completed the lossless packed OM4 cache in 11m52s with exit
+`0:0`. It includes all 2,812 eligible native frames and all 77 physical channels,
+with one chunk per frame instead of 77 separate variable chunks. Every packed
+frame matched all 77 original channels exactly through both Python and Rust readbacks.
+The cache occupies 26,774,925,591 bytes, versus 56,123,020,800 bytes of raw
+float32 values. Its `COMPLETE.json` proof has SHA256
+`fcae8e6573adad1dcfd125459ce0ee6b1152a0f32aa299bc7e70148e9965e5dc`;
+the [preparation receipt](receipts/scaling-v3/packed-om4-preparation.json) records
+the source hashes and interval bounds. At startup, the packed-data training adapter
 checks the pinned proof, original metadata, complete native-index list, interval
 bounds, channel order and cache hashes. Normalization, masks, cohort and calendar
-rules stay in the existing loader. Preparation and the replacement GPU
-qualification are pending; no packed-cache performance result is claimed.
+rules stay in the existing loader.
+
+Replacement GPU jobs `21805440` (one GPU) and `21805446` (eight GPUs) were submitted
+on 2026-11-03 with code `710e49603ced7c669c5e504d0b8f6ac626090438` and
+[configs that pin the packed cache proof](configs/scaling-v3/).
+The eight-GPU job starts after the one-GPU program exits successfully following
+its numerical checks; utilization is assessed separately. Both retain eight monthly
+examples per optimizer update, the same replay policy and the resource requests
+above. GPU results and optimized runtime estimates are pending.
 
 The first scaling attempt used code `aa51d5bfa4e95291333ec73f2314db5ceeef4953`.
 Job `21794028` completed one observation update, then failed while pinning an

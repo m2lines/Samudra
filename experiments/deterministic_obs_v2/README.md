@@ -156,8 +156,8 @@ shared-ERA5 preparation. Download/read-back checks found zero differences across
 (1975–2014) agree on field order and grid hash. The completed ERA5 cache stores
 eight atmospheric fields aligned to all 439 eligible native OM4 windows and
 2,812 five-day intervals, with input hashes and exact read-back verification.
-It is separate from the packed 77-channel OM4 physical-state cache now being
-prepared for [scaling qualification](scaling.md). Global
+It is separate from the completed packed 77-channel OM4 physical-state cache
+used by the replacement [scaling qualification](scaling.md). Global
 normalization and all ten screen/qualification configs are prepared; see the
 [preparation receipt](receipts/PREPARED.json). No upstream
 raw data were reprocessed or transferred in this task.

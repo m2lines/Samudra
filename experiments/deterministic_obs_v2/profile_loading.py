@@ -20,7 +20,16 @@ import torch
 from samudra.observations import model_data
 from samudra.observations.config import ObservationTrainConfig
 from samudra.observations.pipeline import UpdateLoader
+from samudra.observations.qualify import equal_tree
 from samudra.observations.train import build_sources
+
+
+def original_normalization(values, mask, mean, std):
+    if not np.isfinite(values[:, mask]).all():
+        raise ValueError("Nonfinite model target on declared wet support")
+    return np.where(
+        mask, (values - mean[:, None, None]) / std[:, None, None], 0
+    ).astype(np.float32)
 
 
 def profile(config, output):
@@ -67,14 +76,21 @@ def profile(config, output):
     loader = UpdateLoader(sources, "cpu", enabled=False, to_device=False)
     report: dict[str, Any] = {"config": str(config), "plan": plan, "passes": []}
     profiler = cProfile.Profile()
-    for repeat in range(2):
+    optimized = model_data.normalize_physical_fields
+    expected = None
+    for phase, normalize in (
+        ("reference", original_normalization),
+        ("optimized", optimized),
+        ("reference-repeat", original_normalization),
+    ):
+        model_data.normalize_physical_fields = normalize
         totals.clear()
         started, cpu = time.perf_counter(), time.process_time()
         profiler.enable()
         batch = loader.read("om4", plan)
         profiler.disable()
         row = {
-            "repeat": repeat,
+            "phase": phase,
             "wall_seconds": time.perf_counter() - started,
             "cpu_seconds": time.process_time() - cpu,
             "components_wall_cpu_calls": dict(totals),
@@ -83,12 +99,17 @@ def profile(config, output):
         }
         report["passes"].append(row)
         print(json.dumps(row), flush=True)
+        if expected is None:
+            expected = batch.examples
+        else:
+            equal_tree(batch.examples, expected)
         del batch
         gc.collect()
     loader.close()
     stream = io.StringIO()
     pstats.Stats(profiler, stream=stream).sort_stats("cumulative").print_stats(40)
     report["profile"] = stream.getvalue()
+    report["all_model_inputs_and_targets_exact"] = True
     output.write_text(json.dumps(report, indent=2) + "\n")
     print(report["profile"], flush=True)
 

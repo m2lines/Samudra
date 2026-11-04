@@ -15,6 +15,29 @@ from samudra.constants import build_om4_layout
 from samudra.observations.intervals import calendar_weights
 
 
+def normalize_physical_fields(values, mask, mean, std):
+    """Normalize an owned read buffer with the original NumPy rounding order.
+
+    Reuse storage when each operation preserves dtype. Avoid gathering all wet
+    values or allocating several full history/target arrays just to mask land.
+    """
+    if not np.all(np.isfinite(values), where=mask[None]):
+        raise ValueError("Nonfinite model target on declared wet support")
+    mean, std = mean[:, None, None], std[:, None, None]
+    shifted = np.subtract(
+        values,
+        mean,
+        out=values if np.result_type(values, mean) == values.dtype else None,
+    )
+    scaled = np.divide(
+        shifted,
+        std,
+        out=shifted if np.result_type(shifted, std) == shifted.dtype else None,
+    )
+    np.copyto(scaled, 0, where=~mask)
+    return scaled.astype(np.float32, copy=False)
+
+
 def calendar_context(lat, lon, dates):
     latitude, longitude = np.meshgrid(np.deg2rad(lat), np.deg2rad(lon), indexing="ij")
     xyz = np.stack(
@@ -264,14 +287,9 @@ class ModelMonths:
             )
         else:
             values = np.stack([z[n][interval] for n in self.names], axis=1)
-        if not np.isfinite(values[:, self.mask]).all():
-            raise ValueError("Nonfinite model target on declared wet support")
-        fields = np.where(
-            self.mask,
-            (values - self.grid["mean"][:, None, None])
-            / self.grid["std"][:, None, None],
-            0,
-        ).astype(np.float32)
+        fields = normalize_physical_fields(
+            values, self.mask, self.grid["mean"], self.grid["std"]
+        )
         if self.era5 is not None:
             forcing = self.era5.load(start - 19, stop)
         else:

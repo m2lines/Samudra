@@ -3,6 +3,7 @@
 """Exact native observation/OM4 values, including replay's shifted interval grid."""
 
 import json
+from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
@@ -15,7 +16,7 @@ from samudra.observations.model_data import ModelMonths
 from samudra.observations.native import NativeObservationArchive
 from samudra.observations.native_om4 import NativeOm4Planes, prepare_native_om4
 from samudra.observations.shared_era5 import digest
-from samudra.observations.training import archive_identity
+from samudra.observations.training import Sources, archive_identity
 from samudra.rust_reader import RustIoRuntime
 
 pytest.importorskip("samudra_rust_loader")
@@ -121,6 +122,20 @@ def test_native_om4_keeps_all_channels_and_native_replay_values(tmp_path, packed
         actual = native.continuation(0, month, "cpu")
         for key in expected:
             np.testing.assert_array_equal(actual[key], expected[key], err_msg=key)
+        sources = object.__new__(Sources)
+        setattr(sources, "obs", SimpleNamespace(device="cpu"))
+        sources.models = {"om4": native}
+        sample = sources.load("om4", 0, month)
+        assert "fields" not in sample
+        np.testing.assert_array_equal(
+            sample["surface"], expected["fields"][:, :, [38, 76]]
+        )
+        np.testing.assert_array_equal(
+            sample["initial_fields"], expected["fields"][:, 17:19]
+        )
+        np.testing.assert_array_equal(
+            sample["target_fields"], expected["fields"][:, 19:]
+        )
     if packed:
         proof_path = cache / "COMPLETE.json"
         proof = json.loads(proof_path.read_text())

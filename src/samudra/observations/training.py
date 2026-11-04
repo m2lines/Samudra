@@ -62,7 +62,8 @@ class ForecastSample(TypedDict, total=False):
     validity: torch.Tensor
     mask: torch.Tensor
     month_weights: torch.Tensor
-    fields: torch.Tensor
+    initial_fields: torch.Tensor
+    target_fields: torch.Tensor
     interior: torch.Tensor
     raw_surface: torch.Tensor
     completion_target: torch.Tensor
@@ -132,7 +133,11 @@ class Sources:
         raw = self.models[source].continuation(int(origin), month, self.obs.device)
         fields = raw["fields"]
         return {
-            **raw,
+            **{key: value for key, value in raw.items() if key != "fields"},
+            # Dense interior history before the two initial states is unused.
+            # Keep surface history, but do not pin/copy that unused dense payload.
+            "initial_fields": fields[:, INITIAL_STATE_START:HISTORY_STEPS],
+            "target_fields": fields[:, HISTORY_STEPS:],
             "surface": fields[:, :, SURFACE_CHANNELS],
             "atmosphere": raw["forcing"],
             "month_weights": raw["weights"],
@@ -234,11 +239,11 @@ def objective(
     else:
         weights = sample["mask"] * data.area
         parts["forecast"] = balanced_loss(
-            prediction, sample["fields"][:, HISTORY_STEPS:], weights, model.names
+            prediction, sample["target_fields"], weights, model.names
         )
         parts["reconstruction"] = balanced_loss(
             initial,
-            auxiliary["fields"][:, INITIAL_STATE_START:HISTORY_STEPS],
+            auxiliary["initial_fields"],
             weights,
             model.names,
             interior_only=True,

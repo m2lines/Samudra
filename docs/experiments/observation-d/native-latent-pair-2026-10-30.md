@@ -186,3 +186,34 @@ validation restarts from the saved training endpoints if interrupted. The
 selected model is valid only after all ten complete raw/EMA receipts and the
 final completion marker pass verification. Repeated evaluation timeouts require
 review rather than an indefinite restart loop. Training science is unchanged.
+
+## Processor GroupNorm comparison (November 4)
+
+A new native-64 v2 arm changes processor InstanceNorm to GroupNorm with four
+channel groups in every block. All widths (280/380/480/520) divide by four.
+Both normalize within each example; GroupNorm also couples channels within a
+group. This tests normalization with unchanged widths and parameter counts: 83,292,608
+processor parameters and 130,253,440 total parameters. Initializer and decoder
+normalization remain unchanged.
+
+The control is InstanceNorm run `A-shared-era5-native64-samudra-v2` (job 220346).
+The new run starts fresh with seed 1729 and retains its 4,000 alternating
+OM4/OBS updates (50% each), followed by 1,000 OBS-only cooldown updates. It uses
+shared ERA5, two 64-channel latent slots at 180×360, effective batch eight across
+four GPUs, the same losses and learning rates, and the same posthoc raw/EMA
+validation every 500 updates. Selection uses the unchanged equal-weight blend of climatology-normalized
+SST, geostrophic velocity, EKE, and 0–700/700–2000 m OHC RMSE. CPU tests verify identical initial state dictionaries and post-initialization RNG state between the
+InstanceNorm and GroupNorm variants, finite recurrence gradients, serialization,
+and the v2 parameter count; all 31 targeted tests passed.
+
+Production **223127** (Beta, standard QoS, four hours) and qualification **223128**
+(beta_test, test QoS) are submitted and were pending at the release check.
+Production performs qualification itself if it starts first; the shared lock
+prevents duplicate qualification. Qualification checks real training, finite
+validation, input parity, and exact checkpoint replay before production. Code commit: `09caa96f3b26dd515e986e87ea35b032345cfaa7`.
+Root: `beta:/projects/ny/lz1955/multiscale/jrusak/runs/native-latent-groupnorm-20261104`.
+The remote completion hook passed its login-node check; a dedicated quiet monitor
+checks runtime qualification and final outputs. The prior InstanceNorm run took
+3h21m including validation; a subsequent scheduler check estimated a November 5, 02:58 UTC start.
+That implies results around November 5, 01:45 EST, including review, if the
+provisional start holds. No GroupNorm result is available yet.

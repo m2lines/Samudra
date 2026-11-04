@@ -84,6 +84,16 @@ def build_sources(
         models["om4"] = ModelMonths(
             path("om4") / "OM4.zarr", "om4", data.grid, path("om4"), runtime=runtime
         )
+        if runtime is not None and cfg.data.native_om4 is not None:
+            from samudra.observations.native_om4 import NativeOm4Planes
+
+            models["om4"].planes = NativeOm4Planes(
+                path("native_om4"),
+                models["om4"],
+                runtime,
+                cfg.data.native_om4_proof_sha256,
+                verify_content=verify_data,
+            )
         if cfg.model.forcing_mode == "shared_era5":
             models["om4"].era5 = SharedEra5(
                 path("era5_cache"), models["om4"], data, cfg.data.era5_proof_sha256

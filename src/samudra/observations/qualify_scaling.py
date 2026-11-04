@@ -67,6 +67,27 @@ def model_digest(model):
     return digest.hexdigest()
 
 
+def nvidia_smi_uuid(value):
+    """NVML needs GPU- before the UUID returned by PyTorch's CUDA properties."""
+    value = str(value)
+    return value if value.startswith("GPU-") else f"GPU-{value}"
+
+
+def verify_telemetry_devices(uuids):
+    actual = subprocess.check_output(
+        [
+            "nvidia-smi",
+            "--query-gpu=uuid",
+            "--format=csv,noheader,nounits",
+            f"--id={','.join(uuids)}",
+        ],
+        text=True,
+        timeout=15,
+    )
+    if sorted(actual.split()) != sorted(uuids):
+        raise RuntimeError(f"GPU telemetry device mismatch: {actual!r}")
+
+
 def run(cfg):
     if not cfg.update_prefetch or cfg.data.loading is None:
         raise ValueError(
@@ -110,6 +131,14 @@ def run(cfg):
     )
     if world.rank == 0:
         print(json.dumps({"event": "expanded_mask_cuda_staging_passed"}), flush=True)
+    uuid = nvidia_smi_uuid(torch.cuda.get_device_properties(device).uuid)
+    uuids = [uuid]
+    if world.size > 1:
+        uuids = [""] * world.size
+        dist.all_gather_object(uuids, uuid, group=world.group)
+    if world.rank == 0:
+        verify_telemetry_devices(uuids)
+    world.broadcast(True)
     started = time.time()
     sources = build_sources(cfg, torch.device("cpu"), verify_data=world.rank == 0)
     manifest = world.broadcast(
@@ -143,11 +172,6 @@ def run(cfg):
     records = []
     stage = "warmup"
     telemetry = telemetry_file = None
-    uuid = str(torch.cuda.get_device_properties(device).uuid)
-    uuids = [uuid]
-    if world.size > 1:
-        uuids = [""] * world.size
-        dist.all_gather_object(uuids, uuid, group=world.group)
     if world.rank == 0:
         telemetry_file = (output / "gpu-utilization.csv").open("a")
         telemetry = subprocess.Popen(
@@ -162,6 +186,8 @@ def run(cfg):
         )
 
     def record(value):
+        if telemetry is not None and telemetry.poll() is not None:
+            raise RuntimeError("GPU utilization telemetry stopped unexpectedly")
         event = {"stage": stage, "timestamp": time.time(), **value}
         records.append(event)
         with (output / "scaling.jsonl").open("a") as stream:

@@ -33,6 +33,8 @@ class ObservationDataConfig(BaseConfig):
     era5_proof_sha256: str | None = None
     native_observations: Location | None = None
     native_observations_proof_sha256: str | None = None
+    native_om4: Location | None = None
+    native_om4_proof_sha256: str | None = None
     loading: RustDataLoadingConfig | None = None
 
     def local_path(self, name: str, experiment: ExperimentConfig) -> Path:
@@ -106,6 +108,10 @@ class ObservationTrainConfig(TopLevelConfig):
 
     @model_validator(mode="after")
     def validate_recipe(self) -> Self:
+        if (self.data.native_om4 is None) != (
+            self.data.native_om4_proof_sha256 is None
+        ):
+            raise ValueError("Packed OM4 requires both a cache and its proof checksum")
         if self.data.loading is not None:
             if self.data.loading.prefetch_batches != 1:
                 raise ValueError(

@@ -13,6 +13,7 @@ from test_observation_baseline_data import model_store  # type: ignore[import-no
 from samudra.observations.archive import ObservationArchive, trajectory
 from samudra.observations.model_data import ModelMonths
 from samudra.observations.native import NativeObservationArchive
+from samudra.observations.native_om4 import NativeOm4Planes, prepare_native_om4
 from samudra.observations.shared_era5 import digest
 from samudra.observations.training import archive_identity
 from samudra.rust_reader import RustIoRuntime
@@ -96,7 +97,8 @@ def test_native_observation_rejects_changed_chunk(tmp_path):
         )
 
 
-def test_native_om4_keeps_all_channels_and_native_replay_values(tmp_path):
+@pytest.mark.parametrize("packed", [False, True])
+def test_native_om4_keeps_all_channels_and_native_replay_values(tmp_path, packed):
     path, reference = model_store(tmp_path, "om4")
     z = zarr.open_group(str(path), mode="r+")
     for index, name in enumerate(reference["names"]):
@@ -108,8 +110,27 @@ def test_native_om4_keeps_all_channels_and_native_replay_values(tmp_path):
     zarr.consolidate_metadata(str(path))
     python = ModelMonths(path, "om4", reference, tmp_path)
     native = ModelMonths(path, "om4", reference, tmp_path, runtime=RustIoRuntime(2))
+    if packed:
+        cache = tmp_path / "packed"
+        prepare_native_om4(path, python, cache, RustIoRuntime(2))
+        native.planes = NativeOm4Planes(
+            cache, native, RustIoRuntime(2), digest(cache / "COMPLETE.json")
+        )
     for month in (0, 1, 5):
         expected = python.continuation(0, month, "cpu")
         actual = native.continuation(0, month, "cpu")
         for key in expected:
             np.testing.assert_array_equal(actual[key], expected[key], err_msg=key)
+    if packed:
+        proof_path = cache / "COMPLETE.json"
+        proof = json.loads(proof_path.read_text())
+        proof["indices"].reverse()
+        proof_path.write_text(json.dumps(proof))
+        with pytest.raises(ValueError, match="cohort"):
+            NativeOm4Planes(cache, native, RustIoRuntime(2), digest(proof_path))
+        proof["indices"].reverse()
+        proof_path.write_text(json.dumps(proof))
+        array = zarr.open_group(str(cache / "frames.zarr"), mode="r+")["values"]
+        array[0, 1, 0, 0] += 1
+        with pytest.raises(ValueError, match="content changed"):
+            NativeOm4Planes(cache, native, RustIoRuntime(2), digest(proof_path))

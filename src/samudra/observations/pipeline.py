@@ -182,14 +182,22 @@ class LoadedUpdate:
     host: object = None
 
 
-def map_tensors(value, function):
+def map_tensors(value, function, memo=None):
+    # The forecast and reconstruction often share the same sample, and forcing
+    # has two dictionary aliases. Stage each tensor once per update.
+    if memo is None:
+        memo = {}
     if isinstance(value, torch.Tensor):
-        return function(value)
+        if id(value) not in memo:
+            memo[id(value)] = function(value)
+        return memo[id(value)]
     if isinstance(value, dict):
         # Raw NPZ payloads are not used by the objective; avoid retaining duplicates.
-        return {k: map_tensors(v, function) for k, v in value.items() if k != "raw"}
+        return {
+            k: map_tensors(v, function, memo) for k, v in value.items() if k != "raw"
+        }
     if isinstance(value, list):
-        return [map_tensors(v, function) for v in value]
+        return [map_tensors(v, function, memo) for v in value]
     return value
 
 

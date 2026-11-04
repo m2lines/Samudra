@@ -17,8 +17,24 @@ from test_observation_baseline_harness import (  # type: ignore[import-not-found
 )
 
 from samudra.observations import training as baseline
-from samudra.observations.pipeline import pin_host_tensor
+from samudra.observations.pipeline import map_tensors, pin_host_tensor
 from samudra.observations.qualify import equal_tree
+
+
+def test_staging_copies_shared_forecast_and_reconstruction_tensors_once():
+    tensor = torch.arange(12).reshape(2, 2, 3)
+    sample = {"fields": tensor, "forcing": tensor, "raw": {"duplicate": tensor}}
+    calls = []
+
+    def copy(value):
+        calls.append(value)
+        return value.clone()
+
+    result = map_tensors([{"sample": sample, "auxiliary": sample}], copy)[0]
+    assert len(calls) == 1
+    assert result["sample"]["fields"] is result["auxiliary"]["forcing"]
+    assert "raw" not in result["sample"]
+    torch.testing.assert_close(result["sample"]["fields"], tensor, rtol=0, atol=0)
 
 
 def test_pin_staging_materializes_broadcast_masks_without_changing_values(monkeypatch):

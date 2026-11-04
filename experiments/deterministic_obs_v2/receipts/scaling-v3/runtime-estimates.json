@@ -1,0 +1,129 @@
+{
+  "scope": "Timing estimates from completed v3 training records; utilization failed and checkpoint audit is pending",
+  "screen_4k_plus_1k": {
+    "gpu": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+    "effective_batch": 8,
+    "world_size": 1,
+    "source_updates": {
+      "obs": 3000,
+      "om4": 2000
+    },
+    "seconds_per_update": {
+      "obs": {
+        "min": 8.440838939044625,
+        "median": 8.9014333228115,
+        "max": 9.486943650990725
+      },
+      "om4": {
+        "min": 18.70871415408328,
+        "median": 25.12495362525806,
+        "max": 55.41661872621626
+      }
+    },
+    "median_data_seconds": {
+      "obs": 0.0007813409902155399,
+      "om4": 20.2665456966497
+    },
+    "validation_seconds": 1.995096341241151,
+    "checkpoint_seconds": 7.886843152344227,
+    "hours_observed_range": [
+      17.92739252086056,
+      39.19242676533396
+    ],
+    "hours_observed_mean": 24.89453610959479,
+    "hours_mean_with_30_percent_execution_allowance": 32.36289694247323,
+    "hours_with_30_percent_execution_allowance": [
+      23.30561027711873,
+      50.95015479493415
+    ],
+    "allocated_gpu_hours_with_30_percent_execution_allowance": [
+      23.30561027711873,
+      50.95015479493415
+    ],
+    "excluded": "queue delay and unknown preemption frequency; long-run replay mix may differ"
+  },
+  "winning_16k_plus_four_1k_cooldowns": {
+    "gpu": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+    "effective_batch": 8,
+    "world_size": 1,
+    "source_updates": {
+      "obs": 12000,
+      "om4": 8000
+    },
+    "seconds_per_update": {
+      "obs": {
+        "min": 8.440838939044625,
+        "median": 8.9014333228115,
+        "max": 9.486943650990725
+      },
+      "om4": {
+        "min": 18.70871415408328,
+        "median": 25.12495362525806,
+        "max": 55.41661872621626
+      }
+    },
+    "median_data_seconds": {
+      "obs": 0.0007813409902155399,
+      "om4": 20.2665456966497
+    },
+    "validation_seconds": 1.995096341241151,
+    "checkpoint_seconds": 7.886843152344227,
+    "hours_observed_range": [
+      71.6898529755614,
+      156.74998995345499
+    ],
+    "hours_observed_mean": 99.5584273304983,
+    "hours_mean_with_30_percent_execution_allowance": 129.4259555296478,
+    "hours_with_30_percent_execution_allowance": [
+      93.19680886822981,
+      203.7749869394915
+    ],
+    "allocated_gpu_hours_with_30_percent_execution_allowance": [
+      93.19680886822981,
+      203.7749869394915
+    ],
+    "excluded": "queue delay and unknown preemption frequency; long-run replay mix may differ"
+  },
+  "remaining_winner_after_screen": {
+    "gpu": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+    "effective_batch": 8,
+    "world_size": 1,
+    "source_updates": {
+      "obs": 9000,
+      "om4": 6000
+    },
+    "seconds_per_update": {
+      "obs": {
+        "min": 8.440838939044625,
+        "median": 8.9014333228115,
+        "max": 9.486943650990725
+      },
+      "om4": {
+        "min": 18.70871415408328,
+        "median": 25.12495362525806,
+        "max": 55.41661872621626
+      }
+    },
+    "median_data_seconds": {
+      "obs": 0.0007813409902155399,
+      "om4": 20.2665456966497
+    },
+    "validation_seconds": 1.995096341241151,
+    "checkpoint_seconds": 7.886843152344227,
+    "hours_observed_range": [
+      53.76903282399444,
+      117.56413555741466
+    ],
+    "hours_observed_mean": 74.67046359019713,
+    "hours_mean_with_30_percent_execution_allowance": 97.07160266725627,
+    "hours_with_30_percent_execution_allowance": [
+      69.89974267119278,
+      152.83337622463907
+    ],
+    "allocated_gpu_hours_with_30_percent_execution_allowance": [
+      69.89974267119278,
+      152.83337622463907
+    ],
+    "excluded": "queue delay and unknown preemption frequency; long-run replay mix may differ"
+  }
+}

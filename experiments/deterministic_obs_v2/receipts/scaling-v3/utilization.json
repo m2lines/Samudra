@@ -1,0 +1,58 @@
+{
+  "window": "steady update 25 start through all validation/checkpoint records at update 128",
+  "start_unix": 1793765156.4422033,
+  "end_unix": 1793767252.977578,
+  "duration_seconds": 2096.5353746414185,
+  "per_gpu": {
+    "GPU-6001232a-91a5-9606-9f1e-b7f2e5d5090f": {
+      "samples": 2096,
+      "mean_percent": 30.501908396946565,
+      "median_percent": 0.0
+    }
+  },
+  "source_timing": {
+    "obs": {
+      "updates": 52,
+      "seconds": {
+        "min": 8.440838939044625,
+        "mean": 8.935762650709457,
+        "median": 8.9014333228115,
+        "max": 9.486943650990725
+      },
+      "data_seconds": {
+        "min": 0.0005912072956562042,
+        "mean": 0.0008145491323935298,
+        "median": 0.0007813409902155399,
+        "max": 0.0014549740590155125
+      },
+      "background_read_seconds": {
+        "min": 1.3922242419794202,
+        "mean": 1.7832344895264565,
+        "median": 1.5477708955295384,
+        "max": 3.3774937009438872
+      }
+    },
+    "om4": {
+      "updates": 52,
+      "seconds": {
+        "min": 18.70871415408328,
+        "mean": 30.507187046307642,
+        "median": 25.12495362525806,
+        "max": 55.41661872621626
+      },
+      "data_seconds": {
+        "min": 13.949534724932164,
+        "mean": 25.60345889099587,
+        "median": 20.2665456966497,
+        "max": 50.38470983505249
+      },
+      "background_read_seconds": {
+        "min": 21.82906894898042,
+        "mean": 33.56489872968254,
+        "median": 28.425208933185786,
+        "max": 58.30349195282906
+      }
+    }
+  },
+  "passed": false
+}

@@ -1,0 +1,130 @@
+{
+  "config": "/scratch/jr7309/deterministic-obs-v2/configs/scaling-v3/D-mixed-large-1gpu.yaml",
+  "plan": [
+    {
+      "origin": 336,
+      "month": 0,
+      "coverage": "1993-12",
+      "cached": null,
+      "seed": 766708881
+    },
+    {
+      "origin": 73,
+      "month": 1,
+      "coverage": "2007-08",
+      "cached": null,
+      "seed": 631253778
+    },
+    {
+      "origin": 31,
+      "month": 0,
+      "coverage": "2005-01",
+      "cached": null,
+      "seed": 1116840940
+    },
+    {
+      "origin": 356,
+      "month": 1,
+      "coverage": "2003-01",
+      "cached": null,
+      "seed": 2096709220
+    },
+    {
+      "origin": 15,
+      "month": 0,
+      "coverage": "2002-09",
+      "cached": null,
+      "seed": 1235218452
+    },
+    {
+      "origin": 63,
+      "month": 1,
+      "coverage": "1996-05",
+      "cached": null,
+      "seed": 1966862481
+    },
+    {
+      "origin": 199,
+      "month": 0,
+      "coverage": "2000-08",
+      "cached": null,
+      "seed": 244358889
+    },
+    {
+      "origin": 23,
+      "month": 1,
+      "coverage": "2005-06",
+      "cached": null,
+      "seed": 346821369
+    }
+  ],
+  "passes": [
+    {
+      "repeat": 0,
+      "wall_seconds": 9.628567350097,
+      "cpu_seconds": 16.615248478999995,
+      "components_wall_cpu_calls": {
+        "rust_physical_planes": [
+          1.5225745304487646,
+          8.22240321000001,
+          8
+        ],
+        "era5_forcing": [
+          0.4180449591949582,
+          0.41562683599999417,
+          8
+        ],
+        "calendar_context": [
+          0.19389174412935972,
+          0.18372812600000543,
+          8
+        ],
+        "model_read_inclusive": [
+          8.070076774340123,
+          14.715169232000008,
+          8
+        ],
+        "observation_coverage": [
+          1.479391016997397,
+          1.8298954080000058,
+          8
+        ]
+      },
+      "peak_host_rss_bytes": 7692001280
+    },
+    {
+      "repeat": 1,
+      "wall_seconds": 8.813169186934829,
+      "cpu_seconds": 14.045698768000001,
+      "components_wall_cpu_calls": {
+        "rust_physical_planes": [
+          1.0199944404885173,
+          5.835011286999993,
+          8
+        ],
+        "era5_forcing": [
+          0.3987006349489093,
+          0.39658187900000286,
+          8
+        ],
+        "calendar_context": [
+          0.15499557461589575,
+          0.15415728399999296,
+          8
+        ],
+        "model_read_inclusive": [
+          7.470040171407163,
+          12.251562805000006,
+          8
+        ],
+        "observation_coverage": [
+          1.270590027794242,
+          1.7220076919999983,
+          8
+        ]
+      },
+      "peak_host_rss_bytes": 7759228928
+    }
+  ],
+  "profile": "         75341 function calls (74373 primitive calls) in 18.442 seconds\n\n   Ordered by: cumulative time\n   List reduced from 437 to 40 due to restriction <40>\n\n   ncalls  tottime  percall  cumtime  percall filename:lineno(function)\n        2    0.018    0.009   18.442    9.221 /opt/samudra-code/src/samudra/observations/pipeline.py:232(read)\n       32    0.119    0.004   18.423    0.576 /opt/samudra-code/src/samudra/observations/training.py:115(load)\n    80/32    0.029    0.000   18.290    0.572 /scratch/jr7309/deterministic-obs-v2/frozen-data/profile_loading-efc58064e.py:33(call)\n       16    0.000    0.000   15.543    0.971 /opt/samudra-code/src/samudra/observations/model_data.py:230(continuation)\n       16    9.854    0.616   15.520    0.970 /opt/samudra-code/src/samudra/observations/model_data.py:247(_read)\n       32    0.000    0.000    3.144    0.098 /opt/samudra-code/src/samudra/rust_reader.py:37(read_into)\n       32    3.143    0.098    3.144    0.098 {method 'read_into' of 'builtins.CompactOm4Reader' objects}\n       16    0.000    0.000    2.750    0.172 /opt/samudra-code/src/samudra/observations/samples.py:73(load)\n       16    0.000    0.000    2.542    0.159 /opt/samudra-code/src/samudra/observations/native_om4.py:54(read_into)\n       76    2.037    0.027    2.037    0.027 {method 'astype' of 'numpy.ndarray' objects}\n       16    0.744    0.046    1.385    0.087 /opt/samudra-code/src/samudra/observations/samples.py:97(normalize)\n       16    0.035    0.002    1.363    0.085 /opt/samudra-code/src/samudra/observations/archive.py:130(sample)\n       16    0.453    0.028    0.810    0.051 /opt/samudra-code/src/samudra/observations/shared_era5.py:61(load)\n       16    0.001    0.000    0.634    0.040 /opt/samudra-code/src/samudra/observations/native.py:53(read_intervals)\n       16    0.381    0.024    0.566    0.035 /opt/samudra-code/src/samudra/observations/archive.py:164(context_planes)\n       32    0.000    0.000    0.543    0.017 /workspace/.venv/lib/python3.12/site-packages/numpy/lib/npyio.py:235(__getitem__)\n       32    0.012    0.000    0.537    0.017 /workspace/.venv/lib/python3.12/site-packages/numpy/lib/format.py:738(read_array)\n      608    0.002    0.000    0.519    0.001 /usr/lib/python3.12/zipfile/__init__.py:980(read)\n      576    0.001    0.000    0.518    0.001 /workspace/.venv/lib/python3.12/site-packages/numpy/lib/format.py:951(_read_bytes)\n      544    0.006    0.000    0.517    0.001 /usr/lib/python3.12/zipfile/__init__.py:1062(_read1)\n      544    0.471    0.001    0.471    0.001 {method 'decompress' of 'zlib.Decompress' objects}\n       16    0.191    0.012    0.346    0.022 /opt/samudra-code/src/samudra/observations/model_data.py:18(calendar_context)\n       16    0.185    0.012    0.185    0.012 /workspace/.venv/lib/python3.12/site-packages/numpy/core/memmap.py:334(__getitem__)\n     1840    0.170    0.000    0.170    0.000 {built-in method numpy.array}\n      124    0.144    0.001    0.144    0.001 {built-in method numpy.asarray}\n      336    0.108    0.000    0.108    0.000 {method 'reduce' of 'numpy.ufunc' objects}\n       96    0.000    0.000    0.107    0.001 {method 'all' of 'numpy.ndarray' objects}\n      160    0.000    0.000    0.107    0.001 /workspace/.venv/lib/python3.12/site-packages/numpy/core/_methods.py:61(_all)\n       16    0.000    0.000    0.088    0.005 /workspace/.venv/lib/python3.12/site-packages/numpy/lib/npyio.py:282(load)\n      192    0.060    0.000    0.060    0.000 {built-in method torch.as_tensor}\n      112    0.000    0.000    0.058    0.001 /opt/samudra-code/src/samudra/observations/samples.py:57(tensor)\n      688    0.053    0.000    0.053    0.000 {method 'read' of '_io.BufferedReader' objects}\n       16    0.040    0.002    0.040    0.002 {built-in method _io.open}\n       16    0.000    0.000    0.037    0.002 /workspace/.venv/lib/python3.12/site-packages/numpy/lib/npyio.py:209(__exit__)\n       32    0.000    0.000    0.037    0.001 /workspace/.venv/lib/python3.12/site-packages/numpy/lib/npyio.py:212(close)\n       16    0.036    0.002    0.036    0.002 {method 'close' of '_io.BufferedReader' objects}\n      544    0.000    0.000    0.028    0.000 /usr/lib/python3.12/zipfile/__init__.py:1015(_update_crc)\n      672    0.028    0.000    0.028    0.000 {built-in method zlib.crc32}\n       16    0.003    0.000    0.023    0.001 /opt/samudra-code/src/samudra/observations/archive.py:57(month_intervals)\n       16    0.000    0.000    0.019    0.001 /workspace/.venv/lib/python3.12/site-packages/numpy/lib/npyio.py:185(__init__)\n\n\n"
+}

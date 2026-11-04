@@ -5,8 +5,9 @@
 
 The observation trainer now supports the shared Samudra Rust I/O runtime,
 one prefetched update per rank, and distributed training. CPU tests and the
-one-GPU exact prefetch/resume comparison pass. GPU performance and utilization
-remain unqualified. This extends the
+one-GPU exact prefetch comparison from restored checkpoints pass. The packed-loader run measured
+30.5% steady GPU utilization, below the required 50%; eight-GPU execution remains
+unqualified. This extends the
 [initial single-GPU qualification](qualification.md). No scientific screening
 or 16k training run has been submitted.
 
@@ -55,10 +56,67 @@ rules stay in the existing loader.
 Replacement GPU jobs `21805440` (one GPU) and `21805446` (eight GPUs) were submitted
 on 2026-11-03 with code `710e49603ced7c669c5e504d0b8f6ac626090438` and
 [configs that pin the packed cache proof](configs/scaling-v3/).
-The eight-GPU job starts after the one-GPU program exits successfully following
-its numerical checks; utilization is assessed separately. Both retain eight monthly
-examples per optimizer update, the same replay policy and the resource requests
-above. GPU results and optimized runtime estimates are pending.
+The one-GPU job completed all 128 main and two cooldown updates, exact
+prefetch comparisons from a common restored checkpoint, and both
+73-step/29-channel annual validations.
+It then failed while hashing a scalar model tensor for the final receipt.
+The checkpoints and metrics remain available; no `QUALIFIED.json` was written.
+Code `efc58064ec70bdcc4d4264422c2e7172c90700a6` fixes the scalar byte view and passes
+a CPU regression test. CPU job `21814480` completed in 3m48s and independently
+verified all three comparison payloads, the uncooled 128-update checkpoint, the
+130-update endpoint, cooldown EMA state, finite weights and annual validation
+records. The [recovery summary](receipts/scaling-v3/recovery-summary.json) links
+the saved results to their hashes without changing the failed scheduler status.
+The dependent eight-GPU job
+was cancelled before allocation. The failed one-GPU allocation consumed
+3,960 GPU-seconds (1.10 GPU-hours).
+
+The [steady records](receipts/scaling-v3/scaling.jsonl) cover 52 updates per
+source from updates 25 through 128. Observation updates averaged 8.94 s, with
+0.0008 s of exposed data wait. OM4 averaged 30.51 s, including 25.60 s of data
+wait. The [utilization audit](receipts/scaling-v3/utilization.json) spans 2,096.5 s
+from update 25's start through validation/checkpoint work at update 128; its
+2,096 samples average 30.50%. This fails the release gate. The
+[raw telemetry](receipts/scaling-v3/gpu-utilization.csv.gz) is retained.
+
+The same CPU job [profiled two identical eight-window OM4 batches](receipts/scaling-v3/loading-profile.json).
+Each contained four fresh target months and four next-month targets on replay
+interval grids, including auxiliary initialization and observation coverage reads.
+This was a loading-only probe without cached model states.
+They took 9.63 s and 8.81 s; Rust physical reads accounted for 1.52 s and 1.02 s.
+Much of the remaining time was array preparation. The GPU job's longer loading
+times may also reflect contention; this CPU profile does not isolate that effect.
+Code `7bef723cb1f60d4e202aeece6fd4c1b11eb2e539` reuses owned arrays during normalization
+and stages only the two required dense initial states plus forecast targets.
+It retains all surface history, forcing, masks and supervised channels. Exact
+normalization and input-slicing tests pass. A three-pass real-data comparison
+(original, optimized, original again) is submitted as CPU job `21816667`.
+GPU jobs `21816758` (one GPU) and `21816773` (eight GPUs) depend on that check
+and then on each other. They use [new output directories](configs/scaling-v4/)
+and code `7bef723`; their results are pending. Production training now explicitly uses the same strict
+CUDA determinism settings as qualification.
+
+Timing estimates below apply only to arm D: the 170M-parameter mixed-source
+recipe with replay and global batch eight, on one RTX PRO 6000 Blackwell GPU.
+They use code `710e496` and precede the unmeasured `7bef723` loading changes. They include validation every 250 updates and checkpoints every 25.
+The conservative measured costs are 2.00 s per annual validation and 7.89 s per
+single checkpoint. The range uses the observed per-source minimum and maximum
+update times; it is not a confidence interval. Queue delay and unknown preemption
+frequency are excluded. Eight-GPU timings and timings for the other optimized
+arms remain unmeasured. Rows for the selected recipe assume this same
+170M mixed-source configuration wins the screen.
+
+| Work | Updates | Mean-based time | With 30% allowance | Range with allowance |
+| --- | ---: | ---: | ---: | ---: |
+| One screen: 4k main + 1k cooldown | 5,000 | 24.9 h | 32.4 h | 23.3–51.0 h |
+| Selected recipe: 16k main + four 1k cooldowns, including its screen | 20,000 | 99.6 h | 129.4 h | 93.2–203.8 h |
+| Selected recipe after its completed 5k screen | 15,000 | 74.7 h | 97.1 h | 69.9–152.8 h |
+
+For example, the screen contains 3,000 observation updates and 2,000 OM4 updates:
+`3,000 × 8.936 s + 2,000 × 30.507 s`, plus validation/checkpoint overhead.
+The [estimate receipt](receipts/scaling-v3/runtime-estimates.json) preserves the
+inputs and arithmetic. These measurements describe the path that failed the
+utilization gate; full scientific training remains unsubmitted.
 
 The first scaling attempt used code `aa51d5bfa4e95291333ec73f2314db5ceeef4953`.
 Job `21794028` completed one observation update, then failed while pinning an
@@ -138,6 +196,10 @@ state through 16 updates with synchronous loading, asynchronous loading, and a
 second synchronous run. Model weights, optimizer, EMA, pending plan, RNG and
 replay payloads must match exactly within that world size. All three controls
 use the new N+2 replay-planning rule.
+All three GPU controls reload the same four-update checkpoint. This establishes
+repeatable reload/continuation and prefetch parity; the current pipeline's
+uninterrupted-versus-resumed GPU comparison remains part of the pending scheduler
+interruption test. CPU tests already cover that uninterrupted comparison.
 The comparison does not establish equivalence to the original sequential trainer.
 The asynchronous
 branch then continues through update 128 and two cooldown updates. Cooldown

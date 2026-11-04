@@ -514,12 +514,47 @@ function zoom(factor,x=.5,y=.5){
   stop();redraw();clearTimeout(zoomTimer);zoomTimer=setTimeout(()=>show(requested),180);
 }
 function attachNavigation(p){
-  let drag=null;
-  p.canvas.addEventListener('wheel',e=>{e.preventDefault();const r=p.canvas.getBoundingClientRect();zoom(Math.exp(Math.sign(e.deltaY)*.3),(e.clientX-r.left)/r.width,(e.clientY-r.top)/r.height);},{passive:false});
-  p.canvas.addEventListener('pointerdown',e=>{if(e.button!==0)return;stop();clearTimeout(zoomTimer);drag={x:e.clientX,y:e.clientY,b:[...bounds]};p.canvas.setPointerCapture(e.pointerId);p.canvas.style.cursor='grabbing';});
-  p.canvas.addEventListener('pointermove',e=>{if(!drag)return;const r=p.canvas.getBoundingClientRect(),b=drag.b;bounds=normalizedBounds(b[0]-(e.clientX-drag.x)/r.width*(b[2]-b[0]),b[1]+(e.clientY-drag.y)/r.height*(b[3]-b[1]),b[2]-b[0]);redraw();});
-  const end=()=>{if(!drag)return;const changed=Math.abs(drag.b[0]-bounds[0])+Math.abs(drag.b[1]-bounds[1])>1e-8;drag=null;p.canvas.style.cursor='grab';if(changed)show(requested);};
+  const pointers=new Map();
+  let gesture=null;
+  const position=()=>{
+    const points=[...pointers.values()].slice(0,2),a=points[0],b=points[1]||a;
+    return {x:(a.x+b.x)/2,y:(a.y+b.y)/2,distance:Math.hypot(b.x-a.x,b.y-a.y)};
+  };
+  const rebase=()=>{gesture=pointers.size?{...position(),b:[...bounds]}:null;};
+  p.canvas.addEventListener('wheel',e=>{
+    e.preventDefault();
+    if(!Number.isFinite(e.deltaY)||!e.deltaY)return;
+    const r=p.canvas.getBoundingClientRect();
+    // Normalize pixel/line/page wheels. Trackpad pinches arrive as Ctrl+wheel.
+    // Keep tiny movements tiny and cap unusually large individual events.
+    const pixels=e.deltaY*(e.deltaMode===1?16:e.deltaMode===2?r.height:1);
+    const change=Math.max(-.12,Math.min(.12,pixels*(e.ctrlKey?.004:.001)));
+    zoom(Math.exp(change),(e.clientX-r.left)/r.width,(e.clientY-r.top)/r.height);
+  },{passive:false});
+  p.canvas.addEventListener('pointerdown',e=>{
+    if(e.button!==0)return;
+    stop();clearTimeout(zoomTimer);
+    pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});rebase();
+    p.canvas.setPointerCapture(e.pointerId);p.canvas.style.cursor='grabbing';
+  });
+  p.canvas.addEventListener('pointermove',e=>{
+    if(!pointers.has(e.pointerId))return;
+    pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    const now=position(),r=p.canvas.getBoundingClientRect(),b=gesture.b;
+    const span=b[2]-b[0],ratio=gesture.distance>0&&now.distance>0?gesture.distance/now.distance:1;
+    const newSpan=Math.max(.5,Math.min(360,span*ratio));
+    const anchorX=b[0]+(gesture.x-r.left)/r.width*span;
+    const anchorY=b[3]-(gesture.y-r.top)/r.height*span/2;
+    bounds=normalizedBounds(anchorX-(now.x-r.left)/r.width*newSpan,anchorY-(1-(now.y-r.top)/r.height)*newSpan/2,newSpan);
+    redraw();
+  });
+  const end=e=>{
+    if(!pointers.delete(e.pointerId))return;
+    rebase();
+    if(!pointers.size){p.canvas.style.cursor='grab';show(requested);}
+  };
   p.canvas.addEventListener('pointerup',end);p.canvas.addEventListener('pointercancel',end);
+  p.canvas.addEventListener('lostpointercapture',end);
   p.canvas.addEventListener('dblclick',e=>{const r=p.canvas.getBoundingClientRect();zoom(.5,(e.clientX-r.left)/r.width,(e.clientY-r.top)/r.height);});
 }
 function hover(p,event){

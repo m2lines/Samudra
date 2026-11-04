@@ -193,6 +193,15 @@ def map_tensors(value, function):
     return value
 
 
+def pin_host_tensor(tensor: torch.Tensor) -> torch.Tensor:
+    """Materialize broadcast views before pinning their host storage.
+
+    Tensor.pin_memory preserves strides. Expanded validity masks have zero
+    strides, so copying into that layout would write repeatedly to one address.
+    """
+    return tensor.contiguous().pin_memory()
+
+
 class UpdateLoader:
     """One producer and one in-flight update per rank, including all auxiliary reads."""
 
@@ -242,7 +251,7 @@ class UpdateLoader:
         result = LoadedUpdate(examples, time.perf_counter() - started)
         if self.stream is not None:
             torch.cuda.set_device(self.device)
-            host = map_tensors(examples, lambda t: t.pin_memory())
+            host = map_tensors(examples, pin_host_tensor)
             with torch.cuda.stream(self.stream):
                 result.examples = map_tensors(
                     host, lambda t: t.to(self.device, non_blocking=True)

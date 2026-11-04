@@ -17,7 +17,38 @@ from test_observation_baseline_harness import (  # type: ignore[import-not-found
 )
 
 from samudra.observations import training as baseline
+from samudra.observations.pipeline import pin_host_tensor
 from samudra.observations.qualify import equal_tree
+
+
+def test_pin_staging_materializes_broadcast_masks_without_changing_values(monkeypatch):
+    mask = torch.arange(12).reshape(1, 1, 3, 4).remainder(2).bool()
+    expanded = mask.expand(1, 26, 3, 4)
+
+    def pin_with_preserved_strides(value):
+        # Match pin_memory's layout-preserving copy without requiring CUDA.
+        result = torch.empty_strided(value.shape, value.stride(), dtype=value.dtype)
+        return result.copy_(value)
+
+    monkeypatch.setattr(torch.Tensor, "pin_memory", pin_with_preserved_strides)
+    with pytest.raises(RuntimeError, match="single memory location"):
+        expanded.pin_memory()
+    staged = pin_host_tensor(expanded)
+    torch.testing.assert_close(staged, expanded, rtol=0, atol=0)
+    staged[:, 0] = ~staged[:, 0]
+    torch.testing.assert_close(staged[:, 1:], expanded[:, 1:], rtol=0, atol=0)
+    torch.testing.assert_close(expanded[:, :1], mask, rtol=0, atol=0)
+
+
+@pytest.mark.cuda
+def test_pin_staging_copies_expanded_mask_to_cuda_exactly():
+    mask = torch.arange(12).reshape(1, 1, 3, 4).remainder(2).bool()
+    expanded = mask.expand(1, 26, 3, 4)
+    staged = pin_host_tensor(expanded)
+    assert staged.is_pinned()
+    torch.testing.assert_close(
+        staged.to("cuda", non_blocking=True).cpu(), expanded, rtol=0, atol=0
+    )
 
 
 class TinyData(SimpleNamespace):

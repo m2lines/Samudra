@@ -1,0 +1,18 @@
+{
+  "code_commit": "aa51d5bfa4e95291333ec73f2314db5ceeef4953",
+  "one_gpu_job": 21794028,
+  "one_gpu_state": "FAILED",
+  "one_gpu_exit_code": "1:0",
+  "one_gpu_elapsed_seconds": 324,
+  "one_gpu_node": "gr104",
+  "completed_optimizer_updates": 1,
+  "failure": "CUDA host staging called pin_memory on an expanded OM4 validity mask with overlapping storage",
+  "eight_gpu_job": 21794026,
+  "eight_gpu_state": "CANCELLED before allocation to avoid the same staging defect",
+  "allocated_gpu_seconds": 324,
+  "allocated_gpu_hours": 0.09,
+  "accounting_basis": "Slurm allocation ElapsedRaw times assigned GPU count, excluding duplicate step/batch/extern rows",
+  "output_root": "/scratch/jr7309/deterministic-obs-v2/scaling-v1",
+  "log": "/scratch/jr7309/deterministic-obs-v2/scaling-1gpu-21794028.out",
+  "fix": "Materialize a contiguous tensor before pinning; add CPU regression and early CUDA staging check"
+}

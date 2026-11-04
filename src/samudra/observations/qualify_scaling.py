@@ -19,7 +19,7 @@ from samudra.backend import init_train_backend
 from samudra.observations import training as baseline
 from samudra.observations.config import ObservationTrainConfig
 from samudra.observations.constants import FORECAST_STEPS
-from samudra.observations.pipeline import World
+from samudra.observations.pipeline import World, pin_host_tensor
 from samudra.observations.qualify import equal_tree
 from samudra.observations.state import TrainingState, write_json
 from samudra.observations.train import build_sources, init_tracking
@@ -98,6 +98,18 @@ def run(cfg):
     torch.use_deterministic_algorithms(True)
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
+    # Exercise CUDA host staging before expensive archive checks/model setup.
+    # OM4 validity broadcasts a spatial mask over the time dimension.
+    spatial_mask = torch.arange(12).reshape(1, 1, 3, 4).remainder(2).bool()
+    expanded_mask = spatial_mask.expand(1, 26, 3, 4)
+    pinned = pin_host_tensor(expanded_mask)
+    if not pinned.is_pinned():
+        raise AssertionError("Host staging did not allocate pinned memory")
+    torch.testing.assert_close(
+        pinned.to(device, non_blocking=True).cpu(), expanded_mask, rtol=0, atol=0
+    )
+    if world.rank == 0:
+        print(json.dumps({"event": "expanded_mask_cuda_staging_passed"}), flush=True)
     started = time.time()
     sources = build_sources(cfg, torch.device("cpu"), verify_data=world.rank == 0)
     manifest = world.broadcast(

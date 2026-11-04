@@ -9,11 +9,15 @@ Implementation is stacked on the config-based observation harness in
 [PR #955](https://github.com/m2lines/Samudra/pull/955).
 
 As of 2026-11-03, 82 focused CPU tests and relevant pre-commit checks pass.
-**GPU qualification is pending. No full scientific training has been submitted.**
-Torch array `21786733` contains the five qualification arms. CPU
-data-preparation job `21784710` completed successfully in 11m54s. Each arm requests one GPU, eight CPU cores,
-96 GiB host memory and a two-hour limit. Scheduler routing permits preemptible
-L40S, A100, RTX6000, H100, H200 and B200 capacity. All jobs use account
+**All five GPU qualification arms passed. No full scientific training has been submitted.**
+Torch array `21786733` completed on RTX PRO 6000 Blackwell Server Edition GPUs.
+Peak allocated GPU memory was 5.15–6.61 GiB. Data preparation/loading dominated
+update time; the [qualification report](qualification.md) gives measured runtime
+estimates and the loader changes recommended before full-scale training.
+CPU data-preparation job `21784710` completed successfully in 11m54s.
+Each GPU arm used one GPU, eight CPU cores, 96 GiB host memory and a two-hour
+limit. Scheduler routing permitted preemptible L40S, A100, RTX6000, H100, H200 and
+B200 capacity; only RTX PRO 6000 Blackwell was exercised. All jobs used account
 `torch_pr_347_lzanna`, preemption-only routing and requeue.
 
 The first GPU attempt, array `21785317`, reached one optimizer update in arms A,
@@ -120,8 +124,9 @@ timing includes populated Adam moments. The
 [runtime estimator](../../src/samudra/observations/runtime_estimate.py) accounts for
 validation every 250 updates and saves every 25 updates. It reports observed timing
 ranges and a separately labeled 30% planning allowance. Queue delay and unknown
-preemption frequency are excluded. **Measured run-duration estimates remain
-pending GPU execution.**
+preemption frequency are excluded. The five 4k-plus-1k screens are estimated at
+479–524 aggregate GPU-hours with that allowance using the current loader;
+see the [per-arm estimates](qualification.md).
 
 The replacement qualification code is frozen at `024177bc7b612042275381f3470d37e795e5d396`.
 The matching PhysicsNeMo container is built from
@@ -130,8 +135,8 @@ The matching PhysicsNeMo container is built from
 [Preparation](prepare_torch.sbatch), [GPU launch](qualify_torch.sbatch) and
 [data paths](torch-data-paths.json) preserve the Torch setup. Checkpoints and full
 receipts live under `/scratch/jr7309/deterministic-obs-v2/`.
-The replacement run writes to `qualification-v2/`; its completion callback is
-CPU job `21786737` with an `afterany:21786733` dependency.
+The replacement run wrote to `qualification-v2/`; its completion callback,
+CPU job `21786737`, also completed. All qualification callbacks are retired.
 
 Daily data were copied from the existing Beta observation preparation and historical
 shared-ERA5 preparation. Download/read-back checks found zero differences across

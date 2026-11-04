@@ -1,0 +1,15 @@
+{
+  "updates": 6,
+  "exposure": {
+    "obs": {
+      "updates": 4,
+      "fresh": 32,
+      "replay": 0
+    },
+    "om4": {
+      "updates": 2,
+      "fresh": 16,
+      "replay": 0
+    }
+  }
+}

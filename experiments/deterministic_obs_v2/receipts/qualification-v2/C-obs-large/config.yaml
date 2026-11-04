@@ -1,0 +1,140 @@
+backend: auto
+batch_size: 1
+cooldown_updates: 2
+data:
+  cm4: null
+  daily: /scratch/jr7309/deterministic-obs-v2/daily
+  era5_cache: /scratch/jr7309/deterministic-obs-v2/era5-cache
+  era5_proof_sha256: b03a6074110f245762fe00b680fa298c08039513d255a6715be1dddd8c41bc51
+  normalization: /scratch/jr7309/deterministic-obs-v2/normalization
+  observations: /scratch/jr7309/data/obs-d-pilot
+  om4: /scratch/jr7309/data/om4_onedeg_v3
+debug: false
+ema_decay: 0.9930924954370359
+experiment:
+  base_output_dir: /scratch/jr7309/deterministic-obs-v2/qualification-v2
+  data_root: /scratch/jr7309
+  name: C-obs-large
+  rand_seed: 1729
+  search: null
+  wandb:
+    entity: ocean_emulators
+    group: deterministic-obs-v2-qualification-v2
+    mode: online
+    notes: null
+    project: observational-transfer
+    tags:
+    - qualification
+    - deterministic
+    - samudra-v2
+faster_decay_at_start: false
+final_learning_rate: 1.0e-06
+fork_ckpt_path: null
+fresh_examples: 4
+gradient_accumulation_steps: 8
+gradient_clip: 1.0
+learning_rate: 0.0001
+loss:
+  completion: 0.1
+  monthly_ts: 0.5
+  reconstruction: 0.1
+  ssh: 0.25
+  sst: 0.25
+main_updates: 4
+measure_timing: true
+milestone_updates:
+- 4
+mix: obs
+model:
+  activation_checkpointing: true
+  backbone:
+    ch_width:
+    - 128
+    - 192
+    - 256
+    - 384
+    core_block:
+      activation: capped_gelu
+      block_type: conv_next_block
+      kernel_size: 3
+      norm: instance
+      pointwise_linear: false
+      upscale_factor: 2
+    dilation:
+    - 1
+    - 2
+    - 4
+    - 8
+    down_sampling_block: avg_pool
+    drop_path_rate: 0.0
+    n_layers:
+    - 1
+    - 1
+    - 1
+    - 1
+    up_sampling_block: zonally_periodic_upsample
+  evolution_backbone:
+    ch_width:
+    - 280
+    - 380
+    - 480
+    - 520
+    core_block:
+      activation: capped_gelu
+      block_type: conv_next_block
+      kernel_size: 3
+      norm: instance
+      pointwise_linear: false
+      upscale_factor: 2
+    dilation:
+    - 1
+    - 2
+    - 4
+    - 8
+    down_sampling_block: avg_pool
+    drop_path_rate: 0.0
+    n_layers:
+    - 1
+    - 1
+    - 1
+    - 1
+    up_sampling_block: zonally_periodic_upsample
+  forcing_mode: shared_era5
+  initializer_backbone:
+    ch_width:
+    - 280
+    - 380
+    - 480
+    - 520
+    core_block:
+      activation: capped_gelu
+      block_type: conv_next_block
+      kernel_size: 3
+      norm: instance
+      pointwise_linear: false
+      upscale_factor: 2
+    dilation:
+    - 1
+    - 2
+    - 4
+    - 8
+    down_sampling_block: avg_pool
+    drop_path_rate: 0.0
+    n_layers:
+    - 1
+    - 1
+    - 1
+    - 1
+    up_sampling_block: zonally_periodic_upsample
+  output_kernel_size: 3
+qualify_chains: false
+qualify_data: false
+replay:
+  max_age: 250
+  per_month: 2
+resume_ckpt_path: null
+save_freq: 1
+stop_after: null
+validation_freq: 6
+validation_origin: '2013-11-01'
+weight_decay: 0.01

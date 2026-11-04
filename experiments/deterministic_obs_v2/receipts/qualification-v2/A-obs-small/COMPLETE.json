@@ -1,0 +1,10 @@
+{
+  "updates": 6,
+  "exposure": {
+    "obs": {
+      "updates": 6,
+      "fresh": 24,
+      "replay": 24
+    }
+  }
+}

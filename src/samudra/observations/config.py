@@ -7,7 +7,7 @@ from typing import Literal, Self
 
 from pydantic import Field, model_validator
 
-from samudra.config import ExperimentConfig, TrainBackendConfig
+from samudra.config import ExperimentConfig, RustDataLoadingConfig, TrainBackendConfig
 from samudra.config_base import BaseConfig, TopLevelConfig
 from samudra.models.surface_initialized import SurfaceInitializedConfig
 from samudra.utils.location import LocalLocation, Location, UnresolvedLocation
@@ -31,6 +31,9 @@ class ObservationDataConfig(BaseConfig):
     cm4: Location | None = None
     era5_cache: Location | None = None
     era5_proof_sha256: str | None = None
+    native_observations: Location | None = None
+    native_observations_proof_sha256: str | None = None
+    loading: RustDataLoadingConfig | None = None
 
     def local_path(self, name: str, experiment: ExperimentConfig) -> Path:
         location = getattr(self, name)
@@ -63,7 +66,8 @@ class ObservationTrainConfig(TopLevelConfig):
     """Train the observation-initialized model from YAML and CLI overrides.
 
     Update counts and cadence count optimizer steps. One microbatch is a monthly
-    source window; gradient_accumulation_steps sets the effective batch size.
+    source window; gradient_accumulation_steps sets the global effective batch
+    size, divided across ranks when update_prefetch enables distributed training.
     """
 
     experiment: ExperimentConfig
@@ -73,7 +77,9 @@ class ObservationTrainConfig(TopLevelConfig):
     main_updates: int = Field(default=2000, ge=1)
     cooldown_updates: int = Field(default=1000, ge=0)
     batch_size: Literal[1] = 1
-    gradient_accumulation_steps: int = Field(default=8, ge=1)
+    gradient_accumulation_steps: int = Field(
+        default=8, ge=1, description="Global examples per optimizer update"
+    )
     fresh_examples: int = Field(default=4, ge=1)
     learning_rate: float = Field(default=1e-4, gt=0)
     final_learning_rate: float = Field(default=1e-6, gt=0)
@@ -90,6 +96,8 @@ class ObservationTrainConfig(TopLevelConfig):
     loss: ObservationLossConfig = ObservationLossConfig()
     milestone_updates: list[int] = Field(default_factory=list)
     measure_timing: bool = False
+    update_prefetch: bool = False
+    prefetch_enabled: bool = True
     backend: TrainBackendConfig = "auto"
     debug: bool = False
     resume_ckpt_path: str | None = None
@@ -98,6 +106,22 @@ class ObservationTrainConfig(TopLevelConfig):
 
     @model_validator(mode="after")
     def validate_recipe(self) -> Self:
+        if self.data.loading is not None:
+            if self.data.loading.prefetch_batches != 1:
+                raise ValueError(
+                    "Observation replay supports exactly one prefetched update"
+                )
+            if (
+                self.data.native_observations is None
+                or self.data.native_observations_proof_sha256 is None
+            ):
+                raise ValueError(
+                    "Rust observation loading requires a verified interval cache"
+                )
+            if "cm4" in MIXES[self.mix]:
+                raise ValueError(
+                    "Rust observation training currently supports obs and OM4"
+                )
         if self.fresh_examples > self.gradient_accumulation_steps:
             raise ValueError("fresh_examples exceeds gradient_accumulation_steps")
         if self.final_learning_rate > self.learning_rate:
@@ -153,6 +177,7 @@ class ObservationTrainConfig(TopLevelConfig):
                 "fork_ckpt_path",
                 "stop_after",
                 "measure_timing",
+                "prefetch_enabled",
             },
         )
         values["seed"] = self.experiment.rand_seed

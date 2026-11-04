@@ -7,6 +7,7 @@ import os
 import random
 from contextlib import contextmanager
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import torch
@@ -59,6 +60,8 @@ class TrainingState:
         self.updates = 0
         self.cooled = False
         self.best_score = float("inf")
+        self.pending_plan: Any = None
+        self.rank_rng: Any = None
         self.exposure = {
             name: {"updates": 0, "fresh": 0, "replay": 0} for name in sources
         }
@@ -92,12 +95,15 @@ class TrainingState:
                 "exposure": self.exposure,
                 "sampler_rng": self.rng.bit_generator.state,
                 "pools": {name: pool.state_dict() for name, pool in self.pools.items()},
+                "pending_plan": self.pending_plan,
+                "rank_rng": self.rank_rng,
                 "python_rng": random.getstate(),
                 "numpy_rng": np.random.get_state(),
                 "torch_rng": torch.get_rng_state(),
-                "cuda_rng": torch.cuda.get_rng_state_all()
+                "cuda_rng": [torch.cuda.get_rng_state()]
                 if torch.cuda.is_available()
                 else [],
+                "cuda_rng_scope": "current",
             },
             path,
         )
@@ -132,11 +138,24 @@ class TrainingState:
             self.best_score = float("inf")
         for name, pool in self.pools.items():
             pool.load_state_dict(saved["pools"][name])
+        self.pending_plan = saved.get("pending_plan")
+        self.rank_rng = saved.get("rank_rng")
         self.rng.bit_generator.state = saved["sampler_rng"]
-        random.setstate(saved["python_rng"])
-        np.random.set_state(saved["numpy_rng"])
-        torch.set_rng_state(saved["torch_rng"])
-        if saved["cuda_rng"]:
+        rng = saved
+        if self.rank_rng is not None:
+            distributed = torch.distributed.is_initialized()
+            world_size = torch.distributed.get_world_size() if distributed else 1
+            rank = torch.distributed.get_rank() if distributed else 0
+            if len(self.rank_rng) != world_size:
+                raise ValueError("Checkpoint distributed world size differs")
+            rng = self.rank_rng[rank]
+        random.setstate(rng["python_rng"])
+        np.random.set_state(rng["numpy_rng"])
+        torch.set_rng_state(rng["torch_rng"])
+        if rng["cuda_rng"]:
             if not torch.cuda.is_available():
                 raise ValueError("CUDA checkpoint resume requires CUDA")
-            torch.cuda.set_rng_state_all(saved["cuda_rng"])
+            if rng.get("cuda_rng_scope") == "current":
+                torch.cuda.set_rng_state(rng["cuda_rng"][0])
+            else:
+                torch.cuda.set_rng_state_all(rng["cuda_rng"])

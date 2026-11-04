@@ -46,7 +46,7 @@ class ModelMonths:
     years for training, reserving the final twenty for future diagnostics.
     """
 
-    def __init__(self, path, kind, reference, om4_statistics):
+    def __init__(self, path, kind, reference, om4_statistics, *, runtime=None):
         self.era5 = None
         if kind not in ("om4", "cm4"):
             raise ValueError(kind)
@@ -62,6 +62,14 @@ class ModelMonths:
         ] + ["zos"]:
             raise ValueError("Unexpected physical channel order")
         z = self.store
+        self.planes = None
+        if runtime is not None:
+            from samudra.native_reader import PhysicalVariable
+
+            if kind != "om4":
+                raise ValueError("Native observation training currently supports OM4")
+            self.physical_variables = [PhysicalVariable(n) for n in self.names]
+            self.planes = runtime.open(Path(path), self.physical_variables)
         lat = z["lat"][:, 0] if kind == "cm4" else z["y"][:]
         lon = z["lon"][0] if kind == "cm4" else z["x"][:]
         np.testing.assert_allclose(lat, reference["lat"], atol=1e-6, rtol=0)
@@ -241,7 +249,14 @@ class ModelMonths:
     ):
         interval = slice(start - 19, stop)
         z = self.store
-        if self.kind == "cm4":
+        if self.planes is not None:
+            values = np.empty(
+                (stop - start + 19, len(self.names), *self.mask.shape[-2:]), np.float32
+            )
+            self.planes.read_into(
+                list(range(start - 19, stop)), self.physical_variables, values
+            )
+        elif self.kind == "cm4":
             values = np.concatenate(
                 [z[v][interval] for v in ("uo", "vo", "thetao", "so")]
                 + [z["zos"][interval][:, None]],

@@ -305,6 +305,21 @@ def train(
     stopping: Callable[[], bool] = lambda: False,
 ) -> None:
     """The complete scientific sequence is visible and editable here."""
+    if cfg.update_prefetch:
+        from samudra.observations.pipeline import train as train_pipeline
+
+        train_pipeline(
+            cfg,
+            state,
+            sources,
+            output,
+            manifest,
+            validate,
+            emit,
+            stop_after=stop_after,
+            stopping=stopping,
+        )
+        return
     total = cfg.total_updates
     checkpoints = CheckpointPaths(output)
     limit = total if stop_after is None else min(stop_after, total)

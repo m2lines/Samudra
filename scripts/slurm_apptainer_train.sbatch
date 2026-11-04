@@ -357,12 +357,8 @@ if [[ -z "${GPUS_PER_NODE}" ]]; then
   fi
 fi
 
-# Observation replay/checkpoint state currently belongs to one process.
-if [[ "${SAMUDRA_MODULE}" == "samudra.observations.train" ]] &&
-   (( SLURM_NNODES != 1 || GPUS_PER_NODE != 1 )); then
-  echo "samudra.observations.train requires one node and one GPU." >&2
-  exit 3
-fi
+# Observation update prefetch supports DDP; its entrypoint validates the global
+# example count and rejects multi-rank launches of the legacy sequential recipe.
 
 # Avoid oversubscribing CPU threads when torchrun spawns one process per GPU.
 if [[ -z "${OMP_NUM_THREADS:-}" ]]; then
@@ -501,7 +497,7 @@ srun --ntasks="${SLURM_NNODES}" --ntasks-per-node=1 \
       fi
       if [[ \"${SAMUDRA_MODULE}\" == \"samudra.train\" || \"${SAMUDRA_MODULE}\" == \"samudra.observations.train\" ]]; then
         train_backend=nccl
-        if [[ \"${SAMUDRA_MODULE}\" == \"samudra.observations.train\" ]]; then
+        if [[ \"${SAMUDRA_MODULE}\" == \"samudra.observations.train\" && \"${GPUS_PER_NODE}\" == \"1\" ]]; then
           train_backend=cuda
         fi
         module_args=(

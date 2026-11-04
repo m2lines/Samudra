@@ -3,13 +3,66 @@
 
 # Rust loading and distributed qualification
 
-The observation trainer now supports the shared Samudra Rust I/O runtime,
-one prefetched update per rank, and distributed training. CPU tests and the
-one-GPU exact prefetch comparison from restored checkpoints pass. The packed-loader run measured
-30.5% steady GPU utilization, below the required 50%; eight-GPU execution remains
-unqualified. This extends the
-[initial single-GPU qualification](qualification.md). No scientific screening
-or 16k training run has been submitted.
+The optimized Rust/prefetch path passed single-GPU numerical and utilization
+qualification in job `21816758`. It completed 128 main and two cooldown updates
+on one RTX PRO 6000 Blackwell in 28m07s, using code
+`7bef723cb1f60d4e202aeece6fd4c1b11eb2e539`. The allocation cost was 0.4686 GPU-hours.
+Eight-GPU job `21816773` is waiting for capacity. Real Slurm interruption/resume
+job `21822548` depends on its success. No scientific screen or 16k run has been submitted.
+
+The [single-GPU receipt](receipts/scaling-v4/1gpu/qualification-summary.json)
+records exact synchronous/prefetched comparisons, isolated uncooled checkpoint
+handling, and finite annual validations at updates 128 and 130. Each validation
+scored 29 channels over 73 steps and 12 complete months. The final model hash
+also matches the recovered pre-optimization run exactly. The three prefetch
+controls all reload the same four-update anchor; they do not establish the
+pending uninterrupted-versus-scheduler-resumed GPU comparison.
+
+The [utilization audit](receipts/scaling-v4/1gpu/utilization.json) covers 762.4 s,
+from update 25's start through update 128's validation and checkpoint work.
+All 762 telemetry samples average 82.18% GPU utilization, above the 50% gate;
+the time-weighted mean is 82.24%, with complete window coverage and a maximum
+sampling gap of 1.006 s. Across 52 updates per source, observations averaged
+8.87 s and OM4 averaged 4.90 s. Foreground data wait averaged 0.88 ms and
+0.83 ms respectively. The previous run measured 30.51 s per OM4 update with
+25.60 s waiting for data. These are successive allocations, not an isolated
+hardware experiment, but the optimized path meets the required utilization gate.
+[Step records](receipts/scaling-v4/1gpu/scaling.jsonl) and
+[raw telemetry](receipts/scaling-v4/1gpu/gpu-utilization.csv.gz) are retained.
+
+Current time estimates apply to arm D: 170M parameters, mixed OM4/observations,
+replay, and global batch eight on one RTX PRO 6000. They include validation every
+250 updates and checkpointing every 25, using measured costs of 1.94 s per annual
+validation and 6.71 s per checkpoint. The extra 30% covers execution variation;
+queue delay and unknown preemption frequency are excluded. The observed-range
+columns use minimum/maximum step times, not confidence intervals. Eight-GPU
+throughput and the other optimized arms remain unmeasured.
+
+| Work | Updates | Mean-based time | With 30% allowance | Range with allowance |
+| --- | ---: | ---: | ---: | ---: |
+| Arm D screen: 4k main + 1k cooldown | 5,000 | 10.5 h | 13.7 h | 13.1–14.5 h |
+| Arm D if selected: 16k main + four 1k cooldowns, including its screen | 20,000 | 42.1 h | 54.8 h | 52.3–58.1 h |
+| Remaining after its completed 5k screen | 15,000 | 31.6 h | 41.1 h | 39.2–43.6 h |
+
+The screen contains 3,000 observation and 2,000 OM4 updates:
+`3,000 × 8.866 s + 2,000 × 4.901 s`, plus validation/checkpoints.
+The [estimate receipt](receipts/scaling-v4/1gpu/runtime-estimates.json) records
+inputs and assumptions. These are engineering estimates, not forecast-skill results.
+
+Scheduler job `21822548` will run two 16-main-plus-two-cooldown trajectories
+through `samudra.observations.train` and the shared Slurm/Apptainer launcher on
+eight GPUs. One is uninterrupted. After the other has saved at least six main
+updates, a bounded watcher sends USR1 to its batch shell, which calls
+`scontrol requeue`. The restarted allocation must preserve the W&B run ID and
+produce an exactly equal complete checkpoint payload: model, optimizer, EMA,
+sampler, replay, pending plan and per-rank RNG state. The test uses the same
+runtime code as the scaling qualification; its [orchestration and audit](scheduler_resume.py)
+are frozen from commit `5bfcce5e4`. A failed prerequisite cancels the dependent
+request. CPU tests reject a missing scheduler restart, changed optimizer state,
+and a changed tracking identity. The real scheduler result remains pending.
+
+Earlier attempts and data qualification follow. They extend the
+[initial single-GPU qualification](qualification.md).
 
 Code `f3aab652e1f090e2b1385d03de92ba4e04c2a313` ran in a read-only overlay in Torch
 job `21797129` on one RTX PRO 6000 Blackwell GPU. At 22:10:49 ET on 2026-11-03,
@@ -108,15 +161,13 @@ end-to-end speedup. GPU training must measure the effect of reduced copies and
 the smaller dense payload. The [audit receipt](receipts/scaling-v4/loading-audit.json)
 records the CPU result and limits.
 
-GPU job `21816758` (one GPU) is waiting for capacity following the CPU check;
-`21816773` (eight GPUs) depends on its success. They use
-[new output directories](configs/scaling-v4/) and code `7bef723`.
-Their throughput and utilization results remain pending.
+GPU job `21816758` subsequently passed, as reported above. Its eight-GPU
+successor `21816773` uses the same code and [configuration](configs/scaling-v4/)
+and is waiting for capacity.
 
-Timing estimates below apply only to arm D: the 170M-parameter mixed-source
+The historical estimates below apply only to arm D before optimization: the 170M-parameter mixed-source
 recipe with replay and global batch eight, on one RTX PRO 6000 Blackwell GPU.
-They use code `710e496` and precede the `7bef723` loading changes, which have not yet been timed in GPU
-training. They include validation every 250 updates and checkpoints every 25.
+They use code `710e496` and precede the `7bef723` loading changes, whose measured GPU timings are reported above. They include validation every 250 updates and checkpoints every 25.
 The conservative measured costs are 2.00 s per annual validation and 7.89 s per
 single checkpoint. The range uses the observed per-source minimum and maximum
 update times; it is not a confidence interval. Queue delay and unknown preemption
@@ -236,7 +287,7 @@ validation. The report will also separate active training time and the deliberat
 synchronous comparison stages. Successful numerical checks alone do not establish
 the utilization threshold.
 
-Runtime estimates will use steady mixed-source update times and separate
+Runtime estimates use steady mixed-source update times and separate
 validation/checkpoint costs. Queue delay and unknown preemption frequency remain
 excluded. The old serial-loader estimates are historical measurements. A real
 scheduler interruption/resume check is still required after GPU bring-up.

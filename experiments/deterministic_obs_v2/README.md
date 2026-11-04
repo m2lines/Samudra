@@ -9,14 +9,13 @@ Implementation is stacked on the config-based observation harness in
 [PR #955](https://github.com/m2lines/Samudra/pull/955).
 
 As of 2026-11-04, all five original GPU qualification arms passed.
-**No full scientific training has been submitted.** The new Rust interval reader,
-bounded prefetch and DDP path passes CPU tests and the one-GPU exact prefetch
-comparison from a common restored checkpoint. The packed-loader run completed 128 main and two cooldown updates,
-then failed during receipt hashing. The hash fix is tested, and a CPU audit recovered
-the saved results. Its 30.5% steady utilization misses the release gate.
-[Scaling qualification](scaling.md) continues with loading diagnostics;
-eight-GPU execution remains unqualified. The new normalization and dense-transfer
-changes pass exact real-data input comparisons; their GPU timing is pending.
+**No full scientific training has been submitted.** The optimized Rust/prefetch
+path also passed one-GPU numerical and utilization qualification: job `21816758`
+completed 128 main and two cooldown updates at 82.2% steady GPU utilization.
+Its final model hash matches the pre-optimization run. For the large mixed/replay
+arm, the revised one-GPU screen estimate is 13.7 h with a 30% allowance.
+[Scaling qualification](scaling.md) records timings and provenance; eight-GPU
+execution and a real scheduler interruption/resume comparison remain pending.
 Torch array `21786733` completed on RTX PRO 6000 Blackwell Server Edition GPUs.
 Peak allocated GPU memory was 5.15–6.61 GiB. Data preparation/loading dominated
 update time; the [qualification report](qualification.md) gives measured runtime

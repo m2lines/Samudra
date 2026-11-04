@@ -94,7 +94,11 @@ use the same strict CUDA determinism settings.
 
 CPU job `21816667` completed the [three-pass comparison](receipts/scaling-v4/loading-profile.json)
 in 5m30s on node `cs625`. All model inputs and targets matched exactly for the
-same eight-window OM4 plan. Original, optimized and repeated-original batch
+same eight-window OM4 plan. Both CPU probes time the loader call, excluding
+exact comparison checks and garbage collection. The newer probe changes CPU
+array preparation and retains a reference batch; the probes also ran on different
+nodes (`cs630` and `cs625`). The cause of the much slower original-loader timing
+in the newer probe is unresolved. Original, optimized and repeated-original batch
 wall times were 47.95 s, 47.21 s and 57.47 s. Rust reads took 1.71 s, 8.64 s and
 1.05 s respectively. ERA5 and observation coverage reads also rose during the
 optimized pass. The comparison retains the first complete CPU batch for exact

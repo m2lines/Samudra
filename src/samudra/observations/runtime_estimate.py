@@ -80,6 +80,9 @@ def estimate(
     ) * checkpoint + math.ceil(updates / validation_freq) * validation
     low = (sum(counts[s] * min(times[s]) for s in sources) + overhead) / 3600
     high = (sum(counts[s] * max(times[s]) for s in sources) + overhead) / 3600
+    mean = (
+        sum(counts[s] * float(np.mean(times[s])) for s in sources) + overhead
+    ) / 3600
     return {
         "gpu": receipt["gpu"],
         "effective_batch": 8,
@@ -93,6 +96,8 @@ def estimate(
         "validation_seconds": validation,
         "checkpoint_seconds": checkpoint,
         "hours_observed_range": [low, high],
+        "hours_observed_mean": mean,
+        "hours_mean_with_30_percent_execution_allowance": 1.3 * mean,
         "hours_with_30_percent_execution_allowance": [1.3 * low, 1.3 * high],
         "allocated_gpu_hours_with_30_percent_execution_allowance": [
             1.3 * low * receipt.get("world_size", 1),

@@ -57,14 +57,24 @@ def input_parity(cfg, native):
     return checks
 
 
-def model_digest(model):
+def state_dict_digest(values):
     digest = hashlib.sha256()
-    for name, value in model.state_dict().items():
+    for name, value in values.items():
         digest.update(name.encode())
         digest.update(
-            value.detach().cpu().contiguous().view(torch.uint8).numpy().tobytes()
+            value.detach()
+            .cpu()
+            .contiguous()
+            .reshape(-1)
+            .view(torch.uint8)
+            .numpy()
+            .tobytes()
         )
     return digest.hexdigest()
+
+
+def model_digest(model):
+    return state_dict_digest(model.state_dict())
 
 
 def nvidia_smi_uuid(value):

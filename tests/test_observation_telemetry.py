@@ -5,11 +5,26 @@
 from uuid import UUID
 
 import pytest
+import torch
 
 from samudra.observations.qualify_scaling import (
+    model_digest,
     nvidia_smi_uuid,
     verify_telemetry_devices,
 )
+
+
+def test_model_digest_supports_scalar_parameters_and_buffers():
+    model = torch.nn.Module()
+    model.register_parameter("scale", torch.nn.Parameter(torch.tensor(1.25)))
+    counter = torch.tensor(3)
+    model.register_buffer("counter", counter)
+    model.register_buffer("bf16", torch.tensor(0.5, dtype=torch.bfloat16))
+    model.register_buffer("empty", torch.empty(0))
+    original = model_digest(model)
+    assert len(original) == 64 and model_digest(model) == original
+    counter.add_(1)
+    assert model_digest(model) != original
 
 
 def test_cuda_uuid_is_normalized_and_missing_telemetry_is_rejected(monkeypatch):

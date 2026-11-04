@@ -112,3 +112,40 @@ def test_runtime_estimate_counts_validation_checkpoint_once():
     assert screen["hours_observed_range"][0] == pytest.approx(
         (70000 + 200 * 5 + 20 * 100) / 3600
     )
+
+
+def test_distributed_estimate_excludes_sync_controls_and_counts_gpu_allocation():
+    from samudra.observations.runtime_estimate import estimate
+
+    receipt = {
+        "world_size": 8,
+        "gpu": "test",
+        "exposure": {"obs": {}, "om4": {}},
+        "training_records": [
+            {"stage": "sync", "updates": 18, "train/om4/seconds": 10000},
+            {
+                "stage": "steady",
+                "updates": 25,
+                "train/obs/seconds": 2,
+                "train/obs/data_seconds": 0.1,
+            },
+            {
+                "stage": "steady",
+                "updates": 26,
+                "train/om4/seconds": 3,
+                "train/om4/data_seconds": 0.2,
+            },
+            {"stage": "steady", "updates": 32, "timing/checkpoint_seconds": 5},
+            {"stage": "steady", "updates": 128, "timing/checkpoint_seconds": 20},
+            {"stage": "steady", "updates": 128, "timing/validation_seconds": 100},
+        ],
+    }
+    result = estimate(receipt)
+    assert result["seconds_per_update"]["om4"]["max"] == 3
+    assert result["checkpoint_seconds"] == 5
+    assert result["hours_observed_range"][0] == pytest.approx(
+        (12000 + 223 * 5 + 20 * 100) / 3600
+    )
+    assert result["allocated_gpu_hours_with_30_percent_execution_allowance"][
+        0
+    ] == pytest.approx(8 * result["hours_with_30_percent_execution_allowance"][0])

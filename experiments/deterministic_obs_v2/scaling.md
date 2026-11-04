@@ -22,7 +22,8 @@ observation and OM4 updates; every cooldown update uses observations.
 The Rust backend reads native OM4 physical fields directly from the existing
 flat Zarr store. Observation SST, SSH/geostrophic velocities, and eight ERA5
 fields are packed into a float32 interval cache read by the existing compact
-Rust reader. Monthly IAP profile targets retain their existing file reader.
+Rust reader. Monthly IAP profile targets retain their existing file reader;
+native-interval ERA5 forcing for OM4 retains its existing memory-mapped adapter.
 Each process shares one eight-thread Rust read pool across OM4 and observations.
 One Python producer thread prepares the next update, including replay targets,
 auxiliary initializer inputs, and observation coverage used for OM4.

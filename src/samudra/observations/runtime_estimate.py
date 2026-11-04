@@ -21,6 +21,12 @@ def estimate(
 ):
     """Include validation and checkpoint work; report the observed timing range."""
     records = receipt["training_records"]
+    distributed_receipt = "world_size" in receipt
+    timing_records = (
+        [r for r in records if r.get("stage") == "steady" and r["updates"] >= 25]
+        if distributed_receipt
+        else records
+    )
     sources = list(receipt["exposure"])
     times = {}
     waits = {}
@@ -28,7 +34,7 @@ def estimate(
         # Drop first update (allocation/kernel warmup); deduplicate resume replay.
         unique = {
             int(r["updates"]): r
-            for r in records
+            for r in timing_records
             if f"train/{source}/seconds" in r and int(r["updates"]) > 1
         }
         if not unique:
@@ -48,20 +54,36 @@ def estimate(
         for r in records
         if "timing/validation_seconds" in r
     )
-    checkpoint = max(
-        receipt["checkpoint_seconds"], receipt.get("full_pool_checkpoint_seconds", 0)
+    if distributed_receipt:
+        main_endpoint = max(r["updates"] for r in timing_records)
+        # Before the endpoint, each measured block writes only latest.pt/ckpt.pt.
+        # Endpoint blocks also write milestone/main/best and cannot be treated
+        # as one checkpoint. Use the slowest observed single-file write.
+        checkpoint = max(
+            r["timing/checkpoint_seconds"]
+            for r in records
+            if "timing/checkpoint_seconds" in r and r["updates"] < main_endpoint
+        )
+    else:
+        checkpoint = max(
+            receipt["checkpoint_seconds"],
+            receipt.get("full_pool_checkpoint_seconds", 0),
+        )
+    # Legacy validation includes its improved-best save. The distributed loop
+    # times it separately: budget a best save at every validation plus main,
+    # milestone and endpoint copies, in addition to scheduled latest saves.
+    extra_checkpoints = (
+        math.ceil(updates / validation_freq) + 3 if distributed_receipt else 0
     )
-    # The measured validation block already includes its improved-best save.
-    # Count that save once, and budget separate scheduled/latest checkpoints.
     overhead = (
-        math.ceil(updates / save_freq) * checkpoint
-        + math.ceil(updates / validation_freq) * validation
-    )
+        math.ceil(updates / save_freq) + extra_checkpoints
+    ) * checkpoint + math.ceil(updates / validation_freq) * validation
     low = (sum(counts[s] * min(times[s]) for s in sources) + overhead) / 3600
     high = (sum(counts[s] * max(times[s]) for s in sources) + overhead) / 3600
     return {
         "gpu": receipt["gpu"],
         "effective_batch": 8,
+        "world_size": receipt.get("world_size", 1),
         "source_updates": counts,
         "seconds_per_update": {
             s: {"min": min(t), "median": float(np.median(t)), "max": max(t)}
@@ -72,6 +94,10 @@ def estimate(
         "checkpoint_seconds": checkpoint,
         "hours_observed_range": [low, high],
         "hours_with_30_percent_execution_allowance": [1.3 * low, 1.3 * high],
+        "allocated_gpu_hours_with_30_percent_execution_allowance": [
+            1.3 * low * receipt.get("world_size", 1),
+            1.3 * high * receipt.get("world_size", 1),
+        ],
         "excluded": "queue delay and unknown preemption frequency; long-run replay mix may differ",
     }
 

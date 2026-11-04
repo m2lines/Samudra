@@ -8,12 +8,14 @@ training for a deterministic ocean forecast initialized from surface history.
 Implementation is stacked on the config-based observation harness in
 [PR #955](https://github.com/m2lines/Samudra/pull/955).
 
-As of 2026-11-03, 82 focused CPU tests and relevant pre-commit checks pass.
-**All five GPU qualification arms passed. No full scientific training has been submitted.**
+As of 2026-11-03, all five original GPU qualification arms passed.
+**No full scientific training has been submitted.** The new Rust interval reader,
+bounded prefetch and DDP path passes CPU tests and is undergoing separate
+[scaling qualification](scaling.md) on one and eight RTX GPUs.
 Torch array `21786733` completed on RTX PRO 6000 Blackwell Server Edition GPUs.
 Peak allocated GPU memory was 5.15–6.61 GiB. Data preparation/loading dominated
 update time; the [qualification report](qualification.md) gives measured runtime
-estimates and the loader changes recommended before full-scale training.
+estimates for that original serial-loader implementation.
 CPU data-preparation job `21784710` completed successfully in 11m54s.
 Each GPU arm used one GPU, eight CPU cores, 96 GiB host memory and a two-hour
 limit. Scheduler routing permitted preemptible L40S, A100, RTX6000, H100, H200 and

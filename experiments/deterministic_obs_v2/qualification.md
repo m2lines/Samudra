@@ -3,10 +3,10 @@
 
 # Deterministic observation qualification, 2026-11-03
 
-All five model arms passed the bounded GPU qualification on Torch. The current
+All five model arms passed the original bounded GPU qualification on Torch. Its
 loader spends 70–80% of replay-observation update time and 96–97% of OM4 update
-time in data preparation/loading. I recommend improving that path before the
-4k screening runs or the winning 16k main trajectory. Full scientific training
+time in data preparation/loading. The subsequent Rust/prefetch/DDP work is tracked
+in the [scaling qualification](scaling.md). Full scientific training
 has not been submitted; these six-update checks do not establish forecast skill.
 
 The implementation uses the Samudra configuration harness from
@@ -97,7 +97,8 @@ the allowance, or 19.0–23.3 days if all work executes serially on one GPU.
 Its remaining work after the screen is 342.4–419.5 GPU-hours. Intermediate
 cooldown branches can run alongside the continuing main trajectory.
 
-Before full-scale training, I recommend these implementation choices:
+The initial qualification led to these follow-up decisions. The
+[scaling work](scaling.md) implements the updated loader and DDP choice:
 
 1. Prepare a complete, verified float32 OM4 frame cache for the current 2,812
    native five-day intervals, whose bounds extend from 1975-01-26 through
@@ -105,14 +106,12 @@ Before full-scale training, I recommend these implementation choices:
    five-day aggregates with their exact original interval alignment. The OM4
    physical arrays would occupy 2,812 × 77 channels × 180 × 360 cells × 4 bytes,
    about 56.1 GB uncompressed. Existing caches must not reduce the eligible window pool or
-   change targets, masks or normalization. These optimizations are proposed and
-   have not been implemented or timed. Requalify parity, resume and sustained
-   throughput after the change.
-2. Retain one GPU per arm and use multiple GPUs for parallel arms. The measured
-   memory requirement fits comfortably on the tested GPU; distributed training
-   within an arm is not implemented and would not address the current loader
-   bottleneck. Choose a GPU family after the loader retest if stable timing and
-   reproducibility outweigh access to all preemptible families.
+   change targets, masks or normalization. The observation cache is now prepared;
+   OM4 currently uses direct Rust reads, so an additional OM4 cache remains an
+   option if measured throughput requires it.
+2. Qualify eight-way DDP together with asynchronous reads. The user requested
+   eight RTX GPUs and measured utilization above 50%. Keep the global batch at
+   eight to preserve the optimizer-update budget.
 3. Set checkpoint cadence from the improved timings. Current writes are cheap,
    but 25 updates can represent roughly 34 minutes of mixed training. A roughly
    ten-minute checkpoint interval and a forced scheduler-interruption check
@@ -125,4 +124,5 @@ Before full-scale training, I recommend these implementation choices:
 Successful qualification consumed 2,895 allocated GPU-seconds (0.804 GPU-hours).
 Including the [failed logging attempt](receipts/attempt-21785317.json), the total
 was 0.891 GPU-hours. CPU data preparation and container preparation are separate.
-Both completion callbacks are retired; no qualification jobs remain active.
+Both callbacks for the original qualification are retired. Later scaling jobs
+are recorded separately.

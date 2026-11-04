@@ -329,9 +329,15 @@ def explain(config, output):
         )
         gradients[f"case_{j}_values"] = values_grad
         gradients[f"case_{j}_geometry"] = geometry_grad
+        # The current center temperature enters through both the crop and the
+        # query. Sum both derivatives before treating it as one physical input.
+        combined = values_grad.copy()
+        center = training["crop"] // 2
+        combined[1, center, center, 51] += float(current_grad[0])
+        gradients[f"case_{j}_combined_values"] = combined
         del frame
         top = np.argsort(probabilities)[-10:][::-1]
-        field_gradient = np.abs(values_grad).sum(axis=(0, 1, 2))
+        field_gradient = np.abs(combined).sum(axis=(0, 1, 2))
         top_fields = np.argsort(field_gradient)[-10:][::-1]
         neighbor_scores = []
         # Actual nearest draws, nearest misleading-label draws, and same-cell

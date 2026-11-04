@@ -55,9 +55,21 @@ and selected weight checkpoints are preserved. Replayed steps after preemption
 produce duplicate local log records and W&B repeated-step warnings; aggregate
 progress from the latest attempt/record for each step.
 
-Matched comparison job 21793092 is queued, source
-`aa0e47c4be8703632d266a678bca768dbf085cc0`. It evaluates the classifier's
-best-error and best-likelihood checkpoints and regression's best-error
-checkpoint against the October 8 Samudra checkpoint on identical validation
-targets. The frozen baseline is epoch 62 of run 211241, using the published
-evaluator's model weights. No Samudra comparison result is claimed yet.
+Matched comparison job 21793092 completed successfully in 4m46s on H200,
+source `aa0e47c4be8703632d266a678bca768dbf085cc0`. All three selected
+checkpoints used identical 9,728 date-cell-depth targets. The frozen baseline
+is epoch 62 of October 8 run 211241, using its published evaluator's model
+weights. Regression at update 18,000 beats Samudra RMSE at all 19 depths and
+has mean-depth normalized MSE 0.0003894 versus Samudra's 0.0009506 (59.0%
+lower). It still trails persistence on the aggregate metric. Classifier at
+update 20,000 beats Samudra at 14 of 19 depths, but its deep outliers dominate
+the aggregate error; the update-14,000 classifier beats Samudra at 3 depths.
+These are the same validation cases used for checkpoint selection, not an
+independent test. [Matched all-depth CSV](matched-per-depth.csv) and
+[full comparison receipts](matched-comparison.json) preserve the metrics.
+
+[Outlier investigation](outliers/README.md) traces the five largest classifier
+errors at 1,850 m to warm deep basins. Replayed training draws show only one
+example above 15°C at this depth. Nearest training states have targets close
+to truth, yet the classifier also mispredicts those training examples. Full
+probabilities and input gradients are included in that investigation.

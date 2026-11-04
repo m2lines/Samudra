@@ -64,6 +64,7 @@ def main():
             {k.removeprefix("module."): v for k, v in state["model"].items()},
             strict=True,
         )
+        checkpoint_epoch = state.get("epoch")
         del state
         model = model.to(device).eval()
         coordinates = (torch.from_numpy(source.lat), torch.from_numpy(source.lon))
@@ -75,6 +76,9 @@ def main():
         args.output.mkdir(parents=True, exist_ok=True)
         manifest = {
             "checkpoint_sha256": file_sha256(args.checkpoint),
+            "checkpoint_epoch": checkpoint_epoch,
+            "checkpoint_state_key": "model",
+            "weight_selection": "matches published Samudra evaluator; no EMA substitution",
             "baseline_config": baseline_config,
             "source": source.receipt(),
             "torch": torch.__version__,

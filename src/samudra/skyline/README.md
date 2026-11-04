@@ -101,6 +101,15 @@ state-dict matching and caches its first-step temperature outputs. Setting
 `baseline_cache` in training configuration adds matched Samudra RMSE and candidate
 log densities at the same validation locations.
 
+`python -m samudra.skyline.run compare --config COMPARISON_JSON --output DIR`
+caches the frozen baseline's first-step outputs and evaluates the selected
+skyline checkpoints on the same dates, wet cells, and depths. It records
+checkpoint hashes, selected steps, hardware, and per-depth metrics, and verifies
+identical target locations and values across selections. The baseline uses the
+published evaluator's `checkpoint["model"]` weights. Best-error and
+best-likelihood checkpoint selection remains separate; these are validation
+comparisons on the same subset used during training, not independent test scores.
+
 `python -m samudra.skyline.score --checkpoint MODEL_PT --candidates INPUT.jsonl
 --output SCORES.jsonl` scores rows containing `origin`, `row`, `col`, `depth`, and
 `temperature_c`. The scorer loads only the observed history, including when the

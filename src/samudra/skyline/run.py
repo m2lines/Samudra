@@ -588,7 +588,7 @@ def train(config, source, output, monitor=None):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("mode", choices=["audit", "precision", "train"])
+    parser.add_argument("mode", choices=["audit", "precision", "train", "compare"])
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--audit-dates", type=int)
@@ -605,6 +605,10 @@ def main():
             from .precision import audit_precision
 
             audit_precision(source, config, args.output)
+        elif args.mode == "compare":
+            from .comparison import compare
+
+            compare(config, source, args.output)
         else:
             from .utilization import GpuMonitor
 

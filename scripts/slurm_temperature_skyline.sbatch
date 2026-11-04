@@ -36,7 +36,7 @@ CODE_DIR=$(mktemp -d "${SLURM_TMPDIR:-/tmp}/skyline-code.XXXXXX")
 trap 'rm -rf "$CODE_DIR"' EXIT
 tar -xf "$ARCHIVE" -C "$CODE_DIR"
 gpu_flags=()
-if [[ "${SKYLINE_MODE:-train}" == train ]]; then
+if [[ "${SKYLINE_MODE:-train}" == train || "${SKYLINE_MODE:-train}" == compare ]]; then
     gpu_flags=(--nv)
     nvidia-smi
 fi

@@ -3,49 +3,67 @@
 
 # Native-resolution latent processor comparison
 
-**Interim result:** native-resolution v2 completed; the matched native small
-control remains pending after a scheduler-reported node failure and automatic
-requeue. Selected v2 EMA blend is **1.06915 at update 4,500**. Compared with the
-coarse-latent small baseline, surface errors improve but deep OHC worsens. The
-matched processor comparison is not complete. Lower blend is better: it equally
-averages the five errors divided by fixed climatology errors. Both runs select
-EMA from the ten checkpoints at updates 500–5,000 under the same 4k+1k budget.
+**Both runs completed.** At native 180×360 resolution with 64 channels per
+latent slot, the small processor selects EMA update 5,000 with blend **1.02071**;
+the v2 U-Net selects update 4,500 with **1.06915**. The small processor's blend
+is **4.53% lower**. V2 improves velocity, EKE and upper OHC, but worsens deep OHC
+by 23.8% relative to the matched small model. This single-seed result does not
+support a general claim that the smaller architecture is better.
 
-| Selected EMA metric | Coarse 128-channel small baseline | Native 64-channel v2 |
-|---|---:|---:|
-| RMSE blend | 1.06486 | 1.06915 |
-| SST RMSE (°C) | 0.55262 | 0.54064 |
-| Geostrophic velocity RMSE (m/s) | 0.12600 | 0.09865 |
-| EKE RMSE (m²/s²) | 0.020446 | 0.018080 |
-| OHC 0–700 m RMSE (GJ/m²) | 0.81635 | 0.78856 |
-| OHC 700–2000 m RMSE (GJ/m²) | 0.61240 | 0.75100 |
+Lower is better. The blend equally averages the five errors divided by fixed
+climatology errors. All models select EMA from the ten checkpoints at updates
+500–5,000 under the same 4k mixed + 1k OBS cooldown budget. Surface metrics
+average leads 5/15/30 days; OHC uses monthly targets. These are validation
+selection results, not annual held-out scores.
 
-The reference comparison changes latent resolution, channel count and processor
-capacity together. It does not isolate which change caused the differences.
-Both use the same validation cohort and selection metric; these are single-seed
-validation results, not annual held-out scores. Surface metrics average leads
-5/15/30 days, and OHC uses monthly targets.
+| Selected EMA metric | Coarse 128ch small reference | Native 64ch small | Native 64ch v2 |
+|---|---:|---:|---:|
+| Selected update | 5,000 | 5,000 | 4,500 |
+| RMSE blend | 1.06486 | **1.02071** | 1.06915 |
+| SST RMSE (°C) | 0.55262 | 0.53599 | 0.54064 |
+| Geostrophic velocity RMSE (m/s) | 0.12600 | 0.10113 | 0.09865 |
+| EKE RMSE (m²/s²) | 0.020446 | 0.018384 | 0.018080 |
+| OHC 0–700 m RMSE (GJ/m²) | 0.81635 | 0.87720 | 0.78856 |
+| OHC 700–2000 m RMSE (GJ/m²) | 0.61240 | 0.60643 | 0.75100 |
+
+The native small model improves the blend by 4.15% versus its coarse reference.
+Both native models have substantially better geostrophic velocity errors than
+the coarse models. The matched native pair therefore suggests that the large
+velocity gain does not require the v2-sized processor. Comparing native against
+coarse still changes both latent resolution and channel count; it does not
+isolate a resolution-only effect. The two processor families also use different
+normalization, as specified below.
 
 ![Validation curves](assets/native-latent-pair-2026-10-30/validation-curves.png)
 
 Solid lines are EMA, dotted lines raw weights. The plot includes both earlier
-coarse-latent references; the table compares against the small processor only.
-The reference “modest U-Net” uses
-widths 64/128/256 on the coarse latent grid; the new v2 model uses
-280/380/480/520. Cooldown begins at update 4,000. The new model's final EMA blend
-is 1.07753, slightly worse than its selected 4,500 checkpoint. Raw blend at 4,500
-is 1.41389, substantially worse than EMA at that same update.
+coarse-latent references. “Modest U-Net” uses widths 64/128/256 on the coarse
+grid; v2 uses 280/380/480/520. Cooldown begins at update 4,000. Native small's
+final raw blend is 1.02702, close to its EMA 1.02071. V2's raw blend at the
+selected 4,500 update is 1.41389; its final EMA blend rises to 1.07753. Raw/EMA
+behavior and the deep-OHC plateau merit investigation before interpreting the
+architecture comparison as a capacity limit.
 
 [Curve data](assets/native-latent-pair-2026-10-30/curves.csv) ·
-[Full v2 validation metrics](assets/native-latent-pair-2026-10-30/v2-results.json) ·
-[W&B](https://wandb.ai/ocean_emulators/observational-transfer/runs/94d147cea4cb).
+[Small metrics](assets/native-latent-pair-2026-10-30/small-results.json) ·
+[V2 metrics](assets/native-latent-pair-2026-10-30/v2-results.json).
 
-Production 220346 completed successfully in **3h21m02**, inside its first
-four-hour allocation. All 5,000 updates (3,000 OBS / 2,000 OM4), ten raw/EMA
-receipts and checkpoint hashes were verified. Qualification plus production
-used **14.0433 allocated GPU-hours**. Selected checkpoint SHA256:
-`97c0f50b92cedb853562a94ad6ac0224ee83144086a79a08dc68ccf05a71435d`.
-The v2 completion callback is retired; the small-control monitor remains active.
+| Execution | Native small | Native v2 |
+|---|---:|---:|
+| Production job | 220340 | 220346 |
+| Successful production + evaluation | 2h18m14s | 3h21m02s |
+| Total allocated GPU-hours, including qualification and retries | 11.2733 | 14.0433 |
+| W&B | [Small](https://wandb.ai/ocean_emulators/observational-transfer/runs/5e72c99bb92f) | [V2](https://wandb.ai/ocean_emulators/observational-transfer/runs/94d147cea4cb) |
+
+Small had one 14m38s node-failure attempt before training, automatically requeued
+by Slurm. Both successful attempts fit within four hours; no timeout continuation
+was needed. Combined cost was **25.3167 GPU-hours**. Both runs completed all
+5,000 updates (3,000 OBS / 2,000 OM4). All ten raw/EMA receipts and checkpoint
+hashes were verified for each model. Both completion callbacks are retired.
+
+Selected checkpoint SHA256 values:
+- Small: `79123bc3dcdf5351cc7976b0f5700f7dc5aa853237d69bd5fe450cab02494593`.
+- V2: `97c0f50b92cedb853562a94ad6ac0224ee83144086a79a08dc68ccf05a71435d`.
 
 ## Matched experiment protocol
 

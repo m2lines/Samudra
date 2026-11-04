@@ -377,6 +377,41 @@ def test_validation_locations_match_between_objectives(ocean, tmp_path):
     assert locations[0] == locations[1]
 
 
+def test_validation_shards_preserve_points_metrics_and_pit(ocean, tmp_path):
+    ocean.origins["validation"] = np.array([1, 4])
+    config = dict(
+        validation_dates=2,
+        validation_seed=42,
+        validation_points_per_depth=3,
+        microbatch=7,
+        crop=3,
+    )
+    model = PointTransformer(ModelConfig(width=16, layers=1, heads=2, bins=17))
+    vocab = Vocabulary(np.full(19, 100.0), 17)
+    results, records = [], []
+    for name, rank, world in [("full", 0, 1), ("rank0", 0, 2), ("rank1", 1, 2)]:
+        path = tmp_path / name
+        path.mkdir()
+        results.append(
+            evaluate(
+                model, vocab, ocean, config, torch.device("cpu"), path, 1, rank, world
+            )
+        )
+        records.append(
+            [
+                json.loads(s)
+                for s in (path / "predictions-0000001.jsonl").read_text().splitlines()
+            ]
+        )
+    assert records[0] == records[1] + records[2]
+    merged = merge_validation(results[1:])
+    assert merged["randomized_pit_counts"] == results[0]["randomized_pit_counts"]
+    for actual, expected in zip(
+        merged["per_depth"], results[0]["per_depth"], strict=True
+    ):
+        assert actual == pytest.approx(expected)
+
+
 def test_baseline_cache_scores_identical_targets(ocean, tmp_path):
     baseline = tmp_path / "baseline"
     baseline.mkdir()

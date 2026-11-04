@@ -66,6 +66,22 @@ Noise remains persistent across different inputs. Define a perturbation as membe
 
 [Fixed-noise maps](results/variogram/spatial/fixed-noise-perturbations-ema.png) · [Spatial scores](results/variogram/spatial/structure-summary.csv) · [Spectral bands](results/variogram/spatial/spectral-bands.csv) · [Variogram by lag](results/variogram/variogram-by-lag-ema.png).
 
+## Multiple draws
+
+The following figures show the shared + deep + wide variogram model at 2,000 updates using EMA weights. Each field row contains the OM4 reference, mean of all eight draws, and draws 1–4 in their saved order. Colors are shared within each row; the outer 0.5% of absolute values are clipped for display. Fields are unsmoothed, and the latitude/longitude aspect is equal. January and April label the validation cases; the reconstructed five-day states have midpoints December 29, 2013 and March 29, 2014, respectively.
+
+![Four surface velocity draws](results/variogram/draws/draws-surface-2014-01.png)
+
+![Surface member deviations and ensemble spread](results/variogram/draws/draw-perturbations-2014-01.png)
+
+The deviation maps subtract the eight-member mean from each draw; the rightmost column shows the population standard deviation across all eight members. They expose draw differences that are less visible on the full-field color scale. The interior examples below show that sign reversal occurs in individual draws as well as the mean. Panel labels give cosine-weighted wet-cell spatial correlation with OM4.
+
+![Four draws at the sign-reversed depths](results/variogram/draws/draws-interior-2014-01.png)
+
+[April surface draws](results/variogram/draws/draws-surface-2014-04.png) · [April deviations and spread](results/variogram/draws/draw-perturbations-2014-04.png) · [April interior draws](results/variogram/draws/draws-interior-2014-04.png) · [Per-draw scores](results/variogram/draws/draw-metrics.csv) · [Reproduction script](../../../scripts/plot_stochastic_variogram_draws.py). Each figure also has a PDF with the same filename stem.
+
+These runs retain pointwise fair CRPS; no field-MSE auxiliary is active. The variogram's squared discrepancy is on expected absolute spatial increments, not raw fields.
+
 ## Interpretation and checks
 
 This screen supports further work on spatial supervision for the larger shared-input initializer, with explicit checks for signed structure at every depth. The aggregate held-out variogram and pointwise velocity scores improve, with substantial changes in surface maps and derivative diagnostics; the depth-specific sign failures prevent declaring the velocity problem resolved. It does not show that capacity alone or the variogram alone resolves all member realism problems. The loss sees absolute spatial increments separately for each velocity channel; it does not explicitly enforce cross-variable balance, divergence, current placement or temporal consistency. One seed and three initialization dates limit claims about generalization.

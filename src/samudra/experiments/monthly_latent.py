@@ -190,6 +190,7 @@ class MonthlyLatentOcean(nn.Module):
         processor_forcing=True,
         processor_kind="small",
         processor_widths=(64, 128, 256),
+        processor_norm="instance",
     ):
         super().__init__()
         self.history, self.shape = history, shape
@@ -216,6 +217,10 @@ class MonthlyLatentOcean(nn.Module):
 
         if processor_kind not in ("small", "samudra"):
             raise ValueError("Unknown latent processor")
+        if processor_norm not in ("instance", "group"):
+            raise ValueError("Unknown processor normalization")
+        if processor_kind == "small" and processor_norm != "instance":
+            raise ValueError("processor_norm applies only to the Samudra processor")
         self.processor_kind = processor_kind
         if processor_kind == "samudra":
             # Preserve initializer/decoder/adapter initialization and the global
@@ -227,6 +232,7 @@ class MonthlyLatentOcean(nn.Module):
                     shape,
                     forcing_enabled=processor_forcing,
                     widths=processor_widths,
+                    norm=processor_norm,
                 )
 
     def adapt(self, atmosphere):

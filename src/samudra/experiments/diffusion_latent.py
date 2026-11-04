@@ -150,6 +150,7 @@ class SamudraLatentProcessor(PersistentLatentProcessor):
         *,
         forcing_enabled=True,
         widths=(64, 128, 256),
+        norm="instance",
     ):
         from samudra.experiments.normalization import configure_normalization
         from samudra.experiments.surface_state import make_unet
@@ -161,7 +162,7 @@ class SamudraLatentProcessor(PersistentLatentProcessor):
         self.forcing_enabled = forcing_enabled
         self.stem = nn.Identity()
         self.blocks = make_unet(2 * width + 3 + 5, width, list(widths))
-        configure_normalization(self.blocks, "instance")
+        configure_normalization(self.blocks, norm, groups=4)
         self.head = OceanConv(width, width)
         nn.init.normal_(self.head.weight, std=0.001)
         assert self.head.bias is not None

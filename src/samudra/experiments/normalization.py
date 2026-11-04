@@ -6,20 +6,28 @@
 from torch import nn
 
 
-def configure_normalization(module: nn.Module, kind: str) -> nn.Module:
+def configure_normalization(
+    module: nn.Module, kind: str, *, groups: int = 4
+) -> nn.Module:
     """Replace spatial BatchNorm in a newly constructed model, before loading weights."""
-    if kind not in ("batch", "instance"):
+    if kind not in ("batch", "instance", "group"):
         raise ValueError(f"Unknown normalization: {kind}")
     if kind == "batch":
         return module
     for name, child in list(module.named_children()):
         if isinstance(child, nn.BatchNorm2d):
-            replacement = nn.InstanceNorm2d(
-                child.num_features,
-                eps=child.eps,
-                affine=True,
-                track_running_stats=False,
-            )
+            replacement: nn.Module
+            if kind == "group":
+                replacement = nn.GroupNorm(
+                    groups, child.num_features, eps=child.eps, affine=True
+                )
+            else:
+                replacement = nn.InstanceNorm2d(
+                    child.num_features,
+                    eps=child.eps,
+                    affine=True,
+                    track_running_stats=False,
+                )
             reference = child.weight if child.affine else child.running_mean
             if reference is not None:
                 replacement.to(device=reference.device, dtype=reference.dtype)
@@ -27,5 +35,5 @@ def configure_normalization(module: nn.Module, kind: str) -> nn.Module:
         elif isinstance(child, nn.modules.batchnorm._BatchNorm):
             raise TypeError(f"Unsupported spatial normalization: {type(child)}")
         else:
-            configure_normalization(child, kind)
+            configure_normalization(child, kind, groups=groups)
     return module

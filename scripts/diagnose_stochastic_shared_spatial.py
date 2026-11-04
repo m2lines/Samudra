@@ -102,11 +102,11 @@ def self_test():
     np.testing.assert_array_equal(got[0][got[2]], clean[0][clean[2]])
 
 
-def main():
+def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--production", type=Path, required=True)
     p.add_argument("--output", type=Path, required=True)
-    a = p.parse_args()
+    a = p.parse_args(argv)
     self_test()
     a.output.mkdir(parents=True, exist_ok=True)
     rows, spectra, vertical, sources = [], [], [], []
@@ -352,7 +352,7 @@ def main():
     for weights in ("ema", "raw"):
         fig, axes = plt.subplots(2, 2, figsize=(13, 9), constrained_layout=True)
         for ai, (arm, label, marker) in enumerate(
-            zip(ARMS, LABELS, ["o", "s", "^", "D", "P"], strict=True)
+            zip(ARMS, LABELS, ["o", "s", "^", "D", "P"][: len(ARMS)], strict=True)
         ):
             for col, depth in enumerate((0, 9)):
                 s = spec[

@@ -1,0 +1,74 @@
+{
+  "passed": true,
+  "variant": "B-learned-variogram",
+  "updates": 24,
+  "mean_gpu_utilization_percent": 83.0896551724138,
+  "mean_update_seconds": 7.557884079497308,
+  "mean_data_wait_seconds": 0.0001287686638534069,
+  "peak_memory_mib": 31413.0,
+  "source": "f15e6d3b240ad81ff44faa93eff839f38477aacb45dd54c00b73ae480c1415b4",
+  "model_state_elements": {
+    "initializer": 11739442,
+    "processor": 11133883,
+    "forcing_adapter": 387
+  },
+  "initializer_widths": [
+    64,
+    128,
+    256
+  ],
+  "initializer_blocks": 1,
+  "projected_remaining_training_hours": 4.148438594746301,
+  "generator_exposure": {
+    "om4": 8000,
+    "observation": 8000
+  },
+  "control_initial_checkpoint": "/scratch/jr7309/stochastic-joint-noise-20261101/production/B-learned-control/step-00000.pt",
+  "control_initial_sha256": "61d5e836bf09a705470d7c1190f400bc177c3f759280164d55c30c14c32e296d",
+  "control_initial_weights_identical": true,
+  "control_contract_matches_except_added_loss": true,
+  "telemetry_errors": [],
+  "variogram_weight": 1.0,
+  "final_om4_diagnostics": {
+    "step": 24,
+    "source": "om4",
+    "lr": 0.0001,
+    "loss": 0.5784249901771545,
+    "components": [
+      0.36254122853279114,
+      0.40296438336372375,
+      1.9567220211029053
+    ],
+    "grad_norm": 1.0170106887817383,
+    "seconds": 7.747290511615574,
+    "data_wait_seconds": 5.170423537492752e-05,
+    "data_prepare_worker_seconds": 2.1540321577340364,
+    "native_prepare_phases": {
+      "checksum_seconds": 2.100132405757904e-06,
+      "gather_seconds": 0.9234772277995944,
+      "normalization_seconds": 5.982816219329834e-06,
+      "forcing_seconds": 1.018729998730123
+    },
+    "max_rank_rss_kib": 123156940,
+    "major_faults": 2071,
+    "minor_faults": 164100416,
+    "queued_updates": 0,
+    "peak_allocated_bytes": 31663617536,
+    "velocity_auxiliary_terms": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "update_started_unix": 1793807362.6123955,
+    "update_finished_unix": 1793807370.3600442,
+    "counts": {
+      "om4": 12,
+      "observation": 12
+    },
+    "velocity_init_variogram/fair": 1.4921211004257202,
+    "velocity_init_variogram/plugin": 1.492127537727356,
+    "velocity_init_variogram/finite_ensemble_correction": 6.430939720303286e-06,
+    "velocity_init_variogram/weighted_auxiliary": 0.14921212196350098,
+    "velocity_init_variogram/weighted_base_initializer_crps": 0.04646007716655731
+  }
+}

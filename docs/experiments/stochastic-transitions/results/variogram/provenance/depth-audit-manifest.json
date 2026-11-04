@@ -1,0 +1,12 @@
+[
+  {
+    "variant": "B-shared-deep-wide",
+    "step": 2000,
+    "path": "/scratch/jr7309/stochastic-shared-noise-20261103/production/B-shared-deep-wide/step-02000.pt"
+  },
+  {
+    "variant": "B-shared-deep-wide-variogram",
+    "step": 2000,
+    "path": "/scratch/jr7309/stochastic-variogram-20261104-r2/production/B-shared-deep-wide-variogram/step-02000.pt"
+  }
+]

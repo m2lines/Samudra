@@ -1,0 +1,42 @@
+{
+  "root": "/scratch/jr7309/stochastic-variogram-20261104-r2",
+  "source": "f15e6d3b240ad81ff44faa93eff839f38477aacb45dd54c00b73ae480c1415b4",
+  "stage": "report-review",
+  "qualification_job": "21858474",
+  "callback_job": "21885504",
+  "callback": "bad4c022-fddc-4452-8631-5a5ebb61b01b",
+  "monitor": "/root/variogram_monitor",
+  "prior_allocated_gpu_hours": 21.24277777777778,
+  "failed_qualification": {
+    "job": "21857501",
+    "gpu_seconds": 1127,
+    "cause": "broadcast area shape; fixed H,1 expansion"
+  },
+  "scheduling": {
+    "partition": "rtx6000_lzanna",
+    "preemption": false,
+    "reason": "Frozen custom launcher has strict qualification provenance and allocation gates but no preemption signal/requeue recovery; use bounded uninterrupted allocations.",
+    "gpus_per_arm": 1,
+    "qualification_wall_minutes": 30
+  },
+  "fresh": true,
+  "production_jobs": {
+    "B-learned-variogram": "21860236_0",
+    "B-shared-deep-wide-variogram": "21860237_1"
+  },
+  "qualification_gpu_seconds": [
+    707,
+    750
+  ],
+  "maximum_total_gpu_hours": 37.6475,
+  "estimated_review_ready": "2026-11-04T18:00:00-05:00",
+  "production_gpu_seconds": [
+    16442,
+    21706
+  ],
+  "new_wave_allocated_gpu_hours": 11.331944444444444,
+  "cumulative_allocated_gpu_hours": 32.26166666666666,
+  "depth_audit_job": "21885500",
+  "depth_audit_callback_job": "21885504",
+  "depth_audit_gpu_seconds": 63
+}

@@ -1,0 +1,17 @@
+{
+  "source": "f15e6d3b240ad81ff44faa93eff839f38477aacb45dd54c00b73ae480c1415b4",
+  "prior_allocated_gpu_hours": 21.24277777777778,
+  "qualification_allocated_gpu_hours": 0.4047222222222222,
+  "wall_minutes": {
+    "B-learned-variogram": 420,
+    "B-shared-deep-wide-variogram": 540
+  },
+  "maximum_total_gpu_hours": 37.6475,
+  "qualification_array": "21858474",
+  "qualification_gpu_seconds": [
+    707,
+    750
+  ],
+  "release_reason": "Both live gates passed: exact initial raw/EMA controls, contracts except loss, finite gradient and loss, OBS auxiliary zero. Warm GPU utilization83.1/79.1%; mean update7.56/10.19sec. Initial auxiliary is about26/25% of total OM4 loss and3.2/3.4 times weighted initializer CRPS; retain predeclared weight1.0. Estimated training4.15/5.59h; allocation caps7/9h include staging and evaluations.",
+  "scheduling_exception": "Frozen custom launcher lacks safe preemption/requeue handler; uninterrupted single RTX allocations, no priority QoS requested."
+}

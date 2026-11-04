@@ -1,0 +1,25 @@
+{
+  "purpose": "Inspect sign-reversed v channels found in existing held-out metrics; final EMA only, matched controls and same3dates. No training.",
+  "channels": [
+    "vo_3",
+    "vo_8",
+    "vo_10"
+  ],
+  "checkpoint_source": [
+    {
+      "variant": "B-shared-deep-wide",
+      "step": 2000,
+      "path": "/scratch/jr7309/stochastic-shared-noise-20261103/production/B-shared-deep-wide/step-02000.pt"
+    },
+    {
+      "variant": "B-shared-deep-wide-variogram",
+      "step": 2000,
+      "path": "/scratch/jr7309/stochastic-variogram-20261104-r2/production/B-shared-deep-wide-variogram/step-02000.pt"
+    }
+  ],
+  "driver_sha256": "d6e2531adf568bec4c440e3abd61142151d20ce445108c416c9dd9fa25e7f7d5",
+  "base_source": "f15e6d3b240ad81ff44faa93eff839f38477aacb45dd54c00b73ae480c1415b4",
+  "gpu_cap_hours": 1,
+  "prior_actual_gpu_hours": 32.244166666666665,
+  "maximum_cumulative_gpu_hours": 33.244166666666665
+}

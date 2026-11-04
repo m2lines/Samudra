@@ -1,0 +1,1289 @@
+{
+  "complete": true,
+  "variants": [
+    "B-learned-control",
+    "B-learned-variogram",
+    "B-shared-deep-wide",
+    "B-shared-deep-wide-variogram"
+  ],
+  "steps": [
+    500,
+    1000,
+    2000
+  ],
+  "weights": [
+    "raw",
+    "ema"
+  ],
+  "initializer_dates": [
+    "2014-01",
+    "2014-04",
+    "2014-05"
+  ],
+  "forecast_origins": 9,
+  "sources": [
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/initializer-raw/grid.npz",
+      "sha256": "129e14065e95ada1c1d1b3713b68b4173ebcbf7e51c0ba2d9ade2f5f18b9ab11"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/initializer-raw/input-2014-01.json",
+      "sha256": "6fc037d87514f4d248cd216062a3ca44b0e23adb4ce0a744f5bce6a4b343769d"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/initializer-raw/input-2014-04.json",
+      "sha256": "1aeda079e80c7469e9e6ae5655593903fc5835ffb3a23ad062155de53793ef0d"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/initializer-raw/input-2014-05.json",
+      "sha256": "c25f6ec0932042dc3d79d80c47f42c6938265e8dc8b4b5a4a76dad98bffe9180"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/initializer-raw/B-learned-control-02000-2014-01-maps.npz",
+      "sha256": "1ba85e02d491c5eca29acf08d311d1e44e534564f9a714b0ff649fa7f85b0a9b"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/initializer-raw/B-learned-control-02000-2014-04-maps.npz",
+      "sha256": "08950b06810af4b4276cff155767418671160272632c35a7cac94127fa92d1a9"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/initializer-raw/B-learned-control-02000-2014-05-maps.npz",
+      "sha256": "d5458703ced801ee5a295e9eb65b695fb1adbd9927762f93552b8ed246741a7f"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/initializer-raw/B-learned-control-00500-2014-01.json",
+      "sha256": "f78ddb48ecb251cf2dee25356230dc5ef5364fefa305aeeaa1764b86dc71e210"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/initializer-raw/B-learned-control-00500-2014-04.json",
+      "sha256": "45666f3e7e1b24e736f5aa6c398c3e0b28af99ef538a14d9bd9cf3b4a8e70918"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/initializer-raw/B-learned-control-00500-2014-05.json",
+      "sha256": "e1586a3c181e4da97d5813d6e8b06a54dd18c2a3259f94950ab20b8099707581"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/initializer-raw/B-learned-control-01000-2014-01.json",
+      "sha256": "a87120fcffad36a3bf4890d5a3a48a85c8249a0162008a82d4078ddc654636c2"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/initializer-raw/B-learned-control-01000-2014-04.json",
+      "sha256": "b2b35be685e5f9e3322c0f9c667c44bf1c7f0f489ae965a4ec3de95b44dfb36c"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/initializer-raw/B-learned-control-01000-2014-05.json",
+      "sha256": "2da12fedd336492aa4c784216a45b4fd26f85514497611a4939e80580e46a468"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/initializer-raw/B-learned-control-02000-2014-01.json",
+      "sha256": "2f34640d9c618ba7b9d58d7e9d058c6a4bb4f04b8d4a596ae301bb5fe4f24429"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/initializer-raw/B-learned-control-02000-2014-04.json",
+      "sha256": "150d344cb8fcc5ac467e5caefe1115a0da0e4c9d776e424324cc5378cdcdcdd6"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/initializer-raw/B-learned-control-02000-2014-05.json",
+      "sha256": "d1f9de14882fcf66cafc93096eab0f467a93ffb3e305cf013929b62c60e4cb75"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/initializer-ema/grid.npz",
+      "sha256": "129e14065e95ada1c1d1b3713b68b4173ebcbf7e51c0ba2d9ade2f5f18b9ab11"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/initializer-ema/input-2014-01.json",
+      "sha256": "88817cafeef437fdef94cb6aadf9b2db03db4eb2a50c5e975addf081a14d7533"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/initializer-ema/input-2014-04.json",
+      "sha256": "3b14a086802d384f807fe499d442ce4dbd44178435938a08657ea953018a8350"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/initializer-ema/input-2014-05.json",
+      "sha256": "c6b1851c1f1cbba2e1694997505613f86151a1816cca48aaf351006c1896adb4"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/initializer-ema/B-learned-control-02000-2014-01-maps.npz",
+      "sha256": "cc0f79e427a60f5dfe93a6f7a2cbc7cd24525deca5a7788858901e4eeaa51694"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/initializer-ema/B-learned-control-02000-2014-04-maps.npz",
+      "sha256": "0e354a406db38cc13c1deabc48a2fa2c22b6ca3c968b8baff67b315b790e9d34"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/initializer-ema/B-learned-control-02000-2014-05-maps.npz",
+      "sha256": "8f300c164cbe9eb5643a8e4431e6bae9f9b54206eb6605d3efeff9e9c27f96c9"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/initializer-ema/B-learned-control-00500-2014-01.json",
+      "sha256": "83080374bdeb47416a7440da2eb43134807568b8b3074b53277c40b4b7a9f004"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/initializer-ema/B-learned-control-00500-2014-04.json",
+      "sha256": "bd847828f11ee33ebf37700caea2645a31cef232747dfb877c181983d3ca786f"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/initializer-ema/B-learned-control-00500-2014-05.json",
+      "sha256": "6328fff5bbb77a373f6b3970fd54dd9bc58bc387a3281f5582237194fd4ff287"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/initializer-ema/B-learned-control-01000-2014-01.json",
+      "sha256": "14afbcc4584fcc174f73d5a905dd41fa5ec440d74e77f07a1af1174e4a36154f"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/initializer-ema/B-learned-control-01000-2014-04.json",
+      "sha256": "dd8b9b2d70217efc2f4b404f1f01ef9c07ef9194cfaeb1f865e7fba3e67c808f"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/initializer-ema/B-learned-control-01000-2014-05.json",
+      "sha256": "887251b99bc0857c4e6fee732977c8845918a5107fac06c802a55e988432eba4"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/initializer-ema/B-learned-control-02000-2014-01.json",
+      "sha256": "4e63db42377d2e1546143bca458ba218f34333b8cb9243bb60dc5339c5fe0249"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/initializer-ema/B-learned-control-02000-2014-04.json",
+      "sha256": "09d277c3f115f5fca870350fb776a3707cb245151c6eeda2b018add8190f4cc9"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/initializer-ema/B-learned-control-02000-2014-05.json",
+      "sha256": "8bf8da09ef654883de2bf31e90486fc5838041f326938f5b76d91020315572c6"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/initializer-raw/grid.npz",
+      "sha256": "129e14065e95ada1c1d1b3713b68b4173ebcbf7e51c0ba2d9ade2f5f18b9ab11"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/initializer-raw/input-2014-01.json",
+      "sha256": "6fc037d87514f4d248cd216062a3ca44b0e23adb4ce0a744f5bce6a4b343769d"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/initializer-raw/input-2014-04.json",
+      "sha256": "1aeda079e80c7469e9e6ae5655593903fc5835ffb3a23ad062155de53793ef0d"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/initializer-raw/input-2014-05.json",
+      "sha256": "c25f6ec0932042dc3d79d80c47f42c6938265e8dc8b4b5a4a76dad98bffe9180"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/initializer-raw/B-learned-variogram-02000-2014-01-maps.npz",
+      "sha256": "fd5e7d9f4961d56f96f785408e2fd05400065f91df0f517b8d09d27b756f5361"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/initializer-raw/B-learned-variogram-02000-2014-04-maps.npz",
+      "sha256": "b3c4a549ad77ab241f145c452dfc8d99d7ba9b01092fdeb76bcab67fddee7217"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/initializer-raw/B-learned-variogram-02000-2014-05-maps.npz",
+      "sha256": "bd6377d4d02b49db70068b9c4375d738880be69bc43373a96b29ecef12065b31"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/initializer-raw/B-learned-variogram-00500-2014-01.json",
+      "sha256": "db35840d63418b5c988957e0e1d515a5a1148f81969c803db9cae2b0eb1c3057"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/initializer-raw/B-learned-variogram-00500-2014-04.json",
+      "sha256": "c31deccd2ffe32e14b29bc8c94a2ca04e156c14ca6c13fef08e91c904ec048d9"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/initializer-raw/B-learned-variogram-00500-2014-05.json",
+      "sha256": "60acabbf4e0651568a3f3f47899cde3a74b858c80ad8c045c3b636204cefac4d"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/initializer-raw/B-learned-variogram-01000-2014-01.json",
+      "sha256": "addb57f57ebfb16e0e0ed38d1a61a5f8ce9052b9063b9364997bec13ca52991b"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/initializer-raw/B-learned-variogram-01000-2014-04.json",
+      "sha256": "0c1d23fbd7dd653b689c9233907fcc5d7a870e818b68905e711c56c0afaf6fe8"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/initializer-raw/B-learned-variogram-01000-2014-05.json",
+      "sha256": "60865b9dce4dc24222501efadecdc56a985209ff1d589f1595c56d070c2b7e6a"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/initializer-raw/B-learned-variogram-02000-2014-01.json",
+      "sha256": "11a293aac44314c0aee8a9c63008ce531bd07668738b92e62b405d7eb19a5107"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/initializer-raw/B-learned-variogram-02000-2014-04.json",
+      "sha256": "23b39c476c2233700de1c2836a602dc9b453c3ba003c3b96ffe8cece5ca0e212"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/initializer-raw/B-learned-variogram-02000-2014-05.json",
+      "sha256": "9079b4171f029d8267eab4fef376def8790d27fa3a5dffe9eeeaa7c1db9b8bc6"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/initializer-ema/grid.npz",
+      "sha256": "129e14065e95ada1c1d1b3713b68b4173ebcbf7e51c0ba2d9ade2f5f18b9ab11"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/initializer-ema/input-2014-01.json",
+      "sha256": "88817cafeef437fdef94cb6aadf9b2db03db4eb2a50c5e975addf081a14d7533"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/initializer-ema/input-2014-04.json",
+      "sha256": "3b14a086802d384f807fe499d442ce4dbd44178435938a08657ea953018a8350"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/initializer-ema/input-2014-05.json",
+      "sha256": "c6b1851c1f1cbba2e1694997505613f86151a1816cca48aaf351006c1896adb4"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/initializer-ema/B-learned-variogram-02000-2014-01-maps.npz",
+      "sha256": "9aa656106a48b29a9edc0d64f3c52af3976fb7595397f34ae2bd0935a5a28fa9"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/initializer-ema/B-learned-variogram-02000-2014-04-maps.npz",
+      "sha256": "ccb1e3eb1f7f46ae51ee94be0cd6c57c8d239e423233908787200bbd276abacc"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/initializer-ema/B-learned-variogram-02000-2014-05-maps.npz",
+      "sha256": "1356ed38e17635b208d7f96a57cb2172e5f77d2bcd62d743c16964ef53a0442f"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/initializer-ema/B-learned-variogram-00500-2014-01.json",
+      "sha256": "2ca5d3fa49eb0af6ba3d5efe0c343d93920b03a25f25d1224b306980965b02a9"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/initializer-ema/B-learned-variogram-00500-2014-04.json",
+      "sha256": "c65506cdb58ff2d9f36b217b9c9f3318afe6aa6098b66becb308559d4e688996"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/initializer-ema/B-learned-variogram-00500-2014-05.json",
+      "sha256": "545fde2ea781d560f9b02e65cd659064f4507fc570bb2ae4c3ec0b3b0efee0b5"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/initializer-ema/B-learned-variogram-01000-2014-01.json",
+      "sha256": "6c5e735d92e310839c00d728c61c9c2d04107564016ab3c3de3e86254ec035ae"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/initializer-ema/B-learned-variogram-01000-2014-04.json",
+      "sha256": "33cbfa8858d3d8b82655065e9f6e1babd13f0784f16cff7ed83a45f77542876c"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/initializer-ema/B-learned-variogram-01000-2014-05.json",
+      "sha256": "bdc92b801098055dd8ac84d4cea7e2955f9195748adaf511e26b0392bf115926"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/initializer-ema/B-learned-variogram-02000-2014-01.json",
+      "sha256": "8a4688e6ed3497452e4d59e41595e9f31b80a99e95e2b218381b0e8e5a2b7d6a"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/initializer-ema/B-learned-variogram-02000-2014-04.json",
+      "sha256": "f25c6619c2d796542a256c6849679e53e5d5cddf200e55fb76f60a5da3a304bf"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/initializer-ema/B-learned-variogram-02000-2014-05.json",
+      "sha256": "a626f3508479a4d6bec67453d9de3d445736f324d849ed5bb46390ac4ac74be0"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/initializer-raw/grid.npz",
+      "sha256": "129e14065e95ada1c1d1b3713b68b4173ebcbf7e51c0ba2d9ade2f5f18b9ab11"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/initializer-raw/input-2014-01.json",
+      "sha256": "6fc037d87514f4d248cd216062a3ca44b0e23adb4ce0a744f5bce6a4b343769d"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/initializer-raw/input-2014-04.json",
+      "sha256": "1aeda079e80c7469e9e6ae5655593903fc5835ffb3a23ad062155de53793ef0d"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/initializer-raw/input-2014-05.json",
+      "sha256": "c25f6ec0932042dc3d79d80c47f42c6938265e8dc8b4b5a4a76dad98bffe9180"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/initializer-raw/B-shared-deep-wide-02000-2014-01-maps.npz",
+      "sha256": "48eaf4c8a0d8d8f725c71659f75af91a166243bbdcc2f9ffff020abc24e87990"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/initializer-raw/B-shared-deep-wide-02000-2014-04-maps.npz",
+      "sha256": "efedb9acd7ba50cfd03c1f4282b40f97221ac51a177160cacc10ac2cea3806a6"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/initializer-raw/B-shared-deep-wide-02000-2014-05-maps.npz",
+      "sha256": "d91c6ca1554e9ec5f746b70a36a6217db7a7b7dc1f382703edef592179f27e88"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/initializer-raw/B-shared-deep-wide-00500-2014-01.json",
+      "sha256": "9bc2526b1beef990dade8dc5f9a64315142fc31900e112fe5c2fd46cafa0ba21"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/initializer-raw/B-shared-deep-wide-00500-2014-04.json",
+      "sha256": "ba9a0dcfd7d2f750bbeffafb6923ce311732168e4ae1bae967db6d3a281d606e"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/initializer-raw/B-shared-deep-wide-00500-2014-05.json",
+      "sha256": "c8a5d9b8acd3bd57a06b295f31fe6b2387f53763d024e5893562bb6f3363db3f"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/initializer-raw/B-shared-deep-wide-01000-2014-01.json",
+      "sha256": "2f9beecfbd0036703ba0d2bd7427d38953bfcb449faabc33831cbd867494657b"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/initializer-raw/B-shared-deep-wide-01000-2014-04.json",
+      "sha256": "3389b359880b872792632f08b169aca023f62f93b66a3135e986a89664696bf4"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/initializer-raw/B-shared-deep-wide-01000-2014-05.json",
+      "sha256": "21295922fbef64029444a4335aab8d9a2f11e1dee974fca961c65a0af06fb44a"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/initializer-raw/B-shared-deep-wide-02000-2014-01.json",
+      "sha256": "47ec5554e69551737d8c80fe287fb267d94f5f1087c5a1550a7c57b6b19b9009"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/initializer-raw/B-shared-deep-wide-02000-2014-04.json",
+      "sha256": "75963d01836e18d1b9497894b2d2aa7705b47f76b61f904303a3fb2200edf2fc"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/initializer-raw/B-shared-deep-wide-02000-2014-05.json",
+      "sha256": "511a8057e70259ef5e731299f84bc1cd5c12dd5f654f02e083b1f91639bdd9a4"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/initializer-ema/grid.npz",
+      "sha256": "129e14065e95ada1c1d1b3713b68b4173ebcbf7e51c0ba2d9ade2f5f18b9ab11"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/initializer-ema/input-2014-01.json",
+      "sha256": "88817cafeef437fdef94cb6aadf9b2db03db4eb2a50c5e975addf081a14d7533"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/initializer-ema/input-2014-04.json",
+      "sha256": "3b14a086802d384f807fe499d442ce4dbd44178435938a08657ea953018a8350"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/initializer-ema/input-2014-05.json",
+      "sha256": "c6b1851c1f1cbba2e1694997505613f86151a1816cca48aaf351006c1896adb4"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/initializer-ema/B-shared-deep-wide-02000-2014-01-maps.npz",
+      "sha256": "76547f8285796ad65490ad1f6e65c83734f4196065651b12e0e4a94b73c310d5"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/initializer-ema/B-shared-deep-wide-02000-2014-04-maps.npz",
+      "sha256": "f01adb174fb85283b688a940df97c97daf027138733f4ecdca067c10902665f0"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/initializer-ema/B-shared-deep-wide-02000-2014-05-maps.npz",
+      "sha256": "754bc6a92c39c5de2b7624e5984c43d4d935d6959f073659c41f49b7a8a781b2"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/initializer-ema/B-shared-deep-wide-00500-2014-01.json",
+      "sha256": "0c130836b7818e0b0d1e5fe460ccaf12d622d905399c3b4fe3d5e65b9a3a5ac4"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/initializer-ema/B-shared-deep-wide-00500-2014-04.json",
+      "sha256": "baa795750d7e4af349eeeae4070ccaf4590474b31285c2995cc0316becda82e3"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/initializer-ema/B-shared-deep-wide-00500-2014-05.json",
+      "sha256": "73edb136d228ce73ceab8077a0f818787d469c4fc31adaa3715268522cebed72"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/initializer-ema/B-shared-deep-wide-01000-2014-01.json",
+      "sha256": "d1bc6464af959b3de71c92e6f1ea45342b4be076b879526aa225ad8185002234"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/initializer-ema/B-shared-deep-wide-01000-2014-04.json",
+      "sha256": "c9c9bff1844400301866ca69d2e48e355e7bc1429eb50b14b6b195a90dc4f859"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/initializer-ema/B-shared-deep-wide-01000-2014-05.json",
+      "sha256": "3ff498685ddfa69c93b1925a513c05f466bfde00e92a246c0aaf2c56ccfa68e9"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/initializer-ema/B-shared-deep-wide-02000-2014-01.json",
+      "sha256": "93186d11548ee5d42b317433621d72b39873fb24b746796f7fd5f40939a43763"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/initializer-ema/B-shared-deep-wide-02000-2014-04.json",
+      "sha256": "d04b5d5721daf77397ca43685625cbdbf08de1bcbe7faf87d2110eb1674c4031"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/initializer-ema/B-shared-deep-wide-02000-2014-05.json",
+      "sha256": "c1e502a9b23349ca7b79f9b53f44a3322dc38d1bd19efe433d06741e280c2470"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/initializer-raw/grid.npz",
+      "sha256": "129e14065e95ada1c1d1b3713b68b4173ebcbf7e51c0ba2d9ade2f5f18b9ab11"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/initializer-raw/input-2014-01.json",
+      "sha256": "6fc037d87514f4d248cd216062a3ca44b0e23adb4ce0a744f5bce6a4b343769d"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/initializer-raw/input-2014-04.json",
+      "sha256": "1aeda079e80c7469e9e6ae5655593903fc5835ffb3a23ad062155de53793ef0d"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/initializer-raw/input-2014-05.json",
+      "sha256": "c25f6ec0932042dc3d79d80c47f42c6938265e8dc8b4b5a4a76dad98bffe9180"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/initializer-raw/B-shared-deep-wide-variogram-02000-2014-01-maps.npz",
+      "sha256": "47d6ce5f8e095c9e7b0b8d92cdfbbade53fd1eae50abef3009737961e0f1668c"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/initializer-raw/B-shared-deep-wide-variogram-02000-2014-04-maps.npz",
+      "sha256": "b32ae5b3d9de5ae876667ef1ad49b9133015d2e6bc7a4225307e492c6ea25266"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/initializer-raw/B-shared-deep-wide-variogram-02000-2014-05-maps.npz",
+      "sha256": "ce2632492094d93685cf6ab4847c67fc643fd87f07108b63fbf28eeff0c9bad2"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/initializer-raw/B-shared-deep-wide-variogram-00500-2014-01.json",
+      "sha256": "02b8dc12dde5a57bb906c83d85a7e94b2efd064884ca8906b51b3edf7bcb63f9"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/initializer-raw/B-shared-deep-wide-variogram-00500-2014-04.json",
+      "sha256": "8237751373c3eb84403c70ce9edc36a695d4606956f5e632a34ff30a70f4b8be"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/initializer-raw/B-shared-deep-wide-variogram-00500-2014-05.json",
+      "sha256": "f3f8e849d3dd40e9db5b27126bcd57373593ebd614b26aee79628d23285434a7"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/initializer-raw/B-shared-deep-wide-variogram-01000-2014-01.json",
+      "sha256": "14bf3bc4c1fe18e02f4e54b81fe1d18fb878629003e06ebc082eae9b06c13229"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/initializer-raw/B-shared-deep-wide-variogram-01000-2014-04.json",
+      "sha256": "07dc2f38e98c6e5713513b0684fc590429c562396aeaf84a27b94c21237bf9d0"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/initializer-raw/B-shared-deep-wide-variogram-01000-2014-05.json",
+      "sha256": "57efd3e9c592e08f778748c5167effd3fc1a27de274cd85b518a933723a67ccc"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/initializer-raw/B-shared-deep-wide-variogram-02000-2014-01.json",
+      "sha256": "38d6c3b045fd981fa940c298a101924249cdf0e3cd3e0adedce73c2d1cf094bd"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/initializer-raw/B-shared-deep-wide-variogram-02000-2014-04.json",
+      "sha256": "de00ae71296f0036a12cc2904bfdeb1e1df17c9451334427876d7fa0f8c42f03"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/initializer-raw/B-shared-deep-wide-variogram-02000-2014-05.json",
+      "sha256": "5f097c4edaa059ca325248c9ee1c8d987aea446ce0f193220ed40ca3a7459a1b"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/initializer-ema/grid.npz",
+      "sha256": "129e14065e95ada1c1d1b3713b68b4173ebcbf7e51c0ba2d9ade2f5f18b9ab11"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/initializer-ema/input-2014-01.json",
+      "sha256": "88817cafeef437fdef94cb6aadf9b2db03db4eb2a50c5e975addf081a14d7533"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/initializer-ema/input-2014-04.json",
+      "sha256": "3b14a086802d384f807fe499d442ce4dbd44178435938a08657ea953018a8350"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/initializer-ema/input-2014-05.json",
+      "sha256": "c6b1851c1f1cbba2e1694997505613f86151a1816cca48aaf351006c1896adb4"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/initializer-ema/B-shared-deep-wide-variogram-02000-2014-01-maps.npz",
+      "sha256": "61fe55140da5e0eb8e9e431797b0a045381fc49ed67693ff0346f01a5845e3e7"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/initializer-ema/B-shared-deep-wide-variogram-02000-2014-04-maps.npz",
+      "sha256": "d402d5a20c49f1f9d186c616cea316fb99b2b880d3fc02dfc0beff72bbd9a9ed"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/initializer-ema/B-shared-deep-wide-variogram-02000-2014-05-maps.npz",
+      "sha256": "82924a9c93e072cfc4520be91ae9e4a94696eb895e1e8d8f1710980e8c5bfd8e"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/initializer-ema/B-shared-deep-wide-variogram-00500-2014-01.json",
+      "sha256": "b15e5451925bfc2fa668eaaf36fedc67bb196275a9fbc6702cdd7bd90c5f3703"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/initializer-ema/B-shared-deep-wide-variogram-00500-2014-04.json",
+      "sha256": "d3afedc480300acc5788fc4d73ae3754300ea126b370790fb67bf3cb9b511824"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/initializer-ema/B-shared-deep-wide-variogram-00500-2014-05.json",
+      "sha256": "e489ae8528d7629e9ee9f790f43574e6b631f40d69c13b86d0b66b2441ade510"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/initializer-ema/B-shared-deep-wide-variogram-01000-2014-01.json",
+      "sha256": "c768599dde0d6fc5a2a41eb50a8c49f3752320724c8709706853cac551f3dce8"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/initializer-ema/B-shared-deep-wide-variogram-01000-2014-04.json",
+      "sha256": "8a6e75c441799ad26947e1be490955a14f455d45e0c0121356851b9132f9d297"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/initializer-ema/B-shared-deep-wide-variogram-01000-2014-05.json",
+      "sha256": "1a1613b9c70aea0bf7371af8d4d60e47b5ef081ecd3f231532fd0e8e221c6b50"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/initializer-ema/B-shared-deep-wide-variogram-02000-2014-01.json",
+      "sha256": "8ac5c69c45011413120ebf76f78f12dfeec5015354349c1800181cf30962354d"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/initializer-ema/B-shared-deep-wide-variogram-02000-2014-04.json",
+      "sha256": "24c104ca69e3aaaef3ab5437fdbd692c768b902afc51ac5405a225d91ff1692c"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/initializer-ema/B-shared-deep-wide-variogram-02000-2014-05.json",
+      "sha256": "4cdcbce17d82f7aacd2cf5b23822733a7eb6b4962d25b6c59b7827a21a0710ce"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/evaluation/step-02000-ema/COMPLETE.json",
+      "sha256": "e6cdfd33c9a4738169c9eb3e56dcc6467a5f17906e6eeec895e18cb01d82bc34"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/evaluation/step-02000-raw/COMPLETE.json",
+      "sha256": "4422695301c96caade11ec4b09b83af54422508c1bde929aea484a70f7c2a3c2"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/evaluation/step-02000-ema/COMPLETE.json",
+      "sha256": "4ac2d98ac2c7ab196e826a8ee2908944e1ee30fdb706c83f70302b63531be8bf"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/evaluation/step-02000-raw/COMPLETE.json",
+      "sha256": "5155115af20af97f6f103123bd2fccf69e345c3b8d9c27707089381527cc7203"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/evaluation/step-02000-ema/COMPLETE.json",
+      "sha256": "7c864c97e06076cd7a984f78aed17607b6bfa280d32aa80b2319c57bc7ffb463"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/evaluation/step-02000-raw/COMPLETE.json",
+      "sha256": "c57332bb79770c00731e0977c34202ad7ef4bf8308f0853f77c325879cbe1b6b"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/evaluation/step-02000-ema/COMPLETE.json",
+      "sha256": "13d723d783cf5dbae526570c84618f2e18da96fbed0bfce2173f7779e91bc0fb"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/evaluation/step-02000-raw/COMPLETE.json",
+      "sha256": "357a9134577371d314c87eb1e18e88119f90827ca023513376e49046618674d1"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/evaluation/step-02000-ema/members-2013-11.npz",
+      "sha256": "0dacbe89380d42b9802ebbfe95b47ba854b411d32df9793706ffc0db1cb4418a"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/evaluation/step-02000-ema/members-2013-12.npz",
+      "sha256": "88e6c4ee3c9500624e960a3c7f28c537cb50ea21a601369155884c322a2ea976"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/evaluation/step-02000-ema/members-2014-01.npz",
+      "sha256": "0130dc10c5cf7b8e079c64a4f744e0221a52f7d610a38ee565fecb31e99d79e5"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/evaluation/step-02000-ema/members-2014-02.npz",
+      "sha256": "c959862cf4a7aa27f71c2434cc1e959f2e84d12befb00bf06058dfb546ba3429"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/evaluation/step-02000-ema/members-2014-03.npz",
+      "sha256": "004d556977838cfec96a1a43301158e601c07f2a1d76c44b539b7a64b2c21527"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/evaluation/step-02000-ema/members-2014-04.npz",
+      "sha256": "58089bbff90cb2f890345da107f5da19faa0a1f8c9eedc5cf197a8ae6587b8b9"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/evaluation/step-02000-ema/members-2014-05.npz",
+      "sha256": "a86b7a8d24495d1451c640846df415625d0c5482f0afe24de340592ec7c39a93"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/evaluation/step-02000-ema/members-2014-06.npz",
+      "sha256": "a38bcc15801c772262650adea8e476f0e03139ec6c1ca958eb7efa1d80e4824d"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/evaluation/step-02000-ema/members-2014-07.npz",
+      "sha256": "6b087c325cefe5c515cce205c04fe69a7fb0c5285fe15c89f0fb8a06b2836d7b"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/evaluation/step-02000-raw/members-2013-11.npz",
+      "sha256": "5057b12745233297829dea7a53ef92aab5878fbb564b0dd3fcc47a8213e6f9fa"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/evaluation/step-02000-raw/members-2013-12.npz",
+      "sha256": "b07ed80fdfbb88f08651064f069d2c0d049f228f43af7335c8f9e84f14aea95e"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/evaluation/step-02000-raw/members-2014-01.npz",
+      "sha256": "18c3b24a087a385d580f5bdc0845c4633c7187625b514370df090173c0b772f1"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/evaluation/step-02000-raw/members-2014-02.npz",
+      "sha256": "6a83310ddd61001a890c0df8f4912e9daa1472e38b79659c71945d90d468c584"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/evaluation/step-02000-raw/members-2014-03.npz",
+      "sha256": "370a183ef6f773b5b48c948f490dc43d09f4c958c4b0df1de43a8b1daecee858"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/evaluation/step-02000-raw/members-2014-04.npz",
+      "sha256": "70497dad61b9040ecdcb71dec388cca8a54d5af0a1d23c342ff78ac4bc7efac1"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/evaluation/step-02000-raw/members-2014-05.npz",
+      "sha256": "95c708d5f4df521ea3e3ccc35b3abd97579bf71c36fccd3bf23413a8160a429d"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/evaluation/step-02000-raw/members-2014-06.npz",
+      "sha256": "f240331e635d544e0b6c3bd6506f8bd54631c3ab701a0bcafb9611e489dd448a"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/evaluation/step-02000-raw/members-2014-07.npz",
+      "sha256": "7eb798f73620f96e33df7d0ea6237be1866f869308d028d19ba958c3fcc85e76"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/evaluation/step-02000-ema/members-2013-11.npz",
+      "sha256": "40d94754fe63d612f7590d72648744826bcb62a21620ce6bcceed20627d293c6"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/evaluation/step-02000-ema/members-2013-12.npz",
+      "sha256": "f1813beb659c692b114f401f13bb0595e19f902b8ebaf0a18d229cc143c7682c"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/evaluation/step-02000-ema/members-2014-01.npz",
+      "sha256": "b643910445e6b564ae55978f7d2be6ec62ddd199157f6b883197060810708a49"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/evaluation/step-02000-ema/members-2014-02.npz",
+      "sha256": "0732d28df8cd91ad0a2c6f8e482d00dd32ac1e8f44493ca2d44cc53ca7bdf989"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/evaluation/step-02000-ema/members-2014-03.npz",
+      "sha256": "70317e9ffa2f1205a7537e2dbd086a0863b40f6c860bf06945de615a51e71639"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/evaluation/step-02000-ema/members-2014-04.npz",
+      "sha256": "6bdf7b55d400e4f09857e02d7eb050c9fc2feee3baa2a694ac661a646f3d1b91"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/evaluation/step-02000-ema/members-2014-05.npz",
+      "sha256": "b40484fc795f694cd4a6f2cba3ceec8ec723dc0ba33c4301bb8876da5e622c6a"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/evaluation/step-02000-ema/members-2014-06.npz",
+      "sha256": "b6d4bd73acfa6645a65b178a5b0b117e6b410f84fe21c32583256294ccd18e20"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/evaluation/step-02000-ema/members-2014-07.npz",
+      "sha256": "f68939abc7976cbd6387fe0ed3843c13619b552e77339474c2869eecfd7fd17e"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/evaluation/step-02000-raw/members-2013-11.npz",
+      "sha256": "4657d9626384a0070b66e01579c20771a08a31689f032b24dc7d14c9e4cea357"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/evaluation/step-02000-raw/members-2013-12.npz",
+      "sha256": "7a20552295144e900626eeae587ad828903302d14db7765ea8cfcf3e21bb9147"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/evaluation/step-02000-raw/members-2014-01.npz",
+      "sha256": "35fdf89e0c99990348dcb41967700a5b5f4c42d5e282440a8eff03d7bca714ef"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/evaluation/step-02000-raw/members-2014-02.npz",
+      "sha256": "b051e26bdf7ef576b9a7449d63d0123a9cce9e13a3769ccaf316e5ed74f33518"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/evaluation/step-02000-raw/members-2014-03.npz",
+      "sha256": "1b37d8f26bbb9e3a2415954c0b8a182dcad4e3a4fcfaf91e0af6db293ffaee75"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/evaluation/step-02000-raw/members-2014-04.npz",
+      "sha256": "230b5187a8fde745b54c9fc9258c7070efce26c4dab9d61310b1760b23cd370c"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/evaluation/step-02000-raw/members-2014-05.npz",
+      "sha256": "3adbfd713bac354c50e5df24ca750f24ae5017c996b544cb4178709794174065"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/evaluation/step-02000-raw/members-2014-06.npz",
+      "sha256": "ab9d9748ee2f7e1601380e8b581d2b7a0fccd616a04846e5fb697ba3ab5416b8"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/evaluation/step-02000-raw/members-2014-07.npz",
+      "sha256": "4780499e331b1fc9e2846379db2472e0041bfd3dac3a83fb3b2d20407e0fdec7"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/evaluation/step-02000-ema/members-2013-11.npz",
+      "sha256": "8da46a360373e28c5cf29b82a52e26b3f2e0d067dc33ccaa66947cc1483a3c4f"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/evaluation/step-02000-ema/members-2013-12.npz",
+      "sha256": "c3aadb4702e40f08804bfda993ab974eee26484233410b069f08ecef4b09a1ba"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/evaluation/step-02000-ema/members-2014-01.npz",
+      "sha256": "e2417d8b8bb3615d452f8f6d4a31803cd35a02fa87e7a60794e9832c241e0a42"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/evaluation/step-02000-ema/members-2014-02.npz",
+      "sha256": "11864f5096bb0ccd36061307d44d1433da23aeb1c6d6b305099985a9392b404b"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/evaluation/step-02000-ema/members-2014-03.npz",
+      "sha256": "8109b4e6a88652bf3ce0e7a195f0ed075115c5683e40223c466abdd6d8e5fa86"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/evaluation/step-02000-ema/members-2014-04.npz",
+      "sha256": "1bbc811e6bf012e18e2636e9176d762b586e740ce3f5a36d8d1f8f53e2d1f822"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/evaluation/step-02000-ema/members-2014-05.npz",
+      "sha256": "0543455948ce5922814a4dd6fae8127ceccb64854883383277f5a4c572611906"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/evaluation/step-02000-ema/members-2014-06.npz",
+      "sha256": "2e7dcb04f223be1cda96515e1719dc8a8a057ef26f30f580b62b4a644969ff5f"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/evaluation/step-02000-ema/members-2014-07.npz",
+      "sha256": "25312db1640cd1cd4520e893e55a12dfe15cae2309b581faafaa848801cd650d"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/evaluation/step-02000-raw/members-2013-11.npz",
+      "sha256": "0a4aaea8e9077c68d142639d9b0817f94c33c923d05f72dd31d5b7b8b8799bc6"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/evaluation/step-02000-raw/members-2013-12.npz",
+      "sha256": "daa41ab1bcf5a182a1a72af5989109edb139e0e8d8bd6ee2f9910dac7e0f188a"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/evaluation/step-02000-raw/members-2014-01.npz",
+      "sha256": "a2192dd7c3ccbaad31cbfe223ebd264e2a48511736fef385bf9c384592086ca8"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/evaluation/step-02000-raw/members-2014-02.npz",
+      "sha256": "2dc9f37e167ec0e91419e94f451c7777509abf7449fc54b1eabfbb84512191d5"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/evaluation/step-02000-raw/members-2014-03.npz",
+      "sha256": "38e7d14652d8ec6caf9a0f12f84840c4637b8838b658c19dd9a1269db460f242"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/evaluation/step-02000-raw/members-2014-04.npz",
+      "sha256": "dbdc542edd03abec1e9f7ee411c6e6b68f22cab81f3b9c0eb9e52af449c232aa"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/evaluation/step-02000-raw/members-2014-05.npz",
+      "sha256": "f479584fce39ecfd0a2b869db8bd707e6edf82da0d87a8e9924c6dce463064bc"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/evaluation/step-02000-raw/members-2014-06.npz",
+      "sha256": "2d19733e01f91b5ebc75523ae0bdcdf67bd1a9378f876699abf5d2f2e9799057"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/evaluation/step-02000-raw/members-2014-07.npz",
+      "sha256": "3a0590631e567ae5f65c0fc4c751941f237cbab54670204b816a7cf32c537e2a"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/evaluation/step-02000-ema/members-2013-11.npz",
+      "sha256": "35baec3bc0f606f06993a3c7ddff85e72da7e3b3cca042b15c3968c92938576c"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/evaluation/step-02000-ema/members-2013-12.npz",
+      "sha256": "ccce84a565a58f69c635b683ee99c54011002f99bcb8a7b48ea7fb4b2128b00a"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/evaluation/step-02000-ema/members-2014-01.npz",
+      "sha256": "b5f8c8acbd3edb98e4fd91186b2101991b9965458c176a8d3795b83fe52c0250"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/evaluation/step-02000-ema/members-2014-02.npz",
+      "sha256": "fa5e187d9b15f9d40c045b15846df28a834453297c4baef414ef66a1f6c85ed2"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/evaluation/step-02000-ema/members-2014-03.npz",
+      "sha256": "99c17d534d853000db6e13602fa2b349036922eb1e97e144d14d46dfda56e208"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/evaluation/step-02000-ema/members-2014-04.npz",
+      "sha256": "0b561a13a183a64af9e94540eecf43992bd3df6313b81c5b2abc2eee5811ea63"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/evaluation/step-02000-ema/members-2014-05.npz",
+      "sha256": "fc8aefc53d50940f7266e2ce967f939c34e6294ca222478039390b0215c8f09d"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/evaluation/step-02000-ema/members-2014-06.npz",
+      "sha256": "30557caa41ab3f52ee2f78aea97a140825ad952abb057ff0cfd9bd8298cd1494"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/evaluation/step-02000-ema/members-2014-07.npz",
+      "sha256": "44579bb6afd7467f788c6423d2a6256a6711e13c0e6b5b93533b74d8d279fd7e"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/evaluation/step-02000-raw/members-2013-11.npz",
+      "sha256": "55df04ff7db6a916f45e6179ae1c7812431d4da9ff37f9a31c885cc849e93937"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/evaluation/step-02000-raw/members-2013-12.npz",
+      "sha256": "eeac5892a50f258bc916e0478ba2ba171b41e5e333926e21aea6cd03bc159174"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/evaluation/step-02000-raw/members-2014-01.npz",
+      "sha256": "12407730c765938880206f370efca4b161aed2ab6850752728f46c5d4a7f930d"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/evaluation/step-02000-raw/members-2014-02.npz",
+      "sha256": "60f0d3cdb42b3926b2609d42eb0bf55706c7a3265ee406061d65fda3342d9b9a"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/evaluation/step-02000-raw/members-2014-03.npz",
+      "sha256": "cf1280c92a0178aad5332fce29bc4421b7c8197620a30044cca35ed9898bbebe"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/evaluation/step-02000-raw/members-2014-04.npz",
+      "sha256": "cc3216cc2009c1caf1ba5b7033ab5138b21a21fb9379eb5167baf193ec75a6fd"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/evaluation/step-02000-raw/members-2014-05.npz",
+      "sha256": "9259881d5e772f382cbfcbbf67e62a31c41f62bf3aeb84a05b593159275f878b"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/evaluation/step-02000-raw/members-2014-06.npz",
+      "sha256": "2d8f269f3663de08cc0a548e781f94996c5cd2921de2f0928cd04a216c8f1f26"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/evaluation/step-02000-raw/members-2014-07.npz",
+      "sha256": "7cdab2e4cae87fdabf6b58bdc1f23e23853f9b234ce7789430460d2d34877dd7"
+    }
+  ],
+  "input_proofs": {
+    "2014-01": {
+      "month": "2014-01",
+      "history_midpoints": [
+        "2013-09-30T12:00:00",
+        "2013-10-05T12:00:00",
+        "2013-10-10T12:00:00",
+        "2013-10-15T12:00:00",
+        "2013-10-20T12:00:00",
+        "2013-10-25T12:00:00",
+        "2013-10-30T12:00:00",
+        "2013-11-04T12:00:00",
+        "2013-11-09T12:00:00",
+        "2013-11-14T12:00:00",
+        "2013-11-19T12:00:00",
+        "2013-11-24T12:00:00",
+        "2013-11-29T12:00:00",
+        "2013-12-04T12:00:00",
+        "2013-12-09T12:00:00",
+        "2013-12-14T12:00:00",
+        "2013-12-19T12:00:00",
+        "2013-12-24T12:00:00",
+        "2013-12-29T12:00:00"
+      ],
+      "history_indices": [
+        4069,
+        4070,
+        4071,
+        4072,
+        4073,
+        4074,
+        4075,
+        4076,
+        4077,
+        4078,
+        4079,
+        4080,
+        4081,
+        4082,
+        4083,
+        4084,
+        4085,
+        4086,
+        4087
+      ],
+      "sample_sha256": "bc126b8b29c9704069c34eb7d2ef5ff92d63106e3fdb83f87f5064e6338d37cb",
+      "seed": 904003,
+      "members": 8,
+      "grid_sha256": "ce96360964a6669d0186b9581abaaffc06f660c4e09e0ac813b3dd1b819e5167",
+      "om4_metadata_sha256": "8c4e12bbb43cf70826d406d6910461e1b287835e5f7f27729a2eb8d545c4a19c",
+      "training_latest_target_bin_end": "2013-08-04",
+      "input_scope": "OM4 surface history plus matched ERA5; no interior or future input"
+    },
+    "2014-04": {
+      "month": "2014-04",
+      "history_midpoints": [
+        "2013-12-29T12:00:00",
+        "2014-01-03T12:00:00",
+        "2014-01-08T12:00:00",
+        "2014-01-13T12:00:00",
+        "2014-01-18T12:00:00",
+        "2014-01-23T12:00:00",
+        "2014-01-28T12:00:00",
+        "2014-02-02T12:00:00",
+        "2014-02-07T12:00:00",
+        "2014-02-12T12:00:00",
+        "2014-02-17T12:00:00",
+        "2014-02-22T12:00:00",
+        "2014-02-27T12:00:00",
+        "2014-03-04T12:00:00",
+        "2014-03-09T12:00:00",
+        "2014-03-14T12:00:00",
+        "2014-03-19T12:00:00",
+        "2014-03-24T12:00:00",
+        "2014-03-29T12:00:00"
+      ],
+      "history_indices": [
+        4087,
+        4088,
+        4089,
+        4090,
+        4091,
+        4092,
+        4093,
+        4094,
+        4095,
+        4096,
+        4097,
+        4098,
+        4099,
+        4100,
+        4101,
+        4102,
+        4103,
+        4104,
+        4105
+      ],
+      "sample_sha256": "85dc7368a7cfb6ad1dd3bc34faad9671e340542fc805929124d1a9a5b95c613d",
+      "seed": 904003,
+      "members": 8,
+      "grid_sha256": "ce96360964a6669d0186b9581abaaffc06f660c4e09e0ac813b3dd1b819e5167",
+      "om4_metadata_sha256": "8c4e12bbb43cf70826d406d6910461e1b287835e5f7f27729a2eb8d545c4a19c",
+      "training_latest_target_bin_end": "2013-08-04",
+      "input_scope": "OM4 surface history plus matched ERA5; no interior or future input"
+    },
+    "2014-05": {
+      "month": "2014-05",
+      "history_midpoints": [
+        "2014-01-28T12:00:00",
+        "2014-02-02T12:00:00",
+        "2014-02-07T12:00:00",
+        "2014-02-12T12:00:00",
+        "2014-02-17T12:00:00",
+        "2014-02-22T12:00:00",
+        "2014-02-27T12:00:00",
+        "2014-03-04T12:00:00",
+        "2014-03-09T12:00:00",
+        "2014-03-14T12:00:00",
+        "2014-03-19T12:00:00",
+        "2014-03-24T12:00:00",
+        "2014-03-29T12:00:00",
+        "2014-04-03T12:00:00",
+        "2014-04-08T12:00:00",
+        "2014-04-13T12:00:00",
+        "2014-04-18T12:00:00",
+        "2014-04-23T12:00:00",
+        "2014-04-28T12:00:00"
+      ],
+      "history_indices": [
+        4093,
+        4094,
+        4095,
+        4096,
+        4097,
+        4098,
+        4099,
+        4100,
+        4101,
+        4102,
+        4103,
+        4104,
+        4105,
+        4106,
+        4107,
+        4108,
+        4109,
+        4110,
+        4111
+      ],
+      "sample_sha256": "d4ad3c04b23737c5dccc86fb9a36efcf4b9c5d95add2d8d309e53475c9b7edcb",
+      "seed": 904003,
+      "members": 8,
+      "grid_sha256": "ce96360964a6669d0186b9581abaaffc06f660c4e09e0ac813b3dd1b819e5167",
+      "om4_metadata_sha256": "8c4e12bbb43cf70826d406d6910461e1b287835e5f7f27729a2eb8d545c4a19c",
+      "training_latest_target_bin_end": "2013-08-04",
+      "input_scope": "OM4 surface history plus matched ERA5; no interior or future input"
+    }
+  },
+  "script_sha256": "f5cab04dc71ad70fe81f889dab3c712e611a09b03e58f5bee02e387969d1b165",
+  "aggregation": "Cosine-weighted wet spatial MSE per channel, equal mean over variable depths and three dates, then square root. CRPS and coverage equal mean over depths and dates. Forecast blend unchanged five-component climatology-relative mean.",
+  "checks": "Initializer masks/normalization/input receipts/gold maps match; final checkpoint fingerprints match raw/EMA and forecasts; forecast masks/scales/channel names/day30 references match across arms and weights; nine origins and climatology receipts match.",
+  "wrapper_script_sha256": "3e92acd4a18bac0850094c64003c818e76da2886f72d10c412c46bc0b9aa95f9",
+  "variogram_loss_script_sha256": "dee99aeaeead14d2af01d661582e2a97ca8a5881ecff1faf6328dc97b2d4b965",
+  "matched_controls": {
+    "B-learned-variogram": "B-learned-control",
+    "B-shared-deep-wide-variogram": "B-shared-deep-wide"
+  },
+  "variogram_sources": [
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/initializer-raw/B-learned-control-02000-2014-01-maps.npz",
+      "sha256": "1ba85e02d491c5eca29acf08d311d1e44e534564f9a714b0ff649fa7f85b0a9b"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/initializer-raw/B-learned-control-02000-2014-04-maps.npz",
+      "sha256": "08950b06810af4b4276cff155767418671160272632c35a7cac94127fa92d1a9"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/initializer-raw/B-learned-control-02000-2014-05-maps.npz",
+      "sha256": "d5458703ced801ee5a295e9eb65b695fb1adbd9927762f93552b8ed246741a7f"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/initializer-ema/B-learned-control-02000-2014-01-maps.npz",
+      "sha256": "cc0f79e427a60f5dfe93a6f7a2cbc7cd24525deca5a7788858901e4eeaa51694"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/initializer-ema/B-learned-control-02000-2014-04-maps.npz",
+      "sha256": "0e354a406db38cc13c1deabc48a2fa2c22b6ca3c968b8baff67b315b790e9d34"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/initializer-ema/B-learned-control-02000-2014-05-maps.npz",
+      "sha256": "8f300c164cbe9eb5643a8e4431e6bae9f9b54206eb6605d3efeff9e9c27f96c9"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/initializer-raw/B-learned-variogram-02000-2014-01-maps.npz",
+      "sha256": "fd5e7d9f4961d56f96f785408e2fd05400065f91df0f517b8d09d27b756f5361"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/initializer-raw/B-learned-variogram-02000-2014-04-maps.npz",
+      "sha256": "b3c4a549ad77ab241f145c452dfc8d99d7ba9b01092fdeb76bcab67fddee7217"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/initializer-raw/B-learned-variogram-02000-2014-05-maps.npz",
+      "sha256": "bd6377d4d02b49db70068b9c4375d738880be69bc43373a96b29ecef12065b31"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/initializer-ema/B-learned-variogram-02000-2014-01-maps.npz",
+      "sha256": "9aa656106a48b29a9edc0d64f3c52af3976fb7595397f34ae2bd0935a5a28fa9"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/initializer-ema/B-learned-variogram-02000-2014-04-maps.npz",
+      "sha256": "ccb1e3eb1f7f46ae51ee94be0cd6c57c8d239e423233908787200bbd276abacc"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/initializer-ema/B-learned-variogram-02000-2014-05-maps.npz",
+      "sha256": "1356ed38e17635b208d7f96a57cb2172e5f77d2bcd62d743c16964ef53a0442f"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/initializer-raw/B-shared-deep-wide-02000-2014-01-maps.npz",
+      "sha256": "48eaf4c8a0d8d8f725c71659f75af91a166243bbdcc2f9ffff020abc24e87990"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/initializer-raw/B-shared-deep-wide-02000-2014-04-maps.npz",
+      "sha256": "efedb9acd7ba50cfd03c1f4282b40f97221ac51a177160cacc10ac2cea3806a6"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/initializer-raw/B-shared-deep-wide-02000-2014-05-maps.npz",
+      "sha256": "d91c6ca1554e9ec5f746b70a36a6217db7a7b7dc1f382703edef592179f27e88"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/initializer-ema/B-shared-deep-wide-02000-2014-01-maps.npz",
+      "sha256": "76547f8285796ad65490ad1f6e65c83734f4196065651b12e0e4a94b73c310d5"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/initializer-ema/B-shared-deep-wide-02000-2014-04-maps.npz",
+      "sha256": "f01adb174fb85283b688a940df97c97daf027138733f4ecdca067c10902665f0"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/initializer-ema/B-shared-deep-wide-02000-2014-05-maps.npz",
+      "sha256": "754bc6a92c39c5de2b7624e5984c43d4d935d6959f073659c41f49b7a8a781b2"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/initializer-raw/B-shared-deep-wide-variogram-02000-2014-01-maps.npz",
+      "sha256": "47d6ce5f8e095c9e7b0b8d92cdfbbade53fd1eae50abef3009737961e0f1668c"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/initializer-raw/B-shared-deep-wide-variogram-02000-2014-04-maps.npz",
+      "sha256": "b32ae5b3d9de5ae876667ef1ad49b9133015d2e6bc7a4225307e492c6ea25266"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/initializer-raw/B-shared-deep-wide-variogram-02000-2014-05-maps.npz",
+      "sha256": "ce2632492094d93685cf6ab4847c67fc643fd87f07108b63fbf28eeff0c9bad2"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/initializer-ema/B-shared-deep-wide-variogram-02000-2014-01-maps.npz",
+      "sha256": "61fe55140da5e0eb8e9e431797b0a045381fc49ed67693ff0346f01a5845e3e7"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/initializer-ema/B-shared-deep-wide-variogram-02000-2014-04-maps.npz",
+      "sha256": "d402d5a20c49f1f9d186c616cea316fb99b2b880d3fc02dfc0beff72bbd9a9ed"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/initializer-ema/B-shared-deep-wide-variogram-02000-2014-05-maps.npz",
+      "sha256": "82924a9c93e072cfc4520be91ae9e4a94696eb895e1e8d8f1710980e8c5bfd8e"
+    },
+    {
+      "path": "/tmp/onepass-crps/grid.npz",
+      "sha256": "ce96360964a6669d0186b9581abaaffc06f660c4e09e0ac813b3dd1b819e5167"
+    }
+  ],
+  "training_sources": [
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-control/events.jsonl",
+      "sha256": "1231c1260bbf8d6108be962043c3ce355d53ba4270436481a31e1187e108a9ea"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-learned-variogram/events.jsonl",
+      "sha256": "29b01b930a07bf1d7c28f8fc463d5e77589d48c2688c105db130d02ce01375a1"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/events.jsonl",
+      "sha256": "5393e19e35bf090d3f44775d6057791d38821d67f40883c838e840ed2bd90c52"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/events.jsonl",
+      "sha256": "8107adf4580434cd90f8f69e507bd19a3927ad00c04232a31ed17d41a2ba7d5f"
+    }
+  ],
+  "training_diagnostics": "All 2000 events per arm have exact alternating exposure counts and finite loss/gradient. Compare base initializer CRPS and native forecast contributions separately from the added variogram. Curves use trailing 50 same-source updates; CSV contains unsmoothed values. No raw total OM4 objective comparison is used to claim improvement across changed losses.",
+  "depth_diagnostics": "All 19 u/v depths are retained separately. Spatial correlation and slope use cosine-weighted wet covariance after spatial demeaning; slope divides by gold spatial variance. Summary correlations/slopes average three per-date statistics; RMSE is sqrt(mean of three spatial MSEs). Counterfactual_negated_mean_rmse derives MSE(-prediction,gold)=2*(mean_power+gold_power)-mean_mse from saved moments. This is a reference-selected sign diagnostic, not a corrected forecast or selection score.",
+  "depth_audit": {
+    "complete": true,
+    "producer_script_sha256": "d6e2531adf568bec4c440e3abd61142151d20ce445108c416c9dd9fa25e7f7d5",
+    "producer_manifest_sha256": "c9fe50a65ad5b8f3acead47508ffd489664e2c8ada8ff61a4b1bffd419db50b3",
+    "report_script_sha256": "3e92acd4a18bac0850094c64003c818e76da2886f72d10c412c46bc0b9aa95f9",
+    "sources": [
+      {
+        "path": "/tmp/stochastic-variogram-results/depth-audit/COMPLETE.json",
+        "sha256": "10f23269487d1748e443b1831675d3cc931790f4561a63c4ce200a6d09ff0ce0"
+      },
+      {
+        "path": "/tmp/stochastic-variogram-results/depth-audit/grid.npz",
+        "sha256": "5cd5619ce0b27293137117e3287a373973357a3c79fb32e937714557586e69ad"
+      },
+      {
+        "path": "/tmp/stochastic-variogram-results/depth-audit/input-2014-01.json",
+        "sha256": "88817cafeef437fdef94cb6aadf9b2db03db4eb2a50c5e975addf081a14d7533"
+      },
+      {
+        "path": "/tmp/stochastic-variogram-results/depth-audit/B-shared-deep-wide-02000-2014-01.json",
+        "sha256": "93186d11548ee5d42b317433621d72b39873fb24b746796f7fd5f40939a43763"
+      },
+      {
+        "path": "/tmp/stochastic-variogram-results/depth-audit/B-shared-deep-wide-02000-2014-01-maps.npz",
+        "sha256": "7aeee5ea9c2baaa7fb36af8039e9801b45ee9f9a1881585279f5af3aaba83f72"
+      },
+      {
+        "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/initializer-ema/B-shared-deep-wide-02000-2014-01.json",
+        "sha256": "93186d11548ee5d42b317433621d72b39873fb24b746796f7fd5f40939a43763"
+      },
+      {
+        "path": "/tmp/stochastic-variogram-results/depth-audit/B-shared-deep-wide-variogram-02000-2014-01.json",
+        "sha256": "8ac5c69c45011413120ebf76f78f12dfeec5015354349c1800181cf30962354d"
+      },
+      {
+        "path": "/tmp/stochastic-variogram-results/depth-audit/B-shared-deep-wide-variogram-02000-2014-01-maps.npz",
+        "sha256": "11c8461055ab6b7ce4a539a016227131bf94dfc3dfbd9ebbf610979c6cfd635a"
+      },
+      {
+        "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/initializer-ema/B-shared-deep-wide-variogram-02000-2014-01.json",
+        "sha256": "8ac5c69c45011413120ebf76f78f12dfeec5015354349c1800181cf30962354d"
+      },
+      {
+        "path": "/tmp/stochastic-variogram-results/depth-audit/input-2014-04.json",
+        "sha256": "3b14a086802d384f807fe499d442ce4dbd44178435938a08657ea953018a8350"
+      },
+      {
+        "path": "/tmp/stochastic-variogram-results/depth-audit/B-shared-deep-wide-02000-2014-04.json",
+        "sha256": "d04b5d5721daf77397ca43685625cbdbf08de1bcbe7faf87d2110eb1674c4031"
+      },
+      {
+        "path": "/tmp/stochastic-variogram-results/depth-audit/B-shared-deep-wide-02000-2014-04-maps.npz",
+        "sha256": "7570cacdfc84c534a653669e2def3890caeeb87d341404fa7834dfdb608aff9a"
+      },
+      {
+        "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/initializer-ema/B-shared-deep-wide-02000-2014-04.json",
+        "sha256": "d04b5d5721daf77397ca43685625cbdbf08de1bcbe7faf87d2110eb1674c4031"
+      },
+      {
+        "path": "/tmp/stochastic-variogram-results/depth-audit/B-shared-deep-wide-variogram-02000-2014-04.json",
+        "sha256": "24c104ca69e3aaaef3ab5437fdbd692c768b902afc51ac5405a225d91ff1692c"
+      },
+      {
+        "path": "/tmp/stochastic-variogram-results/depth-audit/B-shared-deep-wide-variogram-02000-2014-04-maps.npz",
+        "sha256": "e8a4679bcbef7b45eac6b9a8b19063ad0abda66bb1d998f76b433776afa65063"
+      },
+      {
+        "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/initializer-ema/B-shared-deep-wide-variogram-02000-2014-04.json",
+        "sha256": "24c104ca69e3aaaef3ab5437fdbd692c768b902afc51ac5405a225d91ff1692c"
+      },
+      {
+        "path": "/tmp/stochastic-variogram-results/depth-audit/input-2014-05.json",
+        "sha256": "c6b1851c1f1cbba2e1694997505613f86151a1816cca48aaf351006c1896adb4"
+      },
+      {
+        "path": "/tmp/stochastic-variogram-results/depth-audit/B-shared-deep-wide-02000-2014-05.json",
+        "sha256": "c1e502a9b23349ca7b79f9b53f44a3322dc38d1bd19efe433d06741e280c2470"
+      },
+      {
+        "path": "/tmp/stochastic-variogram-results/depth-audit/B-shared-deep-wide-02000-2014-05-maps.npz",
+        "sha256": "b6ae0200bbb9ceaed02e6ecdd5165e78991c1ff00c778a62e98721a3f98e5160"
+      },
+      {
+        "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/initializer-ema/B-shared-deep-wide-02000-2014-05.json",
+        "sha256": "c1e502a9b23349ca7b79f9b53f44a3322dc38d1bd19efe433d06741e280c2470"
+      },
+      {
+        "path": "/tmp/stochastic-variogram-results/depth-audit/B-shared-deep-wide-variogram-02000-2014-05.json",
+        "sha256": "4cdcbce17d82f7aacd2cf5b23822733a7eb6b4962d25b6c59b7827a21a0710ce"
+      },
+      {
+        "path": "/tmp/stochastic-variogram-results/depth-audit/B-shared-deep-wide-variogram-02000-2014-05-maps.npz",
+        "sha256": "a38d33616678350494b2c41a66c557d4b6ab35c3d58b3767e5241021717078a8"
+      },
+      {
+        "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/initializer-ema/B-shared-deep-wide-variogram-02000-2014-05.json",
+        "sha256": "4cdcbce17d82f7aacd2cf5b23822733a7eb6b4962d25b6c59b7827a21a0710ce"
+      }
+    ],
+    "cases": [
+      {
+        "variant": "B-shared-deep-wide",
+        "month": "2014-01",
+        "checkpoint_sha256": "7f7c5422cc9c6019895a379e3354960f80d5b8d6723e5c0811b1f49bb79d7dea",
+        "original_metrics_maximum_absolute_difference": 0.0
+      },
+      {
+        "variant": "B-shared-deep-wide-variogram",
+        "month": "2014-01",
+        "checkpoint_sha256": "7d021e7c667be71f3e59d4e8aea841fbcfca6ff9ea9d291b9b775ad31b1a58e2",
+        "original_metrics_maximum_absolute_difference": 0.0
+      },
+      {
+        "variant": "B-shared-deep-wide",
+        "month": "2014-04",
+        "checkpoint_sha256": "7f7c5422cc9c6019895a379e3354960f80d5b8d6723e5c0811b1f49bb79d7dea",
+        "original_metrics_maximum_absolute_difference": 0.0
+      },
+      {
+        "variant": "B-shared-deep-wide-variogram",
+        "month": "2014-04",
+        "checkpoint_sha256": "7d021e7c667be71f3e59d4e8aea841fbcfca6ff9ea9d291b9b775ad31b1a58e2",
+        "original_metrics_maximum_absolute_difference": 0.0
+      },
+      {
+        "variant": "B-shared-deep-wide",
+        "month": "2014-05",
+        "checkpoint_sha256": "7f7c5422cc9c6019895a379e3354960f80d5b8d6723e5c0811b1f49bb79d7dea",
+        "original_metrics_maximum_absolute_difference": 0.0
+      },
+      {
+        "variant": "B-shared-deep-wide-variogram",
+        "month": "2014-05",
+        "checkpoint_sha256": "7d021e7c667be71f3e59d4e8aea841fbcfca6ff9ea9d291b9b775ad31b1a58e2",
+        "original_metrics_maximum_absolute_difference": 0.0
+      }
+    ],
+    "checks": "Six final EMA cases: original input proofs and checkpoint fingerprints match; all 77-channel metrics agree within absolute 1e-6; selected-channel metrics recomputed from saved maps agree within absolute 1e-6; controls and intervention have identical gold fields and grids.",
+    "interpretation": "These three depths were selected after the all-depth metric audit found negative correlation; this is a diagnostic selection, not an unbiased sample of model output."
+  },
+  "variogram_scope": "Final initializer only: u/v at levels 0, 9, 18, three dates, eight members; six saved channels, not all 19 depths.",
+  "variogram_definition": "Exact training fair p=1 score with wet straight paths, periodic longitude, bounded latitude, endpoint area weights, lags 1/2/4/8. Lag 0 means equal average of supported lags. Normalize using fingerprint-verified original training grid. Negative fair estimates are retained. Lower is better; relative changes only for positive reference scores."
+}

@@ -1,0 +1,10 @@
+month,channel,depth_m,color_limit_m_per_s,definition
+2014-01,vo_3,40,0.35212293148040696,Symmetric 99th percentile of absolute wet values pooled across the five row panels
+2014-01,vo_8,375,0.2583082333207129,Symmetric 99th percentile of absolute wet values pooled across the five row panels
+2014-01,vo_10,775,0.18435850739479065,Symmetric 99th percentile of absolute wet values pooled across the five row panels
+2014-04,vo_3,40,0.3235047876834848,Symmetric 99th percentile of absolute wet values pooled across the five row panels
+2014-04,vo_8,375,0.24420586228370667,Symmetric 99th percentile of absolute wet values pooled across the five row panels
+2014-04,vo_10,775,0.17560628056526184,Symmetric 99th percentile of absolute wet values pooled across the five row panels
+2014-05,vo_3,40,0.32654164791107126,Symmetric 99th percentile of absolute wet values pooled across the five row panels
+2014-05,vo_8,375,0.24252138644456647,Symmetric 99th percentile of absolute wet values pooled across the five row panels
+2014-05,vo_10,775,0.17354237318038895,Symmetric 99th percentile of absolute wet values pooled across the five row panels

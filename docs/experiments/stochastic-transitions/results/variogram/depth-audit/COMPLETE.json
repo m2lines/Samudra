@@ -1,0 +1,140 @@
+{
+  "complete": true,
+  "producer_script_sha256": "d6e2531adf568bec4c440e3abd61142151d20ce445108c416c9dd9fa25e7f7d5",
+  "producer_manifest_sha256": "c9fe50a65ad5b8f3acead47508ffd489664e2c8ada8ff61a4b1bffd419db50b3",
+  "report_script_sha256": "3e92acd4a18bac0850094c64003c818e76da2886f72d10c412c46bc0b9aa95f9",
+  "sources": [
+    {
+      "path": "/tmp/stochastic-variogram-results/depth-audit/COMPLETE.json",
+      "sha256": "10f23269487d1748e443b1831675d3cc931790f4561a63c4ce200a6d09ff0ce0"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/depth-audit/grid.npz",
+      "sha256": "5cd5619ce0b27293137117e3287a373973357a3c79fb32e937714557586e69ad"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/depth-audit/input-2014-01.json",
+      "sha256": "88817cafeef437fdef94cb6aadf9b2db03db4eb2a50c5e975addf081a14d7533"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/depth-audit/B-shared-deep-wide-02000-2014-01.json",
+      "sha256": "93186d11548ee5d42b317433621d72b39873fb24b746796f7fd5f40939a43763"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/depth-audit/B-shared-deep-wide-02000-2014-01-maps.npz",
+      "sha256": "7aeee5ea9c2baaa7fb36af8039e9801b45ee9f9a1881585279f5af3aaba83f72"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/initializer-ema/B-shared-deep-wide-02000-2014-01.json",
+      "sha256": "93186d11548ee5d42b317433621d72b39873fb24b746796f7fd5f40939a43763"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/depth-audit/B-shared-deep-wide-variogram-02000-2014-01.json",
+      "sha256": "8ac5c69c45011413120ebf76f78f12dfeec5015354349c1800181cf30962354d"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/depth-audit/B-shared-deep-wide-variogram-02000-2014-01-maps.npz",
+      "sha256": "11c8461055ab6b7ce4a539a016227131bf94dfc3dfbd9ebbf610979c6cfd635a"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/initializer-ema/B-shared-deep-wide-variogram-02000-2014-01.json",
+      "sha256": "8ac5c69c45011413120ebf76f78f12dfeec5015354349c1800181cf30962354d"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/depth-audit/input-2014-04.json",
+      "sha256": "3b14a086802d384f807fe499d442ce4dbd44178435938a08657ea953018a8350"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/depth-audit/B-shared-deep-wide-02000-2014-04.json",
+      "sha256": "d04b5d5721daf77397ca43685625cbdbf08de1bcbe7faf87d2110eb1674c4031"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/depth-audit/B-shared-deep-wide-02000-2014-04-maps.npz",
+      "sha256": "7570cacdfc84c534a653669e2def3890caeeb87d341404fa7834dfdb608aff9a"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/initializer-ema/B-shared-deep-wide-02000-2014-04.json",
+      "sha256": "d04b5d5721daf77397ca43685625cbdbf08de1bcbe7faf87d2110eb1674c4031"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/depth-audit/B-shared-deep-wide-variogram-02000-2014-04.json",
+      "sha256": "24c104ca69e3aaaef3ab5437fdbd692c768b902afc51ac5405a225d91ff1692c"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/depth-audit/B-shared-deep-wide-variogram-02000-2014-04-maps.npz",
+      "sha256": "e8a4679bcbef7b45eac6b9a8b19063ad0abda66bb1d998f76b433776afa65063"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/initializer-ema/B-shared-deep-wide-variogram-02000-2014-04.json",
+      "sha256": "24c104ca69e3aaaef3ab5437fdbd692c768b902afc51ac5405a225d91ff1692c"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/depth-audit/input-2014-05.json",
+      "sha256": "c6b1851c1f1cbba2e1694997505613f86151a1816cca48aaf351006c1896adb4"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/depth-audit/B-shared-deep-wide-02000-2014-05.json",
+      "sha256": "c1e502a9b23349ca7b79f9b53f44a3322dc38d1bd19efe433d06741e280c2470"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/depth-audit/B-shared-deep-wide-02000-2014-05-maps.npz",
+      "sha256": "b6ae0200bbb9ceaed02e6ecdd5165e78991c1ff00c778a62e98721a3f98e5160"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide/initializer-ema/B-shared-deep-wide-02000-2014-05.json",
+      "sha256": "c1e502a9b23349ca7b79f9b53f44a3322dc38d1bd19efe433d06741e280c2470"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/depth-audit/B-shared-deep-wide-variogram-02000-2014-05.json",
+      "sha256": "4cdcbce17d82f7aacd2cf5b23822733a7eb6b4962d25b6c59b7827a21a0710ce"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/depth-audit/B-shared-deep-wide-variogram-02000-2014-05-maps.npz",
+      "sha256": "a38d33616678350494b2c41a66c557d4b6ab35c3d58b3767e5241021717078a8"
+    },
+    {
+      "path": "/tmp/stochastic-variogram-results/production/B-shared-deep-wide-variogram/initializer-ema/B-shared-deep-wide-variogram-02000-2014-05.json",
+      "sha256": "4cdcbce17d82f7aacd2cf5b23822733a7eb6b4962d25b6c59b7827a21a0710ce"
+    }
+  ],
+  "cases": [
+    {
+      "variant": "B-shared-deep-wide",
+      "month": "2014-01",
+      "checkpoint_sha256": "7f7c5422cc9c6019895a379e3354960f80d5b8d6723e5c0811b1f49bb79d7dea",
+      "original_metrics_maximum_absolute_difference": 0.0
+    },
+    {
+      "variant": "B-shared-deep-wide-variogram",
+      "month": "2014-01",
+      "checkpoint_sha256": "7d021e7c667be71f3e59d4e8aea841fbcfca6ff9ea9d291b9b775ad31b1a58e2",
+      "original_metrics_maximum_absolute_difference": 0.0
+    },
+    {
+      "variant": "B-shared-deep-wide",
+      "month": "2014-04",
+      "checkpoint_sha256": "7f7c5422cc9c6019895a379e3354960f80d5b8d6723e5c0811b1f49bb79d7dea",
+      "original_metrics_maximum_absolute_difference": 0.0
+    },
+    {
+      "variant": "B-shared-deep-wide-variogram",
+      "month": "2014-04",
+      "checkpoint_sha256": "7d021e7c667be71f3e59d4e8aea841fbcfca6ff9ea9d291b9b775ad31b1a58e2",
+      "original_metrics_maximum_absolute_difference": 0.0
+    },
+    {
+      "variant": "B-shared-deep-wide",
+      "month": "2014-05",
+      "checkpoint_sha256": "7f7c5422cc9c6019895a379e3354960f80d5b8d6723e5c0811b1f49bb79d7dea",
+      "original_metrics_maximum_absolute_difference": 0.0
+    },
+    {
+      "variant": "B-shared-deep-wide-variogram",
+      "month": "2014-05",
+      "checkpoint_sha256": "7d021e7c667be71f3e59d4e8aea841fbcfca6ff9ea9d291b9b775ad31b1a58e2",
+      "original_metrics_maximum_absolute_difference": 0.0
+    }
+  ],
+  "checks": "Six final EMA cases: original input proofs and checkpoint fingerprints match; all 77-channel metrics agree within absolute 1e-6; selected-channel metrics recomputed from saved maps agree within absolute 1e-6; controls and intervention have identical gold fields and grids.",
+  "interpretation": "These three depths were selected after the all-depth metric audit found negative correlation; this is a diagnostic selection, not an unbiased sample of model output."
+}

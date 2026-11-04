@@ -184,7 +184,10 @@ def draw_initializers(summary, output):
             for col, (metric, title) in enumerate(zip(METRICS, TITLES, strict=True)):
                 ax = axes[row, col]
                 for variant, label, marker in zip(
-                    VARIANTS, LABELS, ["o", "s", "^", "D", "P"], strict=True
+                    VARIANTS,
+                    LABELS,
+                    ["o", "s", "^", "D", "P"][: len(VARIANTS)],
+                    strict=True,
                 ):
                     rr = summary[
                         (summary.variant == variant)
@@ -229,7 +232,7 @@ def draw_initializers(summary, output):
 def verify_forecasts(root, checkpoints):
     forecast, components, sources = forecasts(root)
     if len(forecast) != 2 * len(VARIANTS):
-        raise ValueError("Expected exactly five arms × raw/EMA final forecasts")
+        raise ValueError("Expected every configured arm × raw/EMA final forecasts")
     known = set()
     references: dict[str, dict[str, np.ndarray]] = {}
     for row in forecast:
@@ -328,6 +331,7 @@ def draw_january_ema_maps(root, output):
                     rasterized=True,
                 )
                 axes[row, col].set_ylim(-90, 90)
+                axes[row, col].set_aspect("equal")
                 if row == 0:
                     axes[row, col].set_title(
                         (
@@ -359,7 +363,7 @@ def draw_january_ema_maps(root, output):
         plt.close(fig)
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--production", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
@@ -368,7 +372,7 @@ def main():
         type=Path,
         help="Optionally render final January EMA u/v maps at 2.5 and 550 m",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     args.output.mkdir(parents=True, exist_ok=True)
     frame, sources, proofs, checkpoints = load_inputs(args.production)
     for column in ["mean", "member"]:

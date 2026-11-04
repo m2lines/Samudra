@@ -67,6 +67,16 @@ capacity, exact distributed resume, and uncooled fork continuation. The broader
 observation/model suite passed 85 tests before the added fork test, which also
 passes. Relevant pre-commit checks pass.
 
+CPU job `21795066` then checked real data with the frozen code above and completed
+with exit `0:0` in 2m45s. All eight native/Python comparisons passed with zero
+tolerance and matching NaN locations: observation origins May 1993 and January
+2001, plus OM4 window indices 0 and 1 under the [training cohort rules](README.md).
+Each was checked at month offset zero (fresh) and one (the following month's
+targets, with five-day bins anchored at the same origin). Inputs, targets, masks, forcing and
+calendar weights matched. The [receipt](receipts/scaling-v1/real-input-parity.json)
+lists every tensor checked. This establishes real-data parity for those cases;
+GPU prefetch parity and performance remain pending.
+
 Each GPU qualification uses four warmup updates, then replays the same saved
 state through 16 updates with synchronous loading, asynchronous loading, and a
 second synchronous run. Model weights, optimizer, EMA, pending plan, RNG and

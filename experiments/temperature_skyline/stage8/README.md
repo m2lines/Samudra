@@ -14,19 +14,20 @@ Inputs remain continuous. Classification uses ordinary cross-entropy over
 
 | Work | Torch job | Requested allocation | Dependency |
 |---|---:|---|---|
-| Classifier qualification | 21803820 | 8 RTX6000, 10 minutes maximum | none |
-| Regression qualification | 21803824 | 8 RTX6000, 10 minutes maximum | classifier qualification |
-| Classifier continuation | 21803866 | 8 RTX6000, 5 hours | regression qualification |
-| Regression continuation | 21803868 | 8 RTX6000, 5 hours | classifier continuation |
+| Classifier qualification | 21857697 | 8 RTX6000, 10 minutes maximum | none |
+| Regression qualification | 21857698 | 8 RTX6000, 10 minutes maximum | classifier qualification |
+| Classifier continuation | 21857702 | 8 RTX6000, 5 hours | regression qualification |
+| Regression continuation | 21857703 | 8 RTX6000, 5 hours | classifier continuation |
 | Map qualification | 21803870 | 1 H200, 15 minutes maximum | none |
 | Initial-checkpoint maps | 21803874 | 4 H200, 3 hours per allocation | map qualification |
 
-Dependencies require successful completion. All GPU jobs use Torch preemption
-capacity and can requeue. At submission they were queued; no new training or
-map result is claimed here. Both workflows use source `641922718`. Full source and archive hashes, output
-paths, and submission arguments are in `launcher-resubmission.json`; the other
-submission receipts preserve superseded requests. The callback job IDs are
-also recorded in that receipt.
+Dependencies require successful completion. RTX6000 jobs are eligible for both
+`rtx6000_lzanna` and `rtx6000`; H200 jobs use preemptible capacity. All can requeue.
+The November 4 routing change is recorded in `dual-routing.json`. It preserves
+the source, configuration, resources, and output paths from
+`launcher-resubmission.json`; earlier receipts preserve superseded requests.
+Both workflows use source `641922718`. Training is queued, and map qualification
+has passed. No full map or new training result is claimed here.
 
 The first map qualification, 21802680, failed after 45 H200-seconds because the
 container lacked the requested `torchrun` executable. It cached Samudra temperature forecasts for all eight evaluation dates before
@@ -35,11 +36,15 @@ replacement launches through `python -m torch.distributed.run`, verified with
 `--help` inside the same container. The failed attempt cost 0.0125 H200-hours.
 Its dependent map job was cancelled without allocation. The four original
 training jobs were replaced while still queued and consumed no GPU time.
-The new qualification jobs still need to verify GPU execution.
+Replacement map qualification 21803870 completed in 106 seconds and evaluated
+3,344 matched points across all 19 depths. Eight-GPU training qualification
+remains pending.
 
-The continuation budget is 40 allocated GPU-hours per arm. Scheduler accounting
-charges earlier preempted allocations against that budget. Training stops six
-minutes before the budget to allow validation and saving. Qualification and map
+The initial continuation segments target roughly 40 allocated GPU-hours per
+arm. The user clarified that this is a planning scale, not a strict overall
+ceiling. The current runner accounts for preempted allocations and stops six
+minutes before its five-hour segment ends to allow validation and saving.
+Further continuation can depend on data exposure and validation results. Qualification and map
 compute are separate. Utilization telemetry is retained, with no low-utilization
 stop rule. Each qualification exercises eight updates, distributed validation,
 checkpoint writing, and agreement between the eight model replicas.
@@ -95,6 +100,6 @@ OM4 is a model reference, not an observation. Correlated points are not treated
 as independent replicates for confidence intervals.
 
 Validation before submission: 26 focused CPU tests, formatting, linting, typing,
-schema validation, secret scanning, and license checks passed. GPU qualification
-and the scientific assessment remain pending. The same pinned assessment
+schema validation, secret scanning, and license checks passed. Eight-GPU training qualification
+and the full scientific assessment remain pending; the map qualification passed. The same pinned assessment
 protocol is to be repeated with the continuation checkpoints after training.

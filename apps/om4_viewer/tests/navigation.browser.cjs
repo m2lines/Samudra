@@ -38,17 +38,21 @@ const initial={v:1,time:dates[1],calendar:'julian',alignment:'exact',columns:2,b
   await reset();await wheel({deltaY:-1});
   assert.ok(await span()>179,'Tiny scroll must not jump');
   await reset();await wheel({deltaY:-100});
-  assert.ok(await span()>176&&await span()<177,'Wheel notch should zoom moderately');
+  assert.ok(await span()>179&&await span()<180,'Wheel notch should zoom moderately');
   await reset();await wheel({deltaY:-100000});
-  assert.ok(await span()>175,'Huge event is bounded');
+  assert.ok(await span()>178,'Huge event is bounded');
   await reset();await wheel({deltaY:-3,deltaMode:1});const lines=await span();
   await reset();await wheel({deltaY:-48});assert.ok(Math.abs(lines-await span())<1e-8,'Line and pixel units agree');
   await reset();await wheel({deltaY:0});assert.equal(await span(),180);
-  await reset();await wheel({deltaY:-10,ctrlKey:true});
-  assert.ok(await span()>179,'Trackpad pinch remains gradual');
+  // Chromium's encoding of one 20% pinch, and the same pinch split across events.
+  const pinchDelta=-100*Math.log(1.2);
+  await reset();await wheel({deltaY:pinchDelta,ctrlKey:true});
+  assert.ok(Math.abs(await span()-150)<1e-8,'20% pinch produces exactly 20% magnification');
   await reset();
-  for(let i=0;i<60;i++)await wheel({deltaY:-2,ctrlKey:true});
-  assert.ok(await span()>169,'A burst of pinch events must remain gentle');
+  for(let i=0;i<60;i++)await wheel({deltaY:pinchDelta/60,ctrlKey:true});
+  assert.ok(Math.abs(await span()-150)<1e-8,'Pinch scale is independent of event count');
+  await wheel({deltaY:-pinchDelta,ctrlKey:true});
+  assert.ok(Math.abs(await span()-180)<1e-8,'Reverse pinch restores original scale');
   await reset();
   const anchor=()=>page.evaluate(()=>{const r=panels[0].canvas.getBoundingClientRect(),x=(Math.floor(r.left+r.width*.3)-r.left)/r.width,y=(Math.floor(r.top+r.height*.4)-r.top)/r.height;return [bounds[0]+x*(bounds[2]-bounds[0]),bounds[3]-y*(bounds[3]-bounds[1])];});
   const before=await anchor();await wheel({deltaY:-100});
@@ -56,6 +60,9 @@ const initial={v:1,time:dates[1],calendar:'julian',alignment:'exact',columns:2,b
   await reset();
   const cdp=await page.context().newCDPSession(page);
   const box=await page.locator('canvas').first().boundingBox(),x=box.x+box.width/2,y=box.y+box.height/2;
+  await cdp.send('Input.synthesizePinchGesture',{x,y,scaleFactor:1.2,relativeSpeed:100,gestureSourceType:'mouse'});
+  assert.ok(Math.abs(await span()-150)<.01,'Native Chrome trackpad gesture preserves its scale');
+  await reset();
   const touch=(type,points)=>cdp.send('Input.dispatchTouchEvent',{type,touchPoints:points.map(([id,x,y])=>({id,x,y}))});
   await touch('touchStart',[[1,x-40,y],[2,x+40,y]]);
   await touch('touchMove',[[1,x-60,y],[2,x+60,y]]);

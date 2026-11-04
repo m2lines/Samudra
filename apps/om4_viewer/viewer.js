@@ -525,10 +525,11 @@ function attachNavigation(p){
     e.preventDefault();
     if(!Number.isFinite(e.deltaY)||!e.deltaY)return;
     const r=p.canvas.getBoundingClientRect();
-    // Normalize pixel/line/page wheels. Trackpad pinches arrive as Ctrl+wheel.
-    // Keep tiny movements tiny and cap unusually large individual events.
+    // Chrome encodes trackpad pinch scale as deltaY = -100 * log(scale).
+    // Invert that encoding exactly; zoom() takes the reciprocal map-span ratio.
+    // Ordinary scroll has no physical scale, so give it separate gentle tuning.
     const pixels=e.deltaY*(e.deltaMode===1?16:e.deltaMode===2?r.height:1);
-    const change=Math.max(-.025,Math.min(.025,pixels*(e.ctrlKey?.0005:.0002)));
+    const change=e.ctrlKey&&e.deltaMode===0?e.deltaY/100:Math.max(-.01,Math.min(.01,pixels*.00005));
     zoom(Math.exp(change),(e.clientX-r.left)/r.width,(e.clientY-r.top)/r.height);
   },{passive:false});
   p.canvas.addEventListener('pointerdown',e=>{

@@ -9,15 +9,27 @@ GPU performance and utilization remain unqualified. This extends the
 [initial single-GPU qualification](qualification.md). No scientific screening
 or 16k training run has been submitted.
 
-Code commit `aa51d5bfa4e95291333ec73f2314db5ceeef4953` is frozen in a read-only
-overlay for Torch jobs `21794026` (eight RTX GPUs) and `21794028` (one RTX GPU).
-Both were queued at submission on 2026-11-03. Each has a 90-minute allocation
+Replacement code `f3aab652e1f090e2b1385d03de92ba4e04c2a313` is frozen in a read-only
+overlay for Torch jobs `21797129` (one RTX GPU) and `21797131` (eight RTX GPUs).
+Both were submitted on 2026-11-03. The eight-GPU job depends on successful
+completion of the one-GPU qualification. Each has a 90-minute allocation
 limit, preemption-only routing, requeue, and account `torch_pr_347_lzanna`.
 The eight-GPU request has 64 CPU cores and 192 GiB host memory; the one-GPU
 request has eight cores and 96 GiB. Their
-[configs](configs/scaling-v1/) use the large initializer and 50/50 OM4/observation
-training, with global batch eight in both cases. Main training alternates entire
+[configs](configs/scaling-v2/) use the large initializer and 50/50 OM4/observation
+main training, with global batch eight in both cases. Main training alternates entire
 observation and OM4 updates; every cooldown update uses observations.
+
+The first scaling attempt used code `aa51d5bfa4e95291333ec73f2314db5ceeef4953`.
+Job `21794028` completed one observation update, then failed while pinning an
+expanded OM4 validity mask whose tensor storage overlapped. Job `21794026` was
+cancelled before allocation to avoid repeating that failure on eight GPUs.
+The fix materializes contiguous mask values before pinning. A CPU regression
+reproduces the failure and passes with the fix; an early CUDA staging check is
+included in the replacement qualification. The failed attempt consumed
+324 GPU-seconds (0.09 GPU-hours). Its [receipt](receipts/scaling-v1/attempt.json)
+and [first-update metrics](receipts/scaling-v1/failed-1gpu.jsonl) are retained.
+That single warmup update does not support a steady-throughput estimate.
 
 The Rust backend reads native OM4 physical fields directly from the existing
 flat Zarr store. Observation SST, SSH/geostrophic velocities, and eight ERA5
@@ -67,7 +79,8 @@ capacity, exact distributed resume, and uncooled fork continuation. The broader
 observation/model suite passed 85 tests before the added fork test, which also
 passes. Relevant pre-commit checks pass.
 
-CPU job `21795066` then checked real data with the frozen code above and completed
+CPU job `21795066` checked real data with code
+`aa51d5bfa4e95291333ec73f2314db5ceeef4953` and completed
 with exit `0:0` in 2m45s. All eight native/Python comparisons passed with zero
 tolerance and matching NaN locations: observation origins May 1993 and January
 2001, plus OM4 window indices 0 and 1 under the [training cohort rules](README.md).

@@ -488,10 +488,10 @@ def create_app(
         return web.json_response(result)
 
     async def index(request):
-        return web.FileResponse(STATIC / "index.html")
+        return web.FileResponse(STATIC / "index.html", headers={"Cache-Control": "no-cache"})
 
     async def javascript(request):
-        return web.FileResponse(STATIC / "viewer.js")
+        return web.FileResponse(STATIC / "viewer.js", headers={"Cache-Control": "no-cache"})
 
     async def cleanup(app):
         for dataset in datasets:

@@ -528,7 +528,7 @@ function attachNavigation(p){
     // Normalize pixel/line/page wheels. Trackpad pinches arrive as Ctrl+wheel.
     // Keep tiny movements tiny and cap unusually large individual events.
     const pixels=e.deltaY*(e.deltaMode===1?16:e.deltaMode===2?r.height:1);
-    const change=Math.max(-.12,Math.min(.12,pixels*(e.ctrlKey?.004:.001)));
+    const change=Math.max(-.025,Math.min(.025,pixels*(e.ctrlKey?.0005:.0002)));
     zoom(Math.exp(change),(e.clientX-r.left)/r.width,(e.clientY-r.top)/r.height);
   },{passive:false});
   p.canvas.addEventListener('pointerdown',e=>{

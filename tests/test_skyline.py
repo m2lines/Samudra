@@ -454,3 +454,132 @@ def test_support_fit_and_precision_audit(ocean, tmp_path):
         row["persistence_rmse_c"] == pytest.approx(0.4, abs=1e-5)
         for row in result["per_depth"]
     )
+
+
+def test_map_scores_preserve_candidate_independence_and_histogram_units():
+    from samudra.skyline.maps import distribution_scores
+
+    vocab = Vocabulary(np.full(19, 2.0), 5)
+    depth = torch.tensor([0, 1])
+    logits = torch.zeros(2, 5)
+    values = torch.tensor([0.0, 0.0])
+    std = torch.full((19,), 3.0)
+    result = distribution_scores(
+        logits, vocab, depth, {"gold": values, "samudra": values}, std
+    )
+    changed = distribution_scores(
+        logits, vocab, depth, {"gold": values + 99, "samudra": values}, std
+    )
+    for key in result:
+        if key.startswith("samudra"):
+            torch.testing.assert_close(result[key], changed[key])
+    torch.testing.assert_close(result["gold_cdf"], torch.full((2,), 0.5))
+    torch.testing.assert_close(
+        result["gold_bin_nll"], torch.full((2,), np.log(5), dtype=torch.float32)
+    )
+    widths = vocab.edges[depth, 3] - vocab.edges[depth, 2]
+    torch.testing.assert_close(
+        result["gold_density_nll"], result["gold_bin_nll"] + (widths * 3).log()
+    )
+    assert changed["gold_outside"].all()
+    assert torch.isposinf(changed["gold_bin_nll"]).all()
+    torch.testing.assert_close(changed["gold_cdf"], torch.ones(2))
+
+
+def test_detection_metrics_handle_ties_and_rank_direction():
+    from samudra.skyline.map_report import rank_metrics
+
+    error = np.array([0.0, 1.0, 2.0, 3.0])
+    weight = np.ones(4)
+    perfect = rank_metrics(error, error, weight, 1.5)
+    assert perfect["auroc"] == 1
+    assert perfect["average_precision"] == 1
+    assert perfect["spearman"] == pytest.approx(1)
+    reversed_result = rank_metrics(-error, error, weight, 1.5)
+    assert reversed_result["auroc"] == 0
+    tied = rank_metrics(np.ones(4), error, weight, 1.5)
+    assert tied["auroc"] == 0.5
+    assert tied["average_precision"] == 0.5
+    assert tied["spearman"] is None
+    assert tied["top_decile_selected_fraction"] == 1
+
+
+def test_map_plan_uses_test_dates_and_native_wet_points(ocean):
+    from samudra.skyline.maps import evaluation_dates, query_points, region_masks
+
+    config = dict(
+        dates={"assessment": ["2014-10-10"]},
+        map_date="2014-10-10",
+        seed=123,
+        stride=2,
+        points_per_depth=32,
+    )
+    dates = evaluation_dates(ocean, config)
+    assert dates[0]["origin"] == 7
+    assert dates[0]["target_date"] == "2014-10-20"
+    points = query_points(ocean, 0, 7, True, config)
+    assert len(np.unique(points, axis=0)) == len(points)
+    assert ocean.wet[0, points[:, 0], points[:, 1]].all()
+    rows, cols = np.indices((ocean.height, ocean.width))
+    expected = (rows % 2 == 0) & (cols % 2 == 0)
+    for mask in region_masks(ocean).values():
+        expected |= mask
+    np.testing.assert_array_equal(points, np.argwhere(expected & ocean.wet[0]))
+    repeated = dict(
+        config, dates={"calibration": ["2014-10-10"], "assessment": ["2014-10-10"]}
+    )
+    with pytest.raises(ValueError, match="disjoint"):
+        evaluation_dates(ocean, repeated)
+
+
+def test_map_report_keeps_calibration_separate_and_support_failures_visible(
+    tmp_path, monkeypatch
+):
+    from samudra.skyline.map_report import report
+
+    receipt = dict(
+        world_size=1,
+        dates=[
+            dict(origin=1, role="calibration", dense=False),
+            dict(origin=2, role="assessment", dense=True),
+        ],
+    )
+    (tmp_path / "receipt-rank-0.json").write_text(json.dumps(receipt))
+    (tmp_path / "COMPLETE-rank-0.json").write_text("{}")
+    n = 19 * 4
+    data = dict(
+        depth=np.repeat(np.arange(19), 4),
+        origin=np.tile([1, 1, 2, 2], 19),
+        row=np.zeros(n, dtype=int),
+        col=np.tile([0, 1, 0, 1], 19),
+        area=np.ones(n),
+        lat=np.full(n, 30.0),
+        lon=np.full(n, 180.0),
+        global_lattice=np.ones(n, dtype=bool),
+        gold_c=np.zeros(n),
+        samudra_c=np.tile([0.1, 0.2, 1.0, 2.0], 19),
+        regression_c=np.zeros(n),
+        persistence_c=np.zeros(n),
+        classifier_mode_c=np.zeros(n),
+        gold_cdf=np.full(n, 0.5),
+        predictive_std_c=np.ones(n),
+    )
+    for name in ("gold", "samudra"):
+        data[name + "_outside"] = np.zeros(n, dtype=bool)
+        data[name + "_bin_nll"] = np.ones(n)
+        data[name + "_density_nll"] = np.full(n, -1.0)
+    data["gold_outside"][2] = True
+    data["gold_bin_nll"][2] = np.inf
+    data["gold_density_nll"][2] = np.inf
+    data["gold_cdf"][2] = 1
+    np.savez_compressed(tmp_path / "points-0001-00-0000000.npz", **data)
+    monkeypatch.setattr("samudra.skyline.map_report.render", lambda *a: None)
+    report(tmp_path)
+    result = json.loads((tmp_path / "report/summary.json").read_text())
+    assert result["thresholds"][0]["large_error_c"] == pytest.approx(0.2)
+    global_row = result["assessment"][0]
+    assert global_row["gold_outside_fraction"] == 0.5
+    assert global_row["gold_perplexity"] is None
+    assert global_row["gold_in_support_bin_nll"] == 1
+    assert global_row["gold_coverage_90"] == 0.5
+    assert (tmp_path / "COMPLETE.json").exists()

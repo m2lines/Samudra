@@ -88,8 +88,13 @@ def main():
         if manifest_path.exists() and json.loads(manifest_path.read_text()) != manifest:
             raise ValueError("Existing baseline cache has different provenance")
         manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
-        origins = source.origins["validation"]
-        if config["validation_dates"]:
+        if "dates" in config:
+            from .maps import evaluation_dates
+
+            origins = np.array([r["origin"] for r in evaluation_dates(source, config)])
+        else:
+            origins = source.origins["validation"]
+        if "dates" not in config and config["validation_dates"]:
             origins = origins[
                 np.linspace(
                     0,

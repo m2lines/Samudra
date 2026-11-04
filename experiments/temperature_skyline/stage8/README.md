@@ -14,19 +14,28 @@ Inputs remain continuous. Classification uses ordinary cross-entropy over
 
 | Work | Torch job | Requested allocation | Dependency |
 |---|---:|---|---|
-| Classifier qualification | 21802080 | 8 RTX6000, 10 minutes maximum | none |
-| Regression qualification | 21802081 | 8 RTX6000, 10 minutes maximum | classifier qualification |
-| Classifier continuation | 21802082 | 8 RTX6000, 5 hours | regression qualification |
-| Regression continuation | 21802083 | 8 RTX6000, 5 hours | classifier continuation |
-| Map qualification | 21802680 | 1 H200, 15 minutes maximum | none |
-| Initial-checkpoint maps | 21802683 | 4 H200, 3 hours per allocation | map qualification |
+| Classifier qualification | 21803820 | 8 RTX6000, 10 minutes maximum | none |
+| Regression qualification | 21803824 | 8 RTX6000, 10 minutes maximum | classifier qualification |
+| Classifier continuation | 21803866 | 8 RTX6000, 5 hours | regression qualification |
+| Regression continuation | 21803868 | 8 RTX6000, 5 hours | classifier continuation |
+| Map qualification | 21803870 | 1 H200, 15 minutes maximum | none |
+| Initial-checkpoint maps | 21803874 | 4 H200, 3 hours per allocation | map qualification |
 
 Dependencies require successful completion. All GPU jobs use Torch preemption
 capacity and can requeue. At submission they were queued; no new training or
-map result is claimed here. Training source is `a175239b6`; map source is
-`5fd92d681`. Full source hashes, archive hashes, output paths, and submission
-arguments are in the adjacent JSON receipts. CPU callback jobs are 21802113
-(training) and 21802820 (maps).
+map result is claimed here. Both workflows use source `641922718`. Full source and archive hashes, output
+paths, and submission arguments are in `launcher-resubmission.json`; the other
+submission receipts preserve superseded requests. The callback job IDs are
+also recorded in that receipt.
+
+The first map qualification, 21802680, failed after 45 H200-seconds because the
+container lacked the requested `torchrun` executable. It cached Samudra temperature forecasts for all eight evaluation dates before
+failing; no classifier or regression map inference ran. The
+replacement launches through `python -m torch.distributed.run`, verified with
+`--help` inside the same container. The failed attempt cost 0.0125 H200-hours.
+Its dependent map job was cancelled without allocation. The four original
+training jobs were replaced while still queued and consumed no GPU time.
+The new qualification jobs still need to verify GPU execution.
 
 The continuation budget is 40 allocated GPU-hours per arm. Scheduler accounting
 charges earlier preempted allocations against that budget. Training stops six

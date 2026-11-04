@@ -11,10 +11,102 @@ import pytest
 import torch
 import xarray as xr
 
+from samudra.skyline.coverage import (
+    corrected_mean,
+    geometric_groups,
+    proposal_probabilities,
+    sample_coverage,
+)
 from samudra.skyline.data import CHANNELS, OceanSource, audit_support
 from samudra.skyline.model import ModelConfig, PointTransformer, Vocabulary
 from samudra.skyline.precision import audit_precision
 from samudra.skyline.run import FrameStream, evaluate, resume_checkpoint
+from samudra.skyline.stage import merge_validation
+
+
+def test_coverage_corrects_loss_and_gradient_exactly():
+    labels = np.array([0, 0, 0, 0, 1])
+    q = torch.tensor(proposal_probabilities(labels), dtype=torch.float64)
+    assert float(q[-1]) > float(q[0])
+    weights = 1 / (len(labels) * q)
+    assert float(weights.max()) <= 2
+    parameter = torch.tensor(0.4, dtype=torch.float64, requires_grad=True)
+    targets = torch.tensor([-2.0, 0.0, 1.0, 3.0, 8.0], dtype=torch.float64)
+    losses = (parameter - targets).square()
+    base = losses.mean()
+    proposal_expectation = (q * weights * losses).sum()
+    torch.testing.assert_close(base, proposal_expectation)
+    (base_grad,) = torch.autograd.grad(base, parameter, retain_graph=True)
+    (proposal_grad,) = torch.autograd.grad(proposal_expectation, parameter)
+    torch.testing.assert_close(base_grad, proposal_grad)
+    # Weights must be constants for differentiation, even when scores depend on
+    # the current model. Self-normalizing a realized batch would change the loss.
+    weights = torch.tensor([0.2, 1.8], requires_grad=True)
+    x = torch.tensor([2.0, 5.0], requires_grad=True)
+    corrected_mean(x, weights).backward()
+    assert weights.grad is None
+    torch.testing.assert_close(x.grad, torch.tensor([0.1, 0.9]))
+
+
+def test_geometric_coverage_retains_distant_state():
+    x = np.array([[0.0], [0.01], [0.02], [0.03], [20.0]])
+    labels = geometric_groups(x, np.zeros(5, dtype=int), 2)
+    assert labels[-1] not in labels[:-1]
+    q = proposal_probabilities(labels)
+    assert q[-1] > q[0]
+    np.testing.assert_allclose(q.sum(), 1)
+
+
+def test_coverage_target_isolation_and_exact_rng_replay(ocean):
+    config = dict(candidate_pool=128, clusters_per_depth=3, base_fraction=0.5)
+    frame = ocean.read(1)
+    rng = np.random.default_rng(13)
+    state = copy.deepcopy(rng.bit_generator.state)
+    first = sample_coverage(ocean, frame, rng, 8, 3, config)
+    rng.bit_generator.state = state
+    second = sample_coverage(
+        ocean, dict(frame, target=frame["target"] + 100), rng, 8, 3, config
+    )
+    for key in first:
+        if key != "target":
+            torch.testing.assert_close(first[key], second[key])
+    torch.testing.assert_close(second["target"], first["target"] + 100)
+    assert (first["importance"] > 0).all()
+    assert (first["importance"] <= 2).all()
+
+
+def test_validation_merge_uses_squared_errors_and_counts():
+    parts = []
+    for origin, count, error in [(1, 2, 3.0), (2, 6, 5.0)]:
+        parts.append(
+            dict(
+                origins=[origin],
+                per_depth=[
+                    dict(
+                        depth=z,
+                        depth_m=z + 1.0,
+                        count=count,
+                        rmse_c=error,
+                        persistence_rmse_c=2.0,
+                        nmse=error**2,
+                        bias_c=error,
+                        bin_nll=None,
+                        in_support_density_nll=None,
+                        outside_support=None,
+                        quantization_rmse_c=None,
+                        samudra_rmse_c=None,
+                        samudra_nmse=None,
+                    )
+                    for z in range(19)
+                ],
+                mean_depth_bin_nll=None,
+            )
+        )
+    result = merge_validation(parts)
+    assert result["origins"] == [1, 2]
+    assert result["per_depth"][0]["count"] == 8
+    assert result["per_depth"][0]["rmse_c"] == pytest.approx(np.sqrt(21))
+    assert result["mean_depth_nmse"] == 21
 
 
 def test_preemption_resume_policy(tmp_path):

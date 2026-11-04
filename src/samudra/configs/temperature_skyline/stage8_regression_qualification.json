@@ -1,0 +1,47 @@
+{
+  "source": "/scratch/jr7309/data/om4_quarterdeg_v2",
+  "reference_root": "https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/v2026-09/om4_quarterdeg",
+  "support": "/scratch/jr7309/temperature-skyline-20261102/audit-local/support.json",
+  "readers": 4,
+  "torch_threads": 4,
+  "seed": 20261104,
+  "validation_seed": 20261102,
+  "crop": 33,
+  "microbatch": 32,
+  "samples_per_frame": 128,
+  "warmup": 200,
+  "weight_decay": 0.1,
+  "validation_dates": 8,
+  "validation_points_per_depth": 2,
+  "qualification": true,
+  "wandb": true,
+  "model": {
+    "width": 1024,
+    "layers": 16,
+    "heads": 8,
+    "bins": 2048,
+    "objective": "regression",
+    "checkpoint_blocks": true
+  },
+  "preemptible": true,
+  "log_every": 1,
+  "utilization_guard": {
+    "minimum_percent": 60,
+    "warmup_seconds": 120,
+    "window_seconds": 300,
+    "sample_seconds": 5
+  },
+  "world_size": 8,
+  "allocation_seconds": 600,
+  "finish_reserve_seconds": 120,
+  "max_updates": 8,
+  "initial_checkpoint": "/scratch/jr7309/temperature-skyline-20261102/runs/210m-regression-20k-v1/best-error.pt",
+  "learning_rate": 0.0002,
+  "validate_seconds": 100000,
+  "save_seconds": 100000,
+  "coverage": {
+    "candidate_pool": 8192,
+    "clusters_per_depth": 8,
+    "base_fraction": 0.5
+  }
+}

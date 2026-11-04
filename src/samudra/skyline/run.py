@@ -88,7 +88,7 @@ class FrameStream:
 
 
 @torch.no_grad()
-def evaluate(model, vocab, source, config, device, output, step):
+def evaluate(model, vocab, source, config, device, output, step, rank=0, world_size=1):
     model.eval()
     origins = source.origins["validation"]
     limit = config["validation_dates"]
@@ -115,7 +115,15 @@ def evaluate(model, vocab, source, config, device, output, step):
                 raise ValueError(f"Baseline cache mismatch: {key}")
     target_std = torch.tensor(source.std[38:57], device=device)
     sample_records = []
-    for origin in origins:
+    if len(origins) < world_size:
+        raise ValueError("Need at least one validation date per rank")
+    for origin_index, origin in enumerate(origins):
+        if origin_index % world_size != rank:
+            # sample() with explicit depths draws exactly one uniform per point.
+            # Preserve the single-rank location and PIT streams on every rank.
+            rng.random(19 * config["validation_points_per_depth"])
+            pit_rng.uniform(size=19 * config["validation_points_per_depth"])
+            continue
         frame = source.read(int(origin))
         baseline = (
             np.load(baseline_root / f"temperature-{origin:04d}.npy", mmap_mode="r")
@@ -287,7 +295,7 @@ def evaluate(model, vocab, source, config, device, output, step):
         )
     result = {
         "step": step,
-        "origins": origins.tolist(),
+        "origins": origins[rank::world_size].tolist(),
         "per_depth": metrics,
         "mean_depth_nmse": float(np.mean([m["nmse"] for m in metrics])),
         "mean_depth_bin_nll": float(np.mean([m["bin_nll"] for m in metrics]))

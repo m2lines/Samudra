@@ -3,6 +3,52 @@
 
 # Native-resolution latent processor comparison
 
+**Interim result:** native-resolution v2 completed; the matched native small
+control remains pending after a scheduler-reported node failure and automatic
+requeue. Selected v2 EMA blend is **1.06915 at update 4,500**. Compared with the
+coarse-latent small baseline, surface errors improve but deep OHC worsens. The
+matched processor comparison is not complete. Lower blend is better: it equally
+averages the five errors divided by fixed climatology errors. Both runs select
+EMA from the ten checkpoints at updates 500–5,000 under the same 4k+1k budget.
+
+| Selected EMA metric | Coarse 128-channel small baseline | Native 64-channel v2 |
+|---|---:|---:|
+| RMSE blend | 1.06486 | 1.06915 |
+| SST RMSE (°C) | 0.55262 | 0.54064 |
+| Geostrophic velocity RMSE (m/s) | 0.12600 | 0.09865 |
+| EKE RMSE (m²/s²) | 0.020446 | 0.018080 |
+| OHC 0–700 m RMSE (GJ/m²) | 0.81635 | 0.78856 |
+| OHC 700–2000 m RMSE (GJ/m²) | 0.61240 | 0.75100 |
+
+The reference comparison changes latent resolution, channel count and processor
+capacity together. It does not isolate which change caused the differences.
+Both use the same validation cohort and selection metric; these are single-seed
+validation results, not annual held-out scores. Surface metrics average leads
+5/15/30 days, and OHC uses monthly targets.
+
+![Validation curves](assets/native-latent-pair-2026-10-30/validation-curves.png)
+
+Solid lines are EMA, dotted lines raw weights. The plot includes both earlier
+coarse-latent references; the table compares against the small processor only.
+The reference “modest U-Net” uses
+widths 64/128/256 on the coarse latent grid; the new v2 model uses
+280/380/480/520. Cooldown begins at update 4,000. The new model's final EMA blend
+is 1.07753, slightly worse than its selected 4,500 checkpoint. Raw blend at 4,500
+is 1.41389, substantially worse than EMA at that same update.
+
+[Curve data](assets/native-latent-pair-2026-10-30/curves.csv) ·
+[Full v2 validation metrics](assets/native-latent-pair-2026-10-30/v2-results.json) ·
+[W&B](https://wandb.ai/ocean_emulators/observational-transfer/runs/94d147cea4cb).
+
+Production 220346 completed successfully in **3h21m02**, inside its first
+four-hour allocation. All 5,000 updates (3,000 OBS / 2,000 OM4), ten raw/EMA
+receipts and checkpoint hashes were verified. Qualification plus production
+used **14.0433 allocated GPU-hours**. Selected checkpoint SHA256:
+`97c0f50b92cedb853562a94ad6ac0224ee83144086a79a08dc68ccf05a71435d`.
+The v2 completion callback is retired; the small-control monitor remains active.
+
+## Matched experiment protocol
+
 Compare the small convolutional processor and Samudra ConvNeXt U-Net with
 **two 64-channel latent slots on the full 180×360 grid**. Both runs start from
 scratch. This directly compares processors at the same latent resolution and

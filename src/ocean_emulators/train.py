@@ -47,7 +47,14 @@ from ocean_emulators.aggregator.loss import (
     get_depth_loss_dict,
     get_variable_loss_dict,
 )
-from ocean_emulators.aggregator.validate.main import ONE_STEP_LOSS_KEY
+from ocean_emulators.aggregator.validate.main import (
+    ONE_STEP_LOSS_KEY,
+    SURFACE_SNAPSHOT_NAMES,
+)
+from ocean_emulators.aggregator.validate.snapshot import (
+    SNAPSHOT_ZOOM,
+    SnapshotAggregator,
+)
 from ocean_emulators.aggregator.validate.rollout import (
     RolloutValidationAggregator,
     RolloutValidationPlan,
@@ -119,6 +126,7 @@ from ocean_emulators.utils.data import (
     LoadStats,
     Normalize,
     cell_area_weights,
+    get_aggregator_dicts,
     get_inference_steps,
 )
 from ocean_emulators.utils.device import using_gpu
@@ -4686,6 +4694,7 @@ class Trainer:
             loss_fn=self.loss_fn,
             device=self.device,
         )
+        snapshot: MetricsDict = {}
 
         for run, window in enumerate(plan.windows):
             start = window.start_index
@@ -4756,6 +4765,11 @@ class Trainer:
                     del truth
                     metrics = scorer.score(blended, target)
                     aggregator.record_step(step, loss=metrics.loss, rmse=metrics.rmse)
+                    last = run == len(plan.windows) - 1 and step == num_steps - 1
+                    if last and is_main_process():
+                        snapshot = self._rollout_snapshot(
+                            spec.label, blended[:1], target[:1]
+                        )
                     del target
                     state = blended
 
@@ -4778,7 +4792,37 @@ class Trainer:
             spec.label,
             aggregator.n_runs,
         )
-        return dict(aggregator.get_logs(label=spec.label))
+        return {**aggregator.get_logs(label=spec.label), **snapshot}
+
+    def _rollout_snapshot(
+        self, label: str, gen: torch.Tensor, target: torch.Tensor
+    ) -> MetricsDict:
+        """Surface full fields of a rollout's last step, whole tile and zoomed.
+
+        The first tile, as one-step validation images it, and its mask likewise.
+        """
+        wet = self.src.masks.prognostic.to(self.device)
+        gen_data, target_data = (
+            get_aggregator_dicts(
+                data,
+                wet=wet,
+                long_rollout=False,
+                num_prognostic_channels=self.num_out,
+                hist=self.hist,
+            )[1]
+            for data in (gen, target)
+        )
+        images = SnapshotAggregator(
+            self.metadata,
+            self.hist,
+            include_names=SURFACE_SNAPSHOT_NAMES,
+            kinds=("full-field",),
+            zoom=SNAPSHOT_ZOOM,
+            step=f"{label} autoregressive last step",
+        )
+        images.record_batch(None, target_data, gen_data, None, None, None, None)
+        logs = images.get_logs(label=f"{label}-autoregressive-snapshot")
+        return {f"val/{key}": value for key, value in logs.items()}
 
     def _log_rollout_progress(
         self, log_prefix: str, completed: int, num_steps: int, start_time: float
@@ -6327,14 +6371,19 @@ class Trainer:
         self.wandb_logger.finish()
 
 
+def disable_thp_if_requested(cfg: TrainConfig) -> None:
+    """Opt this process out of THP; call before the big allocations so children inherit it."""
+    if not cfg.disable_thp:
+        return
+    PR_SET_THP_DISABLE = 41
+    if ctypes.CDLL(None, use_errno=True).prctl(PR_SET_THP_DISABLE, 1, 0, 0, 0) != 0:
+        raise OSError(ctypes.get_errno(), "prctl(PR_SET_THP_DISABLE) failed")
+
+
 def main():
     # Load config from YAML
     cfg = TrainConfig.from_yaml_and_cli()
-    if cfg.disable_thp:
-        # Before the big allocations; children (loader workers) inherit it.
-        PR_SET_THP_DISABLE = 41
-        if ctypes.CDLL(None, use_errno=True).prctl(PR_SET_THP_DISABLE, 1, 0, 0, 0) != 0:
-            raise OSError(ctypes.get_errno(), "prctl(PR_SET_THP_DISABLE) failed")
+    disable_thp_if_requested(cfg)
     cfg.prepare_output_dirs()  # we do this first so logging can use them
 
     handle_logging(cfg.debug, cfg.experiment.output_dir)

@@ -11,16 +11,29 @@ import pytest
 import torch
 import xarray as xr
 
+from ocean_emulators.face_parallel import assign_tiles
 from ocean_emulators.tiled_eval import (
+    PredictionWriter,
     TiledEval,
     _RolloutBuffers,
     _seam_pairs,
     advance_state,
     apply_perturbation,
+    create_prediction_store,
+    frames_on_disk,
+    output_chunk,
+    owned_slices,
     preblend_disagreement,
+    rank_region,
     resolve_steps_per_write,
 )
-from ocean_emulators.tiling import TileBlender, TileSpec, build_group_layout
+from ocean_emulators.tiling import (
+    TileBlender,
+    TileSpec,
+    build_group_layout,
+    face_tile_windows,
+    tile_catalog_from_windows,
+)
 
 TILE = 23
 OVERLAP = 2
@@ -374,9 +387,6 @@ def test_flush_writes_every_enabled_product_then_releases_the_frames() -> None:
 
     evaluator = object.__new__(TiledEval)
     evaluator._frames_written = 0
-    evaluator._write_canonical = lambda frames, times: calls.append(
-        ("canonical", len(frames), len(times))
-    )
     evaluator._write_preblend = lambda summaries, full, times: calls.append(
         ("preblend", len(summaries), len(times))
     )
@@ -386,20 +396,19 @@ def test_flush_writes_every_enabled_product_then_releases_the_frames() -> None:
 
     buffers = _RolloutBuffers()
     for step in range(7):
-        buffers.canonical.append(np.zeros((2, 4, 4)))
         buffers.times.append(xr.DataArray([step], dims="time"))
         buffers.preblend.append(np.zeros((4, 2, 2)))
     assert len(buffers) == 7
 
     evaluator._flush(buffers, centre=(2, 2))
-    assert calls == [("canonical", 7, 7), ("preblend", 7, 7)]
+    assert calls == [("preblend", 7, 7)]
     assert len(buffers) == 0
-    assert not buffers.canonical and not buffers.preblend
+    assert not buffers.preblend
     assert evaluator._frames_written == 7
 
     # An empty tail flush must not write a zero-length chunk.
     evaluator._flush(buffers, centre=(2, 2))
-    assert len(calls) == 2
+    assert len(calls) == 1
     assert evaluator._frames_written == 7
 
 
@@ -425,3 +434,83 @@ def test_unnormalizing_per_tile_then_stitching_equals_stitching_then_unnormalizi
     per_tile_first = blender.to_canonical(unnormalize(normalized).unsqueeze(0))[0]
     stitch_first = unnormalize(blender.to_canonical(normalized.unsqueeze(0))[0])
     torch.testing.assert_close(per_tile_first, stitch_first)
+
+
+# --------------------------------------------------------------------------
+# Per-rank output
+#
+# Each rank writes the cells its own tiles own straight into the store; rank 0
+# used to gather and stitch the whole 15 GB face on its CPU every step.
+# --------------------------------------------------------------------------
+
+
+def face_layout(extent=4320):
+    return build_group_layout(tile_catalog_from_windows(face_tile_windows(1, extent=extent)))
+
+
+def rank_tiles(layout, world_size, rank):
+    ranks = assign_tiles(layout.num_tiles, world_size, rank).tile_ranks
+    return tuple(tile for tile, owner in enumerate(ranks) if owner == rank)
+
+
+@pytest.mark.parametrize(("extent", "world_size"), [(4320, 4), (4320, 2), (1440, 4), (2880, 1)])
+def test_rank_regions_tile_the_face_on_chunk_boundaries(extent, world_size) -> None:
+    layout = face_layout(extent)
+    regions = [rank_region(layout, rank_tiles(layout, world_size, r)) for r in range(world_size)]
+    covered = np.zeros(layout.canonical_shape, dtype=int)
+    for j0, j1, i0, i1 in regions:
+        covered[j0:j1, i0:i1] += 1
+    assert (covered == 1).all()
+    chunk = output_chunk(regions)
+    assert chunk <= 1080
+    assert all(bound % chunk == 0 for region in regions for bound in region)
+
+
+def test_owned_canvas_matches_the_stitched_blend() -> None:
+    """Taking each cell from its owner equals `to_canonical` once tiles agree."""
+    layout = make_layout()
+    blender = TileBlender(layout, dtype=torch.float64)
+    torch.manual_seed(2)
+    tiles = crop_tiles(torch.randn(3, CANONICAL, CANONICAL, dtype=torch.float64), layout)
+    tiles = blender.blend(tiles)  # any blended state agrees in its overlaps
+    canvas = torch.full((3, CANONICAL, CANONICAL), torch.nan, dtype=torch.float64)
+    for (local, owned), tile in zip(owned_slices(layout, (0, 1, 2, 3)), tiles):
+        canvas[(slice(None), *owned)] = tile[(slice(None), *local)]
+    torch.testing.assert_close(canvas, blender.to_canonical(tiles))
+
+
+def test_ranks_write_their_regions_and_resume_from_the_slowest(tmp_path) -> None:
+    path = tmp_path / "predictions.zarr"
+    names = ["Theta_0", "Eta"]
+    times = xr.DataArray(np.arange(3.0), dims="time")
+    create_prediction_store(
+        path, names=names, times=times, lat=np.arange(8), lon=np.arange(8), chunk=4,
+        attrs={"writer_ranks": "2"},
+    )
+    regions = [(0, 4, 0, 8), (4, 8, 0, 8)]
+    writers = [
+        PredictionWriter(path, names=names, region=region, rank=rank, threads=2)
+        for rank, region in enumerate(regions)
+    ]
+    for frame in range(3):
+        writers[0].submit(torch.full((2, 4, 8), float(frame)), frame)
+    writers[1].submit(torch.full((2, 4, 8), -1.0), 0)
+    for writer in writers:
+        writer.close()
+
+    written = xr.open_zarr(path)
+    assert written.sizes["time"] == 3
+    np.testing.assert_array_equal(written["Eta"][:, :4].values, np.arange(3.0)[:, None, None] * np.ones((3, 4, 8)))
+    np.testing.assert_array_equal(written["Theta_0"][0, 4:].values, -1.0)
+    assert np.isnan(written["Theta_0"][1:, 4:].values).all()  # never written
+    assert frames_on_disk(path) == 1
+
+
+def test_region_straddling_a_chunk_is_refused(tmp_path) -> None:
+    path = tmp_path / "predictions.zarr"
+    create_prediction_store(
+        path, names=["Eta"], times=xr.DataArray(np.arange(1.0), dims="time"),
+        lat=np.arange(8), lon=np.arange(8), chunk=4, attrs={"writer_ranks": "1"},
+    )
+    with pytest.raises(ValueError, match="straddles"):
+        PredictionWriter(path, names=["Eta"], region=(0, 6, 0, 8), rank=0)

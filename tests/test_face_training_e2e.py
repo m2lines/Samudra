@@ -457,6 +457,11 @@ def test_face_validation_reports_the_whole_face_for_every_horizon(face_root) -> 
         for metric in ("loss", "rmse"):
             key = f"val/mean/{label}-autoregressive-{metric}"
             assert np.isfinite(rollouts[key]) and rollouts[key] > 0, key
+    # Surface images of the last rollout step, whole tile and zoomed, like one-step's.
+    assert "val/snapshot/image-full-field-zoom/Theta_0" in one_step
+    for label in ("short", "long"):
+        for kind in ("full-field", "full-field-zoom"):
+            assert f"val/{label}-autoregressive-snapshot/image-{kind}/Theta_0" in rollouts
 
 
 def test_face_rollout_matches_the_established_grouped_rollout(

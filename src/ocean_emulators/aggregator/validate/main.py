@@ -3,7 +3,10 @@ import torch
 from ocean_emulators.aggregator.train import TrainAggregator
 from ocean_emulators.aggregator.validate.map import MapAggregator
 from ocean_emulators.aggregator.validate.reduced import MeanAggregator
-from ocean_emulators.aggregator.validate.snapshot import SnapshotAggregator
+from ocean_emulators.aggregator.validate.snapshot import (
+    SNAPSHOT_ZOOM,
+    SnapshotAggregator,
+)
 from ocean_emulators.aggregator.validate.sub_aggregator import ValidateSubAggregator
 from ocean_emulators.constants import DEPTH_I_LEVELS
 from ocean_emulators.utils.data import Normalize, get_aggregator_dicts
@@ -47,6 +50,7 @@ class ValidateAggregator(TrainAggregator):
                 metadata,
                 hist,
                 include_names=snapshot_names,
+                zoom=SNAPSHOT_ZOOM if surface_snapshot else None,
             ),
         }
         # In surface-snapshot mode, one-step validation reports only its mean

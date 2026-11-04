@@ -18,37 +18,48 @@ schema of the main one:
 * ``preblend.zarr``     -- pre-blend tile-to-tile disagreement (opt-in).
 * ``perturbation.zarr`` -- far-field perturbation response (opt-in).
 
-Every store is written incrementally, appending along ``time`` once every
-``num_model_steps_forward`` steps, exactly as `Stepper.inference` does for the
-single-tile path. Holding a whole rollout would be hopeless: one canonical frame
-of the full prognostic stack is 205 x 720 x 720 float32 = 425 MB, so a month at
-hourly stride is ~178 GB.
+Holding a whole rollout would be hopeless: one canonical frame of a whole face
+is 205 x 4320 x 4320 float32 = 15 GB. So ``predictions.zarr`` is laid out for
+every frame up front and each rank writes the cells its own tiles own, on a
+background thread, every step -- nothing is gathered. The diagnostic stores
+append along ``time`` every ``num_model_steps_forward`` steps.
+
+Frames are read from a packed cache with the training `GroupFrameReader`
+(float16, each chunk decoded once, one step ahead of the GPU); other stores
+fall back to per-tile `InferenceDataset` reads.
 """
 
 import dataclasses
 import datetime
 import logging
+import math
 import os
 import time
 from collections import OrderedDict
+from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
 
+import dask.array
 import numpy as np
 import torch
 import torch.distributed as dist
 import xarray as xr
+import zarr
 
 from ocean_emulators.backend import init_eval_backend
+from ocean_emulators.chunk_reader import GroupFrameReader
 from ocean_emulators.config import EvalConfig
 from ocean_emulators.constants import BOUNDARY_VARS, PROGNOSTIC_VARS, TensorMap
 from ocean_emulators.datasets import InferenceDataset
 from ocean_emulators.face_parallel import assign_tiles
+from ocean_emulators.face_validation import ReadAhead
 from ocean_emulators.tile_diagnostics import response_by_distance
 from ocean_emulators.tiling import (
     DistributedTileBlender,
     TileBlender,
     build_group_layout,
     build_tile_catalog,
+    ownership_boxes,
     tile_catalog_from_windows,
     validate_tile_group,
 )
@@ -89,13 +100,12 @@ class _SeamPair:
 
 @dataclasses.dataclass
 class _RolloutBuffers:
-    """One write-chunk's worth of frames, held only until the next flush.
+    """One write-chunk's worth of diagnostics, held only until the next flush.
 
     Every list is keyed by the same time axis, so `times` alone measures how many
     steps are pending.
     """
 
-    canonical: list[np.ndarray] = dataclasses.field(default_factory=list)
     times: list[xr.DataArray] = dataclasses.field(default_factory=list)
     preblend: list[np.ndarray] = dataclasses.field(default_factory=list)
     preblend_full: list[dict[str, np.ndarray]] = dataclasses.field(default_factory=list)
@@ -106,7 +116,6 @@ class _RolloutBuffers:
         return len(self.times)
 
     def clear(self) -> None:
-        self.canonical.clear()
         self.times.clear()
         self.preblend.clear()
         self.preblend_full.clear()
@@ -234,6 +243,181 @@ def advance_state(
     return state
 
 
+def owned_slices(
+    layout, tiles: tuple[int, ...], *, origin: tuple[int, int] = (0, 0)
+) -> list[tuple[tuple[slice, slice], tuple[slice, slice]]]:
+    """``(tile-local, canvas)`` slices of the cells each of ``tiles`` owns, on a
+    canvas whose corner sits at canonical ``origin``."""
+    boxes = ownership_boxes(layout)
+    pieces = []
+    for index in tiles:
+        j0, j1, i0, i1 = boxes[index]
+        cj, _, ci, _ = layout.canonical_bounds(layout.tiles[index])
+        cj, ci = cj - origin[0], ci - origin[1]
+        pieces.append(
+            (
+                (slice(j0, j1), slice(i0, i1)),
+                (slice(cj + j0, cj + j1), slice(ci + i0, ci + i1)),
+            )
+        )
+    return pieces
+
+
+def rank_region(layout, tiles: tuple[int, ...]) -> tuple[int, int, int, int]:
+    """Canonical ``(j0, j1, i0, i1)`` covered by the cells ``tiles`` own.
+
+    The ownership boxes tile the canvas exactly, so a contiguous block of tiles
+    -- which `assign_tiles` hands every rank -- owns a rectangle.
+    """
+    pieces = [canonical for _, canonical in owned_slices(layout, tiles)]
+    j0 = min(rows.start for rows, _ in pieces)
+    j1 = max(rows.stop for rows, _ in pieces)
+    i0 = min(cols.start for _, cols in pieces)
+    i1 = max(cols.stop for _, cols in pieces)
+    area = sum((rows.stop - rows.start) * (cols.stop - cols.start) for rows, cols in pieces)
+    if area != (j1 - j0) * (i1 - i0):
+        raise ValueError(f"Tiles {tiles} do not own a rectangle; ranks cannot write it as one region.")
+    return j0, j1, i0, i1
+
+
+def output_chunk(regions, *, cap: int = 1080) -> int:
+    """Spatial chunk edge of ``predictions.zarr``.
+
+    Ranks write concurrently, so no chunk may straddle two ranks' regions: the
+    edge must divide every region boundary. The largest such edge up to ``cap``
+    keeps chunks at a few MB.
+    """
+    edge = math.gcd(*(bound for region in regions for bound in region))
+    return max(size for size in range(1, min(edge, cap) + 1) if edge % size == 0)
+
+
+def create_prediction_store(
+    path: Path,
+    *,
+    names: list[str],
+    times: xr.DataArray,
+    lat: np.ndarray,
+    lon: np.ndarray,
+    chunk: int,
+    attrs: dict[str, str],
+) -> None:
+    """Lay out every frame of the rollout up front; ranks fill their regions.
+
+    Unwritten chunks read back as NaN, the fill value, so a cut-short run is
+    padded rather than truncated; its progress markers say how far it got.
+    """
+    lazy = dask.array.full(
+        (times.size, lat.size, lon.size),
+        np.nan,
+        dtype=np.float32,
+        chunks=(1, chunk, chunk),
+    )
+    dataset = xr.Dataset(
+        {name: (["time", "lat", "lon"], lazy) for name in names},
+        coords={"time": times, "lat": lat, "lon": lon},
+        attrs=attrs,
+    )
+    # compute=False writes metadata and coords but no data chunk.
+    dataset.to_zarr(
+        path, mode="w-", compute=False, encoding={"time": {"dtype": "float64"}}
+    )
+    logger.info("Created %s (%d frames, %d-cell chunks)", path, times.size, chunk)
+
+
+def _progress_path(path: Path, rank: int) -> Path:
+    return path.with_suffix(".progress") / f"rank{rank}"
+
+
+def frames_on_disk(path: Path) -> int:
+    """Frames every writer rank finished, from their progress markers."""
+    ranks = zarr.open_group(str(path), mode="r").attrs.get("writer_ranks")
+    if ranks is None:
+        raise ValueError(
+            f"{path} was written by the old rank-0 appending writer and cannot "
+            "be resumed by this one; start a fresh experiment."
+        )
+    done = []
+    for rank in range(int(ranks)):
+        marker = _progress_path(path, rank)
+        done.append(int(marker.read_text()) if marker.exists() else 0)
+    return min(done)
+
+
+class PredictionWriter:
+    """This rank's region of ``predictions.zarr``, written behind the rollout.
+
+    A frame goes GPU -> pinned host -> zarr on a background thread, so the GPU
+    keeps stepping while the last frame compresses and lands. Two host buffers:
+    a third frame waits for the first to land, which bounds memory when the
+    store is slower than the model.
+    """
+
+    def __init__(
+        self,
+        path: Path,
+        *,
+        names: list[str],
+        region: tuple[int, int, int, int],
+        rank: int,
+        threads: int = 8,
+    ) -> None:
+        group = zarr.open_group(str(path), mode="r+")
+        self.arrays = [group[name] for name in names]
+        self.region = region
+        j0, j1, i0, i1 = region
+        rows, cols = self.arrays[0].chunks[1:]
+        if j0 % rows or j1 % rows or i0 % cols or i1 % cols:
+            raise ValueError(
+                f"Region {region} straddles {path}'s {rows}x{cols} chunks, so two "
+                "ranks would race on a chunk; resume with the original world size."
+            )
+        self.progress = _progress_path(path, rank)
+        self.progress.parent.mkdir(exist_ok=True)
+        pin = torch.cuda.is_available()
+        self._host = [
+            torch.empty((len(names), j1 - j0, i1 - i0), pin_memory=pin)
+            for _ in range(2)
+        ]
+        self._pending: list[Future | None] = [None, None]
+        self._writer = ThreadPoolExecutor(max_workers=1, thread_name_prefix="pred_write")
+        self._pool = ThreadPoolExecutor(max_workers=threads, thread_name_prefix="pred_chunk")
+        self.wait_seconds = 0.0
+
+    def submit(self, canvas: torch.Tensor, frame: int) -> None:
+        """Queue ``canvas`` ``[C, H, W]`` (any device) as time index ``frame``."""
+        slot = frame % 2
+        if self._pending[slot] is not None:
+            waited = time.perf_counter()
+            self._pending[slot].result()
+            self.wait_seconds += time.perf_counter() - waited
+        self._host[slot].copy_(canvas, non_blocking=True)
+        ready = None
+        if canvas.is_cuda:
+            ready = torch.cuda.Event()
+            ready.record()
+        self._pending[slot] = self._writer.submit(self._write, slot, frame, ready)
+
+    def _write(self, slot: int, frame: int, ready) -> None:
+        if ready is not None:
+            ready.synchronize()
+        host = self._host[slot].numpy()
+        j0, j1, i0, i1 = self.region
+
+        def put(index: int) -> None:
+            self.arrays[index][frame, j0:j1, i0:i1] = host[index]
+
+        list(self._pool.map(put, range(len(self.arrays))))
+        # One writer thread lands frames in order, so this count only grows.
+        self.progress.write_text(str(frame + 1))
+
+    def close(self) -> None:
+        for future in self._pending:
+            if future is not None:
+                future.result()
+        self._writer.shutdown()
+        self._pool.shutdown()
+
+
 class TiledEval:
     def __init__(self, cfg: EvalConfig) -> None:
         cfg.prepare_output_dirs()
@@ -307,9 +491,9 @@ class TiledEval:
             sorted(set(self.layout.overlaps.values())),
         )
 
-        # Under torchrun each rank steps a contiguous block of the tiles and
-        # trades only the seams with the others; rank 0 gathers the blended
-        # tiles to stitch and write. One rank owns every tile.
+        # Under torchrun each rank steps a contiguous block of the tiles, trades
+        # only the seams with the others, and writes the cells its tiles own.
+        # One rank owns every tile.
         self.world_size, self.rank = get_world_size(), get_rank()
         self.tile_ranks = (0,) * self.layout.num_tiles
         if self.world_size > 1:
@@ -318,11 +502,6 @@ class TiledEval:
             ).tile_ranks
         self.local_tiles = tuple(
             tile for tile, owner in enumerate(self.tile_ranks) if owner == self.rank
-        )
-        # The order `dist.gather` concatenates tiles in: by rank, then by tile.
-        self._gather_order = sorted(
-            range(self.layout.num_tiles),
-            key=lambda tile: (self.tile_ranks[tile], tile),
         )
         if self.world_size > 1 and (
             cfg.tiling.preblend_mode != "none" or cfg.tiling.perturbation
@@ -409,24 +588,23 @@ class TiledEval:
         self.local_wet = [self.tile_wet[index] for index in self.local_tiles]
         self.seam_pairs = _seam_pairs(self.layout)
 
-        # Land on the stitched canvas. The rollout keeps land at 0 in normalized
-        # space (advance_state remasks per tile), but the SAVED field has to say
-        # so too, and `Normalize`'s mask is only sources[0]'s -- which is all
-        # ocean here, so relying on it wrote the channel mean over every land
-        # cell of the other tiles. Stitched rather than masked per tile because
-        # `to_canonical` is a weighted SUM: a NaN in a tile multiplied by weight
-        # 0 is still NaN, so masking before the stitch poisons the whole canvas.
-        with torch.no_grad():
-            stitched = self.blender.to_canonical(
-                torch.stack([wet.to(torch.float32) for wet in self.tile_wet])
-                .unsqueeze(0)
-            )[0]
-        self.canonical_wet = (stitched > 0.5).cpu()
-        # Each tile's own mask, on the host where the output is unnormalized.
-        self.stitch_wet = torch.stack(self.tile_wet).cpu()
+        # The output canvas. Blended tiles agree in their overlaps, so the
+        # stitched face is just every cell taken from the tile that owns it, and
+        # each rank can write its own share. Land is NaN by each tile's OWN mask
+        # (`Normalize`'s is only sources[0]'s); the masks agree in overlaps.
+        self.region = rank_region(self.layout, self.local_tiles)
+        self.owned = owned_slices(self.layout, self.local_tiles, origin=self.region[::2])
+        self.output_chunk = output_chunk(
+            [
+                rank_region(
+                    self.layout,
+                    tuple(t for t, r in enumerate(self.tile_ranks) if r == owner),
+                )
+                for owner in range(self.world_size)
+            ]
+        )
         logger.info(
-            "Canonical wet fraction %.4f (land written as NaN)",
-            float(self.canonical_wet.to(torch.float32).mean()),
+            "Rank %d writes canonical region j[%d:%d) i[%d:%d)", self.rank, *self.region
         )
         logger.info(
             "Blend %s with window=%r; seams: %s",
@@ -462,6 +640,8 @@ class TiledEval:
         if len(lengths) != 1:
             raise ValueError(f"Tiles disagree on rollout length: {sorted(lengths)}")
 
+        self.frame_reader = self._open_frame_reader()
+
         self.output_dir = Path(cfg.experiment.output_dir)
         self.tile_shape = self.layout.tiles[0].shape
         self._created_stores: set[str] = set()
@@ -470,6 +650,57 @@ class TiledEval:
     # ------------------------------------------------------------------
     # setup helpers
     # ------------------------------------------------------------------
+
+    def _open_frame_reader(self) -> GroupFrameReader | None:
+        """Training's chunk-streaming reader over this rank's tiles, if it applies.
+
+        It reads the packed cache's float16 chunks once each, rather than every
+        tile reopening a window that straddles nine chunks through xarray and
+        upcasting on the host. Anything else reads per tile.
+        """
+        windows = self.data_container.replay_windows
+        locations = self.data_container.replay_locations or [None]
+        path = getattr(locations[0], "path", None)
+        packed = False
+        if windows and path is not None and self.cfg.data.boundary_data_location is None:
+            try:
+                group = zarr.open_group(str(path), mode="r")
+                packed = all(group[name].ndim == 4 for name in ("prognostic", "boundary"))
+            except (KeyError, ValueError, zarr.errors.GroupNotFoundError):
+                packed = False
+        if not packed or self.hist != 0:
+            logger.info("Reading frames per tile through InferenceDataset")
+            return None
+        return GroupFrameReader(
+            str(path),
+            windows=[windows[index] for index in self.local_tiles],
+            prognostic_var_names=self.prognostic_var_names,
+            boundary_var_names=self.boundary_var_names,
+            threads=self.cfg.tiling.read_threads,
+        )
+
+    def _pinned(self, frames: list[torch.Tensor]) -> list[torch.Tensor]:
+        """Pin a read on its reader thread, so the H2D copy can be async."""
+        if self.device.type != "cuda":
+            return frames
+        return [frame.pin_memory() for frame in frames]
+
+    def _read_boundary(self, step: int) -> list[torch.Tensor]:
+        """This rank's forcing for ``step``, per tile, on the host; thread-safe."""
+        if self.frame_reader is None:
+            return [dataset._get_boundary(step) for dataset in self.datasets]
+        input_time = self.datasets[0].window_times(step)[0]
+        return self._pinned(self.frame_reader.read_boundary(input_time))
+
+    def _initial_state(self) -> list[torch.Tensor]:
+        if self.frame_reader is None:
+            return [dataset.initial_prognostic.to(self.device) for dataset in self.datasets]
+        input_time = self.datasets[0].window_times(0)[0]
+        frames = self.frame_reader.read_prognostic(input_time)
+        return [
+            dataset.prepare_frame(frame.to(self.device))
+            for dataset, frame in zip(self.datasets, frames, strict=True)
+        ]
 
     def _open_raw_caches(self) -> list[xr.Dataset]:
         """Open the packed stores behind each replay source, in the same order."""
@@ -514,38 +745,32 @@ class TiledEval:
     # rollout
     # ------------------------------------------------------------------
 
-    def _predict(self, state: torch.Tensor, step: int) -> tuple[torch.Tensor, torch.Tensor]:
+    def _predict(
+        self, state: list[torch.Tensor], step: int, boundaries: list[torch.Tensor]
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """One model call per tile. Returns ``(residuals, inputs)``, both stacked."""
         inputs, residuals = [], []
         for index, dataset in enumerate(self.datasets):
+            boundary = boundaries[index].to(self.device, non_blocking=True)
+            if self.frame_reader is not None:
+                boundary = dataset.prepare_frame(boundary, boundary=True)
             model_input = dataset.merge_prognostic_and_boundary(
-                prognostic=state[index], step=step
+                prognostic=state[index], step=step, boundary=boundary
             ).to(self.device)
             prediction = self.model.predict_step(model_input)
             inputs.append(model_input)
             residuals.append(prediction - model_input[:, : self.num_out])
         return torch.cat(residuals, dim=0), torch.cat(inputs, dim=0)
 
-    def _gather_tiles(self, local: torch.Tensor) -> torch.Tensor | None:
-        """Every tile, in layout order, on rank 0's host; ``None`` on the others.
-
-        Reordered on the host, which has room for the whole face; stitching
-        already happens there.
-        """
-        if self.world_size == 1:
-            return local
-        buckets = (
-            [torch.empty_like(local) for _ in range(self.world_size)]
-            if self.rank == 0
-            else None
-        )
-        dist.gather(local.contiguous(), buckets, dst=0)
-        if buckets is None:
-            return None
-        gathered = torch.cat([bucket.cpu() for bucket in buckets])
-        tiles = torch.empty_like(gathered)
-        tiles[self._gather_order] = gathered
-        return tiles
+    def _owned_canvas(self, tiles: torch.Tensor, canvas: torch.Tensor) -> torch.Tensor:
+        """Fill ``canvas`` with this rank's region: unnormalized, land NaN, on GPU."""
+        for (local, owned), tile, wet in zip(self.owned, tiles, self.local_wet, strict=True):
+            canvas[(slice(None), *owned)] = self.normalize.unnormalize_tensor_prognostic(
+                tile[(slice(None), *local)],
+                fill_value=float("nan"),
+                wet=wet[(slice(None), *local)],
+            )
+        return canvas
 
     def _resume_state(self) -> tuple[list[torch.Tensor], int]:
         """This rank's tiles cut from the last saved frame, and the next step.
@@ -557,9 +782,11 @@ class TiledEval:
         if self.hist != 0:
             raise ValueError("resume needs hist=0; one saved frame is not a history")
         path = self.output_dir / "predictions.zarr"
+        start = frames_on_disk(path)
+        if start == 0:
+            raise ValueError(f"{path} holds no complete frame; rerun without resume")
         saved = xr.open_zarr(path, consolidated=False)
-        start = saved.sizes["time"]
-        frame = saved[list(self.tensor_map.prognostic_var_names)].isel(time=-1)
+        frame = saved[list(self.tensor_map.prognostic_var_names)].isel(time=start - 1)
         state = []
         for index in self.local_tiles:
             j0, j1, i0, i1 = self.layout.canonical_bounds(self.layout.tiles[index])
@@ -581,31 +808,89 @@ class TiledEval:
         started = time.perf_counter()
         cfg = self.cfg
 
-        state = [
-            dataset.initial_prognostic.to(self.device) for dataset in self.datasets
-        ]
         start = 0
         if cfg.tiling.resume:
             state, start = self._resume_state()
-        num_steps = min(self.num_steps, len(self.datasets[0]))
+        else:
+            state = self._initial_state()
+        # The store holds the whole window; max_steps only stops early.
+        total_steps = min(self.num_steps, len(self.datasets[0]))
+        num_steps = min(total_steps, cfg.tiling.max_steps or total_steps)
         steps_per_write = resolve_steps_per_write(cfg.num_model_steps_forward, num_steps)
         logger.info(
-            "Rolling out %d steps over %d tiles, appending to zarr every %d steps",
+            "Rolling out %d steps over %d tiles on this rank, writing every step",
             num_steps,
             len(state),
-            steps_per_write,
         )
+        predictions = self.output_dir / "predictions.zarr"
         if not cfg.tiling.resume:
             self._check_stores_are_writable()
+            if self.world_size > 1:
+                # Every rank checks before rank 0 creates the store.
+                dist.barrier()
+            if self.rank == 0:
+                coords = self._canonical_coords()
+                create_prediction_store(
+                    predictions,
+                    names=list(self.tensor_map.prognostic_var_names),
+                    times=self.datasets[0].get_target_time(0, total_steps),
+                    lat=coords["lat"],
+                    lon=coords["lon"],
+                    chunk=self.output_chunk,
+                    attrs={
+                        "model_path": str(cfg.ckpt_path),
+                        "blend": str(cfg.tiling.blend),
+                        "window": cfg.tiling.window,
+                        "ramp_width": str(cfg.tiling.ramp_width),
+                        "writer_ranks": str(self.world_size),
+                    },
+                )
+            if self.world_size > 1:
+                dist.barrier()
+        writer = PredictionWriter(
+            predictions,
+            names=list(self.tensor_map.prognostic_var_names),
+            region=self.region,
+            rank=self.rank,
+            threads=cfg.tiling.write_threads,
+        )
+        j0, j1, i0, i1 = self.region
+        canvas = torch.empty((self.num_out, j1 - j0, i1 - i0), device=self.device)
 
         buffers = _RolloutBuffers()
         perturb_centre = self._perturbation_centre()
+        diagnostics = cfg.tiling.preblend_mode != "none" or cfg.tiling.perturbation
+        reads = ReadAhead(
+            [lambda step=step: self._read_boundary(step) for step in range(start, num_steps)],
+            depth=2,
+        )
+        frames = iter(reads)
+        read_wait = 0.0
+        window_start, window_first = time.perf_counter(), start
+        loop_start = None
 
         for step in range(start, num_steps):
-            if step % 10 == 0:
-                logger.info("Rollout step %d of %d", step, num_steps - 1)
+            if step == start + 1:
+                loop_start = time.perf_counter()
+            if step > start and step % 10 == 0:
+                now = time.perf_counter()
+                logger.info(
+                    "Rollout step %d of %d: %.2f s/step (read wait %.1f s, write "
+                    "wait %.1f s since step %d)",
+                    step,
+                    num_steps - 1,
+                    (now - window_start) / (step - window_first),
+                    read_wait,
+                    writer.wait_seconds,
+                    window_first,
+                )
+                window_start, window_first = now, step
+                read_wait, writer.wait_seconds = 0.0, 0.0
 
-            residuals, inputs = self._predict(state, step)
+            waited = time.perf_counter()
+            boundaries = next(frames)
+            read_wait += time.perf_counter() - waited
+            residuals, inputs = self._predict(state, step, boundaries)
 
             if cfg.tiling.preblend_mode != "none":
                 summary, bands = preblend_disagreement(
@@ -633,47 +918,42 @@ class TiledEval:
                 blend=cfg.tiling.blend,
             )
             state = [next_state[index : index + 1] for index in range(len(state))]
-            next_state = self._gather_tiles(next_state)
-            if next_state is None:
-                continue
 
-            # Unnormalize per tile, then stitch: unnormalization is affine per
-            # channel while the blend is a weighted mean with weights summing to
-            # one, so the two commute. (The tile masks were verified to agree
-            # exactly in every overlap, so a land cell is never averaged against
-            # a live one.)
-            #
-            # Each tile is filled with its OWN mask: Normalize's default is
-            # sources[0]'s, which on a whole face has land, and stamped 0 over
-            # that land's footprint in every other tile. Land is then set to NaN
-            # on the canvas with `canonical_wet`.
-            unnormalized = self.normalize.unnormalize_tensor_prognostic(
-                next_state.cpu(), fill_value=0.0, wet=self.stitch_wet
-            )
-            canonical = self.blender.to_canonical(unnormalized.unsqueeze(0))[0]
-            canonical = torch.where(
-                self.canonical_wet, canonical, torch.nan
-            )
-            buffers.canonical.append(canonical.numpy())
-            buffers.times.append(self.datasets[0].get_target_time(step, 1))
+            # Blended tiles already agree in their overlaps. Unblended (the
+            # hard-crop control) ones do not, and the saved field has always
+            # been their windowed mean, so blend a copy for output only.
+            output = next_state if cfg.tiling.blend else self.step_blender.blend(next_state)
+            writer.submit(self._owned_canvas(output, canvas), step)
 
-            if len(buffers) >= steps_per_write:
-                self._flush(buffers, centre=perturb_centre)
+            if diagnostics:
+                buffers.times.append(self.datasets[0].get_target_time(step, 1))
+                if len(buffers) >= steps_per_write:
+                    self._flush(buffers, centre=perturb_centre)
 
+        frames.close()
         # The rollout length need not divide the write interval; the tail is a
         # short chunk rather than a lost one.
         self._flush(buffers, centre=perturb_centre)
+        writer.close()
         if self.world_size > 1:
-            # NCCL calls only enqueue, so a rank that writes nothing reaches here
-            # with its last step still in flight; leaving would strand rank 0.
+            # NCCL calls only enqueue, so a rank that finishes first reaches
+            # here with its last step still in flight; leaving would strand the rest.
             dist.barrier()
 
-        elapsed = str(datetime.timedelta(seconds=int(time.perf_counter() - started)))
+        finished = time.perf_counter()
+        elapsed = str(datetime.timedelta(seconds=int(finished - started)))
         logger.info(
             "Tiled inference finished in %s; %d frames written",
             elapsed,
-            self._frames_written,
+            num_steps - start,
         )
+        if loop_start is not None and num_steps - start > 1:
+            # Excludes the first step, which pays for cuDNN autotuning and warm-up.
+            logger.info(
+                "Steady state: %.2f s/step over %d steps",
+                (finished - loop_start) / (num_steps - start - 1),
+                num_steps - start - 1,
+            )
 
     # ------------------------------------------------------------------
     # flushing
@@ -684,8 +964,7 @@ class TiledEval:
         if not buffers.times:
             return
         first = self._frames_written
-        logger.info("Writing to zarr: frames %d-%d", first, first + len(buffers) - 1)
-        self._write_canonical(buffers.canonical, buffers.times)
+        logger.info("Writing diagnostics: frames %d-%d", first, first + len(buffers) - 1)
         if buffers.preblend:
             self._write_preblend(buffers.preblend, buffers.preblend_full, buffers.times)
         if buffers.response_curves:
@@ -764,30 +1043,6 @@ class TiledEval:
             "lat": np.arange(origin_j, origin_j + height),
             "lon": np.arange(origin_i, origin_i + width),
         }
-
-    def _write_canonical(
-        self, frames: list[np.ndarray], times: list[xr.DataArray]
-    ) -> None:
-        stacked = np.stack(frames)  # already unnormalized
-        coords = self._canonical_coords()
-        dataset = xr.Dataset(
-            {
-                name: (["time", "lat", "lon"], stacked[:, index])
-                for index, name in enumerate(self.tensor_map.prognostic_var_names)
-            },
-            coords={
-                "time": xr.concat(times, dim="time"),
-                "lat": coords["lat"],
-                "lon": coords["lon"],
-            },
-        )
-        dataset.attrs.update(
-            model_path=str(self.cfg.ckpt_path),
-            blend=str(self.cfg.tiling.blend),
-            window=self.cfg.tiling.window,
-            ramp_width=str(self.cfg.tiling.ramp_width),
-        )
-        self._to_zarr(dataset, "predictions.zarr")
 
     def _write_preblend(
         self,

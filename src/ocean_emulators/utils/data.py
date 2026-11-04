@@ -625,8 +625,8 @@ class DataSource:
         else:
             stds_np = self.stds.to_array().to_numpy().reshape(-1)
 
-        means = torch.from_numpy(means_np).reshape(reshape_vars)
-        stds = torch.from_numpy(stds_np).reshape(reshape_vars)
+        means = torch.from_numpy(means_np).reshape(reshape_vars).to(data.device)
+        stds = torch.from_numpy(stds_np).reshape(reshape_vars).to(data.device)
 
         norm = (data - means) / stds
         if fill_nan:

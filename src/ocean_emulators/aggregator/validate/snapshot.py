@@ -4,6 +4,9 @@ from ocean_emulators.aggregator.plotting import plot_paneled_data
 from ocean_emulators.aggregator.validate.sub_aggregator import ValidateSubAggregator
 from ocean_emulators.utils.wandb import Metrics
 
+#: Side, in cells, of the central box the zoomed full-field images show.
+SNAPSHOT_ZOOM = 50
+
 
 class SnapshotAggregator(ValidateSubAggregator):
     """
@@ -12,15 +15,19 @@ class SnapshotAggregator(ValidateSubAggregator):
 
     _captions = {
         "full-field": (
-            "{name} one step full field for last sample; "
+            "{name} {step} full field for last sample; "
+            "(top) generated and (bottom) target [{units}]"
+        ),
+        "full-field-zoom": (
+            "{name} {step} full field, central {zoom}x{zoom} cells, for last sample; "
             "(top) generated and (bottom) target [{units}]"
         ),
         "residual": (
-            "{name} one step residual (prediction - previous time) for last sample; "
+            "{name} {step} residual (prediction - previous time) for last sample; "
             "(top) generated and (bottom) target [{units}]"
         ),
         "error": (
-            "{name} one step full field error (generated - target) "
+            "{name} {step} full field error (generated - target) "
             "for last sample [{units}]"
         ),
     }
@@ -30,16 +37,26 @@ class SnapshotAggregator(ValidateSubAggregator):
         metadata: dict[str, dict[str, str]] | None = None,
         hist: int = 0,
         include_names: tuple[str, ...] | None = None,
+        kinds: tuple[str, ...] = ("error", "full-field", "residual"),
+        zoom: int | None = None,
+        step: str = "one step",
     ):
         """
         Args:
             metadata: Mapping of variable names their metadata that will
                 used in generating logged image captions.
             hist: Number of history steps to include in the snapshot.
+            include_names: Variables to image; all of them when None.
+            kinds: Which of the error, full-field and residual images to log.
+            zoom: Also log the full field of a central `zoom` x `zoom` box.
+            step: What the generated field is, for the captions.
         """
         self._metadata = metadata or {}
         self.hist = hist
         self._include_names = include_names
+        self._kinds = kinds
+        self._zoom = zoom
+        self._step = step
 
     @torch.no_grad()
     def record_batch(
@@ -82,18 +99,28 @@ class SnapshotAggregator(ValidateSubAggregator):
             target = (
                 self._target_data[name].select(dim=time_dim, index=target_time)[0].cpu()
             )
-            input = (
-                self._input_data[name].select(dim=time_dim, index=input_time)[0].cpu()
-            )
             images = {}
-            images["error"] = [[(gen - target).numpy()]]
-            images["full-field"] = [[gen.numpy()], [target.numpy()]]
-            images["residual"] = [[(gen - input).numpy()], [(target - input).numpy()]]
+            if "error" in self._kinds:
+                images["error"] = [[(gen - target).numpy()]]
+            if "full-field" in self._kinds:
+                images["full-field"] = [[gen.numpy()], [target.numpy()]]
+            if "residual" in self._kinds:
+                input = (
+                    self._input_data[name]
+                    .select(dim=time_dim, index=input_time)[0]
+                    .cpu()
+                )
+                images["residual"] = [
+                    [(gen - input).numpy()],
+                    [(target - input).numpy()],
+                ]
+            if self._zoom is not None:
+                side = min(self._zoom, *gen.shape)
+                top, left = (gen.shape[0] - side) // 2, (gen.shape[1] - side) // 2
+                box = (slice(top, top + side), slice(left, left + side))
+                images["full-field-zoom"] = [[gen[box].numpy()], [target[box].numpy()]]
             for key, data in images.items():
-                if key == "error" or key == "residual":
-                    diverging = True
-                else:
-                    diverging = False
+                diverging = key in ("error", "residual")
                 caption = self._get_caption(key, name)
                 wandb_image = plot_paneled_data(data, diverging, caption=caption)
                 image_logs[f"image-{key}/{name}"] = wandb_image
@@ -109,5 +136,7 @@ class SnapshotAggregator(ValidateSubAggregator):
             units = self._metadata[metadata_name]["units"]
         else:
             caption_name, units = name, "unknown_units"
-        caption = self._captions[key].format(name=caption_name, units=units)
+        caption = self._captions[key].format(
+            name=caption_name, units=units, step=self._step, zoom=self._zoom
+        )
         return caption

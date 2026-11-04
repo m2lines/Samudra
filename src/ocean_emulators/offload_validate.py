@@ -33,7 +33,11 @@ from torch.utils.data import DistributedSampler
 from ocean_emulators.aggregator.validate.main import ONE_STEP_LOSS_KEY
 from ocean_emulators.aggregator.validate.rollout import RolloutValidationAggregator
 from ocean_emulators.config import TrainConfig
-from ocean_emulators.train import INITIAL_BEST_VAL_LOSS, Trainer
+from ocean_emulators.train import (
+    INITIAL_BEST_VAL_LOSS,
+    Trainer,
+    disable_thp_if_requested,
+)
 from ocean_emulators.utils.distributed import get_rank, is_main_process
 from ocean_emulators.utils.logging import handle_logging, handle_warnings
 
@@ -866,6 +870,7 @@ def run_validator(
 def main(argv: Sequence[str] | None = None) -> None:
     options, remaining = _parse_offload_args(argv)
     cfg = TrainConfig.from_yaml_and_cli(remaining)
+    disable_thp_if_requested(cfg)
     validator_config = _jsonable_config(cfg)
     _force_validator_settings(cfg, options)
     run_validator(cfg, options, validator_config)

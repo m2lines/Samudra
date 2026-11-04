@@ -324,6 +324,22 @@ class InferenceDataset(Dataset):
             )
         )
 
+    def window_times(self, step: int) -> np.ndarray:
+        """Timestamps of window ``step``: its ``hist + 1`` inputs, then its labels."""
+        return self._times.to_numpy()[self._windows[step]]
+
+    def prepare_frame(self, raw: torch.Tensor, *, boundary: bool = False) -> torch.Tensor:
+        """A ``[1, C, H, W]`` store frame read elsewhere (the group chunk reader),
+        normalized and masked exactly as `_read_window_steps` does, on its device."""
+        source = self._boundary_src if boundary else self._prognostic_src
+        mask = (self.wet_surface if boundary else self.wet).to(raw.device)
+        tensor = raw.float()
+        if self.normalize_before_mask or source.pre_normalized:
+            tensor = source.normalized(tensor, variable_axis=1)
+            return torch.where(mask, tensor, self.masked_fill_value)
+        tensor = torch.where(mask, tensor, self.masked_fill_value)
+        return source.normalized(tensor, variable_axis=1)
+
     def append_static_channels(self, input: torch.Tensor) -> torch.Tensor:
         """Append this patch's fixed channels to an inference input."""
         return _append_static_channels(input, self._static_channels)

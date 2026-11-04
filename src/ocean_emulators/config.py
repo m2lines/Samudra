@@ -1759,6 +1759,21 @@ class TiledInferenceConfig(BaseConfig):
             "experiment's predictions.zarr and append the remaining steps."
         ),
     )
+    max_steps: int | None = Field(
+        default=None,
+        description="Stop after this many rollout steps (e.g. for speed tests).",
+    )
+    read_threads: int = Field(
+        default=8,
+        description=(
+            "Chunk-decode threads per rank for the packed-cache group reader. "
+            "Keep the total across ranks near 32 (chunk_reader)."
+        ),
+    )
+    write_threads: int = Field(
+        default=8,
+        description="Threads per rank writing its region of predictions.zarr.",
+    )
 
 
 class EvalConfig(TopLevelConfig):

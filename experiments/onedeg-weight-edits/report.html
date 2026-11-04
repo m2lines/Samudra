@@ -1,0 +1,177 @@
+<!doctype html>
+<!-- SPDX-FileCopyrightText: 2026 Samudra Authors -->
+<!-- SPDX-License-Identifier: CC-BY-4.0 -->
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<title>Samudra 1° direct weight-edit experiment</title>
+<style>
+body{font:17px/1.55 system-ui,sans-serif;max-width:1050px;margin:3em auto;padding:0 1.2em;color:#152b39}
+table{border-collapse:collapse;width:100%}td,th{text-align:left;padding:.6em;border-bottom:1px solid #ccd6da}
+pre{background:#edf3f5;padding:1em;overflow:auto;font-size:13px}img{width:100%}a{color:#006a89}
+</style>
+<h1>Direct weight edits and step-to-step ocean consistency</h1>
+<h2>Completed transition benchmark: substantial mitigation, physicality still unresolved</h2>
+<p>The primary objective is now local transition quality. Long rollouts remain regression checks.
+The <a href="transition_protocol.json">frozen transition protocol</a> compares the original checkpoint, existing carry edit,
+reservation-only edit, external 50% deep persistence blend, and deep persistence control. It covers four seasonal windows in each of
+2015 (threshold calibration), 2017 (selection), 2019 (previous local test), and 2021 (new to local selection).
+Each window evaluates 12 nominal five-day transitions, using both true-state reinitialization and 60-day autoregressive sequences.</p>
+<p>Metrics distinguish first leads, transitions within output pairs, and transitions between autoregressive model calls.
+They include increment bias, wet-neighbor gradient error, increment magnitude and spatial correlation, reference-calibrated tails,
+and state-error guardrails for all channels. Candidate maps use identical OM4-derived color limits. Original cell areas and depth-specific masks
+come from the verified OSN static cache. These are empirical diagnostics; they do not establish closed physical budgets.</p>
+<p>Torch job <strong>21787164 completed successfully in 56 minutes</strong>.
+The <a href="https://wandb.ai/ocean_emulators/default/runs/r65wrzux">finished W&amp;B run</a> contains 40 increment figures and a 47-file results artifact.
+All five controls completed all 16 windows in both modes: 1,920 transitions and 443,520 channel/region metric rows.
+Submission provenance and output paths are in <a href="transition_runs.json">transition_runs.json</a>.
+The run saved full transition CSVs, paired seasonal acceptance results and bootstrap intervals, and aligned increment maps.
+Only four seasonal windows support each split's uncertainty estimate; these intervals are exploratory.
+No new candidate has been selected using 2021 local results. The earlier eight-year evaluation includes 2021, so this is not an untouched temporal holdout.</p>
+<p>The carry edit and external blend pass all frozen relative-improvement criteria in both evaluation modes on both 2017 and 2021.
+Reservation alone fails; pure persistence fails the correlation requirement because its zero increments have undefined correlation.
+Passing these relative criteria does not establish physicality: the original model has very oversized tendencies and very weak spatial increment correlation.</p>
+<table>
+<tr><th>2021, 60-day AR windows</th><th>Original</th><th>Carry weight edit</th><th>External 50% blend</th></tr>
+<tr><td>Deep increment RMSE, relative to original</td><td>1.000</td><td>0.553 (−44.7%)</td><td>0.537 (−46.3%)</td></tr>
+<tr><td>Deep coastal increment-gradient RMSE, relative to original</td><td>1.000</td><td>0.599 (−40.1%)</td><td>0.592 (−40.8%)</td></tr>
+<tr><td>All-channel state RMSE, relative to original</td><td>1.000</td><td>1.00285 (+0.29%)</td><td>0.99631 (−0.37%)</td></tr>
+<tr><td>Mean deep increment RMS / OM4 increment RMS</td><td>7.08</td><td>3.53</td><td>3.41</td></tr>
+<tr><td>Mean deep spatial increment correlation with OM4</td><td>0.052</td><td>0.055</td><td>0.058</td></tr>
+<tr><td>Deep coastal area above calibrated extreme-change threshold</td><td>27.83%</td><td>13.49%</td><td>13.02%</td></tr>
+</table>
+<p>OM4 exceeds that same coastal threshold on 0.91% of area on average. Thresholds are the 2015 channel/region 99th percentiles of absolute increments,
+not universal physical limits. RMS ratios and correlations are equal-weight averages over eight deep tracer channels, 12 transitions, and four windows.
+Each spatial RMS and exceedance rate is area weighted. AR increment discrepancies compare diverged trajectories, rather than a reference simulator restarted from the model's generated state.</p>
+<img src="transition_diagnostics.svg" alt="Deep increment magnitude alternates between calls and within pairs; the carry edit halves excessive changes but retains very low spatial correlation and excessive tail rates.">
+<p>A clear alternating pattern remains. For the original model, mean deep increment RMS ratios are 14.03 on the initial transition,
+9.24 between later model calls, and 4.12 within output pairs. The carry edit reduces these to 7.41, 4.47, and 2.11.
+This localizes a useful next diagnostic to the two-output representation and call boundaries; it does not by itself prove which weights cause the error.</p>
+<p>Reservation alone raises deep increment RMSE by 3.5% and has a 12.3% worst window/channel state-error regression in the 2021 AR tests.
+The external blend performs slightly better than the carry circuit and has smaller side effects.
+The current evidence supports damping excessive tendencies, with a measurable cost from reserving hidden directions, rather than recovering accurate deep dynamics.</p>
+<p>Review the <a href="transition_acceptance.json">unchanged acceptance results</a>,
+<a href="transition_results.json">summary and metric definitions</a>, and <a href="transition_phases.csv">phase-by-phase measurements</a>.
+The frozen v1 criteria remain unchanged. Future candidate tests need an absolute plausibility check on increment magnitude, correlation, and tails,
+calibrated before new selection and evaluated on new local test windows.</p>
+
+<h2>Previous edit: evidence and limitations</h2>
+<p>Experiment/results record, November 2026. <strong>Not intended to merge or replace the production checkpoint.</strong>
+The frozen edit reduces single-call temperature and salinity error at 3,100–6,000 m by 45.3% on four untouched 2019 windows.
+Coastal-gradient error in those fields falls 41.4%. Global normalized RMSE rises 0.18%, and the largest individual channel/window/lead regression is 5.2%.
+The subsequent standard 2014–2022 Torch rollout worsens normalized time-average-field RMSE by 4.7% overall and 16.2% in the edited deep tracers. <strong>Do not promote this checkpoint.</strong> Visible artifacts remain, and physical consistency is not guaranteed.</p>
+
+<h2>What changed</h2>
+<p>The 84-million-parameter ConvNeXt U-Net predicts two future states from two input states.
+Eight directions in its 280-channel high-resolution skip stream now carry the latest input temperature and salinity at the four deepest levels.
+Linear projections in existing convolution weights keep the nonlinear branches from reading or overwriting those directions.
+The decoder combines the remaining learned prediction with this carried state at a 50/50 weight, for both output times.
+No layers or parameters were added; no gradients, optimizer, or target regression were used.</p>
+<p>The directions were chosen from feature moments on four 2015 input windows, with a penalty for disturbing decoder tracer readouts.
+Prediction targets were used to compare candidate edits, so this is a data-guided experiment.
+The projections modify about 4.7% of dense parameter entries; it is a low-rank construction, not a sparse or small-norm edit.
+Reserving the directions perturbs other predictions, which is why the result differs from simply blending the original model output with persistence.</p>
+
+<h2>Evidence</h2>
+<table>
+<tr><th>Single-call evaluation</th><th>Deep-tracer RMSE</th><th>Deep coastal-gradient RMSE</th><th>Global RMSE</th></tr>
+<tr><td>2015 discovery, four seasons</td><td>−44.7%</td><td>−41.8%</td><td>+0.20%</td></tr>
+<tr><td>2017 selection, four seasons</td><td>−44.5%</td><td>−41.4%</td><td>+0.27%</td></tr>
+<tr><td>2019 final test, four seasons</td><td>−45.3%</td><td>−41.4%</td><td>+0.18%</td></tr>
+</table>
+<p>Each window evaluates 5- and 10-day leads. Spatial errors use wet-cell area weights, normalized by the original per-channel standard deviations.
+Summary RMSE is the square root of the mean squared channel/window/lead RMSE, with equal channel weighting.
+Gradients use wet-to-wet neighbors and physical grid spacing, including periodic longitude; no derivative crosses a land mask.
+“Coastal” means wet cells adjacent to a dry cell at that channel's depth. These are prediction-error diagnostics, not conservation tests.</p>
+<img src="metrics.svg" alt="Single-call RMSE ratios and 60-day rollout errors for the original, edited, external blend, and persistence controls">
+<p>On one 60-day January 2015 autoregressive rollout, deep-tracer RMSE improves 11.1% at day 60 while global RMSE increases 0.37%.
+Pure deep-state persistence does better than the edited model. The improvement therefore supports damping spurious changes, not better learned deep-ocean dynamics.
+This rollout is a discovery diagnostic; it is not an independent rollout test. No multiyear stability claim is made.</p>
+<p>Controls included reserving the same directions with zero persistence blend, applying the blend externally to the original model, and expanding edits to shallower depths.
+The broader edit caused larger regressions. Simple zero-DC spatial decoder edits worsened errors; averaging the two temporal heads helped modestly but left their shared spatial noise.
+All decoder screening outcomes are retained in <a href="decoder_screen.json">decoder_screen.json</a>.
+Detailed numerical results, controls, window dates, hashes, and limitations are in <a href="results.json">results.json</a>.</p>
+
+<h2>Why this strategy</h2>
+<p>The <a href="https://rikiyat.github.io/blog/weight-space-programming/">weight-space programming article</a>
+motivated constructing an explicit operation in weights and testing it through forward passes.
+The <a href="https://m2lines.github.io/Samudra/samudra2/">Samudra 2 paper</a> describes imprinting into deep tracers and remaining variance/spectral shortcomings.
+That argues for checking physical reference fields and untouched variables, rather than accepting a smoother image as success.</p>
+<p>The architecture and preprocessing were reconstructed from <a href="https://forge.coreweave.com/wandb/ocean_emulators/default/runs/3o112ot4">run 3o112ot4</a>.
+The original November 2025 OM4 data and original means/stds were loaded from OSN after the credentials were updated.
+The full-record heat-flux anomaly climatology reproduces the training convention, including forcing observations from later evaluation years.
+Training ended in 2013 and validation in 2014; the experiment uses 2015, 2017, and 2019 windows.</p>
+
+<h2>Artifacts and reproduction</h2>
+<p>The inference-only edited checkpoint is stored locally at
+<code>.LOCAL/weight-edit-original/samudra2_onedeg_ema_carry_balanced_l15_0.5.pt</code> (336 MB).
+It contains the model state, chosen basis, and edit provenance. Load its <code>model</code> state dictionary into the unchanged v2 architecture.
+The exported file was strictly loaded and reproduced the cached test prediction exactly. The original checkpoint's SHA-256 is unchanged.
+The large checkpoint and source data are not committed.</p>
+<p><a href="../../.LOCAL/weight-edit-original/test_2019_01_carry_balanced_l15_0.5_increments.png">Full-resolution before/after increment maps</a>
+(local workspace only). Maps share a color scale per variable; values beyond the pooled 99th percentile saturate.</p>
+<pre>uv sync --dev
+# Place the original checkpoint in the repository root and OSN credentials in alex.env.
+uv run python -m scripts.onedeg_weight_edit prepare
+uv run python -m scripts.onedeg_weight_edit baseline --splits discovery selection
+uv run python -m scripts.onedeg_weight_edit diagnose --splits discovery
+uv run python -m scripts.onedeg_weight_edit diagnose --splits selection
+uv run python -m scripts.onedeg_weight_edit screen --splits discovery
+uv run python -m scripts.onedeg_weight_circuit inspect --splits discovery
+uv run python -m scripts.onedeg_weight_circuit run --basis balanced --min-level 15 --alpha 0.5 --splits discovery
+uv run python -m scripts.onedeg_weight_circuit run --basis balanced --min-level 15 --alpha 0 --splits discovery
+uv run python -m scripts.onedeg_weight_circuit run --basis balanced --min-level 10 --alpha 0.5 --splits discovery
+uv run python -m scripts.onedeg_weight_circuit run --basis balanced --min-level 15 --alpha 0.5 --splits selection
+uv run python -m scripts.onedeg_weight_circuit rollout --basis balanced --min-level 15 --alpha 0.5
+# The final candidate was frozen before opening these test windows.
+uv run python -m scripts.onedeg_weight_edit baseline --splits test
+uv run python -m scripts.onedeg_weight_edit diagnose --splits test
+uv run python -m scripts.onedeg_weight_circuit run --basis balanced --min-level 15 --alpha 0.5 --splits test
+uv run python -m scripts.onedeg_weight_circuit export --basis balanced --min-level 15 --alpha 0.5
+uv run python -m scripts.onedeg_weight_circuit verify --basis balanced --min-level 15 --alpha 0.5
+uv run python -m pytest tests/test_onedeg_weight_edit.py tests/test_onedeg_tracking.py tests/test_viz_core.py -q</pre>
+<p>Commands default to float32 on Apple MPS; use <code>--device cpu</code> or <code>--device cuda</code> where appropriate.
+Output defaults to the ignored <code>.LOCAL/weight-edit-original</code> directory. Export refuses to overwrite an existing artifact.
+The CPU/MPS comparison on one original-model window had normalized RMS difference 9.85×10<sup>−7</sup>.
+No synthetic zero-input result was used to claim a physical improvement.</p>
+<h2>Multiyear Torch validation</h2>
+<p>Both native evaluations completed successfully on one H200 each, producing 598 states from 299 two-output model calls.
+The matched predictions cover October 20, 2014 through December 24, 2022. This interval overlaps earlier experiment windows;
+it tests long-horizon behavior but is not a new independent temporal holdout.</p>
+<table>
+<tr><th>Normalized RMSE of time-average fields</th><th>Original</th><th>Edited</th><th>Change</th></tr>
+<tr><td>All 77 prognostic channels</td><td>0.12242</td><td>0.12815</td><td>+4.7%</td></tr>
+<tr><td>Edited deep temperature/salinity channels</td><td>0.03459</td><td>0.04021</td><td>+16.2%</td></tr>
+<tr><td>Temperature, all depths</td><td>0.04337</td><td>0.05203</td><td>+20.0%</td></tr>
+<tr><td>Salinity, all depths</td><td>0.03628</td><td>0.04598</td><td>+26.7%</td></tr>
+</table>
+<img src="torch_climatology.svg" alt="Temperature and salinity climatology errors by depth for original and edited checkpoints; shading marks edited depths">
+<p>These are arithmetic means of per-channel spatial RMSEs of time-average fields, normalized by the original training standard deviations.
+They measure long-term bias and differ from the single-call and 60-day metrics above. All channel values are in
+<a href="torch_eval_results.json">torch_eval_results.json</a>. The existing <code>mean_step_20/normalized_rmse/channel_mean</code>
+mixes a dimensional derived heat-content field into its average; it is excluded from these comparisons.</p>
+<p>The native visualization also reports SST time-average-field MAE rising from 0.2291 to 0.2814 °C (+22.8%), and zonal/depth temperature-section MAE from 0.0872 to 0.0958 °C (+9.9%). Their distinct averaging definitions are recorded in <code>torch_eval_results.json</code>.</p>
+<p>W&amp;B: <a href="https://wandb.ai/ocean_emulators/default/runs/6c1ca015">original evaluation</a>,
+<a href="https://wandb.ai/ocean_emulators/default/runs/c9d3cf89">edited evaluation</a>, and
+<a href="https://wandb.ai/ocean_emulators/default/runs/876d9188">comparison visualization</a>.
+The comparison completed all 18 stages and uploaded 97 figures plus its artifact (106 files). The separate edited-map run completed all five stages and uploaded 11 figures. Both main visualization runs and both evaluations finished successfully in Slurm and W&amp;B. Review found that legacy hard-coded axis limits clip the total-salt figure in the main bundle. Use the <a href="https://wandb.ai/ocean_emulators/default/runs/6620b166">corrected total-salt figure</a>, regenerated successfully with automatic limits; all three numerical trend values are unchanged. A native Matplotlib depth-scale replacement fixes a GUI-dependent import in the HPC container; it passes a GUI-blocked smoke check and 42 focused weight-edit, tracking, and visualization tests. Several native spatial stages select only the first model, so a separate
+<a href="https://wandb.ai/ocean_emulators/default/runs/c8da339d">edited-model map run</a> supplies the corresponding edited temperature profiles, SST maps, and salinity maps. Its heat/salt integrals use the native spherical-area fallback because the legacy dataset lacks
+<code>areacello</code>; those diagnostics are not conservation proofs.</p>
+<p>The Torch setup is in <code>torch_eval.yaml</code>, <code>torch_viz.yaml</code>, and <code>torch_job.sbatch</code>, grouped as
+<code>onedeg-weight-edit-20261103</code>. Online W&amp;B is required; the viz wrapper logs progress, figures, and an artifact.
+The older half-degree staging copy was removed with authorization after confirming the public replacement is available.
+The original one-degree evaluation data is preserved, and all 77 normalization means and standard deviations match the local experiment exactly.
+Both checkpoint hashes verified after transfer. Slurm jobs are 21760092 (preparation), 21761165 (original), 21761167 (edited),
+21763658 (comparison viz), 21763659 (edited-model maps), and 21765602 (corrected total-salt plot). Current run identifiers, immutable code/container references, and cancelled submissions are recorded in
+<a href="torch_runs.json">torch_runs.json</a>.</p>
+<p>The native heat-content diagnostic shows upper-ocean warming in OM4, near-flat behavior in the original model,
+and cooling in the edited model. <a href="torch_depthwise_heat_trends.csv">Depthwise trend values</a> are fitted to deseasonalized heat content
+in ZJ per five-day sample: upper (0–700 m), middle (700–2,000 m), and deep (2,000–6,000 m).
+<a href="torch_integral_trends.csv">Global heat and salt trends</a> retain both improvements and regressions: the salinity trend changes to the reference sign but has about 2.9 times its magnitude. Heat-content slopes are in ZJ per five-day sample; salt-content slopes are in grams per sample. These use the approximate areas noted above and do not establish closed heat or salt budgets.</p>
+<h2>Next decision</h2>
+<p>Next isolate the shared spatial increment error and between-call jump in the deep output decoder, then test a direct correction restricted to
+the affected output rows. This avoids reserving hidden directions throughout the network and can preserve other outputs exactly on identical inputs;
+autoregressive feedback still requires separate checks. Keep the external blend as a reference control, and use stronger, prospectively defined absolute
+tendency criteria before claiming physical improvement. Longer rollouts remain guardrails for promising local candidates.</p>
+<p>The current carry edit remains a diagnostic control and is not a production replacement. Smoother fields alone are insufficient:
+an acceptable edit must retain genuine evolution while reducing artifacts and limiting regressions in untargeted fields.
+Eliminating unphysical single-step behavior remains unsolved.</p>
+</html>

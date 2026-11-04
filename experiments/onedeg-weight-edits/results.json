@@ -1,0 +1,3426 @@
+{
+  "status": "Experimental partial mitigation; not intended to merge or replace the production checkpoint",
+  "candidate": "carry_balanced_l15_0.5",
+  "aggregation": "Square root of equally weighted mean squared per-channel/window/lead RMSE; each per-channel spatial metric is wet-cell area weighted. Global means normalized channels, not a conserved physical quantity.",
+  "edited_depths_m": [
+    3100,
+    4000,
+    5000,
+    6000
+  ],
+  "edit_manifest": {
+    "parent_checkpoint_sha256": "ff6160cb7e2a2b5b8ee2c5731c16bd114a1bb5a267245cc5ed766fb00c7f797a",
+    "method": "direct weight-space carry circuit; no backpropagation or target regression",
+    "status": "experimental, not a guarantee of physical consistency",
+    "basis": "balanced",
+    "basis_source_sha256": "b0801111b19b29b542729d521ba7dcf97d4daf12f401b19b7ca38732183e2943",
+    "alpha": 0.5,
+    "channels": [
+      53,
+      54,
+      55,
+      56,
+      72,
+      73,
+      74,
+      75
+    ],
+    "changes": {
+      "unet.layers.0.skip_module.weight": {
+        "changed_values": 45360,
+        "relative_l2_change": 0.32966798543930054
+      },
+      "unet.layers.0.skip_module.bias": {
+        "changed_values": 280,
+        "relative_l2_change": 0.10126607120037079
+      },
+      "unet.layers.0.convblock.6.weight": {
+        "changed_values": 90720,
+        "relative_l2_change": 0.1330726146697998
+      },
+      "unet.layers.0.convblock.6.bias": {
+        "changed_values": 280,
+        "relative_l2_change": 0.0674578994512558
+      },
+      "unet.layers.2.skip_module.weight": {
+        "changed_values": 106400,
+        "relative_l2_change": 0.171041339635849
+      },
+      "unet.layers.2.convblock.0.weight": {
+        "changed_values": 1411200,
+        "relative_l2_change": 0.12964564561843872
+      },
+      "unet.layers.14.skip_module.weight": {
+        "changed_values": 106400,
+        "relative_l2_change": 0.11320764571428299
+      },
+      "unet.layers.14.skip_module.bias": {
+        "changed_values": 280,
+        "relative_l2_change": 0.09297912567853928
+      },
+      "unet.layers.14.convblock.6.weight": {
+        "changed_values": 212800,
+        "relative_l2_change": 0.1445116400718689
+      },
+      "unet.layers.14.convblock.6.bias": {
+        "changed_values": 280,
+        "relative_l2_change": 0.14485128223896027
+      },
+      "unet.layers.16.convblock.0.weight": {
+        "changed_values": 1411199,
+        "relative_l2_change": 0.13987623155117035
+      },
+      "unet.layers.16.convblock.6.weight": {
+        "changed_values": 156800,
+        "relative_l2_change": 0.0977121964097023
+      },
+      "unet.layers.16.convblock.6.bias": {
+        "changed_values": 280,
+        "relative_l2_change": 0.04764296114444733
+      },
+      "decoder.weight": {
+        "changed_values": 388080,
+        "relative_l2_change": 0.2590823769569397
+      },
+      "decoder.bias": {
+        "changed_values": 16,
+        "relative_l2_change": 0.2876812517642975
+      }
+    },
+    "data_root": "s3://emulators/am16581/data/2025-11/om4_onedeg_v3",
+    "calibration_windows": [
+      "discovery_2015_01",
+      "discovery_2015_04",
+      "discovery_2015_07",
+      "discovery_2015_10"
+    ],
+    "edited_checkpoint_sha256": "fa17fb91111aeb5fdacbbf4f014ba1c81c965efe5d20144203ba807a8d7703d9"
+  },
+  "changed_tensor_values": 3930375,
+  "original_parameter_count": 84066474,
+  "data": {
+    "data_root": "s3://emulators/am16581/data/2025-11/om4_onedeg_v3",
+    "data_attrs": {},
+    "prognostic_channels": [
+      "uo_0",
+      "uo_1",
+      "uo_2",
+      "uo_3",
+      "uo_4",
+      "uo_5",
+      "uo_6",
+      "uo_7",
+      "uo_8",
+      "uo_9",
+      "uo_10",
+      "uo_11",
+      "uo_12",
+      "uo_13",
+      "uo_14",
+      "uo_15",
+      "uo_16",
+      "uo_17",
+      "uo_18",
+      "vo_0",
+      "vo_1",
+      "vo_2",
+      "vo_3",
+      "vo_4",
+      "vo_5",
+      "vo_6",
+      "vo_7",
+      "vo_8",
+      "vo_9",
+      "vo_10",
+      "vo_11",
+      "vo_12",
+      "vo_13",
+      "vo_14",
+      "vo_15",
+      "vo_16",
+      "vo_17",
+      "vo_18",
+      "thetao_0",
+      "thetao_1",
+      "thetao_2",
+      "thetao_3",
+      "thetao_4",
+      "thetao_5",
+      "thetao_6",
+      "thetao_7",
+      "thetao_8",
+      "thetao_9",
+      "thetao_10",
+      "thetao_11",
+      "thetao_12",
+      "thetao_13",
+      "thetao_14",
+      "thetao_15",
+      "thetao_16",
+      "thetao_17",
+      "thetao_18",
+      "so_0",
+      "so_1",
+      "so_2",
+      "so_3",
+      "so_4",
+      "so_5",
+      "so_6",
+      "so_7",
+      "so_8",
+      "so_9",
+      "so_10",
+      "so_11",
+      "so_12",
+      "so_13",
+      "so_14",
+      "so_15",
+      "so_16",
+      "so_17",
+      "so_18",
+      "zos"
+    ],
+    "boundary_channels": [
+      "tauuo",
+      "tauvo",
+      "hfds",
+      "hfds_anomalies"
+    ],
+    "anomaly_transform": "full-record day-of-year climatology; scalar full-record mean/std",
+    "normalization_before_mask": true,
+    "masked_fill": 0.0,
+    "input_steps": 2,
+    "output_steps": 2,
+    "windows": [
+      {
+        "name": "discovery_2015_01",
+        "split": "discovery",
+        "start_index": 4161,
+        "times": [
+          "2015-01-03 12:00:00",
+          "2015-01-08 12:00:00",
+          "2015-01-13 12:00:00",
+          "2015-01-18 12:00:00",
+          "2015-01-23 12:00:00",
+          "2015-01-28 12:00:00",
+          "2015-02-02 12:00:00",
+          "2015-02-07 12:00:00",
+          "2015-02-12 12:00:00",
+          "2015-02-17 12:00:00",
+          "2015-02-22 12:00:00",
+          "2015-02-27 12:00:00",
+          "2015-03-04 12:00:00",
+          "2015-03-09 12:00:00"
+        ]
+      },
+      {
+        "name": "discovery_2015_04",
+        "split": "discovery",
+        "start_index": 4179,
+        "times": [
+          "2015-04-03 12:00:00",
+          "2015-04-08 12:00:00",
+          "2015-04-13 12:00:00",
+          "2015-04-18 12:00:00"
+        ]
+      },
+      {
+        "name": "discovery_2015_07",
+        "split": "discovery",
+        "start_index": 4197,
+        "times": [
+          "2015-07-02 12:00:00",
+          "2015-07-07 12:00:00",
+          "2015-07-12 12:00:00",
+          "2015-07-17 12:00:00"
+        ]
+      },
+      {
+        "name": "discovery_2015_10",
+        "split": "discovery",
+        "start_index": 4216,
+        "times": [
+          "2015-10-05 12:00:00",
+          "2015-10-10 12:00:00",
+          "2015-10-15 12:00:00",
+          "2015-10-20 12:00:00"
+        ]
+      },
+      {
+        "name": "selection_2017_01",
+        "split": "selection",
+        "start_index": 4307,
+        "times": [
+          "2017-01-03 12:00:00",
+          "2017-01-08 12:00:00",
+          "2017-01-13 12:00:00",
+          "2017-01-18 12:00:00"
+        ]
+      },
+      {
+        "name": "selection_2017_04",
+        "split": "selection",
+        "start_index": 4325,
+        "times": [
+          "2017-04-03 12:00:00",
+          "2017-04-08 12:00:00",
+          "2017-04-13 12:00:00",
+          "2017-04-18 12:00:00"
+        ]
+      },
+      {
+        "name": "selection_2017_07",
+        "split": "selection",
+        "start_index": 4343,
+        "times": [
+          "2017-07-02 12:00:00",
+          "2017-07-07 12:00:00",
+          "2017-07-12 12:00:00",
+          "2017-07-17 12:00:00"
+        ]
+      },
+      {
+        "name": "selection_2017_10",
+        "split": "selection",
+        "start_index": 4362,
+        "times": [
+          "2017-10-05 12:00:00",
+          "2017-10-10 12:00:00",
+          "2017-10-15 12:00:00",
+          "2017-10-20 12:00:00"
+        ]
+      },
+      {
+        "name": "test_2019_01",
+        "split": "test",
+        "start_index": 4453,
+        "times": [
+          "2019-01-03 12:00:00",
+          "2019-01-08 12:00:00",
+          "2019-01-13 12:00:00",
+          "2019-01-18 12:00:00"
+        ]
+      },
+      {
+        "name": "test_2019_04",
+        "split": "test",
+        "start_index": 4471,
+        "times": [
+          "2019-04-03 12:00:00",
+          "2019-04-08 12:00:00",
+          "2019-04-13 12:00:00",
+          "2019-04-18 12:00:00"
+        ]
+      },
+      {
+        "name": "test_2019_07",
+        "split": "test",
+        "start_index": 4489,
+        "times": [
+          "2019-07-02 12:00:00",
+          "2019-07-07 12:00:00",
+          "2019-07-12 12:00:00",
+          "2019-07-17 12:00:00"
+        ]
+      },
+      {
+        "name": "test_2019_10",
+        "split": "test",
+        "start_index": 4508,
+        "times": [
+          "2019-10-05 12:00:00",
+          "2019-10-10 12:00:00",
+          "2019-10-15 12:00:00",
+          "2019-10-20 12:00:00"
+        ]
+      }
+    ]
+  },
+  "precision_check": {
+    "max_abs_normalized_cpu_mps": 8.0108642578125e-05,
+    "rms_normalized_cpu_mps": 9.849793514149496e-07
+  },
+  "export_validation": {
+    "strict_load": true,
+    "export_prediction_max_abs_difference": 0.0,
+    "original_sha256_unchanged": true,
+    "checkpoint_bytes": 336450596
+  },
+  "single_call": {
+    "discovery": {
+      "all": {
+        "rmse_normalized": {
+          "candidate": 0.2291862776879999,
+          "baseline": 0.22872993563833785,
+          "ratio": 1.001995112919472
+        },
+        "coastal_rmse_normalized": {
+          "candidate": 0.255762776465515,
+          "baseline": 0.2547651016927581,
+          "ratio": 1.0039160574432209
+        },
+        "gradient_rmse_normalized_per_km": {
+          "candidate": 0.002648266482454615,
+          "baseline": 0.0026452098675705943,
+          "ratio": 1.0011555283085452
+        },
+        "coastal_gradient_rmse_normalized_per_km": {
+          "candidate": 0.0032731341451532384,
+          "baseline": 0.003265145080743042,
+          "ratio": 1.0024467716480083
+        }
+      },
+      "edited_deep_tracers": {
+        "rmse_normalized": {
+          "candidate": 0.014657217291716,
+          "baseline": 0.026484041096336144,
+          "ratio": 0.5534358309745906
+        },
+        "coastal_rmse_normalized": {
+          "candidate": 0.020111398788875533,
+          "baseline": 0.035453545702077184,
+          "ratio": 0.5672605769215695
+        },
+        "gradient_rmse_normalized_per_km": {
+          "candidate": 0.0001294332431400524,
+          "baseline": 0.0002244791754270367,
+          "ratio": 0.5765935432265634
+        },
+        "coastal_gradient_rmse_normalized_per_km": {
+          "candidate": 0.00019125753836352682,
+          "baseline": 0.0003288598898184076,
+          "ratio": 0.5815775784305495
+        }
+      },
+      "other": {
+        "rmse_normalized": {
+          "candidate": 0.2420567147773414,
+          "baseline": 0.24145774949931073,
+          "ratio": 1.0024806214721733
+        },
+        "coastal_rmse_normalized": {
+          "candidate": 0.270096286794224,
+          "baseline": 0.26885827204642176,
+          "ratio": 1.0046047113907972
+        },
+        "gradient_rmse_normalized_per_km": {
+          "candidate": 0.0027972327401203623,
+          "baseline": 0.002793305367749427,
+          "ratio": 1.0014059946385667
+        },
+        "coastal_gradient_rmse_normalized_per_km": {
+          "candidate": 0.0034570652578788845,
+          "baseline": 0.003447420972708978,
+          "ratio": 1.0027975362586274
+        }
+      },
+      "worst_channel_window_lead": {
+        "ratio": 1.0626935835512203,
+        "channel": "so_14",
+        "window": "discovery_2015_01",
+        "lead_days": 5
+      }
+    },
+    "selection": {
+      "all": {
+        "rmse_normalized": {
+          "candidate": 0.2179580136575191,
+          "baseline": 0.2173685060040645,
+          "ratio": 1.002712019621847
+        },
+        "coastal_rmse_normalized": {
+          "candidate": 0.24966652269944542,
+          "baseline": 0.24873134094093485,
+          "ratio": 1.0037598066852889
+        },
+        "gradient_rmse_normalized_per_km": {
+          "candidate": 0.002639834743051148,
+          "baseline": 0.0026350262254994676,
+          "ratio": 1.0018248461837487
+        },
+        "coastal_gradient_rmse_normalized_per_km": {
+          "candidate": 0.003318943968467258,
+          "baseline": 0.0033107309575502717,
+          "ratio": 1.002480724354317
+        }
+      },
+      "edited_deep_tracers": {
+        "rmse_normalized": {
+          "candidate": 0.014612456352063399,
+          "baseline": 0.026332974592922036,
+          "ratio": 0.5549109653563802
+        },
+        "coastal_rmse_normalized": {
+          "candidate": 0.019723909888061802,
+          "baseline": 0.03442029275345759,
+          "ratio": 0.5730314390216943
+        },
+        "gradient_rmse_normalized_per_km": {
+          "candidate": 0.00012805683420807367,
+          "baseline": 0.00022306089742926683,
+          "ratio": 0.5740891195359815
+        },
+        "coastal_gradient_rmse_normalized_per_km": {
+          "candidate": 0.00019081256882668823,
+          "baseline": 0.00032562902202781856,
+          "ratio": 0.5859814571760962
+        }
+      },
+      "other": {
+        "rmse_normalized": {
+          "candidate": 0.2301930626136062,
+          "baseline": 0.22944895506283683,
+          "ratio": 1.0032430200022728
+        },
+        "coastal_rmse_normalized": {
+          "candidate": 0.26365759047129583,
+          "baseline": 0.2624936853616563,
+          "ratio": 1.0044340308912039
+        },
+        "gradient_rmse_normalized_per_km": {
+          "candidate": 0.002788331865386192,
+          "baseline": 0.0027825567374105027,
+          "ratio": 1.002075475370563
+        },
+        "coastal_gradient_rmse_normalized_per_km": {
+          "candidate": 0.0035054691897446087,
+          "baseline": 0.003495637167692968,
+          "ratio": 1.0028126551984597
+        }
+      },
+      "worst_channel_window_lead": {
+        "ratio": 1.0563768355293992,
+        "channel": "so_7",
+        "window": "selection_2017_01",
+        "lead_days": 5
+      }
+    },
+    "test": {
+      "all": {
+        "rmse_normalized": {
+          "candidate": 0.21732427050260072,
+          "baseline": 0.21693923095295248,
+          "ratio": 1.0017748728432239
+        },
+        "coastal_rmse_normalized": {
+          "candidate": 0.24922729126905713,
+          "baseline": 0.24827969001823288,
+          "ratio": 1.0038166684143783
+        },
+        "gradient_rmse_normalized_per_km": {
+          "candidate": 0.0025696513436816405,
+          "baseline": 0.002568111305740522,
+          "ratio": 1.0005996772560737
+        },
+        "coastal_gradient_rmse_normalized_per_km": {
+          "candidate": 0.0032759118161891174,
+          "baseline": 0.003268113581047451,
+          "ratio": 1.0023861579312574
+        }
+      },
+      "edited_deep_tracers": {
+        "rmse_normalized": {
+          "candidate": 0.015130297734821389,
+          "baseline": 0.027670429661295723,
+          "ratio": 0.5468038595723375
+        },
+        "coastal_rmse_normalized": {
+          "candidate": 0.020108706286263,
+          "baseline": 0.03560682297018444,
+          "ratio": 0.5647430635162572
+        },
+        "gradient_rmse_normalized_per_km": {
+          "candidate": 0.00012573394637874173,
+          "baseline": 0.0002201166247580814,
+          "ratio": 0.5712151297837195
+        },
+        "coastal_gradient_rmse_normalized_per_km": {
+          "candidate": 0.0001901407408823406,
+          "baseline": 0.00032433484921621044,
+          "ratio": 0.5862482596052686
+        }
+      },
+      "other": {
+        "rmse_normalized": {
+          "candidate": 0.2295195410528985,
+          "baseline": 0.22897684469086005,
+          "ratio": 1.0023700927610002
+        },
+        "coastal_rmse_normalized": {
+          "candidate": 0.263190067661391,
+          "baseline": 0.26199770930188715,
+          "ratio": 1.0045510258951538
+        },
+        "gradient_rmse_normalized_per_km": {
+          "candidate": 0.0027141946945650744,
+          "baseline": 0.0027118699271685698,
+          "ratio": 1.000857256232393
+        },
+        "coastal_gradient_rmse_normalized_per_km": {
+          "candidate": 0.003460007195063956,
+          "baseline": 0.0034506081513955345,
+          "ratio": 1.0027238803295067
+        }
+      },
+      "worst_channel_window_lead": {
+        "ratio": 1.0523458694660524,
+        "channel": "so_12",
+        "window": "test_2019_07",
+        "lead_days": 5
+      }
+    }
+  },
+  "rollout": {
+    "5": {
+      "carry_balanced_l15_0.5": {
+        "all": {
+          "rmse_normalized": {
+            "candidate": 0.1905250204076814,
+            "baseline": 0.19005002886758648,
+            "ratio": 1.0024992973846159
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.22540637525521204,
+            "baseline": 0.2245596354431312,
+            "ratio": 1.0037706679137144
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.002093297311173423,
+            "baseline": 0.0020891378224891267,
+            "ratio": 1.0019910073138882
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.00285998440170962,
+            "baseline": 0.0028535580625025756,
+            "ratio": 1.0022520443131997
+          }
+        },
+        "edited_deep_tracers": {
+          "rmse_normalized": {
+            "candidate": 0.014080161521446944,
+            "baseline": 0.025928193830096657,
+            "ratio": 0.5430444408782197
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.018779152276390935,
+            "baseline": 0.03411666402528274,
+            "ratio": 0.5504392886266466
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.00012028840881280403,
+            "baseline": 0.00022155957273093944,
+            "ratio": 0.5429167755206024
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.00017546695762754548,
+            "baseline": 0.0003221748051846683,
+            "ratio": 0.5446327732765108
+          }
+        },
+        "other": {
+          "rmse_normalized": {
+            "candidate": 0.20121001049505502,
+            "baseline": 0.20057113622973502,
+            "ratio": 1.0031852751962687
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.2380292688724462,
+            "baseline": 0.23693604976820073,
+            "ratio": 1.0046139838378962
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.0022109413541341414,
+            "baseline": 0.002205636874833534,
+            "ratio": 1.002404964915636
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.003020643996701881,
+            "baseline": 0.0030124493755969797,
+            "ratio": 1.0027202518891385
+          }
+        },
+        "worst_channel_window_lead": {
+          "ratio": 1.0626935835512203,
+          "channel": "so_14",
+          "window": null,
+          "lead_days": 5
+        }
+      },
+      "external_blend_control": {
+        "all": {
+          "rmse_normalized": {
+            "candidate": 0.18991451518701458,
+            "baseline": 0.19005002886758648,
+            "ratio": 0.9992869578532592
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.22436336905328624,
+            "baseline": 0.2245596354431312,
+            "ratio": 0.9991259943513104
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.0020882618433067266,
+            "baseline": 0.0020891378224891267,
+            "ratio": 0.9995806982320791
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.0028522073074237334,
+            "baseline": 0.0028535580625025756,
+            "ratio": 0.9995266418102396
+          }
+        },
+        "edited_deep_tracers": {
+          "rmse_normalized": {
+            "candidate": 0.013291959767799016,
+            "baseline": 0.025928193830096657,
+            "ratio": 0.5126450324653974
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.017773645563989485,
+            "baseline": 0.03411666402528274,
+            "ratio": 0.5209666909642168
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.00011776135193522836,
+            "baseline": 0.00022155957273093944,
+            "ratio": 0.5315110084556671
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.00017209255912662008,
+            "baseline": 0.0003221748051846683,
+            "ratio": 0.5341589607790027
+          }
+        },
+        "other": {
+          "rmse_normalized": {
+            "candidate": 0.20057113622973502,
+            "baseline": 0.20057113622973502,
+            "ratio": 1.0
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.23693604976820073,
+            "baseline": 0.23693604976820073,
+            "ratio": 1.0
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.002205636874833534,
+            "baseline": 0.002205636874833534,
+            "ratio": 1.0
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.0030124493755969797,
+            "baseline": 0.0030124493755969797,
+            "ratio": 1.0
+          }
+        },
+        "worst_channel_window_lead": {
+          "ratio": 1.0,
+          "channel": "uo_0",
+          "window": null,
+          "lead_days": 5
+        }
+      },
+      "persistence": {
+        "all": {
+          "rmse_normalized": {
+            "candidate": 0.2875097528468593,
+            "baseline": 0.19005002886758648,
+            "ratio": 1.5128108875330712
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.24487365583940068,
+            "baseline": 0.2245596354431312,
+            "ratio": 1.0904615843189411
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.003175648719187778,
+            "baseline": 0.0020891378224891267,
+            "ratio": 1.5200762175681237
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.0031985467497603983,
+            "baseline": 0.0028535580625025756,
+            "ratio": 1.120897728275158
+          }
+        },
+        "edited_deep_tracers": {
+          "rmse_normalized": {
+            "candidate": 0.004027778932690878,
+            "baseline": 0.025928193830096657,
+            "ratio": 0.15534359851998464
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.0059612839951327665,
+            "baseline": 0.03411666402528274,
+            "ratio": 0.1747323240840621
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 5.579968515356701e-05,
+            "baseline": 0.00022155957273093944,
+            "ratio": 0.2518495791708797
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 7.556299342343511e-05,
+            "baseline": 0.0003221748051846683,
+            "ratio": 0.2345403557553886
+          }
+        },
+        "other": {
+          "rmse_normalized": {
+            "candidate": 0.30371690863090756,
+            "baseline": 0.20057113622973502,
+            "ratio": 1.5142602985657365
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.25867205382589137,
+            "baseline": 0.23693604976820073,
+            "ratio": 1.0917378511161784
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.0033546429858478523,
+            "baseline": 0.002205636874833534,
+            "ratio": 1.5209407423880854
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.0033787878856808124,
+            "baseline": 0.0030124493755969797,
+            "ratio": 1.1216081880251465
+          }
+        },
+        "worst_channel_window_lead": {
+          "ratio": 2.1018760603945004,
+          "channel": "vo_8",
+          "window": null,
+          "lead_days": 5
+        }
+      }
+    },
+    "10": {
+      "carry_balanced_l15_0.5": {
+        "all": {
+          "rmse_normalized": {
+            "candidate": 0.2639050571728102,
+            "baseline": 0.26349126476989954,
+            "ratio": 1.001570421711217
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.2892085214040996,
+            "baseline": 0.2881359270971645,
+            "ratio": 1.0037225288694158
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.0031611814665760906,
+            "baseline": 0.0031547269700449502,
+            "ratio": 1.0020459762738354
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.0037638600887997834,
+            "baseline": 0.0037553321498919254,
+            "ratio": 1.0022708880513016
+          }
+        },
+        "edited_deep_tracers": {
+          "rmse_normalized": {
+            "candidate": 0.014890571141066298,
+            "baseline": 0.026301219328946936,
+            "ratio": 0.5661551639424504
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.020233331225300338,
+            "baseline": 0.03492246225244011,
+            "ratio": 0.5793787127334239
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.00013605942780297033,
+            "baseline": 0.0002284215364756637,
+            "ratio": 0.5956506111562132
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.00019668687539622898,
+            "baseline": 0.00033289619303385925,
+            "ratio": 0.590835460158668
+          }
+        },
+        "other": {
+          "rmse_normalized": {
+            "candidate": 0.27873832894616485,
+            "baseline": 0.2782032089091668,
+            "ratio": 1.0019234862138948
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.30543686223728284,
+            "baseline": 0.30414912042273684,
+            "ratio": 1.0042339159579228
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.0033390924720212247,
+            "baseline": 0.0033316877006443757,
+            "ratio": 1.0022225286527957
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.003975508366589852,
+            "baseline": 0.003965443935544329,
+            "ratio": 1.0025380338769412
+          }
+        },
+        "worst_channel_window_lead": {
+          "ratio": 1.0622730994279659,
+          "channel": "so_14",
+          "window": null,
+          "lead_days": 10
+        }
+      },
+      "external_blend_control": {
+        "all": {
+          "rmse_normalized": {
+            "candidate": 0.2633943101858905,
+            "baseline": 0.26349126476989954,
+            "ratio": 0.9996320387163737
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.2879836346368175,
+            "baseline": 0.2881359270971645,
+            "ratio": 0.9994714561912452
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.0031541623773291296,
+            "baseline": 0.0031547269700449502,
+            "ratio": 0.9998210327799579
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.0037543188429255366,
+            "baseline": 0.0037553321498919254,
+            "ratio": 0.9997301684841864
+          }
+        },
+        "edited_deep_tracers": {
+          "rmse_normalized": {
+            "candidate": 0.014144642455352152,
+            "baseline": 0.026301219328946936,
+            "ratio": 0.537794171382186
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.019367336271011924,
+            "baseline": 0.03492246225244011,
+            "ratio": 0.5545810639299548
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.0001337632273285052,
+            "baseline": 0.0002284215364756637,
+            "ratio": 0.5855981418930544
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.00019384955970943451,
+            "baseline": 0.00033289619303385925,
+            "ratio": 0.5823123356947427
+          }
+        },
+        "other": {
+          "rmse_normalized": {
+            "candidate": 0.2782032089091668,
+            "baseline": 0.2782032089091668,
+            "ratio": 1.0
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.30414912042273684,
+            "baseline": 0.30414912042273684,
+            "ratio": 1.0
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.0033316877006443757,
+            "baseline": 0.0033316877006443757,
+            "ratio": 1.0
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.003965443935544329,
+            "baseline": 0.003965443935544329,
+            "ratio": 1.0
+          }
+        },
+        "worst_channel_window_lead": {
+          "ratio": 1.0,
+          "channel": "uo_0",
+          "window": null,
+          "lead_days": 10
+        }
+      },
+      "persistence": {
+        "all": {
+          "rmse_normalized": {
+            "candidate": 0.4420901657989719,
+            "baseline": 0.26349126476989954,
+            "ratio": 1.6778171609788979
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.3592682323696947,
+            "baseline": 0.2881359270971645,
+            "ratio": 1.2468706557670717
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.005082282186761624,
+            "baseline": 0.0031547269700449502,
+            "ratio": 1.6110054007904238
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.0045695117617613685,
+            "baseline": 0.0037553321498919254,
+            "ratio": 1.2168062848696017
+          }
+        },
+        "edited_deep_tracers": {
+          "rmse_normalized": {
+            "candidate": 0.00699250096504741,
+            "baseline": 0.026301219328946936,
+            "ratio": 0.2658622354193105
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.010192311909421953,
+            "baseline": 0.03492246225244011,
+            "ratio": 0.29185547787970745
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 9.446873909109408e-05,
+            "baseline": 0.0002284215364756637,
+            "ratio": 0.41357194487289023
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.00012551201333820718,
+            "baseline": 0.00033289619303385925,
+            "ratio": 0.3770304856728752
+          }
+        },
+        "other": {
+          "rmse_normalized": {
+            "candidate": 0.4670098355890444,
+            "baseline": 0.2782032089091668,
+            "ratio": 1.6786644461082507
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.3795084725153983,
+            "baseline": 0.30414912042273684,
+            "ratio": 1.2477710669947673
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.005368732890544536,
+            "baseline": 0.0033316877006443757,
+            "ratio": 1.6114154065239004
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.0048269588348248665,
+            "baseline": 0.003965443935544329,
+            "ratio": 1.2172555994445748
+          }
+        },
+        "worst_channel_window_lead": {
+          "ratio": 2.1819352604011226,
+          "channel": "vo_8",
+          "window": null,
+          "lead_days": 10
+        }
+      }
+    },
+    "15": {
+      "carry_balanced_l15_0.5": {
+        "all": {
+          "rmse_normalized": {
+            "candidate": 0.2818305639334107,
+            "baseline": 0.280374906382674,
+            "ratio": 1.0051918253652485
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.2876852184683409,
+            "baseline": 0.28582943079902096,
+            "ratio": 1.0064926402579755
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.0035551660288616906,
+            "baseline": 0.003544075853272701,
+            "ratio": 1.0031292150755602
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.0038518997099363586,
+            "baseline": 0.0038384521446307063,
+            "ratio": 1.003503382300718
+          }
+        },
+        "edited_deep_tracers": {
+          "rmse_normalized": {
+            "candidate": 0.01967635190651785,
+            "baseline": 0.027292893818322856,
+            "ratio": 0.7209331497603341
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.027200612740786403,
+            "baseline": 0.03723405532720904,
+            "ratio": 0.7305304915553845
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.00017533906219399228,
+            "baseline": 0.00024436009971639736,
+            "ratio": 0.7175437495625906
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.00026280389128769354,
+            "baseline": 0.00036590442793229893,
+            "ratio": 0.7182309675036743
+          }
+        },
+        "other": {
+          "rmse_normalized": {
+            "candidate": 0.29764521898321555,
+            "baseline": 0.29603705138055275,
+            "ratio": 1.0054323186748524
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.30376419755859635,
+            "baseline": 0.301678653569113,
+            "ratio": 1.0069131307926815
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.003755137297803728,
+            "baseline": 0.0037429717258050197,
+            "ratio": 1.003250244161567
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.004068091794997323,
+            "baseline": 0.004052955544095687,
+            "ratio": 1.0037346205101327
+          }
+        },
+        "worst_channel_window_lead": {
+          "ratio": 1.0589919040907685,
+          "channel": "so_11",
+          "window": null,
+          "lead_days": 15
+        }
+      },
+      "external_blend_control": {
+        "all": {
+          "rmse_normalized": {
+            "candidate": 0.28033505078558585,
+            "baseline": 0.280374906382674,
+            "ratio": 0.9998578489152173
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.28570013486281975,
+            "baseline": 0.28582943079902096,
+            "ratio": 0.999547646525273
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.0035437782128599936,
+            "baseline": 0.003544075853272701,
+            "ratio": 0.9999160174824044
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.0038373467634884918,
+            "baseline": 0.0038384521446307063,
+            "ratio": 0.9997120242481697
+          }
+        },
+        "edited_deep_tracers": {
+          "rmse_normalized": {
+            "candidate": 0.018697760190767423,
+            "baseline": 0.027292893818322856,
+            "ratio": 0.685077966273215
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.02602903834595769,
+            "baseline": 0.03723405532720904,
+            "ratio": 0.699065361460555
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.00017247458102987798,
+            "baseline": 0.00024436009971639736,
+            "ratio": 0.7058213727611455
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.0002590265596677077,
+            "baseline": 0.00036590442793229893,
+            "ratio": 0.7079076936331413
+          }
+        },
+        "other": {
+          "rmse_normalized": {
+            "candidate": 0.29607233702697655,
+            "baseline": 0.29603705138055275,
+            "ratio": 1.0001191933450873
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.30167819443834587,
+            "baseline": 0.301678653569113,
+            "ratio": 0.9999984780800308
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.003743121323717349,
+            "baseline": 0.0037429717258050197,
+            "ratio": 1.0000399676843128
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.004052742792916049,
+            "baseline": 0.004052955544095687,
+            "ratio": 0.999947507151923
+          }
+        },
+        "worst_channel_window_lead": {
+          "ratio": 1.0037283511184623,
+          "channel": "so_14",
+          "window": null,
+          "lead_days": 15
+        }
+      },
+      "persistence": {
+        "all": {
+          "rmse_normalized": {
+            "candidate": 0.5238662004352815,
+            "baseline": 0.280374906382674,
+            "ratio": 1.868448953560326
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.40403497995599813,
+            "baseline": 0.28582943079902096,
+            "ratio": 1.413552757064029
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.006189439160043809,
+            "baseline": 0.003544075853272701,
+            "ratio": 1.7464183658282324
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.005141838676099402,
+            "baseline": 0.0038384521446307063,
+            "ratio": 1.3395604484197872
+          }
+        },
+        "edited_deep_tracers": {
+          "rmse_normalized": {
+            "candidate": 0.009172178481074099,
+            "baseline": 0.027292893818322856,
+            "ratio": 0.3360647112808695
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.013379979613995337,
+            "baseline": 0.03723405532720904,
+            "ratio": 0.3593479006359489
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.0001200350569331545,
+            "baseline": 0.00024436009971639736,
+            "ratio": 0.4912220001238597
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.00015855332337813953,
+            "baseline": 0.00036590442793229893,
+            "ratio": 0.4333189523671894
+          }
+        },
+        "other": {
+          "rmse_normalized": {
+            "candidate": 0.5533937882716761,
+            "baseline": 0.29603705138055275,
+            "ratio": 1.869339617088314
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.4267907917782657,
+            "baseline": 0.301678653569113,
+            "ratio": 1.4147198906152971
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.006538281729917028,
+            "baseline": 0.0037429717258050197,
+            "ratio": 1.7468156878772059
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.005431475324064521,
+            "baseline": 0.004052955544095687,
+            "ratio": 1.3401270418514828
+          }
+        },
+        "worst_channel_window_lead": {
+          "ratio": 2.4807413473648605,
+          "channel": "vo_8",
+          "window": null,
+          "lead_days": 15
+        }
+      }
+    },
+    "20": {
+      "carry_balanced_l15_0.5": {
+        "all": {
+          "rmse_normalized": {
+            "candidate": 0.31250199277581914,
+            "baseline": 0.311799744535281,
+            "ratio": 1.0022522412312582
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.31024020446443595,
+            "baseline": 0.3083459762634284,
+            "ratio": 1.0061431909180785
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.004018019831518696,
+            "baseline": 0.004012180059719193,
+            "ratio": 1.0014555108974625
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.004066026608855634,
+            "baseline": 0.00405196402168876,
+            "ratio": 1.003470560718605
+          }
+        },
+        "edited_deep_tracers": {
+          "rmse_normalized": {
+            "candidate": 0.020396556084730295,
+            "baseline": 0.027578079074595266,
+            "ratio": 0.7395930669993422
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.028020221856236125,
+            "baseline": 0.037518523091497266,
+            "ratio": 0.7468370166891319
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.00018865222959412727,
+            "baseline": 0.0002512355378469925,
+            "ratio": 0.750897867438723
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.00027810419238505455,
+            "baseline": 0.0003719174733855087,
+            "ratio": 0.7477578018949043
+          }
+        },
+        "other": {
+          "rmse_normalized": {
+            "candidate": 0.3300482836139861,
+            "baseline": 0.3292456201713896,
+            "ratio": 1.002437886469617
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.3275931273993197,
+            "baseline": 0.3254803907001996,
+            "ratio": 1.0064911335966356
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.0042440760109929525,
+            "baseline": 0.004237529676985595,
+            "ratio": 1.001544846763649
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.0042942316179734865,
+            "baseline": 0.004278546374594855,
+            "ratio": 1.00366602158896
+          }
+        },
+        "worst_channel_window_lead": {
+          "ratio": 1.0571195183544058,
+          "channel": "so_11",
+          "window": null,
+          "lead_days": 20
+        }
+      },
+      "external_blend_control": {
+        "all": {
+          "rmse_normalized": {
+            "candidate": 0.3117231706987302,
+            "baseline": 0.311799744535281,
+            "ratio": 0.9997544134083082
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.3082136113468991,
+            "baseline": 0.3083459762634284,
+            "ratio": 0.9995707259808176
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.004012062206913762,
+            "baseline": 0.004012180059719193,
+            "ratio": 0.9999706262421735
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.004050562533295943,
+            "baseline": 0.00405196402168876,
+            "ratio": 0.9996541212149674
+          }
+        },
+        "edited_deep_tracers": {
+          "rmse_normalized": {
+            "candidate": 0.019421563088501195,
+            "baseline": 0.027578079074595266,
+            "ratio": 0.704239154437417
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.02688967843144709,
+            "baseline": 0.037518523091497266,
+            "ratio": 0.7167040761671408
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.00018551305654558565,
+            "baseline": 0.0002512355378469925,
+            "ratio": 0.7384029271311403
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.00027387520771209137,
+            "baseline": 0.0003719174733855087,
+            "ratio": 0.7363870409718765
+          }
+        },
+        "other": {
+          "rmse_normalized": {
+            "candidate": 0.32923220363211775,
+            "baseline": 0.3292456201713896,
+            "ratio": 0.9999592506674353
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.32546241548082094,
+            "baseline": 0.3254803907001996,
+            "ratio": 0.999944773264712
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.004237797831801067,
+            "baseline": 0.004237529676985595,
+            "ratio": 1.0000632809292
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.004277923299763753,
+            "baseline": 0.004278546374594855,
+            "ratio": 0.9998543723085949
+          }
+        },
+        "worst_channel_window_lead": {
+          "ratio": 1.003678468105696,
+          "channel": "so_14",
+          "window": null,
+          "lead_days": 20
+        }
+      },
+      "persistence": {
+        "all": {
+          "rmse_normalized": {
+            "candidate": 0.5748517777967701,
+            "baseline": 0.311799744535281,
+            "ratio": 1.8436569877680709
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.4380734457680014,
+            "baseline": 0.3083459762634284,
+            "ratio": 1.4207204876698092
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.006803289471774744,
+            "baseline": 0.004012180059719193,
+            "ratio": 1.6956590607877398
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.005548247110801992,
+            "baseline": 0.00405196402168876,
+            "ratio": 1.3692735377471632
+          }
+        },
+        "edited_deep_tracers": {
+          "rmse_normalized": {
+            "candidate": 0.010854928086188993,
+            "baseline": 0.027578079074595266,
+            "ratio": 0.3936071129837494
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.015484887226561894,
+            "baseline": 0.037518523091497266,
+            "ratio": 0.4127264601753793
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.0001388279378935499,
+            "baseline": 0.0002512355378469925,
+            "ratio": 0.5525808135395993
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.00018290520967133306,
+            "baseline": 0.0003719174733855087,
+            "ratio": 0.4917897726244871
+          }
+        },
+        "other": {
+          "rmse_normalized": {
+            "candidate": 0.6072515771647969,
+            "baseline": 0.3292456201713896,
+            "ratio": 1.8443725290823632
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.46274267781996586,
+            "baseline": 0.3254803907001996,
+            "ratio": 1.4217221406932585
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.007186714173762629,
+            "baseline": 0.004237529676985595,
+            "ratio": 1.6959678684480537
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.005860735112011621,
+            "baseline": 0.004278546374594855,
+            "ratio": 1.3697958602976663
+          }
+        },
+        "worst_channel_window_lead": {
+          "ratio": 2.361941946898346,
+          "channel": "uo_3",
+          "window": null,
+          "lead_days": 20
+        }
+      }
+    },
+    "25": {
+      "carry_balanced_l15_0.5": {
+        "all": {
+          "rmse_normalized": {
+            "candidate": 0.31723700867179955,
+            "baseline": 0.31575074483240595,
+            "ratio": 1.0047070794407231
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.3188038780563231,
+            "baseline": 0.3163477249438964,
+            "ratio": 1.0077640928597236
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.0040628994097492805,
+            "baseline": 0.004052623923965573,
+            "ratio": 1.0025355142684083
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.004140473847552178,
+            "baseline": 0.004128925411147375,
+            "ratio": 1.0027969593186703
+          }
+        },
+        "edited_deep_tracers": {
+          "rmse_normalized": {
+            "candidate": 0.023325864681353326,
+            "baseline": 0.02919932135721271,
+            "ratio": 0.7988495484533394
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.032071881157859604,
+            "baseline": 0.039386291977806874,
+            "ratio": 0.8142904433839889
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.00020720045032909137,
+            "baseline": 0.00025783240656240163,
+            "ratio": 0.8036245446863325
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.00031071388773052603,
+            "baseline": 0.0003832175498045537,
+            "ratio": 0.8108028661239404
+          }
+        },
+        "other": {
+          "rmse_normalized": {
+            "candidate": 0.3350291972343358,
+            "baseline": 0.33340505519952096,
+            "ratio": 1.0048713779514917
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.33660143787573377,
+            "baseline": 0.3339146978847,
+            "ratio": 1.0080461866699904
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.004291392156204696,
+            "baseline": 0.004280216964434323,
+            "ratio": 1.002610893761515
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.004372640529099728,
+            "baseline": 0.00435976844782886,
+            "ratio": 1.002952469018688
+          }
+        },
+        "worst_channel_window_lead": {
+          "ratio": 1.0596828138479586,
+          "channel": "so_11",
+          "window": null,
+          "lead_days": 25
+        }
+      },
+      "external_blend_control": {
+        "all": {
+          "rmse_normalized": {
+            "candidate": 0.31566521117419916,
+            "baseline": 0.31575074483240595,
+            "ratio": 0.9997291101933831
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.3162320399856449,
+            "baseline": 0.3163477249438964,
+            "ratio": 0.9996343107627153
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.004052224884048201,
+            "baseline": 0.004052623923965573,
+            "ratio": 0.9999015354188153
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.004127782579068967,
+            "baseline": 0.004128925411147375,
+            "ratio": 0.9997232131936018
+          }
+        },
+        "edited_deep_tracers": {
+          "rmse_normalized": {
+            "candidate": 0.02215602565057537,
+            "baseline": 0.02919932135721271,
+            "ratio": 0.7587856368142086
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.030652228976825735,
+            "baseline": 0.039386291977806874,
+            "ratio": 0.7782461216226562
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.00020323332935914896,
+            "baseline": 0.00025783240656240163,
+            "ratio": 0.7882381119921852
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.00030533754550935886,
+            "baseline": 0.0003832175498045537,
+            "ratio": 0.7967733880274671
+          }
+        },
+        "other": {
+          "rmse_normalized": {
+            "candidate": 0.33337756267218793,
+            "baseline": 0.33340505519952096,
+            "ratio": 0.9999175401605216
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.33389861488677497,
+            "baseline": 0.3339146978847,
+            "ratio": 0.9999518350104775
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.004280136309372753,
+            "baseline": 0.004280216964434323,
+            "ratio": 0.999981156314682
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.004359273816687992,
+            "baseline": 0.00435976844782886,
+            "ratio": 0.9998865464653027
+          }
+        },
+        "worst_channel_window_lead": {
+          "ratio": 1.0018770928273364,
+          "channel": "so_14",
+          "window": null,
+          "lead_days": 25
+        }
+      },
+      "persistence": {
+        "all": {
+          "rmse_normalized": {
+            "candidate": 0.6103971919985187,
+            "baseline": 0.31575074483240595,
+            "ratio": 1.9331615268952258
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.4827366432370241,
+            "baseline": 0.3163477249438964,
+            "ratio": 1.5259684365444273
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.007304754180992842,
+            "baseline": 0.004052623923965573,
+            "ratio": 1.8024752155746528
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.0060203562834950045,
+            "baseline": 0.004128925411147375,
+            "ratio": 1.458092768457647
+          }
+        },
+        "edited_deep_tracers": {
+          "rmse_normalized": {
+            "candidate": 0.012187022811988777,
+            "baseline": 0.02919932135721271,
+            "ratio": 0.41737349518838673
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.017411208086027846,
+            "baseline": 0.039386291977806874,
+            "ratio": 0.44206263681380814
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.00015266116662789026,
+            "baseline": 0.00025783240656240163,
+            "ratio": 0.5920945650830847
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.0001987285573742426,
+            "baseline": 0.0003832175498045537,
+            "ratio": 0.5185789572413814
+          }
+        },
+        "other": {
+          "rmse_normalized": {
+            "candidate": 0.6447989932357971,
+            "baseline": 0.33340505519952096,
+            "ratio": 1.933980853559426
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.5099196318658579,
+            "baseline": 0.3339146978847,
+            "ratio": 1.5270954980302542
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.007716432632244733,
+            "baseline": 0.004280216964434323,
+            "ratio": 1.8028134312729969
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.0063594334456895,
+            "baseline": 0.00435976844782886,
+            "ratio": 1.4586631197940025
+          }
+        },
+        "worst_channel_window_lead": {
+          "ratio": 2.461078486795571,
+          "channel": "uo_3",
+          "window": null,
+          "lead_days": 25
+        }
+      }
+    },
+    "30": {
+      "carry_balanced_l15_0.5": {
+        "all": {
+          "rmse_normalized": {
+            "candidate": 0.35303886900026493,
+            "baseline": 0.35127419716854036,
+            "ratio": 1.0050236306735558
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.3454260207688465,
+            "baseline": 0.3433510018012653,
+            "ratio": 1.0060434335612691
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.0045195297420409855,
+            "baseline": 0.004508367127284704,
+            "ratio": 1.002475977319754
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.004484792459000361,
+            "baseline": 0.004466604882961114,
+            "ratio": 1.0040719017051694
+          }
+        },
+        "edited_deep_tracers": {
+          "rmse_normalized": {
+            "candidate": 0.02398991362124677,
+            "baseline": 0.029589112774232342,
+            "ratio": 0.8107682648105072
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.033244553747172355,
+            "baseline": 0.040142023902007024,
+            "ratio": 0.8281733334703683
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.00021795050533955583,
+            "baseline": 0.00026299538382252956,
+            "ratio": 0.8287236915406462
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.0003285738954777551,
+            "baseline": 0.00039293512282985487,
+            "ratio": 0.8362039338998748
+          }
+        },
+        "other": {
+          "rmse_normalized": {
+            "candidate": 0.3728542860518558,
+            "baseline": 0.3709427886307698,
+            "ratio": 1.0051530788026417
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.36472606070446056,
+            "baseline": 0.36245203674811655,
+            "ratio": 1.0062739996628143
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.00477377112267398,
+            "baseline": 0.004761713973040007,
+            "ratio": 1.0025321028735112
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.0047363308972138635,
+            "baseline": 0.004716541770475025,
+            "ratio": 1.0041956856743464
+          }
+        },
+        "worst_channel_window_lead": {
+          "ratio": 1.0577907379167977,
+          "channel": "so_11",
+          "window": null,
+          "lead_days": 30
+        }
+      },
+      "external_blend_control": {
+        "all": {
+          "rmse_normalized": {
+            "candidate": 0.3511534965733496,
+            "baseline": 0.35127419716854036,
+            "ratio": 0.9996563920829834
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.3432130915461398,
+            "baseline": 0.3433510018012653,
+            "ratio": 0.9995983403152984
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.004507650817672025,
+            "baseline": 0.004508367127284704,
+            "ratio": 0.9998411155097943
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.004466143925597068,
+            "baseline": 0.004466604882961114,
+            "ratio": 0.9998967991626473
+          }
+        },
+        "edited_deep_tracers": {
+          "rmse_normalized": {
+            "candidate": 0.022852898573443737,
+            "baseline": 0.029589112774232342,
+            "ratio": 0.7723414604491003
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.03191712648289707,
+            "baseline": 0.040142023902007024,
+            "ratio": 0.7951050639801266
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.00021401601724095945,
+            "baseline": 0.00026299538382252956,
+            "ratio": 0.8137633981643511
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.00032318740689522943,
+            "baseline": 0.00039293512282985487,
+            "ratio": 0.8224955930833728
+          }
+        },
+        "other": {
+          "rmse_normalized": {
+            "candidate": 0.3708704582270504,
+            "baseline": 0.3709427886307698,
+            "ratio": 0.9998050092738388
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.36240106684672246,
+            "baseline": 0.36245203674811655,
+            "ratio": 0.9998593747690001
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.004761241618904322,
+            "baseline": 0.004761713973040007,
+            "ratio": 0.999900801657059
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.00471666856092484,
+            "baseline": 0.004716541770475025,
+            "ratio": 1.0000268820792828
+          }
+        },
+        "worst_channel_window_lead": {
+          "ratio": 1.0016957643783082,
+          "channel": "so_14",
+          "window": null,
+          "lead_days": 30
+        }
+      },
+      "persistence": {
+        "all": {
+          "rmse_normalized": {
+            "candidate": 0.6496230940079999,
+            "baseline": 0.35127419716854036,
+            "ratio": 1.8493333676208292
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.5174231285443788,
+            "baseline": 0.3433510018012653,
+            "ratio": 1.5069801044118345
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.007755430060906259,
+            "baseline": 0.004508367127284704,
+            "ratio": 1.7202303720942074
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.006440812541485478,
+            "baseline": 0.004466604882961114,
+            "ratio": 1.4419929029441199
+          }
+        },
+        "edited_deep_tracers": {
+          "rmse_normalized": {
+            "candidate": 0.013493594413302057,
+            "baseline": 0.029589112774232342,
+            "ratio": 0.4560324101726005
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.01967249187905142,
+            "baseline": 0.040142023902007024,
+            "ratio": 0.49007224765435486
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.00016675636940390438,
+            "baseline": 0.00026299538382252956,
+            "ratio": 0.6340657656426103
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.0002221427711301666,
+            "baseline": 0.00039293512282985487,
+            "ratio": 0.5653421092274228
+          }
+        },
+        "other": {
+          "rmse_normalized": {
+            "candidate": 0.6862344851281217,
+            "baseline": 0.3709427886307698,
+            "ratio": 1.849973920941183
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.5465552119352894,
+            "baseline": 0.36245203674811655,
+            "ratio": 1.507938034612602
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.008192496643567755,
+            "baseline": 0.004761713973040007,
+            "ratio": 1.7204932278486782
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.00680353522521882,
+            "baseline": 0.004716541770475025,
+            "ratio": 1.442483827411032
+          }
+        },
+        "worst_channel_window_lead": {
+          "ratio": 2.29904547190214,
+          "channel": "uo_3",
+          "window": null,
+          "lead_days": 30
+        }
+      }
+    },
+    "35": {
+      "carry_balanced_l15_0.5": {
+        "all": {
+          "rmse_normalized": {
+            "candidate": 0.3512678880792314,
+            "baseline": 0.3489821181880318,
+            "ratio": 1.006549819523899
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.33923579464379067,
+            "baseline": 0.33666543492380796,
+            "ratio": 1.0076347597743867
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.004476717557453194,
+            "baseline": 0.004455009661182078,
+            "ratio": 1.0048726934220287
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.004624051358621247,
+            "baseline": 0.004592698613421551,
+            "ratio": 1.0068266498280711
+          }
+        },
+        "edited_deep_tracers": {
+          "rmse_normalized": {
+            "candidate": 0.025581224101743405,
+            "baseline": 0.03014976925375829,
+            "ratio": 0.848471637923219
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.035478193158833604,
+            "baseline": 0.04086412852951861,
+            "ratio": 0.868198942091854
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.0002293996795841617,
+            "baseline": 0.000271538398805397,
+            "ratio": 0.8448148791971231
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.0003465774517974792,
+            "baseline": 0.00040429124779862936,
+            "ratio": 0.8572469814387462
+          }
+        },
+        "other": {
+          "rmse_normalized": {
+            "candidate": 0.3709706765209855,
+            "baseline": 0.36851531107095725,
+            "ratio": 1.0066628587097035
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.35815876891475956,
+            "baseline": 0.3553748652463985,
+            "ratio": 1.0078337100921047
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.00472847681018139,
+            "baseline": 0.004705281781576044,
+            "ratio": 1.0049295726976797
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.004883336939749032,
+            "baseline": 0.004849688756384558,
+            "ratio": 1.0069382150184745
+          }
+        },
+        "worst_channel_window_lead": {
+          "ratio": 1.0642458983159857,
+          "channel": "so_12",
+          "window": null,
+          "lead_days": 35
+        }
+      },
+      "external_blend_control": {
+        "all": {
+          "rmse_normalized": {
+            "candidate": 0.3488273325067173,
+            "baseline": 0.3489821181880318,
+            "ratio": 0.9995564652936426
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.3365470560106508,
+            "baseline": 0.33666543492380796,
+            "ratio": 0.9996483781794114
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.004453520255108392,
+            "baseline": 0.004455009661182078,
+            "ratio": 0.9996656783740192
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.004591768626935158,
+            "baseline": 0.004592698613421551,
+            "ratio": 0.9997975076170522
+          }
+        },
+        "edited_deep_tracers": {
+          "rmse_normalized": {
+            "candidate": 0.02426759099438475,
+            "baseline": 0.03014976925375829,
+            "ratio": 0.8049013838260038
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.033922006293902435,
+            "baseline": 0.04086412852951861,
+            "ratio": 0.8301169635710826
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.00022529672013385922,
+            "baseline": 0.000271538398805397,
+            "ratio": 0.829704826739154
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.00034074902835364105,
+            "baseline": 0.00040429124779862936,
+            "ratio": 0.8428305836671547
+          }
+        },
+        "other": {
+          "rmse_normalized": {
+            "candidate": 0.3684021074387694,
+            "baseline": 0.36851531107095725,
+            "ratio": 0.9996928115907616
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.35533442688071437,
+            "baseline": 0.3553748652463985,
+            "ratio": 0.9998862092690317
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.004703991237988566,
+            "baseline": 0.004705281781576044,
+            "ratio": 0.9997257244842315
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.0048492719209848115,
+            "baseline": 0.004849688756384558,
+            "ratio": 0.9999140490409415
+          }
+        },
+        "worst_channel_window_lead": {
+          "ratio": 1.001214910639675,
+          "channel": "thetao_1",
+          "window": null,
+          "lead_days": 35
+        }
+      },
+      "persistence": {
+        "all": {
+          "rmse_normalized": {
+            "candidate": 0.6783601255982109,
+            "baseline": 0.3489821181880318,
+            "ratio": 1.9438248845538555
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.5307190925310245,
+            "baseline": 0.33666543492380796,
+            "ratio": 1.5763991116318001
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.008082327661347082,
+            "baseline": 0.004455009661182078,
+            "ratio": 1.8142110289391702
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.0066237203043439715,
+            "baseline": 0.004592698613421551,
+            "ratio": 1.4422283850690811
+          }
+        },
+        "edited_deep_tracers": {
+          "rmse_normalized": {
+            "candidate": 0.014678688901483737,
+            "baseline": 0.03014976925375829,
+            "ratio": 0.48685907934947065
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.02125299085221034,
+            "baseline": 0.04086412852951861,
+            "ratio": 0.5200891739770745
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.00017899732160399319,
+            "baseline": 0.000271538398805397,
+            "ratio": 0.6591970873786985
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.00023445550999637706,
+            "baseline": 0.00040429124779862936,
+            "ratio": 0.5799173523369355
+          }
+        },
+        "other": {
+          "rmse_normalized": {
+            "candidate": 0.716589706439333,
+            "baseline": 0.36851531107095725,
+            "ratio": 1.9445317057704403
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.5605951629213232,
+            "baseline": 0.3553748652463985,
+            "ratio": 1.5774755553762518
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.008537804466465973,
+            "baseline": 0.004705281781576044,
+            "ratio": 1.8145150200985876
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.006996720646456929,
+            "baseline": 0.004849688756384558,
+            "ratio": 1.4427153984357923
+          }
+        },
+        "worst_channel_window_lead": {
+          "ratio": 2.454896885125888,
+          "channel": "thetao_2",
+          "window": null,
+          "lead_days": 35
+        }
+      }
+    },
+    "40": {
+      "carry_balanced_l15_0.5": {
+        "all": {
+          "rmse_normalized": {
+            "candidate": 0.3791239909404968,
+            "baseline": 0.3766529787264695,
+            "ratio": 1.0065604478222427
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.35066750836720595,
+            "baseline": 0.34804345615463594,
+            "ratio": 1.0075394384412852
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.004827485095069133,
+            "baseline": 0.0048003808039067085,
+            "ratio": 1.0056462793827454
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.004684872658017758,
+            "baseline": 0.0046500293301794775,
+            "ratio": 1.0074931415189452
+          }
+        },
+        "edited_deep_tracers": {
+          "rmse_normalized": {
+            "candidate": 0.026146101015468447,
+            "baseline": 0.030400484016906516,
+            "ratio": 0.8600554188850383
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.03620133627999172,
+            "baseline": 0.0412626209679897,
+            "ratio": 0.877339718872333
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.00023717377715009582,
+            "baseline": 0.0002743717602264933,
+            "ratio": 0.8644248845227709
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.0003535439442764692,
+            "baseline": 0.00040508020285810026,
+            "ratio": 0.8727751733656453
+          }
+        },
+        "other": {
+          "rmse_normalized": {
+            "candidate": 0.4004006343330182,
+            "baseline": 0.3977545925386133,
+            "ratio": 1.0066524481276682
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.3702335478284278,
+            "baseline": 0.36739814158831424,
+            "ratio": 1.0077175301645667
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.005099026817087841,
+            "baseline": 0.005070173170457198,
+            "ratio": 1.0056908601857562
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.004947548805652436,
+            "baseline": 0.004910268423906014,
+            "ratio": 1.0075923307094412
+          }
+        },
+        "worst_channel_window_lead": {
+          "ratio": 1.0621954013712238,
+          "channel": "so_12",
+          "window": null,
+          "lead_days": 40
+        }
+      },
+      "external_blend_control": {
+        "all": {
+          "rmse_normalized": {
+            "candidate": 0.37651597081680005,
+            "baseline": 0.3766529787264695,
+            "ratio": 0.9996362489681279
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.3479214227619919,
+            "baseline": 0.34804345615463594,
+            "ratio": 0.9996493731156668
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.0047989331231616215,
+            "baseline": 0.0048003808039067085,
+            "ratio": 0.9996984237700666
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.004649423570496162,
+            "baseline": 0.0046500293301794775,
+            "ratio": 0.9998697299220494
+          }
+        },
+        "edited_deep_tracers": {
+          "rmse_normalized": {
+            "candidate": 0.02485357380027827,
+            "baseline": 0.030400484016906516,
+            "ratio": 0.8175387532138152
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.034678193115987264,
+            "baseline": 0.0412626209679897,
+            "ratio": 0.8404263302345617
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.00023291075223445145,
+            "baseline": 0.0002743717602264933,
+            "ratio": 0.8488874804104626
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.00034726090223649234,
+            "baseline": 0.00040508020285810026,
+            "ratio": 0.8572645609100229
+          }
+        },
+        "other": {
+          "rmse_normalized": {
+            "candidate": 0.39765449413183374,
+            "baseline": 0.3977545925386133,
+            "ratio": 0.9997483412922006
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.3673480509584643,
+            "baseline": 0.36739814158831424,
+            "ratio": 0.9998636611779433
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.005068884153765617,
+            "baseline": 0.005070173170457198,
+            "ratio": 0.9997457647602469
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.004910141860672988,
+            "baseline": 0.004910268423906014,
+            "ratio": 0.9999742247832298
+          }
+        },
+        "worst_channel_window_lead": {
+          "ratio": 1.0014506888487786,
+          "channel": "thetao_1",
+          "window": null,
+          "lead_days": 40
+        }
+      },
+      "persistence": {
+        "all": {
+          "rmse_normalized": {
+            "candidate": 0.6957810187556154,
+            "baseline": 0.3766529787264695,
+            "ratio": 1.8472733737780975
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.5411708765512453,
+            "baseline": 0.34804345615463594,
+            "ratio": 1.5548945598069304
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.008330284660045807,
+            "baseline": 0.0048003808039067085,
+            "ratio": 1.7353382992587474
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.0067201463076264675,
+            "baseline": 0.0046500293301794775,
+            "ratio": 1.445183638737842
+          }
+        },
+        "edited_deep_tracers": {
+          "rmse_normalized": {
+            "candidate": 0.015620910431869509,
+            "baseline": 0.030400484016906516,
+            "ratio": 0.5138375567698957
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.022171260935485753,
+            "baseline": 0.0412626209679897,
+            "ratio": 0.5373207134051312
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.0001867385155001786,
+            "baseline": 0.0002743717602264933,
+            "ratio": 0.6806039927215045
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.00024087422444496971,
+            "baseline": 0.00040508020285810026,
+            "ratio": 0.5946334151741995
+          }
+        },
+        "other": {
+          "rmse_normalized": {
+            "candidate": 0.7349910016596435,
+            "baseline": 0.3977545925386133,
+            "ratio": 1.8478504471027368
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.5716330932652768,
+            "baseline": 0.36739814158831424,
+            "ratio": 1.5558954402818312
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.00879972949489877,
+            "baseline": 0.005070173170457198,
+            "ratio": 1.7355875626049404
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.00709856491860183,
+            "baseline": 0.004910268423906014,
+            "ratio": 1.4456572035943958
+          }
+        },
+        "worst_channel_window_lead": {
+          "ratio": 2.532749852859562,
+          "channel": "thetao_2",
+          "window": null,
+          "lead_days": 40
+        }
+      }
+    },
+    "45": {
+      "carry_balanced_l15_0.5": {
+        "all": {
+          "rmse_normalized": {
+            "candidate": 0.3633313516130212,
+            "baseline": 0.36036223430294195,
+            "ratio": 1.008239257689759
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.3332856329117257,
+            "baseline": 0.3303070604265746,
+            "ratio": 1.0090175864884765
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.004659791855630517,
+            "baseline": 0.004630003047777038,
+            "ratio": 1.0064338635517271
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.004498951890147058,
+            "baseline": 0.004464034460564782,
+            "ratio": 1.007821944451983
+          }
+        },
+        "edited_deep_tracers": {
+          "rmse_normalized": {
+            "candidate": 0.02694111216280306,
+            "baseline": 0.03075213736352652,
+            "ratio": 0.8760728350139487
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.037698584623731844,
+            "baseline": 0.042067510935487606,
+            "ratio": 0.8961448820098792
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.00024260583883573063,
+            "baseline": 0.0002817403628281815,
+            "ratio": 0.8610972045339597
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.000363161433692519,
+            "baseline": 0.00041435506600973933,
+            "ratio": 0.8764498457561587
+          }
+        },
+        "other": {
+          "rmse_normalized": {
+            "candidate": 0.38370690210341546,
+            "baseline": 0.3805359839693286,
+            "ratio": 1.008332768168233
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.3518427193672961,
+            "baseline": 0.3486361557388728,
+            "ratio": 1.0091974500511216
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.004921825056025547,
+            "baseline": 0.004890108993880782,
+            "ratio": 1.0064857577171498
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.004751000893242341,
+            "baseline": 0.004713612666088275,
+            "ratio": 1.0079319684926709
+          }
+        },
+        "worst_channel_window_lead": {
+          "ratio": 1.0620711722090932,
+          "channel": "so_12",
+          "window": null,
+          "lead_days": 45
+        }
+      },
+      "external_blend_control": {
+        "all": {
+          "rmse_normalized": {
+            "candidate": 0.36022780940920224,
+            "baseline": 0.36036223430294195,
+            "ratio": 0.9996269728596845
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.33020270028021886,
+            "baseline": 0.3303070604265746,
+            "ratio": 0.999684051118311
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.0046289976104987775,
+            "baseline": 0.004630003047777038,
+            "ratio": 0.9997828430634094
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.00446385045243928,
+            "baseline": 0.004464034460564782,
+            "ratio": 0.9999587798599836
+          }
+        },
+        "edited_deep_tracers": {
+          "rmse_normalized": {
+            "candidate": 0.025382011496465483,
+            "baseline": 0.03075213736352652,
+            "ratio": 0.8253738982894159
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.035806408340663225,
+            "baseline": 0.042067510935487606,
+            "ratio": 0.8511653659655295
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.00023790137385297353,
+            "baseline": 0.0002817403628281815,
+            "ratio": 0.8443993308763393
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.0003563629012066719,
+            "baseline": 0.00041435506600973933,
+            "ratio": 0.8600423415561562
+          }
+        },
+        "other": {
+          "rmse_normalized": {
+            "candidate": 0.38043986322592904,
+            "baseline": 0.3805359839693286,
+            "ratio": 0.9997474069537474
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.34860690874577627,
+            "baseline": 0.3486361557388728,
+            "ratio": 0.9999161102696462
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.004889316773195356,
+            "baseline": 0.004890108993880782,
+            "ratio": 0.9998379952908172
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.004713967881893792,
+            "baseline": 0.004713612666088275,
+            "ratio": 1.0000753595661502
+          }
+        },
+        "worst_channel_window_lead": {
+          "ratio": 1.0008173707116943,
+          "channel": "thetao_2",
+          "window": null,
+          "lead_days": 45
+        }
+      },
+      "persistence": {
+        "all": {
+          "rmse_normalized": {
+            "candidate": 0.712477341369694,
+            "baseline": 0.36036223430294195,
+            "ratio": 1.9771143409293637
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.5510877090835322,
+            "baseline": 0.3303070604265746,
+            "ratio": 1.6684103221161266
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.008470912039005853,
+            "baseline": 0.004630003047777038,
+            "ratio": 1.8295694304289747
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.006819967956062242,
+            "baseline": 0.004464034460564782,
+            "ratio": 1.5277588056968967
+          }
+        },
+        "edited_deep_tracers": {
+          "rmse_normalized": {
+            "candidate": 0.01642754923005094,
+            "baseline": 0.03075213736352652,
+            "ratio": 0.5341921127581456
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.023447080643520173,
+            "baseline": 0.042067510935487606,
+            "ratio": 0.5573679098693838
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.0001941596568522893,
+            "baseline": 0.0002817403628281815,
+            "ratio": 0.689143915707587
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.0002542294045054697,
+            "baseline": 0.00041435506600973933,
+            "ratio": 0.6135544738325803
+          }
+        },
+        "other": {
+          "rmse_normalized": {
+            "candidate": 0.752627149028056,
+            "baseline": 0.3805359839693286,
+            "ratio": 1.977808093672209
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.5821041534151724,
+            "baseline": 0.3486361557388728,
+            "ratio": 1.669660888101251
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.008948271167903862,
+            "baseline": 0.004890108993880782,
+            "ratio": 1.829871518017542
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.007203968395358328,
+            "baseline": 0.004713612666088275,
+            "ratio": 1.5283327048034148
+          }
+        },
+        "worst_channel_window_lead": {
+          "ratio": 2.613234833773649,
+          "channel": "thetao_2",
+          "window": null,
+          "lead_days": 45
+        }
+      }
+    },
+    "50": {
+      "carry_balanced_l15_0.5": {
+        "all": {
+          "rmse_normalized": {
+            "candidate": 0.3827684337808464,
+            "baseline": 0.38001417557643424,
+            "ratio": 1.0072477775341784
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.34000790420112914,
+            "baseline": 0.33700324286167854,
+            "ratio": 1.0089158232245374
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.004961346674984468,
+            "baseline": 0.004939585036505693,
+            "ratio": 1.0044055600456205
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.004641748705831493,
+            "baseline": 0.004600479515759258,
+            "ratio": 1.008970627937993
+          }
+        },
+        "edited_deep_tracers": {
+          "rmse_normalized": {
+            "candidate": 0.027428725131341647,
+            "baseline": 0.03104898663532647,
+            "ratio": 0.8834016212346907
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.03820065459856287,
+            "baseline": 0.04233888386917441,
+            "ratio": 0.9022593679276357
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.0002506631151837841,
+            "baseline": 0.0002846434265775122,
+            "ratio": 0.8806214785906015
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.00037385275793352555,
+            "baseline": 0.000418632329989754,
+            "ratio": 0.8930336506563542
+          }
+        },
+        "other": {
+          "rmse_normalized": {
+            "candidate": 0.40424164481031744,
+            "baseline": 0.4013007339118885,
+            "ratio": 1.0073284463493524
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.3589424795202848,
+            "baseline": 0.3557119957425832,
+            "ratio": 1.0090817397680323
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.0052403801829717205,
+            "baseline": 0.005217186412857325,
+            "ratio": 1.0044456471896877
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.004901805144611267,
+            "baseline": 0.004857770828967823,
+            "ratio": 1.0090647165528803
+          }
+        },
+        "worst_channel_window_lead": {
+          "ratio": 1.0596999405704663,
+          "channel": "so_12",
+          "window": null,
+          "lead_days": 50
+        }
+      },
+      "external_blend_control": {
+        "all": {
+          "rmse_normalized": {
+            "candidate": 0.3799177122442945,
+            "baseline": 0.38001417557643424,
+            "ratio": 0.9997461585952855
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.33693867628205726,
+            "baseline": 0.33700324286167854,
+            "ratio": 0.9998084096192279
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.004938154582908399,
+            "baseline": 0.004939585036505693,
+            "ratio": 0.9997104101687241
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.004600698528780159,
+            "baseline": 0.004600479515759258,
+            "ratio": 1.0000476065636528
+          }
+        },
+        "edited_deep_tracers": {
+          "rmse_normalized": {
+            "candidate": 0.02591322212788933,
+            "baseline": 0.03104898663532647,
+            "ratio": 0.834591557922414
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.036407036238017214,
+            "baseline": 0.04233888386917441,
+            "ratio": 0.8598959847527775
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.00024561315215216776,
+            "baseline": 0.0002846434265775122,
+            "ratio": 0.8628801132187187
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.0003667908412163877,
+            "baseline": 0.000418632329989754,
+            "ratio": 0.8761646316837615
+          }
+        },
+        "other": {
+          "rmse_normalized": {
+            "candidate": 0.40124106529897835,
+            "baseline": 0.4013007339118885,
+            "ratio": 0.9998513119766105
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.35571986480471396,
+            "baseline": 0.3557119957425832,
+            "ratio": 1.000022122003826
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.005215905074041973,
+            "baseline": 0.005217186412857325,
+            "ratio": 0.9997544004154817
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.004858488151543978,
+            "baseline": 0.004857770828967823,
+            "ratio": 1.0001476649684413
+          }
+        },
+        "worst_channel_window_lead": {
+          "ratio": 1.0007020820045778,
+          "channel": "thetao_2",
+          "window": null,
+          "lead_days": 50
+        }
+      },
+      "persistence": {
+        "all": {
+          "rmse_normalized": {
+            "candidate": 0.7245607744858444,
+            "baseline": 0.38001417557643424,
+            "ratio": 1.9066677536088643
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.5531265794040997,
+            "baseline": 0.33700324286167854,
+            "ratio": 1.641309367551481
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.00860633326124889,
+            "baseline": 0.004939585036505693,
+            "ratio": 1.7423190809843991
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.006843863998515779,
+            "baseline": 0.004600479515759258,
+            "ratio": 1.4876414458692084
+          }
+        },
+        "edited_deep_tracers": {
+          "rmse_normalized": {
+            "candidate": 0.017074145229146832,
+            "baseline": 0.03104898663532647,
+            "ratio": 0.5499099030085721
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.024156106619081567,
+            "baseline": 0.04233888386917441,
+            "ratio": 0.5705418851787177
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.0002013267939034991,
+            "baseline": 0.0002846434265775122,
+            "ratio": 0.7072947242246437
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.00026380562102758037,
+            "baseline": 0.000418632329989754,
+            "ratio": 0.6301606496422218
+          }
+        },
+        "other": {
+          "rmse_normalized": {
+            "candidate": 0.7653905710805252,
+            "baseline": 0.4013007339118885,
+            "ratio": 1.9072742868408958
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.5842548313510572,
+            "baseline": 0.3557119957425832,
+            "ratio": 1.6424940354664415
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.00909131342040918,
+            "baseline": 0.005217186412857325,
+            "ratio": 1.7425701711566963
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.007229173769494138,
+            "baseline": 0.004857770828967823,
+            "ratio": 1.4881669028899391
+          }
+        },
+        "worst_channel_window_lead": {
+          "ratio": 2.564542910278006,
+          "channel": "thetao_2",
+          "window": null,
+          "lead_days": 50
+        }
+      }
+    },
+    "55": {
+      "carry_balanced_l15_0.5": {
+        "all": {
+          "rmse_normalized": {
+            "candidate": 0.3737304108063804,
+            "baseline": 0.37104608794493427,
+            "ratio": 1.007234472882637
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.3392961164443421,
+            "baseline": 0.3361076252010291,
+            "ratio": 1.009486518615595
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.004789723755340238,
+            "baseline": 0.004770592603115259,
+            "ratio": 1.0040102255247045
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.004619867088562752,
+            "baseline": 0.004582733331965682,
+            "ratio": 1.0081029712852925
+          }
+        },
+        "edited_deep_tracers": {
+          "rmse_normalized": {
+            "candidate": 0.028025545685300045,
+            "baseline": 0.03183734815018191,
+            "ratio": 0.8802726141982373
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.038879392816483796,
+            "baseline": 0.04278855771055021,
+            "ratio": 0.9086399471440342
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.00025304163853078886,
+            "baseline": 0.00029024252583227374,
+            "ratio": 0.8718282677743004
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.00038079206337927397,
+            "baseline": 0.0004286141509374293,
+            "ratio": 0.8884262513182012
+          }
+        },
+        "other": {
+          "rmse_normalized": {
+            "candidate": 0.3946865732717412,
+            "baseline": 0.39181630971046166,
+            "ratio": 1.0073255336496854
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.3581815981271645,
+            "baseline": 0.3547588477706915,
+            "ratio": 1.0096481042769803
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.005059042257234749,
+            "baseline": 0.005038596991926833,
+            "ratio": 1.0040577298284967
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.004878619751300248,
+            "baseline": 0.004838914670882939,
+            "ratio": 1.0082053689965285
+          }
+        },
+        "worst_channel_window_lead": {
+          "ratio": 1.063331966018397,
+          "channel": "so_12",
+          "window": null,
+          "lead_days": 55
+        }
+      },
+      "external_blend_control": {
+        "all": {
+          "rmse_normalized": {
+            "candidate": 0.37096032233568416,
+            "baseline": 0.37104608794493427,
+            "ratio": 0.9997688545654123
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.33608819605849527,
+            "baseline": 0.3361076252010291,
+            "ratio": 0.9999421936871494
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.004769414822286382,
+            "baseline": 0.004770592603115259,
+            "ratio": 0.9997531164517993
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.0045836712954273945,
+            "baseline": 0.004582733331965682,
+            "ratio": 1.0002046733671301
+          }
+        },
+        "edited_deep_tracers": {
+          "rmse_normalized": {
+            "candidate": 0.026429960963443147,
+            "baseline": 0.03183734815018191,
+            "ratio": 0.830155854651234
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.036963904780039754,
+            "baseline": 0.04278855771055021,
+            "ratio": 0.8638735857863634
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.0002477854944361409,
+            "baseline": 0.00029024252583227374,
+            "ratio": 0.8537187778586655
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.00037331727321788816,
+            "baseline": 0.0004286141509374293,
+            "ratio": 0.870986812734483
+          }
+        },
+        "other": {
+          "rmse_normalized": {
+            "candidate": 0.3917722984572921,
+            "baseline": 0.39181630971046166,
+            "ratio": 0.9998876737591601
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.35481421090084414,
+            "baseline": 0.3547588477706915,
+            "ratio": 1.000156058490156
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.005037615443079619,
+            "baseline": 0.005038596991926833,
+            "ratio": 0.9998051940155588
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.004840437082966076,
+            "baseline": 0.004838914670882939,
+            "ratio": 1.0003146185016027
+          }
+        },
+        "worst_channel_window_lead": {
+          "ratio": 1.0015942406941651,
+          "channel": "uo_18",
+          "window": null,
+          "lead_days": 55
+        }
+      },
+      "persistence": {
+        "all": {
+          "rmse_normalized": {
+            "candidate": 0.7329595785961731,
+            "baseline": 0.37104608794493427,
+            "ratio": 1.9753868923823534
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.5639819741267754,
+            "baseline": 0.3361076252010291,
+            "ratio": 1.6779803010700889
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.008755404143196468,
+            "baseline": 0.004770592603115259,
+            "ratio": 1.8352864877791233
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.007019161059993654,
+            "baseline": 0.004582733331965682,
+            "ratio": 1.531653830047953
+          }
+        },
+        "edited_deep_tracers": {
+          "rmse_normalized": {
+            "candidate": 0.017654283876455196,
+            "baseline": 0.03183734815018191,
+            "ratio": 0.5545148984512495
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.02486295776583903,
+            "baseline": 0.04278855771055021,
+            "ratio": 0.5810655721099164
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.000208594494080303,
+            "baseline": 0.00029024252583227374,
+            "ratio": 0.7186903210759895
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.00027407417202110886,
+            "baseline": 0.0004286141509374293,
+            "ratio": 0.6394426582082663
+          }
+        },
+        "other": {
+          "rmse_normalized": {
+            "candidate": 0.7742616575190788,
+            "baseline": 0.39181630971046166,
+            "ratio": 1.9760832776237178
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.5957200129769169,
+            "baseline": 0.3547588477706915,
+            "ratio": 1.6792252447554952
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.009248774880420694,
+            "baseline": 0.005038596991926833,
+            "ratio": 1.835585361409075
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.007414325108026122,
+            "baseline": 0.004838914670882939,
+            "ratio": 1.5322289422957023
+          }
+        },
+        "worst_channel_window_lead": {
+          "ratio": 2.6192258305826606,
+          "channel": "thetao_2",
+          "window": null,
+          "lead_days": 55
+        }
+      }
+    },
+    "60": {
+      "carry_balanced_l15_0.5": {
+        "all": {
+          "rmse_normalized": {
+            "candidate": 0.4145808549623112,
+            "baseline": 0.4130361269778943,
+            "ratio": 1.0037399343145097
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.35890989060209916,
+            "baseline": 0.35601647571664474,
+            "ratio": 1.0081271937755973
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.00512411119095163,
+            "baseline": 0.005113917394080103,
+            "ratio": 1.0019933440620938
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.004852106399462508,
+            "baseline": 0.0048191391527737165,
+            "ratio": 1.0068408995141418
+          }
+        },
+        "edited_deep_tracers": {
+          "rmse_normalized": {
+            "candidate": 0.028441443682312655,
+            "baseline": 0.03197535053413329,
+            "ratio": 0.8894802780020117
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.03946337425226626,
+            "baseline": 0.0430742347016337,
+            "ratio": 0.9161712222079134
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.00025906151315500324,
+            "baseline": 0.0002922940574629574,
+            "ratio": 0.886304413451287
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.0003879842834946523,
+            "baseline": 0.0004300369294422713,
+            "ratio": 0.9022115472683743
+          }
+        },
+        "other": {
+          "rmse_normalized": {
+            "candidate": 0.4378484888245293,
+            "baseline": 0.4361878910434275,
+            "ratio": 1.003807069877913
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.378907601711258,
+            "baseline": 0.37580314319496516,
+            "ratio": 1.0082608636263648
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.005412297846204907,
+            "baseline": 0.005401331222397734,
+            "ratio": 1.0020303557318793
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.00512397300698772,
+            "baseline": 0.005088743493008436,
+            "ratio": 1.006923028057454
+          }
+        },
+        "worst_channel_window_lead": {
+          "ratio": 1.062998810857828,
+          "channel": "so_12",
+          "window": null,
+          "lead_days": 60
+        }
+      },
+      "external_blend_control": {
+        "all": {
+          "rmse_normalized": {
+            "candidate": 0.41300097960902565,
+            "baseline": 0.4130361269778943,
+            "ratio": 0.9999149048555974
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.3560440117573416,
+            "baseline": 0.35601647571664474,
+            "ratio": 1.0000773448493963
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.0051140749466342126,
+            "baseline": 0.005113917394080103,
+            "ratio": 1.0000308085840988
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.004820452184040222,
+            "baseline": 0.0048191391527737165,
+            "ratio": 1.0002724617872363
+          }
+        },
+        "edited_deep_tracers": {
+          "rmse_normalized": {
+            "candidate": 0.02684252315054817,
+            "baseline": 0.03197535053413329,
+            "ratio": 0.839475492908017
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.03760437619776052,
+            "baseline": 0.0430742347016337,
+            "ratio": 0.8730132167927821
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.0002536214194758658,
+            "baseline": 0.0002922940574629574,
+            "ratio": 0.8676926985010888
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.0003799326364054683,
+            "baseline": 0.0004300369294422713,
+            "ratio": 0.8834883945855885
+          }
+        },
+        "other": {
+          "rmse_normalized": {
+            "candidate": 0.43619087592831174,
+            "baseline": 0.4361878910434275,
+            "ratio": 1.0000068431172564
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.37590031705270566,
+            "baseline": 0.37580314319496516,
+            "ratio": 1.0002585764901122
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.005401724263775796,
+            "baseline": 0.005401331222397734,
+            "ratio": 1.0000727675015433
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.005090593303378798,
+            "baseline": 0.005088743493008436,
+            "ratio": 1.0003635102403774
+          }
+        },
+        "worst_channel_window_lead": {
+          "ratio": 1.0023215152262845,
+          "channel": "uo_18",
+          "window": null,
+          "lead_days": 60
+        }
+      },
+      "persistence": {
+        "all": {
+          "rmse_normalized": {
+            "candidate": 0.7450867629078454,
+            "baseline": 0.4130361269778943,
+            "ratio": 1.8039263740910547
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.5682227746548694,
+            "baseline": 0.35601647571664474,
+            "ratio": 1.5960575237734802
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.008822680147598799,
+            "baseline": 0.005113917394080103,
+            "ratio": 1.725229304214413
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.007067247080467238,
+            "baseline": 0.0048191391527737165,
+            "ratio": 1.4664957488101573
+          }
+        },
+        "edited_deep_tracers": {
+          "rmse_normalized": {
+            "candidate": 0.018062709595297054,
+            "baseline": 0.03197535053413329,
+            "ratio": 0.5648948109580639
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.02552724778719665,
+            "baseline": 0.0430742347016337,
+            "ratio": 0.5926338091441116
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.00021177753076842844,
+            "baseline": 0.0002922940574629574,
+            "ratio": 0.7245358752983444
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.00027608186965676697,
+            "baseline": 0.0004300369294422713,
+            "ratio": 0.6419957235180392
+          }
+        },
+        "other": {
+          "rmse_normalized": {
+            "candidate": 0.7870718969445675,
+            "baseline": 0.4361878910434275,
+            "ratio": 1.804433165399829
+          },
+          "coastal_rmse_normalized": {
+            "candidate": 0.6001971323858801,
+            "baseline": 0.37580314319496516,
+            "ratio": 1.5971051420251168
+          },
+          "gradient_rmse_normalized_per_km": {
+            "candidate": 0.009319837768543488,
+            "baseline": 0.005401331222397734,
+            "ratio": 1.7254705154716043
+          },
+          "coastal_gradient_rmse_normalized_per_km": {
+            "candidate": 0.007465117712877085,
+            "baseline": 0.005088743493008436,
+            "ratio": 1.4669864423572567
+          }
+        },
+        "worst_channel_window_lead": {
+          "ratio": 2.6134676511852293,
+          "channel": "thetao_3",
+          "window": null,
+          "lead_days": 60
+        }
+      }
+    }
+  },
+  "limitations": [
+    "Four seasonal windows per year, three years; no confidence interval or exhaustive validation.",
+    "2015 inputs selected the feature basis; 2015 targets screened candidates. 2017 checked selection; 2019 was opened only after freezing the final candidate.",
+    "The one 60-day rollout starts in January 2015 and is a discovery diagnostic, not an independent rollout test.",
+    "Persistence outperforms the candidate in the selected deep tracers. This edit damps spurious change; it does not establish improved deep-ocean dynamics.",
+    "Some unedited channels regress. No guarantee of heat/salt conservation, stability, positivity, or removal of all boundary artifacts.",
+    "Full-record heat-flux anomaly climatology matches the original training convention and includes forcing observations from evaluation years.",
+    "No backpropagation, optimizer, or target regression; target feedback still guided candidate selection.",
+    "Low-rank projections touch many dense tensor entries; this is not a sparse or small-norm edit."
+  ],
+  "sources": {
+    "weight_space_article": "https://rikiyat.github.io/blog/weight-space-programming/",
+    "samudra2_paper": "https://m2lines.github.io/Samudra/samudra2/",
+    "training_run": "https://forge.coreweave.com/wandb/ocean_emulators/default/runs/3o112ot4"
+  },
+  "reservation_only_control": {
+    "all": {
+      "rmse_normalized": {
+        "candidate": 0.22931393294878646,
+        "baseline": 0.22872993563833785,
+        "ratio": 1.0025532176574037
+      },
+      "coastal_rmse_normalized": {
+        "candidate": 0.2559623905486873,
+        "baseline": 0.2547651016927581,
+        "ratio": 1.0046995795262927
+      },
+      "gradient_rmse_normalized_per_km": {
+        "candidate": 0.002648966856087682,
+        "baseline": 0.0026452098675705943,
+        "ratio": 1.001420298844015
+      },
+      "coastal_gradient_rmse_normalized_per_km": {
+        "candidate": 0.003274338064883655,
+        "baseline": 0.003265145080743042,
+        "ratio": 1.0028154902502895
+      }
+    },
+    "edited_deep_tracers": {
+      "rmse_normalized": {
+        "candidate": 0.027895966049719667,
+        "baseline": 0.026484041096336144,
+        "ratio": 1.053312292797297
+      },
+      "coastal_rmse_normalized": {
+        "candidate": 0.03725102052929236,
+        "baseline": 0.035453545702077184,
+        "ratio": 1.0506994375772651
+      },
+      "gradient_rmse_normalized_per_km": {
+        "candidate": 0.0002290461177480985,
+        "baseline": 0.0002244791754270367,
+        "ratio": 1.0203446146502182
+      },
+      "coastal_gradient_rmse_normalized_per_km": {
+        "candidate": 0.000335335308526095,
+        "baseline": 0.0003288598898184076,
+        "ratio": 1.019690509266007
+      }
+    },
+    "other": {
+      "rmse_normalized": {
+        "candidate": 0.2420567147773414,
+        "baseline": 0.24145774949931073,
+        "ratio": 1.0024806214721733
+      },
+      "coastal_rmse_normalized": {
+        "candidate": 0.270096286794224,
+        "baseline": 0.26885827204642176,
+        "ratio": 1.0046047113907972
+      },
+      "gradient_rmse_normalized_per_km": {
+        "candidate": 0.0027972327401203623,
+        "baseline": 0.002793305367749427,
+        "ratio": 1.0014059946385667
+      },
+      "coastal_gradient_rmse_normalized_per_km": {
+        "candidate": 0.0034570652578788845,
+        "baseline": 0.003447420972708978,
+        "ratio": 1.0027975362586274
+      }
+    },
+    "worst_channel_window_lead": {
+      "ratio": 1.1070991027665573,
+      "channel": "so_16",
+      "window": "discovery_2015_01",
+      "lead_days": 5
+    }
+  },
+  "broader_depth_control": {
+    "all": {
+      "rmse_normalized": {
+        "candidate": 0.2296852474168917,
+        "baseline": 0.22872993563833785,
+        "ratio": 1.0041765926960446
+      },
+      "coastal_rmse_normalized": {
+        "candidate": 0.25681115235403346,
+        "baseline": 0.2547651016927581,
+        "ratio": 1.008031126114529
+      },
+      "gradient_rmse_normalized_per_km": {
+        "candidate": 0.0026517236348869593,
+        "baseline": 0.0026452098675705943,
+        "ratio": 1.0024624765680115
+      },
+      "coastal_gradient_rmse_normalized_per_km": {
+        "candidate": 0.003283503746636435,
+        "baseline": 0.003265145080743042,
+        "ratio": 1.005622618731911
+      }
+    },
+    "edited_deep_tracers": {
+      "rmse_normalized": {
+        "candidate": 0.01588510556135635,
+        "baseline": 0.026484041096336144,
+        "ratio": 0.5997991584280515
+      },
+      "coastal_rmse_normalized": {
+        "candidate": 0.021696971173086166,
+        "baseline": 0.035453545702077184,
+        "ratio": 0.6119831103892935
+      },
+      "gradient_rmse_normalized_per_km": {
+        "candidate": 0.00013252553936493307,
+        "baseline": 0.0002244791754270367,
+        "ratio": 0.5903689690271886
+      },
+      "coastal_gradient_rmse_normalized_per_km": {
+        "candidate": 0.00019546305339602547,
+        "baseline": 0.0003288598898184076,
+        "ratio": 0.5943657449497953
+      }
+    },
+    "other": {
+      "rmse_normalized": {
+        "candidate": 0.2425749667241473,
+        "baseline": 0.24145774949931073,
+        "ratio": 1.0046269677703583
+      },
+      "coastal_rmse_normalized": {
+        "candidate": 0.2711899560334855,
+        "baseline": 0.26885827204642176,
+        "ratio": 1.008672539510561
+      },
+      "gradient_rmse_normalized_per_km": {
+        "candidate": 0.002800868498869806,
+        "baseline": 0.002793305367749427,
+        "ratio": 1.002707591947411
+      },
+      "coastal_gradient_rmse_normalized_per_km": {
+        "candidate": 0.0034679942650136684,
+        "baseline": 0.003447420972708978,
+        "ratio": 1.0059677342765958
+      }
+    },
+    "worst_channel_window_lead": {
+      "ratio": 1.0887613447728168,
+      "channel": "so_6",
+      "window": "discovery_2015_01",
+      "lead_days": 5
+    }
+  }
+}

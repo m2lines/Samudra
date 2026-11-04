@@ -1,0 +1,36 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+base_output_dir: /scratch/am16581/runs
+dataset_name: OM4
+variables:
+- thetao
+- so
+- uo
+- vo
+- tos
+- zos
+data_root: /scratch/am16581/data/om4_onedeg_v3
+data: null
+groundtruth_location: OM4.zarr
+basins_location:
+  type: s3
+  endpoint_url: https://nyu1.osn.mghpcc.org
+  anon: true
+  bucket: m2lines-pubs
+  path: Samudra/basins/basin_masks_original.zarr
+groundtruth_time_range:
+  start: '2014-10-20'
+  end: '2022-12-24'
+observations: null
+steps:
+- ocean_salinity_profile_plots
+not_steps: []
+debug: false
+name: 2026-11-03-onedeg-weight-edit-salt-plot
+runs:
+- name: original
+  location: /scratch/am16581/runs/2026-11-03-onedeg-original-eval/predictions.zarr
+- name: carry-balanced-l15-a05
+  location: /scratch/am16581/runs/2026-11-03-onedeg-carry-balanced-l15-a05-eval/predictions.zarr

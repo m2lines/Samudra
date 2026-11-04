@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "purpose": "Measure local transition errors before selecting further checkpoint edits",
+  "years": {"calibration": 2015, "selection": 2017, "previous_test": 2019, "new_local_test": 2021},
+  "months": [1, 4, 7, 10],
+  "states_per_window": 14,
+  "days_per_transition": 5,
+  "candidates": ["original", "carry", "reservation_only", "external_blend", "deep_persistence"],
+  "modes": ["teacher_forced", "autoregressive"],
+  "edited_levels": [15, 16, 17, 18],
+  "tail_quantile": 0.99,
+  "tail_calibration": "Unweighted absolute OM4 increments pooled across calibration windows, separately by channel and wet/coast/interior region; exceedance rates are area weighted",
+  "screening_gates": {
+    "deep_coastal_increment_gradient_rmse_ratio_max": 0.8,
+    "deep_increment_rmse_ratio_max": 0.9,
+    "all_channel_state_rmse_ratio_max": 1.01,
+    "untargeted_channel_mean_state_rmse_ratio_max": 1.02,
+    "worst_window_channel_state_rmse_ratio_max": 1.10,
+    "increment_spatial_correlation_drop_max": 0.05,
+    "increment_rms_ratio_distance_from_one": "Must not increase relative to original"
+  },
+  "gate_aggregation": "Equal-weight mean over transitions within each window, then channels in each group, then windows; evaluate separately in both modes on selection and new_local_test. Ratios are ratios of group mean metrics, not mean grid-cell ratios. No candidate is selected using the new_local_test.",
+  "limitations": [
+    "Screening gates are engineering acceptance criteria, not physical laws or proof of physicality.",
+    "2019 windows were used in the previous local experiment; the 2014-2022 trajectory was already examined in aggregate. 2021 is new only to local candidate selection.",
+    "After AR state divergence, increment error is trajectory-increment discrepancy, not error against a simulator restart from the generated state.",
+    "Persistence controls affect only temperature and salinity at levels 15-18; remaining fields still use the model.",
+    "Teacher-forced first leads restart from true states and do not measure a continuous between-call seam.",
+    "Five-day averaged coarse fields cannot establish exact closed physical budgets from available state snapshots. This version does not claim budget closure.",
+    "Legacy forcing anomalies use full-record day-of-year climatology, matching the original training convention."
+  ]
+}

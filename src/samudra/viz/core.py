@@ -1492,9 +1492,6 @@ class Viz:
         )
 
         def ocean_temperature_profile(datasets, titles, plot_title):
-            # We import here to avoid importing tk unconditionally above
-            from xarrayutils.plotting import linear_piecewise_scale  # type: ignore
-
             fig, axs = plt.subplots(
                 2,
                 3,
@@ -1522,7 +1519,20 @@ class Viz:
                 im = data.plot(ax=ax[i], cmap="bwr", norm=norm, add_colorbar=False)
                 ax[i].invert_yaxis()
 
-                linear_piecewise_scale(1000, 5, ax=ax[i])
+                # Expand the upper kilometre without xarrayutils.plotting,
+                # whose module import requires Tk even on the Agg backend.
+                # These transforms retain its 6:1 shallow/deep scale ratio.
+                ax[i].set_yscale(
+                    "function",
+                    functions=(
+                        lambda depth: np.where(
+                            depth <= 1000, depth, 1000 + (depth - 1000) / 6
+                        ),
+                        lambda scaled: np.where(
+                            scaled <= 1000, scaled, 1000 + (scaled - 1000) * 6
+                        ),
+                    ),
+                )
                 ax[i].axhline(1000, color="0.5", ls="--")
                 ax[i].set_yticks([0, 250, 500, 750, 1000, 3000, 5000])
                 ax[i].set_xticks([-60, -30, 0, 30, 60])
@@ -1628,7 +1638,6 @@ class Viz:
             ls="--",
         )
         f.write(f"\nSalinity GT Trend Slope : {coeffs_salinity_trend[0]}")
-        ax.set_ylim((5.861e22, 5.8632e22))
         ax.legend(ncol=3)
         ax.set_title("")
         f.write("\n")

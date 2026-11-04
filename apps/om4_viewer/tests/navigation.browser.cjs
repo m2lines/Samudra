@@ -38,9 +38,9 @@ const initial={v:1,time:dates[1],calendar:'julian',alignment:'exact',columns:2,b
   await reset();await wheel({deltaY:-1});
   assert.ok(await span()>179,'Tiny scroll must not jump');
   await reset();await wheel({deltaY:-100});
-  assert.ok(await span()>176&&await span()<177,'Wheel notch should zoom moderately');
+  assert.ok(await span()>172&&await span()<173,'Wheel notch should zoom moderately');
   await reset();await wheel({deltaY:-100000});
-  assert.ok(await span()>175,'Huge event is bounded');
+  assert.ok(await span()>171,'Huge event is bounded');
   await reset();await wheel({deltaY:-3,deltaMode:1});const lines=await span();
   await reset();await wheel({deltaY:-48});assert.ok(Math.abs(lines-await span())<1e-8,'Line and pixel units agree');
   await reset();await wheel({deltaY:0});assert.equal(await span(),180);

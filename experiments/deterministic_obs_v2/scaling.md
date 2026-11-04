@@ -89,16 +89,30 @@ times may also reflect contention; this CPU profile does not isolate that effect
 Code `7bef723cb1f60d4e202aeece6fd4c1b11eb2e539` reuses owned arrays during normalization
 and stages only the two required dense initial states plus forecast targets.
 It retains all surface history, forcing, masks and supervised channels. Exact
-normalization and input-slicing tests pass. A three-pass real-data comparison
-(original, optimized, original again) is submitted as CPU job `21816667`.
-GPU jobs `21816758` (one GPU) and `21816773` (eight GPUs) depend on that check
-and then on each other. They use [new output directories](configs/scaling-v4/)
-and code `7bef723`; their results are pending. Production training and qualification
+normalization and input-slicing tests pass. Production training and qualification
 use the same strict CUDA determinism settings.
+
+CPU job `21816667` completed the [three-pass comparison](receipts/scaling-v4/loading-profile.json)
+in 5m30s on node `cs625`. All model inputs and targets matched exactly for the
+same eight-window OM4 plan. Original, optimized and repeated-original batch
+wall times were 47.95 s, 47.21 s and 57.47 s. Rust reads took 1.71 s, 8.64 s and
+1.05 s respectively. ERA5 and observation coverage reads also rose during the
+optimized pass. The comparison retains the first complete CPU batch for exact
+checks, so later passes have a different live memory footprint; cumulative peak
+RSS was 7.71, 12.06 and 12.89 GB. These measurements do not establish an
+end-to-end speedup. GPU training must measure the effect of reduced copies and
+the smaller dense payload. The [audit receipt](receipts/scaling-v4/loading-audit.json)
+records the CPU result and limits.
+
+GPU job `21816758` (one GPU) is waiting for capacity following the CPU check;
+`21816773` (eight GPUs) depends on its success. They use
+[new output directories](configs/scaling-v4/) and code `7bef723`.
+Their throughput and utilization results remain pending.
 
 Timing estimates below apply only to arm D: the 170M-parameter mixed-source
 recipe with replay and global batch eight, on one RTX PRO 6000 Blackwell GPU.
-They use code `710e496` and precede the unmeasured `7bef723` loading changes. They include validation every 250 updates and checkpoints every 25.
+They use code `710e496` and precede the `7bef723` loading changes, which have not yet been timed in GPU
+training. They include validation every 250 updates and checkpoints every 25.
 The conservative measured costs are 2.00 s per annual validation and 7.89 s per
 single checkpoint. The range uses the observed per-source minimum and maximum
 update times; it is not a confidence interval. Queue delay and unknown preemption

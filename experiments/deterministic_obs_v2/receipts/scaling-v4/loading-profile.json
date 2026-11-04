@@ -1,0 +1,164 @@
+{
+  "config": "/scratch/jr7309/deterministic-obs-v2/configs/scaling-v3/D-mixed-large-1gpu.yaml",
+  "plan": [
+    {
+      "origin": 336,
+      "month": 0,
+      "coverage": "1993-12",
+      "cached": null,
+      "seed": 766708881
+    },
+    {
+      "origin": 73,
+      "month": 1,
+      "coverage": "2007-08",
+      "cached": null,
+      "seed": 631253778
+    },
+    {
+      "origin": 31,
+      "month": 0,
+      "coverage": "2005-01",
+      "cached": null,
+      "seed": 1116840940
+    },
+    {
+      "origin": 356,
+      "month": 1,
+      "coverage": "2003-01",
+      "cached": null,
+      "seed": 2096709220
+    },
+    {
+      "origin": 15,
+      "month": 0,
+      "coverage": "2002-09",
+      "cached": null,
+      "seed": 1235218452
+    },
+    {
+      "origin": 63,
+      "month": 1,
+      "coverage": "1996-05",
+      "cached": null,
+      "seed": 1966862481
+    },
+    {
+      "origin": 199,
+      "month": 0,
+      "coverage": "2000-08",
+      "cached": null,
+      "seed": 244358889
+    },
+    {
+      "origin": 23,
+      "month": 1,
+      "coverage": "2005-06",
+      "cached": null,
+      "seed": 346821369
+    }
+  ],
+  "passes": [
+    {
+      "phase": "reference",
+      "wall_seconds": 47.95059246523306,
+      "cpu_seconds": 54.57735677299999,
+      "components_wall_cpu_calls": {
+        "rust_physical_planes": [
+          1.7071043751202524,
+          8.216922210000014,
+          8
+        ],
+        "era5_forcing": [
+          0.45907083386555314,
+          0.45703569299998037,
+          8
+        ],
+        "calendar_context": [
+          0.20242678467184305,
+          0.19094552500002493,
+          8
+        ],
+        "model_read_inclusive": [
+          46.403071583714336,
+          52.68171396399998,
+          8
+        ],
+        "observation_coverage": [
+          1.4647837840020657,
+          1.8254018359999904,
+          8
+        ]
+      },
+      "peak_host_rss_bytes": 7711297536
+    },
+    {
+      "phase": "optimized",
+      "wall_seconds": 47.20985914301127,
+      "cpu_seconds": 106.668979699,
+      "components_wall_cpu_calls": {
+        "rust_physical_planes": [
+          8.642785144969821,
+          54.49471150999997,
+          8
+        ],
+        "era5_forcing": [
+          15.371888070832938,
+          15.306858919999954,
+          8
+        ],
+        "calendar_context": [
+          0.17488713609054685,
+          0.17411220399992544,
+          8
+        ],
+        "model_read_inclusive": [
+          34.50278611155227,
+          80.24057946599999,
+          8
+        ],
+        "observation_coverage": [
+          12.591380928643048,
+          26.31329585200004,
+          8
+        ]
+      },
+      "peak_host_rss_bytes": 12060405760
+    },
+    {
+      "phase": "reference-repeat",
+      "wall_seconds": 57.474094663746655,
+      "cpu_seconds": 62.601368165,
+      "components_wall_cpu_calls": {
+        "rust_physical_planes": [
+          1.0515181040391326,
+          6.105853253999982,
+          8
+        ],
+        "era5_forcing": [
+          0.3934152340516448,
+          0.39173222499996996,
+          8
+        ],
+        "calendar_context": [
+          0.14349911315366626,
+          0.14287065300004542,
+          8
+        ],
+        "model_read_inclusive": [
+          56.253918818198144,
+          60.94605074499998,
+          8
+        ],
+        "observation_coverage": [
+          1.1617878023535013,
+          1.597256055000031,
+          8
+        ]
+      },
+      "peak_host_rss_bytes": 12892114944
+    }
+  ],
+  "profile": "         113074 function calls (111626 primitive calls) in 152.634 seconds\n\n   Ordered by: cumulative time\n   List reduced from 440 to 40 due to restriction <40>\n\n   ncalls  tottime  percall  cumtime  percall filename:lineno(function)\n        3    0.054    0.018  152.634   50.878 /opt/samudra-code/src/samudra/observations/pipeline.py:232(read)\n       48    0.180    0.004  152.580    3.179 /opt/samudra-code/src/samudra/observations/training.py:116(load)\n   120/48    0.055    0.000  152.378    3.175 /scratch/jr7309/deterministic-obs-v2/frozen-data/profile_loading-7bef723cb.py:42(call)\n       24    0.000    0.000  137.164    5.715 /opt/samudra-code/src/samudra/observations/model_data.py:253(continuation)\n       24    0.003    0.000  137.139    5.714 /opt/samudra-code/src/samudra/observations/model_data.py:270(_read)\n       16   69.443    4.340   98.674    6.167 /scratch/jr7309/deterministic-obs-v2/frozen-data/profile_loading-7bef723cb.py:27(original_normalization)\n      114   32.217    0.283   32.217    0.283 {method 'astype' of 'numpy.ndarray' objects}\n       24   11.967    0.499   16.193    0.675 /opt/samudra-code/src/samudra/observations/shared_era5.py:61(load)\n       48    0.000    0.000   15.307    0.319 /opt/samudra-code/src/samudra/rust_reader.py:37(read_into)\n       48   15.306    0.319   15.306    0.319 {method 'read_into' of 'builtins.CompactOm4Reader' objects}\n       24    0.001    0.000   15.218    0.634 /opt/samudra-code/src/samudra/observations/samples.py:73(load)\n       24    0.001    0.000   11.401    0.475 /opt/samudra-code/src/samudra/observations/native_om4.py:54(read_into)\n        8    9.406    1.176   10.311    1.289 /opt/samudra-code/src/samudra/observations/model_data.py:18(normalize_physical_fields)\n       24    9.081    0.378   10.222    0.426 /opt/samudra-code/src/samudra/observations/samples.py:97(normalize)\n       24    0.051    0.002    4.992    0.208 /opt/samudra-code/src/samudra/observations/archive.py:130(sample)\n       24    0.001    0.000    3.951    0.165 /opt/samudra-code/src/samudra/observations/native.py:53(read_intervals)\n       24    1.134    0.047    1.135    0.047 /workspace/.venv/lib/python3.12/site-packages/numpy/core/memmap.py:334(__getitem__)\n       24    0.426    0.018    1.046    0.044 /opt/samudra-code/src/samudra/observations/archive.py:164(context_planes)\n      504    1.041    0.002    1.041    0.002 {method 'reduce' of 'numpy.ufunc' objects}\n      104    0.000    0.000    0.906    0.009 /workspace/.venv/lib/python3.12/site-packages/numpy/core/fromnumeric.py:2421(all)\n      104    0.000    0.000    0.906    0.009 /workspace/.venv/lib/python3.12/site-packages/numpy/core/fromnumeric.py:71(_wrapreduction)\n       48    0.001    0.000    0.780    0.016 /workspace/.venv/lib/python3.12/site-packages/numpy/lib/npyio.py:235(__getitem__)\n       48    0.018    0.000    0.771    0.016 /workspace/.venv/lib/python3.12/site-packages/numpy/lib/format.py:738(read_array)\n      912    0.002    0.000    0.744    0.001 /usr/lib/python3.12/zipfile/__init__.py:980(read)\n      864    0.001    0.000    0.744    0.001 /workspace/.venv/lib/python3.12/site-packages/numpy/lib/format.py:951(_read_bytes)\n      816    0.010    0.000    0.741    0.001 /usr/lib/python3.12/zipfile/__init__.py:1062(_read1)\n      816    0.673    0.001    0.673    0.001 {method 'decompress' of 'zlib.Decompress' objects}\n     2760    0.598    0.000    0.598    0.000 {built-in method numpy.array}\n       24    0.277    0.012    0.518    0.022 /opt/samudra-code/src/samudra/observations/model_data.py:41(calendar_context)\n      186    0.223    0.001    0.223    0.001 {built-in method numpy.asarray}\n      136    0.001    0.000    0.134    0.001 {method 'all' of 'numpy.ndarray' objects}\n      232    0.000    0.000    0.134    0.001 /workspace/.venv/lib/python3.12/site-packages/numpy/core/_methods.py:61(_all)\n       24    0.001    0.000    0.124    0.005 /workspace/.venv/lib/python3.12/site-packages/numpy/lib/npyio.py:282(load)\n       24    0.071    0.003    0.071    0.003 {built-in method _io.open}\n      288    0.070    0.000    0.070    0.000 {built-in method torch.as_tensor}\n      168    0.000    0.000    0.068    0.000 /opt/samudra-code/src/samudra/observations/samples.py:57(tensor)\n     1032    0.061    0.000    0.061    0.000 {method 'read' of '_io.BufferedReader' objects}\n       24    0.000    0.000    0.051    0.002 /workspace/.venv/lib/python3.12/site-packages/numpy/lib/npyio.py:209(__exit__)\n       48    0.000    0.000    0.051    0.001 /workspace/.venv/lib/python3.12/site-packages/numpy/lib/npyio.py:212(close)\n       24    0.051    0.002    0.051    0.002 {method 'close' of '_io.BufferedReader' objects}\n\n\n",
+  "all_model_inputs_and_targets_exact": true
+}

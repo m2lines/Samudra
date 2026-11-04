@@ -15,7 +15,8 @@ comparison from a common restored checkpoint. The packed-loader run completed 12
 then failed during receipt hashing. The hash fix is tested, and a CPU audit recovered
 the saved results. Its 30.5% steady utilization misses the release gate.
 [Scaling qualification](scaling.md) continues with loading diagnostics;
-eight-GPU execution remains unqualified.
+eight-GPU execution remains unqualified. The new normalization and dense-transfer
+changes pass exact real-data input comparisons; their GPU timing is pending.
 Torch array `21786733` completed on RTX PRO 6000 Blackwell Server Edition GPUs.
 Peak allocated GPU memory was 5.15–6.61 GiB. Data preparation/loading dominated
 update time; the [qualification report](qualification.md) gives measured runtime

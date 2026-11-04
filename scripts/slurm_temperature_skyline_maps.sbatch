@@ -38,6 +38,6 @@ run_container /workspace/.venv/bin/python -m samudra.skyline.baseline \
     --config "$SKYLINE_CONFIG" --baseline-config "${SKYLINE_ROOT}/baseline-211241/train.yaml" \
     --checkpoint "${SKYLINE_ROOT}/baseline-211241/best_validation_ckpt.pt" --output "$BASELINE_CACHE"
 nvidia-smi
-run_container /workspace/.venv/bin/torchrun --standalone --nnodes=1 --nproc-per-node="${SKYLINE_WORLD_SIZE:-4}" \
+run_container /workspace/.venv/bin/python -m torch.distributed.run --standalone --nnodes=1 --nproc-per-node="${SKYLINE_WORLD_SIZE:-4}" \
     -m samudra.skyline.maps --config "$SKYLINE_CONFIG" --output "$SKYLINE_OUTPUT"
 run_container /workspace/.venv/bin/python -m samudra.skyline.map_report "$SKYLINE_OUTPUT"

@@ -57,7 +57,7 @@ printf 'W&B mode: %s\nSource commit: %s\n' "${WANDB_MODE:-online}" "$SKYLINE_COM
 apptainer exec --nv --bind "${CODE_DIR}:/opt/skyline-source:ro,/scratch:/scratch" \
     "$SIF_PATH" /usr/bin/env PYTHONPATH=/opt/skyline-source/src \
     TORCH_CUDNN_V8_API_DISABLED=1 OMP_NUM_THREADS=4 \
-    /workspace/.venv/bin/torchrun --standalone --nnodes=1 --nproc-per-node="${SKYLINE_WORLD_SIZE:-8}" \
+    /workspace/.venv/bin/python -m torch.distributed.run --standalone --nnodes=1 --nproc-per-node="${SKYLINE_WORLD_SIZE:-8}" \
     -m samudra.skyline.stage --config "$SKYLINE_CONFIG" --output "$SKYLINE_OUTPUT" &
 child=$!
 while true; do

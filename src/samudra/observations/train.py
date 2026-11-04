@@ -131,6 +131,10 @@ def init_tracking(cfg: ObservationTrainConfig, manifest: dict) -> WandBLogger:
 
 def _run_training(cfg: ObservationTrainConfig, device: torch.device) -> None:
     set_seed(cfg.experiment.rand_seed)
+    # Match the qualified CUDA policy across fresh runs and checkpoint restores.
+    torch.use_deterministic_algorithms(True)
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = True
     torch.use_deterministic_algorithms(True)
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True

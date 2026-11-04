@@ -1,0 +1,31 @@
+JobIDRaw,JobName,State,Partition,Submit,Start,End,ElapsedRaw,AllocCPUS,AllocTRES,NodeList,Restarts,GPUCount,AllocatedGPUSeconds,AllocatedCPUCoreSeconds,Category
+21707121,temperature-skyline,CANCELLED by 4684506,cpu_short,2026-11-02T21:25:49,None,2026-11-02T21:26:26,0,0,,None assigned,0,0,0,0,CPU audits and callbacks
+21707293,skyline-audit-local,COMPLETED,cpu_short,2026-11-02T21:28:56,2026-11-02T21:29:47,2026-11-02T21:30:04,17,4,"billing=4,cpu=4,mem=8G,node=1",cs621,0,0,0,68,CPU audits and callbacks
+21707350,skyline-1658m-qual,CANCELLED by 4684506,rtx6000_lzanna,2026-11-02T21:29:13,None,2026-11-03T12:37:05,0,0,,None assigned,0,0,0,0,Large-model qualification
+21707355,skyline-range-full,COMPLETED,cpu_short,2026-11-02T21:29:25,2026-11-02T21:31:01,2026-11-02T21:32:43,102,8,"billing=8,cpu=8,mem=16G,node=1",cs626,0,0,0,816,CPU audits and callbacks
+21708346,skyline-precision,COMPLETED,cpu_short,2026-11-02T21:44:32,2026-11-02T21:45:02,2026-11-02T21:45:31,29,8,"billing=8,cpu=8,mem=16G,node=1",cs626,0,0,0,232,CPU audits and callbacks
+21708410,precision-callback,COMPLETED,cpu_short,2026-11-02T21:45:25,2026-11-02T21:46:12,2026-11-02T21:46:13,1,1,"billing=1,cpu=1,mem=1G,node=1",cs607,0,0,0,1,CPU audits and callbacks
+21759055,skyline-preempt-qual,COMPLETED,b200,2026-11-03T12:37:02,2026-11-03T12:53:41,2026-11-03T12:57:04,203,8,"billing=8,cpu=8,gres/gpu=1,mem=64G,node=1",gb013,0,1,203,1624,Large-model qualification
+21759089,skyline-preempt-callback,CANCELLED by 4684506,cpu_short,2026-11-03T12:37:17,None,2026-11-03T12:57:48,0,0,,None assigned,0,0,0,0,CPU audits and callbacks
+21760465,skyline-210m-absolute,FAILED,h200,2026-11-03T13:03:22,2026-11-03T13:24:28,2026-11-03T13:25:10,42,8,"billing=8,cpu=8,gres/gpu=1,mem=64G,node=1",gh125,0,1,42,336,Classifier training
+21760475,skyline-210m-regression,FAILED,rtx6000,2026-11-03T13:03:24,2026-11-03T13:33:35,2026-11-03T13:34:14,39,8,"billing=8,cpu=8,gres/gpu=1,mem=64G,node=1",gr102,0,1,39,312,Regression training
+21760500,skyline-small-callback,CANCELLED by 4684506,cpu_short,2026-11-03T13:03:52,None,2026-11-03T13:34:54,0,0,,None assigned,0,0,0,0,CPU audits and callbacks
+21762617,skyline-210m-absolute,CANCELLED by 4684506,rtx6000,2026-11-03T13:35:31,2026-11-03T13:53:35,2026-11-03T14:55:51,3736,8,"billing=8,cpu=8,gres/gpu=1,mem=64G,node=1",gr102,0,1,3736,29888,Classifier training
+21762622,skyline-210m-regression,FAILED,b200,2026-11-03T13:35:34,2026-11-03T14:34:12,2026-11-03T14:48:30,858,8,"billing=8,cpu=8,gres/gpu=1,mem=64G,node=1",gb001,0,1,858,6864,Regression training
+21769554,skyline-210m-regression,CANCELLED by 4684506,"rtx6000,h100,h200,b200",2026-11-03T14:50:51,None,2026-11-03T14:56:19,0,0,,None assigned,0,0,0,0,Regression training
+21770500,skyline-210m-absolute,PREEMPTED,rtx6000,2026-11-03T14:56:48,2026-11-03T15:14:19,2026-11-03T15:45:04,1845,8,"billing=8,cpu=8,gres/gpu=1,mem=64G,node=1",gr104,0,1,1845,14760,Classifier training
+21770502,skyline-210m-regression,PREEMPTED,rtx6000,2026-11-03T14:56:50,2026-11-03T15:14:19,2026-11-03T15:46:41,1942,8,"billing=8,cpu=8,gres/gpu=1,mem=64G,node=1",gr104,0,1,1942,15536,Regression training
+21770549,skyline-small-callback,COMPLETED,cs,2026-11-03T14:57:17,2026-11-03T20:00:33,2026-11-03T20:00:34,1,1,"billing=1,cpu=1,mem=1G,node=1",cs607,0,0,0,1,CPU audits and callbacks
+21770500,skyline-210m-absolute,PREEMPTED,b200,2026-11-03T15:45:08,2026-11-03T15:54:29,2026-11-03T16:26:19,1910,8,"billing=8,cpu=8,gres/gpu=1,mem=64G,node=1",gb002,1,1,1910,15280,Classifier training
+21770502,skyline-210m-regression,PREEMPTED,b200,2026-11-03T15:46:45,2026-11-03T16:04:46,2026-11-03T16:35:15,1829,8,"billing=8,cpu=8,gres/gpu=1,mem=64G,node=1",gb014,1,1,1829,14632,Regression training
+21770500,skyline-210m-absolute,COMPLETED,h200,2026-11-03T16:26:22,2026-11-03T16:34:26,2026-11-03T18:17:21,6175,8,"billing=8,cpu=8,gres/gpu=1,mem=64G,node=1",gh131,2,1,6175,49400,Classifier training
+21770502,skyline-210m-regression,PREEMPTED,rtx6000,2026-11-03T16:35:19,2026-11-03T16:44:39,2026-11-03T17:33:53,2954,8,"billing=8,cpu=8,gres/gpu=1,mem=64G,node=1",gr104,2,1,2954,23632,Regression training
+21770502,skyline-210m-regression,PREEMPTED,rtx6000,2026-11-03T17:33:57,2026-11-03T17:45:01,2026-11-03T18:15:52,1851,8,"billing=8,cpu=8,gres/gpu=1,mem=64G,node=1",gr104,3,1,1851,14808,Regression training
+21770502,skyline-210m-regression,PREEMPTED,h200,2026-11-03T18:15:56,2026-11-03T18:24:55,2026-11-03T18:55:32,1837,8,"billing=8,cpu=8,gres/gpu=1,mem=64G,node=1",gh123,4,1,1837,14696,Regression training
+21770502,skyline-210m-regression,COMPLETED,h200,2026-11-03T18:55:36,2026-11-03T19:04:49,2026-11-03T19:59:59,3310,8,"billing=8,cpu=8,gres/gpu=1,mem=64G,node=1",gh103,5,1,3310,26480,Regression training
+21793092,skyline-baseline-compare,COMPLETED,h200,2026-11-03T20:10:04,2026-11-03T20:24:58,2026-11-03T20:29:44,286,8,"billing=8,cpu=8,gres/gpu=1,mem=64G,node=1",gh127,0,1,286,2288,Matched Samudra evaluation
+21793169,skyline-compare-callback,COMPLETED,cs,2026-11-03T20:10:50,2026-11-03T20:30:22,2026-11-03T20:30:24,2,1,"billing=1,cpu=1,mem=1G,node=1",cs602,0,0,0,2,CPU audits and callbacks
+21794125,skyline-outlier-audit,COMPLETED,cpu_short,2026-11-03T20:24:36,2026-11-03T20:24:51,2026-11-03T20:25:37,46,8,"billing=8,cpu=8,mem=32G,node=1",cs624,0,0,0,368,CPU audits and callbacks
+21794214,skyline-outlier-gradients,COMPLETED,b200,2026-11-03T20:25:14,2026-11-03T20:27:23,2026-11-03T20:27:57,34,8,"billing=8,cpu=8,gres/gpu=1,mem=32G,node=1",gb002,0,1,34,272,Outlier gradients
+21794285,callback-outlier-audit.sbatch,COMPLETED,cpu_short,2026-11-03T20:25:47,2026-11-03T20:27:07,2026-11-03T20:27:09,2,1,"billing=1,cpu=1,mem=1G,node=1",cs636,0,0,0,2,CPU audits and callbacks
+21794290,callback-outlier-explanation.sbatch,COMPLETED,cpu_short,2026-11-03T20:25:56,2026-11-03T20:29:37,2026-11-03T20:29:38,1,1,"billing=1,cpu=1,mem=1G,node=1",cs636,0,0,0,1,CPU audits and callbacks

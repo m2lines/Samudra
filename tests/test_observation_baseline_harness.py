@@ -82,7 +82,16 @@ class TinySources:
 
 
 def tiny_objective(
-    model, data, source, sample, auxiliary, seed, *, cached=None, coverage=None
+    model,
+    data,
+    source,
+    sample,
+    auxiliary,
+    seed,
+    *,
+    cached=None,
+    coverage=None,
+    weights=None,
 ):
     marker = 1000 * (TinySources.names.index(source) + 1)
     if cached is not None:
@@ -157,7 +166,7 @@ def test_training_startup_populates_each_source_and_post_training_is_obs_only(
         state,
         cast(baseline.Sources, TinySources()),
         tmp_path,
-        {"mix": mix},
+        {"pretrain_mix": mix},
         validate,
         records.append,
         stop_after=4,
@@ -172,7 +181,7 @@ def test_training_startup_populates_each_source_and_post_training_is_obs_only(
         state,
         cast(baseline.Sources, TinySources()),
         tmp_path,
-        {"mix": mix},
+        {"pretrain_mix": mix},
         validate,
         records.append,
     )
@@ -197,7 +206,7 @@ def test_training_startup_populates_each_source_and_post_training_is_obs_only(
     assert (tmp_path / "COMPLETE.json").exists()
 
 
-@pytest.mark.parametrize("mix", ["om4-cm4-obs", "om4-cm4"])
+@pytest.mark.parametrize("pretrain_mix", ["om4-cm4-obs", "om4-cm4"])
 @pytest.mark.parametrize("stop_after", [1, 4, 5])
 @pytest.mark.parametrize("scheduler", [None, {"type": "cosine"}])
 @pytest.mark.parametrize(
@@ -217,7 +226,7 @@ def test_exact_resume_across_post_training_preserves_rng_optimizer_and_replay(
         post_training_scheduler=post_training_scheduler,
         post_training_learning_rate=5e-5,
     )
-    manifest = {"mix": mix}
+    manifest = {"pretrain_mix": mix}
     full_dir, resumed_dir = tmp_path / "full", tmp_path / "resumed"
     full_dir.mkdir()
     resumed_dir.mkdir()
@@ -451,3 +460,127 @@ def test_configured_accumulation_controls_real_training_exposure(
     assert len(updates) == 3
     assert all(r["train/obs/fresh"] == fresh for r in updates)
     assert all(r["train/obs/replay"] == accumulation - fresh for r in updates)
+
+
+def test_no_replay_has_eight_fresh_examples_and_empty_pools(monkeypatch, tmp_path):
+    cfg = small_recipe(monkeypatch, fresh_examples=8)
+    state = make_state(cfg)
+    baseline.train(
+        cfg,
+        state,
+        cast(baseline.Sources, TinySources()),
+        tmp_path,
+        {"pretrain_mix": cfg.pretrain_mix},
+        validate,
+        lambda _: None,
+        stop_after=2,
+    )
+    assert sum(x["fresh"] for x in state.exposure.values()) == 16
+    assert all(x["replay"] == 0 for x in state.exposure.values())
+    assert all(not pool.entries for pool in state.pools.values())
+
+
+def test_fork_only_changes_budget_and_does_not_mutate_parent(monkeypatch, tmp_path):
+    cfg = small_recipe(monkeypatch)
+    state = make_state(cfg)
+    manifest = {"config": cfg.scientific_config()}
+    baseline.train(
+        cfg,
+        state,
+        cast(baseline.Sources, TinySources()),
+        tmp_path,
+        manifest,
+        validate,
+        lambda _: None,
+        stop_after=4,
+    )
+    parent_path = tmp_path / "main.pt"
+    parent_bytes = parent_path.read_bytes()
+    continued = cfg.model_copy(
+        update={"main_updates": 16, "milestone_updates": [8, 12, 16]}
+    )
+    child = make_state(continued)
+    child.restore(parent_path, {"config": continued.scientific_config()}, fork=True)
+    assert child.updates == 4 and not child.in_post_training
+    torch.testing.assert_close(child.model.weight, state.model.weight, rtol=0, atol=0)
+    assert child.ema == state.ema
+    child.model.weight.data.add_(1)
+    assert parent_path.read_bytes() == parent_bytes
+    with pytest.raises(ValueError, match="manifest differs"):
+        child.restore(parent_path, {"config": continued.scientific_config()})
+    changed = continued.model_copy(update={"learning_rate": 0.002})
+    with pytest.raises(ValueError, match="manifest differs"):
+        child.restore(parent_path, {"config": changed.scientific_config()}, fork=True)
+    state.in_post_training = True
+    state.save(tmp_path / "cooled.pt", manifest)
+    with pytest.raises(ValueError, match="uncooled"):
+        child.restore(
+            tmp_path / "cooled.pt", {"config": continued.scientific_config()}, fork=True
+        )
+
+
+def test_uncooled_fork_continuation_matches_uninterrupted_main(monkeypatch, tmp_path):
+    short = small_recipe(monkeypatch)
+    long = short.model_copy(
+        update={"main_updates": 16, "milestone_updates": [8, 12, 16]}
+    )
+    left, right = tmp_path / "short", tmp_path / "long"
+    left.mkdir()
+    right.mkdir()
+    parent = make_state(short)
+    baseline.train(
+        short,
+        parent,
+        cast(baseline.Sources, TinySources()),
+        left,
+        {"config": short.scientific_config()},
+        validate,
+        lambda _: None,
+        stop_after=4,
+    )
+    child = make_state(long)
+    identity = {"config": long.scientific_config()}
+    child.restore(left / "main.pt", identity, fork=True)
+    baseline.train(
+        long,
+        child,
+        cast(baseline.Sources, TinySources()),
+        left,
+        identity,
+        validate,
+        lambda _: None,
+        stop_after=5,
+    )
+    uninterrupted = make_state(long)
+    baseline.train(
+        long,
+        uninterrupted,
+        cast(baseline.Sources, TinySources()),
+        right,
+        identity,
+        validate,
+        lambda _: None,
+        stop_after=5,
+    )
+    torch.testing.assert_close(
+        child.model.weight, uninterrupted.model.weight, rtol=0, atol=0
+    )
+    assert child.ema == uninterrupted.ema
+    assert child.exposure == uninterrupted.exposure
+    assert child.rng.bit_generator.state == uninterrupted.rng.bit_generator.state
+    for key, value in child.optimizer.state[child.model.weight].items():
+        torch.testing.assert_close(
+            value,
+            uninterrupted.optimizer.state[uninterrupted.model.weight][key],
+            rtol=0,
+            atol=0,
+        )
+    for name in child.pools:
+        for _ in range(10):
+            a, b = child.pools[name].draw(5), uninterrupted.pools[name].draw(5)
+            assert (a.origin, a.month, a.origin_update) == (
+                b.origin,
+                b.month,
+                b.origin_update,
+            )
+            torch.testing.assert_close(a.states, b.states, rtol=0, atol=0)

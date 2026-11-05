@@ -6,6 +6,7 @@
 
 import json
 from collections.abc import Callable
+from copy import copy
 from functools import cached_property, lru_cache
 from pathlib import Path
 from typing import cast
@@ -15,7 +16,11 @@ import torch
 import xarray as xr
 from numpy.typing import ArrayLike
 
-from samudra.observations.archive import context_planes, validate_normalization_policy
+from samudra.observations.archive import (
+    ObservationArchive,
+    context_planes,
+    validate_normalization_policy,
+)
 from samudra.observations.constants import (
     HISTORY_STEPS,
     OBSERVED_DEPTHS,
@@ -34,9 +39,11 @@ class Samples:
         *,
         daily: str | Path | None = None,
         normalization: str | Path | None = None,
+        native_archive: ObservationArchive | None = None,
     ) -> None:
         self.root = Path(root)
         self.device = device
+        self.native_archive = native_archive
         self.daily = Path(daily) if daily is not None else self.root / "daily"
         self.normalization = (
             Path(normalization) if normalization is not None else self.root
@@ -97,8 +104,28 @@ class Samples:
         return read
 
     def load(self, path: str | Path) -> ObservationSample:
-        sample = self.read_sample(Path(path))
+        sample = (
+            self.native_archive.sample(Path(path).stem)
+            if self.native_archive is not None
+            else self.read_sample(Path(path))
+        )
         return self.normalize(sample, Path(path).stem)
+
+    def to(self, device: torch.device) -> "Samples":
+        """Share immutable metadata, with loss constants on the compute device."""
+        result = copy(self)
+        result.device = device
+        for name in (
+            "mask",
+            "area",
+            "ts_mask",
+            "ts_scale",
+            "surface_scale",
+            "mean",
+            "std",
+        ):
+            setattr(result, name, getattr(self, name).to(device))
+        return result
 
     def normalize(self, sample: RawSample, name: str) -> ObservationSample:
         raw = sample["surface"]
@@ -140,7 +167,7 @@ class Samples:
         from samudra.observations.archive import ObservationArchive, trajectory
 
         raw = trajectory(
-            ObservationArchive(self.daily),
+            self.native_archive or ObservationArchive(self.daily),
             origin,
             target_month=target_month,
             steps=steps,

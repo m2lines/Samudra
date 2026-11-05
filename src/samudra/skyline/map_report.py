@@ -138,10 +138,29 @@ def equal_date_weights(data, dense_origins):
     return w / w.sum()
 
 
-def render(data, name, depth, output, *, dpi=140):
+def render(data, name, depth, output, *, dpi=140, sample_stride=1, pixels_per_sample=2):
     if not len(data["row"]):
         return
-    fig, axes = plt.subplots(2, 4, figsize=(17, 7), constrained_layout=True)
+    rows, cols = data["row"], data["col"]
+    if (
+        sample_stride < 1
+        or np.any((rows - rows.min()) % sample_stride)
+        or np.any((cols - cols.min()) % sample_stride)
+    ):
+        raise ValueError("Map samples must lie on the declared regular lattice")
+    rr = (rows - rows.min()) // sample_stride
+    cc = (cols - cols.min()) // sample_stride
+    shape = (int(rr.max()) + 1, int(cc.max()) + 1)
+    if len(np.unique(rr * shape[1] + cc)) != len(rows):
+        raise ValueError("Map contains duplicate sample cells")
+    if not isinstance(pixels_per_sample, int) or pixels_per_sample < 1:
+        raise ValueError("Pixels per sample must be a positive integer")
+    pixels = pixels_per_sample
+    width = max(round(17 * dpi), 4 * (shape[1] * pixels + 140))
+    height = max(round(7 * dpi), 2 * (shape[0] * pixels + 140))
+    fig, axes = plt.subplots(
+        2, 4, figsize=(width / dpi, height / dpi), dpi=dpi, constrained_layout=True
+    )
     temperature = np.concatenate(
         [data[n + "_c"] for n in ("gold", "regression", "samudra", "classifier_mode")]
     )
@@ -176,25 +195,86 @@ def render(data, name, depth, output, *, dpi=140):
     for ax, (values, title, cmap, vmin, vmax, unit) in zip(
         axes.flat, panels, strict=True
     ):
-        p = ax.scatter(
-            data["lon"],
-            data["lat"],
-            c=np.clip(values, vmin, vmax),
-            s=2,
-            marker="s",
-            linewidths=0,
+        raster = np.full(shape, np.nan)
+        raster[rr, cc] = np.clip(values, vmin, vmax)
+        p = ax.imshow(
+            np.ma.masked_invalid(raster),
+            origin="lower",
+            interpolation="none",
+            resample=False,
+            aspect="auto",
             cmap=cmap,
             vmin=vmin,
             vmax=vmax,
-            rasterized=True,
         )
+        for indices, coordinates, setter in (
+            (cc, data["lon"], ax.set_xticks),
+            (rr, data["lat"], ax.set_yticks),
+        ):
+            positions, first = np.unique(indices, return_index=True)
+            chosen = np.unique(np.linspace(0, len(positions) - 1, 5, dtype=int))
+            setter(
+                positions[chosen],
+                [f"{v:g}" for v in np.round(coordinates[first[chosen]], 1)],
+            )
         ax.set(title=title, xlabel="Longitude °E", ylabel="Latitude °N")
+        ax.tick_params(length=0)
+        for spine in ax.spines.values():
+            spine.set_visible(False)
         fig.colorbar(p, ax=ax, label=unit, shrink=0.75)
     fig.suptitle(
         f"{name} · {DEPTHS[depth]:g} m · +5 days from true histories\nColor scales clip at pooled 1st/99th percentiles; metrics use all values"
     )
+    # Freeze layout, then snap every map to a common integer number of square
+    # output pixels per sample. Arbitrary image scaling can alternate cell widths.
+    for _ in range(5):
+        fig.canvas.draw()
+        boxes = [ax.get_window_extent().frozen() for ax in axes.flat]
+        fit = min(min(box.width / shape[1], box.height / shape[0]) for box in boxes)
+        if fit >= pixels:
+            break
+        size_pixels = np.ceil(
+            fig.get_size_inches() * dpi * max(1.1, 1.1 * pixels / fit)
+        )
+        fig.set_size_inches(size_pixels / dpi)
+    if fit < pixels:
+        raise ValueError("Figure is too small to retain every sample pixel")
+    fig.set_layout_engine(None)
+    fig.suppressComposite = True
+    canvas_width, canvas_height = fig.canvas.get_width_height()
+    image_width, image_height = shape[1] * pixels, shape[0] * pixels
+    origins = []
+    for ax, box in zip(axes.flat, boxes, strict=True):
+        left = round(box.x0 + (box.width - image_width) / 2)
+        bottom = round(box.y0 + (box.height - image_height) / 2)
+        origins.append((left, canvas_height - bottom - image_height))
+        ax.set_position(
+            (
+                left / canvas_width,
+                bottom / canvas_height,
+                image_width / canvas_width,
+                image_height / canvas_height,
+            )
+        )
+        # FigureImage places bytes directly at integer canvas coordinates. An
+        # AxesImage can round a 160.00000000000003-pixel box up to 161 pixels.
+        # Repeat each sample's color explicitly so no renderer resampling occurs.
+        mapped = ax.images[0]
+        rgba = mapped.to_rgba(mapped.get_array(), bytes=True)
+        mapped.set_visible(False)
+        ax.patch.set_visible(False)
+        fig.figimage(
+            rgba.repeat(pixels, axis=0).repeat(pixels, axis=1),
+            xo=left,
+            yo=bottom,
+            origin="lower",
+            interpolation="none",
+            resample=False,
+            zorder=-1,
+        )
     fig.savefig(output, dpi=dpi)
     plt.close(fig)
+    return dict(shape=shape, pixels_per_sample=pixels, panel_origins=origins)
 
 
 def report(root):
@@ -295,6 +375,9 @@ def report(root):
                     region,
                     z,
                     out / f"map-{region.lower().replace(' ', '-')}-depth-{z:02d}.png",
+                    sample_stride=receipt["config"]["stride"]
+                    if region == "Global"
+                    else 1,
                 )
     result = dict(
         receipt=receipt,

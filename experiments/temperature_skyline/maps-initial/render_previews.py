@@ -1,13 +1,15 @@
 # SPDX-FileCopyrightText: 2026 Samudra Authors
 # SPDX-License-Identifier: Apache-2.0
-"""Render repository-sized JPEG figures directly from the pointwise archive."""
+"""Render lossless contiguous raster figures directly from the pointwise archive."""
 
 import argparse
 import io
+import json
 import tarfile
 from pathlib import Path
 
 import numpy as np
+from PIL import Image
 
 from samudra.metrics.spectra import SPATIAL_REGIONS
 from samudra.skyline.map_report import render, subset
@@ -35,13 +37,35 @@ for name, lon, lat in SPATIAL_REGIONS:
         & (data["lat"] >= lat.start)
         & (data["lat"] < lat.stop)
     )
+layouts = {}
 for name, mask in regions.items():
     for depth in [0, 7, 13]:
         output = (
             Path(__file__).parent
             / "report"
-            / f"map-{name.lower().replace(' ', '-')}-depth-{depth:02d}.jpg"
+            / f"map-{name.lower().replace(' ', '-')}-depth-{depth:02d}.png"
         )
-        render(
-            subset(data, mask & (data["depth"] == depth)), name, depth, output, dpi=85
+        layout = render(
+            subset(data, mask & (data["depth"] == depth)),
+            name,
+            depth,
+            output,
+            dpi=85,
+            sample_stride=4 if name == "Global" else 1,
         )
+
+        assert layout is not None
+        with Image.open(output) as image:
+            pixels = np.asarray(image.convert("RGB"))
+        nr, nc = layout["shape"]
+        block = layout["pixels_per_sample"]
+        for left, top in layout["panel_origins"]:
+            raster = pixels[top : top + nr * block, left : left + nc * block]
+            cells = raster.reshape(nr, block, nc, block, 3)
+            assert np.array_equal(
+                cells, np.broadcast_to(cells[:, :1, :, :1], cells.shape)
+            ), output
+        layouts[output.name] = layout
+(Path(__file__).parent / "raster-layout.json").write_text(
+    json.dumps(layouts, indent=2) + "\n"
+)

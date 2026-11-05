@@ -111,10 +111,10 @@ thresholds; global metrics cover all four assessment dates.
 
 | Region | 2.5 m | 250 m | 1,850 m |
 |---|---|---|---|
-| Global | [map](report/map-global-depth-00.jpg) | [map](report/map-global-depth-07.jpg) | [map](report/map-global-depth-13.jpg) |
-| North Pacific | [map](report/map-north-pacific-depth-00.jpg) | [map](report/map-north-pacific-depth-07.jpg) | [map](report/map-north-pacific-depth-13.jpg) |
-| Gulf Stream | [map](report/map-gulf-stream-depth-00.jpg) | [map](report/map-gulf-stream-depth-07.jpg) | [map](report/map-gulf-stream-depth-13.jpg) |
-| Agulhas | [map](report/map-agulhas-depth-00.jpg) | [map](report/map-agulhas-depth-07.jpg) | [map](report/map-agulhas-depth-13.jpg) |
+| Global | [map](report/map-global-depth-00.png) | [map](report/map-global-depth-07.png) | [map](report/map-global-depth-13.png) |
+| North Pacific | [map](report/map-north-pacific-depth-00.png) | [map](report/map-north-pacific-depth-07.png) | [map](report/map-north-pacific-depth-13.png) |
+| Gulf Stream | [map](report/map-gulf-stream-depth-00.png) | [map](report/map-gulf-stream-depth-07.png) | [map](report/map-gulf-stream-depth-13.png) |
+| Agulhas | [map](report/map-agulhas-depth-00.png) | [map](report/map-agulhas-depth-07.png) | [map](report/map-agulhas-depth-13.png) |
 
 Each map shows OM4, regression, Samudra, classifier mode, regression/Samudra
 errors, and OM4/Samudra density surprise. Colors clip at pooled percentiles;
@@ -137,6 +137,11 @@ The archive was copied locally and its SHA-256 verified against Torch.
 [Full structured report](report/summary.json.gz), [headline calculations](headline-metrics.json),
 and [reproduction script](summarize.py) accompany the figures.
 
-Repository map previews are JPEGs rendered from the original point values; the
-archive retains the original PNG figures. The structured JSON report is gzip
+Map figures are lossless PNG rasters rendered from the original point values.
+Each sample becomes one solid 2 × 2 pixel block across all 12 figures.
+Adjacent samples touch without interpolation. Blank cells are land or missing samples.
+The archive retains the earlier scatter-marker figures; its point data and all
+numerical scores are unchanged. [Raster layouts](raster-layout.json) record the sample dimensions and panel
+positions; the renderer checks that every saved sample block has one constant
+color. The structured JSON report is gzip
 compressed without changing its contents. [Preview renderer](render_previews.py).

@@ -21,13 +21,14 @@ python -m samudra.observations.train observations/train.yaml \
 The preset includes [data paths](../configs/observations/data.yaml) and a
 [model definition](../configs/observations/model.yaml). Paths resolve through
 `experiment.data_root`. Choose `obs`, `om4-obs`, `om4-cm4-obs` or `om4-cm4` with
-`--pretrain_mix`. Each recipe has a main phase followed by observation-only cooldown.
-The `om4-cm4` main phase alternates the two model sources. `scheduler` and
-`cooldown_scheduler` use the shared Samudra scheduler configs. Here, each
-scheduler step is an optimizer update; the supplied duration is `main_updates`
-or `cooldown_updates`. The preset holds LR constant in the main phase and uses
-`linear_cooldown` afterward. Cooldown starts from `cooldown_learning_rate`, which
-uses `learning_rate` when omitted. Scheduler state resumes with the optimizer.
+`--pretrain_mix`. Each recipe has a main phase followed by observation-only post-training.
+The `om4-cm4` main phase alternates the two model sources. `scheduler` controls
+the main phase for every recipe; `post_training_scheduler` controls the observation-only post-training phase.
+They are separate so post-training can use its own LR curve after any main-phase
+schedule, while retaining optimizer moments. Both use the shared Samudra scheduler
+configs. Scheduler steps count optimizer updates here; each receives its phase’s
+update budget. Post-training starts from `post_training_learning_rate`, which uses
+`learning_rate` when omitted. Scheduler state resumes with the optimizer.
 
 Update budgets, learning rates, accumulation, fresh/replay counts, replay capacity
 and age, EMA, validation cadence and checkpoint cadence are configurable. Budgets,
@@ -42,7 +43,7 @@ and constraints and [training.py](training.py) for the loss and update loop.
 
 ```bash
 samudra train-obs observations/train.yaml \
-  --experiment.data_root /data --main_updates 4000 --cooldown_updates 500 \
+  --experiment.data_root /data --main_updates 4000 --post_training_updates 500 \
   --gradient_accumulation_steps 4 --fresh_examples 2 --replay.max_age 100
 ```
 
@@ -76,7 +77,8 @@ PYTHONPATH=src python data/prepare_observation_baseline.py daily \
   --product sst --year 1993
 # Repeat for sst, adt, era5 and iap, and years needed by the observation splits.
 PYTHONPATH=src python data/prepare_observation_baseline.py months --root /data/obs
-PYTHONPATH=src python data/prepare_observation_normalization.py /data/obs
+PYTHONPATH=src python data/prepare_observation_normalization.py /data/obs \
+  --om4 /data/om4_onedeg_v3
 ```
 
 The splits are defined in [archive.py](archive.py). Grid export reads `lat_b` and
@@ -89,14 +91,17 @@ must match the corresponding data store.
 
 The model and observation preparation paths share the ESMF conservative-weight
 builder. Normalization writes `observation_means.zarr` and
-`observation_stds.zarr`, with a scalar for each named physical field. Temperature, salinity and sea-surface height (T/S/SSH)
-statistics come from global finite wet observation support. Velocity uses
-zero-mean/unit-scale reference values because the observations supply no matching
-3-D velocity targets; deeper T/S channels repeat the deepest observed scales.
-OISST supplies the surface-temperature scale. All sources use this state
-normalization. Model wind stress and heat flux use shared OM4 forcing statistics.
+`observation_stds.zarr`, with one mean and standard deviation per named state
+channel, including depth-specific channels. Observed
+temperature, salinity and sea-surface height (T/S/SSH) statistics come from
+finite-valued observations over ocean cells globally in the training split. Unobserved fields use the matching means/stds
+from `OM4_means.zarr` and
+`OM4_stds.zarr`: all 3-D velocities and T/S channels below observation coverage.
+OISST supplies the mean and standard deviation for the surface-temperature
+state channel. All sources use this state normalization. Model wind stress and heat flux use shared OM4 forcing statistics.
 `statistics.npz` holds the atmosphere/profile input statistics and surface
-climatology; `normalization.json` records conventions and input/output hashes.
+climatology; `normalization.json` records each field’s observation or OM4 source
+and hashes the observation samples, OM4 statistics and generated artifacts.
 Retain daily shards so replay can reconstruct five-day forcing and surface-target
 intervals from the forecast’s original initialization date.
 

@@ -63,7 +63,7 @@ class TrainingState[ModelT: torch.nn.Module]:
             for i, name in enumerate(sources)
         }
         self.updates = 0
-        self.cooled = False
+        self.in_post_training = False
         self.config = config
         self.scheduler: torch.optim.lr_scheduler.LRScheduler | None = None
         self.build_scheduler()
@@ -78,8 +78,8 @@ class TrainingState[ModelT: torch.nn.Module]:
             self.scheduler = None
             return
         cfg = self.config
-        recipe = cfg.cooldown_scheduler if self.cooled else cfg.scheduler
-        steps = cfg.cooldown_updates if self.cooled else cfg.main_updates
+        recipe = cfg.post_training_scheduler if self.in_post_training else cfg.scheduler
+        steps = cfg.post_training_updates if self.in_post_training else cfg.main_updates
         self.scheduler = recipe.build(self.optimizer, steps) if recipe else None
 
     def new_ema(self) -> EMATracker:
@@ -107,7 +107,7 @@ class TrainingState[ModelT: torch.nn.Module]:
                 "scheduler": self.scheduler.state_dict() if self.scheduler else None,
                 "ema": self.ema.get_state(True),
                 "updates": self.updates,
-                "cooled": self.cooled,
+                "in_post_training": self.in_post_training,
                 "best_score": self.best_score,
                 "exposure": self.exposure,
                 "sampler_rng": self.rng.bit_generator.state,
@@ -130,9 +130,9 @@ class TrainingState[ModelT: torch.nn.Module]:
         if set(saved["pools"]) != set(self.pools):
             raise ValueError("Checkpoint source mixture differs")
         self.model.load_state_dict(saved["model"])
-        self.cooled = saved["cooled"]
+        self.in_post_training = saved["in_post_training"]
         # Rebuild the correct phase before restoring optimizer LR and scheduler
-        # position. Cooldown's base is the LR at the phase boundary.
+        # position. Post-training's base is the LR at the phase boundary.
         for group, stored in zip(
             self.optimizer.param_groups, saved["optimizer"]["param_groups"], strict=True
         ):
@@ -145,7 +145,7 @@ class TrainingState[ModelT: torch.nn.Module]:
         if self.scheduler is not None:
             self.scheduler.load_state_dict(saved["scheduler"])
         self.ema = EMATracker.from_state(saved["ema"], self.model)
-        for key in ("updates", "cooled", "best_score", "exposure"):
+        for key in ("updates", "in_post_training", "best_score", "exposure"):
             setattr(self, key, saved[key])
         for name, pool in self.pools.items():
             pool.load_state_dict(saved["pools"][name])

@@ -10,10 +10,16 @@ import cftime
 import numpy as np
 import pandas as pd
 import pytest
+import torch
 import zarr  # type: ignore[import-untyped]
 
 from samudra.constants import build_om4_layout
-from samudra.observations.archive import month_intervals, strict_mean, trajectory
+from samudra.observations.archive import (
+    ObservationArchive,
+    month_intervals,
+    strict_mean,
+    trajectory,
+)
 from samudra.observations.intervals import calendar_weights, replay_month
 from samudra.observations.model_data import ModelMonths
 from samudra.observations.prepare import interpolate_depth
@@ -24,16 +30,16 @@ def test_replay_recomputes_straddling_bin_and_exact_month_weights():
     assert (start, stop, next_start) == (6, 12, 12)
     starts = pd.date_range("2000-01-31", periods=6, freq="5D")
     weights = calendar_weights(
-        starts,
-        starts + pd.Timedelta(days=5),
+        list(starts),
+        list(starts + pd.Timedelta(days=5)),
         pd.Timestamp("2000-02-01"),
         pd.Timestamp("2000-03-01"),
     )
     np.testing.assert_allclose(weights, np.array([4, 5, 5, 5, 5, 5]) / 29)
     with pytest.raises(ValueError, match="complete"):
         calendar_weights(
-            starts[1:],
-            starts[1:] + pd.Timedelta(days=5),
+            list(starts[1:]),
+            list(starts[1:] + pd.Timedelta(days=5)),
             pd.Timestamp("2000-02-01"),
             pd.Timestamp("2000-03-01"),
         )
@@ -58,7 +64,10 @@ def test_missing_temporal_and_depth_support_never_invents_labels():
 
 
 def test_train_and_validation_boundaries_rejected_before_io():
-    class NoIO:
+    class NoIO(ObservationArchive):
+        def __init__(self):
+            pass
+
         def interval(self, *args):
             raise AssertionError("Boundary must reject before reading")
 
@@ -68,25 +77,36 @@ def test_train_and_validation_boundaries_rejected_before_io():
         trajectory(NoIO(), "2014-11-01", steps=73, split="validation")
 
 
-def test_observation_normalization_deep_slots_and_surface_override():
+def test_observation_normalization_uses_om4_unobserved_fields_and_surface_override():
     path = Path(__file__).parents[1] / "data/prepare_observation_normalization.py"
     spec = importlib.util.spec_from_file_location("baseline_normalization", path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
+    om4_means = {
+        name: index + 100.0 for index, name in enumerate(module.OM4_STATE_NAMES)
+    }
+    om4_stds = {name: index + 0.5 for index, name in enumerate(module.OM4_STATE_NAMES)}
     mean, std = module.state_statistics(
         dict(
             interior_mean=np.arange(28),
             interior_std=np.arange(28) + 1,
             surface_mean=[99, 100],
             surface_std=[10, 20],
-        )
+        ),
+        om4_means,
+        om4_stds,
     )
-    np.testing.assert_array_equal(mean[:38], 0)
-    np.testing.assert_array_equal(std[:38], 1)
-    np.testing.assert_array_equal(mean[52:57], 13)
-    np.testing.assert_array_equal(std[71:76], 28)
-    assert (mean[38], mean[76]) == (99, 100)
+    for name in module.OM4_STATE_NAMES:
+        index = module.STATE_NAMES.index(name)
+        assert mean[index] == om4_means[name]
+        assert std[index] == om4_stds[name]
+    assert mean[module.STATE_NAMES.index("thetao_13")] == 13
+    assert std[module.STATE_NAMES.index("so_13")] == 28
+    assert (
+        mean[module.STATE_NAMES.index("thetao_0")],
+        mean[module.STATE_NAMES.index("zos")],
+    ) == (99, 100)
 
 
 def model_store(tmp_path, kind):
@@ -143,8 +163,8 @@ def model_store(tmp_path, kind):
 def test_model_windows_keep_native_calendar_scales_and_replay(tmp_path, kind):
     path, reference = model_store(tmp_path, kind)
     data = ModelMonths(path, kind, reference, tmp_path)
-    fresh = data.sample(0, "cpu")
-    replay = data.continuation(0, 1, "cpu")
+    fresh = data.sample(0, torch.device("cpu"))
+    replay = data.continuation(0, 1, torch.device("cpu"))
     assert replay["start_lead"] == fresh["next_start_lead"]
     np.testing.assert_allclose(fresh["fields"], 0.5)
     np.testing.assert_allclose(fresh["forcing"], 0)
@@ -152,7 +172,7 @@ def test_model_windows_keep_native_calendar_scales_and_replay(tmp_path, kind):
     if kind == "cm4":
         assert isinstance(data.window_months[0], cftime.DatetimeNoLeap)
     with pytest.raises(ValueError, match="0..11"):
-        data.continuation(0, 12, "cpu")
+        data.continuation(0, 12, torch.device("cpu"))
 
 
 def test_trajectory_fresh_parity_and_replay_anchoring(tmp_path, monkeypatch):
@@ -210,7 +230,7 @@ def test_model_replay_rejects_a_gap_even_when_target_month_itself_is_valid(tmp_p
         if stamp.month == 12 and stamp.year == 1975
     )
     with pytest.raises(ValueError, match="gap"):
-        data.continuation(origin, 10, "cpu")
+        data.continuation(origin, 10, torch.device("cpu"))
 
 
 def test_om4_leap_year_gap_allowed_only_inside_initializer_history(tmp_path):
@@ -228,11 +248,11 @@ def test_om4_leap_year_gap_allowed_only_inside_initializer_history(tmp_path):
     assert (1977, 1) not in windows  # First forecast step would cross the gap.
     for month in (2, 3, 4):
         index = windows[1977, month]
-        sample = data.sample(index, "cpu")
+        sample = data.sample(index, torch.device("cpu"))
         assert sample["start_lead"] == 0
         assert data.continuation_layout(index, 0) is not None
         assert (
-            data.continuation(index, 1, "cpu")["start_lead"]
+            data.continuation(index, 1, torch.device("cpu"))["start_lead"]
             == sample["next_start_lead"]
         )
     # February can initialize afresh, but a pre-gap forecast cannot jump to it.
@@ -243,7 +263,9 @@ def test_om4_leap_year_gap_allowed_only_inside_initializer_history(tmp_path):
 
 def test_leap_year_replay_does_not_extend_to_370_days():
     with pytest.raises(ValueError, match="one year"):
-        trajectory(None, "2000-01-01", target_month="2000-12-01")
+        trajectory(
+            object.__new__(ObservationArchive), "2000-01-01", target_month="2000-12-01"
+        )
 
 
 @pytest.mark.parametrize("kind", ["om4", "cm4"])
@@ -254,16 +276,16 @@ def test_model_replay_metadata_can_be_logged_without_json_coercion(tmp_path, kin
     assert layout is not None
     assert all(type(value) is int for value in layout.values())
     assert json.loads(json.dumps(layout)) == layout
-    for sample in (data.sample(0, "cpu"), data.continuation(0, 1, "cpu")):
+    for sample in (
+        data.sample(0, torch.device("cpu")),
+        data.continuation(0, 1, torch.device("cpu")),
+    ):
         metadata = {
-            key: sample[key]
-            for key in (
-                "start_lead",
-                "end_lead",
-                "next_start_lead",
-                "origin_index",
-                "duration",
-            )
+            "start_lead": sample["start_lead"],
+            "end_lead": sample["end_lead"],
+            "next_start_lead": sample["next_start_lead"],
+            "origin_index": sample["origin_index"],
+            "duration": sample["duration"],
         }
         assert all(type(value) is int for value in metadata.values())
         # This arithmetic feeds production training logs and qualification reports.

@@ -10,7 +10,7 @@ Preparation stages:
 Repeat daily for sst/adt/era5/iap and each required year (1993--2014 for training
 and annual validation). Keep the daily shards: replay must recompute intervals
 using five-day intervals measured from the original forecast start date.
-Finally run prepare_observation_normalization.py /prepared.
+Finally run prepare_observation_normalization.py /prepared --om4 /data/om4.
 """
 
 import argparse

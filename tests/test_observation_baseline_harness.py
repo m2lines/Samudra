@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Samudra Authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Recipe integration: source exposure, cooldown, resume and replay isolation."""
+"""Recipe integration: source exposure, post-training, resume and replay isolation."""
 
 import random
 from collections import Counter
@@ -127,7 +127,7 @@ def small_recipe(monkeypatch, mix="om4-cm4-obs", **overrides):
         mix,
         **{
             "main_updates": 4,
-            "cooldown_updates": 2,
+            "post_training_updates": 2,
             "validation_freq": 2,
             "save_freq": 1,
             **overrides,
@@ -146,7 +146,7 @@ def validate(model):
         ("om4-cm4", {"obs": 0, "om4": 2, "cm4": 2}),
     ],
 )
-def test_training_startup_populates_each_source_and_cooldown_is_obs_only(
+def test_training_startup_populates_each_source_and_post_training_is_obs_only(
     monkeypatch, tmp_path, mix, main_counts
 ):
     cfg = small_recipe(monkeypatch, mix)
@@ -176,10 +176,10 @@ def test_training_startup_populates_each_source_and_cooldown_is_obs_only(
         validate,
         records.append,
     )
-    assert state.cooled and state.updates == 6
+    assert state.in_post_training and state.updates == 6
     assert (
         state.ema.num_updates == 2
-    )  # Reset at cooldown, retained for both obs updates.
+    )  # Reset at post-training, retained for both obs updates.
     assert {name: counts["updates"] for name, counts in state.exposure.items()} == {
         **main_counts,
         "obs": main_counts["obs"] + 2,
@@ -201,21 +201,21 @@ def test_training_startup_populates_each_source_and_cooldown_is_obs_only(
 @pytest.mark.parametrize("stop_after", [1, 4, 5])
 @pytest.mark.parametrize("scheduler", [None, {"type": "cosine"}])
 @pytest.mark.parametrize(
-    "cooldown_scheduler",
+    "post_training_scheduler",
     [
         {"type": "linear_cooldown", "final_lr": 1e-6},
         {"type": "cosine_with_warmup", "warmup_epochs": 1, "warmup_lr": 1e-6},
     ],
 )
-def test_exact_resume_across_cooldown_preserves_rng_optimizer_and_replay(
-    monkeypatch, tmp_path, mix, stop_after, scheduler, cooldown_scheduler
+def test_exact_resume_across_post_training_preserves_rng_optimizer_and_replay(
+    monkeypatch, tmp_path, mix, stop_after, scheduler, post_training_scheduler
 ):
     cfg = small_recipe(
         monkeypatch,
         mix,
         scheduler=scheduler,
-        cooldown_scheduler=cooldown_scheduler,
-        cooldown_learning_rate=5e-5,
+        post_training_scheduler=post_training_scheduler,
+        post_training_learning_rate=5e-5,
     )
     manifest = {"mix": mix}
     full_dir, resumed_dir = tmp_path / "full", tmp_path / "resumed"
@@ -244,7 +244,7 @@ def test_exact_resume_across_cooldown_preserves_rng_optimizer_and_replay(
         resumed_records.append,
         stop_after=stop_after,
     )
-    assert prefix.cooled == (stop_after > cfg.main_updates)
+    assert prefix.in_post_training == (stop_after > cfg.main_updates)
     restored = make_state(cfg)
     restored.restore(resumed_dir / "ckpt.pt", manifest)
     baseline.train(
@@ -426,7 +426,7 @@ def test_configured_accumulation_controls_real_training_exposure(
         monkeypatch,
         "obs",
         main_updates=2,
-        cooldown_updates=1,
+        post_training_updates=1,
         gradient_accumulation_steps=accumulation,
         fresh_examples=fresh,
     )

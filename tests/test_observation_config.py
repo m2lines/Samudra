@@ -24,7 +24,7 @@ def config(tmp_path: Path, **changes) -> ObservationTrainConfig:
     preset = ObservationTrainConfig.from_yaml("observations/train.yaml")
     return ObservationTrainConfig(
         model=preset.model,
-        cooldown_scheduler=preset.cooldown_scheduler,
+        post_training_scheduler=preset.post_training_scheduler,
         experiment=ExperimentConfig(
             name="test-observations",
             base_output_dir=str(tmp_path),
@@ -43,7 +43,7 @@ def test_bundled_config_includes_and_cli_overrides(tmp_path):
             "observations/train.yaml",
             "--main_updates",
             "12",
-            "--cooldown_updates",
+            "--post_training_updates",
             "3",
             "--gradient_accumulation_steps",
             "2",
@@ -106,7 +106,7 @@ def test_scientific_identity_ignores_stop_controls_but_tracks_recipe(tmp_path):
         {"gradient_accumulation_steps": 0},
         {"pretrain_mix": "om4-cm4"},
         {"main_updates": 0},
-        {"cooldown_learning_rate": 1e-8},
+        {"post_training_learning_rate": 1e-8},
         {"scheduler": {"type": "linear_cooldown", "final_lr": 0.1}},
         {"batch_size": 2},
     ],
@@ -214,7 +214,7 @@ def test_entrypoint_reuses_backend_logger_and_checkpoint_layout(tmp_path, monkey
     cfg = config(
         tmp_path,
         main_updates=2,
-        cooldown_updates=1,
+        post_training_updates=1,
         stop_after=1,
         gradient_accumulation_steps=2,
         fresh_examples=1,
@@ -233,7 +233,7 @@ def test_entrypoint_reuses_backend_logger_and_checkpoint_layout(tmp_path, monkey
         entry.run_training(cfg)
     final = torch.load(checkpoints.latest_checkpoint_path, weights_only=False)
     assert final["updates"] == 3
-    assert final["cooled"]
+    assert final["in_post_training"]
     assert checkpoints.best_validation_checkpoint_path.exists()
     assert calls["backend"] == ["cpu", "cpu"]
     assert len(calls["finish"]) == 2

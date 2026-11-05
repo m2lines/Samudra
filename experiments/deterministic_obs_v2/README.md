@@ -5,11 +5,13 @@
 
 This experiment compares observation-only training with mixed OM4/observation
 training for a deterministic ocean forecast initialized from surface history.
-Implementation is stacked on the config-based observation harness in
-[PR #955](https://github.com/m2lines/Samudra/pull/955).
+Implementation lives in [PR #960](https://github.com/m2lines/Samudra/pull/960),
+which targets the config-based observation harness in
+[PR #955](https://github.com/m2lines/Samudra/pull/955). This results branch is
+stacked on #960 and contains run-specific configurations, launchers and evidence.
 
 As of 2026-11-05, all five original GPU qualification arms passed.
-Scientific comparison array `21956934` was submitted on 2026-11-05. Its five arms each run 4,000 main updates and a 1,000-update observation-only cooldown, one arm at a time on four RTX6000 GPUs with two accumulated examples per rank (global batch eight). The request allows normal lzanna and preemptible capacity. Initial status is pending resources. The selected configuration will continue from its uncooled checkpoint to 16k total main updates using the selection and cooldown protocol below; that continuation has not yet been submitted.
+Scientific comparison array `21956934` was submitted on 2026-11-05. Its five arms each run 4,000 main updates and a 1,000-update observation-only cooldown, up to five arms concurrently, each on four RTX6000 GPUs with two accumulated examples per rank (global batch eight). The request allows normal lzanna and preemptible capacity. Initial status is pending resources. The selected configuration will continue from its uncooled checkpoint to 16k total main updates using the selection and cooldown protocol below; that continuation has not yet been submitted.
 
 The optimized Rust/prefetch
 path also passed one-GPU numerical and utilization qualification: job `21816758`

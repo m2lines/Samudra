@@ -14,8 +14,7 @@ path also passed one-GPU numerical and utilization qualification: job `21816758`
 completed 128 main and two cooldown updates at 82.2% steady GPU utilization.
 Its final model hash matches the pre-optimization run. For the large mixed/replay
 arm, the revised one-GPU screen estimate is 13.7 h with a 30% allowance.
-[Scaling qualification](scaling.md) records timings and provenance; eight-GPU
-execution and a real scheduler interruption/resume comparison remain pending.
+[Scaling qualification](scaling.md) records timings and provenance; four-GPU execution with two accumulated examples per rank and a real scheduler interruption/resume comparison remain pending.
 Torch array `21786733` completed on RTX PRO 6000 Blackwell Server Edition GPUs.
 Peak allocated GPU memory was 5.15–6.61 GiB. Data preparation/loading dominated
 update time; the [qualification report](qualification.md) gives measured runtime

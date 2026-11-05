@@ -7,10 +7,10 @@ The optimized Rust/prefetch path passed single-GPU numerical and utilization
 qualification in job `21816758`. It completed 128 main and two cooldown updates
 on one RTX PRO 6000 Blackwell in 28m07s, using code
 `7bef723cb1f60d4e202aeece6fd4c1b11eb2e539`. The allocation cost was 0.4686 GPU-hours.
-Eight-GPU job `21857804` is waiting for capacity. Real Slurm interruption/resume
-job `21857835` depends on its success. No scientific screen or 16k run has been submitted.
+Four-GPU job `21909447` is waiting for capacity. Real Slurm interruption/resume
+job `21909510` depends on its success. No scientific screen or 16k run has been submitted.
 
-The queued eight-GPU and scheduler-test requests are eligible for both
+The queued four-GPU and scheduler-test requests are eligible for both
 `rtx6000_lzanna` and `rtx6000`, using account `torch_pr_347_lzanna`,
 `preemption=yes;requeue=true`, and `Requeue=1`. On 2026-11-04, these replaced
 preemption-only jobs `21816773` and `21822548`, both cancelled before allocation.
@@ -18,6 +18,12 @@ Torch rejected in-place routing changes and release of temporary held replacemen
 so the final requests were resubmitted without holds. Their dependency and
 completion callbacks were rebuilt. The [routing receipt](receipts/routing-2026-11-04.json)
 preserves all replaced job IDs; queue age restarted with the final submissions.
+
+The four-GPU requests replace eight-GPU jobs `21857804` and `21857835`,
+both cancelled before allocation. Each requests 32 CPUs and 128 GiB RAM.
+Two examples accumulated per rank preserve global batch eight, learning rate,
+and replay policy. The smaller request still faces quota limits; it has not run.
+The [replacement receipt](receipts/four-gpu-2026-11-04.json) records job and callback IDs.
 
 The [single-GPU receipt](receipts/scaling-v4/1gpu/qualification-summary.json)
 records exact synchronous/prefetched comparisons, isolated uncooled checkpoint
@@ -44,7 +50,7 @@ replay, and global batch eight on one RTX PRO 6000. They include validation ever
 250 updates and checkpointing every 25, using measured costs of 1.94 s per annual
 validation and 6.71 s per checkpoint. The extra 30% covers execution variation;
 queue delay and unknown preemption frequency are excluded. The observed-range
-columns use minimum/maximum step times, not confidence intervals. Eight-GPU
+columns use minimum/maximum step times, not confidence intervals. Four-GPU
 throughput and the other optimized arms remain unmeasured.
 
 | Work | Updates | Mean-based time | With 30% allowance | Range with allowance |
@@ -58,9 +64,9 @@ The screen contains 3,000 observation and 2,000 OM4 updates:
 The [estimate receipt](receipts/scaling-v4/1gpu/runtime-estimates.json) records
 inputs and assumptions. These are engineering estimates, not forecast-skill results.
 
-Scheduler job `21857835` will run two 16-main-plus-two-cooldown trajectories
+Scheduler job `21909510` will run two 16-main-plus-two-cooldown trajectories
 through `samudra.observations.train` and the shared Slurm/Apptainer launcher on
-eight GPUs. One is uninterrupted. After the other has saved at least six main
+four GPUs, with two accumulated examples per rank. One is uninterrupted. After the other has saved at least six main
 updates, a bounded watcher sends USR1 to its batch shell, which calls
 `scontrol requeue`. The restarted allocation must preserve the W&B run ID and
 produce an exactly equal complete checkpoint payload: model, optimizer, EMA,
@@ -170,8 +176,8 @@ end-to-end speedup. GPU training must measure the effect of reduced copies and
 the smaller dense payload. The [audit receipt](receipts/scaling-v4/loading-audit.json)
 records the CPU result and limits.
 
-GPU job `21816758` subsequently passed, as reported above. Its eight-GPU
-successor `21857804` uses the same code and [configuration](configs/scaling-v4/)
+GPU job `21816758` subsequently passed, as reported above. Its four-GPU
+successor `21909447` uses the same code and [configuration](configs/scaling-v4/)
 and is waiting for capacity.
 
 The historical estimates below apply only to arm D before optimization: the 170M-parameter mixed-source
@@ -180,7 +186,7 @@ They use code `710e496` and precede the `7bef723` loading changes, whose measure
 The conservative measured costs are 2.00 s per annual validation and 7.89 s per
 single checkpoint. The range uses the observed per-source minimum and maximum
 update times; it is not a confidence interval. Queue delay and unknown preemption
-frequency are excluded. Eight-GPU timings and timings for the other optimized
+frequency are excluded. Four-GPU timings and timings for the other optimized
 arms remain unmeasured. Rows for the selected recipe assume this same
 170M mixed-source configuration wins the screen.
 
@@ -237,15 +243,15 @@ The committed copy adds formatting and type-checker annotations.
 Training verifies the pinned proof, source inventory and cached file hashes.
 
 The global batch remains eight monthly windows per optimizer update, normally
-four fresh and four replayed. Eight ranks process one window each; one rank
-accumulates eight. Rank zero owns the global sampler and source-separated replay
+four fresh and four replayed. Four ranks accumulate two windows each; eight ranks process one each, and
+one rank accumulates eight. Rank zero owns the global sampler and source-separated replay
 pools, broadcasts example metadata, distributes cached states, and gathers the
 new states in global example order. Pool capacity stays two entries per source
 and lead-month bucket, independent of rank count.
 
 Planning update N+1 before computing N makes states generated during N eligible
 starting at N+2. This changes replay timing from the original sequential loop.
-The same rule applies to one and eight GPUs. Empty-pool startup can supply more
+The same rule applies to one, four and eight GPUs. Empty-pool startup can supply more
 than four fresh examples. The pending plan, selected cached states, and per-rank
 RNG states are checkpointed. Resume requires the same world size. A world-size
 change would need a separately defined restart policy.

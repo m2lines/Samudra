@@ -1,0 +1,28 @@
+{
+  "date": "2026-11-04",
+  "runtime_commit": "7bef723cb",
+  "world_size": 4,
+  "accumulation_per_rank": 2,
+  "global_batch": 8,
+  "cpus": 32,
+  "memory_gib": 128,
+  "gpu_constraint": "rtx6000",
+  "partitions": [
+    "rtx6000_lzanna",
+    "rtx6000"
+  ],
+  "comment": "preemption=yes;requeue=true",
+  "qualification_job": 21909447,
+  "restart_job": 21909510,
+  "restart_dependency": "afterok:21909447",
+  "callback_jobs": [
+    21909692,
+    21909693
+  ],
+  "replaced_jobs": {
+    "21857804": "CANCELLED; elapsed 00:00:00; no allocation",
+    "21857835": "CANCELLED; elapsed 00:00:00; no allocation"
+  },
+  "status": "Pending; quota limits still apply",
+  "validation": "CPU observation pipeline tests: 5 passed, 1 deselected"
+}

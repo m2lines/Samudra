@@ -1,0 +1,26 @@
+{
+  "source": "b5ae347e7419759bab3740cce34dd15e3aebeee0371ce9452ddbc4c18296821a",
+  "jobs": {
+    "signed": {
+      "id": "21901710_0",
+      "state": "COMPLETED",
+      "elapsed_seconds": 11876,
+      "gpu_hours": 3.298888888888889
+    },
+    "weak_variogram": {
+      "id": "21901710_1",
+      "state": "COMPLETED",
+      "elapsed_seconds": 11476,
+      "gpu_hours": 3.187777777777778
+    }
+  },
+  "allocated_gpu_hours": 6.486666666666666,
+  "qualifications": "same allocations; first24updates included in1000",
+  "effective_batch": 8,
+  "training_members": 4,
+  "source_updates_each": 500,
+  "examples_per_source": 4000,
+  "om4_window_epochs": 9.7799511002445,
+  "observation_window_epochs": 16.46090534979424,
+  "seed": 1729
+}

@@ -1,0 +1,364 @@
+{
+  "inputs": {
+    "2014-01": {
+      "month": "2014-01",
+      "history_midpoints": [
+        "2013-09-30T12:00:00",
+        "2013-10-05T12:00:00",
+        "2013-10-10T12:00:00",
+        "2013-10-15T12:00:00",
+        "2013-10-20T12:00:00",
+        "2013-10-25T12:00:00",
+        "2013-10-30T12:00:00",
+        "2013-11-04T12:00:00",
+        "2013-11-09T12:00:00",
+        "2013-11-14T12:00:00",
+        "2013-11-19T12:00:00",
+        "2013-11-24T12:00:00",
+        "2013-11-29T12:00:00",
+        "2013-12-04T12:00:00",
+        "2013-12-09T12:00:00",
+        "2013-12-14T12:00:00",
+        "2013-12-19T12:00:00",
+        "2013-12-24T12:00:00",
+        "2013-12-29T12:00:00"
+      ],
+      "history_indices": [
+        4069,
+        4070,
+        4071,
+        4072,
+        4073,
+        4074,
+        4075,
+        4076,
+        4077,
+        4078,
+        4079,
+        4080,
+        4081,
+        4082,
+        4083,
+        4084,
+        4085,
+        4086,
+        4087
+      ],
+      "sample_sha256": "bc126b8b29c9704069c34eb7d2ef5ff92d63106e3fdb83f87f5064e6338d37cb",
+      "seed": 904003,
+      "members": 8,
+      "grid_sha256": "ce96360964a6669d0186b9581abaaffc06f660c4e09e0ac813b3dd1b819e5167",
+      "om4_metadata_sha256": "8c4e12bbb43cf70826d406d6910461e1b287835e5f7f27729a2eb8d545c4a19c",
+      "training_latest_target_bin_end": "2013-08-04",
+      "input_scope": "OM4 surface history plus matched ERA5; no interior or future input"
+    },
+    "2014-04": {
+      "month": "2014-04",
+      "history_midpoints": [
+        "2013-12-29T12:00:00",
+        "2014-01-03T12:00:00",
+        "2014-01-08T12:00:00",
+        "2014-01-13T12:00:00",
+        "2014-01-18T12:00:00",
+        "2014-01-23T12:00:00",
+        "2014-01-28T12:00:00",
+        "2014-02-02T12:00:00",
+        "2014-02-07T12:00:00",
+        "2014-02-12T12:00:00",
+        "2014-02-17T12:00:00",
+        "2014-02-22T12:00:00",
+        "2014-02-27T12:00:00",
+        "2014-03-04T12:00:00",
+        "2014-03-09T12:00:00",
+        "2014-03-14T12:00:00",
+        "2014-03-19T12:00:00",
+        "2014-03-24T12:00:00",
+        "2014-03-29T12:00:00"
+      ],
+      "history_indices": [
+        4087,
+        4088,
+        4089,
+        4090,
+        4091,
+        4092,
+        4093,
+        4094,
+        4095,
+        4096,
+        4097,
+        4098,
+        4099,
+        4100,
+        4101,
+        4102,
+        4103,
+        4104,
+        4105
+      ],
+      "sample_sha256": "85dc7368a7cfb6ad1dd3bc34faad9671e340542fc805929124d1a9a5b95c613d",
+      "seed": 904003,
+      "members": 8,
+      "grid_sha256": "ce96360964a6669d0186b9581abaaffc06f660c4e09e0ac813b3dd1b819e5167",
+      "om4_metadata_sha256": "8c4e12bbb43cf70826d406d6910461e1b287835e5f7f27729a2eb8d545c4a19c",
+      "training_latest_target_bin_end": "2013-08-04",
+      "input_scope": "OM4 surface history plus matched ERA5; no interior or future input"
+    },
+    "2014-05": {
+      "month": "2014-05",
+      "history_midpoints": [
+        "2014-01-28T12:00:00",
+        "2014-02-02T12:00:00",
+        "2014-02-07T12:00:00",
+        "2014-02-12T12:00:00",
+        "2014-02-17T12:00:00",
+        "2014-02-22T12:00:00",
+        "2014-02-27T12:00:00",
+        "2014-03-04T12:00:00",
+        "2014-03-09T12:00:00",
+        "2014-03-14T12:00:00",
+        "2014-03-19T12:00:00",
+        "2014-03-24T12:00:00",
+        "2014-03-29T12:00:00",
+        "2014-04-03T12:00:00",
+        "2014-04-08T12:00:00",
+        "2014-04-13T12:00:00",
+        "2014-04-18T12:00:00",
+        "2014-04-23T12:00:00",
+        "2014-04-28T12:00:00"
+      ],
+      "history_indices": [
+        4093,
+        4094,
+        4095,
+        4096,
+        4097,
+        4098,
+        4099,
+        4100,
+        4101,
+        4102,
+        4103,
+        4104,
+        4105,
+        4106,
+        4107,
+        4108,
+        4109,
+        4110,
+        4111
+      ],
+      "sample_sha256": "d4ad3c04b23737c5dccc86fb9a36efcf4b9c5d95add2d8d309e53475c9b7edcb",
+      "seed": 904003,
+      "members": 8,
+      "grid_sha256": "ce96360964a6669d0186b9581abaaffc06f660c4e09e0ac813b3dd1b819e5167",
+      "om4_metadata_sha256": "8c4e12bbb43cf70826d406d6910461e1b287835e5f7f27729a2eb8d545c4a19c",
+      "training_latest_target_bin_end": "2013-08-04",
+      "input_scope": "OM4 surface history plus matched ERA5; no interior or future input"
+    }
+  },
+  "sources": [
+    {
+      "path": "/scratch/jr7309/stochastic-shared-noise-20261103/production/B-shared-deep-wide/initializer-ema/B-shared-deep-wide-00500-2014-01.json",
+      "sha256": "0c130836b7818e0b0d1e5fe460ccaf12d622d905399c3b4fe3d5e65b9a3a5ac4"
+    },
+    {
+      "path": "/scratch/jr7309/stochastic-shared-noise-20261103/production/B-shared-deep-wide/initializer-ema/B-shared-deep-wide-01000-2014-01.json",
+      "sha256": "d1bc6464af959b3de71c92e6f1ea45342b4be076b879526aa225ad8185002234"
+    },
+    {
+      "path": "/scratch/jr7309/stochastic-shared-noise-20261103/production/B-shared-deep-wide/initializer-ema/B-shared-deep-wide-00500-2014-04.json",
+      "sha256": "baa795750d7e4af349eeeae4070ccaf4590474b31285c2995cc0316becda82e3"
+    },
+    {
+      "path": "/scratch/jr7309/stochastic-shared-noise-20261103/production/B-shared-deep-wide/initializer-ema/B-shared-deep-wide-01000-2014-04.json",
+      "sha256": "c9c9bff1844400301866ca69d2e48e355e7bc1429eb50b14b6b195a90dc4f859"
+    },
+    {
+      "path": "/scratch/jr7309/stochastic-shared-noise-20261103/production/B-shared-deep-wide/initializer-ema/B-shared-deep-wide-00500-2014-05.json",
+      "sha256": "73edb136d228ce73ceab8077a0f818787d469c4fc31adaa3715268522cebed72"
+    },
+    {
+      "path": "/scratch/jr7309/stochastic-shared-noise-20261103/production/B-shared-deep-wide/initializer-ema/B-shared-deep-wide-01000-2014-05.json",
+      "sha256": "3ff498685ddfa69c93b1925a513c05f466bfde00e92a246c0aaf2c56ccfa68e9"
+    },
+    {
+      "path": "/scratch/jr7309/stochastic-shared-noise-20261103/production/B-shared-deep-wide/initializer-raw/B-shared-deep-wide-00500-2014-01.json",
+      "sha256": "9bc2526b1beef990dade8dc5f9a64315142fc31900e112fe5c2fd46cafa0ba21"
+    },
+    {
+      "path": "/scratch/jr7309/stochastic-shared-noise-20261103/production/B-shared-deep-wide/initializer-raw/B-shared-deep-wide-01000-2014-01.json",
+      "sha256": "2f9beecfbd0036703ba0d2bd7427d38953bfcb449faabc33831cbd867494657b"
+    },
+    {
+      "path": "/scratch/jr7309/stochastic-shared-noise-20261103/production/B-shared-deep-wide/initializer-raw/B-shared-deep-wide-00500-2014-04.json",
+      "sha256": "ba9a0dcfd7d2f750bbeffafb6923ce311732168e4ae1bae967db6d3a281d606e"
+    },
+    {
+      "path": "/scratch/jr7309/stochastic-shared-noise-20261103/production/B-shared-deep-wide/initializer-raw/B-shared-deep-wide-01000-2014-04.json",
+      "sha256": "3389b359880b872792632f08b169aca023f62f93b66a3135e986a89664696bf4"
+    },
+    {
+      "path": "/scratch/jr7309/stochastic-shared-noise-20261103/production/B-shared-deep-wide/initializer-raw/B-shared-deep-wide-00500-2014-05.json",
+      "sha256": "c8a5d9b8acd3bd57a06b295f31fe6b2387f53763d024e5893562bb6f3363db3f"
+    },
+    {
+      "path": "/scratch/jr7309/stochastic-shared-noise-20261103/production/B-shared-deep-wide/initializer-raw/B-shared-deep-wide-01000-2014-05.json",
+      "sha256": "21295922fbef64029444a4335aab8d9a2f11e1dee974fca961c65a0af06fb44a"
+    },
+    {
+      "path": "/scratch/jr7309/stochastic-variogram-20261104-r2/production/B-shared-deep-wide-variogram/initializer-ema/B-shared-deep-wide-variogram-00500-2014-01.json",
+      "sha256": "b15e5451925bfc2fa668eaaf36fedc67bb196275a9fbc6702cdd7bd90c5f3703"
+    },
+    {
+      "path": "/scratch/jr7309/stochastic-variogram-20261104-r2/production/B-shared-deep-wide-variogram/initializer-ema/B-shared-deep-wide-variogram-01000-2014-01.json",
+      "sha256": "c768599dde0d6fc5a2a41eb50a8c49f3752320724c8709706853cac551f3dce8"
+    },
+    {
+      "path": "/scratch/jr7309/stochastic-variogram-20261104-r2/production/B-shared-deep-wide-variogram/initializer-ema/B-shared-deep-wide-variogram-00500-2014-04.json",
+      "sha256": "d3afedc480300acc5788fc4d73ae3754300ea126b370790fb67bf3cb9b511824"
+    },
+    {
+      "path": "/scratch/jr7309/stochastic-variogram-20261104-r2/production/B-shared-deep-wide-variogram/initializer-ema/B-shared-deep-wide-variogram-01000-2014-04.json",
+      "sha256": "8a6e75c441799ad26947e1be490955a14f455d45e0c0121356851b9132f9d297"
+    },
+    {
+      "path": "/scratch/jr7309/stochastic-variogram-20261104-r2/production/B-shared-deep-wide-variogram/initializer-ema/B-shared-deep-wide-variogram-00500-2014-05.json",
+      "sha256": "e489ae8528d7629e9ee9f790f43574e6b631f40d69c13b86d0b66b2441ade510"
+    },
+    {
+      "path": "/scratch/jr7309/stochastic-variogram-20261104-r2/production/B-shared-deep-wide-variogram/initializer-ema/B-shared-deep-wide-variogram-01000-2014-05.json",
+      "sha256": "1a1613b9c70aea0bf7371af8d4d60e47b5ef081ecd3f231532fd0e8e221c6b50"
+    },
+    {
+      "path": "/scratch/jr7309/stochastic-variogram-20261104-r2/production/B-shared-deep-wide-variogram/initializer-raw/B-shared-deep-wide-variogram-00500-2014-01.json",
+      "sha256": "02b8dc12dde5a57bb906c83d85a7e94b2efd064884ca8906b51b3edf7bcb63f9"
+    },
+    {
+      "path": "/scratch/jr7309/stochastic-variogram-20261104-r2/production/B-shared-deep-wide-variogram/initializer-raw/B-shared-deep-wide-variogram-01000-2014-01.json",
+      "sha256": "14bf3bc4c1fe18e02f4e54b81fe1d18fb878629003e06ebc082eae9b06c13229"
+    },
+    {
+      "path": "/scratch/jr7309/stochastic-variogram-20261104-r2/production/B-shared-deep-wide-variogram/initializer-raw/B-shared-deep-wide-variogram-00500-2014-04.json",
+      "sha256": "8237751373c3eb84403c70ce9edc36a695d4606956f5e632a34ff30a70f4b8be"
+    },
+    {
+      "path": "/scratch/jr7309/stochastic-variogram-20261104-r2/production/B-shared-deep-wide-variogram/initializer-raw/B-shared-deep-wide-variogram-01000-2014-04.json",
+      "sha256": "07dc2f38e98c6e5713513b0684fc590429c562396aeaf84a27b94c21237bf9d0"
+    },
+    {
+      "path": "/scratch/jr7309/stochastic-variogram-20261104-r2/production/B-shared-deep-wide-variogram/initializer-raw/B-shared-deep-wide-variogram-00500-2014-05.json",
+      "sha256": "f3f8e849d3dd40e9db5b27126bcd57373593ebd614b26aee79628d23285434a7"
+    },
+    {
+      "path": "/scratch/jr7309/stochastic-variogram-20261104-r2/production/B-shared-deep-wide-variogram/initializer-raw/B-shared-deep-wide-variogram-01000-2014-05.json",
+      "sha256": "57efd3e9c592e08f778748c5167effd3fc1a27de274cd85b518a933723a67ccc"
+    },
+    {
+      "path": "/scratch/jr7309/stochastic-signed-20261104/production/B-shared-deep-wide-signed/initializer-ema/B-shared-deep-wide-signed-00500-2014-01.json",
+      "sha256": "35897b46310ce1c29eff7d889d423c5c90cff8b6a59d4974b41a263278ea205b"
+    },
+    {
+      "path": "/scratch/jr7309/stochastic-signed-20261104/production/B-shared-deep-wide-signed/initializer-ema/B-shared-deep-wide-signed-01000-2014-01.json",
+      "sha256": "e31ea05f1021cea324c4cb87e1d5e4e526f36dcb6c308345775080397a4ae495"
+    },
+    {
+      "path": "/scratch/jr7309/stochastic-signed-20261104/production/B-shared-deep-wide-signed/initializer-ema/B-shared-deep-wide-signed-00500-2014-04.json",
+      "sha256": "9067556421ee792aad5526fab8a2d127a87cf5fd9179b8a9ab12e7daa96a5d72"
+    },
+    {
+      "path": "/scratch/jr7309/stochastic-signed-20261104/production/B-shared-deep-wide-signed/initializer-ema/B-shared-deep-wide-signed-01000-2014-04.json",
+      "sha256": "6465398a65674ac4b97c05ce4451a9706168c2f8e7ccc838d0f885be9864cc30"
+    },
+    {
+      "path": "/scratch/jr7309/stochastic-signed-20261104/production/B-shared-deep-wide-signed/initializer-ema/B-shared-deep-wide-signed-00500-2014-05.json",
+      "sha256": "c40043bf1cc4f63a624e4a7d6df602464f0a564fa05ba47b72471c84e889e028"
+    },
+    {
+      "path": "/scratch/jr7309/stochastic-signed-20261104/production/B-shared-deep-wide-signed/initializer-ema/B-shared-deep-wide-signed-01000-2014-05.json",
+      "sha256": "6bbcfdd3315b7526f1e4a6673361da418831e55429aa8e48874523e934fd9ece"
+    },
+    {
+      "path": "/scratch/jr7309/stochastic-signed-20261104/production/B-shared-deep-wide-signed/initializer-raw/B-shared-deep-wide-signed-00500-2014-01.json",
+      "sha256": "f7b4b7c49aed741c115024648b0d121d3fd52b5213398c14b2e85d07a8720391"
+    },
+    {
+      "path": "/scratch/jr7309/stochastic-signed-20261104/production/B-shared-deep-wide-signed/initializer-raw/B-shared-deep-wide-signed-01000-2014-01.json",
+      "sha256": "2851d6d5e0e0838af906383abc86c19f16b40825b0ec3278487fc73dc6720e19"
+    },
+    {
+      "path": "/scratch/jr7309/stochastic-signed-20261104/production/B-shared-deep-wide-signed/initializer-raw/B-shared-deep-wide-signed-00500-2014-04.json",
+      "sha256": "77ad9c04a56d818cc594794c09b97ab8c7cc4684b3869cad31f6ef18dc79d61c"
+    },
+    {
+      "path": "/scratch/jr7309/stochastic-signed-20261104/production/B-shared-deep-wide-signed/initializer-raw/B-shared-deep-wide-signed-01000-2014-04.json",
+      "sha256": "3fce21f31a3e4e734032536fb3d40b630d45f54ad5b8df7631a01216de3b2974"
+    },
+    {
+      "path": "/scratch/jr7309/stochastic-signed-20261104/production/B-shared-deep-wide-signed/initializer-raw/B-shared-deep-wide-signed-00500-2014-05.json",
+      "sha256": "8f8c2020ebe6b1eec249be1049973811775a3fe949dfd943f5bdbb3ee6063102"
+    },
+    {
+      "path": "/scratch/jr7309/stochastic-signed-20261104/production/B-shared-deep-wide-signed/initializer-raw/B-shared-deep-wide-signed-01000-2014-05.json",
+      "sha256": "136dfff4773f84ef4d1fa89e44d0d255f597735111f3df94421f24d621ca9f2c"
+    },
+    {
+      "path": "/scratch/jr7309/stochastic-signed-20261104/production/B-shared-deep-wide-weak-variogram/initializer-ema/B-shared-deep-wide-weak-variogram-00500-2014-01.json",
+      "sha256": "74d0f36b023039844f930f825da3094c594ef3e489d9ccbd49d06274cfc9e5c9"
+    },
+    {
+      "path": "/scratch/jr7309/stochastic-signed-20261104/production/B-shared-deep-wide-weak-variogram/initializer-ema/B-shared-deep-wide-weak-variogram-01000-2014-01.json",
+      "sha256": "9c2e8a64c7f10fe7065421374d967dd81da6b5f85f433992e1aa6f6d0fb88f30"
+    },
+    {
+      "path": "/scratch/jr7309/stochastic-signed-20261104/production/B-shared-deep-wide-weak-variogram/initializer-ema/B-shared-deep-wide-weak-variogram-00500-2014-04.json",
+      "sha256": "1665b470b60a5fff582767be5de5ad83a33810709c2d6c1ece004759220c7abb"
+    },
+    {
+      "path": "/scratch/jr7309/stochastic-signed-20261104/production/B-shared-deep-wide-weak-variogram/initializer-ema/B-shared-deep-wide-weak-variogram-01000-2014-04.json",
+      "sha256": "4f32da6198885fc2a2ae0eeaaf0aa4af83fedfb0d54cd2cb747069dce869ad0b"
+    },
+    {
+      "path": "/scratch/jr7309/stochastic-signed-20261104/production/B-shared-deep-wide-weak-variogram/initializer-ema/B-shared-deep-wide-weak-variogram-00500-2014-05.json",
+      "sha256": "8a1b91a485e18274b9237c06834579cc7d8a09d18d43eb583a165a21342d8858"
+    },
+    {
+      "path": "/scratch/jr7309/stochastic-signed-20261104/production/B-shared-deep-wide-weak-variogram/initializer-ema/B-shared-deep-wide-weak-variogram-01000-2014-05.json",
+      "sha256": "44d55882af06ecfd0f018fe8596c845563ffca07baa2014534637f5a75fb1717"
+    },
+    {
+      "path": "/scratch/jr7309/stochastic-signed-20261104/production/B-shared-deep-wide-weak-variogram/initializer-raw/B-shared-deep-wide-weak-variogram-00500-2014-01.json",
+      "sha256": "0868f32d6dc534677393006ddcfef1cd684c097a56ff2be7d1159750fbaf1d93"
+    },
+    {
+      "path": "/scratch/jr7309/stochastic-signed-20261104/production/B-shared-deep-wide-weak-variogram/initializer-raw/B-shared-deep-wide-weak-variogram-01000-2014-01.json",
+      "sha256": "64cf37f63d76efb9980ed7039af5fc622deb663d7073c845e19df6247b66dd3f"
+    },
+    {
+      "path": "/scratch/jr7309/stochastic-signed-20261104/production/B-shared-deep-wide-weak-variogram/initializer-raw/B-shared-deep-wide-weak-variogram-00500-2014-04.json",
+      "sha256": "36a2f176d09685c7909ed38358101bc989366c5d6747324cca8fce32570c0e97"
+    },
+    {
+      "path": "/scratch/jr7309/stochastic-signed-20261104/production/B-shared-deep-wide-weak-variogram/initializer-raw/B-shared-deep-wide-weak-variogram-01000-2014-04.json",
+      "sha256": "28dbece1e0d30bf97aca708ebdb8ba759ebbffd33ca3103ccaa36cf2e73d4401"
+    },
+    {
+      "path": "/scratch/jr7309/stochastic-signed-20261104/production/B-shared-deep-wide-weak-variogram/initializer-raw/B-shared-deep-wide-weak-variogram-00500-2014-05.json",
+      "sha256": "cfd734165c944e52dbe718b9444b355e6300e0bf4c73182281824447afa3fbe4"
+    },
+    {
+      "path": "/scratch/jr7309/stochastic-signed-20261104/production/B-shared-deep-wide-weak-variogram/initializer-raw/B-shared-deep-wide-weak-variogram-01000-2014-05.json",
+      "sha256": "e1308d76f95462673deb7c0518b2a0a35bc1a4a9972a7bd62220e7cd60f7898f"
+    }
+  ],
+  "checkpoints": {
+    "B-shared-deep-wide/500": "feef06d2c61f5cd8ad1095fbea56dcdaddc36c9c0ea32b7f577e403040fed504",
+    "B-shared-deep-wide/1000": "e52805979c0ab8e15c770e6fe0aef306ade357f3e0c5f037b6ddb7b18efd4ea2",
+    "B-shared-deep-wide-variogram/500": "ed21d55232ba43500fc4789014d9889c4f3567aa5a27a8ab256e1fed92829946",
+    "B-shared-deep-wide-variogram/1000": "36d244a2fb1bdae2b85949a8976a8224afc2cc89e3f3b6e7dfaa0fa082c77662",
+    "B-shared-deep-wide-signed/500": "6f3fb6619402e745afe9e059b114bd476f7fc2fe563bfaac0318c62eb16b41f1",
+    "B-shared-deep-wide-signed/1000": "592e2ee66d24a29b8517b534d6d59c42c0ed5a5f03cfe2343d2f0040c0bc2a09",
+    "B-shared-deep-wide-weak-variogram/500": "5411bd974efb18c5725e7a8cbd39ad02226f7dace6f413a80ef63e51c0fad57a",
+    "B-shared-deep-wide-weak-variogram/1000": "47c524efea34f52d0ea0000158497e32c9a318f493d9e5eb5a926fe48bd225db"
+  }
+}

@@ -7,7 +7,7 @@ The optimized Rust/prefetch path passed single-GPU numerical and utilization
 qualification in job `21816758`. It completed 128 main and two cooldown updates
 on one RTX PRO 6000 Blackwell in 28m07s, using code
 `7bef723cb1f60d4e202aeece6fd4c1b11eb2e539`. The allocation cost was 0.4686 GPU-hours.
-Four-GPU job `21909447` is waiting for capacity. Real Slurm interruption/resume
+Four-GPU job `21909447` is pending under Torch quota limits. Real Slurm interruption/resume
 job `21909510` depends on its success. No scientific screen or 16k run has been submitted.
 
 The queued four-GPU and scheduler-test requests are eligible for both

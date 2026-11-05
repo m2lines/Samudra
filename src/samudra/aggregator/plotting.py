@@ -75,8 +75,14 @@ def plot_paneled_data(
     vmax = -np.inf
     for row in data:
         for arr in row:
-            vmin = min(vmin, np.nanmin(arr))
-            vmax = max(vmax, np.nanmax(arr))
+            if np.isfinite(arr).any():
+                vmin = min(vmin, np.nanmin(arr))
+                vmax = max(vmax, np.nanmax(arr))
+    has_data = np.isfinite(vmin) and np.isfinite(vmax)
+    if not has_data:
+        # Entirely dry depth channels have no physical colour scale.
+        # Use finite renderer limits and omit the colourbar and numeric caption.
+        vmin, vmax = 0.0, 1.0
     if diverging:
         vmax = max(abs(vmin), abs(vmax))
         vmin = -vmax
@@ -85,7 +91,7 @@ def plot_paneled_data(
     else:
         caption = ""
 
-    caption += f"vmin={vmin:.4g}, vmax={vmax:.4g}."
+    caption += f"vmin={vmin:.4g}, vmax={vmax:.4g}." if has_data else "No finite data."
 
     if diverging:
         fill_value = 0.5 * (vmin + vmax)
@@ -94,7 +100,12 @@ def plot_paneled_data(
     all_data = _stitch_data_panels(data, fill_value=fill_value)
 
     fig = plot_imshow(
-        all_data, vmin=vmin, vmax=vmax, cmap=cmap, nan_padding=not diverging
+        all_data,
+        vmin=vmin,
+        vmax=vmax,
+        cmap=cmap,
+        nan_padding=not diverging,
+        use_colorbar=bool(has_data),
     )
     wandb = WandBLogger.get_instance()
     wandb_image = wandb.Image(fig, caption=caption)

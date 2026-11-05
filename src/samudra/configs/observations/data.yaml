@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Relative to experiment.data_root. Model paths are opened for the selected mix.
-observations: obs/samples
+observations: obs
 daily: obs/daily
-normalization: obs/normalization
+normalization: obs
 om4: om4_onedeg_v3
 cm4: cm4_onedeg/CM4.zarr

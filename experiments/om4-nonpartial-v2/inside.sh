@@ -15,7 +15,7 @@ cd "$RUN_ROOT"
   fi
   fingerprint=$(cat commit.txt source.sha256 geometry/mask_manifest.json baseline/train.yaml nonpartial/train.yaml | sha256sum | cut -d' ' -f1)
   if [[ ! -f qualified.sha256 ]] || [[ $(cat qualified.sha256) != "$fingerprint" ]]; then
-    "$PYTHON" -m pytest "$RUN_ROOT/source/tests/test_rollout_validation.py" -q
+    PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 "$PYTHON" -m pytest -o addopts= "$RUN_ROOT/source/tests/test_rollout_validation.py" -q
     for candidate in baseline nonpartial; do
       "$PYTHON" "$EXPERIMENT/qualify.py" "$RUN_ROOT/$candidate/train.yaml" "$RUN_ROOT/$candidate/qualification.json"
       "$PYTHON" "$EXPERIMENT/smoke.py" "$RUN_ROOT" "$candidate"

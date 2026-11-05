@@ -11,7 +11,8 @@ Four-GPU retry `21926614` also passed numerical and utilization qualification,
 completing 128 main and two cooldown updates in 16m06s (1.0733 GPU-hours) on `gr103`.
 Real Slurm interruption/resume test `21926632` also passed: after one requeue to
 another RTX PRO 6000 node, its complete checkpoint payload matched uninterrupted
-training exactly. No scientific screen or 16k run has been submitted.
+training exactly. Scientific screen array `21956934` has now been submitted;
+the selected 16k continuation awaits the five-arm comparison.
 
 The four-GPU and scheduler-test requests are eligible for both
 `rtx6000_lzanna` and `rtx6000`, using account `torch_pr_347_lzanna`,
@@ -282,7 +283,7 @@ For example, the screen contains 3,000 observation updates and 2,000 OM4 updates
 `3,000 × 8.936 s + 2,000 × 30.507 s`, plus validation/checkpoint overhead.
 The [estimate receipt](receipts/scaling-v3/runtime-estimates.json) preserves the
 inputs and arithmetic. These measurements describe the path that failed the
-utilization gate; full scientific training remains unsubmitted.
+utilization gate; these measurements preceded scientific screen submission.
 
 The first scaling attempt used code `aa51d5bfa4e95291333ec73f2314db5ceeef4953`.
 Job `21794028` completed one observation update, then failed while pinning an

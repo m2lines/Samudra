@@ -1,0 +1,37 @@
+{
+  "date": "2026-11-05",
+  "runtime_commit": "7bef723cb",
+  "world_size": 4,
+  "accumulation_per_rank": 2,
+  "global_batch": 8,
+  "cpus": 32,
+  "memory_gib": 128,
+  "qualification_job": 21926614,
+  "restart_job": 21926632,
+  "restart_dependency": "afterok:21926614",
+  "qualification_callback_job": 21926648,
+  "restart_callback_job": 21926649,
+  "partitions": [
+    "rtx6000_lzanna",
+    "rtx6000"
+  ],
+  "comment": "preemption=yes;requeue=true",
+  "requeue": true,
+  "status": "PENDING; transport preflight and training have not run",
+  "qualification_log": "/scratch/jr7309/deterministic-obs-v2/scaling-v4-4gpu-21926614.out",
+  "restart_log": "/scratch/jr7309/deterministic-obs-v2/scheduler-v1-4gpu-21926632.out",
+  "qualification_output": "/scratch/jr7309/deterministic-obs-v2/scaling-v4/D-mixed-large-4gpu",
+  "restart_output": "/scratch/jr7309/deterministic-obs-v2/scheduler-v1-4gpu",
+  "launch_provenance": "scaling-v4/4gpu-first-attempt/failure.json contains full hashes and frozen helper/harness paths",
+  "validation": [
+    "Python compile and Ruff passed",
+    "Bash syntax checks passed",
+    "All changed-file pre-commit checks passed",
+    "Remote helper and harness SHA256 matched local files",
+    "sbatch --test-only accepted both resource/routing requests",
+    "Live scontrol verified routing, afterok restart dependency, and afterany CPU callbacks",
+    "Host callback authentication checks passed"
+  ],
+  "qualification_webhook": "13657952-79c4-4ded-892c-32503dc01e9a",
+  "restart_webhook": "48a7ce16-6bab-426f-a20a-620b192cc35f"
+}

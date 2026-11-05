@@ -23,6 +23,6 @@
     "21857804": "CANCELLED; elapsed 00:00:00; no allocation",
     "21857835": "CANCELLED; elapsed 00:00:00; no allocation"
   },
-  "status": "Pending; quota limits still apply",
+  "status": "Qualification FAILED before training; restart dependency cancelled before allocation; see scaling-v4/4gpu-first-attempt/failure.json",
   "validation": "CPU observation pipeline tests: 5 passed, 1 deselected"
 }

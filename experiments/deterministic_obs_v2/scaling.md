@@ -7,8 +7,9 @@ The optimized Rust/prefetch path passed single-GPU numerical and utilization
 qualification in job `21816758`. It completed 128 main and two cooldown updates
 on one RTX PRO 6000 Blackwell in 28m07s, using code
 `7bef723cb1f60d4e202aeece6fd4c1b11eb2e539`. The allocation cost was 0.4686 GPU-hours.
-Four-GPU job `21909447` is pending under Torch quota limits. Real Slurm interruption/resume
-job `21909510` depends on its success. No scientific screen or 16k run has been submitted.
+Four-GPU job `21909447` failed at the first NCCL startup barrier, before training.
+Retry `21926614` is pending, with real Slurm interruption/resume test `21926632`
+dependent on its success. No scientific screen or 16k run has been submitted.
 
 The queued four-GPU and scheduler-test requests are eligible for both
 `rtx6000_lzanna` and `rtx6000`, using account `torch_pr_347_lzanna`,
@@ -22,8 +23,29 @@ preserves all replaced job IDs; queue age restarted with the final submissions.
 The four-GPU requests replace eight-GPU jobs `21857804` and `21857835`,
 both cancelled before allocation. Each requests 32 CPUs and 128 GiB RAM.
 Two examples accumulated per rank preserve global batch eight, learning rate,
-and replay policy. The smaller request still faces quota limits; it has not run.
-The [replacement receipt](receipts/four-gpu-2026-11-04.json) records job and callback IDs.
+and replay policy. The [replacement receipt](receipts/four-gpu-2026-11-04.json)
+records the original four-GPU job and callback IDs.
+
+Job `21909447` ran on `gr103` for 11m32s and exited `1:0`, consuming 0.7689
+GPU-hours. All four ranks timed out after 600 seconds in the startup barrier
+in `samudra/utils/distributed.py`. No optimizer update, training-utilization
+telemetry, or `QUALIFIED.json` success receipt was produced. Its dependent
+restart job `21909510` was cancelled before allocation. The
+[failure receipt and original log](receipts/scaling-v4/4gpu-first-attempt/failure.json)
+preserve this attempt.
+
+The submit scripts omitted the RTX settings documented in `docs/torch.md`:
+`NCCL_P2P_DISABLE=1` and `TORCH_NCCL_ASYNC_ERROR_HANDLING=1`. Slurm did not
+retain the job environment, so their actual values in the failed allocation
+are unknown. Retry `21926614` exports both values explicitly on the host and
+through `APPTAINERENV_`, with NCCL diagnostic logging. A
+[preflight with a 120-second timeout](torch_nccl_preflight.py) exercises the shared
+distributed startup and checks ten integer sum reductions against their expected
+values before training. The retry retains the code, model, data, global batch
+and replay controls. Qualifier `21926614`, dependent restart test `21926632`,
+and their completion callbacks are recorded in the
+[retry receipt](receipts/nccl-retry-2026-11-05.json).
+The retry with explicit NCCL settings has not yet been verified on GPUs.
 
 The [single-GPU receipt](receipts/scaling-v4/1gpu/qualification-summary.json)
 records exact synchronous/prefetched comparisons, isolated uncooled checkpoint
@@ -64,7 +86,7 @@ The screen contains 3,000 observation and 2,000 OM4 updates:
 The [estimate receipt](receipts/scaling-v4/1gpu/runtime-estimates.json) records
 inputs and assumptions. These are engineering estimates, not forecast-skill results.
 
-Scheduler job `21909510` will run two 16-main-plus-two-cooldown trajectories
+Scheduler job `21926632` will run two 16-main-plus-two-cooldown trajectories
 through `samudra.observations.train` and the shared Slurm/Apptainer launcher on
 four GPUs, with two accumulated examples per rank. One is uninterrupted. After the other has saved at least six main
 updates, a bounded watcher sends USR1 to its batch shell, which calls
@@ -177,7 +199,7 @@ the smaller dense payload. The [audit receipt](receipts/scaling-v4/loading-audit
 records the CPU result and limits.
 
 GPU job `21816758` subsequently passed, as reported above. Its four-GPU
-successor `21909447` uses the same code and [configuration](configs/scaling-v4/)
+retry `21926614` uses the same code and [configuration](configs/scaling-v4/)
 and is waiting for capacity.
 
 The historical estimates below apply only to arm D before optimization: the 170M-parameter mixed-source

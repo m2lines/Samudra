@@ -12,6 +12,10 @@ is **4.53% lower**. V2 improves velocity, EKE and upper OHC, but worsens deep OH
 by 23.8% relative to the matched small model. This single-seed result does not
 support a general claim that the smaller architecture is better.
 
+The [deep-OHC diagnosis](native-ohc-diagnosis-2026-11-05.md) traces v2's late rise
+to a growing cold bias shared by training and validation examples, while
+bias-removed error improves slightly.
+
 Lower is better. The blend equally averages the five errors divided by fixed
 climatology errors. All models select EMA from the ten checkpoints at updates
 500–5,000 under the same 4k mixed + 1k OBS cooldown budget. Surface metrics

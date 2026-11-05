@@ -134,16 +134,24 @@ four ranks accumulate two examples each, normally four fresh and four replayed.
 The preset enables the Rust readers and one-update asynchronous prefetch.
 
 Install the Rust extra (`uv sync --extra rust`) and prepare the observation
-archives and normalization as above. Then prepare the exact-interval caches:
+archives and normalization as above. The daily product names are `sst`, `adt`,
+`era5` and `iap`; prepare all four for observation years 1993–2014, including
+history before the first training month (May 1993). The default native interval
+cache spans starts from 1993-01-26 through 2014-12-27, each with five days of
+support. OM4 requires `OM4.zarr`, `OM4_means.zarr` and `OM4_stds.zarr` in its
+directory. The daily ERA5 archive must additionally cover the OM4 intervals
+selected by `shared_era5.required_indices`; the cache builder rejects missing
+support. Then prepare the exact-interval caches:
 
 ```bash
 PYTHONPATH=src python data/prepare_observation_era5.py /data/obs/samples /data/obs/daily /data/om4_onedeg_v3 /data/obs/era5-cache
 PYTHONPATH=src python data/prepare_observation_native.py /data/obs/daily /data/obs/native-observations-v1
-PYTHONPATH=src python data/prepare_observation_om4_native.py /data/om4_onedeg_v3 /data/obs/samples/grid.npz /data/obs/native-om4-v1
+PYTHONPATH=src python data/prepare_observation_om4_native.py /data/om4_onedeg_v3 /data/obs/grid.npz /data/obs/native-om4-v1
 ```
 
 The ERA5 cache must cover all OM4 training intervals as well as observation
-history; observation-only date coverage is insufficient. Each preparation command writes `COMPLETE.json`. The preset records reference
+history; observation-only date coverage is insufficient. The preset resolves all three cache paths to the output directories shown above
+when `experiment.data_root` is `/data`. Each preparation command writes `COMPLETE.json`. The preset records reference
 input proof hashes; replace `data.era5_proof_sha256`,
 `data.native_observations_proof_sha256` and `data.native_om4_proof_sha256`
 with the SHA-256 of the corresponding prepared `COMPLETE.json` when using
@@ -158,12 +166,19 @@ torchrun --standalone --nproc_per_node=4 -m samudra.observations.train \
 Use the [campaign generator](campaign.py) with the
 [small-initializer base](../configs/observations/deterministic.yaml) to generate
 observation-only/mixed and small/large initializer controls plus the no-replay
-control. Configure its input cache paths, proof hashes and loading settings first.
+control. Configure its input cache paths, proof hashes and loading settings first, then
+run `python -m samudra.observations.campaign CONFIG /runs/screen-configs`.
+Here `CONFIG` is your configured small-initializer base, and the output directory
+receives five YAML files. Train each generated config with the observation
+entrypoint.
 For a selected screen config, `python -m samudra.observations.campaign CONFIG OUTPUT
 --winner` generates continuation from the uncooled 4k checkpoint to 16k total main
 updates and separate 1k cooldown branches at 8k and 12k. The screen supplies the
 4k cooldown; the main continuation ends with the 16k cooldown. These branches
 preserve optimizer, replay and RNG state without cooling the continuing trajectory.
+The generator derives checkpoint paths from the selected config's output directory.
+Run the main continuation first so it writes `main-8000.pt` and `main-12000.pt`,
+then run the two generated cooldown configs from those checkpoints.
 
 Use `python -m samudra.observations.campaign CONFIG OUTPUT --qualification`
 to generate short configs for `python -m samudra.observations.qualify CONFIG`.

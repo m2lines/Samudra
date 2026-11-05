@@ -33,9 +33,10 @@ SPLITS = {
     "test": ("2015-01", "2022-12"),
 }
 
-NORMALIZATION_VERSION = 2
+NORMALIZATION_VERSION = 3
 NORMALIZATION_POLICY = {
     "spatial_domain": "global",
+    "unobserved_state": "matching OM4 training field means/stds",
     "spatial_weighting": "cos(latitude)",
     "support": "finite values on each channel's wet mask",
     "atmosphere_support": "surface-temperature wet mask",
@@ -44,14 +45,14 @@ NORMALIZATION_POLICY = {
 
 
 def validate_normalization_policy(metadata: Mapping[str, Any]) -> None:
-    """Require global finite-wet statistics for the declared training cohort."""
+    """Require global observed statistics and OM4 statistics for unobserved fields."""
     if (
         metadata.get("normalization_version") != NORMALIZATION_VERSION
         or metadata.get("normalization_policy") != NORMALIZATION_POLICY
         or metadata.get("training_split") != list(SPLITS["train"])
     ):
         raise ValueError(
-            "Normalization must use version 2 global finite-wet observation statistics; "
+            "Normalization must use version 3 global observation statistics with OM4 scales for unobserved fields; "
             "regenerate with data/prepare_observation_normalization.py"
         )
 

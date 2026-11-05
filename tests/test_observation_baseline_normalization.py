@@ -80,6 +80,21 @@ def prepared_months(root, polar_delta=0):
     return grid
 
 
+def om4_statistics(root):
+    root.mkdir(parents=True, exist_ok=True)
+    means = {
+        name: np.float32(-20 + index * 0.75) for index, name in enumerate(STATE_NAMES)
+    }
+    stds = {
+        name: np.float32(0.3 + index * 0.1) for index, name in enumerate(STATE_NAMES)
+    }
+    for suffix, values in (("means", means), ("stds", stds)):
+        xr.Dataset(
+            {name: xr.DataArray(value) for name, value in values.items()}
+        ).to_zarr(root / f"OM4_{suffix}.zarr", mode="w", consolidated=True)
+    return means, stds
+
+
 def independent_weighted_statistics(root, grid, name):
     indices = list(range(38, 52)) + list(range(57, 71))
     support = {
@@ -123,10 +138,12 @@ def test_global_statistics_match_independent_finite_channel_wet_reduction(tmp_pa
 def test_polar_observations_change_fitted_statistics_and_shared_state_scales(tmp_path):
     module = load_script("data/prepare_observation_normalization.py")
     outputs = []
+    om4 = tmp_path / "om4"
+    om4_means, om4_stds = om4_statistics(om4)
     for name, delta in (("base", 0), ("polar_changed", 100)):
         root = tmp_path / name
         prepared_months(root, polar_delta=delta)
-        module.prepare_normalization(root)
+        module.prepare_normalization(root, om4=om4)
         with (
             xr.open_zarr(root / "observation_means.zarr", chunks=None) as means,
             xr.open_zarr(root / "observation_stds.zarr", chunks=None) as stds,
@@ -146,10 +163,14 @@ def test_polar_observations_change_fitted_statistics_and_shared_state_scales(tmp
     # A +/-60-degree fit would be unchanged: every changed cell is at +/-75.
     assert changed_mean[38] - base_mean[38] > 20
     assert changed_std[38] > base_std[38]
-    np.testing.assert_array_equal(changed_mean[:38], np.zeros(38))
-    np.testing.assert_array_equal(changed_std[:38], np.ones(38))
-    np.testing.assert_array_equal(changed_mean[52:57], np.repeat(changed_mean[51], 5))
-    np.testing.assert_array_equal(changed_std[71:76], np.repeat(changed_std[70], 5))
+    for field in module.OM4_STATE_NAMES:
+        index = STATE_NAMES.index(field)
+        assert changed_mean[index] == base_mean[index] == om4_means[field]
+        assert changed_std[index] == base_std[index] == om4_stds[field]
+    assert (
+        changed_mean[STATE_NAMES.index("thetao_14")]
+        != changed_mean[STATE_NAMES.index("thetao_13")]
+    )
 
 
 @pytest.mark.parametrize(
@@ -164,7 +185,7 @@ def test_normalization_policy_rejects_old_or_incompatible_artifacts(change):
     if change == "unversioned":
         metadata.pop("normalization_version")
     elif change == "old_version":
-        metadata["normalization_version"] = 1
+        metadata["normalization_version"] = 2
     elif change == "latitude_cutoff":
         metadata["normalization_policy"]["spatial_domain"] = "abs(latitude)<=60"
     else:
@@ -191,15 +212,94 @@ def test_named_zarr_normalization_loads_into_training_samples(tmp_path):
     assert list(STATE_NAMES) == build_om4_layout().prognostic_var_names
     module = load_script("data/prepare_observation_normalization.py")
     prepared_months(tmp_path)
-    module.prepare_normalization(tmp_path)
+    om4 = tmp_path / "om4"
+    om4_means, om4_stds = om4_statistics(om4)
+    module.prepare_normalization(tmp_path, om4=om4)
     samples = Samples(tmp_path, torch.device("cpu"))
     with xr.open_zarr(tmp_path / "observation_means.zarr", chunks=None) as means:
         np.testing.assert_array_equal(
             samples.grid["mean"], [means[name].item() for name in STATE_NAMES]
         )
-    assert samples.grid["mean"][STATE_NAMES.index("uo_0")] == 0
-    assert samples.grid["std"][STATE_NAMES.index("vo_18")] == 1
+    assert samples.grid["mean"][STATE_NAMES.index("uo_0")] == om4_means["uo_0"]
+    assert samples.grid["std"][STATE_NAMES.index("vo_18")] == om4_stds["vo_18"]
     metadata = json.loads((tmp_path / "normalization.json").read_text())
     assert any(
         "observation_means.zarr/thetao_0/" in name for name in metadata["sha256"]
     )
+
+
+def test_normalization_records_om4_source_and_rejects_changed_input(tmp_path):
+    import zarr  # type: ignore[import-untyped]
+
+    from samudra.observations.training import verify_normalization
+
+    module = load_script("data/prepare_observation_normalization.py")
+    root, om4 = tmp_path / "obs", tmp_path / "om4"
+    prepared_months(root)
+    om4_statistics(om4)
+    module.prepare_normalization(root, om4=om4)
+    verify_normalization(root)
+    metadata = json.loads((root / "normalization.json").read_text())
+    sources = metadata["field_sources"]
+    assert sources["uo_0"] == sources["vo_18"] == "OM4"
+    assert sources["thetao_14"] == sources["so_18"] == "OM4"
+    assert sources["thetao_13"] == sources["so_13"] == "IAP"
+    assert sources["thetao_0"] == "OISST" and sources["zos"] == "DUACS"
+    assert len(sources) == len(STATE_NAMES)
+    assert metadata["om4_normalization_inputs"]["means"] == str(
+        (om4 / "OM4_means.zarr").resolve()
+    )
+    assert any("OM4_means.zarr/uo_0/" in path for path in metadata["sha256"])
+    with xr.open_zarr(root / "observation_stds.zarr", chunks=None) as store:
+        assert store["so_18"].attrs["normalization_source"] == "OM4"
+    store = zarr.open_group(str(om4 / "OM4_means.zarr"), mode="a")
+    store["uo_0"][...] = 17
+    with pytest.raises(ValueError, match="Normalization input changed"):
+        verify_normalization(root)
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        "missing_store",
+        "missing_field",
+        "nonscalar",
+        "nonfinite_mean",
+        "nonfinite_std",
+        "zero_std",
+        "negative_std",
+    ],
+)
+def test_om4_fallback_requires_complete_valid_statistics(tmp_path, failure):
+    import shutil
+
+    import zarr  # type: ignore[import-untyped]
+
+    module = load_script("data/prepare_observation_normalization.py")
+    om4 = tmp_path / "om4"
+    om4_statistics(om4)
+    if failure == "missing_store":
+        shutil.rmtree(om4 / "OM4_stds.zarr")
+    else:
+        suffix = (
+            "means"
+            if failure in ("missing_field", "nonscalar", "nonfinite_mean")
+            else "stds"
+        )
+        store_path = om4 / f"OM4_{suffix}.zarr"
+        store = zarr.open_group(str(store_path), mode="a")
+        if failure == "missing_field":
+            del store["thetao_14"]
+        elif failure == "nonscalar":
+            del store["uo_0"]
+            store["uo_0"] = np.array([1.0, 2.0])
+        else:
+            store["uo_0"][...] = {
+                "nonfinite_mean": np.nan,
+                "nonfinite_std": np.inf,
+                "zero_std": 0,
+                "negative_std": -1,
+            }[failure]
+        zarr.consolidate_metadata(str(store_path))
+    with pytest.raises(ValueError, match="OM4"):
+        module.prepare_normalization(tmp_path / "unused-observations", om4=om4)

@@ -14,13 +14,15 @@ model: !include model.yaml
 
 pretrain_mix: obs
 main_updates: 2000
-cooldown_updates: 1000
+post_training_updates: 1000
 batch_size: 1
 gradient_accumulation_steps: 8
 fresh_examples: 4
 learning_rate: 0.0001
+# Main phase LR schedule; null holds learning_rate constant.
 scheduler: null
-cooldown_scheduler:
+# Observation-only post-training uses its own LR curve and keeps optimizer moments.
+post_training_scheduler:
   type: linear_cooldown
   final_lr: 0.000001
 weight_decay: 0.01

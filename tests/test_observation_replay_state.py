@@ -22,7 +22,7 @@ def entry(month=1, origin_update=0, source="obs"):
     )
 
 
-def test_exact_source_allocation_and_cooldown():
+def test_exact_source_allocation_and_post_training():
     from collections import Counter
 
     cfg = ObservationTrainConfig.model_validate(

@@ -285,12 +285,12 @@ def train(
         raise ValueError("Stop limit precedes the restored checkpoint")
     for update in range(state.updates, limit):
         # Specialize to observations; keep Adam moments, reset EMA exactly once.
-        if update == cfg.main_updates and not state.cooled:
+        if update == cfg.main_updates and not state.in_post_training:
             state.ema = state.new_ema()
-            state.cooled = True
+            state.in_post_training = True
             # Each phase has an explicit LR base; a completed cosine schedule can
             # reach zero, and PyTorch schedulers retain initial_lr in param groups.
-            rate = cfg.cooldown_learning_rate or cfg.learning_rate
+            rate = cfg.post_training_learning_rate or cfg.learning_rate
             for group in state.optimizer.param_groups:
                 group["lr"] = group["initial_lr"] = rate
             state.build_scheduler()

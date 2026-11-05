@@ -63,14 +63,16 @@ class ObservationTrainConfig(TopLevelConfig):
     model: SurfaceInitializedConfig
     pretrain_mix: Mix = "obs"
     main_updates: int = Field(default=2000, ge=1)
-    cooldown_updates: int = Field(default=1000, ge=0)
+    post_training_updates: int = Field(default=1000, ge=0)
     batch_size: Literal[1] = 1
     gradient_accumulation_steps: int = Field(default=8, ge=1)
     fresh_examples: int = Field(default=4, ge=1)
     learning_rate: float = Field(default=1e-4, gt=0)
+    # Each schedule receives its phase update budget. Post-training starts a new
+    # LR curve while retaining the optimizer moments learned during pretraining.
     scheduler: SchedulerConfig | None = None
-    cooldown_scheduler: SchedulerConfig | None = None
-    cooldown_learning_rate: float | None = Field(default=None, gt=0)
+    post_training_scheduler: SchedulerConfig | None = None
+    post_training_learning_rate: float | None = Field(default=None, gt=0)
     weight_decay: float = Field(default=0.01, ge=0)
     gradient_clip: float = Field(default=1.0, gt=0)
     save_freq: int = Field(
@@ -93,8 +95,8 @@ class ObservationTrainConfig(TopLevelConfig):
         for scheduler, rate in (
             (self.scheduler, self.learning_rate),
             (
-                self.cooldown_scheduler,
-                self.cooldown_learning_rate or self.learning_rate,
+                self.post_training_scheduler,
+                self.post_training_learning_rate or self.learning_rate,
             ),
         ):
             if (
@@ -113,7 +115,7 @@ class ObservationTrainConfig(TopLevelConfig):
 
     @property
     def total_updates(self) -> int:
-        return self.main_updates + self.cooldown_updates
+        return self.main_updates + self.post_training_updates
 
     def source_at(self, update: int) -> str:
         if not 0 <= update < self.total_updates:

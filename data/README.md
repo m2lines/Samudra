@@ -452,6 +452,55 @@ chunk-layout rejections are checked separately from payload fidelity. Future
 proposed contracts can use the `contract_probe` pytest marker to remain visible in
 JUnit while being excluded from automatic issue filing.
 
+These are accepted review decisions, not suppressed known bugs: the generated
+properties assert that late additions stay out of payload/provenance and that
+duplicates and reversals retain their exact values across filename-ordered files.
+The layout probe independently identifies unsupported chunk grids and permits
+either an exact payload round trip or an actionable diagnostic. It does not demand
+rechunking inside a zero-copy virtualizer. Reintroducing rejection requirements
+for these accepted inputs would change the documented contract.
+
+### Mutation checks for the property suite
+
+The bounded mutation gate measures whether generated inputs still find the fixed
+defects. From the repository root, in the data test environment, run:
+
+```bash
+python data/tests/mutation/virtual_archive_mutants.py \
+  --output /tmp/property-mutations --seeds 0 1 95920261105 --timeout 60
+```
+
+The output directory must be new. Eleven named historical-fault mutations disable
+scalar-key normalization, valid-zero fill handling, URI adaptation/decoding,
+exclusive publication, selected-source checks, chunk diagnostics, and sparse-fill
+protection. Each runs in a fresh pytest process; the production file is never
+edited. Exact unique source anchors fail loudly after refactors, requiring a
+review of each mutation rather than silently dropping it.
+
+For each seed, the relevant unmodified properties must pass first. Each mutant
+must then fail its assigned property within 40 generated examples and 60 seconds,
+including process startup. The `mutation` Hypothesis profile disables explicit
+examples, database replay, and shrinking: a retained `@example` cannot satisfy the
+gate. A survivor, timeout, missing test, collection/setup error, or broken baseline
+fails the gate. Expected mutant failures are contained in artifacts and are never
+sent to the product issue reporter.
+
+URI strategies generate literal percent-escape-looking names, rather than only
+covering them with an explicit example. A focused partial-boundary generator
+exercises unaligned non-final chunks on every draw; the initial audit found that
+a broader generator could miss that diagnostic regression within 40 examples.
+Generated sparse HDF fields vary chunk size, allocated chunks, storage fill, and
+CF fill declarations, checking either native decoded values or clean rejection.
+
+The gate runs on relevant PR/main changes and manual dispatch via
+`property-mutations.yaml`, and is reused by the nightly soak. Its job limit is
+20 minutes. Artifacts retain each mutant source, seed, command, elapsed time,
+JUnit, Hypothesis statistics, dependency versions, and target hash for 30 days.
+Source snapshots and hashes of the target, properties, profile, and runner also
+preserve local runs made before committing changes.
+This measures discovery for the named regression mutations; it does not claim
+that every possible mutation or storage failure is covered.
+
 Preview reports locally without contacting GitHub:
 
 ```bash

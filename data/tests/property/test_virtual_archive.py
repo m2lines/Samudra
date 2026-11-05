@@ -12,6 +12,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import fsspec
+import h5py
 import numpy as np
 import pytest
 import xarray as xr
@@ -147,6 +148,38 @@ def test_native_file_partitions_round_trip_or_report_layout_error(case):
         assert "Rechunk" in str(error)
 
 
+@st.composite
+def partial_boundary_archives(draw):
+    """Generate only layouts with matching chunks and an unaligned first boundary."""
+    chunk = draw(st.integers(2, 4))
+    lengths = [
+        chunk * draw(st.integers(1, 3)) + draw(st.integers(1, chunk - 1)),
+        chunk * draw(st.integers(1, 3)),
+    ]
+    width = draw(st.integers(1, 3))
+    size = sum(lengths) * width
+    values = draw(st.lists(st.integers(-100, 100), min_size=size, max_size=size))
+    return (
+        lengths,
+        np.array(values, dtype="float32").reshape(-1, width),
+        "h5netcdf",
+        chunk,
+        draw(st.booleans()),
+        draw(st.integers(1, 8)),
+    )
+
+
+@given(partial_boundary_archives())
+def test_nonfinal_partial_chunks_have_actionable_errors(case):
+    """Every draw exercises the boundary, rather than hoping a broad draw hits it."""
+    with pytest.raises(ValueError) as caught:
+        check_round_trip(case)
+    message = str(caught.value)
+    assert "Partial native chunk" in message
+    assert "temperature" in message and "0000.nc" in message
+    assert "non-final" in message and "Rechunk" in message
+
+
 @given(st.lists(st.one_of(st.integers(-10, 10), st.none()), min_size=1, max_size=20))
 def test_packing_and_missing_values_do_not_change_decoded_payload(values):
     """CF packing is a storage transformation, including at missing ocean cells."""
@@ -195,7 +228,16 @@ def test_static_archive_preserves_scalars_and_zero_coordinates(values, engine, s
 
 
 @example("%3F%252F%23%25é")
-@given(st.text(alphabet="abc 09%?#é", min_size=1, max_size=12))
+@given(
+    st.one_of(
+        st.text(alphabet="abc 09%?#é", min_size=1, max_size=12),
+        st.lists(
+            st.sampled_from(["%3F", "%252F", "%23", "%25", "é", " ", "?", "#", "abc"]),
+            min_size=1,
+            max_size=5,
+        ).map("".join),
+    )
+)
 def test_local_source_names_do_not_change_payload(suffix):
     """Renaming a local archive must preserve values, including URI escaping."""
     with TemporaryDirectory() as directory:
@@ -209,6 +251,61 @@ def test_local_source_names_do_not_change_payload(suffix):
             xr.testing.assert_identical(
                 read_reference(root / "output"), expected.load()
             )
+
+
+@st.composite
+def sparse_fields(draw):
+    chunk_count = draw(st.integers(2, 5))
+    chunk_size = draw(st.integers(1, 3))
+    written = draw(
+        st.sets(st.integers(0, chunk_count - 1), min_size=1, max_size=chunk_count - 1)
+    )
+    return (
+        chunk_count,
+        chunk_size,
+        written,
+        draw(st.integers(-100, 100)),
+        draw(st.booleans()),
+    )
+
+
+@given(sparse_fields())
+def test_sparse_native_chunks_require_declared_cf_fill(case):
+    """Storage fill alone cannot safely represent absent chunks for Zarr 2 readers."""
+    count, chunk, written, fill, declared = case
+    with TemporaryDirectory() as directory:
+        root = Path(directory)
+        source = root / "grid.nc"
+        with h5py.File(source, "w") as handle:
+            axis = handle.create_dataset("x", data=np.arange(count * chunk))
+            axis.make_scale("x")
+            field = handle.create_dataset(
+                "field",
+                shape=(count * chunk,),
+                chunks=(chunk,),
+                dtype="i4",
+                fillvalue=fill,
+            )
+            field.dims[0].attach_scale(axis)
+            if declared:
+                field.attrs["_FillValue"] = np.int32(fill)
+            for index in written:
+                field[index * chunk : (index + 1) * chunk] = fill + 1
+        if declared:
+            subject.build(str(root), root / "output", pattern="grid.nc", static=True)
+            with xr.open_dataset(
+                source, engine="h5netcdf", decode_times=False
+            ) as expected:
+                xr.testing.assert_identical(
+                    read_reference(root / "output"), expected.load()
+                )
+        else:
+            with pytest.raises(ValueError, match="unwritten native chunks"):
+                subject.build(
+                    str(root), root / "output", pattern="grid.nc", static=True
+                )
+            assert not (root / "output").exists()
+            assert not list(root.glob(".output-*"))
 
 
 @given(st.sampled_from(["grid", "attributes", "inventory"]), st.integers(1, 100))
@@ -234,18 +331,25 @@ def test_incompatible_sources_are_rejected(change, delta):
         assert not (root / "output").exists()
 
 
-@given(st.lists(st.integers(0, 50), min_size=2, max_size=8))
-def test_source_time_order_is_preserved(times):
+@given(
+    times=st.lists(st.integers(0, 50), min_size=2, max_size=8), split=st.integers(1, 7)
+)
+def test_source_time_order_is_preserved(times, split):
     """Virtualization preserves duplicates and reversals; consumers own chronology."""
     with TemporaryDirectory() as directory:
         root = Path(directory)
-        path = root / "0.nc"
-        write_source(path, np.arange(len(times), dtype="float32").reshape(-1, 1), times)
+        boundary = min(split, len(times) - 1)
+        values = np.arange(len(times), dtype="float32").reshape(-1, 1)
+        expected = []
+        for index, part in enumerate([slice(0, boundary), slice(boundary, None)]):
+            path = root / f"{index}.nc"
+            write_source(path, values[part], times[part])
+            with xr.open_dataset(path, decode_times=False) as native:
+                expected.append(native.load())
         subject.build(str(root), root / "output", pattern="*.nc")
-        with xr.open_dataset(path, decode_times=False) as expected:
-            xr.testing.assert_identical(
-                read_reference(root / "output"), expected.load()
-            )
+        xr.testing.assert_identical(
+            read_reference(root / "output"), xr.concat(expected, dim="time")
+        )
 
 
 @pytest.mark.parametrize(

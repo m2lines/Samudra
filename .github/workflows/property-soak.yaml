@@ -17,6 +17,9 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  mutation-gate:
+    uses: ./.github/workflows/property-mutations.yaml
+
   explore:
     runs-on: ubuntu-latest
     timeout-minutes: 45

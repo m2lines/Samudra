@@ -226,9 +226,9 @@ replacing InstanceNorm with four-group GroupNorm for the current objective.
 
 Solid lines show EMA and dotted lines raw weights; cooldown begins at 4,000.
 The raw blend at 4,500 remains about 1.413 in both variants, so this GroupNorm
-setting does not remove the raw/EMA gap. Final EMA blend is 1.12434 for GroupNorm
+setting does not remove the raw/EMA gap. At update 5,000, EMA blend is 1.12434 for GroupNorm
 and 1.07753 for InstanceNorm. Scores use the same nine validation origins,
-eight-member means and 32 sampler steps. Surface errors average leads 5/15/30;
+eight-member means and 32 sampler steps. Surface errors average the separate RMSE values at leads 5/15/30 days;
 OHC uses monthly targets. These are checkpoint-selection validation results.
 
 [GroupNorm metrics](assets/native-latent-pair-2026-10-30/groupnorm-results.json) ·
@@ -239,7 +239,7 @@ Production **223127** completed all 5,000 updates (3,000 OBS / 2,000 OM4).
 Its first allocation timed out during deferred evaluation; a continuation
 completed evaluation in 26m56s with zero additional training updates. Qualification
 **223128** took 22m02s. Total allocated cost, including the first 4h01m10s attempt,
-was **19.3422 GPU-hours**. All ten endpoint hashes, evaluation receipts and final
+was **19.3422 GPU-hours**. All ten checkpoint hashes, evaluation receipts and final
 selection were verified. Code commit: `09caa96f3b26dd515e986e87ea35b032345cfaa7`.
 Root: `beta:/projects/ny/lz1955/multiscale/jrusak/runs/native-latent-groupnorm-20261104`.
 Selected checkpoint SHA256:

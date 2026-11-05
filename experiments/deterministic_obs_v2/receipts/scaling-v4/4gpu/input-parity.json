@@ -1,0 +1,134 @@
+[
+  {
+    "source": "obs",
+    "origin": "1993-05",
+    "month": 0,
+    "tensors": [
+      "surface",
+      "atmosphere",
+      "contexts",
+      "validity",
+      "month_weights",
+      "interior",
+      "raw_surface",
+      "mask"
+    ]
+  },
+  {
+    "source": "obs",
+    "origin": "1993-05",
+    "month": 1,
+    "tensors": [
+      "surface",
+      "atmosphere",
+      "contexts",
+      "validity",
+      "month_weights",
+      "interior",
+      "raw_surface",
+      "monthly_targets",
+      "month_matrix",
+      "mask"
+    ]
+  },
+  {
+    "source": "obs",
+    "origin": "2001-01",
+    "month": 0,
+    "tensors": [
+      "surface",
+      "atmosphere",
+      "contexts",
+      "validity",
+      "month_weights",
+      "interior",
+      "raw_surface",
+      "mask"
+    ]
+  },
+  {
+    "source": "obs",
+    "origin": "2001-01",
+    "month": 1,
+    "tensors": [
+      "surface",
+      "atmosphere",
+      "contexts",
+      "validity",
+      "month_weights",
+      "interior",
+      "raw_surface",
+      "monthly_targets",
+      "month_matrix",
+      "mask"
+    ]
+  },
+  {
+    "source": "om4",
+    "origin": 0,
+    "month": 0,
+    "tensors": [
+      "forcing",
+      "contexts",
+      "mask",
+      "weights",
+      "initial_fields",
+      "target_fields",
+      "surface",
+      "atmosphere",
+      "month_weights",
+      "validity"
+    ]
+  },
+  {
+    "source": "om4",
+    "origin": 0,
+    "month": 1,
+    "tensors": [
+      "forcing",
+      "contexts",
+      "mask",
+      "weights",
+      "initial_fields",
+      "target_fields",
+      "surface",
+      "atmosphere",
+      "month_weights",
+      "validity"
+    ]
+  },
+  {
+    "source": "om4",
+    "origin": 1,
+    "month": 0,
+    "tensors": [
+      "forcing",
+      "contexts",
+      "mask",
+      "weights",
+      "initial_fields",
+      "target_fields",
+      "surface",
+      "atmosphere",
+      "month_weights",
+      "validity"
+    ]
+  },
+  {
+    "source": "om4",
+    "origin": 1,
+    "month": 1,
+    "tensors": [
+      "forcing",
+      "contexts",
+      "mask",
+      "weights",
+      "initial_fields",
+      "target_fields",
+      "surface",
+      "atmosphere",
+      "month_weights",
+      "validity"
+    ]
+  }
+]

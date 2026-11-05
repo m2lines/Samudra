@@ -17,7 +17,7 @@
   ],
   "comment": "preemption=yes;requeue=true",
   "requeue": true,
-  "status": "PENDING; transport preflight and training have not run",
+  "status": "Qualifier COMPLETED 0:0; numerical and all four GPU utilization gates passed. Restart test started and remains separately monitored.",
   "qualification_log": "/scratch/jr7309/deterministic-obs-v2/scaling-v4-4gpu-21926614.out",
   "restart_log": "/scratch/jr7309/deterministic-obs-v2/scheduler-v1-4gpu-21926632.out",
   "qualification_output": "/scratch/jr7309/deterministic-obs-v2/scaling-v4/D-mixed-large-4gpu",
@@ -33,5 +33,8 @@
     "Host callback authentication checks passed"
   ],
   "qualification_webhook": "13657952-79c4-4ded-892c-32503dc01e9a",
-  "restart_webhook": "48a7ce16-6bab-426f-a20a-620b192cc35f"
+  "restart_webhook": "48a7ce16-6bab-426f-a20a-620b192cc35f",
+  "qualification_elapsed_seconds": 966,
+  "qualification_allocated_gpu_hours": 1.0733333333333333,
+  "results": "scaling-v4/4gpu/"
 }

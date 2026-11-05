@@ -7,11 +7,12 @@ The optimized Rust/prefetch path passed single-GPU numerical and utilization
 qualification in job `21816758`. It completed 128 main and two cooldown updates
 on one RTX PRO 6000 Blackwell in 28m07s, using code
 `7bef723cb1f60d4e202aeece6fd4c1b11eb2e539`. The allocation cost was 0.4686 GPU-hours.
-Four-GPU job `21909447` failed at the first NCCL startup barrier, before training.
-Retry `21926614` is pending, with real Slurm interruption/resume test `21926632`
-dependent on its success. No scientific screen or 16k run has been submitted.
+Four-GPU retry `21926614` also passed numerical and utilization qualification,
+completing 128 main and two cooldown updates in 16m06s (1.0733 GPU-hours) on `gr103`.
+Real Slurm interruption/resume test `21926632` started after that success and
+remains under separate monitoring. No scientific screen or 16k run has been submitted.
 
-The queued four-GPU and scheduler-test requests are eligible for both
+The four-GPU and scheduler-test requests are eligible for both
 `rtx6000_lzanna` and `rtx6000`, using account `torch_pr_347_lzanna`,
 `preemption=yes;requeue=true`, and `Requeue=1`. On 2026-11-04, these replaced
 preemption-only jobs `21816773` and `21822548`, both cancelled before allocation.
@@ -31,8 +32,8 @@ GPU-hours. All four ranks timed out after 600 seconds in the startup barrier
 in `samudra/utils/distributed.py`. No optimizer update, training-utilization
 telemetry, or `QUALIFIED.json` success receipt was produced. Its dependent
 restart job `21909510` was cancelled before allocation. The
-[failure receipt and original log](receipts/scaling-v4/4gpu-first-attempt/failure.json)
-preserve this attempt.
+[failure receipt](receipts/scaling-v4/4gpu-first-attempt/failure.json) and
+[original log](receipts/scaling-v4/4gpu-first-attempt/slurm.log.gz) preserve this attempt.
 
 The submit scripts omitted the RTX settings documented in `docs/torch.md`:
 `NCCL_P2P_DISABLE=1` and `TORCH_NCCL_ASYNC_ERROR_HANDLING=1`. Slurm did not
@@ -45,7 +46,30 @@ values before training. The retry retains the code, model, data, global batch
 and replay controls. Qualifier `21926614`, dependent restart test `21926632`,
 and their completion callbacks are recorded in the
 [retry receipt](receipts/nccl-retry-2026-11-05.json).
-The retry with explicit NCCL settings has not yet been verified on GPUs.
+The retry passed the preflight on all four GPUs. Its
+[qualification receipt](receipts/scaling-v4/4gpu/qualification-summary.json)
+confirms exact complete-checkpoint equality between synchronous loading,
+prefetched loading and repeated synchronous loading, all restored from the same
+four-update anchor. Uncooled continuation remained isolated, and final model
+hashes agree across all four ranks. Annual validations at updates 128 and 130
+were finite; each is one autoregressive forecast scoring 29 channels over
+73 steps and 12 complete months. The checks compare runs with the same
+four-rank layout. Global batch eight and fresh/replay counts match single-GPU
+job `21816758`: 268/260 observation examples and 260/252 OM4 examples.
+The complete receipt, input parity cases, step records, launch log and telemetry
+are retained in the [four-GPU artifacts](receipts/scaling-v4/4gpu/).
+
+The [four-GPU utilization audit](receipts/scaling-v4/4gpu/utilization.json)
+covers 303.24 s from update 25's start through update 128's validation and
+checkpoint work. Each GPU has 303 samples, complete coverage, and a maximum
+sampling gap of 1.001 s. Mean utilization is 55.07%, 53.06%, 51.09% and 52.17%;
+all pass the 50% gate. The lowest GPU has only 1.09 percentage points of margin,
+and this five-minute window does not establish long-run utilization.
+Across 52 updates per source, observations average 3.014 s and OM4 1.963 s.
+Foreground data wait averages 2.89 ms and 0.37 ms respectively; observation
+median wait is 0.41 ms, with one 129 ms wait. The
+[audit script](audit_scaling_utilization.py) also reproduces the archived
+single-GPU utilization result.
 
 The [single-GPU receipt](receipts/scaling-v4/1gpu/qualification-summary.json)
 records exact synchronous/prefetched comparisons, isolated uncooled checkpoint
@@ -67,13 +91,12 @@ hardware experiment, but the optimized path meets the required utilization gate.
 [Step records](receipts/scaling-v4/1gpu/scaling.jsonl) and
 [raw telemetry](receipts/scaling-v4/1gpu/gpu-utilization.csv.gz) are retained.
 
-Current time estimates apply to arm D: 170M parameters, mixed OM4/observations,
+The single-GPU time estimates apply to arm D: 170M parameters, mixed OM4/observations,
 replay, and global batch eight on one RTX PRO 6000. They include validation every
 250 updates and checkpointing every 25, using measured costs of 1.94 s per annual
 validation and 6.71 s per checkpoint. The extra 30% covers execution variation;
 queue delay and unknown preemption frequency are excluded. The observed-range
-columns use minimum/maximum step times, not confidence intervals. Four-GPU
-throughput and the other optimized arms remain unmeasured.
+columns use minimum/maximum step times, not confidence intervals. The other optimized arms remain unmeasured.
 
 | Work | Updates | Mean-based time | With 30% allowance | Range with allowance |
 | --- | ---: | ---: | ---: | ---: |
@@ -85,6 +108,29 @@ The screen contains 3,000 observation and 2,000 OM4 updates:
 `3,000 × 8.866 s + 2,000 × 4.901 s`, plus validation/checkpoints.
 The [estimate receipt](receipts/scaling-v4/1gpu/runtime-estimates.json) records
 inputs and assumptions. These are engineering estimates, not forecast-skill results.
+
+The [four-GPU estimates](receipts/scaling-v4/4gpu/runtime-estimates.json) use the
+same [arm D configuration](configs/scaling-v4/D-mixed-large-4gpu.yaml), mixture
+and global batch. A complete annual validation costs 1.983 s; the slowest
+measured single-file checkpoint costs 5.613 s. The 24.36 s checkpoint block at
+update 128 writes several files and is not charged as one file. Validation runs
+every 250 updates and latest checkpoints every 25, with additional best,
+milestone and endpoint saves. Source update timings exclude these costs. For
+the screen, 223 checkpoint writes comprise 200 scheduled writes, up to 20
+improved-best saves, and three milestone/main/endpoint copies. The calculation is
+`3,000 × 3.014 s + 2,000 × 1.963 s + 20 × 1.983 s + 223 × 5.613 s`.
+The projected range uses the minimum and maximum measured source-update times
+and applies the same 30% allowance to both endpoints. The four cooldowns branch
+from uncooled checkpoints at 4k, 8k, 12k and 16k; they do not alter later main
+training. Queue delay and unknown preemption frequency remain excluded. These successive
+allocations measure engineering performance; they are not a controlled hardware
+benchmark or a comparison of forecast skill.
+
+| Work on four GPUs | Mean-based time | With 30% allowance | Range with allowance | GPU-hours at mean plus allowance |
+| --- | ---: | ---: | ---: | ---: |
+| Arm D screen: 4k main + 1k cooldown | 3.96 h | 5.15 h | 4.88–5.47 h | 20.6 |
+| Arm D if selected: 16k main + four 1k cooldowns, including its screen | 15.83 h | 20.58 h | 19.52–21.87 h | 82.3 |
+| Remaining after its completed 5k screen | 11.87 h | 15.44 h | 14.64–16.40 h | 61.7 |
 
 Scheduler job `21926632` will run two 16-main-plus-two-cooldown trajectories
 through `samudra.observations.train` and the shared Slurm/Apptainer launcher on
@@ -200,7 +246,7 @@ records the CPU result and limits.
 
 GPU job `21816758` subsequently passed, as reported above. Its four-GPU
 retry `21926614` uses the same code and [configuration](configs/scaling-v4/)
-and is waiting for capacity.
+and completed successfully, as reported above.
 
 The historical estimates below apply only to arm D before optimization: the 170M-parameter mixed-source
 recipe with replay and global batch eight, on one RTX PRO 6000 Blackwell GPU.
@@ -208,8 +254,8 @@ They use code `710e496` and precede the `7bef723` loading changes, whose measure
 The conservative measured costs are 2.00 s per annual validation and 7.89 s per
 single checkpoint. The range uses the observed per-source minimum and maximum
 update times; it is not a confidence interval. Queue delay and unknown preemption
-frequency are excluded. Four-GPU timings and timings for the other optimized
-arms remain unmeasured. Rows for the selected recipe assume this same
+frequency are excluded. At that stage, four-GPU timings and timings for the other optimized
+arms were unmeasured. Rows for the selected recipe assume this same
 170M mixed-source configuration wins the screen.
 
 | Work | Updates | Mean-based time | With 30% allowance | Range with allowance |

@@ -1,0 +1,82 @@
+{
+  "purpose": "engineering qualification",
+  "world_size": 4,
+  "global_examples": 8,
+  "gpu": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+  "torch": "2.12.0a0+0291f960b6.nv26.04.48445190",
+  "cuda": "13.2",
+  "slurm_job_id": "21926614",
+  "parameters": 169773168,
+  "exact_prefetch_and_resume": true,
+  "isolated_uncooled_fork": true,
+  "rank_model_sha256": [
+    "8ad3e4e68a14f5933d5b49fb6aba151584c993b3ef24908013b4eccbc5e5e312",
+    "8ad3e4e68a14f5933d5b49fb6aba151584c993b3ef24908013b4eccbc5e5e312",
+    "8ad3e4e68a14f5933d5b49fb6aba151584c993b3ef24908013b4eccbc5e5e312",
+    "8ad3e4e68a14f5933d5b49fb6aba151584c993b3ef24908013b4eccbc5e5e312"
+  ],
+  "memory": [
+    {
+      "rank": 0,
+      "uuid": "GPU-3f53b0df-866b-5124-0fce-04efdac221ef",
+      "peak_gpu_allocated_bytes": 8536397312,
+      "peak_gpu_reserved_bytes": 15869149184,
+      "peak_host_rss_bytes": 17050480640
+    },
+    {
+      "rank": 1,
+      "uuid": "GPU-b06df499-5cde-f4f1-da0f-f8a04596d07d",
+      "peak_gpu_allocated_bytes": 8537018368,
+      "peak_gpu_reserved_bytes": 16320036864,
+      "peak_host_rss_bytes": 15791247360
+    },
+    {
+      "rank": 2,
+      "uuid": "GPU-15fe5bdd-beaa-5e9b-394c-6487c6f459da",
+      "peak_gpu_allocated_bytes": 8534740480,
+      "peak_gpu_reserved_bytes": 15953035264,
+      "peak_host_rss_bytes": 15758852096
+    },
+    {
+      "rank": 3,
+      "uuid": "GPU-a7048b3e-5e25-5357-f6fb-3e1dbcf0b2f8",
+      "peak_gpu_allocated_bytes": 8536116736,
+      "peak_gpu_reserved_bytes": 16007561216,
+      "peak_host_rss_bytes": 15862505472
+    }
+  ],
+  "exposure": {
+    "obs": {
+      "updates": 66,
+      "fresh": 268,
+      "replay": 260
+    },
+    "om4": {
+      "updates": 64,
+      "fresh": 260,
+      "replay": 252
+    }
+  },
+  "started_at": 1793858142.5733232,
+  "finished_at": 1793859073.2998738,
+  "wandb_url": "https://wandb.ai/ocean_emulators/observational-transfer/runs/ha3t3dit",
+  "utilization_release_gate": "Assess per-GPU steady telemetry; this receipt does not assert >50%",
+  "scheduler_state": "COMPLETED",
+  "exit_code": "0:0",
+  "elapsed_seconds": 966,
+  "allocated_gpu_hours": 1.0733333333333333,
+  "node": "gr103",
+  "code_commit": "7bef723cb1f60d4e202aeece6fd4c1b11eb2e539",
+  "full_receipt_sha256": "faa7b1021320b7f8b60ca72279dc71e478aff00f4c42d5470745983a36ddf81f",
+  "main_updates": 128,
+  "cooldown_updates": 2,
+  "comparison_scope": "All three four-GPU controls reload one common four-update anchor; actual scheduler interruption test is separate.",
+  "exposure_matches_one_gpu": true,
+  "validation_updates": [
+    128,
+    130
+  ],
+  "validation_metrics_finite": true,
+  "input_parity_cases": 8,
+  "nccl_preflight": "All four ranks passed shared startup and ten exact integer reductions with NCCL_P2P_DISABLE=1."
+}

@@ -1,0 +1,85 @@
+{
+  "window": "steady update 25 start through all validation/checkpoint records at update 128",
+  "start_unix": 1793858724.5711544,
+  "end_unix": 1793859027.8113804,
+  "duration_seconds": 303.24022603034973,
+  "per_gpu": {
+    "GPU-3f53b0df-866b-5124-0fce-04efdac221ef": {
+      "samples": 303,
+      "mean_percent": 55.06930693069307,
+      "median_percent": 90.0,
+      "time_weighted_mean_percent": 55.15853789240758,
+      "coverage_seconds": 303.24022603034973,
+      "max_sample_gap_seconds": 1.001000165939331
+    },
+    "GPU-b06df499-5cde-f4f1-da0f-f8a04596d07d": {
+      "samples": 303,
+      "mean_percent": 53.05940594059406,
+      "median_percent": 87.0,
+      "time_weighted_mean_percent": 53.031717661494795,
+      "coverage_seconds": 303.24022603034973,
+      "max_sample_gap_seconds": 1.001000165939331
+    },
+    "GPU-15fe5bdd-beaa-5e9b-394c-6487c6f459da": {
+      "samples": 303,
+      "mean_percent": 51.09240924092409,
+      "median_percent": 83.0,
+      "time_weighted_mean_percent": 51.06545147670429,
+      "coverage_seconds": 303.24022603034973,
+      "max_sample_gap_seconds": 1.001000165939331
+    },
+    "GPU-a7048b3e-5e25-5357-f6fb-3e1dbcf0b2f8": {
+      "samples": 303,
+      "mean_percent": 52.165016501650165,
+      "median_percent": 87.0,
+      "time_weighted_mean_percent": 52.139203996703806,
+      "coverage_seconds": 303.24022603034973,
+      "max_sample_gap_seconds": 1.001000165939331
+    }
+  },
+  "source_timing": {
+    "obs": {
+      "updates": 52,
+      "seconds": {
+        "min": 2.849215142428875,
+        "mean": 3.014172597949465,
+        "median": 3.019732167478651,
+        "max": 3.189125083386898
+      },
+      "data_seconds": {
+        "min": 0.0003726780414581299,
+        "mean": 0.0028898668153068195,
+        "median": 0.000414279755204916,
+        "max": 0.12910235673189163
+      },
+      "background_read_seconds": {
+        "min": 0.4226131485775113,
+        "mean": 0.8098399111141379,
+        "median": 0.6080529992468655,
+        "max": 1.9369492698460817
+      }
+    },
+    "om4": {
+      "updates": 52,
+      "seconds": {
+        "min": 1.843230010010302,
+        "mean": 1.96307912028323,
+        "median": 1.9378880141302943,
+        "max": 2.1467948658391833
+      },
+      "data_seconds": {
+        "min": 0.00033528078347444534,
+        "mean": 0.00036917359998019843,
+        "median": 0.00036723166704177856,
+        "max": 0.00040650181472301483
+      },
+      "background_read_seconds": {
+        "min": 1.2734459461644292,
+        "mean": 1.5753580381771406,
+        "median": 1.4252271107397974,
+        "max": 2.397241311147809
+      }
+    }
+  },
+  "passed": true
+}

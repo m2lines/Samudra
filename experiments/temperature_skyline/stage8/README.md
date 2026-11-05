@@ -12,23 +12,49 @@ a depth-conditioned point query, and a single +5-day temperature prediction.
 Inputs remain continuous. Classification uses ordinary cross-entropy over
 2,048 absolute-temperature bins; it has no class-density loss weighting.
 
-| Work | Torch job | Requested allocation | Dependency |
-|---|---:|---|---|
-| Classifier EMA qualification | 21911396 | 4 RTX6000, 10 minutes maximum | none |
-| Regression EMA qualification | 21911399 | 4 RTX6000, 10 minutes maximum | classifier qualification |
-| Classifier EMA continuation | 21911403 | 4 RTX6000, 10 hours | regression qualification |
-| Regression EMA continuation | 21911412 | 4 RTX6000, 10 hours | classifier continuation |
-| Map qualification | 21803870 | 1 H200, 15 minutes maximum | none |
-| Initial-checkpoint maps | 21803874 | 4 H200, 3 hours per allocation | map qualification |
+| Work | Host | Job | Requested allocation | Dependency |
+|---|---|---:|---|---|
+| Classifier EMA qualification | Engaging | 27943836 | 4 GPUs, 20 minutes maximum | none |
+| Regression EMA qualification | Engaging | 27943840 | 4 GPUs, 20 minutes maximum | classifier qualification |
+| Classifier EMA continuation | Engaging | 27943843 | 4 GPUs, 10 hours | regression qualification |
+| Regression EMA continuation | Engaging | 27943848 | 4 GPUs, 10 hours | classifier continuation |
+| Map qualification | Torch | 21803870 | 1 H200, 15 minutes maximum | none |
+| Initial-checkpoint maps | Torch | 21803874 | 4 H200, 3 hours per allocation | map qualification |
 
-Dependencies require successful completion. RTX6000 jobs are eligible for both
-`rtx6000_lzanna` and `rtx6000`; H200 jobs use preemptible capacity. All can requeue.
-The table lists the active EMA training jobs, recorded in `accumulation-submission.json`.
-They replace the previous eight-GPU EMA requests, cancelled before allocation.
-Earlier receipts preserve superseded requests, including the routing change
-in `dual-routing.json`. Training uses source `3f1968685`; the initial-checkpoint
-map workflow uses `641922718`. Training is queued, and map qualification has
-passed. No full map or new training result is claimed here.
+Dependencies require successful completion. Engaging training uses account and
+QoS `mit_amf_advanced_gpu` on `mit_normal_gpu`, which permits four GPUs per user
+and 48-hour jobs. The submitted GPU request was untyped; Slurm resolved it to four L40S GPUs.
+The actual hardware is also recorded in run provenance. Torch H200 maps retain their preemptible routing. All GPU
+jobs can requeue. The training source is `d5f88b950`; the map source remains
+`641922718`. Submission commands and configs are in `engaging-submission.json`.
+The four-GPU Torch requests in `accumulation-submission.json` were cancelled
+before allocation. Earlier receipts preserve superseded requests.
+Training qualification and the full map evaluation remain pending; map
+qualification passed. No new training or full map result is claimed here.
+
+Engaging reads the existing shared dataset
+`/orcd/data/abodner/002/jrusak/om4_quarterdeg_v2`. All 80 required channels have
+4,745 time chunks. Coordinates, timestamps, 19 masks, and required normalization
+files match Torch byte-for-byte. Canonical metadata matches after removing the
+compression setting: Engaging arrays are uncompressed; Torch uses Blosc/Zstd.
+Decoded payloads match for 45 chunks spanning nine fields and five dates.
+This is a sampled payload comparison. The original training-only bin-support
+audit remains in `support-torch.json`; `support-engaging.json` binds those
+bounds to the Engaging source receipt and preserves the original audit source.
+No full training-support scan was repeated on Engaging. See
+`engaging-data-verification.json` for the comparison scope and hashes.
+
+The two selected initial checkpoints were copied through Torch's data-transfer
+node and verified by SHA-256 on Engaging. The existing Engaging PhysicsNeMo
+26.05 container uses Python 3.12.3, PyTorch
+`2.12.0a0+0291f960b6.nv26.04.48445190`, CUDA 13.2, and Zarr 2.18.7, matching
+those runtime versions on Torch. Host Python user packages are disabled.
+The actual launcher imports successfully in this container. GPU qualification
+is still required for device compatibility, memory use, and throughput.
+Run outputs, caches, and logs use
+`/orcd/scratch/orcd/014/jrusak/temperature-skyline-20261104`.
+The user authorized returning to Torch if Engaging encounters a blocker.
+Only one active continuation chain is permitted across the two clusters.
 
 The first map qualification, 21802680, failed after 45 H200-seconds because the
 container lacked the requested `torchrun` executable. It cached Samudra temperature forecasts for all eight evaluation dates before
@@ -44,8 +70,10 @@ remains pending.
 The initial continuation segments target roughly 40 allocated GPU-hours per
 arm. The user clarified that this is a planning scale, not a strict overall
 ceiling. Each arm now requests four GPUs for ten hours, with 32 CPUs and
-64 GiB host memory. The runner accounts for preempted allocations and stops
-training fifteen minutes before that segment ends to allow validation and saving.
+64 GiB host memory. Each arm has one cumulative ten-hour budget across
+requeues, including preempted allocations. Training stops at nine hours and
+forty-five minutes of cumulative allocation time, reserving the final fifteen
+minutes for validation and saving.
 Further continuation can depend on data exposure and validation results. Qualification and map
 compute are separate. Utilization telemetry is retained, with no low-utilization
 stop rule. Each qualification exercises eight updates, distributed validation,
@@ -105,13 +133,15 @@ retain `best-error.pt` and, for classification, `best-likelihood.pt`; EMA adds
 the selected weight set, identified by `weights_kind`. Resumable `latest.pt`
 contains raw model/optimizer state, full EMA state, and both selection histories.
 Qualification checks agreement between ranks for raw and EMA parameters.
-The paired final validation has a fifteen-minute reserve within each ten-hour
-allocation. The existing initial-checkpoint map job still uses its original
+The paired final validation uses that arm’s single fifteen-minute reserve
+within its cumulative ten-hour budget. The existing initial-checkpoint map job still uses its original
 raw checkpoints.
 
 The first map report uses those existing checkpoints while continuation waits.
 It compares regression, classifier mode, frozen Samudra epoch-62 outputs, and
-OM4 targets on identical inputs and points. The requested calendar origins are
+OM4 targets at identical query points. Forecast origins, two observed states,
+forcing fields, normalization, and the +5-day lead match. Samudra receives
+the full global input grid; each specialist receives only its 33×33 crop. The requested calendar origins are
 January 15, April 15, July 15, and October 15: 2015 supplies calibration and
 2016 supplies assessment. Each request resolves to the first valid test origin
 on or after that date. The July 2016 origin supplies the dense maps: every
@@ -154,6 +184,8 @@ schema validation, secret scanning, and license checks passed. Four-GPU training
 and the full scientific assessment remain pending; the map qualification passed. The same pinned assessment
 protocol is to be repeated after training. For that report, select regression
 weights by validation error and classifier weights by validation bin NLL,
-considering both raw and EMA checkpoints and recording each selected step and
-weight type. Those selections can come from different updates. Claims about
+considering the selected initial checkpoint and continuation raw/EMA
+checkpoints evaluated on the same 9,728 validation targets. Qualification
+checkpoints are excluded. Record the selected source run, step, and weight
+type; the initial checkpoint remains eligible if continuation worsens validation. Those selections can come from different updates. Claims about
 EMA at matched training exposure use the same-update validation comparisons.

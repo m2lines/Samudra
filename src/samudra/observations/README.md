@@ -97,8 +97,11 @@ sbatch --nodes=1 --gres=gpu:rtx6000:1 --cpus-per-task=16 --mem=64G \
 ```
 
 Set the container and site-specific resource settings as for other Samudra runs.
-The observation entrypoint requires one process per run; the launcher rejects
-multi-node or multi-GPU requests for this module before spawning workers.
+The legacy sequential path requires one process. Set `update_prefetch: true`
+for DDP with a global example count divisible by the number of ranks. Resume
+requires the same world size. On Torch RTX6000 nodes, export
+`NCCL_P2P_DISABLE=1` and `TORCH_NCCL_ASYNC_ERROR_HANDLING=1`, including
+the corresponding `APPTAINERENV_` variables; see [Torch guidance](../../../docs/torch.md#nccl-gotcha-on-rtx6000-nodes).
 
 ## Shared components and remaining duplication
 
@@ -110,7 +113,7 @@ The following code remains local for later discussion:
 | Local code | Why sharing requires more work |
 | --- | --- |
 | Source loading and monthly training loop | `Trainer` consumes epoch-based dense-field loaders; observations combine daily surface data, monthly profiles and detached replay states. |
-| Checkpoint payload and resume | Replay pools, original ages, source exposure and sampling RNG need to be saved together. `Trainer` owns its checkpoint format internally. Multi-rank replay would also need rank-specific ownership. |
+| Checkpoint payload and resume | Replay pools, original ages, source exposure and sampling RNG need to be saved together. `Trainer` owns its checkpoint format internally. Rank zero owns sample planning and replay pools; checkpoints include per-rank RNG and pending plans. |
 | Annual validation orchestration | Existing aggregators expect dense fields at a common cadence. The observation evaluator shares the spatial RMSE kernel and implements the cadence reductions locally. |
 | Optimizer and cooldown schedule | `Trainer` constructs Adam inline. This path uses AdamW and an update-based observation cooldown. |
 | W&B run identity setup | `WandBLogger.setup_run` requires a `DataBundle` and the standard trainer's checkpoint keys. Logging and run lifecycle use the shared logger. |
@@ -119,3 +122,67 @@ The following code remains local for later discussion:
 Tests cover config loading/overrides, source exposure, replay, exact resume,
 calendar gaps, normalization and annual scoring. The default model matches the parameter layout and seeded initialization of the
 [U-global prototype](https://github.com/m2lines/Samudra/blob/d67e0b523ea651b55447dc3a7a9b0010ffcae35f/src/samudra/models/surface_initialized.py).
+
+## Full deterministic model
+
+The [mixed large preset](../configs/observations/deterministic_mixed_large.yaml)
+contains the full Samudra evolution and initializer U-Nets, direct eight-field
+ERA5 conditioning, source-separated replay, and observation-only cooldown.
+It alternates OM4 and observation updates for 4,000 updates, then runs 1,000
+observation-only cooldown updates. The global batch is eight monthly windows:
+four ranks accumulate two examples each, normally four fresh and four replayed.
+The preset enables the Rust readers and one-update asynchronous prefetch.
+
+Install the Rust extra (`uv sync --extra rust`) and prepare the observation
+archives and normalization as above. The daily product names are `sst`, `adt`,
+`era5` and `iap`; prepare all four for observation years 1993–2014, including
+history before the first training month (May 1993). The default native interval
+cache spans starts from 1993-01-26 through 2014-12-27, each with five days of
+support. OM4 requires `OM4.zarr`, `OM4_means.zarr` and `OM4_stds.zarr` in its
+directory. The daily ERA5 archive must additionally cover the OM4 intervals
+selected by `shared_era5.required_indices`; the cache builder rejects missing
+support. Then prepare the exact-interval caches:
+
+```bash
+PYTHONPATH=src python data/prepare_observation_era5.py /data/obs/samples /data/obs/daily /data/om4_onedeg_v3 /data/obs/era5-cache
+PYTHONPATH=src python data/prepare_observation_native.py /data/obs/daily /data/obs/native-observations-v1
+PYTHONPATH=src python data/prepare_observation_om4_native.py /data/om4_onedeg_v3 /data/obs/grid.npz /data/obs/native-om4-v1
+```
+
+The ERA5 cache must cover all OM4 training intervals as well as observation
+history; observation-only date coverage is insufficient. The preset resolves all three cache paths to the output directories shown above
+when `experiment.data_root` is `/data`. Each preparation command writes `COMPLETE.json`. The preset records reference
+input proof hashes; replace `data.era5_proof_sha256`,
+`data.native_observations_proof_sha256` and `data.native_om4_proof_sha256`
+with the SHA-256 of the corresponding prepared `COMPLETE.json` when using
+newly prepared archives. Training verifies these identities and cache contents.
+
+```bash
+torchrun --standalone --nproc_per_node=4 -m samudra.observations.train \
+  observations/deterministic_mixed_large.yaml \
+  --experiment.data_root /data --experiment.base_output_dir /runs
+```
+
+Use the [campaign generator](campaign.py) with the
+[small-initializer base](../configs/observations/deterministic.yaml) to generate
+observation-only/mixed and small/large initializer controls plus the no-replay
+control. Configure its input cache paths, proof hashes and loading settings first, then
+run `python -m samudra.observations.campaign CONFIG /runs/screen-configs`.
+Here `CONFIG` is your configured small-initializer base, and the output directory
+receives five YAML files. Train each generated config with the observation
+entrypoint.
+For a selected screen config, `python -m samudra.observations.campaign CONFIG OUTPUT
+--winner` generates continuation from the uncooled 4k checkpoint to 16k total main
+updates and separate 1k cooldown branches at 8k and 12k. The screen supplies the
+4k cooldown; the main continuation ends with the 16k cooldown. These branches
+preserve optimizer, replay and RNG state without cooling the continuing trajectory.
+The generator derives checkpoint paths from the selected config's output directory.
+Run the main continuation first so it writes `main-8000.pt` and `main-12000.pt`,
+then run the two generated cooldown configs from those checkpoints.
+
+Use `python -m samudra.observations.campaign CONFIG OUTPUT --qualification`
+to generate short configs for `python -m samudra.observations.qualify CONFIG`.
+`python -m samudra.observations.qualify_scaling CONFIG` uses the supplied update
+budget for distributed loading and numerical checks; supply a separate short-run
+config rather than a full scientific budget. These tools produce their own receipts; no run results
+are required by the implementation.

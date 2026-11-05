@@ -66,3 +66,6 @@ class ForecastSample(ObservationSample, total=False):
 
     mask: torch.Tensor  # [physical_channel, y, x]
     fields: torch.Tensor  # [batch, history+forecast, physical_channel, y, x]
+
+    initial_fields: torch.Tensor  # [batch, state_history, channel, y, x]
+    target_fields: torch.Tensor  # [batch, forecast, channel, y, x]

@@ -3,17 +3,31 @@
 
 """Masked losses and deterministic artificial gaps for surface initialization."""
 
+from collections.abc import Sequence
+
 import torch
+from numpy.typing import ArrayLike
+
+from samudra.observations.constants import (
+    HISTORY_STEPS,
+    INITIAL_STATE_START,
+    MODEL_VARIABLES,
+    PROFILE_VARIABLES,
+    SURFACE_NAMES,
+)
+from samudra.observations.sample_types import ObservationSample
 
 
-def structured_visibility(validity, seed):
+def structured_visibility(validity: torch.Tensor, seed: int) -> torch.Tensor:
     """Persistent blocks plus an optional latitude band; no global RNG changes.
 
     validity is [batch, time, variable, y, x]. Artificial hiding changes only
     inputs. Keep the original validity for labels, including in naturally missing
-    regions. Longitude blocks wrap, latitude bands do not.
+    regions. Each variable gets three blocks, 8–20% of latitude and 12–32% of
+    longitude, plus a 50% chance of a latitude band spanning 1/12 of the grid.
+    Longitude blocks wrap, latitude bands do not.
     """
-    if validity.ndim != 5 or validity.shape[2] != 2:
+    if validity.ndim != 5 or validity.shape[2] != len(SURFACE_NAMES):
         raise ValueError("Expected two surface variables with batch/time dimensions")
     batch, _, channels, h, w = validity.shape
     generator = torch.Generator(device="cpu").manual_seed(int(seed))
@@ -38,21 +52,32 @@ def structured_visibility(validity, seed):
     return validity.bool() & ~hidden.to(validity.device)
 
 
-def corrupt_sample(sample, seed):
+def corrupt_sample[Sample: ObservationSample](sample: Sample, seed: int) -> Sample:
     """Return separate inputs/targets; never mutate cached or supplied labels."""
-    result = dict(sample)
+    result = sample.copy()
     visible = structured_visibility(sample["validity"], seed)
     result["surface"] = torch.where(visible, sample["surface"], 0)
     result["validity"] = visible
-    result["completion_target"] = sample["surface"][:, 17:19]
+    result["completion_target"] = sample["surface"][
+        :, INITIAL_STATE_START:HISTORY_STEPS
+    ]
     result["completion_valid"] = (
-        sample["validity"][:, 17:19].bool() & ~visible[:, 17:19]
+        sample["validity"][:, INITIAL_STATE_START:HISTORY_STEPS].bool()
+        & ~visible[:, INITIAL_STATE_START:HISTORY_STEPS]
     )
     return result
 
 
-def completion_loss(prediction, target, valid, latitude):
-    """Mean normalized MSE by field/frame, full-grid wet observed support only."""
+def completion_loss(
+    prediction: torch.Tensor,
+    target: torch.Tensor,
+    valid: torch.Tensor,
+    latitude: torch.Tensor | ArrayLike,
+) -> torch.Tensor:
+    """Return scalar mean MSE from [batch, frame, surface_channel, y, x] fields.
+
+    ``valid`` has the field shape and ``latitude`` is the one-dimensional y axis.
+    """
     valid = valid.bool()
     if prediction.shape != target.shape or valid.shape != target.shape:
         raise ValueError("Completion predictions, labels and support must align")
@@ -69,21 +94,31 @@ def completion_loss(prediction, target, valid, latitude):
     return channel[present].mean()
 
 
-def channel_mse(prediction, target, weights):
-    """Area-weighted errors per sample/lead/channel, excluding dry cells."""
+def channel_mse(
+    prediction: torch.Tensor, target: torch.Tensor, weights: torch.Tensor
+) -> torch.Tensor:
+    """Reduce [..., channel, y, x] fields to [..., channel] using broadcast weights."""
     error = torch.where(weights > 0, prediction.float() - target.float(), 0).square()
     return (error * weights).sum((-2, -1)) / weights.sum((-2, -1)).clamp_min(1e-12)
 
 
-def balanced_loss(prediction, target, weights, names, interior_only=False):
+def balanced_loss(
+    prediction: torch.Tensor,
+    target: torch.Tensor,
+    weights: torch.Tensor,
+    names: Sequence[str],
+    interior_only: bool = False,
+) -> torch.Tensor:
+    """Return scalar MSE with equal weight per physical variable group."""
     per_channel = channel_mse(prediction, target, weights)
     groups = []
-    for variable in ("thetao", "so", "uo", "vo", "zos"):
+    variables = dict.fromkeys((*PROFILE_VARIABLES, *MODEL_VARIABLES, SURFACE_NAMES[1]))
+    for variable in variables:
         indices = [
             i
             for i, name in enumerate(names)
             if (name == variable or name.startswith(variable + "_"))
-            and not (interior_only and name in ("thetao_0", "zos"))
+            and not (interior_only and name in SURFACE_NAMES)
         ]
         if indices:
             groups.append(per_channel[..., indices].mean())

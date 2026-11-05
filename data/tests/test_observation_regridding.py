@@ -4,30 +4,24 @@
 
 import numpy as np
 import pytest
-from ocean_preprocessing.regridding import (
-    FiniteCoverageRemap,
-    global_cell_bounds,
-    rectilinear_global_grid,
-)
+from ocean_preprocessing.regridding import FiniteCoverageRemap, rectilinear_grid
 
 from tests import requires_xesmf
 
 
-def test_global_edges_include_poles_and_periodic_seam():
-    np.testing.assert_allclose(
-        global_cell_bounds([-90, -30, 30, 90], latitude=True), [-90, -60, 0, 60, 90]
-    )
-    np.testing.assert_allclose(
-        global_cell_bounds([45, 135, 225, 315]), [0, 90, 180, 270, 360]
-    )
-    with pytest.raises(ValueError, match="global longitude"):
-        global_cell_bounds([0, 1, 2])
+def test_remap_requires_supplied_cell_bounds():
+    import xarray as xr
+
+    grid = xr.Dataset(coords={"lat": [0], "lon": [0]})
+    with pytest.raises(ValueError, match="explicit lat_b"):
+        FiniteCoverageRemap(grid, grid)
 
 
 @requires_xesmf
 def test_esmf_identity_preserves_values_and_missingness():
     lat, lon = [-45, 45], [45, 135, 225, 315]
-    remap = FiniteCoverageRemap(lat, lon, lat, lon)
+    grid = rectilinear_grid(lat, lon, [-90, 0, 90], [0, 90, 180, 270, 360])
+    remap = FiniteCoverageRemap(grid, grid)
     raw = np.array([[1, np.nan, 3, 4], [5, 6, 7, 8]], dtype=float)
     actual, coverage = remap(raw)
     np.testing.assert_allclose(actual, raw, equal_nan=True, atol=1e-6)
@@ -38,7 +32,10 @@ def test_esmf_identity_preserves_values_and_missingness():
 def test_esmf_coverage_uses_full_cell_area_not_finite_renormalization():
     source_lon = np.arange(22.5, 360, 45)
     target_lon = np.arange(45, 360, 90)
-    remap = FiniteCoverageRemap([-45, 45], source_lon, [-45, 45], target_lon)
+    remap = FiniteCoverageRemap(
+        rectilinear_grid([-45, 45], source_lon, [-90, 0, 90], np.arange(0, 361, 45)),
+        rectilinear_grid([-45, 45], target_lon, [-90, 0, 90], np.arange(0, 361, 90)),
+    )
     values = np.full((2, 2, 8), 7.0)
     values[0, 0, 0] = np.nan
     values[1, 0, :2] = np.nan
@@ -57,7 +54,12 @@ def test_esmf_poles_and_shifted_seam_keep_complete_global_support():
     source_lon = np.arange(22.5, 360, 45)
     target_lon = np.arange(0, 360, 90)
     remap = FiniteCoverageRemap(
-        [-90, -30, 30, 90], source_lon, [-60, 0, 60], target_lon
+        rectilinear_grid(
+            [-90, -30, 30, 90], source_lon, [-90, -60, 0, 60, 90], np.arange(0, 361, 45)
+        ),
+        rectilinear_grid(
+            [-60, 0, 60], target_lon, [-90, -30, 30, 90], np.arange(-45, 316, 90)
+        ),
     )
     actual, coverage = remap(np.full((4, 8), 7.0))
     np.testing.assert_allclose(actual, 7.0, atol=1e-6)
@@ -71,14 +73,16 @@ def test_esmf_full_support_preserves_spherical_integral():
     source_lat, source_lon = [-60, 0, 60], np.arange(22.5, 360, 45)
     target_lat, target_lon = [-45, 45], np.arange(45, 360, 90)
     raw = np.arange(24, dtype=float).reshape(3, 8)
-    remap = FiniteCoverageRemap(source_lat, source_lon, target_lat, target_lon)
+    source = rectilinear_grid(
+        source_lat, source_lon, [-90, -30, 30, 90], np.arange(0, 361, 45)
+    )
+    target = rectilinear_grid(
+        target_lat, target_lon, [-90, 0, 90], np.arange(0, 361, 90)
+    )
+    remap = FiniteCoverageRemap(source, target)
     actual, coverage = remap(raw)
-    source_area = xe.util.cell_area(
-        rectilinear_global_grid(source_lat, source_lon)
-    ).values
-    target_area = xe.util.cell_area(
-        rectilinear_global_grid(target_lat, target_lon)
-    ).values
+    source_area = xe.util.cell_area(source).values
+    target_area = xe.util.cell_area(target).values
     np.testing.assert_allclose(coverage, 1, atol=1e-6)
     np.testing.assert_allclose(
         (actual * target_area).sum(), (raw * source_area).sum(), rtol=1e-6

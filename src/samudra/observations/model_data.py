@@ -3,19 +3,70 @@
 """Native-calendar OM4/CM4 windows on the verified common Gaussian grid."""
 
 import hashlib
+from collections.abc import Mapping, Sequence
 from datetime import timedelta
 from pathlib import Path
+from typing import Literal, NamedTuple, TypedDict
 
 import cftime
 import numpy as np
 import torch
 import zarr  # type: ignore[import-untyped]
+from numpy.typing import ArrayLike, NDArray
 
 from samudra.constants import build_om4_layout
-from samudra.observations.intervals import calendar_weights
+from samudra.observations.constants import (
+    FORECAST_STEPS,
+    HISTORY_STEPS,
+    MAX_REPLAY_MONTHS,
+    MODEL_DEPTHS,
+    MODEL_FORCING_VARIABLES,
+    MODEL_VARIABLES,
+    STEP_DAYS,
+    TEMPERATURE_OFFSET,
+)
+from samudra.observations.intervals import CalendarDate, calendar_weights
 
 
-def calendar_context(lat, lon, dates):
+class ContinuationLayout(TypedDict):
+    start_lead: int
+    end_lead: int
+    next_start_lead: int
+
+
+class ModelSample(ContinuationLayout):
+    """One monthly model window, with normalized fields and native calendar timing."""
+
+    fields: torch.Tensor  # [batch=1, history+forecast, channel, y, x]
+    forcing: torch.Tensor  # [batch=1, history+forecast, forcing_channel, y, x]
+    contexts: torch.Tensor  # [batch=1, history+forecast, context_channel, y, x]
+    mask: torch.Tensor  # [channel, y, x]
+    weights: torch.Tensor  # [forecast_step], calendar-month overlap fractions
+    duration: int  # Calendar-month duration in days.
+    first: str  # First forecast interval start in the source calendar.
+    origin_index: int  # Original forecast start index in the source store.
+
+
+class ModelWindow(NamedTuple):
+    start: int
+    stop: int
+    weights: NDArray[np.float32]
+    duration: int
+
+
+class ContinuationWindow(NamedTuple):
+    start: int
+    stop: int
+    weights: NDArray[np.float32]
+    duration: int
+    origin_start: int
+    next_start: int
+
+
+def calendar_context(
+    lat: ArrayLike, lon: ArrayLike, dates: Sequence[CalendarDate]
+) -> NDArray[np.float32]:
+    """Return [time, context_channel=5, y, x] position and annual-phase planes."""
     latitude, longitude = np.meshgrid(np.deg2rad(lat), np.deg2rad(lon), indexing="ij")
     xyz = np.stack(
         [
@@ -46,7 +97,13 @@ class ModelMonths:
     years for training, reserving the final twenty for future diagnostics.
     """
 
-    def __init__(self, path, kind, reference, om4_statistics):
+    def __init__(
+        self,
+        path: str | Path,
+        kind: Literal["om4", "cm4"],
+        reference: Mapping[str, NDArray],
+        om4_statistics: str | Path,
+    ) -> None:
         if kind not in ("om4", "cm4"):
             raise ValueError(kind)
         self.kind = kind
@@ -56,9 +113,7 @@ class ModelMonths:
         self.store = zarr.open_consolidated(str(path), mode="r")
         self.grid = reference
         self.names = reference["names"].tolist()
-        if self.names != [
-            f"{v}_{i}" for v in ("uo", "vo", "thetao", "so") for i in range(19)
-        ] + ["zos"]:
+        if self.names != build_om4_layout().prognostic_var_names:
             raise ValueError("Unexpected physical channel order")
         z = self.store
         lat = z["lat"][:, 0] if kind == "cm4" else z["y"][:]
@@ -83,7 +138,7 @@ class ModelMonths:
                 z["dz"][:], build_om4_layout().depth_thickness, rtol=0, atol=1e-6
             )
             wet = z["wetmask"][:].astype(bool)
-            self.mask = np.concatenate([wet] * 4 + [wet[:1]])
+            self.mask = np.concatenate([wet] * len(MODEL_VARIABLES) + [wet[:1]])
             bounds = z["time_bnds"]
             self.bounds = cftime.num2date(
                 bounds[:], bounds.attrs["units"], bounds.attrs["calendar"]
@@ -95,7 +150,8 @@ class ModelMonths:
                 raise ValueError("CM4 timestamps are not verified interval ends")
         else:
             self.mask = np.stack(
-                [z[f"mask_{i}"][:] for i in range(19)] * 4 + [z["mask_0"][:]]
+                [z[f"mask_{i}"][:] for i in range(MODEL_DEPTHS)] * len(MODEL_VARIABLES)
+                + [z["mask_0"][:]]
             ).astype(bool)
             labels = cftime.num2date(
                 z["time"][:],
@@ -104,11 +160,17 @@ class ModelMonths:
             )
             # Published OM4 five-day means are centered at 12:00 on day three.
             self.bounds = np.array(
-                [[t - timedelta(days=2.5), t + timedelta(days=2.5)] for t in labels],
+                [
+                    [
+                        t - timedelta(days=STEP_DAYS / 2),
+                        t + timedelta(days=STEP_DAYS / 2),
+                    ]
+                    for t in labels
+                ],
                 dtype=object,
             )
         lengths = [(b - a).total_seconds() for a, b in self.bounds]
-        if any(v != 5 * 86400 for v in lengths):
+        if any(v != STEP_DAYS * 86400 for v in lengths):
             raise ValueError("Non-five-day source intervals")
         gaps = self.bounds[1:, 0] != self.bounds[:-1, 1]
         if kind == "cm4" and gaps.any():
@@ -118,16 +180,16 @@ class ModelMonths:
         mean = zarr.open_consolidated(str(statistics / "OM4_means.zarr"), mode="r")
         std = zarr.open_consolidated(str(statistics / "OM4_stds.zarr"), mode="r")
         self.forcing_mean = np.array(
-            [float(mean[n][...]) for n in ("tauuo", "tauvo", "hfds")], dtype=np.float32
+            [float(mean[n][...]) for n in MODEL_FORCING_VARIABLES], dtype=np.float32
         )
         self.forcing_std = np.array(
-            [float(std[n][...]) for n in ("tauuo", "tauvo", "hfds")], dtype=np.float32
+            [float(std[n][...]) for n in MODEL_FORCING_VARIABLES], dtype=np.float32
         )
         if not np.isfinite(self.forcing_mean).all() or not (self.forcing_std > 0).all():
             raise ValueError("Invalid forcing normalization")
-        self.windows = []
-        self.window_months = []
-        self.excluded_gap_months = []
+        self.windows: list[ModelWindow] = []
+        self.window_months: list[CalendarDate] = []
+        self.excluded_gap_months: list[str] = []
         first_year = self.bounds[0, 0].year
         for year in range(first_year, self.bounds[-1, 1].year + 1):
             for month in range(1, 13):
@@ -139,14 +201,14 @@ class ModelMonths:
                 )
                 if (
                     not len(indices)
-                    or indices[0] < 19
+                    or indices[0] < HISTORY_STEPS
                     or self.bounds[indices[-1], 1] < last
                 ):
                     continue
                 if kind == "om4" and (
                     year < 1975
                     or (year, month) > (2013, 7)
-                    or self.bounds[indices[0] - 19, 0].year < 1975
+                    or self.bounds[indices[0] - HISTORY_STEPS, 0].year < 1975
                 ):
                     continue
                 if kind == "cm4" and year >= first_year + 180:
@@ -164,12 +226,17 @@ class ModelMonths:
                 )
                 self.window_months.append(first)
                 self.windows.append(
-                    (indices[0], indices[-1] + 1, weights, (last - first).days)
+                    ModelWindow(
+                        int(indices[0]),
+                        int(indices[-1] + 1),
+                        weights,
+                        (last - first).days,
+                    )
                 )
         if not self.windows:
             raise ValueError("No training months")
 
-    def sample(self, index, device):
+    def sample(self, index: int, device: torch.device) -> ModelSample:
         start, stop, weights, duration = self.windows[index % len(self.windows)]
         return self._read(
             start,
@@ -181,12 +248,19 @@ class ModelMonths:
             next_start=self._next_start(self.window_months[index % len(self.windows)]),
         )
 
-    def _next_start(self, first):
+    def _next_start(self, first: CalendarDate) -> int:
         last = type(first)(first.year + (first.month == 12), first.month % 12 + 1, 1)
-        return int(np.searchsorted(self.bounds[:, 0], last, side="right") - 1)
+        return int(
+            np.searchsorted(
+                self.bounds[:, 0], np.asarray(last, dtype=object), side="right"
+            )
+            - 1
+        )
 
-    def _continuation_window(self, index, month_offset):
-        if month_offset < 0 or month_offset >= 12:
+    def _continuation_window(
+        self, index: int, month_offset: int
+    ) -> ContinuationWindow | None:
+        if month_offset < 0 or month_offset >= MAX_REPLAY_MONTHS:
             raise ValueError("Replay month offset must be in 0..11")
         origin_start = self.windows[index][0]
         original = self.window_months[index]
@@ -202,11 +276,15 @@ class ModelMonths:
             for k in range(origin_start - 1, stop - 1)
         ):
             return None
-        if stop - origin_start > 73:
+        if stop - origin_start > FORECAST_STEPS:
             return None
-        return start, stop, weights, duration, origin_start, self._next_start(first)
+        return ContinuationWindow(
+            start, stop, weights, duration, origin_start, self._next_start(first)
+        )
 
-    def continuation_layout(self, index, month_offset):
+    def continuation_layout(
+        self, index: int, month_offset: int
+    ) -> ContinuationLayout | None:
         """Inspect eligibility without reading any physical field data."""
         window = self._continuation_window(index, month_offset)
         if window is None:
@@ -218,7 +296,9 @@ class ModelMonths:
             next_start_lead=int(next_start - origin_start),
         )
 
-    def continuation(self, index, month_offset, device):
+    def continuation(
+        self, index: int, month_offset: int, device: torch.device
+    ) -> ModelSample:
         window = self._continuation_window(index, month_offset)
         if window is None:
             raise ValueError(
@@ -236,13 +316,21 @@ class ModelMonths:
         )
 
     def _read(
-        self, start, stop, weights, duration, device, *, origin_start, next_start
-    ):
-        interval = slice(start - 19, stop)
+        self,
+        start: int,
+        stop: int,
+        weights: NDArray[np.float32],
+        duration: int,
+        device: torch.device,
+        *,
+        origin_start: int,
+        next_start: int,
+    ) -> ModelSample:
+        interval = slice(start - HISTORY_STEPS, stop)
         z = self.store
         if self.kind == "cm4":
             values = np.concatenate(
-                [z[v][interval] for v in ("uo", "vo", "thetao", "so")]
+                [z[v][interval] for v in MODEL_VARIABLES]
                 + [z["zos"][interval][:, None]],
                 axis=1,
             )
@@ -256,24 +344,26 @@ class ModelMonths:
             / self.grid["std"][:, None, None],
             0,
         ).astype(np.float32)
-        forcing = np.stack([z[n][interval] for n in ("tauuo", "tauvo", "hfds")], axis=1)
-        if not np.isfinite(forcing[:, :, self.mask[38]]).all():
+        forcing = np.stack([z[n][interval] for n in MODEL_FORCING_VARIABLES], axis=1)
+        if not np.isfinite(forcing[:, :, self.mask[TEMPERATURE_OFFSET]]).all():
             raise ValueError("Nonfinite own-model forcing on wet support")
         forcing = np.where(
-            self.mask[38],
+            self.mask[TEMPERATURE_OFFSET],
             (forcing - self.forcing_mean[:, None, None])
             / self.forcing_std[:, None, None],
             0,
         ).astype(np.float32)
 
-        def tensor(value):
+        def tensor(value: ArrayLike) -> torch.Tensor:
             return torch.as_tensor(value, device=device)
 
         return dict(
             fields=tensor(fields)[None],
             forcing=tensor(forcing)[None],
             contexts=tensor(
-                calendar_context(self.lat, self.lon, self.midpoints[start - 19 : stop])
+                calendar_context(
+                    self.lat, self.lon, self.midpoints[start - HISTORY_STEPS : stop]
+                )
             )[None],
             mask=tensor(self.mask),
             weights=tensor(np.asarray(weights, dtype=np.float32)),

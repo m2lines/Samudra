@@ -3,13 +3,13 @@
 # SPDX-License-Identifier: Apache-2.0
 """Prepare existing product stores for the observation training entrypoint.
 
-Stages (no provider downloads):
+Preparation stages:
   grid --om4 /data/OM4.zarr --output /prepared/grid.npz
   daily --source /products --grid /prepared/grid.npz --output /prepared/daily --product sst --year 1993
   months --root /prepared
 Repeat daily for sst/adt/era5/iap and each required year (1993--2014 for training
 and annual validation). Keep the daily shards: replay must recompute intervals
-on the ORIGINAL forecast-origin lattice, not concatenate rebased monthly files.
+using five-day intervals measured from the original forecast start date.
 Finally run prepare_observation_normalization.py /prepared.
 """
 
@@ -30,9 +30,19 @@ def main() -> None:
     grid = commands.add_parser("grid")
     grid.add_argument("--om4", type=Path, required=True)
     grid.add_argument("--output", type=Path, required=True)
+    grid.add_argument(
+        "--grid-geometry",
+        type=Path,
+        help="Target-grid NetCDF with lat/lon and lat_b/lon_b, required when OM4 lacks bounds",
+    )
     daily = commands.add_parser("daily")
     daily.add_argument("--source", type=Path, required=True)
     daily.add_argument("--grid", type=Path, required=True)
+    daily.add_argument(
+        "--source-grid",
+        type=Path,
+        help="Product-grid NetCDF with lat/lon and lat_b/lon_b when the product lacks bounds",
+    )
     daily.add_argument("--output", type=Path, required=True)
     daily.add_argument(
         "--product", choices=["sst", "adt", "era5", "iap"], required=True
@@ -46,7 +56,7 @@ def main() -> None:
     )
     args = parser.parse_args()
     if args.stage == "grid":
-        export_grid(args.om4, args.output)
+        export_grid(args.om4, args.output, geometry=args.grid_geometry)
     elif args.stage == "daily":
         prepare(args)
     else:

@@ -2,10 +2,11 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from collections.abc import Callable
 from typing import Literal
 
 import torch
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class CosineSchedulerConfig(BaseModel):
@@ -87,6 +88,46 @@ class CosineWithWarmupConfig(BaseModel):
         )
 
 
+class LinearCooldownSchedulerConfig(BaseModel):
+    """Reduce LR to final_lr over the supplied number of optimizer/epoch steps.
+
+    The first step already decreases LR; the last step uses final_lr. The caller
+    chooses the unit, as for the other scheduler configs, and calls step() after
+    each optimizer update (or epoch) to prepare the next learning rate.
+    """
+
+    type: Literal["linear_cooldown"] = "linear_cooldown"
+    final_lr: float = Field(gt=0)
+    target_epochs: int | None = Field(default=None, ge=1)
+
+    def build(
+        self, optimizer: torch.optim.Optimizer, epochs: int
+    ) -> torch.optim.lr_scheduler.LRScheduler:
+        steps = self.target_epochs if self.target_epochs is not None else epochs
+        if steps < 1:
+            raise ValueError("Linear cooldown requires at least one step")
+        initial_rates = [float(group["lr"]) for group in optimizer.param_groups]
+        if any(self.final_lr > rate for rate in initial_rates):
+            raise ValueError("Cooldown final_lr must not exceed the starting LR")
+        # LambdaLR uses initial_lr as its base, including across a phase change.
+        for group, rate in zip(optimizer.param_groups, initial_rates, strict=True):
+            group["initial_lr"] = rate
+
+        def decay(rate: float) -> Callable[[int], float]:
+            def factor(step: int) -> float:
+                fraction = min(step + 1, steps) / steps
+                return 1 + fraction * (self.final_lr / rate - 1)
+
+            return factor
+
+        return torch.optim.lr_scheduler.LambdaLR(
+            optimizer, lr_lambda=[decay(rate) for rate in initial_rates]
+        )
+
+
 SchedulerConfig = (
-    CosineSchedulerConfig | CosineWithTailSchedulerConfig | CosineWithWarmupConfig
+    CosineSchedulerConfig
+    | CosineWithTailSchedulerConfig
+    | CosineWithWarmupConfig
+    | LinearCooldownSchedulerConfig
 )

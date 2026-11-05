@@ -66,11 +66,11 @@ def _run_training(cfg: ObservationTrainConfig, device: torch.device) -> None:
         normalization=path("normalization"),
     )
     models = {}
-    if "om4" in MIXES[cfg.mix]:
+    if "om4" in MIXES[cfg.pretrain_mix]:
         models["om4"] = ModelMonths(
             path("om4") / "OM4.zarr", "om4", data.grid, path("om4")
         )
-    if "cm4" in MIXES[cfg.mix]:
+    if "cm4" in MIXES[cfg.pretrain_mix]:
         models["cm4"] = ModelMonths(path("cm4"), "cm4", data.grid, path("om4"))
     sources = Sources(data, models)
     manifest = run_manifest(cfg, data, sources)
@@ -90,6 +90,7 @@ def _run_training(cfg: ObservationTrainConfig, device: torch.device) -> None:
         optimizer,
         sources.names,
         cfg.experiment.rand_seed,
+        config=cfg,
         ema_decay=cfg.ema_decay,
         faster_decay_at_start=cfg.faster_decay_at_start,
         replay_per_month=cfg.replay.per_month,

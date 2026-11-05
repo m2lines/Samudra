@@ -1,21 +1,26 @@
 #!/usr/bin/env python3
 # SPDX-FileCopyrightText: 2026 Samudra Authors
 # SPDX-License-Identifier: Apache-2.0
-"""Fit and record the shared observation-only normalization, separately from training.
+"""Fit and record an observation-derived normalization.
 
-Run from the repository with the existing data environment:
-  PYTHONPATH=src data/.venv/bin/python data/prepare_observation_normalization.py PREPARED_ROOT
-Only the 243 May 1993--July 2013 training samples enter these statistics. Repeated
-history intervals retain the original weighting; finite wet cells at ALL latitudes
-contribute. Historical latitude-restricted artifacts must be regenerated.
+Run from the repository with the data environment:
+  PYTHONPATH=src python data/prepare_observation_normalization.py PREPARED_ROOT
+The May 1993--July 2013 training samples supply temperature, salinity, SSH and
+ERA5 statistics over finite wet cells globally, including repeated input histories.
+Velocity has no matching observed 3-D field: its state slots use mean zero and
+standard deviation one. Deeper T/S slots repeat the deepest observed scales.
+Model wind stress and heat flux are normalized separately using OM4 statistics.
 """
 
 import argparse
 import hashlib
 import json
+from collections.abc import Mapping
 from pathlib import Path
 
 import numpy as np
+import xarray as xr
+from numpy.typing import NDArray
 
 from samudra.observations.archive import (
     NORMALIZATION_POLICY,
@@ -26,41 +31,48 @@ from samudra.observations.archive import (
 from samudra.observations.constants import (
     MODEL_DEPTHS,
     OBSERVED_DEPTHS,
-    SALINITY_OFFSET,
-    STATE_CHANNELS,
-    SURFACE_CHANNELS,
-    TEMPERATURE_OFFSET,
+    PROFILE_NAMES,
+    PROFILE_VARIABLES,
+    STATE_NAMES,
+    SURFACE_NAMES,
 )
-from samudra.observations.prepare import save_atomic
 
 
-def state_statistics(statistics):
-    """Original U-global conventions for all 77 channels, including unobserved ones."""
-    mean = np.zeros(STATE_CHANNELS, dtype=np.float32)
-    std = np.ones(STATE_CHANNELS, dtype=np.float32)
-    for offset, group in ((TEMPERATURE_OFFSET, 0), (SALINITY_OFFSET, 1)):
-        mean[offset : offset + OBSERVED_DEPTHS] = statistics["interior_mean"][
-            group * OBSERVED_DEPTHS : (group + 1) * OBSERVED_DEPTHS
-        ]
-        std[offset : offset + OBSERVED_DEPTHS] = statistics["interior_std"][
-            group * OBSERVED_DEPTHS : (group + 1) * OBSERVED_DEPTHS
-        ]
-        mean[offset + OBSERVED_DEPTHS : offset + MODEL_DEPTHS] = mean[
-            offset + OBSERVED_DEPTHS - 1
-        ]
-        std[offset + OBSERVED_DEPTHS : offset + MODEL_DEPTHS] = std[
-            offset + OBSERVED_DEPTHS - 1
-        ]
-    mean[SURFACE_CHANNELS], std[SURFACE_CHANNELS] = (
-        statistics["surface_mean"],
-        statistics["surface_std"],
-    )
-    if not np.isfinite(mean).all() or not np.isfinite(std).all() or not (std > 0).all():
+def state_statistics(
+    statistics: Mapping[str, NDArray],
+) -> tuple[NDArray[np.float32], NDArray[np.float32]]:
+    """Map observed field names into the complete physical-state channel layout.
+
+    U/V use zero/unit reference scales; deeper T/S repeat the deepest observed
+    profile level. Surface OISST replaces the profile surface-temperature scale.
+    Shared channel names keep preprocessing independent of Torch's DataLayout
+    tensors while using the same canonical field ordering.
+    """
+    mean = dict.fromkeys(STATE_NAMES, 0.0)
+    std = dict.fromkeys(STATE_NAMES, 1.0)
+    for channel, name in enumerate(PROFILE_NAMES):
+        mean[name] = float(statistics["interior_mean"][channel])
+        std[name] = float(statistics["interior_std"][channel])
+    for variable in PROFILE_VARIABLES:
+        deepest = f"{variable}_{OBSERVED_DEPTHS - 1}"
+        for depth in range(OBSERVED_DEPTHS, MODEL_DEPTHS):
+            mean[f"{variable}_{depth}"] = mean[deepest]
+            std[f"{variable}_{depth}"] = std[deepest]
+    for channel, name in enumerate(SURFACE_NAMES):
+        mean[name] = float(statistics["surface_mean"][channel])
+        std[name] = float(statistics["surface_std"][channel])
+    means = np.array([mean[name] for name in STATE_NAMES], dtype=np.float32)
+    stds = np.array([std[name] for name in STATE_NAMES], dtype=np.float32)
+    if (
+        not np.isfinite(means).all()
+        or not np.isfinite(stds).all()
+        or not (stds > 0).all()
+    ):
         raise ValueError("Invalid observation state scales")
-    return mean, std
+    return means, stds
 
 
-def prepare_normalization(root, output=None):
+def prepare_normalization(root: str | Path, output: str | Path | None = None) -> None:
     root = Path(root)
     output = Path(output) if output is not None else root
     output.mkdir(parents=True, exist_ok=True)
@@ -68,11 +80,29 @@ def prepare_normalization(root, output=None):
         fit_statistics(root / "train", dict(grid), output / "statistics.npz")
     with np.load(output / "statistics.npz") as stats:
         mean, std = state_statistics(stats)
-    save_atomic(output / "normalization.npz", state_mean=mean, state_std=std)
+    stores = [output / "observation_means.zarr", output / "observation_stds.zarr"]
+    for path, values in zip(stores, (mean, std), strict=True):
+        dataset = xr.Dataset(
+            {
+                name: xr.DataArray(value)
+                for name, value in zip(STATE_NAMES, values, strict=True)
+            }
+        )
+        dataset.attrs.update(
+            normalization_source="observation training cohort",
+            normalization_version=NORMALIZATION_VERSION,
+        )
+        dataset.to_zarr(path, mode="w", consolidated=True)
+
     paths = [
         root / "grid.npz",
         output / "statistics.npz",
-        output / "normalization.npz",
+        *(
+            path
+            for store in stores
+            for path in sorted(store.rglob("*"))
+            if path.is_file()
+        ),
         *sorted((root / "train").glob("*.npz")),
     ]
     hashes = {

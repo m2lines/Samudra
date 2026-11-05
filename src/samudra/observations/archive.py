@@ -11,17 +11,21 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
+from numpy.typing import ArrayLike, NDArray
 
 from samudra.observations.constants import (
     FORECAST_STEPS,
     HISTORY_DAYS,
     HISTORY_STEPS,
+    OBSERVATION_FORCING_CHANNELS,
     OBSERVED_DEPTHS,
-    SALINITY_OFFSET,
+    PROFILE_NAMES,
+    STATE_NAMES,
     STEP_DAYS,
     SURFACE_CHANNELS,
-    TEMPERATURE_OFFSET,
+    SURFACE_NAMES,
 )
+from samudra.observations.sample_types import RawSample
 
 SPLITS = {
     "train": ("1993-05", "2013-07"),
@@ -29,8 +33,6 @@ SPLITS = {
     "test": ("2015-01", "2022-12"),
 }
 
-# Version 1/prototype artifacts fitted only within 60 degrees of the equator.
-# Version 2 is deliberately incompatible: all sources use the global obs scales.
 NORMALIZATION_VERSION = 2
 NORMALIZATION_POLICY = {
     "spatial_domain": "global",
@@ -42,7 +44,7 @@ NORMALIZATION_POLICY = {
 
 
 def validate_normalization_policy(metadata: Mapping[str, Any]) -> None:
-    """Reject historical latitude-restricted or unspecified normalization artifacts."""
+    """Require global finite-wet statistics for the declared training cohort."""
     if (
         metadata.get("normalization_version") != NORMALIZATION_VERSION
         or metadata.get("normalization_policy") != NORMALIZATION_POLICY
@@ -54,7 +56,9 @@ def validate_normalization_policy(metadata: Mapping[str, Any]) -> None:
         )
 
 
-def month_intervals(month):
+def month_intervals(
+    month: str | pd.Timestamp,
+) -> tuple[pd.DatetimeIndex, pd.DatetimeIndex, NDArray[np.float32]]:
     """Nineteen historical bins and 6/7 forecast bins, as half-open day intervals."""
     origin = pd.Timestamp(month)
     if origin.day != 1 or origin != origin.normalize():
@@ -81,7 +85,7 @@ def month_intervals(month):
     return starts, ends, overlap / overlap.sum()
 
 
-def strict_mean(values):
+def strict_mean(values: NDArray) -> NDArray[np.float32]:
     """No invented labels from incomplete temporal support."""
     valid = np.isfinite(values).all(axis=0)
     mean = np.where(np.isfinite(values), values, 0).mean(axis=0)
@@ -89,12 +93,12 @@ def strict_mean(values):
 
 
 class ObservationArchive:
-    def __init__(self, root):
+    def __init__(self, root: str | Path) -> None:
         self.root = Path(root)
         self.grid = dict(np.load(self.root / "grid.npz"))
 
     @lru_cache(maxsize=128)
-    def day(self, product, date):
+    def day(self, product: str, date: str | pd.Timestamp) -> NDArray:
         stamp = pd.Timestamp(date)
         path = (
             self.root
@@ -105,7 +109,9 @@ class ObservationArchive:
         with np.load(path) as saved:
             return saved["values"]
 
-    def interval(self, product, start, end):
+    def interval(
+        self, product: str, start: pd.Timestamp, end: pd.Timestamp
+    ) -> NDArray[np.float32]:
         dates = pd.date_range(start, end - pd.Timedelta(days=1), freq="D")
         if len(dates) != STEP_DAYS:
             raise ValueError(
@@ -115,7 +121,7 @@ class ObservationArchive:
             np.stack([self.day(product, str(day.date())) for day in dates])
         )
 
-    def sample(self, month):
+    def sample(self, month: str | pd.Timestamp) -> RawSample:
         starts, ends, month_weights = month_intervals(month)
         surface, atmosphere, velocity = [], [], []
         for start, end in zip(starts, ends, strict=True):
@@ -129,7 +135,7 @@ class ObservationArchive:
         ) as saved:
             interior = saved["values"]
             ohc = saved["ohc"]
-        return dict(
+        return RawSample(
             surface=np.stack(surface),
             atmosphere=np.stack(atmosphere),
             velocity=np.stack(velocity),
@@ -142,7 +148,7 @@ class ObservationArchive:
             origin=np.array(stamp.isoformat()),
         )
 
-    def materialize(self, split, output):
+    def materialize(self, split: str, output: str | Path) -> None:
         """Fail loudly on incomplete source coverage; no silent sample rejection."""
         from samudra.observations.prepare import save_atomic
 
@@ -154,7 +160,9 @@ class ObservationArchive:
             save_atomic(path, **sample)
 
 
-def context_planes(lat, lon, midpoints):
+def context_planes(
+    lat: ArrayLike, lon: ArrayLike, midpoints: ArrayLike
+) -> NDArray[np.float32]:
     """Spherical geography and seasonal phase at each interval midpoint."""
     latitude, longitude = np.meshgrid(np.deg2rad(lat), np.deg2rad(lon), indexing="ij")
     xyz = np.stack(
@@ -165,7 +173,7 @@ def context_planes(lat, lon, midpoints):
         ]
     )
     result = []
-    for midpoint in pd.DatetimeIndex(midpoints):
+    for midpoint in pd.DatetimeIndex(np.asarray(midpoints)):
         year_start = pd.Timestamp(year=midpoint.year, month=1, day=1)
         next_year = pd.Timestamp(year=midpoint.year + 1, month=1, day=1)
         phase = 2 * np.pi * (midpoint - year_start) / (next_year - year_start)
@@ -177,8 +185,10 @@ def context_planes(lat, lon, midpoints):
     return np.array(result, dtype=np.float32)
 
 
-def fit_statistics(samples, grid, output):
-    """Global finite-wet statistics with unchanged repeated-history sample weighting.
+def fit_statistics(
+    samples: str | Path, grid: Mapping[str, NDArray], output: str | Path
+) -> None:
+    """Global finite-wet statistics, including repeated input history intervals.
 
     Each channel uses its actual wet support. Missing observations never become
     zeros or labels, and no latitude cutoff excludes observed polar ocean cells.
@@ -190,14 +200,10 @@ def fit_statistics(samples, grid, output):
         raise ValueError("Invalid latitude coordinates")
     area = np.cos(np.deg2rad(lat))[:, None]
     h, w = mask.shape[-2:]
-    profile_indices = [
-        offset + depth
-        for offset in (TEMPERATURE_OFFSET, SALINITY_OFFSET)
-        for depth in range(OBSERVED_DEPTHS)
-    ]
+    profile_indices = [STATE_NAMES.index(name) for name in PROFILE_NAMES]
     support = {
-        "surface": mask[SURFACE_CHANNELS],
-        "atmosphere": mask[TEMPERATURE_OFFSET][None],
+        "surface": mask[list(SURFACE_CHANNELS)],
+        "atmosphere": mask[STATE_NAMES.index(SURFACE_NAMES[0])][None],
         "interior": mask[profile_indices],
     }
     paths = sorted(Path(samples).glob("*.npz"))
@@ -206,11 +212,11 @@ def fit_statistics(samples, grid, output):
         raise ValueError(
             "Normalization requires the complete May 1993-July 2013 training cohort"
         )
-    climatology_sum = np.zeros((12, 2, h, w), dtype=np.float64)
+    climatology_sum = np.zeros((12, len(SURFACE_NAMES), h, w), dtype=np.float64)
     climatology_count = np.zeros_like(climatology_sum)
     moments = {
-        "surface": np.zeros((3, 2)),
-        "atmosphere": np.zeros((3, 8)),
+        "surface": np.zeros((3, len(SURFACE_NAMES))),
+        "atmosphere": np.zeros((3, OBSERVATION_FORCING_CHANNELS)),
         "interior": np.zeros((3, 2 * OBSERVED_DEPTHS)),
     }
     count = 0
@@ -252,7 +258,7 @@ def fit_statistics(samples, grid, output):
     # Entirely unobserved input cells use a training-only monthly ocean mean.
     # They always retain validity=0 and never become labels.
     for month_index in range(12):
-        for channel in range(2):
+        for channel in range(len(SURFACE_NAMES)):
             field = climatology[month_index, channel]
             valid = np.isfinite(field) & support["surface"][channel]
             denominator = np.sum(valid * area)
@@ -267,7 +273,14 @@ def fit_statistics(samples, grid, output):
     save_atomic(Path(output), **result)
 
 
-def trajectory(archive, origin, *, target_month=None, steps=None, split="train"):
+def trajectory(
+    archive: ObservationArchive,
+    origin: str | pd.Timestamp,
+    *,
+    target_month: str | pd.Timestamp | None = None,
+    steps: int | None = None,
+    split: str = "train",
+) -> RawSample:
     """Read a small trajectory with five-day bins anchored at its original origin.
 
     Monthly replay recomputes the boundary-straddling bin. Its two-state snapshot
@@ -283,6 +296,7 @@ def trajectory(archive, origin, *, target_month=None, steps=None, split="train")
         start, stop, next_start = replay_month(origin, first)
         last = first + pd.offsets.MonthBegin()
     else:
+        assert steps is not None
         if steps < 1 or steps > FORECAST_STEPS:
             raise ValueError("Annual trajectories require 1..73 steps")
         first = origin
@@ -338,11 +352,13 @@ def trajectory(archive, origin, *, target_month=None, steps=None, split="train")
             ohcs.append(saved["ohc"])
         months.append(str(month))
         weights.append(
-            calendar_weights(starts[HISTORY_STEPS:], ends[HISTORY_STEPS:], a, b)
+            calendar_weights(
+                list(starts[HISTORY_STEPS:]), list(ends[HISTORY_STEPS:]), a, b
+            )
         )
     if not months:
         raise ValueError("Trajectory contains no complete monthly target")
-    return dict(
+    return RawSample(
         surface=np.stack(surface),
         atmosphere=np.stack(atmosphere),
         velocity=np.stack(velocity),

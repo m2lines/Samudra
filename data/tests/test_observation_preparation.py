@@ -9,6 +9,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import pytest
 import xarray as xr
 import zarr
 from ocean_preprocessing.vertical_grid import OM4_DEPTH_LEVELS
@@ -40,6 +41,8 @@ def test_grid_daily_and_months_entrypoints_in_data_environment(tmp_path):
     lat, lon = np.array([-45.0, 45.0]), np.array([45.0, 135.0, 225.0, 315.0])
     native = zarr.open_group(str(tmp_path / "OM4.zarr"), mode="w")
     native["y"], native["x"] = lat, lon
+    native["lat_b"] = np.array([-90, 0, 90])
+    native["lon_b"] = np.arange(0, 361, 90)
     for depth in range(19):
         native[f"mask_{depth}"] = np.ones((2, 4), dtype=bool)
     zarr.consolidate_metadata(str(tmp_path / "OM4.zarr"))
@@ -58,7 +61,13 @@ def test_grid_daily_and_months_entrypoints_in_data_environment(tmp_path):
     products = tmp_path / "products"
     xr.Dataset(
         {"sst": (("time", "lat", "lon"), np.full((2, 2, 4), 7.0, dtype=np.float32))},
-        coords={"time": pd.date_range("2013-10-01", periods=2), "lat": lat, "lon": lon},
+        coords={
+            "time": pd.date_range("2013-10-01", periods=2),
+            "lat": lat,
+            "lon": lon,
+            "lat_b": [-90, 0, 90],
+            "lon_b": np.arange(0, 361, 90),
+        },
     ).to_zarr(products / "oisst.zarr", consolidated=True)
     run_preparation(
         "daily",
@@ -92,6 +101,8 @@ def test_grid_daily_and_months_entrypoints_in_data_environment(tmp_path):
             "depth": OM4_DEPTH_LEVELS[:14],
             "lat": lat,
             "lon": lon,
+            "lat_b": [-90, 0, 90],
+            "lon_b": np.arange(0, 361, 90),
         },
     ).to_zarr(products / "argo-iap.zarr", consolidated=True)
     run_preparation(
@@ -132,3 +143,42 @@ def test_grid_daily_and_months_entrypoints_in_data_environment(tmp_path):
     with np.load(output / "validation/2013-11.npz") as sample:
         assert sample["surface"].shape == (25, 2, 2, 4)
         np.testing.assert_allclose(sample["month_weights"].sum(), 1)
+
+
+def test_grid_export_copies_explicit_bounds_and_requires_geometry_when_missing(
+    tmp_path,
+):
+    from samudra.observations.grid import export_grid
+
+    store_path = tmp_path / "OM4.zarr"
+    store = zarr.open_group(str(store_path), mode="w")
+    store["y"] = np.array([-45.0, 45.0])
+    store["x"] = np.array([90.0, 270.0])
+    for depth in range(len(OM4_DEPTH_LEVELS)):
+        store[f"mask_{depth}"] = np.ones((2, 2), dtype=bool)
+    zarr.consolidate_metadata(str(store_path))
+    output = tmp_path / "grid.npz"
+    with pytest.raises(ValueError, match="grid-geometry"):
+        export_grid(store_path, output)
+    geometry = xr.Dataset(
+        coords={
+            "lat": [-45.0, 45.0],
+            "lon": [90.0, 270.0],
+            "lat_b": [-90.0, -5.0, 90.0],
+            "lon_b": [0.0, 180.0, 360.0],
+        }
+    )
+    geometry_path = tmp_path / "target-grid.nc"
+    geometry.to_netcdf(geometry_path)
+    export_grid(store_path, output, geometry=geometry_path)
+    with np.load(output) as grid:
+        np.testing.assert_array_equal(grid["lat_b"], [-90, -5, 90])
+        np.testing.assert_array_equal(grid["lon_b"], [0, 180, 360])
+    geometry.assign_coords(lat=[-40.0, 40.0]).to_netcdf(geometry_path)
+    with pytest.raises(AssertionError):
+        export_grid(store_path, output, geometry=geometry_path)
+    store["lat_b"], store["lon_b"] = geometry.lat_b.values, geometry.lon_b.values
+    zarr.consolidate_metadata(str(store_path))
+    run_preparation("grid", "--om4", str(store_path), "--output", str(output))
+    with np.load(output) as grid:
+        np.testing.assert_array_equal(grid["lat_b"], geometry.lat_b.values)

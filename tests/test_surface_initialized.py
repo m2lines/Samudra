@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Samudra Authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Small CPU checks of the U-global architecture and replay boundary."""
+"""Small CPU checks of the surface-initialized architecture and replay boundary."""
 
 from pathlib import Path
 
@@ -10,7 +10,7 @@ import torch
 import yaml
 from torch import nn
 
-from samudra.config import UNetBackboneConfig
+from samudra.config import BlockConfig, UNetBackboneConfig
 from samudra.models.surface_initialized import (
     SurfaceInitializedConfig,
     SurfaceInitializedModel,
@@ -23,6 +23,7 @@ from samudra.observations.losses import (
     corrupt_sample,
     structured_visibility,
 )
+from samudra.observations.sample_types import ObservationSample
 
 NAMES = ["thetao_0", "thetao_1", "so_0", "uo_0", "vo_0", "zos"]
 
@@ -55,13 +56,24 @@ def example(task="observation", steps=3):
     return surface, forcing, contexts, mask, validity
 
 
-def network(checkpointing=False):
-    return SurfaceInitializedModel(
-        NAMES, widths=(4,), activation_checkpointing=checkpointing
+def tiny_backbone() -> UNetBackboneConfig:
+    return UNetBackboneConfig(
+        ch_width=[4],
+        dilation=[1],
+        n_layers=[1],
+        core_block=BlockConfig(
+            norm="instance", instance_norm_affine=True, upscale_factor=2
+        ),
     )
 
 
-@pytest.mark.parametrize("task", ["observation", "om4"])
+def network(checkpointing=False):
+    return SurfaceInitializedModel(
+        NAMES, backbone=tiny_backbone(), activation_checkpointing=checkpointing
+    )
+
+
+@pytest.mark.parametrize("task", ["observation", "om4-family"])
 def test_continuation_matches_uninterrupted_and_never_uses_future_surface(task):
     torch.manual_seed(11)
     model = network().eval()
@@ -145,12 +157,15 @@ def test_geometry_and_original_branches_have_gradients():
 
 def test_native_forcing_bypasses_era5_adapter():
     model = network()
-    surface, forcing, contexts, mask, valid = example("om4", steps=1)
-    forecast, initial = model.forecast(surface, forcing, contexts, mask, valid, "om4")
+    surface, forcing, contexts, mask, valid = example("om4-family", steps=1)
+    forecast, initial = model.forecast(
+        surface, forcing, contexts, mask, valid, "om4-family"
+    )
     (forecast.square().mean() + initial.square().mean()).backward()
     assert all(p.grad is None for p in model.adapter.parameters())
     assert any(
-        p.grad is not None for p in model.initializer.input_adapters["om4"].parameters()
+        p.grad is not None
+        for p in model.initializer.input_adapters["om4-family"].parameters()
     )
     with pytest.raises(ValueError, match="requires 8 channels"):
         model.forcing(forcing, "observation")
@@ -158,7 +173,7 @@ def test_native_forcing_bypasses_era5_adapter():
 
 def test_corruption_is_reproducible_does_not_change_targets_or_rng():
     surface, _, _, _, validity = example()
-    sample = {"surface": surface, "validity": validity}
+    sample: ObservationSample = {"surface": surface, "validity": validity}
     state = torch.get_rng_state()
     corrupted = corrupt_sample(sample, seed=42)
     assert torch.equal(state, torch.get_rng_state())
@@ -214,7 +229,9 @@ def test_physical_state_has_all_77_channels_without_extra_memory():
         for variable in ("thetao", "so", "uo", "vo")
         for level in range(19)
     ] + ["zos"]
-    model = SurfaceInitializedModel(names, widths=(4,), activation_checkpointing=False)
+    model = SurfaceInitializedModel(
+        names, backbone=tiny_backbone(), activation_checkpointing=False
+    )
     surface, atmosphere, contexts, _, valid = example(steps=1)
     mask = torch.ones(77, *surface.shape[-2:], dtype=torch.bool)
     with torch.no_grad():
@@ -254,3 +271,35 @@ def test_model_preset_builds_shared_backbone_config_and_applies_overrides():
 def test_model_config_rejects_invalid_backbone_before_building(backbone):
     with pytest.raises(ValueError):
         SurfaceInitializedConfig(backbone=backbone)
+
+
+def test_backbone_config_is_required():
+    with pytest.raises(ValueError, match="backbone"):
+        SurfaceInitializedConfig.model_validate({})
+
+
+def test_shared_instance_norm_affine_defaults_and_override():
+    for affine in (False, True):
+        config = BlockConfig(norm="instance", instance_norm_affine=affine)
+        block = config.build()(4, 4, 1, 1, "constant", False)
+        norms = [
+            layer for layer in block.modules() if isinstance(layer, nn.InstanceNorm2d)
+        ]
+        assert norms and all(layer.affine is affine for layer in norms)
+    assert BlockConfig().instance_norm_affine is False
+
+
+def test_regional_padding_is_forwarded_to_both_backbones():
+    from samudra.models.modules.blocks import CoreBlock
+    from samudra.models.modules.unet_backbone import UNetBackbone
+
+    config = SurfaceInitializedConfig(backbone=tiny_backbone(), pad="constant")
+    model = config.build(NAMES).eval()
+    for layer in model.modules():
+        if isinstance(layer, (CoreBlock, UNetBackbone)):
+            assert layer.pad == "constant"
+    with torch.no_grad():
+        output = model.forecast(*example(steps=1))
+    assert output.predictions.shape[1] == 1
+    assert output.initial_states.shape[1] == 2
+    assert torch.isfinite(output.predictions).all()

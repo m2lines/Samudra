@@ -2,14 +2,19 @@
 # SPDX-License-Identifier: Apache-2.0
 """Shared ESMF conservative weights and explicit observational finite coverage."""
 
-from typing import Any
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 import numpy as np
 import xarray as xr
 from numpy.typing import ArrayLike, NDArray
 
+if TYPE_CHECKING:
+    from xesmf import Regridder
 
-def conservative_regridder(source: xr.Dataset, target: xr.Dataset) -> Any:
+
+def conservative_regridder(source: xr.Dataset, target: xr.Dataset) -> Regridder:
     """Build the same float64 ESMF weights for model and observation preparation.
 
     Source masks are deliberately not passed into ESMF: conservative weights use
@@ -34,40 +39,36 @@ def conservative_regridder(source: xr.Dataset, target: xr.Dataset) -> Any:
     )
 
 
-def global_cell_bounds(
-    centers: ArrayLike, *, latitude: bool = False
-) -> NDArray[np.float64]:
-    """Midpoint cell edges in degrees, including polar caps and the cyclic seam."""
-    centers = np.asarray(centers, dtype=np.float64)
-    if (
-        centers.ndim != 1
-        or len(centers) < 2
-        or not np.isfinite(centers).all()
-        or not np.all(np.diff(centers) > 0)
-    ):
-        raise ValueError("Coordinates must be finite and strictly increasing")
-    edges = np.r_[
-        centers[0] - (centers[1] - centers[0]) / 2,
-        (centers[:-1] + centers[1:]) / 2,
-        centers[-1] + (centers[-1] - centers[-2]) / 2,
-    ]
-    if latitude:
-        if centers[0] < -90 or centers[-1] > 90:
-            raise ValueError("Latitude is outside the sphere")
-        edges = np.clip(edges, -90, 90)
-        edges[0], edges[-1] = -90, 90
-    elif not np.isclose(edges[-1] - edges[0], 360, rtol=0, atol=1e-6):
-        raise ValueError("Expected a complete global longitude axis")
-    return edges
-
-
-def rectilinear_global_grid(lat: ArrayLike, lon: ArrayLike) -> xr.Dataset:
+def rectilinear_grid(
+    lat: ArrayLike, lon: ArrayLike, lat_b: ArrayLike, lon_b: ArrayLike
+) -> xr.Dataset:
+    """Build xESMF coordinates from explicit centers and cell boundaries."""
+    lat, lon = np.asarray(lat), np.asarray(lon)
+    lat_b, lon_b = np.asarray(lat_b), np.asarray(lon_b)
+    if lat.ndim != 1 or lon.ndim != 1:
+        raise ValueError(
+            "Observation preparation requires one-dimensional latitude/longitude axes"
+        )
+    if lat_b.ndim == lon_b.ndim == 1:
+        if lat_b.size != lat.size + 1 or lon_b.size != lon.size + 1:
+            raise ValueError("Cell bounds must have one more edge than centers")
+        return xr.Dataset(
+            coords={
+                "lat": ("y", lat),
+                "lon": ("x", lon),
+                "lat_b": ("y_b", lat_b),
+                "lon_b": ("x_b", lon_b),
+            }
+        )
+    shape = (lat.size + 1, lon.size + 1)
+    if lat_b.shape != shape or lon_b.shape != shape:
+        raise ValueError("Two-dimensional cell bounds must describe every cell corner")
     return xr.Dataset(
         coords={
-            "lat": ("lat", np.asarray(lat, dtype=np.float64)),
-            "lon": ("lon", np.asarray(lon, dtype=np.float64)),
-            "lat_b": ("lat_b", global_cell_bounds(lat, latitude=True)),
-            "lon_b": ("lon_b", global_cell_bounds(lon)),
+            "lat": (("y", "x"), np.broadcast_to(lat[:, None], (lat.size, lon.size))),
+            "lon": (("y", "x"), np.broadcast_to(lon[None, :], (lat.size, lon.size))),
+            "lat_b": (("y_b", "x_b"), lat_b),
+            "lon_b": (("y_b", "x_b"), lon_b),
         }
     )
 
@@ -83,17 +84,28 @@ class FiniteCoverageRemap:
 
     def __init__(
         self,
-        lat: ArrayLike,
-        lon: ArrayLike,
-        target_lat: ArrayLike,
-        target_lon: ArrayLike,
+        source: xr.Dataset,
+        target: xr.Dataset,
     ) -> None:
-        self.source_shape = (len(np.asarray(lat)), len(np.asarray(lon)))
-        self.shape = (len(np.asarray(target_lat)), len(np.asarray(target_lon)))
-        self.regridder = conservative_regridder(
-            rectilinear_global_grid(lat, lon),
-            rectilinear_global_grid(target_lat, target_lon),
+        # Bounds are supplied by the source product and model-grid metadata.
+        # A center coordinate does not uniquely define its cell boundaries.
+        for grid in (source, target):
+            for name in ("lat", "lon", "lat_b", "lon_b"):
+                if name not in grid:
+                    raise ValueError(f"Grid requires explicit {name} coordinates")
+                if not np.isfinite(grid[name]).all():
+                    raise ValueError(f"Grid coordinate {name} must be finite")
+        self.source_shape = (
+            tuple(source["lat"].shape)
+            if source.lat.ndim == 2
+            else (source.lat.size, source.lon.size)
         )
+        self.shape = (
+            tuple(target["lat"].shape)
+            if target.lat.ndim == 2
+            else (target.lat.size, target.lon.size)
+        )
+        self.regridder = conservative_regridder(source, target)
 
     def __call__(
         self, values: ArrayLike, min_coverage: float = 0.9

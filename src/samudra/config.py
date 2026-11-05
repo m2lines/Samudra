@@ -718,6 +718,7 @@ class BlockConfig(BaseConfig):
     activation: ActivationType = "capped_gelu"
     upscale_factor: int = 4
     norm: NormType = "batch"
+    instance_norm_affine: bool = False
     pointwise_linear: bool = False
 
     def build(self) -> CoreBlockBuilder:
@@ -762,6 +763,7 @@ class BlockConfig(BaseConfig):
                         kernel_size=self.kernel_size,
                         upscale_factor=self.upscale_factor,
                         norm=self.norm,
+                        instance_norm_affine=self.instance_norm_affine,
                         activation=activation,
                         pointwise_linear=self.pointwise_linear,
                     )

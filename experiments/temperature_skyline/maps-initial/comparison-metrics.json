@@ -15,6 +15,8 @@
       360
     ],
     "pixels_per_sample": 2,
+    "context_native_cells": 33,
+    "context_size_pixels": 16.5,
     "panel_origins": [
       [
         260,
@@ -55,6 +57,8 @@
       360
     ],
     "pixels_per_sample": 2,
+    "context_native_cells": 33,
+    "context_size_pixels": 16.5,
     "panel_origins": [
       [
         260,
@@ -95,6 +99,8 @@
       360
     ],
     "pixels_per_sample": 2,
+    "context_native_cells": 33,
+    "context_size_pixels": 16.5,
     "panel_origins": [
       [
         260,
@@ -135,6 +141,8 @@
       120
     ],
     "pixels_per_sample": 2,
+    "context_native_cells": 33,
+    "context_size_pixels": 66.0,
     "panel_origins": [
       [
         180,
@@ -155,86 +163,6 @@
       [
         1300,
         200
-      ]
-    ],
-    "figure": "comparison-regional.png"
-  },
-  {
-    "region": "Gulf Stream",
-    "depth_m": 2.5,
-    "points": 6400,
-    "regression_rmse_c": 0.5480552397097846,
-    "samudra_rmse_c": 0.32949540785716286,
-    "temperature_limits_c": [
-      12.306662225723267,
-      28.784920425415034
-    ],
-    "error_limit_c": 1.4003185939788825,
-    "shape": [
-      80,
-      80
-    ],
-    "pixels_per_sample": 2,
-    "panel_origins": [
-      [
-        220,
-        440
-      ],
-      [
-        500,
-        440
-      ],
-      [
-        780,
-        440
-      ],
-      [
-        1060,
-        440
-      ],
-      [
-        1340,
-        440
-      ]
-    ],
-    "figure": "comparison-regional.png"
-  },
-  {
-    "region": "Agulhas",
-    "depth_m": 2.5,
-    "points": 6400,
-    "regression_rmse_c": 0.27399400650889855,
-    "samudra_rmse_c": 0.35647025407619487,
-    "temperature_limits_c": [
-      3.457775077819824,
-      21.08535072326659
-    ],
-    "error_limit_c": 1.3081054162979147,
-    "shape": [
-      80,
-      80
-    ],
-    "pixels_per_sample": 2,
-    "panel_origins": [
-      [
-        220,
-        680
-      ],
-      [
-        500,
-        680
-      ],
-      [
-        780,
-        680
-      ],
-      [
-        1060,
-        680
-      ],
-      [
-        1340,
-        680
       ]
     ],
     "figure": "comparison-regional.png"
@@ -255,25 +183,111 @@
       120
     ],
     "pixels_per_sample": 2,
+    "context_native_cells": 33,
+    "context_size_pixels": 66.0,
     "panel_origins": [
       [
         180,
-        920
+        440
       ],
       [
         460,
-        920
+        440
       ],
       [
         740,
-        920
+        440
       ],
       [
         1020,
-        920
+        440
       ],
       [
         1300,
+        440
+      ]
+    ],
+    "figure": "comparison-regional.png"
+  },
+  {
+    "region": "North Pacific",
+    "depth_m": 1850.0,
+    "points": 9581,
+    "regression_rmse_c": 0.006884961944071665,
+    "samudra_rmse_c": 0.019823329269898323,
+    "temperature_limits_c": [
+      1.8495800971984864,
+      2.0596489906311035
+    ],
+    "error_limit_c": 0.0448868453502655,
+    "shape": [
+      80,
+      120
+    ],
+    "pixels_per_sample": 2,
+    "context_native_cells": 33,
+    "context_size_pixels": 66.0,
+    "panel_origins": [
+      [
+        180,
+        680
+      ],
+      [
+        460,
+        680
+      ],
+      [
+        740,
+        680
+      ],
+      [
+        1020,
+        680
+      ],
+      [
+        1300,
+        680
+      ]
+    ],
+    "figure": "comparison-regional.png"
+  },
+  {
+    "region": "Gulf Stream",
+    "depth_m": 2.5,
+    "points": 6400,
+    "regression_rmse_c": 0.5480552397097846,
+    "samudra_rmse_c": 0.32949540785716286,
+    "temperature_limits_c": [
+      12.306662225723267,
+      28.784920425415034
+    ],
+    "error_limit_c": 1.4003185939788825,
+    "shape": [
+      80,
+      80
+    ],
+    "pixels_per_sample": 2,
+    "context_native_cells": 33,
+    "context_size_pixels": 66.0,
+    "panel_origins": [
+      [
+        220,
+        920
+      ],
+      [
+        500,
+        920
+      ],
+      [
+        780,
+        920
+      ],
+      [
+        1060,
+        920
+      ],
+      [
+        1340,
         920
       ]
     ],
@@ -295,6 +309,8 @@
       80
     ],
     "pixels_per_sample": 2,
+    "context_native_cells": 33,
+    "context_size_pixels": 66.0,
     "panel_origins": [
       [
         220,
@@ -315,86 +331,6 @@
       [
         1340,
         1160
-      ]
-    ],
-    "figure": "comparison-regional.png"
-  },
-  {
-    "region": "Agulhas",
-    "depth_m": 250.0,
-    "points": 6398,
-    "regression_rmse_c": 0.2740589517903103,
-    "samudra_rmse_c": 0.2077264589365987,
-    "temperature_limits_c": [
-      2.6673581314086916,
-      15.238476638793946
-    ],
-    "error_limit_c": 1.0652251243591282,
-    "shape": [
-      80,
-      80
-    ],
-    "pixels_per_sample": 2,
-    "panel_origins": [
-      [
-        220,
-        1400
-      ],
-      [
-        500,
-        1400
-      ],
-      [
-        780,
-        1400
-      ],
-      [
-        1060,
-        1400
-      ],
-      [
-        1340,
-        1400
-      ]
-    ],
-    "figure": "comparison-regional.png"
-  },
-  {
-    "region": "North Pacific",
-    "depth_m": 1850.0,
-    "points": 9581,
-    "regression_rmse_c": 0.006884961944071665,
-    "samudra_rmse_c": 0.019823329269898323,
-    "temperature_limits_c": [
-      1.8495800971984864,
-      2.0596489906311035
-    ],
-    "error_limit_c": 0.0448868453502655,
-    "shape": [
-      80,
-      120
-    ],
-    "pixels_per_sample": 2,
-    "panel_origins": [
-      [
-        180,
-        1640
-      ],
-      [
-        460,
-        1640
-      ],
-      [
-        740,
-        1640
-      ],
-      [
-        1020,
-        1640
-      ],
-      [
-        1300,
-        1640
       ]
     ],
     "figure": "comparison-regional.png"
@@ -415,6 +351,92 @@
       80
     ],
     "pixels_per_sample": 2,
+    "context_native_cells": 33,
+    "context_size_pixels": 66.0,
+    "panel_origins": [
+      [
+        220,
+        1400
+      ],
+      [
+        500,
+        1400
+      ],
+      [
+        780,
+        1400
+      ],
+      [
+        1060,
+        1400
+      ],
+      [
+        1340,
+        1400
+      ]
+    ],
+    "figure": "comparison-regional.png"
+  },
+  {
+    "region": "Agulhas",
+    "depth_m": 2.5,
+    "points": 6400,
+    "regression_rmse_c": 0.27399400650889855,
+    "samudra_rmse_c": 0.35647025407619487,
+    "temperature_limits_c": [
+      3.457775077819824,
+      21.08535072326659
+    ],
+    "error_limit_c": 1.3081054162979147,
+    "shape": [
+      80,
+      80
+    ],
+    "pixels_per_sample": 2,
+    "context_native_cells": 33,
+    "context_size_pixels": 66.0,
+    "panel_origins": [
+      [
+        220,
+        1640
+      ],
+      [
+        500,
+        1640
+      ],
+      [
+        780,
+        1640
+      ],
+      [
+        1060,
+        1640
+      ],
+      [
+        1340,
+        1640
+      ]
+    ],
+    "figure": "comparison-regional.png"
+  },
+  {
+    "region": "Agulhas",
+    "depth_m": 250.0,
+    "points": 6398,
+    "regression_rmse_c": 0.2740589517903103,
+    "samudra_rmse_c": 0.2077264589365987,
+    "temperature_limits_c": [
+      2.6673581314086916,
+      15.238476638793946
+    ],
+    "error_limit_c": 1.0652251243591282,
+    "shape": [
+      80,
+      80
+    ],
+    "pixels_per_sample": 2,
+    "context_native_cells": 33,
+    "context_size_pixels": 66.0,
     "panel_origins": [
       [
         220,
@@ -455,6 +477,8 @@
       80
     ],
     "pixels_per_sample": 2,
+    "context_native_cells": 33,
+    "context_size_pixels": 66.0,
     "panel_origins": [
       [
         220,

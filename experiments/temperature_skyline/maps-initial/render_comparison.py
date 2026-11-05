@@ -17,6 +17,7 @@ from PIL import Image
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize
+from matplotlib.patches import Rectangle
 
 from samudra.metrics.spectra import SPATIAL_REGIONS
 from samudra.skyline.data import DEPTHS
@@ -108,8 +109,8 @@ def render_group(group, selected_regions):
 
     records = []
     top = 130
-    for depth in [0, 7, 13]:
-        for region, mask in selected_regions.items():
+    for region, mask in selected_regions.items():
+        for depth in [0, 7, 13]:
             d = {
                 key: value[mask & (data["depth"] == depth)]
                 for key, value in data.items()
@@ -143,11 +144,36 @@ def render_group(group, selected_regions):
                 )
             fig.text(
                 25 / width,
-                (height - image_top - ih / 2) / height,
+                (height - image_top - 10) / height,
                 f"{region}\n{DEPTHS[depth]:g} m\n"
                 + ("1° lattice" if region == "Global" else "¼° grid"),
-                va="center",
+                va="top",
                 fontsize=10 if local else 18,
+            )
+            # A footprint spans 33 native cells, not 33 displayed global samples.
+            context_size = 33 * 2 / stride
+            context_left = 30
+            context_top = image_top + (85 if local else 140)
+            fig.add_artist(
+                Rectangle(
+                    (
+                        context_left / width,
+                        (height - context_top - context_size) / height,
+                    ),
+                    context_size / width,
+                    context_size / height,
+                    transform=fig.transFigure,
+                    fill=False,
+                    edgecolor="#333333",
+                    linewidth=0.8,
+                )
+            )
+            fig.text(
+                25 / width,
+                (height - context_top - context_size - 12) / height,
+                "33 × 33 crop",
+                va="top",
+                fontsize=8 if local else 12,
             )
             row: dict[str, Any] = dict(
                 region=region,
@@ -159,6 +185,8 @@ def render_group(group, selected_regions):
                 error_limit_c=emax,
                 shape=shape,
                 pixels_per_sample=2,
+                context_native_cells=33,
+                context_size_pixels=context_size,
                 panel_origins=[],
             )
             for col, (values, norm) in enumerate(

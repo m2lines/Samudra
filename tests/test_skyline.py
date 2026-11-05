@@ -380,7 +380,12 @@ def test_validation_locations_match_between_objectives(ocean, tmp_path):
         for row in rows:
             metric = result["per_depth"][row["depth"]]
             assert metric["rmse_c"] == pytest.approx(
-                abs(row["prediction_c"] - row["truth_c"]), abs=2e-5
+                # Metric squares normalized float32 errors before converting;
+                # records round each physical value separately. Allow two
+                # float32 relative epsilons for large untrained-model errors.
+                abs(row["prediction_c"] - row["truth_c"]),
+                rel=2.4e-7,
+                abs=2e-5,
             )
             assert (
                 row["nll"] == pytest.approx(metric["bin_nll"])

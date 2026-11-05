@@ -41,8 +41,7 @@ shared package environment uses the Zarr 3 runtime. Python 3.12+ is required.
 ## CLI overview
 
 After [setting up the environment](#environment-setup), use these entrypoints
-for the main stages. The public NetCDF example requires the raw copy to have
-completed and passed verification.
+to read the public OSN inputs and generate local outputs.
 
 ```bash
 # 1. Index the original arrays without copying the physical fields.

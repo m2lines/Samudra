@@ -20,7 +20,7 @@ in the machine learning context.
 
 ### Original OM4 NetCDF archive
 
-The original NetCDF files are being copied to
+The original NetCDF archive is available at
 `s3://m2lines-pubs/Samudra/raw/OM4-5daily/` on the NYU OSN pod. Individual
 objects are publicly readable at
 `https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/raw/OM4-5daily/<filename>`.
@@ -29,11 +29,10 @@ The archive preserves the original filenames and bytes: 65 annual files named
 `ocean_hgrid.nc`, `ocean_static_no_mask_table.nc`, and the source `Makefile`.
 The complete archive contains 68 files totaling 4,252,932,810,519 bytes.
 
-**Transfer status (2026-11-04): in progress.** The copy runs with `rclone` on
-the NYU HPC data transfer node, preserving existing objects with `--immutable`
-and using `--checksum`. Completion requires matching source and destination
-paths, sizes, and MD5 hashes, plus an unchanged source inventory across the
-transfer. Until those checks pass, treat this prefix as incomplete.
+**Verified 2026-11-05:** all 68 files match the source paths, sizes, and MD5
+hashes, with zero differences. The source inventory was unchanged across the
+transfer. The byte-preserving copy ran with `rclone` on the NYU HPC data transfer
+node and completed in 5 hours 43 minutes.
 
 This archive is the starting point for reproducible processing from native
 NetCDF data. It is separate from the existing raw Zarr stores

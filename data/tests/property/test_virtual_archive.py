@@ -8,6 +8,9 @@ Each example owns its directory: shrinking never reuses a previous output.
 All source data are tiny and local; no archive credentials or ocean model needed.
 """
 
+import math
+import os
+import subprocess
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -128,6 +131,110 @@ def check_round_trip(case):
 def test_aligned_archive_preserves_every_value(case):
     """Native NetCDF reads are the oracle, including CF decoding and zero values."""
     check_round_trip(case)
+
+
+@st.composite
+def om4_archives(draw):
+    """Small native ocean grids with independent variable chunk grids and bounds."""
+    nz, ny, nx = [draw(st.integers(1, 3)) for _ in range(3)]
+    chunks = [draw(st.integers(1, 2)) for _ in range(2)]
+    nt = math.lcm(*chunks) * draw(st.integers(1, 2))
+    files = draw(st.integers(1, 3))
+    count = files * nt * nz * ny * nx
+    values = draw(st.lists(st.integers(-100, 100), min_size=count, max_size=count))
+    return (
+        np.array(values, dtype="float32").reshape(files * nt, nz, ny, nx),
+        files,
+        nt,
+        chunks,
+        draw(st.integers(1, nx)),
+    )
+
+
+def check_om4_round_trip(case, client=None):
+    values, files, nt, chunks, xchunk = case
+    _, nz, ny, nx = values.shape
+    with TemporaryDirectory() as directory:
+        root = Path(directory)
+        sources = root / "sources"
+        sources.mkdir()
+        expected, paths = [], []
+        for index in range(files):
+            block = values[index * nt : (index + 1) * nt]
+            times = np.arange(index * nt, (index + 1) * nt)
+            ds = xr.Dataset(
+                {
+                    "thetao": (("time", "z", "y", "x"), block),
+                    "so": (("time", "z", "y", "x"), block + 200),
+                    "hfds": (("time", "y", "x"), block[:, 0]),
+                    "wet": (("y", "x"), np.ones((ny, nx), dtype="int8")),
+                    "time_bnds": (
+                        ("time", "nv"),
+                        np.stack([times, times + 1], axis=-1),
+                    ),
+                    "z_bnds": (
+                        ("z", "nv"),
+                        np.stack([np.arange(nz), np.arange(nz) + 1], axis=-1),
+                    ),
+                },
+                coords={
+                    "time": (
+                        "time",
+                        times,
+                        {
+                            "units": "days since 1958-01-01",
+                            "calendar": "julian",
+                            "bounds": "time_bnds",
+                        },
+                    ),
+                    "z": ("z", np.arange(nz), {"bounds": "z_bnds"}),
+                    "y": np.arange(ny),
+                    "x": np.arange(nx),
+                    "nv": [0, 1],
+                },
+            )
+            path = sources / f"{index:04d}.nc"
+            ds.to_netcdf(
+                path,
+                engine="h5netcdf",
+                encoding={
+                    "thetao": {"chunksizes": (chunks[0], nz, 1, xchunk), "zlib": True},
+                    "so": {"chunksizes": (chunks[1], 1, ny, nx), "zlib": True},
+                    "hfds": {"chunksizes": (chunks[1], ny, 1), "zlib": True},
+                },
+            )
+            paths.append(path)
+            with xr.open_dataset(path, decode_times=False) as native:
+                expected.append(native.load())
+        output = root / "output"
+        subject.build(str(sources), output, pattern="*.nc", record_size=3)
+        if client:
+            script = Path(__file__).parents[1] / "integration" / "zarr2_reader.py"
+            subprocess.run(
+                [client, str(script), str(output), *map(str, paths)],
+                check=True,
+                timeout=30,
+            )
+        else:
+            actual = read_reference(output)
+            xr.testing.assert_identical(
+                actual,
+                xr.concat(expected, dim="time", data_vars="minimal", coords="minimal"),
+            )
+
+
+@given(om4_archives())
+def test_om4_depth_bounds_and_variable_chunks_round_trip(case):
+    check_om4_round_trip(case)
+
+
+@pytest.mark.skipif(
+    not os.environ.get("SAMUDRA_ZARR2_PYTHON"),
+    reason="Requires an isolated real Zarr 2 client",
+)
+@given(om4_archives())
+def test_om4_payload_reads_with_zarr2_client(case):
+    check_om4_round_trip(case, client=os.environ["SAMUDRA_ZARR2_PYTHON"])
 
 
 @given(archives())

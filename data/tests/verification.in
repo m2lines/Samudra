@@ -1,0 +1,21 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+# SPDX-License-Identifier: Apache-2.0
+# Focused verifier dependencies; compile for the Linux/Python 3.12 regression lane.
+virtualizarr[hdf,kerchunk]==2.8.0
+kerchunk==0.2.10
+xarray>=2025.6,<2026.4
+zarr>=3.1.6,<4
+pytest
+hypothesis[numpy]>=6.127.2
+obstore>=0.12
+obspec-utils>=0.9
+fire
+scipy
+h5netcdf>=1.7.3
+h5py
+s3fs
+fastparquet
+pyarrow
+cftime
+setuptools>=61
+wheel

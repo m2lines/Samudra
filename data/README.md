@@ -436,14 +436,27 @@ the example budget is a maximum, not a promise to execute that many failures.
 
 `property-soak.yaml` adds a nightly/manual CPU exploration with a fresh seed and
 a 45-minute job limit. It retains the environment, platform, revision, seed,
-JUnit results, statistics, and shrunk examples for 30 days. Only scheduled runs
-on upstream `main` can file issues. Reporting has a separate job with issue-write
-permission; the exploration job only has read permission. Reports deduplicate
-by property identity across all existing issues, including closed issues. They
-do not reopen closed issues or comment on every recurrence. Collection errors
-remain CI failures without filing product bugs. A report is evidence requiring
-oracle review, not an automatic diagnosis; different causes within one property
-share an issue until a human splits them.
+JUnit results, statistics, and shrunk examples for 30 days. During burn-in, every
+lane produces a read-only triage summary; no workflow has issue-write permission.
+The summary links matching open and closed reports and counts new failures,
+recurrences, errors, skips, and excluded contract probes. Closed reports remain
+visible without reopening or daily comments, and shared backend failures cannot
+fan out into product issues. A report requires oracle review, not automatic
+diagnosis. Manual `--apply` remains available outside the unattended workflow.
+
+The pinned regression lane installs the complete focused verifier dependency
+snapshot in `tests/verification-py312.txt`. It includes PyArrow; this preserves the
+known sparse-fill failure rather than pinning around it. It is a reproducible
+regression environment, not a claim that the current baseline is green. A separate
+floating canary installs `tests/verification.in`. Pinned runs explicitly exercise
+both Pandas string storage backends (`python` and `pyarrow`); the canary exercises
+`pyarrow`. Canary failures require dependency triage. All lanes retain their actual
+package versions and backend selection.
+
+Regenerate dependency snapshots with `uv pip compile` using the commands in their
+headers, retaining the SPDX header. Validate both regression properties and all
+three mutation seeds before accepting a dependency refresh; the current failing
+baseline prevents any present claim of eleven detected mutants.
 
 The established contract checks unchanged selected objects: late file additions
 are excluded from both payload and provenance. Duplicate and reversed time values
@@ -467,7 +480,7 @@ defects. From the repository root, in the data test environment, run:
 
 ```bash
 python data/tests/mutation/virtual_archive_mutants.py \
-  --output /tmp/property-mutations --seeds 0 1 95920261105 --timeout 60
+  --output /tmp/property-mutations --seeds 0 1 95920261105 --timeout 60 --budget 600
 ```
 
 The output directory must be new. Eleven named historical-fault mutations disable
@@ -510,7 +523,10 @@ CF fill declarations, checking either native decoded values or clean rejection.
 
 The gate runs on relevant PR/main changes and manual dispatch via
 `property-mutations.yaml`, and is reused by the nightly soak. Its job limit is
-20 minutes. Artifacts retain each mutant source, seed, command, elapsed time,
+20 minutes, with a five-minute dependency-install step and a shared ten-minute
+gate budget. Each subprocess timeout is capped by the remaining global budget;
+exhaustion fails the gate with a recorded result. Superseded PR runs are cancelled,
+while scheduled/manual runs retain their evidence. Artifacts retain each mutant source, seed, command, elapsed time,
 JUnit, Hypothesis statistics, dependency versions, and target hash for 30 days.
 Source snapshots and hashes of the target, properties, profile, and runner also
 preserve local runs made before committing changes.
@@ -526,6 +542,30 @@ python ../scripts/file_property_failures.py /tmp/property-soak.xml \
 
 Adding `--apply` files new issues. The workflow is reviewable infrastructure;
 adding the file does not activate scheduling until it reaches the default branch.
+
+For a read-only recurrence summary (including closed reports), add
+`--triage-output /tmp/property-triage`. This performs issue lookup but never writes
+to GitHub; JSON and Markdown artifacts preserve every failure for human triage.
+
+### Coverage beyond the miniature archive
+
+The generated OM4-shaped property adds depth, latitude, longitude, multiple
+variables with independent native chunk grids, static masks, and CF time/depth
+bounds. It compares complete native Xarray reads against the reference payload.
+This extends geometry and metadata coverage without claiming scientific validity
+for synthetic ocean values.
+
+Nightly/manual runs also install an isolated, pinned Zarr 2.18.7 client using
+`tests/zarr2-client-py312.txt`, then compare ten generated multi-variable archives
+against native reads in that separate interpreter. Locally, set
+`SAMUDRA_ZARR2_PYTHON` to that interpreter and select `-k zarr2_client`.
+
+An opt-in live OSN check (`SAMUDRA_OSN_CHECK=1`, `-k osn_ranges`) compares obstore
+range reads from the public 1958 file with the same bytes fetched through real
+Parquet references, fsspec S3, and Xarray. Four generation-only examples read 64
+payload bytes each per transport. Shrinking/explanation are disabled to bound
+network requests. This checks anonymous transport and large offsets, not full
+NetCDF parsing, scientific values, or the entire public archive.
 
 For subsequent project-wide simulation work, start with a small executable model
 of observable behavior and explicit transitions, then generate inputs and event

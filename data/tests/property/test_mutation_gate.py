@@ -169,3 +169,19 @@ def test_corrupt_or_missing_execution_evidence_cannot_produce_a_kill(corruption)
         else:
             actual.unlink()
         assert outcome(1, path, expected) == "invalid"
+
+
+@given(
+    elapsed=st.integers(0, 2000),
+    per_case=st.integers(1, 120),
+    budget=st.integers(1, 1000),
+)
+def test_shared_budget_caps_each_case_and_stops_scheduling(elapsed, per_case, budget):
+    allowed = gate["remaining_timeout"](budget, per_case, elapsed)
+    assert 0 <= allowed <= per_case
+    assert allowed + elapsed <= budget or allowed == 0
+    assert gate["remaining_timeout"](budget, per_case, elapsed + 1) <= allowed
+    if elapsed >= budget:
+        assert allowed == 0
+        result = gate["run_case"](None, [], 0, allowed, target_sha256="unused")
+        assert result["status"] == "budget_exhausted"

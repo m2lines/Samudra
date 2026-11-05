@@ -6,10 +6,13 @@
 
 import json
 import runpy
+import subprocess
+import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
@@ -112,3 +115,71 @@ def test_issue_filing_is_idempotent_across_paginated_open_and_closed_issues(
     original_count = len(created)
     reporter["file_new_reports"](candidates, "owner/repo", invoke=fake_gh)
     assert len(created) == original_count
+
+
+@given(
+    st.lists(
+        st.sampled_from(["new", "open", "closed", "pull_request"]),
+        min_size=1,
+        max_size=8,
+    )
+)
+def test_read_only_triage_keeps_every_recurrence_without_issue_fanout(states):
+    with TemporaryDirectory() as directory, pytest.MonkeyPatch.context() as patch:
+        root = Path(directory)
+        suite = ET.Element("testsuite")
+        for index in range(len(states)):
+            case = ET.SubElement(
+                suite, "testcase", classname="suite", name=f"property_{index}"
+            )
+            ET.SubElement(case, "failure").text = "shared backend exception"
+        path = root / "junit.xml"
+        ET.ElementTree(suite).write(path)
+        candidates = reports(path, "https://example.com/run")
+        existing = []
+        for index, (marker, state) in enumerate(zip(candidates, states), start=1):
+            if state == "new":
+                continue
+            issue = {
+                "body": marker,
+                "number": index,
+                "state": state,
+                "html_url": f"https://example.com/issues/{index}",
+            }
+            if state == "pull_request":
+                issue["pull_request"] = {}
+            existing.append(issue)
+
+        def fake_cli(command, **kwargs):
+            assert command[:2] == ["gh", "api"]  # No issue create/edit/comment calls.
+            return json.dumps([[issue] for issue in existing])
+
+        patch.setattr(subprocess, "check_output", fake_cli)
+        patch.setattr(
+            sys,
+            "argv",
+            [
+                "reporter",
+                str(path),
+                "--repo",
+                "owner/repo",
+                "--run-url",
+                "https://example.com/run",
+                "--triage-output",
+                str(root / "triage"),
+            ],
+        )
+        reporter["main"]()
+        summary = json.loads((root / "triage" / "summary.json").read_text())
+        assert summary["total"] == len(states)
+        assert summary["new"] == sum(
+            state in ("new", "pull_request") for state in states
+        )
+        assert summary["recurrences"] == sum(
+            state in ("open", "closed") for state in states
+        )
+        assert summary["issues_created"] == 0
+        for failure, state in zip(summary["failures"], states):
+            assert len(failure["existing_issues"]) == (state in ("open", "closed"))
+            for issue in failure["existing_issues"]:
+                assert issue["url"] in (root / "triage" / "summary.md").read_text()

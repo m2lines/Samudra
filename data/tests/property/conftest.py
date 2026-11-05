@@ -8,6 +8,11 @@ import os
 
 from hypothesis import Phase, settings
 
+if storage := os.environ.get("SAMUDRA_STRING_STORAGE"):
+    import pandas as pd
+
+    pd.set_option("mode.string_storage", storage)
+
 settings.register_profile("property", max_examples=40, deadline=None, print_blob=True)
 settings.register_profile(
     "soak",

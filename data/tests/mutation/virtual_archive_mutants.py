@@ -196,7 +196,20 @@ def outcome(returncode, junit, expected):
     return "invalid"
 
 
+def remaining_timeout(deadline, per_case, now):
+    """Share a wall-clock budget without allowing a case to overrun it."""
+    return min(per_case, max(0, deadline - now))
+
+
 def run_case(directory, nodes, seed, timeout, mutant_path=None, *, target_sha256):
+    if timeout <= 0:
+        return {
+            "status": "budget_exhausted",
+            "seconds": 0,
+            "seed": seed,
+            "returncode": None,
+            "command": [],
+        }
     directory.mkdir(parents=True)
     env = dict(os.environ, SAMUDRA_HYPOTHESIS_PROFILE="mutation", PYTHONUNBUFFERED="1")
     for key in ("PYTEST_ADDOPTS", "PYTEST_PLUGINS", "PYTHONOPTIMIZE"):
@@ -276,12 +289,21 @@ def main():
     )
     parser.add_argument("--seeds", nargs="+", type=int, default=[0, 1, 95920261105])
     parser.add_argument(
+        "--budget",
+        type=float,
+        default=600,
+        help="Shared seconds for the entire gate, including all seeds",
+    )
+    parser.add_argument(
         "--timeout",
         type=float,
         default=60,
         help="Seconds allowed per pytest subprocess",
     )
     args = parser.parse_args()
+    if not (0 < args.budget < float("inf") and 0 < args.timeout < float("inf")):
+        parser.error("budget and timeout must be positive")
+    deadline = time.monotonic() + args.budget
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
     original = TARGET.read_text()
@@ -302,6 +324,8 @@ def main():
         "expected_profile": EXPECTED_PROFILE,
         "seeds": args.seeds,
         "timeout_seconds": args.timeout,
+        "budget_seconds": args.budget,
+        "planned_cases": len(args.seeds) * (len(MUTATIONS) + 1),
     }
     # Preserve the small replay surface even when run from an uncommitted tree.
     replay_sources = [
@@ -341,7 +365,7 @@ def main():
             output / f"baseline-{seed}",
             nodes,
             seed,
-            args.timeout,
+            remaining_timeout(deadline, args.timeout, time.monotonic()),
             target_sha256=metadata["target_sha256"],
         )
         # A failing unmodified baseline invalidates the experiment, not a mutant kill.
@@ -364,7 +388,7 @@ def main():
                 directory / str(seed),
                 [f"{SUITE}::{mutant.property}"],
                 seed,
-                args.timeout,
+                remaining_timeout(deadline, args.timeout, time.monotonic()),
                 source,
                 target_sha256=metadata["target_sha256"],
             )

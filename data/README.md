@@ -8,7 +8,8 @@ SPDX-License-Identifier: CC-BY-4.0
 
 Data engineering routines to prepare ocean simulations for neural emulation.
 
-Requires Python 3.11 or newer.
+Requires Python 3.11 or newer. Observation preparation uses Samudra and requires
+Python 3.12; the bundled environment installs both packages from this checkout.
 
 ## Usage via command line interface
 

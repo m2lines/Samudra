@@ -17,10 +17,15 @@ from ocean_preprocessing.vertical_grid import OM4_DEPTH_LEVELS
 from tests import requires_xesmf
 
 REPOSITORY = Path(__file__).parents[2]
+pytestmark = pytest.mark.skipif(
+    sys.version_info[:2] != (3, 12),
+    reason="Observation preparation uses the installed Samudra package (Python 3.12)",
+)
 
 
 def run_preparation(*arguments: str) -> None:
-    environment = dict(os.environ, PYTHONPATH=str(REPOSITORY / "src"))
+    environment = os.environ.copy()
+    environment.pop("PYTHONPATH", None)
     subprocess.run(
         [
             sys.executable,
@@ -147,10 +152,7 @@ def test_grid_daily_and_months_entrypoints_in_data_environment(tmp_path):
 
 def test_grid_export_copies_explicit_bounds_and_requires_geometry_when_missing(
     tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    # Match the preparation CLI's source path in the standalone data environment.
-    monkeypatch.syspath_prepend(str(REPOSITORY / "src"))
     from samudra.observations.grid import export_grid
 
     store_path = tmp_path / "OM4.zarr"

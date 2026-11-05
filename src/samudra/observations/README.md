@@ -65,19 +65,22 @@ The EMA checkpoint with the lowest aggregate score is selected across both phase
 ## Data preparation
 
 Use the [data environment](../../../data/README.md#usage-via-command-line-interface)
-with `PYTHONPATH=src`. The top-level scripts
+with Python 3.12 and Samudra installed from the same checkout. The environment
+file installs both packages; for an existing environment, run
+`python -m pip install -e . -e "./data[observations]"` from the repository root.
+The top-level scripts
 consume OISST, DUACS, IAP and ERA5 stores and write a common grid, daily shards,
 monthly samples and a separate normalization artifact:
 
 ```bash
-PYTHONPATH=src python data/prepare_observation_baseline.py grid \
+python data/prepare_observation_baseline.py grid \
   --om4 /data/om4_onedeg_v3/OM4.zarr --output /data/obs/grid.npz
-PYTHONPATH=src python data/prepare_observation_baseline.py daily \
+python data/prepare_observation_baseline.py daily \
   --source /data/products --grid /data/obs/grid.npz --output /data/obs/daily \
   --product sst --year 1993
 # Repeat for sst, adt, era5 and iap, and years needed by the observation splits.
-PYTHONPATH=src python data/prepare_observation_baseline.py months --root /data/obs
-PYTHONPATH=src python data/prepare_observation_normalization.py /data/obs \
+python data/prepare_observation_baseline.py months --root /data/obs
+python data/prepare_observation_normalization.py /data/obs \
   --om4 /data/om4_onedeg_v3
 ```
 

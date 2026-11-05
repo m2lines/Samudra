@@ -17,12 +17,16 @@ repos:
     hooks:
       - id: check-added-large-files
         args: [--maxkb=250]
-        exclude: ^(notebooks/|experiments/temperature_skyline/maps-initial/report/map-(global|north-pacific|gulf-stream|agulhas)-depth-(00|07|13)\.png$)
+        exclude: ^(notebooks/|experiments/temperature_skyline/maps-initial/report/comparison-all-depths-regions\.png$|experiments/temperature_skyline/maps-initial/report/map-(global|north-pacific|gulf-stream|agulhas)-depth-(00|07|13)\.png$)
       # Lossless maps retain two pixels per sample along each axis without interpolation.
       - id: check-added-large-files
         name: check skyline raster sizes
         args: [--maxkb=1024]
         files: ^experiments/temperature_skyline/maps-initial/report/map-(global|north-pacific|gulf-stream|agulhas)-depth-(00|07|13)\.png$
+      - id: check-added-large-files
+        name: check combined skyline figure size
+        args: [--maxkb=4096]
+        files: ^experiments/temperature_skyline/maps-initial/report/comparison-all-depths-regions\.png$
       - id: trailing-whitespace
         exclude: ^notebooks/
       - id: check-yaml

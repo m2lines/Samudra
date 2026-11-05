@@ -295,10 +295,8 @@ def write_parquet_references(
         if "_FillValue" in variable.attrs:
             continue
         metadata = json.loads(refs[f"{name}/.zarray"])
-        if isinstance(variable.data, ManifestArray) and metadata["fill_value"] not in (
-            None,
-            0,
-        ):
+        if isinstance(variable.data, ManifestArray):
+            # Zarr 2 readers leave absent chunks uninitialized when fill_value is null.
             array = variable.data
             grid_size = math.prod(
                 math.ceil(size / chunk)
@@ -308,7 +306,7 @@ def write_parquet_references(
             )
             if sum(1 for _ in array.manifest.iter_refs()) < grid_size:
                 raise ValueError(
-                    f"{name!r} has unwritten native chunks with an implicit nonzero fill value; materialize those chunks before virtualization"
+                    f"{name!r} has unwritten native chunks without a declared _FillValue; materialize those chunks before virtualization"
                 )
         metadata["fill_value"] = None
         refs[f"{name}/.zarray"] = json.dumps(metadata)
@@ -411,7 +409,7 @@ def build(
 
     Preserve source time values in filename order; consumers validate chronology.
     Native chunk shapes must agree and non-final files must end on chunk boundaries.
-    Unwritten chunks with implicit nonzero fill values need materialization before
+    Unwritten chunks without a declared _FillValue need materialization before
     export to Zarr v2, which uses fill values as missing-data markers.
 
     Args:

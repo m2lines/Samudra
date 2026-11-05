@@ -9,6 +9,7 @@ its samples combine distinct observation cadences and cached forecast states.
 import hashlib
 import json
 import math
+import time
 from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any, TypedDict
@@ -19,7 +20,7 @@ import torch
 
 from samudra.models.surface_initialized import SurfaceInitializedModel
 from samudra.observations.archive import SPLITS, validate_normalization_policy
-from samudra.observations.config import ObservationTrainConfig
+from samudra.observations.config import ObservationLossConfig, ObservationTrainConfig
 from samudra.observations.constants import (
     FORECAST_STEPS,
     HISTORY_STEPS,
@@ -61,7 +62,8 @@ class ForecastSample(TypedDict, total=False):
     validity: torch.Tensor
     mask: torch.Tensor
     month_weights: torch.Tensor
-    fields: torch.Tensor
+    initial_fields: torch.Tensor
+    target_fields: torch.Tensor
     interior: torch.Tensor
     raw_surface: torch.Tensor
     completion_target: torch.Tensor
@@ -131,7 +133,11 @@ class Sources:
         raw = self.models[source].continuation(int(origin), month, self.obs.device)
         fields = raw["fields"]
         return {
-            **raw,
+            **{key: value for key, value in raw.items() if key != "fields"},
+            # Dense interior history before the two initial states is unused.
+            # Keep surface history, but do not pin/copy that unused dense payload.
+            "initial_fields": fields[:, INITIAL_STATE_START:HISTORY_STEPS],
+            "target_fields": fields[:, HISTORY_STEPS:],
             "surface": fields[:, :, SURFACE_CHANNELS],
             "atmosphere": raw["forcing"],
             "month_weights": raw["weights"],
@@ -163,6 +169,7 @@ def objective(
     *,
     cached: torch.Tensor | None = None,
     coverage: torch.Tensor | None = None,
+    weights: ObservationLossConfig | None = None,
 ) -> tuple[torch.Tensor, dict[str, torch.Tensor], torch.Tensor]:
     """One forecast window plus separate initializer reconstruction/completion.
 
@@ -170,6 +177,7 @@ def objective(
     Only its own detached physical history, future forcing and calendar advance it.
     """
     task = "observation" if source == "obs" else "om4"
+    loss_weights = weights or ObservationLossConfig()
     auxiliary = corrupt_sample(auxiliary, seed)
     if source != "obs":
         if coverage is None:
@@ -224,21 +232,28 @@ def objective(
         parts.update(data.forecast_losses(prediction, sample))
         reconstructed = model.reconstruct_month(*args, auxiliary["month_weights"])
         parts["reconstruction"] = data.interior_loss(reconstructed, auxiliary)
-        forecast = 0.8 * parts["monthly_ts"] + 0.1 * parts["sst"] + 0.1 * parts["ssh"]
+        forecast = sum(
+            getattr(loss_weights, name) * parts[name]
+            for name in ("monthly_ts", "sst", "ssh")
+        )
     else:
         weights = sample["mask"] * data.area
         parts["forecast"] = balanced_loss(
-            prediction, sample["fields"][:, HISTORY_STEPS:], weights, model.names
+            prediction, sample["target_fields"], weights, model.names
         )
         parts["reconstruction"] = balanced_loss(
             initial,
-            auxiliary["fields"][:, INITIAL_STATE_START:HISTORY_STEPS],
+            auxiliary["initial_fields"],
             weights,
             model.names,
             interior_only=True,
         )
         forecast = parts["forecast"]
-    loss = forecast + 0.1 * parts["reconstruction"] + 0.1 * parts["completion"]
+    loss = (
+        forecast
+        + loss_weights.reconstruction * parts["reconstruction"]
+        + loss_weights.completion * parts["completion"]
+    )
     if not torch.isfinite(loss):
         raise FloatingPointError(f"Nonfinite {source} objective")
     boundary = sample["next_start_lead"] - sample["start_lead"]
@@ -295,12 +310,29 @@ def train(
     stopping: Callable[[], bool] = lambda: False,
 ) -> None:
     """The complete scientific sequence is visible and editable here."""
+    if cfg.update_prefetch:
+        from samudra.observations.pipeline import train as train_pipeline
+
+        train_pipeline(
+            cfg,
+            state,
+            sources,
+            output,
+            manifest,
+            validate,
+            emit,
+            stop_after=stop_after,
+            stopping=stopping,
+        )
+        return
     total = cfg.total_updates
     checkpoints = CheckpointPaths(output)
     limit = total if stop_after is None else min(stop_after, total)
     if limit < state.updates:
         raise ValueError("Stop limit precedes the restored checkpoint")
     for update in range(state.updates, limit):
+        started = time.perf_counter()
+        data_seconds = 0.0
         # Specialize to observations; keep Adam moments, reset EMA exactly once.
         if update == cfg.main_updates and not state.cooled:
             state.ema = state.new_ema()
@@ -316,6 +348,7 @@ def train(
             "max_start_lead_days": 0,
         }
         for example in range(cfg.gradient_accumulation_steps):
+            data_started = time.perf_counter()
             entry = pool.draw(update) if example >= cfg.fresh_examples else None
             origin = (
                 sources.fresh_origin(source, state.rng)
@@ -333,6 +366,10 @@ def train(
                 coverage = sources.load("obs", coverage_origin)["validity"]
             # A fresh signed-32-bit seed controls artificial gaps for this example.
             seed = int(state.rng.integers(2**31))
+            if cfg.measure_timing:
+                if torch.device(sources.obs.device).type == "cuda":
+                    torch.cuda.synchronize()
+                data_seconds += time.perf_counter() - data_started
             with autocast(
                 torch.device(sources.obs.device).type == "cuda",
                 torch.bfloat16,
@@ -346,6 +383,7 @@ def train(
                     seed,
                     cached=None if entry is None else entry.states,
                     coverage=coverage,
+                    weights=cfg.loss,
                 )
             (loss / cfg.gradient_accumulation_steps).backward()
             exposure = "fresh" if entry is None else "replay"
@@ -360,7 +398,10 @@ def train(
                     + float(value.detach()) / cfg.gradient_accumulation_steps
                 )
             following = sources.layout(source, origin, month + 1)
-            if following is not None:
+            if (
+                following is not None
+                and cfg.fresh_examples < cfg.gradient_accumulation_steps
+            ):
                 if following["start_lead"] != sample["next_start_lead"]:
                     raise ValueError(
                         "Replay boundary differs from next month's input time"
@@ -382,6 +423,11 @@ def train(
         state.ema(state.model)
         state.updates = update + 1
         state.exposure[source]["updates"] += 1
+        if cfg.measure_timing:
+            if torch.device(sources.obs.device).type == "cuda":
+                torch.cuda.synchronize()
+            record["seconds"] = time.perf_counter() - started
+            record["data_seconds"] = data_seconds
         emit(
             {
                 "updates": state.updates,
@@ -395,6 +441,7 @@ def train(
             }
         )
         if state.updates % cfg.validation_freq == 0 or state.updates == total:
+            validation_started = time.perf_counter()
             with state.averaged_model():
                 metrics = validate(state.model)
             score = metrics[SELECTION_METRIC]
@@ -403,7 +450,13 @@ def train(
             if score < state.best_score:
                 state.best_score = score
                 state.save(checkpoints.best_validation_checkpoint_path, manifest)
+            if cfg.measure_timing:
+                metrics["timing/validation_seconds"] = (
+                    time.perf_counter() - validation_started
+                )
             emit({"updates": state.updates, **metrics})
+        if state.updates in cfg.milestone_updates:
+            state.save(output / f"main-{state.updates}.pt", manifest)
         if state.updates == cfg.main_updates:
             state.save(output / "main.pt", manifest)
         if state.updates % cfg.save_freq == 0 or state.updates == limit or stopping():

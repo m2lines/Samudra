@@ -5,6 +5,7 @@
 """Observation-fitted state scales, bounded CPU samples, and explicit replay windows."""
 
 import json
+from copy import copy
 from functools import cached_property, lru_cache
 from pathlib import Path
 
@@ -15,9 +16,12 @@ from samudra.observations.archive import context_planes, validate_normalization_
 
 
 class Samples:
-    def __init__(self, root, device, *, daily=None, normalization=None):
+    def __init__(
+        self, root, device, *, daily=None, normalization=None, native_archive=None
+    ):
         self.root = Path(root)
         self.device = device
+        self.native_archive = native_archive
         self.daily = Path(daily) if daily is not None else self.root / "daily"
         self.normalization = (
             Path(normalization) if normalization is not None else self.root
@@ -67,8 +71,28 @@ class Samples:
         return read
 
     def load(self, path):
-        sample = self.read_sample(Path(path))
+        sample = (
+            self.native_archive.sample(Path(path).stem)
+            if self.native_archive is not None
+            else self.read_sample(Path(path))
+        )
         return self.normalize(sample, Path(path).stem)
+
+    def to(self, device):
+        """Share immutable metadata, with loss constants on the compute device."""
+        result = copy(self)
+        result.device = device
+        for name in (
+            "mask",
+            "area",
+            "ts_mask",
+            "ts_scale",
+            "surface_scale",
+            "mean",
+            "std",
+        ):
+            setattr(result, name, getattr(self, name).to(device))
+        return result
 
     def normalize(self, sample, name):
         raw = sample["surface"]
@@ -103,7 +127,7 @@ class Samples:
         from samudra.observations.archive import ObservationArchive, trajectory
 
         raw = trajectory(
-            ObservationArchive(self.daily),
+            self.native_archive or ObservationArchive(self.daily),
             origin,
             target_month=target_month,
             steps=steps,

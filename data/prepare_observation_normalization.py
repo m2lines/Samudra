@@ -4,7 +4,7 @@
 """Fit and record an observation-derived normalization.
 
 Run from the repository with the data environment:
-  PYTHONPATH=src python data/prepare_observation_normalization.py PREPARED_ROOT --om4 OM4_DIRECTORY
+  python data/prepare_observation_normalization.py PREPARED_ROOT --om4 OM4_DIRECTORY
 The May 1993--July 2013 training samples supply temperature, salinity, SSH and
 ERA5 statistics over finite wet cells globally, including repeated input histories.
 Velocity and T/S below the observed profile use the matching fields from

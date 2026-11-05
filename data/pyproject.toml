@@ -61,8 +61,8 @@ optional-dependencies.dev = [
   "ocean-preprocessing[test]",
   "pre-commit",
 ]
-# Observation preparation shares the installed Samudra archive and grid routines.
-optional-dependencies.observations = [ "samudra" ]
+# Observation preparation uses Samudra's supported Python version.
+optional-dependencies.observations = [ "samudra; python_version=='3.12'" ]
 
 optional-dependencies.test = [
   "dask",

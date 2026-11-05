@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import datetime
+import json
 from pathlib import Path
 from typing import cast
 
@@ -68,6 +69,9 @@ def test_writer_slices_time_coordinates_for_each_append(
             )
         )
         writer.write()
+    assert (
+        json.loads((Path(writer.pred_path) / ".zgroup").read_text())["zarr_format"] == 2
+    )
     result = xr.open_zarr(writer.pred_path)
     np.testing.assert_array_equal(result.time.values, times[2:])
     np.testing.assert_array_equal(result.time_bnds.values, bounds[2:])

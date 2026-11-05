@@ -6,55 +6,153 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # ocean_preprocessing
 
-Data engineering routines to prepare ocean simulations for neural emulation.
+_Data engineering routines to prepare ocean simulations for neural emulation._
 
-Requires Python 3.11 or newer.
+The library prepares ocean simulations for ML training and observational products
+for evaluation. The simulation workflow has four stages: preserve the original
+files, expose their arrays through cloud-readable references, apply the scientific
+processing needed by the model, and compute normalization statistics.
 
-## Usage via command line interface
-
-First, please clone this repository and change into the `data/` directory (the root of the data engineering subproject).
-Make sure to deactivate any currently active python environments:
-```bash
-cd data/
-deactivate
+```mermaid
+flowchart LR
+    A[Raw NetCDF archive] -->|VirtualiZarr| B[Kerchunk Parquet references]
+    B -. reference-store integration pending .-> C[Scientific preprocessing and validation]
+    L[Existing native-grid Zarr sources] --> C
+    C --> D[Analysis-ready Zarr v2 stores]
+    D --> E[Training-interval means and standard deviations]
 ```
 
-Next, create a local environment from the `mamba_env.yaml` file with conda, mamba or pixi. Here is an example using
-mamba:
+Virtualization enables cloud access by indexing byte ranges in the original
+files; it preserves the source values, grid, compression, and chunk layout.
+Preprocessing makes the data analysis-ready: it centers fields on the native
+grid, rotates vectors, optionally filters and regrids, validates the results,
+and writes materialized Zarr stores. Together, suitable chunking and scientific
+processing produce **analysis-ready, cloud-optimized (ARCO)** data.
+
+**Current integration:** virtualization and preprocessing are available as separate
+tools. The preprocessing CLI still reads the existing native-grid Zarr sources;
+connecting it directly to the new Parquet reference stores is the next step.
+The examples below keep those inputs distinct. Observations follow a parallel
+[download → prepare workflow](#observation-products) that retains their native grids.
+
+All Zarr outputs and Kerchunk metadata use **Zarr v2**, even though the
+shared package environment uses the Zarr 3 runtime. Python 3.12+ is required.
+
+## CLI overview
+
+After [setting up the environment](#environment-setup), use these entrypoints
+for the main stages. The public NetCDF example requires the raw copy to have
+completed and passed verification.
 
 ```bash
-mamba create -f mamba_env.yaml
+# 1. Index the original arrays without copying the physical fields.
+python -m ocean_preprocessing.virtualize_om4 \
+  s3://m2lines-pubs/Samudra/raw/OM4-5daily ./om4-native.parquet --anonymous
+
+# 2. Produce an unfiltered 1° dataset from an existing native-grid Zarr source.
+export FSSPEC_S3_ENDPOINT_URL=https://nyu1.osn.mghpcc.org/
+export FSSPEC_S3_ANON=true
+RAW=s3://m2lines-pubs/Samudra/raw
+python -m ocean_preprocessing om4 \
+  "$RAW/om4_5daily_snapshots.zarr" \
+  "$RAW/ocean_static_no_mask_table.zarr" \
+  "$RAW/grids/ocean_hgrid.zarr" \
+  "$RAW/grids/gaussian_grid_180_by_360.zarr" \
+  --output_path=./om4_onedeg/OM4.zarr --skip_spatial_filtering
+
+# 3. Compute means and standard deviations for your selected training interval.
+# Set TRAIN_START and TRAIN_END to dates in the dataset's calendar.
+python -m ocean_preprocessing.make_norm_datasets ./om4_onedeg/OM4.zarr \
+  --start "$TRAIN_START" --end "$TRAIN_END"
 ```
 
-This subproject uses an anaconda-style environment because a core dependency (xESMF) is only distributed on conda forge.
-
-Now, you should be able to use this package as a CLI! You can call it like so:
+`python -m ocean_preprocessing` provides `om4`, `cm4`, and `basin_masks`
+subcommands. Virtualization and normalization are sibling module entrypoints.
+Inspect their arguments without starting processing:
 
 ```bash
-python -m ocean_preprocessing -h
+python -m ocean_preprocessing.virtualize_om4 --help
+python -m ocean_preprocessing om4 -- --help
+python -m ocean_preprocessing cm4 -- --help
+python -m ocean_preprocessing.make_norm_datasets --help
+python -m ocean_preprocessing.obs_preprocessing -- --help
 ```
 
-This opens up the help pages and documents the CLI's subcommands and common arguments.
-Currently, only the following subcommand is supported:
+## Environment setup
+
+The data tools share one mamba environment. xESMF requires conda-forge, and the
+environment file installs this package in editable mode.
 
 ```bash
-python -m ocean_preprocessing om4 -h
+cd data
+mamba env create -f mamba_env.yaml
+mamba activate ocean_preprocessing
 ```
 
-### Example usage
+To update an existing environment, run from `data/`:
+
+```bash
+mamba env update -n ocean_preprocessing -f mamba_env.yaml
+```
+
+This upgrades older Python 3.11 / Zarr 2 environments to the runtime needed by
+VirtualiZarr. The commands in this README work from any directory once the
+package is installed and the environment is active.
+
+## Virtualizing the original OM4 NetCDF archive
+
+[`ocean_preprocessing.virtualize_om4`](ocean_preprocessing/virtualize_om4.py) uses
+[VirtualiZarr](https://virtualizarr.readthedocs.io/en/stable/) to combine the annual
+NetCDF files along `time` and write Kerchunk Parquet references with Zarr v2
+metadata. The references point to the original files and retain their chunk
+layout, so those files must remain available at the same URLs.
+
+Read the public archive anonymously and write references to a new local directory:
+
+```bash
+python -m ocean_preprocessing.virtualize_om4 \
+  s3://m2lines-pubs/Samudra/raw/OM4-5daily ./om4-native.parquet
+```
+
+Local source directories are also supported. For file selection, static grid
+files, and other options, see the CLI help:
+
+```bash
+python -m ocean_preprocessing.virtualize_om4 --help
+```
+
+## Scientific preprocessing
+
+The `om4` and `cm4` subcommands share the processing pipeline after their
+source-specific preparation. They interpolate staggered fields to cell centers,
+validate the native-grid dataset, optionally account for partial depth cells,
+and rotate both velocities and wind stresses into geographic east/north
+components. Optional spatial filtering and horizontal regridding then produce
+the target grid. The pipeline converts fields to float32, preserves metadata
+and time bounds, optionally flattens depth into channels, validates the final
+input dataset, and writes a Zarr v2 store with provenance.
+
+The source already supplies five-day states and forcings; this CLI does not
+apply a new temporal average. Filtering and target resolution are configurable,
+rather than fixed at one smoothing scale or grid. Use `--skip_spatial_filtering`
+for an unfiltered product and `--skip_flattening` to retain a depth dimension.
+For CM4 input requirements and commands, see [the data guide](../docs/data.md#processing-cm4).
+
+### Running the simulation pipeline
+
 
 Example: Test out this CLI on a small, dry run (this will process a small portion of the data and not write any output):
 
 ```bash
 # Set vars needed to access OSN Pod
 export FSSPEC_S3_ENDPOINT_URL=https://nyu1.osn.mghpcc.org/
+export FSSPEC_S3_ANON=true
 # Then, run the standard OM4 processing pipeline:
 python -m ocean_preprocessing om4 \
-   "s3://m2lines-pubs/Samudra/raw/om4_5daily.zarr" \
+   "s3://m2lines-pubs/Samudra/raw/om4_5daily_snapshots.zarr" \
    "s3://m2lines-pubs/Samudra/raw/ocean_static_no_mask_table.zarr" \
    "s3://m2lines-pubs/Samudra/raw/grids/ocean_hgrid.zarr" \
    "s3://m2lines-pubs/Samudra/raw/grids/gaussian_grid_360_by_720.zarr" \
-    --wfo_source_path="s3://m2lines-pubs/Samudra/raw/om4_5daily_snapshots.zarr" \
     --output_path="./local_om4_test.zarr" \
     --dry_run \
     --small_run
@@ -76,23 +174,20 @@ Example: Run a real data processing pipeline on a coiled cluster:
 ```bash
 # Set vars needed to access OSN Pod
 export FSSPEC_S3_ENDPOINT_URL=https://nyu1.osn.mghpcc.org/
-# Check with M2LInES project management for how to get the OSN Access keys.
+# Publishing to OSN requires write credentials. Public reads do not.
+export FSSPEC_S3_ANON=false
 export AWS_ACCESS_KEY_ID=...
 export AWS_SECRET_ACCESS_KEY=...
 # Then, run the standard OM4 processing pipeline:
 python -m ocean_preprocessing om4 \
-   "s3://m2lines-pubs/Samudra/raw/om4_5daily.zarr" \
+   "s3://m2lines-pubs/Samudra/raw/om4_5daily_snapshots.zarr" \
    "s3://m2lines-pubs/Samudra/raw/ocean_static_no_mask_table.zarr" \
    "s3://m2lines-pubs/Samudra/raw/grids/ocean_hgrid.zarr" \
    "s3://m2lines-pubs/Samudra/raw/grids/gaussian_grid_360_by_720.zarr" \
-    --wfo_source_path="s3://m2lines-pubs/Samudra/raw/om4_5daily_snapshots.zarr" \
     --output_path="s3://m2lines-pubs/Samudra/v$(date "+%Y-%m")/om4_halfdeg/OM4.zarr" \
     --cluster="coiled" \
     --wait_for_workers=True
 ```
-
-That's how you can run this package as a command-line utility! Beyond this, `ocean_preprocessing` can be used a library
-in a script or notebook. Continue reading to get a better understanding of this package's capabilities.
 
 ### Five-day snapshot source
 
@@ -103,43 +198,24 @@ variables (`thetao`, `so`, `uo`, `vo`, and `zos`) are instantaneous values at
 `wfo`) are five-day means, because the state transition responds to their
 time-integrated fluxes.
 
-The pipeline publishes the nine required emulator inputs, including `wfo`.
-Other source diagnostics and native-grid fields are ignored explicitly. On
-Torch, select this source with
-`DATA_VARIANT=snapshots` in `scripts/slurm_preprocess_om4.sbatch`; derived output
-directories use the name `om4_<resolution>_snapshots`.
+On Torch, select this source with `DATA_VARIANT=snapshots` in
+`scripts/slurm_preprocess_om4.sbatch`; derived output directories use the name
+`om4_<resolution>_snapshots`.
 
-### Adding freshwater flux to the averaged source
+## Normalization statistics
 
-The original averaged archive does not contain `wfo`. To build an averaged-state
-dataset with freshwater forcing, use
-`s3://m2lines-pubs/Samudra/raw/om4_5daily_snapshots.zarr` as a supplemental
-`wfo` source:
+After preprocessing, compute normalization over the interval used for training:
 
 ```bash
-python -m ocean_preprocessing om4 \
-   "s3://m2lines-pubs/Samudra/raw/om4_5daily.zarr" \
-   "s3://m2lines-pubs/Samudra/raw/ocean_static_no_mask_table.zarr" \
-   "s3://m2lines-pubs/Samudra/raw/grids/ocean_hgrid.zarr" \
-   "s3://m2lines-pubs/Samudra/raw/grids/gaussian_grid_180_by_360.zarr" \
-   --wfo_source_path="s3://m2lines-pubs/Samudra/raw/om4_5daily_snapshots.zarr" \
-   --output_path="./om4_onedeg/OM4.zarr" \
-   --skip_spatial_filtering
+python -m ocean_preprocessing.make_norm_datasets ./om4_onedeg/OM4.zarr \
+  --start "$TRAIN_START" --end "$TRAIN_END"
 ```
 
-This is not a positional merge. The averaged archive labels intervals at their
-midpoints, whereas the donor labels the same intervals at their upper bounds.
-Before relabeling `wfo` with the recipient timestamps, the pipeline requires:
-
-- exact equality between donor times and recipient `time_bnds` upper bounds;
-- identical native `xh` and `yh` coordinates;
-- `wfo(time, yh, xh)` with `cell_methods` identifying `time: mean`; and
-- no existing `wfo` in the recipient.
-
-The output records the donor path and alignment rule in
-`m2lines/wfo_surgery_source` and `m2lines/wfo_surgery_alignment`. On Torch,
-the default `DATA_VARIANT=averaged` configures the donor automatically. All
-new canonical `om4_<resolution>` datasets therefore include `wfo`.
+The command writes `OM4_means.zarr` and `OM4_stds.zarr` beside `OM4.zarr`.
+It computes unweighted population means and standard deviations over finite wet
+space and time, retaining depth. The outputs record the source, selected time
+coverage, and reduction method. Omitting `--start` and `--end` uses the entire
+source record, so choose these explicitly when holding out validation/test years.
 
 ## Observation products
 
@@ -186,7 +262,7 @@ python -m ocean_preprocessing.obs_preprocessing prepare all \
 
 or, on Torch, `sbatch scripts/slurm_obs_prepare.sbatch` (see the header of that file for the environment variables).
 
-Both stages write **Zarr v2** explicitly, because `samudra.metrics` pins `zarr<3` and cannot open a v3 store.
+Prepared stores and Zarr downloads use **Zarr v2** explicitly, because `samudra.metrics` pins `zarr<3` and cannot open a v3 store.
 
 Credentials are only needed when writing to the NYU OSN pod (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and
 `FSSPEC_S3_ENDPOINT_URL`); reading the public inputs, including the OM4 time axis, is anonymous.
@@ -202,48 +278,11 @@ Two properties of the output matter downstream, and the metrics depend on both:
 The target timestamps come from the published OM4 store rather than from any particular model rollout, which is what
 makes these products reusable across runs. That store is public, so the prepare stage needs no credentials either.
 
-## Preprocessing steps
+<details>
 
-1. Interpolation of variables at the cell boundaries to the cell centers
-2. Coarsening time-resolution of input data to 5-day simple average
-3. Rotation of velocities and wind stresses so that the variables indicate purely zonal (east-west) and meridional (north-south) flow, respectively.
-4. Spatial filtering with 18 x 18 gaussian kernel
-5. Horizontal regridding of native 0.25 degree data to 1 degree data
+<summary><h2>What do the scripts do? (Python interfaces and validation)</h2></summary>
 
-
-## Possible issues
-
-1. Rotation of wind stresses (not done in this repo)
-2. Filtering across the Tripolar fold - https://github.com/m2lines/ocean_emulators/issues/69
-3. Setting threshold for land/ocean/sea-ice?
-4. Double check that interpolation of velocities are done correctly - Specifically, lon and lat are being used and not xh and yh.
-5. Vertical regridding - Handling partial grid cells
-6. Discontinuity with rotation before filtering  - https://github.com/m2lines/ocean_emulators/issues/69
-
-
-## Data flow diagram
-```mermaid
-flowchart TD
-    a[(A bunch of files/Zarr stores)] --> A[model specific processing **ocean_preprocessing.simulation_preprocessing**]
-    A -->  b(**ds_processed**)
-    b --> |validate| B[**ocean_preprocessing.dataset_validation.ds_processed_validate**]
-    B --> C[Generic Preprocessing **ocean_preprocessing.preprocessing**]
-    C --> c(**ds_input**)
-    c --> |validate| D[**ocean_preprocessing.dataset_validation.ds_input_validate**]
-    D --> |download into uncompressed zarr| CC[ **ds_input** Local HPC copy]
-    CC --> E[training]
-    E --> d(model)
-    d --> F[rollout]
-    F --> e[**ds_prediction_raw**]
-    e --> H[Postprocessing **ocean_preprocessing.postprocessing**]
-    H --> f(**ds_prediction**)
-    f -->|validate| I[**ocean_preprocessing.dataset_validation.ds_prediction_validate**]
-    CC --> I
-    I --> |upload to cloud| J[**ds_prediction** Shareable prediction output]
-```
-
-
-## Producing Input and Prediction Datasets
+_This section is considered legacy documentation._
 
 ### Preprocessed Datasets (`ds_processed`)
 This is the only model specific step produced by modules in `ocean_preprocessing.simulation_preprocessing.<model_module>`. The output `ds_processed` can then be fed into the generic preprocessing steps to produce the input dataset. These functions should not modify the data in any other way than interpolating velocity data onto the tracer points (the setup/execution of which might depend on the source).
@@ -252,9 +291,10 @@ Example:
 ```python
 from ocean_preprocessing.simulation_preprocessing.gfdl_om4 import om4_preprocessing
 
-zarr_data_path = 'gs://leap-persistent/jbusecke/ocean_emulators/OM4/OM4_raw_test.zarr'
-nc_grid_path = 'gs://leap-persistent/sd5313/OM4-5daily/ocean_static_no_mask_table.nc'
-nc_mosaic_path = "gs://leap-persistent/sd5313/OM4-5daily/ocean_hgrid.nc"
+raw = "https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/raw"
+zarr_data_path = f"{raw}/om4_5daily_snapshots.zarr"
+nc_grid_path = f"{raw}/ocean_static_no_mask_table.zarr"
+nc_mosaic_path = f"{raw}/grids/ocean_hgrid.zarr"
 ds_processed = om4_preprocessing(zarr_data_path, nc_grid_path, nc_mosaic_path)
 ```
 
@@ -298,6 +338,8 @@ ds_truth = ...# see above
 prediction_data_test(ds_prediction, ds_truth)
 ```
 
+</details>
+
 ## Where is the data?
 
 ### Preprocessing files
@@ -314,40 +356,38 @@ These files live on the OSN pod:
 These can be directly input to our pre-processing scripts (see usage above).
 
 
-### Raw data
 
-This section describes the input datasets used to create the pre-processing datasets. These are closer to the original
-CM4/OM4/CMIP data source.
+### Original NetCDF archive
 
-| input_id | Cloud | Greene |
-| --- | --- | --- |
-| `'OM4_5daily'` | `'https://nyu1.osn.mghpcc.org/emulators/jbusecke/ocean_emulators/OM4/OM4_raw_test.zarr'` |`'/scratch/aa9537/OM4-5daily/'` |
-| `"CM4_5daily"`| `"https://nyu1.osn.mghpcc.org/emulators/ai2_colab/2024-11-01-CM4-pre-industrial-control-simulation/ocean_5daily.zarr/"`| |
-| `"10_year_CM4_ocean_5daily"` | `"https://nyu1.osn.mghpcc.org/emulators/ai2_colab/2024-08-10-CM4-trial-run-output/ocean_5daily.zarr"`| |
-| `"10_year_CM4_ice_5daily"` | `"https://nyu1.osn.mghpcc.org/emulators/ai2_colab/2024-08-10-CM4-trial-run-output/ice_5daily.zarr"` | |
-| `"10_year_CM4_ocean_6hourly"` | `"https://nyu1.osn.mghpcc.org/emulators/ai2_colab/2024-08-10-CM4-trial-run-output/ocean_6hourly.zarr"` | |
-| `"10_year_CM4_ice_6hourly"` | `"https://nyu1.osn.mghpcc.org/emulators/ai2_colab/2024-08-10-CM4-trial-run-output/full_state_ice.zarr"` | |
+The public OM4 archive is located at
+`s3://m2lines-pubs/Samudra/raw/OM4-5daily/`. It contains the annual NetCDF files
+and their native-grid companions; see [the archive inventory](../docs/data.md#original-om4-netcdf-archive)
+and [virtualization instructions](#virtualizing-the-original-om4-netcdf-archive).
+Read it anonymously using the NYU OSN endpoint, or access individual objects at
+`https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/raw/OM4-5daily/<filename>`.
 
-### Input data
+### Processed datasets
 
-| input_id | Cloud |
-| --- | --- |
-| `'OM4_5daily_v0.0'` | `"https://nyu1.osn.mghpcc.org/emulators/sd5313/input_OM4v0.0"` |
-| `'OM4_5daily_v0.2.1'` | `"https://nyu1.osn.mghpcc.org/emulators/jbusecke/ocean-emulators/OM4_5daily_v0.2.1.zarr"`|
-| `"CMIP_CM4_v0.1"` | `"https://nyu1.osn.mghpcc.org/emulators/jbusecke/ocean-emulators/CMIP6_GFDL-CM4.piControl.r1i1p1f1_v0.1.zarr"` |
-| `"CM4_5daily_v0.4.0"`| `"https://nyu1.osn.mghpcc.org/emulators/jbusecke/ocean-emulators/CM4_5daily_v0.4.0.zarr"`|
+Public training releases, normalization stores, and observation products are
+listed in [the data guide](../docs/data.md#available-datasets). For example:
 
+- OM4: `s3://m2lines-pubs/Samudra/v2026-09/om4_onedeg/OM4.zarr`
+- CM4: `s3://m2lines-pubs/Samudra/v2026-09/cm4_onedeg/CM4.zarr`
+
+Public inputs require no access keys. Publishing new objects to the bucket
+requires write credentials; generating local outputs does not.
 
 ## Developing this package
 
 Follow the CLI usage instructions to clone the repository and create a local mamba environment. Then, please install
-these three dev dependencies manually:
+the development dependencies:
 
 ```bash
-mamba install pytest dask pre-commit
+mamba install pytest scipy dask pre-commit
 ```
 
-Before you edit the code make sure all tests pass by running pytest from the root level of this repository
-```
-pytest
+Run the data package tests from `data/` in the active environment:
+
+```bash
+python -m pytest tests
 ```

@@ -1,0 +1,24 @@
+{
+  "job_id": "21956934_1",
+  "physical_job_id": 21973839,
+  "node": "gr104",
+  "state": "CANCELLED by 0",
+  "exit_code": "0:0",
+  "elapsed": "02:29:57",
+  "allocated_gpu_hours": 9.996666666666666,
+  "last_update": 2827,
+  "last_completed_checkpoint_update": 2825,
+  "complete": false,
+  "reason_in_log": "SIGTERM; no administrator cancellation explanation available",
+  "suspected_cause": "Low utilization; not confirmed",
+  "steady_utilization_per_gpu_means_percent": [
+    49.665,
+    51.023,
+    52.357,
+    52.332
+  ],
+  "steady_window_start": "2026-11-05T10:40:00-05:00",
+  "last_validation_update": 2750,
+  "last_selection_score": 0.06521618792696139,
+  "recovery": "No automatic retry; parent qualifying two-GPU layout before deciding production recovery"
+}

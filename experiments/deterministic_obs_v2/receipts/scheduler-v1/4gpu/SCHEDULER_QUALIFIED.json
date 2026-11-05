@@ -1,0 +1,34 @@
+{
+  "purpose": "Exact production-training resume across a real Slurm requeue",
+  "job_id": "21926632",
+  "restart_count_after": 1,
+  "request": {
+    "job_id": "21926632",
+    "restart_count_before": 0,
+    "completed_checkpoint_update": 6,
+    "requested_at": 1793859667.6439214,
+    "wandb_id": "7ktk2zi4",
+    "signal": "USR1 to Slurm batch shell, then scontrol requeue"
+  },
+  "world_size": 4,
+  "main_updates": 16,
+  "cooldown_updates": 2,
+  "exact_full_checkpoint_payload": true,
+  "model_sha256": "4c7d92d6a19ae9d92630ef9ce1b582243d40b13450a4effbad87d78e6ac0660d",
+  "checkpoint_sha256": {
+    "/scratch/jr7309/deterministic-obs-v2/scheduler-v1-4gpu/control/saved_nets/endpoint.pt": "34494bc9170c1ee6d0b1a6cfcea27ed9f944167d5b118ffc09c18f629fa6954b",
+    "/scratch/jr7309/deterministic-obs-v2/scheduler-v1-4gpu/resumed/saved_nets/endpoint.pt": "2e8df20de34484a17227a7f82e4c5ae6de428ee7063c57730dbc4fab0e48a139"
+  },
+  "exposure": {
+    "obs": {
+      "updates": 10,
+      "fresh": 44,
+      "replay": 36
+    },
+    "om4": {
+      "updates": 8,
+      "fresh": 36,
+      "replay": 28
+    }
+  }
+}

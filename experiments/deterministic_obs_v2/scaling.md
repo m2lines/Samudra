@@ -9,8 +9,9 @@ on one RTX PRO 6000 Blackwell in 28m07s, using code
 `7bef723cb1f60d4e202aeece6fd4c1b11eb2e539`. The allocation cost was 0.4686 GPU-hours.
 Four-GPU retry `21926614` also passed numerical and utilization qualification,
 completing 128 main and two cooldown updates in 16m06s (1.0733 GPU-hours) on `gr103`.
-Real Slurm interruption/resume test `21926632` started after that success and
-remains under separate monitoring. No scientific screen or 16k run has been submitted.
+Real Slurm interruption/resume test `21926632` also passed: after one requeue to
+another RTX PRO 6000 node, its complete checkpoint payload matched uninterrupted
+training exactly. No scientific screen or 16k run has been submitted.
 
 The four-GPU and scheduler-test requests are eligible for both
 `rtx6000_lzanna` and `rtx6000`, using account `torch_pr_347_lzanna`,
@@ -76,8 +77,8 @@ records exact synchronous/prefetched comparisons, isolated uncooled checkpoint
 handling, and finite annual validations at updates 128 and 130. Each validation
 scored 29 channels over 73 steps and 12 complete months. The final model hash
 also matches the recovered pre-optimization run exactly. The three prefetch
-controls all reload the same four-update anchor; they do not establish the
-pending uninterrupted-versus-scheduler-resumed GPU comparison.
+controls all reload the same four-update anchor. The separate scheduler test
+below establishes uninterrupted-versus-resumed equality on four GPUs.
 
 The [utilization audit](receipts/scaling-v4/1gpu/utilization.json) covers 762.4 s,
 from update 25's start through update 128's validation and checkpoint work.
@@ -132,17 +133,30 @@ benchmark or a comparison of forecast skill.
 | Arm D if selected: 16k main + four 1k cooldowns, including its screen | 15.83 h | 20.58 h | 19.52–21.87 h | 82.3 |
 | Remaining after its completed 5k screen | 11.87 h | 15.44 h | 14.64–16.40 h | 61.7 |
 
-Scheduler job `21926632` will run two 16-main-plus-two-cooldown trajectories
+Scheduler job `21926632` completed two 16-main-plus-two-cooldown trajectories
 through `samudra.observations.train` and the shared Slurm/Apptainer launcher on
-four GPUs, with two accumulated examples per rank. One is uninterrupted. After the other has saved at least six main
-updates, a bounded watcher sends USR1 to its batch shell, which calls
-`scontrol requeue`. The restarted allocation must preserve the W&B run ID and
-produce an exactly equal complete checkpoint payload: model, optimizer, EMA,
-sampler, replay, pending plan and per-rank RNG state. The test uses the same
-runtime code as the scaling qualification; its [orchestration and audit](scheduler_resume.py)
-are frozen from commit `5bfcce5e4`. A failed prerequisite cancels the dependent
-request. CPU tests reject a missing scheduler restart, changed optimizer state,
-and a changed tracking identity. The real scheduler result remains pending.
+four GPUs, with two accumulated examples per rank. One ran uninterrupted. After
+the other saved checkpoint 6, a watcher sent USR1 to its batch shell, which called
+`scontrol requeue`. [Slurm accounting](receipts/scheduler-v1/4gpu/sacct.txt) records
+9m47s on `gr103`, then 8m11s on `gr104` with exit `0:0`: 17m58s of allocation,
+or 1.1978 GPU-hours. The scheduler restart count increased from zero to one.
+The resumed run retained W&B ID
+[`7ktk2zi4`](https://wandb.ai/ocean_emulators/observational-transfer/runs/7ktk2zi4).
+
+The [audit receipt](receipts/scheduler-v1/4gpu/SCHEDULER_QUALIFIED.json) confirms
+exact equality of the complete loaded checkpoint payload, including model,
+optimizer, EMA, sampler, replay, pending plan and all four rank RNG states.
+Both arms completed updates 1–18 at global batch eight, with finite annual
+validations at updates 16 and 18 (29 channels, 73 steps and 12 complete months).
+The serialized checkpoint files have different byte hashes; the audit compares
+their loaded values. All four ranks passed the ten-reduction NCCL preflight at
+each of the three training launches. [Metrics, manifests and the launch log](receipts/scheduler-v1/4gpu/)
+preserve the evidence, and the [summary](receipts/scheduler-v1/4gpu/audit-summary.json)
+records source hashes and checks. Runtime code remains `7bef723`; the
+[orchestration and audit](scheduler_resume.py) are frozen from `5bfcce5e4`.
+This checks one intentional interruption after checkpoint 6, using the same GPU
+model and four-rank layout. It does not establish exact recovery across GPU types,
+world sizes, or every possible interruption point.
 
 Earlier attempts and data qualification follow. They extend the
 [initial single-GPU qualification](qualification.md).
@@ -349,9 +363,9 @@ second synchronous run. Model weights, optimizer, EMA, pending plan, RNG and
 replay payloads must match exactly within that world size. All three controls
 use the new N+2 replay-planning rule.
 All three GPU controls reload the same four-update checkpoint. This establishes
-repeatable reload/continuation and prefetch parity; the current pipeline's
-uninterrupted-versus-resumed GPU comparison remains part of the pending scheduler
-interruption test. CPU tests already cover that uninterrupted comparison.
+repeatable reload/continuation and prefetch parity. Scheduler job `21926632`
+separately passed the current pipeline's uninterrupted-versus-resumed GPU
+comparison on four ranks. CPU tests also cover that uninterrupted comparison.
 The comparison does not establish equivalence to the original sequential trainer.
 The asynchronous
 branch then continues through update 128 and two cooldown updates. Cooldown
@@ -366,11 +380,12 @@ The replacement qualification records NVIDIA `utilization.gpu` for each assigned
 The release gate is a mean above 50% on every GPU over at least two minutes,
 from the start of steady-stage update 25 through the last validation/checkpoint
 record at update 128. That window includes its data waits, checkpoints and annual
-validation. The report will also separate active training time and the deliberately
+validation. The report separates active training time and the deliberately
 synchronous comparison stages. Successful numerical checks alone do not establish
 the utilization threshold.
 
 Runtime estimates use steady mixed-source update times and separate
 validation/checkpoint costs. Queue delay and unknown preemption frequency remain
-excluded. The old serial-loader estimates are historical measurements. A real
-scheduler interruption/resume check is still required after GPU bring-up.
+excluded. The old serial-loader estimates are historical measurements. The real
+scheduler interruption/resume result above applies to one checkpoint boundary
+and the same four-rank GPU layout.

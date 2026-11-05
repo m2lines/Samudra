@@ -8,21 +8,28 @@ training for a deterministic ocean forecast initialized from surface history.
 Implementation is stacked on the config-based observation harness in
 [PR #955](https://github.com/m2lines/Samudra/pull/955).
 
-As of 2026-11-04, all five original GPU qualification arms passed.
+As of 2026-11-05, all five original GPU qualification arms passed.
 **No full scientific training has been submitted.** The optimized Rust/prefetch
 path also passed one-GPU numerical and utilization qualification: job `21816758`
 completed 128 main and two cooldown updates at 82.2% steady GPU utilization.
 Its final model hash matches the pre-optimization run. For the large mixed/replay
 arm, the revised one-GPU screen estimate is 13.7 h with a 30% allowance.
-[Scaling qualification](scaling.md) records timings and provenance; four-GPU execution with two accumulated examples per rank and a real scheduler interruption/resume comparison remain pending.
+Four-GPU job `21926614` passed numerical and per-GPU utilization checks with two
+accumulated examples per rank. Its arm-D screen estimate is 5.15 h with the same
+allowance; the lowest GPU averaged 51.09% utilization over the five-minute test
+window. Job `21926632` then passed a real Slurm requeue from `gr103` to `gr104`:
+the resumed and uninterrupted runs produced exactly equal complete checkpoint
+payloads after 16 main and two cooldown updates, with the resumed W&B ID retained.
+[Scaling qualification](scaling.md) records the evidence and limits. These bounded
+checks do not establish forecast skill or long-run utilization.
 Torch array `21786733` completed on RTX PRO 6000 Blackwell Server Edition GPUs.
 Peak allocated GPU memory was 5.15–6.61 GiB. Data preparation/loading dominated
 update time; the [qualification report](qualification.md) gives measured runtime
 estimates for that original serial-loader implementation.
 CPU data-preparation job `21784710` completed successfully in 11m54s.
-Each GPU arm used one GPU, eight CPU cores, 96 GiB host memory and a two-hour
+Each original GPU qualification arm used one GPU, eight CPU cores, 96 GiB host memory and a two-hour
 limit. Scheduler routing permitted preemptible L40S, A100, RTX6000, H100, H200 and
-B200 capacity; only RTX PRO 6000 Blackwell was exercised. All jobs used account
+B200 capacity; only RTX PRO 6000 Blackwell was exercised. That original array used account
 `torch_pr_347_lzanna`, preemption-only routing and requeue.
 
 The first GPU attempt, array `21785317`, reached one optimizer update in arms A,
@@ -166,8 +173,9 @@ raw data were reprocessed or transferred in this task.
 
 Before a full campaign, use the qualification measurements to settle checkpoint
 cadence and GPU capacity. The prefetch path supports distributed training within
-an arm while retaining global batch eight; eight-GPU qualification is pending.
-Exact numerical resume is checked on the assigned GPU type. Changing GPU types
+an arm while retaining global batch eight; four-GPU qualification and a real
+scheduler interruption/resume comparison passed. Exact numerical resume was
+checked across two RTX PRO 6000 Blackwell nodes with four ranks. Changing GPU types
 across preemptions can change floating-point results even though the forecast
 model has no stochastic latent variables. The number of confirmation seeds and
 whether to add validation origins also remain campaign choices; the implemented

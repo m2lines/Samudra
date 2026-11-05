@@ -17,7 +17,7 @@
   ],
   "comment": "preemption=yes;requeue=true",
   "requeue": true,
-  "status": "Qualifier COMPLETED 0:0; numerical and all four GPU utilization gates passed. Restart test started and remains separately monitored.",
+  "status": "Qualifier and restart test COMPLETED 0:0. Numerical and all four GPU utilization gates passed; one real Slurm requeue preserved exact full checkpoint payload and W&B identity.",
   "qualification_log": "/scratch/jr7309/deterministic-obs-v2/scaling-v4-4gpu-21926614.out",
   "restart_log": "/scratch/jr7309/deterministic-obs-v2/scheduler-v1-4gpu-21926632.out",
   "qualification_output": "/scratch/jr7309/deterministic-obs-v2/scaling-v4/D-mixed-large-4gpu",
@@ -36,5 +36,8 @@
   "restart_webhook": "48a7ce16-6bab-426f-a20a-620b192cc35f",
   "qualification_elapsed_seconds": 966,
   "qualification_allocated_gpu_hours": 1.0733333333333333,
-  "results": "scaling-v4/4gpu/"
+  "results": "scaling-v4/4gpu/",
+  "restart_elapsed_seconds_total": 1078,
+  "restart_allocated_gpu_hours": 1.1977777777777778,
+  "restart_results": "scheduler-v1/4gpu/"
 }

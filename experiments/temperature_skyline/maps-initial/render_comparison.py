@@ -24,8 +24,10 @@ from samudra.skyline.data import DEPTHS
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("archive", type=Path)
+parser.add_argument("--output-root", type=Path, default=Path(__file__).parent)
+parser.add_argument("--weights-label", default="Initial-run weights without EMA")
 args = parser.parse_args()
-root = Path(__file__).parent
+root = args.output_root
 parts: dict[str, list] = {}
 with tarfile.open(args.archive) as archive:
     for member in archive.getmembers():
@@ -83,7 +85,8 @@ def render_group(group, selected_regions):
     fig.text(
         0.5,
         1 - 65 / height,
-        "Initial-run weights without EMA · OM4 is a model reference · all 19 depths evaluated; three shown",
+        args.weights_label
+        + " · OM4 is a model reference · all 19 depths evaluated; three shown",
         ha="center",
         va="top",
         fontsize=9 if local else 17,

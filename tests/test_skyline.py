@@ -564,6 +564,7 @@ def test_map_report_keeps_calibration_separate_and_support_failures_visible(
 
     receipt = dict(
         world_size=1,
+        config=dict(stride=4),
         dates=[
             dict(origin=1, role="calibration", dense=False),
             dict(origin=2, role="assessment", dense=True),
@@ -598,7 +599,7 @@ def test_map_report_keeps_calibration_separate_and_support_failures_visible(
     data["gold_density_nll"][2] = np.inf
     data["gold_cdf"][2] = 1
     np.savez_compressed(tmp_path / "points-0001-00-0000000.npz", **data)
-    monkeypatch.setattr("samudra.skyline.map_report.render", lambda *a: None)
+    monkeypatch.setattr("samudra.skyline.map_report.render", lambda *a, **kw: None)
     report(tmp_path)
     result = json.loads((tmp_path / "report/summary.json").read_text())
     assert result["thresholds"][0]["large_error_c"] == pytest.approx(0.2)

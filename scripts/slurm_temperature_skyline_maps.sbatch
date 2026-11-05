@@ -14,6 +14,7 @@ export APPTAINER_CACHEDIR=/scratch/jr7309/apptainer-cache
 export SINGULARITY_CACHEDIR=/scratch/jr7309/singularity-cache
 export APPTAINER_TMPDIR="${SLURM_TMPDIR:-/tmp}"
 export PYTHONUNBUFFERED=1
+export PYTHONNOUSERSITE=1
 mkdir -p "$SKYLINE_OUTPUT"
 ARCHIVE="${SKYLINE_ROOT}/source-${SKYLINE_COMMIT}.tar"
 actual=$(sha256sum "$ARCHIVE" | cut -d ' ' -f 1)
@@ -23,7 +24,7 @@ trap 'rm -rf "$CODE_DIR"' EXIT
 tar -xf "$ARCHIVE" -C "$CODE_DIR"
 run_container() {
     apptainer exec --nv --bind "${CODE_DIR}:/opt/skyline-source:ro,/scratch:/scratch" \
-      "$SIF_PATH" /usr/bin/env PYTHONPATH=/opt/skyline-source/src \
+      "$SIF_PATH" /usr/bin/env PYTHONPATH=/opt/skyline-source/src PYTHONNOUSERSITE=1 \
       TORCH_CUDNN_V8_API_DISABLED=1 OMP_NUM_THREADS=4 "$@" &
     child=$!
     while true; do

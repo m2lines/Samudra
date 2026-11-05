@@ -122,7 +122,12 @@ def load_model(path, device):
     model.load_state_dict(state["model"], strict=True)
     vocab = Vocabulary(state["vocabulary"]["centers"][:, -1], model.config.bins)
     vocab.load_state_dict(state["vocabulary"], strict=True)
-    return model.to(device).eval(), vocab.to(device), config, state["step"]
+    selection = dict(
+        step=state["step"],
+        initial_step=state.get("initial_step", 0),
+        weights_kind=state.get("weights_kind", "raw"),
+    )
+    return model.to(device).eval(), vocab.to(device), config, selection
 
 
 @torch.inference_mode()
@@ -163,8 +168,10 @@ def run(config, output):
             source=source.receipt(),
             classifier_sha256=file_sha256(config["classifier"]),
             regression_sha256=file_sha256(config["regression"]),
-            classifier_step=cs,
-            regression_step=rs,
+            classifier_step=cs["step"],
+            regression_step=rs["step"],
+            classifier_selection=cs,
+            regression_selection=rs,
             baseline_sha256=manifest["checkpoint_sha256"],
             source_commit=os.environ.get("SKYLINE_COMMIT"),
             world_size=world,

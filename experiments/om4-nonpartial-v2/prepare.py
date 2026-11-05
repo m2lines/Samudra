@@ -11,7 +11,21 @@ from pathlib import Path
 import numpy as np
 import xarray as xr
 import yaml
-import zarr  # type: ignore[import-untyped]
+
+
+def write_view_metadata(source: Path, masks: Path, destination: Path) -> None:
+    # DirectoryStore consolidation does not descend into symlinked arrays.
+    # Copy their authoritative metadata and replace only the local mask entries.
+    metadata = json.loads((source / ".zmetadata").read_text())
+    replacements = json.loads((masks / ".zmetadata").read_text())["metadata"]
+    for key, value in replacements.items():
+        if key.startswith("mask_"):
+            metadata["metadata"][key] = value
+    (destination / ".zmetadata").write_text(json.dumps(metadata))
+    original = xr.open_zarr(source, consolidated=True, decode_times=False)
+    view = xr.open_zarr(destination, consolidated=True, decode_times=False)
+    assert set(view.variables) == set(original.variables)
+    assert dict(view.sizes) == dict(original.sizes)
 
 
 def main():
@@ -40,8 +54,7 @@ def main():
             shutil.copy2(entry, dest / entry.name)
         else:
             (dest / entry.name).symlink_to(entry, target_is_directory=entry.is_dir())
-    # Consolidation writes only the new root; array chunks/statistics remain source links.
-    zarr.consolidate_metadata(str(dest))
+    write_view_metadata(data / "OM4.zarr", masks, dest)
     for name in ["OM4_means.zarr", "OM4_stds.zarr"]:
         if not (view / name).exists():
             (view / name).symlink_to(data / name, target_is_directory=True)

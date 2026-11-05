@@ -1,31 +1,36 @@
 # SPDX-FileCopyrightText: 2026 Samudra Authors
 # SPDX-License-Identifier: Apache-2.0
-"""Legacy OM4 layer geometry, shared by legacy repair and observation preparation."""
+"""OM4 nominal layer centers and thicknesses used by data preparation."""
 
 import numpy as np
 
-OM4_LAYER_THICKNESS = np.array(
+OM4_DEPTH_LEVELS = np.array(
     [
-        5,
+        2.5,
         10,
-        15,
-        20,
-        30,
-        50,
-        70,
-        100,
-        150,
-        200,
+        22.5,
+        40,
+        65,
+        105,
+        165,
         250,
-        300,
-        400,
-        500,
-        600,
-        800,
-        1000,
-        1000,
-        1000,
+        375,
+        550,
+        775,
+        1050,
+        1400,
+        1850,
+        2400,
+        3100,
+        4000,
+        5000,
+        6000,
     ],
     dtype=np.float64,
 )
-OM4_DEPTH_LEVELS = np.cumsum(OM4_LAYER_THICKNESS) - OM4_LAYER_THICKNESS / 2
+# Nominal layers are contiguous, start at 0 m, and have midpoint centers.
+# Thus each lower interface is 2 * center - upper interface.
+_interfaces = [0.0]
+for _center in OM4_DEPTH_LEVELS:
+    _interfaces.append(2 * _center - _interfaces[-1])
+OM4_LAYER_THICKNESS = np.diff(_interfaces)

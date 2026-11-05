@@ -383,7 +383,7 @@ Follow the CLI usage instructions to clone the repository and create a local mam
 the development dependencies:
 
 ```bash
-mamba install pytest scipy dask pre-commit
+mamba install pytest scipy dask pre-commit hypothesis fastparquet
 ```
 
 Run the data package tests from `data/` in the active environment:
@@ -391,3 +391,105 @@ Run the data package tests from `data/` in the active environment:
 ```bash
 python -m pytest tests
 ```
+
+### Property tests and simulation soaks
+
+`tests/property/` checks the virtualization contract using generated miniature
+NetCDF archives and real local object-store reads, parsers, Parquet serialization,
+and reference reads. It does not use the existing example-based tests as an oracle.
+The default budget is 40 examples per property; failing cases are shrunk and the
+output includes a Hypothesis reproduction blob.
+
+The oracle for payload fidelity is an independent native NetCDF read followed by
+Xarray concatenation. It checks every value, coordinate, dimension, and attribute,
+including integer packing, compression, zeros, both supported NetCDF backends,
+and small Parquet partitions. Separate properties explore static scalars, source
+name escaping, incompatible grids/attributes/inventories, and chronological time.
+Compatible native chunk layouts are tested separately from the broader capability
+probe so a known layout restriction cannot prevent payload exploration.
+
+The publication state machine compares sequences of publish, abort, retry, and
+delete operations with a one-slot committed-output model. Fault schedules inject
+source addition/modification/removal after serialization and competing output
+creation before rename. Each example owns a fresh temporary directory; tests
+control event order without sleeps or dependence on thread timing.
+
+Run an extended exploration from `data/` in an environment with the test extras:
+
+```bash
+SAMUDRA_HYPOTHESIS_PROFILE=soak SAMUDRA_HYPOTHESIS_EXAMPLES=10000 \
+  PYTHONUNBUFFERED=1 python -m pytest tests/property -v --tb=short \
+  --hypothesis-seed=95920261105 --hypothesis-show-statistics \
+  --junitxml=/tmp/property-soak.xml > /tmp/property-soak.log 2>&1
+```
+
+Replay requires the same revision (including the property tests), Python and
+dependency versions, profile/example budget, and seed. Reproduction blobs also
+require the exact Hypothesis version printed beside them. A seed alone is not a
+portable replay artifact. Hypothesis stops a failing property after shrinking;
+the example budget is a maximum, not a promise to execute that many failures.
+
+`property-soak.yaml` adds a nightly/manual CPU exploration with a fresh seed and
+a 45-minute job limit. It retains the environment, platform, revision, seed,
+JUnit results, statistics, and shrunk examples for 30 days. Only scheduled runs
+on upstream `main` can file issues. Reporting has a separate job with issue-write
+permission; the exploration job only has read permission. Reports deduplicate
+by property identity across all existing issues, including closed issues. They
+do not reopen closed issues or comment on every recurrence. Collection errors
+remain CI failures without filing product bugs. A report is evidence requiring
+oracle review, not an automatic diagnosis; different causes within one property
+share an issue until a human splits them.
+
+Proposed contracts and capability probes carry the `contract_probe` pytest marker,
+which is retained in JUnit. They still fail visibly and shrink normally, but the
+reporter excludes them from automatic issue filing. To explore only established
+contracts, add `-m 'not contract_probe'` to the pytest command. Modification and
+removal of selected sources run independently from the glob-addition probe so a
+membership failure cannot stop exploration of those established checks. Artifacts
+also record the profile and example budget explicitly.
+
+Preview reports locally without contacting GitHub:
+
+```bash
+python ../scripts/file_property_failures.py /tmp/property-soak.xml \
+  --repo m2lines/Samudra --run-url https://example.com/local-run
+```
+
+Adding `--apply` files new issues. The workflow is reviewable infrastructure;
+adding the file does not activate scheduling until it reaches the default branch.
+
+For subsequent project-wide simulation work, start with a small executable model
+of observable behavior and explicit transitions, then generate inputs and event
+schedules. Favor independent oracles and metamorphic transformations (partition,
+rename, serialize/reopen) over restating production algorithms. Keep scientific
+assumptions visible so a test cannot silently encode the same physics mistake as
+the implementation. Expand to writer append/reopen sequences and distributed
+sampler coverage before introducing expensive GPU simulations. Local storage
+simulation does not establish S3 consistency behavior or crash durability.
+
+### Initial adversarial findings for PR 959
+
+The probes deliberately remain failing on the reviewed implementation, rather
+than being marked as expected failures. Review the intended contract before fixing
+each one:
+
+| Property | Minimal counterexample | Interpretation |
+| --- | --- | --- |
+| Static payload fidelity | One grid element and a scalar variable | Serialization raises `KeyError: 'scalar/.zarray'`. |
+| Source name invariance | A local directory/file name containing `?` | URI resolution constructs a nonexistent path. |
+| Unchanged source inventory | Add a second matching file just before the final check | Build succeeds because the check only re-stats the originally discovered URLs. |
+| Exclusive publication | Another writer creates an empty output directory before rename | POSIX rename replaces that directory despite the initial existence check. |
+| Chronological time | `time=[0, 0]` | Build succeeds. Rejecting duplicate/reversed times is a proposed scientific safety contract, not an explicit current API promise. |
+| Arbitrary native file partitions | NetCDF3 files of lengths 1 and 2; or HDF chunks of length 2 with a first file of length 3 | VirtualiZarr rejects incompatible/partial chunks. This is a capability/documentation limitation, not demonstrated payload corruption. |
+
+The inventory probe proposes stability of the entire glob selection. If selection
+is intentionally frozen at discovery, document that contract and change the probe
+to assert that newly added files are excluded from both payload and provenance.
+The current provenance phrase "unchanged source inventory" leaves that distinction
+unclear. Likewise, adopting chronological validation requires an explicit policy
+for duplicate, reversed, and non-finite timestamps.
+
+Production code is unchanged by this bug hunt. The properties distinguish rejected
+valid input, silent acceptance of unsafe input, and publication races; these need
+different remedies. In particular, zero-copy reference formats impose chunk-layout
+constraints that may call for a clear precondition rather than data rewriting.

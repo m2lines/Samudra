@@ -1,0 +1,83 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+name: Property soak
+
+on:
+  schedule:
+    - cron: "37 9 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: property-soak-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  explore:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      SAMUDRA_HYPOTHESIS_PROFILE: soak
+      SAMUDRA_HYPOTHESIS_EXAMPLES: "1000"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -e './data[test]'
+      - name: Record replay inputs
+        run: |
+          mkdir -p /tmp/property-soak
+          python -m pip freeze > /tmp/property-soak/environment.txt
+          git rev-parse HEAD > /tmp/property-soak/revision.txt
+          python -c 'import secrets; print(secrets.randbits(64))' > /tmp/property-soak/seed.txt
+          python --version > /tmp/property-soak/python.txt
+          uname -a > /tmp/property-soak/platform.txt
+          python -c 'import json, os; print(json.dumps({k: os.environ[k] for k in ("SAMUDRA_HYPOTHESIS_PROFILE", "SAMUDRA_HYPOTHESIS_EXAMPLES")}))' > /tmp/property-soak/profile.json
+      - name: Explore and shrink
+        id: explore
+        working-directory: data
+        env:
+          PYTHONUNBUFFERED: "1"
+        run: |
+          set -o pipefail
+          python -m pytest tests/property -v --tb=short --disable-warnings \
+            --hypothesis-seed="$(cat /tmp/property-soak/seed.txt)" \
+            --hypothesis-show-statistics --junitxml=/tmp/property-soak/junit.xml \
+            2>&1 | tee /tmp/property-soak/pytest.log
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: property-soak
+          path: /tmp/property-soak/
+          retention-days: 30
+
+  report:
+    needs: explore
+    if: >-
+      failure() && github.event_name == 'schedule' &&
+      github.ref == 'refs/heads/main' && github.repository == 'm2lines/Samudra'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: property-soak
+          path: /tmp/property-soak
+      - name: File new property failures
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if test -f /tmp/property-soak/junit.xml; then
+            python scripts/file_property_failures.py /tmp/property-soak/junit.xml \
+              --repo "$GH_REPO" --run-url "$RUN_URL" --apply
+          fi

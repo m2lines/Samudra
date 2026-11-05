@@ -65,9 +65,11 @@ optional-dependencies.dev = [
 ]
 optional-dependencies.test = [
   "dask",
+  "fastparquet",         # Read and write real Kerchunk Parquet partitions in property tests.
   "h5py",
+  "hypothesis>=6.127.2",
   "pytest",
-  "scipy",  # Write NetCDF3 fixtures for the virtualization tests.
+  "scipy",               # Write NetCDF3 fixtures for the virtualization tests.
 ]
 
 [tool.setuptools.packages.find]
@@ -75,3 +77,4 @@ exclude = [ "book", "docs" ] # exclude packages matching these glob patterns (em
 
 [tool.pytest.ini_options]
 testpaths = [ "tests" ]
+markers = [ "contract_probe: proposed contract or capability probe; excluded from automatic issue filing" ]

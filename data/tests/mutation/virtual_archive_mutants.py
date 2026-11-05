@@ -345,8 +345,9 @@ def main():
             target_sha256=metadata["target_sha256"],
         )
         # A failing unmodified baseline invalidates the experiment, not a mutant kill.
-        if result["status"] == "survived":
-            result["status"] = "passed"
+        result["status"] = {"survived": "passed", "killed": "failed"}.get(
+            result["status"], result["status"]
+        )
         record(f"baseline-{seed}", result)
         if result["status"] != "passed":
             raise SystemExit(

@@ -494,6 +494,13 @@ with `expected-execution.json` and checks the node IDs carried into JUnit. A fai
 from the wrong test, altered settings, or missing/corrupt evidence cannot count as
 a detected mutant.
 
+The test extra includes PyArrow so local property runs exercise the nullable
+string/Parquet reader stack used by the full data environment. Dependency
+composition matters: sparse reference rows can behave differently when PyArrow
+is available even though the selected Parquet engine is fastparquet. A payload
+failure in this unmodified reader stack fails the baseline and requires diagnosis;
+it cannot be credited as successful mutation detection.
+
 URI strategies generate literal percent-escape-looking names, rather than only
 covering them with an explicit example. A focused partial-boundary generator
 exercises unaligned non-final chunks on every draw; the initial audit found that

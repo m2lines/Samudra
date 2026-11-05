@@ -68,6 +68,7 @@ optional-dependencies.test = [
   "fastparquet",         # Read and write real Kerchunk Parquet partitions in property tests.
   "h5py",
   "hypothesis>=6.127.2",
+  "pyarrow",             # Exercise the production Pandas/Parquet null-path representation.
   "pytest",
   "scipy",               # Write NetCDF3 fixtures for the virtualization tests.
 ]

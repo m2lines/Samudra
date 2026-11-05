@@ -18,6 +18,7 @@ cd "$RUN_ROOT"
     "$PYTHON" -m pytest "$RUN_ROOT/source/tests/test_rollout_validation.py" -q
     for candidate in baseline nonpartial; do
       "$PYTHON" "$EXPERIMENT/qualify.py" "$RUN_ROOT/$candidate/train.yaml" "$RUN_ROOT/$candidate/qualification.json"
+      "$PYTHON" "$EXPERIMENT/smoke.py" "$RUN_ROOT" "$candidate"
     done
     "$PYTHON" - <<'PY'
 import json

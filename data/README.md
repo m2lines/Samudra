@@ -485,6 +485,15 @@ gate. A survivor, timeout, missing test, collection/setup error, or broken basel
 fails the gate. Expected mutant failures are contained in artifacts and are never
 sent to the product issue reporter.
 
+Each subprocess isolates pytest options, plugin loading, and import paths from the
+calling shell. It loads only the Hypothesis and mutation plugins explicitly and
+binds the generation profile to each selected Hypothesis function; conflicting
+per-test settings invalidate the baseline. `execution.json` records the effective
+profile, collected node IDs, and source/mutant hashes. The classifier compares it
+with `expected-execution.json` and checks the node IDs carried into JUnit. A failure
+from the wrong test, altered settings, or missing/corrupt evidence cannot count as
+a detected mutant.
+
 URI strategies generate literal percent-escape-looking names, rather than only
 covering them with an explicit example. A focused partial-boundary generator
 exercises unaligned non-final chunks on every draw; the initial audit found that

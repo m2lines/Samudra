@@ -26,6 +26,13 @@ from pathlib import Path
 DATA = Path(__file__).resolve().parents[2]
 TARGET = DATA / "ocean_preprocessing" / "virtualize_om4.py"
 SUITE = DATA / "tests" / "property" / "test_virtual_archive.py"
+EXPECTED_PROFILE = {
+    "max_examples": 40,
+    "phases": ["generate"],
+    "database_disabled": True,
+    "deadline_disabled": True,
+}
+EXECUTION = {}
 
 
 @dataclass(frozen=True)
@@ -108,22 +115,75 @@ MUTATIONS = (
 
 def pytest_sessionstart(session):
     """Activate only when this module is explicitly loaded as a mutation plugin."""
-    mutant_path = Path(os.environ["SAMUDRA_MUTATION_SOURCE"])
     from ocean_preprocessing import virtualize_om4 as subject
 
     if Path(subject.__file__).resolve() != TARGET:
         raise RuntimeError(
             f"Mutation target import came from {subject.__file__}, expected {TARGET}"
         )
-    exec(compile(mutant_path.read_text(), str(mutant_path), "exec"), subject.__dict__)
+    EXECUTION["target_sha256"] = hashlib.sha256(TARGET.read_bytes()).hexdigest()
+    EXECUTION["mutant_sha256"] = None
+    if mutant_source := os.environ.get("SAMUDRA_MUTATION_SOURCE"):
+        mutant_path = Path(mutant_source)
+        contents = mutant_path.read_bytes()
+        exec(compile(contents, str(mutant_path), "exec"), subject.__dict__)
+        EXECUTION["mutant_sha256"] = hashlib.sha256(contents).hexdigest()
 
 
-def outcome(returncode, junit, expected_count):
+def pytest_collection_finish(session):
+    """Record effective settings after conftest loading, and bind JUnit to node IDs."""
+    from hypothesis import settings
+
+    active = settings.default
+    bind_profile((item.obj for item in session.items), active)
+    EXECUTION["profile"] = {
+        "max_examples": active.max_examples,
+        "phases": [phase.name for phase in active.phases],
+        "database_disabled": active.database is None,
+        "deadline_disabled": active.deadline is None,
+    }
+    EXECUTION["nodeids"] = sorted(item.nodeid for item in session.items)
+    for item in session.items:
+        item.user_properties.append(("mutation_nodeid", item.nodeid))
+    Path(os.environ["SAMUDRA_MUTATION_EVIDENCE"]).write_text(
+        json.dumps(EXECUTION, indent=2) + "\n"
+    )
+
+
+def bind_profile(functions, profile):
+    """Bind generation-only settings through the public API; reject test overrides."""
+    from hypothesis import is_hypothesis_test, settings
+
+    for function in set(functions):
+        if not is_hypothesis_test(function):
+            raise ValueError(
+                f"Mutation target {function.__name__} must be a Hypothesis test"
+            )
+        # Hypothesis rejects a second explicit @settings decorator. Conflicting
+        # per-test overrides must fail the baseline, rather than bypass this gate.
+        settings(profile)(function)
+
+
+def outcome(returncode, junit, expected):
     """Only a completed test failure counts as a kill; setup errors are not kills."""
-    if not junit.exists():
+    evidence = junit.parent / "execution.json"
+    if not junit.exists() or not evidence.exists():
         return "invalid"
-    cases = list(ET.parse(junit).iter("testcase"))
-    if len(cases) != expected_count or any(
+    try:
+        if json.loads(evidence.read_text()) != expected:
+            return "invalid"
+        cases = list(ET.parse(junit).iter("testcase"))
+    except (json.JSONDecodeError, ET.ParseError, UnicodeError):
+        return "invalid"
+    identities = [
+        case.findall("./properties/property[@name='mutation_nodeid']") for case in cases
+    ]
+    if not cases or any(len(identity) != 1 for identity in identities):
+        return "invalid"
+    nodeids = [identity[0].get("value") for identity in identities]
+    if any(not isinstance(nodeid, str) for nodeid in nodeids):
+        return "invalid"
+    if sorted(nodeids) != expected["nodeids"] or any(
         case.find("error") is not None or case.find("skipped") is not None
         for case in cases
     ):
@@ -136,12 +196,14 @@ def outcome(returncode, junit, expected_count):
     return "invalid"
 
 
-def run_case(directory, nodes, seed, timeout, mutant_path=None):
+def run_case(directory, nodes, seed, timeout, mutant_path=None, *, target_sha256):
     directory.mkdir(parents=True)
     env = dict(os.environ, SAMUDRA_HYPOTHESIS_PROFILE="mutation", PYTHONUNBUFFERED="1")
-    env["PYTHONPATH"] = os.pathsep.join(
-        [str(Path(__file__).parent), str(DATA), env.get("PYTHONPATH", "")]
-    )
+    for key in ("PYTEST_ADDOPTS", "PYTEST_PLUGINS", "PYTHONOPTIMIZE"):
+        env.pop(key, None)
+    env["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"
+    env["PYTHONPATH"] = os.pathsep.join([str(Path(__file__).parent), str(DATA)])
+    env["SAMUDRA_MUTATION_EVIDENCE"] = str(directory / "execution.json")
     command = [
         sys.executable,
         "-m",
@@ -154,12 +216,31 @@ def run_case(directory, nodes, seed, timeout, mutant_path=None):
         f"--hypothesis-seed={seed}",
         "--hypothesis-show-statistics",
         f"--junitxml={directory / 'junit.xml'}",
+        "-p",
+        "hypothesispytest",
+        "-p",
+        "virtual_archive_mutants",
     ]
     if mutant_path is not None:
         env["SAMUDRA_MUTATION_SOURCE"] = str(mutant_path)
-        command.extend(["-p", "virtual_archive_mutants"])
     else:
         env.pop("SAMUDRA_MUTATION_SOURCE", None)
+    expected = {
+        "nodeids": sorted(
+            str(Path(node.split("::", 1)[0]).relative_to(DATA).as_posix())
+            + "::"
+            + node.split("::", 1)[1]
+            for node in nodes
+        ),
+        "profile": EXPECTED_PROFILE,
+        "target_sha256": target_sha256,
+        "mutant_sha256": hashlib.sha256(mutant_path.read_bytes()).hexdigest()
+        if mutant_path
+        else None,
+    }
+    (directory / "expected-execution.json").write_text(
+        json.dumps(expected, indent=2) + "\n"
+    )
     started = time.monotonic()
     with (directory / "pytest.log").open("w") as log:
         try:
@@ -172,7 +253,7 @@ def run_case(directory, nodes, seed, timeout, mutant_path=None):
                 timeout=timeout,
                 check=False,
             )
-            status = outcome(process.returncode, directory / "junit.xml", len(nodes))
+            status = outcome(process.returncode, directory / "junit.xml", expected)
             returncode = process.returncode
         except subprocess.TimeoutExpired:
             status, returncode = "timeout", None
@@ -218,8 +299,7 @@ def main():
         "python": sys.version,
         "platform": platform.platform(),
         "profile": "mutation",
-        "max_examples": 40,
-        "phases": ["generate"],
+        "expected_profile": EXPECTED_PROFILE,
         "seeds": args.seeds,
         "timeout_seconds": args.timeout,
     }
@@ -257,7 +337,13 @@ def main():
 
     nodes = list(dict.fromkeys(f"{SUITE}::{mutant.property}" for mutant in MUTATIONS))
     for seed in args.seeds:
-        result = run_case(output / f"baseline-{seed}", nodes, seed, args.timeout)
+        result = run_case(
+            output / f"baseline-{seed}",
+            nodes,
+            seed,
+            args.timeout,
+            target_sha256=metadata["target_sha256"],
+        )
         # A failing unmodified baseline invalidates the experiment, not a mutant kill.
         if result["status"] == "survived":
             result["status"] = "passed"
@@ -279,6 +365,7 @@ def main():
                 seed,
                 args.timeout,
                 source,
+                target_sha256=metadata["target_sha256"],
             )
             record(f"{mutant.name}-{seed}", result)
     if any(result["status"] not in ("passed", "killed") for result in results.values()):

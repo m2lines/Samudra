@@ -1,0 +1,23 @@
+{
+  "purpose": "Explicit world-size migration qualification on isolated copies",
+  "old_world_size": 4,
+  "new_world_size": 2,
+  "global_examples": 8,
+  "start_update": 2825,
+  "end_update": 2829,
+  "exact_same_layout_complete_checkpoint_payload": true,
+  "original_checkpoint_unchanged": true,
+  "manifest_unchanged": true,
+  "rank_models_agree": true,
+  "all_training_records_finite": true,
+  "cross_layout_bitwise_trajectory_claim": false,
+  "scheduler_state": "COMPLETED",
+  "exit_code": "0:0",
+  "elapsed_seconds": 453,
+  "allocated_gpu_hours": 0.25166666666666665,
+  "node": "gr103",
+  "job_id": 21991129,
+  "runtime_commit": "7bef723",
+  "cpu_tests": "7 passed; all changed-file precommit checks passed",
+  "full_evidence": "evidence.tar.gz"
+}

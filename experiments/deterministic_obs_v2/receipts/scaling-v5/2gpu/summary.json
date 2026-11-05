@@ -1,0 +1,130 @@
+{
+  "purpose": "engineering qualification",
+  "world_size": 2,
+  "global_examples": 8,
+  "gpu": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+  "torch": "2.12.0a0+0291f960b6.nv26.04.48445190",
+  "cuda": "13.2",
+  "slurm_job_id": "21987132",
+  "parameters": 117473624,
+  "exact_prefetch_and_resume": true,
+  "isolated_uncooled_fork": true,
+  "memory": [
+    {
+      "rank": 0,
+      "uuid": "GPU-15a6258b-edd7-1d4c-dc1f-665ea533299d",
+      "peak_gpu_allocated_bytes": 8172490240,
+      "peak_gpu_reserved_bytes": 21592276992,
+      "peak_host_rss_bytes": 18980126720
+    },
+    {
+      "rank": 1,
+      "uuid": "GPU-c3449e9b-bf0d-9ff7-fb5f-3130f00b7262",
+      "peak_gpu_allocated_bytes": 8174808064,
+      "peak_gpu_reserved_bytes": 21384658944,
+      "peak_host_rss_bytes": 18776498176
+    }
+  ],
+  "exposure": {
+    "obs": {
+      "updates": 130,
+      "fresh": 524,
+      "replay": 516
+    },
+    "om4": {
+      "updates": 128,
+      "fresh": 516,
+      "replay": 508
+    }
+  },
+  "started_at": 1793905306.496892,
+  "finished_at": 1793907092.981669,
+  "wandb_url": "https://wandb.ai/ocean_emulators/observational-transfer/runs/edwdre9c",
+  "utilization_release_gate": "Assess per-GPU steady telemetry; this receipt does not assert >50%",
+  "scheduler_state": "COMPLETED",
+  "exit_code": "0:0",
+  "elapsed_seconds": 1828,
+  "allocated_gpu_hours": 1.0155555555555555,
+  "main_updates": 256,
+  "cooldown_updates": 2,
+  "node": "gr106",
+  "validation_updates": [
+    128,
+    256,
+    258
+  ],
+  "all_validation_metrics_finite": true,
+  "input_parity_cases": 8,
+  "utilization": {
+    "window": "steady update 25 start through all validation/checkpoint records at update 256",
+    "start_unix": 1793906026.388268,
+    "end_unix": 1793907052.2284088,
+    "duration_seconds": 1025.8401408195496,
+    "per_gpu": {
+      "GPU-15a6258b-edd7-1d4c-dc1f-665ea533299d": {
+        "samples": 1025,
+        "mean_percent": 58.01073170731707,
+        "median_percent": 84.0,
+        "time_weighted_mean_percent": 58.00641309563593,
+        "coverage_seconds": 1025.8401408195496,
+        "max_sample_gap_seconds": 1.2849998474121094
+      },
+      "GPU-c3449e9b-bf0d-9ff7-fb5f-3130f00b7262": {
+        "samples": 1025,
+        "mean_percent": 58.5190243902439,
+        "median_percent": 85.0,
+        "time_weighted_mean_percent": 58.51110288122236,
+        "coverage_seconds": 1025.8401408195496,
+        "max_sample_gap_seconds": 1.2809998989105225
+      }
+    },
+    "source_timing": {
+      "obs": {
+        "updates": 116,
+        "seconds": {
+          "min": 4.1588079407811165,
+          "mean": 4.437769709002419,
+          "median": 4.439646375831217,
+          "max": 4.721015398390591
+        },
+        "data_seconds": {
+          "min": 0.00046795792877674103,
+          "mean": 0.0005686201219414843,
+          "median": 0.0005248440429568291,
+          "max": 0.0024725543335080147
+        },
+        "background_read_seconds": {
+          "min": 0.7934162793681026,
+          "mean": 1.3058292673868608,
+          "median": 1.3442559465765953,
+          "max": 2.5036524971947074
+        }
+      },
+      "om4": {
+        "updates": 116,
+        "seconds": {
+          "min": 2.860457512550056,
+          "mean": 3.659476923250497,
+          "median": 3.292261863127351,
+          "max": 5.901521319523454
+        },
+        "data_seconds": {
+          "min": 0.00045704934746026993,
+          "mean": 0.5044611643293294,
+          "median": 0.0005329013802111149,
+          "max": 2.8059468595311046
+        },
+        "background_read_seconds": {
+          "min": 2.4637456983327866,
+          "mean": 4.265416082500576,
+          "median": 4.130955739878118,
+          "max": 7.906596727669239
+        }
+      }
+    },
+    "passed": true
+  },
+  "comparison_scope": "Same two-rank controls restored from a shared anchor; no four-to-two checkpoint migration or cross-layout exact equivalence tested",
+  "long_run_limit": "17.1-minute steady window, not multi-hour qualification",
+  "full_evidence": "evidence.tar.gz"
+}

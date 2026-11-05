@@ -26,4 +26,6 @@ The experiment runs on EAI Beta, with one four-GPU production node per arm and e
 
 The qualification gate uses a shared file lock and a fingerprinted success marker. Only one job performs the checks; failures stop that job before training and do not create a success marker.
 
-No quality result is available yet. Job receipts and results will be added after execution.
+Queued on 2026-11-05: production array **223702** (`_0` baseline, `_1` nonpartial), each with four GPUs, standard QoS, and a six-hour wall-time limit. Short qualification job **223703** requests one GPU for 30 minutes in `beta_test` with test QoS. Both were pending at submission; GPU qualification and W&B initialization are not yet observed. The producer revision is `cb997e5218e26a24a1f8b6185ea32e0c4943907b`. Resolved training configurations are in [receipts](receipts/).
+
+CPU verification: seven rollout/metric tests and one analytical scorer test passed; repository pre-commit checks passed. The analytical test verifies original-standard-deviation scaling, exclusion of empty/masked support, and rejection of nonfinite predictions on retained cells. Both generated training configs parse successfully and have identical scientific settings. No quality result is available yet.

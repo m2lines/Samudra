@@ -14,7 +14,7 @@ import torch
 from pydantic import ValidationError
 
 from samudra.config import ExperimentConfig, UNetBackboneConfig, WandBConfig
-from samudra.observations.config import ObservationTrainConfig
+from samudra.observations.config import ObservationDataConfig, ObservationTrainConfig
 from samudra.utils.location import UnresolvedLocation
 from samudra.utils.multiton import MultitonScope
 from samudra.utils.train import CheckpointPaths
@@ -73,9 +73,11 @@ def test_bundled_config_includes_and_cli_overrides(tmp_path):
     assert cfg.learning_rate == 0.0002
     assert cfg.replay.max_age == 40
     assert cfg.model.backbone.ch_width == [4, 8]
-    assert (
-        cfg.data.local_path("observations", cfg.experiment) == tmp_path / "obs/samples"
-    )
+    # Both config entrypoints follow the documented preparation root layout.
+    for data in (cfg.data, ObservationDataConfig()):
+        assert data.local_path("observations", cfg.experiment) == tmp_path / "obs"
+        assert data.local_path("normalization", cfg.experiment) == tmp_path / "obs"
+        assert data.local_path("daily", cfg.experiment) == tmp_path / "obs/daily"
     names = [f"{v}_{i}" for v in ("uo", "vo", "thetao", "so") for i in range(19)] + [
         "zos"
     ]

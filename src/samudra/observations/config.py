@@ -26,9 +26,9 @@ Mix = Literal["obs", "om4-obs", "om4-cm4-obs", "om4-cm4"]
 class ObservationDataConfig(BaseConfig):
     """Prepared archives; relative paths use experiment.data_root."""
 
-    observations: Location = UnresolvedLocation(path="obs/samples")
+    observations: Location = UnresolvedLocation(path="obs")
     daily: Location = UnresolvedLocation(path="obs/daily")
-    normalization: Location = UnresolvedLocation(path="obs/normalization")
+    normalization: Location = UnresolvedLocation(path="obs")
     om4: Location | None = None
     cm4: Location | None = None
 

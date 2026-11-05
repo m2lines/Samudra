@@ -16,7 +16,6 @@ import json
 import os
 import time
 from pathlib import Path
-from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -62,7 +61,7 @@ def interpolate_depth(
     return np.stack(result, axis=-3).astype(np.float32)
 
 
-def save_atomic(path: Path, **arrays: Any) -> None:
+def save_atomic(path: Path, **arrays: ArrayLike) -> None:
     temp = path.with_name(path.name + f".{os.getpid()}.tmp")
     with temp.open("wb") as stream:
         np.savez_compressed(stream, **arrays)
@@ -90,9 +89,28 @@ def prepare(args: argparse.Namespace) -> None:
     product, variables = names[args.product]
     source = Path(args.source) / (product + ".zarr")
     ds = xr.open_zarr(source, chunks=None)
-    remap = regridding.FiniteCoverageRemap(
-        ds.lat.values, ds.lon.values, grid["lat"], grid["lon"]
+    source_geometry = ds
+    source_grid_path = getattr(args, "source_grid", None)
+    if source_grid_path is not None:
+        source_geometry = xr.open_dataset(source_grid_path)
+        np.testing.assert_allclose(source_geometry.lat.values, ds.lat.values)
+        np.testing.assert_allclose(source_geometry.lon.values, ds.lon.values)
+    if not all(name in source_geometry for name in ("lat_b", "lon_b")):
+        raise ValueError(
+            "Product lacks cell bounds; pass --source-grid with its grid geometry"
+        )
+    source_grid = regridding.rectilinear_grid(
+        ds.lat.values,
+        ds.lon.values,
+        source_geometry.lat_b.values,
+        source_geometry.lon_b.values,
     )
+    target_grid = regridding.rectilinear_grid(
+        grid["lat"], grid["lon"], grid["lat_b"], grid["lon_b"]
+    )
+    remap = regridding.FiniteCoverageRemap(source_grid, target_grid)
+    if source_grid_path is not None:
+        source_geometry.close()
     out = Path(args.output) / args.product / str(args.year)
     out.mkdir(parents=True, exist_ok=True)
     times = pd.DatetimeIndex(ds.time.values)
@@ -111,6 +129,11 @@ def prepare(args: argparse.Namespace) -> None:
         "year": args.year,
         "grid_sha256": hashlib.sha256(Path(args.grid).read_bytes()).hexdigest(),
         "min_coverage": 0.9,
+        "source_grid_sha256": hashlib.sha256(
+            Path(source_grid_path).read_bytes()
+        ).hexdigest()
+        if source_grid_path is not None
+        else None,
         "source": str(source),
         "limit": args.limit,
         "code_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
@@ -129,7 +152,7 @@ def prepare(args: argparse.Namespace) -> None:
     manifest.write_text(json.dumps(signature, indent=2) + "\n")
     started = time.monotonic()
     if args.product == "iap":
-        # Preprocessing-only dependency, pinned separately on Grace.
+        # Absolute-to-practical salinity conversion uses the pinned GSW package.
         gsw = importlib.import_module("gsw")
 
         depth_name = next(n for n in ds.temp.dims if n not in ("time", "lat", "lon"))
@@ -179,6 +202,7 @@ def prepare(args: argparse.Namespace) -> None:
                 raw = interpolate_depth(raw, z, target_depth)
                 field, coverage = remap(raw)
                 fields.append(field)
+            assert ohc is not None
             save_atomic(
                 path,
                 values=np.stack(fields),
@@ -275,6 +299,7 @@ def main() -> None:
     parser.add_argument("--source", required=True)
     parser.add_argument("--grid", required=True)
     parser.add_argument("--output", required=True)
+    parser.add_argument("--source-grid", type=Path)
     parser.add_argument(
         "--product", choices=["sst", "adt", "era5", "iap"], required=True
     )

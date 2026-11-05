@@ -12,7 +12,6 @@ import numpy as np
 import pytest
 import torch
 
-from samudra.models.surface_initialized import SurfaceInitializedModel
 from samudra.observations import training as baseline
 from samudra.observations.config import ObservationTrainConfig
 from samudra.observations.state import TrainingState
@@ -29,9 +28,10 @@ def small_cpu_pool():
 def recipe(mix="om4-cm4-obs", **overrides):
     return ObservationTrainConfig.model_validate(
         {
+            **ObservationTrainConfig.from_yaml("observations/train.yaml").model_dump(),
             "experiment": {"name": "test", "rand_seed": 7, "wandb": {}},
             "data": {"om4": "om4", "cm4": "cm4"},
-            "mix": mix,
+            "pretrain_mix": mix,
             **overrides,
         }
     )
@@ -51,9 +51,6 @@ def test_default_recipe_allocates_exact_optimizer_updates(mix, main_counts):
     assert Counter(cfg.source_at(i) for i in range(cfg.main_updates)) == main_counts
     assert all(
         cfg.source_at(i) == "obs" for i in range(cfg.main_updates, cfg.total_updates)
-    )
-    assert cfg.learning_rate_at(cfg.total_updates - 1) == pytest.approx(
-        cfg.final_learning_rate
     )
 
 
@@ -110,12 +107,13 @@ def make_state(cfg):
     np.random.seed(cfg.experiment.rand_seed)
     torch.manual_seed(cfg.experiment.rand_seed)
     model = torch.nn.Linear(1, 1, bias=False)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=cfg.learning_rate)
     return TrainingState(
         model,
         optimizer,
         TinySources.names,
         seed=cfg.experiment.rand_seed,
+        config=cfg,
         ema_decay=cfg.ema_decay,
         faster_decay_at_start=cfg.faster_decay_at_start,
         replay_per_month=cfg.replay.per_month,
@@ -200,10 +198,25 @@ def test_training_startup_populates_each_source_and_cooldown_is_obs_only(
 
 
 @pytest.mark.parametrize("mix", ["om4-cm4-obs", "om4-cm4"])
+@pytest.mark.parametrize("stop_after", [1, 4, 5])
+@pytest.mark.parametrize("scheduler", [None, {"type": "cosine"}])
+@pytest.mark.parametrize(
+    "cooldown_scheduler",
+    [
+        {"type": "linear_cooldown", "final_lr": 1e-6},
+        {"type": "cosine_with_warmup", "warmup_epochs": 1, "warmup_lr": 1e-6},
+    ],
+)
 def test_exact_resume_across_cooldown_preserves_rng_optimizer_and_replay(
-    monkeypatch, tmp_path, mix
+    monkeypatch, tmp_path, mix, stop_after, scheduler, cooldown_scheduler
 ):
-    cfg = small_recipe(monkeypatch, mix)
+    cfg = small_recipe(
+        monkeypatch,
+        mix,
+        scheduler=scheduler,
+        cooldown_scheduler=cooldown_scheduler,
+        cooldown_learning_rate=5e-5,
+    )
     manifest = {"mix": mix}
     full_dir, resumed_dir = tmp_path / "full", tmp_path / "resumed"
     full_dir.mkdir()
@@ -229,9 +242,9 @@ def test_exact_resume_across_cooldown_preserves_rng_optimizer_and_replay(
         manifest,
         validate,
         resumed_records.append,
-        stop_after=4,
+        stop_after=stop_after,
     )
-    assert not prefix.cooled
+    assert prefix.cooled == (stop_after > cfg.main_updates)
     restored = make_state(cfg)
     restored.restore(resumed_dir / "ckpt.pt", manifest)
     baseline.train(
@@ -273,7 +286,12 @@ def test_replay_objective_forecast_does_not_read_auxiliary_ocean_state():
     names = [f"{v}_{i}" for v in ("uo", "vo", "thetao", "so") for i in range(19)] + [
         "zos"
     ]
-    model = SurfaceInitializedModel(names, widths=(4,), activation_checkpointing=False)
+    model_cfg = recipe("obs").model
+    model_cfg.backbone.ch_width = [4]
+    model_cfg.backbone.dilation = [1]
+    model_cfg.backbone.n_layers = [1]
+    model_cfg.activation_checkpointing = False
+    model = model_cfg.build(names)
     height, width, steps = 6, 8, 2
     mask = torch.ones(77, height, width, dtype=torch.bool)
     lat = torch.linspace(-75, 75, height)

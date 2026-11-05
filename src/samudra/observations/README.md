@@ -3,7 +3,8 @@
 
 # Observation training
 
-`samudra train-obs` trains an ocean model initialized from surface observations.
+`samudra train-obs` trains an ocean model whose forecast state is initialized from
+surface observations.
 It uses Samudra's YAML configuration, `!include`, bundled presets and dotted CLI
 overrides. The model, data preparation and monthly replay logic live under a
 separate entrypoint because observation targets have different sampling cadences.
@@ -14,19 +15,25 @@ samudra train-obs observations/train.yaml \
   --experiment.name obs-baseline --experiment.wandb.mode online
 # The module entrypoint accepts the same options:
 python -m samudra.observations.train observations/train.yaml \
-  --experiment.data_root /data --mix om4-cm4-obs
+  --experiment.data_root /data --pretrain_mix om4-cm4-obs
 ```
 
 The preset includes [data paths](../configs/observations/data.yaml) and a
 [model definition](../configs/observations/model.yaml). Paths resolve through
 `experiment.data_root`. Choose `obs`, `om4-obs`, `om4-cm4-obs` or `om4-cm4` with
-`--mix`. Each recipe has a main phase followed by observation-only cooldown.
-The `om4-cm4` main phase alternates the two model sources.
+`--pretrain_mix`. Each recipe has a main phase followed by observation-only cooldown.
+The `om4-cm4` main phase alternates the two model sources. `scheduler` and
+`cooldown_scheduler` use the shared Samudra scheduler configs. Here, each
+scheduler step is an optimizer update; the supplied duration is `main_updates`
+or `cooldown_updates`. The preset holds LR constant in the main phase and uses
+`linear_cooldown` afterward. Cooldown starts from `cooldown_learning_rate`, which
+uses `learning_rate` when omitted. Scheduler state resumes with the optimizer.
 
 Update budgets, learning rates, accumulation, fresh/replay counts, replay capacity
 and age, EMA, validation cadence and checkpoint cadence are configurable. Budgets,
 cadences and replay age count optimizer updates. Fresh/replay counts are examples
-per update; capacity is entries per lead-month bucket. Each microbatch contains
+per update and sum to `gradient_accumulation_steps`. Replay capacity is saved state
+pairs per forecast lead month, counted from the original initialization. Each microbatch contains
 one monthly window; the effective batch is `gradient_accumulation_steps`. A fresh
 example initializes from surface history; replay advances a detached saved state
 through its next target month. Channel layout and calendar
@@ -48,7 +55,7 @@ selects another trusted checkpoint. `--stop_after` limits execution without
 changing the scientific update budget. SIGTERM and SIGUSR1 save at an update
 boundary. Resume checks the scientific configuration and data/code identities.
 
-Annual validation uses one observation initialization, prescribed ERA5 forcing,
+Each validation evaluates a one-year forecast with one observation initialization, prescribed ERA5 forcing,
 and Samudra's area-weighted RMSE kernel. Observation-training standard deviations
 normalize the scores. Surface and monthly profile scores receive equal channel
 weight for each individual observed channel after their respective time reductions.
@@ -67,18 +74,31 @@ PYTHONPATH=src python data/prepare_observation_baseline.py grid \
 PYTHONPATH=src python data/prepare_observation_baseline.py daily \
   --source /data/products --grid /data/obs/grid.npz --output /data/obs/daily \
   --product sst --year 1993
-# Repeat for the products and years needed by the observation splits.
+# Repeat for sst, adt, era5 and iap, and years needed by the observation splits.
 PYTHONPATH=src python data/prepare_observation_baseline.py months --root /data/obs
 PYTHONPATH=src python data/prepare_observation_normalization.py /data/obs
 ```
 
-The splits are defined in [archive.py](archive.py).
+The splits are defined in [archive.py](archive.py). Grid export reads `lat_b` and
+`lon_b` cell boundaries from the prepared OM4 store. For a store without those
+coordinates, pass `grid --grid-geometry /data/target-grid.nc` using the grid file
+from its preparation. Daily preparation similarly accepts
+`--source-grid /data/product-grid.nc` when the product store lacks boundaries.
+These geometry files contain `lat`, `lon`, `lat_b` and `lon_b`; their centers
+must match the corresponding data store.
 
 The model and observation preparation paths share the ESMF conservative-weight
-builder. OM4, CM4 and observations use state normalization fitted on global finite wet
-observation support. Model wind stress and heat flux use their own physical units
-and shared OM4 forcing statistics. Retain daily shards for exact intervals anchored
-at the original forecast origin.
+builder. Normalization writes `observation_means.zarr` and
+`observation_stds.zarr`, with a scalar for each named physical field. Temperature, salinity and sea-surface height (T/S/SSH)
+statistics come from global finite wet observation support. Velocity uses
+zero-mean/unit-scale reference values because the observations supply no matching
+3-D velocity targets; deeper T/S channels repeat the deepest observed scales.
+OISST supplies the surface-temperature scale. All sources use this state
+normalization. Model wind stress and heat flux use shared OM4 forcing statistics.
+`statistics.npz` holds the atmosphere/profile input statistics and surface
+climatology; `normalization.json` records conventions and input/output hashes.
+Retain daily shards so replay can reconstruct five-day forcing and surface-target
+intervals from the forecast’s original initialization date.
 
 OM4 initializer histories may span missing days. Forecast and replay transitions
 must remain contiguous, including the final history frame to the first target.
@@ -104,7 +124,9 @@ multi-node or multi-GPU requests for this module before spawning workers.
 
 The entrypoint directly uses `TopLevelConfig`, `ExperimentConfig`, `WandBConfig`,
 `Location`, `init_train_backend`, logging/warning setup, seed setup,
-`CheckpointPaths`, `WandBLogger`, `EMATracker`, `UNetBackboneConfig` and `BlockConfig`.
+`CheckpointPaths`, `WandBLogger`, `EMATracker`, scheduler configs,
+`UNetBackboneConfig` and `BlockConfig`. The model config controls padding;
+`core_block.instance_norm_affine` controls affine InstanceNorm parameters.
 The following code remains local for later discussion:
 
 | Local code | Why sharing requires more work |
@@ -112,9 +134,8 @@ The following code remains local for later discussion:
 | Source loading and monthly training loop | `Trainer` consumes epoch-based dense-field loaders; observations combine daily surface data, monthly profiles and detached replay states. |
 | Checkpoint payload and resume | Replay pools, original ages, source exposure and sampling RNG need to be saved together. `Trainer` owns its checkpoint format internally. Multi-rank replay would also need rank-specific ownership. |
 | Annual validation orchestration | Existing aggregators expect dense fields at a common cadence. The observation evaluator shares the spatial RMSE kernel and implements the cadence reductions locally. |
-| Optimizer and cooldown schedule | `Trainer` constructs Adam inline. This path uses AdamW and an update-based observation cooldown. |
+| Optimizer construction | `Trainer` constructs Adam inline. This path constructs AdamW; both use the shared scheduler configs. |
 | W&B run identity setup | `WandBLogger.setup_run` requires a `DataBundle` and the standard trainer's checkpoint keys. Logging and run lifecycle use the shared logger. |
-| Affine InstanceNorm adaptation | The shared block config has no affine InstanceNorm option. The model enables affine parameters after building the shared backbone. |
 
 Tests cover config loading/overrides, source exposure, replay, exact resume,
 calendar gaps, normalization and annual scoring. The default model matches the parameter layout and seeded initialization of the

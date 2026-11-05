@@ -27,9 +27,10 @@ def test_exact_source_allocation_and_cooldown():
 
     cfg = ObservationTrainConfig.model_validate(
         {
+            **ObservationTrainConfig.from_yaml("observations/train.yaml").model_dump(),
             "experiment": {"name": "test", "wandb": {}},
             "data": {"om4": "om4", "cm4": "cm4"},
-            "mix": "om4-cm4-obs",
+            "pretrain_mix": "om4-cm4-obs",
         }
     )
     assert Counter(cfg.source_at(i) for i in range(2000)) == {
@@ -38,9 +39,6 @@ def test_exact_source_allocation_and_cooldown():
         "cm4": 500,
     }
     assert all(cfg.source_at(i) == "obs" for i in range(2000, 3000))
-    assert cfg.learning_rate_at(1999) == 1e-4
-    assert cfg.learning_rate_at(2000) < 1e-4
-    assert cfg.learning_rate_at(2999) == pytest.approx(1e-6)
 
 
 def test_overlap_boundary_uses_two_correct_states_and_detaches_storage():

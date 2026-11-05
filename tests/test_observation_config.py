@@ -21,7 +21,10 @@ from samudra.utils.train import CheckpointPaths
 
 
 def config(tmp_path: Path, **changes) -> ObservationTrainConfig:
+    preset = ObservationTrainConfig.from_yaml("observations/train.yaml")
     return ObservationTrainConfig(
+        model=preset.model,
+        cooldown_scheduler=preset.cooldown_scheduler,
         experiment=ExperimentConfig(
             name="test-observations",
             base_output_dir=str(tmp_path),
@@ -101,8 +104,10 @@ def test_scientific_identity_ignores_stop_controls_but_tracks_recipe(tmp_path):
     [
         {"fresh_examples": 9},
         {"gradient_accumulation_steps": 0},
-        {"mix": "om4-cm4"},
-        {"final_learning_rate": 0.1},
+        {"pretrain_mix": "om4-cm4"},
+        {"main_updates": 0},
+        {"cooldown_learning_rate": 1e-8},
+        {"scheduler": {"type": "linear_cooldown", "final_lr": 0.1}},
         {"batch_size": 2},
     ],
 )

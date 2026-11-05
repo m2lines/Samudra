@@ -8,7 +8,9 @@ backbone:
   core_block:
     block_type: conv_next_block
     norm: instance
+    instance_norm_affine: true
     upscale_factor: 2
   down_sampling_block: avg_pool
   up_sampling_block: zonally_periodic_upsample
+pad: circular
 activation_checkpointing: true

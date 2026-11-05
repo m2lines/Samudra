@@ -11,7 +11,7 @@ import json
 import math
 from collections.abc import Callable, Mapping
 from pathlib import Path
-from typing import Any, TypedDict
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -28,48 +28,18 @@ from samudra.observations.constants import (
     MAX_REPLAY_MONTHS,
     STEP_DAYS,
     SURFACE_CHANNELS,
+    ModelTask,
 )
 from samudra.observations.evaluate import AnnualObservationEvaluator
 from samudra.observations.intervals import replay_month
 from samudra.observations.losses import balanced_loss, completion_loss, corrupt_sample
-from samudra.observations.model_data import ModelMonths
+from samudra.observations.model_data import ContinuationLayout, ModelMonths
 from samudra.observations.replay import ReplayEntry, states_at
+from samudra.observations.sample_types import ForecastSample, ObservationSample
 from samudra.observations.samples import Samples
 from samudra.observations.state import TrainingState, write_json
 from samudra.utils.device import autocast
 from samudra.utils.train import CheckpointPaths
-
-
-class ReplayLayout(TypedDict):
-    """Five-day bin offsets from the original forecast origin."""
-
-    start_lead: int
-    end_lead: int
-    next_start_lead: int
-
-
-class ForecastSample(TypedDict, total=False):
-    """A source window; tensors have batch/time/channel/latitude/longitude axes.
-
-    Observation windows carry surface and monthly profile labels; model windows
-    additionally carry dense physical fields. Validity stays separate from values.
-    """
-
-    surface: torch.Tensor
-    atmosphere: torch.Tensor
-    contexts: torch.Tensor
-    validity: torch.Tensor
-    mask: torch.Tensor
-    month_weights: torch.Tensor
-    fields: torch.Tensor
-    interior: torch.Tensor
-    raw_surface: torch.Tensor
-    completion_target: torch.Tensor
-    completion_valid: torch.Tensor
-    start_lead: int
-    end_lead: int
-    next_start_lead: int
-
 
 Origin = str | int  # Observation calendar month, or index into native model windows.
 Metrics = dict[str, float | int]
@@ -98,11 +68,15 @@ class Sources:
             return self.paths[int(rng.integers(len(self.paths)))].stem
         return int(rng.integers(len(self.models[source].windows)))
 
-    def layout(self, source: str, origin: Origin, month: int) -> ReplayLayout | None:
+    def layout(
+        self, source: str, origin: Origin, month: int
+    ) -> ContinuationLayout | None:
         if month >= MAX_REPLAY_MONTHS:
             return None
         if source != "obs":
             return self.models[source].continuation_layout(int(origin), month)
+        if not isinstance(origin, str):
+            raise TypeError("Observation origins must be calendar-month strings")
         target = pd.Timestamp(origin) + pd.DateOffset(months=month)
         if not SPLITS["train"][0] <= target.strftime("%Y-%m") <= SPLITS["train"][1]:
             return None
@@ -113,9 +87,13 @@ class Sources:
 
     def load(self, source: str, origin: Origin, month: int = 0) -> ForecastSample:
         if source == "obs":
+            if not isinstance(origin, str):
+                raise TypeError("Observation origins must be calendar-month strings")
             target = pd.Timestamp(origin) + pd.DateOffset(months=month)
             if month:
-                sample = self.obs.trajectory(origin, target_month=target, split="train")
+                sample = self.obs.trajectory(
+                    origin, target_month=target.strftime("%Y-%m-%d"), split="train"
+                )
             else:
                 sample = self.obs.load(
                     self.obs.root / "train" / (target.strftime("%Y-%m") + ".npz")
@@ -126,12 +104,16 @@ class Sources:
                         "Observation window is outside the training cohort"
                     )
                 sample.update(layout)
-            sample["mask"] = self.obs.mask
-            return sample
+            return ForecastSample(**sample, mask=self.obs.mask)
         raw = self.models[source].continuation(int(origin), month, self.obs.device)
         fields = raw["fields"]
         return {
-            **raw,
+            "fields": fields,
+            "mask": raw["mask"],
+            "contexts": raw["contexts"],
+            "start_lead": raw["start_lead"],
+            "end_lead": raw["end_lead"],
+            "next_start_lead": raw["next_start_lead"],
             "surface": fields[:, :, SURFACE_CHANNELS],
             "atmosphere": raw["forcing"],
             "month_weights": raw["weights"],
@@ -145,12 +127,13 @@ class Sources:
     ) -> ForecastSample:
         if source != "obs" or month == 0:
             return sample
+        if not isinstance(origin, str):
+            raise TypeError("Observation origins must be calendar-month strings")
         target = pd.Timestamp(origin) + pd.DateOffset(months=month)
         result = self.obs.load(
             self.obs.root / "train" / (target.strftime("%Y-%m") + ".npz")
         )
-        result["mask"] = self.obs.mask
-        return result
+        return ForecastSample(**result, mask=self.obs.mask)
 
 
 def objective(
@@ -169,7 +152,7 @@ def objective(
     Replay never sees the auxiliary branch's contemporaneous ocean observations.
     Only its own detached physical history, future forcing and calendar advance it.
     """
-    task = "observation" if source == "obs" else "om4"
+    task: ModelTask = "observation" if source == "obs" else "om4-family"
     auxiliary = corrupt_sample(auxiliary, seed)
     if source != "obs":
         if coverage is None:
@@ -248,7 +231,7 @@ def objective(
 
 @torch.no_grad()
 def annual_metrics(
-    model: SurfaceInitializedModel, data: Samples, trajectory: ForecastSample
+    model: SurfaceInitializedModel, data: Samples, trajectory: ObservationSample
 ) -> dict[str, float]:
     model.eval()
     evaluator = AnnualObservationEvaluator(
@@ -284,7 +267,7 @@ def annual_metrics(
 
 def train(
     cfg: ObservationTrainConfig,
-    state: TrainingState,
+    state: TrainingState[SurfaceInitializedModel],
     sources: Sources,
     output: Path,
     manifest: Manifest,
@@ -305,14 +288,18 @@ def train(
         if update == cfg.main_updates and not state.cooled:
             state.ema = state.new_ema()
             state.cooled = True
+            # Each phase has an explicit LR base; a completed cosine schedule can
+            # reach zero, and PyTorch schedulers retain initial_lr in param groups.
+            rate = cfg.cooldown_learning_rate or cfg.learning_rate
+            for group in state.optimizer.param_groups:
+                group["lr"] = group["initial_lr"] = rate
+            state.build_scheduler()
         source = cfg.source_at(update)
         pool = state.pools[source]
-        for group in state.optimizer.param_groups:
-            group["lr"] = cfg.learning_rate_at(update)
         state.model.train()
         state.optimizer.zero_grad(set_to_none=True)
         record: Metrics = {
-            "lr": cfg.learning_rate_at(update),
+            "lr": float(state.optimizer.param_groups[0]["lr"]),
             "max_start_lead_days": 0,
         }
         for example in range(cfg.gradient_accumulation_steps):
@@ -379,6 +366,8 @@ def train(
             state.model.parameters(), cfg.gradient_clip, error_if_nonfinite=True
         )
         state.optimizer.step()
+        if state.scheduler is not None:
+            state.scheduler.step()
         state.ema(state.model)
         state.updates = update + 1
         state.exposure[source]["updates"] += 1
@@ -459,9 +448,12 @@ def run_manifest(
     normalization = data.normalization
     verify_normalization(normalization)
     files = [data.root / "grid.npz"] + [
-        normalization / n
-        for n in ("normalization.npz", "normalization.json", "statistics.npz")
+        normalization / n for n in ("normalization.json", "statistics.npz")
     ]
+    for name in ("observation_means.zarr", "observation_stds.zarr"):
+        files.extend(
+            path for path in sorted((normalization / name).rglob("*")) if path.is_file()
+        )
     for kind in sources.models:
         root = (
             args.data.local_path("om4", args.experiment) / "OM4.zarr"
@@ -476,7 +468,7 @@ def run_manifest(
         )
     return {
         "version": 1,
-        "mix": args.mix,
+        "pretrain_mix": args.pretrain_mix,
         "config": args.scientific_config(),
         "selection_metric": SELECTION_METRIC,
         "runtime": {"torch": str(torch.__version__), "numpy": np.__version__},

@@ -15,21 +15,26 @@ salinity depths 0..13. Monthly temperature depth 0 is an optional diagnostic,
 not a second SST vote. Velocities and unobserved deep layers are never scored.
 """
 
-from collections.abc import Mapping, Sequence
-from typing import Any
+from collections.abc import Sequence
 
 import numpy as np
 import torch
-from numpy.typing import ArrayLike
+from numpy.typing import ArrayLike, NDArray
 
 from samudra.aggregator.metrics import area_weighted_rmse
-
-SURFACE_INDICES = (38, 76)
-PROFILE_INDICES = tuple(range(38, 52)) + tuple(range(57, 71))
-SURFACE_NAMES = ("thetao_0", "zos")
-PROFILE_NAMES = tuple(f"thetao_{i}" for i in range(14)) + tuple(
-    f"so_{i}" for i in range(14)
+from samudra.observations.constants import (
+    FORECAST_STEPS,
+    PROFILE_NAMES,
+    STATE_CHANNELS,
+    STATE_NAMES,
+    STEP_DAYS,
+    SURFACE_CHANNELS,
+    SURFACE_NAMES,
 )
+from samudra.observations.sample_types import ObservationSample
+
+SURFACE_INDICES = tuple(SURFACE_CHANNELS)
+PROFILE_INDICES = tuple(STATE_NAMES.index(name) for name in PROFILE_NAMES)
 
 
 class ObservedChannelRMSE:
@@ -40,7 +45,9 @@ class ObservedChannelRMSE:
     Spatial RMSE uses the same area-weighted kernel as Samudra validation.
     """
 
-    def __init__(self, names: Sequence[str], std: torch.Tensor, area: torch.Tensor):
+    def __init__(
+        self, names: Sequence[str], std: torch.Tensor, area: torch.Tensor
+    ) -> None:
         self.names = tuple(names)
         if not self.names or len(set(self.names)) != len(self.names):
             raise ValueError("Channel names must be nonempty and unique")
@@ -67,6 +74,7 @@ class ObservedChannelRMSE:
         target: torch.Tensor,
         support: torch.Tensor | None = None,
     ) -> None:
+        """Accumulate matching [..., channel, y, x] tensors and broadcastable support."""
         prediction = torch.as_tensor(prediction).detach()
         target = torch.as_tensor(target, device=prediction.device)
         if prediction.shape != target.shape or prediction.ndim < 3:
@@ -125,7 +133,7 @@ class ObservedChannelRMSE:
 
 def complete_month_weights(
     interval_starts: ArrayLike, interval_ends: ArrayLike
-) -> tuple[list[str], np.ndarray]:
+) -> tuple[list[str], NDArray[np.float64]]:
     """Exact calendar-overlap averaging, dropping partial boundary months.
 
     Every prediction represents the mean over its supplied half-open interval.
@@ -167,18 +175,18 @@ class AnnualObservationEvaluator:
 
     def __init__(
         self,
-        trajectory: Mapping[str, Any],
+        trajectory: ObservationSample,
         state_std: torch.Tensor,
         area_weights: torch.Tensor,
         *,
         surface_mask: torch.Tensor | None = None,
         profile_mask: torch.Tensor | None = None,
-    ):
+    ) -> None:
         self._starts = np.asarray(trajectory["interval_starts"], dtype="datetime64[ns]")
         self._ends = np.asarray(trajectory["interval_ends"], dtype="datetime64[ns]")
         months, matrix = complete_month_weights(self._starts, self._ends)
-        if len(self._starts) != 73 or not np.all(
-            self._ends - self._starts == np.timedelta64(5, "D")
+        if len(self._starts) != FORECAST_STEPS or not np.all(
+            self._ends - self._starts == np.timedelta64(STEP_DAYS, "D")
         ):
             raise ValueError(
                 "Annual validation requires 73 contiguous five-day intervals"
@@ -206,14 +214,19 @@ class AnnualObservationEvaluator:
         self._surface_targets = torch.as_tensor(trajectory["raw_surface"])
         self._profile_targets = torch.as_tensor(trajectory["monthly_targets"])
         shape = self._surface_targets.shape
-        if len(shape) != 5 or shape[1:3] != (73, 2):
+        if len(shape) != 5 or shape[1:3] != (FORECAST_STEPS, len(SURFACE_NAMES)):
             raise ValueError("raw_surface must have shape [batch, 73, 2, y, x]")
-        if self._profile_targets.shape != (shape[0], len(months), 28, *shape[-2:]):
+        if self._profile_targets.shape != (
+            shape[0],
+            len(months),
+            len(PROFILE_NAMES),
+            *shape[-2:],
+        ):
             raise ValueError(
                 "monthly_targets must have shape [batch, months, 28, y, x]"
             )
         self._std = torch.as_tensor(state_std).flatten()
-        if self._std.shape != (77,):
+        if self._std.shape != (STATE_CHANNELS,):
             raise ValueError("Expected the canonical 77-channel state normalization")
         self._surface = ObservedChannelRMSE(
             SURFACE_NAMES, self._std[list(SURFACE_INDICES)], area_weights
@@ -230,12 +243,12 @@ class AnnualObservationEvaluator:
     @torch.no_grad()
     def record(self, prediction_raw: torch.Tensor) -> None:
         """Record the next five-day forecast; prediction shape is [B, 77, Y, X]."""
-        if self._step == 73:
+        if self._step == FORECAST_STEPS:
             raise ValueError("Annual rollout already contains all 73 predictions")
         prediction = torch.as_tensor(prediction_raw).detach()
         expected = (
             self._surface_targets.shape[0],
-            77,
+            STATE_CHANNELS,
             *self._surface_targets.shape[-2:],
         )
         if prediction.shape != expected:
@@ -270,12 +283,14 @@ class AnnualObservationEvaluator:
         self._step += 1
 
     def result(self, label: str = "rollout_val/365d") -> dict[str, float]:
-        if self._step != 73 or len(self._recorded_months) != len(self._matrix):
+        if self._step != FORECAST_STEPS or len(self._recorded_months) != len(
+            self._matrix
+        ):
             raise ValueError(
                 "Cannot select a checkpoint from an incomplete annual rollout"
             )
         surface_raw = self._surface.means()
-        profile_raw = self._profile.means(required=range(1, 28))
+        profile_raw = self._profile.means(required=range(1, len(PROFILE_NAMES)))
         normalized = torch.cat(
             (
                 surface_raw / self._surface.std.cpu(),
@@ -283,12 +298,16 @@ class AnnualObservationEvaluator:
             )
         )
         logs = self._surface.logs(label)
-        logs.update(self._profile.logs(f"{label}/monthly", required=range(1, 28)))
+        logs.update(
+            self._profile.logs(
+                f"{label}/monthly", required=range(1, len(PROFILE_NAMES))
+            )
+        )
         # Keep canonical Samudra per-channel raw metric names for scored fields.
         for i, name in enumerate(PROFILE_NAMES[1:], 1):
             logs[f"{label}/weighted_rmse/{name}"] = float(profile_raw[i])
         logs[f"{label}/normalized_rmse/channel_mean"] = float(normalized.mean())
-        logs[f"{label}/scored_channels"] = 29
+        logs[f"{label}/scored_channels"] = len(SURFACE_NAMES) + len(PROFILE_NAMES) - 1
         logs[f"{label}/forecast_steps"] = self._step
         logs[f"{label}/complete_months"] = len(self._recorded_months)
         return logs
@@ -296,16 +315,22 @@ class AnnualObservationEvaluator:
 
 def evaluate_annual_predictions(
     prediction_raw: torch.Tensor,
-    trajectory: Mapping[str, Any],
+    trajectory: ObservationSample,
     state_std: torch.Tensor,
     area_weights: torch.Tensor,
-    **kwargs: Any,
+    *,
+    surface_mask: torch.Tensor | None = None,
+    profile_mask: torch.Tensor | None = None,
 ) -> dict[str, float]:
     """Convenience wrapper for an already-collected [B, 73, 77, Y, X] rollout."""
     if prediction_raw.ndim != 5:
         raise ValueError("Expected predictions with shape [batch, time, 77, y, x]")
     evaluator = AnnualObservationEvaluator(
-        trajectory, state_std, area_weights, **kwargs
+        trajectory,
+        state_std,
+        area_weights,
+        surface_mask=surface_mask,
+        profile_mask=profile_mask,
     )
     for step in range(prediction_raw.shape[1]):
         evaluator.record(prediction_raw[:, step])

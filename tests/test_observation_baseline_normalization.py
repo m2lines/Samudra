@@ -12,6 +12,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 import pytest
+import xarray as xr
 
 from samudra.observations.archive import (
     NORMALIZATION_POLICY,
@@ -20,6 +21,7 @@ from samudra.observations.archive import (
     fit_statistics,
     validate_normalization_policy,
 )
+from samudra.observations.constants import STATE_NAMES
 
 
 def load_script(name):
@@ -44,6 +46,7 @@ def prepared_months(root, polar_delta=0):
         mask=mask,
         mean=np.zeros(77),
         std=np.ones(77),
+        names=np.array(STATE_NAMES),
     )
     np.savez(root / "grid.npz", **grid)
     for index, month in enumerate(pd.period_range(*SPLITS["train"], freq="M")):
@@ -124,8 +127,16 @@ def test_polar_observations_change_fitted_statistics_and_shared_state_scales(tmp
         root = tmp_path / name
         prepared_months(root, polar_delta=delta)
         module.prepare_normalization(root)
-        with np.load(root / "normalization.npz") as fitted:
-            outputs.append((fitted["state_mean"].copy(), fitted["state_std"].copy()))
+        with (
+            xr.open_zarr(root / "observation_means.zarr", chunks=None) as means,
+            xr.open_zarr(root / "observation_stds.zarr", chunks=None) as stds,
+        ):
+            outputs.append(
+                (
+                    np.array([means[name].item() for name in STATE_NAMES]),
+                    np.array([stds[name].item() for name in STATE_NAMES]),
+                )
+            )
         metadata = json.loads((root / "normalization.json").read_text())
         validate_normalization_policy(metadata)
         assert metadata["normalization_version"] == NORMALIZATION_VERSION
@@ -169,3 +180,26 @@ def test_fit_rejects_incomplete_training_cohort_before_writing_artifact(tmp_path
     with pytest.raises(ValueError, match="complete May 1993-July 2013"):
         fit_statistics(tmp_path / "train", grid, target)
     assert not target.exists()
+
+
+def test_named_zarr_normalization_loads_into_training_samples(tmp_path):
+    import torch
+
+    from samudra.constants import build_om4_layout
+    from samudra.observations.samples import Samples
+
+    assert list(STATE_NAMES) == build_om4_layout().prognostic_var_names
+    module = load_script("data/prepare_observation_normalization.py")
+    prepared_months(tmp_path)
+    module.prepare_normalization(tmp_path)
+    samples = Samples(tmp_path, torch.device("cpu"))
+    with xr.open_zarr(tmp_path / "observation_means.zarr", chunks=None) as means:
+        np.testing.assert_array_equal(
+            samples.grid["mean"], [means[name].item() for name in STATE_NAMES]
+        )
+    assert samples.grid["mean"][STATE_NAMES.index("uo_0")] == 0
+    assert samples.grid["std"][STATE_NAMES.index("vo_18")] == 1
+    metadata = json.loads((tmp_path / "normalization.json").read_text())
+    assert any(
+        "observation_means.zarr/thetao_0/" in name for name in metadata["sha256"]
+    )

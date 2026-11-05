@@ -12,14 +12,17 @@ experiment:
 data: !include data.yaml
 model: !include model.yaml
 
-mix: obs
+pretrain_mix: obs
 main_updates: 2000
 cooldown_updates: 1000
 batch_size: 1
 gradient_accumulation_steps: 8
 fresh_examples: 4
 learning_rate: 0.0001
-final_learning_rate: 0.000001
+scheduler: null
+cooldown_scheduler:
+  type: linear_cooldown
+  final_lr: 0.000001
 weight_decay: 0.01
 gradient_clip: 1.0
 validation_freq: 250

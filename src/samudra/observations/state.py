@@ -5,8 +5,10 @@
 import json
 import os
 import random
+from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import torch
@@ -14,8 +16,11 @@ import torch
 from samudra.observations.replay import ReplayPool
 from samudra.utils.ema import EMATracker
 
+if TYPE_CHECKING:
+    from samudra.observations.config import ObservationTrainConfig
 
-def atomic_save(value, path):
+
+def atomic_save(value: object, path: str | Path) -> None:
     path = Path(path)
     temporary = path.with_suffix(path.suffix + ".tmp")
     with temporary.open("wb") as stream:
@@ -25,26 +30,27 @@ def atomic_save(value, path):
     temporary.replace(path)
 
 
-def write_json(value, path):
+def write_json(value: object, path: str | Path) -> None:
     path = Path(path)
     temporary = path.with_suffix(path.suffix + ".tmp")
     temporary.write_text(json.dumps(value, indent=2, allow_nan=False) + "\n")
     temporary.replace(path)
 
 
-class TrainingState:
+class TrainingState[ModelT: torch.nn.Module]:
     def __init__(
         self,
-        model,
-        optimizer,
-        sources,
-        seed=1729,
+        model: ModelT,
+        optimizer: torch.optim.Optimizer,
+        sources: Sequence[str],
+        seed: int = 1729,
         *,
-        ema_decay=0.5 ** (1 / 100),
-        faster_decay_at_start=False,
-        replay_per_month=2,
-        replay_max_age=250,
-    ):
+        config: "ObservationTrainConfig | None" = None,
+        ema_decay: float = 0.5 ** (1 / 100),
+        faster_decay_at_start: bool = False,
+        replay_per_month: int = 2,
+        replay_max_age: int = 250,
+    ) -> None:
         self.model, self.optimizer = model, optimizer
         self.ema_decay = ema_decay
         self.faster_decay_at_start = faster_decay_at_start
@@ -58,12 +64,25 @@ class TrainingState:
         }
         self.updates = 0
         self.cooled = False
+        self.config = config
+        self.scheduler: torch.optim.lr_scheduler.LRScheduler | None = None
+        self.build_scheduler()
         self.best_score = float("inf")
         self.exposure = {
             name: {"updates": 0, "fresh": 0, "replay": 0} for name in sources
         }
 
-    def new_ema(self):
+    def build_scheduler(self) -> None:
+        """Build the shared scheduler for the current phase, measured in updates."""
+        if self.config is None:
+            self.scheduler = None
+            return
+        cfg = self.config
+        recipe = cfg.cooldown_scheduler if self.cooled else cfg.scheduler
+        steps = cfg.cooldown_updates if self.cooled else cfg.main_updates
+        self.scheduler = recipe.build(self.optimizer, steps) if recipe else None
+
+    def new_ema(self) -> EMATracker:
         return EMATracker(
             self.model,
             decay=self.ema_decay,
@@ -71,7 +90,7 @@ class TrainingState:
         )
 
     @contextmanager
-    def averaged_model(self):
+    def averaged_model(self) -> Iterator[ModelT]:
         self.ema.store(self.model.parameters())
         self.ema.copy_to(self.model)
         try:
@@ -79,12 +98,13 @@ class TrainingState:
         finally:
             self.ema.restore(self.model.parameters())
 
-    def save(self, path, manifest):
+    def save(self, path: str | Path, manifest: dict[str, Any]) -> None:
         atomic_save(
             {
                 "manifest": manifest,
                 "model": self.model.state_dict(),
                 "optimizer": self.optimizer.state_dict(),
+                "scheduler": self.scheduler.state_dict() if self.scheduler else None,
                 "ema": self.ema.get_state(True),
                 "updates": self.updates,
                 "cooled": self.cooled,
@@ -102,7 +122,7 @@ class TrainingState:
             path,
         )
 
-    def restore(self, path, manifest):
+    def restore(self, path: str | Path, manifest: dict[str, Any]) -> None:
         # Only load trusted, locally produced checkpoints (optimizer/RNG objects).
         saved = torch.load(path, map_location="cpu", weights_only=False)
         if saved["manifest"] != manifest:
@@ -110,7 +130,20 @@ class TrainingState:
         if set(saved["pools"]) != set(self.pools):
             raise ValueError("Checkpoint source mixture differs")
         self.model.load_state_dict(saved["model"])
+        self.cooled = saved["cooled"]
+        # Rebuild the correct phase before restoring optimizer LR and scheduler
+        # position. Cooldown's base is the LR at the phase boundary.
+        for group, stored in zip(
+            self.optimizer.param_groups, saved["optimizer"]["param_groups"], strict=True
+        ):
+            group["lr"] = stored.get("initial_lr", stored["lr"])
+            group["initial_lr"] = group["lr"]
+        self.build_scheduler()
         self.optimizer.load_state_dict(saved["optimizer"])
+        if (self.scheduler is None) != (saved["scheduler"] is None):
+            raise ValueError("Checkpoint scheduler differs from configured phase")
+        if self.scheduler is not None:
+            self.scheduler.load_state_dict(saved["scheduler"])
         self.ema = EMATracker.from_state(saved["ema"], self.model)
         for key in ("updates", "cooled", "best_score", "exposure"):
             setattr(self, key, saved[key])

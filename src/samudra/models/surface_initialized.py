@@ -1,43 +1,76 @@
 # SPDX-FileCopyrightText: 2026 Samudra Authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""The deterministic U-global baseline built with Samudra backbone configuration.
+"""Initialize physical ocean states from surface history, then evolve them.
 
-The only recurrent state is two frames of normalized physical fields (77 in the
-baseline). A 19-frame, five-day surface history initializes them. Observation
-normalization is supplied by the data preparation step, never fitted here.
+The recurrent state contains two frames of normalized physical fields. The data
+preparation step supplies the normalization and history length. Tensor annotations
+use batch, time, channel, latitude (height) and longitude (width) axes in that order.
 """
 
-import math
-from collections.abc import Sequence
-from typing import Self
+from collections.abc import Callable, Sequence
+from functools import partial
+from typing import Literal, NamedTuple, ParamSpec, Self, cast
 
 import torch
-from pydantic import Field, model_validator
-from torch import nn
+from jaxtyping import Bool, Float
+from pydantic import model_validator
+from torch import Tensor, nn
 from torch.nn import functional as F
 from torch.utils.checkpoint import checkpoint
 
-from samudra.config import BlockConfig, UNetBackboneConfig
+from samudra.config import UNetBackboneConfig
 from samudra.config_base import BaseConfig
+from samudra.observations.constants import (
+    CONTEXT_CHANNELS,
+    GEOMETRY_CHANNELS,
+    HISTORY_STEPS,
+    LAST_HISTORY_STEP,
+    MODEL_FORCING_CHANNELS,
+    MODEL_TASKS,
+    OBSERVATION_FORCING_CHANNELS,
+    SPHERICAL_COORDINATE_CHANNELS,
+    STATE_HISTORY_STEPS,
+    SURFACE_NAMES,
+    ModelTask,
+)
+
+SurfaceHistory = Float[Tensor, "batch time surface height width"]
+SurfaceValidity = Bool[Tensor, "batch time surface height width"]
+ForcingHistory = Float[Tensor, "batch time forcing height width"]
+Context = Float[Tensor, "batch context height width"]
+ContextHistory = Float[Tensor, "batch time context height width"]
+WetMask = Bool[Tensor, "channels height width"]
+PhysicalStates = Float[Tensor, "batch state_history channels height width"]
+Predictions = Float[Tensor, "batch time channels height width"]
+Padding = Literal["circular", "constant", "reflect", "replicate"]
+
+# Unit-sphere neighbor distances at one degree are approximately 0.017. Scaling
+# by 100 gives order-one spacing inputs alongside the other geometry features.
+GEOMETRY_DISTANCE_SCALE = 100.0
+ERA5_ADAPTER_WIDTH = 32
+OperationArgs = ParamSpec("OperationArgs")
 
 
-def baseline_backbone(
-    widths: Sequence[int] = (128, 192, 256, 384),
-) -> UNetBackboneConfig:
-    """U-global defaults expressed through the shared U-Net and block configs."""
-    return UNetBackboneConfig(
-        ch_width=list(widths),
-        dilation=[2**i for i in range(len(widths))],
-        n_layers=[1] * len(widths),
-        core_block=BlockConfig(norm="instance", upscale_factor=2),
-    )
+class ForecastContinuation(NamedTuple):
+    predictions: Predictions
+    states: PhysicalStates  # Last STATE_HISTORY_STEPS frames, for the next call.
+
+
+class InitializedForecast(NamedTuple):
+    predictions: Predictions
+    initial_states: PhysicalStates
 
 
 class SurfaceInitializedConfig(BaseConfig):
-    """Surface initializer and evolution networks share a backbone definition."""
+    """Surface initializer and evolution networks share a backbone definition.
 
-    backbone: UNetBackboneConfig = Field(default_factory=baseline_backbone)
+    For regional grids, select a nonperiodic ``pad`` and a nonperiodic backbone
+    upsampling block, such as ``bilinear_upsample``.
+    """
+
+    backbone: UNetBackboneConfig
+    pad: Padding = "circular"
     activation_checkpointing: bool = True
 
     @model_validator(mode="after")
@@ -55,29 +88,25 @@ class SurfaceInitializedConfig(BaseConfig):
         return SurfaceInitializedModel(
             names,
             backbone=self.backbone,
+            pad=self.pad,
             activation_checkpointing=self.activation_checkpointing,
         )
 
 
-def make_unet(inputs: int, outputs: int, config: UNetBackboneConfig) -> nn.Sequential:
-    """Build through shared configuration, with U-global's affine InstanceNorm."""
-    backbone = config.build(inputs, pad="circular", checkpointing=None)
-    # BlockConfig's InstanceNorm has no affine option. Keep this local adaptation
-    # until normalization configuration can be shared without changing old models.
-    for module in tuple(backbone.modules()):
-        for name, layer in tuple(module.named_children()):
-            if isinstance(layer, nn.InstanceNorm2d) and not layer.affine:
-                setattr(
-                    module, name, nn.InstanceNorm2d(layer.num_features, affine=True)
-                )
+def make_unet(
+    inputs: int, outputs: int, config: UNetBackboneConfig, pad: Padding
+) -> nn.Sequential:
+    """Build a shared U-Net followed by a physical-channel projection."""
+    backbone = config.build(inputs, pad=pad, checkpointing=None)
     return nn.Sequential(backbone, nn.Conv2d(config.ch_width[0], outputs, 1))
 
 
-def identity_adapters(channels):
+def identity_adapters(channels: int) -> nn.ModuleDict:
+    """Create one identity channel projection per model task."""
     # Identity adapters must not perturb the backbone initialization RNG.
     with torch.random.fork_rng(devices=[]):
         adapters = nn.ModuleDict()
-        for task in ("om4", "observation"):
+        for task in MODEL_TASKS:
             layer = nn.Conv2d(channels, channels, 1)
             nn.init.dirac_(layer.weight)
             assert layer.bias is not None
@@ -86,18 +115,16 @@ def identity_adapters(channels):
     return adapters
 
 
-def advance_season(context, days):
-    """Rotate sine/cosine season planes; leave supplied spherical xyz alone."""
-    angle = 2 * math.pi * days / 365.25
-    result = context.clone()
-    result[:, -2] = context[:, -2] * math.cos(angle) + context[:, -1] * math.sin(angle)
-    result[:, -1] = context[:, -1] * math.cos(angle) - context[:, -2] * math.sin(angle)
-    return result
+def geometry_planes(
+    context: Context, mask: WetMask
+) -> Float[Tensor, "batch geometry height width"]:
+    """Return spacing x/y, extent x/y, reserved, wet-any and wet-fraction planes.
 
-
-def geometry_planes(context, mask):
-    """U-global spacing/extent/wetness planes from actual spherical coordinates."""
-    xyz = context[:, :3].float()
+    Context begins with unit-sphere x/y/z coordinates. Spacing is chord distance
+    scaled by GEOMETRY_DISTANCE_SCALE; extent is measured in radians. Wetness is
+    computed across physical channels. The reserved geometry plane is zero.
+    """
+    xyz = context[:, :SPHERICAL_COORDINATE_CHANNELS].float()
     h, w = xyz.shape[-2:]
     if min(h, w) < 2:
         raise ValueError("Geometry needs at least two cells in each direction")
@@ -112,11 +139,11 @@ def geometry_planes(context, mask):
     height = (lat[..., 1:, :] - lat[..., :-1, :]).abs().mean((-2, -1), keepdim=True) * h
     return torch.cat(
         (
-            100 * dx,
-            100 * dy,
+            GEOMETRY_DISTANCE_SCALE * dx,
+            GEOMETRY_DISTANCE_SCALE * dy,
             (delta * w).expand_as(dx),
             height.expand_as(dx),
-            torch.zeros_like(dx),  # All examples are global; no regional tasks.
+            torch.zeros_like(dx),
             mask.any(0)[None, None].expand_as(dx).float(),
             mask.float().mean(0)[None, None].expand_as(dx),
         ),
@@ -125,21 +152,40 @@ def geometry_planes(context, mask):
 
 
 class HistoryInitializer(nn.Module):
-    history = 19
+    # Changing HISTORY_STEPS also changes the prepared monthly history windows.
+    # Update observations/constants.py and regenerate monthly samples/normalization;
+    # daily shards can be reused. A different history needs newly trained weights.
+    history = HISTORY_STEPS
 
-    def __init__(self, names: Sequence[str], backbone: UNetBackboneConfig):
+    def __init__(
+        self, names: Sequence[str], backbone: UNetBackboneConfig, pad: Padding
+    ) -> None:
         super().__init__()
         self.channels = len(names)
-        self.surface = [names.index("thetao_0"), names.index("zos")]
-        self.net = make_unet(self.history * 7 + 5, 2 * self.channels, backbone)
-        self.input_adapters = identity_adapters(self.history * 7 + 5)
+        self.surface = [names.index(name) for name in SURFACE_NAMES]
+        # Per step: measured surfaces, their validity, and physical forcing.
+        history_channels = 2 * len(SURFACE_NAMES) + MODEL_FORCING_CHANNELS
+        inputs = self.history * history_channels + CONTEXT_CHANNELS
+        self.net = make_unet(inputs, STATE_HISTORY_STEPS * self.channels, backbone, pad)
+        self.input_adapters = identity_adapters(inputs)
 
     def forward(
-        self, surface, past_forcing, context, mask, input_mask=None, task="observation"
-    ):
+        self,
+        surface: SurfaceHistory,
+        past_forcing: ForcingHistory,
+        context: Context,
+        mask: WetMask,
+        input_mask: SurfaceValidity | None = None,
+        task: ModelTask = "observation",
+    ) -> PhysicalStates:
         surface = surface[:, -self.history :]
-        if surface.ndim != 5 or surface.shape[1:3] != (self.history, 2):
-            raise ValueError("Initialization requires 19 frames of SST and SSH")
+        if surface.ndim != 5 or surface.shape[1:3] != (
+            self.history,
+            len(SURFACE_NAMES),
+        ):
+            raise ValueError(
+                f"Initialization requires {self.history} frames of {SURFACE_NAMES}"
+            )
         b, _, _, h, w = surface.shape
         masks = mask[self.surface].bool().expand_as(surface)
         if input_mask is not None:
@@ -158,10 +204,12 @@ class HistoryInitializer(nn.Module):
             1,
         )
         result = self.net(self.input_adapters[task](inputs)).float()
-        result = result.reshape(b, 2, self.channels, h, w)
-        # Copy only measured wet surfaces; predict genuinely missing surfaces.
+        result = result.reshape(b, STATE_HISTORY_STEPS, self.channels, h, w)
+        # Copy measured wet surfaces; infer missing surfaces.
         result[:, :, self.surface] = torch.where(
-            masks[:, -2:], surface[:, -2:], result[:, :, self.surface]
+            masks[:, -STATE_HISTORY_STEPS:],
+            surface[:, -STATE_HISTORY_STEPS:],
+            result[:, :, self.surface],
         )
         return result * mask
 
@@ -169,15 +217,27 @@ class HistoryInitializer(nn.Module):
 class Evolution(nn.Module):
     input_adapters: nn.ModuleDict
 
-    def __init__(self, channels: int, backbone: UNetBackboneConfig):
+    def __init__(
+        self, channels: int, backbone: UNetBackboneConfig, pad: Padding
+    ) -> None:
         super().__init__()
-        inputs = 2 * channels + 8
-        self.geometry = nn.Conv2d(7, inputs, 1, bias=False)
+        inputs = (
+            STATE_HISTORY_STEPS * channels + CONTEXT_CHANNELS + MODEL_FORCING_CHANNELS
+        )
+        self.geometry = nn.Conv2d(GEOMETRY_CHANNELS, inputs, 1, bias=False)
         nn.init.zeros_(self.geometry.weight)
-        self.net = make_unet(inputs, channels, backbone)
-        # Input adapters attached after the ERA5 adapter to retain construction order.
+        self.net = make_unet(inputs, channels, backbone, pad)
+        # Input adapters are attached after the atmospheric forcing adapter.
 
-    def forward(self, states, forcing, context, mask, lead, task="observation"):
+    def forward(
+        self,
+        states: PhysicalStates,
+        forcing: ForcingHistory,
+        context: Context,
+        mask: WetMask,
+        lead: int,
+        task: ModelTask = "observation",
+    ) -> Float[Tensor, "batch channels height width"]:
         inputs = torch.cat((states.flatten(1, 2), context, forcing[:, lead - 1]), 1)
         inputs = self.input_adapters[task](inputs)
         inputs = inputs + self.geometry(geometry_planes(context, mask))
@@ -185,57 +245,82 @@ class Evolution(nn.Module):
 
 
 class SurfaceInitializedModel(nn.Module):
-    """U-global with configurable backbones; OM4 and CM4 share the ``om4`` adapter."""
+    """Surface-initialized model; OM4 and CM4 share the ``om4-family`` adapter."""
 
     def __init__(
         self,
         names: Sequence[str],
-        widths: Sequence[int] | None = None,
-        activation_checkpointing: bool = True,
         *,
-        backbone: UNetBackboneConfig | None = None,
-    ):
+        backbone: UNetBackboneConfig,
+        pad: Padding = "circular",
+        activation_checkpointing: bool = True,
+    ) -> None:
         super().__init__()
         self.names = tuple(names)
-        if widths is not None and backbone is not None:
-            raise ValueError("Supply widths or backbone configuration, not both")
         config = SurfaceInitializedConfig(
-            backbone=backbone
-            or baseline_backbone((128, 192, 256, 384) if widths is None else widths),
+            backbone=backbone,
+            pad=pad,
             activation_checkpointing=activation_checkpointing,
         )
-        self.initializer = HistoryInitializer(names, config.backbone)
-        self.evolution = Evolution(len(names), config.backbone)
+        self.initializer = HistoryInitializer(names, config.backbone, config.pad)
+        self.evolution = Evolution(len(names), config.backbone, config.pad)
         self.adapter = nn.Sequential(
-            nn.Conv2d(8, 32, 1), nn.GELU(), nn.Conv2d(32, 3, 1)
+            nn.Conv2d(OBSERVATION_FORCING_CHANNELS, ERA5_ADAPTER_WIDTH, 1),
+            nn.GELU(),
+            nn.Conv2d(ERA5_ADAPTER_WIDTH, MODEL_FORCING_CHANNELS, 1),
         )
         final = self.adapter[-1]
         assert isinstance(final, nn.Conv2d) and final.bias is not None
         nn.init.zeros_(final.weight)
         nn.init.zeros_(final.bias)
-        self.evolution.input_adapters = identity_adapters(2 * len(names) + 8)
+        evolution_inputs = (
+            STATE_HISTORY_STEPS * len(names) + CONTEXT_CHANNELS + MODEL_FORCING_CHANNELS
+        )
+        self.evolution.input_adapters = identity_adapters(evolution_inputs)
         self.activation_checkpointing = activation_checkpointing
 
-    def call(self, function, *args):
+    def call(
+        self,
+        function: Callable[OperationArgs, Tensor],
+        *args: OperationArgs.args,
+        **kwargs: OperationArgs.kwargs,
+    ) -> Tensor:
+        """Call a tensor operation, retaining activations according to config."""
         if self.training and self.activation_checkpointing and torch.is_grad_enabled():
-            return checkpoint(function, *args, use_reentrant=False)
-        return function(*args)
+            return cast(
+                Tensor,
+                checkpoint(partial(function, **kwargs), *args, use_reentrant=False),
+            )
+        return function(*args, **kwargs)
 
-    def adapt(self, atmosphere):
+    def adapt(self, atmosphere: ForcingHistory) -> ForcingHistory:
+        """Map ERA5 channels to model wind stress and surface heat-flux channels."""
         b, t, _, h, w = atmosphere.shape
-        return self.adapter(atmosphere.reshape(b * t, 8, h, w)).reshape(b, t, 3, h, w)
+        return self.adapter(
+            atmosphere.reshape(b * t, OBSERVATION_FORCING_CHANNELS, h, w)
+        ).reshape(b, t, MODEL_FORCING_CHANNELS, h, w)
 
-    def forcing(self, values, task):
-        if task not in ("observation", "om4"):
-            raise ValueError("Task must be observation or om4 (also used for CM4)")
-        expected = 8 if task == "observation" else 3
+    def forcing(self, values: ForcingHistory, task: ModelTask) -> ForcingHistory:
+        if task not in MODEL_TASKS:
+            raise ValueError(f"Task must be one of {MODEL_TASKS}")
+        expected = (
+            OBSERVATION_FORCING_CHANNELS
+            if task == "observation"
+            else MODEL_FORCING_CHANNELS
+        )
         if values.ndim != 5 or values.shape[2] != expected:
             raise ValueError(f"{task} forcing requires {expected} channels")
         return self.adapt(values) if task == "observation" else values
 
     def initialize(
-        self, surface, atmosphere, context, mask, validity, task="observation"
-    ):
+        self,
+        surface: SurfaceHistory,
+        atmosphere: ForcingHistory,
+        context: Context,
+        mask: WetMask,
+        validity: SurfaceValidity,
+        task: ModelTask = "observation",
+    ) -> PhysicalStates:
         return self.call(
             self.initializer,
             surface,
@@ -247,26 +332,33 @@ class SurfaceInitializedModel(nn.Module):
         )
 
     def continue_forecast(
-        self, states, forcing, contexts, mask, start_lead=1, task="observation"
-    ):
-        """Continue cached physical states without reading another ocean input.
+        self,
+        states: PhysicalStates,
+        forcing: ForcingHistory,
+        contexts: ContextHistory,
+        mask: WetMask,
+        start_lead: int = 1,
+        task: ModelTask = "observation",
+    ) -> ForecastContinuation:
+        """Continue cached states and return predictions plus the final state pair.
 
         ``start_lead`` is the absolute first output lead (one-based five-day
-        steps). Forcing and context are already sliced to that lead by the data
-        loader: do not rotate their calendar again. U-global has no learned lead
-        embedding. Returns predictions and the last two states for replay;
-        detaching those states is the caller's responsibility.
+        steps). The loader supplies forcing and context for that lead onward.
+        The caller owns detaching the final state pair before saving for replay.
         """
         if start_lead < 1 or int(start_lead) != start_lead:
             raise ValueError("start_lead must be a positive integer")
-        if states.ndim != 5 or states.shape[1:3] != (2, len(self.names)):
+        if states.ndim != 5 or states.shape[1:3] != (
+            STATE_HISTORY_STEPS,
+            len(self.names),
+        ):
             raise ValueError("Replay state must contain exactly two physical frames")
         if contexts.ndim != 5 or contexts.shape[:2] != forcing.shape[:2]:
             raise ValueError("Future forcing and context frames must align")
         if forcing.shape[1] == 0:
             raise ValueError("A continuation needs at least one future step")
         forcing = self.forcing(forcing, task)
-        predictions = []
+        predictions: list[Tensor] = []
         for step in range(forcing.shape[1]):
             predicted = self.call(
                 self.evolution,
@@ -279,40 +371,57 @@ class SurfaceInitializedModel(nn.Module):
             )
             predictions.append(predicted)
             states = torch.stack((states[:, -1], predicted), 1)
-        return torch.stack(predictions, 1), states
+        return ForecastContinuation(torch.stack(predictions, 1), states)
 
     def forecast(
-        self, surface, atmosphere, contexts, mask, validity, task="observation"
-    ):
+        self,
+        surface: SurfaceHistory,
+        atmosphere: ForcingHistory,
+        contexts: ContextHistory,
+        mask: WetMask,
+        validity: SurfaceValidity,
+        task: ModelTask = "observation",
+    ) -> InitializedForecast:
         initial = self.initialize(
-            surface[:, :19],
-            atmosphere[:, :19],
-            contexts[:, 18],
+            surface[:, :HISTORY_STEPS],
+            atmosphere[:, :HISTORY_STEPS],
+            contexts[:, LAST_HISTORY_STEP],
             mask,
-            validity[:, :19],
+            validity[:, :HISTORY_STEPS],
             task,
         )
         predictions, _ = self.continue_forecast(
-            initial, atmosphere[:, 19:], contexts[:, 19:], mask, task=task
+            initial,
+            atmosphere[:, HISTORY_STEPS:],
+            contexts[:, HISTORY_STEPS:],
+            mask,
+            task=task,
         )
-        return predictions, initial
+        return InitializedForecast(predictions, initial)
 
     def reconstruct_month(
-        self, surface, atmosphere, contexts, mask, validity, month_weights
-    ):
+        self,
+        surface: SurfaceHistory,
+        atmosphere: ForcingHistory,
+        contexts: ContextHistory,
+        mask: WetMask,
+        validity: SurfaceValidity,
+        month_weights: Sequence[float] | Tensor,
+    ) -> Float[Tensor, "batch channels height width"]:
         """Weighted monthly interior reconstruction from contemporaneous history."""
         if len(month_weights) == 0:
             raise ValueError("Monthly reconstruction needs at least one weight")
-        mean = None
+        mean: Tensor | None = None
         for step, weight in enumerate(month_weights):
-            end = 20 + step
+            end = HISTORY_STEPS + 1 + step
             initial = self.initialize(
-                surface[:, end - 19 : end],
-                atmosphere[:, end - 19 : end],
+                surface[:, end - HISTORY_STEPS : end],
+                atmosphere[:, end - HISTORY_STEPS : end],
                 contexts[:, end - 1],
                 mask,
-                validity[:, end - 19 : end],
+                validity[:, end - HISTORY_STEPS : end],
             )
             value = initial[:, -1] * weight
             mean = value if mean is None else mean + value
+        assert mean is not None
         return mean

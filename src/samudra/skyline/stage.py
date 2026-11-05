@@ -24,6 +24,7 @@ from .data import OceanSource
 from .ema import ema_weights, restore_ema, validation_comparison
 from .model import ModelConfig, PointTransformer, Vocabulary
 from .optimization import accumulate_gradients
+from .replicas import verify_replicas
 from .run import FrameStream, emit, evaluate, save_atomic, to_device
 from .utilization import GpuMonitor
 
@@ -460,14 +461,22 @@ def _train(
         # DDP replicas must agree after all updates, including corrected losses.
         if int(ema.num_updates) != step:
             raise RuntimeError("EMA update count differs from optimizer updates")
-        parameters = list(model.parameters()) + list(
-            ema.get_state(True)["ema_params"].values()
+        parameters = {"raw/" + name: value for name, value in model.named_parameters()}
+        parameters.update(
+            {
+                "ema/" + name: value
+                for name, value in ema.get_state(True)["ema_params"].items()
+            }
         )
-        signature = torch.stack([p.detach().float().sum() for p in parameters])
-        signatures = [torch.empty_like(signature) for _ in range(world)]
-        dist.all_gather(signatures, signature)
-        if any(not torch.equal(signature, s) for s in signatures):
-            raise RuntimeError("DDP raw or EMA parameter signatures differ")
+        replicas = verify_replicas(parameters, world)
+        if rank == 0:
+            (output / "replica-check.json").write_text(
+                json.dumps(replicas, indent=2) + "\n"
+            )
+        if not replicas["identical"]:
+            raise RuntimeError(
+                "DDP raw or EMA parameters differ; see replica-check.json"
+            )
         if stop_reason:
             raise RuntimeError(stop_reason)
         complete = True

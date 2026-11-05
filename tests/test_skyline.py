@@ -24,6 +24,20 @@ from samudra.skyline.run import FrameStream, evaluate, resume_checkpoint
 from samudra.skyline.stage import merge_validation
 
 
+def test_replica_digest_checks_elements_without_reduction_or_layout_dependence():
+    from samudra.skyline.replicas import tensor_digest
+
+    value = torch.arange(12, dtype=torch.float32).reshape(3, 4)
+    strided = value.T.contiguous().T
+    assert not strided.is_contiguous()
+    assert tensor_digest(value) == tensor_digest(strided)
+    changed = value.clone()
+    changed[0, 0] += 1
+    changed[0, 1] -= 1
+    assert value.sum() == changed.sum()
+    assert tensor_digest(value) != tensor_digest(changed)
+
+
 def test_coverage_corrects_loss_and_gradient_exactly():
     labels = np.array([0, 0, 0, 0, 1])
     q = torch.tensor(proposal_probabilities(labels), dtype=torch.float64)

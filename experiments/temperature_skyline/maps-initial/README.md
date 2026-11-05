@@ -109,7 +109,8 @@ quarter-degree point. Every specialist prediction still uses its native quarter-
 crop. Region metrics cover this one dense date and use global calibration
 thresholds; global metrics cover all four assessment dates.
 
-[Combined 12-row comparison](report/comparison-all-depths-regions.png) shows
+[Global comparison: three depths](report/comparison-global.png) and
+[regional comparison: nine depth–region rows](report/comparison-regional.png) show
 OM4, skyline regression, Samudra, and both prediction-minus-OM4 error maps.
 Each error panel labels the area-weighted RMSE for its displayed points on
 July 21, 2016. Within each row, the three temperature panels share one scale and the two

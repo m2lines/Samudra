@@ -5,8 +5,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Four-GPU continuation and held-out maps
 
-This is an experiment/results record, not intended to merge. The active
-November 4, 2026 four-GPU EMA-enabled training submissions extend the [initial point-temperature experiments](../initial-20k/README.md).
+This is an experiment/results record, not intended to merge. The four-GPU EMA continuations completed on November 5, 2026 and extend the [initial point-temperature experiments](../initial-20k/README.md).
 Both arms retain two observed quarter-degree ocean states, a moving 33×33 crop,
 a depth-conditioned point query, and a single +5-day temperature prediction.
 Inputs remain continuous. Classification uses ordinary cross-entropy over
@@ -31,7 +30,9 @@ jobs can requeue. The current training source is `4132facf9`; the map source rem
 qualification exposed rank-local wall-clock learning rates that caused small
 replica differences. Rank zero now broadcasts the learning rate; both replacement
 qualifications passed exact raw/EMA parameter-hash checks after eight updates.
-Classifier continuation is running; regression awaits its successful completion.
+Both production arms completed. The [continuation report](../continuation-results/README.md)
+records validation selection, per-depth scores, and actual compute. Fresh
+continued-weight map inference is submitted separately.
 The four-GPU Torch requests in `accumulation-submission.json` were cancelled
 before allocation. Earlier receipts preserve superseded requests.
 The initial-checkpoint map evaluation completed on November 5, 2026: 1,102,317
@@ -59,8 +60,7 @@ node and verified by SHA-256 on Engaging. The existing Engaging PhysicsNeMo
 26.05 container uses Python 3.12.3, PyTorch
 `2.12.0a0+0291f960b6.nv26.04.48445190`, CUDA 13.2, and Zarr 2.18.7, matching
 those runtime versions on Torch. Host Python user packages are disabled.
-The actual launcher imports successfully in this container. Both replacement GPU qualifications passed on four L40S GPUs. The running
-classifier uses about 13 GiB per GPU and sustained GPU utilization above 90%.
+The actual launcher imports successfully in this container. Both replacement GPU qualifications passed on four L40S GPUs. The classifier used about 13 GiB per GPU and sustained GPU utilization above 90%.
 Run outputs, caches, and logs use
 `/orcd/scratch/orcd/014/jrusak/temperature-skyline-20261104`.
 The user authorized returning to Torch if Engaging encounters a blocker.
@@ -144,8 +144,7 @@ the selected weight set, identified by `weights_kind`. Resumable `latest.pt`
 contains raw model/optimizer state, full EMA state, and both selection histories.
 Qualification checks agreement between ranks for raw and EMA parameters.
 The paired final validation uses that arm’s single fifteen-minute reserve
-within its cumulative ten-hour budget. The existing initial-checkpoint map job still uses its original
-raw checkpoints.
+within its cumulative ten-hour budget. The completed initial-checkpoint map evaluation used its original raw checkpoints.
 
 The completed first map report uses those existing initial checkpoints.
 It compares regression, classifier mode, frozen Samudra epoch-62 outputs, and

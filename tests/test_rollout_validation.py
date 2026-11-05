@@ -56,8 +56,9 @@ def test_rollout_score_averages_normalized_rmse_over_times_and_channels(chunk_si
     # Different raw scales must not change equal weighting in normalized space.
     preprocessor = SimpleNamespace(
         prognostic_mask=torch.tensor([[[True, False]], [[True, False]]]),
-        unnormalize_tensor_prognostic=lambda x, **kwargs: x
-        * torch.tensor([2.0, 100.0]).reshape(1, 1, 2, 1, 1),
+        unnormalize_tensor_prognostic=lambda x, **kwargs: (
+            x * torch.tensor([2.0, 100.0]).reshape(1, 1, 2, 1, 1)
+        ),
     )
     aggregator = RolloutValidationAggregator(
         output_steps=2,
@@ -94,3 +95,42 @@ def test_rollout_score_averages_normalized_rmse_over_times_and_channels(chunk_si
     assert not np.isfinite(
         aggregator.get_logs("rollout_val")["rollout_val/normalized_rmse/channel_mean"]
     )
+
+
+def test_rollout_score_excludes_empty_channels_but_not_invalid_wet_predictions():
+    from types import SimpleNamespace
+    from typing import Any, cast
+
+    import torch
+    import xarray as xr
+
+    from samudra.aggregator.validate.rollout import RolloutValidationAggregator
+    from samudra.utils.output import ModelInferenceOutput
+
+    mask = torch.tensor([[[True, False]], [[False, False]]])
+    preprocessor = SimpleNamespace(
+        prognostic_mask=mask,
+        unnormalize_tensor_prognostic=lambda x, **kwargs: x.masked_fill(
+            ~mask, float("nan")
+        ),
+    )
+    aggregator = RolloutValidationAggregator(
+        output_steps=1,
+        area_weights=torch.ones(1, 2),
+        preprocessor=cast(Any, preprocessor),
+        data_layout=cast(Any, None),
+        prognostic_var_names=cast(Any, ("zos", "hfds")),
+        distributed_reduce=False,
+    )
+    prediction = torch.tensor([[[[3.0, float("nan")]], [[0.0, 0.0]]]])
+    aggregator.record_batch(
+        ModelInferenceOutput(prediction, torch.zeros_like(prediction), xr.DataArray())
+    )
+    logs = aggregator.get_logs("test")
+    assert logs["test/normalized_rmse/channel_mean"] == pytest.approx(3.0)
+    assert np.isnan(logs["test/weighted_rmse/hfds"])
+    prediction[0, 0, 0, 0] = float("nan")
+    aggregator.record_batch(
+        ModelInferenceOutput(prediction, torch.zeros_like(prediction), xr.DataArray())
+    )
+    assert np.isinf(aggregator.get_logs("test")["test/normalized_rmse/channel_mean"])

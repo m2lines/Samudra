@@ -145,6 +145,10 @@ class RolloutValidationAggregator:
         error = torch.where(torch.isfinite(error), error, float("inf"))
         error = error.masked_fill(~wet, float("nan"))
         rmse = area_weighted_rmse(torch.zeros_like(error), error, self._area_weights)
+        # A strict bathymetry mask can leave an entire depth channel dry.
+        # Exclude only empty support; non-finite predictions on wet cells
+        # must still invalidate the score.
+        rmse = rmse[..., wet.any(dim=(-2, -1))]
         self._normalized_rmse_sum = (
             self._normalized_rmse_sum.to(error.device) + rmse.sum()
         )

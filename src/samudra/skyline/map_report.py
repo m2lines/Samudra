@@ -138,7 +138,7 @@ def equal_date_weights(data, dense_origins):
     return w / w.sum()
 
 
-def render(data, name, depth, output):
+def render(data, name, depth, output, *, dpi=140):
     if not len(data["row"]):
         return
     fig, axes = plt.subplots(2, 4, figsize=(17, 7), constrained_layout=True)
@@ -193,7 +193,7 @@ def render(data, name, depth, output):
     fig.suptitle(
         f"{name} · {DEPTHS[depth]:g} m · +5 days from true histories\nColor scales clip at pooled 1st/99th percentiles; metrics use all values"
     )
-    fig.savefig(output, dpi=140)
+    fig.savefig(output, dpi=dpi)
     plt.close(fig)
 
 

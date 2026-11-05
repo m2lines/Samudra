@@ -14,23 +14,33 @@ Inputs remain continuous. Classification uses ordinary cross-entropy over
 
 | Work | Host | Job | Requested allocation | Dependency |
 |---|---|---:|---|---|
-| Classifier EMA qualification | Engaging | 27943836 | 4 GPUs, 20 minutes maximum | none |
-| Regression EMA qualification | Engaging | 27943840 | 4 GPUs, 20 minutes maximum | classifier qualification |
-| Classifier EMA continuation | Engaging | 27943843 | 4 GPUs, 10 hours | regression qualification |
-| Regression EMA continuation | Engaging | 27943848 | 4 GPUs, 10 hours | classifier continuation |
+| Classifier EMA qualification | Engaging | 27944929 | 4 GPUs, 20 minutes maximum | none |
+| Regression EMA qualification | Engaging | 27944930 | 4 GPUs, 20 minutes maximum | classifier qualification |
+| Classifier EMA continuation | Engaging | 27944931 | 4 GPUs, 10 hours | regression qualification |
+| Regression EMA continuation | Engaging | 27944932 | 4 GPUs, 10 hours | classifier continuation |
 | Map qualification | Torch | 21803870 | 1 H200, 15 minutes maximum | none |
-| Initial-checkpoint maps | Torch | 21803874 | 4 H200, 3 hours per allocation | map qualification |
+| Initial-checkpoint maps (complete) | Torch | 21803874 | 4 H200, 39m42s used | map qualification |
 
 Dependencies require successful completion. Engaging training uses account and
 QoS `mit_amf_advanced_gpu` on `mit_normal_gpu`, which permits four GPUs per user
 and 48-hour jobs. The submitted GPU request was untyped; Slurm resolved it to four L40S GPUs.
 The actual hardware is also recorded in run provenance. Torch H200 maps retain their preemptible routing. All GPU
-jobs can requeue. The training source is `d5f88b950`; the map source remains
-`641922718`. Submission commands and configs are in `engaging-submission.json`.
+jobs can requeue. The current training source is `4132facf9`; the map source remains
+`641922718`. Original submission commands and configs are in `engaging-submission.json`;
+`engaging-recovery.json` records the replacement chain in the table. The first
+qualification exposed rank-local wall-clock learning rates that caused small
+replica differences. Rank zero now broadcasts the learning rate; both replacement
+qualifications passed exact raw/EMA parameter-hash checks after eight updates.
+Classifier continuation is running; regression awaits its successful completion.
 The four-GPU Torch requests in `accumulation-submission.json` were cancelled
 before allocation. Earlier receipts preserve superseded requests.
-Training qualification and the full map evaluation remain pending; map
-qualification passed. No new training or full map result is claimed here.
+The initial-checkpoint map evaluation completed on November 5, 2026: 1,102,317
+matched point–date–depth cases in 39m42s on four H200s. The
+[held-out report and maps](../maps-initial/README.md) show regression improving
+mean-depth normalized MSE by 53.4% versus Samudra but losing 7.9% to persistence.
+Classifier density surprise reaches mean-depth AUROC 0.809; persistence
+disagreement reaches 0.919. These are initial-checkpoint results, separate from
+the Engaging continuation.
 
 Engaging reads the existing shared dataset
 `/orcd/data/abodner/002/jrusak/om4_quarterdeg_v2`. All 80 required channels have
@@ -49,8 +59,8 @@ node and verified by SHA-256 on Engaging. The existing Engaging PhysicsNeMo
 26.05 container uses Python 3.12.3, PyTorch
 `2.12.0a0+0291f960b6.nv26.04.48445190`, CUDA 13.2, and Zarr 2.18.7, matching
 those runtime versions on Torch. Host Python user packages are disabled.
-The actual launcher imports successfully in this container. GPU qualification
-is still required for device compatibility, memory use, and throughput.
+The actual launcher imports successfully in this container. Both replacement GPU qualifications passed on four L40S GPUs. The running
+classifier uses about 13 GiB per GPU and sustained GPU utilization above 90%.
 Run outputs, caches, and logs use
 `/orcd/scratch/orcd/014/jrusak/temperature-skyline-20261104`.
 The user authorized returning to Torch if Engaging encounters a blocker.
@@ -64,8 +74,8 @@ replacement launches through `python -m torch.distributed.run`, verified with
 Its dependent map job was cancelled without allocation. The four original
 training jobs were replaced while still queued and consumed no GPU time.
 Replacement map qualification 21803870 completed in 106 seconds and evaluated
-3,344 matched points across all 19 depths. Four-GPU training qualification
-remains pending.
+3,344 matched points across all 19 depths. Both replacement four-GPU training
+qualifications also passed.
 
 The initial continuation segments target roughly 40 allocated GPU-hours per
 arm. The user clarified that this is a planning scale, not a strict overall
@@ -137,7 +147,7 @@ The paired final validation uses that arm’s single fifteen-minute reserve
 within its cumulative ten-hour budget. The existing initial-checkpoint map job still uses its original
 raw checkpoints.
 
-The first map report uses those existing checkpoints while continuation waits.
+The completed first map report uses those existing initial checkpoints.
 It compares regression, classifier mode, frozen Samudra epoch-62 outputs, and
 OM4 targets at identical query points. Forecast origins, two observed states,
 forcing fields, normalization, and the +5-day lead match. Samudra receives
@@ -181,7 +191,7 @@ three existing checkpoint tests. Checks cover EMA arithmetic and resume, restora
 after exceptions, unchanged optimizer state, and matched validation targets
 for both objectives and validation shard changes. Formatting, linting, typing,
 schema validation, secret scanning, and license checks passed. Four-GPU training qualification
-and the full scientific assessment remain pending; the map qualification passed. The same pinned assessment
+is tracked separately from the completed initial-checkpoint assessment. The same pinned assessment
 protocol is to be repeated after training. For that report, select regression
 weights by validation error and classifier weights by validation bin NLL,
 considering the selected initial checkpoint and continuation raw/EMA

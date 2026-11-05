@@ -378,9 +378,9 @@ def test_validation_locations_match_between_objectives(ocean, tmp_path):
 
 
 def test_validation_shards_preserve_points_metrics_and_pit(ocean, tmp_path):
-    ocean.origins["validation"] = np.array([1, 4])
+    ocean.origins["validation"] = np.array([1, 4, 7])
     config = dict(
-        validation_dates=2,
+        validation_dates=3,
         validation_seed=42,
         validation_points_per_depth=3,
         microbatch=7,
@@ -403,7 +403,13 @@ def test_validation_shards_preserve_points_metrics_and_pit(ocean, tmp_path):
                 for s in (path / "predictions-0000001.jsonl").read_text().splitlines()
             ]
         )
-    assert records[0] == records[1] + records[2]
+
+    def location(row):
+        return tuple(row[k] for k in ("origin", "row", "col", "depth"))
+
+    assert sorted(records[0], key=location) == sorted(
+        records[1] + records[2], key=location
+    )
     merged = merge_validation(results[1:])
     assert merged["randomized_pit_counts"] == results[0]["randomized_pit_counts"]
     for actual, expected in zip(

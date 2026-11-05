@@ -17,13 +17,13 @@ import numpy as np
 import torch
 import torch.distributed as dist
 from numcodecs import blosc  # type: ignore[import-untyped]
-from torch.nn import functional as F
 from torch.nn.parallel import DistributedDataParallel
 
-from .coverage import corrected_mean, sample_coverage
+from .coverage import sample_coverage
 from .data import OceanSource
 from .ema import ema_weights, restore_ema, validation_comparison
 from .model import ModelConfig, PointTransformer, Vocabulary
+from .optimization import accumulate_gradients
 from .run import FrameStream, emit, evaluate, save_atomic, to_device
 from .utilization import GpuMonitor
 
@@ -139,6 +139,10 @@ def _train(
             raise ValueError(f"Training support mismatch: {key}")
     if not support["complete_training_scan"]:
         raise ValueError("Stage requires the complete training support audit")
+    accumulation = config.get("accumulation", 1)
+    if not isinstance(accumulation, int) or accumulation < 1:
+        raise ValueError("Accumulation must be a positive integer")
+    effective_batch = world * config["microbatch"] * accumulation
     seed = config["seed"] + rank * 1009
     torch.manual_seed(config["seed"])
     np.random.seed(seed)
@@ -200,7 +204,8 @@ def _train(
             job=os.environ.get("SLURM_JOB_ID"),
             restart=restart,
             world_size=world,
-            effective_batch=world * config["microbatch"],
+            effective_batch=effective_batch,
+            gradient_accumulation=accumulation,
             gpu=torch.cuda.get_device_name(),
             prior_allocation_seconds=prior,
             allocation_start=allocation_start,
@@ -243,20 +248,24 @@ def _train(
             if not finished:
                 begin = time.monotonic()
                 step += 1
-                if stream.used >= config["samples_per_frame"]:
-                    stream.advance()
-                batch = to_device(
-                    sample_coverage(
-                        source,
-                        stream.frame,
-                        rng,
-                        config["microbatch"],
-                        config["crop"],
-                        config["coverage"],
-                    ),
-                    device,
-                )
-                stream.used += config["microbatch"]
+
+                def next_batch():
+                    if stream.used >= config["samples_per_frame"]:
+                        stream.advance()
+                    batch = to_device(
+                        sample_coverage(
+                            source,
+                            stream.frame,
+                            rng,
+                            config["microbatch"],
+                            config["crop"],
+                            config["coverage"],
+                        ),
+                        device,
+                    )
+                    stream.used += config["microbatch"]
+                    return batch
+
                 optimizer.zero_grad(set_to_none=True)
                 fraction = min(1.0, used / max(1, deadline))
                 factor = min(1.0, step / config["warmup"]) * (
@@ -264,24 +273,9 @@ def _train(
                 )
                 for group in optimizer.param_groups:
                     group["lr"] = config["learning_rate"] * factor
-                with torch.autocast("cuda", dtype=torch.bfloat16):
-                    logits = ddp(batch)
-                if model.config.objective == "regression":
-                    per_example = F.mse_loss(
-                        logits.squeeze(-1), batch["target"], reduction="none"
-                    )
-                else:
-                    if vocab.outside(batch["target"], batch["depth"]).any():
-                        raise ValueError("Target outside training-only support")
-                    per_example = F.cross_entropy(
-                        logits,
-                        vocab.encode(batch["target"], batch["depth"]),
-                        reduction="none",
-                    )
-                loss = corrected_mean(per_example, batch["importance"])
-                if not torch.isfinite(loss):
-                    raise FloatingPointError("Nonfinite importance-corrected loss")
-                loss.backward()
+                batch_stats = accumulate_gradients(
+                    ddp, next_batch, model.config.objective, vocab, device, accumulation
+                )
                 norm = torch.nn.utils.clip_grad_norm_(
                     model.parameters(), 1.0, error_if_nonfinite=True
                 )
@@ -289,14 +283,7 @@ def _train(
                 ema(model)
                 torch.cuda.synchronize()
                 if step == 1 or step % config["log_every"] == 0:
-                    stats = torch.stack(
-                        (
-                            loss.detach(),
-                            batch["importance"].mean(),
-                            batch["importance"].square().mean(),
-                            norm,
-                        )
-                    )
+                    stats = torch.cat((batch_stats, norm.detach().reshape(1)))
                     dist.all_reduce(stats)
                     stats /= world
                     if rank == 0:
@@ -313,7 +300,7 @@ def _train(
                             allocation_seconds=allocation_used(
                                 config, prior, allocation_start
                             ),
-                            accepted_examples=step * world * config["microbatch"],
+                            accepted_examples=step * effective_batch,
                             utilization=monitor.mean,
                             peak_gpu_gib=torch.cuda.max_memory_allocated() / 2**30,
                         )
@@ -490,8 +477,10 @@ def _train(
                     step=step,
                     initial_step=initial_step,
                     allocation_seconds=allocation_used(config, prior, allocation_start),
-                    accepted_examples=step * world * config["microbatch"],
+                    accepted_examples=step * effective_batch,
                     world_size=world,
+                    effective_batch=effective_batch,
+                    gradient_accumulation=accumulation,
                     replicas_agree=True,
                     ema_updates=int(ema.num_updates),
                     ema_replicas_agree=True,
@@ -508,6 +497,9 @@ def _train(
                             config, prior, allocation_start
                         ),
                         world_size=world,
+                        effective_batch=effective_batch,
+                        gradient_accumulation=accumulation,
+                        accepted_examples=step * effective_batch,
                         qualification=config["qualification"],
                         replicas_agree=True,
                         ema_updates=int(ema.num_updates),

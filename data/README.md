@@ -105,7 +105,13 @@ package is installed and the environment is active.
 [VirtualiZarr](https://virtualizarr.readthedocs.io/en/stable/) to combine the annual
 NetCDF files along `time` and write Kerchunk Parquet references with Zarr v2
 metadata. The references point to the original files and retain their chunk
-layout, so those files must remain available at the same URLs.
+layout, so those files must remain available at the same URLs. Files must have
+compatible native chunk shapes, with non-final file boundaries aligned to chunks
+along `time`; otherwise the inputs need a separate rechunking step.
+
+File selection is frozen at discovery. The tool preserves filename order and
+source time values, including duplicates or reversals; consumers validate any
+chronological requirements.
 
 Read the public archive anonymously and write references to a new local directory:
 
@@ -404,7 +410,7 @@ The oracle for payload fidelity is an independent native NetCDF read followed by
 Xarray concatenation. It checks every value, coordinate, dimension, and attribute,
 including integer packing, compression, zeros, both supported NetCDF backends,
 and small Parquet partitions. Separate properties explore static scalars, source
-name escaping, incompatible grids/attributes/inventories, and chronological time.
+name escaping, incompatible grids/attributes/inventories, and time-order preservation.
 Compatible native chunk layouts are tested separately from the broader capability
 probe so a known layout restriction cannot prevent payload exploration.
 
@@ -440,13 +446,12 @@ remain CI failures without filing product bugs. A report is evidence requiring
 oracle review, not an automatic diagnosis; different causes within one property
 share an issue until a human splits them.
 
-Proposed contracts and capability probes carry the `contract_probe` pytest marker,
-which is retained in JUnit. They still fail visibly and shrink normally, but the
-reporter excludes them from automatic issue filing. To explore only established
-contracts, add `-m 'not contract_probe'` to the pytest command. Modification and
-removal of selected sources run independently from the glob-addition probe so a
-membership failure cannot stop exploration of those established checks. Artifacts
-also record the profile and example budget explicitly.
+The established contract checks unchanged selected objects: late file additions
+are excluded from both payload and provenance. Duplicate and reversed time values
+are preserved, rather than treated as scientific validation failures. Native
+chunk-layout rejections are checked separately from payload fidelity. Future
+proposed contracts can use the `contract_probe` pytest marker to remain visible in
+JUnit while being excluded from automatic issue filing.
 
 Preview reports locally without contacting GitHub:
 
@@ -466,30 +471,3 @@ assumptions visible so a test cannot silently encode the same physics mistake as
 the implementation. Expand to writer append/reopen sequences and distributed
 sampler coverage before introducing expensive GPU simulations. Local storage
 simulation does not establish S3 consistency behavior or crash durability.
-
-### Initial adversarial findings for PR 959
-
-The probes deliberately remain failing on the reviewed implementation, rather
-than being marked as expected failures. Review the intended contract before fixing
-each one:
-
-| Property | Minimal counterexample | Interpretation |
-| --- | --- | --- |
-| Static payload fidelity | One grid element and a scalar variable | Serialization raises `KeyError: 'scalar/.zarray'`. |
-| Source name invariance | A local directory/file name containing `?` | URI resolution constructs a nonexistent path. |
-| Unchanged source inventory | Add a second matching file just before the final check | Build succeeds because the check only re-stats the originally discovered URLs. |
-| Exclusive publication | Another writer creates an empty output directory before rename | POSIX rename replaces that directory despite the initial existence check. |
-| Chronological time | `time=[0, 0]` | Build succeeds. Rejecting duplicate/reversed times is a proposed scientific safety contract, not an explicit current API promise. |
-| Arbitrary native file partitions | NetCDF3 files of lengths 1 and 2; or HDF chunks of length 2 with a first file of length 3 | VirtualiZarr rejects incompatible/partial chunks. This is a capability/documentation limitation, not demonstrated payload corruption. |
-
-The inventory probe proposes stability of the entire glob selection. If selection
-is intentionally frozen at discovery, document that contract and change the probe
-to assert that newly added files are excluded from both payload and provenance.
-The current provenance phrase "unchanged source inventory" leaves that distinction
-unclear. Likewise, adopting chronological validation requires an explicit policy
-for duplicate, reversed, and non-finite timestamps.
-
-Production code is unchanged by this bug hunt. The properties distinguish rejected
-valid input, silent acceptance of unsafe input, and publication races; these need
-different remedies. In particular, zero-copy reference formats impose chunk-layout
-constraints that may call for a clear precondition rather than data rewriting.

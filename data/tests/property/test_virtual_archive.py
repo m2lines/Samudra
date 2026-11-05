@@ -15,7 +15,7 @@ import fsspec
 import numpy as np
 import pytest
 import xarray as xr
-from hypothesis import given
+from hypothesis import example, given
 from hypothesis import strategies as st
 from hypothesis.stateful import RuleBasedStateMachine, invariant, rule
 from ocean_preprocessing import virtualize_om4 as subject
@@ -129,15 +129,22 @@ def test_aligned_archive_preserves_every_value(case):
     check_round_trip(case)
 
 
-@pytest.mark.contract_probe
 @given(archives())
-def test_arbitrary_native_file_partitions_are_supported(case):
-    """Probe the advertised native-layout support, including unequal annual lengths.
-
-    This is a capability probe: failures may require a documented precondition
-    rather than payload rewriting, which would defeat zero-copy virtualization.
-    """
-    check_round_trip(case)
+def test_native_file_partitions_round_trip_or_report_layout_error(case):
+    """Unsupported native chunk boundaries fail clearly, without rewriting data."""
+    lengths, _, engine, chunk, _, _ = case
+    native_chunks = lengths if engine == "scipy" else [min(chunk, n) for n in lengths]
+    compatible = len(set(native_chunks)) == 1 and all(
+        length % native_chunks[0] == 0 for length in lengths[:-1]
+    )
+    try:
+        check_round_trip(case)
+    except ValueError as error:
+        assert not compatible, str(error)
+        assert "native chunk" in str(error).lower()
+        assert "temperature" in str(error)
+        assert ".nc" in str(error)
+        assert "Rechunk" in str(error)
 
 
 @given(st.lists(st.one_of(st.integers(-10, 10), st.none()), min_size=1, max_size=20))
@@ -165,14 +172,17 @@ def test_packing_and_missing_values_do_not_change_decoded_payload(values):
 @given(
     st.lists(st.integers(-100, 100), min_size=1, max_size=10),
     st.sampled_from(["scipy", "h5netcdf"]),
+    st.integers(-100, 100),
 )
-def test_static_archive_preserves_scalars_and_zero_coordinates(values, engine):
+def test_static_archive_preserves_scalars_and_zero_coordinates(values, engine, scalar):
     with TemporaryDirectory() as directory:
         root = Path(directory)
         ds = xr.Dataset(
             {
                 "depth": ("x", np.array(values, dtype="float32")),
                 "scalar": np.float64(42),
+                "integer_scalar": np.int32(scalar),
+                "integer_field": ("x", np.array(values, dtype="int32")),
             },
             coords={"x": np.arange(len(values))},
         )
@@ -184,6 +194,7 @@ def test_static_archive_preserves_scalars_and_zero_coordinates(values, engine):
             )
 
 
+@example("%3F%252F%23%25é")
 @given(st.text(alphabet="abc 09%?#é", min_size=1, max_size=12))
 def test_local_source_names_do_not_change_payload(suffix):
     """Renaming a local archive must preserve values, including URI escaping."""
@@ -223,32 +234,29 @@ def test_incompatible_sources_are_rejected(change, delta):
         assert not (root / "output").exists()
 
 
-@pytest.mark.contract_probe
-@given(
-    st.lists(st.integers(0, 50), min_size=2, max_size=8).filter(
-        lambda times: any(a >= b for a, b in zip(times, times[1:]))
-    )
-)
-def test_ambiguous_time_axis_is_rejected(times):
-    """A published chronological archive must not silently contain overlaps/reversals."""
+@given(st.lists(st.integers(0, 50), min_size=2, max_size=8))
+def test_source_time_order_is_preserved(times):
+    """Virtualization preserves duplicates and reversals; consumers own chronology."""
     with TemporaryDirectory() as directory:
         root = Path(directory)
-        write_source(root / "0.nc", np.ones((len(times), 1), dtype="float32"), times)
-        with pytest.raises(ValueError):
-            subject.build(str(root), root / "output", pattern="*.nc")
-        assert not (root / "output").exists()
+        path = root / "0.nc"
+        write_source(path, np.arange(len(times), dtype="float32").reshape(-1, 1), times)
+        subject.build(str(root), root / "output", pattern="*.nc")
+        with xr.open_dataset(path, decode_times=False) as expected:
+            xr.testing.assert_identical(
+                read_reference(root / "output"), expected.load()
+            )
 
 
 @pytest.mark.parametrize(
     "mutation",
-    ["modify", "remove", pytest.param("add", marks=pytest.mark.contract_probe)],
+    ["modify", "remove"],
 )
 @given(length=st.integers(1, 6))
 def test_source_mutations_abort_publication(length, mutation):
     """Inject a source change after serialization, before the final source check.
 
-    Modification/removal check the current contract; addition proposes the
-    stronger, separately marked contract of stable glob membership.
+    Modification/removal of the frozen selection must abort publication.
     The real serializer, validator, and object-store metadata calls still execute.
     """
     with TemporaryDirectory() as directory, pytest.MonkeyPatch.context() as patch:
@@ -259,9 +267,7 @@ def test_source_mutations_abort_publication(length, mutation):
 
         def mutate(*args):
             validate(*args)
-            if mutation == "add":
-                write_source(root / "1.nc", np.ones((1, 1), dtype="float32"), [length])
-            elif mutation == "modify":
+            if mutation == "modify":
                 path.write_bytes(path.read_bytes() + b"changed")
             else:
                 path.unlink()
@@ -271,6 +277,40 @@ def test_source_mutations_abort_publication(length, mutation):
             subject.build(str(root), root / "output", pattern="*.nc")
         assert not (root / "output").exists()
         assert not list(root.glob(".output-*"))
+
+
+@given(length=st.integers(1, 6))
+def test_late_sources_are_excluded_from_payload_and_provenance(length):
+    """The archive is the frozen selection, not all objects present at commit time."""
+    import json
+
+    with TemporaryDirectory() as directory, pytest.MonkeyPatch.context() as patch:
+        root = Path(directory)
+        original = root / "0.nc"
+        write_source(
+            original,
+            np.arange(length, dtype="float32").reshape(-1, 1),
+            np.arange(length),
+        )
+        validate = subject.validate_parquet_references
+
+        def add_source(*args):
+            validate(*args)
+            write_source(
+                root / "1.nc", np.full((1, 1), 1000, dtype="float32"), [length]
+            )
+
+        patch.setattr(subject, "validate_parquet_references", add_source)
+        subject.build(str(root), root / "output", pattern="*.nc")
+        with xr.open_dataset(original, decode_times=False) as expected:
+            xr.testing.assert_identical(
+                read_reference(root / "output"), expected.load()
+            )
+        provenance = json.loads((root / "output" / "provenance.json").read_text())
+        assert [item["url"] for item in provenance["source_files"]] == [
+            original.resolve().as_uri()
+        ]
+        assert "selection frozen at discovery" in provenance["validation"]
 
 
 class PublicationMachine(RuleBasedStateMachine):

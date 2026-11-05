@@ -8,28 +8,64 @@ Run with ``python -m ocean_preprocessing.virtualize_om4 --help``.
 The local output directory can subsequently be published using rclone.
 """
 
+import ctypes
 import hashlib
 import importlib.metadata
 import json
 import logging
+import math
 import os
+import sys
 import tempfile
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import quote, unquote, urlsplit
 
 import fire
 import fsspec
 import obstore.store
 import xarray as xr
+from kerchunk.df import refs_to_dataframe
 from obspec_utils.glob import glob
 from obspec_utils.registry import ObjectStoreRegistry
+from virtualizarr.manifests import ManifestArray
 from virtualizarr.parsers import HDFParser, NetCDF3Parser
 
 LOG = logging.getLogger(__name__)
 OSN = "https://nyu1.osn.mghpcc.org"
+
+
+@dataclass(frozen=True)
+class LocalURIStore:
+    """Read URI-escaped object keys through a native obstore LocalStore.
+
+    Both obspec-utils 0.9 and VirtualiZarr 2.8 strip store prefixes without
+    decoding file URIs. Keep that namespace encoded, and decode each object key
+    exactly once at the local storage boundary.
+    """
+
+    store: obstore.store.LocalStore
+
+    @property
+    def prefix(self) -> str:
+        return quote(str(self.store.prefix), safe="/")
+
+    def head(self, path):
+        return self.store.head(unquote(path))
+
+    def get(self, path, **options):
+        return self.store.get(unquote(path), **options)
+
+    def get_range(self, path, **options):
+        return self.store.get_range(unquote(path), **options)
+
+    def get_ranges(self, path, **options):
+        return self.store.get_ranges(unquote(path), **options)
+
+    async def get_range_async(self, path, **options):
+        return await self.store.get_range_async(unquote(path), **options)
 
 
 @dataclass(frozen=True)
@@ -68,6 +104,7 @@ class SourceArchive:
             urls = tuple(
                 (local_root / path).as_uri() for path in sorted(glob(store, pattern))
             )
+            store = LocalURIStore(store)
             endpoint_url = None
         if not urls:
             raise ValueError("No source files matched the pattern")
@@ -131,7 +168,9 @@ def open_virtual_netcdf(
 
 
 def combine_virtual_datasets(
-    datasets: Sequence[xr.Dataset], concat_dim: str | None
+    datasets: Sequence[xr.Dataset],
+    concat_dim: str | None,
+    source_urls: Sequence[str] = (),
 ) -> xr.Dataset:
     """Combine compatible virtual arrays without aligning or filling their grids."""
     if concat_dim is None:
@@ -150,6 +189,32 @@ def combine_virtual_datasets(
                 xr.Dataset(attrs=reference[name].attrs)
             ):
                 raise ValueError(f"Source attributes differ for {name}")
+    for name, variable in reference.variables.items():
+        if concat_dim not in variable.dims or not isinstance(
+            variable.data, ManifestArray
+        ):
+            continue
+        axis = variable.dims.index(concat_dim)
+        chunks = variable.data.metadata.chunk_grid.chunk_shape
+        for index, dataset in enumerate(datasets):
+            current = dataset[name].data
+            if not isinstance(current, ManifestArray):
+                continue
+            current_chunks = current.metadata.chunk_grid.chunk_shape
+            location = source_urls[index] if source_urls else f"source {index}"
+            if current_chunks != chunks:
+                raise ValueError(
+                    f"Incompatible native chunk shapes for {name!r} in {location}: "
+                    f"{current_chunks}, expected {chunks}. Rechunk the inputs before virtualization."
+                )
+            if (
+                index < len(datasets) - 1
+                and dataset.sizes[concat_dim] % current_chunks[axis]
+            ):
+                raise ValueError(
+                    f"Partial native chunk for {name!r} in {location} at a non-final file boundary. "
+                    "Rechunk the inputs before virtualization."
+                )
     return xr.concat(
         datasets,
         dim=concat_dim,
@@ -159,6 +224,44 @@ def combine_virtual_datasets(
         join="exact",
         combine_attrs="override",
     )
+
+
+def rename_directory_exclusive(source: Path, destination: Path) -> None:
+    """Atomically rename a local directory without replacing any destination."""
+    if sys.platform == "win32":
+        os.rename(
+            source, destination
+        )  # Windows rename does not replace existing paths.
+        return
+    libc = ctypes.CDLL(None, use_errno=True)
+    if sys.platform == "linux":
+        rename = libc.renameat2
+        rename.argtypes = [
+            ctypes.c_int,
+            ctypes.c_char_p,
+            ctypes.c_int,
+            ctypes.c_char_p,
+            ctypes.c_uint,
+        ]
+        arguments = (
+            -100,
+            os.fsencode(source),
+            -100,
+            os.fsencode(destination),
+            1,
+        )  # AT_FDCWD, RENAME_NOREPLACE
+    elif sys.platform == "darwin":
+        rename = libc.renamex_np
+        rename.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_uint]
+        arguments = (os.fsencode(source), os.fsencode(destination), 4)  # RENAME_EXCL
+    else:
+        raise NotImplementedError(
+            "Exclusive directory publication requires Linux, macOS, or Windows"
+        )
+    rename.restype = ctypes.c_int
+    if rename(*arguments) != 0:
+        error = ctypes.get_errno()
+        raise OSError(error, os.strerror(error), str(destination))
 
 
 @contextmanager
@@ -172,7 +275,50 @@ def staged_reference_directory(output: Path) -> Iterator[Path]:
     ) as tmp:
         directory = Path(tmp) / "references"
         yield directory
-        os.rename(directory, output)
+        rename_directory_exclusive(directory, output)
+
+
+def write_parquet_references(
+    dataset: xr.Dataset, directory: Path, record_size: int, source: SourceArchive
+) -> None:
+    """Serialize Zarr v2 chunk references, including scalars and local paths."""
+    references = dataset.vz.to_kerchunk(format="dict", zarr_format=2)
+    refs = references["refs"]
+    # VirtualiZarr 2.8 emits an empty scalar chunk key. Zarr v2 uses "0";
+    # correcting the key also places array metadata before chunks in the writer.
+    for name, variable in dataset.variables.items():
+        if variable.ndim == 0:
+            refs[f"{name}/0"] = refs.pop(f"{name}/")
+    # Zarr v2 readers use the storage fill value as a CF missing-data marker.
+    # NetCDF variables without _FillValue must retain valid zeros, not mask them.
+    for name, variable in dataset.variables.items():
+        if "_FillValue" in variable.attrs:
+            continue
+        metadata = json.loads(refs[f"{name}/.zarray"])
+        if isinstance(variable.data, ManifestArray) and metadata["fill_value"] not in (
+            None,
+            0,
+        ):
+            array = variable.data
+            grid_size = math.prod(
+                math.ceil(size / chunk)
+                for size, chunk in zip(
+                    array.shape, array.metadata.chunk_grid.chunk_shape
+                )
+            )
+            if sum(1 for _ in array.manifest.iter_refs()) < grid_size:
+                raise ValueError(
+                    f"{name!r} has unwritten native chunks with an implicit nonzero fill value; materialize those chunks before virtualization"
+                )
+        metadata["fill_value"] = None
+        refs[f"{name}/.zarray"] = json.dumps(metadata)
+    # VirtualiZarr strips file:// but leaves URI escapes in local reference paths.
+    # Kerchunk's local reader expects native paths, not percent-encoded URI paths.
+    if source.protocol == "file":
+        for reference in refs.values():
+            if isinstance(reference, list):
+                reference[0] = unquote(reference[0])
+    refs_to_dataframe(references, url=str(directory), record_size=record_size)
 
 
 def validate_parquet_references(
@@ -246,7 +392,7 @@ def reference_provenance(
             for name, variable in combined.variables.items()
         },
         "source_attributes": [dataset.attrs for dataset in datasets],
-        "validation": "metadata round-trip and unchanged source inventory; no full payload scan",
+        "validation": "metadata round-trip and unchanged selected source objects; selection frozen at discovery; no full payload scan",
     }
 
 
@@ -263,8 +409,14 @@ def build(
 ) -> Path:
     """Combine NetCDF files into a local Kerchunk Parquet reference store.
 
+    Preserve source time values in filename order; consumers validate chronology.
+    Native chunk shapes must agree and non-final files must end on chunk boundaries.
+    Unwritten chunks with implicit nonzero fill values need materialization before
+    export to Zarr v2, which uses fill values as missing-data markers.
+
     Args:
-        source_root: Local source directory or s3:// bucket/prefix.
+        source_root: Local source directory or s3:// bucket/prefix. Selection is
+            frozen at discovery; files added later are excluded.
         output: New local directory for the reference store.
         pattern: Glob selecting source filenames, sorted before concatenation.
         expected_files: Optional expected number of matching files.
@@ -292,14 +444,12 @@ def build(
     for url in source.urls:
         LOG.info("Parsing %s", url)
         datasets.append(open_virtual_netcdf(url, source.registry, concat_dim))
-    combined = combine_virtual_datasets(datasets, concat_dim)
+    combined = combine_virtual_datasets(datasets, concat_dim, source.urls)
     provenance = reference_provenance(
         source, snapshot, datasets, combined, concat_dim, record_size
     )
     with staged_reference_directory(output) as directory:
-        combined.vz.to_kerchunk(
-            directory, format="parquet", record_size=record_size, zarr_format=2
-        )
+        write_parquet_references(combined, directory, record_size, source)
         validate_parquet_references(directory, combined, source)
         if source.snapshot() != snapshot:
             raise ValueError("Source objects changed while building references")

@@ -10,7 +10,7 @@
 #SBATCH --cpus-per-task=144
 #SBATCH --gres=gpu:4
 #SBATCH --mem=0
-#SBATCH --time=24:00:00
+#SBATCH --time=06:00:00
 #SBATCH --array=0-1
 set -euo pipefail
 export RUN_ROOT=/projects/ny/lz1955/multiscale/jrusak/runs/om4-nonpartial-v2-20261105

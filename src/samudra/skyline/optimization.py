@@ -5,10 +5,20 @@
 from contextlib import nullcontext
 
 import torch
+import torch.distributed as dist
 from torch.nn import functional as F
 from torch.nn.parallel import DistributedDataParallel
 
 from .coverage import corrected_mean
+
+
+def set_synchronized_learning_rate(optimizer, learning_rate, device):
+    """Use rank zero's wall-clock schedule for every optimizer replica."""
+    value = torch.tensor(learning_rate, dtype=torch.float64, device=device)
+    if dist.is_initialized():
+        dist.broadcast(value, src=0)
+    for group in optimizer.param_groups:
+        group["lr"] = float(value)
 
 
 def accumulate_gradients(model, next_batch, objective, vocab, device, accumulation):

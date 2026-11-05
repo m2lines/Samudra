@@ -14,7 +14,10 @@ from torch.nn.parallel import DistributedDataParallel
 from samudra.skyline.coverage import corrected_mean
 from samudra.skyline.ema import restore_ema
 from samudra.skyline.model import Vocabulary
-from samudra.skyline.optimization import accumulate_gradients
+from samudra.skyline.optimization import (
+    accumulate_gradients,
+    set_synchronized_learning_rate,
+)
 
 
 class BatchNetwork(torch.nn.Module):
@@ -58,6 +61,12 @@ def ddp_accumulation_worker(rank, init_path, output, objective):
 
         ddp.register_comm_hook(counter, counted_reduce)
         optimizer = torch.optim.AdamW(model.parameters(), lr=0.03)
+        # Rank-local wall-clock observations differ; all updates must use
+        # rank zero's schedule, even when each rank proposes a different LR.
+        set_synchronized_learning_rate(
+            optimizer, 0.03 + rank * 0.001, torch.device("cpu")
+        )
+        assert optimizer.param_groups[0]["lr"] == 0.03
         ema = restore_ema(model, dict(decay=0.999, faster_decay_at_start=True))
         microbatches = iter(
             [

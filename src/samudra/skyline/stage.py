@@ -23,7 +23,7 @@ from .coverage import sample_coverage
 from .data import OceanSource
 from .ema import ema_weights, restore_ema, validation_comparison
 from .model import ModelConfig, PointTransformer, Vocabulary
-from .optimization import accumulate_gradients
+from .optimization import accumulate_gradients, set_synchronized_learning_rate
 from .replicas import verify_replicas
 from .run import FrameStream, emit, evaluate, save_atomic, to_device
 from .utilization import GpuMonitor
@@ -272,8 +272,9 @@ def _train(
                 factor = min(1.0, step / config["warmup"]) * (
                     0.1 + 0.9 * (1 + math.cos(math.pi * fraction)) / 2
                 )
-                for group in optimizer.param_groups:
-                    group["lr"] = config["learning_rate"] * factor
+                set_synchronized_learning_rate(
+                    optimizer, config["learning_rate"] * factor, device
+                )
                 batch_stats = accumulate_gradients(
                     ddp, next_batch, model.config.objective, vocab, device, accumulation
                 )

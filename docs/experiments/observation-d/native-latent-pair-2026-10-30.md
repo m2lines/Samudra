@@ -3,7 +3,9 @@
 
 # Native-resolution latent processor comparison
 
-**Both runs completed.** At native 180×360 resolution with 64 channels per
+**All three native runs completed.** GroupNorm in the v2 processor gives blend
+1.11122, 3.93% worse than InstanceNorm (see the [normalization comparison](#processor-groupnorm-comparison-november-4)).
+ At native 180×360 resolution with 64 channels per
 latent slot, the small processor selects EMA update 5,000 with blend **1.02071**;
 the v2 U-Net selects update 4,500 with **1.06915**. The small processor's blend
 is **4.53% lower**. V2 improves velocity, EKE and upper OHC, but worsens deep OHC
@@ -206,14 +208,39 @@ SST, geostrophic velocity, EKE, and 0–700/700–2000 m OHC RMSE. CPU tests ver
 InstanceNorm and GroupNorm variants, finite recurrence gradients, serialization,
 and the v2 parameter count; all 31 targeted tests passed.
 
-Production **223127** (Beta, standard QoS, four hours) and qualification **223128**
-(beta_test, test QoS) are submitted and were pending at the release check.
-Production performs qualification itself if it starts first; the shared lock
-prevents duplicate qualification. Qualification checks real training, finite
-validation, input parity, and exact checkpoint replay before production. Code commit: `09caa96f3b26dd515e986e87ea35b032345cfaa7`.
+Both normalization variants select EMA update 4,500. GroupNorm worsens the
+blend by **3.93%**, despite improving SST RMSE by 3.83%. Upper-OHC RMSE rises
+16.85%; deep-OHC RMSE rises 1.47%. This one-seed comparison does not support
+replacing InstanceNorm with four-group GroupNorm for the current objective.
+
+| Selected EMA metric (lower is better) | InstanceNorm | GroupNorm (4 groups) |
+|---|---:|---:|
+| RMSE blend | 1.06915 | 1.11122 |
+| SST RMSE (°C) | 0.54064 | 0.51993 |
+| Geostrophic velocity RMSE (m/s) | 0.09865 | 0.09993 |
+| EKE RMSE (m²/s²) | 0.018080 | 0.018231 |
+| OHC 0–700 m RMSE (GJ/m²) | 0.78856 | 0.92141 |
+| OHC 700–2000 m RMSE (GJ/m²) | 0.75100 | 0.76203 |
+
+![Matched normalization curves](assets/native-latent-pair-2026-10-30/groupnorm-curves.png)
+
+Solid lines show EMA and dotted lines raw weights; cooldown begins at 4,000.
+The raw blend at 4,500 remains about 1.413 in both variants, so this GroupNorm
+setting does not remove the raw/EMA gap. Final EMA blend is 1.12434 for GroupNorm
+and 1.07753 for InstanceNorm. Scores use the same nine validation origins,
+eight-member means and 32 sampler steps. Surface errors average leads 5/15/30;
+OHC uses monthly targets. These are checkpoint-selection validation results.
+
+[GroupNorm metrics](assets/native-latent-pair-2026-10-30/groupnorm-results.json) ·
+[All curve data](assets/native-latent-pair-2026-10-30/curves.csv) ·
+[GroupNorm W&B](https://wandb.ai/ocean_emulators/observational-transfer/runs/e7a1fce4c367).
+
+Production **223127** completed all 5,000 updates (3,000 OBS / 2,000 OM4).
+Its first allocation timed out during deferred evaluation; a continuation
+completed evaluation in 26m56s with zero additional training updates. Qualification
+**223128** took 22m02s. Total allocated cost, including the first 4h01m10s attempt,
+was **19.3422 GPU-hours**. All ten endpoint hashes, evaluation receipts and final
+selection were verified. Code commit: `09caa96f3b26dd515e986e87ea35b032345cfaa7`.
 Root: `beta:/projects/ny/lz1955/multiscale/jrusak/runs/native-latent-groupnorm-20261104`.
-The remote completion hook passed its login-node check; a dedicated quiet monitor
-checks runtime qualification and final outputs. The prior InstanceNorm run took
-3h21m including validation; a subsequent scheduler check estimated a November 5, 02:58 UTC start.
-That implies results around November 5, 01:45 EST, including review, if the
-provisional start holds. No GroupNorm result is available yet.
+Selected checkpoint SHA256:
+`c87e1025b71f5bfc5a5394458450097f629aea1e32be910129e4cb043691c5c7`.

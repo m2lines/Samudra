@@ -400,7 +400,7 @@ Follow the CLI usage instructions to clone the repository and create a local mam
 the development dependencies:
 
 ```bash
-mamba install pytest scipy dask pre-commit
+mamba install pytest scipy dask pre-commit hypothesis fastparquet
 ```
 
 Run the data package tests from `data/` in the active environment:
@@ -408,3 +408,80 @@ Run the data package tests from `data/` in the active environment:
 ```bash
 python -m pytest tests
 ```
+
+### Property tests and simulation soaks
+
+Keep archive properties in flat `tests/test_*_properties.py` files and named-fault
+catalogs in `tests/*_mutations.py`. The shared runner and report model live in
+`src/samudra/test_utils`; do not import maintenance scripts. See the
+[contributor guide](../docs/contributing.md#property-tests-and-simulation-checks)
+for the repository-wide conventions and artifact/reporting layout.
+
+Create the focused verification environment from the repository root:
+
+```bash
+micromamba create -f data/.test.yml
+micromamba activate samudra-data-test
+python -m pip install --no-deps --no-build-isolation -e ./src/samudra/test_utils -e ./data
+cd data
+python -m samudra.test_utils.run --suite data --tests tests/test_*_properties.py \
+  --dependency-file .test.yml --output /tmp/data-properties \
+  --examples 1000 --seed 95920261105
+```
+
+Mamba owns third-party dependencies; pip only installs the two local packages
+without dependency resolution. `.test.yml` pins direct verification dependencies;
+it is not a transitive lock. CI saves the exact Mamba solution in each artifact.
+`.test-canary.yml` floats within supported runtime ranges. Nightly regression
+jobs exercise both Pandas string storage backends; the canary uses PyArrow.
+The ordinary full data environment remains `mamba_env.yaml`.
+
+The existing archive properties compare complete native NetCDF reads against
+reference payloads and generate small archives, chunk layouts, scalars, names,
+missing values, and publication event schedules. The publication model controls
+publish, abort, retry and delete without sleeps. These tests retain the selected
+contracts: freeze discovery, preserve raw time order including duplicates and
+reversals, and require compatible native chunk grids for zero-copy publication.
+Late additions stay out of payload and provenance. Proposed scientific policies
+need human agreement before becoming invariants. The separate Zarr 2 client and
+live OSN transport tests have been removed following review.
+
+The PyArrow-enabled stack currently exposes the reported sparse declared-fill
+reader failure. Keeping it in the environment preserves that counterexample;
+a failing baseline prevents claims of mutation sensitivity. Do not skip the
+property or credit a preexisting failure as a detected mutant.
+
+Run all flat mutation catalogs from the repository root in the data environment:
+
+```bash
+python -m samudra.test_utils.mutations data/tests \
+  --output /tmp/property-mutations --seeds 0 1 95920261105 --timeout 60 --budget 600
+```
+
+Each catalog defines a target module, property file, and named source changes.
+Unique source anchors fail loudly after refactors. Each subprocess imports the
+installed target, substitutes a mutant in memory, and leaves production files
+untouched. It isolates inherited pytest options and loads only the required
+plugins. Before accepting a kill, the engine checks effective Hypothesis settings,
+source hashes, exact collected/tested node IDs, and a completed native event log.
+Only test call failures count; setup/collection errors, skips, timeouts, missing
+reports and survivors fail the gate. Baselines run first for all three seeds.
+
+Each mutant gets 40 generation-only examples and at most 60 seconds, capped by
+the remaining shared 600-second budget. Explicit examples, database replay, and
+shrinking are disabled, so saved counterexamples cannot satisfy discovery.
+The artifact includes source snapshots, execution evidence, commands, timings,
+logs and results. PR/main changes, nightly reuse and manual dispatch run the gate;
+superseded PR runs are cancelled. A `summary.md` appears on the Actions run page,
+with full artifacts retained for 30 days.
+
+Preview candidate reports without contacting GitHub:
+
+```bash
+python -m samudra.test_utils.triage /tmp/data-properties/pytest.jsonl \
+  --repo m2lines/Samudra --run-url https://example.com/local-run
+```
+
+`--triage-output /tmp/property-triage` adds read-only issue lookup and a JSON/Markdown
+summary, including closed recurrences. Only an explicit `--apply` files issues;
+no unattended workflow has issue-write permissions.

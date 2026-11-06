@@ -81,6 +81,20 @@ fuzz tests (we use Hypothesis), written by an adversary rather than by the imple
 implementer didn't think of. Criticism from an adversary is a gift. Not all implementations will undergo adversarial
 fuzz testing, but will at least have to pass human and agentic code review.
 
+Searches follow these conventions (details, commands, and CI artifacts in `docs/contributing.md`):
+
+* Keep them flat: `tests/test_*_properties.py` for `samudra` and `data/tests/test_*_properties.py` for
+  `ocean_preprocessing`. The ordinary CPU suite skips that suffix. PR CI runs them with 40 examples each, and the
+  nightly `Property soak` workflow runs 1,000.
+* Prefer small independent oracles, metamorphic transformations, and explicit state models. The sampler simulation in
+  `tests/test_sampler_properties.py` is a CPU-only example that needs no training, process group, or GPU.
+* Show that a property can fail. A *mutation* is a named, plausible fault (often a past bug) listed in the tested
+  subsystem's `*_mutations.py` catalog, together with the properties that must catch it. The `Property mutation
+  gate` workflow plants each fault and checks that generated inputs catch it. So far it covers `data/` catalogs only.
+* Mark a property whose contract isn't agreed yet with `contract_probe`, so triage keeps it out of bug reports.
+* Shared runners, profiles, and reporting live in `src/samudra/test_utils`, a small development package that both
+  projects install. It is not part of the `samudra` wheel.
+
 While iterating, run only the tests that cover the code you changed, and let CI run the full suite.
 `uvx pre-commit run` checks staged files only.
 

@@ -49,6 +49,8 @@ SPLITS = {
 
 
 class OceanSource:
+    target_channels = tuple(range(38, 57))
+
     def __init__(self, root, readers=16, reference_root=None):
         self.root = root.rstrip("/")
         self.reference_root = (reference_root or root).rstrip("/")
@@ -177,7 +179,7 @@ class OceanSource:
             (t, i, n) for t in (origin - 1, origin) for i, n in enumerate(CHANNELS)
         ]
         if with_target:
-            requests += [(origin + 1, i + 38, n) for i, n in enumerate(TEMPERATURES)]
+            requests += [(origin + 1, i, CHANNELS[i]) for i in self.target_channels]
 
         def read_plane(request):
             t, i, n = request

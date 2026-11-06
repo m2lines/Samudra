@@ -50,7 +50,11 @@ def accumulate_gradients(model, next_batch, objective, vocab, device, accumulati
                 "cuda", dtype=torch.bfloat16, enabled=device.type == "cuda"
             ):
                 logits = model(batch)
-            if objective == "regression":
+            if objective == "comparison":
+                from .multitask import comparison_losses
+
+                losses = comparison_losses(logits, batch)
+            elif objective == "regression":
                 losses = F.mse_loss(
                     logits.squeeze(-1), batch["target"], reduction="none"
                 )

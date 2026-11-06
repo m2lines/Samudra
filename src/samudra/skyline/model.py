@@ -18,6 +18,7 @@ class ModelConfig:
     bins: int = 2048
     objective: str = "absolute_ce"
     checkpoint_blocks: bool = True
+    field_queries: bool = False
 
     def __post_init__(self):
         if self.width % self.heads or self.layers < 1 or self.bins < 2:
@@ -122,6 +123,10 @@ class PointTransformer(nn.Module):
         )
         self.norm = nn.RMSNorm(d)
         self.head = nn.Linear(d, 1 if config.objective == "regression" else config.bins)
+        if config.field_queries:
+            if config.objective != "regression":
+                raise ValueError("Field queries require regression")
+            self.field = nn.Embedding(5, d)
         self.register_buffer("frequencies", 2.0 ** torch.arange(8))
 
     def forward(self, batch):
@@ -137,16 +142,25 @@ class PointTransformer(nn.Module):
         n = values.shape[1] // 2
         times = torch.arange(2, device=x.device).repeat_interleave(n)
         x = x + self.time(times)[None]
-        z = batch["depth_m"]
-        query_values = torch.stack((z / 6000, z.log1p() / 9, batch["current"]), -1)
-        query = self.query(query_values) + self.depth(batch["depth"])
+        multiple = self.config.field_queries
+        z = batch["query_depth_m"] if multiple else batch["depth_m"]
+        current = batch["query_current"] if multiple else batch["current"]
+        depth = batch["query_depth"] if multiple else batch["depth"]
+        query_values = torch.stack((z / 6000, z.log1p() / 9, current), -1)
+        query = self.query(query_values) + self.depth(depth)
+        if multiple:
+            query = query + self.field(batch["query_field"])
+        else:
+            query = query[:, None]
         # The center's known geography is also available to the forecast query.
-        query = query + self.geo(position[:, n // 2])
-        x = torch.cat((x, query[:, None]), 1)
+        query = query + self.geo(position[:, n // 2])[:, None]
+        x = torch.cat((x, query), 1)
         valid = torch.cat(
             (
                 batch["valid"],
-                torch.ones_like(batch["depth"][:, None], dtype=torch.bool),
+                batch["query_valid"]
+                if multiple
+                else torch.ones(query.shape[:2], device=x.device, dtype=torch.bool),
             ),
             1,
         )
@@ -155,4 +169,6 @@ class PointTransformer(nn.Module):
                 x = checkpoint(block, x, valid, use_reentrant=False)
             else:
                 x = block(x, valid)
+        if multiple:
+            return self.head(self.norm(x[:, -query.shape[1] :])).squeeze(-1).float()
         return self.head(self.norm(x[:, -1])).float()

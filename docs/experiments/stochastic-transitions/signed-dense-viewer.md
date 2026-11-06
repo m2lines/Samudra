@@ -1,0 +1,16 @@
+<!-- SPDX-FileCopyrightText: 2026 Samudra Authors -->
+<!-- SPDX-License-Identifier: CC-BY-4.0 -->
+
+# Signed 8k model: initializer and annual viewer exports
+
+The [signed direct-ERA5 model](signed-dense-results.md) now has viewer-format data for the mean of eight members and fixed member 1. Both use the final EMA checkpoint after 8,000 mixed optimizer updates: 4,000 OM4 and 4,000 observation updates. The initializer is stochastic; the residual processor is deterministic. Member 1 is the same sampled trajectory at initialization and every subsequent lead, and the mean averages the same eight separately evolved trajectories.
+
+The model IDs are `signed-direct8-dense8k-061126-mean8` and `signed-direct8-dense8k-061126-member1`. Observation-initialized origins are January 1 of 2015, 2018 and 2021. OM4-surface-initialized origins are January 1 of 2015 and 2018. The 2021 OM4 case is unavailable because its required timestamps do not match the source exactly; no temporal interpolation was substituted.
+
+Each readout contains all 77 predicted fields at initialization, 73 five-day SSH/SST bins, full interior states at days 5, 15, 30, 90, 180 and 365, and 12 calendar-month temperature/salinity and heat-content averages for 0–700 m and 700–2000 m. The viewer groups interior T/S/u/v by depth and displays SSH separately. OM4 comparisons use exact-time simulation references. Observation-initialized interior comparisons use preceding-December Institute of Atmospheric Physics (IAP) gridded analyses as context at initialization and the corresponding IAP calendar month during forecasts; there is no observational velocity reference. Future surface observations and interior reference states never enter model inputs.
+
+All five rollouts reach day 365 without nonfinite values, but they develop localized nonphysical extremes. For the observation-initialized 2015 ensemble mean, day-365 temperatures span −43 to 57 °C, salinity spans −52 to 53 psu, and absolute SSH reaches 6.58 m on the declared wet masks. The OM4-initialized 2015 mean is worse: temperatures span −80 to 91 °C and salinity −116 to 58 psu. These outputs are preserved without clipping, damping or spatial smoothing. Finite completion is not evidence of physical stability. The [verification receipt](signed-dense-viewer-assets/verification.json) includes day-30/day-365 extrema and 95th percentiles for every source, year, readout and variable.
+
+The export reproduced the independent 30-day forecast prefix exactly for every case. All 17 saved NPZ payload checksums and byte sizes were verified after download, then 109 viewer arrays were generated and read back. The additional evaluation used one RTX GPU for 623 seconds (**0.1731 GPU-hours**), bringing this campaign to **30.9508 GPU-hours**. No new training was run.
+
+[Exporter](../../../scripts/export_stochastic_signed_annual_viewer.py) · [Catalog converter](../../../scripts/prepare_stochastic_signed_annual_viewer.py) · [Exact submitted export tools](signed-dense-viewer-assets/submitted-export-tools.tar.gz). The converter's descriptive text was updated after inspecting the annual outputs; numerical conversion is unchanged from the submitted snapshot. Training source and checkpoint fingerprints are in the verification receipt. Live viewer integration is tracked separately from these reproducible export artifacts.

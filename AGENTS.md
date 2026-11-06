@@ -175,6 +175,20 @@ uv run pytest tests/test_train.py
 uv run pytest --benchmark-only --benchmark-autosave
 ```
 
+### Property and simulation tests
+
+* Put main-project CPU properties in `tests/property/test_*.py`. The CPU PR workflow
+  runs a bounded check with replay artifacts; the nightly/manual `Property soak`
+  workflow runs a larger independent job using the main project's `uv.lock`.
+* Put preprocessing properties in `data/tests/property/`. Keep the main and data
+  environments separate; share orchestration and artifact conventions through
+  `scripts/run_property_suite.py` and `scripts/property_testing.py`.
+* Prefer small independent oracles, metamorphic transformations, and explicit
+  state/event models. The sampler simulation provides a CPU-only example that
+  requires no training, process group, remote input, or GPU.
+* Mark GPU/manual tests explicitly. They are excluded from the CPU soak and need
+  an appropriate execution lane. See `docs/contributing.md` for commands and scope.
+
 ### Code Quality Checks
 
 ```bash

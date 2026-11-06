@@ -399,6 +399,13 @@ python -m pytest tests
 
 ### Property tests and simulation soaks
 
+Data is one suite in the repository-wide `Property soak` workflow. Main-project
+CPU properties live separately in `tests/property/` at the repository root and
+use `uv.lock`; data jobs retain their independent verifier environment. Both use
+`scripts/run_property_suite.py`, common replay artifacts, and shared read-only
+triage. See the [contributor convention](../docs/contributing.md#property-tests-and-simulation-checks)
+before adding a new suite or compute lane.
+
 `tests/property/` checks the virtualization contract using generated miniature
 NetCDF archives and real local object-store reads, parsers, Parquet serialization,
 and reference reads. It does not use the existing example-based tests as an oracle.

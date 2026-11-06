@@ -78,4 +78,6 @@ exclude = [ "book", "docs" ] # exclude packages matching these glob patterns (em
 
 [tool.pytest.ini_options]
 testpaths = [ "tests" ]
+# Shared repository testing helpers, not main-project dependencies.
+pythonpath = [ ".." ]
 markers = [ "contract_probe: proposed contract or capability probe; excluded from automatic issue filing" ]

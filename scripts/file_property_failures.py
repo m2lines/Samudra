@@ -31,6 +31,17 @@ def reports(path, run_url):
         if failure is None:
             continue
         identity = f"{case.get('classname')}.{case.get('name')}"
+        suite = next(
+            (
+                prop.get("value")
+                for prop in case.findall("./properties/property")
+                if prop.get("name") == "verification_suite"
+            ),
+            "data",
+        )
+        # Preserve historical data fingerprints while namespacing new suites.
+        if suite != "data":
+            identity = f"{suite}:{identity}"
         digest = hashlib.sha256(identity.encode()).hexdigest()[:20]
         marker = f"<!-- property-failure:{digest} -->"
         found[marker] = {

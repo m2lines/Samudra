@@ -333,6 +333,7 @@ def main():
         SUITE,
         SUITE.parent / "conftest.py",
         Path(__file__).resolve(),
+        DATA.parent / "scripts" / "property_testing.py",
     ]
     metadata["source_sha256"] = {}
     for path in replay_sources:

@@ -15,6 +15,57 @@ including:
 
 This project follows the [M2LInES _Code of Conduct_](https://m2lines.github.io/pages/code-of-conduct/).
 
+## Property tests and simulation checks
+
+Put CPU fuzz/property tests for `src/samudra/` in `tests/property/test_*.py`.
+They are automatically discovered by the CPU PR workflow: the bounded property
+step runs 40 default examples and saves replay artifacts. The ordinary CPU test
+step excludes this directory to avoid running it twice. The shared nightly/manual
+`Property soak` workflow runs it independently with 1,000 default examples using
+the main project's `uv.lock`. Scheduling starts after the workflow reaches the
+default branch.
+
+Data generators and archive mutation checks stay in `data/tests/`. Their jobs use
+their own Python environment and dependency snapshots. The suites share profile
+names, a replay runner, artifact conventions, scheduling, and read-only triage;
+they do not install both projects into one environment. Samudra currently has a
+locked CPU lane; adding a GPU soak or floating Samudra canary is an explicit
+compute/dependency decision, not automatic discovery under the CPU lane.
+
+Start with a small executable model or an independent oracle. The sampler
+simulation in `tests/property/test_sampler_simulation.py` demonstrates generating
+all ranks locally, checking coverage/compatibility, and replaying epoch changes
+without a process group, model training, network, or GPU. Keep each example small
+and deterministic for a given generated input; let Hypothesis generate sizes,
+seeds, event sequences, and boundary conditions. Use `contract_probe` for an
+unagreed contract so triage distinguishes it from a product bug. Use `cuda` and
+`manual` for tests requiring those resources; the CPU soak excludes both.
+
+Run a bounded check locally:
+
+```bash
+uv run --locked python scripts/run_property_suite.py \
+  --suite samudra --tests tests/property --dependency-file uv.lock \
+  --output /tmp/samudra-properties --examples 40 --seed 95920261105 \
+  -- -m "not manual and not cuda"
+```
+
+Choose a new output directory for each run. Increase `--examples` for a soak.
+The runner uses its current interpreter; activate/install the owning project's
+environment first. Artifacts have the same layout for both projects:
+`replay.json` (suite, profile, seed, requested budget, command, revision, backend,
+and dependency hash), `dependency-input.txt`, `environment.txt`, `pytest.log`,
+`junit.xml`, and `result.json`. An empty, deselected, or entirely skipped suite
+cannot count as a successful soak. Replay requires the recorded revision and
+dependencies as well as the seed. Existing tests retain their normal defaults
+outside the explicit property/soak runs; per-test settings can impose their own
+bounds, which are visible in Hypothesis statistics.
+
+Nightly results for both projects enter one read-only triage summary, namespaced
+by suite. A failed data job does not prevent the independent Samudra job from
+running. Mutation catalogs remain owned by their subsystem; the archive's named
+historical-fault mutations are not a generic requirement for every new fuzz test.
+
 ## Contributing code with pull requests
 
 <details>

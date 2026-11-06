@@ -47,6 +47,30 @@ def test_different_counterexamples_for_one_property_create_one_issue(messages):
         )
 
 
+@given(st.text(alphabet="abc012", min_size=1, max_size=12))
+def test_suite_namespaces_prevent_collisions_and_preserve_data_fingerprints(name):
+    with TemporaryDirectory() as directory:
+        path = Path(directory) / "junit.xml"
+        suite = ET.Element("testsuite")
+        case = ET.SubElement(
+            suite, "testcase", classname="tests.property.module", name=name
+        )
+        ET.SubElement(case, "failure").text = "same name, independent projects"
+        ET.ElementTree(suite).write(path)
+        legacy = reports(path, "https://example.com/run")
+        prop = ET.SubElement(
+            ET.SubElement(case, "properties"),
+            "property",
+            name="verification_suite",
+            value="data",
+        )
+        ET.ElementTree(suite).write(path)
+        assert reports(path, "https://example.com/run").keys() == legacy.keys()
+        prop.set("value", "samudra")
+        ET.ElementTree(suite).write(path)
+        assert reports(path, "https://example.com/run").keys().isdisjoint(legacy.keys())
+
+
 @given(
     st.lists(
         st.sampled_from(["error", "skipped", "pass", "contract_probe"]), max_size=10

@@ -17,6 +17,36 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  samudra:
+    name: Samudra CPU properties (locked)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      VERIFICATION_LANE: pinned
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: astral-sh/setup-uv@d0d8abe699bfb85fec6de9f7adb5ae17292296ff
+        with:
+          enable-cache: true
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+      - name: Install main project independently of data
+        timeout-minutes: 10
+        run: uv sync --locked --dev
+      - name: Explore CPU properties with common replay artifacts
+        run: |
+          uv run --locked python scripts/run_property_suite.py \
+            --suite samudra --tests tests/property --dependency-file uv.lock \
+            --output /tmp/property-soak --examples 1000 --timeout 1800 \
+            -- -m "not manual and not cuda"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: property-soak-samudra-pinned
+          path: /tmp/property-soak/
+          retention-days: 30
+
   mutation-gate:
     uses: ./.github/workflows/property-mutations.yaml
 
@@ -89,37 +119,31 @@ jobs:
             python -m pip install -r data/tests/verification.in
           fi
           python -m pip install --no-deps --no-build-isolation -e ./data
-      - name: Record replay inputs
-        run: |
-          mkdir -p /tmp/property-soak
-          python -m pip freeze > /tmp/property-soak/environment.txt
-          git rev-parse HEAD > /tmp/property-soak/revision.txt
-          python -c 'import secrets; print(secrets.randbits(64))' > /tmp/property-soak/seed.txt
-          python --version > /tmp/property-soak/python.txt
-          uname -a > /tmp/property-soak/platform.txt
-          python -c 'import json, os; print(json.dumps({k: os.environ[k] for k in ("SAMUDRA_HYPOTHESIS_PROFILE", "SAMUDRA_HYPOTHESIS_EXAMPLES", "SAMUDRA_STRING_STORAGE", "VERIFICATION_LANE")}))' > /tmp/property-soak/profile.json
       - name: Explore and shrink
         id: explore
         working-directory: data
         env:
           PYTHONUNBUFFERED: "1"
         run: |
-          set -o pipefail
-          python -m pytest tests/property -v --tb=short --disable-warnings \
-            --hypothesis-seed="$(cat /tmp/property-soak/seed.txt)" \
-            --hypothesis-show-statistics --junitxml=/tmp/property-soak/junit.xml \
-            2>&1 | tee /tmp/property-soak/pytest.log
+          if test "$VERIFICATION_LANE" = pinned; then
+            dependency_file=tests/verification-py312.txt
+          else
+            dependency_file=tests/verification.in
+          fi
+          python ../scripts/run_property_suite.py --suite data --tests tests/property \
+            --dependency-file "$dependency_file" --output /tmp/property-soak \
+            --examples 1000 --timeout 1800
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
-          name: property-soak-${{ matrix.lane }}-${{ matrix.storage }}
+          name: property-soak-data-${{ matrix.lane }}-${{ matrix.storage }}
           path: /tmp/property-soak/
           retention-days: 30
 
   report:
-    needs: explore
+    needs: [explore, samudra]
     if: >-
-      always() && needs.explore.result != 'skipped' && needs.explore.result != 'cancelled'
+      always() && !cancelled()
     runs-on: ubuntu-latest
     permissions:
       contents: read

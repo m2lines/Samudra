@@ -1,0 +1,50 @@
+{
+  "purpose": "engineering qualification",
+  "world_size": 1,
+  "global_examples": 8,
+  "gpu": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+  "torch": "2.12.0a0+0291f960b6.nv26.04.48445190",
+  "cuda": "13.2",
+  "slurm_job_id": "21816758",
+  "parameters": 169773168,
+  "exact_prefetch_and_resume": true,
+  "isolated_uncooled_fork": true,
+  "rank_model_sha256": [
+    "c2cbc1eeffa05871dd8513a168a38e05a47b43424c74bfdef51c22401bf51ace"
+  ],
+  "memory": [
+    {
+      "rank": 0,
+      "uuid": "GPU-0980accd-72c4-be05-8b49-342eb729ab12",
+      "peak_gpu_allocated_bytes": 11899260416,
+      "peak_gpu_reserved_bytes": 35899047936,
+      "peak_host_rss_bytes": 23884619776
+    }
+  ],
+  "exposure": {
+    "obs": {
+      "updates": 66,
+      "fresh": 268,
+      "replay": 260
+    },
+    "om4": {
+      "updates": 64,
+      "fresh": 260,
+      "replay": 252
+    }
+  },
+  "started_at": 1793770454.7346616,
+  "finished_at": 1793772110.4549508,
+  "wandb_url": "https://wandb.ai/ocean_emulators/observational-transfer/runs/5wjcbptk",
+  "utilization_release_gate": "Assess per-GPU steady telemetry; this receipt does not assert >50%",
+  "scheduler_state": "COMPLETED",
+  "exit_code": "0:0",
+  "elapsed_seconds": 1687,
+  "allocated_gpu_hours": 0.4686111111111111,
+  "code_commit": "7bef723cb1f60d4e202aeece6fd4c1b11eb2e539",
+  "full_receipt_sha256": "3e0e3a06d21db8cbfbc361617dfd87acbd951a5004b04a95e8f8ccf322aed2ef",
+  "main_updates": 128,
+  "cooldown_updates": 2,
+  "comparison_scope": "All three GPU controls resume from the same four-update anchor; actual scheduler interruption versus uninterrupted training remains pending.",
+  "final_model_matches_v3": true
+}

@@ -1,0 +1,46 @@
+{
+  "purpose": "Bounded loading and GPU qualification; no scientific training",
+  "runtime_code_commit": "7bef723cb1f60d4e202aeece6fd4c1b11eb2e539",
+  "overlay_sha256": "62f3636f829f8379d1259272b85863fd3b126ef85415e5b28563c41afc1909c5",
+  "cpu_profile": {
+    "job_id": "21816667",
+    "callback_job": "21816674",
+    "cpus": 8,
+    "host_memory_gib": 32,
+    "time_limit_minutes": 45,
+    "partition": "cpu_short"
+  },
+  "gpu_jobs": [
+    {
+      "job_id": "21816758",
+      "callback_job": "21816826",
+      "gpus": 1,
+      "cpus": 8,
+      "host_memory_gib": 96,
+      "dependency": "afterok:21816667"
+    },
+    {
+      "job_id": "21816773",
+      "callback_job": "21816827",
+      "gpus": 8,
+      "cpus": 64,
+      "host_memory_gib": 192,
+      "dependency": "afterok:21816758"
+    }
+  ],
+  "gpu_time_limit_minutes": 90,
+  "global_examples_per_optimizer_update": 8,
+  "main_updates": 128,
+  "cooldown_updates": 2,
+  "account": "torch_pr_347_lzanna",
+  "gpu_constraint": "rtx6000",
+  "routed_partition": "rtx6000",
+  "requeue": true,
+  "comment": "preemption=yes;preemption_partitions_only=yes;requeue=true",
+  "output_root": "/scratch/jr7309/deterministic-obs-v2/scaling-v4",
+  "files_sha256": {
+    "experiments/deterministic_obs_v2/profile_loading.py": "c7d8d37c5a0cdfd6bcd40afa117e2980b87d74e397890cbd8451c51bce126ed7",
+    "experiments/deterministic_obs_v2/configs/scaling-v4/D-mixed-large-1gpu.yaml": "15af9ba6c287979e596513b27beef1b5108746efc6e0b921b721e0b2c6974cf2",
+    "experiments/deterministic_obs_v2/configs/scaling-v4/D-mixed-large-8gpu.yaml": "830cf2023a7d67b8d3c0a856b9b54614341150e040d19785c380ae719c5f015d"
+  }
+}

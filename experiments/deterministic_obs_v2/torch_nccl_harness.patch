@@ -1,0 +1,14 @@
+--- train-scaling.sbatch
++++ train-scaling-nccl.sbatch
+@@ -470,6 +470,11 @@
+           --master_addr=\${MASTER_ADDR}
+           --master_port=\${MASTER_PORT}
+         )
++      fi
++      if (( ${GPUS_PER_NODE} > 1 )); then
++        echo \"Starting bounded NCCL transport preflight (120 seconds).\"
++        timeout --signal=TERM --kill-after=10s 120s /workspace/.venv/bin/python -m torch.distributed.run \
++          \"\${torchrun_args[@]}\" \"/scratch/jr7309/deterministic-obs-v2/frozen-data/torch_nccl_preflight-32144887fdcd.py\"
+       fi
+       profiler_cmd=()
+       if [[ -n \"\${OE_NSYS_ARGS:-}\" ]]; then

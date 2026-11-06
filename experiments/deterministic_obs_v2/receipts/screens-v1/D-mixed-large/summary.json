@@ -1,0 +1,34 @@
+{
+  "arm": "D-mixed-large",
+  "complete": true,
+  "main_updates": 4000,
+  "cooldown_updates": 1000,
+  "global_examples": 8,
+  "seed": 1729,
+  "best_update": 4500,
+  "best_score": 0.062481981885992036,
+  "final_score": 0.06269769414735635,
+  "selection_metric": "rollout_val/365d/normalized_rmse/channel_mean",
+  "validation_origin": "2013-11-01",
+  "validation_records": 20,
+  "scored_channels": 29,
+  "forecast_steps": 73,
+  "complete_months": 12,
+  "runtime_commit": "7bef723",
+  "evidence": "evidence.tar.gz",
+  "jobs": [
+    "21956934_0",
+    "21978353_0"
+  ],
+  "world_sizes": [
+    4,
+    4
+  ],
+  "scientific_gpu_hours": 19.121111111111112,
+  "parameters": 169773168,
+  "source_mix": "alternating om4 and obs",
+  "original_cancelled_by_root": true,
+  "recovery_preemptions": 0,
+  "resume_update": 4075,
+  "duplicate_training_updates": 3
+}

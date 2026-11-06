@@ -1,0 +1,33 @@
+{
+  "submitted_date": "2026-11-05",
+  "array_job": 21956934,
+  "array_tasks": {
+    "0": "D-mixed-large",
+    "1": "A-obs-small",
+    "2": "B-mixed-small",
+    "3": "C-obs-large",
+    "4": "E-mixed-large-no-replay"
+  },
+  "concurrency": 1,
+  "gpus_per_task": 4,
+  "accumulation_per_rank": 2,
+  "global_batch": 8,
+  "main_updates": 4000,
+  "cooldown_updates": 1000,
+  "validation_freq": 250,
+  "save_freq": 25,
+  "runtime_commit": "7bef723",
+  "launch_config_commit": "0afd9ec",
+  "cpus": 32,
+  "memory_gib": 128,
+  "time_limit_hours": 12,
+  "partitions": [
+    "rtx6000_lzanna",
+    "rtx6000"
+  ],
+  "comment": "preemption=yes;requeue=true",
+  "initial_state": "PENDING Resources",
+  "callback_job": 21956938,
+  "runtime_source": "qualified frozen runtime; no model or training-loop changes",
+  "winner_scope": "Select lowest documented annual validation score across all five screens; continue uncooled winner to 16k main plus independent cooldowns at 8k,12k,16k."
+}

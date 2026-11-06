@@ -1,0 +1,38 @@
+{
+  "job_id": "21956934_0",
+  "physical_job_id": 21957181,
+  "node": "gr104",
+  "state": "CANCELLED by 0",
+  "exit_code": "0:0",
+  "elapsed": "03:48:01",
+  "allocated_gpu_hours": 15.20111111111111,
+  "last_update": 4078,
+  "last_completed_checkpoint_update": 4075,
+  "uncooled_main_checkpoint_update": 4000,
+  "complete": false,
+  "reason_in_log": "SIGTERM; no administrator cancellation explanation available",
+  "suspected_cause": "Low utilization; not confirmed",
+  "steady_utilization_per_gpu_means_percent": [
+    49.609,
+    50.706,
+    51.196,
+    51.311
+  ],
+  "steady_window_start": "2026-11-05T06:50:00-05:00",
+  "last_hour_dip_percent": [
+    47.007,
+    48.08,
+    48.637,
+    49.3
+  ],
+  "dip_observed_om4_mean_foreground_wait_seconds": 0.8154,
+  "previous_om4_mean_foreground_wait_seconds": 0.0004,
+  "final_30min_means_percent": [
+    52.309,
+    51.243,
+    53.557,
+    55.437
+  ],
+  "main4000_selection_score": 0.06376197619073432,
+  "recovery": "One unchanged four-GPU cooldown-only resume authorized by parent; no scientific configuration changes"
+}

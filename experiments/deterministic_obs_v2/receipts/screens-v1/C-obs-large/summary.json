@@ -1,0 +1,29 @@
+{
+  "arm": "C-obs-large",
+  "complete": true,
+  "main_updates": 4000,
+  "cooldown_updates": 1000,
+  "global_examples": 8,
+  "seed": 1729,
+  "best_update": 4000,
+  "best_score": 0.0628728963894177,
+  "final_score": 0.06306338537282724,
+  "selection_metric": "rollout_val/365d/normalized_rmse/channel_mean",
+  "validation_origin": "2013-11-01",
+  "validation_records": 20,
+  "scored_channels": 29,
+  "forecast_steps": 73,
+  "complete_months": 12,
+  "runtime_commit": "7bef723",
+  "evidence": "evidence.tar.gz",
+  "jobs": [
+    "21956934_3"
+  ],
+  "world_sizes": [
+    4
+  ],
+  "scientific_gpu_hours": 20.324444444444445,
+  "parameters": 169773168,
+  "source_mix": "obs-only",
+  "original_cancelled_by_root": false
+}

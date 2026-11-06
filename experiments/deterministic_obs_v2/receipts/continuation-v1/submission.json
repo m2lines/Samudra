@@ -1,0 +1,30 @@
+{
+  "status": "PENDING at submission",
+  "job": 22026510,
+  "callback_job": 22026547,
+  "submitted_at": "2026-11-05T21:37:28-05:00",
+  "winner": "D-mixed-large",
+  "runtime_commit": "7bef723",
+  "world_size": 4,
+  "global_examples": 8,
+  "main_updates": 16000,
+  "cooldown_updates": 1000,
+  "fork_update": 4000,
+  "fork_cooled": false,
+  "fork_checkpoint": "/scratch/jr7309/deterministic-obs-v2/screens-v1/D-mixed-large/saved_nets/main.pt",
+  "partitions": [
+    "rtx6000",
+    "rtx6000_lzanna"
+  ],
+  "requeue": true,
+  "walltime": "24:00:00",
+  "pending_independent_cooldowns": [
+    8000,
+    12000
+  ],
+  "test_only_passed": true,
+  "authenticated_callback_check_passed": true,
+  "callback_dependency_verified": "afterany:22026510",
+  "output_root": "/scratch/jr7309/deterministic-obs-v2/screens-v1",
+  "output_name": "D-mixed-large-main16k"
+}

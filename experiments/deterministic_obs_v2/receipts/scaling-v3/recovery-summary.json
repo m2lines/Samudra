@@ -1,0 +1,39 @@
+{
+  "purpose": "CPU audit recovered after single-GPU receipt finalization failure",
+  "original_job_id": "21805440",
+  "original_job_state": "FAILED 1:0 after training and validation",
+  "world_size": 1,
+  "global_examples": 8,
+  "gpu": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+  "exact_prefetch_and_resume": true,
+  "uncooled_main_checkpoint": true,
+  "cooldown_ema_updates": 2,
+  "final_model_sha256": "c2cbc1eeffa05871dd8513a168a38e05a47b43424c74bfdef51c22401bf51ace",
+  "exposure": {
+    "obs": {
+      "updates": 66,
+      "fresh": 268,
+      "replay": 260
+    },
+    "om4": {
+      "updates": 64,
+      "fresh": 260,
+      "replay": 252
+    }
+  },
+  "checkpoint_sha256": {
+    "steady/main.pt": "bf6902b7e09c2c973e048a182eb4ae2c7f4954129afee0ac89b8140e01b7cf80",
+    "cooldown/endpoint.pt": "7f40a5e82b2bb7151986624d28d88c709bafd7f90d54de88c96b03836cdb655d"
+  },
+  "source_manifest_sha256": "9336332d0c5cbbdf716aee961d12a567c11bdb894478ab2adbb54112022df6f7",
+  "recovery_limits": [
+    "Original job failed; this audit does not change its scheduler status",
+    "Pre-cooldown main-file hash and framework peak allocator statistics were not persisted",
+    "Utilization is assessed separately from the recorded GPU telemetry"
+  ],
+  "audit_job_id": "21814480",
+  "audit_job_state": "COMPLETED 0:0",
+  "audit_code_commit": "efc58064ec70bdcc4d4264422c2e7172c90700a6",
+  "full_recovered_receipt_sha256": "15a03ec021f8d119b664d581baceb71e8f126524f51cc4a4526187a629fbd435",
+  "comparison_scope": "All three GPU controls resumed from the same four-update anchor; uninterrupted-versus-resumed GPU equality is not established."
+}

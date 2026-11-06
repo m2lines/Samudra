@@ -1,0 +1,7 @@
+{
+  "observations": "/scratch/jr7309/data/obs-d-pilot",
+  "daily": "/scratch/jr7309/deterministic-obs-v2/daily",
+  "normalization": "/scratch/jr7309/deterministic-obs-v2/normalization",
+  "om4": "/scratch/jr7309/data/om4_onedeg_v3",
+  "era5_cache": "/scratch/jr7309/deterministic-obs-v2/era5-cache"
+}

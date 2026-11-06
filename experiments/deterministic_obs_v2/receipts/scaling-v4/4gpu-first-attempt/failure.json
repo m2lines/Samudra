@@ -1,0 +1,44 @@
+{
+  "job_id": 21909447,
+  "node": "gr103",
+  "partition": "rtx6000_lzanna",
+  "state": "FAILED",
+  "exit_code": "1:0",
+  "elapsed_seconds": 692,
+  "start_time_eastern": "2026-11-05T00:11:38-05:00",
+  "end_time_eastern": "2026-11-05T00:23:10-05:00",
+  "gpus": 4,
+  "allocated_gpu_hours": 0.7688888888888888,
+  "runtime_commit": "7bef723cb1f60d4e202aeece6fd4c1b11eb2e539",
+  "failure": "First NCCL barrier timed out after 600 seconds on all four ranks",
+  "stack_location": "samudra/utils/distributed.py:136 in init_distributed_mode",
+  "optimizer_updates": 0,
+  "qualification_receipt_created": false,
+  "training_utilization_telemetry_created": false,
+  "successor_job": 21909510,
+  "successor_status": "CANCELLED before allocation: DependencyNeverSatisfied",
+  "environment_evidence": {
+    "submitted_scripts_set_NCCL_P2P_DISABLE": false,
+    "submitted_scripts_set_TORCH_NCCL_ASYNC_ERROR_HANDLING": false,
+    "current_login_values": "Both unset",
+    "original_job_environment": "Slurm sacct --env-vars returned NONE; actual values unrecorded",
+    "causal_status": "Omitted documented workaround is a repair hypothesis; retry must verify transport"
+  },
+  "retry": {
+    "transport": {
+      "NCCL_P2P_DISABLE": "1",
+      "TORCH_NCCL_ASYNC_ERROR_HANDLING": "1",
+      "NCCL_DEBUG": "INFO"
+    },
+    "container_overrides": "The same values are exported through APPTAINERENV_",
+    "preflight": "/scratch/jr7309/deterministic-obs-v2/frozen-data/torch_nccl_preflight-32144887fdcd.py",
+    "preflight_sha256": "32144887fdcd28543937044a71bb7a78fd0c205cfecf595a014831131ccb0dd2",
+    "harness": "/scratch/jr7309/deterministic-obs-v2/frozen-data/train-scaling-nccl-25af85a34ff8.sbatch",
+    "harness_sha256": "25af85a34ff82b8cfef5b7b48a1a4fcccd4a119dff6638f5b771e3bb9092f3cb",
+    "original_harness_sha256": "ada5627622d567bf73b0a37691e9c36d1872b774d1a48a4645085e0b76ab15e9",
+    "preflight_timeout_seconds": 120,
+    "preflight_kill_after_seconds": 10,
+    "runtime_and_training_config": "unchanged"
+  },
+  "raw_log_sha256": "c041ac2827b4193f7dbcb90cf7515aa94d341f2861e31c70b3becce548ace183"
+}

@@ -1,0 +1,28 @@
+{
+  "purpose": "Bounded production training and real Slurm restart equality qualification",
+  "job_id": "21822548",
+  "callback_job_id": "21822762",
+  "prerequisite": "afterok:21816773",
+  "kill_on_invalid_dependency": true,
+  "runtime_code_commit": "7bef723cb1f60d4e202aeece6fd4c1b11eb2e539",
+  "orchestration_commit": "5bfcce5e4b4d71eb19e694e5109bb8bbdc2ed676",
+  "shared_launcher_sha256": "ada5627622d567bf73b0a37691e9c36d1872b774d1a48a4645085e0b76ab15e9",
+  "gpus": 8,
+  "gpu_constraint": "rtx6000",
+  "cpus": 64,
+  "host_memory_gib": 192,
+  "time_limit_minutes": 60,
+  "account": "torch_pr_347_lzanna",
+  "partition": "rtx6000",
+  "comment": "preemption=yes;preemption_partitions_only=yes;requeue=true",
+  "requeue": true,
+  "global_examples": 8,
+  "main_updates_per_arm": 16,
+  "cooldown_updates_per_arm": 2,
+  "output_root": "/scratch/jr7309/deterministic-obs-v2/scheduler-v1",
+  "files_sha256": {
+    "experiments/deterministic_obs_v2/scheduler_resume.py": "3c1070a233eaf1ec2e87ef5a1337d096c0d6b045ccd4e05694a675e56ce71a21",
+    "experiments/deterministic_obs_v2/scheduler_resume.sbatch": "408bccdaba855a6003b50ec5109c177687dee74e032179719c34d56b99bfa211",
+    "experiments/deterministic_obs_v2/configs/scheduler-v1.yaml": "21ecc7ad9567cea1e9ccb35b2bc1f22dde96bea8360d246f30b7e602e75cfca9"
+  }
+}

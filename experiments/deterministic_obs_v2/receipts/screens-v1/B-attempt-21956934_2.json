@@ -1,0 +1,28 @@
+{
+  "job_id": "21956934_2",
+  "physical_job_id": 21983508,
+  "node": "gr104",
+  "state": "CANCELLED by 0",
+  "elapsed": "02:29:03",
+  "allocated_gpu_hours": 9.936666666666667,
+  "last_update": 3076,
+  "last_completed_checkpoint_update": 3075,
+  "complete": false,
+  "reason_in_log": "SIGTERM; no administrator cancellation explanation available",
+  "suspected_cause": "Low utilization; not confirmed",
+  "steady_utilization_per_gpu_means_percent": {
+    "GPU-0980accd-72c4-be05-8b49-342eb729ab12": 45.31138461538462,
+    "GPU-5edeb293-a3d6-1c4b-abf1-e24ea102aa7c": 45.56984615384616,
+    "GPU-3d864136-cfe4-8d46-93fe-7e29b061c9e3": 47.363076923076925,
+    "GPU-33865820-cf42-fda6-9eff-f0a1de78d606": 48.063384615384614
+  },
+  "steady_window_start": "2026-11-05T13:15:00-05:00",
+  "recovery_job": 21998896,
+  "recovery_world_size": 2,
+  "global_examples": 8,
+  "remaining_updates": 1925,
+  "original_outputs_preserved": true,
+  "cross_layout_bitwise_trajectory_claim": false,
+  "recovery_root": "/scratch/jr7309/deterministic-obs-v2",
+  "recovery_relative_output": "screens-v1-2gpu/B-mixed-small"
+}

@@ -1,0 +1,104 @@
+{
+  "purpose": "Engineering qualification of production-training recovery after one intentional Slurm requeue",
+  "job_id": "21926632",
+  "scheduler_state": "COMPLETED",
+  "exit_code": "0:0",
+  "scheduler_restart_count": 1,
+  "world_size": 4,
+  "accumulation_per_rank": 2,
+  "global_batch": 8,
+  "attempts": [
+    {
+      "JobID": "21926632",
+      "State": "REQUEUED",
+      "Elapsed": "00:09:47",
+      "Start": "2026-11-05T01:11:20",
+      "End": "2026-11-05T01:21:07",
+      "ExitCode": "0:0",
+      "NodeList": "gr103",
+      "AllocTRES": "billing=32,cpu=32,gres/gpu=4,mem=128G,node=1"
+    },
+    {
+      "JobID": "21926632",
+      "State": "COMPLETED",
+      "Elapsed": "00:08:11",
+      "Start": "2026-11-05T01:25:33",
+      "End": "2026-11-05T01:33:44",
+      "ExitCode": "0:0",
+      "NodeList": "gr104",
+      "AllocTRES": "billing=32,cpu=32,gres/gpu=4,mem=128G,node=1"
+    }
+  ],
+  "total_allocated_seconds": 1078,
+  "allocated_gpu_hours": 1.1977777777777778,
+  "runtime_commit": "7bef723cb1f60d4e202aeece6fd4c1b11eb2e539",
+  "code_layer_sha256": "62f3636f829f8379d1259272b85863fd3b126ef85415e5b28563c41afc1909c5",
+  "orchestration_commit": "5bfcce5e4b4d71eb19e694e5109bb8bbdc2ed676",
+  "audit_script_sha256": "3c1070a233eaf1ec2e87ef5a1337d096c0d6b045ccd4e05694a675e56ce71a21",
+  "exact_full_checkpoint_payload": true,
+  "checkpoint_comparison": "Exact equality of every loaded payload field; serialized file byte hashes differ. The frozen CPU audit also verifies four rank RNG states, two cooldown EMA updates, no pending plan, and finite model values.",
+  "wandb_identity_preserved": true,
+  "arms": {
+    "control": {
+      "updates": 18,
+      "main_updates": 16,
+      "cooldown_updates": 2,
+      "world_size": 4,
+      "global_examples": 8,
+      "all_logged_numeric_values_finite": true,
+      "validation_updates": [
+        16,
+        18
+      ],
+      "validation_channels": 29,
+      "forecast_steps": 73,
+      "complete_months": 12,
+      "wandb_id": "ah0oclv7",
+      "wandb_url": "https://wandb.ai/ocean_emulators/observational-transfer/runs/ah0oclv7"
+    },
+    "resumed": {
+      "updates": 18,
+      "main_updates": 16,
+      "cooldown_updates": 2,
+      "world_size": 4,
+      "global_examples": 8,
+      "all_logged_numeric_values_finite": true,
+      "validation_updates": [
+        16,
+        18
+      ],
+      "validation_channels": 29,
+      "forecast_steps": 73,
+      "complete_months": 12,
+      "wandb_id": "7ktk2zi4",
+      "wandb_url": "https://wandb.ai/ocean_emulators/observational-transfer/runs/7ktk2zi4"
+    }
+  },
+  "preflight": {
+    "training_launches": 3,
+    "passing_rank_receipts": 12,
+    "all_ranks_per_launch": 4,
+    "exact_integer_reductions_per_rank": 10,
+    "timeout_seconds": 120,
+    "NCCL_P2P_DISABLE": "1",
+    "TORCH_NCCL_ASYNC_ERROR_HANDLING": "1"
+  },
+  "scope": "One intentional interruption after checkpoint 6, then recovery on another RTX PRO 6000 Blackwell node with the same four-rank layout. Cross-GPU-type, world-size changes, arbitrary interruption points, long-run utilization, and forecast skill are not established.",
+  "remote_output_root": "/scratch/jr7309/deterministic-obs-v2/scheduler-v1-4gpu",
+  "remote_log": "/scratch/jr7309/deterministic-obs-v2/scheduler-v1-4gpu-21926632.out",
+  "source_file_sha256": {
+    "SCHEDULER_QUALIFIED.json": "578526911c0d5eaa58e34cafa28f1eb49347b42600d3be789f178050f749bd4f",
+    "control/manifest.json": "ddfb313195b0b92100f0697991c54c5cd296366518c571ff49aea8d694baf5cb",
+    "control/metrics.jsonl": "009f93914ae886c238b04e69d204cc81dda0562e99eebb9ebb983116bdadc488",
+    "control/saved_nets/COMPLETE.json": "5f088d2af315987e90b3628508ac5f900bc5f2c69aab65232d551133a65e4803",
+    "control/wandb-id.txt": "9e173bd1677b0a686c77a2c3cd2e470c5d2539e9219fa97ee47ec4d3e8add9ff",
+    "requeue-request.json": "a124e120c46ab5af0e5f170eb096277a459269e46559b7eccc5591d3d5806b30",
+    "resumed/manifest.json": "ddfb313195b0b92100f0697991c54c5cd296366518c571ff49aea8d694baf5cb",
+    "resumed/metrics.jsonl": "9260aa1fc8f56c465c64c035a6b7547569c06355d437b9f51da3f5389c9b0de9",
+    "resumed/saved_nets/COMPLETE.json": "5f088d2af315987e90b3628508ac5f900bc5f2c69aab65232d551133a65e4803",
+    "resumed/wandb-id.txt": "0b3a597ecf1b15690a01ac2ebb8a5b5021a97c182fa54cb587a72e375d993418",
+    "sacct.txt": "12403df0eb0050b7840cf9422cf100e50aed2781cd7aaaa1d7cec835c112db49",
+    "slurm.log": "35edd9446b35fcd36e1e00f0badd33af0aabf4aa30329cc08be1f1d3913715c6"
+  },
+  "source_hash_note": "Hashes refer to decompressed bytes for .gz artifacts. Large checkpoints remain on Torch; their hashes are in SCHEDULER_QUALIFIED.json."
+}

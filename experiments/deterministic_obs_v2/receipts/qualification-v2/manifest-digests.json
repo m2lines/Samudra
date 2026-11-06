@@ -1,0 +1,22 @@
+{
+  "A-obs-small": {
+    "sha256": "b9e4c09ea1b75bb9b3c0fbb506efc3fb06b11224b58cf6fe520aed5ca40c46f9",
+    "torch_path": "/scratch/jr7309/deterministic-obs-v2/qualification-v2/A-obs-small/manifest.json"
+  },
+  "B-mixed-small": {
+    "sha256": "40f419a18949fe694a7771fac1960ac6dbc5b51574403aa67f75a57c89a7210b",
+    "torch_path": "/scratch/jr7309/deterministic-obs-v2/qualification-v2/B-mixed-small/manifest.json"
+  },
+  "C-obs-large": {
+    "sha256": "334975fdb875bc284110e03d230c9cf701d33d51f444600c2925cb95bedfde97",
+    "torch_path": "/scratch/jr7309/deterministic-obs-v2/qualification-v2/C-obs-large/manifest.json"
+  },
+  "D-mixed-large": {
+    "sha256": "87a68ba311f6c34ccb325eeb22477a04c4c9725f231fbb1a15634fc84bcaeda8",
+    "torch_path": "/scratch/jr7309/deterministic-obs-v2/qualification-v2/D-mixed-large/manifest.json"
+  },
+  "E-mixed-large-no-replay": {
+    "sha256": "af65a6a4f69f1964128060c3f1723dd08af0587a02bf486b3345cceb64a00f69",
+    "torch_path": "/scratch/jr7309/deterministic-obs-v2/qualification-v2/E-mixed-large-no-replay/manifest.json"
+  }
+}

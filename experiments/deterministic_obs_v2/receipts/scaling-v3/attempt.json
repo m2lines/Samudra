@@ -1,0 +1,21 @@
+{
+  "purpose": "Engineering qualification attempt; training completed, receipt finalization failed",
+  "job_id": "21805440",
+  "state": "FAILED",
+  "exit_code": "1:0",
+  "elapsed_seconds": 3960,
+  "allocated_gpu_hours": 1.1,
+  "code_commit": "710e49603ced7c669c5e504d0b8f6ac626090438",
+  "main_updates": 128,
+  "cooldown_updates": 2,
+  "exact_prefetch_and_resume_event": true,
+  "annual_validation_scored_channels": 29,
+  "annual_validation_forecast_steps": 73,
+  "receipt_failure": "Scalar Float tensor cannot be viewed as Byte before flattening",
+  "recovery_code": "efc58064ec70bdcc4d4264422c2e7172c90700a6",
+  "recovery_job": "21814480",
+  "slurm_step_maxrss_kib": 95559324,
+  "eight_gpu_job": "21805446",
+  "eight_gpu_state": "Cancelled before allocation after dependency failed",
+  "wandb_url": "https://wandb.ai/ocean_emulators/observational-transfer/runs/l13ymqwe"
+}

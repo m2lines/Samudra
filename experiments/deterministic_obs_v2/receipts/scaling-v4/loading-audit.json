@@ -1,0 +1,13 @@
+{
+  "job_id": "21816667",
+  "state": "COMPLETED",
+  "exit_code": "0:0",
+  "elapsed_seconds": 330,
+  "node": "cs625",
+  "runtime_code_commit": "7bef723cb1f60d4e202aeece6fd4c1b11eb2e539",
+  "profile_sha256": "fa252084ac510c21bb6e60204ef1b68351bdb089808cce3277eefc31e9c40e2d",
+  "all_model_inputs_and_targets_exact": true,
+  "scope": "Identical eight-window OM4 plan: four fresh and four month-offset-one windows, auxiliary initialization and observation coverage; no cached model states or GPU transfers",
+  "performance_conclusion": "End-to-end speedup is not established; Rust, ERA5 and coverage timings changed substantially across controls",
+  "reference_retention": "The exact comparison retains the first complete CPU batch while loading later passes; the timing experiment does not match their live memory footprints."
+}

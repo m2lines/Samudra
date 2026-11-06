@@ -1,0 +1,8 @@
+{
+  "job_id": "21926632",
+  "restart_count_before": 0,
+  "completed_checkpoint_update": 6,
+  "requested_at": 1793859667.6439214,
+  "wandb_id": "7ktk2zi4",
+  "signal": "USR1 to Slurm batch shell, then scontrol requeue"
+}

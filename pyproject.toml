@@ -89,6 +89,7 @@ dev = [
   "pytest-benchmark[histogram]>=5.1",
   "pytest-profiling>=1.8.1",
   "s3fs>=2025.3",
+  "samudra-test-utils",
   "scalene>=1.5.51",
   "snakeviz>=2.2.2",
   "tenacity>=9",
@@ -112,11 +113,13 @@ package-dir = { "" = "src" }
 # schemas under configs/schemas are gitignored generated output and this glob
 # doesn't match them.
 package-data = { samudra = [ "py.typed", "configs/**/*.yaml" ] }
+exclude-package-data = { samudra = [ "test_utils/*", "test_utils/**/*" ] }
 
 # Pin discovery to src/ so setuptools auto-discovery can't sweep stray
 # top-level dirs (e.g. a stale build/lib/) into the wheel.
 [tool.setuptools.packages.find]
 where = [ "src" ]
+exclude = [ "samudra.test_utils*" ] # Independently installed development dependency.
 
 # The version comes from git tags (v1.2.3 -> 1.2.3); commits past a tag get a
 # `.devN` suffix. no-local-version drops the `+g<sha>` segment PyPI rejects.
@@ -160,6 +163,7 @@ ini_options.markers = [
   "cuda: marks tests that need a CUDA-enabled device to run (deselect with '-m \"not cuda\"').",
   "only_configs: used to mark tests that only run on specific configs (not used on command line)",
   "all_configs: used to mark tests that run on all configs (not used on command line)",
+  "contract_probe: proposed contract; retained in pytest events but excluded from product issue candidates",
 ]
 ini_options.pythonpath = [ "src", "tests" ]
 ini_options.testpaths = [ "tests" ]
@@ -191,8 +195,14 @@ torch = [
 torchvision = [
   { index = "pytorch-cu130", marker = "sys_platform == 'linux' and platform_machine == 'aarch64'" },
 ]
+samudra-test-utils = { workspace = true, editable = true }
 
 [[tool.uv.index]]
 name = "pytorch-cu130"
 url = "https://download.pytorch.org/whl/cu130"
 explicit = true
+
+[tool.uv.workspace]
+members = [
+  "src/samudra/test_utils",
+]

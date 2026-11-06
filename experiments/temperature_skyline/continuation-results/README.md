@@ -99,3 +99,16 @@ both models, and raw/EMA comparisons use the same fixed 512 validation cases. Th
 a horizontal reference; the x-axis counts continuation updates only. RMSE uses
 a logarithmic axis, and y-axis limits vary by depth. Lower is better.
 [Per-depth values](validation-per-depth.csv) and [plotting script](plot_validation.py).
+
+[Full-history regression RMSE](validation-regression-full.png) and
+[classifier bin NLL](validation-likelihood-full.png) include the original run.
+The first recorded validation is update 2,000; no update-0/1 value is inferred.
+The continuation starts from regression update 18,000 and classifier update
+20,000. Regression update 20,000 is marked separately because it was not resumed.
+For each model, a dashed vertical line marks the start of continuation, when
+its learning-rate schedule restarts. Both
+phases use cosine decay toward 10% of peak learning rate; the continuation also
+changes effective batch from 32 to 256. Cumulative optimizer updates therefore
+do not represent constant compute or data exposure.
+[Full-history values](validation-full-history.csv.gz) and
+[renderer](plot_full_validation.py) preserve the plotted records.

@@ -50,23 +50,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        id: install
         run: uv sync --locked --dev
 
       - name: Run pytest
-        run: uv run --locked pytest -n 2 -v -m "not manual and not cuda" --ignore-glob='tests/test_*_properties.py' --durations=20 --durations-min=1.0
-
-      - name: Bounded CPU property checks with replay artifacts
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: |
-          uv run --locked python -m samudra.test_utils.run \
-            --suite samudra --tests tests/test_*_properties.py --dependency-file uv.lock \
-            --output /tmp/property-pr --examples 40 --timeout 600 \
-            -- -m "not manual and not cuda"
-
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        if: always()
-        with:
-          name: property-pr-samudra
-          path: /tmp/property-pr/
-          retention-days: 30
+        run: uv run --locked pytest -n 2 -v -m "not manual and not cuda" --durations=20 --durations-min=1.0

@@ -6,8 +6,8 @@ name: ocean_preprocessing
 channels:
   - conda-forge
 dependencies:
-    - python=3.11
-    - xarray
+    - python=3.12
+    - xarray>=2025.6,<2026.4  # Retain compressor encoding for Zarr v2 writes.
     - cftime
     - xarrayutils
     - xgcm>=0.8.1,<0.10
@@ -15,8 +15,15 @@ dependencies:
     - setuptools
     - fire==0.7.1
     - cartopy
-    - zarr==2.18.2
-    - numcodecs<0.16  # Zarr 2 imports Blosc helpers removed in Numcodecs 0.16.
+    - zarr>=3.1.6,<4  # Runtime supports VirtualiZarr; writers explicitly emit Zarr v2.
+    - numcodecs>=0.15.1
+    - obstore>=0.12
+    - obspec_utils>=0.9
+    - virtualizarr==2.8.0
+    - kerchunk==0.2.10
+    - fastparquet
+    - hdf5plugin
+    - imagecodecs
     - gcsfs
     - s3fs
     - xesmf
@@ -27,5 +34,6 @@ dependencies:
     - matplotlib
     - coiled
     - distributed
+    - pip
     - pip:
       - -e .  # local sources

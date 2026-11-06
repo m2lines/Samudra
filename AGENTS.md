@@ -39,7 +39,7 @@ Continue running relevant local checks for experimental code and preserve run/da
 
 ## Data
 
-When the proper S3 style credentials are passed into the local environment, you will be able to open each dataset like so:
+The public OM4 datasets can be opened without credentials:
 
 <details>
 
@@ -48,7 +48,7 @@ When the proper S3 style credentials are passed into the local environment, you 
 ```
 >>> import xarray as xr
 >>> # One degree data with _no_ gaussian filtering (no blur).
->>> ds = xr.open_zarr('s3://emulators/am16581/data/2025-11/om4_onedeg_v3/OM4.zarr')
+>>> ds = xr.open_zarr('https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/v2026-09/om4_onedeg/OM4.zarr')
 >>> ds
 <xarray.Dataset> Size: 98GB
 Dimensions:    (time: 4745, y: 180, x: 360)
@@ -76,7 +76,7 @@ Attributes:
     m2lines/ocean_emulators_git_hash:  https://github.com/m2lines/ocean_emula...
     regrid_method:                     conservative
 >>> # Half degree data with no blur
->>> ds = xr.open_zarr('s3://emulators/am16581/data/2025-11/om4_halfdeg_v4/OM4.zarr')
+>>> ds = xr.open_zarr('https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/v2026-09/om4_halfdeg/OM4.zarr')
 >>> ds
 <xarray.Dataset> Size: 394GB
 Dimensions:    (time: 4745, y: 360, x: 720)
@@ -104,7 +104,7 @@ Attributes:
     m2lines/ocean_emulators_git_hash:  https://github.com/m2lines/ocean_emula...
     regrid_method:                     conservative
 >>> # Quarter degree data with no blur.
->>> ds = xr.open_zarr('s3://emulators/am16581/data/2025-11/om4_quarterdeg_v2/OM4.zarr')
+>>> ds = xr.open_zarr('https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/v2026-09/om4_quarterdeg/OM4.zarr')
 >>> ds
 <xarray.Dataset> Size: 2TB
 Dimensions:    (time: 4745, y: 720, x: 1440)

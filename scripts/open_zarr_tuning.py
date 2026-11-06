@@ -19,7 +19,8 @@ Using techniques from this blog post:
 - https://earthmover.io/blog/xarray-open-zarr-improvements
 
 How to run experiments:
-- Change the Zarr version (above) to compare ZarrV2 vs ZarrV3.
+- Change the Zarr runtime version (above) to compare reader performance.
+- Temporary test stores are always written in Zarr v2 format.
 - Configure: `uv run scripts/open_zarr_tuning.py --help`
 """
 
@@ -44,14 +45,7 @@ def main(args: argparse.Namespace) -> float:
     if tc := args.time_chunks:
         chunks["time"] = tc
 
-    write_kwargs: dict[str, Any] = dict(consolidated=False)
-    if zarr.__version__.startswith("3"):
-        import numcodecs  # type: ignore
-        import numcodecs.zarr3  # type: ignore
-
-        # Bug in Zarr v3 Codecs; using a workaround:
-        # https://github.com/pydata/xarray/issues/9987#issuecomment-2631471771
-        write_kwargs["encoding"] = {"zos": {"compressors": [numcodecs.zarr3.Blosc()]}}
+    write_kwargs: dict[str, Any] = dict(consolidated=False, zarr_format=2)
 
     start_time = time.perf_counter()
     for _ in range(args.n_iters):

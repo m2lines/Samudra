@@ -12,3 +12,13 @@ AdamW uses peak learning rate 0.0002, 200 warmup updates, and cosine decay to 0.
 Primary comparisons use update 25,000, reporting both raw and EMA weights. Best-validation checkpoints are retained separately and are not substituted for the final-update comparison. Persistence predicts the last input value. Lower MSE and RMSE are better. Channel MSE averages over sampled locations and dates with spatial correction; wet-cell RMSE divides that estimate by the exact wet-cell fraction before taking the square root and restoring physical units. Area-weighted wet RMSE uses the uncorrected area-sampled errors. Channels are compared in their own physical units; the aggregate MSE averages normalized channels.
 
 For the sampling equations, let A_z be total wet-cell area at depth z, a(x) cell area, N the rectangular grid size, and C the number of target channels. The base proposal is P(z,x)=a(x)/(19 A_z) over wet cells. A single-depth channel receives coefficient 19 A_z/(C N a(x)); SSH is included only for z=0. For the column arm, the location marginal is g(x)=a(x) sum_z[wet(z,x)/A_z]/19, and each wet channel receives coefficient 1/(77 N g(x)). Input-only coverage partitions a fresh pool of 8,192 such draws into up to eight geometric groups per depth, then mixes uniform-pool and equal-group sampling equally. A chosen pool occurrence with probability q receives the additional factor 1/(8,192 q). See [implementation](../../../src/samudra/skyline/multitask.py) and [coverage proposal](../../../src/samudra/skyline/coverage.py).
+
+Submitted on Torch on November 6, 2026, using source commit `753edeac5faa46412957b70ce5e02d6337bdefbc`. The four-GPU qualification job `22106869` gates all three training jobs with an `afterok` dependency. At submission they were pending; these IDs establish submission, not successful training.
+
+| Output task | Job | Target updates |
+| --- | --- | --- |
+| Temperature at one depth | 22106880 | 25,000 |
+| All fields at one depth | 22106889 | 25,000 |
+| All fields at all depths | 22106894 | 25,000 |
+
+Run directory: `torch:/scratch/jr7309/skyline-comparison-20261106/`. Each arm requests four compatible GPUs under `torch_pr_347_lzanna`, with normal and preemptible routing and checkpoint recovery. The source tar SHA-256 is `be8ff1f2d47a91838fe3b8253b8c9a1be9f7abb9b7d2f71dff5a9e93ee936000`. The container is `ghcr.io-m2lines-ocean-emulator-physicsnemo-26.05-4f86be45a09cb9eba1b51b6273e0189941b02495.sif`. Completion callback job `22107028` depends on termination of all three training jobs; a separate reminder covers queue stalls or failed qualification. Local checks before submission: 41 focused tests passed, and all repository commit hooks passed. GPU qualification and scientific results remain pending.

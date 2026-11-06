@@ -507,13 +507,15 @@ def map_figure(path, grid, output, title, *, climate=None):
     if members.shape != (8, *gold.shape) or gold.ndim != 3 or len(names) != len(gold):
         raise ValueError("Map member/reference shapes differ")
     channels = [c for c in ("uo_0", "vo_0", "vo_8") if c in names]
-    fig, axes = plt.subplots(
-        len(channels),
-        6,
-        figsize=(18, 1.8 * len(channels)),
-        constrained_layout=True,
-        squeeze=False,
-    )
+    # Place axes in output pixels: layout engines otherwise rescale the raster.
+    pixels_per_cell, dpi = 2, 150
+    height, width = gold.shape[-2:]
+    map_width, map_height = width * pixels_per_cell, height * pixels_per_cell
+    column_stride, row_stride = map_width + 115, map_height + 65
+    canvas_width = 40 + 6 * column_stride
+    canvas_height = 75 + len(channels) * row_stride
+    fig = plt.figure(figsize=(canvas_width / dpi, canvas_height / dpi), dpi=dpi)
+    map_axes = []
     for row, name in enumerate(channels):
         index = names.index(name)
         support = np.isfinite(gold[index])
@@ -545,24 +547,58 @@ def map_figure(path, grid, output, title, *, climate=None):
             )
         ):
             bound = error_limit if col == 5 else limit
-            im = axes[row, col].imshow(
-                np.where(support, field, np.nan),
+            left = 20 + col * column_stride
+            bottom = 30 + (len(channels) - 1 - row) * row_stride
+            ax = fig.add_axes(
+                (
+                    left / canvas_width,
+                    bottom / canvas_height,
+                    map_width / canvas_width,
+                    map_height / canvas_height,
+                )
+            )
+            map_axes.append((ax, left, bottom))
+            # figimage bypasses axes raster resampling, including floating-point
+            # rounding that can turn a nominal 720-pixel axis into 721 pixels.
+            raster = np.repeat(
+                np.repeat(np.where(support, field, np.nan), pixels_per_cell, axis=0),
+                pixels_per_cell,
+                axis=1,
+            )
+            im = fig.figimage(
+                raster,
+                xo=left,
+                yo=bottom,
                 origin="lower",
-                interpolation="nearest",
-                aspect="equal",
                 cmap="RdBu_r",
                 vmin=-bound,
                 vmax=bound,
             )
-            axes[row, col].set_title(f"{name} · {label}", fontsize=9)
-            axes[row, col].set_xticks([])
-            axes[row, col].set_yticks([])
-            fig.colorbar(im, ax=axes[row, col], fraction=0.026, pad=0.01, label="m/s")
+            ax.set_title(f"{name} · {label}", fontsize=9)
+            ax.set_axis_off()
+            colorbar = fig.add_axes(
+                (
+                    (left + map_width + 10) / canvas_width,
+                    bottom / canvas_height,
+                    14 / canvas_width,
+                    map_height / canvas_height,
+                )
+            )
+            fig.colorbar(im, cax=colorbar, label="m/s")
     fig.suptitle(
         title
         + (" · monthly training-climatology anomalies" if climate else "")
-        + " · error has its own scale"
+        + " · error has its own scale · 2 × 2 image pixels per grid cell"
     )
+    fig.canvas.draw()
+    for ax, left, bottom in map_axes:
+        if not np.allclose(
+            ax.get_window_extent().bounds,
+            (left, bottom, map_width, map_height),
+            rtol=0,
+            atol=1e-7,
+        ):
+            raise ValueError("Map axes do not align with the integer pixel grid")
     save_figure(fig, output)
 
 

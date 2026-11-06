@@ -51,6 +51,8 @@ Initializer changes from 500 to 8,000 mixed updates are within this fresh run; n
 
 Across 228 velocity case/channel/readout combinations at the latest checkpoint, 0 have negative spatial correlation; the minimum is 0.4352. These are global spatial correlations of ensemble means. Positive correlation does not establish locally correct signs, individual-member alignment, or signed-increment skill. This run alone does not isolate the auxiliary loss effect. Held-out signed-increment CRPS was not computed; the reported CRPS is pointwise, and spatial correlation tests a different property.
 
+All member and anomaly PNG maps below use exactly **2 × 2 image pixels per model-grid cell**, with no smoothing. Open the original PNG at 100% zoom to inspect that scale; GitHub's inline preview may shrink it. PDFs are available beside each PNG.
+
 ![OM4 reference, ensemble mean and individual members for 2014-01](signed-dense-assets/members-8000-2014-01.png)
 
 ![OM4 reference, ensemble mean and individual members for 2014-04](signed-dense-assets/members-8000-2014-04.png)

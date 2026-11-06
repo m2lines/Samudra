@@ -278,5 +278,12 @@
   "report_script_sha256": "44dcbdf9e6fb2d52d0d8483d20fc06e1f7c338fbd47863464e1045629c1eca6e",
   "narrative_note": "Final prose adds source-checked interpretation, protocol definitions and cold-reader clarifications after rendering. Numerical CSVs and plots are unchanged. Generator correction only replaces six-bin averaging wording with the implemented day-5/15/30 RMSE mean.",
   "publication_script_sha256": "db64b59022c8dd6c165d370a7cd1f9314bcc2e8af60441395d675b5929d744af",
-  "publication_script_note": "Published standalone script adds type annotations; exact renderer retained in evaluation-tools.tar.gz. Numeric computation unchanged;14reporttests pass."
+  "publication_script_note": "Published standalone script adds type annotations; exact renderer retained in evaluation-tools.tar.gz. Numeric computation unchanged;14reporttests pass.",
+  "map_rendering": {
+    "pixels_per_grid_cell": 2,
+    "method": "Integer-positioned figure rasters; each field cell repeated twice along each image axis; no axes resampling.",
+    "scope": "Six member and anomaly PNG/PDF figures re-rendered from the original NPZ inputs; numerical CSVs and other plots unchanged.",
+    "verification": "Every map panel in all six PNGs checked for exact uniform 2-by-2 pixel blocks.",
+    "script": "scripts/report_stochastic_signed_dense.py in this publication commit; earlier script fingerprints describe the original report render."
+  }
 }

@@ -1,0 +1,24 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+# SPDX-License-Identifier: Apache-2.0
+
+[build-system]
+build-backend = "setuptools.build_meta"
+
+requires = [ "setuptools>=61", "wheel" ]
+
+[project]
+name = "samudra-test-utils"
+version = "0.1.0"
+description = "Shared pytest campaign and mutation utilities for Samudra subprojects"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.12"
+classifiers = [
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+]
+dependencies = [ "hypothesis>=6.170.13", "pytest>=8.3.4", "pytest-reportlog>=1" ]
+
+[tool.setuptools]
+packages = [ "samudra.test_utils" ]
+package-dir = { "samudra.test_utils" = "." }

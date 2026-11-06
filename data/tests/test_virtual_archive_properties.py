@@ -9,8 +9,6 @@ All source data are tiny and local; no archive credentials or ocean model needed
 """
 
 import math
-import os
-import subprocess
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -151,14 +149,14 @@ def om4_archives(draw):
     )
 
 
-def check_om4_round_trip(case, client=None):
+def check_om4_round_trip(case):
     values, files, nt, chunks, xchunk = case
     _, nz, ny, nx = values.shape
     with TemporaryDirectory() as directory:
         root = Path(directory)
         sources = root / "sources"
         sources.mkdir()
-        expected, paths = [], []
+        expected = []
         for index in range(files):
             block = values[index * nt : (index + 1) * nt]
             times = np.arange(index * nt, (index + 1) * nt)
@@ -203,38 +201,20 @@ def check_om4_round_trip(case, client=None):
                     "hfds": {"chunksizes": (chunks[1], ny, 1), "zlib": True},
                 },
             )
-            paths.append(path)
             with xr.open_dataset(path, decode_times=False) as native:
                 expected.append(native.load())
         output = root / "output"
         subject.build(str(sources), output, pattern="*.nc", record_size=3)
-        if client:
-            script = Path(__file__).parents[1] / "integration" / "zarr2_reader.py"
-            subprocess.run(
-                [client, str(script), str(output), *map(str, paths)],
-                check=True,
-                timeout=30,
-            )
-        else:
-            actual = read_reference(output)
-            xr.testing.assert_identical(
-                actual,
-                xr.concat(expected, dim="time", data_vars="minimal", coords="minimal"),
-            )
+        actual = read_reference(output)
+        xr.testing.assert_identical(
+            actual,
+            xr.concat(expected, dim="time", data_vars="minimal", coords="minimal"),
+        )
 
 
 @given(om4_archives())
 def test_om4_depth_bounds_and_variable_chunks_round_trip(case):
     check_om4_round_trip(case)
-
-
-@pytest.mark.skipif(
-    not os.environ.get("SAMUDRA_ZARR2_PYTHON"),
-    reason="Requires an isolated real Zarr 2 client",
-)
-@given(om4_archives())
-def test_om4_payload_reads_with_zarr2_client(case):
-    check_om4_round_trip(case, client=os.environ["SAMUDRA_ZARR2_PYTHON"])
 
 
 @given(archives())

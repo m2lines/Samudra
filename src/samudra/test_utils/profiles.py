@@ -6,7 +6,7 @@
 
 import os
 
-from hypothesis import settings
+from hypothesis import Phase, settings
 
 
 def configure_profiles(default_profile="property"):
@@ -18,6 +18,14 @@ def configure_profiles(default_profile="property"):
         "soak",
         max_examples=int(os.environ.get("SAMUDRA_HYPOTHESIS_EXAMPLES", "1000")),
         deadline=None,
+        print_blob=True,
+    )
+    settings.register_profile(
+        "mutation",
+        max_examples=40,
+        deadline=None,
+        database=None,
+        phases=[Phase.generate],
         print_blob=True,
     )
     selected = os.environ.get("SAMUDRA_HYPOTHESIS_PROFILE", default_profile)

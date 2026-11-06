@@ -13,7 +13,7 @@ from tempfile import TemporaryDirectory
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = Path(__file__).resolve().parents[1]
 
 
 @settings(max_examples=8, deadline=None)
@@ -37,7 +37,8 @@ def test_shared_runner_records_real_outcomes_and_replay_inputs(outcomes):
         process = subprocess.run(
             [
                 sys.executable,
-                str(ROOT / "scripts" / "run_property_suite.py"),
+                "-m",
+                "samudra.test_utils.run",
                 "--suite",
                 "harness",
                 "--tests",
@@ -69,4 +70,4 @@ def test_shared_runner_records_real_outcomes_and_replay_inputs(outcomes):
         replay = json.loads((output / "replay.json").read_text())
         assert replay["suite"] == "harness" and replay["seed"] == 42
         assert (output / "dependency-input.txt").read_bytes() == config.read_bytes()
-        assert (output / "pytest.log").is_file() and (output / "junit.xml").is_file()
+        assert (output / "pytest.log").is_file() and (output / "pytest.jsonl").is_file()

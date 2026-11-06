@@ -6,23 +6,13 @@
 
 import os
 
-from hypothesis import Phase, settings
-
-from scripts.property_testing import configure_profiles, tag_verification_items
+from samudra.test_utils.profiles import configure_profiles, tag_verification_items
 
 if storage := os.environ.get("SAMUDRA_STRING_STORAGE"):
     import pandas as pd
 
     pd.set_option("mode.string_storage", storage)
 
-settings.register_profile(
-    "mutation",
-    max_examples=40,
-    deadline=None,
-    database=None,
-    phases=[Phase.generate],
-    print_blob=True,
-)
 configure_profiles()
 
 

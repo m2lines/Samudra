@@ -17,54 +17,66 @@ This project follows the [M2LInES _Code of Conduct_](https://m2lines.github.io/p
 
 ## Property tests and simulation checks
 
-Put CPU fuzz/property tests for `src/samudra/` in `tests/property/test_*.py`.
-They are automatically discovered by the CPU PR workflow: the bounded property
-step runs 40 default examples and saves replay artifacts. The ordinary CPU test
-step excludes this directory to avoid running it twice. The shared nightly/manual
-`Property soak` workflow runs it independently with 1,000 default examples using
-the main project's `uv.lock`. Scheduling starts after the workflow reaches the
-default branch.
+Keep tests flat: `tests/test_*_properties.py` for Samudra and
+`data/tests/test_*_properties.py` for preprocessing. The CPU PR workflow runs the
+main properties with 40 default examples; nightly/manual `Property soak` runs
+1,000. Ordinary CPU tests exclude that suffix to avoid duplicate execution.
+Use `cuda` and `manual` markers for tests needing those resources; CPU campaigns
+exclude both. Scheduling starts when the workflow reaches the default branch.
 
-Data generators and archive mutation checks stay in `data/tests/`. Their jobs use
-their own Python environment and dependency snapshots. The suites share profile
-names, a replay runner, artifact conventions, scheduling, and read-only triage;
-they do not install both projects into one environment. Samudra currently has a
-locked CPU lane; adding a GPU soak or floating Samudra canary is an explicit
-compute/dependency decision, not automatic discovery under the CPU lane.
+Start with a small executable model or independent oracle. The sampler simulation
+in `tests/test_sampler_properties.py` generates all ranks locally, checks coverage
+and compatibility, and replays epoch changes without training or a process group.
+Keep examples small and deterministic. Review proposed invariants as carefully as
+production behavior; use `contract_probe` for an unagreed contract so triage
+excludes it from product reports.
 
-Start with a small executable model or an independent oracle. The sampler
-simulation in `tests/property/test_sampler_simulation.py` demonstrates generating
-all ranks locally, checking coverage/compatibility, and replaying epoch changes
-without a process group, model training, network, or GPU. Keep each example small
-and deterministic for a given generated input; let Hypothesis generate sizes,
-seeds, event sequences, and boundary conditions. Use `contract_probe` for an
-unagreed contract so triage distinguishes it from a product bug. Use `cuda` and
-`manual` for tests requiring those resources; the CPU soak excludes both.
-
-Run a bounded check locally:
+Run a bounded check from the repository root:
 
 ```bash
-uv run --locked python scripts/run_property_suite.py \
-  --suite samudra --tests tests/property --dependency-file uv.lock \
+uv run --locked python -m samudra.test_utils.run \
+  --suite samudra --tests tests/test_*_properties.py --dependency-file uv.lock \
   --output /tmp/samudra-properties --examples 40 --seed 95920261105 \
   -- -m "not manual and not cuda"
 ```
 
-Choose a new output directory for each run. Increase `--examples` for a soak.
-The runner uses its current interpreter; activate/install the owning project's
-environment first. Artifacts have the same layout for both projects:
-`replay.json` (suite, profile, seed, requested budget, command, revision, backend,
-and dependency hash), `dependency-input.txt`, `environment.txt`, `pytest.log`,
-`junit.xml`, and `result.json`. An empty, deselected, or entirely skipped suite
-cannot count as a successful soak. Replay requires the recorded revision and
-dependencies as well as the seed. Existing tests retain their normal defaults
-outside the explicit property/soak runs; per-test settings can impose their own
-bounds, which are visible in Hypothesis statistics.
+Choose a new output directory for every run; increase `--examples` for a soak.
+Per-test settings can impose smaller limits, visible in Hypothesis statistics.
+The main project uses uv and its lock; data uses Mamba configurations at
+`data/.test.yml` and `data/.test-canary.yml`. Their numerical runtimes stay
+independent. Shared profiles, execution, reporting, and named-fault mutation
+checks live in `src/samudra/test_utils`, installed as a small local development
+distribution by both projects. It is excluded from the application wheel, so
+data verification does not pull in the model's incompatible NumPy/Zarr runtime.
 
-Nightly results for both projects enter one read-only triage summary, namespaced
-by suite. A failed data job does not prevent the independent Samudra job from
-running. Mutation catalogs remain owned by their subsystem; the archive's named
-historical-fault mutations are not a generic requirement for every new fuzz test.
+A campaign records `replay.json` (seed, command, revision and dependency hash),
+`dependency-input.txt`, `environment.txt`, `pytest.log`, native pytest JSONL
+`pytest.jsonl`, `result.json`, and a human `summary.md`. Data CI also saves
+`conda-explicit.txt` with the exact solved packages. Replay needs the revision,
+dependencies, profile and seed; reproduction blobs need the exact Hypothesis
+version. An empty, entirely skipped, interrupted, or invalid run cannot be green.
+
+Open **Actions → Property soak** (or **Property mutation gate**) and select a run.
+Its **Summary** shows campaign status and read-only triage; downloadable artifacts
+appear at the bottom of the run page and expire after 30 days. Each suite/lane
+has its own artifact. Triage links matching open and closed issues without
+creating, reopening, or commenting on them. Infrastructure errors and unsettled
+contracts are distinguished from candidate counterexamples. Humans review the
+oracle and can explicitly file new reports with `samudra.test_utils.triage --apply`.
+
+The shared result model distinguishes test call failures, setup/teardown errors,
+skips, collection errors, and incomplete sessions. It consumes
+[pytest-reportlog's native events](https://github.com/pytest-dev/pytest-reportlog).
+[Pytest supports JUnit XML](https://docs.pytest.org/en/stable/how-to/output.html#creating-junitxml-format-files)
+for CI interoperability; native events preserve pytest phase and node identities
+without an XML translation in our classifiers.
+
+Mutation catalogs belong to the tested subsystem. Use flat `*_mutations.py` files
+exporting a `Catalog` of named `Mutation`s. The engine discovers catalogs by
+suffix, checks a clean baseline, then requires generated inputs to catch each
+fault within its budget. Historical mutations are useful for measuring a known
+oracle's sensitivity; they are not required for every new property. See the
+[data guide](../data/README.md#property-tests-and-simulation-soaks) for commands.
 
 ## Contributing code with pull requests
 

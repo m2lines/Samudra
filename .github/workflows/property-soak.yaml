@@ -22,24 +22,25 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
-      VERIFICATION_LANE: pinned
+      VERIFICATION_LANE: regression
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - uses: astral-sh/setup-uv@d0d8abe699bfb85fec6de9f7adb5ae17292296ff
         with:
           enable-cache: true
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
-        with:
           python-version: "3.12"
       - name: Install main project independently of data
         timeout-minutes: 10
         run: uv sync --locked --dev
       - name: Explore CPU properties with common replay artifacts
         run: |
-          uv run --locked python scripts/run_property_suite.py \
-            --suite samudra --tests tests/property --dependency-file uv.lock \
+          uv run --locked python -m samudra.test_utils.run \
+            --suite samudra --tests tests/test_*_properties.py --dependency-file uv.lock \
             --output /tmp/property-soak --examples 1000 --timeout 1800 \
             -- -m "not manual and not cuda"
+      - name: Summarize campaign
+        if: always()
+        run: test ! -f /tmp/property-soak/summary.md || cat /tmp/property-soak/summary.md >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
@@ -50,43 +51,6 @@ jobs:
   mutation-gate:
     uses: ./.github/workflows/property-mutations.yaml
 
-  integrations:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
-        with:
-          python-version: "3.12"
-      - name: Install isolated producer and actual Zarr 2 reader
-        run: |
-          python -m pip install -r data/tests/verification-py312.txt
-          python -m pip install --no-deps --no-build-isolation -e ./data
-          python -m venv /tmp/zarr2-client
-          /tmp/zarr2-client/bin/python -m pip install -r data/tests/zarr2-client-py312.txt
-      - name: Check real client and bounded public byte transport
-        env:
-          SAMUDRA_ZARR2_PYTHON: /tmp/zarr2-client/bin/python
-          SAMUDRA_OSN_CHECK: "1"
-          SAMUDRA_HYPOTHESIS_PROFILE: soak
-          SAMUDRA_HYPOTHESIS_EXAMPLES: "10"
-        run: |
-          mkdir -p /tmp/property-integrations
-          git rev-parse HEAD > /tmp/property-integrations/revision.txt
-          python --version > /tmp/property-integrations/python.txt
-          python -m pip freeze > /tmp/property-integrations/producer.txt
-          /tmp/zarr2-client/bin/python -m pip freeze > /tmp/property-integrations/client.txt
-          set -o pipefail
-          python -m pytest data/tests/property -k 'zarr2_client or osn_ranges' \
-            --hypothesis-seed=95920261105 --hypothesis-show-statistics \
-            --junitxml=/tmp/property-integrations/junit.xml 2>&1 | tee /tmp/property-integrations/pytest.log
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        if: always()
-        with:
-          name: property-integrations
-          path: /tmp/property-integrations/
-          retention-days: 30
-
   explore:
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -94,12 +58,15 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - lane: pinned
+          - lane: regression
             storage: python
-          - lane: pinned
+            environment: data/.test.yml
+          - lane: regression
             storage: pyarrow
+            environment: data/.test.yml
           - lane: canary
             storage: pyarrow
+            environment: data/.test-canary.yml
     env:
       SAMUDRA_HYPOTHESIS_PROFILE: soak
       SAMUDRA_HYPOTHESIS_EXAMPLES: "1000"
@@ -107,32 +74,31 @@ jobs:
       VERIFICATION_LANE: ${{ matrix.lane }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+      - uses: mamba-org/setup-micromamba@4b9113af4fba0e9e1124b252dd6497a419e7396d
         with:
-          python-version: "3.12"
-      - name: Install regression or canary stack
-        timeout-minutes: 5
-        run: |
-          if test "$VERIFICATION_LANE" = pinned; then
-            python -m pip install -r data/tests/verification-py312.txt
-          else
-            python -m pip install -r data/tests/verification.in
-          fi
-          python -m pip install --no-deps --no-build-isolation -e ./data
+          environment-file: ${{ matrix.environment }}
+          environment-name: verification
+          cache-downloads: true
+      - name: Install local projects without resolving third-party packages
+        shell: bash -el {0}
+        run: python -m pip install --no-deps --no-build-isolation -e ./src/samudra/test_utils -e ./data
       - name: Explore and shrink
-        id: explore
         working-directory: data
+        shell: bash -el {0}
         env:
-          PYTHONUNBUFFERED: "1"
+          DEPENDENCY_FILE: ../${{ matrix.environment }}
         run: |
-          if test "$VERIFICATION_LANE" = pinned; then
-            dependency_file=tests/verification-py312.txt
-          else
-            dependency_file=tests/verification.in
-          fi
-          python ../scripts/run_property_suite.py --suite data --tests tests/property \
-            --dependency-file "$dependency_file" --output /tmp/property-soak \
+          python -m samudra.test_utils.run --suite data --tests tests/test_*_properties.py \
+            --dependency-file "$DEPENDENCY_FILE" --output /tmp/property-soak \
             --examples 1000 --timeout 1800
+      - name: Preserve solved environment and summarize
+        if: always()
+        shell: bash -el {0}
+        run: |
+          if test -d /tmp/property-soak; then
+            micromamba list --explicit > /tmp/property-soak/conda-explicit.txt
+            cat /tmp/property-soak/summary.md >> "$GITHUB_STEP_SUMMARY"
+          fi
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
@@ -150,6 +116,9 @@ jobs:
       issues: read
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: astral-sh/setup-uv@d0d8abe699bfb85fec6de9f7adb5ae17292296ff
+        with:
+          python-version: "3.12"
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           pattern: property-soak-*
@@ -162,8 +131,8 @@ jobs:
         run: |
           for artifact in /tmp/property-soaks/property-soak-*; do
             lane=$(basename "$artifact")
-            if test -f "$artifact/junit.xml"; then
-              python scripts/file_property_failures.py "$artifact/junit.xml" \
+            if test -f "$artifact/pytest.jsonl"; then
+              uv run --locked --no-dev --package samudra-test-utils python -m samudra.test_utils.triage "$artifact/pytest.jsonl" \
                 --repo "$GH_REPO" --run-url "$RUN_URL" --lane "$lane" --triage-output "/tmp/property-triage/$lane"
               cat "/tmp/property-triage/$lane/summary.md" >> "$GITHUB_STEP_SUMMARY"
             fi

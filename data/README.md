@@ -399,186 +399,77 @@ python -m pytest tests
 
 ### Property tests and simulation soaks
 
-Data is one suite in the repository-wide `Property soak` workflow. Main-project
-CPU properties live separately in `tests/property/` at the repository root and
-use `uv.lock`; data jobs retain their independent verifier environment. Both use
-`scripts/run_property_suite.py`, common replay artifacts, and shared read-only
-triage. See the [contributor convention](../docs/contributing.md#property-tests-and-simulation-checks)
-before adding a new suite or compute lane.
+Keep archive properties in flat `tests/test_*_properties.py` files and named-fault
+catalogs in `tests/*_mutations.py`. The shared runner and report model live in
+`src/samudra/test_utils`; do not import maintenance scripts. See the
+[contributor guide](../docs/contributing.md#property-tests-and-simulation-checks)
+for the repository-wide conventions and artifact/reporting layout.
 
-`tests/property/` checks the virtualization contract using generated miniature
-NetCDF archives and real local object-store reads, parsers, Parquet serialization,
-and reference reads. It does not use the existing example-based tests as an oracle.
-The default budget is 40 examples per property; failing cases are shrunk and the
-output includes a Hypothesis reproduction blob.
-
-The oracle for payload fidelity is an independent native NetCDF read followed by
-Xarray concatenation. It checks every value, coordinate, dimension, and attribute,
-including integer packing, compression, zeros, both supported NetCDF backends,
-and small Parquet partitions. Separate properties explore static scalars, source
-name escaping, incompatible grids/attributes/inventories, and time-order preservation.
-Compatible native chunk layouts are tested separately from the broader capability
-probe so a known layout restriction cannot prevent payload exploration.
-
-The publication state machine compares sequences of publish, abort, retry, and
-delete operations with a one-slot committed-output model. Fault schedules inject
-source addition/modification/removal after serialization and competing output
-creation before rename. Each example owns a fresh temporary directory; tests
-control event order without sleeps or dependence on thread timing.
-
-Run an extended exploration from `data/` in an environment with the test extras:
+Create the focused verification environment from the repository root:
 
 ```bash
-SAMUDRA_HYPOTHESIS_PROFILE=soak SAMUDRA_HYPOTHESIS_EXAMPLES=10000 \
-  PYTHONUNBUFFERED=1 python -m pytest tests/property -v --tb=short \
-  --hypothesis-seed=95920261105 --hypothesis-show-statistics \
-  --junitxml=/tmp/property-soak.xml > /tmp/property-soak.log 2>&1
+micromamba create -f data/.test.yml
+micromamba activate samudra-data-test
+python -m pip install --no-deps --no-build-isolation -e ./src/samudra/test_utils -e ./data
+cd data
+python -m samudra.test_utils.run --suite data --tests tests/test_*_properties.py \
+  --dependency-file .test.yml --output /tmp/data-properties \
+  --examples 1000 --seed 95920261105
 ```
 
-Replay requires the same revision (including the property tests), Python and
-dependency versions, profile/example budget, and seed. Reproduction blobs also
-require the exact Hypothesis version printed beside them. A seed alone is not a
-portable replay artifact. Hypothesis stops a failing property after shrinking;
-the example budget is a maximum, not a promise to execute that many failures.
+Mamba owns third-party dependencies; pip only installs the two local packages
+without dependency resolution. `.test.yml` pins direct verification dependencies;
+it is not a transitive lock. CI saves the exact Mamba solution in each artifact.
+`.test-canary.yml` floats within supported runtime ranges. Nightly regression
+jobs exercise both Pandas string storage backends; the canary uses PyArrow.
+The ordinary full data environment remains `mamba_env.yaml`.
 
-`property-soak.yaml` adds a nightly/manual CPU exploration with a fresh seed and
-a 45-minute job limit. It retains the environment, platform, revision, seed,
-JUnit results, statistics, and shrunk examples for 30 days. During burn-in, every
-lane produces a read-only triage summary; no workflow has issue-write permission.
-The summary links matching open and closed reports and counts new failures,
-recurrences, errors, skips, and excluded contract probes. Closed reports remain
-visible without reopening or daily comments, and shared backend failures cannot
-fan out into product issues. A report requires oracle review, not automatic
-diagnosis. Manual `--apply` remains available outside the unattended workflow.
+The existing archive properties compare complete native NetCDF reads against
+reference payloads and generate small archives, chunk layouts, scalars, names,
+missing values, and publication event schedules. The publication model controls
+publish, abort, retry and delete without sleeps. These tests retain the selected
+contracts: freeze discovery, preserve raw time order including duplicates and
+reversals, and require compatible native chunk grids for zero-copy publication.
+Late additions stay out of payload and provenance. Proposed scientific policies
+need human agreement before becoming invariants. The separate Zarr 2 client and
+live OSN transport tests have been removed following review.
 
-The pinned regression lane installs the complete focused verifier dependency
-snapshot in `tests/verification-py312.txt`. It includes PyArrow; this preserves the
-known sparse-fill failure rather than pinning around it. It is a reproducible
-regression environment, not a claim that the current baseline is green. A separate
-floating canary installs `tests/verification.in`. Pinned runs explicitly exercise
-both Pandas string storage backends (`python` and `pyarrow`); the canary exercises
-`pyarrow`. Canary failures require dependency triage. All lanes retain their actual
-package versions and backend selection.
+The PyArrow-enabled stack currently exposes the reported sparse declared-fill
+reader failure. Keeping it in the environment preserves that counterexample;
+a failing baseline prevents claims of mutation sensitivity. Do not skip the
+property or credit a preexisting failure as a detected mutant.
 
-Regenerate dependency snapshots with `uv pip compile` using the commands in their
-headers, retaining the SPDX header. Validate both regression properties and all
-three mutation seeds before accepting a dependency refresh; the current failing
-baseline prevents any present claim of eleven detected mutants.
-
-The established contract checks unchanged selected objects: late file additions
-are excluded from both payload and provenance. Duplicate and reversed time values
-are preserved, rather than treated as scientific validation failures. Native
-chunk-layout rejections are checked separately from payload fidelity. Future
-proposed contracts can use the `contract_probe` pytest marker to remain visible in
-JUnit while being excluded from automatic issue filing.
-
-These are accepted review decisions, not suppressed known bugs: the generated
-properties assert that late additions stay out of payload/provenance and that
-duplicates and reversals retain their exact values across filename-ordered files.
-The layout probe independently identifies unsupported chunk grids and permits
-either an exact payload round trip or an actionable diagnostic. It does not demand
-rechunking inside a zero-copy virtualizer. Reintroducing rejection requirements
-for these accepted inputs would change the documented contract.
-
-### Mutation checks for the property suite
-
-The bounded mutation gate measures whether generated inputs still find the fixed
-defects. From the repository root, in the data test environment, run:
+Run all flat mutation catalogs from the repository root in the data environment:
 
 ```bash
-python data/tests/mutation/virtual_archive_mutants.py \
+python -m samudra.test_utils.mutations data/tests \
   --output /tmp/property-mutations --seeds 0 1 95920261105 --timeout 60 --budget 600
 ```
 
-The output directory must be new. Eleven named historical-fault mutations disable
-scalar-key normalization, valid-zero fill handling, URI adaptation/decoding,
-exclusive publication, selected-source checks, chunk diagnostics, and sparse-fill
-protection. Each runs in a fresh pytest process; the production file is never
-edited. Exact unique source anchors fail loudly after refactors, requiring a
-review of each mutation rather than silently dropping it.
+Each catalog defines a target module, property file, and named source changes.
+Unique source anchors fail loudly after refactors. Each subprocess imports the
+installed target, substitutes a mutant in memory, and leaves production files
+untouched. It isolates inherited pytest options and loads only the required
+plugins. Before accepting a kill, the engine checks effective Hypothesis settings,
+source hashes, exact collected/tested node IDs, and a completed native event log.
+Only test call failures count; setup/collection errors, skips, timeouts, missing
+reports and survivors fail the gate. Baselines run first for all three seeds.
 
-For each seed, the relevant unmodified properties must pass first. Each mutant
-must then fail its assigned property within 40 generated examples and 60 seconds,
-including process startup. The `mutation` Hypothesis profile disables explicit
-examples, database replay, and shrinking: a retained `@example` cannot satisfy the
-gate. A survivor, timeout, missing test, collection/setup error, or broken baseline
-fails the gate. Expected mutant failures are contained in artifacts and are never
-sent to the product issue reporter.
+Each mutant gets 40 generation-only examples and at most 60 seconds, capped by
+the remaining shared 600-second budget. Explicit examples, database replay, and
+shrinking are disabled, so saved counterexamples cannot satisfy discovery.
+The artifact includes source snapshots, execution evidence, commands, timings,
+logs and results. PR/main changes, nightly reuse and manual dispatch run the gate;
+superseded PR runs are cancelled. A `summary.md` appears on the Actions run page,
+with full artifacts retained for 30 days.
 
-Each subprocess isolates pytest options, plugin loading, and import paths from the
-calling shell. It loads only the Hypothesis and mutation plugins explicitly and
-binds the generation profile to each selected Hypothesis function; conflicting
-per-test settings invalidate the baseline. `execution.json` records the effective
-profile, collected node IDs, and source/mutant hashes. The classifier compares it
-with `expected-execution.json` and checks the node IDs carried into JUnit. A failure
-from the wrong test, altered settings, or missing/corrupt evidence cannot count as
-a detected mutant.
-
-The test extra includes PyArrow so local property runs exercise the nullable
-string/Parquet reader stack used by the full data environment. Dependency
-composition matters: sparse reference rows can behave differently when PyArrow
-is available even though the selected Parquet engine is fastparquet. A payload
-failure in this unmodified reader stack fails the baseline and requires diagnosis;
-it cannot be credited as successful mutation detection.
-
-URI strategies generate literal percent-escape-looking names, rather than only
-covering them with an explicit example. A focused partial-boundary generator
-exercises unaligned non-final chunks on every draw; the initial audit found that
-a broader generator could miss that diagnostic regression within 40 examples.
-Generated sparse HDF fields vary chunk size, allocated chunks, storage fill, and
-CF fill declarations, checking either native decoded values or clean rejection.
-
-The gate runs on relevant PR/main changes and manual dispatch via
-`property-mutations.yaml`, and is reused by the nightly soak. Its job limit is
-20 minutes, with a five-minute dependency-install step and a shared ten-minute
-gate budget. Each subprocess timeout is capped by the remaining global budget;
-exhaustion fails the gate with a recorded result. Superseded PR runs are cancelled,
-while scheduled/manual runs retain their evidence. Artifacts retain each mutant source, seed, command, elapsed time,
-JUnit, Hypothesis statistics, dependency versions, and target hash for 30 days.
-Source snapshots and hashes of the target, properties, profile, and runner also
-preserve local runs made before committing changes.
-This measures discovery for the named regression mutations; it does not claim
-that every possible mutation or storage failure is covered.
-
-Preview reports locally without contacting GitHub:
+Preview candidate reports without contacting GitHub:
 
 ```bash
-python ../scripts/file_property_failures.py /tmp/property-soak.xml \
+python -m samudra.test_utils.triage /tmp/data-properties/pytest.jsonl \
   --repo m2lines/Samudra --run-url https://example.com/local-run
 ```
 
-Adding `--apply` files new issues. The workflow is reviewable infrastructure;
-adding the file does not activate scheduling until it reaches the default branch.
-
-For a read-only recurrence summary (including closed reports), add
-`--triage-output /tmp/property-triage`. This performs issue lookup but never writes
-to GitHub; JSON and Markdown artifacts preserve every failure for human triage.
-
-### Coverage beyond the miniature archive
-
-The generated OM4-shaped property adds depth, latitude, longitude, multiple
-variables with independent native chunk grids, static masks, and CF time/depth
-bounds. It compares complete native Xarray reads against the reference payload.
-This extends geometry and metadata coverage without claiming scientific validity
-for synthetic ocean values.
-
-Nightly/manual runs also install an isolated, pinned Zarr 2.18.7 client using
-`tests/zarr2-client-py312.txt`, then compare ten generated multi-variable archives
-against native reads in that separate interpreter. Locally, set
-`SAMUDRA_ZARR2_PYTHON` to that interpreter and select `-k zarr2_client`.
-
-An opt-in live OSN check (`SAMUDRA_OSN_CHECK=1`, `-k osn_ranges`) compares obstore
-range reads from the public 1958 file with the same bytes fetched through real
-Parquet references, fsspec S3, and Xarray. Four generation-only examples read 64
-payload bytes each per transport. Shrinking/explanation are disabled to bound
-network requests. This checks anonymous transport and large offsets, not full
-NetCDF parsing, scientific values, or the entire public archive.
-
-For subsequent project-wide simulation work, start with a small executable model
-of observable behavior and explicit transitions, then generate inputs and event
-schedules. Favor independent oracles and metamorphic transformations (partition,
-rename, serialize/reopen) over restating production algorithms. Keep scientific
-assumptions visible so a test cannot silently encode the same physics mistake as
-the implementation. Expand to writer append/reopen sequences and distributed
-sampler coverage before introducing expensive GPU simulations. Local storage
-simulation does not establish S3 consistency behavior or crash durability.
+`--triage-output /tmp/property-triage` adds read-only issue lookup and a JSON/Markdown
+summary, including closed recurrences. Only an explicit `--apply` files issues;
+no unattended workflow has issue-write permissions.

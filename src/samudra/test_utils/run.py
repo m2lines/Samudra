@@ -13,14 +13,15 @@ import platform
 import secrets
 import subprocess
 import sys
-import xml.etree.ElementTree as ET
 from pathlib import Path
+
+from .reports import campaign_status, read_run
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--suite", required=True)
-    parser.add_argument("--tests", required=True, type=Path)
+    parser.add_argument("--tests", required=True, type=Path, nargs="+")
     parser.add_argument(
         "--output", required=True, type=Path, help="New artifact directory"
     )
@@ -30,8 +31,11 @@ def main():
     parser.add_argument("--timeout", type=float, default=1800)
     parser.add_argument("pytest_args", nargs=argparse.REMAINDER)
     args = parser.parse_args()
-    if not args.tests.is_dir() or not args.dependency_file.is_file():
-        parser.error("tests must be a directory and dependency-file must exist")
+    if (
+        not all(path.exists() for path in args.tests)
+        or not args.dependency_file.is_file()
+    ):
+        parser.error("test paths and dependency-file must exist")
     if args.examples < 1 or not 0 < args.timeout < float("inf"):
         parser.error("examples and timeout must be positive and finite")
     output = args.output.resolve()
@@ -48,13 +52,13 @@ def main():
         sys.executable,
         "-m",
         "pytest",
-        str(args.tests),
+        *map(str, args.tests),
         "-v",
         "--tb=short",
         "--disable-warnings",
         f"--hypothesis-seed={seed}",
         "--hypothesis-show-statistics",
-        f"--junitxml={output / 'junit.xml'}",
+        f"--report-log={output / 'pytest.jsonl'}",
         *extra,
     ]
     metadata = {
@@ -106,21 +110,21 @@ def main():
             status = "passed" if code == 0 else "failed"
         except subprocess.TimeoutExpired:
             code, status = 124, "timeout"
-    if code == 0:
+    if status != "timeout":
         try:
-            cases = list(ET.parse(output / "junit.xml").iter("testcase"))
-            executed = [case for case in cases if case.find("skipped") is None]
-            if not executed:
-                code, status = 5, "no_tests"
-            elif any(
-                case.find("error") is not None or case.find("failure") is not None
-                for case in executed
-            ):
-                code, status = 2, "invalid"
-        except (OSError, ET.ParseError):
+            status = campaign_status(code, read_run(output / "pytest.jsonl"))
+            if code == 0 and status != "passed":
+                code = 5 if status == "no_tests" else 2
+        except (OSError, ValueError, KeyError):
             code, status = 2, "invalid"
     (output / "result.json").write_text(
         json.dumps({"suite": args.suite, "status": status, "returncode": code}) + "\n"
+    )
+    (output / "summary.md").write_text(
+        f"### {args.suite} property campaign: {status}\n\n"
+        f"Seed: `{seed}`; requested examples per property: {args.examples}. "
+        "Download the run artifact below for replay.json, pytest.jsonl, "
+        "the environment and the full log.\n"
     )
     print((output / "pytest.log").read_text(errors="replace"), end="", flush=True)
     raise SystemExit(code)

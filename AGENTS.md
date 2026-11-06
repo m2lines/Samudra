@@ -177,12 +177,12 @@ uv run pytest --benchmark-only --benchmark-autosave
 
 ### Property and simulation tests
 
-* Put main-project CPU properties in `tests/property/test_*.py`. The CPU PR workflow
+* Put main-project CPU properties in `tests/test_*_properties.py`. The CPU PR workflow
   runs a bounded check with replay artifacts; the nightly/manual `Property soak`
   workflow runs a larger independent job using the main project's `uv.lock`.
-* Put preprocessing properties in `data/tests/property/`. Keep the main and data
+* Put preprocessing properties in `data/tests/test_*_properties.py`. Keep the main and data
   environments separate; share orchestration and artifact conventions through
-  `scripts/run_property_suite.py` and `scripts/property_testing.py`.
+  `src/samudra/test_utils`.
 * Prefer small independent oracles, metamorphic transformations, and explicit
   state/event models. The sampler simulation provides a CPU-only example that
   requires no training, process group, remote input, or GPU.

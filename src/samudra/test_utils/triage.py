@@ -14,34 +14,24 @@ import hashlib
 import html
 import json
 import subprocess
-import xml.etree.ElementTree as ET
 from pathlib import Path
+
+from .reports import Outcome, read_run
 
 
 def reports(path, run_url):
     """Extract stable identities and bounded counterexamples from actual failures."""
-    found = {}
-    for case in ET.parse(path).iter("testcase"):
-        if any(
-            prop.get("name") == "contract_probe" and prop.get("value") == "true"
-            for prop in case.findall("./properties/property")
-        ):
-            continue
-        failure = case.find("failure")
-        if failure is None:
-            continue
-        identity = f"{case.get('classname')}.{case.get('name')}"
-        suite = next(
-            (
-                prop.get("value")
-                for prop in case.findall("./properties/property")
-                if prop.get("name") == "verification_suite"
-            ),
-            "data",
+    found: dict[str, dict[str, str]] = {}
+    run = read_run(path)
+    if not run.complete:
+        return (
+            found  # Interrupted evidence is an execution problem, not a product report.
         )
-        # Preserve historical data fingerprints while namespacing new suites.
-        if suite != "data":
-            identity = f"{suite}:{identity}"
+    for case in run.cases:
+        if case.contract_probe or case.outcome != Outcome.FAILED:
+            continue
+        suite = case.properties.get("verification_suite", "data")
+        identity = f"{suite}:{case.nodeid}"
         digest = hashlib.sha256(identity.encode()).hexdigest()[:20]
         marker = f"<!-- property-failure:{digest} -->"
         found[marker] = {
@@ -50,12 +40,10 @@ def reports(path, run_url):
                 f"{marker}\n\nProperty: `{identity}`\n\n"
                 f"Run and replay artifacts: {run_url}\n\n"
                 "Review the oracle before classifying this as a production bug. "
-                "The artifact contains the seed, revision, environment, JUnit, "
+                "The artifact contains the seed, revision, environment, native pytest events, "
                 "Hypothesis statistics and shrunk counterexample.\n\n"
                 # Indented code keeps even generated backticks inside the code block.
-                + "\n".join(
-                    "    " + line for line in (failure.text or "")[:16000].split("\n")
-                )
+                + "\n".join("    " + line for line in case.details[:16000].split("\n"))
             ),
         }
     return found
@@ -122,11 +110,11 @@ def render_summary(summary):
             or "new, needs triage"
         )
         lines.append(f"- <code>{html.escape(failure['title'])}</code>: {links}")
-    if counts := summary.get("junit"):
+    if counts := summary.get("pytest"):
         lines.extend(
             [
                 "",
-                f"JUnit: {counts['failures']} failures, {counts['errors']} errors, "
+                f"Pytest: {counts['failed']} failures, {counts['error']} errors, "
                 f"{counts['skipped']} skipped; {counts['contract_probes']} contract probes excluded.",
             ]
         )
@@ -157,7 +145,7 @@ def file_new_reports(candidates, repo, invoke=gh):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("junit", type=Path)
+    parser.add_argument("report", type=Path)
     parser.add_argument("--repo", required=True)
     parser.add_argument("--run-url", required=True)
     parser.add_argument("--apply", action="store_true")
@@ -172,7 +160,7 @@ def main():
         help="Write read-only triage JSON and Markdown to a new directory",
     )
     args = parser.parse_args()
-    candidates = reports(args.junit, args.run_url)
+    candidates = reports(args.report, args.run_url)
     if args.triage_output:
         if args.apply:
             parser.error(
@@ -182,18 +170,14 @@ def main():
             candidates, lookup_issues(args.repo) if candidates else [], args.run_url
         )
         summary["lane"] = args.lane
-        cases = list(ET.parse(args.junit).iter("testcase"))
-        summary["junit"] = {
-            "failures": sum(case.find("failure") is not None for case in cases),
-            "errors": sum(case.find("error") is not None for case in cases),
-            "skipped": sum(case.find("skipped") is not None for case in cases),
+        run = read_run(args.report)
+        summary["pytest"] = {
+            **run.counts(),
+            "collection_errors": len(run.collection_errors),
+            "complete": run.complete,
             "contract_probes": sum(
-                case.find("failure") is not None
-                and any(
-                    prop.get("name") == "contract_probe" and prop.get("value") == "true"
-                    for prop in case.findall("./properties/property")
-                )
-                for case in cases
+                case.contract_probe and case.outcome == Outcome.FAILED
+                for case in run.cases
             ),
         }
         args.triage_output.mkdir(parents=True, exist_ok=False)

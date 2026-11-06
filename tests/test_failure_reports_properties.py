@@ -2,13 +2,11 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Generated failure messages must not break issue identity or XML extraction."""
+"""Failure content cannot alter stable identities or create issue fanout."""
 
 import json
-import runpy
 import subprocess
 import sys
-import xml.etree.ElementTree as ET
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -16,85 +14,78 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-reporter = runpy.run_path(
-    Path(__file__).resolve().parents[3] / "scripts" / "file_property_failures.py"
-)
-reports = reporter["reports"]
+from samudra.test_utils import triage
+from samudra.test_utils.reports import Outcome, read_run
+from tests.report_log_fixtures import events, write_log
 
-xml_text = st.text(
-    alphabet=st.characters(exclude_categories=("Cs", "Cc", "Cn")), max_size=128
-)
-xml_text = st.one_of(xml_text, st.sampled_from(["\u2028", "\u2029", "```\n$()`", ""]))
+reports = triage.reports
+failure_text = st.text(max_size=128)
 
 
-@given(st.lists(xml_text, min_size=1, max_size=10))
+@given(st.lists(failure_text, min_size=1, max_size=10))
 def test_different_counterexamples_for_one_property_create_one_issue(messages):
-    suite = ET.Element("testsuite")
-    for message in messages:
-        case = ET.SubElement(suite, "testcase", classname="suite", name="property")
-        ET.SubElement(case, "failure").text = message
     with TemporaryDirectory() as directory:
-        path = Path(directory) / "junit.xml"
-        ET.ElementTree(suite).write(path, encoding="utf-8")
-        actual = reports(path, "https://example.com/run/1")
-        assert len(actual) == 1
-        # Failure content and run URL must not change the deduplication identity.
-        assert actual.keys() == reports(path, "https://example.com/run/2").keys()
-        assert messages[-1] == "\n".join(
-            line[4:]
-            for line in next(iter(actual.values()))["body"].split("\n")
-            if line.startswith("    ")
-        )
+        path = Path(directory) / "pytest.jsonl"
+        identities = []
+        for message in messages:
+            write_log(path, events(message=message))
+            actual = reports(path, "https://example.com/run/1")
+            assert len(actual) == 1
+            identities.append(set(actual))
+            assert actual.keys() == reports(path, "https://example.com/run/2").keys()
+            assert message == "\n".join(
+                line[4:]
+                for line in next(iter(actual.values()))["body"].split("\n")
+                if line.startswith("    ")
+            )
+        assert all(identity == identities[0] for identity in identities)
 
 
 @given(st.text(alphabet="abc012", min_size=1, max_size=12))
-def test_suite_namespaces_prevent_collisions_and_preserve_data_fingerprints(name):
+def test_suite_namespaces_prevent_collisions(name):
     with TemporaryDirectory() as directory:
-        path = Path(directory) / "junit.xml"
-        suite = ET.Element("testsuite")
-        case = ET.SubElement(
-            suite, "testcase", classname="tests.property.module", name=name
-        )
-        ET.SubElement(case, "failure").text = "same name, independent projects"
-        ET.ElementTree(suite).write(path)
-        legacy = reports(path, "https://example.com/run")
-        prop = ET.SubElement(
-            ET.SubElement(case, "properties"),
-            "property",
-            name="verification_suite",
-            value="data",
-        )
-        ET.ElementTree(suite).write(path)
-        assert reports(path, "https://example.com/run").keys() == legacy.keys()
-        prop.set("value", "samudra")
-        ET.ElementTree(suite).write(path)
-        assert reports(path, "https://example.com/run").keys().isdisjoint(legacy.keys())
+        path = Path(directory) / "pytest.jsonl"
+        write_log(path, events(nodeid=name, suite="data"))
+        data = reports(path, "https://example.com/run")
+        write_log(path, events(nodeid=name, suite="samudra"))
+        assert reports(path, "https://example.com/run").keys().isdisjoint(data.keys())
 
 
 @given(
-    st.lists(
-        st.sampled_from(["error", "skipped", "pass", "contract_probe"]), max_size=10
-    )
+    st.sampled_from(["setup", "call", "teardown"]),
+    st.sampled_from(["passed", "failed", "skipped"]),
+    st.booleans(),
 )
-def test_environment_errors_and_skips_do_not_file_product_bugs(outcomes):
-    suite = ET.Element("testsuite")
-    for index, outcome in enumerate(outcomes):
-        case = ET.SubElement(suite, "testcase", classname="suite", name=str(index))
-        if outcome == "contract_probe":
-            properties = ET.SubElement(case, "properties")
-            ET.SubElement(properties, "property", name="contract_probe", value="true")
-            ET.SubElement(case, "failure").text = "unsettled contract"
-        elif outcome != "pass":
-            ET.SubElement(case, outcome).text = "runner or collection failure"
+def test_phase_failures_have_one_shared_classification(phase, outcome, probe):
     with TemporaryDirectory() as directory:
-        path = Path(directory) / "junit.xml"
-        ET.ElementTree(suite).write(path, encoding="utf-8")
-        assert reports(path, "https://example.com/run/1") == {}
+        path = Path(directory) / "pytest.jsonl"
+        trace = events(outcome="passed", probe=probe)
+        next(event for event in trace if event["when"] == phase)["outcome"] = outcome
+        write_log(path, trace, exitcode=int(outcome == "failed"))
+        run = read_run(path)
+        expected = (
+            Outcome.ERROR
+            if outcome == "failed" and phase != "call"
+            else Outcome(outcome)
+        )
+        assert run.cases[0].outcome == expected
+        assert bool(reports(path, "https://example.com/run")) == (
+            expected == Outcome.FAILED and not probe
+        )
+
+
+@given(st.integers(0, 3))
+def test_interrupted_streams_never_create_product_reports(completed_phases):
+    with TemporaryDirectory() as directory:
+        path = Path(directory) / "pytest.jsonl"
+        write_log(path, events()[:completed_phases], exitcode=None)
+        assert not read_run(path).complete
+        assert reports(path, "https://example.com/run") == {}
 
 
 @given(
     st.lists(st.sampled_from(["absent", "open", "closed", "pull_request"]), max_size=8),
-    xml_text,
+    failure_text,
 )
 def test_issue_filing_is_idempotent_across_paginated_open_and_closed_issues(
     states, message
@@ -130,14 +121,14 @@ def test_issue_filing_is_idempotent_across_paginated_open_and_closed_issues(
         issues.append({"body": input, "state": "open"})
         return "https://example.com/new-issue"
 
-    reporter["file_new_reports"](candidates, "owner/repo", invoke=fake_gh)
+    triage.file_new_reports(candidates, "owner/repo", invoke=fake_gh)
     assert created == [
         report
         for report, state in zip(candidates.values(), states)
         if state in ("absent", "pull_request")
     ]
     original_count = len(created)
-    reporter["file_new_reports"](candidates, "owner/repo", invoke=fake_gh)
+    triage.file_new_reports(candidates, "owner/repo", invoke=fake_gh)
     assert len(created) == original_count
 
 
@@ -151,14 +142,15 @@ def test_issue_filing_is_idempotent_across_paginated_open_and_closed_issues(
 def test_read_only_triage_keeps_every_recurrence_without_issue_fanout(states):
     with TemporaryDirectory() as directory, pytest.MonkeyPatch.context() as patch:
         root = Path(directory)
-        suite = ET.Element("testsuite")
-        for index in range(len(states)):
-            case = ET.SubElement(
-                suite, "testcase", classname="suite", name=f"property_{index}"
-            )
-            ET.SubElement(case, "failure").text = "shared backend exception"
-        path = root / "junit.xml"
-        ET.ElementTree(suite).write(path)
+        path = root / "pytest.jsonl"
+        write_log(
+            path,
+            [
+                event
+                for index in range(len(states))
+                for event in events(f"test_subject.py::property_{index}")
+            ],
+        )
         candidates = reports(path, "https://example.com/run")
         existing = []
         for index, (marker, state) in enumerate(zip(candidates, states), start=1):
@@ -193,7 +185,7 @@ def test_read_only_triage_keeps_every_recurrence_without_issue_fanout(states):
                 str(root / "triage"),
             ],
         )
-        reporter["main"]()
+        triage.main()
         summary = json.loads((root / "triage" / "summary.json").read_text())
         assert summary["total"] == len(states)
         assert summary["new"] == sum(

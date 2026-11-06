@@ -25,6 +25,7 @@ class LossFnWithContext(Protocol):
 
 LossMetric = Literal[
     "mse",
+    "legacy_mse",
     "mae",
     "mse_mae",
     "mse_diff_weighted",
@@ -34,6 +35,8 @@ LossMetric = Literal[
 def loss_fn_from_metric(metric: LossMetric) -> LossFnWithContext:
     match metric:
         case "mse":
+            return wet_cell_mse
+        case "legacy_mse":
             loss_fn: LossFn = decomposed_mse
         case "mae":
             loss_fn = decomposed_mae
@@ -57,8 +60,29 @@ def loss_fn_from_metric(metric: LossMetric) -> LossFnWithContext:
     return loss_fn_with_ctx
 
 
+def wet_cell_mse(
+    pred: torch.Tensor, target: torch.Tensor, ctx: BatchGrid
+) -> torch.Tensor:
+    """Per-channel MSE over wet batch/grid entries, with no cell-area weighting.
+
+    All-dry channels return zero with zero gradients. Mask before subtraction
+    so nonfinite land values cannot contaminate the loss or its gradients.
+    Accumulate low-precision inputs in float32 to avoid overflowing cell counts
+    or squared-error sums on large grids.
+    """
+    wet = torch.broadcast_to(
+        ctx.label_mask.to(device=pred.device, dtype=torch.bool), pred.shape
+    )
+    dtype = torch.promote_types(
+        torch.promote_types(pred.dtype, target.dtype), torch.float32
+    )
+    error = pred.to(dtype).masked_fill(~wet, 0) - target.to(dtype).masked_fill(~wet, 0)
+    count = wet.sum(dim=(0, 2, 3)).clamp_min(1)
+    return error.square().sum(dim=(0, 2, 3)) / count
+
+
 def decomposed_mse(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-    """Standard MSE loss (l2) computed per channel."""
+    """Unmasked per-channel MSE; legacy_mse uses this after zeroing land."""
     return F.mse_loss(pred, target, reduction="none").mean(dim=(0, 2, 3))
 
 

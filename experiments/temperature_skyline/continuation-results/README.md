@@ -84,8 +84,7 @@ This is one continuation per objective. More exposure, coverage sampling,
 effective batch, a fresh optimizer schedule, and EMA changed together relative
 to the initial runs, so the improvement cannot be assigned to sampling alone.
 The same-update raw/EMA comparison isolates the choice of saved weights within
-these trajectories. Validation results do not establish held-out calibration
-or how well classifier surprise detects Samudra errors; those require the
-separate, fixed 2015-calibration/2016-assessment map protocol. Fresh inference
-with both selected EMA checkpoints is queued as Torch job 22009444; held-out
-results are not yet available.
+these trajectories. Fresh inference with both selected EMA checkpoints completed as Torch job
+22009444 using the fixed 2015-calibration/2016-assessment protocol. The
+[held-out map and confidence report](../maps-continuation/README.md) contains
+the updated global and regional figures, matched scores, and calibration limits.

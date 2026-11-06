@@ -1,7 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Samudra Authors
 # SPDX-License-Identifier: Apache-2.0
-"""Summarize the pinned initial-checkpoint map assessment, without refitting."""
+"""Summarize a pinned checkpoint map assessment, without refitting."""
 
+import argparse
 import gzip
 import json
 from pathlib import Path
@@ -12,7 +13,11 @@ import numpy as np
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-root = Path(__file__).parent
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("--output-root", type=Path, default=Path(__file__).parent)
+parser.add_argument("--weights-label", default="Initial raw checkpoints")
+args = parser.parse_args()
+root = args.output_root
 report = json.loads(gzip.decompress((root / "report/summary.json.gz").read_bytes()))
 rows = [r for r in report["assessment"] if r["region"] == "Global"]
 std = np.array(report["receipt"]["source"]["std"])[38:57]
@@ -121,7 +126,7 @@ axes[2].legend(fontsize=8)
 for ax in axes:
     ax.grid(alpha=0.2)
 fig.suptitle(
-    "Initial raw checkpoints · +5-day temperature · OM4 model reference", fontsize=13
+    args.weights_label + " · +5-day temperature · OM4 model reference", fontsize=13
 )
 fig.savefig(root / "assessment-summary.png", dpi=150)
 plt.close(fig)

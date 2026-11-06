@@ -9,6 +9,7 @@ use batch, time, channel, latitude (height) and longitude (width) axes in that o
 """
 
 from collections.abc import Callable, Sequence
+from contextlib import nullcontext
 from functools import partial
 from typing import Literal, NamedTuple, ParamSpec, Self, cast
 
@@ -71,17 +72,25 @@ class SurfaceInitializedConfig(BaseConfig):
 
     backbone: UNetBackboneConfig
     pad: Padding = "circular"
+    initializer_backbone: UNetBackboneConfig | None = None
+    evolution_backbone: UNetBackboneConfig | None = None
+    forcing_mode: Literal["native", "shared_era5"] = "native"
+    output_kernel_size: Literal[1, 3] = 1
     activation_checkpointing: bool = True
 
     @model_validator(mode="after")
     def valid_backbone(self) -> Self:
-        cfg = self.backbone
-        if not cfg.ch_width or any(width <= 0 for width in cfg.ch_width):
-            raise ValueError("U-Net widths must be positive")
-        if not len(cfg.ch_width) == len(cfg.dilation) == len(cfg.n_layers):
-            raise ValueError("Backbone widths, dilations and layer counts must align")
-        if any(value <= 0 for value in (*cfg.dilation, *cfg.n_layers)):
-            raise ValueError("Backbone dilations and layer counts must be positive")
+        for cfg in (self.backbone, self.initializer_backbone, self.evolution_backbone):
+            if cfg is None:
+                continue
+            if not cfg.ch_width or any(width <= 0 for width in cfg.ch_width):
+                raise ValueError("U-Net widths must be positive")
+            if not len(cfg.ch_width) == len(cfg.dilation) == len(cfg.n_layers):
+                raise ValueError(
+                    "Backbone widths, dilations and layer counts must align"
+                )
+            if any(value <= 0 for value in (*cfg.dilation, *cfg.n_layers)):
+                raise ValueError("Backbone dilations and layer counts must be positive")
         return self
 
     def build(self, names: Sequence[str]) -> "SurfaceInitializedModel":
@@ -89,16 +98,50 @@ class SurfaceInitializedConfig(BaseConfig):
             names,
             backbone=self.backbone,
             pad=self.pad,
+            initializer_backbone=self.initializer_backbone,
+            evolution_backbone=self.evolution_backbone,
+            forcing_mode=self.forcing_mode,
+            output_kernel_size=self.output_kernel_size,
             activation_checkpointing=self.activation_checkpointing,
         )
 
 
+class PhysicalReadout(nn.Module):
+    """Samudra's zonal/meridional padding and float32 physical output head."""
+
+    def __init__(
+        self, inputs: int, outputs: int, kernel_size: int, pad: Padding
+    ) -> None:
+        super().__init__()
+        self.pad = pad
+        self.padding = kernel_size // 2
+        self.conv = nn.Conv2d(inputs, outputs, kernel_size)
+
+    def forward(
+        self, values: Float[Tensor, "batch channels height width"]
+    ) -> Float[Tensor, "batch outputs height width"]:
+        p = self.padding
+        values = F.pad(values, (p, p, 0, 0), mode=self.pad)
+        values = F.pad(values, (0, 0, p, p), mode="constant")
+        with torch.autocast(values.device.type, enabled=False):
+            return self.conv(values.float())
+
+
 def make_unet(
-    inputs: int, outputs: int, config: UNetBackboneConfig, pad: Padding
+    inputs: int,
+    outputs: int,
+    config: UNetBackboneConfig,
+    pad: Padding,
+    kernel_size: int = 1,
 ) -> nn.Sequential:
     """Build a shared U-Net followed by a physical-channel projection."""
     backbone = config.build(inputs, pad=pad, checkpointing=None)
-    return nn.Sequential(backbone, nn.Conv2d(config.ch_width[0], outputs, 1))
+    head = (
+        nn.Conv2d(config.ch_width[0], outputs, 1)
+        if kernel_size == 1
+        else PhysicalReadout(config.ch_width[0], outputs, kernel_size, pad)
+    )
+    return nn.Sequential(backbone, head)
 
 
 def identity_adapters(channels: int) -> nn.ModuleDict:
@@ -158,15 +201,22 @@ class HistoryInitializer(nn.Module):
     history = HISTORY_STEPS
 
     def __init__(
-        self, names: Sequence[str], backbone: UNetBackboneConfig, pad: Padding
+        self,
+        names: Sequence[str],
+        backbone: UNetBackboneConfig,
+        pad: Padding,
+        forcing_channels: int = MODEL_FORCING_CHANNELS,
+        kernel_size: int = 1,
     ) -> None:
         super().__init__()
         self.channels = len(names)
         self.surface = [names.index(name) for name in SURFACE_NAMES]
         # Per step: measured surfaces, their validity, and physical forcing.
-        history_channels = 2 * len(SURFACE_NAMES) + MODEL_FORCING_CHANNELS
+        history_channels = 2 * len(SURFACE_NAMES) + forcing_channels
         inputs = self.history * history_channels + CONTEXT_CHANNELS
-        self.net = make_unet(inputs, STATE_HISTORY_STEPS * self.channels, backbone, pad)
+        self.net = make_unet(
+            inputs, STATE_HISTORY_STEPS * self.channels, backbone, pad, kernel_size
+        )
         self.input_adapters = identity_adapters(inputs)
 
     def forward(
@@ -218,15 +268,18 @@ class Evolution(nn.Module):
     input_adapters: nn.ModuleDict
 
     def __init__(
-        self, channels: int, backbone: UNetBackboneConfig, pad: Padding
+        self,
+        channels: int,
+        backbone: UNetBackboneConfig,
+        pad: Padding,
+        forcing_channels: int = MODEL_FORCING_CHANNELS,
+        kernel_size: int = 1,
     ) -> None:
         super().__init__()
-        inputs = (
-            STATE_HISTORY_STEPS * channels + CONTEXT_CHANNELS + MODEL_FORCING_CHANNELS
-        )
+        inputs = STATE_HISTORY_STEPS * channels + CONTEXT_CHANNELS + forcing_channels
         self.geometry = nn.Conv2d(GEOMETRY_CHANNELS, inputs, 1, bias=False)
         nn.init.zeros_(self.geometry.weight)
-        self.net = make_unet(inputs, channels, backbone, pad)
+        self.net = make_unet(inputs, channels, backbone, pad, kernel_size)
         # Input adapters are attached after the atmospheric forcing adapter.
 
     def forward(
@@ -247,6 +300,8 @@ class Evolution(nn.Module):
 class SurfaceInitializedModel(nn.Module):
     """Surface-initialized model; OM4 and CM4 share the ``om4-family`` adapter."""
 
+    adapter: nn.Module
+
     def __init__(
         self,
         names: Sequence[str],
@@ -254,6 +309,10 @@ class SurfaceInitializedModel(nn.Module):
         backbone: UNetBackboneConfig,
         pad: Padding = "circular",
         activation_checkpointing: bool = True,
+        initializer_backbone: UNetBackboneConfig | None = None,
+        evolution_backbone: UNetBackboneConfig | None = None,
+        forcing_mode: Literal["native", "shared_era5"] = "native",
+        output_kernel_size: Literal[1, 3] = 1,
     ) -> None:
         super().__init__()
         self.names = tuple(names)
@@ -261,22 +320,53 @@ class SurfaceInitializedModel(nn.Module):
             backbone=backbone,
             pad=pad,
             activation_checkpointing=activation_checkpointing,
+            initializer_backbone=initializer_backbone,
+            evolution_backbone=evolution_backbone,
+            forcing_mode=forcing_mode,
+            output_kernel_size=output_kernel_size,
         )
-        self.initializer = HistoryInitializer(names, config.backbone, config.pad)
-        self.evolution = Evolution(len(names), config.backbone, config.pad)
-        self.adapter = nn.Sequential(
-            nn.Conv2d(OBSERVATION_FORCING_CHANNELS, ERA5_ADAPTER_WIDTH, 1),
-            nn.GELU(),
-            nn.Conv2d(ERA5_ADAPTER_WIDTH, MODEL_FORCING_CHANNELS, 1),
+        self.forcing_mode = forcing_mode
+        forcing_channels = (
+            OBSERVATION_FORCING_CHANNELS
+            if forcing_mode == "shared_era5"
+            else MODEL_FORCING_CHANNELS
         )
-        final = self.adapter[-1]
-        assert isinstance(final, nn.Conv2d) and final.bias is not None
-        nn.init.zeros_(final.weight)
-        nn.init.zeros_(final.bias)
-        evolution_inputs = (
-            STATE_HISTORY_STEPS * len(names) + CONTEXT_CHANNELS + MODEL_FORCING_CHANNELS
+        # Independently configured initializers must not change processor weights
+        # or subsequent data RNG streams when their width changes.
+        with (
+            torch.random.fork_rng(devices=[])
+            if initializer_backbone is not None
+            else nullcontext()
+        ):
+            self.initializer = HistoryInitializer(
+                names,
+                initializer_backbone or config.backbone,
+                config.pad,
+                forcing_channels,
+                output_kernel_size,
+            )
+        self.evolution = Evolution(
+            len(names),
+            evolution_backbone or config.backbone,
+            config.pad,
+            forcing_channels,
+            output_kernel_size,
         )
-        self.evolution.input_adapters = identity_adapters(evolution_inputs)
+        if forcing_mode == "shared_era5":
+            self.adapter = nn.Identity()
+        else:
+            self.adapter = nn.Sequential(
+                nn.Conv2d(OBSERVATION_FORCING_CHANNELS, ERA5_ADAPTER_WIDTH, 1),
+                nn.GELU(),
+                nn.Conv2d(ERA5_ADAPTER_WIDTH, MODEL_FORCING_CHANNELS, 1),
+            )
+            final = self.adapter[-1]
+            assert isinstance(final, nn.Conv2d) and final.bias is not None
+            nn.init.zeros_(final.weight)
+            nn.init.zeros_(final.bias)
+        self.evolution.input_adapters = identity_adapters(
+            STATE_HISTORY_STEPS * len(names) + CONTEXT_CHANNELS + forcing_channels
+        )
         self.activation_checkpointing = activation_checkpointing
 
     def call(
@@ -295,6 +385,8 @@ class SurfaceInitializedModel(nn.Module):
 
     def adapt(self, atmosphere: ForcingHistory) -> ForcingHistory:
         """Map ERA5 channels to model wind stress and surface heat-flux channels."""
+        if self.forcing_mode == "shared_era5":
+            return atmosphere
         b, t, _, h, w = atmosphere.shape
         return self.adapter(
             atmosphere.reshape(b * t, OBSERVATION_FORCING_CHANNELS, h, w)
@@ -305,12 +397,16 @@ class SurfaceInitializedModel(nn.Module):
             raise ValueError(f"Task must be one of {MODEL_TASKS}")
         expected = (
             OBSERVATION_FORCING_CHANNELS
-            if task == "observation"
+            if task == "observation" or self.forcing_mode == "shared_era5"
             else MODEL_FORCING_CHANNELS
         )
         if values.ndim != 5 or values.shape[2] != expected:
             raise ValueError(f"{task} forcing requires {expected} channels")
-        return self.adapt(values) if task == "observation" else values
+        return (
+            self.adapt(values)
+            if task == "observation" and self.forcing_mode == "native"
+            else values
+        )
 
     def initialize(
         self,

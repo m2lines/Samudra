@@ -122,14 +122,23 @@ class ObservationArchive:
             np.stack([self.day(product, str(day.date())) for day in dates])
         )
 
+    def read_intervals(
+        self, starts: pd.DatetimeIndex, ends: pd.DatetimeIndex
+    ) -> dict[str, NDArray]:
+        """Read aligned products together; native archives override this in bulk."""
+        return {
+            product: np.stack(
+                [
+                    self.interval(product, a, b)
+                    for a, b in zip(starts, ends, strict=True)
+                ]
+            )
+            for product in ("sst", "adt", "era5")
+        }
+
     def sample(self, month: str | pd.Timestamp) -> RawSample:
         starts, ends, month_weights = month_intervals(month)
-        surface, atmosphere, velocity = [], [], []
-        for start, end in zip(starts, ends, strict=True):
-            adt = self.interval("adt", start, end)
-            surface.append(np.concatenate([self.interval("sst", start, end), adt[:1]]))
-            velocity.append(adt[1:])
-            atmosphere.append(self.interval("era5", start, end))
+        values = self.read_intervals(starts, ends)
         stamp = pd.Timestamp(month)
         with np.load(
             self.root / "iap" / str(stamp.year) / (stamp.strftime("%Y-%m") + ".npz")
@@ -137,9 +146,9 @@ class ObservationArchive:
             interior = saved["values"]
             ohc = saved["ohc"]
         return RawSample(
-            surface=np.stack(surface),
-            atmosphere=np.stack(atmosphere),
-            velocity=np.stack(velocity),
+            surface=np.concatenate([values["sst"], values["adt"][:, :1]], axis=1),
+            atmosphere=values["era5"],
+            velocity=values["adt"][:, 1:],
             interior=interior,
             ohc=ohc,
             month_weights=month_weights,
@@ -336,12 +345,7 @@ def trajectory(
         freq=f"{STEP_DAYS}D",
     )
     ends = starts + pd.Timedelta(days=STEP_DAYS)
-    surface, atmosphere, velocity = [], [], []
-    for a, b in zip(starts, ends, strict=True):
-        adt = archive.interval("adt", a, b)
-        surface.append(np.concatenate([archive.interval("sst", a, b), adt[:1]]))
-        atmosphere.append(archive.interval("era5", a, b))
-        velocity.append(adt[1:])
+    values = archive.read_intervals(starts, ends)
     months, weights, interiors, ohcs = [], [], [], []
     for month in pd.period_range(first, last - pd.Timedelta(days=1), freq="M"):
         a, b = month.start_time, (month + 1).start_time
@@ -360,9 +364,9 @@ def trajectory(
     if not months:
         raise ValueError("Trajectory contains no complete monthly target")
     return RawSample(
-        surface=np.stack(surface),
-        atmosphere=np.stack(atmosphere),
-        velocity=np.stack(velocity),
+        surface=np.concatenate([values["sst"], values["adt"][:, :1]], axis=1),
+        atmosphere=values["era5"],
+        velocity=values["adt"][:, 1:],
         interior=interiors[0],
         ohc=ohcs[0],
         month_weights=weights[0],

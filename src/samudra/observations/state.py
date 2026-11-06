@@ -13,11 +13,12 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import torch
 
-from samudra.observations.replay import ReplayPool
+from samudra.observations.replay import ReplayEntry, ReplayPool
 from samudra.utils.ema import EMATracker
 
 if TYPE_CHECKING:
     from samudra.observations.config import ObservationTrainConfig
+    from samudra.observations.pipeline import UpdatePlan
 
 
 def atomic_save(value: object, path: str | Path) -> None:
@@ -68,6 +69,9 @@ class TrainingState[ModelT: torch.nn.Module]:
         self.scheduler: torch.optim.lr_scheduler.LRScheduler | None = None
         self.build_scheduler()
         self.best_score = float("inf")
+        self.pending_plan: UpdatePlan | None = None
+        self.replan_pool_entries: dict[str, dict[int, list[ReplayEntry]]] | None = None
+        self.rank_rng: Any = None
         self.exposure = {
             name: {"updates": 0, "fresh": 0, "replay": 0} for name in sources
         }
@@ -112,20 +116,55 @@ class TrainingState[ModelT: torch.nn.Module]:
                 "exposure": self.exposure,
                 "sampler_rng": self.rng.bit_generator.state,
                 "pools": {name: pool.state_dict() for name, pool in self.pools.items()},
+                "pending_plan": self.pending_plan,
+                "replan_pool_entries": self.replan_pool_entries,
+                "rank_rng": self.rank_rng,
                 "python_rng": random.getstate(),
                 "numpy_rng": np.random.get_state(),
                 "torch_rng": torch.get_rng_state(),
-                "cuda_rng": torch.cuda.get_rng_state_all()
+                "cuda_rng": [torch.cuda.get_rng_state()]
                 if torch.cuda.is_available()
                 else [],
+                "cuda_rng_scope": "current",
             },
             path,
         )
 
-    def restore(self, path: str | Path, manifest: dict[str, Any]) -> None:
+    def restore(
+        self, path: str | Path, manifest: dict[str, Any], *, fork: bool = False
+    ) -> None:
         # Only load trusted, locally produced checkpoints (optimizer/RNG objects).
         saved = torch.load(path, map_location="cpu", weights_only=False)
-        if saved["manifest"] != manifest:
+        parent, current = saved["manifest"], manifest
+        if fork:
+            if (
+                saved["scheduler"] is not None
+                and parent["config"]["main_updates"]
+                != current["config"]["main_updates"]
+            ):
+                raise ValueError(
+                    "Changing the main scheduler horizon on a checkpoint fork is unsupported"
+                )
+            # Forks may only change the duration and snapshot schedule. Data,
+            # architecture, optimizer, sources, loss and code remain identical.
+            import copy
+
+            parent, current = copy.deepcopy(parent), copy.deepcopy(current)
+            for item in (parent, current):
+                for key in (
+                    "main_updates",
+                    "post_training_updates",
+                    "milestone_updates",
+                ):
+                    item["config"].pop(key, None)
+            if (
+                saved["in_post_training"]
+                or saved["updates"] > manifest["config"]["main_updates"]
+            ):
+                raise ValueError(
+                    "Fork requires an uncooled checkpoint before the new main endpoint"
+                )
+        if parent != current:
             raise ValueError("Checkpoint code/data/recipe manifest differs")
         if set(saved["pools"]) != set(self.pools):
             raise ValueError("Checkpoint source mixture differs")
@@ -147,13 +186,42 @@ class TrainingState[ModelT: torch.nn.Module]:
         self.ema = EMATracker.from_state(saved["ema"], self.model)
         for key in ("updates", "in_post_training", "best_score", "exposure"):
             setattr(self, key, saved[key])
+        if fork:
+            self.best_score = float("inf")
         for name, pool in self.pools.items():
             pool.load_state_dict(saved["pools"][name])
+        self.pending_plan = saved.get("pending_plan")
+        replan = (
+            fork
+            and self.pending_plan is not None
+            and self.config is not None
+            and self.pending_plan["source"] != self.config.source_at(self.updates)
+        )
+        self.replan_pool_entries = saved.get("replan_pool_entries")
+        if replan:
+            assert self.pending_plan is not None
+            self.replan_pool_entries = self.pending_plan["pool_entries_before"]
+            saved["sampler_rng"] = self.pending_plan["sampler_rng_before"]
+            for name, rng in self.pending_plan["pool_rng_before"].items():
+                self.pools[name].rng.bit_generator.state = rng
+            self.pending_plan = None
+        self.rank_rng = saved.get("rank_rng")
         self.rng.bit_generator.state = saved["sampler_rng"]
-        random.setstate(saved["python_rng"])
-        np.random.set_state(saved["numpy_rng"])
-        torch.set_rng_state(saved["torch_rng"])
-        if saved["cuda_rng"]:
+        rng = saved
+        if self.rank_rng is not None:
+            distributed = torch.distributed.is_initialized()
+            world_size = torch.distributed.get_world_size() if distributed else 1
+            rank = torch.distributed.get_rank() if distributed else 0
+            if len(self.rank_rng) != world_size:
+                raise ValueError("Checkpoint distributed world size differs")
+            rng = self.rank_rng[rank]
+        random.setstate(rng["python_rng"])
+        np.random.set_state(rng["numpy_rng"])
+        torch.set_rng_state(rng["torch_rng"])
+        if rng["cuda_rng"]:
             if not torch.cuda.is_available():
                 raise ValueError("CUDA checkpoint resume requires CUDA")
-            torch.cuda.set_rng_state_all(saved["cuda_rng"])
+            if rng.get("cuda_rng_scope") == "current":
+                torch.cuda.set_rng_state(rng["cuda_rng"][0])
+            else:
+                torch.cuda.set_rng_state_all(rng["cuda_rng"])

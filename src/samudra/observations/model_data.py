@@ -2,11 +2,13 @@
 # SPDX-License-Identifier: Apache-2.0
 """Native-calendar OM4/CM4 windows on the verified common Gaussian grid."""
 
+from __future__ import annotations
+
 import hashlib
 from collections.abc import Mapping, Sequence
 from datetime import timedelta
 from pathlib import Path
-from typing import Literal, NamedTuple, TypedDict
+from typing import TYPE_CHECKING, Literal, NamedTuple, TypedDict
 
 import cftime
 import numpy as np
@@ -26,6 +28,12 @@ from samudra.observations.constants import (
     TEMPERATURE_OFFSET,
 )
 from samudra.observations.intervals import CalendarDate, calendar_weights
+
+if TYPE_CHECKING:
+    from samudra.native_reader import PlaneReader
+    from samudra.observations.native_om4 import NativeOm4Planes
+    from samudra.observations.shared_era5 import SharedEra5
+    from samudra.rust_reader import RustIoRuntime
 
 
 class ContinuationLayout(TypedDict):
@@ -61,6 +69,31 @@ class ContinuationWindow(NamedTuple):
     duration: int
     origin_start: int
     next_start: int
+
+
+def normalize_physical_fields(
+    values: NDArray, mask: NDArray[np.bool_], mean: NDArray, std: NDArray
+) -> NDArray[np.float32]:
+    """Normalize an owned read buffer with the original NumPy rounding order.
+
+    Reuse storage when each operation preserves dtype. Avoid gathering all wet
+    values or allocating several full history/target arrays just to mask land.
+    """
+    if not np.all(np.isfinite(values), where=mask[None]):
+        raise ValueError("Nonfinite model target on declared wet support")
+    mean, std = mean[:, None, None], std[:, None, None]
+    shifted = np.subtract(
+        values,
+        mean,
+        out=values if np.result_type(values, mean) == values.dtype else None,
+    )
+    scaled = np.divide(
+        shifted,
+        std,
+        out=shifted if np.result_type(shifted, std) == shifted.dtype else None,
+    )
+    np.copyto(scaled, 0, where=~mask)
+    return scaled.astype(np.float32, copy=False)
 
 
 def calendar_context(
@@ -103,7 +136,10 @@ class ModelMonths:
         kind: Literal["om4", "cm4"],
         reference: Mapping[str, NDArray],
         om4_statistics: str | Path,
+        *,
+        runtime: RustIoRuntime | None = None,
     ) -> None:
+        self.era5: SharedEra5 | None = None
         if kind not in ("om4", "cm4"):
             raise ValueError(kind)
         self.kind = kind
@@ -116,6 +152,14 @@ class ModelMonths:
         if self.names != build_om4_layout().prognostic_var_names:
             raise ValueError("Unexpected physical channel order")
         z = self.store
+        self.planes: PlaneReader | NativeOm4Planes | None = None
+        if runtime is not None:
+            from samudra.native_reader import PhysicalVariable
+
+            if kind != "om4":
+                raise ValueError("Native observation training currently supports OM4")
+            self.physical_variables = [PhysicalVariable(n) for n in self.names]
+            self.planes = runtime.open(Path(path), self.physical_variables)
         lat = z["lat"][:, 0] if kind == "cm4" else z["y"][:]
         lon = z["lon"][0] if kind == "cm4" else z["x"][:]
         np.testing.assert_allclose(lat, reference["lat"], atol=1e-6, rtol=0)
@@ -328,7 +372,14 @@ class ModelMonths:
     ) -> ModelSample:
         interval = slice(start - HISTORY_STEPS, stop)
         z = self.store
-        if self.kind == "cm4":
+        if self.planes is not None:
+            values = np.empty(
+                (stop - start + 19, len(self.names), *self.mask.shape[-2:]), np.float32
+            )
+            self.planes.read_into(
+                list(range(start - 19, stop)), self.physical_variables, values
+            )
+        elif self.kind == "cm4":
             values = np.concatenate(
                 [z[v][interval] for v in MODEL_VARIABLES]
                 + [z["zos"][interval][:, None]],
@@ -336,23 +387,23 @@ class ModelMonths:
             )
         else:
             values = np.stack([z[n][interval] for n in self.names], axis=1)
-        if not np.isfinite(values[:, self.mask]).all():
-            raise ValueError("Nonfinite model target on declared wet support")
-        fields = np.where(
-            self.mask,
-            (values - self.grid["mean"][:, None, None])
-            / self.grid["std"][:, None, None],
-            0,
-        ).astype(np.float32)
-        forcing = np.stack([z[n][interval] for n in MODEL_FORCING_VARIABLES], axis=1)
-        if not np.isfinite(forcing[:, :, self.mask[TEMPERATURE_OFFSET]]).all():
-            raise ValueError("Nonfinite own-model forcing on wet support")
-        forcing = np.where(
-            self.mask[TEMPERATURE_OFFSET],
-            (forcing - self.forcing_mean[:, None, None])
-            / self.forcing_std[:, None, None],
-            0,
-        ).astype(np.float32)
+        fields = normalize_physical_fields(
+            values, self.mask, self.grid["mean"], self.grid["std"]
+        )
+        if self.era5 is not None:
+            forcing = self.era5.load(start - HISTORY_STEPS, stop)
+        else:
+            forcing = np.stack(
+                [z[n][interval] for n in MODEL_FORCING_VARIABLES], axis=1
+            )
+            if not np.isfinite(forcing[:, :, self.mask[TEMPERATURE_OFFSET]]).all():
+                raise ValueError("Nonfinite own-model forcing on wet support")
+            forcing = np.where(
+                self.mask[TEMPERATURE_OFFSET],
+                (forcing - self.forcing_mean[:, None, None])
+                / self.forcing_std[:, None, None],
+                0,
+            ).astype(np.float32)
 
         def tensor(value: ArrayLike) -> torch.Tensor:
             return torch.as_tensor(value, device=device)

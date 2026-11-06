@@ -303,3 +303,36 @@ def test_regional_padding_is_forwarded_to_both_backbones():
     assert output.predictions.shape[1] == 1
     assert output.initial_states.shape[1] == 2
     assert torch.isfinite(output.predictions).all()
+
+
+def test_direct_era5_preserves_all_fields_and_matches_processor_across_initializers():
+    def build(width):
+        torch.manual_seed(1729)
+        return SurfaceInitializedModel(
+            NAMES,
+            backbone=tiny_backbone(),
+            initializer_backbone=tiny_backbone().model_copy(
+                update={"ch_width": [width]}
+            ),
+            evolution_backbone=tiny_backbone(),
+            forcing_mode="shared_era5",
+            output_kernel_size=3,
+            activation_checkpointing=False,
+        )
+
+    small, large = build(4), build(8)
+    for key, value in small.evolution.state_dict().items():
+        torch.testing.assert_close(
+            value, large.evolution.state_dict()[key], rtol=0, atol=0
+        )
+    inputs = example()
+    assert small.forcing(inputs[1], "om4-family") is inputs[1]
+    assert small.forcing(inputs[1], "observation") is inputs[1]
+    assert isinstance(small.adapter, nn.Identity)
+    atmosphere = inputs[1].clone().requires_grad_()
+    forecast, _ = small.forecast(inputs[0], atmosphere, *inputs[2:], task="om4-family")
+    forecast.square().mean().backward()
+    assert atmosphere.grad is not None
+    assert (atmosphere.grad.abs().sum((0, 1, 3, 4)) > 0).all()
+    with pytest.raises(ValueError):
+        small.forcing(atmosphere[:, :, :3], "om4-family")

@@ -1,0 +1,150 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+# SPDX-License-Identifier: Apache-2.0
+backend: auto
+batch_size: 1
+post_training_updates: 1000
+data:
+  cm4: null
+  daily: obs/daily
+  era5_cache: obs/era5-cache
+  era5_proof_sha256: b03a6074110f245762fe00b680fa298c08039513d255a6715be1dddd8c41bc51  # pragma: allowlist secret (reference input checksum)
+  loading:
+    max_concurrent_reads: 8
+    prefetch_batches: 1
+    prefetch_to_device: true
+    type: rust
+  native_observations: obs/native-observations-v1
+  native_observations_proof_sha256: 72abd11ccb5cfdea532a5f024ad07c48719daec1021ac0b88c5e7e74c9065fee  # pragma: allowlist secret (reference input checksum)
+  native_om4: obs/native-om4-v1
+  native_om4_proof_sha256: fcae8e6573adad1dcfd125459ce0ee6b1152a0f32aa299bc7e70148e9965e5dc  # pragma: allowlist secret (reference input checksum)
+  normalization: obs/normalization
+  observations: obs/samples
+  om4: om4_onedeg_v3
+debug: false
+ema_decay: 0.9930924954370359
+experiment:
+  base_output_dir: .LOCAL
+  data_root: .
+  name: deterministic-mixed-large
+  rand_seed: 1729
+  search: null
+  wandb:
+    group: null
+    mode: disabled
+    notes: null
+    project: observational-transfer
+    tags: []
+faster_decay_at_start: false
+post_training_scheduler: {type: linear_cooldown, final_lr: 0.000001}
+fork_ckpt_path: null
+fresh_examples: 4
+gradient_accumulation_steps: 8
+gradient_clip: 1.0
+learning_rate: 0.0001
+loss:
+  completion: 0.1
+  monthly_ts: 0.5
+  reconstruction: 0.1
+  ssh: 0.25
+  sst: 0.25
+main_updates: 4000
+measure_timing: true
+milestone_updates:
+- 4000
+pretrain_mix: om4-obs
+model:
+  activation_checkpointing: true
+  backbone:
+    ch_width:
+    - 128
+    - 192
+    - 256
+    - 384
+    core_block:
+      activation: capped_gelu
+      block_type: conv_next_block
+      kernel_size: 3
+      norm: instance
+      instance_norm_affine: true
+      pointwise_linear: false
+      upscale_factor: 2
+    dilation:
+    - 1
+    - 2
+    - 4
+    - 8
+    down_sampling_block: avg_pool
+    drop_path_rate: 0.0
+    n_layers:
+    - 1
+    - 1
+    - 1
+    - 1
+    up_sampling_block: zonally_periodic_upsample
+  evolution_backbone:
+    ch_width:
+    - 280
+    - 380
+    - 480
+    - 520
+    core_block:
+      activation: capped_gelu
+      block_type: conv_next_block
+      kernel_size: 3
+      norm: instance
+      instance_norm_affine: true
+      pointwise_linear: false
+      upscale_factor: 2
+    dilation:
+    - 1
+    - 2
+    - 4
+    - 8
+    down_sampling_block: avg_pool
+    drop_path_rate: 0.0
+    n_layers:
+    - 1
+    - 1
+    - 1
+    - 1
+    up_sampling_block: zonally_periodic_upsample
+  forcing_mode: shared_era5
+  initializer_backbone:
+    ch_width:
+    - 280
+    - 380
+    - 480
+    - 520
+    core_block:
+      activation: capped_gelu
+      block_type: conv_next_block
+      kernel_size: 3
+      norm: instance
+      instance_norm_affine: true
+      pointwise_linear: false
+      upscale_factor: 2
+    dilation:
+    - 1
+    - 2
+    - 4
+    - 8
+    down_sampling_block: avg_pool
+    drop_path_rate: 0.0
+    n_layers:
+    - 1
+    - 1
+    - 1
+    - 1
+    up_sampling_block: zonally_periodic_upsample
+  output_kernel_size: 3
+prefetch_enabled: true
+replay:
+  max_age: 250
+  per_month: 2
+resume_ckpt_path: null
+save_freq: 25
+stop_after: null
+update_prefetch: true
+validation_freq: 250
+validation_origin: '2013-11-01'
+weight_decay: 0.01

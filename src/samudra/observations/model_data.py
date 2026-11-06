@@ -30,6 +30,8 @@ from samudra.observations.constants import (
 from samudra.observations.intervals import CalendarDate, calendar_weights
 
 if TYPE_CHECKING:
+    from samudra.native_reader import PlaneReader
+    from samudra.observations.native_om4 import NativeOm4Planes
     from samudra.observations.shared_era5 import SharedEra5
     from samudra.rust_reader import RustIoRuntime
 
@@ -150,7 +152,7 @@ class ModelMonths:
         if self.names != build_om4_layout().prognostic_var_names:
             raise ValueError("Unexpected physical channel order")
         z = self.store
-        self.planes = None
+        self.planes: PlaneReader | NativeOm4Planes | None = None
         if runtime is not None:
             from samudra.native_reader import PhysicalVariable
 

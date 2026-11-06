@@ -2,10 +2,20 @@
 # SPDX-License-Identifier: Apache-2.0
 """Lossless packed OM4 frames, indexed by the original native calendar."""
 
+from __future__ import annotations
+
 import hashlib
 import json
 import tempfile
+from collections.abc import Sequence
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+from numpy.typing import NDArray
+
+if TYPE_CHECKING:
+    from samudra.observations.model_data import ModelMonths
+    from samudra.rust_reader import RustIoRuntime
 
 import numpy as np
 import zarr  # type: ignore[import-untyped]
@@ -15,14 +25,22 @@ from samudra.native_reader import PhysicalVariable
 from samudra.observations.shared_era5 import digest, required_indices
 
 
-def interval_bounds(reader, indices):
+def interval_bounds(reader: ModelMonths, indices: Sequence[int]) -> list[list[str]]:
     return [[str(t) for t in reader.bounds[i]] for i in indices]
 
 
 class NativeOm4Planes:
     """Remap native time/channel selectors without changing ModelMonths windows."""
 
-    def __init__(self, cache, original, runtime, proof_sha256, *, verify_content=True):
+    def __init__(
+        self,
+        cache: str | Path,
+        original: ModelMonths,
+        runtime: RustIoRuntime,
+        proof_sha256: str,
+        *,
+        verify_content: bool = True,
+    ) -> None:
         cache = Path(cache)
         proof_path = cache / "COMPLETE.json"
         if digest(proof_path) != proof_sha256:
@@ -51,7 +69,12 @@ class NativeOm4Planes:
         if self.reader.shape != (len(indices), *original.mask.shape[-2:]):
             raise ValueError("Packed OM4 cache shape differs")
 
-    def read_into(self, indices, variables, output):
+    def read_into(
+        self,
+        indices: Sequence[int],
+        variables: Sequence[PhysicalVariable],
+        output: NDArray[np.float32],
+    ) -> None:
         if any(v.level is not None or v.name not in self.variables for v in variables):
             raise ValueError("Packed OM4 requires original flat physical channels")
         self.reader.read_into(
@@ -61,7 +84,12 @@ class NativeOm4Planes:
         )
 
 
-def prepare_native_om4(source, original, output, runtime):
+def prepare_native_om4(
+    source: str | Path,
+    original: ModelMonths,
+    output: str | Path,
+    runtime: RustIoRuntime,
+) -> None:
     """Pack every eligible frame; independently decode each with Python and Rust."""
     source, output = Path(source), Path(output)
     if output.exists():

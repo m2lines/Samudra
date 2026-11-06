@@ -16,6 +16,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import torch
@@ -24,12 +25,12 @@ import torch
 AUDITED_CODE_DIGEST = "322327bb942513ff11d1433064fb128a2897649878430b3fad2705b2718eb9b8"  # pragma: allowlist secret
 
 
-def digest(path):
+def digest(path: str | Path) -> str:
     with Path(path).open("rb") as stream:
         return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
-def equal_tree(left, right):
+def equal_tree(left: Any, right: Any) -> None:
     """Reject any loaded-payload difference, including tensor dtype and shape."""
     if type(left) is not type(right):
         raise ValueError("Payload types differ")
@@ -56,7 +57,7 @@ def equal_tree(left, right):
         raise ValueError("Payload values differ")
 
 
-def migrated_payload(saved, rank_map):
+def migrated_payload(saved: dict[str, Any], rank_map: list[int]) -> dict[str, Any]:
     """Return a shallow copy with only the rank_rng list replaced."""
     required = {
         "manifest",
@@ -139,7 +140,9 @@ def migrated_payload(saved, rank_map):
     return {**saved, "rank_rng": [old[i] for i in rank_map]}
 
 
-def migrate(source, output, rank_map):
+def migrate(
+    source: str | Path, output: str | Path, rank_map: list[int]
+) -> dict[str, Any]:
     source, output = Path(source), Path(output)
     sidecar = Path(str(output) + ".migration.json")
     if source.resolve() == output.resolve() or output.exists() or sidecar.exists():

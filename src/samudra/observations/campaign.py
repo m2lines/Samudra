@@ -17,7 +17,9 @@ ARMS = {
 }
 
 
-def screen_configs(base, *, qualification=False):
+def screen_configs(
+    base: ObservationTrainConfig, *, qualification: bool = False
+) -> dict[str, ObservationTrainConfig]:
     result = {}
     for name, (mix, large, fresh) in ARMS.items():
         values = base.model_dump(mode="json")
@@ -45,7 +47,7 @@ def screen_configs(base, *, qualification=False):
     return result
 
 
-def winner_configs(winner):
+def winner_configs(winner: ObservationTrainConfig) -> dict[str, ObservationTrainConfig]:
     """Continue the uncooled 4k state; branch isolated cooldowns at 8k and 12k.
 
     The screen already supplies the 4k cooldown. The main continuation finishes
@@ -79,7 +81,7 @@ def winner_configs(winner):
     return result
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("config", type=Path)
     parser.add_argument("output", type=Path)

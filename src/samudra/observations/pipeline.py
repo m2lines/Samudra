@@ -8,27 +8,88 @@ computing it, so data reads overlap compute without racing replay insertion.
 The pending plan is checkpointed; restoring never resamples the next update.
 """
 
+from __future__ import annotations
+
 import math
 import random
 import time
-from concurrent.futures import ThreadPoolExecutor
+from collections.abc import Callable, Mapping, Sequence
+from concurrent.futures import Future, ThreadPoolExecutor
 from contextlib import nullcontext
 from copy import deepcopy
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, TypedDict
 
 import numpy as np
 import torch
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel
 
+from samudra.models.surface_initialized import SurfaceInitializedModel
 from samudra.observations import training as baseline
+from samudra.observations.config import ObservationLossConfig, ObservationTrainConfig
 from samudra.observations.replay import ReplayEntry
-from samudra.observations.state import write_json
+from samudra.observations.sample_types import ForecastSample
+from samudra.observations.samples import Samples
+from samudra.observations.state import TrainingState, write_json
 from samudra.utils.device import autocast
 from samudra.utils.train import CheckpointPaths
 
 
-def plan_update(cfg, state, sources, update):
+class PlannedExample(TypedDict):
+    origin: str | int
+    month: int
+    coverage: str | int | None
+    seed: int
+    entry: ReplayEntry | None
+
+
+class UpdatePlan(TypedDict):
+    update: int
+    source: str
+    examples: list[PlannedExample]
+    sampler_rng_before: Mapping[str, Any]
+    pool_rng_before: dict[str, Mapping[str, Any]]
+    pool_entries_before: dict[str, dict[int, list[ReplayEntry]]]
+
+
+class ExampleMetadata(TypedDict):
+    origin: str | int
+    month: int
+    coverage: str | int | None
+    seed: int
+    cached_shape: tuple[int, ...] | None
+    cached_dtype: torch.dtype | None
+    start_lead: int
+    origin_update: int
+
+
+class UpdateMetadata(TypedDict):
+    update: int
+    source: str
+    examples: list[ExampleMetadata]
+
+
+class LocalExample(ExampleMetadata):
+    index: int
+    cached: torch.Tensor | None  # [batch, state_history, channel, y, x], on CPU
+
+
+class LoadedExample(TypedDict):
+    sample: ForecastSample
+    auxiliary: ForecastSample
+    coverage: torch.Tensor | None  # [batch, history+forecast, surface_channel, y, x]
+    cached: torch.Tensor | None  # [batch, state_history, physical_channel, y, x]
+    seed: int
+
+
+def plan_update(
+    cfg: ObservationTrainConfig,
+    state: TrainingState[SurfaceInitializedModel],
+    sources: baseline.Sources,
+    update: int,
+) -> UpdatePlan:
     """Advance only the global sampling RNG; never load data or run the model."""
     source = cfg.source_at(update)
     sampler_rng_before = deepcopy(state.rng.bit_generator.state)
@@ -36,11 +97,24 @@ def plan_update(cfg, state, sources, update):
         name: deepcopy(pool.rng.bit_generator.state)
         for name, pool in state.pools.items()
     }
-    examples = []
+    pool_entries_before = {
+        name: {month: list(entries) for month, entries in pool.entries.items()}
+        for name, pool in state.pools.items()
+    }
+    if state.replan_pool_entries is not None:
+        planning_pool = state.replan_pool_entries[source]
+    else:
+        planning_pool = pool_entries_before[source]
+    examples: list[PlannedExample] = []
     for index in range(cfg.gradient_accumulation_steps):
-        entry = (
-            state.pools[source].draw(update) if index >= cfg.fresh_examples else None
-        )
+        pool = state.pools[source]
+        committed_entries = pool.entries
+        try:
+            pool.entries = planning_pool
+            entry = pool.draw(update) if index >= cfg.fresh_examples else None
+            planning_pool = pool.entries
+        finally:
+            pool.entries = committed_entries
         origin = (
             sources.fresh_origin(source, state.rng) if entry is None else entry.origin
         )
@@ -54,33 +128,38 @@ def plan_update(cfg, state, sources, update):
                 "entry": entry,
             }
         )
+    state.replan_pool_entries = None
     return {
         "update": update,
         "source": source,
         "examples": examples,
         "sampler_rng_before": sampler_rng_before,
         "pool_rng_before": pool_rng_before,
+        "pool_entries_before": pool_entries_before,
     }
 
 
 class World:
     """Small metadata and CPU replay transfers, separate from DDP gradient traffic."""
 
-    def __init__(self, device):
+    def __init__(self, device: str | torch.device) -> None:
         self.device = torch.device(device)
         self.size = dist.get_world_size() if dist.is_initialized() else 1
         self.rank = dist.get_rank() if dist.is_initialized() else 0
         self.group = dist.new_group(backend="gloo") if self.size > 1 else None
 
-    def broadcast(self, value):
+    def broadcast[T](self, value: T) -> T:
         values = [value]
         if self.size > 1:
             dist.broadcast_object_list(values, src=0, group=self.group)
         return values[0]
 
-    def local_plan(self, plan):
-        metadata = None
+    def local_plan(
+        self, plan: UpdatePlan | None
+    ) -> tuple[UpdateMetadata, list[LocalExample]]:
+        metadata: UpdateMetadata | None = None
         if self.rank == 0:
+            assert plan is not None
             metadata = {
                 "update": plan["update"],
                 "source": plan["source"],
@@ -90,7 +169,10 @@ class World:
                 entry = example["entry"]
                 metadata["examples"].append(
                     {
-                        **{k: v for k, v in example.items() if k != "entry"},
+                        "origin": example["origin"],
+                        "month": example["month"],
+                        "coverage": example["coverage"],
+                        "seed": example["seed"],
                         "cached_shape": tuple(entry.states.shape)
                         if entry is not None
                         else None,
@@ -105,13 +187,17 @@ class World:
                 )
         metadata = self.broadcast(metadata)
         assert metadata is not None
-        local, sends, buffers = [], [], []
-        for index, example in enumerate(metadata["examples"]):
+        local: list[LocalExample] = []
+        sends, buffers = [], []
+        for index, metadata_example in enumerate(metadata["examples"]):
             owner = index % self.size
             cached = None
-            if example["cached_shape"] is not None:
+            if metadata_example["cached_shape"] is not None:
                 if self.rank == 0:
-                    cached = plan["examples"][index]["entry"].states.contiguous()
+                    assert plan is not None
+                    entry = plan["examples"][index]["entry"]
+                    assert entry is not None
+                    cached = entry.states.contiguous()
                     if owner != 0:
                         buffers.append(cached)
                         sends.append(
@@ -119,17 +205,18 @@ class World:
                         )
                 elif self.rank == owner:
                     cached = torch.empty(
-                        example["cached_shape"], dtype=example["cached_dtype"]
+                        metadata_example["cached_shape"],
+                        dtype=metadata_example["cached_dtype"],
                     )
                     dist.recv(cached, src=0, group=self.group, tag=index)
             if owner == self.rank:
-                local.append({**example, "index": index, "cached": cached})
+                local.append({**metadata_example, "index": index, "cached": cached})
         for send in sends:
             assert send is not None
             send.wait()
         return metadata, local
 
-    def gather_states(self, states):
+    def gather_states(self, states: list[torch.Tensor]) -> list[torch.Tensor] | None:
         local = torch.stack(states).detach().cpu().contiguous()
         if self.size == 1:
             return list(local)
@@ -147,7 +234,7 @@ class World:
             for i in range(len(states) * self.size)
         ]
 
-    def mean(self, metrics):
+    def mean(self, metrics: Mapping[str, torch.Tensor]) -> dict[str, float]:
         keys = sorted(metrics)
         values = torch.stack(
             [torch.as_tensor(metrics[k], device=self.device).float() for k in keys]
@@ -157,13 +244,13 @@ class World:
             values /= self.size
         return dict(zip(keys, values.cpu().tolist(), strict=True))
 
-    def maximum(self, values):
+    def maximum(self, values: Sequence[float]) -> list[float]:
         tensor = torch.tensor(values, dtype=torch.float64)
         if self.size > 1:
             dist.all_reduce(tensor, op=dist.ReduceOp.MAX, group=self.group)
         return tensor.tolist()
 
-    def capture_rng(self, state):
+    def capture_rng(self, state: TrainingState) -> None:
         rng = {
             "python_rng": random.getstate(),
             "numpy_rng": np.random.get_state(),
@@ -181,20 +268,24 @@ class World:
             if self.rank == 0:
                 state.rank_rng = result
 
-    def close(self):
+    def close(self) -> None:
         if self.group is not None:
             dist.destroy_process_group(self.group)
 
 
 @dataclass
 class LoadedUpdate:
-    examples: list
+    examples: list[LoadedExample]
     read_seconds: float
-    ready: object = None
-    host: object = None
+    ready: torch.cuda.Event | None = None
+    host: list[LoadedExample] | None = None
 
 
-def map_tensors(value, function, memo=None):
+def map_tensors(
+    value: Any,
+    function: Callable[[torch.Tensor], torch.Tensor | None],
+    memo: dict[int, torch.Tensor | None] | None = None,
+) -> Any:
     # The forecast and reconstruction often share the same sample, and forcing
     # has two dictionary aliases. Stage each tensor once per update.
     if memo is None:
@@ -225,7 +316,14 @@ def pin_host_tensor(tensor: torch.Tensor) -> torch.Tensor:
 class UpdateLoader:
     """One producer and one in-flight update per rank, including all auxiliary reads."""
 
-    def __init__(self, sources, device, *, enabled, to_device):
+    def __init__(
+        self,
+        sources: baseline.Sources,
+        device: str | torch.device,
+        *,
+        enabled: bool,
+        to_device: bool,
+    ) -> None:
         if torch.device(sources.obs.device).type != "cpu":
             raise ValueError("Background observation loading requires CPU sources")
         self.sources, self.device = sources, torch.device(device)
@@ -239,11 +337,12 @@ class UpdateLoader:
             if to_device and self.device.type == "cuda"
             else None
         )
-        self.future, self.request = None, None
+        self.future: Future[LoadedUpdate] | None = None
+        self.request: tuple[str, list[LocalExample]] | None = None
 
-    def read(self, source, plan):
+    def read(self, source: str, plan: list[LocalExample]) -> LoadedUpdate:
         started = time.perf_counter()
-        examples = []
+        examples: list[LoadedExample] = []
         for item in plan:
             sample = self.sources.load(source, item["origin"], item["month"])
             if (
@@ -254,11 +353,10 @@ class UpdateLoader:
             auxiliary = self.sources.auxiliary(
                 source, item["origin"], item["month"], sample
             )
-            coverage = (
-                self.sources.load("obs", item["coverage"])["validity"]
-                if source != "obs"
-                else None
-            )
+            coverage = None
+            if source != "obs":
+                assert item["coverage"] is not None
+                coverage = self.sources.load("obs", item["coverage"])["validity"]
             examples.append(
                 {
                     "sample": sample,
@@ -281,7 +379,7 @@ class UpdateLoader:
             result.host = host  # Hold pinned buffers until the ready event completes.
         return result
 
-    def submit(self, source, plan):
+    def submit(self, source: str, plan: list[LocalExample]) -> None:
         if self.request is not None or self.future is not None:
             raise RuntimeError("Only one pending update is allowed")
         if self.executor is None:
@@ -289,7 +387,7 @@ class UpdateLoader:
         else:
             self.future = self.executor.submit(self.read, source, plan)
 
-    def consume(self):
+    def consume(self) -> LoadedUpdate:
         if self.future is not None:
             result = self.future.result()
             self.future = None
@@ -306,7 +404,7 @@ class UpdateLoader:
             result.examples = map_tensors(result.examples, lambda t: t.to(self.device))
         return result
 
-    def close(self):
+    def close(self) -> None:
         if self.executor is not None:
             self.executor.shutdown(wait=True, cancel_futures=True)
         if self.future is not None and not self.future.cancelled():
@@ -317,11 +415,18 @@ class UpdateLoader:
 
 
 class Objective(torch.nn.Module):
-    def __init__(self, model, data, weights):
+    def __init__(
+        self,
+        model: SurfaceInitializedModel,
+        data: Samples,
+        weights: ObservationLossConfig,
+    ) -> None:
         super().__init__()
         self.model, self.data, self.weights = model, data, weights
 
-    def forward(self, source, item):
+    def forward(
+        self, source: str, item: LoadedExample
+    ) -> tuple[torch.Tensor, dict[str, torch.Tensor], torch.Tensor]:
         loss, parts, states = baseline.objective(
             self.model,
             self.data,
@@ -337,17 +442,17 @@ class Objective(torch.nn.Module):
 
 
 def train(
-    cfg,
-    state,
-    sources,
-    output,
-    manifest,
-    validate,
-    emit,
+    cfg: ObservationTrainConfig,
+    state: TrainingState[SurfaceInitializedModel],
+    sources: baseline.Sources,
+    output: Path,
+    manifest: baseline.Manifest,
+    validate: Callable[[SurfaceInitializedModel], dict[str, float]],
+    emit: Callable[[baseline.Metrics], None],
     *,
-    stop_after=None,
-    stopping=lambda: False,
-):
+    stop_after: int | None = None,
+    stopping: Callable[[], bool] = lambda: False,
+) -> None:
     """Use the same global sample plan for sequential accumulation and DDP."""
     device = next(state.model.parameters()).device
     world = World(device)
@@ -437,20 +542,23 @@ def train(
             state.ema(state.model)
             means = world.mean(parts_sum)
             if cfg.fresh_examples < cfg.gradient_accumulation_steps:
-                states = world.gather_states(next_states)
+                gathered = world.gather_states(next_states)
                 if world.rank == 0:
-                    for item, current in zip(metadata["examples"], states, strict=True):
+                    assert gathered is not None
+                    for planned, current in zip(
+                        metadata["examples"], gathered, strict=True
+                    ):
                         layout = sources.layout(
-                            source, item["origin"], item["month"] + 1
+                            source, planned["origin"], planned["month"] + 1
                         )
                         if layout is not None:
                             state.pools[source].add(
                                 ReplayEntry(
                                     source,
-                                    item["origin"],
-                                    item["month"] + 1,
+                                    planned["origin"],
+                                    planned["month"] + 1,
                                     layout["start_lead"],
-                                    item["origin_update"],
+                                    planned["origin_update"],
                                     current,
                                 )
                             )
@@ -501,6 +609,7 @@ def train(
                     with state.averaged_model():
                         metrics = validate(state.model)
                 metrics = world.broadcast(metrics)
+                assert metrics is not None
                 score = metrics[baseline.SELECTION_METRIC]
                 if not math.isfinite(score):
                     raise FloatingPointError("Annual selection score is nonfinite")
@@ -537,7 +646,8 @@ def train(
                         }
                     )
                 world.broadcast(True if world.rank == 0 else None)
-            metadata = following
+            if following is not None:
+                metadata = following
             if stop:
                 break
         if state.updates == total and world.rank == 0:

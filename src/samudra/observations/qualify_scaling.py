@@ -10,12 +10,14 @@ import os
 import resource
 import subprocess
 import time
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
+from typing import Any
 
 import torch
 import torch.distributed as dist
 
 from samudra.backend import init_train_backend
+from samudra.models.surface_initialized import SurfaceInitializedModel
 from samudra.observations import training as baseline
 from samudra.observations.config import ObservationTrainConfig
 from samudra.observations.constants import FORECAST_STEPS
@@ -26,7 +28,9 @@ from samudra.observations.train import build_sources, init_tracking
 from samudra.utils.distributed import set_seed
 
 
-def input_parity(cfg, native):
+def input_parity(
+    cfg: ObservationTrainConfig, native: baseline.Sources
+) -> list[dict[str, Any]]:
     """Compare real fresh and shifted replay windows, including all loss tensors."""
     config = cfg.model_copy(deep=True)
     config.data.loading = None
@@ -57,7 +61,7 @@ def input_parity(cfg, native):
     return checks
 
 
-def state_dict_digest(values):
+def state_dict_digest(values: Mapping[str, torch.Tensor]) -> str:
     digest = hashlib.sha256()
     for name, value in values.items():
         digest.update(name.encode())
@@ -73,17 +77,17 @@ def state_dict_digest(values):
     return digest.hexdigest()
 
 
-def model_digest(model):
+def model_digest(model: torch.nn.Module) -> str:
     return state_dict_digest(model.state_dict())
 
 
-def nvidia_smi_uuid(value):
+def nvidia_smi_uuid(value: object) -> str:
     """NVML needs GPU- before the UUID returned by PyTorch's CUDA properties."""
     value = str(value)
     return value if value.startswith("GPU-") else f"GPU-{value}"
 
 
-def verify_telemetry_devices(uuids):
+def verify_telemetry_devices(uuids: Sequence[str]) -> None:
     actual = subprocess.check_output(
         [
             "nvidia-smi",
@@ -98,7 +102,7 @@ def verify_telemetry_devices(uuids):
         raise RuntimeError(f"GPU telemetry device mismatch: {actual!r}")
 
 
-def run(cfg):
+def run(cfg: ObservationTrainConfig) -> None:
     if not cfg.update_prefetch or cfg.data.loading is None:
         raise ValueError(
             "Scaling qualification requires update_prefetch and Rust loading"
@@ -179,6 +183,7 @@ def run(cfg):
         replay_per_month=cfg.replay.per_month,
         replay_max_age=cfg.replay.max_age,
     )
+    assert manifest is not None
     tracker = init_tracking(cfg, manifest) if world.rank == 0 else None
     records = []
     stage = "warmup"
@@ -196,7 +201,7 @@ def run(cfg):
             stdout=telemetry_file,
         )
 
-    def record(value):
+    def record(value: dict[str, Any]) -> None:
         if telemetry is not None and telemetry.poll() is not None:
             raise RuntimeError("GPU utilization telemetry stopped unexpectedly")
         event = {"stage": stage, "timestamp": time.time(), **value}
@@ -205,9 +210,16 @@ def run(cfg):
             stream.write(json.dumps(event, allow_nan=False) + "\n")
         print(json.dumps(event, allow_nan=False), flush=True)
         if tracker is not None:
-            tracker.log(event, step=len(records))
+            tracker.log(
+                {
+                    key: number
+                    for key, number in event.items()
+                    if isinstance(number, (float, int))
+                },
+                step=len(records),
+            )
 
-    def validate(current):
+    def validate(current: SurfaceInitializedModel) -> dict[str, float]:
         trajectory = data.trajectory(
             cfg.validation_origin, steps=FORECAST_STEPS, split="validation"
         )
@@ -218,7 +230,7 @@ def run(cfg):
             raise AssertionError("Invalid annual observation metrics")
         return metrics
 
-    def train_until(name, limit, *, prefetch=True):
+    def train_until(name: str, limit: int, *, prefetch: bool = True) -> None:
         nonlocal stage
         stage = name
         directory = output / name

@@ -14,7 +14,7 @@ from samudra.observations.model_data import ModelMonths
 from samudra.observations.shared_era5 import digest, required_indices
 
 
-def prepare(samples, daily, om4, output):
+def prepare(samples: Path, daily: Path, om4: Path, output: Path) -> None:
     output.mkdir(parents=True, exist_ok=True)
     grid = dict(np.load(samples / "grid.npz"))
     reader = ModelMonths(om4 / "OM4.zarr", "om4", grid, om4)

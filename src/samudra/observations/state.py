@@ -13,11 +13,12 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import torch
 
-from samudra.observations.replay import ReplayPool
+from samudra.observations.replay import ReplayEntry, ReplayPool
 from samudra.utils.ema import EMATracker
 
 if TYPE_CHECKING:
     from samudra.observations.config import ObservationTrainConfig
+    from samudra.observations.pipeline import UpdatePlan
 
 
 def atomic_save(value: object, path: str | Path) -> None:
@@ -68,7 +69,8 @@ class TrainingState[ModelT: torch.nn.Module]:
         self.scheduler: torch.optim.lr_scheduler.LRScheduler | None = None
         self.build_scheduler()
         self.best_score = float("inf")
-        self.pending_plan: Any = None
+        self.pending_plan: UpdatePlan | None = None
+        self.replan_pool_entries: dict[str, dict[int, list[ReplayEntry]]] | None = None
         self.rank_rng: Any = None
         self.exposure = {
             name: {"updates": 0, "fresh": 0, "replay": 0} for name in sources
@@ -115,6 +117,7 @@ class TrainingState[ModelT: torch.nn.Module]:
                 "sampler_rng": self.rng.bit_generator.state,
                 "pools": {name: pool.state_dict() for name, pool in self.pools.items()},
                 "pending_plan": self.pending_plan,
+                "replan_pool_entries": self.replan_pool_entries,
                 "rank_rng": self.rank_rng,
                 "python_rng": random.getstate(),
                 "numpy_rng": np.random.get_state(),
@@ -134,6 +137,14 @@ class TrainingState[ModelT: torch.nn.Module]:
         saved = torch.load(path, map_location="cpu", weights_only=False)
         parent, current = saved["manifest"], manifest
         if fork:
+            if (
+                saved["scheduler"] is not None
+                and parent["config"]["main_updates"]
+                != current["config"]["main_updates"]
+            ):
+                raise ValueError(
+                    "Changing the main scheduler horizon on a checkpoint fork is unsupported"
+                )
             # Forks may only change the duration and snapshot schedule. Data,
             # architecture, optimizer, sources, loss and code remain identical.
             import copy
@@ -186,7 +197,10 @@ class TrainingState[ModelT: torch.nn.Module]:
             and self.config is not None
             and self.pending_plan["source"] != self.config.source_at(self.updates)
         )
+        self.replan_pool_entries = saved.get("replan_pool_entries")
         if replan:
+            assert self.pending_plan is not None
+            self.replan_pool_entries = self.pending_plan["pool_entries_before"]
             saved["sampler_rng"] = self.pending_plan["sampler_rng_before"]
             for name, rng in self.pending_plan["pool_rng_before"].items():
                 self.pools[name].rng.bit_generator.state = rng

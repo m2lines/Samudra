@@ -206,7 +206,7 @@ def test_training_startup_populates_each_source_and_post_training_is_obs_only(
     assert (tmp_path / "COMPLETE.json").exists()
 
 
-@pytest.mark.parametrize("pretrain_mix", ["om4-cm4-obs", "om4-cm4"])
+@pytest.mark.parametrize("mix", ["om4-cm4-obs", "om4-cm4"])
 @pytest.mark.parametrize("stop_after", [1, 4, 5])
 @pytest.mark.parametrize("scheduler", [None, {"type": "cosine"}])
 @pytest.mark.parametrize(

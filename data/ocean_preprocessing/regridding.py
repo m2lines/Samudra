@@ -42,7 +42,14 @@ def conservative_regridder(source: xr.Dataset, target: xr.Dataset) -> Regridder:
 def rectilinear_grid(
     lat: ArrayLike, lon: ArrayLike, lat_b: ArrayLike, lon_b: ArrayLike
 ) -> xr.Dataset:
-    """Build xESMF coordinates from explicit centers and cell boundaries."""
+    """Build xESMF coordinates from explicit centers and cell boundaries.
+
+    Centers are one-dimensional latitude/longitude axes. Observation source grids
+    can supply separate edge axes of lengths ``ny + 1`` and ``nx + 1``. OM4 grid
+    export preserves the model pipeline's two-dimensional ``(ny + 1, nx + 1)``
+    corner arrays; we broadcast the centers to match that representation for
+    xESMF. Both formats retain the caller's supplied cell boundaries.
+    """
     lat, lon = np.asarray(lat), np.asarray(lon)
     lat_b, lon_b = np.asarray(lat_b), np.asarray(lon_b)
     if lat.ndim != 1 or lon.ndim != 1:

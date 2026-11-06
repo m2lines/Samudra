@@ -1,0 +1,23 @@
+{
+  "fixed_completed_gpu_hours": 6.824166666666667,
+  "allocations": [
+    {
+      "job_id": "21929072",
+      "gpus": 1,
+      "elapsed_seconds": 85483,
+      "state": "COMPLETED"
+    },
+    {
+      "job_id": "22065828",
+      "gpus": 1,
+      "elapsed_seconds": 204,
+      "state": "COMPLETED"
+    },
+    {
+      "job_id": "22065836",
+      "gpus": 1,
+      "elapsed_seconds": 546,
+      "state": "COMPLETED"
+    }
+  ]
+}

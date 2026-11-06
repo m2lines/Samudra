@@ -1,0 +1,86 @@
+{
+  "complete": true,
+  "source": "b4f8089226e75d0a8261c5c07a92890aa612ac7e952be896f6bfb66bd51da01c",
+  "variant": "B-shared-deep-wide-signed",
+  "qualification_kind": "single-gpu",
+  "qualified_world_size": 1,
+  "qualified_world_sizes": [
+    1
+  ],
+  "included_updates": 22,
+  "fresh_initialization": true,
+  "final_state": {
+    "step": 22,
+    "counts": {
+      "om4": 11,
+      "observation": 11
+    },
+    "complete": false,
+    "rank_disagreement": 0.0
+  },
+  "warm_gpu_utilization_percent": {
+    "687258d6-2b06-a847-a13d-371fb24a9421": 77.24120603015075
+  },
+  "warm_telemetry_samples": 199,
+  "warm_update_seconds": {
+    "om4": 10.188140247110278,
+    "observation": 10.463495828770101
+  },
+  "warm_max_data_wait_seconds": 1.274168571922928,
+  "training_calls": [
+    {
+      "output": "/scratch/jr7309/stochastic-direct-dense-20261105-r2/B-shared-deep-wide-signed/reference1",
+      "started_unix": 1793854109.5511744,
+      "finished_unix": 1793854171.1828196,
+      "first_step": 1,
+      "last_step": 2,
+      "startup_seconds": 32.361939907073975,
+      "update_span_seconds": 24.33738136291504,
+      "checkpoint_and_shutdown_seconds": 4.932323932647705,
+      "elapsed_seconds": 61.63164520263672
+    },
+    {
+      "output": "/scratch/jr7309/stochastic-direct-dense-20261105-r2/B-shared-deep-wide-signed/reference1",
+      "started_unix": 1793854171.1967857,
+      "finished_unix": 1793854408.7351227,
+      "first_step": 3,
+      "last_step": 22,
+      "startup_seconds": 24.549679040908813,
+      "update_span_seconds": 207.86506390571594,
+      "checkpoint_and_shutdown_seconds": 5.123594045639038,
+      "elapsed_seconds": 237.5383369922638
+    }
+  ],
+  "staging_seconds": 94.74981028516777,
+  "resume": {
+    "observed": true,
+    "from_step": 2,
+    "to_step": 22,
+    "exact_same_topology_comparison_performed": false
+  },
+  "one_vs_four": {
+    "passed": false,
+    "job_id": "21922766",
+    "status": "failed-numerical-equivalence",
+    "evidence": "numerical-difference.json"
+  },
+  "finite_model_ema_optimizer_rng": true,
+  "evidence_sha256": {
+    "SOURCE.json": "bd985ce47dc8a80f0d4622833010351f76112a70eb4d60f778a05c4eb35bc674",
+    "B-shared-deep-wide-signed/REFERENCE.json": "c2a27b839daacb438c0c90d14fde89ebbd4c365731150883d181774e39fb6c33",
+    "B-shared-deep-wide-signed/reference1/execution.json": "18c5ce1f066433ea6d161772dd9d58f1b3a37aa427b98a65ae0bd7c7d832965f",
+    "B-shared-deep-wide-signed/reference1/protocol.json": "337e79715a0a4a006eb72d6b3f8237c2f308c43b3dc1e89c6a0e31169a9de802",
+    "B-shared-deep-wide-signed/reference1/state.json": "f2dff198935388006b49c1b52b9038e3eb31fa91349813e0d63084474a2645af",
+    "B-shared-deep-wide-signed/reference1/events.jsonl": "495d3aed2be82f44829b501bb3a3e0eaa5a1cb9fa26b5b0d523950cd7798b56a",
+    "gpu-reference.hardware.json": "bbb4629ef53192c809f398b78f554746bdbe84a65feda17496d4e0b928532608",
+    "gpu-reference.jsonl": "9a39a42892b2e0d6472476f0783093d09470657d7ebccbd010e208b76cf1148d",
+    "numerical-difference.json": "7828515892f06a7af31a7c78e0a1b11df535a4a92ce22b25bed1883f836f73c2",
+    "B-shared-deep-wide-signed/reference1/step-00000.pt": "0568d63fe3da7e4ee901da2185ddf285146bf5d7bf615797127c16f45271428f",
+    "B-shared-deep-wide-signed/reference1/pair.pt": "c98d21347be9520fd08a0e4f05dc8be11ff15e2984a7c6fef340713e2ba21a5d",
+    "B-shared-deep-wide-signed/reference1/last.pt": "0360a123504f46adb4a8899317685227d61a8164ace7ba792c61d0f19a33cac1"
+  },
+  "auditor": {
+    "path": "/scratch/jr7309/stochastic-direct-dense-20261105-r2/qualification-tools/qualify_stochastic_dense_single.py",
+    "sha256": "94e8249ed5c0a45029e3d045cfae39d04d8ca7ab6d6b5b1eae5a1a5579f9756c"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "step": 8000,
+  "counts": {
+    "om4": 4000,
+    "observation": 4000
+  },
+  "complete": true
+}

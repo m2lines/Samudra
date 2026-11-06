@@ -1,0 +1,19 @@
+{
+  "source": "b4f8089226e75d0a8261c5c07a92890aa612ac7e952be896f6bfb66bd51da01c",
+  "prepared": "conditioning-prepared-v2",
+  "checkpoint": "production/B-shared-deep-wide-signed/step-08000.pt",
+  "script": "diagnostic-tools/diagnose_stochastic_conditioning_v2.py",
+  "output": "conditioning-final-v2",
+  "accounting": "PRE_DIAGNOSTIC_ACCOUNTING.json",
+  "final_evaluation_job_ids": [],
+  "additional_job_ids": [],
+  "pins": {
+    "SOURCE.json": "bd985ce47dc8a80f0d4622833010351f76112a70eb4d60f778a05c4eb35bc674",
+    "diagnostic-tools/diagnose_stochastic_conditioning_v2.py": "f0754d8a3ab244d5711d5519b437d8a565daf7e2da6e2d78ebc41187f1807109",
+    "diagnostic-tools/run_stochastic_conditioning_release.py": "051ce1f2b648df2dfb255e66b99b53fca88b1ed5c353a90bfbff0fec350f1e0b",
+    "conditioning-prepared-v2/PREPARED.json": "52c4047b8311b664ba830aac937e657a0d6a287dbcda0d632182a103270c46d3",
+    "conditioning-prepared-v2/VERIFIED.json": "4cc6eff3a5685f875138c80e32b3199306f3559cb45fdcba32454179a7043127",
+    "production/B-shared-deep-wide-signed/step-08000.pt": "e28fb15f5e71cbb22f45cd5c974c518b296b74563add6ddc7763a605f2e82200",
+    "PRE_DIAGNOSTIC_ACCOUNTING.json": "df08dcaf30780c68f6afef78e8acb29bc1d4376339672031be3714282a39cdc7"
+  }
+}

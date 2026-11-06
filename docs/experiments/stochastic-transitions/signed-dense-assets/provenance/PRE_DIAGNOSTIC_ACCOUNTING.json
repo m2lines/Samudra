@@ -1,0 +1,3 @@
+{
+  "raw": "21922710|COMPLETED|0:0|407|billing=8,cpu=8,gres/gpu=1,mem=192G,node=1\n21922766|FAILED|1:0|155|billing=32,cpu=32,gres/gpu=4,mem=256G,node=1\n21929072|COMPLETED|0:0|85483|billing=8,cpu=8,gres/gpu=1,mem=192G,node=1\n21946812|COMPLETED|0:0|188|billing=4,cpu=4,gres/gpu=1,mem=32G,node=1\n"
+}

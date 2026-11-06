@@ -1,0 +1,43 @@
+{
+  "source": "b4f8089226e75d0a8261c5c07a92890aa612ac7e952be896f6bfb66bd51da01c",
+  "target_updates": 8000,
+  "world_size": 1,
+  "wall_minutes": 1500,
+  "short_gpu_hours": 6.486666666666666,
+  "qualification_allocations": [
+    {
+      "job_id": "21922710",
+      "gpus": 1,
+      "elapsed_seconds": 407
+    },
+    {
+      "job_id": "21922766",
+      "gpus": 4,
+      "elapsed_seconds": 155
+    }
+  ],
+  "prior_allocated_gpu_hours": 6.771944444444444,
+  "diagnostic_reserve_gpu_hours": 4,
+  "maximum_total_gpu_hours": 35.77194444444444,
+  "runtime": {
+    "update_seconds": 10.32581803794019,
+    "remaining_updates": 7978,
+    "training_safety_factor": 1.05,
+    "startup_seconds": 900,
+    "checkpoint_seconds": 5.123594045639038,
+    "remaining_checkpoint_count": 33
+  },
+  "pins": {
+    "SOURCE.json": "bd985ce47dc8a80f0d4622833010351f76112a70eb4d60f778a05c4eb35bc674",
+    "B-shared-deep-wide-signed/QUALIFIED.json": "a9b3e22f4deb7113f8781811f4f1c0bd25905844c2e85251a68557c6686526ea",
+    "B-shared-deep-wide-signed/reference1/last.pt": "0360a123504f46adb4a8899317685227d61a8164ace7ba792c61d0f19a33cac1",
+    "B-shared-deep-wide-signed/reference1/execution.json": "18c5ce1f066433ea6d161772dd9d58f1b3a37aa427b98a65ae0bd7c7d832965f",
+    "qualification-tools/qualify_stochastic_dense_single.py": "94e8249ed5c0a45029e3d045cfae39d04d8ca7ab6d6b5b1eae5a1a5579f9756c",
+    "qualification-tools/stochastic_single_topology_gate.py": "6fcb94e03843584b59b5e6ab2ec65809d06a08a76393124b67216c57be839a6f",
+    "qualification-tools/production-single.sbatch": "b98d9ad966d16a426f2b09c615d5941d85287be79535b3c2b3e4d799fa2483bb"
+  },
+  "qualification_topology": "single GPU; distributed equivalence failed and is not waived",
+  "qualification_failed_job": "21922766",
+  "scientific_gate": "signed short-screen positive all38 velocity correlations; parent approved fresh direct8/dense8k",
+  "recovery_policy": "no automatic requeue; preserve checkpoint and reconcile actual allocated GPU-hours before any recovery"
+}

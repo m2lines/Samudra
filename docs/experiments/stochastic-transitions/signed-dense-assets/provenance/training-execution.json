@@ -1,0 +1,16 @@
+{
+  "world_size": 1,
+  "microbatch": 1,
+  "compiled": false,
+  "fused_adam": true,
+  "prefetch_workers": 4,
+  "prefetch_updates": 4,
+  "obs_cache_size": 64,
+  "resident_native_cache": {
+    "enabled": false
+  },
+  "resume_checkpoint_execution": {
+    "world_size": 1,
+    "microbatch": 1
+  }
+}

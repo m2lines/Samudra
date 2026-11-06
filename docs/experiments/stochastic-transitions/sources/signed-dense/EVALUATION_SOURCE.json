@@ -1,0 +1,14 @@
+{
+  "files": {
+    "report_stochastic_signed_dense.py": "44dcbdf9e6fb2d52d0d8483d20fc06e1f7c338fbd47863464e1045629c1eca6e",
+    "test_stochastic_conditioning_v2.py": "001adb7501c30f03e4241b2296c22513f1284a4d1d8469c3cb7c3485644879e4",
+    "diagnose_stochastic_conditioning.py": "64d18c99c2de6d240221343316f24c8f65605cf8712963f228637e80cb32b36a",
+    "test_stochastic_conditioning_diagnostics.py": "5e194c1ffda2272cb46158151abdfc0dfbcea7f65c2347a1dceb0d261a64f1cf",
+    "diagnose_stochastic_conditioning_v2.py": "f0754d8a3ab244d5711d5519b437d8a565daf7e2da6e2d78ebc41187f1807109",
+    "evaluate-signed-dense-milestones.py": "586cc8e382c5de268c15cbb4069d4be8580eae94af1c549806a0895cde1ea6df",
+    "evaluate-signed-dense-milestones.sbatch": "dd1cee06f6b6b60553918127b2319f0bcce16a61f8fb759eaf64937011b4b2f1",
+    "run_stochastic_conditioning_release.py": "051ce1f2b648df2dfb255e66b99b53fca88b1ed5c353a90bfbff0fec350f1e0b",
+    "test_stochastic_conditioning_release.py": "6c098af582bdd2604b7372a9241a73fdcb9fc1a699494106167bc75c3b67dbb0"
+  },
+  "description": "Exact evaluation, diagnostic and renderer source plus CPU tests; run alongside the frozen training code archive."
+}

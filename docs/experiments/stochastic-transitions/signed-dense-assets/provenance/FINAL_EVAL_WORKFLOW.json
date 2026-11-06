@@ -1,0 +1,12 @@
+{
+  "jobs": [
+    "22065828",
+    "22065836"
+  ],
+  "callback_job": "22065871",
+  "webhook": "e57f8364-0c14-46ab-8111-b67ecfb95d13",
+  "final_evaluation_driver_sha256": "586cc8e382c5de268c15cbb4069d4be8580eae94af1c549806a0895cde1ea6df",
+  "final_evaluation_sbatch_sha256": "dd1cee06f6b6b60553918127b2319f0bcce16a61f8fb759eaf64937011b4b2f1",
+  "checkpoint_sha256": "e28fb15f5e71cbb22f45cd5c974c518b296b74563add6ddc7763a605f2e82200",
+  "maximum_total_gpu_hours": 34.31944444444444
+}

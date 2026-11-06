@@ -1,0 +1,102 @@
+{
+  "job_id": "21964831",
+  "started_utc": "2026-11-05T13:32:10.718015+00:00",
+  "script_sha256": "f0754d8a3ab244d5711d5519b437d8a565daf7e2da6e2d78ebc41187f1807109",
+  "driver_sha256": "23c6223028ee65a5443261bd5cec335e458888a0ebba2e3ff90e9920c885086e",
+  "source_manifest_sha256": "bd985ce47dc8a80f0d4622833010351f76112a70eb4d60f778a05c4eb35bc674",
+  "paths_sha256": "af2753df226573c54878e1eb7477f4c0bcd4ddc7e9b0864a58298b070f6f2bcc",
+  "device": "cpu",
+  "output": "/scratch/jr7309/stochastic-direct-dense-20261105-r2/conditioning-prepared-v2",
+  "source_root": "/pilot-code",
+  "python": "/workspace/.venv/bin/python",
+  "source_fingerprint": "b4f8089226e75d0a8261c5c07a92890aa612ac7e952be896f6bfb66bd51da01c",
+  "source_files_verified": 563,
+  "parent_prepared_sha256": "ef7a7891fd8cec0aacedd142160a152806881d1b1b03d0101284dd2cb5373251",
+  "climate_byte_identity": true,
+  "all_parent_case_arrays_unchanged": true,
+  "donor_history_checks": [
+    {
+      "case": "observation-2013-11",
+      "exact_donor_era5": true,
+      "exact_donor_calendar": true,
+      "all_parent_case_arrays_unchanged": true
+    },
+    {
+      "case": "observation-2013-12",
+      "exact_donor_era5": true,
+      "exact_donor_calendar": true,
+      "all_parent_case_arrays_unchanged": true
+    },
+    {
+      "case": "observation-2014-01",
+      "exact_donor_era5": true,
+      "exact_donor_calendar": true,
+      "all_parent_case_arrays_unchanged": true
+    },
+    {
+      "case": "om4-2014-01",
+      "exact_donor_era5": true,
+      "exact_donor_calendar": true,
+      "all_parent_case_arrays_unchanged": true
+    },
+    {
+      "case": "observation-2014-02",
+      "exact_donor_era5": true,
+      "exact_donor_calendar": true,
+      "all_parent_case_arrays_unchanged": true
+    },
+    {
+      "case": "observation-2014-03",
+      "exact_donor_era5": true,
+      "exact_donor_calendar": true,
+      "all_parent_case_arrays_unchanged": true
+    },
+    {
+      "case": "observation-2014-04",
+      "exact_donor_era5": true,
+      "exact_donor_calendar": true,
+      "all_parent_case_arrays_unchanged": true
+    },
+    {
+      "case": "om4-2014-04",
+      "exact_donor_era5": true,
+      "exact_donor_calendar": true,
+      "all_parent_case_arrays_unchanged": true
+    },
+    {
+      "case": "observation-2014-05",
+      "exact_donor_era5": true,
+      "exact_donor_calendar": true,
+      "all_parent_case_arrays_unchanged": true
+    },
+    {
+      "case": "om4-2014-05",
+      "exact_donor_era5": true,
+      "exact_donor_calendar": true,
+      "all_parent_case_arrays_unchanged": true
+    },
+    {
+      "case": "observation-2014-06",
+      "exact_donor_era5": true,
+      "exact_donor_calendar": true,
+      "all_parent_case_arrays_unchanged": true
+    },
+    {
+      "case": "observation-2014-07",
+      "exact_donor_era5": true,
+      "exact_donor_calendar": true,
+      "all_parent_case_arrays_unchanged": true
+    }
+  ],
+  "shared_era5_proof_sha256": "91aecf35dea8418ef478d8ec607f541bf4f6beda2cddf16e566d394ff9d2b6f4",
+  "complete": true,
+  "prepared_sha256": "52c4047b8311b664ba830aac937e657a0d6a287dbcda0d632182a103270c46d3",
+  "all_output_files_readback": true,
+  "output_files": 15,
+  "output_bytes": 3342672932,
+  "cohort_windows": 2548,
+  "cohort_frames": 2812,
+  "cases": 12,
+  "seconds": 72.22646552789956,
+  "finished_utc": "2026-11-05T13:33:22.944479+00:00"
+}

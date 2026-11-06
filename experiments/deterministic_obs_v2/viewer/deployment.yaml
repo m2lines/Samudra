@@ -1,0 +1,132 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+# SPDX-License-Identifier: CC-BY-4.0
+date: '2026-11-06'
+training_remains_stopped: true
+export_jobs:
+  successful: 22082063
+  launcher_failure_before_inference: 22081948
+runtime_commit: 7bef723cb1f60d4e202aeece6fd4c1b11eb2e539  # pragma: allowlist secret (public artifact checksum or Git commit)
+viewer_commit: f259116151a07ca93faf7fd3b8433efb75709913  # pragma: allowlist secret (public artifact checksum or Git commit)
+export_code_commit: 45b7c31d0  # pragma: allowlist secret (public artifact checksum or Git commit)
+executed_exporter_sha256: d9e8dbd0ef51cb1c3a2ab341fa18908abea4d358a4ec08168f4927127ffddfb9  # pragma: allowlist secret (public artifact checksum or Git commit)
+artifact_root: nyu-osn-emulators:emulators/jr7309/outputs/deterministic-obs-v2/viewer-061126
+models:
+  deterministic-C-061126:
+    checkpoint: /scratch/jr7309/deterministic-obs-v2/screens-v1/C-obs-large/saved_nets/endpoint.pt
+    checkpoint_sha256: 498518ea9e4f810bcf226f50f23afdf329643b660aafdbd8ba1769ebb84d544c  # pragma: allowlist secret (public artifact checksum or Git commit)
+    updates: 5000
+    weights: EMA
+    exposure:
+      obs:
+        updates: 5000
+        fresh: 20008
+        replay: 19992
+    cases:
+      '2015-01-01':
+        file: 2015-01-01.npz
+        sha256: 6cd760bc49d3b8186c7f217d041fd250e1516a693fcaf7ed47e9f671b84c8727  # pragma: allowlist secret (public artifact checksum or Git commit)
+        annual_manifest_sha256: 44ea1216b44aec5b8ea95678f31cbd1d449ec3fbbd3b0690484ecb488996441d  # pragma: allowlist secret (public artifact checksum or Git commit)
+        context_sha256: null
+      '2018-01-01':
+        file: 2018-01-01.npz
+        sha256: 87d9457cdf3ba62c5786bc4b9e17cdc2363e6f14f11b7ea31aacddf51b8ce472  # pragma: allowlist secret (public artifact checksum or Git commit)
+        annual_manifest_sha256: 8ee8d9e68e641a3a8cab031e9a28bfa80094927bd7973b558cc73777a9ac461e  # pragma: allowlist secret (public artifact checksum or Git commit)
+        context_sha256: 8bd7c4f3c9905bbd152664de2291b7b081f7029a1a63972b2fe65978ad431d1b  # pragma: allowlist secret (public artifact checksum or Git commit)
+      '2021-01-01':
+        file: 2021-01-01.npz
+        sha256: f44e3ff099460ac6017c036c7c10cbe4945e9d999a2b934012e3bf55c4691040  # pragma: allowlist secret (public artifact checksum or Git commit)
+        annual_manifest_sha256: 92d128ff711c563094d44725a84e8b62fd06b103cb4f3789ae39e89dc8170c6c  # pragma: allowlist secret (public artifact checksum or Git commit)
+        context_sha256: 8df94d028e1490227f5f3f3c1f2140b2d2cfcf847e625a468c71688b8d34635c  # pragma: allowlist secret (public artifact checksum or Git commit)
+  deterministic-D-061126:
+    checkpoint: /scratch/jr7309/deterministic-obs-v2/screens-v1/D-mixed-large/saved_nets/endpoint.pt
+    checkpoint_sha256: eb3a86cbb3b87570ca9b8f48763623ac3d6ff99c65aa056bdeb460ec649600cb  # pragma: allowlist secret (public artifact checksum or Git commit)
+    updates: 5000
+    weights: EMA
+    exposure:
+      obs:
+        updates: 3000
+        fresh: 12004
+        replay: 11996
+      om4:
+        updates: 2000
+        fresh: 8004
+        replay: 7996
+    cases:
+      '2015-01-01':
+        file: 2015-01-01.npz
+        sha256: 6fee1342c53eec5537e04f30033cf01dbb1a6e325201b033fa73105df7096903  # pragma: allowlist secret (public artifact checksum or Git commit)
+        annual_manifest_sha256: 44ea1216b44aec5b8ea95678f31cbd1d449ec3fbbd3b0690484ecb488996441d  # pragma: allowlist secret (public artifact checksum or Git commit)
+        context_sha256: null
+      '2018-01-01':
+        file: 2018-01-01.npz
+        sha256: e8dcf1e46737ac6eb2b930d6c52faf4171c146cd1820679abea87be1e849bc7b  # pragma: allowlist secret (public artifact checksum or Git commit)
+        annual_manifest_sha256: 8ee8d9e68e641a3a8cab031e9a28bfa80094927bd7973b558cc73777a9ac461e  # pragma: allowlist secret (public artifact checksum or Git commit)
+        context_sha256: 8bd7c4f3c9905bbd152664de2291b7b081f7029a1a63972b2fe65978ad431d1b  # pragma: allowlist secret (public artifact checksum or Git commit)
+      '2021-01-01':
+        file: 2021-01-01.npz
+        sha256: 2b939ff93bad744fd9feed5b044ee2ba45474d4cb50a634de5c7d6504c91335b  # pragma: allowlist secret (public artifact checksum or Git commit)
+        annual_manifest_sha256: 92d128ff711c563094d44725a84e8b62fd06b103cb4f3789ae39e89dc8170c6c  # pragma: allowlist secret (public artifact checksum or Git commit)
+        context_sha256: 8df94d028e1490227f5f3f3c1f2140b2d2cfcf847e625a468c71688b8d34635c  # pragma: allowlist secret (public artifact checksum or Git commit)
+data_validation:
+  models:
+  - deterministic-C-061126
+  - deterministic-D-061126
+  origins:
+  - '2015-01-01'
+  - '2018-01-01'
+  - '2021-01-01'
+  viewer_cases: 30
+  paired_comparison_modes: 5
+  references_exactly_match_existing_viewer: true
+installation:
+  old: /home/fomo-bot/samudra_viewer/apps/observation_viewer/.data-learned-noise-20261030-registry
+  new: /home/fomo-bot/samudra_viewer/apps/observation_viewer/.data-deterministic-061126-registry
+  old_models: 65
+  new_models: 67
+  added:
+  - deterministic-C-061126
+  - deterministic-D-061126
+  catalog_sha256: ded138e35262c67ccdefabaad0f1af00554dde0332858d8e70773ad427f1af53  # pragma: allowlist secret (public artifact checksum or Git commit)
+live_browser_cases:
+- arm: C
+  mode: interior
+  websocket: true
+  javascript_errors: []
+- arm: C
+  mode: monthly_interior
+  websocket: true
+  javascript_errors: []
+- arm: C
+  mode: surface
+  websocket: true
+  javascript_errors: []
+- arm: C
+  mode: forecast_interior
+  websocket: true
+  javascript_errors: []
+- arm: C
+  mode: heat
+  websocket: true
+  javascript_errors: []
+- arm: D
+  mode: interior
+  websocket: true
+  javascript_errors: []
+- arm: D
+  mode: monthly_interior
+  websocket: true
+  javascript_errors: []
+- arm: D
+  mode: surface
+  websocket: true
+  javascript_errors: []
+- arm: D
+  mode: forecast_interior
+  websocket: true
+  javascript_errors: []
+- arm: D
+  mode: heat
+  websocket: true
+  javascript_errors: []
+public_browser_check: D day365 restored; live WebSocket; no JavaScript errors
+service_state: active

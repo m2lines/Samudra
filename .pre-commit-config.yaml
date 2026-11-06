@@ -17,7 +17,7 @@ repos:
     hooks:
       - id: check-added-large-files
         args: [--maxkb=250]
-        exclude: ^(notebooks/|experiments/temperature_skyline/maps-(initial|continuation)/report/comparison-(global|regional)\.png$|experiments/temperature_skyline/maps-initial/report/map-(global|north-pacific|gulf-stream|agulhas)-depth-(00|07|13)\.png$)
+        exclude: ^(notebooks/|experiments/temperature_skyline/continuation-results/validation-(regression|classifier-rmse|classifier-nll)-depths\.png$|experiments/temperature_skyline/maps-(initial|continuation)/report/comparison-(global|regional)\.png$|experiments/temperature_skyline/maps-initial/report/map-(global|north-pacific|gulf-stream|agulhas)-depth-(00|07|13)\.png$)
       # Lossless maps retain two pixels per sample along each axis without interpolation.
       - id: check-added-large-files
         name: check skyline raster sizes
@@ -27,6 +27,10 @@ repos:
         name: check skyline comparison figure sizes
         args: [--maxkb=4096]
         files: ^experiments/temperature_skyline/maps-(initial|continuation)/report/comparison-(global|regional)\.png$
+      - id: check-added-large-files
+        name: check skyline validation figure sizes
+        args: [--maxkb=512]
+        files: ^experiments/temperature_skyline/continuation-results/validation-(regression|classifier-rmse|classifier-nll)-depths\.png$
       - id: trailing-whitespace
         exclude: ^notebooks/
       - id: check-yaml

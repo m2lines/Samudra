@@ -88,3 +88,14 @@ these trajectories. Fresh inference with both selected EMA checkpoints completed
 22009444 using the fixed 2015-calibration/2016-assessment protocol. The
 [held-out map and confidence report](../maps-continuation/README.md) contains
 the updated global and regional figures, matched scores, and calibration limits.
+
+## Validation curves by depth
+
+[Regression RMSE](validation-regression-depths.png),
+[classifier argmax RMSE](validation-classifier-rmse-depths.png), and
+[classifier bin NLL](validation-classifier-nll-depths.png) show all 19 depths
+at each of the 19 continuation validation checkpoints. At each depth, all checkpoints,
+both models, and raw/EMA comparisons use the same fixed 512 validation cases. The initial selected raw checkpoint is
+a horizontal reference; the x-axis counts continuation updates only. RMSE uses
+a logarithmic axis, and y-axis limits vary by depth. Lower is better.
+[Per-depth values](validation-per-depth.csv) and [plotting script](plot_validation.py).

@@ -38,8 +38,6 @@ from collections.abc import Iterable
 import torch
 from torch import nn
 
-from samudra.models.base import BaseModel
-
 
 class EMATracker:
     """
@@ -109,7 +107,7 @@ class EMATracker:
             )
         )
 
-    def __call__(self, model: BaseModel | nn.parallel.DistributedDataParallel):
+    def __call__(self, model: nn.Module):
         """
         Update the moving average of the parameters.
 
@@ -148,7 +146,7 @@ class EMATracker:
                         "but it does not"
                     )
 
-    def copy_to(self, model: BaseModel | nn.parallel.DistributedDataParallel):
+    def copy_to(self, model: nn.Module):
         """
         Copy the averaged parameters to the model, overwriting its values.
         """

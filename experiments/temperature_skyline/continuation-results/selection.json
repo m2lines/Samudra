@@ -1,0 +1,43 @@
+{
+  "absolute": {
+    "arm": "absolute",
+    "source": "continuation",
+    "weights": "ema",
+    "step": 7624,
+    "nmse": 0.00035409232090418926,
+    "nll": 2.8360736098042443,
+    "criterion": "nll"
+  },
+  "regression": {
+    "arm": "regression",
+    "source": "continuation",
+    "weights": "ema",
+    "step": 7711,
+    "nmse": 0.0003365090841856809,
+    "nll": null,
+    "criterion": "nmse"
+  },
+  "selection_targets": {
+    "initial_classifier": {
+      "count": 9728,
+      "unique": 9726,
+      "sha256": "91e01d3578ccd6ac358b2809d8548c3da857bcf85825151d57188e6f6425d55d"
+    },
+    "initial_regression": {
+      "count": 9728,
+      "unique": 9726,
+      "sha256": "91e01d3578ccd6ac358b2809d8548c3da857bcf85825151d57188e6f6425d55d"
+    },
+    "continued_classifier": {
+      "count": 9728,
+      "unique": 9726,
+      "sha256": "91e01d3578ccd6ac358b2809d8548c3da857bcf85825151d57188e6f6425d55d"
+    },
+    "continued_regression": {
+      "count": 9728,
+      "unique": 9726,
+      "sha256": "91e01d3578ccd6ac358b2809d8548c3da857bcf85825151d57188e6f6425d55d"
+    }
+  },
+  "selection_rule": "Initial raw checkpoints remain eligible; choose regression mean-depth NMSE and classifier bin NLL on identical fixed 9728 validation samples. Qualification weights and held-out map scores excluded."
+}

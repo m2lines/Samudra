@@ -1,0 +1,175 @@
+{
+  "definition": "Derivative of predicted-bin minus true-bin logit with respect to standardized physical input values. Add the separate current-query derivative to the current center thetao_13 derivative before absolute aggregation; both paths represent the same physical temperature.",
+  "cases": [
+    {
+      "case": 0,
+      "origin": 4081,
+      "row": 441,
+      "col": 153,
+      "total_absolute_gradient": 58.775428771972656,
+      "channels": [
+        {
+          "channel": "hfds",
+          "absolute_gradient": 6.234348773956299,
+          "fraction": 0.10607066750526428
+        },
+        {
+          "channel": "tauuo",
+          "absolute_gradient": 3.9666318893432617,
+          "fraction": 0.0674879252910614
+        },
+        {
+          "channel": "zos",
+          "absolute_gradient": 3.3269972801208496,
+          "fraction": 0.05660524219274521
+        },
+        {
+          "channel": "uo_0",
+          "absolute_gradient": 2.776505470275879,
+          "fraction": 0.04723922163248062
+        },
+        {
+          "channel": "vo_1",
+          "absolute_gradient": 2.2933778762817383,
+          "fraction": 0.03901933133602142
+        }
+      ]
+    },
+    {
+      "case": 1,
+      "origin": 4121,
+      "row": 534,
+      "col": 138,
+      "total_absolute_gradient": 12.29198932647705,
+      "channels": [
+        {
+          "channel": "thetao_13",
+          "absolute_gradient": 8.813454627990723,
+          "fraction": 0.7170079946517944
+        },
+        {
+          "channel": "hfds",
+          "absolute_gradient": 0.4760175049304962,
+          "fraction": 0.0387258306145668
+        },
+        {
+          "channel": "tauuo",
+          "absolute_gradient": 0.2439572513103485,
+          "fraction": 0.019846849143505096
+        },
+        {
+          "channel": "zos",
+          "absolute_gradient": 0.20387834310531616,
+          "fraction": 0.01658627763390541
+        },
+        {
+          "channel": "thetao_1",
+          "absolute_gradient": 0.19557863473892212,
+          "fraction": 0.01591106504201889
+        }
+      ]
+    },
+    {
+      "case": 2,
+      "origin": 4142,
+      "row": 529,
+      "col": 156,
+      "total_absolute_gradient": 15.267102241516113,
+      "channels": [
+        {
+          "channel": "thetao_13",
+          "absolute_gradient": 9.813443183898926,
+          "fraction": 0.6427836418151855
+        },
+        {
+          "channel": "hfds",
+          "absolute_gradient": 0.5826971530914307,
+          "fraction": 0.038166847079992294
+        },
+        {
+          "channel": "tauuo",
+          "absolute_gradient": 0.396000474691391,
+          "fraction": 0.025938155129551888
+        },
+        {
+          "channel": "zos",
+          "absolute_gradient": 0.338436484336853,
+          "fraction": 0.022167695686221123
+        },
+        {
+          "channel": "thetao_1",
+          "absolute_gradient": 0.26479026675224304,
+          "fraction": 0.01734384521842003
+        }
+      ]
+    },
+    {
+      "case": 3,
+      "origin": 4071,
+      "row": 389,
+      "col": 477,
+      "total_absolute_gradient": 7.972139358520508,
+      "channels": [
+        {
+          "channel": "thetao_13",
+          "absolute_gradient": 3.1984214782714844,
+          "fraction": 0.40119990706443787
+        },
+        {
+          "channel": "hfds",
+          "absolute_gradient": 0.40762972831726074,
+          "fraction": 0.05113178491592407
+        },
+        {
+          "channel": "tauuo",
+          "absolute_gradient": 0.16660934686660767,
+          "fraction": 0.020898951217532158
+        },
+        {
+          "channel": "uo_5",
+          "absolute_gradient": 0.14786937832832336,
+          "fraction": 0.01854826882481575
+        },
+        {
+          "channel": "zos",
+          "absolute_gradient": 0.1440276950597763,
+          "fraction": 0.01806638017296791
+        }
+      ]
+    },
+    {
+      "case": 4,
+      "origin": 4142,
+      "row": 508,
+      "col": 6,
+      "total_absolute_gradient": 7.555817604064941,
+      "channels": [
+        {
+          "channel": "thetao_13",
+          "absolute_gradient": 0.6809759736061096,
+          "fraction": 0.09012604504823685
+        },
+        {
+          "channel": "hfds",
+          "absolute_gradient": 0.3989957273006439,
+          "fraction": 0.05280642583966255
+        },
+        {
+          "channel": "tauuo",
+          "absolute_gradient": 0.25950106978416443,
+          "fraction": 0.03434453904628754
+        },
+        {
+          "channel": "zos",
+          "absolute_gradient": 0.25564590096473694,
+          "fraction": 0.0338343121111393
+        },
+        {
+          "channel": "uo_5",
+          "absolute_gradient": 0.2310817390680313,
+          "fraction": 0.03058328665792942
+        }
+      ]
+    }
+  ]
+}

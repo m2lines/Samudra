@@ -72,7 +72,10 @@ def prepare(args: argparse.Namespace) -> None:
     from importlib.metadata import version
 
     # The separate data environment supplies this preprocessing package.
-    from ocean_preprocessing import regridding, vertical_grid  # type: ignore[import-not-found]
+    from ocean_preprocessing import (  # type: ignore[import-not-found]
+        regridding,
+        vertical_grid,
+    )
 
     target_depth = vertical_grid.OM4_DEPTH_LEVELS[:OBSERVED_DEPTHS]
 

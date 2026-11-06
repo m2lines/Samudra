@@ -216,14 +216,14 @@ def objective(
             for name in ("monthly_ts", "sst", "ssh")
         )
     else:
-        weights = sample["mask"] * data.area
+        spatial_weights = sample["mask"] * data.area
         parts["forecast"] = balanced_loss(
-            prediction, sample["target_fields"], weights, model.names
+            prediction, sample["target_fields"], spatial_weights, model.names
         )
         parts["reconstruction"] = balanced_loss(
             initial,
             auxiliary["initial_fields"],
-            weights,
+            spatial_weights,
             model.names,
             interior_only=True,
         )

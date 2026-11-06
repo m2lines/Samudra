@@ -173,7 +173,7 @@ selected by `shared_era5.required_indices`; the cache builder rejects missing
 support. Then prepare the exact-interval caches:
 
 ```bash
-PYTHONPATH=src python data/prepare_observation_era5.py /data/obs/samples /data/obs/daily /data/om4_onedeg_v3 /data/obs/era5-cache
+PYTHONPATH=src python data/prepare_observation_era5.py /data/obs /data/obs/daily /data/om4_onedeg_v3 /data/obs/era5-cache
 PYTHONPATH=src python data/prepare_observation_native.py /data/obs/daily /data/obs/native-observations-v1
 PYTHONPATH=src python data/prepare_observation_om4_native.py /data/om4_onedeg_v3 /data/obs/grid.npz /data/obs/native-om4-v1
 ```
@@ -215,3 +215,18 @@ to generate short configs for `python -m samudra.observations.qualify CONFIG`.
 budget for distributed loading and numerical checks; supply a separate short-run
 config rather than a full scientific budget. These tools produce their own receipts; no run results
 are required by the implementation.
+
+The harness uses normalization policy v3: observed channels use observation
+statistics and unobserved channels use OM4 statistics. Rebuild normalization with
+`prepare_observation_normalization.py --om4` before starting a new run. Checkpoints produced with policy v2 require their original code and data;
+this branch does not convert them. The
+[four-to-two-rank migration script](../../../scripts/migrate_observation_checkpoint.py)
+is restricted to its recorded legacy runtime.
+
+The harness uses the configuration fields `pretrain_mix`, `post_training_updates`,
+`post_training_scheduler` and `post_training_learning_rate`. The deterministic
+presets use constant main-phase learning rate and the shared linear scheduler for
+post-training. Extending a main phase with an active scheduler is rejected because
+it would change that scheduler's horizon; the supplied constant-rate continuation
+configs support post-training branches after 4k, 8k, 12k and 16k total main-phase
+optimizer updates.

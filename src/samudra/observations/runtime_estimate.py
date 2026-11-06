@@ -6,19 +6,20 @@ import argparse
 import json
 import math
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
 
 def estimate(
-    receipt,
-    main_updates=4000,
-    post_training_updates=1000,
+    receipt: dict[str, Any],
+    main_updates: int = 4000,
+    post_training_updates: int = 1000,
     *,
-    main_start=0,
-    validation_freq=250,
-    save_freq=25,
-):
+    main_start: int = 0,
+    validation_freq: int = 250,
+    save_freq: int = 25,
+) -> dict[str, Any]:
     """Include validation and checkpoint work; report the observed timing range."""
     records = receipt["training_records"]
     distributed_receipt = "world_size" in receipt
@@ -107,7 +108,7 @@ def estimate(
     }
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("receipt", type=Path)
     parser.add_argument("--main-updates", type=int, default=4000)

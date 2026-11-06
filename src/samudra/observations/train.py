@@ -13,6 +13,7 @@ import torch
 import wandb
 
 from samudra.backend import init_train_backend
+from samudra.models.surface_initialized import SurfaceInitializedModel
 from samudra.observations.config import MIXES, ObservationTrainConfig
 from samudra.observations.constants import FORECAST_STEPS
 from samudra.observations.model_data import ModelMonths
@@ -54,7 +55,7 @@ def run_training(cfg: ObservationTrainConfig) -> None:
 
 
 def build_sources(
-    cfg: ObservationTrainConfig, device: torch.device, *, verify_data=True
+    cfg: ObservationTrainConfig, device: torch.device, *, verify_data: bool = True
 ) -> Sources:
     def path(name: str) -> Path:
         return cfg.data.local_path(name, cfg.experiment)
@@ -65,6 +66,7 @@ def build_sources(
         from samudra.rust_reader import RustIoRuntime
 
         runtime = RustIoRuntime(cfg.data.loading.max_concurrent_reads)
+        assert cfg.data.native_observations_proof_sha256 is not None
         native_archive = NativeObservationArchive(
             path("daily"),
             path("native_observations"),
@@ -87,6 +89,7 @@ def build_sources(
         if runtime is not None and cfg.data.native_om4 is not None:
             from samudra.observations.native_om4 import NativeOm4Planes
 
+            assert cfg.data.native_om4_proof_sha256 is not None
             models["om4"].planes = NativeOm4Planes(
                 path("native_om4"),
                 models["om4"],
@@ -95,6 +98,7 @@ def build_sources(
                 verify_content=verify_data,
             )
         if cfg.model.forcing_mode == "shared_era5":
+            assert cfg.data.era5_proof_sha256 is not None
             models["om4"].era5 = SharedEra5(
                 path("era5_cache"), models["om4"], data, cfg.data.era5_proof_sha256
             )
@@ -222,7 +226,7 @@ def _run_training(cfg: ObservationTrainConfig, device: torch.device) -> None:
             tracker.log(record, step=int(record["updates"]))
         logger.info("%s", json.dumps(record, allow_nan=False))
 
-    def validate(current):
+    def validate(current: SurfaceInitializedModel) -> dict[str, float]:
         assert trajectory is not None
         return annual_metrics(current, data, trajectory)
 

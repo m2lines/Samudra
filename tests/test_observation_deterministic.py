@@ -79,6 +79,7 @@ def test_five_arm_screen_and_winner_budget():
     assert arms["E-mixed-large-no-replay"].fresh_examples == 8
     for c in arms.values():
         assert c.model.forcing_mode == "shared_era5"
+        assert c.model.evolution_backbone is not None
         assert c.model.evolution_backbone.ch_width == [280, 380, 480, 520]
     winner = arms["D-mixed-large"]
     extension = winner_configs(winner)
@@ -86,7 +87,8 @@ def test_five_arm_screen_and_winner_budget():
     assert main.main_updates == 16000
     assert main.fork_ckpt_path == str(winner.experiment.nets_dir / "main.pt")
     assert (
-        main.total_updates - 4000 + sum(c.post_training_updates for c in branches) == 15000
+        main.total_updates - 4000 + sum(c.post_training_updates for c in branches)
+        == 15000
     )
     assert [c.main_updates for c in branches] == [8000, 12000]
     assert all(c.post_training_updates == 1000 for c in branches)
@@ -149,3 +151,48 @@ def test_distributed_estimate_excludes_sync_controls_and_counts_gpu_allocation()
     assert result["allocated_gpu_hours_with_30_percent_execution_allowance"][
         0
     ] == pytest.approx(8 * result["hours_with_30_percent_execution_allowance"][0])
+
+
+@pytest.mark.parametrize("prefetch", [False, True])
+def test_qualification_keeps_prefetched_sources_on_cpu(monkeypatch, tmp_path, prefetch):
+    """Stop at the data boundary without allocating a GPU or opening real archives."""
+    import torch
+
+    from samudra.observations import qualify
+
+    cfg = qualify.QualificationConfig.from_yaml("observations/train.yaml").model_copy(
+        update={
+            "main_updates": 4,
+            "post_training_updates": 2,
+            "update_prefetch": prefetch,
+        }
+    )
+    cfg.experiment.base_output_dir = str(tmp_path)
+    monkeypatch.setattr(qualify, "set_seed", lambda _: None)
+    monkeypatch.setattr(torch, "use_deterministic_algorithms", lambda _: None)
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(torch.cuda, "is_bf16_supported", lambda: True)
+    monkeypatch.setattr(torch.cuda, "get_device_name", lambda: "test")
+    monkeypatch.setattr(torch.backends.cudnn, "benchmark", False)
+    monkeypatch.setattr(torch.backends.cudnn, "deterministic", True)
+    devices = []
+
+    class DataBoundary(Exception):
+        pass
+
+    def build_sources(config, device):
+        devices.append(device.type)
+        data = SimpleNamespace(to=lambda target: SimpleNamespace(device=target.type))
+        return SimpleNamespace(obs=data, models={})
+
+    def manifest(config, data, sources):
+        if prefetch:
+            assert data.device == "cuda"
+            assert data is not sources.obs
+        raise DataBoundary
+
+    monkeypatch.setattr(qualify, "build_sources", build_sources)
+    monkeypatch.setattr(qualify.baseline, "run_manifest", manifest)
+    with pytest.raises(DataBoundary):
+        qualify.run(cfg)
+    assert devices == ["cpu" if prefetch else "cuda"]

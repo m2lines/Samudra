@@ -7,10 +7,13 @@ import json
 import math
 import os
 import time
+from collections.abc import Mapping
+from typing import Any
 
 import numpy as np
 import torch
 
+from samudra.models.surface_initialized import SurfaceInitializedModel
 from samudra.observations import training as baseline
 from samudra.observations.archive import validate_normalization_policy
 from samudra.observations.config import ObservationTrainConfig
@@ -22,7 +25,9 @@ from samudra.observations.constants import (
     SURFACE_CHANNELS,
     TEMPERATURE_OFFSET,
 )
+from samudra.observations.model_data import ModelMonths
 from samudra.observations.replay import ReplayEntry
+from samudra.observations.samples import Samples
 from samudra.observations.state import TrainingState, write_json
 from samudra.observations.train import (
     build_sources,
@@ -37,11 +42,11 @@ class QualificationConfig(ObservationTrainConfig):
     qualify_data: bool = False
 
 
-def emit(record):
+def emit(record: dict[str, Any]) -> None:
     print(json.dumps(record, allow_nan=False), flush=True)
 
 
-def equal_tree(actual, expected, path="checkpoint"):
+def equal_tree(actual: Any, expected: Any, path: str = "checkpoint") -> None:
     """Compare payloads, not serialization byte layout; tensor equality is exact."""
     if isinstance(actual, torch.Tensor):
         torch.testing.assert_close(actual, expected, rtol=0, atol=0, msg=path)
@@ -68,7 +73,7 @@ def equal_tree(actual, expected, path="checkpoint"):
         raise AssertionError(f"{path}: {actual!r} != {expected!r}")
 
 
-def verify_global_moments(data):
+def verify_global_moments(data: Samples) -> dict[str, Any]:
     """Independently check fitted scales using standardized residual moments.
 
     The fitter accumulates raw first/second moments. Here we independently
@@ -133,7 +138,7 @@ def verify_global_moments(data):
     return checks
 
 
-def data_parity(data, models):
+def data_parity(data: Samples, models: Mapping[str, ModelMonths]) -> dict[str, Any]:
     """Daily replay preparation agrees with two independently materialized months."""
     checks = []
     for month in ("1993-05", "2001-01"):
@@ -162,12 +167,7 @@ def data_parity(data, models):
     # Rebuild the observation/OM4 field map from its recorded source stores.
     import xarray as xr
 
-    from samudra.observations.constants import (
-        OM4_STATE_NAMES,
-        PROFILE_NAMES,
-        STATE_NAMES,
-        SURFACE_NAMES,
-    )
+    from samudra.observations.constants import PROFILE_NAMES, STATE_NAMES, SURFACE_NAMES
 
     proof = json.loads((data.normalization / "normalization.json").read_text())
     moments = []
@@ -176,7 +176,11 @@ def data_parity(data, models):
             proof["om4_normalization_inputs"][suffix], chunks=None
         ) as store:
             moments.append(
-                {name: float(store[name].item()) for name in OM4_STATE_NAMES}
+                {
+                    name: float(store[name].item())
+                    for name in STATE_NAMES
+                    if name not in (*PROFILE_NAMES, *SURFACE_NAMES)
+                }
             )
     for moment, suffix in zip(moments, ("mean", "std"), strict=True):
         for index, name in enumerate(PROFILE_NAMES):
@@ -203,7 +207,7 @@ def data_parity(data, models):
     }
 
 
-def chain_origin(sources, source):
+def chain_origin(sources: baseline.Sources, source: str) -> str | int:
     if source == "obs":
         return "2001-01"
     return next(
@@ -214,7 +218,11 @@ def chain_origin(sources, source):
 
 
 @torch.no_grad()
-def qualify_chains(state, sources, cfg):
+def qualify_chains(
+    state: TrainingState[SurfaceInitializedModel],
+    sources: baseline.Sources,
+    cfg: ObservationTrainConfig,
+) -> dict[str, Any]:
     """Advance actual model-generated states to one year and populate real pools."""
     model = state.model
     model.eval()
@@ -372,7 +380,7 @@ def run(cfg: QualificationConfig) -> None:
             stream.write(json.dumps(value, allow_nan=False) + "\n")
         emit(value)
 
-    def validate(current):
+    def validate(current: SurfaceInitializedModel) -> dict[str, float]:
         trajectory = data.trajectory(
             cfg.validation_origin, steps=FORECAST_STEPS, split="validation"
         )
@@ -383,7 +391,11 @@ def run(cfg: QualificationConfig) -> None:
             raise FloatingPointError("Nonfinite annual metric")
         return metrics
 
-    def train_until(limit, config=cfg, identity=manifest):
+    def train_until(
+        limit: int,
+        config: ObservationTrainConfig = cfg,
+        identity: baseline.Manifest = manifest,
+    ) -> None:
         baseline.train(
             config, state, sources, output, identity, validate, record, stop_after=limit
         )
@@ -489,7 +501,7 @@ def run(cfg: QualificationConfig) -> None:
     emit({"event": "qualified", **report})
 
 
-def main():
+def main() -> None:
     run(QualificationConfig.from_yaml_and_cli())
 
 

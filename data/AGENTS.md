@@ -17,8 +17,9 @@ against. It has its own environment, dependencies, and tests. Nothing under `dat
 | --- | --- | --- |
 | Create the environment | `cd data && mamba env create -f mamba_env.yaml && mamba activate ocean_preprocessing` | xESMF needs conda-forge, so this is mamba, not uv. Installs the package in editable mode. |
 | Update the environment | `mamba env update -n ocean_preprocessing -f mamba_env.yaml` | |
-| Install test dependencies | `mamba install pytest scipy dask pre-commit` | The mamba environment doesn't include them (see `data/README.md`). |
-| Run tests | `cd data && python -m pytest tests` | CI (`.github/workflows/data-tests.yaml`) runs these on Python 3.12 with `pip install -e "./data[test]"`. |
+| Create a test environment | `mamba env create -p <dir> -f data/.test.yml`, then `pip install --no-deps --no-build-isolation -e ./src/samudra/test_utils -e ./data` from the repository root | The pinned environment the property CI uses. `data/mamba_env.yaml` has no test dependencies. |
+| Run tests | `cd data && python -m pytest tests` | CI (`.github/workflows/data-tests.yaml`) runs these on Python 3.12 with `pip install -e ./src/samudra/test_utils -e "./data[test]"`. |
+| Run the mutation gate | `python -m samudra.test_utils.mutations data/tests --output <dir> --seeds 0 1 95920261105 --timeout 60 --budget 600` | Checks that the property tests (`tests/test_*_properties.py`) catch each fault in the `*_mutations.py` catalogs. See "Definition of done" in the root `AGENTS.md`. |
 | CLI help | `python -m ocean_preprocessing om4 -- --help` | Also `cm4`, `basin_masks`, `.virtualize_om4`, `.make_norm_datasets`, `.obs_preprocessing`. |
 
 Dependencies live in **two places**: `data/pyproject.toml` (used by CI) and `data/mamba_env.yaml` (used by

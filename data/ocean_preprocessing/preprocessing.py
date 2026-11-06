@@ -12,8 +12,10 @@ import numpy as np
 import xarray as xr
 from xgcm import Grid
 
+from ocean_preprocessing.regridding import conservative_regridder
 from ocean_preprocessing.schema import OM4_3D_VARS
 from ocean_preprocessing.utils import split_2d_3d
+from ocean_preprocessing.vertical_grid import OM4_DEPTH_LEVELS, OM4_LAYER_THICKNESS
 
 try:
     import xesmf as xe  # type: ignore
@@ -30,54 +32,8 @@ def manual_v0_fixes(ds_input: xr.Dataset) -> xr.Dataset:
         "gs://leap-persistent/sd5313/grids_CM2x.zarr", engine="zarr", chunks={}
     )["area_C"].rename({"xu_ocean": "x", "yu_ocean": "y"})
     # from https://github.com/m2lines/ocean_emulators/issues/17
-    dz = xr.DataArray(
-        [
-            5,
-            10,
-            15,
-            20,
-            30,
-            50,
-            70,
-            100,
-            150,
-            200,
-            250,
-            300,
-            400,
-            500,
-            600,
-            800,
-            1000,
-            1000,
-            1000,
-        ],
-        dims=["lev"],
-    )
-    z = xr.DataArray(
-        [
-            2.5,
-            10,
-            22.5,
-            40,
-            65,
-            105,
-            165,
-            250,
-            375,
-            550,
-            775,
-            1050,
-            1400,
-            1850,
-            2400,
-            3100,
-            4000,
-            5000,
-            6000,
-        ],
-        dims="lev",
-    )
+    dz = xr.DataArray(OM4_LAYER_THICKNESS, dims="lev")
+    z = xr.DataArray(OM4_DEPTH_LEVELS, dims="lev")
     wetmask = ~np.isnan(ds_input.thetao.isel(time=0).reset_coords(drop=True))
     lon = xr.ones_like(ds_input.y) * ds_input.x
     lat = ds_input.y * xr.ones_like(ds_input.x)
@@ -269,24 +225,9 @@ def spatially_filter(
     return ds_filtered
 
 
-def horizontal_regrid(ds, ds_target):
+def horizontal_regrid(ds: xr.Dataset, ds_target: xr.Dataset) -> xr.Dataset:
     """Regrid `ds` horizontally, and conserve the integral in space."""
-    regridder_kwargs = dict(ignore_degenerate=True, periodic=True, unmapped_to_nan=True)
-
-    # try to run this with higher precision (TODO: Test if this actually makes a difference).
-    s = xr.Dataset(
-        coords={
-            co: ds[co].astype(np.float64) for co in ["lon", "lat", "lon_b", "lat_b"]
-        }
-    )
-    t = xr.Dataset(
-        coords={
-            co: ds_target[co].astype(np.float64)
-            for co in ["lon", "lat", "lon_b", "lat_b"]
-        }
-    )
-
-    regridder = xe.Regridder(s, t, "conservative", **regridder_kwargs)
+    regridder = conservative_regridder(ds, ds_target)
     ds_regridded = regridder(ds, skipna=True, na_thres=1)
 
     # get lon/lats from the target grid

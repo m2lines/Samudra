@@ -6,7 +6,8 @@ name: ocean_preprocessing
 channels:
   - conda-forge
 dependencies:
-    - python=3.11
+    - python=3.12
+    - numpy>=1.26.4,<2
     - xarray
     - cftime
     - xarrayutils
@@ -28,4 +29,5 @@ dependencies:
     - coiled
     - distributed
     - pip:
-      - -e .  # local sources
+      - -e ..  # shared Samudra routines from this checkout
+      - -e .[observations]

@@ -39,7 +39,7 @@ for arm in ("legacy_mse", "wet_mse", "dynamic_legacy"):
     del d["post_train_eval"]["eval_config_path"]
     configs[arm] = d
 assert configs["legacy_mse"] == configs["wet_mse"] == configs["dynamic_legacy"]
-data_root = Path(str(cfg.experiment.data_root))
+data_root = Path(raw["experiment"]["data_root"])
 metadata = {}
 for name in ("OM4.zarr", "OM4_means.zarr", "OM4_stds.zarr"):
     path = data_root / name

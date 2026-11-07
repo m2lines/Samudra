@@ -28,7 +28,7 @@ def scientific_config(d):
     return d
 
 
-for arm in ("legacy_mse", "wet_mse", "dynamic_legacy"):
+for arm in ("legacy_mse", "wet_mse", "dynamic_wet"):
     raw = json.loads((root / "configs" / f"{arm}.json").read_text())
     assert scientific_config(raw) == scientific_config(reference), arm
     cfg = TrainConfig.from_yaml(root / "configs" / f"{arm}.json")
@@ -38,7 +38,7 @@ for arm in ("legacy_mse", "wet_mse", "dynamic_legacy"):
     del d["experiment"]["name"]
     del d["post_train_eval"]["eval_config_path"]
     configs[arm] = d
-assert configs["legacy_mse"] == configs["wet_mse"] == configs["dynamic_legacy"]
+assert configs["legacy_mse"] == configs["wet_mse"] == configs["dynamic_wet"]
 data_root = Path(raw["experiment"]["data_root"])
 metadata = {}
 for name in ("OM4.zarr", "OM4_means.zarr", "OM4_stds.zarr"):

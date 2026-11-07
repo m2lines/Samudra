@@ -8,7 +8,7 @@ set -euo pipefail
 cd "$ROOT"
 test -f PROBE_PASSED
 sha256sum -c inputs.sha256
-arms=(legacy_mse wet_mse dynamic_legacy)
+arms=(legacy_mse wet_mse dynamic_wet)
 arm=${arms[$SLURM_ARRAY_TASK_ID]}
 export CONFIG="$ROOT/configs/$arm.json" NAME="issue964-$arm-seed15"
 export OUTPUT_BASE="$ROOT/outputs"

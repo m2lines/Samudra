@@ -13,7 +13,7 @@ its container commit instead. This branch starts at that source and applies
 PR #965's loss change. Model, training, stepping, and loader code are unchanged.
 
 Three new arms use `legacy_mse`, `mse` (wet-cell denominator), and
-`{type: dynamic, metric: legacy_mse, limit: 20}`. All use seed 15, 70 epochs,
+`{type: dynamic, metric: mse, limit: 20}`. All use seed 15, 70 epochs,
 batch 4 per GPU, four GPUs, accumulation 2 (global effective batch 32),
 LR 0.0006 with cosine scheduling, InstanceNorm, BF16, and two input/two output
 states with four autoregressive calls. Rust uses eight reads, two prefetched
@@ -44,9 +44,9 @@ validation/checkpoint selection and is not the matched control.
 
 Run IDs, qualification evidence, and results will be added after execution.
 
-Submitted on Torch November 6: CPU qualification `22134210`, four-GPU probe
-`22134213`, and training array `22134216` (task 0 legacy, task 1 wet-cell, task 2
-dynamic legacy). Training depends on successful qualification and all probes.
+Submitted on Torch November 6: CPU qualification `22134395`, four-GPU probe
+`22134439`, and training array `22134489` (task 0 legacy, task 1 wet-cell, task 2
+dynamic wet-cell). Training depends on successful qualification and all probes.
 Each arm requests four compatible GPUs, 48 CPUs, 256 GB RAM, and 24 hours,
 with normal/preemptible routing and checkpoint recovery. Source overlay:
 `4ea4ed7d9735e7c90a2484dc28c5232c266995e0`. Container SIF is the PhysicsNeMo
@@ -54,3 +54,7 @@ with normal/preemptible routing and checkpoint recovery. Source overlay:
 lockfiles. Twelve local loss tests passed, all train/eval configs parse, and
 scientific-config equality to the saved control passed. Cluster qualification
 and scientific results remain pending.
+
+The original queued chain was canceled before GPU execution to replace the
+third arm with dynamic wet-cell MSE. The October 24 run supplies the legacy
+dynamic-MSE control.

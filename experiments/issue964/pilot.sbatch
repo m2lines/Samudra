@@ -26,7 +26,7 @@ case "$1" in
     probe)
         export GPU_FLAG=--nv
         nvidia-smi
-        for arm in legacy_mse wet_mse dynamic_legacy; do
+        for arm in legacy_mse wet_mse dynamic_wet; do
             run_python -m torch.distributed.run --standalone --nproc-per-node=4 \
                 "$ROOT/probe.py" "$ROOT/configs/$arm.json"
         done

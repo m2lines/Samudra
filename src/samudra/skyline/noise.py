@@ -14,6 +14,7 @@ from numcodecs import blosc  # type: ignore[import-untyped]
 from samudra.metrics.spectra import SPATIAL_REGIONS
 
 from .baseline import file_sha256
+from .ema import restore_ema
 from .model import ModelConfig, PointTransformer
 from .multitask import ComparisonSource
 from .run import to_device
@@ -56,8 +57,11 @@ def run(config, output):
             if selection["from_latest"]:
                 if int(state["ema"]["num_updates"]) != state["step"]:
                     raise ValueError("EMA update mismatch")
-                for name, parameter in model.named_parameters():
-                    parameter.copy_(state["ema"]["ema_params"][name])
+                ema = restore_ema(
+                    model, state["config"]["ema"], state["ema"], state["step"]
+                )
+                ema.copy_to(model)
+                del ema
             elif state.get("weights_kind") != "ema":
                 raise ValueError("Expected selected EMA checkpoint")
             source.arm = state["config"]["arm"]

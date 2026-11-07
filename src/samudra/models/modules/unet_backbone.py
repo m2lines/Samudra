@@ -10,12 +10,17 @@ from torch import nn
 
 from samudra.models.modules.blocks import (
     BilinearUpsample,
+    ConvNeXtBlock,
     CoreBlock,
     CoreBlockBuilder,
     DropPath,
     TransposedConvUpsample,
     UpsamplingBlockBuilder,
     ZonallyPeriodicBilinearUpsample,
+)
+from samudra.models.modules.geometry import (
+    GeometryConditioning,
+    concatenate_geometry_inputs,
 )
 from samudra.utils.train import pairwise
 
@@ -59,6 +64,8 @@ class UNetBackbone(nn.Module):
         create_upsampling_block: UpsamplingBlockBuilder,
         checkpointing: "Checkpointing | None",
         drop_path_rate: float = 0.0,
+        geometry_mode: str = "none",
+        geometry_reference_m: float = 100_000.0,
     ):
         super().__init__()
         self.in_channels = in_channels
@@ -153,7 +160,39 @@ class UNetBackbone(nn.Module):
         self.num_steps = int(len(ch_width) - 1)
         self.drop_path = DropPath(drop_path_rate)
 
-    def forward(self, fts: torch.Tensor) -> torch.Tensor:
+        self.geometry_mode = geometry_mode
+        self.geometry = None
+        if geometry_mode != "none":
+            # Additional parameters must not perturb common backbone/decoder RNG.
+            with torch.random.fork_rng(devices=[]):
+                self.geometry = GeometryConditioning(
+                    [
+                        layer.out_channels
+                        for layer in layers
+                        if isinstance(layer, CoreBlock)
+                    ],
+                    self.num_steps + 1,
+                    geometry_reference_m,
+                    geometry_mode == "film",
+                )
+                if geometry_mode == "concat":
+                    if not isinstance(first_block, ConvNeXtBlock):
+                        raise ValueError(
+                            "Geometry concatenation requires ConvNeXt blocks"
+                        )
+                    concatenate_geometry_inputs(first_block)
+
+    def forward(self, fts: torch.Tensor, resolution=None) -> torch.Tensor:
+        maps = None
+        if self.geometry is not None:
+            if resolution is None:
+                raise ValueError("Geometry conditioning requires grid coordinates")
+            maps = self.geometry.maps(resolution, fts.device)
+            if self.geometry_mode == "concat":
+                fts = torch.cat(
+                    (fts, maps[0].expand(fts.shape[0], -1, -1, -1).to(fts.dtype)), dim=1
+                )
+        block_index = 0
         skip_inputs: list[torch.Tensor] = []
         for i in range(self.num_steps):
             skip_inputs.append(torch.zeros_like(fts))
@@ -173,6 +212,26 @@ class UNetBackbone(nn.Module):
                 fts = torch.utils.checkpoint.checkpoint(layer, fts, use_reentrant=False)  # type: ignore
             else:
                 fts = layer(fts)
+
+            if isinstance(layer, CoreBlock):
+                if self.geometry_mode == "film":
+                    depth = min(block_index, 2 * self.num_steps - block_index)
+                    assert maps is not None and self.geometry is not None
+                    if fts.shape[-2:] != maps[depth].shape[-2:]:
+                        raise ValueError(
+                            "Geometry footprint differs from U-Net activation"
+                        )
+                    if self.checkpoint_all:
+                        fts = torch.utils.checkpoint.checkpoint(
+                            self.geometry,
+                            fts,
+                            maps[depth],
+                            block_index,
+                            use_reentrant=False,
+                        )
+                    else:
+                        fts = self.geometry(fts, maps[depth], block_index)
+                block_index += 1
 
             # UNet residuals logic (skip connections)
             if count < self.num_steps:

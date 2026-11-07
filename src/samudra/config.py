@@ -944,6 +944,9 @@ Checkpointing = Literal["all", "simple"]
 
 
 class UNetBackboneConfig(BaseConfig):
+    geometry_mode: Literal["none", "concat", "film"] = "none"
+    geometry_reference_m: float = Field(default=100_000.0, gt=0)
+
     ch_width: list[int] = [200, 250, 300, 400]
     dilation: list[int] = [1, 2, 4, 8]
     n_layers: list[int] = [1, 1, 1, 1]
@@ -999,6 +1002,8 @@ class UNetBackboneConfig(BaseConfig):
             create_upsampling_block=create_upsampling_block,
             checkpointing=checkpointing,
             drop_path_rate=self.drop_path_rate,
+            geometry_mode=self.geometry_mode,
+            geometry_reference_m=self.geometry_reference_m,
         )
 
 

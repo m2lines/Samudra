@@ -1,0 +1,150 @@
+{
+  "data": {
+    "loading": {
+      "type": "rust",
+      "prefetch_batches": 2,
+      "prefetch_to_device": true,
+      "max_concurrent_reads": 8
+    },
+    "sources": [
+      {
+        "type": "om4",
+        "val_time": {
+          "end": "2014-10-05",
+          "start": "2013-10-05"
+        },
+        "grid_type": "gaussian",
+        "train_time": {
+          "end": "2013-09-30",
+          "start": "1975-01-03"
+        },
+        "data_location": "OM4.zarr",
+        "inference_time": {
+          "end": "2022-12-24",
+          "start": "2014-10-10"
+        },
+        "boundary_vars_key": "tau_hfds",
+        "data_stds_location": "OM4_stds.zarr",
+        "data_means_location": "OM4_means.zarr",
+        "prognostic_vars_key": "thermo_dynamic_all"
+      }
+    ],
+    "input_steps": 2,
+    "output_steps": 2,
+    "loader_version": "om4-torch",
+    "inference_loading": {
+      "num_workers": 4,
+      "persistent_workers": true
+    },
+    "masked_fill_value": 0,
+    "normalize_before_mask": true
+  },
+  "loss": {
+    "type": "dynamic",
+    "metric": "mse",
+    "limit": 20
+  },
+  "debug": false,
+  "model": {
+    "pad": "circular",
+    "unet": {
+      "ch_width": [
+        280,
+        380,
+        480,
+        520
+      ],
+      "dilation": [
+        1,
+        2,
+        4,
+        8
+      ],
+      "n_layers": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "core_block": {
+        "norm": "instance",
+        "activation": "capped_gelu",
+        "block_type": "conv_next_block",
+        "kernel_size": 3,
+        "upscale_factor": 2,
+        "pointwise_linear": false
+      },
+      "geometry_mode": "none",
+      "drop_path_rate": 0,
+      "up_sampling_block": "zonally_periodic_upsample",
+      "down_sampling_block": "avg_pool",
+      "geometry_reference_m": 100000
+    },
+    "pos_channels": 0,
+    "use_bfloat16": true,
+    "checkpointing": "all",
+    "pred_residuals": false,
+    "last_kernel_size": 3,
+    "add_3d_coordinates": false,
+    "gradient_detach_interval": 0
+  },
+  "steps": [
+    4
+  ],
+  "epochs": 70,
+  "backend": "nccl",
+  "finetune": false,
+  "profiler": {
+    "cuda_snapshot_frequency": null
+  },
+  "disk_mode": true,
+  "ema_decay": 0.999,
+  "save_freq": 5,
+  "scheduler": {
+    "type": "cosine",
+    "target_epochs": null
+  },
+  "batch_size": 4,
+  "experiment": {
+    "name": "issue964-dynamic_wet-seed15",
+    "wandb": {
+      "mode": "online",
+      "tags": null,
+      "group": "issue964-oct24-loss-20261106",
+      "notes": null,
+      "entity": "ocean_emulators",
+      "project": "default"
+    },
+    "search": null,
+    "data_root": "/scratch/jr7309/data/om4-v2026-09/om4_onedeg",
+    "rand_seed": 15,
+    "base_output_dir": "/scratch/jr7309/runs/issue964-oct24-loss-20261106/outputs"
+  },
+  "data_stride": [
+    1
+  ],
+  "preemptible": true,
+  "learning_rate": 0.0006,
+  "test_using_ema": true,
+  "post_train_eval": {
+    "epochs": null,
+    "viz_config_path": null,
+    "eval_config_path": "/scratch/jr7309/runs/issue964-oct24-loss-20261106/configs/dynamic_wet-eval.json",
+    "last_n_checkpoints": 1
+  },
+  "step_transition": [],
+  "resume_ckpt_path": null,
+  "validation_score": "rollout_rmse",
+  "rollout_validation": {
+    "days": [
+      360
+    ],
+    "frequency": 1,
+    "model_steps": -1,
+    "steps_forward": 1
+  },
+  "delayed_loss_estimate": false,
+  "faster_decay_at_start": true,
+  "validation_image_log_freq": 10,
+  "gradient_accumulation_steps": 2
+}

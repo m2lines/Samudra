@@ -44,8 +44,8 @@ validation/checkpoint selection and is not the matched control.
 
 Run IDs, qualification evidence, and results will be added after execution.
 
-Submitted on Torch November 6: CPU qualification `22134395`, four-GPU probe
-`22134439`, and training array `22134489` (task 0 legacy, task 1 wet-cell, task 2
+Submitted on Torch November 6: CPU qualification `22134521`, four-GPU probe
+`22134523`, and training array `22134527` (task 0 legacy, task 1 wet-cell, task 2
 dynamic wet-cell). Training depends on successful qualification and all probes.
 Each arm requests four compatible GPUs, 48 CPUs, 256 GB RAM, and 24 hours,
 with normal/preemptible routing and checkpoint recovery. Source overlay:

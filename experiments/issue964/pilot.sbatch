@@ -15,7 +15,7 @@ sha256sum -c inputs.sha256
 run_python() {
     apptainer exec ${GPU_FLAG:-} --overlay "$CODE_LAYER:ro" --bind /scratch:/scratch "$SIF_PATH" \
         /usr/bin/env PYTHONPATH=/opt/samudra-code/src PYTHONNOUSERSITE=1 \
-        PYTHONUNBUFFERED=1 OMP_NUM_THREADS=4 \
+        PYTHONUNBUFFERED=1 OMP_NUM_THREADS=4 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 \
         /workspace/.venv/bin/python "$@"
 }
 case "$1" in

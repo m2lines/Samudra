@@ -19,4 +19,14 @@ export SIF_DIR=/scratch/jr7309/.apptainer-images
 export APPTAINER_CACHEDIR=/scratch/jr7309/apptainer-cache
 export SINGULARITY_CACHEDIR=/scratch/jr7309/singularity-cache
 export WANDB_MODE=online REQUEUE_ON_USR1=1
+# RTX6000 gr101 timed out at the initial NCCL barrier with direct P2P.
+# Apply the same transport setting to every arm; model/loss settings are unchanged.
+export NCCL_P2P_DISABLE=1 APPTAINERENV_NCCL_P2P_DISABLE=1
+export SINGULARITYENV_NCCL_P2P_DISABLE=1
+# Recovery retains the original immutable manifest instead of copying over its
+# read-only file. Trainer restores ckpt.pt when present (preemptible=true).
+if [[ -d "$OUTPUT_BASE/$NAME" ]]; then
+    cmp "$CODE_LAYER.json" "$OUTPUT_BASE/$NAME/source-manifest.json"
+    export SAMUDRA_MANAGE_RUN_DIR=0
+fi
 exec bash "$ROOT/slurm_apptainer_train.sbatch"

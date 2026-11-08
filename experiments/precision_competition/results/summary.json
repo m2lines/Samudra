@@ -1,0 +1,6 @@
+{
+  "planned": 223,
+  "complete": 223,
+  "training_gpu_hours_completed": 1.9018635886634,
+  "note": "Training time excludes validation, startup, checkpoints, preemption replay and scheduler overhead; use sacct for allocated cost."
+}

@@ -17,7 +17,8 @@ repos:
     hooks:
       - id: check-added-large-files
         args: [--maxkb=250]
-        exclude: ^notebooks/
+        # Fixed first-wave scientific records; each is under 3 MB, without weights.
+        exclude: ^(notebooks/|experiments/precision_competition/results/(bits-lost\.csv|curves\.csv|records\.json\.gz)$)
       - id: trailing-whitespace
         exclude: ^notebooks/
       - id: check-yaml

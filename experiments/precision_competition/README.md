@@ -3,6 +3,9 @@
 
 # Precision and competition in point-query transformers
 
+The [completed first-wave report](results/README.md) contains all three paired
+seeds, figures, metrics and execution receipts.
+
 This is an experiment/results record, not intended to merge. The working hypothesis is
 that improvements to a high-precision output are expensive relative to improvements
 to other tasks sharing the same parameters. The primary measurement is additional
@@ -190,6 +193,6 @@ lzanna account, broad compatible GPU routing and preemptible/requeue support, wi
 scratch-backed outputs. A CPU afterany callback and local fallback reminder cover
 the whole array; the callback is a wake-up, not evidence of success.
 
-Source, container, job, runtime, GPU and result receipts will be recorded with the
-submission. Reports must distinguish code validation, observed execution, and
+Source, container, job, runtime, GPU and result receipts are recorded with the
+[submission](submission.md) and [results](results/README.md). Reports must distinguish code validation, observed execution, and
 scientific results.

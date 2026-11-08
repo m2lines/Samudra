@@ -3,10 +3,10 @@
 
 # First-wave submission, November 7, 2026
 
-The first wave is running on NYU Torch. GPU qualification passed and the first two
-array arms produced complete artifacts. Remaining tasks were quota-limited at the
-launch check; there is no reliable completion ETA yet. These are engineering
-checks, not results about task competition.
+The first wave completed on NYU Torch: all 223 array tasks exited 0:0, all
+222 trained arms reached 3,000 updates, and the untrained wire completed its
+zero-update evaluation. There were no failed tasks or restarts. The
+[paired results report](results/README.md) includes the limitations and all three seeds.
 
 | Receipt | Value |
 | --- | --- |
@@ -22,9 +22,12 @@ checks, not results about task competition.
 All seven qualification cases reached 30 updates with finite evaluation metrics.
 The device was an NVIDIA RTX PRO 6000 Blackwell. Peak allocated GPU memory was
 2.81 GiB; measured update times ranged from 0.0048 to 0.0481 seconds, with FP64
-slowest. The pilot does not establish sustained end-to-end throughput for every
-configuration. The first two full arms reached their endpoints, with about 28
-seconds of measured training combined; evaluation and startup are additional.
+slowest. The full array used 12,255 allocated GPU-seconds (3.404 GPU-hours) and
+6,846.709 measured training seconds (1.902 GPU-hours). Qualification adds 23
+allocated GPU-seconds; the total GPU allocation was 3.411 hours. CPU callbacks
+used no GPU. All 223 checkpoints were loaded and verified against saved results;
+model tensors and final metrics were finite. Source hashes matched the immutable
+benchmark in every result. See the saved scheduler and verification receipts.
 
 The immutable code tar SHA-256 is
 `af1eff19fd53534f06229f9cffb8f4954578895cf0e0ced3becccb809e46fc29`.
@@ -50,7 +53,7 @@ contingency. The trial did not consume GPU runtime.
 Ten focused CPU tests and all repository pre-commit checks passed before submission.
 GPU checks establish execution and memory feasibility, not convergence or scientific
 validity of the hypothesis. Training caps and deferred comparisons are specified in
-[the protocol](README.md). Monitor the exact matched-step, seed-paired penalties and
-auxiliary accuracy before interpreting the screen. Allocated GPU-hours must include
-qualification, failed attempts, validation and startup separately from measured
-training time.
+[the protocol](README.md). The final report uses exact matched steps, paired seeds, auxiliary accuracy and
+persistence skill. Allocated GPU-hours include qualification, validation and startup
+separately from measured training time. No recovery jobs or additional waves were
+needed or submitted.

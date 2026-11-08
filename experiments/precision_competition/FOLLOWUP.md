@@ -135,3 +135,30 @@ preemption resumes the latest checkpoint. The checkpoint retains raw weights,
 EMA weights, optimizer, RNG, and stage history. Tests cover exact resume with EMA,
 EMA's lack of effect on raw training, fork state inheritance and hash rejection,
 loss scaling, schedule endpoints, and validation-only recipe selection.
+
+## Submission receipt, November 8
+
+| Item | Value |
+| --- | --- |
+| Pinned training source | `ae60e6ee394b70749c14732f94d69d2891d05d12` |
+| GPU smoke job | Torch `22290958` |
+| Qualification array | Torch `22290960`, indices 0–35, at most four GPUs |
+| Completion callback | CPU job `22291018`, afterany on qualification array |
+| Run root | `/scratch/jr7309/precision-followup-20261108-ae60e6ee3` |
+| W&B group | `precision-competition-followup-20261108`, project `ocean_emulators/samudra` |
+
+The qualification array depends on a successful smoke job and is cancelled if
+that dependency fails. Submission routing verified L40S-only eligibility across
+`l40s_public,l40s`, account `torch_pr_347_lzanna`, untyped one-GPU requests,
+preemption eligibility and requeue. At submission the GPU start time was unknown.
+The CPU callback's host authentication was verified from the login node; scheduled
+reminders also cover callback or queue delays. Later stages receive new callbacks.
+
+The source archive SHA256 is
+`3319c6da509d4f29da2d8e2ce2421d136510ffc44defbd98c1706a608930a642`.
+The qualification manifest SHA256 is
+`4fc3848ed0773f8e0b99b81ab97cc8f5015930a28f40f801e2ff7205434dd428`.
+The existing first-wave container is reused; its path and runtime are recorded in
+[the first-wave receipt](submission.md). All 16 focused CPU tests and repository
+commit checks passed before submission. These checks validate the implementation;
+GPU qualification and scientific convergence are separate checks.

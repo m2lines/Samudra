@@ -1,0 +1,16 @@
+{
+  "selected_solo": [
+    "7b58203ae5f8adc4",
+    "51291ffb76e1c667",
+    "2c8623b58dcf0812"
+  ],
+  "selected_auxiliary": [
+    "62f21772b5faee99",
+    "e885fd49c460d755",
+    "c695c8e93917d1bb"
+  ],
+  "worst_solo_bits_last_three": 5.7500942304167335,
+  "worst_aux_nrmse_last_three": 1.1337796321245994,
+  "selection": "worst-seed last-three raw validation; test and EMA excluded",
+  "gate": "failed; no competition submitted"
+}

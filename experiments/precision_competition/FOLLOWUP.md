@@ -3,6 +3,10 @@
 
 # Learning rate, weight averaging, and introduced competition
 
+The [completed qualification report](followup_results/README.md) records improved
+EMA copying precision and failure of both raw qualification requirements. The
+scientific competition and recovery stages were not submitted.
+
 This follow-up tests whether the first wave's unstable copying error can be reduced
 by smaller late updates, and whether a useful second task then removes acquired
 precision. It uses the same manufactured fields and transformer as the
@@ -162,3 +166,11 @@ The existing first-wave container is reused; its path and runtime are recorded i
 [the first-wave receipt](submission.md). All 16 focused CPU tests and repository
 commit checks passed before submission. These checks validate the implementation;
 GPU qualification and scientific convergence are separate checks.
+
+All 36 qualification tasks completed 12,000 updates with exit 0:0 on L40S GPUs.
+The raw-validation generator selected a worst-seed copying precision of 5.750 bits
+and transport normalized RMSE of 1.134; required values were at least 6 and below
+0.8 respectively. It wrote an empty competition manifest. No scientific
+competition or recovery jobs were submitted. Total allocation including smoke was
+1.0478 GPU-hours, with 0.6821 measured training GPU-hours in the full qualification
+runs. All 36 checkpoints, both EMAs and source/configuration receipts were verified.

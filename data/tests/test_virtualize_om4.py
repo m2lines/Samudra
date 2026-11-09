@@ -12,6 +12,7 @@ import fsspec
 import numpy as np
 import pytest
 import xarray as xr
+from fsspec.implementations.reference import LazyReferenceMapper
 from ocean_preprocessing.virtualize_om4 import (
     OSN,
     SourceArchive,
@@ -88,7 +89,10 @@ def test_parquet_roundtrip(tmp_path, classic, gap):
     metadata = json.loads((output / ".zmetadata").read_text())
     assert metadata["metadata"][".zgroup"]["zarr_format"] == 2
     mapper = fsspec.filesystem(
-        "reference", fo=str(output), remote_protocol="file", asynchronous=True
+        "reference",
+        fo=LazyReferenceMapper(str(output), engine="pyarrow"),
+        remote_protocol="file",
+        asynchronous=True,
     ).get_mapper("")
     with xr.open_zarr(
         mapper, consolidated=False, chunks=None, decode_times=False
@@ -100,6 +104,28 @@ def test_parquet_roundtrip(tmp_path, classic, gap):
     assert (output / "provenance.json").is_file()
     with pytest.raises(FileExistsError):
         build(str(src), output, expected_files=2)
+
+
+def test_parquet_partitions_with_repeated_source_paths(tmp_path):
+    values = np.arange(24, dtype="float32")
+    values[4] = np.nan
+    expected = xr.Dataset({"field": ("time", values)}, coords={"time": np.arange(24)})
+    expected.to_netcdf(
+        tmp_path / "input.nc",
+        engine="h5netcdf",
+        encoding={"field": {"chunksizes": (1,), "zlib": True, "_FillValue": -999}},
+    )
+    # Sixteen references to one path trigger categorical encoding; the final
+    # partition is partial. Both layouts must be readable through PyArrow.
+    output = build(str(tmp_path), tmp_path / "refs", pattern="*.nc", record_size=16)
+    mapper = fsspec.filesystem(
+        "reference",
+        fo=LazyReferenceMapper(str(output), engine="pyarrow"),
+        remote_protocol="file",
+        asynchronous=True,
+    ).get_mapper("")
+    with xr.open_zarr(mapper, consolidated=False, chunks=None) as actual:
+        xr.testing.assert_equal(actual.load(), expected)
 
 
 @pytest.mark.parametrize("change", ["changed_grid", "missing_variable"])
@@ -119,7 +145,7 @@ def test_explicit_file_count(tmp_path):
 
 
 def test_static(tmp_path):
-    ds = xr.Dataset({"area": (("y", "x"), np.ones((2, 3)))})
+    ds = xr.Dataset({"area": (("y", "x"), np.ones((2, 3))), "scalar": np.float32(0)})
     ds.to_netcdf(tmp_path / "ocean_static.nc", engine="h5netcdf")
     output = build(
         str(tmp_path),
@@ -129,7 +155,10 @@ def test_static(tmp_path):
         static=True,
     )
     mapper = fsspec.filesystem(
-        "reference", fo=str(output), remote_protocol="file", asynchronous=True
+        "reference",
+        fo=LazyReferenceMapper(str(output), engine="pyarrow"),
+        remote_protocol="file",
+        asynchronous=True,
     ).get_mapper("")
     with xr.open_zarr(mapper, consolidated=False, chunks=None) as actual:
         xr.testing.assert_equal(actual.load(), ds)
@@ -202,7 +231,10 @@ def test_escaped_local_paths_round_trip(tmp_path, classic):
         path.rename(path.with_name("part %3F%252F#? é " + path.name))
     output = build(str(source), tmp_path / "refs", pattern="*.nc")
     mapper = fsspec.filesystem(
-        "reference", fo=str(output), remote_protocol="file", asynchronous=True
+        "reference",
+        fo=LazyReferenceMapper(str(output), engine="pyarrow"),
+        remote_protocol="file",
+        asynchronous=True,
     ).get_mapper("")
     with xr.open_zarr(
         mapper, consolidated=False, chunks=None, decode_times=False
@@ -245,7 +277,10 @@ def test_declared_coordinate_bounds(tmp_path):
         )
     output = build(str(src), tmp_path / "refs")
     mapper = fsspec.filesystem(
-        "reference", fo=str(output), remote_protocol="file", asynchronous=True
+        "reference",
+        fo=LazyReferenceMapper(str(output), engine="pyarrow"),
+        remote_protocol="file",
+        asynchronous=True,
     ).get_mapper("")
     with xr.open_zarr(
         mapper, consolidated=False, chunks=None, decode_times=False

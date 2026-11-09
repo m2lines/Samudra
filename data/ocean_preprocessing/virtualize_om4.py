@@ -27,7 +27,7 @@ import fire
 import fsspec
 import obstore.store
 import xarray as xr
-from kerchunk.df import refs_to_dataframe
+from fsspec.implementations.reference import LazyReferenceMapper
 from obspec_utils.glob import glob
 from obspec_utils.registry import ObjectStoreRegistry
 from virtualizarr.manifests import ManifestArray
@@ -328,7 +328,12 @@ def write_parquet_references(
         for reference in refs.values():
             if isinstance(reference, list):
                 reference[0] = unquote(reference[0])
-    refs_to_dataframe(references, url=str(directory), record_size=record_size)
+    mapper = LazyReferenceMapper.create(
+        str(directory), record_size=record_size, engine="pyarrow"
+    )
+    for key in sorted(refs):
+        mapper[key] = refs[key]
+    mapper.flush()
 
 
 def validate_parquet_references(
@@ -346,7 +351,7 @@ def validate_parquet_references(
     )
     mapper = fsspec.filesystem(
         "reference",
-        fo=str(directory),
+        fo=LazyReferenceMapper(str(directory), engine="pyarrow"),
         asynchronous=True,
         remote_protocol=source.protocol,
         remote_options=remote_options,
@@ -377,6 +382,7 @@ def reference_provenance(
         "pattern": source.pattern,
         "static": concat_dim is None,
         "record_size": record_size,
+        "parquet_engine": "pyarrow",
         "script_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         "versions": {
             p: importlib.metadata.version(p)
@@ -389,7 +395,8 @@ def reference_provenance(
                 "s3fs",
                 "obstore",
                 "obspec-utils",
-                "fastparquet",
+                "pandas",
+                "pyarrow",
             )
         },
         "dimensions": dict(combined.sizes),

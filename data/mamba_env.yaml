@@ -21,7 +21,7 @@ dependencies:
     - obspec_utils>=0.9
     - virtualizarr==2.8.0
     - kerchunk==0.2.10
-    - fastparquet
+    - pyarrow
     - hdf5plugin
     - imagecodecs
     - gcsfs

@@ -128,6 +128,11 @@ files, and other options, see the CLI help:
 python -m ocean_preprocessing.virtualize_om4 --help
 ```
 
+Parquet references use PyArrow. When opening them with fsspec, pass
+`LazyReferenceMapper(path, engine="pyarrow")` from
+`fsspec.implementations.reference` as the `fo` argument to the `reference`
+filesystem; fsspec's directory shortcut defaults to `fastparquet`.
+
 ## Scientific preprocessing
 
 The `om4` and `cm4` subcommands share the processing pipeline after their

@@ -7,7 +7,7 @@ Dynamic wet-cell MSE closely matched the October 24 legacy-dynamic control on
 360-day validation: +0.09% at each run's selected epoch and +0.19% at epoch 70.
 Both static objectives performed worse. The static wet-cell run had errors 0.13% and 0.60% above the static legacy
 run, respectively. This single-seed
-experiment provides no evidence of an accuracy improvement from the denominator
+experiment provides no evidence of an aggregate accuracy improvement from the denominator
 fix. The small differences between the two dynamic runs do not establish a
 reproducible ranking.
 
@@ -118,3 +118,41 @@ Control evaluation was read from
 [Comparison CSV](results/comparison.csv), compressed W&B configuration/history
 snapshots, evaluation summaries, and [analysis script](analyze.py) accompany
 this report. This is an experiment/results record, not intended to merge.
+
+
+## Breakdown by depth
+
+The epoch-70 EMA profiles show a depth tradeoff hidden by the channel mean.
+For both static and dynamic weighting, wet-cell MSE has lower temperature and
+salinity rollout RMSE at the deepest levels, alongside higher errors in much
+of the upper ocean. At 6000 m, temperature improves by 29.14% for static MSE
+and 28.53% for dynamic MSE; salinity improves by 31.41% and 26.12%. For the
+dynamic pair, the absolute errors there are 0.019985 → 0.014283 °C and
+0.001649 → 0.001218 psu. At 2.5 m, dynamic wet-cell temperature/salinity
+errors are instead 2.15%/2.89% higher. Velocity changes are smaller. These
+are observed single-seed differences with the runtime caveats above, not
+estimates of a repeatable causal effect.
+
+![Relative depth profiles](results/depth-change.png)
+
+[Absolute physical-unit profiles](results/depth-rollout.png) show all 19 depths
+and all four runs. [Depth-change CSV](results/depth-change.csv) retains absolute
+errors and percent changes, using each wet-cell objective's corresponding
+legacy objective as denominator. Positive changes mean higher error.
+
+![Logged objective losses](results/depth-objective.png)
+
+[Objective-loss CSV](results/depth-loss.csv) contains epoch-70 training and
+validation losses by depth and by variable/depth, together with the fixed
+rollout RMSE. The raw values are preserved in
+[W&B summary extraction](results/depth-loss-summary.json). Static and dynamic
+objective magnitudes are not on a common scale, and the two static objectives
+also use different denominators. They should not be used to rank accuracy.
+
+The source's depth/channel loss logger indexes only the first 77 channels of
+the two-output loss vector: these logged losses cover the first output slot.
+Training loss sums that slot over four autoregressive calls; validation loss
+uses a single call. The depth aggregate equally averages the four 3D variables,
+with SSH additionally included at the shallowest level. The fixed rollout
+profiles above include both output slots and keep variables separate. No new
+training or model evaluation was needed for this extraction.

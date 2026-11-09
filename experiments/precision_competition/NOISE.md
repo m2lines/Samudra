@@ -151,3 +151,20 @@ compared at equal examples since its boundary, while retaining its different
 preceding perturbation exposures. Final joint test uses the independent 8,192
 examples. Frozen probes are included in bundle allocations: 30 GPU-hours is the
 base allocation maximum, or 32 including the bounded retry allowance.
+
+## Submission receipt
+
+On November 9, preparation array `22453582` and dependent perturbation array
+`22453584` were submitted on Torch. The CPU completion callback is job `22453634`,
+with an afterany dependency on the perturbation array. GPU routing was verified
+as `l40s_public,l40s`, account `torch_pr_347_lzanna`, with preemption eligibility,
+requeue and a concurrency limit of four. Perturbation requires successful
+preparation; failed dependencies cancel its allocation. The joint stage has not
+been submitted and will use only qualified prepared checkpoints.
+
+Training source is `144d593554af0839f399992b54583bed7312dc25`. The immutable archive
+SHA256 is `e145ccc04ca3090cbe3a16466086bf055334250442afb8a2a3bb108daca10bff`.
+The run root is `/scratch/jr7309/precision-noise-20261109`; the prior container and
+read-only parent checkpoints are reused. W&B project is `ocean_emulators/samudra`,
+group `precision-noise-20261109`. All 22 focused CPU tests and repository commit
+checks passed before submission. Queue start time was unknown at submission.

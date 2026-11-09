@@ -42,19 +42,14 @@ The original January official v2 run `3o112ot4` remains historical context;
 it differs in normalization layer, precision, forcing, data release, and
 validation/checkpoint selection and is not the matched control.
 
-Run IDs, qualification evidence, and results will be added after execution.
+Completed November 8, 2026. See [results and comparison](RESULTS.md), including
+all W&B run IDs, successful job receipts, recovery history, and metric definitions.
+CPU qualification `22134521` passed scientific-config/data checks and 12 loss
+tests. Four-GPU probe `22134523` passed finite optimizer updates for all arms.
+The final successful tasks were `22352201_0`, `22213958_1`, and `22352201_2`.
 
-Submitted on Torch November 6: CPU qualification `22134521`, four-GPU probe
-`22134523`, and training array `22134527` (task 0 legacy, task 1 wet-cell, task 2
-dynamic wet-cell). Training depends on successful qualification and all probes.
-Each arm requests four compatible GPUs, 48 CPUs, 256 GB RAM, and 24 hours,
-with normal/preemptible routing and checkpoint recovery. Source overlay:
-`4ea4ed7d9735e7c90a2484dc28c5232c266995e0`. Container SIF is the PhysicsNeMo
-26.05 build at `4f86be45a09cb9eba1b51b6273e0189941b02495`, with matching
-lockfiles. Twelve local loss tests passed, all train/eval configs parse, and
-scientific-config equality to the saved control passed. Cluster qualification
-and scientific results remain pending.
-
-The original queued chain was canceled before GPU execution to replace the
-third arm with dynamic wet-cell MSE. The October 24 run supplies the legacy
-dynamic-MSE control.
+Source overlay: `4ea4ed7d9735e7c90a2484dc28c5232c266995e0`.
+Container SIF is the PhysicsNeMo 26.05 build at
+`4f86be45a09cb9eba1b51b6273e0189941b02495`, with matching lockfiles.
+Wrapper-only recovery commits preserve immutable manifests, disable NCCL P2P,
+and archive interrupted evaluation outputs. They retain scientific settings.

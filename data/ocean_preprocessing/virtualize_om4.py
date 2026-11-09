@@ -290,6 +290,23 @@ def write_parquet_references(
     dataset: xr.Dataset, directory: Path, record_size: int, source: SourceArchive
 ) -> None:
     """Serialize Zarr v2 chunk references, including scalars and local paths."""
+    for name, variable in dataset.variables.items():
+        if not isinstance(variable.data, ManifestArray):
+            continue
+        array = variable.data
+        grid_size = math.prod(
+            math.ceil(size / chunk)
+            for size, chunk in zip(array.shape, array.metadata.chunk_grid.chunk_shape)
+        )
+        # Missing Parquet rows can decode to Pandas NA/NaN rather than None,
+        # which reference readers mistake for paths even with a declared fill.
+        # With no CF fill, Zarr v2 null-fill reads can also be uninitialized.
+        if sum(1 for _ in array.manifest.iter_refs()) < grid_size:
+            raise ValueError(
+                f"{name!r} has unwritten native chunks; "
+                "sparse Kerchunk Parquet references are not supported. "
+                "Materialize those chunks before virtualization."
+            )
     references = dataset.vz.to_kerchunk(format="dict", zarr_format=2)
     refs = references["refs"]
     # VirtualiZarr 2.8 emits an empty scalar chunk key. Zarr v2 uses "0";
@@ -303,19 +320,6 @@ def write_parquet_references(
         if "_FillValue" in variable.attrs:
             continue
         metadata = json.loads(refs[f"{name}/.zarray"])
-        if isinstance(variable.data, ManifestArray):
-            # Zarr 2 readers leave absent chunks uninitialized when fill_value is null.
-            array = variable.data
-            grid_size = math.prod(
-                math.ceil(size / chunk)
-                for size, chunk in zip(
-                    array.shape, array.metadata.chunk_grid.chunk_shape
-                )
-            )
-            if sum(1 for _ in array.manifest.iter_refs()) < grid_size:
-                raise ValueError(
-                    f"{name!r} has unwritten native chunks without a declared _FillValue; materialize those chunks before virtualization"
-                )
         metadata["fill_value"] = None
         refs[f"{name}/.zarray"] = json.dumps(metadata)
     # VirtualiZarr strips file:// but leaves URI escapes in local reference paths.
@@ -417,8 +421,8 @@ def build(
 
     Preserve source time values in filename order; consumers validate chronology.
     Native chunk shapes must agree and non-final files must end on chunk boundaries.
-    Unwritten chunks without a declared _FillValue need materialization before
-    export to Zarr v2, which uses fill values as missing-data markers.
+    Unwritten native chunks must be materialized before virtualization, even
+    with a declared _FillValue; sparse Parquet references are not supported.
 
     Args:
         source_root: Local source directory or s3:// bucket/prefix. Selection is

@@ -280,7 +280,8 @@ def test_failed_build_does_not_publish(tmp_path, monkeypatch, failure):
 
 
 @pytest.mark.parametrize("fill_value", [0, 42])
-def test_unwritten_native_fill_is_not_silently_changed(tmp_path, fill_value):
+@pytest.mark.parametrize("declared_fill", [False, True])
+def test_unwritten_native_chunks_are_rejected(tmp_path, fill_value, declared_fill):
     import h5py
 
     source = tmp_path / "grid.nc"
@@ -291,10 +292,15 @@ def test_unwritten_native_fill_is_not_silently_changed(tmp_path, fill_value):
             "field", shape=(2,), chunks=(1,), dtype="i4", fillvalue=fill_value
         )
         field.dims[0].attach_scale(axis)
+        if declared_fill:
+            field.attrs["_FillValue"] = np.int32(fill_value)
         field[0] = 1
     with xr.open_dataset(source, engine="h5netcdf", decode_times=False) as native:
-        np.testing.assert_array_equal(native.field.values, [1, fill_value])
+        np.testing.assert_array_equal(
+            native.field.values, [1, np.nan if declared_fill else fill_value]
+        )
     output = tmp_path / "refs"
     with pytest.raises(ValueError, match="unwritten native chunks"):
         build(str(tmp_path), output, pattern="grid.nc", static=True)
     assert not output.exists()
+    assert not list(tmp_path.glob(".refs-*"))

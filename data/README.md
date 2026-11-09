@@ -107,6 +107,8 @@ metadata. The references point to the original files and retain their chunk
 layout, so those files must remain available at the same URLs. Files must have
 compatible native chunk shapes, with non-final file boundaries aligned to chunks
 along `time`; otherwise the inputs need a separate rechunking step.
+Unwritten native chunks must be materialized first, even with a declared
+`_FillValue`; sparse inputs are rejected before publication.
 
 File selection is frozen at discovery. The tool preserves filename order and
 source time values, including duplicates or reversals; consumers validate any

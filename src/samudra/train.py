@@ -195,6 +195,9 @@ class Trainer:
             device=self.device,
             num_channels=self.N_prog,
             pad_mode=cfg.model.pad,
+            data_root=cfg.experiment.resolved_data_root,
+            channels=tuple(self.prognostic_var_names),
+            state_stds=self.primary_source.statistics(self.prognostic_var_names).std,
         )
 
         # Optimizer

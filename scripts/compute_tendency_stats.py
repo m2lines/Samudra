@@ -90,8 +90,10 @@ def main() -> None:
         ).prognostic_var_names
     )
     data = xr.open_zarr(args.data, chunks={})
-    start = cftime.datetime.strptime(args.start, "%Y-%m-%d", calendar="noleap")
-    end = cftime.datetime.strptime(args.end, "%Y-%m-%d", calendar="noleap")
+    # Releases differ in calendar (e.g. julian, noleap); parse in the store's own.
+    calendar = data.time.dt.calendar
+    start = cftime.datetime.strptime(args.start, "%Y-%m-%d", calendar=calendar)
+    end = cftime.datetime.strptime(args.end, "%Y-%m-%d", calendar=calendar)
     data = data.sel(time=slice(start, end))
     if data.sizes["time"] < 2:
         raise ValueError("Need at least two time steps in the training range")

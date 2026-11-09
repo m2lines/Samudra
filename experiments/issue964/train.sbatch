@@ -29,4 +29,9 @@ if [[ -d "$OUTPUT_BASE/$NAME" ]]; then
     cmp "$CODE_LAYER.json" "$OUTPUT_BASE/$NAME/source-manifest.json"
     export SAMUDRA_MANAGE_RUN_DIR=0
 fi
+# A preemption during post-training evaluation leaves incomplete predictions.
+# Preserve them for provenance and let the configured sweep start cleanly.
+if [[ -d "$OUTPUT_BASE/$NAME/evals" ]]; then
+    mv "$OUTPUT_BASE/$NAME/evals" "$OUTPUT_BASE/$NAME/evals-interrupted-${SLURM_JOB_ID}-$(date +%s)"
+fi
 exec bash "$ROOT/slurm_apptainer_train.sbatch"

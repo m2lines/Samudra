@@ -43,7 +43,9 @@ class LocalURIStore:
 
     Both obspec-utils 0.9 and VirtualiZarr 2.8 strip store prefixes without
     decoding file URIs. Keep that namespace encoded, and decode each object key
-    exactly once at the local storage boundary.
+    exactly once at the local storage boundary. VirtualiZarr reads coordinates
+    through its own async store calls, so decoding only our explicit reads is
+    insufficient. The wrapped store still performs all filesystem I/O.
     """
 
     store: obstore.store.LocalStore
@@ -227,7 +229,13 @@ def combine_virtual_datasets(
 
 
 def rename_directory_exclusive(source: Path, destination: Path) -> None:
-    """Atomically rename a local directory without replacing any destination."""
+    """Atomically rename a local directory without replacing any destination.
+
+    On POSIX, os.rename replaces an existing empty directory; shutil.move may
+    nest the source inside it. Checking existence first leaves a race with other
+    writers. Python 3.12 has no standard-library exclusive directory rename, so
+    use the OS no-replace operation to preserve any competing writer's output.
+    """
     if sys.platform == "win32":
         os.rename(
             source, destination

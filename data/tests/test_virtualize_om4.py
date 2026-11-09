@@ -12,7 +12,12 @@ import fsspec
 import numpy as np
 import pytest
 import xarray as xr
-from ocean_preprocessing.virtualize_om4 import OSN, SourceArchive, build
+from ocean_preprocessing.virtualize_om4 import (
+    OSN,
+    SourceArchive,
+    build,
+    staged_reference_directory,
+)
 
 
 def write_years(
@@ -186,6 +191,47 @@ def test_source_discovery_and_fresh_inventory(tmp_path):
     after = archive.snapshot()
     assert int(before[0]["size"]) == 4
     assert int(after[0]["size"]) == 8
+
+
+@pytest.mark.parametrize("classic", [False, True])
+def test_escaped_local_paths_round_trip(tmp_path, classic):
+    # Literal escape-looking names must be decoded once, not treated as URI syntax.
+    source = tmp_path / "source %3F%252F#? é"
+    original = write_years(source, classic=classic)
+    for path in source.glob("*.nc"):
+        path.rename(path.with_name("part %3F%252F#? é " + path.name))
+    output = build(str(source), tmp_path / "refs", pattern="*.nc")
+    mapper = fsspec.filesystem(
+        "reference", fo=str(output), remote_protocol="file", asynchronous=True
+    ).get_mapper("")
+    with xr.open_zarr(
+        mapper, consolidated=False, chunks=None, decode_times=False
+    ) as actual:
+        expected = xr.concat(
+            original, dim="time", data_vars="minimal", coords="minimal", compat="equals"
+        )
+        xr.testing.assert_equal(actual.load(), expected)
+
+
+@pytest.mark.parametrize("occupied", [False, True])
+def test_publication_preserves_competing_directory(tmp_path, occupied):
+    output = tmp_path / "refs"
+    with pytest.raises(FileExistsError):
+        with staged_reference_directory(output) as staging:
+            staging.mkdir()
+            (staging / "payload").write_text("complete references")
+            # Another writer claims the output after our initial existence check.
+            output.mkdir()
+            inode = output.stat().st_ino
+            if occupied:
+                (output / "owner").write_text("another writer")
+    assert output.stat().st_ino == inode
+    assert sorted(path.name for path in output.iterdir()) == (
+        ["owner"] if occupied else []
+    )
+    if occupied:
+        assert (output / "owner").read_text() == "another writer"
+    assert not list(tmp_path.glob(".refs-*"))
 
 
 def test_declared_coordinate_bounds(tmp_path):

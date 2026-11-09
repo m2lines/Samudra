@@ -82,7 +82,9 @@ from samudra.utils.loss import (
     GradientLoss,
     LossFnWithContext,
     LossMetric,
+    TendencyLoss,
     loss_fn_from_metric,
+    tendency_loss_weights,
 )
 from samudra.utils.profiler import Profiler
 from samudra.utils.schedule import SchedulerConfig
@@ -1409,7 +1411,54 @@ class GradientLossConfig(pydantic.BaseModel):
     )
 
 
-Loss = LossMetric | DynamicLossConfig | GradientLossConfig
+class TendencyLossConfig(pydantic.BaseModel):
+    """MSE in units of each channel's one-step change (GraphCast-style).
+
+    Each prognostic channel's loss is divided by the loss a persistence
+    forecast would get, so slowly changing fields (temperature, salinity) are
+    not drowned out by fast, noisy ones (velocities). Weights are fixed from
+    the data and do not adapt to the model, unlike ``dynamic``.
+    Build the statistics with ``scripts/compute_tendency_stats.py`` and
+    use ``pred_residuals: true``.
+    """
+
+    type: Literal["tendency"] = "tendency"
+    metric: Literal["mse"] = "mse"
+    persistence_rms_location: Location = Field(
+        description=(
+            "Dataset of per-channel RMS one-step change in physical units, with "
+            "one scalar variable per prognostic channel; " + LOCATION_DOCS
+        )
+    )
+    max_weight_ratio: float | None = Field(
+        description=(
+            "Largest allowed ratio between any two channel weights. Caps channels "
+            "that barely change. Default of None means no limit."
+        ),
+        default=None,
+        ge=1.0,
+    )
+
+
+Loss = LossMetric | DynamicLossConfig | GradientLossConfig | TendencyLossConfig
+
+
+def load_normalized_persistence_rms(
+    location: ResolvedLocation,
+    channels: tuple[str, ...],
+    state_stds: np.ndarray,
+) -> torch.Tensor:
+    """Read physical persistence RMS per channel and convert to normalized units."""
+    if len(state_stds) != len(channels):
+        raise ValueError(
+            f"Got {len(state_stds)} state stds for {len(channels)} channels"
+        )
+    stats = location.open(None)
+    missing = [c for c in channels if c not in stats.data_vars]
+    if missing:
+        raise KeyError(f"Persistence RMS dataset is missing channels: {missing}")
+    physical = np.array([float(stats[c].values) for c in channels], dtype=np.float64)
+    return torch.from_numpy(physical / np.asarray(state_stds, dtype=np.float64))
 
 
 def build_loss_fn(
@@ -1417,6 +1466,10 @@ def build_loss_fn(
     device: torch.device,
     num_channels: int,
     pad_mode: str,
+    *,
+    data_root: ResolvedLocation | None = None,
+    channels: tuple[str, ...] | None = None,
+    state_stds: np.ndarray | None = None,
 ) -> LossFnWithContext:
     match loss_cfg:
         case str():
@@ -1428,6 +1481,29 @@ def build_loss_fn(
                 limit=limit,
                 device=device,
                 num_channels=num_channels,
+            )
+        case TendencyLossConfig(
+            metric=metric,
+            persistence_rms_location=location,
+            max_weight_ratio=max_weight_ratio,
+        ):
+            if data_root is None or channels is None or state_stds is None:
+                raise ValueError(
+                    "Tendency loss needs data_root, channels, and state_stds"
+                )
+            if len(channels) != num_channels:
+                raise ValueError(
+                    f"Got {len(channels)} channel names for {num_channels} channels"
+                )
+            persistence_rms = load_normalized_persistence_rms(
+                data_root.resolve(location), channels, state_stds
+            )
+            return TendencyLoss(
+                loss_fn_from_metric(metric),
+                weights=tendency_loss_weights(
+                    persistence_rms, max_weight_ratio=max_weight_ratio
+                ),
+                device=device,
             )
         case GradientLossConfig(metric=metric, alpha=alpha):
             loss_fn = loss_fn_from_metric(metric)
@@ -1503,6 +1579,11 @@ class TrainConfig(TopLevelConfig):
         ):
             raise ValueError(
                 "validation_loss scoring cannot use a dynamically weighted loss"
+            )
+        if isinstance(self.loss, TendencyLossConfig) and len(self.data.sources) != 1:
+            raise ValueError(
+                "tendency loss weights are defined for a single data source's "
+                "normalization"
             )
         if self.validation_score == "rollout_rmse":
             if self.rollout_validation is None:

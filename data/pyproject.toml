@@ -38,6 +38,7 @@ dependencies = [
   "cftime>=1.6.4.post1",             # CM4 no-leap and OM4 Julian calendars
   "copernicusmarine>=2",             # DUACS downloads; needs a free Copernicus Marine account
   "dask[distributed]",               # Cluster-backed processing and normalization writes
+  "fastparquet",                     # Kerchunk Parquet reference writer and reader.
   "fire>=0.7.1",
   "gcm-filters",                     # to avoid https://stackoverflow.com/questions/7446187/no-module-named-pkg-resources which seemed to have https://github.com/m2lines/ocean_emulators/actions/runs/10392595642/job/28778202015?pr=53
   "gcsfs>=2025.10",

@@ -1,0 +1,38 @@
+[
+  {
+    "id": "seed11-bits-4",
+    "stage": "prepare",
+    "parent": "/scratch/jr7309/precision-followup-20261108-ae60e6ee3/qualification/4b5441896d31703f/bits-4.pt",
+    "sha256": "1d9c790cad34fb14708c831f5ba701223e7c095485ae1e80d8340c49a9632241"
+  },
+  {
+    "id": "seed11-bits-6",
+    "stage": "prepare",
+    "parent": "/scratch/jr7309/precision-followup-20261108-ae60e6ee3/qualification/4b5441896d31703f/bits-6.pt",
+    "sha256": "92fb08397d359f9587970ac41af73003740c3af9646691d3777db4635d820783"
+  },
+  {
+    "id": "seed33-bits-4",
+    "stage": "prepare",
+    "parent": "/scratch/jr7309/precision-followup-20261108-ae60e6ee3/qualification/ab8fe7fbf263dd1f/bits-4.pt",
+    "sha256": "aa65897e36cbd8e490454f20d795eac69be83211758db6b666f56c815fbfbde7"
+  },
+  {
+    "id": "seed33-bits-6",
+    "stage": "prepare",
+    "parent": "/scratch/jr7309/precision-followup-20261108-ae60e6ee3/qualification/ab8fe7fbf263dd1f/bits-6.pt",
+    "sha256": "a45ce2258ffcdf76a2d6a658e0426b6e410a915b9108ab90afda820da6c23e33"
+  },
+  {
+    "id": "seed22-bits-4",
+    "stage": "prepare",
+    "parent": "/scratch/jr7309/precision-followup-20261108-ae60e6ee3/qualification/e16ea331bc7230cc/bits-4.pt",
+    "sha256": "c36b697ec22c5c2967b42fd10510575e83b0690b57b276fc7c073c5f0f0a4541"
+  },
+  {
+    "id": "seed22-bits-6",
+    "stage": "prepare",
+    "parent": "/scratch/jr7309/precision-followup-20261108-ae60e6ee3/qualification/e16ea331bc7230cc/bits-6.pt",
+    "sha256": "352d77e70768e153dca38ddc113b4e1094032be1bb9d53ca34ee41eaf913d322"
+  }
+]

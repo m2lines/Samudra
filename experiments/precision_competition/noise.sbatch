@@ -30,7 +30,8 @@ on_signal() {
 }
 trap on_signal USR1
 
-apptainer exec --nv --bind "$RUN_ROOT:$RUN_ROOT" --pwd "$RUN_ROOT/code" "$SIF_PATH" \
+apptainer exec --nv --bind "$RUN_ROOT:$RUN_ROOT" \
+    --bind /scratch/jr7309/precision-followup-20261108-ae60e6ee3:/scratch/jr7309/precision-followup-20261108-ae60e6ee3:ro --pwd "$RUN_ROOT/code" "$SIF_PATH" \
     /usr/bin/env TORCH_CUDNN_V8_API_DISABLED=1 PYTHONUNBUFFERED=1 \
     /workspace/.venv/bin/python -m experiments.precision_competition.noise \
     --manifest "$MANIFEST_PATH" \

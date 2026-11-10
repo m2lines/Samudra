@@ -7,6 +7,7 @@ import torch
 
 from .benchmark import Config
 from .encoding import (
+    EXTENSION_KINDS,
     KINDS,
     SUPPORT,
     EncodedModel,
@@ -50,7 +51,7 @@ def test_overlap_covers_parent_and_can_correct_neighbor_error():
     assert final.abs().item() < nc.abs().item()
 
 
-@pytest.mark.parametrize("kind", KINDS)
+@pytest.mark.parametrize("kind", KINDS + EXTENSION_KINDS)
 def test_prediction_does_not_read_target_and_gradients_flow(kind):
     torch.set_num_threads(2)
     source = Source(Config(width=16, depth=1, heads=2, tokens=64), "cpu")
@@ -108,3 +109,54 @@ def test_training_resume_is_identical(tmp_path):
     train(model, source, tmp_path / "resume", 2, 1e-4, 1.0, "joint", 1.0, 0)
     for key, value in expected.items():
         torch.testing.assert_close(model.state_dict()[key], value, rtol=0, atol=0)
+
+
+@pytest.mark.parametrize("base", ["ar_overlap", "ar_twohot_hard", "ar_twohot_soft"])
+def test_scaled_ce_changes_only_loss(base):
+    import math
+
+    source = Source(Config(width=16, depth=1), "cpu")
+    plain = EncodedModel(source.c, source.positions, base).double()
+    scaled = EncodedModel(source.c, source.positions, base + "_scaled").double()
+    with torch.no_grad():
+        for parameter in plain.decoder.parameters():
+            parameter.zero_()
+    scaled.load_state_dict(plain.state_dict())
+    h = torch.zeros(4, 16, dtype=torch.float64)
+    target = torch.tensor([-0.5, 0.0, 0.1, 0.8], dtype=torch.float64)
+    p1, l1, _ = plain.decode(h, target)
+    p2, l2, _ = scaled.decode(h, target)
+    torch.testing.assert_close(p1, p2, rtol=0, atol=0)
+    assert l1.item() == pytest.approx(math.log(16))
+    assert l2.item() == pytest.approx(
+        math.log(16) * sum(64.0**-k for k in range(4)) / 4
+    )
+
+
+def test_continuous_loss_scaling_and_radius():
+    source = Source(Config(width=16, depth=1), "cpu")
+    physical = EncodedModel(source.c, source.positions, "cont_shrink_mse").double()
+    normalized = EncodedModel(
+        source.c, source.positions, "cont_shrink_normalized"
+    ).double()
+    fixed = EncodedModel(source.c, source.positions, "cont_fixed_mse").double()
+    with torch.no_grad():
+        for parameter in physical.decoder.parameters():
+            parameter.zero_()
+    normalized.load_state_dict(physical.state_dict())
+    fixed.load_state_dict(physical.state_dict())
+    h = torch.zeros(4, 16, dtype=torch.float64)
+    target = torch.ones(4, dtype=torch.float64) * 0.5
+    p1, l1, d1 = physical.decode(h, target)
+    p2, l2, _ = normalized.decode(h, target)
+    _, l3, d3 = fixed.decode(h, target)
+    torch.testing.assert_close(p1, p2, rtol=0, atol=0)
+    torch.testing.assert_close(
+        d1["radius"][0], torch.tensor([8.0, 1.0, 0.125, 0.015625], dtype=torch.float64)
+    )
+    assert torch.all(d3["radius"] == 8.0)
+    assert l1.item() == pytest.approx(0.25)
+    assert l2.item() == pytest.approx(
+        0.25 * sum(1 / r**2 for r in [8.0, 1.0, 0.125, 0.015625]) / 4
+    )
+    assert l3.item() == pytest.approx(0.25)

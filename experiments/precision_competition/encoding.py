@@ -32,6 +32,14 @@ KINDS = [
     "flat_twohot",
     "flat_gauss",
 ]
+EXTENSION_KINDS = [
+    "cont_shrink_mse",
+    "cont_shrink_normalized",
+    "cont_fixed_mse",
+    "ar_overlap_scaled",
+    "ar_twohot_hard_scaled",
+    "ar_twohot_soft_scaled",
+]
 SUPPORT = 8.0
 QUANTUM = 1 / 4096
 
@@ -108,8 +116,14 @@ class EncodedModel(nn.Module):
         self.kind = kind
         self.backbone = Model(config, positions)
         self.backbone.add_module("head", nn.Identity())
-        sequential = kind.startswith("ar_")
-        outputs = 1 if kind in {"mse", "asinh_mse"} else 16 if sequential else 64
+        sequential = kind.startswith(("ar_", "cont_"))
+        outputs = (
+            1
+            if kind in {"mse", "asinh_mse"} or kind.startswith("cont_")
+            else 16
+            if sequential
+            else 64
+        )
         self.decoder = nn.Sequential(
             nn.Linear(config.width + (6 if sequential else 0), config.width),
             nn.SiLU(),
@@ -120,7 +134,10 @@ class EncodedModel(nn.Module):
         return self.backbone(batch)
 
     def decode(self, h, value, teacher=False, oracle=False):
-        kind = self.kind
+        if self.kind.startswith("cont_"):
+            return self.decode_continuous(h, value, teacher, oracle)
+        scaled = self.kind.endswith("_scaled")
+        kind = self.kind.removesuffix("_scaled")
         count = len(h)
         if kind in {"mse", "asinh_mse"}:
             raw = self.decoder(h).squeeze(-1)
@@ -218,7 +235,11 @@ class EncodedModel(nn.Module):
             top = probabilities.topk(2, -1).values
             margins.append(top[:, 0] - top[:, 1])
             entropy.append(-(probabilities * logits.log_softmax(-1)).sum(-1))
-            losses.append(-(target.detach() * logits.log_softmax(-1)).sum(-1).mean())
+            stage_ce = -(target.detach() * logits.log_softmax(-1)).sum(-1)
+            stage_weight = (
+                (radius / SUPPORT).square() if scaled else torch.ones_like(radius)
+            )
+            losses.append((stage_weight.detach() * stage_ce).mean())
             if parallel:
                 true_center, true_radius = advance(
                     true_center, true_radius, tc, te, target_index
@@ -242,6 +263,51 @@ class EncodedModel(nn.Module):
                 "miss": torch.stack(misses, -1),
                 "margin": torch.stack(margins, -1),
                 "entropy": torch.stack(entropy, -1),
+            },
+        )
+
+    def decode_continuous(self, h, value, teacher=False, oracle=False):
+        center = torch.zeros_like(value)
+        radius = torch.full_like(value, SUPPORT)
+        stages, losses, misses, radii, corrections = [], [], [], [], []
+        normalized = self.kind == "cont_shrink_normalized"
+        shrink = self.kind != "cont_fixed_mse"
+        for level in range(4):
+            indicator = F.one_hot(torch.full((len(h),), level, device=h.device), 4).to(
+                h.dtype
+            )
+            state = torch.cat(
+                (
+                    center[:, None] / SUPPORT,
+                    (radius / SUPPORT).log2()[:, None] / 16,
+                    indicator,
+                ),
+                -1,
+            )
+            correction = (
+                self.decoder(torch.cat((h, state.detach()), -1)).squeeze(-1).tanh()
+            )
+            target = (value - center) / radius
+            prediction = center + radius * correction
+            error = correction - target.detach() if normalized else prediction - value
+            losses.append(error.square().mean())
+            misses.append(target.abs() > 1)
+            radii.append(radius)
+            corrections.append(correction)
+            if teacher or oracle:
+                prediction = center + radius * target.clamp(-1, 1)
+            stages.append(prediction)
+            center = prediction.detach()
+            if shrink:
+                radius = radius / 8
+        return (
+            stages[-1],
+            torch.stack(losses).mean(),
+            {
+                "stages": torch.stack(stages, -1),
+                "miss": torch.stack(misses, -1),
+                "radius": torch.stack(radii, -1),
+                "correction": torch.stack(corrections, -1),
             },
         )
 
@@ -678,12 +744,13 @@ def main():
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--audit", action="store_true")
     parser.add_argument("--make-manifest", action="store_true")
+    parser.add_argument("--extension", action="store_true")
     args = parser.parse_args()
     if args.audit:
         audit(args.output)
     elif args.make_manifest:
         entries = []
-        for kind in KINDS:
+        for kind in EXTENSION_KINDS if args.extension else KINDS:
             for lr in (1e-4, 1e-5):
                 for seed in (11, 22, 33):
                     entry = {

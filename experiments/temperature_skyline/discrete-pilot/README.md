@@ -24,3 +24,11 @@ A four-update qualification precedes training and exercises all three decoder la
 Validation draws wet cells separately at each depth/date in proportion to cell area, with a fixed seed shared across arms. It estimates each channel’s full-rectangular-grid masked error using inverse-area corrections; physical wet-cell RMSE divides by wet fraction before taking the square root and multiplying by the channel standard deviation. Aggregates average channel errors equally. The [preceding classifier report](../all-fields-classification/README.md) gives the weighting formula. Four validation dates limit generalization claims.
 
 The model constructs backbone and query parameters before the output head, preserving seeded initialization across head sizes; CPU tests verify this equality. NumPy sampling has a separate seeded generator. Reports include total and head-only parameter counts. The two-hour cap includes previous allocations of a requeued job; an arm that reaches the cap before 2,000 updates is incomplete and excluded from fixed-2,000 comparisons. Any common-earlier-update comparison must be labeled separately.
+
+Submitted on November 10, 2026: support audit `22584995`, qualification `22584997`, temperature/all-fields flat-2,048 `22584999`/`22585001`, flat-8,192 `22585003`/`22585007`, and coarse/fine `22585009`/`22585011`. Production jobs depend on successful qualification, which depends on the support audit. Each GPU job requests one compatible GPU on normal or preemptible lzanna capacity. Source commit: `0e174c2a884dc2be743239002db3e25a37a011bb`; archive SHA-256: `36490053ce21cc71036edbc411b60f8edc069ec0290e52ed0f133f73f697ecc5`. Outputs: `torch:/scratch/jr7309/skyline-discrete-pilot-20261110`. All 51 focused CPU tests and repository commit checks passed before submission. Submission does not establish qualification or scientific completion.
+
+| Decoder | Total parameters | Head parameters |
+| --- | ---: | ---: |
+| Flat 2,048 | 15,371,776 | 1,050,624 |
+| Flat 8,192 | 18,523,648 | 4,202,496 |
+| Coarse 128 × fine 64 | 14,477,120 | 155,968 |

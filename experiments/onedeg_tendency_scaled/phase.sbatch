@@ -9,7 +9,7 @@ export PYTHONUNBUFFERED=1 PYTHONNOUSERSITE=1 MPLBACKEND=Agg
 export OMP_NUM_THREADS="${SLURM_CPUS_PER_TASK:-8}"
 export MKL_NUM_THREADS="${OMP_NUM_THREADS}" OPENBLAS_NUM_THREADS="${OMP_NUM_THREADS}"
 (cd "${BUNDLE_DIR}" && sha256sum --check --status bundle.sha256)
-CONFIG_DIR=/opt/samudra-code/src/samudra/configs/experiments/onedeg_tendency_scaled
+CONFIG_DIR="${CONFIG_DIR:-/opt/samudra-code/src/samudra/configs/experiments/onedeg_tendency_scaled}"
 if [[ "${PHASE}" == prepare ]]; then
   bash "${BUNDLE_DIR}/build_apptainer_code_layer.sh" "${CODE_COMMIT}" "${SIF_PATH}"
 fi
@@ -43,7 +43,7 @@ case "${PHASE}" in
     srun --ntasks=1 apptainer exec --nv --overlay "${CODE_LAYER}:ro" \
       --bind /scratch/am16581:/scratch/am16581 --pwd /opt/samudra-code "${SIF_PATH}" \
       /workspace/.venv/bin/python "${BUNDLE_DIR}/one_step_skill.py" "${CONFIG_DIR}/eval.yaml"
-    export CONFIG=src/samudra/configs/experiments/onedeg_tendency_scaled/eval.yaml
+    export CONFIG="${CONFIG_DIR}/eval.yaml"
     export TARGET_CHECKPOINT="${TRAIN_NAME}/saved_nets/ema_ckpt.pt"
     exec bash "${BUNDLE_DIR}/slurm_apptainer_eval.sbatch"
     ;;

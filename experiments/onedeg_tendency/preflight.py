@@ -51,6 +51,38 @@ def main():
             "loss_weight": weights,
         }
     )
+    scale_summary = {}
+    if cfg.model.residual_scale_location is not None:
+        layout = cfg.data.sources[0].build_layout()
+        model = cfg.model.build(
+            prog_channels=cfg.data.input_steps * len(channels),
+            boundary_channels=cfg.data.input_steps * len(layout.boundary_var_names),
+            out_channels=cfg.data.output_steps * len(channels),
+            input_steps=cfg.data.input_steps,
+            grid_sizes=[(180, 360)],
+        )
+        cfg.model.configure_residual_scaling(
+            model,
+            data_root=root,
+            channels=channels,
+            state_stds=stds,
+        )
+        assert model.residual_scale is not None
+        expected = (
+            torch.from_numpy(physical / stds).float().repeat(cfg.data.output_steps)
+        )
+        torch.testing.assert_close(model.residual_scale, expected)
+        prediction = model._assemble_prediction(
+            torch.zeros(1, cfg.data.input_steps * len(channels), 1, 1),
+            torch.ones(1, model.out_channels, 1, 1),
+        )
+        torch.testing.assert_close(prediction.flatten(), expected)
+        frame["residual_output_scale"] = physical / stds
+        scale_summary = {
+            "residual_scale_min": float(expected.min()),
+            "residual_scale_max": float(expected.max()),
+            "residual_scale_checkpoint_key": "residual_scale",
+        }
     frame.to_csv(bundle / "stats/weights.csv", index=False)
     assert cfg.model.pred_residuals
     assert cfg.data.input_steps == 2
@@ -69,6 +101,7 @@ def main():
         "weight_max": float(weights.max()),
         "weight_ratio": float(weights.max() / weights.min()),
         "config": cfg.model_dump(mode="json"),
+        **scale_summary,
     }
     (bundle / f"stats/provenance_{Path(sys.argv[1]).stem}.json").write_text(
         json.dumps(summary, indent=2, default=str) + "\n"

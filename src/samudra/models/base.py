@@ -26,6 +26,8 @@ class BaseModel(torch.nn.Module):
     autoregressive rollouts.
     """
 
+    residual_scale: torch.Tensor | None
+
     def __init__(
         self,
         in_channels,
@@ -47,12 +49,29 @@ class BaseModel(torch.nn.Module):
             raise ValueError(f"input_steps must be positive, got {input_steps}")
         self.input_steps = input_steps
         self.gradient_detach_interval = gradient_detach_interval
+        # None keeps legacy checkpoints unchanged. Configured scales are fixed
+        # model state: they move with the model and survive checkpoint/EMA saves.
+        self.register_buffer("residual_scale", None)
+
+    def set_residual_scale(self, scale: torch.Tensor) -> None:
+        """Set one positive change RMS per output channel, in state-normalized units."""
+        if not self.pred_residuals:
+            raise ValueError("Residual output scaling requires pred_residuals=true")
+        if scale.ndim != 1 or scale.numel() != self.out_channels:
+            raise ValueError(
+                f"Expected {self.out_channels} residual scales, got {tuple(scale.shape)}"
+            )
+        if not torch.isfinite(scale).all() or (scale <= 0).any():
+            raise ValueError("Residual scales must be positive and finite")
+        self.residual_scale = scale.detach().clone().float()
 
     def _assemble_prediction(
         self, prognostic: Prognostic, decoding: Prognostic
     ) -> Prognostic:
         if not self.pred_residuals:
             return decoding
+        if self.residual_scale is not None:
+            decoding = decoding * self.residual_scale.view(1, -1, 1, 1)
         # Anchor each predicted timestep to the corresponding most-recent input
         # timestep. For 2-in/1-out this is x[t]; for the legacy 2-in/2-out case
         # this remains the original elementwise, same-slot residual assembly.

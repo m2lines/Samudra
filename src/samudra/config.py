@@ -1006,6 +1006,14 @@ class UNetBackboneConfig(BaseConfig):
 
 class BaseModelConfig(BaseConfig, abc.ABC):
     pred_residuals: bool = False
+    residual_scale_location: Location | None = Field(
+        default=None,
+        description=(
+            "Optional per-channel persistence RMS store in physical units. Decoder "
+            "outputs are multiplied by RMS / state standard deviation before "
+            "adding the residual base. Requires pred_residuals=true. " + LOCATION_DOCS
+        ),
+    )
     last_kernel_size: int = 3
     pad: str = "circular"
 
@@ -1028,6 +1036,33 @@ class BaseModelConfig(BaseConfig, abc.ABC):
         default=False,
         description="Add 3d coordinates representing position on the Earth (cartesian coordinates on a unit sphere) to the input channels.",
     )
+
+    @pydantic.model_validator(mode="after")
+    def validate_residual_scaling(self) -> Self:
+        if self.residual_scale_location is not None and not self.pred_residuals:
+            raise ValueError("residual_scale_location requires pred_residuals=true")
+        return self
+
+    def configure_residual_scaling(
+        self,
+        model: BaseModel,
+        *,
+        data_root: ResolvedLocation,
+        channels: tuple[str, ...],
+        state_stds: np.ndarray,
+    ) -> None:
+        """Initialize fixed output scales before device placement or checkpoint load."""
+        if self.residual_scale_location is None:
+            return
+        if not channels or model.out_channels % len(channels):
+            raise ValueError(
+                "Output channels must be a whole number of prognostic steps"
+            )
+        rms = load_normalized_persistence_rms(
+            data_root.resolve(self.residual_scale_location), channels, state_stds
+        )
+        # Output channels are time-major, matching the loss and residual base.
+        model.set_residual_scale(rms.repeat(model.out_channels // len(channels)))
 
     @abc.abstractmethod
     def build(
@@ -1585,6 +1620,11 @@ class TrainConfig(TopLevelConfig):
                 "tendency loss weights are defined for a single data source's "
                 "normalization"
             )
+        if (
+            self.model.residual_scale_location is not None
+            and len(self.data.sources) != 1
+        ):
+            raise ValueError("Residual output scaling requires a single data source")
         if self.validation_score == "rollout_rmse":
             if self.rollout_validation is None:
                 raise ValueError(

@@ -184,7 +184,14 @@ class Trainer:
             out_channels=self.num_out,
             input_steps=self.input_steps,
             grid_sizes=[source.grid_size for source in self.data_bundle.train_sources],
-        ).to(self.device)
+        )
+        cfg.model.configure_residual_scaling(
+            self.model,
+            data_root=cfg.experiment.resolved_data_root,
+            channels=tuple(self.prognostic_var_names),
+            state_stds=self.primary_source.statistics(self.prognostic_var_names).std,
+        )
+        self.model = self.model.to(self.device)
 
         self.nets_dir = cfg.experiment.nets_dir
         self.network = self.model.__class__.__name__

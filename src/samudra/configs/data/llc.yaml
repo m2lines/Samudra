@@ -12,9 +12,14 @@ sources:
     val_time:
       start: "2012-09-14T00:00:00Z"
       end: "2012-11-15T14:00:00Z"
+    inference_time:
+      start: "2012-09-14T00:00:00Z"
+      end: "2012-09-24T01:00:00Z"
     data_location: LLC4320_samudra_1deg.zarr
     data_means_location: LLC4320_samudra_1deg.zarr
     data_stds_location: LLC4320_samudra_1deg.zarr
+input_steps: 2
+output_steps: 2
 loading:
   concurrent_compute: false
   type: cpu

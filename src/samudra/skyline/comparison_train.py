@@ -86,6 +86,11 @@ def train_inner(config, output, source, device, rank, world, monitor):
         else None
     )
     initial_digest = parameter_digest(model)
+    categorical_target = config.get("categorical_target", "hard")
+    if categorical_target not in {"hard", "two_hot"} or (
+        vocab is None and categorical_target != "hard"
+    ):
+        raise ValueError("Unsupported categorical training target")
     optimizer = torch.optim.AdamW(
         model.parameters(),
         lr=config["learning_rate"],
@@ -139,6 +144,7 @@ def train_inner(config, output, source, device, rank, world, monitor):
         parameters=sum(p.numel() for p in model.parameters()),
         gpu=torch.cuda.get_device_name(),
         effective_batch=effective_batch,
+        initial_head_statistics=model.initial_head_statistics,
     )
     if rank == 0:
         (output / f"provenance-restart-{restart}.json").write_text(
@@ -334,7 +340,13 @@ def train_inner(config, output, source, device, rank, world, monitor):
             stats = accumulate_gradients(
                 ddp,
                 next_batch,
-                "comparison_ce" if vocab is not None else "comparison",
+                (
+                    "comparison_two_hot"
+                    if categorical_target == "two_hot"
+                    else "comparison_ce"
+                )
+                if vocab is not None
+                else "comparison",
                 vocab,
                 device,
                 accumulation,

@@ -36,6 +36,23 @@ class ChannelVocabulary(nn.Module):
             logits.flatten(0, 1), ids.flatten(), reduction="none"
         ).reshape_as(values)
 
+    def two_hot_loss(self, logits, values, channels):
+        """Adjacent physical-center CE; hard-category likelihood stays separate."""
+        centers = self.centers[channels]
+        upper = (
+            torch.searchsorted(centers.contiguous(), values.unsqueeze(-1).contiguous())
+            .squeeze(-1)
+            .clamp(1, centers.shape[-1] - 1)
+        )
+        lower = upper - 1
+        lo = centers.gather(-1, lower.unsqueeze(-1)).squeeze(-1)
+        hi = centers.gather(-1, upper.unsqueeze(-1)).squeeze(-1)
+        fraction = ((values - lo) / (hi - lo)).clamp(0, 1)
+        logp = logits.float().log_softmax(-1)
+        low_logp = logp.gather(-1, lower.unsqueeze(-1)).squeeze(-1)
+        high_logp = logp.gather(-1, upper.unsqueeze(-1)).squeeze(-1)
+        return -(1 - fraction) * low_logp - fraction * high_logp
+
     def predictions(self, logits, channels):
         centers = self.centers[channels]
         mode = centers.gather(-1, logits.argmax(-1, keepdim=True)).squeeze(-1)

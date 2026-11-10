@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Dense attention over continuous ocean columns and one depth query."""
 
+import math
 from dataclasses import dataclass
 
 import torch
@@ -20,12 +21,23 @@ class ModelConfig:
     checkpoint_blocks: bool = True
     field_queries: bool = False
     coarse_bins: int = 0
+    head_init_sigma: float = 0.0
 
     def __post_init__(self):
         if self.width % self.heads or self.layers < 1 or self.bins < 2:
             raise ValueError("Invalid transformer dimensions")
         if self.objective not in {"absolute_ce", "residual_ce", "regression"}:
             raise ValueError(self.objective)
+        if not math.isfinite(self.head_init_sigma) or self.head_init_sigma < 0:
+            raise ValueError("Head initialization sigma must be finite and nonnegative")
+        if self.head_init_sigma and (
+            self.coarse_bins
+            or self.objective != "absolute_ce"
+            or not self.field_queries
+        ):
+            raise ValueError(
+                "Smooth initialization requires a flat absolute classifier"
+            )
         if self.coarse_bins and (
             self.coarse_bins < 2
             or self.bins % self.coarse_bins
@@ -56,6 +68,52 @@ class CoarseFineHead(nn.Module):
         context = self.context(x).unsqueeze(-2) + self.token.weight
         fine = self.fine(F.silu(context)).float().log_softmax(-1)
         return (coarse.unsqueeze(-1) + fine).flatten(-2)
+
+
+def linear_head_statistics(head):
+    if not isinstance(head, nn.Linear) or head.out_features < 2:
+        return {}
+    with torch.no_grad():
+        return dict(
+            weight_rms=float(head.weight.square().mean().sqrt()),
+            bias_rms=float(head.bias.square().mean().sqrt())
+            if head.bias is not None
+            else 0.0,
+            neighbor_weight_cosine=float(
+                F.cosine_similarity(head.weight[:-1], head.weight[1:], dim=-1).mean()
+            ),
+        )
+
+
+@torch.no_grad()
+def smooth_linear_head(head, sigma):
+    """Correlate adjacent initialized rows, preserving RMS and boundary variance."""
+    if not isinstance(head, nn.Linear) or not math.isfinite(sigma) or sigma <= 0:
+        raise ValueError("Need a linear head and a positive finite sigma")
+    radius = math.ceil(4 * sigma)
+    offsets = torch.arange(
+        -radius, radius + 1, dtype=head.weight.dtype, device=head.weight.device
+    )
+    kernel = torch.exp(-0.5 * (offsets / sigma).square())[None, None]
+    norm = F.conv1d(
+        torch.ones(1, 1, head.out_features, device=kernel.device, dtype=kernel.dtype),
+        kernel.square(),
+        padding=radius,
+    ).sqrt()
+    for parameter in (head.weight, head.bias):
+        if parameter is None:
+            continue
+        original_rms = parameter.square().mean().sqrt()
+        values = parameter.reshape(head.out_features, -1).T[:, None]
+        smoothed = F.conv1d(values, kernel, padding=radius) / norm
+        smoothed = smoothed[:, 0].T.reshape_as(parameter)
+        smooth_rms = smoothed.square().mean().sqrt()
+        if smooth_rms == 0:
+            if original_rms != 0:
+                raise ValueError("Degenerate smoothed initialization")
+        else:
+            smoothed *= original_rms / smooth_rms
+        parameter.copy_(smoothed)
 
 
 class Vocabulary(nn.Module):
@@ -173,6 +231,10 @@ class PointTransformer(nn.Module):
                     else nn.Linear(d, config.bins)
                 )
         self.register_buffer("frequencies", 2.0 ** torch.arange(8))
+        self.initial_head_statistics = {"iid": linear_head_statistics(self.head)}
+        if config.head_init_sigma:
+            smooth_linear_head(self.head, config.head_init_sigma)
+        self.initial_head_statistics["used"] = linear_head_statistics(self.head)
 
     def forward(self, batch):
         values, wet = batch["values"], batch["wet"]

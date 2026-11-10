@@ -22,6 +22,14 @@ def evaluate_comparison(
     rng = np.random.default_rng(config["validation_seed"])
     # count, full-grid squared error, persistence squared error, area-wet error
     discrete_only = config.get("discrete_readout_only", False)
+    initial_logit_squares = 0.0
+    initial_logit_count = 0
+    depth13_cases = []
+    record_cases = config.get("record_depth13_cases", False) and step == config.get(
+        "max_updates"
+    )
+    if record_cases and world != 1:
+        raise ValueError("Per-case pilot diagnostics require a single validation rank")
     sums = np.zeros((77, 12 if vocab is not None else 4), dtype=np.float64)
     for index, origin in enumerate(origins):
         depths = np.tile(np.arange(19), config["validation_points_per_depth"])
@@ -42,6 +50,9 @@ def evaluate_comparison(
             extra = None
             if vocab is not None:
                 logits = prediction
+                if step == 0:
+                    initial_logit_squares += float(logits.double().square().sum())
+                    initial_logit_count += logits.numel()
                 channels = batch["query_channel"]
                 centers = vocab.centers[channels]
                 ids = logits.argmax(-1)
@@ -112,6 +123,26 @@ def evaluate_comparison(
             weight = source.wet_area[selected] / (
                 source.area.size * source.area[rows, cols]
             )
+            if record_cases and vocab is not None:
+                for i, q in zip(*np.where(valid & (channels == 51)), strict=True):
+                    probability = logits[i, q].float().softmax(-1)
+                    predicted_bin = int(ids[i, q])
+                    true_bin = int(target_ids[i, q])
+                    depth13_cases.append(
+                        dict(
+                            origin=int(origin),
+                            row=int(rows[i]),
+                            col=int(cols[i]),
+                            target_normalized=float(batch["target"][i, q]),
+                            current_normalized=float(batch["query_current"][i, q]),
+                            prediction_normalized=float(prediction[i, q]),
+                            predicted_bin=predicted_bin,
+                            true_bin=true_bin,
+                            predicted_probability=float(probability[predicted_bin]),
+                            true_probability=float(probability[true_bin]),
+                            weighted_squared_error=float(weight[i] * error[i, q]),
+                        )
+                    )
             for i, q in zip(*np.where(valid), strict=True):
                 c = channels[i, q]
                 sums[c, :4] += (
@@ -196,6 +227,19 @@ def evaluate_comparison(
         metric="Equal normalized-channel masked MSE, full rectangular grid denominator",
     )
     if vocab is not None:
+        if record_cases:
+            result["depth13_cases"] = depth13_cases
+        if step == 0:
+            logit_stats = torch.tensor(
+                [initial_logit_squares, initial_logit_count],
+                dtype=torch.float64,
+                device=device,
+            )
+            if dist.is_initialized():
+                dist.all_reduce(logit_stats)
+            result["initial_validation_logits_rms_all_query_slots"] = float(
+                (logit_stats[0] / logit_stats[1]).sqrt()
+            )
         for key in (
             "full_grid_nll",
             "probability_mean_full_grid_nmse",

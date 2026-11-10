@@ -213,7 +213,7 @@ class LlcTimeConfig(BaseConfig):
         return slice(self.start, self.end)
 
     def overlaps(self, other: Self) -> bool:
-        return bool(self.start < other.end and self.end > other.start)
+        return bool(self.start <= other.end and self.end >= other.start)
 
     def __str__(self) -> str:
         return f"{self.start} to {self.end}"

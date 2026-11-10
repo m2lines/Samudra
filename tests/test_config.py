@@ -279,6 +279,29 @@ def test_data_config_accepts_llc_dataset_type():
     ]
 
 
+@pytest.mark.parametrize(
+    "val_start, overlaps",
+    [
+        ("2012-09-13T22:00:00Z", True),
+        ("2012-09-13T23:00:00Z", True),
+        ("2012-09-14T00:00:00Z", False),
+    ],
+)
+def test_llc_inclusive_split_boundaries(val_start, overlaps):
+    values = {
+        "train_time": {"start": "2011-09-13T00:00:00Z", "end": "2012-09-13T23:00:00Z"},
+        "val_time": {"start": val_start, "end": "2012-11-15T14:00:00Z"},
+        "data_location": "data.zarr",
+        "data_means_location": "data.zarr",
+        "data_stds_location": "data.zarr",
+    }
+    if overlaps:
+        with pytest.raises(ValidationError, match="Training time range.*overlaps"):
+            LlcDataSourceConfig.model_validate(values)
+    else:
+        LlcDataSourceConfig.model_validate(values)
+
+
 def test_data_source_rejects_overlapping_time_splits():
     with pytest.raises(ValidationError, match="Training time range.*overlaps"):
         Om4DataSourceConfig(

@@ -8,12 +8,12 @@
 # - https://github.com/lucidrains/vit-pytorch
 
 import torch
-from aurora.model.fourier import pos_expansion, scale_expansion
-from aurora.model.posencoding import pos_scale_enc
 from einops import rearrange
 from jaxtyping import Float
 from torch import nn
 
+from samudra._vendor.aurora.fourier import pos_expansion, scale_expansion
+from samudra._vendor.aurora.posencoding import pos_scale_enc
 from samudra.constants import Input, Lat, Lon
 
 

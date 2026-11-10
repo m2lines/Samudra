@@ -27,35 +27,33 @@ classifiers = [
 dynamic = [ "version" ] # derived from git tags by setuptools-scm
 dependencies = [
   "aiohttp>=3.11.13",
-  "cartopy>=0.24.1",              # `samudra viz` imports it at module load
+  "cartopy>=0.24.1",          # `samudra viz` imports it at module load
   "cftime>=1.6.4.post1",
   "cmocean>=4.0.3",
-  "dacite>=1.9.2",
   "dask>=2025.2",
   "einops>=0.7",
+  "fsspec>=2025.3",
   "jaxtyping>=0.3",
   "matplotlib>=3.10.1",
-  "microsoft-aurora>=1.8",
-  "numpy>=1.26.4,<2",             # There is some incompatibility between a dependency and numpy 2+
-  "pandas>=2.2",                  # tidy metric frames are part of samudra.metrics' API
-  "pyarrow>=18",                  # portable Parquet experiment catalogs
+  "netcdf4>=1.7",
+  "numpy>=1.26.4,<2",         # There is some incompatibility between a dependency and numpy 2+
+  "pandas>=2.2",              # tidy metric frames are part of samudra.metrics' API
+  "pyarrow>=18",              # portable Parquet experiment catalogs
   "pydantic-settings>=2.8.1",
-  "pytest-xdist[psutil]>=3.6.1",
   "pyyaml>=6.0.2",
-  "requests>=2.32.3",
   "s3fs>=2025.5.1",
   "scipy>=1.17.1",
-  "skypilot[aws,lambda]>=0.10",
-  "sqlalchemy>=2",                # skypilot requires sqlalchemy 2.0 but doesn't include that requirement
-  "torch>=2.9.0a0,<2.13",         # Matches PhysicsNeMo container builds
+  "torch>=2.9.0a0,<2.13",     # Matches PhysicsNeMo container builds
   "torchinfo>=1.8",
   "tqdm>=4.67.1",
   "typing-extensions>=4.15",
   "wandb>=0.19.8",
-  "xarray[io]>=2025.1.2",
-  "xarray-einstats[einops]>=0.8",
-  "xesmf>=0.8.10",
+  "xarray>=2025.1.2",
   "zarr<3",
+]
+optional-dependencies.cloud = [
+  "skypilot[aws,lambda]>=0.10",
+  "sqlalchemy>=2",              # SkyPilot uses SQLAlchemy 2 APIs.
 ]
 optional-dependencies.cuda = [
   "torchvision>=0.24.0a0",
@@ -88,13 +86,13 @@ dev = [
   "pytest>=8.3.4",
   "pytest-benchmark[histogram]>=5.1",
   "pytest-profiling>=1.8.1",
+  "pytest-xdist[psutil]>=3.6.1",
   "s3fs>=2025.3",
   "scalene>=1.5.51",
   "snakeviz>=2.2.2",
   "tenacity>=9",
   "types-pyyaml>=6.0.12.20241230",
   "types-tqdm>=4.67.0.20250516",
-  "xarrayutils>=2.0.1",
 ]
 docs = [
   "mkdocs-material>=9.5",
@@ -111,7 +109,7 @@ package-dir = { "" = "src" }
 # fixtures live under tests/, not here, so they never reach the wheel; the JSON
 # schemas under configs/schemas are gitignored generated output and this glob
 # doesn't match them.
-package-data = { samudra = [ "py.typed", "configs/**/*.yaml" ] }
+package-data = { samudra = [ "py.typed", "configs/**/*.yaml", "_vendor/**/LICENSE.txt", "_vendor/**/README.md" ] }
 
 # Pin discovery to src/ so setuptools auto-discovery can't sweep stray
 # top-level dirs (e.g. a stale build/lib/) into the wheel.
@@ -182,7 +180,6 @@ overrides = [
     "scipy.*",
     "fsspec.*",
     "s3fs.*",
-    "aurora.*",
   ], follow_untyped_imports = true },
 ]
 

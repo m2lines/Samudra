@@ -5,11 +5,11 @@
 import math
 
 import torch
-from aurora.model.posencoding import lat_lon_meshgrid
 from einops import rearrange
 from jaxtyping import Float
 from torch import nn
 
+from samudra._vendor.aurora.posencoding import lat_lon_meshgrid
 from samudra.constants import Lat, Lon
 
 

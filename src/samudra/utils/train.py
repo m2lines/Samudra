@@ -7,7 +7,6 @@ from itertools import tee
 from pathlib import Path
 
 import torch
-from xarray_einstats.einops import rearrange  # noqa: F401
 
 from samudra.datasets import HostBatch
 from samudra.utils.data import LoadStats

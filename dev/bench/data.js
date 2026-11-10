@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792782103478,
+  "lastUpdate": 1794280203321,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -13218,6 +13218,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.4156074745686866",
             "extra": "mean: 17.82361073719999 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "7d4dd30f659ea33d47d915c5093aceabfbc95dd3",
+          "message": "Virtualize public OM4 NetCDF archives as Kerchunk Parquet (#959)\n\n🛠️ Adds `python -m ocean_preprocessing.virtualize_om4` to turn the\npublic OM4 NetCDF archive into a Kerchunk Parquet reference store\nwithout rewriting source data. This provides an inspectable starting\npoint for reproducing scientific preprocessing from the original files.\nAnnual, static, and grid reference stores are now published at the\n[documented public\nlocations](https://github.com/m2lines/Samudra/blob/2fb1ec5f/docs/data.md#virtual-om4-references),\nwith an anonymous Xarray access example.\n\nThe CLI supports local directories and S3 prefixes, anonymous public\nreads, NetCDF3/NetCDF4, annual-file concatenation, and single\nstatic/grid files. It records source metadata and software provenance,\nchecks the serialized dataset structure and selected-source stability,\nand atomically publishes a new local reference directory without\nreplacing another writer's output.\n\nUses PyArrow for Parquet I/O, Fire for the CLI, and the existing\nMamba-managed data package. Provenance records the Parquet engine and\nlibrary versions. The environment moves to Python 3.12+ and a Zarr 3\nruntime; reference metadata and materialized Zarr outputs explicitly\nremain **Zarr v2**. Updates the data guide and README with public\nlocations and CLI examples, removes private-source examples from\nmaintained interfaces, and deletes the unused `manual_v0_fixes` helper.\n\n### Contracts and limitations\n\n- File selection is frozen at discovery; filename and source time order\nare preserved. Consumers validate chronology.\n- Native chunk shapes must agree, with aligned non-final file\nboundaries.\n- **Unwritten native chunks are rejected before\nserialization/publication, including those with a declared\n`_FillValue`.** The error names the variable and requests\nmaterialization. Sparse-reference round trips are not supported.\n- Source files must remain available at their referenced URLs. Build\nvalidation checks metadata and source stability; it does not scan every\npayload value.\n\nConnecting Parquet reference inputs to the scientific preprocessing CLI\nremains follow-up work. Broader property tests, mutation checks, and\nverification CI are isolated in stacked draft #963.\n\n### Validation\n\n- **134 data-package tests passed** in Mamba; **26 virtualization tests\npassed** against an installed wheel with `fastparquet` absent.\n- Focused sparse-fill regressions verify native values and rejection for\ndeclared/undeclared fills of 0 and 42, with no published output or\nstaging debris. Both declared-fill cases failed before the fix.\n- Round-trip coverage includes NetCDF3/NetCDF4, scalars, missing values,\nzero values, escaped local paths, CF bounds, and native character\narrays; publication regressions preserve competing empty and occupied\ndirectories.\n- Full public-archive deployment: 65 annual NetCDF files plus the static\nand grid files. All 699 numeric sample comparisons with an independent\nnetCDF-C reader passed, as did the grid string and Xarray payload smoke\nreads. Uploaded stores passed checksum checks; all 68 source objects\nremained unchanged. The documented anonymous example was executed\noutside HPC with AWS credentials unset.\n- All applicable pre-commit checks passed, including formatting,\nschemas, secret detection, and licensing.\n\n\n<!-- This is an auto-generated comment: release notes by coderabbit.ai\n-->\n<!-- coderabbit-ai-generated:v1 -->\n\n## Summary by CodeRabbit\n\n* **New Features**\n* Added validated local reference stores for OM4 NetCDF archives, with\nsupport for local and public object-storage sources.\n* Public OM4 datasets can be read without credentials; publishing still\nrequires credentials.\n* **Compatibility**\n* Data tools require Python 3.12 or newer; automated tests cover Python\n3.12 and 3.13.\n  * Zarr outputs use v2 format.\n* **Documentation**\n* Updated data guides with public dataset locations, current\npreprocessing workflows, archive details, and instructions for accessing\nand publishing data.\n<!-- end of auto-generated comment: release notes by coderabbit.ai -->",
+          "timestamp": "2026-11-10T02:43:33Z",
+          "tree_id": "cec300e85a7015522815808ed39f8ee08d849649",
+          "url": "https://github.com/m2lines/Samudra/commit/7d4dd30f659ea33d47d915c5093aceabfbc95dd3"
+        },
+        "date": 1794280201509,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 1.021434833682108,
+            "unit": "iter/sec",
+            "range": "stddev: 0.004719372199915351",
+            "extra": "mean: 979.0149767999992 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_dataset__1gb[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.35413157028770503,
+            "unit": "iter/sec",
+            "range": "stddev: 0.11811235791413195",
+            "extra": "mean: 2.823809239000002 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.05546600757032862,
+            "unit": "iter/sec",
+            "range": "stddev: 0.7149336753522186",
+            "extra": "mean: 18.02906038860001 sec\nrounds: 5"
           }
         ]
       }

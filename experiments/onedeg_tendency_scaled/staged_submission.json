@@ -1,0 +1,31 @@
+{
+  "submitted_at_cluster_time": "2026-11-09 22:01 EST",
+  "scheduling_source": "03e30616",
+  "model_source": "acdbcf67",
+  "jobs": {
+    "4gpu": "22488704",
+    "interim-eval": "22488708",
+    "8gpu": "22488711",
+    "interim-analysis": "22488713",
+    "interim-viz": "22488714",
+    "final-eval": "22488715",
+    "final-viz": "22488717",
+    "final-metrics": "22488718",
+    "final-imprint": "22488719"
+  },
+  "superseded_pending_jobs_cancelled": [
+    22478111,
+    22478112,
+    22478115,
+    22478116,
+    22478118
+  ],
+  "original_records": "jobs.tsv and statistics_summary.json describe the original submission and preflight; staged_jobs.tsv is the current schedule.",
+  "status_checked_at": "2026-11-09 22:05 EST",
+  "status": "4gpu PENDING Resources; all downstream jobs waiting on dependencies; superseded chain confirmed CANCELLED with zero runtime.",
+  "start_estimate_at_check": "2026-11-10 03:16:23 EST / 00:16:23 PST; scheduler estimate only, subject to change.",
+  "morning_expectation": "Five-epoch diagnostic outputs are the target; neither their completion nor the full 70-epoch pipeline is guaranteed by morning. No measured production throughput yet.",
+  "remote_bundle_parent": "/scratch/am16581/runs/_experiments",
+  "remote_bundle_run": "2026-11-09-onedeg-tendency-scaled-2in1out",
+  "remote_bundle_subdirectory": "scheduling-4to8"
+}

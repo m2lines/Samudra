@@ -1,0 +1,60 @@
+{
+  "date": "2026-11-10",
+  "source": "W&B GraphQL sampledHistory and Torch experiment.log/sacct; interruption explanation supplied by user email",
+  "wandb_url": "https://wandb.ai/ocean_emulators/default/runs/qwpgt766",
+  "completed_epochs": [
+    {
+      "epoch": 1,
+      "train_loss": 0.01815972290933132,
+      "one_step_validation_loss": 0.0003607269609346986,
+      "360_day_channel_mean_normalized_rmse": 0.7628275347650516,
+      "train_seconds": 3260.911172553897,
+      "total_seconds": 3570.405023395084
+    },
+    {
+      "epoch": 2,
+      "train_loss": 0.013409360311925411,
+      "one_step_validation_loss": 0.00033278740011155605,
+      "360_day_channel_mean_normalized_rmse": 0.6238965095017247,
+      "train_seconds": 3235.3746422231197,
+      "total_seconds": 3490.481156202033
+    }
+  ],
+  "interruption": {
+    "job": 22488704,
+    "state": "CANCELLED by 0",
+    "end_cluster_time": "2026-11-10 01:00:48 EST",
+    "accounting_reason": "QOSMaxGRESPerUser; this is a recorded scheduler reason, not proof of the cancellation cause",
+    "cause": "User received cluster email warning that low GPU utilization would stop the job.",
+    "last_training_position": "epoch 3, batch 79 of 176; incomplete epoch lost",
+    "preserved_checkpoints": "epoch-two raw, EMA, and best validation; original stage4gpu run directory",
+    "downstream": "All eight dependent jobs cancelled without running."
+  },
+  "recovery": {
+    "training_job": 22558644,
+    "eval_job": 22558645,
+    "viz_job": 22558646,
+    "metrics_job": 22558647,
+    "imprint_job": 22558648,
+    "launcher": "Direct sbatch submission of the original frozen scripts/slurm_apptainer_train.sbatch; no staged training wrapper.",
+    "model_source": "acdbcf67",
+    "container_source": "4f86be45",
+    "resume": "epoch-two stage4gpu raw ckpt.pt; restores optimizer, scheduler, model, EMA, residual scales, and W&B run",
+    "epochs": 70,
+    "gpus": 4,
+    "cpus": 64,
+    "memory": "700G",
+    "batch_size_per_gpu": 4,
+    "gradient_accumulation_steps": 2,
+    "effective_batch_size": 32,
+    "loading_workers_per_rank": 4,
+    "threads_per_rank": 16,
+    "previous_resources": "4 GPUs, 32 CPUs, 256G, two workers/rank, eight threads/rank",
+    "walltime": "24 hours, USR1 checkpoint-based requeue enabled",
+    "status_at_submission": "PENDING Resources; start estimate 2026-11-10 15:42 EST / 12:42 PST",
+    "utilization": "Extra CPU/worker resources follow the normal configuration; utilization improvement remains unverified until execution.",
+    "final_outputs": "Final EMA one-step skill and full rollout, paired viz, observation metrics, depth-resolved imprinting metrics; afterok dependencies."
+  },
+  "interpretation": "Early learning and finite 360-day validation scores only. No full test rollout or imprinting analysis has completed; these results do not establish the cause of slow-field imprinting.",
+  "current_jobs_record": "This record supersedes the cancelled schedules in staged_jobs.tsv and jobs.tsv."
+}

@@ -21,7 +21,8 @@ def evaluate_comparison(
     ]
     rng = np.random.default_rng(config["validation_seed"])
     # count, full-grid squared error, persistence squared error, area-wet error
-    sums = np.zeros((77, 8 if vocab is not None else 4), dtype=np.float64)
+    discrete_only = config.get("discrete_readout_only", False)
+    sums = np.zeros((77, 12 if vocab is not None else 4), dtype=np.float64)
     for index, origin in enumerate(origins):
         depths = np.tile(np.arange(19), config["validation_points_per_depth"])
         if index % world != rank:
@@ -41,7 +42,40 @@ def evaluate_comparison(
             extra = None
             if vocab is not None:
                 logits = prediction
-                prediction, mean = vocab.predictions(logits, batch["query_channel"])
+                channels = batch["query_channel"]
+                centers = vocab.centers[channels]
+                ids = logits.argmax(-1)
+                prediction = centers.gather(-1, ids.unsqueeze(-1)).squeeze(-1)
+                mean = (
+                    prediction
+                    if discrete_only
+                    else (centers * logits.float().softmax(-1)).sum(-1)
+                )
+                target_ids = vocab.encode(batch["target"], channels)
+                coarse_bins = config.get("model", {}).get("coarse_bins", 0)
+                greedy = prediction
+                coarse_wrong = torch.zeros_like(prediction)
+                fine_wrong = torch.zeros_like(prediction)
+                if coarse_bins:
+                    fine_bins = logits.shape[-1] // coarse_bins
+                    joint = logits.float().unflatten(-1, (coarse_bins, fine_bins))
+                    coarse = joint.logsumexp(-1).argmax(-1)
+                    branch = joint.gather(
+                        -2, coarse[..., None, None].expand(*coarse.shape, 1, fine_bins)
+                    ).squeeze(-2)
+                    greedy_ids = coarse * fine_bins + branch.argmax(-1)
+                    greedy = centers.gather(-1, greedy_ids.unsqueeze(-1)).squeeze(-1)
+                    true_coarse = target_ids // fine_bins
+                    true_branch = joint.gather(
+                        -2,
+                        true_coarse[..., None, None].expand(
+                            *coarse.shape, 1, fine_bins
+                        ),
+                    ).squeeze(-2)
+                    coarse_wrong = (coarse != true_coarse).float()
+                    fine_wrong = (
+                        true_branch.argmax(-1) != target_ids % fine_bins
+                    ).float()
                 extra = (
                     torch.stack(
                         (
@@ -54,6 +88,10 @@ def evaluate_comparison(
                                 vocab.quantized(batch["target"], batch["query_channel"])
                                 - batch["target"]
                             ).square(),
+                            (greedy - batch["target"]).square(),
+                            coarse_wrong,
+                            fine_wrong,
+                            (ids != target_ids).float(),
                         ),
                         -1,
                     )
@@ -111,7 +149,7 @@ def evaluate_comparison(
             )
         )
         if vocab is not None:
-            mean_nmse, nll, tail, quantization = sums[c, 4:] / count
+            mean_nmse, nll, tail, quantization = sums[c, 4:8] / count
             rows[-1].update(
                 probability_mean_full_grid_nmse=float(mean_nmse),
                 probability_mean_wet_cell_rmse=float(
@@ -122,6 +160,21 @@ def evaluate_comparison(
                 wet_cell_tail_fraction=float(tail / fraction),
                 quantization_full_grid_nmse=float(quantization),
             )
+            greedy, coarse_wrong, fine_wrong, leaf_wrong = sums[c, 8:] / count
+            rows[-1].update(
+                greedy_full_grid_nmse=float(greedy),
+                wet_cell_leaf_error_rate=float(leaf_wrong / fraction),
+            )
+            if config.get("model", {}).get("coarse_bins", 0):
+                rows[-1].update(
+                    wet_cell_coarse_error_rate=float(coarse_wrong / fraction),
+                    wet_cell_teacher_coarse_fine_error_rate=float(
+                        fine_wrong / fraction
+                    ),
+                )
+            if discrete_only:
+                rows[-1].pop("probability_mean_full_grid_nmse")
+                rows[-1].pop("probability_mean_wet_cell_rmse")
     expected = 19 if source.arm == "temperature" else 77
     if len(rows) != expected:
         raise ValueError("Validation lacks requested channels")
@@ -148,12 +201,16 @@ def evaluate_comparison(
             "probability_mean_full_grid_nmse",
             "quantization_full_grid_nmse",
         ):
+            if key not in rows[0]:
+                continue
             result[key] = float(np.mean([r[key] for r in rows]))
             result["temperature_" + key] = float(
                 np.mean([r[key] for r in rows if r["channel"].startswith("thetao_")])
             )
         result["point_prediction"] = (
-            "argmax bin center; probability-mean metrics reported separately"
+            "joint MAP leaf center; greedy coarse/fine metrics reported separately"
+            if discrete_only
+            else "argmax bin center; probability-mean metrics reported separately"
         )
         result["likelihood"] = (
             "Categorical probability mass, not continuous density; open-ended edge bins"

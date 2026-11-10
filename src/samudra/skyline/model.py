@@ -19,12 +19,43 @@ class ModelConfig:
     objective: str = "absolute_ce"
     checkpoint_blocks: bool = True
     field_queries: bool = False
+    coarse_bins: int = 0
 
     def __post_init__(self):
         if self.width % self.heads or self.layers < 1 or self.bins < 2:
             raise ValueError("Invalid transformer dimensions")
         if self.objective not in {"absolute_ce", "residual_ce", "regression"}:
             raise ValueError(self.objective)
+        if self.coarse_bins and (
+            self.coarse_bins < 2
+            or self.bins % self.coarse_bins
+            or self.bins // self.coarse_bins < 2
+            or not self.field_queries
+            or self.objective != "absolute_ce"
+        ):
+            raise ValueError("Coarse/fine requires divisible categorical field queries")
+
+
+class CoarseFineHead(nn.Module):
+    """Exact joint categorical masses for contiguous coarse/fine leaf IDs.
+
+    All coarse branches are enumerated, allowing exact joint MAP decoding.
+    Each conditional fine distribution sees a learned discrete coarse embedding.
+    """
+
+    def __init__(self, width, bins, coarse_bins):
+        super().__init__()
+        hidden = min(width, 128)
+        self.coarse = nn.Linear(width, coarse_bins)
+        self.context = nn.Linear(width, hidden)
+        self.token = nn.Embedding(coarse_bins, hidden)
+        self.fine = nn.Linear(hidden, bins // coarse_bins)
+
+    def forward(self, x):
+        coarse = self.coarse(x).float().log_softmax(-1)
+        context = self.context(x).unsqueeze(-2) + self.token.weight
+        fine = self.fine(F.silu(context)).float().log_softmax(-1)
+        return (coarse.unsqueeze(-1) + fine).flatten(-2)
 
 
 class Vocabulary(nn.Module):
@@ -105,6 +136,7 @@ class Block(nn.Module):
 
 class PointTransformer(nn.Module):
     frequencies: torch.Tensor
+    head: nn.Module
 
     def __init__(self, config: ModelConfig):
         super().__init__()
@@ -135,7 +167,11 @@ class PointTransformer(nn.Module):
             # Preserve the regression backbone AND query initialization before
             # drawing the larger categorical head from the same seeded stream.
             if config.objective == "absolute_ce":
-                self.head = nn.Linear(d, config.bins)
+                self.head = (
+                    CoarseFineHead(d, config.bins, config.coarse_bins)
+                    if config.coarse_bins
+                    else nn.Linear(d, config.bins)
+                )
         self.register_buffer("frequencies", 2.0 ** torch.arange(8))
 
     def forward(self, batch):

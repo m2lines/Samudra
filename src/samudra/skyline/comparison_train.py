@@ -200,7 +200,11 @@ def train_inner(config, output, source, device, rank, world, monitor):
                         json.dumps(result, indent=2) + "\n"
                     )
                     score = (
-                        result["full_grid_nll"]
+                        result[
+                            "temperature_full_grid_nll"
+                            if config.get("temperature_loss_only", False)
+                            else "full_grid_nll"
+                        ]
                         if vocab is not None
                         else result["full_grid_nmse"]
                     )
@@ -278,6 +282,19 @@ def train_inner(config, output, source, device, rank, world, monitor):
             save_checkpoint()
         model.train()
         while step < config["max_updates"]:
+            if "max_allocated_seconds" in config:
+                allocated = float(os.environ["SKYLINE_PRIOR_SECONDS"]) + (
+                    time.time() - float(os.environ["SKYLINE_ALLOCATION_START"])
+                )
+                exhausted = torch.tensor(
+                    int(allocated >= config["max_allocated_seconds"]), device=device
+                )
+                dist.all_reduce(exhausted, op=dist.ReduceOp.MAX)
+                if exhausted:
+                    save_checkpoint()
+                    raise RuntimeError(
+                        "Pilot allocation budget exhausted; checkpoint preserved"
+                    )
             failure = torch.tensor(int(monitor.reason is not None), device=device)
             dist.all_reduce(failure, op=dist.ReduceOp.MAX)
             if failure:
@@ -297,6 +314,12 @@ def train_inner(config, output, source, device, rank, world, monitor):
                     config["coverage"],
                 )
                 stream.used += config["microbatch"]
+                if config.get("temperature_loss_only", False):
+                    if config["arm"] != "all_fields":
+                        raise ValueError(
+                            "Matched temperature loss needs all-field queries"
+                        )
+                    batch["loss_weight"] *= batch["query_field"] == 2
                 return to_device(batch, device)
 
             factor = learning_rate_factor(

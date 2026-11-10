@@ -566,17 +566,12 @@ class Cm4DataSourceConfig(Om4FamilyDataSourceConfig[Cm4TimeConfig]):
 
 class LlcDataSourceConfig(BaseDataSourceConfig[LlcTimeConfig]):
     type: Literal["llc"] = "llc"
-    prognostic_vars_key: str = "single_1"
-    boundary_vars_key: str = "single_1"
-    face: int = Field(default=1, ge=0)
-    i_start: int = Field(default=0, ge=0)
-    i_end: int = Field(default=720, gt=0)
-    j_start: int = Field(default=0, ge=0)
-    j_end: int = Field(default=720, gt=0)
+    prognostic_vars_key: str = "all"
+    boundary_vars_key: str = "all"
 
     @property
     def grid_type(self) -> GridType:
-        return "llc"
+        return "gaussian"
 
     @pydantic.model_validator(mode="after")
     def validate_time_splits(self) -> Self:
@@ -585,14 +580,6 @@ class LlcDataSourceConfig(BaseDataSourceConfig[LlcTimeConfig]):
                 f"Training time range {self.train_time} overlaps "
                 f"with validation time range {self.val_time}"
             )
-        return self
-
-    @pydantic.model_validator(mode="after")
-    def validate_crop_bounds(self) -> Self:
-        if self.i_end <= self.i_start:
-            raise ValueError("LLC crop bounds must satisfy i_start < i_end")
-        if self.j_end <= self.j_start:
-            raise ValueError("LLC crop bounds must satisfy j_start < j_end")
         return self
 
     def build_layout(self) -> DataLayout:
@@ -608,11 +595,6 @@ class LlcDataSourceConfig(BaseDataSourceConfig[LlcTimeConfig]):
             data,
             means,
             stds,
-            face=self.face,
-            i_start=self.i_start,
-            i_end=self.i_end,
-            j_start=self.j_start,
-            j_end=self.j_end,
             prognostic_vars_key=self.prognostic_vars_key,
             boundary_vars_key=self.boundary_vars_key,
         )

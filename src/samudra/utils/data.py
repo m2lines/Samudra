@@ -758,6 +758,21 @@ def with_depth_value_vars(
     return data.rename(renames)
 
 
+def expand_compact_levels(dataset: xr.Dataset) -> xr.Dataset:
+    """Expose compact depth arrays as canonical channel views without rewriting storage."""
+    canonical = xr.Dataset(attrs=dataset.attrs)
+    for name, coordinate in dataset.coords.items():
+        if "lev" not in coordinate.dims:
+            canonical = canonical.assign_coords({name: coordinate})
+    for name, variable in dataset.data_vars.items():
+        if "lev" not in variable.dims:
+            canonical[str(name)] = variable
+            continue
+        for level in range(variable.sizes["lev"]):
+            canonical[f"{name}_{level}"] = variable.isel(lev=level, drop=True)
+    return canonical
+
+
 def with_lat_lon_coords(data: xr.Dataset) -> xr.Dataset:
     """Standardize dataset coordinates; prefer "lat"/"lon" over "y"/"x"."""
     data_copy = data.copy()

@@ -1,0 +1,16 @@
+depth_m,arm,rows,error_power_2to4cells,true_change_power_2to4cells
+2.5,"Dynamic (limit 20), absolute head = Samudra production",10,0.012812307571013872,0.00063598602155787
+2.5,"Dynamic (limit 20), residual head",10,0.0007804798133336426,0.00063598602155787
+2.5,"Tendency (cap 1000), residual head",10,0.0009753092921045099,0.00063598602155787
+2.5,"Tendency (cap 1000), residual head scaled by change std = GraphCast",10,0.000676630304677704,0.00063598602155787
+2.5,"T only, residual head (no-mixing reference)",10,0.0007490311103291846,0.00063598602155787
+550.0,"Dynamic (limit 20), absolute head = Samudra production",8,0.0016888932170760038,0.00014862598921322392
+550.0,"Dynamic (limit 20), residual head",8,9.331708399564808e-05,0.00014862598921322392
+550.0,"Tendency (cap 1000), residual head",8,0.0001730786287295498,0.00014862598921322392
+550.0,"Tendency (cap 1000), residual head scaled by change std = GraphCast",8,9.382139793948153e-05,0.00014862598921322392
+550.0,"T only, residual head (no-mixing reference)",8,0.00014006724662211182,0.00014862598921322392
+1400.0,"Dynamic (limit 20), absolute head = Samudra production",7,0.0008459012209285294,1.576014249060829e-05
+1400.0,"Dynamic (limit 20), residual head",7,1.4009934155137658e-05,1.576014249060829e-05
+1400.0,"Tendency (cap 1000), residual head",7,1.9823048307167006e-05,1.576014249060829e-05
+1400.0,"Tendency (cap 1000), residual head scaled by change std = GraphCast",7,1.4414319989503293e-05,1.576014249060829e-05
+1400.0,"T only, residual head (no-mixing reference)",7,2.0062866410048783e-05,1.576014249060829e-05

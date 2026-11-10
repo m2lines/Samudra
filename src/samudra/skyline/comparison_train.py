@@ -18,6 +18,7 @@ import torch.distributed as dist
 from numcodecs import blosc  # type: ignore[import-untyped]
 from torch.nn.parallel import DistributedDataParallel
 
+from .channel_vocabulary import ChannelVocabulary
 from .comparison_eval import evaluate_comparison
 from .coverage import sample_coverage
 from .ema import ema_weights, restore_ema
@@ -74,8 +75,16 @@ def train_inner(config, output, source, device, rank, world, monitor):
     # Only the query-channel tensor changes between arms.
     torch.manual_seed(config["seed"])
     model = PointTransformer(ModelConfig(**config["model"])).to(device)
-    if not model.config.field_queries or model.config.objective != "regression":
-        raise ValueError("Comparison requires field-query regression")
+    if not model.config.field_queries or model.config.objective not in {
+        "regression",
+        "absolute_ce",
+    }:
+        raise ValueError("Comparison requires field-query regression or absolute CE")
+    vocab = (
+        ChannelVocabulary(config["vocabulary_bounds"], model.config.bins).to(device)
+        if model.config.objective == "absolute_ce"
+        else None
+    )
     initial_digest = parameter_digest(model)
     optimizer = torch.optim.AdamW(
         model.parameters(),
@@ -184,13 +193,29 @@ def train_inner(config, output, source, device, rank, world, monitor):
         for kind in ("raw", "ema"):
             with ema_weights(model, ema) if kind == "ema" else nullcontext():
                 result = evaluate_comparison(
-                    model, source, config, device, step, rank, world
+                    model, source, config, device, step, rank, world, vocab=vocab
                 )
                 if rank == 0:
                     (output / f"validation-{kind}-{step:07d}.json").write_text(
                         json.dumps(result, indent=2) + "\n"
                     )
-                    score = result["full_grid_nmse"]
+                    score = (
+                        result["full_grid_nll"]
+                        if vocab is not None
+                        else result["full_grid_nmse"]
+                    )
+                    if config.get("retain_validation_weights", False):
+                        save_atomic(
+                            dict(
+                                model=model.state_dict(),
+                                config=config,
+                                step=step,
+                                validation=result,
+                                weights_kind=kind,
+                                ema=ema.get_state(include_ema_params=False),
+                            ),
+                            output / f"weights-{kind}-{step:07d}.pt",
+                        )
                     if score < best[kind]:
                         best[kind] = score
                         save_atomic(
@@ -209,24 +234,38 @@ def train_inner(config, output, source, device, rank, world, monitor):
                             event="validation",
                             weights=kind,
                             step=step,
-                            nmse=score,
+                            nmse=result["full_grid_nmse"],
+                            nll=result.get("full_grid_nll"),
                             temperature_nmse=result["temperature_full_grid_nmse"],
                         ),
                         output / "training.jsonl",
                     )
-                    metrics[f"validation/{kind}/full_grid_nmse"] = score
+                    metrics[f"validation/{kind}/full_grid_nmse"] = result[
+                        "full_grid_nmse"
+                    ]
+                    for key in (
+                        "full_grid_nll",
+                        "temperature_full_grid_nll",
+                        "probability_mean_full_grid_nmse",
+                        "temperature_probability_mean_full_grid_nmse",
+                    ):
+                        if key in result:
+                            metrics[f"validation/{kind}/{key}"] = result[key]
                     for field, value in result["per_field_nmse"].items():
                         metrics[f"validation/{kind}/{field}/full_grid_nmse"] = value
                     for row in result["per_channel"]:
-                        for key in (
-                            "full_grid_nmse",
-                            "wet_cell_rmse",
-                            "area_wet_rmse",
-                            "persistence_full_grid_nmse",
-                        ):
-                            metrics[f"validation/{kind}/{row['channel']}/{key}"] = row[
-                                key
-                            ]
+                        for key, value in row.items():
+                            if key not in {
+                                "channel",
+                                "channel_index",
+                                "depth",
+                                "depth_m",
+                                "count",
+                                "wet_fraction",
+                            }:
+                                metrics[f"validation/{kind}/{row['channel']}/{key}"] = (
+                                    value
+                                )
         if run:
             run.log(metrics, step=step)
         model.train()
@@ -260,13 +299,22 @@ def train_inner(config, output, source, device, rank, world, monitor):
                 stream.used += config["microbatch"]
                 return to_device(batch, device)
 
-            factor = learning_rate_factor(step, config["warmup"], config["max_updates"])
+            factor = learning_rate_factor(
+                step,
+                config["warmup"],
+                config.get("schedule_updates", config["max_updates"]),
+            )
             set_synchronized_learning_rate(
                 optimizer, config["learning_rate"] * factor, device
             )
             optimizer.zero_grad(set_to_none=True)
             stats = accumulate_gradients(
-                ddp, next_batch, "comparison", None, device, accumulation
+                ddp,
+                next_batch,
+                "comparison_ce" if vocab is not None else "comparison",
+                vocab,
+                device,
+                accumulation,
             )
             norm = torch.nn.utils.clip_grad_norm_(
                 model.parameters(), 1.0, error_if_nonfinite=True
@@ -297,7 +345,7 @@ def train_inner(config, output, source, device, rank, world, monitor):
                     if run:
                         run.log({"train/" + k: v for k, v in record.items()}, step=step)
             validation_due = (
-                step == 1
+                step in config.get("validate_at", [1])
                 or step % config["validate_updates"] == 0
                 or step == config["max_updates"]
             )

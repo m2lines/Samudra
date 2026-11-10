@@ -122,11 +122,20 @@ class PointTransformer(nn.Module):
             [Block(d, config.heads) for _ in range(config.layers)]
         )
         self.norm = nn.RMSNorm(d)
-        self.head = nn.Linear(d, 1 if config.objective == "regression" else config.bins)
+        self.head = nn.Linear(
+            d,
+            1
+            if config.objective == "regression" or config.field_queries
+            else config.bins,
+        )
         if config.field_queries:
-            if config.objective != "regression":
-                raise ValueError("Field queries require regression")
+            if config.objective not in {"regression", "absolute_ce"}:
+                raise ValueError("Field queries require regression or absolute CE")
             self.field = nn.Embedding(5, d)
+            # Preserve the regression backbone AND query initialization before
+            # drawing the larger categorical head from the same seeded stream.
+            if config.objective == "absolute_ce":
+                self.head = nn.Linear(d, config.bins)
         self.register_buffer("frequencies", 2.0 ** torch.arange(8))
 
     def forward(self, batch):

@@ -50,7 +50,12 @@ def accumulate_gradients(model, next_batch, objective, vocab, device, accumulati
                 "cuda", dtype=torch.bfloat16, enabled=device.type == "cuda"
             ):
                 logits = model(batch)
-            if objective == "comparison":
+            if objective == "comparison_ce":
+                losses = (
+                    vocab.nll(logits, batch["target"], batch["query_channel"])
+                    * batch["loss_weight"]
+                ).sum(-1)
+            elif objective == "comparison":
                 from .multitask import comparison_losses
 
                 losses = comparison_losses(logits, batch)

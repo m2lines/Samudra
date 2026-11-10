@@ -1,0 +1,24 @@
+{
+  "data_root": "/scratch/am16581/data/om4_onedeg_v3",
+  "calendar": "julian",
+  "shape": {
+    "time": 4745,
+    "lon": 360,
+    "lat": 180
+  },
+  "training_stats": {
+    "adapter": "Om4DataSourceConfig.canonicalize_datasets; shared compact-level reductions",
+    "calendar": "julian",
+    "description": "RMS native one-step change; physical units; land counted as zero",
+    "n_training_states": 2828,
+    "time_range": "1975-01-03 to 2013-09-30",
+    "time_stride": 1
+  },
+  "weight_min": 1.775808232196141e-05,
+  "weight_max": 44.476173400878906,
+  "weight_ratio": 2504559.5,
+  "executed_commit": "20f3b10a",
+  "preparation_job": 22473844,
+  "preparation_state": "COMPLETED",
+  "training_state_at_preparation_completion": "PENDING: QOSGrpCpuLimit"
+}

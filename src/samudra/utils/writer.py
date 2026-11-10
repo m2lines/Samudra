@@ -90,11 +90,12 @@ class ZarrWriter:
         ds.attrs["model_path"] = str(self.model_path)
         ds = ds.chunk({"time": self.time_chunk_size})
         if os.path.exists(self.pred_path):
-            ds.to_zarr(self.pred_path, mode="a", append_dim="time")
+            ds.to_zarr(self.pred_path, mode="a", append_dim="time", zarr_format=2)
         else:
             ds.to_zarr(
                 self.pred_path,
                 mode="w",
+                zarr_format=2,
                 encoding={var: {"compressor": None} for var in ds.data_vars},
             )
 

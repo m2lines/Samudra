@@ -159,8 +159,9 @@ On November 9, preparation array `22453582` and dependent perturbation array
 with an afterany dependency on the perturbation array. GPU routing was verified
 as `l40s_public,l40s`, account `torch_pr_347_lzanna`, with preemption eligibility,
 requeue and a concurrency limit of four. Perturbation requires successful
-preparation; failed dependencies cancel its allocation. The joint stage has not
-been submitted and will use only qualified prepared checkpoints.
+preparation; failed dependencies cancel its allocation. All six preparations qualified; joint array `22467229` subsequently ran the full
+18-bundle raw-6 subset. Its CPU callback was `22467248`. The filtered manifest
+SHA256 is `fcb3a1bb8cb28abf16441ea5b3b76d2cd71cfb768f2634048ac34a50d0f32421`.
 
 Training source is `144d593554af0839f399992b54583bed7312dc25`. The immutable archive
 SHA256 is `e145ccc04ca3090cbe3a16466086bf055334250442afb8a2a3bb108daca10bff`.
@@ -168,3 +169,10 @@ The run root is `/scratch/jr7309/precision-noise-20261109`; the prior container 
 read-only parent checkpoints are reused. W&B project is `ocean_emulators/samudra`,
 group `precision-noise-20261109`. All 22 focused CPU tests and repository commit
 checks passed before submission. Queue start time was unknown at submission.
+
+All 60 GPU bundles and both callbacks completed with zero exit status and no
+restarts. GPU allocation totaled 2.5661 hours; measured trajectory training totaled
+1.9723 hours. All 306 trajectory checkpoints and all frozen-probe records were
+verified. The [completed report](noise_results/README.md) includes paired raw/EMA
+results, auxiliary accuracy, exact update/example comparisons, source receipts
+and the small observed discrepancy in the loss-offset numerical control.

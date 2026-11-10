@@ -4,7 +4,9 @@
 # Precision and competition in point-query transformers
 
 The [completed first-wave report](results/README.md) contains all three paired
-seeds, figures, metrics and execution receipts.
+seeds, figures, metrics and execution receipts. The [LR/EMA qualification](followup_results/README.md)
+and [auxiliary-noise/LR/batch report](noise_results/README.md) record the subsequent
+completed experiments.
 
 This is an experiment/results record, not intended to merge. The working hypothesis is
 that improvements to a high-precision output are expensive relative to improvements

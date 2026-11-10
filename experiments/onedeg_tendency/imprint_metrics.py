@@ -25,10 +25,13 @@ import xarray as xr
 from samudra.constants import build_om4_layout
 from samudra.metrics.kernels import detrended_deseasonalized
 from samudra.metrics.run import analysis_ready
+from samudra.utils.data import unflatten_masks
 
 
 def open_data(path):
     data = analysis_ready(xr.open_zarr(path, chunks={}), build_om4_layout())
+    if "mask_0" in data:
+        data = unflatten_masks(data, num_levels=19)
     if not np.issubdtype(data.time.dtype, np.datetime64):
         data = data.assign_coords(
             time=np.array([str(t) for t in data.time.values], dtype="datetime64[ns]")

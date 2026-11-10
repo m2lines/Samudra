@@ -71,7 +71,7 @@ learning_rate: 0.0006
 loss:
   max_weight_ratio: null
   metric: mse
-  persistence_rms_location: /scratch/am16581/runs/_experiments/2026-11-09-onedeg-tendency-residual/stats/persistence_rms.zarr
+  persistence_rms_location: /scratch/am16581/runs/_experiments/2026-11-09-onedeg-tendency-residual-v2/stats/persistence_rms.zarr
   type: tendency
 model:
   add_3d_coordinates: false

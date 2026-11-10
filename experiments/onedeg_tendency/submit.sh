@@ -5,7 +5,7 @@
 
 set -euo pipefail
 : "${CODE_COMMIT:?Set the pushed full experiment commit}" "${WANDB_API_KEY:?}"
-export BUNDLE_DIR=/scratch/am16581/runs/_experiments/2026-11-09-onedeg-tendency-residual
+export BUNDLE_DIR=/scratch/am16581/runs/_experiments/2026-11-09-onedeg-tendency-residual-v2
 export BASE_NAME=2026-11-09-onedeg-tendency-residual
 export DATA_ROOT=/scratch/am16581/data/om4_onedeg_v3 OUTPUT_BASE=/scratch/am16581/runs
 export SCRATCH_DIR=/scratch/am16581 SIF_DIR=/scratch/am16581/.apptainer-images

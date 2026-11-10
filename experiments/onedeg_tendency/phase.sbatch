@@ -24,9 +24,7 @@ case "${PHASE}" in
   prepare)
     test ! -e "${BUNDLE_DIR}/stats/persistence_rms.zarr"
     mkdir -p "${BUNDLE_DIR}/stats"
-    "${container[@]}" "${BUNDLE_DIR}/compute_tendency_stats.py" \
-      --data "${DATA_ROOT}/OM4.zarr" --output "${BUNDLE_DIR}/stats/persistence_rms.zarr" \
-      --start 1975-01-03 --end 2013-09-30 --time-stride 1
+    "${container[@]}" "${BUNDLE_DIR}/prepare_stats.py" "${CONFIG_DIR}/train.yaml" "${BUNDLE_DIR}"
     "${container[@]}" "${BUNDLE_DIR}/preflight.py" "${CONFIG_DIR}/train.yaml" "${BUNDLE_DIR}"
     "${container[@]}" "${BUNDLE_DIR}/preflight.py" "${CONFIG_DIR}/train_2in1out.yaml" "${BUNDLE_DIR}"
     (cd "${BUNDLE_DIR}/stats" && find persistence_rms.zarr -type f -print0 | sort -z | xargs -0 sha256sum > stats.sha256)

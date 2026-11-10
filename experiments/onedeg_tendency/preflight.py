@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 import torch
 import xarray as xr
+from prepare_stats import open_canonical
 
 from samudra.config import TrainConfig, build_loss_fn
 from samudra.constants import build_om4_layout
@@ -26,9 +27,7 @@ def main():
     root = cfg.experiment.resolved_data_root
     assert isinstance(root, LocalLocation)
     # Locations are Pydantic values; resolved_data_root handles local paths.
-    stds_ds = cfg.experiment.resolved_data_root.resolve(
-        cfg.data.sources[0].data_stds_location
-    ).open(None)
+    truth, _, stds_ds, _ = open_canonical(cfg)
     stds = np.array([float(stds_ds[c]) for c in channels])
     loss = build_loss_fn(
         cfg.loss,
@@ -59,8 +58,7 @@ def main():
     assert cfg.steps[0] * cfg.data.output_steps == 8
     assert len(channels) == 77
     assert np.isfinite(weights).all() and (weights > 0).all()
-    truth = root.resolve(cfg.data.sources[0].data_location).open(chunks={})
-    assert truth.sizes["y"] == 180 and truth.sizes["x"] == 360
+    assert truth.sizes["lat"] == 180 and truth.sizes["lon"] == 360
     summary = {
         "data_root": str(root.path),
         "data_attrs": truth.attrs,

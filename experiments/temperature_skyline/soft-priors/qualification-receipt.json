@@ -110,10 +110,21 @@
   "production_jobs": {
     "temperature_twohot": 22594960,
     "all_fields_twohot": 22594966,
-    "temperature_smoothinit": 22594968,
+    "temperature_smoothinit": 22595643,
     "all_fields_smoothinit": 22594972,
     "temperature_both": 22594974,
-    "all_fields_both": 22594976,
-    "callback": 22594977
-  }
+    "all_fields_both": 22595644,
+    "callback": 22595646
+  },
+  "startup_failures": [
+    {
+      "job": 22594968,
+      "seconds": 28
+    },
+    {
+      "job": 22594976,
+      "seconds": 21
+    }
+  ],
+  "production_validation_weight_snapshots_retained": 120
 }

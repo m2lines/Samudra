@@ -339,7 +339,7 @@ def write_parquet_references(
 def validate_parquet_references(
     directory: Path, expected: xr.Dataset, source: SourceArchive
 ) -> None:
-    """Reopen the serialized reference store and check its dataset structure."""
+    """Check storage dimensions before CF character arrays collapse to strings."""
     remote_options = (
         {
             "anon": source.anonymous,
@@ -357,7 +357,11 @@ def validate_parquet_references(
         remote_options=remote_options,
     ).get_mapper("")
     with xr.open_zarr(
-        mapper, consolidated=False, chunks=None, decode_times=False
+        mapper,
+        consolidated=False,
+        chunks=None,
+        decode_times=False,
+        concat_characters=False,
     ) as actual:
         if dict(actual.sizes) != dict(expected.sizes) or set(actual.variables) != set(
             expected.variables

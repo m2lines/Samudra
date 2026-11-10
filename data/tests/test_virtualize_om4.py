@@ -164,6 +164,32 @@ def test_static(tmp_path):
         xr.testing.assert_equal(actual.load(), ds)
 
 
+def test_static_netcdf_character_array(tmp_path):
+    from scipy.io import netcdf_file
+
+    source = tmp_path / "grid.nc"
+    with netcdf_file(source, "w") as handle:
+        handle.createDimension("y", 2)
+        handle.createDimension("x", 3)
+        handle.createDimension("string", 255)
+        handle.createVariable("area", "f", ("y", "x"))[:] = np.ones((2, 3))
+        handle.createVariable("tile", "c", ("string",))[:] = np.frombuffer(
+            b"tile1".ljust(255, b"\0"), dtype="S1"
+        )
+    with xr.open_dataset(source, engine="scipy") as native:
+        expected = native.load()
+    assert expected.tile.ndim == 0
+    output = build(str(tmp_path), tmp_path / "refs", pattern="grid.nc", static=True)
+    mapper = fsspec.filesystem(
+        "reference",
+        fo=LazyReferenceMapper(str(output), engine="pyarrow"),
+        remote_protocol="file",
+        asynchronous=True,
+    ).get_mapper("")
+    with xr.open_zarr(mapper, consolidated=False, chunks=None) as actual:
+        xr.testing.assert_equal(actual.load(), expected)
+
+
 @pytest.mark.parametrize(
     "flags",
     [

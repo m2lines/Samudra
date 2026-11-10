@@ -315,7 +315,41 @@ To enable profiling for a run, you typically want something like this:
 export NSYS_ARGS="--trace=cuda,nvtx,osrt,nccl --sample=cpu --delay=300 --duration=120"
 ```
 
-### Monitoring
+### Improving scheduling latency
+
+Check allocation access with `my_slurm_accounts` and the actual blocking reason
+with `scontrol show job <jobid>`. A Zanna allocation is stakeholder access, but
+does not guarantee that eight GPUs are free together on one physical node.
+Check effective user limits in the controller as well as the database; do not
+infer an individual user's current allowance from a global QoS snapshot.
+
+The [current NYU submission guide](https://services.rt.nyu.edu/docs/hpc/submitting_jobs/slurm_submitting_jobs/)
+recommends automatic partition selection. For that route, omit `--partition`,
+use an account listed by `my_slurm_accounts`, and select hardware with e.g.
+`--gres=gpu:4 --constraint=rtx6000`. Adding
+`--comment="preemption=yes;requeue=true"` makes the job eligible for the
+documented preemption routes too. Existing checkpoint/requeue support remains
+necessary. Use `sbatch --test-only` with the actual resource shape to compare
+current start estimates before replacing a pending job; estimates can change.
+The explicit-partition examples above describe previously validated shapes.
+
+`slurm_apptainer_train.sbatch` already supports these smaller and distributed
+requests. Set `GPUS_PER_NODE` to the number of ranks **on each node**. Four GPUs
+with batch four and `--gradient_accumulation_steps=2` retain effective batch 32;
+two nodes with four GPUs each and accumulation one also give effective batch 32.
+Set CPU/memory requests for the actual data loading needs, and do not export an
+allocation-wide `OMP_NUM_THREADS` value to every GPU rank. The harness derives
+threads per rank when that variable is unset.
+
+For staged training, preserve the intended learning-rate budget with
+`--scheduler.target_epochs=70` even if an initial stage stops at epoch five.
+Resume the next stage from the raw `saved_nets/ckpt.pt` to restore the model,
+optimizer, scheduler, and EMA; evaluate the `ema_ckpt.pt` separately. A change
+in rank count and accumulation preserves the effective batch size but can
+change local BatchNorm statistics and data grouping, so record the stage
+schedule in experimental provenance.
+
+### Monitoring jobs
 
 For Slurm-array architecture searches that promote candidates through larger
 epoch budgets, see [Architecture search](search.md).

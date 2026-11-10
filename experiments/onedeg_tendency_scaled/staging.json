@@ -1,0 +1,42 @@
+{
+  "purpose": "Obtain early results on four GPUs, then continue the same experiment on eight GPUs without restarting training.",
+  "executed_model_source": "acdbcf67",
+  "account": "torch_pr_500_lzanna",
+  "access": "Existing member, verified with my_slurm_accounts and sacctmgr; no new group membership required.",
+  "routing": "Automatic partition selection with generic GPU GRES, RTX6000 constraint, preemption=yes;requeue=true",
+  "stage4": {
+    "nodes": 1,
+    "gpus_per_node": 4,
+    "cpus_per_node": 32,
+    "memory_per_node": "256G",
+    "epochs": "1-5",
+    "batch_size_per_gpu": 4,
+    "gradient_accumulation_steps": 2,
+    "effective_batch_size": 32,
+    "scheduler_target_epochs": 70,
+    "walltime": "4 hours with checkpoint/requeue"
+  },
+  "interim": {
+    "checkpoint": "stage4 epoch-five EMA",
+    "outputs": ["validation one-step skill and shortwave error power", "2014-2022 rollout", "paired temperature/salinity plots and profiles", "observation metrics", "depth-resolved imprinting metrics and summary figure"],
+    "interpretation": "Early diagnostic checkpoint, not the final 70-epoch result."
+  },
+  "stage8": {
+    "nodes": 2,
+    "gpus_per_node": 4,
+    "cpus_per_node": 32,
+    "memory_per_node": "256G",
+    "epochs": "6-70",
+    "batch_size_per_gpu": 4,
+    "gradient_accumulation_steps": 1,
+    "effective_batch_size": 32,
+    "scheduler_target_epochs": 70,
+    "resume": "stage4 raw ckpt.pt, restoring optimizer, scheduler, EMA, and fixed residual output scales",
+    "dependency": "stage4 succeeds and interim GPU eval finishes; interim eval failure does not discard a valid training checkpoint",
+    "walltime": "24 hours with checkpoint/requeue"
+  },
+  "data_loading": {"workers_per_rank": 2, "threads_per_rank": 8},
+  "scientific_limit": "Changing rank count and accumulation can change local BatchNorm statistics and sample grouping. This is a staged experiment, not a GPU-count ablation or an exact reproduction of an uninterrupted eight-GPU trajectory.",
+  "validation": "Stage CLI configs validate, effective batch is 32 in both, and resumed Adam/cosine state follows the same 70-epoch learning-rate trajectory.",
+  "intended_to_merge": false
+}

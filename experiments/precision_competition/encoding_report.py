@@ -586,6 +586,14 @@ def main():
             {
                 **ident,
                 "qualified": result["qualified"],
+                "copy_qualified": all(
+                    row["raw"]["bits"] >= 4
+                    for row in bundle["phases"]["solo"]["curves"][-3:]
+                ),
+                "copy_final_window_min_bits": min(
+                    row["raw"]["bits"]
+                    for row in bundle["phases"]["solo"]["curves"][-3:]
+                ),
                 "aux_qualified": result["aux_fit"]["qualified"],
                 "aux_fit_nrmse": result["aux_fit"]["metrics"]["aux_nrmse"],
                 "aux_head_norm": result["aux_fit"]["conditioning"]["weight_norm"],

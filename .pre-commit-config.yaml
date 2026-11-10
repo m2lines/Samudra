@@ -18,7 +18,7 @@ repos:
       - id: check-added-large-files
         args: [--maxkb=250]
         # Fixed scientific records; each is under 3 MB, without weights.
-        exclude: ^(notebooks/|experiments/precision_competition/results/(bits-lost\.csv|curves\.csv|records\.json\.gz)$|experiments/precision_competition/followup_results/(curves\.csv\.gz|records\.json\.gz)$|experiments/precision_competition/noise_results/(perturb-bits[46]-seed(11|22|33)\.json\.gz|trajectories\.csv\.gz|trajectory-summary\.csv\.gz)$|experiments/precision_competition/encoding_results/((curves|raw)-(ar_nested|ar_overlap|ar_twohot_hard|ar_twohot_soft|ar_uniform|parallel_nested)\.(csv|json)\.gz|auxiliary-learning\.png|auxiliary-probes\.png|copy-learning\.png)$)
+        exclude: ^(notebooks/|experiments/precision_competition/results/(bits-lost\.csv|curves\.csv|records\.json\.gz)$|experiments/precision_competition/followup_results/(curves\.csv\.gz|records\.json\.gz)$|experiments/precision_competition/noise_results/(perturb-bits[46]-seed(11|22|33)\.json\.gz|trajectories\.csv\.gz|trajectory-summary\.csv\.gz)$|experiments/precision_competition/encoding_results/((curves|raw)-(ar_nested|ar_overlap|ar_twohot_hard|ar_twohot_soft|ar_uniform|parallel_nested)\.(csv|json)\.gz|auxiliary-learning\.png|auxiliary-probes\.png|copy-learning\.png)$|experiments/precision_competition/encoding_extension_results/((curves|raw)-(ar_overlap_scaled|ar_twohot_hard_scaled|ar_twohot_soft_scaled|cont_fixed_mse|cont_shrink_mse|cont_shrink_normalized)\.(csv|json)\.gz|auxiliary-learning\.png|auxiliary-probes\.png|continuous-stage-comparison\.png|copy-learning\.png|stage-weighting-comparison\.png)$)
       - id: trailing-whitespace
         exclude: ^notebooks/
       - id: check-yaml

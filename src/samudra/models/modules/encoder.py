@@ -12,9 +12,9 @@ from einops import rearrange
 from jaxtyping import Float
 from torch import nn
 
-from samudra._vendor.aurora.fourier import pos_expansion, scale_expansion
-from samudra._vendor.aurora.posencoding import pos_scale_enc
 from samudra.constants import Input, Lat, Lon
+from samudra.models.modules.fourier import pos_expansion, scale_expansion
+from samudra.models.modules.posencoding import pos_scale_enc
 
 
 def patch_from(

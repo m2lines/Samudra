@@ -3,7 +3,23 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""Copyright (c) Microsoft Corporation. Licensed under the MIT license."""
+"""Fourier features adapted from Microsoft Aurora 1.8.0.
+
+Copyright (c) Microsoft Corporation. Licensed under the MIT license;
+see LICENSES/MIT.txt.
+
+Source: https://github.com/microsoft/aurora/blob/fac03c738554cfa804373267ca5621ba85b2614c/aurora/model/fourier.py
+Upstream license: https://github.com/microsoft/aurora/blob/fac03c738554cfa804373267ca5621ba85b2614c/LICENSE.txt
+
+Only the position and scale expansions are included. NumPy's pi is replaced
+with the identical math.pi, and the original float64 polar patch area is kept
+as a constant to avoid importing the polygon-area machinery. The Earth radius,
+wavelength bounds, and scale conventions retain their upstream values.
+Formatting and SPDX headers follow Samudra's checks.
+
+Preserve encoding values when updating: trained encoder/decoder checkpoints
+rely on them. See tests/test_aurora_posencoding.py for upstream parity checks.
+"""
 
 import math
 

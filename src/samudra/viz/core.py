@@ -1492,7 +1492,7 @@ class Viz:
         )
 
         def ocean_temperature_profile(datasets, titles, plot_title):
-            from samudra._vendor.xarrayutils.plotting import linear_piecewise_scale
+            from samudra.viz.plotting import linear_piecewise_scale
 
             fig, axs = plt.subplots(
                 2,
@@ -2271,7 +2271,7 @@ class Viz:
         axs["map"].stock_img()
         axs["map"].coastlines(color="0.3", lw=0.5)
         axs["map"].gridlines(draw_labels=True, color="0.4")
-        from samudra._vendor.xarrayutils.plotting import box_plot
+        from samudra.viz.plotting import box_plot
 
         box_plot(
             [bound_east, bound_west, bound_south, bound_north],

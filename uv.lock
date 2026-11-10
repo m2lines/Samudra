@@ -3294,16 +3294,16 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
-cloud = [
-    { name = "skypilot", extra = ["aws"] },
-    { name = "sqlalchemy" },
-]
 cuda = [
     { name = "torchvision", version = "0.24.1", source = { registry = "https://download.pytorch.org/whl/cu130" }, marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
     { name = "torchvision", version = "0.24.1", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine != 'aarch64' or sys_platform != 'linux'" },
 ]
 rust = [
     { name = "samudra-rust-loader" },
+]
+sky = [
+    { name = "skypilot", extra = ["aws"] },
+    { name = "sqlalchemy" },
 ]
 
 [package.dev-dependencies]
@@ -3357,8 +3357,8 @@ requires-dist = [
     { name = "s3fs", specifier = ">=2025.5.1" },
     { name = "samudra-rust-loader", marker = "extra == 'rust'", directory = "rust/loader" },
     { name = "scipy", specifier = ">=1.17.1" },
-    { name = "skypilot", extras = ["aws", "lambda"], marker = "extra == 'cloud'", specifier = ">=0.10" },
-    { name = "sqlalchemy", marker = "extra == 'cloud'", specifier = ">=2" },
+    { name = "skypilot", extras = ["aws", "lambda"], marker = "extra == 'sky'", specifier = ">=0.10" },
+    { name = "sqlalchemy", marker = "extra == 'sky'", specifier = ">=2" },
     { name = "torch", marker = "platform_machine != 'aarch64' or sys_platform != 'linux'", specifier = ">=2.9.0a0,<2.13" },
     { name = "torch", marker = "platform_machine == 'aarch64' and sys_platform == 'linux'", specifier = ">=2.9.0a0,<2.13", index = "https://download.pytorch.org/whl/cu130" },
     { name = "torchinfo", specifier = ">=1.8" },
@@ -3370,7 +3370,7 @@ requires-dist = [
     { name = "xarray", specifier = ">=2025.1.2" },
     { name = "zarr", specifier = "<3" },
 ]
-provides-extras = ["cloud", "cuda", "rust"]
+provides-extras = ["sky", "cuda", "rust"]
 
 [package.metadata.requires-dev]
 dev = [

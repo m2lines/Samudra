@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pytest
 
-from samudra._vendor.xarrayutils.plotting import box_plot, linear_piecewise_scale
+from samudra.viz.plotting import box_plot, linear_piecewise_scale
 
 
 def test_ocean_depth_scaling():

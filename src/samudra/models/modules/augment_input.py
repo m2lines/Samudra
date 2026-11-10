@@ -9,8 +9,8 @@ from einops import rearrange
 from jaxtyping import Float
 from torch import nn
 
-from samudra._vendor.aurora.posencoding import lat_lon_meshgrid
 from samudra.constants import Lat, Lon
+from samudra.models.modules.posencoding import lat_lon_meshgrid
 
 
 def make_3d_coordinate_grid(lat: Lat, lon: Lon) -> Float[torch.Tensor, "3 H W"]:

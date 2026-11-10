@@ -10,11 +10,11 @@ from einops import rearrange
 from jaxtyping import Float
 from torch import nn
 
-from samudra._vendor.aurora.fourier import pos_expansion, scale_expansion
-from samudra._vendor.aurora.posencoding import pos_scale_enc
 from samudra.constants import Lat, Lon
 from samudra.models.modules.augment_input import make_3d_coordinate_grid
 from samudra.models.modules.encoder import patch_from
+from samudra.models.modules.fourier import pos_expansion, scale_expansion
+from samudra.models.modules.posencoding import pos_scale_enc
 
 
 class PerceiverDecoder(nn.Module):

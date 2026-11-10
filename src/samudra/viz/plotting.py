@@ -3,6 +3,22 @@
 #
 # SPDX-License-Identifier: MIT
 
+"""Plotting helpers copied from xarrayutils 2.0.1.
+
+Copyright (c) 2017 Julius Busecke. Licensed under the MIT license;
+see LICENSES/MIT.txt.
+
+Source: https://github.com/jbusecke/xarrayutils/blob/c6e371c9ba45660f2bef2d47ae48c84a2c65ba1e/xarrayutils/plotting.py
+
+Only box_plot and linear_piecewise_scale, with their NumPy and Matplotlib
+imports, are included. Module-level Tkinter, Xarray, GSW and Cartopy imports
+and the forced Matplotlib backend are omitted. Function behavior is unchanged;
+formatting, docstring layout and SPDX headers follow Samudra's checks.
+
+To update, extract these functions from the upstream release, preserve its
+notices, and run tests/test_viz_plotting.py and the other visualization tests.
+"""
+
 import matplotlib.pyplot as plt
 import numpy as np
 

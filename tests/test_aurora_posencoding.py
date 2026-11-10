@@ -10,12 +10,12 @@ from pathlib import Path
 import pytest
 import torch
 
-from samudra._vendor.aurora.fourier import (
+from samudra.models.modules.fourier import (
     FourierExpansion,
     pos_expansion,
     scale_expansion,
 )
-from samudra._vendor.aurora.posencoding import (
+from samudra.models.modules.posencoding import (
     lat_lon_meshgrid,
     pos_scale_enc,
     pos_scale_enc_grid,
@@ -24,23 +24,35 @@ from samudra._vendor.aurora.posencoding import (
 # Recorded by calling aurora.model.posencoding.pos_scale_enc with the release's
 # pos_expansion and scale_expansion. Provenance is embedded in the fixture.
 _REFERENCE = json.loads(
-    (Path(__file__).parent / "reference" / "aurora_posencoding.json").read_text()
+    (Path(__file__).with_name("aurora_posencoding.json")).read_text()
 )
 
 
 @pytest.mark.parametrize("case", _REFERENCE["cases"])
 def test_upstream_encoding_parity(case):
-    lat = torch.tensor(case["lat"], dtype=getattr(torch, case["dtype"]))
-    lon = torch.tensor(case["lon"], dtype=getattr(torch, case["dtype"]))
-    kwargs = dict(pos_expansion=pos_expansion, scale_expansion=scale_expansion)
+    # Float64 avoids platform-dependent float32 pooling/area rounding being
+    # amplified by Aurora's shortest scale wavelength (about 0.0001 km).
+    lat = torch.tensor(case["lat"], dtype=torch.float64)
+    lon = torch.tensor(case["lon"], dtype=torch.float64)
+    actual = pos_scale_enc(
+        case["encode_dim"], lat, lon, case["patch"], pos_expansion, scale_expansion
+    )
     expected = (torch.tensor(case["position"]), torch.tensor(case["scale"]))
+    for encoding, reference in zip(actual, expected):
+        assert encoding.dtype == torch.float32
+        torch.testing.assert_close(encoding, reference, rtol=1e-6, atol=1e-7)
+
+
+@pytest.mark.parametrize("case", _REFERENCE["cases"])
+@pytest.mark.parametrize("dtype", [torch.float32, torch.float64])
+def test_coordinate_forms_agree(case, dtype):
+    lat = torch.tensor(case["lat"], dtype=dtype)
+    lon = torch.tensor(case["lon"], dtype=dtype)
+    kwargs = dict(pos_expansion=pos_expansion, scale_expansion=scale_expansion)
     dim, patch = case["encode_dim"], tuple(case["patch"])
+    expected = pos_scale_enc(dim, lat, lon, patch, **kwargs)
     grids = torch.meshgrid(lat, lon, indexing="ij")
-    # Vector, matrix and batched-grid entry points must agree on patch ordering.
-    encodings = [
-        pos_scale_enc(dim, lat, lon, patch, **kwargs),
-        pos_scale_enc(dim, grids[0], grids[1], list(patch), **kwargs),
-    ]
+    encodings = [pos_scale_enc(dim, grids[0], grids[1], list(patch), **kwargs)]
     batched = pos_scale_enc_grid(
         dim, torch.stack(grids).unsqueeze(0).expand(2, -1, -1, -1), patch, **kwargs
     )

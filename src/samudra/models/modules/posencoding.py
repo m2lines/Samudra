@@ -3,7 +3,19 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""Copyright (c) Microsoft Corporation. Licensed under the MIT license.
+"""Latitude/longitude encodings adapted from Microsoft Aurora 1.8.0.
+
+Copyright (c) Microsoft Corporation. Licensed under the MIT license;
+see LICENSES/MIT.txt.
+
+Source: https://github.com/microsoft/aurora/blob/fac03c738554cfa804373267ca5621ba85b2614c/aurora/model/posencoding.py
+Upstream license: https://github.com/microsoft/aurora/blob/fac03c738554cfa804373267ca5621ba85b2614c/LICENSE.txt
+
+Replaced timm's tuple helper with scalar-to-pair normalization, corrected the
+return annotation, used PyTorch's dim keyword and typed intermediate variables,
+and applied Samudra's formatting and SPDX headers. Preserve encoding values
+and patch ordering when updating: existing model checkpoints rely on them.
+See tests/test_aurora_posencoding.py for fixtures recorded from this release.
 
 Parts of this code are inspired by
 
@@ -13,7 +25,7 @@ Parts of this code are inspired by
 import torch
 import torch.nn.functional as F
 
-from .fourier import FourierExpansion
+from samudra.models.modules.fourier import FourierExpansion
 
 __all__ = ["pos_scale_enc"]
 

@@ -51,10 +51,6 @@ dependencies = [
   "xarray>=2025.1.2",
   "zarr<3",
 ]
-optional-dependencies.cloud = [
-  "skypilot[aws,lambda]>=0.10",
-  "sqlalchemy>=2",              # SkyPilot uses SQLAlchemy 2 APIs.
-]
 optional-dependencies.cuda = [
   "torchvision>=0.24.0a0",
 ]
@@ -62,6 +58,10 @@ optional-dependencies.rust = [
   "samudra-rust-loader==0.1",
 ]
 
+optional-dependencies.sky = [
+  "skypilot[aws,lambda]>=0.10",
+  "sqlalchemy>=2",              # SkyPilot uses SQLAlchemy 2 APIs.
+]
 urls.Documentation = "https://m2lines.github.io/Samudra/docs/"
 urls.Homepage = "https://m2lines.github.io/Samudra/"
 urls.Issues = "https://github.com/m2lines/Samudra/issues"
@@ -102,6 +102,8 @@ docs = [
 
 [tool.setuptools]
 package-dir = { "" = "src" }
+# Centralized REUSE license text also covers the attributed MIT source modules.
+license-files = [ "LICENSE", "LICENSES/MIT.txt" ]
 # Ship py.typed plus the example config presets so installed users can run
 # `samudra train samudra_om4/train.yaml` without a checkout (resolved by
 # config_base.py). The `!include`s between presets and configs/data are
@@ -109,7 +111,7 @@ package-dir = { "" = "src" }
 # fixtures live under tests/, not here, so they never reach the wheel; the JSON
 # schemas under configs/schemas are gitignored generated output and this glob
 # doesn't match them.
-package-data = { samudra = [ "py.typed", "configs/**/*.yaml", "_vendor/**/LICENSE.txt", "_vendor/**/README.md" ] }
+package-data = { samudra = [ "py.typed", "configs/**/*.yaml" ] }
 
 # Pin discovery to src/ so setuptools auto-discovery can't sweep stray
 # top-level dirs (e.g. a stale build/lib/) into the wheel.

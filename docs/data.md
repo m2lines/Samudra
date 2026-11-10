@@ -37,11 +37,59 @@ node and completed in 5 hours 43 minutes.
 This archive is the starting point for reproducible processing from native
 NetCDF data. It is separate from the existing raw Zarr stores
 (`Samudra/raw/om4_5daily.zarr` and `Samudra/raw/om4_5daily_snapshots.zarr`).
-The processing commands below still use those Zarr stores. To create Parquet
-Kerchunk references from the NetCDF files, see
+The processing commands below still use those Zarr stores. The existing processed
+releases have not been regenerated from this archive.
+
+### Virtual OM4 references
+
+Public Kerchunk Parquet stores index the NetCDF archive without copying its
+physical fields. Paths below are relative to
+`s3://m2lines-pubs/Samudra/raw/`:
+
+| Reference store | Source |
+| --- | --- |
+| `OM4-5daily.parquet/` | All 65 annual NetCDF files, concatenated along `time` |
+| `ocean_static_no_mask_table.parquet/` | Static native-grid fields |
+| `grids/ocean_hgrid.parquet/` | Native horizontal grid |
+
+These virtual Zarr v2 datasets retain the original tripolar grid, values, and
+chunk layouts. They are separate from the analysis-ready processed releases.
+The reference stores and their NetCDF targets are readable without credentials.
+Using the [data environment](../data/README.md#environment-setup):
+
+```python
+import fsspec
+import xarray as xr
+from fsspec.implementations.reference import LazyReferenceMapper
+
+endpoint = "https://nyu1.osn.mghpcc.org"
+refs = LazyReferenceMapper(
+    "m2lines-pubs/Samudra/raw/OM4-5daily.parquet",
+    fs=fsspec.filesystem("s3", anon=True, endpoint_url=endpoint),
+    engine="pyarrow",
+)
+mapper = fsspec.filesystem(
+    "reference",
+    fo=refs,
+    remote_protocol="s3",
+    remote_options={"anon": True, "endpoint_url": endpoint, "asynchronous": True},
+    asynchronous=True,
+).get_mapper("")
+ds = xr.open_zarr(mapper, consolidated=False)
+ds
+```
+
+Use the corresponding table path to open the static or grid store. Each store's
+`provenance.json` records the selected source objects, dimensions, variables,
+software versions, and build-script hash. The source NetCDF URLs must remain
+available for reference reads.
+The [verification report](https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/raw/OM4-5daily.parquet/verification.json)
+records sampled native-NetCDF comparisons and source checksums.
+
+To reproduce the references, see
 [Virtualizing the original OM4 NetCDF archive](../data/README.md#virtualizing-the-original-om4-netcdf-archive).
-Connecting those reference stores to preprocessing is subsequent work. The
-existing processed releases have not been regenerated from this archive.
+Connecting these reference stores to the scientific preprocessing CLI remains
+follow-up work.
 
 ### Processed OM4 releases
 

@@ -128,10 +128,15 @@ files, and other options, see the CLI help:
 python -m ocean_preprocessing.virtualize_om4 --help
 ```
 
+The output filesystem must support exclusive directory renames. On HPC systems,
+build on node-local storage before copying the completed reference store to OSN.
+
 Parquet references use PyArrow. When opening them with fsspec, pass
 `LazyReferenceMapper(path, engine="pyarrow")` from
 `fsspec.implementations.reference` as the `fo` argument to the `reference`
 filesystem; fsspec's directory shortcut defaults to `fastparquet`.
+The [data guide](../docs/data.md#virtual-om4-references) lists the published annual,
+static, and grid reference stores and provides an anonymous Xarray example.
 
 ## Scientific preprocessing
 

@@ -1,0 +1,47 @@
+{
+  "radix": {
+    "rmse": 0.0,
+    "max_abs": 0.0,
+    "rounded_word_accuracy": 1.0
+  },
+  "parallel_nested": {
+    "rmse": 0.00014951517165534661,
+    "max_abs": 0.0010828508005644721,
+    "rounded_word_accuracy": 0.7135009765625
+  },
+  "ar_uniform": {
+    "rmse": 0.0001220703125,
+    "max_abs": 0.0001220703125,
+    "rounded_word_accuracy": 0.5000152587890625
+  },
+  "ar_nested": {
+    "rmse": 0.00014951517165534661,
+    "max_abs": 0.0010828508005644721,
+    "rounded_word_accuracy": 0.7135009765625
+  },
+  "ar_overlap": {
+    "rmse": 0.00044968002758621347,
+    "max_abs": 0.0017618728738808542,
+    "rounded_word_accuracy": 0.16717529296875
+  },
+  "ar_twohot_hard": {
+    "rmse": 0.00044968002758621347,
+    "max_abs": 0.0017618728738808542,
+    "rounded_word_accuracy": 0.16717529296875
+  },
+  "ar_twohot_soft": {
+    "rmse": 0.0,
+    "max_abs": 0.0,
+    "rounded_word_accuracy": 1.0
+  },
+  "flat_twohot": {
+    "rmse": 1.246219294583474e-16,
+    "max_abs": 8.881784197001252e-16,
+    "rounded_word_accuracy": 1.0
+  },
+  "flat_gauss": {
+    "rmse": 0.11342605695544893,
+    "max_abs": 0.5743721039934346,
+    "rounded_word_accuracy": 0.0040435791015625
+  }
+}

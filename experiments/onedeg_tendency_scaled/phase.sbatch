@@ -16,6 +16,13 @@ fi
 (cd "$(dirname "${CODE_LAYER}")" && sha256sum --check --status "$(basename "${CODE_LAYER}.sha256")")
 export APPTAINERENV_PYTHONPATH=/opt/samudra-code/src
 export APPTAINERENV_PYTHONUNBUFFERED=1 APPTAINERENV_MPLBACKEND=Agg
+export APPTAINERENV_WANDB_GIT_COMMIT="${CODE_COMMIT}"
+export APPTAINERENV_SAMUDRA_CODE_COMMIT="${CODE_COMMIT}"
+export APPTAINERENV_SAMUDRA_CODE_REPO_URL=https://github.com/m2lines/Samudra.git
+export APPTAINERENV_SAMUDRA_CODE_LAYER_SHA256
+APPTAINERENV_SAMUDRA_CODE_LAYER_SHA256="$(awk 'NR==1 {print $1}' "${CODE_LAYER}.sha256")"
+export APPTAINERENV_SAMUDRA_CONTAINER_IMAGE_REF="${IMAGE_REF}"
+export APPTAINERENV_SAMUDRA_CONTAINER_SIF_PATH="${SIF_PATH}"
 container=(apptainer exec --overlay "${CODE_LAYER}:ro" --bind /scratch/am16581:/scratch/am16581 --pwd /opt/samudra-code "${SIF_PATH}" /workspace/.venv/bin/python)
 case "${PHASE}" in
   prepare)

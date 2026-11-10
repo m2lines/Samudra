@@ -24,7 +24,7 @@ def test_compact_statistics_equal_flat_statistics(tmp_path, monkeypatch):
     time = xr.date_range(
         "1975-01-03", periods=10, freq="5D", calendar="julian", use_cftime=True
     )
-    variables = {
+    variables: dict[str, tuple[tuple[str, ...], np.ndarray]] = {
         v: (("lev", "time", "y", "x"), rng.normal(size=(19, 10, 2, 3)))
         for v in ("uo", "vo", "thetao", "so")
     }

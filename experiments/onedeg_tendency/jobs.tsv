@@ -1,0 +1,8 @@
+prepare	22473844	2026-11-09-onedeg-tendency-residual-prepare
+train	22473849	2026-11-09-onedeg-tendency-residual
+train	22473850	2026-11-09-onedeg-tendency-residual-2in1out
+eval	22473851	2026-11-09-onedeg-tendency-residual-eval
+eval	22473852	2026-11-09-onedeg-tendency-residual-2in1out-eval
+viz	22473853	2026-11-09-onedeg-tendency-residual-viz
+metrics	22473855	2026-11-09-onedeg-tendency-residual-metrics
+imprint	22473857	2026-11-09-onedeg-tendency-residual-imprint

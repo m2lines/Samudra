@@ -51,7 +51,9 @@ def evaluate_comparison(
             if vocab is not None:
                 logits = prediction
                 if step == 0:
-                    initial_logit_squares += float(logits.double().square().sum())
+                    # Keep diagnostic allocations off CUDA: they can change
+                    # subsequent kernel workspace choices in matched controls.
+                    initial_logit_squares += float(logits.cpu().double().square().sum())
                     initial_logit_count += logits.numel()
                 channels = batch["query_channel"]
                 centers = vocab.centers[channels]
@@ -230,15 +232,16 @@ def evaluate_comparison(
         if record_cases:
             result["depth13_cases"] = depth13_cases
         if step == 0:
-            logit_stats = torch.tensor(
-                [initial_logit_squares, initial_logit_count],
-                dtype=torch.float64,
-                device=device,
-            )
-            if dist.is_initialized():
+            if world > 1:
+                logit_stats = torch.tensor(
+                    [initial_logit_squares, initial_logit_count],
+                    dtype=torch.float64,
+                    device=device,
+                )
                 dist.all_reduce(logit_stats)
+                initial_logit_squares, initial_logit_count = logit_stats.tolist()
             result["initial_validation_logits_rms_all_query_slots"] = float(
-                (logit_stats[0] / logit_stats[1]).sqrt()
+                np.sqrt(initial_logit_squares / initial_logit_count)
             )
         for key in (
             "full_grid_nll",

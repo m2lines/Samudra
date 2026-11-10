@@ -1,0 +1,34 @@
+{
+  "jobs": [
+    {
+      "job": 22592786,
+      "GPU_seconds": 326,
+      "state": "FAILED qualification gate"
+    },
+    {
+      "job": 22593710,
+      "GPU_seconds": 336,
+      "state": "FAILED qualification gate"
+    },
+    {
+      "job": 22594243,
+      "GPU_seconds": 159,
+      "state": "COMPLETED audit"
+    }
+  ],
+  "initial_parameter_hashes": {
+    "temperature": {
+      "historical": "cfaeeb1c6d80e7e8:7d06051a380d8e42:ce75e4c573beb0e7:77b37dd10ecda585",
+      "old_repeat": "cfaeeb1c6d80e7e8:7d06051a380d8e42:ce75e4c573beb0e7:77b37dd10ecda585",
+      "new_repeat": "cfaeeb1c6d80e7e8:7d06051a380d8e42:ce75e4c573beb0e7:77b37dd10ecda585",
+      "new_v2": "cfaeeb1c6d80e7e8:7d06051a380d8e42:ce75e4c573beb0e7:77b37dd10ecda585"
+    },
+    "all-fields": {
+      "historical": "cfaeeb1c6d80e7e8:7d06051a380d8e42:ce75e4c573beb0e7:77b37dd10ecda585",
+      "old_repeat": "cfaeeb1c6d80e7e8:7d06051a380d8e42:ce75e4c573beb0e7:77b37dd10ecda585",
+      "new_repeat": "cfaeeb1c6d80e7e8:7d06051a380d8e42:ce75e4c573beb0e7:77b37dd10ecda585",
+      "new_v2": "cfaeeb1c6d80e7e8:7d06051a380d8e42:ce75e4c573beb0e7:77b37dd10ecda585"
+    }
+  },
+  "hash_encoding": "SHA256 hexadecimal split into 16-character groups; remove colons to recover digest"
+}

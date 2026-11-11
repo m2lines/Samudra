@@ -1,0 +1,50 @@
+<!-- SPDX-FileCopyrightText: 2026 Samudra Authors -->
+<!-- SPDX-License-Identifier: CC-BY-4.0 -->
+
+# Samudra versus the small all-fields classifier
+
+The small all-fields classifier has lower temperature RMSE than Samudra on seven of nine matched region/depth patches. It has lower error power at wavelengths of 2–4 native grid cells on eight of nine. North Pacific surface is the exception for short-wave error, where classifier error power is 3.56 times Samudra's despite 0.44% lower RMSE.
+
+All-fields covers temperature, salinity, both horizontal velocity components at 19 depths, and sea surface height. The classifier has 18.5M parameters, continuous inputs, 17×17 quarter-degree crops, 8,192 output bins, two-hot training targets and smooth head initialization. Predictions use argmax category centers and final 25,000-update EMA weights. Samudra is the quarter-degree two-input/one-output model from run 211241, epoch 62, trained October 8, 2026, evaluated with model weights without EMA. Both predict five days ahead from the same true two-state history spaced five days apart, with target July 21, 2016. Model size, context, training budget and checkpoint selection differ. The comparison covers one held-out date and three regions. OM4 supplies the model target.
+
+All map scores use the same wet cells and cell-area weights in each 64×64 native patch. Each map cell occupies 4×4 pixels with hard boundaries. The three field columns share a scale within each row, and the two error columns share a symmetric scale. Dashed boxes show the classifier's 17×17 input context.
+
+| Region | Depth (m) | Classifier RMSE (°C) | Samudra RMSE (°C) | Classifier RMSE reduction | Short-wave error power classifier / Samudra |
+|---|---:|---:|---:|---:|---:|
+| North Pacific | 2.5 | 0.34688 | 0.34842 | 0.4% | 3.557 |
+| North Pacific | 250 | 0.03472 | 0.08176 | 57.5% | 0.339 |
+| North Pacific | 1850 | 0.00162 | 0.01635 | 90.1% | 0.051 |
+| Gulf Stream | 2.5 | 0.36942 | 0.30790 | −20.0% | 0.531 |
+| Gulf Stream | 250 | 0.25119 | 0.26336 | 4.6% | 0.816 |
+| Gulf Stream | 1850 | 0.00790 | 0.05913 | 86.6% | 0.165 |
+| Agulhas | 2.5 | 0.30575 | 0.39144 | 21.9% | 0.825 |
+| Agulhas | 250 | 0.26756 | 0.20416 | −31.1% | 0.938 |
+| Agulhas | 1850 | 0.00780 | 0.03482 | 77.6% | 0.028 |
+
+RMSE covers each full 64×64 wet patch. Spectral ratios use the fully wet tiles described below, including smaller Agulhas tiles at depth. Positive RMSE reduction and error-power ratios below one favor the classifier. Persistence has lower RMSE than the classifier on eight of nine patches and remains in the downloadable metrics and spectra as a baseline.
+
+## Regional fields and errors
+
+![North Pacific](north-pacific-maps.png)
+![Gulf Stream](gulf-stream-maps.png)
+![Agulhas](agulhas-maps.png)
+
+## Spectra
+
+Field spectra compare predicted spatial variance with OM4. Error spectra use prediction minus OM4, with lower power indicating lower error at that scale. Each comparison uses the same fully wet tile, 64×64 cells except Agulhas at 250 and 1850 m, which use 32×32 cells. A fitted plane is removed from each field or error array before applying a periodic Hann window. Power is normalized by the window's mean square and summed into radial shells of width 1/L cycles per cell, where L is tile side length. Only nonzero radial frequencies up to 0.5 cycles per cell are shown. Shading spans wavelengths of 2–4 cells. The horizontal axis uses grid-cell units, whose physical length varies with latitude and direction. Vertical scales differ between panels. Detrending removes mean and planar errors, so integrated spectral power differs from raw map MSE.
+
+![Field spectra](field-spectra.png)
+![Error spectra](error-spectra.png)
+
+## Available validation history
+
+The classifier curves use four validation dates, with 16 points per date per channel, totaling 64 date-cells per channel, and retain raw and EMA weights. Temperature RMSE is the square root of mean normalized MSE across the 19 depth channels, after scaling each channel by its training standard deviation. Land contributes zero while remaining in the full-grid denominator, and importance weights correct the nonuniform location/depth sampling. The dotted line gives matched persistence. The NLL panel reports the existing wet-cell hard-label NLL aggregate in nats. The per-depth figure uses normalized RMSE, with lower values better. Logarithmic update axes start at one, and the CSV retains update zero.
+
+A Samudra training/validation trajectory on these same samples is unavailable in the current artifacts. Samudra comparisons here use its cached epoch-62 forecast. The classifier's validation curves and the regional comparison evaluate different dates and spatial samples.
+
+![Classifier validation](validation-curves.png)
+![Classifier validation by depth](validation-depths.png)
+
+## Data and reproduction
+
+[Map metrics](map-metrics.csv), [spectral curves](spectra.csv.gz), and [raw/EMA temperature validation](validation-temperature.csv.gz) contain the plotted measurements. The [renderer](render.py) reads the saved [matched physical fields](../small-regression-25k/report/source-fields.npz), [source and checkpoint receipt](../small-regression-25k/report/map-render-receipt.json.gz), and [validation provenance](../small-regression-25k/report/curve-provenance.json.gz). The [parent report](../small-regression-25k/README.md) documents model and training details. Run `CUDA_VISIBLE_DEVICES='' uv run python experiments/temperature_skyline/samudra-small-classifier/render.py` from the repository root.

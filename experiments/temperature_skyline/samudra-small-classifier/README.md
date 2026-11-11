@@ -45,6 +45,14 @@ A Samudra training/validation trajectory on these same samples is unavailable in
 ![Classifier validation](validation-curves.png)
 ![Classifier validation by depth](validation-depths.png)
 
+## Training and inference time
+
+The small all-fields classifier completed 25,000 updates and 6.4 million accepted crops on one NVIDIA RTX PRO 6000 Blackwell Server Edition GPU. Its production allocation lasted **5,564 seconds, or 1 h 32 m 44 s**, equivalent to **1.546 GPU-hours**. This includes validation and checkpoint writes. Dividing the allocation by 25,000 gives **0.223 seconds per update** at effective batch 256. The earlier failed launch adds 12 GPU-seconds to this arm. Shared performance qualification consumed another 1,240 GPU-seconds across experiments. [Compute receipt](../soft-priors-25k/report/compute-receipt.json).
+
+The regional inference job allocated one GPU for **249 seconds, or 4 m 9 s**. Its application timer recorded **232.1 seconds**, including setup, data access, model loading, prediction and output writes for four models across 11 tasks. Those models were the two small classifiers and the original all-fields regression and classification models. Nine tasks supplied these temperature patches, totaling 36,731 wet temperature queries per model, and two supplied selected salinity cases. The inference microbatch was 32. The receipt provides combined workload timing. Per-model inference times and an isolated global-step benchmark were not recorded. Samudra predictions were reused from a prior cache. [Inference receipt](../soft-priors-25k/report/map-provenance.json.gz).
+
+The available artifacts do not contain Samudra run 211241's training duration or isolated inference timing. A Torch SSH check during report assembly exited with code 255, preventing retrieval of additional remote timing logs. A direct wall-time or GPU-hour speed ratio between Samudra and this classifier remains unmeasured.
+
 ## Data and reproduction
 
 [Map metrics](map-metrics.csv), [spectral curves](spectra.csv.gz), and [raw/EMA temperature validation](validation-temperature.csv.gz) contain the plotted measurements. The [renderer](render.py) reads the saved [matched physical fields](../small-regression-25k/report/source-fields.npz), [source and checkpoint receipt](../small-regression-25k/report/map-render-receipt.json.gz), and [validation provenance](../small-regression-25k/report/curve-provenance.json.gz). The [parent report](../small-regression-25k/README.md) documents model and training details. Run `CUDA_VISIBLE_DEVICES='' uv run python experiments/temperature_skyline/samudra-small-classifier/render.py` from the repository root.

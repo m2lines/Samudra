@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794439427234,
+  "lastUpdate": 1794439433826,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -26625,6 +26625,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.2849218510570722",
             "extra": "mean: 12.376793763199998 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "72333be3b351167476ff13387417eb0550801cc5",
+          "message": "Reduce runtime dependencies by vendoring small helpers (#970)\n\nDefault Samudra installs pull in Aurora's full model stack for\npositional encodings, cloud launch tooling, test runners, and unused\nregridding dependencies. This change reduces the locked default\ndependency graph from 191 to 117 unique packages (about 39% fewer),\nwhile keeping training, evaluation, metrics, and visualization available\nin the default installation.\n\n- Include only the required Aurora 1.8.0 Fourier and position/scale\nencoding helpers in `models/modules/fourier.py` and\n`models/modules/posencoding.py`. Preserve their encoding values and\npatch ordering for existing model checkpoints.\n- Include the two xarrayutils plotting helpers in `viz/plotting.py`,\navoiding its development-only dependency and module-level Tkinter\nimport.\n- Retain copyright notices, source revisions, and adaptation notes at\nthe top of each module. Use the existing REUSE `LICENSES/MIT.txt` and\ninclude it in wheel and sdist license metadata.\n- Move SkyPilot and SQLAlchemy to the optional `sky` extra; move\npytest-xdist to the development dependency group.\n- Remove unused dacite, xarray-einstats, xESMF, and the direct requests\nrequirement. Replace Xarray's broad I/O extra with explicit NetCDF and\nfilesystem requirements alongside the existing Zarr support.\n- Keep reference fixtures alongside their tests and update SkyPilot\ninstallation commands. The separate `data/` project is unchanged.\n\nValidation:\n\n- CPU suite: `uv run pytest -m \"not manual and not cuda\" -n 4` — 645\npassed, 3 skipped, 10 xfailed.\n- All pre-commit checks on changed files passed, including mypy, schema\nvalidation, and REUSE.\n- Strict upstream parity fixtures use float64 coordinates because\nfloat32 area rounding varies across CPU platforms and is amplified by\nthe shortest Fourier wavelengths. Separate tests verify float32 and\nfloat64 vector, matrix, and batched coordinate forms agree without\nrequiring Aurora.\n- Built wheel and sdist, verified the centralized MIT license and source\ncopyright notices, and confirmed the distributions contain the flattened\nmodules with no `_vendor` package.\n- Installed the wheel in a clean environment: encoding parity, plotting\nhelpers, all four CLI help commands, the `sky` extra metadata, and\ndependency consistency checks passed.\n\nCUDA tests were not run locally. Cloud launchers require `samudra[sky]`\n(or `uv sync --extra sky` in a checkout).\n\n\n<!-- This is an auto-generated comment: release notes by coderabbit.ai\n-->\n\n<!-- coderabbit-ai-generated:v1 -->\n\n## Summary by CodeRabbit\n\n* **New Features**\n* Added latitude/longitude positional and patch-scale encodings for\nmodel inputs.\n* Added geographic box rendering and piecewise axis scaling for\nvisualizations.\n* **Documentation**\n* Added guidance for installing optional cloud-job support, including\ninstructions for combining it with CUDA support.\n\n<!-- end of auto-generated comment: release notes by coderabbit.ai -->",
+          "timestamp": "2026-11-11T22:51:19Z",
+          "tree_id": "9aa479e4c6174eae173f8b681e1a0d7d83619b5e",
+          "url": "https://github.com/m2lines/Samudra/commit/72333be3b351167476ff13387417eb0550801cc5"
+        },
+        "date": 1794439433446,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.9637701029049365,
+            "unit": "iter/sec",
+            "range": "stddev: 0.06894965449538136",
+            "extra": "mean: 1.0375918458000115 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_dataset__1gb[cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.32553585323121664,
+            "unit": "iter/sec",
+            "range": "stddev: 0.014552035496010618",
+            "extra": "mean: 3.071858261000011 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.08463289743028515,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0387759643630862",
+            "extra": "mean: 11.815736319599978 sec\nrounds: 5"
           }
         ]
       }

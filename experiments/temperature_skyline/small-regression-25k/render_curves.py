@@ -122,7 +122,7 @@ def make_tables(runs):
         reg = objectives[row["run"]] == "regression"
         row.update(
             objective="normalized_MSE" if reg else "two_hot_cross_entropy",
-            readout="continuous_scalar" if reg else "argmax_fixed_center",
+            readout="scalar_BF16_output" if reg else "argmax_fixed_center",
             categorical_probabilities_available=not reg,
         )
     aggregate = []
@@ -330,7 +330,7 @@ def main():
         ("validation-channels.csv.gz", channels),
         ("validation-fields.csv", fields),
         ("validation-aggregate.csv", aggregate),
-        ("training-progress.csv", training),
+        ("training-progress.csv.gz", training),
     ):
         helpers.write_csv(args.output / name, rows)
     render(runs, channels, fields, aggregate, args.output)
@@ -339,7 +339,7 @@ def main():
         "Partial curves are allowed but qualification input is rejected. Fixed final 25000-update EMA is primary; max observed update alone is not completion.",
         "Exact matched validation origins/counts/persistence and source normalization are required. Backbone configuration matches; regression changes scalar head, parameter count, objective and head initialization.",
         "Normalized RMSE is sqrt(mean normalized-channel MSE); it is not degrees C, PSU or m/s. Full-grid denominators and equal channel weights are retained.",
-        "Regression uses MSE and a continuous scalar readout. Classifiers use two-hot cross entropy and fixed-center argmax. NLL is absent for regression; classifier likelihood does not establish calibration.",
+        "Regression uses MSE and a scalar readout evaluated in BF16, then cast FP32. Classifiers use two-hot cross entropy and fixed-center argmax. NLL is absent for regression; classifier likelihood does not establish calibration.",
         "All 77 raw/EMA channels, including T-only unsupervised auxiliaries, and update zero are retained in CSV; unsupervised channels do not enter scientific plot comparisons.",
         "Logged elapsed time is not allocated GPU cost; use separate accounting including qualification and failures.",
     ]

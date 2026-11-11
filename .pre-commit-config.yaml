@@ -17,7 +17,7 @@ repos:
     hooks:
       - id: check-added-large-files
         args: [--maxkb=250]
-        exclude: ^(notebooks/|experiments/temperature_skyline/soft-priors-25k/.*\.(png|gz|npz)$|experiments/temperature_skyline/(discrete-pilot|soft-priors)/.*\.(png|gz)$|experiments/temperature_skyline/all-fields-classification/.*\.(png|gz)$|experiments/temperature_skyline/all-fields-scaling/report/|experiments/temperature_skyline/continuation-results/validation-((regression|classifier-rmse|classifier-nll)-depths|(regression|likelihood)-full)\.png$|experiments/temperature_skyline/maps-(initial|continuation)/report/comparison-(global|regional)\.png$|experiments/temperature_skyline/maps-initial/report/map-(global|north-pacific|gulf-stream|agulhas)-depth-(00|07|13)\.png$|experiments/temperature_skyline/pre-spike-noise/report/.*\.(png|npz)$)
+        exclude: ^(notebooks/|experiments/temperature_skyline/(soft-priors-25k|small-regression-25k)/.*\.(png|gz|npz)$|experiments/temperature_skyline/(discrete-pilot|soft-priors)/.*\.(png|gz)$|experiments/temperature_skyline/all-fields-classification/.*\.(png|gz)$|experiments/temperature_skyline/all-fields-scaling/report/|experiments/temperature_skyline/continuation-results/validation-((regression|classifier-rmse|classifier-nll)-depths|(regression|likelihood)-full)\.png$|experiments/temperature_skyline/maps-(initial|continuation)/report/comparison-(global|regional)\.png$|experiments/temperature_skyline/maps-initial/report/map-(global|north-pacific|gulf-stream|agulhas)-depth-(00|07|13)\.png$|experiments/temperature_skyline/pre-spike-noise/report/.*\.(png|npz)$)
       - id: check-added-large-files
         name: check skyline scaling report sizes
         args: [--maxkb=1024]
@@ -33,7 +33,7 @@ repos:
       - id: check-added-large-files
         name: check skyline 25k report artifacts
         args: [--maxkb=4096]
-        files: ^experiments/temperature_skyline/soft-priors-25k/.*\.(png|gz|npz)$
+        files: ^experiments/temperature_skyline/(soft-priors-25k|small-regression-25k)/.*\.(png|gz|npz)$
       # Lossless maps retain two pixels per sample along each axis without interpolation.
       - id: check-added-large-files
         name: check skyline raster sizes

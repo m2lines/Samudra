@@ -8,6 +8,7 @@ Inputs are completed physical-field NPZ maps; this script performs no inference.
 
 import argparse
 import csv
+import gzip
 import hashlib
 import importlib.util
 import json
@@ -99,7 +100,11 @@ def prediction_kind(model):
         return "persistence"
     if model in {"new-all-fields", "new-temperature"} or model.endswith("classifier"):
         return "discrete argmax-bin center"
-    return "continuous regression"
+    return (
+        "scalar regression (BF16 output)"
+        if model == "new-regression"
+        else "scalar regression (historical)"
+    )
 
 
 def main():
@@ -156,8 +161,8 @@ def main():
         "categorical_readout": "Argmax-bin center only; no continuous expectation or regression NLL.",
         "baseline_limits": "Original models differ in size, context and training. Cached Samudra is T only, included in metrics but excluded from panels and color ranges.",
     }
-    (args.output / "map-render-receipt.json").write_text(
-        json.dumps(receipt, indent=2) + "\n"
+    (args.output / "map-render-receipt.json.gz").write_bytes(
+        gzip.compress((json.dumps(receipt, indent=2) + "\n").encode(), mtime=0)
     )
 
 

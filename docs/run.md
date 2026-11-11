@@ -23,10 +23,16 @@ To train on multiple GPUs, you can use skypilot, `torchrun`, or SLURM.
 
 ### SkyPilot
 
+Install the optional cloud launcher on the machine submitting jobs:
+
+```bash
+uv sync --extra sky
+```
+
 If you use a model that requires Flash Attention, make sure to install the `cuda` extra first, like so:
 
 ```bash
-uv sync --extra cuda
+uv sync --extra sky --extra cuda
 ```
 Of course, this will only work on CUDA-enabled machines.
 

@@ -18,6 +18,81 @@ in the machine learning context.
 
 ## Available datasets
 
+### Original OM4 NetCDF archive
+
+The original NetCDF archive is available at
+`s3://m2lines-pubs/Samudra/raw/OM4-5daily/` on the NYU OSN pod. Individual
+objects are publicly readable at
+`https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/raw/OM4-5daily/<filename>`.
+The archive preserves the original filenames and bytes: 65 annual files named
+`19580101.ocean_5daily.nc` through `20220101.ocean_5daily.nc`,
+`ocean_hgrid.nc`, `ocean_static_no_mask_table.nc`, and the source `Makefile`.
+The complete archive contains 68 files totaling 4,252,932,810,519 bytes.
+
+**Verified 2026-11-05:** all 68 files match the source paths, sizes, and MD5
+hashes, with zero differences. The source inventory was unchanged across the
+transfer. The byte-preserving copy ran with `rclone` on the NYU HPC data transfer
+node and completed in 5 hours 43 minutes.
+
+This archive is the starting point for reproducible processing from native
+NetCDF data. It is separate from the existing raw Zarr stores
+(`Samudra/raw/om4_5daily.zarr` and `Samudra/raw/om4_5daily_snapshots.zarr`).
+The processing commands below still use those Zarr stores. The existing processed
+releases have not been regenerated from this archive.
+
+### Virtual OM4 references
+
+Public Kerchunk Parquet stores index the NetCDF archive without copying its
+physical fields. Paths below are relative to
+`s3://m2lines-pubs/Samudra/raw/`:
+
+| Reference store | Source |
+| --- | --- |
+| `OM4-5daily.parquet/` | All 65 annual NetCDF files, concatenated along `time` |
+| `ocean_static_no_mask_table.parquet/` | Static native-grid fields |
+| `grids/ocean_hgrid.parquet/` | Native horizontal grid |
+
+These virtual Zarr v2 datasets retain the original tripolar grid, values, and
+chunk layouts. They are separate from the analysis-ready processed releases.
+The reference stores and their NetCDF targets are readable without credentials.
+Using the [data environment](../data/README.md#environment-setup):
+
+```python
+import fsspec
+import xarray as xr
+from fsspec.implementations.reference import LazyReferenceMapper
+
+endpoint = "https://nyu1.osn.mghpcc.org"
+refs = LazyReferenceMapper(
+    "m2lines-pubs/Samudra/raw/OM4-5daily.parquet",
+    fs=fsspec.filesystem("s3", anon=True, endpoint_url=endpoint),
+    engine="pyarrow",
+)
+mapper = fsspec.filesystem(
+    "reference",
+    fo=refs,
+    remote_protocol="s3",
+    remote_options={"anon": True, "endpoint_url": endpoint, "asynchronous": True},
+    asynchronous=True,
+).get_mapper("")
+ds = xr.open_zarr(mapper, consolidated=False)
+ds
+```
+
+Use the corresponding table path to open the static or grid store. Each store's
+`provenance.json` records the selected source objects, dimensions, variables,
+software versions, and build-script hash. The source NetCDF URLs must remain
+available for reference reads.
+The [verification report](https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/raw/OM4-5daily.parquet/verification.json)
+records sampled native-NetCDF comparisons and source checksums.
+
+To reproduce the references, see
+[Virtualizing the original OM4 NetCDF archive](../data/README.md#virtualizing-the-original-om4-netcdf-archive).
+Connecting these reference stores to the scientific preprocessing CLI remains
+follow-up work.
+
+### Processed OM4 releases
+
 The canonical processed OM4 release used for training lives on the NYU OSN pod under the base prefix
 `s3://m2lines-pubs/Samudra/v2026-09/` (public read at
 `https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/v2026-09/`). Every directory below contains the dataset
@@ -84,11 +159,16 @@ requires the companion `time_bnds.nc` through `--time_bounds_path`. Its native
 no-leap calendar and interval-end timestamps are preserved; use `type: cm4`
 in training configurations.
 
-For example, produce unfiltered 1° data with depth retained as a dimension:
+The public layout for CM4 raw inputs is specified below; publication of those
+inputs is still pending. The processed CM4 release above is already public.
+Once the raw inputs are published, produce unfiltered 1° data with depth
+retained as a dimension:
 
 ```bash
-CM4_RAW=s3://emulators/ai2_colab/2024-11-01-CM4-pre-industrial-control-simulation
-CM4_STATIC=s3://emulators/ai2_colab/2024-11-11-static-data
+CM4_RAW=s3://m2lines-pubs/Samudra/raw/CM4
+CM4_STATIC="$CM4_RAW/static"
+export FSSPEC_S3_ENDPOINT_URL=https://nyu1.osn.mghpcc.org/
+export FSSPEC_S3_ANON=true
 
 PYTHONPATH=data python -m ocean_preprocessing cm4 \
   "$CM4_RAW/ocean_5daily.zarr" \
@@ -572,8 +652,8 @@ export AWS_SECRET_ACCESS_KEY=...
 ### Submitting the jobs
 
 Both the raw **inputs** and the processed **outputs** live under the `Samudra` prefix on the OSN pod: inputs are read
-from `s3://m2lines-pubs/Samudra/raw/...` (`RAW_ROOT`) and results are written under `OUTPUT_BASE`. The raw inputs were
-mirrored there from `FOMO/raw` with a server-side `rclone` copy on the data transfer node.
+from `s3://m2lines-pubs/Samudra/raw/...` (`RAW_ROOT`) and results are written under `OUTPUT_BASE`. Inputs are publicly readable; write credentials are needed only when publishing
+new outputs to the bucket.
 
 `DATA_VARIANT` selects the temporal form of the raw OM4 source and the derived
 output-directory suffix:

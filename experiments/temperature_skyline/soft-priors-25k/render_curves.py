@@ -490,7 +490,7 @@ def main():
     args.output.mkdir(parents=True, exist_ok=True)
     write_csv(args.output / "validation-channels.csv.gz", channels)
     write_csv(args.output / "validation-fields.csv", fields)
-    write_csv(args.output / "training-progress.csv", training)
+    write_csv(args.output / "training-progress.csv.gz", training)
     render(channels, fields, runs, args.output)
     (args.output / "curve-receipt.json").write_text(
         json.dumps(summary(runs), indent=2) + "\n"

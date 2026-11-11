@@ -1,0 +1,27 @@
+{
+  "production_jobs": {
+    "temperature-both-25k": 22617264,
+    "all-fields-both-25k": 22617266
+  },
+  "allocated_training_GPU_seconds": {
+    "temperature": 5493,
+    "all_fields": 5564
+  },
+  "failed_production_GPU_seconds": {
+    "22617080": 8,
+    "22617082": 12
+  },
+  "performance_GPU_seconds": 1240,
+  "total_GPU_seconds_before_maps": 12317,
+  "maps_included": true,
+  "accounting_scope": "Allocated GPU seconds, including failed launches and qualification; differs from logged training-loop elapsed time.",
+  "map_job": 22626759,
+  "map_allocated_GPU_seconds": 249,
+  "total_allocated_GPU_seconds": 12566,
+  "total_allocated_GPU_hours": 3.4905555555555554,
+  "production_gpu_utilization_time_weighted_after120s": {
+    "temperature": 59.85554902763898,
+    "all_fields": 58.496851302140946
+  },
+  "matched_initial_parameters_verified": true
+}

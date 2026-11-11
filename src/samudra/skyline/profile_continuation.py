@@ -37,6 +37,13 @@ def run(parent, out, physical, prefetch, updates):
     torch.manual_seed(cfg["seed"])
     model = PointTransformer(ModelConfig(**cfg["model"])).to(device)
     model.load_state_dict(state["model"])
+    dtypes: dict[str, str] = {}
+    model.get_submodule("blocks.0.qkv").register_forward_hook(
+        lambda _module, _inputs, output: dtypes.update(qkv=str(output.dtype))
+    )
+    model.get_submodule("head").register_forward_hook(
+        lambda _module, _inputs, output: dtypes.update(head=str(output.dtype))
+    )
     optimizer = torch.optim.AdamW(
         model.parameters(),
         lr=2e-5,
@@ -147,7 +154,9 @@ def run(parent, out, physical, prefetch, updates):
                                 * batch["importance"]
                             ).mean()
                         assert (
-                            logits.dtype == torch.bfloat16
+                            logits.dtype == torch.float32
+                            and dtypes["qkv"] == "torch.bfloat16"
+                            and dtypes["head"] == "torch.bfloat16"
                             and loss.dtype == torch.float32
                         )
                         if not torch.isfinite(loss):
@@ -212,6 +221,7 @@ def run(parent, out, physical, prefetch, updates):
             kernels=kernels,
             gpu=torch.cuda.get_device_name(),
             bf16=True,
+            internal_dtypes=dtypes,
             logits_dtype=str(logits.dtype),
             loss_dtype=str(loss.dtype),
             peak_gpu_gib=torch.cuda.max_memory_allocated() / 2**30,

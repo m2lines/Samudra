@@ -31,6 +31,7 @@ DEPTHS = {0: 2.5, 7: 250, 13: 1850}
 UNITS = {"thetao": "degC", "uo": "m/s", "vo": "m/s", "so": "PSU"}
 LABELS = {
     "gold": "OM4 model target",
+    "samudra": "Cached Samudra temperature benchmark",
     "new-temperature": "New T only",
     "new-all-fields": "New all fields",
     "original-temperature-regression": "Original T regression",
@@ -139,7 +140,7 @@ def axis_indices(source, target, name):
     return indices
 
 
-def regression_prediction(archive, a, region, model):
+def regression_prediction(archive, a, region, model, value_key="prediction"):
     prefix = f"{model}-r{region}-z{int(a['depth']):02d}/"
     b = {k.removeprefix(prefix): v for k, v in archive.items() if k.startswith(prefix)}
     if not b:
@@ -165,7 +166,7 @@ def regression_prediction(archive, a, region, model):
     same(
         a["thetao_gold"][a["wet"]], b["gold"][ix][a["wet"]], prefix + "gold", atol=2e-5
     )
-    result = b["prediction"][ix]
+    result = b[value_key][ix]
     if not np.isfinite(result[a["wet"]]).all():
         raise ValueError(f"Missing wet predictions in {prefix}")
     return result
@@ -251,6 +252,9 @@ def load_patches(root, cache, regression):
             p["data"]["original-temperature-classifier"] = classifier_prediction(
                 cache, p["ref"]
             )
+            p["data"]["samudra"] = regression_prediction(
+                archive, p["ref"], region, "temperature25k", value_key="samudra"
+            )
             temp.append(p)
             if name != "north-pacific" and depth == 0:
                 for field in ("uo", "vo"):
@@ -282,6 +286,7 @@ def analyze(patches):
                 task=p["task"],
                 field=p["field"],
                 model=model,
+                model_label=LABELS[model],
                 units=UNITS[p["field"]],
                 origin=int(a["origin"]),
                 target_date=str(a["target_date"]),
@@ -338,17 +343,19 @@ def draw(patches, names, metrics, output, stem, errors=False):
     for i, p in enumerate(patches):
         a, data, wet = p["ref"], p["data"], p["ref"]["wet"]
         top = height - 65 - i * row_height
+        # Keep the cached Samudra benchmark out of the planned map ranges.
+        plotted_data = {n: v for n, v in data.items() if n != "samudra"}
         # Use all compared models for identical ranges across the two T sets.
         if errors:
             limit = max(
                 float(np.max(np.abs(v[wet] - data["gold"][wet])))
-                for n, v in data.items()
+                for n, v in plotted_data.items()
                 if n != "gold"
             )
             vmin, vmax, cmap = -max(limit, 1e-12), max(limit, 1e-12), "RdBu_r"
         else:
-            vmin = min(float(np.min(v[wet])) for v in data.values())
-            vmax = max(float(np.max(v[wet])) for v in data.values())
+            vmin = min(float(np.min(v[wet])) for v in plotted_data.values())
+            vmax = max(float(np.max(v[wet])) for v in plotted_data.values())
             if vmin == vmax:
                 vmin, vmax = vmin - 1e-6, vmax + 1e-6
             cmap = "viridis"
@@ -508,6 +515,7 @@ def main():
         ).hexdigest(),
         regression_models=["temperature25k", "fields25k"],
         classifier_readout="classifier_mode_c",
+        samudra_benchmark="Temperature only: cached temperature25k archive groups, samudra field; included in metrics, short-wave diagnostics and source-fields.npz, excluded from map panels/ranges. No cached Samudra u/v/salinity benchmark is used.",
         gold_atol_physical=2e-5,
         spectrum_method="Same fully wet 64/32 tile per row; planar detrend; periodic Hann; radial 0.25..0.5 cycles/native cell (2–4 cell wavelengths); corners excluded; power in squared field units. Short-wave power is not proof of noise.",
         maps="Native 64×64 cells; no interpolation; same field/error limits across each row, including both temperature comparison sets; context boxes are 17 or 33 cells.",

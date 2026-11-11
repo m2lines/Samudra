@@ -29,6 +29,7 @@ from .optimization import accumulate_gradients, set_synchronized_learning_rate
 from .replicas import verify_replicas
 from .run import FrameStream, emit, save_atomic
 from .utilization import GpuMonitor
+from .validation_cache import ValidationFrameCache
 
 
 def parameter_digest(model):
@@ -129,6 +130,11 @@ def train_inner(config, output, source, device, rank, world, monitor):
         model, device_ids=[device.index], broadcast_buffers=False
     )
     stream = FrameStream(source, seed + 100, stream_state)
+    validation_source = (
+        ValidationFrameCache(source, config["validation_dates"])
+        if config.get("cache_validation_frames", False)
+        else source
+    )
     accumulation = config["accumulation"]
     effective_batch = world * config["microbatch"] * accumulation
     run = None
@@ -200,7 +206,14 @@ def train_inner(config, output, source, device, rank, world, monitor):
         for kind in ("raw", "ema"):
             with ema_weights(model, ema) if kind == "ema" else nullcontext():
                 result = evaluate_comparison(
-                    model, source, config, device, step, rank, world, vocab=vocab
+                    model,
+                    validation_source,
+                    config,
+                    device,
+                    step,
+                    rank,
+                    world,
+                    vocab=vocab,
                 )
                 if rank == 0:
                     (output / f"validation-{kind}-{step:07d}.json").write_text(

@@ -1,0 +1,19 @@
+{
+  "state": "production_submitted",
+  "host": "torch",
+  "root": "/scratch/jr7309/skyline-small-regression-20261111",
+  "source_commit": "ea592e8a71ebf9b50285ef835d641aae1de4d3c9",
+  "scope": "One fresh matched all-fields regression25k,4updatequalification,8GPUhtrainingcap,map<=1GPUh; same17crop512width4blocks sampling/schedule/EMA assoftpriorclassifiers",
+  "recovery": "<=2 engineeringfixes+1infraretry; chargeallallocations",
+  "qualification_job": 22668484,
+  "qualification_callback": 22668485,
+  "qualification_GPU_seconds": 58,
+  "engineering_fixes_used": 0,
+  "infra_retries_used": 0,
+  "production_job": 22668910,
+  "callback_job": 22668911,
+  "production_started": false,
+  "replaced_unallocated_job": 22668714,
+  "replacement_reason": "Scheduler rejected in-place walltime shortening; replace pending8h05 reservation with2h05 matched measured~90min duration; config8h totalallocatedcap and resumerequeue unchanged",
+  "wall_minutes": 125
+}

@@ -1,0 +1,45 @@
+{
+  "baseline": {
+    "complete": {
+      "step": 2000,
+      "effective_batch": 256,
+      "accepted_examples": 512000,
+      "ema_updates": 2000,
+      "replicas_agree": true,
+      "qualification": false
+    },
+    "initial_parameter_sha256": "f95d79b40bf07d74b9ff55a9a1b2063ad57168636cd80b9ecda0ec6991fac2ef",
+    "training_elapsed_seconds": 587.3415477939998,
+    "median_update_seconds": 0.23598005699977875,
+    "utilization_after120s": 44.18625015628329,
+    "ema_2000": {
+      "full_grid_nmse": 0.09380614264530802,
+      "temperature_full_grid_nmse": 0.004890628218223107,
+      "full_grid_nll": 3.0353822322129935
+    }
+  },
+  "optimized": {
+    "complete": {
+      "step": 2000,
+      "effective_batch": 256,
+      "accepted_examples": 512000,
+      "ema_updates": 2000,
+      "replicas_agree": true,
+      "qualification": false
+    },
+    "initial_parameter_sha256": "f95d79b40bf07d74b9ff55a9a1b2063ad57168636cd80b9ecda0ec6991fac2ef",
+    "training_elapsed_seconds": 449.3466777879994,
+    "median_update_seconds": 0.20455238399972586,
+    "utilization_after120s": 60.04293729571919,
+    "ema_2000": {
+      "full_grid_nmse": 0.09548344681940378,
+      "temperature_full_grid_nmse": 0.014314688825408662,
+      "full_grid_nll": 3.0330952945355834
+    }
+  },
+  "gate": "exact initial hash, source/config except three performance flags, final rank_states, validation origins/counts/persistence; finite losses/gradients/all validation; step/EMA=2000; accepted=512000. PASS",
+  "numerical_caveat": "No post-update numerical equivalence: T NMSE difference is dominated by depth14 (.00238 baseline vs .17962 optimized). Same fixed accepted stream; mixed precision batch shape changes trajectory. One seed, sparse validation.",
+  "source_commit": "ea592e8a71ebf9b50285ef835d641aae1de4d3c9",
+  "performance_GPU_seconds": 1240,
+  "qualification_job": 22615178
+}

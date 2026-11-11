@@ -1,0 +1,27 @@
+{
+  "state": "fresh25k_production_submitted",
+  "production_start": "fresh",
+  "production_jobs": {
+    "temperature-both-25k": 22617264,
+    "all-fields-both-25k": 22617266
+  },
+  "source_commit": "ea592e8a71ebf9b50285ef835d641aae1de4d3c9",
+  "archive_sha256": "c9a0e0ffa7aaa3dac98286b1fc5438e0ffaa825f842bbb4e2a423a6434a0d0c3",
+  "selected_performance": {
+    "physical_microbatch": 64,
+    "prefetch_microbatches": true,
+    "cache_validation_frames": true
+  },
+  "performance_GPU_seconds": 1240,
+  "callback_job": 22617267,
+  "failed_production_launch": {
+    "22617080": 8,
+    "22617082": 12
+  },
+  "failure_reason": "Prepared fresh25k configs were not copied to remote before initial submission; fail before model/data initialization; fix copy and verifysha",
+  "engineering_fixes_used": 2,
+  "remaining_allocated_seconds": {
+    "temperature-both-25k": 28792,
+    "all-fields-both-25k": 28788
+  }
+}

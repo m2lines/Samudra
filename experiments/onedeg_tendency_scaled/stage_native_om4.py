@@ -14,7 +14,7 @@ import numpy as np
 import torch
 import xarray as xr
 import yaml
-import zarr
+import zarr  # type: ignore[import-untyped]
 
 from samudra.config import TrainConfig
 from samudra.utils.data import compute_anomalies
@@ -72,7 +72,9 @@ def main() -> None:
 
     start = time.perf_counter()
     original = [xr.open_zarr(args.source / name, chunks=None) for name in STORES]
-    data, means, stds = compute_anomalies(*original, (ANOMALY,))
+    data, means, stds = compute_anomalies(
+        original[0], original[1], original[2], (ANOMALY,)
+    )
     print(
         f"Calculated original heat-flux anomaly in {time.perf_counter() - start:.1f}s"
     )

@@ -491,7 +491,21 @@ export NCCL_P2P_DISABLE=1
 export TORCH_NCCL_ASYNC_ERROR_HANDLING=1
 ```
 
-Symptom without the above:
+For a two-node RTX run on gr102 and gr104, NCCL initially selected an
+unroutable InfiniBand IP for bootstrap. The following settings selected the
+routed host interface and passed a two-rank all-reduce test:
+
+```bash
+export NCCL_SOCKET_IFNAME='=ens28f0np0'
+export NCCL_SOCKET_FAMILY=AF_INET
+```
+
+The data transfers still used InfiniBand. Check `ip route get <peer-IP>` when
+using other hardware to identify its routed interface.
+[NCCL interface-selection documentation](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html#nccl-socket-ifname)
+describes the exact-name syntax.
+
+Symptoms observed with P2P enabled on a single RTX node:
 
 - job prints `distributed init ... world_size 8` and then stalls
 - GPUs show high utilization but low memory usage

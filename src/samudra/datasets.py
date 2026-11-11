@@ -33,6 +33,7 @@ from samudra.utils.data import (
 )
 from samudra.utils.device import using_gpu
 from samudra.utils.logging import elapsed
+from samudra.utils.time import time_discontinuities
 
 logger = logging.getLogger(__name__)
 
@@ -429,11 +430,31 @@ class TrainingWindows:
             input_resolution_cpu=input_source.resolution,
             output_resolution_cpu=self.label_source.resolution,
         )
-        self.size = (
-            input_source.time.size
-            - steps * output_steps * stride
-            - (input_steps - 1) * stride
+        num_starts = max(
+            0,
+            (
+                input_source.time.size
+                - steps * output_steps * stride
+                - (input_steps - 1) * stride
+            ),
         )
+        starts = np.arange(num_starts)
+        span = (input_steps - 1 + steps * output_steps) * stride
+        # Check the entire history + autoregressive target span, including raw
+        # intervals skipped by stride. Keep physical positions after filtering.
+        gaps = time_discontinuities(
+            input_source.time.values, input_source.expected_time_step
+        )
+        gap_counts = np.concatenate(([0], np.cumsum(gaps)))
+        self._starts = starts[gap_counts[starts + span] == gap_counts[starts]]
+        self.size = len(self._starts)
+        if self.size != num_starts:
+            logger.warning(
+                "%s: excluded %d of %d windows crossing timestamp discontinuities",
+                self.id,
+                num_starts - self.size,
+                num_starts,
+            )
 
     def __len__(self) -> int:
         return self.size
@@ -454,7 +475,7 @@ class TrainingWindows:
             raise IndexError("Negative training-window indices are not supported")
         if index >= len(self):
             raise IndexError("Training-window index out of range")
-        window = index + step * self.output_steps * self.stride
+        window = self._starts[index] + step * self.output_steps * self.stride
         return self.rolling_indices.isel(window=window, drop=True).to_numpy()
 
     def window_plan(self, indices: list[int]) -> BatchReadPlan:

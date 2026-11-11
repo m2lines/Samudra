@@ -602,3 +602,9 @@ def test_validation_loss_score_rejects_dynamic_weighting():
 def test_multi_source_preset_uses_one_step_rmse():
     cfg = TrainConfig.from_yaml_and_cli(["samudra_multi_om4/train.yaml"])
     assert cfg.validation_score == "one_step_rmse"
+
+
+def test_om4_source_declares_cadence():
+    from samudra.constants import OM4_TIME_STEP
+
+    assert om4_source_config().expected_time_step == OM4_TIME_STEP

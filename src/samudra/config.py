@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import abc
+import dataclasses
 import datetime
 from functools import cached_property, partial
 from pathlib import Path
@@ -26,6 +27,7 @@ from torch.nn import GELU
 
 from samudra.config_base import BaseConfig, TopLevelConfig
 from samudra.constants import (
+    OM4_TIME_STEP,
     DataLayout,
     GridSize,
     GridType,
@@ -268,6 +270,11 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
         description="Location of the data standard deviations; " + LOCATION_DOCS
     )
 
+    @property
+    def expected_time_step(self) -> datetime.timedelta | None:
+        """Declared source cadence, independent of the storage backend."""
+        return None
+
     @abc.abstractmethod
     def build_layout(self) -> DataLayout:
         raise NotImplementedError
@@ -358,7 +365,10 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
                 )
             ),
         )
-        return source
+        return dataclasses.replace(
+            source,
+            expected_time_step=self.expected_time_step,
+        )
 
 
 class CpuDataLoadingConfig(BaseConfig):
@@ -560,6 +570,10 @@ class Om4FamilyDataSourceConfig[Om4FamilyTimeConfigT: Om4TimeConfig | Cm4TimeCon
 
 class Om4DataSourceConfig(Om4FamilyDataSourceConfig[Om4TimeConfig]):
     type: Literal["om4"] = "om4"
+
+    @property
+    def expected_time_step(self) -> datetime.timedelta:
+        return OM4_TIME_STEP
 
 
 class Cm4DataSourceConfig(Om4FamilyDataSourceConfig[Cm4TimeConfig]):

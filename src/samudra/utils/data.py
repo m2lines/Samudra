@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import dataclasses
+import datetime
 import logging
 from collections import defaultdict
 from collections.abc import Callable, Mapping, Sequence
@@ -233,6 +234,7 @@ class CanonicalSource:
     _reader: CanonicalReader
     masks: Masks
     data_layout: DataLayout
+    expected_time_step: datetime.timedelta | None = None
 
     @property
     def reader(self) -> CanonicalReader:

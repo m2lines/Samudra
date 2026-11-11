@@ -20,6 +20,7 @@ from samudra.config import (
     SearchRunConfig,
     TrainConfig,
 )
+from samudra.constants import OM4_TIME_STEP
 from samudra.datasets import InferenceDataset, TorchBatchLoader
 from samudra.models.base import BaseModel
 from samudra.train import (
@@ -907,3 +908,41 @@ def test_search_trainer_rejects_skipped_rollout_at_rung_endpoint():
     trainer.search_run = SimpleNamespace(target_epochs=2)
     with pytest.raises(ValueError, match="every rung endpoint"):
         trainer.validation_checkpoint_score(2, {}, {})
+
+
+@pytest.mark.parametrize("days", [[], [20]])
+def test_rollout_validation_skips_gap_crossing_horizon(monkeypatch, caplog, days):
+    import numpy as np
+    import xarray as xr
+
+    times = np.datetime64("1976-12-18T12:00") + np.array([0, 5, 10, 16, 21]).astype(
+        "timedelta64[D]"
+    )
+    source = SimpleNamespace(
+        time=xr.DataArray(times, dims="time"), expected_time_step=OM4_TIME_STEP
+    )
+
+    class FakeInferenceDataset:
+        def __init__(self, **kwargs):
+            pass
+
+        def __len__(self):
+            return 4
+
+        def get_target_time(self, start, count):
+            return source.time[1:]
+
+    trainer = cast(Any, object.__new__(Trainer))
+    trainer.rollout_validation = SimpleNamespace(days=days, model_steps=4)
+    trainer.data_bundle = SimpleNamespace(train_sources=[source], val_sources=[source])
+    trainer.distributed = None
+    trainer.model = SimpleNamespace(eval=lambda: None)
+    trainer.prognostic_var_names = []
+    trainer.boundary_var_names = []
+    trainer.input_steps = trainer.output_steps = 1
+    trainer.normalize_before_mask = True
+    trainer.masked_fill_value = 0.0
+    monkeypatch.setattr("samudra.train.InferenceDataset", FakeInferenceDataset)
+    monkeypatch.setattr("samudra.train.is_main_process", lambda: True)
+    assert trainer.validate_rollout_one_epoch(epoch=1) == {}
+    assert "crosses a timestamp discontinuity" in caplog.text

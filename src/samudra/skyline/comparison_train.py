@@ -18,15 +18,21 @@ import torch.distributed as dist
 from numcodecs import blosc  # type: ignore[import-untyped]
 from torch.nn.parallel import DistributedDataParallel
 
+from .batching import device_batches
 from .channel_vocabulary import ChannelVocabulary
 from .comparison_eval import evaluate_comparison
+from .continuation import (
+    comparison_learning_rate,
+    load_comparison_checkpoint,
+    restore_comparison_state,
+)
 from .coverage import sample_coverage
 from .ema import ema_weights, restore_ema
 from .model import ModelConfig, PointTransformer
-from .multitask import ComparisonSource, learning_rate_factor
+from .multitask import ComparisonSource
 from .optimization import accumulate_gradients, set_synchronized_learning_rate
 from .replicas import verify_replicas
-from .run import FrameStream, emit, save_atomic, to_device
+from .run import FrameStream, emit, save_atomic
 from .utilization import GpuMonitor
 
 
@@ -103,23 +109,17 @@ def train_inner(config, output, source, device, rank, world, monitor):
     step, stream_state, state = 0, None, None
     best = {"raw": math.inf, "ema": math.inf}
     latest = output / "latest.pt"
-    if latest.exists():
-        if not (
-            int(os.environ.get("SLURM_RESTART_COUNT", "0"))
-            or config.get("resume", False)
-        ):
-            raise FileExistsError(latest)
-        state = torch.load(latest, map_location="cpu", mmap=True, weights_only=False)
-        if state["config"] != config or state["source"] != source.receipt():
-            raise ValueError("Configuration or data provenance changed on resume")
-        model.load_state_dict(state["model"])
-        optimizer.load_state_dict(state["optimizer"])
-        step, best = state["step"], state["best"]
-        saved = state["rank_states"][rank]
-        rng.bit_generator.state = saved["rng"]
-        torch.set_rng_state(saved["torch_rng"])
-        torch.cuda.set_rng_state(saved["cuda_rng"], device)
-        stream_state = saved["stream"]
+    state, fresh_continuation, continuation = load_comparison_checkpoint(
+        config,
+        output,
+        source.receipt(),
+        int(os.environ.get("SLURM_RESTART_COUNT", "0")),
+    )
+    if state is not None:
+        step, best, stream_state = restore_comparison_state(
+            model, optimizer, rng, state, rank, device
+        )
+    starting_digest = parameter_digest(model)
     ema = restore_ema(
         model, config["ema"], None if state is None else state["ema"], step
     )
@@ -136,6 +136,8 @@ def train_inner(config, output, source, device, rank, world, monitor):
         config=config,
         source=source.receipt(),
         initial_parameter_sha256=initial_digest,
+        starting_parameter_sha256=starting_digest,
+        continuation=continuation,
         source_commit=os.environ.get("SKYLINE_COMMIT"),
         archive_sha256=os.environ.get("SKYLINE_ARCHIVE_SHA256"),
         job=os.environ.get("SLURM_JOB_ID"),
@@ -187,6 +189,7 @@ def train_inner(config, output, source, device, rank, world, monitor):
                     best=best,
                     ema=ema.get_state(include_ema_params=True),
                     rank_states=states,
+                    continuation=continuation,
                 ),
                 latest,
             )
@@ -282,8 +285,8 @@ def train_inner(config, output, source, device, rank, world, monitor):
         dist.barrier()
 
     try:
-        if step == 0:
-            # Initialization is recorded explicitly rather than extrapolated.
+        if step == 0 or fresh_continuation:
+            # Record the restored parent endpoint before any continuation update.
             validate()
             save_checkpoint()
         model.train()
@@ -326,31 +329,34 @@ def train_inner(config, output, source, device, rank, world, monitor):
                             "Matched temperature loss needs all-field queries"
                         )
                     batch["loss_weight"] *= batch["query_field"] == 2
-                return to_device(batch, device)
+                return batch
 
-            factor = learning_rate_factor(
-                step,
-                config["warmup"],
-                config.get("schedule_updates", config["max_updates"]),
-            )
             set_synchronized_learning_rate(
-                optimizer, config["learning_rate"] * factor, device
+                optimizer, comparison_learning_rate(step, config), device
             )
             optimizer.zero_grad(set_to_none=True)
-            stats = accumulate_gradients(
-                ddp,
+            with device_batches(
                 next_batch,
-                (
-                    "comparison_two_hot"
-                    if categorical_target == "two_hot"
-                    else "comparison_ce"
-                )
-                if vocab is not None
-                else "comparison",
-                vocab,
-                device,
+                config["microbatch"],
                 accumulation,
-            )
+                config.get("physical_microbatch", config["microbatch"]),
+                device,
+                config.get("prefetch_microbatches", False),
+            ) as (get_batch, physical_accumulation):
+                stats = accumulate_gradients(
+                    ddp,
+                    get_batch,
+                    (
+                        "comparison_two_hot"
+                        if categorical_target == "two_hot"
+                        else "comparison_ce"
+                    )
+                    if vocab is not None
+                    else "comparison",
+                    vocab,
+                    device,
+                    physical_accumulation,
+                )
             norm = torch.nn.utils.clip_grad_norm_(
                 model.parameters(), 1.0, error_if_nonfinite=True
             )

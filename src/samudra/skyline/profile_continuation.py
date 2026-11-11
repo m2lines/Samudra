@@ -8,6 +8,7 @@ import hashlib
 import json
 import time
 from collections import defaultdict
+from contextlib import nullcontext
 from pathlib import Path
 
 import numpy as np
@@ -126,31 +127,33 @@ def run(parent, out, physical, prefetch, updates):
                 get,
                 count,
             ):
-                for _ in range(count):
+                for microstep in range(count):
                     with record_function("input_wait_and_H2D"):
                         batch = get()
-                    with (
-                        record_function("forward"),
-                        torch.autocast("cuda", dtype=torch.bfloat16),
-                    ):
-                        logits = ddp(batch)
-                    with record_function("FP32_twohot_loss"):
-                        loss = (
-                            (
-                                vocab.two_hot_loss(
-                                    logits, batch["target"], batch["query_channel"]
-                                )
-                                * batch["loss_weight"]
-                            ).sum(-1)
-                            * batch["importance"]
-                        ).mean()
-                    assert (
-                        logits.dtype == torch.bfloat16 and loss.dtype == torch.float32
-                    )
-                    if not torch.isfinite(loss):
-                        raise FloatingPointError("nonfinite loss")
-                    with record_function("backward"):
-                        (loss / count).backward()
+                    with ddp.no_sync() if microstep + 1 < count else nullcontext():
+                        with (
+                            record_function("forward"),
+                            torch.autocast("cuda", dtype=torch.bfloat16),
+                        ):
+                            logits = ddp(batch)
+                        with record_function("FP32_twohot_loss"):
+                            loss = (
+                                (
+                                    vocab.two_hot_loss(
+                                        logits, batch["target"], batch["query_channel"]
+                                    )
+                                    * batch["loss_weight"]
+                                ).sum(-1)
+                                * batch["importance"]
+                            ).mean()
+                        assert (
+                            logits.dtype == torch.bfloat16
+                            and loss.dtype == torch.float32
+                        )
+                        if not torch.isfinite(loss):
+                            raise FloatingPointError("nonfinite loss")
+                        with record_function("backward"):
+                            (loss / count).backward()
             with record_function("clip_optimizer_EMA"):
                 norm = torch.nn.utils.clip_grad_norm_(
                     model.parameters(), 1.0, error_if_nonfinite=True

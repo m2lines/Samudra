@@ -88,15 +88,33 @@ def main(out: Path):
         img.quantize(colors=256).save(out / "bits_gain_maps.png", optimize=True)
         plt.close(fig)
 
-    # headline: three numbers per variable, as mean over levels (surface level in brackets)
+    # headline: three numbers per variable. Aggregate = bits per wet value over all
+    # levels (each level weighted by its wet area); surface level in brackets.
+    wet_area, dz = R["meta"]["wet_area"], R["meta"]["dz"]
+
     def skill(c, m="mix"):
         return 1 - ch[c]["rmse"][m] / max(ch[c]["rmse"]["persistence"], 1e-30)
 
+    def saved(c):
+        return ch[c]["bits"]["persistence"] - ch[c]["bits"]["mix"]
+
     lines = [
-        "Headline, per variable: mean over its levels, with the surface level in brackets.",
+        f"Bin tolerance eps = {ch[next(iter(ch))]['eps']:g} sigma_delta (Keisler-style, per variable).",
         "",
-        "| variable | levels | persistence bits | mix bits | bits saved by mix | RMSE skill of mix vs persistence | est. joint-coding gap (bits) |",
-        "|---|---:|---:|---:|---:|---:|---:|",
+        "| variable | sigma_delta (5-day change) | bin width |",
+        "|---|---:|---:|",
+    ]
+    for v, sg in R["meta"]["sigma_delta"].items():
+        w = next(ch[c]["bin_width"] for c in ch if var_of(c) == v)
+        lines.append(f"| {v} | {sg:.4g} | {w:.4g} |")
+    lines += [
+        "",
+        "Headline, per variable: bits per wet value over all levels (levels weighted by",
+        "wet area), with the surface level in brackets. The last column weights levels",
+        "by wet area x layer thickness instead.",
+        "",
+        "| variable | levels | persistence bits | mix bits | bits saved by mix | RMSE skill of mix vs persistence | est. joint-coding gap (bits) | bits saved, thickness-weighted |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for v in VARS + ["zos"]:
         cs = sorted([c for c in ch if var_of(c) == v], key=lambda c: ch[c]["depth"])
@@ -104,14 +122,16 @@ def main(out: Path):
             continue
         s = cs[0]
 
-        def fmt(f, nd=2, cs=cs, s=s):
-            return f"{np.mean([f(c) for c in cs]):.{nd}f} [{f(s):.{nd}f}]"
+        def fmt(f, nd=2, cs=cs, s=s, wts=None):
+            w = [wet_area[c] for c in cs] if wts is None else wts
+            return f"{np.average([f(c) for c in cs], weights=w):.{nd}f} [{f(s):.{nd}f}]"
 
+        thick = [wet_area[c] * dz[c] for c in cs]
         lines.append(
             f"| {v} | {len(cs)} | {fmt(lambda c: ch[c]['bits']['persistence'])} "
-            f"| {fmt(lambda c: ch[c]['bits']['mix'])} "
-            f"| {fmt(lambda c: ch[c]['bits']['persistence'] - ch[c]['bits']['mix'])} "
-            f"| {fmt(skill, 3)} | {fmt(lambda c: ch[c]['joint_coding_gap_bits_est'])} |"
+            f"| {fmt(lambda c: ch[c]['bits']['mix'])} | {fmt(saved)} "
+            f"| {fmt(skill, 3)} | {fmt(lambda c: ch[c]['joint_coding_gap_bits_est'])} "
+            f"| {fmt(saved, wts=thick)} |"
         )
     lines.append("")
 

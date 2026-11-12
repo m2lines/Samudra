@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Fit the baseline ladder channel by channel and score it in bits per value.
 
-    python run.py CACHE OUT [--bins 8192] [--n-eval 8000] [--channels thetao_0,so_0]
+    python run.py CACHE OUT --eps 0.0625 [--n-eval 8000] [--channels thetao_0,so_0]
 
 Writes OUT/results.json (per-channel tables) and OUT/maps.npz (bit-gain maps).
 """
@@ -16,7 +16,7 @@ import time
 from pathlib import Path
 
 import numpy as np
-from coding import Bins, bits, blosc_bits_per_value, quantized_field
+from coding import ToleranceBins, blosc_bits_per_value, quantized_field
 from models import Ladder, Samples, lat_band, patch_features
 
 MAP_CHANNELS = ("thetao_0", "thetao_7", "so_0", "uo_0", "zos")
@@ -28,10 +28,11 @@ class Cache:
         self.meta = json.loads((root / "meta.json").read_text())
         st = np.load(root / "static.npz")
         self.masks, self.lat, self.area = st["masks"], st["lat"], st["area"]
+        self.dz = st["dz"]
         self.inv_cos = 1.0 / np.maximum(np.cos(np.deg2rad(self.lat)), 0.1)
         self.band = lat_band(self.lat)
         chans = self.meta["channels"]
-        self.levels_of = {}
+        self.levels_of: dict[str, list[int]] = {}
         for c in chans:
             if c != "zos":
                 v, k = c.rsplit("_", 1)
@@ -123,14 +124,47 @@ def area_sample(cache: Cache, s: Samples, n: int, rng) -> np.ndarray:
     return rng.choice(len(w), size=min(n, len(w)), replace=True, p=w / w.sum())
 
 
+def var_of(c: str) -> str:
+    return "zos" if c == "zos" else c.rsplit("_", 1)[0]
+
+
+def sigma_delta(cache: Cache, var: str) -> float:
+    """Area-weighted std of the five-day change of one variable, pooled over all
+    its levels and the training window (Keisler 2022, sec. 3.3.3).
+    """
+    sw = swy = swy2 = 0.0
+    for c in cache.meta["channels"]:
+        if var_of(c) != var:
+            continue
+        A = cache.arr("train", c)
+        wet = cache.masks[cache.meta["levels"][c]]
+        d = (np.asarray(A[1:]) - np.asarray(A[:-1]))[:, wet].astype(np.float64)
+        w = np.broadcast_to(cache.area[wet], d.shape)
+        ok = np.isfinite(d)
+        sw += w[ok].sum()
+        swy += (w[ok] * d[ok]).sum()
+        swy2 += (w[ok] * d[ok] ** 2).sum()
+    if sw == 0:
+        raise ValueError(f"no finite training tendencies for {var}")
+    mean = swy / sw
+    return float(np.sqrt(swy2 / sw - mean**2))
+
+
 def run_channel(
-    cache: Cache, c: str, nbins: int, n_eval: int, n_train: int, rng
+    cache: Cache,
+    c: str,
+    eps: float,
+    sig: float,
+    n_eval: int,
+    n_train: int,
+    rng,
+    diagnostics: bool = True,
 ) -> tuple[dict, dict]:
     t0 = time.time()
     A = cache.arr("train", c)
     vals = np.asarray(A)[:, cache.masks[cache.meta["levels"][c]]]
     mean_c = float(np.nanmean(vals))
-    bins = Bins.fit(vals, nbins)
+    bins = ToleranceBins(eps * sig, sig)
     tr = build_samples(cache, "train", c, mean_c)
     if len(tr.y) > n_train:
         tr = subset(tr, rng.choice(len(tr.y), n_train, replace=False))
@@ -140,13 +174,18 @@ def run_channel(
     te = build_samples(cache, "test", c, mean_c)
     ev = subset(te, area_sample(cache, te, n_eval, rng))
     out = lad.predict(ev, bins)
+    a_ev, b_ev = bins.tendency_interval(ev.x, ev.y)
     res = {
         "channel": c,
         "depth": cache.meta["depth"][c],
+        "eps": eps,
+        "sigma_delta": sig,
         "bin_width": bins.width,
         "n_train_rows": int(len(tr.y)),
         "n_eval_rows": int(len(ev.y)),
-        "bits": {m: float(bits(p, nbins).mean()) for m, (_, p) in out.items()},
+        "bits": {
+            m: float(bins.bits(p, a_ev, b_ev).mean()) for m, (_, p) in out.items()
+        },
         "rmse": {
             m: float(np.sqrt(np.mean((mu - ev.y) ** 2))) for m, (mu, _) in out.items()
         },
@@ -154,15 +193,20 @@ def run_channel(
         "bandwidth_mult": {"analog": lad.c_analog, "lpc_analog": lad.c_lpc_analog},
         "n_params": lad.n_params(),
     }
+    res["seconds"] = time.time() - t0
+    if not diagnostics:
+        return res, {}
     # ---- side quest, on every wet test cell for the cheap (non-kNN) rungs
     full = lad.predict(te, bins, with_knn=False)
+    a_te, b_te = bins.tendency_interval(te.x, te.y)
     aw = cache.area.ravel()[te.cell]
     res["bits_full_field"] = {
-        m: float(np.average(bits(p, nbins), weights=aw)) for m, (_, p) in full.items()
+        m: float(np.average(bins.bits(p, a_te, b_te), weights=aw))
+        for m, (_, p) in full.items()
     }
     wet = cache.masks[cache.meta["levels"][c]]
     H, W = wet.shape
-    bl = {
+    bl: dict[str, list[float]] = {
         "truth": [],
         "ar1_forecast": [],
         "lpc_forecast": [],
@@ -170,7 +214,9 @@ def run_channel(
     }
     gain_map = np.zeros(H * W)
     cnt_map = np.zeros(H * W)
-    g = bits(full["persistence"][1], nbins) - bits(full["lpc_ctx"][1], nbins)
+    g = bins.bits(full["persistence"][1], a_te, b_te) - bins.bits(
+        full["lpc_ctx"][1], a_te, b_te
+    )
     np.add.at(gain_map, te.cell, g)
     np.add.at(cnt_map, te.cell, 1)
     for t in np.unique(te.t):
@@ -195,8 +241,8 @@ def run_channel(
             bl[name].append(
                 blosc_bits_per_value(quantized_field(field(fc), okmask, bins), n)
             )
-        r = np.zeros(H * W, np.int16)
-        r[cells] = np.clip(bins.index(truth) - bins.index(te.x[m]), -32767, 32767)
+        r = np.zeros(H * W, np.int32)
+        r[cells] = bins.index(truth) - bins.index(te.x[m])
         bl["residual_vs_persistence"].append(blosc_bits_per_value(r, n))
     res["blosc_bits_per_value"] = {k: float(np.mean(v)) for k, v in bl.items()}
     # Spatial correlation of lpc errors: a pointwise model codes each cell
@@ -223,7 +269,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("cache", type=Path)
     ap.add_argument("out", type=Path)
-    ap.add_argument("--bins", type=int, default=8192)
+    ap.add_argument("--eps", type=float, required=True, help="bin width / sigma_delta")
+    ap.add_argument("--no-diagnostics", action="store_true")
     ap.add_argument("--n-eval", type=int, default=8000)
     ap.add_argument("--n-train", type=int, default=400_000)
     ap.add_argument("--channels", default="")
@@ -233,9 +280,19 @@ def main():
     rng = np.random.default_rng(a.seed)
     chans = a.channels.split(",") if a.channels else cache.meta["channels"]
     a.out.mkdir(parents=True, exist_ok=True)
+    sig = {v: sigma_delta(cache, v) for v in dict.fromkeys(map(var_of, chans))}
     results, maps = [], {}
     for c in chans:
-        res, mp = run_channel(cache, c, a.bins, a.n_eval, a.n_train, rng)
+        res, mp = run_channel(
+            cache,
+            c,
+            a.eps,
+            sig[var_of(c)],
+            a.n_eval,
+            a.n_train,
+            rng,
+            diagnostics=not a.no_diagnostics,
+        )
         results.append(res)
         if any(c == m for m in MAP_CHANNELS):
             maps.update(mp)
@@ -245,6 +302,11 @@ def main():
             flush=True,
         )
     meta = {k: v for k, v in cache.meta.items() if k != "splits"}
+    meta["sigma_delta"] = sig
+    meta["dz"] = {c: float(cache.dz[cache.meta["levels"][c]]) for c in chans}
+    meta["wet_area"] = {
+        c: float(cache.area[cache.masks[cache.meta["levels"][c]]].sum()) for c in chans
+    }
     meta["split_ranges"] = {
         s: [v[0], v[-1], len(v)] for s, v in cache.meta["splits"].items()
     }

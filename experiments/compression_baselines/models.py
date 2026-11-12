@@ -26,8 +26,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import numpy as np
-from coding import Bins, bits, interval_prob, kernel_interval_prob
-from sklearn.neighbors import NearestNeighbors
+from coding import FLOOR, ToleranceBins, interval_prob, kernel_interval_prob
+from sklearn.neighbors import NearestNeighbors  # type: ignore[import-not-found]
 
 DIRS = [
     (1, 0),
@@ -74,8 +74,8 @@ def patch_features(cur, prev, others, up, down, u, v, mean_c, inv_cos) -> np.nda
     for dy, dx in DIRS:
         feats.append(_z(shift(cur, dy, dx) - cur))
     feats.append(_z(tend))
-    nb_tend = [shift(cur, dy, dx) - shift(prev, dy, dx) for dy, dx in DIRS[:4]]
-    nb_tend = np.where(np.isfinite(np.stack(nb_tend)), np.stack(nb_tend), tend[None])
+    nb = np.stack([shift(cur, dy, dx) - shift(prev, dy, dx) for dy, dx in DIRS[:4]])
+    nb_tend = np.where(np.isfinite(nb), nb, tend[None])
     feats.append(_z(nb_tend.mean(0) - tend))
     for oc, op in others[:4]:
         feats.append(_z(oc - op))
@@ -164,7 +164,7 @@ class Ladder:
         self.lib_r = r[idx]
         self.h_min = 0.05 * b_glob
         self.c_analog = self.c_lpc_analog = 0.5
-        self.mix_w = None
+        self.mix_w: dict[str, float] | None = None
         return self
 
     def _ctx(self, s: Samples):
@@ -180,10 +180,9 @@ class Ladder:
         return out
 
     # -- predictive distributions
-    def predict(self, s: Samples, bins: Bins, which=None, with_knn=True):
+    def predict(self, s: Samples, bins: ToleranceBins, with_knn=True):
         """Returns {model: (mean_tendency, prob_of_true_bin)}."""
-        a, b = bins.edges(bins.index(s.x + s.y))
-        a, b = a - s.x, b - s.x  # bin of the next value, in tendency coordinates
+        a, b = bins.tendency_interval(s.x, s.y)
         out = {}
         out["persistence"] = (
             np.zeros_like(s.y),
@@ -216,7 +215,7 @@ class Ladder:
             out["mix"] = ((wv * M).sum(0), (wv * P).sum(0))
         return out
 
-    def tune_on_val(self, va: Samples, bins: Bins, grid=(0.25, 0.5, 1.0, 2.0)):
+    def tune_on_val(self, va: Samples, bins: ToleranceBins, grid=(0.25, 0.5, 1.0, 2.0)):
         """Pick kernel bandwidth multipliers, then mixture weights (EM), on val."""
         self.predict(va, bins)
         nb, cy, cr, a, b = self._last_nb
@@ -224,8 +223,8 @@ class Ladder:
         best = {}
         for name, C in (("analog", cy), ("lpc_analog", cr)):
             costs = [
-                bits(
-                    kernel_interval_prob(C, w, c * C.std(1) + self.h_min, a, b), bins.k
+                bins.bits(
+                    kernel_interval_prob(C, w, c * C.std(1) + self.h_min, a, b), a, b
                 ).mean()
                 for c in grid
             ]
@@ -233,7 +232,8 @@ class Ladder:
         self.c_analog, self.c_lpc_analog = best["analog"], best["lpc_analog"]
         out = self.predict(va, bins)
         names = list(out)
-        P = (1 - 1e-9) * np.stack([out[n][1] for n in names]) + 1e-9 / bins.k
+        q = bins.ref_prob(a, b)
+        P = (1 - FLOOR) * np.stack([out[n][1] for n in names]) + FLOOR * q
         wv = np.full(len(names), 1.0 / len(names))
         for _ in range(200):
             R = wv[:, None] * P

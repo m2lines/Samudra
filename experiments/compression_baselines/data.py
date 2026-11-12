@@ -20,12 +20,20 @@ import argparse
 import json
 import time
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
 URL = "https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/v2026-09/{res}/OM4.zarr"
 VARS3D = ("thetao", "so", "uo", "vo")
-DEFAULT_SPLITS = {"train": (2003, 2004), "val": (2010, 2010), "test": (2015, 2015)}
+# Protocol v2 follows src/samudra/configs/data/om4_demo.yaml (the 2-degree preset):
+# validation and inference windows are Samudra's; the ladder trains on the last
+# four years of Samudra's training window (1975-01-03 to 2013-09-30).
+DEFAULT_SPLITS = {
+    "train": ("2009-10-01", "2013-09-30"),
+    "val": ("2013-10-05", "2014-10-05"),
+    "test": ("2014-10-10", "2022-12-24"),
+}
 
 
 def channel_list(levels) -> list[tuple[str, int]]:
@@ -33,8 +41,8 @@ def channel_list(levels) -> list[tuple[str, int]]:
     return [(f"{v}_{k}", k) for v in VARS3D for k in levels] + [("zos", 0)]
 
 
-def _write_static(cache: Path, masks, lat, area):
-    np.savez(cache / "static.npz", masks=masks.astype(bool), lat=lat, area=area)
+def _write_static(cache: Path, masks, lat, area, dz):
+    np.savez(cache / "static.npz", masks=masks.astype(bool), lat=lat, area=area, dz=dz)
 
 
 def load_om4(cache: Path, res: str, splits: dict, levels) -> None:
@@ -43,10 +51,10 @@ def load_om4(cache: Path, res: str, splits: dict, levels) -> None:
     cache.mkdir(parents=True, exist_ok=True)
     ds = xr.open_zarr(URL.format(res=res))
     chans = channel_list(levels)
-    years = ds.time.dt.year.values
     masks = np.stack([ds[f"mask_{k}"].values for k in levels])
-    _write_static(cache, masks, ds.lat.values, ds.areacello.values)
-    meta = {
+    dz = ds.dz.values[list(levels)].astype(np.float64)
+    _write_static(cache, masks, ds.lat.values, ds.areacello.values, dz)
+    meta: dict[str, Any] = {
         "source": URL.format(res=res),
         "attrs": {k: str(v) for k, v in ds.attrs.items() if k.startswith("m2lines/")},
         "channels": [c for c, _ in chans],
@@ -54,8 +62,12 @@ def load_om4(cache: Path, res: str, splits: dict, levels) -> None:
         "depth": {c: float(ds.lev.values[k]) for c, k in chans},
         "splits": {},
     }
-    for split, (y0, y1) in splits.items():
-        idx = np.where((years >= y0) & (years <= y1))[0]
+    for split, (start, end) in splits.items():
+        # Label-based and inclusive at both ends, as xarray .sel (and Samudra) use.
+        sl = ds.indexes["time"].slice_indexer(start, end)
+        idx = np.arange(len(ds.time))[sl]
+        if len(idx) < 3:
+            raise ValueError(f"split {split} {start}..{end} has {len(idx)} steps")
         (cache / split).mkdir(exist_ok=True)
         meta["splits"][split] = [str(t) for t in ds.time.values[idx]]
         t0 = time.time()
@@ -125,7 +137,8 @@ def make_synthetic(
         for li in range(nl)
     ]
     salt = [35 + smooth(rng.normal(size=(ny, nx)), 10) * 3 for _ in range(nl)]
-    frames = {f"{v}_{k}": [] for v in VARS3D for k in levels} | {"zos": []}
+    names = [f"{v}_{k}" for v in VARS3D for k in levels] + ["zos"]
+    frames: dict[str, list[np.ndarray]] = {n: [] for n in names}
     for _ in range(total):
         for li, k in enumerate(levels):
             psi[li] = 0.97 * psi[li] + 0.03 * smooth(
@@ -151,9 +164,9 @@ def make_synthetic(
             frames[f"vo_{k}"].append(v.copy())
         frames["zos"].append(psi[0] / 60)
     masks = np.stack([~land for _ in levels])
-    _write_static(cache, masks, lat, area)
+    _write_static(cache, masks, lat, area, np.ones(len(levels)))
     chans = channel_list(list(levels))
-    meta = {
+    meta: dict[str, Any] = {
         "source": "synthetic",
         "channels": [c for c, _ in chans],
         "levels": {c: list(levels).index(k) for c, k in chans},
@@ -182,9 +195,8 @@ if __name__ == "__main__":
     ap.add_argument(
         "--levels", default="all", help="comma-separated level indices, or 'all' (19)"
     )
-    ap.add_argument("--train", default="2003-2004")
-    ap.add_argument("--val", default="2010-2010")
-    ap.add_argument("--test", default="2015-2015")
+    for split, (start, end) in DEFAULT_SPLITS.items():
+        ap.add_argument(f"--{split}", default=f"{start}:{end}", help="START:END dates")
     a = ap.parse_args()
     if a.synthetic:
         make_synthetic(a.cache)
@@ -194,10 +206,9 @@ if __name__ == "__main__":
             if a.levels == "all"
             else [int(x) for x in a.levels.split(",")]
         )
-        span = lambda s: tuple(int(x) for x in s.split("-"))  # noqa: E731
         load_om4(
             a.cache,
             a.res,
-            {"train": span(a.train), "val": span(a.val), "test": span(a.test)},
+            {s: tuple(getattr(a, s).split(":")) for s in DEFAULT_SPLITS},
             levels,
         )

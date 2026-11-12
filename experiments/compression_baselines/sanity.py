@@ -1,10 +1,11 @@
 # SPDX-FileCopyrightText: 2026 Samudra Authors
 #
 # SPDX-License-Identifier: Apache-2.0
-"""Step-5 sanity checks on the OM4 compression-baselines run.
+"""Sanity checks on a compression-baselines run (protocol v2: tolerance bins).
 
-Independent of the experiment's code (no imports from it): recomputes bins and
-persistence bits from the cache with plain numpy, and audits results.json.
+Independent of the experiment's code (no imports from it): recomputes the
+per-variable spread sigma_delta, the bin widths and persistence bits from the
+cache with plain numpy, and audits results.json.
 
 usage: python sanity.py CACHE RESULTS_JSON OUT_JSON   (writes OUT_JSON; prints a summary)
 """
@@ -23,16 +24,23 @@ R = json.loads(res_path.read_text())
 meta = json.loads((cache / "meta.json").read_text())
 st = np.load(cache / "static.npz")
 masks, area = st["masks"], st["area"]
-K = R["args"]["bins"]
-FLOOR = 1e-9
+EPS = R["args"]["eps"]
+FLOOR, REF_MULT = 1e-9, 10.0
 RUNGS = ["persistence", "ar1", "lpc", "lpc_ctx", "analog", "lpc_analog"]
 out: dict[str, Any] = {}
 
 
-def laplace_cdf(z):
-    return np.where(
-        z < 0, 0.5 * np.exp(np.minimum(z, 0)), 1 - 0.5 * np.exp(-np.maximum(z, 0))
-    )
+def var_of(c):
+    return "zos" if c == "zos" else c.rsplit("_", 1)[0]
+
+
+def laplace_interval(lo, hi, b):
+    """P(lo < Y <= hi), Y ~ Laplace(0, b), written per case to stay accurate in tails."""
+    lo, hi = lo / b, hi / b
+    right = 0.5 * (np.exp(-np.maximum(lo, 0)) - np.exp(-np.maximum(hi, 0)))
+    left = 0.5 * (np.exp(np.minimum(hi, 0)) - np.exp(np.minimum(lo, 0)))
+    straddle = 1 - 0.5 * np.exp(-np.maximum(hi, 0)) - 0.5 * np.exp(np.minimum(lo, 0))
+    return np.where(lo >= 0, right, np.where(hi <= 0, left, straddle))
 
 
 def triples(split, c):
@@ -42,29 +50,35 @@ def triples(split, c):
     prev, cur, nxt = A[:-2][:, wet], A[1:-1][:, wet], A[2:][:, wet]
     ok = np.isfinite(prev) & np.isfinite(cur) & np.isfinite(nxt)
     w = np.broadcast_to(area[wet], cur.shape)
-    return cur[ok].astype(np.float64), (nxt - cur)[ok].astype(np.float64), w[ok], A, wet
+    return cur[ok].astype(np.float64), (nxt - cur)[ok].astype(np.float64), w[ok]
 
 
-# ---- (a) bins: range, tail occupancy, and the run's bin_width reproduced
+# ---- (a) sigma_delta per variable and bin widths, recomputed
+chans = [ch["channel"] for ch in R["channels"]]
+sig = {}
+for v in dict.fromkeys(map(var_of, chans)):
+    ds, ws = [], []
+    for c in meta["channels"]:
+        if var_of(c) != v:
+            continue
+        A = np.load(cache / "train" / f"{c}.npy")
+        wet = masks[meta["levels"][c]]
+        d = np.diff(A, axis=0)[:, wet].astype(np.float64)
+        ok = np.isfinite(d)
+        ds.append(d[ok])
+        ws.append(np.broadcast_to(area[wet], d.shape)[ok])
+    d, w = np.concatenate(ds), np.concatenate(ws)
+    mu = np.average(d, weights=w)
+    sig[v] = float(np.sqrt(np.average((d - mu) ** 2, weights=w)))
 bins_audit = {}
 for ch in R["channels"]:
     c = ch["channel"]
-    A = np.load(cache / "train" / f"{c}.npy")
-    v = A[:, masks[meta["levels"][c]]]
-    v = v[np.isfinite(v)].astype(np.float64)
-    lo, hi = np.quantile(v, [1e-5, 1 - 1e-5])
-    span = hi - lo
-    lo, hi = lo - 0.05 * span, hi + 0.05 * span
-    width = (hi - lo) / K
-    x, y, w, _, _ = triples("test", c)
-    nxt = x + y
-    tail = float(np.mean((nxt < lo + width) | (nxt >= hi - width)))
+    width = EPS * sig[var_of(c)]
+    _, y, _ = triples("test", c)
     bins_audit[c] = {
         "bin_width_run": ch["bin_width"],
         "bin_width_recomputed": width,
-        "range": [lo, hi],
-        "train_min_max": [float(v.min()), float(v.max())],
-        "test_frac_in_end_bins": tail,
+        "sigma_delta_recomputed": sig[var_of(c)],
         "test_tendency_mad_over_bin_width": float(np.mean(np.abs(y)) / width),
     }
 out["bins"] = bins_audit
@@ -99,18 +113,17 @@ out["sample_vs_full"] = {
 
 # ---- (d) hand-recomputed persistence bits (all wet test cells, area-weighted)
 spot = {}
-for c in ("thetao_0", "so_10", "uo_18", "zos"):
-    ba = bins_audit[c]
-    lo, hi = ba["range"]
-    width = (hi - lo) / K
-    _, ytr, _, _, _ = triples("train", c)
-    b = float(np.mean(np.abs(ytr)))  # full train set; the run used a 400k-row subset
-    x, y, w, _, _ = triples("test", c)
-    idx = np.clip(np.floor((x + y - lo) / width), 0, K - 1)
-    a_ = np.where(idx == 0, -np.inf, lo + idx * width) - x
-    b_ = np.where(idx == K - 1, np.inf, lo + (idx + 1) * width) - x
-    p = laplace_cdf(b_ / b) - laplace_cdf(a_ / b)
-    bits = -np.log2((1 - FLOOR) * p + FLOOR / K)
+for c in [c for c in ("thetao_0", "so_10", "uo_18", "zos") if c in bins_audit]:
+    width = bins_audit[c]["bin_width_recomputed"]
+    ref = REF_MULT * sig[var_of(c)]
+    _, ytr, _ = triples("train", c)
+    b = float(np.mean(np.abs(ytr)))  # full train set; the run may use a subset
+    x, y, w = triples("test", c)
+    idx = np.floor((x + y) / width)
+    lo, hi = idx * width - x, (idx + 1) * width - x
+    p = laplace_interval(lo, hi, b)
+    q = laplace_interval(lo, hi, ref)
+    bits = -np.log2((1 - FLOOR) * p + FLOOR * q)
     run = next(ch for ch in R["channels"] if ch["channel"] == c)
     rows = [
         {
@@ -136,7 +149,7 @@ out["persistence_spot_check"] = spot
 bl = Blosc(cname="zstd", clevel=5, shuffle=Blosc.SHUFFLE)
 over = {}
 for k in range(masks.shape[0]):
-    q = np.zeros(masks[k].shape, np.uint16)
+    q = np.zeros(masks[k].shape, np.int32)
     q[masks[k]] = 4096
     over[k] = {
         "wet_cells": int(masks[k].sum()),
@@ -166,8 +179,12 @@ out["summary"] = {
     "max_abs_sampled_minus_full_bits": max(
         abs(x) for d in out["sample_vs_full"].values() for x in d.values()
     ),
-    "max_test_frac_in_end_bins": max(
-        v["test_frac_in_end_bins"] for v in bins_audit.values()
+    "max_rel_bin_width_mismatch": max(
+        abs(v["bin_width_run"] / v["bin_width_recomputed"] - 1)
+        for v in bins_audit.values()
+    ),
+    "coarse_regime_channels": sorted(
+        c for c, v in bins_audit.items() if v["test_tendency_mad_over_bin_width"] < 1
     ),
     "min_blosc_bound_minus_mask_overhead_minus_mix": min(
         v["blosc_bound_minus_mask_overhead_minus_mix"] for v in gap.values()
@@ -189,21 +206,6 @@ out["summary"] = {
         )
     ),
     # thetao below 1400 m and so below 375 m: where tendencies are ~1 bin or less
-    "deep_tracers": {
-        k: [f(c["bits"][m] for c in deep) for f in (min, max)]
-        for deep in [
-            [
-                c
-                for c in R["channels"]
-                if (c["channel"].startswith("thetao") and c["depth"] > 1400)
-                or (c["channel"].startswith("so") and c["depth"] > 375)
-            ]
-        ]
-        for k, m in (
-            ("mix_bits_range", "mix"),
-            ("persistence_bits_range", "persistence"),
-        )
-    },
     "max_abs_persistence_hand_minus_run_full_field": max(
         abs(s["hand_bits_area_weighted"] - s["run_bits_full_field"])
         for s in spot.values()

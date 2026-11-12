@@ -28,8 +28,7 @@ nominal 1/4° grid. It is driven by an observed atmosphere (a reanalysis) follow
 The ocean simulation never changes the winds or air temperature it receives.
 
 OM4 is also the ocean component of **CM4**, GFDL's coupled climate model, where the atmosphere and ocean do affect
-each other. **SamudrACE** couples Samudra to Ai2's atmospheric emulator ACE2 to emulate CM4 as a whole
-[[Duncan 2026](#ref-samudrace)].
+each other.
 
 ### What one training sample is
 
@@ -117,11 +116,60 @@ The ocean's heat content in a water column is
 
     OHC = ρ₀ c_p Σ_k θ_k dz_k        (J m⁻²)
 
+<details markdown>
+<summary>In Python</summary>
+
+`ds` is the store opened [above](#how-the-data-is-laid-out). The sum over `k` becomes a sum over a stacked `lev`
+dimension.
+
+```python
+import xarray as xr
+
+RHO_0 = 1035.0  # reference density ρ₀, kg m-3
+C_P = 3992.0    # specific heat c_p, J kg-1 K-1
+
+snap = ds.isel(time=1000)
+theta = xr.concat([snap[f"thetao_{k}"] for k in range(19)], dim="lev")  # θ_k: (lev, y, x), °C
+ohc = RHO_0 * C_P * (theta * ds.dz).sum("lev")                          # (y, x), J m-2
+ohc = ohc.where(snap.thetao_0.notnull())                                # keep land as NaN
+```
+
+OHC here is measured relative to 0 °C, so a column of sub-zero polar water has negative OHC. Only *changes* in OHC
+have physical meaning.
+
+</details>
+
 with reference density ρ₀ = 1035 kg m⁻³ and specific heat c_p = 3992 J kg⁻¹ K⁻¹, the values MOM6 uses. Ocean currents
 move heat sideways, which cancels in a global sum, and geothermal heating through the seafloor is tiny. So the
 **global** OHC changes only through `hfds`:
 
     ΔOHC_global ≈ Σ_cells hfds × area × Δt
+
+<details markdown>
+<summary>In Python</summary>
+
+Continuing from the previous snippet. `hfds` is a 5-day mean centered on each timestamp, so the heat entering
+between two consecutive states is the average of their two fluxes.
+
+```python
+DT = 5 * 86400.0                                             # Δt: one step, s
+volume = ds.areacello * ds.ocean_fraction * ds.dz            # (lev, y, x), m3
+surface_area = ds.areacello * ds.ocean_fraction.isel(lev=0)  # (y, x), m2
+
+def global_ohc(t):
+    theta = xr.concat([ds[f"thetao_{k}"].isel(time=t) for k in range(19)], dim="lev")
+    return RHO_0 * C_P * float((theta * volume).sum())        # J
+
+t = 1000
+d_ohc = global_ohc(t + 1) - global_ohc(t)                    # ΔOHC_global, J
+hfds = 0.5 * (ds.hfds.isel(time=t) + ds.hfds.isel(time=t + 1))
+heat_in = float((hfds * surface_area).sum()) * DT            # Σ hfds × area × Δt, J
+print(d_ohc / heat_in)                                       # 0.98
+```
+
+Single steps typically land within about 15% of 1. Over a year, the per-step correlation is 0.994.
+
+</details>
 
 For intuition, ρ₀ c_p ≈ 4.1 × 10⁶ J m⁻³ K⁻¹. A strong 100 W m⁻² flux for 5 days warms a 50 m surface layer by only
 about 0.2 °C. Water's large heat capacity is why the ocean changes slowly, and why the deep ocean barely changes in
@@ -139,6 +187,37 @@ gradient, and the surface pressure gradient is set by sea surface height. Water 
 down them:
 
     f u = −g ∂η/∂y,    f v = g ∂η/∂x,    f = 2Ω sin(latitude)
+
+<details markdown>
+<summary>In Python</summary>
+
+η is `zos`. On the Gaussian grid the `y` and `x` coordinates are latitude and longitude in degrees, so the derivatives
+are converted to per-metre. A degree of longitude shrinks by cos(latitude).
+
+```python
+import numpy as np
+
+G = 9.81            # gravity g, m s-2
+OMEGA = 7.2921e-5   # Earth's rotation rate Ω, s-1
+R = 6.371e6         # Earth's mean radius, m
+
+eta = ds.zos.isel(time=1000)                                  # η: (y, x), m
+lat = np.deg2rad(ds.y)                                        # 1-D latitude, rad
+f = 2 * OMEGA * np.sin(lat)                                   # Coriolis parameter, s-1
+
+m_per_deg = np.pi * R / 180                                   # metres per degree of latitude
+deta_dy = eta.differentiate("y") / m_per_deg                  # ∂η/∂y
+deta_dx = eta.differentiate("x") / (m_per_deg * np.cos(lat))  # ∂η/∂x
+
+u_g = (-G / f * deta_dy).where(abs(ds.y) > 5)                 # drop the equatorial band, where f → 0
+v_g = (G / f * deta_dx).where(abs(ds.y) > 5)
+```
+
+Outside ±5°, `u_g` correlates about 0.8 with the model's surface current `uo_0`. The rest is wind-driven (Ekman)
+flow and other ageostrophic motion. `xarray.differentiate` doesn't wrap at longitude 0°/360°.
+`samudra.metrics.kernels.geostrophic_velocity_from_zos` handles that edge properly.
+
+</details>
 
 At mid-latitudes f ≈ 10⁻⁴ s⁻¹, so a 1 m change in `zos` over 100 km means about 1 m s⁻¹ of flow. That's the Gulf
 Stream. Near the equator f → 0 and the balance breaks down. `samudra.metrics` derives surface currents from `zos` this

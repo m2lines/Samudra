@@ -88,3 +88,4 @@ markdown_extensions:
       permalink: true
   - def_list
   - attr_list
+  - md_in_html

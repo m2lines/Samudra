@@ -409,15 +409,27 @@ Run the data package tests from `data/` in the active environment:
 python -m pytest tests
 ```
 
-### Property tests and simulation soaks
+### Property tests and mutation checks
 
-Keep archive properties in flat `tests/test_*_properties.py` files and named-fault
-catalogs in `tests/*_mutations.py`. The shared runner and report model live in
-`src/samudra/test_utils`; do not import maintenance scripts. See the
-[contributor guide](../docs/contributing.md#property-tests-and-simulation-checks)
-for the repository-wide conventions and artifact/reporting layout.
+The [contributor guide](../docs/contributing.md#property-tests-and-mutation-checks) explains property tests,
+campaigns, and mutation checks. This section covers what is specific to `data/`.
 
-Create the focused verification environment from the repository root:
+`tests/test_virtual_archive_properties.py` checks `virtualize_om4`. It generates small NetCDF archives, varying the
+values, file splits, chunk layouts, CF packing, missing values, scalars, and file names. It builds Kerchunk references
+from each archive and compares what the references decode to against reading the NetCDF files directly. A state
+machine test (`PublicationMachine`) replays sequences of publish, fail, retry, and delete commands, including a
+competing writer, without sleeping.
+
+These properties encode the contracts agreed in #959:
+
+* The set of source files is frozen at discovery. Files that appear later stay out of the payload and the provenance.
+* Raw time order is kept, duplicates and reversals included. Consumers own chronology.
+* Zero-copy publication needs compatible native chunk grids. Incompatible layouts fail with an actionable error.
+* Sparse native chunks are rejected, even when a CF fill value is declared.
+
+Proposed scientific policies need human agreement before they become properties.
+
+Create the test environment and run a campaign from the repository root:
 
 ```bash
 micromamba create -f data/.test.yml
@@ -429,59 +441,43 @@ python -m samudra.test_utils.run --suite data --tests tests/test_*_properties.py
   --examples 1000 --seed 95920261105
 ```
 
-Mamba owns third-party dependencies; pip only installs the two local packages
-without dependency resolution. `.test.yml` pins direct verification dependencies;
-it is not a transitive lock. CI saves the exact Mamba solution in each artifact.
-`.test-canary.yml` floats within supported runtime ranges. Nightly regression
-jobs exercise both Pandas string storage backends; the canary uses PyArrow.
-The ordinary full data environment remains `mamba_env.yaml`.
+Mamba installs every third-party package, and pip installs only the two local packages, without resolving
+dependencies. `.test.yml` pins direct dependencies only. It isn't a full lock, so CI saves the exact Mamba solution
+with each artifact. `.test-canary.yml` floats within supported version ranges. `mamba_env.yaml` remains the
+environment for the rest of `data/`.
 
-The existing archive properties compare complete native NetCDF reads against
-reference payloads and generate small archives, chunk layouts, scalars, names,
-missing values, and publication event schedules. The publication model controls
-publish, abort, retry and delete without sleeps. These tests retain the selected
-contracts: freeze discovery, preserve raw time order including duplicates and
-reversals, and require compatible native chunk grids for zero-copy publication.
-Late additions stay out of payload and provenance. Proposed scientific policies
-need human agreement before becoming invariants. The separate Zarr 2 client and
-live OSN transport tests have been removed following review.
-
-The PyArrow-enabled stack currently exposes the reported sparse declared-fill
-reader failure. Keeping it in the environment preserves that counterexample;
-a failing baseline prevents claims of mutation sensitivity. Do not skip the
-property or credit a preexisting failure as a detected mutant.
-
-Run all flat mutation catalogs from the repository root in the data environment:
+The mutation catalog for these properties is `tests/virtual_archive_mutations.py`. Run the gate from the repository
+root, in the same environment:
 
 ```bash
 python -m samudra.test_utils.mutations data/tests \
   --output /tmp/property-mutations --seeds 0 1 95920261105 --timeout 60 --budget 600
 ```
 
-Each catalog defines a target module, property file, and named source changes.
-Unique source anchors fail loudly after refactors. Each subprocess imports the
-installed target, substitutes a mutant in memory, and leaves production files
-untouched. It isolates inherited pytest options and loads only the required
-plugins. Before accepting a kill, the engine checks effective Hypothesis settings,
-source hashes, exact collected/tested node IDs, and a completed native event log.
-Only test call failures count; setup/collection errors, skips, timeouts, missing
-reports and survivors fail the gate. Baselines run first for all three seeds.
+The gate works in four steps:
 
-Each mutant gets 40 generation-only examples and at most 60 seconds, capped by
-the remaining shared 600-second budget. Explicit examples, database replay, and
-shrinking are disabled, so saved counterexamples cannot satisfy discovery.
-The artifact includes source snapshots, execution evidence, commands, timings,
-logs and results. PR/main changes, nightly reuse and manual dispatch run the gate;
-superseded PR runs are cancelled. A `summary.md` appears on the Actions run page,
-with full artifacts retained for 30 days.
+1. It runs each property on unmodified code for all three seeds. Any failure here stops the gate, so a bug that
+   already exists is never counted as a kill.
+2. For each mutation, it finds the mutation's source anchor, which must match exactly once, so a refactor that moves
+   the code fails loudly. It substitutes the mutant in memory and runs the assigned property in a fresh subprocess.
+   Production files are never modified.
+3. Each mutant gets 40 generated examples and at most 60 seconds, within a shared 600-second budget. Explicit
+   `@example`s, the Hypothesis example database, and shrinking are turned off, so only newly generated inputs can kill
+   a mutant.
+4. A mutant counts as killed only if the intended test's call phase failed, in a complete run with the expected
+   Hypothesis settings, source hashes, and collected tests. Setup or collection errors, skips, timeouts, missing
+   reports, and survivors all fail the gate.
 
-Preview candidate reports without contacting GitHub:
+The gate runs on PRs and pushes to `main` that touch these files, inside the nightly soak, and on demand. A newer push
+to a PR cancels the older run. Each run's Summary shows `summary.md`. Its artifact, with source snapshots, commands,
+timings, logs, and results, is kept for 30 days.
+
+To preview triage locally without contacting GitHub:
 
 ```bash
 python -m samudra.test_utils.triage /tmp/data-properties/pytest.jsonl \
   --repo m2lines/Samudra --run-url https://example.com/local-run
 ```
 
-`--triage-output /tmp/property-triage` adds read-only issue lookup and a JSON/Markdown
-summary, including closed recurrences. Only an explicit `--apply` files issues;
-no unattended workflow has issue-write permissions.
+Add `--triage-output /tmp/property-triage` to look up matching open and closed issues (read-only) and write a JSON
+and Markdown summary. Only `--apply` files issues. No property workflow has permission to write them.

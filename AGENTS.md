@@ -88,9 +88,9 @@ Searches follow these conventions (details, commands, and CI artifacts in `docs/
   nightly `Property soak` workflow runs 1,000.
 * Prefer small independent oracles, metamorphic transformations, and explicit state models. The sampler simulation in
   `tests/test_sampler_properties.py` is a CPU-only example that needs no training, process group, or GPU.
-* Show that a property can fail. A *mutation* is a named, plausible fault (often a past bug) listed in the tested
-  subsystem's `*_mutations.py` catalog, together with the properties that must catch it. The `Property mutation
-  gate` workflow plants each fault and checks that generated inputs catch it. So far it covers `data/` catalogs only.
+* When a property guards against a bug we've had before, add that bug as a *mutation*: a named source substitution in
+  the tested subsystem's `*_mutations.py` catalog. The `Property mutation gate` workflow plants each mutation and
+  checks that its property catches it. It covers only `data/` catalogs so far. A new property doesn't need one.
 * Mark a property whose contract isn't agreed yet with `contract_probe`, so triage keeps it out of bug reports.
 * Shared runners, profiles, and reporting live in `src/samudra/test_utils`, a small development package that both
   projects install. It is not part of the `samudra` wheel.

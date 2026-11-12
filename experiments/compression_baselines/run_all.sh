@@ -9,15 +9,19 @@ set -euo pipefail
 cd "$(dirname "$0")"
 CACHE=${1:-./cache_om4_twodeg}
 OUT=${2:-./results_om4_twodeg}
+mkdir -p "$OUT"
+# Per-stage wall-clock seconds, appended to $OUT/timings.tsv for the report.
+stage() { local t0=$SECONDS; "${@:2}"; printf "%s\t%d\n" "$1" $((SECONDS - t0)) >> "$OUT/timings.tsv"; }
+: > "$OUT/timings.tsv"
 if [[ "${SYNTHETIC:-0}" == 1 ]]; then
-  python data.py "$CACHE" --synthetic
+  stage data python data.py "$CACHE" --synthetic
   NCD_CHANNELS="thetao_5"
 else
-  [[ -f "$CACHE/meta.json" ]] || python data.py "$CACHE" --res om4_twodeg
+  [[ -f "$CACHE/meta.json" ]] || stage data python data.py "$CACHE" --res om4_twodeg
   NCD_CHANNELS="thetao_0 thetao_7"
 fi
-python run.py "$CACHE" "$OUT" --bins 8192 --n-eval 8000 | tee "$OUT.log"
-for c in $NCD_CHANNELS; do python ncd_ablation.py "$CACHE" "$OUT" --channel "$c"; done
-python report.py "$OUT" > /dev/null
+stage run python run.py "$CACHE" "$OUT" --bins 8192 --n-eval 8000 > >(tee "$OUT.log")
+for c in $NCD_CHANNELS; do stage "ncd_$c" python ncd_ablation.py "$CACHE" "$OUT" --channel "$c"; done
+stage report python report.py "$OUT" > /dev/null
 git rev-parse HEAD > "$OUT/git_hash.txt" 2>/dev/null || true
 echo "done: $OUT/tables.md"

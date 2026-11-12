@@ -55,14 +55,19 @@ physical fields. Paths below are relative to
 These virtual Zarr v2 datasets retain the original tripolar grid, values, and
 chunk layouts. They are separate from the analysis-ready processed releases.
 The reference stores and their NetCDF targets are readable without credentials.
-Using the [data environment](../data/README.md#environment-setup):
+The root Samudra environment uses the Zarr 2 reader, while the
+[data environment](../data/README.md#environment-setup) uses Zarr 3. The example
+selects synchronous filesystems for Zarr 2 and asynchronous filesystems for Zarr 3;
+both read the same Zarr v2 reference metadata.
 
 ```python
 import fsspec
 import xarray as xr
+import zarr
 from fsspec.implementations.reference import LazyReferenceMapper
 
 endpoint = "https://nyu1.osn.mghpcc.org"
+asynchronous = zarr.__version__.split(".", 1)[0] == "3"
 refs = LazyReferenceMapper(
     "m2lines-pubs/Samudra/raw/OM4-5daily.parquet",
     fs=fsspec.filesystem("s3", anon=True, endpoint_url=endpoint),
@@ -72,8 +77,12 @@ mapper = fsspec.filesystem(
     "reference",
     fo=refs,
     remote_protocol="s3",
-    remote_options={"anon": True, "endpoint_url": endpoint, "asynchronous": True},
-    asynchronous=True,
+    remote_options={
+        "anon": True,
+        "endpoint_url": endpoint,
+        "asynchronous": asynchronous,
+    },
+    asynchronous=asynchronous,
 ).get_mapper("")
 ds = xr.open_zarr(mapper, consolidated=False)
 ds

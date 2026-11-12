@@ -183,6 +183,8 @@ snapshots) are in `data/AGENTS.md`.
 
 ## Glossary
 
+A quick reference for agents. `docs/concepts/ocean-physics.md` is the fuller explainer, with sources.
+
 ### Projects and simulations
 
 * **OM4**: GFDL's global ocean–sea-ice model (built on the MOM6 ocean code), the ocean component of CM4. We emulate
@@ -258,83 +260,25 @@ means a unit, sign, mask, or normalization bug.
 
 ## Ocean state invariants
 
-These are properties that a correct dataset, pipeline, or model must satisfy whatever the resolution or architecture.
-Use them as metamorphic tests: transform the input in a way whose effect on the output is known, and check that
-effect. Also use them as smoke checks whenever a dataset, pipeline stage, or rollout is new. Violations of the
-cross-resolution ones have caught real data-engineering bugs late in this project.
+Properties a correct dataset, pipeline, or model must satisfy. Use them as metamorphic tests and as smoke checks on
+any new dataset, pipeline stage, or rollout. `docs/concepts/ocean-physics.md` explains why each holds, gives
+reference values measured on the v2026-09 stores, and cites sources. Read it before changing the data pipeline or
+metrics.
 
-### Reference values
+* **Across resolutions, linear integrals are conserved.** Area, ocean area, volume, heat, salt, area-mean `zos`, and
+  volume-mean temperature and salinity agree across 1°, 1/2°, and 1/4° (to six significant figures in v2026-09). A
+  mismatch beyond ~0.1% is a data-engineering bug.
+* **Across resolutions, quadratic quantities only decrease.** Variance, KE, EKE, and gradient magnitudes must not grow
+  as data is coarsened. Coarsening never creates new extremes. Spectra agree at scales both grids resolve.
+* **Within a dataset:** masks nest with depth, `ocean_fraction` lies in [0, 1] and doesn't increase with depth, NaNs
+  match the masks, temperature ≥ freezing, salinity ≥ 0, area-mean `zos` ≈ 0, the global heat budget closes, total
+  salt doesn't drift, and steps are exactly 5 days apart.
+* **Model and loader:** longitude-roll equivariance (for rolls that are multiples of the downsampling factor, with
+  learned positional channels off), insensitivity to land values, batch independence, restart invariance, Rust/Python
+  loader equivalence, normalization round trips, and forcing that measurably matters.
+* **Judging skill:** for short-term forecasts, beat persistence and climatology. Raw RMSE in the deep ocean looks
+  excellent even for a model that has learned nothing.
 
-Computed with Xarray directly from the published v2026-09 OM4 stores (to be replaced by published reference statistics, #976), at time index 1000 (Sept 1971), with
-ρ₀ = 1035 kg m⁻³ and c_p = 3992 J kg⁻¹ K⁻¹. Unless noted, the 1°, 1/2° and 1/4° stores agree to six significant figures.
-
-| Quantity | v2026-09 OM4 | Real ocean | Note |
-| --- | --- | --- | --- |
-| Total `areacello` | 5.0767 × 10¹⁴ m² | 5.10 × 10¹⁴ m² (Earth) | 0.47% low: polar radius (#972) |
-| Ocean surface area | 3.588 × 10¹⁴ m² | 3.61 × 10¹⁴ m² | same 0.47% |
-| Ocean volume (Σ area × `ocean_fraction` × `dz`) | 1.476 × 10¹⁸ m³ | ~1.33–1.34 × 10¹⁸ m³ | ~10% high: bottom cells count their full `dz` (mean depth 4114 m vs ~3700 m). `samudra.metrics.kernels` integrates exact layer overlaps instead. #973 |
-| Volume-mean temperature, salinity | 3.334 °C, 34.722 psu | ~3.5 °C, 34.7 psu | |
-| Global OHC, relative to 0 °C | 2.0334 × 10²⁵ J | | inherits the volume bias |
-| Area-mean `zos` | −0.0001 m | 0 by definition | CMIP `zos` is dynamic sea level with zero global mean |
-| Surface KE, area mean | 0.0167 / 0.0186 / 0.0194 m² s⁻² | | rises with resolution (1° / 1/2° / 1/4°) |
-| SST range | −1.91…32.52 / −1.98…32.71 / −2.01…32.75 °C | | widens with resolution |
-| Minimum salinity | 0.03 psu | | real: river estuaries (Ob Gulf, Río de la Plata, Amazon). Don't clamp. #974 |
-
-### Across resolutions (coarse-graining, regridding, filtering)
-
-* **Linear integrals are conserved.** Total area, ocean area, volume, heat, and salt, and the area-mean `zos`, are all
-  preserved. So are volume-mean temperature and salinity. Conservative regridding and the gcm-filters smoothers both
-  preserve integrals by construction. A mismatch across resolutions beyond ~0.1% is a bug: wrong weights, mask, `dz`,
-  units, or radius.
-* **Quadratic quantities only decrease.** Variance, kinetic energy, EKE, and gradient magnitudes all fall as data is
-  coarsened, because averaging can only remove variance (the law of total variance). A coarse field with *more* of
-  them than its fine parent is a bug. This is also why `samudra.metrics` reduces before it regrids.
-* **No new extremes.** A conservative regrid is a weighted average with non-negative weights. Each coarse value lies
-  within the range of the fine cells it covers, so the global min and max can only move inward.
-* **Spectra agree at shared scales.** At wavelengths that both grids resolve, the coarse and fine power spectra should
-  match. They may diverge only near the coarse grid's cutoff.
-
-### Within one dataset
-
-* **Masks nest with depth.** A cell wet at level k+1 is wet at level k (`mask_{k+1} ⊆ mask_k`). `ocean_fraction`
-  lies in [0, 1] and never increases with depth. Every 3-D field is NaN exactly where the masks say land, at every
-  time step.
-* **Physical bounds hold.** Temperature stays at or above the freezing point (≈ −1.9 °C at 35 psu, falling about
-  0.054 °C per psu). Salinity is non-negative. Area-mean `zos` is ≈ 0 at every step.
-* **The heat budget closes.** Per 5-day step, the change in global OHC tracks area-integrated `hfds` × Δt. On the
-  1° store the correlation is 0.994 with a slope of 0.98. Over a year the net residual is ~0.06 W m⁻², about 1% of the
-  5.6 × 10²² J seasonal swing.
-* **Salt is conserved.** Total salt drifts by ~3 × 10⁻⁸ over a year. Any visible drift is a bug.
-* **Time is regular.** 4745 steps exactly 5 days apart, in the dataset's own calendar.
-
-### Model, loader, and rollout
-
-* **Longitude-roll equivariance.** The globe is periodic in longitude, and the models pad circularly. So rolling every
-  input (state, forcing, masks) by n columns should roll the output by n. This holds exactly only when n is a multiple
-  of the network's total downsampling factor and learned positional channels are off. Latitude has no such symmetry
-  (Coriolis and the poles).
-* **Land values don't matter.** Perturbing raw values under the land mask must not change any prediction. The loader
-  replaces them with `masked_fill_value`.
-* **Batch independence.** In eval mode, a sample's prediction doesn't depend on batch size or its batch-mates.
-* **Restart invariance.** In eval mode, rolling out 2N steps equals rolling out N steps and then continuing for N more
-  from that state with the same forcing.
-* **Loader equivalence.** The Rust and Python loaders, and any number of workers, ranks, or chunkings, yield identical
-  samples. This is the sort of thing differential tests catch.
-* **Round trips.** `denormalize(normalize(x)) == x`. Normalization statistics come only from the training interval.
-* **Forcing matters.** Shifting the forcing by one step, or replacing it with climatology, should measurably hurt
-  skill. If it doesn't, the model is ignoring forcing or the forcing is misaligned.
-
-### What "good" means
-
-The metrics in `samudra.metrics` score finished multi-year rollouts against observations:
-
-* DUACS for surface geostrophic velocity and EKE, OISST for SST, ARGO-IAP for OHC by depth layer.
-* Area-weighted RMSE with calendar-year block-bootstrap intervals.
-* Residual variance after removing the trend and seasonal cycle, which catches a rollout that smooths away
-  variability (variance collapse).
-* Spectra compared in log space.
-
-Training validation reports area-weighted RMSE, bias, and gradient magnitude against OM4. The metrics are about to
-shift toward short-term skill. For that, compare against baselines: a forecast must beat **persistence** (x(t+1) =
-x(t)) and **climatology**. Deep-ocean fields barely change in 5 days, so raw RMSE looks excellent even for a model that
-has learned nothing. Judge skill relative to persistence, or on predicted tendencies.
+Known deviations in v2026-09 are tracked in #972 (`areacello` radius and label), #973 (volume ~10% high from
+full-thickness bottom cells), and #974 (near-fresh estuary cells, likely physical). Reference statistics will be
+published with releases (#976). Automated invariant tests are tracked in #977.

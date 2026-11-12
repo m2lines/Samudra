@@ -36,7 +36,7 @@ The examples below keep those inputs distinct. Observations follow a parallel
 [download → prepare workflow](#observation-products) that retains their native grids.
 
 All Zarr outputs and Kerchunk metadata use **Zarr v2**, even though the
-shared package environment uses the Zarr 3 runtime. Python 3.12+ is required.
+shared package environment uses the Zarr 3 runtime. Python 3.12 is required.
 
 ## CLI overview
 

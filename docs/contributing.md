@@ -15,69 +15,6 @@ including:
 
 This project follows the [M2LInES _Code of Conduct_](https://m2lines.github.io/pages/code-of-conduct/).
 
-## Property tests and simulation checks
-
-Keep tests flat: `tests/test_*_properties.py` for Samudra and
-`data/tests/test_*_properties.py` for preprocessing. The CPU PR workflow runs the
-main properties with 40 default examples; nightly/manual `Property soak` runs
-1,000. Ordinary CPU tests exclude that suffix to avoid duplicate execution.
-Use `cuda` and `manual` markers for tests needing those resources; CPU campaigns
-exclude both. Scheduling starts when the workflow reaches the default branch.
-
-Start with a small executable model or independent oracle. The sampler simulation
-in `tests/test_sampler_properties.py` generates all ranks locally, checks coverage
-and compatibility, and replays epoch changes without training or a process group.
-Keep examples small and deterministic. Review proposed invariants as carefully as
-production behavior; use `contract_probe` for an unagreed contract so triage
-excludes it from product reports.
-
-Run a bounded check from the repository root:
-
-```bash
-uv run --locked python -m samudra.test_utils.run \
-  --suite samudra --tests tests/test_*_properties.py --dependency-file uv.lock \
-  --output /tmp/samudra-properties --examples 40 --seed 95920261105 \
-  -- -m "not manual and not cuda"
-```
-
-Choose a new output directory for every run; increase `--examples` for a soak.
-Per-test settings can impose smaller limits, visible in Hypothesis statistics.
-The main project uses uv and its lock; data uses Mamba configurations at
-`data/.test.yml` and `data/.test-canary.yml`. Their numerical runtimes stay
-independent. Shared profiles, execution, reporting, and named-fault mutation
-checks live in `src/samudra/test_utils`, installed as a small local development
-distribution by both projects. It is excluded from the application wheel, so
-data verification does not pull in the model's incompatible NumPy/Zarr runtime.
-
-A campaign records `replay.json` (seed, command, revision and dependency hash),
-`dependency-input.txt`, `environment.txt`, `pytest.log`, native pytest JSONL
-`pytest.jsonl`, `result.json`, and a human `summary.md`. Data CI also saves
-`conda-explicit.txt` with the exact solved packages. Replay needs the revision,
-dependencies, profile and seed; reproduction blobs need the exact Hypothesis
-version. An empty, entirely skipped, interrupted, or invalid run cannot be green.
-
-Open **Actions → Property soak** (or **Property mutation gate**) and select a run.
-Its **Summary** shows campaign status and read-only triage; downloadable artifacts
-appear at the bottom of the run page and expire after 30 days. Each suite/lane
-has its own artifact. Triage links matching open and closed issues without
-creating, reopening, or commenting on them. Infrastructure errors and unsettled
-contracts are distinguished from candidate counterexamples. Humans review the
-oracle and can explicitly file new reports with `samudra.test_utils.triage --apply`.
-
-The shared result model distinguishes test call failures, setup/teardown errors,
-skips, collection errors, and incomplete sessions. It consumes
-[pytest-reportlog's native events](https://github.com/pytest-dev/pytest-reportlog).
-[Pytest supports JUnit XML](https://docs.pytest.org/en/stable/how-to/output.html#creating-junitxml-format-files)
-for CI interoperability; native events preserve pytest phase and node identities
-without an XML translation in our classifiers.
-
-Mutation catalogs belong to the tested subsystem. Use flat `*_mutations.py` files
-exporting a `Catalog` of named `Mutation`s. The engine discovers catalogs by
-suffix, checks a clean baseline, then requires generated inputs to catch each
-fault within its budget. Historical mutations are useful for measuring a known
-oracle's sensitivity; they are not required for every new property. See the
-[data guide](../data/README.md#property-tests-and-simulation-soaks) for commands.
-
 ## Contributing code with pull requests
 
 <details>
@@ -384,6 +321,95 @@ uvx detect-secrets scan > .secrets.baseline
 ```
 
 Please check in the baseline after generating.
+
+## Property tests and mutation checks
+
+Most of our tests are ordinary unit tests with hand-picked inputs and expected outputs. A *property test* instead
+states something that must hold for every input, such as "renaming a source file never changes the decoded values".
+[Hypothesis](https://hypothesis.readthedocs.io/) then generates inputs to search for a counterexample. Each property
+needs an *oracle*, an independent way to know the right answer: a small executable model of the system, a trusted
+reader (such as opening the source NetCDF directly), or a metamorphic relation that predicts how the output changes
+when the input changes.
+
+### Where they live
+
+Property tests go in flat files named `*_properties.py`:
+
+* `tests/test_*_properties.py` for `samudra`, run in the root uv environment.
+* `data/tests/test_*_properties.py` for `ocean_preprocessing`, run in a data Mamba environment. See the
+  [data guide](../data/README.md#property-tests-and-mutation-checks).
+
+The two projects keep separate environments. The code they share (running a suite, recording results, checking
+mutations, triage) lives in `src/samudra/test_utils`, a small development package that both install. It is excluded
+from the `samudra` wheel, so the data tests don't pull in the model's NumPy and Zarr versions.
+
+`tests/test_sampler_properties.py` is a compact example. It simulates every distributed rank in one process and checks
+that the sampler covers the dataset and replays epoch changes, with no model, GPU, or process group.
+
+Keep examples small and deterministic. Mark tests that need a GPU or a human with `cuda` or `manual`; property runs
+exclude both. If a property encodes a contract the team hasn't agreed on yet, mark it `contract_probe`. Its failures
+still appear in results, but triage won't propose them as bug reports. Review a proposed property as carefully as
+production code, since a wrong property produces false bug reports.
+
+### When they run
+
+A *campaign* is one run of a property suite with a fixed seed and example budget. Three workflows run campaigns:
+
+| Workflow | When | Examples per property |
+| --- | --- | --- |
+| CPU tests (`test.yml`) | every PR | 40 |
+| `Property soak` | nightly at 09:37 UTC, and on demand | 1,000 |
+| `Property mutation gate` | PRs and pushes to `main` that touch the data properties, mutation catalogs, or `test_utils`; also inside the nightly soak | 40 per mutation |
+
+The ordinary CPU test step skips `*_properties.py`, so each property runs once per PR. The soak runs the data suite in
+three lanes. Two use the pinned `data/.test.yml`, one for each pandas string storage backend (Python and PyArrow). The
+third, a *canary*, uses `data/.test-canary.yml`, which floats within supported version ranges so upstream breakage
+shows up early. Scheduled runs start once the workflows are on `main`.
+
+Run a campaign locally from the repository root:
+
+```bash
+uv run --locked python -m samudra.test_utils.run \
+  --suite samudra --tests tests/test_*_properties.py --dependency-file uv.lock \
+  --output /tmp/samudra-properties --examples 40 --seed 95920261105 \
+  -- -m "not manual and not cuda"
+```
+
+Use a new output directory for each run, and raise `--examples` for a longer search. A test's own Hypothesis settings
+can set a lower limit. The Hypothesis statistics in the log show the limit that applied.
+
+### Reading results
+
+Each campaign writes a directory containing:
+
+* `replay.json`: the seed, command, git revision, and dependency hash. With the same Hypothesis version, this
+  reproduces the run.
+* `dependency-input.txt` and `environment.txt`: the dependency file used and the packages installed. Data CI also
+  saves `conda-explicit.txt`, the exact Mamba solution.
+* `pytest.log`; `pytest.jsonl`, pytest's event stream from
+  [pytest-reportlog](https://github.com/pytest-dev/pytest-reportlog); `result.json`; and `summary.md`.
+
+A campaign is green only if tests ran and passed. An empty, all-skipped, interrupted, or malformed run fails. The
+results distinguish a test failure (a candidate counterexample) from a setup, teardown, or collection error (an
+infrastructure problem) and from an incomplete session. That needs pytest's per-phase results and node IDs, which
+pytest-reportlog's events keep, so we read those instead of JUnit XML.
+
+On GitHub, open the Actions tab, choose `Property soak` or `Property mutation gate`, and select a run. The run's
+Summary shows each campaign's status and a *triage* report, which matches failing properties against open and closed
+issues. Artifacts, one per suite and lane, are at the bottom of the run page and expire after 30 days. CI never
+creates, reopens, or comments on issues. Once a human has checked a counterexample and its oracle, they can file it
+with `python -m samudra.test_utils.triage --apply`.
+
+### Mutation checks
+
+A passing property only helps if it would fail on buggy code. A *mutation* is a named, plausible fault, often a bug
+we actually shipped, written as a small source substitution. The *mutation gate* plants each fault in turn and checks
+that the property assigned to it now fails. A caught fault is *killed*; an uncaught one *survives* and fails the gate.
+
+Mutations live next to the code they test, in flat `*_mutations.py` files that each export a `Catalog` of named
+`Mutation`s. The gate finds catalogs by that suffix. Mutations measure how sensitive an existing property is, and a
+new property doesn't need one. The [data guide](../data/README.md#property-tests-and-mutation-checks) has the gate's
+commands and rules.
 
 ## Benchmarking & Profiling
 

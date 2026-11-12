@@ -2,10 +2,13 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Independent payload oracles and adversarial publication schedules for PR 959.
+"""Property tests for `virtualize_om4`, the Kerchunk reference builder for OM4 NetCDF archives.
 
-Each example owns its directory: shrinking never reuses a previous output.
-All source data are tiny and local; no archive credentials or ocean model needed.
+The oracle is the source NetCDF itself: decoded references must match a direct read.
+A state machine also checks publication under failures, retries and competing writers.
+
+Each example writes to its own directory, so shrinking never reuses an earlier output.
+All source data are small and local, so no credentials or model output are needed.
 """
 
 import math

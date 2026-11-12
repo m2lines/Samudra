@@ -1,0 +1,11 @@
+arm,seeds,u skill mean,u skill per seed,u roughness,v skill mean,v skill per seed,v roughness,T skill mean,T skill per seed,T roughness,S skill mean,S skill per seed,S roughness,SSH skill mean,SSH skill per seed,SSH roughness
+"Equal MSE, absolute head",1,0.93,0.930,0.886,0.7,0.700,0.87,45.498,45.498,0.926,36.693,36.693,2.051,5.897,5.897,0.943
+"Dynamic (limit 20), absolute head = Samudra production",2,0.961,0.959 0.963,0.883,0.778,0.779 0.776,0.867,20.516,20.493 20.539,0.885,15.462,15.478 15.447,1.277,3.098,3.172 3.023,0.827
+"Tendency (cap 1000), absolute head",1,2.695,2.695,0.615,2.058,2.058,0.57,23.278,23.278,0.847,18.058,18.058,1.175,6.259,6.259,0.831
+"Equal MSE, residual head",1,0.762,0.762,0.939,0.585,0.585,0.917,1.13,1.130,1.006,1.163,1.163,1.015,1.064,1.064,1.015
+"Dynamic (limit 20), residual head",2,0.765,0.761 0.769,0.949,0.607,0.605 0.609,0.928,0.831,0.821 0.842,1.0,0.99,0.989 0.992,1.0,0.98,0.983 0.976,0.999
+"Tendency (cap 20), residual head",1,0.807,0.807,0.953,0.659,0.659,0.929,1.209,1.209,1.007,1.289,1.289,1.028,1.049,1.049,1.012
+"Tendency (cap 1000), residual head",2,0.932,0.938 0.926,0.967,0.863,0.870 0.856,0.952,0.867,0.869 0.866,1.001,1.061,1.070 1.052,1.007,1.005,1.015 0.995,1.001
+"Tendency (cap 1000), residual head scaled by change std = GraphCast",2,0.744,0.744 0.745,0.941,0.598,0.597 0.599,0.919,0.666,0.665 0.667,0.999,0.935,0.936 0.933,1.0,0.932,0.928 0.936,0.997
+"Dynamic (limit 20), residual head scaled by change std",1,0.737,0.737,0.941,0.58,0.580,0.92,0.843,0.843,1.0,0.988,0.988,1.0,0.974,0.974,0.997
+"T only, residual head (no-mixing reference)",1,,,,,,,0.831,0.831,1.001,,,,,,

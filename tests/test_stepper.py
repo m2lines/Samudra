@@ -255,6 +255,90 @@ def test_two_input_one_output_training_shifts_predicted_history():
     assert [output.item() for output in outputs] == [3.0, 4.0]
 
 
+@pytest.mark.parametrize("hist", [1])
+def test_scaled_residual_inference_keeps_history_across_chunks(
+    two_input_one_output_dataset, hist
+):
+    assert hist == 1
+    dataset = two_input_one_output_dataset
+    model = ConstantOneStepResidualModel(
+        in_channels=3,
+        out_channels=1,
+        input_steps=2,
+        pred_residuals=True,
+        last_kernel_size=3,
+        pad="circular",
+        gradient_detach_interval=0,
+    )
+    model.set_residual_scale(torch.tensor([0.125]))
+    whole = model.inference(dataset, dataset.initial_prognostic, num_steps=3)
+    first = model.inference(dataset, dataset.initial_prognostic, num_steps=1)
+    rest = model.inference(
+        dataset, first.final_prognostic, steps_completed=1, num_steps=2
+    )
+    torch.testing.assert_close(
+        whole.prediction.flatten(), torch.tensor([2.125, 2.25, 2.375])
+    )
+    torch.testing.assert_close(
+        whole.prediction, torch.cat((first.prediction, rest.prediction))
+    )
+    torch.testing.assert_close(whole.final_prognostic, rest.final_prognostic)
+
+
+@pytest.mark.parametrize("hist", [1])
+def test_two_input_two_output_residual_rollout_is_identical_across_chunks(
+    inf_data_init, hist
+):
+    assert hist == 1
+    dataset, _ = inf_data_init
+    model = ConstantResidualModel(
+        in_channels=4,
+        out_channels=2,
+        input_steps=2,
+        pred_residuals=True,
+        last_kernel_size=3,
+        pad="circular",
+        gradient_detach_interval=0,
+    )
+    whole = model.inference(dataset, dataset.initial_prognostic, num_steps=3)
+    first = model.inference(dataset, dataset.initial_prognostic, num_steps=1)
+    rest = model.inference(
+        dataset, first.final_prognostic, steps_completed=1, num_steps=2
+    )
+    assert whole.prediction.flatten().tolist() == [1.0, 3.0, 2.0, 4.0, 3.0, 5.0]
+    torch.testing.assert_close(
+        whole.prediction, torch.cat((first.prediction, rest.prediction))
+    )
+    torch.testing.assert_close(whole.final_prognostic, rest.final_prognostic)
+
+
+def test_two_input_two_output_residual_training_and_validation_agree():
+    grid = torch.zeros(1)
+    ctx = BatchGrid(torch.ones((2, 1, 1), dtype=torch.bool), (grid, grid), (grid, grid))
+    batch = ModelBatch(ctx)
+    batch.append(
+        torch.tensor([[[[0.0]], [[2.0]]]]),
+        torch.zeros((1, 2, 1, 1)),
+        torch.tensor([[[[1.0]], [[3.0]]]]),
+    )
+    model = ConstantResidualModel(
+        in_channels=4,
+        out_channels=2,
+        input_steps=2,
+        pred_residuals=True,
+        last_kernel_size=3,
+        pad="circular",
+        gradient_detach_interval=0,
+    )
+    forward = model(batch)[0]
+    validation = validate_batch(
+        model, batch, lambda pred, target, ctx: (pred - target).square().mean((0, 2, 3))
+    )
+    torch.testing.assert_close(forward, batch.get_label(0))
+    torch.testing.assert_close(validation.gen_data, forward)
+    assert validation.loss.item() == 0.0
+
+
 def test_get_rollout_step_chunks_splits_by_forward_window():
     assert _get_rollout_step_chunks(total_steps=10, num_model_steps_forward=4) == [
         4,

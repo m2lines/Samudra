@@ -13,11 +13,13 @@ from typing import Any, cast
 import pandas as pd
 import pytest
 import torch
+import xarray as xr
 
 from samudra.config import (
     CpuDataLoadingConfig,
     DynamicLossConfig,
     SearchRunConfig,
+    TendencyLossConfig,
     TrainConfig,
 )
 from samudra.datasets import InferenceDataset, TorchBatchLoader
@@ -30,6 +32,7 @@ from samudra.train import (
 )
 from samudra.utils.ctx import BatchGrid
 from samudra.utils.ema import EMATracker
+from samudra.utils.location import UnresolvedLocation
 from samudra.utils.logging import handle_logging
 from samudra.utils.loss import DynamicLoss
 from samudra.utils.multiton import MultitonScope
@@ -682,6 +685,66 @@ def test_trainer_supports_two_input_one_output_batches(train_config):
         validation_logs = trainer.validate_one_epoch(epoch=2)
 
     assert any(key.startswith("val/reduced/weighted_rmse/") for key in validation_logs)
+
+
+@pytest.mark.parametrize("backend", ["cpu"], indirect=True)
+@pytest.mark.parametrize(
+    "data_source,config_name", [("mock-om4", DEFAULT_CONFIG)], indirect=True
+)
+def test_scaled_residual_training_and_ema_eval_share_checkpoint_scales(
+    train_config, tmp_path
+):
+    from samudra.config import EvalConfig
+    from samudra.eval import Eval
+
+    channels = train_config.data.sources[0].build_layout().prognostic_var_names
+    stats_path = tmp_path / "persistence.zarr"
+    xr.Dataset({c: xr.DataArray(0.01) for c in channels}).to_zarr(stats_path)
+    location = UnresolvedLocation(path=str(stats_path))
+    train_config.model.pred_residuals = True
+    train_config.model.residual_scale_location = location
+    train_config.data.input_steps = 2
+    train_config.data.output_steps = 1
+    train_config.data.loading.num_workers = 0
+    train_config.loss = TendencyLossConfig(
+        persistence_rms_location=location, max_weight_ratio=1000
+    )
+    with MultitonScope():
+        trainer = Trainer(train_config)
+        assert isinstance(trainer.model, BaseModel)
+        assert trainer.model.residual_scale is not None
+        scales = trainer.model.residual_scale.clone()
+        trainer.init_data_loaders(cur_step=2)
+        trainer.train_one_epoch(1, max_optimizer_steps=1)
+        torch.testing.assert_close(trainer.model.residual_scale, scales)
+        trainer.save_all_checkpoints(1, 0.0)
+        checkpoint = trainer.ckpt_paths.ema_checkpoint_path
+        trainer.train_loader.close()
+        trainer.val_loader.close()
+        trainer.finish()
+    experiment = train_config.experiment.model_copy(
+        update={"name": train_config.experiment.name + "-scaled-eval"}
+    )
+    # Cached paths belong to the training name; construct a fresh experiment.
+    experiment = type(experiment).model_validate(experiment.model_dump())
+    cfg = EvalConfig(
+        experiment=experiment,
+        data=train_config.data,
+        model=train_config.model,
+        ckpt_path=str(checkpoint),
+        backend="cpu",
+    )
+    with MultitonScope():
+        evaluation = Eval(cfg)
+        torch.testing.assert_close(evaluation.model.residual_scale, scales)
+        output = evaluation.model.inference(
+            evaluation.inference_dataset,
+            evaluation.inference_dataset.initial_prognostic,
+            num_steps=2,
+        )
+        assert torch.isfinite(output.prediction).all()
+        assert output.prediction.shape[1] == len(channels)
+        evaluation.wandb_logger.finish()
 
 
 @pytest.mark.parametrize("backend", ["cpu"], indirect=True)

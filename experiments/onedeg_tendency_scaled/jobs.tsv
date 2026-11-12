@@ -1,0 +1,6 @@
+prepare	22478109	2026-11-09-onedeg-tendency-scaled-2in1out-prepare
+train	22478111	2026-11-09-onedeg-tendency-scaled-2in1out
+eval	22478112	2026-11-09-onedeg-tendency-scaled-2in1out-eval
+viz	22478115	2026-11-09-onedeg-tendency-scaled-2in1out-viz
+metrics	22478116	2026-11-09-onedeg-tendency-scaled-2in1out-metrics
+imprint	22478118	2026-11-09-onedeg-tendency-scaled-2in1out-imprint

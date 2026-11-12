@@ -1,0 +1,80 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+base_output_dir: /scratch/am16581/runs
+basins_location:
+  anon: true
+  bucket: m2lines-pubs
+  endpoint_url: https://nyu1.osn.mghpcc.org
+  path: Samudra/basins/basin_masks_original.zarr
+  type: s3
+data:
+  inference_loading:
+    num_workers: 4
+    persistent_workers: true
+  input_steps: 2
+  loader_version: om4-torch
+  loading:
+    concurrent_compute: true
+    num_workers: 4
+    persistent_workers: true
+    pin_mem: true
+    type: cpu
+  masked_fill_value: 0.0
+  normalize_before_mask: true
+  output_steps: 2
+  sources:
+  - boundary_vars_key: tau_hfds_hfds_anom
+    data_location: OM4.zarr
+    data_means_location: OM4_means.zarr
+    data_stds_location: OM4_stds.zarr
+    grid_type: gaussian
+    inference_time:
+      end: '2022-12-24'
+      start: '2014-10-10'
+    prognostic_vars_key: thermo_dynamic_all
+    train_time:
+      end: '2013-09-30'
+      start: '1975-01-03'
+    type: om4
+    val_time:
+      end: '2014-10-05'
+      start: '2013-10-05'
+data_root: /scratch/am16581/data/om4_onedeg_v3
+dataset_name: OM4
+debug: false
+groundtruth_location: null
+groundtruth_time_range:
+  end: '2022-12-24'
+  start: '2014-10-20'
+name: 2026-11-09-onedeg-tendency-scaled-2in1out-viz
+not_steps: []
+observations: null
+runs:
+- location: /scratch/am16581/runs/2026-11-09-onedeg-tendency-scaled-2in1out-eval/predictions.zarr
+  name: scaled-tendency-2in1out
+  variables:
+  - thetao
+  - so
+  - uo
+  - vo
+  - tos
+  - zos
+- location: /scratch/am16581/runs/2026-11-03-onedeg-original-eval/predictions.zarr
+  name: paper-samudra2
+  variables:
+  - thetao
+  - so
+  - uo
+  - vo
+  - tos
+  - zos
+steps: null
+variables:
+- thetao
+- so
+- uo
+- vo
+- tos
+- zos

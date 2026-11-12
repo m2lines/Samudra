@@ -1,0 +1,54 @@
+{
+  "hypothesis": "Fixed inverse-tendency-variance weights plus residual prediction reduce velocity imprinting onto slowly evolving temperature and salinity.",
+  "loss_source_commit": "671e9c92",
+  "data_root": "/scratch/am16581/data/om4_onedeg_v3",
+  "baseline_rollout": "/scratch/am16581/runs/2026-11-03-onedeg-original-eval/predictions.zarr",
+  "baseline_checkpoint": "/scratch/am16581/weight-edit-eval-20261103/checkpoints/samudra2_onedeg_ema_ckpt.pt",
+  "training": {
+    "epochs": 70,
+    "gpus": 8,
+    "batch_size_per_gpu": 4,
+    "effective_batch_size": 32,
+    "seed": 15,
+    "learning_rate": 0.0006,
+    "checkpoint_for_evaluation": "final epoch EMA",
+    "paper_model": "widths [280,380,480,520], dilation [1,2,4,8], modified ConvNeXt, expansion 2, batch normalization, float32",
+    "interventions": ["uncapped tendency loss", "residual prediction"],
+    "operational_changes": ["preemptible checkpoints", "current preset rollout validation for monitoring"]
+  },
+  "statistics": {
+    "start": "1975-01-03",
+    "end": "2013-09-30",
+    "origin_stride": 1,
+    "difference": "one native 5-day step",
+    "masking": "land contributes zero; average over the full grid as in the training loss",
+    "normalization": "physical RMS divided by state standard deviation; inverse square weights normalized to channel mean 1"
+  },
+  "diagnostics": [
+    "Standard paired visualization against the paper Samudra 2 rollout and OM4",
+    "DUACS, OISST, IAP observation metrics with calendar-year bootstrap intervals",
+    "Depth-resolved direct and deseasonalized/detrended RMSE and R2 against OM4",
+    "Depth-resolved anomaly variance ratio and 5-day error-increment RMS",
+    "Correlation of slow-field error increments with OM4 velocity increments",
+    "Spatial correlation of excess slow-field variance maps with OM4 velocity variance maps",
+    "Variance maps and global-mean trajectories for deep and intermediate temperature and salinity"
+  ],
+  "interpretation": [
+    "A reduction in slow-field imprinting must be accompanied by retained slow-field variance and acceptable velocity skill; quiet output alone is not success.",
+    "This is a single-seed test of a joint loss and residual intervention. It cannot isolate loss causality without matched loss-only and residual-only controls.",
+    "The two-input/two-output baseline retains same-slot residual anchoring: each output is offset from the corresponding input two native steps earlier. Statistics remain native-one-step weights as implemented by the branch, rather than exact residual-target variance for this horizon.",
+    "Unit-mean weight normalization makes uncapped persistence losses equal across channels, up to a shared scalar; their absolute value is not necessarily 1.",
+    "Existing historical baseline training and current training code may differ beyond the explicit interventions; provenance and baseline comparisons are recorded, not treated as a fully matched randomized ablation."
+  ],
+  "residual_fixes_verified": ["4e09c32a (#658)", "55fe01dd (#860)"],
+  "additional_variant": {
+    "input_steps": 2,
+    "output_steps": 1,
+    "autoregressive_training_calls": 8,
+    "training_horizon_days": 40,
+    "residual_anchor": "latest input state; native 5-day increment",
+    "shared": "same tendency statistics, architecture, seed, batch size, optimizer, epoch count, data splits, and final EMA policy",
+    "interpretation": "Output horizon and autoregressive call count differ; this is a horizon variant, not a loss-only control."
+  },
+  "intended_to_merge": false
+}

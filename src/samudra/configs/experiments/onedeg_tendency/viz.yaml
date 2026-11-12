@@ -1,0 +1,26 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+base_output_dir: /scratch/am16581/runs
+name: 2026-11-09-onedeg-tendency-residual-viz
+dataset_name: OM4
+data_root: /scratch/am16581/data/om4_onedeg_v3
+data: !include ../../data/om4.yaml
+basins_location:
+  type: s3
+  anon: true
+  bucket: m2lines-pubs
+  path: Samudra/basins/basin_masks_original.zarr
+  endpoint_url: https://nyu1.osn.mghpcc.org
+groundtruth_time_range:
+  start: '2014-10-20'
+  end: '2022-12-24'
+observations: null
+runs:
+  - name: tendency-residual
+    location: /scratch/am16581/runs/2026-11-09-onedeg-tendency-residual-eval/predictions.zarr
+  - name: tendency-residual-2in1out
+    location: /scratch/am16581/runs/2026-11-09-onedeg-tendency-residual-2in1out-eval/predictions.zarr
+  - name: paper-samudra2
+    location: /scratch/am16581/runs/2026-11-03-onedeg-original-eval/predictions.zarr

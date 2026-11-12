@@ -1,0 +1,51 @@
+{
+  "hypothesis": "Residual prediction in tendency-normalized output units, with capped fixed tendency loss, reduces temperature/salinity imprinting while retaining physical variability and velocity skill over long rollouts.",
+  "recommendation_source": "experiments/tendency_loss/README.md at a396de43",
+  "resolution": "1 degree; validate the production U-Net and long rollouts before a separate quarter-degree confirmation",
+  "data_root": "/scratch/am16581/data/om4_onedeg_v3",
+  "statistics": {
+    "source_job": 22473844,
+    "source_parent": "/scratch/am16581/runs/_experiments",
+    "source_run": "2026-11-09-onedeg-tendency-residual-v2",
+    "source_subdirectory": "stats",
+    "training_range": "1975-01-03 to 2013-09-30",
+    "native_change_days": 5,
+    "mask": "land counted as zero change; average over the full grid",
+    "new_copy": "checksum-verified copy in this run's immutable submission bundle"
+  },
+  "model": {
+    "baseline": "Paper Samudra 2 widened modified ConvNeXt U-Net, batch normalization, float32",
+    "input_steps": 2,
+    "output_steps": 1,
+    "pred_residuals": true,
+    "residual_output_scale": "physical persistence RMS / state standard deviation, saved as a fixed model buffer",
+    "residual_anchor": "latest input; native five-day forecast"
+  },
+  "loss": {
+    "type": "tendency",
+    "metric": "mse",
+    "max_weight_ratio": 1000,
+    "output_scale_cap": null
+  },
+  "training": {
+    "epochs": 70,
+    "seed": 15,
+    "gpus": 8,
+    "batch_size_per_gpu": 4,
+    "effective_batch_size": 32,
+    "learning_rate": 0.0006,
+    "scheduler": "cosine",
+    "autoregressive_calls": 8,
+    "training_horizon_days": 40,
+    "checkpoint": "final epoch EMA",
+    "walltime": "24 hours with checkpoint resume on Slurm requeue"
+  },
+  "analysis": {
+    "rollout": "2014-2022",
+    "baseline": "/scratch/am16581/runs/2026-11-03-onedeg-original-eval/predictions.zarr",
+    "outputs": ["validation one-step MSE versus persistence", "2-4-cell zonal error spectra", "paired visualization", "DUACS/OISST/IAP metrics", "depth-resolved anomaly skill and retained variance", "slow-error versus velocity coupling", "variance maps and global mean trajectories"],
+    "interpretation": "This extends the report's small-CNN one-step evidence to a production U-Net and long rollouts. The joint parameterization and horizon changes do not identify loss-only causality. Quarter-degree confirmation is a subsequent experiment."
+  },
+  "superseded_pending_jobs_cancelled": [22473849, 22473850, 22473851, 22473852, 22473853, 22473855, 22473857],
+  "intended_to_merge": false
+}

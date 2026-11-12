@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794439433826,
+  "lastUpdate": 1794514579453,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -13308,6 +13308,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.14022269426505074",
             "extra": "mean: 17.345493802599993 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "c473ebd4ed20e87560a666b4ec997723be830843",
+          "message": "Rewrite AGENTS.md; add data/AGENTS.md and an ocean physics explainer (#978)\n\nThis PR rewrites `AGENTS.md`, the guide that coding agents (and\n`CLAUDE.md`, a symlink to it) load at the start of every session. It\nalso adds two documents for humans and agents. `data/AGENTS.md`\ndescribes the `ocean_preprocessing` subproject.\n`docs/concepts/ocean-physics.md` is an oceanography explainer for Python\ndata scientists, with a runnable Xarray example for each physical idea.\nAlong the way, it pins `data/` to Python 3.12 and records several data\nissues found by checking physical invariants against the published\nv2026-09 stores (#972–#975).\n\n<details>\n<summary>Details (written by Claude Opus 5.5 via Claude Code, pairing\nwith the maintainer)</summary>\n\n### `AGENTS.md`\n\nRestructured so instructions are separate from descriptions:\n\n* **Project layout:** a table of the three sub-projects (`/`, `data/`,\n`rust/loader/`) and their **separate environments**. Root `pytest`,\nmypy, and `uv sync` cover none of the other two, which was an easy trap\nfor agents.\n* **Rules**, grouped as ask first, repository hygiene, code design, and\nwriting. New ones include: never delete or overwrite existing OSN data\nwithout asking; don't commit large files; prefer functional composition\nover global state (no new multitons or aggregators; whole-rollout\nmetrics go in `samudra.metrics`); don't assume rectilinear grids; write\nZarr v2.\n* **Definition of done (draft):** infrastructure work is done when the\nimplementer believes it's complete, adversarial review has passed, and\nCI is green with no data-loader performance regressions. It\ndistinguishes *checks* (unit tests) from *searches* (property-based or\nfuzz tests written by an adversary), and points experiments to the\nexisting experiment-PR policy. It's marked as a draft for maintainers to\nrevise.\n* **Where to look:** a table pointing to each `docs/` page, replacing\nthe hand-maintained file tree and per-file lists. Those had gone stale\n(wrong counts, a nonexistent `tests/test_train.py`), and agents can run\n`ls` themselves.\n* **Known gotchas:**\n  * Python is pinned to 3.12.\n* jaxtyping shape annotations are *not* runtime-checked: the pytest hook\nnames packages that don't exist on the test path.\n  * `Normalize` is global state.\n  * Channels are flattened by depth.\n  * Benchmarks run only on `main`.\n  * Config schemas are generated.\n  * Two heat capacities exist in the code (#975).\n* **Glossary:** projects and simulations, grids, and variables with\nunits and typical ranges, plus physical checks.\n* **Ocean state invariants:** a compact checklist for metamorphic\ntesting, with the full reasoning in the docs explainer.\n* **Agent logs:** long-running local commands log to a gitignored\n`agent-logs/` directory with timestamped names, so humans can see what\nagents ran.\n\n### `data/AGENTS.md` (new)\n\nStates up front that `data/` is a separate mamba-managed project. It\ngives the commands to maintain it, notes that pins live in both\n`pyproject.toml` and `mamba_env.yaml`, and covers anonymous OSN access.\nIt trims the dataset example (formerly three full reprs in the root\nfile) to one repr plus a URL table, and adds data gotchas:\n\n* `areacello` is mislabeled, and is computed with the polar radius\n(#972).\n* `areacello` covers full cells, land included.\n* Per-level channels have empty `attrs`.\n* Rotated velocities still say \"X/Y\" in their metadata.\n* Means and snapshots are both in circulation.\n* OM4 and CM4 use different calendars.\n\n### `docs/concepts/ocean-physics.md` (new, in the docs nav under\nConcepts)\n\nFor Python programmers new to oceanography:\n\n1. The simulation we emulate and what one training sample is.\n2. How the data is laid out: grids, conservative regridding, area\nweighting, depth levels, masks, calendars.\n3. Variables and units, with plain-language definitions.\n4. Physics in a few ideas: the heat budget, salt conservation,\ngeostrophy, Ekman transport, stratification, and which motions each\nresolution can represent. Each idea has a collapsible **In Python**\nblock that runs on the published 1° store. Every number shown was\nproduced by running these snippets on the Torch DTN.\n5. Invariants with their reasoning: what's conserved and what must only\ndecrease under coarse-graining, within-dataset bounds and budgets, and\nmodel/loader symmetries. Also a table of reference values measured on\nv2026-09.\n6. What makes a good emulator: the current observation metrics, variance\ncollapse, and comparing short-term skill against persistence and\nclimatology.\n7. References: 13 sources, each cited next to the claim it supports. All\nDOIs resolve.\n\n`mkdocs.yml` gains the nav entry and the `md_in_html` extension, so\nMarkdown renders inside `<details>`.\n\n### Python 3.12 pin for `data/`\n\n`data/mamba_env.yaml` already pinned 3.12, but `data/pyproject.toml`\nallowed 3.13 and both data-test workflows ran a 3.13 matrix leg. This PR\nsets `requires-python = \">=3.12,<3.13\"`, drops the 3.13 classifier and\nmatrix entries, and updates the README.\n\n### Findings filed as issues (no data or pipeline code changes here)\n\n* #972: `areacello` labeled `km2` but in m², and computed with Earth's\npolar radius (0.47% low).\n* #973: ocean volume ~10% high, because bottom cells count their full\n`dz` and the stores have no bathymetry.\n* #974: near-fresh salinity cells (0.03 psu). Likely real estuaries;\nneeds confirmation.\n* #975: OHC uses c_p = 3992 in `constants` but 3850 in `metrics`, a 3.7%\ndisagreement.\n* #976: publish reference statistics as Parquet with each data release.\n* #977: property-based and metamorphic tests for the invariants.\n\n### Verification\n\n* `uvx pre-commit run` passes on all changed files, including `reuse\nlint`.\n* The docs site builds with `uv run --only-group docs zensical build`,\nthe same command as `pages.yml`. All 7 `<details>` blocks render, with\nno leaked code fences.\n* Each physics snippet was run against `v2026-09/om4_onedeg` (and the\nother two resolutions for the KE comparison).\n\n### Review notes\n\n* The variables table appears in both `AGENTS.md` (compact, for agents)\nand the explainer (canonical). Both say which one is canonical.\n* The reference-values table will go stale with the next data release.\n#976 is meant to replace it.\n* The Rules and the draft Definition of done are meant to be edited or\npruned by maintainers.\n\n</details>\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\n\n<!-- This is an auto-generated comment: release notes by coderabbit.ai\n-->\n<!-- coderabbit-ai-generated:v1 -->\n\n## Summary by CodeRabbit\n\n- **Documentation**\n- Added an Ocean Physics guide with examples, reference information, and\nchecks for working with training data.\n- Expanded project and data guidance, including environment setup and\nknown data considerations.\n  - Added the guide to the documentation navigation.\n- **Compatibility**\n- The data package now requires Python 3.12; Python 3.13 is no longer\nlisted as supported.\n- **Tests**\n  - Data test workflows now run on Python 3.12 only.\n<!-- end of auto-generated comment: release notes by coderabbit.ai -->\n\n---------\n\nCo-authored-by: Claude Opus 5.5 <noreply@anthropic.com>",
+          "timestamp": "2026-11-12T19:48:03Z",
+          "tree_id": "7d91eff6a88cf0db6a3ae5cd231dde2db59883b8",
+          "url": "https://github.com/m2lines/Samudra/commit/c473ebd4ed20e87560a666b4ec997723be830843"
+        },
+        "date": 1794514577640,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 1.0286284602004592,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00204268373919846",
+            "extra": "mean: 972.16831799999 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_dataset__1gb[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.3318966321140793,
+            "unit": "iter/sec",
+            "range": "stddev: 0.008062301365946918",
+            "extra": "mean: 3.012986283200007 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.06006557531726109,
+            "unit": "iter/sec",
+            "range": "stddev: 0.05869475261163066",
+            "extra": "mean: 16.648471187000006 sec\nrounds: 5"
           }
         ]
       }

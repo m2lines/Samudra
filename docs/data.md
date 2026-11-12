@@ -55,10 +55,6 @@ physical fields. Paths below are relative to
 These virtual Zarr v2 datasets retain the original tripolar grid, values, and
 chunk layouts. They are separate from the analysis-ready processed releases.
 The reference stores and their NetCDF targets are readable without credentials.
-The root Samudra environment uses the Zarr 2 reader, while the
-[data environment](../data/README.md#environment-setup) uses Zarr 3. The example
-selects synchronous filesystems for Zarr 2 and asynchronous filesystems for Zarr 3;
-both read the same Zarr v2 reference metadata.
 
 ```python
 import fsspec
@@ -67,6 +63,7 @@ import zarr
 from fsspec.implementations.reference import LazyReferenceMapper
 
 endpoint = "https://nyu1.osn.mghpcc.org"
+# Adapt between Zarr v2 and v3 readers.
 asynchronous = zarr.__version__.split(".", 1)[0] == "3"
 refs = LazyReferenceMapper(
     "m2lines-pubs/Samudra/raw/OM4-5daily.parquet",

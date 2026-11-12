@@ -167,8 +167,9 @@ add them here when you find them. Data-specific gotchas (mislabeled `areacello` 
 snapshots) are in `data/AGENTS.md`.
 
 * **Python is pinned to 3.12** (`>=3.12,<3.13`) in both the root package and `data/`.
-* **Shape annotations are enforced at test time.** pytest runs jaxtyping with beartype, so a `Float[Tensor, "batch
-  lat lon"]` annotation is checked at runtime, not just documentation. A wrong annotation fails tests.
+* **Shape annotations are not runtime-checked in `samudra`.** The pytest jaxtyping hook in `pyproject.toml`
+  (`--jaxtyping-packages=data,datasets,...`) names top-level packages `data` and `datasets`, and neither exists on the
+  test path. Treat annotations like `Float[Tensor, "batch lat lon"]` as documentation. Tests won't catch a wrong one.
 * **Two heat capacities.** `samudra.constants.CP_SW` is 3992 J kg⁻¹ K⁻¹, while `samudra.metrics.kernels.CP` is
   3850. OHC from the two code paths differs by 3.7%, so don't compare them directly (#975).
 * **`Normalize` is global state.** Tests that touch it need a `MultitonScope` to stay isolated.
@@ -216,7 +217,8 @@ A quick reference for agents. `docs/concepts/ocean-physics.md` is the fuller exp
   `hfds`, `hfds_anomalies`, optionally `wfo`).
 * **Rollout**: an autoregressive run where each prediction becomes the next input. Training rolls out a few steps;
   evaluation rolls out years (~580 five-day steps for 2014–2022).
-* **Time step**: 5 days, so 73 steps per year. 1958–2022 has 4745 steps.
+* **Time step**: nominally 5 days. Each calendar year holds 73 steps, re-anchored to January 3, so the step across
+  a leap-year boundary is 6 days (16 such steps in 1958–2022). The stored record has 4745 steps.
 * **ARCO**: analysis-ready, cloud-optimized. Data that is preprocessed and chunked for direct cloud reads.
 * **OSN**: Open Storage Network, an S3-compatible object store. Our public bucket is
   `https://nyu1.osn.mghpcc.org/m2lines-pubs/`.
@@ -248,13 +250,15 @@ means a unit, sign, mask, or normalization bug.
 * **Heat budget.** The ocean exchanges heat only through its surface. So the change in global OHC over a step should
   approximately equal area-integrated `hfds` × Δt. For scale: 100 W m⁻² for 5 days (4.3 × 10⁷ J m⁻²) warms a 50 m
   mixed layer by about 0.2 °C (ρ₀ c_p ≈ 4.1 × 10⁶ J m⁻³ K⁻¹).
-* **Salt conservation.** Total salt is conserved. Surface freshwater flux changes salinity only by dilution, so global
-  mean salinity should not drift during a rollout.
+* **Salt conservation.** Total salt is conserved. Mean salinity is total salt divided by volume, so freshwater input
+  changes it by dilution only when it changes the ocean's volume. Our levels have fixed volume, and in v2026-09 total
+  salt (Σ S × volume) drifts by only ~3 × 10⁻⁸ per year. Global-mean salinity should not drift during a rollout.
 * **Geostrophy.** Away from the equator, surface currents balance SSH gradients: u ≈ (g/f) k × ∇η, with
   f = 2Ω sin(lat) ≈ 10⁻⁴ s⁻¹ at mid-latitudes. A 1 m SSH change over 100 km implies ~1 m s⁻¹ flow. Use this to
   check `zos` against `uo`/`vo`. It breaks down near the equator, where f → 0.
-* **Ekman transport.** Wind stress drives a depth-integrated surface transport of τ/f, at right angles to the wind
-  (to the right in the Northern Hemisphere).
+* **Ekman transport.** Wind stress drives a depth-integrated volume transport of τ/(ρ₀ f) (m² s⁻¹) in the surface
+  layer, at right angles to the wind (to the right in the Northern Hemisphere). The surface current itself turns
+  less, about 45° in the classical theory.
 * **Stable stratification.** Density generally increases with depth. Where temperature increases with depth,
   salinity must compensate. Widespread inversions mean something is wrong.
 
@@ -269,10 +273,11 @@ metrics.
   volume-mean temperature and salinity agree across 1°, 1/2°, and 1/4° (to six significant figures in v2026-09). A
   mismatch beyond ~0.1% is a data-engineering bug.
 * **Across resolutions, quadratic quantities only decrease.** Variance, KE, EKE, and gradient magnitudes must not grow
-  as data is coarsened. Coarsening never creates new extremes. Spectra agree at scales both grids resolve.
+  as data is coarsened. Coarsening never creates new extremes. Spectra agree at scales much larger than the coarse grid spacing and any
+  filter scale.
 * **Within a dataset:** masks nest with depth, `ocean_fraction` lies in [0, 1] and doesn't increase with depth, NaNs
   match the masks, temperature ≥ freezing, salinity ≥ 0, area-mean `zos` ≈ 0, the global heat budget closes, total
-  salt doesn't drift, and steps are exactly 5 days apart.
+  salt doesn't drift, and steps are 5 days apart except a 6-day step across each leap-year boundary.
 * **Model and loader:** longitude-roll equivariance (for rolls that are multiples of the downsampling factor, with
   learned positional channels off), insensitivity to land values, batch independence, restart invariance, Rust/Python
   loader equivalence, normalization round trips, and forcing that measurably matters.

@@ -17,6 +17,7 @@ against. It has its own environment, dependencies, and tests. Nothing under `dat
 | --- | --- | --- |
 | Create the environment | `cd data && mamba env create -f mamba_env.yaml && mamba activate ocean_preprocessing` | xESMF needs conda-forge, so this is mamba, not uv. Installs the package in editable mode. |
 | Update the environment | `mamba env update -n ocean_preprocessing -f mamba_env.yaml` | |
+| Install test dependencies | `mamba install pytest scipy dask pre-commit` | The mamba environment doesn't include them (see `data/README.md`). |
 | Run tests | `cd data && python -m pytest tests` | CI (`.github/workflows/data-tests.yaml`) runs these on Python 3.12 with `pip install -e "./data[test]"`. |
 | CLI help | `python -m ocean_preprocessing om4 -- --help` | Also `cm4`, `basin_masks`, `.virtualize_om4`, `.make_norm_datasets`, `.obs_preprocessing`. |
 
@@ -92,8 +93,9 @@ find them.
   with Earth's polar radius (6356 km) instead of its mean radius (6371 km; see `r_earth` in
   `ocean_preprocessing/preprocessing.py`), so they are 0.47% too small. Area-weighted means are unaffected, but absolute
   global integrals (total OHC in J, ocean volume) are 0.47% low. Tracked in #972.
-* **`areacello` is the full cell area, land included** (the CMIP convention). Multiply by `ocean_fraction`, or mask with
-  the wet masks, before integrating over the ocean.
+* **`areacello` is the full cell area, land included** (the CMIP convention). Multiply by `ocean_fraction` before
+  integrating over the ocean. The boolean wet masks give a partially wet coastal cell its full area, so use them to
+  select cells, not to weight them.
 * **Per-level channels carry no attributes.** `thetao_0` has an empty `attrs`. Units and names live on the
   dataset-level attributes keyed by the base name (`ds.attrs["thetao"]`) and in `DataLayout.default_metadata` in
   `src/samudra/constants.py`.

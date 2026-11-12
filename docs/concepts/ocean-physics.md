@@ -85,7 +85,9 @@ fraction of each cell that is ocean at each level (cells along coastlines are pa
 
 ### Time
 
-One step is 5 days, so 73 steps per year and 4745 steps over 1958–2022. OM4 uses a Julian calendar (`cftime`
+One step is nominally 5 days. Each calendar year holds 73 steps, re-anchored to January 3, so the step across a
+leap-year boundary (December 28 to January 3) is 6 days. There are 16 of those in 1958–2022, and 4745 steps in all.
+Compute Δt from the time coordinate rather than assuming 5 days. OM4 uses a Julian calendar (`cftime`
 objects, not `numpy.datetime64`). CM4 uses a no-leap calendar. Never assume these align.
 
 ## Variables and units
@@ -157,7 +159,7 @@ Continuing from the previous snippet. `hfds` is a 5-day mean centered on each ti
 between two consecutive states is the average of their two fluxes.
 
 ```python
-DT = 5 * 86400.0                                             # Δt: one step, s
+DT = 5 * 86400.0                                             # Δt: one step, s (6 days across a leap-year boundary)
 volume = ds.areacello * ds.ocean_fraction * ds.dz            # (lev, y, x), m3
 surface_area = ds.areacello * ds.ocean_fraction.isel(lev=0)  # (y, x), m2
 
@@ -182,8 +184,10 @@ one step.
 
 ### Salt is conserved
 
-Evaporation and rain change the amount of water, not the amount of salt. Salt exchange with sea ice is small. Total
-salt in the ocean is effectively constant, and global-mean salinity should not drift during a rollout.
+Evaporation and rain change the amount of water, not the amount of salt. Salt exchange with sea ice is small, so
+total salt in the ocean is effectively constant. Mean salinity is total salt divided by volume, so freshwater input
+lowers it only by adding volume. Our 19 levels have fixed volume, and the published data's total salt barely moves.
+Global-mean salinity should not drift during a rollout.
 
 <details markdown>
 <summary>In Python</summary>
@@ -250,10 +254,12 @@ way to compare against satellite altimetry (DUACS), and it masks ±5° of latitu
 
 ### Wind pushes water sideways
 
-The wind's frictional push, combined with rotation, moves the surface layer at right angles to the wind: to the right
-in the Northern Hemisphere and to the left in the Southern. This is **Ekman transport**, τ / (ρ₀ f) in magnitude
-(m² s⁻¹, volume per unit width). It's why
-winds blowing along the equator or along coastlines produce upwelling of cold water.
+The wind's frictional push, combined with rotation, moves the wind-driven surface layer at right angles to the wind
+when integrated over the layer's depth: to the right in the Northern Hemisphere and to the left in the Southern. This
+is **Ekman transport**, τ / (ρ₀ f) in magnitude (m² s⁻¹, volume per unit width). The surface current itself turns
+less, about 45° in the classical theory, and the angle grows with depth (the Ekman spiral). So don't expect `uo_0` and
+`vo_0` to sit at 90° to the wind. Ekman transport is why winds blowing along the equator or along coastlines produce
+upwelling of cold water.
 
 <details markdown>
 <summary>In Python</summary>
@@ -351,18 +357,18 @@ gulf_stream = dict(y=slice(30, 45), x=slice(280, 310))
 for name in ("om4_onedeg", "om4_halfdeg", "om4_quarterdeg"):
     r = xr.open_zarr(URL.format(name)).isel(time=1000).sel(**gulf_stream)
     ke = 0.5 * (r.uo_0**2 + r.vo_0**2)                     # m2 s-2
-    area = r.areacello.where(ke.notnull())
+    area = (r.areacello * r.ocean_fraction.isel(lev=0)).where(ke.notnull())  # ocean area only
     mean_ke = float((ke * area).sum() / area.sum())
     print(name, f"{mean_ke:.4f}", f"{float(np.sqrt(2 * ke.max())):.2f} m/s")
 ```
 
 | Release | Area-mean KE (m² s⁻²) | Peak surface speed (m s⁻¹) |
 | --- | --- | --- |
-| 1° | 0.0160 | 0.69 |
-| 1/2° | 0.0206 | 0.90 |
-| 1/4° | 0.0225 | 0.98 |
+| 1° | 0.0167 | 0.69 |
+| 1/2° | 0.0210 | 0.90 |
+| 1/4° | 0.0227 | 0.98 |
 
-The 1/4° release keeps 40% more KE than 1°. All three come from the same 1/4° OM4 run, so the difference is purely
+The 1/4° release keeps 36% more KE than 1°. All three come from the same 1/4° OM4 run, so the difference is purely
 what each grid can hold. The same comparison globally gives a smaller gap (0.0167 vs 0.0194), because most of the
 ocean is less energetic than the Gulf Stream.
 
@@ -386,8 +392,10 @@ the cross-resolution invariants have caught real data-engineering bugs in this p
   before you regrid*. Regridding first blends cells and biases any quadratic quantity low.
 * **No new extremes.** A conservative regrid is a weighted average with non-negative weights. Each coarse value lies
   within the range of the fine values it covers, so global minima and maxima can only move inward.
-* **Spectra agree at shared scales.** At wavelengths both grids resolve, the power spectra should match. They may
-  differ only near the coarse grid's resolution limit.
+* **Spectra agree at well-resolved scales.** At wavelengths much longer than the coarse grid spacing, power spectra
+  should match. The coarse spectrum rolls off as it approaches its grid's limit. Filtering adds a gradual,
+  scale-dependent attenuation, not a sharp cutoff [[Grooms 2021](#ref-grooms)]. So for filtered products, compare
+  only where the filter's attenuation is negligible, or compare against the filter's expected response.
 
 ### Within one dataset
 
@@ -398,7 +406,8 @@ the cross-resolution invariants have caught real data-engineering bugs in this p
   CMIP defines it as dynamic sea level with the global mean removed [[Griffies 2016](#ref-griffies);
   [Gregory 2019](#ref-gregory)].
 * **The heat budget closes, and salt is conserved** (see the physics above).
-* **Time is regular.** Consecutive steps are exactly 5 days apart in the dataset's calendar.
+* **Time is regular.** Steps are 5 days apart, except a 6-day step across each leap-year boundary, where each year's
+  73 steps re-anchor to January 3. Any other spacing is a bug.
 
 ### Model, loader, and rollout
 

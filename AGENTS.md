@@ -170,7 +170,7 @@ snapshots) are in `data/AGENTS.md`.
 * **Shape annotations are enforced at test time.** pytest runs jaxtyping with beartype, so a `Float[Tensor, "batch
   lat lon"]` annotation is checked at runtime, not just documentation. A wrong annotation fails tests.
 * **Two heat capacities.** `samudra.constants.CP_SW` is 3992 J kg⁻¹ K⁻¹, while `samudra.metrics.kernels.CP` is
-  3850. OHC from the two code paths differs by 3.7%, so don't compare them directly.
+  3850. OHC from the two code paths differs by 3.7%, so don't compare them directly (#975).
 * **`Normalize` is global state.** Tests that touch it need a `MultitonScope` to stay isolated.
 * **Channels are flattened by depth.** Prognostic variables appear as `thetao_0` … `thetao_18`; level 0 is the
   surface. Variable sets are chosen by key (e.g. `prognostic_vars_key: thermo_dynamic_all`) in
@@ -265,20 +265,20 @@ cross-resolution ones have caught real data-engineering bugs late in this projec
 
 ### Reference values
 
-Computed with Xarray directly from the published v2026-09 OM4 stores, at time index 1000 (Sept 1971), with
+Computed with Xarray directly from the published v2026-09 OM4 stores (to be replaced by published reference statistics, #976), at time index 1000 (Sept 1971), with
 ρ₀ = 1035 kg m⁻³ and c_p = 3992 J kg⁻¹ K⁻¹. Unless noted, the 1°, 1/2° and 1/4° stores agree to six significant figures.
 
 | Quantity | v2026-09 OM4 | Real ocean | Note |
 | --- | --- | --- | --- |
 | Total `areacello` | 5.0767 × 10¹⁴ m² | 5.10 × 10¹⁴ m² (Earth) | 0.47% low: polar radius (#972) |
 | Ocean surface area | 3.588 × 10¹⁴ m² | 3.61 × 10¹⁴ m² | same 0.47% |
-| Ocean volume (Σ area × `ocean_fraction` × `dz`) | 1.476 × 10¹⁸ m³ | ~1.33–1.34 × 10¹⁸ m³ | ~10% high: bottom cells count their full `dz` (mean depth 4114 m vs ~3700 m). `samudra.metrics.kernels` integrates exact layer overlaps instead. |
+| Ocean volume (Σ area × `ocean_fraction` × `dz`) | 1.476 × 10¹⁸ m³ | ~1.33–1.34 × 10¹⁸ m³ | ~10% high: bottom cells count their full `dz` (mean depth 4114 m vs ~3700 m). `samudra.metrics.kernels` integrates exact layer overlaps instead. #973 |
 | Volume-mean temperature, salinity | 3.334 °C, 34.722 psu | ~3.5 °C, 34.7 psu | |
 | Global OHC, relative to 0 °C | 2.0334 × 10²⁵ J | | inherits the volume bias |
 | Area-mean `zos` | −0.0001 m | 0 by definition | CMIP `zos` is dynamic sea level with zero global mean |
 | Surface KE, area mean | 0.0167 / 0.0186 / 0.0194 m² s⁻² | | rises with resolution (1° / 1/2° / 1/4°) |
 | SST range | −1.91…32.52 / −1.98…32.71 / −2.01…32.75 °C | | widens with resolution |
-| Minimum salinity | 0.03 psu | | real: river estuaries (Ob Gulf, Río de la Plata, Amazon). Don't clamp. |
+| Minimum salinity | 0.03 psu | | real: river estuaries (Ob Gulf, Río de la Plata, Amazon). Don't clamp. #974 |
 
 ### Across resolutions (coarse-graining, regridding, filtering)
 

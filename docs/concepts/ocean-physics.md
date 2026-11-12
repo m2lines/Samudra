@@ -110,6 +110,11 @@ everywhere at once.
 You can go a long way with these. Standard references are Talley et al. (2011) for descriptive oceanography and
 Vallis (2017) for the dynamics [[Talley 2011](#ref-talley); [Vallis 2017](#ref-vallis)].
 
+Each idea has an **In Python** block that demonstrates it on the published 1° store. The blocks build on one another
+(constants such as `RHO_0` and `OMEGA` carry forward), so run them in order, starting from the `ds` opened
+[above](#how-the-data-is-laid-out). Each one reads a few hundred megabytes at most. The results shown came from
+running them on the NYU Torch data transfer node; expect them to be slower from a laptop.
+
 ### Heat goes in and out only at the surface
 
 The ocean's heat content in a water column is
@@ -180,6 +185,26 @@ one step.
 Evaporation and rain change the amount of water, not the amount of salt. Salt exchange with sea ice is small. Total
 salt in the ocean is effectively constant, and global-mean salinity should not drift during a rollout.
 
+<details markdown>
+<summary>In Python</summary>
+
+Practical salinity is close to grams of salt per kilogram of seawater, so salt mass is ρ₀ × S / 1000 × volume.
+
+```python
+volume = ds.areacello * ds.ocean_fraction * ds.dz           # (lev, y, x), m3
+
+def total_salt(t):
+    salinity = xr.concat([ds[f"so_{k}"].isel(time=t) for k in range(19)], dim="lev")
+    return float((RHO_0 * salinity / 1000 * volume).sum())  # kg
+
+start, end = total_salt(1000), total_salt(1000 + 73)        # 73 steps = one year
+print(f"{start:.2e} kg, relative change {end / start - 1:.0e}")  # 5.31e+19 kg, relative change 3e-08
+```
+
+Over the same year, global OHC swings by about 5.6 × 10²² J with the seasons. Salt barely moves.
+
+</details>
+
 ### Rotation dominates large-scale flow
 
 On a rotating planet, large, slow flows are in **geostrophic balance**: the Coriolis force balances the pressure
@@ -226,8 +251,39 @@ way to compare against satellite altimetry (DUACS), and it masks ±5° of latitu
 ### Wind pushes water sideways
 
 The wind's frictional push, combined with rotation, moves the surface layer at right angles to the wind: to the right
-in the Northern Hemisphere and to the left in the Southern. This is **Ekman transport**, τ / f in magnitude. It's why
+in the Northern Hemisphere and to the left in the Southern. This is **Ekman transport**, τ / (ρ₀ f) in magnitude
+(m² s⁻¹, volume per unit width). It's why
 winds blowing along the equator or along coastlines produce upwelling of cold water.
+
+<details markdown>
+<summary>In Python</summary>
+
+The northward Ekman transport is −τ_x / (ρ₀ f). The sign of f flips across the equator, which turns "to the right"
+into "to the left". Average the wind over a year first: a single 5-day snapshot can catch a wind belt during a weak
+or reversed spell.
+
+```python
+tau_x = ds.tauuo.isel(time=slice(1000, 1073)).mean("time")      # annual-mean eastward stress, N m-2
+f = 2 * OMEGA * np.sin(np.deg2rad(ds.y))
+northward = (-tau_x / (RHO_0 * f)).where(abs(ds.y) > 5)         # m2 s-1
+
+belts = {"NH trades": slice(10, 25), "NH westerlies": slice(35, 55),
+         "SH trades": slice(-25, -10), "SH westerlies": slice(-60, -40)}
+for name, band in belts.items():
+    print(name, float(tau_x.sel(y=band).mean()), float(northward.sel(y=band).mean()))
+```
+
+| Wind belt | Mean τ_x (N m⁻²) | Mean northward transport (m² s⁻¹) | Direction |
+| --- | --- | --- | --- |
+| NH trades (10–25°N), blowing west | −0.042 | +1.00 | poleward |
+| NH westerlies (35–55°N), blowing east | +0.036 | −0.33 | equatorward |
+| SH trades (10–25°S), blowing west | −0.043 | −1.03 | poleward |
+| SH westerlies (40–60°S), blowing east | +0.098 | +0.86 | equatorward |
+
+Trades push surface water poleward and westerlies push it toward the equator. Between them, around 30°, surface
+water converges into the subtropical gyres.
+
+</details>
 
 ### Dense water sits below light water
 
@@ -236,12 +292,81 @@ Density rises with salinity and falls with temperature. Away from regions of act
 compensates, as in parts of the polar oceans. Widespread density inversions in a model's output mean something is
 wrong.
 
+<details markdown>
+<summary>In Python</summary>
+
+Stability is measured by the squared buoyancy frequency N², which is positive where density increases with depth. We
+compute it with [`gsw`](https://github.com/TEOS-10/GSW-Python) (`pip install gsw`), the official Python
+implementation of the TEOS-10 seawater standard [[IOC 2010](#ref-teos10)]. TEOS-10 works in absolute salinity and
+conservative temperature, so we convert first.
+
+```python
+import gsw
+
+snap = ds.isel(time=1000)
+theta = xr.concat([snap[f"thetao_{k}"] for k in range(19)], dim="lev").values  # potential temperature
+sp = xr.concat([snap[f"so_{k}"] for k in range(19)], dim="lev").values         # practical salinity
+shape = theta.shape                                                           # (lev, y, x)
+depth = np.broadcast_to(ds.lev.values[:, None, None], shape)
+lat = np.broadcast_to(ds.lat.values, shape)
+lon = np.broadcast_to(ds.lon.values, shape)
+
+p = gsw.p_from_z(-depth, lat)                       # pressure, dbar
+sa = gsw.SA_from_SP(sp, p, lon, lat)                # absolute salinity, g/kg
+ct = gsw.CT_from_pt(sa, theta)                      # conservative temperature, °C
+n2, _ = gsw.Nsquared(sa, ct, p, lat, axis=0)        # (lev-1, y, x), s-2, between adjacent levels
+
+for k in range(n2.shape[0]):
+    wet = np.isfinite(n2[k])
+    print(k, f"{np.mean(n2[k][wet] < 0):.3f}")      # share of unstable pairs at each interface
+```
+
+In the ocean interior, roughly 30–4000 m, fewer than 1% of adjacent pairs are unstable. Negative N² clusters at the
+two ends of the column:
+
+* **The top interface (45% of pairs).** The surface mixed layer is stirred until it's nearly neutral, so tiny
+  negative values are normal.
+* **The deepest interface (16%).** There |N²| is only about 10⁻⁸ s⁻², effectively neutral.
+
+Judge a model's stratification in the interior. Instability concentrated there is the warning sign.
+
+</details>
+
 ### Resolution decides which motions exist
 
 The ocean's "weather" is **mesoscale eddies**, swirls with a size set by the Rossby deformation radius. That radius
 is ~200 km near the equator but only 10–30 km at high latitudes [[Chelton 1998](#ref-chelton)]. A 1° grid (~100 km)
 cannot represent most eddies. A 1/4° grid represents them in the subtropics but not near the poles. This is why
 kinetic energy grows with resolution, and why "smooth" output from a coarse model isn't automatically a bug.
+
+<details markdown>
+<summary>In Python</summary>
+
+Compare surface kinetic energy (KE) in the eddy-rich Gulf Stream across the three releases, at the same timestep.
+
+```python
+URL = "https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/v2026-09/{}/OM4.zarr"
+gulf_stream = dict(y=slice(30, 45), x=slice(280, 310))
+
+for name in ("om4_onedeg", "om4_halfdeg", "om4_quarterdeg"):
+    r = xr.open_zarr(URL.format(name)).isel(time=1000).sel(**gulf_stream)
+    ke = 0.5 * (r.uo_0**2 + r.vo_0**2)                     # m2 s-2
+    area = r.areacello.where(ke.notnull())
+    mean_ke = float((ke * area).sum() / area.sum())
+    print(name, f"{mean_ke:.4f}", f"{float(np.sqrt(2 * ke.max())):.2f} m/s")
+```
+
+| Release | Area-mean KE (m² s⁻²) | Peak surface speed (m s⁻¹) |
+| --- | --- | --- |
+| 1° | 0.0160 | 0.69 |
+| 1/2° | 0.0206 | 0.90 |
+| 1/4° | 0.0225 | 0.98 |
+
+The 1/4° release keeps 40% more KE than 1°. All three come from the same 1/4° OM4 run, so the difference is purely
+what each grid can hold. The same comparison globally gives a smaller gap (0.0167 vs 0.0194), because most of the
+ocean is less energetic than the Gulf Stream.
+
+</details>
 
 ## Invariants: checking your work with physics
 

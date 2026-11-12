@@ -48,7 +48,7 @@ from tests.conftest import (
     DataSourceDims,
     cache_dir,
 )
-from tests.llc_fixtures import write_raw_llc_zarr_datasets
+from tests.llc_fixtures import write_coarse_llc_dataset
 from tests.test_canonical_dataset import _equivalent_om4_sources
 
 
@@ -663,8 +663,8 @@ def _llc_data_config(
     *,
     prognostic_vars_key: str = "single_1",
     boundary_vars_key: str = "single_1",
-    train_end: str = "2011-09-12T12:00:00Z",
-    val_end: str = "2011-09-13T12:00:00Z",
+    train_end: str = "2011-09-13T05:00:00Z",
+    val_end: str = "2011-09-13T03:00:00Z",
 ) -> DataConfig:
     return DataConfig.model_validate(
         {
@@ -673,22 +673,21 @@ def _llc_data_config(
                     "type": "llc",
                     "prognostic_vars_key": prognostic_vars_key,
                     "boundary_vars_key": boundary_vars_key,
-                    "face": 1,
-                    "i_start": 0,
-                    "i_end": 4,
-                    "j_start": 0,
-                    "j_end": 3,
                     "train_time": {
-                        "start": "2011-09-10T12:00:00Z",
+                        "start": "2011-09-13T00:00:00Z",
                         "end": train_end,
                     },
                     "val_time": {
-                        "start": train_end,
+                        "start": str(
+                            np.datetime64(train_end.removesuffix("Z"))
+                            + np.timedelta64(1, "h")
+                        )
+                        + "Z",
                         "end": val_end,
                     },
                     "data_location": "data.zarr",
-                    "data_means_location": "means.zarr",
-                    "data_stds_location": "stds.zarr",
+                    "data_means_location": "data.zarr",
+                    "data_stds_location": "data.zarr",
                 }
             ],
             "input_steps": 2,
@@ -719,11 +718,11 @@ def _llc_torch_dataset(config: DataConfig, tmp_path) -> TorchTrainDataset:
     )
 
 
-def test_llc_train_dataset_loads_raw_zarr_single_channel(tmp_path):
-    write_raw_llc_zarr_datasets(tmp_path, n_time=6)
+def test_llc_train_dataset_loads_compact_zarr_single_channel(tmp_path):
+    write_coarse_llc_dataset(tmp_path, n_time=8)
     config = _llc_data_config(
-        train_end="2011-09-15T12:00:00Z",
-        val_end="2011-09-16T12:00:00Z",
+        train_end="2011-09-13T05:00:00Z",
+        val_end="2011-09-13T07:00:00Z",
     )
     torch_dataset = _llc_torch_dataset(config, tmp_path)
     host_batch = collate_host_batches([torch_dataset[0], torch_dataset[1]])
@@ -749,13 +748,13 @@ def test_llc_train_dataset_loads_raw_zarr_single_channel(tmp_path):
     assert boundary[0, 0, 0, 1] == boundary_values[0, 0, 0, 1]
 
 
-def test_llc_train_dataset_loads_all_raw_variable_families(tmp_path):
-    write_raw_llc_zarr_datasets(tmp_path, n_time=4)
+def test_llc_train_dataset_loads_all_compact_variable_families(tmp_path):
+    write_coarse_llc_dataset(tmp_path, n_time=8)
     config = _llc_data_config(
         prognostic_vars_key="all",
         boundary_vars_key="all",
-        train_end="2011-09-13T12:00:00Z",
-        val_end="2011-09-14T12:00:00Z",
+        train_end="2011-09-13T03:00:00Z",
+        val_end="2011-09-13T07:00:00Z",
     )
     config.input_steps = 1
     config.output_steps = 1

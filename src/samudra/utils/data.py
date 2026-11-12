@@ -446,40 +446,15 @@ def _level_index_from_var_name(var_name: str) -> int:
     return int(suffix) if suffix.isdigit() else 0
 
 
-def _var_without_level(var_name: str) -> str:
-    suffix = var_name.rsplit("_", maxsplit=1)[-1]
-    return var_name.rsplit("_", maxsplit=1)[0] if suffix.isdigit() else var_name
-
-
-def _preferred_available_var(
-    data: xr.Dataset, candidates: tuple[str, ...]
-) -> str | None:
-    return next((name for name in candidates if name in data.data_vars), None)
-
-
-def _mask_var_for_data_var(
-    data: xr.Dataset,
-    var_name: str,
-) -> str:
-    level = _level_index_from_var_name(var_name)
-    base_var = _var_without_level(var_name)
-    llc_staggered_masks = {
-        "U": (f"mask_w_{level}", f"hFacW_{level}"),
-        "oceTAUX": ("mask_w_0", "hFacW_0"),
-        "V": (f"mask_s_{level}", f"hFacS_{level}"),
-        "oceTAUY": ("mask_s_0", "hFacS_0"),
-    }
-    if base_var in llc_staggered_masks:
-        if mask_var := _preferred_available_var(data, llc_staggered_masks[base_var]):
-            return mask_var
-    return f"{_CANONICAL_MASK_PREFIX}{level}"
+def _mask_var_for_data_var(var_name: str) -> str:
+    return f"{_CANONICAL_MASK_PREFIX}{_level_index_from_var_name(var_name)}"
 
 
 def _mask_array_for_data_var(
     data: xr.Dataset,
     var_name: str,
 ) -> np.ndarray:
-    mask = data[_mask_var_for_data_var(data, var_name)]
+    mask = data[_mask_var_for_data_var(var_name)]
     if "time" in mask.dims:
         mask = mask.isel(time=0)
     return mask.to_numpy()
@@ -496,7 +471,7 @@ def extract_wet_mask(
         [_mask_array_for_data_var(data_, var_name) for var_name in prognostic_var_names]
     )
     boundary_mask_vars = [
-        _mask_var_for_data_var(data_, var_name) for var_name in boundary_var_names
+        _mask_var_for_data_var(var_name) for var_name in boundary_var_names
     ]
     boundary_masks = [
         _mask_array_for_data_var(data_, var_name) for var_name in boundary_var_names
@@ -756,6 +731,21 @@ def with_depth_value_vars(
             renames[var_name] = f"{base}_lev_{depth_str}"
 
     return data.rename(renames)
+
+
+def expand_compact_levels(dataset: xr.Dataset) -> xr.Dataset:
+    """Expose compact depth arrays as canonical channel views without rewriting storage."""
+    canonical = xr.Dataset(attrs=dataset.attrs)
+    for name, coordinate in dataset.coords.items():
+        if "lev" not in coordinate.dims:
+            canonical = canonical.assign_coords({name: coordinate})
+    for name, variable in dataset.data_vars.items():
+        if "lev" not in variable.dims:
+            canonical[str(name)] = variable
+            continue
+        for level in range(variable.sizes["lev"]):
+            canonical[f"{name}_{level}"] = variable.isel(lev=level, drop=True)
+    return canonical
 
 
 def with_lat_lon_coords(data: xr.Dataset) -> xr.Dataset:

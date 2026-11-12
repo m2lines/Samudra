@@ -93,8 +93,9 @@ find them.
   with Earth's polar radius (6356 km) instead of its mean radius (6371 km; see `r_earth` in
   `ocean_preprocessing/preprocessing.py`), so they are 0.47% too small. Area-weighted means are unaffected, but absolute
   global integrals (total OHC in J, ocean volume) are 0.47% low. Tracked in #972.
-* **`areacello` is the full cell area, land included** (the CMIP convention). Multiply by `ocean_fraction` before
-  integrating over the ocean. The boolean wet masks give a partially wet coastal cell its full area, so use them to
+* **`areacello` is the full cell area, land included** (the CMIP convention). Weight by `ocean_fraction` at the level
+  you integrate: `areacello * ocean_fraction.isel(lev=0)` for a surface integral, and
+  `areacello * ocean_fraction * dz` (summed over `lev`) for a volume integral. The boolean wet masks give a partially wet coastal cell its full area, so use them to
   select cells, not to weight them.
 * **Per-level channels carry no attributes.** `thetao_0` has an empty `attrs`. Units and names live on the
   dataset-level attributes keyed by the base name (`ds.attrs["thetao"]`) and in `DataLayout.default_metadata` in

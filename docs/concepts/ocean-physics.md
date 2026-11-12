@@ -159,7 +159,6 @@ Continuing from the previous snippet. `hfds` is a 5-day mean centered on each ti
 between two consecutive states is the average of their two fluxes.
 
 ```python
-DT = 5 * 86400.0                                             # Δt: one step, s (6 days across a leap-year boundary)
 volume = ds.areacello * ds.ocean_fraction * ds.dz            # (lev, y, x), m3
 surface_area = ds.areacello * ds.ocean_fraction.isel(lev=0)  # (y, x), m2
 
@@ -168,6 +167,7 @@ def global_ohc(t):
     return RHO_0 * C_P * float((theta * volume).sum())        # J
 
 t = 1000
+DT = (ds.time.values[t + 1] - ds.time.values[t]).total_seconds()  # Δt, s: 5 days, or 6 across a leap-year boundary
 d_ohc = global_ohc(t + 1) - global_ohc(t)                    # ΔOHC_global, J
 hfds = 0.5 * (ds.hfds.isel(time=t) + ds.hfds.isel(time=t + 1))
 heat_in = float((hfds * surface_area).sum()) * DT            # Σ hfds × area × Δt, J

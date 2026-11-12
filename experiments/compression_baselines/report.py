@@ -80,11 +80,43 @@ def main(out: Path):
             ax.set_yticks([])
             fig.colorbar(im, ax=ax, shrink=0.8)
         fig.tight_layout()
-        fig.savefig(out / "bits_gain_maps.png", dpi=120)
+        fig.savefig(out / "bits_gain_maps.png", dpi=90)
+        # 256-colour palette keeps this figure under the repo's 250 KB file limit
+        from PIL import Image
+
+        img = Image.open(out / "bits_gain_maps.png").convert("RGB")
+        img.quantize(colors=256).save(out / "bits_gain_maps.png", optimize=True)
         plt.close(fig)
 
-    # tables
+    # headline: three numbers per variable, as mean over levels (surface level in brackets)
+    def skill(c, m="mix"):
+        return 1 - ch[c]["rmse"][m] / max(ch[c]["rmse"]["persistence"], 1e-30)
+
     lines = [
+        "Headline, per variable: mean over its levels, with the surface level in brackets.",
+        "",
+        "| variable | levels | persistence bits | mix bits | bits saved by mix | RMSE skill of mix vs persistence | est. joint-coding gap (bits) |",
+        "|---|---:|---:|---:|---:|---:|---:|",
+    ]
+    for v in VARS + ["zos"]:
+        cs = sorted([c for c in ch if var_of(c) == v], key=lambda c: ch[c]["depth"])
+        if not cs:
+            continue
+        s = cs[0]
+
+        def fmt(f, nd=2, cs=cs, s=s):
+            return f"{np.mean([f(c) for c in cs]):.{nd}f} [{f(s):.{nd}f}]"
+
+        lines.append(
+            f"| {v} | {len(cs)} | {fmt(lambda c: ch[c]['bits']['persistence'])} "
+            f"| {fmt(lambda c: ch[c]['bits']['mix'])} "
+            f"| {fmt(lambda c: ch[c]['bits']['persistence'] - ch[c]['bits']['mix'])} "
+            f"| {fmt(skill, 3)} | {fmt(lambda c: ch[c]['joint_coding_gap_bits_est'])} |"
+        )
+    lines.append("")
+
+    # tables
+    lines += [
         "| channel | depth (m) | bin width | persistence | ar1 | lpc | lpc_ctx | analog | lpc_analog | mix | blosc residual bound |",
         "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]

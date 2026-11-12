@@ -1,0 +1,217 @@
+{
+  "experiment": "1-degree Samudra 2, capped tendency MSE, RMS-scaled residual output, two inputs and one output",
+  "run_name": "2026-11-09-onedeg-tendency-scaled-2in1out-rust-rtx8",
+  "training_source": "6574fbb6",
+  "container_source": "4f86be45",
+  "training": {
+    "epochs": 70,
+    "seed": 15,
+    "global_effective_batch": 32,
+    "final_360_day_validation_normalized_rmse": 0.26711062832220517,
+    "final_train_loss": 0.0027922955341637135,
+    "final_one_step_validation_loss": 0.000172690226463601,
+    "resumed_8gpu_elapsed": "4h38m09s",
+    "final_checkpoint": "epoch-70 EMA"
+  },
+  "jobs": {
+    "training": {
+      "id": 22735654,
+      "state": "COMPLETED"
+    },
+    "inference": {
+      "id": 22735655,
+      "state": "COMPLETED"
+    },
+    "observation_metrics": {
+      "id": 22735657,
+      "state": "COMPLETED"
+    },
+    "imprinting_diagnostics": {
+      "id": 22735658,
+      "state": "COMPLETED"
+    },
+    "visualization": {
+      "id": 22735656,
+      "state": "FAILED",
+      "cause": "xarrayutils.plotting imports unavailable tkinter",
+      "repair_source": "6da43534",
+      "repair_status": "adversarial review and local checks pass; waiting for Torch SSH access to deploy"
+    }
+  },
+  "wandb": {
+    "training": "https://wandb.ai/ocean_emulators/default/runs/qwpgt766",
+    "inference": "https://wandb.ai/ocean_emulators/default/runs/66sp3iin"
+  },
+  "paired_rollout": {
+    "start": "2015-01-03",
+    "end": "2022-12-24",
+    "timestamps": 583,
+    "spatial_weighting": "cos(latitude), wet cells only",
+    "anomalies": "remove pentad climatology and linear trend independently for each run"
+  },
+  "one_step_validation_mse_over_persistence": {
+    "one_step/so/mse_over_persistence": 0.5965450610800432,
+    "one_step/thetao/mse_over_persistence": 0.42357046122648895,
+    "one_step/uo/mse_over_persistence": 0.48634551257712205,
+    "one_step/vo/mse_over_persistence": 0.38721871549466386,
+    "one_step/zos/mse_over_persistence": 0.671758658139407
+  },
+  "paired_om4_comparison": {
+    "thetao": {
+      "levels_with_lower_full_rmse": 1,
+      "levels_with_lower_detrended_deseasonalized_rmse": 19,
+      "n_levels": 19,
+      "selected_depths": [
+        {
+          "depth_m": 3100.0,
+          "baseline_variance_ratio": 0.8242785326173794,
+          "new_variance_ratio": 0.7768055516928266
+        },
+        {
+          "depth_m": 5000.0,
+          "baseline_variance_ratio": 2.966014820021269,
+          "new_variance_ratio": 0.4321752404202501
+        },
+        {
+          "depth_m": 6000.0,
+          "baseline_variance_ratio": 8.975869714690388,
+          "new_variance_ratio": 0.0634955264417043
+        }
+      ]
+    },
+    "so": {
+      "levels_with_lower_full_rmse": 2,
+      "levels_with_lower_detrended_deseasonalized_rmse": 17,
+      "n_levels": 19,
+      "selected_depths": [
+        {
+          "depth_m": 3100.0,
+          "baseline_variance_ratio": 2.273264560767797,
+          "new_variance_ratio": 0.55089407564952
+        },
+        {
+          "depth_m": 5000.0,
+          "baseline_variance_ratio": 3.603877698059257,
+          "new_variance_ratio": 0.3555681974727525
+        },
+        {
+          "depth_m": 6000.0,
+          "baseline_variance_ratio": 10.90504982292259,
+          "new_variance_ratio": 0.0709969059659201
+        }
+      ]
+    },
+    "uo": {
+      "levels_with_lower_full_rmse": 19,
+      "levels_with_lower_detrended_deseasonalized_rmse": 19,
+      "n_levels": 19,
+      "selected_depths": [
+        {
+          "depth_m": 3100.0,
+          "baseline_variance_ratio": 0.4615432151921878,
+          "new_variance_ratio": 0.4982990119527295
+        },
+        {
+          "depth_m": 5000.0,
+          "baseline_variance_ratio": 0.3756896243181729,
+          "new_variance_ratio": 0.4081191959665528
+        },
+        {
+          "depth_m": 6000.0,
+          "baseline_variance_ratio": 0.3542693315136166,
+          "new_variance_ratio": 0.3962012158215512
+        }
+      ]
+    },
+    "vo": {
+      "levels_with_lower_full_rmse": 19,
+      "levels_with_lower_detrended_deseasonalized_rmse": 19,
+      "n_levels": 19,
+      "selected_depths": [
+        {
+          "depth_m": 3100.0,
+          "baseline_variance_ratio": 0.4486210762756665,
+          "new_variance_ratio": 0.4775965474415525
+        },
+        {
+          "depth_m": 5000.0,
+          "baseline_variance_ratio": 0.4043688575513522,
+          "new_variance_ratio": 0.4276523164186516
+        },
+        {
+          "depth_m": 6000.0,
+          "baseline_variance_ratio": 0.3948543176788102,
+          "new_variance_ratio": 0.4025927868408595
+        }
+      ]
+    }
+  },
+  "observation_rmse": {
+    "scaled-tendency": [
+      {
+        "metric": "surface_geostrophic_velocity_vector_total_rmse",
+        "depth": null,
+        "value": 0.2072851505419869,
+        "units": "m s-1"
+      },
+      {
+        "metric": "instantaneous_surface_eke_total_rmse",
+        "depth": null,
+        "value": 0.0457187557194612,
+        "units": "m2 s-2"
+      },
+      {
+        "metric": "surface_sst_total_rmse",
+        "depth": null,
+        "value": 1.1271916866029554,
+        "units": "degC"
+      },
+      {
+        "metric": "ohc_per_area_total_rmse",
+        "depth": "Surface (0-700m)",
+        "value": 4190725209.358131,
+        "units": "J m-2"
+      },
+      {
+        "metric": "ohc_per_area_total_rmse",
+        "depth": "Intermediate (700-2000m)",
+        "value": 2722601163.4483595,
+        "units": "J m-2"
+      }
+    ],
+    "paper-samudra2": [
+      {
+        "metric": "surface_geostrophic_velocity_vector_total_rmse",
+        "depth": null,
+        "value": 0.1942266984695451,
+        "units": "m s-1"
+      },
+      {
+        "metric": "instantaneous_surface_eke_total_rmse",
+        "depth": null,
+        "value": 0.0455485825157359,
+        "units": "m2 s-2"
+      },
+      {
+        "metric": "surface_sst_total_rmse",
+        "depth": null,
+        "value": 0.8865795203487004,
+        "units": "degC"
+      },
+      {
+        "metric": "ohc_per_area_total_rmse",
+        "depth": "Surface (0-700m)",
+        "value": 4096977665.6375895,
+        "units": "J m-2"
+      },
+      {
+        "metric": "ohc_per_area_total_rmse",
+        "depth": "Intermediate (700-2000m)",
+        "value": 2700086594.987858,
+        "units": "J m-2"
+      }
+    ]
+  },
+  "interpretation": "Joint design suppresses excess deep variability and improves anomaly skill and velocity RMSE versus OM4. Full temperature/salinity errors and observational SST/surface-velocity RMSE worsen. Deep variability is underpredicted. Loss-only causal attribution requires a matched ablation.",
+  "provenance": "Remote configs, source manifests, metrics CSVs and Zarr artifacts remain under the run directories on Torch. No checkpoints or rendered figures are committed."
+}

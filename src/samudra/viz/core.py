@@ -734,8 +734,6 @@ class Viz:
         print("OHC: ", coeffs_salinity_ground_trend[0] * 73)
 
         ax.legend(ncol=3, loc="upper left")
-        # ax.set_ylim([34.723, 34.728])
-        ax.set_ylim((34.72, 34.73))
         ax.set_title("")
         ax.yaxis.set_major_formatter(ScalarFormatter(useOffset=False))
         plt.savefig(
@@ -1492,9 +1490,6 @@ class Viz:
         )
 
         def ocean_temperature_profile(datasets, titles, plot_title):
-            # We import here to avoid importing tk unconditionally above
-            from xarrayutils.plotting import linear_piecewise_scale  # type: ignore
-
             fig, axs = plt.subplots(
                 2,
                 3,
@@ -1522,7 +1517,10 @@ class Viz:
                 im = data.plot(ax=ax[i], cmap="bwr", norm=norm, add_colorbar=False)
                 ax[i].invert_yaxis()
 
-                linear_piecewise_scale(1000, 5, ax=ax[i])
+                ax[i].set_yscale(
+                    "function",
+                    functions=(_profile_depth_forward, _profile_depth_inverse),
+                )
                 ax[i].axhline(1000, color="0.5", ls="--")
                 ax[i].set_yticks([0, 250, 500, 750, 1000, 3000, 5000])
                 ax[i].set_xticks([-60, -30, 0, 30, 60])
@@ -1628,7 +1626,6 @@ class Viz:
             ls="--",
         )
         f.write(f"\nSalinity GT Trend Slope : {coeffs_salinity_trend[0]}")
-        ax.set_ylim((5.861e22, 5.8632e22))
         ax.legend(ncol=3)
         ax.set_title("")
         f.write("\n")
@@ -2272,19 +2269,16 @@ class Viz:
         axs["map"].stock_img()
         axs["map"].coastlines(color="0.3", lw=0.5)
         axs["map"].gridlines(draw_labels=True, color="0.4")
-        # We import here to avoid importing tk unconditionally above
-        from xarrayutils.plotting import box_plot  # type: ignore
-
-        box_plot(
-            [bound_east, bound_west, bound_south, bound_north],
-            ax=axs["map"],
+        axs["map"].plot(
+            [bound_east, bound_east, bound_west, bound_west, bound_east],
+            [bound_south, bound_north, bound_north, bound_south, bound_south],
             color="orange",
             transform=ccrs.PlateCarree(),
             label="Full Profile",
         )
-        box_plot(
-            [nino_east, nino_west, bound_south, bound_north],
-            ax=axs["map"],
+        axs["map"].plot(
+            [nino_east, nino_east, nino_west, nino_west, nino_east],
+            [bound_south, bound_north, bound_north, bound_south, bound_south],
             color="red",
             ls="--",
             transform=ccrs.PlateCarree(),
@@ -3042,6 +3036,18 @@ class Viz:
         obs_figures.spectra_figures(
             rollouts, products, self.obs_path, self.observations.velocity_kind
         )
+
+
+def _profile_depth_forward(depth):
+    """Expand the top 1000 m sixfold, matching the existing profile layout."""
+    depth = np.asarray(depth)
+    return np.where(depth <= 1000, 1000 + 6 * (depth - 1000), depth)
+
+
+def _profile_depth_inverse(position):
+    """Invert the profile transform for Matplotlib's depth coordinates."""
+    position = np.asarray(position)
+    return np.where(position <= 1000, 1000 + (position - 1000) / 6, position)
 
 
 def isnan(x: xr.DataArray) -> xr.DataArray:

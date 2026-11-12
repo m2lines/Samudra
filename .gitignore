@@ -48,6 +48,7 @@ build/
 .claude/
 site/
 profiles/
+/agent-logs/
 
 # Build artifacts
 build/

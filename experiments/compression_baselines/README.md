@@ -224,6 +224,7 @@ experiment; that constraint was dropped.
 | `om4_twodeg_v2_forcing_results/` | 2° ladder with forcing, paired comparison |
 | `om4_onedeg_v2_forcing_results/` | 1° ladder with forcing, paired comparison |
 | `onestep_figures_onedeg_results/` | Figures and plotted numbers for `onestep_figures_onedeg.md` |
+| `joint_gap_results/` | Per-cell bits saved and the estimated joint-coding gap by depth, for the 2° and 1° runs and Samudra 2's own one-step errors (`joint_gap_plot.py`, `error_corr.py`; for #981) |
 | `samudra2_onestep_onedeg_results/` | Samudra 2 one-step scores beside the 1° ladder |
 | `metrics_onedeg_results/` | `samudra.metrics` logs for the Samudra 2 and persistence rollouts |
 | `om4_twodeg_results/` | v1 outputs (frozen) |

@@ -29,6 +29,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 from models import FEATURES, FORCING_FEATURES
@@ -48,7 +49,7 @@ def main() -> None:
     cache = Cache(a.cache)
     roller = Roller(cache, "lpc", forcing=True)
     chans, test, wet = roller.chans, roller.test, roller.wet
-    rep: dict = {"cache": str(a.cache)}
+    rep: dict[str, Any] = {"cache": str(a.cache)}
 
     # 0. The refactored stepping reproduces the earlier rollout.
     if a.check_against:
@@ -68,7 +69,7 @@ def main() -> None:
 
     # 1. Seed of the blow-up.
     prev, cur = roller.initial()
-    err = {c: [] for c in chans}
+    err: dict[str, list[np.ndarray]] = {c: [] for c in chans}
     with np.errstate(all="ignore"):
         for s in range(a.steps):
             nxt = roller.step(cur, prev, s + 1, check=False)
@@ -111,7 +112,7 @@ def main() -> None:
     )
     w_seed = roller.weights(c_seed)[iy, ix]
     prev, cur = roller.initial()
-    trace = []
+    trace: list[dict[str, Any]] = []
     with np.errstate(all="ignore"):
         for s in range(min(s_seed + 3, a.steps)):
             F = roller.features(c_seed, cur, prev, s + 1)[iy, ix]
@@ -185,8 +186,8 @@ def main() -> None:
     roller.prescribed_velocity = True
     prev, cur = roller.initial()
     n = roller.n_test - 2
-    cf = {"completed": True, "steps": n}
-    rms = {c: [] for c in ("thetao_6", "thetao_8", c_seed)}
+    cf: dict[str, Any] = {"completed": True, "steps": n}
+    rms: dict[str, list[float]] = {c: [] for c in ("thetao_6", "thetao_8", c_seed)}
     try:
         for s in range(n):
             nxt = roller.step(cur, prev, s + 1)

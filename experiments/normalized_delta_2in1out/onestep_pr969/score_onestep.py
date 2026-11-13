@@ -15,6 +15,7 @@ every forecast).
 import json
 import sys
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import xarray as xr
@@ -61,7 +62,7 @@ for c in channels:
     for v in f.values():
         wet &= np.isfinite(v).all(axis=0)
     w = np.where(wet, coslat, 0.0)
-    row = {}
+    row: dict[str, Any] = {}
     err_p = persist - truth
     mse_p_cell = np.mean(err_p**2, axis=0)
     row["persistence_rmse"] = float(

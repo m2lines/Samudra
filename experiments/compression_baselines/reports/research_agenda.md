@@ -110,6 +110,9 @@ different reference from the rest of the document.
 
 ## 3. Reviewer concerns
 
+A fuller, item-by-item treatment with recommendations and priorities is in
+[revision_questions.md](revision_questions.md).
+
 | Concern | What this experiment contributes | Status |
 |---|---|---|
 | Editor: compare with "important baselines, including a physics-based one and recent ML ones" (slide 1) | A transparent statistical baseline family, scored per channel, as a floor under Samudra 2 and Neptune. It is **not** physics-based and **not** recent ML, so it does not answer the request by itself; it gives the comparison a common bottom rung | Result at 2° (ladder); Samudra not yet scored |

@@ -17,7 +17,7 @@ from pathlib import Path
 
 import numpy as np
 from coding import ToleranceBins, blosc_bits_per_value, quantized_field
-from models import Ladder, Samples, lat_band, patch_features
+from models import FORCING_VARS, Ladder, Samples, lat_band, patch_features
 
 MAP_CHANNELS = ("thetao_0", "thetao_7", "so_0", "uo_0", "zos")
 
@@ -63,8 +63,17 @@ class Cache:
         return others, up, dn, f"uo_{k}", f"vo_{k}"
 
 
-def build_samples(cache: Cache, split: str, c: str, mean_c: float) -> Samples:
+def build_samples(
+    cache: Cache, split: str, c: str, mean_c: float, forcing: bool = False
+) -> Samples:
     A = cache.arr(split, c)
+    if forcing:
+        missing = [f for f in FORCING_VARS if f not in cache.meta.get("forcing", [])]
+        if missing:
+            raise ValueError(
+                f"cache has no forcing {missing}; run data.py CACHE --add-forcing"
+            )
+    forc = [cache.arr(split, f) for f in FORCING_VARS] if forcing else []
     others, up, dn, un, vn = cache.neighbours(c)
     other_arrs = [cache.arr(split, o) for o in others]
     U = cache.arr(split, up) if up else None
@@ -88,6 +97,9 @@ def build_samples(cache: Cache, split: str, c: str, mean_c: float) -> Samples:
             np.asarray(Vv[t]),
             mean_c,
             cache.inv_cos,
+            forcing=[(np.asarray(f[t]), np.asarray(f[t - 1])) for f in forc]
+            if forcing
+            else None,
         )
         cell = np.flatnonzero(ok)
         Fv = F.reshape(-1, F.shape[-1])[cell]
@@ -159,19 +171,20 @@ def run_channel(
     n_train: int,
     rng,
     diagnostics: bool = True,
+    forcing: bool = False,
 ) -> tuple[dict, dict]:
     t0 = time.time()
     A = cache.arr("train", c)
     vals = np.asarray(A)[:, cache.masks[cache.meta["levels"][c]]]
     mean_c = float(np.nanmean(vals))
     bins = ToleranceBins(eps * sig, sig)
-    tr = build_samples(cache, "train", c, mean_c)
+    tr = build_samples(cache, "train", c, mean_c, forcing)
     if len(tr.y) > n_train:
         tr = subset(tr, rng.choice(len(tr.y), n_train, replace=False))
     lad = Ladder(seed=int(rng.integers(1 << 31))).fit(tr)
-    va = build_samples(cache, "val", c, mean_c)
+    va = build_samples(cache, "val", c, mean_c, forcing)
     lad.tune_on_val(subset(va, area_sample(cache, va, n_eval // 2, rng)), bins)
-    te = build_samples(cache, "test", c, mean_c)
+    te = build_samples(cache, "test", c, mean_c, forcing)
     ev = subset(te, area_sample(cache, te, n_eval, rng))
     out = lad.predict(ev, bins)
     a_ev, b_ev = bins.tendency_interval(ev.x, ev.y)
@@ -271,6 +284,9 @@ def main():
     ap.add_argument("out", type=Path)
     ap.add_argument("--eps", type=float, required=True, help="bin width / sigma_delta")
     ap.add_argument("--no-diagnostics", action="store_true")
+    ap.add_argument(
+        "--forcing", action="store_true", help="add tauuo, tauvo, hfds features"
+    )
     ap.add_argument("--n-eval", type=int, default=8000)
     ap.add_argument("--n-train", type=int, default=400_000)
     ap.add_argument("--channels", default="")
@@ -292,6 +308,7 @@ def main():
             a.n_train,
             rng,
             diagnostics=not a.no_diagnostics,
+            forcing=a.forcing,
         )
         results.append(res)
         if any(c == m for m in MAP_CHANNELS):
@@ -303,6 +320,7 @@ def main():
         )
     meta = {k: v for k, v in cache.meta.items() if k != "splits"}
     meta["sigma_delta"] = sig
+    meta["forcing_features"] = list(FORCING_VARS) if a.forcing else []
     meta["dz"] = {c: float(cache.dz[cache.meta["levels"][c]]) for c in chans}
     meta["wet_area"] = {
         c: float(cache.area[cache.masks[cache.meta["levels"][c]]].sum()) for c in chans

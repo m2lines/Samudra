@@ -26,6 +26,8 @@ import numpy as np
 
 URL = "https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/v2026-09/{res}/OM4.zarr"
 VARS3D = ("thetao", "so", "uo", "vo")
+# Samudra's 2-degree boundary inputs (boundary_vars_key tau_hfds); 2-D, no level.
+FORCING_VARS = ("tauuo", "tauvo", "hfds")
 # Protocol v2 follows src/samudra/configs/data/om4_demo.yaml (the 2-degree preset):
 # validation and inference windows are Samudra's; the ladder trains on the last
 # four years of Samudra's training window (1975-01-03 to 2013-09-30).
@@ -71,14 +73,37 @@ def load_om4(cache: Path, res: str, splits: dict, levels) -> None:
         (cache / split).mkdir(exist_ok=True)
         meta["splits"][split] = [str(t) for t in ds.time.values[idx]]
         t0 = time.time()
-        for name, _ in chans:
+        for name in [c for c, _ in chans] + list(FORCING_VARS):
             arr = (
                 ds[name].isel(time=slice(idx[0], idx[-1] + 1)).values.astype(np.float32)
             )
             np.save(cache / split / f"{name}.npy", arr)
         print(
-            f"[data] {split}: {len(idx)} steps x {len(chans)} channels in {time.time() - t0:.0f}s"
+            f"[data] {split}: {len(idx)} steps x {len(chans)} channels + forcing in {time.time() - t0:.0f}s"
         )
+    meta["forcing"] = list(FORCING_VARS)
+    (cache / "meta.json").write_text(json.dumps(meta, indent=1))
+
+
+def add_forcing(cache: Path, res: str) -> None:
+    """Add the forcing fields to an existing cache, on exactly its time steps."""
+    import xarray as xr
+
+    meta = json.loads((cache / "meta.json").read_text())
+    if not meta["source"].endswith(f"/{res}/OM4.zarr"):
+        raise ValueError(f"cache source {meta['source']} is not {res}")
+    ds = xr.open_zarr(meta["source"])
+    for split, stamps in meta["splits"].items():
+        sl = ds.indexes["time"].slice_indexer(stamps[0], stamps[-1])
+        idx = np.arange(len(ds.time))[sl]
+        got = [str(t) for t in ds.time.values[idx]]
+        if got != stamps:
+            raise ValueError(f"{split}: store times differ from the cached ones")
+        for name in FORCING_VARS:
+            arr = ds[name].isel(time=slice(idx[0], idx[-1] + 1)).values
+            np.save(cache / split / f"{name}.npy", arr.astype(np.float32))
+        print(f"[data] {split}: added {', '.join(FORCING_VARS)} ({len(idx)} steps)")
+    meta["forcing"] = list(FORCING_VARS)
     (cache / "meta.json").write_text(json.dumps(meta, indent=1))
 
 
@@ -173,15 +198,24 @@ def make_synthetic(
         "depth": {c: float(k) for c, k in chans},
         "splits": {},
     }
+    # Toy forcing: smooth noise plus a share of the surface velocity, so it is
+    # correlated with the state. It only exercises the forcing code path.
+    for name in FORCING_VARS:
+        frames[name] = [
+            0.5 * frames["uo_0" if name != "tauvo" else "vo_0"][t]
+            + smooth(rng.normal(size=(ny, nx)), 10)
+            for t in range(total)
+        ]
     start = 20
     for split, n in zip(("train", "val", "test"), n_steps):
         (cache / split).mkdir(exist_ok=True)
         meta["splits"][split] = [f"step{t}" for t in range(start, start + n)]
-        for name, _ in chans:
+        for name in [c for c, _ in chans] + list(FORCING_VARS):
             arr = np.stack(frames[name][start : start + n]).astype(np.float32)
             arr[:, land] = np.nan
             np.save(cache / split / f"{name}.npy", arr)
         start += n
+    meta["forcing"] = list(FORCING_VARS)
     (cache / "meta.json").write_text(json.dumps(meta, indent=1))
 
 
@@ -191,6 +225,9 @@ if __name__ == "__main__":
     )
     ap.add_argument("cache", type=Path)
     ap.add_argument("--synthetic", action="store_true")
+    ap.add_argument(
+        "--add-forcing", action="store_true", help="add forcing to an existing cache"
+    )
     ap.add_argument("--res", default="om4_twodeg")
     ap.add_argument(
         "--levels", default="all", help="comma-separated level indices, or 'all' (19)"
@@ -200,6 +237,8 @@ if __name__ == "__main__":
     a = ap.parse_args()
     if a.synthetic:
         make_synthetic(a.cache)
+    elif a.add_forcing:
+        add_forcing(a.cache, a.res)
     else:
         levels = (
             list(range(19))

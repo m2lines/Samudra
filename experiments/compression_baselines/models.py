@@ -53,6 +53,11 @@ FEATURES = [f"d_{dy}_{dx}" for dy, dx in DIRS] + [
     "v_dTdy",
     "bias",
 ]
+# Atmospheric forcing, as Samudra receives it (boundary_vars_key tau_hfds): the
+# value at the latest input time t and its change since t-1. Inserted before
+# "bias" when enabled, so every index above stays the same and bias stays last.
+FORCING_VARS = ("tauuo", "tauvo", "hfds")
+FORCING_FEATURES = [f"{f}{suffix}" for f in FORCING_VARS for suffix in ("", "_tend")]
 
 
 def shift(f: np.ndarray, dy: int, dx: int) -> np.ndarray:
@@ -65,9 +70,12 @@ def _z(a):
     return np.nan_to_num(a, nan=0.0, posinf=0.0, neginf=0.0)
 
 
-def patch_features(cur, prev, others, up, down, u, v, mean_c, inv_cos) -> np.ndarray:
+def patch_features(
+    cur, prev, others, up, down, u, v, mean_c, inv_cos, forcing=None
+) -> np.ndarray:
     """Full-grid features (H, W, d) for one time step. others: list of (cur, prev)
-    pairs, up/down/u/v may be None.
+    pairs, up/down/u/v may be None. forcing: None, or one (cur, prev) pair per
+    FORCING_VARS entry, which adds FORCING_FEATURES before the bias.
     """
     tend = cur - prev
     feats = []
@@ -88,6 +96,11 @@ def patch_features(cur, prev, others, up, down, u, v, mean_c, inv_cos) -> np.nda
     dTdy = 0.5 * _z(shift(cur, 1, 0) - shift(cur, -1, 0))
     feats.append(_z(u) * dTdx if u is not None else np.zeros_like(cur))
     feats.append(_z(v) * dTdy if v is not None else np.zeros_like(cur))
+    if forcing is not None:
+        if len(forcing) != len(FORCING_VARS):
+            raise ValueError(f"expected {len(FORCING_VARS)} forcing pairs")
+        for fc, fp in forcing:
+            feats += [_z(fc), _z(fc - fp)]
     feats.append(np.ones_like(cur))
     return np.stack(feats, axis=-1)
 
@@ -130,6 +143,7 @@ class Ladder:
     # -- fitting
     def fit(self, tr: Samples):
         y = tr.y
+        self.d = tr.F.shape[1]
         self.b_persist = np.mean(np.abs(y)) + 1e-30
         t = tr.F[:, FEATURES.index("tend")]
         self.a_ar1 = float(t @ y / max(t @ t, 1e-30))
@@ -243,7 +257,7 @@ class Ladder:
         return self
 
     def n_params(self):
-        d = len(FEATURES)
+        d = self.d
         return {
             "persistence": 1,
             "ar1": 2,

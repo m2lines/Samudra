@@ -37,3 +37,4 @@ dependencies:
     - pip
     - pip:
       - -e .  # local sources
+      - -e ../src/samudra/test_utils  # shared test helpers that data/tests/conftest.py imports

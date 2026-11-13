@@ -6,7 +6,13 @@
 
 import os
 
-from samudra.test_utils.profiles import configure_profiles, tag_verification_items
+try:
+    from samudra.test_utils.profiles import configure_profiles, tag_verification_items
+except ModuleNotFoundError as error:
+    raise ModuleNotFoundError(
+        "The data tests need the shared test helpers. From the repository root, run: "
+        "pip install -e ./src/samudra/test_utils"
+    ) from error
 
 if storage := os.environ.get("SAMUDRA_STRING_STORAGE"):
     import pandas as pd

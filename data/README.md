@@ -400,8 +400,13 @@ Follow the CLI usage instructions to clone the repository and create a local mam
 the development dependencies:
 
 ```bash
-mamba install pytest scipy dask pre-commit hypothesis fastparquet
+mamba install pytest scipy dask pre-commit hypothesis pytest-reportlog
 ```
+
+`mamba_env.yaml` also installs the shared test helpers in `src/samudra/test_utils`, which `tests/conftest.py`
+imports. If you build the environment another way, install them from the repository root with
+`pip install -e ./src/samudra/test_utils`. They are a local path, not a PyPI package, so `pip install ".[test]"` can't
+install them.
 
 Run the data package tests from `data/` in the active environment:
 

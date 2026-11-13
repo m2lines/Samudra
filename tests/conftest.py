@@ -23,7 +23,7 @@ from samudra.train import Trainer
 from samudra.utils.data import CanonicalSource, Masks, compact_dataset
 from samudra.utils.multiton import MultitonScope
 
-configure_profiles(default_profile=None)
+configure_profiles(default_profile="unit")
 
 
 def pytest_collection_modifyitems(items):

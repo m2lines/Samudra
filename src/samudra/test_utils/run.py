@@ -6,7 +6,6 @@
 
 import argparse
 import hashlib
-import importlib.metadata
 import json
 import os
 import platform
@@ -15,6 +14,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from .artifacts import git_revision, write_environment
 from .reports import campaign_status, read_run
 
 
@@ -72,9 +72,7 @@ def main():
         "timeout_seconds": args.timeout,
         "python": sys.version,
         "platform": platform.platform(),
-        "revision": subprocess.check_output(
-            ["git", "rev-parse", "HEAD"], text=True
-        ).strip(),
+        "revision": git_revision(),
         "dependency_file": str(args.dependency_file),
         "dependency_sha256": hashlib.sha256(
             args.dependency_file.read_bytes()
@@ -84,15 +82,7 @@ def main():
     }
     (output / "replay.json").write_text(json.dumps(metadata, indent=2) + "\n")
     (output / "dependency-input.txt").write_bytes(args.dependency_file.read_bytes())
-    (output / "environment.txt").write_text(
-        "\n".join(
-            sorted(
-                f"{package.metadata['Name']}=={package.version}"
-                for package in importlib.metadata.distributions()
-            )
-        )
-        + "\n"
-    )
+    write_environment(output / "environment.txt")
     print(
         f"Running {args.suite}, seed {seed}; log: {output / 'pytest.log'}", flush=True
     )
@@ -107,22 +97,32 @@ def main():
                 check=False,
             )
             code = result.returncode
-            status = "passed" if code == 0 else "failed"
+            status, reason = ("passed" if code == 0 else "failed"), ""
         except subprocess.TimeoutExpired:
-            code, status = 124, "timeout"
+            code, status, reason = 124, "timeout", f"exceeded {args.timeout:.0f}s"
     if status != "timeout":
         try:
             status = campaign_status(code, read_run(output / "pytest.jsonl"))
             if code == 0 and status != "passed":
                 code = 5 if status == "no_tests" else 2
-        except (OSError, ValueError, KeyError):
+        except (OSError, ValueError, KeyError) as error:
             code, status = 2, "invalid"
+            reason = f"unreadable evidence: {type(error).__name__}: {error}"
     (output / "result.json").write_text(
-        json.dumps({"suite": args.suite, "status": status, "returncode": code}) + "\n"
+        json.dumps(
+            {
+                "suite": args.suite,
+                "status": status,
+                "reason": reason,
+                "returncode": code,
+            }
+        )
+        + "\n"
     )
     (output / "summary.md").write_text(
         f"### {args.suite} property campaign: {status}\n\n"
-        f"Seed: `{seed}`; requested examples per property: {args.examples}. "
+        + (f"Reason: {reason}\n\n" if reason else "")
+        + f"Seed: `{seed}`; requested examples per property: {args.examples}. "
         "Download the run artifact below for replay.json, pytest.jsonl, "
         "the environment and the full log.\n"
     )

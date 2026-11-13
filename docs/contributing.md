@@ -357,11 +357,13 @@ A *campaign* is one run of a property suite with a fixed seed and example budget
 
 | Workflow | When | Examples per property |
 | --- | --- | --- |
-| CPU tests (`test.yml`) | every PR | 40 |
+| CPU tests (`test.yml`), in a separate step | every PR | 40 |
+| Data tests (`data-tests.yaml`), with the rest of the data suite | every PR | 40 |
 | `Property soak` | nightly at 09:37 UTC, and on demand | 1,000 |
 | `Property mutation gate` | PRs and pushes to `main` that touch the data properties, mutation catalogs, or `test_utils`; also inside the nightly soak | 40 per mutation |
 
-The ordinary CPU test step skips `*_properties.py`, so each property runs once per PR. The soak runs the data suite in
+The root CPU test step skips `*_properties.py` and runs them in the separate step, so each property runs once per PR.
+The data suite has no separate step. The soak runs the data suite in
 three lanes. Two use the pinned `data/.test.yml`, one for each pandas string storage backend (Python and PyArrow). The
 third, a *canary*, uses `data/.test-canary.yml`, which floats within supported version ranges so upstream breakage
 shows up early. Scheduled runs start once the workflows are on `main`.

@@ -19,7 +19,6 @@ dependencies:
   - pandas=3.1.1
   - fsspec=2026.9.0
   - s3fs=2026.9.0
-  - fastparquet=2026.5.0
   - pyarrow=26.0.0
   - obstore>=0.12
   - obspec_utils>=0.9

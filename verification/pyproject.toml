@@ -7,9 +7,9 @@ build-backend = "setuptools.build_meta"
 requires = [ "setuptools>=61", "wheel" ]
 
 [project]
-name = "samudra-test-utils"
+name = "samudra-verification"
 version = "0.1.0"
-description = "Shared pytest campaign and mutation utilities for Samudra subprojects"
+description = "Property campaigns, mutation analysis, and triage shared by Samudra's projects"
 license = { text = "Apache-2.0" }
 requires-python = ">=3.12,<3.13"
 classifiers = [
@@ -19,5 +19,4 @@ classifiers = [
 dependencies = [ "hypothesis>=6.170.13", "pytest>=8.3.4", "pytest-reportlog>=1" ]
 
 [tool.setuptools]
-packages = [ "samudra.test_utils" ]
-package-dir = { "samudra.test_utils" = "." }
+packages = [ "samudra_verification" ]

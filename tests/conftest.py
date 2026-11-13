@@ -15,10 +15,10 @@ import pytest
 import torch
 import xarray as xr
 from numpy.typing import ArrayLike, NDArray
+from samudra_verification.profiles import configure_profiles, tag_project_items
 
 import samudra.constants as c
 from samudra.config import Om4DataSourceConfig, TrainBackendConfig, TrainConfig
-from samudra.test_utils.profiles import configure_profiles, tag_verification_items
 from samudra.train import Trainer
 from samudra.utils.data import CanonicalSource, Masks, compact_dataset
 from samudra.utils.multiton import MultitonScope
@@ -27,7 +27,7 @@ configure_profiles(default_profile="unit")
 
 
 def pytest_collection_modifyitems(items):
-    tag_verification_items(items, suite="samudra")
+    tag_project_items(items, project="samudra")
 
 
 REMOTE_DATA = "https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/"

@@ -69,8 +69,8 @@ optional-dependencies.test = [
   "hypothesis>=6.170.13",
   "pyarrow",              # Exercise the production Pandas/Parquet null-path representation.
   "pytest",
-  # The shared helpers in src/samudra/test_utils are a local path, not a PyPI
-  # package, so install them separately: pip install -e ./src/samudra/test_utils
+  # samudra-verification is a local project, not a PyPI package, so install it
+  # separately: pip install -e ./verification
   "pytest-reportlog>=1",
   "scipy",               # Write NetCDF3 fixtures for the virtualization tests.
 ]
@@ -80,4 +80,6 @@ exclude = [ "book", "docs" ] # exclude packages matching these glob patterns (em
 
 [tool.pytest.ini_options]
 testpaths = [ "tests" ]
-markers = [ "contract_probe: proposed contract or capability probe; excluded from automatic issue filing" ]
+markers = [
+  "invariant(status): status is 'proposed' or 'agreed'; triage never files failures of proposed invariants",
+]

@@ -2,7 +2,12 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Run one independently installed property suite with common replay artifacts."""
+"""Run one property campaign and write the artifacts needed to replay it.
+
+A campaign is one pytest session over property tests with a fixed seed and example
+budget. Its directory holds `replay.json` (the `CampaignSpec`), the dependency file
+it used, the installed packages, pytest's log and event stream, and the verdict.
+"""
 
 import argparse
 import hashlib
@@ -15,12 +20,22 @@ import sys
 from pathlib import Path
 
 from .artifacts import git_revision, write_environment
-from .reports import campaign_status, read_run
+from .evidence import read_run
+from .spec import CampaignSpec, Lane
+from .verdicts import CampaignStatus, Verdict, campaign_verdict
+
+EXIT_CODES = {
+    CampaignStatus.PASSED: 0,
+    CampaignStatus.COUNTEREXAMPLE: 1,
+    CampaignStatus.INVALID: 2,
+    CampaignStatus.TIMEOUT: 124,
+}
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--suite", required=True)
+    parser.add_argument("--project", required=True, help="e.g. samudra or data")
+    parser.add_argument("--lane", required=True, type=Lane, choices=list(Lane))
     parser.add_argument("--tests", required=True, type=Path, nargs="+")
     parser.add_argument(
         "--output", required=True, type=Path, help="New artifact directory"
@@ -61,34 +76,31 @@ def main():
         f"--report-log={output / 'pytest.jsonl'}",
         *extra,
     ]
-    metadata = {
-        "schema_version": 1,
-        "suite": args.suite,
-        "profile": "soak",
-        "examples": args.examples,
-        "seed": seed,
-        "command": command,
-        "cwd": str(Path.cwd()),
-        "timeout_seconds": args.timeout,
-        "python": sys.version,
-        "platform": platform.platform(),
-        "revision": git_revision(),
-        "dependency_file": str(args.dependency_file),
-        "dependency_sha256": hashlib.sha256(
-            args.dependency_file.read_bytes()
-        ).hexdigest(),
-        "lane": env.get("VERIFICATION_LANE", "pinned"),
-        "string_storage": env.get("SAMUDRA_STRING_STORAGE"),
-    }
-    (output / "replay.json").write_text(json.dumps(metadata, indent=2) + "\n")
+    spec = CampaignSpec(
+        project=args.project,
+        lane=args.lane,
+        string_storage=env.get("SAMUDRA_STRING_STORAGE"),
+        profile="soak",
+        examples=args.examples,
+        seed=seed,
+        timeout_seconds=args.timeout,
+        command=command,
+        cwd=str(Path.cwd()),
+        revision=git_revision(),
+        python=sys.version,
+        platform=platform.platform(),
+        dependency_file=str(args.dependency_file),
+        dependency_sha256=hashlib.sha256(args.dependency_file.read_bytes()).hexdigest(),
+    )
+    spec.write(output)
     (output / "dependency-input.txt").write_bytes(args.dependency_file.read_bytes())
     write_environment(output / "environment.txt")
     print(
-        f"Running {args.suite}, seed {seed}; log: {output / 'pytest.log'}", flush=True
+        f"Running {spec.label}, seed {seed}; log: {output / 'pytest.log'}", flush=True
     )
     with (output / "pytest.log").open("w") as log:
         try:
-            result = subprocess.run(
+            process = subprocess.run(
                 command,
                 env=env,
                 stdout=log,
@@ -96,38 +108,33 @@ def main():
                 timeout=args.timeout,
                 check=False,
             )
-            code = result.returncode
-            status, reason = ("passed" if code == 0 else "failed"), ""
         except subprocess.TimeoutExpired:
-            code, status, reason = 124, "timeout", f"exceeded {args.timeout:.0f}s"
-    if status != "timeout":
-        try:
-            status = campaign_status(code, read_run(output / "pytest.jsonl"))
-            if code == 0 and status != "passed":
-                code = 5 if status == "no_tests" else 2
-        except (OSError, ValueError, KeyError) as error:
-            code, status = 2, "invalid"
-            reason = f"unreadable evidence: {type(error).__name__}: {error}"
+            verdict = Verdict(CampaignStatus.TIMEOUT, f"exceeded {args.timeout:.0f}s")
+        else:
+            try:
+                verdict = campaign_verdict(
+                    process.returncode, read_run(output / "pytest.jsonl")
+                )
+            except (OSError, ValueError, KeyError) as error:
+                verdict = Verdict(
+                    CampaignStatus.INVALID,
+                    f"unreadable evidence: {type(error).__name__}: {error}",
+                )
     (output / "result.json").write_text(
         json.dumps(
-            {
-                "suite": args.suite,
-                "status": status,
-                "reason": reason,
-                "returncode": code,
-            }
+            {"campaign": spec.label, "status": verdict.status, "reason": verdict.reason}
         )
         + "\n"
     )
     (output / "summary.md").write_text(
-        f"### {args.suite} property campaign: {status}\n\n"
-        + (f"Reason: {reason}\n\n" if reason else "")
+        f"### {spec.label} property campaign: {verdict.status}\n\n"
+        + (f"{verdict.reason}\n\n" if verdict.reason else "")
         + f"Seed: `{seed}`; requested examples per property: {args.examples}. "
         "Download the run artifact below for replay.json, pytest.jsonl, "
         "the environment and the full log.\n"
     )
     print((output / "pytest.log").read_text(errors="replace"), end="", flush=True)
-    raise SystemExit(code)
+    raise SystemExit(EXIT_CODES[CampaignStatus(verdict.status)])
 
 
 if __name__ == "__main__":

@@ -403,10 +403,9 @@ the development dependencies:
 mamba install pytest scipy dask pre-commit hypothesis pytest-reportlog
 ```
 
-`mamba_env.yaml` also installs the shared test helpers in `src/samudra/test_utils`, which `tests/conftest.py`
-imports. If you build the environment another way, install them from the repository root with
-`pip install -e ./src/samudra/test_utils`. They are a local path, not a PyPI package, so `pip install ".[test]"` can't
-install them.
+`mamba_env.yaml` also installs `samudra_verification` from the repository's `verification/` project, which
+`tests/conftest.py` imports. If you build the environment another way, install it from the repository root with
+`pip install -e ./verification`. It isn't published on PyPI, so `pip install ".[test]"` can't install it.
 
 Run the data package tests from `data/` in the active environment:
 
@@ -439,9 +438,9 @@ Create the test environment and run a campaign from the repository root:
 ```bash
 micromamba create -f data/.test.yml
 micromamba activate samudra-data-test
-python -m pip install --no-deps --no-build-isolation -e ./src/samudra/test_utils -e ./data
+python -m pip install --no-deps --no-build-isolation -e ./verification -e ./data
 cd data
-python -m samudra.test_utils.run --suite data --tests tests/test_*_properties.py \
+python -m samudra_verification.campaign --project data --lane pinned --tests tests/test_*_properties.py \
   --dependency-file .test.yml --output /tmp/data-properties \
   --examples 1000 --seed 95920261105
 ```
@@ -451,27 +450,29 @@ dependencies. `.test.yml` pins direct dependencies only. It isn't a full lock, s
 with each artifact. `.test-canary.yml` floats within supported version ranges. `mamba_env.yaml` remains the
 environment for the rest of `data/`.
 
-The mutation catalog for these properties is `tests/virtual_archive_mutations.py`. Run the gate from the repository
-root, in the same environment:
+The fault catalog for these properties is `tests/virtual_archive_faults.py`. Each fault names the properties that
+should detect it. Run the gate from the repository root, in the same environment:
 
 ```bash
-python -m samudra.test_utils.mutations data/tests \
+python -m samudra_verification.gate data/tests \
   --output /tmp/property-mutations --seeds 0 1 95920261105 --timeout 60 --budget 600
 ```
 
-The gate works in four steps:
+The gate runs *trials*, each a fresh pytest process under one condition:
 
-1. It runs each property on unmodified code for all three seeds. Any failure here stops the gate, so a bug that
-   already exists is never counted as a kill.
-2. For each mutation, it finds the mutation's source anchor, which must match exactly once, so a refactor that moves
-   the code fails loudly. It substitutes the mutant in memory and runs the assigned property in a fresh subprocess.
-   Production files are never modified.
-3. Each mutant gets 40 generated examples and at most 60 seconds, within a shared 600-second budget. Explicit
+1. A *control* trial for each of the three seeds runs every detector on unmodified code. The control must be clean.
+   A dirty control stops the gate, so a bug that already exists is never credited as a kill.
+2. For each fault, the gate finds its source anchor, which must match exactly once, so a refactor that moves the code
+   fails loudly. It builds a *mutant* with the substitution applied in memory, and runs a mutant trial per seed with
+   that fault's detectors. Production files are never modified.
+3. Each detector gets 40 generated examples and at most 60 seconds, within a shared 600-second budget. Explicit
    `@example`s, the Hypothesis example database, and shrinking are turned off, so only newly generated inputs can kill
    a mutant.
-4. A mutant counts as killed only if the intended test's call phase failed, in a complete run with the expected
-   Hypothesis settings, source hashes, and collected tests. Setup or collection errors, skips, timeouts, missing
-   reports, and survivors all fail the gate.
+4. A mutant counts as killed only by an oracle failure: an assertion, `pytest.raises` not raising, or the code under
+   test crashing. Hypothesis's own errors (failed health checks, Unsatisfiable, Flaky) and errors showing the mutant is
+   broken code (`NameError`, `ImportError`, `SyntaxError`) make the trial invalid, as do setup or collection errors,
+   skips, timeouts, and drift from the expected settings, source hashes, or collected tests. Invalid trials and
+   survivors fail the gate, and every result records its reason in `results.json`.
 
 The gate runs on PRs and pushes to `main` that touch these files, inside the nightly soak, and on demand. A newer push
 to a PR cancels the older run. Each run's Summary shows `summary.md`. Its artifact, with source snapshots, commands,
@@ -480,7 +481,7 @@ timings, logs, and results, is kept for 30 days.
 To preview triage locally without contacting GitHub:
 
 ```bash
-python -m samudra.test_utils.triage /tmp/data-properties/pytest.jsonl \
+python -m samudra_verification.triage /tmp/data-properties \
   --repo m2lines/Samudra --run-url https://example.com/local-run
 ```
 

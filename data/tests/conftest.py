@@ -7,11 +7,11 @@
 import os
 
 try:
-    from samudra.test_utils.profiles import configure_profiles, tag_verification_items
+    from samudra_verification.profiles import configure_profiles, tag_project_items
 except ModuleNotFoundError as error:
     raise ModuleNotFoundError(
-        "The data tests need the shared test helpers. From the repository root, run: "
-        "pip install -e ./src/samudra/test_utils"
+        "The data tests need samudra-verification. From the repository root, run: "
+        "pip install -e ./verification"
     ) from error
 
 if storage := os.environ.get("SAMUDRA_STRING_STORAGE"):
@@ -24,4 +24,4 @@ configure_profiles()
 
 def pytest_collection_modifyitems(items):
     """Retain exploratory failures in CI without automatically filing them as bugs."""
-    tag_verification_items(items, suite="data")
+    tag_project_items(items, project="data")

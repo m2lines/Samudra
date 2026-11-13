@@ -13,10 +13,10 @@ from tempfile import TemporaryDirectory
 import pytest
 from hypothesis import given
 from hypothesis import strategies as st
-
-from samudra.test_utils import triage
-from samudra.test_utils.reports import Outcome, read_run
-from tests.report_log_fixtures import events, write_log
+from report_log_fixtures import events, write_log
+from samudra_verification import triage
+from samudra_verification.evidence import Outcome, read_run
+from samudra_verification.spec import CampaignSpec, Lane
 
 reports = triage.reports
 failure_text = st.text(max_size=128)
@@ -42,12 +42,12 @@ def test_different_counterexamples_for_one_property_create_one_issue(messages):
 
 
 @given(st.text(alphabet="abc012", min_size=1, max_size=12))
-def test_suite_namespaces_prevent_collisions(name):
+def test_project_namespaces_prevent_collisions(name):
     with TemporaryDirectory() as directory:
         path = Path(directory) / "pytest.jsonl"
-        write_log(path, events(nodeid=name, suite="data"))
+        write_log(path, events(nodeid=name, project="data"))
         data = reports(path, "https://example.com/run")
-        write_log(path, events(nodeid=name, suite="samudra"))
+        write_log(path, events(nodeid=name, project="samudra"))
         assert reports(path, "https://example.com/run").keys().isdisjoint(data.keys())
 
 
@@ -56,10 +56,10 @@ def test_suite_namespaces_prevent_collisions(name):
     st.sampled_from(["passed", "failed", "skipped"]),
     st.booleans(),
 )
-def test_phase_failures_have_one_shared_classification(phase, outcome, probe):
+def test_phase_failures_have_one_shared_classification(phase, outcome, proposed):
     with TemporaryDirectory() as directory:
         path = Path(directory) / "pytest.jsonl"
-        trace = events(outcome="passed", probe=probe)
+        trace = events(outcome="passed", proposed=proposed)
         next(event for event in trace if event["when"] == phase)["outcome"] = outcome
         write_log(path, trace, exitcode=int(outcome == "failed"))
         run = read_run(path)
@@ -70,7 +70,7 @@ def test_phase_failures_have_one_shared_classification(phase, outcome, probe):
         )
         assert run.cases[0].outcome == expected
         assert bool(reports(path, "https://example.com/run")) == (
-            expected == Outcome.FAILED and not probe
+            expected == Outcome.FAILED and not proposed
         )
 
 
@@ -143,6 +143,22 @@ def test_read_only_triage_keeps_every_recurrence_without_issue_fanout(states):
     with TemporaryDirectory() as directory, pytest.MonkeyPatch.context() as patch:
         root = Path(directory)
         path = root / "pytest.jsonl"
+        CampaignSpec(
+            project="data",
+            lane=Lane.PINNED,
+            string_storage=None,
+            profile="soak",
+            examples=1,
+            seed=0,
+            timeout_seconds=1,
+            command=[],
+            cwd=str(root),
+            revision="0" * 40,
+            python="3.12",
+            platform="test",
+            dependency_file="unused",
+            dependency_sha256="0" * 64,
+        ).write(root)
         write_log(
             path,
             [
@@ -176,7 +192,7 @@ def test_read_only_triage_keeps_every_recurrence_without_issue_fanout(states):
             "argv",
             [
                 "reporter",
-                str(path),
+                str(root),
                 "--repo",
                 "owner/repo",
                 "--run-url",

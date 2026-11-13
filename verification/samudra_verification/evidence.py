@@ -2,11 +2,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Domain results over pytest-reportlog's native JSONL event stream.
+"""What happened in a pytest session, read from pytest-reportlog's JSONL events.
 
-A call failure is a counterexample. A setup/teardown/collection failure is an
-execution error. An interrupted stream is an incomplete run. These distinctions
-are shared by ordinary campaigns, mutation checks, and human triage.
+This module records evidence only. Deciding whether a session can be trusted, and
+what it means, belongs to `verdicts`.
 """
 
 import json
@@ -30,12 +29,22 @@ class Case:
     details: str
 
     @property
-    def contract_probe(self) -> bool:
-        return self.properties.get("contract_probe") == "true"
+    def project(self) -> str:
+        """The project whose conftest tagged this test (see `profiles.tag_project_items`)."""
+        if "project" not in self.properties:
+            raise ValueError(
+                f"{self.nodeid} has no project tag; its conftest must call tag_project_items"
+            )
+        return self.properties["project"]
+
+    @property
+    def proposed(self) -> bool:
+        """Whether the test checks an invariant the team hasn't agreed on yet."""
+        return self.properties.get("invariant_status") == "proposed"
 
 
 @dataclass(frozen=True)
-class Run:
+class PytestRun:
     cases: tuple[Case, ...]
     exitcode: int | None
     collection_errors: tuple[str, ...]
@@ -51,7 +60,7 @@ class Run:
         }
 
 
-def read_run(path: Path) -> Run:
+def read_run(path: Path) -> PytestRun:
     """Read public pytest events; reject contradictory or malformed evidence."""
     reports: dict[str, dict[str, dict]] = {}
     collection_errors = []
@@ -125,25 +134,4 @@ def read_run(path: Path) -> Run:
                     f"{title}\n{text}" for title, text in event.get("sections", [])
                 )
         cases.append(Case(nodeid, outcome, properties, "\n".join(details)))
-    return Run(tuple(cases), exitcode, tuple(collection_errors))
-
-
-def campaign_status(returncode: int, run: Run) -> str:
-    """A green process is insufficient without complete, nonempty pytest evidence."""
-    if not run.complete or run.exitcode != returncode:
-        return "incomplete"
-    if run.collection_errors or any(
-        case.outcome == Outcome.ERROR for case in run.cases
-    ):
-        return "error"
-    if returncode == 5 and not run.cases:
-        return "no_tests"
-    if returncode != 0:
-        return "failed"
-    if any(case.outcome == Outcome.FAILED for case in run.cases):
-        return "invalid"
-    return (
-        "passed"
-        if any(case.outcome == Outcome.PASSED for case in run.cases)
-        else "no_tests"
-    )
+    return PytestRun(tuple(cases), exitcode, tuple(collection_errors))

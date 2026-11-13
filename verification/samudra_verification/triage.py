@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Prepare read-only triage and manual issue reports; only --apply writes to GitHub.
+"""Match a campaign's failing properties to GitHub issues; only --apply writes to GitHub.
 
 One issue per property, not per random seed. Closed issues stay closed: a human
 must decide whether a recurrence merits reopening or a different invariant.
@@ -16,7 +16,8 @@ import json
 import subprocess
 from pathlib import Path
 
-from .reports import Outcome, read_run
+from .evidence import Outcome, read_run
+from .spec import CampaignSpec
 
 
 def reports(path, run_url):
@@ -28,15 +29,9 @@ def reports(path, run_url):
             found  # Interrupted evidence is an execution problem, not a product report.
         )
     for case in run.cases:
-        if case.contract_probe or case.outcome != Outcome.FAILED:
+        if case.proposed or case.outcome != Outcome.FAILED:
             continue
-        if "verification_suite" not in case.properties:
-            raise ValueError(
-                f"{case.nodeid} has no verification_suite; its conftest must call "
-                "tag_verification_items"
-            )
-        suite = case.properties["verification_suite"]
-        identity = f"{suite}:{case.nodeid}"
+        identity = f"{case.project}:{case.nodeid}"
         digest = hashlib.sha256(identity.encode()).hexdigest()[:20]
         marker = f"<!-- property-failure:{digest} -->"
         found[marker] = {
@@ -98,7 +93,7 @@ def triage_summary(candidates, existing, run_url):
 
 def render_summary(summary):
     lines = [
-        f"# Property triage: {html.escape(summary.get('lane', 'manual'))}",
+        f"# Property triage: {html.escape(summary['campaign'])}",
         "",
         f"Run: {summary['run_url']}",
         "",
@@ -120,7 +115,7 @@ def render_summary(summary):
             [
                 "",
                 f"Pytest: {counts['failed']} failures, {counts['error']} errors, "
-                f"{counts['skipped']} skipped; {counts['contract_probes']} contract probes excluded.",
+                f"{counts['skipped']} skipped; {counts['proposed']} proposed invariants excluded.",
             ]
         )
     return "\n".join(lines) + "\n"
@@ -150,22 +145,18 @@ def file_new_reports(candidates, repo, invoke=gh):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("report", type=Path)
+    parser.add_argument("campaign", type=Path, help="A campaign's artifact directory")
     parser.add_argument("--repo", required=True)
     parser.add_argument("--run-url", required=True)
     parser.add_argument("--apply", action="store_true")
-    parser.add_argument(
-        "--lane",
-        default="manual",
-        help="Regression/backend or canary lane shown in triage",
-    )
     parser.add_argument(
         "--triage-output",
         type=Path,
         help="Write read-only triage JSON and Markdown to a new directory",
     )
     args = parser.parse_args()
-    candidates = reports(args.report, args.run_url)
+    report = args.campaign / "pytest.jsonl"
+    candidates = reports(report, args.run_url)
     if args.triage_output:
         if args.apply:
             parser.error(
@@ -174,15 +165,14 @@ def main():
         summary = triage_summary(
             candidates, lookup_issues(args.repo) if candidates else [], args.run_url
         )
-        summary["lane"] = args.lane
-        run = read_run(args.report)
+        summary["campaign"] = CampaignSpec.read(args.campaign).label
+        run = read_run(report)
         summary["pytest"] = {
             **run.counts(),
             "collection_errors": len(run.collection_errors),
             "complete": run.complete,
-            "contract_probes": sum(
-                case.contract_probe and case.outcome == Outcome.FAILED
-                for case in run.cases
+            "proposed": sum(
+                case.proposed and case.outcome == Outcome.FAILED for case in run.cases
             ),
         }
         args.triage_output.mkdir(parents=True, exist_ok=False)

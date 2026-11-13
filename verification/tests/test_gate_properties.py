@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""A broken test process or incomplete baseline must never produce a mutation kill."""
+"""A broken test process or an untrustworthy control must never produce a kill."""
 
 import json
 from pathlib import Path
@@ -12,11 +12,21 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 from hypothesis.errors import InvalidArgument
+from report_log_fixtures import events, write_log
+from samudra_verification import gate
+from samudra_verification.faults import Fault
+from samudra_verification.verdicts import TrialStatus
 
-from samudra.test_utils import mutations as gate
-from tests.report_log_fixtures import events, write_log
+FAULT = Fault("fault", "subject", "a", "b", ("test_subject.py::test_property",))
 
-outcome = gate.outcome
+
+def outcome(returncode, path, expected, condition=None):
+    """Interpret a mutant trial over the nodes recorded in `expected`."""
+    condition = condition or gate.Mutant(FAULT, Path("unused"))
+    trial = gate.Trial(condition, 0, tuple(expected["nodeids"]))
+    return gate.interpret(trial, returncode, path, expected)
+
+
 # Only construct inner test wrappers; they are never executed by these properties.
 integer_test = given(st.integers())
 
@@ -25,8 +35,8 @@ def evidence(path, nodes):
     expected = {
         "nodeids": sorted(nodes),
         "profile": gate.EXPECTED_PROFILE,
-        "target_sha256": "a" * 64,
-        "mutant_sha256": None,
+        "targets": {"subject": {"path": "subject.py", "sha256": "a" * 64}},
+        "mutant": None,
     }
     (path.parent / "execution.json").write_text(json.dumps(expected))
     return expected
@@ -76,6 +86,16 @@ def test_only_oracle_failures_kill_a_mutant(failures):
         )
 
 
+@given(st.booleans())
+def test_a_control_failure_is_dirty_never_a_kill(oracle):
+    with TemporaryDirectory() as directory:
+        path = Path(directory) / "pytest.jsonl"
+        kind = "oracle" if oracle else "hypothesis"
+        _, expected = failure_report(path, [("builtins.AssertionError", kind)])
+        verdict = outcome(1, path, expected, gate.Control())
+        assert verdict.status == ("dirty" if oracle else "invalid")
+
+
 @given(st.sampled_from(["error", "skipped"]))
 def test_setup_errors_and_skips_invalidate_an_apparent_kill(interruption):
     with TemporaryDirectory() as directory:
@@ -88,7 +108,7 @@ def test_setup_errors_and_skips_invalidate_an_apparent_kill(interruption):
 
 
 @given(st.integers(1, 8))
-def test_removing_a_selected_test_invalidates_a_clean_baseline(count):
+def test_removing_a_selected_test_invalidates_a_survivor(count):
     with TemporaryDirectory() as directory:
         path = Path(directory) / "pytest.jsonl"
         nodes = [f"test_subject.py::property_{index}" for index in range(count)]
@@ -119,8 +139,8 @@ def test_same_count_of_different_tests_does_not_count_as_a_kill(other):
             "phases",
             "database_disabled",
             "deadline_disabled",
-            "target_sha256",
-            "mutant_sha256",
+            "targets",
+            "mutant",
             "nodeids",
         ]
     )
@@ -136,8 +156,8 @@ def test_profile_source_or_collection_drift_invalidates_a_kill(field):
             "phases": ["explicit"],
             "database_disabled": False,
             "deadline_disabled": False,
-            "target_sha256": "b" * 64,
-            "mutant_sha256": "b" * 64,
+            "targets": {"subject": {"path": "elsewhere.py", "sha256": "a" * 64}},
+            "mutant": {"module": "subject", "sha256": "b" * 64},
             "nodeids": [],
         }
         if field in actual["profile"]:
@@ -191,15 +211,16 @@ def test_shared_budget_caps_each_case_and_stops_scheduling(elapsed, per_case, bu
     assert gate.remaining_timeout(budget, per_case, elapsed + 1) <= allowed
     if elapsed >= budget:
         assert allowed == 0
-        result = gate.run_case(
-            None, [], 0, allowed, target_sha256="unused", catalog_path=None
+        trial = gate.Trial(gate.Control(), 0, ())
+        result = gate.run_trial(
+            trial, Path("unused"), allowed, catalog_path=None, targets={}
         )
-        assert result["status"] == "budget_exhausted"
+        assert result["status"] == TrialStatus.BUDGET_EXHAUSTED
 
 
 @settings(max_examples=3, deadline=None)
 @given(limit=st.integers(1, 9), seed=st.integers(0, 1000))
-def test_real_subprocess_gate_distinguishes_baseline_from_inserted_fault(limit, seed):
+def test_real_subprocess_gate_distinguishes_control_from_mutant(limit, seed):
     """The same generated oracle passes clean code and kills an in-memory fault."""
     import time
 
@@ -207,7 +228,7 @@ def test_real_subprocess_gate_distinguishes_baseline_from_inserted_fault(limit, 
         root = Path(directory)
         (root / "pytest.ini").write_text("[pytest]\n")
         (root / "conftest.py").write_text(
-            "from samudra.test_utils.profiles import configure_profiles\nconfigure_profiles()\n"
+            "from samudra_verification.profiles import configure_profiles\nconfigure_profiles()\n"
         )
         target = root / "verification_subject.py"
         target.write_text("def identity(value):\n    return value\n")
@@ -218,22 +239,22 @@ def test_real_subprocess_gate_distinguishes_baseline_from_inserted_fault(limit, 
             f"@given(st.integers(0, {limit}))\n"
             "def test_identity(value):\n    assert identity(value) == value\n"
         )
-        catalog = root / "identity_mutations.py"
+        catalog = root / "identity_faults.py"
         catalog.write_text(
             "from pathlib import Path\n"
-            "from samudra.test_utils.catalogs import Catalog, Mutation\n"
+            "from samudra_verification.faults import Catalog, Fault\n"
             "root = Path(__file__).parent\n"
-            "CATALOG = Catalog(root, 'verification_subject', root/'verification_subject.py', "
-            "root/'test_subject.py', ("
-            "Mutation('offset', 'return value', 'return value + 1', 'test_identity'), "
-            "Mutation('broken', 'return value', 'return undefined_name', 'test_identity')))\n"
+            "detect = ('test_subject.py::test_identity',)\n"
+            "CATALOG = Catalog(root, ("
+            "Fault('offset', 'verification_subject', 'return value', 'return value + 1', detect), "
+            "Fault('broken', 'verification_subject', 'return value', 'return undefined_name', detect)))\n"
         )
         # The broken mutant fails with NameError, which is not an oracle verdict.
         assert not gate.run_catalog(
             catalog, root / "output", [seed], 15, time.monotonic() + 60
         )
         results = json.loads((root / "output/results.json").read_text())
-        assert results[f"baseline-{seed}"]["status"] == "passed"
+        assert results[f"control-{seed}"]["status"] == "clean"
         assert results[f"offset-{seed}"]["status"] == "killed"
         assert results[f"broken-{seed}"]["status"] == "invalid"
         assert "NameError" in results[f"broken-{seed}"]["reason"]

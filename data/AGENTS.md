@@ -15,12 +15,12 @@ against. It has its own environment, dependencies, and tests. Nothing under `dat
 
 | Task | Command | Notes |
 | --- | --- | --- |
-| Create the environment | `cd data && mamba env create -f mamba_env.yaml && mamba activate ocean_preprocessing` | xESMF needs conda-forge, so this is mamba, not uv. Installs the package and the shared test helpers (`src/samudra/test_utils`) in editable mode. |
+| Create the environment | `cd data && mamba env create -f mamba_env.yaml && mamba activate ocean_preprocessing` | xESMF needs conda-forge, so this is mamba, not uv. Installs the package and `samudra_verification` (from `verification/`) in editable mode. |
 | Update the environment | `mamba env update -n ocean_preprocessing -f mamba_env.yaml` | |
 | Install test dependencies | `mamba install pytest scipy dask pre-commit hypothesis pytest-reportlog` | `mamba_env.yaml` doesn't include them (see `data/README.md`). |
-| Run tests | `cd data && python -m pytest tests` | Runs everything, property tests included, at 40 examples each. CI (`.github/workflows/data-tests.yaml`) does the same on Python 3.12 after `pip install -e ./src/samudra/test_utils -e "./data[test]"`. |
-| Reproduce the property CI | `mamba env create -p <dir> -f data/.test.yml`, then `pip install --no-deps --no-build-isolation -e ./src/samudra/test_utils -e ./data` from the repository root | The pinned environment the soak and mutation gate use. It can run only the property tests (`tests/test_*_properties.py`), since it leaves out dask, xgcm, and other dependencies of the rest of the suite. |
-| Run the mutation gate | `python -m samudra.test_utils.mutations data/tests --output <dir> --seeds 0 1 95920261105 --timeout 60 --budget 600` | From the repository root, in the property environment. Checks that the property tests catch each fault in the `*_mutations.py` catalogs. See "Definition of done" in the root `AGENTS.md`. |
+| Run tests | `cd data && python -m pytest tests` | Runs everything, property tests included, at 40 examples each. CI (`.github/workflows/data-tests.yaml`) does the same on Python 3.12 after `pip install -e ./verification -e "./data[test]"`. |
+| Reproduce the property CI | `mamba env create -p <dir> -f data/.test.yml`, then `pip install --no-deps --no-build-isolation -e ./verification -e ./data` from the repository root | The pinned environment the soak and mutation gate use. It can run only the property tests (`tests/test_*_properties.py`), since it leaves out dask, xgcm, and other dependencies of the rest of the suite. |
+| Run the mutation gate | `python -m samudra_verification.gate data/tests --output <dir> --seeds 0 1 95920261105 --timeout 60 --budget 600` | From the repository root, in the property environment. Checks that the property tests detect each fault in the `*_faults.py` catalogs. See "Definition of done" in the root `AGENTS.md`. |
 | CLI help | `python -m ocean_preprocessing om4 -- --help` | Also `cm4`, `basin_masks`, `.virtualize_om4`, `.make_norm_datasets`, `.obs_preprocessing`. |
 
 Dependencies live in **four places**: `data/pyproject.toml` (used by the data-test CI), `data/mamba_env.yaml` (used by

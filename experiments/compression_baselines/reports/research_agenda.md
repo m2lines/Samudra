@@ -33,9 +33,10 @@ checkpoint yet.
 This is the current focus.
 
 - **A floor beyond persistence and climatology (Result).** On 2° OM4, `mix` beats
-  persistence in bits on all 77 channels. Its RMSE skill against persistence is
-  0.04–0.16, depending on variable ([v1](v1_om4_twodeg.md); v2 numbers are in
-  [v2](v2_om4_twodeg.md)). The CLAUDE.md rule "beat persistence and climatology"
+  persistence in bits on all 77 channels, in both runs. In v2 (an eight-year
+  test window), its mean RMSE skill against persistence is 0.05–0.18, depending
+  on variable. One channel, `so_2`, has negative RMSE skill, which is still
+  unexplained ([v2](v2_om4_twodeg.md), finding 5). The CLAUDE.md rule "beat persistence and climatology"
   can be made sharper: beat `mix`, channel by channel, in bits and in RMSE. A
   single-step change that loses to a 63-parameter regression somewhere has a
   located defect.
@@ -66,9 +67,9 @@ validated first on deliberately degraded truth, then on Samudra.
 | Sawtooth trends | Successive changes flip sign: lag-1 autocorrelation of the change goes negative where the truth's is positive | Compare the AR(1) coefficient of the change, truth vs forecast, per channel. The ladder already fits it | Deep T and S time series (slides 3, 12–13, 18–19) |
 | Sticking in attractor states | Changes collapse toward zero while the state sits far from truth: the forecast is *too cheap* to encode, and persistence explains it too well | Bits below truth's at long lead, together with a growing mean-state error; blosc ratio below 1 | Persistent subsurface cold bias and OHC drift (slides 7–8, 40) |
 
-Two facts from v1 make the sawtooth check concrete. True deep tracer changes are
-positively persistent: `ar1` alone has RMSE skill 0.205 at `thetao_18` and 0.220
-at `so_18`, compared with persistence (Result). So a sign-flipping forecast at
+One fact makes the sawtooth check concrete: true deep tracer changes are
+positively persistent. `ar1` alone has RMSE skill 0.176 at `thetao_18` and 0.214
+at `so_18`, compared with persistence (v2; v1 gave 0.205 and 0.220) (Result). So a sign-flipping forecast at
 depth is easy to tell apart from the truth.
 
 ### Fit with the observation metrics system

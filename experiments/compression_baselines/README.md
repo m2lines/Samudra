@@ -1,280 +1,231 @@
 <!-- SPDX-FileCopyrightText: 2026 Samudra Authors -->
 <!-- SPDX-License-Identifier: CC-BY-4.0 -->
 
-# Compression baselines: bits per value for ocean emulators
+# Compression baselines: scoring ocean forecasts in bits
 
-> **Draft in progress (2026-11-12).** The code on this branch is now protocol v2
-> (Keisler tolerance bins, Samudra's 2° splits); the v2 OM4 run is still going.
-> The text below still describes v1 and will be rewritten as an overview. Read
-> [`reports/v1_om4_twodeg.md`](reports/v1_om4_twodeg.md) (frozen v1 report) and
-> [`reports/research_agenda.md`](reports/research_agenda.md) (draft: how this
-> serves the Samudra agenda). `reports/v2_om4_twodeg.md` comes with the v2 results.
+This is an experiment record, not intended to merge. This page explains, from
+first principles, what the experiment does and why. The results are in
+[`reports/`](reports/):
 
-**Status: run on OM4 2° (`v2026-09/om4_twodeg`) on 2026-11-12; results below.**
-Every number in this README comes from a file in `om4_twodeg_results/`. The
-code that produced `results.json` is commit `06f69d3` (`git_hash.txt`). After
-the run, `report.py` gained the headline table and a smaller maps figure, and
-`tables.md` and the figures were re-rendered from the same `results.json` and
-`maps.npz`. `sanity.py` was added afterwards and run on the same cache.
-The synthetic smoke test is kept in `synthetic_smoke/` as a toy (see the end).
+| Report | What it is | Status |
+|---|---|---|
+| [`v2_om4_twodeg.md`](reports/v2_om4_twodeg.md) | Current protocol: per-variable tolerance bins, Samudra's 2° splits | Complete |
+| [`v1_om4_twodeg.md`](reports/v1_om4_twodeg.md) | First OM4 run, with a fixed 8,192-bin quantization | Frozen record |
+| [`research_agenda.md`](reports/research_agenda.md) | How this serves Samudra's goals, the reviewer feedback and the metrics system | Draft |
 
-This is an experiment record, not intended to merge.
+## 1. Why: the problem this addresses
 
-## Answers to the two quests, so far
+Samudra is a neural network that emulates an ocean simulation. Given the ocean
+state now, it predicts the state five days later. It then feeds that prediction
+back in as input, again and again, to produce a multi-year *rollout*. The
+simulation it learns from is OM4, GFDL's global ocean model. The state is
+temperature (`thetao`), salinity (`so`) and the two horizontal velocity
+components (`uo` eastward, `vo` northward) at each of 19 depth levels, plus sea
+surface height (`zos`): 77 two-dimensional fields, called *channels*.
 
-- **Baseline (primary quest): yes.** The ladder gives a scored baseline on all
-  77 channels, and `mix` is the rung a neural emulator must beat in bits and
-  RMSE (`om4_twodeg_results/tables.md`). What works are *models* borrowed from
-  lossless coders: linear prediction (FLAC), context-coded scales (JPEG-LS) and
-  mixing (PAQ). *Generic compressors* do not: the blosc residual bound costs
-  more than `mix` on every channel, and compression-distance (NCD) analogs are
-  no better than random neighbours (findings 5 and 8).
-- **Metric (side quest): partly.** Bits per value is implemented and checked:
-  the accounting tests pass, and a hand recomputation of persistence matches to
-  within 0.0005 bits. It has not yet scored an ML emulator (Samudra or the
-  all-fields classifier), and it has little resolution for deep tracers with
-  this quantization (finding 4). Of the blosc diagnostics, the residual bound is
-  uninformative on OM4. The compressibility ratio is ≈1 for one-step forecasts,
-  as designed, and is untested on rollouts.
+Every rollout is a chain of single steps, so errors in one step become inputs to
+the next. Three failure modes are known in Samudra's rollouts:
+- **noisy fields**, which jitter from step to step;
+- **sawtooth trends**, where successive steps overshoot in alternating
+  directions;
+- **attractor states**: rollouts drift to a mean state far from the truth and
+  stay there.
 
-## Idea
+Reviewers of the Samudra 2 paper also asked for comparisons against simpler
+baselines, and for evidence of how much skill comes from the prescribed
+atmospheric forcing rather than the ocean dynamics the network learned.
 
-Any forecaster with a predictive distribution is a lossless compressor: with
-arithmetic coding, the true next value costs −log₂ P(its bin) bits. Fix one
-quantization per channel and every model, from persistence to Samudra to the
-all-fields classifier, gets a score in **bits per wet value**. Lower is better.
+The existing evaluation (`samudra.metrics`) scores multi-year rollouts against
+observations: RMSE, spectra, heat content and residual variance. That is the
+right final test, but it leaves three gaps:
 
-Two quests use that score:
+1. **No bar for a single step.** Improving one-step quality is the current
+   priority, and the only one-step reference is *persistence*, the forecast that
+   nothing changes. Persistence is easy to beat. It doesn't tell you whether a
+   model has learned what is cheaply learnable.
+2. **No common unit.** RMSE is in °C for temperature and m s⁻¹ for velocity, and
+   it scores only a single guess. It cannot add up across variables or say how
+   confident a forecast should be.
+3. **No direct test of step-to-step dynamics.** A field can have the right
+   variance and still evolve implausibly from one step to the next.
 
-1. **Metric (side quest).** Bits per value is a proper scoring rule, additive
-   over cells, so it breaks down into maps, depth profiles and per-variable
-   budgets. Differences between models on the same bins are exact; absolute
-   bits depend on bin width.
-2. **Baseline (primary quest).** A ladder of low-parameter predictors borrowed
-   from lossless image and audio coding. A neural emulator should beat the top
-   rung, in bits and in RMSE, before its complexity is justified.
+## 2. The idea: a forecast is a compressor
 
-## Protocol
+### A forecast as a probability
 
-| Item | Choice |
+A *probabilistic forecast* assigns a probability to each possible next value,
+rather than a single guess. One standard way to score it is the *log score*:
+−log₂ of the probability the forecast gave to what actually happened. A
+confident, correct forecast costs little. A confident, wrong one costs a lot.
+
+The log score is a *proper scoring rule*: a forecaster minimises its expected
+score only by reporting its true beliefs. So it rewards both accuracy and honest
+uncertainty, and it can't be gamed by hedging.
+
+### Why "bits" and "compression"
+
+Shannon's coding theorem connects the log score to data compression. If a sender
+and receiver share a forecast P, then *arithmetic coding* can transmit the true
+value in almost exactly −log₂ P(value) bits. So:
+
+> **the average log score of a forecaster equals the size of the compressed
+> future, given the past.**
+
+A better forecaster is a better compressor. This turns forecasting into a
+problem with fifty years of engineering behind it. Lossless audio and image
+codecs (FLAC, JPEG-LS, PAQ) are, at their core, cheap and carefully tuned
+predictors of the next sample.
+
+This gives us one score that applies to any forecaster with a predictive
+distribution: **bits per value**. Lower is better. Bits are additive: they sum
+over cells, levels and variables, so the same number breaks down into maps,
+depth profiles and per-variable budgets.
+
+### Tolerance: what "lossless" means for real numbers
+
+Compressing a real number losslessly needs a precision. Each value is rounded to
+a bin of width *w*, and the forecast is scored on the probability it gives to
+the true value's bin. *w* is the *tolerance*: we transmit the ocean to within
+*w*.
+
+Two regimes matter:
+- **Fine:** *w* is much smaller than the forecast's spread. Halving *w* adds
+  exactly one bit to every model's cost, so *differences* between models don't
+  depend on *w*. They equal the difference in log-likelihood.
+- **Coarse:** *w* is comparable to the actual five-day change. Then most true
+  next values stay in the current bin, every model costs close to 0 bits, and
+  the score stops telling models apart. This happens in the deep ocean, where
+  little changes in five days.
+
+### Choosing the tolerance: Keisler normalization
+
+Weather and climate emulators face the same problem when they combine errors
+across variables in a training loss. Keisler (2022, *Forecasting Global Weather
+with Graph Neural Networks*, arXiv:2202.07575, §3.3.3) scales each variable by
+the spread of its *time differences*, using one scale per variable shared across
+all levels, so "1 K of temperature error should count the same" at every level.
+GraphCast-style models use the same family of normalizations, and Samudra 2's
+reviewers asked for it.
+
+We set the tolerance the same way:
+- σ_Δ is the area-weighted standard deviation of a variable's five-day change,
+  pooled over all its levels and the training years.
+- The bin width is *w* = ε·σ_Δ, where ε is a small number.
+- ε is chosen by a rule fixed in advance: the largest value at which the surface
+  channels are in the fine regime (`select_eps.py`).
+
+The result is one physically meaningful precision per variable. The deep ocean
+then often lands in the coarse regime, which is the honest answer: at that
+precision, little happens there in five days. RMSE remains the score that tells
+deep forecasts apart.
+
+## 3. The baselines: a ladder from lossless coding
+
+A *baseline* is a simple forecaster that a complex one should beat before its
+complexity is justified. We build a *ladder* of them, each a small step up from
+the last, borrowing the predictors lossless codecs use.
+
+Every rung predicts the five-day change in one channel at one grid cell, its
+*tendency* x[t+1] − x[t]. The inputs are the two most recent states (t−1 and t)
+in a 3×3 neighbourhood, plus the same cell's recent tendencies in the other
+variables and in the levels above and below (20 features). Each rung outputs a
+full probability distribution, so each can be scored in bits.
+
+| Rung | What it does | Borrowed from |
+|---|---|---|
+| `persistence` | Predicts no change, with a fitted spread | |
+| `ar1` | Continues a fraction of the last change | Autoregressive models |
+| `lpc` | A linear combination of the 20 features, fit per latitude band | FLAC's linear prediction |
+| `lpc_ctx` | `lpc`, with a spread that depends on the local situation (gradients, recent change) | JPEG-LS and CALIC context modelling |
+| `analog` | Finds the 32 most similar situations in the training data and uses what happened next | Kernel analog forecasting |
+| `lpc_analog` | `lpc`, plus the errors `lpc` made in those similar situations | |
+| `mix` | A weighted mixture of all rungs, with weights fit on validation data | PAQ context mixing |
+
+`mix` is the bar to clear. Each rung has about a hundred parameters or fewer per
+channel (plus a library of past examples for the analog rungs), and the whole
+ladder fits on a CPU in minutes.
+
+**Scoring a deterministic model.** Samudra outputs one state, not a
+distribution. To score it in bits, its forecast becomes the centre of a
+distribution whose spread is fit on validation data. This is *EMOS* (ensemble
+model output statistics; Gneiting et al. 2005), the standard way weather centres
+calibrate deterministic forecasts. Adding that rung to `mix` measures what the
+cheap predictors know that Samudra does not. This is planned, not yet run.
+
+## 4. Diagnostics built on the same idea
+
+- **Bits saved over persistence, by depth and as maps.** These show where each
+  model finds information.
+- **Joint-coding gap.** The ladder codes each cell independently. If its errors
+  are correlated between neighbouring cells, a coder that sees the whole field
+  could do better. We estimate the gap from the correlation ρ between neighbours'
+  errors as −½·log₂(1−ρ²) bits. This is a Gaussian approximation; a *causal
+  context* coder, which codes each cell given its already-coded neighbours as
+  JPEG-LS does, would measure it directly. That coder is planned.
+- **Blosc compressibility.** Blosc is the generic compressor used inside our
+  Zarr data stores. The ratio of a forecast field's compressed size to the true
+  field's is a cheap smoothness check: below 1 means too smooth, above 1 too
+  noisy. It only becomes informative on rollouts.
+- **Failure-mode detectors (planned).** A coder trained on the true ocean can
+  score a forecast's own step-to-step changes:
+  - noise makes them more expensive than the truth's;
+  - a sawtooth flips the sign of their step-to-step correlation;
+  - sticking in an attractor state makes them too cheap.
+
+  See [`research_agenda.md`](reports/research_agenda.md).
+
+## 5. Protocol
+
+| | v1 (frozen) | v2 (current) |
+|---|---|---|
+| Data | OM4 2°, `v2026-09/om4_twodeg` | same |
+| Channels | 77: `thetao`, `so`, `uo`, `vo` at 19 levels, plus `zos` | same |
+| Inputs | States t−1 and t; no atmospheric forcing | same (forcing is the next step) |
+| Bins | 8,192 per channel over that channel's range of values | Unbounded, width ε·σ_Δ per variable (Keisler) |
+| Train | 2003–2004 | 2009-10 to 2013-09 (the last 4 years of Samudra's training window) |
+| Validation | 2010 | 2013-10-05 to 2014-10-05 (Samudra's) |
+| Test | 2015 | 2014-10-10 to 2022-12-24 (Samudra's inference window) |
+| Scoring | 8,000 test rows per channel, sampled in proportion to cell area; cheap rungs also on every wet test cell | same |
+
+v2 replaced v1 for two reasons:
+- **Bins.** v1's bins came from each channel's range of *values*, so their width
+  had nothing to do with how much the ocean changes in five days. Surface
+  bins were far finer than the typical five-day change, while deep temperature
+  and salinity bins were wider than it.
+- **Splits.** v2 uses the splits in `src/samudra/configs/data/om4_demo.yaml`
+  (the 2° preset), so a Samudra model trained on that preset can be scored on
+  exactly the same test window.
+
+v1 was originally designed to match an earlier all-fields classifier
+experiment; that constraint was dropped.
+
+## 6. Files
+
+| File | Role |
 |---|---|
-| Data | 2° OM4 five-day means, all 19 levels of `thetao`, `so`, `uo`, `vo`, plus `zos` (77 channels) |
-| Task | Two-state history (t−1, t) to state t+1, five days ahead; no forcing (as in the classifier comparison) |
-| Splits | Train 2003–2004, tune on 2010, test on 2015, all contiguous |
-| Bins | 8,192 uniform bins per channel. The range comes from the 10⁻⁵ and 1−10⁻⁵ training quantiles plus 5% padding; the end bins absorb tails |
-| Scoring | 8,000 test (time, cell) rows per channel, drawn with probability proportional to cell area. Cheap rungs are also scored on every wet test cell |
-| Floor | All probabilities are mixed with 10⁻⁹ of a uniform distribution; the floor is the same for every model |
+| `data.py` | Caches OM4 (or a synthetic toy) as one `.npy` file per split and channel |
+| `coding.py` | Tolerance bins, interval probabilities, the bits score, blosc helpers |
+| `models.py` | The 20 patch features and the ladder |
+| `run.py` | Fits the ladder per channel, tunes on validation, scores on test, computes the diagnostics |
+| `select_eps.py` | Picks ε from a sweep by the fixed rule |
+| `report.py` | Tables and figures from `results.json` |
+| `sanity.py` | Independent checks: recomputes σ_Δ, bin widths and persistence bits with plain numpy |
+| `run_all.sh` | Runs everything end to end; `SYNTHETIC=1` for the smoke test |
+| `test_coding.py` | Unit tests of the bit accounting |
+| `om4_twodeg_v2_results/` | v2 outputs, including the ε sweep |
+| `om4_twodeg_results/` | v1 outputs (frozen) |
+| `synthetic_smoke/` | Toy-model outputs from before OM4 was reachable; not about the ocean |
 
-## The ladder
-
-Every rung predicts the tendency x[t+1] − x[t] at one cell from 20 patch
-features:
-
-- 8 neighbour differences in a 3×3 patch
-- the last tendency and its Laplacian
-- the last tendencies of the other variables at the same level
-- the tendencies at the levels above and below
-- the anomaly from the channel mean
-- two upwind-style advection terms, u·∂x/cos φ and v·∂y
-- a bias term
-
-Parameter counts are per channel.
-
-| Rung | Predictive distribution | Params | Lineage |
-|---|---|---:|---|
-| `persistence` | Laplace(0, b) | 1 | |
-| `ar1` | Laplace(a·tendency, b) | 2 | |
-| `lpc` | Laplace(w·f, b), ridge regression per latitude band | 63 | FLAC linear prediction |
-| `lpc_ctx` | `lpc` mean; Laplace scale from a 6×6 context table (gradient × last tendency) | ~110 | JPEG-LS / CALIC |
-| `analog` | Kernel density over outcomes of the 32 nearest training patches (20k library) | 1 + library | Kernel analog forecasting |
-| `lpc_analog` | `lpc` mean + kernel density over the neighbours' `lpc` residuals | 64 + library | |
-| `mix` | Convex mixture of all rungs; weights by EM on validation log-likelihood | 6 | PAQ context mixing |
-
-## Side-quest diagnostics
-
-| Diagnostic | What it measures |
-|---|---|
-| Bits saved vs persistence, by depth and as maps | Where each model extracts information |
-| Blosc residual bound | Blosc-zstd with byte shuffle (as in the OM4 stores) applied to the bin-index residual vs persistence. This is a generic-compressor upper bound on the conditional code length |
-| Blosc compressibility ratio, forecast field / truth field | Below 1 means too smooth, above 1 too noisy. Meant for autoregressive rollouts; it is ≈1 for one-step forecasts by construction |
-| Zonal correlation of `lpc` errors, and −½·log₂(1−ρ²) | A Gaussian estimate of the bits a joint (field-level) coder would save over any pointwise model |
-
-## Ablation: compression distance vs Euclidean distance (`ncd_ablation.py`)
-
-This tests the original gzip-classifier question. It uses the same library,
-features and kernel density, and swaps only the neighbour search: Euclidean
-distance, random neighbours, NCD with gzip, and NCD with blosc-zstd.
-
-## OM4 results
-
-Data: `https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/v2026-09/om4_twodeg/OM4.zarr`
-(store attributes `m2lines/*` are kept in `results.json` under `meta.attrs`).
-Train 2003-01-03 to 2004-12-28 (146 states), validation 2010 (73), test 2015 (73).
-Each rung was fit on up to 400,000 training rows per channel (243,216 for the
-channel with the fewest wet cells). All tables are in
-[`om4_twodeg_results/tables.md`](om4_twodeg_results/tables.md).
-
-### Headline: three numbers per variable
-
-Mean over the variable's levels, with the surface level in brackets. Bits are
-per wet value on the fixed 8,192-bin quantization; RMSE skill is
-1 − RMSE(mix)/RMSE(persistence) on the tendency; the joint-coding gap is the
-Gaussian estimate −½·log₂(1−ρ²) from the zonal lag-1 correlation ρ of `lpc` errors.
-
-| variable | bits saved by mix over persistence | RMSE skill of mix vs persistence | est. joint-coding gap (bits) |
-|---|---:|---:|---:|
-| thetao | 0.82 [0.47] | 0.154 [0.135] | 0.22 [1.02] |
-| so | 0.66 [0.66] | 0.145 [0.084] | 0.10 [0.21] |
-| uo | 0.45 [0.24] | 0.083 [0.072] | 0.49 [1.20] |
-| vo | 0.54 [0.31] | 0.155 [0.137] | 0.12 [0.66] |
-| zos | 0.23 | 0.041 | 1.20 |
-
-For reference, `mix` costs 4.18 [7.35] bits for `thetao`, 1.92 [4.49] for
-`so`, 7.73 [9.09] for `uo`, 7.86 [9.22] for `vo` and 7.35 for `zos`.
-
-![bits saved vs depth](om4_twodeg_results/bits_gain_vs_depth.png)
-![RMSE skill vs depth](om4_twodeg_results/rmse_skill_vs_depth.png)
-![bits saved by lpc_ctx, maps](om4_twodeg_results/bits_gain_maps.png)
-
-### Findings
-
-1. **Every rung above persistence pays, and the mixture is the top rung on
-   every channel.** On test, `mix` costs fewer bits than every component on
-   all 77 channels (`sanity.json`: `mix_bits_worse_than_best_component = 0`).
-   Among the parametric steps, the context-coded scale (`persistence → ar1 → lpc
-   → lpc_ctx`, last step) is the largest on 50 of 77 channels, and `lpc_ctx`
-   carries the largest mixture weight on 43 (`lpc_analog` on 30, `analog` on 4).
-2. **On the surface, the estimated joint-coding gap is bigger than everything
-   the ladder gains.** At the surface, the gap estimate is 1.02 bits for
-   `thetao`, 1.20 for `uo`, 1.20 for `zos` and 0.66 for `vo`, against 0.47,
-   0.24, 0.23 and 0.31 bits saved by `mix`. `so` is the exception (0.21 vs
-   0.66). The gap falls with depth: below about 550 m it is ≤ 0.05 bits for
-   `thetao`, `so` and `vo`, but `uo` keeps 0.24–0.43 bits to the bottom. Our
-   hypothesis, not tested here, is that the surface error correlation is
-   mostly unseen forcing (wind and heat-flux events span many 2° cells), since
-   this protocol has no forcings. The estimate is crude: it assumes Gaussian
-   errors and uses one zonal neighbour, so the causal context rung (below) is
-   needed to measure the gap.
-3. **Persistence is not hard to beat at depth.** This is the opposite of what we
-   expected. At the deepest level, `mix` has RMSE skill 0.247 (`thetao_18`),
-   0.223 (`so_18`), 0.076 (`uo_18`) and 0.083 (`vo_18`). For the tracers, `ar1`
-   alone already gets 0.205 and 0.220, so the last five-day tendency persists
-   at depth; a slow deep-ocean drift in OM4 would do this, but we have not
-   checked. For velocities, `ar1` gets about zero skill at every depth, and the
-   skill comes from the spatial and cross-variable features in `lpc`.
-4. **No outlier widened any bin, but deep tracer bins are coarser than the
-   signal.** At most 2.5 × 10⁻⁵ of test values land in an end bin on any
-   channel, and deep `uo`/`vo` bins are fine: the mean absolute tendency spans
-   33–126 bins on every velocity channel. The opposite problem shows up in
-   `thetao` and `so`. One quantization per channel spans the global range at
-   that level (e.g. `thetao_12`: −3.06 to 22.88 °C, bin width 0.0032 °C), while
-   the mean absolute tendency is at most 1.5 bins for `thetao` below 1,400 m and
-   under one bin for `so` below 375 m (`sanity.json`,
-   `test_tendency_mad_over_bin_width`). There, most true next values stay in
-   the current bin or its neighbour, so bits mostly measure bin crossings and
-   the absolute costs are small (`mix` 0.27–2.23 bits, persistence 0.47–3.09). Differences between models on
-   the same bins are still exact, but the metric has little resolution there;
-   RMSE is the more informative score for deep tracers. The surface `so` range
-   also reaches down to 0.14 psu because of near-fresh coastal cells (#974).
-5. **On OM4, the generic blosc residual bound is useless, unlike on toy data.**
-   The blosc-zstd code length of the bin-index residual is worse than `mix` on
-   every channel, by at least 0.94 bits (`uo_0`). Part of that is the land mask:
-   blosc on the mask alone costs 0.44 bits per wet value at the surface and
-   3.62 at 6,000 m, where 10% of cells are wet. Even with that cost subtracted,
-   `mix` still wins on 76 of 77 channels; the exception is `so_18` (−0.16 bits).
-   The synthetic finding that a generic compressor beats pointwise rungs does
-   not carry over.
-6. **`mix` optimizes bits, not RMSE.** Its mean has slightly higher RMSE than
-   the best single component on 58 of 77 channels, by at most 4.8%
-   (`thetao_17`, vs `analog`). The mixture weights maximize validation
-   log-likelihood, so this is expected; use the `lpc`/`lpc_analog` means when
-   a point forecast is wanted.
-7. **One-step compressibility ratios are ≈1.** For `lpc` forecasts, the ratio is
-   0.998–1.001 for the tracers, 0.997 for `zos`, and 0.978–0.998 for `uo` and
-   `vo`. So velocity forecasts are slightly smoother than truth, but this
-   diagnostic is meant for rollouts.
-8. **Compression distance (NCD) neighbours are no better than random.** For
-   `thetao_0`, Euclidean neighbours cost 7.32 bits/value, random 8.27, NCD with
-   blosc-zstd 8.12, and NCD with gzip 9.58, which is worse than random. For
-   `thetao_7`: 5.15, 6.40, 6.25 and 6.41.
-9. **Where the bits are saved** (maps, `lpc_ctx` vs persistence). The surface
-   `uo` gains concentrate in the equatorial band; `thetao_0` gains are largest
-   at high latitudes near sea ice; `zos` gains are largest in the Arctic and
-   marginal seas. `thetao_7` (250 m) *loses* bits in the equatorial Pacific
-   thermocline, where the context-coded model is worse than persistence.
-
-### Checks done before believing the numbers (`sanity.py` → `sanity.json`)
-
-- **Persistence by hand.** Recomputed from the cache with independent numpy
-  (bins from training quantiles, Laplace scale from the full training set) on
-  `thetao_0`, `so_10`, `uo_18` and `zos`. It matches the run's full-field
-  persistence bits to within 0.0005 bits. The run fits its scale on a
-  400,000-row subset, which explains the residual.
-- **Bins.** The recomputed bin widths match `results.json` exactly; end-bin
-  occupancy is reported above.
-- **Sampling.** Bits on the 8,000 area-weighted test rows differ from the
-  full-field bits by at most 0.077 bits on any channel and cheap rung. So
-  per-channel absolute bits carry noise of that order; differences between
-  rungs are computed on the same rows and are less noisy.
-- **`mix` vs best component.** See findings 1 and 6.
-
-### Runtimes
-
-On `dtn012.hpc.nyu.edu` (Intel Xeon Platinum 8444H, 32 cores, 251 GB;
-`run.log`), from `timings.tsv`: caching the data 66 s (about 1.4 GB), fitting
-and scoring all 77 channels 345 s, NCD ablation 23 s + 20 s, report 3 s.
-
-### Proposed protocol changes (not made)
-
-- **Bins for deep tracers** (finding 4): size each channel's bins to its
-  tendency spread, or use more bins for deep `thetao`/`so`. This would break
-  comparability with the classifier experiment, so it needs agreement first.
-
-## Synthetic smoke test (toy; not about the ocean)
-
-`synthetic_smoke/` holds the tables, figure and JSON from a toy advection model.
-It exercised the pipeline before OM4 was reachable. Its numbers say nothing
-about the ocean.
-
-1. **The accounting is right.** `test_coding.py` checks that interval
-   probabilities sum to 1, that a correct Gaussian model's cost matches the
-   discretized entropy to within 0.01 bits, and that a mis-specified model costs
-   more.
-2. **Bin ranges must be robust.** An unstable first version of the toy model
-   produced outliers that widened every bin and drove costs to ≈0 bits. Hence
-   the quantile-based ranges.
-3. On toy velocities the blosc residual bound beat the pointwise rungs. On OM4
-   it does not (finding 5).
-4. NCD neighbours were barely better than random, as on OM4 (finding 8).
-
-## Run it
+## 7. Run it
 
 ```
 pip install xarray zarr numcodecs fsspec aiohttp dask cftime scikit-learn scipy matplotlib
-bash run_all.sh                       # OM4 2°: caches about 1.5 GB, then fits 77 channels
-SYNTHETIC=1 bash run_all.sh /tmp/c /tmp/o   # smoke test, about 2 min
-python -m pytest -c /dev/null test_coding.py
-python sanity.py cache_om4_twodeg results_om4_twodeg/results.json results_om4_twodeg/sanity.json
+bash run_all.sh                              # OM4 2°: cache, eps sweep, all 77 channels, report, checks
+SYNTHETIC=1 bash run_all.sh /tmp/c /tmp/o    # smoke test, about 2 minutes
+python -m pytest -c /dev/null test_coding.py # -c /dev/null skips the repo's pytest config
 ```
 
-`cftime` is required: the store's `time` uses a Julian calendar. The OM4 run used
-Python 3.12 with numpy 1.26.4, xarray 2025.1.2, zarr 2.18.7, numcodecs 0.15.1,
-fsspec 2025.5.1, aiohttp 3.11.16, dask 2025.2.0, cftime 1.6.4.post1, pandas 2.2.3,
-scikit-learn 1.9.1, scipy 1.17.1 and matplotlib 3.10.1.
-
-The run writes `results.json`, `tables.md`, `bits_gain_vs_depth.png`,
-`rmse_skill_vs_depth.png`, `bits_gain_maps.png` and `ncd_*.json`. The `mix`
-rung's bits and RMSE are the numbers a model has to beat.
-
-## Next steps
-
-- **Score the all-fields classifier and Samudra in the same units.** For the
-  classifier: 2° retrain, or 0.25° with this code at 0.25°, rebinned to these
-  bins.
-- **Add a causal raster-scan context rung.** Condition on already-coded
-  neighbours of t+1, as JPEG-LS does, to measure the joint-coding gap directly
-  rather than estimating it. Finding 2 makes this the most informative next rung.
-- **Run the compressibility-ratio diagnostic on Samudra rollouts**, as a cheap
-  test for blurring and noise.
-- **Include the forcings** (`hfds`, `tau*`, `wfo`) for comparison with
-  Samudra's setup.
+`cftime` is required because the store's time axis uses a Julian calendar.
+The v2 cache takes 4.5 GB of disk. Runs so far used the DTN (32
+cores, 251 GB RAM) with Python 3.12 and the package versions listed in each
+report.

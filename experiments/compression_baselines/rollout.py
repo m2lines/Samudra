@@ -28,16 +28,23 @@ import time
 from pathlib import Path
 
 import numpy as np
-from models import FORCING_VARS, Ladder, patch_features
+from models import FEATURES, FORCING_VARS, Ladder, patch_features
+
+# The only nonlinear features: products of the state's velocity and gradient.
+ADVECTION = [FEATURES.index("u_dTdx"), FEATURES.index("v_dTdy")]
 from run import Cache, build_samples, subset
 
 
-def fit_lpc(cache: Cache, c: str, forcing: bool, n_train: int, rng):
+def fit_lpc(
+    cache: Cache, c: str, forcing: bool, n_train: int, rng, linear: bool = False
+):
     A = cache.arr("train", c)
     mean_c = float(np.nanmean(np.asarray(A)[:, cache.masks[cache.meta["levels"][c]]]))
     tr = build_samples(cache, "train", c, mean_c, forcing)
     if len(tr.y) > n_train:
         tr = subset(tr, rng.choice(len(tr.y), n_train, replace=False))
+    if linear:
+        tr.F[:, ADVECTION] = 0.0  # a constant-zero column gets zero weight
     lad = Ladder(seed=int(rng.integers(1 << 31))).fit(tr)
     return lad.w, mean_c
 
@@ -46,7 +53,12 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("cache", type=Path)
     ap.add_argument("out", type=Path)
-    ap.add_argument("--rung", choices=["lpc", "persistence"], default="lpc")
+    ap.add_argument(
+        "--rung",
+        choices=["lpc", "lpc_linear", "persistence"],
+        default="lpc",
+        help="lpc_linear: lpc without the two advection (velocity x gradient) features",
+    )
     ap.add_argument("--forcing", action="store_true")
     ap.add_argument("--n-train", type=int, default=400_000)
     ap.add_argument("--seed", type=int, default=0)
@@ -60,9 +72,10 @@ def main() -> None:
     rng = np.random.default_rng(a.seed)
     t0 = time.time()
     fits = {}
-    if a.rung == "lpc":
+    linear = a.rung == "lpc_linear"
+    if a.rung != "persistence":
         for c in chans:
-            fits[c] = fit_lpc(cache, c, a.forcing, a.n_train, rng)
+            fits[c] = fit_lpc(cache, c, a.forcing, a.n_train, rng, linear)
         print(
             f"[rollout] fitted {len(fits)} channels ({time.time() - t0:.0f}s)",
             flush=True,
@@ -109,6 +122,8 @@ def main() -> None:
                 if a.forcing
                 else None,
             )
+            if linear:
+                F[..., ADVECTION] = 0.0
             tend = np.zeros((H, W))
             for b, wv in w_band.items():
                 m = wet[c] & (band == b)

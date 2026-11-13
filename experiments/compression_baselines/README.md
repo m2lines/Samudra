@@ -14,6 +14,7 @@ first principles, what the experiment does and why. The results are in
 | [`v1_om4_twodeg.md`](reports/v1_om4_twodeg.md) | First OM4 run, with a fixed 8,192-bin quantization | Frozen record |
 | [`research_agenda.md`](reports/research_agenda.md) | How this serves Samudra's goals, the reviewer feedback and the metrics system | Draft |
 | [`revision_questions.md`](reports/revision_questions.md) | What these experiments can answer for the Samudra 2 revision, item by item, and what to do next | For discussion |
+| [`rollout_blowup_rca.md`](reports/rollout_blowup_rca.md) | Root cause of the ladder's rollout blow-up: unconstrained grid-scale response, amplified at coasts, accelerated by quadratic advection features | Complete (2°) |
 | [`losses_from_bits.md`](reports/losses_from_bits.md) | Training losses from the bits view: Samudra 2's dynamic loss as a likelihood, per-cell spreads, tolerance-based losses, field-level losses (#981) | Proposal for discussion |
 
 ## 1. Why: the problem this addresses
@@ -216,6 +217,7 @@ experiment; that constraint was dropped.
 | `run_all.sh` | Runs everything end to end; `SYNTHETIC=1` for the smoke test |
 | `test_coding.py` | Unit tests of the bit accounting |
 | `om4_twodeg_v2_results/` | v2 outputs, including the ε sweep |
+| `rca_twodeg_results/` | Rollout blow-up root-cause analysis outputs |
 | `om4_twodeg_results/` | v1 outputs (frozen) |
 | `synthetic_smoke/` | Toy-model outputs from before OM4 was reachable; not about the ocean |
 

@@ -40,15 +40,36 @@ from samudra.utils.device import get_device
 WINDOWS = {"val": ("2013-10-05", "2014-10-05"), "test": ("2014-10-10", "2022-12-24")}
 
 
+OSN = "https://nyu1.osn.mghpcc.org"
+
+
+def official(res: str, name: str) -> dict:
+    """A structured S3 location in the public v2026-09 release (docs/data.md)."""
+    return {
+        "type": "s3",
+        "endpoint_url": OSN,
+        "anon": True,
+        "bucket": "m2lines-pubs",
+        "path": f"Samudra/v2026-09/{res}/{name}",
+    }
+
+
 def build_config(
-    preset: str, ckpt: Path, data_root: Path, out: Path, split: str, backend: str
+    preset: str,
+    ckpt: Path,
+    data_root: Path | None,
+    out: Path,
+    split: str,
+    backend: str,
+    official_res: str | None = None,
 ) -> EvalConfig:
     d = EvalConfig._load_yaml(preset)  # the preset, includes resolved
     start, end = WINDOWS[split]
     d["backend"] = backend
     d["ckpt_path"] = str(ckpt)
     d["save_zarr"] = False
-    d["experiment"]["data_root"] = str(data_root)
+    if data_root is not None:
+        d["experiment"]["data_root"] = str(data_root)
     d["experiment"]["base_output_dir"] = str(out)
     d["experiment"]["name"] = f"one_step_{split}"
     d["experiment"]["wandb"]["mode"] = "disabled"
@@ -56,6 +77,12 @@ def build_config(
     if len(sources) != 1:
         raise ValueError(f"expected one data source, got {len(sources)}")
     sources[0]["inference_time"] = {"start": start, "end": end}
+    if official_res is not None:
+        # The official release lacks hfds_anomalies; Samudra derives it from hfds
+        # (samudra.utils.data.compute_anomalies) when a preset asks for it.
+        sources[0]["data_location"] = official(official_res, "OM4.zarr")
+        sources[0]["data_means_location"] = official(official_res, "OM4_means.zarr")
+        sources[0]["data_stds_location"] = official(official_res, "OM4_stds.zarr")
     return EvalConfig(**d)
 
 
@@ -63,7 +90,9 @@ def build_config(
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("ckpt", type=Path)
-    ap.add_argument("data_root", type=Path)
+    ap.add_argument(
+        "data_root", help="local data directory, or 'official:<res>' for v2026-09"
+    )
     ap.add_argument("out", type=Path)
     ap.add_argument("--split", choices=sorted(WINDOWS), required=True)
     ap.add_argument("--preset", default="samudra_om4_v2/eval.yaml")
@@ -71,7 +100,13 @@ def main() -> None:
     ap.add_argument("--max-windows", type=int, default=0, help="smoke test only")
     a = ap.parse_args()
 
-    cfg = build_config(a.preset, a.ckpt, a.data_root, a.out, a.split, a.backend)
+    res = (
+        a.data_root.removeprefix("official:")
+        if a.data_root.startswith("official:")
+        else None
+    )
+    root = None if res else Path(a.data_root)
+    cfg = build_config(a.preset, a.ckpt, root, a.out, a.split, a.backend, res)
     ev = Eval(cfg)
     model = ev.model.eval()
     ds = ev.inference_dataset

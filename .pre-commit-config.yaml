@@ -17,7 +17,40 @@ repos:
     hooks:
       - id: check-added-large-files
         args: [--maxkb=250]
-        exclude: ^notebooks/
+        exclude: ^(notebooks/|experiments/temperature_skyline/(soft-priors-25k|small-regression-25k|full-state-comparison)/.*\.(png|gz|npz)$|experiments/temperature_skyline/(discrete-pilot|soft-priors)/.*\.(png|gz)$|experiments/temperature_skyline/all-fields-classification/.*\.(png|gz)$|experiments/temperature_skyline/all-fields-scaling/report/|experiments/temperature_skyline/continuation-results/validation-((regression|classifier-rmse|classifier-nll)-depths|(regression|likelihood)-full)\.png$|experiments/temperature_skyline/maps-(initial|continuation)/report/comparison-(global|regional)\.png$|experiments/temperature_skyline/maps-initial/report/map-(global|north-pacific|gulf-stream|agulhas)-depth-(00|07|13)\.png$|experiments/temperature_skyline/pre-spike-noise/report/.*\.(png|npz)$)
+      - id: check-added-large-files
+        name: check skyline scaling report sizes
+        args: [--maxkb=1024]
+        files: ^experiments/temperature_skyline/all-fields-scaling/report/
+      - id: check-added-large-files
+        name: check skyline classification report sizes
+        args: [--maxkb=512]
+        files: ^experiments/temperature_skyline/all-fields-classification/.*\.(png|gz)$
+      - id: check-added-large-files
+        name: check skyline discrete pilot report sizes
+        args: [--maxkb=1024]
+        files: ^experiments/temperature_skyline/(discrete-pilot|soft-priors)/.*\.(png|gz)$
+      - id: check-added-large-files
+        name: check skyline 25k report artifacts
+        args: [--maxkb=4096]
+        files: ^experiments/temperature_skyline/(soft-priors-25k|small-regression-25k|full-state-comparison)/.*\.(png|gz|npz)$
+      # Lossless maps retain two pixels per sample along each axis without interpolation.
+      - id: check-added-large-files
+        name: check skyline raster sizes
+        args: [--maxkb=1024]
+        files: ^experiments/temperature_skyline/maps-initial/report/map-(global|north-pacific|gulf-stream|agulhas)-depth-(00|07|13)\.png$
+      - id: check-added-large-files
+        name: check skyline comparison figure sizes
+        args: [--maxkb=4096]
+        files: ^experiments/temperature_skyline/maps-(initial|continuation)/report/comparison-(global|regional)\.png$
+      - id: check-added-large-files
+        name: check skyline validation figure sizes
+        args: [--maxkb=512]
+        files: ^experiments/temperature_skyline/continuation-results/validation-((regression|classifier-rmse|classifier-nll)-depths|(regression|likelihood)-full)\.png$
+      - id: check-added-large-files
+        name: check skyline noise diagnostic artifacts
+        args: [--maxkb=4096]
+        files: ^experiments/temperature_skyline/pre-spike-noise/report/.*\.(png|npz)$
       - id: trailing-whitespace
         exclude: ^notebooks/
       - id: check-yaml

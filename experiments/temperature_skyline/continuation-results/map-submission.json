@@ -1,0 +1,147 @@
+{
+  "source_commit": "c88f714d869364315a8f408879efc365302d9511",
+  "source_archive_sha256": "d811ba7a39b3461ca41051e4332e86741232b0c4305ae9a3460bef548a229b46",
+  "config": {
+    "source": "/scratch/jr7309/data/om4_quarterdeg_v2",
+    "reference_root": "https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/v2026-09/om4_quarterdeg",
+    "support": "/scratch/jr7309/temperature-skyline-20261102/audit-local/support.json",
+    "readers": 4,
+    "torch_threads": 4,
+    "crop": 33,
+    "microbatch": 32,
+    "chunk_size": 2048,
+    "seed": 20261104,
+    "stride": 4,
+    "points_per_depth": 512,
+    "map_date": "2016-07-15",
+    "dates": {
+      "calibration": [
+        "2015-01-15",
+        "2015-04-15",
+        "2015-07-15",
+        "2015-10-15"
+      ],
+      "assessment": [
+        "2016-01-15",
+        "2016-04-15",
+        "2016-07-15",
+        "2016-10-15"
+      ]
+    },
+    "classifier": "/scratch/jr7309/temperature-skyline-20261102/maps-continuation-v1/inputs/classifier-best-likelihood-ema.pt",
+    "regression": "/scratch/jr7309/temperature-skyline-20261102/maps-continuation-v1/inputs/regression-best-error-ema.pt",
+    "baseline_cache": "/scratch/jr7309/temperature-skyline-20261102/maps-initial-v1/baseline",
+    "qualification": false
+  },
+  "command": [
+    "sbatch",
+    "--parsable",
+    "--account=torch_pr_347_lzanna",
+    "--comment=preemption=yes;requeue=true",
+    "--gres=gpu:4",
+    "--constraint=b200|h200|h100|rtx6000",
+    "--cpus-per-task=32",
+    "--mem=64G",
+    "--time=03:00:00",
+    "--requeue",
+    "--signal=B:USR1@300",
+    "--chdir=/scratch/jr7309",
+    "--job-name=skyline-cont-maps",
+    "--output=/scratch/jr7309/temperature-skyline-20261102/maps-continuation-v1/maps-%j.out",
+    "--error=/scratch/jr7309/temperature-skyline-20261102/maps-continuation-v1/maps-%j.err",
+    "--export=ALL,SKYLINE_ROOT=/scratch/jr7309/temperature-skyline-20261102,SKYLINE_COMMIT=c88f714d869364315a8f408879efc365302d9511,SKYLINE_ARCHIVE_SHA256=d811ba7a39b3461ca41051e4332e86741232b0c4305ae9a3460bef548a229b46,SKYLINE_CONFIG=/scratch/jr7309/temperature-skyline-20261102/maps-continuation-v1/config.json,SKYLINE_OUTPUT=/scratch/jr7309/temperature-skyline-20261102/maps-continuation-v1/evaluation,SIF_PATH=/scratch/jr7309/.apptainer-images/sd-seeds-base-0b5320248.sif,WANDB_MODE=disabled",
+    "/scratch/jr7309/temperature-skyline-20261102/maps-continuation-v1/harness.sbatch"
+  ],
+  "remote_root": "/scratch/jr7309/temperature-skyline-20261102/maps-continuation-v1",
+  "test_only": {
+    "returncode": 0,
+    "stdout": "",
+    "stderr": "sbatch: Job 22009324 to start at 2026-11-05T23:03:34 a using 32 processors on nodes gr101 in partition rtx6000_lzanna\nsbatch:   Preempts: 21822743,21824371,21825185,21828674,21836191\n"
+  },
+  "transfers": {
+    "classifier-best-likelihood-ema.pt": {
+      "name": "classifier-best-likelihood-ema.pt",
+      "sha256": "50ad50aaed2bd3305adeb519c7bfad17b34e57f657b3f81a2d5bb039afd425d5",
+      "bytes": 840629637,
+      "destination": "torch:/scratch/jr7309/temperature-skyline-20261102/maps-continuation-v1/inputs/classifier-best-likelihood-ema.pt",
+      "source": "engaging:/orcd/scratch/orcd/014/jrusak/temperature-skyline-20261104/recovery2/absolute/best-likelihood-ema.pt"
+    },
+    "regression-best-error-ema.pt": {
+      "name": "regression-best-error-ema.pt",
+      "sha256": "1ded6b8ee11d4d03d628c122bd78929895d3963663d6f539f56f5d3793086ac5",
+      "bytes": 832234920,
+      "destination": "torch:/scratch/jr7309/temperature-skyline-20261102/maps-continuation-v1/inputs/regression-best-error-ema.pt",
+      "source": "engaging:/orcd/scratch/orcd/014/jrusak/temperature-skyline-20261104/recovery2/regression/best-error-ema.pt"
+    }
+  },
+  "selection": {
+    "absolute": {
+      "arm": "absolute",
+      "source": "continuation",
+      "weights": "ema",
+      "step": 7624,
+      "nmse": 0.00035409232090418926,
+      "nll": 2.8360736098042443,
+      "criterion": "nll"
+    },
+    "regression": {
+      "arm": "regression",
+      "source": "continuation",
+      "weights": "ema",
+      "step": 7711,
+      "nmse": 0.0003365090841856809,
+      "nll": null,
+      "criterion": "nmse"
+    },
+    "selection_targets": {
+      "initial_classifier": {
+        "count": 9728,
+        "unique": 9726,
+        "sha256": "91e01d3578ccd6ac358b2809d8548c3da857bcf85825151d57188e6f6425d55d"
+      },
+      "initial_regression": {
+        "count": 9728,
+        "unique": 9726,
+        "sha256": "91e01d3578ccd6ac358b2809d8548c3da857bcf85825151d57188e6f6425d55d"
+      },
+      "continued_classifier": {
+        "count": 9728,
+        "unique": 9726,
+        "sha256": "91e01d3578ccd6ac358b2809d8548c3da857bcf85825151d57188e6f6425d55d"
+      },
+      "continued_regression": {
+        "count": 9728,
+        "unique": 9726,
+        "sha256": "91e01d3578ccd6ac358b2809d8548c3da857bcf85825151d57188e6f6425d55d"
+      }
+    },
+    "selection_rule": "Initial raw checkpoints remain eligible; choose regression mean-depth NMSE and classifier bin NLL on identical fixed 9728 validation samples. Qualification weights and held-out map scores excluded."
+  },
+  "job": "22009444",
+  "submitted_at": "2026-11-05T23:28:29.730972+00:00",
+  "callback_registration": {
+    "callback_host": "torch",
+    "credential_file": null,
+    "delivery": "poll",
+    "event_id": "98521b24-c64a-457b-a6b6-7893d3c5f127",
+    "expected_at": null,
+    "remind_at": 1793921909.8031616,
+    "thread_id": "01a19f0f-85ec-7ce0-9027-e4775e1db858"
+  },
+  "callback_job": "22009447",
+  "callback_command": [
+    "sbatch",
+    "--parsable",
+    "--partition=cpu_short",
+    "--account=torch_pr_347_lzanna",
+    "--ntasks=1",
+    "--cpus-per-task=1",
+    "--mem=512M",
+    "--time=00:10:00",
+    "--dependency=afterany:22009444",
+    "--chdir=/scratch/jr7309",
+    "--output=/scratch/jr7309/temperature-skyline-20261102/maps-continuation-v1/callback-%j.out",
+    "--error=/scratch/jr7309/temperature-skyline-20261102/maps-continuation-v1/callback-%j.err",
+    "/scratch/jr7309/temperature-skyline-20261102/maps-continuation-v1/callback.sbatch"
+  ]
+}

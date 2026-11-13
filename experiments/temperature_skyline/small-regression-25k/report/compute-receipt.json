@@ -1,0 +1,9 @@
+{
+  "qualification_GPU_seconds": 58,
+  "production_GPU_seconds": 5337,
+  "maps_GPU_seconds": 53,
+  "total_allocated_GPU_seconds": 5448,
+  "total_allocated_GPU_hours": 1.5133333333333334,
+  "mean_production_gpu_utilization_after120s": 60.01385210881218,
+  "prior_classifiers_compute_reused_not_charged_again": true
+}

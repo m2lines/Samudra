@@ -1,0 +1,50 @@
+{
+  "source": "/scratch/jr7309/data/om4_quarterdeg_v2",
+  "reference_root": "https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/v2026-09/om4_quarterdeg",
+  "readers": 4,
+  "torch_threads": 4,
+  "seed": 20261106,
+  "validation_seed": 20261102,
+  "crop": 33,
+  "microbatch": 32,
+  "samples_per_frame": 128,
+  "warmup": 200,
+  "weight_decay": 0.1,
+  "validation_dates": 8,
+  "validation_points_per_depth": 64,
+  "qualification": false,
+  "wandb": true,
+  "model": {
+    "width": 1024,
+    "layers": 4,
+    "heads": 8,
+    "bins": 2048,
+    "objective": "regression",
+    "checkpoint_blocks": true,
+    "field_queries": true
+  },
+  "preemptible": true,
+  "log_every": 20,
+  "utilization_guard": {
+    "minimum_percent": 60,
+    "warmup_seconds": 120,
+    "window_seconds": 300,
+    "sample_seconds": 5
+  },
+  "world_size": 4,
+  "max_updates": 25000,
+  "learning_rate": 0.0002,
+  "save_seconds": 300,
+  "coverage": {
+    "candidate_pool": 8192,
+    "clusters_per_depth": 8,
+    "base_fraction": 0.5
+  },
+  "ema": {
+    "decay": 0.999,
+    "faster_decay_at_start": true
+  },
+  "accumulation": 2,
+  "validate_updates": 1000,
+  "arm": "all_fields"
+}

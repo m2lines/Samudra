@@ -1,0 +1,31 @@
+{
+  "passed": true,
+  "source_commit": "ea592e8a71ebf9b50285ef835d641aae1de4d3c9",
+  "complete": {
+    "step": 4,
+    "effective_batch": 256,
+    "accepted_examples": 1024,
+    "ema_updates": 4,
+    "replicas_agree": true,
+    "qualification": true
+  },
+  "CPU_nonhead_check": {
+    "classifier_parameters": 18523648,
+    "regression_parameters": 14321665,
+    "classifier_head": 4202496,
+    "regression_head": 513,
+    "nonhead_exactly_identical": true,
+    "nonhead_sha256": "febf6602102b9dcea88747e5a0937396efe4dfaf309971f6025ae4db4d555e4f",
+    "changed_config_keys": [
+      "model",
+      "discrete_readout_only",
+      "max_allocated_seconds",
+      "categorical_target"
+    ]
+  },
+  "validation": "All77channels at0,1,2,4 raw/EMA finite; exact origins/counts/persistence vscompletedclassifier; regression has no categorical NLL",
+  "actual_GPU_initial_nonhead_matches_completed_classifier": true,
+  "initial_full_parameter_digest_matches_saved_step0": true,
+  "qualification_GPU_seconds": 58,
+  "local_vs_container_note": "Local CPU model initialization hash differs from container; within each environment nonhead matches exactly, and actual GPU savedinitialweights matched betweenregression and completedclassifier. No crossenvironmentparameteridentity claim."
+}

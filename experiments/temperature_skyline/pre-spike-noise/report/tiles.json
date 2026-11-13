@@ -1,0 +1,83 @@
+[
+  {
+    "region": "North Pacific",
+    "depth_m": 2.5,
+    "tile": [
+      8,
+      28,
+      64
+    ]
+  },
+  {
+    "region": "North Pacific",
+    "depth_m": 250,
+    "tile": [
+      8,
+      28,
+      64
+    ]
+  },
+  {
+    "region": "North Pacific",
+    "depth_m": 1850,
+    "tile": [
+      8,
+      28,
+      64
+    ]
+  },
+  {
+    "region": "Gulf Stream",
+    "depth_m": 2.5,
+    "tile": [
+      8,
+      8,
+      64
+    ]
+  },
+  {
+    "region": "Gulf Stream",
+    "depth_m": 250,
+    "tile": [
+      8,
+      8,
+      64
+    ]
+  },
+  {
+    "region": "Gulf Stream",
+    "depth_m": 1850,
+    "tile": [
+      8,
+      8,
+      64
+    ]
+  },
+  {
+    "region": "Agulhas",
+    "depth_m": 2.5,
+    "tile": [
+      8,
+      8,
+      64
+    ]
+  },
+  {
+    "region": "Agulhas",
+    "depth_m": 250,
+    "tile": [
+      16,
+      8,
+      64
+    ]
+  },
+  {
+    "region": "Agulhas",
+    "depth_m": 1850,
+    "tile": [
+      24,
+      24,
+      32
+    ]
+  }
+]

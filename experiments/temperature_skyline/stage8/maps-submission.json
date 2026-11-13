@@ -1,0 +1,58 @@
+{
+  "source_commit": "5fd92d6819bd699f822d673d5fabd15e183eee93",
+  "archive_sha256": "d46a2ae6fd36836dc2460f0453be86131d679face9e19c77677e13dc66e49c6d",
+  "jobs": {
+    "qualification": {
+      "job": "21802680",
+      "output": "/scratch/jr7309/temperature-skyline-20261102/maps-initial-v1/qualification",
+      "command": [
+        "sbatch",
+        "--parsable",
+        "--account=torch_pr_347_lzanna",
+        "--comment=preemption=yes;preemption_partitions_only=yes;requeue=true",
+        "--constraint=h200",
+        "--nodes=1",
+        "--ntasks=1",
+        "--chdir=/scratch/jr7309",
+        "--requeue",
+        "--signal=B:USR1@300",
+        "--job-name=skyline-maps-qualification",
+        "--gres=gpu:1",
+        "--cpus-per-task=8",
+        "--mem=32G",
+        "--time=00:15:00",
+        "--output=/scratch/jr7309/temperature-skyline-20261102/maps-source-5fd92d681/qualification-%j.out",
+        "--error=/scratch/jr7309/temperature-skyline-20261102/maps-source-5fd92d681/qualification-%j.err",
+        "--export=ALL,SKYLINE_ROOT=/scratch/jr7309/temperature-skyline-20261102,SKYLINE_COMMIT=5fd92d6819bd699f822d673d5fabd15e183eee93,SKYLINE_ARCHIVE_SHA256=d46a2ae6fd36836dc2460f0453be86131d679face9e19c77677e13dc66e49c6d,SKYLINE_CONFIG=/scratch/jr7309/temperature-skyline-20261102/maps-source-5fd92d681/temperature_skyline/maps_qualification.json,SKYLINE_OUTPUT=/scratch/jr7309/temperature-skyline-20261102/maps-initial-v1/qualification,SIF_PATH=/scratch/jr7309/.apptainer-images/sd-seeds-base-0b5320248.sif,SKYLINE_WORLD_SIZE=1",
+        "/scratch/jr7309/temperature-skyline-20261102/maps-source-5fd92d681/harness.sbatch"
+      ]
+    },
+    "evaluation": {
+      "job": "21802683",
+      "output": "/scratch/jr7309/temperature-skyline-20261102/maps-initial-v1/evaluation",
+      "command": [
+        "sbatch",
+        "--parsable",
+        "--account=torch_pr_347_lzanna",
+        "--comment=preemption=yes;preemption_partitions_only=yes;requeue=true",
+        "--constraint=h200",
+        "--nodes=1",
+        "--ntasks=1",
+        "--chdir=/scratch/jr7309",
+        "--requeue",
+        "--signal=B:USR1@300",
+        "--job-name=skyline-maps-evaluation",
+        "--gres=gpu:4",
+        "--cpus-per-task=32",
+        "--mem=96G",
+        "--time=03:00:00",
+        "--output=/scratch/jr7309/temperature-skyline-20261102/maps-source-5fd92d681/evaluation-%j.out",
+        "--error=/scratch/jr7309/temperature-skyline-20261102/maps-source-5fd92d681/evaluation-%j.err",
+        "--export=ALL,SKYLINE_ROOT=/scratch/jr7309/temperature-skyline-20261102,SKYLINE_COMMIT=5fd92d6819bd699f822d673d5fabd15e183eee93,SKYLINE_ARCHIVE_SHA256=d46a2ae6fd36836dc2460f0453be86131d679face9e19c77677e13dc66e49c6d,SKYLINE_CONFIG=/scratch/jr7309/temperature-skyline-20261102/maps-source-5fd92d681/temperature_skyline/maps_initial.json,SKYLINE_OUTPUT=/scratch/jr7309/temperature-skyline-20261102/maps-initial-v1/evaluation,SIF_PATH=/scratch/jr7309/.apptainer-images/sd-seeds-base-0b5320248.sif,SKYLINE_WORLD_SIZE=4",
+        "--dependency=afterok:21802680",
+        "/scratch/jr7309/temperature-skyline-20261102/maps-source-5fd92d681/harness.sbatch"
+      ]
+    }
+  },
+  "callback_job": 21802820
+}

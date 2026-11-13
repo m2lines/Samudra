@@ -1,0 +1,87 @@
+{
+  "runs": {
+    "temperature-both-25k": {
+      "path": "/home/jder/.local/state/codex-async-followup/workflows/skyline-soft-priors-25k-artifacts/results/temperature-both-25k",
+      "benchmark": false,
+      "matched_validation_samples": true,
+      "likelihood_comparable": true,
+      "complete": {
+        "step": 25000,
+        "effective_batch": 256,
+        "accepted_examples": 6400000,
+        "ema_updates": 25000,
+        "replicas_agree": true,
+        "qualification": false
+      },
+      "requested_updates": 25000,
+      "final_requested_ema_available": true,
+      "max_validation_update": 25000,
+      "last_logged_update": 25000,
+      "accepted_examples": 6400000,
+      "last_logged_training_elapsed_seconds": 5465.662199993,
+      "median_logged_update_seconds": 0.1986150139982783,
+      "mean_logged_utilization_after120s": 59.918272672556,
+      "source_commit": "ea592e8a71ebf9b50285ef835d641aae1de4d3c9",
+      "job": "22617264",
+      "initial_parameter_sha256": "f95d79b40bf07d74b9ff55a9a1b2063ad57168636cd80b9ecda0ec6991fac2ef"
+    },
+    "all-fields-both-25k": {
+      "path": "/home/jder/.local/state/codex-async-followup/workflows/skyline-soft-priors-25k-artifacts/results/all-fields-both-25k",
+      "benchmark": false,
+      "matched_validation_samples": true,
+      "likelihood_comparable": true,
+      "complete": {
+        "step": 25000,
+        "effective_batch": 256,
+        "accepted_examples": 6400000,
+        "ema_updates": 25000,
+        "replicas_agree": true,
+        "qualification": false
+      },
+      "requested_updates": 25000,
+      "final_requested_ema_available": true,
+      "max_validation_update": 25000,
+      "last_logged_update": 25000,
+      "accepted_examples": 6400000,
+      "last_logged_training_elapsed_seconds": 5538.594588152,
+      "median_logged_update_seconds": 0.2027880980003829,
+      "mean_logged_utilization_after120s": 58.63980180351689,
+      "source_commit": "ea592e8a71ebf9b50285ef835d641aae1de4d3c9",
+      "job": "22617266",
+      "initial_parameter_sha256": "f95d79b40bf07d74b9ff55a9a1b2063ad57168636cd80b9ecda0ec6991fac2ef"
+    },
+    "all-fields-regression-25k": {
+      "path": "/home/jder/.local/state/codex-async-followup/workflows/skyline-small-regression-artifacts/all-fields-regression-25k",
+      "benchmark": false,
+      "matched_validation_samples": true,
+      "likelihood_comparable": false,
+      "complete": {
+        "step": 25000,
+        "effective_batch": 256,
+        "accepted_examples": 6400000,
+        "ema_updates": 25000,
+        "replicas_agree": true,
+        "qualification": false
+      },
+      "requested_updates": 25000,
+      "final_requested_ema_available": true,
+      "max_validation_update": 25000,
+      "last_logged_update": 25000,
+      "accepted_examples": 6400000,
+      "last_logged_training_elapsed_seconds": 5311.237311499999,
+      "median_logged_update_seconds": 0.19441525600268506,
+      "mean_logged_utilization_after120s": 60.083732869951085,
+      "source_commit": "ea592e8a71ebf9b50285ef835d641aae1de4d3c9",
+      "job": "22668910",
+      "initial_parameter_sha256": "d85385fd74058d0741a6467e33167fa1539757ca70ebcfdd135d4e8f7e75b234"
+    }
+  },
+  "notes": [
+    "Partial curves are allowed but qualification input is rejected. Fixed final 25000-update EMA is primary; max observed update alone is not completion.",
+    "Exact matched validation origins/counts/persistence and source normalization are required. Backbone configuration matches; regression changes scalar head, parameter count, objective and head initialization.",
+    "Normalized RMSE is sqrt(mean normalized-channel MSE); it is not degrees C, PSU or m/s. Full-grid denominators and equal channel weights are retained.",
+    "Regression uses MSE and a scalar readout evaluated in BF16, then cast FP32. Classifiers use two-hot cross entropy and fixed-center argmax. NLL is absent for regression; classifier likelihood does not establish calibration.",
+    "All 77 raw/EMA channels, including T-only unsupervised auxiliaries, and update zero are retained in CSV; unsupervised channels do not enter scientific plot comparisons.",
+    "Logged elapsed time is not allocated GPU cost; use separate accounting including qualification and failures."
+  ]
+}

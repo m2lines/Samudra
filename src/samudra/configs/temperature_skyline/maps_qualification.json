@@ -1,0 +1,33 @@
+{
+  "source": "/scratch/jr7309/data/om4_quarterdeg_v2",
+  "reference_root": "https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/v2026-09/om4_quarterdeg",
+  "support": "/scratch/jr7309/temperature-skyline-20261102/audit-local/support.json",
+  "readers": 4,
+  "torch_threads": 4,
+  "crop": 33,
+  "microbatch": 32,
+  "chunk_size": 2048,
+  "seed": 20261104,
+  "stride": 4,
+  "points_per_depth": 16,
+  "map_date": "2016-07-15",
+  "dates": {
+    "calibration": [
+      "2015-01-15",
+      "2015-04-15",
+      "2015-07-15",
+      "2015-10-15"
+    ],
+    "assessment": [
+      "2016-01-15",
+      "2016-04-15",
+      "2016-07-15",
+      "2016-10-15"
+    ]
+  },
+  "classifier": "/scratch/jr7309/temperature-skyline-20261102/runs/210m-absolute-20k-v1/best-likelihood.pt",
+  "regression": "/scratch/jr7309/temperature-skyline-20261102/runs/210m-regression-20k-v1/best-error.pt",
+  "baseline_cache": "/scratch/jr7309/temperature-skyline-20261102/maps-initial-v1/baseline",
+  "qualification": true,
+  "qualification_dense_limit": 64
+}

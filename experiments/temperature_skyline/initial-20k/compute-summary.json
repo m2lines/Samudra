@@ -1,0 +1,26 @@
+{
+  "scope": "Temperature skyline experiment only; excludes pre-existing Samudra baseline training and unrelated concurrent jobs",
+  "method": "Sum ElapsedRaw times allocated GPU count over sacct job allocation rows, with --duplicates to retain requeued segments. Excludes step rows. Includes startup, data wait, validation, checkpointing, failed and preempted allocations. Pending-only jobs contribute zero. GPU types are not performance-normalized.",
+  "query_start": "2026-11-02",
+  "allocation_rows": 30,
+  "unique_jobs": 23,
+  "gpu_seconds": 28851,
+  "gpu_hours": 8.014166666666666,
+  "gpu_hours_by_type": {
+    "b200": 1.3427777777777778,
+    "h200": 3.236111111111111,
+    "rtx6000": 3.435277777777778
+  },
+  "gpu_hours_by_activity": {
+    "Large-model qualification": 0.05638888888888889,
+    "Classifier training": 3.807777777777778,
+    "Regression training": 4.061111111111111,
+    "Matched Samudra evaluation": 0.07944444444444444,
+    "Outlier gradients": 0.009444444444444445
+  },
+  "cpu_only_allocated_core_hours": 0.4141666666666667,
+  "all_allocated_cpu_core_hours_including_gpu_job_cpus": 64.5275,
+  "completed_optimizer_updates_per_small_model": 20000,
+  "effective_batch": 32,
+  "accepted_training_examples_both_small_models": 1280000
+}

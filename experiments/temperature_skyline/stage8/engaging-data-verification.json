@@ -1,0 +1,352 @@
+{
+  "engaging": {
+    "root": "/orcd/data/abodner/002/jrusak/om4_quarterdeg_v2",
+    "OM4.zarr": {
+      "metadata_sha256": "1b430134a5f1aadebace8b3457b6b4be12dfc9523589df06c8e112a7784170fe",
+      "missing_channels": [],
+      "temperature_array": {
+        "chunks": [
+          1,
+          720,
+          1440
+        ],
+        "compressor": null,
+        "dtype": "<f4",
+        "fill_value": "NaN",
+        "filters": null,
+        "order": "C",
+        "shape": [
+          4745,
+          720,
+          1440
+        ],
+        "zarr_format": 2
+      },
+      "time_attrs": {
+        "_ARRAY_DIMENSIONS": [
+          "time"
+        ],
+        "calendar": "julian",
+        "units": "days since 1958-01-01"
+      },
+      "time_shape": [
+        4745
+      ],
+      "coordinates_time_masks": {
+        "sha256": "3a3c4d36e6c7bc2f7a91392e3b8ea4a8ebd4dcb4e7a6ec1ca7f00562876d12ba",
+        "bytes": 19717503,
+        "files": 69
+      },
+      "sampled_payload": {
+        "sha256": "3939101511cdfd4bb5f9026b7f8176646059eec315d90d9618c860f61cef9d28",
+        "bytes": 186624000,
+        "files": 45
+      },
+      "payload_file_counts": {
+        "uo_0": 4745,
+        "uo_1": 4745,
+        "uo_2": 4745,
+        "uo_3": 4745,
+        "uo_4": 4745,
+        "uo_5": 4745,
+        "uo_6": 4745,
+        "uo_7": 4745,
+        "uo_8": 4745,
+        "uo_9": 4745,
+        "uo_10": 4745,
+        "uo_11": 4745,
+        "uo_12": 4745,
+        "uo_13": 4745,
+        "uo_14": 4745,
+        "uo_15": 4745,
+        "uo_16": 4745,
+        "uo_17": 4745,
+        "uo_18": 4745,
+        "vo_0": 4745,
+        "vo_1": 4745,
+        "vo_2": 4745,
+        "vo_3": 4745,
+        "vo_4": 4745,
+        "vo_5": 4745,
+        "vo_6": 4745,
+        "vo_7": 4745,
+        "vo_8": 4745,
+        "vo_9": 4745,
+        "vo_10": 4745,
+        "vo_11": 4745,
+        "vo_12": 4745,
+        "vo_13": 4745,
+        "vo_14": 4745,
+        "vo_15": 4745,
+        "vo_16": 4745,
+        "vo_17": 4745,
+        "vo_18": 4745,
+        "thetao_0": 4745,
+        "thetao_1": 4745,
+        "thetao_2": 4745,
+        "thetao_3": 4745,
+        "thetao_4": 4745,
+        "thetao_5": 4745,
+        "thetao_6": 4745,
+        "thetao_7": 4745,
+        "thetao_8": 4745,
+        "thetao_9": 4745,
+        "thetao_10": 4745,
+        "thetao_11": 4745,
+        "thetao_12": 4745,
+        "thetao_13": 4745,
+        "thetao_14": 4745,
+        "thetao_15": 4745,
+        "thetao_16": 4745,
+        "thetao_17": 4745,
+        "thetao_18": 4745,
+        "so_0": 4745,
+        "so_1": 4745,
+        "so_2": 4745,
+        "so_3": 4745,
+        "so_4": 4745,
+        "so_5": 4745,
+        "so_6": 4745,
+        "so_7": 4745,
+        "so_8": 4745,
+        "so_9": 4745,
+        "so_10": 4745,
+        "so_11": 4745,
+        "so_12": 4745,
+        "so_13": 4745,
+        "so_14": 4745,
+        "so_15": 4745,
+        "so_16": 4745,
+        "so_17": 4745,
+        "so_18": 4745,
+        "zos": 4745,
+        "tauuo": 4745,
+        "tauvo": 4745,
+        "hfds": 4745
+      }
+    },
+    "OM4_means.zarr": {
+      "metadata_sha256": "e3dbebafb6894d89dfda3a4f33496e4d235ee708c625de6ca5a644427e06da23",
+      "missing_channels": [],
+      "required_normalization": {
+        "sha256": "ede3e37a898b42086c110262a52223409665842daf2cb65795a45974ca0322a2",
+        "bytes": 16160,
+        "files": 240
+      }
+    },
+    "OM4_stds.zarr": {
+      "metadata_sha256": "e3dbebafb6894d89dfda3a4f33496e4d235ee708c625de6ca5a644427e06da23",
+      "missing_channels": [],
+      "required_normalization": {
+        "sha256": "cbf06a92bcfccaac66913fc9163e737d25e898a3c35312865652686b35352683",
+        "bytes": 16160,
+        "files": 240
+      }
+    }
+  },
+  "torch": {
+    "root": "/scratch/jr7309/data/om4_quarterdeg_v2",
+    "OM4.zarr": {
+      "metadata_sha256": "d7decbce56b7c7bb81170481b1f4f004298a03f04312173ade8c057d37ee8749",
+      "missing_channels": [],
+      "temperature_array": {
+        "chunks": [
+          1,
+          720,
+          1440
+        ],
+        "compressor": {
+          "blocksize": 0,
+          "clevel": 5,
+          "cname": "zstd",
+          "id": "blosc",
+          "shuffle": 1
+        },
+        "dtype": "<f4",
+        "fill_value": "NaN",
+        "filters": null,
+        "order": "C",
+        "shape": [
+          4745,
+          720,
+          1440
+        ],
+        "zarr_format": 2
+      },
+      "time_attrs": {
+        "_ARRAY_DIMENSIONS": [
+          "time"
+        ],
+        "calendar": "julian",
+        "units": "days since 1958-01-01"
+      },
+      "time_shape": [
+        4745
+      ],
+      "coordinates_time_masks": {
+        "sha256": "3a3c4d36e6c7bc2f7a91392e3b8ea4a8ebd4dcb4e7a6ec1ca7f00562876d12ba",
+        "bytes": 19717503,
+        "files": 69
+      },
+      "sampled_payload": {
+        "sha256": "75e7e3e3bb975921ab3bab30524eae60b1da8d6b20353e637f3960e6a6063ecd",
+        "bytes": 76904780,
+        "files": 45
+      },
+      "payload_file_counts": {
+        "uo_0": 4745,
+        "uo_1": 4745,
+        "uo_2": 4745,
+        "uo_3": 4745,
+        "uo_4": 4745,
+        "uo_5": 4745,
+        "uo_6": 4745,
+        "uo_7": 4745,
+        "uo_8": 4745,
+        "uo_9": 4745,
+        "uo_10": 4745,
+        "uo_11": 4745,
+        "uo_12": 4745,
+        "uo_13": 4745,
+        "uo_14": 4745,
+        "uo_15": 4745,
+        "uo_16": 4745,
+        "uo_17": 4745,
+        "uo_18": 4745,
+        "vo_0": 4745,
+        "vo_1": 4745,
+        "vo_2": 4745,
+        "vo_3": 4745,
+        "vo_4": 4745,
+        "vo_5": 4745,
+        "vo_6": 4745,
+        "vo_7": 4745,
+        "vo_8": 4745,
+        "vo_9": 4745,
+        "vo_10": 4745,
+        "vo_11": 4745,
+        "vo_12": 4745,
+        "vo_13": 4745,
+        "vo_14": 4745,
+        "vo_15": 4745,
+        "vo_16": 4745,
+        "vo_17": 4745,
+        "vo_18": 4745,
+        "thetao_0": 4745,
+        "thetao_1": 4745,
+        "thetao_2": 4745,
+        "thetao_3": 4745,
+        "thetao_4": 4745,
+        "thetao_5": 4745,
+        "thetao_6": 4745,
+        "thetao_7": 4745,
+        "thetao_8": 4745,
+        "thetao_9": 4745,
+        "thetao_10": 4745,
+        "thetao_11": 4745,
+        "thetao_12": 4745,
+        "thetao_13": 4745,
+        "thetao_14": 4745,
+        "thetao_15": 4745,
+        "thetao_16": 4745,
+        "thetao_17": 4745,
+        "thetao_18": 4745,
+        "so_0": 4745,
+        "so_1": 4745,
+        "so_2": 4745,
+        "so_3": 4745,
+        "so_4": 4745,
+        "so_5": 4745,
+        "so_6": 4745,
+        "so_7": 4745,
+        "so_8": 4745,
+        "so_9": 4745,
+        "so_10": 4745,
+        "so_11": 4745,
+        "so_12": 4745,
+        "so_13": 4745,
+        "so_14": 4745,
+        "so_15": 4745,
+        "so_16": 4745,
+        "so_17": 4745,
+        "so_18": 4745,
+        "zos": 4745,
+        "tauuo": 4745,
+        "tauvo": 4745,
+        "hfds": 4745
+      }
+    },
+    "OM4_means.zarr": {
+      "metadata_sha256": "e3dbebafb6894d89dfda3a4f33496e4d235ee708c625de6ca5a644427e06da23",
+      "missing_channels": [],
+      "required_normalization": {
+        "sha256": "ede3e37a898b42086c110262a52223409665842daf2cb65795a45974ca0322a2",
+        "bytes": 16160,
+        "files": 240
+      }
+    },
+    "OM4_stds.zarr": {
+      "metadata_sha256": "e3dbebafb6894d89dfda3a4f33496e4d235ee708c625de6ca5a644427e06da23",
+      "missing_channels": [],
+      "required_normalization": {
+        "sha256": "cbf06a92bcfccaac66913fc9163e737d25e898a3c35312865652686b35352683",
+        "bytes": 16160,
+        "files": 240
+      }
+    }
+  },
+  "decoded_sample": {
+    "engaging": {
+      "root": "/orcd/data/abodner/002/jrusak/om4_quarterdeg_v2",
+      "decoded_sample_sha256": "7f49379e71cdb227a7fbe00c9ddb0df5088b950838d583b327eb192defa97bb1",
+      "sample_chunks": 45,
+      "metadata_excluding_compression_sha256": "a52da97fb592f3619b6cc6a14ebc6271928209a5c57fe25ce69ebb0089141d43"
+    },
+    "torch": {
+      "root": "/scratch/jr7309/data/om4_quarterdeg_v2",
+      "decoded_sample_sha256": "7f49379e71cdb227a7fbe00c9ddb0df5088b950838d583b327eb192defa97bb1",
+      "sample_chunks": 45,
+      "metadata_excluding_compression_sha256": "a52da97fb592f3619b6cc6a14ebc6271928209a5c57fe25ce69ebb0089141d43"
+    }
+  },
+  "full_payload_verified": false,
+  "sample_fields": [
+    "uo_0",
+    "vo_18",
+    "thetao_0",
+    "thetao_13",
+    "so_7",
+    "zos",
+    "tauuo",
+    "tauvo",
+    "hfds"
+  ],
+  "sample_time_indices": [
+    1243,
+    3000,
+    4071,
+    4142,
+    4300
+  ],
+  "bounds_provenance": "Reuse the training-only support bounds audited on Torch; preserve original support under support-torch.json and audit_source when rebinding the source receipt to Engaging. No new full training support scan was performed on Engaging.",
+  "transferred_inputs": {
+    "absolute-initial.pt": {
+      "name": "absolute-initial.pt",
+      "sha256": "d2c450d992fba1ba67170bcf16781391cf0c2ecb9d26798e542561c182622719",
+      "bytes": 840632405,
+      "source": "/scratch/jr7309/temperature-skyline-20261102/runs/210m-absolute-20k-v1/best-likelihood.pt"
+    },
+    "regression-initial.pt": {
+      "name": "regression-initial.pt",
+      "sha256": "50a9d2c568bfec1f9d55a73169204fd44ee09cc28a7229d9037cca7e047bb2f7",
+      "bytes": 832235586,
+      "source": "/scratch/jr7309/temperature-skyline-20261102/runs/210m-regression-20k-v1/best-error.pt"
+    },
+    "support-torch.json": {
+      "name": "support-torch.json",
+      "sha256": "3dfadc0ba355b3187f70debb9e20425cf61975c7c184b157821ed7e1d23a879f",
+      "bytes": 63519,
+      "source": "/scratch/jr7309/temperature-skyline-20261102/audit-local/support.json"
+    }
+  }
+}

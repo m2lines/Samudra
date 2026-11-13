@@ -1,0 +1,10 @@
+{
+  "method": "L2 reverse and forward triangle inequality on normalized T errors using full19x720x1440 denominator",
+  "normalized_cache_difference_full_grid_rmse": 0.0009020361723400467,
+  "current_samudra_normalized_rmse": 0.023586447717373484,
+  "classifier_normalized_rmse": 0.02136546257877535,
+  "historical_samudra_normalized_rmse_lower_bound": 0.022684411545033437,
+  "historical_samudra_normalized_rmse_upper_bound": 0.02448848388971353,
+  "classifier_improvement_percent_lower_bound": 5.814340670198526,
+  "classifier_improvement_percent_upper_bound": 12.753020256390869
+}

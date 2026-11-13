@@ -12,6 +12,7 @@ first principles, what the experiment does and why. The results are in
 | [`v2_om4_twodeg.md`](reports/v2_om4_twodeg.md) | Current protocol: per-variable tolerance bins, Samudra's 2° splits | Complete |
 | [`v1_om4_twodeg.md`](reports/v1_om4_twodeg.md) | First OM4 run, with a fixed 8,192-bin quantization | Frozen record |
 | [`research_agenda.md`](reports/research_agenda.md) | How this serves Samudra's goals, the reviewer feedback and the metrics system | Draft |
+| [`losses_from_bits.md`](reports/losses_from_bits.md) | Training losses from the bits view: Samudra 2's dynamic loss as a likelihood, per-cell spreads, tolerance-based losses, field-level losses (#981) | Proposal for discussion |
 
 ## 1. Why: the problem this addresses
 

@@ -24,12 +24,25 @@ Yuan's `normalized_delta` model for the Samudra 2 revision
    fixed weights `1 / q**2`. That is how it is implemented here, reusing
    `TendencyLoss`.
 
-Together these are GraphCast's residual normalization. Her model has two
-output heads per call (`z2 = z1 + q * d2`). This variant predicts **one**
-five-day step per call from two input states (`input_steps: 2`,
-`output_steps: 1`), with `steps: 8` so that training still covers her 40-day
-horizon. All other settings follow her `train.yaml`: BatchNorm, fp32, 4 ranks
-x batch 8, 70 epochs, lr 6e-4 cosine, EMA 0.999, seed 15.
+Together these are GraphCast's residual normalization.
+
+## Design: an ablation of PR #969
+
+PR #969 (`experiment/onedeg-tendency-residual`) already trained the same
+architecture with a scaled residual head, the tendency loss, and 2 inputs /
+1 output at 1°. This run changes only what Yuan's recipe changes:
+
+| | #969 | This run |
+|---|---|---|
+| `tau` (output scale and loss weights) | RMS change over the full grid, land as zero | RMS change over wet cells only |
+| Loss weights | `1/q**2`, capped at 1000:1, rescaled to mean 1 | `1/q**2`, uncapped and unscaled |
+| Training data | `om4_onedeg_v3` | official `v2026-09` |
+
+Everything else matches #969's run: `steps: 8` (40-day horizon), BatchNorm,
+fp32, 8 ranks x batch 4, 70 epochs, lr 6e-4 cosine, EMA 0.999, seed 15,
+evaluation of the final-epoch EMA checkpoint, and the same observation
+metrics. For a like-for-like comparison, #969's checkpoint is re-evaluated on
+`v2026-09`.
 
 ## Code
 
@@ -46,15 +59,14 @@ x batch 8, 70 epochs, lr 6e-4 cosine, EMA 0.999, seed 15.
 Official `v2026-09` 1° release (`docs/data.md`). Her `sigma` equals that
 release's `OM4_stds` for all 77 channels.
 
-## Known differences from her run
+## Known differences from Yuan's own run
 
+* **Two inputs, one output.** Hers predicted two steps per call
+  (`z2 = z1 + q * d2`), 4 calls per sample.
 * **Loss magnitude is 2× hers.** Each training sample sums 8 one-output steps,
   each averaged over 77 channels. Hers summed 4 two-output steps averaged over
   154 head-channels. Adam cancels a constant factor, but gradient clipping at
-  norm 1.0 does not, so some batches are clipped here that would not be in
-  hers.
+  norm 1.0 does not.
 * **No extra BatchNorm forward.** Her trainer ran one extra train-mode forward
-  per batch (for its no-op loss `update`), which also updates BatchNorm running
-  statistics. The fixed-weight loss here skips that pass, so the eval-mode
-  BatchNorm statistics differ slightly.
-* Training ends 2013-09-30 (the `om4` preset); hers ended 2013-10-05.
+  per batch, which also updated BatchNorm running statistics.
+* 8 ranks x batch 4 (hers 4 x 8), final-epoch EMA (hers: best validation).

@@ -19,9 +19,15 @@ sources:
     data_location: OM4.zarr
     data_means_location: OM4_means.zarr
     data_stds_location: OM4_stds.zarr
+# Loader settings match PR #969's run.
 loading:
   concurrent_compute: true
   type: cpu
-  num_workers: 2
+  num_workers: 4
+  persistent_workers: true
+  pin_mem: true
+inference_loading:
+  num_workers: 4
+  persistent_workers: true
 input_steps: 2
 output_steps: 1

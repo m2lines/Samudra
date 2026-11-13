@@ -16,4 +16,13 @@ experiment:
     project: default
 data: !include data.yaml
 model: !include model.yaml
-observations: !include ../../src/samudra/configs/data/obs.yaml
+# Same observation products and settings as #969's metrics run.
+observations:
+  argo_iap_location: /scratch/am16581/data/obs/argo-iap.zarr
+  duacs_location: /scratch/am16581/data/obs/duacs.zarr
+  oisst_location: /scratch/am16581/data/obs/oisst.zarr
+  baselines: [om4]
+  bootstrap_samples: 10000
+  rmse_start: "2015-01-01"
+  rmse_end: "2022-12-31"
+  velocity_kind: absolute

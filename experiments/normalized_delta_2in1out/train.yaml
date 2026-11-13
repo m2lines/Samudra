@@ -2,10 +2,11 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# Yuan's normalized_delta run, ported to samudra, with 2-in-1-out.
-# Hyperparameters follow her train.yaml (4 ranks x batch 8, 70 epochs,
-# lr 6e-4 cosine, EMA 0.999, seed 15). steps: 8 keeps her 40-day training
-# horizon (she used 4 calls x 2 outputs).
+# Yuan's normalized_delta weighting, as an ablation of PR #969
+# (experiment/onedeg-tendency-residual). Everything except the loss weights
+# and the tau definition matches #969's run: 2 inputs / 1 output, 8 calls
+# (40-day horizon), scaled residual head, BatchNorm, fp32, 8 ranks x batch 4,
+# 70 epochs, lr 6e-4 cosine, EMA 0.999, seed 15, final-epoch EMA for eval.
 debug: false
 disk_mode: true
 save_freq: 5
@@ -13,11 +14,10 @@ rollout_validation:
   days: [360]
   frequency: 1
   steps_forward: 1
-# Like hers: keep the best checkpoint by one-step validation loss on the
-# normalized-delta objective. The rollout is still logged.
-validation_score: validation_loss
+# As in #969. Evaluation uses the final-epoch EMA checkpoint, not the best one.
+validation_score: rollout_rmse
 epochs: 70
-batch_size: 8
+batch_size: 4
 learning_rate: 0.0006
 gradient_accumulation_steps: 1
 scheduler: { type: cosine }

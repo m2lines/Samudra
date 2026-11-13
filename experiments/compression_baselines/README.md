@@ -3,6 +3,13 @@
 
 # Compression baselines: bits per value for ocean emulators
 
+> **Draft in progress (2026-11-12).** The code on this branch is now protocol v2
+> (Keisler tolerance bins, Samudra's 2° splits); the v2 OM4 run is still going.
+> The text below still describes v1 and will be rewritten as an overview. Read
+> [`reports/v1_om4_twodeg.md`](reports/v1_om4_twodeg.md) (frozen v1 report) and
+> [`reports/research_agenda.md`](reports/research_agenda.md) (draft: how this
+> serves the Samudra agenda). `reports/v2_om4_twodeg.md` comes with the v2 results.
+
 **Status: run on OM4 2° (`v2026-09/om4_twodeg`) on 2026-11-12; results below.**
 Every number in this README comes from a file in `om4_twodeg_results/`. The
 code that produced `results.json` is commit `06f69d3` (`git_hash.txt`). After

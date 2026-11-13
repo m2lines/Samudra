@@ -59,8 +59,8 @@ jobs:
       - name: Bounded CPU property checks with replay artifacts
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: |
-          uv run --locked python -m samudra.test_utils.run \
-            --suite samudra --tests tests/test_*_properties.py --dependency-file uv.lock \
+          uv run --locked python -m samudra_verification.campaign \
+            --project samudra --lane pinned --tests tests/test_*_properties.py verification/tests --dependency-file uv.lock \
             --output /tmp/property-pr --examples 40 --timeout 600 \
             -- -m "not manual and not cuda"
 

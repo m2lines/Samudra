@@ -12,12 +12,12 @@ def events(
     outcome="failed",
     *,
     message="assertion failed",
-    suite="data",
-    probe=False,
+    project="data",
+    proposed=False,
 ):
-    properties = [("verification_suite", suite)]
-    if probe:
-        properties.append(("contract_probe", "true"))
+    properties = [("project", project)]
+    if proposed:
+        properties.append(("invariant_status", "proposed"))
     return [
         {
             "$report_type": "TestReport",

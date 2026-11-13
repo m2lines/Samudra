@@ -11,7 +11,7 @@ resolution-markers = [
 [manifest]
 members = [
     "samudra",
-    "samudra-test-utils",
+    "samudra-verification",
 ]
 
 [[package]]
@@ -3389,7 +3389,7 @@ dev = [
     { name = "pytest-profiling" },
     { name = "pytest-xdist", extra = ["psutil"] },
     { name = "s3fs" },
-    { name = "samudra-test-utils" },
+    { name = "samudra-verification" },
     { name = "scalene" },
     { name = "snakeviz" },
     { name = "tenacity" },
@@ -3435,7 +3435,7 @@ requires-dist = [
     { name = "xarray", specifier = ">=2025.1.2" },
     { name = "zarr", specifier = "<3" },
 ]
-provides-extras = ["sky", "cuda", "rust"]
+provides-extras = ["cuda", "rust", "sky"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -3456,7 +3456,7 @@ dev = [
     { name = "pytest-profiling", specifier = ">=1.8.1" },
     { name = "pytest-xdist", extras = ["psutil"], specifier = ">=3.6.1" },
     { name = "s3fs", specifier = ">=2025.3" },
-    { name = "samudra-test-utils", editable = "src/samudra/test_utils" },
+    { name = "samudra-verification", editable = "verification" },
     { name = "scalene", specifier = ">=1.5.51" },
     { name = "snakeviz", specifier = ">=2.2.2" },
     { name = "tenacity", specifier = ">=9" },
@@ -3488,9 +3488,9 @@ test = [
 ]
 
 [[package]]
-name = "samudra-test-utils"
+name = "samudra-verification"
 version = "0.1.0"
-source = { editable = "src/samudra/test_utils" }
+source = { editable = "verification" }
 dependencies = [
     { name = "hypothesis" },
     { name = "pytest" },
@@ -3501,7 +3501,7 @@ dependencies = [
 requires-dist = [
     { name = "hypothesis", specifier = ">=6.170.13" },
     { name = "pytest", specifier = ">=8.3.4" },
-    { name = "pytest-reportlog", specifier = ">=1.0" },
+    { name = "pytest-reportlog", specifier = ">=1" },
 ]
 
 [[package]]

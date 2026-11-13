@@ -46,7 +46,7 @@ jobs:
       - name: 🌈 Install ocean_preprocessing package
         shell: bash -l {0}
         run: |
-          python -m pip install -e ./src/samudra/test_utils -e "./data[test]"
+          python -m pip install -e ./verification -e "./data[test]"
       - name: 🔎 Check current version
         run: python -c "import ocean_preprocessing; print(ocean_preprocessing.__version__)"
       - name: 🏄‍♂️ Run Tests

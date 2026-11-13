@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Shared Hypothesis profiles and triage annotations; suite dependencies stay separate."""
+"""Shared Hypothesis profiles, and the tags each project's conftest puts on its tests."""
 
 import os
 
@@ -49,9 +49,23 @@ def configure_profiles(default_profile="property"):
     settings.load_profile(os.environ.get("SAMUDRA_HYPOTHESIS_PROFILE", default_profile))
 
 
-def tag_verification_items(items, suite):
-    """Keep proposed contracts visible while excluding them from product reports."""
+INVARIANT_STATUSES = ("proposed", "agreed")
+
+
+def tag_project_items(items, project):
+    """Tag each test with its project, and with its invariant's status if marked.
+
+    Mark a property whose invariant the team hasn't agreed on yet with
+    `@pytest.mark.invariant(status="proposed")`. Its failures still appear in
+    results, but triage won't propose them as bug reports.
+    """
     for item in items:
-        item.user_properties.append(("verification_suite", suite))
-        if item.get_closest_marker("contract_probe") is not None:
-            item.user_properties.append(("contract_probe", "true"))
+        item.user_properties.append(("project", project))
+        if (marker := item.get_closest_marker("invariant")) is not None:
+            status = marker.kwargs.get("status")
+            if status not in INVARIANT_STATUSES:
+                raise ValueError(
+                    f"{item.nodeid}: invariant status must be one of "
+                    f"{INVARIANT_STATUSES}, not {status!r}"
+                )
+            item.user_properties.append(("invariant_status", status))

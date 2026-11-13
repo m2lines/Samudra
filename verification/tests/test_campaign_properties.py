@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Exercise the shared CLI in isolation: empty/skipped checks cannot look green."""
+"""Run the campaign CLI on generated suites: empty or all-skipped runs can't pass."""
 
 import json
 import subprocess
@@ -13,7 +13,7 @@ from tempfile import TemporaryDirectory
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 @settings(max_examples=8, deadline=None)
@@ -38,9 +38,11 @@ def test_shared_runner_records_real_outcomes_and_replay_inputs(outcomes):
             [
                 sys.executable,
                 "-m",
-                "samudra.test_utils.run",
-                "--suite",
+                "samudra_verification.campaign",
+                "--project",
                 "harness",
+                "--lane",
+                "pinned",
                 "--tests",
                 str(tests),
                 "--dependency-file",
@@ -63,11 +65,12 @@ def test_shared_runner_records_real_outcomes_and_replay_inputs(outcomes):
             timeout=30,
             check=False,
         )
-        expected = 1 if "fail" in outcomes else (0 if "pass" in outcomes else 5)
+        # 1: a counterexample; 0: passed; 2: invalid, since nothing ran.
+        expected = 1 if "fail" in outcomes else (0 if "pass" in outcomes else 2)
         assert process.returncode == expected, process.stdout + process.stderr
         result = json.loads((output / "result.json").read_text())
         assert (result["status"] == "passed") == (expected == 0)
         replay = json.loads((output / "replay.json").read_text())
-        assert replay["suite"] == "harness" and replay["seed"] == 42
+        assert replay["project"] == "harness" and replay["seed"] == 42
         assert (output / "dependency-input.txt").read_bytes() == config.read_bytes()
         assert (output / "pytest.log").is_file() and (output / "pytest.jsonl").is_file()

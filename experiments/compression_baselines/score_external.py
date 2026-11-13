@@ -65,7 +65,10 @@ def rows(cache: Path, meta: dict, split: str, c: str, pred: np.ndarray, times: l
             continue  # no true state at t in this split
         x, y, f = np.asarray(A[j - 1]), np.asarray(A[j]), pred[k]
         ok = wet & np.isfinite(x) & np.isfinite(y) & np.isfinite(f)
-        xs.append(x[ok]), ys.append(y[ok]), fs.append(f[ok]), ws.append(area[ok])
+        xs.append(x[ok])
+        ys.append(y[ok])
+        fs.append(f[ok])
+        ws.append(area[ok])
     return tuple(np.concatenate(z).astype(np.float64) for z in (xs, ys, fs, ws))
 
 

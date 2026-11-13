@@ -133,7 +133,10 @@ class Roller:
             F = self.features(c, cur, prev, t)
             tend = np.einsum("hwd,hwd->hw", F, self.weights(c))
             nx = np.where(self.wet[c], cur[c] + tend, np.nan)
-            if check and not np.isfinite(nx[self.wet[c]]).all():
+            # Checked in float32, the precision the predictions are written in: a
+            # state can grow exponentially for hundreds of steps while staying
+            # finite in float64 yet overflow when saved.
+            if check and not np.isfinite(nx[self.wet[c]].astype(np.float32)).all():
                 raise FloatingPointError(f"rollout became non-finite at t={t} in {c}")
             nxt[c] = nx
         return nxt

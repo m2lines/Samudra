@@ -44,10 +44,11 @@ def main() -> None:
     ap.add_argument("cache", type=Path)
     ap.add_argument("out", type=Path)
     ap.add_argument("--steps", type=int, default=40)
+    ap.add_argument("--rung", choices=["lpc", "lpc_linear"], default="lpc")
     ap.add_argument("--check-against", default=None)
     a = ap.parse_args()
     cache = Cache(a.cache)
-    roller = Roller(cache, "lpc", forcing=True)
+    roller = Roller(cache, a.rung, forcing=True)
     chans, test, wet = roller.chans, roller.test, roller.wet
     rep: dict[str, Any] = {"cache": str(a.cache)}
 

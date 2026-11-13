@@ -3,6 +3,25 @@
 
 # Where Samudra 2 loses to doing nothing: one-step maps, bias and spectra at 1°
 
+## Experiment goals
+
+1. **Measure what a single step of Samudra 2 does to the true ocean.** We look
+   at each variable, depth, region and spatial scale, before any rollout mixes
+   errors together. *Answered by findings 1–4.*
+2. **Compare it against two floors that cost almost nothing.** One is
+   persistence (no change). The other is the ladder, a roughly 4,600-weight
+   linear predictor borrowed from image compression. *Findings 1 and 4.*
+3. **Test whether the lab's known rollout failures are already visible at one
+   step.** These are noisy fields, and drift toward wrong mean states.
+   *Finding 3 covers noise and finding 2 covers bias.*
+4. **Turn those results into figures the group can use and re-run.** That means
+   maps, bias, spectra and bits in the layout of Jesse's skyline report, with
+   scripts that score any checkpoint. *All findings; see "What we could do with
+   this".*
+
+Not a goal: showing that the ladder is a better ocean model. It isn't. It can't
+yet be rolled out, and Samudra 2 beats it on currents.
+
 This report puts the paper's Samudra 2 beside two reference forecasts:
 
 - **persistence**, which predicts that nothing changes;

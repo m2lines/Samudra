@@ -1,0 +1,40 @@
+{
+  "baseline": 0.3143260311805018,
+  "nonpartial": 0.3198390375084796,
+  "relative_change_percent": 1.753913383270489,
+  "by_origin": [
+    {
+      "origin_year": 2015,
+      "normalized_rmse_baseline": 0.3248622494806541,
+      "normalized_rmse_nonpartial": 0.3316914480679323,
+      "relative_change_percent": 2.102182878495662
+    },
+    {
+      "origin_year": 2017,
+      "normalized_rmse_baseline": 0.30902099520965254,
+      "normalized_rmse_nonpartial": 0.31545704726996737,
+      "relative_change_percent": 2.08272323242904
+    },
+    {
+      "origin_year": 2019,
+      "normalized_rmse_baseline": 0.3234966775155512,
+      "normalized_rmse_nonpartial": 0.32586851546977075,
+      "relative_change_percent": 0.7331877323857539
+    },
+    {
+      "origin_year": 2021,
+      "normalized_rmse_baseline": 0.2999242025161494,
+      "normalized_rmse_nonpartial": 0.30633913922624767,
+      "relative_change_percent": 2.1388526355264226
+    }
+  ],
+  "by_variable_percent": {
+    "so": 27.608793398546826,
+    "thetao": 15.243982077363484,
+    "uo": 0.06431135574056501,
+    "vo": 0.15062471960758383,
+    "zos": 6.373396304133494
+  },
+  "protocol": "four held-out 360-day origins; equal channel/time/origin average of area-weighted normalized RMSE; strict common support; final epoch EMA",
+  "caveat": "single paired training seed; masks alter both boundary context and training objective, including dynamic channel weights; no inference about observational accuracy"
+}

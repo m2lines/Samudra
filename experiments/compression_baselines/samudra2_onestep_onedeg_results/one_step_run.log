@@ -1,0 +1,18 @@
+host dtn012.hpc.nyu.edu git 2726088510dd497a96e586f46ac3ac1f69e4ace6 ckpt /scratch/am16581/compression_baselines/samudra2_paper/ema_ckpt.pt data official:om4_onedeg (v2026-09) backend cpu
+[one_step] val 1/36 (8s)
+[one_step] val 26/36 (217s)
+[one_step] wrote /scratch/am16581/compression_baselines/samudra2_paper/out_official/val (36 forecasts)
+[one_step] test 1/299 (8s)
+[one_step] test 26/299 (252s)
+[one_step] test 51/299 (431s)
+[one_step] test 76/299 (631s)
+[one_step] test 101/299 (787s)
+[one_step] test 126/299 (938s)
+[one_step] test 151/299 (1100s)
+[one_step] test 176/299 (1353s)
+[one_step] test 201/299 (1601s)
+[one_step] test 226/299 (1824s)
+[one_step] test 251/299 (1960s)
+[one_step] test 276/299 (2102s)
+[one_step] wrote /scratch/am16581/compression_baselines/samudra2_paper/out_official/test (299 forecasts)
+exit=0

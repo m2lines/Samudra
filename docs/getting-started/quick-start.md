@@ -75,19 +75,19 @@ normalized, area-weighted score independent of dynamic training loss weights.
 
 ### Data Paths
 
-Training configs reference OM4 ocean model data stored in Zarr format. The bundled
-`samudra_om4/train.yaml` includes `data/om4.yaml`; point it at your own data. In a
-checkout, edit the preset in place:
+The bundled `samudra_om4/train.yaml` includes `data/om4.yaml`, whose sources
+specify `data_location`, `data_means_location`, and `data_stds_location`. To use
+your local copies of the three OM4 stores, set their parent directory:
 
-```yaml
-# src/samudra/configs/data/om4.yaml
-data:
-  path: "s3://<your-bucket>/path/to/OM4.zarr"  # Update with your data path
+```bash
+uv run samudra train samudra_om4/train.yaml --experiment.data_root /path/to/om4
 ```
 
-Without a checkout, copy a preset out and edit it, or override paths on the command
-line (see below). See `src/samudra/configs/data/` for example data configurations at
-1°, 1/2°, and 1/4° resolutions.
+For different filenames or time coverage, copy the preset and its included YAML
+files and edit the source locations and time splits. For different variables or
+dataset conventions, see [Training on your own data](../custom-data.md), which
+explains when to change configuration, add a variable preset, or implement a
+source adapter.
 
 ## Evaluation
 

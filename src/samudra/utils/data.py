@@ -102,7 +102,13 @@ class ChannelStatistics:
 
 
 class CanonicalReader(Protocol):
-    """Canonical channel, coordinate, statistics and read semantics."""
+    """Storage-independent channel, coordinate, statistics and read semantics.
+
+    Reads return unnormalized float32 values in requested time/channel order, with
+    shape ``(*request.time_indices.shape, channel, lat, lon)``. Time indices are
+    relative to the current sliced view. Normalization and masking belong to
+    the batch preparation layer.
+    """
 
     @property
     def channels(self) -> tuple[str, ...]: ...
@@ -152,7 +158,14 @@ class BulkCanonicalReader(CanonicalReader, Protocol):
 
 @dataclasses.dataclass(frozen=True)
 class XarrayCanonicalReader:
-    """Canonical channel reads and metadata backed by xarray."""
+    """Read arbitrary named channels from canonical xarray datasets.
+
+    Source adapters translate raw names, dimensions, and depth levels before
+    constructing this reader. Each data channel has
+    dimensions ``(time, lat, lon)``; means/stds supply one scalar per channel.
+    Prefer ``CanonicalSource.from_datasets`` to also assemble masks and validate
+    channel availability. See the custom-data guide for source registration.
+    """
 
     data: xr.Dataset
     means: xr.Dataset
@@ -258,8 +271,9 @@ class CanonicalSource:
     ) -> Self:
         """Construct from datasets that are already in canonical channel form.
 
-        Raw OM4 callers should use :meth:`from_datasets`. This factory remains
-        useful for focused in-memory tests and named preprocessing stages.
+        Use this factory when masks have already been assembled explicitly.
+        :meth:`from_datasets` extracts masks from canonical datasets. Run the
+        source config's ``canonicalize_datasets`` before calling either factory.
         """
         channels = tuple(str(name) for name in means.data_vars)
         if any("lev" in dataset.dims for dataset in (data, means, stds)):
@@ -375,7 +389,15 @@ class CanonicalSource:
         reader_factory: Callable[[XarrayCanonicalReader], CanonicalReader]
         | None = None,
     ) -> Self:
-        """Build a canonical reader from already-canonicalized xarray datasets."""
+        """Build a source from already-canonicalized xarray datasets.
+
+        Channel order follows the supplied prognostic and boundary variable names.
+        Datasets must supply all requested channels and normalization statistics,
+        plus the masks expected by ``extract_wet_mask`` (normally ``mask_<level>``;
+        surface channels use ``mask_0``). Use ``from_canonical_datasets`` to supply
+        explicit masks instead. ``reader_factory`` optionally replaces xarray I/O
+        while preserving the canonical channel order.
+        """
         channels = tuple(dict.fromkeys((*prognostic_var_names, *boundary_var_names)))
         for dataset in (data, means, stds):
             level_channels = [

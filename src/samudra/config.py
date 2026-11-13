@@ -254,6 +254,14 @@ type DataSourceType = Literal["om4", "cm4", "llc"]
 
 
 class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
+    """Adapt source conventions while reusing canonical readers and batching.
+
+    Implement ``build_layout`` and ``canonicalize_datasets`` for new xarray data.
+    Register the concrete config in ``DataSourceType`` and ``DataSourceConfig``
+    for YAML use. The base implementation builds canonical sources and time
+    splits for the training pipeline.
+    """
+
     type: DataSourceType
     train_time: SourceTimeConfigT = Field(frozen=True)
     val_time: SourceTimeConfigT = Field(frozen=True)
@@ -491,7 +499,12 @@ class InferenceDataLoadingConfig(BaseConfig):
 class Om4FamilyDataSourceConfig[Om4FamilyTimeConfigT: Om4TimeConfig | Cm4TimeConfig](
     BaseDataSourceConfig[Om4FamilyTimeConfigT]
 ):
-    """Shared physical channels and layouts for the OM4 and CM4 oceans."""
+    """Shared OM4/CM4 variable presets, layouts, and canonicalization.
+
+    Uses ``build_om4_layout`` to select variables and translates datasets into
+    the channel format consumed by ``XarrayCanonicalReader``. Subclasses select
+    the source type and calendar. See ``docs/custom-data.md`` for extension points.
+    """
 
     prognostic_vars_key: str = "thermo_dynamic_all"
     boundary_vars_key: str = "tau_hfds"

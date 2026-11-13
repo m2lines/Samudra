@@ -277,6 +277,146 @@ crops at ¼°, on one date. Here every cell at 1° is predicted from a 3×3
 neighbourhood, on 299 dates. The figures are built to look the same, but the
 numbers don't belong in one table.
 
+## Implications for modeling
+
+### A likely cause: the task asks for the whole state, in units where the change is tiny
+
+The paper checkpoint's config has `pred_residuals: false`:
+
+- **What it predicts:** the *full* next state, not the change from the current
+  state.
+- **Units:** each channel is normalized by its climatological spread
+  (`OM4_stds`, the spread of the field itself).
+- **Loss weighting:** the training loss is `dynamic`. It weights each channel by
+  1/MSE, capped at a 20× ratio between channels, so that every channel's
+  normalized error counts about equally.
+
+In those units, the signal the model has to resolve is very different across
+variables. The table compares:
+
+- the true five-day change (persistence's RMSE);
+- each model's one-step RMSE.
+
+All values are divided by the normalization spread, so they are in the units
+the training loss sees. The spreads and the persistence column are from
+`normalized_scales.txt`; the model columns are from `figure-metrics.csv`.
+
+| Channel | True 5-day change | Ladder error | Samudra 2 error |
+|---|---:|---:|---:|
+| Temperature, 2.5 m | 0.026 | 0.023 | 0.028 |
+| Temperature, 250 m | 0.018 | 0.015 | 0.029 |
+| Temperature, 1850 m | **0.007** | 0.007 | **0.030** |
+| Salinity, 2.5 m | 0.037 | 0.036 | 0.042 |
+| Salinity, 250 m | 0.015 | 0.013 | 0.026 |
+| Salinity, 1850 m | **0.003** | 0.003 | **0.021** |
+| SSH | 0.038 | — | 0.040 |
+| `uo`, 2.5 m | **0.45** | 0.42 | **0.37** |
+| `uo`, 250 m | 0.23 | 0.20 | 0.13 |
+| `uo`, 1850 m | 0.29 | 0.27 | 0.20 |
+
+Two patterns stand out:
+
+- **Samudra 2's temperature and salinity error sits at about 2–4% of a spread
+  at every depth.** It barely changes from 2.5 m to 1850 m, even though the true
+  change shrinks fourfold for temperature and tenfold for salinity. That looks
+  like a precision floor: how closely a deep network can reproduce its input
+  field in these units.
+- **Where the true change is below that floor, Samudra 2 loses to
+  persistence.** That holds for temperature and salinity at depth, and nearly
+  everywhere for SSH. Where the true change is far above it, as for velocity at
+  20–45% of a spread, Samudra 2 wins.
+
+This one mechanism accounts for findings 1 and 4: which variables lose, why
+losses grow with depth, and why Samudra 2 does best where the ocean changes
+most.
+
+It also explains why the loss doesn't flag the problem:
+
+- A deep temperature error of 0.03 normalized units looks as small as any other
+  channel's error. The dynamic weighting equalizes *normalized error*, not
+  *skill over persistence*.
+- Nothing in the objective tells the model that at 1850 m, 0.03 is four times
+  worse than doing nothing.
+
+This is a hypothesis. It fits every number here, but it needs the ablation
+below to confirm it.
+
+### Do we need a better objective or a better task definition?
+
+Yes, and the task definition comes first. The cheapest, most targeted fix is in
+*what* the model predicts and in *what units*. A new loss function comes after
+that. In order of cost:
+
+1. **Predict the change, not the state.** Set `pred_residuals: true`, an
+   existing option. The output then becomes x[t] plus a learned correction, so
+   persistence is the model's default, and it no longer has to reconstruct the
+   input field to beat it.
+2. **Normalize the change by the spread of five-day changes (σ_Δ), not by the
+   spread of the state.**
+   - This is Keisler's (2022) normalization, and the same σ_Δ this experiment
+     uses for its bins.
+   - In these units, persistence scores exactly 1 on every channel, and
+     anything below 1 is real skill. Every channel's loss then measures skill
+     over doing nothing.
+   - Deck slide 11's "normalized-delta" variant is essentially this.
+   - One interaction to check: the dynamic loss's 20× cap could undo part of
+     the reweighting. The per-channel σ_Δ ratios between surface and deep
+     channels exceed 20×.
+3. **Watch the bias directly.** The bias maps show steady per-step pushes,
+   which is the attractor mechanism.
+   - Residual prediction should shrink them, since the default output is now
+     unbiased.
+   - If it doesn't, a penalty on the batch-mean error per channel and region
+     targets them directly.
+4. **Score probabilistically.** Have the model predict a spread per cell and
+   train with a Gaussian or Laplace negative log-likelihood. That is the bits
+   score as a loss: see [losses from bits](losses_from_bits.md) and #981.
+   - It rewards knowing *where* the ocean is quiet, which is exactly where
+     Samudra 2 loses.
+   - It also gives fair bits maps, without the single-spread handicap in
+     finding 4.
+5. **Learn the correction on top of a cheap baseline.** The ladder costs
+   4,600 weights and is already ahead of persistence for temperature and
+   salinity. A network trained to predict only what the ladder misses
+   starts from a better default than persistence.
+   - This is the most speculative idea here. The ladder's rollout instability
+     would need handling first, for example by fitting it on multi-step
+     targets.
+
+Keep the multi-step part of training (`steps: 4`). It is what keeps Samudra
+stable over years, which the ladder shows is not free. The proposal changes
+what each step predicts and how errors are weighted, not the rollout training.
+
+### How to test it
+
+A four-arm ablation on the same data, splits and training budget:
+
+| Arm | Change |
+|---|---|
+| A | Current setup (control) |
+| B | `pred_residuals: true` |
+| C | B, with targets normalized by σ_Δ |
+| D | C, with a per-cell spread and NLL loss |
+
+**What to measure for each arm:**
+
+- **One step:** this report's figures.
+  - `one_step.py`, then `onestep_figures.py` and `bits_maps.py`.
+  - The pass criterion is beating persistence at all 19 levels for every
+    variable.
+- **Rollouts:** `samudra.metrics`, to confirm stability and long-run skill
+  don't regress.
+- **The bias maps:** whether per-step drift shrinks, and whether rollout drift
+  moves with it.
+
+**What would falsify the hypothesis:** arms B and C don't lift temperature and
+salinity above persistence at depth. Then the floor isn't caused by full-state
+prediction, and the next suspects are architecture and output resolution.
+
+The new 2° Samudra the group plans to train would be the natural place to run
+this. Per the project's rules, training runs are proposed first and not
+launched from here.
+
 ## How solid this is
 
 **Statistical noise is not a concern.** Each global number averages 299 dates
@@ -317,9 +457,9 @@ recorded in the [overnight report](overnight_2026-11-13.md).
    noise (the surface) from error at all scales (at depth). Those call for
    different fixes, such as smoothing or spectral losses for the first, and
    loss balancing across depths for the second.
-4. **The loss-design thread.** The bits maps show what a per-cell
-   log-likelihood loss would reward. See [losses from bits](losses_from_bits.md)
-   and issue #981.
+4. **The modeling changes in "Implications for modeling" above.** Those
+   include residual prediction, σ_Δ normalization and an NLL loss, each scored
+   with these figures.
 
 ## Files and provenance
 
@@ -335,7 +475,9 @@ All figures, CSVs and logs are in `../onestep_figures_onedeg_results/`:
   - `figure-metrics.csv`: map RMSE and RMSE by depth;
   - `spectra.csv`: every plotted spectral point;
   - `bits-maps.csv`: area-mean bits saved, and the share of area worse than
-    persistence.
+    persistence;
+  - `normalized_scales.txt`: the normalization spreads and the true five-day
+    change in normalized units, from `normalized_scales.py`.
 - **Code commits:**
   - extraction ran at `5214ff45`;
   - rendering and `bits_maps.py` ran at `f1103eac`.

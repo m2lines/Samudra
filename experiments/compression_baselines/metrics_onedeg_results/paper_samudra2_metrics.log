@@ -13,13 +13,13 @@ git 1acc9b39bdb9b25f387b45742a4b2ad2ddcf496f
 2026-11-12 22:32:56,829 - INFO - report -   paper_samudra2 instantaneous_surface_eke_total_rmse = 0.0456329 m2 s-2
 2026-11-12 22:32:56,857 - INFO - comparisons -   paper_samudra2 SST: window trimmed to shared coverage 2015-01-01..2022-12-24 (requested 2015-01-01..2022-12-31)
 2026-11-12 22:33:40,683 - INFO - report -   paper_samudra2 surface_sst_total_rmse = 1.18186 degC
-2026-11-12 22:34:18,770 - INFO - logging - 
+2026-11-12 22:34:18,770 - INFO - logging -
 === Warning Details ===
 2026-11-12 22:34:20,526 - INFO - logging - Message: invalid value encountered in divide
 2026-11-12 22:34:20,526 - INFO - logging - Category: <class 'RuntimeWarning'>
 2026-11-12 22:34:20,526 - INFO - logging - File: /scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/_task_spec.py
 2026-11-12 22:34:20,532 - INFO - logging - Line: 741
-2026-11-12 22:34:20,538 - INFO - logging - 
+2026-11-12 22:34:20,538 - INFO - logging -
 Full stack trace:
 2026-11-12 22:34:20,603 - INFO - logging -   File "/usr/lib64/python3.12/threading.py", line 1032, in _bootstrap
 2026-11-12 22:34:20,606 - INFO - logging -     self._bootstrap_inner()
@@ -47,13 +47,13 @@ Full stack trace:
 2026-11-12 22:34:20,619 - INFO - logging -     sw(msg.message, msg.category, msg.filename, msg.lineno,
 2026-11-12 22:34:20,619 - INFO - logging - =====================
 
-2026-11-12 22:34:22,829 - INFO - logging - 
+2026-11-12 22:34:22,829 - INFO - logging -
 === Warning Details ===
 2026-11-12 22:34:22,830 - INFO - logging - Message: invalid value encountered in divide
 2026-11-12 22:34:22,830 - INFO - logging - Category: <class 'RuntimeWarning'>
 2026-11-12 22:34:22,830 - INFO - logging - File: /scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/array/numpy_compat.py
 2026-11-12 22:34:22,830 - INFO - logging - Line: 57
-2026-11-12 22:34:22,838 - INFO - logging - 
+2026-11-12 22:34:22,838 - INFO - logging -
 Full stack trace:
 2026-11-12 22:34:22,877 - INFO - logging -   File "/usr/lib64/python3.12/threading.py", line 1032, in _bootstrap
 2026-11-12 22:34:22,878 - INFO - logging -     self._bootstrap_inner()
@@ -87,13 +87,13 @@ Full stack trace:
 2026-11-12 22:35:27,511 - INFO - comparisons -   paper_samudra2 OHC Surface (0-700m): scoring 2015-2021; dropped partly covered year(s) [2022]
 2026-11-12 22:36:58,912 - INFO - report -   paper_samudra2 ohc_per_area_total_rmse [Surface (0-700m)] = 4.3165e+09 J m-2
 2026-11-12 22:37:00,123 - INFO - kernels -   dropping partially covered month(s): 2014-10, 2022-12
-2026-11-12 22:37:25,937 - INFO - logging - 
+2026-11-12 22:37:25,937 - INFO - logging -
 === Warning Details ===
 2026-11-12 22:37:25,937 - INFO - logging - Message: invalid value encountered in divide
 2026-11-12 22:37:25,937 - INFO - logging - Category: <class 'RuntimeWarning'>
 2026-11-12 22:37:25,937 - INFO - logging - File: /scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/_task_spec.py
 2026-11-12 22:37:25,937 - INFO - logging - Line: 741
-2026-11-12 22:37:25,937 - INFO - logging - 
+2026-11-12 22:37:25,937 - INFO - logging -
 Full stack trace:
 2026-11-12 22:37:25,942 - INFO - logging -   File "/usr/lib64/python3.12/threading.py", line 1032, in _bootstrap
 2026-11-12 22:37:25,942 - INFO - logging -     self._bootstrap_inner()
@@ -121,13 +121,13 @@ Full stack trace:
 2026-11-12 22:37:25,943 - INFO - logging -     sw(msg.message, msg.category, msg.filename, msg.lineno,
 2026-11-12 22:37:25,943 - INFO - logging - =====================
 
-2026-11-12 22:37:26,763 - INFO - logging - 
+2026-11-12 22:37:26,763 - INFO - logging -
 === Warning Details ===
 2026-11-12 22:37:26,771 - INFO - logging - Message: invalid value encountered in divide
 2026-11-12 22:37:26,771 - INFO - logging - Category: <class 'RuntimeWarning'>
 2026-11-12 22:37:26,771 - INFO - logging - File: /scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/array/numpy_compat.py
 2026-11-12 22:37:26,771 - INFO - logging - Line: 57
-2026-11-12 22:37:26,771 - INFO - logging - 
+2026-11-12 22:37:26,771 - INFO - logging -
 Full stack trace:
 2026-11-12 22:37:26,772 - INFO - logging -   File "/usr/lib64/python3.12/threading.py", line 1032, in _bootstrap
 2026-11-12 22:37:26,772 - INFO - logging -     self._bootstrap_inner()
@@ -163,13 +163,13 @@ Full stack trace:
 2026-11-12 22:39:15,717 - INFO - report - Scoring 'om4' against observations
 2026-11-12 22:39:15,837 - INFO - comparisons -   om4 eastward velocity: window trimmed to shared coverage 2015-01-01..2022-12-24 (requested 2015-01-01..2022-12-31)
 2026-11-12 22:39:16,767 - INFO - comparisons -   om4 northward velocity: window trimmed to shared coverage 2015-01-01..2022-12-24 (requested 2015-01-01..2022-12-31)
-2026-11-12 22:39:16,818 - INFO - logging - 
+2026-11-12 22:39:16,818 - INFO - logging -
 === Warning Details ===
 2026-11-12 22:39:16,818 - INFO - logging - Message: Increasing number of chunks by factor of 23
 2026-11-12 22:39:16,818 - INFO - logging - Category: <class 'dask.array.core.PerformanceWarning'>
 2026-11-12 22:39:16,818 - INFO - logging - File: /scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/array/core.py
 2026-11-12 22:39:16,818 - INFO - logging - Line: 5092
-2026-11-12 22:39:16,818 - INFO - logging - 
+2026-11-12 22:39:16,818 - INFO - logging -
 Full stack trace:
 2026-11-12 22:39:16,892 - INFO - logging -   File "<frozen runpy>", line 198, in _run_module_as_main
 2026-11-12 22:39:16,892 - INFO - logging -   File "<frozen runpy>", line 88, in _run_code
@@ -227,13 +227,13 @@ Full stack trace:
 2026-11-12 22:39:16,893 - INFO - logging -     sw(msg.message, msg.category, msg.filename, msg.lineno,
 2026-11-12 22:39:16,893 - INFO - logging - =====================
 
-2026-11-12 22:39:22,494 - INFO - logging - 
+2026-11-12 22:39:22,494 - INFO - logging -
 === Warning Details ===
 2026-11-12 22:39:22,495 - INFO - logging - Message: Increasing number of chunks by factor of 23
 2026-11-12 22:39:22,495 - INFO - logging - Category: <class 'dask.array.core.PerformanceWarning'>
 2026-11-12 22:39:22,495 - INFO - logging - File: /scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/array/core.py
 2026-11-12 22:39:22,495 - INFO - logging - Line: 5092
-2026-11-12 22:39:22,495 - INFO - logging - 
+2026-11-12 22:39:22,495 - INFO - logging -
 Full stack trace:
 2026-11-12 22:39:22,495 - INFO - logging -   File "<frozen runpy>", line 198, in _run_module_as_main
 2026-11-12 22:39:22,495 - INFO - logging -   File "<frozen runpy>", line 88, in _run_code
@@ -292,13 +292,13 @@ Full stack trace:
 2026-11-12 22:39:22,496 - INFO - logging - =====================
 
 2026-11-12 22:50:59,280 - INFO - report -   om4 surface_geostrophic_velocity_vector_total_rmse = 0.193975 m s-1
-2026-11-12 22:50:59,584 - INFO - logging - 
+2026-11-12 22:50:59,584 - INFO - logging -
 === Warning Details ===
 2026-11-12 22:50:59,584 - INFO - logging - Message: Increasing number of chunks by factor of 23
 2026-11-12 22:50:59,584 - INFO - logging - Category: <class 'dask.array.core.PerformanceWarning'>
 2026-11-12 22:50:59,584 - INFO - logging - File: /scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/array/core.py
 2026-11-12 22:50:59,584 - INFO - logging - Line: 5092
-2026-11-12 22:50:59,584 - INFO - logging - 
+2026-11-12 22:50:59,584 - INFO - logging -
 Full stack trace:
 2026-11-12 22:50:59,605 - INFO - logging -   File "<frozen runpy>", line 198, in _run_module_as_main
 2026-11-12 22:50:59,606 - INFO - logging -   File "<frozen runpy>", line 88, in _run_code
@@ -354,13 +354,13 @@ Full stack trace:
 
 2026-11-12 23:02:56,022 - INFO - report -   om4 instantaneous_surface_eke_total_rmse = 0.0451419 m2 s-2
 2026-11-12 23:02:56,272 - INFO - comparisons -   om4 SST: window trimmed to shared coverage 2015-01-01..2022-12-24 (requested 2015-01-01..2022-12-31)
-2026-11-12 23:02:56,309 - INFO - logging - 
+2026-11-12 23:02:56,309 - INFO - logging -
 === Warning Details ===
 2026-11-12 23:02:56,309 - INFO - logging - Message: Increasing number of chunks by factor of 16
 2026-11-12 23:02:56,309 - INFO - logging - Category: <class 'dask.array.core.PerformanceWarning'>
 2026-11-12 23:02:56,309 - INFO - logging - File: /scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/array/core.py
 2026-11-12 23:02:56,309 - INFO - logging - Line: 5092
-2026-11-12 23:02:56,309 - INFO - logging - 
+2026-11-12 23:02:56,309 - INFO - logging -
 Full stack trace:
 2026-11-12 23:02:56,318 - INFO - logging -   File "<frozen runpy>", line 198, in _run_module_as_main
 2026-11-12 23:02:56,318 - INFO - logging -   File "<frozen runpy>", line 88, in _run_code
@@ -415,13 +415,13 @@ Full stack trace:
 2026-11-12 23:02:56,319 - INFO - logging - =====================
 
 2026-11-12 23:04:10,049 - INFO - report -   om4 surface_sst_total_rmse = 0.766418 degC
-2026-11-12 23:04:33,664 - INFO - logging - 
+2026-11-12 23:04:33,664 - INFO - logging -
 === Warning Details ===
 2026-11-12 23:04:33,664 - INFO - logging - Message: invalid value encountered in divide
 2026-11-12 23:04:33,665 - INFO - logging - Category: <class 'RuntimeWarning'>
 2026-11-12 23:04:33,666 - INFO - logging - File: /scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/_task_spec.py
 2026-11-12 23:04:33,666 - INFO - logging - Line: 741
-2026-11-12 23:04:33,666 - INFO - logging - 
+2026-11-12 23:04:33,666 - INFO - logging -
 Full stack trace:
 2026-11-12 23:04:33,679 - INFO - logging -   File "/usr/lib64/python3.12/threading.py", line 1032, in _bootstrap
 2026-11-12 23:04:33,684 - INFO - logging -     self._bootstrap_inner()
@@ -449,13 +449,13 @@ Full stack trace:
 2026-11-12 23:04:33,710 - INFO - logging -     sw(msg.message, msg.category, msg.filename, msg.lineno,
 2026-11-12 23:04:33,712 - INFO - logging - =====================
 
-2026-11-12 23:04:36,385 - INFO - logging - 
+2026-11-12 23:04:36,385 - INFO - logging -
 === Warning Details ===
 2026-11-12 23:04:36,385 - INFO - logging - Message: invalid value encountered in divide
 2026-11-12 23:04:36,385 - INFO - logging - Category: <class 'RuntimeWarning'>
 2026-11-12 23:04:36,385 - INFO - logging - File: /scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/array/numpy_compat.py
 2026-11-12 23:04:36,387 - INFO - logging - Line: 57
-2026-11-12 23:04:36,387 - INFO - logging - 
+2026-11-12 23:04:36,387 - INFO - logging -
 Full stack trace:
 2026-11-12 23:04:36,400 - INFO - logging -   File "/usr/lib64/python3.12/threading.py", line 1032, in _bootstrap
 2026-11-12 23:04:36,407 - INFO - logging -     self._bootstrap_inner()
@@ -489,13 +489,13 @@ Full stack trace:
 2026-11-12 23:05:36,727 - INFO - comparisons -   om4 OHC Surface (0-700m): scoring 2015-2021; dropped partly covered year(s) [2022]
 2026-11-12 23:08:08,679 - INFO - report -   om4 ohc_per_area_total_rmse [Surface (0-700m)] = 4.12377e+09 J m-2
 2026-11-12 23:08:09,675 - INFO - kernels -   dropping partially covered month(s): 2014-10, 2022-12
-2026-11-12 23:09:11,408 - INFO - logging - 
+2026-11-12 23:09:11,408 - INFO - logging -
 === Warning Details ===
 2026-11-12 23:09:11,408 - INFO - logging - Message: invalid value encountered in divide
 2026-11-12 23:09:11,408 - INFO - logging - Category: <class 'RuntimeWarning'>
 2026-11-12 23:09:11,408 - INFO - logging - File: /scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/_task_spec.py
 2026-11-12 23:09:11,408 - INFO - logging - Line: 741
-2026-11-12 23:09:11,408 - INFO - logging - 
+2026-11-12 23:09:11,408 - INFO - logging -
 Full stack trace:
 2026-11-12 23:09:11,412 - INFO - logging -   File "/usr/lib64/python3.12/threading.py", line 1032, in _bootstrap
 2026-11-12 23:09:11,412 - INFO - logging -     self._bootstrap_inner()
@@ -523,13 +523,13 @@ Full stack trace:
 2026-11-12 23:09:11,413 - INFO - logging -     sw(msg.message, msg.category, msg.filename, msg.lineno,
 2026-11-12 23:09:11,413 - INFO - logging - =====================
 
-2026-11-12 23:09:11,786 - INFO - logging - 
+2026-11-12 23:09:11,786 - INFO - logging -
 === Warning Details ===
 2026-11-12 23:09:11,786 - INFO - logging - Message: invalid value encountered in divide
 2026-11-12 23:09:11,786 - INFO - logging - Category: <class 'RuntimeWarning'>
 2026-11-12 23:09:11,786 - INFO - logging - File: /scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/array/numpy_compat.py
 2026-11-12 23:09:11,786 - INFO - logging - Line: 57
-2026-11-12 23:09:11,786 - INFO - logging - 
+2026-11-12 23:09:11,786 - INFO - logging -
 Full stack trace:
 2026-11-12 23:09:11,787 - INFO - logging -   File "/usr/lib64/python3.12/threading.py", line 1032, in _bootstrap
 2026-11-12 23:09:11,787 - INFO - logging -     self._bootstrap_inner()

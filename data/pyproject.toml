@@ -65,12 +65,13 @@ optional-dependencies.dev = [
 ]
 optional-dependencies.test = [
   "dask",
-  "fastparquet",         # Read and write real Kerchunk Parquet partitions in property tests.
   "h5py",
-  "hypothesis>=6.127.2",
-  "pyarrow",             # Exercise the production Pandas/Parquet null-path representation.
+  "hypothesis>=6.170.13",
+  "pyarrow",              # Exercise the production Pandas/Parquet null-path representation.
   "pytest",
-  "samudra-test-utils",  # Installed from the local src/samudra/test_utils project.
+  # The shared helpers in src/samudra/test_utils are a local path, not a PyPI
+  # package, so install them separately: pip install -e ./src/samudra/test_utils
+  "pytest-reportlog>=1",
   "scipy",               # Write NetCDF3 fixtures for the virtualization tests.
 ]
 

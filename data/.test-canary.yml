@@ -2,7 +2,9 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# Floating dependencies within the data package's supported ranges.
+# Floats every dependency within the range data/pyproject.toml supports, to catch upstream
+# breakage early. data/pyproject.toml pins virtualizarr and kerchunk exactly, so they are
+# pinned here too. To test newer versions of either, widen its pin there first.
 name: samudra-data-canary
 channels:
   - conda-forge
@@ -16,7 +18,6 @@ dependencies:
   - pandas
   - fsspec
   - s3fs>=2025.10
-  - fastparquet
   - pyarrow
   - obstore>=0.12
   - obspec_utils>=0.9

@@ -32,8 +32,12 @@ def evidence(path, nodes):
     return expected
 
 
-def failure_report(path):
+def failure_report(path, failures=(("builtins.AssertionError", "oracle"),)):
     trace = events()
+    trace[1]["user_properties"] = [
+        *trace[1]["user_properties"],
+        ("failures", json.dumps([list(failure) for failure in failures])),
+    ]
     write_log(path, trace)
     expected = evidence(path, [trace[0]["nodeid"]])
     return trace, expected
@@ -44,9 +48,32 @@ def test_assertion_text_cannot_turn_a_failed_runner_into_a_kill(returncode):
     with TemporaryDirectory() as directory:
         path = Path(directory) / "pytest.jsonl"
         _, expected = failure_report(path)
-        assert outcome(returncode, path, expected) == "invalid"
+        assert outcome(returncode, path, expected).status == "invalid"
         path.unlink()
-        assert outcome(1, path, expected) == "invalid"
+        assert outcome(1, path, expected).status == "invalid"
+
+
+@given(
+    st.lists(
+        st.sampled_from(
+            [
+                ("builtins.AssertionError", "oracle"),
+                ("hypothesis.errors.FailedHealthCheck", "hypothesis"),
+                ("builtins.NameError", "broken_mutant"),
+            ]
+        ),
+        min_size=1,
+        max_size=3,
+    )
+)
+def test_only_oracle_failures_kill_a_mutant(failures):
+    with TemporaryDirectory() as directory:
+        path = Path(directory) / "pytest.jsonl"
+        _, expected = failure_report(path, failures)
+        oracle_only = all(kind == "oracle" for _, kind in failures)
+        assert outcome(1, path, expected).status == (
+            "killed" if oracle_only else "invalid"
+        )
 
 
 @given(st.sampled_from(["error", "skipped"]))
@@ -54,10 +81,10 @@ def test_setup_errors_and_skips_invalidate_an_apparent_kill(interruption):
     with TemporaryDirectory() as directory:
         path = Path(directory) / "pytest.jsonl"
         suite, expected = failure_report(path)
-        assert outcome(1, path, expected) == "killed"
+        assert outcome(1, path, expected).status == "killed"
         suite[0]["outcome"] = "failed" if interruption == "error" else "skipped"
         write_log(path, suite)
-        assert outcome(1, path, expected) == "invalid"
+        assert outcome(1, path, expected).status == "invalid"
 
 
 @given(st.integers(1, 8))
@@ -68,9 +95,9 @@ def test_removing_a_selected_test_invalidates_a_clean_baseline(count):
         trace = [event for node in nodes for event in events(node, "passed")]
         expected = evidence(path, nodes)
         write_log(path, trace, exitcode=0)
-        assert outcome(0, path, expected) == "survived"
+        assert outcome(0, path, expected).status == "survived"
         write_log(path, trace[:-3], exitcode=0)
-        assert outcome(0, path, expected) == "invalid"
+        assert outcome(0, path, expected).status == "invalid"
 
 
 @given(st.text(alphabet="abc012", min_size=1, max_size=20))
@@ -78,11 +105,11 @@ def test_same_count_of_different_tests_does_not_count_as_a_kill(other):
     with TemporaryDirectory() as directory:
         path = Path(directory) / "pytest.jsonl"
         suite, expected = failure_report(path)
-        assert outcome(1, path, expected) == "killed"
+        assert outcome(1, path, expected).status == "killed"
         for event in suite:
             event["nodeid"] = other
         write_log(path, suite)
-        assert outcome(1, path, expected) == "invalid"
+        assert outcome(1, path, expected).status == "invalid"
 
 
 @given(
@@ -102,7 +129,7 @@ def test_profile_source_or_collection_drift_invalidates_a_kill(field):
     with TemporaryDirectory() as directory:
         path = Path(directory) / "pytest.jsonl"
         _, expected = failure_report(path)
-        assert outcome(1, path, expected) == "killed"
+        assert outcome(1, path, expected).status == "killed"
         actual = json.loads(json.dumps(expected))
         changes = {
             "max_examples": 1,
@@ -118,7 +145,7 @@ def test_profile_source_or_collection_drift_invalidates_a_kill(field):
         else:
             actual[field] = changes[field]
         (path.parent / "execution.json").write_text(json.dumps(actual))
-        assert outcome(1, path, expected) == "invalid"
+        assert outcome(1, path, expected).status == "invalid"
 
 
 @given(st.integers(1, 100))
@@ -149,7 +176,7 @@ def test_corrupt_or_missing_execution_evidence_cannot_produce_a_kill(corruption)
             actual.write_bytes(b"\xff")
         else:
             actual.unlink()
-        assert outcome(1, path, expected) == "invalid"
+        assert outcome(1, path, expected).status == "invalid"
 
 
 @given(
@@ -197,12 +224,17 @@ def test_real_subprocess_gate_distinguishes_baseline_from_inserted_fault(limit, 
             "from samudra.test_utils.catalogs import Catalog, Mutation\n"
             "root = Path(__file__).parent\n"
             "CATALOG = Catalog(root, 'verification_subject', root/'verification_subject.py', "
-            "root/'test_subject.py', (Mutation('offset', 'return value', 'return value + 1', 'test_identity'),))\n"
+            "root/'test_subject.py', ("
+            "Mutation('offset', 'return value', 'return value + 1', 'test_identity'), "
+            "Mutation('broken', 'return value', 'return undefined_name', 'test_identity')))\n"
         )
-        assert gate.run_catalog(
-            catalog, root / "output", [seed], 15, time.monotonic() + 40
+        # The broken mutant fails with NameError, which is not an oracle verdict.
+        assert not gate.run_catalog(
+            catalog, root / "output", [seed], 15, time.monotonic() + 60
         )
         results = json.loads((root / "output/results.json").read_text())
-        assert results[f"baseline-{seed}-0"]["status"] == "passed"
+        assert results[f"baseline-{seed}"]["status"] == "passed"
         assert results[f"offset-{seed}"]["status"] == "killed"
+        assert results[f"broken-{seed}"]["status"] == "invalid"
+        assert "NameError" in results[f"broken-{seed}"]["reason"]
         assert target.read_text() == "def identity(value):\n    return value\n"

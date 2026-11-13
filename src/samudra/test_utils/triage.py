@@ -30,7 +30,12 @@ def reports(path, run_url):
     for case in run.cases:
         if case.contract_probe or case.outcome != Outcome.FAILED:
             continue
-        suite = case.properties.get("verification_suite", "data")
+        if "verification_suite" not in case.properties:
+            raise ValueError(
+                f"{case.nodeid} has no verification_suite; its conftest must call "
+                "tag_verification_items"
+            )
+        suite = case.properties["verification_suite"]
         identity = f"{suite}:{case.nodeid}"
         digest = hashlib.sha256(identity.encode()).hexdigest()[:20]
         marker = f"<!-- property-failure:{digest} -->"

@@ -84,8 +84,8 @@ fuzz testing, but will at least have to pass human and agentic code review.
 Searches follow these conventions (details, commands, and CI artifacts in `docs/contributing.md`):
 
 * Keep them flat: `tests/test_*_properties.py` for `samudra` and `data/tests/test_*_properties.py` for
-  `ocean_preprocessing`. The ordinary CPU suite skips that suffix. PR CI runs them with 40 examples each, and the
-  nightly `Property soak` workflow runs 1,000.
+  `ocean_preprocessing`. PR CI runs them with 40 examples each: the root CPU workflow in a separate step, and the
+  data workflow alongside the rest of the data suite. The nightly `Property soak` workflow runs 1,000.
 * Prefer small independent oracles, metamorphic transformations, and explicit state models. The sampler simulation in
   `tests/test_sampler_properties.py` is a CPU-only example that needs no training, process group, or GPU.
 * When a property guards against a bug we've had before, add that bug as a *mutation*: a named source substitution in

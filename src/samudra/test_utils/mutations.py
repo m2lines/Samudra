@@ -7,25 +7,32 @@
 import argparse
 import hashlib
 import importlib
-import importlib.metadata
 import json
 import os
 import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
+import pytest
+from hypothesis import settings
+from hypothesis.errors import HypothesisException
+
+from .artifacts import git_revision, write_environment
 from .catalogs import load_catalog
+from .profiles import MUTATION_SETTINGS, profile_evidence
 from .reports import Outcome, read_run
 
-EXPECTED_PROFILE = {
-    "max_examples": 40,
-    "phases": ["generate"],
-    "database_disabled": True,
-    "deadline_disabled": True,
-}
+EXPECTED_PROFILE = profile_evidence(MUTATION_SETTINGS)
 EXECUTION: dict[str, Any] = {}
+# Errors that mean the mutant itself is broken code, not that the oracle saw a fault.
+BROKEN_MUTANT = (NameError, ImportError, SyntaxError)
+
+
+class Verdict(NamedTuple):
+    status: str
+    reason: str = ""
 
 
 def pytest_sessionstart(session):
@@ -45,7 +52,7 @@ def pytest_sessionstart(session):
 
 
 def bind_profile(functions, profile):
-    from hypothesis import is_hypothesis_test, settings  # type: ignore[attr-defined]
+    from hypothesis import is_hypothesis_test  # type: ignore[attr-defined]
 
     for function in set(functions):
         if not is_hypothesis_test(function):
@@ -54,46 +61,94 @@ def bind_profile(functions, profile):
 
 
 def pytest_collection_finish(session):
-    from hypothesis import settings
-
     active = settings()
     bind_profile((item.obj for item in session.items), active)
-    EXECUTION["profile"] = {
-        "max_examples": active.max_examples,
-        "phases": [phase.name for phase in active.phases],
-        "database_disabled": active.database is None,
-        "deadline_disabled": active.deadline is None,
-    }
+    EXECUTION["profile"] = profile_evidence(active)
     EXECUTION["nodeids"] = sorted(item.nodeid for item in session.items)
     Path(os.environ["SAMUDRA_MUTATION_EVIDENCE"]).write_text(
         json.dumps(EXECUTION, indent=2) + "\n"
     )
 
 
-def outcome(returncode, report: Path, expected):
-    """Only a clean call failure in the intended completed run is a killed mutant."""
-    try:
-        if json.loads((report.parent / "execution.json").read_text()) != expected:
-            return "invalid"
-        run = read_run(report)
-    except (OSError, ValueError, KeyError):
-        return "invalid"
-    if not run.complete or run.exitcode != returncode or run.collection_errors:
-        return "invalid"
-    if (
-        not run.cases
-        or sorted(case.nodeid for case in run.cases) != expected["nodeids"]
+def failure_kind(error: BaseException) -> str:
+    if isinstance(error, HypothesisException):
+        return (
+            "hypothesis"  # Health check, Unsatisfiable, Flaky: not an oracle verdict.
+        )
+    if isinstance(error, BROKEN_MUTANT):
+        return "broken_mutant"
+    return "oracle"
+
+
+def leaf_failures(error: BaseException) -> list[tuple[str, str]]:
+    """Each underlying exception's qualified name and kind, flattening groups."""
+    if isinstance(error, BaseExceptionGroup) and not isinstance(
+        error, HypothesisException
     ):
-        return "invalid"
-    if any(case.outcome in (Outcome.ERROR, Outcome.SKIPPED) for case in run.cases):
-        return "invalid"
-    if returncode == 1 and any(case.outcome == Outcome.FAILED for case in run.cases):
-        return "killed"
-    return (
-        "survived"
-        if returncode == 0 and all(case.outcome == Outcome.PASSED for case in run.cases)
-        else "invalid"
+        return [leaf for inner in error.exceptions for leaf in leaf_failures(inner)]
+    kind = type(error)
+    return [(f"{kind.__module__}.{kind.__qualname__}", failure_kind(error))]
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_runtest_makereport(item, call):
+    report = yield
+    if call.when == "call" and call.excinfo is not None:
+        report.user_properties.append(
+            ("failures", json.dumps(leaf_failures(call.excinfo.value)))
+        )
+    return report
+
+
+def outcome(returncode, report: Path, expected) -> Verdict:
+    """A mutant is killed only by an oracle failure in the intended, complete run.
+
+    The oracle must have failed: an assertion, `pytest.raises` not raising, or the
+    subject crashing. Hypothesis's own errors (health checks, Unsatisfiable, Flaky)
+    and errors showing the mutant is broken code (NameError, ImportError,
+    SyntaxError) make the run invalid instead.
+    """
+    try:
+        executed = json.loads((report.parent / "execution.json").read_text())
+        if executed != expected:
+            drift = sorted(
+                key
+                for key in expected.keys() | executed.keys()
+                if expected.get(key) != executed.get(key)
+            )
+            return Verdict("invalid", f"execution evidence differs: {drift}")
+        run = read_run(report)
+    except (OSError, ValueError, KeyError) as error:
+        return Verdict(
+            "invalid", f"unreadable evidence: {type(error).__name__}: {error}"
+        )
+    if not run.complete:
+        return Verdict("invalid", "pytest session did not finish")
+    if run.exitcode != returncode:
+        return Verdict("invalid", f"exit {returncode} but report says {run.exitcode}")
+    if run.collection_errors:
+        return Verdict("invalid", f"collection errors: {run.collection_errors}")
+    ran = sorted(case.nodeid for case in run.cases)
+    if not ran or ran != expected["nodeids"]:
+        return Verdict("invalid", f"ran {ran}, expected {expected['nodeids']}")
+    for case in run.cases:
+        if case.outcome in (Outcome.ERROR, Outcome.SKIPPED):
+            return Verdict("invalid", f"{case.nodeid}: {case.outcome}")
+    failed = [case for case in run.cases if case.outcome == Outcome.FAILED]
+    if returncode == 0 and not failed:
+        return Verdict("survived")
+    if returncode != 1 or not failed:
+        return Verdict("invalid", f"exit {returncode} with {len(failed)} failed tests")
+    for case in failed:
+        if "failures" not in case.properties:
+            return Verdict("invalid", f"{case.nodeid}: no recorded failure type")
+        for name, kind in json.loads(case.properties["failures"]):
+            if kind != "oracle":
+                return Verdict("invalid", f"{case.nodeid}: {kind} error {name}")
+    names = sorted(
+        {name for case in failed for name, _ in json.loads(case.properties["failures"])}
     )
+    return Verdict("killed", ", ".join(names))
 
 
 def remaining_timeout(deadline, per_case, now):
@@ -106,6 +161,7 @@ def run_case(
     if timeout <= 0:
         return {
             "status": "budget_exhausted",
+            "reason": "the shared budget ran out before this case started",
             "seconds": 0,
             "seed": seed,
             "returncode": None,
@@ -177,14 +233,13 @@ def run_case(
                 timeout=timeout,
                 check=False,
             )
-            status, code = (
-                outcome(process.returncode, directory / "pytest.jsonl", expected),
-                process.returncode,
-            )
+            verdict = outcome(process.returncode, directory / "pytest.jsonl", expected)
+            code = process.returncode
         except subprocess.TimeoutExpired:
-            status, code = "timeout", None
+            verdict, code = Verdict("timeout", f"exceeded {timeout:.0f}s"), None
     return {
-        "status": status,
+        "status": verdict.status,
+        "reason": verdict.reason,
         "returncode": code,
         "seconds": round(time.monotonic() - started, 3),
         "seed": seed,
@@ -195,23 +250,25 @@ def run_case(
 def run_catalog(path, output, seeds, timeout, deadline):
     catalog = load_catalog(path)
     output.mkdir()
-    original = catalog.target.read_text()
+    original = catalog.target.read_bytes()
     for mutant in catalog.mutations:
-        if original.count(mutant.before) != 1:
+        if original.count(mutant.before.encode()) != 1:
             raise ValueError(
                 f"{path.name}/{mutant.name}: expected exactly one source anchor; review after refactoring"
             )
-    target_hash = hashlib.sha256(original.encode()).hexdigest()
+    target_hash = hashlib.sha256(original).hexdigest()
     (output / "catalog.py").write_bytes(path.read_bytes())
-    (output / "target.py").write_text(original)
+    (output / "target.py").write_bytes(original)
     (output / "properties.py").write_bytes(catalog.properties.read_bytes())
     results = {}
 
     def record(name, result):
         results[name] = result
         (output / "results.json").write_text(json.dumps(results, indent=2) + "\n")
+        reason = f": {result['reason']}" if result["reason"] else ""
         print(
-            f"{path.stem}/{name}: {result['status']} ({result['seconds']}s)", flush=True
+            f"{path.stem}/{name}: {result['status']} ({result['seconds']}s){reason}",
+            flush=True,
         )
 
     nodes = list(
@@ -219,28 +276,31 @@ def run_catalog(path, output, seeds, timeout, deadline):
             f"{catalog.properties}::{mutant.property}" for mutant in catalog.mutations
         )
     )
+    # One process per seed runs every assigned property on unmodified code. Each
+    # property keeps its own `timeout`, so the batch gets one per property.
     for seed in seeds:
-        for index, node in enumerate(nodes):
-            result = run_case(
-                output / f"baseline-{seed}-{index}",
-                [node],
-                seed,
-                remaining_timeout(deadline, timeout, time.monotonic()),
-                target_sha256=target_hash,
-                catalog_path=path,
-            )
-            result["status"] = {"survived": "passed", "killed": "failed"}.get(
-                result["status"], result["status"]
-            )
-            record(f"baseline-{seed}-{index}", result)
-            if result["status"] != "passed":
-                return False
+        result = run_case(
+            output / f"baseline-{seed}",
+            nodes,
+            seed,
+            remaining_timeout(deadline, timeout * len(nodes), time.monotonic()),
+            target_sha256=target_hash,
+            catalog_path=path,
+        )
+        result["status"] = {"survived": "passed", "killed": "failed"}.get(
+            result["status"], result["status"]
+        )
+        record(f"baseline-{seed}", result)
+        if result["status"] != "passed":
+            return False
     for mutant in catalog.mutations:
         directory = output / mutant.name
         directory.mkdir()
         source = directory / "mutated_source.py"
-        source.write_text(original.replace(mutant.before, mutant.after, 1))
-        compile(source.read_text(), str(source), "exec")
+        source.write_bytes(
+            original.replace(mutant.before.encode(), mutant.after.encode(), 1)
+        )
+        compile(source.read_bytes(), str(source), "exec")
         for seed in seeds:
             record(
                 f"{mutant.name}-{seed}",
@@ -291,9 +351,7 @@ def main():
     (output / "replay.json").write_text(
         json.dumps(
             {
-                "revision": subprocess.check_output(
-                    ["git", "rev-parse", "HEAD"], text=True
-                ).strip(),
+                "revision": git_revision(),
                 "catalogs": list(map(str, paths)),
                 "seeds": args.seeds,
                 "timeout": args.timeout,
@@ -305,15 +363,7 @@ def main():
         )
         + "\n"
     )
-    (output / "environment.txt").write_text(
-        "\n".join(
-            sorted(
-                f"{package.metadata['Name']}=={package.version}"
-                for package in importlib.metadata.distributions()
-            )
-        )
-        + "\n"
-    )
+    write_environment(output / "environment.txt")
     shared = output / "engine"
     shared.mkdir()
     for module in Path(__file__).parent.glob("*.py"):

@@ -29,10 +29,10 @@ from pathlib import Path
 
 import numpy as np
 from models import FEATURES, FORCING_VARS, Ladder, patch_features
+from run import Cache, build_samples, subset
 
 # The only nonlinear features: products of the state's velocity and gradient.
 ADVECTION = [FEATURES.index("u_dTdx"), FEATURES.index("v_dTdy")]
-from run import Cache, build_samples, subset
 
 
 def fit_lpc(
@@ -47,6 +47,96 @@ def fit_lpc(
         tr.F[:, ADVECTION] = 0.0  # a constant-zero column gets zero weight
     lad = Ladder(seed=int(rng.integers(1 << 31))).fit(tr)
     return lad.w, mean_c
+
+
+class Roller:
+    """Fit a rung, then step every channel forward together.
+
+    prescribed_velocity: compute the advection features from the *true*
+    velocities instead of the rollout's own. This removes the only quadratic
+    feedback (rollout velocity x rollout gradient) and keeps everything else.
+    It is a diagnostic, not a forecast: it uses future truth.
+    """
+
+    def __init__(
+        self,
+        cache: Cache,
+        rung: str,
+        forcing: bool,
+        n_train: int = 400_000,
+        seed: int = 0,
+        prescribed_velocity: bool = False,
+    ):
+        self.cache, self.rung, self.forcing = cache, rung, forcing
+        self.prescribed_velocity = prescribed_velocity
+        self.linear = rung == "lpc_linear"
+        self.chans = cache.meta["channels"]
+        rng = np.random.default_rng(seed)
+        self.fits = {}
+        if rung != "persistence":
+            for c in self.chans:
+                self.fits[c] = fit_lpc(cache, c, forcing, n_train, rng, self.linear)
+        # In memory, not memory-mapped, so later writes to the cache by other jobs
+        # cannot change a rollout in progress.
+        self.test = {c: np.asarray(cache.arr("test", c)) for c in self.chans}
+        self.forc = (
+            {f: np.asarray(cache.arr("test", f)) for f in FORCING_VARS}
+            if forcing
+            else {}
+        )
+        self.wet = {c: cache.masks[cache.meta["levels"][c]] for c in self.chans}
+        self.n_test = next(iter(self.test.values())).shape[0]
+
+    def initial(self) -> tuple[dict, dict]:
+        prev = {c: self.test[c][0].astype(np.float64) for c in self.chans}
+        cur = {c: self.test[c][1].astype(np.float64) for c in self.chans}
+        return prev, cur
+
+    def features(self, c: str, cur: dict, prev: dict, t: int) -> np.ndarray:
+        others, up, dn, un, vn = self.cache.neighbours(c)
+        if self.prescribed_velocity:
+            u, v = (
+                self.test[un][t].astype(np.float64),
+                self.test[vn][t].astype(np.float64),
+            )
+        else:
+            u, v = cur[un], cur[vn]
+        F = patch_features(
+            cur[c],
+            prev[c],
+            [(cur[o], prev[o]) for o in others],
+            (cur[up], prev[up]) if up else None,
+            (cur[dn], prev[dn]) if dn else None,
+            u,
+            v,
+            self.fits[c][1],
+            self.cache.inv_cos,
+            forcing=[(self.forc[f][t], self.forc[f][t - 1]) for f in FORCING_VARS]
+            if self.forcing
+            else None,
+        )
+        if self.linear:
+            F[..., ADVECTION] = 0.0
+        return F
+
+    def weights(self, c: str) -> np.ndarray:
+        """(H, W, d) weights: each cell gets its latitude band's weight vector."""
+        w_band = self.fits[c][0]
+        return np.stack([w_band[b] for b in range(3)])[self.cache.band]
+
+    def step(self, cur: dict, prev: dict, t: int, check: bool = True) -> dict:
+        nxt = {}
+        for c in self.chans:
+            if self.rung == "persistence":
+                nxt[c] = cur[c]
+                continue
+            F = self.features(c, cur, prev, t)
+            tend = np.einsum("hwd,hwd->hw", F, self.weights(c))
+            nx = np.where(self.wet[c], cur[c] + tend, np.nan)
+            if check and not np.isfinite(nx[self.wet[c]]).all():
+                raise FloatingPointError(f"rollout became non-finite at t={t} in {c}")
+            nxt[c] = nx
+        return nxt
 
 
 def main() -> None:
@@ -68,72 +158,25 @@ def main() -> None:
     import xarray as xr
 
     cache = Cache(a.cache)
-    chans = cache.meta["channels"]
-    rng = np.random.default_rng(a.seed)
     t0 = time.time()
-    fits = {}
-    linear = a.rung == "lpc_linear"
-    if a.rung != "persistence":
-        for c in chans:
-            fits[c] = fit_lpc(cache, c, a.forcing, a.n_train, rng, linear)
-        print(
-            f"[rollout] fitted {len(fits)} channels ({time.time() - t0:.0f}s)",
-            flush=True,
-        )
-
-    # Loaded into memory, not memory-mapped, so later writes to the cache by
-    # other jobs cannot change a rollout in progress.
-    test = {c: np.asarray(cache.arr("test", c)) for c in chans}
-    forc = (
-        {f: np.asarray(cache.arr("test", f)) for f in FORCING_VARS} if a.forcing else {}
+    roller = Roller(cache, a.rung, a.forcing, a.n_train, a.seed)
+    print(
+        f"[rollout] fitted {len(roller.fits)} channels ({time.time() - t0:.0f}s)",
+        flush=True,
     )
-    wet = {c: cache.masks[cache.meta["levels"][c]] for c in chans}
-    band = cache.band
-    n_test = next(iter(test.values())).shape[0]
-    n_steps = n_test - 2 if a.max_steps <= 0 else min(a.max_steps, n_test - 2)
-    prev = {c: np.asarray(test[c][0], dtype=np.float64) for c in chans}
-    cur = {c: np.asarray(test[c][1], dtype=np.float64) for c in chans}
+    chans = roller.chans
+    n_steps = (
+        roller.n_test - 2 if a.max_steps <= 0 else min(a.max_steps, roller.n_test - 2)
+    )
+    n_test = roller.n_test
+    prev, cur = roller.initial()
     H, W = cur[chans[0]].shape
     out = {c: np.full((n_steps, H, W), np.nan, np.float32) for c in chans}
     t0 = time.time()
     for s in range(n_steps):
-        t = s + 1  # index of the latest input state in the test window
-        nxt = {}
-        for c in chans:
-            if a.rung == "persistence":
-                nxt[c] = cur[c]
-                continue
-            w_band, mean_c = fits[c]
-            others, up, dn, un, vn = cache.neighbours(c)
-            F = patch_features(
-                cur[c],
-                prev[c],
-                [(cur[o], prev[o]) for o in others],
-                (cur[up], prev[up]) if up else None,
-                (cur[dn], prev[dn]) if dn else None,
-                cur[un],
-                cur[vn],
-                mean_c,
-                cache.inv_cos,
-                forcing=[
-                    (np.asarray(forc[f][t]), np.asarray(forc[f][t - 1]))
-                    for f in FORCING_VARS
-                ]
-                if a.forcing
-                else None,
-            )
-            if linear:
-                F[..., ADVECTION] = 0.0
-            tend = np.zeros((H, W))
-            for b, wv in w_band.items():
-                m = wet[c] & (band == b)
-                tend[m] = F[m] @ wv
-            nx = np.where(wet[c], cur[c] + tend, np.nan)
-            if not np.isfinite(nx[wet[c]]).all():
-                raise FloatingPointError(
-                    f"rollout became non-finite at step {s} in {c}"
-                )
-            nxt[c] = nx
+        nxt = roller.step(
+            cur, prev, t=s + 1
+        )  # t: latest input state in the test window
         for c in chans:
             out[c][s] = nxt[c]
         prev, cur = cur, nxt

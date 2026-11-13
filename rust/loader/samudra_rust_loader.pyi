@@ -13,6 +13,16 @@ class ZarrReadPool:
     def __init__(self, max_concurrent_reads: int) -> None: ...
 
 class FlatOm4Reader:
+    @staticmethod
+    def from_s3(
+        bucket: str,
+        prefix: str,
+        variables: list[str],
+        read_pool: ZarrReadPool,
+        *,
+        endpoint: str | None = None,
+        anon: bool = False,
+    ) -> FlatOm4Reader: ...
     def __init__(
         self,
         path: str | PathLike[str],
@@ -29,6 +39,16 @@ class FlatOm4Reader:
     ) -> None: ...
 
 class CompactOm4Reader:
+    @staticmethod
+    def from_s3(
+        bucket: str,
+        prefix: str,
+        variable_selectors: list[CompactVariableSelector],
+        read_pool: ZarrReadPool,
+        *,
+        endpoint: str | None = None,
+        anon: bool = False,
+    ) -> CompactOm4Reader: ...
     def __init__(
         self,
         path: str | PathLike[str],

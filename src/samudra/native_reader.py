@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
-from pathlib import Path
 from typing import Protocol, Self
 
 import numpy as np
@@ -21,7 +20,7 @@ from samudra.utils.data import (
     ChannelStatistics,
     XarrayCanonicalReader,
 )
-from samudra.utils.location import LocalLocation
+from samudra.utils.location import LocalLocation, S3Location
 
 
 @dataclass(frozen=True)
@@ -55,7 +54,9 @@ class Om4IoRuntime(Protocol):
     """Own one backend's process-local I/O resources across all sources."""
 
     def open(
-        self, path: Path, variables: Sequence[PhysicalVariable]
+        self,
+        location: LocalLocation | S3Location,
+        variables: Sequence[PhysicalVariable],
     ) -> PlaneReader: ...
 
 
@@ -149,7 +150,7 @@ class NativeOm4Reader:
 
 
 def _validate_native_encoding(
-    variable: xr.DataArray, location: LocalLocation, backend: str
+    variable: xr.DataArray, location: LocalLocation | S3Location, backend: str
 ) -> None:
     """Reject CF transforms that direct physical plane reads do not implement."""
     # Xarray moves decoded CF metadata out of attrs and into encoding. Inspect
@@ -171,7 +172,7 @@ def _validate_native_encoding(
 
 def build_om4_reader(
     xarray_reader: XarrayCanonicalReader,
-    location: LocalLocation,
+    location: LocalLocation | S3Location,
     data_layout: DataLayout,
     runtime: Om4IoRuntime,
     *,
@@ -212,9 +213,7 @@ def build_om4_reader(
     ):
         _validate_native_encoding(physical[physical_name], location, backend)
 
-    native = runtime.open(
-        location.path, tuple(dict.fromkeys(reader_variables.values()))
-    )
+    native = runtime.open(location, tuple(dict.fromkeys(reader_variables.values())))
 
     physical_time = physical["time"].to_index()
     canonical_time = xarray_reader.time.to_index()

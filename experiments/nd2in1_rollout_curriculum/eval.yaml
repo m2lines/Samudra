@@ -1,0 +1,28 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+debug: false
+save_zarr: true
+disk_mode: true
+num_model_steps_forward: 25
+
+experiment:
+  name: nd2in1_rollout_curriculum_eval
+  rand_seed: 15
+  base_output_dir: .LOCAL
+  wandb:
+    mode: disabled
+    project: default
+data: !include ../normalized_delta_2in1out/data.yaml
+model: !include ../normalized_delta_2in1out/model.yaml
+# Same observation products and settings as #969's metrics run.
+observations:
+  argo_iap_location: /scratch/am16581/data/obs/argo-iap.zarr
+  duacs_location: /scratch/am16581/data/obs/duacs.zarr
+  oisst_location: /scratch/am16581/data/obs/oisst.zarr
+  baselines: [om4]
+  bootstrap_samples: 10000
+  rmse_start: "2015-01-01"
+  rmse_end: "2022-12-31"
+  velocity_kind: absolute

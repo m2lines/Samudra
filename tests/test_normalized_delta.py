@@ -156,3 +156,53 @@ def test_trainer_fills_residual_scale_and_trains_2in1out(train_config, tmp_path)
     channel_losses = [v for k, v in logs.items() if k.startswith("train/loss/channel/")]
     assert len(channel_losses) == len(channels)
     assert np.isfinite(np.array(channel_losses, dtype=float)).all()
+
+
+@pytest.mark.parametrize("backend", ["cpu"], indirect=True)
+@pytest.mark.parametrize(
+    "data_source,config_name",
+    [("mock-om4", "train_default_2step.yaml")],
+    indirect=True,
+)
+def test_finetune_from_normalized_delta_checkpoint_through_step_curriculum(
+    train_config, tmp_path
+):
+    """The rollout-curriculum recipe: train, then fine-tune the checkpoint on
+    growing rollouts. The residual scale must survive the reload."""
+    train_config.data.input_steps = 2
+    train_config.data.output_steps = 1
+    train_config.data.loading.num_workers = 0
+    train_config.epochs = 1
+    with MultitonScope():
+        probe = Trainer(train_config)
+        channels = probe.prognostic_var_names
+        stds = probe.primary_source.statistics(channels).std
+    tau = np.linspace(0.01, 0.1, len(channels))
+    xr.Dataset({c: xr.DataArray(t) for c, t in zip(channels, tau)}).to_zarr(
+        tmp_path / "tau.zarr"
+    )
+    train_config.model.pred_residuals = True
+    train_config.model.scale_residuals = True
+    train_config.loss = NormalizedDeltaLossConfig(
+        increment_rms_location=LocalLocation(path=tmp_path / "tau.zarr")
+    )
+    with MultitonScope():
+        base = Trainer(train_config)
+        base.run()
+        ckpt = base.ckpt_paths.latest_checkpoint_path
+
+    finetune = train_config.model_copy(deep=True)
+    finetune.experiment.name = train_config.experiment.name + "-finetune"
+    finetune.finetune = True
+    finetune.preemptible = False
+    finetune.resume_ckpt_path = str(ckpt)
+    finetune.steps = [2, 3]
+    finetune.step_transition = [2]
+    finetune.epochs = 2
+    with MultitonScope():
+        tuned = Trainer(finetune)
+        torch.testing.assert_close(
+            tuned.model.residual_scale, torch.tensor(tau / stds, dtype=torch.float32)
+        )
+        tuned.run()
+        assert tuned.ckpt_paths.latest_checkpoint_path.exists()

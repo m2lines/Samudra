@@ -108,12 +108,25 @@ def main() -> None:
         )
         for name, m in bands.items()
     }
+    # cells with at least one land cell among their 8 neighbours (surface mask)
+    m0 = wet[chans[0]]
+    coastal = np.zeros_like(m0)
+    for dy in (-1, 0, 1):
+        for dx in (-1, 0, 1):
+            if (dy, dx) != (0, 0):
+                coastal |= ~np.roll(np.roll(m0, dy, 0), dx, 1)
     cells = []
     for c in chans:
         f = np.where(wet[c], (dcur[c] / scale[c]) ** 2 / tot, 0)
         for idx in np.argsort(f.ravel())[-3:]:
             iy, ix = np.unravel_index(idx, f.shape)
-            cells.append((float(f[iy, ix]), c, float(lat[iy, ix]), int(ix)))
+            land = sum(
+                not wet[c][(iy + dy) % wet[c].shape[0], (ix + dx) % wet[c].shape[1]]
+                for dy in (-1, 0, 1)
+                for dx in (-1, 0, 1)
+                if (dy, dx) != (0, 0)
+            )
+            cells.append((float(f[iy, ix]), c, float(lat[iy, ix]), int(ix), int(land)))
     cells.sort(reverse=True)
     rep: dict[str, Any] = {
         "growth_per_step": growth,
@@ -125,9 +138,23 @@ def main() -> None:
             sorted(by_chan.items(), key=lambda kv: -kv[1])[:10]
         ),
         "mode_top_cells": [
-            {"share": s_, "channel": c, "lat": la, "x_index": x}
-            for s_, c, la, x in cells[:15]
+            {
+                "share": s_,
+                "channel": c,
+                "lat": la,
+                "x_index": x,
+                "land_neighbours_of_8": ln,
+            }
+            for s_, c, la, x, ln in cells[:15]
         ],
+        "share_of_wet_cells_next_to_land": float(np.mean(coastal[wet[chans[0]]])),
+        "mode_share_on_cells_next_to_land": float(
+            sum(
+                np.sum(np.where(wet[c] & coastal, (dcur[c] / scale[c]) ** 2, 0))
+                for c in chans
+            )
+            / tot
+        ),
         "cell_area_share_by_band": {
             name: float(m[wet[chans[0]]].mean()) for name, m in bands.items()
         },

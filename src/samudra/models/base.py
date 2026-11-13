@@ -38,6 +38,7 @@ class BaseModel(torch.nn.Module):
         pad,
         gradient_detach_interval: int,
         scale_residuals: bool = False,
+        residual_scale_grid: tuple[int, int] | None = None,
     ) -> None:
         super().__init__()
         assert last_kernel_size % 2 != 0, "Cannot use even kernel sizes!"
@@ -56,9 +57,10 @@ class BaseModel(torch.nn.Module):
         if scale_residuals:
             # NaN until set_residual_scale() or a checkpoint fills it, so a
             # model that was never given its scale produces NaN, not garbage.
-            self.register_buffer(
-                "residual_scale", torch.full((out_channels,), torch.nan)
-            )
+            shape = (out_channels, *(residual_scale_grid or ()))
+            self.register_buffer("residual_scale", torch.full(shape, torch.nan))
+        elif residual_scale_grid is not None:
+            raise ValueError("residual_scale_grid requires scale_residuals")
 
     def set_residual_scale(self, scale_per_var: torch.Tensor) -> None:
         """Set the fixed per-channel residual scale (normalized units).
@@ -78,6 +80,25 @@ class BaseModel(torch.nn.Module):
         repeats = self.out_channels // scale_per_var.numel()
         self.residual_scale.copy_(scale_per_var.float().repeat(repeats))
 
+    def set_residual_scale_map(self, scale_per_var: torch.Tensor) -> None:
+        """Set a fixed per-cell residual scale, shape (variables, lat, lon)."""
+        if not self.scale_residuals or self.residual_scale.ndim != 3:
+            raise ValueError("Model was built without a per-cell residual scale")
+        n_var = scale_per_var.shape[0]
+        if (
+            scale_per_var.ndim != 3
+            or scale_per_var.shape[1:] != self.residual_scale.shape[1:]
+            or self.out_channels % n_var
+        ):
+            raise ValueError(
+                f"Expected (variables, {tuple(self.residual_scale.shape[1:])}) "
+                f"scales, got {tuple(scale_per_var.shape)}"
+            )
+        if not torch.isfinite(scale_per_var).all() or (scale_per_var <= 0).any():
+            raise ValueError("Residual scale must be positive and finite")
+        repeats = self.out_channels // n_var
+        self.residual_scale.copy_(scale_per_var.float().repeat(repeats, 1, 1))
+
     def _assemble_prediction(
         self, prognostic: Prognostic, decoding: Prognostic
     ) -> Prognostic:
@@ -88,7 +109,10 @@ class BaseModel(torch.nn.Module):
         # this remains the original elementwise, same-slot residual assembly.
         residual_base = prognostic[:, -self.out_channels :]
         if self.scale_residuals:
-            decoding = decoding * self.residual_scale.view(1, -1, 1, 1)
+            scale = self.residual_scale
+            if scale.ndim == 1:
+                scale = scale.view(-1, 1, 1)
+            decoding = decoding * scale.unsqueeze(0)
         return residual_base + decoding
 
     def _advance_prognostic_history(

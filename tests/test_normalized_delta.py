@@ -156,3 +156,110 @@ def test_trainer_fills_residual_scale_and_trains_2in1out(train_config, tmp_path)
     channel_losses = [v for k, v in logs.items() if k.startswith("train/loss/channel/")]
     assert len(channel_losses) == len(channels)
     assert np.isfinite(np.array(channel_losses, dtype=float)).all()
+
+
+def test_per_cell_scale_matches_reference_objective():
+    """Per-cell q: x[t+1] = x[t] + q * d, loss = masked mean of (d - (y - x[t]) / q)**2."""
+    from samudra.utils.loss import CellScaledMSE
+
+    g = torch.Generator().manual_seed(1)
+    n = len(CHANNELS)
+    q = torch.rand(n, H, W, generator=g) * 0.5 + 0.01
+    wet = torch.rand(n, H, W, generator=g) > 0.3
+    model = BaseModel(
+        in_channels=2 * n,
+        out_channels=n,
+        input_steps=2,
+        pred_residuals=True,
+        last_kernel_size=3,
+        pad="circular",
+        gradient_detach_interval=0,
+        scale_residuals=True,
+        residual_scale_grid=(H, W),
+    )
+    model.set_residual_scale_map(q)
+    prev, anchor, label = (torch.randn(B, n, H, W, generator=g) * wet for _ in range(3))
+    raw = torch.randn(B, n, H, W, generator=g)
+    lat, lon = torch.linspace(-80, 80, H), torch.linspace(0, 359, W)
+
+    d_ours = raw.clone().requires_grad_()
+    pred = model._assemble_prediction(
+        torch.cat((prev, anchor), dim=1), torch.where(wet, d_ours, 0.0)
+    )
+    ours = CellScaledMSE(q, device=torch.device("cpu"))(
+        pred, label, BatchGrid(wet, (lat, lon), (lat, lon))
+    )
+    ours.sum().backward()
+
+    d_ref = raw.clone().requires_grad_()
+    target = torch.where(wet, (label - anchor) / q, 0.0)
+    ref = (torch.where(wet, d_ref, 0.0) - target).square().mean(dim=(0, 2, 3))
+    ref.sum().backward()
+
+    torch.testing.assert_close(ours, ref, rtol=1e-5, atol=1e-7)
+    torch.testing.assert_close(d_ours.grad, d_ref.grad, rtol=1e-5, atol=1e-9)
+
+
+def test_per_cell_map_applies_floor_and_rejects_misaligned_grids(tmp_path):
+    from samudra.config import load_normalized_increment_scale_map
+
+    wet = torch.ones(1, 2, 3, dtype=torch.bool)
+    wet[0, 0, 0] = False
+    tau = np.array([[np.nan, 1.0, 1.0], [1.0, 1.0, 1e-6]])
+    xr.Dataset({"zos": (("y", "x"), tau)}).to_zarr(tmp_path / "ok.zarr")
+    xr.Dataset({"zos": (("y", "x"), tau[::-1])}).to_zarr(tmp_path / "flipped.zarr")
+    root = LocalLocation(path=tmp_path)
+
+    q = load_normalized_increment_scale_map(
+        root.resolve(UnresolvedLocation(path="ok.zarr")),
+        ("zos",),
+        np.array([2.0]),
+        wet,
+        floor=0.1,
+    )
+    tau_channel = np.sqrt(np.nanmean(tau**2))
+    assert float(q[0, 1, 2]) == pytest.approx(0.1 * tau_channel / 2.0)  # floored
+    assert float(q[0, 0, 1]) == pytest.approx(1.0 / 2.0)  # unchanged
+    with pytest.raises(ValueError, match="wet mask"):
+        load_normalized_increment_scale_map(
+            root.resolve(UnresolvedLocation(path="flipped.zarr")),
+            ("zos",),
+            np.array([2.0]),
+            wet,
+            floor=0.1,
+        )
+
+
+@pytest.mark.parametrize("backend", ["cpu"], indirect=True)
+@pytest.mark.parametrize(
+    "data_source,config_name",
+    [("mock-om4", "train_default_2step.yaml")],
+    indirect=True,
+)
+def test_trainer_fills_per_cell_residual_scale(train_config, tmp_path):
+    train_config.data.input_steps = 2
+    train_config.data.output_steps = 1
+    train_config.data.loading.num_workers = 0
+    with MultitonScope():
+        probe = Trainer(train_config)
+        channels = probe.prognostic_var_names
+        wet = probe.primary_source.masks.prognostic.cpu().numpy().astype(bool)
+    tau = np.where(wet, 0.05, np.nan)
+    xr.Dataset({c: (("y", "x"), tau[i]) for i, c in enumerate(channels)}).to_zarr(
+        tmp_path / "tau_cells.zarr"
+    )
+    train_config.model.pred_residuals = True
+    train_config.model.scale_residuals = True
+    train_config.model.residual_scale_per_cell = True
+    train_config.loss = NormalizedDeltaLossConfig(
+        increment_rms_location=LocalLocation(path=tmp_path / "tau_cells.zarr"),
+        per_cell=True,
+    )
+    with MultitonScope():
+        trainer = Trainer(train_config)
+        assert trainer.model.residual_scale.shape == (len(channels), *wet.shape[1:])
+        assert torch.isfinite(trainer.model.residual_scale).all()  # type: ignore[arg-type]
+        trainer.init_data_loaders(cur_step=train_config.steps[0])
+        logs = trainer.train_one_epoch(epoch=1)
+    losses = [v for k, v in logs.items() if k.startswith("train/loss/channel/")]
+    assert np.isfinite(np.array(losses, dtype=float)).all()

@@ -3,8 +3,8 @@
 
 # Overnight results, 2026-11-13: the compression ladder and Samudra 2 at 1°
 
-**Status: written before the 10:00 meeting.** The 1° forcing run is still
-running and is not included. Every number comes from a file in this folder,
+**Status: written before the 10:00 meeting.** The 1° forcing run finished
+overnight and is in section 4b. Every number comes from a file in this folder,
 named in each section. Terms are introduced in the [overview](../README.md),
 and the mathematics in [background](background.md).
 
@@ -17,6 +17,7 @@ and the mathematics in [background](background.md).
 | `samudra.metrics` against observations, 2015–2022: the paper's Samudra 2 rollout, and a persistence rollout | Same pipeline for both | `metrics_onedeg_results/` |
 | Ladder rollouts at 2° | Diverged; root cause in [rollout_blowup_rca.md](rollout_blowup_rca.md) | `rca_twodeg_results/` |
 | Ladder with forcing, one step, 2° | Paired with the v2 run | `om4_twodeg_v2_forcing_results/` |
+| Ladder with forcing, one step, 1° | Paired with the 1° v2 run | `om4_onedeg_v2_forcing_results/` |
 
 ## Headlines
 
@@ -38,9 +39,10 @@ and the mathematics in [background](background.md).
 4. **The official 1° release is bit-identical to `om4_onedeg_v3`** for the
    prognostic fields: maximum difference 0, or about 2 × 10⁻⁹ for velocity. The
    paper model runs on it, with Samudra deriving `hfds_anomalies` itself.
-5. **Forcing at Samudra's input times adds little at one step at 2°**: at most
-   0.10 bits, on surface temperature. The large surface joint-coding gap
-   remains, and at 1° it's slightly larger still.
+5. **Forcing at Samudra's input times adds little at one step, at 2° or 1°**:
+   at most 0.10 bits at 2° and 0.13 bits at 1°, both on near-surface
+   temperature. The large surface joint-coding gap remains at both
+   resolutions.
 
 ---
 
@@ -202,6 +204,36 @@ and Samudra's convention doesn't give it. That would cost something only where
 future fluxes are knowable, not in coupled runs with ACE. A ladder variant with
 t+1 forcing would measure it.
 
+## 4b. Forcing at 1°
+
+Source: `om4_onedeg_v2_forcing_results/compare_vs_no_forcing.md`. Paired with
+`om4_onedeg_v2_results/` on identical test rows; `compare.py` checks that the
+persistence bits match and refuses otherwise. Same ε (1/4) as the 1° ladder.
+
+| Variable | Bits saved by forcing [surface] | RMSE skill of `mix`, before → after [surface] | Surface gap, before → after |
+|---|---:|---:|---:|
+| `thetao` | 0.02 [0.09] | 0.153 → 0.163 [0.132 → 0.182] | 1.10 → 1.03 |
+| `so` | −0.01 [0.01] | 0.124 → 0.122 [0.036 → 0.037] | 0.35 → 0.35 |
+| `uo` | 0.00 [0.02] | 0.107 → 0.107 [0.061 → 0.071] | 1.19 → 1.18 |
+| `vo` | 0.00 [0.04] | 0.166 → 0.167 [0.132 → 0.144] | 0.53 → 0.52 |
+| `zos` | 0.01 | 0.037 → 0.039 | 1.32 → 1.31 |
+
+What this adds to the 2° result:
+
+- **The same picture at 1°.** The largest saving is 0.13 bits on `thetao_2`
+  (22.5 m), and surface temperature's RMSE skill rises from 0.13 to 0.18. That
+  is where surface heat flux should act. Elsewhere forcing is worth a few
+  hundredths of a bit at most.
+- **Forcing slightly *hurts* below the mixed layer.** Held-out bits get worse
+  by up to 0.044 on `thetao_7` (250 m), 0.040 on `so_9` (550 m) and 0.032 on
+  `thetao_8`. Three extra regressors carrying no information about those
+  levels add fitting noise, and the `mix` weights don't fully remove it. A
+  model should get forcing only where it's informative, or be regularized so
+  that it can ignore it.
+- **The surface gap is unchanged** (temperature 1.10 → 1.03 bits). Forcing at
+  the input times doesn't explain the correlated surface errors at either
+  resolution. The t+1-forcing hypothesis in section 4 is still the open test.
+
 ## 5. For the meeting: decisions and next steps
 
 1. **Confirm the one-step tracer result with the team's own tooling.** If it
@@ -219,7 +251,6 @@ t+1 forcing would measure it.
    would give Samudra's leading error-growth factor and mode cheaply.
 4. **Baseline roadmap:**
    - a stabilized ladder for rollouts (multi-step fit);
-   - the 1° forcing result (running);
    - a t+1-forcing variant;
    - the input-group ablation for deep T/S (revision item 5).
 
@@ -231,7 +262,8 @@ t+1 forcing would measure it.
   - one-step Samudra 2: `27260885`;
   - metrics: `1acc9b39`;
   - scoring: `4c65c332`;
-  - 2° forcing: `0f43c79f`.
+  - 2° forcing: `0f43c79f`;
+  - 1° forcing: `4c65c332` (rerun after a shell-quoting failure in the chained job; log in the results folder).
 - **Runtimes:**
   - 1° ladder: data 341 s, ε sweep 1,523 s, run 7,592 s (`timings.tsv`);
   - Samudra 2 one step: about 4 s per forecast on CPU.

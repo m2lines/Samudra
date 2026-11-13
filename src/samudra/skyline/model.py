@@ -85,7 +85,9 @@ def linear_head_statistics(head):
         )
 
 
+# Native CPU convolution avoids observed oneDNN crashes during multi-rank startup.
 @torch.no_grad()
+@torch.backends.mkldnn.flags(enabled=False)
 def smooth_linear_head(head, sigma):
     """Correlate adjacent initialized rows, preserving RMS and boundary variance."""
     if not isinstance(head, nn.Linear) or not math.isfinite(sigma) or sigma <= 0:

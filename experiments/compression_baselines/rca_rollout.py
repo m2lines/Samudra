@@ -45,6 +45,7 @@ def main() -> None:
     ap.add_argument("out", type=Path)
     ap.add_argument("--steps", type=int, default=40)
     ap.add_argument("--rung", choices=["lpc", "lpc_linear"], default="lpc")
+    ap.add_argument("--skip-counterfactual", action="store_true")
     ap.add_argument("--check-against", default=None)
     a = ap.parse_args()
     cache = Cache(a.cache)
@@ -82,8 +83,10 @@ def main() -> None:
         best = None
         for c in chans:
             e0, e1 = err[c][s - 1], err[c][s]
+            # Explosive: an error already beyond 1 (channel units) grows tenfold in
+            # one step. Growth from a near-zero first-step error is ordinary.
             with np.errstate(all="ignore"):
-                r = np.where((e1 > 1) & (e0 > 0), e1 / e0, 0)
+                r = np.where((e0 > 1) & (e1 > 10 * e0), e1 / e0, 0)
             r = np.nan_to_num(r, nan=np.inf, posinf=np.inf)
             if np.nanmax(r) > 10:
                 cell = np.unravel_index(int(np.nanargmax(r)), r.shape)
@@ -184,6 +187,21 @@ def main() -> None:
     }
 
     # 5. Counterfactual: advection from true velocities, whole test window.
+    if a.skip_counterfactual:
+        a.out.mkdir(parents=True, exist_ok=True)
+        (a.out / "rca.json").write_text(json.dumps(rep, indent=1))
+        print(json.dumps(rep["seed"], indent=1))
+        for t in trace[-8:]:
+            top = sorted(t["contributions"].items(), key=lambda kv: -abs(kv[1]))[:5]
+            print(
+                f"  {t['step']:3d} err {t['error_seed']:.3g} tend {t['tendency']:.3g} "
+                + ", ".join(f"{k}={v:.3g}" for k, v in top)
+            )
+        for k, v in rep["training_range"].items():
+            print(
+                f"{k}: training q0.0001/median/q0.9999 {v['q0001_median_q9999']}, max |z| in rollout {v['max_abs_z_in_rollout']:.3g}"
+            )
+        return
     roller.prescribed_velocity = True
     prev, cur = roller.initial()
     n = roller.n_test - 2

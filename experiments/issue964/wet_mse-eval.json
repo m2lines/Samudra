@@ -1,0 +1,107 @@
+{
+  "data": {
+    "loading": {
+      "type": "rust",
+      "prefetch_batches": 2,
+      "prefetch_to_device": true,
+      "max_concurrent_reads": 8
+    },
+    "sources": [
+      {
+        "type": "om4",
+        "val_time": {
+          "end": "2014-10-05",
+          "start": "2013-10-05"
+        },
+        "grid_type": "gaussian",
+        "train_time": {
+          "end": "2013-09-30",
+          "start": "1975-01-03"
+        },
+        "data_location": "OM4.zarr",
+        "inference_time": {
+          "end": "2022-12-24",
+          "start": "2014-10-10"
+        },
+        "boundary_vars_key": "tau_hfds",
+        "data_stds_location": "OM4_stds.zarr",
+        "data_means_location": "OM4_means.zarr",
+        "prognostic_vars_key": "thermo_dynamic_all"
+      }
+    ],
+    "input_steps": 2,
+    "output_steps": 2,
+    "loader_version": "om4-torch",
+    "inference_loading": {
+      "num_workers": 4,
+      "persistent_workers": true
+    },
+    "masked_fill_value": 0,
+    "normalize_before_mask": true
+  },
+  "model": {
+    "pad": "circular",
+    "unet": {
+      "ch_width": [
+        280,
+        380,
+        480,
+        520
+      ],
+      "dilation": [
+        1,
+        2,
+        4,
+        8
+      ],
+      "n_layers": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "core_block": {
+        "norm": "instance",
+        "activation": "capped_gelu",
+        "block_type": "conv_next_block",
+        "kernel_size": 3,
+        "upscale_factor": 2,
+        "pointwise_linear": false
+      },
+      "geometry_mode": "none",
+      "drop_path_rate": 0,
+      "up_sampling_block": "zonally_periodic_upsample",
+      "down_sampling_block": "avg_pool",
+      "geometry_reference_m": 100000
+    },
+    "pos_channels": 0,
+    "use_bfloat16": true,
+    "checkpointing": "all",
+    "pred_residuals": false,
+    "last_kernel_size": 3,
+    "add_3d_coordinates": false,
+    "gradient_detach_interval": 0
+  },
+  "experiment": {
+    "name": "issue964-wet_mse-seed15",
+    "wandb": {
+      "mode": "disabled",
+      "tags": null,
+      "group": "issue964-oct24-loss-20261106",
+      "notes": null,
+      "entity": "ocean_emulators",
+      "project": "default"
+    },
+    "search": null,
+    "data_root": "/scratch/jr7309/data/om4-v2026-09/om4_onedeg",
+    "rand_seed": 15,
+    "base_output_dir": "/scratch/jr7309/runs/issue964-oct24-loss-20261106/outputs"
+  },
+  "debug": false,
+  "disk_mode": true,
+  "save_zarr": true,
+  "ckpt_path": null,
+  "num_model_steps_forward": 25,
+  "backend": "cuda",
+  "observations": null
+}

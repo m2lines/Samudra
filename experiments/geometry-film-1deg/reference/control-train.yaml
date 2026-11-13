@@ -1,0 +1,96 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+# SPDX-License-Identifier: Apache-2.0
+
+debug: false
+disk_mode: true
+save_freq: 5
+rollout_validation:
+  days:
+  - 360
+  frequency: 1
+  steps_forward: 1
+checkpoint_validation_metric: rollout_rmse
+epochs: 70
+batch_size: 4
+learning_rate: 0.0006
+gradient_accumulation_steps: 2
+scheduler:
+  type: cosine
+loss:
+  type: dynamic
+  metric: mse
+  limit: 20
+finetune: false
+resume_ckpt_path: null
+inference_epochs: []
+data_stride:
+- 1
+steps:
+- 4
+step_transition: []
+preemptible: false
+backend: auto
+experiment:
+  name: current-1deg-control
+  rand_seed: 15
+  base_output_dir: .LOCAL
+  wandb:
+    mode: online
+    entity: ocean_emulators
+    project: default
+data:
+  sources:
+  - type: om4
+    prognostic_vars_key: thermo_dynamic_all
+    boundary_vars_key: tau_hfds
+    train_time:
+      start: '1975-01-03'
+      end: '2013-10-05'
+    val_time:
+      start: '2013-10-05'
+      end: '2014-10-05'
+    inference_times:
+    - start: '2014-10-10'
+      end: '2022-12-24'
+    data_location: OM4.zarr
+    data_means_location: OM4_means.zarr
+    data_stds_location: OM4_stds.zarr
+  loading:
+    type: rust
+    max_concurrent_reads: 8
+    prefetch_batches: 2
+    prefetch_to_device: true
+model:
+  checkpointing: all
+  pred_residuals: false
+  last_kernel_size: 3
+  pad: circular
+  use_bfloat16: true
+  unet:
+    ch_width:
+    - 280
+    - 380
+    - 480
+    - 520
+    dilation:
+    - 1
+    - 2
+    - 4
+    - 8
+    n_layers:
+    - 1
+    - 1
+    - 1
+    - 1
+    core_block:
+      block_type: conv_next_block
+      kernel_size: 3
+      activation: capped_gelu
+      upscale_factor: 2
+      norm: instance
+    down_sampling_block: avg_pool
+    up_sampling_block: zonally_periodic_upsample
+    stochastic_depth_rate: 0.0
+post_train_eval:
+  eval_config_path: /projects/ny/lz1955/multiscale/jrusak/runs/current-stochastic-depth-1deg-20261006/control/eval.yaml
+  last_n_checkpoints: 1

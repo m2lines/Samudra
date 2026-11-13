@@ -219,6 +219,30 @@ def extract(a: argparse.Namespace) -> None:
 
 
 # ------------------------------------------------------------------ render
+FULL = False  # set by `render --full`: originals for slides, not for git
+
+
+def save(fig, path: Path, dpi: int) -> None:
+    """Save as a 256-colour PNG: the repository's pre-commit caps files at 250 KB.
+
+    With `render --full`, save at 200 dpi without quantizing instead.
+    """
+    import io
+
+    import matplotlib.pyplot as plt
+    from PIL import Image
+
+    if FULL:
+        fig.savefig(path, dpi=200)
+        plt.close(fig)
+        return
+    buf = io.BytesIO()
+    fig.savefig(buf, dpi=dpi, format="png")
+    plt.close(fig)
+    buf.seek(0)
+    Image.open(buf).convert("RGB").quantize(256).save(path, optimize=True)
+
+
 def render(a: argparse.Namespace) -> None:
     import matplotlib
 
@@ -317,8 +341,7 @@ def render(a: argparse.Namespace) -> None:
                 y=0.985,
                 fontsize=14,
             )
-            fig.savefig(o / f"maps-{name}-{v}.png", dpi=90)
-            plt.close(fig)
+            save(fig, o / f"maps-{name}-{v}.png", 90)
 
     # Global time-mean bias maps: rows = depth, columns = ladder, Samudra 2.
     lat, lon = d["lat"], d["lon"]
@@ -347,8 +370,7 @@ def render(a: argparse.Namespace) -> None:
             "Each forecast starts from the true state, so this is the per-step drift a rollout would accumulate",
             fontsize=13,
         )
-        fig.savefig(o / f"bias-maps-{v}.png", dpi=80)
-        plt.close(fig)
+        save(fig, o / f"bias-maps-{v}.png", 66)
 
     # Zonal-mean bias against latitude and depth.
     fig, axes = plt.subplots(
@@ -383,8 +405,7 @@ def render(a: argparse.Namespace) -> None:
         f"Zonal-mean one-step bias by depth (levels evenly spaced) · {n} target dates · area-weighted over wet cells",
         fontsize=13,
     )
-    fig.savefig(o / "bias-zonal.png", dpi=90)
-    plt.close(fig)
+    save(fig, o / "bias-zonal.png", 90)
 
     # RMSE by depth: ladder, Samudra 2, persistence.
     fig, axes = plt.subplots(1, len(VARS), figsize=(14, 5), layout="constrained")
@@ -414,8 +435,7 @@ def render(a: argparse.Namespace) -> None:
     fig.suptitle(
         f"One-step RMSE by depth, global wet cells, {n} target dates", fontsize=13
     )
-    fig.savefig(o / "rmse-by-depth.png", dpi=90)
-    plt.close(fig)
+    save(fig, o / "rmse-by-depth.png", 90)
 
     # Spectra: one figure per variable and kind; rows = region, cols = depth.
     spec_rows = []
@@ -468,8 +488,7 @@ def render(a: argparse.Namespace) -> None:
             fig.subplots_adjust(
                 top=0.86, bottom=0.07, hspace=0.3, wspace=0.28, left=0.08, right=0.98
             )
-            fig.savefig(o / f"spectra-{kind}-{v}.png", dpi=90)
-            plt.close(fig)
+            save(fig, o / f"spectra-{kind}-{v}.png", 90)
 
     for fname, data in (("figure-metrics.csv", rows), ("spectra.csv", spec_rows)):
         with (o / fname).open("w", newline="") as h:
@@ -490,7 +509,10 @@ def main() -> None:
     r = sub.add_parser("render")
     r.add_argument("fields", type=Path)
     r.add_argument("out", type=Path)
+    r.add_argument("--full", action="store_true", help="200 dpi, unquantized")
     a = ap.parse_args()
+    global FULL
+    FULL = getattr(a, "full", False)
     extract(a) if a.cmd == "extract" else render(a)
 
 

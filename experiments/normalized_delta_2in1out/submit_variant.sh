@@ -19,6 +19,10 @@
 #
 # CFG must contain train.yaml and eval.yaml. Run on the Torch login node with
 # WANDB_API_KEY set (from ~/.bashrc) and the harness scripts in $HOME.
+#
+# Code layers carry only src/, so the experiments/ directory at CODE_COMMIT is
+# snapshotted under $OUTPUT_BASE/_experiments/$NAME/ (bound into the
+# container) and configs are read from there.
 set -euo pipefail
 : "${CODE_COMMIT:?}" "${CFG:?}" "${NAME:?}" "${WANDB_API_KEY:?}"
 
@@ -38,11 +42,24 @@ common=(--parsable --account=torch_pr_347_lzanna --nodes=1 --ntasks-per-node=1
 test -e "$CODE_LAYER" && test -e "$SIF_PATH"
 test -e "$DATA_ROOT/OM4_increment_rms_wet.zarr"
 test ! -e "$OUTPUT_BASE/$NAME"
+
+SNAP=$OUTPUT_BASE/_experiments/$NAME
+test ! -e "$SNAP"
+tmp=$(mktemp -d)
+git -C "$tmp" init -q
+git -C "$tmp" fetch -q --depth 1 https://github.com/m2lines/Samudra.git "$CODE_COMMIT"
+mkdir -p "$SNAP"
+git -C "$tmp" archive FETCH_HEAD experiments | tar -x -C "$SNAP"
+rm -rf "$tmp"
+echo "$CODE_COMMIT" > "$SNAP/CODE_COMMIT"
+(cd "$SNAP" && find experiments -type f -print0 | sort -z | xargs -0 sha256sum > configs.sha256)
+CFG_DIR=$SNAP/$CFG
+test -f "$CFG_DIR/train.yaml" && test -f "$CFG_DIR/eval.yaml"
 record() { printf '%s\t%s\t%s\n' "$1" "$2" "$3" >> "$JOBS"; echo "$1 $2 $3"; }
 
 dep=()
 [[ -n "${AFTER:-}" ]] && dep=(--dependency="afterok:$AFTER")
-export CONFIG=$CFG/train.yaml GPUS_PER_NODE=4 REQUEUE_ON_USR1=1
+export CONFIG=$CFG_DIR/train.yaml GPUS_PER_NODE=4 REQUEUE_ON_USR1=1
 export DATA_CACHE_DIR=$U/.data_cache/$NAME
 export ARGS="$W --gradient_accumulation_steps=${ACCUM:-2} ${EXTRA_ARGS:-}"
 pool=(--parsable --account=torch_pr_500_lzanna --nodes=1 --ntasks-per-node=1
@@ -55,7 +72,7 @@ train=$(NAME=$NAME sbatch "${pool[@]}" "${dep[@]}" --time=24:00:00 \
 record train "$train" "$NAME"
 
 unset GPUS_PER_NODE REQUEUE_ON_USR1
-export CONFIG=$CFG/eval.yaml TARGET_CHECKPOINT=$NAME/saved_nets/ema_ckpt.pt ARGS="$W"
+export CONFIG=$CFG_DIR/eval.yaml TARGET_CHECKPOINT=$NAME/saved_nets/ema_ckpt.pt ARGS="$W"
 eval_job=$(NAME=$NAME-eval sbatch "${common[@]}" --partition=rtx6000_lzanna \
   --cpus-per-task=16 --mem=175G --gres=gpu:rtx6000:1 --time=04:00:00 \
   --dependency="afterok:$train" --job-name=eval-"${NAME: -19}" \
@@ -70,7 +87,7 @@ metrics=$(sbatch "${common[@]}" --partition=cs --cpus-per-task=16 --mem=128G --t
     export APPTAINERENV_PYTHONPATH=/opt/samudra-code/src APPTAINERENV_MPLBACKEND=Agg \
       APPTAINERENV_PYTHONUNBUFFERED=1; \
     apptainer exec --overlay $CODE_LAYER:ro --bind $U:$U --pwd /opt/samudra-code $SIF_PATH \
-      /workspace/.venv/bin/python -m samudra.metrics /opt/samudra-code/$CFG/eval.yaml \
+      /workspace/.venv/bin/python -m samudra.metrics $CFG_DIR/eval.yaml \
       --experiment.name=$NAME-eval --experiment.data_root=$DATA_ROOT \
       --experiment.base_output_dir=$OUTPUT_BASE --experiment.wandb.mode=disabled")
 record metrics "$metrics" "$NAME-eval"

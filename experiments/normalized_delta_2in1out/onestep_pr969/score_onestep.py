@@ -19,8 +19,8 @@ from pathlib import Path
 import numpy as np
 import xarray as xr
 
-truth_path, out_path, *runs = sys.argv[1:]
-runs = dict(r.split("=", 1) for r in runs)
+truth_path, out_path, *run_args = sys.argv[1:]
+runs = dict(r.split("=", 1) for r in run_args)
 data = xr.open_zarr(truth_path)
 metas = {k: json.loads((Path(v) / "meta.json").read_text()) for k, v in runs.items()}
 preds = {k: np.load(Path(v) / "pred.npy", mmap_mode="r") for k, v in runs.items()}

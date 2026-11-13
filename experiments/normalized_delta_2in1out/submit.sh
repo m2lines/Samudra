@@ -24,7 +24,7 @@ export PATH=/share/apps/apptainer/bin:/opt/slurm/bin:$PATH
 
 DATE=2026-11-13
 ND_NAME=$DATE-normalized-delta-2in1out
-PR969_TRAIN=2026-11-09-onedeg-tendency-scaled-2in1out
+PR969_TRAIN=2026-11-09-onedeg-tendency-scaled-2in1out-rust-rtx8
 PR969_NAME=$PR969_TRAIN-eval-v2026-09
 JOBS=$U/agent-logs/$ND_NAME-jobs.tsv
 W="--experiment.wandb.entity=ocean_emulators --experiment.wandb.project=default --experiment.wandb.group=normalized-delta-vs-969-20261113"
@@ -80,7 +80,8 @@ fi
 if [[ "$WHAT" == all || "$WHAT" == pr969 ]]; then
   # #969's own code, container and configs; only the data root and name change.
   # Its v3 and v2026-09 normalization statistics are identical.
-  C969=acdbcf676867452e2f836dd7d4df3fa6477d76ee
+  # The finished #969 run (rust-rtx8) trained from 6574fbb6.
+  C969=6574fbb6f060c672a9ce94b07d844983da42d265
   export SIF_PATH=$SIF_DIR/physicsnemo-26.05-4f86be45.sif
   export CODE_LAYER=$U/.apptainer-code-layers/samudra-code-$C969.img
   test -e "$CODE_LAYER" && test ! -e "$OUTPUT_BASE/$PR969_NAME"

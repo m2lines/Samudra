@@ -1,0 +1,50 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# PR #984 (normalized_delta, 2 inputs / 1 output) plus a large-scale error
+# penalty. Everything else is identical to experiments/normalized_delta_2in1out.
+debug: false
+disk_mode: true
+save_freq: 5
+rollout_validation:
+  days: [360]
+  frequency: 1
+  steps_forward: 1
+# As in #969. Evaluation uses the final-epoch EMA checkpoint, not the best one.
+validation_score: rollout_rmse
+epochs: 70
+batch_size: 4
+learning_rate: 0.0006
+gradient_accumulation_steps: 1
+scheduler: { type: cosine }
+ema_decay: 0.999
+faster_decay_at_start: true
+test_using_ema: true
+loss:
+  type: normalized_delta
+  # Per-channel RMS five-day change over wet cells, 1975-01-03..2013-09-30,
+  # from scripts/compute_tendency_stats.py --over wet. Relative to data_root.
+  increment_rms_location: OM4_increment_rms_wet.zarr
+  # The only change from #984: penalize the area-weighted mean error over
+  # 10 x 10-cell (10 degree) blocks, 10x on top of the per-cell loss.
+  large_scale_weight: 10.0
+  large_scale_block_cells: 10
+finetune: false
+resume_ckpt_path: null
+data_stride: [1]
+steps: [8]
+step_transition: []
+preemptible: true
+
+backend: auto
+
+experiment:
+  name: nd2in1_large_scale_penalty
+  rand_seed: 15
+  base_output_dir: .LOCAL
+  wandb:
+    mode: disabled
+    project: default
+data: !include ../normalized_delta_2in1out/data.yaml
+model: !include ../normalized_delta_2in1out/model.yaml

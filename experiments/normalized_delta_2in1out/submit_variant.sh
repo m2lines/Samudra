@@ -9,6 +9,14 @@
 #     [AFTER=<slurm job id to wait for>] [EXTRA_ARGS="--resume_ckpt_path=..."] \
 #     bash submit_variant.sh
 #
+# Training runs in the preemptible pool (account torch_pr_500_lzanna) on one
+# node with 4 RTX6000 GPUs and 2 gradient-accumulation steps, so the global
+# batch and the per-GPU BatchNorm batch match 8 GPUs without accumulation. The
+# lab's rtx6000_lzanna partition is capped at 8 GPUs and 128 CPUs for the
+# whole group, so it is left for evaluation. Preempted jobs requeue and resume
+# from their latest checkpoint (preemptible: true), except fine-tunes, which
+# restart.
+#
 # CFG must contain train.yaml and eval.yaml. Run on the Torch login node with
 # WANDB_API_KEY set (from ~/.bashrc) and the harness scripts in $HOME.
 set -euo pipefail
@@ -34,11 +42,13 @@ record() { printf '%s\t%s\t%s\n' "$1" "$2" "$3" >> "$JOBS"; echo "$1 $2 $3"; }
 
 dep=()
 [[ -n "${AFTER:-}" ]] && dep=(--dependency="afterok:$AFTER")
-export CONFIG=$CFG/train.yaml GPUS_PER_NODE=8 REQUEUE_ON_USR1=1
+export CONFIG=$CFG/train.yaml GPUS_PER_NODE=4 REQUEUE_ON_USR1=1
 export DATA_CACHE_DIR=$U/.data_cache/$NAME
-export ARGS="$W ${EXTRA_ARGS:-}"
-train=$(NAME=$NAME sbatch "${common[@]}" "${dep[@]}" --partition=rtx6000_lzanna \
-  --cpus-per-task=128 --mem=1400G --gres=gpu:rtx6000:8 --time=24:00:00 \
+export ARGS="$W --gradient_accumulation_steps=${ACCUM:-2} ${EXTRA_ARGS:-}"
+pool=(--parsable --account=torch_pr_500_lzanna --nodes=1 --ntasks-per-node=1
+  --chdir=$U --kill-on-invalid-dep=yes --constraint=rtx6000 --gres=gpu:4
+  --cpus-per-task=32 --mem=256G "--comment=preemption=yes;requeue=true")
+train=$(NAME=$NAME sbatch "${pool[@]}" "${dep[@]}" --time=24:00:00 \
   --requeue --signal=B:USR1@300 --job-name="${NAME: -24}" \
   --output="$U/agent-logs/$NAME-train-%j.out" --error="$U/agent-logs/$NAME-train-%j.err" \
   ~/slurm_apptainer_train.sbatch)

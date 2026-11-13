@@ -6,7 +6,8 @@
 # the bin tolerance eps, pick it by the rule in select_eps.py, fit the ladder on
 # all 77 channels, render the report, run the sanity checks.
 # Usage: bash run_all.sh [CACHE_DIR] [OUT_DIR]      (add SYNTHETIC=1 for the smoke test;
-#        RES=om4_onedeg for 1 degree, default om4_twodeg)
+#        RES=om4_onedeg for 1 degree, default om4_twodeg; SOURCE=path/to/OM4.zarr to read
+#        another store, e.g. om4_onedeg_v3, with static fields from the public RES store)
 set -euo pipefail
 cd "$(dirname "$0")"
 RES=${RES:-om4_twodeg}
@@ -20,7 +21,7 @@ stage() { local t0=$SECONDS; "${@:2}"; printf "%s\t%d\n" "$1" $((SECONDS - t0)) 
 if [[ "${SYNTHETIC:-0}" == 1 ]]; then
   stage data python data.py "$CACHE" --synthetic
 else
-  [[ -f "$CACHE/meta.json" ]] || stage data python data.py "$CACHE" --res "$RES"
+  [[ -f "$CACHE/meta.json" ]] || stage data python data.py "$CACHE" --res "$RES" ${SOURCE:+--source "$SOURCE"}
 fi
 sweep() {
   for e in 0.5 0.25 0.125 0.0625 0.03125 0.015625; do

@@ -47,17 +47,36 @@ def _write_static(cache: Path, masks, lat, area, dz):
     np.savez(cache / "static.npz", masks=masks.astype(bool), lat=lat, area=area, dz=dz)
 
 
-def load_om4(cache: Path, res: str, splits: dict, levels) -> None:
+def load_om4(
+    cache: Path, res: str, splits: dict, levels, source: str | None = None
+) -> None:
+    """Cache OM4 channels and forcing for each split.
+
+    source: a Zarr path or URL to read instead of the public v2026-09 store of
+    `res`. Older stores (e.g. om4_onedeg_v3, which Samudra 2 was trained on)
+    keep 3-D variables with a `lev` dimension and lack lat, areacello and dz;
+    those static fields are then taken from the public store of `res`, after
+    checking that the grids match.
+    """
     import xarray as xr
 
     cache.mkdir(parents=True, exist_ok=True)
-    ds = xr.open_zarr(URL.format(res=res))
+    public = URL.format(res=res)
+    src = source or public
+    ds = xr.open_zarr(src)
+    static = ds
+    if not all(n in ds.variables for n in ("lat", "areacello", "dz")):
+        static = xr.open_zarr(public)
+        for coord in ("y", "x", "lev"):
+            if not np.allclose(ds[coord].values, static[coord].values):
+                raise ValueError(f"{src} and {public} differ in {coord}")
     chans = channel_list(levels)
     masks = np.stack([ds[f"mask_{k}"].values for k in levels])
-    dz = ds.dz.values[list(levels)].astype(np.float64)
-    _write_static(cache, masks, ds.lat.values, ds.areacello.values, dz)
+    dz = static.dz.values[list(levels)].astype(np.float64)
+    _write_static(cache, masks, static.lat.values, static.areacello.values, dz)
     meta: dict[str, Any] = {
-        "source": URL.format(res=res),
+        "source": src,
+        "static_source": public if static is not ds else src,
         "attrs": {k: str(v) for k, v in ds.attrs.items() if k.startswith("m2lines/")},
         "channels": [c for c, _ in chans],
         "levels": {c: levels.index(k) for c, k in chans},
@@ -73,11 +92,23 @@ def load_om4(cache: Path, res: str, splits: dict, levels) -> None:
         (cache / split).mkdir(exist_ok=True)
         meta["splits"][split] = [str(t) for t in ds.time.values[idx]]
         t0 = time.time()
-        for name in [c for c, _ in chans] + list(FORCING_VARS):
-            arr = (
-                ds[name].isel(time=slice(idx[0], idx[-1] + 1)).values.astype(np.float32)
+        tsl = slice(idx[0], idx[-1] + 1)
+        for name in [c for c, _ in chans if c in ds.variables] + list(FORCING_VARS):
+            np.save(
+                cache / split / f"{name}.npy",
+                ds[name].isel(time=tsl).values.astype(np.float32),
             )
-            np.save(cache / split / f"{name}.npy", arr)
+        for v in VARS3D:
+            if v not in ds.variables or "lev" not in ds[v].dims:
+                continue
+            # One read per variable: level-by-level reads would decompress every
+            # (lev, 1, y, x) chunk once per level.
+            block = ds[v].isel(time=tsl).transpose("lev", "time", ...).values
+            for k in levels:
+                np.save(cache / split / f"{v}_{k}.npy", block[k].astype(np.float32))
+        missing = [c for c, _ in chans if not (cache / split / f"{c}.npy").exists()]
+        if missing:
+            raise ValueError(f"{src} lacks channels {missing}")
         print(
             f"[data] {split}: {len(idx)} steps x {len(chans)} channels + forcing in {time.time() - t0:.0f}s"
         )
@@ -230,6 +261,9 @@ if __name__ == "__main__":
     )
     ap.add_argument("--res", default="om4_twodeg")
     ap.add_argument(
+        "--source", default=None, help="Zarr path or URL instead of the public store"
+    )
+    ap.add_argument(
         "--levels", default="all", help="comma-separated level indices, or 'all' (19)"
     )
     for split, (start, end) in DEFAULT_SPLITS.items():
@@ -250,4 +284,5 @@ if __name__ == "__main__":
             a.res,
             {s: tuple(getattr(a, s).split(":")) for s in DEFAULT_SPLITS},
             levels,
+            source=a.source,
         )

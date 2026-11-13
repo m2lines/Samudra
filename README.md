@@ -50,3 +50,11 @@ To learn more, check out the [installation](https://m2lines.github.io/Samudra/do
   &nbsp;&nbsp;&nbsp;&nbsp;
   <a href="https://openathena.ai/"><img src="https://raw.githubusercontent.com/m2lines/Samudra/main/docs/static/assets/open-athena-logo.png" alt="Open Athena" /></a>
 </p>
+
+## Observation evaluation
+
+Use `samudra metrics` to score saved rollouts or `samudra viz` to produce scores
+and all five observation figure groups. Both include the configured OM4 baseline;
+regional pooled spectral errors are exported to CSV as well as figure legends.
+See the [observation evaluation guide](docs/observation-evaluation.md) for commands,
+output paths, complete-year rollout dates, and remaining diagnostic coverage.

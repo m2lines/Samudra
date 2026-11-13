@@ -9,6 +9,7 @@ first principles, what the experiment does and why. The results are in
 
 | Report | What it is | Status |
 |---|---|---|
+| [`overnight_2026-11-13.md`](reports/overnight_2026-11-13.md) | **Start here for the meeting.** Ladder and Samudra 2 at one step on the official 1° data; rollout metrics against observations; forcing at 2° | Complete (1° forcing pending) |
 | [`background.md`](reports/background.md) | The mathematics from first principles, with diagrams and a worked numerical example under every equation | Reference |
 | [`v2_om4_twodeg.md`](reports/v2_om4_twodeg.md) | Current protocol: per-variable tolerance bins, Samudra's 2° splits | Complete |
 | [`v1_om4_twodeg.md`](reports/v1_om4_twodeg.md) | First OM4 run, with a fixed 8,192-bin quantization | Frozen record |
@@ -218,6 +219,10 @@ experiment; that constraint was dropped.
 | `test_coding.py` | Unit tests of the bit accounting |
 | `om4_twodeg_v2_results/` | v2 outputs, including the ε sweep |
 | `rca_twodeg_results/` | Rollout blow-up root-cause analysis outputs |
+| `om4_onedeg_v2_results/` | 1° ladder, protocol v2 |
+| `om4_twodeg_v2_forcing_results/` | 2° ladder with forcing, paired comparison |
+| `samudra2_onestep_onedeg_results/` | Samudra 2 one-step scores beside the 1° ladder |
+| `metrics_onedeg_results/` | `samudra.metrics` logs for the Samudra 2 and persistence rollouts |
 | `om4_twodeg_results/` | v1 outputs (frozen) |
 | `synthetic_smoke/` | Toy-model outputs from before OM4 was reachable; not about the ocean |
 

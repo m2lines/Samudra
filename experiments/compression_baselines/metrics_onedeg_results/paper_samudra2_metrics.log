@@ -1,0 +1,636 @@
+git 1acc9b39bdb9b25f387b45742a4b2ad2ddcf496f
+2026-11-12 22:14:09,940 - INFO - observations - Opening observation product DUACS from s3://m2lines-pubs/Samudra/v2026-07/obs/duacs.zarr
+2026-11-12 22:14:10,551 - INFO - observations -   DUACS: {'lat': 1440, 'lon': 2880, 'time': 598}, 2014-10-20 to 2022-12-24
+2026-11-12 22:14:10,551 - INFO - observations - Opening observation product OISST from s3://m2lines-pubs/Samudra/v2026-07/obs/oisst.zarr
+2026-11-12 22:14:10,746 - INFO - observations -   OISST: {'lat': 720, 'lon': 1440, 'time': 598}, 2014-10-20 to 2022-12-24
+2026-11-12 22:14:10,746 - INFO - observations - Opening observation product ARGO-IAP from s3://m2lines-pubs/Samudra/v2026-07/obs/argo-iap.zarr
+2026-11-12 22:14:11,017 - INFO - observations -   ARGO-IAP: {'depth_std': 41, 'lat': 360, 'lon': 720, 'time': 516}, 1980-01-01 to 2022-12-01
+2026-11-12 22:14:11,904 - INFO - run - Computing observation metrics over 2015-01-01 to 2022-12-31 for: paper_samudra2, om4
+2026-11-12 22:14:11,904 - INFO - report - Scoring 'paper_samudra2' against observations
+2026-11-12 22:14:11,930 - INFO - comparisons -   paper_samudra2 eastward velocity: window trimmed to shared coverage 2015-01-01..2022-12-24 (requested 2015-01-01..2022-12-31)
+2026-11-12 22:14:11,935 - INFO - comparisons -   paper_samudra2 northward velocity: window trimmed to shared coverage 2015-01-01..2022-12-24 (requested 2015-01-01..2022-12-31)
+2026-11-12 22:22:53,190 - INFO - report -   paper_samudra2 surface_geostrophic_velocity_vector_total_rmse = 0.20305 m s-1
+2026-11-12 22:32:56,829 - INFO - report -   paper_samudra2 instantaneous_surface_eke_total_rmse = 0.0456329 m2 s-2
+2026-11-12 22:32:56,857 - INFO - comparisons -   paper_samudra2 SST: window trimmed to shared coverage 2015-01-01..2022-12-24 (requested 2015-01-01..2022-12-31)
+2026-11-12 22:33:40,683 - INFO - report -   paper_samudra2 surface_sst_total_rmse = 1.18186 degC
+2026-11-12 22:34:18,770 - INFO - logging - 
+=== Warning Details ===
+2026-11-12 22:34:20,526 - INFO - logging - Message: invalid value encountered in divide
+2026-11-12 22:34:20,526 - INFO - logging - Category: <class 'RuntimeWarning'>
+2026-11-12 22:34:20,526 - INFO - logging - File: /scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/_task_spec.py
+2026-11-12 22:34:20,532 - INFO - logging - Line: 741
+2026-11-12 22:34:20,538 - INFO - logging - 
+Full stack trace:
+2026-11-12 22:34:20,603 - INFO - logging -   File "/usr/lib64/python3.12/threading.py", line 1032, in _bootstrap
+2026-11-12 22:34:20,606 - INFO - logging -     self._bootstrap_inner()
+2026-11-12 22:34:20,606 - INFO - logging -   File "/usr/lib64/python3.12/threading.py", line 1075, in _bootstrap_inner
+2026-11-12 22:34:20,606 - INFO - logging -     self.run()
+2026-11-12 22:34:20,606 - INFO - logging -   File "/usr/lib64/python3.12/threading.py", line 1012, in run
+2026-11-12 22:34:20,607 - INFO - logging -     self._target(*self._args, **self._kwargs)
+2026-11-12 22:34:20,607 - INFO - logging -   File "/usr/lib64/python3.12/concurrent/futures/thread.py", line 93, in _worker
+2026-11-12 22:34:20,607 - INFO - logging -     work_item.run()
+2026-11-12 22:34:20,607 - INFO - logging -   File "/usr/lib64/python3.12/concurrent/futures/thread.py", line 59, in run
+2026-11-12 22:34:20,607 - INFO - logging -     result = self.fn(*self.args, **self.kwargs)
+2026-11-12 22:34:20,611 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/local.py", line 243, in batch_execute_tasks
+2026-11-12 22:34:20,612 - INFO - logging -     return [execute_task(*a) for a in it]
+2026-11-12 22:34:20,612 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/local.py", line 229, in execute_task
+2026-11-12 22:34:20,612 - INFO - logging -     result = task(data)
+2026-11-12 22:34:20,615 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/_task_spec.py", line 741, in __call__
+2026-11-12 22:34:20,615 - INFO - logging -     return self.func(*new_argspec)
+2026-11-12 22:34:20,616 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/_task_spec.py", line 203, in _execute_subgraph
+2026-11-12 22:34:20,616 - INFO - logging -     res = execute_graph(final, keys=[outkey])
+2026-11-12 22:34:20,617 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/_task_spec.py", line 987, in execute_graph
+2026-11-12 22:34:20,618 - INFO - logging -     cache[key] = node(cache)
+2026-11-12 22:34:20,619 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/_task_spec.py", line 741, in __call__
+2026-11-12 22:34:20,619 - INFO - logging -     return self.func(*new_argspec)
+2026-11-12 22:34:20,619 - INFO - logging -   File "/usr/lib64/python3.12/warnings.py", line 112, in _showwarnmsg
+2026-11-12 22:34:20,619 - INFO - logging -     sw(msg.message, msg.category, msg.filename, msg.lineno,
+2026-11-12 22:34:20,619 - INFO - logging - =====================
+
+2026-11-12 22:34:22,829 - INFO - logging - 
+=== Warning Details ===
+2026-11-12 22:34:22,830 - INFO - logging - Message: invalid value encountered in divide
+2026-11-12 22:34:22,830 - INFO - logging - Category: <class 'RuntimeWarning'>
+2026-11-12 22:34:22,830 - INFO - logging - File: /scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/array/numpy_compat.py
+2026-11-12 22:34:22,830 - INFO - logging - Line: 57
+2026-11-12 22:34:22,838 - INFO - logging - 
+Full stack trace:
+2026-11-12 22:34:22,877 - INFO - logging -   File "/usr/lib64/python3.12/threading.py", line 1032, in _bootstrap
+2026-11-12 22:34:22,878 - INFO - logging -     self._bootstrap_inner()
+2026-11-12 22:34:22,879 - INFO - logging -   File "/usr/lib64/python3.12/threading.py", line 1075, in _bootstrap_inner
+2026-11-12 22:34:22,879 - INFO - logging -     self.run()
+2026-11-12 22:34:22,879 - INFO - logging -   File "/usr/lib64/python3.12/threading.py", line 1012, in run
+2026-11-12 22:34:22,890 - INFO - logging -     self._target(*self._args, **self._kwargs)
+2026-11-12 22:34:22,891 - INFO - logging -   File "/usr/lib64/python3.12/concurrent/futures/thread.py", line 93, in _worker
+2026-11-12 22:34:22,891 - INFO - logging -     work_item.run()
+2026-11-12 22:34:22,891 - INFO - logging -   File "/usr/lib64/python3.12/concurrent/futures/thread.py", line 59, in run
+2026-11-12 22:34:22,891 - INFO - logging -     result = self.fn(*self.args, **self.kwargs)
+2026-11-12 22:34:22,891 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/local.py", line 243, in batch_execute_tasks
+2026-11-12 22:34:22,891 - INFO - logging -     return [execute_task(*a) for a in it]
+2026-11-12 22:34:22,891 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/local.py", line 229, in execute_task
+2026-11-12 22:34:22,891 - INFO - logging -     result = task(data)
+2026-11-12 22:34:22,891 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/_task_spec.py", line 741, in __call__
+2026-11-12 22:34:22,891 - INFO - logging -     return self.func(*new_argspec)
+2026-11-12 22:34:22,891 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/array/reductions.py", line 869, in moment_agg
+2026-11-12 22:34:22,891 - INFO - logging -     mu = divide(totals.sum(axis=axis, **keepdim_kw), n)
+2026-11-12 22:34:22,891 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/array/reductions.py", line 57, in divide
+2026-11-12 22:34:22,891 - INFO - logging -     return f(a, b, dtype=dtype)
+2026-11-12 22:34:22,891 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/array/numpy_compat.py", line 57, in divide
+2026-11-12 22:34:22,891 - INFO - logging -     x = np.divide(x1, x2, out)
+2026-11-12 22:34:22,902 - INFO - logging -   File "/usr/lib64/python3.12/warnings.py", line 112, in _showwarnmsg
+2026-11-12 22:34:22,902 - INFO - logging -     sw(msg.message, msg.category, msg.filename, msg.lineno,
+2026-11-12 22:34:22,902 - INFO - logging - =====================
+
+2026-11-12 22:35:25,484 - INFO - report -   paper_samudra2 surface_sst residual variance: map rmse = 0.467801, pattern corr = 0.5198
+2026-11-12 22:35:27,476 - INFO - kernels -   dropping partially covered month(s): 2014-10, 2022-12
+2026-11-12 22:35:27,494 - INFO - comparisons -   paper_samudra2 OHC Surface (0-700m): window trimmed to shared coverage 2015-01-01..2022-11-01 (requested 2015-01-01..2022-12-31)
+2026-11-12 22:35:27,511 - INFO - comparisons -   paper_samudra2 OHC Surface (0-700m): scoring 2015-2021; dropped partly covered year(s) [2022]
+2026-11-12 22:36:58,912 - INFO - report -   paper_samudra2 ohc_per_area_total_rmse [Surface (0-700m)] = 4.3165e+09 J m-2
+2026-11-12 22:37:00,123 - INFO - kernels -   dropping partially covered month(s): 2014-10, 2022-12
+2026-11-12 22:37:25,937 - INFO - logging - 
+=== Warning Details ===
+2026-11-12 22:37:25,937 - INFO - logging - Message: invalid value encountered in divide
+2026-11-12 22:37:25,937 - INFO - logging - Category: <class 'RuntimeWarning'>
+2026-11-12 22:37:25,937 - INFO - logging - File: /scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/_task_spec.py
+2026-11-12 22:37:25,937 - INFO - logging - Line: 741
+2026-11-12 22:37:25,937 - INFO - logging - 
+Full stack trace:
+2026-11-12 22:37:25,942 - INFO - logging -   File "/usr/lib64/python3.12/threading.py", line 1032, in _bootstrap
+2026-11-12 22:37:25,942 - INFO - logging -     self._bootstrap_inner()
+2026-11-12 22:37:25,942 - INFO - logging -   File "/usr/lib64/python3.12/threading.py", line 1075, in _bootstrap_inner
+2026-11-12 22:37:25,942 - INFO - logging -     self.run()
+2026-11-12 22:37:25,942 - INFO - logging -   File "/usr/lib64/python3.12/threading.py", line 1012, in run
+2026-11-12 22:37:25,942 - INFO - logging -     self._target(*self._args, **self._kwargs)
+2026-11-12 22:37:25,942 - INFO - logging -   File "/usr/lib64/python3.12/concurrent/futures/thread.py", line 93, in _worker
+2026-11-12 22:37:25,942 - INFO - logging -     work_item.run()
+2026-11-12 22:37:25,942 - INFO - logging -   File "/usr/lib64/python3.12/concurrent/futures/thread.py", line 59, in run
+2026-11-12 22:37:25,942 - INFO - logging -     result = self.fn(*self.args, **self.kwargs)
+2026-11-12 22:37:25,942 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/local.py", line 243, in batch_execute_tasks
+2026-11-12 22:37:25,942 - INFO - logging -     return [execute_task(*a) for a in it]
+2026-11-12 22:37:25,942 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/local.py", line 229, in execute_task
+2026-11-12 22:37:25,943 - INFO - logging -     result = task(data)
+2026-11-12 22:37:25,943 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/_task_spec.py", line 741, in __call__
+2026-11-12 22:37:25,943 - INFO - logging -     return self.func(*new_argspec)
+2026-11-12 22:37:25,943 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/_task_spec.py", line 203, in _execute_subgraph
+2026-11-12 22:37:25,943 - INFO - logging -     res = execute_graph(final, keys=[outkey])
+2026-11-12 22:37:25,943 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/_task_spec.py", line 987, in execute_graph
+2026-11-12 22:37:25,943 - INFO - logging -     cache[key] = node(cache)
+2026-11-12 22:37:25,943 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/_task_spec.py", line 741, in __call__
+2026-11-12 22:37:25,943 - INFO - logging -     return self.func(*new_argspec)
+2026-11-12 22:37:25,943 - INFO - logging -   File "/usr/lib64/python3.12/warnings.py", line 112, in _showwarnmsg
+2026-11-12 22:37:25,943 - INFO - logging -     sw(msg.message, msg.category, msg.filename, msg.lineno,
+2026-11-12 22:37:25,943 - INFO - logging - =====================
+
+2026-11-12 22:37:26,763 - INFO - logging - 
+=== Warning Details ===
+2026-11-12 22:37:26,771 - INFO - logging - Message: invalid value encountered in divide
+2026-11-12 22:37:26,771 - INFO - logging - Category: <class 'RuntimeWarning'>
+2026-11-12 22:37:26,771 - INFO - logging - File: /scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/array/numpy_compat.py
+2026-11-12 22:37:26,771 - INFO - logging - Line: 57
+2026-11-12 22:37:26,771 - INFO - logging - 
+Full stack trace:
+2026-11-12 22:37:26,772 - INFO - logging -   File "/usr/lib64/python3.12/threading.py", line 1032, in _bootstrap
+2026-11-12 22:37:26,772 - INFO - logging -     self._bootstrap_inner()
+2026-11-12 22:37:26,772 - INFO - logging -   File "/usr/lib64/python3.12/threading.py", line 1075, in _bootstrap_inner
+2026-11-12 22:37:26,773 - INFO - logging -     self.run()
+2026-11-12 22:37:26,773 - INFO - logging -   File "/usr/lib64/python3.12/threading.py", line 1012, in run
+2026-11-12 22:37:26,773 - INFO - logging -     self._target(*self._args, **self._kwargs)
+2026-11-12 22:37:26,773 - INFO - logging -   File "/usr/lib64/python3.12/concurrent/futures/thread.py", line 93, in _worker
+2026-11-12 22:37:26,773 - INFO - logging -     work_item.run()
+2026-11-12 22:37:26,773 - INFO - logging -   File "/usr/lib64/python3.12/concurrent/futures/thread.py", line 59, in run
+2026-11-12 22:37:26,773 - INFO - logging -     result = self.fn(*self.args, **self.kwargs)
+2026-11-12 22:37:26,773 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/local.py", line 243, in batch_execute_tasks
+2026-11-12 22:37:26,773 - INFO - logging -     return [execute_task(*a) for a in it]
+2026-11-12 22:37:26,773 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/local.py", line 229, in execute_task
+2026-11-12 22:37:26,773 - INFO - logging -     result = task(data)
+2026-11-12 22:37:26,773 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/_task_spec.py", line 741, in __call__
+2026-11-12 22:37:26,773 - INFO - logging -     return self.func(*new_argspec)
+2026-11-12 22:37:26,773 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/array/reductions.py", line 869, in moment_agg
+2026-11-12 22:37:26,773 - INFO - logging -     mu = divide(totals.sum(axis=axis, **keepdim_kw), n)
+2026-11-12 22:37:26,773 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/array/reductions.py", line 57, in divide
+2026-11-12 22:37:26,773 - INFO - logging -     return f(a, b, dtype=dtype)
+2026-11-12 22:37:26,773 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/array/numpy_compat.py", line 57, in divide
+2026-11-12 22:37:26,773 - INFO - logging -     x = np.divide(x1, x2, out)
+2026-11-12 22:37:26,773 - INFO - logging -   File "/usr/lib64/python3.12/warnings.py", line 112, in _showwarnmsg
+2026-11-12 22:37:26,773 - INFO - logging -     sw(msg.message, msg.category, msg.filename, msg.lineno,
+2026-11-12 22:37:26,773 - INFO - logging - =====================
+
+2026-11-12 22:37:42,251 - INFO - report -   paper_samudra2 ohc_upper700_per_area residual variance: map rmse = 5.60182e+17, pattern corr = 0.6685
+2026-11-12 22:37:43,407 - INFO - kernels -   dropping partially covered month(s): 2014-10, 2022-12
+2026-11-12 22:37:43,414 - INFO - comparisons -   paper_samudra2 OHC Intermediate (700-2000m): window trimmed to shared coverage 2015-01-01..2022-11-01 (requested 2015-01-01..2022-12-31)
+2026-11-12 22:37:43,418 - INFO - comparisons -   paper_samudra2 OHC Intermediate (700-2000m): scoring 2015-2021; dropped partly covered year(s) [2022]
+2026-11-12 22:39:15,677 - INFO - report -   paper_samudra2 ohc_per_area_total_rmse [Intermediate (700-2000m)] = 3.03734e+09 J m-2
+2026-11-12 22:39:15,717 - INFO - report - Scoring 'om4' against observations
+2026-11-12 22:39:15,837 - INFO - comparisons -   om4 eastward velocity: window trimmed to shared coverage 2015-01-01..2022-12-24 (requested 2015-01-01..2022-12-31)
+2026-11-12 22:39:16,767 - INFO - comparisons -   om4 northward velocity: window trimmed to shared coverage 2015-01-01..2022-12-24 (requested 2015-01-01..2022-12-31)
+2026-11-12 22:39:16,818 - INFO - logging - 
+=== Warning Details ===
+2026-11-12 22:39:16,818 - INFO - logging - Message: Increasing number of chunks by factor of 23
+2026-11-12 22:39:16,818 - INFO - logging - Category: <class 'dask.array.core.PerformanceWarning'>
+2026-11-12 22:39:16,818 - INFO - logging - File: /scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/array/core.py
+2026-11-12 22:39:16,818 - INFO - logging - Line: 5092
+2026-11-12 22:39:16,818 - INFO - logging - 
+Full stack trace:
+2026-11-12 22:39:16,892 - INFO - logging -   File "<frozen runpy>", line 198, in _run_module_as_main
+2026-11-12 22:39:16,892 - INFO - logging -   File "<frozen runpy>", line 88, in _run_code
+2026-11-12 22:39:16,892 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/src/samudra/metrics/__main__.py", line 66, in <module>
+2026-11-12 22:39:16,892 - INFO - logging -     main()
+2026-11-12 22:39:16,892 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/src/samudra/metrics/__main__.py", line 49, in main
+2026-11-12 22:39:16,892 - INFO - logging -     frame, scalars = run_observation_metrics(
+2026-11-12 22:39:16,892 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/src/samudra/metrics/run.py", line 159, in run_observation_metrics
+2026-11-12 22:39:16,892 - INFO - logging -     scored = score_rollouts(
+2026-11-12 22:39:16,892 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/src/samudra/metrics/run.py", line 118, in score_rollouts
+2026-11-12 22:39:16,892 - INFO - logging -     frame = report.compute_observation_metrics(
+2026-11-12 22:39:16,892 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/src/samudra/metrics/report.py", line 378, in compute_observation_metrics
+2026-11-12 22:39:16,892 - INFO - logging -     frames += _velocity_metrics(
+2026-11-12 22:39:16,892 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/src/samudra/metrics/report.py", line 225, in _velocity_metrics
+2026-11-12 22:39:16,893 - INFO - logging -     error_squared=velocity.vector_error_squared,
+2026-11-12 22:39:16,893 - INFO - logging -   File "/usr/lib64/python3.12/functools.py", line 998, in __get__
+2026-11-12 22:39:16,893 - INFO - logging -     val = self.func(instance)
+2026-11-12 22:39:16,893 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/src/samudra/metrics/comparisons.py", line 217, in vector_error_squared
+2026-11-12 22:39:16,893 - INFO - logging -     return self.eastward.error_squared + self.northward.error_squared
+2026-11-12 22:39:16,893 - INFO - logging -   File "/usr/lib64/python3.12/functools.py", line 998, in __get__
+2026-11-12 22:39:16,893 - INFO - logging -     val = self.func(instance)
+2026-11-12 22:39:16,893 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/src/samudra/metrics/comparisons.py", line 112, in error_squared
+2026-11-12 22:39:16,893 - INFO - logging -     return (self.on_obs_grid - self.obs) ** 2
+2026-11-12 22:39:16,893 - INFO - logging -   File "/usr/lib64/python3.12/functools.py", line 998, in __get__
+2026-11-12 22:39:16,893 - INFO - logging -     val = self.func(instance)
+2026-11-12 22:39:16,893 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/src/samudra/metrics/comparisons.py", line 107, in on_obs_grid
+2026-11-12 22:39:16,893 - INFO - logging -     return kernels.model_field_on_obs_grid(self.native, self.obs)
+2026-11-12 22:39:16,893 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/src/samudra/metrics/kernels.py", line 916, in model_field_on_obs_grid
+2026-11-12 22:39:16,893 - INFO - logging -     return interpolated.where(np.isfinite(obs_field))
+2026-11-12 22:39:16,893 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/xarray/core/common.py", line 1236, in where
+2026-11-12 22:39:16,893 - INFO - logging -     return ops.where_method(self, cond, other)
+2026-11-12 22:39:16,893 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/xarray/core/ops.py", line 179, in where_method
+2026-11-12 22:39:16,893 - INFO - logging -     return apply_ufunc(
+2026-11-12 22:39:16,893 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/xarray/core/computation.py", line 1271, in apply_ufunc
+2026-11-12 22:39:16,893 - INFO - logging -     return apply_dataarray_vfunc(
+2026-11-12 22:39:16,893 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/xarray/core/computation.py", line 313, in apply_dataarray_vfunc
+2026-11-12 22:39:16,893 - INFO - logging -     result_var = func(*data_vars)
+2026-11-12 22:39:16,893 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/xarray/core/computation.py", line 824, in apply_variable_ufunc
+2026-11-12 22:39:16,893 - INFO - logging -     result_data = func(*input_data)
+2026-11-12 22:39:16,893 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/xarray/core/duck_array_ops.py", line 382, in where_method
+2026-11-12 22:39:16,893 - INFO - logging -     return where(cond, data, other)
+2026-11-12 22:39:16,893 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/xarray/core/duck_array_ops.py", line 376, in where
+2026-11-12 22:39:16,893 - INFO - logging -     return xp.where(condition, *as_shared_dtype([x, y], xp=xp))
+2026-11-12 22:39:16,893 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/array/core.py", line 1806, in __array_function__
+2026-11-12 22:39:16,893 - INFO - logging -     return da_func(*args, **kwargs)
+2026-11-12 22:39:16,893 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/array/routines.py", line 2118, in where
+2026-11-12 22:39:16,893 - INFO - logging -     return elemwise(np.where, condition, x, y)
+2026-11-12 22:39:16,893 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/array/core.py", line 5092, in elemwise
+2026-11-12 22:39:16,893 - INFO - logging -     result = blockwise(
+2026-11-12 22:39:16,893 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/array/blockwise.py", line 185, in blockwise
+2026-11-12 22:39:16,893 - INFO - logging -     chunkss, arrays = unify_chunks(*args)
+2026-11-12 22:39:16,893 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/array/core.py", line 4206, in unify_chunks
+2026-11-12 22:39:16,893 - INFO - logging -     warnings.warn(
+2026-11-12 22:39:16,893 - INFO - logging -   File "/usr/lib64/python3.12/warnings.py", line 112, in _showwarnmsg
+2026-11-12 22:39:16,893 - INFO - logging -     sw(msg.message, msg.category, msg.filename, msg.lineno,
+2026-11-12 22:39:16,893 - INFO - logging - =====================
+
+2026-11-12 22:39:22,494 - INFO - logging - 
+=== Warning Details ===
+2026-11-12 22:39:22,495 - INFO - logging - Message: Increasing number of chunks by factor of 23
+2026-11-12 22:39:22,495 - INFO - logging - Category: <class 'dask.array.core.PerformanceWarning'>
+2026-11-12 22:39:22,495 - INFO - logging - File: /scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/array/core.py
+2026-11-12 22:39:22,495 - INFO - logging - Line: 5092
+2026-11-12 22:39:22,495 - INFO - logging - 
+Full stack trace:
+2026-11-12 22:39:22,495 - INFO - logging -   File "<frozen runpy>", line 198, in _run_module_as_main
+2026-11-12 22:39:22,495 - INFO - logging -   File "<frozen runpy>", line 88, in _run_code
+2026-11-12 22:39:22,495 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/src/samudra/metrics/__main__.py", line 66, in <module>
+2026-11-12 22:39:22,495 - INFO - logging -     main()
+2026-11-12 22:39:22,495 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/src/samudra/metrics/__main__.py", line 49, in main
+2026-11-12 22:39:22,495 - INFO - logging -     frame, scalars = run_observation_metrics(
+2026-11-12 22:39:22,495 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/src/samudra/metrics/run.py", line 159, in run_observation_metrics
+2026-11-12 22:39:22,495 - INFO - logging -     scored = score_rollouts(
+2026-11-12 22:39:22,495 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/src/samudra/metrics/run.py", line 118, in score_rollouts
+2026-11-12 22:39:22,495 - INFO - logging -     frame = report.compute_observation_metrics(
+2026-11-12 22:39:22,495 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/src/samudra/metrics/report.py", line 378, in compute_observation_metrics
+2026-11-12 22:39:22,495 - INFO - logging -     frames += _velocity_metrics(
+2026-11-12 22:39:22,495 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/src/samudra/metrics/report.py", line 225, in _velocity_metrics
+2026-11-12 22:39:22,495 - INFO - logging -     error_squared=velocity.vector_error_squared,
+2026-11-12 22:39:22,495 - INFO - logging -   File "/usr/lib64/python3.12/functools.py", line 998, in __get__
+2026-11-12 22:39:22,495 - INFO - logging -     val = self.func(instance)
+2026-11-12 22:39:22,495 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/src/samudra/metrics/comparisons.py", line 217, in vector_error_squared
+2026-11-12 22:39:22,495 - INFO - logging -     return self.eastward.error_squared + self.northward.error_squared
+2026-11-12 22:39:22,495 - INFO - logging -   File "/usr/lib64/python3.12/functools.py", line 998, in __get__
+2026-11-12 22:39:22,495 - INFO - logging -     val = self.func(instance)
+2026-11-12 22:39:22,495 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/src/samudra/metrics/comparisons.py", line 112, in error_squared
+2026-11-12 22:39:22,495 - INFO - logging -     return (self.on_obs_grid - self.obs) ** 2
+2026-11-12 22:39:22,495 - INFO - logging -   File "/usr/lib64/python3.12/functools.py", line 998, in __get__
+2026-11-12 22:39:22,495 - INFO - logging -     val = self.func(instance)
+2026-11-12 22:39:22,495 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/src/samudra/metrics/comparisons.py", line 107, in on_obs_grid
+2026-11-12 22:39:22,495 - INFO - logging -     return kernels.model_field_on_obs_grid(self.native, self.obs)
+2026-11-12 22:39:22,495 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/src/samudra/metrics/kernels.py", line 916, in model_field_on_obs_grid
+2026-11-12 22:39:22,495 - INFO - logging -     return interpolated.where(np.isfinite(obs_field))
+2026-11-12 22:39:22,495 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/xarray/core/common.py", line 1236, in where
+2026-11-12 22:39:22,495 - INFO - logging -     return ops.where_method(self, cond, other)
+2026-11-12 22:39:22,495 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/xarray/core/ops.py", line 179, in where_method
+2026-11-12 22:39:22,496 - INFO - logging -     return apply_ufunc(
+2026-11-12 22:39:22,496 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/xarray/core/computation.py", line 1271, in apply_ufunc
+2026-11-12 22:39:22,496 - INFO - logging -     return apply_dataarray_vfunc(
+2026-11-12 22:39:22,496 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/xarray/core/computation.py", line 313, in apply_dataarray_vfunc
+2026-11-12 22:39:22,496 - INFO - logging -     result_var = func(*data_vars)
+2026-11-12 22:39:22,496 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/xarray/core/computation.py", line 824, in apply_variable_ufunc
+2026-11-12 22:39:22,496 - INFO - logging -     result_data = func(*input_data)
+2026-11-12 22:39:22,496 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/xarray/core/duck_array_ops.py", line 382, in where_method
+2026-11-12 22:39:22,496 - INFO - logging -     return where(cond, data, other)
+2026-11-12 22:39:22,496 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/xarray/core/duck_array_ops.py", line 376, in where
+2026-11-12 22:39:22,496 - INFO - logging -     return xp.where(condition, *as_shared_dtype([x, y], xp=xp))
+2026-11-12 22:39:22,496 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/array/core.py", line 1806, in __array_function__
+2026-11-12 22:39:22,496 - INFO - logging -     return da_func(*args, **kwargs)
+2026-11-12 22:39:22,496 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/array/routines.py", line 2118, in where
+2026-11-12 22:39:22,496 - INFO - logging -     return elemwise(np.where, condition, x, y)
+2026-11-12 22:39:22,496 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/array/core.py", line 5092, in elemwise
+2026-11-12 22:39:22,496 - INFO - logging -     result = blockwise(
+2026-11-12 22:39:22,496 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/array/blockwise.py", line 185, in blockwise
+2026-11-12 22:39:22,496 - INFO - logging -     chunkss, arrays = unify_chunks(*args)
+2026-11-12 22:39:22,496 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/array/core.py", line 4206, in unify_chunks
+2026-11-12 22:39:22,496 - INFO - logging -     warnings.warn(
+2026-11-12 22:39:22,496 - INFO - logging -   File "/usr/lib64/python3.12/warnings.py", line 112, in _showwarnmsg
+2026-11-12 22:39:22,496 - INFO - logging -     sw(msg.message, msg.category, msg.filename, msg.lineno,
+2026-11-12 22:39:22,496 - INFO - logging - =====================
+
+2026-11-12 22:50:59,280 - INFO - report -   om4 surface_geostrophic_velocity_vector_total_rmse = 0.193975 m s-1
+2026-11-12 22:50:59,584 - INFO - logging - 
+=== Warning Details ===
+2026-11-12 22:50:59,584 - INFO - logging - Message: Increasing number of chunks by factor of 23
+2026-11-12 22:50:59,584 - INFO - logging - Category: <class 'dask.array.core.PerformanceWarning'>
+2026-11-12 22:50:59,584 - INFO - logging - File: /scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/array/core.py
+2026-11-12 22:50:59,584 - INFO - logging - Line: 5092
+2026-11-12 22:50:59,584 - INFO - logging - 
+Full stack trace:
+2026-11-12 22:50:59,605 - INFO - logging -   File "<frozen runpy>", line 198, in _run_module_as_main
+2026-11-12 22:50:59,606 - INFO - logging -   File "<frozen runpy>", line 88, in _run_code
+2026-11-12 22:50:59,606 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/src/samudra/metrics/__main__.py", line 66, in <module>
+2026-11-12 22:50:59,606 - INFO - logging -     main()
+2026-11-12 22:50:59,606 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/src/samudra/metrics/__main__.py", line 49, in main
+2026-11-12 22:50:59,606 - INFO - logging -     frame, scalars = run_observation_metrics(
+2026-11-12 22:50:59,606 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/src/samudra/metrics/run.py", line 159, in run_observation_metrics
+2026-11-12 22:50:59,606 - INFO - logging -     scored = score_rollouts(
+2026-11-12 22:50:59,606 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/src/samudra/metrics/run.py", line 118, in score_rollouts
+2026-11-12 22:50:59,606 - INFO - logging -     frame = report.compute_observation_metrics(
+2026-11-12 22:50:59,606 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/src/samudra/metrics/report.py", line 378, in compute_observation_metrics
+2026-11-12 22:50:59,606 - INFO - logging -     frames += _velocity_metrics(
+2026-11-12 22:50:59,606 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/src/samudra/metrics/report.py", line 236, in _velocity_metrics
+2026-11-12 22:50:59,606 - INFO - logging -     error_squared=eke.error_squared,
+2026-11-12 22:50:59,606 - INFO - logging -   File "/usr/lib64/python3.12/functools.py", line 998, in __get__
+2026-11-12 22:50:59,606 - INFO - logging -     val = self.func(instance)
+2026-11-12 22:50:59,606 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/src/samudra/metrics/comparisons.py", line 112, in error_squared
+2026-11-12 22:50:59,606 - INFO - logging -     return (self.on_obs_grid - self.obs) ** 2
+2026-11-12 22:50:59,606 - INFO - logging -   File "/usr/lib64/python3.12/functools.py", line 998, in __get__
+2026-11-12 22:50:59,606 - INFO - logging -     val = self.func(instance)
+2026-11-12 22:50:59,606 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/src/samudra/metrics/comparisons.py", line 107, in on_obs_grid
+2026-11-12 22:50:59,606 - INFO - logging -     return kernels.model_field_on_obs_grid(self.native, self.obs)
+2026-11-12 22:50:59,606 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/src/samudra/metrics/kernels.py", line 916, in model_field_on_obs_grid
+2026-11-12 22:50:59,606 - INFO - logging -     return interpolated.where(np.isfinite(obs_field))
+2026-11-12 22:50:59,606 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/xarray/core/common.py", line 1236, in where
+2026-11-12 22:50:59,606 - INFO - logging -     return ops.where_method(self, cond, other)
+2026-11-12 22:50:59,606 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/xarray/core/ops.py", line 179, in where_method
+2026-11-12 22:50:59,606 - INFO - logging -     return apply_ufunc(
+2026-11-12 22:50:59,606 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/xarray/core/computation.py", line 1271, in apply_ufunc
+2026-11-12 22:50:59,606 - INFO - logging -     return apply_dataarray_vfunc(
+2026-11-12 22:50:59,606 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/xarray/core/computation.py", line 313, in apply_dataarray_vfunc
+2026-11-12 22:50:59,606 - INFO - logging -     result_var = func(*data_vars)
+2026-11-12 22:50:59,606 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/xarray/core/computation.py", line 824, in apply_variable_ufunc
+2026-11-12 22:50:59,606 - INFO - logging -     result_data = func(*input_data)
+2026-11-12 22:50:59,606 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/xarray/core/duck_array_ops.py", line 382, in where_method
+2026-11-12 22:50:59,606 - INFO - logging -     return where(cond, data, other)
+2026-11-12 22:50:59,606 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/xarray/core/duck_array_ops.py", line 376, in where
+2026-11-12 22:50:59,606 - INFO - logging -     return xp.where(condition, *as_shared_dtype([x, y], xp=xp))
+2026-11-12 22:50:59,606 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/array/core.py", line 1806, in __array_function__
+2026-11-12 22:50:59,606 - INFO - logging -     return da_func(*args, **kwargs)
+2026-11-12 22:50:59,606 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/array/routines.py", line 2118, in where
+2026-11-12 22:50:59,606 - INFO - logging -     return elemwise(np.where, condition, x, y)
+2026-11-12 22:50:59,606 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/array/core.py", line 5092, in elemwise
+2026-11-12 22:50:59,606 - INFO - logging -     result = blockwise(
+2026-11-12 22:50:59,606 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/array/blockwise.py", line 185, in blockwise
+2026-11-12 22:50:59,606 - INFO - logging -     chunkss, arrays = unify_chunks(*args)
+2026-11-12 22:50:59,606 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/array/core.py", line 4206, in unify_chunks
+2026-11-12 22:50:59,606 - INFO - logging -     warnings.warn(
+2026-11-12 22:50:59,606 - INFO - logging -   File "/usr/lib64/python3.12/warnings.py", line 112, in _showwarnmsg
+2026-11-12 22:50:59,606 - INFO - logging -     sw(msg.message, msg.category, msg.filename, msg.lineno,
+2026-11-12 22:50:59,606 - INFO - logging - =====================
+
+2026-11-12 23:02:56,022 - INFO - report -   om4 instantaneous_surface_eke_total_rmse = 0.0451419 m2 s-2
+2026-11-12 23:02:56,272 - INFO - comparisons -   om4 SST: window trimmed to shared coverage 2015-01-01..2022-12-24 (requested 2015-01-01..2022-12-31)
+2026-11-12 23:02:56,309 - INFO - logging - 
+=== Warning Details ===
+2026-11-12 23:02:56,309 - INFO - logging - Message: Increasing number of chunks by factor of 16
+2026-11-12 23:02:56,309 - INFO - logging - Category: <class 'dask.array.core.PerformanceWarning'>
+2026-11-12 23:02:56,309 - INFO - logging - File: /scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/array/core.py
+2026-11-12 23:02:56,309 - INFO - logging - Line: 5092
+2026-11-12 23:02:56,309 - INFO - logging - 
+Full stack trace:
+2026-11-12 23:02:56,318 - INFO - logging -   File "<frozen runpy>", line 198, in _run_module_as_main
+2026-11-12 23:02:56,318 - INFO - logging -   File "<frozen runpy>", line 88, in _run_code
+2026-11-12 23:02:56,318 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/src/samudra/metrics/__main__.py", line 66, in <module>
+2026-11-12 23:02:56,318 - INFO - logging -     main()
+2026-11-12 23:02:56,318 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/src/samudra/metrics/__main__.py", line 49, in main
+2026-11-12 23:02:56,319 - INFO - logging -     frame, scalars = run_observation_metrics(
+2026-11-12 23:02:56,319 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/src/samudra/metrics/run.py", line 159, in run_observation_metrics
+2026-11-12 23:02:56,319 - INFO - logging -     scored = score_rollouts(
+2026-11-12 23:02:56,319 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/src/samudra/metrics/run.py", line 118, in score_rollouts
+2026-11-12 23:02:56,319 - INFO - logging -     frame = report.compute_observation_metrics(
+2026-11-12 23:02:56,319 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/src/samudra/metrics/report.py", line 381, in compute_observation_metrics
+2026-11-12 23:02:56,319 - INFO - logging -     frames += _sst_metrics(label, rollout, oisst, window, bootstrap_samples)
+2026-11-12 23:02:56,319 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/src/samudra/metrics/report.py", line 257, in _sst_metrics
+2026-11-12 23:02:56,319 - INFO - logging -     error_squared=scored.error_squared,
+2026-11-12 23:02:56,319 - INFO - logging -   File "/usr/lib64/python3.12/functools.py", line 998, in __get__
+2026-11-12 23:02:56,319 - INFO - logging -     val = self.func(instance)
+2026-11-12 23:02:56,319 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/src/samudra/metrics/comparisons.py", line 112, in error_squared
+2026-11-12 23:02:56,319 - INFO - logging -     return (self.on_obs_grid - self.obs) ** 2
+2026-11-12 23:02:56,319 - INFO - logging -   File "/usr/lib64/python3.12/functools.py", line 998, in __get__
+2026-11-12 23:02:56,319 - INFO - logging -     val = self.func(instance)
+2026-11-12 23:02:56,319 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/src/samudra/metrics/comparisons.py", line 107, in on_obs_grid
+2026-11-12 23:02:56,319 - INFO - logging -     return kernels.model_field_on_obs_grid(self.native, self.obs)
+2026-11-12 23:02:56,319 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/src/samudra/metrics/kernels.py", line 916, in model_field_on_obs_grid
+2026-11-12 23:02:56,319 - INFO - logging -     return interpolated.where(np.isfinite(obs_field))
+2026-11-12 23:02:56,319 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/xarray/core/common.py", line 1236, in where
+2026-11-12 23:02:56,319 - INFO - logging -     return ops.where_method(self, cond, other)
+2026-11-12 23:02:56,319 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/xarray/core/ops.py", line 179, in where_method
+2026-11-12 23:02:56,319 - INFO - logging -     return apply_ufunc(
+2026-11-12 23:02:56,319 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/xarray/core/computation.py", line 1271, in apply_ufunc
+2026-11-12 23:02:56,319 - INFO - logging -     return apply_dataarray_vfunc(
+2026-11-12 23:02:56,319 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/xarray/core/computation.py", line 313, in apply_dataarray_vfunc
+2026-11-12 23:02:56,319 - INFO - logging -     result_var = func(*data_vars)
+2026-11-12 23:02:56,319 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/xarray/core/computation.py", line 824, in apply_variable_ufunc
+2026-11-12 23:02:56,319 - INFO - logging -     result_data = func(*input_data)
+2026-11-12 23:02:56,319 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/xarray/core/duck_array_ops.py", line 382, in where_method
+2026-11-12 23:02:56,319 - INFO - logging -     return where(cond, data, other)
+2026-11-12 23:02:56,319 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/xarray/core/duck_array_ops.py", line 376, in where
+2026-11-12 23:02:56,319 - INFO - logging -     return xp.where(condition, *as_shared_dtype([x, y], xp=xp))
+2026-11-12 23:02:56,319 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/array/core.py", line 1806, in __array_function__
+2026-11-12 23:02:56,319 - INFO - logging -     return da_func(*args, **kwargs)
+2026-11-12 23:02:56,319 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/array/routines.py", line 2118, in where
+2026-11-12 23:02:56,319 - INFO - logging -     return elemwise(np.where, condition, x, y)
+2026-11-12 23:02:56,319 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/array/core.py", line 5092, in elemwise
+2026-11-12 23:02:56,319 - INFO - logging -     result = blockwise(
+2026-11-12 23:02:56,319 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/array/blockwise.py", line 185, in blockwise
+2026-11-12 23:02:56,319 - INFO - logging -     chunkss, arrays = unify_chunks(*args)
+2026-11-12 23:02:56,319 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/array/core.py", line 4206, in unify_chunks
+2026-11-12 23:02:56,319 - INFO - logging -     warnings.warn(
+2026-11-12 23:02:56,319 - INFO - logging -   File "/usr/lib64/python3.12/warnings.py", line 112, in _showwarnmsg
+2026-11-12 23:02:56,319 - INFO - logging -     sw(msg.message, msg.category, msg.filename, msg.lineno,
+2026-11-12 23:02:56,319 - INFO - logging - =====================
+
+2026-11-12 23:04:10,049 - INFO - report -   om4 surface_sst_total_rmse = 0.766418 degC
+2026-11-12 23:04:33,664 - INFO - logging - 
+=== Warning Details ===
+2026-11-12 23:04:33,664 - INFO - logging - Message: invalid value encountered in divide
+2026-11-12 23:04:33,665 - INFO - logging - Category: <class 'RuntimeWarning'>
+2026-11-12 23:04:33,666 - INFO - logging - File: /scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/_task_spec.py
+2026-11-12 23:04:33,666 - INFO - logging - Line: 741
+2026-11-12 23:04:33,666 - INFO - logging - 
+Full stack trace:
+2026-11-12 23:04:33,679 - INFO - logging -   File "/usr/lib64/python3.12/threading.py", line 1032, in _bootstrap
+2026-11-12 23:04:33,684 - INFO - logging -     self._bootstrap_inner()
+2026-11-12 23:04:33,684 - INFO - logging -   File "/usr/lib64/python3.12/threading.py", line 1075, in _bootstrap_inner
+2026-11-12 23:04:33,684 - INFO - logging -     self.run()
+2026-11-12 23:04:33,684 - INFO - logging -   File "/usr/lib64/python3.12/threading.py", line 1012, in run
+2026-11-12 23:04:33,684 - INFO - logging -     self._target(*self._args, **self._kwargs)
+2026-11-12 23:04:33,684 - INFO - logging -   File "/usr/lib64/python3.12/concurrent/futures/thread.py", line 93, in _worker
+2026-11-12 23:04:33,684 - INFO - logging -     work_item.run()
+2026-11-12 23:04:33,691 - INFO - logging -   File "/usr/lib64/python3.12/concurrent/futures/thread.py", line 59, in run
+2026-11-12 23:04:33,700 - INFO - logging -     result = self.fn(*self.args, **self.kwargs)
+2026-11-12 23:04:33,700 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/local.py", line 243, in batch_execute_tasks
+2026-11-12 23:04:33,700 - INFO - logging -     return [execute_task(*a) for a in it]
+2026-11-12 23:04:33,700 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/local.py", line 229, in execute_task
+2026-11-12 23:04:33,700 - INFO - logging -     result = task(data)
+2026-11-12 23:04:33,700 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/_task_spec.py", line 741, in __call__
+2026-11-12 23:04:33,707 - INFO - logging -     return self.func(*new_argspec)
+2026-11-12 23:04:33,709 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/_task_spec.py", line 203, in _execute_subgraph
+2026-11-12 23:04:33,709 - INFO - logging -     res = execute_graph(final, keys=[outkey])
+2026-11-12 23:04:33,709 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/_task_spec.py", line 987, in execute_graph
+2026-11-12 23:04:33,710 - INFO - logging -     cache[key] = node(cache)
+2026-11-12 23:04:33,710 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/_task_spec.py", line 741, in __call__
+2026-11-12 23:04:33,710 - INFO - logging -     return self.func(*new_argspec)
+2026-11-12 23:04:33,710 - INFO - logging -   File "/usr/lib64/python3.12/warnings.py", line 112, in _showwarnmsg
+2026-11-12 23:04:33,710 - INFO - logging -     sw(msg.message, msg.category, msg.filename, msg.lineno,
+2026-11-12 23:04:33,712 - INFO - logging - =====================
+
+2026-11-12 23:04:36,385 - INFO - logging - 
+=== Warning Details ===
+2026-11-12 23:04:36,385 - INFO - logging - Message: invalid value encountered in divide
+2026-11-12 23:04:36,385 - INFO - logging - Category: <class 'RuntimeWarning'>
+2026-11-12 23:04:36,385 - INFO - logging - File: /scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/array/numpy_compat.py
+2026-11-12 23:04:36,387 - INFO - logging - Line: 57
+2026-11-12 23:04:36,387 - INFO - logging - 
+Full stack trace:
+2026-11-12 23:04:36,400 - INFO - logging -   File "/usr/lib64/python3.12/threading.py", line 1032, in _bootstrap
+2026-11-12 23:04:36,407 - INFO - logging -     self._bootstrap_inner()
+2026-11-12 23:04:36,407 - INFO - logging -   File "/usr/lib64/python3.12/threading.py", line 1075, in _bootstrap_inner
+2026-11-12 23:04:36,407 - INFO - logging -     self.run()
+2026-11-12 23:04:36,409 - INFO - logging -   File "/usr/lib64/python3.12/threading.py", line 1012, in run
+2026-11-12 23:04:36,411 - INFO - logging -     self._target(*self._args, **self._kwargs)
+2026-11-12 23:04:36,411 - INFO - logging -   File "/usr/lib64/python3.12/concurrent/futures/thread.py", line 93, in _worker
+2026-11-12 23:04:36,411 - INFO - logging -     work_item.run()
+2026-11-12 23:04:36,411 - INFO - logging -   File "/usr/lib64/python3.12/concurrent/futures/thread.py", line 59, in run
+2026-11-12 23:04:36,412 - INFO - logging -     result = self.fn(*self.args, **self.kwargs)
+2026-11-12 23:04:36,412 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/local.py", line 243, in batch_execute_tasks
+2026-11-12 23:04:36,413 - INFO - logging -     return [execute_task(*a) for a in it]
+2026-11-12 23:04:36,414 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/local.py", line 229, in execute_task
+2026-11-12 23:04:36,414 - INFO - logging -     result = task(data)
+2026-11-12 23:04:36,414 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/_task_spec.py", line 741, in __call__
+2026-11-12 23:04:36,414 - INFO - logging -     return self.func(*new_argspec)
+2026-11-12 23:04:36,418 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/array/reductions.py", line 869, in moment_agg
+2026-11-12 23:04:36,418 - INFO - logging -     mu = divide(totals.sum(axis=axis, **keepdim_kw), n)
+2026-11-12 23:04:36,418 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/array/reductions.py", line 57, in divide
+2026-11-12 23:04:36,418 - INFO - logging -     return f(a, b, dtype=dtype)
+2026-11-12 23:04:36,418 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/array/numpy_compat.py", line 57, in divide
+2026-11-12 23:04:36,420 - INFO - logging -     x = np.divide(x1, x2, out)
+2026-11-12 23:04:36,420 - INFO - logging -   File "/usr/lib64/python3.12/warnings.py", line 112, in _showwarnmsg
+2026-11-12 23:04:36,420 - INFO - logging -     sw(msg.message, msg.category, msg.filename, msg.lineno,
+2026-11-12 23:04:36,420 - INFO - logging - =====================
+
+2026-11-12 23:05:35,548 - INFO - report -   om4 surface_sst residual variance: map rmse = 0.343183, pattern corr = 0.7006
+2026-11-12 23:05:36,717 - INFO - kernels -   dropping partially covered month(s): 2014-10, 2022-12
+2026-11-12 23:05:36,723 - INFO - comparisons -   om4 OHC Surface (0-700m): window trimmed to shared coverage 2015-01-01..2022-11-01 (requested 2015-01-01..2022-12-31)
+2026-11-12 23:05:36,727 - INFO - comparisons -   om4 OHC Surface (0-700m): scoring 2015-2021; dropped partly covered year(s) [2022]
+2026-11-12 23:08:08,679 - INFO - report -   om4 ohc_per_area_total_rmse [Surface (0-700m)] = 4.12377e+09 J m-2
+2026-11-12 23:08:09,675 - INFO - kernels -   dropping partially covered month(s): 2014-10, 2022-12
+2026-11-12 23:09:11,408 - INFO - logging - 
+=== Warning Details ===
+2026-11-12 23:09:11,408 - INFO - logging - Message: invalid value encountered in divide
+2026-11-12 23:09:11,408 - INFO - logging - Category: <class 'RuntimeWarning'>
+2026-11-12 23:09:11,408 - INFO - logging - File: /scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/_task_spec.py
+2026-11-12 23:09:11,408 - INFO - logging - Line: 741
+2026-11-12 23:09:11,408 - INFO - logging - 
+Full stack trace:
+2026-11-12 23:09:11,412 - INFO - logging -   File "/usr/lib64/python3.12/threading.py", line 1032, in _bootstrap
+2026-11-12 23:09:11,412 - INFO - logging -     self._bootstrap_inner()
+2026-11-12 23:09:11,412 - INFO - logging -   File "/usr/lib64/python3.12/threading.py", line 1075, in _bootstrap_inner
+2026-11-12 23:09:11,413 - INFO - logging -     self.run()
+2026-11-12 23:09:11,413 - INFO - logging -   File "/usr/lib64/python3.12/threading.py", line 1012, in run
+2026-11-12 23:09:11,413 - INFO - logging -     self._target(*self._args, **self._kwargs)
+2026-11-12 23:09:11,413 - INFO - logging -   File "/usr/lib64/python3.12/concurrent/futures/thread.py", line 93, in _worker
+2026-11-12 23:09:11,413 - INFO - logging -     work_item.run()
+2026-11-12 23:09:11,413 - INFO - logging -   File "/usr/lib64/python3.12/concurrent/futures/thread.py", line 59, in run
+2026-11-12 23:09:11,413 - INFO - logging -     result = self.fn(*self.args, **self.kwargs)
+2026-11-12 23:09:11,413 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/local.py", line 243, in batch_execute_tasks
+2026-11-12 23:09:11,413 - INFO - logging -     return [execute_task(*a) for a in it]
+2026-11-12 23:09:11,413 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/local.py", line 229, in execute_task
+2026-11-12 23:09:11,413 - INFO - logging -     result = task(data)
+2026-11-12 23:09:11,413 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/_task_spec.py", line 741, in __call__
+2026-11-12 23:09:11,413 - INFO - logging -     return self.func(*new_argspec)
+2026-11-12 23:09:11,413 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/_task_spec.py", line 203, in _execute_subgraph
+2026-11-12 23:09:11,413 - INFO - logging -     res = execute_graph(final, keys=[outkey])
+2026-11-12 23:09:11,413 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/_task_spec.py", line 987, in execute_graph
+2026-11-12 23:09:11,413 - INFO - logging -     cache[key] = node(cache)
+2026-11-12 23:09:11,413 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/_task_spec.py", line 741, in __call__
+2026-11-12 23:09:11,413 - INFO - logging -     return self.func(*new_argspec)
+2026-11-12 23:09:11,413 - INFO - logging -   File "/usr/lib64/python3.12/warnings.py", line 112, in _showwarnmsg
+2026-11-12 23:09:11,413 - INFO - logging -     sw(msg.message, msg.category, msg.filename, msg.lineno,
+2026-11-12 23:09:11,413 - INFO - logging - =====================
+
+2026-11-12 23:09:11,786 - INFO - logging - 
+=== Warning Details ===
+2026-11-12 23:09:11,786 - INFO - logging - Message: invalid value encountered in divide
+2026-11-12 23:09:11,786 - INFO - logging - Category: <class 'RuntimeWarning'>
+2026-11-12 23:09:11,786 - INFO - logging - File: /scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/array/numpy_compat.py
+2026-11-12 23:09:11,786 - INFO - logging - Line: 57
+2026-11-12 23:09:11,786 - INFO - logging - 
+Full stack trace:
+2026-11-12 23:09:11,787 - INFO - logging -   File "/usr/lib64/python3.12/threading.py", line 1032, in _bootstrap
+2026-11-12 23:09:11,787 - INFO - logging -     self._bootstrap_inner()
+2026-11-12 23:09:11,787 - INFO - logging -   File "/usr/lib64/python3.12/threading.py", line 1075, in _bootstrap_inner
+2026-11-12 23:09:11,788 - INFO - logging -     self.run()
+2026-11-12 23:09:11,788 - INFO - logging -   File "/usr/lib64/python3.12/threading.py", line 1012, in run
+2026-11-12 23:09:11,788 - INFO - logging -     self._target(*self._args, **self._kwargs)
+2026-11-12 23:09:11,788 - INFO - logging -   File "/usr/lib64/python3.12/concurrent/futures/thread.py", line 93, in _worker
+2026-11-12 23:09:11,788 - INFO - logging -     work_item.run()
+2026-11-12 23:09:11,788 - INFO - logging -   File "/usr/lib64/python3.12/concurrent/futures/thread.py", line 59, in run
+2026-11-12 23:09:11,788 - INFO - logging -     result = self.fn(*self.args, **self.kwargs)
+2026-11-12 23:09:11,788 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/local.py", line 243, in batch_execute_tasks
+2026-11-12 23:09:11,788 - INFO - logging -     return [execute_task(*a) for a in it]
+2026-11-12 23:09:11,788 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/local.py", line 229, in execute_task
+2026-11-12 23:09:11,788 - INFO - logging -     result = task(data)
+2026-11-12 23:09:11,788 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/_task_spec.py", line 741, in __call__
+2026-11-12 23:09:11,788 - INFO - logging -     return self.func(*new_argspec)
+2026-11-12 23:09:11,788 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/array/reductions.py", line 869, in moment_agg
+2026-11-12 23:09:11,788 - INFO - logging -     mu = divide(totals.sum(axis=axis, **keepdim_kw), n)
+2026-11-12 23:09:11,788 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/array/reductions.py", line 57, in divide
+2026-11-12 23:09:11,788 - INFO - logging -     return f(a, b, dtype=dtype)
+2026-11-12 23:09:11,788 - INFO - logging -   File "/scratch/am16581/compression_baselines/repo_v3/.venv/lib64/python3.12/site-packages/dask/array/numpy_compat.py", line 57, in divide
+2026-11-12 23:09:11,788 - INFO - logging -     x = np.divide(x1, x2, out)
+2026-11-12 23:09:11,788 - INFO - logging -   File "/usr/lib64/python3.12/warnings.py", line 112, in _showwarnmsg
+2026-11-12 23:09:11,788 - INFO - logging -     sw(msg.message, msg.category, msg.filename, msg.lineno,
+2026-11-12 23:09:11,788 - INFO - logging - =====================
+
+2026-11-12 23:09:28,838 - INFO - report -   om4 ohc_upper700_per_area residual variance: map rmse = 9.49017e+17, pattern corr = 0.6825
+2026-11-12 23:09:29,584 - INFO - kernels -   dropping partially covered month(s): 2014-10, 2022-12
+2026-11-12 23:09:29,589 - INFO - comparisons -   om4 OHC Intermediate (700-2000m): window trimmed to shared coverage 2015-01-01..2022-11-01 (requested 2015-01-01..2022-12-31)
+2026-11-12 23:09:29,592 - INFO - comparisons -   om4 OHC Intermediate (700-2000m): scoring 2015-2021; dropped partly covered year(s) [2022]
+2026-11-12 23:11:54,036 - INFO - report -   om4 ohc_per_area_total_rmse [Intermediate (700-2000m)] = 2.66948e+09 J m-2
+2026-11-12 23:11:54,107 - INFO - run - Wrote 102 metric rows to /scratch/am16581/compression_baselines/metrics_runs/paper_samudra2/observation_metrics.csv
+2026-11-12 23:11:54,107 - INFO - run - Observation metrics took 3464.2 s
+2026-11-12 23:11:54,141 - INFO - __main__ - Observation metrics:
+2026-11-12 23:11:54,141 - INFO - __main__ -   obs/eke/total_rmse = 0.045632871066844945
+2026-11-12 23:11:54,141 - INFO - __main__ -   obs/eke/total_rmse_annual_std = 0.0016278490835651275
+2026-11-12 23:11:54,141 - INFO - __main__ -   obs/eke/total_rmse_ci_high = 0.0467077265420045
+2026-11-12 23:11:54,141 - INFO - __main__ -   obs/eke/total_rmse_ci_low = 0.044599248609206305
+2026-11-12 23:11:54,141 - INFO - __main__ -   obs/eke/total_rmse_n_years = 8.0
+2026-11-12 23:11:54,141 - INFO - __main__ -   obs/ohc_0_700/bathymetry_disagreement_m = 243.56727684670506
+2026-11-12 23:11:54,141 - INFO - __main__ -   obs/ohc_0_700/partial_column_fraction = 0.0
+2026-11-12 23:11:54,141 - INFO - __main__ -   obs/ohc_0_700/per_area_total_rmse = 4316504408.962324
+2026-11-12 23:11:54,141 - INFO - __main__ -   obs/ohc_0_700/per_area_total_rmse_annual_std = 17844895.756622434
+2026-11-12 23:11:54,141 - INFO - __main__ -   obs/ohc_0_700/per_area_total_rmse_ci_high = 4327974437.967368
+2026-11-12 23:11:54,141 - INFO - __main__ -   obs/ohc_0_700/per_area_total_rmse_ci_low = 4303622312.228573
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/ohc_0_700/per_area_total_rmse_n_years = 7.0
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/ohc_700_2000/bathymetry_disagreement_m = 495.9279624232329
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/ohc_700_2000/partial_column_fraction = 0.0
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/ohc_700_2000/per_area_total_rmse = 3037338173.2462335
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/ohc_700_2000/per_area_total_rmse_annual_std = 8030173.829518825
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/ohc_700_2000/per_area_total_rmse_ci_high = 3042482933.335965
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/ohc_700_2000/per_area_total_rmse_ci_low = 3031567253.2012467
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/ohc_700_2000/per_area_total_rmse_n_years = 7.0
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/ohc_upper700/residual_variance_map_rmse = 5.601820582200717e+17
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/ohc_upper700/residual_variance_pattern_corr = 0.6685353788554969
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/om4/eke/total_rmse = 0.045141861433688264
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/om4/eke/total_rmse_annual_std = 0.0015664126280348213
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/om4/eke/total_rmse_ci_high = 0.04617501767976824
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/om4/eke/total_rmse_ci_low = 0.04413779512344795
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/om4/eke/total_rmse_n_years = 8.0
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/om4/ohc_0_700/bathymetry_disagreement_m = 26.488839065712785
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/om4/ohc_0_700/partial_column_fraction = 0.1327408001425644
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/om4/ohc_0_700/per_area_total_rmse = 4123765393.1701007
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/om4/ohc_0_700/per_area_total_rmse_annual_std = 15535258.687580662
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/om4/ohc_0_700/per_area_total_rmse_ci_high = 4134392957.522632
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/om4/ohc_0_700/per_area_total_rmse_ci_low = 4113268517.951158
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/om4/ohc_0_700/per_area_total_rmse_n_years = 7.0
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/om4/ohc_700_2000/bathymetry_disagreement_m = 48.59378417459248
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/om4/ohc_700_2000/partial_column_fraction = 0.04476921891454555
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/om4/ohc_700_2000/per_area_total_rmse = 2669479465.1746945
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/om4/ohc_700_2000/per_area_total_rmse_annual_std = 4806778.26115562
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/om4/ohc_700_2000/per_area_total_rmse_ci_high = 2672621767.8039093
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/om4/ohc_700_2000/per_area_total_rmse_ci_low = 2666141074.8507166
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/om4/ohc_700_2000/per_area_total_rmse_n_years = 7.0
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/om4/ohc_upper700/residual_variance_map_rmse = 9.490167611246757e+17
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/om4/ohc_upper700/residual_variance_pattern_corr = 0.6825055536877995
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/om4/sst/residual_variance_map_rmse = 0.3431825515424612
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/om4/sst/residual_variance_pattern_corr = 0.7005618260881397
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/om4/sst/total_rmse = 0.766417816904812
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/om4/sst/total_rmse_annual_std = 0.013601534859606614
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/om4/sst/total_rmse_ci_high = 0.7751778911855226
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/om4/sst/total_rmse_ci_low = 0.7578026989514016
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/om4/sst/total_rmse_n_years = 8.0
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/om4/velocity/total_rmse = 0.19397477642600675
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/om4/velocity/total_rmse_annual_std = 0.001760234894111735
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/om4/velocity/total_rmse_ci_high = 0.19513074388704538
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/om4/velocity/total_rmse_ci_low = 0.19286009049902858
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/om4/velocity/total_rmse_n_years = 8.0
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/seconds = 3464.1677604670404
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/sst/residual_variance_map_rmse = 0.4678007605597245
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/sst/residual_variance_pattern_corr = 0.5197886538958154
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/sst/total_rmse = 1.181855349784939
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/sst/total_rmse_annual_std = 0.011037378642489206
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/sst/total_rmse_ci_high = 1.1889045981096045
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/sst/total_rmse_ci_low = 1.1745657539583831
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/sst/total_rmse_n_years = 8.0
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/velocity/total_rmse = 0.2030501359537019
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/velocity/total_rmse_annual_std = 0.0020657281629613672
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/velocity/total_rmse_ci_high = 0.20440496540132122
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/velocity/total_rmse_ci_low = 0.2017382645086351
+2026-11-12 23:11:54,142 - INFO - __main__ -   obs/velocity/total_rmse_n_years = 8.0
+2026-11-12 23:11:54,142 - INFO - __main__ - Wrote 102 rows of metric detail alongside the rollout
+exit=0

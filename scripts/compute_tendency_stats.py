@@ -4,10 +4,12 @@
 """Compute per-channel persistence RMS for the ``tendency`` loss.
 
 For each prognostic channel this writes the root-mean-square one-step change,
-in physical units, averaged over every grid cell with land counted as zero
-change. That matches how the training loss zeros land and averages over the
-full grid, so a persistence forecast scores exactly 1 per channel under
-``TendencyLoss``. Use the training time range only.
+in physical units. With ``--over full`` (the default) it averages over every
+grid cell with land counted as zero change. That matches how the training loss
+zeros land and averages over the full grid, so a persistence forecast scores
+exactly 1 per channel under ``TendencyLoss``. With ``--over wet`` it averages
+over wet cells only, which is the ``tau`` of the ``normalized_delta`` loss.
+Use the training time range only.
 
 Example:
     uv run python scripts/compute_tendency_stats.py \\
@@ -20,6 +22,7 @@ Point ``loss.persistence_rms_location`` at it.
 """
 
 import argparse
+import datetime
 import re
 
 import cftime
@@ -43,13 +46,16 @@ def wet_mask(data: xr.Dataset, channel: str) -> xr.DataArray:
 
 
 def persistence_rms(
-    data: xr.Dataset, channels: list[str], time_stride: int
+    data: xr.Dataset, channels: list[str], time_stride: int, over: str = "full"
 ) -> xr.Dataset:
-    """RMS of x[t+1] - x[t] over all grid cells, land counted as zero.
+    """RMS of x[t+1] - x[t] over all grid cells, land counted as zero
+    (``over="full"``), or over wet cells only (``over="wet"``).
 
     ``time_stride`` subsamples which origins are used; each difference is still
     one native time step.
     """
+    if over not in ("full", "wet"):
+        raise ValueError(f"over must be 'full' or 'wet', got {over!r}")
     if time_stride < 1:
         raise ValueError(f"time_stride must be positive, got {time_stride}")
     missing = [c for c in channels if c not in data]
@@ -62,10 +68,14 @@ def persistence_rms(
         change = field.isel(time=origins + 1).data - field.isel(time=origins).data
         wet = wet_mask(data, channel).data
         change = np.where(wet, change, 0.0)
-        # One pass over the data for both reductions.
-        mean_square, has_nan = dask.compute(
-            np.mean(np.square(change, dtype=np.float64)), np.isnan(change).any()
+        # One pass over the data for all reductions.
+        sum_square, wet_count, has_nan = dask.compute(
+            np.sum(np.square(change, dtype=np.float64)),
+            np.sum(wet) * len(origins),
+            np.isnan(change).any(),
         )
+        count = wet_count if over == "wet" else change.size
+        mean_square = sum_square / count
         if has_nan:
             raise ValueError(f"NaN one-step change in wet cells of {channel!r}")
         out[channel] = float(np.sqrt(mean_square))
@@ -82,6 +92,12 @@ def main() -> None:
     parser.add_argument("--end", required=True, help="Last training date")
     parser.add_argument("--prognostic-vars-key", default="thermo_dynamic_all")
     parser.add_argument("--time-stride", type=int, default=1)
+    parser.add_argument(
+        "--over",
+        choices=("full", "wet"),
+        default="full",
+        help="Average over the full grid (land as zero) or wet cells only",
+    )
     args = parser.parse_args()
 
     channels = list(
@@ -94,14 +110,19 @@ def main() -> None:
     calendar = data.time.dt.calendar
     start = cftime.datetime.strptime(args.start, "%Y-%m-%d", calendar=calendar)
     end = cftime.datetime.strptime(args.end, "%Y-%m-%d", calendar=calendar)
-    data = data.sel(time=slice(start, end))
+    # Records are stamped mid-day; include the whole end day, as the trainer's
+    # date-string slice does.
+    end_exclusive = end + datetime.timedelta(days=1)
+    data = data.sel(time=slice(start, None))
+    data = data.isel(time=np.flatnonzero(data.time.values < end_exclusive))
     if data.sizes["time"] < 2:
         raise ValueError("Need at least two time steps in the training range")
 
-    stats = persistence_rms(data, channels, args.time_stride)
-    stats.attrs["description"] = (
-        "RMS one-step change per channel, physical units, land counted as zero"
+    stats = persistence_rms(data, channels, args.time_stride, args.over)
+    stats.attrs["description"] = "RMS one-step change per channel, physical units, " + (
+        "land counted as zero" if args.over == "full" else "wet cells only"
     )
+    stats.attrs["over"] = args.over
     stats.attrs["time_range"] = f"{args.start} to {args.end}"
     stats.attrs["time_stride"] = args.time_stride
     stats.to_zarr(args.output, mode="w")

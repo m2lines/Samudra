@@ -1,0 +1,19 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+debug: false
+save_zarr: true
+disk_mode: true
+num_model_steps_forward: 25
+
+experiment:
+  name: normalized_delta_2in1out_eval
+  rand_seed: 15
+  base_output_dir: .LOCAL
+  wandb:
+    mode: disabled
+    project: default
+data: !include data.yaml
+model: !include model.yaml
+observations: !include ../../src/samudra/configs/data/obs.yaml

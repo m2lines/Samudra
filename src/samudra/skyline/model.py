@@ -5,6 +5,7 @@
 import math
 from dataclasses import dataclass
 
+import numpy as np
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -85,9 +86,7 @@ def linear_head_statistics(head):
         )
 
 
-# Native CPU convolution avoids observed oneDNN crashes during multi-rank startup.
 @torch.no_grad()
-@torch.backends.mkldnn.flags(enabled=False)
 def smooth_linear_head(head, sigma):
     """Correlate adjacent initialized rows, preserving RMS and boundary variance."""
     if not isinstance(head, nn.Linear) or not math.isfinite(sigma) or sigma <= 0:
@@ -97,18 +96,47 @@ def smooth_linear_head(head, sigma):
         -radius, radius + 1, dtype=head.weight.dtype, device=head.weight.device
     )
     kernel = torch.exp(-0.5 * (offsets / sigma).square())[None, None]
-    norm = F.conv1d(
-        torch.ones(1, 1, head.out_features, device=kernel.device, dtype=kernel.dtype),
-        kernel.square(),
-        padding=radius,
-    ).sqrt()
+    if kernel.device.type == "cpu":
+        # Avoid CPU torch convolution crashes observed during multi-rank startup.
+        numpy_kernel = kernel.flatten().to(torch.float64).numpy()
+        numpy_norm = np.sqrt(
+            np.convolve(
+                np.pad(np.ones(head.out_features), radius),
+                numpy_kernel**2,
+                mode="valid",
+            )
+        )
+    else:
+        norm = F.conv1d(
+            torch.ones(
+                1, 1, head.out_features, device=kernel.device, dtype=kernel.dtype
+            ),
+            kernel.square(),
+            padding=radius,
+        ).sqrt()
     for parameter in (head.weight, head.bias):
         if parameter is None:
             continue
         original_rms = parameter.square().mean().sqrt()
         values = parameter.reshape(head.out_features, -1).T[:, None]
-        smoothed = F.conv1d(values, kernel, padding=radius) / norm
-        smoothed = smoothed[:, 0].T.reshape_as(parameter)
+        if parameter.device.type == "cpu":
+            padded = np.pad(
+                values[:, 0].to(torch.float64).numpy(), ((0, 0), (radius, radius))
+            )
+            convolved = (
+                np.stack(
+                    [np.convolve(row, numpy_kernel, mode="valid") for row in padded]
+                )
+                / numpy_norm
+            )
+            smoothed = (
+                torch.from_numpy(convolved.T.copy())
+                .to(parameter.dtype)
+                .reshape_as(parameter)
+            )
+        else:
+            smoothed = F.conv1d(values, kernel, padding=radius) / norm
+            smoothed = smoothed[:, 0].T.reshape_as(parameter)
         smooth_rms = smoothed.square().mean().sqrt()
         if smooth_rms == 0:
             if original_rms != 0:

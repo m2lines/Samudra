@@ -198,3 +198,38 @@ def test_final_discrete_cases_reconcile_depth_metric():
         assert case["prediction_normalized"] == float(
             vocab.centers[51, case["predicted_bin"]]
         )
+
+
+def test_cpu_smoothing_matches_convolution_at_boundaries_and_short_vocabularies():
+    """Compare the CPU implementation with the original padded-convolution formula."""
+    import copy
+
+    for bins, width in ((2, 1), (17, 7), (64, 32), (8192, 8)):
+        for dtype in (torch.float32, torch.float64):
+            torch.manual_seed(19)
+            actual = torch.nn.Linear(width, bins, dtype=dtype)
+            expected = copy.deepcopy(actual)
+            offsets = torch.arange(-16, 17, dtype=dtype)
+            kernel = torch.exp(-0.5 * (offsets / 4).square())[None, None]
+            norm = F.conv1d(
+                torch.ones(1, 1, bins, dtype=dtype), kernel.square(), padding=16
+            ).sqrt()
+            with torch.no_grad():
+                for parameter in (expected.weight, expected.bias):
+                    rms = parameter.square().mean().sqrt()
+                    values = parameter.reshape(bins, -1).T[:, None]
+                    smoothed = (F.conv1d(values, kernel, padding=16) / norm)[
+                        :, 0
+                    ].T.reshape_as(parameter)
+                    smoothed *= rms / smoothed.square().mean().sqrt()
+                    parameter.copy_(smoothed)
+            rng = torch.get_rng_state()
+            smooth_linear_head(actual, 4)
+            assert torch.equal(rng, torch.get_rng_state())
+            tolerance = 2e-7 if dtype == torch.float32 else 1e-14
+            torch.testing.assert_close(
+                actual.weight, expected.weight, atol=tolerance, rtol=tolerance
+            )
+            torch.testing.assert_close(
+                actual.bias, expected.bias, atol=tolerance, rtol=tolerance
+            )

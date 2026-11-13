@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794514587268,
+  "lastUpdate": 1794533314260,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -13353,6 +13353,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.05869475261163066",
             "extra": "mean: 16.648471187000006 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "6da59b02741d96d0656ef6ec90df833e370c3468",
+          "message": "Fix OM4 reference access example for Zarr 2 and 3 readers (#979)\n\n🛠️ Sol (Codex): Fix the anonymous OM4 reference-store example for Zarr 2\nand Zarr 3 readers. The example now selects matching filesystem modes,\npreventing `RuntimeError: Loop is not running` when opening the public\ndata with Zarr 2.\n\n<details>\n<summary>Sol (Codex): explanation and validation</summary>\n\nThe previous snippet hardcoded `asynchronous=True` for both the\nreference filesystem and its S3 target. Zarr 2 accesses the mapping\nsynchronously, so those filesystem instances lack the background event\nloop its calls require. The original example reproduced the reported\ntraceback in the existing root environment.\n\nSelect the async mode from the installed Zarr reader's major version and\npass it consistently to both filesystems. Keep a brief compatibility\ncomment beside the version check, without documenting\nenvironment-specific version assignments.\n\nValidation used the exact Python block extracted from `docs/data.md`,\nfollowed by schema assertions and a payload read, with AWS credentials\nunset:\n\n- Root environment: Xarray 2025.1.2, Zarr 2.18.7, fsspec/s3fs 2025.5.1,\nPyArrow 25.0.1; synchronous mode passed.\n- Data environment: Xarray 2026.2.0, Zarr 3.4.2; asynchronous mode\npassed.\n- Both opened the public archive with 4,745 timesteps, 19 depth levels,\nand 23 data variables. Both read `hfds[time=0, yh=540, xh=720]` as\n`61.05847351368981`, matching the native NetCDF baseline recorded during\npublication.\n- All applicable staged-file pre-commit checks passed, including schema\ngeneration and licensing.\n\nWorktree: `/tmp/samudra-om4-reference-doc-fix`. Reproduction, validation\nscripts, and logs are in its gitignored\n`agent-logs/20261112-134014-om4-*` files.\n\n</details>\n\n\n<!-- This is an auto-generated comment: release notes by coderabbit.ai\n-->\n\n<!-- coderabbit-ai-generated:v1 -->\n\n## Summary by CodeRabbit\n\n* **Documentation**\n* Updated the virtual OM4 reference example to configure asynchronous\naccess based on the installed Zarr version.\n  * Removed the introductory link to the data environment.\n\n<!-- end of auto-generated comment: release notes by coderabbit.ai -->",
+          "timestamp": "2026-11-13T00:46:07Z",
+          "tree_id": "82ada7d9e66168ac6a26b9bc0a1399f554948c3b",
+          "url": "https://github.com/m2lines/Samudra/commit/6da59b02741d96d0656ef6ec90df833e370c3468"
+        },
+        "date": 1794533312477,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 1.003557555334424,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00261298060021869",
+            "extra": "mean: 996.4550560000134 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_dataset__1gb[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.33396725704499286,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0061758743829514505",
+            "extra": "mean: 2.994305516199984 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.0605613321833816,
+            "unit": "iter/sec",
+            "range": "stddev: 0.10579667971940651",
+            "extra": "mean: 16.512186306800004 sec\nrounds: 5"
           }
         ]
       }

@@ -131,7 +131,6 @@
   "discrete_readout_only": true,
   "support_audit": "support.json",
   "categorical_target": "two_hot",
-  "record_depth13_cases": true,
   "validate_at": [
     0,
     1,

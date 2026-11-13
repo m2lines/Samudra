@@ -52,6 +52,11 @@ test "$actual" = "$SKYLINE_ARCHIVE_SHA256"
 CODE_DIR=$(mktemp -d "${SLURM_TMPDIR:-/tmp}/skyline-stage.XXXXXX")
 trap 'rm -rf "$CODE_DIR"' EXIT
 tar -xf "$ARCHIVE" -C "$CODE_DIR"
+if [[ ! -s "$SKYLINE_ROOT/reference-audit.json" ]]; then
+    apptainer exec --bind "${CODE_DIR}:/opt/skyline-source:ro,/scratch:/scratch" "$SIF_PATH" \
+        /usr/bin/env PYTHONPATH=/opt/skyline-source/src PYTHONNOUSERSITE=1 \
+        /workspace/.venv/bin/python "$SKYLINE_ROOT/audit_reference.py"
+fi
 nvidia-smi
 printf 'W&B mode: %s\nSource commit: %s\n' "${WANDB_MODE:-online}" "$SKYLINE_COMMIT"
 "${SKYLINE_APPTAINER_BIN:-apptainer}" exec --nv \

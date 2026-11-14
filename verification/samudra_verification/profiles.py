@@ -5,6 +5,7 @@
 """Shared Hypothesis profiles, and the tags each project's conftest puts on its tests."""
 
 import os
+from dataclasses import dataclass
 from pathlib import Path
 
 from hypothesis import Phase, settings
@@ -20,14 +21,23 @@ MUTATION_SETTINGS = settings(
 )
 
 
-def profile_evidence(active: settings) -> dict:
-    """The settings that decide whether a mutation run is valid, as JSON."""
-    return {
-        "max_examples": active.max_examples,
-        "phases": [phase.name for phase in active.phases],
-        "database_disabled": active.database is None,
-        "deadline_disabled": active.deadline is None,
-    }
+@dataclass(frozen=True)
+class Profile:
+    """The settings that decide whether a mutation trial is valid."""
+
+    max_examples: int
+    phases: tuple[str, ...]
+    database_disabled: bool
+    deadline_disabled: bool
+
+    @classmethod
+    def of(cls, active: settings) -> "Profile":
+        return cls(
+            max_examples=active.max_examples,
+            phases=tuple(phase.name for phase in active.phases),
+            database_disabled=active.database is None,
+            deadline_disabled=active.deadline is None,
+        )
 
 
 def configure_profiles(default_profile="property"):

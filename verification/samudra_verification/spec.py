@@ -4,10 +4,11 @@
 
 """What identifies a campaign, written once to `replay.json` and read by every consumer."""
 
-import json
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
+
+from .records import from_json, to_json
 
 REPLAY = "replay.json"
 
@@ -51,9 +52,8 @@ class CampaignSpec:
         return "-".join(parts)
 
     def write(self, directory: Path) -> None:
-        (directory / REPLAY).write_text(json.dumps(asdict(self), indent=2) + "\n")
+        (directory / REPLAY).write_text(to_json(self))
 
     @classmethod
     def read(cls, directory: Path) -> "CampaignSpec":
-        fields = json.loads((directory / REPLAY).read_text())
-        return cls(**{**fields, "lane": Lane(fields["lane"])})
+        return from_json(cls, (directory / REPLAY).read_text())

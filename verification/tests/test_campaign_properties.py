@@ -7,11 +7,14 @@
 import json
 import subprocess
 import sys
+from dataclasses import fields
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
+from samudra_verification.spec import REPLAY, CampaignSpec
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -74,3 +77,21 @@ def test_shared_runner_records_real_outcomes_and_replay_inputs(outcomes):
         assert replay["project"] == "harness" and replay["seed"] == 42
         assert (output / "dependency-input.txt").read_bytes() == config.read_bytes()
         assert (output / "pytest.log").is_file() and (output / "pytest.jsonl").is_file()
+
+
+specs = st.builds(
+    CampaignSpec, timeout_seconds=st.floats(allow_nan=False, allow_infinity=False)
+)
+
+
+@given(specs, st.sampled_from([f.name for f in fields(CampaignSpec)]))
+def test_replay_files_round_trip_and_reject_wrong_types(spec, field):
+    with TemporaryDirectory() as directory:
+        root = Path(directory)
+        spec.write(root)
+        assert CampaignSpec.read(root) == spec
+        record = json.loads((root / REPLAY).read_text())
+        record[field] = {"wrong": "type"}
+        (root / REPLAY).write_text(json.dumps(record))
+        with pytest.raises((TypeError, ValueError)):
+            CampaignSpec.read(root)

@@ -5,6 +5,7 @@
 """A broken test process or an untrustworthy control must never produce a kill."""
 
 import json
+from dataclasses import asdict
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -15,6 +16,7 @@ from hypothesis.errors import InvalidArgument
 from report_log_fixtures import events, write_log
 from samudra_verification import gate
 from samudra_verification.faults import Fault
+from samudra_verification.records import to_json
 from samudra_verification.verdicts import TrialStatus
 
 FAULT = Fault("fault", "subject", "a", "b", ("test_subject.py::test_property",))
@@ -23,7 +25,7 @@ FAULT = Fault("fault", "subject", "a", "b", ("test_subject.py::test_property",))
 def outcome(returncode, path, expected, condition=None):
     """Interpret a mutant trial over the nodes recorded in `expected`."""
     condition = condition or gate.Mutant(FAULT, Path("unused"))
-    trial = gate.Trial(condition, 0, tuple(expected["nodeids"]))
+    trial = gate.Trial(condition, 0, expected.nodeids)
     return gate.interpret(trial, returncode, path, expected)
 
 
@@ -32,13 +34,13 @@ integer_test = given(st.integers())
 
 
 def evidence(path, nodes):
-    expected = {
-        "nodeids": sorted(nodes),
-        "profile": gate.EXPECTED_PROFILE,
-        "targets": {"subject": {"path": "subject.py", "sha256": "a" * 64}},
-        "mutant": None,
-    }
-    (path.parent / "execution.json").write_text(json.dumps(expected))
+    expected = gate.Execution(
+        targets={"subject": gate.SourceFile("subject.py", "a" * 64)},
+        mutant=None,
+        profile=gate.EXPECTED_PROFILE,
+        nodeids=tuple(sorted(nodes)),
+    )
+    (path.parent / "execution.json").write_text(to_json(expected))
     return expected
 
 
@@ -150,7 +152,7 @@ def test_profile_source_or_collection_drift_invalidates_a_kill(field):
         path = Path(directory) / "pytest.jsonl"
         _, expected = failure_report(path)
         assert outcome(1, path, expected).status == "killed"
-        actual = json.loads(json.dumps(expected))
+        actual = asdict(expected)
         changes = {
             "max_examples": 1,
             "phases": ["explicit"],
@@ -182,7 +184,7 @@ def test_parametrized_targets_bind_the_same_function_only_once(count):
     gate.bind_profile([function] * count, settings.get_profile("mutation"))
 
 
-@given(st.sampled_from(["events", "json", "utf8", "missing"]))
+@given(st.sampled_from(["events", "json", "utf8", "missing", "field", "type"]))
 def test_corrupt_or_missing_execution_evidence_cannot_produce_a_kill(corruption):
     with TemporaryDirectory() as directory:
         path = Path(directory) / "pytest.jsonl"
@@ -194,6 +196,10 @@ def test_corrupt_or_missing_execution_evidence_cannot_produce_a_kill(corruption)
             actual.write_text("{")
         elif corruption == "utf8":
             actual.write_bytes(b"\xff")
+        elif corruption == "field":
+            actual.write_text(json.dumps({**asdict(expected), "extra": 1}))
+        elif corruption == "type":
+            actual.write_text(json.dumps({**asdict(expected), "nodeids": "abc"}))
         else:
             actual.unlink()
         assert outcome(1, path, expected).status == "invalid"
@@ -222,8 +228,6 @@ def test_shared_budget_caps_each_case_and_stops_scheduling(elapsed, per_case, bu
 @given(limit=st.integers(1, 9), seed=st.integers(0, 1000))
 def test_real_subprocess_gate_distinguishes_control_from_mutant(limit, seed):
     """The same generated oracle passes clean code and kills an in-memory fault."""
-    import time
-
     with TemporaryDirectory() as directory:
         root = Path(directory)
         (root / "pytest.ini").write_text("[pytest]\n")
@@ -250,9 +254,7 @@ def test_real_subprocess_gate_distinguishes_control_from_mutant(limit, seed):
             "Fault('broken', 'verification_subject', 'return value', 'return undefined_name', detect)))\n"
         )
         # The broken mutant fails with NameError, which is not an oracle verdict.
-        assert not gate.run_catalog(
-            catalog, root / "output", [seed], 15, time.monotonic() + 60
-        )
+        assert not gate.run_catalog(catalog, root / "output", [seed], 15, 60)
         results = json.loads((root / "output/results.json").read_text())
         assert results[f"control-{seed}"]["status"] == "clean"
         assert results[f"offset-{seed}"]["status"] == "killed"

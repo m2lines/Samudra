@@ -25,7 +25,7 @@ import os
 import subprocess
 import sys
 import time
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, fields
 from pathlib import Path
 from typing import Any
 
@@ -35,10 +35,11 @@ from hypothesis.errors import HypothesisException
 from .artifacts import git_revision, write_environment
 from .evidence import Outcome, read_run
 from .faults import SUFFIX, Catalog, Fault, load_catalog, module_path
-from .profiles import MUTATION_SETTINGS, profile_evidence
+from .profiles import MUTATION_SETTINGS, Profile
+from .records import from_json, to_json
 from .verdicts import TrialStatus, Verdict, untrustworthy
 
-EXPECTED_PROFILE = profile_evidence(MUTATION_SETTINGS)
+EXPECTED_PROFILE = Profile.of(MUTATION_SETTINGS)
 # Errors that mean the mutant itself is broken code, not that the oracle saw a fault.
 BROKEN_MUTANT = (NameError, ImportError, SyntaxError)
 
@@ -69,32 +70,64 @@ class Trial:
         return f"{self.condition.label}-{self.seed}"
 
 
+@dataclass(frozen=True)
+class SourceFile:
+    path: str
+    sha256: str
+
+    @classmethod
+    def of(cls, path: Path, contents: bytes) -> "SourceFile":
+        return cls(str(path), hashlib.sha256(contents).hexdigest())
+
+
+@dataclass(frozen=True)
+class PlantedMutant:
+    module: str
+    sha256: str
+
+
+@dataclass(frozen=True)
+class Execution:
+    """What a trial process ran. The gate writes the expected one before each
+    trial, the trial process writes what it actually ran, and any difference makes
+    the trial invalid.
+    """
+
+    targets: dict[str, SourceFile]  # Each fault module, as the trial imported it.
+    mutant: PlantedMutant | None
+    profile: Profile
+    nodeids: tuple[str, ...]
+
+    def drift(self, other: "Execution") -> list[str]:
+        return [
+            field.name
+            for field in fields(self)
+            if getattr(self, field.name) != getattr(other, field.name)
+        ]
+
+
 # --- Inside each trial's pytest process ----------------------------------------
 
-EXECUTION: dict[str, Any] = {}
+# What `pytest_sessionstart` found, completed by `pytest_collection_finish`.
+STARTED: dict[str, Any] = {}
 
 
 def pytest_sessionstart(session):
     catalog = load_catalog(Path(os.environ["SAMUDRA_FAULT_CATALOG"]))
-    EXECUTION["targets"] = {}
+    targets = {}
     for module in catalog.modules:
         subject = importlib.import_module(module)
         if subject.__file__ is None:
             raise RuntimeError(f"{module} has no source file")
         path = Path(subject.__file__).resolve()
-        EXECUTION["targets"][module] = {
-            "path": str(path),
-            "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
-        }
-    EXECUTION["mutant"] = None
+        targets[module] = SourceFile.of(path, path.read_bytes())
+    mutant = None
     if source := os.environ.get("SAMUDRA_MUTANT_SOURCE"):
         module = os.environ["SAMUDRA_MUTANT_MODULE"]
         contents = Path(source).read_bytes()
         exec(compile(contents, source, "exec"), sys.modules[module].__dict__)
-        EXECUTION["mutant"] = {
-            "module": module,
-            "sha256": hashlib.sha256(contents).hexdigest(),
-        }
+        mutant = PlantedMutant(module, hashlib.sha256(contents).hexdigest())
+    STARTED.update(targets=targets, mutant=mutant)
 
 
 def bind_profile(functions, profile):
@@ -111,11 +144,12 @@ def pytest_collection_finish(session):
 
     active = settings()
     bind_profile((item.obj for item in session.items), active)
-    EXECUTION["profile"] = profile_evidence(active)
-    EXECUTION["nodeids"] = sorted(item.nodeid for item in session.items)
-    Path(os.environ["SAMUDRA_TRIAL_EVIDENCE"]).write_text(
-        json.dumps(EXECUTION, indent=2) + "\n"
+    executed = Execution(
+        **STARTED,
+        profile=Profile.of(active),
+        nodeids=tuple(sorted(item.nodeid for item in session.items)),
     )
+    Path(os.environ["SAMUDRA_TRIAL_EVIDENCE"]).write_text(to_json(executed))
 
 
 def failure_kind(error: BaseException) -> str:
@@ -151,7 +185,9 @@ def pytest_runtest_makereport(item, call):
 # --- In the gate process ---------------------------------------------------------
 
 
-def interpret(trial: Trial, returncode: int, report: Path, expected) -> Verdict:
+def interpret(
+    trial: Trial, returncode: int, report: Path, expected: Execution
+) -> Verdict:
     """Classify a finished trial.
 
     A detection must be an oracle failure: an assertion, `pytest.raises` not
@@ -160,16 +196,11 @@ def interpret(trial: Trial, returncode: int, report: Path, expected) -> Verdict:
     ImportError, SyntaxError) make the trial invalid instead.
     """
     try:
-        executed = json.loads((report.parent / "execution.json").read_text())
-        if executed != expected:
-            drift = sorted(
-                key
-                for key in expected.keys() | executed.keys()
-                if expected.get(key) != executed.get(key)
-            )
+        executed = from_json(Execution, (report.parent / "execution.json").read_text())
+        if drift := expected.drift(executed):
             return Verdict(TrialStatus.INVALID, f"execution evidence differs: {drift}")
         run = read_run(report)
-    except (OSError, ValueError, KeyError) as error:
+    except (OSError, ValueError, TypeError, KeyError) as error:
         return Verdict(
             TrialStatus.INVALID, f"unreadable evidence: {type(error).__name__}: {error}"
         )
@@ -202,7 +233,14 @@ def remaining_timeout(deadline, per_trial, now):
     return min(per_trial, max(0, deadline - now))
 
 
-def run_trial(trial: Trial, directory: Path, timeout, *, catalog_path, targets):
+def run_trial(
+    trial: Trial,
+    directory: Path,
+    timeout,
+    *,
+    catalog_path,
+    targets: dict[str, SourceFile],
+):
     """Run one trial in a fresh pytest process and record its verdict."""
     base = {"trial": trial.label, "seed": trial.seed}
     if timeout <= 0:
@@ -231,10 +269,10 @@ def run_trial(trial: Trial, directory: Path, timeout, *, catalog_path, targets):
     if isinstance(trial.condition, Mutant):
         env["SAMUDRA_MUTANT_SOURCE"] = str(trial.condition.source)
         env["SAMUDRA_MUTANT_MODULE"] = trial.condition.fault.module
-        mutant = {
-            "module": trial.condition.fault.module,
-            "sha256": hashlib.sha256(trial.condition.source.read_bytes()).hexdigest(),
-        }
+        mutant = PlantedMutant(
+            trial.condition.fault.module,
+            hashlib.sha256(trial.condition.source.read_bytes()).hexdigest(),
+        )
     command = [
         sys.executable,
         "-m",
@@ -254,15 +292,10 @@ def run_trial(trial: Trial, directory: Path, timeout, *, catalog_path, targets):
         "-p",
         "samudra_verification.gate",
     ]
-    expected = {
-        "targets": targets,
-        "mutant": mutant,
-        "profile": EXPECTED_PROFILE,
-        "nodeids": sorted(trial.nodeids),
-    }
-    (directory / "expected-execution.json").write_text(
-        json.dumps(expected, indent=2) + "\n"
+    expected = Execution(
+        targets, mutant, EXPECTED_PROFILE, tuple(sorted(trial.nodeids))
     )
+    (directory / "expected-execution.json").write_text(to_json(expected))
     started = time.monotonic()
     with (directory / "pytest.log").open("w") as log:
         try:
@@ -315,7 +348,7 @@ def run_catalog(path: Path, output: Path, seeds, timeout, budget) -> bool:
                 f"{fault.module}; review after refactoring"
             )
     targets = {
-        module: {"path": str(file), "sha256": hashlib.sha256(contents).hexdigest()}
+        module: SourceFile.of(file, contents)
         for module, (file, contents) in sources.items()
     }
     (output / "catalog.py").write_bytes(path.read_bytes())
@@ -424,7 +457,7 @@ def main():
                 "seeds": args.seeds,
                 "timeout": args.timeout,
                 "budget": args.budget,
-                "profile": EXPECTED_PROFILE,
+                "profile": asdict(EXPECTED_PROFILE),
                 "python": sys.version,
             },
             indent=2,

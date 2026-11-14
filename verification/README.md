@@ -28,6 +28,7 @@ and `zarr<3` pins. Root `uv sync --dev` installs it as a workspace member. `data
 | `gate` | Command-line tool: the mutation gate. Also the pytest plugin each trial loads |
 | `triage` | Command-line tool: matches failing properties to GitHub issues |
 | `artifacts` | Git revision and installed-package records |
+| `records` | Strict JSON for the tools' frozen dataclasses: reading rejects missing, unknown and wrongly typed fields |
 
 The tests in `tests/` are themselves property tests. They check, for example, that an empty or all-skipped run can't
 pass, that a failing control is never counted as a kill, and that filing issues is idempotent.

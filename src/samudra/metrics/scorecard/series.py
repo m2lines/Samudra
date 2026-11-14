@@ -190,19 +190,21 @@ def compute(
         )
     t0 = initial_state(truth, times.values[0])
     truth = truth.sel(time=times.values)
-    area = cell_area(truth).load()
+    area = cell_area(truth).compute()
 
     sums: list[pd.DataFrame] = []
     anomaly: list[dict] = []
     for c in channels:
         # One channel is loaded whole and reduced in memory: thousands of tiny
         # per-step dask tasks cost far more than the arithmetic. A 1/4-degree
-        # channel over ~600 steps is ~2.5 GB per field.
-        f = _bare(predictions[c]).load()
-        t = _bare(truth[c]).load()
-        clim = _bare(climatology[c]).load()
+        # channel over ~600 steps is ~2.5 GB per field. `compute`, not `load`:
+        # `load` fills the parent dataset in place, so every channel would stay
+        # in memory until the end.
+        f = _bare(predictions[c]).compute()
+        t = _bare(truth[c]).compute()
+        clim = _bare(climatology[c]).compute()
         floor = PHYSICAL_FLOORS.get(channel_parts(c)[0], -np.inf)
-        ds = _reduce(f, t, clim, _bare(t0[c]).load(), area, floor)
+        ds = _reduce(f, t, clim, _bare(t0[c]).compute(), area, floor)
         frame = ds.drop_vars(["anomvar_model", "anomvar_truth"]).to_dataframe()
         sums.append(frame.reset_index().assign(channel=c))
         anomaly.append(

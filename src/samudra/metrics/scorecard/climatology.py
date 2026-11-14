@@ -41,11 +41,12 @@ def channel(train: xr.Dataset, name: str) -> xr.DataArray:
     """One channel's pentad climatology, computed in memory.
 
     Loading the channel whole and reducing it with NumPy is far faster than a
-    lazy graph of one task per time step.
+    lazy graph of one task per time step. `compute`, not `load`, so the
+    channel is not kept in `train` after this returns (`load` fills it in place).
     """
     field = train[name]
     drop = [c for c in field.coords if c != "time"]
-    return skill.pentad_climatology(field.drop_vars(drop).load()).astype("float32")
+    return skill.pentad_climatology(field.drop_vars(drop).compute()).astype("float32")
 
 
 def build(train: xr.Dataset, channels: list[str]) -> xr.Dataset:

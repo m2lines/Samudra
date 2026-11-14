@@ -21,7 +21,7 @@ from hypothesis import strategies as st
 
 from samudra.config import ScorecardConfig
 from samudra.metrics import skill
-from samudra.metrics.scorecard import card, gate, run, series
+from samudra.metrics.scorecard import card, climatology, gate, run, series
 from samudra.utils.location import UnresolvedLocation
 
 CHANNELS = ["thetao_0", "thetao_1", "so_0", "so_1"]
@@ -307,6 +307,19 @@ def test_comparison_ranks_window_skill_not_mean_of_yearly_skill():
     assert row.value < row.value_champion
     assert row.badness_diff > 0
     assert row.verdict != gate.IMPROVEMENT
+
+
+def test_one_pass_does_not_keep_the_fields(data):
+    """Lazy inputs stay lazy: each channel is freed after it is reduced, so a
+    1/4-degree rollout never holds every channel in memory at once."""
+    truth, clim = data
+    lazy_truth = truth.chunk({"time": 50})
+    lazy_preds = _predictions(truth, lambda c, f: f).chunk({"time": 50})
+    series.compute(lazy_preds, lazy_truth, clim, CHANNELS)
+    climatology.build(lazy_truth, CHANNELS)
+    for c in CHANNELS:
+        assert lazy_preds[c].chunks is not None
+        assert lazy_truth[c].chunks is not None
 
 
 def test_partial_years_are_rejected(data):

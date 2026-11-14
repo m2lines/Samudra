@@ -66,6 +66,7 @@ BETTER = {
     "max": BOUNDED,
     "min": BOUNDED,
     "nonfinite_area_fraction": LOWER,
+    "unphysical_area_fraction": LOWER,
 }
 
 COLUMNS = [
@@ -327,7 +328,12 @@ def _health_rows(health: pd.DataFrame, years: list[int]) -> list[dict]:
     rows = []
     for quantity, group in health[in_window].groupby("quantity"):
         var, _, kind = str(quantity).partition("_")
-        reduce = "max" if kind in ("max", "nonfinite_area_fraction") else "min"
+        reduce = {
+            "max": "max",
+            "min": "min",
+            "nonfinite_area_fraction": "max",
+            "unphysical_area_fraction": "mean",
+        }[kind]
         model = float(getattr(group["model"], reduce)())
         truth = float(getattr(group["truth"], reduce)())
         scope = Scope("health", var, FULL_DEPTH, "", np.nan, {})

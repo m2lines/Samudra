@@ -193,7 +193,9 @@ def checks(
             "temperature_min",
             tmin["value"] >= tmin["truth_value"] - policy.min_temperature_below_truth,
             f"coldest {tmin['value']:.2f} degC vs truth {tmin['truth_value']:.2f} "
-            f"(limit -{policy.min_temperature_below_truth:g})",
+            f"(limit -{policy.min_temperature_below_truth:g}); "
+            f"{_cell(health, 'thetao', 'unphysical_area_fraction', 'value'):.2e} "
+            "of wet area below -2.5 degC on average",
         )
     )
     smin = {"value": _cell(health, "so", "min", "value")}
@@ -201,7 +203,9 @@ def checks(
         Check(
             "salinity_nonnegative",
             smin["value"] >= 0.0,
-            f"freshest {smin['value']:.3f} psu",
+            f"freshest {smin['value']:.3f} psu; "
+            f"{_cell(health, 'so', 'unphysical_area_fraction', 'value'):.2e} "
+            "of wet area below 0 on average",
         )
     )
 

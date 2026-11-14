@@ -35,6 +35,11 @@ logger = logging.getLogger(__name__)
 SPATIAL_DIMS = skill.SPATIAL_DIMS
 REFERENCES = ("persistence", "climatology")
 
+# Values below these are not seawater: potential temperature below the freezing
+# point of the saltiest water (about -2.2 degC at 40 psu, with a margin), and
+# negative salinity. The share of ocean area beyond them is reported per step.
+PHYSICAL_FLOORS = {"thetao": -2.5, "so": 0.0}
+
 SUMS_FILE = "series_sums.parquet"
 ANOMALY_FILE = "series_anomaly_variance.parquet"
 HEALTH_FILE = "series_health.parquet"
@@ -125,7 +130,7 @@ def compute(
     climatology: xr.Dataset,
     channels: list[str],
 ) -> Series:
-    """Reduce a rollout and its truth to the scorecard's tables, one channel at a time.
+    """Reduce a rollout and its truth to the scorecard's tables.
 
     Args:
         predictions: The rollout, flattened channels (``thetao_0``...), dims
@@ -153,33 +158,21 @@ def compute(
         )
     t0 = initial_state(truth, times.values[0])
     truth = truth.sel(time=times.values)
-    area = cell_area(truth)
+    area = cell_area(truth).load()
 
     sums: list[pd.DataFrame] = []
     anomaly: list[dict] = []
     for c in channels:
-        f = _bare(predictions[c])
-        t = _bare(truth[c])
-        clim = _bare(climatology[c])
-        refs = {
-            "persistence": _bare(t0[c]).expand_dims(time=times.values),
-            "climatology": skill.climatology_forecast(clim, t["time"]),
-        }
-        wet = cast(xr.DataArray, np.isfinite(t.isel(time=0, drop=True)))
-        ds = skill.time_sums(f, t, refs, area)
-        ds["std_model"] = skill.spatial_std(f, area, wet)
-        ds["std_truth"] = skill.spatial_std(t, area, wet)
-        ds["max_model"] = f.where(wet).max(SPATIAL_DIMS)
-        ds["max_truth"] = t.where(wet).max(SPATIAL_DIMS)
-        ds["min_model"] = f.where(wet).min(SPATIAL_DIMS)
-        ds["min_truth"] = t.where(wet).min(SPATIAL_DIMS)
-        ds["anomvar_model"] = skill.anomaly_variance(f, clim, area, wet)
-        ds["anomvar_truth"] = skill.anomaly_variance(t, clim, area, wet)
-        ds = ds.compute()
-
+        # One channel is loaded whole and reduced in memory: thousands of tiny
+        # per-step dask tasks cost far more than the arithmetic. A 1/4-degree
+        # channel over ~600 steps is ~2.5 GB per field.
+        f = _bare(predictions[c]).load()
+        t = _bare(truth[c]).load()
+        clim = _bare(climatology[c]).load()
+        floor = PHYSICAL_FLOORS.get(channel_parts(c)[0], -np.inf)
+        ds = _reduce(f, t, clim, _bare(t0[c]).load(), area, floor)
         frame = ds.drop_vars(["anomvar_model", "anomvar_truth"]).to_dataframe()
-        frame = frame.reset_index().assign(channel=c)
-        sums.append(frame)
+        sums.append(frame.reset_index().assign(channel=c))
         anomaly.append(
             {
                 "channel": c,
@@ -195,8 +188,40 @@ def compute(
     return Series(sums_frame, pd.DataFrame(anomaly), health)
 
 
+def _reduce(
+    f: xr.DataArray,
+    t: xr.DataArray,
+    clim: xr.DataArray,
+    t0: xr.DataArray,
+    area: xr.DataArray,
+    floor: float,
+) -> xr.Dataset:
+    """All of one channel's per-timestamp reductions (see the module docstring)."""
+    times = t["time"]
+    refs = {
+        "persistence": t0.expand_dims(time=times.values),
+        "climatology": skill.climatology_forecast(clim, times),
+    }
+    wet = cast(xr.DataArray, np.isfinite(t.isel(time=0, drop=True)))
+    ds = skill.time_sums(f, t, refs, area)
+    ds["std_model"] = skill.spatial_std(f, area, wet)
+    ds["std_truth"] = skill.spatial_std(t, area, wet)
+    ds["max_model"] = f.where(wet).max(SPATIAL_DIMS)
+    ds["max_truth"] = t.where(wet).max(SPATIAL_DIMS)
+    ds["min_model"] = f.where(wet).min(SPATIAL_DIMS)
+    ds["min_truth"] = t.where(wet).min(SPATIAL_DIMS)
+    w = area.where(wet, 0.0)
+    ds["unphysical_model"] = w.where(f < floor, 0.0).sum(SPATIAL_DIMS)
+    ds["unphysical_truth"] = w.where(t < floor, 0.0).sum(SPATIAL_DIMS)
+    ds["anomvar_model"] = skill.anomaly_variance(f, clim, area, wet)
+    ds["anomvar_truth"] = skill.anomaly_variance(t, clim, area, wet)
+    return ds
+
+
 def _health(sums: pd.DataFrame) -> pd.DataFrame:
-    """Per-timestamp extremes and non-finite area per variable, model beside truth.
+    """Per-timestamp extremes, unphysical and non-finite area per variable.
+
+    Area shares are of the wet cell area summed over the variable's levels.
 
     Drift of volume means needs no extra pass: it is the thickness-weighted sum
     of the channels' signed errors over their weights (see `card`).
@@ -222,6 +247,20 @@ def _health(sums: pd.DataFrame) -> pd.DataFrame:
                     "quantity": f"{var}_min",
                     "model": per_time["min_model"].min().to_numpy(),
                     "truth": per_time["min_truth"].min().to_numpy(),
+                }
+            )
+        )
+        rows.append(
+            pd.DataFrame(
+                {
+                    "time": per_time.size().index,
+                    "quantity": f"{var}_unphysical_area_fraction",
+                    "model": (
+                        per_time["unphysical_model"].sum() / per_time["weight"].sum()
+                    ).to_numpy(),
+                    "truth": (
+                        per_time["unphysical_truth"].sum() / per_time["weight"].sum()
+                    ).to_numpy(),
                 }
             )
         )

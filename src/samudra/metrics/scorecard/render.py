@@ -14,6 +14,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import matplotlib
+import matplotlib.ticker
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -81,6 +82,12 @@ def markdown(
             for c in checks
         ),
         "",
+        "## Physical plausibility, over the window",
+        "",
+        "| Variable | Max (model / truth) | Min (model / truth) | Unphysical share of wet area | Non-finite share |",
+        "|---|---|---|---|---|",
+        *_plausibility_rows(frame),
+        "",
         "## Skill by variable and layer",
         "",
         "Skill is 1 − MSE_model / MSE_reference: 1 is perfect, 0 matches the "
@@ -146,6 +153,30 @@ def markdown(
         "",
     ]
     return "\n".join(lines)
+
+
+def _plausibility_rows(frame: pd.DataFrame) -> list[str]:
+    h = frame[frame.scope == "health"].set_index(["variable", "metric"])
+    rows = []
+    for var in VARIABLES:
+        if (var, "max") not in h.index:
+            continue
+
+        def pair(metric: str, var: str = var) -> str:
+            model = float(np.asarray(h.loc[(var, metric), "value"]))
+            truth = float(np.asarray(h.loc[(var, metric), "truth_value"]))
+            return f"{model:.3g} / {truth:.3g}"
+
+        unphys = (
+            pair("unphysical_area_fraction")
+            if (var, "unphysical_area_fraction") in h.index
+            else "-"
+        )
+        rows.append(
+            f"| `{var}` | {pair('max')} | {pair('min')} | {unphys} | "
+            f"{float(np.asarray(h.loc[(var, 'nonfinite_area_fraction'), 'value'])):.3g} |"
+        )
+    return rows
 
 
 def _heatmap(frame: pd.DataFrame, metric: str, path: Path) -> None:
@@ -247,6 +278,8 @@ def _variance(frame: pd.DataFrame, path: Path) -> None:
             )
         ax.axvline(1, color=GRAY, lw=1)
         ax.set_xscale("log")
+        ax.xaxis.set_major_formatter(matplotlib.ticker.FormatStrFormatter("%g"))
+        ax.xaxis.set_minor_formatter(matplotlib.ticker.NullFormatter())
         ax.set_yscale("log")
         ax.set_title(var)
         ax.grid(alpha=0.2)

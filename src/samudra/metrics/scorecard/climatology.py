@@ -29,12 +29,29 @@ from samudra.utils.logging import handle_logging, handle_warnings
 logger = logging.getLogger(__name__)
 
 
+def attrs(train: xr.Dataset) -> dict:
+    first, last = (str(train["time"].values[i])[:10] for i in (0, -1))
+    return {
+        "climatology_period": f"{first} to {last}",
+        "n_samples": int(train.sizes["time"]),
+    }
+
+
+def channel(train: xr.Dataset, name: str) -> xr.DataArray:
+    """One channel's pentad climatology, computed in memory.
+
+    Loading the channel whole and reducing it with NumPy is far faster than a
+    lazy graph of one task per time step.
+    """
+    field = train[name]
+    drop = [c for c in field.coords if c != "time"]
+    return skill.pentad_climatology(field.drop_vars(drop).load()).astype("float32")
+
+
 def build(train: xr.Dataset, channels: list[str]) -> xr.Dataset:
     """Pentad climatology of each channel over all of `train`'s timestamps."""
-    out = xr.Dataset({c: skill.pentad_climatology(train[c]) for c in channels})
-    first, last = (str(train["time"].values[i])[:10] for i in (0, -1))
-    out.attrs["climatology_period"] = f"{first} to {last}"
-    out.attrs["n_samples"] = int(train.sizes["time"])
+    out = xr.Dataset({c: channel(train, c) for c in channels})
+    out.attrs.update(attrs(train))
     return out
 
 
@@ -60,9 +77,18 @@ def main() -> None:
         raise ValueError("The climatology is defined for a single training source.")
     train = bundle.train_sources[0].to_xarray_dataset()
     channels = list(bundle.data_layout.prognostic_var_names)
-    clim = build(train, channels)
-    logger.info("Computing climatology over %s", clim.attrs["climatology_period"])
-    clim.to_zarr(path, mode="w-")  # zarr<3 is pinned, so this is Zarr v2
+    meta = attrs(train)
+    logger.info("Computing climatology over %s", meta["climatology_period"])
+    # Channel by channel, so memory holds one channel's training record at a
+    # time. zarr<3 is pinned, so the store is Zarr v2.
+    for i, name in enumerate(channels):
+        part = xr.Dataset({name: channel(train, name)})
+        if i == 0:
+            part.attrs.update(meta)
+            part.to_zarr(path, mode="w-")
+        else:
+            part.to_zarr(path, mode="a")
+        logger.info("climatology: %s done", name)
     logger.info("Wrote %s", path)
 
 

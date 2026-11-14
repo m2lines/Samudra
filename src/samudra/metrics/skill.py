@@ -169,7 +169,9 @@ def anomaly_variance(
     noise (well above 1), which RMSE does not separate.
     """
     anom = field - climatology_forecast(clim, field[time_dim], time_dim)
-    var_map = anom.var(time_dim)
+    # Land is filled, not left NaN, so the variance has no all-NaN slices; its
+    # weight is zero below either way.
+    var_map = anom.where(wet, 0.0).var(time_dim)
     w = area.where(wet, 0.0)
     return (w * var_map.where(wet, 0.0)).sum(spatial_dims) / w.sum(spatial_dims)
 

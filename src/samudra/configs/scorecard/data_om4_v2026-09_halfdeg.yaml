@@ -1,0 +1,38 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# yaml-language-server: $schema=../schemas/DataConfig.json
+
+# The official v2026-09 OM4 release at this resolution (docs/data.md), on the
+# preset windows (configs/data/om4.yaml). The scorecard's truth for this track.
+# Only the prognostic variables are scored, so the boundary set is the one
+# every release carries.
+sources:
+  - type: om4
+    prognostic_vars_key: thermo_dynamic_all
+    boundary_vars_key: tau_hfds
+    train_time:
+      start: "1975-01-03"
+      end: "2013-09-30"
+    val_time:
+      start: "2013-10-05"
+      end: "2014-10-05"
+    inference_time:
+      start: "2014-10-10"
+      end: "2022-12-24"
+    data_location: &official
+      type: s3
+      endpoint_url: https://nyu1.osn.mghpcc.org
+      anon: true
+      bucket: m2lines-pubs
+      path: Samudra/v2026-09/om4_halfdeg/OM4.zarr
+    data_means_location:
+      <<: *official
+      path: Samudra/v2026-09/om4_halfdeg/OM4_means.zarr
+    data_stds_location:
+      <<: *official
+      path: Samudra/v2026-09/om4_halfdeg/OM4_stds.zarr
+loading:
+  concurrent_compute: true
+  type: cpu

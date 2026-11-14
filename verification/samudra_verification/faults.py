@@ -13,6 +13,7 @@ A catalog is a project's list of faults, in a flat `*_faults.py` file that expor
 import hashlib
 import importlib.util
 from dataclasses import dataclass
+from importlib.machinery import PathFinder
 from pathlib import Path
 
 SUFFIX = "_faults.py"
@@ -41,11 +42,25 @@ class Catalog:
         return tuple(sorted({fault.module for fault in self.faults}))
 
 
-def module_path(module: str) -> Path:
-    """The file a module would be imported from, found without importing it."""
-    spec = importlib.util.find_spec(module)
+def module_path(module: str, search_path: list[str]) -> Path:
+    """The file `module` would be imported from via `search_path`, without importing it.
+
+    `importlib.util.find_spec` imports a dotted name's parent packages, and an
+    already-imported parent fixes where its submodules come from. Walking the path
+    finder one segment at a time executes nothing and ignores `sys.modules`.
+    """
+    path: list[str] | None = search_path
+    spec = None
+    for part in module.split("."):
+        if path is None:
+            raise ValueError(f"Cannot locate {module}: its parent is not a package")
+        spec = PathFinder.find_spec(part, path)
+        if spec is None:
+            raise ValueError(f"Cannot locate {module} on {search_path}")
+        locations = spec.submodule_search_locations
+        path = list(locations) if locations is not None else None
     if spec is None or spec.origin is None:
-        raise ValueError(f"Cannot locate module {module}")
+        raise ValueError(f"Cannot locate a source file for {module}")
     return Path(spec.origin).resolve()
 
 

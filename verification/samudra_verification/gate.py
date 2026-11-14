@@ -10,6 +10,10 @@ trial plants one fault in memory and runs that fault's detectors. The controls f
 all seeds run first, and any dirty control stops the gate, so a bug that already
 exists is never credited as a kill.
 
+Every trial is capped at `--timeout` seconds per property it runs. Mutant trials
+also share a `--budget` per catalog, which starts once the controls finish, so slow
+controls can't starve the mutants.
+
 This module is also the pytest plugin each trial loads (`-p samudra_verification.gate`).
 """
 
@@ -202,7 +206,7 @@ def run_trial(trial: Trial, directory: Path, timeout, *, catalog_path, targets):
     """Run one trial in a fresh pytest process and record its verdict."""
     base = {"trial": trial.label, "seed": trial.seed}
     if timeout <= 0:
-        reason = "the shared budget ran out before this trial started"
+        reason = "the mutant budget ran out before this trial started"
         return {**base, "status": TrialStatus.BUDGET_EXHAUSTED, "reason": reason}
     catalog = load_catalog(catalog_path)
     directory.mkdir(parents=True)
@@ -293,16 +297,14 @@ def target_sources(catalog: Catalog) -> dict[str, tuple[Path, bytes]]:
     """Each fault module's file and bytes, resolved as the trial processes will.
 
     Trials run from the catalog's project root, so modules there take precedence.
+    The execution evidence check catches any trial that resolves them differently.
     """
-    sys.path.insert(0, str(catalog.project))
-    try:
-        paths = {module: module_path(module) for module in catalog.modules}
-    finally:
-        sys.path.remove(str(catalog.project))
+    search_path = [str(catalog.project), *sys.path]
+    paths = {module: module_path(module, search_path) for module in catalog.modules}
     return {module: (path, path.read_bytes()) for module, path in paths.items()}
 
 
-def run_catalog(path: Path, output: Path, seeds, timeout, deadline) -> bool:
+def run_catalog(path: Path, output: Path, seeds, timeout, budget) -> bool:
     catalog = load_catalog(path)
     output.mkdir()
     sources = target_sources(catalog)
@@ -331,10 +333,6 @@ def run_catalog(path: Path, output: Path, seeds, timeout, deadline) -> bool:
             flush=True,
         )
 
-    def budget(nodeids):
-        # Each detector gets `timeout` seconds, capped by the shared budget.
-        return remaining_timeout(deadline, timeout * len(nodeids), time.monotonic())
-
     every_detector = tuple(
         sorted({node for fault in catalog.faults for node in fault.detectors})
     )
@@ -344,13 +342,14 @@ def run_catalog(path: Path, output: Path, seeds, timeout, deadline) -> bool:
             run_trial(
                 trial,
                 output / trial.label,
-                budget(trial.nodeids),
+                timeout * len(trial.nodeids),
                 catalog_path=path,
                 targets=targets,
             )
         )
         if results[trial.label]["status"] != TrialStatus.CLEAN:
             return False
+    deadline = time.monotonic() + budget
     for fault in catalog.faults:
         directory = output / fault.name
         directory.mkdir()
@@ -367,7 +366,9 @@ def run_catalog(path: Path, output: Path, seeds, timeout, deadline) -> bool:
                 run_trial(
                     trial,
                     directory / str(seed),
-                    budget(trial.nodeids),
+                    remaining_timeout(
+                        deadline, timeout * len(trial.nodeids), time.monotonic()
+                    ),
                     catalog_path=path,
                     targets=targets,
                 )
@@ -388,8 +389,15 @@ def main():
     )
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--seeds", nargs="+", type=int, default=[0, 1, 95920261105])
-    parser.add_argument("--timeout", type=float, default=60)
-    parser.add_argument("--budget", type=float, default=600)
+    parser.add_argument(
+        "--timeout", type=float, default=60, help="Seconds per property in a trial"
+    )
+    parser.add_argument(
+        "--budget",
+        type=float,
+        default=600,
+        help="Seconds shared by each catalog's mutant trials, after its controls",
+    )
     args = parser.parse_args()
     if not (0 < args.timeout < float("inf") and 0 < args.budget < float("inf")):
         parser.error("timeout and budget must be positive and finite")
@@ -408,7 +416,6 @@ def main():
         parser.error(f"Expected at least one existing *{SUFFIX} catalog")
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
-    deadline = time.monotonic() + args.budget
     (output / "replay.json").write_text(
         json.dumps(
             {
@@ -429,7 +436,7 @@ def main():
     try:
         for path in paths:
             passed = run_catalog(
-                path, output / path.stem, args.seeds, args.timeout, deadline
+                path, output / path.stem, args.seeds, args.timeout, args.budget
             )
             summaries[path.stem] = "passed" if passed else "failed"
     finally:

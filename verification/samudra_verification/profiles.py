@@ -5,12 +5,18 @@
 """Shared Hypothesis profiles, and the tags each project's conftest puts on its tests."""
 
 import os
+from pathlib import Path
 
 from hypothesis import Phase, settings
 
 # The mutation gate checks that each subprocess ran with exactly these settings.
+# Explicit @examples run because they are often a fault's known reproducer; the
+# database and shrinking stay off so each trial depends only on its seed.
 MUTATION_SETTINGS = settings(
-    max_examples=40, deadline=None, database=None, phases=[Phase.generate]
+    max_examples=40,
+    deadline=None,
+    database=None,
+    phases=[Phase.explicit, Phase.generate],
 )
 
 
@@ -52,14 +58,20 @@ def configure_profiles(default_profile="property"):
 INVARIANT_STATUSES = ("proposed", "agreed")
 
 
-def tag_project_items(items, project):
-    """Tag each test with its project, and with its invariant's status if marked.
+def tag_project_items(items, project, root):
+    """Tag each test under `root` with its project, and its invariant's status if marked.
+
+    Pytest calls every conftest's `pytest_collection_modifyitems` with every
+    collected item, so each project passes its own test directory as `root`.
 
     Mark a property whose invariant the team hasn't agreed on yet with
     `@pytest.mark.invariant(status="proposed")`. Its failures still appear in
     results, but triage won't propose them as bug reports.
     """
+    root = Path(root).resolve()
     for item in items:
+        if not item.path.resolve().is_relative_to(root):
+            continue
         item.user_properties.append(("project", project))
         if (marker := item.get_closest_marker("invariant")) is not None:
             status = marker.kwargs.get("status")

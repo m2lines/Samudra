@@ -6,7 +6,8 @@
 
 One issue per property, not per random seed. Closed issues stay closed: a human
 must decide whether a recurrence merits reopening or a different invariant.
-Collection errors and runner failures remain CI failures, not product bug reports.
+Collection errors and runner failures remain CI failures, not product bug reports,
+but the summary states them, and --apply refuses to file from an incomplete run.
 """
 
 import argparse
@@ -16,14 +17,13 @@ import json
 import subprocess
 from pathlib import Path
 
-from .evidence import Outcome, read_run
+from .evidence import Outcome, PytestRun, read_run
 from .spec import CampaignSpec
 
 
-def reports(path, run_url):
+def reports(run: PytestRun, run_url):
     """Extract stable identities and bounded counterexamples from actual failures."""
     found: dict[str, dict[str, str]] = {}
-    run = read_run(path)
     if not run.complete:
         return (
             found  # Interrupted evidence is an execution problem, not a product report.
@@ -76,7 +76,7 @@ def triage_summary(candidates, existing, run_url):
                 "url": issue["html_url"],
             }
             for issue in existing
-            if "pull_request" not in issue and marker in (issue.get("body") or "")
+            if marker in (issue.get("body") or "")
         ]
         failures.append(
             {"marker": marker, "title": report["title"], "existing_issues": matches}
@@ -97,6 +97,7 @@ def render_summary(summary):
         "",
         f"Run: {summary['run_url']}",
         "",
+        *incomplete_warning(summary["pytest"]),
         f"{summary['total']} failing properties; {summary['new']} new; "
         f"{summary['recurrences']} recurrences. No issues created.",
         "",
@@ -110,15 +111,27 @@ def render_summary(summary):
             or "new, needs triage"
         )
         lines.append(f"- <code>{html.escape(failure['title'])}</code>: {links}")
-    if counts := summary.get("pytest"):
-        lines.extend(
-            [
-                "",
-                f"Pytest: {counts['failed']} failures, {counts['error']} errors, "
-                f"{counts['skipped']} skipped; {counts['proposed']} proposed invariants excluded.",
-            ]
-        )
+    counts = summary["pytest"]
+    lines.extend(
+        [
+            "",
+            f"Pytest: {counts['failed']} failures, {counts['error']} errors, "
+            f"{counts['skipped']} skipped, {counts['collection_errors']} collection "
+            f"errors; {counts['proposed']} proposed invariants excluded.",
+        ]
+    )
     return "\n".join(lines) + "\n"
+
+
+def incomplete_warning(counts):
+    if counts["complete"]:
+        return []
+    return [
+        f"**Incomplete run:** pytest never finished, so the {counts['failed']} "
+        "failures recorded before it stopped are not triaged. Check the "
+        "campaign's `result.json` and `pytest.log`.",
+        "",
+    ]
 
 
 def file_new_reports(candidates, repo, invoke=gh):
@@ -143,49 +156,70 @@ def file_new_reports(candidates, repo, invoke=gh):
         )
 
 
+def pytest_counts(run: PytestRun):
+    return {
+        **run.counts(),
+        "collection_errors": len(run.collection_errors),
+        "complete": run.complete,
+        "proposed": sum(
+            case.proposed and case.outcome == Outcome.FAILED for case in run.cases
+        ),
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("campaign", type=Path, help="A campaign's artifact directory")
+    parser.add_argument(
+        "campaigns", nargs="+", type=Path, help="Campaign artifact directories"
+    )
     parser.add_argument("--repo", required=True)
     parser.add_argument("--run-url", required=True)
     parser.add_argument("--apply", action="store_true")
     parser.add_argument(
         "--triage-output",
         type=Path,
-        help="Write read-only triage JSON and Markdown to a new directory",
+        help="Write read-only triage JSON and Markdown to <dir>/<campaign directory name>",
     )
     args = parser.parse_args()
-    report = args.campaign / "pytest.jsonl"
-    candidates = reports(report, args.run_url)
-    if args.triage_output:
-        if args.apply:
-            parser.error(
-                "--triage-output is read-only and cannot be combined with --apply"
+    if args.triage_output and args.apply:
+        parser.error("--triage-output is read-only and cannot be combined with --apply")
+    names = [campaign.name for campaign in args.campaigns]
+    if len(set(names)) != len(names):
+        parser.error("Campaign directories must have distinct names")
+    runs = {
+        campaign: read_run(campaign / "pytest.jsonl") for campaign in args.campaigns
+    }
+    candidates = {
+        campaign: reports(run, args.run_url) for campaign, run in runs.items()
+    }
+    if args.apply:
+        if incomplete := [str(c) for c, run in runs.items() if not run.complete]:
+            raise SystemExit(
+                f"Refusing to file issues from incomplete runs: {incomplete}"
             )
-        summary = triage_summary(
-            candidates, lookup_issues(args.repo) if candidates else [], args.run_url
+        file_new_reports(
+            {m: r for found in candidates.values() for m, r in found.items()}, args.repo
         )
-        summary["campaign"] = CampaignSpec.read(args.campaign).label
-        run = read_run(report)
-        summary["pytest"] = {
-            **run.counts(),
-            "collection_errors": len(run.collection_errors),
-            "complete": run.complete,
-            "proposed": sum(
-                case.proposed and case.outcome == Outcome.FAILED for case in run.cases
-            ),
-        }
-        args.triage_output.mkdir(parents=True, exist_ok=False)
-        (args.triage_output / "summary.json").write_text(
-            json.dumps(summary, indent=2) + "\n"
+        return
+    if not args.triage_output:
+        print(
+            json.dumps(
+                [report for found in candidates.values() for report in found.values()],
+                indent=2,
+            )
         )
-        (args.triage_output / "summary.md").write_text(render_summary(summary))
+        return
+    # One listing of the repository's issues serves every campaign.
+    existing = lookup_issues(args.repo) if any(candidates.values()) else []
+    for campaign, run in runs.items():
+        summary = triage_summary(candidates[campaign], existing, args.run_url)
+        summary["campaign"] = CampaignSpec.read(campaign).label
+        summary["pytest"] = pytest_counts(run)
+        output = args.triage_output / campaign.name
+        output.mkdir(parents=True, exist_ok=False)
+        (output / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
+        (output / "summary.md").write_text(render_summary(summary))
         print(render_summary(summary))
-        return
-    if not args.apply:
-        print(json.dumps(list(candidates.values()), indent=2))
-        return
-    file_new_reports(candidates, args.repo)
 
 
 if __name__ == "__main__":

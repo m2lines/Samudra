@@ -18,7 +18,11 @@ from samudra_verification import triage
 from samudra_verification.evidence import Outcome, read_run
 from samudra_verification.spec import CampaignSpec, Lane
 
-reports = triage.reports
+
+def reports(path, run_url):
+    return triage.reports(read_run(path), run_url)
+
+
 failure_text = st.text(max_size=128)
 
 
@@ -202,7 +206,8 @@ def test_read_only_triage_keeps_every_recurrence_without_issue_fanout(states):
             ],
         )
         triage.main()
-        summary = json.loads((root / "triage" / "summary.json").read_text())
+        output = root / "triage" / root.name
+        summary = json.loads((output / "summary.json").read_text())
         assert summary["total"] == len(states)
         assert summary["new"] == sum(
             state in ("new", "pull_request") for state in states
@@ -214,4 +219,4 @@ def test_read_only_triage_keeps_every_recurrence_without_issue_fanout(states):
         for failure, state in zip(summary["failures"], states):
             assert len(failure["existing_issues"]) == (state in ("open", "closed"))
             for issue in failure["existing_issues"]:
-                assert issue["url"] in (root / "triage" / "summary.md").read_text()
+                assert issue["url"] in (output / "summary.md").read_text()

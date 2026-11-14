@@ -5,6 +5,7 @@
 """Bounded PR checks and larger, replayable nightly explorations."""
 
 import os
+from pathlib import Path
 
 try:
     from samudra_verification.profiles import configure_profiles, tag_project_items
@@ -24,4 +25,4 @@ configure_profiles()
 
 def pytest_collection_modifyitems(items):
     """Retain exploratory failures in CI without automatically filing them as bugs."""
-    tag_project_items(items, project="data")
+    tag_project_items(items, project="data", root=Path(__file__).parent)

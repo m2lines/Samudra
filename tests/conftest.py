@@ -27,7 +27,7 @@ configure_profiles(default_profile="unit")
 
 
 def pytest_collection_modifyitems(items):
-    tag_project_items(items, project="samudra")
+    tag_project_items(items, project="samudra", root=pathlib.Path(__file__).parent)
 
 
 REMOTE_DATA = "https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/"

@@ -21,10 +21,10 @@ than their share of the error, and can rank a worse model as better.
 
 The verdict is ``regression`` when the whole interval says the candidate is
 worse, ``improvement`` when it says better, and ``indistinguishable``
-otherwise. The *gate* then applies hard checks that never depend on the
-champion (the rollout is finite and within physical bounds), and the
-regression check on a short list of layer-level rows. Everything else is
-reported, not gated.
+otherwise. The *gate* then applies hard checks (the rollout is finite and
+within physical bounds, or no further outside them than the champion; see
+`checks`), and the regression check on a short list of layer-level rows.
+Everything else is reported, not gated.
 
 Departure from #986: the issue gates on lead-1 skill. A single rollout has one
 sample at lead 1, so that gate waits for the hindcast mode (phase 2); phase 1
@@ -177,16 +177,27 @@ def checks(
     candidate: pd.DataFrame,
     policy: GatePolicy,
     comparison: pd.DataFrame | None,
+    champion: pd.DataFrame | None = None,
 ) -> list[Check]:
     """The gate's hard checks, in the order they are reported.
+
+    The physical bounds are absolute, with one allowance. With a champion, a
+    candidate outside a bound still passes that check if it is no worse than
+    the champion was: its warmest surface no warmer, or its share of
+    unphysical area no larger. Otherwise the first champion that fails a bound
+    (the paper Samudra 2 does) would fail every successor that improves on it
+    without yet fixing the cause. The report says when this allowance applied.
+    Finiteness is never relative.
 
     Args:
         candidate: The candidate's scorecard frame.
         policy: Bounds and gated metrics.
         comparison: `compare` against the champion, at
             `policy.regression_level`; None when there is no champion.
+        champion: The champion's scorecard frame; None when there is none.
     """
-    health = candidate[candidate.scope == "health"].set_index(["variable", "metric"])
+    health = _health(candidate)
+    champ = None if champion is None else _health(champion)
     out = []
 
     nonfinite = health.xs("nonfinite_area_fraction", level="metric")["value"]
@@ -201,44 +212,49 @@ def checks(
         )
     )
 
-    sst = candidate[
-        (candidate.metric == "max")
-        & (candidate.scope == "health")
-        & (candidate.variable == "thetao")
-    ]
     # The surface level dominates the warm extreme, so the variable's maximum is
     # the SST maximum to well within the tolerance.
-    model_max, truth_max = (
-        float(sst["value"].iloc[0]),
-        float(sst["truth_value"].iloc[0]),
-    )
+    model_max = _cell(health, "thetao", "max", "value")
+    truth_max = _cell(health, "thetao", "max", "truth_value")
     out.append(
-        Check(
+        _bound(
             "sst_max",
             model_max <= truth_max + policy.max_sst_above_truth,
             f"warmest {model_max:.2f} degC vs truth {truth_max:.2f} "
             f"(limit +{policy.max_sst_above_truth:g})",
+            None if champ is None else _cell(champ, "thetao", "max", "value"),
+            model_max,
+            "warmest",
         )
     )
     tmin = {k: _cell(health, "thetao", "min", k) for k in ("value", "truth_value")}
+    t_area = _cell(health, "thetao", "unphysical_area_fraction", "value")
     out.append(
-        Check(
+        _bound(
             "temperature_min",
             tmin["value"] >= tmin["truth_value"] - policy.min_temperature_below_truth,
             f"coldest {tmin['value']:.2f} degC vs truth {tmin['truth_value']:.2f} "
             f"(limit -{policy.min_temperature_below_truth:g}); "
-            f"{_cell(health, 'thetao', 'unphysical_area_fraction', 'value'):.2e} "
-            "of wet area below -2.5 degC on average",
+            f"{t_area:.2e} of wet area below -2.5 degC on average",
+            None
+            if champ is None
+            else _cell(champ, "thetao", "unphysical_area_fraction", "value"),
+            t_area,
+            "area below -2.5 degC",
         )
     )
-    smin = {"value": _cell(health, "so", "min", "value")}
+    smin = _cell(health, "so", "min", "value")
+    s_area = _cell(health, "so", "unphysical_area_fraction", "value")
     out.append(
-        Check(
+        _bound(
             "salinity_nonnegative",
-            smin["value"] >= 0.0,
-            f"freshest {smin['value']:.3f} psu; "
-            f"{_cell(health, 'so', 'unphysical_area_fraction', 'value'):.2e} "
-            "of wet area below 0 on average",
+            smin >= 0.0,
+            f"freshest {smin:.3f} psu; {s_area:.2e} of wet area below 0 on average",
+            None
+            if champ is None
+            else _cell(champ, "so", "unphysical_area_fraction", "value"),
+            s_area,
+            "area below 0 psu",
         )
     )
 
@@ -260,6 +276,39 @@ def checks(
             )
         out.append(Check("no_regression_vs_champion", ok, detail))
     return out
+
+
+def _bound(
+    name: str,
+    within: bool,
+    detail: str,
+    champion_value: float | None,
+    value: float,
+    what: str,
+) -> Check:
+    """An absolute bound, or (outside it) no worse than the champion's ``what``.
+
+    ``value`` and ``champion_value`` are lower-is-better.
+    """
+    if within or champion_value is None:
+        return Check(name, within, detail)
+    if value <= champion_value:
+        return Check(
+            name,
+            True,
+            f"{detail}. Outside the bound, but no worse than the champion "
+            f"({what} {value:.3g} vs {champion_value:.3g})",
+        )
+    return Check(
+        name,
+        False,
+        f"{detail}. Worse than the champion ({what} {value:.3g} vs "
+        f"{champion_value:.3g})",
+    )
+
+
+def _health(frame: pd.DataFrame) -> pd.DataFrame:
+    return frame[frame.scope == "health"].set_index(["variable", "metric"])
 
 
 def _cell(health: pd.DataFrame, variable: str, metric: str, column: str) -> float:

@@ -144,9 +144,10 @@ def score_series(
         bootstrap_samples=cfg.bootstrap_samples,
     )
     comparison = None
+    champ_frame = None
     gate_policy = policy(cfg)
     if cfg.champion is not None:
-        _, champ_meta = read_scorecard(cfg.champion)
+        champ_frame, champ_meta = read_scorecard(cfg.champion)
         _require_comparable(meta, champ_meta)
         meta = {
             **meta,
@@ -166,7 +167,7 @@ def score_series(
             bootstrap_samples=cfg.bootstrap_samples,
             level=gate_policy.regression_level,
         )
-    checks = gate.checks(frame, gate_policy, comparison)
+    checks = gate.checks(frame, gate_policy, comparison, champ_frame)
     meta = {**meta, "passed": gate.passed(checks)}
     return Scored(frame, meta, checks, comparison)
 

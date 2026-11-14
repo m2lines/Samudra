@@ -231,6 +231,26 @@ def test_sst_runaway_fails_the_gate(data):
     assert results["finite"].passed
 
 
+def test_bounds_allow_no_worse_than_a_failing_champion(data):
+    """A champion outside a bound sets the bar; worse than it still fails."""
+    truth, clim = data
+
+    def frozen(by):
+        return _predictions(truth, lambda c, f: f - (by if c == "thetao_0" else 0.0))
+
+    _, champion = _card(frozen(20.0), truth, clim, samples=0)
+    _, better = _card(frozen(19.0), truth, clim, samples=0)
+    _, worse = _card(frozen(21.0), truth, clim, samples=0)
+    policy = gate.GatePolicy()
+    alone = {c.name: c for c in gate.checks(better, policy, None)}
+    assert not alone["temperature_min"].passed
+    vs = {c.name: c for c in gate.checks(better, policy, None, champion)}
+    assert vs["temperature_min"].passed
+    assert "no worse than the champion" in vs["temperature_min"].detail
+    vs = {c.name: c for c in gate.checks(worse, policy, None, champion)}
+    assert not vs["temperature_min"].passed
+
+
 def _tables(predictions, truth, clim):
     tables = series.compute(predictions, truth, clim, CHANNELS)
     return card.year_tables(tables, depth=DEPTH, dz=DZ, years=YEARS)

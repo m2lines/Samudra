@@ -185,6 +185,15 @@ def pytest_runtest_makereport(item, call):
 # --- In the gate process ---------------------------------------------------------
 
 
+def log_tail(path: Path, lines: int = 3) -> str:
+    """The last few nonblank lines of a trial's log, for its verdict."""
+    try:
+        text = path.read_text(errors="replace")
+    except OSError as error:
+        return f"no log ({error})"
+    return " | ".join([line for line in text.splitlines() if line.strip()][-lines:])
+
+
 def interpret(
     trial: Trial, returncode: int, report: Path, expected: Execution
 ) -> Verdict:
@@ -195,6 +204,12 @@ def interpret(
     Unsatisfiable, Flaky) and errors showing the mutant is broken code (NameError,
     ImportError, SyntaxError) make the trial invalid instead.
     """
+    if not (report.parent / "execution.json").exists():
+        return Verdict(
+            TrialStatus.INVALID,
+            f"pytest stopped before collecting the trial (exit code {returncode}): "
+            f"{log_tail(report.parent / 'pytest.log')}",
+        )
     try:
         executed = from_json(Execution, (report.parent / "execution.json").read_text())
         if drift := expected.drift(executed):
@@ -279,6 +294,10 @@ def run_trial(
         "pytest",
         *trial.nodeids,
         "-q",
+        # The project's ini addopts may name options from plugins that trials
+        # don't autoload (the root project's jaxtyping), so the gate sets them all.
+        "-o",
+        "addopts=",
         "--tb=short",
         "--disable-warnings",
         "--maxfail=1",

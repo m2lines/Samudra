@@ -60,6 +60,31 @@ class PytestRun:
         }
 
 
+def render_longrepr(value) -> str:
+    """Pytest's failure report as the text pytest prints, not its JSON form.
+
+    reportlog serializes a failure as nested objects, with the traceback repeated
+    for each chained exception. Show each frame of the final traceback once, with
+    its location and source lines, which include Hypothesis's failing example and
+    `@reproduce_failure` line.
+    """
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    if not isinstance(value, dict):
+        return json.dumps(value, ensure_ascii=False, indent=2)
+    frames = []
+    for entry in (value.get("reprtraceback") or {}).get("reprentries", []):
+        data = entry.get("data") or {}
+        where = data.get("reprfileloc") or {}
+        location = f"{where.get('path')}:{where.get('lineno')}" if where else ""
+        frames.append("\n".join([location, *data.get("lines", [])]).strip())
+    if frames:
+        return "\n\n".join(frames)
+    return json.dumps(value, ensure_ascii=False, indent=2)  # An unfamiliar shape.
+
+
 def read_run(path: Path) -> PytestRun:
     """Read public pytest events; reject contradictory or malformed evidence."""
     reports: dict[str, dict[str, dict]] = {}
@@ -124,12 +149,7 @@ def read_run(path: Path) -> PytestRun:
         details = []
         for event in phases.values():
             if event["outcome"] == "failed":
-                value = event.get("longrepr", "")
-                details.append(
-                    value
-                    if isinstance(value, str)
-                    else json.dumps(value, ensure_ascii=False, indent=2)
-                )
+                details.append(render_longrepr(event.get("longrepr", "")))
                 details.extend(
                     f"{title}\n{text}" for title, text in event.get("sections", [])
                 )

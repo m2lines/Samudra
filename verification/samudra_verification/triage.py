@@ -50,7 +50,14 @@ def reports(run: PytestRun, run_url):
 
 
 def gh(*args, input=None):
-    return subprocess.check_output(["gh", *args], input=input, text=True)
+    try:
+        return subprocess.check_output(["gh", *args], input=input, text=True)
+    except FileNotFoundError as error:
+        raise SystemExit(
+            "Triage needs the GitHub CLI (`gh`) to look up or file issues. Install it "
+            "from https://cli.github.com and run `gh auth login`, or run triage in "
+            "GitHub Actions, where `gh` is preinstalled."
+        ) from error
 
 
 def lookup_issues(repo, invoke=gh):

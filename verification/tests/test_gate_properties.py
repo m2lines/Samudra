@@ -230,7 +230,10 @@ def test_real_subprocess_gate_distinguishes_control_from_mutant(limit, seed):
     """The same generated oracle passes clean code and kills an in-memory fault."""
     with TemporaryDirectory() as directory:
         root = Path(directory)
-        (root / "pytest.ini").write_text("[pytest]\n")
+        # Trials don't autoload plugins, so they must ignore the project's addopts.
+        (root / "pytest.ini").write_text(
+            "[pytest]\naddopts = --from-an-unloaded-plugin\n"
+        )
         (root / "conftest.py").write_text(
             "from samudra_verification.profiles import configure_profiles\nconfigure_profiles()\n"
         )

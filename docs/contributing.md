@@ -381,10 +381,10 @@ A failure in only the `canary` lane usually means an upstream release changed be
 more likely our bug.
 
 To investigate a failure, download the campaign's artifact from the bottom of the run page; artifacts expire after
-30 days. In `pytest.log`, find the failing test's `Falsifying example`, and the `@reproduce_failure(...)` line
-Hypothesis prints after it. Add that decorator to the test temporarily to replay the exact input locally. Then
-decide whether the code or the property is wrong. If it's the code, fix it and pin the input with `@example`. If it's
-the property, fix the property. To file an issue for a checked failure, run
+30 days. In `pytest.log`, find the failing test's `Failing test case` (older Hypothesis versions say
+`Falsifying example`), and the `@reproduce_failure(...)` line Hypothesis prints after it. Add that decorator to the
+test temporarily to replay the exact input locally. Then decide whether the code or the property is wrong. If it's
+the code, fix it and pin the input with `@example`. If it's the property, fix the property. To file an issue for a checked failure, run
 `python -m samudra_verification.triage <campaign directory> --repo m2lines/Samudra --run-url <run url> --apply`.
 CI never files, reopens, or comments on issues itself.
 
@@ -396,7 +396,14 @@ actually shipped, written as a small source substitution, together with the prop
 
 To add one, append a `Fault` to the catalog next to the tests, a flat `*_faults.py` file such as
 `data/tests/virtual_archive_faults.py`. Add faults only for bugs that happened or nearly did; a new property doesn't
-need one. `data/AGENTS.md` has the command to run the gate locally.
+need one. Run the gate on a project's catalogs from the repository root, with a new output directory each time:
+
+```bash
+uv run python -m samudra_verification.gate tests --output /tmp/root-mutations   # root catalogs
+```
+
+`data/AGENTS.md` has the command for the data catalogs. CI's `Property mutation gate` runs only the data catalogs so
+far; add a step to `.github/workflows/property-mutations.yaml` when the root project gets its first catalog.
 
 ## Benchmarking & Profiling
 

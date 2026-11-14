@@ -220,3 +220,36 @@ def test_read_only_triage_keeps_every_recurrence_without_issue_fanout(states):
             assert len(failure["existing_issues"]) == (state in ("open", "closed"))
             for issue in failure["existing_issues"]:
                 assert issue["url"] in (output / "summary.md").read_text()
+
+
+@given(failure_text)
+def test_structured_failures_read_as_pytest_text(message):
+    """reportlog's JSON form of a failure becomes the frames pytest would print."""
+    frame = {"path": "test_subject.py", "lineno": 3, "message": "in test_property"}
+    longrepr = {
+        "reprcrash": {"path": "/abs/test_subject.py", "lineno": 3, "message": message},
+        "reprtraceback": {
+            "reprentries": [
+                {
+                    "type": "ReprEntry",
+                    "data": {"lines": ["E   " + message], "reprfileloc": frame},
+                }
+            ]
+        },
+    }
+    with TemporaryDirectory() as directory:
+        path = Path(directory) / "pytest.jsonl"
+        write_log(path, events(message=longrepr))
+        (body,) = (report["body"] for report in reports(path, "run").values())
+        assert "test_subject.py:3\n" in body
+        assert "reprtraceback" not in body and "/abs/" not in body
+
+
+def test_missing_github_cli_says_what_to_install():
+    def missing(*args, **kwargs):
+        raise FileNotFoundError("gh")
+
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(subprocess, "check_output", missing)
+        with pytest.raises(SystemExit, match="GitHub CLI"):
+            triage.lookup_issues("owner/repo")

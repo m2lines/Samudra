@@ -8,6 +8,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+import pytest
 from hypothesis import Phase, settings
 
 # The mutation gate checks that each subprocess ran with exactly these settings.
@@ -87,8 +88,9 @@ def tag_project_items(items, project, root):
         if (marker := item.get_closest_marker("invariant")) is not None:
             status = marker.kwargs.get("status")
             if status not in INVARIANT_STATUSES:
-                raise ValueError(
-                    f"{item.nodeid}: invariant status must be one of "
-                    f"{INVARIANT_STATUSES}, not {status!r}"
+                raise pytest.UsageError(
+                    f"{item.nodeid}: write the marker as "
+                    '@pytest.mark.invariant(status="proposed") or (status="agreed"), '
+                    f"not with args={marker.args!r}, kwargs={marker.kwargs!r}"
                 )
             item.user_properties.append(("invariant_status", status))

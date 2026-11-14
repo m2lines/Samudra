@@ -1,0 +1,49 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Yuan's normalized_delta weighting, as an ablation of PR #969
+# (experiment/onedeg-tendency-residual). Everything except the loss weights
+# and the tau definition matches #969's run: 2 inputs / 1 output, 8 calls
+# (40-day horizon), scaled residual head, BatchNorm, fp32, 8 ranks x batch 4,
+# 70 epochs, lr 6e-4 cosine, EMA 0.999, seed 15, final-epoch EMA for eval.
+debug: false
+disk_mode: true
+save_freq: 5
+rollout_validation:
+  days: [360]
+  frequency: 1
+  steps_forward: 1
+# As in #969. Evaluation uses the final-epoch EMA checkpoint, not the best one.
+validation_score: rollout_rmse
+epochs: 70
+batch_size: 4
+learning_rate: 0.0006
+gradient_accumulation_steps: 1
+scheduler: { type: cosine }
+ema_decay: 0.999
+faster_decay_at_start: true
+test_using_ema: true
+loss:
+  type: normalized_delta
+  # Per-channel RMS five-day change over wet cells, 1975-01-03..2013-09-30,
+  # from scripts/compute_tendency_stats.py --over wet. Relative to data_root.
+  increment_rms_location: OM4_increment_rms_wet.zarr
+finetune: false
+resume_ckpt_path: null
+data_stride: [1]
+steps: [8]
+step_transition: []
+preemptible: true
+
+backend: auto
+
+experiment:
+  name: normalized_delta_2in1out
+  rand_seed: 15
+  base_output_dir: .LOCAL
+  wandb:
+    mode: disabled
+    project: default
+data: !include data.yaml
+model: !include model.yaml

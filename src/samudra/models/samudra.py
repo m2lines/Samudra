@@ -35,6 +35,7 @@ class Samudra(BaseModel):
         gradient_detach_interval: int,
         use_bfloat16: bool,
         scale_residuals: bool = False,
+        residual_scale_per_cell: bool = False,
     ):
         super().__init__(
             in_channels=in_channels,
@@ -42,6 +43,9 @@ class Samudra(BaseModel):
             input_steps=input_steps,
             pred_residuals=pred_residuals,
             scale_residuals=scale_residuals,
+            residual_scale_grid=(
+                (grid_size[0], grid_size[1]) if residual_scale_per_cell else None
+            ),
             last_kernel_size=last_kernel_size,
             pad=pad,
             gradient_detach_interval=gradient_detach_interval,

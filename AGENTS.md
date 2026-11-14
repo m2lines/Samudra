@@ -82,7 +82,8 @@ fuzz tests (we use Hypothesis), written by an adversary rather than by the imple
 implementer didn't think of. Criticism from an adversary is a gift. Not all implementations will undergo adversarial
 fuzz testing, but will at least have to pass human and agentic code review.
 
-Searches follow these conventions (details, commands, and CI artifacts in `docs/contributing.md`):
+Searches follow these conventions. `docs/contributing.md` covers writing, running, and reading them, and
+`verification/README.md` explains the tooling:
 
 * Keep them flat: `tests/test_*_properties.py` for `samudra` and `data/tests/test_*_properties.py` for
   `ocean_preprocessing`. PR CI runs them with 40 examples each: the root CPU workflow in a separate step, and the

@@ -39,7 +39,8 @@ def configure_profiles(default_profile="property"):
       spuriously on loaded machines. For suites whose tests set their own budgets.
     * `property`: 40 examples, the bounded PR check.
     * `soak`: `SAMUDRA_HYPOTHESIS_EXAMPLES` examples (default 1,000), for nightly runs.
-    * `mutation`: `MUTATION_SETTINGS`, generation only, for the mutation gate.
+    * `mutation`: `MUTATION_SETTINGS`, explicit and generated examples without
+      shrinking or the database, for the mutation gate.
     """
     settings.register_profile("unit", deadline=None, print_blob=True)
     settings.register_profile(

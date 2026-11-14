@@ -15,15 +15,16 @@ the project is to produce a full climate emulation system by coupling multiple e
 The project is also a framework layer for developing ocean physics emulators across a variety of tasks and
 approaches. Unfamiliar terms are defined in the [glossary](#glossary).
 
-The repository holds three projects with **separate environments**:
+The repository holds four projects with **separate environments**:
 
 | Path | What | Environment |
 | --- | --- | --- |
 | `/` (`src/samudra`) | The emulator: models, training, evaluation, metrics | `uv` (root `pyproject.toml`) |
 | `data/` | `ocean_preprocessing`, which builds training datasets and observation products. Read `data/AGENTS.md` before working there. | mamba (`data/mamba_env.yaml`) |
 | `rust/loader/` | Rust data loader extension | `uv sync --project rust/loader` plus the Rust toolchain; see `docs/rust-data-loader.md` |
+| `verification/` | `samudra_verification`: property campaigns, mutation analysis, and triage, shared by `samudra` and `data/` | A uv workspace member, installed by root `uv sync --dev`; `data/` installs it with `pip install -e ./verification` |
 
-Root `pytest`, mypy, and `uv sync` do not cover `data/` or `rust/loader/`.
+Root `pytest`, mypy, and `uv sync` do not cover `data/` or `rust/loader/`. Root `pytest` doesn't collect `verification/tests` either; the property step in CI runs them.
 
 ## Rules
 
@@ -80,6 +81,21 @@ to guard against regressions during refactors. Humans won't review them closely.
 fuzz tests (we use Hypothesis), written by an adversary rather than by the implementer, to hunt for bugs the
 implementer didn't think of. Criticism from an adversary is a gift. Not all implementations will undergo adversarial
 fuzz testing, but will at least have to pass human and agentic code review.
+
+Searches follow these conventions (details, commands, and CI artifacts in `docs/contributing.md`):
+
+* Keep them flat: `tests/test_*_properties.py` for `samudra` and `data/tests/test_*_properties.py` for
+  `ocean_preprocessing`. PR CI runs them with 40 examples each: the root CPU workflow in a separate step, and the
+  data workflow alongside the rest of the data suite. The nightly `Property soak` workflow runs 1,000.
+* Prefer small independent oracles, metamorphic transformations, and explicit state models. The sampler simulation in
+  `tests/test_sampler_properties.py` is a CPU-only example that needs no training, process group, or GPU.
+* When a property guards against a bug we've had before, add that bug as a *fault*: a named source substitution in
+  the tested subsystem's `*_faults.py` catalog, listing the properties that should detect it. The `Property mutation
+  gate` workflow plants each fault in a *mutant* and checks that a detector fails. It covers only `data/` catalogs so
+  far. A new property doesn't need a fault.
+* Mark a property whose invariant isn't agreed yet with `@pytest.mark.invariant(status="proposed")`, so triage keeps
+  its failures out of bug reports.
+* The runners, profiles, and reporting live in the `verification/` project (`samudra_verification`).
 
 While iterating, run only the tests that cover the code you changed, and let CI run the full suite.
 `uvx pre-commit run` checks staged files only.

@@ -322,6 +322,111 @@ uvx detect-secrets scan > .secrets.baseline
 
 Please check in the baseline after generating.
 
+## Property tests and mutation checks
+
+Most of our tests are ordinary unit tests with hand-picked inputs and expected outputs. A *property test* instead
+states something that must hold for every input, such as "renaming a source file never changes the decoded values".
+[Hypothesis](https://hypothesis.readthedocs.io/) then generates inputs to search for a counterexample. Each property
+needs an *oracle*, an independent way to know the right answer: a small executable model of the system, a trusted
+reader (such as opening the source NetCDF directly), or a
+[metamorphic relation](https://www.hillelwayne.com/post/metamorphic-testing/) that predicts how the output changes
+when the input changes.
+
+### Where they live
+
+Property tests go in flat files named `*_properties.py`:
+
+* `tests/test_*_properties.py` for `samudra`, run in the root uv environment.
+* `data/tests/test_*_properties.py` for `ocean_preprocessing`, run in a data Mamba environment. `data/AGENTS.md`
+  lists the commands.
+* `verification/tests/` for the verification tools themselves, run in the root uv environment.
+
+The tools both projects share live in their own small project, `verification/` (import name
+`samudra_verification`). It depends only on Hypothesis, pytest, and pytest-reportlog, so the data environment can
+install it without the model's NumPy and Zarr versions. Root `uv sync --dev` installs it as a workspace member, and
+`data/` installs it with `pip install -e ./verification`. Its modules are:
+
+* `evidence`: what happened in a pytest session, read from pytest-reportlog's events.
+* `verdicts`: whether a session can be trusted, and what a trusted one means.
+* `spec`: what identifies a campaign, written to `replay.json`.
+* `campaign`, `gate`, and `triage`: the command-line tools described below.
+* `faults` and `profiles`: what each project declares in its fault catalogs and conftest.
+
+`tests/test_sampler_properties.py` is a compact example. It simulates every distributed rank in one process and checks
+that the sampler covers the dataset and replays epoch changes, with no model, GPU, or process group.
+
+Keep examples small and deterministic. Mark tests that need a GPU or a human with `cuda` or `manual`; property runs
+exclude both. If a property encodes an invariant the team hasn't agreed on yet, mark it
+`@pytest.mark.invariant(status="proposed")`. Its failures still appear in results, but triage won't propose them as
+bug reports. Each project's conftest calls `tag_project_items`, which records the test's project and invariant status
+for triage. Review a proposed property as carefully as
+production code, since a wrong property produces false bug reports.
+
+### When they run
+
+A *campaign* is one run of a property suite with a fixed seed and example budget, against one *lane*: `pinned` (a
+lock or pinned environment file) or `canary` (floating within supported ranges). Three workflows run campaigns:
+
+| Workflow | When | Examples per property |
+| --- | --- | --- |
+| CPU tests (`test.yml`), in a separate step | every PR | 40 |
+| Data tests (`data-tests.yaml`), with the rest of the data suite | every PR | 40 |
+| `Property soak` | nightly at 09:37 UTC, and on demand | 1,000 |
+| `Property mutation gate` | PRs and pushes to `main` that touch the data properties, fault catalogs, or `verification/`; also inside the nightly soak | 40 per detector |
+
+The root CPU test step skips `*_properties.py`, and the separate step runs them together with `verification/tests`,
+so each property runs once per PR. The data suite has no separate step. The soak runs the data suite three times: twice
+in the `pinned` lane (`data/.test.yml`), once for each pandas string storage backend (Python and PyArrow), and once in
+the `canary` lane (`data/.test-canary.yml`), so upstream breakage shows up early. Scheduled runs start once the
+workflows are on `main`.
+
+Run a campaign locally from the repository root:
+
+```bash
+uv run --locked python -m samudra_verification.campaign \
+  --project samudra --lane pinned --tests tests/test_*_properties.py verification/tests \
+  --dependency-file uv.lock \
+  --output /tmp/samudra-properties --examples 40 --seed 95920261105 \
+  -- -m "not manual and not cuda"
+```
+
+Use a new output directory for each run, and raise `--examples` for a longer search. A test's own Hypothesis settings
+can set a lower limit. The Hypothesis statistics in the log show the limit that applied.
+
+### Reading results
+
+Each campaign writes a directory containing:
+
+* `replay.json`: the campaign's `CampaignSpec`, including its project, lane, seed, command, git revision, and
+  dependency hash. With the same Hypothesis version, this reproduces the run.
+* `dependency-input.txt` and `environment.txt`: the dependency file used and the packages installed. Data CI also
+  saves `conda-explicit.txt`, the exact Mamba solution.
+* `pytest.log`; `pytest.jsonl`, pytest's event stream from
+  [pytest-reportlog](https://github.com/pytest-dev/pytest-reportlog); `result.json`; and `summary.md`.
+
+Every session is first checked for trustworthiness: it finished, collected cleanly, had no setup or teardown errors,
+and ran at least one test. An untrustworthy session is `invalid`, with the reason in `result.json`. A trustworthy
+campaign is either `passed` or found a `counterexample`. That check needs pytest's per-phase results and node IDs,
+which pytest-reportlog's events keep, so we read those instead of JUnit XML.
+
+On GitHub, open the Actions tab, choose `Property soak` or `Property mutation gate`, and select a run. The run's
+Summary shows each campaign's status and a *triage* report, which matches failing properties against open and closed
+issues. Artifacts, one per campaign, are at the bottom of the run page and expire after 30 days. CI never creates,
+reopens, or comments on issues. Once a human has checked a counterexample and its oracle, they can file it with
+`python -m samudra_verification.triage <campaign directory> --repo m2lines/Samudra --run-url <url> --apply`.
+
+### Mutation checks
+
+A passing property only helps if it would fail on buggy code. A *fault* is a named, plausible bug, often one we
+actually shipped, written as a small source substitution in one module, together with the properties (its
+*detectors*) that should catch it. The *mutation gate* runs *trials*. A *control* trial runs every detector on
+unmodified code and must be clean. A *mutant* trial plants one fault and runs its detectors. A detected fault is
+*killed*; an undetected one *survives* and fails the gate.
+
+Faults live next to the code they test, in flat `*_faults.py` files that each export a `Catalog` of `Fault`s. The gate
+finds catalogs by that suffix. Faults measure how sensitive existing properties are, and a new property doesn't need
+one. `data/AGENTS.md` has the command that runs the gate on the data catalogs.
+
 ## Benchmarking & Profiling
 
 We use `pytest-benchmark` to measure performance regressions in this project. Our intentions are to cultivate a culture

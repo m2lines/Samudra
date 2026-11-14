@@ -88,6 +88,7 @@ dev = [
   "pytest-profiling>=1.8.1",
   "pytest-xdist[psutil]>=3.6.1",
   "s3fs>=2025.3",
+  "samudra-verification",
   "scalene>=1.5.51",
   "snakeviz>=2.2.2",
   "tenacity>=9",
@@ -160,6 +161,7 @@ ini_options.markers = [
   "cuda: marks tests that need a CUDA-enabled device to run (deselect with '-m \"not cuda\"').",
   "only_configs: used to mark tests that only run on specific configs (not used on command line)",
   "all_configs: used to mark tests that run on all configs (not used on command line)",
+  "invariant(status): status is 'proposed' or 'agreed'; triage never files failures of proposed invariants",
 ]
 ini_options.pythonpath = [ "src", "tests" ]
 ini_options.testpaths = [ "tests" ]
@@ -190,8 +192,14 @@ torch = [
 torchvision = [
   { index = "pytorch-cu130", marker = "sys_platform == 'linux' and platform_machine == 'aarch64'" },
 ]
+samudra-verification = { workspace = true, editable = true }
 
 [[tool.uv.index]]
 name = "pytorch-cu130"
 url = "https://download.pytorch.org/whl/cu130"
 explicit = true
+
+[tool.uv.workspace]
+members = [
+  "verification",
+]

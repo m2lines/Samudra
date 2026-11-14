@@ -328,7 +328,8 @@ Most of our tests are ordinary unit tests with hand-picked inputs and expected o
 states something that must hold for every input, such as "renaming a source file never changes the decoded values".
 [Hypothesis](https://hypothesis.readthedocs.io/) then generates inputs to search for a counterexample. Each property
 needs an *oracle*, an independent way to know the right answer: a small executable model of the system, a trusted
-reader (such as opening the source NetCDF directly), or a metamorphic relation that predicts how the output changes
+reader (such as opening the source NetCDF directly), or a
+[metamorphic relation](https://www.hillelwayne.com/post/metamorphic-testing/) that predicts how the output changes
 when the input changes.
 
 ### Where they live
@@ -336,8 +337,8 @@ when the input changes.
 Property tests go in flat files named `*_properties.py`:
 
 * `tests/test_*_properties.py` for `samudra`, run in the root uv environment.
-* `data/tests/test_*_properties.py` for `ocean_preprocessing`, run in a data Mamba environment. See the
-  [data guide](../data/README.md#property-tests-and-mutation-checks).
+* `data/tests/test_*_properties.py` for `ocean_preprocessing`, run in a data Mamba environment. `data/AGENTS.md`
+  lists the commands.
 * `verification/tests/` for the verification tools themselves, run in the root uv environment.
 
 The tools both projects share live in their own small project, `verification/` (import name
@@ -424,7 +425,7 @@ unmodified code and must be clean. A *mutant* trial plants one fault and runs it
 
 Faults live next to the code they test, in flat `*_faults.py` files that each export a `Catalog` of `Fault`s. The gate
 finds catalogs by that suffix. Faults measure how sensitive existing properties are, and a new property doesn't need
-one. The [data guide](../data/README.md#property-tests-and-mutation-checks) has the gate's commands and rules.
+one. `data/AGENTS.md` has the command that runs the gate on the data catalogs.
 
 ## Benchmarking & Profiling
 

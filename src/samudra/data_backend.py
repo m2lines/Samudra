@@ -93,12 +93,17 @@ class NativeOm4SourceBackend:
             name
             for name in data_layout.boundary_var_names
             if name.endswith("_anomalies")
+            and not all(
+                (location.path / name / ".zarray").is_file()
+                for location in (data_location, means_location, stds_location)
+                if isinstance(location, LocalLocation)
+            )
         ]
         if derived:
             raise ValueError(
                 f"loading.type={self._name!r} does not yet support derived boundary "
-                f"variables {derived}; select physical boundary variables or use "
-                "loading.type='cpu'"
+                f"variables {derived} unless materialized in all three Zarr stores; "
+                "select physical boundary variables or use loading.type='cpu'"
             )
 
     def build_reader(

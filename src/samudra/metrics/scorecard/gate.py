@@ -5,20 +5,30 @@
 """Compare a scorecard with the champion's, and decide whether the candidate passes.
 
 The *champion* is the best-known model on a track (one dataset version,
-resolution and variable set). Its scorecard is kept in the registry. A
-candidate is compared with it row by row, paired over the same calendar years:
-for each year the difference in "badness" (`card.badness`; lower is better for
-every metric) is formed, and a block bootstrap over years gives an interval for
-the mean difference. The verdict is:
+resolution and variable set). Its scorecard directory, including the series
+tables, is kept in the registry. A candidate is compared with it on every
+metric that has a window value, paired over the same calendar years:
 
-- ``regression`` if the whole interval says the candidate is worse,
-- ``improvement`` if it says the candidate is better,
-- ``indistinguishable`` otherwise,
-- ``no_interval`` where a metric has no per-year values to pair.
+- the point estimate is the difference of the two *window* values, each turned
+  into "badness" (`card.badness`; lower is better for every metric), so it is
+  exactly the difference of the numbers printed in the two scorecards;
+- the interval resamples calendar years, the *same* years for both models in
+  each draw, and recomputes both window statistics from the resampled years.
 
-The *gate* then applies hard checks, which never depend on the champion
-(the rollout is finite and within physical bounds), and the regression check
-on a short list of summary rows. Everything else is reported, not gated.
+Resampling the window statistic itself matters: a skill score is a ratio of
+means, and averaging per-year ratios instead would weight quiet years far more
+than their share of the error, and can rank a worse model as better.
+
+The verdict is ``regression`` when the whole interval says the candidate is
+worse, ``improvement`` when it says better, and ``indistinguishable``
+otherwise. The *gate* then applies hard checks that never depend on the
+champion (the rollout is finite and within physical bounds), and the
+regression check on a short list of layer-level rows. Everything else is
+reported, not gated.
+
+Departure from #986: the issue gates on lead-1 skill. A single rollout has one
+sample at lead 1, so that gate waits for the hindcast mode (phase 2); phase 1
+gates on window skill against climatology and on bias instead.
 """
 
 from __future__ import annotations
@@ -28,7 +38,7 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
-from samudra.metrics import skill
+from samudra.metrics import kernels
 from samudra.metrics.scorecard import card
 
 KEY = ["metric", "scope", "variable", "layer", "channel"]
@@ -36,81 +46,98 @@ KEY = ["metric", "scope", "variable", "layer", "channel"]
 REGRESSION = "regression"
 IMPROVEMENT = "improvement"
 INDISTINGUISHABLE = "indistinguishable"
-NO_INTERVAL = "no_interval"
 
 
 def compare(
-    candidate: pd.DataFrame,
-    champion: pd.DataFrame,
+    candidate: dict[card.ScopeKey, pd.DataFrame],
+    champion: dict[card.ScopeKey, pd.DataFrame],
     *,
     bootstrap_samples: int,
-    level: float = 0.95,
+    level: float,
+    seed: int = 0,
 ) -> pd.DataFrame:
-    """Paired per-year comparison of every rankable metric the two scorecards share.
+    """Paired comparison of every window statistic the two models share.
 
-    Returns one row per (metric, scope) with both window values, the mean
-    per-year difference in badness (candidate minus champion; negative is
-    better), its interval, and the verdict.
+    Args:
+        candidate: `card.year_tables` of the candidate.
+        champion: `card.year_tables` of the champion.
+        bootstrap_samples: Paired year resamples; must be positive.
+        level: Confidence level of the interval behind each verdict.
+        seed: Seed for the resampling, so identical inputs give identical verdicts.
+
+    Returns:
+        One row per (metric, scope): both window values, the difference in
+        badness (candidate minus champion; negative is better), its interval,
+        and the verdict.
 
     Raises:
-        ValueError: if the scorecards cover different years, which would make
-            the pairing meaningless.
+        ValueError: if the year tables cover different years, if there are too
+            few years for a block bootstrap, or if no resamples are requested.
+            Without an interval no verdict is possible, and a gate that cannot
+            tell must not pass.
     """
-    cand_years = _years(candidate)
-    champ_years = _years(champion)
-    if cand_years != champ_years:
-        raise ValueError(
-            f"Candidate scores years {cand_years}, the champion {champ_years}. "
-            "Score both over the same window."
-        )
-    rankable = [m for m, rule in card.BETTER.items() if rule != card.BOUNDED]
+    if bootstrap_samples <= 0:
+        raise ValueError("The champion comparison needs bootstrap_samples > 0.")
+    rng = np.random.default_rng(seed)
+    tail = (1.0 - level) / 2.0 * 100.0
     out = []
-    for kind, merge_on in (("window", KEY), ("year", [*KEY, "period"])):
-        c = candidate[(candidate.period_kind == kind) & candidate.metric.isin(rankable)]
-        h = champion[(champion.period_kind == kind) & champion.metric.isin(rankable)]
-        merged = c.merge(h, on=merge_on, suffixes=("", "_champion"))
-        if kind == "window":
-            windows = merged
-        else:
-            years = merged
-    per_year_groups = dict(list(years.groupby(KEY, sort=False)))
-    for key, w in windows.groupby(KEY, sort=False):
-        row = w.iloc[0]
-        metric = str(row["metric"])
-        per_year = per_year_groups.get(key)
-        diff = None
-        if per_year is not None and len(per_year):
-            diff = card.badness(metric, per_year["value"]) - card.badness(
-                metric, per_year["value_champion"]
+    draws = None
+    for key, cand in candidate.items():
+        champ = champion.get(key)
+        if champ is None:
+            continue
+        if list(cand.index) != list(champ.index):
+            raise ValueError(
+                f"Candidate scores years {list(cand.index)}, the champion "
+                f"{list(champ.index)}. Score both over the same window."
             )
-        if diff is None or not np.isfinite(diff).all():
-            lo = hi = mean = np.nan
-            verdict = NO_INTERVAL
-        else:
-            mean = float(np.mean(diff))
-            lo, hi = skill.bootstrap_mean_ci(diff, bootstrap_samples, level=level)
-            verdict = _verdict(lo, hi)
-        out.append(
-            {
-                **dict(zip(KEY, key, strict=True)),
-                "value": row["value"],
-                "value_champion": row["value_champion"],
-                "badness_diff": mean,
-                "diff_ci_low": lo,
-                "diff_ci_high": hi,
-                "verdict": verdict,
-            }
-        )
+        n = len(cand)
+        if n < kernels.MIN_BOOTSTRAP_BLOCKS:
+            raise ValueError(
+                f"{n} years is too few for a block bootstrap (need "
+                f"{kernels.MIN_BOOTSTRAP_BLOCKS}); widen the window."
+            )
+        if draws is None:
+            draws = rng.integers(0, n, size=(bootstrap_samples, n))
+        c_vals, h_vals = cand.to_numpy(), champ[cand.columns].to_numpy()
+        c_means = c_vals[draws].mean(axis=1)
+        h_means = h_vals[draws].mean(axis=1)
+        for metric, stat in card.STATISTICS.items():
+            point_c = stat(cand.mean(skipna=False))
+            point_h = stat(champ.mean(skipna=False))
+            diff = float(card.badness(metric, point_c) - card.badness(metric, point_h))
+            boot = np.array(
+                [
+                    card.badness(metric, stat(pd.Series(cm, index=cand.columns)))
+                    - card.badness(metric, stat(pd.Series(hm, index=cand.columns)))
+                    for cm, hm in zip(c_means, h_means, strict=True)
+                ]
+            )
+            if not (np.isfinite(diff) and np.isfinite(boot).all()):
+                lo = hi = float("nan")
+                verdict = "not_finite"
+            else:
+                lo, hi = (float(v) for v in np.percentile(boot, [tail, 100 - tail]))
+                verdict = _verdict(lo, hi)
+            out.append(
+                {
+                    "metric": metric,
+                    **dict(zip(KEY[1:], key, strict=True)),
+                    "value": point_c,
+                    "value_champion": point_h,
+                    "badness_diff": diff,
+                    "diff_ci_low": lo,
+                    "diff_ci_high": hi,
+                    "verdict": verdict,
+                    "level": level,
+                }
+            )
+    if not out:
+        raise ValueError("The candidate and champion share no scopes to compare.")
     return pd.DataFrame(out)
 
 
-def _years(frame: pd.DataFrame) -> list[str]:
-    return sorted(set(frame.loc[frame.period_kind == "year", "period"]))
-
-
 def _verdict(lo: float, hi: float) -> str:
-    if not (np.isfinite(lo) and np.isfinite(hi)):
-        return NO_INTERVAL
     if lo > 0:
         return REGRESSION
     if hi < 0:
@@ -149,10 +176,16 @@ class Check:
 def checks(
     candidate: pd.DataFrame,
     policy: GatePolicy,
-    champion: pd.DataFrame | None,
-    bootstrap_samples: int,
+    comparison: pd.DataFrame | None,
 ) -> list[Check]:
-    """The gate's hard checks, in the order they are reported."""
+    """The gate's hard checks, in the order they are reported.
+
+    Args:
+        candidate: The candidate's scorecard frame.
+        policy: Bounds and gated metrics.
+        comparison: `compare` against the champion, at
+            `policy.regression_level`; None when there is no champion.
+    """
     health = candidate[candidate.scope == "health"].set_index(["variable", "metric"])
     out = []
 
@@ -209,30 +242,23 @@ def checks(
         )
     )
 
-    if champion is not None:
-        cmp = compare(
-            candidate,
-            champion,
-            bootstrap_samples=bootstrap_samples,
-            level=policy.regression_level,
-        )
-        gated = cmp[(cmp.scope == "layer") & cmp.metric.isin(policy.gated_metrics)]
-        reg = gated[gated.verdict == REGRESSION]
-        out.append(
-            Check(
-                "no_regression_vs_champion",
-                reg.empty,
-                f"{len(gated)} gated rows at {policy.regression_level:.0%}; "
-                + (
-                    "none regress"
-                    if reg.empty
-                    else "regressed: "
-                    + ", ".join(
-                        f"{r.metric} {r.variable}/{r.layer}" for r in reg.itertuples()
-                    )
-                ),
+    if comparison is not None:
+        gated = comparison[
+            (comparison.scope == "layer") & comparison.metric.isin(policy.gated_metrics)
+        ]
+        failing = gated[gated.verdict.isin([REGRESSION, "not_finite"])]
+        ok = not gated.empty and failing.empty
+        if gated.empty:
+            detail = (
+                "no gated rows to compare: nothing shows the candidate is not worse"
             )
-        )
+        elif failing.empty:
+            detail = f"{len(gated)} gated rows at {policy.regression_level:.0%}; none regress"
+        else:
+            detail = "regressed or not finite: " + ", ".join(
+                f"{r.metric} {r.variable}/{r.layer}" for r in failing.itertuples()
+            )
+        out.append(Check("no_regression_vs_champion", ok, detail))
     return out
 
 

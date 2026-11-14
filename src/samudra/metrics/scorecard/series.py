@@ -24,6 +24,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
+import fsspec
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -60,12 +61,15 @@ class Series:
         self.health.to_parquet(directory / HEALTH_FILE, index=False)
 
     @classmethod
-    def read(cls, directory: Path) -> Series:
-        return cls(
-            pd.read_parquet(directory / SUMS_FILE),
-            pd.read_parquet(directory / ANOMALY_FILE),
-            pd.read_parquet(directory / HEALTH_FILE),
-        )
+    def read(cls, location: str | Path) -> Series:
+        """Read the tables from a directory, local or any fsspec URL."""
+        base = str(location).rstrip("/")
+
+        def one(name: str) -> pd.DataFrame:
+            with fsspec.open(f"{base}/{name}", "rb") as handle:
+                return pd.read_parquet(handle)
+
+        return cls(one(SUMS_FILE), one(ANOMALY_FILE), one(HEALTH_FILE))
 
 
 def channel_parts(channel: str) -> tuple[str, int]:
@@ -74,6 +78,33 @@ def channel_parts(channel: str) -> tuple[str, int]:
     if base and suffix.isdigit():
         return base, int(suffix)
     return channel, 0
+
+
+def flat_channels(rollout: xr.Dataset, channels: list[str]) -> xr.Dataset:
+    """A rollout as flat channels on (time, lat, lon), whatever layout it was saved in.
+
+    The eval writer (`samudra.utils.writer`) saves depth-stacked variables
+    (``thetao(time, lev, y, x)``) with 2-D lat/lon coordinates; older rollouts
+    hold flat channels (``thetao_0``) on lat/lon dims. Both become the latter,
+    the layout of the canonical truth. 1-D grid coordinates are kept so the
+    grids can still be checked against each other.
+
+    Raises:
+        ValueError: if a channel is in neither form.
+    """
+    out = {}
+    for c in channels:
+        base, level = channel_parts(c)
+        if c in rollout.data_vars:
+            field = rollout[c]
+        elif base in rollout.data_vars and "lev" in rollout[base].dims:
+            field = rollout[base].isel(lev=level, drop=True)
+        else:
+            raise ValueError(f"Rollout has no {c!r}, flat or depth-stacked")
+        out[c] = field.drop_vars([k for k, v in field.coords.items() if v.ndim > 1])
+    flat = xr.Dataset(out, attrs=rollout.attrs)
+    renames = {d: n for d, n in (("y", "lat"), ("x", "lon")) if d in flat.dims}
+    return flat.rename(renames)
 
 
 def cell_area(truth: xr.Dataset) -> xr.DataArray:
@@ -133,8 +164,8 @@ def compute(
     """Reduce a rollout and its truth to the scorecard's tables.
 
     Args:
-        predictions: The rollout, flattened channels (``thetao_0``...), dims
-            (time, lat, lon).
+        predictions: The rollout, in the eval writer's depth-stacked layout or
+            as flat channels (see `flat_channels`).
         truth: The truth on the same grid, covering the rollout's timestamps
             and at least one earlier state (the initial condition).
         climatology: Pentad climatology per channel (`climatology.build`).
@@ -143,10 +174,11 @@ def compute(
     Raises:
         ValueError: on any mismatch of grid, timestamps or channels.
     """
+    predictions = flat_channels(predictions, channels)
     _check_same_grid(predictions, truth)
-    missing = [c for c in channels if c not in predictions or c not in climatology]
+    missing = [c for c in channels if c not in climatology]
     if missing:
-        raise ValueError(f"Channels missing from the rollout or climatology: {missing}")
+        raise ValueError(f"Channels missing from the climatology: {missing}")
     times = predictions["time"]
     known = set(kernels.coerce_datetime_values(truth["time"].values))
     absent = [t for t in kernels.coerce_datetime_values(times.values) if t not in known]

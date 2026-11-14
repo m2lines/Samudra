@@ -47,7 +47,9 @@ def markdown(
     comparison: pd.DataFrame | None,
 ) -> str:
     """A self-explaining summary: what was scored, the gate, and the layer table."""
-    w = frame[(frame.scope == "layer") & (frame.period_kind == "window")]
+    w = frame[
+        (frame.scope == "layer") & frame.period_kind.isin(["window", card.ROLLOUT])
+    ]
     lead = frame[(frame.scope == "layer") & (frame.period_kind == "lead")]
     verdicts: dict[tuple[str, str, str], str] = {}
     if comparison is not None:
@@ -97,10 +99,16 @@ def markdown(
         "meaningful only at short leads. Bias is model minus truth, "
         "volume-weighted. A variance ratio below 1 means the rollout keeps less "
         "deseasonalized variability than the truth."
-        + (" Verdicts compare with the champion, paired by year." if verdicts else ""),
+        + (
+            f" Verdicts compare window values with the champion's, with a paired "
+            f"calendar-year bootstrap at {meta.get('comparison_level', 0.99):.0%}, "
+            "the level the gate uses."
+            if verdicts
+            else ""
+        ),
         "",
         "| Variable | Layer | Skill vs climatology | Skill vs persistence, step 1 "
-        "| Skill vs persistence, to 1 mo | Bias | Anomaly variance ratio"
+        "| Skill vs persistence, steps 2-6 (to 1 mo) | Bias | Anomaly variance ratio (full rollout)"
         + (" | vs champion (skill, bias)" if verdicts else "")
         + " |",
         "|---|---|---|---|---|---|---" + ("|---" if verdicts else "") + "|",
@@ -261,7 +269,9 @@ def _drift(frame: pd.DataFrame, series: Series, path: Path) -> None:
 
 
 def _variance(frame: pd.DataFrame, path: Path) -> None:
-    w = frame[(frame.scope == "channel") & (frame.period_kind == "window")]
+    w = frame[
+        (frame.scope == "channel") & frame.period_kind.isin(["window", card.ROLLOUT])
+    ]
     vars3d = [v for v in VARIABLES if v != "zos" and v in set(w.variable)]
     fig, axes = plt.subplots(
         1, len(vars3d), figsize=(4 * len(vars3d), 5), sharey=True, layout="constrained"

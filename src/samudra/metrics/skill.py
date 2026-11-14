@@ -181,20 +181,46 @@ def skill_score(se_model: np.ndarray | float, se_ref: np.ndarray | float):
     return 1.0 - np.asarray(se_model, dtype=float) / np.asarray(se_ref, dtype=float)
 
 
+def strict_group_sum(frame: pd.DataFrame, level: int) -> pd.DataFrame:
+    """Group sums that stay NaN when any member is not finite.
+
+    pandas skips NaN when summing, which would silently drop a failed step from
+    an error while keeping its weight, flattering the model.
+    """
+    sums = frame.groupby(level=level).sum()
+    bad = frame.apply(lambda col: ~np.isfinite(col)).groupby(level=level).any()
+    return sums.mask(bad)
+
+
+MIN_YEAR_STEP_FRACTION = 0.9
+
+
 def year_blocks(sums: pd.DataFrame, years: list[int]) -> pd.DataFrame:
     """Sum per-timestamp rows into calendar-year blocks, keeping only `years`.
 
     `sums` is indexed by timestamp (anything `kernels.coerce_datetime_values`
-    accepts); all its columns are additive sums.
+    accepts); all its columns are additive sums. A non-finite value anywhere in
+    a year makes that year's sum NaN.
 
     Raises:
-        ValueError: if one of `years` has no rows.
+        ValueError: if one of `years` holds fewer than 90% of the steps a full
+            year has at this cadence. Each year is an equal-weight block, so a
+            partial year would count as much as a full one.
     """
     index = kernels.coerce_datetime_values(np.asarray(sums.index))
-    blocks = sums.groupby(index.year).sum(min_count=1)
-    missing = [y for y in years if y not in blocks.index]
-    if missing:
-        raise ValueError(f"No timestamps in year(s) {missing}")
+    per_year = pd.Series(index.year).value_counts()
+    expected = 365.25 / kernels.median_time_step_days(index)
+    short = {
+        y: int(per_year.get(y, 0))
+        for y in years
+        if per_year.get(y, 0) < MIN_YEAR_STEP_FRACTION * expected
+    }
+    if short:
+        raise ValueError(
+            f"Year(s) with too few steps to be a full block: {short} (a full "
+            f"year has ~{expected:.0f}). Choose complete calendar years."
+        )
+    blocks = strict_group_sum(sums.set_axis(index.year, axis=0), level=0)
     return blocks.loc[years]
 
 

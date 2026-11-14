@@ -183,19 +183,40 @@ def test_misaligned_inputs_fail_loudly(data):
         skill.pentad_climatology(truth["thetao_0"].isel(time=slice(0, 10)))
 
 
+def test_rollout_in_the_eval_writers_layout(data):
+    """The writer saves depth-stacked variables on y/x; they score like flat channels."""
+    truth, clim = data
+    flat = _predictions(truth, lambda c, f: f + 0.1)
+    lat2d = xr.DataArray(np.zeros((NLAT, NLON)), dims=("y", "x"))
+    stacked = xr.Dataset(
+        {
+            base: xr.concat([flat[f"{base}_{i}"] for i in (0, 1)], dim="lev")
+            .transpose("time", "lev", "lat", "lon")
+            .rename({"lat": "y", "lon": "x"})
+            for base in ("thetao", "so")
+        }
+    ).assign_coords(lat=lat2d, lon=lat2d)
+    _, a = _card(flat, truth, clim, samples=0)
+    _, b = _card(stacked, truth, clim, samples=0)
+    pd.testing.assert_series_equal(a.value, b.value)
+
+
 def test_nonfinite_rollout_fails_the_gate_and_poisons_its_error(data):
+    """A failed step makes the error NaN, never quietly smaller."""
     truth, clim = data
 
     def blow_up(c, f):
         f = f.copy()
         if c == "thetao_0":
-            f[100, 2, 3] = np.inf
+            f[100, 2, 3] = np.nan
         return f
 
     tables, frame = _card(_predictions(truth, blow_up), truth, clim, samples=0)
     rows = tables.sums[tables.sums.channel == "thetao_0"]
     assert not np.isfinite(rows.se_model.iloc[100])
-    results = {c.name: c for c in gate.checks(frame, gate.GatePolicy(), None, 0)}
+    assert np.isnan(_value(frame, "rmse", channel="thetao_0"))
+    assert np.isnan(_value(frame, "rmse", layer="upper", variable="thetao"))
+    results = {c.name: c for c in gate.checks(frame, gate.GatePolicy(), None)}
     assert not results["finite"].passed
     assert results["salinity_nonnegative"].passed
 
@@ -205,37 +226,86 @@ def test_sst_runaway_fails_the_gate(data):
     truth, clim = data
     hot = _predictions(truth, lambda c, f: f + (5.0 if c == "thetao_0" else 0.0))
     _, frame = _card(hot, truth, clim, samples=0)
-    results = {c.name: c for c in gate.checks(frame, gate.GatePolicy(), None, 0)}
+    results = {c.name: c for c in gate.checks(frame, gate.GatePolicy(), None)}
     assert not results["sst_max"].passed
     assert results["finite"].passed
 
 
+def _tables(predictions, truth, clim):
+    tables = series.compute(predictions, truth, clim, CHANNELS)
+    return card.year_tables(tables, depth=DEPTH, dz=DZ, years=YEARS)
+
+
 def test_champion_comparison(data):
-    """Identical models never regress; a uniformly worse one does, on every gated row."""
+    """Identical models never differ; a uniformly worse one regresses on every gated row."""
     truth, clim = data
     rng = np.random.default_rng(3)
     noise = rng.normal(size=(truth.sizes["time"] - 2, NLAT, NLON))
-    _, champ = _card(_predictions(truth, lambda c, f: f + 0.05 * noise), truth, clim)
-    cmp = gate.compare(champ, champ, bootstrap_samples=200)
-    assert set(cmp.verdict) <= {gate.INDISTINGUISHABLE, gate.NO_INTERVAL}
+    champ = _tables(_predictions(truth, lambda c, f: f + 0.05 * noise), truth, clim)
+    same = gate.compare(champ, champ, bootstrap_samples=200, level=0.99)
+    assert set(same.verdict) == {gate.INDISTINGUISHABLE}
 
-    _, worse = _card(
-        _predictions(truth, lambda c, f: f + 0.5 * noise + 0.3), truth, clim
-    )
-    results = {c.name: c for c in gate.checks(worse, gate.GatePolicy(), champ, 200)}
+    worse_preds = _predictions(truth, lambda c, f: f + 0.5 * noise + 0.3)
+    worse = _tables(worse_preds, truth, clim)
+    cmp = gate.compare(worse, champ, bootstrap_samples=200, level=0.99)
+    _, frame = _card(worse_preds, truth, clim, samples=0)
+    results = {c.name: c for c in gate.checks(frame, gate.GatePolicy(), cmp)}
     assert not results["no_regression_vs_champion"].passed
 
     with pytest.raises(ValueError, match="same window"):
-        gate.compare(worse, champ[champ.period != "2015"], bootstrap_samples=10)
+        gate.compare(
+            worse,
+            {k: v.iloc[1:] for k, v in champ.items()},
+            bootstrap_samples=10,
+            level=0.9,
+        )
+    with pytest.raises(ValueError, match="bootstrap_samples"):
+        gate.compare(worse, champ, bootstrap_samples=0, level=0.9)
+
+
+def test_comparison_ranks_window_skill_not_mean_of_yearly_skill():
+    """Skill is a ratio of means: a model worse over the window is never an improvement.
+
+    Per-year skill differences would weight quiet years (small reference error)
+    far beyond their share, and here would call the worse model better.
+    """
+    years = pd.Index(YEARS)
+    ref = np.tile([10.0, 1.0], 4)
+    base = {"bias": 0.0, "std_ratio": 1.0, "se_persistence": ref}
+
+    def table(se_model):
+        return {
+            ("layer", "thetao", "upper", ""): pd.DataFrame(
+                {"se_model": se_model, "se_climatology": ref, **base}, index=years
+            )
+        }
+
+    champion = table(0.5 * ref)
+    candidate = table(np.tile([5.5, 0.1], 4))
+    cmp = gate.compare(candidate, champion, bootstrap_samples=2000, level=0.95)
+    row = cmp[cmp.metric == "skill_vs_climatology"].iloc[0]
+    assert row.value < row.value_champion
+    assert row.badness_diff > 0
+    assert row.verdict != gate.IMPROVEMENT
+
+
+def test_partial_years_are_rejected(data):
+    """An equal-weight year block must be a full year."""
+    truth, clim = data
+    short = _predictions(truth, lambda c, f: f).sel(time=slice(None, "2022-06-30"))
+    tables = series.compute(short, truth, clim, CHANNELS)
+    with pytest.raises(ValueError, match="too few steps"):
+        card.build(tables, depth=DEPTH, dz=DZ, years=YEARS, bootstrap_samples=0)
 
 
 def test_scorecard_directory_round_trips(data, tmp_path):
-    """A written scorecard reads back identically, and its schema version is enforced."""
+    """A scorecard reads back identically; mismatched schema or setup is refused."""
     truth, clim = data
     cfg = ScorecardConfig(
         track="test",
         climatology_location=UnresolvedLocation(path="clim.zarr"),
         bootstrap_samples=50,
+        champion=str(tmp_path),
     )
     tables = series.compute(
         _predictions(truth, lambda c, f: f + 0.01), truth, clim, CHANNELS
@@ -248,14 +318,17 @@ def test_scorecard_directory_round_trips(data, tmp_path):
         "window": "2015-2022",
         "truth": "synthetic",
         "first_forecast": "2014-10-20",
+        "n_steps": 597,
+        "climatology_period": "2005 to 2010",
     }
-    scored = run.Scored(
-        frame, meta, gate.checks(frame, run.policy(cfg), None, 50), None
-    )
+    scored = run.Scored(frame, meta, gate.checks(frame, run.policy(cfg), None), None)
     run.write(tmp_path, tables, scored)
-    back, back_meta = run.read_scorecard(str(tmp_path))
+    back, _ = run.read_scorecard(str(tmp_path))
     pd.testing.assert_frame_equal(back, frame)
     assert (tmp_path / "scorecard.md").read_text().startswith("# Scorecard: x")
+
+    with pytest.raises(ValueError, match="first_forecast"):
+        run._require_comparable({**meta, "first_forecast": "2015-01-05"}, meta)
 
     (tmp_path / run.META_FILE).write_text('{"schema_version": 0}')
     with pytest.raises(ValueError, match="schema"):

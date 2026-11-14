@@ -12,7 +12,10 @@ depth layer) and one *period*:
 - ``year``: one calendar year of the window, the blocks the interval and the
   champion comparison resample;
 - ``lead``: a bin of forecast lead from the rollout's start. A single rollout
-  has one sample per lead, so these rows carry no interval.
+  has one sample per lead, so these rows carry no interval;
+- ``rollout``: every step of the rollout, for quantities that are not
+  per-year (the deseasonalized variance) or that must hold throughout (the
+  physical-plausibility rows).
 
 Layer rows combine levels by thickness, so they are volume-weighted: a 1000 m
 level counts 200 times a 5 m one. Layers follow the Samudra 2 paper: upper
@@ -152,8 +155,8 @@ def _combine(sums: pd.DataFrame, weights: dict[str, float]) -> pd.DataFrame:
     scaled = part[SUM_COLUMNS].mul(w, axis=0)
     scaled["std_ratio"] = (part["std_model"] / part["std_truth"]).to_numpy() * w
     scaled["dz"] = w
-    scaled["time"] = part["time"].to_numpy()
-    out = scaled.groupby("time").sum(min_count=1)
+    scaled.index = pd.Index(part["time"].to_numpy(), name="time")
+    out = skill.strict_group_sum(scaled, level=0)
     # The std ratio is a mean over channels, not an additive sum.
     out["std_ratio"] = out["std_ratio"] / out["dz"]
     return out.drop(columns="dz")
@@ -166,7 +169,9 @@ def _year_means(per_time: pd.DataFrame, years: list[int]) -> pd.DataFrame:
     """
     blocks = skill.year_blocks(per_time.drop(columns="std_ratio"), years)
     index = kernels.coerce_datetime_values(np.asarray(per_time.index))
-    ratio = per_time["std_ratio"].groupby(index.year).mean().loc[years]
+    grouped = per_time["std_ratio"].set_axis(index.year).groupby(level=0)
+    not_finite = grouped.apply(lambda v: not np.isfinite(v).all())
+    ratio = grouped.mean().mask(not_finite).loc[years]
     out = pd.DataFrame(index=blocks.index)
     for col in blocks.columns:
         if col.startswith(skill.SE_PREFIX):
@@ -227,6 +232,34 @@ def _row(scope: Scope, metric: str, **fields) -> dict:
     }
 
 
+ScopeKey = tuple[str, str, str, str]
+
+
+def key_of(scope: Scope) -> ScopeKey:
+    """How a scope is identified in the frame: (scope, variable, layer, channel)."""
+    return (scope.scope, scope.variable, scope.layer, scope.channel)
+
+
+def year_tables(
+    series: Series,
+    *,
+    depth: dict[str, float],
+    dz: dict[str, float],
+    years: list[int],
+) -> dict[ScopeKey, pd.DataFrame]:
+    """Per scope, the equal-weight year table every window statistic is computed from.
+
+    Rows are calendar years; columns are mean-square errors (``se_*``), mean
+    bias and mean spatial-spread ratio. A window statistic is a function of the
+    column means (`STATISTICS`), so resampling rows resamples years.
+    """
+    channels = list(dict.fromkeys(series.sums["channel"]))
+    return {
+        key_of(sc): _year_means(_combine(series.sums, sc.weights), years)
+        for sc in scopes(channels, depth, dz)
+    }
+
+
 def build(
     series: Series,
     *,
@@ -243,7 +276,7 @@ def build(
     for scope in scopes(channels, depth, dz):
         per_time = _combine(sums, scope.weights)
         table = _year_means(per_time, years)
-        window = table.mean()
+        window = table.mean(skipna=False)
         for metric, stat in STATISTICS.items():
             lo, hi = _bootstrap(table, stat, bootstrap_samples)
             rows.append(
@@ -270,8 +303,8 @@ def build(
                     )
                 )
             rows.extend(_lead_rows(scope, metric, stat, per_time, first))
-        rows.append(_anomaly_row(scope, series.anomaly_variance, years))
-    rows.extend(_health_rows(series.health, years))
+        rows.append(_anomaly_row(scope, series.anomaly_variance))
+    rows.extend(_health_rows(series.health))
     frame = pd.DataFrame(rows)
     return frame[COLUMNS]
 
@@ -288,7 +321,7 @@ def _lead_rows(scope, metric, stat, per_time, first) -> list[dict]:
         sel = per_time[(step >= lo) & (step <= hi)]
         if sel.empty:
             continue
-        m = sel.drop(columns="std_ratio").sum()
+        m = sel.drop(columns="std_ratio").sum(skipna=False)
         means = pd.Series(
             {
                 **{
@@ -297,7 +330,7 @@ def _lead_rows(scope, metric, stat, per_time, first) -> list[dict]:
                     if k.startswith(skill.SE_PREFIX)
                 },
                 "bias": m["error"] / m["weight"],
-                "std_ratio": sel["std_ratio"].mean(),
+                "std_ratio": sel["std_ratio"].mean(skipna=False),
             }
         )
         rows.append(
@@ -306,7 +339,11 @@ def _lead_rows(scope, metric, stat, per_time, first) -> list[dict]:
     return rows
 
 
-def _anomaly_row(scope: Scope, anomaly: pd.DataFrame, years: list[int]) -> dict:
+ROLLOUT = "rollout"
+
+
+def _anomaly_row(scope: Scope, anomaly: pd.DataFrame) -> dict:
+    """Computed over every step of the rollout, so labelled as such, not the window."""
     part = anomaly.set_index("channel").loc[list(scope.weights)]
     w = pd.Series(scope.weights)
     model = float((part["model"] * w).sum() / w.sum())
@@ -314,19 +351,20 @@ def _anomaly_row(scope: Scope, anomaly: pd.DataFrame, years: list[int]) -> dict:
     return _row(
         scope,
         "anomaly_variance_ratio",
-        period_kind="window",
-        period=f"{years[0]}-{years[-1]}",
+        period_kind=ROLLOUT,
+        period="full rollout",
         value=model / truth,
-        n_years=len(years),
     )
 
 
-def _health_rows(health: pd.DataFrame, years: list[int]) -> list[dict]:
-    """Extremes and non-finite area per variable, over the window, model beside truth."""
-    index = kernels.coerce_datetime_values(health["time"].to_numpy())
-    in_window = np.isin(index.year, years)
+def _health_rows(health: pd.DataFrame) -> list[dict]:
+    """Extremes, unphysical and non-finite area per variable, over every step.
+
+    The whole rollout, not just the scoring window: a failure in its first
+    weeks is still a failure.
+    """
     rows = []
-    for quantity, group in health[in_window].groupby("quantity"):
+    for quantity, group in health.groupby("quantity"):
         var, _, kind = str(quantity).partition("_")
         reduce = {
             "max": "max",
@@ -341,11 +379,10 @@ def _health_rows(health: pd.DataFrame, years: list[int]) -> list[dict]:
         row = _row(
             scope,
             metric,
-            period_kind="window",
-            period=f"{years[0]}-{years[-1]}",
+            period_kind=ROLLOUT,
+            period="full rollout",
             value=model,
             truth_value=truth,
-            n_years=len(years),
         )
         if kind in ("max", "min"):
             row["units"] = UNITS.get(var, "")

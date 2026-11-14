@@ -91,6 +91,29 @@ def read_scorecard(location: str) -> tuple[pd.DataFrame, dict]:
     return frame, meta
 
 
+# What must match for a paired comparison to mean anything.
+COMPARABLE = ("track", "window", "first_forecast", "n_steps", "climatology_period")
+
+
+def _require_comparable(candidate: dict, champion: dict) -> None:
+    """Fail unless the two scorecards scored the same thing the same way.
+
+    A different start date changes persistence skill and every lead row; a
+    different climatology changes skill against climatology; a different
+    window changes the years being paired.
+    """
+    differ = {
+        k: (candidate.get(k), champion.get(k))
+        for k in COMPARABLE
+        if candidate.get(k) != champion.get(k)
+    }
+    if differ:
+        detail = "; ".join(
+            f"{k}: candidate {a!r}, champion {b!r}" for k, (a, b) in differ.items()
+        )
+        raise ValueError(f"The champion was scored differently ({detail}).")
+
+
 def git_hash() -> str:
     try:
         return subprocess.run(
@@ -120,20 +143,30 @@ def score_series(
         years=cfg.year_list,
         bootstrap_samples=cfg.bootstrap_samples,
     )
-    champion = None
     comparison = None
+    gate_policy = policy(cfg)
     if cfg.champion is not None:
-        champion, champ_meta = read_scorecard(cfg.champion)
-        if champ_meta["track"] != cfg.track:
-            raise ValueError(
-                f"The champion is on track {champ_meta['track']!r}, the candidate "
-                f"on {cfg.track!r}. Tracks are never compared."
-            )
-        meta = {**meta, "champion_label": champ_meta["label"], "champion": cfg.champion}
-        comparison = gate.compare(
-            frame, champion, bootstrap_samples=cfg.bootstrap_samples
+        _, champ_meta = read_scorecard(cfg.champion)
+        _require_comparable(meta, champ_meta)
+        meta = {
+            **meta,
+            "champion_label": champ_meta["label"],
+            "champion": cfg.champion,
+            "comparison_level": cfg.regression_level,
+        }
+        tables_by_scope = card.year_tables(
+            tables, depth=depth, dz=dz, years=cfg.year_list
         )
-    checks = gate.checks(frame, policy(cfg), champion, cfg.bootstrap_samples)
+        champ_tables = card.year_tables(
+            series.Series.read(cfg.champion), depth=depth, dz=dz, years=cfg.year_list
+        )
+        comparison = gate.compare(
+            tables_by_scope,
+            champ_tables,
+            bootstrap_samples=cfg.bootstrap_samples,
+            level=gate_policy.regression_level,
+        )
+    checks = gate.checks(frame, gate_policy, comparison)
     meta = {**meta, "passed": gate.passed(checks)}
     return Scored(frame, meta, checks, comparison)
 

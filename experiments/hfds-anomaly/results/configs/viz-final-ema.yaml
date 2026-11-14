@@ -1,0 +1,37 @@
+base_output_dir: /orcd/pool/008/jrusak/om4-hfds-ablation-20261021/viz
+basins_location: {anon: true, bucket: m2lines-pubs, endpoint_url: 'https://nyu1.osn.mghpcc.org',
+  path: Samudra/basins/basin_masks_original.zarr, type: s3}
+data:
+  input_steps: 2
+  loading: {concurrent_compute: true, num_workers: 0, persistent_workers: false, pin_mem: true,
+    type: cpu}
+  output_steps: 2
+  sources:
+  - boundary_vars_key: tau_hfds
+    data_location: OM4.zarr
+    data_means_location: /orcd/pool/008/jrusak/om4-current-structure-20261020/normalization/OM4_means.zarr
+    data_stds_location: /orcd/pool/008/jrusak/om4-current-structure-20261020/normalization/OM4_stds.zarr
+    inference_time: {end: '2022-12-24', start: '2014-10-10'}
+    prognostic_vars_key: thermo_dynamic_all
+    train_time: {end: '2013-09-30', start: '1975-01-03'}
+    type: om4
+    val_time: {end: '2014-10-05', start: '2013-10-05'}
+data_root: /orcd/data/abodner/002/jrusak/om4_onedeg_v3
+dataset_name: OM4
+groundtruth_time_range: {end: '2022-12-24', start: '2014-10-20'}
+name: final-ema
+not_steps: [movies]
+observations:
+  argo_iap_location: {anon: true, bucket: m2lines-pubs, endpoint_url: 'https://nyu1.osn.mghpcc.org',
+    path: Samudra/v2026-07/obs/argo-iap.zarr, type: s3}
+  duacs_location: {anon: true, bucket: m2lines-pubs, endpoint_url: 'https://nyu1.osn.mghpcc.org',
+    path: Samudra/v2026-07/obs/duacs.zarr, type: s3}
+  oisst_location: {anon: true, bucket: m2lines-pubs, endpoint_url: 'https://nyu1.osn.mghpcc.org',
+    path: Samudra/v2026-07/obs/oisst.zarr, type: s3}
+  rmse_end: '2022-12-31'
+  rmse_start: '2015-01-01'
+runs:
+- {location: /orcd/pool/008/jrusak/om4-hfds-ablation-20261021/evaluations/with-final-ema/predictions.zarr,
+  name: with}
+- {location: /orcd/pool/008/jrusak/om4-hfds-ablation-20261021/evaluations/without-final-ema/predictions.zarr,
+  name: without}

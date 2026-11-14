@@ -68,7 +68,7 @@ jobs:
         shell: bash -el {0}
         run: |
           if test -d /tmp/property-mutations; then
-            micromamba list --explicit > /tmp/property-mutations/conda-explicit.txt
+            micromamba env export -n verification --explicit > /tmp/property-mutations/conda-explicit.txt
             cat /tmp/property-mutations/summary.md >> "$GITHUB_STEP_SUMMARY"
           fi
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a

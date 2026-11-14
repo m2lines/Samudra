@@ -19,13 +19,13 @@ sources:
     data_location: OM4.zarr
     data_means_location: OM4_means.zarr
     data_stds_location: OM4_stds.zarr
-# Loader settings match PR #969's run.
+# Rust loader, as in PR #969's run. The Python CPU loader takes ~24 s per batch
+# here, which starves the GPUs below the scheduler's utilization floor. The
+# Rust loader needs hfds_anomalies materialized in the store, so data_root
+# must point at a store staged by stage_rust_store.py.
 loading:
-  concurrent_compute: true
-  type: cpu
-  num_workers: 4
-  persistent_workers: true
-  pin_mem: true
+  type: rust
+  max_concurrent_reads: 8
 inference_loading:
   num_workers: 4
   persistent_workers: true

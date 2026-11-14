@@ -28,7 +28,9 @@ set -euo pipefail
 
 U=/scratch/am16581
 export SCRATCH_DIR=$U SIF_DIR=$U/.apptainer-images OUTPUT_BASE=$U/runs
-export DATA_ROOT=$U/data/v2026-09/om4_onedeg
+# v2026-09 plus a materialized hfds_anomalies for the Rust loader
+# (stage_rust_store.py); all other arrays are symlinks to om4_onedeg.
+export DATA_ROOT=$U/data/v2026-09/om4_onedeg_rust
 export APPTAINER_CACHEDIR=$U/apptainer-cache SINGULARITY_CACHEDIR=$U/singularity-cache
 export NCCL_P2P_DISABLE=1 TORCH_NCCL_ASYNC_ERROR_HANDLING=1 WANDB_MODE=online
 export PATH=/share/apps/apptainer/bin:/opt/slurm/bin:$PATH
@@ -40,7 +42,7 @@ common=(--parsable --account=torch_pr_347_lzanna --nodes=1 --ntasks-per-node=1
   --chdir=$U --kill-on-invalid-dep=yes)
 
 test -e "$CODE_LAYER" && test -e "$SIF_PATH"
-test -e "$DATA_ROOT/OM4_increment_rms_wet.zarr"
+test -e "$DATA_ROOT/OM4_increment_rms_wet.zarr" && test -e "$DATA_ROOT/verification.json"
 test ! -e "$OUTPUT_BASE/$NAME"
 
 SNAP=$OUTPUT_BASE/_experiments/$NAME

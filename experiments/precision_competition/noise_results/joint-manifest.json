@@ -1,0 +1,128 @@
+[
+  {
+    "id": "seed11-bits-6-setting0",
+    "prepared": "/scratch/jr7309/precision-noise-20261109/prepare/seed11-bits-6/prepared.pt",
+    "lr": 0.0003,
+    "batch": 64,
+    "stage": "joint"
+  },
+  {
+    "id": "seed11-bits-6-setting1",
+    "prepared": "/scratch/jr7309/precision-noise-20261109/prepare/seed11-bits-6/prepared.pt",
+    "lr": 0.0001,
+    "batch": 64,
+    "stage": "joint"
+  },
+  {
+    "id": "seed11-bits-6-setting2",
+    "prepared": "/scratch/jr7309/precision-noise-20261109/prepare/seed11-bits-6/prepared.pt",
+    "lr": 3e-05,
+    "batch": 64,
+    "stage": "joint"
+  },
+  {
+    "id": "seed11-bits-6-setting3",
+    "prepared": "/scratch/jr7309/precision-noise-20261109/prepare/seed11-bits-6/prepared.pt",
+    "lr": 1e-05,
+    "batch": 64,
+    "stage": "joint"
+  },
+  {
+    "id": "seed11-bits-6-setting4",
+    "prepared": "/scratch/jr7309/precision-noise-20261109/prepare/seed11-bits-6/prepared.pt",
+    "lr": 0.0003,
+    "batch": 256,
+    "stage": "joint"
+  },
+  {
+    "id": "seed11-bits-6-setting5",
+    "prepared": "/scratch/jr7309/precision-noise-20261109/prepare/seed11-bits-6/prepared.pt",
+    "lr": 0.0003,
+    "batch": 1024,
+    "stage": "joint"
+  },
+  {
+    "id": "seed33-bits-6-setting0",
+    "prepared": "/scratch/jr7309/precision-noise-20261109/prepare/seed33-bits-6/prepared.pt",
+    "lr": 0.0003,
+    "batch": 64,
+    "stage": "joint"
+  },
+  {
+    "id": "seed33-bits-6-setting1",
+    "prepared": "/scratch/jr7309/precision-noise-20261109/prepare/seed33-bits-6/prepared.pt",
+    "lr": 0.0001,
+    "batch": 64,
+    "stage": "joint"
+  },
+  {
+    "id": "seed33-bits-6-setting2",
+    "prepared": "/scratch/jr7309/precision-noise-20261109/prepare/seed33-bits-6/prepared.pt",
+    "lr": 3e-05,
+    "batch": 64,
+    "stage": "joint"
+  },
+  {
+    "id": "seed33-bits-6-setting3",
+    "prepared": "/scratch/jr7309/precision-noise-20261109/prepare/seed33-bits-6/prepared.pt",
+    "lr": 1e-05,
+    "batch": 64,
+    "stage": "joint"
+  },
+  {
+    "id": "seed33-bits-6-setting4",
+    "prepared": "/scratch/jr7309/precision-noise-20261109/prepare/seed33-bits-6/prepared.pt",
+    "lr": 0.0003,
+    "batch": 256,
+    "stage": "joint"
+  },
+  {
+    "id": "seed33-bits-6-setting5",
+    "prepared": "/scratch/jr7309/precision-noise-20261109/prepare/seed33-bits-6/prepared.pt",
+    "lr": 0.0003,
+    "batch": 1024,
+    "stage": "joint"
+  },
+  {
+    "id": "seed22-bits-6-setting0",
+    "prepared": "/scratch/jr7309/precision-noise-20261109/prepare/seed22-bits-6/prepared.pt",
+    "lr": 0.0003,
+    "batch": 64,
+    "stage": "joint"
+  },
+  {
+    "id": "seed22-bits-6-setting1",
+    "prepared": "/scratch/jr7309/precision-noise-20261109/prepare/seed22-bits-6/prepared.pt",
+    "lr": 0.0001,
+    "batch": 64,
+    "stage": "joint"
+  },
+  {
+    "id": "seed22-bits-6-setting2",
+    "prepared": "/scratch/jr7309/precision-noise-20261109/prepare/seed22-bits-6/prepared.pt",
+    "lr": 3e-05,
+    "batch": 64,
+    "stage": "joint"
+  },
+  {
+    "id": "seed22-bits-6-setting3",
+    "prepared": "/scratch/jr7309/precision-noise-20261109/prepare/seed22-bits-6/prepared.pt",
+    "lr": 1e-05,
+    "batch": 64,
+    "stage": "joint"
+  },
+  {
+    "id": "seed22-bits-6-setting4",
+    "prepared": "/scratch/jr7309/precision-noise-20261109/prepare/seed22-bits-6/prepared.pt",
+    "lr": 0.0003,
+    "batch": 256,
+    "stage": "joint"
+  },
+  {
+    "id": "seed22-bits-6-setting5",
+    "prepared": "/scratch/jr7309/precision-noise-20261109/prepare/seed22-bits-6/prepared.pt",
+    "lr": 0.0003,
+    "batch": 1024,
+    "stage": "joint"
+  }
+]

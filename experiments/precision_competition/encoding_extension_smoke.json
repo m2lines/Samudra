@@ -1,0 +1,74 @@
+[
+  {
+    "kind": "cont_shrink_mse",
+    "lr": 0.0001,
+    "seed": 11,
+    "solo_steps": 20,
+    "joint_steps": 5,
+    "warmup": 10,
+    "probes": false,
+    "probe_steps": 256,
+    "id": "smoke-cont_shrink_mse",
+    "smoke": true
+  },
+  {
+    "kind": "cont_shrink_normalized",
+    "lr": 0.0001,
+    "seed": 11,
+    "solo_steps": 20,
+    "joint_steps": 5,
+    "warmup": 10,
+    "probes": false,
+    "probe_steps": 256,
+    "id": "smoke-cont_shrink_normalized",
+    "smoke": true
+  },
+  {
+    "kind": "cont_fixed_mse",
+    "lr": 0.0001,
+    "seed": 11,
+    "solo_steps": 20,
+    "joint_steps": 5,
+    "warmup": 10,
+    "probes": false,
+    "probe_steps": 256,
+    "id": "smoke-cont_fixed_mse",
+    "smoke": true
+  },
+  {
+    "kind": "ar_overlap_scaled",
+    "lr": 0.0001,
+    "seed": 11,
+    "solo_steps": 20,
+    "joint_steps": 5,
+    "warmup": 10,
+    "probes": false,
+    "probe_steps": 256,
+    "id": "smoke-ar_overlap_scaled",
+    "smoke": true
+  },
+  {
+    "kind": "ar_twohot_hard_scaled",
+    "lr": 0.0001,
+    "seed": 11,
+    "solo_steps": 20,
+    "joint_steps": 5,
+    "warmup": 10,
+    "probes": false,
+    "probe_steps": 256,
+    "id": "smoke-ar_twohot_hard_scaled",
+    "smoke": true
+  },
+  {
+    "kind": "ar_twohot_soft_scaled",
+    "lr": 0.0001,
+    "seed": 11,
+    "solo_steps": 20,
+    "joint_steps": 5,
+    "warmup": 10,
+    "probes": false,
+    "probe_steps": 256,
+    "id": "smoke-ar_twohot_soft_scaled",
+    "smoke": true
+  }
+]

@@ -93,14 +93,22 @@ def anomaly_lag1(
     `truth`, clipped to [0, 1] so that damping is monotone and stable. A cell
     with no anomaly variance gets 0 (pure climatology); dry cells stay NaN.
     """
-    anom = truth - climatology_forecast(clim, truth[time_dim], time_dim)
-    now = anom.isel({time_dim: slice(None, -1)}).variable
-    nxt = anom.isel({time_dim: slice(1, None)}).variable
-    num = (now * nxt).sum(time_dim, skipna=False)
-    den = (now * now).sum(time_dim, skipna=False)
-    template = anom.isel({time_dim: 0}, drop=True)
-    phi = template.copy(data=(num / den.where(den > 0)).clip(0.0, 1.0).values)
-    return phi.where(den.values != 0, 0.0)
+    # Plain NumPy on the loaded arrays: the xarray version spends most of its
+    # time aligning coordinates, and this runs once per channel on decades of steps.
+    index = kernels.coerce_datetime_values(truth[time_dim].values)
+    position = {int(p): i for i, p in enumerate(clim["pentad"].values)}
+    rows = np.array([position[int(p)] for p in kernels.pentad_index(index)])
+    cells = [d for d in truth.dims if d != time_dim]
+    values = truth.transpose(time_dim, *cells).values
+    seasonal = clim.transpose("pentad", *cells).values
+    anom = values - seasonal[rows]
+    num = np.einsum("t...,t...->...", anom[:-1], anom[1:], dtype=np.float64)
+    den = np.einsum("t...,t...->...", anom[:-1], anom[:-1], dtype=np.float64)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        phi = np.where(den > 0, np.clip(num / den, 0.0, 1.0), 0.0)
+    phi = np.where(np.isnan(den), np.nan, phi)
+    template = truth.isel({time_dim: 0}, drop=True).transpose(*cells)
+    return template.copy(data=phi.astype(values.dtype))
 
 
 def damped_persistence_forecast(

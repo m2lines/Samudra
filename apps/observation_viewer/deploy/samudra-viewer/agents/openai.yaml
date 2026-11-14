@@ -1,0 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+# SPDX-License-Identifier: CC0-1.0
+interface:
+  display_name: "Samudra Viewer"
+  short_description: "Edit and deploy the Samudra Panel viewer"
+  default_prompt: "Use $samudra-viewer to update the viewer, push the branch, and deploy it to the fomo-bot service."

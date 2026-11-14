@@ -17,7 +17,8 @@ repos:
     hooks:
       - id: check-added-large-files
         args: [--maxkb=250]
-        exclude: ^notebooks/
+        # The standalone viewer's generated dependency lock exceeds 250 KiB.
+        exclude: ^(notebooks/|apps/observation_viewer/uv\.lock$)
       - id: trailing-whitespace
         exclude: ^notebooks/
       - id: check-yaml
@@ -35,7 +36,15 @@ repos:
         entry: uv run --dev mypy
         types_or: [python, pyi]
         args: ["--config", "pyproject.toml"]
-        exclude: ^(notebooks/|data/|tests/reference/)
+        exclude: ^(notebooks/|data/|tests/reference/|apps/observation_viewer/)
+      - id: mypy-observation-viewer
+        name: mypy (observation viewer)
+        language: system
+        require_serial: true
+        entry: uv run --project apps/observation_viewer --group dev mypy
+        types_or: [python, pyi]
+        files: ^apps/observation_viewer/
+        args: ["--config", "pyproject.toml"]
   - repo: https://github.com/tox-dev/pyproject-fmt
     rev: "v2.5.0"
     hooks:

@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 SCORECARD_FILE = "scorecard.parquet"
 META_FILE = "meta.json"
 COMPARISON_FILE = "comparison.parquet"
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 @dataclass(frozen=True)

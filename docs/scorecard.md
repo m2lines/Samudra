@@ -11,7 +11,13 @@ than the best model we had before? Every error is reported as *skill* against a 
 truth:
 
 - **persistence**, which holds the rollout's initial state fixed and is hard to beat at short leads;
-- **climatology**, the pentad-of-year mean over the training years, which is hard to beat at long leads.
+- **climatology**, the pentad-of-year mean over the training years, which is hard to beat at long leads;
+- **damped persistence**, the initial anomaly from climatology decaying at each cell's own rate:
+  `clim(t) + φᵏ · (x₀ − clim(t₀))` at lead k. Here φ is the lag-1 autocorrelation of anomalies over the training
+  years, clipped to [0, 1]. It equals persistence at φ = 1 and climatology at φ = 0, and it is the best forecast of
+  its kind, so it is the strongest of the three bars at intermediate leads. It is the stable member of the linear
+  baselines studied in #980. Richer linear predictors (the `lpc` ladder) beat it at one step, but blow up when
+  rolled out for years. They will join as a one-step reference in the hindcast mode (phase 2 of #986).
 
 Skill is 1 − MSE_model / MSE_reference: 1 is perfect, 0 is no better than the reference, and negative is worse. The
 scorecard also checks that the rollout stays physical, and compares every row with the *champion* (the best-known model on
@@ -20,7 +26,8 @@ issue #986.
 
 ## Running it
 
-Build a track's climatology once, from its training split:
+Build a track's reference statistics once, from its training split. The store holds, per channel `c`, the pentad
+climatology `c` and the lag-1 coefficient `lag1_c`:
 
 ```bash
 python -m samudra.metrics.scorecard.climatology samudra_om4_v2/eval.yaml \

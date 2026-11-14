@@ -12,6 +12,13 @@ scorecard always asks how a model's error compares with the error of a
 - **persistence**: the initial state, held fixed. Hard to beat at short leads.
 - **climatology**: the pentad-of-year mean over the training years. Hard to
   beat at long leads, where the initial state is forgotten.
+- **damped persistence**: the initial anomaly from climatology, decaying at
+  each cell's own rate, ``clim(t) + phi**k * (x0 - clim(t0))`` at lead k. It
+  is the best forecast of its kind (a first-order autoregression of anomalies,
+  fit on the training years). It tends to persistence at short leads and to
+  climatology at long ones, so it is at least as hard to beat as either. It is
+  the stable member of the linear baselines in #980: richer linear
+  predictors beat it at one step but blow up when rolled out.
 
 The skill score is ``1 - MSE_model / MSE_reference``: 1 is perfect, 0 is no
 better than the reference, and negative is worse.
@@ -74,6 +81,46 @@ def climatology_forecast(
     index = kernels.coerce_datetime_values(times.values)
     pentads = xr.DataArray(kernels.pentad_index(index), dims=time_dim)
     out = clim.sel(pentad=pentads).drop_vars("pentad")
+    return out.assign_coords({time_dim: times.values})
+
+
+def anomaly_lag1(
+    truth: xr.DataArray, clim: xr.DataArray, time_dim: str = "time"
+) -> xr.DataArray:
+    """Per cell, the least-squares lag-1 coefficient of anomalies from `clim`.
+
+    ``phi = sum(a[t] a[t+1]) / sum(a[t]**2)`` over consecutive steps of
+    `truth`, clipped to [0, 1] so that damping is monotone and stable. A cell
+    with no anomaly variance gets 0 (pure climatology); dry cells stay NaN.
+    """
+    anom = truth - climatology_forecast(clim, truth[time_dim], time_dim)
+    now = anom.isel({time_dim: slice(None, -1)}).variable
+    nxt = anom.isel({time_dim: slice(1, None)}).variable
+    num = (now * nxt).sum(time_dim, skipna=False)
+    den = (now * now).sum(time_dim, skipna=False)
+    template = anom.isel({time_dim: 0}, drop=True)
+    phi = template.copy(data=(num / den.where(den > 0)).clip(0.0, 1.0).values)
+    return phi.where(den.values != 0, 0.0)
+
+
+def damped_persistence_forecast(
+    clim: xr.DataArray,
+    phi: xr.DataArray,
+    initial: xr.DataArray,
+    times: xr.DataArray,
+    time_dim: str = "time",
+) -> xr.DataArray:
+    """``clim(t_k) + phi**k * (initial - clim(t_0))`` at the k-th of `times`.
+
+    `initial` is the state at t_0 (it carries its own scalar `time`), and
+    `times` are the consecutive steps after it, so the k-th has lead k.
+    """
+    t0 = xr.DataArray(np.atleast_1d(initial[time_dim].values), dims=time_dim)
+    anomaly0 = initial.drop_vars(time_dim) - climatology_forecast(clim, t0).isel(
+        {time_dim: 0}, drop=True
+    )
+    lead = xr.DataArray(np.arange(1, times.sizes[time_dim] + 1), dims=time_dim)
+    out = climatology_forecast(clim, times, time_dim) + phi**lead * anomaly0
     return out.assign_coords({time_dim: times.values})
 
 

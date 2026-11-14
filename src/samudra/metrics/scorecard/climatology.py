@@ -2,12 +2,14 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-r"""Build a track's pentad climatology once, from the training split of its data.
+r"""Build a track's reference statistics once, from the training split of its data.
 
     python -m samudra.metrics.scorecard.climatology samudra_om4_v2/eval.yaml \\
         --scorecard.track=om4-v2026-09-onedeg \\
         --scorecard.climatology_location=/scratch/.../climatology.zarr
 
+The store holds, per channel ``c``, the pentad climatology (``c``) and the
+lag-1 coefficient of anomalies from it (``lag1_c``, for damped persistence).
 The climatology is both a reference forecast and the seasonal cycle removed
 before variance is compared, so every model on a track must use the same one.
 It is written to a new local Zarr (v2) store and never overwrites; publishing
@@ -23,6 +25,7 @@ import xarray as xr
 
 from samudra.config import EvalConfig
 from samudra.metrics import skill
+from samudra.metrics.scorecard.series import LAG1_PREFIX
 from samudra.utils.location import LocalLocation
 from samudra.utils.logging import handle_logging, handle_warnings
 
@@ -37,8 +40,8 @@ def attrs(train: xr.Dataset) -> dict:
     }
 
 
-def channel(train: xr.Dataset, name: str) -> xr.DataArray:
-    """One channel's pentad climatology, computed in memory.
+def channel(train: xr.Dataset, name: str) -> xr.Dataset:
+    """One channel's pentad climatology and lag-1 anomaly coefficient, in memory.
 
     Loading the channel whole and reducing it with NumPy is far faster than a
     lazy graph of one task per time step. `compute`, not `load`, so the
@@ -46,12 +49,17 @@ def channel(train: xr.Dataset, name: str) -> xr.DataArray:
     """
     field = train[name]
     drop = [c for c in field.coords if c != "time"]
-    return skill.pentad_climatology(field.drop_vars(drop).compute()).astype("float32")
+    field = field.drop_vars(drop).compute()
+    clim = skill.pentad_climatology(field)
+    phi = skill.anomaly_lag1(field, clim)
+    return xr.Dataset(
+        {name: clim.astype("float32"), LAG1_PREFIX + name: phi.astype("float32")}
+    )
 
 
 def build(train: xr.Dataset, channels: list[str]) -> xr.Dataset:
-    """Pentad climatology of each channel over all of `train`'s timestamps."""
-    out = xr.Dataset({c: channel(train, c) for c in channels})
+    """Reference statistics of each channel over all of `train`'s timestamps."""
+    out = xr.merge([channel(train, c) for c in channels])
     out.attrs.update(attrs(train))
     return out
 
@@ -65,7 +73,7 @@ def write(train: xr.Dataset, channels: list[str], path: Path) -> None:
     """
     meta = attrs(train)
     for i, name in enumerate(channels):
-        part = xr.Dataset({name: channel(train, name)}, attrs=meta)
+        part = channel(train, name).assign_attrs(meta)
         part.to_zarr(path, mode="w-" if i == 0 else "a")
         logger.info("climatology: %s done", name)
 

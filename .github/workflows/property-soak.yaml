@@ -8,8 +8,6 @@ on:
   schedule:
     - cron: "37 9 * * *"
   workflow_dispatch:
-  push:  # TEMPORARY: one pre-merge soak run; revert before merging.
-    branches: [test/property-verification]
 
 permissions:
   contents: read

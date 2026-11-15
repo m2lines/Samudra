@@ -29,16 +29,17 @@ TAU = np.array([0.05, 0.3, 8e-4])  # physical RMS change over wet cells
 SIGMA = np.array([0.13, 11.6, 0.5])  # state normalization stds
 
 
-def residual_model(n: int) -> BaseModel:
+def residual_model(n: int, output_steps: int = 1) -> BaseModel:
     return BaseModel(
         in_channels=2 * n,
-        out_channels=n,
+        out_channels=output_steps * n,
         input_steps=2,
         pred_residuals=True,
         last_kernel_size=3,
         pad="circular",
         gradient_detach_interval=0,
         scale_residuals=True,
+        residual_anchor="chained" if output_steps > 1 else "same_slot",
     )
 
 
@@ -91,6 +92,58 @@ def test_matches_yuans_normalized_delta_objective(tmp_path):
     torch.testing.assert_close(d_ours.grad, d_ref.grad, rtol=1e-5, atol=1e-9)
 
 
+def test_chained_two_heads_match_yuans_two_head_objective(tmp_path):
+    """2-in/2-out: z1 = x[t] + q d1, z2 = z1 + q d2, gradients through z1."""
+    xr.Dataset({c: xr.DataArray(t) for c, t in zip(CHANNELS, TAU)}).to_zarr(
+        tmp_path / "tau.zarr"
+    )
+    n = len(CHANNELS)
+    loss_fn = build_loss_fn(
+        NormalizedDeltaLossConfig(
+            increment_rms_location=UnresolvedLocation(path="tau.zarr")
+        ),
+        device=torch.device("cpu"),
+        num_channels=n,
+        pad_mode="circular",
+        data_root=LocalLocation(path=tmp_path),
+        channels=CHANNELS,
+        state_stds=SIGMA,
+    )
+    q = torch.tensor(TAU / SIGMA, dtype=torch.float32)
+    model = residual_model(n, output_steps=2)
+    model.set_residual_scale(q)
+
+    g = torch.Generator().manual_seed(1)
+    wet = torch.rand(n, H, W, generator=g) > 0.3
+    wet2 = torch.cat((wet, wet))
+    prev, anchor = (torch.randn(B, n, H, W, generator=g) * wet for _ in range(2))
+    label = torch.randn(B, 2 * n, H, W, generator=g) * wet2
+    raw = torch.randn(B, 2 * n, H, W, generator=g)
+
+    lat, lon = torch.linspace(-80, 80, H), torch.linspace(0, 359, W)
+    d_ours = raw.clone().requires_grad_()
+    pred = model._assemble_prediction(
+        torch.cat((prev, anchor), dim=1), torch.where(wet2, d_ours, 0.0)
+    )
+    ours = loss_fn(pred, label, BatchGrid(wet2, (lat, lon), (lat, lon)))
+    ours.sum().backward()
+
+    # Her NormalizedDeltaTarget.normalized_targets, without detaching z1.
+    d_ref = raw.clone().requires_grad_()
+    qv = q.view(1, -1, 1, 1)
+    z1 = torch.where(wet, anchor + qv * d_ref[:, :n], 0.0)
+    target = torch.where(
+        wet2,
+        torch.cat(((label[:, :n] - anchor) / qv, (label[:, n:] - z1) / qv), dim=1),
+        0.0,
+    )
+    ref = F.mse_loss(d_ref * wet2, target * wet2, reduction="none").mean(dim=(0, 2, 3))
+    ref.sum().backward()
+
+    torch.testing.assert_close(ours, ref, rtol=1e-5, atol=1e-7)
+    torch.testing.assert_close(d_ours.grad, d_ref.grad, rtol=1e-4, atol=1e-8)
+
+
 def test_residual_scale_restores_from_checkpoint_and_is_nan_until_set():
     q = torch.tensor([0.4, 0.02, 0.001])
     trained = residual_model(3)
@@ -126,9 +179,14 @@ def test_persistence_rms_over_wet_cells_ignores_land():
     [("mock-om4", "train_default_2step.yaml")],
     indirect=True,
 )
-def test_trainer_fills_residual_scale_and_trains_2in1out(train_config, tmp_path):
+@pytest.mark.parametrize(
+    "output_steps,anchor", [(1, "same_slot"), (2, "chained")], ids=["2to1", "2to2"]
+)
+def test_trainer_fills_residual_scale_and_trains(
+    train_config, tmp_path, output_steps, anchor
+):
     train_config.data.input_steps = 2
-    train_config.data.output_steps = 1
+    train_config.data.output_steps = output_steps
     train_config.data.loading.num_workers = 0
     with MultitonScope():
         probe = Trainer(train_config)
@@ -136,6 +194,7 @@ def test_trainer_fills_residual_scale_and_trains_2in1out(train_config, tmp_path)
         stds = probe.primary_source.statistics(channels).std
     train_config.model.pred_residuals = True
     train_config.model.scale_residuals = True
+    train_config.model.residual_anchor = anchor
     tau = np.linspace(0.01, 0.1, len(channels))
     xr.Dataset({c: xr.DataArray(t) for c, t in zip(channels, tau)}).to_zarr(
         tmp_path / "tau.zarr"
@@ -148,7 +207,7 @@ def test_trainer_fills_residual_scale_and_trains_2in1out(train_config, tmp_path)
         trainer = Trainer(train_config)
         torch.testing.assert_close(
             trainer.model.residual_scale,
-            torch.tensor(tau / stds, dtype=torch.float32),
+            torch.tensor(tau / stds, dtype=torch.float32).repeat(output_steps),
         )
         trainer.init_data_loaders(cur_step=train_config.steps[0])
         logs = trainer.train_one_epoch(epoch=1)

@@ -1017,10 +1017,24 @@ class BaseModelConfig(BaseConfig, abc.ABC):
         ),
     )
 
+    residual_anchor: Literal["same_slot", "chained"] = Field(
+        default="same_slot",
+        description=(
+            "How residual outputs are anchored when the model emits several "
+            "steps per call. 'same_slot' adds output step k to input step k "
+            "(the legacy 2-in/2-out assembly). 'chained' makes each output an "
+            "increment on the previous one, starting from the newest input: "
+            "z1 = x[t] + d1, z2 = z1 + d2 (Yuan's two-head normalized_delta). "
+            "Identical for one output step. Requires pred_residuals."
+        ),
+    )
+
     @pydantic.model_validator(mode="after")
     def validate_scale_residuals(self) -> Self:
         if self.scale_residuals and not self.pred_residuals:
             raise ValueError("scale_residuals requires pred_residuals")
+        if self.residual_anchor == "chained" and not self.pred_residuals:
+            raise ValueError("residual_anchor='chained' requires pred_residuals")
         return self
 
     last_kernel_size: int = 3
@@ -1091,6 +1105,7 @@ class SamudraConfig(BaseModelConfig):
             out_channels=out_channels,
             pred_residuals=self.pred_residuals,
             scale_residuals=self.scale_residuals,
+            residual_anchor=self.residual_anchor,
             last_kernel_size=self.last_kernel_size,
             pad=self.pad,
             unet=self.unet.build(
@@ -1180,6 +1195,7 @@ class SamudraMultiConfig(BaseModelConfig):
             out_channels=out_channels,
             pred_residuals=self.pred_residuals,
             scale_residuals=self.scale_residuals,
+            residual_anchor=self.residual_anchor,
             last_kernel_size=self.last_kernel_size,
             pad=self.pad,
             encoder=encoder,
@@ -1256,6 +1272,7 @@ class SamudraMiniConfig(BaseModelConfig):
             out_channels=out_channels,
             pred_residuals=self.pred_residuals,
             scale_residuals=self.scale_residuals,
+            residual_anchor=self.residual_anchor,
             last_kernel_size=self.last_kernel_size,
             pad=self.pad,
             input_embedding_dim=self.embedding_dim,

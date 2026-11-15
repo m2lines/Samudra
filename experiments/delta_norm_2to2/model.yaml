@@ -1,0 +1,28 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Yuan's normalized_delta backbone: the 1° Samudra U-Net with BatchNorm, fp32.
+# Two chained heads, as in her run: z1 = x[t] + q * d1, z2 = z1 + q * d2.
+checkpointing: all
+pred_residuals: true
+scale_residuals: true
+residual_anchor: chained
+last_kernel_size: 3
+pad: "circular"
+use_bfloat16: false
+
+unet:
+  ch_width: [280, 380, 480, 520]
+  dilation: [1, 2, 4, 8]
+  n_layers: [1, 1, 1, 1]
+
+  core_block:
+    block_type: "conv_next_block"
+    kernel_size: 3
+    activation: "capped_gelu"
+    upscale_factor: 2
+    norm: "batch"
+
+  down_sampling_block: "avg_pool"
+  up_sampling_block: "zonally_periodic_upsample"

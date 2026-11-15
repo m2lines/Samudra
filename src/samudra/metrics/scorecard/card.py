@@ -63,6 +63,7 @@ BETTER = {
     "rmse": LOWER,
     "skill_vs_persistence": HIGHER,
     "skill_vs_climatology": HIGHER,
+    "skill_vs_damped_persistence": HIGHER,
     "bias": CLOSER_TO_0,
     "spatial_std_ratio": CLOSER_TO_1,
     "anomaly_variance_ratio": CLOSER_TO_1,
@@ -186,6 +187,9 @@ STATISTICS: dict[str, Callable[[pd.Series], float]] = {
     "rmse": lambda m: float(np.sqrt(m["se_model"])),
     "skill_vs_persistence": lambda m: float(
         skill.skill_score(m["se_model"], m["se_persistence"])
+    ),
+    "skill_vs_damped_persistence": lambda m: float(
+        skill.skill_score(m["se_model"], m["se_damped_persistence"])
     ),
     "skill_vs_climatology": lambda m: float(
         skill.skill_score(m["se_model"], m["se_climatology"])

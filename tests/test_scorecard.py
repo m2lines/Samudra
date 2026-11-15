@@ -58,7 +58,7 @@ def _truth_and_clim(seed: int = 0):
     train = xr.Dataset({c: _field(train_t, rng, offsets[c], land) for c in CHANNELS})
     truth = xr.Dataset({c: _field(test_t, rng, offsets[c], land) for c in CHANNELS})
     truth = truth.assign_coords(areacello=area)
-    clim = xr.Dataset({c: skill.pentad_climatology(train[c]) for c in CHANNELS})
+    clim = climatology.build(train, CHANNELS)
     return truth, clim
 
 
@@ -121,6 +121,47 @@ def test_skill_fixed_points(data):
         frame, "skill_vs_persistence", layer="upper", variable="so"
     ) == pytest.approx(0.0, abs=1e-12)
 
+    as_damped = _predictions(
+        truth,
+        lambda c, f: skill.damped_persistence_forecast(
+            clim[c], clim[series.LAG1_PREFIX + c], t0[c], f["time"]
+        ).where(np.isfinite(f)),
+    )
+    _, frame = _card(as_damped, truth, clim)
+    assert _value(
+        frame, "skill_vs_damped_persistence", channel="thetao_0"
+    ) == pytest.approx(0.0, abs=1e-12)
+
+
+def test_damped_persistence_spans_persistence_and_climatology():
+    """phi = 1 is persistence, phi = 0 is climatology, and phi is fit as the AR(1) rate."""
+    times = _times("2001-01-01", "2004-12-31")
+    clim = skill.pentad_climatology(
+        xr.DataArray(
+            np.sin(np.arange(len(times)) / 9.0)[:, None, None] * np.ones((1, 2, 3)),
+            dims=("time", "lat", "lon"),
+            coords={"time": times},
+        )
+    )
+    rate = 0.8
+    # Anomalies that decay geometrically: the least-squares lag-1 rate is exact.
+    anomaly = rate ** np.arange(len(times))[:, None, None] * np.ones((1, 2, 3))
+    truth = skill.climatology_forecast(clim, xr.DataArray(times, dims="time"))
+    truth = truth + anomaly
+    np.testing.assert_allclose(skill.anomaly_lag1(truth, clim), rate)
+
+    initial, later = truth.isel(time=0), truth["time"][1:]
+    clim_now = skill.climatology_forecast(clim, later)
+    clim_then = skill.climatology_forecast(clim, truth["time"][:1]).isel(time=0)
+    held = clim_now + (initial.drop_vars("time") - clim_then.drop_vars("time"))
+
+    def damped(phi):
+        coefficient = xr.full_like(clim.isel(pentad=0, drop=True), phi)
+        return skill.damped_persistence_forecast(clim, coefficient, initial, later)
+
+    np.testing.assert_allclose(damped(1.0), held, atol=1e-12)
+    np.testing.assert_allclose(damped(0.0), clim_now, atol=1e-12)
+
 
 @settings(deadline=None, max_examples=10)
 @given(scale=st.floats(0.01, 100.0), shift=st.floats(-50.0, 50.0))
@@ -134,13 +175,19 @@ def test_skill_does_not_depend_on_units(data, scale, shift):
     def convert(ds):
         return ds.map(lambda v: v * scale + shift)
 
+    # The lag-1 coefficients are a ratio of anomaly moments, so they have no units.
+    means = [c for c in clim.data_vars if not c.startswith(series.LAG1_PREFIX)]
     _, moved = _card(
         convert(noisy),
         convert(truth).assign_coords(areacello=truth.areacello),
-        convert(clim),
+        clim.assign(convert(clim[means])),
         0,
     )
-    for metric in ("skill_vs_climatology", "skill_vs_persistence"):
+    for metric in (
+        "skill_vs_climatology",
+        "skill_vs_persistence",
+        "skill_vs_damped_persistence",
+    ):
         assert _value(moved, metric, channel="thetao_0") == pytest.approx(
             _value(base, metric, channel="thetao_0"), rel=1e-6, abs=1e-9
         )
@@ -291,7 +338,12 @@ def test_comparison_ranks_window_skill_not_mean_of_yearly_skill():
     """
     years = pd.Index(YEARS)
     ref = np.tile([10.0, 1.0], 4)
-    base = {"bias": 0.0, "std_ratio": 1.0, "se_persistence": ref}
+    base = {
+        "bias": 0.0,
+        "std_ratio": 1.0,
+        "se_persistence": ref,
+        "se_damped_persistence": ref,
+    }
 
     def table(se_model):
         return {

@@ -107,17 +107,19 @@ def markdown(
             else ""
         ),
         "",
-        "| Variable | Layer | Skill vs climatology | Skill vs persistence, step 1 "
+        "| Variable | Layer | Skill vs climatology | Skill vs damped persistence "
+        "| Skill vs persistence, step 1 "
         "| Skill vs persistence, steps 2-6 (to 1 mo) | Bias | Anomaly variance ratio (full rollout)"
         + (" | vs champion (skill, bias)" if verdicts else "")
         + " |",
-        "|---|---|---|---|---|---|---" + ("|---" if verdicts else "") + "|",
+        "|---|---|---|---|---|---|---|---" + ("|---" if verdicts else "") + "|",
     ]
     for var in VARIABLES:
         for layer in LAYER_ORDER:
             sk = get(w, "skill_vs_climatology", var, layer)
             if sk is None:
                 continue
+            dp = get(w, "skill_vs_damped_persistence", var, layer)
             b = get(w, "bias", var, layer)
             av = get(w, "anomaly_variance_ratio", var, layer)
             p1 = get(lead, "skill_vs_persistence", var, layer, card.LEAD_BINS[0][0])
@@ -126,6 +128,7 @@ def markdown(
                 f"`{var}`",
                 layer,
                 _fmt(sk.value, (sk.ci_low, sk.ci_high)),
+                _fmt(dp.value, (dp.ci_low, dp.ci_high)),
                 _fmt(p1.value) if p1 is not None else "-",
                 _fmt(pm.value) if pm is not None else "-",
                 _fmt(b.value, (b.ci_low, b.ci_high), 4) + f" {b.units}",
@@ -141,7 +144,8 @@ def markdown(
         "",
         "## Figures",
         "",
-        "- `skill-vs-climatology.png`, `skill-vs-persistence.png`: skill by depth "
+        "- `skill-vs-climatology.png`, `skill-vs-damped-persistence.png`, "
+        "`skill-vs-persistence.png`: skill by depth "
         "level (rows) and lead bin or calendar year (columns). Red is better than "
         "the reference, blue worse.",
         "- `drift.png`: volume-mean temperature and salinity bias by layer and "
@@ -349,6 +353,9 @@ def figures(
     paths = {
         "skill-vs-climatology.png": lambda p: _heatmap(
             frame, "skill_vs_climatology", p
+        ),
+        "skill-vs-damped-persistence.png": lambda p: _heatmap(
+            frame, "skill_vs_damped_persistence", p
         ),
         "skill-vs-persistence.png": lambda p: _heatmap(
             frame, "skill_vs_persistence", p

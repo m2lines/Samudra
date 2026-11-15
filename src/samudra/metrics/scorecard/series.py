@@ -34,7 +34,10 @@ from samudra.metrics import kernels, skill
 logger = logging.getLogger(__name__)
 
 SPATIAL_DIMS = skill.SPATIAL_DIMS
-REFERENCES = ("persistence", "climatology")
+REFERENCES = ("persistence", "climatology", "damped_persistence")
+
+# In a climatology store, the lag-1 anomaly coefficient of channel c is `lag1_<c>`.
+LAG1_PREFIX = "lag1_"
 
 # Values below these are not seawater: potential temperature below the freezing
 # point of the saltiest water (about -2.2 degC at 40 psu, with a margin), and
@@ -168,7 +171,8 @@ def compute(
             as flat channels (see `flat_channels`).
         truth: The truth on the same grid, covering the rollout's timestamps
             and at least one earlier state (the initial condition).
-        climatology: Pentad climatology per channel (`climatology.build`).
+        climatology: Pentad climatology and lag-1 anomaly coefficient per
+            channel (`climatology.build`).
         channels: The prognostic channels to score.
 
     Raises:
@@ -176,9 +180,17 @@ def compute(
     """
     predictions = flat_channels(predictions, channels)
     _check_same_grid(predictions, truth)
-    missing = [c for c in channels if c not in climatology]
+    missing = [
+        name
+        for c in channels
+        for name in (c, LAG1_PREFIX + c)
+        if name not in climatology
+    ]
     if missing:
-        raise ValueError(f"Channels missing from the climatology: {missing}")
+        raise ValueError(
+            f"Missing from the climatology store: {missing}. A store built "
+            "before damped persistence has no lag1_* variables; rebuild it."
+        )
     times = predictions["time"]
     known = set(kernels.coerce_datetime_values(truth["time"].values))
     absent = [t for t in kernels.coerce_datetime_values(times.values) if t not in known]
@@ -203,8 +215,9 @@ def compute(
         f = _bare(predictions[c]).compute()
         t = _bare(truth[c]).compute()
         clim = _bare(climatology[c]).compute()
+        phi = _bare(climatology[LAG1_PREFIX + c]).compute()
         floor = PHYSICAL_FLOORS.get(channel_parts(c)[0], -np.inf)
-        ds = _reduce(f, t, clim, _bare(t0[c]).compute(), area, floor)
+        ds = _reduce(f, t, clim, phi, _bare(t0[c]).compute(), area, floor)
         frame = ds.drop_vars(["anomvar_model", "anomvar_truth"]).to_dataframe()
         sums.append(frame.reset_index().assign(channel=c))
         anomaly.append(
@@ -226,6 +239,7 @@ def _reduce(
     f: xr.DataArray,
     t: xr.DataArray,
     clim: xr.DataArray,
+    phi: xr.DataArray,
     t0: xr.DataArray,
     area: xr.DataArray,
     floor: float,
@@ -235,6 +249,7 @@ def _reduce(
     refs = {
         "persistence": t0.expand_dims(time=times.values),
         "climatology": skill.climatology_forecast(clim, times),
+        "damped_persistence": skill.damped_persistence_forecast(clim, phi, t0, times),
     }
     wet = cast(xr.DataArray, np.isfinite(t.isel(time=0, drop=True)))
     ds = skill.time_sums(f, t, refs, area)

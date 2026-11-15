@@ -19,12 +19,13 @@ from numcodecs import blosc  # type: ignore[import-untyped]
 from torch.nn.parallel import DistributedDataParallel
 
 from .batching import device_batches
+from .branching import load_branch, scheduled_learning_rate
 from .channel_vocabulary import ChannelVocabulary
 from .comparison_eval import evaluate_comparison
 from .coverage import sample_coverage
 from .ema import ema_weights, restore_ema
 from .model import ModelConfig, PointTransformer
-from .multitask import ComparisonSource, learning_rate_factor
+from .multitask import ComparisonSource
 from .optimization import accumulate_gradients, set_synchronized_learning_rate
 from .replicas import verify_replicas
 from .run import FrameStream, emit, save_atomic
@@ -105,6 +106,7 @@ def train_inner(config, output, source, device, rank, world, monitor):
     step, stream_state, state = 0, None, None
     best = {"raw": math.inf, "ema": math.inf}
     latest = output / "latest.pt"
+    branching = not latest.exists() and "branch_checkpoint" in config
     if latest.exists():
         if not (
             int(os.environ.get("SLURM_RESTART_COUNT", "0"))
@@ -114,9 +116,14 @@ def train_inner(config, output, source, device, rank, world, monitor):
         state = torch.load(latest, map_location="cpu", mmap=True, weights_only=False)
         if state["config"] != config or state["source"] != source.receipt():
             raise ValueError("Configuration or data provenance changed on resume")
+    elif branching:
+        state = load_branch(config, source.receipt())
+    if state is not None:
         model.load_state_dict(state["model"])
         optimizer.load_state_dict(state["optimizer"])
-        step, best = state["step"], state["best"]
+        step = state["step"]
+        if not branching:
+            best = state["best"]
         saved = state["rank_states"][rank]
         rng.bit_generator.state = saved["rng"]
         torch.set_rng_state(saved["torch_rng"])
@@ -148,6 +155,8 @@ def train_inner(config, output, source, device, rank, world, monitor):
         job=os.environ.get("SLURM_JOB_ID"),
         restart=restart,
         resumed_step=step,
+        restored_parameter_sha256=parameter_digest(model),
+        branch_checkpoint=config.get("branch_checkpoint"),
         parameters=sum(p.numel() for p in model.parameters()),
         gpu=torch.cuda.get_device_name(),
         effective_batch=effective_batch,
@@ -296,7 +305,7 @@ def train_inner(config, output, source, device, rank, world, monitor):
         dist.barrier()
 
     try:
-        if step == 0:
+        if step == 0 or branching:
             # Initialization is recorded explicitly rather than extrapolated.
             validate()
             save_checkpoint()
@@ -342,13 +351,8 @@ def train_inner(config, output, source, device, rank, world, monitor):
                     batch["loss_weight"] *= batch["query_field"] == 2
                 return batch
 
-            factor = learning_rate_factor(
-                step,
-                config["warmup"],
-                config.get("schedule_updates", config["max_updates"]),
-            )
             set_synchronized_learning_rate(
-                optimizer, config["learning_rate"] * factor, device
+                optimizer, scheduled_learning_rate(config, step), device
             )
             optimizer.zero_grad(set_to_none=True)
             with device_batches(
@@ -395,6 +399,10 @@ def train_inner(config, output, source, device, rank, world, monitor):
                         seconds=time.monotonic() - begin,
                         elapsed_seconds=time.monotonic() - started,
                         accepted_examples=step * effective_batch,
+                        branch_examples=(
+                            step - config.get("branch_checkpoint", {}).get("step", 0)
+                        )
+                        * effective_batch,
                         utilization=monitor.mean,
                         peak_gpu_gib=torch.cuda.max_memory_allocated() / 2**30,
                     )
@@ -441,6 +449,10 @@ def train_inner(config, output, source, device, rank, world, monitor):
                         step=step,
                         effective_batch=effective_batch,
                         accepted_examples=step * effective_batch,
+                        branch_examples=(
+                            step - config.get("branch_checkpoint", {}).get("step", 0)
+                        )
+                        * effective_batch,
                         ema_updates=int(ema.num_updates),
                         replicas_agree=True,
                         qualification=config["qualification"],

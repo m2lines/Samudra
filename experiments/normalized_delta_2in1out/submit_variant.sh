@@ -7,7 +7,10 @@
 #
 #   CODE_COMMIT=<pushed full sha> CFG=experiments/<variant> NAME=<run name> \
 #     [AFTER=<slurm job id to wait for>] [EXTRA_ARGS="--resume_ckpt_path=..."] \
-#     bash submit_variant.sh
+#     [GPUS=8 ACCUM=1] bash submit_variant.sh
+#
+# GPUS (default 4) x ACCUM (default 2) must stay 8, so the global batch and the
+# per-GPU BatchNorm batch match every other Δ-norm run.
 #
 # Training runs in the preemptible pool (account torch_pr_500_lzanna) on one
 # node with 4 RTX6000 GPUs and 2 gradient-accumulation steps, so the global
@@ -61,12 +64,14 @@ record() { printf '%s\t%s\t%s\n' "$1" "$2" "$3" >> "$JOBS"; echo "$1 $2 $3"; }
 
 dep=()
 [[ -n "${AFTER:-}" ]] && dep=(--dependency="afterok:$AFTER")
-export CONFIG=$CFG_DIR/train.yaml GPUS_PER_NODE=4 REQUEUE_ON_USR1=1
+GPUS=${GPUS:-4} ACCUM=${ACCUM:-2}
+test $((GPUS * ACCUM)) -eq 8
+export CONFIG=$CFG_DIR/train.yaml GPUS_PER_NODE=$GPUS REQUEUE_ON_USR1=1
 export DATA_CACHE_DIR=$U/.data_cache/$NAME
-export ARGS="$W --gradient_accumulation_steps=${ACCUM:-2} ${EXTRA_ARGS:-}"
+export ARGS="$W --gradient_accumulation_steps=$ACCUM ${EXTRA_ARGS:-}"
 pool=(--parsable --account=torch_pr_500_lzanna --nodes=1 --ntasks-per-node=1
-  --chdir=$U --kill-on-invalid-dep=yes --constraint=rtx6000 --gres=gpu:4
-  --cpus-per-task=32 --mem=256G "--comment=preemption=yes;requeue=true")
+  --chdir=$U --kill-on-invalid-dep=yes --constraint=rtx6000 --gres=gpu:$GPUS
+  --cpus-per-task=$((8 * GPUS)) --mem=$((64 * GPUS))G "--comment=preemption=yes;requeue=true")
 train=$(NAME=$NAME sbatch "${pool[@]}" "${dep[@]}" --time=24:00:00 \
   --requeue --signal=B:USR1@300 --job-name="${NAME: -24}" \
   --output="$U/agent-logs/$NAME-train-%j.out" --error="$U/agent-logs/$NAME-train-%j.err" \

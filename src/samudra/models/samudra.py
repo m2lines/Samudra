@@ -2,6 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from typing import Literal
+
 import torch
 import torch.nn as nn
 import torch.utils.checkpoint
@@ -35,6 +37,7 @@ class Samudra(BaseModel):
         gradient_detach_interval: int,
         use_bfloat16: bool,
         scale_residuals: bool = False,
+        residual_anchor: Literal["same_slot", "chained"] = "same_slot",
     ):
         super().__init__(
             in_channels=in_channels,
@@ -42,6 +45,7 @@ class Samudra(BaseModel):
             input_steps=input_steps,
             pred_residuals=pred_residuals,
             scale_residuals=scale_residuals,
+            residual_anchor=residual_anchor,
             last_kernel_size=last_kernel_size,
             pad=pad,
             gradient_detach_interval=gradient_detach_interval,

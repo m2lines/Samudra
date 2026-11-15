@@ -5,6 +5,7 @@
 # TODO: Need to return step-wise losses for logging
 
 import logging
+from typing import Literal
 
 import torch
 
@@ -38,6 +39,7 @@ class BaseModel(torch.nn.Module):
         pad,
         gradient_detach_interval: int,
         scale_residuals: bool = False,
+        residual_anchor: Literal["same_slot", "chained"] = "same_slot",
     ) -> None:
         super().__init__()
         assert last_kernel_size % 2 != 0, "Cannot use even kernel sizes!"
@@ -53,6 +55,11 @@ class BaseModel(torch.nn.Module):
         if scale_residuals and not pred_residuals:
             raise ValueError("scale_residuals requires pred_residuals")
         self.scale_residuals = scale_residuals
+        if residual_anchor not in ("same_slot", "chained"):
+            raise ValueError(f"Unknown residual_anchor {residual_anchor!r}")
+        if residual_anchor == "chained" and not pred_residuals:
+            raise ValueError("residual_anchor='chained' requires pred_residuals")
+        self.residual_anchor = residual_anchor
         if scale_residuals:
             # NaN until set_residual_scale() or a checkpoint fills it, so a
             # model that was never given its scale produces NaN, not garbage.
@@ -83,12 +90,21 @@ class BaseModel(torch.nn.Module):
     ) -> Prognostic:
         if not self.pred_residuals:
             return decoding
+        if self.scale_residuals:
+            decoding = decoding * self.residual_scale.view(1, -1, 1, 1)
+        if self.residual_anchor == "chained":
+            # Each output step is an increment on the one before it, and the
+            # first on the newest input: z1 = x[t] + d1, z2 = z1 + d2, ...
+            # (Yuan's two-head normalized_delta). Gradients flow through the
+            # earlier predicted anchors.
+            n_var = prognostic.shape[1] // self.input_steps
+            batch, _, *grid = decoding.shape
+            steps = decoding.view(batch, -1, n_var, *grid).cumsum(dim=1)
+            return (prognostic[:, -n_var:].unsqueeze(1) + steps).flatten(1, 2)
         # Anchor each predicted timestep to the corresponding most-recent input
         # timestep. For 2-in/1-out this is x[t]; for the legacy 2-in/2-out case
         # this remains the original elementwise, same-slot residual assembly.
         residual_base = prognostic[:, -self.out_channels :]
-        if self.scale_residuals:
-            decoding = decoding * self.residual_scale.view(1, -1, 1, 1)
         return residual_base + decoding
 
     def _advance_prognostic_history(

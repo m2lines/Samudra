@@ -56,6 +56,20 @@ def build(train: xr.Dataset, channels: list[str]) -> xr.Dataset:
     return out
 
 
+def write(train: xr.Dataset, channels: list[str], path: Path) -> None:
+    """Write `build(train, channels)` to a new Zarr v2 store, one channel at a time.
+
+    Memory holds one channel's training record at a time. Every part carries the
+    attributes, because appending to a Zarr store replaces the root attributes
+    with those of the appended part.
+    """
+    meta = attrs(train)
+    for i, name in enumerate(channels):
+        part = xr.Dataset({name: channel(train, name)}, attrs=meta)
+        part.to_zarr(path, mode="w-" if i == 0 else "a")
+        logger.info("climatology: %s done", name)
+
+
 def main() -> None:
     cfg = EvalConfig.from_yaml_and_cli()
     cfg.prepare_output_dirs()
@@ -78,18 +92,8 @@ def main() -> None:
         raise ValueError("The climatology is defined for a single training source.")
     train = bundle.train_sources[0].to_xarray_dataset()
     channels = list(bundle.data_layout.prognostic_var_names)
-    meta = attrs(train)
-    logger.info("Computing climatology over %s", meta["climatology_period"])
-    # Channel by channel, so memory holds one channel's training record at a
-    # time. zarr<3 is pinned, so the store is Zarr v2.
-    for i, name in enumerate(channels):
-        part = xr.Dataset({name: channel(train, name)})
-        if i == 0:
-            part.attrs.update(meta)
-            part.to_zarr(path, mode="w-")
-        else:
-            part.to_zarr(path, mode="a")
-        logger.info("climatology: %s done", name)
+    logger.info("Computing climatology over %s", attrs(train)["climatology_period"])
+    write(train, channels, path)
     logger.info("Wrote %s", path)
 
 

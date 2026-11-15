@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -115,6 +116,18 @@ def _require_comparable(candidate: dict, champion: dict) -> None:
 
 
 def git_hash() -> str:
+    """The commit of the code doing the scoring, recorded in every scorecard.
+
+    ``SAMUDRA_CODE_COMMIT`` takes precedence: the Slurm harnesses set it when
+    the code runs from a copy without ``.git`` (a container code layer, or an
+    rsynced checkout). Otherwise the commit is read from git.
+
+    Raises:
+        RuntimeError: if neither gives a commit. A scorecard without one cannot
+            be traced to the code that produced it, so none is written.
+    """
+    if commit := os.environ.get("SAMUDRA_CODE_COMMIT", "").strip():
+        return commit
     try:
         return subprocess.run(
             ["git", "rev-parse", "HEAD"],
@@ -123,8 +136,11 @@ def git_hash() -> str:
             check=True,
             cwd=Path(__file__).parent,
         ).stdout.strip()
-    except (OSError, subprocess.CalledProcessError):
-        return "unknown"
+    except (OSError, subprocess.CalledProcessError) as err:
+        raise RuntimeError(
+            "Cannot tell which commit is scoring: this is not a git checkout and "
+            "SAMUDRA_CODE_COMMIT is unset. Set it to the commit you deployed."
+        ) from err
 
 
 def score_series(
@@ -183,21 +199,28 @@ def score(
     truth_name: str,
 ) -> tuple[series.Series, Scored]:
     """The full scorecard for one rollout: the pass over the fields, then the rest."""
-    channels = list(layout.prognostic_var_names)
-    tables = series.compute(predictions, truth, climatology, channels)
-    first = str(predictions["time"].values[0])
+    # Provenance first, so a scorecard that could not be traced fails before
+    # the long pass over the fields rather than after it.
+    if "climatology_period" not in climatology.attrs:
+        raise ValueError(
+            "The climatology has no `climatology_period` attribute, so this "
+            "scorecard could not be compared with any other. Rebuild it with "
+            "`python -m samudra.metrics.scorecard.climatology`."
+        )
     meta = {
         "schema_version": SCHEMA_VERSION,
         "track": cfg.track,
         "label": label,
         "window": f"{cfg.years[0]}-{cfg.years[1]}",
         "truth": truth_name,
-        "first_forecast": first,
+        "first_forecast": str(predictions["time"].values[0]),
         "n_steps": int(predictions.sizes["time"]),
-        "climatology_period": climatology.attrs.get("climatology_period", "unknown"),
+        "climatology_period": climatology.attrs["climatology_period"],
         "rollout_attrs": {k: str(v) for k, v in predictions.attrs.items()},
         "git_hash": git_hash(),
     }
+    channels = list(layout.prognostic_var_names)
+    tables = series.compute(predictions, truth, climatology, channels)
     return tables, score_series(tables, cfg, layout, meta)
 
 

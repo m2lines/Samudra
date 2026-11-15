@@ -322,6 +322,18 @@ def test_one_pass_does_not_keep_the_fields(data):
         assert lazy_truth[c].chunks is not None
 
 
+def test_climatology_store_keeps_its_attributes(data, tmp_path):
+    """Written channel by channel, the store equals `build`, attributes included.
+
+    Appending to a Zarr store replaces its root attributes, which once left the
+    written climatology without `climatology_period`.
+    """
+    truth, _ = data
+    climatology.write(truth, CHANNELS, tmp_path / "clim.zarr")
+    written = xr.open_zarr(tmp_path / "clim.zarr").compute()
+    xr.testing.assert_identical(written, climatology.build(truth, CHANNELS))
+
+
 def test_partial_years_are_rejected(data):
     """An equal-weight year block must be a full year."""
     truth, clim = data

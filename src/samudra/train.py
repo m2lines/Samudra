@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import bisect
 import contextlib
 import datetime
 import gc
@@ -164,8 +165,6 @@ class Trainer:
 
         assert isinstance(cfg.data_stride, list)
         assert isinstance(cfg.steps, list)
-        assert isinstance(cfg.step_transition, list)
-        assert len(cfg.step_transition) == len(cfg.steps) - 1
         max_steps = str(cfg.steps[-1])
         self.str_video = "steps_" + max_steps + "_" + "_Lateral_Data_025_no_smooth"
 
@@ -321,6 +320,10 @@ class Trainer:
         self.test_using_ema = cfg.test_using_ema
         self.steps = cfg.steps
         self.step_transition = cfg.step_transition
+        self.stage_batch_size = [cfg.stage_batch_size(i) for i in range(len(cfg.steps))]
+        self.stage_gradient_accumulation_steps = [
+            cfg.stage_gradient_accumulation_steps(i) for i in range(len(cfg.steps))
+        ]
         self.save_freq = cfg.save_freq
         self.validation_image_log_freq = cfg.validation_image_log_freq
         self._rollout_validation_pg: torch.distributed.ProcessGroup | None = None
@@ -329,6 +332,9 @@ class Trainer:
         self.debug = cfg.debug
         self.data_stride: list[int] = cfg.data_stride
         self.batch_size: int = cfg.batch_size
+        # Validation always runs one step, so it keeps one batch size for every
+        # curriculum stage; its mean loss stays comparable across stages.
+        self.val_batch_size: int = cfg.batch_size
         self.gradient_accumulation_steps: int = cfg.gradient_accumulation_steps
         self.max_train_model_steps_forward = (
             MAX_TRAIN_MODEL_STEPS_FORWARD // self.output_steps
@@ -939,38 +945,26 @@ class Trainer:
             logger.info("Aggregating rollout validation logs")
             return logs
 
-    def get_current_step(self, epoch):
-        """Determine the current step based on the epoch and transition points.
+    def get_current_step(self, epoch: int) -> int:
+        """Enter the curriculum stage for ``epoch`` and return its rollout length.
 
-        Args:
-            epoch (int): Current epoch number
-
-        Returns:
-            tuple: (current_step, current_step_idx)
+        Stage ``i`` covers epochs from ``step_transition[i - 1]`` (inclusive) up to
+        ``step_transition[i]``. Entering a stage also sets its batch size and
+        gradient accumulation; call ``init_data_loaders`` afterwards so the loaders
+        use them. The result depends only on ``epoch``, so resuming at any epoch,
+        including a transition epoch, gives the same stage as an unbroken run.
         """
-        if epoch == self.start_epoch:
-            # Find initial step based on start epoch
-            cur_step = None
-            cur_step_idx = None
-            for i, epoch_to_transition in enumerate(self.step_transition):
-                if epoch <= epoch_to_transition:
-                    cur_step = self.steps[i]
-                    cur_step_idx = i
-                    break
-            if cur_step is None:
-                cur_step = self.steps[-1]
-                cur_step_idx = len(self.steps) - 1
-            logger.info(f"Starting training at step {cur_step}")
-        else:
-            # Transition to next step
-            cur_step_idx = next(
-                i for i, e in enumerate(self.step_transition) if e == epoch
-            )
-            cur_step_idx += 1
-            cur_step = self.steps[cur_step_idx]
-            logger.info(f"Transitioning to step {cur_step}")
-
-        return cur_step
+        stage = bisect.bisect_right(self.step_transition, epoch)
+        self.batch_size = self.stage_batch_size[stage]
+        self.gradient_accumulation_steps = self.stage_gradient_accumulation_steps[stage]
+        logger.info(
+            f"Epoch {epoch}: curriculum stage {stage}, {self.steps[stage]} steps, "
+            f"effective batch size {self.batch_size * self.gradient_accumulation_steps * self.world_size} "
+            f"(batch_size={self.batch_size} × "
+            f"gradient_accumulation_steps={self.gradient_accumulation_steps} × "
+            f"world_size={self.world_size})"
+        )
+        return self.steps[stage]
 
     def init_data_loaders(self, cur_step: int) -> None:
         """Initialize training and validation data loaders.
@@ -1047,7 +1041,7 @@ class Trainer:
 
             val_batch_sampler = DistributedEquivalenceGroupBatchSampler(
                 datasets=val_windows,
-                batch_size=self.batch_size,
+                batch_size=self.val_batch_size,
                 num_replicas=self.distributed.world_size,
                 rank=self.distributed.rank,
                 shuffle=False,
@@ -1066,7 +1060,7 @@ class Trainer:
 
             val_batch_sampler = EquivalenceGroupBatchSampler.from_datasets(  # type: ignore
                 datasets=val_windows,
-                batch_size=self.batch_size,
+                batch_size=self.val_batch_size,
                 shuffle=True,
                 drop_last=False,
                 seed=self.rand_seed,

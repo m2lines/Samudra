@@ -59,6 +59,7 @@ from samudra.models.modules.augment_input import (
 )
 from samudra.models.modules.blocks import ZonallyPeriodicBilinearUpsample
 from samudra.models.modules.encoder import patch_from
+from samudra.models.modules.land import LandMode
 from samudra.post_train_eval import CheckpointSweep
 from samudra.utils.data import (
     CanonicalSource,
@@ -1049,6 +1050,29 @@ class SamudraConfig(BaseModelConfig):
         default=False,
         description="Use bfloat16 for most layers rather than float32.",
     )
+    land: LandMode = Field(
+        default="mask",
+        description="""How the U-Net treats land cells. 'mask' (the original
+        behavior) computes over land as if it were ocean and masks only the output.
+        'omit' makes land absent from every layer: partial convolutions, batch norm
+        over ocean cells, and ocean-only pooling and upsampling, so the forecast
+        does not depend on values on land. Both have the same parameters, so a
+        checkpoint loads with either.""",
+    )
+
+    @pydantic.model_validator(mode="after")
+    def validate_land(self) -> Self:
+        if self.land == "omit":
+            if self.unet.up_sampling_block == "transposed_conv":
+                raise ValueError(
+                    "land: omit does not support up_sampling_block: transposed_conv"
+                )
+            if self.unet.core_block.norm != "batch":
+                raise ValueError(
+                    "land: omit supports only norm: batch, got "
+                    f"norm: {self.unet.core_block.norm}"
+                )
+        return self
 
     def build(
         self,
@@ -1084,6 +1108,7 @@ class SamudraConfig(BaseModelConfig):
             grid_size=grid_sizes[0],
             gradient_detach_interval=self.gradient_detach_interval,
             use_bfloat16=self.use_bfloat16,
+            land=self.land,
         )
 
 

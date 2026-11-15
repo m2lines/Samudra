@@ -9,14 +9,17 @@ import torch
 from torch import nn
 
 from samudra.models.modules.blocks import (
+    AvgPool,
     BilinearUpsample,
     CoreBlock,
     CoreBlockBuilder,
     DropPath,
+    MaxPool,
     TransposedConvUpsample,
     UpsamplingBlockBuilder,
     ZonallyPeriodicBilinearUpsample,
 )
+from samudra.models.modules.land import coarsen_mask
 from samudra.utils.train import pairwise
 
 if TYPE_CHECKING:
@@ -153,10 +156,24 @@ class UNetBackbone(nn.Module):
         self.num_steps = int(len(ch_width) - 1)
         self.drop_path = DropPath(drop_path_rate)
 
-    def forward(self, fts: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self, fts: torch.Tensor, mask: torch.Tensor | None = None
+    ) -> torch.Tensor:
+        """Run the U-Net.
+
+        Args:
+            fts: Input features, ``(B, C, H, W)``.
+            mask: Optional ocean mask, ``(1, 1, H, W)``, 1 on ocean and 0 on land.
+                When given, land is absent from every layer (``land: omit``),
+                and the output is zero on land. Coarser levels use the max-pooled
+                mask: a coarse cell is ocean if any of its fine cells is.
+        """
         skip_inputs: list[torch.Tensor] = []
         for i in range(self.num_steps):
             skip_inputs.append(torch.zeros_like(fts))
+        # masks[k] is the ocean mask at U-Net level k (0 is the input grid).
+        masks: list[torch.Tensor] = [] if mask is None else [mask.to(fts.dtype)]
+        level = 0
         count = 0
         for layer in self.layers:
             # Circular/Globe padding
@@ -168,11 +185,32 @@ class UNetBackbone(nn.Module):
                     fts, (0, 0, self.N_pad, self.N_pad), mode="constant"
                 )
 
+            is_upsample = isinstance(
+                layer,
+                (
+                    BilinearUpsample,
+                    TransposedConvUpsample,
+                    ZonallyPeriodicBilinearUpsample,
+                ),
+            )
+            layer_args: tuple[torch.Tensor, ...] = (fts,)
+            if masks:
+                layer_args = (fts, masks[level])
             # (Maybe) apply checkpointing
             if self.checkpoint_all:
-                fts = torch.utils.checkpoint.checkpoint(layer, fts, use_reentrant=False)  # type: ignore
+                fts = torch.utils.checkpoint.checkpoint(
+                    layer, *layer_args, use_reentrant=False
+                )  # type: ignore
             else:
-                fts = layer(fts)
+                fts = layer(*layer_args)
+
+            if masks:
+                if isinstance(layer, (AvgPool, MaxPool)):
+                    level += 1
+                    if level == len(masks):
+                        masks.append(coarsen_mask(masks[-1], layer.pooling))
+                elif is_upsample:
+                    level -= 1
 
             # UNet residuals logic (skip connections)
             if count < self.num_steps:
@@ -180,11 +218,7 @@ class UNetBackbone(nn.Module):
                     skip_inputs[count] = fts
                     count += 1
             elif count >= self.num_steps:
-                if (
-                    isinstance(layer, BilinearUpsample)
-                    or isinstance(layer, TransposedConvUpsample)
-                    or isinstance(layer, ZonallyPeriodicBilinearUpsample)
-                ):
+                if is_upsample:
                     crop = np.array(fts.shape[2:])
                     shape = np.array(
                         skip_inputs[int(2 * self.num_steps - count - 1)].shape[2:]
@@ -197,6 +231,8 @@ class UNetBackbone(nn.Module):
                         pads[0] - pads[0] // 2,
                     ]
                     fts = nn.functional.pad(fts, pads)
+                    if masks:
+                        fts = fts * masks[level]
                     fts += self.drop_path(
                         skip_inputs[int(2 * self.num_steps - count - 1)]
                     )

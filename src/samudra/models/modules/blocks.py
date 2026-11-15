@@ -13,6 +13,13 @@ import torch.utils.checkpoint
 from jaxtyping import Float
 
 from samudra.models.modules.activations import CappedGELU
+from samudra.models.modules.land import (
+    masked_avg_pool2d,
+    masked_batch_norm,
+    masked_max_pool2d,
+    masked_upsample,
+    partial_conv2d,
+)
 
 
 class PointwiseLinear(torch.nn.Module):
@@ -62,7 +69,11 @@ class TransposedConvUpsample(torch.nn.Module):
             upsampler.append(activation())
         self.upsampler = torch.nn.Sequential(*upsampler)
 
-    def forward(self, x):
+    def forward(self, x, mask: torch.Tensor | None = None):
+        if mask is not None:
+            raise NotImplementedError(
+                "land: omit does not support transposed-convolution upsampling"
+            )
         return self.upsampler(x)
 
 
@@ -71,7 +82,12 @@ class BilinearUpsample(torch.nn.Module):
         super().__init__()
         self.upsampler = torch.nn.Upsample(scale_factor=upsampling, mode="bilinear")
 
-    def forward(self, x):
+    def forward(self, x, mask: torch.Tensor | None = None):
+        """Upsample ``x``. With a coarse ``mask``, interpolate from ocean cells only;
+        the caller applies the fine mask.
+        """
+        if mask is not None:
+            return masked_upsample(x, mask, self.upsampler)
         return self.upsampler(x)
 
 
@@ -88,7 +104,17 @@ class ZonallyPeriodicBilinearUpsample(torch.nn.Module):
             )
         self.scale_h, self.scale_w = upsampling
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self, x: torch.Tensor, mask: torch.Tensor | None = None
+    ) -> torch.Tensor:
+        """Upsample ``x``. With a coarse ``mask``, interpolate from ocean cells only;
+        the caller applies the fine mask.
+        """
+        if mask is not None:
+            return masked_upsample(x, mask, self._upsample)
+        return self._upsample(x)
+
+    def _upsample(self, x: torch.Tensor) -> torch.Tensor:
         # Upsample with periodic padding along longitude to avoid seams and
         # keep interpolation aligned with PyTorch's bilinear sampling grid.
         width = x.shape[-1]
@@ -147,10 +173,13 @@ class AvgPool(torch.nn.Module):
         pooling: int = 2,
     ):
         super().__init__()
+        self.pooling = pooling
         self.avgpool = torch.nn.AvgPool2d(pooling)
 
-    def forward(self, x):
-        return self.avgpool(x)
+    def forward(self, x, mask: torch.Tensor | None = None):
+        if mask is None:
+            return self.avgpool(x)
+        return masked_avg_pool2d(x, mask, self.pooling)
 
 
 class MaxPool(torch.nn.Module):
@@ -159,10 +188,13 @@ class MaxPool(torch.nn.Module):
         pooling: int = 2,
     ):
         super().__init__()
+        self.pooling = pooling
         self.maxpool = torch.nn.MaxPool2d(pooling)
 
-    def forward(self, x):
-        return self.maxpool(x)
+    def forward(self, x, mask: torch.Tensor | None = None):
+        if mask is None:
+            return self.maxpool(x)
+        return masked_max_pool2d(x, mask, self.pooling)
 
 
 class CoreBlock(torch.nn.Module):
@@ -186,9 +218,43 @@ class CoreBlock(torch.nn.Module):
         self.pad = pad
         self.upscale_factor = upscale_factor
         self.norm = norm
+        self.checkpoint_simple = False
 
-    def forward(self, fts: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self, fts: torch.Tensor, mask: torch.Tensor | None = None
+    ) -> torch.Tensor:
+        """Apply the block. With ``mask`` (ocean 1, land 0, shape ``(1, 1, H, W)``),
+        land is absent from every operator and the output is zero on land; see
+        :mod:`samudra.models.modules.land`.
+        """
         raise NotImplementedError()
+
+    def _masked_layer(
+        self, layer: nn.Module, x: torch.Tensor, mask: torch.Tensor
+    ) -> torch.Tensor:
+        """Apply one layer of the block with land absent."""
+        if isinstance(layer, nn.Conv2d) and layer.kernel_size != (1, 1):
+            return partial_conv2d(x, layer, mask, self.N_pad, self.pad)
+        if isinstance(layer, (nn.Conv2d, PointwiseLinear)):
+            return layer(x) * mask.to(x.dtype)
+        if isinstance(layer, nn.modules.batchnorm._BatchNorm):
+            return masked_batch_norm(x, layer, mask)
+        if isinstance(layer, nn.modules.instancenorm._InstanceNorm):
+            raise NotImplementedError("land: omit does not support instance norm")
+        # Pointwise activations: zero stays zero for those we use, and the next
+        # spatial operator masks its input anyway.
+        return layer(x)
+
+    def _maybe_checkpoint_masked(
+        self, layer: nn.Module, x: torch.Tensor, mask: torch.Tensor
+    ) -> torch.Tensor:
+        # Mirror the unmasked path: with checkpoint_simple, recompute the cheap
+        # (non-convolution) layers in the backward pass.
+        if self.checkpoint_simple and not isinstance(layer, nn.Conv2d):
+            return torch.utils.checkpoint.checkpoint(
+                self._masked_layer, layer, x, mask, use_reentrant=False
+            )
+        return self._masked_layer(layer, x, mask)
 
 
 class ConvBlock(CoreBlock):
@@ -223,7 +289,14 @@ class ConvBlock(CoreBlock):
         self.layers = nn.ModuleList(layers)
         self.checkpoint_simple = checkpoint_simple
 
-    def forward(self, fts: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self, fts: torch.Tensor, mask: torch.Tensor | None = None
+    ) -> torch.Tensor:
+        if mask is not None:
+            fts = fts * mask.to(fts.dtype)
+            for layer in self.layers:
+                fts = self._maybe_checkpoint_masked(layer, fts, mask)
+            return fts
         for layer in self.layers:
             if isinstance(layer, nn.Conv2d):
                 fts = torch.nn.functional.pad(
@@ -343,7 +416,17 @@ class ConvNeXtBlock(CoreBlock):
         self.convblock = torch.nn.Sequential(*convblock)
         self.checkpoint_simple = checkpoint_simple
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self, x: torch.Tensor, mask: torch.Tensor | None = None
+    ) -> torch.Tensor:
+        if mask is not None:
+            x = x * mask.to(x.dtype)
+            skip = self.skip_module(x)
+            if self.in_channels != self.out_channels:
+                skip = skip * mask.to(skip.dtype)
+            for layer in self.convblock:
+                x = self._maybe_checkpoint_masked(layer, x, mask)
+            return skip + x
         # return self.skip_module(x) + self.convblock(x)
         skip = self.skip_module(x)
         for layer in self.convblock:

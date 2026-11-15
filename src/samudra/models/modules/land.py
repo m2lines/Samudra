@@ -8,8 +8,10 @@ With ``land: omit`` (see :class:`samudra.config.SamudraConfig`), every spatial
 operator in the U-Net sees only ocean cells:
 
 * convolutions are partial convolutions (Liu et al., 2018,
-  https://arxiv.org/abs/1804.07723): ``conv(x·m) · k²/conv₁(m) + b``, then ``·m``,
-  where ``conv₁`` sums the mask over the kernel's footprint;
+  https://arxiv.org/abs/1804.07723): ``conv(x·m) · k²C/conv₁(m) + b``, then
+  ``·m``, where ``conv₁`` sums the mask over the kernel's footprint. Hidden
+  layers use one (column) mask for all channels, so ``C`` cancels; the first
+  layer gives each input channel its own depth's mask;
 * batch norm takes its mean and variance over ocean cells only;
 * average pooling averages ocean cells only, and a coarse cell is ocean if any of
   its fine cells is;
@@ -56,41 +58,89 @@ def _safe_reciprocal_times(numerator: float, count: torch.Tensor) -> torch.Tenso
     )
 
 
+def _partial_conv(
+    x: torch.Tensor,
+    weight: torch.Tensor,
+    bias: torch.Tensor | None,
+    dilation: tuple[int, int],
+    mask: torch.Tensor,
+    input_mask: torch.Tensor | None,
+    n_pad: int,
+    pad_mode: str,
+) -> torch.Tensor:
+    mask = mask.to(x.dtype)
+    in_mask = mask if input_mask is None else input_mask.to(x.dtype)
+    c_mask = in_mask.shape[1]
+    if c_mask not in (1, x.shape[1]):
+        raise ValueError(
+            f"input mask has {c_mask} channels; expected 1 or {x.shape[1]}"
+        )
+    _, _, kh, kw = weight.shape
+    y = F.conv2d(
+        pad_field(x * in_mask, n_pad, pad_mode), weight, None, dilation=dilation
+    )
+    footprint = kh * kw * c_mask
+    if footprint > 1:
+        ones = torch.ones(1, c_mask, kh, kw, dtype=in_mask.dtype, device=in_mask.device)
+        count = F.conv2d(
+            pad_field(in_mask, n_pad, pad_mode), ones, None, dilation=dilation
+        )
+        y = y * _safe_reciprocal_times(float(footprint), count)
+    if bias is not None:
+        y = y + bias.view(1, -1, 1, 1).to(y.dtype)
+    return y * mask
+
+
 def partial_conv2d(
     x: torch.Tensor,
     conv: nn.Conv2d,
     mask: torch.Tensor,
     n_pad: int,
     pad_mode: str,
+    input_mask: torch.Tensor | None = None,
 ) -> torch.Tensor:
     """Apply ``conv``'s weights as a partial convolution over ocean cells.
 
-    ``x`` is unpadded; this pads ``x`` and ``mask`` the same way. An output
-    cell is the convolution over its ocean neighbours, rescaled by the ratio of
-    the kernel's footprint to the number of ocean cells inside it, plus the
-    bias. Land output cells are zero.
+    ``x`` is unpadded; this pads ``x`` and the masks the same way. An output
+    cell is the convolution over its ocean inputs, rescaled by the ratio of the
+    kernel's footprint (``k²·C``) to the number of ocean inputs inside it, plus
+    the bias. Output cells off ``mask`` (``(1, 1, H, W)``) are zero.
+
+    ``input_mask`` (``(1, C_in, H, W)``) gives each input channel its own mask,
+    as at the network's input, where a deep level has land where the surface is
+    ocean. It defaults to ``mask``.
     """
     if conv.groups != 1 or conv.stride != (1, 1) or conv.padding != (0, 0):
         raise ValueError(
             "partial_conv2d supports only unpadded, stride-1, ungrouped convolutions"
         )
-    mask = mask.to(x.dtype)
-    kh, kw = conv.kernel_size
-    y = F.conv2d(
-        pad_field(x * mask, n_pad, pad_mode),
+    return _partial_conv(
+        x,
         conv.weight,
-        None,
-        dilation=conv.dilation,
+        conv.bias,
+        (conv.dilation[0], conv.dilation[1]),
+        mask,
+        input_mask,
+        n_pad,
+        pad_mode,
     )
-    if kh * kw > 1:
-        ones = torch.ones(1, 1, kh, kw, dtype=mask.dtype, device=mask.device)
-        count = F.conv2d(
-            pad_field(mask, n_pad, pad_mode), ones, None, dilation=conv.dilation
-        )
-        y = y * _safe_reciprocal_times(float(kh * kw), count)
-    if conv.bias is not None:
-        y = y + conv.bias.view(1, -1, 1, 1).to(y.dtype)
-    return y * mask
+
+
+def partial_pointwise(
+    x: torch.Tensor,
+    weight: torch.Tensor,
+    bias: torch.Tensor | None,
+    mask: torch.Tensor,
+    input_mask: torch.Tensor,
+) -> torch.Tensor:
+    """A 1×1 partial convolution with a per-channel ``input_mask``: mix only the
+    channels that are ocean at each cell, rescaled by ``C / (ocean channels)``.
+
+    ``weight`` is ``(C_out, C_in)`` or ``(C_out, C_in, 1, 1)``.
+    """
+    if weight.dim() == 2:
+        weight = weight[:, :, None, None]
+    return _partial_conv(x, weight, bias, (1, 1), mask, input_mask, 0, "constant")
 
 
 def _all_reduce_sum(t: torch.Tensor, group) -> torch.Tensor:

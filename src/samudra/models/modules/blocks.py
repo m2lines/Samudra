@@ -19,6 +19,7 @@ from samudra.models.modules.land import (
     masked_max_pool2d,
     masked_upsample,
     partial_conv2d,
+    partial_pointwise,
 )
 
 
@@ -221,21 +222,37 @@ class CoreBlock(torch.nn.Module):
         self.checkpoint_simple = False
 
     def forward(
-        self, fts: torch.Tensor, mask: torch.Tensor | None = None
+        self,
+        fts: torch.Tensor,
+        mask: torch.Tensor | None = None,
+        input_mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Apply the block. With ``mask`` (ocean 1, land 0, shape ``(1, 1, H, W)``),
         land is absent from every operator and the output is zero on land; see
-        :mod:`samudra.models.modules.land`.
+        :mod:`samudra.models.modules.land`. ``input_mask`` (``(1, C_in, H, W)``)
+        optionally gives each input channel its own mask, for the layers that
+        read the block's input.
         """
         raise NotImplementedError()
 
     def _masked_layer(
-        self, layer: nn.Module, x: torch.Tensor, mask: torch.Tensor
+        self,
+        layer: nn.Module,
+        x: torch.Tensor,
+        mask: torch.Tensor,
+        input_mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Apply one layer of the block with land absent."""
         if isinstance(layer, nn.Conv2d) and layer.kernel_size != (1, 1):
-            return partial_conv2d(x, layer, mask, self.N_pad, self.pad)
+            return partial_conv2d(x, layer, mask, self.N_pad, self.pad, input_mask)
         if isinstance(layer, (nn.Conv2d, PointwiseLinear)):
+            if input_mask is not None:
+                pointwise = (
+                    layer.linear if isinstance(layer, PointwiseLinear) else layer
+                )
+                return partial_pointwise(
+                    x, pointwise.weight, pointwise.bias, mask, input_mask
+                )
             return layer(x) * mask.to(x.dtype)
         if isinstance(layer, nn.modules.batchnorm._BatchNorm):
             return masked_batch_norm(x, layer, mask)
@@ -246,15 +263,19 @@ class CoreBlock(torch.nn.Module):
         return layer(x)
 
     def _maybe_checkpoint_masked(
-        self, layer: nn.Module, x: torch.Tensor, mask: torch.Tensor
+        self,
+        layer: nn.Module,
+        x: torch.Tensor,
+        mask: torch.Tensor,
+        input_mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
         # Mirror the unmasked path: with checkpoint_simple, recompute the cheap
         # (non-convolution) layers in the backward pass.
         if self.checkpoint_simple and not isinstance(layer, nn.Conv2d):
             return torch.utils.checkpoint.checkpoint(
-                self._masked_layer, layer, x, mask, use_reentrant=False
+                self._masked_layer, layer, x, mask, input_mask, use_reentrant=False
             )
-        return self._masked_layer(layer, x, mask)
+        return self._masked_layer(layer, x, mask, input_mask)
 
 
 class ConvBlock(CoreBlock):
@@ -290,12 +311,18 @@ class ConvBlock(CoreBlock):
         self.checkpoint_simple = checkpoint_simple
 
     def forward(
-        self, fts: torch.Tensor, mask: torch.Tensor | None = None
+        self,
+        fts: torch.Tensor,
+        mask: torch.Tensor | None = None,
+        input_mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
         if mask is not None:
-            fts = fts * mask.to(fts.dtype)
-            for layer in self.layers:
-                fts = self._maybe_checkpoint_masked(layer, fts, mask)
+            first = mask if input_mask is None else input_mask
+            fts = fts * first.to(fts.dtype)
+            for i, layer in enumerate(self.layers):
+                fts = self._maybe_checkpoint_masked(
+                    layer, fts, mask, input_mask if i == 0 else None
+                )
             return fts
         for layer in self.layers:
             if isinstance(layer, nn.Conv2d):
@@ -417,15 +444,23 @@ class ConvNeXtBlock(CoreBlock):
         self.checkpoint_simple = checkpoint_simple
 
     def forward(
-        self, x: torch.Tensor, mask: torch.Tensor | None = None
+        self,
+        x: torch.Tensor,
+        mask: torch.Tensor | None = None,
+        input_mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
         if mask is not None:
-            x = x * mask.to(x.dtype)
-            skip = self.skip_module(x)
+            first = mask if input_mask is None else input_mask
+            x = x * first.to(x.dtype)
             if self.in_channels != self.out_channels:
-                skip = skip * mask.to(skip.dtype)
-            for layer in self.convblock:
-                x = self._maybe_checkpoint_masked(layer, x, mask)
+                assert isinstance(self.skip_module, nn.Module)
+                skip = self._masked_layer(self.skip_module, x, mask, input_mask)
+            else:
+                skip = x
+            for i, layer in enumerate(self.convblock):
+                x = self._maybe_checkpoint_masked(
+                    layer, x, mask, input_mask if i == 0 else None
+                )
             return skip + x
         # return self.skip_module(x) + self.convblock(x)
         skip = self.skip_module(x)

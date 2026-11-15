@@ -21,6 +21,7 @@ from samudra.models.modules.land import (
     masked_batch_norm,
     masked_upsample,
     partial_conv2d,
+    partial_pointwise,
 )
 from samudra.utils.ctx import BatchGrid
 
@@ -121,27 +122,38 @@ def test_forecast_and_gradients_ignore_land_values(name: str, training: bool):
 def test_masked_spatial_ops_preserve_constant_fields():
     """Partial convolution, pooling and upsampling renormalize by the ocean
     count, so a constant ocean field stays constant on ocean, even at coasts
-    and next to the poles."""
+    and next to the poles. At the input, where each channel (depth) has its
+    own mask, convolutions count only the channels that are ocean."""
     g = torch.Generator().manual_seed(2)
-    mask = (torch.rand(1, 1, H, W, generator=g) > 0.4).double()
-    x = torch.where(mask > 0, 3.0, 1e3) * torch.ones(2, 5, H, W, dtype=torch.float64)
+    # Per-channel masks; the column mask is ocean where any channel is.
+    input_mask = (torch.rand(1, 5, H, W, generator=g) > 0.4).double()
+    mask = input_mask.amax(dim=1, keepdim=True)
+    x = torch.where(input_mask > 0, 3.0, 1e3).double().expand(2, -1, -1, -1)
 
     conv = nn.Conv2d(5, 4, 3, dilation=2).double()
     nn.init.constant_(conv.weight, 1.0 / (9 * 5))
     assert conv.bias is not None
     nn.init.zeros_(conv.bias)
-    conv_out = partial_conv2d(x, conv, mask, n_pad=2, pad_mode="circular")
-    assert torch.allclose(conv_out[:, :, mask[0, 0] > 0], torch.tensor(3.0).double())
+    ocean = mask[0, 0] > 0
+    three = torch.tensor(3.0).double()
+    conv_out = partial_conv2d(x, conv, mask, 2, "circular", input_mask)
+    assert torch.allclose(conv_out[:, :, ocean], three)
+    pointwise_out = partial_pointwise(
+        x, conv.weight[:, :, 1, 1] * 9, conv.bias, mask, input_mask
+    )
+    assert torch.allclose(pointwise_out[:, :, ocean], three)
+
+    x = torch.where(mask > 0, 3.0, 1e3).double().expand(2, 5, -1, -1)
 
     coarse = torch.nn.functional.max_pool2d(mask, 2)
     pooled = masked_avg_pool2d(x, mask, 2)
-    assert torch.allclose(pooled[:, :, coarse[0, 0] > 0], torch.tensor(3.0).double())
+    assert torch.allclose(pooled[:, :, coarse[0, 0] > 0], three)
 
     coarse_x = torch.where(coarse > 0, 3.0, 1e3).double().expand(2, 5, -1, -1)
     up = masked_upsample(coarse_x, coarse, ZonallyPeriodicBilinearUpsample())
-    assert torch.allclose(up[:, :, mask[0, 0] > 0], torch.tensor(3.0).double())
+    assert torch.allclose(up[:, :, ocean], three)
 
-    for out, m in [(conv_out, mask), (pooled, coarse)]:
+    for out, m in [(conv_out, mask), (pointwise_out, mask), (pooled, coarse)]:
         assert (out[:, :, m[0, 0] == 0] == 0).all()
 
 
@@ -184,7 +196,14 @@ def _sync_bn_worker(rank: int, world_size: int, port: int, x, mask, result):
         local = x.chunk(world_size)[rank].clone().requires_grad_(True)
         out = masked_batch_norm(local, bn, mask)
         (out * _loss_weights(x).chunk(world_size)[rank]).sum().backward()
-        result[rank] = (out.detach(), local.grad, bn.running_mean, bn.running_var)
+        result[rank] = (
+            out.detach(),
+            local.grad,
+            bn.running_mean,
+            bn.running_var,
+            bn.weight.grad,
+            bn.bias.grad,
+        )
     finally:
         dist.destroy_process_group()
 
@@ -214,6 +233,10 @@ def test_masked_sync_batch_norm_matches_single_process_on_global_batch():
     for r in range(2):
         torch.testing.assert_close(result[r][2], bn.running_mean)
         torch.testing.assert_close(result[r][3], bn.running_var)
+        # DDP averages parameter gradients over ranks; each rank's local
+        # gradient sums to the global one.
+    for i, param in [(4, bn.weight), (5, bn.bias)]:
+        torch.testing.assert_close(result[0][i] + result[1][i], param.grad)
 
 
 @pytest.mark.parametrize("name", CONFIGS)
@@ -251,3 +274,29 @@ def test_omit_rejects_unsupported_upsampling():
         SamudraConfig(
             land="omit", unet=UNetBackboneConfig(up_sampling_block="transposed_conv")
         )
+
+
+def test_land_at_depth_is_absent_not_zero_valued_ocean():
+    """A cell that is ocean at the surface but land at depth is absent from the
+    deep channel. That differs from marking it ocean with a value of zero,
+    which is what masking only at the column level would do."""
+    model = _build("omit", "convnext_avgpool_zonal").eval()
+    g = torch.Generator().manual_seed(6)
+    masks = _nested_masks(g)
+    assert (masks[0] & ~masks[1]).any()
+    prog = torch.randn(1, N_VARS * INPUT_STEPS, H, W, generator=g)
+    prog = prog.masked_fill(~masks.repeat(INPUT_STEPS, 1, 1).unsqueeze(0), 0.0)
+    boundary = torch.randn(1, BOUNDARY, H, W, generator=g)
+
+    def forecast(masks):
+        return model.forward_once(
+            prog, boundary, BatchGrid(masks, _lat_lon(), _lat_lon())
+        )
+
+    surface_only = torch.stack([masks[0], masks[0]])
+    # Compare where both label masks agree (ocean at every depth), so only the
+    # input treatment can differ.
+    deep = masks[1]
+    assert not torch.allclose(
+        forecast(masks)[..., deep], forecast(surface_only)[..., deep]
+    )

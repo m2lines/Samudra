@@ -1067,10 +1067,11 @@ class SamudraConfig(BaseModelConfig):
                 raise ValueError(
                     "land: omit does not support up_sampling_block: transposed_conv"
                 )
-            if self.unet.core_block.norm != "batch":
+            block = self.unet.core_block
+            # conv_block always uses batch norm, whatever `norm` says.
+            if block.block_type == "conv_next_block" and block.norm != "batch":
                 raise ValueError(
-                    "land: omit supports only norm: batch, got "
-                    f"norm: {self.unet.core_block.norm}"
+                    f"land: omit supports only norm: batch, got norm: {block.norm}"
                 )
         return self
 

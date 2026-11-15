@@ -157,7 +157,10 @@ class UNetBackbone(nn.Module):
         self.drop_path = DropPath(drop_path_rate)
 
     def forward(
-        self, fts: torch.Tensor, mask: torch.Tensor | None = None
+        self,
+        fts: torch.Tensor,
+        mask: torch.Tensor | None = None,
+        input_mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Run the U-Net.
 
@@ -167,7 +170,11 @@ class UNetBackbone(nn.Module):
                 When given, land is absent from every layer (``land: omit``),
                 and the output is zero on land. Coarser levels use the max-pooled
                 mask: a coarse cell is ocean if any of its fine cells is.
+            input_mask: Optional per-channel ocean mask of the input,
+                ``(1, C, H, W)``, for the first layer. Defaults to ``mask``.
         """
+        if input_mask is not None and mask is None:
+            raise ValueError("input_mask requires mask")
         skip_inputs: list[torch.Tensor] = []
         for i in range(self.num_steps):
             skip_inputs.append(torch.zeros_like(fts))
@@ -196,6 +203,8 @@ class UNetBackbone(nn.Module):
             layer_args: tuple[torch.Tensor, ...] = (fts,)
             if masks:
                 layer_args = (fts, masks[level])
+                if layer is self.layers[0] and input_mask is not None:
+                    layer_args = (fts, masks[level], input_mask)
             # (Maybe) apply checkpointing
             if self.checkpoint_all:
                 fts = torch.utils.checkpoint.checkpoint(
@@ -232,7 +241,7 @@ class UNetBackbone(nn.Module):
                     ]
                     fts = nn.functional.pad(fts, pads)
                     if masks:
-                        fts = fts * masks[level]
+                        fts = fts * masks[level].to(fts.dtype)
                     fts += self.drop_path(
                         skip_inputs[int(2 * self.num_steps - count - 1)]
                     )

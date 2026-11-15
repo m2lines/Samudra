@@ -72,13 +72,17 @@ class Samudra(BaseModel):
 
     def _omit_land_from_inputs(
         self, prognostic: Prognostic, boundary: Boundary, ctx: BatchGrid
-    ) -> tuple[Prognostic, Boundary, torch.Tensor]:
-        """Zero the inputs on land and return the column (surface) ocean mask.
+    ) -> tuple[Prognostic, Boundary, torch.Tensor, torch.Tensor]:
+        """Zero the inputs on land; return the prognostic and column masks.
 
-        Each prognostic channel uses its own depth's mask. The boundary channels,
-        and every hidden layer, use the column mask: a cell is ocean if it is
-        ocean at any depth (the surface mask, since masks nest with depth).
-        ``torch.where`` rather than a product, so NaN on land cannot leak.
+        Each prognostic channel uses its own depth's mask, both here and in the
+        first layer's partial convolution. The boundary channels, and every
+        hidden layer, use the column mask: a cell is ocean if it is ocean at any
+        depth (the surface mask, since masks nest with depth). ``torch.where``
+        rather than a product, so NaN on land cannot leak.
+
+        Returns ``(prognostic, boundary, prognostic_mask, column)``, with masks
+        shaped ``(C_prog, H, W)`` and ``(1, 1, H, W)``.
         """
         label_mask = ctx.label_mask
         n_prog_channels = prognostic.shape[1]
@@ -99,14 +103,15 @@ class Samudra(BaseModel):
         column = label_mask.any(dim=0)
         prognostic = torch.where(prognostic_mask, prognostic, 0.0)
         boundary = torch.where(column, boundary, 0.0)
-        return prognostic, boundary, column.view(1, 1, *column.shape)
+        return prognostic, boundary, prognostic_mask, column.view(1, 1, *column.shape)
 
     def forward_once(
         self, prognostic: Prognostic, boundary: Boundary, ctx: BatchGrid
     ) -> Prognostic:
         ocean: torch.Tensor | None = None
+        prognostic_mask: torch.Tensor | None = None
         if self.land == "omit":
-            prognostic, boundary, ocean = self._omit_land_from_inputs(
+            prognostic, boundary, prognostic_mask, ocean = self._omit_land_from_inputs(
                 prognostic, boundary, ctx
             )
         # Samudra is a single-scale model; fuse prognostic + boundary into
@@ -124,9 +129,16 @@ class Samudra(BaseModel):
                 fts = self.add_3d_coordinates(fts, ctx.input_resolution_cpu)
 
             if ocean is not None:
-                # Positional and coordinate channels are ocean-only too.
+                assert prognostic_mask is not None
+                # Boundary, positional and coordinate channels use the column
+                # mask; each prognostic channel keeps its own depth's mask.
+                n_other = fts.shape[1] - prognostic_mask.shape[0]
+                input_mask = torch.cat(
+                    [prognostic_mask.unsqueeze(0), ocean.expand(1, n_other, -1, -1)],
+                    dim=1,
+                )
                 fts = fts * ocean.to(fts.dtype)
-                fts = self.unet(fts, ocean)
+                fts = self.unet(fts, ocean, input_mask)
             else:
                 fts = self.unet(fts)
                 fts = torch.nn.functional.pad(

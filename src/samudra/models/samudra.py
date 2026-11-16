@@ -72,19 +72,29 @@ class Samudra(BaseModel):
 
     def _omit_land_from_inputs(
         self, prognostic: Prognostic, boundary: Boundary, ctx: BatchGrid
-    ) -> tuple[Prognostic, Boundary, torch.Tensor, torch.Tensor]:
-        """Zero the inputs on land; return the prognostic and column masks.
+    ) -> tuple[Prognostic, Boundary, torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Zero the inputs off their masks; return the masks.
 
-        Each prognostic channel uses its own depth's mask, both here and in the
-        first layer's partial convolution. The boundary channels, and every
-        hidden layer, use the column mask: a cell is ocean if it is ocean at any
+        Each input channel uses its own mask, both here and in the first
+        layer's partial convolution: a prognostic channel its depth's mask, a
+        boundary channel its variable's mask (``ctx.boundary_mask``). Every
+        hidden layer uses the column mask: a cell is ocean if it is ocean at any
         depth (the surface mask, since masks nest with depth). ``torch.where``
         rather than a product, so NaN on land cannot leak.
 
-        Returns ``(prognostic, boundary, prognostic_mask, column)``, with masks
-        shaped ``(C_prog, H, W)`` and ``(1, 1, H, W)``.
+        Returns ``(prognostic, boundary, prognostic_mask, boundary_mask,
+        column)``, with masks shaped ``(C_prog, H, W)``, ``(C_boundary, H, W)``
+        and ``(1, 1, H, W)``.
         """
         label_mask = ctx.label_mask
+        boundary_mask = ctx.boundary_mask
+        if boundary_mask is None:
+            raise ValueError("land: omit needs ctx.boundary_mask")
+        if boundary_mask.shape[0] != boundary.shape[1]:
+            raise ValueError(
+                f"boundary mask has {boundary_mask.shape[0]} channels; the "
+                f"boundary input has {boundary.shape[1]}"
+            )
         n_prog_channels = prognostic.shape[1]
         if n_prog_channels % self.input_steps != 0:
             raise ValueError(
@@ -102,17 +112,24 @@ class Samudra(BaseModel):
         prognostic_mask = label_mask[:n_vars].repeat(self.input_steps, 1, 1)
         column = label_mask.any(dim=0)
         prognostic = torch.where(prognostic_mask, prognostic, 0.0)
-        boundary = torch.where(column, boundary, 0.0)
-        return prognostic, boundary, prognostic_mask, column.view(1, 1, *column.shape)
+        boundary = torch.where(boundary_mask, boundary, 0.0)
+        return (
+            prognostic,
+            boundary,
+            prognostic_mask,
+            boundary_mask,
+            column.view(1, 1, *column.shape),
+        )
 
     def forward_once(
         self, prognostic: Prognostic, boundary: Boundary, ctx: BatchGrid
     ) -> Prognostic:
         ocean: torch.Tensor | None = None
         prognostic_mask: torch.Tensor | None = None
+        boundary_mask: torch.Tensor | None = None
         if self.land == "omit":
-            prognostic, boundary, prognostic_mask, ocean = self._omit_land_from_inputs(
-                prognostic, boundary, ctx
+            prognostic, boundary, prognostic_mask, boundary_mask, ocean = (
+                self._omit_land_from_inputs(prognostic, boundary, ctx)
             )
         # Samudra is a single-scale model; fuse prognostic + boundary into
         # the single channel-stacked input its backbone expects.
@@ -129,15 +146,21 @@ class Samudra(BaseModel):
                 fts = self.add_3d_coordinates(fts, ctx.input_resolution_cpu)
 
             if ocean is not None:
-                assert prognostic_mask is not None
-                # Boundary, positional and coordinate channels use the column
-                # mask; each prognostic channel keeps its own depth's mask.
-                n_other = fts.shape[1] - prognostic_mask.shape[0]
+                assert prognostic_mask is not None and boundary_mask is not None
+                # Prognostic and boundary channels keep their own masks;
+                # positional and coordinate channels use the column mask.
+                n_other = (
+                    fts.shape[1] - prognostic_mask.shape[0] - boundary_mask.shape[0]
+                )
                 input_mask = torch.cat(
-                    [prognostic_mask.unsqueeze(0), ocean.expand(1, n_other, -1, -1)],
+                    [
+                        prognostic_mask.unsqueeze(0),
+                        boundary_mask.unsqueeze(0),
+                        ocean.expand(1, n_other, -1, -1),
+                    ],
                     dim=1,
                 )
-                fts = fts * ocean.to(fts.dtype)
+                fts = torch.where(input_mask, fts, 0.0)
                 fts = self.unet(fts, ocean, input_mask)
             else:
                 fts = self.unet(fts)

@@ -120,7 +120,12 @@ class InferenceDataset(Dataset):
         # Inference only currently supports the same output resolution as the input
         # resolution.
         self.ctx = BatchGrid(
-            self.wet_label, self.input_resolution, self.input_resolution
+            self.wet_label,
+            self.input_resolution,
+            self.input_resolution,
+            boundary_mask=source.masks.boundary_for_steps(
+                len(self.boundary_var_names), self.input_steps
+            ),
         )
 
     def __len__(self):
@@ -428,6 +433,9 @@ class TrainingWindows:
             label_mask=self.label_source.masks.prognostic_for_steps(output_steps),
             input_resolution_cpu=input_source.resolution,
             output_resolution_cpu=self.label_source.resolution,
+            boundary_mask=input_source.masks.boundary_for_steps(
+                len(self.boundary_var_names), input_steps
+            ),
         )
         self.size = (
             input_source.time.size

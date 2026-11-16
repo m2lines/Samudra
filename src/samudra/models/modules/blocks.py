@@ -253,7 +253,8 @@ class CoreBlock(torch.nn.Module):
                 return partial_pointwise(
                     x, pointwise.weight, pointwise.bias, mask, input_mask
                 )
-            return layer(x) * mask.to(x.dtype)
+            y = layer(x)
+            return y * mask.to(y.dtype)
         if isinstance(layer, nn.modules.batchnorm._BatchNorm):
             return masked_batch_norm(x, layer, mask)
         if isinstance(layer, nn.modules.instancenorm._InstanceNorm):

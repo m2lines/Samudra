@@ -6,6 +6,8 @@ import dataclasses
 from typing import Self
 
 import torch
+from jaxtyping import Bool
+from torch import Tensor
 
 from samudra.constants import Lat, Lon, PrognosticMask
 
@@ -26,14 +28,24 @@ class BatchGrid:
         output_resolution_cpu: Tuple of (latitude, longitude) coordinate tensors defining
             the output spatial grid. Used by decoders to determine output shape and
             pixel-query positions. Defaults to input_resolution_cpu for single-scale use.
+        boundary_mask: Boolean mask of valid cells for each boundary input channel,
+            step-major like the channels. Shape: (boundary_channels, lat, lon).
+            Required by ``land: omit``; optional otherwise.
     """
 
     label_mask: PrognosticMask
     input_resolution_cpu: tuple[Lat, Lon]
     output_resolution_cpu: tuple[Lat, Lon]
+    boundary_mask: Bool[Tensor, "boundary_channels lat lon"] | None = None
 
     def to(self, device: torch.device) -> Self:
-        """Move the label mask to the specified device."""
+        """Move the masks to the specified device."""
         return dataclasses.replace(
-            self, label_mask=self.label_mask.to(device, non_blocking=True)
+            self,
+            label_mask=self.label_mask.to(device, non_blocking=True),
+            boundary_mask=(
+                None
+                if self.boundary_mask is None
+                else self.boundary_mask.to(device, non_blocking=True)
+            ),
         )

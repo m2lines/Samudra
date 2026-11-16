@@ -68,8 +68,7 @@ def _partial_conv(
     n_pad: int,
     pad_mode: str,
 ) -> torch.Tensor:
-    mask = mask.to(x.dtype)
-    in_mask = mask if input_mask is None else input_mask.to(x.dtype)
+    in_mask = (mask if input_mask is None else input_mask).to(x.dtype)
     c_mask = in_mask.shape[1]
     if c_mask not in (1, x.shape[1]):
         raise ValueError(
@@ -93,7 +92,9 @@ def _partial_conv(
         y = y * ratio.to(y.dtype)
     if bias is not None:
         y = y + bias.view(1, -1, 1, 1).to(y.dtype)
-    return y * mask
+    # In the output's dtype: under autocast, y is bfloat16 while the mask
+    # follows the float32 input, and a product would promote y to float32.
+    return y * mask.to(y.dtype)
 
 
 def partial_conv2d(

@@ -42,9 +42,11 @@ With `land: omit` in the model config, land is absent from every layer
 | Average / max pooling | over ocean cells; a coarse cell is ocean if any of its fine cells is |
 | Bilinear upsampling | `up(x·m) / up(m)`, then `·m` at the finer level |
 
-Here `m` is the ocean mask: each prognostic input channel uses its own depth's mask, and the boundary forcing and every
-hidden layer use the column mask (ocean at any depth, the surface mask since masks nest). The forecast is then exactly
-independent of the values on land. Padding is unchanged; the zero padding past the poles reads as absent.
+Here `m` is the ocean mask. At the input, each channel uses its own mask: a prognostic channel its depth's, a boundary
+forcing channel its variable's (staggered on LLC, the surface mask on OM4). Every hidden layer uses the column mask
+(ocean at any depth, the surface mask since masks nest). The forecast on ocean cells is then exactly independent of the
+values on land. Land cells of the output are not meaningful in either setting: with `pred_residuals`, they carry the
+input's land fill forward, and the loss and metrics mask them. Padding is unchanged; the zero padding past the poles reads as absent.
 
 Both settings have the same parameters and buffers, so a checkpoint trained with either loads with either. `omit`
 supports `norm: batch` and the bilinear upsampling blocks, not `transposed_conv`. The extra cost is one single-channel

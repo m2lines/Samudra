@@ -69,6 +69,27 @@ class Masks:
             raise ValueError(f"steps must be positive, got {steps}")
         return torch.concat([self.prognostic] * steps, dim=0)
 
+    def boundary_for_steps(
+        self, n_vars: int, steps: int
+    ) -> Bool[GridMask, " boundary_vars*steps"]:
+        """One mask per boundary input channel, step-major like the channels.
+
+        ``boundary`` is either one mask shared by every boundary variable or one
+        mask per variable (as for staggered LLC forcing).
+        """
+        if steps < 1:
+            raise ValueError(f"steps must be positive, got {steps}")
+        if self.boundary.ndim == 2:
+            per_var = self.boundary.expand(n_vars, *self.boundary.shape)
+        elif self.boundary.shape[0] == n_vars:
+            per_var = self.boundary
+        else:
+            raise ValueError(
+                f"boundary mask has {self.boundary.shape[0]} variables, "
+                f"expected {n_vars}"
+            )
+        return torch.concat([per_var] * steps, dim=0)
+
 
 @dataclasses.dataclass(frozen=True)
 class CanonicalReadRequest:

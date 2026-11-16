@@ -83,6 +83,13 @@ def _lat_lon():
     return lat, lon
 
 
+def _ctx(masks: torch.Tensor, boundary_mask: torch.Tensor | None = None) -> BatchGrid:
+    """The batch context; boundary forcing shares the surface mask by default."""
+    if boundary_mask is None:
+        boundary_mask = masks[0].expand(BOUNDARY, -1, -1)
+    return BatchGrid(masks, _lat_lon(), _lat_lon(), boundary_mask=boundary_mask)
+
+
 @pytest.mark.parametrize("name", CONFIGS)
 @pytest.mark.parametrize("training", [True, False])
 def test_forecast_and_gradients_ignore_land_values(name: str, training: bool):
@@ -90,13 +97,17 @@ def test_forecast_and_gradients_ignore_land_values(name: str, training: bool):
     in training, the parameter gradients exactly unchanged."""
     g = torch.Generator().manual_seed(1)
     masks = _nested_masks(g)
-    ctx = BatchGrid(masks, _lat_lon(), _lat_lon())
+    # Boundary channel 1 has its own, staggered mask (as LLC's wind stress
+    # does), dry at some cells where the column is ocean.
+    staggered = masks[0] & (torch.rand(H, W, generator=g) > 0.2)
+    assert (masks[0] & ~staggered).any()
+    boundary_mask = torch.stack([masks[0], staggered])
+    ctx = _ctx(masks, boundary_mask)
     prog = torch.randn(3, N_VARS * INPUT_STEPS, H, W, generator=g)
     boundary = torch.randn(3, BOUNDARY, H, W, generator=g)
-    # Land of each channel: its own depth's mask for prognostics, the surface
-    # mask for the boundary forcing.
+    # Land of each channel is off its own mask.
     prog_land = ~masks.repeat(INPUT_STEPS, 1, 1).expand_as(prog)
-    boundary_land = ~masks[0].expand_as(boundary)
+    boundary_land = ~boundary_mask.expand_as(boundary)
 
     def run(prog, boundary):
         model = _build("omit", name)
@@ -110,9 +121,9 @@ def test_forecast_and_gradients_ignore_land_values(name: str, training: bool):
     clean_out, clean_grads = run(prog, boundary)
     corrupt_prog = prog.masked_fill(prog_land, 1e6)
     corrupt_prog[:, 0][prog_land[:, 0]] = float("nan")
-    corrupt_out, corrupt_grads = run(
-        corrupt_prog, boundary.masked_fill(boundary_land, -1e6)
-    )
+    corrupt_boundary = boundary.masked_fill(boundary_land, -1e6)
+    corrupt_boundary[:, 1][boundary_land[:, 1]] = float("nan")
+    corrupt_out, corrupt_grads = run(corrupt_prog, corrupt_boundary)
 
     torch.testing.assert_close(corrupt_out, clean_out, rtol=0, atol=0)
     for clean, corrupt in zip(clean_grads, corrupt_grads, strict=True):
@@ -259,9 +270,7 @@ def test_longitude_roll_equivariance():
     shift = 8  # two levels of 2x pooling → multiples of 4
 
     def forecast(prog, boundary, masks):
-        return model.forward_once(
-            prog, boundary, BatchGrid(masks, _lat_lon(), _lat_lon())
-        )
+        return model.forward_once(prog, boundary, _ctx(masks))
 
     rolled = forecast(
         prog.roll(shift, -1), boundary.roll(shift, -1), masks.roll(shift, -1)
@@ -289,9 +298,7 @@ def test_land_at_depth_is_absent_not_zero_valued_ocean():
     boundary = torch.randn(1, BOUNDARY, H, W, generator=g)
 
     def forecast(masks):
-        return model.forward_once(
-            prog, boundary, BatchGrid(masks, _lat_lon(), _lat_lon())
-        )
+        return model.forward_once(prog, boundary, _ctx(masks))
 
     surface_only = torch.stack([masks[0], masks[0]])
     # Compare where both label masks agree (ocean at every depth), so only the
@@ -300,3 +307,26 @@ def test_land_at_depth_is_absent_not_zero_valued_ocean():
     assert not torch.allclose(
         forecast(masks)[..., deep], forecast(surface_only)[..., deep]
     )
+
+
+@pytest.mark.parametrize("name", CONFIGS)
+def test_omit_keeps_bfloat16_activations(name: str):
+    """Under bfloat16 autocast, masking does not promote activations back to
+    the inputs' float32: every block output has the dtype it has with
+    land: mask."""
+    g = torch.Generator().manual_seed(7)
+    masks = _nested_masks(g)
+    prog = torch.randn(1, N_VARS * INPUT_STEPS, H, W, generator=g)
+    boundary = torch.randn(1, BOUNDARY, H, W, generator=g)
+
+    def block_dtypes(land: LandMode) -> list[torch.dtype]:
+        model = _build(land, name, use_bfloat16=True).eval()
+        dtypes: list[torch.dtype] = []
+        for block in model.unet.layers:
+            block.register_forward_hook(lambda m, i, o: dtypes.append(o.dtype))
+        model.forward_once(prog, boundary, _ctx(masks))
+        return dtypes
+
+    mask_dtypes = block_dtypes("mask")
+    assert torch.bfloat16 in mask_dtypes
+    assert block_dtypes("omit") == mask_dtypes

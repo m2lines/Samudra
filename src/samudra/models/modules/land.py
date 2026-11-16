@@ -81,11 +81,16 @@ def _partial_conv(
     )
     footprint = kh * kw * c_mask
     if footprint > 1:
-        ones = torch.ones(1, c_mask, kh, kw, dtype=in_mask.dtype, device=in_mask.device)
-        count = F.conv2d(
-            pad_field(in_mask, n_pad, pad_mode), ones, None, dilation=dilation
-        )
-        y = y * _safe_reciprocal_times(float(footprint), count)
+        # Count in float32 outside autocast: bfloat16 holds integers exactly
+        # only up to 256, and the first layer's count reaches k²C ≈ 1,500.
+        with torch.autocast(device_type=x.device.type, enabled=False):
+            m32 = in_mask.float()
+            ones = torch.ones(1, c_mask, kh, kw, device=m32.device)
+            count = F.conv2d(
+                pad_field(m32, n_pad, pad_mode), ones, None, dilation=dilation
+            )
+            ratio = _safe_reciprocal_times(float(footprint), count)
+        y = y * ratio.to(y.dtype)
     if bias is not None:
         y = y + bias.view(1, -1, 1, 1).to(y.dtype)
     return y * mask

@@ -1,0 +1,59 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Δ-norm 2→2 trained from scratch with the rollout curriculum of
+# experiments/nd2in1_step_curriculum (Δ-norm 2→1 + step curriculum), matched by
+# horizon. Each 2→2 call predicts two five-day steps, so one call is 10 days.
+# Everything else is identical to experiments/delta_norm_2to2. The effective
+# batch stays at 32 (8 ranks x batch x accumulation) in every stage.
+#
+#   epochs  1-44   1 call  (10 days)   batch 4 x accumulation 1
+#   epochs 45-54   2 calls (20 days)   batch 4 x 1
+#   epochs 55-61   4 calls (40 days)   batch 4 x 1   (Δ-norm 2→2's horizon)
+#   epochs 62-66   8 calls (80 days)   batch 2 x 2
+#   epochs 67-70  16 calls (160 days)  batch 1 x 4
+#
+# calls x batch never exceeds Δ-norm 2→2's 4 x 4.
+debug: false
+disk_mode: true
+save_freq: 5
+rollout_validation:
+  days: [360]
+  frequency: 1
+  steps_forward: 1
+# As in #969. Evaluation uses the final-epoch EMA checkpoint, not the best one.
+validation_score: rollout_rmse
+epochs: 70
+batch_size: 4
+learning_rate: 0.0006
+gradient_accumulation_steps: 1
+scheduler: { type: cosine }
+ema_decay: 0.999
+faster_decay_at_start: true
+test_using_ema: true
+loss:
+  type: normalized_delta
+  # Per-channel RMS five-day change over wet cells, 1975-01-03..2013-09-30,
+  # from scripts/compute_tendency_stats.py --over wet. Relative to data_root.
+  increment_rms_location: OM4_increment_rms_wet.zarr
+finetune: false
+resume_ckpt_path: null
+data_stride: [1]
+steps:                            [1,  2,  4,  8, 16]
+step_transition:                      [45, 55, 62, 67]
+step_batch_size:                  [4,  4,  4,  2,  1]
+step_gradient_accumulation_steps: [1,  1,  1,  2,  4]
+preemptible: true
+
+backend: auto
+
+experiment:
+  name: delta_norm_2to2_step_curriculum
+  rand_seed: 15
+  base_output_dir: .LOCAL
+  wandb:
+    mode: disabled
+    project: default
+data: !include ../delta_norm_2to2/data.yaml
+model: !include ../delta_norm_2to2/model.yaml

@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794868798310,
+  "lastUpdate": 1794868804323,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -26985,6 +26985,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.19023692763309447",
             "extra": "mean: 11.458069603999991 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "34da2024261fe32d0ed86b7f55dc759b5ea73b10",
+          "message": "Archive W&B runs to OSN weekly (#872)\n\n## Summary\n\n- archive terminal W&B runs to the public OSN pod every Monday at 07:17\nUTC and on manual dispatch\n- launch an AWS `m7i.xlarge` CPU runner with 200 GB of temporary disk\nand a 12-hour lifetime ceiling\n- use the pinned W&B Archive v0.1.1 action with public-safe filtering,\nretries, incremental/idempotent publishing, and a single-writer\nconcurrency guard\n- fail in a GitHub-hosted preflight before launching EC2 when archive\ncredentials are missing\n\nWeekly incremental exports keep each update smaller, surface failures\nsooner, and reduce exposure to W&B quota pressure. A GPU is\nintentionally not requested because the export is limited by W&B API and\nnetwork throughput rather than CUDA compute.\n\n## Required repository secrets\n\nThese secrets must be configured before the workflow is run:\n\n- `WANDB_API_KEY`\n- `OSN_ACCESS_KEY_ID`\n- `OSN_SECRET_ACCESS_KEY`\n\nThe existing `GH_SA_TOKEN` and AWS repository variables continue to\nlaunch the self-hosted runner. The launch goes through the repository's\nauthenticated `.github/workflows/ec2-runner.yml` wrapper, as\n`.github/CI-README.md` requires, so the `ec2-gha` image build pulls from\nECR Public with AWS credentials. This PR adds optional\n`max_instance_lifetime` and `aws_tags` inputs to that wrapper. Their\ndefaults leave the existing callers unchanged.\n\n## Validation\n\n- `uvx pre-commit run --files .github/wandb-archive.yaml\n.github/workflows/wandb-archive.yml`\n- `go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12\n.github/workflows/wandb-archive.yml`\n- loaded `.github/wandb-archive.yaml` with the published\n`wandb-archive==0.1.1` configuration model\n\nThe initial historical backfill can continue on Torch; this workflow is\ndesigned primarily for idempotent weekly increments, while retaining\nenough runtime headroom to catch up after a missed run.\n\n<!-- This is an auto-generated comment: release notes by coderabbit.ai\n-->\n<!-- coderabbit-ai-generated:v1 -->\n\n## Summary by CodeRabbit\n\n* **New Features**\n* W&B run archives can be created weekly or started manually, with\nselected run statuses from configured projects transferred to cloud\nstorage.\n* Transfers include checksum verification, retry limits, and safeguards\nthat stop the archive if sensitive values are detected.\n* Archive jobs check that required credentials are available before\nstarting.\n* Cloud runner workflows can now accept custom AWS tags and an optional\nmaximum instance lifetime. When no lifetime is provided, the configured\ndefault is used.\n<!-- end of auto-generated comment: release notes by coderabbit.ai -->\n\n---------\n\nCo-authored-by: Claude Opus 5.5 <noreply@anthropic.com>",
+          "timestamp": "2026-11-16T22:10:56Z",
+          "tree_id": "579dc1b7a98a9248abc1a58a3e1ba96c86ece44f",
+          "url": "https://github.com/m2lines/Samudra/commit/34da2024261fe32d0ed86b7f55dc759b5ea73b10"
+        },
+        "date": 1794868803942,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 1.0649492435254662,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0022674052473595323",
+            "extra": "mean: 939.0118881999911 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_dataset__1gb[cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.3452699929118534,
+            "unit": "iter/sec",
+            "range": "stddev: 0.006165694071797569",
+            "extra": "mean: 2.8962841269999897 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.08838836775914144,
+            "unit": "iter/sec",
+            "range": "stddev: 0.06045588089262889",
+            "extra": "mean: 11.3137059248 sec\nrounds: 5"
           }
         ]
       }

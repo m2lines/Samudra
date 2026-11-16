@@ -49,15 +49,16 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: Open-Athena/ec2-gha/.github/workflows/runner.yml@e021da12a946b653a717738bc704aa7baa95ae8e
+    # Launch through the repository wrapper so the ec2-gha image build pulls
+    # from ECR Public with AWS credentials (see .github/CI-README.md).
+    uses: ./.github/workflows/ec2-runner.yml
     with:
-      action_ref: e021da12a946b653a717738bc704aa7baa95ae8e # pragma: allowlist secret
       aws_region: us-east-1
       # Export is W&B API/network-bound and does not benefit from a GPU.
       ec2_instance_type: m7i.xlarge
       # Ubuntu 24.04 LTS amd64 hvm ebs-gp3 in us-east-1, Canonical owner 099720109477.
       ec2_image_id: ami-04b70fa74e45c3917
-      ec2_root_device_size: 200
+      ec2_root_device_size: "200"
       max_instance_lifetime: "720"
       aws_tags: '[{"Key": "project", "Value": "fomo"}, {"Key": "purpose", "Value": "wandb-archive"}]'
     secrets:

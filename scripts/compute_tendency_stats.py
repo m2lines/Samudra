@@ -84,6 +84,32 @@ def persistence_rms(
     return xr.Dataset({c: xr.DataArray(v) for c, v in out.items()})
 
 
+def per_cell_rms(data: xr.Dataset, channels: list[str], time_stride: int) -> xr.Dataset:
+    """RMS of x[t+1] - x[t] over time at every wet cell; NaN on land.
+
+    One (y, x) map per channel, on the store's own grid and orientation.
+    """
+    if time_stride < 1:
+        raise ValueError(f"time_stride must be positive, got {time_stride}")
+    missing = [c for c in channels if c not in data]
+    if missing:
+        raise KeyError(f"Dataset is missing channels: {missing}")
+    origins = np.arange(0, data.sizes["time"] - 1, time_stride)
+    out = {}
+    for channel in channels:
+        field = data[channel]
+        change = field.isel(time=origins + 1).data - field.isel(time=origins).data
+        wet = wet_mask(data, channel)
+        rms = np.sqrt(np.mean(np.square(change, dtype=np.float64), axis=0))
+        rms, wet_values = dask.compute(rms, wet.data)
+        if np.isnan(rms[wet_values]).any():
+            raise ValueError(f"NaN one-step change in wet cells of {channel!r}")
+        if not (rms[wet_values] > 0).any():
+            raise ValueError(f"Channel {channel!r} never changes")
+        out[channel] = xr.DataArray(np.where(wet_values, rms, np.nan), dims=wet.dims)
+    return xr.Dataset(out)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--data", required=True, help="Flat OM4.zarr store")
@@ -97,6 +123,11 @@ def main() -> None:
         choices=("full", "wet"),
         default="full",
         help="Average over the full grid (land as zero) or wet cells only",
+    )
+    parser.add_argument(
+        "--per-cell",
+        action="store_true",
+        help="Write one RMS map per channel (over time, at each wet cell) instead",
     )
     args = parser.parse_args()
 
@@ -118,16 +149,29 @@ def main() -> None:
     if data.sizes["time"] < 2:
         raise ValueError("Need at least two time steps in the training range")
 
-    stats = persistence_rms(data, channels, args.time_stride, args.over)
-    stats.attrs["description"] = "RMS one-step change per channel, physical units, " + (
-        "land counted as zero" if args.over == "full" else "wet cells only"
-    )
-    stats.attrs["over"] = args.over
+    if args.per_cell:
+        stats = per_cell_rms(data, channels, args.time_stride)
+        stats.attrs["description"] = (
+            "RMS one-step change over time at each wet cell, physical units, "
+            "NaN on land"
+        )
+        stats.attrs["over"] = "per_cell"
+    else:
+        stats = persistence_rms(data, channels, args.time_stride, args.over)
+        stats.attrs["description"] = (
+            "RMS one-step change per channel, physical units, "
+            + ("land counted as zero" if args.over == "full" else "wet cells only")
+        )
+        stats.attrs["over"] = args.over
     stats.attrs["time_range"] = f"{args.start} to {args.end}"
     stats.attrs["time_stride"] = args.time_stride
     stats.to_zarr(args.output, mode="w")
     for channel in channels:
-        print(f"{channel}\t{float(stats[channel]):.6g}")
+        value = stats[channel]
+        if args.per_cell:
+            print(f"{channel}\twet RMS {float(np.sqrt(np.nanmean(value**2))):.6g}")
+        else:
+            print(f"{channel}\t{float(value):.6g}")
 
 
 if __name__ == "__main__":

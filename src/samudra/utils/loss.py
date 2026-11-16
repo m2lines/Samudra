@@ -308,6 +308,38 @@ class TendencyLoss:
         return self._weights
 
 
+class CellScaledMSE:
+    """MSE in change units with a per-cell scale: mean of ((pred - target) / q)**2.
+
+    ``q`` has shape (variables, lat, lon) and repeats over output steps. Land
+    is zeroed and the mean runs over the full grid, as in ``loss_fn_from_metric``.
+    """
+
+    def __init__(
+        self, scale: Float[torch.Tensor, "var lat lon"], *, device: torch.device
+    ):
+        if scale.ndim != 3 or not torch.isfinite(scale).all() or (scale <= 0).any():
+            raise ValueError("scale must be a positive, finite (var, lat, lon) map")
+        self._scale = scale.float().to(device)
+
+    def __call__(
+        self,
+        pred: Float[torch.Tensor, "batch chan lat lon"],
+        target: Float[torch.Tensor, "batch chan lat lon"],
+        ctx: BatchGrid,
+    ) -> Float[torch.Tensor, " chan"]:
+        n_var = self._scale.shape[0]
+        if pred.shape[1] % n_var:
+            raise ValueError(f"{pred.shape[1]} channels is not a multiple of {n_var}")
+        scale = self._scale.repeat(pred.shape[1] // n_var, 1, 1).unsqueeze(0)
+        wet = ctx.label_mask.to(device=pred.device)
+        err = torch.where(wet, (pred - target) / scale.to(pred), 0.0)
+        return err.square().mean(dim=(0, 2, 3))
+
+    def loss_scale_per_channel(self) -> Float[torch.Tensor, " var"]:
+        return self._scale.square().reciprocal().mean(dim=(1, 2))
+
+
 class GradientLoss:
     """Combine a base loss with a gradient matching penalty.
 

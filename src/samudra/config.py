@@ -78,6 +78,7 @@ from samudra.utils.location import (
     UnresolvedLocation,
 )
 from samudra.utils.loss import (
+    CellScaledMSE,
     DynamicLoss,
     GradientLoss,
     LossFnWithContext,
@@ -1017,10 +1018,21 @@ class BaseModelConfig(BaseConfig, abc.ABC):
         ),
     )
 
+    residual_scale_per_cell: bool = Field(
+        default=False,
+        description=(
+            "Make the residual scale a (variable, lat, lon) map instead of one "
+            "value per variable. Requires scale_residuals and a per_cell "
+            "normalized_delta loss. Only the Samudra model supports it."
+        ),
+    )
+
     @pydantic.model_validator(mode="after")
     def validate_scale_residuals(self) -> Self:
         if self.scale_residuals and not self.pred_residuals:
             raise ValueError("scale_residuals requires pred_residuals")
+        if self.residual_scale_per_cell and not self.scale_residuals:
+            raise ValueError("residual_scale_per_cell requires scale_residuals")
         return self
 
     last_kernel_size: int = 3
@@ -1091,6 +1103,7 @@ class SamudraConfig(BaseModelConfig):
             out_channels=out_channels,
             pred_residuals=self.pred_residuals,
             scale_residuals=self.scale_residuals,
+            residual_scale_per_cell=self.residual_scale_per_cell,
             last_kernel_size=self.last_kernel_size,
             pad=self.pad,
             unet=self.unet.build(
@@ -1481,6 +1494,21 @@ class NormalizedDeltaLossConfig(pydantic.BaseModel):
             + LOCATION_DOCS
         )
     )
+    per_cell: bool = Field(
+        default=False,
+        description=(
+            "Read increment_rms_location as one (y, x) RMS map per channel "
+            "(scripts/compute_tendency_stats.py --per-cell) and use a per-cell "
+            "q = max(tau_cell, per_cell_floor * tau_channel) / sigma, where "
+            "tau_channel is the channel's RMS over wet cells."
+        ),
+    )
+    per_cell_floor: float = Field(
+        default=0.1,
+        gt=0.0,
+        le=1.0,
+        description="Lower bound on tau_cell, as a fraction of tau_channel.",
+    )
 
 
 Loss = (
@@ -1510,6 +1538,48 @@ def load_normalized_persistence_rms(
     return torch.from_numpy(physical / np.asarray(state_stds, dtype=np.float64))
 
 
+def load_normalized_increment_scale_map(
+    location: ResolvedLocation,
+    channels: tuple[str, ...],
+    state_stds: np.ndarray,
+    wet: torch.Tensor,
+    floor: float,
+) -> torch.Tensor:
+    """Per-cell q = max(tau_cell, floor * tau_channel) / sigma, (var, lat, lon).
+
+    ``tau_channel`` is the RMS of ``tau_cell`` over the channel's wet cells, so
+    it equals the per-channel wet-cell RMS change. Land cells get
+    ``tau_channel``; the loss and model mask them anyway. Fails if the map's
+    land (NaN) cells don't match ``wet``, which also catches a map stored in a
+    different grid orientation from the training data.
+    """
+    if len(state_stds) != len(channels) or wet.shape[0] != len(channels):
+        raise ValueError("channels, state_stds and wet disagree in length")
+    stats = location.open(None)
+    missing = [c for c in channels if c not in stats.data_vars]
+    if missing:
+        raise KeyError(f"Increment RMS dataset is missing channels: {missing}")
+    wet_np = wet.cpu().numpy().astype(bool)
+    maps = []
+    for i, channel in enumerate(channels):
+        tau = np.asarray(stats[channel].values, dtype=np.float64)
+        if tau.shape != wet_np.shape[1:]:
+            raise ValueError(
+                f"{channel}: map shape {tau.shape} != grid {wet_np.shape[1:]}"
+            )
+        if not np.array_equal(np.isfinite(tau), wet_np[i]):
+            raise ValueError(
+                f"{channel}: finite cells of the increment map don't match the "
+                "wet mask (wrong grid, orientation, or level)"
+            )
+        tau_channel = float(np.sqrt(np.mean(tau[wet_np[i]] ** 2)))
+        if not tau_channel > 0:
+            raise ValueError(f"{channel}: increment RMS is not positive")
+        tau = np.where(wet_np[i], np.maximum(tau, floor * tau_channel), tau_channel)
+        maps.append(tau / float(state_stds[i]))
+    return torch.from_numpy(np.stack(maps))
+
+
 def build_loss_fn(
     loss_cfg: Loss,
     device: torch.device,
@@ -1519,6 +1589,7 @@ def build_loss_fn(
     data_root: ResolvedLocation | None = None,
     channels: tuple[str, ...] | None = None,
     state_stds: np.ndarray | None = None,
+    wet: torch.Tensor | None = None,
 ) -> LossFnWithContext:
     match loss_cfg:
         case str():
@@ -1562,6 +1633,19 @@ def build_loss_fn(
             if len(channels) != num_channels:
                 raise ValueError(
                     f"Got {len(channels)} channel names for {num_channels} channels"
+                )
+            if loss_cfg.per_cell:
+                if wet is None:
+                    raise ValueError("per_cell normalized_delta needs the wet mask")
+                return CellScaledMSE(
+                    load_normalized_increment_scale_map(
+                        data_root.resolve(location),
+                        channels,
+                        state_stds,
+                        wet,
+                        loss_cfg.per_cell_floor,
+                    ),
+                    device=device,
                 )
             scale = load_normalized_persistence_rms(
                 data_root.resolve(location), channels, state_stds
@@ -1652,6 +1736,11 @@ class TrainConfig(TopLevelConfig):
             raise ValueError(
                 "model.scale_residuals takes its scale from a normalized_delta loss"
             )
+        if isinstance(self.loss, NormalizedDeltaLossConfig) and (
+            self.model.scale_residuals
+            and self.model.residual_scale_per_cell != self.loss.per_cell
+        ):
+            raise ValueError("model.residual_scale_per_cell must match loss.per_cell")
         if (
             isinstance(self.loss, TendencyLossConfig | NormalizedDeltaLossConfig)
             and len(self.data.sources) != 1

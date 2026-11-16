@@ -33,6 +33,7 @@ from samudra.config import (
     NormalizedDeltaLossConfig,
     TrainConfig,
     build_loss_fn,
+    load_normalized_increment_scale_map,
     load_normalized_persistence_rms,
 )
 from samudra.constants import (
@@ -203,11 +204,30 @@ class Trainer:
             data_root=cfg.experiment.resolved_data_root,
             channels=tuple(self.prognostic_var_names),
             state_stds=self.primary_source.statistics(self.prognostic_var_names).std,
+            wet=self.primary_source.masks.prognostic,
         )
-        if cfg.model.scale_residuals:
+        self._residual_scale: torch.Tensor | None = None
+        if cfg.model.scale_residuals and cfg.model.residual_scale_per_cell:
             if not isinstance(cfg.loss, NormalizedDeltaLossConfig):
                 raise ValueError("scale_residuals needs a normalized_delta loss")
-            self._residual_scale: torch.Tensor | None = (
+            self._residual_scale = (
+                load_normalized_increment_scale_map(
+                    cfg.experiment.resolved_data_root.resolve(
+                        cfg.loss.increment_rms_location
+                    ),
+                    tuple(self.prognostic_var_names),
+                    self.primary_source.statistics(self.prognostic_var_names).std,
+                    self.primary_source.masks.prognostic,
+                    cfg.loss.per_cell_floor,
+                )
+                .float()
+                .to(self.device)
+            )
+            self.model.set_residual_scale_map(self._residual_scale)
+        elif cfg.model.scale_residuals:
+            if not isinstance(cfg.loss, NormalizedDeltaLossConfig):
+                raise ValueError("scale_residuals needs a normalized_delta loss")
+            self._residual_scale = (
                 load_normalized_persistence_rms(
                     cfg.experiment.resolved_data_root.resolve(
                         cfg.loss.increment_rms_location
@@ -219,8 +239,6 @@ class Trainer:
                 .to(self.device)
             )
             self.model.set_residual_scale(self._residual_scale)
-        else:
-            self._residual_scale = None
 
         # Optimizer
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=cfg.learning_rate)
@@ -1220,8 +1238,9 @@ class Trainer:
         expected_scale = getattr(self, "_residual_scale", None)
         if expected_scale is not None:
             saved = new_state_dict["residual_scale"].to(expected_scale)
-            repeats = saved.numel() // expected_scale.numel()
-            if not torch.equal(saved, expected_scale.repeat(repeats)):
+            repeats = saved.shape[0] // expected_scale.shape[0]
+            expected = expected_scale.repeat(repeats, *([1] * (saved.ndim - 1)))
+            if not torch.equal(saved, expected):
                 raise ValueError(
                     "Checkpoint residual_scale differs from the scale computed "
                     "from loss.increment_rms_location; the statistics changed"

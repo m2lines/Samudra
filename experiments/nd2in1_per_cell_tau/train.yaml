@@ -1,0 +1,52 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# PR #984 (normalized_delta, 2 inputs / 1 output) with a per-cell change
+# scale tau(variable, lat, lon) instead of one per channel. Everything else is
+# identical to experiments/normalized_delta_2in1out.
+debug: false
+disk_mode: true
+save_freq: 5
+rollout_validation:
+  days: [360]
+  frequency: 1
+  steps_forward: 1
+# As in #969. Evaluation uses the final-epoch EMA checkpoint, not the best one.
+validation_score: rollout_rmse
+epochs: 70
+batch_size: 4
+learning_rate: 0.0006
+gradient_accumulation_steps: 1
+scheduler: { type: cosine }
+ema_decay: 0.999
+faster_decay_at_start: true
+test_using_ema: true
+loss:
+  type: normalized_delta
+  # Per-channel RMS five-day change over wet cells, 1975-01-03..2013-09-30,
+  # from scripts/compute_tendency_stats.py --over wet. Relative to data_root.
+  # The only loss change from #984: tau per cell (RMS five-day change over
+  # time at each wet cell), floored at 0.1 x the channel's wet-cell RMS.
+  # From scripts/compute_tendency_stats.py --per-cell. Relative to data_root.
+  increment_rms_location: OM4_increment_rms_per_cell.zarr
+  per_cell: true
+  per_cell_floor: 0.1
+finetune: false
+resume_ckpt_path: null
+data_stride: [1]
+steps: [8]
+step_transition: []
+preemptible: true
+
+backend: auto
+
+experiment:
+  name: nd2in1_per_cell_tau
+  rand_seed: 15
+  base_output_dir: .LOCAL
+  wandb:
+    mode: disabled
+    project: default
+data: !include ../normalized_delta_2in1out/data.yaml
+model: !include model.yaml

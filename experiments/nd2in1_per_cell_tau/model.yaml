@@ -1,0 +1,29 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Yuan's normalized_delta backbone: the 1° Samudra U-Net with BatchNorm, fp32.
+# pred_residuals + scale_residuals: x[t+1] = x[t] + q * network(x).
+checkpointing: all
+pred_residuals: true
+scale_residuals: true
+# The only model change from #984: q is a (variable, lat, lon) map.
+residual_scale_per_cell: true
+last_kernel_size: 3
+pad: "circular"
+use_bfloat16: false
+
+unet:
+  ch_width: [280, 380, 480, 520]
+  dilation: [1, 2, 4, 8]
+  n_layers: [1, 1, 1, 1]
+
+  core_block:
+    block_type: "conv_next_block"
+    kernel_size: 3
+    activation: "capped_gelu"
+    upscale_factor: 2
+    norm: "batch"
+
+  down_sampling_block: "avg_pool"
+  up_sampling_block: "zonally_periodic_upsample"

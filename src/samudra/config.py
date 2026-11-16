@@ -4,9 +4,9 @@
 
 import abc
 import datetime
-from functools import cached_property
+from functools import cached_property, partial
 from pathlib import Path
-from typing import Annotated, Literal, Self, assert_never
+from typing import TYPE_CHECKING, Annotated, Literal, Self, assert_never
 
 import cftime
 import numpy as np
@@ -30,6 +30,7 @@ from samudra.constants import (
     GridSize,
     GridType,
     LoaderVersion,
+    build_llc_layout,
     build_om4_layout,
 )
 from samudra.models import Samudra, SamudraMini, SamudraMulti
@@ -58,6 +59,7 @@ from samudra.models.modules.augment_input import (
 )
 from samudra.models.modules.blocks import ZonallyPeriodicBilinearUpsample
 from samudra.models.modules.encoder import patch_from
+from samudra.post_train_eval import CheckpointSweep
 from samudra.utils.data import (
     CanonicalSource,
     DataBundle,
@@ -84,6 +86,12 @@ from samudra.utils.loss import (
 )
 from samudra.utils.profiler import Profiler
 from samudra.utils.schedule import SchedulerConfig
+from samudra.utils.train import CheckpointPaths
+
+if TYPE_CHECKING:
+    from samudra.data_backend import TrainingSourceBackend
+    from samudra.datasets import TrainBatchLoader, TrainingWindows
+    from samudra.utils.samplers import BatchSchedule
 
 
 class WandBConfig(BaseConfig):
@@ -124,6 +132,30 @@ JulianDateConfig = Annotated[
 ]
 
 
+class NoLeapDate:
+    """A CM4 simulation date at midnight on the 365-day calendar."""
+
+    datetime: cftime.datetime
+
+    def __init__(self, value: str) -> None:
+        self.datetime = cftime.datetime.strptime(value, "%Y-%m-%d", calendar="noleap")
+
+    def __str__(self) -> str:
+        return self.datetime.strftime("%Y-%m-%d")
+
+
+def _no_leap_date_validator(value: str | NoLeapDate) -> NoLeapDate:
+    return NoLeapDate(value) if isinstance(value, str) else value
+
+
+NoLeapDateConfig = Annotated[
+    NoLeapDate,
+    PlainValidator(_no_leap_date_validator),
+    PlainSerializer(NoLeapDate.__str__),
+    WithJsonSchema({"type": "string", "format": "date"}),
+]
+
+
 # We reuse pydantic's AwareDatetime to match JSONSchema's expected RFC3339 format
 _aware_datetime_adapter = pydantic.TypeAdapter(pydantic.AwareDatetime)
 
@@ -159,9 +191,10 @@ class Om4TimeConfig(BaseConfig):
         return slice(self.start.datetime, self.end.datetime)
 
     def overlaps(self, other: Self) -> bool:
+        """Match the inclusive endpoints used by xarray time selection."""
         return (
-            self.start.datetime < other.end.datetime
-            and self.end.datetime > other.start.datetime
+            self.start.datetime <= other.end.datetime
+            and self.end.datetime >= other.start.datetime
         )
 
     def __str__(self) -> str:
@@ -185,7 +218,30 @@ class LlcTimeConfig(BaseConfig):
         return f"{self.start} to {self.end}"
 
 
-TimeConfig = Om4TimeConfig | LlcTimeConfig
+class Cm4TimeConfig(BaseConfig):
+    """Date bounds for CM4's native no-leap, interval-end timestamps."""
+
+    model_config = pydantic.ConfigDict(frozen=True)
+
+    start: NoLeapDateConfig
+    end: NoLeapDateConfig
+
+    @property
+    def time_slice(self) -> slice:
+        return slice(self.start.datetime, self.end.datetime)
+
+    def overlaps(self, other: Self) -> bool:
+        """Match the inclusive endpoints used by xarray time selection."""
+        return (
+            self.start.datetime <= other.end.datetime
+            and self.end.datetime >= other.start.datetime
+        )
+
+    def __str__(self) -> str:
+        return f"{self.start} to {self.end}"
+
+
+TimeConfig = Om4TimeConfig | Cm4TimeConfig | LlcTimeConfig
 
 
 LOCATION_DOCS = (
@@ -194,10 +250,14 @@ LOCATION_DOCS = (
 )
 
 
+type DataSourceType = Literal["om4", "cm4", "llc"]
+
+
 class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
+    type: DataSourceType
     train_time: SourceTimeConfigT = Field(frozen=True)
     val_time: SourceTimeConfigT = Field(frozen=True)
-    inference_times: tuple[SourceTimeConfigT, ...] = Field(default=(), frozen=True)
+    inference_time: SourceTimeConfigT | None = Field(default=None, frozen=True)
     data_location: Location = Field(
         description="Location of the data; " + LOCATION_DOCS
     )
@@ -207,6 +267,10 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
     data_stds_location: Location = Field(
         description="Location of the data standard deviations; " + LOCATION_DOCS
     )
+
+    @abc.abstractmethod
+    def build_layout(self) -> DataLayout:
+        raise NotImplementedError
 
     @abc.abstractmethod
     def canonicalize_datasets(
@@ -223,25 +287,25 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
         *,
         use_dask: bool,
         is_primary: bool,
+        include_inference: bool,
+        source_backend: "TrainingSourceBackend",
     ) -> SourceSplits:
         source = self._build_source(
             data_root,
             turn_on_dask=use_dask,
+            source_backend=source_backend,
         )
         inference_source = None
-        if is_primary and self.inference_times:
+        if include_inference and is_primary and self.inference_time is not None:
             if use_dask:
                 full_inference_source = source
             else:
                 full_inference_source = self._build_source(
                     data_root,
                     turn_on_dask=True,
+                    source_backend=source_backend,
                 )
-            # TODO: remove multiple inference time ranges altogether (see #813)
-            assert len(self.inference_times) == 1, (
-                "multiple inference time ranges have been deprecated"
-            )
-            inference_source = full_inference_source.slice_time(self.inference_times[0])
+            inference_source = full_inference_source.slice_time(self.inference_time)
 
         return SourceSplits(
             train=source.slice_time(self.train_time),
@@ -254,11 +318,19 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
         data_root: ResolvedLocation,
         *,
         turn_on_dask: bool,
+        source_backend: "TrainingSourceBackend",
     ) -> CanonicalSource:
         resolved_data_location = data_root.resolve(self.data_location)
         resolved_means_location = data_root.resolve(self.data_means_location)
         resolved_stds_location = data_root.resolve(self.data_stds_location)
 
+        source_backend.validate_source(
+            data_location=resolved_data_location,
+            means_location=resolved_means_location,
+            stds_location=resolved_stds_location,
+            source_type=self.type,
+            data_layout=self.build_layout(),
+        )
         chunks: dict[str, int] | None = {} if turn_on_dask else None
         data = resolved_data_location.open(chunks)
         means = resolved_means_location.open(chunks)
@@ -276,64 +348,174 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
             prognostic_var_names=data_layout.prognostic_var_names,
             boundary_var_names=data_layout.boundary_var_names,
             name=f"{resolved_data_location}-{turn_on_dask}",
+            reader_factory=(
+                None
+                if turn_on_dask
+                else partial(
+                    source_backend.build_reader,
+                    data_location=resolved_data_location,
+                    data_layout=data_layout,
+                )
+            ),
         )
         return source
 
 
-class BaseDataLoadingConfig(BaseConfig):
-    def num_pytorch_workers(self) -> int:
-        raise NotImplementedError
-
-    def persistent_pytorch_workers(self) -> bool:
-        raise NotImplementedError
-
-
-class CpuDataLoadingConfig(BaseDataLoadingConfig):
+class CpuDataLoadingConfig(BaseConfig):
     type: Literal["cpu"] = "cpu"
     num_workers: int = Field(default=4, ge=0)
     persistent_workers: bool = True
+    pin_mem: bool = True
+    concurrent_compute: bool = False
 
-    def num_pytorch_workers(self) -> int:
-        return self.num_workers
+    def build_source_backend(self) -> "TrainingSourceBackend":
+        from samudra.data_backend import PythonSourceBackend
 
-    def persistent_pytorch_workers(self) -> bool:
-        return self.persistent_workers
+        return PythonSourceBackend()
+
+    def build_batch_loader(
+        self,
+        windows: list["TrainingWindows"],
+        batch_sampler: "BatchSchedule",
+        device: torch.device,
+        *,
+        seed: int,
+    ) -> "TrainBatchLoader":
+        from samudra.train_data_loader import build_torch_batch_loader
+
+        return build_torch_batch_loader(
+            windows,
+            batch_sampler,
+            device,
+            num_workers=self.num_workers,
+            persistent_workers=self.persistent_workers,
+            pin_memory=self.pin_mem,
+            worker_seed=seed,
+            concurrent_compute=self.concurrent_compute,
+        )
 
 
-class GpuDataLoadingConfig(BaseDataLoadingConfig):
+class GpuDataLoadingConfig(BaseConfig):
     type: Literal["gpu"] = "gpu"
     kvikio_task_size: int = Field(default=64 * 1024 * 1024, gt=0)
     kvikio_num_threads: int = Field(default=8, gt=0)
+    pin_mem: bool = True
+    concurrent_compute: bool = False
 
-    def num_pytorch_workers(self) -> int:
-        # When loading data direct to GPU, we don't want worker processes.
-        # 0 means "load in the main process"
-        return 0
+    def build_source_backend(self) -> "TrainingSourceBackend":
+        from samudra.data_backend import PythonSourceBackend
 
-    def persistent_pytorch_workers(self) -> bool:
-        return False
+        return PythonSourceBackend()
+
+    def build_batch_loader(
+        self,
+        windows: list["TrainingWindows"],
+        batch_sampler: "BatchSchedule",
+        device: torch.device,
+        *,
+        seed: int,
+    ) -> "TrainBatchLoader":
+        from samudra.train_data_loader import build_torch_batch_loader
+
+        return build_torch_batch_loader(
+            windows,
+            batch_sampler,
+            device,
+            # Direct GPU reads run in the main process.
+            num_workers=0,
+            persistent_workers=False,
+            pin_memory=self.pin_mem,
+            worker_seed=seed,
+            concurrent_compute=self.concurrent_compute,
+        )
+
+
+class RustDataLoadingConfig(BaseConfig):
+    """Configuration for the local Rust Zarr data loader."""
+
+    type: Literal["rust"] = "rust"
+    max_concurrent_reads: int = Field(
+        default=32,
+        ge=1,
+        description="Shared Rayon Zarr read concurrency limit for this process/rank.",
+    )
+
+    prefetch_batches: int = Field(default=2, ge=1)
+    prefetch_to_device: bool = True
+
+    def build_source_backend(self) -> "TrainingSourceBackend":
+        from samudra.data_backend import NativeOm4SourceBackend
+        from samudra.rust_reader import RustIoRuntime
+
+        return NativeOm4SourceBackend(
+            "rust", partial(RustIoRuntime, self.max_concurrent_reads)
+        )
+
+    def build_batch_loader(
+        self,
+        windows: list["TrainingWindows"],
+        batch_sampler: "BatchSchedule",
+        device: torch.device,
+        *,
+        seed: int,
+    ) -> "TrainBatchLoader":
+        from samudra.native_loader import CudaPrefetch, HostPrefetch, NativeBatchLoader
+
+        prefetch = (
+            CudaPrefetch()
+            if device.type == "cuda" and self.prefetch_to_device
+            else HostPrefetch()
+        )
+        return NativeBatchLoader(
+            windows,
+            batch_sampler,
+            device,
+            prefetch_batches=self.prefetch_batches,
+            prefetch=prefetch,
+        )
 
 
 DataLoadingConfig = Annotated[
-    CpuDataLoadingConfig | GpuDataLoadingConfig,
+    CpuDataLoadingConfig | GpuDataLoadingConfig | RustDataLoadingConfig,
     Field(discriminator="type"),
 ]
 
 
-class Om4DataSourceConfig(BaseDataSourceConfig[Om4TimeConfig]):
-    type: Literal["om4"] = "om4"
+class InferenceDataLoadingConfig(BaseConfig):
+    """PyTorch worker policy for inference, independent of training I/O."""
+
+    num_workers: int = Field(default=4, ge=0)
+    persistent_workers: bool = True
+
+
+class Om4FamilyDataSourceConfig[Om4FamilyTimeConfigT: Om4TimeConfig | Cm4TimeConfig](
+    BaseDataSourceConfig[Om4FamilyTimeConfigT]
+):
+    """Shared physical channels and layouts for the OM4 and CM4 oceans."""
+
     prognostic_vars_key: str = "thermo_dynamic_all"
     boundary_vars_key: str = "tau_hfds"
     grid_type: GridType = "gaussian"
 
     @pydantic.model_validator(mode="after")
     def validate_time_splits(self) -> Self:
-        if self.train_time.overlaps(self.val_time):
+        # Label slices include both endpoints, so touching ranges share a state.
+        if (
+            self.train_time.start.datetime <= self.val_time.end.datetime
+            and self.train_time.end.datetime >= self.val_time.start.datetime
+        ):
             raise ValueError(
                 f"Training time range {self.train_time} overlaps "
                 f"with validation time range {self.val_time}"
             )
         return self
+
+    def build_layout(self) -> DataLayout:
+        return build_om4_layout(
+            self.prognostic_vars_key,
+            self.boundary_vars_key,
+            grid_type=self.grid_type,
+        )
 
     def canonicalize_datasets(
         self,
@@ -342,11 +524,7 @@ class Om4DataSourceConfig(BaseDataSourceConfig[Om4TimeConfig]):
         stds: xr.Dataset,
     ) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset, DataLayout]:
         """Convert raw flat or compact OM4 xarray inputs to canonical channels."""
-        data_layout = build_om4_layout(
-            self.prognostic_vars_key,
-            self.boundary_vars_key,
-            grid_type=self.grid_type,
-        )
+        data_layout = self.build_layout()
         data = data.copy()
         means = means.copy()
         stds = stds.copy()
@@ -380,6 +558,24 @@ class Om4DataSourceConfig(BaseDataSourceConfig[Om4TimeConfig]):
         return canonical_data, canonical_means, canonical_stds, data_layout
 
 
+class Om4DataSourceConfig(Om4FamilyDataSourceConfig[Om4TimeConfig]):
+    type: Literal["om4"] = "om4"
+
+
+class Cm4DataSourceConfig(Om4FamilyDataSourceConfig[Cm4TimeConfig]):
+    type: Literal["cm4"] = "cm4"
+    boundary_vars_key: str = "tau_hfds_wfo"
+
+    def canonicalize_datasets(
+        self, data: xr.Dataset, means: xr.Dataset, stds: xr.Dataset
+    ) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset, DataLayout]:
+        if data.sizes.get("time", 0) == 0 or getattr(
+            data.time.values[0], "calendar", None
+        ) not in {"noleap", "365_day"}:
+            raise ValueError("CM4 data must use the no-leap calendar")
+        return super().canonicalize_datasets(data, means, stds)
+
+
 class LlcDataSourceConfig(BaseDataSourceConfig[LlcTimeConfig]):
     type: Literal["llc"] = "llc"
     prognostic_vars_key: str = "single_1"
@@ -389,6 +585,10 @@ class LlcDataSourceConfig(BaseDataSourceConfig[LlcTimeConfig]):
     i_end: int = Field(default=720, gt=0)
     j_start: int = Field(default=0, ge=0)
     j_end: int = Field(default=720, gt=0)
+
+    @property
+    def grid_type(self) -> GridType:
+        return "llc"
 
     @pydantic.model_validator(mode="after")
     def validate_time_splits(self) -> Self:
@@ -406,6 +606,9 @@ class LlcDataSourceConfig(BaseDataSourceConfig[LlcTimeConfig]):
         if self.j_end <= self.j_start:
             raise ValueError("LLC crop bounds must satisfy j_start < j_end")
         return self
+
+    def build_layout(self) -> DataLayout:
+        return build_llc_layout(self.prognostic_vars_key, self.boundary_vars_key)
 
     def canonicalize_datasets(
         self,
@@ -428,7 +631,7 @@ class LlcDataSourceConfig(BaseDataSourceConfig[LlcTimeConfig]):
 
 
 DataSourceConfig = Annotated[
-    Om4DataSourceConfig | LlcDataSourceConfig,
+    Om4DataSourceConfig | Cm4DataSourceConfig | LlcDataSourceConfig,
     Field(discriminator="type"),
 ]
 
@@ -442,24 +645,49 @@ class DataConfig(BaseConfig):
         min_length=1,
     )
     loading: DataLoadingConfig = Field(default_factory=CpuDataLoadingConfig)
-    hist: int = 1
+    inference_loading: InferenceDataLoadingConfig = Field(
+        default_factory=InferenceDataLoadingConfig
+    )
+    input_steps: int = Field(
+        default=2,
+        ge=1,
+        description="Number of raw timesteps consumed by each model call.",
+    )
+    output_steps: int = Field(
+        default=2,
+        ge=1,
+        description="Number of future raw timesteps emitted by each model call.",
+    )
     loader_version: str = str(LoaderVersion.OM4_TORCH.value)
     normalize_before_mask: bool = True
     masked_fill_value: float = 0.0
-    concurrent_compute: bool = False
+
+    @pydantic.model_validator(mode="after")
+    def validate_step_configuration(self) -> Self:
+        if self.output_steps > self.input_steps:
+            raise ValueError(
+                "data.output_steps cannot exceed the number of input timesteps "
+                f"({self.input_steps}); got {self.output_steps}"
+            )
+        return self
 
     def build(
         self,
         data_root: ResolvedLocation,
+        *,
+        include_inference: bool,
     ) -> DataBundle:
         loader_version = LoaderVersion(self.loader_version)
         use_dask = loader_version != LoaderVersion.OM4_TORCH
 
+        source_backend = self.loading.build_source_backend()
         source_splits = [
             source_cfg.build(
                 data_root,
                 use_dask=use_dask,
                 is_primary=index == 0,
+                include_inference=include_inference,
+                source_backend=source_backend,
             )
             for index, source_cfg in enumerate(self.sources)
         ]
@@ -805,7 +1033,7 @@ class BaseModelConfig(BaseConfig, abc.ABC):
         prog_channels: int,
         boundary_channels: int,
         out_channels: int,
-        hist: int,
+        input_steps: int,
         grid_sizes: list[GridSize],
     ) -> BaseModel:
         pass
@@ -827,7 +1055,7 @@ class SamudraConfig(BaseModelConfig):
         prog_channels: int,
         boundary_channels: int,
         out_channels: int,
-        hist: int,
+        input_steps: int,
         grid_sizes: list[GridSize],
     ) -> Samudra:
         if len(grid_sizes) != 1:
@@ -852,7 +1080,7 @@ class SamudraConfig(BaseModelConfig):
             ),
             pos_channels=self.pos_channels,
             add_3d_coordinates=add_3d_coordinates,
-            hist=hist,
+            input_steps=input_steps,
             grid_size=grid_sizes[0],
             gradient_detach_interval=self.gradient_detach_interval,
             use_bfloat16=self.use_bfloat16,
@@ -885,7 +1113,7 @@ class SamudraMultiConfig(BaseModelConfig):
         prog_channels: int,
         boundary_channels: int,
         out_channels: int,
-        hist: int,
+        input_steps: int,
         grid_sizes: list[GridSize],
     ) -> SamudraMulti:
         assert len(self.patch_extent) == 2, "patch_extent must be a pair of floats."
@@ -937,7 +1165,7 @@ class SamudraMultiConfig(BaseModelConfig):
             processor=processor,
             decoder=decoder,
             add_3d_coordinates=add_3d_coordinates,
-            hist=hist,
+            input_steps=input_steps,
             checkpointing=self.checkpointing,
             gradient_detach_interval=self.gradient_detach_interval,
             use_bfloat16=self.use_bfloat16,
@@ -979,7 +1207,7 @@ class SamudraMiniConfig(BaseModelConfig):
         prog_channels: int,
         boundary_channels: int,
         out_channels: int,
-        hist: int,
+        input_steps: int,
         grid_sizes: list[GridSize],
     ) -> SamudraMini:
         if self.add_3d_coordinates:
@@ -1013,7 +1241,7 @@ class SamudraMiniConfig(BaseModelConfig):
             queries_dim=self.queries_dim,
             query_chunk_size=self.query_chunk_size,
             perceiver_io=perceiver_io,
-            hist=hist,
+            input_steps=input_steps,
             checkpointing=self.checkpointing,
             gradient_detach_interval=self.gradient_detach_interval,
             use_bfloat16=self.use_bfloat16,
@@ -1039,7 +1267,6 @@ class SearchRunConfig(BaseConfig):
     candidate: str
     rung: int = Field(ge=0)
     target_epochs: int = Field(ge=1)
-    objective: str
     executor: str
     code_commit: str | None = None
     code_layer_sha256: str | None = None
@@ -1216,7 +1443,6 @@ def build_loss_fn(
 class TrainConfig(TopLevelConfig):
     # Training parameters
     disk_mode: bool = True
-    pin_mem: bool = True
     save_freq: int = 5
     validation_image_log_freq: int = Field(
         default=10,
@@ -1227,6 +1453,19 @@ class TrainConfig(TopLevelConfig):
         ),
     )
     rollout_validation: RolloutValidationConfig | None = None
+    validation_score: Literal["validation_loss", "one_step_rmse", "rollout_rmse"] = (
+        Field(
+            default="validation_loss",
+            description=(
+                "Score for checkpoint selection and search. one_step_rmse uses normalized, "
+                "area-weighted RMSE averaged over channels and validation samples. "
+                "rollout_rmse uses normalized, "
+                "area-weighted RMSE averaged over channels and time at the longest "
+                "configured rollout horizon. Only rollout epochs can update it."
+            ),
+        )
+    )
+
     epochs: int = 120
     preemptible: bool = True
     batch_size: int = 2
@@ -1250,12 +1489,31 @@ class TrainConfig(TopLevelConfig):
     data_stride: list[int] = [1]
     steps: list[int] = [4]
     step_transition: list[int] = []
-    inference_epochs: list[int] = [-1]
+    post_train_eval: "PostTrainEvalConfig | None" = None
 
     # Config components
     experiment: ExperimentConfig
     data: DataConfig
     model: AnyModelConfig
+
+    @pydantic.model_validator(mode="after")
+    def validate_checkpoint_metric(self) -> Self:
+        if self.validation_score == "validation_loss" and isinstance(
+            self.loss, DynamicLossConfig
+        ):
+            raise ValueError(
+                "validation_loss scoring cannot use a dynamically weighted loss"
+            )
+        if self.validation_score == "rollout_rmse":
+            if self.rollout_validation is None:
+                raise ValueError(
+                    "rollout_rmse checkpoint selection requires rollout_validation"
+                )
+            if len(self.data.sources) != 1:
+                raise ValueError(
+                    "rollout_rmse checkpoint selection requires a single data source"
+                )
+        return self
 
     def prepare_output_dirs(self) -> None:
         self.experiment.nets_dir.mkdir(parents=True, exist_ok=True)
@@ -1345,6 +1603,58 @@ class ObsMetricsConfig(BaseConfig):
 
 # See backend.py for how these are turned into concrete devices
 EvalBackendConfig = Literal["cpu", "cuda", "auto"]
+
+
+class PostTrainEvalConfig(BaseConfig):
+    eval_config_path: Path
+    viz_config_path: Path | None = None
+    last_n_checkpoints: int | None = Field(default=None, ge=1)
+    epochs: list[int] | None = Field(
+        default=None,
+        description="Explicit list of checkpoint epochs (matching ckpt_<epoch>.pt) "
+        "to evaluate; the final EMA checkpoint is always added. Mutually "
+        "exclusive with last_n_checkpoints.",
+    )
+
+    @pydantic.model_validator(mode="after")
+    def _check_checkpoint_selection(self) -> "PostTrainEvalConfig":
+        if self.last_n_checkpoints is not None and self.epochs is not None:
+            raise ValueError("set only one of last_n_checkpoints or epochs, not both")
+        if self.epochs is not None and len(self.epochs) == 0:
+            raise ValueError("epochs must be a non-empty list when provided")
+        return self
+
+    def build(
+        self,
+        nets_dir: Path,
+        output_dir: Path,
+        data_root: ResolvedLocation,
+    ) -> "CheckpointSweep":
+        """Build the runtime sweep."""
+        return CheckpointSweep(
+            eval_config_path=self.eval_config_path,
+            checkpoint_paths=CheckpointPaths(nets_dir),
+            data_root=data_root,
+            sweep_output_dir=output_dir / "evals",
+            viz_config_path=self.viz_config_path,
+            last_n_checkpoints=self.last_n_checkpoints,
+            checkpoints=self.epochs,
+        )
+
+
+class PostTrainEvalCliConfig(TopLevelConfig):
+    """Evaluate the saved checkpoints of an already-finished training run."""
+
+    post_train_eval: PostTrainEvalConfig
+    run_dir: Path
+    data_root: Location
+
+    def build(self) -> "CheckpointSweep":
+        return self.post_train_eval.build(
+            nets_dir=self.run_dir / "saved_nets",
+            output_dir=self.run_dir,
+            data_root=LocalLocation(path=Path.cwd()).resolve(self.data_root),
+        )
 
 
 class EvalConfig(TopLevelConfig):

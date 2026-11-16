@@ -160,7 +160,6 @@ QUICKSTART_YAML = """\
 # Every training, data, and model control is visible and editable.
 debug: false
 disk_mode: true
-pin_mem: true
 save_freq: 1
 # One epoch keeps this instructional run short. Samudra presets commonly use
 # 70 epochs; also extend the date windows for a substantive experiment.
@@ -172,12 +171,12 @@ gradient_accumulation_steps: 1
 scheduler: {type: cosine}
 # Evaluate the directly trained weights after this one-epoch quickstart.
 test_using_ema: false
+validation_score: one_step_rmse
 loss:
   type: dynamic
   metric: mse
 finetune: false
 resume_ckpt_path: null
-inference_epochs: []
 # Temporal spacing between input and target frames; 1 uses consecutive frames.
 data_stride: [1]
 # Autoregressive forecast steps used at each training-curriculum stage.
@@ -197,12 +196,14 @@ experiment:
     project: samudra_quickstart
 
 data:
-  # Number of additional past ocean states supplied with the current state.
-  # Zero means that the model sees only the current timestep.
-  hist: 0
-  concurrent_compute: true
+  # Number of raw ocean states supplied to each model call.
+  input_steps: 1
+  # Number of future raw ocean states emitted by each model call.
+  output_steps: 1
   loading:
     type: cpu
+    pin_mem: true
+    concurrent_compute: true
     num_workers: 0
     persistent_workers: false
   sources:
@@ -218,26 +219,26 @@ data:
       val_time:
         start: "1975-03-29"
         end: "1975-04-28"
-      inference_times: []
+      inference_time: null
       # Public, anonymous 2° OM4 stores on OSN.
       data_location:
         type: s3
         endpoint_url: "https://nyu1.osn.mghpcc.org"
         anon: true
         bucket: m2lines-pubs
-        path: Samudra/v2026-07/om4_twodeg/OM4.zarr
+        path: Samudra/v2026-09/om4_twodeg/OM4.zarr
       data_means_location:
         type: s3
         endpoint_url: "https://nyu1.osn.mghpcc.org"
         anon: true
         bucket: m2lines-pubs
-        path: Samudra/v2026-07/om4_twodeg/OM4_means.zarr
+        path: Samudra/v2026-09/om4_twodeg/OM4_means.zarr
       data_stds_location:
         type: s3
         endpoint_url: "https://nyu1.osn.mghpcc.org"
         anon: true
         bucket: m2lines-pubs
-        path: Samudra/v2026-07/om4_twodeg/OM4_stds.zarr
+        path: Samudra/v2026-09/om4_twodeg/OM4_stds.zarr
 
 model:
   # Recompute U-Net layers during backpropagation to reduce GPU memory use.
@@ -297,7 +298,7 @@ DATA_MD = """\
 ### 4. Inspect the selected public OM4 data
 
 The YAML points to `OM4.zarr`, `OM4_means.zarr`, and `OM4_stds.zarr` in the
-public `s3://m2lines-pubs/Samudra/v2026-07/om4_twodeg/` directory. The cell
+public `s3://m2lines-pubs/Samudra/v2026-09/om4_twodeg/` directory. The cell
 opens remote metadata, selects the exact train and validation windows, and
 loads one sea-surface-height value as a connectivity check. Only the selected
 chunks stream into Colab.

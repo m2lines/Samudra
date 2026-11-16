@@ -28,6 +28,7 @@ def version(dist_name: str) -> str:
 def main() -> int:
     require_import("samudra")
     require_import("samudra.models.samudra")
+    require_import("samudra_rust_loader")
     sample = torch.randn(2, 2)
     result = sample @ sample
     query = torch.randn(1, 1, 2, 8)

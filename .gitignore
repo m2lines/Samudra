@@ -30,6 +30,7 @@ train
 train_3D
 token.txt
 profile-logs/
+agent-logs/
 *.mp4
 *.gif
 output.log
@@ -50,4 +51,6 @@ site/
 profiles/
 
 # Build artifacts
+build/
 dist/
+rust/loader/target/

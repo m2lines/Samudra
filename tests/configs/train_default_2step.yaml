@@ -8,7 +8,6 @@
 # Used in automated tests.
 debug: false
 disk_mode: true
-pin_mem: true
 save_freq: 5
 epochs: 1
 batch_size: 1
@@ -18,7 +17,6 @@ scheduler: null
 loss: mse
 finetune: false
 resume_ckpt_path: null
-inference_epochs: [-1]
 data_stride: [1]
 steps: [2]
 step_transition: []
@@ -45,16 +43,17 @@ data:
       val_time:
         start: "1975-10-20"
         end: "1975-11-20"
-      inference_times:
-        - start: "1975-10-30"
-          end: "1975-12-20"
+      inference_time:
+        start: "1975-10-30"
+        end: "1975-12-20"
       data_location: data.zarr
       data_means_location: means.nc
       data_stds_location: stds.nc
   loading:
     type: cpu
     num_workers: 4
-  hist: 0
+  input_steps: 1
+  output_steps: 1
 
 model:
   pred_residuals: false

@@ -13,7 +13,6 @@ from samudra.utils.data import BatchPreprocessor
 from samudra.utils.device import get_device
 from samudra.utils.distributed import all_reduce_mean
 from samudra.utils.output import ModelInferenceOutput
-from samudra.utils.wandb import Metrics
 
 
 class _MeanStepAreaWeightedRmse:
@@ -77,14 +76,14 @@ def _depth_weight(depth_index: int | None, data_layout: DataLayout) -> float:
 def _get_raw_rollout_dict(
     data: torch.Tensor,
     *,
-    hist: int,
+    output_steps: int,
     preprocessor: BatchPreprocessor,
     field_names: tuple[str, ...],
 ) -> dict[str, torch.Tensor]:
     data_reshaped = rearrange(
         data,
         "n (hi c) h w -> (n hi) c h w",
-        hi=hist + 1,
+        hi=output_steps,
     ).unsqueeze(0)
     data_unnorm = preprocessor.unnormalize_tensor_prognostic(
         data_reshaped,
@@ -106,14 +105,18 @@ class RolloutValidationAggregator:
     def __init__(
         self,
         *,
-        hist: int,
+        output_steps: int,
         area_weights: torch.Tensor,
         preprocessor: BatchPreprocessor,
         data_layout: DataLayout,
         prognostic_var_names: PrognosticVarNames,
         distributed_reduce: bool = True,
     ):
-        self.hist = hist
+        self._area_weights = area_weights
+        self._distributed_reduce = distributed_reduce
+        self._normalized_rmse_sum = torch.tensor(0.0, device=area_weights.device)
+        self._normalized_rmse_count = 0
+        self.output_steps = output_steps
         self._preprocessor = preprocessor
         self._data_layout = data_layout
         self._raw_field_names = tuple(prognostic_var_names)
@@ -130,15 +133,32 @@ class RolloutValidationAggregator:
         if len(data.target) == 0:
             raise ValueError("No target values in data")
 
+        # Inputs are already normalized. Reduce space first, then average RMSE
+        # equally over channels and target times (not an RMSE of pooled errors).
+        error = rearrange(
+            data.prediction - data.target,
+            "n (t c) h w -> (n t) c h w",
+            t=self.output_steps,
+        )
+        wet = self._preprocessor.prognostic_mask.to(error.device).bool()
+        # Non-finite ocean predictions must never improve a checkpoint score.
+        error = torch.where(torch.isfinite(error), error, float("inf"))
+        error = error.masked_fill(~wet, float("nan"))
+        rmse = area_weighted_rmse(torch.zeros_like(error), error, self._area_weights)
+        self._normalized_rmse_sum = (
+            self._normalized_rmse_sum.to(error.device) + rmse.sum()
+        )
+        self._normalized_rmse_count += rmse.numel()
+
         target_unnorm = _get_raw_rollout_dict(
             data.target,
-            hist=self.hist,
+            output_steps=self.output_steps,
             preprocessor=self._preprocessor,
             field_names=self._raw_field_names,
         )
         gen_unnorm = _get_raw_rollout_dict(
             data.prediction,
-            hist=self.hist,
+            output_steps=self.output_steps,
             preprocessor=self._preprocessor,
             field_names=self._raw_field_names,
         )
@@ -149,8 +169,15 @@ class RolloutValidationAggregator:
                 gen=gen_unnorm[name],
             )
 
-    def get_logs(self, label: str) -> Metrics:
-        logs: dict[str, float] = {}
+    def get_logs(self, label: str) -> dict[str, float]:
+        total = self._normalized_rmse_sum.detach()
+        count = torch.tensor(float(self._normalized_rmse_count), device=total.device)
+        if self._distributed_reduce:
+            total = all_reduce_mean(total)
+            count = all_reduce_mean(count)
+        logs: dict[str, float] = {
+            f"{label}/normalized_rmse/channel_mean": float((total / count).cpu().item())
+        }
         values_by_base_var: dict[str, list[torch.Tensor]] = {}
         values_by_depth_band: dict[
             str, dict[str, list[tuple[torch.Tensor, float]]]

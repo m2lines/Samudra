@@ -18,12 +18,13 @@ import datetime
 import logging
 import sys
 import warnings
-from typing import Literal
+from typing import Any, Literal
 
 import fire
 import fsspec
 import xarray as xr
 
+from ocean_preprocessing.basin_masks import basin_masks_from_static
 from ocean_preprocessing.dataset_validation import (
     ds_flattened_input_validate,
     ds_input_validate,
@@ -38,8 +39,11 @@ from ocean_preprocessing.preprocessing import (
     rotate_vectors,
     spatially_filter,
 )
+from ocean_preprocessing.simulation_preprocessing.gfdl_cm4 import (
+    cm4_ocean_preprocessing,
+)
 from ocean_preprocessing.simulation_preprocessing.gfdl_om4 import om4_preprocessing
-from ocean_preprocessing.utils import get_git_url_hash
+from ocean_preprocessing.utils import get_git_url_hash, zstd_encoding
 
 logger = logging.getLogger("ocean_preprocessing")
 logging.basicConfig(
@@ -198,6 +202,13 @@ class CLI:
         wfo_source_path: Optional OM4 Zarr store containing five-day-mean ``wfo``
             on the primary source's native grid and intervals. Its end-of-interval
             time labels are validated before transplantation.
+        time_bounds_path: Companion NetCDF containing time_bnds, required for CM4.
+        compress: Also compress physical fields with Blosc Zstd level 5 and byte
+            shuffle. Coordinates and static arrays are compressed by default.
+        output_profile: Optional named AWS profile for the output S3 store. Inputs
+            continue using the default credentials, allowing cross-bucket processing.
+            The profile and its credentials must be configured on the client and
+            every Dask worker performing writes; this option does not distribute them.
         cluster: Type of Dask cluster to use for distributed computation. Options are:
             'off' (no cluster, single-threaded), 'local' (LocalCluster), 'kube'
             (KubeCluster), 'slurm' (SlurmCluster), 'coiled' (Coiled cluster).
@@ -218,6 +229,9 @@ class CLI:
         small_run: bool = False,
         write_retries: int = 5,
         wfo_source_path: str | None = None,
+        time_bounds_path: str | None = None,
+        compress: bool = False,
+        output_profile: str | None = None,
         cluster: Cluster = "off",
         **cluster_opts,
     ):
@@ -232,9 +246,12 @@ class CLI:
         self.small_run = small_run
         self.write_retries = write_retries
         self.wfo_source_path = wfo_source_path
+        self.time_bounds_path = time_bounds_path
+        self.compress = compress
+        self.output_profile = output_profile
         self.dask_client = init_cluster(cluster, **cluster_opts)
 
-    def _collect(self, ds: xr.Dataset):
+    def _collect(self, ds: xr.Dataset) -> None:
         """Finalize and write the processed dataset to disk.
 
         Args:
@@ -243,7 +260,7 @@ class CLI:
         Note:
             Respects dry_run and small_run flags.
         """
-        if self.small_run:
+        if self.small_run and "time" in ds.dims:
             ds = ds.isel(time=slice(0, 10))
         if self.dry_run:
             if self.dask_client is not None:
@@ -254,15 +271,23 @@ class CLI:
             return
 
         logger.info(f"writing dataset to {self.output_path}")
+        encoding = zstd_encoding(ds)
+        if not self.compress:
+            # Physical fields vary in time; coordinates and static masks keep
+            # Zstd compression regardless of the physical-field option.
+            for name, field in ds.data_vars.items():
+                if "time" in field.dims:
+                    encoding[name] = {"compressor": None}
 
         delayed = ds.to_zarr(
             self.output_path,
             mode="w",
             consolidated=True,
             zarr_format=2,
-            encoding={
-                var_name: {"compressor": None} for var_name in ds.data_vars.keys()
-            },  # Compression turned off
+            encoding=encoding,
+            storage_options={"profile": self.output_profile}
+            if self.output_profile is not None
+            else None,
             compute=False,
         )
         # Reading blosc-compressed source chunks over S3 occasionally returns a
@@ -331,13 +356,88 @@ class CLI:
                 this value will be used instead of the scale inferred from the target grid name.
                 By default (None), the scale is automatically estimated from the target grid basename.
         """
-        logger.info("preprocessing.")
-        ds_processed = om4_preprocessing(
+        if self.time_bounds_path is not None:
+            raise ValueError("--time_bounds_path applies to CM4 only")
+        self._preprocess_ocean(
             zarr_data_path,
             native_grid_path,
             nc_mosaic_path,
-            wfo_source_path=self.wfo_source_path,
+            target_grid_path,
+            spatial_filter_scale=spatial_filter_scale,
+            source_type="om4",
         )
+
+    def cm4(
+        self,
+        zarr_data_path: str,
+        native_grid_path: str,
+        nc_mosaic_path: str,
+        target_grid_path: str,
+        spatial_filter_scale: None | int = None,
+    ) -> None:
+        """Process the complete no-leap CM4 ocean record, including wfo.
+
+        Uses the same vector rotation and conservative regridding as OM4.
+        For unfiltered, depth-stacked outputs with one time per chunk, pass
+        --skip_spatial_filtering --skip_flattening. No dates are truncated
+        unless --small_run is explicitly requested. --time_bounds_path must
+        point to the raw run's companion time_bnds.nc.
+        """
+        if self.wfo_source_path is not None:
+            raise ValueError(
+                "CM4 reads wfo from its ocean source; omit --wfo_source_path"
+            )
+        self._preprocess_ocean(
+            zarr_data_path,
+            native_grid_path,
+            nc_mosaic_path,
+            target_grid_path,
+            spatial_filter_scale=spatial_filter_scale,
+            source_type="cm4",
+            time_bounds_path=self.time_bounds_path,
+        )
+
+    def _preprocess_ocean(
+        self,
+        zarr_data_path: str,
+        native_grid_path: str,
+        nc_mosaic_path: str,
+        target_grid_path: str,
+        *,
+        spatial_filter_scale: int | None,
+        source_type: Literal["om4", "cm4"],
+        time_bounds_path: str | None = None,
+    ) -> None:
+        logger.info("preprocessing %s.", source_type)
+        if source_type == "cm4":
+            if time_bounds_path is None:
+                raise ValueError(
+                    "CM4 requires --time_bounds_path pointing to the companion time_bnds.nc"
+                )
+            ds_processed = cm4_ocean_preprocessing(
+                zarr_data_path,
+                native_grid_path,
+                nc_mosaic_path,
+                time_bounds_path=time_bounds_path,
+            )
+        else:
+            ds_processed = om4_preprocessing(
+                zarr_data_path,
+                native_grid_path,
+                nc_mosaic_path,
+                wfo_source_path=self.wfo_source_path,
+            )
+        source_coverage = {
+            "start": str(ds_processed.time.values[0]),
+            "end": str(ds_processed.time.values[-1]),
+            "steps": ds_processed.sizes["time"],
+        }
+        # Interval bounds are small, non-spatial metadata. Keep them out of the
+        # filtering/regridding graphs and reattach them to the final time axis.
+        time_bounds = ds_processed.get("time_bnds")
+        if time_bounds is not None:
+            time_bounds = time_bounds.compute()
+            ds_processed = ds_processed.drop_vars("time_bnds")
         # This publication-specific invariant must run even when expensive
         # schema/deep validation is disabled. Shared validators remain backward
         # compatible with legacy OM4 and CM4 datasets that predate wfo.
@@ -353,6 +453,13 @@ class CLI:
             logger.info("validating preprocessing.")
             ds_processed_validate(ds_processed, deep=True)
 
+        # Rotation/regridding can drop or mutate coordinate attrs, depending on
+        # xarray version. Snapshot these before transforms, as for field attrs.
+        saved_coordinate_attrs: dict[str, dict[str, Any]] = {
+            name: ds_processed[name].attrs.copy()
+            for name in ("lev", "ilev", "dz")
+            if name in ds_processed.coords
+        }
         if self.account_for_partial_depths:
             logger.info("Apply processing to account for partial depths levels.")
             if native_grid_path.endswith(".zarr"):
@@ -364,7 +471,7 @@ class CLI:
 
         saved_attrs = {}
         for var in ds_processed.data_vars:
-            saved_attrs[var] = ds_processed[var].attrs
+            saved_attrs[var] = ds_processed[var].attrs.copy()
 
         logger.info("rechunking for vector rotation.")
         # Rechunk to avoid chunk explosion in xr.dot()
@@ -392,6 +499,23 @@ class CLI:
 
         ds_processed["uo"], ds_processed["vo"] = u_rotated, v_rotated
         ds_processed["tauuo"], ds_processed["tauvo"] = tau_uo_rotated, tau_vo_rotated
+
+        # Rotation converts native-grid x/y components to geographic east/north.
+        # Update the saved metadata restored after filtering and regridding so
+        # the output names describe the rotated components.
+        for name, (standard_name, long_name) in {
+            "uo": ("eastward_sea_water_velocity", "Eastward Sea Water Velocity"),
+            "vo": ("northward_sea_water_velocity", "Northward Sea Water Velocity"),
+            "tauuo": (
+                "surface_downward_eastward_stress",
+                "Surface Downward Eastward Stress",
+            ),
+            "tauvo": (
+                "surface_downward_northward_stress",
+                "Surface Downward Northward Stress",
+            ),
+        }.items():
+            saved_attrs[name].update(standard_name=standard_name, long_name=long_name)
 
         time_blocks = {"x": -1, "y": -1, "time": 1}
 
@@ -462,7 +586,32 @@ class CLI:
         logger.info("fixing attributes")
         # Resume attributes
         for var, attr in saved_attrs.items():
+            ds_input[var].attrs = attr
             ds_input.attrs[var] = attr
+        for name, attr in saved_coordinate_attrs.items():
+            if name in ds_input.coords:
+                ds_input[name].attrs = attr
+        ds_input.attrs["m2lines/preprocessing"] = {
+            "source_type": source_type,
+            "source": zarr_data_path,
+            "source_coverage": source_coverage,
+            "native_grid": native_grid_path,
+            "supergrid": nc_mosaic_path,
+            "target_grid": None if self.skip_regridding else target_grid_path,
+            "time_bounds_source": time_bounds_path,
+            "vector_rotation": ["uo/vo", "tauuo/tauvo"],
+            "spatial_filter": None
+            if self.skip_spatial_filtering
+            else {
+                "type": "Gaussian",
+                "scale": spatial_filter_scale
+                or FILTER_SCALE_BY_GRID[
+                    os.path.splitext(os.path.basename(target_grid_path))[0]
+                ],
+                "dx_min": 1,
+            },
+            "flattened": not self.skip_flattening,
+        }
         # Add provenance hash and metadata
         # Write both provenance keys during the rename. `ocean_emulators_git_hash`
         # is the established name -- it is documented in AGENTS.md and docs/data.md
@@ -475,12 +624,6 @@ class CLI:
         ds_input.attrs["m2lines/samudra_git_hash"] = git_hash
         ds_input.attrs["m2lines/date_created"] = datetime.datetime.now().isoformat()
         ds_input.attrs["m2lines/cli_args"] = " ".join(sys.argv)
-        for attr in (
-            "m2lines/wfo_surgery_source",
-            "m2lines/wfo_surgery_alignment",
-        ):
-            if attr in ds_processed.attrs:
-                ds_input.attrs[attr] = ds_processed.attrs[attr]
         # Horizontal grid geometry: this pipeline conservatively regrids onto a
         # regular (rectilinear) lat-lon grid, so downstream code may treat the 2-D
         # lat/lon as separable. Curvilinear (e.g. tripolar) outputs must set this to
@@ -502,7 +645,9 @@ class CLI:
         # (dz, lev, ocean_fraction, lon_b/lat_b) survive into the written dataset.
         # `lev` is kept even when flattening, since dz/lev/ocean_fraction remain
         # indexed by it after the prognostic vars are split out.
-        for extra in ("lev", "ilev", "x_b", "y_b"):
+        # nv is the two-element bounds dimension of time_bnds(time, nv):
+        # index 0 is the averaging interval's start; index 1 is its end.
+        for extra in ("lev", "ilev", "x_b", "y_b", "nv"):
             if extra in ds.dims:
                 dims_to_keep.append(extra)
 
@@ -510,7 +655,9 @@ class CLI:
         ds = ds.drop_dims([x for x in list(ds.dims) if x not in dims_to_keep])
 
         logger.info("preparing final chunks for output zarr (time=1)")
-        ds = ds.chunk({"time": 1})
+        ds = ds.chunk({dim: 1 if dim == "time" else -1 for dim in ds.dims})
+        if time_bounds is not None:
+            ds = ds.assign_coords(time_bnds=time_bounds.sel(time=ds.time))
 
         logger.info("validating final output structure")
         if self.skip_flattening:
@@ -522,9 +669,39 @@ class CLI:
         self._collect(ds)
         logger.info("done!")
 
-    def cm4(self):
-        """Process the CM4 oceans dataset (a coupled ocean model from CMIP)."""
-        raise NotImplementedError("Not yet implemented, please come back later!")
+    def basin_masks(self, static_path: str):
+        """Build ocean-basin masks on a model's native horizontal grid.
+
+        The published basin masks are all on regular lat-lon grids, so none of
+        them applies to OM4's native 1080x1440 tripolar grid. OM4's
+        `ocean_static` already carries integer region codes there, alongside the
+        real 2-D cell centers and the wet mask, so the masks can be built
+        directly with no regridding.
+
+        Args:
+            static_path: An OM4 `ocean_static` store, e.g.
+                `s3://m2lines-pubs/Samudra/raw/ocean_static_no_mask_table.zarr`.
+
+        Example:
+            python -m ocean_preprocessing \
+              --output_path=basin_masks_native.zarr \
+              basin_masks \
+              --static_path=s3://m2lines-pubs/Samudra/raw/ocean_static_no_mask_table.zarr
+        """
+        logger.info(f"reading ocean_static from {static_path}")
+        static = xr.open_zarr(static_path, chunks={})
+        if "time" in static.dims:
+            static = static.isel(time=0, drop=True)
+
+        masks = basin_masks_from_static(static)
+        logger.info(
+            "built masks: "
+            + ", ".join(
+                f"{name}={int(masks[name].sum())} cells" for name in masks.data_vars
+            )
+        )
+
+        self._collect(masks)
 
 
 if __name__ == "__main__":

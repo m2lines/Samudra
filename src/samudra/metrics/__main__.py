@@ -35,7 +35,9 @@ def main() -> None:
             "includes it."
         )
 
-    data_container: DataBundle = cfg.data.build(cfg.experiment.resolved_data_root)
+    data_container: DataBundle = cfg.data.build(
+        cfg.experiment.resolved_data_root, include_inference=True
+    )
     src = data_container.inference_source
     if src is None:
         raise ValueError("Inference time is not configured for the first data source")

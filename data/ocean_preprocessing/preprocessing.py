@@ -23,100 +23,6 @@ except ImportError:
 # Could I replace this with the xarray logic I am using in the tests?
 
 
-def manual_v0_fixes(ds_input: xr.Dataset) -> xr.Dataset:
-    """Manual fixes for the already existing data (for now only v0.0). This should not be used in the future."""
-    # fixes that should be checked and fixes on the input data
-    area = xr.open_dataset(
-        "gs://leap-persistent/sd5313/grids_CM2x.zarr", engine="zarr", chunks={}
-    )["area_C"].rename({"xu_ocean": "x", "yu_ocean": "y"})
-    # from https://github.com/m2lines/ocean_emulators/issues/17
-    dz = xr.DataArray(
-        [
-            5,
-            10,
-            15,
-            20,
-            30,
-            50,
-            70,
-            100,
-            150,
-            200,
-            250,
-            300,
-            400,
-            500,
-            600,
-            800,
-            1000,
-            1000,
-            1000,
-        ],
-        dims=["lev"],
-    )
-    z = xr.DataArray(
-        [
-            2.5,
-            10,
-            22.5,
-            40,
-            65,
-            105,
-            165,
-            250,
-            375,
-            550,
-            775,
-            1050,
-            1400,
-            1850,
-            2400,
-            3100,
-            4000,
-            5000,
-            6000,
-        ],
-        dims="lev",
-    )
-    wetmask = ~np.isnan(ds_input.thetao.isel(time=0).reset_coords(drop=True))
-    lon = xr.ones_like(ds_input.y) * ds_input.x
-    lat = ds_input.y * xr.ones_like(ds_input.x)
-    ds_input = ds_input.assign_coords(
-        areacello=area, dz=dz, lev=z, wetmask=wetmask, lon=lon, lat=lat
-    )
-    # give a dummy commit hash
-    ds_input.attrs["m2lines/ocean-emulators_git_hash"] = "dummy"
-    return ds_input
-
-
-# i need to test 2d and 3d separately
-
-
-# def rename(ds: xr.Dataset) -> xr.Dataset:
-#     """Rename variables and dimensions to CMOR standard names"""
-#     # TODO: how to detect non-CMIP datasets?
-#     return combined_preprocessing(ds)
-
-
-# def standardize_dataset(ds_ocean: xr.Dataset, ds_atmos: xr.Dataset) -> xr.Dataset:
-#     """Full wrapper that does
-#     1. Rename variables and dimensions to CMOR standard names
-#     2. Combine varibles if necessary
-#     3. Interpolate velocity to tracer cells
-#     4. Optional Filter the data
-#     5. Horizontal regridding
-#     6. Add metadata and provenance info
-#     """
-#     # Rename variables and dimensions to CMOR standard names
-#     ds_renamed = rename(ds)
-#     # Combine varibles if necessary
-#     # Interpolate velocity to tracer cells
-#     # Optional Filter the data
-#     # Horizontal regridding
-#     # Add metadata and provenance info
-#     return ds_renamed
-
-
 #################### CMIP specific Code ###########################
 def infer_vertical_cell_extent(ds: xr.Dataset, dz_name: str = "dz") -> xr.Dataset:
     """
@@ -303,6 +209,8 @@ def horizontal_regrid(ds, ds_target):
     # calculate new area
     r_earth = 6356  # in km
     new_area = xe.util.cell_area(ds_target, r_earth) * 1e6
+    # Heat and volume integrals consume m²; xESMF's km² label survives scaling.
+    new_area.attrs["units"] = "m2"
 
     ## calculate the wetmask afterwards...
     wetmask = ~np.isnan(ds_regridded.thetao.isel(time=0).drop_vars("time"))
@@ -321,7 +229,6 @@ def horizontal_regrid(ds, ds_target):
         ocean_fraction=ocean_frac,
     )
     ds_regridded.attrs = ds.attrs | ds_regridded.attrs
-
     return ds_regridded
 
 
@@ -411,6 +318,9 @@ def flatten_by_depth_level(ds: xr.Dataset) -> xr.Dataset:
     }
     drop_coords = [co for co in ds.coords if co not in keep_coords]
     ds = ds.drop_vars(drop_coords)
+    if ds.lev.attrs.get("edges") in drop_coords:
+        # The flattened layout omits the interface coordinate.
+        ds.lev.attrs.pop("edges")
 
     return ds
 

@@ -1,0 +1,97 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+name: Authenticated EC2 runner
+
+on:
+  workflow_call:
+    secrets:
+      GH_SA_TOKEN:
+        required: true
+    inputs:
+      aws_region:
+        type: string
+        default: us-east-1
+      ec2_instance_type:
+        type: string
+        required: true
+      ec2_image_id:
+        type: string
+        required: true
+      ec2_root_device_size:
+        type: string
+        default: "0"
+    outputs:
+      id:
+        description: Runner label for the consuming job's runs-on
+        value: ${{ jobs.launch.outputs.id }}
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  launch:
+    name: Launch ${{ inputs.ec2_instance_type }}
+    runs-on: ubuntu-latest
+    outputs:
+      id: ${{ steps.aws-start.outputs.label }}
+    steps:
+      - name: Check launch role configuration
+        env:
+          EC2_LAUNCH_ROLE: ${{ vars.EC2_LAUNCH_ROLE }}
+        run: test -n "${EC2_LAUNCH_ROLE}"
+
+      # Use a checked-out local action so its Dockerfile is built at this step,
+      # after login, rather than during GitHub's initial action preparation.
+      - name: Checkout ec2-gha
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          repository: Open-Athena/ec2-gha
+          ref: e021da12a946b653a717738bc704aa7baa95ae8e # pragma: allowlist secret
+          persist-credentials: false
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4
+        with:
+          role-to-assume: ${{ vars.EC2_LAUNCH_ROLE }}
+          role-session-name: github-actions-session
+          aws-region: ${{ inputs.aws_region }}
+
+      - name: Log in to ECR Public
+        # ECR Public tokens must be requested in us-east-1, even when launching
+        # an instance elsewhere. Fail here rather than fall back to anonymous.
+        run: |
+          set -euo pipefail
+          aws ecr-public get-login-password --region us-east-1 |
+            docker login --username AWS --password-stdin public.ecr.aws
+
+      - name: Create cloud runner
+        id: aws-start
+        uses: ./
+        with:
+          # Keep bootstrap scripts at the same revision as the checked-out action.
+          action_ref: e021da12a946b653a717738bc704aa7baa95ae8e # pragma: allowlist secret
+          aws_region: ${{ inputs.aws_region }}
+          aws_tags: '[{"Key": "project", "Value": "fomo"}]'
+          ec2_instance_type: ${{ inputs.ec2_instance_type }}
+          ec2_image_id: ${{ inputs.ec2_image_id }}
+          ec2_root_device_size: ${{ inputs.ec2_root_device_size }}
+          cloudwatch_logs_group: ${{ vars.CLOUDWATCH_LOGS_GROUP }}
+          ec2_home_dir: ${{ vars.EC2_HOME_DIR }}
+          ec2_instance_profile: ${{ vars.EC2_INSTANCE_PROFILE }}
+          ec2_key_name: ${{ vars.EC2_KEY_NAME }}
+          ec2_security_group_id: ${{ vars.EC2_SECURITY_GROUP_ID }}
+          max_instance_lifetime: ${{ vars.MAX_INSTANCE_LIFETIME }}
+          runner_grace_period: ${{ vars.RUNNER_GRACE_PERIOD }}
+          runner_initial_grace_period: ${{ vars.RUNNER_INITIAL_GRACE_PERIOD }}
+          runner_poll_interval: ${{ vars.RUNNER_POLL_INTERVAL }}
+          runner_registration_timeout: ${{ vars.RUNNER_REGISTRATION_TIMEOUT }}
+          ssh_pubkey: ${{ vars.SSH_PUBKEY }}
+        env:
+          GH_PAT: ${{ secrets.GH_SA_TOKEN }}
+
+      - name: Log out of ECR Public
+        if: always()
+        run: docker logout public.ecr.aws

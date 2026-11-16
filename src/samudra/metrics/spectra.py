@@ -360,7 +360,8 @@ def welch_psd(
     if steps.size == 0:
         return np.array([]), np.array([])
 
-    frequencies, power = signal.welch(
+    # SciPy's dynamic signal exports are not visible to mypy.
+    frequencies, power = signal.welch(  # type: ignore[attr-defined]
         values.to_numpy(),
         fs=365.25 / float(np.median(steps)),
         detrend="linear",

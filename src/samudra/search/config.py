@@ -25,11 +25,6 @@ def resource_slug(value: str) -> str:
     return slug
 
 
-class ObjectiveConfig(BaseConfig):
-    metric: str = "validation_loss"
-    mode: Literal["min", "max"] = "min"
-
-
 class CandidateConfig(BaseConfig):
     name: str
     config: str
@@ -112,8 +107,7 @@ class SearchConfig(TopLevelConfig):
     name: str
     run_id: str | None = None
     algorithm: AlgorithmConfig
-    objective: ObjectiveConfig = Field(default_factory=ObjectiveConfig)
-    metrics: list[str] = Field(default_factory=lambda: ["validation_loss"])
+    metrics: list[str] = Field(default_factory=lambda: ["best_validation_score"])
     candidates: list[CandidateConfig] = Field(min_length=1)
     executor: ExecutorConfig
     artifacts: ArtifactConfig | None = None
@@ -141,8 +135,8 @@ class SearchConfig(TopLevelConfig):
                 "algorithm.minimum_promoted cannot exceed the number of "
                 f"non-fixed candidates ({competing})"
             )
-        if self.objective.metric not in self.metrics:
-            raise ValueError("objective.metric must be included in metrics")
+        if "best_validation_score" not in self.metrics:
+            raise ValueError("best_validation_score must be included in metrics")
         if (
             isinstance(self.executor, SlurmExecutorConfig)
             and self.executor.time_by_rung is not None

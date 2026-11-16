@@ -3,10 +3,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
+from types import ModuleType
 
 import fsspec
 import numpy as np
 import xarray as xr
+from fsspec.spec import AbstractFileSystem
 from xgcm import Grid
 
 from ocean_preprocessing.dataset_validation import ds_processed_validate
@@ -66,7 +68,10 @@ def normalize_vertical_coords(ds: xr.Dataset) -> xr.Dataset:
         for raw, new in (("z_l", "lev"), ("z_i", "ilev"))
         if raw in ds.coords or raw in ds.dims
     }
-    return ds.rename(vertical_rename) if vertical_rename else ds
+    ds = ds.rename(vertical_rename) if vertical_rename else ds
+    if "lev" in ds.coords and ds.lev.attrs.get("edges") == "z_i":
+        ds.lev.attrs["edges"] = "ilev"
+    return ds
 
 
 def select_om4_variables(ds: xr.Dataset) -> xr.Dataset:
@@ -87,7 +92,13 @@ def select_om4_variables(ds: xr.Dataset) -> xr.Dataset:
     ignored = available - selected
     if ignored:
         logger.info("ignoring undeclared OM4 source variables: %s", sorted(ignored))
-    return ds[sorted(selected)]
+    result = ds[sorted(selected)]
+    # Interface depths are not dimensions of the state variables, so selecting
+    # those variables alone drops the coordinate and loses the source geometry.
+    for name in ("z_i", "ilev"):
+        if name in ds.coords:
+            result = result.assign_coords({name: ds[name]})
+    return result
 
 
 def transplant_wfo(
@@ -250,8 +261,18 @@ def vertical_cell_metadata(ds: xr.Dataset) -> tuple[xr.DataArray, xr.DataArray]:
                 6500,
             ],
             dims=["ilev"],
+            attrs={
+                "units": "m",
+                "long_name": "Depth at interface",
+                "positive": "down",
+                "axis": "Z",
+            },
         )
 
+    # dz is newly derived from interface differences, so it has no source attrs.
+    dz.attrs.update(
+        units=ilev.attrs.get("units", "m"), long_name="Ocean layer thickness"
+    )
     # The processed coordinate contract is float64 for both averaged sources
     # (which provide ilev) and snapshot sources (which use the fallback above).
     return dz.astype("float64"), ilev.astype("float64")
@@ -279,6 +300,17 @@ def om4_preprocessing(
         )
         ds = transplant_wfo(ds, donor, donor_path=wfo_source_path)
 
+    return native_ocean_preprocessing(ds, nc_grid_path, nc_mosaic_path, fs=fs)
+
+
+def native_ocean_preprocessing(
+    ds: xr.Dataset,
+    nc_grid_path: str,
+    nc_mosaic_path: str,
+    fs: ModuleType | AbstractFileSystem = fsspec,
+) -> xr.Dataset:
+    """Center MOM6 ocean fields and attach the native grid geometry."""
+    time_bounds = ds.get("time_bnds")
     ds = select_om4_variables(ds)
     ds = normalize_vertical_coords(ds)
 
@@ -298,8 +330,11 @@ def om4_preprocessing(
             "X": {"center": "xh", "right": "xq"},
             "Y": {"center": "yh", "right": "yq"},
         },
-        boundary="extend",
-        periodic=["xh", "xq"],
+        # Explicit padding takes precedence over periodic in xgcm >= 0.8.1.
+        # Wrap longitude while retaining edge extension in latitude.
+        boundary={"X": "periodic", "Y": "extend"},
+        periodic=["X"],
+        autoparse_metadata=False,
     )
     ds_interpolated = interpolate_to_cell_centers(ds, ds.thetao, grid)
 
@@ -353,17 +388,11 @@ def om4_preprocessing(
 
     ds = ds.assign_coords(lon_b=lon_b, lat_b=lat_b, angle=a, lon=lon, lat=lat)
     ds = ds.rename({"xh": "x", "yh": "y", "xh_b": "x_b", "yh_b": "y_b"})
-    if "time_bnds" in ds.data_vars:
-        ds = ds.drop_vars(["time_bnds"])
+    if time_bounds is not None:
+        ds = ds.assign_coords(time_bnds=time_bounds)
+        ds.time.attrs["bounds"] = "time_bnds"
     ds = ds.astype(np.float32)
     # higher precision for the area
     ds = ds.assign_coords(areacello=ds.areacello.astype("float64"))
-    if wfo_source_path is not None:
-        ds.attrs.update(
-            {
-                "m2lines/wfo_surgery_source": wfo_source_path,
-                "m2lines/wfo_surgery_alignment": WFO_SURGERY_ALIGNMENT,
-            }
-        )
     ds_processed_validate(ds)
     return ds

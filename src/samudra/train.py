@@ -4,28 +4,21 @@
 
 import contextlib
 import datetime
+import gc
 import logging
 import math
-import multiprocessing
 import os
 import socket
 import tempfile
 import time
 import warnings
 from collections import OrderedDict
-from multiprocessing.context import BaseContext
 from pathlib import Path
 from typing import Any
 
 import dask
 import torch
 import torch.nn as nn
-from torch.utils.data import (
-    ConcatDataset,
-    DataLoader,
-    DistributedSampler,
-    RandomSampler,
-)
 
 from samudra.aggregator import Aggregator
 from samudra.aggregator.loss import (
@@ -43,23 +36,22 @@ from samudra.constants import (
     PrognosticVarNames,
 )
 from samudra.datasets import (
-    BatchLoader,
-    HostBatch,
     InferenceDataset,
-    InferenceDatasets,
     ModelBatch,
     TorchTrainDataset,
+    TrainBatchLoader,
+    TrainingWindows,
 )
 from samudra.models.base import BaseModel
+from samudra.post_train_eval import CheckpointSweep
 from samudra.stepper import (
     TrainBatchOutput,
     ValBatchOutput,
-    run_rollout,
     train_batch,
     validate_batch,
     validate_rollout,
 )
-from samudra.utils.data import BatchPreprocessor, get_inference_steps
+from samudra.utils.data import BatchPreprocessor
 from samudra.utils.device import using_gpu
 from samudra.utils.distributed import (
     all_reduce_mean,
@@ -85,11 +77,7 @@ from samudra.utils.samplers import (
     DistributedEquivalenceGroupBatchSampler,
     EquivalenceGroupBatchSampler,
 )
-from samudra.utils.train import (
-    CheckpointPaths,
-    collate_host_batches,
-    collate_inference_data,
-)
+from samudra.utils.train import CheckpointPaths
 from samudra.utils.train_progress import TrainProgress
 from samudra.utils.training_summary import (
     write_search_metrics,
@@ -113,15 +101,17 @@ class Trainer:
     def __init__(self, cfg: TrainConfig) -> None:
         cfg.prepare_output_dirs()
         cfg.save_yaml(cfg.experiment.output_dir / "config.yaml")
-
+        self.post_train_sweep: CheckpointSweep | None = (
+            cfg.post_train_eval.build(
+                nets_dir=cfg.experiment.nets_dir,
+                output_dir=cfg.experiment.output_dir,
+                data_root=cfg.experiment.resolved_data_root,
+            )
+            if cfg.post_train_eval is not None
+            else None
+        )
         # Backend
         self.device, self.distributed = init_train_backend(cfg.backend)
-
-        # Adjust workers and memory pinning based on device
-        if not using_gpu():
-            cfg.pin_mem = False
-        elif cfg.disk_mode:
-            cfg.pin_mem = True
 
         # Distributed mode
         dask.config.set(scheduler="synchronous")
@@ -132,6 +122,7 @@ class Trainer:
 
         self.data_bundle = cfg.data.build(
             data_root=cfg.experiment.resolved_data_root,
+            include_inference=False,
         )
 
         # Getting prognostic and boundary variables
@@ -152,17 +143,14 @@ class Trainer:
         self.N_bound = len(self.boundary_var_names)
         self.N_prog = len(self.prognostic_var_names)
 
-        data_num_workers = cfg.data.loading.num_pytorch_workers()
-        persistent_workers = cfg.data.loading.persistent_pytorch_workers()
+        self.data_loading = cfg.data.loading
 
-        self.mp_context: BaseContext | None = None
-        if data_num_workers > 0:
-            self.mp_context = multiprocessing.get_context("spawn")
-
-        self.num_prog_in = int((cfg.data.hist + 1) * self.N_prog)
-        self.num_boundary_in = int((cfg.data.hist + 1) * self.N_bound)
+        self.input_steps = cfg.data.input_steps
+        self.output_steps = cfg.data.output_steps
+        self.num_prog_in = self.input_steps * self.N_prog
+        self.num_boundary_in = self.input_steps * self.N_bound
         self.num_in = self.num_prog_in + self.num_boundary_in
-        self.num_out = self.num_prog_in
+        self.num_out = self.output_steps * self.N_prog
 
         self.data_layout = self.data_layout.to(self.device)
 
@@ -178,14 +166,8 @@ class Trainer:
 
         # Dataloaders
         logger.info(f"Loading data")
-        self.concurrent_compute = cfg.data.concurrent_compute
 
         self.primary_source = self.data_bundle.train_sources[0]
-
-        # We use dask for inference since it has memory issues otherwise.
-        # TODO(jder): Could rewrite inference dataset like we did for TorchTrainDataset
-        # see https://github.com/m2lines/Samudra/issues/208
-        self.inference_source = self.data_bundle.inference_source
 
         self.loader_version = self.data_bundle.loader_version
 
@@ -200,7 +182,7 @@ class Trainer:
             prog_channels=self.num_prog_in,
             boundary_channels=self.num_boundary_in,
             out_channels=self.num_out,
-            hist=cfg.data.hist,
+            input_steps=self.input_steps,
             grid_sizes=[source.grid_size for source in self.data_bundle.train_sources],
         ).to(self.device)
 
@@ -274,8 +256,9 @@ class Trainer:
             self.wandb_logger.log(initial_metrics, step=0)
 
         self.num_batches_seen = 0
-        self.best_val_loss = 1e8
-        self.best_inf_loss = 1e8
+        self.validation_score = cfg.validation_score
+        self.rollout_validation = cfg.rollout_validation
+        self.best_validation_score = float("inf")
         self.train_progress = TrainProgress()
         loaded_checkpoint = False
         if cfg.resume_ckpt_path is not None:
@@ -311,12 +294,10 @@ class Trainer:
         # Training
         self.epochs = cfg.epochs
         self.test_using_ema = cfg.test_using_ema
-        self.hist: int = cfg.data.hist
         self.steps = cfg.steps
         self.step_transition = cfg.step_transition
         self.save_freq = cfg.save_freq
         self.validation_image_log_freq = cfg.validation_image_log_freq
-        self.rollout_validation = cfg.rollout_validation
         self._rollout_validation_pg: torch.distributed.ProcessGroup | None = None
         self.output_dir = cfg.experiment.output_dir
         self.search_run = cfg.experiment.search
@@ -324,12 +305,8 @@ class Trainer:
         self.data_stride: list[int] = cfg.data_stride
         self.batch_size: int = cfg.batch_size
         self.gradient_accumulation_steps: int = cfg.gradient_accumulation_steps
-        self.num_workers: int = data_num_workers
-        self.persistent_workers: bool = persistent_workers
-        self.pin_mem: bool = cfg.pin_mem
-        self.inference_epochs = cfg.inference_epochs
-        self.max_train_model_steps_forward = MAX_TRAIN_MODEL_STEPS_FORWARD // (
-            self.hist + 1
+        self.max_train_model_steps_forward = (
+            MAX_TRAIN_MODEL_STEPS_FORWARD // self.output_steps
         )
         self.normalize_before_mask: bool = cfg.data.normalize_before_mask
         self.masked_fill_value: float = cfg.data.masked_fill_value
@@ -342,13 +319,6 @@ class Trainer:
 
         assert self.data_layout is not None
 
-        if self.inference_epochs:
-            if self.inference_source is None:
-                raise ValueError(
-                    "Inference time is not configured for the first data source"
-                )
-            self.init_inference_stores()
-
         # Add type annotations for samplers
         self.train_sampler: (
             EquivalenceGroupBatchSampler | DistributedEquivalenceGroupBatchSampler
@@ -356,53 +326,21 @@ class Trainer:
         self.val_sampler: (
             EquivalenceGroupBatchSampler | DistributedEquivalenceGroupBatchSampler
         )
-        self.inference_sampler: DistributedSampler | RandomSampler
 
         # Add type annotations for loaders
-        self.train_loader: BatchLoader
-        self.val_loader: BatchLoader
-        self.inference_loader: DataLoader[ModelBatch]
-
-    def init_inference_stores(self):
-        assert self.inference_source is not None
-        num_time_steps = get_inference_steps(
-            self.inference_source,
-            hist=self.hist,
-        )
-        inference_dataset = InferenceDataset(
-            source=self.inference_source,
-            prognostic_var_names=self.prognostic_var_names,
-            boundary_var_names=self.boundary_var_names,
-            hist=self.hist,
-            normalize_before_mask=self.normalize_before_mask,
-            masked_fill_value=self.masked_fill_value,
-            long_rollout=True,
-        )
-
-        inference_data_combined = InferenceDatasets(
-            [inference_dataset], [num_time_steps]
-        )
-
-        if self.distributed is not None:
-            self.inference_sampler = DistributedSampler(
-                inference_data_combined, shuffle=True
-            )
-        else:
-            self.inference_sampler = RandomSampler(inference_data_combined)
-
-        # Create data loaders
-        self.inference_loader = DataLoader(
-            inference_data_combined,
-            batch_size=1,
-            sampler=self.inference_sampler,
-            num_workers=self.num_workers,
-            pin_memory=False,
-            drop_last=False,
-            collate_fn=collate_inference_data,
-            multiprocessing_context=self.mp_context,
-        )
+        self.train_loader: TrainBatchLoader
+        self.val_loader: TrainBatchLoader
 
     def run(self) -> None:
+        """Run training and deterministically release loader-owned resources."""
+        try:
+            self._run()
+        finally:
+            if hasattr(self, "train_loader"):
+                self.train_loader.close()
+                self.val_loader.close()
+
+    def _run(self) -> None:
         logger.info(f"Starting training")
 
         self.wandb_logger.watch(self.model, log="all")
@@ -437,25 +375,17 @@ class Trainer:
                 rollout_val_stats = {}
                 end_epoch_rollout_val_time = None
 
-            if -1 in self.inference_epochs or epoch in self.inference_epochs:
-                inf_stats = self.inference_one_epoch(epoch)
-                end_epoch_inf_time = time.perf_counter()
-            else:
-                inf_stats = {}
-                end_epoch_inf_time = None
-
             train_loss = train_stats["train/mean/loss"]
             v_loss = val_stats["val/mean/loss"]
-            inf_loss = inf_stats.get("inference/time_mean_norm/rmse/channel_mean", None)
 
             logger.info(f"Achieved Train Loss = {train_loss:.3f}")
             logger.info(f"Achieved Validation Loss = {v_loss:.3f}")
-            if inf_loss is not None:
-                logger.info(f"Achieved Inference Loss = {inf_loss:.3f}")
-
             time_elapsed = time.perf_counter() - start_epoch_train_time
             if is_main_process():
-                self.save_all_checkpoints(epoch, v_loss, inf_loss)
+                checkpoint_score = self.validation_checkpoint_score(
+                    epoch, val_stats, rollout_val_stats
+                )
+                self.save_all_checkpoints(epoch, checkpoint_score)
                 if self.search_run is not None:
                     write_training_summary(
                         self.output_dir,
@@ -463,14 +393,11 @@ class Trainer:
                             epoch,
                             train_loss=float(train_loss),
                             validation_loss=float(v_loss),
-                            inference_loss=(
-                                float(inf_loss) if inf_loss is not None else None
-                            ),
                             train_seconds=end_epoch_train_time - start_epoch_train_time,
                             validation_seconds=end_epoch_val_time
                             - end_epoch_train_time,
                             total_seconds=time_elapsed,
-                            diagnostics={**train_stats, **val_stats, **inf_stats},
+                            diagnostics={**train_stats, **val_stats},
                         ),
                     )
 
@@ -478,7 +405,6 @@ class Trainer:
                 **train_stats,
                 **val_stats,
                 **rollout_val_stats,
-                **inf_stats,
                 "epoch": epoch,
                 "epoch_train_seconds": end_epoch_train_time - start_epoch_train_time,
                 "epoch_validation_seconds": end_epoch_val_time - end_epoch_train_time,
@@ -491,16 +417,6 @@ class Trainer:
                     end_epoch_rollout_val_time - end_epoch_val_time
                 )
 
-            if end_epoch_inf_time is not None:
-                inf_start_time = (
-                    end_epoch_rollout_val_time
-                    if end_epoch_rollout_val_time is not None
-                    else end_epoch_val_time
-                )
-                log_stats["epoch_inference_seconds"] = (
-                    end_epoch_inf_time - inf_start_time
-                )
-
             if is_main_process():
                 if self.search_run is not None:
                     write_search_metrics(
@@ -509,9 +425,6 @@ class Trainer:
                             **self.search_run.model_dump(),
                             "train_loss": float(train_loss),
                             "validation_loss": float(v_loss),
-                            "inference_loss": (
-                                float(inf_loss) if inf_loss is not None else None
-                            ),
                             **log_stats,
                         },
                     )
@@ -520,7 +433,7 @@ class Trainer:
         total_time = time.perf_counter() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
         logger.info(f"Training time {total_time_str}")
-        self.finish()
+        self.wandb_logger.finish()
 
     def probe_optimizer_step(self) -> None:
         """Exercise the real loader and training path through one optimizer update."""
@@ -545,7 +458,6 @@ class Trainer:
         *,
         train_loss: float,
         validation_loss: float,
-        inference_loss: float | None,
         train_seconds: float,
         validation_seconds: float,
         total_seconds: float,
@@ -569,9 +481,8 @@ class Trainer:
             "complete": epoch == self.epochs,
             "train_loss": train_loss,
             "validation_loss": validation_loss,
-            "best_validation_loss": float(self.best_val_loss),
-            "inference_loss": inference_loss,
-            "best_inference_loss": float(self.best_inf_loss),
+            "best_validation_score": float(self.best_validation_score),
+            "validation_checkpoint_identity": self.validation_checkpoint_identity(),
             "epoch_train_seconds": train_seconds,
             "epoch_validation_seconds": validation_seconds,
             "epoch_total_seconds": total_seconds,
@@ -705,7 +616,7 @@ class Trainer:
                     self.loss_fn, "loss_scale_per_channel", None
                 ):
                     loss_scale_per_channel = loss_scale_per_channel_fn()
-                    # Reshape from time-major channels to [hist, var] and
+                    # Reshape from time-major channels to [input_step, variable] and
                     # average along the history dimension.
                     loss_per_channel = batch_output.loss_per_channel.reshape(
                         -1, loss_scale_per_channel.shape[0]
@@ -823,7 +734,8 @@ class Trainer:
 
         val_aggregator = Aggregator.get_validation_aggregator(
             self.primary_source.metadata,
-            self.hist,
+            self.input_steps,
+            self.output_steps,
             self.primary_source.spherical_area_weights.to(self.device),
             self.num_out,
             self.data_layout,
@@ -894,7 +806,8 @@ class Trainer:
                 source=rollout_src,
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
-                hist=self.hist,
+                input_steps=self.input_steps,
+                output_steps=self.output_steps,
                 normalize_before_mask=self.normalize_before_mask,
                 masked_fill_value=self.masked_fill_value,
                 long_rollout=True,
@@ -917,7 +830,7 @@ class Trainer:
                         days=days,
                         start_time=rollout_src.time.values[0],
                         target_times=target_times,
-                        hist=self.hist,
+                        output_steps=self.output_steps,
                     )
                     for days in self.rollout_validation.days
                 ]
@@ -933,7 +846,7 @@ class Trainer:
                     RolloutValidationSpec.from_model_steps(
                         requested_steps=self.rollout_validation.model_steps,
                         available_steps=available_steps,
-                        hist=self.hist,
+                        output_steps=self.output_steps,
                     )
                 ]
                 if specs[0].model_steps == 0:
@@ -965,7 +878,7 @@ class Trainer:
                         f"for {spec.label}."
                     )
                     rollout_aggregator = RolloutValidationAggregator(
-                        hist=self.hist,
+                        output_steps=self.output_steps,
                         area_weights=self.primary_source.spherical_area_weights.to(
                             self.device
                         ),
@@ -989,7 +902,7 @@ class Trainer:
                     epoch=epoch,
                     num_model_steps=max_model_steps,
                     # Keep validation target materialization small. A 360-day
-                    # rollout at hist=1 is 35 model steps; loading that full
+                    # rollout with two input steps is 35 model steps; loading that full
                     # target block at once can stall on large Zarr data.
                     num_model_steps_forward=self.rollout_validation.steps_forward,
                 )
@@ -1000,46 +913,6 @@ class Trainer:
 
             logger.info("Aggregating rollout validation logs")
             return logs
-
-    def inference_one_epoch(self, epoch):
-        self.model.eval()
-
-        with torch.no_grad(), self._test_context():
-            for batch_index, (inference_dataset, num_steps) in enumerate(
-                self.inference_loader
-            ):
-                # TODO(alxmrs): Aggregator only supports a single scale.
-                inf_aggregator = Aggregator.get_inline_inference_aggregator(
-                    num_steps,
-                    self.primary_source.metadata,
-                    self.hist,
-                    self.primary_source.spherical_area_weights.to(self.device),
-                    self.primary_source.masks.prognostic.to(self.device),
-                    self.num_out,
-                    self.data_layout,
-                    self.preprocessor,
-                    self.prognostic_var_names,
-                )
-
-                # TODO(jder): we need the underlying model so we can use forward_once;
-                # see https://github.com/m2lines/Samudra/issues/51
-                run_rollout(
-                    model=self.model.module
-                    if isinstance(self.model, torch.nn.parallel.DistributedDataParallel)
-                    else self.model,
-                    dataset=inference_dataset,
-                    inf_aggregator=inf_aggregator,
-                    epoch=epoch,
-                    num_model_steps_forward=min(
-                        num_steps // 2, self.max_train_model_steps_forward
-                    ),
-                    data_layout=self.data_layout,
-                    preprocessor=self.preprocessor,
-                )
-
-        logger.info(f"Aggregating inference logs")
-        logs = inf_aggregator.get_summary_logs()
-        return {f"inference/{k}": v for k, v in logs.items()}
 
     def get_current_step(self, epoch):
         """Determine the current step based on the epoch and transition points.
@@ -1080,81 +953,65 @@ class Trainer:
         Args:
             cur_step: Current training step size
         """
-        train_datasets = [
-            TorchTrainDataset(
+        if hasattr(self, "train_loader"):
+            self.train_loader.close()
+            self.val_loader.close()
+
+        train_windows = [
+            TrainingWindows(
                 input_source=source,
                 label_source=None,
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
-                hist=self.hist,
+                input_steps=self.input_steps,
                 steps=cur_step,
+                output_steps=self.output_steps,
                 normalize_before_mask=self.normalize_before_mask,
                 masked_fill_value=self.masked_fill_value,
                 stride=stride,
-                concurrent_compute_=self.concurrent_compute,
+                windows_id=f"train-{shard_index}",
             )
-            for stride in self.data_stride
-            for source in self.data_bundle.train_sources
+            for shard_index, (stride, source) in enumerate(
+                (stride, source)
+                for stride in self.data_stride
+                for source in self.data_bundle.train_sources
+            )
         ]
 
         # Validation is always evaluated on the primary source. This keeps the
         # validation loss and physical-space metrics comparable across epochs,
         # regardless of the set of resolutions used for training.
-        val_datasets = [
-            TorchTrainDataset(
+        val_windows = [
+            TrainingWindows(
                 input_source=self.data_bundle.val_sources[0],
                 label_source=None,
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
-                hist=self.hist,
+                input_steps=self.input_steps,
                 steps=1,  # current_step set to 1 for validation
+                output_steps=self.output_steps,
                 normalize_before_mask=self.normalize_before_mask,
                 masked_fill_value=self.masked_fill_value,
                 stride=stride,
-                concurrent_compute_=self.concurrent_compute,
+                windows_id=f"val-{shard_index}",
             )
-            for stride in self.data_stride
+            for shard_index, stride in enumerate(self.data_stride)
         ]
 
-        # Create datasets
-        match self.loader_version:
-            case TorchTrainDataset.FLAG:
-                host_train_dataset: torch.utils.data.Dataset[HostBatch] = ConcatDataset(
-                    train_datasets
-                )
+        if self.loader_version != TorchTrainDataset.FLAG:
+            raise NotImplementedError(
+                f"Loader version {self.loader_version} not supported."
+            )
 
-                host_val_dataset: torch.utils.data.Dataset[HostBatch] = ConcatDataset(
-                    val_datasets
-                )
-
-            case _:
-                raise NotImplementedError(
-                    f"Loader version {self.loader_version} not supported."
-                )
-
-        logger.info("Instantiating torch loaders")
-
-        match self.loader_version:
-            case TorchTrainDataset.FLAG:
-                collate_fn = collate_host_batches
-            case _:
-                raise NotImplementedError(
-                    f"Collate function not defined for loader version "
-                    f"{self.loader_version}"
-                )
-
-        # Create batch samplers - branch on distributed vs non-distributed
-        # Group by resolution so batches stay homogeneous across configured sources.
-        def group_key(ds):
-            return tuple(source.grid_size for source in ds.sources)
-
+        # Create batch samplers - branch on distributed vs non-distributed.
+        # Dataset compatibility keys keep every batch tied to one preparation
+        # policy, which both Torch collation and the native loader require.
         if self.distributed is not None:
             # Distributed training
             assert self.distributed.world_size is not None
             assert self.distributed.rank is not None
             train_batch_sampler = DistributedEquivalenceGroupBatchSampler(
-                datasets=train_datasets,
-                group_key=group_key,
+                datasets=train_windows,
                 batch_size=self.batch_size,
                 num_replicas=self.distributed.world_size,
                 rank=self.distributed.rank,
@@ -1164,8 +1021,7 @@ class Trainer:
             )
 
             val_batch_sampler = DistributedEquivalenceGroupBatchSampler(
-                datasets=val_datasets,
-                group_key=group_key,
+                datasets=val_windows,
                 batch_size=self.batch_size,
                 num_replicas=self.distributed.world_size,
                 rank=self.distributed.rank,
@@ -1176,8 +1032,7 @@ class Trainer:
         else:
             # Non-distributed training
             train_batch_sampler = EquivalenceGroupBatchSampler.from_datasets(  # type: ignore
-                datasets=train_datasets,
-                group_key=group_key,
+                datasets=train_windows,
                 batch_size=self.batch_size,
                 shuffle=True,
                 drop_last=True,
@@ -1185,8 +1040,7 @@ class Trainer:
             )
 
             val_batch_sampler = EquivalenceGroupBatchSampler.from_datasets(  # type: ignore
-                datasets=val_datasets,
-                group_key=group_key,
+                datasets=val_windows,
                 batch_size=self.batch_size,
                 shuffle=True,
                 drop_last=False,
@@ -1197,60 +1051,72 @@ class Trainer:
         self.train_sampler = train_batch_sampler
         self.val_sampler = val_batch_sampler
 
-        # Create data loaders (same for both distributed and non-distributed)
-        # When using batch_sampler, don't specify batch_size or sampler
-        host_train_loader = DataLoader(
-            host_train_dataset,
-            batch_sampler=train_batch_sampler,
-            num_workers=self.num_workers,
-            persistent_workers=self.persistent_workers and self.num_workers > 0,
-            pin_memory=self.pin_mem,
-            collate_fn=collate_fn,
-            multiprocessing_context=self.mp_context,
+        worker_seed = self.rand_seed
+        if self.distributed is not None:
+            assert self.distributed.rank is not None
+            worker_seed += 2 * self.distributed.rank
+
+        self.train_loader = self.data_loading.build_batch_loader(
+            train_windows,
+            train_batch_sampler,
+            self.device,
+            seed=worker_seed,
+        )
+        self.val_loader = self.data_loading.build_batch_loader(
+            val_windows,
+            val_batch_sampler,
+            self.device,
+            seed=worker_seed + 1,
         )
 
-        host_val_loader = DataLoader(
-            host_val_dataset,
-            batch_sampler=val_batch_sampler,
-            num_workers=self.num_workers,
-            persistent_workers=self.persistent_workers and self.num_workers > 0,
-            pin_memory=self.pin_mem,
-            collate_fn=collate_fn,
-            multiprocessing_context=self.mp_context,
-        )
+    def validation_checkpoint_score(
+        self, epoch: int, val_stats: dict[str, Any], rollout_val_stats: dict[str, Any]
+    ) -> float | None:
+        if self.validation_score == "validation_loss":
+            return float(val_stats["val/mean/loss"])
+        if self.validation_score == "one_step_rmse":
+            return float(val_stats["val/reduced/normalized_rmse/channel_mean"])
+        assert self.rollout_validation is not None
+        if not should_run_on_epoch_freq(epoch, self.rollout_validation.frequency):
+            if self.search_run is not None and epoch == self.search_run.target_epochs:
+                raise ValueError("Rollout validation must run at every rung endpoint")
+            return None
+        label = "rollout_val"
+        if self.rollout_validation.days:
+            label += f"/{max(self.rollout_validation.days)}d"
+        # Fail loudly if a scheduled rollout did not produce the selected score.
+        return float(rollout_val_stats[f"{label}/normalized_rmse/channel_mean"])
 
-        # Wrap dataloaders to handle GPU post-processing
-        self.train_loader = BatchLoader(host_train_loader, train_datasets, self.device)
-        self.val_loader = BatchLoader(host_val_loader, val_datasets, self.device)
+    def validation_checkpoint_identity(self) -> dict[str, Any]:
+        identity: dict[str, Any] = {"metric": self.validation_score}
+        if self.validation_score == "rollout_rmse":
+            assert self.rollout_validation is not None
+            identity["horizon"] = (
+                {"days": max(self.rollout_validation.days)}
+                if self.rollout_validation.days
+                else {"model_steps": self.rollout_validation.model_steps}
+            )
+        return identity
 
-    def save_all_checkpoints(self, epoch: int, v_loss: float, inf_loss: float):
+    def save_all_checkpoints(self, epoch: int, v_loss: float | None):
         with self._test_context():
-            is_best_val_loss = False
-            if v_loss <= self.best_val_loss:
+            is_best_validation_score = False
+            if (
+                v_loss is not None
+                and math.isfinite(v_loss)
+                and v_loss <= self.best_validation_score
+            ):
                 logger.info(
-                    f"Epoch validation loss ({v_loss:.3f}) is lower than "
-                    f"previous best validation loss ({self.best_val_loss:.3f})."
+                    f"Epoch validation checkpoint score ({v_loss:.3f}) is lower than "
+                    f"previous best score ({self.best_validation_score:.3f})."
                 )
                 logger.info(
-                    "Saving lowest validation loss checkpoint to "
+                    "Saving best validation checkpoint to "
                     f"{self.ckpt_paths.best_validation_checkpoint_path}"
                 )
-                self.best_val_loss = v_loss
-                is_best_val_loss = True  # wait until inference error is updated
-            if inf_loss is not None and (inf_loss <= self.best_inf_loss):
-                logger.info(
-                    f"Epoch inference error ({inf_loss:.3f}) is lower than "
-                    f"previous best inference error ({self.best_inf_loss:.3f})."
-                )
-                logger.info(
-                    "Saving lowest inference error checkpoint to "
-                    f"{self.ckpt_paths.best_inference_checkpoint_path}"
-                )
-                self.best_inf_loss = inf_loss
-                self.save_checkpoint(
-                    epoch, self.ckpt_paths.best_inference_checkpoint_path
-                )
-            if is_best_val_loss:
+                self.best_validation_score = v_loss
+                is_best_validation_score = True
+            if is_best_validation_score:
                 self.save_checkpoint(
                     epoch, self.ckpt_paths.best_validation_checkpoint_path
                 )
@@ -1279,39 +1145,37 @@ class Trainer:
         checkpoint_path: Path,
         for_inference: bool = False,
     ):
-        if for_inference:
-            with self._ema_context():
-                model_state_dict = self.model.state_dict()
-        else:
-            model_state_dict = self.model.state_dict()
+        # Serialize before restoring raw weights: state_dict tensors alias the
+        # live model, and copying them would require another full model allocation.
+        context = self._ema_context() if for_inference else contextlib.nullcontext()
+        with context:
+            # Create temporary file in the same directory as the target
+            temp_dir = os.path.dirname(checkpoint_path)
+            with tempfile.NamedTemporaryFile(dir=temp_dir, delete=False) as tmp:
+                temporary_location = tmp.name
+                checkpoint = {
+                    "model": self.model.state_dict(),
+                    "optimizer": self.optimizer.state_dict(),
+                    "epoch": epoch,
+                    "best_validation_score": self.best_validation_score,
+                    "validation_checkpoint_identity": self.validation_checkpoint_identity(),
+                    "ema": self._ema.get_state(include_ema_params=not for_inference),
+                    "num_batches_seen": self.num_batches_seen,
+                    "train_progress": self.train_progress.state_dict(),
+                    "wandb_id": self.wandb_id,
+                    "wandb_name": self.wandb_name,
+                }
+                loss_state: dict[str, Any] | None = None
+                if state_dict_fn := getattr(self.loss_fn, "state_dict", None):
+                    loss_state = state_dict_fn()
 
-        # Create temporary file in the same directory as the target
-        temp_dir = os.path.dirname(checkpoint_path)
-        with tempfile.NamedTemporaryFile(dir=temp_dir, delete=False) as tmp:
-            temporary_location = tmp.name
-            checkpoint = {
-                "model": model_state_dict,
-                "optimizer": self.optimizer.state_dict(),
-                "epoch": epoch,
-                "best_val_loss": self.best_val_loss,
-                "best_inf_loss": self.best_inf_loss,
-                "ema": self._ema.get_state(include_ema_params=not for_inference),
-                "num_batches_seen": self.num_batches_seen,
-                "train_progress": self.train_progress.state_dict(),
-                "wandb_id": self.wandb_id,
-                "wandb_name": self.wandb_name,
-            }
-            loss_state: dict[str, Any] | None = None
-            if state_dict_fn := getattr(self.loss_fn, "state_dict", None):
-                loss_state = state_dict_fn()
+                if loss_state is not None:
+                    checkpoint["loss_fn_state"] = loss_state
+                if self.scheduler:
+                    checkpoint["scheduler"] = self.scheduler.state_dict()
 
-            if loss_state is not None:
-                checkpoint["loss_fn_state"] = loss_state
-            if self.scheduler:
-                checkpoint["scheduler"] = self.scheduler.state_dict()
-
-            torch.save(checkpoint, temporary_location)
-            os.replace(temporary_location, checkpoint_path)
+                torch.save(checkpoint, temporary_location)
+                os.replace(temporary_location, checkpoint_path)
 
     def load_checkpoint(self, checkpoint_path, finetune=False):
         logger.info(f"Loading checkpoint from {checkpoint_path}")
@@ -1364,8 +1228,14 @@ class Trainer:
             logger.info(f"Wandb name: {self.wandb_name}")
             logger.info(f"Optimizer LR: {self.optimizer.param_groups[-1]['lr']}")
 
-            self.best_val_loss = checkpoint["best_val_loss"]
-            self.best_inf_loss = checkpoint["best_inf_loss"]
+            saved_identity = checkpoint.get(
+                "validation_checkpoint_identity", {"metric": "validation_loss"}
+            )
+            self.best_validation_score = (
+                checkpoint["best_validation_score"]
+                if saved_identity == self.validation_checkpoint_identity()
+                else float("inf")
+            )
 
     def is_wandb_enabled(self):
         return self.wandb_logger.enabled and is_main_process()
@@ -1408,6 +1278,30 @@ class Trainer:
         self.wandb_logger.finish()
 
 
+def run_training(cfg: TrainConfig) -> None:
+    trainer = Trainer(cfg)
+    trainer.run()
+
+    # Keep only the lightweight orchestration state, then drop the whole trainer
+    # so future GPU-owning fields do not need to be added to a cleanup list.
+    main_process = is_main_process()
+    distributed = trainer.distributed is not None
+    post_train_sweep = trainer.post_train_sweep if main_process else None
+    del trainer
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
+    if distributed:
+        # Every rank releases its training state before rank 0 claims the GPUs for
+        # the post-training sweep.
+        torch.distributed.barrier()
+        torch.distributed.destroy_process_group()
+
+    if post_train_sweep is not None:
+        post_train_sweep.run()
+
+
 def main():
     # Load config from YAML
     cfg = TrainConfig.from_yaml_and_cli()
@@ -1416,10 +1310,8 @@ def main():
     handle_logging(cfg.debug, cfg.experiment.output_dir)
     handle_warnings()
 
-    trainer = Trainer(cfg)
-
     try:
-        trainer.run()
+        run_training(cfg)
     except Exception as e:
         logger.exception("Training failed with an exception")
         raise e

@@ -46,6 +46,7 @@ COPY .cargo ./.cargo
 COPY src ./src
 COPY tests ./tests
 COPY rust/loader ./rust/loader
+COPY verification ./verification
 COPY scripts/container ./scripts/container
 COPY scripts/build_quickstart_notebook.py ./scripts/build_quickstart_notebook.py
 COPY notebooks/quickstart.ipynb ./notebooks/quickstart.ipynb

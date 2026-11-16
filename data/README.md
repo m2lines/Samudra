@@ -400,8 +400,12 @@ Follow the CLI usage instructions to clone the repository and create a local mam
 the development dependencies:
 
 ```bash
-mamba install pytest scipy dask pre-commit
+mamba install pytest scipy dask pre-commit hypothesis pytest-reportlog
 ```
+
+`mamba_env.yaml` also installs `samudra_verification` from the repository's `verification/` project, which
+`tests/conftest.py` imports. If you build the environment another way, install it from the repository root with
+`pip install -e ./verification`. It isn't published on PyPI, so `pip install ".[test]"` can't install it.
 
 Run the data package tests from `data/` in the active environment:
 

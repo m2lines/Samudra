@@ -37,3 +37,4 @@ dependencies:
     - pip
     - pip:
       - -e .  # local sources
+      - -e ../verification  # samudra_verification, which data/tests/conftest.py imports

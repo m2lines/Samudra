@@ -322,6 +322,102 @@ uvx detect-secrets scan > .secrets.baseline
 
 Please check in the baseline after generating.
 
+## Property tests and mutation checks
+
+Most of our tests are ordinary unit tests with hand-picked inputs and expected outputs. A *property test* instead
+states something that must hold for every input, such as "renaming a source file never changes the decoded values".
+[Hypothesis](https://hypothesis.readthedocs.io/) then generates inputs to search for a counterexample. Each property
+needs an *oracle*, an independent way to know the right answer: a small executable model of the system, a trusted
+reader (such as opening the source NetCDF directly), or a
+[metamorphic relation](https://www.hillelwayne.com/post/metamorphic-testing/) that predicts how the output changes
+when the input changes.
+
+This section covers writing, running, and reading property tests. The shared tooling lives in its own project,
+`verification/`; its [README](../verification/README.md) explains how campaigns, the mutation gate, and triage work.
+
+### Writing a property
+
+Put property tests in flat files named `*_properties.py`: `tests/test_*_properties.py` for `samudra`, and
+`data/tests/test_*_properties.py` for `ocean_preprocessing`. `tests/test_sampler_properties.py` is a compact example.
+It simulates every distributed rank in one process and checks that the sampler covers the dataset and replays epoch
+changes, with no model, GPU, or process group.
+
+* Name the oracle in the test's docstring, so a reviewer can tell why the expected answer is right.
+* Keep generated inputs small and the test deterministic. Mark tests that need a GPU or a human with `cuda` or
+  `manual`; property runs exclude both.
+* Draw randomness from Hypothesis, `random`, NumPy, or torch's global generator; Hypothesis seeds all four for each
+  example, so a failure replays exactly. (`tests/conftest.py` calls `register_torch_random()` for torch; a new
+  project whose properties use torch must too.) A generator you construct yourself without a drawn seed makes
+  replays differ, and Hypothesis reports the test as `Flaky`.
+* When a search finds a bug, fix it and pin the shrunk counterexample with `@example(...)`, so it runs on every PR.
+* If a property encodes an invariant the team hasn't agreed on yet, mark it
+  `@pytest.mark.invariant(status="proposed")`. Its failures still show up, but triage won't propose them as bug
+  reports. Review a proposed property as carefully as production code, since a wrong property produces false bug
+  reports.
+
+### Running them
+
+From the repository root:
+
+```bash
+SAMUDRA_HYPOTHESIS_PROFILE=property uv run pytest tests/test_*_properties.py verification/tests
+```
+
+The `property` profile runs 40 examples per test, as PR CI does. For a longer search, use
+`SAMUDRA_HYPOTHESIS_PROFILE=soak`, with `SAMUDRA_HYPOTHESIS_EXAMPLES` setting the count (default 1,000). The data
+properties run with the rest of the data suite; see `data/AGENTS.md`.
+
+In CI, each PR runs every property with 40 examples, and the nightly `Property soak` workflow runs them with 1,000.
+
+### Reading a soak report
+
+Open the Actions tab, choose `Property soak`, and select a run. The run's Summary has three kinds of section:
+
+1. **One line per campaign**, such as `data-pinned-pyarrow property campaign: counterexample`. A campaign is one
+   project's suite in one environment: `pinned` uses locked dependencies, and `canary` floats within supported
+   ranges. `passed` and `counterexample` are results. `invalid` or `timeout` means the run itself broke (collection
+   error, crash, nothing ran), and the line gives the reason.
+2. **The mutation gate's summary**, described below.
+3. **Triage**, per campaign. Each failing property is listed either as "new, needs triage" or with links to matching
+   open or closed issues. A run that never finished is flagged at the top, and its failures aren't triaged.
+
+A failure in only the `canary` lane usually means an upstream release changed behavior. A failure in every lane is
+more likely our bug.
+
+To investigate a failure, download the campaign's artifact from the bottom of the run page; artifacts expire after
+30 days. In `pytest.log`, find the failing test's `Failing test case` (older Hypothesis versions say
+`Falsifying example`), and the `@reproduce_failure(...)` line Hypothesis prints after it. Add that decorator to the
+test temporarily to replay the exact input locally. Then decide whether the code or the property is wrong. If it's
+the code, fix it and pin the input with `@example`. If it's the property, fix the property. To file an issue for a
+checked failure, run `python -m samudra_verification.triage <campaign directory> --repo m2lines/Samudra --run-url
+<run url>`, which prints the issues it would file. `--apply` files every one of them, so check each failure it
+lists, not only the one you investigated, before rerunning with `--apply`.
+CI never files, reopens, or comments on issues itself.
+
+### Mutation checks
+
+A passing property only helps if it would fail on buggy code. A *fault* is a named, plausible bug, usually one we
+actually shipped, written as a small source substitution, together with the properties that should catch it. The
+`Property mutation gate` workflow plants each fault and checks that one of those properties fails.
+
+To add one, append a `Fault` to the catalog next to the tests, a flat `*_faults.py` file such as
+`tests/sampler_faults.py` or `data/tests/virtual_archive_faults.py`. A new catalog needs no CI changes. Add faults only for bugs that happened or nearly did; a new property doesn't
+need one. Run the gate on a project's catalogs from the repository root, with a new output directory each time:
+
+```bash
+uv run python -m samudra_verification.gate tests --output /tmp/root-mutations   # root catalogs
+```
+
+The gate prints each trial's result, and `summary.md` lists every trial that failed it. A `survived` mutant means
+none of its detectors noticed the fault: strengthen a property, or list the property that should catch it. An
+`invalid` trial gives its reason, such as a dirty control or a mutant that is broken code. `data/AGENTS.md` has the
+command for the data catalogs.
+
+On every PR, CI checks that each fault's anchor still occurs exactly once, so a refactor that moves the code fails
+there rather than in the nightly run. It runs a project's gate only when the PR changes a catalog, a fault's target
+module, a detector's test file, the project's environment or conftest, or `verification/`. The nightly soak runs every
+gate.
+
 ## Benchmarking & Profiling
 
 We use `pytest-benchmark` to measure performance regressions in this project. Our intentions are to cultivate a culture

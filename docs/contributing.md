@@ -345,6 +345,10 @@ changes, with no model, GPU, or process group.
 * Name the oracle in the test's docstring, so a reviewer can tell why the expected answer is right.
 * Keep generated inputs small and the test deterministic. Mark tests that need a GPU or a human with `cuda` or
   `manual`; property runs exclude both.
+* Draw randomness from Hypothesis, `random`, NumPy, or torch's global generator; Hypothesis seeds all four for each
+  example, so a failure replays exactly. (`tests/conftest.py` calls `register_torch_random()` for torch; a new
+  project whose properties use torch must too.) A generator you construct yourself without a drawn seed makes
+  replays differ, and Hypothesis reports the test as `Flaky`.
 * When a search finds a bug, fix it and pin the shrunk counterexample with `@example(...)`, so it runs on every PR.
 * If a property encodes an invariant the team hasn't agreed on yet, mark it
   `@pytest.mark.invariant(status="proposed")`. Its failures still show up, but triage won't propose them as bug
@@ -396,7 +400,7 @@ actually shipped, written as a small source substitution, together with the prop
 `Property mutation gate` workflow plants each fault and checks that one of those properties fails.
 
 To add one, append a `Fault` to the catalog next to the tests, a flat `*_faults.py` file such as
-`data/tests/virtual_archive_faults.py`. Add faults only for bugs that happened or nearly did; a new property doesn't
+`tests/sampler_faults.py` or `data/tests/virtual_archive_faults.py`. A new catalog needs no CI changes. Add faults only for bugs that happened or nearly did; a new property doesn't
 need one. Run the gate on a project's catalogs from the repository root, with a new output directory each time:
 
 ```bash
@@ -406,8 +410,12 @@ uv run python -m samudra_verification.gate tests --output /tmp/root-mutations   
 The gate prints each trial's result, and `summary.md` lists every trial that failed it. A `survived` mutant means
 none of its detectors noticed the fault: strengthen a property, or list the property that should catch it. An
 `invalid` trial gives its reason, such as a dirty control or a mutant that is broken code. `data/AGENTS.md` has the
-command for the data catalogs. CI's `Property mutation gate` runs only the data catalogs so
-far; add a step to `.github/workflows/property-mutations.yaml` when the root project gets its first catalog.
+command for the data catalogs.
+
+On every PR, CI checks that each fault's anchor still occurs exactly once, so a refactor that moves the code fails
+there rather than in the nightly run. It runs a project's gate only when the PR changes a catalog, a fault's target
+module, a detector's test file, the project's environment or conftest, or `verification/`. The nightly soak runs every
+gate.
 
 ## Benchmarking & Profiling
 

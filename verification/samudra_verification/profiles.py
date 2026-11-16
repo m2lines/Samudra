@@ -9,7 +9,38 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
-from hypothesis import Phase, settings
+from hypothesis import Phase, register_random, settings
+
+# Hypothesis keeps only weak references to registered generators.
+_REGISTERED_GENERATORS: list["TorchRandom"] = []
+
+
+class TorchRandom:
+    """torch's global generator, in the `random.Random` shape Hypothesis seeds."""
+
+    def __init__(self, torch):
+        self.seed = torch.manual_seed
+        self.getstate = torch.get_rng_state
+        self.setstate = torch.set_rng_state
+
+
+def register_torch_random():
+    """Let Hypothesis seed torch's global generator, as it does `random` and NumPy's.
+
+    Otherwise a property that draws from torch (initialization, dropout, `randn`)
+    sees different values when Hypothesis replays an example, so shrinking reports
+    `Flaky` and the mutation gate marks the trial invalid. `torch.manual_seed`
+    seeds every device; only the CPU generator's state is saved and restored, and
+    property runs are CPU-only. Call it from the conftest of any project whose
+    properties use torch. This module doesn't import torch otherwise.
+    """
+    import torch
+
+    if not _REGISTERED_GENERATORS:
+        generator = TorchRandom(torch)
+        _REGISTERED_GENERATORS.append(generator)
+        register_random(generator)
+
 
 # The mutation gate checks that each subprocess ran with exactly these settings.
 # Explicit @examples run because they are often a fault's known reproducer; the

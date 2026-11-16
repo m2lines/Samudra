@@ -19,7 +19,7 @@ and `zarr<3` pins. Root `uv sync --dev` installs it as a workspace member. `data
 
 | Module | Role |
 | --- | --- |
-| `profiles` | Hypothesis profiles (`unit`, `property`, `soak`, `mutation`), and `tag_project_items`, which each project's conftest calls to record a test's project and invariant status |
+| `profiles` | Hypothesis profiles (`unit`, `property`, `soak`, `mutation`); `tag_project_items`, which each project's conftest calls to record a test's project and invariant status; and `register_torch_random`, which lets Hypothesis seed torch |
 | `evidence` | Reads pytest-reportlog's event stream into per-test outcomes |
 | `verdicts` | Decides whether a pytest session can be trusted, and what a trusted one means |
 | `spec` | `CampaignSpec` and `Lane`: what identifies a campaign, written to `replay.json` |
@@ -43,7 +43,7 @@ A *campaign* is one run of a project's property suite with a fixed seed and exam
 | CPU tests (`test.yml`), in a separate step | every PR | 40 |
 | Data tests (`data-tests.yaml`), with the rest of the data suite | every PR | 40 |
 | `Property soak` | nightly at 09:37 UTC, and on demand | 1,000 |
-| `Property mutation gate` | PRs and pushes to `main` that touch the data properties, fault catalogs, or `verification/`; also inside the nightly soak | 40 per property in each trial |
+| `Property mutation gate` | every PR checks anchors; a project's gate runs when the PR changes one of its catalogs' inputs (see below); every gate runs in the nightly soak | 40 per property in each trial |
 
 The root CPU test step skips `*_properties.py`, and a separate step runs them with `verification/tests`, so each
 property runs once per PR. The soak runs the data suite three times: twice in the `pinned` lane (`data/.test.yml`),
@@ -96,7 +96,12 @@ fresh pytest process under one condition:
    skips, timeouts, and any drift from the expected settings, source hashes, or collected tests. Invalid trials and
    survivors fail the gate.
 
-Each trial records its verdict and reason in `results.json`. `data/AGENTS.md` has the command for the data catalogs.
+Each trial records its verdict and reason in `results.json`.
+
+`gate --plan <directory>` runs nothing: it checks every anchor and prints each catalog's inputs (the catalog, its
+target modules, and its detectors' test files). The workflow's `plan` job runs it for `tests` and `data/tests` on
+every PR, and starts a project's gate job when the PR changes one of those inputs, the project's environment or
+conftest, or `verification/`. A new project needs one line in that job's project list. `data/AGENTS.md` has the command for the data catalogs.
 
 ## Triage
 

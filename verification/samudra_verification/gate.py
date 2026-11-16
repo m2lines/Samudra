@@ -14,6 +14,10 @@ Every trial is capped at `--timeout` seconds per property it runs. Mutant trials
 also share a `--budget` per catalog, which starts once the controls finish, so slow
 controls can't starve the mutants.
 
+`--plan` runs nothing. It checks every catalog's anchors and prints the files the
+catalogs depend on (catalogs, target modules, detector test files), so CI can run
+the gate only when one of them changes and still catch a broken anchor on every PR.
+
 This module is also the pytest plugin each trial loads (`-p samudra_verification.gate`).
 """
 
@@ -363,10 +367,8 @@ def target_sources(catalog: Catalog) -> dict[str, tuple[Path, bytes]]:
     return {module: (path, path.read_bytes()) for module, path in paths.items()}
 
 
-def run_catalog(path: Path, output: Path, seeds, timeout, budget) -> list[str]:
-    """Run a catalog's trials; return a line for each trial that fails the gate."""
-    catalog = load_catalog(path)
-    output.mkdir()
+def checked_sources(path: Path, catalog: Catalog) -> dict[str, tuple[Path, bytes]]:
+    """`target_sources`, after checking each fault's anchor occurs exactly once."""
     sources = target_sources(catalog)
     for fault in catalog.faults:
         file, contents = sources[fault.module]
@@ -376,6 +378,26 @@ def run_catalog(path: Path, output: Path, seeds, timeout, budget) -> list[str]:
                 "it must occur exactly once. Lengthen it to make it unique, or update "
                 "it if the code was refactored."
             )
+    return sources
+
+
+def catalog_inputs(path: Path) -> set[Path]:
+    """The files a catalog's verdicts depend on most directly."""
+    catalog = load_catalog(path)
+    detectors = {
+        catalog.project / node.split("::")[0]
+        for fault in catalog.faults
+        for node in fault.detectors
+    }
+    sources = checked_sources(path, catalog)
+    return {path, *detectors, *(file for file, _ in sources.values())}
+
+
+def run_catalog(path: Path, output: Path, seeds, timeout, budget) -> list[str]:
+    """Run a catalog's trials; return a line for each trial that fails the gate."""
+    catalog = load_catalog(path)
+    output.mkdir()
+    sources = checked_sources(path, catalog)
     targets = {
         module: SourceFile.of(file, contents)
         for module, (file, contents) in sources.items()
@@ -457,7 +479,12 @@ def main():
         type=Path,
         help=f"Flat *{SUFFIX} files or their directory",
     )
-    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--plan",
+        action="store_true",
+        help="Check anchors and print the files the catalogs depend on; run nothing",
+    )
+    parser.add_argument("--output", type=Path, help="New directory for artifacts")
     parser.add_argument("--seeds", nargs="+", type=int, default=[0, 1, 95920261105])
     parser.add_argument(
         "--timeout", type=float, default=60, help="Seconds per property in a trial"
@@ -480,10 +507,22 @@ def main():
             )
         }
     )
-    if not paths or any(
-        not path.is_file() or not path.name.endswith(SUFFIX) for path in paths
-    ):
-        parser.error(f"Expected at least one existing *{SUFFIX} catalog")
+    if any(not path.is_file() or not path.name.endswith(SUFFIX) for path in paths):
+        parser.error(f"Expected existing *{SUFFIX} catalogs or their directories")
+    if args.plan:
+        # A project with no catalogs yet has nothing to plan.
+        inputs = {file for path in paths for file in catalog_inputs(path)}
+        for file in sorted(inputs):
+            print(
+                file.relative_to(Path.cwd())
+                if file.is_relative_to(Path.cwd())
+                else file
+            )
+        return
+    if not paths:
+        parser.error(f"Expected at least one *{SUFFIX} catalog")
+    if args.output is None:
+        parser.error("--output is required unless --plan is given")
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
     (output / "replay.json").write_text(

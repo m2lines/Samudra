@@ -53,7 +53,16 @@ def constructor_inputs():
 
 
 def build_viz(truth, basins, tmp_path, grid_type="gaussian"):
-    prediction = truth[["thetao"]].rename({"y": "lat", "x": "lon"})
+    truth = truth.assign(
+        profile_thetao=truth.thetao.where(truth.wetmask)
+        .weighted(
+            truth.get(
+                "areacello", xr.ones_like(truth.thetao.isel(time=0, lev=0))
+            ).fillna(0)
+        )
+        .mean(("y", "x"))
+    )
+    prediction = truth[["thetao", "profile_thetao"]].rename({"y": "lat", "x": "lon"})
     return core.Viz(
         str(tmp_path),
         "truth",

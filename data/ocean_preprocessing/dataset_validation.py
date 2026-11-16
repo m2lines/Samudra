@@ -21,6 +21,13 @@ from ocean_preprocessing.utils import ensure_nan_consistency, split_2d_3d
 
 def _nan_test_deep(ds_input: xr.Dataset):
     """Expensive tests that compute on the entire dataset."""
+    ds_input = ds_input[
+        [
+            name
+            for name, field in ds_input.data_vars.items()
+            if {"y", "x"}.issubset(field.dims)
+        ]
+    ]
     ds_nan_test_2d, ds_nan_test_3d = split_2d_3d(ds_input)
     print("2D consistency check")
     ensure_nan_consistency(ds_nan_test_2d, "2D nan consistency check")
@@ -76,6 +83,28 @@ _REQUIRED_ATTRS = {
     "m2lines/samudra_git_hash",
 }
 _SUPPORTED_GRID_TYPES = {"gaussian", "tripolar"}
+
+
+def _validate_derived_fields(ds: xr.Dataset) -> None:
+    """Validate saved products when present, while accepting legacy stores."""
+    if "hfds_anomalies" in ds:
+        _validate_dims(ds, {"hfds_anomalies"}, ("time", "y", "x"))
+        _validate_dtype(ds, {"hfds_anomalies"}, "float32")
+    if "areacello_weights" in ds:
+        _validate_dims(ds, {"areacello_weights"}, ("y", "x"))
+    for name in ds.data_vars:
+        if not str(name).startswith("profile_"):
+            continue
+        source = str(name).removeprefix("profile_")
+        if source not in ds or not {"time", "y", "x"}.issubset(ds[source].dims):
+            raise ValueError(
+                f"Profile {name!r} has no corresponding physical time series"
+            )
+        _validate_dims(
+            ds,
+            {str(name)},
+            tuple(dim for dim in ds[source].dims if dim not in ("y", "x")),
+        )
 
 
 def _validate_common_input_contract(ds_input: xr.Dataset) -> None:
@@ -135,6 +164,7 @@ def _validate_common_input_contract(ds_input: xr.Dataset) -> None:
         raise ValueError(
             f"Output is missing required attributes: {sorted(missing_attrs)}"
         )
+    _validate_derived_fields(ds_input)
 
 
 def _validate_dims(
@@ -206,8 +236,11 @@ def ds_flattened_input_validate(ds_input: xr.Dataset) -> None:
             f"Output is missing required variables: {sorted(missing_vars)}"
         )
 
-    allowed_vars = required_vars | set(OM4_OPTIONAL_2D_VARS)
-    unexpected_vars = set(ds_input.data_vars) - allowed_vars
+    allowed_vars = required_vars | set(OM4_OPTIONAL_2D_VARS) | {"hfds_anomalies"}
+    profile_vars = {
+        f"profile_{name}" for name in allowed_vars if not name.startswith("mask_")
+    }
+    unexpected_vars = set(ds_input.data_vars) - allowed_vars - profile_vars
     if unexpected_vars:
         raise ValueError(
             f"Output contains undeclared variables: {sorted(unexpected_vars)}"

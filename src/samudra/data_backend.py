@@ -89,17 +89,6 @@ class NativeOm4SourceBackend:
                     f"loading.type={self._name!r} currently requires local data, "
                     f"but {field_name} resolved to {location}"
                 )
-        derived = [
-            name
-            for name in data_layout.boundary_var_names
-            if name.endswith("_anomalies")
-        ]
-        if derived:
-            raise ValueError(
-                f"loading.type={self._name!r} does not yet support derived boundary "
-                f"variables {derived}; select physical boundary variables or use "
-                "loading.type='cpu'"
-            )
 
     def build_reader(
         self,

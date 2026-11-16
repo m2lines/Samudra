@@ -31,6 +31,7 @@ from ocean_preprocessing.dataset_validation import (
     ds_processed_validate,
     require_om4_publication_freshwater_flux,
 )
+from ocean_preprocessing.derived_fields import add_derived_fields
 from ocean_preprocessing.plotting import rotated_vectors_qc_plots
 from ocean_preprocessing.preprocessing import (
     account_for_partial_depths,
@@ -326,7 +327,8 @@ class CLI:
         9. Restore variable attributes and add provenance metadata
         10. Optionally flatten 3D variables by depth level (unless --skip-flattening)
         11. Drop extraneous dimensions (we only need 'x', 'y', 'time' and maybe 'lev').
-        12. Write output to Zarr store in Zarr v2 format.
+        12. Precompute heat-flux anomalies, area weights, and visualization profiles.
+        13. Write output to Zarr store in Zarr v2 format.
 
         > NOTE: We pre-determine the spatial filtering scale based on the target grid!
         > We make informed guesses for what the scale should be. If you'd like to
@@ -658,6 +660,9 @@ class CLI:
         ds = ds.chunk({dim: 1 if dim == "time" else -1 for dim in ds.dims})
         if time_bounds is not None:
             ds = ds.assign_coords(time_bnds=time_bounds.sel(time=ds.time))
+
+        logger.info("precomputing heat-flux anomalies and visualization profiles")
+        ds = add_derived_fields(ds)
 
         logger.info("validating final output structure")
         if self.skip_flattening:

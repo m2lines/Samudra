@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794866931864,
+  "lastUpdate": 1794866939119,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -26895,6 +26895,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.05572385977927416",
             "extra": "mean: 11.390672741000026 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "s1911024120@ru.ac.bd",
+            "name": "Muhtasim Munif Fahim",
+            "username": "Muhtasim-Munif-Fahim"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c396350d62424d8479257f7f92c8a027c7a77030",
+          "message": "docs: fix the direction of dynamic loss weighting in loss.md (#983)\n\nIn `docs/utils/loss.md`, the `DynamicLoss` bullet said channels with\n**higher** error get **higher** weight. The code does the reverse:\ntarget weights are `1.0 / loss` (`src/samudra/utils/loss.py`), so\nchannels with **lower** error get **higher** weight. This PR corrects\nthat bullet to match the code and the page's own \"inverse prediction\nerror\" sentence. I prepared it with AI assistance (Grok Bot) and\nreviewed and checked it myself.\n\nFixes #982\n\n<details>\n<summary>Details</summary>\n\n- The changed bullet uses the wording suggested in the issue: \"Channels\nwith **lower error** receive **higher weight** (each channel's target\nweight is the inverse of its recent error), preventing the model from\nneglecting slow-evolving deep-ocean fields, whose errors are small\".\n- I checked the rest of the section against `DynamicLoss.update` and\nleft it as is. The `limit` clamp keeps target weights within `[min, min\n* limit]`. The smoothing is `(scale * (N_WINDOW - 1) + target) /\nN_WINDOW` with `N_WINDOW = 25`, which matches the existing \"rolling\nwindow of 25 steps\" bullet and the \"exponential moving average\"\nsentence.\n- This is a docs-only change. `pre-commit` (trailing-whitespace) passes\non the file.\n\n</details>\n\n\n<!-- This is an auto-generated comment: release notes by coderabbit.ai\n-->\n\n<!-- coderabbit-ai-generated:v1 -->\n\n## Summary by CodeRabbit\n\n* **Documentation**\n* Clarified that Dynamic Loss gives higher weights to channels with\nlower recent error.\n\n<!-- end of auto-generated comment: release notes by coderabbit.ai -->",
+          "timestamp": "2026-11-16T13:59:03-08:00",
+          "tree_id": "72e6046973d43e93826a49a61fee660dc201dcb3",
+          "url": "https://github.com/m2lines/Samudra/commit/c396350d62424d8479257f7f92c8a027c7a77030"
+        },
+        "date": 1794866938748,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 1.0630386996181296,
+            "unit": "iter/sec",
+            "range": "stddev: 0.004171881127920784",
+            "extra": "mean: 940.6995252000002 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_dataset__1gb[cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.3408295420530972,
+            "unit": "iter/sec",
+            "range": "stddev: 0.08181665803002858",
+            "extra": "mean: 2.9340179667999906 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.08727473602105733,
+            "unit": "iter/sec",
+            "range": "stddev: 0.19023692763309447",
+            "extra": "mean: 11.458069603999991 sec\nrounds: 5"
           }
         ]
       }

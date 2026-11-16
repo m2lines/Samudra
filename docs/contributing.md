@@ -384,8 +384,9 @@ To investigate a failure, download the campaign's artifact from the bottom of th
 30 days. In `pytest.log`, find the failing test's `Failing test case` (older Hypothesis versions say
 `Falsifying example`), and the `@reproduce_failure(...)` line Hypothesis prints after it. Add that decorator to the
 test temporarily to replay the exact input locally. Then decide whether the code or the property is wrong. If it's
-the code, fix it and pin the input with `@example`. If it's the property, fix the property. To file an issue for a checked failure, run
-`python -m samudra_verification.triage <campaign directory> --repo m2lines/Samudra --run-url <run url> --apply`.
+the code, fix it and pin the input with `@example`. If it's the property, fix the property. To file an issue for a
+checked failure, run `python -m samudra_verification.triage <campaign directory> --repo m2lines/Samudra --run-url
+<run url>`, which prints the issues it would file, then rerun it with `--apply` to file them.
 CI never files, reopens, or comments on issues itself.
 
 ### Mutation checks
@@ -402,7 +403,10 @@ need one. Run the gate on a project's catalogs from the repository root, with a 
 uv run python -m samudra_verification.gate tests --output /tmp/root-mutations   # root catalogs
 ```
 
-`data/AGENTS.md` has the command for the data catalogs. CI's `Property mutation gate` runs only the data catalogs so
+The gate prints each trial's result, and `summary.md` lists every trial that failed it. A `survived` mutant means
+none of its detectors noticed the fault: strengthen a property, or list the property that should catch it. An
+`invalid` trial gives its reason, such as a dirty control or a mutant that is broken code. `data/AGENTS.md` has the
+command for the data catalogs. CI's `Property mutation gate` runs only the data catalogs so
 far; add a step to `.github/workflows/property-mutations.yaml` when the root project gets its first catalog.
 
 ## Benchmarking & Profiling

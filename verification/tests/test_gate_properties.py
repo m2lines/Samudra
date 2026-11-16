@@ -218,7 +218,12 @@ def test_shared_budget_caps_each_case_and_stops_scheduling(elapsed, per_case, bu
         assert allowed == 0
         trial = gate.Trial(gate.Control(), 0, ())
         result = gate.run_trial(
-            trial, Path("unused"), allowed, catalog_path=None, targets={}
+            trial,
+            Path("unused"),
+            allowed,
+            catalog_path=None,
+            project=Path("unused"),
+            targets={},
         )
         assert result["status"] == TrialStatus.BUDGET_EXHAUSTED
 
@@ -234,7 +239,11 @@ def test_real_subprocess_gate_distinguishes_control_from_mutant(limit, seed):
             "[pytest]\naddopts = --from-an-unloaded-plugin\n"
         )
         (root / "conftest.py").write_text(
-            "from samudra_verification.profiles import configure_profiles\nconfigure_profiles()\n"
+            "from pathlib import Path\n"
+            "from samudra_verification.profiles import configure_profiles, tag_project_items\n"
+            "configure_profiles()\n"
+            "def pytest_collection_modifyitems(items):\n"
+            "    tag_project_items(items, project='subject', root=Path(__file__).parent)\n"
         )
         target = root / "verification_subject.py"
         target.write_text("def identity(value):\n    return value\n")
@@ -256,7 +265,8 @@ def test_real_subprocess_gate_distinguishes_control_from_mutant(limit, seed):
             "Fault('broken', 'verification_subject', 'return value', 'return undefined_name', detect)))\n"
         )
         # The broken mutant fails with NameError, which is not an oracle verdict.
-        assert not gate.run_catalog(catalog, root / "output", [seed], 15, 60)
+        (failing,) = gate.run_catalog(catalog, root / "output", [seed], 15, 60)
+        assert failing.startswith(f"broken-{seed}: invalid")
         results = json.loads((root / "output/results.json").read_text())
         assert results[f"control-{seed}"]["status"] == "clean"
         assert results[f"offset-{seed}"]["status"] == "killed"

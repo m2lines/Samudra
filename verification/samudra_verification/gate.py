@@ -109,7 +109,7 @@ class Execution:
 # --- Inside each trial's pytest process ----------------------------------------
 
 # What `pytest_sessionstart` found, completed by `pytest_collection_finish`.
-STARTED: dict[str, Any] = {}
+STARTED = pytest.StashKey[dict[str, Any]]()
 
 
 def pytest_sessionstart(session):
@@ -127,7 +127,7 @@ def pytest_sessionstart(session):
         contents = Path(source).read_bytes()
         exec(compile(contents, source, "exec"), sys.modules[module].__dict__)
         mutant = PlantedMutant(module, hashlib.sha256(contents).hexdigest())
-    STARTED.update(targets=targets, mutant=mutant)
+    session.stash[STARTED] = {"targets": targets, "mutant": mutant}
 
 
 def bind_profile(functions, profile):
@@ -145,7 +145,7 @@ def pytest_collection_finish(session):
     active = settings()
     bind_profile((item.obj for item in session.items), active)
     executed = Execution(
-        **STARTED,
+        **session.stash[STARTED],
         profile=Profile.of(active),
         nodeids=tuple(sorted(item.nodeid for item in session.items)),
     )
@@ -261,6 +261,7 @@ def run_trial(
     timeout,
     *,
     catalog_path,
+    project: Path,
     targets: dict[str, SourceFile],
 ):
     """Run one trial in a fresh pytest process and record its verdict."""
@@ -268,7 +269,6 @@ def run_trial(
     if timeout <= 0:
         reason = "the mutant budget ran out before this trial started"
         return {**base, "status": TrialStatus.BUDGET_EXHAUSTED, "reason": reason}
-    catalog = load_catalog(catalog_path)
     directory.mkdir(parents=True)
     env = dict(
         os.environ,
@@ -327,7 +327,7 @@ def run_trial(
         try:
             process = subprocess.run(
                 command,
-                cwd=catalog.project,
+                cwd=project,
                 env=env,
                 stdout=log,
                 stderr=subprocess.STDOUT,
@@ -363,15 +363,18 @@ def target_sources(catalog: Catalog) -> dict[str, tuple[Path, bytes]]:
     return {module: (path, path.read_bytes()) for module, path in paths.items()}
 
 
-def run_catalog(path: Path, output: Path, seeds, timeout, budget) -> bool:
+def run_catalog(path: Path, output: Path, seeds, timeout, budget) -> list[str]:
+    """Run a catalog's trials; return a line for each trial that fails the gate."""
     catalog = load_catalog(path)
     output.mkdir()
     sources = target_sources(catalog)
     for fault in catalog.faults:
-        if sources[fault.module][1].count(fault.before.encode()) != 1:
+        file, contents = sources[fault.module]
+        if (found := contents.count(fault.before.encode())) != 1:
             raise ValueError(
-                f"{path.name}/{fault.name}: expected exactly one source anchor in "
-                f"{fault.module}; review after refactoring"
+                f"{path.name}/{fault.name}: the anchor occurs {found} times in {file}; "
+                "it must occur exactly once. Lengthen it to make it unique, or update "
+                "it if the code was refactored."
             )
     targets = {
         module: SourceFile.of(file, contents)
@@ -403,11 +406,12 @@ def run_catalog(path: Path, output: Path, seeds, timeout, budget) -> bool:
                 output / trial.label,
                 timeout * len(trial.nodeids),
                 catalog_path=path,
+                project=catalog.project,
                 targets=targets,
             )
         )
         if results[trial.label]["status"] != TrialStatus.CLEAN:
-            return False
+            return problems(results)
     deadline = time.monotonic() + budget
     for fault in catalog.faults:
         directory = output / fault.name
@@ -429,13 +433,20 @@ def run_catalog(path: Path, output: Path, seeds, timeout, budget) -> bool:
                         deadline, timeout * len(trial.nodeids), time.monotonic()
                     ),
                     catalog_path=path,
+                    project=catalog.project,
                     targets=targets,
                 )
             )
-    return all(
-        result["status"] in (TrialStatus.CLEAN, TrialStatus.KILLED)
-        for result in results.values()
-    )
+    return problems(results)
+
+
+def problems(results) -> list[str]:
+    return [
+        f"{label}: {result['status']}"
+        + (f": {result['reason']}" if result["reason"] else "")
+        for label, result in results.items()
+        if result["status"] not in (TrialStatus.CLEAN, TrialStatus.KILLED)
+    ]
 
 
 def main():
@@ -491,28 +502,27 @@ def main():
         + "\n"
     )
     write_environment(output / "environment.txt")
-    summaries = {}
+    summaries: dict[str, list[str]] = {}
     try:
         for path in paths:
-            passed = run_catalog(
+            summaries[path.stem] = run_catalog(
                 path, output / path.stem, args.seeds, args.timeout, args.budget
             )
-            summaries[path.stem] = "passed" if passed else "failed"
     finally:
         (output / "summary.json").write_text(json.dumps(summaries, indent=2) + "\n")
         (output / "summary.md").write_text(
             "# Mutation analysis\n\n"
             + "\n".join(
-                f"- `{name}`: **{status}** (details in `{name}/results.json`)"
-                for name, status in summaries.items()
+                f"- `{name}`: **{'failed' if failing else 'passed'}** "
+                f"(details in `{name}/results.json`)"
+                + "".join(f"\n  - {line}" for line in failing)
+                for name, failing in summaries.items()
             )
             + "\n\nA dirty control stops a catalog before any mutant runs, so an "
             "existing bug is never credited as a kill. The artifact holds each "
             "trial's pytest events and replay inputs.\n"
         )
-    raise SystemExit(
-        0 if all(status == "passed" for status in summaries.values()) else 1
-    )
+    raise SystemExit(1 if any(summaries.values()) else 0)
 
 
 if __name__ == "__main__":

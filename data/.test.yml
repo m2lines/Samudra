@@ -5,7 +5,7 @@
 # Focused archive verification environment. Mamba owns all third-party packages;
 # install the two local projects with pip --no-deps --no-build-isolation afterward.
 # These are direct version pins, not a transitive lock. Each CI artifact captures
-# the solved environment with `micromamba list --explicit` for exact replay.
+# the solved environment with `micromamba env export --explicit` for exact replay.
 name: samudra-data-test
 channels:
   - conda-forge

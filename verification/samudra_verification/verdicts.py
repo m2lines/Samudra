@@ -65,6 +65,8 @@ def untrustworthy(
     if run.collection_errors:
         return f"collection errors: {list(run.collection_errors)}"
     for case in run.cases:
+        if "project" not in case.properties:
+            return f"{case.nodeid}: no project tag; its conftest must call tag_project_items"
         if case.outcome == Outcome.ERROR:
             return f"{case.nodeid}: setup or teardown error"
         if case.outcome == Outcome.SKIPPED and not allow_skips:

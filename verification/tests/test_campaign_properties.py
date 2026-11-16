@@ -22,14 +22,21 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 @settings(max_examples=8, deadline=None)
-@given(st.lists(st.sampled_from(["pass", "skip", "fail"]), max_size=3))
-def test_shared_runner_records_real_outcomes_and_replay_inputs(outcomes):
+@given(st.lists(st.sampled_from(["pass", "skip", "fail"]), max_size=3), st.booleans())
+def test_shared_runner_records_real_outcomes_and_replay_inputs(outcomes, tagged):
     with TemporaryDirectory() as directory:
         root = Path(directory)
         tests = root / "checks"
         tests.mkdir()
         config = root / "pytest.ini"
         config.write_text("[pytest]\n")
+        if tagged:
+            (tests / "conftest.py").write_text(
+                "from pathlib import Path\n"
+                "from samudra_verification.profiles import tag_project_items\n"
+                "def pytest_collection_modifyitems(items):\n"
+                "    tag_project_items(items, project='harness', root=Path(__file__).parent)\n"
+            )
         lines = ["import pytest"]
         for index, outcome in enumerate(outcomes):
             if outcome == "skip":
@@ -70,8 +77,12 @@ def test_shared_runner_records_real_outcomes_and_replay_inputs(outcomes):
             timeout=30,
             check=False,
         )
-        # 1: a counterexample; 0: passed; 2: invalid, since nothing ran.
-        expected = 1 if "fail" in outcomes else (0 if "pass" in outcomes else 2)
+        # 1: a counterexample; 0: passed; 2: invalid, since nothing ran or a test
+        # that ran had no project tag for triage.
+        if not tagged and outcomes:
+            expected = 2
+        else:
+            expected = 1 if "fail" in outcomes else (0 if "pass" in outcomes else 2)
         assert process.returncode == expected, process.stdout + process.stderr
         result = json.loads((output / "result.json").read_text())
         assert (result["status"] == "passed") == (expected == 0)

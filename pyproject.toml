@@ -192,7 +192,7 @@ torch = [
 torchvision = [
   { index = "pytorch-cu130", marker = "sys_platform == 'linux' and platform_machine == 'aarch64'" },
 ]
-samudra-verification = { workspace = true, editable = true }
+samudra-verification = { workspace = true }
 
 [[tool.uv.index]]
 name = "pytorch-cu130"

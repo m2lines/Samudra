@@ -45,7 +45,10 @@ jobs:
         !contains(github.event.pull_request.labels.*.name, 'experiment')
       )
     runs-on: ubuntu-latest
-    timeout-minutes: 35  # Controls: 3 seeds x 6 detectors x 60 s at most; mutants: 600 s.
+    # Worst case: controls take 3 seeds x 7 detectors x 60 s (21 min), then mutants
+    # share 600 s (10 min). The rest covers the environment solve. Recompute when
+    # adding detectors.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - uses: mamba-org/setup-micromamba@4b9113af4fba0e9e1124b252dd6497a419e7396d

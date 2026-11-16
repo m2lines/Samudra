@@ -7,8 +7,10 @@
 One issue per property, not per random seed. Closed issues stay closed: a human
 must decide whether a recurrence merits reopening or a different invariant.
 Collection errors and runner failures remain CI failures, not product bug reports,
-but the summary states them, and --apply refuses to file from a session that
-`verdicts.untrustworthy` rejects or from evidence it can't read.
+but the summary states them. --apply refuses to file from a session that didn't
+finish, had collection, setup or teardown errors, or ran untagged tests, or whose
+evidence can't be read. Without --apply or --triage-output, it prints the issues
+it would file.
 """
 
 import argparse
@@ -189,9 +191,15 @@ def main():
     parser.add_argument(
         "campaigns", nargs="+", type=Path, help="Campaign artifact directories"
     )
-    parser.add_argument("--repo", required=True)
-    parser.add_argument("--run-url", required=True)
-    parser.add_argument("--apply", action="store_true")
+    parser.add_argument("--repo", required=True, help="GitHub repository, owner/name")
+    parser.add_argument(
+        "--run-url", required=True, help="Link to the run, quoted in each issue"
+    )
+    parser.add_argument(
+        "--apply",
+        action="store_true",
+        help="File an issue for each failing property that has none",
+    )
     parser.add_argument(
         "--triage-output",
         type=Path,

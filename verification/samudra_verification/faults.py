@@ -28,6 +28,8 @@ class Fault:
     detectors: tuple[str, ...]  # Node IDs, relative to the project root.
 
     def __post_init__(self):
+        if self.name == "control":
+            raise ValueError("`control` is reserved for the gate's control trials")
         if not self.detectors:
             raise ValueError(f"{self.name}: a fault needs at least one detector")
 

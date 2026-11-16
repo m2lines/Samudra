@@ -98,7 +98,8 @@ def read_run(path: Path) -> PytestRun:
         if not isinstance(event, dict):
             raise ValueError("Expected a pytest event object")
         kind = event.get("$report_type")
-        if exitcode is not None:
+        # pytest can still record a warning while it shuts down.
+        if exitcode is not None and kind != "WarningMessage":
             raise ValueError("Events after SessionFinish")
         if kind == "SessionStart":
             if started:

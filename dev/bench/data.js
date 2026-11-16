@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794873473430,
+  "lastUpdate": 1794873479884,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -27165,6 +27165,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.03308477933711351",
             "extra": "mean: 11.448022127800016 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "b9e3e98ec37ca5f38b5962ad75bd4b0304b7f5e3",
+          "message": "Configure CodeRabbit for the code vs. experiment workflow (#1011)\n\nThis adds `.coderabbit.yaml`, which fits CodeRabbit to our two kinds of\nPR: infrastructure (meant to merge) and experiment (results records, not\nmeant to merge). The main goal is less CodeRabbit email from experiment\nPRs. CodeRabbit already skipped them because they're drafts, but it\nposted a \"Draft PR not reviewed\" comment on each one (for example #1004,\n#1003 and #998), and that comment sent the email. Written by Claude Code\n(Claude Opus 5.5).\n\n<details>\n<summary>What each setting does, and why</summary>\n\n**Less email from experiment PRs**\n- `review_status: false` stops \"Draft PR not reviewed\" and \"review\nskipped\" notes on every PR. That's what removes the email on experiment\ndrafts.\n- `auto_review.labels: [\"!experiment\"]` skips auto-review on any PR\nlabeled `experiment`, including the occasional one that isn't a draft.\nCodeRabbit can't filter on the `experiment/` branch prefix the way CI\ndoes, but every recent experiment PR also has the label.\n\n**Matching the definition of done in AGENTS.md**\n- `auto_review.auto_pause_after_reviewed_commits: 0`. By default\nCodeRabbit stops reviewing after 5 reviewed commits. Our PRs collect\nmany commits before a squash merge, so the default would leave later\ncommits without the adversarial review the definition of done requires.\n- `profile: chill` plus `tone_instructions` ask CodeRabbit to report\ncorrectness and design problems as major and mark style suggestions as\nnon-blocking, since whether minor feedback blocks a merge is up to the\nhuman.\n\n**PR descriptions**\n- `high_level_summary: false` with `high_level_summary_in_walkthrough:\ntrue`. CodeRabbit no longer writes a \"Summary by CodeRabbit\" block into\nthe PR description, as it did on #872. Its summary goes in its\nwalkthrough comment instead.\n- A warning-level custom pre-merge check enforces the AGENTS.md\ndescription format: a short summary first, the details in `<details>`,\nand the agent or model named. It replaces the built-in `description`\ncheck, which judges descriptions by generic best practices.\n\n**Not included**\n- No `path_instructions` copying our rules. CodeRabbit already reads\n`**/AGENTS.md` and `**/CLAUDE.md` (including `data/AGENTS.md`) as review\nguidelines by default.\n\n**Validation**\n- The file validates against CodeRabbit's published schema\n(`schema.v2.json`) with `check-jsonschema`.\n- Pre-commit passes on the file.\n- CodeRabbit reads `.coderabbit.yaml` from the PR's own branch, so its\nreview of this PR uses the new settings.\n- Still unconfirmed: whether `review_status: false` stops the draft\ncomment. The first experiment PR opened from `main` after this merges\nwill show it.\n\n</details>\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\n---------\n\nCo-authored-by: Claude Opus 5.5 <noreply@anthropic.com>",
+          "timestamp": "2026-11-16T23:34:02Z",
+          "tree_id": "26fe74de4e1ab950cf21b78e9719c8dde33c094b",
+          "url": "https://github.com/m2lines/Samudra/commit/b9e3e98ec37ca5f38b5962ad75bd4b0304b7f5e3"
+        },
+        "date": 1794873479485,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 1.0412729513848902,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0008438911220847162",
+            "extra": "mean: 960.3629851999926 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_dataset__1gb[cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.3367964951614924,
+            "unit": "iter/sec",
+            "range": "stddev: 0.006886247975422776",
+            "extra": "mean: 2.9691520379999927 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.0875882452985935,
+            "unit": "iter/sec",
+            "range": "stddev: 0.06457037898079346",
+            "extra": "mean: 11.41705712439998 sec\nrounds: 5"
           }
         ]
       }

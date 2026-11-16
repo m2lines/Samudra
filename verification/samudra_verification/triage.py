@@ -7,7 +7,8 @@
 One issue per property, not per random seed. Closed issues stay closed: a human
 must decide whether a recurrence merits reopening or a different invariant.
 Collection errors and runner failures remain CI failures, not product bug reports,
-but the summary states them, and --apply refuses to file from an incomplete run.
+but the summary states them, and --apply refuses to file from a session that
+`verdicts.untrustworthy` rejects or from evidence it can't read.
 """
 
 import argparse
@@ -19,6 +20,7 @@ from pathlib import Path
 
 from .evidence import Outcome, PytestRun, read_run
 from .spec import CampaignSpec
+from .verdicts import untrustworthy
 
 
 def reports(run: PytestRun, run_url):
@@ -47,6 +49,14 @@ def reports(run: PytestRun, run_url):
             ),
         }
     return found
+
+
+def distrust(run: PytestRun):
+    """Why issues mustn't be filed from this session, or None."""
+    if run.exitcode is None:
+        return "the pytest session did not finish"
+    # Triage has no process exit code of its own, so it checks pytest's against itself.
+    return untrustworthy(run.exitcode, run, allow_skips=True)
 
 
 def gh(*args, input=None):
@@ -193,17 +203,23 @@ def main():
     names = [campaign.name for campaign in args.campaigns]
     if len(set(names)) != len(names):
         parser.error("Campaign directories must have distinct names")
-    runs = {
-        campaign: read_run(campaign / "pytest.jsonl") for campaign in args.campaigns
-    }
+    # A campaign killed mid-write leaves a truncated log. Report it, but still
+    # summarize the others.
+    runs, unreadable = {}, {}
+    for campaign in args.campaigns:
+        try:
+            runs[campaign] = read_run(campaign / "pytest.jsonl")
+        except (OSError, ValueError, TypeError, KeyError) as error:
+            unreadable[campaign] = f"{type(error).__name__}: {error}"
     candidates = {
         campaign: reports(run, args.run_url) for campaign, run in runs.items()
     }
     if args.apply:
-        if incomplete := [str(c) for c, run in runs.items() if not run.complete]:
-            raise SystemExit(
-                f"Refusing to file issues from incomplete runs: {incomplete}"
-            )
+        refused = {str(c): problem for c, problem in unreadable.items()} | {
+            str(c): problem for c, run in runs.items() if (problem := distrust(run))
+        }
+        if refused:
+            raise SystemExit(f"Refusing to file issues from untrusted runs: {refused}")
         file_new_reports(
             {m: r for found in candidates.values() for m, r in found.items()}, args.repo
         )
@@ -215,14 +231,20 @@ def main():
                 indent=2,
             )
         )
-        return
+    else:
+        write_summaries(runs, candidates, args.repo, args.run_url, args.triage_output)
+    if unreadable:
+        raise SystemExit(f"Unreadable campaign evidence: {unreadable}")
+
+
+def write_summaries(runs, candidates, repo, run_url, triage_output):
     # One listing of the repository's issues serves every campaign.
-    existing = lookup_issues(args.repo) if any(candidates.values()) else []
+    existing = lookup_issues(repo) if any(candidates.values()) else []
     for campaign, run in runs.items():
-        summary = triage_summary(candidates[campaign], existing, args.run_url)
+        summary = triage_summary(candidates[campaign], existing, run_url)
         summary["campaign"] = CampaignSpec.read(campaign).label
         summary["pytest"] = pytest_counts(run)
-        output = args.triage_output / campaign.name
+        output = triage_output / campaign.name
         output.mkdir(parents=True, exist_ok=False)
         (output / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
         (output / "summary.md").write_text(render_summary(summary))

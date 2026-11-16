@@ -234,7 +234,14 @@ def interpret(
     for case in failed:
         if "failures" not in case.properties:
             return Verdict(TrialStatus.INVALID, f"{case.nodeid}: no recorded failure")
-        for name, kind in json.loads(case.properties["failures"]):
+        try:
+            recorded = json.loads(case.properties["failures"])
+            failures = [(str(name), str(kind)) for name, kind in recorded]
+        except (ValueError, TypeError) as error:
+            return Verdict(TrialStatus.INVALID, f"{case.nodeid}: bad failures: {error}")
+        if not failures:
+            return Verdict(TrialStatus.INVALID, f"{case.nodeid}: no recorded failure")
+        for name, kind in failures:
             if kind != "oracle":
                 return Verdict(
                     TrialStatus.INVALID, f"{case.nodeid}: {kind} error {name}"

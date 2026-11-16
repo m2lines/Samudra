@@ -135,11 +135,16 @@ jobs:
               echo "**${artifact##*/}:** no \`pytest.jsonl\`; the campaign did not start pytest." >> "$GITHUB_STEP_SUMMARY"
             fi
           done
+          status=0
           if test "${#campaigns[@]}" -gt 0; then
+            # Triage summarizes every readable campaign, then fails if any was unreadable.
             uv run --locked --no-dev --package samudra-verification python -m samudra_verification.triage "${campaigns[@]}" \
-              --repo "$GH_REPO" --run-url "$RUN_URL" --triage-output /tmp/property-triage
-            cat /tmp/property-triage/*/summary.md >> "$GITHUB_STEP_SUMMARY"
+              --repo "$GH_REPO" --run-url "$RUN_URL" --triage-output /tmp/property-triage || status=$?
+            for summary in /tmp/property-triage/*/summary.md; do
+              if test -f "$summary"; then cat "$summary" >> "$GITHUB_STEP_SUMMARY"; fi
+            done
           fi
+          exit "$status"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:

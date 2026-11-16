@@ -138,7 +138,7 @@ def read_run(path: Path) -> PytestRun:
             for phase, event in phases.items()
             if phase != "call" and event["outcome"] == "failed"
         ]
-        if errors:
+        if errors or not {"setup", "teardown"} <= phases.keys():
             outcome = Outcome.ERROR
         elif any(event["outcome"] == "skipped" for event in phases.values()):
             outcome = Outcome.SKIPPED

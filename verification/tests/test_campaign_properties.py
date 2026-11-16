@@ -14,6 +14,8 @@ from tempfile import TemporaryDirectory
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
+from report_log_fixtures import events, write_log
+from samudra_verification.evidence import Outcome, read_run
 from samudra_verification.spec import REPLAY, CampaignSpec
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -95,3 +97,16 @@ def test_replay_files_round_trip_and_reject_wrong_types(spec, field):
         (root / REPLAY).write_text(json.dumps(record))
         with pytest.raises((TypeError, ValueError)):
             CampaignSpec.read(root)
+
+
+@given(st.sampled_from(["setup", "call"]), st.booleans())
+def test_a_skip_counts_only_with_its_setup_and_teardown(when, teardown):
+    """A skip missing its teardown report is broken evidence, not a skip."""
+    trace = events(outcome="passed")
+    phases = {"setup": trace[:1], "call": trace[:2]}[when] + trace[2:] * teardown
+    phases[-1 if not teardown else -2]["outcome"] = "skipped"
+    with TemporaryDirectory() as directory:
+        path = Path(directory) / "pytest.jsonl"
+        write_log(path, phases, exitcode=0)
+        (case,) = read_run(path).cases
+        assert case.outcome == (Outcome.SKIPPED if teardown else Outcome.ERROR)

@@ -115,7 +115,7 @@ def main():
                 verdict = campaign_verdict(
                     process.returncode, read_run(output / "pytest.jsonl")
                 )
-            except (OSError, ValueError, KeyError) as error:
+            except (OSError, ValueError, TypeError, KeyError) as error:
                 verdict = Verdict(
                     CampaignStatus.INVALID,
                     f"unreadable evidence: {type(error).__name__}: {error}",

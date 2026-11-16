@@ -147,22 +147,7 @@ def test_read_only_triage_keeps_every_recurrence_without_issue_fanout(states):
     with TemporaryDirectory() as directory, pytest.MonkeyPatch.context() as patch:
         root = Path(directory)
         path = root / "pytest.jsonl"
-        CampaignSpec(
-            project="data",
-            lane=Lane.PINNED,
-            string_storage=None,
-            profile="soak",
-            examples=1,
-            seed=0,
-            timeout_seconds=1,
-            command=[],
-            cwd=str(root),
-            revision="0" * 40,
-            python="3.12",
-            platform="test",
-            dependency_file="unused",
-            dependency_sha256="0" * 64,
-        ).write(root)
+        write_spec(root)
         write_log(
             path,
             [
@@ -222,6 +207,25 @@ def test_read_only_triage_keeps_every_recurrence_without_issue_fanout(states):
                 assert issue["url"] in (output / "summary.md").read_text()
 
 
+def write_spec(root):
+    CampaignSpec(
+        project="data",
+        lane=Lane.PINNED,
+        string_storage=None,
+        profile="soak",
+        examples=1,
+        seed=0,
+        timeout_seconds=1,
+        command=[],
+        cwd=str(root),
+        revision="0" * 40,
+        python="3.12",
+        platform="test",
+        dependency_file="unused",
+        dependency_sha256="0" * 64,
+    ).write(root)
+
+
 @given(failure_text)
 def test_structured_failures_read_as_pytest_text(message):
     """reportlog's JSON form of a failure becomes the frames pytest would print."""
@@ -241,8 +245,10 @@ def test_structured_failures_read_as_pytest_text(message):
         path = Path(directory) / "pytest.jsonl"
         write_log(path, events(message=longrepr))
         (body,) = (report["body"] for report in reports(path, "run").values())
-        assert "test_subject.py:3\n" in body
-        assert "reprtraceback" not in body and "/abs/" not in body
+        rendered = "\n".join(
+            line[4:] for line in body.split("\n") if line.startswith("    ")
+        )
+        assert rendered == f"test_subject.py:3\nE   {message}".strip()
 
 
 def test_missing_github_cli_says_what_to_install():
@@ -253,3 +259,41 @@ def test_missing_github_cli_says_what_to_install():
         patch.setattr(subprocess, "check_output", missing)
         with pytest.raises(SystemExit, match="GitHub CLI"):
             triage.lookup_issues("owner/repo")
+
+
+def run_triage(campaigns, *flags):
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(subprocess, "check_output", lambda *a, **k: "[]")
+        patch.setattr(
+            sys,
+            "argv",
+            ["triage", *map(str, campaigns), "--repo", "o/r", "--run-url", "run"]
+            + list(map(str, flags)),
+        )
+        triage.main()
+
+
+@given(st.integers(2, 30))  # Always inside the final SessionFinish line.
+def test_a_truncated_campaign_fails_triage_after_the_others_are_summarized(cut):
+    with TemporaryDirectory() as directory:
+        good, bad = Path(directory) / "good", Path(directory) / "bad"
+        for root in (good, bad):
+            root.mkdir()
+            write_spec(root)
+            write_log(root / "pytest.jsonl", events())
+        log = (bad / "pytest.jsonl").read_text()
+        (bad / "pytest.jsonl").write_text(log[:-cut])
+        with pytest.raises(SystemExit, match="Unreadable"):
+            run_triage([good, bad], "--triage-output", Path(directory) / "out")
+        assert (Path(directory) / "out" / "good" / "summary.md").exists()
+
+
+@given(st.sampled_from(["setup", "teardown"]))
+def test_apply_refuses_to_file_from_a_session_with_errors(phase):
+    with TemporaryDirectory() as directory:
+        root = Path(directory)
+        trace = events() + events("test_subject.py::other", "passed")
+        trace[3 + ("setup", "call", "teardown").index(phase)]["outcome"] = "failed"
+        write_log(root / "pytest.jsonl", trace)
+        with pytest.raises(SystemExit, match="untrusted"):
+            run_triage([root], "--apply")

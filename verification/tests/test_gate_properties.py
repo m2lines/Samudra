@@ -74,7 +74,6 @@ def test_assertion_text_cannot_turn_a_failed_runner_into_a_kill(returncode):
                 ("builtins.NameError", "broken_mutant"),
             ]
         ),
-        min_size=1,
         max_size=3,
     )
 )
@@ -82,7 +81,7 @@ def test_only_oracle_failures_kill_a_mutant(failures):
     with TemporaryDirectory() as directory:
         path = Path(directory) / "pytest.jsonl"
         _, expected = failure_report(path, failures)
-        oracle_only = all(kind == "oracle" for _, kind in failures)
+        oracle_only = failures and all(kind == "oracle" for _, kind in failures)
         assert outcome(1, path, expected).status == (
             "killed" if oracle_only else "invalid"
         )

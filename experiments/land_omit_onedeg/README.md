@@ -28,7 +28,8 @@ Two runs from scratch, identical except for `model.land`:
 | Recipe | dynamic variance-weighted MSE (cap 20), 4 calls, 70 epochs, cosine lr 6e-4, batch 32 on 8 × RTX 6000, seed 15, EMA 0.999 | same |
 | Evaluation | final EMA checkpoint; rollout 2014-10-10 → 2022-12-24; `samudra.metrics` vs OM4 and OISST, DUACS, Argo/IAP | same |
 
-`train_mask.yaml` and `train_omit.yaml` resolve to configs that differ only in `model.land` and the run name.
+The configs live in `src/samudra/configs/experiments/land_omit_onedeg/`, because the Torch code layer packages only
+`src/`. `train_mask.yaml` and `train_omit.yaml` resolve to configs that differ only in `model.land` and the run name.
 
 The control is retrained rather than taken from the paper checkpoint. The paper model was trained on `om4_onedeg_v3`
 with older code, so comparing against it would confound the flag with data and code changes.

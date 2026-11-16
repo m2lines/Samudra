@@ -27,7 +27,7 @@ export CODE_LAYER=$U/.apptainer-code-layers/samudra-code-$CODE_COMMIT.img
 test -e "$CODE_LAYER" && test -e "$SIF_PATH" && test -e "$DATA_ROOT/OM4.zarr/hfds_anomalies"
 
 DATE=2026-11-15
-CFG=experiments/land_omit_onedeg
+CFG=src/samudra/configs/experiments/land_omit_onedeg
 JOBS=$U/agent-logs/$DATE-land-omit-onedeg-jobs.tsv
 W="--experiment.wandb.entity=ocean_emulators --experiment.wandb.project=default --experiment.wandb.group=land-omit-onedeg-20261115"
 common=(--parsable --account=torch_pr_347_lzanna --nodes=1 --ntasks-per-node=1

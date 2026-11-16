@@ -20,12 +20,16 @@ sources:
     data_location: OM4.zarr
     data_means_location: OM4_means.zarr
     data_stds_location: OM4_stds.zarr
-# The Rust loader keeps 8 GPUs fed; the Python CPU loader does not at 1°. It
-# needs hfds_anomalies materialized, so data_root is the staged
-# v2026-09/om4_onedeg_rust store.
+# The Python CPU loader, as the 2° paper-recipe run uses. The Rust loader
+# rejects any *_anomalies boundary variable, even a stored one. data_root is
+# the staged v2026-09/om4_onedeg_rust store, which holds hfds_anomalies, so
+# the loader reads it rather than deriving it.
 loading:
-  type: rust
-  max_concurrent_reads: 8
+  type: cpu
+  num_workers: 8
+  persistent_workers: true
+  pin_mem: true
+  concurrent_compute: true
 inference_loading:
   num_workers: 4
   persistent_workers: true

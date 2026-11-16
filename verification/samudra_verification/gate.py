@@ -544,9 +544,13 @@ def main():
     summaries: dict[str, list[str]] = {}
     try:
         for path in paths:
-            summaries[path.stem] = run_catalog(
-                path, output / path.stem, args.seeds, args.timeout, args.budget
-            )
+            try:
+                summaries[path.stem] = run_catalog(
+                    path, output / path.stem, args.seeds, args.timeout, args.budget
+                )
+            except Exception as error:
+                summaries[path.stem] = [f"stopped: {type(error).__name__}: {error}"]
+                raise
     finally:
         (output / "summary.json").write_text(json.dumps(summaries, indent=2) + "\n")
         (output / "summary.md").write_text(

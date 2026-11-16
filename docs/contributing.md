@@ -390,7 +390,8 @@ To investigate a failure, download the campaign's artifact from the bottom of th
 test temporarily to replay the exact input locally. Then decide whether the code or the property is wrong. If it's
 the code, fix it and pin the input with `@example`. If it's the property, fix the property. To file an issue for a
 checked failure, run `python -m samudra_verification.triage <campaign directory> --repo m2lines/Samudra --run-url
-<run url>`, which prints the issues it would file, then rerun it with `--apply` to file them.
+<run url>`, which prints the issues it would file. `--apply` files every one of them, so check each failure it
+lists, not only the one you investigated, before rerunning with `--apply`.
 CI never files, reopens, or comments on issues itself.
 
 ### Mutation checks

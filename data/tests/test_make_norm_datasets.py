@@ -52,6 +52,8 @@ def test_compressed_normalization_round_trip(tmp_path: Path, statistic: str) -> 
 
     write_zarr_with_retries(ds, str(output), client, 5)
 
+    assert json.loads((output / ".zgroup").read_text())["zarr_format"] == 2
+
     for name, field in ds.variables.items():
         metadata = json.loads((output / name / ".zarray").read_text())
         if field.ndim:
@@ -60,7 +62,7 @@ def test_compressed_normalization_round_trip(tmp_path: Path, statistic: str) -> 
             assert metadata["compressor"]["clevel"] == 5
             assert metadata["compressor"]["shuffle"] == Blosc.SHUFFLE
         else:
-            # Zarr v2 always leaves zero-dimensional scalars uncompressed.
+            # The writer explicitly leaves zero-dimensional scalars uncompressed.
             assert metadata["compressor"] is None
     with xr.open_zarr(output) as actual:
         xr.testing.assert_identical(actual.load(), ds)

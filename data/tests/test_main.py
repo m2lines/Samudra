@@ -165,3 +165,24 @@ def test_output_profile_only_applies_to_the_output_store(monkeypatch) -> None:
 
     cluster.assert_called_once_with("off", n_workers=4)
     assert writer.call_args.kwargs["storage_options"] == {"profile": "publication"}
+
+
+def test_observation_writer_emits_zarr_v2(tmp_path):
+    from ocean_preprocessing.obs_preprocessing.prepare import _write
+
+    output = tmp_path / "observations.zarr"
+    source = xr.Dataset(
+        {
+            "sst": (
+                ("time", "lat", "lon"),
+                np.arange(12, dtype="float32").reshape(2, 2, 3),
+            )
+        },
+        coords={"time": [0, 1], "lat": [10, 20], "lon": [30, 40, 50]},
+    )
+    _write(source, str(output), dry_run=False)
+
+    assert json.loads((output / ".zgroup").read_text())["zarr_format"] == 2
+    assert not (output / "zarr.json").exists()
+    with xr.open_zarr(output) as actual:
+        xr.testing.assert_identical(actual.load(), source)

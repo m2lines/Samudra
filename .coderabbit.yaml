@@ -1,0 +1,38 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# CodeRabbit already reads AGENTS.md / CLAUDE.md (incl. data/AGENTS.md) as review
+# guidelines by default; keep project rules there, not here.
+tone_instructions: >-
+  Flag correctness and design issues as major. Label style or minor suggestions
+  as non-blocking; the human decides whether minor feedback blocks a merge.
+reviews:
+  profile: chill
+  # Don't post "Draft PR not reviewed" / "review skipped" notes. Experiment PRs
+  # are drafts, so these notes were the main source of email noise.
+  review_status: false
+  # PR descriptions are author-written (AGENTS.md "Writing"); keep the bot's
+  # summary in its walkthrough comment instead of the description.
+  high_level_summary: false
+  high_level_summary_in_walkthrough: true
+  auto_review:
+    enabled: true
+    # Skip PRs labeled "experiment" (results records not intended to merge).
+    labels:
+      - "!experiment"
+    # PRs accumulate many commits before squash-merge; keep reviewing all of them
+    # so every commit gets the adversarial review the definition of done requires.
+    auto_pause_after_reviewed_commits: 0
+  pre_merge_checks:
+    description:
+      mode: "off"  # replaced by the custom check below
+    custom_checks:
+      - name: PR description format
+        mode: warning
+        instructions: >-
+          Pass if the PR description opens with a summary of a few sentences,
+          puts the remaining detail inside a <details> block with a <summary>,
+          and, when an AI agent wrote the PR, names that agent or model in the
+          summary. Otherwise fail and state which part is missing.

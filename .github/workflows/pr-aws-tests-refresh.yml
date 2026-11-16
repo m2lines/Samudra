@@ -1,0 +1,29 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+name: Refresh PR AWS checks
+on:
+  workflow_run:
+    workflows: [PR AWS tests]
+    types: [completed]
+
+permissions:
+  contents: read
+  actions: write
+  pull-requests: read
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      # workflow_run uses default-branch code. Never check out the tested PR here.
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+      - uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd
+        with:
+          script: |
+            await require('./.github/scripts/pr-aws-ci.cjs').refresh(
+              {github, context, core}, context.payload.workflow_run.id);

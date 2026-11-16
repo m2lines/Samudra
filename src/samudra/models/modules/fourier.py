@@ -1,0 +1,115 @@
+# SPDX-FileCopyrightText: Microsoft Corporation
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: MIT
+
+"""Fourier features adapted from Microsoft Aurora 1.8.0.
+
+Copyright (c) Microsoft Corporation. Licensed under the MIT license;
+see LICENSES/MIT.txt.
+
+Source: https://github.com/microsoft/aurora/blob/fac03c738554cfa804373267ca5621ba85b2614c/aurora/model/fourier.py
+Upstream license: https://github.com/microsoft/aurora/blob/fac03c738554cfa804373267ca5621ba85b2614c/LICENSE.txt
+
+Only the position and scale expansions are included. NumPy's pi is replaced
+with the identical math.pi, and the original float64 polar patch area is kept
+as a constant to avoid importing the polygon-area machinery. The Earth radius,
+wavelength bounds, and scale conventions retain their upstream values.
+Formatting and SPDX headers follow Samudra's checks.
+
+Preserve encoding values when updating: trained encoder/decoder checkpoints
+rely on them. See tests/test_aurora_posencoding.py for upstream parity checks.
+"""
+
+import math
+
+import torch
+import torch.nn as nn
+
+
+class FourierExpansion(nn.Module):
+    """A Fourier series-style expansion into a high-dimensional space.
+
+    Attributes:
+        lower (float): Lower wavelength.
+        upper (float): Upper wavelength.
+        assert_range (bool): Assert that the encoded tensor is within the specified wavelength
+            range.
+    """
+
+    def __init__(self, lower: float, upper: float, assert_range: bool = True) -> None:
+        """Initialise.
+
+        Args:
+            lower (float): Lower wavelength.
+            upper (float): Upper wavelength.
+            assert_range (bool, optional): Assert that the encoded tensor is within the specified
+                wavelength range. Defaults to `True`.
+        """
+        super().__init__()
+        self.lower = lower
+        self.upper = upper
+        self.assert_range = assert_range
+
+    def forward(self, x: torch.Tensor, d: int) -> torch.Tensor:
+        """Perform the expansion.
+
+        Adds a dimension of length `d` to the end of the shape of `x`.
+
+        Args:
+            x (:class:`torch.Tensor`): Input to expand of shape `(..., n)`. All elements of `x` must
+                lie within `[self.lower, self.upper]` if `self.assert_range` is `True`.
+            d (int): Dimensionality. Must be a multiple of two.
+
+        Raises:
+            AssertionError: If `self.assert_range` is `True` and not all elements of `x` are not
+                within `[self.lower, self.upper]`.
+            ValueError: If `d` is not a multiple of two.
+
+        Returns:
+            torch.Tensor: Fourier series-style expansion of `x` of shape `(..., n, d)`.
+        """
+        # If the input is not within the configured range, the embedding might be ambiguous!
+        in_range = torch.logical_and(
+            self.lower <= x.abs(), torch.all(x.abs() <= self.upper)
+        )
+        in_range_or_zero = torch.all(
+            torch.logical_or(in_range, x == 0)
+        )  # Allow zeros to pass through.
+        if self.assert_range and not in_range_or_zero:
+            raise AssertionError(
+                f"The input tensor is not within the configured range"
+                f" `[{self.lower}, {self.upper}]`."
+            )
+
+        # We will use half of the dimensionality for `sin` and the other half for `cos`.
+        if not (d % 2 == 0):
+            raise ValueError("The dimensionality must be a multiple of two.")
+
+        # Always perform the expansion with `float64`s to avoid numerical accuracy shenanigans.
+        x = x.double()
+
+        wavelengths = torch.logspace(
+            math.log10(self.lower),
+            math.log10(self.upper),
+            d // 2,
+            base=10,
+            device=x.device,
+            dtype=x.dtype,
+        )
+        prod = torch.einsum("...i,j->...ij", x, 2 * math.pi / wavelengths)
+        encoding = torch.cat((torch.sin(prod), torch.cos(prod)), dim=-1)
+
+        return encoding.float()  # Cast to `float32` to avoid incompatibilities.
+
+
+# Preserve Aurora 1.8.0's wavelength bounds exactly. The minimum is the area
+# of its 0.01-degree polar polygon, evaluated in float64 by aurora.area.area.
+# Keeping the resulting constant avoids vendoring the polygon-area machinery.
+_delta = 0.01
+_min_patch_area = 0.00010814085263058073
+_radius_earth = 6378137 / 1000
+_area_earth = 4 * math.pi * _radius_earth * _radius_earth
+
+pos_expansion = FourierExpansion(_delta, 720)
+scale_expansion = FourierExpansion(_min_patch_area, _area_earth)

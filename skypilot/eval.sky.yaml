@@ -78,8 +78,8 @@ setup: |
   uv sync --extra cuda
 
   # OSN inputs (data + basins) default to the public m2lines-pubs bucket, so read
-  # the OSN pod anonymously. Set OSN_KEY_ID/OSN_KEY_SECRET only to reach a private
-  # path (e.g. an emulators/... OSN_DATA_PATH override).
+  # the OSN pod anonymously. Set OSN_KEY_ID/OSN_KEY_SECRET when authenticated
+  # access is needed for a custom input location.
   if [ -z "$OSN_KEY_ID" ] || [ "$OSN_KEY_ID" = "null" ]; then
     rclone config create nyu-osn s3 provider=AWS endpoint=https://nyu1.osn.mghpcc.org/ anonymous=true
   else

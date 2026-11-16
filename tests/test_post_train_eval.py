@@ -263,3 +263,31 @@ def test_viz_template_instantiate_run_owns_run_defaults(tmp_path: Path, monkeypa
     assert run.data is data
     assert run.variables == ["thetao"]
     data_root.resolve.assert_called_once_with(location)
+
+
+def test_checkpoint_eval_runs_observation_phase_and_returns_scalars(
+    tmp_path, monkeypatch
+):
+    from samudra.post_train_eval import _run_single_checkpoint_eval
+
+    cfg = SimpleNamespace(experiment=SimpleNamespace(output_dir=tmp_path / "eval"))
+    monkeypatch.setattr("samudra.post_train_eval._load_eval_config", lambda _: cfg)
+    evaluator = Mock()
+    evaluator.run.return_value = {"inference/error": 1.0, "obs/sst_rmse": 2.0}
+    factory = Mock(return_value=evaluator)
+    monkeypatch.setattr("samudra.eval.Eval", factory)
+
+    result = _run_single_checkpoint_eval(
+        tmp_path / "ckpt_70.pt",
+        tmp_path / "eval.yaml",
+        tmp_path / "evals",
+        LocalLocation(path=tmp_path.resolve()),
+        torch.device("cpu"),
+    )
+
+    assert result["metrics"] == {"inference/error": 1.0, "obs/sst_rmse": 2.0}
+    assert result["label"] == "epoch_0070"
+    evaluator.run.assert_called_once()
+    evaluator.standalone_inference.assert_not_called()
+    # run() owns cleanup, including on failure.
+    evaluator.finish.assert_not_called()

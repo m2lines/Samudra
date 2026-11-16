@@ -3,12 +3,30 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import subprocess
+from collections.abc import Hashable
+from urllib.parse import urlsplit
 
 import numpy as np
 import xarray as xr
+from numcodecs import Blosc
 
 
-def get_git_url_hash():
+def zstd_encoding(ds: xr.Dataset) -> dict[Hashable, dict[str, Blosc | None]]:
+    """Compress fields and coordinates with Blosc Zstd and byte shuffle.
+
+    Explicitly leave scalars uncompressed, including with a Zarr 3 runtime.
+    """
+    return {
+        name: {
+            "compressor": Blosc(cname="zstd", clevel=5, shuffle=Blosc.SHUFFLE)
+            if variable.ndim
+            else None
+        }
+        for name, variable in ds.variables.items()
+    }
+
+
+def get_git_url_hash() -> str:
     github_server_url = "https://github.com"
     # Get the repository's remote origin URL
     try:
@@ -16,12 +34,15 @@ def get_git_url_hash():
             ["git", "config", "--get", "remote.origin.url"], text=True
         ).strip()
 
-        # Extract the repository path from the remote URL
-        repository_path = (
-            repo_origin_url.replace("github.com/", "")
-            .replace("git@github.com:", "")
-            .replace(".git", "")
-        )
+        # Normalize Git's SCP-style SSH spelling before parsing HTTPS/SSH URLs.
+        if repo_origin_url.startswith("git@github.com:"):
+            repo_origin_url = repo_origin_url.replace(
+                "git@github.com:", "ssh://git@github.com/", 1
+            )
+        origin = urlsplit(repo_origin_url)
+        if origin.hostname != "github.com":
+            raise ValueError("Git origin must point to github.com")
+        repository_path = origin.path.strip("/").removesuffix(".git")
 
         # Get the current commit SHA
         commit_sha = subprocess.check_output(

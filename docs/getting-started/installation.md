@@ -39,6 +39,13 @@ Its build-time smoke test verifies that this CUDA-enabled PyTorch reports
 compiled FlashAttention support, while GPU CI forces that backend through a
 forward and backward pass.
 
+## Optional cloud launcher
+
+The default package includes training, evaluation, metrics, and visualization.
+SkyPilot and its cloud SDKs are optional: install `samudra[sky]` on the machine
+submitting cloud jobs, or use `uv sync --extra sky` from a checkout. Extras
+can be combined, for example `pip install "samudra[cuda,sky]"`.
+
 ## Development setup
 
 To work on Samudra itself, clone the repository and install dependencies:

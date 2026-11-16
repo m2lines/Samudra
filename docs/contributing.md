@@ -344,7 +344,7 @@ Please check your local `.benchmarks/` directory to see other benchmarks runs fo
 To generate a histogram plot of several local benchmark runs, you may use the `--histogram=FILENAME-PREFIX` flag:
 
 ```shell
-uv run pytest-benchmark compare 'Darwin-CPython-3.10-64bit/*' --histogram
+uv run pytest-benchmark compare 'Darwin-CPython-3.12-64bit/*' --histogram
 ```
 
 Instead of merely benchmarking performance, sometimes you may want to inspect the details of how benchmarks run. This is

@@ -2,6 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from unittest.mock import Mock
+
 import numpy as np
 import pytest
 import xarray as xr
@@ -9,11 +11,32 @@ from ocean_preprocessing.utils import (
     apply_mask,
     assert_mask_match,
     ensure_nan_consistency,
+    get_git_url_hash,
 )
 
 from tests.data import (
     input_data,  # noqa # Might want to put these in conftest.py (see https://stackoverflow.com/questions/73191533/using-conftest-py-vs-importing-fixtures-from-dedicate-modules)
 )
+
+
+@pytest.mark.parametrize(
+    "origin, repository",
+    [
+        ("git@github.com:m2lines/Samudra.git", "m2lines/Samudra"),
+        ("https://github.com/m2lines/Samudra.git", "m2lines/Samudra"),
+        ("https://github.com/m2lines/Samudra", "m2lines/Samudra"),
+        ("ssh://git@github.com/m2lines/Samudra.git", "m2lines/Samudra"),
+        ("https://github.com/m2lines/Samudra.git/", "m2lines/Samudra"),
+        ("https://github.com/owner/project.git-tools.git", "owner/project.git-tools"),
+    ],
+)
+def test_git_commit_url(
+    monkeypatch: pytest.MonkeyPatch, origin: str, repository: str
+) -> None:
+    git = Mock(side_effect=[origin + "\n", "abc123\n"])
+    monkeypatch.setattr("ocean_preprocessing.utils.subprocess.check_output", git)
+
+    assert get_git_url_hash() == f"https://github.com/{repository}/commit/abc123"
 
 
 @pytest.mark.parametrize("mask_dtype", [None, int])

@@ -18,12 +18,93 @@ in the machine learning context.
 
 ## Available datasets
 
+### Original OM4 NetCDF archive
+
+The original NetCDF archive is available at
+`s3://m2lines-pubs/Samudra/raw/OM4-5daily/` on the NYU OSN pod. Individual
+objects are publicly readable at
+`https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/raw/OM4-5daily/<filename>`.
+The archive preserves the original filenames and bytes: 65 annual files named
+`19580101.ocean_5daily.nc` through `20220101.ocean_5daily.nc`,
+`ocean_hgrid.nc`, `ocean_static_no_mask_table.nc`, and the source `Makefile`.
+The complete archive contains 68 files totaling 4,252,932,810,519 bytes.
+
+**Verified 2026-11-05:** all 68 files match the source paths, sizes, and MD5
+hashes, with zero differences. The source inventory was unchanged across the
+transfer. The byte-preserving copy ran with `rclone` on the NYU HPC data transfer
+node and completed in 5 hours 43 minutes.
+
+This archive is the starting point for reproducible processing from native
+NetCDF data. It is separate from the existing raw Zarr stores
+(`Samudra/raw/om4_5daily.zarr` and `Samudra/raw/om4_5daily_snapshots.zarr`).
+The processing commands below still use those Zarr stores. The existing processed
+releases have not been regenerated from this archive.
+
+### Virtual OM4 references
+
+Public Kerchunk Parquet stores index the NetCDF archive without copying its
+physical fields. Paths below are relative to
+`s3://m2lines-pubs/Samudra/raw/`:
+
+| Reference store | Source |
+| --- | --- |
+| `OM4-5daily.parquet/` | All 65 annual NetCDF files, concatenated along `time` |
+| `ocean_static_no_mask_table.parquet/` | Static native-grid fields |
+| `grids/ocean_hgrid.parquet/` | Native horizontal grid |
+
+These virtual Zarr v2 datasets retain the original tripolar grid, values, and
+chunk layouts. They are separate from the analysis-ready processed releases.
+The reference stores and their NetCDF targets are readable without credentials.
+
+```python
+import fsspec
+import xarray as xr
+import zarr
+from fsspec.implementations.reference import LazyReferenceMapper
+
+endpoint = "https://nyu1.osn.mghpcc.org"
+# Adapt between Zarr v2 and v3 readers.
+asynchronous = zarr.__version__.split(".", 1)[0] == "3"
+refs = LazyReferenceMapper(
+    "m2lines-pubs/Samudra/raw/OM4-5daily.parquet",
+    fs=fsspec.filesystem("s3", anon=True, endpoint_url=endpoint),
+    engine="pyarrow",
+)
+mapper = fsspec.filesystem(
+    "reference",
+    fo=refs,
+    remote_protocol="s3",
+    remote_options={
+        "anon": True,
+        "endpoint_url": endpoint,
+        "asynchronous": asynchronous,
+    },
+    asynchronous=asynchronous,
+).get_mapper("")
+ds = xr.open_zarr(mapper, consolidated=False)
+ds
+```
+
+Use the corresponding table path to open the static or grid store. Each store's
+`provenance.json` records the selected source objects, dimensions, variables,
+software versions, and build-script hash. The source NetCDF URLs must remain
+available for reference reads.
+The [verification report](https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/raw/OM4-5daily.parquet/verification.json)
+records sampled native-NetCDF comparisons and source checksums.
+
+To reproduce the references, see
+[Virtualizing the original OM4 NetCDF archive](../data/README.md#virtualizing-the-original-om4-netcdf-archive).
+Connecting these reference stores to the scientific preprocessing CLI remains
+follow-up work.
+
+### Processed OM4 releases
+
 The canonical processed OM4 release used for training lives on the NYU OSN pod under the base prefix
 `s3://m2lines-pubs/Samudra/v2026-09/` (public read at
 `https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/v2026-09/`). Every directory below contains the dataset
 `OM4.zarr` alongside its normalization statistics `OM4_means.zarr` and `OM4_stds.zarr`.
 
-All datasets share the same layout: 4745 five-day timesteps, 19 depth levels, on a regular lat–lon
+All OM4 datasets share the same layout: 4745 five-day timesteps, 19 depth levels, on a regular lat–lon
 (`grid_type = "gaussian"`) grid, with the grid-metadata coordinates needed for physical analysis
 (`areacello`, `dz`, `lev`, 2D `lat`/`lon`, and cell bounds `lat_b`/`lon_b`).
 
@@ -51,6 +132,70 @@ Use an unfiltered dataset for ordinary single-scale training. For multi-scale tr
 be paired with an unfiltered finer source so each scale sees boundary forcings with variance appropriate to its spatial
 scale. To copy a dataset or time slice to your cluster or local filesystem, see
 [How to get the data](#how-to-get-the-data).
+
+### CM4 pre-industrial control
+
+The unfiltered 1° CM4 dataset is available under
+`s3://m2lines-pubs/Samudra/v2026-09/cm4_onedeg/`, with `CM4.zarr`,
+`CM4_means.zarr`, and `CM4_stds.zarr`. It contains 14,600 five-day means on the
+180 × 360 Gaussian grid with 19 depth levels. The no-leap interval-end dates
+run from `0151-01-06` through `0351-01-01`, covering 200 years of averaging
+intervals. Use `type: cm4` in training configurations.
+
+The nine physical fields are `thetao`, `so`, `uo`, `vo`, `zos`, `hfds`,
+`tauuo`, `tauvo`, and `wfo`. Depth is retained: chunks are `(1, 19, 180, 360)`
+for depth-dependent fields and `(1, 180, 360)` for surface fields. Non-scalar
+arrays use Blosc Zstd level 5 with byte shuffle; the dataset occupies 131.2 GiB
+(140.8 GB), compared with 285.5 GiB of logical arrays. No spatial filtering,
+clipping, or heat-flux anomalies are applied.
+
+Normalization uses the entire 200-year record: unweighted population mean/std
+over finite wet space and time, retaining depth. Every output chunk was read
+back, and all 81 means and 81 standard deviations were checked against
+independent float64 reductions. The
+[validation report](https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/v2026-09/cm4_onedeg/CM4-onedeg-validation.pdf)
+contains metadata, maps, normalization profiles, and full-record extrema.
+
+### Processing CM4
+
+The preprocessing package also supports CM4 ocean data through the `cm4`
+command. It shares OM4's interpolation, vector rotation, spatial filtering,
+and regridding options. CM4 supplies `wfo` directly in its ocean store and
+requires the companion `time_bnds.nc` through `--time_bounds_path`. Its native
+no-leap calendar and interval-end timestamps are preserved; use `type: cm4`
+in training configurations.
+
+The public layout for CM4 raw inputs is specified below; publication of those
+inputs is still pending. The processed CM4 release above is already public.
+Once the raw inputs are published, produce unfiltered 1° data with depth
+retained as a dimension:
+
+```bash
+CM4_RAW=s3://m2lines-pubs/Samudra/raw/CM4
+CM4_STATIC="$CM4_RAW/static"
+export FSSPEC_S3_ENDPOINT_URL=https://nyu1.osn.mghpcc.org/
+export FSSPEC_S3_ANON=true
+
+PYTHONPATH=data python -m ocean_preprocessing cm4 \
+  "$CM4_RAW/ocean_5daily.zarr" \
+  "$CM4_RAW/ocean_static_no_mask_table.zarr" \
+  "$CM4_STATIC/ocean_hgrid.nc" \
+  "$CM4_STATIC/gaussian_grid_180_by_360.nc" \
+  --time_bounds_path="$CM4_RAW/time_bnds.nc" \
+  --output_path=cm4_onedeg/CM4.zarr \
+  --skip_spatial_filtering --skip_flattening --compress
+```
+
+Generate normalization statistics using the chosen training interval:
+
+```bash
+PYTHONPATH=data python -m ocean_preprocessing.make_norm_datasets \
+  cm4_onedeg/CM4.zarr --start "$TRAIN_START" --end "$TRAIN_END"
+```
+
+This writes `CM4_means.zarr` and `CM4_stds.zarr` alongside the processed data.
+Coordinates, masks, and normalization profiles use Blosc Zstd (level 5, byte
+shuffle) by default. `--compress` additionally compresses the physical fields.
 
 ### Basin masks
 
@@ -513,8 +658,8 @@ export AWS_SECRET_ACCESS_KEY=...
 ### Submitting the jobs
 
 Both the raw **inputs** and the processed **outputs** live under the `Samudra` prefix on the OSN pod: inputs are read
-from `s3://m2lines-pubs/Samudra/raw/...` (`RAW_ROOT`) and results are written under `OUTPUT_BASE`. The raw inputs were
-mirrored there from `FOMO/raw` with a server-side `rclone` copy on the data transfer node.
+from `s3://m2lines-pubs/Samudra/raw/...` (`RAW_ROOT`) and results are written under `OUTPUT_BASE`. Inputs are publicly readable; write credentials are needed only when publishing
+new outputs to the bucket.
 
 `DATA_VARIANT` selects the temporal form of the raw OM4 source and the derived
 output-directory suffix:

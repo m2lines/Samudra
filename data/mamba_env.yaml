@@ -6,14 +6,24 @@ name: ocean_preprocessing
 channels:
   - conda-forge
 dependencies:
-    - python=3.11
-    - xarray
-    - xmip
+    - python=3.12
+    - xarray>=2025.6,<2026.4  # Retain compressor encoding for Zarr v2 writes.
+    - cftime
+    - xarrayutils
+    - xgcm>=0.8.1,<0.10
     - gcm_filters  # to avoid https://stackoverflow.com/questions/7446187/no-module-named-pkg-resources which seemed to have https://github.com/m2lines/ocean_emulators/actions/runs/10392595642/job/28778202015?pr=53
     - setuptools
     - fire==0.7.1
     - cartopy
-    - zarr==2.18.2
+    - zarr>=3.1.6,<4  # Runtime supports VirtualiZarr; writers explicitly emit Zarr v2.
+    - numcodecs>=0.15.1
+    - obstore>=0.12
+    - obspec_utils>=0.9
+    - virtualizarr==2.8.0
+    - kerchunk==0.2.10
+    - pyarrow
+    - hdf5plugin
+    - imagecodecs
     - gcsfs
     - s3fs
     - xesmf
@@ -24,5 +34,6 @@ dependencies:
     - matplotlib
     - coiled
     - distributed
+    - pip
     - pip:
       - -e .  # local sources

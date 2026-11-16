@@ -171,12 +171,12 @@ gradient_accumulation_steps: 1
 scheduler: {type: cosine}
 # Evaluate the directly trained weights after this one-epoch quickstart.
 test_using_ema: false
+validation_score: one_step_rmse
 loss:
   type: dynamic
   metric: mse
 finetune: false
 resume_ckpt_path: null
-inference_epochs: []
 # Temporal spacing between input and target frames; 1 uses consecutive frames.
 data_stride: [1]
 # Autoregressive forecast steps used at each training-curriculum stage.
@@ -219,7 +219,7 @@ data:
       val_time:
         start: "1975-03-29"
         end: "1975-04-28"
-      inference_times: []
+      inference_time: null
       # Public, anonymous 2° OM4 stores on OSN.
       data_location:
         type: s3

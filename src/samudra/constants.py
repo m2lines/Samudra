@@ -287,6 +287,7 @@ def build_om4_layout(
             {
                 "hfds": ["hfds"],
                 "tau_hfds": ["tauuo", "tauvo", "hfds"],
+                "tau_hfds_wfo": ["tauuo", "tauvo", "hfds", "wfo"],
                 "tau_hfds_hfds_anom": ["tauuo", "tauvo", "hfds", "hfds_anomalies"],
             },
             boundary_vars_key,

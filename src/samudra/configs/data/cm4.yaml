@@ -1,0 +1,26 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# yaml-language-server: $schema=../schemas/DataConfig.json
+
+# Example disjoint splits. Preprocessing retains all 14,600 source records;
+# choose scientific train/validation/evaluation windows before running a model.
+sources:
+  - type: cm4
+    prognostic_vars_key: thermo_dynamic_all
+    boundary_vars_key: tau_hfds_wfo
+    train_time:
+      start: "0151-01-06"
+      end: "0189-10-08"
+    val_time:
+      start: "0189-10-13"
+      end: "0190-10-08"
+    inference_time:
+      start: "0191-01-01"
+      end: "0291-01-01"
+    data_location: CM4.zarr
+    data_means_location: CM4_means.zarr
+    data_stds_location: CM4_stds.zarr
+loading:
+  type: cpu

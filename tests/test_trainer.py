@@ -20,7 +20,7 @@ from samudra.config import (
     SearchRunConfig,
     TrainConfig,
 )
-from samudra.datasets import TorchBatchLoader
+from samudra.datasets import InferenceDataset, TorchBatchLoader
 from samudra.models.base import BaseModel
 from samudra.train import (
     Trainer,
@@ -170,7 +170,6 @@ def test_search_training_persists_full_epoch_history(trainer_pair: TrainPair):
         candidate="perceiver",
         rung=0,
         target_epochs=2,
-        objective="validation_loss",
         executor="local",
         code_commit="f" * 40,
     )
@@ -389,6 +388,7 @@ def test_checkpoint_dynamic_loss_state(train_config, caplog):
     caplog.set_level(logging.INFO)
     train_config.epochs = 1
     train_config.save_freq = 1
+    train_config.validation_score = "one_step_rmse"
     train_config.loss = DynamicLossConfig(metric="mse", limit=100.0)
 
     with MultitonScope():
@@ -407,21 +407,28 @@ def test_checkpoint_dynamic_loss_state(train_config, caplog):
     [("mock-om4", "train_default_2step.yaml")],
     indirect=True,
 )
-def test_checkpoint_inference(trainer_pair: TrainPair, caplog):
+def test_checkpoint_prediction(trainer_pair: TrainPair, caplog):
     caplog.set_level(logging.INFO)
     _, trainer = trainer_pair
 
-    assert trainer.inference_source is not None
-    resolution = trainer.inference_source.resolution
-    wet = trainer.inference_source.masks.prognostic_for_steps(trainer.output_steps)
+    source = trainer.primary_source
+    resolution = source.resolution
+    wet = source.masks.prognostic_for_steps(trainer.output_steps)
     ctx = BatchGrid(wet, resolution, resolution).to(trainer.device)
-    data = trainer.inference_loader.dataset[0]
-    inference_dataset, _num_steps = data
-    prog, boundary, _label = inference_dataset[0]
+    dataset = InferenceDataset(
+        source=source,
+        prognostic_var_names=trainer.prognostic_var_names,
+        boundary_var_names=trainer.boundary_var_names,
+        input_steps=trainer.input_steps,
+        output_steps=trainer.output_steps,
+        normalize_before_mask=trainer.normalize_before_mask,
+        masked_fill_value=trainer.masked_fill_value,
+        long_rollout=True,
+    )
+    prog, boundary, _label = dataset[0]
     prog = prog.to(trainer.device)
     boundary = boundary.to(trainer.device)
-    trainer.best_val_loss = 10
-    trainer.best_inf_loss = 10
+    trainer.best_validation_score = 10
     trainer.train_progress.sample_windows_seen = 2
     trainer.train_progress.model_examples_seen = 4
     trainer.train_progress.output_grid_cells_seen = 24
@@ -462,9 +469,8 @@ def checkpoint_trainer():
             parameter.fill_(6.0)
     trainer._ema(cast(BaseModel, trainer.model))
     trainer.optimizer = torch.optim.SGD(trainer.model.parameters(), lr=0.1)
-    trainer.checkpoint_validation_metric = "one_step_loss"
-    trainer.best_val_loss = 1.0
-    trainer.best_inf_loss = 2.0
+    trainer.validation_score = "validation_loss"
+    trainer.best_validation_score = 1.0
     trainer.num_batches_seen = 1
     trainer.train_progress = TrainProgress()
     trainer.wandb_id = None
@@ -582,7 +588,7 @@ def test_should_run_on_epoch_freq_rejects_invalid_inputs():
         should_run_on_epoch_freq(1, 0)
 
 
-def test_run_closes_training_and_inference_loaders(monkeypatch):
+def test_run_closes_training_loaders():
     class CloseSpy:
         def __init__(self):
             self.closed = False
@@ -593,19 +599,10 @@ def test_run_closes_training_and_inference_loaders(monkeypatch):
     trainer = cast(Any, Trainer.__new__(Trainer))
     trainer.train_loader = CloseSpy()
     trainer.val_loader = CloseSpy()
-    trainer.inference_loader = object()
     trainer._run = lambda: None
-    closed_inference_loaders: list[object] = []
-    monkeypatch.setattr(
-        "samudra.train.close_pytorch_dataloader",
-        closed_inference_loaders.append,
-    )
-
     trainer.run()
-
     assert trainer.train_loader.closed
     assert trainer.val_loader.closed
-    assert closed_inference_loaders == [trainer.inference_loader]
 
 
 @pytest.mark.parametrize("backend", ["cpu"], indirect=True)
@@ -706,7 +703,7 @@ def test_data_loaders_enable_persistent_workers_on_positive_num_workers(
         assert context.get_start_method() == "spawn"
     assert trainer.train_loader._host_loader.persistent_workers is True
     assert trainer.val_loader._host_loader.persistent_workers is True
-    assert trainer.inference_source is not None
+    assert trainer.data_bundle.inference_source is None
 
 
 @pytest.mark.parametrize("backend", ["cpu"], indirect=True)
@@ -734,16 +731,48 @@ def test_data_loaders_disable_persistent_workers_when_num_workers_is_zero(
     assert trainer.val_loader._host_loader.persistent_workers is False
 
 
+@pytest.mark.parametrize("metric", ["validation_loss", "rollout_rmse"])
+def test_search_summary_uses_best_configured_checkpoint_score(metric, monkeypatch):
+    from samudra.config import RolloutValidationConfig
+
+    trainer = cast(Any, object.__new__(Trainer))
+    trainer.validation_score = metric
+    trainer.rollout_validation = RolloutValidationConfig(days=[90, 360], frequency=1)
+    trainer.best_validation_score = 2.5
+    trainer.epochs = 2
+    trainer.search_run = SimpleNamespace(model_dump=lambda: {})
+    trainer.train_progress = TrainProgress()
+    trainer.wandb_id = None
+    trainer.wandb_name = None
+    trainer.device = "cpu"
+    trainer.world_size = 1
+    monkeypatch.setattr("samudra.train.using_gpu", lambda: False)
+    summary = trainer._search_summary(
+        2,
+        train_loss=0.2,
+        validation_loss=0.1,
+        train_seconds=1.0,
+        validation_seconds=1.0,
+        total_seconds=2.0,
+    )
+    assert summary["validation_loss"] == 0.1
+    assert summary["best_validation_score"] == 2.5
+    assert "best_validation_loss" not in summary
+    assert summary["validation_checkpoint_identity"]["metric"] == metric
+    if metric == "rollout_rmse":
+        assert summary["validation_checkpoint_identity"]["horizon"] == {"days": 360}
+
+
 def test_rollout_checkpoint_selection_and_skipped_epochs():
     import contextlib
 
     from samudra.config import RolloutValidationConfig
 
     trainer = cast(Any, object.__new__(Trainer))
-    trainer.checkpoint_validation_metric = "rollout_rmse"
+    trainer.validation_score = "rollout_rmse"
+    trainer.search_run = None
     trainer.rollout_validation = RolloutValidationConfig(days=[360, 90], frequency=2)
-    trainer.best_val_loss = float("inf")
-    trainer.best_inf_loss = float("inf")
+    trainer.best_validation_score = float("inf")
     trainer.save_freq = 100
     trainer._test_context = contextlib.nullcontext
     trainer.ckpt_paths = SimpleNamespace(
@@ -771,16 +800,16 @@ def test_rollout_checkpoint_selection_and_skipped_epochs():
         score = trainer.validation_checkpoint_score(
             epoch, {"val/mean/loss": one_step}, stats
         )
-        trainer.save_all_checkpoints(epoch, score, None)
+        trainer.save_all_checkpoints(epoch, score)
     assert [(epoch, path) for epoch, path in saved if path == "best"] == [
         (1, "best"),
         (3, "best"),
     ]
-    assert trainer.best_val_loss == 3.0
+    assert trainer.best_validation_score == 3.0
     assert len([path for _, path in saved if path == "latest"]) == 5
     with pytest.raises(KeyError):
         trainer.validation_checkpoint_score(9, {"val/mean/loss": 0.0}, {})
-    trainer.checkpoint_validation_metric = "one_step_loss"
+    trainer.validation_score = "validation_loss"
     assert trainer.validation_checkpoint_score(9, {"val/mean/loss": 0.5}, {}) == 0.5
 
 
@@ -798,7 +827,7 @@ def test_resume_resets_incompatible_validation_score(
     from samudra.config import RolloutValidationConfig
 
     trainer = cast(Any, object.__new__(Trainer))
-    trainer.checkpoint_validation_metric = "rollout_rmse"
+    trainer.validation_score = "rollout_rmse"
     trainer.rollout_validation = RolloutValidationConfig(days=[360])
     trainer.device = "cpu"
     trainer.model = torch.nn.Linear(1, 1)
@@ -810,7 +839,7 @@ def test_resume_resets_incompatible_validation_score(
         "optimizer": trainer.optimizer.state_dict(),
         "epoch": 2,
         "ema": {},
-        "best_val_loss": 2.5,
+        "best_validation_score": 2.5,
         "best_inf_loss": 3.0,
     }
     if saved_identity is not None:
@@ -818,12 +847,12 @@ def test_resume_resets_incompatible_validation_score(
     monkeypatch.setattr(torch, "load", lambda *args, **kwargs: checkpoint)
     monkeypatch.setattr(EMATracker, "from_state", lambda *args, **kwargs: None)
     trainer.load_checkpoint("unused.pt")
-    assert trainer.best_val_loss == expected
+    assert trainer.best_validation_score == expected
     assert trainer.start_epoch == 3
-    trainer.checkpoint_validation_metric = "one_step_loss"
+    trainer.validation_score = "validation_loss"
     checkpoint.pop("validation_checkpoint_identity", None)
     trainer.load_checkpoint("unused.pt")
-    assert trainer.best_val_loss == 2.5
+    assert trainer.best_validation_score == 2.5
 
 
 @pytest.mark.parametrize("backend", ["cpu"], indirect=True)
@@ -836,9 +865,8 @@ def test_training_selects_rollout_checkpoint(train_config, monkeypatch):
     from samudra.config import RolloutValidationConfig
 
     train_config.epochs = 1
-    train_config.inference_epochs = []
     train_config.rollout_validation = RolloutValidationConfig(model_steps=3)
-    train_config.checkpoint_validation_metric = "rollout_rmse"
+    train_config.validation_score = "rollout_rmse"
     with MultitonScope():
         trainer = Trainer(train_config)
         recorded = {}
@@ -852,12 +880,30 @@ def test_training_selects_rollout_checkpoint(train_config, monkeypatch):
         monkeypatch.setattr(trainer, "validate_rollout_one_epoch", capture_rollout)
         trainer.run()
         score = recorded["rollout_val/normalized_rmse/channel_mean"]
-        assert trainer.best_val_loss == pytest.approx(score)
+        assert trainer.best_validation_score == pytest.approx(score)
         checkpoint = torch.load(
             trainer.ckpt_paths.best_validation_checkpoint_path, map_location="cpu"
         )
-        assert checkpoint["best_val_loss"] == pytest.approx(score)
+        assert checkpoint["best_validation_score"] == pytest.approx(score)
         assert checkpoint["validation_checkpoint_identity"] == {
             "metric": "rollout_rmse",
             "horizon": {"model_steps": 3},
         }
+
+
+def test_one_step_rmse_selection_ignores_weighted_loss():
+    trainer = cast(Any, object.__new__(Trainer))
+    trainer.validation_score = "one_step_rmse"
+    stats = {"val/mean/loss": 0.01, "val/reduced/normalized_rmse/channel_mean": 2.0}
+    assert trainer.validation_checkpoint_score(1, stats, {}) == 2.0
+
+
+def test_search_trainer_rejects_skipped_rollout_at_rung_endpoint():
+    from samudra.config import RolloutValidationConfig
+
+    trainer = cast(Any, object.__new__(Trainer))
+    trainer.validation_score = "rollout_rmse"
+    trainer.rollout_validation = RolloutValidationConfig(days=[90], frequency=2)
+    trainer.search_run = SimpleNamespace(target_epochs=2)
+    with pytest.raises(ValueError, match="every rung endpoint"):
+        trainer.validation_checkpoint_score(2, {}, {})

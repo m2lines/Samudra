@@ -165,6 +165,7 @@ def test_quickstart_yaml_config_validates(tmp_path):
     assert cfg.epochs == 1
     assert cfg.batch_size == 8
     assert cfg.backend == "cuda"
+    assert cfg.validation_score == "one_step_rmse"
     assert isinstance(cfg.model, SamudraConfig)
     assert cfg.model.unet.dilation == [1, 2, 4, 8]
     assert cfg.model.unet.ch_width == [280, 380, 480, 520]

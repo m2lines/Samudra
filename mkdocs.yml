@@ -44,6 +44,7 @@ nav:
       - Quick Start: getting-started/quick-start.md
   - Concepts:
       - Architecture: concepts/architecture.md
+      - Ocean Physics: concepts/ocean-physics.md
       - Data: data.md
       - How to Run: run.md
       - Torch: torch.md
@@ -87,3 +88,4 @@ markdown_extensions:
       permalink: true
   - def_list
   - attr_list
+  - md_in_html

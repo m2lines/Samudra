@@ -12,6 +12,7 @@ import yaml
 from pydantic import ValidationError
 
 from samudra.config import (
+    Cm4DataSourceConfig,
     CpuDataLoadingConfig,
     DataConfig,
     EvalConfig,
@@ -34,7 +35,7 @@ from tests.llc_fixtures import write_raw_llc_datasets
 def om4_source_config(**kwargs) -> Om4DataSourceConfig:
     return Om4DataSourceConfig(
         train_time=Om4TimeConfig(
-            start=JulianDate("1975-01-03"), end=JulianDate("2013-10-05")
+            start=JulianDate("1975-01-03"), end=JulianDate("2013-09-30")
         ),
         val_time=Om4TimeConfig(
             start=JulianDate("2013-10-05"), end=JulianDate("2014-10-05")
@@ -55,7 +56,7 @@ def test_data_config_rejects_legacy_num_workers_field():
                         "type": "om4",
                         "train_time": {
                             "start": "1975-01-03",
-                            "end": "2013-10-05",
+                            "end": "2013-09-30",
                         },
                         "val_time": {
                             "start": "2013-10-05",
@@ -139,7 +140,7 @@ def test_rust_loading_rejects_non_local_locations_before_open(tmp_path):
     cfg = DataConfig(sources=[source], loading=RustDataLoadingConfig())
 
     with pytest.raises(ValueError, match="requires local data"):
-        cfg.build(LocalLocation(path=tmp_path))
+        cfg.build(LocalLocation(path=tmp_path), include_inference=False)
 
 
 def test_data_config_output_steps_default_and_override():
@@ -201,17 +202,32 @@ def test_llc_time_config_serializes_as_safe_yaml():
     }
 
 
+@pytest.mark.parametrize("kwargs", [{}, {"inference_time": None}])
+def test_data_source_inference_time_is_optional(kwargs):
+    assert om4_source_config(**kwargs).inference_time is None
+
+
+def test_data_source_inference_time_rejects_multiple_ranges():
+    time = {"start": "2014-10-10", "end": "2014-10-20"}
+    with pytest.raises(ValidationError):
+        om4_source_config(inference_time=[time, time])
+
+
 def test_data_source_time_fields_are_immutable():
     source = om4_source_config(
-        inference_times=[
-            Om4TimeConfig(start=JulianDate("2014-10-10"), end=JulianDate("2014-10-20"))
-        ]
+        inference_time=Om4TimeConfig(
+            start=JulianDate("2014-10-10"), end=JulianDate("2014-10-20")
+        )
     )
     replacement = Om4TimeConfig(
         start=JulianDate("1980-01-01"), end=JulianDate("1981-01-01")
     )
 
-    assert isinstance(source.inference_times, tuple)
+    assert isinstance(source.inference_time, Om4TimeConfig)
+    with pytest.raises(ValidationError, match="Field is frozen"):
+        source.inference_time = replacement
+    with pytest.raises(ValidationError, match="Instance is frozen"):
+        source.inference_time.start = JulianDate("1980-01-01")
     with pytest.raises(ValidationError, match="Field is frozen"):
         source.train_time = replacement
     with pytest.raises(ValidationError, match="Instance is frozen"):
@@ -255,12 +271,10 @@ def test_data_config_accepts_llc_dataset_type():
                         "start": "2012-09-01T12:00:00Z",
                         "end": "2012-11-15T12:00:00Z",
                     },
-                    "inference_times": [
-                        {
-                            "start": "2012-11-15T12:00:00Z",
-                            "end": "2012-12-15T12:00:00Z",
-                        }
-                    ],
+                    "inference_time": {
+                        "start": "2012-11-15T12:00:00Z",
+                        "end": "2012-12-15T12:00:00Z",
+                    },
                     "data_location": "data.zarr",
                     "data_means_location": "means.zarr",
                     "data_stds_location": "stds.zarr",
@@ -272,7 +286,7 @@ def test_data_config_accepts_llc_dataset_type():
     source = cfg.sources[0]
     assert isinstance(source, LlcDataSourceConfig)
     assert source.face == 2
-    assert isinstance(source.inference_times[0], LlcTimeConfig)
+    assert isinstance(source.inference_time, LlcTimeConfig)
     assert source.prognostic_vars_key == "single_1"
 
 
@@ -306,7 +320,7 @@ def test_data_source_rejects_overlapping_time_splits():
     with pytest.raises(ValidationError, match="Training time range.*overlaps"):
         Om4DataSourceConfig(
             train_time=Om4TimeConfig(
-                start=JulianDate("1975-01-03"), end=JulianDate("2013-10-05")
+                start=JulianDate("1975-01-03"), end=JulianDate("2013-09-30")
             ),
             val_time=Om4TimeConfig(
                 start=JulianDate("2013-01-01"), end=JulianDate("2014-10-05")
@@ -315,6 +329,38 @@ def test_data_source_rejects_overlapping_time_splits():
             data_means_location=UnresolvedLocation(path="means.zarr"),
             data_stds_location=UnresolvedLocation(path="stds.zarr"),
         )
+
+
+@pytest.mark.parametrize("source_class", [Om4DataSourceConfig, Cm4DataSourceConfig])
+@pytest.mark.parametrize(
+    "val_start,val_end,overlaps",
+    [
+        ("2000-01-11", "2000-01-21", True),  # shared training end
+        ("2000-01-01", "2000-01-06", True),  # shared training start
+        ("2000-01-11", "2000-01-11", True),  # single shared timestamp
+        ("2000-01-08", "2000-01-16", True),  # interior overlap
+        ("2000-01-16", "2000-01-21", False),  # next five-day sample
+        ("1999-12-27", "2000-01-01", False),  # disjoint earlier range
+    ],
+)
+def test_ocean_source_splits_use_inclusive_endpoints(
+    source_class: type[Om4DataSourceConfig] | type[Cm4DataSourceConfig],
+    val_start: str,
+    val_end: str,
+    overlaps: bool,
+) -> None:
+    config = {
+        "train_time": {"start": "2000-01-06", "end": "2000-01-11"},
+        "val_time": {"start": val_start, "end": val_end},
+        "data_location": "data.zarr",
+        "data_means_location": "means.zarr",
+        "data_stds_location": "stds.zarr",
+    }
+    if overlaps:
+        with pytest.raises(ValidationError, match="Training time range.*overlaps"):
+            source_class.model_validate(config)
+    else:
+        source_class.model_validate(config)
 
 
 def test_data_config_builds_llc_source_from_local_files(tmp_path):
@@ -337,12 +383,10 @@ def test_data_config_builds_llc_source_from_local_files(tmp_path):
                         "start": "2011-09-11T12:00:00Z",
                         "end": "2011-09-12T12:00:00Z",
                     },
-                    "inference_times": [
-                        {
-                            "start": "2011-09-10T12:00:00Z",
-                            "end": "2011-09-11T12:00:00Z",
-                        }
-                    ],
+                    "inference_time": {
+                        "start": "2011-09-10T12:00:00Z",
+                        "end": "2011-09-11T12:00:00Z",
+                    },
                     "data_location": "data.zarr",
                     "data_means_location": "means.nc",
                     "data_stds_location": "stds.nc",
@@ -351,7 +395,7 @@ def test_data_config_builds_llc_source_from_local_files(tmp_path):
         }
     )
 
-    container = cfg.build(LocalLocation(path=tmp_path))
+    container = cfg.build(LocalLocation(path=tmp_path), include_inference=True)
     source = container.train_sources[0]
     source_data, _, _ = source._xarray_datasets_for_testing()
 
@@ -367,6 +411,20 @@ def test_data_config_builds_llc_source_from_local_files(tmp_path):
     assert container.val_sources[0].time.size == 2
     assert container.inference_source is not None
     assert container.inference_source.time.size == 2
+
+    training_container = cfg.build(
+        LocalLocation(path=tmp_path), include_inference=False
+    )
+    assert training_container.inference_source is None
+    assert training_container.train_sources[0].time.size == 2
+    assert training_container.val_sources[0].time.size == 2
+
+    without_inference = cfg.model_copy(
+        update={"sources": [cfg.sources[0].model_copy(update={"inference_time": None})]}
+    ).build(LocalLocation(path=tmp_path), include_inference=True)
+    assert without_inference.inference_source is None
+    assert without_inference.train_sources[0].time.size == 2
+    assert without_inference.val_sources[0].time.size == 2
 
     sliced = source.slice_time(
         LlcTimeConfig(
@@ -404,7 +462,7 @@ def test_data_config_rejects_multiple_data_layouts(tmp_path):
     )
 
     with pytest.raises(ValueError, match="same data layout"):
-        cfg.build(LocalLocation(path=tmp_path))
+        cfg.build(LocalLocation(path=tmp_path), include_inference=False)
 
 
 def test_data_config_accepts_gpu_loading():
@@ -415,7 +473,7 @@ def test_data_config_accepts_gpu_loading():
                     "type": "om4",
                     "train_time": {
                         "start": "1975-01-03",
-                        "end": "2013-10-05",
+                        "end": "2013-09-30",
                     },
                     "val_time": {
                         "start": "2013-10-05",
@@ -514,19 +572,33 @@ def test_rust_loading_rejects_derived_channels_before_opening_data(
 
     monkeypatch.setattr(LocalLocation, "open", unexpected_open)
     with pytest.raises(ValueError, match="does not yet support derived boundary"):
-        cfg.build(LocalLocation(path=tmp_path))
+        cfg.build(LocalLocation(path=tmp_path), include_inference=False)
 
 
 def test_rollout_checkpoint_selection_requires_supported_validation():
     with open(TEST_CONFIGS_DIR / DEFAULT_CONFIG) as f:
         data = yaml.safe_load(f)
-    data["checkpoint_validation_metric"] = "rollout_rmse"
+    data["validation_score"] = "rollout_rmse"
     with pytest.raises(ValidationError, match="requires rollout_validation"):
         TrainConfig.model_validate(data)
     data["rollout_validation"] = {"days": [360]}
-    assert (
-        TrainConfig.model_validate(data).checkpoint_validation_metric == "rollout_rmse"
-    )
+    assert TrainConfig.model_validate(data).validation_score == "rollout_rmse"
     data["data"]["sources"] *= 2
     with pytest.raises(ValidationError, match="requires a single data source"):
         TrainConfig.model_validate(data)
+
+
+def test_validation_loss_score_rejects_dynamic_weighting():
+    value = TrainConfig.from_yaml_and_cli(
+        [str(TEST_CONFIGS_DIR / DEFAULT_CONFIG)]
+    ).model_dump()
+    value.update(loss={"type": "dynamic"}, validation_score="validation_loss")
+    with pytest.raises(ValidationError, match="dynamically weighted"):
+        TrainConfig.model_validate(value)
+    value["validation_score"] = "one_step_rmse"
+    assert TrainConfig.model_validate(value).validation_score == "one_step_rmse"
+
+
+def test_multi_source_preset_uses_one_step_rmse():
+    cfg = TrainConfig.from_yaml_and_cli(["samudra_multi_om4/train.yaml"])
+    assert cfg.validation_score == "one_step_rmse"

@@ -15,7 +15,8 @@ reviews:
   review_status: false
   # PR descriptions are author-written (AGENTS.md "Writing"); keep the bot's
   # summary in its walkthrough comment instead of the description.
-  high_level_summary: false
+  # high_level_summary enables generation; *_in_walkthrough picks the location.
+  high_level_summary: true
   high_level_summary_in_walkthrough: true
   auto_review:
     enabled: true

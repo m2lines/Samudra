@@ -1,0 +1,46 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Samudra 2's training recipe (the samudra_om4_v2 preset): dynamic
+# variance-weighted MSE capped at 20, 4 autoregressive calls, 70 epochs,
+# cosine schedule, lr 6e-4, batch 4 per GPU on 8 GPUs (32 per step), seed 15,
+# EMA 0.999. The mask and omit arms differ only in model.land.
+debug: false
+disk_mode: true
+save_freq: 5
+rollout_validation:
+  days: [360]
+  frequency: 1
+  steps_forward: 1
+validation_score: rollout_rmse
+epochs: 70
+batch_size: 4
+learning_rate: 0.0006
+gradient_accumulation_steps: 1
+scheduler: { type: cosine }
+ema_decay: 0.999
+faster_decay_at_start: true
+test_using_ema: true
+loss:
+  type: dynamic
+  metric: mse
+  limit: 20
+finetune: false
+resume_ckpt_path: null
+data_stride: [1]
+steps: [4]
+step_transition: []
+preemptible: true
+
+backend: auto
+
+experiment:
+  name: land_mask_onedeg
+  rand_seed: 15
+  base_output_dir: .LOCAL
+  wandb:
+    mode: disabled
+    project: default
+data: !include data.yaml
+model: !include model_mask.yaml

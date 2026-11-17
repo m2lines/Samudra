@@ -48,7 +48,7 @@ dependencies = [
   "tqdm>=4.67.1",
   "typing-extensions>=4.15",
   "wandb>=0.19.8",
-  "xarray>=2025.1.2",
+  "xarray>=2025.1.2,<2026.9",  # 2026.9 requires zarr-python 3 (passes zarr_format to zarr 2)
   "zarr<3",
 ]
 optional-dependencies.cuda = [

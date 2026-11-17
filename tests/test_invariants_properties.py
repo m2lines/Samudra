@@ -214,7 +214,9 @@ def test_conservation_accepts_block_means_and_flags_a_scaled_copy(
         + conservation.no_new_extremes(fine, coarse, "f", atol=1e-12)
     )
     assert found == []
-    assume(float(abs((fine * w).sum())) > 1e-3)
+    # Scaling by 1.01 is visible at rtol=1e-3 only if the total isn't mostly
+    # cancellation: rtol is relative to the integral of |field|.
+    assume(float(abs((fine * w).sum())) > 0.2 * float((abs(fine) * w).sum()))
     assert (
         conservation.integral_preserved(
             fine, w, coarse * scale, w_coarse, "f", rtol=1e-3

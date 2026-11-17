@@ -24,7 +24,6 @@ from samudra.invariants.core import (
     SEAWATER_DENSITY,
     SEAWATER_HEAT_CAPACITY,
     Violation,
-    relative_difference,
     weighted_mean,
     weighted_sum,
 )
@@ -64,10 +63,15 @@ def integral_preserved(
     rtol: float = 1e-3,
     atol: float = 0.0,
 ) -> list[Violation]:
-    """``sum(fine * w_fine) == sum(coarse * w_coarse)`` over ``dims``, for each remaining index."""
+    """``sum(fine * w_fine) == sum(coarse * w_coarse)`` over ``dims``, for each remaining index.
+
+    ``rtol`` is relative to ``sum(|fine| * w_fine)``, not to the total, so a field
+    whose positive and negative parts cancel (a velocity) isn't judged on round-off.
+    """
     a = weighted_sum(fine, fine_weights, list(dims))
     b = weighted_sum(coarse, coarse_weights, list(dims))
-    return _compare(a, b, f"conservation.{name}_integral", rtol, atol)
+    scale = weighted_sum(abs(fine), fine_weights, list(dims))
+    return _compare(a, b, scale, f"conservation.{name}_integral", rtol, atol)
 
 
 def mean_preserved(
@@ -80,17 +84,27 @@ def mean_preserved(
     rtol: float = 1e-3,
     atol: float = 0.0,
 ) -> list[Violation]:
-    """Weighted means agree over ``dims``, for each remaining index."""
+    """Weighted means agree over ``dims``, for each remaining index.
+
+    ``rtol`` is relative to the weighted mean of ``|fine|``, as in `integral_preserved`.
+    """
     a = weighted_mean(fine, fine_weights, list(dims))
     b = weighted_mean(coarse, coarse_weights, list(dims))
-    return _compare(a, b, f"conservation.{name}_mean", rtol, atol)
+    scale = weighted_mean(abs(fine), fine_weights, list(dims))
+    return _compare(a, b, scale, f"conservation.{name}_mean", rtol, atol)
 
 
 def _compare(
-    a: xr.DataArray, b: xr.DataArray, invariant: str, rtol, atol
+    a: xr.DataArray,
+    b: xr.DataArray,
+    scale: xr.DataArray,
+    invariant: str,
+    rtol: float,
+    atol: float,
 ) -> list[Violation]:
     a_values, b_values = np.ravel(np.asarray(a)), np.ravel(np.asarray(b))
-    bad = ~np.isclose(a_values, b_values, rtol=rtol, atol=atol)
+    scale_values = np.ravel(np.asarray(scale))
+    bad = ~(np.abs(a_values - b_values) <= rtol * scale_values + atol)
     if not bad.any():
         return []
     i = int(np.argmax(bad))
@@ -98,7 +112,8 @@ def _compare(
         Violation(
             invariant,
             f"{int(bad.sum())} of {bad.size} totals differ; e.g. {a_values[i]:.9g} vs "
-            f"{b_values[i]:.9g} ({relative_difference(float(a_values[i]), float(b_values[i])):.3e} relative)",
+            f"{b_values[i]:.9g} (difference {abs(a_values[i] - b_values[i]) / scale_values[i]:.3e} of the "
+            "integral of |field|)",
             {"index": i},
         )
     ]

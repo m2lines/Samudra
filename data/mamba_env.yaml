@@ -33,5 +33,6 @@ dependencies:
     - distributed
     - pip
     - pip:
+      - -e ..  # samudra, for the ocean-physics invariants shared with the model
       - -e .  # local sources
       - -e ../verification  # samudra_verification, which data/tests/conftest.py imports

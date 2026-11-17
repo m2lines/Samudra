@@ -27,8 +27,8 @@ Dependencies live in **four places**: `data/pyproject.toml` (used by the data-te
 developers), and `data/.test.yml` and `data/.test-canary.yml` (used by the property CI). Keep their version pins in
 sync when you change any of them.
 
-The runtime is Zarr 3 (for VirtualiZarr), but every store we write must be **Zarr v2**, because the root `samudra`
-package pins `zarr<3`.
+The runtime is Zarr 3, but every store we write must be **Zarr v2**, because the published stores and the Rust
+loader use v2.
 
 `data/README.md` documents the pipeline stages, CLIs, and observation workflow. `docs/data.md` lists the published
 datasets. Read those before changing a pipeline stage. This file covers only what an agent needs before starting.

@@ -56,7 +56,8 @@ Root `pytest`, mypy, and `uv sync` do not cover `data/` or `rust/loader/`. Root 
 * Don't assume a rectilinear grid. OM4's native grid is tripolar and LLC4320's is lat-lon-cap, so 2-D `lat`/`lon` must
   be carried with the data, not rebuilt by broadcasting 1-D axes. Branch on `is_rectilinear(grid_type)`
   (`src/samudra/constants.py`), not on the grid's name.
-* Write Zarr **v2**. The root package pins `zarr<3`.
+* Write Zarr **v2**. The root package reads both formats (`zarr>=3.1,<4`), but the published stores and the Rust
+  loader use v2.
 
 **Writing** (docs, docstrings, PRs, reports)
 

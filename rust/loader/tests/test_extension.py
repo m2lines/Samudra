@@ -5,6 +5,10 @@
 import numpy as np
 import pytest
 import xarray as xr
+import zarr
+
+# The loader reads only Zarr v2, the format of every published store.
+zarr.config.set({"default_zarr_format": 2})
 
 rust_loader = pytest.importorskip("samudra_rust_loader")
 

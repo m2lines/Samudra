@@ -12,7 +12,7 @@ property tests. This README explains how the tooling works, for anyone maintaini
 
 The project is published as `samudra-verification` and imported as `samudra_verification`. It depends only on
 Hypothesis, pytest, and pytest-reportlog, so the `data/` environment can install it without the root package's torch
-and `zarr<3` pins. Root `uv sync --dev` installs it as a workspace member. `data/` installs it with
+dependency. Root `uv sync --dev` installs it as a workspace member. `data/` installs it with
 `pip install -e ./verification`; it isn't on PyPI.
 
 ## Modules

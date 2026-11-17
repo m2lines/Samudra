@@ -279,7 +279,7 @@ python -m ocean_preprocessing.obs_preprocessing prepare all \
 
 or, on Torch, `sbatch scripts/slurm_obs_prepare.sbatch` (see the header of that file for the environment variables).
 
-Prepared stores and Zarr downloads use **Zarr v2** explicitly, because `samudra.metrics` pins `zarr<3` and cannot open a v3 store.
+Prepared stores and Zarr downloads use **Zarr v2** explicitly, the format of every published store and the only one the Rust loader reads.
 
 Credentials are only needed when writing to the NYU OSN pod (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and
 `FSSPEC_S3_ENDPOINT_URL`); reading the public inputs, including the OM4 time axis, is anonymous.

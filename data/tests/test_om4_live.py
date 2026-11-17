@@ -49,6 +49,7 @@ RELEASE = os.environ.get("SAMUDRA_OM4_RELEASE", "v2026-09")
 RESOLUTIONS = ("onedeg", "halfdeg", "quarterdeg")
 LEVELS = 19
 STEPS = 4745
+SEAM_X = 60.5  # 1 degree column at OM4's longitude seam (xh starts at -300)
 live = settings(
     max_examples=int(os.environ.get("SAMUDRA_OM4_LIVE_EXAMPLES", "3")),
     deadline=None,
@@ -425,6 +426,12 @@ def test_current_pipeline_reproduces_the_release(tmp_path):
     )
     rerun = xr.open_zarr(output)
     reference = published.isel(time=slice(0, rerun.sizes["time"]))
+    # #928 fixed the 60E seam (`om4_staggered_grid`) after v2026-09: u fields
+    # differ there and must agree everywhere else.
+    seam_fixed = frozenset(
+        name for name in rerun.data_vars if name == "tauuo" or name.startswith("uo_")
+    )
+    off_seam = rerun.x != SEAM_X
     require_no_violations(
         releases.stores_agree(
             reference,
@@ -432,5 +439,10 @@ def test_current_pipeline_reproduces_the_release(tmp_path):
             variables=sorted(
                 set(rerun.data_vars) | {"areacello", "ocean_fraction", "dz"}
             ),
+            expected_changes=seam_fixed,
+        )
+        + releases.stores_agree(
+            reference[sorted(seam_fixed)].where(off_seam),
+            rerun[sorted(seam_fixed)].where(off_seam),
         )
     )

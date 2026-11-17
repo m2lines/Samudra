@@ -16,13 +16,13 @@ from hypothesis import strategies as st
 from hypothesis.extra.numpy import arrays
 
 pytest.importorskip("xgcm")
-from ocean_preprocessing.simulation_preprocessing.gfdl_om4 import (
-    convert_super_grid,  # noqa: E402
+from ocean_preprocessing.simulation_preprocessing.gfdl_om4 import (  # noqa: E402
+    convert_super_grid,
+    om4_staggered_grid,
 )
 from ocean_preprocessing.simulation_preprocessing.interpolate import (  # noqa: E402
     interpolate_to_cell_centers,
 )
-from xgcm import Grid  # noqa: E402
 
 from tests.ocean_strategies import regular_grid  # noqa: E402
 
@@ -49,17 +49,8 @@ def staggered(draw):
             "yq": np.arange(ny) + 1.0,
         },
     )
-    grid = Grid(
-        ds,
-        coords={
-            "X": {"center": "xh", "right": "xq"},
-            "Y": {"center": "yh", "right": "yq"},
-        },
-        boundary={"X": "periodic", "Y": "extend"},
-        periodic=["X"],
-        autoparse_metadata=False,
-    )
-    return ds, grid
+    # The pipeline's own grid, so a change to its boundaries reaches this test.
+    return ds, om4_staggered_grid(ds)
 
 
 @given(staggered())

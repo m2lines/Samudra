@@ -310,6 +310,27 @@ def om4_preprocessing(
     return native_ocean_preprocessing(ds, nc_grid_path, nc_mosaic_path, fs=fs)
 
 
+def om4_staggered_grid(ds: xr.Dataset) -> Grid:
+    """MOM6's C-grid: u on east faces (xq), v on north faces (yq), periodic in longitude.
+
+    v2026-09 was built with ``boundary="extend"``, which in xgcm >= 0.8.1 overrides
+    ``periodic``: u at the 60E seam was averaged with a copy of itself instead of
+    the face across the seam.
+    """
+    return Grid(
+        ds,
+        coords={
+            "X": {"center": "xh", "right": "xq"},
+            "Y": {"center": "yh", "right": "yq"},
+        },
+        # Explicit padding takes precedence over periodic in xgcm >= 0.8.1.
+        # Wrap longitude while retaining edge extension in latitude.
+        boundary={"X": "periodic", "Y": "extend"},
+        periodic=["X"],
+        autoparse_metadata=False,
+    )
+
+
 def native_ocean_preprocessing(
     ds: xr.Dataset,
     nc_grid_path: str,
@@ -331,19 +352,7 @@ def native_ocean_preprocessing(
     if ds["yq"].size == ds["yh"].size + 1:
         ds = ds.isel(yq=slice(1, None))
 
-    grid = Grid(
-        ds,
-        coords={
-            "X": {"center": "xh", "right": "xq"},
-            "Y": {"center": "yh", "right": "yq"},
-        },
-        # Explicit padding takes precedence over periodic in xgcm >= 0.8.1.
-        # Wrap longitude while retaining edge extension in latitude.
-        boundary={"X": "periodic", "Y": "extend"},
-        periodic=["X"],
-        autoparse_metadata=False,
-    )
-    ds_interpolated = interpolate_to_cell_centers(ds, ds.thetao, grid)
+    ds_interpolated = interpolate_to_cell_centers(ds, ds.thetao, om4_staggered_grid(ds))
 
     # remove the same areas as for the tracers again
     tracer_wetmask = ~np.isnan(ds_interpolated.thetao.isel(time=0)).drop_vars("time")

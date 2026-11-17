@@ -114,6 +114,17 @@ FAULTS = (
             "test_centring_averages_the_faces_around_each_cell",
         ),
     ),
+    Fault(
+        # How v2026-09 was built: the release's u at the 60E seam.
+        "seam_extends_instead_of_wrapping",
+        "ocean_preprocessing.simulation_preprocessing.gfdl_om4",
+        'boundary={"X": "periodic", "Y": "extend"},',
+        'boundary="extend",',
+        detectors(
+            "test_native_grid_properties",
+            "test_centring_averages_the_faces_around_each_cell",
+        ),
+    ),
 )
 
 CATALOG = Catalog(project=DATA, faults=FAULTS)

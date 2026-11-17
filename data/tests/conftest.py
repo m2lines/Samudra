@@ -23,10 +23,24 @@ if storage := os.environ.get("SAMUDRA_STRING_STORAGE"):
 
 configure_profiles()
 
+
+def _in_virtualize_environment() -> bool:
+    """Whether this is virtualize_om4.py's own environment: VirtualiZarr on zarr-python 3.
+
+    An environment updated from an older mamba_env.yaml can still hold VirtualiZarr
+    next to zarr 2, where it can't import, so check zarr's version too.
+    """
+    if importlib.util.find_spec("virtualizarr") is None:
+        return False
+    import zarr
+
+    return int(zarr.__version__.split(".")[0]) >= 3
+
+
 # tests/virtual covers ocean_preprocessing/virtualize_om4.py, which runs in its own
-# environment (zarr-python 3, VirtualiZarr; see the script's header). The CI jobs
-# that build that environment run it; the main data environment can't import it.
-collect_ignore = [] if importlib.util.find_spec("virtualizarr") else ["virtual"]
+# environment (see the script's header and tests/virtual/make_env.sh). CI builds that
+# environment for these tests; everywhere else, they aren't collected.
+collect_ignore = [] if _in_virtualize_environment() else ["virtual"]
 
 
 def pytest_collection_modifyitems(items):

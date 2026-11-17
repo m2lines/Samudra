@@ -3432,7 +3432,7 @@ requires-dist = [
     { name = "tqdm", specifier = ">=4.67.1" },
     { name = "typing-extensions", specifier = ">=4.15" },
     { name = "wandb", specifier = ">=0.19.8" },
-    { name = "xarray", specifier = ">=2025.1.2" },
+    { name = "xarray", specifier = ">=2025.1.2,<2026.9" },
     { name = "zarr", specifier = "<3" },
 ]
 provides-extras = ["cuda", "rust", "sky"]

@@ -81,10 +81,12 @@ steps = st.one_of(
 )
 
 
-def stacked(ds: xr.Dataset, base: str, t: int) -> xr.DataArray:
-    return xr.concat(
-        [ds[f"{base}_{k}"].isel(time=t) for k in range(LEVELS)], dim="lev"
-    ).load()
+def stacked(ds: xr.Dataset, base: str, t: int | None) -> xr.DataArray:
+    """``{base}_0 .. {base}_18`` as one (lev, y, x) array, at step ``t`` if given."""
+    levels = [ds[f"{base}_{k}"] for k in range(LEVELS)]
+    if t is not None:
+        levels = [level.isel(time=t) for level in levels]
+    return xr.concat(levels, dim="lev").load()
 
 
 def volume(ds: xr.Dataset) -> xr.DataArray:
@@ -183,10 +185,17 @@ def test_store_sea_level_has_no_global_mean(resolution, t):
 @live
 @given(t=steps)
 def test_store_coasts_are_not_diluted_by_land(resolution, t):
-    """Proposed: river mouths are fresh, so the threshold needs agreeing (#974)."""
+    """Proposed (#974): no coastal cell is diluted towards zero-filled land.
+
+    River plumes are fresh: the Orinoco, Amazon and Rio de la Plata mouths reach
+    0.27 to 0.43 of their nearest wet neighbour's salinity in v2026-09. A cell
+    that is 80% zero-filled land would reach 0.2, hence ``max_fraction``.
+    """
     ds = store(resolution)
     require_no_violations(
-        bounds.coastal_dilution(ds.so_0.isel(time=t).load(), ds.mask_0.load(), "so_0")
+        bounds.coastal_dilution(
+            ds.so_0.isel(time=t).load(), ds.mask_0.load(), "so_0", max_fraction=0.2
+        )
     )
 
 
@@ -269,15 +278,23 @@ def test_coarsening_never_adds_variance_or_extremes(t):
 @live
 @given(t=steps)
 def test_resolutions_share_large_scale_zonal_spectra(t):
-    """Circumpolar Southern Ocean rows are all ocean, so their zonal spectra can be compared directly."""
-    band = (-60.0, -57.0)
+    """Circumpolar Southern Ocean rows are all ocean, so their zonal spectra can be compared directly.
+
+    The 1 and 1/4 degree rows don't nest: selecting rows by centre compared
+    -59.83..-56.84 with -59.96..-56.96. The band now sits on 1 degree edges and
+    the 1/4 degree rows count by their overlap with it.
+    """
     fine, coarse = store("quarterdeg"), store("onedeg")
+    # The 1 degree rows whose centres lie in 60S to 57S, edge to edge.
+    edges = coarse.lat_b.values[:, 0]
+    rows = np.flatnonzero((coarse.y.values >= -60.0) & (coarse.y.values <= -57.0))
+    band = (float(edges[rows[0]]), float(edges[rows[-1] + 1]))
     require_no_violations(
         conservation.zonal_spectra_agree(
             fine.thetao_0.isel(time=t).load(),
-            fine.y,
+            fine.lat_b.values,
             coarse.thetao_0.isel(time=t).load(),
-            coarse.y,
+            coarse.lat_b.values,
             band,
             "sst",
             rtol=0.05,
@@ -289,16 +306,25 @@ def test_resolutions_share_large_scale_zonal_spectra(t):
 def yearly_budget(
     resolution: str, start: int
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Heat content, area-integrated hfds and salt content for 75 steps (a year plus each end)."""
+    """Heat content, area-integrated hfds and salt content for 75 steps (a year plus each end).
+
+    The top layer is ``dz_0 + zos`` thick: freshwater that raises sea level also
+    dilutes it, and the product is what the model conserves. With a fixed top
+    layer, a 1 cm change in sea level reads as a 3e-6 change in total salt.
+    """
     ds = store(resolution).isel(time=slice(start, start + 75))
     v = volume(store(resolution))
     a = surface_area(store(resolution))
+    names = [f"{base}_{k}" for base in ("thetao", "so") for k in range(LEVELS)]
     heat, flux, salt = [], [], []
     for t in range(ds.sizes["time"]):
-        thetao, so = stacked(ds, "thetao", t), stacked(ds, "so", t)
-        heat.append(float(conservation.heat_content(thetao, v, ["lev", "y", "x"])))
-        salt.append(float(conservation.salt_content(so, v, ["lev", "y", "x"])))
-        flux.append(float((ds.hfds.isel(time=t) * a).sum()))
+        step = ds[[*names, "zos", "hfds"]].isel(time=t).load()
+        thetao, so = stacked(step, "thetao", None), stacked(step, "so", None)
+        v_t = v.copy()
+        v_t[{"lev": 0}] = v.isel(lev=0) + (step.zos * a).fillna(0.0)
+        heat.append(float(conservation.heat_content(thetao, v_t, ["lev", "y", "x"])))
+        salt.append(float(conservation.salt_content(so, v_t, ["lev", "y", "x"])))
+        flux.append(float((step.hfds * a).sum()))
     return np.array(heat), np.array(flux), np.array(salt)
 
 

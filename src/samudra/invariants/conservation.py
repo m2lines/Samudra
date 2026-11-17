@@ -19,6 +19,7 @@ which share one source.
 
 import numpy as np
 import xarray as xr
+from numpy.typing import ArrayLike
 
 from samudra.invariants.core import (
     SEAWATER_DENSITY,
@@ -168,21 +169,41 @@ def no_new_extremes(
 
 def band_zonal_spectrum(
     field: xr.DataArray,
-    lat: xr.DataArray,
+    lat_b: ArrayLike,
     band: tuple[float, float],
     x_dim="x",
     y_dim="y",
 ) -> np.ndarray:
-    """Zonal power spectrum of the cos(lat)-weighted mean over a latitude band of fully wet rows.
+    """Zonal power spectrum of the area-weighted mean over a latitude band.
 
-    Returns power at zonal wavenumbers 0..nx/2 (cycles per circle).
+    Each row counts with the area it shares with ``band``, from its edges
+    ``lat_b`` (``ny + 1`` values, or a ``(y_b, x_b)`` array of a rectilinear
+    grid). Grids whose rows don't nest therefore average exactly the same band.
+    Every row that overlaps the band must be fully wet. Returns power at zonal
+    wavenumbers 0..nx/2 (cycles per circle).
+
+    A cell holds its whole row's mean, so a row only partly inside the band adds
+    an error that grows with the field's meridional gradient. When comparing two
+    grids, put the band on the coarse grid's edges, so only the finer grid's
+    thinner rows straddle it.
     """
-    lat_1d = np.asarray(lat)
-    rows = (lat_1d >= band[0]) & (lat_1d <= band[1])
-    selected = field.isel({y_dim: np.flatnonzero(rows)})
+    edges = np.asarray(lat_b, dtype=float)
+    if edges.ndim == 2:
+        edges = edges[:, 0]
+    if edges.size != field.sizes[y_dim] + 1:
+        raise ValueError(
+            f"{edges.size} latitude edges for {field.sizes[y_dim]} rows; need one more"
+        )
+    lower = np.maximum(np.minimum(edges[:-1], edges[1:]), band[0])
+    upper = np.minimum(np.maximum(edges[:-1], edges[1:]), band[1])
+    overlap = np.clip(np.sin(np.deg2rad(upper)) - np.sin(np.deg2rad(lower)), 0, None)
+    rows = np.flatnonzero(overlap > 0)
+    if rows.size == 0:
+        raise ValueError(f"no rows overlap latitude band {band}")
+    selected = field.isel({y_dim: rows})
     if bool(selected.isnull().any()):
         raise ValueError(f"latitude band {band} has land; pick fully wet rows")
-    weights = xr.DataArray(np.cos(np.deg2rad(lat_1d[rows])), dims=[y_dim])
+    weights = xr.DataArray(overlap[rows], dims=[y_dim])
     profile = (selected * weights).sum(y_dim) / weights.sum()
     nx = profile.sizes[x_dim]
     return np.abs(np.fft.rfft(np.asarray(profile), axis=-1)) ** 2 / nx**2
@@ -190,9 +211,9 @@ def band_zonal_spectrum(
 
 def zonal_spectra_agree(
     fine: xr.DataArray,
-    fine_lat: xr.DataArray,
+    fine_lat_b: ArrayLike,
     coarse: xr.DataArray,
-    coarse_lat: xr.DataArray,
+    coarse_lat_b: ArrayLike,
     band: tuple[float, float],
     name: str,
     resolved_fraction: float = 0.125,
@@ -203,10 +224,10 @@ def zonal_spectra_agree(
     Block-averaging n fine columns into one multiplies wavenumber k's amplitude by
     sinc(k / N) for N coarse columns, so at k <= ``resolved_fraction`` N the
     coarse power must lie between that attenuation and the fine power, within
-    ``rtol``.
+    ``rtol``. ``*_lat_b`` are each grid's row edges (see `band_zonal_spectrum`).
     """
-    fine_power = band_zonal_spectrum(fine, fine_lat, band)
-    coarse_power = band_zonal_spectrum(coarse, coarse_lat, band)
+    fine_power = band_zonal_spectrum(fine, fine_lat_b, band)
+    coarse_power = band_zonal_spectrum(coarse, coarse_lat_b, band)
     n_coarse = 2 * (coarse_power.size - 1)
     k_max = max(1, int(resolved_fraction * n_coarse))
     k = np.arange(1, k_max + 1)

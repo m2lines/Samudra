@@ -264,3 +264,51 @@ def test_release_comparison_flags_any_changed_value(values, data):
     assert (
         releases.stores_agree(a, changed, expected_changes=frozenset({"thetao"})) == []
     )
+
+
+def cell_means(edges_deg: np.ndarray, lon_edges: np.ndarray, a, b, k, phase):
+    """Exact cell means of (a + b sin(lat)) * (1 + cos(k lon + phase)) on a lat-lon grid."""
+    s = np.sin(np.deg2rad(edges_deg))
+    row = a + b * (s[:-1] + s[1:]) / 2  # mean of a + b sin(lat) over d(sin lat)
+    x = np.deg2rad(lon_edges)
+    col = 1 + (np.sin(k * x[1:] + phase) - np.sin(k * x[:-1] + phase)) / (
+        k * np.diff(x)
+    )
+    return xr.DataArray(np.outer(row, col), dims=("y", "x"))
+
+
+@given(
+    st.integers(8, 20),
+    st.integers(2, 6),
+    st.floats(0.05, 0.95),
+    st.integers(1, 4),
+    st.floats(0, 2 * np.pi),
+)
+def test_zonal_spectra_accept_non_nested_rows_and_flag_rescaled_waves(
+    fine_rows, coarse_rows, offset, k, phase
+):
+    # Rows that don't share edges.
+    fine_edges = np.linspace(-63.0, -54.0, fine_rows + 1)
+    coarse_step = 6.0 / (coarse_rows + 1)
+    coarse_edges = -62.0 + (offset + np.arange(coarse_rows + 1)) * coarse_step
+    fine_lon = np.linspace(0.0, 360.0, 129)
+    coarse_lon = fine_lon[::4]
+    args = (30.0, 5.0, k, phase)
+    fine = cell_means(fine_edges, fine_lon, *args)
+    coarse = cell_means(coarse_edges, coarse_lon, *args)
+    # A cell holds its whole row's mean, so only a band on the coarse edges is
+    # exact; the fine grid's partial rows then cost well under 1e-3.
+    band = (float(coarse_edges[0]), float(coarse_edges[-1]))
+    assert (
+        conservation.zonal_spectra_agree(
+            fine, fine_edges, coarse, coarse_edges, band, "f", rtol=1e-3
+        )
+        == []
+    )
+    wave = coarse - coarse.mean("x")
+    assert (
+        conservation.zonal_spectra_agree(
+            fine, fine_edges, coarse + 0.2 * wave, coarse_edges, band, "f"
+        )
+        != []
+    )

@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794947805103,
+  "lastUpdate": 1794949029878,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -13623,6 +13623,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.3439905643536229",
             "extra": "mean: 16.888843299999998 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "931875a4f4ba926c87b4e516418242ec0f74db74",
+          "message": "Cap xarray below 2026.9 so pip installs can open Zarr v2 stores (#1017)\n\n`pip install samudra==0.2.0` (and 0.1.x) installs a version that can't\nopen any OM4 Zarr store. The published package requires only\n`xarray>=2025.1.2`, so pip and uv install xarray 2026.9.0. That release\npasses `zarr_format` to `zarr.open_group`, and zarr 2, which we pin with\n`zarr<3`, doesn't accept it. This PR caps xarray below 2026.9. After\nmerging it, I'd release 0.2.1, since every new install, including the\nColab quickstart, is broken until then. Written by Claude Code (Claude\nOpus 5.5).\n\n<details>\n<summary>How it was found, bisection and validation</summary>\n\n**How it showed up:** I ran the Colab quickstart's cells against\n`samudra==0.2.0` installed from PyPI. The data cell failed:\n\n```\nTypeError: open_group() got an unexpected keyword argument 'zarr_format'\n```\n\nCI installs from `uv.lock`, which pins xarray 2025.1.2, so no CI job\nresolves the newest versions the way pip does.\n\n**Bisection.** Each version was tested by writing and reopening a\nconsolidated Zarr v2 store, with zarr 2.18.7, `numpy<2` and\n`numcodecs<0.16`:\n\n| xarray | Result |\n| --- | --- |\n| 2025.6.1 to 2026.7.0 (8 releases tested) | OK |\n| 2026.9.0 | `TypeError … zarr_format` |\n\n**Change:** `xarray>=2025.1.2,<2026.9` in `pyproject.toml`, and `uv\nlock` to refresh the recorded requirement. The locked version stays\n2025.1.2. `data/` has its own pin (`<2026.4`) and isn't affected.\n\n**Validation:** I built the wheel from this branch, installed it with\nnormal resolution into a clean Python 3.12 environment (it picked xarray\n2026.7.0), and opened\n`s3://m2lines-pubs/Samudra/v2026-09/om4_twodeg/OM4.zarr` anonymously.\nThe sizes were correct and a `zos` value loaded.\n\n**Follow-up:** the release check should install the wheel with normal\nresolution and open a public store. A test that only installs and\nimports the package didn't catch this, and neither did my own check of\n0.2.0.\n\n</details>\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\n---------\n\nCo-authored-by: Claude Opus 5.5 <noreply@anthropic.com>",
+          "timestamp": "2026-11-17T20:32:38Z",
+          "tree_id": "d2bad83f5bbec20fb732d177f601c6f293699b61",
+          "url": "https://github.com/m2lines/Samudra/commit/931875a4f4ba926c87b4e516418242ec0f74db74"
+        },
+        "date": 1794949028024,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 1.0621222957031964,
+            "unit": "iter/sec",
+            "range": "stddev: 0.001270570518182459",
+            "extra": "mean: 941.5111650000085 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_dataset__1gb[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.3369049280598551,
+            "unit": "iter/sec",
+            "range": "stddev: 0.005183718009834331",
+            "extra": "mean: 2.9681964160000005 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.05951516030034231,
+            "unit": "iter/sec",
+            "range": "stddev: 0.3123851746350872",
+            "extra": "mean: 16.8024415116 sec\nrounds: 5"
           }
         ]
       }

@@ -52,6 +52,18 @@ DOCKER_BUILDKIT="${DOCKER_BUILDKIT:-1}" "${docker_cmd[@]}" build --pull \
   -t "${IMAGE_TAG}" \
   .
 
+# Docker's layer store rejects images deeper than 125 layers when they are
+# pulled ("failed to register layer: max depth exceeded"). A local build can
+# still succeed, so check here rather than after the image is published.
+MAX_IMAGE_LAYERS=125
+layer_count="$("${docker_cmd[@]}" image inspect --format '{{len .RootFS.Layers}}' "${IMAGE_TAG}")"
+echo "==> ${IMAGE_TAG} has ${layer_count} layers (limit ${MAX_IMAGE_LAYERS})"
+if (( layer_count > MAX_IMAGE_LAYERS )); then
+  echo "Image has ${layer_count} layers; Docker cannot pull images with more than ${MAX_IMAGE_LAYERS}." >&2
+  echo "Merge COPY/RUN steps in ${DOCKERFILE} to reduce the layer count." >&2
+  exit 5
+fi
+
 if [[ "${RUN_SMOKE_TEST}" != "0" ]]; then
   echo "==> Running smoke test in ${IMAGE_TAG}"
   "${docker_cmd[@]}" run --rm --entrypoint bash "${IMAGE_TAG}" -lc \

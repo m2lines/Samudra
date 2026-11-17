@@ -14,7 +14,6 @@ import numpy as np
 import pytest
 import torch
 import xarray as xr
-import zarr
 from numpy.typing import ArrayLike, NDArray
 from samudra_verification.profiles import (
     configure_profiles,
@@ -30,9 +29,6 @@ from samudra.utils.multiton import MultitonScope
 
 configure_profiles(default_profile="unit")
 register_torch_random()
-# Published stores, the writer and the Rust loader all use Zarr v2, so fixtures
-# written without an explicit format must be v2 as well.
-zarr.config.set({"default_zarr_format": 2})
 
 
 def pytest_collection_modifyitems(items):

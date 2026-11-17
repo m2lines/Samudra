@@ -21,7 +21,7 @@ dependencies = [ "numpy>=2,<3" ]
 [dependency-groups]
 dev = [ "maturin>=1.9,<2" ]
 # The standalone extension suite does not use Samudra's jaxtyping pytest plugin.
-test = [ "pytest>=8.3.4", "xarray>=2025.6,<2026.4", "zarr>=3.1,<4" ]
+test = [ "pytest>=8.3.4", "xarray>=2025.6,<2026.4", "zarr>=2.18,<3" ]
 
 [tool.maturin]
 features = [ "extension-module" ]

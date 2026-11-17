@@ -49,7 +49,7 @@ dependencies = [
   "typing-extensions>=4.15",
   "wandb>=0.19.8",
   "xarray>=2025.6,<2026.4",   # Zarr 3 support; matches data/ (keeps compressor encoding for v2 writes).
-  "zarr>=3.1,<4",             # Reads both formats; writers and test fixtures emit Zarr v2.
+  "zarr>=2.18,<3",            # zarr-python 3 reads ~1.4x slower in the loader benchmarks.
 ]
 optional-dependencies.cuda = [
   "torchvision>=0.24.0a0",

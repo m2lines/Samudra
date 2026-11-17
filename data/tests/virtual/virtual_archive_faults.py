@@ -11,8 +11,8 @@ from pathlib import Path
 
 from samudra_verification.faults import Catalog, Fault
 
-DATA = Path(__file__).resolve().parents[1]
-PROPERTIES = "tests/test_virtual_archive_properties.py"
+DATA = Path(__file__).resolve().parents[2]
+PROPERTIES = "tests/virtual/test_virtual_archive_properties.py"
 
 
 def archive_fault(name, before, after, *detectors):

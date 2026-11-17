@@ -401,7 +401,7 @@ actually shipped, written as a small source substitution, together with the prop
 `Property mutation gate` workflow plants each fault and checks that one of those properties fails.
 
 To add one, append a `Fault` to the catalog next to the tests, a flat `*_faults.py` file such as
-`tests/sampler_faults.py` or `data/tests/virtual_archive_faults.py`. A new catalog needs no CI changes. Add faults only for bugs that happened or nearly did; a new property doesn't
+`tests/sampler_faults.py` or `data/tests/virtual/virtual_archive_faults.py`. A new catalog in a directory CI already gates needs no CI changes. Add faults only for bugs that happened or nearly did; a new property doesn't
 need one. Run the gate on a project's catalogs from the repository root, with a new output directory each time:
 
 ```bash

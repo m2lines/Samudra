@@ -46,9 +46,10 @@ A *campaign* is one run of a project's property suite with a fixed seed and exam
 | `Property mutation gate` | every PR checks anchors; a project's gate runs when the PR changes one of its catalogs' inputs (see below); every gate runs in the nightly soak | 40 per property in each trial |
 
 The root CPU test step skips `*_properties.py`, and a separate step runs them with `verification/tests`, so each
-property runs once per PR. The soak runs the data suite three times: twice in the `pinned` lane (`data/.test.yml`),
-once for each pandas string storage backend, and once in the `canary` lane (`data/.test-canary.yml`), so upstream
-breakage shows up early.
+property runs once per PR. The soak runs the data properties three times in the environment of
+`data/ocean_preprocessing/virtualize_om4.py` (built by `data/tests/virtual/make_env.sh`): twice in the `pinned` lane
+(the script's lock), once for each pandas string storage backend, and once in the `canary` lane (the newest versions
+its header allows), so upstream breakage shows up early.
 
 To reproduce a CI campaign, artifacts included, run from the repository root:
 

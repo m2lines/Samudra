@@ -54,3 +54,26 @@ jobs:
         run: |
           cd data/
           pytest tests -v --durations=20 --durations-min=1.0
+
+  virtual-archive:
+    # ocean_preprocessing/virtualize_om4.py needs zarr-python 3 (VirtualiZarr), so it
+    # has its own environment, built from the script's PEP 723 metadata and lock.
+    # The build job's environment skips tests/virtual.
+    if: >-
+      github.event_name != 'pull_request' || (
+        !startsWith(github.head_ref, 'experiment/') &&
+        !contains(github.event.pull_request.labels.*.name, 'experiment')
+      )
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🫙 Checkout code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: astral-sh/setup-uv@d0d8abe699bfb85fec6de9f7adb5ae17292296ff
+        with:
+          enable-cache: true
+          python-version: "3.12"
+      - name: 🌈 Build the script's environment from its lock
+        run: data/tests/virtual/make_env.sh /tmp/virtual pinned
+      - name: 🏄‍♂️ Run Tests
+        working-directory: data
+        run: /tmp/virtual/bin/python -m pytest tests/virtual -v --durations=20 --durations-min=1.0

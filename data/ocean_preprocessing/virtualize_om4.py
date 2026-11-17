@@ -2,9 +2,32 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+# This script has its own environment: VirtualiZarr needs zarr-python 3, while the
+# rest of ocean_preprocessing (and samudra) use zarr-python 2. The lock file next
+# to it (`virtualize_om4.py.lock`, from `uv lock --script`) pins every package.
+# /// script
+# requires-python = ">=3.12,<3.13"
+# dependencies = [
+#   "fire>=0.7.1",
+#   "fsspec>=2025.10",
+#   "kerchunk==0.2.10",
+#   "numcodecs>=0.15.1",
+#   "numpy>=2,<3",
+#   "obspec-utils>=0.9",
+#   "obstore>=0.12",
+#   "pandas",
+#   "pyarrow",
+#   "s3fs>=2025.10",
+#   "scipy",                     # NetCDF3 files
+#   "virtualizarr[hdf]==2.8",
+#   "xarray>=2025.6,<2026.4",
+#   "zarr>=3.1.6,<4",
+# ]
+# ///
+
 """Index native NetCDF chunks as a Parquet Kerchunk store, without rewriting data.
 
-Run with ``python -m ocean_preprocessing.virtualize_om4 --help``.
+Run with ``uv run --script data/ocean_preprocessing/virtualize_om4.py --help``.
 The local output directory can subsequently be published using rclone.
 """
 

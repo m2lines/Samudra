@@ -18,17 +18,20 @@ against. It has its own environment, dependencies, and tests. Nothing under `dat
 | Create the environment | `cd data && mamba env create -f mamba_env.yaml && mamba activate ocean_preprocessing` | xESMF needs conda-forge, so this is mamba, not uv. Installs the package and `samudra_verification` (from `verification/`) in editable mode. |
 | Update the environment | `mamba env update -n ocean_preprocessing -f mamba_env.yaml` | |
 | Install test dependencies | `mamba install pytest scipy dask pre-commit hypothesis pytest-reportlog` | `mamba_env.yaml` doesn't include them (see `data/README.md`). |
-| Run tests | `cd data && python -m pytest tests` | Runs everything, property tests included, at 40 examples each. CI (`.github/workflows/data-tests.yaml`) does the same on Python 3.12 after `pip install -e ./verification -e "./data[test]"`. |
-| Reproduce the property CI | `mamba env create -p <dir> -f data/.test.yml && mamba activate <dir>`, then `pip install --no-deps --no-build-isolation -e ./verification -e ./data` from the repository root | The pinned environment the soak and mutation gate use. It can run only the property tests (`tests/test_*_properties.py`), since it leaves out dask, xgcm, and other dependencies of the rest of the suite. |
-| Run the mutation gate | `python -m samudra_verification.gate data/tests --output <dir> --seeds 0 1 95920261105 --timeout 60 --budget 600` | From the repository root, in the property environment. Checks that the property tests detect each fault in the `*_faults.py` catalogs. See "Definition of done" in the root `AGENTS.md`. |
-| CLI help | `python -m ocean_preprocessing om4 -- --help` | Also `cm4`, `basin_masks`, `.virtualize_om4`, `.make_norm_datasets`, `.obs_preprocessing`. |
+| Run tests | `cd data && python -m pytest tests` | Runs everything except `tests/virtual`, property tests included, at 40 examples each. CI (`.github/workflows/data-tests.yaml`) does the same on Python 3.12 after `pip install -e ./verification -e "./data[test]"`. |
+| Run the `virtualize_om4` tests | `data/tests/virtual/make_env.sh <dir> && cd data && <dir>/bin/python -m pytest tests/virtual` | `ocean_preprocessing/virtualize_om4.py` needs zarr-python 3 (VirtualiZarr), so it has its own environment, built with uv from the script's PEP 723 header and `virtualize_om4.py.lock`. CI's `virtual-archive` job, the soak and the mutation gate use the same script. |
+| Run the mutation gate | `<dir>/bin/python -m samudra_verification.gate data/tests/virtual --output <out> --seeds 0 1 95920261105 --timeout 60 --budget 600` | From the repository root, in the `virtualize_om4` environment above. Checks that the property tests detect each fault in the `*_faults.py` catalogs. See "Definition of done" in the root `AGENTS.md`. |
+| CLI help | `python -m ocean_preprocessing om4 -- --help` | Also `cm4`, `basin_masks`, `.make_norm_datasets`, `.obs_preprocessing`. Virtualization: `uv run --script ocean_preprocessing/virtualize_om4.py --help`. |
 
-Dependencies live in **four places**: `data/pyproject.toml` (used by the data-test CI), `data/mamba_env.yaml` (used by
-developers), and `data/.test.yml` and `data/.test-canary.yml` (used by the property CI). Keep their version pins in
-sync when you change any of them.
+Dependencies live in **three places**: `data/pyproject.toml` (used by the data-test CI), `data/mamba_env.yaml` (used by
+developers), and the PEP 723 header of `ocean_preprocessing/virtualize_om4.py` with its lock (only that script). Keep
+the first two in sync with each other, and their shared pins (NumPy 2, `zarr<3`, xarray) in sync with the root
+`pyproject.toml`, so `samudra` and `ocean_preprocessing` install together. After changing the script's header, run
+`uv lock --script ocean_preprocessing/virtualize_om4.py`.
 
-The runtime is Zarr 3, but every store we write must be **Zarr v2**, because the published stores and the Rust
-loader use v2.
+The runtime is zarr-python 2, like `samudra`'s, and every store we write is **Zarr v2**, the format of the published
+stores and the only one the Rust loader reads. `virtualize_om4.py` is the exception: VirtualiZarr needs zarr-python 3,
+so it runs in its own environment (`uv run --script`), and its Kerchunk references still carry Zarr v2 metadata.
 
 `data/README.md` documents the pipeline stages, CLIs, and observation workflow. `docs/data.md` lists the published
 datasets. Read those before changing a pipeline stage. This file covers only what an agent needs before starting.

@@ -383,6 +383,34 @@ def test_checkpoint_ema(train_config, caplog):
     [("mock-om4", "train_default_2step.yaml")],
     indirect=True,
 )
+def test_finetune_starts_fresh_ema_with_config_decay(train_config):
+    train_config.epochs = 1
+    train_config.save_freq = 1
+    train_config.ema_decay = 0.999
+    with MultitonScope():
+        base = Trainer(train_config)
+        base.run()
+    assert int(base._ema.num_updates) > 0
+
+    train_config.resume_ckpt_path = base.ckpt_paths.latest_checkpoint_path
+    train_config.finetune = True
+    train_config.ema_decay = 0.5
+    train_config.faster_decay_at_start = False
+    with MultitonScope():
+        finetune = Trainer(train_config)
+
+    assert float(finetune._ema.decay) == 0.5
+    assert int(finetune._ema.num_updates) == 0
+    assert finetune._ema == EMATracker(
+        finetune.model, decay=0.5, faster_decay_at_start=False
+    )
+
+
+@pytest.mark.parametrize(
+    "data_source,config_name",
+    [("mock-om4", "train_default_2step.yaml")],
+    indirect=True,
+)
 def test_checkpoint_dynamic_loss_state(train_config, caplog):
     """DynamicLoss has internal rolling state; ensure it round-trips via checkpoints."""
     caplog.set_level(logging.INFO)

@@ -349,9 +349,14 @@ def test_forcing_drives_the_state_in_the_same_window(start):
     require_no_violations(coupling.response_peaks_at_lag_zero(flux, tendency, "hfds"))
 
 
+@pytest.mark.invariant(status="proposed")
 @live
 @given(start=years)
 def test_salt_is_conserved(start):
+    """Proposed: v2026-09 1 degree salt varies by 3.8e-6 over a year, with zos in the
+    top layer. Sea ice stores salt (SIS2 ice is about 5 g/kg), so the seasonal ice
+    cycle may account for ~1e-6 of it; the bound needs agreeing once that's checked.
+    """
     _, _, salt = yearly_budget("onedeg", start)
     require_no_violations(budgets.salt_drift(salt, max_relative=1e-6))
 

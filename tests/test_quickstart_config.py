@@ -54,15 +54,14 @@ def test_quickstart_notebook_is_valid_and_current():
     assert "--progress-bar off" in install_source
     assert "--no-deps" not in install_source
     assert install_source.count("!pip install") == 1
-    assert "from importlib" not in install_source
-    assert "RuntimeError" not in install_source
-    assert "restart" not in install_source
-    restart_source = cells_by_id["restart-code"].source
-    assert "loaded_numpy_version != installed_numpy_version" in restart_source
-    assert "os.kill(os.getpid(), signal.SIGKILL)" in restart_source
-    assert "Runtime → Run all once more" in restart_source
-    assert "torch.cuda.is_available()" in restart_source
-    assert "torch.backends.cuda.is_flash_attention_available()" in restart_source
+    # The only setup logic left: restart once if pip replaced a loaded NumPy.
+    assert 'numpy.__version__ != importlib.metadata.version("numpy")' in install_source
+    assert "os.kill(os.getpid(), 9)" in install_source
+    assert "Runtime → Run all again" in install_source
+    for removed_cell in ("runtime-code", "restart-code"):
+        assert removed_cell not in cells_by_id
+    assert "SUPPORTED_PYTHON" not in sources
+    assert "is_flash_attention_available" not in sources
     assert "runtime.restart_session()" not in sources
     assert "subprocess" not in sources
     assert "samudra==" not in sources
@@ -145,7 +144,6 @@ def test_quickstart_python_cells_compile():
 
     for cell in notebook.cells:
         if cell.cell_type != "code" or cell.id in {
-            "runtime-code",
             "install-code",
             "config-yaml",
         }:

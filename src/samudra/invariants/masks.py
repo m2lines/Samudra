@@ -141,7 +141,9 @@ def flattened_levels(ds: xr.Dataset, base: str) -> list[int]:
     return sorted(levels)
 
 
-def flattened_store(ds: xr.Dataset, time_index: int | None = 0) -> list[Violation]:
+def flattened_store(
+    ds: xr.Dataset, time_index: int | None = 0, fraction_atol: float = 1e-9
+) -> list[Violation]:
     """Every mask description in a flattened store agrees with every other.
 
     Checks, per level k: ``mask_k`` against the NaN pattern of each ``{var}_k``,
@@ -153,6 +155,8 @@ def flattened_store(ds: xr.Dataset, time_index: int | None = 0) -> list[Violatio
         ds: A flattened store, such as a published OM4 release.
         time_index: The time step whose fields are compared with the masks, or
             None to compare every step (expensive for large stores).
+        fraction_atol: Fractions at or below this count as land when compared
+            with the masks.
     """
     levels = flattened_levels(ds, "mask")
     if not levels:
@@ -162,32 +166,39 @@ def flattened_store(ds: xr.Dataset, time_index: int | None = 0) -> list[Violatio
         if time_index is None or "time" not in ds.dims
         else ds.isel(time=[time_index])
     )
+    masks_k = [f"mask_{k}" for k in levels]
+    fields_3d = {
+        k: [f"{base}_{k}" for base in STATE_3D if f"{base}_{k}" in ds] for k in levels
+    }
+    fields_2d = [name for name in STATE_2D if name in ds]
+    extras = [name for name in ("ocean_fraction", "areacello") if name in ds]
+    # One compute for everything, so a remote store's chunks download in parallel
+    # instead of one request at a time.
+    names = masks_k + [n for k in levels for n in fields_3d[k]] + fields_2d + extras
+    loaded = sample[names].load()
     violations: list[Violation] = []
 
-    wet = xr.concat([ds[f"mask_{k}"] for k in levels], dim="lev").load()
+    wet = xr.concat([loaded[name] for name in masks_k], dim="lev")
     violations += nest_with_depth(wet)
-    if "ocean_fraction" in ds:
-        fraction = ds["ocean_fraction"].load()
+    if "ocean_fraction" in loaded:
+        fraction = loaded["ocean_fraction"]
         violations += ocean_fraction_bounds(fraction)
         for k in levels:
             violations += mask_matches_fraction(
-                ds[f"mask_{k}"], fraction.isel(lev=k), f"mask_{k}"
+                loaded[f"mask_{k}"],
+                fraction.isel(lev=k),
+                f"mask_{k}",
+                atol=fraction_atol,
             )
 
     for k in levels:
-        mask = ds[f"mask_{k}"].load()
-        for base in STATE_3D:
-            name = f"{base}_{k}"
-            if name in ds:
-                violations += nan_matches_mask(sample[name].load(), mask, name)
-    for name in STATE_2D:
-        if name in ds:
-            violations += nan_matches_mask(
-                sample[name].load(), ds["mask_0"].load(), name
-            )
+        for name in fields_3d[k]:
+            violations += nan_matches_mask(loaded[name], loaded[f"mask_{k}"], name)
+    for name in fields_2d:
+        violations += nan_matches_mask(loaded[name], loaded["mask_0"], name)
 
-    if "areacello" in ds.coords or "areacello" in ds:
-        area = ds["areacello"].load()
+    if "areacello" in loaded.variables:
+        area = loaded["areacello"]
         bad = ~isfinite(area) | (area <= 0)
         if bad.any():
             violations.append(

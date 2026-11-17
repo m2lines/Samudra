@@ -29,6 +29,7 @@ from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
 from samudra.invariants import (
+    InvariantViolated,
     bounds,
     budgets,
     conservation,
@@ -98,7 +99,31 @@ def surface_area(ds: xr.Dataset) -> xr.DataArray:
 @live
 @given(t=steps)
 def test_store_masks_agree_with_fields_and_fractions(resolution, t):
-    require_no_violations(masks.flattened_store(store(resolution), time_index=t))
+    # Tolerates the sub-1e-6 fraction slivers that the next test pins down, so
+    # that this one still checks every field's NaN pattern at each step.
+    require_no_violations(
+        masks.flattened_store(store(resolution), time_index=t, fraction_atol=1e-6)
+    )
+
+
+@pytest.mark.xfail(
+    strict=True,
+    raises=InvariantViolated,
+    reason="Arctic cells keep ocean_fraction slivers of 1e-8 to 3e-7 where "
+    "mask_k is land: horizontal_regrid thresholds the mask but not the fraction",
+)
+@pytest.mark.parametrize("resolution", RESOLUTIONS)
+def test_store_ocean_fraction_is_zero_on_land(resolution):
+    ds = store(resolution)
+    names = [f"mask_{k}" for k in range(LEVELS)] + ["ocean_fraction"]
+    loaded = ds[names].load()
+    require_no_violations(
+        violation
+        for k in range(LEVELS)
+        for violation in masks.mask_matches_fraction(
+            loaded[f"mask_{k}"], loaded.ocean_fraction.isel(lev=k), f"mask_{k}"
+        )
+    )
 
 
 @pytest.mark.xfail(strict=True, reason="#972: areacello uses the polar radius, 6356 km")

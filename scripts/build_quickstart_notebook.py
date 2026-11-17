@@ -54,10 +54,11 @@ Choose **Runtime → Change runtime type → T4 GPU** first, then run the cell
 below. It installs the latest stable `samudra` release from PyPI; the `cuda`
 extra adds torchvision, and PyTorch supplies the GPU attention kernels.
 
-Samudra currently requires NumPy 1.x, while Colab starts with NumPy 2 already
-loaded. On the first run the cell therefore restarts the Python kernel once.
-After Colab reconnects, choose **Runtime → Run all** again; the install is then
-a no-op and the notebook runs through.
+Colab starts with NumPy already loaded. If installing Samudra changes the NumPy
+version, the cell restarts the Python kernel once so the new version takes
+effect. After Colab reconnects, choose **Runtime → Run all** again; the install
+is then a no-op and the notebook runs through. When Samudra's NumPy requirement
+matches Colab's, no restart happens.
 """
 
 INSTALL_PY = """\

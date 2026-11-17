@@ -1,0 +1,66 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Δ-norm 2→1, late + long curriculum, run as a fine-tune (#1007). Same design
+# as experiments/delta_norm_2to2_late_long_ft, matched in days.
+#
+# Starts from Δ-norm 2→1's final EMA weights: 70 epochs at 8 calls (40 days),
+# lr 6e-4 cosine to 0, stable over eight years but without OM4's 0-700 m
+# warming. The earlier curriculum fine-tune of this model (#987: 15 epochs,
+# 12 -> 24 -> 36 calls, lr 3e-5 cosine to 0, effective batch 8) removed the
+# hot spots but worsened drift and the trend. This one changes the horizon
+# more gradually, at a constant and smaller lr, at effective batch 32.
+#
+# One call is 5 days. An epoch is ~87 updates at effective batch 32.
+#
+#   epochs  1- 6   12 calls  ( 60 days)  batch 2 x accumulation 2
+#   epochs  7-12   16 calls  ( 80 days)  batch 2 x 2
+#   epochs 13-18   24 calls  (120 days)  batch 1 x 4
+#   epochs 19-24   32 calls  (160 days)  batch 1 x 4
+#   epochs 25-30   48 calls  (240 days)  batch 1 x 4   calls x batch 48: untested
+#   epochs 31-36   64 calls  (320 days)  batch 1 x 4   calls x batch 64: untested
+#
+# The largest calls x batch per GPU run so far for 2→1 is 36 (#987); a one-GPU
+# memory preflight of the last stage decides whether 48 and 64 fit.
+debug: false
+disk_mode: true
+save_freq: 6
+rollout_validation:
+  days: [360]
+  frequency: 1
+  steps_forward: 1
+validation_score: rollout_rmse
+epochs: 36
+batch_size: 2
+gradient_accumulation_steps: 2
+learning_rate: 1.0e-5
+scheduler: { type: cosine_with_tail, tail_lr: 1.0e-5, tail_epochs: 30 }
+ema_decay: 0.99
+faster_decay_at_start: false
+test_using_ema: true
+loss:
+  type: normalized_delta
+  increment_rms_location: OM4_increment_rms_wet.zarr
+finetune: true
+# Set at submission:
+#   /scratch/am16581/runs/2026-11-13-normalized-delta-2in1out/saved_nets/ema_ckpt.pt
+resume_ckpt_path: null
+data_stride: [1]
+steps:                            [12, 16, 24, 32, 48, 64]
+step_transition:                      [7, 13, 19, 25, 31]
+step_batch_size:                  [ 2,  2,  1,  1,  1,  1]
+step_gradient_accumulation_steps: [ 2,  2,  4,  4,  4,  4]
+preemptible: false
+
+backend: auto
+
+experiment:
+  name: nd2in1_late_long_ft
+  rand_seed: 15
+  base_output_dir: .LOCAL
+  wandb:
+    mode: disabled
+    project: default
+data: !include ../normalized_delta_2in1out/data.yaml
+model: !include ../normalized_delta_2in1out/model.yaml

@@ -12,13 +12,13 @@ physics behind each one.
 
 Checks fall into two groups:
 
-* Single-dataset checks (`masks`, `bounds`, `geometry`, `calendar`, `budgets`)
+* Single-dataset checks (`masks`, `bounds`, `geometry`, `timeaxis`, `budgets`)
   hold for any one correct dataset.
-* Metamorphic checks (`conservation`, `coupling`) compare two versions of the same
+* Metamorphic checks (`conservation`, `coupling`, `releases`) compare two versions of the same
   ocean, such as one field at two resolutions, before and after a pipeline step,
   or two releases, and check the relation physics says must hold between them.
 """
 
-from samudra.invariants.core import Violation, require_no_violations
+from samudra.invariants.core import InvariantViolated, Violation, require_no_violations
 
-__all__ = ["Violation", "require_no_violations"]
+__all__ = ["InvariantViolated", "Violation", "require_no_violations"]

@@ -246,11 +246,14 @@ def test_heat_budget_accepts_heat_that_enters_at_the_surface(n, seed):
     content = 1e25 + np.concatenate(
         [[0.0], np.cumsum(0.5 * (flux[1:] + flux[:-1]) * step)]
     )
+    seconds = t * step
     assert (
-        budgets.heat_budget(content, flux, min_correlation=0.8, slope_range=(0.7, 1.3))
+        budgets.heat_budget(
+            content, flux, seconds, min_correlation=0.8, slope_range=(0.7, 1.3)
+        )
         == []
     )
-    assert budgets.heat_budget(content, -flux) != []
+    assert budgets.heat_budget(content, -flux, seconds) != []
 
 
 @given(arrays(np.float32, (3, 4), elements=finite), st.data())
@@ -312,3 +315,14 @@ def test_zonal_spectra_accept_non_nested_rows_and_flag_rescaled_waves(
         )
         != []
     )
+
+
+def test_invariant_constants_match_the_model():
+    """`samudra.invariants.core` copies these so the data tests needn't install torch."""
+    from samudra import constants
+    from samudra.invariants import core
+    from samudra.metrics import kernels
+
+    assert core.SEAWATER_DENSITY == constants.RHO_0
+    assert core.SEAWATER_HEAT_CAPACITY == constants.CP_SW
+    assert core.EARTH_MEAN_RADIUS_M == kernels.EARTH_RADIUS_M

@@ -62,9 +62,13 @@ def stores_agree(
             if not np.array_equal(np.asarray(a), np.asarray(b)):
                 violations.append(Violation("releases.same_values", f"{name} differs"))
             continue
-        a_values = a.load()
-        b_values = b.load()
-        nan_differs = a_values.isnull() != b_values.isnull()
+        # Compare by position: xarray arithmetic would align on coordinates and
+        # silently drop cells whose coordinate values differ between builds.
+        a_values = np.asarray(a.load())
+        b_values = np.asarray(b.load())
+        nan_differs = xr.DataArray(
+            np.isnan(a_values) != np.isnan(b_values), dims=a.dims
+        )
         if nan_differs.any():
             violations.append(
                 Violation(
@@ -77,7 +81,7 @@ def stores_agree(
         far = xr.DataArray(~close, dims=a.dims)
         if far.any():
             worst = float(
-                np.nanmax(np.abs(np.asarray(a_values - b_values, dtype=float)))
+                np.nanmax(np.abs(a_values.astype(float) - b_values.astype(float)))
             )
             violations.append(
                 Violation(

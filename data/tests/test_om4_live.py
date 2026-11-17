@@ -306,8 +306,9 @@ def test_resolutions_share_large_scale_zonal_spectra(t):
 @functools.cache
 def yearly_budget(
     resolution: str, start: int
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Heat content, area-integrated hfds and salt content for 75 steps (a year plus each end).
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Heat content, area-integrated hfds, salt content and window centres in seconds,
+    for 75 steps (a year plus each end).
 
     The top layer is ``dz_0 + zos`` thick: freshwater that raises sea level also
     dilutes it, and the product is what the model conserves. With a fixed top
@@ -326,7 +327,9 @@ def yearly_budget(
         heat.append(float(conservation.heat_content(thetao, v_t, ["lev", "y", "x"])))
         salt.append(float(conservation.salt_content(so, v_t, ["lev", "y", "x"])))
         flux.append(float((step.hfds * a).sum()))
-    return np.array(heat), np.array(flux), np.array(salt)
+    stamps = timeaxis.as_cftime(ds.time.values)
+    seconds = np.array([timeaxis.seconds_between(stamps[0], s) for s in stamps])
+    return np.array(heat), np.array(flux), np.array(salt), seconds
 
 
 years = st.integers(0, STEPS // 73 - 2).map(lambda year: 73 * year)
@@ -335,9 +338,11 @@ years = st.integers(0, STEPS // 73 - 2).map(lambda year: 73 * year)
 @live
 @given(start=years)
 def test_heat_enters_only_at_the_surface(start):
-    heat, flux, _ = yearly_budget("onedeg", start)
+    heat, flux, _, seconds = yearly_budget("onedeg", start)
     require_no_violations(
-        budgets.heat_budget(heat, flux, min_correlation=0.95, slope_range=(0.9, 1.1))
+        budgets.heat_budget(
+            heat, flux, seconds, min_correlation=0.95, slope_range=(0.9, 1.1)
+        )
     )
 
 
@@ -345,8 +350,8 @@ def test_heat_enters_only_at_the_surface(start):
 @given(start=years)
 def test_forcing_drives_the_state_in_the_same_window(start):
     """If hfds were a step early or late, the tendency would correlate best at lag +-1."""
-    heat, flux, _ = yearly_budget("onedeg", start)
-    tendency = budgets.central_tendency(heat, 5 * 86400.0)
+    heat, flux, _, seconds = yearly_budget("onedeg", start)
+    tendency = budgets.central_tendency(heat, seconds)
     require_no_violations(coupling.response_peaks_at_lag_zero(flux, tendency, "hfds"))
 
 
@@ -358,7 +363,7 @@ def test_salt_is_conserved(start):
     top layer. Sea ice stores salt (SIS2 ice is about 5 g/kg), so the seasonal ice
     cycle may account for ~1e-6 of it; the bound needs agreeing once that's checked.
     """
-    _, _, salt = yearly_budget("onedeg", start)
+    _, _, salt, _ = yearly_budget("onedeg", start)
     require_no_violations(budgets.salt_drift(salt, max_relative=1e-6))
 
 
@@ -382,8 +387,8 @@ def test_surface_currents_follow_the_wind_like_ekman_drift(t):
 def test_heat_budget_residual_is_the_same_at_every_resolution(start):
     residuals = {}
     for r in RESOLUTIONS:
-        heat, flux, _ = yearly_budget(r, start)
-        tendency = budgets.central_tendency(heat, 5 * 86400.0)
+        heat, flux, _, seconds = yearly_budget(r, start)
+        tendency = budgets.central_tendency(heat, seconds)
         ocean_area = float(surface_area(store(r)).sum())
         residuals[r] = float(np.nanmean(tendency - flux) / ocean_area)
     require_no_violations(

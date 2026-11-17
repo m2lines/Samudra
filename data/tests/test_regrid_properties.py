@@ -67,6 +67,28 @@ def test_regrid_preserves_ocean_area_weighted_means(case):
         )
 
 
+@given(regrid_cases(), st.integers(0, 2**32 - 1))
+def test_regrid_keeps_the_volume_of_partial_cells(case, seed):
+    """With dz(lev, y, x) from partial bottom cells, areacello * ocean_fraction * dz keeps each layer's volume."""
+    ds, coarse, _ = case
+    rng = np.random.default_rng(seed)
+    dz = xr.DataArray(
+        rng.uniform(1.0, 100.0, ds.wetmask.shape), dims=ds.wetmask.dims
+    ).where(ds.wetmask, 0.0)
+    out = horizontal_regrid(ds.assign_coords(dz=dz), coarse)
+    assert out.dz.dims == ("lev", "y", "x")
+    require_no_violations(
+        conservation.integral_preserved(
+            dz,
+            fine_areas(ds) * 1e6 * ds.wetmask,  # km2 to areacello's m2
+            out.dz,
+            out.areacello * out.ocean_fraction,
+            "volume",
+            rtol=1e-6,
+        )
+    )
+
+
 @given(regrid_cases())
 def test_regrid_creates_no_new_extremes_or_variance(case):
     ds, coarse, _ = case

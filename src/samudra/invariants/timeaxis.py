@@ -252,7 +252,10 @@ def window_mean_preserved(
     """
     fine_b = [(as_cftime([s])[0], as_cftime([e])[0]) for s, e in np.asarray(fine_bnds)]
     violations = []
-    for j, (cs, ce) in enumerate(np.asarray(coarse_bnds)):
+    coarse_b = [
+        (as_cftime([s])[0], as_cftime([e])[0]) for s, e in np.asarray(coarse_bnds)
+    ]
+    for j, (cs, ce) in enumerate(coarse_b):
         weights = np.array(
             [max(0.0, seconds_between(max(fs, cs), min(fe, ce))) for fs, fe in fine_b]
         )

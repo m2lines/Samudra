@@ -218,6 +218,8 @@ def zonal_spectra_agree(
     name: str,
     resolved_fraction: float = 0.125,
     rtol: float = 0.05,
+    x_dim: str = "x",
+    y_dim: str = "y",
 ) -> list[Violation]:
     """Zonal spectra of a fully wet latitude band agree at wavenumbers both grids resolve.
 
@@ -226,8 +228,8 @@ def zonal_spectra_agree(
     coarse power must lie between that attenuation and the fine power, within
     ``rtol``. ``*_lat_b`` are each grid's row edges (see `band_zonal_spectrum`).
     """
-    fine_power = band_zonal_spectrum(fine, fine_lat_b, band)
-    coarse_power = band_zonal_spectrum(coarse, coarse_lat_b, band)
+    fine_power = band_zonal_spectrum(fine, fine_lat_b, band, x_dim, y_dim)
+    coarse_power = band_zonal_spectrum(coarse, coarse_lat_b, band, x_dim, y_dim)
     n_coarse = 2 * (coarse_power.size - 1)
     k_max = max(1, int(resolved_fraction * n_coarse))
     k = np.arange(1, k_max + 1)

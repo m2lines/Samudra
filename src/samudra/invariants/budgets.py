@@ -14,7 +14,7 @@ resolution comes from processing.
 import numpy as np
 import xarray as xr
 
-from samudra.invariants.core import SECONDS_PER_DAY, Violation, weighted_mean
+from samudra.invariants.core import Violation, weighted_mean
 
 
 def area_mean_sea_level(
@@ -35,22 +35,26 @@ def area_mean_sea_level(
     ]
 
 
-def central_tendency(series: np.ndarray, step_seconds: float) -> np.ndarray:
+def central_tendency(series: np.ndarray, seconds: np.ndarray) -> np.ndarray:
     """Central difference of a series of window means, per second; NaN at both ends.
 
     The difference between means of windows i-1 and i+1 spans the middle of
-    window i, so it pairs with window i's mean flux.
+    window i, so it pairs with window i's mean flux. ``seconds`` are the window
+    centres, so a 6-day step across a leap-year boundary is divided correctly.
     """
     series = np.asarray(series, dtype=float)
+    seconds = np.asarray(seconds, dtype=float)
+    if seconds.shape != series.shape:
+        raise ValueError(f"{seconds.shape} times for {series.shape} values")
     tendency = np.full_like(series, np.nan)
-    tendency[1:-1] = (series[2:] - series[:-2]) / (2 * step_seconds)
+    tendency[1:-1] = (series[2:] - series[:-2]) / (seconds[2:] - seconds[:-2])
     return tendency
 
 
 def heat_budget(
     heat_content: np.ndarray,
     surface_heat_flux: np.ndarray,
-    step_days: float = 5.0,
+    seconds: np.ndarray,
     min_correlation: float = 0.9,
     slope_range: tuple[float, float] = (0.8, 1.2),
 ) -> list[Violation]:
@@ -60,11 +64,11 @@ def heat_budget(
         heat_content: Global (or closed-basin) heat content per step, in J.
         surface_heat_flux: Area-integrated net surface heat flux per step, in W,
             positive into the ocean.
-        step_days: Spacing of the window means.
+        seconds: Centre of each window, in seconds from any origin.
         min_correlation: Lowest acceptable correlation between the two series.
         slope_range: Acceptable regression slope of tendency on flux.
     """
-    tendency = central_tendency(heat_content, step_days * SECONDS_PER_DAY)
+    tendency = central_tendency(heat_content, seconds)
     flux = np.asarray(surface_heat_flux, dtype=float)
     ok = np.isfinite(tendency) & np.isfinite(flux)
     if ok.sum() < 3:

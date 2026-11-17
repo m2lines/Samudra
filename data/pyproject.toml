@@ -69,7 +69,7 @@ optional-dependencies.test = [
   # samudra-verification is a local project, not a PyPI package, so install it
   # separately: pip install -e ./verification
   "pytest-reportlog>=1",
-  "samudra",             # samudra.invariants: ocean-physics checks shared with the model.
+  "samudra",             # samudra.invariants; install this checkout (pip install -e .), not PyPI's.
   "scipy",               # Write NetCDF3 fixtures for the virtualization tests.
 ]
 

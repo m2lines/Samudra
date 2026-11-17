@@ -217,6 +217,15 @@ def horizontal_regrid(ds, ds_target):
     ocean_frac = regridder(ds.wetmask.astype("float64")).fillna(0.0)
 
     ds_regridded = ds_regridded.drop_vars(["lon_b", "lat_b"])
+    if "dz" in ds.coords and {"y", "x"} <= set(ds["dz"].dims):
+        # Partial cells (account_for_partial_depths) make dz vary horizontally,
+        # and the regridder drops such coordinates. Average each layer's wet
+        # thickness over the target cell's ocean part, so that
+        # areacello * ocean_fraction * dz keeps the source volume.
+        dz = regridder(
+            ds["dz"].where(ds.wetmask).astype("float64"), skipna=True, na_thres=1
+        )
+        ds_regridded = ds_regridded.assign_coords(dz=dz.fillna(0.0))
     ds_regridded = ds_regridded.assign_coords(
         lon=lon,
         lat=lat,

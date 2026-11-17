@@ -174,6 +174,13 @@ def transplant_wfo(
             ) from error
 
     interval_ends = bounds.isel(nv=1, drop=True)
+    donor_calendars = {getattr(t, "calendar", None) for t in donor["time"].values}
+    recipient_calendars = {getattr(t, "calendar", None) for t in interval_ends.values}
+    if donor_calendars != recipient_calendars:
+        raise ValueError(
+            f"OM4 freshwater-flux donor uses calendar(s) {sorted(map(str, donor_calendars))}, "
+            f"but the recipient uses {sorted(map(str, recipient_calendars))}"
+        )
     if not np.array_equal(donor["time"].values, interval_ends.values):
         raise ValueError(
             "OM4 freshwater-flux donor timestamps must exactly match the upper "

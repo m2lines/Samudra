@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794947797750,
+  "lastUpdate": 1794947805103,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -27255,6 +27255,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.06457037898079346",
             "extra": "mean: 11.41705712439998 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "e05cb358b5529e014a16726423588b5ecbf98554",
+          "message": "Fix PhysicsNeMo container exceeding Docker's layer limit (#1015)\n\nContainer CI has failed on `main` since #963 with `failed to register\nlayer: max depth exceeded`. Docker refuses to pull an image with more\nthan 125 layers. NVIDIA's PhysicsNeMo base image already uses about 111,\nand #963's added `COPY verification` step took our image from 125 layers\nto 126. This PR reduces our own layers from 14 to 4, which leaves about\n10 layers of headroom. It also makes the build script fail when an image\ngoes over the limit, so CI reports the problem at build time and not\nafter the image is published. Written by Claude Code (Claude Opus 5.5).\n\n<details>\n<summary>Diagnosis, changes and validation</summary>\n\n**Diagnosis**\n\nLayer counts come from the published amd64 GHCR manifests:\n\n| Commit | Layers | Container tests |\n| --- | --- | --- |\n| `34da2024` (before #963) | 125 | pass |\n| `8f68424f` (#963) onwards, incl. `b9e3e98e` (v0.2.0) | 126 | fail on\n`docker pull` |\n\nDocker's layer store has a maximum depth of 125 (`maxLayerDepth` in\nmoby). A local build and push can still succeed with more layers,\nbecause only registering the layers on pull hits the limit. The image\nbuilt and published fine, then the GPU test runner couldn't pull it.\n\n**Changes**\n\n- `containers/Dockerfile.physicsnemo-26.05`:\n- A `FROM scratch AS sources` stage collects the same files as before,\nand the final image takes them with one `COPY --from=sources`. That\nturns 9 layers into 1, and the files and their paths are unchanged.\n- Directory setup, `verify_image_packages.py`, venv creation and `uv\nsync` now run as one `RUN` step instead of four, in the same order.\n- `scripts/container/build_physicsnemo_26_05.sh`: after building, it\ncounts the image's layers with `docker image inspect` and exits with an\nerror if there are more than 125. CI and local builds both use this\nscript.\n\nThis doesn't affect the PyPI package, which is built from `src/` only.\nv0.2.0 is unaffected.\n\n**Validation**\n\n- `bash -n` on the script. `hadolint` reports nothing new; its pipefail\nwarning is about the existing `curl | sh` rustup install.\n- Pre-commit passes on the changed files.\n- I couldn't build the image locally because Docker isn't installed. PR\nCI builds it, and the new check prints the layer count in that log. That\ncount should be 116, down from 126.\n- PR CI doesn't pull the image the way the failing step on `main` does.\nThe first `main` run after this merges will confirm it.\n\n</details>\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-authored-by: Claude Opus 5.5 <noreply@anthropic.com>",
+          "timestamp": "2026-11-17T20:11:21Z",
+          "tree_id": "c54d3df17ec925ad87ba4d32ab1d678a2241725a",
+          "url": "https://github.com/m2lines/Samudra/commit/e05cb358b5529e014a16726423588b5ecbf98554"
+        },
+        "date": 1794947804729,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 1.0381723312973652,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0023143829884816015",
+            "extra": "mean: 963.2312188000014 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_dataset__1gb[cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.3363127478538655,
+            "unit": "iter/sec",
+            "range": "stddev: 0.006837690834583302",
+            "extra": "mean: 2.9734228225999915 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.08753383562118396,
+            "unit": "iter/sec",
+            "range": "stddev: 0.03428980259628939",
+            "extra": "mean: 11.424153790400009 sec\nrounds: 5"
           }
         ]
       }

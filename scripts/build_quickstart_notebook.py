@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Generate ``notebooks/quickstart.ipynb`` from reviewable cell sources.
+"""Generate ``notebooks/samudra-quickstart.ipynb`` from reviewable cell sources.
 
 Run this script whenever a quickstart cell changes:
 
@@ -15,7 +15,7 @@ from pathlib import Path
 import nbformat as nbf
 
 REPO = Path(__file__).resolve().parent.parent
-OUT = REPO / "notebooks" / "quickstart.ipynb"
+OUT = REPO / "notebooks" / "samudra-quickstart.ipynb"
 
 
 INTRO_MD = """\
@@ -513,7 +513,7 @@ def main(*, check: bool = False) -> None:
     if check:
         if not OUT.exists() or nbf.read(OUT, as_version=4) != notebook:
             raise SystemExit(
-                "notebooks/quickstart.ipynb is stale; run "
+                "notebooks/samudra-quickstart.ipynb is stale; run "
                 "`uv run python scripts/build_quickstart_notebook.py`"
             )
         print(f"{OUT.relative_to(REPO)} is current")

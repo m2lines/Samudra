@@ -18,7 +18,9 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
 def test_quickstart_notebook_is_valid_and_current():
-    notebook = nbformat.read(REPO_ROOT / "notebooks" / "quickstart.ipynb", as_version=4)
+    notebook = nbformat.read(
+        REPO_ROOT / "notebooks" / "samudra-quickstart.ipynb", as_version=4
+    )
     nbformat.validate(notebook)
     subprocess.run(
         [
@@ -142,7 +144,9 @@ def test_quickstart_notebook_is_valid_and_current():
 
 
 def test_quickstart_python_cells_compile():
-    notebook = nbformat.read(REPO_ROOT / "notebooks" / "quickstart.ipynb", as_version=4)
+    notebook = nbformat.read(
+        REPO_ROOT / "notebooks" / "samudra-quickstart.ipynb", as_version=4
+    )
 
     for cell in notebook.cells:
         if cell.cell_type != "code" or cell.id in {
@@ -150,7 +154,7 @@ def test_quickstart_python_cells_compile():
             "config-yaml",
         }:
             continue
-        compile(cell.source, f"notebooks/quickstart.ipynb:{cell.id}", "exec")
+        compile(cell.source, f"notebooks/samudra-quickstart.ipynb:{cell.id}", "exec")
 
 
 def test_quickstart_yaml_config_validates(tmp_path):

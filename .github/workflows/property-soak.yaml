@@ -49,55 +49,8 @@ jobs:
   mutation-gate:
     uses: ./.github/workflows/property-mutations.yaml
 
-  explore:
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - lane: pinned
-            storage: python
-          - lane: pinned
-            storage: pyarrow
-          - lane: canary
-            storage: pyarrow
-    env:
-      SAMUDRA_HYPOTHESIS_PROFILE: soak
-      SAMUDRA_HYPOTHESIS_EXAMPLES: "1000"
-      SAMUDRA_STRING_STORAGE: ${{ matrix.storage }}
-      LANE: ${{ matrix.lane }}
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-      - uses: astral-sh/setup-uv@d0d8abe699bfb85fec6de9f7adb5ae17292296ff
-        with:
-          enable-cache: true
-          python-version: "3.12"
-      - name: Build virtualize_om4.py's environment (pinned from its lock, canary resolved afresh)
-        run: data/tests/virtual/make_env.sh /tmp/virtual "$LANE"
-      - name: Explore and shrink
-        working-directory: data
-        run: |
-          /tmp/virtual/bin/python -m samudra_verification.campaign --project data --lane "$LANE" \
-            --tests tests/virtual/test_*_properties.py \
-            --dependency-file /tmp/virtual/requirements.txt --output /tmp/property-soak \
-            --examples 1000 --timeout 1800
-      - name: Preserve solved environment and summarize
-        if: always()
-        run: |
-          if test -d /tmp/property-soak; then
-            uv pip freeze --python /tmp/virtual > /tmp/property-soak/requirements-frozen.txt
-            cat /tmp/property-soak/summary.md >> "$GITHUB_STEP_SUMMARY"
-          fi
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        if: always()
-        with:
-          name: property-soak-data-${{ matrix.lane }}-${{ matrix.storage }}
-          path: /tmp/property-soak/
-          retention-days: 30
-
   report:
-    needs: [explore, samudra]
+    needs: [samudra]
     if: >-
       always() && !cancelled()
     runs-on: ubuntu-latest

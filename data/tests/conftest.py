@@ -38,8 +38,8 @@ def _in_virtualize_environment() -> bool:
 
 
 # tests/virtual covers ocean_preprocessing/virtualize_om4.py, which runs in its own
-# environment (see the script's header and tests/virtual/make_env.sh). CI builds that
-# environment for these tests; everywhere else, they aren't collected.
+# environment (the script's PEP 723 header). CI doesn't run them; data/AGENTS.md has
+# the command that does. Everywhere else, they aren't collected.
 collect_ignore = [] if _in_virtualize_environment() else ["virtual"]
 
 

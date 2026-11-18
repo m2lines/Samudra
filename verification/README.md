@@ -46,10 +46,8 @@ A *campaign* is one run of a project's property suite with a fixed seed and exam
 | `Property mutation gate` | every PR checks anchors; a project's gate runs when the PR changes one of its catalogs' inputs (see below); every gate runs in the nightly soak | 40 per property in each trial |
 
 The root CPU test step skips `*_properties.py`, and a separate step runs them with `verification/tests`, so each
-property runs once per PR. The soak runs the data properties three times in the environment of
-`data/ocean_preprocessing/virtualize_om4.py` (built by `data/tests/virtual/make_env.sh`): twice in the `pinned` lane
-(the script's lock), once for each pandas string storage backend, and once in the `canary` lane (the newest versions
-its header allows), so upstream breakage shows up early.
+property runs once per PR. The properties of `data/ocean_preprocessing/virtualize_om4.py` (in `data/tests/virtual`)
+run only by hand; `data/AGENTS.md` has the command.
 
 To reproduce a CI campaign, artifacts included, run from the repository root:
 
@@ -100,9 +98,10 @@ fresh pytest process under one condition:
 Each trial records its verdict and reason in `results.json`.
 
 `gate --plan <directory>` runs nothing: it checks every anchor and prints each catalog's inputs (the catalog, its
-target modules, and its detectors' test files). The workflow's `plan` job runs it for `tests` and `data/tests` on
+target modules, and its detectors' test files). The workflow's `plan` job runs it for `tests` on
 every PR, and starts a project's gate job when the PR changes one of those inputs, the project's environment or
-conftest, or `verification/`. A new project needs one line in that job's project list. `data/AGENTS.md` has the command for the data catalogs.
+conftest, or `verification/`. A new project needs one line in that job's project list. `data/AGENTS.md` has the command for the data catalog, which
+CI doesn't gate.
 
 ## Triage
 

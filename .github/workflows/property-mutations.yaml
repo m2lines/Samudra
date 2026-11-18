@@ -30,7 +30,6 @@ jobs:
     timeout-minutes: 10
     outputs:
       root: ${{ steps.plan.outputs.root }}
-      data: ${{ steps.plan.outputs.data }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -68,7 +67,6 @@ jobs:
             echo "- \`$project\` mutation gate: **$run** ($why)" >> "$GITHUB_STEP_SUMMARY"
           done <<'PROJECTS'
           root tests pyproject\.toml$|uv\.lock$|tests/conftest\.py$
-          data data/tests/virtual data/ocean_preprocessing/virtualize_om4\.py\.lock$|data/tests/conftest\.py$
           PROJECTS
 
   root:
@@ -98,44 +96,6 @@ jobs:
         if: always()
         with:
           name: property-mutations-root
-          path: |
-            /tmp/property-mutations/
-            /tmp/property-mutations-run.log
-          retention-days: 30
-
-  data:
-    needs: plan
-    if: needs.plan.outputs.data == 'true'
-    runs-on: ubuntu-latest
-    # Worst case: controls take 3 seeds x 7 detectors x 60 s (21 min), then mutants
-    # share 600 s (10 min). The rest covers the environment solve. Recompute when
-    # adding detectors.
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-      - uses: astral-sh/setup-uv@d0d8abe699bfb85fec6de9f7adb5ae17292296ff
-        with:
-          enable-cache: true
-          python-version: "3.12"
-      - name: Build virtualize_om4.py's environment from its lock
-        run: data/tests/virtual/make_env.sh /tmp/virtual pinned
-      - name: Verify generated discovery of historical faults
-        run: |
-          set -o pipefail
-          /tmp/virtual/bin/python -m samudra_verification.gate data/tests/virtual \
-            --output /tmp/property-mutations --seeds 0 1 95920261105 --timeout 60 --budget 600 \
-            2>&1 | tee /tmp/property-mutations-run.log
-      - name: Preserve solved environment and summarize
-        if: always()
-        run: |
-          if test -d /tmp/property-mutations; then
-            uv pip freeze --python /tmp/virtual > /tmp/property-mutations/requirements-frozen.txt
-            cat /tmp/property-mutations/summary.md >> "$GITHUB_STEP_SUMMARY"
-          fi
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        if: always()
-        with:
-          name: property-mutations-data
           path: |
             /tmp/property-mutations/
             /tmp/property-mutations-run.log

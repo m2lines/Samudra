@@ -16,9 +16,7 @@ REPLAY = "replay.json"
 class Lane(StrEnum):
     """Which dependency set a campaign ran against."""
 
-    PINNED = (
-        "pinned"  # A lock (uv.lock, or a script lock such as virtualize_om4.py.lock).
-    )
+    PINNED = "pinned"  # A lock or an environment file with exact versions.
     CANARY = "canary"  # Floats within the supported ranges, resolved afresh.
 
 

@@ -97,8 +97,11 @@ To update an existing environment, run from `data/`:
 mamba env update -n ocean_preprocessing -f mamba_env.yaml
 ```
 
-This upgrades older Python 3.11 environments to Python 3.12 and NumPy 2. The commands in this README work from any directory once the
-package is installed and the environment is active.
+This upgrades older Python 3.11 environments to Python 3.12 and NumPy 2. The
+`python -m ocean_preprocessing...` commands work from any directory once the
+package is installed and the environment is active. The
+`uv run --script ocean_preprocessing/virtualize_om4.py` examples take a path
+relative to `data/`, so run them from there.
 
 ## Virtualizing the original OM4 NetCDF archive
 
@@ -123,8 +126,8 @@ uv run --script ocean_preprocessing/virtualize_om4.py \
   s3://m2lines-pubs/Samudra/raw/OM4-5daily ./om4-native.parquet
 ```
 
-`uv run --script` builds the script's environment from its PEP 723 header and the
-lock next to it (`virtualize_om4.py.lock`), so it needs only
+Run this from `data/`. `uv run --script` builds the script's environment from its
+PEP 723 header, which pins its direct dependencies exactly, so it needs only
 [uv](https://docs.astral.sh/uv/), not the mamba environment.
 
 Local source directories are also supported. For file selection, static grid

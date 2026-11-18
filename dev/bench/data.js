@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795041749491,
+  "lastUpdate": 1795045690068,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -13713,6 +13713,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.27286843960577756",
             "extra": "mean: 17.528856589600004 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "e0f0f0b2b64bd5c65f56b16c1e31348ea8596da9",
+          "message": "Recommend blobless clones in the contributing guide (#1025)\n\nFull clones of this repo are slow because old commits contain about 240\nMB of evaluation GIFs that were later deleted. This PR updates\n`docs/contributing.md` to clone with `--filter=blob:none` and adds a\nshort note explaining why. Written by Claude Code (Claude Opus 5.5).\n\n<details>\n<summary>Details</summary>\n\n**What changed.** The TL;DR block and step 2 of the contributing guide\nnow use `git clone --filter=blob:none` (and `gh repo clone\nm2lines/Samudra -- --filter=blob:none`). A blockquote under step 2\nexplains the flag.\n\n**Why not rewrite history?** Removing the GIFs with `git filter-repo`\nwould change the hash of nearly every commit since April 2024\n(`1a9df51b` added them). W&B runs and the `m2lines/samudra_git_hash`\nattribute in published datasets record those hashes, so a rewrite would\nbreak provenance.\n\n**Measurements** (from one machine, so treat them as rough):\n- Full clone over HTTPS: failed with `fatal: early EOF` after 3,633 s.\n- Blobless clone: finished in 196 s, `.git` = 35 MB.\n- The GIFs take up about 237 MB of the ~372 MB compressed `main`\nhistory.\n\nThe existing `check-added-large-files --maxkb=250` pre-commit hook\nalready stops new large files from being committed.\n\n</details>\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\n---------\n\nCo-authored-by: Claude Opus 5.5 <noreply@anthropic.com>",
+          "timestamp": "2026-11-18T23:15:40Z",
+          "tree_id": "418d7c14346a567e8c9a1b8201c977440c665e5e",
+          "url": "https://github.com/m2lines/Samudra/commit/e0f0f0b2b64bd5c65f56b16c1e31348ea8596da9"
+        },
+        "date": 1795045688068,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 1.048226487021553,
+            "unit": "iter/sec",
+            "range": "stddev: 0.007525055561126736",
+            "extra": "mean: 953.9923025999997 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_dataset__1gb[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.33617206699494845,
+            "unit": "iter/sec",
+            "range": "stddev: 0.09707779830864198",
+            "extra": "mean: 2.9746671367999964 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.05686819374273582,
+            "unit": "iter/sec",
+            "range": "stddev: 0.42273860923104034",
+            "extra": "mean: 17.58452193019999 sec\nrounds: 5"
           }
         ]
       }

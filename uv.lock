@@ -3416,7 +3416,7 @@ requires-dist = [
     { name = "netcdf4", specifier = ">=1.7" },
     { name = "numpy", specifier = ">=1.26.4,<2" },
     { name = "pandas", specifier = ">=2.2" },
-    { name = "pyarrow", specifier = ">=18" },
+    { name = "pyarrow", specifier = ">=18,<26" },
     { name = "pydantic-settings", specifier = ">=2.8.1" },
     { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "s3fs", specifier = ">=2025.5.1" },

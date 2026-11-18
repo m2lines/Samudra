@@ -239,8 +239,10 @@ DATA_MD = """\
 The YAML points to `OM4.zarr`, `OM4_means.zarr`, and `OM4_stds.zarr` in the
 public `s3://m2lines-pubs/Samudra/v2026-09/om4_twodeg/` directory. The cell
 opens remote metadata, selects the exact train and validation windows, and
-loads the first frame's ocean-mean sea-surface height as a connectivity check. Only the selected
-chunks stream into Colab.
+loads the first frame's area-weighted global-mean sea-surface height (`zos`) as
+a connectivity check. Following the CMIP convention, `zos` is dynamic sea level
+with its global area-weighted mean removed, so this value should be close to
+zero. Only the selected chunks stream into Colab.
 
 These locations match Samudra's bundled
 [`data/om4_demo.yaml`](https://github.com/m2lines/Samudra/blob/main/src/samudra/configs/data/om4_demo.yaml).
@@ -273,8 +275,11 @@ assert (ds.sizes[lat_dim], ds.sizes[lon_dim]) == (90, 180)
 assert expected_variables.issubset(ds.data_vars)
 assert train_window.sizes["time"] == 17
 assert val_window.sizes["time"] == 7
-# Land cells are NaN, so probe the ocean mean of the first frame.
-probe = train_window["zos"].isel(time=0).mean().load()
+# Global statistics must be area-weighted: high-latitude cells are smaller.
+# Land cells are NaN and drop out of both the sum and the weights.
+first_zos = train_window["zos"].isel(time=0)
+probe = first_zos.weighted(ds["areacello"].fillna(0)).mean().load()
+assert abs(probe.item()) < 0.05, "area-mean sea-surface height should be ~0 m"
 
 display(Markdown(
     "| Observed experiment setting | Selected value | YAML control |\\n"
@@ -290,7 +295,7 @@ display(Markdown(
     f"| Batch size | {cfg.batch_size} | `batch_size` |"
 ))
 print(f"Anonymous stream: {source.data_location}")
-print(f"Connectivity probe — ocean-mean zos of the first frame: {probe.item():.3f} m")
+print(f"Connectivity probe — area-weighted mean zos of the first frame: {probe.item():.4f} m (≈ 0, as expected)")
 print("Requested chunks streamed directly from public storage.")
 ds.close()
 """

@@ -108,9 +108,12 @@ def main() -> None:
     assert (ds.sizes[lat_dim], ds.sizes[lon_dim]) == (90, 180), dict(ds.sizes)
     assert train.sizes["time"] == 17, dict(train.sizes)
 
-    ocean_mean_zos = float(train["zos"].isel(time=0).mean().load())
-    assert math.isfinite(ocean_mean_zos), ocean_mean_zos
-    print(f"Public OM4 store ok: ocean-mean zos {ocean_mean_zos:.3f} m")
+    # Area-weighted: high-latitude cells are smaller. NaN (land) cells drop out
+    # of both the sum and the weights. CMIP `zos` has its global mean removed.
+    first_zos = train["zos"].isel(time=0)
+    mean_zos = float(first_zos.weighted(ds["areacello"].fillna(0)).mean().load())
+    assert math.isfinite(mean_zos) and abs(mean_zos) < 0.05, mean_zos
+    print(f"Public OM4 store ok: area-weighted mean zos {mean_zos:.4f} m (~0)")
     ds.close()
 
     _check_parquet_round_trip()

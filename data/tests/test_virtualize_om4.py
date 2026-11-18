@@ -2,7 +2,20 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+# ruff: noqa: E402  (imports follow the environment check)
+
 """Validate the package virtualization entrypoint and reference stores."""
+
+import pytest
+import zarr
+
+# virtualize_om4.py runs in its own environment, the only one with zarr-python 3
+# (VirtualiZarr). CI doesn't run these tests; data/AGENTS.md has the command that does.
+if int(zarr.__version__.split(".")[0]) < 3:
+    pytest.skip(
+        "needs virtualize_om4.py's environment (zarr-python 3); see data/AGENTS.md",
+        allow_module_level=True,
+    )
 
 import json
 import subprocess
@@ -10,7 +23,6 @@ import sys
 
 import fsspec
 import numpy as np
-import pytest
 import xarray as xr
 from fsspec.implementations.reference import LazyReferenceMapper
 from ocean_preprocessing.virtualize_om4 import (

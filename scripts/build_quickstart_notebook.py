@@ -68,7 +68,7 @@ matches Colab's, no restart happens.
 """
 
 INSTALL_PY = """\
-!pip install --quiet --progress-bar off "samudra[cuda]"
+!pip install --quiet "samudra[cuda]"
 
 import importlib.metadata, os, numpy
 if numpy.__version__ != importlib.metadata.version("numpy"):

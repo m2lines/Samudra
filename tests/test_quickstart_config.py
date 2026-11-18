@@ -53,7 +53,7 @@ def test_quickstart_notebook_is_valid_and_current():
 
     install_source = cells_by_id["install-code"].source
     assert '"samudra[cuda]"' in install_source
-    assert "--progress-bar off" in install_source
+    assert "--quiet" in install_source
     assert "--no-deps" not in install_source
     assert install_source.count("!pip install") == 1
     # The only setup logic left: restart once if pip replaced a loaded NumPy.

@@ -174,6 +174,7 @@ def test_immutable_environment_uses_verified_commit_provenance(monkeypatch):
     monkeypatch.setenv("SAMUDRA_CODE_COMMIT", "A" * 40)
     provenance = _git_provenance(allow_dirty=False)
 
+    assert provenance is not None
     assert provenance["commit"] == "a" * 40
     assert provenance["dirty"] is False
 
@@ -185,6 +186,45 @@ def test_immutable_environment_rejects_ambiguous_commit(monkeypatch):
 
     with pytest.raises(ValueError, match="full 40-character Git SHA"):
         _git_provenance(allow_dirty=False)
+
+
+def _without_git_checkout(monkeypatch, *, editable: bool) -> None:
+    monkeypatch.setattr(
+        "samudra.search.successive_halving._git_provenance", lambda **kw: None
+    )
+    monkeypatch.setattr(
+        "samudra.search.successive_halving._is_editable_install", lambda: editable
+    )
+
+
+def test_local_search_from_package_install_records_package_version(monkeypatch):
+    from samudra.search.state import ProvenanceState
+    from samudra.search.successive_halving import _code_provenance
+
+    _without_git_checkout(monkeypatch, editable=False)
+    provenance = ProvenanceState.model_validate(
+        _code_provenance(allow_dirty=False, local=True)
+    )
+
+    assert provenance.source == "package"
+    assert provenance.commit is None
+    assert provenance.package_version
+
+
+def test_slurm_search_without_git_checkout_fails(monkeypatch):
+    from samudra.search.successive_halving import _code_provenance
+
+    _without_git_checkout(monkeypatch, editable=False)
+    with pytest.raises(ValueError, match="Cannot identify the code"):
+        _code_provenance(allow_dirty=False, local=False)
+
+
+def test_editable_install_without_git_checkout_fails(monkeypatch):
+    from samudra.search.successive_halving import _code_provenance
+
+    _without_git_checkout(monkeypatch, editable=True)
+    with pytest.raises(ValueError, match="Cannot identify the code"):
+        _code_provenance(allow_dirty=False, local=True)
 
 
 def test_start_snapshots_resolved_candidate_configs(tmp_path, monkeypatch):

@@ -40,3 +40,13 @@ and [token permissions](https://docs.aws.amazon.com/cli/latest/reference/ecr-pub
 AWS credentials authenticate ECR pulls only. Published Samudra images on GHCR
 continue to use the existing GitHub-token login; the NVIDIA PhysicsNeMo base
 image is pulled from NGC. Jobs that do not pull ECR images do not need AWS access.
+
+# Fresh-install smoke test
+
+Every other job installs from `uv.lock`. `workflows/fresh-install.yml` instead
+installs samudra from PyPI with normal dependency resolution every Monday, after
+the nightly publish, and runs `scripts/fresh_install_smoke.py`. That script
+imports the package, validates the Colab quickstart config, opens the public 2°
+OM4 store and round-trips a Parquet file. A failure means a new upstream release
+breaks `pip install samudra` for users. Run it by hand with a version spec from
+**Actions → Fresh install → Run workflow**.

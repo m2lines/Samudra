@@ -18,7 +18,9 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
 def test_quickstart_notebook_is_valid_and_current():
-    notebook = nbformat.read(REPO_ROOT / "notebooks" / "quickstart.ipynb", as_version=4)
+    notebook = nbformat.read(
+        REPO_ROOT / "notebooks" / "samudra-quickstart.ipynb", as_version=4
+    )
     nbformat.validate(notebook)
     subprocess.run(
         [
@@ -51,18 +53,19 @@ def test_quickstart_notebook_is_valid_and_current():
 
     install_source = cells_by_id["install-code"].source
     assert '"samudra[cuda]"' in install_source
-    assert "--progress-bar off" in install_source
+    assert "--quiet" in install_source
     assert "--no-deps" not in install_source
     assert install_source.count("!pip install") == 1
-    assert "from importlib" not in install_source
-    assert "RuntimeError" not in install_source
-    assert "restart" not in install_source
-    restart_source = cells_by_id["restart-code"].source
-    assert "loaded_numpy_version != installed_numpy_version" in restart_source
-    assert "os.kill(os.getpid(), signal.SIGKILL)" in restart_source
-    assert "Runtime → Run all once more" in restart_source
-    assert "torch.cuda.is_available()" in restart_source
-    assert "torch.backends.cuda.is_flash_attention_available()" in restart_source
+    # The only setup logic left: restart once if pip replaced a loaded NumPy.
+    assert 'numpy.__version__ != importlib.metadata.version("numpy")' in install_source
+    assert "os.kill(os.getpid(), 9)" in install_source
+    assert "Runtime → Run all again" in install_source
+    for removed_cell in ("runtime-code", "restart-code"):
+        assert removed_cell not in cells_by_id
+    assert "SUPPORTED_PYTHON" not in sources
+    # Samudra requires Python 3.12; Colab's newer runtimes use 3.13.
+    assert "**Runtime version:** 2026.07" in cells_by_id["setup"].source
+    assert "is_flash_attention_available" not in sources
     assert "runtime.restart_session()" not in sources
     assert "subprocess" not in sources
     assert "samudra==" not in sources
@@ -141,16 +144,17 @@ def test_quickstart_notebook_is_valid_and_current():
 
 
 def test_quickstart_python_cells_compile():
-    notebook = nbformat.read(REPO_ROOT / "notebooks" / "quickstart.ipynb", as_version=4)
+    notebook = nbformat.read(
+        REPO_ROOT / "notebooks" / "samudra-quickstart.ipynb", as_version=4
+    )
 
     for cell in notebook.cells:
         if cell.cell_type != "code" or cell.id in {
-            "runtime-code",
             "install-code",
             "config-yaml",
         }:
             continue
-        compile(cell.source, f"notebooks/quickstart.ipynb:{cell.id}", "exec")
+        compile(cell.source, f"notebooks/samudra-quickstart.ipynb:{cell.id}", "exec")
 
 
 def test_quickstart_yaml_config_validates(tmp_path):

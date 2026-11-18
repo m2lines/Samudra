@@ -15,6 +15,13 @@ if TYPE_CHECKING:
     from samudra.search.successive_halving import SuccessiveHalving
 
 
+def _code_line(provenance: dict[str, Any]) -> str:
+    if provenance.get("source") == "package":
+        version = _markdown(provenance.get("package_version"))
+        return f"- Code: installed package `samudra=={version}`"
+    return f"- Code commit: `{_markdown(provenance.get('commit'))}`"
+
+
 def _markdown(value: Any) -> str:
     if value is None:
         return "—"
@@ -51,7 +58,7 @@ def write_search_report(search: SuccessiveHalving, state: dict[str, Any]) -> Pat
         f"- Search run: `{search.run_id}`",
         f"- Status: **{_markdown(state.get('status'))}**",
         "- Score: `best_validation_score` (min)",
-        f"- Code commit: `{_markdown(state.get('provenance', {}).get('commit'))}`",
+        _code_line(state.get("provenance", {})),
         f"- Created: {_markdown(state.get('created_at'))}",
         "",
     ]

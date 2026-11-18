@@ -50,9 +50,15 @@ SETUP_MD = """\
 
 ### 1. Install Samudra 2
 
-Choose **Runtime → Change runtime type → T4 GPU** first, then run the cell
-below. It installs the latest stable `samudra` release from PyPI; the `cuda`
-extra adds torchvision, and PyTorch supplies the GPU attention kernels.
+First choose **Runtime → Change runtime type** and set:
+
+- **Hardware accelerator:** T4 GPU.
+- **Runtime version:** 2026.07, which uses Python 3.12. Samudra doesn't support
+  Python 3.13 yet, so on newer runtime versions pip finds no installable release.
+
+Then run the cell below. It installs the latest stable `samudra` release from
+PyPI; the `cuda` extra adds torchvision, and PyTorch supplies the GPU attention
+kernels.
 
 Colab starts with NumPy already loaded. If installing Samudra changes the NumPy
 version, the cell restarts the Python kernel once so the new version takes

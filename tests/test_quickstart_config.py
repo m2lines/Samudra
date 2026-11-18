@@ -61,6 +61,8 @@ def test_quickstart_notebook_is_valid_and_current():
     for removed_cell in ("runtime-code", "restart-code"):
         assert removed_cell not in cells_by_id
     assert "SUPPORTED_PYTHON" not in sources
+    # Samudra requires Python 3.12; Colab's newer runtimes use 3.13.
+    assert "**Runtime version:** 2026.07" in cells_by_id["setup"].source
     assert "is_flash_attention_available" not in sources
     assert "runtime.restart_session()" not in sources
     assert "subprocess" not in sources

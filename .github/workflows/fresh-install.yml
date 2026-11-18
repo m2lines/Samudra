@@ -1,0 +1,78 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Install samudra from PyPI the way users do (normal dependency resolution, no
+# uv.lock) and exercise the public data path. Other CI installs from uv.lock,
+# so it cannot see an upstream release that breaks `pip install samudra`
+# (e.g. xarray 2026.9 with zarr 2, fixed in #1017).
+name: Fresh install
+
+on:
+  schedule:
+    # Mondays, after the 06:00 UTC nightly publish in release.yml.
+    - cron: "23 9 * * 1"
+  workflow_dispatch:
+    inputs:
+      spec:
+        description: "Package to install: 'nightly' (latest pre-release), 'stable', or a pip spec like samudra==0.2.1"
+        type: string
+        default: nightly
+  pull_request:
+    paths:
+      - ".github/workflows/fresh-install.yml"
+      - "scripts/fresh_install_smoke.py"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  fresh-install:
+    if: >-
+      github.event_name != 'pull_request' || (
+        !startsWith(github.head_ref, 'experiment/') &&
+        !contains(github.event.pull_request.labels.*.name, 'experiment')
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out smoke script
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts
+          sparse-checkout-cone-mode: true
+
+      - uses: astral-sh/setup-uv@d0d8abe699bfb85fec6de9f7adb5ae17292296ff
+
+      - name: Install samudra from PyPI
+        env:
+          SPEC: ${{ github.event.inputs.spec || 'nightly' }}
+        run: |
+          set -euo pipefail
+          uv venv --python 3.12 "${RUNNER_TEMP}/venv"
+          case "${SPEC}" in
+            nightly)
+              # Pin the newest samudra release, dev builds included, so only
+              # samudra is a pre-release; dependencies resolve to stable
+              # versions as they would for a user.
+              latest="$(curl -fsSL https://pypi.org/pypi/samudra/json \
+                | uv run --no-project --with packaging python -c \
+                  'import json, sys; from packaging.version import Version; print(max(json.load(sys.stdin)["releases"], key=Version))')"
+              args=("samudra==${latest}") ;;
+            stable) args=(samudra) ;;
+            *) args=("${SPEC}") ;;
+          esac
+          # nbformat loads the Colab quickstart config from its generator.
+          uv pip install --python "${RUNNER_TEMP}/venv/bin/python" \
+            --no-cache "${args[@]}" nbformat
+          uv pip list --python "${RUNNER_TEMP}/venv/bin/python" \
+            | grep -iE '^(samudra|xarray|zarr|numpy|pandas|pyarrow|torch) '
+
+      - name: Run smoke checks
+        run: |
+          "${RUNNER_TEMP}/venv/bin/python" -I scripts/fresh_install_smoke.py

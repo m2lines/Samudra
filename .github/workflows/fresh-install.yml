@@ -22,6 +22,8 @@ on:
     paths:
       - ".github/workflows/fresh-install.yml"
       - "scripts/fresh_install_smoke.py"
+      # The smoke test validates the Colab quickstart YAML from its generator.
+      - "scripts/build_quickstart_notebook.py"
 
 permissions:
   contents: read
@@ -59,10 +61,14 @@ jobs:
             nightly)
               # Pin the newest samudra release, dev builds included, so only
               # samudra is a pre-release; dependencies resolve to stable
-              # versions as they would for a user.
+              # versions as they would for a user. Skip fully yanked
+              # releases, which normal installs never receive.
               latest="$(curl -fsSL https://pypi.org/pypi/samudra/json \
                 | uv run --no-project --with packaging python -c \
-                  'import json, sys; from packaging.version import Version; print(max(json.load(sys.stdin)["releases"], key=Version))')"
+                  'import json, sys; from packaging.version import Version
+          releases = json.load(sys.stdin)["releases"]
+          live = [v for v, files in releases.items() if any(not f["yanked"] for f in files)]
+          print(max(live, key=Version))')"
               args=("samudra==${latest}") ;;
             stable) args=(samudra) ;;
             *) args=("${SPEC}") ;;

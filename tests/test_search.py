@@ -211,6 +211,23 @@ def test_local_search_from_package_install_records_package_version(monkeypatch):
     assert provenance.package_version
 
 
+def test_package_install_without_git_executable_records_package_version(
+    monkeypatch,
+):
+    from samudra.search import successive_halving
+
+    def no_git(*args, **kwargs):
+        raise FileNotFoundError("git")
+
+    monkeypatch.delenv("SAMUDRA_CODE_COMMIT", raising=False)
+    monkeypatch.setattr(successive_halving.subprocess, "run", no_git)
+    monkeypatch.setattr(successive_halving, "_is_editable_install", lambda: False)
+
+    provenance = successive_halving._code_provenance(allow_dirty=False, local=True)
+
+    assert provenance["source"] == "package"
+
+
 def test_slurm_search_without_git_checkout_fails(monkeypatch):
     from samudra.search.successive_halving import _code_provenance
 

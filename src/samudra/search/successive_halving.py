@@ -74,11 +74,14 @@ def _git_provenance(*, allow_dirty: bool) -> dict[str, Any] | None:
             "package_version": importlib.metadata.version("samudra"),
         }
 
-    toplevel = subprocess.run(
-        ["git", "-C", str(Path(__file__).parent), "rev-parse", "--show-toplevel"],
-        capture_output=True,
-        text=True,
-    )
+    try:
+        toplevel = subprocess.run(
+            ["git", "-C", str(Path(__file__).parent), "rev-parse", "--show-toplevel"],
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError:  # no git executable, so no checkout to identify
+        return None
     if toplevel.returncode != 0:
         return None
     root = toplevel.stdout.strip()

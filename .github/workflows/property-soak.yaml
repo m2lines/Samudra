@@ -55,52 +55,42 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - lane: pinned
-            storage: python
-            environment: data/.test.yml
-          - lane: pinned
-            storage: pyarrow
-            environment: data/.test.yml
-          - lane: canary
-            storage: pyarrow
-            environment: data/.test-canary.yml
+        # pip resolves the newest versions data/pyproject.toml allows, so these are
+        # canary lanes, one for each pandas string storage backend.
+        storage: [python, pyarrow]
     env:
       SAMUDRA_HYPOTHESIS_PROFILE: soak
       SAMUDRA_HYPOTHESIS_EXAMPLES: "1000"
       SAMUDRA_STRING_STORAGE: ${{ matrix.storage }}
-      LANE: ${{ matrix.lane }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-      - uses: mamba-org/setup-micromamba@4b9113af4fba0e9e1124b252dd6497a419e7396d
+      - uses: astral-sh/setup-uv@d0d8abe699bfb85fec6de9f7adb5ae17292296ff
         with:
-          environment-file: ${{ matrix.environment }}
-          environment-name: verification
-          cache-downloads: true
-      - name: Install local projects without resolving third-party packages
-        shell: bash -el {0}
-        run: python -m pip install --no-deps --no-build-isolation -e ./verification -e ./data
+          enable-cache: true
+          python-version: "3.12"
+      - name: Install the data-test environment
+        # The packages data-tests.yaml installs: the newest versions data/pyproject.toml allows.
+        run: |
+          uv venv /tmp/data-env
+          uv pip install --python /tmp/data-env -e ./verification -e "./data[test]"
+          echo /tmp/data-env/bin >> "$GITHUB_PATH"
       - name: Explore and shrink
         working-directory: data
-        shell: bash -el {0}
-        env:
-          DEPENDENCY_FILE: ../${{ matrix.environment }}
         run: |
-          python -m samudra_verification.campaign --project data --lane "$LANE" --tests tests/test_*_properties.py \
-            --dependency-file "$DEPENDENCY_FILE" --output /tmp/property-soak \
+          python -m samudra_verification.campaign --project data --lane canary --tests tests/test_*_properties.py \
+            --dependency-file pyproject.toml --output /tmp/property-soak \
             --examples 1000 --timeout 1800
       - name: Preserve solved environment and summarize
         if: always()
-        shell: bash -el {0}
         run: |
           if test -d /tmp/property-soak; then
-            micromamba env export -n verification --explicit > /tmp/property-soak/conda-explicit.txt
+            uv pip freeze --python /tmp/data-env > /tmp/property-soak/requirements-frozen.txt
             cat /tmp/property-soak/summary.md >> "$GITHUB_STEP_SUMMARY"
           fi
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
-          name: property-soak-data-${{ matrix.lane }}-${{ matrix.storage }}
+          name: property-soak-data-canary-${{ matrix.storage }}
           path: /tmp/property-soak/
           retention-days: 30
 

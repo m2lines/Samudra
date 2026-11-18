@@ -72,9 +72,7 @@ def test_welch_finds_an_annual_cycle_at_one_cycle_per_year():
 
     # Too short to segment at all: empty rather than a misleading spectrum.
     stub = series.iloc[:3]
-    assert spectra.welch_psd(stub) == ((), ()) or all(
-        arr.size == 0 for arr in spectra.welch_psd(stub)
-    )
+    assert all(np.asarray(arr).size == 0 for arr in spectra.welch_psd(stub))
 
 
 def test_log10_curve_rmse_measures_multiplicative_error():

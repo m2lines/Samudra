@@ -56,7 +56,8 @@ Root `pytest`, mypy, and `uv sync` do not cover `data/` or `rust/loader/`. Root 
 * Don't assume a rectilinear grid. OM4's native grid is tripolar and LLC4320's is lat-lon-cap, so 2-D `lat`/`lon` must
   be carried with the data, not rebuilt by broadcasting 1-D axes. Branch on `is_rectilinear(grid_type)`
   (`src/samudra/constants.py`), not on the grid's name.
-* Write Zarr **v2**. The root package pins `zarr<3`.
+* Write Zarr **v2**. Every project pins `zarr<3` (zarr-python 3 reads ~1.4x slower in the loader benchmarks), except
+  `data/ocean_preprocessing/virtualize_om4.py`, which has its own environment for VirtualiZarr.
 
 **Writing** (docs, docstrings, PRs, reports)
 

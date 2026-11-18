@@ -36,7 +36,7 @@ dependencies = [
   "jaxtyping>=0.3",
   "matplotlib>=3.10.1",
   "netcdf4>=1.7",
-  "numpy>=1.26.4,<2",         # There is some incompatibility between a dependency and numpy 2+
+  "numpy>=2,<3",
   "pandas>=2.2",              # tidy metric frames are part of samudra.metrics' API
   "pyarrow>=18",              # portable Parquet experiment catalogs
   "pydantic-settings>=2.8.1",
@@ -48,8 +48,8 @@ dependencies = [
   "tqdm>=4.67.1",
   "typing-extensions>=4.15",
   "wandb>=0.19.8",
-  "xarray>=2025.1.2,<2026.9", # 2026.9 requires zarr-python 3 (passes zarr_format to zarr 2)
-  "zarr<3",
+  "xarray>=2025.6,<2026.4",   # Zarr 3 support; matches data/ (keeps compressor encoding for v2 writes).
+  "zarr>=2.18,<3",            # zarr-python 3 reads ~1.4x slower in the loader benchmarks.
 ]
 optional-dependencies.cuda = [
   "torchvision>=0.24.0a0",

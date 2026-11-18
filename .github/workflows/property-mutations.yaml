@@ -68,7 +68,7 @@ jobs:
             echo "- \`$project\` mutation gate: **$run** ($why)" >> "$GITHUB_STEP_SUMMARY"
           done <<'PROJECTS'
           root tests pyproject\.toml$|uv\.lock$|tests/conftest\.py$
-          data data/tests data/pyproject\.toml$|data/\.test.*\.yml$|data/tests/conftest\.py$
+          data data/tests data/pyproject\.toml$|data/tests/conftest\.py$
           PROJECTS
 
   root:
@@ -107,22 +107,22 @@ jobs:
     needs: plan
     if: needs.plan.outputs.data == 'true'
     runs-on: ubuntu-latest
-    # Worst case: controls take 3 seeds x 7 detectors x 60 s (21 min), then mutants
-    # share 600 s (10 min). The rest covers the environment solve. Recompute when
-    # adding detectors.
+    # Each catalog: controls at most seeds x detectors x 60 s, then mutants share
+    # 600 s. Recompute when adding detectors.
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-      - uses: mamba-org/setup-micromamba@4b9113af4fba0e9e1124b252dd6497a419e7396d
+      - uses: astral-sh/setup-uv@d0d8abe699bfb85fec6de9f7adb5ae17292296ff
         with:
-          environment-file: data/.test.yml
-          environment-name: verification
-          cache-downloads: true
-      - name: Install local verifier and data sources
-        shell: bash -el {0}
-        run: python -m pip install --no-deps --no-build-isolation -e ./verification -e ./data
+          enable-cache: true
+          python-version: "3.12"
+      - name: Install the data-test environment
+        # The packages data-tests.yaml installs: the newest versions data/pyproject.toml allows.
+        run: |
+          uv venv /tmp/data-env
+          uv pip install --python /tmp/data-env -e ./verification -e "./data[test]"
+          echo /tmp/data-env/bin >> "$GITHUB_PATH"
       - name: Verify generated discovery of historical faults
-        shell: bash -el {0}
         run: |
           set -o pipefail
           python -m samudra_verification.gate data/tests \
@@ -130,10 +130,9 @@ jobs:
             2>&1 | tee /tmp/property-mutations-run.log
       - name: Preserve solved environment and summarize
         if: always()
-        shell: bash -el {0}
         run: |
           if test -d /tmp/property-mutations; then
-            micromamba env export -n verification --explicit > /tmp/property-mutations/conda-explicit.txt
+            uv pip freeze --python /tmp/data-env > /tmp/property-mutations/requirements-frozen.txt
             cat /tmp/property-mutations/summary.md >> "$GITHUB_STEP_SUMMARY"
           fi
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a

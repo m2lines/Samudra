@@ -264,7 +264,9 @@ class CanonicalSource:
         channels = tuple(str(name) for name in means.data_vars)
         if any("lev" in dataset.dims for dataset in (data, means, stds)):
             raise ValueError("Canonical datasets cannot expose a 'lev' dimension")
-        if set(channels) - set(data.data_vars) or set(channels) - set(stds.data_vars):
+        if set(channels) - set(map(str, data.data_vars)) or set(channels) - set(
+            map(str, stds.data_vars)
+        ):
             raise ValueError("Canonical data, means, and stds have different channels")
         return cls(
             name=name,

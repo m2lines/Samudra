@@ -59,11 +59,16 @@ git push --force-with-lease
    cd Samudra
    ```
 
-   > **Why `--filter=blob:none`?** Old commits contain large files, mostly about 240 MB of evaluation GIFs
-   > that were later deleted, so a full clone downloads far more than the current code. A blobless clone
-   > still fetches every commit, so history, hashes, and `git log` work as usual, but it downloads old
-   > file contents only when you need them (for example, when you check out an old commit). We don't
-   > rewrite history to remove these files because W&B runs and data releases record commit hashes.
+   <details markdown>
+   <summary>Why <code>--filter=blob:none</code>?</summary>
+
+   Old commits contain large files, mostly about 240 MB of evaluation GIFs that were later deleted, so a
+   full clone downloads far more than the current code. A blobless clone still fetches every commit, so
+   history, hashes, and `git log` work as usual, but it downloads old file contents only when you need
+   them (for example, when you check out an old commit). We don't rewrite history to remove these files
+   because W&B runs and data releases record commit hashes.
+
+   </details>
 
 3. Install developer dependencies using [`uv`](https://docs.astral.sh/uv/getting-started/):
    ```shell

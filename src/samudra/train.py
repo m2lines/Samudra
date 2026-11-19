@@ -283,8 +283,10 @@ class Trainer:
                 device_ids=[self.distributed.gpu],
             )
 
-        # EMA (must come after DDP setup so parameter names match final self.model)
-        if not loaded_checkpoint:
+        # EMA (must come after DDP setup so parameter names match final self.model).
+        # A fine-tune starts a fresh average of the loaded weights with this
+        # config's decay, rather than the base run's decay and update count.
+        if not loaded_checkpoint or cfg.finetune:
             self._ema = EMATracker(
                 self.model,
                 decay=cfg.ema_decay,

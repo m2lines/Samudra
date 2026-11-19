@@ -289,9 +289,8 @@ def _write(ds: xr.Dataset, output_path: str, dry_run: bool) -> None:
         logger.info("dry run, not writing %s:\n%s", output_path, ds)
         return
     logger.info("writing %s", output_path)
-    # Zarr v2 explicitly, not whatever the installed zarr defaults to. The
-    # consumer of these stores (`samudra.metrics`) pins zarr<3 and cannot open a
-    # v3 store at all, and this subproject currently resolves zarr 3.x.
+    # Zarr v2 explicitly, not whatever the installed zarr defaults to: every
+    # published store is v2, and the Rust loader reads only v2.
     _chunk_for_write(ds).to_zarr(
         output_path, mode="w", consolidated=True, zarr_format=2
     )

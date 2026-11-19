@@ -35,8 +35,10 @@ connecting it directly to the new Parquet reference stores is the next step.
 The examples below keep those inputs distinct. Observations follow a parallel
 [download → prepare workflow](#observation-products) that retains their native grids.
 
-All Zarr outputs and Kerchunk metadata use **Zarr v2**, even though the
-shared package environment uses the Zarr 3 runtime. Python 3.12+ is required.
+All Zarr outputs and Kerchunk metadata use **Zarr v2**. Python 3.12 is required.
+The package uses zarr-python 2, like `samudra`. Virtualization needs zarr-python 3
+(VirtualiZarr), so `ocean_preprocessing/virtualize_om4.py` declares its own
+dependencies (PEP 723) and runs with `uv run --script`.
 
 ## CLI overview
 
@@ -45,7 +47,7 @@ to read the public OSN inputs and generate local outputs.
 
 ```bash
 # 1. Index the original arrays without copying the physical fields.
-python -m ocean_preprocessing.virtualize_om4 \
+uv run --script ocean_preprocessing/virtualize_om4.py \
   s3://m2lines-pubs/Samudra/raw/OM4-5daily ./om4-native.parquet --anonymous
 
 # 2. Produce an unfiltered 1° dataset from an existing native-grid Zarr source.
@@ -66,11 +68,12 @@ python -m ocean_preprocessing.make_norm_datasets ./om4_onedeg/OM4.zarr \
 ```
 
 `python -m ocean_preprocessing` provides `om4`, `cm4`, and `basin_masks`
-subcommands. Virtualization and normalization are sibling module entrypoints.
+subcommands. Normalization is a sibling module entrypoint, and virtualization a
+script with its own environment.
 Inspect their arguments without starting processing:
 
 ```bash
-python -m ocean_preprocessing.virtualize_om4 --help
+uv run --script ocean_preprocessing/virtualize_om4.py --help
 python -m ocean_preprocessing om4 -- --help
 python -m ocean_preprocessing cm4 -- --help
 python -m ocean_preprocessing.make_norm_datasets --help
@@ -94,13 +97,15 @@ To update an existing environment, run from `data/`:
 mamba env update -n ocean_preprocessing -f mamba_env.yaml
 ```
 
-This upgrades older Python 3.11 / Zarr 2 environments to the runtime needed by
-VirtualiZarr. The commands in this README work from any directory once the
-package is installed and the environment is active.
+This upgrades older Python 3.11 environments to Python 3.12 and NumPy 2. The
+`python -m ocean_preprocessing...` commands work from any directory once the
+package is installed and the environment is active. The
+`uv run --script ocean_preprocessing/virtualize_om4.py` examples take a path
+relative to `data/`, so run them from there.
 
 ## Virtualizing the original OM4 NetCDF archive
 
-[`ocean_preprocessing.virtualize_om4`](ocean_preprocessing/virtualize_om4.py) uses
+[`ocean_preprocessing/virtualize_om4.py`](ocean_preprocessing/virtualize_om4.py) uses
 [VirtualiZarr](https://virtualizarr.readthedocs.io/en/stable/) to combine the annual
 NetCDF files along `time` and write Kerchunk Parquet references with Zarr v2
 metadata. The references point to the original files and retain their chunk
@@ -117,15 +122,19 @@ chronological requirements.
 Read the public archive anonymously and write references to a new local directory:
 
 ```bash
-python -m ocean_preprocessing.virtualize_om4 \
+uv run --script ocean_preprocessing/virtualize_om4.py \
   s3://m2lines-pubs/Samudra/raw/OM4-5daily ./om4-native.parquet
 ```
+
+Run this from `data/`. `uv run --script` builds the script's environment from its
+PEP 723 header, which pins its direct dependencies exactly, so it needs only
+[uv](https://docs.astral.sh/uv/), not the mamba environment.
 
 Local source directories are also supported. For file selection, static grid
 files, and other options, see the CLI help:
 
 ```bash
-python -m ocean_preprocessing.virtualize_om4 --help
+uv run --script ocean_preprocessing/virtualize_om4.py --help
 ```
 
 The output filesystem must support exclusive directory renames. On HPC systems,
@@ -279,7 +288,7 @@ python -m ocean_preprocessing.obs_preprocessing prepare all \
 
 or, on Torch, `sbatch scripts/slurm_obs_prepare.sbatch` (see the header of that file for the environment variables).
 
-Prepared stores and Zarr downloads use **Zarr v2** explicitly, because `samudra.metrics` pins `zarr<3` and cannot open a v3 store.
+Prepared stores and Zarr downloads use **Zarr v2** explicitly, the format of every published store and the only one the Rust loader reads.
 
 Credentials are only needed when writing to the NYU OSN pod (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and
 `FSSPEC_S3_ENDPOINT_URL`); reading the public inputs, including the OM4 time axis, is anonymous.
@@ -400,8 +409,12 @@ Follow the CLI usage instructions to clone the repository and create a local mam
 the development dependencies:
 
 ```bash
-mamba install pytest scipy dask pre-commit
+mamba install pytest scipy dask pre-commit hypothesis pytest-reportlog
 ```
+
+`mamba_env.yaml` also installs `samudra_verification` from the repository's `verification/` project, which
+`tests/conftest.py` imports. If you build the environment another way, install it from the repository root with
+`pip install -e ./verification`. It isn't published on PyPI, so `pip install ".[test]"` can't install it.
 
 Run the data package tests from `data/` in the active environment:
 

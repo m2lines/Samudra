@@ -95,7 +95,7 @@ def write_coarse_llc_dataset(
     # fields/statistics each fit in one chunk. The test filename is data.zarr.
     # Use Xarray's default compression here; live arrays use Blosc Zstd level 3.
     encoding: dict[str, dict[str, object]] = {
-        name: {"chunks": (1, *variable.shape[1:])}
+        str(name): {"chunks": (1, *variable.shape[1:])}
         for name, variable in data.data_vars.items()
         if "time" in variable.dims
     }

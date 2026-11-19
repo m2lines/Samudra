@@ -8,7 +8,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 ## Run in Google Colab
 
-The [Colab quickstart](https://colab.research.google.com/github/m2lines/Samudra/blob/main/notebooks/quickstart.ipynb)
+The [Colab quickstart](https://colab.research.google.com/github/m2lines/Samudra/blob/main/notebooks/samudra-quickstart.ipynb)
 installs the latest stable Samudra release from PyPI and walks through a
 complete, YAML-configured training run on a free-tier GPU. It writes and
 displays an editable configuration, trains and validates Samudra 2 on public

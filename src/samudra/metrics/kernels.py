@@ -503,8 +503,8 @@ def geostrophic_velocity_from_zos(
     deg_per_m = 180.0 / (np.pi * EARTH_RADIUS_M)
 
     lat_da = zos[lat_dim]
-    f = 2.0 * EARTH_ROTATION_RATE * np.sin(np.deg2rad(lat_da))
-    coslat = np.cos(np.deg2rad(lat_da))
+    f = 2.0 * EARTH_ROTATION_RATE * xr.ufuncs.sin(xr.ufuncs.deg2rad(lat_da))
+    coslat = xr.ufuncs.cos(xr.ufuncs.deg2rad(lat_da))
 
     deta_dy = zos.differentiate(lat_dim) * deg_per_m
     deta_dx = _differentiate_lon(zos, lon_dim) * deg_per_m / coslat

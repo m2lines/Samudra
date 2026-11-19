@@ -11,10 +11,11 @@ import torch
 
 from samudra.aggregator import Aggregator
 from samudra.backend import init_eval_backend
-from samudra.config import EvalConfig, ObsMetricsConfig
+from samudra.config import EvalConfig, ObsMetricsConfig, ScorecardConfig
 from samudra.constants import BoundaryVarNames, Grid, PrognosticVarNames
 from samudra.datasets import InferenceDataset
 from samudra.metrics.run import open_predictions, run_observation_metrics
+from samudra.metrics.scorecard import run as scorecard_run
 from samudra.stepper import run_rollout
 from samudra.utils.data import BatchPreprocessor, get_inference_steps
 from samudra.utils.distributed import is_main_process, set_seed
@@ -131,6 +132,10 @@ class Eval:
         self.normalize_before_mask = cfg.data.normalize_before_mask
         self.masked_fill_value = cfg.data.masked_fill_value
         self.observations = cfg.observations
+        self.scorecard = cfg.scorecard
+        self.truth_name = str(
+            cfg.experiment.resolved_data_root.resolve(cfg.data.sources[0].data_location)
+        )
         self.resolved_data_root = cfg.experiment.resolved_data_root
         self.experiment_name = cfg.experiment.name
         self.init_inference_store()
@@ -177,6 +182,8 @@ class Eval:
             # Preserve rollout logs even if observation scoring fails.
             if self.observations is not None and is_main_process():
                 log_stats.update(self.report_observation_metrics(self.observations))
+            if self.scorecard is not None and is_main_process():
+                log_stats.update(self.report_scorecard(self.scorecard))
             return log_stats
         finally:
             # The observation phase reads ~65 GB back off remote storage, so it
@@ -212,6 +219,28 @@ class Eval:
             {**scalars, "obs/metrics_table": self.wandb_logger.Table(dataframe=frame)},
             step=None,
         )
+        return scalars
+
+    def report_scorecard(self, cfg: ScorecardConfig) -> MetricsDict:
+        """Score the finished rollout against reference forecasts and the champion.
+
+        Writes `<output_dir>/scorecard/`. Logs only the gate result and a few
+        headline skills to W&B; the full table and figures stay on disk.
+        """
+        logger.info("Computing the scorecard")
+        climatology = self.resolved_data_root.resolve(cfg.climatology_location).open({})
+        tables, scored = scorecard_run.score(
+            open_predictions(self.output_dir),
+            self.source.to_xarray_dataset(),
+            climatology,
+            cfg,
+            self.data_layout,
+            label=self.experiment_name,
+            truth_name=self.truth_name,
+        )
+        scorecard_run.write(self.output_dir / "scorecard", tables, scored)
+        scalars = scorecard_run.headline(scored)
+        self.wandb_logger.log(scalars, step=None)
         return scalars
 
     @torch.no_grad()

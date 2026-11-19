@@ -1601,6 +1601,66 @@ class ObsMetricsConfig(BaseConfig):
         return pd.Timestamp(self.rmse_start), end
 
 
+class ScorecardConfig(BaseConfig):
+    """Score a finished rollout against reference forecasts and the track's champion.
+
+    Supplying this block turns the scorecard on, like `observations`. See
+    `samudra.metrics.scorecard` for what is scored and how the gate decides.
+    """
+
+    track: str = Field(
+        description=(
+            "The track this model competes on: one dataset version, resolution "
+            "and variable set, e.g. 'om4-v2026-09-onedeg-thermo_dynamic_all'. "
+            "Recorded in the scorecard so tracks are never compared by mistake."
+        ),
+    )
+    climatology_location: Location = Field(
+        description=(
+            "Pentad-of-year climatology of the truth over the training split, "
+            "built once per track by `python -m samudra.metrics.scorecard.climatology`."
+        ),
+    )
+    champion: str | None = Field(
+        default=None,
+        description=(
+            "Directory or URL of the champion's scorecard (holding scorecard.parquet "
+            "and meta.json). Omit to score without a comparison."
+        ),
+    )
+    years: tuple[int, int] = Field(
+        default=(2015, 2022),
+        description=(
+            "First and last complete calendar years of the scoring window. "
+            "They are the bootstrap blocks and the pairing unit against the champion."
+        ),
+    )
+    bootstrap_samples: int = Field(default=10_000, ge=0)
+    max_sst_above_truth: float = Field(
+        default=2.0,
+        description="Gate: the rollout's warmest temperature may exceed the truth's by this (degC).",
+    )
+    min_temperature_below_truth: float = Field(
+        default=1.0,
+        description="Gate: its coldest temperature may fall below the truth's by this (degC).",
+    )
+    gated_metrics: list[str] = Field(
+        default_factory=lambda: ["skill_vs_climatology", "bias"],
+        description="Layer-level window metrics whose regression against the champion fails the gate.",
+    )
+    regression_level: float = Field(default=0.99, gt=0.5, lt=1.0)
+
+    @model_validator(mode="after")
+    def _check(self) -> "ScorecardConfig":
+        if self.years[0] > self.years[1]:
+            raise ValueError(f"years {self.years} must be (first, last)")
+        return self
+
+    @property
+    def year_list(self) -> list[int]:
+        return list(range(self.years[0], self.years[1] + 1))
+
+
 # See backend.py for how these are turned into concrete devices
 EvalBackendConfig = Literal["cpu", "cuda", "auto"]
 
@@ -1679,6 +1739,23 @@ class EvalConfig(TopLevelConfig):
             "Present means enabled; omit to skip the phase."
         ),
     )
+
+    scorecard: ScorecardConfig | None = Field(
+        default=None,
+        description=(
+            "Skill against reference forecasts and the champion, computed after "
+            "the rollout finishes. Present means enabled."
+        ),
+    )
+
+    @pydantic.model_validator(mode="after")
+    def _scorecard_needs_a_saved_rollout(self) -> Self:
+        if self.scorecard is not None and not self.save_zarr:
+            raise ValueError(
+                "scorecard requires save_zarr=true: it scores the predictions.zarr "
+                "the rollout writes."
+            )
+        return self
 
     @pydantic.model_validator(mode="after")
     def _observations_need_a_saved_rollout(self) -> Self:

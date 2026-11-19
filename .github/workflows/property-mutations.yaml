@@ -107,9 +107,9 @@ jobs:
     needs: plan
     if: needs.plan.outputs.data == 'true'
     runs-on: ubuntu-latest
-    # Each catalog: controls at most seeds x detectors x 60 s, then mutants share
-    # 600 s. Recompute when adding detectors.
-    timeout-minutes: 45
+    # Worst case: controls take 3 seeds x 13 detectors x 60 s (39 min), then mutants
+    # share 600 s (10 min). The rest covers the install. Recompute when adding detectors.
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - uses: astral-sh/setup-uv@d0d8abe699bfb85fec6de9f7adb5ae17292296ff

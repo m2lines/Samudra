@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+# SPDX-License-Identifier: Apache-2.0
+[Unit]
+Description=Public OM4 viewer on port 61016
+
+[Socket]
+ListenStream=0.0.0.0:61016
+
+[Install]
+WantedBy=sockets.target

@@ -7,7 +7,7 @@ This is an experiment record, not intended to merge. The first run trains the
 surface-initialized deterministic ocean model jointly on coarsened LLC4320
 snapshots and observed SST/SSH, with ERA5 atmospheric conditioning. OM4 and
 monthly profile supervision are excluded from this first run. The OBS-only
-control completed 2,000 updates; the mixed run is still training. Here OBS refers to the observation source (OISST SST and DUACS SSH);
+control and mixed run each completed 2,000 updates. Here OBS refers to the observation source (OISST SST and DUACS SSH);
 the model and harness come from [#960](https://github.com/m2lines/Samudra/pull/960)
 and [#955](https://github.com/m2lines/Samudra/pull/955).
 
@@ -83,7 +83,12 @@ leads, against matched persistence. Keep a fixed validation cohort and preserve
 raw/EMA checkpoint identity. A longer 30-day rollout is a diagnostic after the
 short forecast works; it adds no monthly training supervision. Record job IDs,
 config and code hashes, data proofs, W&B URL, completed optimizer updates and
-source exposure here. Initial OBS-only results are linked above; the matched mixed comparison is pending.
+source exposure here. The [completed comparison](results/mixed-versus-obs-only.md) reports both arms
+and machine-readable validation curves. Mixed final EMA observation normalized
+RMSE is 0.038645 versus OBS-only 0.026248 and persistence 0.025361 (lower is
+better). Mixed is 47.2% worse at equal updates and 10.2% worse at equal OBS
+exposure. These single-seed, eight-origin results show no observational benefit
+from LLC in this initial configuration; they do not identify the cause.
 
 ## OBS-only control
 
@@ -200,8 +205,9 @@ Preparation array `208394` completed all 22 year tasks; normalization job
 `208395` completed in 8 min 19 s. The data proof covers 7,882 ERA5 day shards
 and 15,764 surface shards, from 1993 through July 2014. LLC fields remain in
 the original compact store. OBS-only job `234497` completed 2,000 updates in
-1 h 26 min 49 s including qualification. Mixed job `234501` is running and
-has passed 1,050 updates as of November 20 at 12:47 p.m. America/New_York.
+1 h 26 min 49 s including qualification. Mixed job `234501` completed 2,000
+updates in 2 h 46 min 13 s, with 1,000 updates and 8,000 window draws per source.
+Both exited successfully and produced all 20 planned validations.
 Both passed their eight-update checkpoint/resume qualification. Online runs:
 [OBS-only](https://wandb.ai/ocean_emulators/observational-transfer/runs/0oci13x4)
 and [mixed](https://wandb.ai/ocean_emulators/observational-transfer/runs/2a1lxyp9).
@@ -216,10 +222,10 @@ The initial run retains raw Eta/ADT; interpret transfer results with this mismat
 
 Initial runtime deployment commit: `00fcc762958a47783ddaf59ffd0c108bac511c68`. Its
 archive SHA-256 is `190c54f0b35377ee983ae363ac85a00c89f93a388d640be454ae2b9db217841b`.
-The preparation source is frozen separately in the run directory. A verified
-completion callback (`208439`) and a persistent monitor own preparation,
-normalization, GPU qualification and the 2,000-update run. Runtime recovery
-retains the same scientific configuration and stops after two retries per stage.
+The preparation source is frozen separately in the run directory. Completion callbacks and monitors followed both arms through final results.
+No training or evaluation jobs remain in this experiment. The final results
+retain the runtime and data hashes, source exposure, checkpoint identity and
+validation definitions needed to reproduce the comparison.
 
 The [EAI launcher](eai.sbatch) uses a four-GPU Beta allocation, standard QoS and
 online W&B. Its [qualification gate](run_eai.sh) checks eight updates split into

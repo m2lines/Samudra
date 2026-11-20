@@ -43,8 +43,8 @@ overlap. No uncertainty intervals are available; differences are descriptive.
 The saved 1,000-update EMA checkpoint has aggregate normalized RMSE 0.035059.
 It used 8,000 OBS-window draws, matching the mixed run's planned OBS exposure at
 2,000 updates. The primary mixed comparison uses both fixed 2,000-update EMA
-checkpoints. The mixed run is still running as this record is written; these
-OBS-only results alone do not establish whether LLC supervision helps. The
+checkpoints. The [completed mixed comparison](mixed-versus-obs-only.md) now reports both
+controls; this record preserves the OBS-only measurements. The
 validation-selected best EMA checkpoint in this run also occurs at update 2,000.
 The [machine-readable curves](obs-only-validation.csv) contain every validation
 checkpoint from update 100 through 2,000.

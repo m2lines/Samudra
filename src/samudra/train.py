@@ -77,6 +77,7 @@ from samudra.utils.samplers import (
     DistributedEquivalenceGroupBatchSampler,
     EquivalenceGroupBatchSampler,
 )
+from samudra.utils.time import time_discontinuities
 from samudra.utils.train import CheckpointPaths
 from samudra.utils.train_progress import TrainProgress
 from samudra.utils.training_summary import (
@@ -855,6 +856,24 @@ class Trainer:
                         "enough timesteps for one autoregressive rollout step."
                     )
                     return {}
+            gaps = time_discontinuities(
+                rollout_src.time.values, rollout_src.expected_time_step
+            )
+            continuous_specs = []
+            for spec in specs:
+                last_target = self.input_steps + spec.target_timesteps - 1
+                if gaps[:last_target].any():
+                    logger.warning(
+                        "Skipping rollout validation horizon %s (%d model steps): "
+                        "input history or forecast crosses a timestamp discontinuity",
+                        spec.label,
+                        spec.model_steps,
+                    )
+                else:
+                    continuous_specs.append(spec)
+            specs = continuous_specs
+            if not specs:
+                return {}
             model = (
                 self.model.module
                 if isinstance(self.model, torch.nn.parallel.DistributedDataParallel)

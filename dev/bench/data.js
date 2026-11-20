@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795176364984,
+  "lastUpdate": 1795210179064,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -13803,6 +13803,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.4635269872159565",
             "extra": "mean: 17.643889962999992 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "5a7d976fa5936e9a5b4f1d83414891cf42b95ec8",
+          "message": "Read compact OM4 and LLC arrays without repeated chunk reads or implicit Dask (#1034)\n\nThe current non-Dask reader issues separate reads for each requested\ndepth channel in compact OM4 and LLC stores, which can repeatedly read\nthe same physical chunk. This change retains compact arrays through\nsource preparation and reads requested levels together, without enabling\nDask. Implemented by Codex.\n\n<details>\n<summary>Reader construction and validation</summary>\n\nSource adapters prepare coordinates and masks and align per-channel\nstatistics while retaining compact arrays. Config constructs\n`XarrayCanonicalReader`, which supports flat and compact arrays, passes\nit to the selected backend, and assembles `CanonicalSource`. Python uses\nthat reader directly; Rust wraps it for native I/O and reuses its\nmetadata. Python sources can export per-level xarray views; native\nsources do not support that export.\n\nThe compact reader selects requested times and levels together for each\nvariable, preserving channel order, repeated time indices, CF decoding,\nand sliced time coordinates. It handles physical chunks spanning\nmultiple times or subsets of depths. Read and statistics requests\nrequire unique channel names; duplicates raise `ValueError`. Existing\nDask-backed inputs remain supported; non-Dask inputs remain non-Dask.\n\nValidation:\n- CI for the unique-channel validation change is pending.\n- 65 targeted tests and pre-commit passed after enforcing unique channel\nnames. New rejection tests fail before the change and pass afterward,\nincluding native bulk rejection before I/O. Repeated timestamps remain\ncovered.\n- The earlier construction simplification passed local pre-commit checks\nand 290 related CPU tests, including LLC training, checkpoint reload,\nand evaluation.\n- Chunk-count regressions cover OM4 and all 51 LLC levels. With one time\nand all 51 levels per chunk, the LLC fixture reads 12 chunks instead of\nthe previous reader's 612 for four compact variables at three unique\ntimes, with identical output.\n- The unchanged OM4 and LLC read-count tests fail against the pre-fix\ncommit `ebc674d79` (OM4: 6 reads versus 3 expected; LLC: 612 versus 12),\nand pass with this fix.\n- An independent adversarial review added properties for mixed layouts,\ndimension permutations, empty requests and repeated timestamps, chunk\nreads, metadata, and CF scale/offset/fill decoding. All three properties\npassed a soak with up to 1,000 examples each.\n- A local warm-cache benchmark (19 levels, 8 times, 32×64 grid, two\ntimes per chunk; median of 20 reads) measured compact reads at 19.52 ms\nbefore and 14.08 ms after. Flat reads measured 8.75 ms and 8.92 ms.\nThese are reader timings, not end-to-end training speedups.\n\n</details>\n\n---------\n\nCo-authored-by: OA jder bot <jesse+bot@openathena.ai>",
+          "timestamp": "2026-11-20T20:59:43Z",
+          "tree_id": "8af7893d5363fc29fac4fed306139886b8ad59c8",
+          "url": "https://github.com/m2lines/Samudra/commit/5a7d976fa5936e9a5b4f1d83414891cf42b95ec8"
+        },
+        "date": 1795210177186,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 1.0012637181680195,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0036064657480988694",
+            "extra": "mean: 998.7378767999985 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_dataset__1gb[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.3346399790810381,
+            "unit": "iter/sec",
+            "range": "stddev: 0.008947485753228696",
+            "extra": "mean: 2.9882861060000097 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.057916906290187656,
+            "unit": "iter/sec",
+            "range": "stddev: 0.060023423302771745",
+            "extra": "mean: 17.26611561379999 sec\nrounds: 5"
           }
         ]
       }

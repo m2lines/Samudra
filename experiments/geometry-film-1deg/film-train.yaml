@@ -1,0 +1,126 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+# SPDX-License-Identifier: Apache-2.0
+
+disk_mode: true
+save_freq: 5
+validation_image_log_freq: 10
+rollout_validation:
+  model_steps: -1
+  days:
+  - 360
+  steps_forward: 1
+  frequency: 1
+validation_score: rollout_rmse
+epochs: 70
+preemptible: false
+batch_size: 4
+learning_rate: 0.0006
+gradient_accumulation_steps: 2
+scheduler:
+  type: cosine
+  target_epochs: null
+loss:
+  type: dynamic
+  metric: mse
+  limit: 20.0
+finetune: false
+resume_ckpt_path: null
+debug: false
+test_using_ema: true
+ema_decay: 0.999
+faster_decay_at_start: true
+delayed_loss_estimate: false
+backend: auto
+profiler:
+  cuda_snapshot_frequency: null
+data_stride:
+- 1
+steps:
+- 4
+step_transition: []
+post_train_eval:
+  eval_config_path: /projects/ny/lz1955/multiscale/jrusak/runs/geometry-film-1deg-20261023/source/experiments/geometry-film-1deg/film-eval.yaml
+  viz_config_path: null
+  last_n_checkpoints: 1
+  epochs: null
+experiment:
+  name: geometry-film-seed15
+  rand_seed: 15
+  base_output_dir: /projects/ny/lz1955/multiscale/jrusak/runs/geometry-film-1deg-20261023/output  # pragma: allowlist secret (filesystem path)
+  data_root: /projects/ny/lz1955/multiscale/jrusak/data/om4/v2026-09/om4_onedeg  # pragma: allowlist secret (filesystem path)
+  wandb:
+    mode: online
+    project: default
+    entity: ocean_emulators
+    group: geometry-film-1deg-seed15
+    tags: null
+    notes: null
+  search: null
+data:
+  sources:
+  - type: om4
+    train_time:
+      start: '1975-01-03'
+      end: '2013-09-30'
+    val_time:
+      start: '2013-10-05'
+      end: '2014-10-05'
+    inference_time:
+      start: '2014-10-10'
+      end: '2022-12-24'
+    data_location: OM4.zarr
+    data_means_location: OM4_means.zarr
+    data_stds_location: OM4_stds.zarr
+    prognostic_vars_key: thermo_dynamic_all
+    boundary_vars_key: tau_hfds
+    grid_type: gaussian
+  loading:
+    type: rust
+    max_concurrent_reads: 8
+    prefetch_batches: 2
+    prefetch_to_device: true
+  inference_loading:
+    num_workers: 4
+    persistent_workers: true
+  input_steps: 2
+  output_steps: 2
+  loader_version: om4-torch
+  normalize_before_mask: true
+  masked_fill_value: 0.0
+model:
+  pred_residuals: false
+  last_kernel_size: 3
+  pad: circular
+  checkpointing: all
+  gradient_detach_interval: 0
+  add_3d_coordinates: false
+  unet:
+    geometry_mode: film
+    geometry_reference_m: 100000.0
+    ch_width:
+    - 280
+    - 380
+    - 480
+    - 520
+    dilation:
+    - 1
+    - 2
+    - 4
+    - 8
+    n_layers:
+    - 1
+    - 1
+    - 1
+    - 1
+    core_block:
+      block_type: conv_next_block
+      kernel_size: 3
+      activation: capped_gelu
+      upscale_factor: 2
+      norm: instance
+      pointwise_linear: false
+    down_sampling_block: avg_pool
+    up_sampling_block: zonally_periodic_upsample
+    drop_path_rate: 0.0
+  pos_channels: 0
+  use_bfloat16: true

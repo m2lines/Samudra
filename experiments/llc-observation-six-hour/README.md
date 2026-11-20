@@ -3,11 +3,11 @@
 
 # LLC + observations at six-hour cadence
 
-This is an experiment record, not intended to merge. The planned first run trains the
+This is an experiment record, not intended to merge. The first run trains the
 surface-initialized deterministic ocean model jointly on coarsened LLC4320
 snapshots and observed SST/SSH, with ERA5 atmospheric conditioning. OM4 and
-monthly profile supervision are excluded from this first run. No training has
-started. Here OBS refers to the observation source (OISST SST and DUACS SSH);
+monthly profile supervision are excluded from this first run. The OBS-only
+control completed 2,000 updates; the mixed run is still training. Here OBS refers to the observation source (OISST SST and DUACS SSH);
 the model and harness come from [#960](https://github.com/m2lines/Samudra/pull/960)
 and [#955](https://github.com/m2lines/Samudra/pull/955).
 
@@ -83,7 +83,7 @@ leads, against matched persistence. Keep a fixed validation cohort and preserve
 raw/EMA checkpoint identity. A longer 30-day rollout is a diagnostic after the
 short forecast works; it adds no monthly training supervision. Record job IDs,
 config and code hashes, data proofs, W&B URL, completed optimizer updates and
-source exposure here. No scientific result is claimed by this design document.
+source exposure here. Initial OBS-only results are linked above; the matched mixed comparison is pending.
 
 ## OBS-only control
 
@@ -114,8 +114,11 @@ as a controlled test of interior forecast skill.
 The control has a separate run root, output directory, qualification marker and
 W&B run. Its eight-update qualification must record eight OBS updates and zero
 LLC updates, including checkpoint/resume. It reuses the prepared data cache.
-The monitor will submit it after preparation, under standard production QoS,
-with the same bounded recovery policy as the mixed arm. Both arms now have
+The control completed under standard production QoS in job `234497`.
+Its [initial results and validation curves](results/obs-only.md) report the fixed
+2,000-update EMA checkpoint: aggregate normalized RMSE 0.026248 versus
+persistence 0.025361 (3.50% worse). SST improves at 48/72 hours; SSH does not
+beat persistence. These are eight fixed validation origins and one seed. Both arms now have
 runtime commit `83df2678f91c29aba4187e79fdc9e8e46bfe0d54` deployed, with archive
 SHA-256 `a9402e3edf174b876358db7736a984e46672088e76417f0f7b9114d246aaed71`.
 The OBS-only completion callback is Grace job `208447`, after normalization
@@ -193,11 +196,15 @@ ERA5 path uses the repository's ESMF conservative remapper; the existing daily
 surface products retain their preparation provenance. Tiny negative solar values
 are retained, with a minimum of −0.000069 W m−2 in this sample.
 
-As of 2026-11-20 at 10:44 a.m. America/New_York, preparation array `208394` is
-running and normalization job `208395` is pending its successful completion.
-The array prepares 1993 through July 2014; its concurrency was increased from
-eight to 22 CPU tasks after the pilot. Full normalization remains outstanding. The additional cache is roughly 50 GiB; LLC
-fields remain in the original compact store. No GPU training has started yet.
+Preparation array `208394` completed all 22 year tasks; normalization job
+`208395` completed in 8 min 19 s. The data proof covers 7,882 ERA5 day shards
+and 15,764 surface shards, from 1993 through July 2014. LLC fields remain in
+the original compact store. OBS-only job `234497` completed 2,000 updates in
+1 h 26 min 49 s including qualification. Mixed job `234501` is running and
+has passed 1,050 updates as of November 20 at 12:47 p.m. America/New_York.
+Both passed their eight-update checkpoint/resume qualification. Online runs:
+[OBS-only](https://wandb.ai/ocean_emulators/observational-transfer/runs/0oci13x4)
+and [mixed](https://wandb.ai/ocean_emulators/observational-transfer/runs/2a1lxyp9).
 
 The [surface audit](qualification/surface-audit.json), Grace job `208440`,
 compares 32 evenly spaced training dates on joint finite wet-area support.

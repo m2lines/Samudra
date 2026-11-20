@@ -29,7 +29,7 @@ from samudra.config import (
 from samudra.config_schema import get_pydantic_models
 from samudra.utils.location import LocalLocation, S3Location, UnresolvedLocation
 from tests.conftest import DEFAULT_CONFIG, TEST_CONFIGS_DIR
-from tests.llc_fixtures import write_raw_llc_datasets
+from tests.llc_fixtures import write_coarse_llc_dataset
 
 
 def om4_source_config(**kwargs) -> Om4DataSourceConfig:
@@ -253,67 +253,53 @@ def test_llc_time_config_requires_utc_offset():
 
 
 def test_data_config_accepts_llc_dataset_type():
-    cfg = DataConfig.model_validate(
+    source = LlcDataSourceConfig.model_validate(
         {
-            "sources": [
-                {
-                    "type": "llc",
-                    "face": 2,
-                    "i_start": 10,
-                    "i_end": 20,
-                    "j_start": 30,
-                    "j_end": 40,
-                    "train_time": {
-                        "start": "2011-09-10T12:00:00Z",
-                        "end": "2012-09-01T12:00:00Z",
-                    },
-                    "val_time": {
-                        "start": "2012-09-01T12:00:00Z",
-                        "end": "2012-11-15T12:00:00Z",
-                    },
-                    "inference_time": {
-                        "start": "2012-11-15T12:00:00Z",
-                        "end": "2012-12-15T12:00:00Z",
-                    },
-                    "data_location": "data.zarr",
-                    "data_means_location": "means.zarr",
-                    "data_stds_location": "stds.zarr",
-                }
-            ],
+            "train_time": {
+                "start": "2011-09-13T00:00:00Z",
+                "end": "2012-09-13T23:00:00Z",
+            },
+            "val_time": {
+                "start": "2012-09-14T00:00:00Z",
+                "end": "2012-11-15T14:00:00Z",
+            },
+            "data_location": "data.zarr",
+            "data_means_location": "data.zarr",
+            "data_stds_location": "data.zarr",
         }
     )
+    assert source.grid_type == "gaussian"
+    assert source.prognostic_vars_key == "all"
+    assert len(source.build_layout().prognostic_var_names) == 205
+    assert source.build_layout().boundary_var_names == [
+        "oceTAUX",
+        "oceTAUY",
+        "oceQnet",
+        "oceFWflx",
+    ]
 
-    source = cfg.sources[0]
-    assert isinstance(source, LlcDataSourceConfig)
-    assert source.face == 2
-    assert isinstance(source.inference_time, LlcTimeConfig)
-    assert source.prognostic_vars_key == "single_1"
 
-
-def test_data_config_rejects_invalid_llc_crop():
-    with pytest.raises(ValidationError, match="i_start < i_end"):
-        DataConfig.model_validate(
-            {
-                "sources": [
-                    {
-                        "type": "llc",
-                        "i_start": 20,
-                        "i_end": 20,
-                        "train_time": {
-                            "start": "2011-09-10T12:00:00Z",
-                            "end": "2012-09-01T12:00:00Z",
-                        },
-                        "val_time": {
-                            "start": "2012-09-01T12:00:00Z",
-                            "end": "2012-11-15T12:00:00Z",
-                        },
-                        "data_location": "data.zarr",
-                        "data_means_location": "means.zarr",
-                        "data_stds_location": "stds.zarr",
-                    }
-                ],
-            }
-        )
+@pytest.mark.parametrize(
+    "val_start, overlaps",
+    [
+        ("2012-09-13T22:00:00Z", True),
+        ("2012-09-13T23:00:00Z", True),
+        ("2012-09-14T00:00:00Z", False),
+    ],
+)
+def test_llc_inclusive_split_boundaries(val_start, overlaps):
+    values = {
+        "train_time": {"start": "2011-09-13T00:00:00Z", "end": "2012-09-13T23:00:00Z"},
+        "val_time": {"start": val_start, "end": "2012-11-15T14:00:00Z"},
+        "data_location": "data.zarr",
+        "data_means_location": "data.zarr",
+        "data_stds_location": "data.zarr",
+    }
+    if overlaps:
+        with pytest.raises(ValidationError, match="Training time range.*overlaps"):
+            LlcDataSourceConfig.model_validate(values)
+    else:
+        LlcDataSourceConfig.model_validate(values)
 
 
 def test_data_source_rejects_overlapping_time_splits():
@@ -364,32 +350,29 @@ def test_ocean_source_splits_use_inclusive_endpoints(
 
 
 def test_data_config_builds_llc_source_from_local_files(tmp_path):
-    write_raw_llc_datasets(tmp_path)
+    write_coarse_llc_dataset(tmp_path)
     cfg = DataConfig.model_validate(
         {
             "sources": [
                 {
                     "type": "llc",
-                    "face": 1,
-                    "i_start": 1,
-                    "i_end": 4,
-                    "j_start": 1,
-                    "j_end": 3,
+                    "prognostic_vars_key": "single_1",
+                    "boundary_vars_key": "single_1",
                     "train_time": {
-                        "start": "2011-09-10T12:00:00Z",
-                        "end": "2011-09-11T12:00:00Z",
+                        "start": "2011-09-13T00:00:00Z",
+                        "end": "2011-09-13T01:00:00Z",
                     },
                     "val_time": {
-                        "start": "2011-09-11T12:00:00Z",
-                        "end": "2011-09-12T12:00:00Z",
+                        "start": "2011-09-13T02:00:00Z",
+                        "end": "2011-09-13T03:00:00Z",
                     },
                     "inference_time": {
-                        "start": "2011-09-10T12:00:00Z",
-                        "end": "2011-09-11T12:00:00Z",
+                        "start": "2011-09-13T00:00:00Z",
+                        "end": "2011-09-13T01:00:00Z",
                     },
                     "data_location": "data.zarr",
-                    "data_means_location": "means.nc",
-                    "data_stds_location": "stds.nc",
+                    "data_means_location": "data.zarr",
+                    "data_stds_location": "data.zarr",
                 }
             ],
         }
@@ -405,7 +388,7 @@ def test_data_config_builds_llc_source_from_local_files(tmp_path):
     assert "face" not in source_data.dims
     assert source_data["Theta_0"].dims == ("time", "lat", "lon")
     assert source_data["mask_0"].dims == ("lat", "lon")
-    assert source_data["Theta_0"].shape == (2, 2, 3)
+    assert source_data["Theta_0"].shape == (2, 3, 4)
     assert np.issubdtype(source.time.dtype, np.datetime64)
     assert container.train_sources[0].time.size == 2
     assert container.val_sources[0].time.size == 2
@@ -428,28 +411,28 @@ def test_data_config_builds_llc_source_from_local_files(tmp_path):
 
     sliced = source.slice_time(
         LlcTimeConfig(
-            start=np.datetime64("2011-09-10T12:00:00", "ns"),
-            end=np.datetime64("2011-09-11T12:00:00", "ns"),
+            start=np.datetime64("2011-09-13T00:00:00", "ns"),
+            end=np.datetime64("2011-09-13T01:00:00", "ns"),
         )
     )
     assert sliced.time.size == 2
 
 
 def test_data_config_rejects_multiple_data_layouts(tmp_path):
-    write_raw_llc_datasets(tmp_path)
+    write_coarse_llc_dataset(tmp_path)
     source = {
         "type": "llc",
         "train_time": {
-            "start": "2011-09-10T12:00:00Z",
-            "end": "2011-09-11T12:00:00Z",
+            "start": "2011-09-13T00:00:00Z",
+            "end": "2011-09-13T01:00:00Z",
         },
         "val_time": {
-            "start": "2011-09-11T12:00:00Z",
-            "end": "2011-09-12T12:00:00Z",
+            "start": "2011-09-13T02:00:00Z",
+            "end": "2011-09-13T03:00:00Z",
         },
         "data_location": "data.zarr",
-        "data_means_location": "means.nc",
-        "data_stds_location": "stds.nc",
+        "data_means_location": "data.zarr",
+        "data_stds_location": "data.zarr",
         "prognostic_vars_key": "single_1",
     }
     cfg = DataConfig.model_validate(

@@ -1,0 +1,38 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+# SPDX-License-Identifier: CC-BY-4.0
+scope: Publish both long arms at EMA10000 and EMA11000 in Samudra Results Viewer with
+  initialization, three-day validation, and 30-day free-running diagnostics
+context: Exact time-matched LLC when available, otherwise same month/day/hour in another
+  available LLC year, always actual timestamps and seasonal-context label; never score
+  seasonal context as gold
+outputs: Two inferred initial states, six-hourly surface forecasts through day30,
+  full 205-channel snapshots at hours6,12,24,48,72,120,240,360,480,600,720, input
+  surface history and validity, observed daily references, LLC references/context,
+  masks/depths/units/provenance
+export_runtime_commit: ca764b2049cfdfc7f8ecbc6f2b321cb6e232795f # pragma: allowlist secret
+viewer_deployed_commit: 1411c56097948cedfcc4ca25c3c8c9946f97ba2f # pragma: allowlist secret
+viewer_tests: 43 passed,16 skipped; includes actual LLC controls and shared-link browser
+  check; live page WebSockets and link to legacy page passed
+viewer_ci: 44832114014
+forcing:
+  job: 208916
+  status: verified complete
+  proof_sha256: 6d64276121d193d7aa63082e78c9936ebd9ebdd9c7872b28770b819f6b24195a # pragma: allowlist secret
+jobs:
+  qualification:
+    id: 234701
+  mixed:
+    id: 234702
+    dependencies:
+    - 234626
+    - 234701
+  obs-only:
+    id: 234703
+    dependencies:
+    - 234629
+    - 234701
+pending:
+- qualify real GPU exporter
+- finish both training arms and their dependent exports
+- assemble, transfer, independently verify and publish catalog
+- verify actual results in live browser

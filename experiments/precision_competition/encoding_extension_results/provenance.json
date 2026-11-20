@@ -1,0 +1,37 @@
+{
+  "training_source": "0acba0807249331d78a9e87da56502cbaf62fa84",
+  "original_training_source": "fe088a48937cdda6396d3fccfef31711e5e3165e",
+  "original_results_commit": "1b15364011af30a95f628bdaf514e51f5c0bcbd9",
+  "archive_sha256": "51a89aa106bfa16d22d2d7b905509f1b1f8b00e91b9a48dd0bee66efae1a02c6",
+  "manifest_sha256": "ddfc144afd1b079cef8241e24c6b6e7461a7fd02487a0d7185065b7142bc443f",
+  "smoke_manifest_sha256": "23fda644433366847a4f1adaa01636cf7323a4216bb09b38f32fc6dda2093e99",
+  "scientific_job": "22487215",
+  "smoke_job": "22485156",
+  "callbacks": [
+    "22485194",
+    "22487246"
+  ],
+  "root": "/scratch/jr7309/precision-encoding-extension-20261109",
+  "image": "/scratch/jr7309/.apptainer-images/ghcr.io-m2lines-ocean-emulator-physicsnemo-26.05-4f86be45a09cb9eba1b51b6273e0189941b02495.sif",
+  "gpu": "NVIDIA L40S",
+  "torch_versions": [
+    "2.12.0a0+0291f960b6.nv26.04.48445190"
+  ],
+  "bundles": 36,
+  "joint_qualified": 16,
+  "trajectories": 162,
+  "scientific_gpu_seconds": 7614,
+  "smoke_gpu_seconds": 155,
+  "total_gpu_hours": 2.1580555555555554,
+  "measured_trajectory_seconds": 6921.817617136752,
+  "restarts": 0,
+  "retries": 0,
+  "test_examples": 8192,
+  "validation_examples": 512,
+  "analysis_inputs": {
+    "extension_json_sha256": "8e016e9b6c3b15cee6a5df04052b914cc358dead978fd96c25da4b6c2121f8c2",
+    "original_json_sha256": "f479afaa37ef07132139a841aeb979e2eb82a9b481a45bb513f8acba622d4365"
+  },
+  "verification": "All36 manifest entries, training-source metadata, L40S identity and W&B online logs checked. All phases and initial paired errors validated. Originals checked by their published report; weighted comparisons require matched seed/LR/view/phase.",
+  "wandb_group": "precision-encoding-extension-20261109"
+}

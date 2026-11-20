@@ -1,0 +1,23 @@
+{
+  "training_source": "fe088a48937cdda6396d3fccfef31711e5e3165e",
+  "analysis_source_base": "44d148c7d",
+  "source_archive_sha256": "005a4d6cbe55384e3adaa53a09834299766cdc9cfe0f03fb8389009120f9c57a",
+  "manifest_sha256": "c27d516c0d6ce355719bba330df77f91460a6e6cb6b03428a4008f7bc5838bff",
+  "export_sha256": "f479afaa37ef07132139a841aeb979e2eb82a9b481a45bb513f8acba622d4365",
+  "smoke_job": 22484095,
+  "scientific_job": 22484561,
+  "callback_job": 22484633,
+  "source_root": "/scratch/jr7309/precision-encoding-20261109",
+  "wandb_group": "precision-encoding-20261109",
+  "bundles": 66,
+  "qualified_bundles": 20,
+  "trajectories": 234,
+  "allocated_gpu_hours_including_smoke": 2.9763888888888888,
+  "phase_wall_hours": 2.542553214842693,
+  "torch_version": "2.12.0a0+0291f960b6.nv26.04.48445190",
+  "gpu": "NVIDIA L40S",
+  "restarts": 0,
+  "retries": 0,
+  "analysis_file_sha256": "3b9f06dad9fee8b3a8c8771169d0d911d9a790e7b75b8bf4c03f0854ba97f7a8",
+  "validation": "41 focused CPU tests, including encoding contracts, checkpoint resume, paired controls, missing controls, and zero-error handling; all66 exported bundles validated."
+}

@@ -12,6 +12,7 @@ import xarray as xr
 from samudra.config import EvalConfig, TrainConfig
 from samudra.eval import Eval
 from samudra.train import Trainer
+from samudra.utils.data import CanonicalSource, XarrayCanonicalReader
 from samudra.utils.llc import canonicalize_llc_datasets
 from samudra.utils.multiton import MultitonScope
 from tests.llc_fixtures import coarse_llc_dataset, write_coarse_llc_dataset
@@ -43,9 +44,9 @@ def test_compact_llc_channels_statistics_and_geography(tmp_path):
         for name in ("U", "V", "Theta", "Salt"):
             for level in (0, 10, 50):
                 channel = f"{name}_{level}"
-                assert data[channel].dims == ("time", "lat", "lon")
+                assert data[name].dims == ("time", "lev", "lat", "lon")
                 np.testing.assert_array_equal(
-                    data[channel], original[name].isel(k=level)
+                    data[name].isel(lev=level), original[name].isel(k=level)
                 )
                 assert means[channel].ndim == stds[channel].ndim == 0
                 assert means[channel].item() == original[f"{name}_mean"][level].item()
@@ -76,8 +77,8 @@ def test_llc_single_channel_selection_ignores_unused_fields():
     data, means, stds, _ = canonicalize(
         original, prognostic="single_1", boundary="single_1"
     )
-    assert "Theta_0" in data and "oceQnet" in data
-    assert "U_0" not in data and "Eta" not in data
+    assert "Theta" in data and "oceQnet" in data
+    assert "U" not in data and "Eta" not in data
     assert "U_0" not in means and "U_0" not in stds
 
 
@@ -207,3 +208,64 @@ def test_llc_train_and_eval_smoke(tmp_path, backend):
         np.testing.assert_allclose(predictions.lat.isel(x=0), physical.lat)
         np.testing.assert_allclose(predictions.lon.isel(y=0), physical.lon)
         np.testing.assert_array_equal(predictions.areacello, physical.rA)
+
+
+def test_compact_llc_reads_all_levels_once_without_dask(tmp_path, monkeypatch):
+    from zarr.storage import DirectoryStore  # type: ignore[import-untyped]
+
+    original = write_coarse_llc_dataset(tmp_path)
+    reads = []
+    getitem = DirectoryStore.__getitem__
+
+    def counted_getitem(store, key):
+        if key.split("/")[0] in {"U", "V", "Theta", "Salt"} and not key.split("/")[
+            -1
+        ].startswith("."):
+            reads.append(key)
+        return getitem(store, key)
+
+    def forbid_chunking(*args, **kwargs):
+        pytest.fail("The non-Dask reader must not turn on Dask")
+
+    monkeypatch.setattr(DirectoryStore, "__getitem__", counted_getitem)
+    monkeypatch.setattr(xr.Dataset, "chunk", forbid_chunking)
+    monkeypatch.setattr(xr.DataArray, "chunk", forbid_chunking)
+    with xr.open_zarr(tmp_path / "data.zarr", chunks=None) as stored:
+        data, means, stds, layout = canonicalize(stored)
+        source = CanonicalSource.from_datasets(
+            data,
+            means,
+            stds,
+            data_layout=layout,
+            prognostic_var_names=layout.prognostic_var_names,
+            boundary_var_names=layout.boundary_var_names,
+        )
+        assert reads == []
+        assert isinstance(source.reader, XarrayCanonicalReader)
+        assert source.reader.data.U.chunks is None
+        indices = np.array([[3, 1], [3, 6]], dtype=np.int64)
+        channels = tuple(
+            f"{name}_{level}"
+            for name in ("U", "V", "Theta", "Salt")
+            for level in range(51)
+        ) + ("Eta",)
+        expected = np.stack(
+            [
+                original[name].values[indices, level]
+                for name in ("U", "V", "Theta", "Salt")
+                for level in range(51)
+            ]
+            + [original.Eta.values[indices]],
+            axis=2,
+        )
+        np.testing.assert_array_equal(source.read(indices, channels), expected)
+        assert sorted(reads) == sorted(
+            f"{name}/{time}.0.0.0"
+            for name in ("U", "V", "Theta", "Salt")
+            for time in (1, 3, 6)
+        )
+        exported = source.to_xarray_dataset()
+        assert "U_0" in exported and "U" not in exported
+        np.testing.assert_array_equal(
+            exported.U_50.isel(time=3), original.U.isel(time=3, k=50)
+        )

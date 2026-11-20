@@ -15,7 +15,12 @@ from samudra.config import JulianDate, Om4TimeConfig, RustDataLoadingConfig
 from samudra.constants import CanonicalPlanes, TimeIndices
 from samudra.datasets import TorchTrainDataset, TrainingWindows
 from samudra.native_loader import NativeBatchLoader
-from samudra.utils.data import CanonicalReader, CanonicalReadRequest, CanonicalSource
+from samudra.utils.data import (
+    CanonicalReader,
+    CanonicalReadRequest,
+    CanonicalSource,
+    XarrayCanonicalReader,
+)
 from samudra.utils.train import collate_host_batches
 from tests.test_canonical_dataset import _equivalent_om4_sources
 
@@ -98,8 +103,11 @@ def test_shared_pipeline_accepts_an_independent_bulk_reader(
         data_layout=source.data_layout,
         prognostic_var_names=["so_0", "so_2", "zos"],
         boundary_var_names=["hfds"],
-        reader_factory=lambda xarray_reader: ArrayBulkReader(
-            source, xarray_reader, np.arange(source.time.size), calls
+        reader_factory=lambda source_data: ArrayBulkReader(
+            source,
+            XarrayCanonicalReader.from_source_data(source_data),
+            np.arange(source.time.size),
+            calls,
         ),
     )
     period = Om4TimeConfig(start=JulianDate("2000-01-02"), end=JulianDate("2000-01-08"))

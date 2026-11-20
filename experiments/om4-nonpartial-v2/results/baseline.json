@@ -1,0 +1,11 @@
+{
+  "arm": "baseline",
+  "mean_normalized_rmse": 0.31432603118050184,
+  "mean_persistence_normalized_rmse": 0.5720260521640105,
+  "empty_levels": [
+    18
+  ],
+  "metric": "mean over 4 origins, 72 lead times and nonempty channels of spatial area-weighted RMSE / original training std; lower is better",
+  "primary_checkpoint": "final epoch 70 EMA, not best validation checkpoint",
+  "scope": "prepared OM4 model truth; one training seed"
+}

@@ -1,0 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+# SPDX-License-Identifier: CC-BY-4.0
+checkpoint_name: saved_nets/ema_ckpt.pt
+epoch: 70
+baseline_sha256: 8ccb07eee47e16ce0b634aeb68816370bdb7bf8521b840d3bd0ef7a2e191780d # pragma: allowlist secret
+nonpartial_sha256: 32675b4c9d78c6a7f33019c408a730800af26bc34315e9f026604b846552ce95 # pragma: allowlist secret

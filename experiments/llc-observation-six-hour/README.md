@@ -56,16 +56,16 @@ split and avoid exclusions. Retain the OBS branch's separate observation
 validation (2013-11 through 2014-07) and test (2015-01 through 2022-12) years.
 Fit normalization on training support only.
 
-The first preparation must record the actual native LLC depth centers/thicknesses,
-field order, units, time support and statistics. The coarsened store lacks explicit
+Preparation records native LLC depth centers/thicknesses, field order, time
+support and statistics. The native depth and grid checks have passed. The coarsened store lacks explicit
 physical depth coordinates. Use its existing compact arrays and [#1034's grouped
 reader](https://github.com/m2lines/Samudra/pull/1034); do not expand the archive into 205 physical arrays.
 
-The sampler currently uses midnight daily analysis slots. Preparation must
-record how each product timestamp maps to those slots and finalize the ERA5
-state/accumulation support rules. Daily products are analyses with differing nominal timestamps (OISST noon,
-DUACS midnight), not measurements at every six-hour step. Record a common daily
-analysis-slot convention and retain original timestamps. Do not turn daily
+The sampler uses same-date midnight daily analysis slots, recorded in the data
+proof. ERA5 frames ending at t average state fields over [t−6h,t) and hourly
+accumulations ending in (t−6h,t]. Radiation is divided by 3,600 to obtain W m−2;
+precipitation is multiplied by 1,000/3,600 to obtain kg m−2 s−1. Daily products are analyses with differing nominal timestamps (OISST noon,
+DUACS midnight), not measurements at every six-hour step. The proof retains the original timestamp conventions. Do not turn daily
 products into artificial subdaily labels. ERA5 state fields and accumulated
 fields require separate time-support rules and explicit unit conversion.
 
@@ -74,8 +74,8 @@ fields require separate time-support rules and explicit unit conversion.
 Before a production run, verify data coverage, masks, normalization, temporal
 alignment and split exclusions. Run synthetic tests for 29-frame initialization,
 sparse daily targets, gradient flow through unsupervised steps, source alternation
-and checkpoint/resume. Then measure GPU memory, data wait and update time with
-both real sources before sizing the allocation.
+and checkpoint/resume. The provisional allocation uses four Beta GPUs with global batch eight.
+Qualification must measure GPU memory, data wait and update time for both sources.
 
 Report LLC validation by field, depth and lead, and observation SST/SSH at daily
 leads, against matched persistence. Keep a fixed validation cohort and preserve
@@ -155,9 +155,11 @@ ERA5 path uses the repository's ESMF conservative remapper; the existing daily
 surface products retain their preparation provenance. Tiny negative solar values
 are retained, with a minimum of −0.000069 W m−2 in this sample.
 
-Preparation array `208394` covers 1993 through July 2014; its concurrency was
-increased from eight to 22 CPU tasks after the pilot. Normalization job `208395`
-depends on successful preparation. The additional cache is roughly 50 GiB; LLC
+As of 2026-11-20 at 10:50 a.m. America/New_York, preparation array `208394` is
+running and normalization job `208395` is pending its successful completion.
+The array prepares 1993 through July 2014; its concurrency was increased from
+eight to 22 CPU tasks after the pilot. The full normalization and SSH datum
+audit remain outstanding. The additional cache is roughly 50 GiB; LLC
 fields remain in the original compact store. No GPU training has started yet.
 
 The [EAI launcher](eai.sbatch) uses a four-GPU Beta allocation, standard QoS and
@@ -173,5 +175,5 @@ and the OISST, DUACS and ERA5 stores under
 `/projects/ny/lz1955/multiscale/jrusak/data/obs_full_range/prepared/`. A live check on
 2026-11-20 found approximately 14 TiB available on the project filesystem and
 idle Grace CPU nodes; Alpha GPU nodes were mixed, reserved or draining. Free
-filesystem capacity is not a per-user quota or a GPU start-time guarantee. Choose
-compute after qualification and a fresh scheduler check, using standard QoS.
+filesystem capacity is not a per-user quota or a GPU start-time guarantee. Beta is the provisional GPU choice; recheck its queue and the qualification
+measurements before production, using standard QoS.

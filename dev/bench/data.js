@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795045697565,
+  "lastUpdate": 1795176358011,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -13758,6 +13758,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.42273860923104034",
             "extra": "mean: 17.58452193019999 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "ebc674d79c7b394de86ade695189e3c39ca96088",
+          "message": "Support coarsened LLC stores on the Samudra Gaussian grid (#971)\n\nThe coarsened LLC4320 store on the Samudra Gaussian grid now loads\nthrough a compact-store adapter with geographic axes, depth-dependent\nwet masks, cell areas, and embedded normalization statistics.\nTraining/evaluation presets and a pytest smoke test cover all 205\nprognostic and four forcing channels. Implemented and validated by\nCodex.\n\n<details>\n<summary>Implementation and validation</summary>\n\nPreprocessing already centered and rotated velocities and wind stresses\neast/north. The loader exposes per-level channel views while leaving the\nZarr compact. Sea-surface height (`Eta`) is prognostic; forcing includes\nfreshwater flux. The PR keeps the existing model and loss.\n\nThe inclusive-endpoint fix in #928 is already merged and covers OM4 and\nCM4. This PR fixes the separate `LlcTimeConfig.overlaps` method so\nranges sharing an endpoint count as overlapping, and adds its regression\ntest. The LLC preset uses disjoint hourly splits. Main at `e0f0f0b2b`\nwas merged in `9c51aba1e`; that commit also fixes the synthetic\ncompact-store fixture's encoding keys for Xarray's `Hashable` name type.\n\n`tests/test_llc.py::test_llc_train_and_eval_smoke` uses the shipped\npreset with a small U-Net and synthetic compact store. It checks four\noptimizer updates, changed finite weights, validation, checkpoint\nreload, four-hour autoregressive evaluation, finite metrics, and saved\nprediction masks, timestamps, coordinates, and areas. The test passes on\nCPU and CUDA. The standalone smoke script is removed.\n\nValidation at `9c51aba1e00daf2464186566e08da7093f0112e7`:\n\n- [CPU CI](https://github.com/m2lines/Samudra/actions/runs/44608074232):\n**658 passed, 3 skipped, 10 expected failures**, plus **28\nproperty/verification checks passed**.\n- [GPU CI](https://github.com/m2lines/Samudra/actions/runs/44608074212):\n**79 passed**, including the LLC train/eval smoke.\n-\n[Pre-commit](https://github.com/m2lines/Samudra/actions/runs/44608074130),\n[Rust\nloader](https://github.com/m2lines/Samudra/actions/runs/44608074105),\n[data\ntests](https://github.com/m2lines/Samudra/actions/runs/44608074338),\n[data tests with\nxESMF](https://github.com/m2lines/Samudra/actions/runs/44608073994),\n[property mutation\ngate](https://github.com/m2lines/Samudra/actions/runs/44608074236), and\n[PhysicsNeMo container\nbuild](https://github.com/m2lines/Samudra/actions/runs/44608074204)\npassed. Container publication and the separate container CPU/GPU jobs\nare intentionally skipped for this PR event.\n- Local focused LLC/data checks after merging main: **185 passed**; all\npre-commit checks passed. The earlier **639-pass** local CPU suite was\nrun before the main merge.\n\nLive Empire AI (EAI) metadata and coordinate chunks at\n`/projects/ny/lz1955/multiscale/jrusak/data/coarse_LLC4320/LLC4320_samudra_1deg.zarr`\nwere checked on 2026-11-19: 10,311 hourly samples, 51 levels, 180×360\ngrid. All 42 fixture variable names, dimension tuples, and non-time\ndtypes match. Inline comments identify reduced sizes, synthetic values,\nmetadata omissions, and encoding differences. The live `.zmetadata`\nSHA-256 is\n`9335133255c3757d69802afdec834ebfeb92ce2901426ee96d2c7ae6b71276d3`.\n\nEarlier real-data qualification at `e83fcd374`: EAI Grace CPU job\n**184508** completed in **3m44s** with the full 180×360 grid and all\nchannels. Four updates, validation, checkpoint reload, and four hourly\npredictions passed; all 620 scalar evaluation metrics were finite. This\nwas an engineering smoke check. No new EAI training was run for the\ndocumentation/test revisions or main merge.\n\nThe real-data receipt, resolved configs, checkpoint, and predictions\nremain at\n`/projects/ny/lz1955/multiscale/jrusak/runs/llc-gaussian-smoke-20261110/qualification-184508/`.\nIts parent directory retains the tested source archive and launch\nscripts, including the original smoke script.\n\n</details>\n\n---------\n\nCo-authored-by: OA jder bot <jesse+bot@openathena.ai>",
+          "timestamp": "2026-11-20T11:40:03Z",
+          "tree_id": "d4965410ddd6bbe546c55685039f45284d1efd6c",
+          "url": "https://github.com/m2lines/Samudra/commit/ebc674d79c7b394de86ade695189e3c39ca96088"
+        },
+        "date": 1795176356133,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 1.0352207576463668,
+            "unit": "iter/sec",
+            "range": "stddev: 0.004494502226771079",
+            "extra": "mean: 965.9775392000029 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_dataset__1gb[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.3360868876697817,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0054267642379208164",
+            "extra": "mean: 2.975421049399995 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.056676844057463725,
+            "unit": "iter/sec",
+            "range": "stddev: 0.4635269872159565",
+            "extra": "mean: 17.643889962999992 sec\nrounds: 5"
           }
         ]
       }

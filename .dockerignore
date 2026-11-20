@@ -22,4 +22,4 @@ tmp
 *.sif
 *.zarr
 notebooks/*
-!notebooks/quickstart.ipynb
+!notebooks/samudra-quickstart.ipynb

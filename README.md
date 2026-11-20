@@ -7,7 +7,7 @@ SPDX-License-Identifier: CC-BY-4.0
 # Samudra
 
 
-[![Open Quickstart in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/m2lines/Samudra/blob/main/notebooks/quickstart.ipynb)
+[![Open Quickstart in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/m2lines/Samudra/blob/main/notebooks/samudra-quickstart.ipynb)
 [![Pre-commit](https://github.com/m2lines/Samudra/actions/workflows/pre-commit.yml/badge.svg)](https://github.com/m2lines/Samudra/actions/workflows/pre-commit.yml)
 [![Test CPU](https://github.com/m2lines/Samudra/actions/workflows/test.yml/badge.svg)](https://github.com/m2lines/Samudra/actions/workflows/test.yml)
 [![Benchmark CPU](https://github.com/m2lines/Samudra/actions/workflows/benchmarks.yml/badge.svg)](https://github.com/m2lines/Samudra/actions/workflows/benchmarks.yml)
@@ -26,7 +26,7 @@ We are actively and openly developing this emulator to support new tasks and dat
 
 To configure, train, validate, and visualize Samudra 2 in a browser on public
 data with a Colab GPU, open the
-[free-tier Colab quickstart](https://colab.research.google.com/github/m2lines/Samudra/blob/main/notebooks/quickstart.ipynb).
+[free-tier Colab quickstart](https://colab.research.google.com/github/m2lines/Samudra/blob/main/notebooks/samudra-quickstart.ipynb).
 
 Given [`uv`](https://docs.astral.sh/uv/) is installed:
 

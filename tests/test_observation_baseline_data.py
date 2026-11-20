@@ -130,7 +130,7 @@ def model_store(tmp_path, kind):
         z["y"], z["x"] = lat, lon
         for i in range(19):
             z[f"mask_{i}"] = np.ones((2, 3), dtype=bool)
-        time = np.arange(n) * 5 + 2.5
+        time = np.arange(n, dtype=np.float64) * 5 + 2.5
         attrs = dict(units="days since 1975-01-01", calendar="standard")
         for name in [
             f"{v}_{i}" for v in ("uo", "vo", "thetao", "so") for i in range(19)

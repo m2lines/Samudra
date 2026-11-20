@@ -64,7 +64,7 @@ def interpolate_depth(
 def save_atomic(path: Path, **arrays: ArrayLike) -> None:
     temp = path.with_name(path.name + f".{os.getpid()}.tmp")
     with temp.open("wb") as stream:
-        np.savez_compressed(stream, **arrays)
+        np.savez_compressed(stream, allow_pickle=False, **arrays)
     temp.replace(path)
 
 
@@ -158,7 +158,7 @@ def prepare(args: argparse.Namespace) -> None:
         depth_name = next(n for n in ds.temp.dims if n not in ("time", "lat", "lon"))
         z = ds[depth_name].values
         pressure = gsw.p_from_z(-z[:, None, None], ds.lat.values[None, :, None])
-        for index in selected:
+        for index in selected.tolist():
             stamp = times[index].strftime("%Y-%m")
             path = out / (stamp + ".npz")
             if path.exists():

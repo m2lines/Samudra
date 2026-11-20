@@ -90,7 +90,8 @@ def completion_loss(
     channel = (error * weight).sum((-2, -1)) / denominator.clamp_min(1e-12)
     present = denominator > 0
     if not present.any():
-        return prediction.sum() * 0
+        # Stay connected to the graph without reading unsupported (possibly NaN) cells.
+        return error.sum() * 0
     return channel[present].mean()
 
 

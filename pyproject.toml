@@ -27,35 +27,29 @@ classifiers = [
 dynamic = [ "version" ] # derived from git tags by setuptools-scm
 dependencies = [
   "aiohttp>=3.11.13",
-  "cartopy>=0.24.1",              # `samudra viz` imports it at module load
+  "cartopy>=0.24.1",          # `samudra viz` imports it at module load
   "cftime>=1.6.4.post1",
   "cmocean>=4.0.3",
-  "dacite>=1.9.2",
   "dask>=2025.2",
   "einops>=0.7",
+  "fsspec>=2025.3",
   "jaxtyping>=0.3",
   "matplotlib>=3.10.1",
-  "microsoft-aurora>=1.8",
-  "numpy>=1.26.4,<2",             # There is some incompatibility between a dependency and numpy 2+
-  "pandas>=2.2",                  # tidy metric frames are part of samudra.metrics' API
-  "pyarrow>=18",                  # portable Parquet experiment catalogs
+  "netcdf4>=1.7",
+  "numpy>=2,<3",
+  "pandas>=2.2",              # tidy metric frames are part of samudra.metrics' API
+  "pyarrow>=18",              # portable Parquet experiment catalogs
   "pydantic-settings>=2.8.1",
-  "pytest-xdist[psutil]>=3.6.1",
   "pyyaml>=6.0.2",
-  "requests>=2.32.3",
   "s3fs>=2025.5.1",
   "scipy>=1.17.1",
-  "skypilot[aws,lambda]>=0.10",
-  "sqlalchemy>=2",                # skypilot requires sqlalchemy 2.0 but doesn't include that requirement
-  "torch>=2.9.0a0,<2.13",         # Matches PhysicsNeMo container builds
+  "torch>=2.9.0a0,<2.13",     # Matches PhysicsNeMo container builds
   "torchinfo>=1.8",
   "tqdm>=4.67.1",
   "typing-extensions>=4.15",
   "wandb>=0.19.8",
-  "xarray[io]>=2025.1.2",
-  "xarray-einstats[einops]>=0.8",
-  "xesmf>=0.8.10",
-  "zarr<3",
+  "xarray>=2025.6,<2026.4",   # Zarr 3 support; matches data/ (keeps compressor encoding for v2 writes).
+  "zarr>=2.18,<3",            # zarr-python 3 reads ~1.4x slower in the loader benchmarks.
 ]
 optional-dependencies.cuda = [
   "torchvision>=0.24.0a0",
@@ -64,6 +58,10 @@ optional-dependencies.rust = [
   "samudra-rust-loader==0.1",
 ]
 
+optional-dependencies.sky = [
+  "skypilot[aws,lambda]>=0.10",
+  "sqlalchemy>=2",              # SkyPilot uses SQLAlchemy 2 APIs.
+]
 urls.Documentation = "https://m2lines.github.io/Samudra/docs/"
 urls.Homepage = "https://m2lines.github.io/Samudra/"
 urls.Issues = "https://github.com/m2lines/Samudra/issues"
@@ -88,13 +86,14 @@ dev = [
   "pytest>=8.3.4",
   "pytest-benchmark[histogram]>=5.1",
   "pytest-profiling>=1.8.1",
+  "pytest-xdist[psutil]>=3.6.1",
   "s3fs>=2025.3",
+  "samudra-verification",
   "scalene>=1.5.51",
   "snakeviz>=2.2.2",
   "tenacity>=9",
   "types-pyyaml>=6.0.12.20241230",
   "types-tqdm>=4.67.0.20250516",
-  "xarrayutils>=2.0.1",
 ]
 docs = [
   "mkdocs-material>=9.5",
@@ -104,6 +103,8 @@ docs = [
 
 [tool.setuptools]
 package-dir = { "" = "src" }
+# Centralized REUSE license text also covers the attributed MIT source modules.
+license-files = [ "LICENSE", "LICENSES/MIT.txt" ]
 # Ship py.typed plus the example config presets so installed users can run
 # `samudra train samudra_om4/train.yaml` without a checkout (resolved by
 # config_base.py). The `!include`s between presets and configs/data are
@@ -154,15 +155,13 @@ lint.per-file-ignores."test_*.py" = [ "D", "F811" ]
 lint.isort.split-on-trailing-comma = false
 lint.pydocstyle.convention = "google"
 
-# The data package supports Python 3.11; the main package requires Python 3.12.
-per-file-target-version = { "data/**/*.py" = "py311" }
-
 [tool.pytest]
 ini_options.markers = [
   "manual: marks tests as manually run (deselect with '-m \"not manual\"').",
   "cuda: marks tests that need a CUDA-enabled device to run (deselect with '-m \"not cuda\"').",
   "only_configs: used to mark tests that only run on specific configs (not used on command line)",
   "all_configs: used to mark tests that run on all configs (not used on command line)",
+  "invariant(status): status is 'proposed' or 'agreed'; triage never files failures of proposed invariants",
 ]
 ini_options.pythonpath = [ "src", "tests" ]
 ini_options.testpaths = [ "tests" ]
@@ -182,7 +181,6 @@ overrides = [
     "scipy.*",
     "fsspec.*",
     "s3fs.*",
-    "aurora.*",
   ], follow_untyped_imports = true },
 ]
 
@@ -194,8 +192,14 @@ torch = [
 torchvision = [
   { index = "pytorch-cu130", marker = "sys_platform == 'linux' and platform_machine == 'aarch64'" },
 ]
+samudra-verification = { workspace = true }
 
 [[tool.uv.index]]
 name = "pytorch-cu130"
 url = "https://download.pytorch.org/whl/cu130"
 explicit = true
+
+[tool.uv.workspace]
+members = [
+  "verification",
+]

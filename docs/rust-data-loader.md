@@ -32,10 +32,11 @@ Source adapters normalize coordinates, masks, and channel statistics while retai
 compact depth arrays. `TrainingSourceBackend.build_reader` receives `XarraySourceData`
 (the prepared arrays, statistics, and channel names) and chooses the reader. The
 Python `XarrayCanonicalReader` supports flat and compact arrays and groups requested
-levels into a single selection per compact variable, without enabling Dask. The native backend
-constructs its metadata reader internally and maps canonical channels to physical
-arrays through `NativeOm4Reader`. Callers that need a per-level xarray dataset use
-`CanonicalSource.to_xarray_dataset()`; training reads use the retained compact arrays.
+levels into a single selection per compact variable, without enabling Dask. The native
+backend constructs its metadata reader internally and maps canonical channels to physical
+arrays through `NativeOm4Reader`. Sources using `XarrayCanonicalReader` can export
+per-level views with `CanonicalSource.to_xarray_dataset()`. Sources using
+`NativeOm4Reader` do not support this export.
 
 | Component | Responsibility in the Rust loader |
 | --- | --- |

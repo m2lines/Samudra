@@ -68,7 +68,7 @@ jobs:
             echo "- \`$project\` mutation gate: **$run** ($why)" >> "$GITHUB_STEP_SUMMARY"
           done <<'PROJECTS'
           root tests pyproject\.toml$|uv\.lock$|tests/conftest\.py$
-          data data/tests data/pyproject\.toml$|data/tests/conftest\.py$
+          data data/tests data/pyproject\.toml$|data/tests/conftest\.py$|src/samudra/invariants/
           PROJECTS
 
   root:
@@ -107,9 +107,9 @@ jobs:
     needs: plan
     if: needs.plan.outputs.data == 'true'
     runs-on: ubuntu-latest
-    # Each catalog: controls at most seeds x detectors x 60 s, then mutants share
-    # 600 s. Recompute when adding detectors.
-    timeout-minutes: 45
+    # Worst case: controls take 3 seeds x 13 detectors x 60 s (39 min), then mutants
+    # share 600 s (10 min). The rest covers the install. Recompute when adding detectors.
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - uses: astral-sh/setup-uv@d0d8abe699bfb85fec6de9f7adb5ae17292296ff
@@ -118,9 +118,12 @@ jobs:
           python-version: "3.12"
       - name: Install the data-test environment
         # The packages data-tests.yaml installs: the newest versions data/pyproject.toml allows.
+        # samudra.invariants is shared with the data tests. Install CPU torch first so
+        # uv doesn't pull the CUDA wheels as samudra's dependency.
         run: |
           uv venv /tmp/data-env
-          uv pip install --python /tmp/data-env -e ./verification -e "./data[test]"
+          uv pip install --python /tmp/data-env 'torch>=2.9,<2.13' --index-url https://download.pytorch.org/whl/cpu
+          uv pip install --python /tmp/data-env -e . -e ./verification -e "./data[test]"
           echo /tmp/data-env/bin >> "$GITHUB_PATH"
       - name: Verify generated discovery of historical faults
         run: |

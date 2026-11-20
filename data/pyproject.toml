@@ -69,6 +69,7 @@ optional-dependencies.test = [
   # samudra-verification is a local project, not a PyPI package, so install it
   # separately: pip install -e ./verification
   "pytest-reportlog>=1",
+  "samudra",             # samudra.invariants; install this checkout (pip install -e .), not PyPI's.
   "scipy",               # Write NetCDF3 fixtures for the virtualization tests.
 ]
 
@@ -79,4 +80,6 @@ exclude = [ "book", "docs" ] # exclude packages matching these glob patterns (em
 testpaths = [ "tests" ]
 markers = [
   "invariant(status): status is 'proposed' or 'agreed'; triage never files failures of proposed invariants",
+  "om4_live: reads the published OM4 stores from OSN; skipped without --om4-live",
+  "om4_live_heavy: reads years of 1/4 degree data or re-runs the pipeline; skipped without --om4-live-heavy",
 ]

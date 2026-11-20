@@ -70,9 +70,12 @@ jobs:
           python-version: "3.12"
       - name: Install the data-test environment
         # The packages data-tests.yaml installs: the newest versions data/pyproject.toml allows.
+        # samudra.invariants is shared with the data tests. Install CPU torch first so
+        # uv doesn't pull the CUDA wheels as samudra's dependency.
         run: |
           uv venv /tmp/data-env
-          uv pip install --python /tmp/data-env -e ./verification -e "./data[test]"
+          uv pip install --python /tmp/data-env 'torch>=2.9,<2.13' --index-url https://download.pytorch.org/whl/cpu
+          uv pip install --python /tmp/data-env -e . -e ./verification -e "./data[test]"
           echo /tmp/data-env/bin >> "$GITHUB_PATH"
       - name: Explore and shrink
         working-directory: data

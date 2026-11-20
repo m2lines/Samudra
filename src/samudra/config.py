@@ -524,7 +524,7 @@ class Om4FamilyDataSourceConfig[Om4FamilyTimeConfigT: Om4TimeConfig | Cm4TimeCon
         means: xr.Dataset,
         stds: xr.Dataset,
     ) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset, DataLayout]:
-        """Convert raw flat or compact OM4 xarray inputs to canonical channels."""
+        """Normalize OM4 coordinates and statistics while retaining compact arrays."""
         data_layout = self.build_layout()
         data = data.copy()
         means = means.copy()
@@ -540,10 +540,9 @@ class Om4FamilyDataSourceConfig[Om4FamilyTimeConfigT: Om4TimeConfig | Cm4TimeCon
         if anomalies_vars:
             data, means, stds = compute_anomalies(data, means, stds, anomalies_vars)
 
-        canonical_data = expand_compact_levels(data)
         canonical_means = expand_compact_levels(means)
         canonical_stds = expand_compact_levels(stds)
-        return canonical_data, canonical_means, canonical_stds, data_layout
+        return data, canonical_means, canonical_stds, data_layout
 
 
 class Om4DataSourceConfig(Om4FamilyDataSourceConfig[Om4TimeConfig]):

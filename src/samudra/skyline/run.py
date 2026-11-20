@@ -320,6 +320,22 @@ def save_atomic(value, path):
     os.replace(temporary, path)
 
 
+def retain_checkpoint(latest, step, retained_steps):
+    """Keep an immutable inode while later atomic saves replace latest.
+
+    Repeating this after a restart repairs a preemption between the latest save
+    and the hard link. An existing retained checkpoint is never overwritten.
+    """
+    if step not in retained_steps:
+        return
+    destination = latest.parent / f"checkpoint-{step:07d}.pt"
+    try:
+        os.link(latest, destination)
+    except FileExistsError:
+        if not destination.is_file():
+            raise
+
+
 def resume_checkpoint(config, latest, restart_count):
     """Only explicit resume or a scheduler restart may reuse an output directory."""
     automatic = config.get("preemptible", False) and restart_count > 0

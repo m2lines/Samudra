@@ -3,6 +3,7 @@
 """Explicit checkpoint branches with preserved scientific configuration."""
 
 import hashlib
+import math
 from pathlib import Path
 
 import torch
@@ -52,6 +53,20 @@ def scheduled_learning_rate(config, step):
     schedule = config.get("learning_rate_schedule", "cosine")
     if schedule == "constant":
         return config["learning_rate"]
+    if schedule == "warmup_stable_cosine":
+        warmup = config["warmup"]
+        cooldown_start = config["cooldown_start"]
+        end = config.get("schedule_updates", config["max_updates"])
+        floor = config["final_learning_rate"]
+        peak = config["learning_rate"]
+        if not (0 < warmup < cooldown_start < end and 1 <= step <= end):
+            raise ValueError("Invalid warmup/stable/cooldown schedule")
+        if not 0 <= floor <= peak:
+            raise ValueError("Final learning rate must lie between zero and peak")
+        if step <= warmup:
+            return peak * step / warmup
+        fraction = max(0.0, (step - cooldown_start) / (end - cooldown_start))
+        return floor + (peak - floor) * (1 + math.cos(math.pi * fraction)) / 2
     if schedule != "cosine":
         raise ValueError(f"Unknown learning-rate schedule: {schedule}")
     return config["learning_rate"] * learning_rate_factor(

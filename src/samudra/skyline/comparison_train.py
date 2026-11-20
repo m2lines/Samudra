@@ -28,7 +28,7 @@ from .model import ModelConfig, PointTransformer
 from .multitask import ComparisonSource
 from .optimization import accumulate_gradients, set_synchronized_learning_rate
 from .replicas import verify_replicas
-from .run import FrameStream, emit, save_atomic
+from .run import FrameStream, emit, retain_checkpoint, save_atomic
 from .utilization import GpuMonitor
 from .validation_cache import ValidationFrameCache
 
@@ -133,6 +133,8 @@ def train_inner(config, output, source, device, rank, world, monitor):
         model, config["ema"], None if state is None else state["ema"], step
     )
     del state
+    if rank == 0 and latest.exists():
+        retain_checkpoint(latest, step, config.get("retain_full_checkpoints", []))
     ddp = DistributedDataParallel(
         model, device_ids=[device.index], broadcast_buffers=False
     )
@@ -206,6 +208,7 @@ def train_inner(config, output, source, device, rank, world, monitor):
                 ),
                 latest,
             )
+            retain_checkpoint(latest, step, config.get("retain_full_checkpoints", []))
             emit(dict(event="checkpoint", step=step), output / "training.jsonl")
         dist.barrier()
         last_save = time.monotonic()
@@ -420,6 +423,7 @@ def train_inner(config, output, source, device, rank, world, monitor):
             save_due = torch.tensor(
                 int(
                     validation_due
+                    or step in config.get("retain_full_checkpoints", [])
                     or time.monotonic() - last_save >= config["save_seconds"]
                 ),
                 device=device,

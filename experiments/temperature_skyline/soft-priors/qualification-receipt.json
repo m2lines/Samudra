@@ -1,0 +1,130 @@
+{
+  "jobs": [
+    {
+      "job": 22592786,
+      "GPU_seconds": 326,
+      "state": "FAILED qualification gate"
+    },
+    {
+      "job": 22593710,
+      "GPU_seconds": 336,
+      "state": "FAILED qualification gate"
+    },
+    {
+      "job": 22594243,
+      "GPU_seconds": 159,
+      "state": "COMPLETED audit"
+    }
+  ],
+  "initial_parameter_hashes": {
+    "temperature": {
+      "historical": "cfaeeb1c6d80e7e8:7d06051a380d8e42:ce75e4c573beb0e7:77b37dd10ecda585",
+      "old_repeat": "cfaeeb1c6d80e7e8:7d06051a380d8e42:ce75e4c573beb0e7:77b37dd10ecda585",
+      "new_repeat": "cfaeeb1c6d80e7e8:7d06051a380d8e42:ce75e4c573beb0e7:77b37dd10ecda585",
+      "new_v2": "cfaeeb1c6d80e7e8:7d06051a380d8e42:ce75e4c573beb0e7:77b37dd10ecda585"
+    },
+    "all-fields": {
+      "historical": "cfaeeb1c6d80e7e8:7d06051a380d8e42:ce75e4c573beb0e7:77b37dd10ecda585",
+      "old_repeat": "cfaeeb1c6d80e7e8:7d06051a380d8e42:ce75e4c573beb0e7:77b37dd10ecda585",
+      "new_repeat": "cfaeeb1c6d80e7e8:7d06051a380d8e42:ce75e4c573beb0e7:77b37dd10ecda585",
+      "new_v2": "cfaeeb1c6d80e7e8:7d06051a380d8e42:ce75e4c573beb0e7:77b37dd10ecda585"
+    }
+  },
+  "hash_encoding": "SHA256 hexadecimal split into 16-character groups; remove colons to recover digest",
+  "cpu_forward_backward_parity": {
+    "historical_source": "https://github.com/m2lines/Samudra/commit/0e174c2a8",
+    "new_source": "https://github.com/m2lines/Samudra/commit/ff13600ec",
+    "test": "2-example all-fields synthetic crop3 width32 layer1 bins32 seed123",
+    "logits_exact": true,
+    "all_parameter_gradients_exact": true
+  },
+  "release_verification": {
+    "gate_amendment": "Parent authorized numerical repeatability diagnostic rather than historical post-update equality; unchanged historical source also fails equality. No claim of 2k equivalence.",
+    "checks": {
+      "temperature-control": {
+        "finite": true,
+        "exact_sampling_rng_and_stream": true,
+        "exact_persistence": true,
+        "matched_config": true,
+        "step": 4,
+        "ema_updates": 4
+      },
+      "temperature-twohot": {
+        "finite": true,
+        "exact_sampling_rng_and_stream": true,
+        "exact_persistence": true,
+        "matched_config": true,
+        "step": 4,
+        "ema_updates": 4
+      },
+      "temperature-smoothinit": {
+        "finite": true,
+        "exact_sampling_rng_and_stream": true,
+        "exact_persistence": true,
+        "matched_config": true,
+        "step": 4,
+        "ema_updates": 4
+      },
+      "temperature-both": {
+        "finite": true,
+        "exact_sampling_rng_and_stream": true,
+        "exact_persistence": true,
+        "matched_config": true,
+        "step": 4,
+        "ema_updates": 4
+      },
+      "all-fields-control": {
+        "finite": true,
+        "exact_sampling_rng_and_stream": true,
+        "exact_persistence": true,
+        "matched_config": true,
+        "step": 4,
+        "ema_updates": 4
+      },
+      "all-fields-twohot": {
+        "finite": true,
+        "exact_sampling_rng_and_stream": true,
+        "exact_persistence": true,
+        "matched_config": true,
+        "step": 4,
+        "ema_updates": 4
+      },
+      "all-fields-smoothinit": {
+        "finite": true,
+        "exact_sampling_rng_and_stream": true,
+        "exact_persistence": true,
+        "matched_config": true,
+        "step": 4,
+        "ema_updates": 4
+      },
+      "all-fields-both": {
+        "finite": true,
+        "exact_sampling_rng_and_stream": true,
+        "exact_persistence": true,
+        "matched_config": true,
+        "step": 4,
+        "ema_updates": 4
+      }
+    }
+  },
+  "production_jobs": {
+    "temperature_twohot": 22594960,
+    "all_fields_twohot": 22594966,
+    "temperature_smoothinit": 22595643,
+    "all_fields_smoothinit": 22594972,
+    "temperature_both": 22594974,
+    "all_fields_both": 22595644,
+    "callback": 22595646
+  },
+  "startup_failures": [
+    {
+      "job": 22594968,
+      "seconds": 28
+    },
+    {
+      "job": 22594976,
+      "seconds": 21
+    }
+  ],
+  "production_validation_weight_snapshots_retained": 120
+}

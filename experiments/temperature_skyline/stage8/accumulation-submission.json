@@ -1,0 +1,124 @@
+{
+  "source_commit": "3f1968685422a465b04dcb27226505a91d52fe24",
+  "archive_sha256": "f647a5da3a58e42bd6e5f5de597fb2f124bddbdd41e67b908c78b78b4d33651e",
+  "superseded_jobs": [
+    "21861894",
+    "21861897",
+    "21861899",
+    "21861901"
+  ],
+  "superseded_elapsed_seconds": 0,
+  "world_size": 4,
+  "microbatch": 32,
+  "gradient_accumulation": 2,
+  "effective_batch": 256,
+  "jobs": {
+    "qual-absolute": {
+      "job": "21911396",
+      "output": "/scratch/jr7309/temperature-skyline-20261102/stage4-ema-3f1968685/qual-absolute",
+      "command": [
+        "sbatch",
+        "--parsable",
+        "--account=torch_pr_347_lzanna",
+        "--comment=preemption=yes;requeue=true",
+        "--constraint=rtx6000",
+        "--gres=gpu:4",
+        "--nodes=1",
+        "--ntasks=1",
+        "--cpus-per-task=32",
+        "--mem=64G",
+        "--chdir=/scratch/jr7309",
+        "--requeue",
+        "--signal=B:USR1@300",
+        "--job-name=skyline-4gpu-qual-absolute",
+        "--time=00:10:00",
+        "--output=/scratch/jr7309/temperature-skyline-20261102/stage4-ema-3f1968685/qual-absolute-%j.out",
+        "--error=/scratch/jr7309/temperature-skyline-20261102/stage4-ema-3f1968685/qual-absolute-%j.err",
+        "--export=ALL,SKYLINE_ROOT=/scratch/jr7309/temperature-skyline-20261102,SKYLINE_COMMIT=3f1968685422a465b04dcb27226505a91d52fe24,SKYLINE_ARCHIVE_SHA256=f647a5da3a58e42bd6e5f5de597fb2f124bddbdd41e67b908c78b78b4d33651e,SKYLINE_CONFIG=/scratch/jr7309/temperature-skyline-20261102/stage4-ema-3f1968685/temperature_skyline/stage4_absolute_qualification.json,SKYLINE_OUTPUT=/scratch/jr7309/temperature-skyline-20261102/stage4-ema-3f1968685/qual-absolute,SIF_PATH=/scratch/jr7309/.apptainer-images/sd-seeds-base-0b5320248.sif,SKYLINE_WORLD_SIZE=4,WANDB_MODE=online,REQUEUE_ON_USR1=1",
+        "/scratch/jr7309/temperature-skyline-20261102/stage4-ema-3f1968685/harness.sbatch"
+      ]
+    },
+    "qual-regression": {
+      "job": "21911399",
+      "output": "/scratch/jr7309/temperature-skyline-20261102/stage4-ema-3f1968685/qual-regression",
+      "command": [
+        "sbatch",
+        "--parsable",
+        "--account=torch_pr_347_lzanna",
+        "--comment=preemption=yes;requeue=true",
+        "--constraint=rtx6000",
+        "--gres=gpu:4",
+        "--nodes=1",
+        "--ntasks=1",
+        "--cpus-per-task=32",
+        "--mem=64G",
+        "--chdir=/scratch/jr7309",
+        "--requeue",
+        "--signal=B:USR1@300",
+        "--job-name=skyline-4gpu-qual-regression",
+        "--time=00:10:00",
+        "--output=/scratch/jr7309/temperature-skyline-20261102/stage4-ema-3f1968685/qual-regression-%j.out",
+        "--error=/scratch/jr7309/temperature-skyline-20261102/stage4-ema-3f1968685/qual-regression-%j.err",
+        "--export=ALL,SKYLINE_ROOT=/scratch/jr7309/temperature-skyline-20261102,SKYLINE_COMMIT=3f1968685422a465b04dcb27226505a91d52fe24,SKYLINE_ARCHIVE_SHA256=f647a5da3a58e42bd6e5f5de597fb2f124bddbdd41e67b908c78b78b4d33651e,SKYLINE_CONFIG=/scratch/jr7309/temperature-skyline-20261102/stage4-ema-3f1968685/temperature_skyline/stage4_regression_qualification.json,SKYLINE_OUTPUT=/scratch/jr7309/temperature-skyline-20261102/stage4-ema-3f1968685/qual-regression,SIF_PATH=/scratch/jr7309/.apptainer-images/sd-seeds-base-0b5320248.sif,SKYLINE_WORLD_SIZE=4,WANDB_MODE=online,REQUEUE_ON_USR1=1",
+        "--dependency=afterok:21911396",
+        "/scratch/jr7309/temperature-skyline-20261102/stage4-ema-3f1968685/harness.sbatch"
+      ]
+    },
+    "absolute": {
+      "job": "21911403",
+      "output": "/scratch/jr7309/temperature-skyline-20261102/stage4-ema-3f1968685/absolute",
+      "command": [
+        "sbatch",
+        "--parsable",
+        "--account=torch_pr_347_lzanna",
+        "--comment=preemption=yes;requeue=true",
+        "--constraint=rtx6000",
+        "--gres=gpu:4",
+        "--nodes=1",
+        "--ntasks=1",
+        "--cpus-per-task=32",
+        "--mem=64G",
+        "--chdir=/scratch/jr7309",
+        "--requeue",
+        "--signal=B:USR1@300",
+        "--job-name=skyline-4gpu-absolute",
+        "--time=10:00:00",
+        "--output=/scratch/jr7309/temperature-skyline-20261102/stage4-ema-3f1968685/absolute-%j.out",
+        "--error=/scratch/jr7309/temperature-skyline-20261102/stage4-ema-3f1968685/absolute-%j.err",
+        "--export=ALL,SKYLINE_ROOT=/scratch/jr7309/temperature-skyline-20261102,SKYLINE_COMMIT=3f1968685422a465b04dcb27226505a91d52fe24,SKYLINE_ARCHIVE_SHA256=f647a5da3a58e42bd6e5f5de597fb2f124bddbdd41e67b908c78b78b4d33651e,SKYLINE_CONFIG=/scratch/jr7309/temperature-skyline-20261102/stage4-ema-3f1968685/temperature_skyline/stage4_absolute.json,SKYLINE_OUTPUT=/scratch/jr7309/temperature-skyline-20261102/stage4-ema-3f1968685/absolute,SIF_PATH=/scratch/jr7309/.apptainer-images/sd-seeds-base-0b5320248.sif,SKYLINE_WORLD_SIZE=4,WANDB_MODE=online,REQUEUE_ON_USR1=1",
+        "--dependency=afterok:21911399",
+        "/scratch/jr7309/temperature-skyline-20261102/stage4-ema-3f1968685/harness.sbatch"
+      ]
+    },
+    "regression": {
+      "job": "21911412",
+      "output": "/scratch/jr7309/temperature-skyline-20261102/stage4-ema-3f1968685/regression",
+      "command": [
+        "sbatch",
+        "--parsable",
+        "--account=torch_pr_347_lzanna",
+        "--comment=preemption=yes;requeue=true",
+        "--constraint=rtx6000",
+        "--gres=gpu:4",
+        "--nodes=1",
+        "--ntasks=1",
+        "--cpus-per-task=32",
+        "--mem=64G",
+        "--chdir=/scratch/jr7309",
+        "--requeue",
+        "--signal=B:USR1@300",
+        "--job-name=skyline-4gpu-regression",
+        "--time=10:00:00",
+        "--output=/scratch/jr7309/temperature-skyline-20261102/stage4-ema-3f1968685/regression-%j.out",
+        "--error=/scratch/jr7309/temperature-skyline-20261102/stage4-ema-3f1968685/regression-%j.err",
+        "--export=ALL,SKYLINE_ROOT=/scratch/jr7309/temperature-skyline-20261102,SKYLINE_COMMIT=3f1968685422a465b04dcb27226505a91d52fe24,SKYLINE_ARCHIVE_SHA256=f647a5da3a58e42bd6e5f5de597fb2f124bddbdd41e67b908c78b78b4d33651e,SKYLINE_CONFIG=/scratch/jr7309/temperature-skyline-20261102/stage4-ema-3f1968685/temperature_skyline/stage4_regression.json,SKYLINE_OUTPUT=/scratch/jr7309/temperature-skyline-20261102/stage4-ema-3f1968685/regression,SIF_PATH=/scratch/jr7309/.apptainer-images/sd-seeds-base-0b5320248.sif,SKYLINE_WORLD_SIZE=4,WANDB_MODE=online,REQUEUE_ON_USR1=1",
+        "--dependency=afterok:21911403",
+        "/scratch/jr7309/temperature-skyline-20261102/stage4-ema-3f1968685/harness.sbatch"
+      ]
+    }
+  },
+  "callback": {
+    "job": "21911421",
+    "event_id": "5712e4db-7e26-46c7-b42e-1687818a267f"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "host": "engaging",
+  "jobs": {
+    "qual-absolute": 27944929,
+    "qual-regression": 27944930,
+    "absolute": 27944931,
+    "regression": 27944932
+  },
+  "callback_job": 27944959,
+  "root": "/orcd/scratch/orcd/014/jrusak/temperature-skyline-20261104",
+  "source_commit": "4132facf98cc3a9a5ee9ad262ed0305c7080266f",
+  "archive_sha256": "5f60912d3f19d59b45160ef197f4a83be68f3a89eb96fd50b6e47d7935ecbe7f",
+  "output_root": "/orcd/scratch/orcd/014/jrusak/temperature-skyline-20261104/recovery2",
+  "recovery_resolution": "Rank-local wall-clock learning rates caused small replica divergence. Rank-zero LR broadcast now yields byte-identical raw and EMA replicas on the same L40S class.",
+  "replaces_jobs": {
+    "qual-absolute": 27943836,
+    "qual-regression": 27943840,
+    "absolute": 27943843,
+    "regression": 27943848
+  },
+  "qualification_checks": "Both qualifications completed eight optimizer updates, 2048 examples, eight EMA updates, and matching exact raw/EMA replica hashes. Classifier and regression COMPLETE.json read back November 5."
+}

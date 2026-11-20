@@ -1,0 +1,62 @@
+{
+  "aggregation": "Arithmetic mean across 19 depths; within depth, global assessment dates have equal weight and locations use the pinned area-sampling protocol.",
+  "mean_depth_nmse": {
+    "regression": 0.0004976844261626928,
+    "samudra": 0.0010675880979596976,
+    "persistence": 0.00046127375841699484,
+    "classifier_mode": 0.006073328390329239
+  },
+  "regression_nmse_reduction_vs_samudra_percent": 53.38235531907542,
+  "regression_nmse_increase_vs_persistence_percent": 7.893505121698774,
+  "regression_depths_beating_samudra": 18,
+  "regression_depths_beating_persistence": 5,
+  "mean_depth_detection": {
+    "predictive_std": {
+      "auroc": 0.5588397978772311,
+      "average_precision": 0.1301600664354466,
+      "spearman": 0.0716811801653703,
+      "top_decile_sse_fraction": 0.10937704255373062,
+      "top_decile_selected_fraction": 0.10018319151180069,
+      "large_error_prevalence": 0.10879152624156163
+    },
+    "samudra_bin_surprise": {
+      "auroc": 0.8019700937850437,
+      "average_precision": 0.26532001822370177,
+      "spearman": 0.5908359062443752,
+      "top_decile_sse_fraction": 0.2535164175036157,
+      "top_decile_selected_fraction": 0.10015576017456299,
+      "large_error_prevalence": 0.10879152624156163
+    },
+    "samudra_density_surprise": {
+      "auroc": 0.80876903895016,
+      "average_precision": 0.2767350541925585,
+      "spearman": 0.59603482132295,
+      "top_decile_sse_fraction": 0.2640892728097608,
+      "top_decile_selected_fraction": 0.10018214325823278,
+      "large_error_prevalence": 0.10879152624156166
+    },
+    "samudra_persistence_disagreement": {
+      "auroc": 0.919068390830913,
+      "average_precision": 0.7103916336141768,
+      "spearman": 0.7572718652142529,
+      "top_decile_sse_fraction": 0.5530419973507058,
+      "top_decile_selected_fraction": 0.10019002641251194,
+      "large_error_prevalence": 0.10879152624156166
+    },
+    "samudra_regression_disagreement": {
+      "auroc": 0.9162401962902786,
+      "average_precision": 0.700630748050908,
+      "spearman": 0.725653562334128,
+      "top_decile_sse_fraction": 0.5516889980348897,
+      "top_decile_selected_fraction": 0.10023732750054162,
+      "large_error_prevalence": 0.10879152624156166
+    }
+  },
+  "mean_depth_coverage": {
+    "50": 0.7325644881051017,
+    "80": 0.9543380665764216,
+    "90": 0.9875646260988064,
+    "95": 0.9977224664837635
+  },
+  "mean_depth_gold_false_alarm_fraction": 0.05351134296176461
+}

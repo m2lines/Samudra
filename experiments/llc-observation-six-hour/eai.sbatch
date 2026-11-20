@@ -14,6 +14,16 @@
 set -euo pipefail
 export LLC_OBS_RUN_ROOT=${LLC_OBS_RUN_ROOT:-/projects/ny/lz1955/multiscale/jrusak/runs/llc-obs-six-hour-20261120}
 mode=${1:-production}
+on_exit() {
+ rc=$?
+ trap - EXIT
+ callback="$LLC_OBS_RUN_ROOT/${mode}-callback-id"
+ if [[ -f "$callback" ]]; then
+  python3 "$HOME/.config/codex-followup/send.py" --host beta --event-id "$(cat "$callback")" || true
+ fi
+ exit "$rc"
+}
+trap on_exit EXIT
 if [[ -z ${WANDB_API_KEY:-} ]]; then
  export WANDB_API_KEY="$(cat "$HOME/.config/wandb/llc-obs-api-key")"
 fi

@@ -85,6 +85,38 @@ short forecast works; it adds no monthly training supervision. Record job IDs,
 config and code hashes, data proofs, W&B URL, completed optimizer updates and
 source exposure here. No scientific result is claimed by this design document.
 
+## OBS-only control
+
+The [OBS-only preset](obs-only.yaml) trains from scratch for 2,000 updates using
+only OISST/DUACS supervision. It matches the mixed run's seed, 205-channel
+architecture, 29-frame history, six-hour dynamics, ERA5 conditioning, optimizer,
+effective batch eight, normalization, holdouts and fixed validation origins.
+There are no LLC training targets or LLC reconstruction losses. Surface
+completion remains enabled. Both runs retain the same LLC-derived geometry and
+interior normalization; OBS-only describes training supervision, not the origin
+of every prior. Interior predictions have no direct training targets.
+
+The primary comparison uses 2,000 updates in each arm: 16,000 OBS windows for
+the control versus 8,000 OBS plus 8,000 LLC windows for the mixed run. A secondary
+comparison uses the control's saved 1,000-update checkpoint, matching 8,000 OBS
+windows while using half as many optimizer updates. These are window draws,
+not unique dates; the sampled windows need not be identical. Report both axes
+and measured runtime. Use EMA weights at exactly update 2,000 in both arms
+for the primary comparison, and OBS-only EMA at update 1,000 versus mixed EMA
+at update 2,000 for the secondary comparison. Report best validation-selected
+checkpoints separately. A single seed does not establish a general transfer effect.
+
+Use the same EMA SST/SSH metrics and persistence support at 24/48/72 hours.
+LLC validation remains a diagnostic using the LLC task adapter, which receives
+no training updates in the OBS-only control. Do not interpret that comparison
+as a controlled test of interior forecast skill.
+
+The control has a separate run root, output directory, qualification marker and
+W&B run. Its eight-update qualification must record eight OBS updates and zero
+LLC updates, including checkpoint/resume. It reuses the prepared data cache.
+The monitor will submit it after preparation, under standard production QoS,
+with the same bounded recovery policy as the mixed arm.
+
 ## Questions for adding OM4
 
 1. **Vertical representation.** LLC has 51 levels in the upper 946 m; current OM4
@@ -170,7 +202,7 @@ difference leaves 0.561 m RMSE. These compare midnight snapshots with daily
 analyses and cannot isolate datum, model bias or temporal-support differences.
 The initial run retains raw Eta/ADT; interpret transfer results with this mismatch.
 
-Frozen runtime commit: `00fcc762958a47783ddaf59ffd0c108bac511c68`. The deployed
+Initial runtime deployment commit: `00fcc762958a47783ddaf59ffd0c108bac511c68`. Its
 archive SHA-256 is `190c54f0b35377ee983ae363ac85a00c89f93a388d640be454ae2b9db217841b`.
 The preparation source is frozen separately in the run directory. A verified
 completion callback (`208439`) and a persistent monitor own preparation,

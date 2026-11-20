@@ -128,8 +128,10 @@ class ObservationTrainConfig(TopLevelConfig):
                 "The monthly observation trainer requires its 19-frame history and "
                 "OM4/observation adapters; snapshot tasks need their own sampling path"
             )
-        if (self.snapshot is not None) != (self.pretrain_mix == "llc-obs"):
-            raise ValueError("Snapshot training requires the llc-obs source mix")
+        if self.snapshot is None and self.pretrain_mix == "llc-obs":
+            raise ValueError("The llc-obs source mix requires snapshot training")
+        if self.snapshot is not None and self.pretrain_mix not in ("llc-obs", "obs"):
+            raise ValueError("Snapshot training supports llc-obs or obs source mixes")
         if self.snapshot is not None:
             if (
                 self.model.history_steps != self.snapshot.history_steps
@@ -141,6 +143,7 @@ class ObservationTrainConfig(TopLevelConfig):
                 or not self.update_prefetch
                 or self.data.loading is not None
                 or self.data.snapshots is None
+                or self.data.llc is None
             ):
                 raise ValueError(
                     "Snapshot recipe requires matching history/tasks, shared ERA5, all-fresh prefetch, no monthly loss/cooldown, and prepared snapshots"

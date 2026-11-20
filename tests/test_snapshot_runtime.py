@@ -164,13 +164,27 @@ def test_real_source_contract_sparse_history_and_compact_fields(tmp_path):
     assert "snapshot_val/obs/persistence/24h/zos/rmse" in metrics
 
 
-def test_snapshot_training_resume_reproduces_uninterrupted_updates(tmp_path):
+@pytest.mark.parametrize("mix", ["llc-obs", "obs"])
+def test_snapshot_training_resume_reproduces_uninterrupted_updates(
+    tmp_path, mix, monkeypatch
+):
     cfg = archive(tmp_path)
+    cfg = ObservationTrainConfig.model_validate(
+        {**cfg.model_dump(), "pretrain_mix": mix}
+    )
     manifest = snapshot_manifest(cfg)
 
     def state_and_sources():
         torch.manual_seed(73)
         sources = SnapshotSources(cfg, torch.device("cpu"))
+        if mix == "obs":
+            original_load = sources.load
+
+            def obs_only_load(source, *args, **kwargs):
+                assert source == "obs", "OBS-only training read an LLC sample"
+                return original_load(source, *args, **kwargs)
+
+            monkeypatch.setattr(sources, "load", obs_only_load)
         model = cfg.model.build(LLC_STATE_NAMES)
         optimizer = torch.optim.AdamW(model.parameters(), lr=cfg.learning_rate)
         state = TrainingState(model, optimizer, sources.names, config=cfg)
@@ -216,8 +230,16 @@ def test_snapshot_training_resume_reproduces_uninterrupted_updates(tmp_path):
         full.exposure
         == resumed.exposure
         == {
-            "llc": {"updates": 2, "fresh": 2, "replay": 0},
-            "obs": {"updates": 2, "fresh": 2, "replay": 0},
+            "llc": {
+                "updates": 2 if mix == "llc-obs" else 0,
+                "fresh": 2 if mix == "llc-obs" else 0,
+                "replay": 0,
+            },
+            "obs": {
+                "updates": 2 if mix == "llc-obs" else 4,
+                "fresh": 2 if mix == "llc-obs" else 4,
+                "replay": 0,
+            },
         }
     )
     assert full.updates == resumed.updates == 4
@@ -252,3 +274,18 @@ def test_completed_resume_restores_completion_receipt(tmp_path):
         json.loads((output / "COMPLETE.json").read_text())["updates"]
         == cfg.total_updates
     )
+
+
+def test_obs_only_preset_matches_mixed_scientific_settings():
+    root = Path(__file__).resolve().parents[1] / "experiments/llc-observation-six-hour"
+    mixed = ObservationTrainConfig.model_validate(
+        yaml.safe_load((root / "train.yaml").read_text())
+    )
+    obs = ObservationTrainConfig.model_validate(
+        yaml.safe_load((root / "obs-only.yaml").read_text())
+    )
+    expected = mixed.scientific_config()
+    expected["pretrain_mix"] = "obs"
+    assert obs.scientific_config() == expected
+    assert {obs.source_at(i) for i in range(obs.total_updates)} == {"obs"}
+    assert obs.experiment.rand_seed == mixed.experiment.rand_seed

@@ -20,7 +20,7 @@ config=yaml.safe_load((root/'train.yaml').read_text())
 qualification=yaml.safe_load((root/'qualification.yaml').read_text())
 expected=copy.deepcopy(config)
 expected.update(main_updates=8,save_freq=4,validation_freq=8,validation_examples=2,milestone_updates=[])
-expected['experiment']['name']='llc-obs-six-hour-qualification'
+expected['experiment']['name']=('obs-only-six-hour-qualification' if config['pretrain_mix']=='obs' else 'llc-obs-six-hour-qualification')
 expected['experiment']['wandb']['mode']='disabled'
 if qualification!=expected: raise RuntimeError('Qualification differs beyond permitted budget/logging/validation changes')
 code=pathlib.Path('/llc-code')
@@ -41,8 +41,10 @@ if [[ ! -f "$root/QUALIFIED.json" ]]; then
   trap 'rm -f "$root/qualification.lock/job_id"; rmdir "$root/qualification.lock"' EXIT
   export WANDB_MODE=disabled
   progress=$("$python" - "$root" <<'PYPROGRESS'
-import pathlib,sys,torch
-path=pathlib.Path(sys.argv[1])/'outputs/llc-obs-six-hour-qualification/saved_nets/ckpt.pt'
+import pathlib,sys,torch,yaml
+root=pathlib.Path(sys.argv[1])
+config=yaml.safe_load((root/'qualification.yaml').read_text())
+path=pathlib.Path(config['experiment']['base_output_dir'])/config['experiment']['name']/'saved_nets/ckpt.pt'
 print(torch.load(path,map_location='cpu',weights_only=False)['updates'] if path.exists() else 0)
 PYPROGRESS
 )
@@ -51,13 +53,17 @@ PYPROGRESS
   fi
   "$python" -m torch.distributed.run --standalone --nproc_per_node=4 -m samudra.observations.train "$root/qualification.yaml"
   "$python" - "$root" <<'PY'
-import json,os,pathlib,sys
+import json,os,pathlib,sys,yaml
 root=pathlib.Path(sys.argv[1])
-completion=json.loads((root/'outputs/llc-obs-six-hour-qualification/saved_nets/COMPLETE.json').read_text())
+config=yaml.safe_load((root/'qualification.yaml').read_text())
+output=pathlib.Path(config['experiment']['base_output_dir'])/config['experiment']['name']
+completion=json.loads((output/'saved_nets/COMPLETE.json').read_text())
 assert completion['updates']==8
+cycle={'llc-obs':('llc','obs'),'obs':('obs',)}[config['pretrain_mix']]
 for source in ('llc','obs'):
- assert completion['exposure'][source]==dict(updates=4,fresh=32,replay=0)
-metrics=[json.loads(line) for line in (root/'outputs/llc-obs-six-hour-qualification/metrics.jsonl').read_text().splitlines()]
+ updates=sum(cycle[i%len(cycle)]==source for i in range(8))
+ assert completion['exposure'][source]==dict(updates=updates,fresh=updates*config['fresh_examples'],replay=0)
+metrics=[json.loads(line) for line in (output/'metrics.jsonl').read_text().splitlines()]
 validation=[row for row in metrics if 'snapshot_val/obs/normalized_rmse/channel_mean' in row]
 assert validation and validation[-1]['updates']==8
 signature=json.loads((root/f"qualification-signature-{os.environ['SLURM_JOB_ID']}.json").read_text())

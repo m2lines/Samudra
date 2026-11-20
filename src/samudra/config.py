@@ -61,11 +61,14 @@ from samudra.models.modules.blocks import ZonallyPeriodicBilinearUpsample
 from samudra.models.modules.encoder import patch_from
 from samudra.post_train_eval import CheckpointSweep
 from samudra.utils.data import (
+    CanonicalReader,
     CanonicalSource,
     DataBundle,
     SourceSplits,
+    XarrayCanonicalReader,
     compute_anomalies,
     expand_compact_levels,
+    extract_wet_mask,
     flatten_masks,
     get_anomalies_vars,
     with_lat_lon_coords,
@@ -341,25 +344,27 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
             means,
             stds,
         )
-        source = CanonicalSource.from_datasets(
-            data,
-            means,
-            stds,
-            data_layout=data_layout,
-            prognostic_var_names=data_layout.prognostic_var_names,
-            boundary_var_names=data_layout.boundary_var_names,
-            name=f"{resolved_data_location}-{turn_on_dask}",
-            reader_factory=(
-                None
-                if turn_on_dask
-                else partial(
-                    source_backend.build_reader,
-                    data_location=resolved_data_location,
-                    data_layout=data_layout,
-                )
-            ),
+        channels = tuple(
+            dict.fromkeys(
+                (*data_layout.prognostic_var_names, *data_layout.boundary_var_names)
+            )
         )
-        return source
+        xarray_reader = XarrayCanonicalReader.from_datasets(data, means, stds, channels)
+        reader: CanonicalReader = xarray_reader
+        if not turn_on_dask:
+            reader = source_backend.build_reader(
+                xarray_reader,
+                data_location=resolved_data_location,
+                data_layout=data_layout,
+            )
+        return CanonicalSource(
+            name=f"{resolved_data_location}-{turn_on_dask}",
+            _reader=reader,
+            masks=extract_wet_mask(
+                data, data_layout.prognostic_var_names, data_layout.boundary_var_names
+            ),
+            data_layout=data_layout,
+        )
 
 
 class CpuDataLoadingConfig(BaseConfig):
@@ -524,7 +529,7 @@ class Om4FamilyDataSourceConfig[Om4FamilyTimeConfigT: Om4TimeConfig | Cm4TimeCon
         means: xr.Dataset,
         stds: xr.Dataset,
     ) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset, DataLayout]:
-        """Convert raw flat or compact OM4 xarray inputs to canonical channels."""
+        """Normalize OM4 coordinates and statistics while retaining compact arrays."""
         data_layout = self.build_layout()
         data = data.copy()
         means = means.copy()
@@ -540,10 +545,9 @@ class Om4FamilyDataSourceConfig[Om4FamilyTimeConfigT: Om4TimeConfig | Cm4TimeCon
         if anomalies_vars:
             data, means, stds = compute_anomalies(data, means, stds, anomalies_vars)
 
-        canonical_data = expand_compact_levels(data)
         canonical_means = expand_compact_levels(means)
         canonical_stds = expand_compact_levels(stds)
-        return canonical_data, canonical_means, canonical_stds, data_layout
+        return data, canonical_means, canonical_stds, data_layout
 
 
 class Om4DataSourceConfig(Om4FamilyDataSourceConfig[Om4TimeConfig]):

@@ -106,7 +106,10 @@ def canonicalize_llc_datasets(
         {"k": "lev", "rA": "areacello"}
     )
     canonical["mask"] = canonical["wet_area"] > 0
-    canonical = expand_compact_levels(canonical.drop_vars("wet_area"))
+    canonical = canonical.drop_vars("wet_area")
+    for level in range(num_levels):
+        canonical[f"mask_{level}"] = canonical["mask"].isel(lev=level, drop=True)
+    canonical = canonical.drop_vars("mask")
     return (
         canonical,
         _llc_statistics(means, variables, "mean", num_levels),

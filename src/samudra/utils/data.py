@@ -5,7 +5,7 @@
 import dataclasses
 import logging
 from collections import defaultdict
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from functools import cached_property
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Literal, Protocol, Self, final, runtime_checkable
@@ -77,20 +77,24 @@ class CanonicalReadRequest:
     ``time_indices`` are positions in the reader's current time slice. Their shape
     defines the leading dimensions of the returned planes. Keeping this core
     request to NumPy makes it usable by Python and native readers without importing
-    xarray concepts into the boundary.
+    xarray concepts into the boundary. Channel names must be unique; time indices
+    may repeat.
     """
 
     time_indices: TimeIndices
     channels: tuple[str, ...]
 
     def __post_init__(self) -> None:
+        channels = tuple(self.channels)
+        if len(channels) != len(set(channels)):
+            raise ValueError("Canonical channel names must be unique")
         indices = np.asarray(self.time_indices)
         if not np.issubdtype(indices.dtype, np.integer):
             raise TypeError("Canonical time indices must be integers")
         immutable_indices = indices.astype(np.int64, copy=True)
         immutable_indices.setflags(write=False)
         object.__setattr__(self, "time_indices", immutable_indices)
-        object.__setattr__(self, "channels", tuple(self.channels))
+        object.__setattr__(self, "channels", channels)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -102,7 +106,10 @@ class ChannelStatistics:
 
 
 class CanonicalReader(Protocol):
-    """Canonical channel, coordinate, statistics and read semantics."""
+    """Canonical channel, coordinate, statistics and read semantics.
+
+    Read and statistics requests require unique channel names in the desired order.
+    """
 
     @property
     def channels(self) -> tuple[str, ...]: ...
@@ -152,12 +159,48 @@ class BulkCanonicalReader(CanonicalReader, Protocol):
 
 @dataclasses.dataclass(frozen=True)
 class XarrayCanonicalReader:
-    """Canonical channel reads and metadata backed by xarray."""
+    """Canonical reads over flat channels or compact depth arrays."""
 
     data: xr.Dataset
     means: xr.Dataset
     stds: xr.Dataset
     channels: tuple[str, ...]
+
+    @classmethod
+    def from_datasets(
+        cls,
+        data: xr.Dataset,
+        means: xr.Dataset,
+        stds: xr.Dataset,
+        channels: tuple[str, ...],
+    ) -> Self:
+        """Validate prepared arrays and align statistics to canonical channels."""
+        for dataset in (data, means, stds):
+            level_channels = [
+                name
+                for name in channels
+                if name in dataset and "lev" in dataset[name].dims
+            ]
+            if level_channels:
+                raise ValueError(
+                    "Canonical channels cannot expose a 'lev' dimension: "
+                    f"{level_channels}"
+                )
+        missing_data = set(channels).difference(_channel_variables(data))
+        missing_means = set(channels).difference(means.data_vars)
+        missing_stds = set(channels).difference(stds.data_vars)
+        if missing_data or missing_means or missing_stds:
+            raise ValueError(
+                "Canonical channels are missing: "
+                f"data={sorted(missing_data)}, means={sorted(missing_means)}, "
+                f"stds={sorted(missing_stds)}"
+            )
+        return cls(data, means[list(channels)], stds[list(channels)], channels)
+
+    @cached_property
+    def channel_variables(self) -> dict[str, tuple[str, int | None]]:
+        variables = _channel_variables(self.data)
+        return {channel: variables[channel] for channel in self.channels}
 
     @property
     def time(self) -> xr.DataArray:
@@ -171,6 +214,8 @@ class XarrayCanonicalReader:
         )
 
     def statistics(self, channels: tuple[str, ...]) -> ChannelStatistics:
+        if len(channels) != len(set(channels)):
+            raise ValueError("Canonical channel names must be unique")
         self._validate_channels(channels)
         return ChannelStatistics(
             _flatten(self.means[list(channels)]),
@@ -193,29 +238,69 @@ class XarrayCanonicalReader:
         self._validate_channels(request.channels)
         index_dims = [f"index_{i}" for i in range(request.time_indices.ndim)]
         index = xr.DataArray(request.time_indices, dims=index_dims)
-        selected = self.data[list(request.channels)].isel(time=index)
+        groups: dict[str, list[tuple[int, int]]] = defaultdict(list)
+        flat_channels = []
+        flat_positions = []
+        for position, channel in enumerate(request.channels):
+            name, level = self.channel_variables[channel]
+            if level is None:
+                flat_channels.append(name)
+                flat_positions.append(position)
+            else:
+                groups[name].append((position, level))
 
-        # Materialize one combined graph, rather than loading canonical channels
-        # independently. Compact level views share their base-array Dask keys, so
-        # the scheduler can read/decompress each physical chunk once per request.
-        values = (
-            selected.to_array(dim="channel")
-            .transpose(*index_dims, "channel", "lat", "lon")
-            .to_numpy()
-            .astype(np.float32, copy=False)
+        def read_flat() -> np.ndarray:
+            return (
+                self.data[flat_channels]
+                .isel(time=index)
+                .to_array(dim="channel")
+                .transpose(*index_dims, "channel", "lat", "lon")
+                .to_numpy()
+                .astype(np.float32, copy=False)
+            )
+
+        # Preserve combined graph execution for callers that explicitly opened
+        # Dask-backed flat fields, including derived forcing variables.
+        if not groups and flat_channels:
+            return read_flat()
+
+        output = np.empty(
+            (
+                *request.time_indices.shape,
+                len(request.channels),
+                self.data.sizes["lat"],
+                self.data.sizes["lon"],
+            ),
+            dtype=np.float32,
         )
-        return values
+        if flat_channels:
+            output[..., flat_positions, :, :] = read_flat()
+        for name, selections in groups.items():
+            levels = [level for _, level in selections]
+            # One orthogonal selection per compact array lets the backend read
+            # each touched physical chunk once, including multi-time chunks.
+            # Do not introduce Dask or materialize unrequested times/levels.
+            values = (
+                self.data[name]
+                .isel(time=index, lev=levels)
+                .transpose(*index_dims, "lev", "lat", "lon")
+                .to_numpy()
+            )
+            for level_index, (position, _) in enumerate(selections):
+                output[..., position, :, :] = values[..., level_index, :, :]
+        return output
 
     def coordinates(self) -> Mapping[str, xr.DataArray]:
         return MappingProxyType(
             {
                 str(name): coordinate.copy(deep=True)
                 for name, coordinate in self.data.coords.items()
+                if "lev" not in coordinate.dims
             }
         )
 
     def metadata(self, data_layout: DataLayout) -> dict:
-        return construct_metadata(self.data, data_layout)
+        return construct_metadata(expand_compact_levels(self.data), data_layout)
 
 
 @final
@@ -350,10 +435,10 @@ class CanonicalSource:
         return dict(self._reader.coordinates())
 
     def to_xarray_dataset(self) -> xr.Dataset:
-        """Return the backing xarray dataset when the reader supports it."""
+        """Expose canonical per-level views for xarray consumers without loading data."""
         if not isinstance(self._reader, XarrayCanonicalReader):
             raise TypeError("This canonical dataset is not backed by xarray")
-        return self._reader.data
+        return expand_compact_levels(self._reader.data)
 
     def _xarray_datasets_for_testing(
         self,
@@ -361,7 +446,7 @@ class CanonicalSource:
         """Expose xarray fixtures without making them part of the public contract."""
         if not isinstance(self._reader, XarrayCanonicalReader):
             raise TypeError("This canonical dataset is not backed by xarray")
-        return self._reader.data, self._reader.means, self._reader.stds
+        return self.to_xarray_dataset(), self._reader.means, self._reader.stds
 
     @classmethod
     def from_datasets(
@@ -374,49 +459,11 @@ class CanonicalSource:
         prognostic_var_names: PrognosticVarNames,
         boundary_var_names: BoundaryVarNames,
         name: str = "CanonicalSource",
-        reader_factory: Callable[[XarrayCanonicalReader], CanonicalReader]
-        | None = None,
     ) -> Self:
-        """Build a canonical reader from already-canonicalized xarray datasets."""
+        """Construct a Python source from prepared flat or compact arrays."""
         channels = tuple(dict.fromkeys((*prognostic_var_names, *boundary_var_names)))
-        for dataset in (data, means, stds):
-            level_channels = [
-                name
-                for name in channels
-                if name in dataset and "lev" in dataset[name].dims
-            ]
-            if level_channels:
-                raise ValueError(
-                    "Canonical channels cannot expose a 'lev' dimension: "
-                    f"{level_channels}"
-                )
-        masks = extract_wet_mask(
-            data,
-            prognostic_var_names,
-            boundary_var_names,
-        )
-
-        missing_data = set(channels).difference(data.data_vars)
-        missing_means = set(channels).difference(means.data_vars)
-        missing_stds = set(channels).difference(stds.data_vars)
-        if missing_data or missing_means or missing_stds:
-            raise ValueError(
-                "Canonical channels are missing: "
-                f"data={sorted(missing_data)}, means={sorted(missing_means)}, "
-                f"stds={sorted(missing_stds)}"
-            )
-
-        xarray_reader = XarrayCanonicalReader(
-            data=data,
-            means=means[list(channels)],
-            stds=stds[list(channels)],
-            channels=channels,
-        )
-        reader: CanonicalReader = xarray_reader
-        if reader_factory is not None:
-            reader = reader_factory(xarray_reader)
-            if reader.channels != channels:
-                raise ValueError("Reader factory changed the canonical channel order")
+        reader = XarrayCanonicalReader.from_datasets(data, means, stds, channels)
+        masks = extract_wet_mask(data, prognostic_var_names, boundary_var_names)
         return cls(name=name, _reader=reader, masks=masks, data_layout=data_layout)
 
 
@@ -733,6 +780,22 @@ def with_depth_value_vars(
             renames[var_name] = f"{base}_lev_{depth_str}"
 
     return data.rename(renames)
+
+
+def _channel_variables(dataset: xr.Dataset) -> dict[str, tuple[str, int | None]]:
+    """Map canonical names to array names and optional positional depth indices."""
+    result: dict[str, tuple[str, int | None]] = {}
+    for name, variable in dataset.data_vars.items():
+        selections: list[tuple[str, int | None]] = (
+            [(f"{name}_{level}", level) for level in range(variable.sizes["lev"])]
+            if "lev" in variable.dims
+            else [(str(name), None)]
+        )
+        for channel, level in selections:
+            if channel in result:
+                raise ValueError(f"Ambiguous canonical channel {channel!r}")
+            result[channel] = (str(name), level)
+    return result
 
 
 def expand_compact_levels(dataset: xr.Dataset) -> xr.Dataset:

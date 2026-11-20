@@ -45,6 +45,7 @@ statistics for the remaining state channels. LLC top-layer temperature and Eta
 use those same SST/SSH scales. The initial convention compares top-layer
 temperature with SST and absolute Eta with ADT; quantify SSH datum offsets
 before launch and report them, since normalization does not remove that mismatch.
+The paired audit below measures this discrepancy; this run applies no datum correction.
 Use one ERA5 normalization for both sources. Retain physical wet masks separately from observation availability and
 loss support. Dense LLC surface history remains six-hourly; do not impose the
 observation product's daily sampling on it.
@@ -155,12 +156,26 @@ ERA5 path uses the repository's ESMF conservative remapper; the existing daily
 surface products retain their preparation provenance. Tiny negative solar values
 are retained, with a minimum of −0.000069 W m−2 in this sample.
 
-As of 2026-11-20 at 10:50 a.m. America/New_York, preparation array `208394` is
+As of 2026-11-20 at 10:44 a.m. America/New_York, preparation array `208394` is
 running and normalization job `208395` is pending its successful completion.
 The array prepares 1993 through July 2014; its concurrency was increased from
-eight to 22 CPU tasks after the pilot. The full normalization and SSH datum
-audit remain outstanding. The additional cache is roughly 50 GiB; LLC
+eight to 22 CPU tasks after the pilot. Full normalization remains outstanding. The additional cache is roughly 50 GiB; LLC
 fields remain in the original compact store. No GPU training has started yet.
+
+The [surface audit](qualification/surface-audit.json), Grace job `208440`,
+compares 32 evenly spaced training dates on joint finite wet-area support.
+LLC minus observations is −0.339°C for temperature and −0.243 m for SSH.
+Spatial-and-date RMSE is 0.863°C and 0.611 m; removing the one pooled SSH mean
+difference leaves 0.561 m RMSE. These compare midnight snapshots with daily
+analyses and cannot isolate datum, model bias or temporal-support differences.
+The initial run retains raw Eta/ADT; interpret transfer results with this mismatch.
+
+Frozen runtime commit: `00fcc762958a47783ddaf59ffd0c108bac511c68`. The deployed
+archive SHA-256 is `190c54f0b35377ee983ae363ac85a00c89f93a388d640be454ae2b9db217841b`.
+The preparation source is frozen separately in the run directory. A verified
+completion callback (`208439`) and a persistent monitor own preparation,
+normalization, GPU qualification and the 2,000-update run. Runtime recovery
+retains the same scientific configuration and stops after two retries per stage.
 
 The [EAI launcher](eai.sbatch) uses a four-GPU Beta allocation, standard QoS and
 online W&B. Its [qualification gate](run_eai.sh) checks eight updates split into

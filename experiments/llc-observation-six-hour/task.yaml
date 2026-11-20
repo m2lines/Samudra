@@ -1,0 +1,8 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+# SPDX-License-Identifier: Apache-2.0
+step_hours: 6
+history_steps: 29
+forecast_steps: 12
+observation_stride: 4
+reconstruction_weight: 0.1
+completion_weight: 0.1

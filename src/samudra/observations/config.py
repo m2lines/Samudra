@@ -11,6 +11,7 @@ from pydantic import Field, model_validator
 from samudra.config import ExperimentConfig, RustDataLoadingConfig, TrainBackendConfig
 from samudra.config_base import BaseConfig, TopLevelConfig
 from samudra.models.surface_initialized import SurfaceInitializedConfig
+from samudra.observations.constants import HISTORY_STEPS, MODEL_TASKS
 from samudra.utils.location import LocalLocation, Location, UnresolvedLocation
 from samudra.utils.schedule import LinearCooldownSchedulerConfig, SchedulerConfig
 
@@ -114,6 +115,11 @@ class ObservationTrainConfig(TopLevelConfig):
 
     @model_validator(mode="after")
     def validate_recipe(self) -> Self:
+        if self.model.history_steps != HISTORY_STEPS or self.model.tasks != MODEL_TASKS:
+            raise ValueError(
+                "The monthly observation trainer requires its 19-frame history and "
+                "OM4/observation adapters; snapshot tasks need their own sampling path"
+            )
         if (self.data.native_om4 is None) != (
             self.data.native_om4_proof_sha256 is None
         ):

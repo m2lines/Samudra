@@ -15,7 +15,7 @@ from typing import Literal, NamedTuple, ParamSpec, Self, cast
 
 import torch
 from jaxtyping import Bool, Float
-from pydantic import model_validator
+from pydantic import Field, model_validator
 from torch import Tensor, nn
 from torch.nn import functional as F
 from torch.utils.checkpoint import checkpoint
@@ -26,7 +26,6 @@ from samudra.observations.constants import (
     CONTEXT_CHANNELS,
     GEOMETRY_CHANNELS,
     HISTORY_STEPS,
-    LAST_HISTORY_STEP,
     MODEL_FORCING_CHANNELS,
     MODEL_TASKS,
     OBSERVATION_FORCING_CHANNELS,
@@ -77,9 +76,13 @@ class SurfaceInitializedConfig(BaseConfig):
     forcing_mode: Literal["native", "shared_era5"] = "native"
     output_kernel_size: Literal[1, 3] = 1
     activation_checkpointing: bool = True
+    history_steps: int = Field(default=HISTORY_STEPS, ge=STATE_HISTORY_STEPS)
+    tasks: tuple[ModelTask, ...] = MODEL_TASKS
 
     @model_validator(mode="after")
     def valid_backbone(self) -> Self:
+        if not self.tasks or len(set(self.tasks)) != len(self.tasks):
+            raise ValueError("Task adapters must be nonempty and unique")
         for cfg in (self.backbone, self.initializer_backbone, self.evolution_backbone):
             if cfg is None:
                 continue
@@ -103,6 +106,8 @@ class SurfaceInitializedConfig(BaseConfig):
             forcing_mode=self.forcing_mode,
             output_kernel_size=self.output_kernel_size,
             activation_checkpointing=self.activation_checkpointing,
+            history_steps=self.history_steps,
+            tasks=self.tasks,
         )
 
 
@@ -144,12 +149,14 @@ def make_unet(
     return nn.Sequential(backbone, head)
 
 
-def identity_adapters(channels: int) -> nn.ModuleDict:
+def identity_adapters(
+    channels: int, tasks: Sequence[ModelTask] = MODEL_TASKS
+) -> nn.ModuleDict:
     """Create one identity channel projection per model task."""
     # Identity adapters must not perturb the backbone initialization RNG.
     with torch.random.fork_rng(devices=[]):
         adapters = nn.ModuleDict()
-        for task in MODEL_TASKS:
+        for task in tasks:
             layer = nn.Conv2d(channels, channels, 1)
             nn.init.dirac_(layer.weight)
             assert layer.bias is not None
@@ -195,10 +202,7 @@ def geometry_planes(
 
 
 class HistoryInitializer(nn.Module):
-    # Changing HISTORY_STEPS also changes the prepared monthly history windows.
-    # Update observations/constants.py and regenerate monthly samples/normalization;
-    # daily shards can be reused. A different history needs newly trained weights.
-    history = HISTORY_STEPS
+    """Infer two physical states from a configured number of surface frames."""
 
     def __init__(
         self,
@@ -207,8 +211,11 @@ class HistoryInitializer(nn.Module):
         pad: Padding,
         forcing_channels: int = MODEL_FORCING_CHANNELS,
         kernel_size: int = 1,
+        history_steps: int = HISTORY_STEPS,
+        tasks: Sequence[ModelTask] = MODEL_TASKS,
     ) -> None:
         super().__init__()
+        self.history = history_steps
         self.channels = len(names)
         self.surface = [names.index(name) for name in SURFACE_NAMES]
         # Per step: measured surfaces, their validity, and physical forcing.
@@ -217,7 +224,7 @@ class HistoryInitializer(nn.Module):
         self.net = make_unet(
             inputs, STATE_HISTORY_STEPS * self.channels, backbone, pad, kernel_size
         )
-        self.input_adapters = identity_adapters(inputs)
+        self.input_adapters = identity_adapters(inputs, tasks)
 
     def forward(
         self,
@@ -313,6 +320,8 @@ class SurfaceInitializedModel(nn.Module):
         evolution_backbone: UNetBackboneConfig | None = None,
         forcing_mode: Literal["native", "shared_era5"] = "native",
         output_kernel_size: Literal[1, 3] = 1,
+        history_steps: int = HISTORY_STEPS,
+        tasks: tuple[ModelTask, ...] = MODEL_TASKS,
     ) -> None:
         super().__init__()
         self.names = tuple(names)
@@ -324,7 +333,11 @@ class SurfaceInitializedModel(nn.Module):
             evolution_backbone=evolution_backbone,
             forcing_mode=forcing_mode,
             output_kernel_size=output_kernel_size,
+            history_steps=history_steps,
+            tasks=tasks,
         )
+        self.history_steps = config.history_steps
+        self.tasks = config.tasks
         self.forcing_mode = forcing_mode
         forcing_channels = (
             OBSERVATION_FORCING_CHANNELS
@@ -344,6 +357,8 @@ class SurfaceInitializedModel(nn.Module):
                 config.pad,
                 forcing_channels,
                 output_kernel_size,
+                history_steps,
+                tasks,
             )
         self.evolution = Evolution(
             len(names),
@@ -365,7 +380,8 @@ class SurfaceInitializedModel(nn.Module):
             nn.init.zeros_(final.weight)
             nn.init.zeros_(final.bias)
         self.evolution.input_adapters = identity_adapters(
-            STATE_HISTORY_STEPS * len(names) + CONTEXT_CHANNELS + forcing_channels
+            STATE_HISTORY_STEPS * len(names) + CONTEXT_CHANNELS + forcing_channels,
+            tasks,
         )
         self.activation_checkpointing = activation_checkpointing
 
@@ -393,8 +409,8 @@ class SurfaceInitializedModel(nn.Module):
         ).reshape(b, t, MODEL_FORCING_CHANNELS, h, w)
 
     def forcing(self, values: ForcingHistory, task: ModelTask) -> ForcingHistory:
-        if task not in MODEL_TASKS:
-            raise ValueError(f"Task must be one of {MODEL_TASKS}")
+        if task not in self.tasks:
+            raise ValueError(f"Task must be one of {self.tasks}")
         expected = (
             OBSERVATION_FORCING_CHANNELS
             if task == "observation" or self.forcing_mode == "shared_era5"
@@ -438,7 +454,7 @@ class SurfaceInitializedModel(nn.Module):
     ) -> ForecastContinuation:
         """Continue cached states and return predictions plus the final state pair.
 
-        ``start_lead`` is the absolute first output lead (one-based five-day
+        ``start_lead`` is the absolute first output lead (one-based processor
         steps). The loader supplies forcing and context for that lead onward.
         The caller owns detaching the final state pair before saving for replay.
         """
@@ -478,18 +494,19 @@ class SurfaceInitializedModel(nn.Module):
         validity: SurfaceValidity,
         task: ModelTask = "observation",
     ) -> InitializedForecast:
+        history = self.history_steps
         initial = self.initialize(
-            surface[:, :HISTORY_STEPS],
-            atmosphere[:, :HISTORY_STEPS],
-            contexts[:, LAST_HISTORY_STEP],
+            surface[:, :history],
+            atmosphere[:, :history],
+            contexts[:, history - 1],
             mask,
-            validity[:, :HISTORY_STEPS],
+            validity[:, :history],
             task,
         )
         predictions, _ = self.continue_forecast(
             initial,
-            atmosphere[:, HISTORY_STEPS:],
-            contexts[:, HISTORY_STEPS:],
+            atmosphere[:, history:],
+            contexts[:, history:],
             mask,
             task=task,
         )
@@ -507,15 +524,16 @@ class SurfaceInitializedModel(nn.Module):
         """Weighted monthly interior reconstruction from contemporaneous history."""
         if len(month_weights) == 0:
             raise ValueError("Monthly reconstruction needs at least one weight")
+        history = self.history_steps
         mean: Tensor | None = None
         for step, weight in enumerate(month_weights):
-            end = HISTORY_STEPS + 1 + step
+            end = history + 1 + step
             initial = self.initialize(
-                surface[:, end - HISTORY_STEPS : end],
-                atmosphere[:, end - HISTORY_STEPS : end],
+                surface[:, end - history : end],
+                atmosphere[:, end - history : end],
                 contexts[:, end - 1],
                 mask,
-                validity[:, end - HISTORY_STEPS : end],
+                validity[:, end - history : end],
             )
             value = initial[:, -1] * weight
             mean = value if mean is None else mean + value

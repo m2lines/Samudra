@@ -1,0 +1,90 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+# SPDX-License-Identifier: Apache-2.0
+activation_checkpointing: true
+backbone:
+  ch_width:
+  - 128
+  - 192
+  - 256
+  - 384
+  core_block:
+    activation: capped_gelu
+    block_type: conv_next_block
+    kernel_size: 3
+    norm: instance
+    instance_norm_affine: true
+    pointwise_linear: false
+    upscale_factor: 2
+  dilation:
+  - 1
+  - 2
+  - 4
+  - 8
+  down_sampling_block: avg_pool
+  drop_path_rate: 0.0
+  n_layers:
+  - 1
+  - 1
+  - 1
+  - 1
+  up_sampling_block: zonally_periodic_upsample
+evolution_backbone:
+  ch_width:
+  - 280
+  - 380
+  - 480
+  - 520
+  core_block:
+    activation: capped_gelu
+    block_type: conv_next_block
+    kernel_size: 3
+    norm: instance
+    instance_norm_affine: true
+    pointwise_linear: false
+    upscale_factor: 2
+  dilation:
+  - 1
+  - 2
+  - 4
+  - 8
+  down_sampling_block: avg_pool
+  drop_path_rate: 0.0
+  n_layers:
+  - 1
+  - 1
+  - 1
+  - 1
+  up_sampling_block: zonally_periodic_upsample
+forcing_mode: shared_era5
+initializer_backbone:
+  ch_width:
+  - 280
+  - 380
+  - 480
+  - 520
+  core_block:
+    activation: capped_gelu
+    block_type: conv_next_block
+    kernel_size: 3
+    norm: instance
+    instance_norm_affine: true
+    pointwise_linear: false
+    upscale_factor: 2
+  dilation:
+  - 1
+  - 2
+  - 4
+  - 8
+  down_sampling_block: avg_pool
+  drop_path_rate: 0.0
+  n_layers:
+  - 1
+  - 1
+  - 1
+  - 1
+  up_sampling_block: zonally_periodic_upsample
+output_kernel_size: 3
+history_steps: 29
+tasks:
+- llc
+- observation

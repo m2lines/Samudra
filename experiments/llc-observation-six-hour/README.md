@@ -3,10 +3,13 @@
 
 # LLC + observations at six-hour cadence
 
-This is an experiment record, not intended to merge. The first run trains the
+This is an experiment record, not intended to merge. The planned first run trains the
 surface-initialized deterministic ocean model jointly on coarsened LLC4320
 snapshots and observed SST/SSH, with ERA5 atmospheric conditioning. OM4 and
-monthly profile supervision are excluded from this first run.
+monthly profile supervision are excluded from this first run. No training has
+started. Here OBS refers to the observation source (OISST SST and DUACS SSH);
+the model and harness come from [#960](https://github.com/m2lines/Samudra/pull/960)
+and [#955](https://github.com/m2lines/Samudra/pull/955).
 
 ## First run
 
@@ -26,9 +29,23 @@ monthly profile supervision are excluded from this first run.
 | Auxiliary loss | LLC initializer reconstruction weight 0.1; masked surface completion weight 0.1 for both sources |
 | Exclusions | No monthly targets or monthly reconstruction on OBS; no replay; no observation-only cooldown |
 
+The processor consumes the two most recent physical states and predicts the
+next six-hour state, then shifts that pair forward. Both sources provide only
+SST/top-layer temperature and SSH as ocean inputs to the initializer.
+Reconstruction scores the two inferred LLC states, excluding the supplied
+surface channels. Completion artificially hides surface regions in the history
+and scores originally available values in the final two inferred frames.
+
+The ERA5 fields are 10 m east/north wind, 2 m temperature, 2 m dewpoint, surface
+pressure, downward surface solar radiation, downward surface thermal radiation,
+and total precipitation.
+
 Use observation-training statistics for the two observed channels and LLC-training
-statistics for the remaining state channels. Use one ERA5 normalization for both
-sources. Retain physical wet masks separately from observation availability and
+statistics for the remaining state channels. LLC top-layer temperature and Eta
+use those same SST/SSH scales. The initial convention compares top-layer
+temperature with SST and absolute Eta with ADT; quantify SSH datum offsets
+before launch and report them, since normalization does not remove that mismatch.
+Use one ERA5 normalization for both sources. Retain physical wet masks separately from observation availability and
 loss support. Dense LLC surface history remains six-hourly; do not impose the
 observation product's daily sampling on it.
 
@@ -36,14 +53,17 @@ The proposed LLC split is training through 2012-09-13 and validation from
 2012-09-14 through 2012-11-15. Exclude this validation interval from observation
 training too. A sample's complete history and forecast must fit its permitted
 split and avoid exclusions. Retain the OBS branch's separate observation
-validation/test years. Fit normalization on training support only.
+validation (2013-11 through 2014-07) and test (2015-01 through 2022-12) years.
+Fit normalization on training support only.
 
 The first preparation must record the actual native LLC depth centers/thicknesses,
 field order, units, time support and statistics. The coarsened store lacks explicit
-physical depth coordinates. Use its existing compact arrays and #1034's grouped
-reader; do not expand the archive into 205 physical arrays.
+physical depth coordinates. Use its existing compact arrays and [#1034's grouped
+reader](https://github.com/m2lines/Samudra/pull/1034); do not expand the archive into 205 physical arrays.
 
-Daily products are analyses with differing nominal timestamps (OISST noon,
+The sampler currently uses midnight daily analysis slots. Preparation must
+record how each product timestamp maps to those slots and finalize the ERA5
+state/accumulation support rules. Daily products are analyses with differing nominal timestamps (OISST noon,
 DUACS midnight), not measurements at every six-hour step. Record a common daily
 analysis-slot convention and retain original timestamps. Do not turn daily
 products into artificial subdaily labels. ERA5 state fields and accumulated
@@ -106,9 +126,30 @@ source exposure here. No scientific result is claimed by this design document.
 The experiment branch combines deterministic OBS #960 (`390437693`), the updated
 OBS harness #955 (`32d3f063e`), main including LLC #971, and compact reader #1034
 (`8457d6596`). The first merge reconciles the rebased harness with the deterministic
-extension. Six-hour task implementation and qualification are in progress.
+extension. The branch now includes configurable initializer history and source adapters,
+plus the six-hour sampling and loss functions in
+`src/samudra/observations/snapshot.py`. The [model](model.yaml) and
+[task](task.yaml) files describe the corresponding model and objective components;
+they are not yet a runnable `train-obs` preset. The monthly trainer rejects these
+settings to prevent accidental use of five-day/monthly archives.
 
-EAI project storage currently contains both source families. A live check on
+Still required before the first run: prepare six-hour ERA5 and sparse daily
+observation inputs; fit and verify training-only normalization; connect compact
+LLC reads and these objectives to the existing optimizer/prefetch/checkpoint
+harness; implement fixed-cohort daily validation and resume qualification. No
+cluster job has been submitted.
+
+Local verification: 77 tests passed across the snapshot, surface-initialized
+model, existing observation harness/prefetch, and compact-reader suites. After
+review found a missing `NaT`-bound rejection, the fix and four new bound cases
+passed the 12-test snapshot suite. A separate adversarial review verified the
+fix; staged pre-commit checks (including mypy, schemas and license checks) pass.
+These CPU checks establish component behavior, not real-data training readiness.
+
+The source stores on EAI are
+`/projects/ny/lz1955/multiscale/jrusak/data/coarse_LLC4320/LLC4320_samudra_1deg.zarr`
+and the OISST, DUACS and ERA5 stores under
+`/projects/ny/lz1955/multiscale/jrusak/data/obs_full_range/prepared/`. A live check on
 2026-11-20 found approximately 14 TiB available on the project filesystem and
 idle Grace CPU nodes; Alpha GPU nodes were mixed, reserved or draining. Free
 filesystem capacity is not a per-user quota or a GPU start-time guarantee. Choose

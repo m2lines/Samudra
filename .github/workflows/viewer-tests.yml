@@ -1,0 +1,32 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+# SPDX-License-Identifier: Apache-2.0
+name: Viewer tests
+
+on:
+  push:
+    branches: [codex/observation-viewer, 'codex/viewer-*']
+    paths: ['apps/observation_viewer/**', '.github/workflows/viewer-tests.yml']
+  pull_request:
+    paths: ['apps/observation_viewer/**', '.github/workflows/viewer-tests.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: viewer-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    if: >-
+      !startsWith(github.head_ref, 'experiment/') &&
+      !startsWith(github.ref, 'refs/heads/experiment/') &&
+      !contains(github.event.pull_request.labels.*.name, 'experiment')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: astral-sh/setup-uv@d0d8abe699bfb85fec6de9f7adb5ae17292296ff
+      - run: uv sync --frozen --project apps/observation_viewer --group dev --python 3.12
+      - name: Run self-contained viewer suite
+        run: uv run --frozen --project apps/observation_viewer pytest -c apps/observation_viewer/pyproject.toml apps/observation_viewer/tests -q

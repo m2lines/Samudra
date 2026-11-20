@@ -1,0 +1,8 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+# SPDX-License-Identifier: CC0-1.0
+.data/
+.screenshots/
+
+# Private X-ray bundle catalog and offline model exports
+.xray-models.json
+.step-anatomy*/

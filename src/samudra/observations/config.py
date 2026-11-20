@@ -12,16 +12,18 @@ from samudra.config import ExperimentConfig, RustDataLoadingConfig, TrainBackend
 from samudra.config_base import BaseConfig, TopLevelConfig
 from samudra.models.surface_initialized import SurfaceInitializedConfig
 from samudra.observations.constants import HISTORY_STEPS, MODEL_TASKS
+from samudra.observations.snapshot import SnapshotTaskConfig
 from samudra.utils.location import LocalLocation, Location, UnresolvedLocation
 from samudra.utils.schedule import LinearCooldownSchedulerConfig, SchedulerConfig
 
 MIXES = {
     "obs": ("obs",),
+    "llc-obs": ("llc", "obs"),
     "om4-obs": ("obs", "om4"),
     "om4-cm4-obs": ("obs", "om4", "obs", "cm4"),
     "om4-cm4": ("om4", "cm4"),
 }
-Mix = Literal["obs", "om4-obs", "om4-cm4-obs", "om4-cm4"]
+Mix = Literal["obs", "om4-obs", "om4-cm4-obs", "om4-cm4", "llc-obs"]
 
 
 class ObservationDataConfig(BaseConfig):
@@ -32,6 +34,8 @@ class ObservationDataConfig(BaseConfig):
     normalization: Location = UnresolvedLocation(path="obs")
     om4: Location | None = None
     cm4: Location | None = None
+    llc: Location | None = None
+    snapshots: Location | None = None
     era5_cache: Location | None = None
     era5_proof_sha256: str | None = None
     native_observations: Location | None = None
@@ -79,6 +83,8 @@ class ObservationTrainConfig(TopLevelConfig):
     data: ObservationDataConfig = ObservationDataConfig()
     model: SurfaceInitializedConfig
     pretrain_mix: Mix = "obs"
+    snapshot: SnapshotTaskConfig | None = None
+    validation_examples: int = Field(default=8, ge=1)
     main_updates: int = Field(default=2000, ge=1)
     post_training_updates: int = Field(default=1000, ge=0)
     batch_size: Literal[1] = 1
@@ -115,11 +121,30 @@ class ObservationTrainConfig(TopLevelConfig):
 
     @model_validator(mode="after")
     def validate_recipe(self) -> Self:
-        if self.model.history_steps != HISTORY_STEPS or self.model.tasks != MODEL_TASKS:
+        if self.snapshot is None and (
+            self.model.history_steps != HISTORY_STEPS or self.model.tasks != MODEL_TASKS
+        ):
             raise ValueError(
                 "The monthly observation trainer requires its 19-frame history and "
                 "OM4/observation adapters; snapshot tasks need their own sampling path"
             )
+        if (self.snapshot is not None) != (self.pretrain_mix == "llc-obs"):
+            raise ValueError("Snapshot training requires the llc-obs source mix")
+        if self.snapshot is not None:
+            if (
+                self.model.history_steps != self.snapshot.history_steps
+                or self.model.tasks != ("llc", "observation")
+                or self.model.forcing_mode != "shared_era5"
+                or self.fresh_examples != self.gradient_accumulation_steps
+                or self.post_training_updates != 0
+                or self.loss.monthly_ts != 0
+                or not self.update_prefetch
+                or self.data.loading is not None
+                or self.data.snapshots is None
+            ):
+                raise ValueError(
+                    "Snapshot recipe requires matching history/tasks, shared ERA5, all-fresh prefetch, no monthly loss/cooldown, and prepared snapshots"
+                )
         if (self.data.native_om4 is None) != (
             self.data.native_om4_proof_sha256 is None
         ):
@@ -175,6 +200,18 @@ class ObservationTrainConfig(TopLevelConfig):
                     f"pretrain_mix={self.pretrain_mix} requires data.{source}"
                 )
         return self
+
+    @property
+    def selection_metric(self) -> str:
+        return (
+            "snapshot_val/obs/normalized_rmse/channel_mean"
+            if self.snapshot
+            else "rollout_val/365d/normalized_rmse/channel_mean"
+        )
+
+    @property
+    def step_days(self) -> float:
+        return self.snapshot.step_hours / 24 if self.snapshot else 5
 
     @property
     def total_updates(self) -> int:

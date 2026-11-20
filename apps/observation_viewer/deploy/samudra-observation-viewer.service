@@ -10,7 +10,7 @@ Type=simple
 WorkingDirectory=%h/samudra_viewer/apps/observation_viewer
 Environment=PYTHONUNBUFFERED=1
 EnvironmentFile=%h/.config/samudra-viewer/environment
-ExecStart=%h/samudra_viewer/apps/observation_viewer/.venv/bin/panel serve app.py --address 0.0.0.0 --port 61015
+ExecStart=%h/samudra_viewer/apps/observation_viewer/.venv/bin/panel serve app.py llc.py --address 0.0.0.0 --port 61015
 Restart=on-failure
 RestartSec=3
 

@@ -1335,10 +1335,11 @@ class Viewer:
             accent_base_color="#087f8c",
             header_background="#143b4a",
             sidebar=[
+                pn.pane.Markdown("[LLC / OBS six-hour experiments](llc)"),
                 pn.Column(
                     *sidebar,
                     pn.pane.Markdown("[Initialization & diffusion Xray](?xray=1)"),
-                )
+                ),
             ],
             sidebar_width=285,
             main=[

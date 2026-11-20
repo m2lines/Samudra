@@ -10,7 +10,7 @@ from typing import Protocol
 from samudra.config import DataSourceType
 from samudra.constants import DataLayout
 from samudra.native_reader import Om4IoRuntime, build_om4_reader
-from samudra.utils.data import CanonicalReader, XarrayCanonicalReader, XarraySourceData
+from samudra.utils.data import CanonicalReader, XarrayCanonicalReader
 from samudra.utils.location import LocalLocation, ResolvedLocation
 
 
@@ -27,7 +27,7 @@ class TrainingSourceBackend(Protocol):
 
     def build_reader(
         self,
-        source_data: XarraySourceData,
+        xarray_reader: XarrayCanonicalReader,
         *,
         data_location: ResolvedLocation,
         data_layout: DataLayout,
@@ -48,12 +48,12 @@ class PythonSourceBackend:
 
     def build_reader(
         self,
-        source_data: XarraySourceData,
+        xarray_reader: XarrayCanonicalReader,
         *,
         data_location: ResolvedLocation,
         data_layout: DataLayout,
     ) -> CanonicalReader:
-        return XarrayCanonicalReader.from_source_data(source_data)
+        return xarray_reader
 
 
 class NativeOm4SourceBackend:
@@ -103,7 +103,7 @@ class NativeOm4SourceBackend:
 
     def build_reader(
         self,
-        source_data: XarraySourceData,
+        xarray_reader: XarrayCanonicalReader,
         *,
         data_location: ResolvedLocation,
         data_layout: DataLayout,
@@ -112,7 +112,7 @@ class NativeOm4SourceBackend:
         if self._runtime is None:
             self._runtime = self._runtime_factory()
         return build_om4_reader(
-            source_data,
+            xarray_reader,
             data_location,
             data_layout,
             self._runtime,

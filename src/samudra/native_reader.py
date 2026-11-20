@@ -20,7 +20,6 @@ from samudra.utils.data import (
     CanonicalReadRequest,
     ChannelStatistics,
     XarrayCanonicalReader,
-    XarraySourceData,
 )
 from samudra.utils.location import LocalLocation
 
@@ -171,7 +170,7 @@ def _validate_native_encoding(
 
 
 def build_om4_reader(
-    source_data: XarraySourceData,
+    xarray_reader: XarrayCanonicalReader,
     location: LocalLocation,
     data_layout: DataLayout,
     runtime: Om4IoRuntime,
@@ -179,7 +178,6 @@ def build_om4_reader(
     backend: str,
 ) -> NativeOm4Reader:
     """Construct an OM4 reader from canonical metadata and an I/O runtime."""
-    xarray_reader = XarrayCanonicalReader.from_source_data(source_data)
     physical = location.open(None)
     reader_variables: dict[str, PhysicalVariable] = {}
     for logical_name in xarray_reader.channels:

@@ -201,7 +201,7 @@ def test_read_request_owns_immutable_integer_indices() -> None:
     assert not request.time_indices.flags.writeable
 
 
-def test_source_factory_installs_reader_without_mutating_input() -> None:
+def test_source_time_slice_does_not_mutate_input() -> None:
     source, _ = _equivalent_om4_sources()
     data, means, stds = source._xarray_datasets_for_testing()
     selected_time = Om4TimeConfig(
@@ -214,10 +214,7 @@ def test_source_factory_installs_reader_without_mutating_input() -> None:
         data_layout=source.data_layout,
         prognostic_var_names=["so_0", "so_2", "zos"],
         boundary_var_names=["hfds"],
-        reader_factory=lambda source: XarrayCanonicalReader.from_source_data(
-            source
-        ).slice_time(selected_time),
-    )
+    ).slice_time(selected_time)
 
     assert source.time.size == 8
     assert built.time.size == 2
@@ -319,9 +316,6 @@ def test_compact_om4_reads_each_requested_chunk_once(
         depth_chunk=depth_chunk,
     )
     assert reads == []  # Construction must not load prognostic data.
-    assert isinstance(compact.reader, XarrayCanonicalReader)
-    assert "so" in compact.reader.data and "so_0" not in compact.reader.data
-    assert (compact.reader.data.so.chunks is not None) == dask_chunks
     assert compact.metadata == flat.metadata
     assert compact.coordinates().keys() == flat.coordinates().keys()
     period = Om4TimeConfig(start=JulianDate("2000-01-02"), end=JulianDate("2000-01-07"))
@@ -340,28 +334,6 @@ def test_compact_om4_reads_each_requested_chunk_once(
     np.testing.assert_array_equal(compact.read(indices, channels), actual)
     assert sorted(reads) == expected  # No request-spanning cache or hidden load.
 
-
-def test_compact_source_factory_receives_arrays_without_a_reader(tmp_path):
-    from samudra.utils.data import XarraySourceData
-
-    _, source = _equivalent_om4_sources(tmp_path, dask_chunks=False)
-    assert isinstance(source.reader, XarrayCanonicalReader)
-    seen = []
-
-    def build_reader(arrays):
-        assert type(arrays) is XarraySourceData
-        assert "so" in arrays.data and "so_0" not in arrays.data
-        assert arrays.data.so.chunks is None
-        seen.append(arrays.channels)
-        return XarrayCanonicalReader.from_source_data(arrays)
-
-    CanonicalSource.from_datasets(
-        source.reader.data,
-        source.reader.means,
-        source.reader.stds,
-        data_layout=source.data_layout,
-        prognostic_var_names=["so_0", "so_2", "zos"],
-        boundary_var_names=["hfds"],
-        reader_factory=build_reader,
-    )
-    assert seen == [source.channels]
+    assert isinstance(compact.reader, XarrayCanonicalReader)
+    assert "so" in compact.reader.data and "so_0" not in compact.reader.data
+    assert (compact.reader.data.so.chunks is not None) == dask_chunks

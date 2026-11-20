@@ -5,7 +5,7 @@
 import dataclasses
 import logging
 from collections import defaultdict
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from functools import cached_property
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Literal, Protocol, Self, final, runtime_checkable
@@ -151,31 +151,49 @@ class BulkCanonicalReader(CanonicalReader, Protocol):
 
 
 @dataclasses.dataclass(frozen=True)
-class XarraySourceData:
-    """Prepared source arrays and canonical metadata, before choosing a reader.
-
-    Coordinates and masks are normalized, but data may retain compact ``lev``
-    arrays. Means and standard deviations contain one scalar per channel.
-    """
+class XarrayCanonicalReader:
+    """Canonical reads over flat channels or compact depth arrays."""
 
     data: xr.Dataset
     means: xr.Dataset
     stds: xr.Dataset
     channels: tuple[str, ...]
 
+    @classmethod
+    def from_datasets(
+        cls,
+        data: xr.Dataset,
+        means: xr.Dataset,
+        stds: xr.Dataset,
+        channels: tuple[str, ...],
+    ) -> Self:
+        """Validate prepared arrays and align statistics to canonical channels."""
+        for dataset in (data, means, stds):
+            level_channels = [
+                name
+                for name in channels
+                if name in dataset and "lev" in dataset[name].dims
+            ]
+            if level_channels:
+                raise ValueError(
+                    "Canonical channels cannot expose a 'lev' dimension: "
+                    f"{level_channels}"
+                )
+        missing_data = set(channels).difference(_channel_variables(data))
+        missing_means = set(channels).difference(means.data_vars)
+        missing_stds = set(channels).difference(stds.data_vars)
+        if missing_data or missing_means or missing_stds:
+            raise ValueError(
+                "Canonical channels are missing: "
+                f"data={sorted(missing_data)}, means={sorted(missing_means)}, "
+                f"stds={sorted(missing_stds)}"
+            )
+        return cls(data, means[list(channels)], stds[list(channels)], channels)
+
     @cached_property
     def channel_variables(self) -> dict[str, tuple[str, int | None]]:
         variables = _channel_variables(self.data)
         return {channel: variables[channel] for channel in self.channels}
-
-
-@dataclasses.dataclass(frozen=True)
-class XarrayCanonicalReader(XarraySourceData):
-    """Canonical reads over flat channels or compact depth arrays."""
-
-    @classmethod
-    def from_source_data(cls, source: XarraySourceData) -> Self:
-        return cls(source.data, source.means, source.stds, source.channels)
 
     @property
     def time(self) -> xr.DataArray:
@@ -438,46 +456,11 @@ class CanonicalSource:
         prognostic_var_names: PrognosticVarNames,
         boundary_var_names: BoundaryVarNames,
         name: str = "CanonicalSource",
-        reader_factory: Callable[[XarraySourceData], CanonicalReader] | None = None,
     ) -> Self:
-        """Build a reader from prepared flat or compact arrays and channel statistics."""
+        """Construct a Python source from prepared flat or compact arrays."""
         channels = tuple(dict.fromkeys((*prognostic_var_names, *boundary_var_names)))
-        for dataset in (data, means, stds):
-            level_channels = [
-                name
-                for name in channels
-                if name in dataset and "lev" in dataset[name].dims
-            ]
-            if level_channels:
-                raise ValueError(
-                    "Canonical channels cannot expose a 'lev' dimension: "
-                    f"{level_channels}"
-                )
-        masks = extract_wet_mask(
-            data,
-            prognostic_var_names,
-            boundary_var_names,
-        )
-
-        missing_data = set(channels).difference(_channel_variables(data))
-        missing_means = set(channels).difference(means.data_vars)
-        missing_stds = set(channels).difference(stds.data_vars)
-        if missing_data or missing_means or missing_stds:
-            raise ValueError(
-                "Canonical channels are missing: "
-                f"data={sorted(missing_data)}, means={sorted(missing_means)}, "
-                f"stds={sorted(missing_stds)}"
-            )
-
-        source_data = XarraySourceData(
-            data=data,
-            means=means[list(channels)],
-            stds=stds[list(channels)],
-            channels=channels,
-        )
-        reader = (reader_factory or XarrayCanonicalReader.from_source_data)(source_data)
-        if reader.channels != channels:
-            raise ValueError("Reader factory changed the canonical channel order")
+        reader = XarrayCanonicalReader.from_datasets(data, means, stds, channels)
+        masks = extract_wet_mask(data, prognostic_var_names, boundary_var_names)
         return cls(name=name, _reader=reader, masks=masks, data_layout=data_layout)
 
 

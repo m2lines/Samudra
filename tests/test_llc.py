@@ -242,7 +242,6 @@ def test_compact_llc_reads_all_levels_once_without_dask(tmp_path, monkeypatch):
         )
         assert reads == []
         assert isinstance(source.reader, XarrayCanonicalReader)
-        assert source.reader.data.U.chunks is None
         indices = np.array([[3, 1], [3, 6]], dtype=np.int64)
         channels = tuple(
             f"{name}_{level}"
@@ -264,6 +263,7 @@ def test_compact_llc_reads_all_levels_once_without_dask(tmp_path, monkeypatch):
             for name in ("U", "V", "Theta", "Salt")
             for time in (1, 3, 6)
         )
+        assert source.reader.data.U.chunks is None
         exported = source.to_xarray_dataset()
         assert "U_0" in exported and "U" not in exported
         np.testing.assert_array_equal(

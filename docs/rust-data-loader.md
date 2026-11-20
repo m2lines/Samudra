@@ -28,15 +28,16 @@ data:
 Each data bundle creates one `RustIoRuntime`, shared by its training and validation
 readers within the process.
 
-Source adapters normalize coordinates, masks, and channel statistics while retaining
-compact depth arrays. `TrainingSourceBackend.build_reader` receives `XarraySourceData`
-(the prepared arrays, statistics, and channel names) and chooses the reader. The
-Python `XarrayCanonicalReader` supports flat and compact arrays and groups requested
-levels into a single selection per compact variable, without enabling Dask. The native
-backend constructs its metadata reader internally and maps canonical channels to physical
-arrays through `NativeOm4Reader`. Sources using `XarrayCanonicalReader` can export
-per-level views with `CanonicalSource.to_xarray_dataset()`. Sources using
-`NativeOm4Reader` do not support this export.
+Source adapters prepare coordinates and masks and align per-channel statistics while
+retaining compact depth arrays. Config constructs an `XarrayCanonicalReader`, which supports
+flat and compact arrays and groups requested levels into a single selection per
+compact variable without introducing Dask. Existing Dask-backed arrays remain supported.
+For native loading, the backend wraps that reader with `NativeOm4Reader`, retaining
+its metadata and using native array reads.
+Config then assembles the selected reader, masks, and data layout into `CanonicalSource`.
+Sources using `XarrayCanonicalReader` can export per-level views with
+`CanonicalSource.to_xarray_dataset()`. Sources using `NativeOm4Reader` do not support
+this export.
 
 | Component | Responsibility in the Rust loader |
 | --- | --- |

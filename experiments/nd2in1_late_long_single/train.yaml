@@ -1,0 +1,67 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Δ-norm 2→1 with the late + long curriculum, trained from scratch in one job
+# (#1007). This is the single-job version of experiments/nd2in1_late_long_ft,
+# whose fine-tune from Δ-norm 2→1's final weights gave a stable eight-year
+# rollout and most of OM4's 0-700 m warming. One job keeps Adam's state, the
+# EMA and the learning rate continuous, which is standard Samudra practice.
+#
+# Epochs 1-70 are plain Δ-norm 2→1 (experiments/normalized_delta_2in1out):
+# 8 calls, lr 6e-4 cosine, EMA 0.999, seed 15, 8 ranks x batch 4. The only
+# change there is that the cosine ends at 1e-5 instead of 0. Epochs 71-106 are
+# the fine-tune's six 6-epoch stages at a constant 1e-5. One call is 5 days.
+#
+#   epochs   1- 70    8 calls  ( 40 days)  batch 4 x accumulation 1, lr 6e-4 -> 1e-5
+#   epochs  71- 76   12 calls  ( 60 days)  batch 2 x 2, lr 1e-5
+#   epochs  77- 82   16 calls  ( 80 days)  batch 2 x 2
+#   epochs  83- 88   24 calls  (120 days)  batch 1 x 4
+#   epochs  89- 94   32 calls  (160 days)  batch 1 x 4
+#   epochs  95-100   48 calls  (240 days)  batch 1 x 4
+#   epochs 101-106   64 calls  (320 days)  batch 1 x 4
+#
+# Differences from the fine-tune: no Adam or LR restart, and the EMA keeps
+# decay 0.999 throughout (the fine-tune started a fresh 0.99 average).
+# save_freq 2 keeps a checkpoint at every stage end (70, 76, ..., 106).
+debug: false
+disk_mode: true
+save_freq: 2
+rollout_validation:
+  days: [360]
+  frequency: 1
+  steps_forward: 1
+# As in #969. Evaluation uses the final-epoch EMA checkpoint, not the best one.
+validation_score: rollout_rmse
+epochs: 106
+batch_size: 4
+learning_rate: 0.0006
+gradient_accumulation_steps: 1
+# Cosine over the first 70 epochs from 6e-4 to 1e-5, then 1e-5 for 36 epochs.
+scheduler: { type: cosine_with_tail, tail_lr: 1.0e-5, tail_epochs: 36 }
+ema_decay: 0.999
+faster_decay_at_start: true
+test_using_ema: true
+loss:
+  type: normalized_delta
+  increment_rms_location: OM4_increment_rms_wet.zarr
+finetune: false
+resume_ckpt_path: null
+data_stride: [1]
+steps:                            [8, 12, 16, 24, 32, 48, 64]
+step_transition:                     [71, 77, 83, 89, 95, 101]
+step_batch_size:                  [4,  2,  2,  1,  1,  1,  1]
+step_gradient_accumulation_steps: [1,  2,  2,  4,  4,  4,  4]
+preemptible: true
+
+backend: auto
+
+experiment:
+  name: nd2in1_late_long_single
+  rand_seed: 15
+  base_output_dir: .LOCAL
+  wandb:
+    mode: disabled
+    project: default
+data: !include ../normalized_delta_2in1out/data.yaml
+model: !include ../normalized_delta_2in1out/model.yaml

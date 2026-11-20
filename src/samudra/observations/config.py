@@ -138,7 +138,6 @@ class ObservationTrainConfig(TopLevelConfig):
                 or self.model.tasks != ("llc", "observation")
                 or self.model.forcing_mode != "shared_era5"
                 or self.fresh_examples != self.gradient_accumulation_steps
-                or self.post_training_updates != 0
                 or self.loss.monthly_ts != 0
                 or not self.update_prefetch
                 or self.data.loading is not None
@@ -146,7 +145,7 @@ class ObservationTrainConfig(TopLevelConfig):
                 or self.data.llc is None
             ):
                 raise ValueError(
-                    "Snapshot recipe requires matching history/tasks, shared ERA5, all-fresh prefetch, no monthly loss/cooldown, and prepared snapshots"
+                    "Snapshot recipe requires matching history/tasks, shared ERA5, all-fresh prefetch, no monthly loss, and prepared snapshots"
                 )
         if (self.data.native_om4 is None) != (
             self.data.native_om4_proof_sha256 is None

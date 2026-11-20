@@ -289,3 +289,119 @@ def test_obs_only_preset_matches_mixed_scientific_settings():
     assert obs.scientific_config() == expected
     assert {obs.source_at(i) for i in range(obs.total_updates)} == {"obs"}
     assert obs.experiment.rand_seed == mixed.experiment.rand_seed
+
+
+def test_snapshot_cooldown_continuation_and_boundary_resume(tmp_path):
+    import runpy
+
+    base = archive(tmp_path)
+    extended = ObservationTrainConfig.model_validate(
+        {
+            **base.model_dump(),
+            "main_updates": 8,
+            "post_training_updates": 4,
+            "post_training_scheduler": {"type": "linear_cooldown", "final_lr": 1e-6},
+        }
+    )
+    script = (
+        Path(__file__).resolve().parents[1]
+        / "experiments/llc-observation-six-hour/extend_checkpoint.py"
+    )
+    validate_extension = runpy.run_path(str(script))["validate_extension"]
+    current = snapshot_manifest(extended)
+    parent = snapshot_manifest(base)
+    config_path = (
+        Path(__file__).resolve().parents[1] / "src/samudra/observations/config.py"
+    )
+    old_code = (
+        config_path.read_text()
+        .replace(
+            "                or self.loss.monthly_ts != 0",
+            "                or self.post_training_updates != 0\n                or self.loss.monthly_ts != 0",
+        )
+        .replace("no monthly loss,", "no monthly loss/cooldown,")
+    )
+    old_source = tmp_path / "old_config.py"
+    old_source.write_text(old_code)
+    parent["code_sha256"]["observations/config.py"] = checksum(old_source)
+
+    def make(cfg):
+        torch.manual_seed(73)
+        sources = SnapshotSources(cfg, torch.device("cpu"))
+        model = cfg.model.build(LLC_STATE_NAMES)
+        return TrainingState(
+            model,
+            torch.optim.AdamW(model.parameters(), lr=cfg.learning_rate),
+            sources.names,
+            config=cfg,
+        ), sources
+
+    def run(cfg, state, sources, output, manifest, stop=None):
+        output.mkdir(exist_ok=True)
+        rows: list[dict] = []
+        train(
+            cfg,
+            state,
+            sources,
+            output,
+            manifest,
+            lambda _: {cfg.selection_metric: 1.0},
+            rows.append,
+            stop_after=stop,
+        )
+        return rows
+
+    full, sources = make(extended)
+    rows = run(extended, full, sources, tmp_path / "full", current)
+    prefix, sources = make(base)
+    run(base, prefix, sources, tmp_path / "prefix", parent)
+    saved = torch.load(tmp_path / "prefix/ckpt.pt", weights_only=False)
+    changes = validate_extension(saved, current, old_source)
+    assert changes["main_updates"] == {"parent": 4, "child": 8}
+    import copy
+
+    bad = copy.deepcopy(current)
+    bad["config"]["learning_rate"] *= 2
+    with pytest.raises(ValueError, match="recipe differs"):
+        validate_extension(saved, bad, old_source)
+    bad = copy.deepcopy(current)
+    bad["code_sha256"]["observations/pipeline.py"] = "changed"
+    with pytest.raises(ValueError, match="recipe differs"):
+        validate_extension(saved, bad, old_source)
+    saved["manifest"] = current
+    saved["best_score"] = float("inf")
+    migrated = tmp_path / "migrated.pt"
+    torch.save(saved, migrated)
+    child, sources = make(extended)
+    child.restore(migrated, current)
+    run(extended, child, sources, tmp_path / "child", current, stop=8)
+    boundary, sources = make(extended)
+    boundary.restore(tmp_path / "child/ckpt.pt", current)
+    assert not boundary.in_post_training
+    run(extended, boundary, sources, tmp_path / "child", current, stop=10)
+    resumed, sources = make(extended)
+    resumed.restore(tmp_path / "child/ckpt.pt", current)
+    assert resumed.in_post_training
+    run(extended, resumed, sources, tmp_path / "child", current)
+    assert (
+        resumed.exposure
+        == full.exposure
+        == {
+            "llc": {"updates": 4, "fresh": 4, "replay": 0},
+            "obs": {"updates": 8, "fresh": 8, "replay": 0},
+        }
+    )
+    for key, value in full.model.state_dict().items():
+        torch.testing.assert_close(
+            value, resumed.model.state_dict()[key], rtol=0, atol=0
+        )
+    assert full.optimizer.param_groups[0]["lr"] == pytest.approx(1e-6)
+    assert full.ema.num_updates.item() == resumed.ema.num_updates.item() == 4
+    for key, left in full.ema.get_state(True)["ema_params"].items():
+        torch.testing.assert_close(
+            left, resumed.ema.get_state(True)["ema_params"][key], rtol=0, atol=0
+        )
+    rates = [
+        r["train/obs/lr"] for r in rows if "train/obs/lr" in r and r["updates"] > 8
+    ]
+    assert rates == pytest.approx([7.525e-5, 5.05e-5, 2.575e-5, 1e-6])

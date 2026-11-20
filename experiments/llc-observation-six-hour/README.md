@@ -223,7 +223,8 @@ The initial run retains raw Eta/ADT; interpret transfer results with this mismat
 Initial runtime deployment commit: `00fcc762958a47783ddaf59ffd0c108bac511c68`. Its
 archive SHA-256 is `190c54f0b35377ee983ae363ac85a00c89f93a388d640be454ae2b9db217841b`.
 The preparation source is frozen separately in the run directory. Completion callbacks and monitors followed both arms through final results.
-No training or evaluation jobs remain in this experiment. The final results
+The initial runs are complete. The approved [longer continuation](long-run.md)
+extends both arms to 10,000 main updates plus 1,000 OBS-only cooldown updates. The final results
 retain the runtime and data hashes, source exposure, checkpoint identity and
 validation definitions needed to reproduce the comparison.
 

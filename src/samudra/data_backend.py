@@ -11,7 +11,7 @@ from samudra.config import DataSourceType
 from samudra.constants import DataLayout
 from samudra.native_reader import Om4IoRuntime, build_om4_reader
 from samudra.utils.data import CanonicalReader, XarrayCanonicalReader
-from samudra.utils.location import LocalLocation, ResolvedLocation
+from samudra.utils.location import LocalLocation, ResolvedLocation, S3Location
 
 
 class TrainingSourceBackend(Protocol):
@@ -84,9 +84,9 @@ class NativeOm4SourceBackend:
             "data_stds_location": stds_location,
         }
         for field_name, location in locations.items():
-            if not isinstance(location, LocalLocation):
+            if not isinstance(location, (LocalLocation, S3Location)):
                 raise ValueError(
-                    f"loading.type={self._name!r} currently requires local data, "
+                    f"loading.type={self._name!r} requires local or S3 data, "
                     f"but {field_name} resolved to {location}"
                 )
         derived = [
@@ -108,7 +108,7 @@ class NativeOm4SourceBackend:
         data_location: ResolvedLocation,
         data_layout: DataLayout,
     ) -> CanonicalReader:
-        assert isinstance(data_location, LocalLocation)
+        assert isinstance(data_location, (LocalLocation, S3Location))
         if self._runtime is None:
             self._runtime = self._runtime_factory()
         return build_om4_reader(

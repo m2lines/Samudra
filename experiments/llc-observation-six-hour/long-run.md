@@ -85,3 +85,17 @@ callbacks. Estimate about 11–12 hours of remaining mixed computation and 6–7
 hours for the control from the initial measured throughput, excluding queue time.
 Qualification and production have an atomic gate so only one allocation performs
 a given arm's qualification. No further arms are included in this budget.
+
+Submitted on November 20, 2026: mixed production job `234626` and OBS-only
+production job `234629`, both under standard QoS. Short test-queue qualification
+jobs `234627` and `234630` share each arm's qualification gate. All four jobs
+were pending at submission; actual GPU qualification and continued training
+remain unverified. Completion callbacks and separate monitors own both arms
+through the 11,000-update endpoint. Queue estimates are provisional.
+
+Deployed runtime commit: `3416705c5`. Both archives have SHA-256
+`2b73b7884d94932bc1cdd17ffae4d335fe357ab006674e43a5f159ee3f3fad21`.
+Local checks passed 27 snapshot, pipeline and configuration tests, adversarial
+review, the document's cold-reader review, and all pre-commit hooks. The new EAI
+run directories end in `llc-obs-six-hour-long-20261120` and
+`obs-only-six-hour-long-20261120` under the existing project run root.

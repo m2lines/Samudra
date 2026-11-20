@@ -49,6 +49,16 @@ def load_branch(config, source):
     return state
 
 
+def load_resume(config, source, latest, authorized):
+    """Resume an existing output only with explicit or scheduler authorization."""
+    if not authorized:
+        raise FileExistsError(latest)
+    state = torch.load(latest, map_location="cpu", mmap=True, weights_only=False)
+    if state["config"] != config or state["source"] != source:
+        raise ValueError("Configuration or data provenance changed on resume")
+    return state
+
+
 def scheduled_learning_rate(config, step):
     schedule = config.get("learning_rate_schedule", "cosine")
     if schedule == "constant":

@@ -7,7 +7,7 @@ import hashlib
 import pytest
 import torch
 
-from samudra.skyline.branching import load_branch, scheduled_learning_rate
+from samudra.skyline.branching import load_branch, load_resume, scheduled_learning_rate
 from samudra.skyline.multitask import learning_rate_factor
 
 
@@ -82,3 +82,19 @@ def test_constant_schedule_has_no_warmup_or_decay_and_default_is_unchanged():
         assert scheduled_learning_rate(config, step) == 4e-4 * learning_rate_factor(
             step, 200, 28000
         )
+
+
+def test_manual_resume_requires_authorization_and_exact_provenance(branch):
+    config, original = branch
+    path = config["branch_checkpoint"]["path"]
+    with pytest.raises(FileExistsError):
+        load_resume(original["config"], original["source"], path, False)
+    loaded = load_resume(original["config"], original["source"], path, True)
+    assert loaded["step"] == 25000
+    assert loaded["rank_states"] == original["rank_states"]
+    for changed_config, changed_source in [
+        (dict(original["config"], learning_rate=8e-4), original["source"]),
+        (original["config"], {"dataset": "different"}),
+    ]:
+        with pytest.raises(ValueError, match="provenance changed"):
+            load_resume(changed_config, changed_source, path, True)

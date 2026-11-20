@@ -19,7 +19,7 @@ from numcodecs import blosc  # type: ignore[import-untyped]
 from torch.nn.parallel import DistributedDataParallel
 
 from .batching import device_batches
-from .branching import load_branch, scheduled_learning_rate
+from .branching import load_branch, load_resume, scheduled_learning_rate
 from .channel_vocabulary import ChannelVocabulary
 from .comparison_eval import evaluate_comparison
 from .coverage import sample_coverage
@@ -41,7 +41,7 @@ def parameter_digest(model):
     return digest.hexdigest()
 
 
-def train(config, output):
+def train(config, output, resume=False):
     rank, world = int(os.environ["RANK"]), int(os.environ["WORLD_SIZE"])
     if world != config["world_size"]:
         raise ValueError("World size differs from the pinned comparison")
@@ -67,13 +67,13 @@ def train(config, output):
             int(os.environ.get("SLURM_RESTART_COUNT", "0")),
             config["utilization_guard"],
         ) as monitor:
-            train_inner(config, output, source, device, rank, world, monitor)
+            train_inner(config, output, source, device, rank, world, monitor, resume)
     finally:
         source.close()
         dist.destroy_process_group()
 
 
-def train_inner(config, output, source, device, rank, world, monitor):
+def train_inner(config, output, source, device, rank, world, monitor, resume=False):
     # All three layouts instantiate the SAME parameters, in the SAME RNG order.
     # Only the query-channel tensor changes between arms.
     torch.manual_seed(config["seed"])
@@ -108,14 +108,14 @@ def train_inner(config, output, source, device, rank, world, monitor):
     latest = output / "latest.pt"
     branching = not latest.exists() and "branch_checkpoint" in config
     if latest.exists():
-        if not (
-            int(os.environ.get("SLURM_RESTART_COUNT", "0"))
+        state = load_resume(
+            config,
+            source.receipt(),
+            latest,
+            bool(int(os.environ.get("SLURM_RESTART_COUNT", "0")))
             or config.get("resume", False)
-        ):
-            raise FileExistsError(latest)
-        state = torch.load(latest, map_location="cpu", mmap=True, weights_only=False)
-        if state["config"] != config or state["source"] != source.receipt():
-            raise ValueError("Configuration or data provenance changed on resume")
+            or resume,
+        )
     elif branching:
         state = load_branch(config, source.receipt())
     if state is not None:
@@ -157,6 +157,7 @@ def train_inner(config, output, source, device, rank, world, monitor):
         job=os.environ.get("SLURM_JOB_ID"),
         restart=restart,
         resumed_step=step,
+        manual_resume=resume,
         restored_parameter_sha256=parameter_digest(model),
         branch_checkpoint=config.get("branch_checkpoint"),
         parameters=sum(p.numel() for p in model.parameters()),
@@ -165,9 +166,12 @@ def train_inner(config, output, source, device, rank, world, monitor):
         initial_head_statistics=model.initial_head_statistics,
     )
     if rank == 0:
-        (output / f"provenance-restart-{restart}.json").write_text(
-            json.dumps(provenance, indent=2) + "\n"
-        )
+        serialized = json.dumps(provenance, indent=2) + "\n"
+        original_receipt = output / f"provenance-restart-{restart}.json"
+        if not original_receipt.exists():
+            original_receipt.write_text(serialized)
+        job = os.environ.get("SLURM_JOB_ID", "manual")
+        (output / f"provenance-job-{job}-restart-{restart}.json").write_text(serialized)
         if config["wandb"]:
             import wandb
 
@@ -475,8 +479,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--resume", action="store_true")
     args = parser.parse_args()
-    train(json.loads(args.config.read_text()), args.output)
+    train(json.loads(args.config.read_text()), args.output, resume=args.resume)
 
 
 if __name__ == "__main__":

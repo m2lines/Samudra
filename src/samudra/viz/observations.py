@@ -28,7 +28,15 @@ import xarray as xr
 from cartopy.mpl.geoaxes import GeoAxes  # type: ignore
 
 from samudra.constants import build_om4_layout
-from samudra.metrics import comparisons, kernels, spectra
+from samudra.metrics import comparisons, kernels
+from samudra.metrics.diagnostics import _anomaly_by_year as _anomaly_by_year
+from samudra.metrics.diagnostics import _curve_scores as _curve_scores
+from samudra.metrics.diagnostics import (
+    _on_common_cells,
+    _over_one_window,
+    spectral_diagnostics,
+)
+from samudra.metrics.diagnostics import obs_eke_by_year as obs_eke_by_year
 from samudra.viz.norms import percentile_norm, symmetric_percentile_norm
 
 logger = logging.getLogger(__name__)
@@ -433,47 +441,6 @@ def rmse_map_figures(
     return written
 
 
-def _on_common_cells(
-    reference: xr.DataArray, runs: dict[str, xr.DataArray]
-) -> tuple[xr.DataArray, dict[str, xr.DataArray]]:
-    """Restrict the reference and every run to the cells they all carry.
-
-    A run covers only the observation cells that survived pairing: its own land,
-    plus the band regridding erodes around it, which is coastal and so is where
-    the energy and the error both are. Reducing the reference over every cell
-    the product has and each run over its own subset makes the gap between the
-    curves a property of the masks, which a mean-state plot then presents as
-    bias.
-    """
-    mask = None
-    for field in runs.values():
-        ever = comparisons.ever_finite(field)
-        mask = ever if mask is None else (mask & ever)
-    if mask is None:
-        return reference, runs
-    return reference.where(mask), {
-        name: field.where(mask) for name, field in runs.items()
-    }
-
-
-def _over_one_window(items):
-    """Trim every comparison to the span they all cover; return the reference too.
-
-    A panel draws several runs beside one observation curve on one colour scale
-    and one legend, so the reference has to cover the runs' period and no more,
-    and the runs have to cover each other's. Built with a `None` window, each
-    comparison spans only what that run and the product share; this intersects
-    those.
-    """
-    starts = [pd.Timestamp(c.time.values.min()) for c in items.values()]
-    ends = [pd.Timestamp(c.time.values.max()) for c in items.values()]
-    window = slice(max(starts), min(ends))
-    trimmed = {name: c.slice(window) for name, c in items.items()}
-    first = next(iter(trimmed.values()))
-    reference = first.obs if hasattr(first, "obs") else first.eastward.obs
-    return reference, trimmed
-
-
 def variance_map_figures(
     rollouts: dict[str, xr.Dataset],
     products: dict[str, xr.Dataset],
@@ -707,268 +674,20 @@ def _global_mean(field: xr.DataArray, area: xr.DataArray) -> pd.Series:
 
 
 def spectra_figures(
-    rollouts: dict[str, xr.Dataset],
-    products: dict[str, xr.Dataset],
-    directory: str,
-    velocity_kind: str = "absolute",
-) -> list[str]:
-    """Spatial and temporal spectra: at which scales the model is wrong.
-
-    A model can carry the right total variance and still distribute it over the
-    wrong wavelengths. These are the only figures that show that directly, and
-    the log10 scores beside each curve say how far off it is in dex.
-
-    Every observation curve is reduced over the span the runs share. That is not
-    only labelling: an eddy anomaly is taken about the mean of whatever record
-    it is handed, so a reference built from the product's full archive is not
-    the same quantity as a run built from eight years of it.
-    """
-    written: list[str] = []
-    duacs, oisst = products["duacs"], products["oisst"]
-
-    # Trimmed once, up front: the energies below reduce over time, so a mean
-    # taken before the span is settled is a mean of the wrong record.
-    _, velocity = _over_one_window(
-        {
-            model: comparisons.surface_velocity(
-                rollout, duacs, None, model, velocity_kind
-            )
-            for model, rollout in rollouts.items()
-        }
-    )
-    obs_sst, temperature = _over_one_window(
-        {
-            model: comparisons.sea_surface_temperature(rollout, oisst, None, model)
-            for model, rollout in rollouts.items()
-        }
-    )
-
-    # --- surface EKE, spatial ------------------------------------------------
-    mean_eke = {m: v.mean_eddy_kinetic_energy() for m, v in velocity.items()}
-    obs_eke = next(iter(mean_eke.values())).obs
-    eke_curves = {"DUACS": _region_curves(obs_eke, spectra.SPATIAL_REGIONS)}
-    for model, item in mean_eke.items():
-        # The model's own grid, like every other spectrum here. Interpolating
-        # onto the finer observation grid is a low-pass filter, so it damps the
-        # high wavenumbers this figure exists to compare -- and the wavenumbers
-        # come back in rad/km either way, so the curves stay comparable.
-        eke_curves[model] = _region_curves(item.native, spectra.SPATIAL_REGIONS)
-    written.append(
-        save(
-            spectra_panel(
-                eke_curves,
-                "Surface EKE spatial spectra vs DUACS",
-                "wavenumber (rad km-1)",
-                "k x PSD",
-                _curve_scores(eke_curves, "DUACS"),
-            ),
-            directory,
-            "eke_spatial_spectra_vs_duacs",
+    rollouts, products, directory, velocity_kind="absolute", diagnostics=None
+):
+    """Render the same spectral diagnostics exported by observation scoring."""
+    written = []
+    for result in (
+        diagnostics
+        if diagnostics is not None
+        else spectral_diagnostics(rollouts, products, velocity_kind)
+    ):
+        args = (result.curves, result.title, result.xlabel, result.ylabel)
+        figure = (
+            spectra_panel(*args, result.scores)
+            if result.kind == "pooled"
+            else interannual_spectra_panel(*args)
         )
-    )
-
-    # --- SST anomaly, spatial ------------------------------------------------
-    sst = temperature
-    obs_ssta = kernels.without_seasonal_cycle(obs_sst)
-    ssta_curves = {"OISST": _region_curves(obs_ssta, spectra.SPATIAL_REGIONS)}
-    for model, item in sst.items():
-        ssta_curves[model] = _region_curves(
-            kernels.without_seasonal_cycle(item.native), spectra.SPATIAL_REGIONS
-        )
-    written.append(
-        save(
-            spectra_panel(
-                ssta_curves,
-                "SST anomaly spatial spectra vs OISST",
-                "wavenumber (rad km-1)",
-                "k x PSD",
-                _curve_scores(ssta_curves, "OISST"),
-            ),
-            directory,
-            "ssta_spatial_spectra_vs_oisst",
-        )
-    )
-
-    # --- surface KE, temporal ------------------------------------------------
-    kinetic = {m: v.kinetic_energy() for m, v in velocity.items()}
-    obs_ke = next(iter(kinetic.values())).obs
-    obs_ke, ke_runs = _on_common_cells(
-        obs_ke, {m: item.on_obs_grid for m, item in kinetic.items()}
-    )
-    ke_curves = {"DUACS": _temporal_curves(obs_ke, spectra.TEMPORAL_REGIONS)}
-    ke_curves.update(
-        {m: _temporal_curves(f, spectra.TEMPORAL_REGIONS) for m, f in ke_runs.items()}
-    )
-    written.append(
-        save(
-            spectra_panel(
-                ke_curves,
-                "Surface geostrophic KE temporal spectra vs DUACS",
-                "frequency (cycles yr-1)",
-                "PSD",
-                _curve_scores(ke_curves, "DUACS"),
-            ),
-            directory,
-            "ke_temporal_spectra_vs_duacs",
-        )
-    )
-
-    # --- interannual bands ---------------------------------------------------
-    first = next(iter(velocity.values()))
-    eke_bands = {
-        "DUACS": _yearly_bands(obs_eke_by_year(first.eastward.obs, first.northward.obs))
-    }
-    for model, item in velocity.items():
-        eke_bands[model] = _yearly_bands(
-            obs_eke_by_year(item.eastward.native, item.northward.native)
-        )
-    written.append(
-        save(
-            interannual_spectra_panel(
-                eke_bands,
-                "Interannual surface EKE spatial spectra",
-                "wavenumber (rad km-1)",
-                "k x PSD",
-            ),
-            directory,
-            "eke_spatial_spectra_interannual",
-        )
-    )
-
-    ssta_bands = {"OISST": _yearly_bands(_anomaly_by_year(obs_ssta))}
-    for model, item in sst.items():
-        ssta_bands[model] = _yearly_bands(
-            _anomaly_by_year(kernels.without_seasonal_cycle(item.native))
-        )
-    written.append(
-        save(
-            interannual_spectra_panel(
-                ssta_bands,
-                "Interannual SST anomaly spatial spectra",
-                "wavenumber (rad km-1)",
-                "k x PSD",
-            ),
-            directory,
-            "ssta_spatial_spectra_interannual",
-        )
-    )
-
-    ke_bands = {"DUACS": _yearly_temporal_bands(obs_ke)}
-    for model, field in ke_runs.items():
-        ke_bands[model] = _yearly_temporal_bands(field)
-    written.append(
-        save(
-            interannual_spectra_panel(
-                ke_bands,
-                "Interannual surface geostrophic KE temporal spectra",
-                "frequency (cycles yr-1)",
-                "PSD",
-            ),
-            directory,
-            "ke_temporal_spectra_interannual",
-        )
-    )
-
+        written.append(save(figure, directory, result.name))
     return written
-
-
-def _anomaly_by_year(anomaly: xr.DataArray) -> dict[int, xr.DataArray]:
-    """Split an anomaly field into complete calendar years, keeping the time axis.
-
-    The anomaly must already be taken about the whole record's climatology, so
-    that every year shares one baseline and the band shows real year-to-year
-    spread rather than each year's deviation from itself.
-    """
-    return {
-        year: anomaly.sel(time=slice(f"{year}-01-01", f"{year}-12-31"))
-        for year in kernels.complete_calendar_years(anomaly["time"])
-    }
-
-
-def _yearly_temporal_bands(field: xr.DataArray) -> dict[str, tuple]:
-    """Welch PSD of each complete calendar year, aggregated into a per-region band."""
-    years = kernels.complete_calendar_years(field["time"])
-    bands = {}
-    for name, lon, lat in spectra.TEMPORAL_REGIONS:
-        series = spectra.region_mean_series(field, lon, lat)
-        stamps = pd.DatetimeIndex(series.index)
-        curves = []
-        for year in years:
-            frequencies, power = spectra.welch_psd(series[stamps.year == year])
-            if np.asarray(frequencies).size:
-                curves.append((np.asarray(frequencies), np.asarray(power)))
-        bands[name] = spectra.interannual_band(curves)
-    return bands
-
-
-def obs_eke_by_year(u: xr.DataArray, v: xr.DataArray) -> dict[int, xr.DataArray]:
-    """Annual-mean EKE maps for each complete calendar year.
-
-    A year the record only partly covers is dropped rather than averaged: the
-    default rollout starts on 20 October, so its first year holds fifteen
-    samples of one season and would enter the band as if it were a year.
-
-    The eddy anomaly is taken about the mean of the whole record, not of each
-    year: a per-year mean would absorb the year-to-year change in the mean flow,
-    which is the variability these bands exist to show.
-    """
-    eke = kernels.instantaneous_surface_eke(u, v)
-    return {
-        year: eke.sel(time=slice(f"{year}-01-01", f"{year}-12-31")).mean(
-            "time", skipna=True
-        )
-        for year in kernels.complete_calendar_years(u["time"])
-    }
-
-
-def _region_curves(
-    field: xr.DataArray, regions: tuple[tuple[str, slice, slice], ...]
-) -> dict[str, tuple[np.ndarray, np.ndarray]]:
-    return {
-        name: spectra.region_spectrum(field, lon, lat, name=name)
-        for name, lon, lat in regions
-    }
-
-
-def _temporal_curves(
-    field: xr.DataArray, regions: tuple[tuple[str, slice, slice], ...]
-) -> dict[str, tuple[np.ndarray, np.ndarray]]:
-    return {
-        name: spectra.welch_psd(spectra.region_mean_series(field, lon, lat))
-        for name, lon, lat in regions
-    }
-
-
-def _yearly_bands(
-    per_year: dict[int, xr.DataArray],
-) -> dict[str, tuple]:
-    bands = {}
-    for name, lon, lat in spectra.SPATIAL_REGIONS:
-        curves = [
-            spectra.region_spectrum(field, lon, lat, name=f"{name} {year}")
-            for year, field in per_year.items()
-        ]
-        bands[name] = spectra.interannual_band(
-            [(x, y) for x, y in curves if getattr(x, "size", 0)]
-        )
-    return bands
-
-
-def _curve_scores(
-    curves: dict[str, dict[str, tuple[np.ndarray, np.ndarray]]], reference: str
-) -> dict[str, dict[str, float]]:
-    """log10 RMSE of each run's spectrum against the reference, per region."""
-    baseline = curves.get(reference, {})
-    empty = (np.array([]), np.array([]))
-
-    scores: dict[str, dict[str, float]] = {}
-    for name, per_region in curves.items():
-        if name == reference:
-            continue
-        scores[name] = {}
-        for region, (wavenumber, power) in per_region.items():
-            reference_wavenumber, reference_power = baseline.get(region, empty)
-            scores[name][region] = spectra.log10_rmse_between_curves(
-                reference_wavenumber, reference_power, wavenumber, power
-            )
-    return scores

@@ -625,3 +625,60 @@ def test_the_model_velocity_is_an_anomaly_when_the_product_is():
         comparisons.Comparison("v", field, field, area),
     )._rebased()
     assert float(absolute.eastward.native.mean()) == pytest.approx(mean_flow, abs=0.02)
+
+
+def test_spectral_csv_matches_plotted_scores(synthetic):
+    from samudra.metrics.diagnostics import spectral_diagnostics, spectral_rows
+
+    rollouts, products, _ = synthetic
+    results = spectral_diagnostics(rollouts, products)
+    frame = pd.DataFrame(spectral_rows(results)).reindex(columns=report.COLUMNS)
+    assert len(frame) == 9
+    assert set(frame.units) == {"dex"}
+    for result in results:
+        if result.kind != "pooled":
+            continue
+        for region, value in result.scores["model"].items():
+            row = frame[
+                (frame.metric == result.name + "_log10_rmse") & (frame.region == region)
+            ].iloc[0]
+            assert row.value == pytest.approx(value, nan_ok=True)
+    scalars = report.to_wandb(frame, "model")
+    assert len(scalars) == 9
+    assert all(key.startswith("obs/spectra/") for key in scalars)
+    # Tiny spatial boxes are unavailable, not perfect zero-error comparisons.
+    assert frame.value.isna().any()
+
+
+def test_viz_automatically_scores_baseline_at_forecast_times(monkeypatch, tmp_path):
+    from samudra.config import ObsMetricsConfig
+    from samudra.viz import core
+
+    stamps = pd.date_range("2021-01-01", periods=4, freq="5D")
+    baseline = xr.Dataset(
+        {"zos": ("time", [1.0, 2.0, 3.0, 4.0])}, coords={"time": stamps}
+    )
+    model = baseline.isel(time=slice(1, 3))
+    viz = core.Viz.__new__(core.Viz)
+    viz.observations = ObsMetricsConfig()
+    viz.obs_data_root = object()
+    viz.obs_baseline = baseline
+    viz.raw_runs = [core.VizRun("model", model, ["zos"])]
+    viz.data_layout = OM4_SPEC
+    viz.obs_path = str(tmp_path)
+    captured = {}
+
+    def score(config, **kwargs):
+        captured.update(kwargs)
+        return SimpleNamespace(
+            rollouts=kwargs["rollouts"], products={}, frame=pd.DataFrame(), spectra=[]
+        )
+
+    monkeypatch.setattr(core, "score_rollouts", score)
+    viz._obs_inputs()
+    xr.testing.assert_equal(captured["rollouts"]["om4"], model)
+    assert captured["primary_label"] == "model"
+    viz.observations = ObsMetricsConfig(baselines=[])
+    viz._obs_cache = None
+    viz._obs_inputs()
+    assert set(captured["rollouts"]) == {"model"}

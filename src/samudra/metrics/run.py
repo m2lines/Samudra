@@ -22,6 +22,11 @@ import xarray as xr
 
 from samudra.constants import DataLayout
 from samudra.metrics import observations, report
+from samudra.metrics.diagnostics import (
+    SpectralDiagnostic,
+    spectral_diagnostics,
+    spectral_rows,
+)
 from samudra.utils.data import stack_levels
 from samudra.utils.location import ResolvedLocation
 from samudra.utils.wandb import MetricsDict
@@ -70,6 +75,7 @@ class ObservationRun:
     rollouts: dict[str, xr.Dataset]
     frame: pd.DataFrame
     scalars: MetricsDict
+    spectra: list[SpectralDiagnostic]
 
 
 def score_rollouts(
@@ -126,6 +132,12 @@ def score_rollouts(
         velocity_kind=obs_cfg.velocity_kind,
     )
 
+    diagnostics = spectral_diagnostics(prepared, products, obs_cfg.velocity_kind)
+    frame = pd.concat(
+        [frame, pd.DataFrame(spectral_rows(diagnostics))], ignore_index=True
+    )
+    frame = frame.reindex(columns=report.COLUMNS)
+
     if output_dir is not None:
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -138,7 +150,7 @@ def score_rollouts(
 
     scalars = report.to_wandb(frame, primary_label)
     scalars["obs/seconds"] = elapsed
-    return ObservationRun(products, prepared, frame, scalars)
+    return ObservationRun(products, prepared, frame, scalars, diagnostics)
 
 
 def run_observation_metrics(
@@ -156,9 +168,13 @@ def run_observation_metrics(
     The eval-facing shape of `score_rollouts`, which `viz` uses directly because
     it also needs the products and the prepared rollouts to draw from.
     """
+    aligned_baselines = {
+        label: data.sel(time=predictions.time)
+        for label, data in (baselines or {}).items()
+    }
     scored = score_rollouts(
         obs_cfg,
-        rollouts={model_label: predictions, **(baselines or {})},
+        rollouts={model_label: predictions, **aligned_baselines},
         data_layout=data_layout,
         data_root=data_root,
         primary_label=model_label,

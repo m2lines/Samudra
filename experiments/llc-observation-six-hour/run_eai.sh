@@ -37,9 +37,18 @@ PY
 # Atomic directory ownership avoids concurrent qualifications across the two queues.
 if [[ ! -f "$root/QUALIFIED.json" ]]; then
  if mkdir "$root/qualification.lock" 2>/dev/null; then
-  trap 'rmdir "$root/qualification.lock"' EXIT
+  printf '%s\n' "$SLURM_JOB_ID" > "$root/qualification.lock/job_id"
+  trap 'rm -f "$root/qualification.lock/job_id"; rmdir "$root/qualification.lock"' EXIT
   export WANDB_MODE=disabled
-  "$python" -m torch.distributed.run --standalone --nproc_per_node=4 -m samudra.observations.train "$root/qualification.yaml" --stop_after 4
+  progress=$("$python" - "$root" <<'PYPROGRESS'
+import pathlib,sys,torch
+path=pathlib.Path(sys.argv[1])/'outputs/llc-obs-six-hour-qualification/saved_nets/ckpt.pt'
+print(torch.load(path,map_location='cpu',weights_only=False)['updates'] if path.exists() else 0)
+PYPROGRESS
+)
+  if (( progress < 4 )); then
+   "$python" -m torch.distributed.run --standalone --nproc_per_node=4 -m samudra.observations.train "$root/qualification.yaml" --stop_after 4
+  fi
   "$python" -m torch.distributed.run --standalone --nproc_per_node=4 -m samudra.observations.train "$root/qualification.yaml"
   "$python" - "$root" <<'PY'
 import json,os,pathlib,sys
@@ -55,6 +64,7 @@ signature=json.loads((root/f"qualification-signature-{os.environ['SLURM_JOB_ID']
 (root/'QUALIFIED.json.tmp').write_text(json.dumps(dict(signature=signature,completion=completion,validation=validation[-1]),indent=2)+'\n')
 (root/'QUALIFIED.json.tmp').replace(root/'QUALIFIED.json')
 PY
+  rm "$root/qualification.lock/job_id"
   rmdir "$root/qualification.lock"
   trap - EXIT
  else

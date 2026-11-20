@@ -126,25 +126,46 @@ source exposure here. No scientific result is claimed by this design document.
 The experiment branch combines deterministic OBS #960 (`390437693`), the updated
 OBS harness #955 (`32d3f063e`), main including LLC #971, and compact reader #1034
 (`8457d6596`). The first merge reconciles the rebased harness with the deterministic
-extension. The branch now includes configurable initializer history and source adapters,
-plus the six-hour sampling and loss functions in
-`src/samudra/observations/snapshot.py`. The [model](model.yaml) and
-[task](task.yaml) files describe the corresponding model and objective components;
-they are not yet a runnable `train-obs` preset. The monthly trainer rejects these
-settings to prevent accidental use of five-day/monthly archives.
+extension. The branch implements the six-hour source adapter, sparse daily loss, compact
+LLC reads, validation against persistence, and the existing distributed training,
+prefetch and checkpoint loop. The runnable [training preset](train.yaml) retains
+the 2,000-update budget. Validation uses eight fixed, evenly spaced origins per
+source every 100 updates, at 24/48/72 hours. Selection uses EMA observation
+normalized RMSE averaged over channels and daily leads, after pooling squared
+error across origins. Physical RMSE uses the same pooling order.
 
-Still required before the first run: prepare six-hour ERA5 and sparse daily
-observation inputs; fit and verify training-only normalization; connect compact
-LLC reads and these objectives to the existing optimizer/prefetch/checkpoint
-harness; implement fixed-cohort daily validation and resume qualification. No
-cluster job has been submitted.
+LLC's persistence baseline has the true full initial state, while the model
+receives surface history. Label it **full-state persistence** for interior
+comparisons. Observation persistence uses the last daily surface analysis;
+model and persistence are scored on identical joint origin/target support.
 
-Local verification: 77 tests passed across the snapshot, surface-initialized
-model, existing observation harness/prefetch, and compact-reader suites. After
-review found a missing `NaT`-bound rejection, the fix and four new bound cases
-passed the 12-test snapshot suite. A separate adversarial review verified the
-fix; staged pre-commit checks (including mypy, schemas and license checks) pass.
-These CPU checks establish component behavior, not real-data training readiness.
+Local qualification passed 65 tests across the new snapshot/runtime suites and
+existing observation harness/prefetch tests. This includes exact four-update
+CPU training equivalence between uninterrupted and 2+2 resumed execution.
+Adversarial tests independently check time/channel ordering, forcing intervals,
+sparse observation availability and exclusion boundaries. Pre-commit checks pass.
+
+The Grace preparation pilot, job `208388`, completed under standard QoS. Native
+LLC Z/drF were read from Engaging and the target Gaussian grid from the published
+Samudra grid archive; its centers exactly match the existing surface products.
+The [ERA5 pilot audit](qualification/era5-pilot.json) compares four six-hour bins
+against an existing daily product on 1993-01-01. Daily-mean differences are about
+0.0011 K for temperature and 0.0125 W m−2 for downward solar radiation. The new
+ERA5 path uses the repository's ESMF conservative remapper; the existing daily
+surface products retain their preparation provenance. Tiny negative solar values
+are retained, with a minimum of −0.000069 W m−2 in this sample.
+
+Preparation array `208394` covers 1993 through July 2014; its concurrency was
+increased from eight to 22 CPU tasks after the pilot. Normalization job `208395`
+depends on successful preparation. The additional cache is roughly 50 GiB; LLC
+fields remain in the original compact store. No GPU training has started yet.
+
+The [EAI launcher](eai.sbatch) uses a four-GPU Beta allocation, standard QoS and
+online W&B. Its [qualification gate](run_eai.sh) checks eight updates split into
+four plus a resumed four, both sources and daily validation before production.
+Qualification is bound to actual runtime source hashes, both configs, prepared
+data proof, Torch/CUDA versions and world size. A short test-queue qualification
+can share this gate with production; only one allocation owns qualification.
 
 The source stores on EAI are
 `/projects/ny/lz1955/multiscale/jrusak/data/coarse_LLC4320/LLC4320_samudra_1deg.zarr`

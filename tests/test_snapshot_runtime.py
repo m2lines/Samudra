@@ -226,3 +226,29 @@ def test_snapshot_training_resume_reproduces_uninterrupted_updates(tmp_path):
             value, resumed.model.state_dict()[key], rtol=0, atol=0
         )
     assert full.pending_plan is resumed.pending_plan is None
+
+
+def test_completed_resume_restores_completion_receipt(tmp_path):
+    cfg = archive(tmp_path)
+    torch.manual_seed(3)
+    sources = SnapshotSources(cfg, torch.device("cpu"))
+    model = cfg.model.build(LLC_STATE_NAMES)
+    state = TrainingState(
+        model, torch.optim.AdamW(model.parameters()), sources.names, config=cfg
+    )
+    state.updates = cfg.total_updates
+    output = tmp_path / "receipt"
+    output.mkdir()
+    train(
+        cfg,
+        state,
+        sources,
+        output,
+        snapshot_manifest(cfg),
+        lambda _: {},
+        lambda _: None,
+    )
+    assert (
+        json.loads((output / "COMPLETE.json").read_text())["updates"]
+        == cfg.total_updates
+    )

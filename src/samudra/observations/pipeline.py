@@ -484,6 +484,11 @@ def train(
     checkpoints = CheckpointPaths(output)
     try:
         if state.updates >= limit:
+            if state.updates == total and world.rank == 0:
+                write_json(
+                    {"updates": total, "exposure": state.exposure},
+                    output / "COMPLETE.json",
+                )
             return
         if world.rank == 0 and state.pending_plan is None:
             state.pending_plan = plan_update(cfg, state, sources, state.updates)

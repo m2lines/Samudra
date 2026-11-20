@@ -115,7 +115,12 @@ The control has a separate run root, output directory, qualification marker and
 W&B run. Its eight-update qualification must record eight OBS updates and zero
 LLC updates, including checkpoint/resume. It reuses the prepared data cache.
 The monitor will submit it after preparation, under standard production QoS,
-with the same bounded recovery policy as the mixed arm.
+with the same bounded recovery policy as the mixed arm. Both arms now have
+runtime commit `83df2678f91c29aba4187e79fdc9e8e46bfe0d54` deployed, with archive
+SHA-256 `a9402e3edf174b876358db7736a984e46672088e76417f0f7b9114d246aaed71`.
+The OBS-only completion callback is Grace job `208447`, after normalization
+job `208395`. Local validation passed 21 snapshot tests and 59 existing
+harness/config/pipeline tests; all pre-commit checks passed.
 
 ## Questions for adding OM4
 

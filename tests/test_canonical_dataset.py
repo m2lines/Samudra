@@ -321,7 +321,7 @@ def test_compact_om4_reads_each_requested_chunk_once(
     period = Om4TimeConfig(start=JulianDate("2000-01-02"), end=JulianDate("2000-01-07"))
     flat, compact = flat.slice_time(period), compact.slice_time(period)
     indices = np.array([[2, 0], [2, 5]], dtype=np.int64)
-    channels = ("so_2", "hfds", "so_0", "zos", "so_2", "hfds")
+    channels = ("so_2", "hfds", "so_0", "zos")
     actual = compact.read(indices, channels)
     np.testing.assert_array_equal(actual, flat.read(indices, channels))
     expected = sorted(
@@ -337,3 +337,15 @@ def test_compact_om4_reads_each_requested_chunk_once(
     assert isinstance(compact.reader, XarrayCanonicalReader)
     assert "so" in compact.reader.data and "so_0" not in compact.reader.data
     assert (compact.reader.data.so.chunks is not None) == dask_chunks
+
+
+@pytest.mark.parametrize("channel", ["so_2", "hfds"])
+def test_read_and_statistics_reject_duplicate_channels(channel):
+    channels = (channel, "so_0", channel)
+    with pytest.raises(ValueError, match="channel names must be unique"):
+        CanonicalReadRequest(np.array([1, 1]), channels)
+    for source in _equivalent_om4_sources():
+        with pytest.raises(ValueError, match="channel names must be unique"):
+            source.read(np.array([1, 1]), channels)
+        with pytest.raises(ValueError, match="channel names must be unique"):
+            source.statistics(channels)

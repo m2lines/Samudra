@@ -22,7 +22,9 @@ def compact_requests(draw):
     times = draw(st.lists(st.integers(0, 3), max_size=6))
     channels = draw(
         st.lists(
-            st.sampled_from(["a_0", "a_1", "a_2", "b_0", "b_1", "b_2", "s"]), max_size=8
+            st.sampled_from(["a_0", "a_1", "a_2", "b_0", "b_1", "b_2", "s"]),
+            max_size=7,
+            unique=True,
         )
     )
     return (
@@ -156,7 +158,7 @@ def test_compact_channel_metadata_preserves_variable_attributes(levels, units):
     st.sampled_from([0.25, 0.5, 2.0]),
     st.sampled_from([-10.0, 0.0, 100.0]),
     st.lists(st.integers(0, 3), min_size=1, max_size=6),
-    st.lists(st.integers(0, 2), min_size=1, max_size=5),
+    st.lists(st.integers(0, 2), min_size=1, max_size=3, unique=True),
 )
 def test_compact_cf_decoding_matches_physical_units(scale, offset, times, levels):
     values = (np.arange(4 * 3 * 2 * 3).reshape(4, 3, 2, 3) * scale + offset).astype(

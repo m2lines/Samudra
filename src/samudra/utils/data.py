@@ -77,20 +77,24 @@ class CanonicalReadRequest:
     ``time_indices`` are positions in the reader's current time slice. Their shape
     defines the leading dimensions of the returned planes. Keeping this core
     request to NumPy makes it usable by Python and native readers without importing
-    xarray concepts into the boundary.
+    xarray concepts into the boundary. Channel names must be unique; time indices
+    may repeat.
     """
 
     time_indices: TimeIndices
     channels: tuple[str, ...]
 
     def __post_init__(self) -> None:
+        channels = tuple(self.channels)
+        if len(channels) != len(set(channels)):
+            raise ValueError("Canonical channel names must be unique")
         indices = np.asarray(self.time_indices)
         if not np.issubdtype(indices.dtype, np.integer):
             raise TypeError("Canonical time indices must be integers")
         immutable_indices = indices.astype(np.int64, copy=True)
         immutable_indices.setflags(write=False)
         object.__setattr__(self, "time_indices", immutable_indices)
-        object.__setattr__(self, "channels", tuple(self.channels))
+        object.__setattr__(self, "channels", channels)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -102,7 +106,10 @@ class ChannelStatistics:
 
 
 class CanonicalReader(Protocol):
-    """Canonical channel, coordinate, statistics and read semantics."""
+    """Canonical channel, coordinate, statistics and read semantics.
+
+    Read and statistics requests require unique channel names in the desired order.
+    """
 
     @property
     def channels(self) -> tuple[str, ...]: ...
@@ -207,6 +214,8 @@ class XarrayCanonicalReader:
         )
 
     def statistics(self, channels: tuple[str, ...]) -> ChannelStatistics:
+        if len(channels) != len(set(channels)):
+            raise ValueError("Canonical channel names must be unique")
         self._validate_channels(channels)
         return ChannelStatistics(
             _flatten(self.means[list(channels)]),
@@ -241,20 +250,14 @@ class XarrayCanonicalReader:
                 groups[name].append((position, level))
 
         def read_flat() -> np.ndarray:
-            unique_channels = list(dict.fromkeys(flat_channels))
-            values = (
-                self.data[unique_channels]
+            return (
+                self.data[flat_channels]
                 .isel(time=index)
                 .to_array(dim="channel")
                 .transpose(*index_dims, "channel", "lat", "lon")
                 .to_numpy()
                 .astype(np.float32, copy=False)
             )
-            if len(unique_channels) != len(flat_channels):
-                values = values[
-                    ..., [unique_channels.index(name) for name in flat_channels], :, :
-                ]
-            return values
 
         # Preserve combined graph execution for callers that explicitly opened
         # Dask-backed flat fields, including derived forcing variables.
@@ -273,7 +276,7 @@ class XarrayCanonicalReader:
         if flat_channels:
             output[..., flat_positions, :, :] = read_flat()
         for name, selections in groups.items():
-            levels = list(dict.fromkeys(level for _, level in selections))
+            levels = [level for _, level in selections]
             # One orthogonal selection per compact array lets the backend read
             # each touched physical chunk once, including multi-time chunks.
             # Do not introduce Dask or materialize unrequested times/levels.
@@ -283,8 +286,8 @@ class XarrayCanonicalReader:
                 .transpose(*index_dims, "lev", "lat", "lon")
                 .to_numpy()
             )
-            for position, level in selections:
-                output[..., position, :, :] = values[..., levels.index(level), :, :]
+            for level_index, (position, _) in enumerate(selections):
+                output[..., position, :, :] = values[..., level_index, :, :]
         return output
 
     def coordinates(self) -> Mapping[str, xr.DataArray]:

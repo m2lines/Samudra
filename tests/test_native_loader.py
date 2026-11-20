@@ -163,3 +163,28 @@ def test_shared_pipeline_accepts_an_independent_bulk_reader(
     np.testing.assert_array_equal(calls[1][0], [0, 1, 2, 3])
     assert calls[0][1] == ("so_0", "so_2", "zos")
     assert calls[1][1] == ("hfds",)
+
+
+def test_native_bulk_read_rejects_duplicate_channels_before_io():
+    from unittest.mock import Mock
+
+    from samudra.native_reader import NativeOm4Reader, PhysicalVariable
+    from samudra.utils.data import XarrayCanonicalReader
+
+    source, _ = _equivalent_om4_sources()
+    assert isinstance(source.reader, XarrayCanonicalReader)
+    planes = Mock()
+    reader = NativeOm4Reader(
+        xarray_reader=source.reader,
+        channels=source.channels,
+        path="unused",
+        _planes=planes,
+        _reader_variables={"so_0": PhysicalVariable("so_0")},
+        _physical_time_indices=np.arange(source.time.size),
+        _spatial_shape=source.grid_size,
+    )
+    output = np.full((1, 2, *source.grid_size), np.nan, dtype=np.float32)
+    with pytest.raises(ValueError, match="channel names must be unique"):
+        reader.read_into(np.array([0]), ("so_0", "so_0"), output)
+    planes.read_into.assert_not_called()
+    assert np.isnan(output).all()

@@ -1461,14 +1461,102 @@ class TrainConfig(TopLevelConfig):
 
     # Data parameters at root level
     data_stride: list[int] = [1]
-    steps: list[int] = [4]
-    step_transition: list[int] = []
+    steps: list[int] = Field(
+        default=[4],
+        description=(
+            "Rollout length (model calls backpropagated through) for each stage of "
+            "the training curriculum. One entry trains at a fixed length."
+        ),
+    )
+    step_transition: list[int] = Field(
+        default=[],
+        description=(
+            "Epochs at which training moves to the next entry of `steps`, strictly "
+            "increasing, one fewer than `steps`. Stage i covers epochs from "
+            "step_transition[i-1] (inclusive) up to step_transition[i] (exclusive). "
+            "The first transition must be at least 2, since epochs are 1-based."
+        ),
+    )
+    step_batch_size: list[int] = Field(
+        default=[],
+        description=(
+            "Per-stage batch size, one entry per `steps` entry. Memory grows with "
+            "rollout length times batch size, so a curriculum that lengthens rollouts "
+            "can shrink the batch and raise `step_gradient_accumulation_steps` to keep "
+            "the effective batch constant. Empty uses `batch_size` for every stage; "
+            "otherwise the first entry must equal `batch_size`."
+        ),
+    )
+    step_gradient_accumulation_steps: list[int] = Field(
+        default=[],
+        description=(
+            "Per-stage gradient accumulation steps, one entry per `steps` entry. Empty "
+            "uses `gradient_accumulation_steps` for every stage; otherwise the first "
+            "entry must equal `gradient_accumulation_steps`."
+        ),
+    )
     post_train_eval: "PostTrainEvalConfig | None" = None
 
     # Config components
     experiment: ExperimentConfig
     data: DataConfig
     model: AnyModelConfig
+
+    @pydantic.model_validator(mode="after")
+    def validate_step_schedule(self) -> Self:
+        if not self.steps or any(s < 1 for s in self.steps):
+            raise ValueError(
+                f"steps must be non-empty positive integers, got {self.steps}"
+            )
+        if len(self.step_transition) != len(self.steps) - 1:
+            raise ValueError(
+                f"step_transition needs {len(self.steps) - 1} entries for steps "
+                f"{self.steps}, got {self.step_transition}"
+            )
+        if self.step_transition and self.step_transition[0] < 2:
+            raise ValueError(
+                "step_transition epochs must be at least 2 (epochs are 1-based), so the "
+                f"first stage runs; got {self.step_transition}"
+            )
+        if any(b <= a for a, b in zip(self.step_transition, self.step_transition[1:])):
+            raise ValueError(
+                f"step_transition must be strictly increasing, got {self.step_transition}"
+            )
+        per_stage = (
+            ("step_batch_size", self.step_batch_size, "batch_size", self.batch_size),
+            (
+                "step_gradient_accumulation_steps",
+                self.step_gradient_accumulation_steps,
+                "gradient_accumulation_steps",
+                self.gradient_accumulation_steps,
+            ),
+        )
+        for name, values, scalar_name, scalar in per_stage:
+            if not values:
+                continue
+            if len(values) != len(self.steps):
+                raise ValueError(
+                    f"{name} needs one entry per steps entry ({len(self.steps)}), "
+                    f"got {values}"
+                )
+            if any(v < 1 for v in values):
+                raise ValueError(f"{name} entries must be positive, got {values}")
+            if values[0] != scalar:
+                raise ValueError(
+                    f"{name}[0]={values[0]} must equal {scalar_name}={scalar}, which "
+                    "describes the first stage"
+                )
+        return self
+
+    def stage_batch_size(self, stage: int) -> int:
+        """Batch size for curriculum stage ``stage`` (an index into ``steps``)."""
+        return self.step_batch_size[stage] if self.step_batch_size else self.batch_size
+
+    def stage_gradient_accumulation_steps(self, stage: int) -> int:
+        """Gradient accumulation steps for curriculum stage ``stage``."""
+        if self.step_gradient_accumulation_steps:
+            return self.step_gradient_accumulation_steps[stage]
+        return self.gradient_accumulation_steps
 
     @pydantic.model_validator(mode="after")
     def validate_checkpoint_metric(self) -> Self:

@@ -80,6 +80,7 @@ from samudra.utils.location import (
 from samudra.utils.loss import (
     DynamicLoss,
     GradientLoss,
+    LargeScaleErrorLoss,
     LossFnWithContext,
     LossMetric,
     TendencyLoss,
@@ -1481,6 +1482,20 @@ class NormalizedDeltaLossConfig(pydantic.BaseModel):
             + LOCATION_DOCS
         )
     )
+    large_scale_weight: float = Field(
+        default=0.0,
+        ge=0.0,
+        description=(
+            "Weight of an extra penalty on the squared area-weighted mean error "
+            "over blocks of large_scale_block_cells x large_scale_block_cells "
+            "cells, in the same change units as the loss. 0 disables it."
+        ),
+    )
+    large_scale_block_cells: int = Field(
+        default=10,
+        ge=1,
+        description="Block size, in grid cells, for large_scale_weight.",
+    )
 
 
 Loss = (
@@ -1519,6 +1534,7 @@ def build_loss_fn(
     data_root: ResolvedLocation | None = None,
     channels: tuple[str, ...] | None = None,
     state_stds: np.ndarray | None = None,
+    area_weights: torch.Tensor | None = None,
 ) -> LossFnWithContext:
     match loss_cfg:
         case str():
@@ -1566,9 +1582,21 @@ def build_loss_fn(
             scale = load_normalized_persistence_rms(
                 data_root.resolve(location), channels, state_stds
             )
-            return TendencyLoss(
+            base = TendencyLoss(
                 loss_fn_from_metric("mse"),
                 weights=scale.square().reciprocal().float(),
+                device=device,
+            )
+            if loss_cfg.large_scale_weight == 0:
+                return base
+            if area_weights is None:
+                raise ValueError("large_scale_weight needs area_weights")
+            return LargeScaleErrorLoss(
+                base,
+                scale=scale,
+                area_weights=area_weights,
+                weight=loss_cfg.large_scale_weight,
+                block_cells=loss_cfg.large_scale_block_cells,
                 device=device,
             )
         case GradientLossConfig(metric=metric, alpha=alpha):

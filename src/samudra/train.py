@@ -203,6 +203,7 @@ class Trainer:
             data_root=cfg.experiment.resolved_data_root,
             channels=tuple(self.prognostic_var_names),
             state_stds=self.primary_source.statistics(self.prognostic_var_names).std,
+            area_weights=self.primary_source.spherical_area_weights,
         )
         if cfg.model.scale_residuals:
             if not isinstance(cfg.loss, NormalizedDeltaLossConfig):

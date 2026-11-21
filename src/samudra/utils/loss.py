@@ -308,6 +308,84 @@ class TendencyLoss:
         return self._weights
 
 
+class LargeScaleErrorLoss:
+    """A per-channel loss plus a penalty on block-mean error in change units.
+
+    Samudra's one-step errors include a systematic push with large-scale
+    structure (zonal bands, basin-scale patches), and a residual model adds that
+    push up step after step. A per-cell MSE gives the spatial mean of the error
+    in a block no more weight than any other component of the error. This
+    penalty adds ``weight`` times the squared area-weighted mean error over
+    ``block_cells`` x ``block_cells`` blocks of wet cells, in the same
+    change units (``(pred - target) / scale``) as the base loss.
+
+    Per channel, the result is ``base + weight * sum_b A_b m_b**2 / sum_b A_b``,
+    where ``m_b`` is block ``b``'s area-weighted mean normalized error and
+    ``A_b`` its wet area.
+    """
+
+    def __init__(
+        self,
+        base: LossFnWithContext,
+        *,
+        scale: Float[torch.Tensor, " var"],
+        area_weights: Float[torch.Tensor, "lat lon"],
+        weight: float,
+        block_cells: int,
+        device: torch.device,
+    ):
+        if weight < 0:
+            raise ValueError(f"weight must be non-negative, got {weight}")
+        if block_cells < 1:
+            raise ValueError(f"block_cells must be positive, got {block_cells}")
+        if area_weights.ndim != 2 or not torch.isfinite(area_weights).all():
+            raise ValueError("area_weights must be a finite (lat, lon) map")
+        if not torch.isfinite(scale).all() or (scale <= 0).any():
+            raise ValueError("scale must be positive and finite")
+        self.base = base
+        self._scale = scale.float().to(device)
+        self._area = area_weights.float().to(device)
+        self.weight = weight
+        self.block_cells = block_cells
+
+    def block_mean_square(
+        self,
+        pred: Float[torch.Tensor, "batch chan lat lon"],
+        target: Float[torch.Tensor, "batch chan lat lon"],
+        ctx: BatchGrid,
+    ) -> Float[torch.Tensor, " chan"]:
+        n_var = self._scale.numel()
+        if pred.shape[1] % n_var:
+            raise ValueError(f"{pred.shape[1]} channels is not a multiple of {n_var}")
+        scale = self._scale.repeat(pred.shape[1] // n_var).view(1, -1, 1, 1)
+        wet = ctx.label_mask.to(device=pred.device, dtype=pred.dtype)
+        aw = wet * self._area.to(pred)  # (chan, lat, lon)
+        err = (pred - target) / scale * aw
+        k = self.block_cells
+        # Sums over blocks; ceil_mode keeps the partial blocks at the edges.
+        num = F.avg_pool2d(err, k, stride=k, ceil_mode=True) * k * k
+        den = F.avg_pool2d(aw.unsqueeze(0), k, stride=k, ceil_mode=True) * k * k
+        has_wet = den > 0
+        mean = torch.where(has_wet, num / den.clamp_min(1e-30), 0.0)
+        # Wet-area-weighted average over blocks, then over the batch.
+        per_block = (den * mean.square()).sum(dim=(2, 3)) / den.sum(dim=(2, 3))
+        return per_block.mean(dim=0)
+
+    def __call__(
+        self,
+        pred: Float[torch.Tensor, "batch chan lat lon"],
+        target: Float[torch.Tensor, "batch chan lat lon"],
+        ctx: BatchGrid,
+    ) -> Float[torch.Tensor, " chan"]:
+        loss = self.base(pred, target, ctx)
+        if self.weight == 0:
+            return loss
+        return loss + self.weight * self.block_mean_square(pred, target, ctx)
+
+    def loss_scale_per_channel(self) -> Float[torch.Tensor, " var"]:
+        return self.base.loss_scale_per_channel()  # type: ignore[attr-defined]
+
+
 class GradientLoss:
     """Combine a base loss with a gradient matching penalty.
 

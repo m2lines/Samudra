@@ -156,3 +156,54 @@ def test_trainer_fills_residual_scale_and_trains_2in1out(train_config, tmp_path)
     channel_losses = [v for k, v in logs.items() if k.startswith("train/loss/channel/")]
     assert len(channel_losses) == len(channels)
     assert np.isfinite(np.array(channel_losses, dtype=float)).all()
+
+
+def test_large_scale_penalty_charges_block_mean_error_not_small_scale_error(tmp_path):
+    """A uniform error pays the full penalty; one that averages to zero in every
+    block pays none, though both cost the same per-cell MSE."""
+    xr.Dataset({c: xr.DataArray(t) for c, t in zip(CHANNELS, TAU)}).to_zarr(
+        tmp_path / "tau.zarr"
+    )
+    weight, block = 5.0, 2
+    location = UnresolvedLocation(path="tau.zarr")
+
+    def build(weight: float = 0.0, block: int = 10):
+        return build_loss_fn(
+            NormalizedDeltaLossConfig(
+                increment_rms_location=location,
+                large_scale_weight=weight,
+                large_scale_block_cells=block,
+            ),
+            device=torch.device("cpu"),
+            num_channels=len(CHANNELS),
+            pad_mode="circular",
+            data_root=LocalLocation(path=tmp_path),
+            channels=CHANNELS,
+            state_stds=SIGMA,
+            area_weights=torch.ones(H, W),
+        )
+
+    plain = build()
+    penalized = build(weight, block)
+    q = torch.tensor(TAU / SIGMA, dtype=torch.float32).view(1, -1, 1, 1)
+    n = len(CHANNELS)
+    ctx = BatchGrid(
+        torch.ones(n, H, W, dtype=torch.bool),
+        (torch.linspace(-80, 80, H), torch.linspace(0, 359, W)),
+        (torch.linspace(-80, 80, H), torch.linspace(0, 359, W)),
+    )
+    target = torch.zeros(B, n, H, W)
+    uniform = q.expand(B, n, H, W).clone()  # error of exactly 1 change unit
+    sign = torch.tensor([[1.0, -1.0], [-1.0, 1.0]]).repeat(H // 2, W // 2)
+    checker = uniform * sign  # same magnitude, mean zero in every 2x2 block
+
+    for pred in (uniform, checker):
+        torch.testing.assert_close(
+            plain(pred, target, ctx), torch.ones(n), rtol=1e-5, atol=0
+        )
+    torch.testing.assert_close(
+        penalized(uniform, target, ctx), torch.full((n,), 1 + weight), rtol=1e-5, atol=0
+    )
+    torch.testing.assert_close(
+        penalized(checker, target, ctx), torch.ones(n), rtol=1e-5, atol=1e-6
+    )

@@ -1,0 +1,10 @@
+thetao_0   norm std 11.64  persistence RMSE 0.299  ratio 0.02569
+thetao_7   norm std 6.249  persistence RMSE 0.1129  ratio 0.01807
+thetao_13  norm std 1.543  persistence RMSE 0.01137  ratio 0.007368
+so_0       norm std 2.818  persistence RMSE 0.1034  ratio 0.0367
+so_7       norm std 0.9327  persistence RMSE 0.01441  ratio 0.01545
+so_13      norm std 0.5127  persistence RMSE 0.001795  ratio 0.003501
+uo_0       norm std 0.1269  persistence RMSE 0.05749  ratio 0.4528
+uo_7       norm std 0.06688  persistence RMSE 0.01574  ratio 0.2353
+uo_13      norm std 0.02184  persistence RMSE 0.006467  ratio 0.2961
+zos        norm std 0.6808  persistence RMSE 0.02611  ratio 0.03834

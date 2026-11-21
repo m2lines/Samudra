@@ -1,0 +1,212 @@
+host dtn012.hpc.nyu.edu nproc 32 mem 251G
+Model name:                              Intel(R) Xeon(R) Platinum 8444H
+git 8c8d962915940a47a49ec67c90c918d283d99f36
+[data] train: 292 steps x 77 channels in 95s
+[data] val: 74 steps x 77 channels in 22s
+[data] test: 600 steps x 77 channels in 216s
+[run] thetao_0   persist 3.78  lpc_ctx 3.39  lpc_analog 3.44  mix 3.34 bits  (35s)
+[run] so_0       persist 3.48  lpc_ctx 2.92  lpc_analog 3.06  mix 2.87 bits  (29s)
+[run] uo_0       persist 4.01  lpc_ctx 3.79  lpc_analog 3.84  mix 3.77 bits  (23s)
+[run] vo_0       persist 3.83  lpc_ctx 3.54  lpc_analog 3.57  mix 3.50 bits  (27s)
+[run] zos        persist 2.70  lpc_ctx 2.49  lpc_analog 2.56  mix 2.46 bits  (22s)
+[run] thetao_10  persist 1.21  lpc_ctx 0.78  lpc_analog 0.69  mix 0.66 bits  (24s)
+[run] so_10      persist 0.61  lpc_ctx 0.30  lpc_analog 0.27  mix 0.26 bits  (22s)
+[run] uo_10      persist 1.52  lpc_ctx 1.18  lpc_analog 1.15  mix 1.11 bits  (22s)
+[run] vo_10      persist 1.62  lpc_ctx 1.22  lpc_analog 1.15  mix 1.12 bits  (23s)
+[run] thetao_0   persist 4.77  lpc_ctx 4.36  lpc_analog 4.41  mix 4.32 bits  (23s)
+[run] so_0       persist 4.46  lpc_ctx 3.88  lpc_analog 4.03  mix 3.83 bits  (22s)
+[run] uo_0       persist 5.00  lpc_ctx 4.79  lpc_analog 4.84  mix 4.76 bits  (22s)
+[run] vo_0       persist 4.82  lpc_ctx 4.53  lpc_analog 4.56  mix 4.49 bits  (23s)
+[run] zos        persist 3.67  lpc_ctx 3.44  lpc_analog 3.53  mix 3.42 bits  (22s)
+[run] thetao_10  persist 1.87  lpc_ctx 1.30  lpc_analog 1.16  mix 1.12 bits  (20s)
+[run] so_10      persist 0.98  lpc_ctx 0.51  lpc_analog 0.49  mix 0.46 bits  (22s)
+[run] uo_10      persist 2.31  lpc_ctx 1.89  lpc_analog 1.86  mix 1.80 bits  (26s)
+[run] vo_10      persist 2.42  lpc_ctx 1.93  lpc_analog 1.85  mix 1.80 bits  (21s)
+[run] thetao_0   persist 5.77  lpc_ctx 5.36  lpc_analog 5.41  mix 5.31 bits  (24s)
+[run] so_0       persist 5.46  lpc_ctx 4.87  lpc_analog 5.03  mix 4.82 bits  (22s)
+[run] uo_0       persist 6.00  lpc_ctx 5.79  lpc_analog 5.84  mix 5.76 bits  (21s)
+[run] vo_0       persist 5.82  lpc_ctx 5.52  lpc_analog 5.56  mix 5.49 bits  (23s)
+[run] zos        persist 4.66  lpc_ctx 4.43  lpc_analog 4.52  mix 4.41 bits  (22s)
+[run] thetao_10  persist 2.69  lpc_ctx 1.98  lpc_analog 1.82  mix 1.75 bits  (20s)
+[run] so_10      persist 1.53  lpc_ctx 0.87  lpc_analog 0.83  mix 0.76 bits  (20s)
+[run] uo_10      persist 3.24  lpc_ctx 2.77  lpc_analog 2.75  mix 2.69 bits  (21s)
+[run] vo_10      persist 3.34  lpc_ctx 2.80  lpc_analog 2.72  mix 2.66 bits  (22s)
+[run] thetao_0   persist 6.77  lpc_ctx 6.35  lpc_analog 6.40  mix 6.30 bits  (22s)
+[run] so_0       persist 6.46  lpc_ctx 5.87  lpc_analog 6.03  mix 5.82 bits  (22s)
+[run] uo_0       persist 7.00  lpc_ctx 6.79  lpc_analog 6.84  mix 6.76 bits  (23s)
+[run] vo_0       persist 6.82  lpc_ctx 6.52  lpc_analog 6.56  mix 6.49 bits  (21s)
+[run] zos        persist 5.66  lpc_ctx 5.43  lpc_analog 5.52  mix 5.41 bits  (22s)
+[run] thetao_10  persist 3.62  lpc_ctx 2.79  lpc_analog 2.62  mix 2.54 bits  (21s)
+[run] so_10      persist 2.26  lpc_ctx 1.39  lpc_analog 1.34  mix 1.24 bits  (20s)
+[run] uo_10      persist 4.21  lpc_ctx 3.75  lpc_analog 3.73  mix 3.65 bits  (20s)
+[run] vo_10      persist 4.33  lpc_ctx 3.77  lpc_analog 3.69  mix 3.62 bits  (20s)
+[run] thetao_0   persist 7.77  lpc_ctx 7.35  lpc_analog 7.40  mix 7.30 bits  (27s)
+[run] so_0       persist 7.46  lpc_ctx 6.87  lpc_analog 7.03  mix 6.81 bits  (25s)
+[run] uo_0       persist 8.00  lpc_ctx 7.79  lpc_analog 7.84  mix 7.76 bits  (24s)
+[run] vo_0       persist 7.82  lpc_ctx 7.52  lpc_analog 7.56  mix 7.49 bits  (25s)
+[run] zos        persist 6.66  lpc_ctx 6.43  lpc_analog 6.52  mix 6.41 bits  (25s)
+[run] thetao_10  persist 4.59  lpc_ctx 3.72  lpc_analog 3.55  mix 3.46 bits  (21s)
+[run] so_10      persist 3.14  lpc_ctx 2.08  lpc_analog 2.01  mix 1.89 bits  (21s)
+[run] uo_10      persist 5.21  lpc_ctx 4.74  lpc_analog 4.72  mix 4.64 bits  (21s)
+[run] vo_10      persist 5.32  lpc_ctx 4.76  lpc_analog 4.68  mix 4.61 bits  (22s)
+[run] thetao_0   persist 8.77  lpc_ctx 8.35  lpc_analog 8.40  mix 8.30 bits  (28s)
+[run] so_0       persist 8.46  lpc_ctx 7.87  lpc_analog 8.03  mix 7.81 bits  (26s)
+[run] uo_0       persist 9.00  lpc_ctx 8.79  lpc_analog 8.84  mix 8.76 bits  (26s)
+[run] vo_0       persist 8.82  lpc_ctx 8.52  lpc_analog 8.56  mix 8.49 bits  (25s)
+[run] zos        persist 7.66  lpc_ctx 7.43  lpc_analog 7.52  mix 7.41 bits  (24s)
+[run] thetao_10  persist 5.58  lpc_ctx 4.69  lpc_analog 4.52  mix 4.43 bits  (20s)
+[run] so_10      persist 4.08  lpc_ctx 2.90  lpc_analog 2.82  mix 2.68 bits  (20s)
+[run] uo_10      persist 6.21  lpc_ctx 5.74  lpc_analog 5.71  mix 5.64 bits  (21s)
+[run] vo_10      persist 6.32  lpc_ctx 5.76  lpc_analog 5.68  mix 5.61 bits  (21s)
+chosen eps: 0.25
+[run] thetao_0   persist 4.77  lpc_ctx 4.36  lpc_analog 4.41  mix 4.32 bits  (166s)
+[run] thetao_1   persist 4.72  lpc_ctx 4.22  lpc_analog 4.24  mix 4.16 bits  (112s)
+[run] thetao_2   persist 4.52  lpc_ctx 3.89  lpc_analog 3.86  mix 3.81 bits  (96s)
+[run] thetao_3   persist 4.31  lpc_ctx 3.66  lpc_analog 3.66  mix 3.58 bits  (106s)
+[run] thetao_4   persist 4.10  lpc_ctx 3.48  lpc_analog 3.48  mix 3.37 bits  (110s)
+[run] thetao_5   persist 3.88  lpc_ctx 3.28  lpc_analog 3.23  mix 3.09 bits  (103s)
+[run] thetao_6   persist 3.56  lpc_ctx 2.89  lpc_analog 2.80  mix 2.68 bits  (107s)
+[run] thetao_7   persist 3.00  lpc_ctx 2.38  lpc_analog 2.27  mix 2.18 bits  (105s)
+[run] thetao_8   persist 2.62  lpc_ctx 1.97  lpc_analog 1.83  mix 1.76 bits  (108s)
+[run] thetao_9   persist 2.22  lpc_ctx 1.56  lpc_analog 1.44  mix 1.39 bits  (111s)
+[run] thetao_10  persist 1.85  lpc_ctx 1.28  lpc_analog 1.19  mix 1.12 bits  (108s)
+[run] thetao_11  persist 1.38  lpc_ctx 0.92  lpc_analog 0.86  mix 0.81 bits  (116s)
+[run] thetao_12  persist 0.92  lpc_ctx 0.62  lpc_analog 0.58  mix 0.55 bits  (114s)
+[run] thetao_13  persist 0.66  lpc_ctx 0.45  lpc_analog 0.44  mix 0.40 bits  (105s)
+[run] thetao_14  persist 0.53  lpc_ctx 0.33  lpc_analog 0.30  mix 0.29 bits  (160s)
+[run] thetao_15  persist 0.42  lpc_ctx 0.23  lpc_analog 0.23  mix 0.21 bits  (120s)
+[run] thetao_16  persist 0.36  lpc_ctx 0.21  lpc_analog 0.21  mix 0.19 bits  (117s)
+[run] thetao_17  persist 0.11  lpc_ctx 0.06  lpc_analog 0.06  mix 0.06 bits  (87s)
+[run] thetao_18  persist 0.05  lpc_ctx 0.03  lpc_analog 0.02  mix 0.02 bits  (41s)
+[run] so_0       persist 4.44  lpc_ctx 3.87  lpc_analog 4.04  mix 3.80 bits  (142s)
+[run] so_1       persist 4.23  lpc_ctx 3.70  lpc_analog 3.81  mix 3.63 bits  (121s)
+[run] so_2       persist 3.96  lpc_ctx 3.40  lpc_analog 3.46  mix 3.32 bits  (128s)
+[run] so_3       persist 3.65  lpc_ctx 3.06  lpc_analog 3.13  mix 2.97 bits  (139s)
+[run] so_4       persist 3.31  lpc_ctx 2.68  lpc_analog 2.71  mix 2.57 bits  (176s)
+[run] so_5       persist 2.90  lpc_ctx 2.22  lpc_analog 2.25  mix 2.10 bits  (159s)
+[run] so_6       persist 2.54  lpc_ctx 1.85  lpc_analog 1.86  mix 1.74 bits  (170s)
+[run] so_7       persist 2.12  lpc_ctx 1.50  lpc_analog 1.50  mix 1.38 bits  (165s)
+[run] so_8       persist 1.66  lpc_ctx 1.07  lpc_analog 1.03  mix 0.96 bits  (113s)
+[run] so_9       persist 1.32  lpc_ctx 0.76  lpc_analog 0.71  mix 0.67 bits  (105s)
+[run] so_10      persist 1.01  lpc_ctx 0.56  lpc_analog 0.55  mix 0.49 bits  (108s)
+[run] so_11      persist 0.76  lpc_ctx 0.44  lpc_analog 0.41  mix 0.37 bits  (102s)
+[run] so_12      persist 0.61  lpc_ctx 0.32  lpc_analog 0.29  mix 0.26 bits  (87s)
+[run] so_13      persist 0.38  lpc_ctx 0.19  lpc_analog 0.17  mix 0.16 bits  (84s)
+[run] so_14      persist 0.19  lpc_ctx 0.10  lpc_analog 0.09  mix 0.09 bits  (82s)
+[run] so_15      persist 0.13  lpc_ctx 0.07  lpc_analog 0.06  mix 0.05 bits  (75s)
+[run] so_16      persist 0.12  lpc_ctx 0.06  lpc_analog 0.05  mix 0.05 bits  (64s)
+[run] so_17      persist 0.04  lpc_ctx 0.01  lpc_analog 0.01  mix 0.01 bits  (44s)
+[run] so_18      persist 0.02  lpc_ctx 0.01  lpc_analog 0.01  mix 0.01 bits  (22s)
+[run] uo_0       persist 4.98  lpc_ctx 4.77  lpc_analog 4.85  mix 4.75 bits  (95s)
+[run] uo_1       persist 4.64  lpc_ctx 4.35  lpc_analog 4.40  mix 4.31 bits  (100s)
+[run] uo_2       persist 4.32  lpc_ctx 3.92  lpc_analog 3.96  mix 3.84 bits  (102s)
+[run] uo_3       persist 3.84  lpc_ctx 3.33  lpc_analog 3.39  mix 3.24 bits  (111s)
+[run] uo_4       persist 3.70  lpc_ctx 3.01  lpc_analog 3.04  mix 2.89 bits  (100s)
+[run] uo_5       persist 3.38  lpc_ctx 2.73  lpc_analog 2.73  mix 2.60 bits  (102s)
+[run] uo_6       persist 3.00  lpc_ctx 2.45  lpc_analog 2.43  mix 2.35 bits  (100s)
+[run] uo_7       persist 2.76  lpc_ctx 2.27  lpc_analog 2.24  mix 2.18 bits  (94s)
+[run] uo_8       persist 2.65  lpc_ctx 2.19  lpc_analog 2.16  mix 2.09 bits  (97s)
+[run] uo_9       persist 2.49  lpc_ctx 2.03  lpc_analog 2.00  mix 1.94 bits  (89s)
+[run] uo_10      persist 2.33  lpc_ctx 1.92  lpc_analog 1.87  mix 1.83 bits  (88s)
+[run] uo_11      persist 2.13  lpc_ctx 1.77  lpc_analog 1.75  mix 1.71 bits  (85s)
+[run] uo_12      persist 1.91  lpc_ctx 1.61  lpc_analog 1.61  mix 1.58 bits  (82s)
+[run] uo_13      persist 1.80  lpc_ctx 1.55  lpc_analog 1.54  mix 1.51 bits  (81s)
+[run] uo_14      persist 1.76  lpc_ctx 1.51  lpc_analog 1.53  mix 1.49 bits  (78s)
+[run] uo_15      persist 1.75  lpc_ctx 1.53  lpc_analog 1.53  mix 1.50 bits  (77s)
+[run] uo_16      persist 1.78  lpc_ctx 1.54  lpc_analog 1.55  mix 1.51 bits  (68s)
+[run] uo_17      persist 1.70  lpc_ctx 1.51  lpc_analog 1.51  mix 1.47 bits  (46s)
+[run] uo_18      persist 1.48  lpc_ctx 1.32  lpc_analog 1.30  mix 1.27 bits  (21s)
+[run] vo_0       persist 4.79  lpc_ctx 4.50  lpc_analog 4.53  mix 4.47 bits  (95s)
+[run] vo_1       persist 4.54  lpc_ctx 4.22  lpc_analog 4.26  mix 4.16 bits  (95s)
+[run] vo_2       persist 4.25  lpc_ctx 3.92  lpc_analog 3.96  mix 3.84 bits  (95s)
+[run] vo_3       persist 3.97  lpc_ctx 3.48  lpc_analog 3.47  mix 3.35 bits  (95s)
+[run] vo_4       persist 3.69  lpc_ctx 3.01  lpc_analog 3.00  mix 2.87 bits  (95s)
+[run] vo_5       persist 3.44  lpc_ctx 2.74  lpc_analog 2.66  mix 2.57 bits  (94s)
+[run] vo_6       persist 3.19  lpc_ctx 2.55  lpc_analog 2.50  mix 2.39 bits  (94s)
+[run] vo_7       persist 2.97  lpc_ctx 2.33  lpc_analog 2.25  mix 2.19 bits  (94s)
+[run] vo_8       persist 2.83  lpc_ctx 2.21  lpc_analog 2.13  mix 2.07 bits  (90s)
+[run] vo_9       persist 2.65  lpc_ctx 2.07  lpc_analog 1.99  mix 1.94 bits  (88s)
+[run] vo_10      persist 2.52  lpc_ctx 1.96  lpc_analog 1.90  mix 1.84 bits  (90s)
+[run] vo_11      persist 2.23  lpc_ctx 1.78  lpc_analog 1.73  mix 1.68 bits  (86s)
+[run] vo_12      persist 2.10  lpc_ctx 1.67  lpc_analog 1.62  mix 1.58 bits  (87s)
+[run] vo_13      persist 1.88  lpc_ctx 1.56  lpc_analog 1.50  mix 1.48 bits  (88s)
+[run] vo_14      persist 1.82  lpc_ctx 1.49  lpc_analog 1.47  mix 1.44 bits  (93s)
+[run] vo_15      persist 1.76  lpc_ctx 1.48  lpc_analog 1.46  mix 1.43 bits  (94s)
+[run] vo_16      persist 1.83  lpc_ctx 1.53  lpc_analog 1.48  mix 1.46 bits  (80s)
+[run] vo_17      persist 1.70  lpc_ctx 1.45  lpc_analog 1.43  mix 1.40 bits  (47s)
+[run] vo_18      persist 1.48  lpc_ctx 1.30  lpc_analog 1.27  mix 1.25 bits  (21s)
+[run] zos        persist 3.68  lpc_ctx 3.48  lpc_analog 3.57  mix 3.45 bits  (128s)
+{
+ "n_channels": 77,
+ "mix_bits_worse_than_best_component": 3,
+ "mix_rmse_worse_than_best_component": 61,
+ "max_mix_rmse_excess_rel": 0.06643154725292888,
+ "max_abs_sampled_minus_full_bits": 0.08372071508836765,
+ "max_rel_bin_width_mismatch": 6.217248937900877e-15,
+ "coarse_regime_channels": [
+  "so_10",
+  "so_11",
+  "so_12",
+  "so_13",
+  "so_14",
+  "so_15",
+  "so_16",
+  "so_17",
+  "so_18",
+  "so_6",
+  "so_7",
+  "so_8",
+  "so_9",
+  "thetao_10",
+  "thetao_11",
+  "thetao_12",
+  "thetao_13",
+  "thetao_14",
+  "thetao_15",
+  "thetao_16",
+  "thetao_17",
+  "thetao_18",
+  "thetao_8",
+  "thetao_9",
+  "uo_10",
+  "uo_11",
+  "uo_12",
+  "uo_13",
+  "uo_14",
+  "uo_15",
+  "uo_16",
+  "uo_17",
+  "uo_18",
+  "uo_9",
+  "vo_10",
+  "vo_11",
+  "vo_12",
+  "vo_13",
+  "vo_14",
+  "vo_15",
+  "vo_16",
+  "vo_17",
+  "vo_18"
+ ],
+ "min_blosc_bound_minus_mask_overhead_minus_mix": -2.9835836791842048,
+ "top_mix_weight_counts": {
+  "lpc_ctx": 18,
+  "lpc_analog": 53,
+  "analog": 6
+ },
+ "largest_step_among_ar1_lpc_lpc_ctx_counts": {
+  "ar1": 6,
+  "lpc": 14,
+  "lpc_ctx": 57
+ },
+ "max_abs_persistence_hand_minus_run_full_field": 0.00042358859821156614
+}
+bits violations: [('thetao_18', 'lpc_analog', 0.0003437547368958134), ('so_17', 'lpc_ctx', 0.0008605372880020664), ('so_18', 'lpc_analog', 9.537414919459121e-05)]
+rmse violations: [('thetao_0', 'lpc_analog', 0.002050155839227852), ('thetao_1', 'lpc_analog', 0.006223260449810031), ('thetao_2', 'lpc_analog', 0.005842702414842638), ('thetao_3', 'lpc_analog', 0.0035933903963145664), ('thetao_4', 'lpc_analog', 0.0026746273888771377), ('thetao_5', 'lpc_analog', 0.001239125932505969), ('thetao_7', 'lpc_analog', 0.002804128026137498), ('thetao_8', 'lpc_analog', 5.032322789921828e-05), ('thetao_10', 'lpc_analog', 0.013596580526339164), ('thetao_11', 'lpc_analog', 0.010629838931224711), ('thetao_12', 'lpc_analog', 0.010777794712018451), ('thetao_13', 'lpc_analog', 7.954055745074129e-05), ('thetao_14', 'analog', 0.030892553784000354), ('thetao_15', 'lpc_analog', 0.001308953505785082), ('thetao_16', 'lpc_analog', 0.012244906565807456), ('thetao_18', 'lpc_analog', 0.042660908701268596), ('so_1', 'lpc_analog', 0.0027758572651965796), ('so_2', 'analog', 0.01095165626464234), ('so_3', 'lpc_analog', 0.005456756667635565), ('so_5', 'lpc_analog', 0.001281145713477816), ('so_6', 'lpc_analog', 0.0004699272536508037), ('so_7', 'lpc_analog', 0.0002671664499194204), ('so_8', 'lpc_analog', 0.0008799154924563624), ('so_11', 'lpc_analog', 0.003698924703297246), ('so_13', 'lpc_analog', 0.007191804307484784), ('so_15', 'lpc_analog', 0.022487521023040413), ('so_16', 'analog', 0.021179025625920334), ('so_17', 'lpc_analog', 0.001135359755152443), ('so_18', 'lpc_analog', 0.06643154725292888), ('uo_2', 'lpc_analog', 0.008940990324705078), ('uo_4', 'lpc_analog', 0.01010347528679345), ('uo_5', 'lpc_analog', 0.001977105590237338), ('uo_6', 'lpc_analog', 0.0061185931246869885), ('uo_7', 'lpc_analog', 0.002953255029206847), ('uo_8', 'lpc_analog', 0.005754883597661964), ('uo_9', 'lpc_analog', 0.0025757299589115323), ('uo_10', 'lpc_analog', 0.002297900039377243), ('uo_11', 'lpc_analog', 0.0003550167802419679), ('uo_13', 'lpc_analog', 0.004152082951439429), ('uo_16', 'lpc_analog', 0.002977257483931739), ('uo_17', 'lpc_analog', 0.004532718424107296), ('uo_18', 'lpc_analog', 0.010543559524890389), ('vo_0', 'lpc_analog', 0.0010845378349686463), ('vo_1', 'lpc_analog', 0.004339854582579239), ('vo_2', 'lpc_analog', 0.003297575406084441), ('vo_3', 'lpc_analog', 0.023681138596915785), ('vo_4', 'lpc_analog', 0.014580304311323511), ('vo_5', 'lpc_analog', 0.005694237952175163), ('vo_6', 'lpc_analog', 0.004182796431654978), ('vo_7', 'lpc_analog', 0.007695427032730517), ('vo_8', 'lpc_analog', 0.0110928093974334), ('vo_9', 'lpc_analog', 0.02223182001781887), ('vo_10', 'lpc_analog', 0.024184772276650834), ('vo_11', 'lpc_analog', 0.004533651096702895), ('vo_12', 'lpc_analog', 0.01486447039191452), ('vo_13', 'lpc_analog', 0.00012175433172045835), ('vo_14', 'lpc_analog', 0.002765803127503963), ('vo_15', 'lpc_analog', 0.0002440451334870808), ('vo_16', 'lpc_analog', 0.006927989188089789), ('vo_17', 'lpc_analog', 0.002931876578298853), ('vo_18', 'lpc_analog', 0.010305265467107416)]
+thetao_0 {'laplace_b_full_train': 0.1796206410615598, 'hand_bits_area_weighted': 4.777140793857353, 'run_bits_full_field': 4.777564382455565, 'run_bits_sampled': 4.77039918368614}
+so_10 {'laplace_b_full_train': 0.0018899488268042854, 'hand_bits_area_weighted': 0.990019325494658, 'run_bits_full_field': 0.9899861563099742, 'run_bits_sampled': 1.0068812288121038}
+uo_18 {'laplace_b_full_train': 0.003143521177122255, 'hand_bits_area_weighted': 1.5192352623964316, 'run_bits_full_field': 1.5192313661861747, 'run_bits_sampled': 1.481855941936309}
+zos {'laplace_b_full_train': 0.01738616695478549, 'hand_bits_area_weighted': 3.68560416757522, 'run_bits_full_field': 3.6853092636462073, 'run_bits_sampled': 3.684269222282717}
+max |bin_width run - recomputed| rel: 6.217248937900877e-15
+done: ./results_om4_onedeg_v2/tables.md
+exit=0

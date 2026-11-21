@@ -1,0 +1,28 @@
+uo_9 band 0: neighbour weights {(dy,dx): w} =
+  (1, 0): -0.0654, (-1, 0): -0.0473, (0, 1): +0.1975, (0, -1): -0.0608, (1, 1): +0.0632, (1, -1): -0.0140, (-1, 1): +0.0627, (-1, -1): -0.0178
+  last change b = -0.3792, Laplacian of change l = -0.4504, mean anomaly c = -3.14e-02
+max |lambda| = 1.0064 at (ky, kx) = (-3.142, +0.000) [pi = grid-scale]; |lambda| at k=0: 0.9774
+zonal slice ky=0: max |lambda| = 0.9774 at kx = +0.000
+east difference alone (a = +0.1975): stable iff 0 <= a <= 1; grid-scale growth |1 - 2a| = 0.6050
+
+uo_11 band 0: neighbour weights {(dy,dx): w} =
+  (1, 0): -0.0643, (-1, 0): -0.0538, (0, 1): +0.2164, (0, -1): -0.0806, (1, 1): +0.0662, (1, -1): -0.0197, (-1, 1): +0.0651, (-1, -1): -0.0189
+  last change b = -0.4057, Laplacian of change l = -0.4439, mean anomaly c = -3.97e-02
+max |lambda| = 1.0115 at (ky, kx) = (-3.142, +0.000) [pi = grid-scale]; |lambda| at k=0: 0.9720
+zonal slice ky=0: max |lambda| = 0.9720 at kx = +0.000
+east difference alone (a = +0.2164): stable iff 0 <= a <= 1; grid-scale growth |1 - 2a| = 0.5672
+
+vo_9 band 0: neighbour weights {(dy,dx): w} =
+  (1, 0): -0.0053, (-1, 0): +0.0034, (0, 1): +0.0998, (0, -1): -0.1193, (1, 1): +0.1082, (1, -1): -0.0443, (-1, 1): +0.1040, (-1, -1): -0.0377
+  last change b = -0.5443, Laplacian of change l = -0.8879, mean anomaly c = -7.34e-02
+max |lambda| = 1.1749 at (ky, kx) = (-3.142, -2.688) [pi = grid-scale]; |lambda| at k=0: 0.9533
+zonal slice ky=0: max |lambda| = 0.9533 at kx = +0.000
+east difference alone (a = +0.0998): stable iff 0 <= a <= 1; grid-scale growth |1 - 2a| = 0.8005
+
+thetao_6 band 0: neighbour weights {(dy,dx): w} =
+  (1, 0): -0.0079, (-1, 0): -0.0101, (0, 1): +0.0643, (0, -1): -0.0049, (1, 1): +0.0036, (1, -1): +0.0103, (-1, 1): +0.0106, (-1, -1): +0.0077
+  last change b = +0.2652, Laplacian of change l = -0.0630, mean anomaly c = -3.74e-04
+max |lambda| = 0.9995 at (ky, kx) = (+0.000, +0.000) [pi = grid-scale]; |lambda| at k=0: 0.9995
+zonal slice ky=0: max |lambda| = 0.9995 at kx = +0.000
+east difference alone (a = +0.0643): stable iff 0 <= a <= 1; grid-scale growth |1 - 2a| = 0.8714
+

@@ -84,7 +84,7 @@ def main(args: argparse.Namespace) -> None:
             if dest_fmt.lower() == "zarr":
                 if name == "OM4":
                     data = data.chunk(output_chunks)
-                data.to_zarr(dest + ".zarr")
+                data.to_zarr(dest + ".zarr", zarr_format=2)
             else:
                 data.to_netcdf(dest + ".nc")
 

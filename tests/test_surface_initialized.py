@@ -209,6 +209,19 @@ def test_losses_ignore_dry_nan_labels_and_balance_variable_groups():
     assert zero == 0
 
 
+def test_completion_loss_without_support_ignores_unsupported_predictions():
+    # A sample whose corruption hid nothing has no completion support; predictions
+    # there may be anything, including NaN, and must not reach the loss.
+    prediction = torch.full((1, 1, 2, 2, 2), float("nan"), requires_grad=True)
+    target = torch.zeros(1, 1, 2, 2, 2)
+    valid = torch.zeros_like(target, dtype=torch.bool)
+    loss = completion_loss(prediction, target, valid, [-30.0, 30.0])
+    assert loss == 0
+    loss.backward()
+    assert prediction.grad is not None
+    assert not prediction.grad.any()
+
+
 def test_variable_balancing_is_not_a_flat_channel_average():
     prediction = torch.zeros(1, 1, len(NAMES), 2, 2)
     target = torch.ones_like(prediction)

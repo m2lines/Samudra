@@ -69,8 +69,10 @@ class S3Location(ResolvedLocation, BaseModel):
     ```yaml
     data_location:
       type: s3
-      bucket: emulators
-      path: sd5313/OM4_highres/om4_halfdeg.zarr
+      endpoint_url: https://nyu1.osn.mghpcc.org
+      anon: true
+      bucket: m2lines-pubs
+      path: Samudra/v2026-09/om4_halfdeg/OM4.zarr
     ```
     """
 

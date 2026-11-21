@@ -60,6 +60,11 @@ def build_sources(
     def path(name: str) -> Path:
         return cfg.data.local_path(name, cfg.experiment)
 
+    if cfg.snapshot is not None:
+        from samudra.observations.snapshot_data import SnapshotSources
+
+        return SnapshotSources(cfg, device)
+
     runtime, native_archive = None, None
     if cfg.data.loading is not None:
         from samudra.observations.native import NativeObservationArchive
@@ -204,7 +209,7 @@ def _run_training(cfg: ObservationTrainConfig, device: torch.device) -> None:
         write_json(manifest, manifest_path)
     trajectory = (
         data.trajectory(cfg.validation_origin, steps=FORECAST_STEPS, split="validation")
-        if rank == 0
+        if rank == 0 and cfg.snapshot is None
         else None
     )
     tracker = init_tracking(cfg, manifest) if rank == 0 else None
@@ -227,6 +232,11 @@ def _run_training(cfg: ObservationTrainConfig, device: torch.device) -> None:
         logger.info("%s", json.dumps(record, allow_nan=False))
 
     def validate(current: SurfaceInitializedModel) -> dict[str, float]:
+        if cfg.snapshot is not None:
+            from samudra.observations.snapshot_data import SnapshotSources
+
+            assert isinstance(sources, SnapshotSources)
+            return sources.validate(current, cfg.validation_examples)
         assert trajectory is not None
         return annual_metrics(current, data, trajectory)
 

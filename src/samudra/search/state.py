@@ -6,13 +6,31 @@
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class ProvenanceState(BaseModel):
-    commit: str
+    """Identity of the code a search runs.
+
+    ``git`` provenance names a commit (from a source checkout or the immutable
+    ``SAMUDRA_CODE_COMMIT``). ``package`` provenance is used only for local
+    searches run from a regular, non-editable install such as ``pip install
+    samudra`` on Colab: the installed distribution version identifies the code,
+    and there is no commit.
+    """
+
+    source: Literal["git", "package"] = "git"
+    commit: str | None = None
     dirty: bool
     package_version: str
+
+    @model_validator(mode="after")
+    def _commit_matches_source(self) -> "ProvenanceState":
+        if self.source == "git" and self.commit is None:
+            raise ValueError("git provenance requires a commit")
+        if self.source == "package" and self.commit is not None:
+            raise ValueError("package provenance must not claim a commit")
+        return self
 
 
 class ProbeState(BaseModel):

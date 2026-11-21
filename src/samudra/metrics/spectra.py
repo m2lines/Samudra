@@ -332,7 +332,7 @@ def region_mean_series(
             }
         )
 
-    weights = np.cos(np.deg2rad(region[lat_dim]))
+    weights = xr.ufuncs.cos(xr.ufuncs.deg2rad(region[lat_dim]))
     weighted = region.weighted(weights.fillna(0.0))
     series = weighted.mean((lat_dim, lon_dim), skipna=True)
     return pd.Series(

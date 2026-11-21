@@ -29,7 +29,12 @@ from samudra.aggregator.loss import (
 )
 from samudra.aggregator.validate.rollout import RolloutValidationAggregator
 from samudra.backend import init_train_backend
-from samudra.config import TrainConfig, build_loss_fn
+from samudra.config import (
+    NormalizedDeltaLossConfig,
+    TrainConfig,
+    build_loss_fn,
+    load_normalized_persistence_rms,
+)
 from samudra.constants import (
     MAX_TRAIN_MODEL_STEPS_FORWARD,
     BoundaryVarNames,
@@ -195,7 +200,27 @@ class Trainer:
             device=self.device,
             num_channels=self.N_prog,
             pad_mode=cfg.model.pad,
+            data_root=cfg.experiment.resolved_data_root,
+            channels=tuple(self.prognostic_var_names),
+            state_stds=self.primary_source.statistics(self.prognostic_var_names).std,
         )
+        if cfg.model.scale_residuals:
+            if not isinstance(cfg.loss, NormalizedDeltaLossConfig):
+                raise ValueError("scale_residuals needs a normalized_delta loss")
+            self._residual_scale: torch.Tensor | None = (
+                load_normalized_persistence_rms(
+                    cfg.experiment.resolved_data_root.resolve(
+                        cfg.loss.increment_rms_location
+                    ),
+                    tuple(self.prognostic_var_names),
+                    self.primary_source.statistics(self.prognostic_var_names).std,
+                )
+                .float()
+                .to(self.device)
+            )
+            self.model.set_residual_scale(self._residual_scale)
+        else:
+            self._residual_scale = None
 
         # Optimizer
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=cfg.learning_rate)
@@ -1192,6 +1217,15 @@ class Trainer:
         # Load model state
         model_state_dict = checkpoint["model"]
         new_state_dict = remove_module_prefix(model_state_dict)
+        expected_scale = getattr(self, "_residual_scale", None)
+        if expected_scale is not None:
+            saved = new_state_dict["residual_scale"].to(expected_scale)
+            repeats = saved.numel() // expected_scale.numel()
+            if not torch.equal(saved, expected_scale.repeat(repeats)):
+                raise ValueError(
+                    "Checkpoint residual_scale differs from the scale computed "
+                    "from loss.increment_rms_location; the statistics changed"
+                )
         self.model.load_state_dict(new_state_dict)
 
         # Load EMA state

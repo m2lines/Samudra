@@ -233,6 +233,81 @@ class DynamicLoss:
             self._per_channel_scale = state["per_channel_scale"].to(self._device)
 
 
+def tendency_loss_weights(
+    persistence_rms: Float[torch.Tensor, " var"],
+    *,
+    max_weight_ratio: float | None,
+) -> Float[torch.Tensor, " var"]:
+    """Static per-channel weights that put every channel in units of its own
+    one-step change, following GraphCast's residual normalization.
+
+    ``persistence_rms`` is each channel's root-mean-square one-step change,
+    in the same normalized units and with the same masking and spatial mean as
+    the loss. A persistence forecast then scores exactly 1 in every channel.
+
+    Unlike :class:`DynamicLoss`, these weights depend only on the data, not on
+    the model's current error: a channel that the model learns well contributes
+    less to the loss, instead of being rescaled back up.
+
+    Args:
+        persistence_rms: Positive, finite per-channel RMS of one-step change.
+        max_weight_ratio: If given, cap every weight at this multiple of the
+            smallest weight. Channels that barely change (e.g. deep
+            temperature) would otherwise dominate the loss.
+
+    Returns:
+        Weights with mean 1 across channels, so the loss magnitude stays
+        comparable to an unweighted mean.
+    """
+    if persistence_rms.ndim != 1:
+        raise ValueError(
+            f"Expected one RMS value per channel, got shape {tuple(persistence_rms.shape)}"
+        )
+    if not torch.isfinite(persistence_rms).all() or (persistence_rms <= 0).any():
+        raise ValueError(
+            "Persistence RMS must be positive and finite for every channel"
+        )
+    if max_weight_ratio is not None and max_weight_ratio < 1:
+        raise ValueError(f"max_weight_ratio must be >= 1, got {max_weight_ratio}")
+
+    weights = persistence_rms.double().square().reciprocal()
+    if max_weight_ratio is not None:
+        weights = weights.clamp(max=weights.min() * max_weight_ratio)
+    return (weights / weights.mean()).float()
+
+
+class TendencyLoss:
+    """Per-channel loss scaled by fixed, data-derived tendency weights.
+
+    See :func:`tendency_loss_weights`. Pair with ``pred_residuals: true`` so the
+    network predicts the change it is scored on rather than rebuilding the
+    current state.
+    """
+
+    def __init__(
+        self,
+        loss_fn: LossFnWithContext,
+        *,
+        weights: Float[torch.Tensor, " var"],
+        device: torch.device,
+    ):
+        self.loss_fn = loss_fn
+        self._weights = weights.to(device)
+
+    def __call__(
+        self,
+        pred: Float[torch.Tensor, "batch hist*var lat lon"],
+        target: Float[torch.Tensor, "batch hist*var lat lon"],
+        ctx: BatchGrid,
+    ) -> Float[torch.Tensor, " hist*var"]:
+        loss: Float[torch.Tensor, " hist*var"] = self.loss_fn(pred, target, ctx)
+        # Channels are time-major: (hist+1) * var.
+        return (loss.reshape(-1, self._weights.shape[0]) * self._weights).reshape(-1)
+
+    def loss_scale_per_channel(self) -> Float[torch.Tensor, " var"]:
+        return self._weights
+
+
 class GradientLoss:
     """Combine a base loss with a gradient matching penalty.
 

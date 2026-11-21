@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 import torch
 from einops import rearrange
@@ -69,12 +69,16 @@ class SamudraMini(BaseModel):
         checkpointing: "Checkpointing | None",
         gradient_detach_interval: int,
         use_bfloat16: bool,
+        scale_residuals: bool = False,
+        residual_anchor: Literal["same_slot", "chained"] = "same_slot",
     ) -> None:
         super().__init__(
             in_channels=in_channels,
             out_channels=out_channels,
             input_steps=input_steps,
             pred_residuals=pred_residuals,
+            scale_residuals=scale_residuals,
+            residual_anchor=residual_anchor,
             last_kernel_size=last_kernel_size,
             pad=pad,
             gradient_detach_interval=gradient_detach_interval,

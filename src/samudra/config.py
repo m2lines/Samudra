@@ -86,7 +86,9 @@ from samudra.utils.loss import (
     GradientLoss,
     LossFnWithContext,
     LossMetric,
+    TendencyLoss,
     loss_fn_from_metric,
+    tendency_loss_weights,
 )
 from samudra.utils.profiler import Profiler
 from samudra.utils.schedule import SchedulerConfig
@@ -978,6 +980,37 @@ class UNetBackboneConfig(BaseConfig):
 
 class BaseModelConfig(BaseConfig, abc.ABC):
     pred_residuals: bool = False
+    scale_residuals: bool = Field(
+        default=False,
+        description=(
+            "Multiply the network output by a fixed per-channel scale before "
+            "adding it to the input (GraphCast-style residual scaling), so the "
+            "network emits unit-scale increments. Requires pred_residuals. "
+            "Training fills the scale from the normalized_delta loss statistics; "
+            "evaluation restores it from the checkpoint."
+        ),
+    )
+
+    residual_anchor: Literal["same_slot", "chained"] = Field(
+        default="same_slot",
+        description=(
+            "How residual outputs are anchored when the model emits several "
+            "steps per call. 'same_slot' adds output step k to input step k "
+            "(the legacy 2-in/2-out assembly). 'chained' makes each output an "
+            "increment on the previous one, starting from the newest input: "
+            "z1 = x[t] + d1, z2 = z1 + d2 (Yuan's two-head normalized_delta). "
+            "Identical for one output step. Requires pred_residuals."
+        ),
+    )
+
+    @pydantic.model_validator(mode="after")
+    def validate_scale_residuals(self) -> Self:
+        if self.scale_residuals and not self.pred_residuals:
+            raise ValueError("scale_residuals requires pred_residuals")
+        if self.residual_anchor == "chained" and not self.pred_residuals:
+            raise ValueError("residual_anchor='chained' requires pred_residuals")
+        return self
+
     last_kernel_size: int = 3
     pad: str = "circular"
 
@@ -1045,6 +1078,8 @@ class SamudraConfig(BaseModelConfig):
             in_channels=total_in_channels,
             out_channels=out_channels,
             pred_residuals=self.pred_residuals,
+            scale_residuals=self.scale_residuals,
+            residual_anchor=self.residual_anchor,
             last_kernel_size=self.last_kernel_size,
             pad=self.pad,
             unet=self.unet.build(
@@ -1133,6 +1168,8 @@ class SamudraMultiConfig(BaseModelConfig):
             in_channels=total_in_channels,
             out_channels=out_channels,
             pred_residuals=self.pred_residuals,
+            scale_residuals=self.scale_residuals,
+            residual_anchor=self.residual_anchor,
             last_kernel_size=self.last_kernel_size,
             pad=self.pad,
             encoder=encoder,
@@ -1208,6 +1245,8 @@ class SamudraMiniConfig(BaseModelConfig):
             in_channels=in_channels,
             out_channels=out_channels,
             pred_residuals=self.pred_residuals,
+            scale_residuals=self.scale_residuals,
+            residual_anchor=self.residual_anchor,
             last_kernel_size=self.last_kernel_size,
             pad=self.pad,
             input_embedding_dim=self.embedding_dim,
@@ -1383,7 +1422,83 @@ class GradientLossConfig(pydantic.BaseModel):
     )
 
 
-Loss = LossMetric | DynamicLossConfig | GradientLossConfig
+class TendencyLossConfig(pydantic.BaseModel):
+    """MSE in units of each channel's one-step change (GraphCast-style).
+
+    Each prognostic channel's loss is divided by the loss a persistence
+    forecast would get, so slowly changing fields (temperature, salinity) are
+    not drowned out by fast, noisy ones (velocities). Weights are fixed from
+    the data and do not adapt to the model, unlike ``dynamic``.
+    Build the statistics with ``scripts/compute_tendency_stats.py`` and
+    use ``pred_residuals: true``.
+    """
+
+    type: Literal["tendency"] = "tendency"
+    metric: Literal["mse"] = "mse"
+    persistence_rms_location: Location = Field(
+        description=(
+            "Dataset of per-channel RMS one-step change in physical units, with "
+            "one scalar variable per prognostic channel; " + LOCATION_DOCS
+        )
+    )
+    max_weight_ratio: float | None = Field(
+        description=(
+            "Largest allowed ratio between any two channel weights. Caps channels "
+            "that barely change. Default of None means no limit."
+        ),
+        default=None,
+        ge=1.0,
+    )
+
+
+class NormalizedDeltaLossConfig(pydantic.BaseModel):
+    """Unweighted MSE on normalized increments (Yuan's ``normalized_delta``).
+
+    With ``q = tau / sigma`` per channel, where ``tau`` is the RMS one-step
+    change over wet cells in physical units and ``sigma`` the state's
+    normalization std, the network predicts ``d`` with
+    ``x[t+1] = x[t] + q * d`` (``model.scale_residuals``), and the loss is
+    MSE between ``d`` and ``(label - x[t]) / q``. Because ``q`` is fixed,
+    that equals a state-space MSE with fixed per-channel weights ``1 / q**2``,
+    which is how it is implemented. No cap and no rescaling of the weights.
+    Build the statistics with ``scripts/compute_tendency_stats.py --over wet``.
+    """
+
+    type: Literal["normalized_delta"] = "normalized_delta"
+    increment_rms_location: Location = Field(
+        description=(
+            "Dataset of per-channel RMS one-step change over wet cells, in "
+            "physical units, one scalar variable per prognostic channel; "
+            + LOCATION_DOCS
+        )
+    )
+
+
+Loss = (
+    LossMetric
+    | DynamicLossConfig
+    | GradientLossConfig
+    | TendencyLossConfig
+    | NormalizedDeltaLossConfig
+)
+
+
+def load_normalized_persistence_rms(
+    location: ResolvedLocation,
+    channels: tuple[str, ...],
+    state_stds: np.ndarray,
+) -> torch.Tensor:
+    """Read physical persistence RMS per channel and convert to normalized units."""
+    if len(state_stds) != len(channels):
+        raise ValueError(
+            f"Got {len(state_stds)} state stds for {len(channels)} channels"
+        )
+    stats = location.open(None)
+    missing = [c for c in channels if c not in stats.data_vars]
+    if missing:
+        raise KeyError(f"Persistence RMS dataset is missing channels: {missing}")
+    physical = np.array([float(stats[c].values) for c in channels], dtype=np.float64)
+    return torch.from_numpy(physical / np.asarray(state_stds, dtype=np.float64))
 
 
 def build_loss_fn(
@@ -1391,6 +1506,10 @@ def build_loss_fn(
     device: torch.device,
     num_channels: int,
     pad_mode: str,
+    *,
+    data_root: ResolvedLocation | None = None,
+    channels: tuple[str, ...] | None = None,
+    state_stds: np.ndarray | None = None,
 ) -> LossFnWithContext:
     match loss_cfg:
         case str():
@@ -1402,6 +1521,46 @@ def build_loss_fn(
                 limit=limit,
                 device=device,
                 num_channels=num_channels,
+            )
+        case TendencyLossConfig(
+            metric=metric,
+            persistence_rms_location=location,
+            max_weight_ratio=max_weight_ratio,
+        ):
+            if data_root is None or channels is None or state_stds is None:
+                raise ValueError(
+                    "Tendency loss needs data_root, channels, and state_stds"
+                )
+            if len(channels) != num_channels:
+                raise ValueError(
+                    f"Got {len(channels)} channel names for {num_channels} channels"
+                )
+            persistence_rms = load_normalized_persistence_rms(
+                data_root.resolve(location), channels, state_stds
+            )
+            return TendencyLoss(
+                loss_fn_from_metric(metric),
+                weights=tendency_loss_weights(
+                    persistence_rms, max_weight_ratio=max_weight_ratio
+                ),
+                device=device,
+            )
+        case NormalizedDeltaLossConfig(increment_rms_location=location):
+            if data_root is None or channels is None or state_stds is None:
+                raise ValueError(
+                    "normalized_delta loss needs data_root, channels, and state_stds"
+                )
+            if len(channels) != num_channels:
+                raise ValueError(
+                    f"Got {len(channels)} channel names for {num_channels} channels"
+                )
+            scale = load_normalized_persistence_rms(
+                data_root.resolve(location), channels, state_stds
+            )
+            return TendencyLoss(
+                loss_fn_from_metric("mse"),
+                weights=scale.square().reciprocal().float(),
+                device=device,
             )
         case GradientLossConfig(metric=metric, alpha=alpha):
             loss_fn = loss_fn_from_metric(metric)
@@ -1461,8 +1620,40 @@ class TrainConfig(TopLevelConfig):
 
     # Data parameters at root level
     data_stride: list[int] = [1]
-    steps: list[int] = [4]
-    step_transition: list[int] = []
+    steps: list[int] = Field(
+        default=[4],
+        description=(
+            "Rollout length (model calls backpropagated through) for each stage of "
+            "the training curriculum. One entry trains at a fixed length."
+        ),
+    )
+    step_transition: list[int] = Field(
+        default=[],
+        description=(
+            "Epochs at which training moves to the next entry of `steps`, strictly "
+            "increasing, one fewer than `steps`. Stage i covers epochs from "
+            "step_transition[i-1] (inclusive) up to step_transition[i] (exclusive). "
+            "The first transition must be at least 2, since epochs are 1-based."
+        ),
+    )
+    step_batch_size: list[int] = Field(
+        default=[],
+        description=(
+            "Per-stage batch size, one entry per `steps` entry. Memory grows with "
+            "rollout length times batch size, so a curriculum that lengthens rollouts "
+            "can shrink the batch and raise `step_gradient_accumulation_steps` to keep "
+            "the effective batch constant. Empty uses `batch_size` for every stage; "
+            "otherwise the first entry must equal `batch_size`."
+        ),
+    )
+    step_gradient_accumulation_steps: list[int] = Field(
+        default=[],
+        description=(
+            "Per-stage gradient accumulation steps, one entry per `steps` entry. Empty "
+            "uses `gradient_accumulation_steps` for every stage; otherwise the first "
+            "entry must equal `gradient_accumulation_steps`."
+        ),
+    )
     post_train_eval: "PostTrainEvalConfig | None" = None
 
     # Config components
@@ -1471,12 +1662,82 @@ class TrainConfig(TopLevelConfig):
     model: AnyModelConfig
 
     @pydantic.model_validator(mode="after")
+    def validate_step_schedule(self) -> Self:
+        if not self.steps or any(s < 1 for s in self.steps):
+            raise ValueError(
+                f"steps must be non-empty positive integers, got {self.steps}"
+            )
+        if len(self.step_transition) != len(self.steps) - 1:
+            raise ValueError(
+                f"step_transition needs {len(self.steps) - 1} entries for steps "
+                f"{self.steps}, got {self.step_transition}"
+            )
+        if self.step_transition and self.step_transition[0] < 2:
+            raise ValueError(
+                "step_transition epochs must be at least 2 (epochs are 1-based), so the "
+                f"first stage runs; got {self.step_transition}"
+            )
+        if any(b <= a for a, b in zip(self.step_transition, self.step_transition[1:])):
+            raise ValueError(
+                f"step_transition must be strictly increasing, got {self.step_transition}"
+            )
+        per_stage = (
+            ("step_batch_size", self.step_batch_size, "batch_size", self.batch_size),
+            (
+                "step_gradient_accumulation_steps",
+                self.step_gradient_accumulation_steps,
+                "gradient_accumulation_steps",
+                self.gradient_accumulation_steps,
+            ),
+        )
+        for name, values, scalar_name, scalar in per_stage:
+            if not values:
+                continue
+            if len(values) != len(self.steps):
+                raise ValueError(
+                    f"{name} needs one entry per steps entry ({len(self.steps)}), "
+                    f"got {values}"
+                )
+            if any(v < 1 for v in values):
+                raise ValueError(f"{name} entries must be positive, got {values}")
+            if values[0] != scalar:
+                raise ValueError(
+                    f"{name}[0]={values[0]} must equal {scalar_name}={scalar}, which "
+                    "describes the first stage"
+                )
+        return self
+
+    def stage_batch_size(self, stage: int) -> int:
+        """Batch size for curriculum stage ``stage`` (an index into ``steps``)."""
+        return self.step_batch_size[stage] if self.step_batch_size else self.batch_size
+
+    def stage_gradient_accumulation_steps(self, stage: int) -> int:
+        """Gradient accumulation steps for curriculum stage ``stage``."""
+        if self.step_gradient_accumulation_steps:
+            return self.step_gradient_accumulation_steps[stage]
+        return self.gradient_accumulation_steps
+
+    @pydantic.model_validator(mode="after")
     def validate_checkpoint_metric(self) -> Self:
         if self.validation_score == "validation_loss" and isinstance(
             self.loss, DynamicLossConfig
         ):
             raise ValueError(
                 "validation_loss scoring cannot use a dynamically weighted loss"
+            )
+        if self.model.scale_residuals and not isinstance(
+            self.loss, NormalizedDeltaLossConfig
+        ):
+            raise ValueError(
+                "model.scale_residuals takes its scale from a normalized_delta loss"
+            )
+        if (
+            isinstance(self.loss, TendencyLossConfig | NormalizedDeltaLossConfig)
+            and len(self.data.sources) != 1
+        ):
+            raise ValueError(
+                "tendency loss weights are defined for a single data source's "
+                "normalization"
             )
         if self.validation_score == "rollout_rmse":
             if self.rollout_validation is None:

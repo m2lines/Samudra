@@ -1,0 +1,83 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Δ-norm 2→2, late + long curriculum, run as a fine-tune (#1007).
+#
+# Starts from Δ-norm 2→2's final EMA weights: 70 epochs at 4 calls (40 days),
+# lr 6e-4 cosine to 0. That model is stable over eight years and keeps OM4's
+# 0-700 m warming. Here the horizon grows gradually at a small constant
+# learning rate, as in GraphCast's autoregressive fine-tune (1000 updates per
+# step count, 2 -> 12 steps, constant lr 3e-7 after cosine pretraining to
+# ~0) and FuXi's (500 updates per step, 2 -> 12, constant 1e-7).
+#
+# Unlike Δ-norm 2→2 + step curriculum, every long stage trains at the same
+# learning rate. There, one cosine over all 70 epochs left the 8- and 16-call
+# stages at lr < 2.4e-5 and < 5e-6, with 0.4% of the schedule between them.
+#
+# One call is 10 days (two chained 5-day steps). An epoch is ~87 updates at
+# effective batch 32, so 6 epochs is ~520 updates per stage.
+#
+#   epochs  1- 6    6 calls  ( 60 days)  batch 2 x accumulation 2
+#   epochs  7-12    8 calls  ( 80 days)  batch 2 x 2
+#   epochs 13-18   12 calls  (120 days)  batch 1 x 4
+#   epochs 19-24   16 calls  (160 days)  batch 1 x 4
+#   epochs 25-30   24 calls  (240 days)  batch 1 x 4   calls x batch 24: untested
+#   epochs 31-36   32 calls  (320 days)  batch 1 x 4   calls x batch 32: untested
+#
+# Previous runs never exceeded calls x batch = 16 per GPU; a one-GPU memory
+# preflight of the last stage decides whether 24 and 32 fit.
+debug: false
+disk_mode: true
+# Saves ckpt_6 ... ckpt_36: the end of every stage.
+save_freq: 6
+rollout_validation:
+  days: [360]
+  frequency: 1
+  steps_forward: 1
+# Not used to choose a model: each stage-end checkpoint gets the eight-year
+# rollout and heat-content checks instead (#1009).
+validation_score: rollout_rmse
+epochs: 36
+batch_size: 2
+gradient_accumulation_steps: 2
+# Constant lr: with learning_rate == tail_lr, cosine_with_tail is flat.
+# Sweep: 1e-5 (the lr at which the 8-call stage visibly moved stability and
+# the trend) and 1e-6 (GraphCast's fine-tune lr / pretraining peak ratio,
+# about 3e-4 x 6e-4 = 2e-7, rounded up because our stages are half as long).
+learning_rate: 1.0e-5
+scheduler: { type: cosine_with_tail, tail_lr: 1.0e-5, tail_epochs: 30 }
+# Averages ~100 updates, a fifth of a stage, so stage-end checkpoints reflect
+# their own stage. Needs the fine-tune EMA fix: without it, the decay and
+# update count are read from the base checkpoint (0.999).
+ema_decay: 0.99
+faster_decay_at_start: false
+test_using_ema: true
+loss:
+  type: normalized_delta
+  # Per-channel RMS five-day change over wet cells, 1975-01-03..2013-09-30,
+  # from scripts/compute_tendency_stats.py --over wet. Relative to data_root.
+  increment_rms_location: OM4_increment_rms_wet.zarr
+finetune: true
+# Set at submission:
+#   /scratch/am16581/runs/2026-11-14-delta-norm-2to2/saved_nets/ema_ckpt.pt
+resume_ckpt_path: null
+data_stride: [1]
+steps:                            [6, 8, 12, 16, 24, 32]
+step_transition:                     [7, 13, 19, 25, 31]
+step_batch_size:                  [2, 2,  1,  1,  1,  1]
+step_gradient_accumulation_steps: [2, 2,  4,  4,  4,  4]
+# Fine-tunes cannot resume after preemption (train.py asserts this).
+preemptible: false
+
+backend: auto
+
+experiment:
+  name: delta_norm_2to2_late_long_ft
+  rand_seed: 15
+  base_output_dir: .LOCAL
+  wandb:
+    mode: disabled
+    project: default
+data: !include ../delta_norm_2to2/data.yaml
+model: !include ../delta_norm_2to2/model.yaml

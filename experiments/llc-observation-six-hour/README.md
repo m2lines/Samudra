@@ -11,6 +11,13 @@ control and mixed run each completed 2,000 updates. Here OBS refers to the obser
 the model and harness come from [#960](https://github.com/m2lines/Samudra/pull/960)
 and [#955](https://github.com/m2lines/Samudra/pull/955).
 
+Both longer continuations are complete at 10,000 main updates plus 1,000
+observation-only cooldown updates. The [long-run report and CSVs](results/long-training-comparison.md)
+compare both fixed checkpoints and the continuous 30-day forecasts. The separate
+Samudra Results Viewer `/llc` page now includes both arms before and after cooldown,
+initializer inputs and states, all 51 depths, observed references, and explicitly
+dated LLC seasonal context. Full checksum and live-browser verification passed.
+
 ## First run
 
 | Choice | Initial setting |

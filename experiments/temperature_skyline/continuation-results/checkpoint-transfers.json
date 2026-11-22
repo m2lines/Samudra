@@ -1,0 +1,16 @@
+{
+  "classifier-best-likelihood-ema.pt": {
+    "name": "classifier-best-likelihood-ema.pt",
+    "sha256": "50ad50aaed2bd3305adeb519c7bfad17b34e57f657b3f81a2d5bb039afd425d5",
+    "bytes": 840629637,
+    "destination": "torch:/scratch/jr7309/temperature-skyline-20261102/maps-continuation-v1/inputs/classifier-best-likelihood-ema.pt",
+    "source": "engaging:/orcd/scratch/orcd/014/jrusak/temperature-skyline-20261104/recovery2/absolute/best-likelihood-ema.pt"
+  },
+  "regression-best-error-ema.pt": {
+    "name": "regression-best-error-ema.pt",
+    "sha256": "1ded6b8ee11d4d03d628c122bd78929895d3963663d6f539f56f5d3793086ac5",
+    "bytes": 832234920,
+    "destination": "torch:/scratch/jr7309/temperature-skyline-20261102/maps-continuation-v1/inputs/regression-best-error-ema.pt",
+    "source": "engaging:/orcd/scratch/orcd/014/jrusak/temperature-skyline-20261104/recovery2/regression/best-error-ema.pt"
+  }
+}

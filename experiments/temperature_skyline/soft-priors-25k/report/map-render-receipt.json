@@ -1,0 +1,15 @@
+{
+  "root": "/home/jder/.local/state/codex-async-followup/workflows/skyline-soft-priors-25k-artifacts/maps",
+  "classifier_cache": "/home/jder/.local/state/codex-async-followup/workflows/skyline-soft-priors-25k-artifacts/original-classifier/evaluation",
+  "regression_archive": "/home/jder/.codex-workspaces/worktrees/ios-f7a0e1a5-a56a-4b0d-ae01-97f4286826d5/Ocean_Emulator/experiments/temperature_skyline/pre-spike-noise/report/native-fields.npz",
+  "regression_archive_sha256": "953f76932003cb202b4792f872c96c1a8d44fff1102be26aa629ace346548ddc",
+  "regression_models": [
+    "temperature25k",
+    "fields25k"
+  ],
+  "classifier_readout": "classifier_mode_c",
+  "samudra_benchmark": "Temperature only: cached temperature25k archive groups, samudra field; included in metrics, short-wave diagnostics and source-fields.npz, excluded from map panels/ranges. No cached Samudra u/v/salinity benchmark is used.",
+  "gold_atol_physical": 2e-05,
+  "spectrum_method": "Same fully wet 64/32 tile per row; planar detrend; periodic Hann; radial 0.25..0.5 cycles/native cell (2\u20134 cell wavelengths); corners excluded; power in squared field units. Short-wave power is not proof of noise.",
+  "maps": "Native 64\u00d764 cells; no interpolation; same field/error limits across each row, including both temperature comparison sets; context boxes are 17 or 33 cells."
+}

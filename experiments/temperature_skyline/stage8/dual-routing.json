@@ -1,0 +1,33 @@
+{
+  "date": "2026-11-04",
+  "base_submission": "launcher-resubmission.json",
+  "comment": "preemption=yes;requeue=true",
+  "verified_partitions": [
+    "rtx6000_lzanna",
+    "rtx6000"
+  ],
+  "requeue": true,
+  "superseded_jobs": [
+    "21803820",
+    "21803824",
+    "21803866",
+    "21803868"
+  ],
+  "cancelled_held_jobs": [
+    "21857435",
+    "21857437",
+    "21857439",
+    "21857441"
+  ],
+  "jobs": {
+    "qual-absolute": "21857697",
+    "qual-regression": "21857698",
+    "absolute": "21857702",
+    "regression": "21857703"
+  },
+  "callback": {
+    "job": "21857709",
+    "event_id": "990f4a55-582e-4206-8fe8-95496f02b47c"
+  },
+  "changes": "Routing and job dependencies only; same immutable source, configs, resources and output paths. H200 map job 21803874 unchanged."
+}

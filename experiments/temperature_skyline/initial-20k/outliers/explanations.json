@@ -1,0 +1,804 @@
+{
+  "gradient_definition": "Local derivative of saved-predicted-bin logit minus true-bin logit; values in training-normalized units. Sensitivity, not causal training-example influence.",
+  "cases": [
+    {
+      "origin": 4081,
+      "row": 441,
+      "col": 153,
+      "truth_c": 21.662494659423828,
+      "saved_prediction_c": 13.458820343017578,
+      "reproduced_prediction_c": 13.458820343017578,
+      "mean_c": 3.189790725708008,
+      "median_c": 2.3057126998901367,
+      "truth_bin_rank": 782,
+      "truth_probability": 0.0004549279110506177,
+      "predicted_probability": 0.02407403104007244,
+      "mass_within_half_degree_of_truth": 0.02053026109933853,
+      "top_bins": [
+        {
+          "bin": 1878,
+          "temperature_c": 13.458820343017578,
+          "probability": 0.02407403104007244,
+          "training_count": 35
+        },
+        {
+          "bin": 2027,
+          "temperature_c": 20.61732292175293,
+          "probability": 0.017612935975193977,
+          "training_count": 0
+        },
+        {
+          "bin": 2038,
+          "temperature_c": 21.294889450073242,
+          "probability": 0.0057180835865437984,
+          "training_count": 0
+        },
+        {
+          "bin": 2041,
+          "temperature_c": 21.483896255493164,
+          "probability": 0.004054728429764509,
+          "training_count": 0
+        },
+        {
+          "bin": 2036,
+          "temperature_c": 21.16990089416504,
+          "probability": 0.004054728429764509,
+          "training_count": 0
+        },
+        {
+          "bin": 1877,
+          "temperature_c": 13.4214448928833,
+          "probability": 0.0034681931138038635,
+          "training_count": 36
+        },
+        {
+          "bin": 1403,
+          "temperature_c": 4.252011299133301,
+          "probability": 0.0024593169800937176,
+          "training_count": 3
+        },
+        {
+          "bin": 2012,
+          "temperature_c": 19.731311798095703,
+          "probability": 0.0024593169800937176,
+          "training_count": 0
+        },
+        {
+          "bin": 674,
+          "temperature_c": -0.017904996871948242,
+          "probability": 0.0022392335813492537,
+          "training_count": 14
+        },
+        {
+          "bin": 1723,
+          "temperature_c": 8.885174751281738,
+          "probability": 0.0021703396923840046,
+          "training_count": 0
+        }
+      ],
+      "logit_margin": 3.96875,
+      "current_query_gradient": -0.004547119140625,
+      "top_input_gradient_channels": [
+        {
+          "channel": "hfds",
+          "absolute_gradient": 6.234348773956299
+        },
+        {
+          "channel": "tauuo",
+          "absolute_gradient": 3.9666318893432617
+        },
+        {
+          "channel": "zos",
+          "absolute_gradient": 3.3269972801208496
+        },
+        {
+          "channel": "uo_0",
+          "absolute_gradient": 2.776505470275879
+        },
+        {
+          "channel": "vo_1",
+          "absolute_gradient": 2.2933778762817383
+        },
+        {
+          "channel": "vo_3",
+          "absolute_gradient": 2.268909215927124
+        },
+        {
+          "channel": "vo_2",
+          "absolute_gradient": 2.1391384601593018
+        },
+        {
+          "channel": "uo_1",
+          "absolute_gradient": 2.108167886734009
+        },
+        {
+          "channel": "thetao_0",
+          "absolute_gradient": 2.0316593647003174
+        },
+        {
+          "channel": "thetao_1",
+          "absolute_gradient": 2.025980234146118
+        }
+      ],
+      "neighbors": [
+        {
+          "kind": "neighbors",
+          "origin": 3107,
+          "row": 439,
+          "col": 154,
+          "target_c": 21.628820419311523,
+          "prediction_c": 13.458820343017578,
+          "probability": 0.022656144574284554
+        },
+        {
+          "kind": "neighbors",
+          "origin": 2455,
+          "row": 506,
+          "col": 114,
+          "target_c": 13.633909225463867,
+          "prediction_c": 13.458820343017578,
+          "probability": 0.030278382822871208
+        },
+        {
+          "kind": "confusable_neighbors",
+          "origin": 2455,
+          "row": 506,
+          "col": 114,
+          "target_c": 13.633909225463867,
+          "prediction_c": 13.458820343017578,
+          "probability": 0.030278382822871208
+        },
+        {
+          "kind": "confusable_neighbors",
+          "origin": 3739,
+          "row": 488,
+          "col": 73,
+          "target_c": 13.481538772583008,
+          "prediction_c": 13.458820343017578,
+          "probability": 0.027246372774243355
+        },
+        {
+          "kind": "same_cell_analogue",
+          "origin": 4007,
+          "row": 441,
+          "col": 153,
+          "target_c": 21.65868377685547,
+          "prediction_c": 13.458820343017578,
+          "probability": 0.02305046282708645
+        }
+      ]
+    },
+    {
+      "origin": 4121,
+      "row": 534,
+      "col": 138,
+      "truth_c": 8.851530075073242,
+      "saved_prediction_c": 12.020703315734863,
+      "reproduced_prediction_c": 12.020703315734863,
+      "mean_c": 4.228838920593262,
+      "median_c": 3.2233853340148926,
+      "truth_bin_rank": 212,
+      "truth_probability": 0.0008039356325753033,
+      "predicted_probability": 0.02241855300962925,
+      "mass_within_half_degree_of_truth": 0.051069796085357666,
+      "top_bins": [
+        {
+          "bin": 1837,
+          "temperature_c": 12.020703315734863,
+          "probability": 0.02241855300962925,
+          "training_count": 0
+        },
+        {
+          "bin": 1721,
+          "temperature_c": 8.839691162109375,
+          "probability": 0.01692241244018078,
+          "training_count": 28
+        },
+        {
+          "bin": 1836,
+          "temperature_c": 11.987937927246094,
+          "probability": 0.006944943685084581,
+          "training_count": 0
+        },
+        {
+          "bin": 1815,
+          "temperature_c": 11.323539733886719,
+          "probability": 0.005757560953497887,
+          "training_count": 0
+        },
+        {
+          "bin": 1840,
+          "temperature_c": 12.119636535644531,
+          "probability": 0.0045546055771410465,
+          "training_count": 0
+        },
+        {
+          "bin": 1797,
+          "temperature_c": 10.788541793823242,
+          "probability": 0.004483992699533701,
+          "training_count": 0
+        },
+        {
+          "bin": 1790,
+          "temperature_c": 10.588662147521973,
+          "probability": 0.004483992699533701,
+          "training_count": 0
+        },
+        {
+          "bin": 1713,
+          "temperature_c": 8.660615921020508,
+          "probability": 0.0040194252505898476,
+          "training_count": 0
+        },
+        {
+          "bin": 1835,
+          "temperature_c": 11.955276489257812,
+          "probability": 0.0038957600481808186,
+          "training_count": 0
+        },
+        {
+          "bin": 1802,
+          "temperature_c": 10.934077262878418,
+          "probability": 0.0038957600481808186,
+          "training_count": 0
+        }
+      ],
+      "logit_margin": 3.328125,
+      "current_query_gradient": 8.8125,
+      "top_input_gradient_channels": [
+        {
+          "channel": "hfds",
+          "absolute_gradient": 0.4760175049304962
+        },
+        {
+          "channel": "tauuo",
+          "absolute_gradient": 0.2439572513103485
+        },
+        {
+          "channel": "zos",
+          "absolute_gradient": 0.20387834310531616
+        },
+        {
+          "channel": "thetao_1",
+          "absolute_gradient": 0.19557863473892212
+        },
+        {
+          "channel": "thetao_0",
+          "absolute_gradient": 0.19303207099437714
+        },
+        {
+          "channel": "uo_0",
+          "absolute_gradient": 0.14672909677028656
+        },
+        {
+          "channel": "vo_1",
+          "absolute_gradient": 0.10817182809114456
+        },
+        {
+          "channel": "uo_1",
+          "absolute_gradient": 0.10771631449460983
+        },
+        {
+          "channel": "thetao_2",
+          "absolute_gradient": 0.10414210706949234
+        },
+        {
+          "channel": "vo_0",
+          "absolute_gradient": 0.09845910221338272
+        }
+      ],
+      "neighbors": [
+        {
+          "kind": "neighbors",
+          "origin": 3094,
+          "row": 533,
+          "col": 123,
+          "target_c": 8.84872055053711,
+          "prediction_c": 12.020703315734863,
+          "probability": 0.01987725868821144
+        },
+        {
+          "kind": "neighbors",
+          "origin": 3029,
+          "row": 529,
+          "col": 148,
+          "target_c": 8.850028038024902,
+          "prediction_c": 12.020703315734863,
+          "probability": 0.020776018500328064
+        },
+        {
+          "kind": "same_cell_analogue",
+          "origin": 3689,
+          "row": 534,
+          "col": 138,
+          "target_c": 8.85024356842041,
+          "prediction_c": 12.020703315734863,
+          "probability": 0.022333331406116486
+        }
+      ]
+    },
+    {
+      "origin": 4142,
+      "row": 529,
+      "col": 156,
+      "truth_c": 8.852649688720703,
+      "saved_prediction_c": 12.020703315734863,
+      "reproduced_prediction_c": 12.020703315734863,
+      "mean_c": 4.2713117599487305,
+      "median_c": 3.2605338096618652,
+      "truth_bin_rank": 148,
+      "truth_probability": 0.0009263925603590906,
+      "predicted_probability": 0.016166120767593384,
+      "mass_within_half_degree_of_truth": 0.04587443917989731,
+      "top_bins": [
+        {
+          "bin": 1837,
+          "temperature_c": 12.020703315734863,
+          "probability": 0.016166120767593384,
+          "training_count": 0
+        },
+        {
+          "bin": 1721,
+          "temperature_c": 8.839691162109375,
+          "probability": 0.012590187601745129,
+          "training_count": 28
+        },
+        {
+          "bin": 1815,
+          "temperature_c": 11.323539733886719,
+          "probability": 0.006952962372452021,
+          "training_count": 0
+        },
+        {
+          "bin": 1836,
+          "temperature_c": 11.987937927246094,
+          "probability": 0.006135967560112476,
+          "training_count": 0
+        },
+        {
+          "bin": 1790,
+          "temperature_c": 10.588662147521973,
+          "probability": 0.005414972547441721,
+          "training_count": 0
+        },
+        {
+          "bin": 1797,
+          "temperature_c": 10.788541793823242,
+          "probability": 0.005248371046036482,
+          "training_count": 0
+        },
+        {
+          "bin": 1802,
+          "temperature_c": 10.934077262878418,
+          "probability": 0.004930388182401657,
+          "training_count": 0
+        },
+        {
+          "bin": 1783,
+          "temperature_c": 10.393200874328613,
+          "probability": 0.004151803441345692,
+          "training_count": 0
+        },
+        {
+          "bin": 1840,
+          "temperature_c": 12.119636535644531,
+          "probability": 0.00408743554726243,
+          "training_count": 0
+        },
+        {
+          "bin": 1803,
+          "temperature_c": 10.96346378326416,
+          "probability": 0.003961678594350815,
+          "training_count": 0
+        }
+      ],
+      "logit_margin": 2.859375,
+      "current_query_gradient": 9.8125,
+      "top_input_gradient_channels": [
+        {
+          "channel": "hfds",
+          "absolute_gradient": 0.5826971530914307
+        },
+        {
+          "channel": "tauuo",
+          "absolute_gradient": 0.396000474691391
+        },
+        {
+          "channel": "zos",
+          "absolute_gradient": 0.338436484336853
+        },
+        {
+          "channel": "thetao_1",
+          "absolute_gradient": 0.26479026675224304
+        },
+        {
+          "channel": "uo_0",
+          "absolute_gradient": 0.26209351420402527
+        },
+        {
+          "channel": "thetao_0",
+          "absolute_gradient": 0.24125871062278748
+        },
+        {
+          "channel": "vo_1",
+          "absolute_gradient": 0.18721389770507812
+        },
+        {
+          "channel": "uo_1",
+          "absolute_gradient": 0.17804715037345886
+        },
+        {
+          "channel": "tauvo",
+          "absolute_gradient": 0.16699746251106262
+        },
+        {
+          "channel": "vo_0",
+          "absolute_gradient": 0.15484154224395752
+        }
+      ],
+      "neighbors": [
+        {
+          "kind": "neighbors",
+          "origin": 2838,
+          "row": 531,
+          "col": 159,
+          "target_c": 8.850299835205078,
+          "prediction_c": 12.020703315734863,
+          "probability": 0.014730051159858704
+        },
+        {
+          "kind": "neighbors",
+          "origin": 2996,
+          "row": 532,
+          "col": 150,
+          "target_c": 8.848563194274902,
+          "prediction_c": 12.020703315734863,
+          "probability": 0.01737768016755581
+        },
+        {
+          "kind": "same_cell_analogue",
+          "origin": 2779,
+          "row": 529,
+          "col": 156,
+          "target_c": 8.848688125610352,
+          "prediction_c": 12.020703315734863,
+          "probability": 0.01509670726954937
+        }
+      ]
+    },
+    {
+      "origin": 4071,
+      "row": 389,
+      "col": 477,
+      "truth_c": 9.969924926757812,
+      "saved_prediction_c": 12.804091453552246,
+      "reproduced_prediction_c": 12.804091453552246,
+      "mean_c": 4.429655075073242,
+      "median_c": 3.298161745071411,
+      "truth_bin_rank": 25,
+      "truth_probability": 0.0015194820007309318,
+      "predicted_probability": 0.05191560834646225,
+      "mass_within_half_degree_of_truth": 0.022909674793481827,
+      "top_bins": [
+        {
+          "bin": 1860,
+          "temperature_c": 12.804091453552246,
+          "probability": 0.05191560834646225,
+          "training_count": 3
+        },
+        {
+          "bin": 1861,
+          "temperature_c": 12.83948040008545,
+          "probability": 0.016854530200362206,
+          "training_count": 6
+        },
+        {
+          "bin": 1853,
+          "temperature_c": 12.559518814086914,
+          "probability": 0.00930795632302761,
+          "training_count": 0
+        },
+        {
+          "bin": 1858,
+          "temperature_c": 12.733652114868164,
+          "probability": 0.008474990725517273,
+          "training_count": 0
+        },
+        {
+          "bin": 1856,
+          "temperature_c": 12.663662910461426,
+          "probability": 0.007961517199873924,
+          "training_count": 0
+        },
+        {
+          "bin": 1837,
+          "temperature_c": 12.020703315734863,
+          "probability": 0.006600328721106052,
+          "training_count": 0
+        },
+        {
+          "bin": 1859,
+          "temperature_c": 12.768814086914062,
+          "probability": 0.006397258024662733,
+          "training_count": 0
+        },
+        {
+          "bin": 1857,
+          "temperature_c": 12.698602676391602,
+          "probability": 0.005471864715218544,
+          "training_count": 0
+        },
+        {
+          "bin": 1852,
+          "temperature_c": 12.52502727508545,
+          "probability": 0.004130380693823099,
+          "training_count": 0
+        },
+        {
+          "bin": 1850,
+          "temperature_c": 12.456376075744629,
+          "probability": 0.0036450475454330444,
+          "training_count": 0
+        }
+      ],
+      "logit_margin": 3.53125,
+      "current_query_gradient": 3.1875,
+      "top_input_gradient_channels": [
+        {
+          "channel": "hfds",
+          "absolute_gradient": 0.40762972831726074
+        },
+        {
+          "channel": "tauuo",
+          "absolute_gradient": 0.16660934686660767
+        },
+        {
+          "channel": "uo_5",
+          "absolute_gradient": 0.14786937832832336
+        },
+        {
+          "channel": "zos",
+          "absolute_gradient": 0.1440276950597763
+        },
+        {
+          "channel": "uo_4",
+          "absolute_gradient": 0.14064419269561768
+        },
+        {
+          "channel": "thetao_0",
+          "absolute_gradient": 0.13935551047325134
+        },
+        {
+          "channel": "thetao_1",
+          "absolute_gradient": 0.13204967975616455
+        },
+        {
+          "channel": "vo_1",
+          "absolute_gradient": 0.11372394859790802
+        },
+        {
+          "channel": "so_2",
+          "absolute_gradient": 0.11298193782567978
+        },
+        {
+          "channel": "uo_6",
+          "absolute_gradient": 0.11269910633563995
+        }
+      ],
+      "neighbors": [
+        {
+          "kind": "neighbors",
+          "origin": 1465,
+          "row": 391,
+          "col": 479,
+          "target_c": 9.934002876281738,
+          "prediction_c": 12.804091453552246,
+          "probability": 0.050269030034542084
+        },
+        {
+          "kind": "neighbors",
+          "origin": 3245,
+          "row": 385,
+          "col": 481,
+          "target_c": 9.959102630615234,
+          "prediction_c": 12.804091453552246,
+          "probability": 0.05063949525356293
+        },
+        {
+          "kind": "confusable_neighbors",
+          "origin": 2057,
+          "row": 510,
+          "col": 11,
+          "target_c": 12.8187837600708,
+          "prediction_c": 13.458820343017578,
+          "probability": 0.026296434924006462
+        },
+        {
+          "kind": "confusable_neighbors",
+          "origin": 2058,
+          "row": 530,
+          "col": 32,
+          "target_c": 12.882105827331543,
+          "prediction_c": 13.458820343017578,
+          "probability": 0.02680446021258831
+        },
+        {
+          "kind": "same_cell_analogue",
+          "origin": 3173,
+          "row": 389,
+          "col": 477,
+          "target_c": 9.953186988830566,
+          "prediction_c": 12.804091453552246,
+          "probability": 0.05175726115703583
+        }
+      ]
+    },
+    {
+      "origin": 4142,
+      "row": 508,
+      "col": 6,
+      "truth_c": 12.873644828796387,
+      "saved_prediction_c": 13.458820343017578,
+      "reproduced_prediction_c": 13.458820343017578,
+      "mean_c": 2.4613990783691406,
+      "median_c": 1.6056427955627441,
+      "truth_bin_rank": 827,
+      "truth_probability": 0.0004155745846219361,
+      "predicted_probability": 0.025710688903927803,
+      "mass_within_half_degree_of_truth": 0.013591639697551727,
+      "top_bins": [
+        {
+          "bin": 1878,
+          "temperature_c": 13.458820343017578,
+          "probability": 0.025710688903927803,
+          "training_count": 35
+        },
+        {
+          "bin": 2027,
+          "temperature_c": 20.61732292175293,
+          "probability": 0.013761940412223339,
+          "training_count": 0
+        },
+        {
+          "bin": 2038,
+          "temperature_c": 21.294889450073242,
+          "probability": 0.005918936803936958,
+          "training_count": 0
+        },
+        {
+          "bin": 2012,
+          "temperature_c": 19.731311798095703,
+          "probability": 0.0040680221281945705,
+          "training_count": 0
+        },
+        {
+          "bin": 1877,
+          "temperature_c": 13.4214448928833,
+          "probability": 0.003942862153053284,
+          "training_count": 36
+        },
+        {
+          "bin": 2041,
+          "temperature_c": 21.483896255493164,
+          "probability": 0.0038215527310967445,
+          "training_count": 0
+        },
+        {
+          "bin": 2036,
+          "temperature_c": 21.16990089416504,
+          "probability": 0.0037039760500192642,
+          "training_count": 0
+        },
+        {
+          "bin": 1954,
+          "temperature_c": 16.681941986083984,
+          "probability": 0.0032687471248209476,
+          "training_count": 0
+        },
+        {
+          "bin": 1960,
+          "temperature_c": 16.971601486206055,
+          "probability": 0.003168178489431739,
+          "training_count": 0
+        },
+        {
+          "bin": 2011,
+          "temperature_c": 19.673757553100586,
+          "probability": 0.0029762282501906157,
+          "training_count": 0
+        }
+      ],
+      "logit_margin": 4.125,
+      "current_query_gradient": 0.66796875,
+      "top_input_gradient_channels": [
+        {
+          "channel": "hfds",
+          "absolute_gradient": 0.3989957273006439
+        },
+        {
+          "channel": "tauuo",
+          "absolute_gradient": 0.25950106978416443
+        },
+        {
+          "channel": "zos",
+          "absolute_gradient": 0.25564590096473694
+        },
+        {
+          "channel": "uo_5",
+          "absolute_gradient": 0.2310817390680313
+        },
+        {
+          "channel": "uo_4",
+          "absolute_gradient": 0.21488672494888306
+        },
+        {
+          "channel": "thetao_0",
+          "absolute_gradient": 0.2058740109205246
+        },
+        {
+          "channel": "uo_6",
+          "absolute_gradient": 0.20527374744415283
+        },
+        {
+          "channel": "thetao_1",
+          "absolute_gradient": 0.19956128299236298
+        },
+        {
+          "channel": "vo_2",
+          "absolute_gradient": 0.1797982156276703
+        },
+        {
+          "channel": "vo_3",
+          "absolute_gradient": 0.17807966470718384
+        }
+      ],
+      "neighbors": [
+        {
+          "kind": "neighbors",
+          "origin": 2344,
+          "row": 509,
+          "col": 9,
+          "target_c": 12.82873821258545,
+          "prediction_c": 13.458820343017578,
+          "probability": 0.024415796622633934
+        },
+        {
+          "kind": "neighbors",
+          "origin": 3922,
+          "row": 504,
+          "col": 1436,
+          "target_c": 12.960205078125,
+          "prediction_c": 13.458820343017578,
+          "probability": 0.026603611186146736
+        },
+        {
+          "kind": "confusable_neighbors",
+          "origin": 2317,
+          "row": 494,
+          "col": 105,
+          "target_c": 13.43954086303711,
+          "prediction_c": 13.458820343017578,
+          "probability": 0.02905513159930706
+        },
+        {
+          "kind": "confusable_neighbors",
+          "origin": 2122,
+          "row": 509,
+          "col": 73,
+          "target_c": 13.42605209350586,
+          "prediction_c": 13.458820343017578,
+          "probability": 0.026689834892749786
+        },
+        {
+          "kind": "same_cell_analogue",
+          "origin": 3484,
+          "row": 508,
+          "col": 6,
+          "target_c": 12.860015869140625,
+          "prediction_c": 13.458820343017578,
+          "probability": 0.025304123759269714
+        }
+      ]
+    }
+  ]
+}

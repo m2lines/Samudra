@@ -1,0 +1,74 @@
+{
+  "job": "22009444",
+  "state": "COMPLETED",
+  "exit_code": "0:0",
+  "start_est": "2026-11-05T21:35:47-05:00",
+  "end_est": "2026-11-05T22:48:55-05:00",
+  "allocated_seconds": 4388,
+  "gpus": 4,
+  "gpu_type": "RTX PRO 6000 Blackwell",
+  "gpu_hours": 4.875555555555556,
+  "points": 1102317,
+  "npz_chunks": 649,
+  "archive_bytes": 60129280,
+  "archive_sha256": "1452f66cf69306297e2780895f233aa4be38faa93f7e753a2eb7c90dfbea0b9a",
+  "archive_remote": "torch:/scratch/jr7309/temperature-skyline-20261102/maps-continuation-v1/continuation-pointwise.tar",
+  "source_commit": "c88f714d869364315a8f408879efc365302d9511",
+  "matched_initial_columns": [
+    "row",
+    "col",
+    "depth",
+    "origin",
+    "area",
+    "lat",
+    "lon",
+    "global_lattice",
+    "gold_c",
+    "samudra_c",
+    "persistence_c"
+  ],
+  "matched_initial_point_count": 1102317,
+  "selection": {
+    "absolute": {
+      "arm": "absolute",
+      "source": "continuation",
+      "weights": "ema",
+      "step": 7624,
+      "nmse": 0.00035409232090418926,
+      "nll": 2.8360736098042443,
+      "criterion": "nll"
+    },
+    "regression": {
+      "arm": "regression",
+      "source": "continuation",
+      "weights": "ema",
+      "step": 7711,
+      "nmse": 0.0003365090841856809,
+      "nll": null,
+      "criterion": "nmse"
+    },
+    "selection_targets": {
+      "initial_classifier": {
+        "count": 9728,
+        "unique": 9726,
+        "sha256": "91e01d3578ccd6ac358b2809d8548c3da857bcf85825151d57188e6f6425d55d"
+      },
+      "initial_regression": {
+        "count": 9728,
+        "unique": 9726,
+        "sha256": "91e01d3578ccd6ac358b2809d8548c3da857bcf85825151d57188e6f6425d55d"
+      },
+      "continued_classifier": {
+        "count": 9728,
+        "unique": 9726,
+        "sha256": "91e01d3578ccd6ac358b2809d8548c3da857bcf85825151d57188e6f6425d55d"
+      },
+      "continued_regression": {
+        "count": 9728,
+        "unique": 9726,
+        "sha256": "91e01d3578ccd6ac358b2809d8548c3da857bcf85825151d57188e6f6425d55d"
+      }
+    },
+    "selection_rule": "Initial raw checkpoints remain eligible; choose regression mean-depth NMSE and classifier bin NLL on identical fixed 9728 validation samples. Qualification weights and held-out map scores excluded."
+  }
+}

@@ -1,0 +1,137 @@
+{
+  "scope": "8 fixed validation dates; 512 sampled wet cells per depth; OM4 model context; selected checkpoints use this same validation set; no independent test score",
+  "runs": {
+    "absolute": {
+      "job": "21770500",
+      "steps": 20000,
+      "parameters": 210067456,
+      "effective_batch": 32,
+      "restart_count": 2,
+      "final_nmse": 0.00977136071400258,
+      "final_bin_nll": 4.041756650537105,
+      "best_error_step": 14000,
+      "best_error_nmse": 0.0065039643157094465,
+      "persistence_nmse": 0.00035031205808548887,
+      "final_depths_beating_persistence": 3,
+      "best_error_depths_beating_persistence": 0,
+      "validation_curve": [
+        {
+          "step": 2000,
+          "nmse": 0.020240332141370318,
+          "bin_nll": 5.079008116166254
+        },
+        {
+          "step": 4000,
+          "nmse": 0.01751537089872096,
+          "bin_nll": 4.878927146734082
+        },
+        {
+          "step": 6000,
+          "nmse": 0.014488052958471232,
+          "bin_nll": 4.681757347345793
+        },
+        {
+          "step": 8000,
+          "nmse": 0.012656301122200902,
+          "bin_nll": 4.549679755600856
+        },
+        {
+          "step": 10000,
+          "nmse": 0.006698088928792459,
+          "bin_nll": 4.431251387454961
+        },
+        {
+          "step": 12000,
+          "nmse": 0.014824536657291235,
+          "bin_nll": 4.361448531578246
+        },
+        {
+          "step": 14000,
+          "nmse": 0.0065039643157094465,
+          "bin_nll": 4.306437175604515
+        },
+        {
+          "step": 16000,
+          "nmse": 0.009811226741444343,
+          "bin_nll": 4.135973138820478
+        },
+        {
+          "step": 18000,
+          "nmse": 0.00974253998596224,
+          "bin_nll": 4.082186776452306
+        },
+        {
+          "step": 20000,
+          "nmse": 0.00977136071400258,
+          "bin_nll": 4.041756650537105
+        }
+      ]
+    },
+    "regression": {
+      "job": "21770502",
+      "steps": 20000,
+      "parameters": 207969281,
+      "effective_batch": 32,
+      "restart_count": 5,
+      "final_nmse": 0.0004266804628841105,
+      "final_bin_nll": null,
+      "best_error_step": 18000,
+      "best_error_nmse": 0.00038940630185433267,
+      "persistence_nmse": 0.00035031205808548887,
+      "final_depths_beating_persistence": 4,
+      "best_error_depths_beating_persistence": 5,
+      "validation_curve": [
+        {
+          "step": 2000,
+          "nmse": 0.0016560812797421505,
+          "bin_nll": null
+        },
+        {
+          "step": 4000,
+          "nmse": 0.0015639461369710047,
+          "bin_nll": null
+        },
+        {
+          "step": 6000,
+          "nmse": 0.0006217546963301672,
+          "bin_nll": null
+        },
+        {
+          "step": 8000,
+          "nmse": 0.0009298306452806527,
+          "bin_nll": null
+        },
+        {
+          "step": 10000,
+          "nmse": 0.0014695925039416267,
+          "bin_nll": null
+        },
+        {
+          "step": 12000,
+          "nmse": 0.000534644172761298,
+          "bin_nll": null
+        },
+        {
+          "step": 14000,
+          "nmse": 0.0004199365840575601,
+          "bin_nll": null
+        },
+        {
+          "step": 16000,
+          "nmse": 0.0010171204800861963,
+          "bin_nll": null
+        },
+        {
+          "step": 18000,
+          "nmse": 0.00038940630185433267,
+          "bin_nll": null
+        },
+        {
+          "step": 20000,
+          "nmse": 0.0004266804628841105,
+          "bin_nll": null
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,256 @@
+{
+  "completion": {
+    "step": 7711,
+    "initial_step": 18000,
+    "allocation_seconds": 35179.334243774414,
+    "world_size": 4,
+    "effective_batch": 256,
+    "gradient_accumulation": 2,
+    "accepted_examples": 1974016,
+    "qualification": false,
+    "replicas_agree": true,
+    "ema_updates": 7711,
+    "ema_replicas_agree": true
+  },
+  "exact_raw_ema_replica_bytes": true,
+  "validation_passes": 19,
+  "all_validation_points_match": true,
+  "points_per_pass": 9728,
+  "finite_logged_update_losses": true,
+  "best_error": {
+    "kind": "ema",
+    "step": 7711,
+    "nmse": 0.0003365090841856809,
+    "nll": null
+  },
+  "validations": [
+    {
+      "kind": "raw",
+      "step": 412,
+      "nmse": 0.0005514877430402156,
+      "nll": null
+    },
+    {
+      "kind": "ema",
+      "step": 412,
+      "nmse": 0.0003684077875445604,
+      "nll": null
+    },
+    {
+      "kind": "raw",
+      "step": 823,
+      "nmse": 0.0004092078970205102,
+      "nll": null
+    },
+    {
+      "kind": "ema",
+      "step": 823,
+      "nmse": 0.000373117431601522,
+      "nll": null
+    },
+    {
+      "kind": "raw",
+      "step": 1232,
+      "nmse": 0.0004189213826194356,
+      "nll": null
+    },
+    {
+      "kind": "ema",
+      "step": 1232,
+      "nmse": 0.0003603926870844153,
+      "nll": null
+    },
+    {
+      "kind": "raw",
+      "step": 1642,
+      "nmse": 0.00041697596943010546,
+      "nll": null
+    },
+    {
+      "kind": "ema",
+      "step": 1642,
+      "nmse": 0.00035865787495299256,
+      "nll": null
+    },
+    {
+      "kind": "raw",
+      "step": 2052,
+      "nmse": 0.0006029825944124579,
+      "nll": null
+    },
+    {
+      "kind": "ema",
+      "step": 2052,
+      "nmse": 0.00035127878559751717,
+      "nll": null
+    },
+    {
+      "kind": "raw",
+      "step": 2462,
+      "nmse": 0.000498176174731004,
+      "nll": null
+    },
+    {
+      "kind": "ema",
+      "step": 2462,
+      "nmse": 0.0003535501391637831,
+      "nll": null
+    },
+    {
+      "kind": "raw",
+      "step": 2872,
+      "nmse": 0.0003951650828473618,
+      "nll": null
+    },
+    {
+      "kind": "ema",
+      "step": 2872,
+      "nmse": 0.000366062635295867,
+      "nll": null
+    },
+    {
+      "kind": "raw",
+      "step": 3280,
+      "nmse": 0.000386084815241607,
+      "nll": null
+    },
+    {
+      "kind": "ema",
+      "step": 3280,
+      "nmse": 0.00035146107664496074,
+      "nll": null
+    },
+    {
+      "kind": "raw",
+      "step": 3690,
+      "nmse": 0.00035841486014896436,
+      "nll": null
+    },
+    {
+      "kind": "ema",
+      "step": 3690,
+      "nmse": 0.00034854743835105684,
+      "nll": null
+    },
+    {
+      "kind": "raw",
+      "step": 4101,
+      "nmse": 0.0004030499459579599,
+      "nll": null
+    },
+    {
+      "kind": "ema",
+      "step": 4101,
+      "nmse": 0.00034528956735508954,
+      "nll": null
+    },
+    {
+      "kind": "raw",
+      "step": 4511,
+      "nmse": 0.0003720678360952714,
+      "nll": null
+    },
+    {
+      "kind": "ema",
+      "step": 4511,
+      "nmse": 0.00034584194647022766,
+      "nll": null
+    },
+    {
+      "kind": "raw",
+      "step": 4920,
+      "nmse": 0.00035778473039674617,
+      "nll": null
+    },
+    {
+      "kind": "ema",
+      "step": 4920,
+      "nmse": 0.00034598809295429247,
+      "nll": null
+    },
+    {
+      "kind": "raw",
+      "step": 5330,
+      "nmse": 0.0003678025047779957,
+      "nll": null
+    },
+    {
+      "kind": "ema",
+      "step": 5330,
+      "nmse": 0.0003449218984805053,
+      "nll": null
+    },
+    {
+      "kind": "raw",
+      "step": 5739,
+      "nmse": 0.0003940934756786021,
+      "nll": null
+    },
+    {
+      "kind": "ema",
+      "step": 5739,
+      "nmse": 0.00034080859826275315,
+      "nll": null
+    },
+    {
+      "kind": "raw",
+      "step": 6149,
+      "nmse": 0.00034681722688520433,
+      "nll": null
+    },
+    {
+      "kind": "ema",
+      "step": 6149,
+      "nmse": 0.00034061053950926564,
+      "nll": null
+    },
+    {
+      "kind": "raw",
+      "step": 6559,
+      "nmse": 0.0003727498721395208,
+      "nll": null
+    },
+    {
+      "kind": "ema",
+      "step": 6559,
+      "nmse": 0.00033880979712163517,
+      "nll": null
+    },
+    {
+      "kind": "raw",
+      "step": 6970,
+      "nmse": 0.00034442262898730944,
+      "nll": null
+    },
+    {
+      "kind": "ema",
+      "step": 6970,
+      "nmse": 0.00033692229606268714,
+      "nll": null
+    },
+    {
+      "kind": "raw",
+      "step": 7381,
+      "nmse": 0.00034897413440467147,
+      "nll": null
+    },
+    {
+      "kind": "ema",
+      "step": 7381,
+      "nmse": 0.0003371562390024022,
+      "nll": null
+    },
+    {
+      "kind": "raw",
+      "step": 7711,
+      "nmse": 0.0003435457090706398,
+      "nll": null
+    },
+    {
+      "kind": "ema",
+      "step": 7711,
+      "nmse": 0.0003365090841856809,
+      "nll": null
+    }
+  ]
+}

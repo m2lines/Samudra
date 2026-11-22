@@ -43,6 +43,10 @@ RMSE 0.025393. Mixed's final score is 9.4% lower. That control has fewer total
 optimizer updates and no cooldown; its optimizer and EMA histories differ.
 This result does not isolate the benefit of LLC supervision.
 
+The [training-curve stability analysis](training-curve-stability.md) shows all
+110 validation checkpoints per arm, transient error spikes, late-training
+consistency, and paired validation-date sensitivity.
+
 ## Daily observation forecasts
 
 | Lead | SST mixed / OBS-only / persistence (°C) | SSH mixed / OBS-only / persistence (m) |

@@ -185,7 +185,11 @@ class ModelMonths:
         self.forcing_std = np.array(
             [float(std[n][...]) for n in MODEL_FORCING_VARIABLES], dtype=np.float32
         )
-        if not np.isfinite(self.forcing_mean).all() or not (self.forcing_std > 0).all():
+        if not (
+            np.isfinite(self.forcing_mean).all()
+            and np.isfinite(self.forcing_std).all()
+            and (self.forcing_std > 0).all()
+        ):
             raise ValueError("Invalid forcing normalization")
         self.windows: list[ModelWindow] = []
         self.window_months: list[CalendarDate] = []

@@ -143,6 +143,7 @@ class ObservationTrainConfig(TopLevelConfig):
                 "debug",
                 "resume_ckpt_path",
                 "stop_after",
+                "save_freq",
             },
         )
         values["seed"] = self.experiment.rand_seed

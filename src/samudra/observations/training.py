@@ -9,7 +9,7 @@ its samples combine distinct observation cadences and cached forecast states.
 import hashlib
 import json
 import math
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -32,7 +32,12 @@ from samudra.observations.constants import (
 )
 from samudra.observations.evaluate import AnnualObservationEvaluator
 from samudra.observations.intervals import replay_month
-from samudra.observations.losses import balanced_loss, completion_loss, corrupt_sample
+from samudra.observations.losses import (
+    balanced_loss,
+    completion_loss,
+    corrupt_sample,
+    reconstruct_month,
+)
 from samudra.observations.model_data import ContinuationLayout, ModelMonths
 from samudra.observations.replay import ReplayEntry, states_at
 from samudra.observations.sample_types import ForecastSample, ObservationSample
@@ -184,7 +189,6 @@ def objective(
             sample["atmosphere"][:, HISTORY_STEPS:],
             sample["contexts"][:, HISTORY_STEPS:],
             sample["mask"],
-            start_lead=sample["start_lead"] + 1,
             task=task,
         )
         initial = model.initialize(
@@ -205,7 +209,7 @@ def objective(
     }
     if source == "obs":
         parts.update(data.forecast_losses(prediction, sample))
-        reconstructed = model.reconstruct_month(*args, auxiliary["month_weights"])
+        reconstructed = reconstruct_month(model, *args, auxiliary["month_weights"])
         parts["reconstruction"] = data.interior_loss(reconstructed, auxiliary)
         forecast = 0.8 * parts["monthly_ts"] + 0.1 * parts["sst"] + 0.1 * parts["ssh"]
     else:
@@ -259,7 +263,6 @@ def annual_metrics(
                     :, HISTORY_STEPS + step : HISTORY_STEPS + step + 1
                 ],
                 data.mask,
-                start_lead=step + 1,
             )
             evaluator.record(data.physical(prediction)[:, 0])
     return evaluator.result()
@@ -395,9 +398,12 @@ def train(
             emit({"updates": state.updates, **metrics})
         if state.updates == cfg.main_updates:
             state.save(output / "main.pt", manifest)
-        if state.updates % cfg.save_freq == 0 or state.updates == limit or stopping():
+        # Read the signal once: a stop observed after the save check would exit
+        # without saving the update that just finished.
+        stop = stopping()
+        if state.updates % cfg.save_freq == 0 or state.updates == limit or stop:
             state.save(checkpoints.latest_checkpoint_path, manifest)
-        if stopping():
+        if stop:
             break
     if state.updates == total:
         state.save(output / "endpoint.pt", manifest)
@@ -411,10 +417,24 @@ def digest(path: str | Path) -> str:
         return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
-def verify_normalization(directory: Path) -> None:
-    """Read back fitted samples; a saved manifest alone is not proof."""
+def verify_normalization(directory: Path, training_samples: Sequence[Path]) -> None:
+    """Read back fitted samples; a saved manifest alone is not proof.
+
+    The proof must cover the training samples this run reads, not only the
+    archive it was fitted on, which configuration may place elsewhere.
+    """
     proof = json.loads((directory / "normalization.json").read_text())
     validate_normalization_policy(proof)
+    unfitted = sorted(
+        str(path.resolve())
+        for path in training_samples
+        if str(path.resolve()) not in proof["sha256"]
+    )
+    if unfitted:
+        raise ValueError(
+            f"Normalization was not fitted on {len(unfitted)} training samples, "
+            f"e.g. {unfitted[0]}"
+        )
     for path, expected in proof["sha256"].items():
         if digest(path) != expected:
             raise ValueError(f"Normalization input changed: {path}")
@@ -446,7 +466,7 @@ def run_manifest(
 ) -> Manifest:
     package = Path(__file__).resolve().parents[1]
     normalization = data.normalization
-    verify_normalization(normalization)
+    verify_normalization(normalization, sources.paths)
     files = [data.root / "grid.npz"] + [
         normalization / n for n in ("normalization.json", "statistics.npz")
     ]

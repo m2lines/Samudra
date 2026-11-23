@@ -19,7 +19,7 @@ import json
 import shutil
 from pathlib import Path
 
-from samudra.observations.archive import ObservationArchive
+from samudra.observations.archive import ObservationArchive, require_shard_grids
 from samudra.observations.grid import export_grid
 from samudra.observations.prepare import prepare
 
@@ -62,6 +62,7 @@ def main() -> None:
     else:
         daily_root = args.root / "daily"
         daily_root.mkdir(parents=True, exist_ok=True)
+        require_shard_grids(daily_root, args.root / "grid.npz")
         shutil.copyfile(args.root / "grid.npz", daily_root / "grid.npz")
         archive = ObservationArchive(daily_root)
         splits = args.split or ["train", "validation"]

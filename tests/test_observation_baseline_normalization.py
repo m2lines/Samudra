@@ -6,6 +6,7 @@
 import copy
 import importlib.util
 import json
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -238,7 +239,13 @@ def test_normalization_records_om4_source_and_rejects_changed_input(tmp_path):
     prepared_months(root)
     om4_statistics(om4)
     module.prepare_normalization(root, om4=om4)
-    verify_normalization(root)
+    training = sorted((root / "train").glob("*.npz"))
+    verify_normalization(root, training)
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    shutil.copyfile(training[0], elsewhere / training[0].name)
+    with pytest.raises(ValueError, match="not fitted on 1 training samples"):
+        verify_normalization(root, [*training[1:], elsewhere / training[0].name])
     metadata = json.loads((root / "normalization.json").read_text())
     sources = metadata["field_sources"]
     assert sources["uo_0"] == sources["vo_18"] == "OM4"
@@ -255,7 +262,7 @@ def test_normalization_records_om4_source_and_rejects_changed_input(tmp_path):
     store = zarr.open_group(str(om4 / "OM4_means.zarr"), mode="a")
     store["uo_0"][...] = 17
     with pytest.raises(ValueError, match="Normalization input changed"):
-        verify_normalization(root)
+        verify_normalization(root, training)
 
 
 @pytest.mark.parametrize(

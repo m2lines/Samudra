@@ -4,6 +4,8 @@
 
 """Explicit five-day support and monthly batches for observational transfer."""
 
+import hashlib
+import json
 from collections.abc import Mapping
 from functools import lru_cache
 from pathlib import Path
@@ -159,6 +161,24 @@ class ObservationArchive:
             path = output / (str(month) + ".npz")
             sample = self.sample(str(month))
             save_atomic(path, **sample)
+
+
+def require_shard_grids(daily_root: str | Path, grid: str | Path) -> None:
+    """Reject daily shards that were remapped onto a different grid file."""
+    expected = hashlib.sha256(Path(grid).read_bytes()).hexdigest()
+    manifests = sorted(Path(daily_root).glob("*/*/manifest.json"))
+    if not manifests:
+        raise ValueError(f"No daily shard manifests under {daily_root}")
+    stale = [
+        str(path)
+        for path in manifests
+        if json.loads(path.read_text())["grid_sha256"] != expected
+    ]
+    if stale:
+        raise ValueError(
+            f"{len(stale)} daily shard years were remapped onto another grid, "
+            f"e.g. {stale[0]}"
+        )
 
 
 def context_planes(

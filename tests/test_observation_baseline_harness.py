@@ -390,8 +390,7 @@ def test_annual_driver_initializes_once_and_never_reads_future_ocean():
             assert surface.shape[1] == 19 and torch.isfinite(surface).all()
             return torch.zeros(1, 2, 77, 1, 1)
 
-        def continue_forecast(self, states, atmosphere, context, mask, start_lead):
-            assert start_lead == self.steps + 1
+        def continue_forecast(self, states, atmosphere, context, mask):
             assert torch.all(states[:, -1] == self.steps)
             assert atmosphere.shape[1] == context.shape[1] == 1
             self.steps += 1
@@ -451,3 +450,25 @@ def test_configured_accumulation_controls_real_training_exposure(
     assert len(updates) == 3
     assert all(r["train/obs/fresh"] == fresh for r in updates)
     assert all(r["train/obs/replay"] == accumulation - fresh for r in updates)
+
+
+def test_signal_during_an_update_saves_that_update_before_exiting(
+    monkeypatch, tmp_path
+):
+    # The signal handler can flip the flag between any two reads of it. Whatever
+    # the loop sees, it must not exit without checkpointing the finished update.
+    cfg = small_recipe(monkeypatch, "obs", save_freq=100)
+    reads = iter([False, True])
+    state = make_state(cfg)
+    baseline.train(
+        cfg,
+        state,
+        cast(baseline.Sources, TinySources()),
+        tmp_path,
+        {"mix": "obs"},
+        validate,
+        lambda record: None,
+        stopping=lambda: next(reads, True),
+    )
+    saved = torch.load(tmp_path / "ckpt.pt", weights_only=False)
+    assert saved["updates"] == state.updates

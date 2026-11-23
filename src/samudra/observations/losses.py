@@ -4,6 +4,7 @@
 """Masked losses and deterministic artificial gaps for surface initialization."""
 
 from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
 import torch
 from numpy.typing import ArrayLike
@@ -16,6 +17,9 @@ from samudra.observations.constants import (
     SURFACE_NAMES,
 )
 from samudra.observations.sample_types import ObservationSample
+
+if TYPE_CHECKING:
+    from samudra.models.surface_initialized import SurfaceInitializedModel
 
 
 def structured_visibility(validity: torch.Tensor, seed: int) -> torch.Tensor:
@@ -126,3 +130,37 @@ def balanced_loss(
     if not groups:
         raise ValueError("No supported physical fields in the requested loss")
     return torch.stack(groups).mean()
+
+
+def reconstruct_month(
+    model: "SurfaceInitializedModel",
+    surface: torch.Tensor,
+    forcing: torch.Tensor,
+    contexts: torch.Tensor,
+    mask: torch.Tensor,
+    validity: torch.Tensor,
+    month_weights: Sequence[float] | torch.Tensor,
+) -> torch.Tensor:
+    """Monthly mean of the initializer's latest state over a target month.
+
+    Each five-day step of the month is initialized from the history ending at
+    that step, so the mean is comparable with a monthly profile analysis.
+    Observation examples only: the initializer uses the observation task.
+    """
+    if len(month_weights) == 0:
+        raise ValueError("Monthly reconstruction needs at least one weight")
+    mean: torch.Tensor | None = None
+    for step, weight in enumerate(month_weights):
+        end = HISTORY_STEPS + 1 + step
+        initial = model.initialize(
+            surface[:, end - HISTORY_STEPS : end],
+            forcing[:, end - HISTORY_STEPS : end],
+            contexts[:, end - 1],
+            mask,
+            validity[:, end - HISTORY_STEPS : end],
+            task="observation",
+        )
+        value = initial[:, -1] * weight
+        mean = value if mean is None else mean + value
+    assert mean is not None
+    return mean

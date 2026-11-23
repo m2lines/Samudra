@@ -232,13 +232,12 @@ class Evolution(nn.Module):
     def forward(
         self,
         states: PhysicalStates,
-        forcing: ForcingHistory,
+        forcing: Float[Tensor, "batch forcing height width"],
         context: Context,
         mask: WetMask,
-        lead: int,
         task: ModelTask = "observation",
     ) -> Float[Tensor, "batch channels height width"]:
-        inputs = torch.cat((states.flatten(1, 2), context, forcing[:, lead - 1]), 1)
+        inputs = torch.cat((states.flatten(1, 2), context, forcing), 1)
         inputs = self.input_adapters[task](inputs)
         inputs = inputs + self.geometry(geometry_planes(context, mask))
         return self.net(inputs).float() * mask
@@ -315,7 +314,7 @@ class SurfaceInitializedModel(nn.Module):
     def initialize(
         self,
         surface: SurfaceHistory,
-        atmosphere: ForcingHistory,
+        forcing: ForcingHistory,
         context: Context,
         mask: WetMask,
         validity: SurfaceValidity,
@@ -324,7 +323,7 @@ class SurfaceInitializedModel(nn.Module):
         return self.call(
             self.initializer,
             surface,
-            self.forcing(atmosphere, task),
+            self.forcing(forcing, task),
             context,
             mask,
             validity,
@@ -337,17 +336,14 @@ class SurfaceInitializedModel(nn.Module):
         forcing: ForcingHistory,
         contexts: ContextHistory,
         mask: WetMask,
-        start_lead: int = 1,
         task: ModelTask = "observation",
     ) -> ForecastContinuation:
         """Continue cached states and return predictions plus the final state pair.
 
-        ``start_lead`` is the absolute first output lead (one-based five-day
-        steps). The loader supplies forcing and context for that lead onward.
-        The caller owns detaching the final state pair before saving for replay.
+        The step is time-invariant: the caller supplies forcing and context for
+        each future step and owns lead-time bookkeeping. It also owns detaching
+        the final state pair before saving it for replay.
         """
-        if start_lead < 1 or int(start_lead) != start_lead:
-            raise ValueError("start_lead must be a positive integer")
         if states.ndim != 5 or states.shape[1:3] != (
             STATE_HISTORY_STEPS,
             len(self.names),
@@ -363,10 +359,9 @@ class SurfaceInitializedModel(nn.Module):
             predicted = self.call(
                 self.evolution,
                 states,
-                forcing[:, step : step + 1],
+                forcing[:, step],
                 contexts[:, step],
                 mask,
-                1,
                 task,
             )
             predictions.append(predicted)
@@ -376,7 +371,7 @@ class SurfaceInitializedModel(nn.Module):
     def forecast(
         self,
         surface: SurfaceHistory,
-        atmosphere: ForcingHistory,
+        forcing: ForcingHistory,
         contexts: ContextHistory,
         mask: WetMask,
         validity: SurfaceValidity,
@@ -384,7 +379,7 @@ class SurfaceInitializedModel(nn.Module):
     ) -> InitializedForecast:
         initial = self.initialize(
             surface[:, :HISTORY_STEPS],
-            atmosphere[:, :HISTORY_STEPS],
+            forcing[:, :HISTORY_STEPS],
             contexts[:, LAST_HISTORY_STEP],
             mask,
             validity[:, :HISTORY_STEPS],
@@ -392,36 +387,9 @@ class SurfaceInitializedModel(nn.Module):
         )
         predictions, _ = self.continue_forecast(
             initial,
-            atmosphere[:, HISTORY_STEPS:],
+            forcing[:, HISTORY_STEPS:],
             contexts[:, HISTORY_STEPS:],
             mask,
             task=task,
         )
         return InitializedForecast(predictions, initial)
-
-    def reconstruct_month(
-        self,
-        surface: SurfaceHistory,
-        atmosphere: ForcingHistory,
-        contexts: ContextHistory,
-        mask: WetMask,
-        validity: SurfaceValidity,
-        month_weights: Sequence[float] | Tensor,
-    ) -> Float[Tensor, "batch channels height width"]:
-        """Weighted monthly interior reconstruction from contemporaneous history."""
-        if len(month_weights) == 0:
-            raise ValueError("Monthly reconstruction needs at least one weight")
-        mean: Tensor | None = None
-        for step, weight in enumerate(month_weights):
-            end = HISTORY_STEPS + 1 + step
-            initial = self.initialize(
-                surface[:, end - HISTORY_STEPS : end],
-                atmosphere[:, end - HISTORY_STEPS : end],
-                contexts[:, end - 1],
-                mask,
-                validity[:, end - HISTORY_STEPS : end],
-            )
-            value = initial[:, -1] * weight
-            mean = value if mean is None else mean + value
-        assert mean is not None
-        return mean

@@ -1,5 +1,6 @@
 # SPDX-FileCopyrightText: 2026 Samudra Authors
 # SPDX-License-Identifier: Apache-2.0
+# yaml-language-server: $schema=../schemas/SurfaceInitializedConfig.json
 
 backbone:
   ch_width: [128, 192, 256, 384]

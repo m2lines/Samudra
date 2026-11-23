@@ -68,6 +68,17 @@ def save_atomic(path: Path, **arrays: ArrayLike) -> None:
     temp.replace(path)
 
 
+def require_daily(times: pd.DatetimeIndex, product: str) -> None:
+    """Daily shards need one analysis per consecutive day, not five-day means."""
+    steps = np.diff(times.values)
+    if len(steps) and (steps != np.timedelta64(1, "D")).any():
+        raise ValueError(
+            f"{product} needs a gap-free daily store; found steps of "
+            f"{sorted({str(pd.Timedelta(step)) for step in steps})}. The aligned "
+            "oisst.zarr and duacs.zarr from obs_preprocessing hold five-day means."
+        )
+
+
 def prepare(args: argparse.Namespace) -> None:
     from importlib.metadata import version
 
@@ -121,6 +132,8 @@ def prepare(args: argparse.Namespace) -> None:
         selected = selected[: args.limit * (24 if args.product == "era5" else 1)]
     if not len(selected):
         raise ValueError("Empty source period")
+    if args.product in ("sst", "adt"):
+        require_daily(times[selected], args.product)
     meta_hash = hashlib.sha256((source / ".zmetadata").read_bytes()).hexdigest()
     signature = {
         "product": product,

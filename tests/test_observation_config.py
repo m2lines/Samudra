@@ -88,7 +88,12 @@ def test_scientific_identity_ignores_stop_controls_but_tracks_recipe(tmp_path):
     cfg = config(tmp_path)
     altered = ObservationTrainConfig.model_validate(
         cfg.model_dump()
-        | {"stop_after": 20, "debug": True, "resume_ckpt_path": "/run/ckpt.pt"}
+        | {
+            "stop_after": 20,
+            "debug": True,
+            "resume_ckpt_path": "/run/ckpt.pt",
+            "save_freq": 7,
+        }
     )
     assert altered.scientific_config() == cfg.scientific_config()
     for field, value in (("main_updates", 20), ("learning_rate", 0.0002)):

@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Calendar/missingness contracts that make monthly replay scientifically valid."""
 
+import hashlib
 import importlib.util
 import json
 from pathlib import Path
@@ -17,12 +18,13 @@ from samudra.constants import build_om4_layout
 from samudra.observations.archive import (
     ObservationArchive,
     month_intervals,
+    require_shard_grids,
     strict_mean,
     trajectory,
 )
 from samudra.observations.intervals import calendar_weights, replay_month
 from samudra.observations.model_data import ModelMonths
-from samudra.observations.prepare import interpolate_depth
+from samudra.observations.prepare import interpolate_depth, require_daily
 
 
 def test_replay_recomputes_straddling_bin_and_exact_month_weights():
@@ -291,3 +293,23 @@ def test_model_replay_metadata_can_be_logged_without_json_coercion(tmp_path, kin
         # This arithmetic feeds production training logs and qualification reports.
         metadata["max_start_lead_days"] = max(0, sample["start_lead"] * 5)
         assert json.loads(json.dumps(metadata)) == metadata
+
+
+def test_daily_preparation_rejects_five_day_aligned_stores():
+    require_daily(pd.date_range("1993-01-01", periods=10, freq="D"), "sst")
+    with pytest.raises(ValueError, match="five-day means"):
+        require_daily(pd.date_range("1993-01-01", periods=10, freq="5D"), "sst")
+
+
+def test_months_stage_rejects_shards_remapped_onto_another_grid(tmp_path):
+    grid = tmp_path / "grid.npz"
+    np.savez(grid, lat=np.zeros(2))
+    for product, recorded in (("sst", grid), ("adt", tmp_path / "old.npz")):
+        if recorded != grid:
+            np.savez(recorded, lat=np.ones(2))
+        year = tmp_path / "daily" / product / "1993"
+        year.mkdir(parents=True)
+        digest = hashlib.sha256(recorded.read_bytes()).hexdigest()
+        (year / "manifest.json").write_text(json.dumps({"grid_sha256": digest}))
+    with pytest.raises(ValueError, match="1 daily shard years"):
+        require_shard_grids(tmp_path / "daily", grid)

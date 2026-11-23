@@ -21,6 +21,7 @@ from samudra.observations.losses import (
     channel_mse,
     completion_loss,
     corrupt_sample,
+    reconstruct_month,
     structured_visibility,
 )
 from samudra.observations.sample_types import ObservationSample
@@ -86,7 +87,7 @@ def test_continuation_matches_uninterrupted_and_never_uses_future_surface(task):
             initial, forcing[:, 19:20], contexts[:, 19:20], mask, task=task
         )
         rest, final = model.continue_forecast(
-            cache, forcing[:, 20:], contexts[:, 20:], mask, start_lead=2, task=task
+            cache, forcing[:, 20:], contexts[:, 20:], mask, task=task
         )
         torch.testing.assert_close(torch.cat((first, rest), 1), forecast)
         torch.testing.assert_close(final, forecast[:, -2:])
@@ -125,8 +126,8 @@ def test_geometry_and_original_branches_have_gradients():
     surface, atmosphere, contexts, mask, valid = example(steps=1)
     valid[:, :, :, 2:8, 2:8] = False
     forecast, initial = model.forecast(surface, atmosphere, contexts, mask, valid)
-    reconstruction = model.reconstruct_month(
-        surface, atmosphere, contexts, mask, valid, [1.0]
+    reconstruction = reconstruct_month(
+        model, surface, atmosphere, contexts, mask, valid, [1.0]
     )
     loss = (
         forecast.square().mean()

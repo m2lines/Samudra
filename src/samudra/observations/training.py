@@ -28,7 +28,7 @@ from samudra.observations.constants import (
     MAX_REPLAY_MONTHS,
     STEP_DAYS,
     SURFACE_CHANNELS,
-    ModelTask,
+    Domain,
 )
 from samudra.observations.evaluate import AnnualObservationEvaluator
 from samudra.observations.intervals import replay_month
@@ -120,7 +120,7 @@ class Sources:
             "end_lead": raw["end_lead"],
             "next_start_lead": raw["next_start_lead"],
             "surface": fields[:, :, SURFACE_CHANNELS],
-            "atmosphere": raw["forcing"],
+            "forcing": raw["forcing"],
             "month_weights": raw["weights"],
             "validity": raw["mask"][SURFACE_CHANNELS]
             .bool()
@@ -157,7 +157,7 @@ def objective(
     Replay never sees the auxiliary branch's contemporaneous ocean observations.
     Only its own detached physical history, future forcing and calendar advance it.
     """
-    task: ModelTask = "observation" if source == "obs" else "om4-family"
+    domain: Domain = "observation" if source == "obs" else "om4-family"
     auxiliary = corrupt_sample(auxiliary, seed)
     if source != "obs":
         if coverage is None:
@@ -174,22 +174,22 @@ def objective(
         )
     args = (
         auxiliary["surface"],
-        auxiliary["atmosphere"],
+        auxiliary["forcing"],
         auxiliary["contexts"],
         auxiliary["mask"],
         auxiliary["validity"],
     )
     if cached is None:
-        prediction, initial = model.forecast(*args, task=task)
+        prediction, initial = model.forecast(*args, domain=domain)
         replay_initial = initial
     else:
         replay_initial = cached.detach().to(data.device)
         prediction, _ = model.continue_forecast(
             replay_initial,
-            sample["atmosphere"][:, HISTORY_STEPS:],
+            sample["forcing"][:, HISTORY_STEPS:],
             sample["contexts"][:, HISTORY_STEPS:],
             sample["mask"],
-            task=task,
+            domain=domain,
         )
         initial = model.initialize(
             args[0][:, :HISTORY_STEPS],
@@ -197,7 +197,7 @@ def objective(
             args[2][:, LAST_HISTORY_STEP],
             args[3],
             args[4][:, :HISTORY_STEPS],
-            task,
+            domain=domain,
         )
     parts = {
         "completion": completion_loss(
@@ -248,21 +248,23 @@ def annual_metrics(
     with autocast(torch.device(data.device).type == "cuda", torch.bfloat16):
         states = model.initialize(
             trajectory["surface"][:, :HISTORY_STEPS],
-            trajectory["atmosphere"][:, :HISTORY_STEPS],
+            trajectory["forcing"][:, :HISTORY_STEPS],
             trajectory["contexts"][:, LAST_HISTORY_STEP],
             data.mask,
             trajectory["validity"][:, :HISTORY_STEPS],
+            domain="observation",
         )
         for step in range(FORECAST_STEPS):
             prediction, states = model.continue_forecast(
                 states,
-                trajectory["atmosphere"][
+                trajectory["forcing"][
                     :, HISTORY_STEPS + step : HISTORY_STEPS + step + 1
                 ],
                 trajectory["contexts"][
                     :, HISTORY_STEPS + step : HISTORY_STEPS + step + 1
                 ],
                 data.mask,
+                domain="observation",
             )
             evaluator.record(data.physical(prediction)[:, 0])
     return evaluator.result()

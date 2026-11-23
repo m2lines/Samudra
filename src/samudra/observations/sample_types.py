@@ -43,7 +43,7 @@ class ObservationSample(TypedDict, total=False):
     completion_target: torch.Tensor
     completion_valid: torch.Tensor
     surface: torch.Tensor
-    atmosphere: torch.Tensor
+    forcing: torch.Tensor  # ERA5 fields for observations; model forcing otherwise.
     contexts: torch.Tensor
     validity: torch.Tensor
     month_weights: torch.Tensor

@@ -145,7 +145,7 @@ def reconstruct_month(
 
     Each five-day step of the month is initialized from the history ending at
     that step, so the mean is comparable with a monthly profile analysis.
-    Observation examples only: the initializer uses the observation task.
+    Observation examples only: the initializer uses the observation domain.
     """
     if len(month_weights) == 0:
         raise ValueError("Monthly reconstruction needs at least one weight")
@@ -158,7 +158,7 @@ def reconstruct_month(
             contexts[:, end - 1],
             mask,
             validity[:, end - HISTORY_STEPS : end],
-            task="observation",
+            domain="observation",
         )
         value = initial[:, -1] * weight
         mean = value if mean is None else mean + value

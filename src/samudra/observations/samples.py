@@ -109,15 +109,15 @@ class Samples:
         ) / self.grid["std"][self.surface_indices, None, None]
         normalized = np.where(validity, normalized, 0)
         normalized *= self.grid["mask"][self.surface_indices]
-        atmosphere = (
+        forcing = (
             sample["atmosphere"] - self.stats["atmosphere_mean"][None, :, None, None]
         ) / self.stats["atmosphere_std"][None, :, None, None]
-        if not np.isfinite(normalized).all() or not np.isfinite(atmosphere).all():
+        if not np.isfinite(normalized).all() or not np.isfinite(forcing).all():
             raise ValueError(f"Nonfinite inputs: {name}")
         interior = sample["interior"].reshape(len(PROFILE_NAMES), *raw.shape[-2:])
         return ObservationSample(
             surface=self.tensor(normalized)[None],
-            atmosphere=self.tensor(atmosphere)[None],
+            forcing=self.tensor(forcing)[None],
             contexts=self.tensor(
                 context_planes(self.grid["lat"], self.grid["lon"], sample["midpoints"])
             )[None],

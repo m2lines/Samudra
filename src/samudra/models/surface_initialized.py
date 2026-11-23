@@ -23,16 +23,16 @@ from samudra.config import UNetBackboneConfig
 from samudra.config_base import BaseConfig
 from samudra.observations.constants import (
     CONTEXT_CHANNELS,
+    DOMAINS,
     GEOMETRY_CHANNELS,
     HISTORY_STEPS,
     LAST_HISTORY_STEP,
     MODEL_FORCING_CHANNELS,
-    MODEL_TASKS,
     OBSERVATION_FORCING_CHANNELS,
     SPHERICAL_COORDINATE_CHANNELS,
     STATE_HISTORY_STEPS,
     SURFACE_NAMES,
-    ModelTask,
+    Domain,
 )
 
 SurfaceHistory = Float[Tensor, "batch time surface height width"]
@@ -48,7 +48,13 @@ Padding = Literal["circular", "constant", "reflect", "replicate"]
 # Unit-sphere neighbor distances at one degree are approximately 0.017. Scaling
 # by 100 gives order-one spacing inputs alongside the other geometry features.
 GEOMETRY_DISTANCE_SCALE = 100.0
-ERA5_ADAPTER_WIDTH = 32
+ERA5_ENCODER_WIDTH = 32
+# Forcing channels each domain supplies, before its encoder maps them to the
+# model's wind stress and surface heat-flux channels.
+DOMAIN_FORCING_CHANNELS: dict[Domain, int] = {
+    "observation": OBSERVATION_FORCING_CHANNELS,
+    "om4-family": MODEL_FORCING_CHANNELS,
+}
 OperationArgs = ParamSpec("OperationArgs")
 
 
@@ -102,16 +108,16 @@ def make_unet(
 
 
 def identity_adapters(channels: int) -> nn.ModuleDict:
-    """Create one identity channel projection per model task."""
+    """Create one identity channel projection per input domain."""
     # Identity adapters must not perturb the backbone initialization RNG.
     with torch.random.fork_rng(devices=[]):
         adapters = nn.ModuleDict()
-        for task in MODEL_TASKS:
+        for domain in DOMAINS:
             layer = nn.Conv2d(channels, channels, 1)
             nn.init.dirac_(layer.weight)
             assert layer.bias is not None
             nn.init.zeros_(layer.bias)
-            adapters[task] = layer
+            adapters[domain] = layer
     return adapters
 
 
@@ -175,8 +181,8 @@ class HistoryInitializer(nn.Module):
         past_forcing: ForcingHistory,
         context: Context,
         mask: WetMask,
-        input_mask: SurfaceValidity | None = None,
-        task: ModelTask = "observation",
+        input_mask: SurfaceValidity | None,
+        domain: Domain,
     ) -> PhysicalStates:
         surface = surface[:, -self.history :]
         if surface.ndim != 5 or surface.shape[1:3] != (
@@ -203,7 +209,7 @@ class HistoryInitializer(nn.Module):
             ),
             1,
         )
-        result = self.net(self.input_adapters[task](inputs)).float()
+        result = self.net(self.input_adapters[domain](inputs)).float()
         result = result.reshape(b, STATE_HISTORY_STEPS, self.channels, h, w)
         # Copy measured wet surfaces; infer missing surfaces.
         result[:, :, self.surface] = torch.where(
@@ -227,7 +233,7 @@ class Evolution(nn.Module):
         self.geometry = nn.Conv2d(GEOMETRY_CHANNELS, inputs, 1, bias=False)
         nn.init.zeros_(self.geometry.weight)
         self.net = make_unet(inputs, channels, backbone, pad)
-        # Input adapters are attached after the atmospheric forcing adapter.
+        # Input adapters are attached after the forcing encoders are built.
 
     def forward(
         self,
@@ -235,16 +241,21 @@ class Evolution(nn.Module):
         forcing: Float[Tensor, "batch forcing height width"],
         context: Context,
         mask: WetMask,
-        task: ModelTask = "observation",
+        domain: Domain,
     ) -> Float[Tensor, "batch channels height width"]:
         inputs = torch.cat((states.flatten(1, 2), context, forcing), 1)
-        inputs = self.input_adapters[task](inputs)
+        inputs = self.input_adapters[domain](inputs)
         inputs = inputs + self.geometry(geometry_planes(context, mask))
         return self.net(inputs).float() * mask
 
 
 class SurfaceInitializedModel(nn.Module):
-    """Surface-initialized model; OM4 and CM4 share the ``om4-family`` adapter."""
+    """Surface-initialized model with per-domain encoders around a shared core.
+
+    Each input domain has its own forcing encoder and input adapters; the
+    initializer and evolution networks are shared. OM4 and CM4 share the
+    ``om4-family`` domain.
+    """
 
     def __init__(
         self,
@@ -263,12 +274,17 @@ class SurfaceInitializedModel(nn.Module):
         )
         self.initializer = HistoryInitializer(names, config.backbone, config.pad)
         self.evolution = Evolution(len(names), config.backbone, config.pad)
-        self.adapter = nn.Sequential(
-            nn.Conv2d(OBSERVATION_FORCING_CHANNELS, ERA5_ADAPTER_WIDTH, 1),
+        # ERA5 fields are mapped to model forcing; model-family forcing passes
+        # through. The ERA5 encoder starts at zero forcing.
+        era5 = nn.Sequential(
+            nn.Conv2d(OBSERVATION_FORCING_CHANNELS, ERA5_ENCODER_WIDTH, 1),
             nn.GELU(),
-            nn.Conv2d(ERA5_ADAPTER_WIDTH, MODEL_FORCING_CHANNELS, 1),
+            nn.Conv2d(ERA5_ENCODER_WIDTH, MODEL_FORCING_CHANNELS, 1),
         )
-        final = self.adapter[-1]
+        self.forcing_encoders = nn.ModuleDict(
+            {"om4-family": nn.Identity(), "observation": era5}
+        )
+        final = era5[-1]
         assert isinstance(final, nn.Conv2d) and final.bias is not None
         nn.init.zeros_(final.weight)
         nn.init.zeros_(final.bias)
@@ -292,24 +308,17 @@ class SurfaceInitializedModel(nn.Module):
             )
         return function(*args, **kwargs)
 
-    def adapt(self, atmosphere: ForcingHistory) -> ForcingHistory:
-        """Map ERA5 channels to model wind stress and surface heat-flux channels."""
-        b, t, _, h, w = atmosphere.shape
-        return self.adapter(
-            atmosphere.reshape(b * t, OBSERVATION_FORCING_CHANNELS, h, w)
+    def encode_forcing(self, forcing: ForcingHistory, domain: Domain) -> ForcingHistory:
+        """Map a domain's forcing to model wind stress and surface heat flux."""
+        if domain not in DOMAINS:
+            raise ValueError(f"Domain must be one of {DOMAINS}")
+        expected = DOMAIN_FORCING_CHANNELS[domain]
+        if forcing.ndim != 5 or forcing.shape[2] != expected:
+            raise ValueError(f"{domain} forcing requires {expected} channels")
+        b, t, _, h, w = forcing.shape
+        return self.forcing_encoders[domain](
+            forcing.reshape(b * t, expected, h, w)
         ).reshape(b, t, MODEL_FORCING_CHANNELS, h, w)
-
-    def forcing(self, values: ForcingHistory, task: ModelTask) -> ForcingHistory:
-        if task not in MODEL_TASKS:
-            raise ValueError(f"Task must be one of {MODEL_TASKS}")
-        expected = (
-            OBSERVATION_FORCING_CHANNELS
-            if task == "observation"
-            else MODEL_FORCING_CHANNELS
-        )
-        if values.ndim != 5 or values.shape[2] != expected:
-            raise ValueError(f"{task} forcing requires {expected} channels")
-        return self.adapt(values) if task == "observation" else values
 
     def initialize(
         self,
@@ -318,16 +327,17 @@ class SurfaceInitializedModel(nn.Module):
         context: Context,
         mask: WetMask,
         validity: SurfaceValidity,
-        task: ModelTask = "observation",
+        *,
+        domain: Domain,
     ) -> PhysicalStates:
         return self.call(
             self.initializer,
             surface,
-            self.forcing(forcing, task),
+            self.encode_forcing(forcing, domain),
             context,
             mask,
             validity,
-            task,
+            domain,
         )
 
     def continue_forecast(
@@ -336,7 +346,8 @@ class SurfaceInitializedModel(nn.Module):
         forcing: ForcingHistory,
         contexts: ContextHistory,
         mask: WetMask,
-        task: ModelTask = "observation",
+        *,
+        domain: Domain,
     ) -> ForecastContinuation:
         """Continue cached states and return predictions plus the final state pair.
 
@@ -353,7 +364,7 @@ class SurfaceInitializedModel(nn.Module):
             raise ValueError("Future forcing and context frames must align")
         if forcing.shape[1] == 0:
             raise ValueError("A continuation needs at least one future step")
-        forcing = self.forcing(forcing, task)
+        forcing = self.encode_forcing(forcing, domain)
         predictions: list[Tensor] = []
         for step in range(forcing.shape[1]):
             predicted = self.call(
@@ -362,7 +373,7 @@ class SurfaceInitializedModel(nn.Module):
                 forcing[:, step],
                 contexts[:, step],
                 mask,
-                task,
+                domain,
             )
             predictions.append(predicted)
             states = torch.stack((states[:, -1], predicted), 1)
@@ -375,7 +386,8 @@ class SurfaceInitializedModel(nn.Module):
         contexts: ContextHistory,
         mask: WetMask,
         validity: SurfaceValidity,
-        task: ModelTask = "observation",
+        *,
+        domain: Domain,
     ) -> InitializedForecast:
         initial = self.initialize(
             surface[:, :HISTORY_STEPS],
@@ -383,13 +395,13 @@ class SurfaceInitializedModel(nn.Module):
             contexts[:, LAST_HISTORY_STEP],
             mask,
             validity[:, :HISTORY_STEPS],
-            task,
+            domain=domain,
         )
         predictions, _ = self.continue_forecast(
             initial,
             forcing[:, HISTORY_STEPS:],
             contexts[:, HISTORY_STEPS:],
             mask,
-            task=task,
+            domain=domain,
         )
         return InitializedForecast(predictions, initial)

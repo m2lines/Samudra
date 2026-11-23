@@ -37,7 +37,7 @@ def small_cpu_pool():
     torch.set_num_threads(previous)
 
 
-def example(task="observation", steps=3):
+def example(domain="observation", steps=3):
     height, width = 12, 16
     latitude = torch.linspace(-75, 75, height)
     longitude = torch.arange(width) * (360 / width)
@@ -52,7 +52,7 @@ def example(task="observation", steps=3):
     surface = torch.randn(1, 19 + steps, 2, height, width)
     validity = mask[[0, 5]][None, None].expand_as(surface).clone()
     forcing = torch.randn(
-        1, 19 + steps, 8 if task == "observation" else 3, height, width
+        1, 19 + steps, 8 if domain == "observation" else 3, height, width
     )
     return surface, forcing, contexts, mask, validity
 
@@ -74,26 +74,28 @@ def network(checkpointing=False):
     )
 
 
-@pytest.mark.parametrize("task", ["observation", "om4-family"])
-def test_continuation_matches_uninterrupted_and_never_uses_future_surface(task):
+@pytest.mark.parametrize("domain", ["observation", "om4-family"])
+def test_continuation_matches_uninterrupted_and_never_uses_future_surface(domain):
     torch.manual_seed(11)
     model = network().eval()
-    surface, forcing, contexts, mask, valid = example(task)
+    surface, forcing, contexts, mask, valid = example(domain)
     with torch.no_grad():
         forecast, initial = model.forecast(
-            surface, forcing, contexts, mask, valid, task
+            surface, forcing, contexts, mask, valid, domain=domain
         )
         first, cache = model.continue_forecast(
-            initial, forcing[:, 19:20], contexts[:, 19:20], mask, task=task
+            initial, forcing[:, 19:20], contexts[:, 19:20], mask, domain=domain
         )
         rest, final = model.continue_forecast(
-            cache, forcing[:, 20:], contexts[:, 20:], mask, task=task
+            cache, forcing[:, 20:], contexts[:, 20:], mask, domain=domain
         )
         torch.testing.assert_close(torch.cat((first, rest), 1), forecast)
         torch.testing.assert_close(final, forecast[:, -2:])
         surface[:, 19:] = float("nan")
         valid[:, 19:] = False
-        changed, _ = model.forecast(surface, forcing, contexts, mask, valid, task)
+        changed, _ = model.forecast(
+            surface, forcing, contexts, mask, valid, domain=domain
+        )
         torch.testing.assert_close(changed, forecast)
     assert initial.shape[1:3] == (2, len(NAMES))
     assert forecast.shape[1:3] == (3, len(NAMES))
@@ -102,16 +104,26 @@ def test_continuation_matches_uninterrupted_and_never_uses_future_surface(task):
 
 def test_missing_values_do_not_leak_and_known_surfaces_are_copied():
     model = network().eval()
-    surface, atmosphere, contexts, mask, valid = example()
+    surface, forcing, contexts, mask, valid = example()
     valid[:, :, :, 3:6, 4:8] = False
     poisoned = surface.clone()
     poisoned[~valid] = float("nan")
     with torch.no_grad():
         first = model.initialize(
-            surface[:, :19], atmosphere[:, :19], contexts[:, 18], mask, valid[:, :19]
+            surface[:, :19],
+            forcing[:, :19],
+            contexts[:, 18],
+            mask,
+            valid[:, :19],
+            domain="observation",
         )
         second = model.initialize(
-            poisoned[:, :19], atmosphere[:, :19], contexts[:, 18], mask, valid[:, :19]
+            poisoned[:, :19],
+            forcing[:, :19],
+            contexts[:, 18],
+            mask,
+            valid[:, :19],
+            domain="observation",
         )
     torch.testing.assert_close(first, second)
     surface_state = first[:, :, model.initializer.surface]
@@ -123,11 +135,13 @@ def test_missing_values_do_not_leak_and_known_surfaces_are_copied():
 def test_geometry_and_original_branches_have_gradients():
     torch.manual_seed(17)
     model = network(checkpointing=True)
-    surface, atmosphere, contexts, mask, valid = example(steps=1)
+    surface, forcing, contexts, mask, valid = example(steps=1)
     valid[:, :, :, 2:8, 2:8] = False
-    forecast, initial = model.forecast(surface, atmosphere, contexts, mask, valid)
+    forecast, initial = model.forecast(
+        surface, forcing, contexts, mask, valid, domain="observation"
+    )
     reconstruction = reconstruct_month(
-        model, surface, atmosphere, contexts, mask, valid, [1.0]
+        model, surface, forcing, contexts, mask, valid, [1.0]
     )
     loss = (
         forecast.square().mean()
@@ -139,7 +153,7 @@ def test_geometry_and_original_branches_have_gradients():
         model.initializer.net,
         model.evolution.net,
         model.evolution.geometry,
-        model.adapter[-1],
+        model.forcing_encoders["observation"][-1],
     ):
         assert any(
             p.grad is not None and p.grad.abs().sum() > 0 for p in module.parameters()
@@ -156,20 +170,21 @@ def test_geometry_and_original_branches_have_gradients():
     assert torch.count_nonzero(planes[:, 4]) == 0
 
 
-def test_native_forcing_bypasses_era5_adapter():
+def test_native_forcing_bypasses_era5_encoder():
     model = network()
     surface, forcing, contexts, mask, valid = example("om4-family", steps=1)
     forecast, initial = model.forecast(
-        surface, forcing, contexts, mask, valid, "om4-family"
+        surface, forcing, contexts, mask, valid, domain="om4-family"
     )
     (forecast.square().mean() + initial.square().mean()).backward()
-    assert all(p.grad is None for p in model.adapter.parameters())
+    era5 = model.forcing_encoders["observation"]
+    assert all(p.grad is None for p in era5.parameters())
     assert any(
         p.grad is not None
         for p in model.initializer.input_adapters["om4-family"].parameters()
     )
     with pytest.raises(ValueError, match="requires 8 channels"):
-        model.forcing(forcing, "observation")
+        model.encode_forcing(forcing, "observation")
 
 
 def test_corruption_is_reproducible_does_not_change_targets_or_rng():
@@ -246,10 +261,12 @@ def test_physical_state_has_all_77_channels_without_extra_memory():
     model = SurfaceInitializedModel(
         names, backbone=tiny_backbone(), activation_checkpointing=False
     )
-    surface, atmosphere, contexts, _, valid = example(steps=1)
+    surface, forcing, contexts, _, valid = example(steps=1)
     mask = torch.ones(77, *surface.shape[-2:], dtype=torch.bool)
     with torch.no_grad():
-        forecast, initial = model.forecast(surface, atmosphere, contexts, mask, valid)
+        forecast, initial = model.forecast(
+            surface, forcing, contexts, mask, valid, domain="observation"
+        )
     assert forecast.shape[1:3] == (1, 77)
     assert initial.shape[1:3] == (2, 77)
 
@@ -269,7 +286,7 @@ def test_model_preset_builds_shared_backbone_config_and_applies_overrides():
     assert all(m.affine for m in model.modules() if isinstance(m, nn.InstanceNorm2d))
     assert not model.activation_checkpointing
     with torch.no_grad():
-        forecast, _ = model.forecast(*example(steps=1))
+        forecast, _ = model.forecast(*example(steps=1), domain="observation")
     assert torch.isfinite(forecast).all()
 
 
@@ -313,7 +330,7 @@ def test_regional_padding_is_forwarded_to_both_backbones():
         if isinstance(layer, (CoreBlock, UNetBackbone)):
             assert layer.pad == "constant"
     with torch.no_grad():
-        output = model.forecast(*example(steps=1))
+        output = model.forecast(*example(steps=1), domain="observation")
     assert output.predictions.shape[1] == 1
     assert output.initial_states.shape[1] == 2
     assert torch.isfinite(output.predictions).all()

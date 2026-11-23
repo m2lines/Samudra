@@ -42,5 +42,7 @@ SPHERICAL_COORDINATE_CHANNELS = 3  # Unit-sphere x, y, z.
 SEASON_CHANNELS = 2  # Sine and cosine of the native-calendar annual phase.
 CONTEXT_CHANNELS = SPHERICAL_COORDINATE_CHANNELS + SEASON_CHANNELS
 GEOMETRY_CHANNELS = 7  # Spacing x/y, extent x/y, reserved, wet-any, wet-fraction.
-ModelTask = Literal["observation", "om4-family"]
-MODEL_TASKS: tuple[ModelTask, ...] = ("om4-family", "observation")
+# The input domain selects the forcing encoder and input adapters. Every domain
+# predicts the same physical state; OM4 and CM4 share ``om4-family``.
+Domain = Literal["observation", "om4-family"]
+DOMAINS: tuple[Domain, ...] = ("om4-family", "observation")

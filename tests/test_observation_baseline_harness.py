@@ -309,7 +309,7 @@ def test_replay_objective_forecast_does_not_read_auxiliary_ocean_state():
     surface = torch.randn(1, 19 + steps, 2, height, width)
     sample: baseline.ForecastSample = dict(
         surface=surface,
-        atmosphere=torch.randn(1, 19 + steps, 8, height, width),
+        forcing=torch.randn(1, 19 + steps, 8, height, width),
         contexts=context[None, None].expand(1, 19 + steps, -1, -1, -1),
         mask=mask,
         validity=torch.ones_like(surface, dtype=torch.bool),
@@ -364,7 +364,7 @@ def test_annual_driver_initializes_once_and_never_reads_future_ocean():
         raw_surface=torch.zeros(1, 73, 2, 1, 1),
         monthly_targets=torch.zeros(1, 12, 28, 1, 1),
         surface=surface,
-        atmosphere=torch.zeros(1, 92, 8, 1, 1),
+        forcing=torch.zeros(1, 92, 8, 1, 1),
         contexts=torch.zeros(1, 92, 5, 1, 1),
         validity=torch.isfinite(surface),
     )
@@ -385,14 +385,16 @@ def test_annual_driver_initializes_once_and_never_reads_future_ocean():
             self.initializations = 0
             self.steps = 0
 
-        def initialize(self, surface, atmosphere, context, mask, validity):
+        def initialize(self, surface, forcing, context, mask, validity, *, domain):
+            assert domain == "observation"
             self.initializations += 1
             assert surface.shape[1] == 19 and torch.isfinite(surface).all()
             return torch.zeros(1, 2, 77, 1, 1)
 
-        def continue_forecast(self, states, atmosphere, context, mask):
+        def continue_forecast(self, states, forcing, context, mask, *, domain):
+            assert domain == "observation"
             assert torch.all(states[:, -1] == self.steps)
-            assert atmosphere.shape[1] == context.shape[1] == 1
+            assert forcing.shape[1] == context.shape[1] == 1
             self.steps += 1
             predicted = states[:, -1:] + 1
             return predicted, torch.cat((states[:, -1:], predicted), dim=1)

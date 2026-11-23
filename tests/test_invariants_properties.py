@@ -142,6 +142,7 @@ def test_layer_thickness_flags_any_inconsistent_layer(nlev, data):
     broken = dz.copy()
     broken[k] += data.draw(st.floats(0.5, 100.0))
     assert geometry.layer_thickness(broken, ilev, lev) != []
+    assert geometry.layer_thickness(dz, ilev, np.append(lev, 7000.0)) != []
 
 
 @st.composite
@@ -169,6 +170,10 @@ def test_time_checks_accept_the_om4_axis_and_flag_a_moved_stamp(axis, data):
     moved[i] = moved[i] + np.timedelta64(hours, "h").astype(object)
     assert timeaxis.averaging_windows(moved, windows, leap_day_gaps=True) != []
     assert timeaxis.om4_five_day_axis(moved) != []
+    # A partial first year may start late, but not off the 5-day steps.
+    assert timeaxis.om4_five_day_axis(stamps[i:]) == []
+    one_day = np.timedelta64(24, "h").astype(object)
+    assert timeaxis.om4_five_day_axis(stamps[i:] + one_day) != []
 
 
 @given(st.integers(2, 20), st.integers(0, 2**32 - 1), st.integers(1, 4))
@@ -229,6 +234,13 @@ def test_windows_match_compares_datetime64_with_cftime(axis, hours):
     assert timeaxis.windows_match(as_datetime64, gregorian) == []
     shifted = as_datetime64 + np.timedelta64(hours, "h")
     assert timeaxis.windows_match(shifted, gregorian) != []
+    # Fractions of a second survive the conversion, on both sides.
+    half = np.timedelta64(500, "ms")
+    assert timeaxis.windows_match(as_datetime64 + half, gregorian) != []
+    assert (
+        timeaxis.windows_match(as_datetime64 + half, gregorian + half.astype(object))
+        == []
+    )
 
 
 @given(
@@ -275,6 +287,9 @@ def test_lag_check_finds_a_forcing_one_step_off(n, seed, shift):
     shifted = np.roll(forcing, shift)
     shifted[0 if shift == 1 else -1] = np.nan
     assert coupling.response_peaks_at_lag_zero(shifted, response, "f") != []
+    # A trend correlates perfectly at every lag; a tie with lag 0 isn't a shift.
+    trend = np.arange(float(n))
+    assert coupling.response_peaks_at_lag_zero(trend, trend, "f") == []
 
 
 @given(st.integers(20, 100), st.integers(0, 2**32 - 1))
@@ -356,6 +371,33 @@ def test_zonal_spectra_accept_non_nested_rows_and_flag_rescaled_waves(
         )
         != []
     )
+    # Coarse power where the fine field has none.
+    flat = fine.mean("x").broadcast_like(fine)
+    assert (
+        conservation.zonal_spectra_agree(
+            flat, fine_edges, coarse, coarse_edges, band, "f"
+        )
+        != []
+    )
+
+
+@given(arrays(np.float64, (3, 4), elements=finite))
+def test_conservation_matches_retained_dimensions_by_name(values):
+    field = xr.DataArray(values, dims=("y", "x"))
+    weights = xr.ones_like(field)
+    assert (
+        conservation.integral_preserved(
+            field, weights, field.T, weights.T, "f", dims=()
+        )
+        == []
+    )
+
+
+def test_mask_checks_accept_dask_backed_fields():
+    field = xr.DataArray([[1.0, np.nan]], dims=("y", "x")).chunk()
+    wet = xr.DataArray([[True, False]], dims=("y", "x"))
+    assert masks.nan_matches_mask(field, wet, "f") == []
+    assert masks.nan_matches_mask(field, ~wet, "f") != []
 
 
 def test_rectilinear_cell_area_refuses_a_curvilinear_grid():

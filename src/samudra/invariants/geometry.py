@@ -108,8 +108,15 @@ def layer_thickness(
         violations.append(
             Violation("geometry.surface_at_zero", f"ilev[0] = {interfaces[0]}, not 0")
         )
-    if lev is not None and interfaces.size == np.asarray(lev).size + 1:
-        centres = np.asarray(lev, dtype=float)
+    centres = None if lev is None else np.asarray(lev, dtype=float)
+    if centres is not None and centres.size != dz_values.size:
+        violations.append(
+            Violation(
+                "geometry.one_centre_per_layer",
+                f"{centres.size} centres for {dz_values.size} layers",
+            )
+        )
+    elif centres is not None and interfaces.size == centres.size + 1:
         outside = (centres <= interfaces[:-1]) | (centres >= interfaces[1:])
         if outside.any():
             violations.append(

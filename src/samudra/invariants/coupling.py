@@ -45,7 +45,9 @@ def response_peaks_at_lag_zero(
     if not correlations:
         return [Violation(f"coupling.{name}_lag", "too few finite steps to correlate")]
     best = max(correlations, key=lambda lag: correlations[lag])
-    if best == 0:
+    # A tie with lag 0 (within round-off) isn't a shift: a linear trend correlates
+    # perfectly with itself at every lag.
+    if 0 in correlations and correlations[0] >= correlations[best] - 1e-9:
         return []
     shown = ", ".join(
         f"{lag:+d}: {value:.3f}" for lag, value in sorted(correlations.items())

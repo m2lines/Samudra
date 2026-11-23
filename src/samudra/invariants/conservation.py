@@ -22,7 +22,7 @@ import xarray as xr
 from numpy.typing import ArrayLike
 
 from samudra.constants import CP_SW, RHO_0
-from samudra.invariants.core import Violation, weighted_mean, weighted_sum
+from samudra.invariants.core import Violation, same_order, weighted_mean, weighted_sum
 
 
 def area_weights(area: xr.DataArray, ocean_fraction: xr.DataArray) -> xr.DataArray:
@@ -96,6 +96,7 @@ def _compare(
     rtol: float,
     atol: float,
 ) -> list[Violation]:
+    a, b, scale = same_order(a, b, scale)
     a_values, b_values = np.ravel(np.asarray(a)), np.ravel(np.asarray(b))
     scale_values = np.ravel(np.asarray(scale))
     empty = np.isnan(a_values) | np.isnan(b_values)
@@ -137,8 +138,13 @@ def variance_not_increased(
         mean = weighted_mean(field, weights, list(dims))
         return weighted_mean((field - mean) ** 2, weights, list(dims)), mean
 
-    before, mean = (np.ravel(np.asarray(v)) for v in variance(fine, fine_weights))
-    after = np.ravel(np.asarray(variance(coarse, coarse_weights)[0]))
+    (before, mean), (after, _) = (
+        variance(fine, fine_weights),
+        variance(coarse, coarse_weights),
+    )
+    before, mean, after = (
+        np.ravel(np.asarray(v)) for v in same_order(before, mean, after)
+    )
     # Round-off in a constant field's variance scales with the squared mean.
     grew = after > before * (1 + rtol) + 1e-12 * (mean**2 + 1e-30)
     if not grew.any():
@@ -247,10 +253,14 @@ def zonal_spectra_agree(
     attenuation = np.sinc(k / n_coarse) ** 2
     lower = fine_power[k] * attenuation * (1 - rtol)
     upper = fine_power[k] * (1 + rtol)
-    floor = 1e-12 * max(float(fine_power[1:].max(initial=0.0)), 1e-30)
-    bad = ((coarse_power[k] < lower) | (coarse_power[k] > upper)) & (
-        fine_power[k] > floor
+    # An absolute allowance for round-off, so power the coarse field gains at a
+    # wavenumber where the fine field has none is still flagged.
+    floor = 1e-12 * max(
+        float(fine_power[1:].max(initial=0.0)),
+        float(coarse_power[1:].max(initial=0.0)),
+        1e-30,
     )
+    bad = (coarse_power[k] < lower - floor) | (coarse_power[k] > upper + floor)
     if not bad.any():
         return []
     i = int(np.argmax(bad))

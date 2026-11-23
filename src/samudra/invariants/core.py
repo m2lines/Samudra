@@ -58,7 +58,21 @@ def first_location(flags: xr.DataArray) -> dict[str, Any]:
 
 def isfinite(field: xr.DataArray) -> xr.DataArray:
     """Elementwise ``np.isfinite``, keeping the DataArray's dimensions."""
-    return xr.apply_ufunc(np.isfinite, field)
+    return xr.apply_ufunc(np.isfinite, field, dask="allowed")
+
+
+def same_order(first: xr.DataArray, *others: xr.DataArray) -> list[xr.DataArray]:
+    """``others`` transposed to ``first``'s dimension order, so they can be compared position by position.
+
+    Raises:
+        ValueError: if any has different dimensions from ``first``.
+    """
+    for other in others:
+        if set(other.dims) != set(first.dims):
+            raise ValueError(
+                f"cannot compare totals over {first.dims} with totals over {other.dims}"
+            )
+    return [first, *(other.transpose(*first.dims) for other in others)]
 
 
 def relative_difference(a: float, b: float) -> float:

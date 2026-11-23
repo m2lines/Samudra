@@ -25,10 +25,12 @@ def as_cftime(values, calendar: str | None = None) -> list[cftime.datetime]:
     """Time values as a list of cftime datetimes, from cftime or numpy datetime64."""
     array = np.asarray(values)
     if array.dtype.kind == "M":
-        seconds = array.astype("datetime64[s]").astype(np.int64)
+        microseconds = array.astype("datetime64[us]").astype(np.int64)
         return list(
             cftime.num2date(
-                seconds, "seconds since 1970-01-01", calendar or "proleptic_gregorian"
+                microseconds,
+                "microseconds since 1970-01-01",
+                calendar or "proleptic_gregorian",
             )
         )
     return list(array)
@@ -159,11 +161,17 @@ def om4_five_day_axis(time) -> list[Violation]:
     for year in years:
         entries = by_year[year]
         first_expected = cftime.datetime(year, 1, 3, 12, calendar=calendar)
-        if year != years[0] and entries[0] != first_expected:
+        if year == years[0]:
+            # A partial first year may start later, but on the same 5-day steps.
+            offset = seconds_between(first_expected, entries[0])
+            anchored = offset >= 0 and offset % (OM4_STEP_DAYS * SECONDS_PER_DAY) == 0
+        else:
+            anchored = entries[0] == first_expected
+        if not anchored:
             violations.append(
                 Violation(
                     "time.om4_year_anchor",
-                    f"{year} starts at {entries[0]}, not {first_expected}",
+                    f"{year} starts at {entries[0]}, off the 5-day steps from {first_expected}",
                     {"year": year},
                 )
             )

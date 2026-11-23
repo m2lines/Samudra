@@ -61,6 +61,19 @@ def isfinite(field: xr.DataArray) -> xr.DataArray:
     return xr.apply_ufunc(np.isfinite, field, dask="allowed")
 
 
+def constant_along(edges, axis: int) -> bool:
+    """Whether 2-D cell edges repeat one value along ``axis``, as a rectilinear grid's do.
+
+    The tolerance is 1e-6 of the smallest spacing across the other axis, so it
+    doesn't grow with the coordinate's magnitude (as ``np.allclose``'s does).
+    """
+    edges = np.asarray(edges, dtype=float)
+    first = np.take(edges, [0], axis=axis)
+    spacing = np.abs(np.diff(first, axis=1 - axis))
+    scale = float(spacing[spacing > 0].min()) if (spacing > 0).any() else 1.0
+    return bool(np.all(np.abs(edges - first) <= 1e-6 * scale))
+
+
 def same_order(first: xr.DataArray, *others: xr.DataArray) -> list[xr.DataArray]:
     """``others`` transposed to ``first``'s dimension order, so they can be compared position by position.
 

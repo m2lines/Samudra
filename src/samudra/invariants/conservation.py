@@ -22,7 +22,13 @@ import xarray as xr
 from numpy.typing import ArrayLike
 
 from samudra.constants import CP_SW, RHO_0
-from samudra.invariants.core import Violation, same_order, weighted_mean, weighted_sum
+from samudra.invariants.core import (
+    Violation,
+    constant_along,
+    same_order,
+    weighted_mean,
+    weighted_sum,
+)
 
 
 def area_weights(area: xr.DataArray, ocean_fraction: xr.DataArray) -> xr.DataArray:
@@ -202,7 +208,7 @@ def band_zonal_spectrum(
         )
     edges = np.asarray(lat_b, dtype=float)
     if edges.ndim == 2:
-        if not np.allclose(edges, edges[:, :1]):
+        if not constant_along(edges, axis=1):
             raise ValueError(
                 "grid is not rectilinear; latitude bands need lat_b constant along x"
             )

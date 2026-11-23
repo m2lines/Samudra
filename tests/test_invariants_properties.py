@@ -406,6 +406,15 @@ def test_rectilinear_cell_area_refuses_a_curvilinear_grid():
     )
     with pytest.raises(ValueError, match="rectilinear"):
         geometry.rectilinear_cell_area(lat_b + np.linspace(0.0, 1.0, 5), lon_b)
+    # A tilt small next to 80 degrees but large next to the cell's height.
+    tilted = np.array([[80.0, 80.0], [80.0001, 80.0008]])
+    lon = np.array([[0.0, 1.0], [0.0, 1.0]])
+    with pytest.raises(ValueError, match="rectilinear"):
+        geometry.rectilinear_cell_area(tilted, lon)
+    area = xr.DataArray([[1.0]], dims=("y", "x"))
+    lat_b = xr.DataArray(tilted, dims=("y_b", "x_b"))
+    lon_b = xr.DataArray(lon, dims=("y_b", "x_b"))
+    assert geometry.areas_match_vertices(area, lat_b, lon_b) != []
 
 
 def test_band_spectrum_refuses_curvilinear_rows_and_extra_dimensions():

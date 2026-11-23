@@ -8,7 +8,12 @@ import numpy as np
 import xarray as xr
 from numpy.typing import ArrayLike
 
-from samudra.invariants.core import Violation, first_location, relative_difference
+from samudra.invariants.core import (
+    Violation,
+    constant_along,
+    first_location,
+    relative_difference,
+)
 from samudra.metrics.kernels import EARTH_RADIUS_M
 
 
@@ -36,7 +41,7 @@ def rectilinear_cell_area(
 ) -> np.ndarray:
     """Exact spherical area of each cell of a regular lat-lon grid, from its (y_b, x_b) vertices."""
     lat_b, lon_b = np.asarray(lat_b, dtype=float), np.asarray(lon_b, dtype=float)
-    if not (np.allclose(lat_b, lat_b[:, :1]) and np.allclose(lon_b, lon_b[:1, :])):
+    if not (constant_along(lat_b, axis=1) and constant_along(lon_b, axis=0)):
         raise ValueError(
             "grid is not rectilinear; need lat_b constant along x and lon_b constant along y"
         )
@@ -57,7 +62,7 @@ def areas_match_vertices(
     """Each cell's area equals the spherical area its vertices enclose (rectilinear grids only)."""
     lat = np.asarray(lat_b)
     lon = np.asarray(lon_b)
-    if not (np.allclose(lat, lat[:, :1]) and np.allclose(lon, lon[:1, :])):
+    if not (constant_along(lat, axis=1) and constant_along(lon, axis=0)):
         return [
             Violation(
                 "geometry.areas_match_vertices",

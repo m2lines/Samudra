@@ -4,8 +4,8 @@
 # Longer six-hour training and observation-only cooldown
 
 The mixed LLC + observations model improved after longer training, but the
-observations-only control still has lower surface forecast error at the same
-optimizer budget. After 10,000 main updates and 1,000 observation-only cooldown
+observations-only control still has lower surface forecast error at 24–72 hours
+at the same optimizer budget. After 10,000 main updates and 1,000 observation-only cooldown
 updates, aggregate normalized RMSE is 0.023007 for mixed training and 0.019358
 for the control. Mixed is 18.9% worse than the control and 9.3% better than
 persistence (0.025361). Lower RMSE is better. The original mixed EMA at update
@@ -47,6 +47,14 @@ The [training-curve stability analysis](training-curve-stability.md) shows all
 110 validation checkpoints per arm, transient error spikes, late-training
 consistency, and paired validation-date sensitivity.
 
+![Validation normalized RMSE over all 11,000 updates and a late-training zoom](https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/experiments/llc-observation-six-hour/validation-curves-20261123-e1c1cc8d4ed1/validation-training-overview.png)
+
+Both arms have transient error spikes earlier in training. The full history uses
+a logarithmic error axis; the late-training zoom uses a linear axis. Shading
+marks the observation-only cooldown. These are validation RMSE curves with no
+additional smoothing; lower is better. The [per-field curves and analysis](training-curve-stability.md)
+separate SST and SSH at each lead and quantify sensitivity to validation dates.
+
 ## Daily observation forecasts
 
 | Lead | SST mixed / OBS-only / persistence (°C) | SSH mixed / OBS-only / persistence (m) |
@@ -77,7 +85,8 @@ The best validation-selected mixed EMA occurs at update 11,000 (0.023007).
 The control's best occurs at 10,900 (0.019343); the fixed 11,000 comparison above
 does not substitute that selected checkpoint. Selection spans updates 2,100
 through 11,000. One seed and eight origins give a descriptive comparison;
-there are no uncertainty intervals or test-period results.
+the linked date-resampling analysis does not estimate uncertainty across training
+seeds or provide independent test-period results.
 
 ## Cooldown and LLC diagnostics
 

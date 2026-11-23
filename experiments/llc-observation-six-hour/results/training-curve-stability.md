@@ -33,6 +33,18 @@ same joint origin/target observation support. The
 [long-run report](long-training-comparison.md) gives normalization, split and
 exposure definitions; lower error is better throughout.
 
+![Validation normalized RMSE over all 11,000 updates and a late-training zoom](https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/experiments/llc-observation-six-hour/validation-curves-20261123-e1c1cc8d4ed1/validation-training-overview.png)
+
+The left panel retains the transient spikes on a logarithmic axis; the right
+panel expands late training on a linear axis. Lower RMSE is better. The shaded
+interval marks the 1,000-update observation-only cooldown and EMA reset.
+
+![SST and SSH validation RMSE at 24, 48, and 72 hours throughout training](https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/experiments/llc-observation-six-hour/validation-curves-20261123-e1c1cc8d4ed1/validation-training-fields.png)
+
+Each panel compares the same field and forecast lead for both arms with
+persistence. These are physical-unit validation RMSE curves, not the training
+objective. The logarithmic axes retain the full spikes without clipping.
+
 Mixed training spikes near updates 3,400 and 6,700–6,800. OBS-only spikes near
 4,900–5,000, temporarily reversing the ranking. Both SST and SSH show these
 transients. Validation reuses fixed dates, so a changing draw of validation dates
@@ -81,7 +93,12 @@ uv run python experiments/llc-observation-six-hour/plot_validation_curves.py \
 The output contains PNG and SVG versions of `validation-training-overview` and
 `validation-training-fields`, a combined aggregate CSV, paired variable/lead CSV,
 origin sensitivity CSV, and a JSON summary with input hashes. Rendered images stay
-outside Git. The source histories are
+outside Git. Published artifacts include [overview SVG](https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/experiments/llc-observation-six-hour/validation-curves-20261123-e1c1cc8d4ed1/validation-training-overview.svg),
+[field SVG](https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/experiments/llc-observation-six-hour/validation-curves-20261123-e1c1cc8d4ed1/validation-training-fields.svg),
+[aggregate CSV](https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/experiments/llc-observation-six-hour/validation-curves-20261123-e1c1cc8d4ed1/validation-training-aggregate.csv),
+[paired field/lead CSV](https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/experiments/llc-observation-six-hour/validation-curves-20261123-e1c1cc8d4ed1/validation-training-paired.csv), and
+[summary with input hashes](https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/experiments/llc-observation-six-hour/validation-curves-20261123-e1c1cc8d4ed1/validation-training-summary.json).
+The source histories are
 [mixed initial](mixed-observation-validation.csv),
 [mixed continuation](mixed-long-observation-validation.csv),
 [OBS-only initial](obs-only-validation.csv), and

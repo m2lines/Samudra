@@ -34,8 +34,8 @@ stores and the only one the Rust loader reads. `virtualize_om4.py` is the except
 so it runs in its own environment (`uv run --script`), and its Kerchunk references still carry Zarr v2 metadata.
 
 The data tests import `samudra.invariants`, the ocean-physics checks shared with the model and the store audits, so
-every data environment installs `samudra` from this checkout as well. The checks import only NumPy, xarray and
-cftime.
+every data environment installs `samudra` from this checkout as well, torch included. The checks share the model's
+physical constants (`samudra.constants`) rather than copying them.
 
 `data/README.md` documents the pipeline stages, CLIs, and observation workflow. `docs/data.md` lists the published
 datasets. Read those before changing a pipeline stage. This file covers only what an agent needs before starting.

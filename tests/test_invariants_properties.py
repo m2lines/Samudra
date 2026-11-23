@@ -104,7 +104,7 @@ def test_sphere_area_accepts_the_right_radius_only(ny, nx, radius):
         geometry.rectilinear_cell_area(lat_b, lon_b, radius), dims=("y", "x")
     )
     assert geometry.sphere_area(area, radius=radius, rtol=1e-9) == []
-    assume(abs(radius - geometry.EARTH_MEAN_RADIUS_M) > 1e3)
+    assume(abs(radius - geometry.EARTH_RADIUS_M) > 1e3)
     assert geometry.sphere_area(area, rtol=1e-4) != []
 
 
@@ -368,14 +368,3 @@ def test_band_spectrum_refuses_curvilinear_rows_and_extra_dimensions():
         conservation.band_zonal_spectrum(
             field.expand_dims(time=2), edges, (-60.0, -56.0)
         )
-
-
-def test_invariant_constants_match_the_model():
-    """`samudra.invariants.core` copies these so the data tests needn't install torch."""
-    from samudra import constants
-    from samudra.invariants import core
-    from samudra.metrics import kernels
-
-    assert core.SEAWATER_DENSITY == constants.RHO_0
-    assert core.SEAWATER_HEAT_CAPACITY == constants.CP_SW
-    assert core.EARTH_MEAN_RADIUS_M == kernels.EARTH_RADIUS_M

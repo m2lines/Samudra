@@ -8,16 +8,12 @@ import numpy as np
 import xarray as xr
 from numpy.typing import ArrayLike
 
-from samudra.invariants.core import (
-    EARTH_MEAN_RADIUS_M,
-    Violation,
-    first_location,
-    relative_difference,
-)
+from samudra.invariants.core import Violation, first_location, relative_difference
+from samudra.metrics.kernels import EARTH_RADIUS_M
 
 
 def sphere_area(
-    area: xr.DataArray, radius: float = EARTH_MEAN_RADIUS_M, rtol: float = 1e-3
+    area: xr.DataArray, radius: float = EARTH_RADIUS_M, rtol: float = 1e-3
 ) -> list[Violation]:
     """A global grid's cell areas sum to the sphere's area, 4 pi R^2."""
     total = float(area.sum())
@@ -36,7 +32,7 @@ def sphere_area(
 
 
 def rectilinear_cell_area(
-    lat_b: ArrayLike, lon_b: ArrayLike, radius: float = EARTH_MEAN_RADIUS_M
+    lat_b: ArrayLike, lon_b: ArrayLike, radius: float = EARTH_RADIUS_M
 ) -> np.ndarray:
     """Exact spherical area of each cell of a regular lat-lon grid, from its (y_b, x_b) vertices."""
     lat = np.deg2rad(np.asarray(lat_b)[:, 0])
@@ -50,7 +46,7 @@ def areas_match_vertices(
     area: xr.DataArray,
     lat_b: xr.DataArray,
     lon_b: xr.DataArray,
-    radius: float = EARTH_MEAN_RADIUS_M,
+    radius: float = EARTH_RADIUS_M,
     rtol: float = 1e-6,
 ) -> list[Violation]:
     """Each cell's area equals the spherical area its vertices enclose (rectilinear grids only)."""

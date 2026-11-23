@@ -21,13 +21,8 @@ import numpy as np
 import xarray as xr
 from numpy.typing import ArrayLike
 
-from samudra.invariants.core import (
-    SEAWATER_DENSITY,
-    SEAWATER_HEAT_CAPACITY,
-    Violation,
-    weighted_mean,
-    weighted_sum,
-)
+from samudra.constants import CP_SW, RHO_0
+from samudra.invariants.core import Violation, weighted_mean, weighted_sum
 
 
 def area_weights(area: xr.DataArray, ocean_fraction: xr.DataArray) -> xr.DataArray:
@@ -44,14 +39,12 @@ def volume_weights(
 
 def heat_content(thetao: xr.DataArray, volume: xr.DataArray, dims) -> xr.DataArray:
     """Heat content relative to 0 C, in J: rho_0 c_p sum(theta dV)."""
-    return (
-        SEAWATER_DENSITY * SEAWATER_HEAT_CAPACITY * weighted_sum(thetao, volume, dims)
-    )
+    return RHO_0 * CP_SW * weighted_sum(thetao, volume, dims)
 
 
 def salt_content(so: xr.DataArray, volume: xr.DataArray, dims) -> xr.DataArray:
     """Salt mass in kg (practical salinity as g/kg): rho_0 sum(S dV) / 1000."""
-    return SEAWATER_DENSITY * weighted_sum(so, volume, dims) / 1000
+    return RHO_0 * weighted_sum(so, volume, dims) / 1000
 
 
 def integral_preserved(

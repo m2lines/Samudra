@@ -5,9 +5,10 @@
 """Ocean-physics invariants as pure functions over xarray objects.
 
 Each check takes data and returns a list of `Violation`s; an empty list means the
-data satisfies the invariant. Nothing here writes, plots, or imports torch, so
-the data pipeline's property tests, the model's tests, and audits of published
-stores can share these checks. `docs/concepts/ocean-physics.md` explains the
+data satisfies the invariant. Nothing here writes or plots, so the data
+pipeline's property tests, the model's tests, and audits of published stores
+can share these checks. They use the model's physical constants
+(`samudra.constants`, `samudra.metrics.kernels`). `docs/concepts/ocean-physics.md` explains the
 physics behind each one.
 
 Checks fall into two groups:

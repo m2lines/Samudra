@@ -11,13 +11,6 @@ from typing import Any
 import numpy as np
 import xarray as xr
 
-# Reference constants, as in docs/concepts/ocean-physics.md. They copy
-# samudra.constants (RHO_0, CP_SW) and samudra.metrics.kernels (EARTH_RADIUS_M)
-# because those modules import torch and pandas, which the data tests don't
-# install; tests/test_invariants_properties.py checks that the copies agree.
-EARTH_MEAN_RADIUS_M = 6_371_000.0
-SEAWATER_DENSITY = 1035.0  # rho_0, kg m-3 (Boussinesq)
-SEAWATER_HEAT_CAPACITY = 3992.0  # c_p, J kg-1 K-1
 SECONDS_PER_DAY = 86_400.0
 
 

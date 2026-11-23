@@ -359,7 +359,9 @@ def test_zonal_spectra_accept_non_nested_rows_and_flag_rescaled_waves(
 
 
 def test_rectilinear_cell_area_refuses_a_curvilinear_grid():
-    lon_b, lat_b = np.meshgrid(np.linspace(0.0, 4.0, 5), np.array([-60.0, -58.0, -56.0]))
+    lon_b, lat_b = np.meshgrid(
+        np.linspace(0.0, 4.0, 5), np.array([-60.0, -58.0, -56.0])
+    )
     with pytest.raises(ValueError, match="rectilinear"):
         geometry.rectilinear_cell_area(lat_b + np.linspace(0.0, 1.0, 5), lon_b)
 

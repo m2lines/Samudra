@@ -159,6 +159,103 @@ def test_exact_reference_labels_and_score_eligibility(tmp_path, source):
     assert label.startswith(expected) and scored == (source == "llc")
 
 
+def reference_values(plot):
+    return {
+        item.label.value: item.renderers[-1].data_source.data
+        for legend in plot.legend
+        for item in legend.items
+        if item.renderers[-1].name == "selected-reference-points"
+    }
+
+
+def test_llc_auto_and_explicit_observations_agree_across_maps_and_series(tmp_path):
+    from llc import LLCViewer
+
+    c = LLCCatalog(fixture_bundle(tmp_path))
+    r = c.case("test", "obs-20140101")
+    r["source"] = "llc"
+    r["llc_surface_exact"] = [True] * 120
+    r["llc_surface_times"] = r["times"]
+    viewer = LLCViewer(c)
+    viewer.view.value = "surface"
+    viewer.frame.value = 3  # Both real observations and matched LLC are available.
+    assert "LLC matched reference" in viewer.maps[1].title.text
+    groups = reference_values(viewer.series.object)
+    assert list(groups) == ["LLC matched reference"]
+    np.testing.assert_array_equal(
+        groups["LLC matched reference"]["value"], np.full(120, 7)
+    )
+    viewer.reference.value = "observations"
+    assert "Observations" in viewer.maps[1].title.text
+    data = reference_values(viewer.series.object)["Observations"]
+    np.testing.assert_array_equal(
+        np.flatnonzero(np.isfinite(data["value"])), np.arange(3, 120, 4)
+    )
+    assert np.all(data["value"][3::4] == 4)
+    viewer.reference.value = "llc"
+    assert list(reference_values(viewer.series.object)) == ["LLC matched reference"]
+    # Archive gaps must retain context provenance and stay unscored.
+    r["llc_surface_exact"][3] = False
+    r["llc_surface_times"] = list(r["times"])
+    r["llc_surface_times"][3] = "2012-01-02T00:00:00"
+    viewer.refresh()
+    assert "No error map" in viewer.maps[2].title.text
+    context = reference_values(viewer.series.object)[
+        "LLC calendar-date match (different year)"
+    ]
+    assert "2012-01-02" in context["reference"][3]
+    viewer.reference.value = "auto"
+    assert "Observations" in viewer.maps[1].title.text
+
+
+def test_obs_auto_separates_sources_and_explicit_selection_controls_profile(tmp_path):
+    from llc import LLCViewer
+
+    viewer = LLCViewer(LLCCatalog(fixture_bundle(tmp_path)))
+    viewer.view.value = "surface"
+    groups = reference_values(viewer.series.object)
+    assert set(groups) == {"Observations", "LLC calendar-date match (different year)"}
+    obs = np.isfinite(groups["Observations"]["value"])
+    context = np.isfinite(groups["LLC calendar-date match (different year)"]["value"])
+    assert np.all(obs ^ context)
+    assert obs.sum() == 30 and context.sum() == 90
+    viewer.view.value = "interior"
+    viewer.frame.value = 2
+    viewer.depth.value = 20
+    groups = reference_values(viewer.profile.object)
+    obs = next(
+        data for label, data in groups.items() if label.startswith("Observations")
+    )
+    np.testing.assert_array_equal(np.flatnonzero(np.isfinite(obs["value"])), [0])
+    viewer.reference.value = "observations"
+    assert len(reference_values(viewer.profile.object)) == 1
+    assert not reference_values(
+        viewer.series.object
+    )  # No temperature observations at depth20.
+    viewer.variable.value = "so"
+    assert not reference_values(viewer.profile.object)
+    assert "No selected reference" in viewer.profile.object.title.text
+    viewer.reference.value = "llc"
+    groups = reference_values(viewer.profile.object)
+    assert len(groups) == 1
+    data = next(iter(groups.values()))
+    np.testing.assert_array_equal(data["value"], np.full(51, 7))
+    assert "2012-01-02" in data["reference"][0]
+    viewer.lat.value, viewer.lon.value = -60, 22.5  # Land is missing, never invented.
+    assert not reference_values(viewer.profile.object)
+
+
+def test_history_diagnostic_shows_input_window(tmp_path):
+    from llc import LLCViewer
+
+    viewer = LLCViewer(LLCCatalog(fixture_bundle(tmp_path)))
+    viewer.view.value = "history"
+    data = viewer.series.object.renderers[0].data_source.data
+    np.testing.assert_array_equal(data["x"], np.arange(-168, 1, 6) / 24)
+    np.testing.assert_array_equal(data["y"], np.full(29, 3))
+    assert not reference_values(viewer.series.object)
+
+
 URL = os.environ.get("SAMUDRA_LLC_TEST_URL")
 
 

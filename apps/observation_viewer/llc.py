@@ -18,7 +18,7 @@ from bokeh.models import (
 )
 from bokeh.palettes import RdBu11, Viridis256
 from bokeh.plotting import figure
-from llc_data import VARIABLES, LLCCatalog, llc_label
+from llc_data import VARIABLES, LLCCatalog
 
 from data import limits, raster_rows
 
@@ -91,7 +91,7 @@ class LLCViewer:
         self.reference = pn.widgets.Select(
             name="Reference",
             options={
-                "Available OBS, then LLC": "auto",
+                "Auto: matched LLC for LLC cases, otherwise OBS": "auto",
                 "LLC reference / calendar-date context": "llc",
                 "Observations only": "observations",
             },
@@ -364,38 +364,133 @@ class LLCViewer:
         finally:
             self.busy = False
 
+    def plot_references(
+        self, plot, record, view, frames, depths, coordinates, y, x, *, profile=False
+    ):
+        """Plot only references chosen by the same policy as the reference map.
+
+        Keep different sources separate, and leave gaps at unavailable samples.
+        In particular, daily OBS points must not be joined to LLC context.
+        """
+        groups = {}
+        count = len(frames)
+        for i, (frame, depth) in enumerate(zip(frames, depths, strict=True)):
+            values, label, _ = self.catalog.reference(
+                self.model.value,
+                self.case.value,
+                view,
+                frame,
+                self.variable.value,
+                depth,
+                self.reference.value,
+            )
+            value = values[y, x]
+            if not np.isfinite(value):
+                continue
+            kind = label.split(" · ", 1)[0]
+            key = label if profile else kind
+            if key not in groups:
+                groups[key] = dict(
+                    value=np.full(count, np.nan),
+                    reference=[""] * count,
+                    valid_time=[""] * count,
+                )
+            group = groups[key]
+            group["value"][i] = value
+            group["reference"][i] = label
+            group["valid_time"][i] = self.catalog.timestamp(record, view, frame)
+        for label, data in groups.items():
+            observed = label.startswith("Observations")
+            color = "black" if observed else "orange"
+            data.update(
+                x=data["value"] if profile else coordinates,
+                y=coordinates if profile else data["value"],
+            )
+            source = ColumnDataSource(data)
+            renderers = []
+            if not observed:
+                renderers.append(
+                    plot.line(
+                        "x",
+                        "y",
+                        source=source,
+                        legend_label=label,
+                        color=color,
+                        line_width=2,
+                        line_dash="dashed" if "different year" in label else "solid",
+                        name="selected-reference-line",
+                    )
+                )
+            renderers.append(
+                plot.scatter(
+                    "x",
+                    "y",
+                    source=source,
+                    legend_label=label,
+                    color=color,
+                    size=5,
+                    name="selected-reference-points",
+                )
+            )
+            plot.add_tools(
+                HoverTool(
+                    renderers=renderers,
+                    tooltips=[
+                        ("Value", "@value{0.0000}"),
+                        ("Valid time", "@valid_time"),
+                        ("Reference", "@reference"),
+                    ],
+                )
+            )
+        if not groups:
+            plot.title.text += " · No selected reference at this cell"
+
     def diagnostics(self, record, y, x, channel):
         c = self.catalog
         variable = self.variable.value
         point = f"{c.lat[y]:.2f}°N, {c.lon[x]:.2f}°E"
+        mode = self.view.value
         plot = figure(
-            title="Selected cell · " + point,
+            title=("Input history · " if mode == "history" else "Selected cell · ")
+            + point,
+            name="llc-series",
             height=240,
             sizing_mode="stretch_width",
-            x_axis_label="Forecast lead (days)",
+            x_axis_label="Time relative to initialization (days)"
+            if mode == "history"
+            else "Forecast lead (days)",
         )
-        mode = self.view.value
-        if mode in ("surface", "history"):
-            values = c.array(record["prediction"]["surface"])[
+        if mode == "history":
+            values = c.array(record["history"])[
                 :, 0 if variable == "thetao" else 1, y, x
             ]
-            leads = np.arange(1, len(values) + 1) / 4
-            plot.line(leads, values, legend_label="Model", line_width=2)
-            obs = c.array(record["observed_surface"])[
-                :, 0 if variable == "thetao" else 1, y, x
-            ]
-            plot.scatter(leads, obs, legend_label="Observed", color="black", size=5)
+            leads = np.arange(-168, 1, 6) / 24
+            plot.line(leads, values, legend_label="Initializer input", line_width=2)
+            plot.scatter(leads, values, legend_label="Initializer input", size=5)
         else:
-            values = c.array(record["prediction"]["interior"])[:, channel, y, x]
-            plot.line(
-                np.array(record["saved_hours"]) / 24,
-                values,
-                legend_label="Model",
-                line_width=2,
+            series_view = "surface" if mode == "surface" else "interior"
+            index = (0 if variable == "thetao" else 1) if mode == "surface" else channel
+            values = c.array(record["prediction"][series_view])[:, index, y, x]
+            leads = (
+                np.arange(1, len(values) + 1) / 4
+                if mode == "surface"
+                else np.array(record["saved_hours"]) / 24
+            )
+            plot.line(leads, values, legend_label="Model", line_width=2)
+            self.plot_references(
+                plot,
+                record,
+                series_view,
+                list(range(len(values))),
+                [self.depth.value] * len(values),
+                leads,
+                y,
+                x,
             )
         self.series.object = plot
         profile = figure(
             title="Selected-cell depth profile · " + point,
+            name="llc-profile",
             height=330,
             sizing_mode="stretch_width",
             y_range=(float(c.interfaces[-1]), 0),
@@ -405,16 +500,17 @@ class LLCViewer:
             channels = [c.channel(variable, k) for k in range(51)]
             frame = self.frame.value
             values = c.array(record["prediction"][mode])[frame, channels, y, x]
-            context = c.array(record["llc_" + mode])[frame, channels, y, x]
-            exact = record["llc_" + mode + "_exact"][frame]
-            label = (
-                llc_label(exact, record["source"])
-                + " · "
-                + record["llc_" + mode + "_times"][frame]
-            )
             profile.line(values, c.depth, legend_label="Model", line_width=2)
-            profile.line(
-                context, c.depth, legend_label=label, color="orange", line_width=2
+            self.plot_references(
+                profile,
+                record,
+                mode,
+                [frame] * len(c.depth),
+                list(range(len(c.depth))),
+                c.depth,
+                y,
+                x,
+                profile=True,
             )
         self.profile.object = profile
 

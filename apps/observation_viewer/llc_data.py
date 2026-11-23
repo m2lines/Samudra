@@ -80,7 +80,13 @@ class LLCCatalog:
         )
         if view == "history":
             return empty, "Input history: available SST/SSH slots only", False
-        if choice in ("auto", "observations") and surface_channel is not None:
+        matched_llc = (
+            record["source"] == "llc" and record["llc_" + view + "_exact"][frame]
+        )
+        use_observations = choice == "observations" or (
+            choice == "auto" and not matched_llc
+        )
+        if use_observations and surface_channel is not None:
             if view == "initial":
                 observed = self.array(record["observed_initial"])[
                     frame, surface_channel

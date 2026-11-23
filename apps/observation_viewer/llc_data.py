@@ -17,6 +17,16 @@ VARIABLES = {
 }
 
 
+def llc_label(exact, source):
+    if exact:
+        return (
+            "LLC matched reference"
+            if source == "llc"
+            else "LLC contemporaneous context"
+        )
+    return "LLC calendar-date match (different year)"
+
+
 class LLCCatalog:
     def __init__(self, root):
         self.root = Path(root).resolve()
@@ -97,11 +107,7 @@ class LLCCatalog:
         actual = record["llc_" + view + "_times"][frame]
         exact = record["llc_" + view + "_exact"][frame]
         gold = exact and record["source"] == "llc"
-        label = (
-            "LLC matched reference"
-            if gold
-            else ("LLC contemporaneous context" if exact else "LLC seasonal context")
-        )
+        label = llc_label(exact, record["source"])
         return values, label + " · actual " + actual, gold
 
     @staticmethod

@@ -85,12 +85,16 @@ def fixture_bundle(root):
 def test_seasonal_fallback_and_observation_priority(tmp_path):
     c = LLCCatalog(fixture_bundle(tmp_path))
     a, label, scored = c.reference("test", "obs-20140101", "surface", 0, "thetao", 0)
-    assert "LLC seasonal context" in label and "2012-01-01T06" in label and not scored
+    assert (
+        "LLC calendar-date match (different year)" in label
+        and "2012-01-01T06" in label
+        and not scored
+    )
     assert a[1, 1] == 7
     a, label, scored = c.reference("test", "obs-20140101", "surface", 3, "thetao", 0)
     assert label.startswith("Observations") and scored and a[1, 1] == 4
     a, label, scored = c.reference("test", "obs-20140101", "interior", 2, "thetao", 20)
-    assert not scored and "seasonal" in label
+    assert not scored and "calendar-date match" in label
     a, label, scored = c.reference(
         "test", "obs-20140101", "surface", 0, "thetao", 0, "observations"
     )
@@ -103,7 +107,7 @@ def test_ui_controls_preserve_geometry_and_disable_context_error(tmp_path):
     viewer = LLCViewer(LLCCatalog(fixture_bundle(tmp_path)))
     viewer.variable.value = "vo"
     viewer.depth.value = 50
-    assert "seasonal" in viewer.caption.object
+    assert "calendar-date match" in viewer.caption.object
     assert "No error map" in viewer.maps[2].title.text
     assert len(viewer.catalog.depth) == 51
     viewer.view.value = "surface"
@@ -113,6 +117,46 @@ def test_ui_controls_preserve_geometry_and_disable_context_error(tmp_path):
     assert viewer.maps[2].title.text == "Model − reference"
     viewer.frame.value = 119
     assert "+720 h" in viewer.caption.object
+
+
+def test_playback_tracks_saved_frames_and_stops_on_task_change(tmp_path):
+    from llc import LLCViewer
+
+    viewer = LLCViewer(LLCCatalog(fixture_bundle(tmp_path)))
+    assert viewer.player.end == 1
+    viewer.view.value = "surface"
+    assert viewer.player.end == 119
+    viewer.player.value = 3
+    assert viewer.frame.value == 3 and "+24 h" in viewer.caption.object
+    viewer.frame.value = 119
+    assert viewer.player.value == 119
+    viewer.player.direction = 1
+    viewer.view.value = "interior"
+    assert viewer.player.direction == 0 and viewer.player.end == 10
+    viewer.player.value = 10
+    assert "+720 h" in viewer.caption.object
+    viewer.player.value = 5
+    assert "+120 h" in viewer.caption.object
+    viewer.view.value = "history"
+    assert viewer.player.end == 28
+    viewer.player.value = 28
+    assert "lead +0 h" in viewer.caption.object
+    viewer.view.value = "initial"
+    assert viewer.player.end == 1 and viewer.player.value == viewer.frame.value == 0
+
+
+@pytest.mark.parametrize("source", ["llc", "obs"])
+def test_exact_reference_labels_and_score_eligibility(tmp_path, source):
+    c = LLCCatalog(fixture_bundle(tmp_path))
+    record = c.case("test", "obs-20140101")
+    record["source"] = source
+    record["llc_initial_exact"][0] = True
+    record["llc_initial_times"][0] = record["initial_times"][0]
+    _, label, scored = c.reference("test", "obs-20140101", "initial", 0, "so", 20)
+    expected = (
+        "LLC matched reference" if source == "llc" else "LLC contemporaneous context"
+    )
+    assert label.startswith(expected) and scored == (source == "llc")
 
 
 URL = os.environ.get("SAMUDRA_LLC_TEST_URL")
@@ -140,7 +184,9 @@ def test_llc_browser():
         expect(page.locator(".llc-frame select")).to_have_value(
             "+720 h · 2014-01-31T00:00:00"
         )
-        expect(page.locator(".llc-caption")).to_contain_text("LLC seasonal context")
+        expect(page.locator(".llc-caption")).to_contain_text(
+            "LLC calendar-date match (different year)"
+        )
         history = page.evaluate("history.length")
         page.locator(".llc-task select").select_option(label="Surface rollout")
         page.wait_for_function(
@@ -159,5 +205,33 @@ def test_llc_browser():
         expect(second.locator(".llc-frame select")).to_have_value(
             "+720 h · 2014-01-31T00:00:00", timeout=60000
         )
+        # Exercise the actual draggable control and buttons over the WebSocket.
+        slider = page.locator('.llc-player input[type="range"]')
+        expect(slider).to_have_value("119")
+        slider.focus()
+        slider.press("Home")
+        expect(page.locator(".llc-caption")).to_contain_text("+6 h")
+        slider.press("ArrowRight")
+        expect(page.locator(".llc-caption")).to_contain_text("+12 h")
+        box = slider.bounding_box()
+        page.mouse.move(box["x"] + 3, box["y"] + box["height"] / 2)
+        page.mouse.down()
+        page.mouse.move(
+            box["x"] + box["width"] - 3, box["y"] + box["height"] / 2, steps=8
+        )
+        page.mouse.up()
+        expect(slider).to_have_value("119")
+        expect(page.locator(".llc-caption")).to_contain_text("+720 h")
+        page.locator(".llc-player button.first").click()
+        expect(slider).to_have_value("0")
+        page.locator(".llc-player button.play").click()
+        page.wait_for_function("new URL(location.href).searchParams.get('frame') >= 2")
+        page.locator(".llc-player button.pause").click()
+        page.locator(".llc-task select").select_option(label="Interior rollout")
+        expect(slider).to_have_attribute("max", "10")
+        page.locator(".llc-player button.last").click()
+        expect(page.locator(".llc-caption")).to_contain_text("+720 h")
+        page.locator(".llc-player button.previous").click()
+        expect(page.locator(".llc-caption")).to_contain_text("+600 h")
         assert not errors
         browser.close()

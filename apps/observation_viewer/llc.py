@@ -18,7 +18,7 @@ from bokeh.models import (
 )
 from bokeh.palettes import RdBu11, Viridis256
 from bokeh.plotting import figure
-from llc_data import VARIABLES, LLCCatalog
+from llc_data import VARIABLES, LLCCatalog, llc_label
 
 from data import limits, raster_rows
 
@@ -72,11 +72,27 @@ class LLCViewer:
         self.frame = pn.widgets.Select(
             name="Valid time / forecast lead", css_classes=["llc-frame"]
         )
+        self.player = pn.widgets.Player(
+            name="Scrub / play saved frames",
+            start=0,
+            end=1,
+            value=0,
+            interval=900,
+            loop_policy="once",
+            show_loop_controls=False,
+            show_value=False,
+            height=85,
+            sizing_mode="stretch_width",
+            visible_buttons=["first", "previous", "pause", "play", "next", "last"],
+            css_classes=["llc-player"],
+        )
+        self.player.param.watch(self.play, "value")
+        self.timeline = pn.Column(self.player, margin=0)
         self.reference = pn.widgets.Select(
             name="Reference",
             options={
                 "Available OBS, then LLC": "auto",
-                "LLC reference / seasonal context": "llc",
+                "LLC reference / calendar-date context": "llc",
                 "Observations only": "observations",
             },
             css_classes=["llc-reference"],
@@ -96,6 +112,7 @@ class LLCViewer:
                 min_width=280,
                 tools="pan,wheel_zoom,reset,tap",
                 title="Loading",
+                name=f"llc-map-{i}",
             )
             plot.js_on_change(
                 "inner_width",
@@ -119,6 +136,8 @@ class LLCViewer:
                 dh="dh",
                 source=source,
                 nonselection_alpha=1,
+                # Round strips outward to avoid subpixel gaps between native rows.
+                dilate=True,
             )
             mapper = LinearColorMapper(
                 palette=Viridis256 if i < 2 else list(reversed(RdBu11)), low=0, high=1
@@ -190,6 +209,10 @@ class LLCViewer:
         self.restoring = False
         self.refresh()
 
+    def play(self, event):
+        if not self.busy and event.obj is self.player:
+            self.frame.value = event.new
+
     def tap(self, event):
         self.busy = True
         self.lat.value, self.lon.value = event.y, event.x % 360
@@ -206,11 +229,17 @@ class LLCViewer:
         elif values:
             widget.value = values[0]
 
-    def refresh(self, *_):
+    def refresh(self, *events):
         if self.busy:
             return
         self.busy = True
         try:
+            if any(
+                event.obj is control
+                for event in events
+                for control in (self.model, self.case, self.view)
+            ):
+                self.player.direction = 0
             c = self.catalog
             model = c.models[self.model.value]
             self.options(
@@ -256,6 +285,17 @@ class LLCViewer:
                     for i, (h, t) in enumerate(zip(hours, r[frame_key], strict=True))
                 },
             )
+            if self.player.end != len(hours) - 1:
+                # Panel's Player does not update its HTML slider bounds after
+                # construction. A new timeline keeps dragging within saved frames.
+                self.player.direction = 0
+                self.player = self.player.clone(
+                    end=len(hours) - 1, value=self.frame.value, direction=0
+                )
+                self.player.param.watch(self.play, "value")
+                self.timeline.objects = [self.player]
+            else:
+                self.player.value = self.frame.value
             args = (
                 self.model.value,
                 self.case.value,
@@ -297,7 +337,7 @@ class LLCViewer:
             )
             self.diagnostics(r, y, x, channel)
             identity = model["identity"]
-            self.details.object = f"### What is this task?\nThe initializer takes one week of SST/SSH surface inputs and ERA5 atmospheric forcing (29 frames, six hours apart), then infers two complete ocean states six hours apart. The forecast runs continuously through day 30; the first three days reproduce the training validation task. Interior snapshots are saved at selected leads. LLC seasonal context matches month, day and hour in an available archive year; its actual date is displayed.\n\n### What is this model?\n{model['label']}: Exponentially averaged model weights (EMA) at update {identity['updates']:,}. The 51 LLC depth levels reach about 946 m; fields are eastward/northward velocity, temperature, salinity and sea surface height (SSH), driven by ERA5. Observations supervise daily sea surface temperature (SST) and SSH; no interior temperature, salinity or velocity observations are provided. The OBS-only model's LLC task adapter has no LLC training.\n\nCheckpoint SHA-256: `{identity['checkpoint_sha256']}`."
+            self.details.object = f"### What is this task?\nThe initializer takes one week of SST/SSH surface inputs and ERA5 atmospheric forcing (29 frames, six hours apart), then infers two complete ocean states six hours apart. The forecast runs continuously through day 30; the first three days reproduce the training validation task. Interior snapshots are saved at selected leads. LLC calendar-date context matches month, day and hour in a different year; its actual timestamp is displayed. Drag the timeline or use playback to browse saved frames. Surface frames are six hours apart; interior frames have irregular saved leads, shown in the time selector.\n\n### What is this model?\n{model['label']}: Exponentially averaged model weights (EMA) at update {identity['updates']:,}. The 51 LLC depth levels reach about 946 m; fields are eastward/northward velocity, temperature, salinity and sea surface height (SSH), driven by ERA5. Observations supervise daily sea surface temperature (SST) and SSH; no interior temperature, salinity or velocity observations are provided. The OBS-only model's LLC task adapter has no LLC training.\n\nCheckpoint SHA-256: `{identity['checkpoint_sha256']}`."
             if not self.restoring:
                 import json
 
@@ -368,7 +408,7 @@ class LLCViewer:
             context = c.array(record["llc_" + mode])[frame, channels, y, x]
             exact = record["llc_" + mode + "_exact"][frame]
             label = (
-                ("LLC matched" if exact else "LLC seasonal")
+                llc_label(exact, record["source"])
                 + " · "
                 + record["llc_" + mode + "_times"][frame]
             )
@@ -389,6 +429,7 @@ class LLCViewer:
                 self.variable,
                 self.depth,
                 self.frame,
+                self.timeline,
                 self.reference,
                 self.lat,
                 self.lon,

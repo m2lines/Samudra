@@ -95,7 +95,7 @@ def test_transplant_refuses_wfo_in_another_calendar(axis, calendar):
         for t in donor.time.values
     ]
     donor = donor.assign_coords(time=relabeled)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="calendar"):
         transplant_wfo(recipient, donor, donor_path="donor.zarr")
 
 

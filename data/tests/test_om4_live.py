@@ -27,6 +27,7 @@ import pytest
 import xarray as xr
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
+from ocean_preprocessing.__main__ import recorded_arguments
 
 from samudra.invariants import (
     InvariantViolated,
@@ -41,6 +42,7 @@ from samudra.invariants import (
     timeaxis,
 )
 from samudra.invariants.core import Violation, weighted_mean
+from tests.ocean_strategies import OM4_INTERFACES
 
 pytestmark = [pytest.mark.om4_live, pytest.mark.invariant(status="agreed")]
 
@@ -48,7 +50,6 @@ OSN = "https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra"
 RELEASE = os.environ.get("SAMUDRA_OM4_RELEASE", "v2026-09")
 RESOLUTIONS = ("onedeg", "halfdeg", "quarterdeg")
 LEVELS = 19
-STEPS = 4745
 SEAM_X = 60.5  # 1 degree column at OM4's longitude seam (xh starts at -300)
 live = settings(
     max_examples=int(os.environ.get("SAMUDRA_OM4_LIVE_EXAMPLES", "3")),
@@ -78,7 +79,8 @@ def boundary_steps() -> list[int]:
 
 # Half the draws land on a year boundary. Deferred, so collection reads nothing.
 steps = st.one_of(
-    st.integers(0, STEPS - 1), st.deferred(lambda: st.sampled_from(boundary_steps()))
+    st.deferred(lambda: st.integers(0, len(time_axis()) - 1)),
+    st.deferred(lambda: st.sampled_from(boundary_steps())),
 )
 
 
@@ -90,11 +92,15 @@ def stacked(ds: xr.Dataset, base: str, t: int | None) -> xr.DataArray:
     return xr.concat(levels, dim="lev").load()
 
 
-def volume(ds: xr.Dataset) -> xr.DataArray:
+@functools.cache
+def volume(resolution: str) -> xr.DataArray:
+    ds = store(resolution)
     return conservation.volume_weights(ds.areacello, ds.ocean_fraction, ds.dz).load()
 
 
-def surface_area(ds: xr.Dataset) -> xr.DataArray:
+@functools.cache
+def surface_area(resolution: str) -> xr.DataArray:
+    ds = store(resolution)
     return (ds.areacello * ds.ocean_fraction.isel(lev=0)).load()
 
 
@@ -129,7 +135,11 @@ def test_store_ocean_fraction_is_zero_on_land(resolution):
     )
 
 
-@pytest.mark.xfail(strict=True, reason="#972: areacello uses the polar radius, 6356 km")
+@pytest.mark.xfail(
+    strict=True,
+    raises=InvariantViolated,
+    reason="#972: areacello uses the polar radius, 6356 km",
+)
 @pytest.mark.parametrize("resolution", RESOLUTIONS)
 def test_store_cells_tile_the_sphere(resolution):
     require_no_violations(
@@ -139,15 +149,11 @@ def test_store_cells_tile_the_sphere(resolution):
 
 @pytest.mark.parametrize("resolution", RESOLUTIONS)
 def test_store_layers_tile_the_om4_column(resolution):
+    """The store's dz and lev fit OM4's 19 nominal layers, 0 to 6500 m. The store has no ilev."""
     ds = store(resolution)
-    dz = ds.dz.values
-    ilev = np.concatenate([[0.0], np.cumsum(dz)])
-    found = geometry.layer_thickness(dz, ilev, ds.lev.values)
-    if ilev[-1] != 6500:
-        found.append(
-            Violation("geometry.column_depth", f"layers sum to {ilev[-1]} m, not 6500")
-        )
-    require_no_violations(found)
+    require_no_violations(
+        geometry.layer_thickness(ds.dz.values, OM4_INTERFACES, ds.lev.values)
+    )
 
 
 @pytest.mark.parametrize("resolution", RESOLUTIONS)
@@ -176,7 +182,7 @@ def test_store_sea_level_has_no_global_mean(resolution, t):
     ds = store(resolution)
     require_no_violations(
         budgets.area_mean_sea_level(
-            ds.zos.isel(time=t).load(), surface_area(ds), atol=0.01
+            ds.zos.isel(time=t).load(), surface_area(resolution), atol=0.01
         )
     )
 
@@ -200,10 +206,11 @@ def test_store_coasts_are_not_diluted_by_land(resolution, t):
     )
 
 
-def integrals(ds: xr.Dataset, t: int) -> dict[str, float]:
+def integrals(resolution: str, t: int) -> dict[str, float]:
     """Linear integrals that conservative regridding preserves."""
-    v = volume(ds)
-    a = surface_area(ds)
+    ds = store(resolution)
+    v = volume(resolution)
+    a = surface_area(resolution)
     thetao, so = stacked(ds, "thetao", t), stacked(ds, "so", t)
     sst = ds.thetao_0.isel(time=t).load()
     return {
@@ -222,7 +229,7 @@ def integrals(ds: xr.Dataset, t: int) -> dict[str, float]:
 @given(t=steps)
 def test_resolutions_agree_on_linear_integrals(t):
     """The three stores share one source, so conservative regridding leaves these equal."""
-    totals = {r: integrals(store(r), t) for r in RESOLUTIONS}
+    totals = {r: integrals(r, t) for r in RESOLUTIONS}
     found = []
     for name in totals["onedeg"]:
         values = {r: totals[r][name] for r in RESOLUTIONS}
@@ -254,9 +261,9 @@ def test_coarsening_never_adds_variance_or_extremes(t):
             )
             found += conservation.variance_not_increased(
                 f,
-                surface_area(fine),
+                surface_area(fine_r),
                 c,
-                surface_area(coarse),
+                surface_area(coarse_r),
                 f"{name}_{fine_r}_to_{coarse_r}",
                 rtol=1e-4,
             )
@@ -264,8 +271,10 @@ def test_coarsening_never_adds_variance_or_extremes(t):
         ke_coarse = 0.5 * (
             coarse.uo_0.isel(time=t) ** 2 + coarse.vo_0.isel(time=t) ** 2
         )
-        mean_fine = float(weighted_mean(ke_fine, surface_area(fine), ["y", "x"]))
-        mean_coarse = float(weighted_mean(ke_coarse, surface_area(coarse), ["y", "x"]))
+        mean_fine = float(weighted_mean(ke_fine, surface_area(fine_r), ["y", "x"]))
+        mean_coarse = float(
+            weighted_mean(ke_coarse, surface_area(coarse_r), ["y", "x"])
+        )
         if mean_coarse > mean_fine * (1 + 1e-4):
             found.append(
                 Violation(
@@ -315,8 +324,8 @@ def yearly_budget(
     layer, a 1 cm change in sea level reads as a 3e-6 change in total salt.
     """
     ds = store(resolution).isel(time=slice(start, start + 75))
-    v = volume(store(resolution))
-    a = surface_area(store(resolution))
+    v = volume(resolution)
+    a = surface_area(resolution)
     names = [f"{base}_{k}" for base in ("thetao", "so") for k in range(LEVELS)]
     heat, flux, salt = [], [], []
     for t in range(ds.sizes["time"]):
@@ -332,7 +341,10 @@ def yearly_budget(
     return np.array(heat), np.array(flux), np.array(salt), seconds
 
 
-years = st.integers(0, STEPS // 73 - 2).map(lambda year: 73 * year)
+# Whole years with a step to spare at each end. Deferred, so collection reads nothing.
+years = st.deferred(
+    lambda: st.integers(0, len(time_axis()) // timeaxis.OM4_STEPS_PER_YEAR - 2)
+).map(lambda year: timeaxis.OM4_STEPS_PER_YEAR * year)
 
 
 @live
@@ -373,7 +385,7 @@ def test_salt_is_conserved(start):
 def test_surface_currents_follow_the_wind_like_ekman_drift(t):
     """Proposed: geostrophic currents may mask Ekman drift in a single 5-day mean."""
     ds = store("onedeg").isel(time=t)
-    a = surface_area(store("onedeg"))
+    a = surface_area("onedeg")
     args = (ds.tauuo.load(), ds.tauvo.load(), ds.uo_0.load(), ds.vo_0.load())
     require_no_violations(
         coupling.stress_and_current_aligned(*args, a)
@@ -389,7 +401,7 @@ def test_heat_budget_residual_is_the_same_at_every_resolution(start):
     for r in RESOLUTIONS:
         heat, flux, _, seconds = yearly_budget(r, start)
         tendency = budgets.central_tendency(heat, seconds)
-        ocean_area = float(surface_area(store(r)).sum())
+        ocean_area = float(surface_area(r).sum())
         residuals[r] = float(np.nanmean(tendency - flux) / ocean_area)
     require_no_violations(
         budgets.residuals_agree(residuals, "heat_budget_w_m2", atol=0.05)
@@ -404,14 +416,10 @@ def test_current_pipeline_reproduces_the_release(tmp_path):
     ``--small_run`` and a local output path.
     """
     published = store("onedeg")
-    recorded = published.attrs["m2lines/cli_args"].split()
-    args = [
-        a
-        for a in recorded[1:]
-        if not a.startswith(
-            ("--output_path", "--cluster", "--n_workers", "--threads_per_worker")
-        )
-    ]
+    args = recorded_arguments(
+        published.attrs["m2lines/cli_args"],
+        frozenset({"output_path", "cluster", "n_workers", "threads_per_worker"}),
+    )
     output = tmp_path / "rerun.zarr"
     subprocess.run(
         [
@@ -436,7 +444,12 @@ def test_current_pipeline_reproduces_the_release(tmp_path):
     seam_fixed = frozenset(
         name for name in rerun.data_vars if name == "tauuo" or name.startswith("uo_")
     )
-    off_seam = rerun.x != SEAM_X
+    seam = int(np.abs(rerun.x.values - SEAM_X).argmin())
+    if abs(float(rerun.x[seam]) - SEAM_X) > 0.5:
+        raise ValueError(
+            f"no column of the rerun lies within half a degree of {SEAM_X}"
+        )
+    off_seam = xr.DataArray(np.arange(rerun.sizes["x"]) != seam, dims="x")
     require_no_violations(
         releases.stores_agree(
             reference,

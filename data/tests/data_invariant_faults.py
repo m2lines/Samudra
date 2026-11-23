@@ -85,6 +85,17 @@ FAULTS = (
         ),
     ),
     Fault(
+        # A donor in another calendar used to fail deep inside cftime with a TypeError.
+        "wfo_donor_calendar_unchecked",
+        OM4,
+        "if donor_calendars != recipient_calendars:",
+        "if False:",
+        detectors(
+            "test_time_properties",
+            "test_transplant_refuses_wfo_in_another_calendar",
+        ),
+    ),
+    Fault(
         "supergrid_centres_on_corners",
         OM4,
         "h_indicies = dict(nyp=slice(1, None, 2), nxp=slice(1, None, 2))",

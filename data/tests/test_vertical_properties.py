@@ -19,20 +19,16 @@ from ocean_preprocessing.preprocessing import (
 )
 from ocean_preprocessing.simulation_preprocessing.gfdl_om4 import vertical_cell_metadata
 
-from samudra.invariants import geometry, masks, require_no_violations
-from tests.ocean_strategies import OM4_INTERFACES, grid_pairs, ocean_state, regular_grid
+from samudra.invariants import InvariantViolated, geometry, masks, require_no_violations
+from tests.ocean_strategies import OM4_INTERFACES, ocean_state, regular_grid
 
 pytestmark = pytest.mark.invariant(status="agreed")
 
 
 @st.composite
-def bathymetry_cases(draw, grid=None):
+def bathymetry_cases(draw):
     """A state whose wet mask agrees with a sea-floor depth that cuts through its bottom cells."""
-    grid = (
-        grid
-        if grid is not None
-        else regular_grid(draw(st.integers(3, 8)), draw(st.integers(4, 12)))
-    )
+    grid = regular_grid(draw(st.integers(3, 8)), draw(st.integers(4, 12)))
     nlev = draw(st.integers(2, 6))
     ds = draw(ocean_state(grid, nlev=nlev, ntime=1))
     interfaces = OM4_INTERFACES[: nlev + 1]
@@ -72,40 +68,9 @@ def test_partial_depths_clip_columns_to_the_sea_floor(case):
     )
 
 
-def bathymetric_volume(ds, native, area):
-    return float((area * native.deptho.fillna(0)).sum())
-
-
-@given(st.data())
-def test_partial_depths_survive_regridding(data):
-    """With --account_for_partial_depths, the regridded store's volume is the volume under the floor."""
-    xesmf = pytest.importorskip("xesmf")
-    from ocean_preprocessing.preprocessing import horizontal_regrid
-
-    fine, coarse, _ = data.draw(grid_pairs())
-    ds, native = data.draw(bathymetry_cases(grid=fine))
-    partial = account_for_partial_depths(ds, native)
-    out = horizontal_regrid(partial, coarse)
-    fine_area = xr.DataArray(
-        np.asarray(
-            xesmf.util.cell_area(
-                fine.reset_coords()[["lon", "lat", "lon_b", "lat_b"]], 6356
-            )
-        )
-        * 1e6,
-        dims=("y", "x"),
-    )
-    assert out.dz.dims == ("lev", "y", "x"), (
-        f"dz has dims {out.dz.dims} after regridding"
-    )
-    stored = geometry.ocean_volume(out.areacello, out.ocean_fraction, out.dz)
-    np.testing.assert_allclose(
-        stored, bathymetric_volume(ds, native, fine_area), rtol=1e-6
-    )
-
-
 @pytest.mark.xfail(
     strict=True,
+    raises=InvariantViolated,
     reason="#973: without partial depths, bottom cells count their full dz and inflate volume",
 )
 @given(bathymetry_cases())

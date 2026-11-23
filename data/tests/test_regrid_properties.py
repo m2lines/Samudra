@@ -15,7 +15,13 @@ import xarray as xr
 from hypothesis import given
 from hypothesis import strategies as st
 
-from samudra.invariants import conservation, geometry, masks, require_no_violations
+from samudra.invariants import (
+    InvariantViolated,
+    conservation,
+    geometry,
+    masks,
+    require_no_violations,
+)
 from tests.ocean_strategies import grid_pairs, ocean_state, regular_grid
 
 xesmf = pytest.importorskip("xesmf")
@@ -155,6 +161,7 @@ def test_regrid_masks_agree_with_fields_and_fractions(case):
 
 @pytest.mark.xfail(
     strict=True,
+    raises=InvariantViolated,
     reason="#972: horizontal_regrid computes areacello with the polar radius, 6356 km",
 )
 @given(st.integers(3, 12), st.integers(4, 24))

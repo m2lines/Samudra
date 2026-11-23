@@ -68,7 +68,7 @@ jobs:
             echo "- \`$project\` mutation gate: **$run** ($why)" >> "$GITHUB_STEP_SUMMARY"
           done <<'PROJECTS'
           root tests pyproject\.toml$|uv\.lock$|tests/conftest\.py$
-          data data/tests data/pyproject\.toml$|data/tests/conftest\.py$|src/samudra/invariants/
+          data data/tests data/pyproject\.toml$|data/tests/conftest\.py$|src/samudra/invariants/|pyproject\.toml$
           PROJECTS
 
   root:
@@ -107,8 +107,9 @@ jobs:
     needs: plan
     if: needs.plan.outputs.data == 'true'
     runs-on: ubuntu-latest
-    # Worst case: controls take 3 seeds x 13 detectors x 60 s (39 min), then mutants
-    # share 600 s (10 min). The rest covers the install. Recompute when adding detectors.
+    # Worst case: controls take 3 seeds x 11 distinct detectors x 60 s (33 min), then
+    # mutants share 600 s (10 min). The rest covers the install. Recompute when adding
+    # detectors.
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262

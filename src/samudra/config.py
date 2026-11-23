@@ -61,10 +61,14 @@ from samudra.models.modules.blocks import ZonallyPeriodicBilinearUpsample
 from samudra.models.modules.encoder import patch_from
 from samudra.post_train_eval import CheckpointSweep
 from samudra.utils.data import (
+    CanonicalReader,
     CanonicalSource,
     DataBundle,
     SourceSplits,
+    XarrayCanonicalReader,
     compute_anomalies,
+    expand_compact_levels,
+    extract_wet_mask,
     flatten_masks,
     get_anomalies_vars,
     with_lat_lon_coords,
@@ -212,7 +216,7 @@ class LlcTimeConfig(BaseConfig):
         return slice(self.start, self.end)
 
     def overlaps(self, other: Self) -> bool:
-        return bool(self.start < other.end and self.end > other.start)
+        return bool(self.start <= other.end and self.end >= other.start)
 
     def __str__(self) -> str:
         return f"{self.start} to {self.end}"
@@ -340,25 +344,27 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
             means,
             stds,
         )
-        source = CanonicalSource.from_datasets(
-            data,
-            means,
-            stds,
-            data_layout=data_layout,
-            prognostic_var_names=data_layout.prognostic_var_names,
-            boundary_var_names=data_layout.boundary_var_names,
-            name=f"{resolved_data_location}-{turn_on_dask}",
-            reader_factory=(
-                None
-                if turn_on_dask
-                else partial(
-                    source_backend.build_reader,
-                    data_location=resolved_data_location,
-                    data_layout=data_layout,
-                )
-            ),
+        channels = tuple(
+            dict.fromkeys(
+                (*data_layout.prognostic_var_names, *data_layout.boundary_var_names)
+            )
         )
-        return source
+        xarray_reader = XarrayCanonicalReader.from_datasets(data, means, stds, channels)
+        reader: CanonicalReader = xarray_reader
+        if not turn_on_dask:
+            reader = source_backend.build_reader(
+                xarray_reader,
+                data_location=resolved_data_location,
+                data_layout=data_layout,
+            )
+        return CanonicalSource(
+            name=f"{resolved_data_location}-{turn_on_dask}",
+            _reader=reader,
+            masks=extract_wet_mask(
+                data, data_layout.prognostic_var_names, data_layout.boundary_var_names
+            ),
+            data_layout=data_layout,
+        )
 
 
 class CpuDataLoadingConfig(BaseConfig):
@@ -523,7 +529,7 @@ class Om4FamilyDataSourceConfig[Om4FamilyTimeConfigT: Om4TimeConfig | Cm4TimeCon
         means: xr.Dataset,
         stds: xr.Dataset,
     ) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset, DataLayout]:
-        """Convert raw flat or compact OM4 xarray inputs to canonical channels."""
+        """Normalize OM4 coordinates and statistics while retaining compact arrays."""
         data_layout = self.build_layout()
         data = data.copy()
         means = means.copy()
@@ -539,23 +545,9 @@ class Om4FamilyDataSourceConfig[Om4FamilyTimeConfigT: Om4TimeConfig | Cm4TimeCon
         if anomalies_vars:
             data, means, stds = compute_anomalies(data, means, stds, anomalies_vars)
 
-        def expand_levels(dataset: xr.Dataset) -> xr.Dataset:
-            canonical = xr.Dataset(attrs=dataset.attrs)
-            for name, coordinate in dataset.coords.items():
-                if "lev" not in coordinate.dims:
-                    canonical = canonical.assign_coords({name: coordinate})
-            for name, variable in dataset.data_vars.items():
-                if "lev" not in variable.dims:
-                    canonical[str(name)] = variable
-                    continue
-                for level in range(variable.sizes["lev"]):
-                    canonical[f"{name}_{level}"] = variable.isel(lev=level, drop=True)
-            return canonical
-
-        canonical_data = expand_levels(data)
-        canonical_means = expand_levels(means)
-        canonical_stds = expand_levels(stds)
-        return canonical_data, canonical_means, canonical_stds, data_layout
+        canonical_means = expand_compact_levels(means)
+        canonical_stds = expand_compact_levels(stds)
+        return data, canonical_means, canonical_stds, data_layout
 
 
 class Om4DataSourceConfig(Om4FamilyDataSourceConfig[Om4TimeConfig]):
@@ -578,17 +570,12 @@ class Cm4DataSourceConfig(Om4FamilyDataSourceConfig[Cm4TimeConfig]):
 
 class LlcDataSourceConfig(BaseDataSourceConfig[LlcTimeConfig]):
     type: Literal["llc"] = "llc"
-    prognostic_vars_key: str = "single_1"
-    boundary_vars_key: str = "single_1"
-    face: int = Field(default=1, ge=0)
-    i_start: int = Field(default=0, ge=0)
-    i_end: int = Field(default=720, gt=0)
-    j_start: int = Field(default=0, ge=0)
-    j_end: int = Field(default=720, gt=0)
+    prognostic_vars_key: str = "all"
+    boundary_vars_key: str = "all"
 
     @property
     def grid_type(self) -> GridType:
-        return "llc"
+        return "gaussian"
 
     @pydantic.model_validator(mode="after")
     def validate_time_splits(self) -> Self:
@@ -597,14 +584,6 @@ class LlcDataSourceConfig(BaseDataSourceConfig[LlcTimeConfig]):
                 f"Training time range {self.train_time} overlaps "
                 f"with validation time range {self.val_time}"
             )
-        return self
-
-    @pydantic.model_validator(mode="after")
-    def validate_crop_bounds(self) -> Self:
-        if self.i_end <= self.i_start:
-            raise ValueError("LLC crop bounds must satisfy i_start < i_end")
-        if self.j_end <= self.j_start:
-            raise ValueError("LLC crop bounds must satisfy j_start < j_end")
         return self
 
     def build_layout(self) -> DataLayout:
@@ -620,11 +599,6 @@ class LlcDataSourceConfig(BaseDataSourceConfig[LlcTimeConfig]):
             data,
             means,
             stds,
-            face=self.face,
-            i_start=self.i_start,
-            i_end=self.i_end,
-            j_start=self.j_start,
-            j_end=self.j_end,
             prognostic_vars_key=self.prognostic_vars_key,
             boundary_vars_key=self.boundary_vars_key,
         )

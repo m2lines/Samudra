@@ -21,7 +21,7 @@ This project follows the [M2LInES _Code of Conduct_](https://m2lines.github.io/p
 <summary><strong>TL;DR</strong></summary>
 
 ```shell
-git clone git@github.com:m2lines/Samudra.git
+git clone --filter=blob:none git@github.com:m2lines/Samudra.git
 cd Samudra
 uv sync --dev
 source .venv/bin/activate
@@ -49,15 +49,26 @@ git push --force-with-lease
 2. Clone the repository (via [`ssh` recommended](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/adding-a-new-ssh-key-to-your-github-account)!) and change into the root directory.
    ```shell
    # if you're using a fork, make sure to clone your fork's repo
-   git clone https://github.com/m2lines/Samudra.git
+   git clone --filter=blob:none https://github.com/m2lines/Samudra.git
    # preferred method, but requires setting up an ssh key with Github.
-   git clone git@github.com:m2lines/Samudra.git
+   git clone --filter=blob:none git@github.com:m2lines/Samudra.git
    # or, using the Github CLI
-   gh repo clone m2lines/Samudra
+   gh repo clone m2lines/Samudra -- --filter=blob:none
 
    # then, change directory
    cd Samudra
    ```
+
+   <details markdown>
+   <summary>Why <code>--filter=blob:none</code>?</summary>
+
+   Old commits contain large files, mostly about 240 MB of evaluation GIFs that were later deleted, so a
+   full clone downloads far more than the current code. A blobless clone still fetches every commit, so
+   history, hashes, and `git log` work as usual, but it downloads old file contents only when you need
+   them (for example, when you check out an old commit). We don't rewrite history to remove these files
+   because W&B runs and data releases record commit hashes.
+
+   </details>
 
 3. Install developer dependencies using [`uv`](https://docs.astral.sh/uv/getting-started/):
    ```shell

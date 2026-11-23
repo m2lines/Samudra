@@ -343,8 +343,8 @@ def build_om4_layout(
 
 
 def build_llc_layout(
-    prognostic_vars_key: str = "single_1",
-    boundary_vars_key: str = "single_1",
+    prognostic_vars_key: str = "all",
+    boundary_vars_key: str = "all",
 ) -> DataLayout:
     return DataLayout(
         depth_levels=(
@@ -470,7 +470,7 @@ def build_llc_layout(
         boundary_var_names=_select_var_names(
             {
                 "single_1": ["oceQnet"],
-                "all": ["oceTAUX", "oceTAUY", "oceQnet", "Eta"],
+                "all": ["oceTAUX", "oceTAUY", "oceQnet", "oceFWflx"],
             },
             boundary_vars_key,
             "llc",
@@ -486,11 +486,11 @@ def build_llc_layout(
                 "units": "psu",
             },
             "U": {
-                "long_name": "Sea Water X Velocity",
+                "long_name": "Eastward Sea Water Velocity",
                 "units": "m/s",
             },
             "V": {
-                "long_name": "Sea Water Y Velocity",
+                "long_name": "Northward Sea Water Velocity",
                 "units": "m/s",
             },
             "Eta": {
@@ -498,12 +498,16 @@ def build_llc_layout(
                 "units": "m",
             },
             "oceTAUX": {
-                "long_name": "Surface Downward X Stress",
+                "long_name": "Surface Downward Eastward Stress",
                 "units": "N/m^2",
             },
             "oceTAUY": {
-                "long_name": "Surface Downward Y Stress",
+                "long_name": "Surface Downward Northward Stress",
                 "units": "N/m^2",
+            },
+            "oceFWflx": {
+                "long_name": "Net Surface Freshwater Flux Into The Ocean",
+                "units": "kg/m^2/s",
             },
             "oceQnet": {
                 "long_name": "Surface ocean heat flux from "
@@ -512,7 +516,7 @@ def build_llc_layout(
             },
         },
         ocean_heat_temperature_var="Theta",
-        grid_type="llc",
+        grid_type="gaussian",
     )
 
 

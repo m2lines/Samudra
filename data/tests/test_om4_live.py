@@ -168,9 +168,11 @@ def test_store_water_is_liquid_and_salty(resolution, t):
     ds = store(resolution)
     thetao, so = stacked(ds, "thetao", t), stacked(ds, "so", t)
     depth = xr.DataArray(ds.lev.values, dims="lev")
+    # The Gulf of Suez reaches 42.7 psu at the surface and the deep Red Sea 42.3
+    # in v2026-09; 45 still catches a unit or fill-value error.
     require_no_violations(
         bounds.above_freezing(thetao, so, depth)
-        + bounds.within(so, "so", 0.0, 42.0)
+        + bounds.within(so, "so", 0.0, 45.0)
         + bounds.within(thetao, "thetao", -2.5, 40.0)
     )
 
@@ -293,6 +295,12 @@ def test_resolutions_share_large_scale_zonal_spectra(t):
     The 1 and 1/4 degree rows don't nest: selecting rows by centre compared
     -59.83..-56.84 with -59.96..-56.96. The band now sits on 1 degree edges and
     the 1/4 degree rows count by their overlap with it.
+
+    Both stores are regridded from native OM4 separately, so the 1 degree store
+    isn't a block average of the 1/4 degree one, and the attenuation bound holds
+    only well above the grid scale: at 16 or more 1 degree cells per wavelength
+    (k <= 22) the two agree within 3.5% over six sampled steps, while near 8 cells
+    (k = 45) they differ by up to 7.5% either way.
     """
     fine, coarse = store("quarterdeg"), store("onedeg")
     # The 1 degree rows whose centres lie in 60S to 57S, edge to edge.
@@ -307,6 +315,7 @@ def test_resolutions_share_large_scale_zonal_spectra(t):
             coarse.lat_b.values,
             band,
             "sst",
+            resolved_fraction=1 / 16,
             rtol=0.05,
         )
     )

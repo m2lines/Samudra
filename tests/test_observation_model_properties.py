@@ -84,9 +84,7 @@ def inputs(seed: int, task: str, steps: int, batch: int = 1):
     shape = (batch, time, len(SURFACE_NAMES), HEIGHT, WIDTH)
     return dict(
         surface=torch.randn(shape, generator=generator),
-        atmosphere=torch.randn(
-            batch, time, channels, HEIGHT, WIDTH, generator=generator
-        ),
+        forcing=torch.randn(batch, time, channels, HEIGHT, WIDTH, generator=generator),
         contexts=contexts,
         mask=mask,
         validity=torch.rand(shape, generator=generator) < 0.7,
@@ -106,21 +104,20 @@ def test_continuation_from_any_split_reproduces_the_forecast(seed, task, steps, 
     network, case = model(seed), inputs(seed, task, steps)
     expected, initial = forecast(network, case, task)
     split = data.draw(st.integers(1, steps - 1))
-    future = {k: case[k][:, HISTORY_STEPS:] for k in ("atmosphere", "contexts")}
+    future = {k: case[k][:, HISTORY_STEPS:] for k in ("forcing", "contexts")}
     with torch.no_grad():
         first, states = network.continue_forecast(
             initial,
-            future["atmosphere"][:, :split],
+            future["forcing"][:, :split],
             future["contexts"][:, :split],
             case["mask"],
             task=task,
         )
         second, _ = network.continue_forecast(
             states,
-            future["atmosphere"][:, split:],
+            future["forcing"][:, split:],
             future["contexts"][:, split:],
             case["mask"],
-            start_lead=split + 1,
             task=task,
         )
     # The carried pair must be the trajectory's last two frames, not just consistent.
@@ -136,7 +133,7 @@ def test_predictions_never_depend_on_later_forcing_or_calendar(seed, task, steps
     expected, _ = forecast(network, case, task)
     j = data.draw(st.integers(0, steps - 1))
     changed = {k: v.clone() for k, v in case.items()}
-    changed["atmosphere"][:, HISTORY_STEPS + j] += 3
+    changed["forcing"][:, HISTORY_STEPS + j] += 3
     changed["contexts"][:, HISTORY_STEPS + j, 3:] += 3
     actual, _ = forecast(network, changed, task)
     assert torch.equal(actual[:, :j], expected[:, :j])

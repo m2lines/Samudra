@@ -441,8 +441,9 @@ def test_current_pipeline_reproduces_the_release(tmp_path):
     reference = published.isel(time=slice(0, rerun.sizes["time"]))
     # #928 fixed the 60E seam (`om4_staggered_grid`) after v2026-09: u fields
     # differ there and must agree everywhere else.
+    names = set(map(str, reference.data_vars)) | set(map(str, rerun.data_vars))
     seam_fixed = frozenset(
-        name for name in rerun.data_vars if name == "tauuo" or name.startswith("uo_")
+        name for name in names if name == "tauuo" or name.startswith("uo_")
     )
     seam = int(np.abs(rerun.x.values - SEAM_X).argmin())
     if abs(float(rerun.x[seam]) - SEAM_X) > 0.5:
@@ -454,9 +455,8 @@ def test_current_pipeline_reproduces_the_release(tmp_path):
         releases.stores_agree(
             reference,
             rerun,
-            variables=sorted(
-                set(rerun.data_vars) | {"areacello", "ocean_fraction", "dz"}
-            ),
+            # Both sides' variables, so one the rerun drops is reported missing.
+            variables=sorted(names | {"areacello", "ocean_fraction", "dz"}),
             expected_changes=seam_fixed,
         )
         + releases.stores_agree(

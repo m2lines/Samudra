@@ -221,11 +221,12 @@ def horizontal_regrid(ds, ds_target):
         # Partial cells (account_for_partial_depths) make dz vary horizontally,
         # and the regridder drops such coordinates. Average each layer's wet
         # thickness over the target cell's ocean part, so that
-        # areacello * ocean_fraction * dz keeps the source volume.
-        dz = regridder(
-            ds["dz"].where(ds.wetmask).astype("float64"), skipna=True, na_thres=1
-        )
-        ds_regridded = ds_regridded.assign_coords(dz=dz.fillna(0.0))
+        # areacello * ocean_fraction * dz keeps the source volume. Dividing by
+        # ocean_frac, rather than regridding with skipna, keeps the thickness of
+        # cells whose wet fraction is below xESMF's skipna cutoff (1e-6).
+        wet_thickness = regridder(ds["dz"].where(ds.wetmask, 0.0).astype("float64"))
+        dz = (wet_thickness / ocean_frac).where(ocean_frac > 0, 0.0)
+        ds_regridded = ds_regridded.assign_coords(dz=dz)
     ds_regridded = ds_regridded.assign_coords(
         lon=lon,
         lat=lat,

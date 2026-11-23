@@ -95,6 +95,29 @@ def test_regrid_keeps_the_volume_of_partial_cells(case, seed):
     )
 
 
+def test_regrid_keeps_the_volume_of_a_wet_sliver():
+    """A target cell less than 1e-6 wet (xESMF's skipna cutoff) keeps its share of the volume."""
+    fine = regular_grid(4, 8)
+    coarse = regular_grid(
+        4, 8, lon0=-1e-5
+    )  # coarse cell 1 overlaps fine column 0 by 1e-5 deg
+    wet = np.zeros((1, 4, 8), bool)
+    wet[0, :, 0] = True
+    ds = xr.Dataset(
+        {"thetao": (("time", "lev", "y", "x"), np.where(wet, 10.0, np.nan)[None])},
+        coords={
+            "lev": [25.0],
+            "dz": (("lev", "y", "x"), np.where(wet, 50.0, 0.0)),
+            "wetmask": (("lev", "y", "x"), wet),
+            "time": [0],
+        },
+    ).assign_coords(fine.coords)
+    out = horizontal_regrid(ds, coarse)
+    sliver = out.isel(lev=0, x=1)
+    assert (0 < sliver.ocean_fraction).all() and (sliver.ocean_fraction < 1e-6).all()
+    np.testing.assert_allclose(sliver.dz, 50.0)
+
+
 @given(regrid_cases())
 def test_regrid_creates_no_new_extremes_or_variance(case):
     ds, coarse, _ = case

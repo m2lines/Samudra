@@ -48,7 +48,7 @@ def prepared_months(root, polar_delta=0):
         std=np.ones(77),
         names=np.array(STATE_NAMES),
     )
-    np.savez(root / "grid.npz", **grid)
+    np.savez(root / "grid.npz", allow_pickle=False, **grid)
     for index, month in enumerate(pd.period_range(*SPLITS["train"], freq="M")):
         fields = {}
         for name, channels, times in (

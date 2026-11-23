@@ -6,17 +6,27 @@ from pathlib import Path
 
 import cftime
 import numpy as np
+import pytest
 import torch
 import xarray as xr
+from zarr.storage import DirectoryStore  # type: ignore[import-untyped]
 
 from samudra.config import JulianDate, Om4TimeConfig
 from samudra.datasets import InferenceDataset, TorchTrainDataset, TrainingWindows
-from samudra.utils.data import CanonicalReadRequest, CanonicalSource
+from samudra.utils.data import (
+    CanonicalReadRequest,
+    CanonicalSource,
+    XarrayCanonicalReader,
+)
 from tests.conftest import TEST_DATA_LAYOUT, canonicalize_mock_om4
 
 
 def _equivalent_om4_sources(
     compact_store_root: Path | None = None,
+    *,
+    dask_chunks: bool = True,
+    time_chunk: int = 1,
+    depth_chunk: int | None = None,
 ) -> tuple[CanonicalSource, CanonicalSource]:
     time = xr.CFTimeIndex(
         [cftime.datetime(2000, 1, day, 12, calendar="julian") for day in range(1, 9)]
@@ -91,13 +101,22 @@ def _equivalent_om4_sources(
         data_path = compact_store_root / "compact-data.zarr"
         means_path = compact_store_root / "compact-means.zarr"
         stds_path = compact_store_root / "compact-stds.zarr"
-        compact_data.to_zarr(data_path, mode="w", consolidated=True)
+        compact_data.to_zarr(
+            data_path,
+            mode="w",
+            consolidated=True,
+            encoding={
+                "so": {
+                    "chunks": (time_chunk, depth_chunk or levels, len(lat), len(lon))
+                }
+            },
+        )
         compact_means.to_zarr(means_path, mode="w", consolidated=True)
         compact_stds.to_zarr(stds_path, mode="w", consolidated=True)
         compact_canonical = canonicalize_mock_om4(
-            xr.open_zarr(data_path, chunks={}),
-            xr.open_zarr(means_path, chunks={}),
-            xr.open_zarr(stds_path, chunks={}),
+            xr.open_zarr(data_path, chunks={} if dask_chunks else None),
+            xr.open_zarr(means_path, chunks={} if dask_chunks else None),
+            xr.open_zarr(stds_path, chunks={} if dask_chunks else None),
         )
         compact = CanonicalSource.from_datasets(
             *compact_canonical,
@@ -195,7 +214,9 @@ def test_source_factory_installs_reader_without_mutating_input() -> None:
         data_layout=source.data_layout,
         prognostic_var_names=["so_0", "so_2", "zos"],
         boundary_var_names=["hfds"],
-        reader_factory=lambda reader: reader.slice_time(selected_time),
+        reader_factory=lambda source: XarrayCanonicalReader.from_source_data(
+            source
+        ).slice_time(selected_time),
     )
 
     assert source.time.size == 8
@@ -270,3 +291,77 @@ def test_flat_and_compact_cpu_training_and_inference_are_identical() -> None:
         flat_inference[0], compact_inference[0], strict=True
     ):
         torch.testing.assert_close(flat_tensor, compact_tensor)
+
+
+@pytest.mark.parametrize("dask_chunks", [False, True])
+@pytest.mark.parametrize("time_chunk", [1, 2])
+@pytest.mark.parametrize("depth_chunk", [1, 19])
+def test_compact_om4_reads_each_requested_chunk_once(
+    tmp_path, monkeypatch, dask_chunks, time_chunk, depth_chunk
+):
+    reads = []
+    original_getitem = DirectoryStore.__getitem__
+
+    def counted_getitem(store, key):
+        if (
+            key.startswith("so/")
+            and not key.startswith("so/.")
+            and str(store.path).endswith("compact-data.zarr")
+        ):
+            reads.append(key)
+        return original_getitem(store, key)
+
+    monkeypatch.setattr(DirectoryStore, "__getitem__", counted_getitem)
+    flat, compact = _equivalent_om4_sources(
+        tmp_path,
+        dask_chunks=dask_chunks,
+        time_chunk=time_chunk,
+        depth_chunk=depth_chunk,
+    )
+    assert reads == []  # Construction must not load prognostic data.
+    assert isinstance(compact.reader, XarrayCanonicalReader)
+    assert "so" in compact.reader.data and "so_0" not in compact.reader.data
+    assert (compact.reader.data.so.chunks is not None) == dask_chunks
+    assert compact.metadata == flat.metadata
+    assert compact.coordinates().keys() == flat.coordinates().keys()
+    period = Om4TimeConfig(start=JulianDate("2000-01-02"), end=JulianDate("2000-01-07"))
+    flat, compact = flat.slice_time(period), compact.slice_time(period)
+    indices = np.array([[2, 0], [2, 5]], dtype=np.int64)
+    channels = ("so_2", "hfds", "so_0", "zos", "so_2", "hfds")
+    actual = compact.read(indices, channels)
+    np.testing.assert_array_equal(actual, flat.read(indices, channels))
+    expected = sorted(
+        f"so/{time}.{level}.0.0"
+        for time in sorted({time // time_chunk for time in (1, 3, 6)})
+        for level in sorted({level // depth_chunk for level in (0, 2)})
+    )
+    assert sorted(reads) == expected
+    reads.clear()
+    np.testing.assert_array_equal(compact.read(indices, channels), actual)
+    assert sorted(reads) == expected  # No request-spanning cache or hidden load.
+
+
+def test_compact_source_factory_receives_arrays_without_a_reader(tmp_path):
+    from samudra.utils.data import XarraySourceData
+
+    _, source = _equivalent_om4_sources(tmp_path, dask_chunks=False)
+    assert isinstance(source.reader, XarrayCanonicalReader)
+    seen = []
+
+    def build_reader(arrays):
+        assert type(arrays) is XarraySourceData
+        assert "so" in arrays.data and "so_0" not in arrays.data
+        assert arrays.data.so.chunks is None
+        seen.append(arrays.channels)
+        return XarrayCanonicalReader.from_source_data(arrays)
+
+    CanonicalSource.from_datasets(
+        source.reader.data,
+        source.reader.means,
+        source.reader.stds,
+        data_layout=source.data_layout,
+        prognostic_var_names=["so_0", "so_2", "zos"],
+        boundary_var_names=["hfds"],
+        reader_factory=build_reader,
+    )
+    assert seen == [source.channels]

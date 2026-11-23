@@ -7,8 +7,7 @@ channels:
   - conda-forge
 dependencies:
     - python=3.12
-    - numpy>=1.26.4,<2
-    - xarray
+    - xarray>=2025.6,<2026.4  # Retain compressor encoding for Zarr v2 writes.
     - cftime
     - xarrayutils
     - xgcm>=0.8.1,<0.10
@@ -16,8 +15,12 @@ dependencies:
     - setuptools
     - fire==0.7.1
     - cartopy
-    - zarr==2.18.2
-    - numcodecs<0.16  # Zarr 2 imports Blosc helpers removed in Numcodecs 0.16.
+    - zarr>=2.18,<3  # As samudra. virtualize_om4.py, which needs 3, has its own environment.
+    - numcodecs>=0.15.1,<0.16
+    - numpy>=2,<3
+    - pyarrow  # Reads the Kerchunk Parquet references to the raw archive.
+    - hdf5plugin
+    - imagecodecs
     - gcsfs
     - s3fs
     - xesmf
@@ -28,6 +31,8 @@ dependencies:
     - matplotlib
     - coiled
     - distributed
+    - pip
     - pip:
       - -e ..  # shared Samudra routines from this checkout
-      - -e .[observations]
+      - -e .[observations]  # local sources
+      - -e ../verification  # samudra_verification, which data/tests/conftest.py imports

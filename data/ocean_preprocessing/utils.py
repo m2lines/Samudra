@@ -14,12 +14,15 @@ from numcodecs import Blosc
 def zstd_encoding(ds: xr.Dataset) -> dict[Hashable, dict[str, Blosc | None]]:
     """Compress fields and coordinates with Blosc Zstd and byte shuffle.
 
-    Zarr v2 always stores zero-dimensional scalar arrays without compression.
+    Explicitly leave scalars uncompressed, including with a Zarr 3 runtime.
     """
     return {
-        name: {"compressor": Blosc(cname="zstd", clevel=5, shuffle=Blosc.SHUFFLE)}
+        name: {
+            "compressor": Blosc(cname="zstd", clevel=5, shuffle=Blosc.SHUFFLE)
+            if variable.ndim
+            else None
+        }
         for name, variable in ds.variables.items()
-        if variable.ndim
     }
 
 

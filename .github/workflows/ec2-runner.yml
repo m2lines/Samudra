@@ -22,6 +22,14 @@ on:
       ec2_root_device_size:
         type: string
         default: "0"
+      max_instance_lifetime:
+        description: Instance lifetime ceiling in minutes; empty uses vars.MAX_INSTANCE_LIFETIME
+        type: string
+        default: ""
+      aws_tags:
+        description: JSON list of EC2 tags
+        type: string
+        default: '[{"Key": "project", "Value": "fomo"}]'
     outputs:
       id:
         description: Runner label for the consuming job's runs-on
@@ -74,7 +82,7 @@ jobs:
           # Keep bootstrap scripts at the same revision as the checked-out action.
           action_ref: e021da12a946b653a717738bc704aa7baa95ae8e # pragma: allowlist secret
           aws_region: ${{ inputs.aws_region }}
-          aws_tags: '[{"Key": "project", "Value": "fomo"}]'
+          aws_tags: ${{ inputs.aws_tags }}
           ec2_instance_type: ${{ inputs.ec2_instance_type }}
           ec2_image_id: ${{ inputs.ec2_image_id }}
           ec2_root_device_size: ${{ inputs.ec2_root_device_size }}
@@ -83,7 +91,7 @@ jobs:
           ec2_instance_profile: ${{ vars.EC2_INSTANCE_PROFILE }}
           ec2_key_name: ${{ vars.EC2_KEY_NAME }}
           ec2_security_group_id: ${{ vars.EC2_SECURITY_GROUP_ID }}
-          max_instance_lifetime: ${{ vars.MAX_INSTANCE_LIFETIME }}
+          max_instance_lifetime: ${{ inputs.max_instance_lifetime || vars.MAX_INSTANCE_LIFETIME }}
           runner_grace_period: ${{ vars.RUNNER_GRACE_PERIOD }}
           runner_initial_grace_period: ${{ vars.RUNNER_INITIAL_GRACE_PERIOD }}
           runner_poll_interval: ${{ vars.RUNNER_POLL_INTERVAL }}

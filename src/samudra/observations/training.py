@@ -155,6 +155,21 @@ def objective(
     Replay never sees the auxiliary branch's contemporaneous ocean observations.
     Only its own detached physical history, future forcing and calendar advance it.
     """
+    from samudra.observations.snapshot_data import SnapshotSamples
+
+    if isinstance(data, SnapshotSamples):
+        from samudra.observations.snapshot import snapshot_objective
+
+        if cached is not None or source not in ("obs", "llc"):
+            raise ValueError("Snapshot task supports only fresh LLC/OBS windows")
+        return snapshot_objective(
+            model,
+            sample,
+            data.area,
+            "obs" if source == "obs" else "llc",
+            seed,
+            data.task,
+        )
     task: ModelTask = "observation" if source == "obs" else "om4-family"
     loss_weights = weights or ObservationLossConfig()
     auxiliary = corrupt_sample(auxiliary, seed)
@@ -493,6 +508,10 @@ def archive_identity(root: Path) -> dict[str, str | int]:
 def run_manifest(
     args: ObservationTrainConfig, data: Samples, sources: Sources
 ) -> Manifest:
+    if args.snapshot is not None:
+        from samudra.observations.snapshot_data import snapshot_manifest
+
+        return snapshot_manifest(args)
     package = Path(__file__).resolve().parents[1]
     normalization = data.normalization
     verify_normalization(normalization)

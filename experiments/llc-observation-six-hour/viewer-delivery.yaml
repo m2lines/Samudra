@@ -1,0 +1,61 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+# SPDX-License-Identifier: CC-BY-4.0
+scope: Publish both long arms at EMA10000 and EMA11000 in Samudra Results Viewer with
+  initialization, three-day validation, and 30-day free-running diagnostics
+context: Exact time-matched LLC when available, otherwise same month/day/hour in another
+  available LLC year, always actual timestamps and seasonal-context label; never score
+  seasonal context as gold
+outputs: Two inferred initial states, six-hourly surface forecasts through day30,
+  full 205-channel snapshots at hours6,12,24,48,72,120,240,360,480,600,720, input
+  surface history and validity, observed daily references, LLC references/context,
+  masks/depths/units/provenance
+export_runtime_commit: ca764b2049cfdfc7f8ecbc6f2b321cb6e232795f # pragma: allowlist secret
+viewer_deployed_commit: 1411c56097948cedfcc4ca25c3c8c9946f97ba2f # pragma: allowlist secret
+viewer_tests: 43 passed,16 skipped; includes actual LLC controls and shared-link browser
+  check; live page WebSockets and link to legacy page passed
+viewer_ci: 44832114014
+forcing:
+  job: 208916
+  status: verified complete
+  proof_sha256: 6d64276121d193d7aa63082e78c9936ebd9ebdd9c7872b28770b819f6b24195a # pragma: allowlist secret
+jobs:
+  qualification:
+    id: 234701
+    status: verified complete
+    elapsed_seconds: 197
+    checkpoint_updates: 2000
+    origins_per_source: 2
+    verified_arrays: 36
+    verified_bytes: 6336926208
+    horizon_hours: 720
+    full_training_metric_comparison: deferred to production cohort
+    receipt_sha256: 947bf33f50dca0633a5938af783443c263e4914b381a6ff3254ae9eb1bc798a8 # pragma: allowlist secret
+  mixed:
+    id: 234702
+    status: verified complete
+    training_metrics_reproduced_per_checkpoint: 2484
+    dependencies:
+    - 234626
+    - 234701
+  obs-only:
+    id: 234703
+    status: verified complete
+    training_metrics_reproduced_per_checkpoint: 2484
+    dependencies:
+    - 234629
+    - 234701
+publication:
+  status: complete and live-browser verified
+  assembly_job: 210616
+  catalog_sha256: 26846f038bb83d0bca61035ee076acf4e27f92d1517b28f163c25a4f74d6e335 # pragma: allowlist secret
+  models: 4
+  cases_per_model: 16
+  depths: 51
+  surface_leads: 120
+  horizon_hours: 720
+  remote_and_local_checksums_match: true
+  seasonal_context_excluded_from_errors: true
+  shared_links_and_websockets_verified: true
+  javascript_errors: 0
+  report: results/long-training-comparison.md
+pending: []

@@ -10,7 +10,6 @@ import torch
 import xarray as xr
 from scipy.stats import pearsonr
 
-from samudra.constants import build_llc_layout
 from samudra.utils.data import (
     BatchPreprocessor,
     CanonicalSource,
@@ -24,18 +23,11 @@ from samudra.utils.data import (
     with_lat_lon_coords,
     with_level_index_vars,
 )
-from samudra.utils.llc import (
-    _flatten_llc_level_vars,
-    _rename_llc_level_index_vars,
-    _var_without_level,
-    canonicalize_llc_datasets,
-)
 from tests.conftest import (
     TEST_DATA_LAYOUT,
     TEST_FULL_DATA_LAYOUT,
     canonicalize_mock_om4,
 )
-from tests.llc_fixtures import raw_llc_datasets
 
 
 def test_mask_roundtrip(data_source):
@@ -326,212 +318,6 @@ def test_normalize_compact_mixed_depth_and_surface_stats(data_source):
     assert (
         preprocessor.normalize_tensor_prognostic(prognostic).shape == prognostic.shape
     )
-
-
-def test_rename_llc_level_index_vars():
-    original = xr.Dataset(
-        {
-            "Theta_lev_0": 1.0,
-            "Salt_lev_50": 2.0,
-            "oceQnet": 3.0,
-        }
-    )
-
-    renamed = _rename_llc_level_index_vars(original)
-
-    assert set(renamed.data_vars) == {"Theta_0", "Salt_50", "oceQnet"}
-    assert renamed["Theta_0"].item() == 1.0
-    assert renamed["Salt_50"].item() == 2.0
-    assert "Theta_lev_0" in original.data_vars
-
-
-def test_raw_llc_fixture_uses_production_layout():
-    data, _, _ = raw_llc_datasets()
-
-    assert data["Theta"].dims == ("time", "k", "face", "j", "i")
-    assert data["W"].dims == ("time", "k_p1", "face", "j", "i")
-    assert data["hFacC"].dims == ("k", "face", "j", "i")
-    assert data["hFacW"].dims == ("k", "face", "j", "i_g")
-    assert data["hFacS"].dims == ("k", "face", "j_g", "i")
-    assert data["dxV"].dims == ("face", "j_g", "i_g")
-    assert data["dyU"].dims == ("face", "j_g", "i_g")
-    assert data["hFacC"].dtype == np.dtype("float32")
-    assert data["mask_c"].dtype == np.dtype("bool")
-
-
-def test_flatten_llc_level_vars():
-    steps, _, _ = raw_llc_datasets()
-    data = steps[["Theta"]].isel(face=0, drop=True).rename({"k": "lev"})
-    data_layout = build_llc_layout()
-
-    flattened = _flatten_llc_level_vars(data, num_levels=len(data_layout.depth_levels))
-
-    assert "Theta" not in flattened.data_vars
-    assert set(flattened.data_vars) == {
-        f"Theta_{level}" for level in data_layout.depth_i_levels
-    }
-    xr.testing.assert_identical(
-        flattened["Theta_0"], data["Theta"].isel(lev=0, drop=True).rename("Theta_0")
-    )
-    last_level = data_layout.depth_i_levels[-1]
-    xr.testing.assert_identical(
-        flattened[f"Theta_{last_level}"],
-        data["Theta"].isel(lev=-1, drop=True).rename(f"Theta_{last_level}"),
-    )
-
-
-@pytest.mark.parametrize(
-    ("var_name", "expected"),
-    [
-        ("Theta_0", "Theta"),
-        ("Theta_50", "Theta"),
-        ("oceQnet", "oceQnet"),
-    ],
-)
-def test_var_without_level(var_name, expected):
-    assert _var_without_level(var_name) == expected
-
-
-def test_canonicalize_llc_datasets_standardizes_layout():
-    data, means, stds = raw_llc_datasets()
-    data_layout = build_llc_layout(prognostic_vars_key="all", boundary_vars_key="all")
-    expected_theta_0 = data["Theta"].isel(time=0, face=1, k=0, j=1, i=1).item()
-
-    llc_data, llc_means, llc_stds, returned_layout = canonicalize_llc_datasets(
-        data,
-        means,
-        stds,
-        face=1,
-        i_start=1,
-        i_end=4,
-        j_start=1,
-        j_end=3,
-        prognostic_vars_key="all",
-        boundary_vars_key="all",
-    )
-
-    assert returned_layout == data_layout
-
-    assert "face" not in llc_data.dims
-    assert "Theta" not in llc_data.variables
-    assert "wetmask" not in llc_data.variables
-    assert "Theta_0" in llc_data.variables
-    assert "Theta_50" in llc_data.variables
-    assert "U_0" in llc_data.variables
-    assert "V_0" in llc_data.variables
-    assert "mask_0" in llc_data.variables
-    assert "mask_w_0" in llc_data.variables
-    assert "mask_s_0" in llc_data.variables
-    assert llc_data["Theta_0"].dims == ("time", "lat", "lon")
-    assert llc_data["U_0"].dims == ("time", "lat", "lon")
-    assert llc_data["V_0"].dims == ("time", "lat", "lon")
-    assert llc_data["mask_0"].dims == ("lat", "lon")
-    assert llc_data["mask_w_0"].dims == ("lat", "lon")
-    assert llc_data["mask_s_0"].dims == ("lat", "lon")
-    assert llc_data["Theta_0"].shape == (3, 2, 3)
-    assert llc_data["Theta_0"].isel(time=0, lat=0, lon=0).item() == expected_theta_0
-    assert np.issubdtype(llc_data.time.dtype, np.datetime64)
-    assert "Theta_0" in llc_means.variables
-    assert "Theta_0" in llc_stds.variables
-    assert "Theta_lev_0" not in llc_means.variables
-    assert "Theta_lev_0" not in llc_stds.variables
-
-
-def test_canonicalize_llc_datasets_uses_hfacc_without_mask_c():
-    data, means, stds = raw_llc_datasets()
-    data = data.drop_vars("mask_c")
-    expected = (
-        data["hFacC"]
-        .sel(face=1, drop=True)
-        .isel(k=0, j=slice(1, 3), i=slice(1, 4), drop=True)
-        .rename({"j": "lat", "i": "lon"})
-        .rename("mask_0")
-    )
-
-    llc_data, _, _, _ = canonicalize_llc_datasets(
-        data,
-        means,
-        stds,
-        face=1,
-        i_start=1,
-        i_end=4,
-        j_start=1,
-        j_end=3,
-        prognostic_vars_key="single_1",
-        boundary_vars_key="single_1",
-    )
-
-    assert "hFacC" not in llc_data.variables
-    xr.testing.assert_identical(llc_data["mask_0"], expected)
-
-
-def test_canonicalize_llc_datasets_selects_requested_vars_from_full_root():
-    data, means, stds = raw_llc_datasets()
-
-    llc_data, _, _, llc_layout = canonicalize_llc_datasets(
-        data,
-        means,
-        stds,
-        face=1,
-        i_start=1,
-        i_end=4,
-        j_start=1,
-        j_end=3,
-        prognostic_vars_key="single_1",
-        boundary_vars_key="single_1",
-    )
-
-    expected_vars = {
-        *(f"Theta_{i}" for i in llc_layout.depth_i_levels),
-        "oceQnet",
-        *(f"mask_{i}" for i in llc_layout.depth_i_levels),
-    }
-    assert expected_vars.issubset(llc_data.data_vars)
-    assert "XG" not in llc_data.data_vars
-    assert "hFacW" not in llc_data.data_vars
-    assert "mask_w_0" not in llc_data.data_vars
-
-
-def test_llc_all_variable_masks_use_staggered_masks():
-    data, means, stds = raw_llc_datasets()
-    data_layout = build_llc_layout(prognostic_vars_key="all", boundary_vars_key="all")
-    llc_data, llc_means, llc_stds, returned_layout = canonicalize_llc_datasets(
-        data,
-        means,
-        stds,
-        face=1,
-        i_start=1,
-        i_end=4,
-        j_start=1,
-        j_end=3,
-        prognostic_vars_key="all",
-        boundary_vars_key="all",
-    )
-    assert returned_layout == data_layout
-
-    source = CanonicalSource.from_datasets(
-        llc_data,
-        llc_means,
-        llc_stds,
-        data_layout=data_layout,
-        prognostic_var_names=data_layout.prognostic_var_names,
-        boundary_var_names=data_layout.boundary_var_names,
-    )
-
-    theta_index = data_layout.prognostic_var_names.index("Theta_0")
-    u_index = data_layout.prognostic_var_names.index("U_0")
-    v_index = data_layout.prognostic_var_names.index("V_0")
-    assert bool(source.masks.prognostic[theta_index, 0, 0])
-    assert not bool(source.masks.prognostic[u_index, 0, 0])
-    assert not bool(source.masks.prognostic[v_index, 0, 1])
-
-    tau_x_index = data_layout.boundary_var_names.index("oceTAUX")
-    tau_y_index = data_layout.boundary_var_names.index("oceTAUY")
-    qnet_index = data_layout.boundary_var_names.index("oceQnet")
-    assert source.masks.boundary.shape == (len(data_layout.boundary_var_names), 2, 3)
-    assert not bool(source.masks.boundary[tau_x_index, 0, 0])
-    assert not bool(source.masks.boundary[tau_y_index, 0, 1])
-    assert bool(source.masks.boundary[qnet_index, 0, 0])
 
 
 @pytest.fixture

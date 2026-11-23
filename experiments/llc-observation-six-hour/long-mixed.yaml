@@ -1,0 +1,159 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+# SPDX-License-Identifier: Apache-2.0
+backend: auto
+batch_size: 1
+post_training_updates: 1000
+data:
+  llc: coarse_LLC4320/LLC4320_samudra_1deg.zarr
+  snapshots: llc_obs_six_hour_v1
+debug: false
+ema_decay: 0.9930924954370359
+experiment:
+  base_output_dir: /projects/ny/lz1955/multiscale/jrusak/runs/llc-obs-six-hour-long-20261120/outputs # pragma: allowlist secret
+  data_root: /projects/ny/lz1955/multiscale/jrusak/data # pragma: allowlist secret
+  name: llc-obs-six-hour-long
+  rand_seed: 1729
+  search: null
+  wandb:
+    group: null
+    mode: online
+    notes: null
+    project: observational-transfer
+    tags:
+    - llc
+    - six-hour
+    - snapshots
+    - experiment-1037
+    - long-10k
+    - obs-cooldown-1k
+faster_decay_at_start: false
+post_training_scheduler:
+  type: linear_cooldown
+  final_lr: 1.0e-06
+fork_ckpt_path: null
+fresh_examples: 8
+gradient_accumulation_steps: 8
+gradient_clip: 1.0
+learning_rate: 0.0001
+loss:
+  monthly_ts: 0
+  sst: 0.5
+  ssh: 0.5
+  reconstruction: 0.1
+  completion: 0.1
+main_updates: 10000
+measure_timing: true
+milestone_updates:
+- 4000
+- 6000
+- 8000
+- 10000
+pretrain_mix: llc-obs
+model:
+  activation_checkpointing: true
+  backbone:
+    ch_width:
+    - 128
+    - 192
+    - 256
+    - 384
+    core_block:
+      activation: capped_gelu
+      block_type: conv_next_block
+      kernel_size: 3
+      norm: instance
+      instance_norm_affine: true
+      pointwise_linear: false
+      upscale_factor: 2
+    dilation:
+    - 1
+    - 2
+    - 4
+    - 8
+    down_sampling_block: avg_pool
+    drop_path_rate: 0.0
+    n_layers:
+    - 1
+    - 1
+    - 1
+    - 1
+    up_sampling_block: zonally_periodic_upsample
+  evolution_backbone:
+    ch_width:
+    - 280
+    - 380
+    - 480
+    - 520
+    core_block:
+      activation: capped_gelu
+      block_type: conv_next_block
+      kernel_size: 3
+      norm: instance
+      instance_norm_affine: true
+      pointwise_linear: false
+      upscale_factor: 2
+    dilation:
+    - 1
+    - 2
+    - 4
+    - 8
+    down_sampling_block: avg_pool
+    drop_path_rate: 0.0
+    n_layers:
+    - 1
+    - 1
+    - 1
+    - 1
+    up_sampling_block: zonally_periodic_upsample
+  forcing_mode: shared_era5
+  initializer_backbone:
+    ch_width:
+    - 280
+    - 380
+    - 480
+    - 520
+    core_block:
+      activation: capped_gelu
+      block_type: conv_next_block
+      kernel_size: 3
+      norm: instance
+      instance_norm_affine: true
+      pointwise_linear: false
+      upscale_factor: 2
+    dilation:
+    - 1
+    - 2
+    - 4
+    - 8
+    down_sampling_block: avg_pool
+    drop_path_rate: 0.0
+    n_layers:
+    - 1
+    - 1
+    - 1
+    - 1
+    up_sampling_block: zonally_periodic_upsample
+  output_kernel_size: 3
+  history_steps: 29
+  tasks:
+  - llc
+  - observation
+prefetch_enabled: true
+replay:
+  max_age: 250
+  per_month: 2
+resume_ckpt_path: null
+save_freq: 100
+stop_after: null
+update_prefetch: true
+validation_freq: 100
+validation_origin: '2013-11-01'
+weight_decay: 0.01
+snapshot:
+  step_hours: 6
+  history_steps: 29
+  forecast_steps: 12
+  observation_stride: 4
+  reconstruction_weight: 0.1
+  completion_weight: 0.1
+validation_examples: 8

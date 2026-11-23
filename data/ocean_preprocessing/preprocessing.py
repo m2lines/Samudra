@@ -15,7 +15,6 @@ from xgcm import Grid
 from ocean_preprocessing.regridding import conservative_regridder
 from ocean_preprocessing.schema import OM4_3D_VARS
 from ocean_preprocessing.utils import split_2d_3d
-from ocean_preprocessing.vertical_grid import OM4_DEPTH_LEVELS, OM4_LAYER_THICKNESS
 
 try:
     import xesmf as xe  # type: ignore
@@ -23,54 +22,6 @@ except ImportError:
     logging.exception("Error importing xesmf")
     xe = None
 # Could I replace this with the xarray logic I am using in the tests?
-
-
-def manual_v0_fixes(ds_input: xr.Dataset) -> xr.Dataset:
-    """Manual fixes for the already existing data (for now only v0.0). This should not be used in the future."""
-    # fixes that should be checked and fixes on the input data
-    area = xr.open_dataset(
-        "gs://leap-persistent/sd5313/grids_CM2x.zarr", engine="zarr", chunks={}
-    )["area_C"].rename({"xu_ocean": "x", "yu_ocean": "y"})
-    # from https://github.com/m2lines/ocean_emulators/issues/17
-    dz = xr.DataArray(OM4_LAYER_THICKNESS, dims="lev")
-    z = xr.DataArray(OM4_DEPTH_LEVELS, dims="lev")
-    wetmask = ~np.isnan(ds_input.thetao.isel(time=0).reset_coords(drop=True))
-    lon = xr.ones_like(ds_input.y) * ds_input.x
-    lat = ds_input.y * xr.ones_like(ds_input.x)
-    ds_input = ds_input.assign_coords(
-        areacello=area, dz=dz, lev=z, wetmask=wetmask, lon=lon, lat=lat
-    )
-    # give a dummy commit hash
-    ds_input.attrs["m2lines/ocean-emulators_git_hash"] = "dummy"
-    return ds_input
-
-
-# i need to test 2d and 3d separately
-
-
-# def rename(ds: xr.Dataset) -> xr.Dataset:
-#     """Rename variables and dimensions to CMOR standard names"""
-#     # TODO: how to detect non-CMIP datasets?
-#     return combined_preprocessing(ds)
-
-
-# def standardize_dataset(ds_ocean: xr.Dataset, ds_atmos: xr.Dataset) -> xr.Dataset:
-#     """Full wrapper that does
-#     1. Rename variables and dimensions to CMOR standard names
-#     2. Combine varibles if necessary
-#     3. Interpolate velocity to tracer cells
-#     4. Optional Filter the data
-#     5. Horizontal regridding
-#     6. Add metadata and provenance info
-#     """
-#     # Rename variables and dimensions to CMOR standard names
-#     ds_renamed = rename(ds)
-#     # Combine varibles if necessary
-#     # Interpolate velocity to tracer cells
-#     # Optional Filter the data
-#     # Horizontal regridding
-#     # Add metadata and provenance info
-#     return ds_renamed
 
 
 #################### CMIP specific Code ###########################

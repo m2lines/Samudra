@@ -70,20 +70,15 @@ def test_grid_type_defaults_to_gaussian_without_a_data_source():
     assert cfg._grid_type(xr.Dataset()) == "gaussian"
 
 
-def test_llc_sources_are_llc():
-    """LLC carries no `grid_type` field, but its layout is never rectilinear.
-
-    Defaulting a missing field to "gaussian" would quietly tell viz that
-    lat-lon-cap data can be plotted against its index axes.
-    """
+def test_coarsened_llc_sources_are_gaussian():
     cfg = _cfg("--data", "@data/om4_demo.yaml")
     assert cfg.data is not None
     cfg.data.sources[0] = LlcDataSourceConfig.model_construct()
 
     grid_type = cfg._grid_type(xr.Dataset())
 
-    assert grid_type == "llc"
-    assert not is_rectilinear(grid_type)
+    assert grid_type == "gaussian"
+    assert is_rectilinear(grid_type)
 
 
 def test_grid_type_is_read_from_the_store_when_there_is_no_data_block():

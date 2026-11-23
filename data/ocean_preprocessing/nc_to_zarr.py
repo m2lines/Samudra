@@ -15,8 +15,7 @@ import xarray as xr
 if __name__ == "__main__":
     fs_src = fsspec.filesystem(
         "s3",
-        key=os.environ["OSN_BUCKET_ACCESS_KEY"],
-        secret=os.environ["OSN_BUCKET_SECRET_KEY"],
+        anon=True,
         endpoint_url="https://nyu1.osn.mghpcc.org/",
     )
     # This could also be the OSN pod, it just has to be set via environment variable like so:

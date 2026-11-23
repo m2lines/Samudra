@@ -1,0 +1,58 @@
+[
+  {
+    "field": "10m_u_component_of_wind",
+    "min": -23.067026138305664,
+    "max": 24.79058074951172,
+    "mean": 0.36513084173202515,
+    "existing_daily_rmse": 0.0007375231361947954
+  },
+  {
+    "field": "10m_v_component_of_wind",
+    "min": -24.03388214111328,
+    "max": 25.706077575683594,
+    "mean": 0.05116797238588333,
+    "existing_daily_rmse": 0.0005690818652510643
+  },
+  {
+    "field": "2m_temperature",
+    "min": 224.52044677734375,
+    "max": 317.0932312011719,
+    "mean": 276.68011474609375,
+    "existing_daily_rmse": 0.001089567318558693
+  },
+  {
+    "field": "2m_dewpoint_temperature",
+    "min": 221.58607482910156,
+    "max": 299.33197021484375,
+    "mean": 272.5709533691406,
+    "existing_daily_rmse": 0.0010921808425337076
+  },
+  {
+    "field": "surface_pressure",
+    "min": 51840.15625,
+    "max": 104549.2421875,
+    "mean": 96585.5703125,
+    "existing_daily_rmse": 1.2007278203964233
+  },
+  {
+    "field": "surface_solar_radiation_downwards",
+    "min": -6.944444612599909e-05,
+    "max": 1027.005859375,
+    "mean": 185.4933624267578,
+    "existing_daily_rmse": 0.012477626092731953
+  },
+  {
+    "field": "surface_thermal_radiation_downwards",
+    "min": 90.38689422607422,
+    "max": 459.7497253417969,
+    "mean": 290.67230224609375,
+    "existing_daily_rmse": 0.006138625089079142
+  },
+  {
+    "field": "total_precipitation",
+    "min": 4.311678514223871e-10,
+    "max": 0.005313214845955372,
+    "mean": 2.5676517907413654e-05,
+    "existing_daily_rmse": 2.02072154564803e-08
+  }
+]

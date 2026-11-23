@@ -118,7 +118,11 @@ def plan_update(
         origin = (
             sources.fresh_origin(source, state.rng) if entry is None else entry.origin
         )
-        coverage = sources.fresh_origin("obs", state.rng) if source != "obs" else None
+        coverage = (
+            sources.fresh_origin("obs", state.rng)
+            if source != "obs" and cfg.snapshot is None
+            else None
+        )
         examples.append(
             {
                 "origin": origin,
@@ -354,8 +358,7 @@ class UpdateLoader:
                 source, item["origin"], item["month"], sample
             )
             coverage = None
-            if source != "obs":
-                assert item["coverage"] is not None
+            if item["coverage"] is not None:
                 coverage = self.sources.load("obs", item["coverage"])["validity"]
             examples.append(
                 {
@@ -481,6 +484,11 @@ def train(
     checkpoints = CheckpointPaths(output)
     try:
         if state.updates >= limit:
+            if state.updates == total and world.rank == 0:
+                write_json(
+                    {"updates": total, "exposure": state.exposure},
+                    output / "COMPLETE.json",
+                )
             return
         if world.rank == 0 and state.pending_plan is None:
             state.pending_plan = plan_update(cfg, state, sources, state.updates)
@@ -591,7 +599,7 @@ def train(
                         f"train/{source}/max_start_lead_days": max(
                             item["start_lead"] for item in metadata["examples"]
                         )
-                        * 5,
+                        * cfg.step_days,
                         "world_size": world.size,
                         "global_examples": cfg.gradient_accumulation_steps,
                         **{
@@ -610,9 +618,9 @@ def train(
                         metrics = validate(state.model)
                 metrics = world.broadcast(metrics)
                 assert metrics is not None
-                score = metrics[baseline.SELECTION_METRIC]
+                score = metrics[cfg.selection_metric]
                 if not math.isfinite(score):
-                    raise FloatingPointError("Annual selection score is nonfinite")
+                    raise FloatingPointError("Selection score is nonfinite")
                 if score < state.best_score:
                     state.best_score = score
                     save_paths.append(checkpoints.best_validation_checkpoint_path)

@@ -105,6 +105,15 @@ def _compare(
 ) -> list[Violation]:
     a_values, b_values = np.ravel(np.asarray(a)), np.ravel(np.asarray(b))
     scale_values = np.ravel(np.asarray(scale))
+    empty = np.isnan(a_values) | np.isnan(b_values)
+    if empty.any():
+        return [
+            Violation(
+                invariant,
+                f"{int(empty.sum())} of {empty.size} totals have no valid cells to compare",
+                {"index": int(np.argmax(empty))},
+            )
+        ]
     bad = ~(np.abs(a_values - b_values) <= rtol * scale_values + atol)
     if not bad.any():
         return []
@@ -179,16 +188,25 @@ def band_zonal_spectrum(
     Each row counts with the area it shares with ``band``, from its edges
     ``lat_b`` (``ny + 1`` values, or a ``(y_b, x_b)`` array of a rectilinear
     grid). Grids whose rows don't nest therefore average exactly the same band.
-    Every row that overlaps the band must be fully wet. Returns power at zonal
-    wavenumbers 0..nx/2 (cycles per circle).
+    Every row that overlaps the band must be fully wet. ``field`` must have only
+    the ``y_dim`` and ``x_dim`` dimensions. Returns power at zonal wavenumbers
+    0..nx//2 (cycles per circle).
 
     A cell holds its whole row's mean, so a row only partly inside the band adds
     an error that grows with the field's meridional gradient. When comparing two
     grids, put the band on the coarse grid's edges, so only the finer grid's
     thinner rows straddle it.
     """
+    if set(field.dims) != {y_dim, x_dim}:
+        raise ValueError(
+            f"field has dimensions {field.dims}; select one ({y_dim}, {x_dim}) slice first"
+        )
     edges = np.asarray(lat_b, dtype=float)
     if edges.ndim == 2:
+        if not np.allclose(edges, edges[:, :1]):
+            raise ValueError(
+                "grid is not rectilinear; latitude bands need lat_b constant along x"
+            )
         edges = edges[:, 0]
     if edges.size != field.sizes[y_dim] + 1:
         raise ValueError(
@@ -230,7 +248,7 @@ def zonal_spectra_agree(
     """
     fine_power = band_zonal_spectrum(fine, fine_lat_b, band, x_dim, y_dim)
     coarse_power = band_zonal_spectrum(coarse, coarse_lat_b, band, x_dim, y_dim)
-    n_coarse = 2 * (coarse_power.size - 1)
+    n_coarse = coarse.sizes[x_dim]
     k_max = max(1, int(resolved_fraction * n_coarse))
     k = np.arange(1, k_max + 1)
     attenuation = np.sinc(k / n_coarse) ** 2

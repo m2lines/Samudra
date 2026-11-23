@@ -191,6 +191,44 @@ def test_window_means_accept_true_means_and_flag_shifted_ones(windows, seed, shi
     assert (
         timeaxis.window_mean_preserved(daily, daily_bounds, rolled, five_bounds) != []
     )
+    # On an all-zero field no value can differ, so only coverage and NaN handling
+    # flag these: a repeated fine window counts its days twice, and a NaN day has
+    # no value to average.
+    zeros, zero_means = xr.zeros_like(daily), xr.zeros_like(means)
+    repeated = xr.concat([zeros, zeros.isel(time=[0])], dim="time")
+    repeated_bounds = np.concatenate([daily_bounds, daily_bounds[:1]])
+    assert (
+        timeaxis.window_mean_preserved(
+            repeated, repeated_bounds, zero_means, five_bounds
+        )
+        != []
+    )
+    gap = zeros.copy()
+    gap[seed % days] = np.nan
+    assert (
+        timeaxis.window_mean_preserved(gap, daily_bounds, zero_means, five_bounds) != []
+    )
+
+
+@given(om4_axes(), st.integers(-48, 48).filter(bool))
+def test_windows_match_compares_datetime64_with_cftime(axis, hours):
+    """xarray decodes standard calendars to datetime64, so either side may be either kind."""
+    _, windows = axis
+    gregorian = np.array(
+        [
+            [
+                cftime.datetime(*t.timetuple()[:6], calendar="proleptic_gregorian")
+                for t in w
+            ]
+            for w in windows
+        ]
+    )
+    as_datetime64 = np.array(
+        [[np.datetime64(t.isoformat(), "ns") for t in w] for w in gregorian]
+    )
+    assert timeaxis.windows_match(as_datetime64, gregorian) == []
+    shifted = as_datetime64 + np.timedelta64(hours, "h")
+    assert timeaxis.windows_match(shifted, gregorian) != []
 
 
 @given(
@@ -216,6 +254,9 @@ def test_conservation_accepts_block_means_and_flags_a_scaled_copy(
     assert found == []
     # Scaling by 1.01 is visible at rtol=1e-3 only if the total isn't mostly
     # cancellation: rtol is relative to the integral of |field|.
+    # Nothing to integrate is a failure, not 0 == 0.
+    land = xr.full_like(fine, np.nan)
+    assert conservation.integral_preserved(land, w, land, w, "f") != []
     assume(float(abs((fine * w).sum())) > 0.2 * float((abs(fine) * w).sum()))
     assert (
         conservation.integral_preserved(
@@ -315,6 +356,18 @@ def test_zonal_spectra_accept_non_nested_rows_and_flag_rescaled_waves(
         )
         != []
     )
+
+
+def test_band_spectrum_refuses_curvilinear_rows_and_extra_dimensions():
+    field = xr.DataArray(np.ones((2, 4)), dims=("y", "x"))
+    edges = np.repeat(np.array([[-60.0], [-58.0], [-56.0]]), 5, axis=1)
+    tilted = edges + np.linspace(0.0, 1.0, 5)
+    with pytest.raises(ValueError, match="rectilinear"):
+        conservation.band_zonal_spectrum(field, tilted, (-60.0, -56.0))
+    with pytest.raises(ValueError, match="dimensions"):
+        conservation.band_zonal_spectrum(
+            field.expand_dims(time=2), edges, (-60.0, -56.0)
+        )
 
 
 def test_invariant_constants_match_the_model():

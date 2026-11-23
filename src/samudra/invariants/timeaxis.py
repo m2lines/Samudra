@@ -209,6 +209,10 @@ def windows_match(
                 f"{state_name} has windows of shape {state.shape}, {forcing_name} {forcing.shape}",
             )
         ]
+    # xarray decodes standard calendars to datetime64 and others to cftime, so one
+    # side may be each; compare them as cftime.
+    state = np.array(as_cftime(state.ravel()), dtype=object).reshape(state.shape)
+    forcing = np.array(as_cftime(forcing.ravel()), dtype=object).reshape(forcing.shape)
     if calendar_of(state) != calendar_of(forcing):
         return [
             Violation(
@@ -260,27 +264,37 @@ def window_mean_preserved(
             [max(0.0, seconds_between(max(fs, cs), min(fe, ce))) for fs, fe in fine_b]
         )
         total = weights.sum()
-        if total < seconds_between(cs, ce):
+        length = seconds_between(cs, ce)
+        if total != length:
+            # Less than the window: a gap. More: fine windows overlap or repeat.
             violations.append(
                 Violation(
                     "time.window_covered",
                     f"fine windows cover {total / SECONDS_PER_DAY:g} of the "
-                    f"{seconds_between(cs, ce) / SECONDS_PER_DAY:g} days in [{cs}, {ce}]",
+                    f"{length / SECONDS_PER_DAY:g} days in [{cs}, {ce}]",
                     {"time": j},
                 )
             )
             continue
-        w = xr.DataArray(weights / total, dims=[time_dim])
-        expected = (fine * w).sum(time_dim)
+        inside = np.flatnonzero(weights)
+        w = xr.DataArray(weights[inside] / total, dims=[time_dim])
+        # skipna=False: a NaN inside the window makes the mean NaN, which then
+        # matches only a NaN coarse value, instead of counting as zero.
+        expected = (fine.isel({time_dim: inside}) * w).sum(time_dim, skipna=False)
         actual = coarse.isel({time_dim: j})
         bad = ~np.isclose(actual, expected, rtol=rtol, atol=atol, equal_nan=True)
         if bad.any():
+            difference = np.abs(np.asarray(actual - expected))
+            worst = (
+                f"worst by {float(np.nanmax(difference)):.3g}"
+                if np.isfinite(difference).any()
+                else "each is NaN on one side only"
+            )
             violations.append(
                 Violation(
                     "time.window_mean_preserved",
                     f"window [{cs}, {ce}]: {int(bad.sum())} values differ from the "
-                    f"weighted mean of finer windows; worst by "
-                    f"{float(np.nanmax(np.abs(np.asarray(actual - expected)))):.3g}",
+                    f"weighted mean of finer windows; {worst}",
                     {"time": j},
                 )
             )

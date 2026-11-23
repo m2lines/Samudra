@@ -75,9 +75,13 @@ def relative_difference(a: float, b: float) -> float:
 
 
 def weighted_sum(field: xr.DataArray, weights: xr.DataArray, dims) -> xr.DataArray:
-    """Sum of ``field * weights`` over ``dims``, treating NaN in either as zero contribution."""
+    """Sum of ``field * weights`` over ``dims``, skipping cells where either is NaN.
+
+    NaN where no cell is valid, so a comparison of an all-NaN field fails instead
+    of passing on 0 == 0.
+    """
     product = (field * weights).where(field.notnull() & weights.notnull())
-    return product.sum(dims, skipna=True)
+    return product.sum(dims, skipna=True, min_count=1)
 
 
 def weighted_mean(field: xr.DataArray, weights: xr.DataArray, dims) -> xr.DataArray:

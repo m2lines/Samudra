@@ -264,6 +264,20 @@ def window_mean_preserved(
     """
     fine_b = [(as_cftime([s])[0], as_cftime([e])[0]) for s, e in np.asarray(fine_bnds)]
     violations = []
+    # Checked on their own: an overlap and a gap of equal length would otherwise
+    # cancel in a coarse window's coverage.
+    ordered = sorted(range(len(fine_b)), key=lambda i: fine_b[i][0])
+    overlapping = [
+        b for a, b in zip(ordered, ordered[1:]) if fine_b[b][0] < fine_b[a][1]
+    ]
+    if overlapping:
+        violations.append(
+            Violation(
+                "time.fine_windows_overlap",
+                f"{len(overlapping)} fine windows start before the previous one ends",
+                {"time": overlapping[0]},
+            )
+        )
     coarse_b = [
         (as_cftime([s])[0], as_cftime([e])[0]) for s, e in np.asarray(coarse_bnds)
     ]
@@ -274,7 +288,7 @@ def window_mean_preserved(
         total = weights.sum()
         length = seconds_between(cs, ce)
         if total != length:
-            # Less than the window: a gap. More: fine windows overlap or repeat.
+            # Less than the window: a gap. More: fine windows overlap.
             violations.append(
                 Violation(
                     "time.window_covered",

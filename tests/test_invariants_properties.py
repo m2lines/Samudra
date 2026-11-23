@@ -208,6 +208,20 @@ def test_window_means_accept_true_means_and_flag_shifted_ones(windows, seed, shi
         )
         != []
     )
+    # An overlap and a gap of the same length cover the window's duration.
+    first = daily_bounds[0]
+    cancelling = np.array(
+        [[first[0], first[0] + 2 * day], [first[0] + day, first[1] + day]]
+    )
+    assert (
+        timeaxis.window_mean_preserved(
+            zeros.isel(time=[0, 1]),
+            cancelling,
+            zero_means.isel(time=[0]),
+            np.array([[first[0], first[0] + 3 * day]]),
+        )
+        != []
+    )
     gap = zeros.copy()
     gap[seed % days] = np.nan
     assert (

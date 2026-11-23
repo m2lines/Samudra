@@ -35,8 +35,13 @@ def rectilinear_cell_area(
     lat_b: ArrayLike, lon_b: ArrayLike, radius: float = EARTH_RADIUS_M
 ) -> np.ndarray:
     """Exact spherical area of each cell of a regular lat-lon grid, from its (y_b, x_b) vertices."""
-    lat = np.deg2rad(np.asarray(lat_b)[:, 0])
-    lon = np.deg2rad(np.asarray(lon_b)[0, :])
+    lat_b, lon_b = np.asarray(lat_b, dtype=float), np.asarray(lon_b, dtype=float)
+    if not (np.allclose(lat_b, lat_b[:, :1]) and np.allclose(lon_b, lon_b[:1, :])):
+        raise ValueError(
+            "grid is not rectilinear; need lat_b constant along x and lon_b constant along y"
+        )
+    lat = np.deg2rad(lat_b[:, 0])
+    lon = np.deg2rad(lon_b[0, :])
     band = np.diff(np.sin(lat))
     width = np.diff(lon)
     return radius**2 * np.abs(np.outer(band, width))

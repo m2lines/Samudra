@@ -45,6 +45,7 @@ nav:
   - Concepts:
       - Architecture: concepts/architecture.md
       - Ocean Physics: concepts/ocean-physics.md
+      - Invariants: invariants.md
       - Data: data.md
       - How to Run: run.md
       - Torch: torch.md

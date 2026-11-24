@@ -1,0 +1,11 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+# SPDX-License-Identifier: Apache-2.0
+[Unit]
+Description=Forward public OM4 viewer port to local reader
+Requires=om4-viewer.service
+After=om4-viewer.service
+
+[Service]
+ExecStart=/usr/lib/systemd/systemd-socket-proxyd 127.0.0.1:8766
+Restart=on-failure
+RestartSec=2

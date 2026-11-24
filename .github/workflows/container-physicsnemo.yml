@@ -350,14 +350,34 @@ jobs:
       - test-container-cpu-gpu
       - build-test-publish-arm64
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
     steps:
       - name: Check job results
         if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
         run: exit 1
 
-      - name: Fail if container build did not run
-        if: needs['build-and-smoke'].result == 'skipped'
+      - name: Explain missing automatic tests
+        if: needs['build-and-smoke'].result == 'skipped' && github.event_name != 'pull_request'
         run: |
-          echo "AWS-backed container tests did not run automatically."
-          echo "Run this workflow manually from the GitHub Actions UI once the code has been reviewed."
+          echo "::error::AWS-backed tests were skipped unexpectedly. Inspect the provisioning jobs."
           exit 1
+
+      - name: Load trusted PR test verifier
+        if: needs['build-and-smoke'].result == 'skipped' && github.event_name == 'pull_request'
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+
+      - name: Verify manually authorized container tests
+        if: needs['build-and-smoke'].result == 'skipped' && github.event_name == 'pull_request'
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd
+        with:
+          script: |
+            await require('./.github/scripts/pr-aws-ci.cjs').verify(
+              {github, context, core}, 'container', context.payload.pull_request.number,
+              context.payload.pull_request.head.sha);

@@ -18,6 +18,7 @@ COPY rust/loader /ctx/rust/loader
 COPY verification /ctx/verification
 COPY scripts/container /ctx/scripts/container
 COPY scripts/build_quickstart_notebook.py /ctx/scripts/build_quickstart_notebook.py
+COPY scripts/migrate_observation_checkpoint.py /ctx/scripts/migrate_observation_checkpoint.py
 COPY notebooks/samudra-quickstart.ipynb /ctx/notebooks/samudra-quickstart.ipynb
 
 FROM nvcr.io/nvidia/physicsnemo/physicsnemo:26.05

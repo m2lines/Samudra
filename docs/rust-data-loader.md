@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 
 # Samudra Rust data loading
 
-The optional `samudra-rust-loader` extension loads local flat and compact OM4
+The optional `samudra-rust-loader` extension loads local and S3 flat and compact OM4
 stores for training and validation. Python plans batches and deduplicates physical
 planes across each autoregressive rollout. Rust reads those planes concurrently
 into host buffers, then Python transfers and prepares them for the model.
@@ -21,6 +21,26 @@ data:
     max_concurrent_reads: 8
     prefetch_to_device: true
 ```
+
+For direct S3 reads, set `experiment.data_root` to a structured location:
+
+```yaml
+type: s3
+bucket: emulators
+path: user/data/dataset
+endpoint_url: https://nyu1.osn.mghpcc.org
+anon: false
+```
+
+Credentials come from the process's standard `AWS_ACCESS_KEY_ID`,
+`AWS_SECRET_ACCESS_KEY`, and optional `AWS_SESSION_TOKEN` environment variables.
+Public stores may use `anon: true`. The Rust S3 backend uses persistent HTTP
+connections, path-style requests for a custom endpoint, and at most three retries
+within a 120-second retry budget. It does not stage or cache chunks on local disk.
+The same Rayon concurrency bound, decompression, and batch preparation apply to
+local and S3 stores. A process-wide Tokio runtime supplies two network I/O threads;
+these do not increase the configured number of concurrent reads. Xarray continues
+to read metadata, masks, and normalization statistics at startup.
 
 ## Components
 

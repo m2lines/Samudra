@@ -2,11 +2,128 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import contextlib
+import http.server
+import threading
+from urllib.parse import unquote, urlsplit
+
 import numpy as np
 import pytest
 import xarray as xr
 
 rust_loader = pytest.importorskip("samudra_rust_loader")
+
+
+@contextlib.contextmanager
+def s3_endpoint(path, *, denied=False):
+    requests = []
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_HEAD(self):
+            self.respond(False)
+
+        def do_GET(self):
+            self.respond(True)
+
+        def respond(self, body):
+            requests.append((self.path, self.headers.get("Authorization")))
+            if denied:
+                self.send_error(403)
+                return
+            prefix = "/bucket/store/"
+            key = unquote(urlsplit(self.path).path)
+            if not key.startswith(prefix):
+                self.send_error(404)
+                return
+            file = path / key[len(prefix) :]
+            if not file.is_file():
+                self.send_error(404)
+                return
+            data = file.read_bytes()
+            size = len(data)
+            requested = self.headers.get("Range")
+            if requested:
+                start_text, end_text = requested.removeprefix("bytes=").split("-")
+                start, end = int(start_text), int(end_text) if end_text else size - 1
+                data = data[start : end + 1]
+                self.send_response(206)
+                self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
+            else:
+                self.send_response(200)
+            self.send_header("Content-Length", str(len(data)))
+            self.send_header("ETag", '"test"')
+            self.send_header("Last-Modified", "Wed, 21 Oct 2026 00:00:00 GMT")
+            self.end_headers()
+            if body:
+                self.wfile.write(data)
+
+        def log_message(self, *_args):
+            pass
+
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f"http://127.0.0.1:{server.server_port}", requests
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()
+
+
+@pytest.mark.parametrize("compact", [False, True])
+@pytest.mark.parametrize("anon", [False, True])
+def test_s3_matches_local(
+    flat_om4_store, compact_om4_store, monkeypatch, compact, anon
+):
+    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "test-access")
+    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "test-secret")
+    path, _ = compact_om4_store if compact else flat_om4_store
+    cls = rust_loader.CompactOm4Reader if compact else rust_loader.FlatOm4Reader
+    selectors: list[tuple[str, int | None]] | list[str]
+    if compact:
+        selectors = [("thetao", 0), ("thetao", 2), ("zos", None)]
+    else:
+        selectors = ["first", "second"]
+    pool = rust_loader.ZarrReadPool(3)
+    local = cls(path, selectors, pool)
+    expected = np.empty((3, len(selectors), 3, 5), dtype=np.float32)
+    local.read_into([2, 0, 2], selectors, expected)
+    with s3_endpoint(path) as (endpoint, requests):
+        remote = cls.from_s3(
+            "bucket", "store", selectors, pool, endpoint=endpoint, anon=anon
+        )
+        actual = np.empty_like(expected)
+        remote.read_into([2, 0, 2], selectors, actual)
+    np.testing.assert_array_equal(actual, expected)
+    assert requests
+    assert all((auth is None) == anon for _, auth in requests)
+
+
+def test_s3_auth_failure_is_not_missing_data(flat_om4_store):
+    path, _ = flat_om4_store
+    with s3_endpoint(path, denied=True) as (endpoint, _):
+        with pytest.raises(RuntimeError):
+            rust_loader.FlatOm4Reader.from_s3(
+                "bucket",
+                "store",
+                ["first"],
+                rust_loader.ZarrReadPool(1),
+                endpoint=endpoint,
+                anon=True,
+            )
+
+
+def test_s3_rejects_empty_variables():
+    with pytest.raises(RuntimeError, match="at least one variable"):
+        rust_loader.FlatOm4Reader.from_s3(
+            "bucket",
+            "store",
+            [],
+            rust_loader.ZarrReadPool(1),
+            endpoint="http://127.0.0.1:1",
+            anon=True,
+        )
 
 
 def open_reader(path, variables, max_concurrent_reads=2):

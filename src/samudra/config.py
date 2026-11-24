@@ -4,6 +4,7 @@
 
 import abc
 import datetime
+from collections.abc import Sequence
 from functools import cached_property, partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Literal, Self, assert_never
@@ -272,10 +273,26 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
     data_stds_location: Location = Field(
         description="Location of the data standard deviations; " + LOCATION_DOCS
     )
+    data_increment_rms_location: Location | None = Field(
+        default=None,
+        description=(
+            "Location of the per-channel RMS one-step change over wet cells "
+            "(``*_increment_rms.zarr``, written beside the means and stds by "
+            "``ocean_preprocessing.make_norm_datasets``). Needed by "
+            "``model.scale_residuals`` and the ``normalized_delta`` loss; "
+            + LOCATION_DOCS
+        ),
+    )
 
     @abc.abstractmethod
     def build_layout(self) -> DataLayout:
         raise NotImplementedError
+
+    def canonicalize_increment_rms(self, increment_rms: xr.Dataset) -> xr.Dataset:
+        """Name the increment RMS by canonical channel, as the stds are."""
+        raise ValueError(
+            f"{type(self).__name__} sources do not support increment RMS statistics yet"
+        )
 
     @abc.abstractmethod
     def canonicalize_datasets(
@@ -358,6 +375,21 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
                 data_location=resolved_data_location,
                 data_layout=data_layout,
             )
+        increment_rms = None
+        if self.data_increment_rms_location is not None:
+            location = data_root.resolve(self.data_increment_rms_location)
+            raw = location.open(None)
+            # An RMS averaged over the full grid with land counted as zero is
+            # smaller by sqrt(wet fraction) per level, and would train normally
+            # with wrong channel weights.
+            if raw.attrs.get("over") != "wet":
+                raise ValueError(
+                    f"Increment RMS dataset {location} has "
+                    f"over={raw.attrs.get('over')!r}, but it must be the RMS over "
+                    "wet cells (over='wet'), as ocean_preprocessing.make_norm_datasets "
+                    "writes it"
+                )
+            increment_rms = self.canonicalize_increment_rms(raw)
         return CanonicalSource(
             name=f"{resolved_data_location}-{turn_on_dask}",
             _reader=reader,
@@ -365,6 +397,7 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
                 data, data_layout.prognostic_var_names, data_layout.boundary_var_names
             ),
             data_layout=data_layout,
+            increment_rms=increment_rms,
         )
 
 
@@ -549,6 +582,12 @@ class Om4FamilyDataSourceConfig[Om4FamilyTimeConfigT: Om4TimeConfig | Cm4TimeCon
         canonical_means = expand_compact_levels(means)
         canonical_stds = expand_compact_levels(stds)
         return data, canonical_means, canonical_stds, data_layout
+
+    def canonicalize_increment_rms(self, increment_rms: xr.Dataset) -> xr.Dataset:
+        depth_levels = self.build_layout().depth_levels
+        return expand_compact_levels(
+            with_level_index_vars(increment_rms, depth_levels=depth_levels)
+        )
 
 
 class Om4DataSourceConfig(Om4FamilyDataSourceConfig[Om4TimeConfig]):
@@ -986,9 +1025,10 @@ class BaseModelConfig(BaseConfig, abc.ABC):
         description=(
             "Multiply the network output by a fixed per-channel scale before "
             "adding it to the input (GraphCast-style residual scaling), so the "
-            "network emits unit-scale increments. Requires pred_residuals. "
-            "Training fills the scale from the normalized_delta loss statistics; "
-            "evaluation restores it from the checkpoint."
+            "network emits unit-scale increments. The scale is the data "
+            "source's typical one-step change in normalized units, tau / sigma, "
+            "from its data_increment_rms_location; like the means and stds, it "
+            "comes from the data, not the checkpoint. Requires pred_residuals."
         ),
     )
 
@@ -997,6 +1037,15 @@ class BaseModelConfig(BaseConfig, abc.ABC):
         if self.scale_residuals and not self.pred_residuals:
             raise ValueError("scale_residuals requires pred_residuals")
         return self
+
+    def _check_residual_scale(self, residual_scale: torch.Tensor | None) -> None:
+        if self.scale_residuals and residual_scale is None:
+            raise ValueError(
+                "model.scale_residuals needs the data source's increment RMS; see "
+                "residual_scale_for"
+            )
+        if not self.scale_residuals and residual_scale is not None:
+            raise ValueError("Got a residual scale for a model without scale_residuals")
 
     last_kernel_size: int = 3
     pad: str = "circular"
@@ -1051,7 +1100,9 @@ class SamudraConfig(BaseModelConfig):
         out_channels: int,
         input_steps: int,
         grid_sizes: list[GridSize],
+        residual_scale: torch.Tensor | None = None,
     ) -> Samudra:
+        self._check_residual_scale(residual_scale)
         if len(grid_sizes) != 1:
             raise ValueError(
                 "Samudra only supports training at a single scale! Please configure exactly one data source."
@@ -1065,7 +1116,7 @@ class SamudraConfig(BaseModelConfig):
             in_channels=total_in_channels,
             out_channels=out_channels,
             pred_residuals=self.pred_residuals,
-            scale_residuals=self.scale_residuals,
+            residual_scale=residual_scale,
             last_kernel_size=self.last_kernel_size,
             pad=self.pad,
             unet=self.unet.build(
@@ -1110,7 +1161,9 @@ class SamudraMultiConfig(BaseModelConfig):
         out_channels: int,
         input_steps: int,
         grid_sizes: list[GridSize],
+        residual_scale: torch.Tensor | None = None,
     ) -> SamudraMulti:
+        self._check_residual_scale(residual_scale)
         assert len(self.patch_extent) == 2, "patch_extent must be a pair of floats."
         extent = self.patch_extent[0], self.patch_extent[1]
 
@@ -1154,7 +1207,7 @@ class SamudraMultiConfig(BaseModelConfig):
             in_channels=total_in_channels,
             out_channels=out_channels,
             pred_residuals=self.pred_residuals,
-            scale_residuals=self.scale_residuals,
+            residual_scale=residual_scale,
             last_kernel_size=self.last_kernel_size,
             pad=self.pad,
             encoder=encoder,
@@ -1205,7 +1258,9 @@ class SamudraMiniConfig(BaseModelConfig):
         out_channels: int,
         input_steps: int,
         grid_sizes: list[GridSize],
+        residual_scale: torch.Tensor | None = None,
     ) -> SamudraMini:
+        self._check_residual_scale(residual_scale)
         if self.add_3d_coordinates:
             raise ValueError(
                 "SamudraMini always uses learned Cartesian coordinate embeddings. "
@@ -1230,7 +1285,7 @@ class SamudraMiniConfig(BaseModelConfig):
             in_channels=in_channels,
             out_channels=out_channels,
             pred_residuals=self.pred_residuals,
-            scale_residuals=self.scale_residuals,
+            residual_scale=residual_scale,
             last_kernel_size=self.last_kernel_size,
             pad=self.pad,
             input_embedding_dim=self.embedding_dim,
@@ -1423,52 +1478,25 @@ class NormalizedDeltaLossConfig(pydantic.BaseModel):
     drowned out by fast ones such as velocities. Because ``q`` is fixed, this
     equals a state-space MSE with per-channel weights ``1 / q**2``, which is
     how it is implemented. The weights are not capped or rescaled.
-    Build the statistics with ``scripts/compute_increment_rms.py``.
+    ``q`` comes from the data source's ``data_increment_rms_location``,
+    written with the means and stds by ``ocean_preprocessing.make_norm_datasets``.
     """
 
     type: Literal["normalized_delta"] = "normalized_delta"
-    increment_rms_location: Location = Field(
-        description=(
-            "Dataset of per-channel RMS one-step change over wet cells, in "
-            "physical units, one scalar variable per prognostic channel; "
-            + LOCATION_DOCS
-        )
-    )
 
 
 Loss = LossMetric | DynamicLossConfig | GradientLossConfig | NormalizedDeltaLossConfig
 
 
-def load_normalized_increment_rms(
-    location: ResolvedLocation,
-    channels: tuple[str, ...],
-    state_stds: np.ndarray,
-) -> torch.Tensor:
-    """Read the per-channel RMS one-step change over wet cells (physical units,
-    from ``scripts/compute_increment_rms.py``) and convert to normalized units.
-
-    The file must record ``over="wet"``. An RMS averaged over the full grid
-    with land counted as zero (what earlier versions of the script wrote by
-    default) is smaller by the square root of each level's wet fraction, and
-    would train normally with wrong channel weights.
-    """
-    if len(state_stds) != len(channels):
-        raise ValueError(
-            f"Got {len(state_stds)} state stds for {len(channels)} channels"
-        )
-    stats = location.open(None)
-    found = stats.attrs.get("over")
-    if found != "wet":
-        raise ValueError(
-            f"Increment RMS dataset {location} has over={found!r}, but "
-            "normalized_delta needs over='wet'; rebuild it with "
-            "scripts/compute_increment_rms.py"
-        )
-    missing = [c for c in channels if c not in stats.data_vars]
-    if missing:
-        raise KeyError(f"Increment RMS dataset is missing channels: {missing}")
-    physical = np.array([float(stats[c].values) for c in channels], dtype=np.float64)
-    return torch.from_numpy(physical / np.asarray(state_stds, dtype=np.float64))
+def residual_scale_for(
+    model_cfg: "BaseModelConfig",
+    source: CanonicalSource,
+    channels: Sequence[str],
+) -> torch.Tensor | None:
+    """The scaled residual head's scale, from the source's increment RMS."""
+    if not model_cfg.scale_residuals:
+        return None
+    return torch.from_numpy(source.normalized_increment_rms(channels)).float()
 
 
 def build_loss_fn(
@@ -1477,9 +1505,8 @@ def build_loss_fn(
     num_channels: int,
     pad_mode: str,
     *,
-    data_root: ResolvedLocation | None = None,
-    channels: tuple[str, ...] | None = None,
-    state_stds: np.ndarray | None = None,
+    source: CanonicalSource | None = None,
+    channels: Sequence[str] | None = None,
 ) -> LossFnWithContext:
     match loss_cfg:
         case str():
@@ -1492,18 +1519,16 @@ def build_loss_fn(
                 device=device,
                 num_channels=num_channels,
             )
-        case NormalizedDeltaLossConfig(increment_rms_location=location):
-            if data_root is None or channels is None or state_stds is None:
-                raise ValueError(
-                    "normalized_delta loss needs data_root, channels, and state_stds"
-                )
+        case NormalizedDeltaLossConfig():
+            if source is None or channels is None:
+                raise ValueError("normalized_delta loss needs the source and channels")
             if len(channels) != num_channels:
                 raise ValueError(
                     f"Got {len(channels)} channel names for {num_channels} channels"
                 )
             return NormalizedDeltaLoss(
-                increment_rms=load_normalized_increment_rms(
-                    data_root.resolve(location), channels, state_stds
+                increment_rms=torch.from_numpy(
+                    source.normalized_increment_rms(channels)
                 ),
                 device=device,
             )
@@ -1606,6 +1631,14 @@ class TrainConfig(TopLevelConfig):
             raise ValueError(
                 "normalized_delta weights are defined for a single data source's "
                 "normalization"
+            )
+        if (
+            isinstance(self.loss, NormalizedDeltaLossConfig)
+            or self.model.scale_residuals
+        ) and self.data.sources[0].data_increment_rms_location is None:
+            raise ValueError(
+                "normalized_delta and model.scale_residuals need the source's "
+                "data_increment_rms_location"
             )
         if self.validation_score == "rollout_rmse":
             if self.rollout_validation is None:
@@ -1782,6 +1815,18 @@ class EvalConfig(TopLevelConfig):
             "Present means enabled; omit to skip the phase."
         ),
     )
+
+    @pydantic.model_validator(mode="after")
+    def _scaled_residuals_need_one_source_with_increment_rms(self) -> Self:
+        if self.model.scale_residuals and (
+            len(self.data.sources) != 1
+            or self.data.sources[0].data_increment_rms_location is None
+        ):
+            raise ValueError(
+                "model.scale_residuals needs exactly one data source with a "
+                "data_increment_rms_location"
+            )
+        return self
 
     @pydantic.model_validator(mode="after")
     def _observations_need_a_saved_rollout(self) -> Self:

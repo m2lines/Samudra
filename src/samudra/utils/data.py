@@ -318,6 +318,10 @@ class CanonicalSource:
     _reader: CanonicalReader
     masks: Masks
     data_layout: DataLayout
+    # Per-channel RMS one-step change over wet cells, in physical units, with
+    # one scalar variable per canonical channel. Optional: only the
+    # normalized_delta loss and scaled residual head need it.
+    increment_rms: xr.Dataset | None = None
 
     @property
     def reader(self) -> CanonicalReader:
@@ -375,6 +379,32 @@ class CanonicalSource:
 
     def statistics(self, channels: Sequence[str]) -> ChannelStatistics:
         return self._reader.statistics(tuple(channels))
+
+    def normalized_increment_rms(self, channels: Sequence[str]) -> np.ndarray:
+        """Typical one-step change per channel in normalized units, ``tau / sigma``.
+
+        ``tau`` is the RMS one-step change over wet cells (``increment_rms``)
+        and ``sigma`` the channel's normalization std. The ``normalized_delta``
+        loss and the scaled residual head both take their scale from here.
+        """
+        if self.increment_rms is None:
+            raise ValueError(
+                f"Source {self.name!r} has no increment RMS statistics; set the "
+                "source's data_increment_rms_location"
+            )
+        missing = [c for c in channels if c not in self.increment_rms.data_vars]
+        if missing:
+            raise KeyError(f"Increment RMS statistics are missing channels: {missing}")
+        tau = np.array(
+            [float(self.increment_rms[c].values) for c in channels], dtype=np.float64
+        )
+        scale = tau / self.statistics(channels).std.astype(np.float64)
+        if not np.isfinite(scale).all() or (scale <= 0).any():
+            raise ValueError(
+                "Increment RMS must be positive and finite in normalized units; got "
+                f"{dict(zip(channels, scale.tolist()))}"
+            )
+        return scale
 
     @property
     def attrs(self) -> MappingProxyType[str, Any]:

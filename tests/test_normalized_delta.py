@@ -4,8 +4,9 @@
 """The normalized_delta loss and scaled residual head.
 
 The network emits a normalized delta ``d`` and the state is ``x[t] + q * d``,
-with ``q = tau / sigma`` per channel. The reference objective, written out in
-``reference_loss`` below, is an unweighted masked MSE between ``d`` and
+with ``q = tau / sigma`` per channel. ``tau`` is a normalization statistic of
+the data source, like the means and stds. The reference objective, written out
+in ``reference_loss`` below, is an unweighted masked MSE between ``d`` and
 ``(label - x[t]) / q``.
 """
 
@@ -19,43 +20,36 @@ import xarray as xr
 import yaml
 from pydantic import ValidationError
 
-from samudra.config import (
-    NormalizedDeltaLossConfig,
-    TrainConfig,
-    build_loss_fn,
-    load_normalized_increment_rms,
-)
+from samudra.config import TrainConfig
 from samudra.models.base import BaseModel
 from samudra.train import Trainer
 from samudra.utils.ctx import BatchGrid
-from samudra.utils.location import LocalLocation, UnresolvedLocation
+from samudra.utils.location import LocalLocation
+from samudra.utils.loss import NormalizedDeltaLoss
 from samudra.utils.multiton import MultitonScope
-from scripts.compute_increment_rms import increment_rms, select_time_range
 
 TEST_CONFIGS_DIR = pathlib.Path(__file__).parent / "configs"
 B, H, W = 3, 6, 8
-CHANNELS = ("uo_0", "thetao_0", "thetao_18")
-TAU = np.array([0.05, 0.3, 8e-4])  # physical RMS change over wet cells
-SIGMA = np.array([0.13, 11.6, 0.5])  # state normalization stds
+N = 3  # channels
+TRAINER_CASE = pytest.mark.parametrize(
+    "data_source,config_name",
+    [("mock-om4", "train_default_2step.yaml")],
+    indirect=True,
+)
+CPU_BACKEND = pytest.mark.parametrize("backend", ["cpu"], indirect=True)
 
 
-def residual_model(n: int) -> BaseModel:
+def residual_model(q: torch.Tensor) -> BaseModel:
     return BaseModel(
-        in_channels=2 * n,
-        out_channels=n,
+        in_channels=2 * q.numel(),
+        out_channels=q.numel(),
         input_steps=2,
         pred_residuals=True,
         last_kernel_size=3,
         pad="circular",
         gradient_detach_interval=0,
-        scale_residuals=True,
+        residual_scale=q,
     )
-
-
-def write_tau(path, channels, tau) -> None:
-    stats = xr.Dataset({c: xr.DataArray(t) for c, t in zip(channels, tau)})
-    stats.attrs["over"] = "wet"
-    stats.to_zarr(path)
 
 
 def reference_loss(anchor, d, label, wet, q):
@@ -65,28 +59,15 @@ def reference_loss(anchor, d, label, wet, q):
     return F.mse_loss(d * wet, target * wet, reduction="none").mean(dim=(0, 2, 3))
 
 
-def test_matches_the_reference_normalized_delta_objective(tmp_path):
-    write_tau(tmp_path / "tau.zarr", CHANNELS, TAU)
-    loss_fn = build_loss_fn(
-        NormalizedDeltaLossConfig(
-            increment_rms_location=UnresolvedLocation(path="tau.zarr")
-        ),
-        device=torch.device("cpu"),
-        num_channels=len(CHANNELS),
-        pad_mode="circular",
-        data_root=LocalLocation(path=tmp_path),
-        channels=CHANNELS,
-        state_stds=SIGMA,
-    )
-    q = torch.tensor(TAU / SIGMA, dtype=torch.float32)
-    model = residual_model(len(CHANNELS))
-    model.set_residual_scale(q)
+def test_matches_the_reference_normalized_delta_objective():
+    q = torch.tensor([0.4, 0.026, 0.0016])  # velocity-, SST- and deep-like
+    loss_fn = NormalizedDeltaLoss(increment_rms=q, device=torch.device("cpu"))
+    model = residual_model(q)
 
     g = torch.Generator().manual_seed(0)
-    n = len(CHANNELS)
-    wet = torch.rand(n, H, W, generator=g) > 0.3  # some land
-    prev, anchor, label = (torch.randn(B, n, H, W, generator=g) * wet for _ in range(3))
-    raw = torch.randn(B, n, H, W, generator=g)
+    wet = torch.rand(N, H, W, generator=g) > 0.3  # some land
+    prev, anchor, label = (torch.randn(B, N, H, W, generator=g) * wet for _ in range(3))
+    raw = torch.randn(B, N, H, W, generator=g)
 
     lat, lon = torch.linspace(-80, 80, H), torch.linspace(0, 359, W)
     d_ours = raw.clone().requires_grad_()
@@ -105,123 +86,60 @@ def test_matches_the_reference_normalized_delta_objective(tmp_path):
     torch.testing.assert_close(d_ours.grad, d_ref.grad, rtol=1e-5, atol=1e-9)
 
 
-@pytest.mark.parametrize("bad", [0.0, np.nan])
-def test_normalized_delta_rejects_zero_or_nan_increment_rms(tmp_path, bad):
-    write_tau(tmp_path / "tau.zarr", CHANNELS, [TAU[0], bad, TAU[2]])
+@pytest.mark.parametrize("bad", [0.0, float("nan")])
+def test_zero_or_nan_increment_rms_fails_loudly(bad):
+    q = torch.tensor([0.4, bad, 0.0016])
     with pytest.raises(ValueError, match="positive, finite"):
-        build_loss_fn(
-            NormalizedDeltaLossConfig(
-                increment_rms_location=UnresolvedLocation(path="tau.zarr")
-            ),
-            device=torch.device("cpu"),
-            num_channels=len(CHANNELS),
-            pad_mode="circular",
-            data_root=LocalLocation(path=tmp_path),
-            channels=CHANNELS,
-            state_stds=SIGMA,
-        )
+        NormalizedDeltaLoss(increment_rms=q, device=torch.device("cpu"))
+    with pytest.raises(ValueError, match="positive and finite"):
+        residual_model(q)
 
 
-def test_residual_scale_restores_from_checkpoint_and_is_nan_until_set():
-    q = torch.tensor([0.4, 0.02, 0.001])
-    trained = residual_model(3)
-    assert torch.isnan(trained.residual_scale).all()
-    trained.set_residual_scale(q)
-
-    evaluated = residual_model(3)
-    evaluated.load_state_dict(trained.state_dict())
-    torch.testing.assert_close(evaluated.residual_scale, q)
+def test_residual_scale_is_a_data_statistic_not_checkpoint_state():
+    # Like the means and stds, the scale comes from the data source when the
+    # model is built, so a checkpoint never carries a stale copy of it.
+    model = residual_model(torch.tensor([0.4, 0.026, 0.0016]))
+    assert "residual_scale" not in model.state_dict()
 
 
-def test_increment_rms_over_wet_cells_ignores_land():
-    time = xr.date_range(
-        "2000-01-01", periods=3, freq="5D", calendar="noleap", use_cftime=True
-    )
-    deep = np.zeros((3, 2, 2))
-    deep[1:, 0, 0] = 4.0  # its only wet cell changes by 4 at one origin
-    data = xr.Dataset(
-        {
-            "thetao_1": (("time", "y", "x"), deep),
-            "mask_1": (("y", "x"), np.array([[True, False], [False, False]])),
-        },
-        coords={"time": time},
-    )
-    stats = increment_rms(data, ["thetao_1"], time_stride=1)
-    # Two origins x one wet cell.
-    assert float(stats["thetao_1"]) == pytest.approx(np.sqrt(16 / 2))
+def train_yaml(**changes) -> dict:
+    with open(TEST_CONFIGS_DIR / "train_default_2step.yaml") as f:
+        raw = yaml.safe_load(f)
+    raw["data"].update(input_steps=2, output_steps=1)
+    raw["model"].update(pred_residuals=True, scale_residuals=True)
+    raw["loss"] = {"type": "normalized_delta"}
+    raw["data"]["sources"][0]["data_increment_rms_location"] = "rms.zarr"
+    for key, value in changes.items():
+        section, field = key.split("__")
+        if section == "source":
+            raw["data"]["sources"][0][field] = value
+        else:
+            raw[section][field] = value
+    return raw
 
 
-def test_increment_rms_rejects_channels_that_never_change():
-    time = xr.date_range(
-        "2000-01-01", periods=2, freq="5D", calendar="noleap", use_cftime=True
-    )
-    data = xr.Dataset(
-        {
-            "zos": (("time", "y", "x"), np.zeros((2, 1, 1))),
-            "mask_0": (("y", "x"), [[True]]),
-        },
-        coords={"time": time},
-    )
-    with pytest.raises(ValueError, match="never changes"):
-        increment_rms(data, ["zos"], time_stride=1)
+@pytest.mark.parametrize(
+    "changes, match",
+    [
+        ({"data__output_steps": 2}, "output_steps == 1"),
+        ({"source__data_increment_rms_location": None}, "data_increment_rms_location"),
+    ],
+)
+def test_config_rejects_normalized_delta_it_cannot_train(changes, match):
+    TrainConfig.model_validate(train_yaml())
+    with pytest.raises(ValidationError, match=match):
+        TrainConfig.model_validate(train_yaml(**changes))
 
 
-@pytest.mark.parametrize("calendar", ["julian", "standard"])
-def test_time_range_includes_whole_end_day_in_any_calendar(calendar):
-    # Standard calendars decode to numpy datetimes, others to cftime.
-    time = xr.date_range(
-        "2000-01-01T12:00",
-        periods=6,
-        freq="5D",
-        calendar=calendar,
-        use_cftime=calendar != "standard",
-    )
-    data = xr.Dataset({"zos": ("time", np.arange(6.0))}, coords={"time": time})
-    # Records on Jan 6, 11, 16 (stamped at noon); Jan 16 is the end day.
-    selected = select_time_range(data, "2000-01-06", "2000-01-16")
-    assert selected.zos.values.tolist() == [1.0, 2.0, 3.0]
-
-
-@pytest.mark.parametrize("over", ["full", None])
-def test_statistics_not_over_wet_cells_fail_loudly(tmp_path, over):
-    # A full-grid RMS (land counted as zero) is smaller by sqrt(wet fraction)
-    # per level; a run given one would train normally with wrong weights.
-    stats = xr.Dataset({c: xr.DataArray(t) for c, t in zip(CHANNELS, TAU)})
+def write_increment_rms(path, channels, tau, over="wet") -> None:
+    stats = xr.Dataset({c: xr.DataArray(t) for c, t in zip(channels, tau)})
     if over is not None:
         stats.attrs["over"] = over
-    stats.to_zarr(tmp_path / "tau.zarr")
-    with pytest.raises(ValueError, match="needs over='wet'"):
-        load_normalized_increment_rms(
-            LocalLocation(path=tmp_path).resolve(UnresolvedLocation(path="tau.zarr")),
-            CHANNELS,
-            SIGMA,
-        )
+    stats.to_zarr(path)
 
 
-def test_missing_channel_statistics_fail_loudly(tmp_path):
-    write_tau(tmp_path / "tau.zarr", CHANNELS[:2], TAU[:2])
-    with pytest.raises(KeyError, match="thetao_18"):
-        load_normalized_increment_rms(
-            LocalLocation(path=tmp_path).resolve(UnresolvedLocation(path="tau.zarr")),
-            CHANNELS,
-            SIGMA,
-        )
-
-
-def use_normalized_delta(train_config, tau_path, tau) -> None:
-    """Switch a 2-in-1-out test config to normalized_delta with the given tau."""
-    write_tau(tau_path, CHANNELS_OF[id(train_config)], tau)
-    train_config.model.pred_residuals = True
-    train_config.model.scale_residuals = True
-    train_config.loss = NormalizedDeltaLossConfig(
-        increment_rms_location=LocalLocation(path=tau_path)
-    )
-
-
-CHANNELS_OF: dict[int, list[str]] = {}
-
-
-def probe_channels(train_config) -> tuple[list[str], np.ndarray]:
+def normalized_delta_config(train_config, tmp_path, *, over="wet"):
+    """Switch a 2-in-1-out test config to normalized_delta with known tau."""
     train_config.data.input_steps = 2
     train_config.data.output_steps = 1
     train_config.data.loading.num_workers = 0
@@ -229,68 +147,30 @@ def probe_channels(train_config) -> tuple[list[str], np.ndarray]:
         probe = Trainer(train_config)
         channels = probe.prognostic_var_names
         stds = probe.primary_source.statistics(channels).std
-    CHANNELS_OF[id(train_config)] = channels
-    return channels, stds
+    tau = np.linspace(0.01, 0.1, len(channels))
+    # Written outside the shared test-data cache that serves as data_root.
+    write_increment_rms(tmp_path / "rms.zarr", channels, tau, over)
+    source = train_config.data.sources[0]
+    source.data_increment_rms_location = LocalLocation(path=tmp_path / "rms.zarr")
+    train_config.model.pred_residuals = True
+    train_config.model.scale_residuals = True
+    train_config.loss = TrainConfig.model_validate(train_yaml()).loss
+    return channels, torch.tensor(tau / stds, dtype=torch.float32)
 
 
-@pytest.mark.parametrize("backend", ["cpu"], indirect=True)
-@pytest.mark.parametrize(
-    "data_source,config_name",
-    [("mock-om4", "train_default_2step.yaml")],
-    indirect=True,
-)
-@pytest.mark.parametrize("checkpoint_kind", ["other statistics", "no residual scale"])
-def test_resume_refuses_checkpoint_with_another_residual_scale(
-    train_config, tmp_path, checkpoint_kind
+@CPU_BACKEND
+@TRAINER_CASE
+def test_trainer_takes_one_scale_from_the_source_and_trains_2in1out(
+    train_config, tmp_path
 ):
-    channels, _ = probe_channels(train_config)
-    tau = np.linspace(0.01, 0.1, len(channels))
-    checkpoint = tmp_path / "ckpt.pt"
-    if checkpoint_kind == "other statistics":
-        use_normalized_delta(train_config, tmp_path / "old_tau.zarr", 2 * tau)
-    with MultitonScope():
-        Trainer(train_config).save_checkpoint(epoch=1, checkpoint_path=checkpoint)
-
-    use_normalized_delta(train_config, tmp_path / "tau.zarr", tau)
-    match = (
-        "statistics changed"
-        if checkpoint_kind == "other statistics"
-        else "no residual_scale"
-    )
+    channels, q = normalized_delta_config(train_config, tmp_path)
     with MultitonScope():
         trainer = Trainer(train_config)
-        with pytest.raises(ValueError, match=match):
-            trainer.load_checkpoint(checkpoint)
-
-
-def test_normalized_delta_rejects_multiple_output_steps():
-    with open(TEST_CONFIGS_DIR / "train_default_2step.yaml") as f:
-        raw = yaml.safe_load(f)
-    raw["data"].update(input_steps=2, output_steps=2)
-    raw["model"].update(pred_residuals=True, scale_residuals=True)
-    raw["loss"] = {"type": "normalized_delta", "increment_rms_location": "tau.zarr"}
-    with pytest.raises(ValidationError, match="output_steps == 1"):
-        TrainConfig.model_validate(raw)
-    raw["data"]["output_steps"] = 1
-    TrainConfig.model_validate(raw)
-
-
-@pytest.mark.parametrize("backend", ["cpu"], indirect=True)
-@pytest.mark.parametrize(
-    "data_source,config_name",
-    [("mock-om4", "train_default_2step.yaml")],
-    indirect=True,
-)
-def test_trainer_fills_residual_scale_and_trains_2in1out(train_config, tmp_path):
-    channels, stds = probe_channels(train_config)
-    tau = np.linspace(0.01, 0.1, len(channels))
-    use_normalized_delta(train_config, tmp_path / "tau.zarr", tau)
-
-    with MultitonScope():
-        trainer = Trainer(train_config)
+        torch.testing.assert_close(trainer.model.residual_scale, q)
+        assert isinstance(trainer.loss_fn, NormalizedDeltaLoss)
         torch.testing.assert_close(
-            trainer.model.residual_scale,
-            torch.tensor(tau / stds, dtype=torch.float32),
+            trainer.loss_fn.loss_scale_per_channel(),
+            q.double().square().reciprocal().float(),
         )
         trainer.init_data_loaders(cur_step=train_config.steps[0])
         logs = trainer.train_one_epoch(epoch=1)
@@ -298,3 +178,14 @@ def test_trainer_fills_residual_scale_and_trains_2in1out(train_config, tmp_path)
     channel_losses = [v for k, v in logs.items() if k.startswith("train/loss/channel/")]
     assert len(channel_losses) == len(channels)
     assert np.isfinite(np.array(channel_losses, dtype=float)).all()
+
+
+@CPU_BACKEND
+@TRAINER_CASE
+@pytest.mark.parametrize("over", ["full", None])
+def test_increment_rms_not_over_wet_cells_fails_loudly(train_config, tmp_path, over):
+    # A full-grid RMS (land counted as zero) is smaller by sqrt(wet fraction)
+    # per level; a run given one would train normally with wrong weights.
+    normalized_delta_config(train_config, tmp_path, over=over)
+    with MultitonScope(), pytest.raises(ValueError, match="over='wet'"):
+        Trainer(train_config)

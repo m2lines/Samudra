@@ -4,7 +4,12 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Create *_means.zarr and *_stds.zarr from a dataset."""
+"""Create *_means.zarr, *_stds.zarr and *_increment_rms.zarr from a dataset.
+
+The increment RMS is each field's root-mean-square one-step change over wet
+cells: the typical size of a five-day increment, which the ``normalized_delta``
+training loss and scaled residual head divide increments by.
+"""
 
 from __future__ import annotations
 
@@ -61,6 +66,19 @@ def normalization_fields(ds: xr.Dataset) -> xr.Dataset:
     return xr.Dataset(fields, attrs=ds.attrs)
 
 
+def increment_rms(fields: xr.Dataset) -> xr.Dataset:
+    """RMS of one-step changes over finite wet samples, retaining depth.
+
+    ``fields`` are masked as by :func:`normalization_fields`, so land (NaN)
+    is excluded from both the sum and the count.
+    """
+    if fields.sizes.get("time", 0) < 2:
+        raise ValueError("Increment RMS needs at least two timestamps")
+    dims = [dim for dim in ("time", "y", "x") if dim in fields.dims]
+    change = fields.diff("time")
+    return ((change**2).mean(dims, skipna=True)) ** 0.5
+
+
 def main(
     src: str,
     write_retries: int = 5,
@@ -105,6 +123,16 @@ def main(
     }
     ds_means.attrs.update(attrs)
     ds_stds.attrs.update(attrs)
+    print("Computing RMS one-step change over wet space and time, retaining depth.")
+    ds_increment_rms = increment_rms(ds)
+    ds_increment_rms.attrs.update(
+        attrs,
+        normalization_method="root-mean-square one-step change over finite "
+        "wet-ocean samples",
+        # Read by samudra, which rejects increment statistics averaged any
+        # other way (e.g. over the full grid with land counted as zero).
+        over="wet",
+    )
 
     mean_path = os.path.join(path, f"{ds_name}_means{ds_ext}")
     print(f"Writing mean Zarr to {mean_path!r}.")
@@ -114,6 +142,9 @@ def main(
     stds_path = os.path.join(path, f"{ds_name}_stds{ds_ext}")
     print(f"Writing std Zarr to {stds_path!r}.")
     write_zarr_with_retries(ds_stds, stds_path, client, write_retries)
+    increment_rms_path = os.path.join(path, f"{ds_name}_increment_rms{ds_ext}")
+    print(f"Writing increment RMS Zarr to {increment_rms_path!r}.")
+    write_zarr_with_retries(ds_increment_rms, increment_rms_path, client, write_retries)
 
     print("done.")
 

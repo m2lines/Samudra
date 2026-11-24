@@ -26,7 +26,7 @@ class BaseModel(torch.nn.Module):
     autoregressive rollouts.
     """
 
-    residual_scale: torch.Tensor
+    residual_scale: torch.Tensor | None
 
     def __init__(
         self,
@@ -37,8 +37,15 @@ class BaseModel(torch.nn.Module):
         last_kernel_size,
         pad,
         gradient_detach_interval: int,
-        scale_residuals: bool = False,
+        residual_scale: torch.Tensor | None = None,
     ) -> None:
+        """``residual_scale``, if given, multiplies the network output before it
+        is added to the input: one positive value per prognostic variable, in
+        normalized units, repeated for every output step (channels are
+        time-major). It is a normalization statistic of the data
+        (``CanonicalSource.normalized_increment_rms``), not a learned or saved
+        parameter, so it is kept out of the state dict, like the means and stds.
+        """
         super().__init__()
         assert last_kernel_size % 2 != 0, "Cannot use even kernel sizes!"
         self.in_channels = in_channels
@@ -50,33 +57,20 @@ class BaseModel(torch.nn.Module):
             raise ValueError(f"input_steps must be positive, got {input_steps}")
         self.input_steps = input_steps
         self.gradient_detach_interval = gradient_detach_interval
-        if scale_residuals and not pred_residuals:
-            raise ValueError("scale_residuals requires pred_residuals")
-        self.scale_residuals = scale_residuals
-        if scale_residuals:
-            # NaN until set_residual_scale() or a checkpoint fills it, so a
-            # model that was never given its scale produces NaN, not garbage.
-            self.register_buffer(
-                "residual_scale", torch.full((out_channels,), torch.nan)
+        if residual_scale is not None:
+            if not pred_residuals:
+                raise ValueError("A residual scale requires pred_residuals")
+            if residual_scale.ndim != 1 or out_channels % residual_scale.numel():
+                raise ValueError(
+                    f"Expected one scale per variable dividing {out_channels} "
+                    f"output channels, got shape {tuple(residual_scale.shape)}"
+                )
+            if not torch.isfinite(residual_scale).all() or (residual_scale <= 0).any():
+                raise ValueError("Residual scale must be positive and finite")
+            residual_scale = residual_scale.float().repeat(
+                out_channels // residual_scale.numel()
             )
-
-    def set_residual_scale(self, scale_per_var: torch.Tensor) -> None:
-        """Set the fixed per-channel residual scale (normalized units).
-
-        ``scale_per_var`` has one positive value per prognostic variable; it is
-        repeated for every output step, since channels are time-major.
-        """
-        if not self.scale_residuals:
-            raise ValueError("Model was built without scale_residuals")
-        if scale_per_var.ndim != 1 or self.out_channels % scale_per_var.numel():
-            raise ValueError(
-                f"Expected one scale per variable dividing {self.out_channels} "
-                f"output channels, got shape {tuple(scale_per_var.shape)}"
-            )
-        if not torch.isfinite(scale_per_var).all() or (scale_per_var <= 0).any():
-            raise ValueError("Residual scale must be positive and finite")
-        repeats = self.out_channels // scale_per_var.numel()
-        self.residual_scale.copy_(scale_per_var.float().repeat(repeats))
+        self.register_buffer("residual_scale", residual_scale, persistent=False)
 
     def _assemble_prediction(
         self, prognostic: Prognostic, decoding: Prognostic
@@ -87,7 +81,7 @@ class BaseModel(torch.nn.Module):
         # timestep. For 2-in/1-out this is x[t]; for the legacy 2-in/2-out case
         # this remains the original elementwise, same-slot residual assembly.
         residual_base = prognostic[:, -self.out_channels :]
-        if self.scale_residuals:
+        if self.residual_scale is not None:
             decoding = decoding * self.residual_scale.view(1, -1, 1, 1)
         return residual_base + decoding
 

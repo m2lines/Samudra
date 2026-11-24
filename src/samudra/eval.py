@@ -11,7 +11,7 @@ import torch
 
 from samudra.aggregator import Aggregator
 from samudra.backend import init_eval_backend
-from samudra.config import EvalConfig, ObsMetricsConfig
+from samudra.config import EvalConfig, ObsMetricsConfig, residual_scale_for
 from samudra.constants import BoundaryVarNames, Grid, PrognosticVarNames
 from samudra.datasets import InferenceDataset
 from samudra.metrics.run import open_predictions, run_observation_metrics
@@ -99,6 +99,9 @@ class Eval:
             out_channels=self.num_out,
             input_steps=self.input_steps,
             grid_sizes=[source.grid_size for source in self.data_bundle.train_sources],
+            residual_scale=residual_scale_for(
+                cfg.model, self.source, self.prognostic_var_names
+            ),
         ).to(self.device)
 
         get_model_summary(self.model, None, cfg.debug)

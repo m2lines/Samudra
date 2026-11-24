@@ -29,12 +29,7 @@ from samudra.aggregator.loss import (
 )
 from samudra.aggregator.validate.rollout import RolloutValidationAggregator
 from samudra.backend import init_train_backend
-from samudra.config import (
-    NormalizedDeltaLossConfig,
-    TrainConfig,
-    build_loss_fn,
-    load_normalized_increment_rms,
-)
+from samudra.config import TrainConfig, build_loss_fn, residual_scale_for
 from samudra.constants import (
     MAX_TRAIN_MODEL_STEPS_FORWARD,
     BoundaryVarNames,
@@ -189,6 +184,9 @@ class Trainer:
             out_channels=self.num_out,
             input_steps=self.input_steps,
             grid_sizes=[source.grid_size for source in self.data_bundle.train_sources],
+            residual_scale=residual_scale_for(
+                cfg.model, self.primary_source, self.prognostic_var_names
+            ),
         ).to(self.device)
 
         self.nets_dir = cfg.experiment.nets_dir
@@ -200,27 +198,9 @@ class Trainer:
             device=self.device,
             num_channels=self.N_prog,
             pad_mode=cfg.model.pad,
-            data_root=cfg.experiment.resolved_data_root,
-            channels=tuple(self.prognostic_var_names),
-            state_stds=self.primary_source.statistics(self.prognostic_var_names).std,
+            source=self.primary_source,
+            channels=self.prognostic_var_names,
         )
-        if cfg.model.scale_residuals:
-            if not isinstance(cfg.loss, NormalizedDeltaLossConfig):
-                raise ValueError("scale_residuals needs a normalized_delta loss")
-            self._residual_scale: torch.Tensor | None = (
-                load_normalized_increment_rms(
-                    cfg.experiment.resolved_data_root.resolve(
-                        cfg.loss.increment_rms_location
-                    ),
-                    tuple(self.prognostic_var_names),
-                    self.primary_source.statistics(self.prognostic_var_names).std,
-                )
-                .float()
-                .to(self.device)
-            )
-            self.model.set_residual_scale(self._residual_scale)
-        else:
-            self._residual_scale = None
 
         # Optimizer
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=cfg.learning_rate)
@@ -1217,25 +1197,6 @@ class Trainer:
         # Load model state
         model_state_dict = checkpoint["model"]
         new_state_dict = remove_module_prefix(model_state_dict)
-        expected_scale = getattr(self, "_residual_scale", None)
-        if expected_scale is not None:
-            if "residual_scale" not in new_state_dict:
-                raise ValueError(
-                    f"Checkpoint {checkpoint_path} has no residual_scale; it was "
-                    "trained without model.scale_residuals, so it can't be resumed "
-                    "or fine-tuned with it"
-                )
-            saved = new_state_dict["residual_scale"].to(expected_scale)
-            repeats = saved.numel() // expected_scale.numel()
-            if not torch.equal(saved, expected_scale.repeat(repeats)):
-                # The scale is part of the model: a checkpoint trained with one
-                # set of statistics (or normalization stds) predicts increments
-                # in its units, so loading it against others is refused.
-                raise ValueError(
-                    "Checkpoint residual_scale differs from the scale computed "
-                    "from loss.increment_rms_location and the source's stds; the "
-                    "statistics changed"
-                )
         self.model.load_state_dict(new_state_dict)
 
         # Load EMA state

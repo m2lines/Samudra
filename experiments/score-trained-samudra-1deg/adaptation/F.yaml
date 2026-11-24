@@ -1,0 +1,130 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+# SPDX-License-Identifier: Apache-2.0
+
+backend: nccl
+batch_size: 4
+calibrate_auxiliary: false
+checkpoint_validation_metric: rollout_rmse
+data:
+  inference_loading:
+    num_workers: 4
+    persistent_workers: true
+  input_steps: 2
+  loader_version: om4-torch
+  loading:
+    max_concurrent_reads: 8
+    prefetch_batches: 2
+    prefetch_to_device: true
+    type: rust
+  masked_fill_value: 0.0
+  normalize_before_mask: true
+  output_steps: 2
+  sources:
+  - boundary_vars_key: tau_hfds
+    data_location: OM4.zarr
+    data_means_location: OM4_means.zarr
+    data_stds_location: OM4_stds.zarr
+    grid_type: gaussian
+    inference_time: null
+    prognostic_vars_key: thermo_dynamic_all
+    train_time:
+      end: '2013-10-05'
+      start: '1975-01-03'
+    type: om4
+    val_time:
+      end: '2014-10-05'
+      start: '2013-10-05'
+data_stride:
+- 1
+debug: false
+delayed_loss_estimate: false
+disk_mode: true
+ema_decay: 0.99
+epochs: 30
+experiment:
+  base_output_dir: /scratch/jr7309/runs/score-multitask-1deg-20261012/outputs
+  data_root: /scratch/jr7309/data/om4-v2026-09/om4_onedeg
+  name: adaptation-F-forecast
+  rand_seed: 15
+  search: null
+  wandb:
+    entity: ocean_emulators
+    group: score-forecast-adaptation-20261014
+    mode: online
+    notes: Original epoch70 EMA initialization. Fresh Adam and fixed0.99 EMA; 20epochs
+      flat1e-4 then10epochcosine. Raw and EMA annual validation.
+    project: default
+    tags:
+    - C
+    - forecast-adaptation
+    - F
+faster_decay_at_start: false
+finetune: true
+gradient_accumulation_steps: 4
+learning_rate: 0.0001
+loss: mse
+model:
+  add_3d_coordinates: false
+  arm: C
+  checkpointing: all
+  difference_weight: 0.1
+  gradient_detach_interval: 0
+  last_kernel_size: 3
+  mode: forecast
+  pad: circular
+  pos_channels: 0
+  pred_residuals: false
+  spatial_weight: 0.1
+  unet:
+    ch_width:
+    - 280
+    - 380
+    - 480
+    - 520
+    core_block:
+      activation: capped_gelu
+      block_type: conv_next_block
+      kernel_size: 3
+      norm: instance
+      pointwise_linear: false
+      upscale_factor: 2
+    dilation:
+    - 1
+    - 2
+    - 4
+    - 8
+    down_sampling_block: avg_pool
+    drop_path_rate: 0.0
+    n_layers:
+    - 1
+    - 1
+    - 1
+    - 1
+    up_sampling_block: zonally_periodic_upsample
+  use_bfloat16: true
+post_train_eval: null
+preemptible: false
+profiler:
+  cuda_snapshot_frequency: null
+resume_ckpt_path: /scratch/jr7309/runs/score-multitask-1deg-20261012/outputs/train-forecast-rtx/saved_nets/ema_ckpt.pt
+rollout_validation:
+  days:
+  - 360
+  frequency: 1
+  model_steps: -1
+  steps_forward: 1
+save_freq: 2
+scales_path: null
+scheduler:
+  type: cosine_with_warmup
+  warmup_lr: 0.0001
+  warmup_epochs: 20
+  target_epochs: 30
+step_transition: []
+steps:
+- 4
+test_using_ema: true
+validation_image_log_freq: 10
+native_pointwise: true
+reset_ema_on_finetune: true
+log_raw_rollout_validation: true

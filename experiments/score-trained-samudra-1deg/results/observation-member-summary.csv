@@ -1,0 +1,27 @@
+metric,depth,arm,metric_of_mean_field,mean_member_metric,min_member_metric,max_member_metric,units,members
+instantaneous_surface_eke_total_rmse,,C,0.04579915438,0.04528150551,0.04526975526,0.04531318204,m2 s-2,4
+instantaneous_surface_eke_total_rmse,,D,0.04581120868,0.04519094866,0.04518111539,0.04520406252,m2 s-2,4
+ohc_bathymetry_disagreement,Intermediate (700-2000m),C,48.59378417,48.59378417,48.59378417,48.59378417,m,4
+ohc_bathymetry_disagreement,Intermediate (700-2000m),D,48.59378417,48.59378417,48.59378417,48.59378417,m,4
+ohc_bathymetry_disagreement,Surface (0-700m),C,26.48883907,26.48883907,26.48883907,26.48883907,m,4
+ohc_bathymetry_disagreement,Surface (0-700m),D,26.48883907,26.48883907,26.48883907,26.48883907,m,4
+ohc_partial_column_fraction,Intermediate (700-2000m),C,0.04476921891,0.04476921891,0.04476921891,0.04476921891,,4
+ohc_partial_column_fraction,Intermediate (700-2000m),D,0.04476921891,0.04476921891,0.04476921891,0.04476921891,,4
+ohc_partial_column_fraction,Surface (0-700m),C,0.1327408001,0.1327408001,0.1327408001,0.1327408001,,4
+ohc_partial_column_fraction,Surface (0-700m),D,0.1327408001,0.1327408001,0.1327408001,0.1327408001,,4
+ohc_per_area_total_rmse,Intermediate (700-2000m),C,2682717493,2729921618,2712031810,2748558860,J m-2,4
+ohc_per_area_total_rmse,Intermediate (700-2000m),D,2681076233,2709230558,2700023868,2717899502,J m-2,4
+ohc_per_area_total_rmse,Surface (0-700m),C,4065770294,4125862101,4100888151,4146874140,J m-2,4
+ohc_per_area_total_rmse,Surface (0-700m),D,4085931957,4127724079,4122802772,4132386718,J m-2,4
+ohc_upper700_per_area_residual_variance_map_rmse,,C,3.948475617e+17,9.815280339e+17,9.548096657e+17,1.036797832e+18,(J m-2)2,4
+ohc_upper700_per_area_residual_variance_map_rmse,,D,3.950977513e+17,9.034449698e+17,8.584400508e+17,9.593322574e+17,(J m-2)2,4
+ohc_upper700_per_area_residual_variance_pattern_corr,,C,0.6785033251,0.6938442413,0.6756912844,0.7258120171,1,4
+ohc_upper700_per_area_residual_variance_pattern_corr,,D,0.6484831987,0.6781043389,0.6541254628,0.7033897704,1,4
+surface_geostrophic_velocity_vector_total_rmse,,C,0.1935549884,0.1963066907,0.1960976341,0.1964592375,m s-1,4
+surface_geostrophic_velocity_vector_total_rmse,,D,0.1937551136,0.1971526355,0.1970550393,0.1972270777,m s-1,4
+surface_sst_residual_variance_map_rmse,,C,0.4151093451,0.3223894337,0.3173890329,0.3317843376,degC2,4
+surface_sst_residual_variance_map_rmse,,D,0.4293007944,0.3365935943,0.3342557947,0.3390645404,degC2,4
+surface_sst_residual_variance_pattern_corr,,C,0.669709039,0.7029507305,0.676435758,0.7225424445,1,4
+surface_sst_residual_variance_pattern_corr,,D,0.6227078712,0.6880449952,0.6810936099,0.6997406529,1,4
+surface_sst_total_rmse,,C,0.8985693637,0.9913066921,0.9705994654,1.010573682,degC,4
+surface_sst_total_rmse,,D,0.895979441,0.9681045191,0.9586477675,0.9726224525,degC,4

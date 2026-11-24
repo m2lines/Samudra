@@ -33,7 +33,7 @@ from samudra.config import (
     NormalizedDeltaLossConfig,
     TrainConfig,
     build_loss_fn,
-    load_normalized_persistence_rms,
+    load_normalized_increment_rms,
 )
 from samudra.constants import (
     MAX_TRAIN_MODEL_STEPS_FORWARD,
@@ -208,13 +208,12 @@ class Trainer:
             if not isinstance(cfg.loss, NormalizedDeltaLossConfig):
                 raise ValueError("scale_residuals needs a normalized_delta loss")
             self._residual_scale: torch.Tensor | None = (
-                load_normalized_persistence_rms(
+                load_normalized_increment_rms(
                     cfg.experiment.resolved_data_root.resolve(
                         cfg.loss.increment_rms_location
                     ),
                     tuple(self.prognostic_var_names),
                     self.primary_source.statistics(self.prognostic_var_names).std,
-                    over="wet",
                 )
                 .float()
                 .to(self.device)

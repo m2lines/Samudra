@@ -1,24 +1,21 @@
 # SPDX-FileCopyrightText: 2026 Samudra Authors
 #
 # SPDX-License-Identifier: Apache-2.0
-"""Compute per-channel persistence RMS for the ``tendency`` loss.
+"""Compute per-channel increment RMS for the ``normalized_delta`` loss.
 
-For each prognostic channel this writes the root-mean-square one-step change,
-in physical units. With ``--over full`` (the default) it averages over every
-grid cell with land counted as zero change. That matches how the training loss
-zeros land and averages over the full grid, so a persistence forecast scores
-exactly 1 per channel under ``TendencyLoss``. With ``--over wet`` it averages
-over wet cells only, which is the ``tau`` of the ``normalized_delta`` loss.
-Use the training time range only.
+For each prognostic channel this writes the root-mean-square one-step change
+over wet cells, in physical units: the ``tau`` of the ``normalized_delta``
+loss. Use the training time range only.
 
 Example:
-    uv run python scripts/compute_tendency_stats.py \\
-        --data s3://.../om4_quarterdeg_v2/OM4.zarr \\
-        --output OM4_persistence_rms.zarr \\
-        --start 1975-01-03 --end 2013-09-30 --time-stride 4
+    uv run python scripts/compute_increment_rms.py \\
+        --data <data_root>/OM4.zarr \\
+        --output <data_root>/OM4_increment_rms_wet.zarr \\
+        --start 1975-01-03 --end 2013-09-30
 
-The output has one scalar variable per channel, like ``OM4_stds.zarr``.
-Point ``loss.persistence_rms_location`` at it.
+The output has one scalar variable per channel, like ``OM4_stds.zarr``, and
+records ``over="wet"``, which the loss checks. Point
+``loss.increment_rms_location`` at it.
 """
 
 import argparse
@@ -46,17 +43,14 @@ def wet_mask(data: xr.Dataset, channel: str) -> xr.DataArray:
     return data[name].astype(bool)
 
 
-def persistence_rms(
-    data: xr.Dataset, channels: list[str], time_stride: int, over: str = "full"
+def increment_rms(
+    data: xr.Dataset, channels: list[str], time_stride: int
 ) -> xr.Dataset:
-    """RMS of x[t+1] - x[t] over all grid cells, land counted as zero
-    (``over="full"``), or over wet cells only (``over="wet"``).
+    """RMS of x[t+1] - x[t] over each channel's wet cells.
 
     ``time_stride`` subsamples which origins are used; each difference is still
     one native time step.
     """
-    if over not in ("full", "wet"):
-        raise ValueError(f"over must be 'full' or 'wet', got {over!r}")
     if time_stride < 1:
         raise ValueError(f"time_stride must be positive, got {time_stride}")
     missing = [c for c in channels if c not in data]
@@ -75,8 +69,7 @@ def persistence_rms(
             np.sum(wet) * len(origins),
             np.isnan(change).any(),
         )
-        count = wet_count if over == "wet" else change.size
-        mean_square = sum_square / count
+        mean_square = sum_square / wet_count
         if has_nan:
             raise ValueError(f"NaN one-step change in wet cells of {channel!r}")
         out[channel] = float(np.sqrt(mean_square))
@@ -112,12 +105,6 @@ def main() -> None:
     parser.add_argument("--end", required=True, help="Last training date")
     parser.add_argument("--prognostic-vars-key", default="thermo_dynamic_all")
     parser.add_argument("--time-stride", type=int, default=1)
-    parser.add_argument(
-        "--over",
-        choices=("full", "wet"),
-        default="full",
-        help="Average over the full grid (land as zero) or wet cells only",
-    )
     args = parser.parse_args()
 
     channels = list(
@@ -129,11 +116,11 @@ def main() -> None:
     if data.sizes["time"] < 2:
         raise ValueError("Need at least two time steps in the training range")
 
-    stats = persistence_rms(data, channels, args.time_stride, args.over)
-    stats.attrs["description"] = "RMS one-step change per channel, physical units, " + (
-        "land counted as zero" if args.over == "full" else "wet cells only"
+    stats = increment_rms(data, channels, args.time_stride)
+    stats.attrs["description"] = (
+        "RMS one-step change per channel over wet cells, physical units"
     )
-    stats.attrs["over"] = args.over
+    stats.attrs["over"] = "wet"
     stats.attrs["time_range"] = f"{args.start} to {args.end}"
     stats.attrs["time_stride"] = args.time_stride
     stats.to_zarr(args.output, mode="w")

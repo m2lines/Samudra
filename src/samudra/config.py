@@ -86,9 +86,8 @@ from samudra.utils.loss import (
     GradientLoss,
     LossFnWithContext,
     LossMetric,
-    TendencyLoss,
+    NormalizedDeltaLoss,
     loss_fn_from_metric,
-    tendency_loss_weights,
 )
 from samudra.utils.profiler import Profiler
 from samudra.utils.schedule import SchedulerConfig
@@ -1407,50 +1406,24 @@ class GradientLossConfig(pydantic.BaseModel):
     )
 
 
-class TendencyLossConfig(pydantic.BaseModel):
-    """MSE in units of each channel's one-step change (GraphCast-style).
-
-    Each prognostic channel's loss is divided by the loss a persistence
-    forecast would get, so slowly changing fields (temperature, salinity) are
-    not drowned out by fast, noisy ones (velocities). Weights are fixed from
-    the data and do not adapt to the model, unlike ``dynamic``.
-    Build the statistics with ``scripts/compute_tendency_stats.py`` and
-    use ``pred_residuals: true``.
-    """
-
-    type: Literal["tendency"] = "tendency"
-    metric: Literal["mse"] = "mse"
-    persistence_rms_location: Location = Field(
-        description=(
-            "Dataset of per-channel RMS one-step change in physical units, with "
-            "one scalar variable per prognostic channel; " + LOCATION_DOCS
-        )
-    )
-    max_weight_ratio: float | None = Field(
-        description=(
-            "Largest allowed ratio between any two channel weights. Caps channels "
-            "that barely change. Default of None means no limit."
-        ),
-        default=None,
-        ge=1.0,
-    )
-
-
 class NormalizedDeltaLossConfig(pydantic.BaseModel):
-    """Unweighted MSE on normalized increments (the ``normalized_delta`` loss).
+    """MSE on normalized deltas: one-step increments in units of their typical size.
 
-    This reproduces the ``revision_experiments/normalized_delta`` objective of
-    the ``YuanYuan98/Ocean_Emulator`` repository, the research code this
-    loss was first trained in.
+    A *normalized delta* is a channel's one-step change, ``x[t+1] - x[t]``,
+    divided by that channel's typical one-step change. Here the typical change
+    is ``tau``, the RMS one-step change over wet cells during the training
+    period, in physical units. In the normalized units the model works in, it
+    is ``q = tau / sigma``, where ``sigma`` is the channel's normalization
+    std. With ``model.scale_residuals``, the network predicts the normalized
+    delta ``d`` and the next state is ``x[t+1] = x[t] + q * d``.
 
-    With ``q = tau / sigma`` per channel, where ``tau`` is the RMS one-step
-    change over wet cells in physical units and ``sigma`` the state's
-    normalization std, the network predicts ``d`` with
-    ``x[t+1] = x[t] + q * d`` (``model.scale_residuals``), and the loss is
-    MSE between ``d`` and ``(label - x[t]) / q``. Because ``q`` is fixed,
-    that equals a state-space MSE with fixed per-channel weights ``1 / q**2``,
-    which is how it is implemented. No cap and no rescaling of the weights.
-    Build the statistics with ``scripts/compute_tendency_stats.py --over wet``.
+    The loss is the MSE between ``d`` and the true normalized delta
+    ``(label - x[t]) / q``, so every channel counts in units of its own
+    typical change: slowly changing fields such as deep temperature are not
+    drowned out by fast ones such as velocities. Because ``q`` is fixed, this
+    equals a state-space MSE with per-channel weights ``1 / q**2``, which is
+    how it is implemented. The weights are not capped or rescaled.
+    Build the statistics with ``scripts/compute_increment_rms.py``.
     """
 
     type: Literal["normalized_delta"] = "normalized_delta"
@@ -1463,29 +1436,21 @@ class NormalizedDeltaLossConfig(pydantic.BaseModel):
     )
 
 
-Loss = (
-    LossMetric
-    | DynamicLossConfig
-    | GradientLossConfig
-    | TendencyLossConfig
-    | NormalizedDeltaLossConfig
-)
+Loss = LossMetric | DynamicLossConfig | GradientLossConfig | NormalizedDeltaLossConfig
 
 
-def load_normalized_persistence_rms(
+def load_normalized_increment_rms(
     location: ResolvedLocation,
     channels: tuple[str, ...],
     state_stds: np.ndarray,
-    *,
-    over: Literal["full", "wet"],
 ) -> torch.Tensor:
-    """Read physical persistence RMS per channel and convert to normalized units.
+    """Read the per-channel RMS one-step change over wet cells (physical units,
+    from ``scripts/compute_increment_rms.py``) and convert to normalized units.
 
-    ``over`` is the averaging the caller's loss assumes: ``"full"`` (land
-    counted as zero change, for ``tendency``) or ``"wet"`` (wet cells only, for
-    ``normalized_delta``). The two differ by the square root of each level's
-    wet fraction, so a file built the other way fails here instead of training
-    silently with wrong weights.
+    The file must record ``over="wet"``. An RMS averaged over the full grid
+    with land counted as zero (what earlier versions of the script wrote by
+    default) is smaller by the square root of each level's wet fraction, and
+    would train normally with wrong channel weights.
     """
     if len(state_stds) != len(channels):
         raise ValueError(
@@ -1493,15 +1458,15 @@ def load_normalized_persistence_rms(
         )
     stats = location.open(None)
     found = stats.attrs.get("over")
-    if found != over:
+    if found != "wet":
         raise ValueError(
-            f"Persistence RMS dataset {location} has over={found!r}, but this loss "
-            f"needs over={over!r}; rebuild it with "
-            f"scripts/compute_tendency_stats.py --over {over}"
+            f"Increment RMS dataset {location} has over={found!r}, but "
+            "normalized_delta needs over='wet'; rebuild it with "
+            "scripts/compute_increment_rms.py"
         )
     missing = [c for c in channels if c not in stats.data_vars]
     if missing:
-        raise KeyError(f"Persistence RMS dataset is missing channels: {missing}")
+        raise KeyError(f"Increment RMS dataset is missing channels: {missing}")
     physical = np.array([float(stats[c].values) for c in channels], dtype=np.float64)
     return torch.from_numpy(physical / np.asarray(state_stds, dtype=np.float64))
 
@@ -1527,29 +1492,6 @@ def build_loss_fn(
                 device=device,
                 num_channels=num_channels,
             )
-        case TendencyLossConfig(
-            metric=metric,
-            persistence_rms_location=location,
-            max_weight_ratio=max_weight_ratio,
-        ):
-            if data_root is None or channels is None or state_stds is None:
-                raise ValueError(
-                    "Tendency loss needs data_root, channels, and state_stds"
-                )
-            if len(channels) != num_channels:
-                raise ValueError(
-                    f"Got {len(channels)} channel names for {num_channels} channels"
-                )
-            persistence_rms = load_normalized_persistence_rms(
-                data_root.resolve(location), channels, state_stds, over="full"
-            )
-            return TendencyLoss(
-                loss_fn_from_metric(metric),
-                weights=tendency_loss_weights(
-                    persistence_rms, max_weight_ratio=max_weight_ratio
-                ),
-                device=device,
-            )
         case NormalizedDeltaLossConfig(increment_rms_location=location):
             if data_root is None or channels is None or state_stds is None:
                 raise ValueError(
@@ -1559,17 +1501,10 @@ def build_loss_fn(
                 raise ValueError(
                     f"Got {len(channels)} channel names for {num_channels} channels"
                 )
-            scale = load_normalized_persistence_rms(
-                data_root.resolve(location), channels, state_stds, over="wet"
-            )
-            if not torch.isfinite(scale).all() or (scale <= 0).any():
-                raise ValueError(
-                    "normalized_delta needs a positive, finite increment RMS for "
-                    f"every channel; got {dict(zip(channels, scale.tolist()))}"
-                )
-            return TendencyLoss(
-                loss_fn_from_metric("mse"),
-                weights=scale.square().reciprocal().float(),
+            return NormalizedDeltaLoss(
+                increment_rms=load_normalized_increment_rms(
+                    data_root.resolve(location), channels, state_stds
+                ),
                 device=device,
             )
         case GradientLossConfig(metric=metric, alpha=alpha):
@@ -1665,11 +1600,11 @@ class TrainConfig(TopLevelConfig):
                 f"the RMS of a single step, got output_steps={self.data.output_steps}"
             )
         if (
-            isinstance(self.loss, TendencyLossConfig | NormalizedDeltaLossConfig)
+            isinstance(self.loss, NormalizedDeltaLossConfig)
             and len(self.data.sources) != 1
         ):
             raise ValueError(
-                "tendency loss weights are defined for a single data source's "
+                "normalized_delta weights are defined for a single data source's "
                 "normalization"
             )
         if self.validation_score == "rollout_rmse":

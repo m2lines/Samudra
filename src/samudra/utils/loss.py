@@ -233,66 +233,38 @@ class DynamicLoss:
             self._per_channel_scale = state["per_channel_scale"].to(self._device)
 
 
-def tendency_loss_weights(
-    persistence_rms: Float[torch.Tensor, " var"],
-    *,
-    max_weight_ratio: float | None,
-) -> Float[torch.Tensor, " var"]:
-    """Static per-channel weights that put every channel in units of its own
-    one-step change, following GraphCast's residual normalization.
+class NormalizedDeltaLoss:
+    """MSE on increments measured in each channel's typical one-step change.
 
-    ``persistence_rms`` is each channel's root-mean-square one-step change,
-    in the same normalized units and with the same masking and spatial mean as
-    the loss. A persistence forecast then scores exactly 1 in every channel.
-
-    Unlike :class:`DynamicLoss`, these weights depend only on the data, not on
-    the model's current error: a channel that the model learns well contributes
-    less to the loss, instead of being rescaled back up.
-
-    Args:
-        persistence_rms: Positive, finite per-channel RMS of one-step change.
-        max_weight_ratio: If given, cap every weight at this multiple of the
-            smallest weight. Channels that barely change (e.g. deep
-            temperature) would otherwise dominate the loss.
-
-    Returns:
-        Weights with mean 1 across channels, so the loss magnitude stays
-        comparable to an unweighted mean.
-    """
-    if persistence_rms.ndim != 1:
-        raise ValueError(
-            f"Expected one RMS value per channel, got shape {tuple(persistence_rms.shape)}"
-        )
-    if not torch.isfinite(persistence_rms).all() or (persistence_rms <= 0).any():
-        raise ValueError(
-            "Persistence RMS must be positive and finite for every channel"
-        )
-    if max_weight_ratio is not None and max_weight_ratio < 1:
-        raise ValueError(f"max_weight_ratio must be >= 1, got {max_weight_ratio}")
-
-    weights = persistence_rms.double().square().reciprocal()
-    if max_weight_ratio is not None:
-        weights = weights.clamp(max=weights.min() * max_weight_ratio)
-    return (weights / weights.mean()).float()
-
-
-class TendencyLoss:
-    """Per-channel loss scaled by fixed, data-derived tendency weights.
-
-    See :func:`tendency_loss_weights`. Pair with ``pred_residuals: true`` so the
-    network predicts the change it is scored on rather than rebuilding the
-    current state.
+    With ``q`` the per-channel RMS one-step change over wet cells, in
+    normalized units, the network's increment ``d`` satisfies
+    ``x[t+1] = x[t] + q * d`` (``model.scale_residuals``), and the loss is the
+    MSE between ``d`` and ``(label - x[t]) / q``. Because ``q`` is fixed, that
+    equals a state-space MSE with per-channel weights ``1 / q**2``, which is
+    how it is applied here: to the per-channel MSE of the assembled state.
+    Every channel then counts in units of its own typical change, so slowly
+    changing fields (deep temperature) are not drowned out by fast ones
+    (velocities). No cap and no rescaling of the weights.
     """
 
     def __init__(
         self,
-        loss_fn: LossFnWithContext,
         *,
-        weights: Float[torch.Tensor, " var"],
+        increment_rms: Float[torch.Tensor, " var"],
         device: torch.device,
     ):
-        self.loss_fn = loss_fn
-        self._weights = weights.to(device)
+        if increment_rms.ndim != 1:
+            raise ValueError(
+                "Expected one increment RMS per channel, got shape "
+                f"{tuple(increment_rms.shape)}"
+            )
+        if not torch.isfinite(increment_rms).all() or (increment_rms <= 0).any():
+            raise ValueError(
+                "normalized_delta needs a positive, finite increment RMS for "
+                f"every channel; got {increment_rms.tolist()}"
+            )
+        self.loss_fn = loss_fn_from_metric("mse")
+        self._weights = increment_rms.double().square().reciprocal().float().to(device)
 
     def __call__(
         self,

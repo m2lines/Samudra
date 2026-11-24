@@ -3,12 +3,13 @@
 # SPDX-License-Identifier: Apache-2.0
 """The normalized_delta loss and scaled residual head.
 
-Reference: the ``revision_experiments/normalized_delta`` run in the
-``YuanYuan98/Ocean_Emulator`` research repository, where this loss was first
-trained. The network emits ``d`` and the state is ``x[t] + q * d``, with
-``q = tau / sigma`` per channel. The reference loss is an unweighted masked
-MSE between ``d`` and ``(label - x[t]) / q``.
+The network emits a normalized delta ``d`` and the state is ``x[t] + q * d``,
+with ``q = tau / sigma`` per channel. The reference objective, written out in
+``reference_loss`` below, is an unweighted masked MSE between ``d`` and
+``(label - x[t]) / q``.
 """
+
+import pathlib
 
 import numpy as np
 import pytest
@@ -18,15 +19,20 @@ import xarray as xr
 import yaml
 from pydantic import ValidationError
 
-from samudra.config import NormalizedDeltaLossConfig, TrainConfig, build_loss_fn
+from samudra.config import (
+    NormalizedDeltaLossConfig,
+    TrainConfig,
+    build_loss_fn,
+    load_normalized_increment_rms,
+)
 from samudra.models.base import BaseModel
 from samudra.train import Trainer
 from samudra.utils.ctx import BatchGrid
 from samudra.utils.location import LocalLocation, UnresolvedLocation
 from samudra.utils.multiton import MultitonScope
-from scripts.compute_tendency_stats import persistence_rms
-from tests.conftest import TEST_CONFIGS_DIR
+from scripts.compute_increment_rms import increment_rms, select_time_range
 
+TEST_CONFIGS_DIR = pathlib.Path(__file__).parent / "configs"
 B, H, W = 3, 6, 8
 CHANNELS = ("uo_0", "thetao_0", "thetao_18")
 TAU = np.array([0.05, 0.3, 8e-4])  # physical RMS change over wet cells
@@ -52,14 +58,14 @@ def write_tau(path, channels, tau) -> None:
     stats.to_zarr(path)
 
 
-def yuan_loss(anchor, d, label, wet, q):
-    """The reference run's NormalizedDeltaTarget + LossFnWithMask("mse"), one head."""
+def reference_loss(anchor, d, label, wet, q):
+    """Masked MSE between d and the true normalized delta, one head."""
     q = q.view(1, -1, 1, 1)
     target = torch.where(wet, (label - anchor) / q, 0.0)
     return F.mse_loss(d * wet, target * wet, reduction="none").mean(dim=(0, 2, 3))
 
 
-def test_matches_yuans_normalized_delta_objective(tmp_path):
+def test_matches_the_reference_normalized_delta_objective(tmp_path):
     write_tau(tmp_path / "tau.zarr", CHANNELS, TAU)
     loss_fn = build_loss_fn(
         NormalizedDeltaLossConfig(
@@ -92,7 +98,7 @@ def test_matches_yuans_normalized_delta_objective(tmp_path):
     ours.sum().backward()
 
     d_ref = raw.clone().requires_grad_()
-    ref = yuan_loss(anchor, d_ref, label, wet, q)
+    ref = reference_loss(anchor, d_ref, label, wet, q)
     ref.sum().backward()
 
     torch.testing.assert_close(ours, ref, rtol=1e-5, atol=1e-7)
@@ -127,7 +133,7 @@ def test_residual_scale_restores_from_checkpoint_and_is_nan_until_set():
     torch.testing.assert_close(evaluated.residual_scale, q)
 
 
-def test_persistence_rms_over_wet_cells_ignores_land():
+def test_increment_rms_over_wet_cells_ignores_land():
     time = xr.date_range(
         "2000-01-01", periods=3, freq="5D", calendar="noleap", use_cftime=True
     )
@@ -140,9 +146,66 @@ def test_persistence_rms_over_wet_cells_ignores_land():
         },
         coords={"time": time},
     )
-    stats = persistence_rms(data, ["thetao_1"], time_stride=1, over="wet")
+    stats = increment_rms(data, ["thetao_1"], time_stride=1)
     # Two origins x one wet cell.
     assert float(stats["thetao_1"]) == pytest.approx(np.sqrt(16 / 2))
+
+
+def test_increment_rms_rejects_channels_that_never_change():
+    time = xr.date_range(
+        "2000-01-01", periods=2, freq="5D", calendar="noleap", use_cftime=True
+    )
+    data = xr.Dataset(
+        {
+            "zos": (("time", "y", "x"), np.zeros((2, 1, 1))),
+            "mask_0": (("y", "x"), [[True]]),
+        },
+        coords={"time": time},
+    )
+    with pytest.raises(ValueError, match="never changes"):
+        increment_rms(data, ["zos"], time_stride=1)
+
+
+@pytest.mark.parametrize("calendar", ["julian", "standard"])
+def test_time_range_includes_whole_end_day_in_any_calendar(calendar):
+    # Standard calendars decode to numpy datetimes, others to cftime.
+    time = xr.date_range(
+        "2000-01-01T12:00",
+        periods=6,
+        freq="5D",
+        calendar=calendar,
+        use_cftime=calendar != "standard",
+    )
+    data = xr.Dataset({"zos": ("time", np.arange(6.0))}, coords={"time": time})
+    # Records on Jan 6, 11, 16 (stamped at noon); Jan 16 is the end day.
+    selected = select_time_range(data, "2000-01-06", "2000-01-16")
+    assert selected.zos.values.tolist() == [1.0, 2.0, 3.0]
+
+
+@pytest.mark.parametrize("over", ["full", None])
+def test_statistics_not_over_wet_cells_fail_loudly(tmp_path, over):
+    # A full-grid RMS (land counted as zero) is smaller by sqrt(wet fraction)
+    # per level; a run given one would train normally with wrong weights.
+    stats = xr.Dataset({c: xr.DataArray(t) for c, t in zip(CHANNELS, TAU)})
+    if over is not None:
+        stats.attrs["over"] = over
+    stats.to_zarr(tmp_path / "tau.zarr")
+    with pytest.raises(ValueError, match="needs over='wet'"):
+        load_normalized_increment_rms(
+            LocalLocation(path=tmp_path).resolve(UnresolvedLocation(path="tau.zarr")),
+            CHANNELS,
+            SIGMA,
+        )
+
+
+def test_missing_channel_statistics_fail_loudly(tmp_path):
+    write_tau(tmp_path / "tau.zarr", CHANNELS[:2], TAU[:2])
+    with pytest.raises(KeyError, match="thetao_18"):
+        load_normalized_increment_rms(
+            LocalLocation(path=tmp_path).resolve(UnresolvedLocation(path="tau.zarr")),
+            CHANNELS,
+            SIGMA,
+        )
 
 
 def use_normalized_delta(train_config, tau_path, tau) -> None:

@@ -125,18 +125,27 @@ def test_continuation_from_any_split_reproduces_the_forecast(seed, domain, steps
     assert torch.equal(torch.cat((first, second), 1), expected)
 
 
-@given(SEEDS, DOMAINS, st.integers(1, 3), st.data())
+@given(
+    SEEDS,
+    DOMAINS,
+    st.integers(1, 3),
+    st.sampled_from(["forcing", "contexts"]),
+    st.data(),
+)
 def test_predictions_never_depend_on_later_forcing_or_calendar(
-    seed, domain, steps, data
+    seed, domain, steps, perturbed, data
 ):
-    """Oracle: the unperturbed forecast. Changing forcing and context at forecast
-    step j may change step j onward, but never an earlier prediction."""
+    """Oracle: the unperturbed forecast. Changing forcing, or the seasonal
+    context, at forecast step j must change step j and may change later steps,
+    but never an earlier prediction. Each input is perturbed alone, so a
+    disconnected input can't hide behind the other."""
     network, case = model(seed), inputs(seed, domain, steps)
     expected, _ = forecast(network, case, domain)
     j = data.draw(st.integers(0, steps - 1))
     changed = {k: v.clone() for k, v in case.items()}
-    changed["forcing"][:, HISTORY_STEPS + j] += 3
-    changed["contexts"][:, HISTORY_STEPS + j, 3:] += 3
+    # Context channels 0-2 are fixed geometry; 3-4 are the seasonal phase.
+    first = 3 if perturbed == "contexts" else 0
+    changed[perturbed][:, HISTORY_STEPS + j, first:] += 3
     actual, _ = forecast(network, changed, domain)
     assert torch.equal(actual[:, :j], expected[:, :j])
     assert not torch.equal(actual[:, j], expected[:, j])

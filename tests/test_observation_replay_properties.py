@@ -8,8 +8,6 @@ No data, model or GPU: replay entries carry tagged constant tensors, so the
 oracle can identify every state the pool returns.
 """
 
-import copy
-
 import numpy as np
 import pandas as pd
 import torch
@@ -55,12 +53,15 @@ operations = st.lists(
 )
 
 
-def stored(pool: ReplayPool) -> dict[int, list[int]]:
-    """The checkpointed contents: tags per month, in storage order."""
-    entries = pool.state_dict()["entries"]
+def tags(entries) -> dict[int, list[int]]:
+    """Checkpointed contents: tags per month, in storage order."""
     return {
         m: [int(e.origin) for e in bucket] for m, bucket in entries.items() if bucket
     }
+
+
+def stored(pool: ReplayPool) -> dict[int, list[int]]:
+    return tags(pool.state_dict()["entries"])
 
 
 # Overflowing a one-entry bucket must evict the older state, not the newer one.
@@ -130,8 +131,11 @@ def test_restored_pool_draws_exactly_like_the_original(ops, data, seed):
 
     run(original, ops[:split], 0, update)
     update = sum(kind == "draw" for kind, _, _ in ops[:split])
-    checkpoint = copy.deepcopy(original.state_dict())
+    # No copy here: the checkpoint itself must not see the pool's later changes.
+    checkpoint = original.state_dict()
+    saved = tags(checkpoint["entries"])
     expected = run(original, ops[split:], split, update)
+    assert tags(checkpoint["entries"]) == saved
     restored = ReplayPool("obs", seed + 1, per_month=2, max_age=3)
     restored.load_state_dict(checkpoint)
     assert run(restored, ops[split:], split, update) == expected

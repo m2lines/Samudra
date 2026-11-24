@@ -38,6 +38,6 @@ dependencies:
       # (a local version sorts above the plain one), so Torch HPC and the DTN don't
       # pull the CUDA wheels as samudra's dependency.
       - --extra-index-url https://download.pytorch.org/whl/cpu
-      - -e ..  # samudra, for the ocean-physics invariants shared with the model
-      - -e .  # local sources
+      - -e ..  # samudra: the ocean-physics invariants and shared observation routines
+      - -e .[observations]  # local sources
       - -e ../verification  # samudra_verification, which data/tests/conftest.py imports

@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+# SPDX-License-Identifier: Apache-2.0
+# yaml-language-server: $schema=../schemas/ObservationDataConfig.json
+
+# Relative to experiment.data_root. Model paths are opened for the selected mix.
+observations: obs
+daily: obs/daily
+normalization: obs
+om4: om4_onedeg_v3
+cm4: cm4_onedeg/CM4.zarr

@@ -12,6 +12,8 @@ The library prepares ocean simulations for ML training and observational product
 for evaluation. The simulation workflow has four stages: preserve the original
 files, expose their arrays through cloud-readable references, apply the scientific
 processing needed by the model, and compute normalization statistics.
+Observation preparation also uses Samudra; the bundled environment installs
+both packages from this checkout.
 
 ```mermaid
 flowchart LR

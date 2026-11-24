@@ -33,5 +33,6 @@ dependencies:
     - distributed
     - pip
     - pip:
-      - -e .  # local sources
+      - -e ..  # shared Samudra routines from this checkout
+      - -e .[observations]  # local sources
       - -e ../verification  # samudra_verification, which data/tests/conftest.py imports

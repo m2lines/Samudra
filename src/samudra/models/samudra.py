@@ -74,7 +74,7 @@ class Samudra(BaseModel):
             if self.add_3d_coordinates is not None:
                 fts = self.add_3d_coordinates(fts, ctx.input_resolution_cpu)
 
-            fts = self.unet(fts)
+            fts = self.unet(fts, ctx.input_resolution_cpu)
             fts = torch.nn.functional.pad(
                 fts, (self.N_pad, self.N_pad, 0, 0), mode=self.pad
             )

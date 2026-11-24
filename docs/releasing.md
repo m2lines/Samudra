@@ -90,11 +90,92 @@ workflow invokes them itself.
 ### Cutting a stable release
 
 ```bash
-# Just tag and push — no version bump anywhere:
-git tag -a v0.0.1 -m "Initial Release"
+# Just tag and push — no version bump anywhere. Name the commit to tag
+# (it defaults to HEAD); see the release checklist below.
+git tag -a v0.0.1 <commit> -m "Initial Release"
 git push origin v0.0.1
 ```
 
 The tag push runs `resolve → test → build → publish`, uploading `samudra 0.0.1`
 to PyPI. To dry-run first, use **Actions → Release → Run workflow → mode: smoke**;
 that builds and runs `twine check` without publishing.
+
+### Choosing a version
+
+Until 1.0, the minor version marks breaking changes:
+
+- **Minor** (`0.1.x` → `0.2.0`): a config field, CLI option or output format is
+  removed or renamed, or a bundled preset's defaults change behaviour. Examples
+  from 0.2.0: removing `data.hist` and the `movies` visualization step, and
+  changing the defaults of the `samudra_om4` preset.
+- **Patch** (`0.2.0` → `0.2.1`): fixes and additions that existing configs and
+  code don't notice.
+
+Aim to release whenever a user-facing fix or breaking change lands, and at least
+monthly while `main` is active. Tagging is cheap, and the weekly nightlies are
+not what `pip install samudra` installs.
+
+### Release checklist
+
+1. **Pick the commit.** Use a `main` commit whose CPU *and* GPU checks passed.
+   The release workflow runs only the CPU tests before publishing.
+2. **Test the exact package you will release**, installed in a clean
+   environment. Get it from one of three places:
+
+   - **The latest nightly**, if no file that goes into the wheel has changed
+     since the nightly's commit. Check with:
+
+     ```bash
+     nightly_sha=$(gh run list -R m2lines/Samudra --workflow release.yml \
+       --event schedule --limit 1 --json headSha --jq '.[0].headSha')
+     git diff --name-only "$nightly_sha" <sha> -- \
+       src pyproject.toml README.md LICENSE LICENSES
+     ```
+
+     If this prints nothing, the nightly is equivalent; set
+     `PKG="samudra==<nightly version>"`. If it lists only `pyproject.toml`, the
+     nightly still counts as long as the diff doesn't touch `[build-system]`,
+     `[project]`, `[tool.setuptools]` or `[tool.setuptools_scm]`.
+   - **A smoke build of the commit.** Run **Actions → Release → Run workflow →
+     mode: smoke** on `main` while it still points at `<sha>` (the run summary
+     shows the commit it built). Then download its wheel:
+
+     ```bash
+     gh run download <run-id> -R m2lines/Samudra -n samudra-dist -D /tmp/samudra-dist
+     PKG=$(ls /tmp/samudra-dist/*.whl)
+     ```
+
+   - **A release candidate.** `git tag -a v0.2.0rc1 <sha> -m "..."` and pushing
+     it publishes a pre-release to PyPI; set `PKG="samudra==0.2.0rc1"`.
+
+   Then install and exercise it:
+
+   ```bash
+   uv venv -p 3.12 /tmp/samudra-rc
+   uv pip install --refresh -p /tmp/samudra-rc/bin/python "$PKG"
+   /tmp/samudra-rc/bin/python -c "import samudra; print(samudra.__version__)"
+   /tmp/samudra-rc/bin/python -c "from samudra.config_base import resolve_config_path as r; assert r('samudra_om4/train.yaml').is_file()"
+   /tmp/samudra-rc/bin/samudra --help
+   ```
+
+3. **Tag the selected commit and push.** Name the commit explicitly so the tag
+   lands on the commit you checked, not on whatever `HEAD` is:
+
+   ```bash
+   git tag -a v<version> <sha> -m "Samudra v<version>"
+   git push origin v<version>
+   ```
+
+   PyPI never accepts the same version twice, so a broken release is fixed with
+   a new patch release, not a re-upload.
+4. **Check the published package.** Repeat step 2's install and checks in a
+   fresh environment with `PKG="samudra==<version>"`.
+5. **Publish release notes** as a GitHub Release on the tag. Lead with what
+   users must change when upgrading, then fixes, then new features, and link
+   each item to its PR. `gh release create <tag> --generate-notes` lists the
+   merged PRs to start from.
+
+The `pypi-publish` environment has no required reviewers, so anyone who can
+push a `v*` tag publishes. Maintainers can add a required reviewer under
+**Settings → Environments → pypi-publish** to make each publish wait for
+approval.

@@ -39,7 +39,11 @@ def sphere_area(
 def rectilinear_cell_area(
     lat_b: ArrayLike, lon_b: ArrayLike, radius: float = EARTH_RADIUS_M
 ) -> np.ndarray:
-    """Exact spherical area of each cell of a regular lat-lon grid, from its (y_b, x_b) vertices."""
+    """Exact spherical area of each cell of a regular lat-lon grid, from its (y_b, x_b) vertices.
+
+    Widths wrap around the globe, so a cell from 359 to 0 degrees is 1 degree
+    wide. A cell can therefore be at most 180 degrees wide.
+    """
     lat_b, lon_b = np.asarray(lat_b, dtype=float), np.asarray(lon_b, dtype=float)
     if not (constant_along(lat_b, axis=1) and constant_along(lon_b, axis=0)):
         raise ValueError(
@@ -48,7 +52,7 @@ def rectilinear_cell_area(
     lat = np.deg2rad(lat_b[:, 0])
     lon = np.deg2rad(lon_b[0, :])
     band = np.diff(np.sin(lat))
-    width = np.diff(lon)
+    width = (np.diff(lon) + np.pi) % (2 * np.pi) - np.pi
     return radius**2 * np.abs(np.outer(band, width))
 
 
@@ -71,16 +75,23 @@ def areas_match_vertices(
         ]
     expected = rectilinear_cell_area(lat_b, lon_b, radius)
     error = np.abs(np.asarray(area) - expected) / expected
-    bad = error > rtol
+    # Written so that a NaN area, whose error is NaN, counts as bad.
+    bad = ~(error <= rtol)
     if not bad.any():
         return []
     flags = xr.DataArray(bad, dims=area.dims)
+    finite = np.isfinite(error)
+    summary = (
+        f"worst {float(error[finite].max()):.3%}, median ratio "
+        f"{float(np.median((np.asarray(area) / expected)[finite])):.6f}"
+        if finite.any()
+        else "no finite areas"
+    )
     return [
         Violation(
             "geometry.areas_match_vertices",
             f"{int(bad.sum())} cells differ from their spherical area by more than "
-            f"{rtol:g}; worst {float(error.max()):.3%}, median ratio "
-            f"{float(np.median(np.asarray(area) / expected)):.6f}",
+            f"{rtol:g} ({int((~finite).sum())} are not finite); {summary}",
             first_location(flags),
         )
     ]
@@ -122,7 +133,8 @@ def layer_thickness(
             )
         )
     elif centres is not None and interfaces.size == centres.size + 1:
-        outside = (centres <= interfaces[:-1]) | (centres >= interfaces[1:])
+        # Written so that a NaN centre counts as outside.
+        outside = ~((centres > interfaces[:-1]) & (centres < interfaces[1:]))
         if outside.any():
             violations.append(
                 Violation(

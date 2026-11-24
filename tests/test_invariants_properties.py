@@ -143,6 +143,9 @@ def test_layer_thickness_flags_any_inconsistent_layer(nlev, data):
     broken[k] += data.draw(st.floats(0.5, 100.0))
     assert geometry.layer_thickness(broken, ilev, lev) != []
     assert geometry.layer_thickness(dz, ilev, np.append(lev, 7000.0)) != []
+    unknown = lev.copy()
+    unknown[k] = np.nan
+    assert geometry.layer_thickness(dz, ilev, unknown) != []
 
 
 @st.composite
@@ -174,6 +177,9 @@ def test_time_checks_accept_the_om4_axis_and_flag_a_moved_stamp(axis, data):
     assert timeaxis.om4_five_day_axis(stamps[i:]) == []
     one_day = np.timedelta64(24, "h").astype(object)
     assert timeaxis.om4_five_day_axis(stamps[i:] + one_day) != []
+    # An empty window has its stamp at its midpoint, with any length allowed.
+    empty = np.array([[stamps[i], stamps[i]]])
+    assert timeaxis.averaging_windows(stamps[i : i + 1], empty, step_days=None) != []
 
 
 @given(st.integers(2, 20), st.integers(0, 2**32 - 1), st.integers(1, 4))
@@ -283,6 +289,7 @@ def test_conservation_accepts_block_means_and_flags_a_scaled_copy(
     # Nothing to integrate is a failure, not 0 == 0.
     land = xr.full_like(fine, np.nan)
     assert conservation.integral_preserved(land, w, land, w, "f") != []
+    assert conservation.variance_not_increased(fine, w, land, w, "f") != []
     assume(float(abs((fine * w).sum())) > 0.2 * float((abs(fine) * w).sum()))
     assert (
         conservation.integral_preserved(
@@ -405,6 +412,34 @@ def test_conservation_matches_retained_dimensions_by_name(values):
         )
         == []
     )
+
+
+def test_window_means_match_retained_dimensions_by_name():
+    start = cftime.datetime(2001, 1, 1, calendar="noleap")
+    day = np.timedelta64(1, "D").astype(object)
+    daily_bounds = np.array(
+        [(start + i * day, start + (i + 1) * day) for i in range(2)]
+    )
+    daily = xr.DataArray(np.arange(12.0).reshape(2, 2, 3), dims=("time", "y", "x"))
+    mean = daily.mean("time").expand_dims(time=1).transpose("time", "x", "y")
+    coarse_bounds = np.array([[start, start + 2 * day]])
+    assert (
+        timeaxis.window_mean_preserved(daily, daily_bounds, mean, coarse_bounds) == []
+    )
+    assert (
+        timeaxis.window_mean_preserved(daily, daily_bounds, mean + 1, coarse_bounds)
+        != []
+    )
+
+
+def test_cell_areas_wrap_the_seam_and_must_be_finite():
+    lat_b = xr.DataArray(np.repeat([[0.0], [1.0]], 3, axis=1), dims=("y_b", "x_b"))
+    across = xr.DataArray(np.array([[359.0, 0.0, 1.0]] * 2), dims=("y_b", "x_b"))
+    area = xr.DataArray(
+        geometry.rectilinear_cell_area(lat_b, across + 1.0), dims=("y", "x")
+    )
+    assert geometry.areas_match_vertices(area, lat_b, across) == []
+    assert geometry.areas_match_vertices(area.where(area.x > 0), lat_b, across) != []
 
 
 def test_mask_checks_accept_dask_backed_fields():

@@ -15,7 +15,7 @@ import cftime
 import numpy as np
 import xarray as xr
 
-from samudra.invariants.core import SECONDS_PER_DAY, Violation
+from samudra.invariants.core import SECONDS_PER_DAY, Violation, same_order
 
 OM4_STEPS_PER_YEAR = 73
 OM4_STEP_DAYS = 5
@@ -101,6 +101,17 @@ def averaging_windows(
     violations = []
     for i, (stamp, start, end) in enumerate(zip(stamps, starts, ends)):
         length = seconds_between(start, end)
+        if length <= 0:
+            # Checked even when step_days is None: a reversed window still has
+            # its stamp at the midpoint.
+            violations.append(
+                Violation(
+                    "time.window_positive",
+                    f"window [{start}, {end}] ends before it starts or is empty",
+                    {"time": i},
+                )
+            )
+            continue
         if step_days is not None and length != step_days * SECONDS_PER_DAY:
             violations.append(
                 Violation(
@@ -303,7 +314,8 @@ def window_mean_preserved(
         # skipna=False: a NaN inside the window makes the mean NaN, which then
         # matches only a NaN coarse value, instead of counting as zero.
         expected = (fine.isel({time_dim: inside}) * w).sum(time_dim, skipna=False)
-        actual = coarse.isel({time_dim: j})
+        # np.isclose compares by position, so match the dimension order first.
+        expected, actual = same_order(expected, coarse.isel({time_dim: j}))
         bad = ~np.isclose(actual, expected, rtol=rtol, atol=atol, equal_nan=True)
         if bad.any():
             difference = np.abs(np.asarray(actual - expected))

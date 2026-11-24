@@ -151,17 +151,22 @@ def variance_not_increased(
     before, mean, after = (
         np.ravel(np.asarray(v)) for v in same_order(before, mean, after)
     )
+    # A NaN variance (no valid cells) fails, rather than passing every comparison.
+    missing = ~(np.isfinite(before) & np.isfinite(after))
     # Round-off in a constant field's variance scales with the squared mean.
     grew = after > before * (1 + rtol) + 1e-12 * (mean**2 + 1e-30)
-    if not grew.any():
+    bad = missing | grew
+    if not bad.any():
         return []
-    i = int(np.argmax(grew))
+    i = int(np.argmax(bad))
+    detail = (
+        f"variance is {before[i]:.6g} before and {after[i]:.6g} after; "
+        "there is nothing to compare"
+        if missing[i]
+        else f"variance grew from {before[i]:.6g} to {after[i]:.6g}"
+    )
     return [
-        Violation(
-            f"conservation.{name}_variance_not_increased",
-            f"variance grew from {before[i]:.6g} to {after[i]:.6g}",
-            {"index": i},
-        )
+        Violation(f"conservation.{name}_variance_not_increased", detail, {"index": i})
     ]
 
 

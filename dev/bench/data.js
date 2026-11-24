@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795210185485,
+  "lastUpdate": 1795480153032,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -13848,6 +13848,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.060023423302771745",
             "extra": "mean: 17.26611561379999 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "905c1f3f8c55cfd7ede5a627f9ae97b1b05bf8a7",
+          "message": "Add observation training entrypoint using shared Samudra configuration (#955)\n\nAdd a clean observational task harness + baseline deterministic model,\nextracted from various experimental PRs such as\nhttps://github.com/m2lines/Samudra/pull/958\n\n---------\n\nCo-authored-by: OA jder bot <jesse+bot@openathena.ai>\nCo-authored-by: Alexander Merose <alex@openathena.ai>\nCo-authored-by: Claude Opus 5.5 <noreply@anthropic.com>",
+          "timestamp": "2026-11-24T00:04:05Z",
+          "tree_id": "6191fbdd7fc6e0f9eca31cff8f36619b1179a77d",
+          "url": "https://github.com/m2lines/Samudra/commit/905c1f3f8c55cfd7ede5a627f9ae97b1b05bf8a7"
+        },
+        "date": 1795480151076,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.9920688063241426,
+            "unit": "iter/sec",
+            "range": "stddev: 0.005690809646010991",
+            "extra": "mean: 1.0079946003999907 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_dataset__1gb[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.32919423787220675,
+            "unit": "iter/sec",
+            "range": "stddev: 0.015046602602075944",
+            "extra": "mean: 3.037720242199987 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.05774070917578207,
+            "unit": "iter/sec",
+            "range": "stddev: 0.2607180320764888",
+            "extra": "mean: 17.318803566400003 sec\nrounds: 5"
           }
         ]
       }

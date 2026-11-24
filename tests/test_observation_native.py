@@ -3,11 +3,13 @@
 """Exact native observation/OM4 values, including replay's shifted interval grid."""
 
 import json
+from collections.abc import Mapping
 from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
 import pytest
+import torch
 import zarr  # type: ignore[import-untyped]
 from test_observation_baseline_data import model_store  # type: ignore[import-not-found]
 
@@ -74,16 +76,21 @@ def native_archive(tmp_path):
     return python, native, cache
 
 
+def assert_same_arrays(
+    actual: Mapping[str, object], expected: Mapping[str, object]
+) -> None:
+    assert actual.keys() == expected.keys()
+    for key, value in expected.items():
+        np.testing.assert_array_equal(actual[key], value, err_msg=key)
+
+
 def test_native_observation_fresh_and_shifted_replay_equal_python(tmp_path):
     python, native, _ = native_archive(tmp_path)
     for month in ("2000-01", "2000-02"):
         expected = trajectory(python, "2000-01", target_month=month)
         actual = trajectory(native, "2000-01", target_month=month)
-        for key in expected:
-            np.testing.assert_array_equal(actual[key], expected[key], err_msg=key)
-    expected, actual = python.sample("2000-02"), native.sample("2000-02")
-    for key in expected:
-        np.testing.assert_array_equal(actual[key], expected[key], err_msg=key)
+        assert_same_arrays(actual, expected)
+    assert_same_arrays(native.sample("2000-02"), python.sample("2000-02"))
     with pytest.raises(ValueError, match="outside"):
         native.interval("sst", "2000-01-01", "2000-01-05")
 
@@ -118,10 +125,9 @@ def test_native_om4_keeps_all_channels_and_native_replay_values(tmp_path, packed
             cache, native, RustIoRuntime(2), digest(cache / "COMPLETE.json")
         )
     for month in (0, 1, 5):
-        expected = python.continuation(0, month, "cpu")
-        actual = native.continuation(0, month, "cpu")
-        for key in expected:
-            np.testing.assert_array_equal(actual[key], expected[key], err_msg=key)
+        cpu = torch.device("cpu")
+        expected = python.continuation(0, month, cpu)
+        assert_same_arrays(native.continuation(0, month, cpu), expected)
         sources = object.__new__(Sources)
         setattr(sources, "obs", SimpleNamespace(device="cpu"))
         sources.models = {"om4": native}

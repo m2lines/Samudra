@@ -28,6 +28,7 @@ import re
 import cftime
 import dask
 import numpy as np
+import pandas as pd
 import xarray as xr
 
 from samudra.constants import build_om4_layout
@@ -84,6 +85,25 @@ def persistence_rms(
     return xr.Dataset({c: xr.DataArray(v) for c, v in out.items()})
 
 
+def select_time_range(data: xr.Dataset, start: str, end: str) -> xr.Dataset:
+    """Records from the start day through the whole end day (YYYY-MM-DD).
+
+    Records are stamped mid-day, so the end day is included in full, as the
+    trainer's date-string slice does. Dates are parsed in the store's own
+    calendar: cftime for non-standard calendars (OM4 releases are julian or
+    noleap), numpy datetimes for standard ones.
+    """
+    times = data.time.values
+    if isinstance(data.indexes["time"], xr.CFTimeIndex):
+        calendar = data.time.dt.calendar
+        first = cftime.datetime.strptime(start, "%Y-%m-%d", calendar=calendar)
+        last = cftime.datetime.strptime(end, "%Y-%m-%d", calendar=calendar)
+    else:
+        first, last = pd.Timestamp(start), pd.Timestamp(end)
+    end_exclusive = last + datetime.timedelta(days=1)
+    return data.isel(time=np.flatnonzero((times >= first) & (times < end_exclusive)))
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--data", required=True, help="Flat OM4.zarr store")
@@ -105,16 +125,7 @@ def main() -> None:
             prognostic_vars_key=args.prognostic_vars_key
         ).prognostic_var_names
     )
-    data = xr.open_zarr(args.data, chunks={})
-    # Releases differ in calendar (e.g. julian, noleap); parse in the store's own.
-    calendar = data.time.dt.calendar
-    start = cftime.datetime.strptime(args.start, "%Y-%m-%d", calendar=calendar)
-    end = cftime.datetime.strptime(args.end, "%Y-%m-%d", calendar=calendar)
-    # Records are stamped mid-day; include the whole end day, as the trainer's
-    # date-string slice does.
-    end_exclusive = end + datetime.timedelta(days=1)
-    data = data.sel(time=slice(start, None))
-    data = data.isel(time=np.flatnonzero(data.time.values < end_exclusive))
+    data = select_time_range(xr.open_zarr(args.data, chunks={}), args.start, args.end)
     if data.sizes["time"] < 2:
         raise ValueError("Need at least two time steps in the training range")
 

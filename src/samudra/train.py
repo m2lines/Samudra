@@ -214,6 +214,7 @@ class Trainer:
                     ),
                     tuple(self.prognostic_var_names),
                     self.primary_source.statistics(self.prognostic_var_names).std,
+                    over="wet",
                 )
                 .float()
                 .to(self.device)
@@ -1219,12 +1220,22 @@ class Trainer:
         new_state_dict = remove_module_prefix(model_state_dict)
         expected_scale = getattr(self, "_residual_scale", None)
         if expected_scale is not None:
+            if "residual_scale" not in new_state_dict:
+                raise ValueError(
+                    f"Checkpoint {checkpoint_path} has no residual_scale; it was "
+                    "trained without model.scale_residuals, so it can't be resumed "
+                    "or fine-tuned with it"
+                )
             saved = new_state_dict["residual_scale"].to(expected_scale)
             repeats = saved.numel() // expected_scale.numel()
             if not torch.equal(saved, expected_scale.repeat(repeats)):
+                # The scale is part of the model: a checkpoint trained with one
+                # set of statistics (or normalization stds) predicts increments
+                # in its units, so loading it against others is refused.
                 raise ValueError(
                     "Checkpoint residual_scale differs from the scale computed "
-                    "from loss.increment_rms_location; the statistics changed"
+                    "from loss.increment_rms_location and the source's stds; the "
+                    "statistics changed"
                 )
         self.model.load_state_dict(new_state_dict)
 

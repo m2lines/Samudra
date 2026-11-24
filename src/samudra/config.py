@@ -1437,7 +1437,11 @@ class TendencyLossConfig(pydantic.BaseModel):
 
 
 class NormalizedDeltaLossConfig(pydantic.BaseModel):
-    """Unweighted MSE on normalized increments (Yuan's ``normalized_delta``).
+    """Unweighted MSE on normalized increments (the ``normalized_delta`` loss).
+
+    This reproduces the ``revision_experiments/normalized_delta`` objective of
+    the ``YuanYuan98/Ocean_Emulator`` repository, the research code this
+    loss was first trained in.
 
     With ``q = tau / sigma`` per channel, where ``tau`` is the RMS one-step
     change over wet cells in physical units and ``sigma`` the state's
@@ -1472,13 +1476,29 @@ def load_normalized_persistence_rms(
     location: ResolvedLocation,
     channels: tuple[str, ...],
     state_stds: np.ndarray,
+    *,
+    over: Literal["full", "wet"],
 ) -> torch.Tensor:
-    """Read physical persistence RMS per channel and convert to normalized units."""
+    """Read physical persistence RMS per channel and convert to normalized units.
+
+    ``over`` is the averaging the caller's loss assumes: ``"full"`` (land
+    counted as zero change, for ``tendency``) or ``"wet"`` (wet cells only, for
+    ``normalized_delta``). The two differ by the square root of each level's
+    wet fraction, so a file built the other way fails here instead of training
+    silently with wrong weights.
+    """
     if len(state_stds) != len(channels):
         raise ValueError(
             f"Got {len(state_stds)} state stds for {len(channels)} channels"
         )
     stats = location.open(None)
+    found = stats.attrs.get("over")
+    if found != over:
+        raise ValueError(
+            f"Persistence RMS dataset {location} has over={found!r}, but this loss "
+            f"needs over={over!r}; rebuild it with "
+            f"scripts/compute_tendency_stats.py --over {over}"
+        )
     missing = [c for c in channels if c not in stats.data_vars]
     if missing:
         raise KeyError(f"Persistence RMS dataset is missing channels: {missing}")
@@ -1521,7 +1541,7 @@ def build_loss_fn(
                     f"Got {len(channels)} channel names for {num_channels} channels"
                 )
             persistence_rms = load_normalized_persistence_rms(
-                data_root.resolve(location), channels, state_stds
+                data_root.resolve(location), channels, state_stds, over="full"
             )
             return TendencyLoss(
                 loss_fn_from_metric(metric),
@@ -1540,8 +1560,13 @@ def build_loss_fn(
                     f"Got {len(channels)} channel names for {num_channels} channels"
                 )
             scale = load_normalized_persistence_rms(
-                data_root.resolve(location), channels, state_stds
+                data_root.resolve(location), channels, state_stds, over="wet"
             )
+            if not torch.isfinite(scale).all() or (scale <= 0).any():
+                raise ValueError(
+                    "normalized_delta needs a positive, finite increment RMS for "
+                    f"every channel; got {dict(zip(channels, scale.tolist()))}"
+                )
             return TendencyLoss(
                 loss_fn_from_metric("mse"),
                 weights=scale.square().reciprocal().float(),
@@ -1627,6 +1652,17 @@ class TrainConfig(TopLevelConfig):
         ):
             raise ValueError(
                 "model.scale_residuals takes its scale from a normalized_delta loss"
+            )
+        if (
+            isinstance(self.loss, NormalizedDeltaLossConfig)
+            and self.data.output_steps != 1
+        ):
+            # Each output slot is anchored on its own input slot, so with two
+            # outputs both heads predict two-step changes while q is the RMS of
+            # one step. Multi-output Δ-norm needs chained anchoring instead.
+            raise ValueError(
+                "normalized_delta needs data.output_steps == 1; its scale q is "
+                f"the RMS of a single step, got output_steps={self.data.output_steps}"
             )
         if (
             isinstance(self.loss, TendencyLossConfig | NormalizedDeltaLossConfig)

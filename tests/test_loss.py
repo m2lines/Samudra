@@ -1,13 +1,12 @@
 # SPDX-FileCopyrightText: 2026 Samudra Authors
 #
 # SPDX-License-Identifier: Apache-2.0
-"""Loss weighting: the tendency loss, and how it relates to DynamicLoss.
+"""The tendency loss: GraphCast-style fixed per-channel residual weights.
 
 GraphCast (Lam et al., 2023) trains on residuals scaled by the standard
 deviation of each variable's one-step change: fixed weights, set by the data.
-DynamicLoss instead weights each channel by the inverse of the model's own
-recent loss, capped at ``limit`` times the smallest weight. The tests below
-pin down exactly when those two agree and when they do not.
+Unlike DynamicLoss, which reweights by the model's own running loss, these
+weights do not move during training.
 
 Synthetic setup: each channel's one-step change has an exact, chosen RMS, so
 persistence error is known in closed form. State values have unit variance,
@@ -28,13 +27,8 @@ from samudra.config import (
 )
 from samudra.utils.ctx import BatchGrid
 from samudra.utils.location import LocalLocation, UnresolvedLocation
-from samudra.utils.loss import (
-    DynamicLoss,
-    TendencyLoss,
-    loss_fn_from_metric,
-    tendency_loss_weights,
-)
-from scripts.compute_tendency_stats import persistence_rms
+from samudra.utils.loss import TendencyLoss, loss_fn_from_metric, tendency_loss_weights
+from scripts.compute_tendency_stats import persistence_rms, select_time_range
 
 B, H, W = 4, 12, 24
 CPU = torch.device("cpu")
@@ -61,25 +55,6 @@ def case(change_rms: torch.Tensor, seed: int = 0):
     change = change / change.square().mean(dim=(0, 2, 3), keepdim=True).sqrt()
     change = change * change_rms.view(1, -1, 1, 1)
     return state, state + change, change
-
-
-def converged_dynamic_weights(
-    pred: torch.Tensor, target: torch.Tensor, *, limit: float | None
-) -> torch.Tensor:
-    """Run DynamicLoss's rolling update to its fixed point for a fixed model."""
-    n = pred.shape[1]
-    loss = DynamicLoss(
-        loss_fn_from_metric("mse"), limit=limit, device=CPU, num_channels=n
-    )
-    ctx = grid(n)
-    raw = loss.loss_fn(pred, target, ctx)
-    for _ in range(800):  # (24/25)**800 ~ 1e-14 of the initial weights remain
-        loss.update(raw)
-    return loss.loss_scale_per_channel()
-
-
-def unit_mean(weights: torch.Tensor) -> torch.Tensor:
-    return weights / weights.mean()
 
 
 def ratio(weights: torch.Tensor) -> float:
@@ -160,87 +135,6 @@ def test_tendency_loss_equals_graphcast_residual_mse_up_to_a_constant():
     torch.testing.assert_close(constant[0], constant[1])
 
 
-def test_dynamic_loss_does_not_equal_graphcast_residual_mse():
-    state, target, change = case(CHANGE_RMS)
-    pred = state + change * torch.tensor([0.2, 0.7]).view(1, -1, 1, 1)
-    reference = graphcast_residual_mse(pred, target, state, CHANGE_RMS)
-    weights = converged_dynamic_weights(pred, target, limit=20.0)
-    ours = DynamicLoss(
-        loss_fn_from_metric("mse"), limit=20.0, device=CPU, num_channels=2
-    )
-    ours._per_channel_scale = weights
-    constant = ours(pred, target, grid(2)).detach() / reference
-    assert not torch.allclose(constant[0], constant[1], rtol=0.1)
-
-
-# -- Is DynamicLoss equivalent to GraphCast-style tendency weighting? -------------
-
-
-def test_dynamic_matches_tendency_weights_only_for_a_persistence_forecast():
-    """The one case where they agree: residual model that predicts no change,
-    i.e. a freshly initialized residual network, and no limit."""
-    state, target, _ = case(CHANGE_RMS)
-    dynamic = converged_dynamic_weights(state, target, limit=None)
-    tendency = tendency_loss_weights(CHANGE_RMS, max_weight_ratio=None)
-    torch.testing.assert_close(unit_mean(dynamic).float(), tendency, rtol=1e-4, atol=0)
-
-
-def test_dynamic_diverges_once_the_model_learns_some_channels_better():
-    """Halving the slow channel's error quarters its MSE. DynamicLoss responds
-    by weighting it 4x more; tendency weights do not move."""
-    state, target, change = case(CHANGE_RMS)
-    pred = state + change * torch.tensor([0.0, 0.5]).view(1, -1, 1, 1)
-    dynamic = converged_dynamic_weights(pred, target, limit=None)
-    tendency = tendency_loss_weights(CHANGE_RMS, max_weight_ratio=None)
-    assert ratio(dynamic) == pytest.approx(4 * ratio(tendency), rel=1e-4)
-
-
-def test_dynamic_weights_ignore_tendency_without_residual_prediction():
-    """Samudra's production config uses pred_residuals: false. Early in
-    training a direct-state model's error is dominated by the state itself
-    (unit variance after normalization), so DynamicLoss sees nearly equal
-    losses and weights the slow channel about the same as the fast one."""
-    state, target, _ = case(CHANGE_RMS)
-    untrained = torch.zeros_like(state)  # predicts the climatological mean
-    dynamic = converged_dynamic_weights(untrained, target, limit=None)
-    # MSE is about 1 + 0.1 vs 1 + 0.0002: the slow channel gets ~1.1x, not ~470x.
-    assert 1.0 < ratio(dynamic) < 1.5
-    assert ratio(tendency_loss_weights(CHANGE_RMS, max_weight_ratio=None)) > 400
-
-
-def test_dynamic_limit_caps_weighting_far_below_the_tendency_ratio():
-    """Samudra's production limit of 20 caps the slow channel's weight, even
-    when the model is exactly persistence."""
-    state, target, _ = case(CHANGE_RMS)
-    dynamic = converged_dynamic_weights(state, target, limit=20.0)
-    assert ratio(dynamic) == pytest.approx(20.0, rel=1e-4)
-    assert ratio(tendency_loss_weights(CHANGE_RMS, max_weight_ratio=None)) == (
-        pytest.approx(VARIANCE_RATIO, rel=1e-5)
-    )
-
-
-def test_dynamic_loss_gradient_is_the_gradient_of_summed_log_losses():
-    """At its fixed point DynamicLoss weights are 1/L_c, held constant, so its
-    gradient equals that of sum_c log L_c: every channel is pushed to improve
-    by the same *relative* amount, however predictable it is. The tendency
-    loss's gradient is that of sum_c L_c / sigma_c**2 instead."""
-    state, target, change = case(CHANGE_RMS)
-    ctx = grid(2)
-    start = state + change * torch.tensor([0.3, 0.6]).view(1, -1, 1, 1)
-    loss_fn = loss_fn_from_metric("mse")
-
-    dynamic = DynamicLoss(loss_fn, limit=None, device=CPU, num_channels=2)
-    dynamic._per_channel_scale = 1.0 / loss_fn(start, target, ctx).detach()
-
-    pred = start.clone().requires_grad_()
-    dynamic(pred, target, ctx).sum().backward()
-    dynamic_grad = pred.grad.clone()
-
-    pred = start.clone().requires_grad_()
-    loss_fn(pred, target, ctx).log().sum().backward()
-    torch.testing.assert_close(dynamic_grad, pred.grad)
-
-
 # -- Statistics and config wiring -------------------------------------------------
 
 
@@ -285,8 +179,10 @@ def test_persistence_rms_rejects_channels_that_never_change():
         persistence_rms(data, ["zos"], time_stride=1)
 
 
-def write_stats(path, values: dict[str, float]) -> LocalLocation:
-    xr.Dataset({k: xr.DataArray(v) for k, v in values.items()}).to_zarr(path)
+def write_stats(path, values: dict[str, float], over: str = "full") -> LocalLocation:
+    stats = xr.Dataset({k: xr.DataArray(v) for k, v in values.items()})
+    stats.attrs["over"] = over
+    stats.to_zarr(path)
     return LocalLocation(path=path.parent)
 
 
@@ -316,7 +212,43 @@ def test_missing_channel_statistics_fail_loudly(tmp_path):
             root.resolve(UnresolvedLocation(path="rms.zarr")),
             ("uo_0", "thetao_0"),
             np.ones(2),
+            over="full",
         )
+
+
+@pytest.mark.parametrize(
+    "built, needed", [("wet", "full"), ("full", "wet"), (None, "wet")]
+)
+def test_statistics_built_with_other_averaging_fail_loudly(tmp_path, built, needed):
+    # Full-grid and wet-only RMS differ by sqrt(wet fraction) per level; a run
+    # given the wrong one would train normally with wrong channel weights.
+    stats = xr.Dataset({"uo_0": xr.DataArray(0.2)})
+    if built is not None:
+        stats.attrs["over"] = built
+    stats.to_zarr(tmp_path / "rms.zarr")
+    with pytest.raises(ValueError, match=f"needs over='{needed}'"):
+        load_normalized_persistence_rms(
+            LocalLocation(path=tmp_path).resolve(UnresolvedLocation(path="rms.zarr")),
+            ("uo_0",),
+            np.ones(1),
+            over=needed,
+        )
+
+
+@pytest.mark.parametrize("calendar", ["julian", "standard"])
+def test_time_range_includes_whole_end_day_in_any_calendar(calendar):
+    # Standard calendars decode to numpy datetimes, others to cftime.
+    time = xr.date_range(
+        "2000-01-01T12:00",
+        periods=6,
+        freq="5D",
+        calendar=calendar,
+        use_cftime=calendar != "standard",
+    )
+    data = xr.Dataset({"zos": ("time", np.arange(6.0))}, coords={"time": time})
+    # Records on Jan 6, 11, 16 (stamped at noon); Jan 16 is the end day.
+    selected = select_time_range(data, "2000-01-06", "2000-01-16")
+    assert selected.zos.values.tolist() == [1.0, 2.0, 3.0]
 
 
 def test_tendency_loss_requires_channel_context():

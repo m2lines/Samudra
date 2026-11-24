@@ -450,12 +450,15 @@ def test_current_pipeline_reproduces_the_release(tmp_path):
     rerun = xr.open_zarr(output)
     reference = published.isel(time=slice(0, rerun.sizes["time"]))
     # #928 fixed the 60E seam (`om4_staggered_grid`) after v2026-09: u fields
-    # differ there and must agree everywhere else.
+    # differ there and must agree everywhere else. It also added time_bnds,
+    # with its bounds dimension nv, which v2026-09 lacks; those are checked
+    # against the time axis instead.
     # Coordinates too (lev, dz, areacello, ...), so changed depths or areas show.
     names = set(map(str, reference.variables)) | set(map(str, rerun.variables))
     seam_fixed = frozenset(
         name for name in names if name == "tauuo" or name.startswith("uo_")
     )
+    added = frozenset({"time_bnds", "nv"})
     seam = int(np.abs(rerun.x.values - SEAM_X).argmin())
     if abs(float(rerun.x[seam]) - SEAM_X) > 0.5:
         raise ValueError(
@@ -468,10 +471,11 @@ def test_current_pipeline_reproduces_the_release(tmp_path):
             rerun,
             # Both sides' variables, so one the rerun drops is reported missing.
             variables=sorted(names),
-            expected_changes=seam_fixed,
+            expected_changes=seam_fixed | added,
         )
         + releases.stores_agree(
             reference[sorted(seam_fixed)].where(off_seam),
             rerun[sorted(seam_fixed)].where(off_seam),
         )
+        + timeaxis.averaging_windows(rerun.time, rerun.time_bnds, leap_day_gaps=True)
     )

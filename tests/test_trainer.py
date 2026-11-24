@@ -383,6 +383,34 @@ def test_checkpoint_ema(train_config, caplog):
     [("mock-om4", "train_default_2step.yaml")],
     indirect=True,
 )
+def test_finetune_starts_fresh_ema_with_config_decay(train_config):
+    train_config.epochs = 1
+    train_config.save_freq = 1
+    train_config.ema_decay = 0.999
+    with MultitonScope():
+        base = Trainer(train_config)
+        base.run()
+    assert int(base._ema.num_updates) > 0
+
+    train_config.resume_ckpt_path = base.ckpt_paths.latest_checkpoint_path
+    train_config.finetune = True
+    train_config.ema_decay = 0.5
+    train_config.faster_decay_at_start = False
+    with MultitonScope():
+        finetune = Trainer(train_config)
+
+    assert float(finetune._ema.decay) == 0.5
+    assert int(finetune._ema.num_updates) == 0
+    assert finetune._ema == EMATracker(
+        finetune.model, decay=0.5, faster_decay_at_start=False
+    )
+
+
+@pytest.mark.parametrize(
+    "data_source,config_name",
+    [("mock-om4", "train_default_2step.yaml")],
+    indirect=True,
+)
 def test_checkpoint_dynamic_loss_state(train_config, caplog):
     """DynamicLoss has internal rolling state; ensure it round-trips via checkpoints."""
     caplog.set_level(logging.INFO)
@@ -907,3 +935,37 @@ def test_search_trainer_rejects_skipped_rollout_at_rung_endpoint():
     trainer.search_run = SimpleNamespace(target_epochs=2)
     with pytest.raises(ValueError, match="every rung endpoint"):
         trainer.validation_checkpoint_score(2, {}, {})
+
+
+@pytest.mark.parametrize("backend", ["cpu"], indirect=True)
+@pytest.mark.parametrize(
+    "data_source,config_name",
+    [("mock-om4", "train_default.yaml")],
+    indirect=True,
+)
+def test_curriculum_stage_sets_rollout_length_batch_and_accumulation(train_config):
+    """Each stage trains with its own batch and accumulation, and the stage depends
+    only on the epoch, so resuming at a transition epoch enters the new stage."""
+    train_config.batch_size = 2
+    train_config.steps = [1, 2]
+    train_config.step_transition = [3]
+    train_config.step_batch_size = [2, 1]
+    train_config.step_gradient_accumulation_steps = [1, 2]
+    train_config.validate_step_schedule()
+    train_config.data.loading.num_workers = 0
+
+    with MultitonScope():
+        trainer = Trainer(train_config)
+        for epoch, steps, batch_size, accumulation in [
+            (2, 1, 2, 1),
+            (3, 2, 1, 2),
+            (4, 2, 1, 2),
+        ]:
+            assert trainer.get_current_step(epoch) == steps
+            trainer.init_data_loaders(steps)
+            batch = next(iter(trainer.train_loader))
+            assert len(batch) == steps
+            assert batch[0][0].shape[0] == batch_size
+            assert trainer.gradient_accumulation_steps == accumulation
+            val_batch = next(iter(trainer.val_loader))
+            assert val_batch[0][0].shape[0] == 2

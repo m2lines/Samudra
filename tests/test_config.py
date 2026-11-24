@@ -590,3 +590,58 @@ def test_validation_loss_score_rejects_dynamic_weighting():
 def test_multi_source_preset_uses_one_step_rmse():
     cfg = TrainConfig.from_yaml_and_cli(["samudra_multi_om4/train.yaml"])
     assert cfg.validation_score == "one_step_rmse"
+
+
+@pytest.mark.parametrize(
+    "schedule",
+    [
+        {"steps": [1, 2], "step_transition": []},
+        {"steps": [1, 2], "step_transition": [1]},
+        {"steps": [1, 2, 4], "step_transition": [5, 5]},
+        {"steps": [1, 2], "step_transition": [3], "step_batch_size": [1]},
+        {"steps": [1, 2], "step_transition": [3], "step_batch_size": [2, 1]},
+        {
+            "steps": [1, 2],
+            "step_transition": [3],
+            "step_gradient_accumulation_steps": [1, 0],
+        },
+    ],
+    ids=[
+        "too-few-transitions",
+        "first-stage-never-runs",
+        "transitions-not-increasing",
+        "batch-per-stage-wrong-length",
+        "first-stage-batch-disagrees-with-batch_size",
+        "nonpositive-accumulation",
+    ],
+)
+def test_train_config_rejects_inconsistent_step_schedule(schedule):
+    with open(TEST_CONFIGS_DIR / DEFAULT_CONFIG) as f:
+        raw = yaml.safe_load(f)
+
+    with pytest.raises(ValidationError):
+        TrainConfig.model_validate({**raw, **schedule})
+
+
+def test_train_config_accepts_per_stage_batch_schedule():
+    with open(TEST_CONFIGS_DIR / DEFAULT_CONFIG) as f:
+        raw = yaml.safe_load(f)
+    schedule = {
+        "batch_size": 4,
+        "steps": [1, 2, 4, 8, 16, 32],
+        "step_transition": [30, 45, 55, 62, 67],
+        "step_batch_size": [4, 4, 4, 4, 2, 1],
+        "step_gradient_accumulation_steps": [1, 1, 1, 1, 2, 4],
+    }
+
+    cfg = TrainConfig.model_validate({**raw, **schedule})
+
+    assert [cfg.stage_batch_size(i) for i in range(6)] == [4, 4, 4, 4, 2, 1]
+    assert [cfg.stage_gradient_accumulation_steps(i) for i in range(6)] == [
+        1,
+        1,
+        1,
+        1,
+        2,
+        4,
+    ]

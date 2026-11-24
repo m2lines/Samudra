@@ -5,6 +5,7 @@
 # TODO: Need to return step-wise losses for logging
 
 import logging
+from typing import Literal
 
 import torch
 
@@ -26,6 +27,8 @@ class BaseModel(torch.nn.Module):
     autoregressive rollouts.
     """
 
+    residual_scale: torch.Tensor
+
     def __init__(
         self,
         in_channels,
@@ -35,6 +38,8 @@ class BaseModel(torch.nn.Module):
         last_kernel_size,
         pad,
         gradient_detach_interval: int,
+        scale_residuals: bool = False,
+        residual_anchor: Literal["same_slot", "chained"] = "same_slot",
     ) -> None:
         super().__init__()
         assert last_kernel_size % 2 != 0, "Cannot use even kernel sizes!"
@@ -47,12 +52,55 @@ class BaseModel(torch.nn.Module):
             raise ValueError(f"input_steps must be positive, got {input_steps}")
         self.input_steps = input_steps
         self.gradient_detach_interval = gradient_detach_interval
+        if scale_residuals and not pred_residuals:
+            raise ValueError("scale_residuals requires pred_residuals")
+        self.scale_residuals = scale_residuals
+        if residual_anchor not in ("same_slot", "chained"):
+            raise ValueError(f"Unknown residual_anchor {residual_anchor!r}")
+        if residual_anchor == "chained" and not pred_residuals:
+            raise ValueError("residual_anchor='chained' requires pred_residuals")
+        self.residual_anchor = residual_anchor
+        if scale_residuals:
+            # NaN until set_residual_scale() or a checkpoint fills it, so a
+            # model that was never given its scale produces NaN, not garbage.
+            self.register_buffer(
+                "residual_scale", torch.full((out_channels,), torch.nan)
+            )
+
+    def set_residual_scale(self, scale_per_var: torch.Tensor) -> None:
+        """Set the fixed per-channel residual scale (normalized units).
+
+        ``scale_per_var`` has one positive value per prognostic variable; it is
+        repeated for every output step, since channels are time-major.
+        """
+        if not self.scale_residuals:
+            raise ValueError("Model was built without scale_residuals")
+        if scale_per_var.ndim != 1 or self.out_channels % scale_per_var.numel():
+            raise ValueError(
+                f"Expected one scale per variable dividing {self.out_channels} "
+                f"output channels, got shape {tuple(scale_per_var.shape)}"
+            )
+        if not torch.isfinite(scale_per_var).all() or (scale_per_var <= 0).any():
+            raise ValueError("Residual scale must be positive and finite")
+        repeats = self.out_channels // scale_per_var.numel()
+        self.residual_scale.copy_(scale_per_var.float().repeat(repeats))
 
     def _assemble_prediction(
         self, prognostic: Prognostic, decoding: Prognostic
     ) -> Prognostic:
         if not self.pred_residuals:
             return decoding
+        if self.scale_residuals:
+            decoding = decoding * self.residual_scale.view(1, -1, 1, 1)
+        if self.residual_anchor == "chained":
+            # Each output step is an increment on the one before it, and the
+            # first on the newest input: z1 = x[t] + d1, z2 = z1 + d2, ...
+            # (Yuan's two-head normalized_delta). Gradients flow through the
+            # earlier predicted anchors.
+            n_var = prognostic.shape[1] // self.input_steps
+            batch, _, *grid = decoding.shape
+            steps = decoding.view(batch, -1, n_var, *grid).cumsum(dim=1)
+            return (prognostic[:, -n_var:].unsqueeze(1) + steps).flatten(1, 2)
         # Anchor each predicted timestep to the corresponding most-recent input
         # timestep. For 2-in/1-out this is x[t]; for the legacy 2-in/2-out case
         # this remains the original elementwise, same-slot residual assembly.

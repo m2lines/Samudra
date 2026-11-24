@@ -430,6 +430,11 @@ def test_window_means_match_retained_dimensions_by_name():
         timeaxis.window_mean_preserved(daily, daily_bounds, mean + 1, coarse_bounds)
         != []
     )
+    # A missing row would broadcast against the expected mean.
+    with pytest.raises(ValueError, match="cannot compare"):
+        timeaxis.window_mean_preserved(
+            daily, daily_bounds, mean.isel(y=[0]), coarse_bounds
+        )
 
 
 def test_cell_areas_wrap_the_seam_and_must_be_finite():

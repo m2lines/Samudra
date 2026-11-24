@@ -78,12 +78,14 @@ def same_order(first: xr.DataArray, *others: xr.DataArray) -> list[xr.DataArray]
     """``others`` transposed to ``first``'s dimension order, so they can be compared position by position.
 
     Raises:
-        ValueError: if any has different dimensions from ``first``.
+        ValueError: if any has different dimensions or sizes from ``first``. A
+            size-1 dimension would otherwise broadcast against the other side.
     """
     for other in others:
-        if set(other.dims) != set(first.dims):
+        if dict(other.sizes) != dict(first.sizes):
             raise ValueError(
-                f"cannot compare totals over {first.dims} with totals over {other.dims}"
+                f"cannot compare values over {dict(first.sizes)} with values over "
+                f"{dict(other.sizes)}"
             )
     return [first, *(other.transpose(*first.dims) for other in others)]
 

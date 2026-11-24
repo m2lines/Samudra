@@ -277,3 +277,49 @@ def test_fork_rejects_changed_active_scheduler_horizon_before_loading(tmp_path):
             tmp_path / "parent.pt", {"config": child_cfg.scientific_config()}, fork=True
         )
     torch.testing.assert_close(child.model.weight, before, rtol=0, atol=0)
+
+
+class MisalignedSources(Sources):
+    """Next month starts one step after where this month's states end."""
+
+    def load(self, source, origin, month=0):
+        sample = super().load(source, origin, month)
+        sample["next_start_lead"] -= 1
+        return sample
+
+
+@pytest.mark.parametrize("prefetch", [False, True])
+def test_replay_refuses_states_that_miss_next_months_input_time(
+    monkeypatch, tmp_path, prefetch
+):
+    monkeypatch.setattr(baseline, "objective", objective)
+    cfg = configuration().model_copy(update={"update_prefetch": prefetch})
+    with pytest.raises(ValueError, match="Replay boundary differs"):
+        baseline.train(
+            cfg,
+            make_state(cfg),
+            MisalignedSources(),
+            tmp_path,
+            {"config": cfg.scientific_config()},
+            validate,
+            lambda _: None,
+            stop_after=1,
+        )
+
+
+@pytest.mark.parametrize("prefetch", [False, True])
+def test_stop_limit_before_the_restored_update_fails(tmp_path, prefetch):
+    cfg = configuration().model_copy(update={"update_prefetch": prefetch})
+    state = make_state(cfg)
+    state.updates = 3
+    with pytest.raises(ValueError, match="Stop limit precedes"):
+        baseline.train(
+            cfg,
+            state,
+            Sources(),
+            tmp_path,
+            {"config": cfg.scientific_config()},
+            validate,
+            lambda _: None,
+            stop_after=1,
+        )

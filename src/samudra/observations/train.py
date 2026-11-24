@@ -41,11 +41,13 @@ def require_single_process() -> None:
 def run_training(cfg: ObservationTrainConfig) -> None:
     if not cfg.update_prefetch:
         require_single_process()
-    cfg.prepare_output_dirs()
-    os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
     world_size = int(os.environ.get("WORLD_SIZE", "1"))
     if cfg.gradient_accumulation_steps % world_size:
         raise ValueError("Global example count must be divisible by world size")
+    if world_size > 1 and cfg.backend not in ("auto", "nccl"):
+        raise ValueError(f"WORLD_SIZE={world_size} requires backend nccl or auto")
+    cfg.prepare_output_dirs()
+    os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
     device, distributed = init_train_backend("nccl" if world_size > 1 else cfg.backend)
     try:
         _run_training(cfg, device)
@@ -100,7 +102,11 @@ def build_sources(
         if cfg.model.forcing_mode == "shared_era5":
             assert cfg.data.era5_proof_sha256 is not None
             models["om4"].era5 = SharedEra5(
-                path("era5_cache"), models["om4"], data, cfg.data.era5_proof_sha256
+                path("era5_cache"),
+                models["om4"],
+                data,
+                cfg.data.era5_proof_sha256,
+                verify_content=verify_data,
             )
     if "cm4" in MIXES[cfg.pretrain_mix]:
         models["cm4"] = ModelMonths(path("cm4"), "cm4", data.grid, path("om4"))

@@ -126,3 +126,29 @@ def test_ema_context_restores_after_evaluator_error():
             assert not torch.equal(model.weight, before)
             raise RuntimeError("evaluation failed")
     torch.testing.assert_close(model.weight, before, rtol=0, atol=0)
+
+
+def test_checkpoint_with_a_pending_plan_saves_each_replay_state_once():
+    import io
+
+    pool = ReplayPool("obs", 13, per_month=2, max_age=250)
+    for month in range(1, 12):
+        pool.add(
+            ReplayEntry(
+                "obs", "2000-01", month, 6 * month, 0, torch.ones(1, 2, 3, 32, 32)
+            )
+        )
+
+    def size(payload):
+        buffer = io.BytesIO()
+        torch.save(payload, buffer)
+        return buffer.tell()
+
+    # A pending plan keeps the pool's pre-update view, as plan_update does.
+    plan = {
+        "pool_entries_before": {"obs": {m: list(e) for m, e in pool.entries.items()}}
+    }
+    alone = size({"pools": {"obs": pool.state_dict()}})
+    assert (
+        size({"pools": {"obs": pool.state_dict()}, "pending_plan": plan}) < 1.1 * alone
+    )

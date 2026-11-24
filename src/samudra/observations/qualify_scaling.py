@@ -33,7 +33,9 @@ def input_parity(
 ) -> list[dict[str, Any]]:
     """Compare real fresh and shifted replay windows, including all loss tensors."""
     config = cfg.model_copy(deep=True)
+    # The Python reference reads the original stores, without any Rust cache.
     config.data.loading = None
+    config.data.native_om4 = config.data.native_om4_proof_sha256 = None
     python = build_sources(config, torch.device("cpu"))
     checks = []
     origins: dict[str, Sequence[str | int]] = {"obs": ["1993-05", "2001-01"]}

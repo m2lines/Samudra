@@ -142,7 +142,10 @@ def data_parity(data: Samples, models: Mapping[str, ModelMonths]) -> dict[str, A
     """Daily replay preparation agrees with two independently materialized months."""
     checks = []
     for month in ("1993-05", "2001-01"):
-        materialized = data.load(data.root / "train" / f"{month}.npz")
+        # Read the prepared month itself; Samples.load would read the native
+        # archive when Rust loading is on, and compare that archive with itself.
+        path = data.root / "train" / f"{month}.npz"
+        materialized = data.normalize(data.read_sample(path), month)
         daily = data.trajectory(month, target_month=month)
         for key in (
             "surface",
@@ -159,7 +162,7 @@ def data_parity(data: Samples, models: Mapping[str, ModelMonths]) -> dict[str, A
         checks.append(
             {
                 "month": month,
-                "monthly_sha256": baseline.digest(data.root / "train" / f"{month}.npz"),
+                "monthly_sha256": baseline.digest(path),
                 "exact": True,
             }
         )

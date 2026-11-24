@@ -5,6 +5,7 @@
 import json
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
@@ -22,15 +23,25 @@ def cache_fixture(tmp_path):
     np.save(tmp_path / "values.npy", raw)
     starts = pd.date_range("2000-01-01", periods=21, freq="5D")
     bounds = np.array([[day, day + pd.Timedelta(days=5)] for day in starts])
-    reader = SimpleNamespace(windows=[(19, 21, None, 10)], bounds=bounds)
+    reader = SimpleNamespace(
+        windows=[(19, 21, None, 10)], bounds=bounds, source_metadata_sha256="om4"
+    )
+    observations = tmp_path / "observations"
+    observations.mkdir()
+    np.savez(observations / "grid.npz", mask=np.ones((77, 2, 3)))
     data = SimpleNamespace(
+        root=observations,
         grid={"mask": np.ones((77, 2, 3))},
         stats={"atmosphere_mean": np.arange(8), "atmosphere_std": np.arange(8) + 1},
     )
     proof = {
         "windows": 1,
         "all_intervals_readback_exact": True,
-        "contracts": {},
+        # Build-time paths are provenance; the data may have moved since.
+        "contracts": {
+            "/build/obs/grid.npz": digest(observations / "grid.npz"),
+            "/build/om4/OM4.zarr/.zmetadata": "om4",
+        },
         "bounds": [[t.isoformat() for t in pair] for pair in bounds],
         "files": {
             name: digest(tmp_path / name) for name in ("indices.npy", "values.npy")
@@ -63,6 +74,17 @@ def test_era5_rejects_changed_values_or_window_pool(tmp_path):
     raw[0, 7, 0, 0] += 1
     np.save(tmp_path / "values.npy", raw)
     with pytest.raises(ValueError, match="content changed"):
+        SharedEra5(tmp_path, reader, data, digest(path))
+
+
+def test_era5_checks_the_grid_and_om4_store_this_run_loads(tmp_path):
+    reader, data, _, path, _ = cache_fixture(tmp_path)
+    reader.source_metadata_sha256 = "another-om4"
+    with pytest.raises(ValueError, match="different grid or OM4 store"):
+        SharedEra5(tmp_path, reader, data, digest(path))
+    reader.source_metadata_sha256 = "om4"
+    np.savez(data.root / "grid.npz", mask=np.zeros((77, 2, 3)))
+    with pytest.raises(ValueError, match="different grid or OM4 store"):
         SharedEra5(tmp_path, reader, data, digest(path))
 
 
@@ -114,6 +136,37 @@ def test_runtime_estimate_counts_validation_checkpoint_once():
     assert screen["hours_observed_range"][0] == pytest.approx(
         (70000 + 200 * 5 + 20 * 100) / 3600
     )
+
+
+def test_runtime_estimate_cli_passes_its_budget(monkeypatch, tmp_path, capsys):
+    from samudra.observations import runtime_estimate
+
+    receipt = {
+        "training_records": [
+            {"updates": 2, "train/om4/seconds": 20, "train/om4/data_seconds": 2},
+            {"updates": 3, "train/obs/seconds": 10, "train/obs/data_seconds": 1},
+            {"updates": 6, "timing/validation_seconds": 100},
+        ],
+        "exposure": {"obs": {}, "om4": {}},
+        "gpu": "test",
+        "checkpoint_seconds": 5,
+    }
+    path = tmp_path / "receipt.json"
+    path.write_text(json.dumps(receipt))
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "runtime_estimate",
+            str(path),
+            "--main-updates",
+            "40",
+            "--post-training-updates",
+            "7",
+        ],
+    )
+    runtime_estimate.main()
+    printed = json.loads(capsys.readouterr().out)
+    assert printed == runtime_estimate.estimate(receipt, 40, 7)
 
 
 def test_distributed_estimate_excludes_sync_controls_and_counts_gpu_allocation():
@@ -196,3 +249,36 @@ def test_qualification_keeps_prefetched_sources_on_cpu(monkeypatch, tmp_path, pr
     with pytest.raises(DataBoundary):
         qualify.run(cfg)
     assert devices == ["cpu" if prefetch else "cuda"]
+
+
+def test_data_parity_compares_the_prepared_month_with_the_daily_path(tmp_path):
+    """A daily (native) path that disagrees with the prepared npz must fail."""
+    import torch
+
+    from samudra.observations import qualify
+
+    def sample(value):
+        return {
+            key: torch.full((1,), value)
+            for key in (
+                "surface",
+                "forcing",
+                "contexts",
+                "validity",
+                "interior",
+                "raw_surface",
+                "month_weights",
+            )
+        }
+
+    # Samples.load reads the native archive when Rust loading is on, so it agrees
+    # with the daily path by construction; only the npz can disagree.
+    data = SimpleNamespace(
+        root=tmp_path,
+        read_sample=lambda path: path,
+        normalize=lambda raw, name: sample(0.0),
+        load=lambda path: sample(1.0),
+        trajectory=lambda month, target_month: sample(1.0),
+    )
+    with pytest.raises(AssertionError):
+        qualify.data_parity(cast(Any, data), {})

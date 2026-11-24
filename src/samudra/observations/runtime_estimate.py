@@ -112,7 +112,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("receipt", type=Path)
     parser.add_argument("--main-updates", type=int, default=4000)
-    parser.add_argument("--cooldown-updates", type=int, default=1000)
+    parser.add_argument("--post-training-updates", type=int, default=1000)
     parser.add_argument("--main-start", type=int, default=0)
     args = parser.parse_args()
     print(

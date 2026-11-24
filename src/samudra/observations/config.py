@@ -118,6 +118,15 @@ class ObservationTrainConfig(TopLevelConfig):
             self.data.native_om4_proof_sha256 is None
         ):
             raise ValueError("Packed OM4 requires both a cache and its proof checksum")
+        # Unused caches would still enter the run manifest, as if they were read.
+        if self.data.native_om4 is not None and self.data.loading is None:
+            raise ValueError(
+                "Packed OM4 is read only by Rust loading; set data.loading"
+            )
+        if (
+            self.data.era5_cache is not None or self.data.era5_proof_sha256 is not None
+        ) and self.model.forcing_mode != "shared_era5":
+            raise ValueError("data.era5_cache is used only by forcing_mode shared_era5")
         if self.data.loading is not None:
             if self.data.loading.prefetch_batches != 1:
                 raise ValueError(

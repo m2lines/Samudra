@@ -44,7 +44,13 @@ class SharedEra5:
     """Require exact native intervals, complete cohort and verified raw content."""
 
     def __init__(
-        self, root: str | Path, reader: ModelMonths, data: Samples, proof_sha256: str
+        self,
+        root: str | Path,
+        reader: ModelMonths,
+        data: Samples,
+        proof_sha256: str,
+        *,
+        verify_content: bool = True,
     ) -> None:
         root = Path(root)
         proof_path = root / "COMPLETE.json"
@@ -53,12 +59,19 @@ class SharedEra5:
         proof = json.loads(proof_path.read_text())
         if not proof["all_intervals_readback_exact"]:
             raise ValueError("ERA5 interval audit did not pass")
-        for path, sha in proof["contracts"].items():
-            if digest(path) != sha:
-                raise ValueError("Shared ERA5 source contract changed")
-        for name, sha in proof["files"].items():
-            if digest(root / name) != sha:
-                raise ValueError("Shared ERA5 cache content changed")
+        # The proof records the build-time paths as provenance. Check its digests
+        # against the grid and OM4 store this run loads, wherever they now live.
+        loaded = {
+            "grid.npz": digest(data.root / "grid.npz"),
+            ".zmetadata": reader.source_metadata_sha256,
+        }
+        recorded = {Path(path).name: sha for path, sha in proof["contracts"].items()}
+        if recorded != loaded:
+            raise ValueError("Shared ERA5 was built from a different grid or OM4 store")
+        if verify_content:
+            for name, sha in proof["files"].items():
+                if digest(root / name) != sha:
+                    raise ValueError("Shared ERA5 cache content changed")
         indices = np.load(root / "indices.npy")
         if indices.tolist() != required_indices(reader) or proof["windows"] != len(
             reader.windows

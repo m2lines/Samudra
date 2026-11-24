@@ -350,6 +350,14 @@ class UpdateLoader:
                 and item["start_lead"] != sample["start_lead"]
             ):
                 raise ValueError("Replay state time differs from the planned target")
+            # Rank zero caches this example's final states for the next month, so
+            # they must land exactly on that month's first input time.
+            following = self.sources.layout(source, item["origin"], item["month"] + 1)
+            if (
+                following is not None
+                and following["start_lead"] != sample["next_start_lead"]
+            ):
+                raise ValueError("Replay boundary differs from next month's input time")
             auxiliary = self.sources.auxiliary(
                 source, item["origin"], item["month"], sample
             )
@@ -480,7 +488,9 @@ def train(
     limit = total if stop_after is None else min(total, stop_after)
     checkpoints = CheckpointPaths(output)
     try:
-        if state.updates >= limit:
+        if limit < state.updates:
+            raise ValueError("Stop limit precedes the restored checkpoint")
+        if state.updates == limit:
             return
         if world.rank == 0 and state.pending_plan is None:
             state.pending_plan = plan_update(cfg, state, sources, state.updates)

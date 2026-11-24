@@ -285,9 +285,7 @@ are required by the implementation.
 The harness uses normalization policy v3: observed channels use observation
 statistics and unobserved channels use OM4 statistics. Rebuild normalization with
 `prepare_observation_normalization.py --om4` before starting a new run. Checkpoints produced with policy v2 require their original code and data;
-this branch does not convert them. The
-[four-to-two-rank migration script](../../../scripts/migrate_observation_checkpoint.py)
-is restricted to its recorded legacy runtime.
+this branch does not convert them.
 
 The harness uses the configuration fields `pretrain_mix`, `post_training_updates`,
 `post_training_scheduler` and `post_training_learning_rate`. The deterministic

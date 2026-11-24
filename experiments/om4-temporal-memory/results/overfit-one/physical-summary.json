@@ -1,0 +1,17 @@
+[
+  {
+    "variable": "Temperature, 1850 m",
+    "rmse": 0.025522781535983086,
+    "unit": "\u00b0C"
+  },
+  {
+    "variable": "Salinity, 1850 m",
+    "rmse": 0.007342382799834013,
+    "unit": "psu"
+  },
+  {
+    "variable": "Sea surface height",
+    "rmse": 0.011552354320883751,
+    "unit": "m"
+  }
+]

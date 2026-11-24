@@ -1,0 +1,4 @@
+
+Salinity with Trend Slope : 1.1329922244518551e-07
+Salinity without Trend Slope : -1.7355532378197775e-07
+Salinity GT Trend Slope : -1.1084276303742946e-07

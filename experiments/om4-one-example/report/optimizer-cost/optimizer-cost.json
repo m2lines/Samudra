@@ -1,0 +1,37 @@
+{
+  "endpoints": {
+    "Adam 1e-5, spatial loss": {
+      "state_mse": 4.0709212044021115e-05,
+      "highpass_mse": 7.863109772188182e-07,
+      "gradient_evaluations_including_measurements": 10101,
+      "measured_seconds": 1822.023706954904,
+      "training_objective": 0.00011934031499549747,
+      "objective_gradient_norm": 7.802717504380763e-05
+    },
+    "Adam 1e-4, spatial loss": {
+      "state_mse": 4.9486483476357535e-05,
+      "highpass_mse": 9.440684607397998e-07,
+      "gradient_evaluations_including_measurements": 10101,
+      "measured_seconds": 1822.591557112988,
+      "training_objective": 0.000143893325002864,
+      "objective_gradient_norm": 0.00011084091217196034
+    },
+    "L-BFGS, MSE only": {
+      "state_mse": 1.4296731478680158e-06,
+      "highpass_mse": 1.9842384517687606e-06,
+      "gradient_evaluations_including_measurements": 11661,
+      "measured_seconds": 2740.5885092350654,
+      "training_objective": 1.4296731478680158e-06,
+      "objective_gradient_norm": 8.811371852484742e-06
+    },
+    "L-BFGS, spatial loss": {
+      "state_mse": 1.2285418051760644e-06,
+      "highpass_mse": 1.5409240106123434e-08,
+      "gradient_evaluations_including_measurements": 11278,
+      "measured_seconds": 2704.701783900615,
+      "training_objective": 2.769465936580673e-06,
+      "objective_gradient_norm": 0.00011548049542275871
+    }
+  },
+  "notes": "Counts include diagnostic backward passes and L-BFGS line searches. No duplicate measurement steps were observed. Wall time includes diagnostics and checkpoint writes. Optimizer update counts alone are not comparable; final evaluation budgets differ."
+}

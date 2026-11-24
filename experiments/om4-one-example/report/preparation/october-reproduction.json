@@ -1,0 +1,12 @@
+{
+  "prognostic": {
+    "exact_equal": true,
+    "max_absolute_difference": 0.0,
+    "fraction_equal": 1.0
+  },
+  "boundary": {
+    "exact_equal": true,
+    "max_absolute_difference": 0.0,
+    "fraction_equal": 1.0
+  }
+}

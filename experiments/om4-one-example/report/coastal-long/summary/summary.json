@@ -1,0 +1,133 @@
+{
+  "scope": "Same October seed16 single-example fits continued with intact L-BFGS state; no new independent example or generalization test. Endpoint metrics independently verified from raw arrays. Gradient norms are diagnostics, not convergence certificates.",
+  "arms": {
+    "interior": {
+      "resume_verified": "Exact history prefix and recorded checkpoint-copy hashes; restored optimizer counters and recomputed loss/gradient metrics match at step1000.",
+      "state_mse_reduction_1000_to_2000": 1.4677450923464137,
+      "highpass_mse_reduction_1000_to_2000": 1.5266098884254637,
+      "channels_with_lower_state_mse": 77,
+      "additional_closures": 8219,
+      "additional_measured_seconds": 2267.368915338069,
+      "endpoints": {
+        "1000": {
+          "state_mse": 1.0680257032532598e-06,
+          "highpass_mse": 1.5528105940294433e-08,
+          "quiet_patch": {
+            "T1850": {
+              "mse": 9.782755451512253e-09,
+              "highpass_mse": 6.455252017697578e-09,
+              "hp_error_over_target_rms": 0.012079801619130559,
+              "hp_error_over_increment_rms": 0.1184724971165449,
+              "mse_over_persistence": 0.00731568638392845
+            },
+            "S1850": {
+              "mse": 1.2621391334735436e-07,
+              "highpass_mse": 1.0937109937053419e-07,
+              "hp_error_over_target_rms": 0.18884013638886404,
+              "hp_error_over_increment_rms": 1.3794578532893167,
+              "mse_over_persistence": 1.0058920296426939
+            },
+            "SSH": {
+              "mse": 1.1283854878252342e-08,
+              "highpass_mse": 1.0528330511008419e-08,
+              "hp_error_over_target_rms": 0.00933119117015567,
+              "hp_error_over_increment_rms": 0.044961550145748465,
+              "mse_over_persistence": 5.020588670699919e-05
+            }
+          }
+        },
+        "2000": {
+          "state_mse": 7.276642986731834e-07,
+          "highpass_mse": 1.0171626725351575e-08,
+          "quiet_patch": {
+            "T1850": {
+              "mse": 5.0040828247428445e-09,
+              "highpass_mse": 2.9940432561390226e-09,
+              "hp_error_over_target_rms": 0.008226824567570637,
+              "hp_error_over_increment_rms": 0.08068447484404825,
+              "mse_over_persistence": 0.003742125699294916
+            },
+            "S1850": {
+              "mse": 5.861668169468773e-08,
+              "highpass_mse": 5.105610525245959e-08,
+              "hp_error_over_target_rms": 0.12902291740346547,
+              "hp_error_over_increment_rms": 0.9424991957218526,
+              "mse_over_persistence": 0.4671596922798774
+            },
+            "SSH": {
+              "mse": 5.4959496875381375e-09,
+              "highpass_mse": 5.291027898310981e-09,
+              "hp_error_over_target_rms": 0.0066149620607966015,
+              "hp_error_over_increment_rms": 0.03187363145661158,
+              "mse_over_persistence": 2.445343637764363e-05
+            }
+          }
+        }
+      }
+    },
+    "wet_neighbors": {
+      "resume_verified": "Exact history prefix and recorded checkpoint-copy hashes; restored optimizer counters and recomputed loss/gradient metrics match at step1000.",
+      "state_mse_reduction_1000_to_2000": 1.9433560485851986,
+      "highpass_mse_reduction_1000_to_2000": 2.290874288208072,
+      "channels_with_lower_state_mse": 77,
+      "additional_closures": 6966,
+      "additional_measured_seconds": 1882.3236544551328,
+      "endpoints": {
+        "1000": {
+          "state_mse": 1.109499240308489e-07,
+          "highpass_mse": 2.565760642532455e-08,
+          "quiet_patch": {
+            "T1850": {
+              "mse": 2.4664106275401995e-08,
+              "highpass_mse": 1.4969763761406765e-08,
+              "hp_error_over_target_rms": 0.018395460937004837,
+              "hp_error_over_increment_rms": 0.1804132436550459,
+              "mse_over_persistence": 0.018444176320775794
+            },
+            "S1850": {
+              "mse": 3.3128393189959214e-07,
+              "highpass_mse": 2.864849555493952e-07,
+              "hp_error_over_target_rms": 0.3056285541107766,
+              "hp_error_over_increment_rms": 2.232585282026049,
+              "mse_over_persistence": 2.6402466876166932
+            },
+            "SSH": {
+              "mse": 2.7874575277316016e-08,
+              "highpass_mse": 3.084490737576429e-08,
+              "hp_error_over_target_rms": 0.015971623617149572,
+              "hp_error_over_increment_rms": 0.07695790848956649,
+              "mse_over_persistence": 0.00012402390703161896
+            }
+          }
+        },
+        "2000": {
+          "state_mse": 5.7091917928072225e-08,
+          "highpass_mse": 1.1199918981758704e-08,
+          "quiet_patch": {
+            "T1850": {
+              "mse": 7.146546185525549e-09,
+              "highpass_mse": 4.045047220612405e-09,
+              "hp_error_over_target_rms": 0.009562357999870616,
+              "hp_error_over_increment_rms": 0.0937827015944472,
+              "mse_over_persistence": 0.005344290867813029
+            },
+            "S1850": {
+              "mse": 1.0153316913792676e-07,
+              "highpass_mse": 8.91111480581699e-08,
+              "hp_error_over_target_rms": 0.17045472175908222,
+              "hp_error_over_increment_rms": 1.245154282650038,
+              "mse_over_persistence": 0.809192923914239
+            },
+            "SSH": {
+              "mse": 8.04784963150118e-09,
+              "highpass_mse": 7.374632845147042e-09,
+              "hp_error_over_target_rms": 0.0078095774018791045,
+              "hp_error_over_increment_rms": 0.0376297837616624,
+              "mse_over_persistence": 3.580774754670482e-05
+            }
+          }
+        }
+      }
+    }
+  }
+}

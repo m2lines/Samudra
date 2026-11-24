@@ -1,0 +1,83 @@
+{
+  "protocol": {
+    "data": "/scratch/jr7309/om4-temporal-memory-20261016/om4-overfit-torch-input",
+    "checkpoint": "/scratch/jr7309/om4-temporal-memory-20261016/overfit-one/latest.pt",
+    "output": "head-lstsq"
+  },
+  "method": "Frozen FP32 features; float64 thin QR followed by SVD of R; relative rank threshold max(m,n)*float64 epsilon",
+  "decoder_reconstruction_max_error": 3.24249267578125e-05,
+  "groups": [
+    {
+      "channels": [
+        "uo_13",
+        "vo_13",
+        "thetao_13",
+        "so_13"
+      ],
+      "rows": 37190,
+      "columns": 2521,
+      "rank": 2521,
+      "largest_singular": 2391.4613716808144,
+      "smallest_singular": 5.990879033306641,
+      "rank_cutoff": 1.974830264046756e-08,
+      "elapsed": 6.380014433059841,
+      "outputs": {
+        "uo_13": {
+          "before_mse": 0.0003771513875108212,
+          "least_squares_mse_float64": 0.0003660643164417215,
+          "least_squares_mse_float32": 0.00036606425419449806,
+          "normal_equation_gradient_rms": 4.246076149557052e-15,
+          "coefficient_norm": 0.7024552165960791,
+          "rmse_physical": 0.0004177880352587078
+        },
+        "vo_13": {
+          "before_mse": 0.00037858879659324884,
+          "least_squares_mse_float64": 0.00036809934321690465,
+          "least_squares_mse_float32": 0.0003680993686430156,
+          "normal_equation_gradient_rms": 4.164540711645274e-15,
+          "coefficient_norm": 0.7266366532506423,
+          "rmse_physical": 0.0003677456297178781
+        },
+        "thetao_13": {
+          "before_mse": 0.0002734723675530404,
+          "least_squares_mse_float64": 0.00025309880096470233,
+          "least_squares_mse_float32": 0.00025309878401458263,
+          "normal_equation_gradient_rms": 1.0255960748902086e-14,
+          "coefficient_norm": 0.46172612860440493,
+          "rmse_physical": 0.024553665869185212
+        },
+        "so_13": {
+          "before_mse": 0.00020507728913798928,
+          "least_squares_mse_float64": 0.00014703279165425843,
+          "least_squares_mse_float32": 0.00014703281340189278,
+          "normal_equation_gradient_rms": 1.1859869871915661e-14,
+          "coefficient_norm": 0.3191441663675549,
+          "rmse_physical": 0.006217063900098772
+        }
+      }
+    },
+    {
+      "channels": [
+        "zos"
+      ],
+      "rows": 44892,
+      "columns": 2521,
+      "rank": 2521,
+      "largest_singular": 2970.3895928298202,
+      "smallest_singular": 7.503915392300338,
+      "rank_cutoff": 2.9608921892369253e-08,
+      "elapsed": 11.89645294798538,
+      "outputs": {
+        "zos": {
+          "before_mse": 0.00028789779753424227,
+          "least_squares_mse_float64": 0.00024801048824207677,
+          "least_squares_mse_float32": 0.0002480105322320014,
+          "normal_equation_gradient_rms": 5.753899926725318e-15,
+          "coefficient_norm": 0.4371119520952801,
+          "rmse_physical": 0.010722260884616603
+        }
+      }
+    }
+  ],
+  "export_note": "Protocol output path is relative to the Torch scratch root recorded in RUNS.md; all scientific values unchanged."
+}

@@ -1,0 +1,17 @@
+{
+  "mild6": {
+    "eval_mse": 1.3075159407207686,
+    "highpass_mse": 1.251930729287486,
+    "control": "mse6"
+  },
+  "mild2": {
+    "eval_mse": 1.0858473278620868,
+    "highpass_mse": 1.0794455248793666,
+    "control": "mse2"
+  },
+  "warm_mild": {
+    "eval_mse": 1.0071536750901098,
+    "highpass_mse": 1.00436900294541,
+    "control": "warm_mse"
+  }
+}

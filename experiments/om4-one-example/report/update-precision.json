@@ -1,0 +1,3008 @@
+{
+  "protocol": {
+    "data": "/scratch/jr7309/om4-temporal-memory-20261016/om4-overfit-torch-input",
+    "checkpoint": "/scratch/jr7309/om4-temporal-memory-20261016/overfit-one/latest.pt",
+    "output": "update-precision"
+  },
+  "gradient_mode": "train; same fixed gradient and optimizer state for every LR",
+  "loss": 0.00030831911135464907,
+  "learning_rates": {
+    "1e-07": {
+      "active_parameters": 83872357,
+      "fraction_unchanged": 0.8840493417873067,
+      "fraction_expected_below_half_ulp": 0.8840493060186684,
+      "layers": {
+        "unet.layers.0.skip_module.weight": {
+          "active_parameters": 45360,
+          "unchanged_parameters": 40197,
+          "fraction_unchanged": 0.8861772486772487,
+          "expected_below_half_positive_ulp": 40197,
+          "actual_update_rms": 4.5457622262325143e-10
+        },
+        "unet.layers.0.skip_module.bias": {
+          "active_parameters": 280,
+          "unchanged_parameters": 278,
+          "fraction_unchanged": 0.9928571428571429,
+          "expected_below_half_positive_ulp": 278,
+          "actual_update_rms": 3.889162936137646e-12
+        },
+        "unet.layers.0.convblock.0.weight": {
+          "active_parameters": 472392,
+          "unchanged_parameters": 345573,
+          "fraction_unchanged": 0.731538637402835,
+          "expected_below_half_positive_ulp": 345572,
+          "actual_update_rms": 5.313290762538287e-10
+        },
+        "unet.layers.0.convblock.0.bias": {
+          "active_parameters": 324,
+          "unchanged_parameters": 324,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 324,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.0.convblock.1.weight": {
+          "active_parameters": 324,
+          "unchanged_parameters": 324,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 324,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.0.convblock.1.bias": {
+          "active_parameters": 324,
+          "unchanged_parameters": 125,
+          "fraction_unchanged": 0.38580246913580246,
+          "expected_below_half_positive_ulp": 125,
+          "actual_update_rms": 1.0466668369243291e-09
+        },
+        "unet.layers.0.convblock.3.weight": {
+          "active_parameters": 944784,
+          "unchanged_parameters": 562639,
+          "fraction_unchanged": 0.595521304340463,
+          "expected_below_half_positive_ulp": 562639,
+          "actual_update_rms": 5.187167643743064e-10
+        },
+        "unet.layers.0.convblock.3.bias": {
+          "active_parameters": 324,
+          "unchanged_parameters": 324,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 324,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.0.convblock.4.weight": {
+          "active_parameters": 324,
+          "unchanged_parameters": 324,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 324,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.0.convblock.4.bias": {
+          "active_parameters": 324,
+          "unchanged_parameters": 144,
+          "fraction_unchanged": 0.4444444444444444,
+          "expected_below_half_positive_ulp": 144,
+          "actual_update_rms": 3.4085401781281947e-10
+        },
+        "unet.layers.0.convblock.6.weight": {
+          "active_parameters": 90720,
+          "unchanged_parameters": 81438,
+          "fraction_unchanged": 0.8976851851851851,
+          "expected_below_half_positive_ulp": 81438,
+          "actual_update_rms": 2.1283173587299502e-10
+        },
+        "unet.layers.0.convblock.6.bias": {
+          "active_parameters": 280,
+          "unchanged_parameters": 277,
+          "fraction_unchanged": 0.9892857142857143,
+          "expected_below_half_positive_ulp": 277,
+          "actual_update_rms": 4.260364539871225e-12
+        },
+        "unet.layers.2.skip_module.weight": {
+          "active_parameters": 106400,
+          "unchanged_parameters": 101051,
+          "fraction_unchanged": 0.9497274436090225,
+          "expected_below_half_positive_ulp": 101051,
+          "actual_update_rms": 8.30846778034227e-11
+        },
+        "unet.layers.2.skip_module.bias": {
+          "active_parameters": 380,
+          "unchanged_parameters": 377,
+          "fraction_unchanged": 0.9921052631578947,
+          "expected_below_half_positive_ulp": 377,
+          "actual_update_rms": 3.420881301147363e-12
+        },
+        "unet.layers.2.convblock.0.weight": {
+          "active_parameters": 1411200,
+          "unchanged_parameters": 1033948,
+          "fraction_unchanged": 0.732672902494331,
+          "expected_below_half_positive_ulp": 1033948,
+          "actual_update_rms": 3.468924516360413e-10
+        },
+        "unet.layers.2.convblock.0.bias": {
+          "active_parameters": 560,
+          "unchanged_parameters": 560,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 560,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.2.convblock.1.weight": {
+          "active_parameters": 560,
+          "unchanged_parameters": 560,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 560,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.2.convblock.1.bias": {
+          "active_parameters": 560,
+          "unchanged_parameters": 262,
+          "fraction_unchanged": 0.46785714285714286,
+          "expected_below_half_positive_ulp": 262,
+          "actual_update_rms": 3.4525850930674953e-10
+        },
+        "unet.layers.2.convblock.3.weight": {
+          "active_parameters": 2822400,
+          "unchanged_parameters": 1936985,
+          "fraction_unchanged": 0.6862900368480725,
+          "expected_below_half_positive_ulp": 1936985,
+          "actual_update_rms": 3.890270602159942e-10
+        },
+        "unet.layers.2.convblock.3.bias": {
+          "active_parameters": 560,
+          "unchanged_parameters": 560,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 560,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.2.convblock.4.weight": {
+          "active_parameters": 560,
+          "unchanged_parameters": 560,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 560,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.2.convblock.4.bias": {
+          "active_parameters": 560,
+          "unchanged_parameters": 429,
+          "fraction_unchanged": 0.7660714285714286,
+          "expected_below_half_positive_ulp": 429,
+          "actual_update_rms": 1.1174356221206307e-10
+        },
+        "unet.layers.2.convblock.6.weight": {
+          "active_parameters": 212800,
+          "unchanged_parameters": 198223,
+          "fraction_unchanged": 0.931499060150376,
+          "expected_below_half_positive_ulp": 198223,
+          "actual_update_rms": 1.3114579238100242e-10
+        },
+        "unet.layers.2.convblock.6.bias": {
+          "active_parameters": 380,
+          "unchanged_parameters": 376,
+          "fraction_unchanged": 0.9894736842105263,
+          "expected_below_half_positive_ulp": 376,
+          "actual_update_rms": 4.352791013779052e-12
+        },
+        "unet.layers.4.skip_module.weight": {
+          "active_parameters": 182400,
+          "unchanged_parameters": 177727,
+          "fraction_unchanged": 0.9743804824561404,
+          "expected_below_half_positive_ulp": 177727,
+          "actual_update_rms": 2.6992850810367907e-11
+        },
+        "unet.layers.4.skip_module.bias": {
+          "active_parameters": 480,
+          "unchanged_parameters": 477,
+          "fraction_unchanged": 0.99375,
+          "expected_below_half_positive_ulp": 477,
+          "actual_update_rms": 3.815544362333282e-12
+        },
+        "unet.layers.4.convblock.0.weight": {
+          "active_parameters": 2599200,
+          "unchanged_parameters": 2212122,
+          "fraction_unchanged": 0.8510780240073869,
+          "expected_below_half_positive_ulp": 2212121,
+          "actual_update_rms": 1.5750225119561965e-10
+        },
+        "unet.layers.4.convblock.0.bias": {
+          "active_parameters": 760,
+          "unchanged_parameters": 760,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 760,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.4.convblock.1.weight": {
+          "active_parameters": 760,
+          "unchanged_parameters": 760,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 760,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.4.convblock.1.bias": {
+          "active_parameters": 760,
+          "unchanged_parameters": 456,
+          "fraction_unchanged": 0.6,
+          "expected_below_half_positive_ulp": 456,
+          "actual_update_rms": 1.8465019120026698e-10
+        },
+        "unet.layers.4.convblock.3.weight": {
+          "active_parameters": 5198400,
+          "unchanged_parameters": 4254584,
+          "fraction_unchanged": 0.8184410587873192,
+          "expected_below_half_positive_ulp": 4254584,
+          "actual_update_rms": 1.669872326591781e-10
+        },
+        "unet.layers.4.convblock.3.bias": {
+          "active_parameters": 760,
+          "unchanged_parameters": 760,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 760,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.4.convblock.4.weight": {
+          "active_parameters": 760,
+          "unchanged_parameters": 760,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 760,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.4.convblock.4.bias": {
+          "active_parameters": 760,
+          "unchanged_parameters": 655,
+          "fraction_unchanged": 0.8618421052631579,
+          "expected_below_half_positive_ulp": 655,
+          "actual_update_rms": 7.213056239323744e-11
+        },
+        "unet.layers.4.convblock.6.weight": {
+          "active_parameters": 364800,
+          "unchanged_parameters": 347209,
+          "fraction_unchanged": 0.9517790570175438,
+          "expected_below_half_positive_ulp": 347209,
+          "actual_update_rms": 6.556131021179725e-11
+        },
+        "unet.layers.4.convblock.6.bias": {
+          "active_parameters": 480,
+          "unchanged_parameters": 476,
+          "fraction_unchanged": 0.9916666666666667,
+          "expected_below_half_positive_ulp": 476,
+          "actual_update_rms": 2.9935135380782565e-12
+        },
+        "unet.layers.6.skip_module.weight": {
+          "active_parameters": 249600,
+          "unchanged_parameters": 245246,
+          "fraction_unchanged": 0.9825560897435898,
+          "expected_below_half_positive_ulp": 245246,
+          "actual_update_rms": 1.285810046226187e-11
+        },
+        "unet.layers.6.skip_module.bias": {
+          "active_parameters": 520,
+          "unchanged_parameters": 513,
+          "fraction_unchanged": 0.9865384615384616,
+          "expected_below_half_positive_ulp": 513,
+          "actual_update_rms": 5.025381616755371e-12
+        },
+        "unet.layers.6.convblock.0.weight": {
+          "active_parameters": 4147200,
+          "unchanged_parameters": 3958269,
+          "fraction_unchanged": 0.9544437210648148,
+          "expected_below_half_positive_ulp": 3958269,
+          "actual_update_rms": 2.6922455167635926e-11
+        },
+        "unet.layers.6.convblock.0.bias": {
+          "active_parameters": 960,
+          "unchanged_parameters": 960,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 960,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.6.convblock.1.weight": {
+          "active_parameters": 960,
+          "unchanged_parameters": 960,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 960,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.6.convblock.1.bias": {
+          "active_parameters": 960,
+          "unchanged_parameters": 837,
+          "fraction_unchanged": 0.871875,
+          "expected_below_half_positive_ulp": 837,
+          "actual_update_rms": 2.8582912351060558e-11
+        },
+        "unet.layers.6.convblock.3.weight": {
+          "active_parameters": 8294400,
+          "unchanged_parameters": 7653353,
+          "fraction_unchanged": 0.9227132764274691,
+          "expected_below_half_positive_ulp": 7653353,
+          "actual_update_rms": 4.3681885539257886e-11
+        },
+        "unet.layers.6.convblock.3.bias": {
+          "active_parameters": 960,
+          "unchanged_parameters": 960,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 960,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.6.convblock.4.weight": {
+          "active_parameters": 960,
+          "unchanged_parameters": 960,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 960,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.6.convblock.4.bias": {
+          "active_parameters": 960,
+          "unchanged_parameters": 919,
+          "fraction_unchanged": 0.9572916666666667,
+          "expected_below_half_positive_ulp": 919,
+          "actual_update_rms": 1.3747147301449604e-11
+        },
+        "unet.layers.6.convblock.6.weight": {
+          "active_parameters": 499200,
+          "unchanged_parameters": 485686,
+          "fraction_unchanged": 0.9729286858974359,
+          "expected_below_half_positive_ulp": 485686,
+          "actual_update_rms": 1.9734558462118486e-11
+        },
+        "unet.layers.6.convblock.6.bias": {
+          "active_parameters": 520,
+          "unchanged_parameters": 513,
+          "fraction_unchanged": 0.9865384615384616,
+          "expected_below_half_positive_ulp": 513,
+          "actual_update_rms": 6.3899066989413254e-12
+        },
+        "unet.layers.8.convblock.0.weight": {
+          "active_parameters": 4867200,
+          "unchanged_parameters": 4652458,
+          "fraction_unchanged": 0.9558797666009204,
+          "expected_below_half_positive_ulp": 4652458,
+          "actual_update_rms": 2.7424263545015753e-11
+        },
+        "unet.layers.8.convblock.0.bias": {
+          "active_parameters": 1040,
+          "unchanged_parameters": 1040,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 1040,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.8.convblock.1.weight": {
+          "active_parameters": 1040,
+          "unchanged_parameters": 1040,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 1040,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.8.convblock.1.bias": {
+          "active_parameters": 1040,
+          "unchanged_parameters": 937,
+          "fraction_unchanged": 0.9009615384615385,
+          "expected_below_half_positive_ulp": 937,
+          "actual_update_rms": 2.71629530355949e-11
+        },
+        "unet.layers.8.convblock.3.weight": {
+          "active_parameters": 9734400,
+          "unchanged_parameters": 8877590,
+          "fraction_unchanged": 0.911981221236029,
+          "expected_below_half_positive_ulp": 8877590,
+          "actual_update_rms": 6.329127941852602e-11
+        },
+        "unet.layers.8.convblock.3.bias": {
+          "active_parameters": 1040,
+          "unchanged_parameters": 1040,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 1040,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.8.convblock.4.weight": {
+          "active_parameters": 1040,
+          "unchanged_parameters": 1040,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 1040,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.8.convblock.4.bias": {
+          "active_parameters": 1040,
+          "unchanged_parameters": 963,
+          "fraction_unchanged": 0.9259615384615385,
+          "expected_below_half_positive_ulp": 963,
+          "actual_update_rms": 1.6354791066433053e-11
+        },
+        "unet.layers.8.convblock.6.weight": {
+          "active_parameters": 540800,
+          "unchanged_parameters": 525195,
+          "fraction_unchanged": 0.9711446005917159,
+          "expected_below_half_positive_ulp": 525195,
+          "actual_update_rms": 2.1732502805935802e-11
+        },
+        "unet.layers.8.convblock.6.bias": {
+          "active_parameters": 520,
+          "unchanged_parameters": 504,
+          "fraction_unchanged": 0.9692307692307692,
+          "expected_below_half_positive_ulp": 504,
+          "actual_update_rms": 1.2993121260662662e-11
+        },
+        "unet.layers.10.skip_module.weight": {
+          "active_parameters": 249600,
+          "unchanged_parameters": 244570,
+          "fraction_unchanged": 0.9798477564102565,
+          "expected_below_half_positive_ulp": 244570,
+          "actual_update_rms": 1.4995167146479875e-11
+        },
+        "unet.layers.10.skip_module.bias": {
+          "active_parameters": 480,
+          "unchanged_parameters": 477,
+          "fraction_unchanged": 0.99375,
+          "expected_below_half_positive_ulp": 477,
+          "actual_update_rms": 3.9852061127397324e-12
+        },
+        "unet.layers.10.convblock.0.weight": {
+          "active_parameters": 4867200,
+          "unchanged_parameters": 4644218,
+          "fraction_unchanged": 0.9541868014464169,
+          "expected_below_half_positive_ulp": 4644218,
+          "actual_update_rms": 2.9973497493831534e-11
+        },
+        "unet.layers.10.convblock.0.bias": {
+          "active_parameters": 1040,
+          "unchanged_parameters": 1040,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 1040,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.10.convblock.1.weight": {
+          "active_parameters": 1040,
+          "unchanged_parameters": 1040,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 1040,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.10.convblock.1.bias": {
+          "active_parameters": 1040,
+          "unchanged_parameters": 884,
+          "fraction_unchanged": 0.85,
+          "expected_below_half_positive_ulp": 884,
+          "actual_update_rms": 3.7221221853317907e-11
+        },
+        "unet.layers.10.convblock.3.weight": {
+          "active_parameters": 9734400,
+          "unchanged_parameters": 8962191,
+          "fraction_unchanged": 0.920672152366864,
+          "expected_below_half_positive_ulp": 8962191,
+          "actual_update_rms": 4.9538367899051485e-11
+        },
+        "unet.layers.10.convblock.3.bias": {
+          "active_parameters": 1040,
+          "unchanged_parameters": 1040,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 1040,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.10.convblock.4.weight": {
+          "active_parameters": 1040,
+          "unchanged_parameters": 1040,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 1040,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.10.convblock.4.bias": {
+          "active_parameters": 1040,
+          "unchanged_parameters": 981,
+          "fraction_unchanged": 0.9432692307692307,
+          "expected_below_half_positive_ulp": 981,
+          "actual_update_rms": 1.595700713458392e-11
+        },
+        "unet.layers.10.convblock.6.weight": {
+          "active_parameters": 499200,
+          "unchanged_parameters": 484323,
+          "fraction_unchanged": 0.9701983173076923,
+          "expected_below_half_positive_ulp": 484323,
+          "actual_update_rms": 2.4638803911100918e-11
+        },
+        "unet.layers.10.convblock.6.bias": {
+          "active_parameters": 480,
+          "unchanged_parameters": 474,
+          "fraction_unchanged": 0.9875,
+          "expected_below_half_positive_ulp": 474,
+          "actual_update_rms": 5.5670189764050055e-12
+        },
+        "unet.layers.12.skip_module.weight": {
+          "active_parameters": 182400,
+          "unchanged_parameters": 177032,
+          "fraction_unchanged": 0.9705701754385965,
+          "expected_below_half_positive_ulp": 177032,
+          "actual_update_rms": 2.7355500271927277e-11
+        },
+        "unet.layers.12.skip_module.bias": {
+          "active_parameters": 380,
+          "unchanged_parameters": 378,
+          "fraction_unchanged": 0.9947368421052631,
+          "expected_below_half_positive_ulp": 378,
+          "actual_update_rms": 8.346095778344962e-13
+        },
+        "unet.layers.12.convblock.0.weight": {
+          "active_parameters": 4147200,
+          "unchanged_parameters": 3985577,
+          "fraction_unchanged": 0.9610284047067901,
+          "expected_below_half_positive_ulp": 3985577,
+          "actual_update_rms": 2.613051461276166e-11
+        },
+        "unet.layers.12.convblock.0.bias": {
+          "active_parameters": 960,
+          "unchanged_parameters": 960,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 960,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.12.convblock.1.weight": {
+          "active_parameters": 960,
+          "unchanged_parameters": 960,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 960,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.12.convblock.1.bias": {
+          "active_parameters": 960,
+          "unchanged_parameters": 821,
+          "fraction_unchanged": 0.8552083333333333,
+          "expected_below_half_positive_ulp": 821,
+          "actual_update_rms": 3.8211824420079205e-11
+        },
+        "unet.layers.12.convblock.3.weight": {
+          "active_parameters": 8294400,
+          "unchanged_parameters": 7756746,
+          "fraction_unchanged": 0.9351786747685186,
+          "expected_below_half_positive_ulp": 7756745,
+          "actual_update_rms": 3.6555129040994574e-11
+        },
+        "unet.layers.12.convblock.3.bias": {
+          "active_parameters": 960,
+          "unchanged_parameters": 960,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 960,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.12.convblock.4.weight": {
+          "active_parameters": 960,
+          "unchanged_parameters": 960,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 960,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.12.convblock.4.bias": {
+          "active_parameters": 960,
+          "unchanged_parameters": 905,
+          "fraction_unchanged": 0.9427083333333334,
+          "expected_below_half_positive_ulp": 905,
+          "actual_update_rms": 1.803387661639163e-11
+        },
+        "unet.layers.12.convblock.6.weight": {
+          "active_parameters": 364800,
+          "unchanged_parameters": 355504,
+          "fraction_unchanged": 0.9745175438596492,
+          "expected_below_half_positive_ulp": 355504,
+          "actual_update_rms": 1.7547714385899274e-11
+        },
+        "unet.layers.12.convblock.6.bias": {
+          "active_parameters": 380,
+          "unchanged_parameters": 377,
+          "fraction_unchanged": 0.9921052631578947,
+          "expected_below_half_positive_ulp": 377,
+          "actual_update_rms": 2.2394925008524024e-12
+        },
+        "unet.layers.14.skip_module.weight": {
+          "active_parameters": 106400,
+          "unchanged_parameters": 101594,
+          "fraction_unchanged": 0.9548308270676692,
+          "expected_below_half_positive_ulp": 101594,
+          "actual_update_rms": 5.7038498034539634e-11
+        },
+        "unet.layers.14.skip_module.bias": {
+          "active_parameters": 280,
+          "unchanged_parameters": 280,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 280,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.14.convblock.0.weight": {
+          "active_parameters": 2599200,
+          "unchanged_parameters": 2519390,
+          "fraction_unchanged": 0.9692943982763927,
+          "expected_below_half_positive_ulp": 2519390,
+          "actual_update_rms": 2.6094540277210135e-11
+        },
+        "unet.layers.14.convblock.0.bias": {
+          "active_parameters": 760,
+          "unchanged_parameters": 760,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 760,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.14.convblock.1.weight": {
+          "active_parameters": 760,
+          "unchanged_parameters": 760,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 760,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.14.convblock.1.bias": {
+          "active_parameters": 760,
+          "unchanged_parameters": 661,
+          "fraction_unchanged": 0.8697368421052631,
+          "expected_below_half_positive_ulp": 661,
+          "actual_update_rms": 4.0264878786410997e-11
+        },
+        "unet.layers.14.convblock.3.weight": {
+          "active_parameters": 5198400,
+          "unchanged_parameters": 4948574,
+          "fraction_unchanged": 0.9519417513080948,
+          "expected_below_half_positive_ulp": 4948574,
+          "actual_update_rms": 3.349919652460197e-11
+        },
+        "unet.layers.14.convblock.3.bias": {
+          "active_parameters": 760,
+          "unchanged_parameters": 760,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 760,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.14.convblock.4.weight": {
+          "active_parameters": 760,
+          "unchanged_parameters": 760,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 760,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.14.convblock.4.bias": {
+          "active_parameters": 760,
+          "unchanged_parameters": 726,
+          "fraction_unchanged": 0.9552631578947368,
+          "expected_below_half_positive_ulp": 726,
+          "actual_update_rms": 1.2352019089600823e-11
+        },
+        "unet.layers.14.convblock.6.weight": {
+          "active_parameters": 212800,
+          "unchanged_parameters": 208107,
+          "fraction_unchanged": 0.9779464285714285,
+          "expected_below_half_positive_ulp": 208107,
+          "actual_update_rms": 1.4060930845208502e-11
+        },
+        "unet.layers.14.convblock.6.bias": {
+          "active_parameters": 280,
+          "unchanged_parameters": 274,
+          "fraction_unchanged": 0.9785714285714285,
+          "expected_below_half_positive_ulp": 274,
+          "actual_update_rms": 6.025065312939296e-12
+        },
+        "unet.layers.16.convblock.0.weight": {
+          "active_parameters": 1411200,
+          "unchanged_parameters": 751407,
+          "fraction_unchanged": 0.5324596088435374,
+          "expected_below_half_positive_ulp": 751407,
+          "actual_update_rms": 6.297819426722256e-10
+        },
+        "unet.layers.16.convblock.0.bias": {
+          "active_parameters": 560,
+          "unchanged_parameters": 560,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 560,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.16.convblock.1.weight": {
+          "active_parameters": 560,
+          "unchanged_parameters": 560,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 560,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.16.convblock.1.bias": {
+          "active_parameters": 560,
+          "unchanged_parameters": 270,
+          "fraction_unchanged": 0.48214285714285715,
+          "expected_below_half_positive_ulp": 270,
+          "actual_update_rms": 8.539984501483844e-10
+        },
+        "unet.layers.16.convblock.3.weight": {
+          "active_parameters": 2822400,
+          "unchanged_parameters": 1027464,
+          "fraction_unchanged": 0.3640391156462585,
+          "expected_below_half_positive_ulp": 1027464,
+          "actual_update_rms": 8.876550540995106e-10
+        },
+        "unet.layers.16.convblock.3.bias": {
+          "active_parameters": 560,
+          "unchanged_parameters": 558,
+          "fraction_unchanged": 0.9964285714285714,
+          "expected_below_half_positive_ulp": 558,
+          "actual_update_rms": 1.0870540875970561e-13
+        },
+        "unet.layers.16.convblock.4.weight": {
+          "active_parameters": 560,
+          "unchanged_parameters": 560,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 560,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.16.convblock.4.bias": {
+          "active_parameters": 560,
+          "unchanged_parameters": 212,
+          "fraction_unchanged": 0.37857142857142856,
+          "expected_below_half_positive_ulp": 212,
+          "actual_update_rms": 1.1101938586413175e-09
+        },
+        "unet.layers.16.convblock.6.weight": {
+          "active_parameters": 156800,
+          "unchanged_parameters": 120455,
+          "fraction_unchanged": 0.7682079081632653,
+          "expected_below_half_positive_ulp": 120455,
+          "actual_update_rms": 5.690717513626262e-10
+        },
+        "unet.layers.16.convblock.6.bias": {
+          "active_parameters": 280,
+          "unchanged_parameters": 277,
+          "fraction_unchanged": 0.9892857142857143,
+          "expected_below_half_positive_ulp": 277,
+          "actual_update_rms": 2.469312212156489e-12
+        },
+        "decoder.weight": {
+          "active_parameters": 194040,
+          "unchanged_parameters": 125214,
+          "fraction_unchanged": 0.645299938157081,
+          "expected_below_half_positive_ulp": 125214,
+          "actual_update_rms": 2.5584753608105954e-10
+        },
+        "decoder.bias": {
+          "active_parameters": 77,
+          "unchanged_parameters": 74,
+          "fraction_unchanged": 0.961038961038961,
+          "expected_below_half_positive_ulp": 74,
+          "actual_update_rms": 3.810585888032669e-11
+        }
+      }
+    },
+    "1e-06": {
+      "active_parameters": 83872357,
+      "fraction_unchanged": 0.4982510864694073,
+      "fraction_expected_below_half_ulp": 0.4982509553177336,
+      "layers": {
+        "unet.layers.0.skip_module.weight": {
+          "active_parameters": 45360,
+          "unchanged_parameters": 16508,
+          "fraction_unchanged": 0.3639329805996473,
+          "expected_below_half_positive_ulp": 16508,
+          "actual_update_rms": 5.554822884203338e-09
+        },
+        "unet.layers.0.skip_module.bias": {
+          "active_parameters": 280,
+          "unchanged_parameters": 263,
+          "fraction_unchanged": 0.9392857142857143,
+          "expected_below_half_positive_ulp": 263,
+          "actual_update_rms": 8.189551234046404e-11
+        },
+        "unet.layers.0.convblock.0.weight": {
+          "active_parameters": 472392,
+          "unchanged_parameters": 76071,
+          "fraction_unchanged": 0.16103363308438753,
+          "expected_below_half_positive_ulp": 76071,
+          "actual_update_rms": 5.300677013424224e-09
+        },
+        "unet.layers.0.convblock.0.bias": {
+          "active_parameters": 324,
+          "unchanged_parameters": 322,
+          "fraction_unchanged": 0.9938271604938271,
+          "expected_below_half_positive_ulp": 322,
+          "actual_update_rms": 1.1433064374699986e-12
+        },
+        "unet.layers.0.convblock.1.weight": {
+          "active_parameters": 324,
+          "unchanged_parameters": 324,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 324,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.0.convblock.1.bias": {
+          "active_parameters": 324,
+          "unchanged_parameters": 18,
+          "fraction_unchanged": 0.05555555555555555,
+          "expected_below_half_positive_ulp": 18,
+          "actual_update_rms": 1.0490543760747595e-08
+        },
+        "unet.layers.0.convblock.3.weight": {
+          "active_parameters": 944784,
+          "unchanged_parameters": 96675,
+          "fraction_unchanged": 0.10232497586749988,
+          "expected_below_half_positive_ulp": 96675,
+          "actual_update_rms": 5.025046433375057e-09
+        },
+        "unet.layers.0.convblock.3.bias": {
+          "active_parameters": 324,
+          "unchanged_parameters": 322,
+          "fraction_unchanged": 0.9938271604938271,
+          "expected_below_half_positive_ulp": 322,
+          "actual_update_rms": 4.519315507422591e-13
+        },
+        "unet.layers.0.convblock.4.weight": {
+          "active_parameters": 324,
+          "unchanged_parameters": 324,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 324,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.0.convblock.4.bias": {
+          "active_parameters": 324,
+          "unchanged_parameters": 14,
+          "fraction_unchanged": 0.043209876543209874,
+          "expected_below_half_positive_ulp": 14,
+          "actual_update_rms": 3.092178229567612e-09
+        },
+        "unet.layers.0.convblock.6.weight": {
+          "active_parameters": 90720,
+          "unchanged_parameters": 31119,
+          "fraction_unchanged": 0.34302248677248676,
+          "expected_below_half_positive_ulp": 31119,
+          "actual_update_rms": 3.251883013798958e-09
+        },
+        "unet.layers.0.convblock.6.bias": {
+          "active_parameters": 280,
+          "unchanged_parameters": 257,
+          "fraction_unchanged": 0.9178571428571428,
+          "expected_below_half_positive_ulp": 257,
+          "actual_update_rms": 1.3517289195449938e-10
+        },
+        "unet.layers.2.skip_module.weight": {
+          "active_parameters": 106400,
+          "unchanged_parameters": 59144,
+          "fraction_unchanged": 0.5558646616541353,
+          "expected_below_half_positive_ulp": 59144,
+          "actual_update_rms": 1.7987263887097406e-09
+        },
+        "unet.layers.2.skip_module.bias": {
+          "active_parameters": 380,
+          "unchanged_parameters": 351,
+          "fraction_unchanged": 0.9236842105263158,
+          "expected_below_half_positive_ulp": 351,
+          "actual_update_rms": 1.1461350288327615e-10
+        },
+        "unet.layers.2.convblock.0.weight": {
+          "active_parameters": 1411200,
+          "unchanged_parameters": 241872,
+          "fraction_unchanged": 0.17139455782312926,
+          "expected_below_half_positive_ulp": 241872,
+          "actual_update_rms": 3.4735791534856647e-09
+        },
+        "unet.layers.2.convblock.0.bias": {
+          "active_parameters": 560,
+          "unchanged_parameters": 560,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 560,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.2.convblock.1.weight": {
+          "active_parameters": 560,
+          "unchanged_parameters": 560,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 560,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.2.convblock.1.bias": {
+          "active_parameters": 560,
+          "unchanged_parameters": 38,
+          "fraction_unchanged": 0.06785714285714285,
+          "expected_below_half_positive_ulp": 38,
+          "actual_update_rms": 3.262223797631844e-09
+        },
+        "unet.layers.2.convblock.3.weight": {
+          "active_parameters": 2822400,
+          "unchanged_parameters": 495938,
+          "fraction_unchanged": 0.17571499433106577,
+          "expected_below_half_positive_ulp": 495938,
+          "actual_update_rms": 3.7996791761663e-09
+        },
+        "unet.layers.2.convblock.3.bias": {
+          "active_parameters": 560,
+          "unchanged_parameters": 559,
+          "fraction_unchanged": 0.9982142857142857,
+          "expected_below_half_positive_ulp": 559,
+          "actual_update_rms": 7.686633168564336e-14
+        },
+        "unet.layers.2.convblock.4.weight": {
+          "active_parameters": 560,
+          "unchanged_parameters": 560,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 560,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.2.convblock.4.bias": {
+          "active_parameters": 560,
+          "unchanged_parameters": 101,
+          "fraction_unchanged": 0.18035714285714285,
+          "expected_below_half_positive_ulp": 101,
+          "actual_update_rms": 1.199383522583261e-09
+        },
+        "unet.layers.2.convblock.6.weight": {
+          "active_parameters": 212800,
+          "unchanged_parameters": 107839,
+          "fraction_unchanged": 0.5067622180451128,
+          "expected_below_half_positive_ulp": 107839,
+          "actual_update_rms": 1.9361071391956995e-09
+        },
+        "unet.layers.2.convblock.6.bias": {
+          "active_parameters": 380,
+          "unchanged_parameters": 347,
+          "fraction_unchanged": 0.9131578947368421,
+          "expected_below_half_positive_ulp": 347,
+          "actual_update_rms": 1.3948433637660723e-10
+        },
+        "unet.layers.4.skip_module.weight": {
+          "active_parameters": 182400,
+          "unchanged_parameters": 137053,
+          "fraction_unchanged": 0.7513870614035087,
+          "expected_below_half_positive_ulp": 137053,
+          "actual_update_rms": 7.396066576169539e-10
+        },
+        "unet.layers.4.skip_module.bias": {
+          "active_parameters": 480,
+          "unchanged_parameters": 455,
+          "fraction_unchanged": 0.9479166666666666,
+          "expected_below_half_positive_ulp": 455,
+          "actual_update_rms": 9.292169879029076e-11
+        },
+        "unet.layers.4.convblock.0.weight": {
+          "active_parameters": 2599200,
+          "unchanged_parameters": 806768,
+          "fraction_unchanged": 0.3103908895044629,
+          "expected_below_half_positive_ulp": 806767,
+          "actual_update_rms": 1.7296739520008605e-09
+        },
+        "unet.layers.4.convblock.0.bias": {
+          "active_parameters": 760,
+          "unchanged_parameters": 760,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 760,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.4.convblock.1.weight": {
+          "active_parameters": 760,
+          "unchanged_parameters": 760,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 760,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.4.convblock.1.bias": {
+          "active_parameters": 760,
+          "unchanged_parameters": 56,
+          "fraction_unchanged": 0.07368421052631578,
+          "expected_below_half_positive_ulp": 56,
+          "actual_update_rms": 1.716432229899447e-09
+        },
+        "unet.layers.4.convblock.3.weight": {
+          "active_parameters": 5198400,
+          "unchanged_parameters": 1479401,
+          "fraction_unchanged": 0.28458775777162204,
+          "expected_below_half_positive_ulp": 1479401,
+          "actual_update_rms": 1.7120758039233047e-09
+        },
+        "unet.layers.4.convblock.3.bias": {
+          "active_parameters": 760,
+          "unchanged_parameters": 760,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 760,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.4.convblock.4.weight": {
+          "active_parameters": 760,
+          "unchanged_parameters": 760,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 760,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.4.convblock.4.bias": {
+          "active_parameters": 760,
+          "unchanged_parameters": 185,
+          "fraction_unchanged": 0.24342105263157895,
+          "expected_below_half_positive_ulp": 185,
+          "actual_update_rms": 8.015318469081306e-10
+        },
+        "unet.layers.4.convblock.6.weight": {
+          "active_parameters": 364800,
+          "unchanged_parameters": 216755,
+          "fraction_unchanged": 0.5941748903508772,
+          "expected_below_half_positive_ulp": 216755,
+          "actual_update_rms": 1.1430179041258162e-09
+        },
+        "unet.layers.4.convblock.6.bias": {
+          "active_parameters": 480,
+          "unchanged_parameters": 428,
+          "fraction_unchanged": 0.8916666666666667,
+          "expected_below_half_positive_ulp": 428,
+          "actual_update_rms": 1.1551591974796988e-10
+        },
+        "unet.layers.6.skip_module.weight": {
+          "active_parameters": 249600,
+          "unchanged_parameters": 206245,
+          "fraction_unchanged": 0.8263020833333333,
+          "expected_below_half_positive_ulp": 206244,
+          "actual_update_rms": 3.961085963425804e-10
+        },
+        "unet.layers.6.skip_module.bias": {
+          "active_parameters": 520,
+          "unchanged_parameters": 453,
+          "fraction_unchanged": 0.8711538461538462,
+          "expected_below_half_positive_ulp": 453,
+          "actual_update_rms": 1.6677068316321338e-10
+        },
+        "unet.layers.6.convblock.0.weight": {
+          "active_parameters": 4147200,
+          "unchanged_parameters": 2603176,
+          "fraction_unchanged": 0.6276948302469135,
+          "expected_below_half_positive_ulp": 2603176,
+          "actual_update_rms": 4.662227808179032e-10
+        },
+        "unet.layers.6.convblock.0.bias": {
+          "active_parameters": 960,
+          "unchanged_parameters": 960,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 960,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.6.convblock.1.weight": {
+          "active_parameters": 960,
+          "unchanged_parameters": 960,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 960,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.6.convblock.1.bias": {
+          "active_parameters": 960,
+          "unchanged_parameters": 318,
+          "fraction_unchanged": 0.33125,
+          "expected_below_half_positive_ulp": 318,
+          "actual_update_rms": 4.278091457795272e-10
+        },
+        "unet.layers.6.convblock.3.weight": {
+          "active_parameters": 8294400,
+          "unchanged_parameters": 4158046,
+          "fraction_unchanged": 0.5013076292438272,
+          "expected_below_half_positive_ulp": 4158046,
+          "actual_update_rms": 5.824058608110901e-10
+        },
+        "unet.layers.6.convblock.3.bias": {
+          "active_parameters": 960,
+          "unchanged_parameters": 960,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 960,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.6.convblock.4.weight": {
+          "active_parameters": 960,
+          "unchanged_parameters": 960,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 960,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.6.convblock.4.bias": {
+          "active_parameters": 960,
+          "unchanged_parameters": 424,
+          "fraction_unchanged": 0.44166666666666665,
+          "expected_below_half_positive_ulp": 424,
+          "actual_update_rms": 3.6760175607182405e-10
+        },
+        "unet.layers.6.convblock.6.weight": {
+          "active_parameters": 499200,
+          "unchanged_parameters": 367547,
+          "fraction_unchanged": 0.7362720352564103,
+          "expected_below_half_positive_ulp": 367547,
+          "actual_update_rms": 5.104669422913999e-10
+        },
+        "unet.layers.6.convblock.6.bias": {
+          "active_parameters": 520,
+          "unchanged_parameters": 452,
+          "fraction_unchanged": 0.8692307692307693,
+          "expected_below_half_positive_ulp": 452,
+          "actual_update_rms": 1.593553870593777e-10
+        },
+        "unet.layers.8.convblock.0.weight": {
+          "active_parameters": 4867200,
+          "unchanged_parameters": 3159616,
+          "fraction_unchanged": 0.6491650230111768,
+          "expected_below_half_positive_ulp": 3159614,
+          "actual_update_rms": 4.533509853538702e-10
+        },
+        "unet.layers.8.convblock.0.bias": {
+          "active_parameters": 1040,
+          "unchanged_parameters": 1040,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 1040,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.8.convblock.1.weight": {
+          "active_parameters": 1040,
+          "unchanged_parameters": 1040,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 1040,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.8.convblock.1.bias": {
+          "active_parameters": 1040,
+          "unchanged_parameters": 391,
+          "fraction_unchanged": 0.37596153846153846,
+          "expected_below_half_positive_ulp": 391,
+          "actual_update_rms": 3.653009655083313e-10
+        },
+        "unet.layers.8.convblock.3.weight": {
+          "active_parameters": 9734400,
+          "unchanged_parameters": 4921284,
+          "fraction_unchanged": 0.505555966469428,
+          "expected_below_half_positive_ulp": 4921283,
+          "actual_update_rms": 7.311800660487255e-10
+        },
+        "unet.layers.8.convblock.3.bias": {
+          "active_parameters": 1040,
+          "unchanged_parameters": 1040,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 1040,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.8.convblock.4.weight": {
+          "active_parameters": 1040,
+          "unchanged_parameters": 1040,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 1040,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.8.convblock.4.bias": {
+          "active_parameters": 1040,
+          "unchanged_parameters": 379,
+          "fraction_unchanged": 0.3644230769230769,
+          "expected_below_half_positive_ulp": 379,
+          "actual_update_rms": 3.7991823607252426e-10
+        },
+        "unet.layers.8.convblock.6.weight": {
+          "active_parameters": 540800,
+          "unchanged_parameters": 389835,
+          "fraction_unchanged": 0.7208487426035503,
+          "expected_below_half_positive_ulp": 389835,
+          "actual_update_rms": 5.434224119601611e-10
+        },
+        "unet.layers.8.convblock.6.bias": {
+          "active_parameters": 520,
+          "unchanged_parameters": 421,
+          "fraction_unchanged": 0.8096153846153846,
+          "expected_below_half_positive_ulp": 421,
+          "actual_update_rms": 2.729105289449852e-10
+        },
+        "unet.layers.10.skip_module.weight": {
+          "active_parameters": 249600,
+          "unchanged_parameters": 200613,
+          "fraction_unchanged": 0.8037379807692308,
+          "expected_below_half_positive_ulp": 200613,
+          "actual_update_rms": 4.3710887801581573e-10
+        },
+        "unet.layers.10.skip_module.bias": {
+          "active_parameters": 480,
+          "unchanged_parameters": 439,
+          "fraction_unchanged": 0.9145833333333333,
+          "expected_below_half_positive_ulp": 439,
+          "actual_update_rms": 1.2854134584005475e-10
+        },
+        "unet.layers.10.convblock.0.weight": {
+          "active_parameters": 4867200,
+          "unchanged_parameters": 3103902,
+          "fraction_unchanged": 0.6377181952662722,
+          "expected_below_half_positive_ulp": 3103902,
+          "actual_update_rms": 4.738648357699875e-10
+        },
+        "unet.layers.10.convblock.0.bias": {
+          "active_parameters": 1040,
+          "unchanged_parameters": 1040,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 1040,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.10.convblock.1.weight": {
+          "active_parameters": 1040,
+          "unchanged_parameters": 1040,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 1040,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.10.convblock.1.bias": {
+          "active_parameters": 1040,
+          "unchanged_parameters": 269,
+          "fraction_unchanged": 0.2586538461538462,
+          "expected_below_half_positive_ulp": 269,
+          "actual_update_rms": 4.910123998263425e-10
+        },
+        "unet.layers.10.convblock.3.weight": {
+          "active_parameters": 9734400,
+          "unchanged_parameters": 4931889,
+          "fraction_unchanged": 0.5066454018737673,
+          "expected_below_half_positive_ulp": 4931886,
+          "actual_update_rms": 6.138581455199302e-10
+        },
+        "unet.layers.10.convblock.3.bias": {
+          "active_parameters": 1040,
+          "unchanged_parameters": 1040,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 1040,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.10.convblock.4.weight": {
+          "active_parameters": 1040,
+          "unchanged_parameters": 1040,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 1040,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.10.convblock.4.bias": {
+          "active_parameters": 1040,
+          "unchanged_parameters": 413,
+          "fraction_unchanged": 0.3971153846153846,
+          "expected_below_half_positive_ulp": 413,
+          "actual_update_rms": 3.7736441528181986e-10
+        },
+        "unet.layers.10.convblock.6.weight": {
+          "active_parameters": 499200,
+          "unchanged_parameters": 359316,
+          "fraction_unchanged": 0.7197836538461538,
+          "expected_below_half_positive_ulp": 359316,
+          "actual_update_rms": 5.584906949161769e-10
+        },
+        "unet.layers.10.convblock.6.bias": {
+          "active_parameters": 480,
+          "unchanged_parameters": 403,
+          "fraction_unchanged": 0.8395833333333333,
+          "expected_below_half_positive_ulp": 403,
+          "actual_update_rms": 1.7831570843392728e-10
+        },
+        "unet.layers.12.skip_module.weight": {
+          "active_parameters": 182400,
+          "unchanged_parameters": 131337,
+          "fraction_unchanged": 0.7200493421052632,
+          "expected_below_half_positive_ulp": 131337,
+          "actual_update_rms": 7.414015918008873e-10
+        },
+        "unet.layers.12.skip_module.bias": {
+          "active_parameters": 380,
+          "unchanged_parameters": 358,
+          "fraction_unchanged": 0.9421052631578948,
+          "expected_below_half_positive_ulp": 358,
+          "actual_update_rms": 6.110459381064218e-11
+        },
+        "unet.layers.12.convblock.0.weight": {
+          "active_parameters": 4147200,
+          "unchanged_parameters": 2818601,
+          "fraction_unchanged": 0.6796395158179013,
+          "expected_below_half_positive_ulp": 2818599,
+          "actual_update_rms": 4.2548179462186994e-10
+        },
+        "unet.layers.12.convblock.0.bias": {
+          "active_parameters": 960,
+          "unchanged_parameters": 960,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 960,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.12.convblock.1.weight": {
+          "active_parameters": 960,
+          "unchanged_parameters": 960,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 960,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.12.convblock.1.bias": {
+          "active_parameters": 960,
+          "unchanged_parameters": 276,
+          "fraction_unchanged": 0.2875,
+          "expected_below_half_positive_ulp": 276,
+          "actual_update_rms": 4.95249357741682e-10
+        },
+        "unet.layers.12.convblock.3.weight": {
+          "active_parameters": 8294400,
+          "unchanged_parameters": 4588470,
+          "fraction_unchanged": 0.5532009548611111,
+          "expected_below_half_positive_ulp": 4588470,
+          "actual_update_rms": 5.013575494916582e-10
+        },
+        "unet.layers.12.convblock.3.bias": {
+          "active_parameters": 960,
+          "unchanged_parameters": 960,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 960,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.12.convblock.4.weight": {
+          "active_parameters": 960,
+          "unchanged_parameters": 960,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 960,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.12.convblock.4.bias": {
+          "active_parameters": 960,
+          "unchanged_parameters": 394,
+          "fraction_unchanged": 0.41041666666666665,
+          "expected_below_half_positive_ulp": 394,
+          "actual_update_rms": 3.487772021535251e-10
+        },
+        "unet.layers.12.convblock.6.weight": {
+          "active_parameters": 364800,
+          "unchanged_parameters": 273474,
+          "fraction_unchanged": 0.7496546052631579,
+          "expected_below_half_positive_ulp": 273474,
+          "actual_update_rms": 4.620309122213079e-10
+        },
+        "unet.layers.12.convblock.6.bias": {
+          "active_parameters": 380,
+          "unchanged_parameters": 343,
+          "fraction_unchanged": 0.9026315789473685,
+          "expected_below_half_positive_ulp": 343,
+          "actual_update_rms": 1.337694568423394e-10
+        },
+        "unet.layers.14.skip_module.weight": {
+          "active_parameters": 106400,
+          "unchanged_parameters": 63317,
+          "fraction_unchanged": 0.5950845864661655,
+          "expected_below_half_positive_ulp": 63317,
+          "actual_update_rms": 1.3409972782767523e-09
+        },
+        "unet.layers.14.skip_module.bias": {
+          "active_parameters": 280,
+          "unchanged_parameters": 256,
+          "fraction_unchanged": 0.9142857142857143,
+          "expected_below_half_positive_ulp": 256,
+          "actual_update_rms": 1.2725350635994658e-10
+        },
+        "unet.layers.14.convblock.0.weight": {
+          "active_parameters": 2599200,
+          "unchanged_parameters": 1927929,
+          "fraction_unchanged": 0.7417393813481071,
+          "expected_below_half_positive_ulp": 1927929,
+          "actual_update_rms": 4.1296802341426004e-10
+        },
+        "unet.layers.14.convblock.0.bias": {
+          "active_parameters": 760,
+          "unchanged_parameters": 760,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 760,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.14.convblock.1.weight": {
+          "active_parameters": 760,
+          "unchanged_parameters": 760,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 760,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.14.convblock.1.bias": {
+          "active_parameters": 760,
+          "unchanged_parameters": 230,
+          "fraction_unchanged": 0.3026315789473684,
+          "expected_below_half_positive_ulp": 230,
+          "actual_update_rms": 5.098292263503044e-10
+        },
+        "unet.layers.14.convblock.3.weight": {
+          "active_parameters": 5198400,
+          "unchanged_parameters": 3329200,
+          "fraction_unchanged": 0.6404278239458295,
+          "expected_below_half_positive_ulp": 3329200,
+          "actual_update_rms": 4.544793316005531e-10
+        },
+        "unet.layers.14.convblock.3.bias": {
+          "active_parameters": 760,
+          "unchanged_parameters": 760,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 760,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.14.convblock.4.weight": {
+          "active_parameters": 760,
+          "unchanged_parameters": 760,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 760,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.14.convblock.4.bias": {
+          "active_parameters": 760,
+          "unchanged_parameters": 319,
+          "fraction_unchanged": 0.41973684210526313,
+          "expected_below_half_positive_ulp": 319,
+          "actual_update_rms": 3.3385132949501515e-10
+        },
+        "unet.layers.14.convblock.6.weight": {
+          "active_parameters": 212800,
+          "unchanged_parameters": 166644,
+          "fraction_unchanged": 0.7831015037593985,
+          "expected_below_half_positive_ulp": 166644,
+          "actual_update_rms": 4.10222860516542e-10
+        },
+        "unet.layers.14.convblock.6.bias": {
+          "active_parameters": 280,
+          "unchanged_parameters": 249,
+          "fraction_unchanged": 0.8892857142857142,
+          "expected_below_half_positive_ulp": 249,
+          "actual_update_rms": 1.3914292321242317e-10
+        },
+        "unet.layers.16.convblock.0.weight": {
+          "active_parameters": 1411200,
+          "unchanged_parameters": 104976,
+          "fraction_unchanged": 0.07438775510204082,
+          "expected_below_half_positive_ulp": 104976,
+          "actual_update_rms": 6.023864986369236e-09
+        },
+        "unet.layers.16.convblock.0.bias": {
+          "active_parameters": 560,
+          "unchanged_parameters": 557,
+          "fraction_unchanged": 0.9946428571428572,
+          "expected_below_half_positive_ulp": 557,
+          "actual_update_rms": 1.4277287440716926e-12
+        },
+        "unet.layers.16.convblock.1.weight": {
+          "active_parameters": 560,
+          "unchanged_parameters": 560,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 560,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.16.convblock.1.bias": {
+          "active_parameters": 560,
+          "unchanged_parameters": 32,
+          "fraction_unchanged": 0.05714285714285714,
+          "expected_below_half_positive_ulp": 32,
+          "actual_update_rms": 7.612302416804721e-09
+        },
+        "unet.layers.16.convblock.3.weight": {
+          "active_parameters": 2822400,
+          "unchanged_parameters": 132403,
+          "fraction_unchanged": 0.046911493764172335,
+          "expected_below_half_positive_ulp": 132403,
+          "actual_update_rms": 8.648495510025168e-09
+        },
+        "unet.layers.16.convblock.3.bias": {
+          "active_parameters": 560,
+          "unchanged_parameters": 554,
+          "fraction_unchanged": 0.9892857142857143,
+          "expected_below_half_positive_ulp": 554,
+          "actual_update_rms": 1.6897485675521808e-12
+        },
+        "unet.layers.16.convblock.4.weight": {
+          "active_parameters": 560,
+          "unchanged_parameters": 511,
+          "fraction_unchanged": 0.9125,
+          "expected_below_half_positive_ulp": 511,
+          "actual_update_rms": 3.526258339345226e-08
+        },
+        "unet.layers.16.convblock.4.bias": {
+          "active_parameters": 560,
+          "unchanged_parameters": 32,
+          "fraction_unchanged": 0.05714285714285714,
+          "expected_below_half_positive_ulp": 32,
+          "actual_update_rms": 1.0742554723196432e-08
+        },
+        "unet.layers.16.convblock.6.weight": {
+          "active_parameters": 156800,
+          "unchanged_parameters": 29458,
+          "fraction_unchanged": 0.18786989795918368,
+          "expected_below_half_positive_ulp": 29457,
+          "actual_update_rms": 5.981525416654706e-09
+        },
+        "unet.layers.16.convblock.6.bias": {
+          "active_parameters": 280,
+          "unchanged_parameters": 250,
+          "fraction_unchanged": 0.8928571428571429,
+          "expected_below_half_positive_ulp": 250,
+          "actual_update_rms": 1.409972848023943e-10
+        },
+        "decoder.weight": {
+          "active_parameters": 194040,
+          "unchanged_parameters": 19614,
+          "fraction_unchanged": 0.10108225108225108,
+          "expected_below_half_positive_ulp": 19614,
+          "actual_update_rms": 2.612856782983157e-09
+        },
+        "decoder.bias": {
+          "active_parameters": 77,
+          "unchanged_parameters": 51,
+          "fraction_unchanged": 0.6623376623376623,
+          "expected_below_half_positive_ulp": 51,
+          "actual_update_rms": 3.8533592566861736e-10
+        }
+      }
+    },
+    "1e-05": {
+      "active_parameters": 83872357,
+      "fraction_unchanged": 0.09655324220827609,
+      "fraction_expected_below_half_ulp": 0.09655295605916978,
+      "layers": {
+        "unet.layers.0.skip_module.weight": {
+          "active_parameters": 45360,
+          "unchanged_parameters": 2094,
+          "fraction_unchanged": 0.046164021164021164,
+          "expected_below_half_positive_ulp": 2094,
+          "actual_update_rms": 5.455699657763796e-08
+        },
+        "unet.layers.0.skip_module.bias": {
+          "active_parameters": 280,
+          "unchanged_parameters": 145,
+          "fraction_unchanged": 0.5178571428571429,
+          "expected_below_half_positive_ulp": 145,
+          "actual_update_rms": 2.50185686953899e-09
+        },
+        "unet.layers.0.convblock.0.weight": {
+          "active_parameters": 472392,
+          "unchanged_parameters": 7843,
+          "fraction_unchanged": 0.01660273671018984,
+          "expected_below_half_positive_ulp": 7843,
+          "actual_update_rms": 5.284034191553093e-08
+        },
+        "unet.layers.0.convblock.0.bias": {
+          "active_parameters": 324,
+          "unchanged_parameters": 295,
+          "fraction_unchanged": 0.9104938271604939,
+          "expected_below_half_positive_ulp": 295,
+          "actual_update_rms": 5.8179583317451664e-11
+        },
+        "unet.layers.0.convblock.1.weight": {
+          "active_parameters": 324,
+          "unchanged_parameters": 202,
+          "fraction_unchanged": 0.6234567901234568,
+          "expected_below_half_positive_ulp": 202,
+          "actual_update_rms": 6.866601226504551e-08
+        },
+        "unet.layers.0.convblock.1.bias": {
+          "active_parameters": 324,
+          "unchanged_parameters": 2,
+          "fraction_unchanged": 0.006172839506172839,
+          "expected_below_half_positive_ulp": 2,
+          "actual_update_rms": 1.0404724813445424e-07
+        },
+        "unet.layers.0.convblock.3.weight": {
+          "active_parameters": 944784,
+          "unchanged_parameters": 10057,
+          "fraction_unchanged": 0.010644761130586463,
+          "expected_below_half_positive_ulp": 10057,
+          "actual_update_rms": 5.015363113648287e-08
+        },
+        "unet.layers.0.convblock.3.bias": {
+          "active_parameters": 324,
+          "unchanged_parameters": 288,
+          "fraction_unchanged": 0.8888888888888888,
+          "expected_below_half_positive_ulp": 288,
+          "actual_update_rms": 7.265339094338076e-11
+        },
+        "unet.layers.0.convblock.4.weight": {
+          "active_parameters": 324,
+          "unchanged_parameters": 217,
+          "fraction_unchanged": 0.6697530864197531,
+          "expected_below_half_positive_ulp": 217,
+          "actual_update_rms": 5.0870218196634505e-08
+        },
+        "unet.layers.0.convblock.4.bias": {
+          "active_parameters": 324,
+          "unchanged_parameters": 1,
+          "fraction_unchanged": 0.0030864197530864196,
+          "expected_below_half_positive_ulp": 1,
+          "actual_update_rms": 3.084410761747646e-08
+        },
+        "unet.layers.0.convblock.6.weight": {
+          "active_parameters": 90720,
+          "unchanged_parameters": 3474,
+          "fraction_unchanged": 0.038293650793650796,
+          "expected_below_half_positive_ulp": 3474,
+          "actual_update_rms": 3.166171998561148e-08
+        },
+        "unet.layers.0.convblock.6.bias": {
+          "active_parameters": 280,
+          "unchanged_parameters": 111,
+          "fraction_unchanged": 0.3964285714285714,
+          "expected_below_half_positive_ulp": 111,
+          "actual_update_rms": 2.482776554513602e-09
+        },
+        "unet.layers.2.skip_module.weight": {
+          "active_parameters": 106400,
+          "unchanged_parameters": 8324,
+          "fraction_unchanged": 0.07823308270676692,
+          "expected_below_half_positive_ulp": 8324,
+          "actual_update_rms": 1.71023912879481e-08
+        },
+        "unet.layers.2.skip_module.bias": {
+          "active_parameters": 380,
+          "unchanged_parameters": 181,
+          "fraction_unchanged": 0.4763157894736842,
+          "expected_below_half_positive_ulp": 181,
+          "actual_update_rms": 2.328596529326112e-09
+        },
+        "unet.layers.2.convblock.0.weight": {
+          "active_parameters": 1411200,
+          "unchanged_parameters": 25873,
+          "fraction_unchanged": 0.01833404195011338,
+          "expected_below_half_positive_ulp": 25873,
+          "actual_update_rms": 3.459651076211919e-08
+        },
+        "unet.layers.2.convblock.0.bias": {
+          "active_parameters": 560,
+          "unchanged_parameters": 550,
+          "fraction_unchanged": 0.9821428571428571,
+          "expected_below_half_positive_ulp": 550,
+          "actual_update_rms": 2.649659496811585e-12
+        },
+        "unet.layers.2.convblock.1.weight": {
+          "active_parameters": 560,
+          "unchanged_parameters": 438,
+          "fraction_unchanged": 0.7821428571428571,
+          "expected_below_half_positive_ulp": 438,
+          "actual_update_rms": 5.901633868293041e-08
+        },
+        "unet.layers.2.convblock.1.bias": {
+          "active_parameters": 560,
+          "unchanged_parameters": 6,
+          "fraction_unchanged": 0.010714285714285714,
+          "expected_below_half_positive_ulp": 6,
+          "actual_update_rms": 3.247087108172184e-08
+        },
+        "unet.layers.2.convblock.3.weight": {
+          "active_parameters": 2822400,
+          "unchanged_parameters": 56426,
+          "fraction_unchanged": 0.0199922052154195,
+          "expected_below_half_positive_ulp": 56426,
+          "actual_update_rms": 3.793287318684066e-08
+        },
+        "unet.layers.2.convblock.3.bias": {
+          "active_parameters": 560,
+          "unchanged_parameters": 550,
+          "fraction_unchanged": 0.9821428571428571,
+          "expected_below_half_positive_ulp": 550,
+          "actual_update_rms": 5.1477491942042905e-12
+        },
+        "unet.layers.2.convblock.4.weight": {
+          "active_parameters": 560,
+          "unchanged_parameters": 457,
+          "fraction_unchanged": 0.8160714285714286,
+          "expected_below_half_positive_ulp": 457,
+          "actual_update_rms": 7.300048299977713e-08
+        },
+        "unet.layers.2.convblock.4.bias": {
+          "active_parameters": 560,
+          "unchanged_parameters": 12,
+          "fraction_unchanged": 0.02142857142857143,
+          "expected_below_half_positive_ulp": 12,
+          "actual_update_rms": 1.1953963785539888e-08
+        },
+        "unet.layers.2.convblock.6.weight": {
+          "active_parameters": 212800,
+          "unchanged_parameters": 15761,
+          "fraction_unchanged": 0.07406484962406015,
+          "expected_below_half_positive_ulp": 15761,
+          "actual_update_rms": 1.888389847560366e-08
+        },
+        "unet.layers.2.convblock.6.bias": {
+          "active_parameters": 380,
+          "unchanged_parameters": 147,
+          "fraction_unchanged": 0.3868421052631579,
+          "expected_below_half_positive_ulp": 147,
+          "actual_update_rms": 2.266997202292006e-09
+        },
+        "unet.layers.4.skip_module.weight": {
+          "active_parameters": 182400,
+          "unchanged_parameters": 29904,
+          "fraction_unchanged": 0.16394736842105262,
+          "expected_below_half_positive_ulp": 29904,
+          "actual_update_rms": 7.623209189675148e-09
+        },
+        "unet.layers.4.skip_module.bias": {
+          "active_parameters": 480,
+          "unchanged_parameters": 203,
+          "fraction_unchanged": 0.42291666666666666,
+          "expected_below_half_positive_ulp": 203,
+          "actual_update_rms": 2.0833909830826767e-09
+        },
+        "unet.layers.4.convblock.0.weight": {
+          "active_parameters": 2599200,
+          "unchanged_parameters": 98220,
+          "fraction_unchanged": 0.037788550323176365,
+          "expected_below_half_positive_ulp": 98220,
+          "actual_update_rms": 1.7128575337681163e-08
+        },
+        "unet.layers.4.convblock.0.bias": {
+          "active_parameters": 760,
+          "unchanged_parameters": 759,
+          "fraction_unchanged": 0.9986842105263158,
+          "expected_below_half_positive_ulp": 759,
+          "actual_update_rms": 3.2990840286857366e-14
+        },
+        "unet.layers.4.convblock.1.weight": {
+          "active_parameters": 760,
+          "unchanged_parameters": 673,
+          "fraction_unchanged": 0.8855263157894737,
+          "expected_below_half_positive_ulp": 673,
+          "actual_update_rms": 4.2478283616098803e-08
+        },
+        "unet.layers.4.convblock.1.bias": {
+          "active_parameters": 760,
+          "unchanged_parameters": 8,
+          "fraction_unchanged": 0.010526315789473684,
+          "expected_below_half_positive_ulp": 8,
+          "actual_update_rms": 1.7119739078420027e-08
+        },
+        "unet.layers.4.convblock.3.weight": {
+          "active_parameters": 5198400,
+          "unchanged_parameters": 180207,
+          "fraction_unchanged": 0.03466585872576177,
+          "expected_below_half_positive_ulp": 180206,
+          "actual_update_rms": 1.7031117593207666e-08
+        },
+        "unet.layers.4.convblock.3.bias": {
+          "active_parameters": 760,
+          "unchanged_parameters": 759,
+          "fraction_unchanged": 0.9986842105263158,
+          "expected_below_half_positive_ulp": 759,
+          "actual_update_rms": 1.6495420143428683e-14
+        },
+        "unet.layers.4.convblock.4.weight": {
+          "active_parameters": 760,
+          "unchanged_parameters": 695,
+          "fraction_unchanged": 0.9144736842105263,
+          "expected_below_half_positive_ulp": 695,
+          "actual_update_rms": 3.0036682398108884e-08
+        },
+        "unet.layers.4.convblock.4.bias": {
+          "active_parameters": 760,
+          "unchanged_parameters": 16,
+          "fraction_unchanged": 0.021052631578947368,
+          "expected_below_half_positive_ulp": 16,
+          "actual_update_rms": 7.93936886176209e-09
+        },
+        "unet.layers.4.convblock.6.weight": {
+          "active_parameters": 364800,
+          "unchanged_parameters": 35232,
+          "fraction_unchanged": 0.09657894736842106,
+          "expected_below_half_positive_ulp": 35231,
+          "actual_update_rms": 1.1132052677170543e-08
+        },
+        "unet.layers.4.convblock.6.bias": {
+          "active_parameters": 480,
+          "unchanged_parameters": 162,
+          "fraction_unchanged": 0.3375,
+          "expected_below_half_positive_ulp": 162,
+          "actual_update_rms": 2.057869522729272e-09
+        },
+        "unet.layers.6.skip_module.weight": {
+          "active_parameters": 249600,
+          "unchanged_parameters": 57681,
+          "fraction_unchanged": 0.23109375,
+          "expected_below_half_positive_ulp": 57681,
+          "actual_update_rms": 4.623724417103531e-09
+        },
+        "unet.layers.6.skip_module.bias": {
+          "active_parameters": 520,
+          "unchanged_parameters": 187,
+          "fraction_unchanged": 0.3596153846153846,
+          "expected_below_half_positive_ulp": 187,
+          "actual_update_rms": 2.463740248859084e-09
+        },
+        "unet.layers.6.convblock.0.weight": {
+          "active_parameters": 4147200,
+          "unchanged_parameters": 505349,
+          "fraction_unchanged": 0.1218530574845679,
+          "expected_below_half_positive_ulp": 505349,
+          "actual_update_rms": 4.54918128284024e-09
+        },
+        "unet.layers.6.convblock.0.bias": {
+          "active_parameters": 960,
+          "unchanged_parameters": 960,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 960,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.6.convblock.1.weight": {
+          "active_parameters": 960,
+          "unchanged_parameters": 959,
+          "fraction_unchanged": 0.9989583333333333,
+          "expected_below_half_positive_ulp": 959,
+          "actual_update_rms": 1.9237316380974732e-09
+        },
+        "unet.layers.6.convblock.1.bias": {
+          "active_parameters": 960,
+          "unchanged_parameters": 41,
+          "fraction_unchanged": 0.042708333333333334,
+          "expected_below_half_positive_ulp": 41,
+          "actual_update_rms": 4.167557613259134e-09
+        },
+        "unet.layers.6.convblock.3.weight": {
+          "active_parameters": 8294400,
+          "unchanged_parameters": 673262,
+          "fraction_unchanged": 0.08117066936728395,
+          "expected_below_half_positive_ulp": 673259,
+          "actual_update_rms": 5.704847169573706e-09
+        },
+        "unet.layers.6.convblock.3.bias": {
+          "active_parameters": 960,
+          "unchanged_parameters": 960,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 960,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.6.convblock.4.weight": {
+          "active_parameters": 960,
+          "unchanged_parameters": 960,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 960,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.6.convblock.4.bias": {
+          "active_parameters": 960,
+          "unchanged_parameters": 43,
+          "fraction_unchanged": 0.04479166666666667,
+          "expected_below_half_positive_ulp": 43,
+          "actual_update_rms": 3.436253956784843e-09
+        },
+        "unet.layers.6.convblock.6.weight": {
+          "active_parameters": 499200,
+          "unchanged_parameters": 74434,
+          "fraction_unchanged": 0.1491065705128205,
+          "expected_below_half_positive_ulp": 74434,
+          "actual_update_rms": 5.143593104158462e-09
+        },
+        "unet.layers.6.convblock.6.bias": {
+          "active_parameters": 520,
+          "unchanged_parameters": 130,
+          "fraction_unchanged": 0.25,
+          "expected_below_half_positive_ulp": 130,
+          "actual_update_rms": 2.4469933674218567e-09
+        },
+        "unet.layers.8.convblock.0.weight": {
+          "active_parameters": 4867200,
+          "unchanged_parameters": 705157,
+          "fraction_unchanged": 0.14487939677843523,
+          "expected_below_half_positive_ulp": 705154,
+          "actual_update_rms": 4.43563427757218e-09
+        },
+        "unet.layers.8.convblock.0.bias": {
+          "active_parameters": 1040,
+          "unchanged_parameters": 1040,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 1040,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.8.convblock.1.weight": {
+          "active_parameters": 1040,
+          "unchanged_parameters": 1040,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 1040,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.8.convblock.1.bias": {
+          "active_parameters": 1040,
+          "unchanged_parameters": 44,
+          "fraction_unchanged": 0.04230769230769231,
+          "expected_below_half_positive_ulp": 44,
+          "actual_update_rms": 3.5196441111665476e-09
+        },
+        "unet.layers.8.convblock.3.weight": {
+          "active_parameters": 9734400,
+          "unchanged_parameters": 962905,
+          "fraction_unchanged": 0.09891775558842866,
+          "expected_below_half_positive_ulp": 962903,
+          "actual_update_rms": 7.221289567146968e-09
+        },
+        "unet.layers.8.convblock.3.bias": {
+          "active_parameters": 1040,
+          "unchanged_parameters": 1040,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 1040,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.8.convblock.4.weight": {
+          "active_parameters": 1040,
+          "unchanged_parameters": 1040,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 1040,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.8.convblock.4.bias": {
+          "active_parameters": 1040,
+          "unchanged_parameters": 47,
+          "fraction_unchanged": 0.04519230769230769,
+          "expected_below_half_positive_ulp": 47,
+          "actual_update_rms": 3.638655336644245e-09
+        },
+        "unet.layers.8.convblock.6.weight": {
+          "active_parameters": 540800,
+          "unchanged_parameters": 78799,
+          "fraction_unchanged": 0.1457082100591716,
+          "expected_below_half_positive_ulp": 78798,
+          "actual_update_rms": 5.377623779531187e-09
+        },
+        "unet.layers.8.convblock.6.bias": {
+          "active_parameters": 520,
+          "unchanged_parameters": 103,
+          "fraction_unchanged": 0.19807692307692307,
+          "expected_below_half_positive_ulp": 103,
+          "actual_update_rms": 3.3173514509658897e-09
+        },
+        "unet.layers.10.skip_module.weight": {
+          "active_parameters": 249600,
+          "unchanged_parameters": 51430,
+          "fraction_unchanged": 0.20604967948717948,
+          "expected_below_half_positive_ulp": 51430,
+          "actual_update_rms": 4.9199609243037885e-09
+        },
+        "unet.layers.10.skip_module.bias": {
+          "active_parameters": 480,
+          "unchanged_parameters": 166,
+          "fraction_unchanged": 0.3458333333333333,
+          "expected_below_half_positive_ulp": 166,
+          "actual_update_rms": 2.4019890183283255e-09
+        },
+        "unet.layers.10.convblock.0.weight": {
+          "active_parameters": 4867200,
+          "unchanged_parameters": 643446,
+          "fraction_unchanged": 0.13220044378698226,
+          "expected_below_half_positive_ulp": 643444,
+          "actual_update_rms": 4.641021734137085e-09
+        },
+        "unet.layers.10.convblock.0.bias": {
+          "active_parameters": 1040,
+          "unchanged_parameters": 1040,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 1040,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.10.convblock.1.weight": {
+          "active_parameters": 1040,
+          "unchanged_parameters": 1036,
+          "fraction_unchanged": 0.9961538461538462,
+          "expected_below_half_positive_ulp": 1036,
+          "actual_update_rms": 5.844716284816982e-09
+        },
+        "unet.layers.10.convblock.1.bias": {
+          "active_parameters": 1040,
+          "unchanged_parameters": 31,
+          "fraction_unchanged": 0.02980769230769231,
+          "expected_below_half_positive_ulp": 31,
+          "actual_update_rms": 4.845432461067374e-09
+        },
+        "unet.layers.10.convblock.3.weight": {
+          "active_parameters": 9734400,
+          "unchanged_parameters": 835046,
+          "fraction_unchanged": 0.08578299638395792,
+          "expected_below_half_positive_ulp": 835043,
+          "actual_update_rms": 6.0356809923759585e-09
+        },
+        "unet.layers.10.convblock.3.bias": {
+          "active_parameters": 1040,
+          "unchanged_parameters": 1040,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 1040,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.10.convblock.4.weight": {
+          "active_parameters": 1040,
+          "unchanged_parameters": 1036,
+          "fraction_unchanged": 0.9961538461538462,
+          "expected_below_half_positive_ulp": 1036,
+          "actual_update_rms": 3.6965231474998132e-09
+        },
+        "unet.layers.10.convblock.4.bias": {
+          "active_parameters": 1040,
+          "unchanged_parameters": 36,
+          "fraction_unchanged": 0.03461538461538462,
+          "expected_below_half_positive_ulp": 36,
+          "actual_update_rms": 3.6000275393482866e-09
+        },
+        "unet.layers.10.convblock.6.weight": {
+          "active_parameters": 499200,
+          "unchanged_parameters": 69435,
+          "fraction_unchanged": 0.1390925480769231,
+          "expected_below_half_positive_ulp": 69435,
+          "actual_update_rms": 5.560529000796331e-09
+        },
+        "unet.layers.10.convblock.6.bias": {
+          "active_parameters": 480,
+          "unchanged_parameters": 106,
+          "fraction_unchanged": 0.22083333333333333,
+          "expected_below_half_positive_ulp": 106,
+          "actual_update_rms": 2.411809407100254e-09
+        },
+        "unet.layers.12.skip_module.weight": {
+          "active_parameters": 182400,
+          "unchanged_parameters": 25857,
+          "fraction_unchanged": 0.14175986842105262,
+          "expected_below_half_positive_ulp": 25857,
+          "actual_update_rms": 7.537544025164065e-09
+        },
+        "unet.layers.12.skip_module.bias": {
+          "active_parameters": 380,
+          "unchanged_parameters": 161,
+          "fraction_unchanged": 0.4236842105263158,
+          "expected_below_half_positive_ulp": 161,
+          "actual_update_rms": 2.1092489973409254e-09
+        },
+        "unet.layers.12.convblock.0.weight": {
+          "active_parameters": 4147200,
+          "unchanged_parameters": 656559,
+          "fraction_unchanged": 0.15831380208333334,
+          "expected_below_half_positive_ulp": 656559,
+          "actual_update_rms": 4.1793504257076135e-09
+        },
+        "unet.layers.12.convblock.0.bias": {
+          "active_parameters": 960,
+          "unchanged_parameters": 960,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 960,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.12.convblock.1.weight": {
+          "active_parameters": 960,
+          "unchanged_parameters": 958,
+          "fraction_unchanged": 0.9979166666666667,
+          "expected_below_half_positive_ulp": 958,
+          "actual_update_rms": 5.441134745927315e-09
+        },
+        "unet.layers.12.convblock.1.bias": {
+          "active_parameters": 960,
+          "unchanged_parameters": 34,
+          "fraction_unchanged": 0.035416666666666666,
+          "expected_below_half_positive_ulp": 34,
+          "actual_update_rms": 4.848230503611414e-09
+        },
+        "unet.layers.12.convblock.3.weight": {
+          "active_parameters": 8294400,
+          "unchanged_parameters": 820247,
+          "fraction_unchanged": 0.09889166184413581,
+          "expected_below_half_positive_ulp": 820243,
+          "actual_update_rms": 4.9074780724062556e-09
+        },
+        "unet.layers.12.convblock.3.bias": {
+          "active_parameters": 960,
+          "unchanged_parameters": 959,
+          "fraction_unchanged": 0.9989583333333333,
+          "expected_below_half_positive_ulp": 959,
+          "actual_update_rms": 7.338453819646733e-15
+        },
+        "unet.layers.12.convblock.4.weight": {
+          "active_parameters": 960,
+          "unchanged_parameters": 960,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 960,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.12.convblock.4.bias": {
+          "active_parameters": 960,
+          "unchanged_parameters": 45,
+          "fraction_unchanged": 0.046875,
+          "expected_below_half_positive_ulp": 45,
+          "actual_update_rms": 3.3391268813630505e-09
+        },
+        "unet.layers.12.convblock.6.weight": {
+          "active_parameters": 364800,
+          "unchanged_parameters": 54545,
+          "fraction_unchanged": 0.1495202850877193,
+          "expected_below_half_positive_ulp": 54545,
+          "actual_update_rms": 4.7583584733943655e-09
+        },
+        "unet.layers.12.convblock.6.bias": {
+          "active_parameters": 380,
+          "unchanged_parameters": 107,
+          "fraction_unchanged": 0.28157894736842104,
+          "expected_below_half_positive_ulp": 107,
+          "actual_update_rms": 1.9537370241695832e-09
+        },
+        "unet.layers.14.skip_module.weight": {
+          "active_parameters": 106400,
+          "unchanged_parameters": 9325,
+          "fraction_unchanged": 0.08764097744360902,
+          "expected_below_half_positive_ulp": 9325,
+          "actual_update_rms": 1.2783811981180212e-08
+        },
+        "unet.layers.14.skip_module.bias": {
+          "active_parameters": 280,
+          "unchanged_parameters": 100,
+          "fraction_unchanged": 0.35714285714285715,
+          "expected_below_half_positive_ulp": 100,
+          "actual_update_rms": 2.342137101027322e-09
+        },
+        "unet.layers.14.convblock.0.weight": {
+          "active_parameters": 2599200,
+          "unchanged_parameters": 574920,
+          "fraction_unchanged": 0.221191135734072,
+          "expected_below_half_positive_ulp": 574919,
+          "actual_update_rms": 4.0846396441751355e-09
+        },
+        "unet.layers.14.convblock.0.bias": {
+          "active_parameters": 760,
+          "unchanged_parameters": 759,
+          "fraction_unchanged": 0.9986842105263158,
+          "expected_below_half_positive_ulp": 759,
+          "actual_update_rms": 1.6495420143428683e-14
+        },
+        "unet.layers.14.convblock.1.weight": {
+          "active_parameters": 760,
+          "unchanged_parameters": 756,
+          "fraction_unchanged": 0.9947368421052631,
+          "expected_below_half_positive_ulp": 756,
+          "actual_update_rms": 6.837121661620193e-09
+        },
+        "unet.layers.14.convblock.1.bias": {
+          "active_parameters": 760,
+          "unchanged_parameters": 27,
+          "fraction_unchanged": 0.035526315789473684,
+          "expected_below_half_positive_ulp": 27,
+          "actual_update_rms": 5.038850466024685e-09
+        },
+        "unet.layers.14.convblock.3.weight": {
+          "active_parameters": 5198400,
+          "unchanged_parameters": 730362,
+          "fraction_unchanged": 0.14049746075715605,
+          "expected_below_half_positive_ulp": 730359,
+          "actual_update_rms": 4.4668422534380486e-09
+        },
+        "unet.layers.14.convblock.3.bias": {
+          "active_parameters": 760,
+          "unchanged_parameters": 756,
+          "fraction_unchanged": 0.9947368421052631,
+          "expected_below_half_positive_ulp": 756,
+          "actual_update_rms": 3.0416051870813073e-13
+        },
+        "unet.layers.14.convblock.4.weight": {
+          "active_parameters": 760,
+          "unchanged_parameters": 760,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 760,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.14.convblock.4.bias": {
+          "active_parameters": 760,
+          "unchanged_parameters": 34,
+          "fraction_unchanged": 0.04473684210526316,
+          "expected_below_half_positive_ulp": 34,
+          "actual_update_rms": 3.1163877010505983e-09
+        },
+        "unet.layers.14.convblock.6.weight": {
+          "active_parameters": 212800,
+          "unchanged_parameters": 38253,
+          "fraction_unchanged": 0.17976033834586466,
+          "expected_below_half_positive_ulp": 38253,
+          "actual_update_rms": 4.471697840722369e-09
+        },
+        "unet.layers.14.convblock.6.bias": {
+          "active_parameters": 280,
+          "unchanged_parameters": 79,
+          "fraction_unchanged": 0.28214285714285714,
+          "expected_below_half_positive_ulp": 79,
+          "actual_update_rms": 2.248851256212373e-09
+        },
+        "unet.layers.16.convblock.0.weight": {
+          "active_parameters": 1411200,
+          "unchanged_parameters": 10428,
+          "fraction_unchanged": 0.007389455782312925,
+          "expected_below_half_positive_ulp": 10428,
+          "actual_update_rms": 6.015447680894708e-08
+        },
+        "unet.layers.16.convblock.0.bias": {
+          "active_parameters": 560,
+          "unchanged_parameters": 473,
+          "fraction_unchanged": 0.8446428571428571,
+          "expected_below_half_positive_ulp": 473,
+          "actual_update_rms": 9.589985985505328e-11
+        },
+        "unet.layers.16.convblock.1.weight": {
+          "active_parameters": 560,
+          "unchanged_parameters": 280,
+          "fraction_unchanged": 0.5,
+          "expected_below_half_positive_ulp": 280,
+          "actual_update_rms": 9.676744388619054e-08
+        },
+        "unet.layers.16.convblock.1.bias": {
+          "active_parameters": 560,
+          "unchanged_parameters": 3,
+          "fraction_unchanged": 0.005357142857142857,
+          "expected_below_half_positive_ulp": 3,
+          "actual_update_rms": 7.610925528034985e-08
+        },
+        "unet.layers.16.convblock.3.weight": {
+          "active_parameters": 2822400,
+          "unchanged_parameters": 13169,
+          "fraction_unchanged": 0.004665887188208617,
+          "expected_below_half_positive_ulp": 13169,
+          "actual_update_rms": 8.645351769856146e-08
+        },
+        "unet.layers.16.convblock.3.bias": {
+          "active_parameters": 560,
+          "unchanged_parameters": 509,
+          "fraction_unchanged": 0.9089285714285714,
+          "expected_below_half_positive_ulp": 509,
+          "actual_update_rms": 7.29636521870232e-11
+        },
+        "unet.layers.16.convblock.4.weight": {
+          "active_parameters": 560,
+          "unchanged_parameters": 293,
+          "fraction_unchanged": 0.5232142857142857,
+          "expected_below_half_positive_ulp": 293,
+          "actual_update_rms": 3.15307605081594e-07
+        },
+        "unet.layers.16.convblock.4.bias": {
+          "active_parameters": 560,
+          "unchanged_parameters": 4,
+          "fraction_unchanged": 0.007142857142857143,
+          "expected_below_half_positive_ulp": 4,
+          "actual_update_rms": 1.0733965891004157e-07
+        },
+        "unet.layers.16.convblock.6.weight": {
+          "active_parameters": 156800,
+          "unchanged_parameters": 3154,
+          "fraction_unchanged": 0.020114795918367345,
+          "expected_below_half_positive_ulp": 3154,
+          "actual_update_rms": 5.9479133264765663e-08
+        },
+        "unet.layers.16.convblock.6.bias": {
+          "active_parameters": 280,
+          "unchanged_parameters": 97,
+          "fraction_unchanged": 0.3464285714285714,
+          "expected_below_half_positive_ulp": 97,
+          "actual_update_rms": 2.1229646147030805e-09
+        },
+        "decoder.weight": {
+          "active_parameters": 194040,
+          "unchanged_parameters": 1886,
+          "fraction_unchanged": 0.009719645433931149,
+          "expected_below_half_positive_ulp": 1886,
+          "actual_update_rms": 2.6039394697105593e-08
+        },
+        "decoder.bias": {
+          "active_parameters": 77,
+          "unchanged_parameters": 8,
+          "fraction_unchanged": 0.1038961038961039,
+          "expected_below_half_positive_ulp": 8,
+          "actual_update_rms": 3.854752173936677e-09
+        }
+      }
+    },
+    "0.0001": {
+      "active_parameters": 83872357,
+      "fraction_unchanged": 0.010477886057261989,
+      "fraction_expected_below_half_ulp": 0.010477874134382559,
+      "layers": {
+        "unet.layers.0.skip_module.weight": {
+          "active_parameters": 45360,
+          "unchanged_parameters": 206,
+          "fraction_unchanged": 0.004541446208112874,
+          "expected_below_half_positive_ulp": 206,
+          "actual_update_rms": 5.454974674566098e-07
+        },
+        "unet.layers.0.skip_module.bias": {
+          "active_parameters": 280,
+          "unchanged_parameters": 20,
+          "fraction_unchanged": 0.07142857142857142,
+          "expected_below_half_positive_ulp": 20,
+          "actual_update_rms": 2.409049823304509e-08
+        },
+        "unet.layers.0.convblock.0.weight": {
+          "active_parameters": 472392,
+          "unchanged_parameters": 751,
+          "fraction_unchanged": 0.0015897813680163931,
+          "expected_below_half_positive_ulp": 751,
+          "actual_update_rms": 5.283969087687147e-07
+        },
+        "unet.layers.0.convblock.0.bias": {
+          "active_parameters": 324,
+          "unchanged_parameters": 144,
+          "fraction_unchanged": 0.4444444444444444,
+          "expected_below_half_positive_ulp": 144,
+          "actual_update_rms": 1.071188445099463e-09
+        },
+        "unet.layers.0.convblock.1.weight": {
+          "active_parameters": 324,
+          "unchanged_parameters": 19,
+          "fraction_unchanged": 0.05864197530864197,
+          "expected_below_half_positive_ulp": 19,
+          "actual_update_rms": 6.596027923416923e-07
+        },
+        "unet.layers.0.convblock.1.bias": {
+          "active_parameters": 324,
+          "unchanged_parameters": 0,
+          "fraction_unchanged": 0.0,
+          "expected_below_half_positive_ulp": 0,
+          "actual_update_rms": 1.0402569498103825e-06
+        },
+        "unet.layers.0.convblock.3.weight": {
+          "active_parameters": 944784,
+          "unchanged_parameters": 954,
+          "fraction_unchanged": 0.0010097546105776558,
+          "expected_below_half_positive_ulp": 954,
+          "actual_update_rms": 5.015370969485494e-07
+        },
+        "unet.layers.0.convblock.3.bias": {
+          "active_parameters": 324,
+          "unchanged_parameters": 111,
+          "fraction_unchanged": 0.3425925925925926,
+          "expected_below_half_positive_ulp": 111,
+          "actual_update_rms": 1.0347345673784817e-09
+        },
+        "unet.layers.0.convblock.4.weight": {
+          "active_parameters": 324,
+          "unchanged_parameters": 32,
+          "fraction_unchanged": 0.09876543209876543,
+          "expected_below_half_positive_ulp": 32,
+          "actual_update_rms": 4.7075046287605376e-07
+        },
+        "unet.layers.0.convblock.4.bias": {
+          "active_parameters": 324,
+          "unchanged_parameters": 0,
+          "fraction_unchanged": 0.0,
+          "expected_below_half_positive_ulp": 0,
+          "actual_update_rms": 3.084121251465834e-07
+        },
+        "unet.layers.0.convblock.6.weight": {
+          "active_parameters": 90720,
+          "unchanged_parameters": 352,
+          "fraction_unchanged": 0.0038800705467372134,
+          "expected_below_half_positive_ulp": 352,
+          "actual_update_rms": 3.164962938384697e-07
+        },
+        "unet.layers.0.convblock.6.bias": {
+          "active_parameters": 280,
+          "unchanged_parameters": 12,
+          "fraction_unchanged": 0.04285714285714286,
+          "expected_below_half_positive_ulp": 12,
+          "actual_update_rms": 2.398911855845934e-08
+        },
+        "unet.layers.2.skip_module.weight": {
+          "active_parameters": 106400,
+          "unchanged_parameters": 845,
+          "fraction_unchanged": 0.00794172932330827,
+          "expected_below_half_positive_ulp": 845,
+          "actual_update_rms": 1.708430180461613e-07
+        },
+        "unet.layers.2.skip_module.bias": {
+          "active_parameters": 380,
+          "unchanged_parameters": 15,
+          "fraction_unchanged": 0.039473684210526314,
+          "expected_below_half_positive_ulp": 15,
+          "actual_update_rms": 2.2291687880399906e-08
+        },
+        "unet.layers.2.convblock.0.weight": {
+          "active_parameters": 1411200,
+          "unchanged_parameters": 2587,
+          "fraction_unchanged": 0.0018331916099773244,
+          "expected_below_half_positive_ulp": 2587,
+          "actual_update_rms": 3.4595720317950796e-07
+        },
+        "unet.layers.2.convblock.0.bias": {
+          "active_parameters": 560,
+          "unchanged_parameters": 503,
+          "fraction_unchanged": 0.8982142857142857,
+          "expected_below_half_positive_ulp": 503,
+          "actual_update_rms": 6.657095845829804e-11
+        },
+        "unet.layers.2.convblock.1.weight": {
+          "active_parameters": 560,
+          "unchanged_parameters": 73,
+          "fraction_unchanged": 0.13035714285714287,
+          "expected_below_half_positive_ulp": 73,
+          "actual_update_rms": 5.807740035024477e-07
+        },
+        "unet.layers.2.convblock.1.bias": {
+          "active_parameters": 560,
+          "unchanged_parameters": 1,
+          "fraction_unchanged": 0.0017857142857142857,
+          "expected_below_half_positive_ulp": 1,
+          "actual_update_rms": 3.247146905352751e-07
+        },
+        "unet.layers.2.convblock.3.weight": {
+          "active_parameters": 2822400,
+          "unchanged_parameters": 5645,
+          "fraction_unchanged": 0.0020000708616780046,
+          "expected_below_half_positive_ulp": 5645,
+          "actual_update_rms": 3.793217232870122e-07
+        },
+        "unet.layers.2.convblock.3.bias": {
+          "active_parameters": 560,
+          "unchanged_parameters": 508,
+          "fraction_unchanged": 0.9071428571428571,
+          "expected_below_half_positive_ulp": 508,
+          "actual_update_rms": 8.531594956840161e-11
+        },
+        "unet.layers.2.convblock.4.weight": {
+          "active_parameters": 560,
+          "unchanged_parameters": 96,
+          "fraction_unchanged": 0.17142857142857143,
+          "expected_below_half_positive_ulp": 96,
+          "actual_update_rms": 7.196945726089893e-07
+        },
+        "unet.layers.2.convblock.4.bias": {
+          "active_parameters": 560,
+          "unchanged_parameters": 0,
+          "fraction_unchanged": 0.0,
+          "expected_below_half_positive_ulp": 0,
+          "actual_update_rms": 1.194964776710093e-07
+        },
+        "unet.layers.2.convblock.6.weight": {
+          "active_parameters": 212800,
+          "unchanged_parameters": 1598,
+          "fraction_unchanged": 0.007509398496240601,
+          "expected_below_half_positive_ulp": 1598,
+          "actual_update_rms": 1.8873019960994276e-07
+        },
+        "unet.layers.2.convblock.6.bias": {
+          "active_parameters": 380,
+          "unchanged_parameters": 11,
+          "fraction_unchanged": 0.02894736842105263,
+          "expected_below_half_positive_ulp": 11,
+          "actual_update_rms": 2.221769240354296e-08
+        },
+        "unet.layers.4.skip_module.weight": {
+          "active_parameters": 182400,
+          "unchanged_parameters": 3101,
+          "fraction_unchanged": 0.01700109649122807,
+          "expected_below_half_positive_ulp": 3101,
+          "actual_update_rms": 7.586072789226235e-08
+        },
+        "unet.layers.4.skip_module.bias": {
+          "active_parameters": 480,
+          "unchanged_parameters": 29,
+          "fraction_unchanged": 0.06041666666666667,
+          "expected_below_half_positive_ulp": 29,
+          "actual_update_rms": 1.9852265039403e-08
+        },
+        "unet.layers.4.convblock.0.weight": {
+          "active_parameters": 2599200,
+          "unchanged_parameters": 9729,
+          "fraction_unchanged": 0.0037430747922437674,
+          "expected_below_half_positive_ulp": 9729,
+          "actual_update_rms": 1.7126678687515874e-07
+        },
+        "unet.layers.4.convblock.0.bias": {
+          "active_parameters": 760,
+          "unchanged_parameters": 752,
+          "fraction_unchanged": 0.9894736842105263,
+          "expected_below_half_positive_ulp": 752,
+          "actual_update_rms": 8.081072488845517e-13
+        },
+        "unet.layers.4.convblock.1.weight": {
+          "active_parameters": 760,
+          "unchanged_parameters": 151,
+          "fraction_unchanged": 0.1986842105263158,
+          "expected_below_half_positive_ulp": 151,
+          "actual_update_rms": 4.24887368297697e-07
+        },
+        "unet.layers.4.convblock.1.bias": {
+          "active_parameters": 760,
+          "unchanged_parameters": 2,
+          "fraction_unchanged": 0.002631578947368421,
+          "expected_below_half_positive_ulp": 2,
+          "actual_update_rms": 1.7106718906768071e-07
+        },
+        "unet.layers.4.convblock.3.weight": {
+          "active_parameters": 5198400,
+          "unchanged_parameters": 18006,
+          "fraction_unchanged": 0.0034637580794090487,
+          "expected_below_half_positive_ulp": 18006,
+          "actual_update_rms": 1.7030138665923238e-07
+        },
+        "unet.layers.4.convblock.3.bias": {
+          "active_parameters": 760,
+          "unchanged_parameters": 752,
+          "fraction_unchanged": 0.9894736842105263,
+          "expected_below_half_positive_ulp": 752,
+          "actual_update_rms": 7.083433808866864e-13
+        },
+        "unet.layers.4.convblock.4.weight": {
+          "active_parameters": 760,
+          "unchanged_parameters": 211,
+          "fraction_unchanged": 0.2776315789473684,
+          "expected_below_half_positive_ulp": 211,
+          "actual_update_rms": 3.05551265388098e-07
+        },
+        "unet.layers.4.convblock.4.bias": {
+          "active_parameters": 760,
+          "unchanged_parameters": 3,
+          "fraction_unchanged": 0.003947368421052632,
+          "expected_below_half_positive_ulp": 3,
+          "actual_update_rms": 7.938801515042565e-08
+        },
+        "unet.layers.4.convblock.6.weight": {
+          "active_parameters": 364800,
+          "unchanged_parameters": 3594,
+          "fraction_unchanged": 0.009851973684210527,
+          "expected_below_half_positive_ulp": 3594,
+          "actual_update_rms": 1.111970306542858e-07
+        },
+        "unet.layers.4.convblock.6.bias": {
+          "active_parameters": 480,
+          "unchanged_parameters": 22,
+          "fraction_unchanged": 0.04583333333333333,
+          "expected_below_half_positive_ulp": 22,
+          "actual_update_rms": 1.981762853401204e-08
+        },
+        "unet.layers.6.skip_module.weight": {
+          "active_parameters": 249600,
+          "unchanged_parameters": 6171,
+          "fraction_unchanged": 0.024723557692307694,
+          "expected_below_half_positive_ulp": 6171,
+          "actual_update_rms": 4.573281737931571e-08
+        },
+        "unet.layers.6.skip_module.bias": {
+          "active_parameters": 520,
+          "unchanged_parameters": 12,
+          "fraction_unchanged": 0.023076923076923078,
+          "expected_below_half_positive_ulp": 12,
+          "actual_update_rms": 2.3956693477123504e-08
+        },
+        "unet.layers.6.convblock.0.weight": {
+          "active_parameters": 4147200,
+          "unchanged_parameters": 52604,
+          "fraction_unchanged": 0.012684220679012346,
+          "expected_below_half_positive_ulp": 52604,
+          "actual_update_rms": 4.5427587636731586e-08
+        },
+        "unet.layers.6.convblock.0.bias": {
+          "active_parameters": 960,
+          "unchanged_parameters": 959,
+          "fraction_unchanged": 0.9989583333333333,
+          "expected_below_half_positive_ulp": 959,
+          "actual_update_rms": 1.4676907639293466e-14
+        },
+        "unet.layers.6.convblock.1.weight": {
+          "active_parameters": 960,
+          "unchanged_parameters": 659,
+          "fraction_unchanged": 0.6864583333333333,
+          "expected_below_half_positive_ulp": 659,
+          "actual_update_rms": 5.735818072695368e-08
+        },
+        "unet.layers.6.convblock.1.bias": {
+          "active_parameters": 960,
+          "unchanged_parameters": 2,
+          "fraction_unchanged": 0.0020833333333333333,
+          "expected_below_half_positive_ulp": 2,
+          "actual_update_rms": 4.162077960145173e-08
+        },
+        "unet.layers.6.convblock.3.weight": {
+          "active_parameters": 8294400,
+          "unchanged_parameters": 69026,
+          "fraction_unchanged": 0.00832200038580247,
+          "expected_below_half_positive_ulp": 69026,
+          "actual_update_rms": 5.702254723143896e-08
+        },
+        "unet.layers.6.convblock.3.bias": {
+          "active_parameters": 960,
+          "unchanged_parameters": 959,
+          "fraction_unchanged": 0.9989583333333333,
+          "expected_below_half_positive_ulp": 959,
+          "actual_update_rms": 5.870763055717387e-14
+        },
+        "unet.layers.6.convblock.4.weight": {
+          "active_parameters": 960,
+          "unchanged_parameters": 546,
+          "fraction_unchanged": 0.56875,
+          "expected_below_half_positive_ulp": 546,
+          "actual_update_rms": 5.1976366680007056e-08
+        },
+        "unet.layers.6.convblock.4.bias": {
+          "active_parameters": 960,
+          "unchanged_parameters": 5,
+          "fraction_unchanged": 0.005208333333333333,
+          "expected_below_half_positive_ulp": 5,
+          "actual_update_rms": 3.43281094406198e-08
+        },
+        "unet.layers.6.convblock.6.weight": {
+          "active_parameters": 499200,
+          "unchanged_parameters": 7783,
+          "fraction_unchanged": 0.015590945512820514,
+          "expected_below_half_positive_ulp": 7783,
+          "actual_update_rms": 5.1236080010314746e-08
+        },
+        "unet.layers.6.convblock.6.bias": {
+          "active_parameters": 520,
+          "unchanged_parameters": 4,
+          "fraction_unchanged": 0.007692307692307693,
+          "expected_below_half_positive_ulp": 4,
+          "actual_update_rms": 2.4022574715416424e-08
+        },
+        "unet.layers.8.convblock.0.weight": {
+          "active_parameters": 4867200,
+          "unchanged_parameters": 77031,
+          "fraction_unchanged": 0.01582655325443787,
+          "expected_below_half_positive_ulp": 77031,
+          "actual_update_rms": 4.429628494789013e-08
+        },
+        "unet.layers.8.convblock.0.bias": {
+          "active_parameters": 1040,
+          "unchanged_parameters": 1040,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 1040,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.8.convblock.1.weight": {
+          "active_parameters": 1040,
+          "unchanged_parameters": 731,
+          "fraction_unchanged": 0.7028846153846153,
+          "expected_below_half_positive_ulp": 731,
+          "actual_update_rms": 5.132046980976861e-08
+        },
+        "unet.layers.8.convblock.1.bias": {
+          "active_parameters": 1040,
+          "unchanged_parameters": 4,
+          "fraction_unchanged": 0.0038461538461538464,
+          "expected_below_half_positive_ulp": 4,
+          "actual_update_rms": 3.5174831476546154e-08
+        },
+        "unet.layers.8.convblock.3.weight": {
+          "active_parameters": 9734400,
+          "unchanged_parameters": 105336,
+          "fraction_unchanged": 0.010821005917159763,
+          "expected_below_half_positive_ulp": 105335,
+          "actual_update_rms": 7.219409482889449e-08
+        },
+        "unet.layers.8.convblock.3.bias": {
+          "active_parameters": 1040,
+          "unchanged_parameters": 1039,
+          "fraction_unchanged": 0.9990384615384615,
+          "expected_below_half_positive_ulp": 1039,
+          "actual_update_rms": 7.050558371543528e-15
+        },
+        "unet.layers.8.convblock.4.weight": {
+          "active_parameters": 1040,
+          "unchanged_parameters": 653,
+          "fraction_unchanged": 0.6278846153846154,
+          "expected_below_half_positive_ulp": 653,
+          "actual_update_rms": 5.0413854332716504e-08
+        },
+        "unet.layers.8.convblock.4.bias": {
+          "active_parameters": 1040,
+          "unchanged_parameters": 8,
+          "fraction_unchanged": 0.007692307692307693,
+          "expected_below_half_positive_ulp": 8,
+          "actual_update_rms": 3.634983513412935e-08
+        },
+        "unet.layers.8.convblock.6.weight": {
+          "active_parameters": 540800,
+          "unchanged_parameters": 8180,
+          "fraction_unchanged": 0.015125739644970415,
+          "expected_below_half_positive_ulp": 8180,
+          "actual_update_rms": 5.359571164964848e-08
+        },
+        "unet.layers.8.convblock.6.bias": {
+          "active_parameters": 520,
+          "unchanged_parameters": 9,
+          "fraction_unchanged": 0.01730769230769231,
+          "expected_below_half_positive_ulp": 9,
+          "actual_update_rms": 3.285761247050068e-08
+        },
+        "unet.layers.10.skip_module.weight": {
+          "active_parameters": 249600,
+          "unchanged_parameters": 5337,
+          "fraction_unchanged": 0.021382211538461537,
+          "expected_below_half_positive_ulp": 5337,
+          "actual_update_rms": 4.87767889935396e-08
+        },
+        "unet.layers.10.skip_module.bias": {
+          "active_parameters": 480,
+          "unchanged_parameters": 16,
+          "fraction_unchanged": 0.03333333333333333,
+          "expected_below_half_positive_ulp": 16,
+          "actual_update_rms": 2.3322894217503594e-08
+        },
+        "unet.layers.10.convblock.0.weight": {
+          "active_parameters": 4867200,
+          "unchanged_parameters": 68000,
+          "fraction_unchanged": 0.013971071663379356,
+          "expected_below_half_positive_ulp": 68000,
+          "actual_update_rms": 4.635128183368996e-08
+        },
+        "unet.layers.10.convblock.0.bias": {
+          "active_parameters": 1040,
+          "unchanged_parameters": 1040,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 1040,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.10.convblock.1.weight": {
+          "active_parameters": 1040,
+          "unchanged_parameters": 668,
+          "fraction_unchanged": 0.6423076923076924,
+          "expected_below_half_positive_ulp": 668,
+          "actual_update_rms": 7.971130265966612e-08
+        },
+        "unet.layers.10.convblock.1.bias": {
+          "active_parameters": 1040,
+          "unchanged_parameters": 1,
+          "fraction_unchanged": 0.0009615384615384616,
+          "expected_below_half_positive_ulp": 1,
+          "actual_update_rms": 4.8417612265790236e-08
+        },
+        "unet.layers.10.convblock.3.weight": {
+          "active_parameters": 9734400,
+          "unchanged_parameters": 86169,
+          "fraction_unchanged": 0.008852009368836292,
+          "expected_below_half_positive_ulp": 86169,
+          "actual_update_rms": 6.033365065398839e-08
+        },
+        "unet.layers.10.convblock.3.bias": {
+          "active_parameters": 1040,
+          "unchanged_parameters": 1039,
+          "fraction_unchanged": 0.9990384615384615,
+          "expected_below_half_positive_ulp": 1039,
+          "actual_update_rms": 2.8202233486174112e-14
+        },
+        "unet.layers.10.convblock.4.weight": {
+          "active_parameters": 1040,
+          "unchanged_parameters": 609,
+          "fraction_unchanged": 0.5855769230769231,
+          "expected_below_half_positive_ulp": 609,
+          "actual_update_rms": 6.003294713301612e-08
+        },
+        "unet.layers.10.convblock.4.bias": {
+          "active_parameters": 1040,
+          "unchanged_parameters": 4,
+          "fraction_unchanged": 0.0038461538461538464,
+          "expected_below_half_positive_ulp": 4,
+          "actual_update_rms": 3.596386453680144e-08
+        },
+        "unet.layers.10.convblock.6.weight": {
+          "active_parameters": 499200,
+          "unchanged_parameters": 7149,
+          "fraction_unchanged": 0.014320913461538461,
+          "expected_below_half_positive_ulp": 7149,
+          "actual_update_rms": 5.544096229583779e-08
+        },
+        "unet.layers.10.convblock.6.bias": {
+          "active_parameters": 480,
+          "unchanged_parameters": 12,
+          "fraction_unchanged": 0.025,
+          "expected_below_half_positive_ulp": 12,
+          "actual_update_rms": 2.327429967029217e-08
+        },
+        "unet.layers.12.skip_module.weight": {
+          "active_parameters": 182400,
+          "unchanged_parameters": 2662,
+          "fraction_unchanged": 0.014594298245614035,
+          "expected_below_half_positive_ulp": 2662,
+          "actual_update_rms": 7.506577086877114e-08
+        },
+        "unet.layers.12.skip_module.bias": {
+          "active_parameters": 380,
+          "unchanged_parameters": 21,
+          "fraction_unchanged": 0.05526315789473684,
+          "expected_below_half_positive_ulp": 21,
+          "actual_update_rms": 1.931608279026734e-08
+        },
+        "unet.layers.12.convblock.0.weight": {
+          "active_parameters": 4147200,
+          "unchanged_parameters": 70775,
+          "fraction_unchanged": 0.017065731095679014,
+          "expected_below_half_positive_ulp": 70775,
+          "actual_update_rms": 4.1723680609416006e-08
+        },
+        "unet.layers.12.convblock.0.bias": {
+          "active_parameters": 960,
+          "unchanged_parameters": 960,
+          "fraction_unchanged": 1.0,
+          "expected_below_half_positive_ulp": 960,
+          "actual_update_rms": 0.0
+        },
+        "unet.layers.12.convblock.1.weight": {
+          "active_parameters": 960,
+          "unchanged_parameters": 701,
+          "fraction_unchanged": 0.7302083333333333,
+          "expected_below_half_positive_ulp": 701,
+          "actual_update_rms": 7.651520164771176e-08
+        },
+        "unet.layers.12.convblock.1.bias": {
+          "active_parameters": 960,
+          "unchanged_parameters": 2,
+          "fraction_unchanged": 0.0020833333333333333,
+          "expected_below_half_positive_ulp": 2,
+          "actual_update_rms": 4.8478438442249567e-08
+        },
+        "unet.layers.12.convblock.3.weight": {
+          "active_parameters": 8294400,
+          "unchanged_parameters": 84788,
+          "fraction_unchanged": 0.010222318672839506,
+          "expected_below_half_positive_ulp": 84788,
+          "actual_update_rms": 4.904454312241699e-08
+        },
+        "unet.layers.12.convblock.3.bias": {
+          "active_parameters": 960,
+          "unchanged_parameters": 957,
+          "fraction_unchanged": 0.996875,
+          "expected_below_half_positive_ulp": 957,
+          "actual_update_rms": 4.735435504621484e-13
+        },
+        "unet.layers.12.convblock.4.weight": {
+          "active_parameters": 960,
+          "unchanged_parameters": 573,
+          "fraction_unchanged": 0.596875,
+          "expected_below_half_positive_ulp": 573,
+          "actual_update_rms": 4.8552791429749426e-08
+        },
+        "unet.layers.12.convblock.4.bias": {
+          "active_parameters": 960,
+          "unchanged_parameters": 0,
+          "fraction_unchanged": 0.0,
+          "expected_below_half_positive_ulp": 0,
+          "actual_update_rms": 3.335466907866272e-08
+        },
+        "unet.layers.12.convblock.6.weight": {
+          "active_parameters": 364800,
+          "unchanged_parameters": 5559,
+          "fraction_unchanged": 0.015238486842105263,
+          "expected_below_half_positive_ulp": 5559,
+          "actual_update_rms": 4.73643468149047e-08
+        },
+        "unet.layers.12.convblock.6.bias": {
+          "active_parameters": 380,
+          "unchanged_parameters": 16,
+          "fraction_unchanged": 0.042105263157894736,
+          "expected_below_half_positive_ulp": 16,
+          "actual_update_rms": 1.929541777456799e-08
+        },
+        "unet.layers.14.skip_module.weight": {
+          "active_parameters": 106400,
+          "unchanged_parameters": 951,
+          "fraction_unchanged": 0.00893796992481203,
+          "expected_below_half_positive_ulp": 951,
+          "actual_update_rms": 1.2764441013641278e-07
+        },
+        "unet.layers.14.skip_module.bias": {
+          "active_parameters": 280,
+          "unchanged_parameters": 10,
+          "fraction_unchanged": 0.03571428571428571,
+          "expected_below_half_positive_ulp": 10,
+          "actual_update_rms": 2.1740275125451737e-08
+        },
+        "unet.layers.14.convblock.0.weight": {
+          "active_parameters": 2599200,
+          "unchanged_parameters": 69030,
+          "fraction_unchanged": 0.026558171745152355,
+          "expected_below_half_positive_ulp": 69030,
+          "actual_update_rms": 4.076758651348774e-08
+        },
+        "unet.layers.14.convblock.0.bias": {
+          "active_parameters": 760,
+          "unchanged_parameters": 756,
+          "fraction_unchanged": 0.9947368421052631,
+          "expected_below_half_positive_ulp": 756,
+          "actual_update_rms": 5.993083756588651e-13
+        },
+        "unet.layers.14.convblock.1.weight": {
+          "active_parameters": 760,
+          "unchanged_parameters": 603,
+          "fraction_unchanged": 0.7934210526315789,
+          "expected_below_half_positive_ulp": 603,
+          "actual_update_rms": 8.596847897082604e-08
+        },
+        "unet.layers.14.convblock.1.bias": {
+          "active_parameters": 760,
+          "unchanged_parameters": 3,
+          "fraction_unchanged": 0.003947368421052632,
+          "expected_below_half_positive_ulp": 3,
+          "actual_update_rms": 5.03582726310142e-08
+        },
+        "unet.layers.14.convblock.3.weight": {
+          "active_parameters": 5198400,
+          "unchanged_parameters": 78151,
+          "fraction_unchanged": 0.015033664204370576,
+          "expected_below_half_positive_ulp": 78151,
+          "actual_update_rms": 4.462890073585475e-08
+        },
+        "unet.layers.14.convblock.3.bias": {
+          "active_parameters": 760,
+          "unchanged_parameters": 736,
+          "fraction_unchanged": 0.968421052631579,
+          "expected_below_half_positive_ulp": 736,
+          "actual_update_rms": 1.1980354628493444e-11
+        },
+        "unet.layers.14.convblock.4.weight": {
+          "active_parameters": 760,
+          "unchanged_parameters": 443,
+          "fraction_unchanged": 0.5828947368421052,
+          "expected_below_half_positive_ulp": 443,
+          "actual_update_rms": 4.6673059037265776e-08
+        },
+        "unet.layers.14.convblock.4.bias": {
+          "active_parameters": 760,
+          "unchanged_parameters": 1,
+          "fraction_unchanged": 0.0013157894736842105,
+          "expected_below_half_positive_ulp": 1,
+          "actual_update_rms": 3.11630515613137e-08
+        },
+        "unet.layers.14.convblock.6.weight": {
+          "active_parameters": 212800,
+          "unchanged_parameters": 4062,
+          "fraction_unchanged": 0.019088345864661654,
+          "expected_below_half_positive_ulp": 4062,
+          "actual_update_rms": 4.438590341454439e-08
+        },
+        "unet.layers.14.convblock.6.bias": {
+          "active_parameters": 280,
+          "unchanged_parameters": 7,
+          "fraction_unchanged": 0.025,
+          "expected_below_half_positive_ulp": 7,
+          "actual_update_rms": 2.1787653255990997e-08
+        },
+        "unet.layers.16.convblock.0.weight": {
+          "active_parameters": 1411200,
+          "unchanged_parameters": 1089,
+          "fraction_unchanged": 0.0007716836734693878,
+          "expected_below_half_positive_ulp": 1089,
+          "actual_update_rms": 6.01534782910372e-07
+        },
+        "unet.layers.16.convblock.0.bias": {
+          "active_parameters": 560,
+          "unchanged_parameters": 141,
+          "fraction_unchanged": 0.2517857142857143,
+          "expected_below_half_positive_ulp": 141,
+          "actual_update_rms": 1.4796890876780384e-09
+        },
+        "unet.layers.16.convblock.1.weight": {
+          "active_parameters": 560,
+          "unchanged_parameters": 31,
+          "fraction_unchanged": 0.055357142857142855,
+          "expected_below_half_positive_ulp": 31,
+          "actual_update_rms": 9.403531732928195e-07
+        },
+        "unet.layers.16.convblock.1.bias": {
+          "active_parameters": 560,
+          "unchanged_parameters": 1,
+          "fraction_unchanged": 0.0017857142857142857,
+          "expected_below_half_positive_ulp": 1,
+          "actual_update_rms": 7.610268662232417e-07
+        },
+        "unet.layers.16.convblock.3.weight": {
+          "active_parameters": 2822400,
+          "unchanged_parameters": 1359,
+          "fraction_unchanged": 0.0004815051020408163,
+          "expected_below_half_positive_ulp": 1359,
+          "actual_update_rms": 8.645361675179897e-07
+        },
+        "unet.layers.16.convblock.3.bias": {
+          "active_parameters": 560,
+          "unchanged_parameters": 179,
+          "fraction_unchanged": 0.3196428571428571,
+          "expected_below_half_positive_ulp": 179,
+          "actual_update_rms": 9.37457988649663e-10
+        },
+        "unet.layers.16.convblock.4.weight": {
+          "active_parameters": 560,
+          "unchanged_parameters": 64,
+          "fraction_unchanged": 0.11428571428571428,
+          "expected_below_half_positive_ulp": 64,
+          "actual_update_rms": 3.150715037823557e-06
+        },
+        "unet.layers.16.convblock.4.bias": {
+          "active_parameters": 560,
+          "unchanged_parameters": 0,
+          "fraction_unchanged": 0.0,
+          "expected_below_half_positive_ulp": 0,
+          "actual_update_rms": 1.0733886459443566e-06
+        },
+        "unet.layers.16.convblock.6.weight": {
+          "active_parameters": 156800,
+          "unchanged_parameters": 331,
+          "fraction_unchanged": 0.002110969387755102,
+          "expected_below_half_positive_ulp": 331,
+          "actual_update_rms": 5.947211881204563e-07
+        },
+        "unet.layers.16.convblock.6.bias": {
+          "active_parameters": 280,
+          "unchanged_parameters": 4,
+          "fraction_unchanged": 0.014285714285714285,
+          "expected_below_half_positive_ulp": 4,
+          "actual_update_rms": 2.0338939012622728e-08
+        },
+        "decoder.weight": {
+          "active_parameters": 194040,
+          "unchanged_parameters": 196,
+          "fraction_unchanged": 0.00101010101010101,
+          "expected_below_half_positive_ulp": 196,
+          "actual_update_rms": 2.603910676991911e-07
+        },
+        "decoder.bias": {
+          "active_parameters": 77,
+          "unchanged_parameters": 3,
+          "fraction_unchanged": 0.03896103896103896,
+          "expected_below_half_positive_ulp": 3,
+          "actual_update_rms": 3.833086245183506e-08
+        }
+      }
+    }
+  },
+  "export_note": "Protocol output path is relative to the Torch scratch root recorded in RUNS.md; all scientific values unchanged."
+}

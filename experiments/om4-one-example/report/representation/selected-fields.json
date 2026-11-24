@@ -1,0 +1,110 @@
+{
+  "absolute_random": {
+    "U1850": {
+      "global_rmse": 0.0004240014974864921,
+      "patch_rmse": 0.0005444991928404002,
+      "patch_hp_error_to_target": 0.1692162439416775
+    },
+    "V1850": {
+      "global_rmse": 0.00037276949041876046,
+      "patch_rmse": 0.0004512278891507672,
+      "patch_hp_error_to_target": 0.14924830740331016
+    },
+    "T1850": {
+      "global_rmse": 0.025567702180644167,
+      "patch_rmse": 0.020562663218510874,
+      "patch_hp_error_to_target": 1.8854503527665625
+    },
+    "S1850": {
+      "global_rmse": 0.007354119499410359,
+      "patch_rmse": 0.005768296088086128,
+      "patch_hp_error_to_target": 5.893606808629804
+    },
+    "SSH": {
+      "global_rmse": 0.01160564806712204,
+      "patch_rmse": 0.009909245545013639,
+      "patch_hp_error_to_target": 1.2850405051055125
+    }
+  },
+  "same_slot_random": {
+    "U1850": {
+      "global_rmse": 0.00032727102409053747,
+      "patch_rmse": 0.00037515864249997564,
+      "patch_hp_error_to_target": 0.11601132456110204
+    },
+    "V1850": {
+      "global_rmse": 0.00028662840379347243,
+      "patch_rmse": 0.00034013958897903524,
+      "patch_hp_error_to_target": 0.10686211826710813
+    },
+    "T1850": {
+      "global_rmse": 0.018397141776776874,
+      "patch_rmse": 0.017217599980330536,
+      "patch_hp_error_to_target": 1.5728056504376928
+    },
+    "S1850": {
+      "global_rmse": 0.0051283988220434135,
+      "patch_rmse": 0.003472673394449828,
+      "patch_hp_error_to_target": 3.823384696901653
+    },
+    "SSH": {
+      "global_rmse": 0.008920502152840723,
+      "patch_rmse": 0.007740496370388846,
+      "patch_hp_error_to_target": 0.9165603404371706
+    }
+  },
+  "same_slot_zero": {
+    "U1850": {
+      "global_rmse": 8.989433054014964e-05,
+      "patch_rmse": 0.0001304275582918555,
+      "patch_hp_error_to_target": 0.045969179924179496
+    },
+    "V1850": {
+      "global_rmse": 7.278313783155435e-05,
+      "patch_rmse": 0.00010829079725485122,
+      "patch_hp_error_to_target": 0.042355980797498395
+    },
+    "T1850": {
+      "global_rmse": 0.00910275147417702,
+      "patch_rmse": 0.004315625641177962,
+      "patch_hp_error_to_target": 0.34960739866990054
+    },
+    "S1850": {
+      "global_rmse": 0.0017720593070248754,
+      "patch_rmse": 0.0006305336053528198,
+      "patch_hp_error_to_target": 0.5617205032553768
+    },
+    "SSH": {
+      "global_rmse": 0.004141715245900762,
+      "patch_rmse": 0.003012289629553996,
+      "patch_hp_error_to_target": 0.3229585657188893
+    }
+  },
+  "latest_zero": {
+    "U1850": {
+      "global_rmse": 7.965122288682293e-05,
+      "patch_rmse": 0.00012094271661011383,
+      "patch_hp_error_to_target": 0.04199489174012526
+    },
+    "V1850": {
+      "global_rmse": 6.178506321882173e-05,
+      "patch_rmse": 9.329901203718164e-05,
+      "patch_hp_error_to_target": 0.036939996274774685
+    },
+    "T1850": {
+      "global_rmse": 0.0064638893622315395,
+      "patch_rmse": 0.003126888022099754,
+      "patch_hp_error_to_target": 0.22504474135814198
+    },
+    "S1850": {
+      "global_rmse": 0.0011377629738479483,
+      "patch_rmse": 0.0003878966103794141,
+      "patch_hp_error_to_target": 0.3453218095061725
+    },
+    "SSH": {
+      "global_rmse": 0.003571637661888946,
+      "patch_rmse": 0.0024515177202158833,
+      "patch_hp_error_to_target": 0.25791936214672917
+    }
+  }
+}

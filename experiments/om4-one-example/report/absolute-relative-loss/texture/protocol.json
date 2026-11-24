@@ -1,0 +1,26 @@
+{
+  "root": "experiments/om4-one-example/results/absolute-relative-loss",
+  "reference": "experiments/om4-one-example/results/absolute-relative-loss/identity_weight_0/maps-5000.npz",
+  "metadata": "/tmp/om4-overfit-torch-input/metadata.json",
+  "output": "experiments/om4-one-example/report/absolute-relative-loss/texture",
+  "files": {
+    "original": "experiments/om4-one-example/results/absolute-relative-loss/identity_weight_0/maps-5000.npz",
+    "identity_weight_0": "experiments/om4-one-example/results/absolute-relative-loss/identity_weight_0/maps-5000.npz",
+    "identity_weight_100": "experiments/om4-one-example/results/absolute-relative-loss/identity_weight_100/maps-5000.npz",
+    "target_rms_weight_0.01": "experiments/om4-one-example/results/absolute-relative-loss/target_rms_weight_0.01/maps-5000.npz",
+    "target_rms_weight_0.1": "experiments/om4-one-example/results/absolute-relative-loss/target_rms_weight_0.1/maps-5000.npz",
+    "target_rms_weight_1": "experiments/om4-one-example/results/absolute-relative-loss/target_rms_weight_1/maps-5000.npz"
+  },
+  "dtype": "float64 analysis; source arrays unchanged",
+  "patch_rows": [
+    50,
+    82
+  ],
+  "patch_columns": [
+    200,
+    232
+  ],
+  "boundary": "periodic longitude; exclude latitude endpoints and mask edges",
+  "selection": "preexisting fixed South Pacific patch; all completed arms",
+  "notes": "High-pass is a local curvature operator, not a spectral cutoff. Ratios describe visible error relative to target texture; they do not isolate the cause. Absolute RMSE and bias are in CSV."
+}

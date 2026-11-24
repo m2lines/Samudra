@@ -1,0 +1,102 @@
+{
+  "Salinity, 2.5 m": {
+    "mse": {
+      "top_1_percent_share_squared_error": 0.21681596286791338,
+      "mse": 0.0003313333589448459,
+      "rmse": 0.018202564625481924,
+      "max_abs_error": 0.8426170349121094
+    },
+    "spatial_100": {
+      "top_1_percent_share_squared_error": 0.841406493966387,
+      "mse": 0.00020331268653411253,
+      "rmse": 0.014258775772629028,
+      "max_abs_error": 0.8845282793045044
+    },
+    "local_range": {
+      "top_1_percent_share_squared_error": 0.9071487820691132,
+      "mse": 0.09597671038154133,
+      "rmse": 0.30980108195669903,
+      "max_abs_error": 8.911132574081421
+    }
+  },
+  "Salinity, 1850 m": {
+    "mse": {
+      "top_1_percent_share_squared_error": 0.11913301885694952,
+      "mse": 0.00020501879938198965,
+      "rmse": 0.014318477551122174,
+      "max_abs_error": 0.13301192969083786
+    },
+    "spatial_100": {
+      "top_1_percent_share_squared_error": 0.538104041751204,
+      "mse": 6.438983908790404e-05,
+      "rmse": 0.008024327952414709,
+      "max_abs_error": 0.20851105451583862
+    },
+    "local_range": {
+      "top_1_percent_share_squared_error": 0.9943194974218791,
+      "mse": 0.04439436196806467,
+      "rmse": 0.2106996961745903,
+      "max_abs_error": 12.029526710510254
+    }
+  },
+  "Temperature, 1850 m": {
+    "mse": {
+      "top_1_percent_share_squared_error": 0.17262965961438576,
+      "mse": 0.0002743222728279775,
+      "rmse": 0.016562677103293944,
+      "max_abs_error": 0.3071732521057129
+    },
+    "spatial_100": {
+      "top_1_percent_share_squared_error": 0.6834434761989066,
+      "mse": 0.00010518151880941558,
+      "rmse": 0.010255804152255228,
+      "max_abs_error": 0.30262041091918945
+    },
+    "local_range": {
+      "top_1_percent_share_squared_error": 0.8515683236845266,
+      "mse": 0.009560486856576348,
+      "rmse": 0.09777774213273872,
+      "max_abs_error": 4.394696116447449
+    }
+  },
+  "Zonal velocity, 1850 m": {
+    "mse": {
+      "top_1_percent_share_squared_error": 0.19471464914440856,
+      "mse": 0.00037885718432779654,
+      "rmse": 0.019464254014161356,
+      "max_abs_error": 0.3048149347305298
+    },
+    "spatial_100": {
+      "top_1_percent_share_squared_error": 0.7505880851564278,
+      "mse": 0.00010097620209453409,
+      "rmse": 0.010048691561319517,
+      "max_abs_error": 0.3520925045013428
+    },
+    "local_range": {
+      "top_1_percent_share_squared_error": 0.3785494194165608,
+      "mse": 0.09206851511210964,
+      "rmse": 0.30342794055938493,
+      "max_abs_error": 5.944843292236328
+    }
+  },
+  "SSH": {
+    "mse": {
+      "top_1_percent_share_squared_error": 0.10237402649774432,
+      "mse": 0.00028941649600821017,
+      "rmse": 0.017012245472253513,
+      "max_abs_error": 0.08661961555480957
+    },
+    "spatial_100": {
+      "top_1_percent_share_squared_error": 0.6039449546526926,
+      "mse": 5.29295990677979e-05,
+      "rmse": 0.007275273126680393,
+      "max_abs_error": 0.31740688998252153
+    },
+    "local_range": {
+      "top_1_percent_share_squared_error": 0.2786294103028278,
+      "mse": 0.0030239588158723434,
+      "rmse": 0.05499053387513476,
+      "max_abs_error": 0.8968743681907654
+    }
+  }
+}

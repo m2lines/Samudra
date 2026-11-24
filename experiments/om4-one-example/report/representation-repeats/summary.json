@@ -1,0 +1,66 @@
+{
+  "seeds": {
+    "15": {
+      "absolute_random": {
+        "eval_mse": 0.00030953975510783494,
+        "highpass_mse": 0.0003957397711928934,
+        "eval_mse_improvement": 1.0,
+        "highpass_mse_improvement": 1.0
+      },
+      "same_slot_zero": {
+        "eval_mse": 2.9538001399487257e-05,
+        "highpass_mse": 3.5416698665358126e-05,
+        "eval_mse_improvement": 10.479373703097195,
+        "highpass_mse_improvement": 11.173818738220664
+      },
+      "latest_zero": {
+        "eval_mse": 2.021422733378131e-05,
+        "highpass_mse": 2.3471260647056624e-05,
+        "eval_mse_improvement": 15.312964972474754,
+        "highpass_mse_improvement": 16.86060996653456
+      }
+    },
+    "16": {
+      "absolute_random": {
+        "eval_mse": 0.00033891783095896244,
+        "highpass_mse": 0.0004388202796690166,
+        "eval_mse_improvement": 1.0,
+        "highpass_mse_improvement": 1.0
+      },
+      "same_slot_zero": {
+        "eval_mse": 4.915039608022198e-05,
+        "highpass_mse": 6.188002589624375e-05,
+        "eval_mse_improvement": 6.895525936470373,
+        "highpass_mse_improvement": 7.091468907993038
+      },
+      "latest_zero": {
+        "eval_mse": 3.1375515391118824e-05,
+        "highpass_mse": 3.743808701983653e-05,
+        "eval_mse_improvement": 10.801984500783588,
+        "highpass_mse_improvement": 11.721226018746849
+      }
+    },
+    "17": {
+      "absolute_random": {
+        "eval_mse": 0.00042967009358108044,
+        "highpass_mse": 0.0005143404705449939,
+        "eval_mse_improvement": 1.0,
+        "highpass_mse_improvement": 1.0
+      },
+      "same_slot_zero": {
+        "eval_mse": 2.554196362325456e-05,
+        "highpass_mse": 3.078971349168569e-05,
+        "eval_mse_improvement": 16.82212456014499,
+        "highpass_mse_improvement": 16.704945003268186
+      },
+      "latest_zero": {
+        "eval_mse": 2.0397650587256067e-05,
+        "highpass_mse": 2.3899407096905634e-05,
+        "eval_mse_improvement": 21.064685452035707,
+        "highpass_mse_improvement": 21.52105566717544
+      }
+    }
+  },
+  "validation": "Matched within-seed backbone hashes, distinct between seeds; same targets/masks; all 5000 updates; raw-map MSE independently reproduced in FP64.",
+  "scope": "Three random initializations, one training example; no independent validation data."
+}

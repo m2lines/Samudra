@@ -1,0 +1,65 @@
+{
+  "contexts": {
+    "seed15_oct": {
+      "weight_0": {
+        "total_state_mse": 1.4296731155944617e-06,
+        "contribution_to_state_mse": {
+          "interior": 1.1753291664482978e-06,
+          "stencil_invalid_wet_cells": 2.543439491461637e-07
+        },
+        "stencil_invalid_error_fraction": 0.1779035685653268,
+        "mean_per_channel_fraction_wet_stencil_invalid": 0.10534553030585601
+      },
+      "weight_100": {
+        "total_state_mse": 1.228541870016572e-06,
+        "contribution_to_state_mse": {
+          "interior": 1.1832211382269568e-07,
+          "stencil_invalid_wet_cells": 1.1102197561938762e-06
+        },
+        "stencil_invalid_error_fraction": 0.9036889855279415,
+        "mean_per_channel_fraction_wet_stencil_invalid": 0.10534553030585601
+      }
+    },
+    "seed16_oct": {
+      "weight_0": {
+        "total_state_mse": 1.2375837873565127e-06,
+        "contribution_to_state_mse": {
+          "interior": 1.0177376462283467e-06,
+          "stencil_invalid_wet_cells": 2.198461411281659e-07
+        },
+        "stencil_invalid_error_fraction": 0.17764141981672105,
+        "mean_per_channel_fraction_wet_stencil_invalid": 0.10534553030585601
+      },
+      "weight_100": {
+        "total_state_mse": 1.09820397957757e-06,
+        "contribution_to_state_mse": {
+          "interior": 1.204018898761247e-07,
+          "stencil_invalid_wet_cells": 9.778020897014452e-07
+        },
+        "stencil_invalid_error_fraction": 0.8903647299453076,
+        "mean_per_channel_fraction_wet_stencil_invalid": 0.10534553030585601
+      }
+    },
+    "seed15_jan": {
+      "weight_0": {
+        "total_state_mse": 1.2235209452712643e-06,
+        "contribution_to_state_mse": {
+          "interior": 1.010986716747803e-06,
+          "stencil_invalid_wet_cells": 2.1253422852346125e-07
+        },
+        "stencil_invalid_error_fraction": 0.17370706185691062,
+        "mean_per_channel_fraction_wet_stencil_invalid": 0.10534553030585601
+      },
+      "weight_100": {
+        "total_state_mse": 1.1479392375408197e-06,
+        "contribution_to_state_mse": {
+          "interior": 1.1282247839237755e-07,
+          "stencil_invalid_wet_cells": 1.0351167591484419e-06
+        },
+        "stencil_invalid_error_fraction": 0.9017173777994796,
+        "mean_per_channel_fraction_wet_stencil_invalid": 0.10534553030585601
+      }
+    }
+  },
+  "definition": "Exact additive partition of the existing equal-channel wet-cell MSE. Interior requires all four neighbors wet and excludes latitude endpoints; the other category is the remaining wet cells, not land. No causal attribution follows from this partition."
+}

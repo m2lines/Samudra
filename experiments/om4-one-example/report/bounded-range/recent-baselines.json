@@ -1,0 +1,570 @@
+[
+  {
+    "id": "h9lh3c0a",
+    "name": "current-1deg-mse-seed15-214293",
+    "state": "finished",
+    "url": "https://wandb.ai/ocean_emulators/default/runs/h9lh3c0a",
+    "created_at": "2026-10-18T13:00:18Z",
+    "config": {
+      "data": {
+        "loading": {
+          "type": "rust",
+          "prefetch_batches": 2,
+          "prefetch_to_device": true,
+          "max_concurrent_reads": 8
+        },
+        "sources": [
+          {
+            "type": "om4",
+            "val_time": {
+              "end": "2014-10-05",
+              "start": "2013-10-05"
+            },
+            "grid_type": "gaussian",
+            "train_time": {
+              "end": "2013-10-05",
+              "start": "1975-01-03"
+            },
+            "data_location": "OM4.zarr",
+            "inference_times": [
+              {
+                "end": "2022-12-24",
+                "start": "2014-10-10"
+              }
+            ],
+            "boundary_vars_key": "tau_hfds",
+            "data_stds_location": "OM4_stds.zarr",
+            "data_means_location": "OM4_means.zarr",
+            "prognostic_vars_key": "thermo_dynamic_all"
+          }
+        ],
+        "input_steps": 2,
+        "output_steps": 2,
+        "loader_version": "om4-torch",
+        "inference_loading": {
+          "num_workers": 4,
+          "persistent_workers": true
+        },
+        "masked_fill_value": 0,
+        "normalize_before_mask": true
+      },
+      "loss": "mse",
+      "debug": false,
+      "model": {
+        "pad": "circular",
+        "unet": {
+          "ch_width": [
+            280,
+            380,
+            480,
+            520
+          ],
+          "dilation": [
+            1,
+            2,
+            4,
+            8
+          ],
+          "n_layers": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "core_block": {
+            "norm": "instance",
+            "activation": "capped_gelu",
+            "block_type": "conv_next_block",
+            "kernel_size": 3,
+            "upscale_factor": 2,
+            "pointwise_linear": false
+          },
+          "drop_path_rate": 0,
+          "up_sampling_block": "zonally_periodic_upsample",
+          "down_sampling_block": "avg_pool",
+          "stochastic_depth_rate": 0
+        },
+        "pos_channels": 0,
+        "use_bfloat16": true,
+        "checkpointing": "all",
+        "pred_residuals": false,
+        "last_kernel_size": 3,
+        "add_3d_coordinates": false,
+        "gradient_detach_interval": 0
+      },
+      "steps": [
+        4
+      ],
+      "epochs": 70,
+      "backend": "nccl",
+      "finetune": false,
+      "profiler": {
+        "cuda_snapshot_frequency": null
+      },
+      "disk_mode": true,
+      "ema_decay": 0.999,
+      "save_freq": 5,
+      "scheduler": {
+        "type": "cosine",
+        "target_epochs": null
+      },
+      "batch_size": 4,
+      "experiment": {
+        "rand_seed": 15
+      },
+      "data_stride": [
+        1
+      ],
+      "preemptible": false,
+      "learning_rate": 0.0006,
+      "test_using_ema": true,
+      "step_transition": [],
+      "inference_epochs": [],
+      "resume_ckpt_path": null,
+      "rollout_validation": {
+        "days": [
+          360
+        ],
+        "frequency": 1,
+        "model_steps": -1,
+        "steps_forward": 1
+      },
+      "delayed_loss_estimate": false,
+      "faster_decay_at_start": true,
+      "validation_image_log_freq": 10,
+      "gradient_accumulation_steps": 2,
+      "checkpoint_validation_metric": "rollout_rmse"
+    },
+    "completed_epoch": 70,
+    "last_360d_normalized_rmse": 0.29978212801183624
+  },
+  {
+    "id": "dkya8d2t",
+    "name": "current-1deg-control-seed17-torch-native1x1",
+    "state": "finished",
+    "url": "https://wandb.ai/ocean_emulators/default/runs/dkya8d2t",
+    "created_at": "2026-10-10T14:32:50Z",
+    "config": {
+      "data": {
+        "loading": {
+          "type": "rust",
+          "prefetch_batches": 2,
+          "prefetch_to_device": true,
+          "max_concurrent_reads": 8
+        },
+        "sources": [
+          {
+            "type": "om4",
+            "val_time": {
+              "end": "2014-10-05",
+              "start": "2013-10-05"
+            },
+            "grid_type": "gaussian",
+            "train_time": {
+              "end": "2013-10-05",
+              "start": "1975-01-03"
+            },
+            "data_location": "OM4.zarr",
+            "inference_times": [
+              {
+                "end": "2022-12-24",
+                "start": "2014-10-10"
+              }
+            ],
+            "boundary_vars_key": "tau_hfds",
+            "data_stds_location": "OM4_stds.zarr",
+            "data_means_location": "OM4_means.zarr",
+            "prognostic_vars_key": "thermo_dynamic_all"
+          }
+        ],
+        "input_steps": 2,
+        "output_steps": 2,
+        "loader_version": "om4-torch",
+        "inference_loading": {
+          "num_workers": 4,
+          "persistent_workers": true
+        },
+        "masked_fill_value": 0,
+        "normalize_before_mask": true
+      },
+      "loss": {
+        "type": "dynamic",
+        "limit": 20,
+        "metric": "mse"
+      },
+      "debug": false,
+      "model": {
+        "pad": "circular",
+        "unet": {
+          "ch_width": [
+            280,
+            380,
+            480,
+            520
+          ],
+          "dilation": [
+            1,
+            2,
+            4,
+            8
+          ],
+          "n_layers": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "core_block": {
+            "norm": "instance",
+            "activation": "capped_gelu",
+            "block_type": "conv_next_block",
+            "kernel_size": 3,
+            "upscale_factor": 2,
+            "pointwise_linear": false
+          },
+          "drop_path_rate": 0,
+          "up_sampling_block": "zonally_periodic_upsample",
+          "down_sampling_block": "avg_pool",
+          "stochastic_depth_rate": 0
+        },
+        "pos_channels": 0,
+        "use_bfloat16": true,
+        "checkpointing": "all",
+        "pred_residuals": false,
+        "last_kernel_size": 3,
+        "add_3d_coordinates": false,
+        "gradient_detach_interval": 0
+      },
+      "steps": [
+        4
+      ],
+      "epochs": 70,
+      "backend": "nccl",
+      "finetune": false,
+      "profiler": {
+        "cuda_snapshot_frequency": null
+      },
+      "disk_mode": true,
+      "ema_decay": 0.999,
+      "save_freq": 5,
+      "scheduler": {
+        "type": "cosine",
+        "target_epochs": null
+      },
+      "batch_size": 2,
+      "experiment": {
+        "rand_seed": 17
+      },
+      "data_stride": [
+        1
+      ],
+      "preemptible": false,
+      "learning_rate": 0.0006,
+      "test_using_ema": true,
+      "step_transition": [],
+      "inference_epochs": [],
+      "resume_ckpt_path": null,
+      "rollout_validation": {
+        "days": [
+          360
+        ],
+        "frequency": 1,
+        "model_steps": -1,
+        "steps_forward": 1
+      },
+      "delayed_loss_estimate": false,
+      "faster_decay_at_start": true,
+      "validation_image_log_freq": 10,
+      "gradient_accumulation_steps": 2,
+      "checkpoint_validation_metric": "rollout_rmse"
+    },
+    "completed_epoch": 70,
+    "last_360d_normalized_rmse": 0.2862636295513029
+  },
+  {
+    "id": "rzp661ov",
+    "name": "current-1deg-control-seed16-torch-native1x1",
+    "state": "finished",
+    "url": "https://wandb.ai/ocean_emulators/default/runs/rzp661ov",
+    "created_at": "2026-10-10T07:07:47Z",
+    "config": {
+      "data": {
+        "loading": {
+          "type": "rust",
+          "prefetch_batches": 2,
+          "prefetch_to_device": true,
+          "max_concurrent_reads": 8
+        },
+        "sources": [
+          {
+            "type": "om4",
+            "val_time": {
+              "end": "2014-10-05",
+              "start": "2013-10-05"
+            },
+            "grid_type": "gaussian",
+            "train_time": {
+              "end": "2013-10-05",
+              "start": "1975-01-03"
+            },
+            "data_location": "OM4.zarr",
+            "inference_times": [
+              {
+                "end": "2022-12-24",
+                "start": "2014-10-10"
+              }
+            ],
+            "boundary_vars_key": "tau_hfds",
+            "data_stds_location": "OM4_stds.zarr",
+            "data_means_location": "OM4_means.zarr",
+            "prognostic_vars_key": "thermo_dynamic_all"
+          }
+        ],
+        "input_steps": 2,
+        "output_steps": 2,
+        "loader_version": "om4-torch",
+        "inference_loading": {
+          "num_workers": 4,
+          "persistent_workers": true
+        },
+        "masked_fill_value": 0,
+        "normalize_before_mask": true
+      },
+      "loss": {
+        "type": "dynamic",
+        "limit": 20,
+        "metric": "mse"
+      },
+      "debug": false,
+      "model": {
+        "pad": "circular",
+        "unet": {
+          "ch_width": [
+            280,
+            380,
+            480,
+            520
+          ],
+          "dilation": [
+            1,
+            2,
+            4,
+            8
+          ],
+          "n_layers": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "core_block": {
+            "norm": "instance",
+            "activation": "capped_gelu",
+            "block_type": "conv_next_block",
+            "kernel_size": 3,
+            "upscale_factor": 2,
+            "pointwise_linear": false
+          },
+          "drop_path_rate": 0,
+          "up_sampling_block": "zonally_periodic_upsample",
+          "down_sampling_block": "avg_pool",
+          "stochastic_depth_rate": 0
+        },
+        "pos_channels": 0,
+        "use_bfloat16": true,
+        "checkpointing": "all",
+        "pred_residuals": false,
+        "last_kernel_size": 3,
+        "add_3d_coordinates": false,
+        "gradient_detach_interval": 0
+      },
+      "steps": [
+        4
+      ],
+      "epochs": 70,
+      "backend": "nccl",
+      "finetune": false,
+      "profiler": {
+        "cuda_snapshot_frequency": null
+      },
+      "disk_mode": true,
+      "ema_decay": 0.999,
+      "save_freq": 5,
+      "scheduler": {
+        "type": "cosine",
+        "target_epochs": null
+      },
+      "batch_size": 2,
+      "experiment": {
+        "rand_seed": 16
+      },
+      "data_stride": [
+        1
+      ],
+      "preemptible": false,
+      "learning_rate": 0.0006,
+      "test_using_ema": true,
+      "step_transition": [],
+      "inference_epochs": [],
+      "resume_ckpt_path": null,
+      "rollout_validation": {
+        "days": [
+          360
+        ],
+        "frequency": 1,
+        "model_steps": -1,
+        "steps_forward": 1
+      },
+      "delayed_loss_estimate": false,
+      "faster_decay_at_start": true,
+      "validation_image_log_freq": 10,
+      "gradient_accumulation_steps": 2,
+      "checkpoint_validation_metric": "rollout_rmse"
+    },
+    "completed_epoch": 70,
+    "last_360d_normalized_rmse": 0.28825130085840345
+  },
+  {
+    "id": "uaei2vbr",
+    "name": "current-1deg-control-ga2-210664",
+    "state": "finished",
+    "url": "https://wandb.ai/ocean_emulators/default/runs/uaei2vbr",
+    "created_at": "2026-10-07T16:31:01Z",
+    "config": {
+      "data": {
+        "loading": {
+          "type": "rust",
+          "prefetch_batches": 2,
+          "prefetch_to_device": true,
+          "max_concurrent_reads": 8
+        },
+        "sources": [
+          {
+            "type": "om4",
+            "val_time": {
+              "end": "2014-10-05",
+              "start": "2013-10-05"
+            },
+            "grid_type": "gaussian",
+            "train_time": {
+              "end": "2013-10-05",
+              "start": "1975-01-03"
+            },
+            "data_location": "OM4.zarr",
+            "inference_times": [
+              {
+                "end": "2022-12-24",
+                "start": "2014-10-10"
+              }
+            ],
+            "boundary_vars_key": "tau_hfds",
+            "data_stds_location": "OM4_stds.zarr",
+            "data_means_location": "OM4_means.zarr",
+            "prognostic_vars_key": "thermo_dynamic_all"
+          }
+        ],
+        "input_steps": 2,
+        "output_steps": 2,
+        "loader_version": "om4-torch",
+        "inference_loading": {
+          "num_workers": 4,
+          "persistent_workers": true
+        },
+        "masked_fill_value": 0,
+        "normalize_before_mask": true
+      },
+      "loss": {
+        "type": "dynamic",
+        "limit": 20,
+        "metric": "mse"
+      },
+      "debug": false,
+      "model": {
+        "pad": "circular",
+        "unet": {
+          "ch_width": [
+            280,
+            380,
+            480,
+            520
+          ],
+          "dilation": [
+            1,
+            2,
+            4,
+            8
+          ],
+          "n_layers": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "core_block": {
+            "norm": "instance",
+            "activation": "capped_gelu",
+            "block_type": "conv_next_block",
+            "kernel_size": 3,
+            "upscale_factor": 2,
+            "pointwise_linear": false
+          },
+          "drop_path_rate": 0,
+          "up_sampling_block": "zonally_periodic_upsample",
+          "down_sampling_block": "avg_pool",
+          "stochastic_depth_rate": 0
+        },
+        "pos_channels": 0,
+        "use_bfloat16": true,
+        "checkpointing": "all",
+        "pred_residuals": false,
+        "last_kernel_size": 3,
+        "add_3d_coordinates": false,
+        "gradient_detach_interval": 0
+      },
+      "steps": [
+        4
+      ],
+      "epochs": 70,
+      "backend": "nccl",
+      "finetune": false,
+      "profiler": {
+        "cuda_snapshot_frequency": null
+      },
+      "disk_mode": true,
+      "ema_decay": 0.999,
+      "save_freq": 5,
+      "scheduler": {
+        "type": "cosine",
+        "target_epochs": null
+      },
+      "batch_size": 4,
+      "experiment": {
+        "rand_seed": 15
+      },
+      "data_stride": [
+        1
+      ],
+      "preemptible": false,
+      "learning_rate": 0.0006,
+      "test_using_ema": true,
+      "step_transition": [],
+      "inference_epochs": [],
+      "resume_ckpt_path": null,
+      "rollout_validation": {
+        "days": [
+          360
+        ],
+        "frequency": 1,
+        "model_steps": -1,
+        "steps_forward": 1
+      },
+      "delayed_loss_estimate": false,
+      "faster_decay_at_start": true,
+      "validation_image_log_freq": 10,
+      "gradient_accumulation_steps": 2,
+      "checkpoint_validation_metric": "rollout_rmse"
+    },
+    "completed_epoch": 70,
+    "last_360d_normalized_rmse": 0.2855368436111012
+  }
+]

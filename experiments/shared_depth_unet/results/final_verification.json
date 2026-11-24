@@ -1,0 +1,19 @@
+{
+  "checkpoint_forward_max_abs_difference": {
+    "independent": 0.0,
+    "shared": 0.0,
+    "shared_context": 0.0,
+    "independent_context": 0.0
+  },
+  "current_source_checks": {
+    "solver_timestep_halving_rmse": 6.9785965024493635e-06,
+    "enstrophy_decay": true,
+    "mean_vorticity_conserved": true,
+    "restriction_alignment": true,
+    "zero_mean_detail": true,
+    "identity_initialization": true,
+    "finite_backward": true,
+    "parameter_sharing": true,
+    "crop_core_max_abs_error": 4.76837158203125e-07
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "solver_timestep_halving_rmse": 6.9785965024493635e-06,
+  "enstrophy_decay": true,
+  "mean_vorticity_conserved": true,
+  "restriction_alignment": true,
+  "zero_mean_detail": true,
+  "identity_initialization": true,
+  "finite_backward": true,
+  "parameter_sharing": true,
+  "crop_core_max_abs_error": 4.76837158203125e-07
+}

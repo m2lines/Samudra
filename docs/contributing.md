@@ -59,12 +59,12 @@ git push --force-with-lease
    cd Samudra
    ```
 
-   <details markdown>
+   <details>
    <summary>Why <code>--filter=blob:none</code>?</summary>
 
    Old commits contain large files, mostly about 240 MB of evaluation GIFs that were later deleted, so a
    full clone downloads far more than the current code. A blobless clone still fetches every commit, so
-   history, hashes, and `git log` work as usual, but it downloads old file contents only when you need
+   history, hashes, and <code>git log</code> work as usual, but it downloads old file contents only when you need
    them (for example, when you check out an old commit). We don't rewrite history to remove these files
    because W&B runs and data releases record commit hashes.
 

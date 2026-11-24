@@ -380,6 +380,10 @@ These hold for any correct dataset, pipeline, or model. They make good **metamor
 way whose effect on the output is known, and check for that effect. No ground-truth answers are needed. Violations of
 the cross-resolution invariants have caught real data-engineering bugs in this project.
 
+`samudra.invariants` implements these as pure functions that return a list of violations, so you can run them on your
+own data or model output. [Invariants](../invariants.md) shows how. The data pipeline's property tests
+(`data/tests/test_*_properties.py`) and the audits of the published stores (`data/tests/test_om4_live.py`) use them.
+
 ### Across resolutions
 
 * **Linear integrals are conserved.** Conservative regridding preserves area integrals by construction, and so do

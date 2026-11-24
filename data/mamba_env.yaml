@@ -33,6 +33,11 @@ dependencies:
     - distributed
     - pip
     - pip:
-      - -e ..  # shared Samudra routines from this checkout
+      # conda passes these lines to pip as a requirements file, so an option line
+      # works. With the CPU index alongside PyPI, pip prefers torch's +cpu build
+      # (a local version sorts above the plain one), so Torch HPC and the DTN don't
+      # pull the CUDA wheels as samudra's dependency.
+      - --extra-index-url https://download.pytorch.org/whl/cpu
+      - -e ..  # samudra: the ocean-physics invariants and shared observation routines
       - -e .[observations]  # local sources
       - -e ../verification  # samudra_verification, which data/tests/conftest.py imports

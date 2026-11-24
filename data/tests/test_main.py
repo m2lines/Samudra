@@ -11,7 +11,7 @@ import ocean_preprocessing.__main__ as main
 import pytest
 import xarray as xr
 from numcodecs import Blosc
-from ocean_preprocessing.__main__ import CLI
+from ocean_preprocessing.__main__ import CLI, recorded_arguments
 
 
 def test_clusterless_dry_run_computes_without_a_client(tmp_path):
@@ -186,3 +186,21 @@ def test_observation_writer_emits_zarr_v2(tmp_path):
     assert not (output / "zarr.json").exists()
     with xr.open_zarr(output) as actual:
         xr.testing.assert_identical(actual.load(), source)
+
+
+def test_recorded_arguments_drop_flags_in_either_form_and_keep_the_rest():
+    recorded = (
+        "/opt/ocean_preprocessing/__main__.py om4 --output_path /scratch/a.zarr "
+        "--cluster=slurm --skip_spatial_filtering --n-workers 8 --output_pathology=x"
+    )
+
+    kept = recorded_arguments(
+        recorded, frozenset({"output_path", "cluster", "n_workers"})
+    )
+
+    assert kept == ["om4", "--skip_spatial_filtering", "--output_pathology=x"]
+
+
+def test_recorded_arguments_refuse_a_dropped_flag_without_a_value():
+    with pytest.raises(ValueError, match="--cluster"):
+        recorded_arguments("main.py --cluster --small_run", frozenset({"cluster"}))

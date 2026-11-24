@@ -357,13 +357,15 @@ def test_direct_era5_preserves_all_fields_and_matches_processor_across_initializ
             value, large.evolution.state_dict()[key], rtol=0, atol=0
         )
     inputs = example()
-    assert small.forcing(inputs[1], "om4-family") is inputs[1]
-    assert small.forcing(inputs[1], "observation") is inputs[1]
-    assert isinstance(small.adapter, nn.Identity)
-    atmosphere = inputs[1].clone().requires_grad_()
-    forecast, _ = small.forecast(inputs[0], atmosphere, *inputs[2:], task="om4-family")
+    for domain in ("om4-family", "observation"):
+        torch.testing.assert_close(
+            small.encode_forcing(inputs[1], domain), inputs[1], rtol=0, atol=0
+        )
+    assert not list(small.forcing_encoders.parameters())
+    forcing = inputs[1].clone().requires_grad_()
+    forecast, _ = small.forecast(inputs[0], forcing, *inputs[2:], domain="om4-family")
     forecast.square().mean().backward()
-    assert atmosphere.grad is not None
-    assert (atmosphere.grad.abs().sum((0, 1, 3, 4)) > 0).all()
+    assert forcing.grad is not None
+    assert (forcing.grad.abs().sum((0, 1, 3, 4)) > 0).all()
     with pytest.raises(ValueError):
-        small.forcing(atmosphere[:, :, :3], "om4-family")
+        small.encode_forcing(forcing[:, :, :3], "om4-family")

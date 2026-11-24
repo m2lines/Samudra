@@ -146,7 +146,7 @@ def data_parity(data: Samples, models: Mapping[str, ModelMonths]) -> dict[str, A
         daily = data.trajectory(month, target_month=month)
         for key in (
             "surface",
-            "atmosphere",
+            "forcing",
             "contexts",
             "validity",
             "interior",

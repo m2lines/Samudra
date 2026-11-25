@@ -24,7 +24,7 @@ from samudra_verification.profiles import (
 import samudra.constants as c
 from samudra.config import Om4DataSourceConfig, TrainBackendConfig, TrainConfig
 from samudra.train import Trainer
-from samudra.utils.data import CanonicalSource, Masks, compact_dataset
+from samudra.utils.data import CanonicalSource, Masks, SourceTree, compact_dataset
 from samudra.utils.multiton import MultitonScope
 
 configure_profiles(default_profile="unit")
@@ -61,8 +61,13 @@ def canonicalize_mock_om4(
         prognostic_vars_key="thermo_dynamic_all",
         boundary_vars_key="hfds",
     )
-    canonical_data, canonical_means, canonical_stds, _ = (
-        canonicalizer.canonicalize_datasets(data, means, stds)
+    canonical, _ = canonicalizer.canonicalize_datasets(
+        SourceTree.from_datasets(data, means=means, stds=stds)
+    )
+    canonical_data, canonical_means, canonical_stds = (
+        canonical.data,
+        canonical.means,
+        canonical.stds,
     )
     return canonical_data, canonical_means, canonical_stds
 

@@ -18,6 +18,7 @@ from jaxtyping import Bool, Int
 
 if TYPE_CHECKING:
     from samudra.config import TimeConfig
+    from samudra.utils.location import ResolvedLocation
 
 from samudra.constants import (
     BatchTimeSeriesOutput,
@@ -103,6 +104,89 @@ class ChannelStatistics:
 
     mean: np.ndarray
     std: np.ndarray
+
+
+REQUIRED_STATISTICS = ("means", "stds")
+
+
+@dataclasses.dataclass(frozen=True)
+class SourceTree:
+    """A source's data and its statistics, opened together as one DataTree.
+
+    The root node holds the data. Each child node holds one statistic of that
+    data (``means`` and ``stds``, which every source has, and any optional
+    ones), with one variable per field like the data's. The stores stay
+    separate on disk; the tree only groups them, and xarray checks that every
+    node agrees with the data on shared dimensions and coordinates.
+
+    A source config opens and canonicalizes its tree; the canonical reader is
+    then built from the tree's data and statistics as before.
+    """
+
+    tree: xr.DataTree
+
+    def __post_init__(self) -> None:
+        missing = set(REQUIRED_STATISTICS).difference(self.tree.children)
+        if missing:
+            raise ValueError(f"Source tree is missing statistics: {sorted(missing)}")
+
+    @classmethod
+    def from_datasets(cls, data: xr.Dataset, **statistics: xr.Dataset) -> Self:
+        """Group in-memory datasets; each keyword names one statistic."""
+        return cls(
+            xr.DataTree.from_dict(
+                {"/": data, **{f"/{name}": ds for name, ds in statistics.items()}}
+            )
+        )
+
+    @classmethod
+    def open(
+        cls,
+        data: "ResolvedLocation",
+        statistics: Mapping[str, "ResolvedLocation"],
+        chunks: dict[str, int] | None,
+    ) -> Self:
+        """Open the data store and one store per statistic."""
+        return cls.from_datasets(
+            data.open(chunks),
+            **{name: location.open(chunks) for name, location in statistics.items()},
+        )
+
+    @property
+    def data(self) -> xr.Dataset:
+        return self.tree.to_dataset(inherit=False)
+
+    @property
+    def statistic_names(self) -> tuple[str, ...]:
+        return tuple(self.tree.children)
+
+    def statistic(self, name: str) -> xr.Dataset:
+        if name not in self.tree.children:
+            raise KeyError(
+                f"No {name!r} statistics; this source has {list(self.tree.children)}"
+            )
+        # A child shares the root's index coordinates (e.g. ``lev``) rather
+        # than storing its own copy, so inherit them, but keep only those on
+        # this statistic's own dimensions: means carry no time or lat/lon.
+        dataset = self.tree.children[name].to_dataset(inherit=True)
+        own_dims = {dim for var in dataset.data_vars.values() for dim in var.dims}
+        foreign = [
+            coord
+            for coord, value in dataset.coords.items()
+            if not set(value.dims) <= own_dims
+        ]
+        return dataset.drop_vars(foreign)
+
+    @property
+    def means(self) -> xr.Dataset:
+        return self.statistic("means")
+
+    @property
+    def stds(self) -> xr.Dataset:
+        return self.statistic("stds")
+
+    def statistics(self) -> dict[str, xr.Dataset]:
+        return {name: self.statistic(name) for name in self.statistic_names}
 
 
 class CanonicalReader(Protocol):
@@ -196,6 +280,11 @@ class XarrayCanonicalReader:
                 f"stds={sorted(missing_stds)}"
             )
         return cls(data, means[list(channels)], stds[list(channels)], channels)
+
+    @classmethod
+    def from_source_tree(cls, source: SourceTree, channels: tuple[str, ...]) -> Self:
+        """Read a canonical source tree's data, means and stds."""
+        return cls.from_datasets(source.data, source.means, source.stds, channels)
 
     @cached_property
     def channel_variables(self) -> dict[str, tuple[str, int | None]]:

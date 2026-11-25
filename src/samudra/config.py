@@ -13,7 +13,6 @@ import numpy as np
 import pandas as pd
 import pydantic
 import torch
-import xarray as xr
 from pydantic import (
     Field,
     PlainSerializer,
@@ -65,6 +64,7 @@ from samudra.utils.data import (
     CanonicalSource,
     DataBundle,
     SourceSplits,
+    SourceTree,
     XarrayCanonicalReader,
     compute_anomalies,
     expand_compact_levels,
@@ -80,6 +80,7 @@ from samudra.utils.location import (
     Location,
     ResolvedLocation,
     UnresolvedLocation,
+    sibling_location,
 )
 from samudra.utils.loss import (
     DynamicLoss,
@@ -265,11 +266,21 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
     data_location: Location = Field(
         description="Location of the data; " + LOCATION_DOCS
     )
-    data_means_location: Location = Field(
-        description="Location of the data means; " + LOCATION_DOCS
+    data_means_location: Location | None = Field(
+        default=None,
+        description=(
+            "Location of the data means. Defaults to the source type's naming "
+            "convention (for OM4 and CM4, ``<stem>_means.zarr`` beside the data); "
+            + LOCATION_DOCS
+        ),
     )
-    data_stds_location: Location = Field(
-        description="Location of the data standard deviations; " + LOCATION_DOCS
+    data_stds_location: Location | None = Field(
+        default=None,
+        description=(
+            "Location of the data standard deviations. Defaults to the source "
+            "type's naming convention (for OM4 and CM4, ``<stem>_stds.zarr`` "
+            "beside the data); " + LOCATION_DOCS
+        ),
     )
 
     @abc.abstractmethod
@@ -277,12 +288,32 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
+    def default_statistic_location(self, statistic: str) -> Location:
+        """Where this source type keeps ``statistic`` when not configured."""
+        raise NotImplementedError
+
+    @pydantic.model_validator(mode="after")
+    def fill_statistic_locations(self) -> Self:
+        """Apply the naming convention now, so a saved config records the stores."""
+        if self.data_means_location is None:
+            self.data_means_location = self.default_statistic_location("means")
+        if self.data_stds_location is None:
+            self.data_stds_location = self.default_statistic_location("stds")
+        return self
+
+    def statistic_locations(self) -> dict[str, Location]:
+        """The store of each statistic, by statistic name."""
+        locations = {"means": self.data_means_location, "stds": self.data_stds_location}
+        unset = [name for name, location in locations.items() if location is None]
+        if unset:
+            raise ValueError(f"Statistics locations are unset: {unset}")
+        return {name: location for name, location in locations.items() if location}
+
+    @abc.abstractmethod
     def canonicalize_datasets(
-        self,
-        data: xr.Dataset,
-        means: xr.Dataset,
-        stds: xr.Dataset,
-    ) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset, DataLayout]:
+        self, source: SourceTree
+    ) -> tuple[SourceTree, DataLayout]:
+        """Put the data and every statistic in canonical channel form."""
         raise NotImplementedError
 
     def build(
@@ -325,31 +356,29 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
         source_backend: "TrainingSourceBackend",
     ) -> CanonicalSource:
         resolved_data_location = data_root.resolve(self.data_location)
-        resolved_means_location = data_root.resolve(self.data_means_location)
-        resolved_stds_location = data_root.resolve(self.data_stds_location)
+        resolved_statistics = {
+            name: data_root.resolve(location)
+            for name, location in self.statistic_locations().items()
+        }
 
         source_backend.validate_source(
             data_location=resolved_data_location,
-            means_location=resolved_means_location,
-            stds_location=resolved_stds_location,
+            means_location=resolved_statistics["means"],
+            stds_location=resolved_statistics["stds"],
             source_type=self.type,
             data_layout=self.build_layout(),
         )
         chunks: dict[str, int] | None = {} if turn_on_dask else None
-        data = resolved_data_location.open(chunks)
-        means = resolved_means_location.open(chunks)
-        stds = resolved_stds_location.open(chunks)
-        data, means, stds, data_layout = self.canonicalize_datasets(
-            data,
-            means,
-            stds,
+        source_tree, data_layout = self.canonicalize_datasets(
+            SourceTree.open(resolved_data_location, resolved_statistics, chunks)
         )
+        data = source_tree.data
         channels = tuple(
             dict.fromkeys(
                 (*data_layout.prognostic_var_names, *data_layout.boundary_var_names)
             )
         )
-        xarray_reader = XarrayCanonicalReader.from_datasets(data, means, stds, channels)
+        xarray_reader = XarrayCanonicalReader.from_source_tree(source_tree, channels)
         reader: CanonicalReader = xarray_reader
         if not turn_on_dask:
             reader = source_backend.build_reader(
@@ -523,31 +552,35 @@ class Om4FamilyDataSourceConfig[Om4FamilyTimeConfigT: Om4TimeConfig | Cm4TimeCon
             grid_type=self.grid_type,
         )
 
+    def default_statistic_location(self, statistic: str) -> Location:
+        return sibling_location(self.data_location, statistic)
+
     def canonicalize_datasets(
-        self,
-        data: xr.Dataset,
-        means: xr.Dataset,
-        stds: xr.Dataset,
-    ) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset, DataLayout]:
+        self, source: SourceTree
+    ) -> tuple[SourceTree, DataLayout]:
         """Normalize OM4 coordinates and statistics while retaining compact arrays."""
         data_layout = self.build_layout()
-        data = data.copy()
-        means = means.copy()
-        stds = stds.copy()
-
-        data = with_lat_lon_coords(data)
+        data = with_lat_lon_coords(source.data.copy())
         data = with_level_index_vars(data, depth_levels=data_layout.depth_levels)
-        means = with_level_index_vars(means, depth_levels=data_layout.depth_levels)
-        stds = with_level_index_vars(stds, depth_levels=data_layout.depth_levels)
         data = flatten_masks(data)
+        statistics = {
+            name: with_level_index_vars(
+                dataset.copy(), depth_levels=data_layout.depth_levels
+            )
+            for name, dataset in source.statistics().items()
+        }
 
         anomalies_vars = get_anomalies_vars(data_layout.boundary_var_names)
         if anomalies_vars:
-            data, means, stds = compute_anomalies(data, means, stds, anomalies_vars)
+            data, statistics["means"], statistics["stds"] = compute_anomalies(
+                data, statistics["means"], statistics["stds"], anomalies_vars
+            )
 
-        canonical_means = expand_compact_levels(means)
-        canonical_stds = expand_compact_levels(stds)
-        return data, canonical_means, canonical_stds, data_layout
+        canonical = SourceTree.from_datasets(
+            data,
+            **{name: expand_compact_levels(ds) for name, ds in statistics.items()},
+        )
+        return canonical, data_layout
 
 
 class Om4DataSourceConfig(Om4FamilyDataSourceConfig[Om4TimeConfig]):
@@ -559,13 +592,14 @@ class Cm4DataSourceConfig(Om4FamilyDataSourceConfig[Cm4TimeConfig]):
     boundary_vars_key: str = "tau_hfds_wfo"
 
     def canonicalize_datasets(
-        self, data: xr.Dataset, means: xr.Dataset, stds: xr.Dataset
-    ) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset, DataLayout]:
+        self, source: SourceTree
+    ) -> tuple[SourceTree, DataLayout]:
+        data = source.data
         if data.sizes.get("time", 0) == 0 or getattr(
             data.time.values[0], "calendar", None
         ) not in {"noleap", "365_day"}:
             raise ValueError("CM4 data must use the no-leap calendar")
-        return super().canonicalize_datasets(data, means, stds)
+        return super().canonicalize_datasets(source)
 
 
 class LlcDataSourceConfig(BaseDataSourceConfig[LlcTimeConfig]):
@@ -589,19 +623,24 @@ class LlcDataSourceConfig(BaseDataSourceConfig[LlcTimeConfig]):
     def build_layout(self) -> DataLayout:
         return build_llc_layout(self.prognostic_vars_key, self.boundary_vars_key)
 
+    def default_statistic_location(self, statistic: str) -> Location:
+        # The LLC producer embeds *_mean and *_std arrays in the data store.
+        return self.data_location
+
     def canonicalize_datasets(
-        self,
-        data: xr.Dataset,
-        means: xr.Dataset,
-        stds: xr.Dataset,
-    ) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset, DataLayout]:
-        return canonicalize_llc_datasets(
-            data,
-            means,
-            stds,
+        self, source: SourceTree
+    ) -> tuple[SourceTree, DataLayout]:
+        extra = set(source.statistic_names).difference(("means", "stds"))
+        if extra:
+            raise ValueError(f"LLC sources do not support statistics {sorted(extra)}")
+        data, means, stds, layout = canonicalize_llc_datasets(
+            source.data,
+            source.means,
+            source.stds,
             prognostic_vars_key=self.prognostic_vars_key,
             boundary_vars_key=self.boundary_vars_key,
         )
+        return SourceTree.from_datasets(data, means=means, stds=stds), layout
 
 
 DataSourceConfig = Annotated[
@@ -613,8 +652,9 @@ DataSourceConfig = Annotated[
 class DataConfig(BaseConfig):
     sources: list[DataSourceConfig] = Field(
         description=(
-            "Data sources to include, each with explicit data/means/stds "
-            "locations. These are resolved relative to data_root."
+            "Data sources to include, each with a data location and, by "
+            "default, statistics stores named after it (see "
+            "data_means_location). These are resolved relative to data_root."
         ),
         min_length=1,
     )

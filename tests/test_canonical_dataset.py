@@ -16,6 +16,7 @@ from samudra.datasets import InferenceDataset, TorchTrainDataset, TrainingWindow
 from samudra.utils.data import (
     CanonicalReadRequest,
     CanonicalSource,
+    SourceTree,
     XarrayCanonicalReader,
 )
 from tests.conftest import TEST_DATA_LAYOUT, canonicalize_mock_om4
@@ -349,3 +350,31 @@ def test_read_and_statistics_reject_duplicate_channels(channel):
             source.read(np.array([1, 1]), channels)
         with pytest.raises(ValueError, match="channel names must be unique"):
             source.statistics(channels)
+
+
+def test_source_tree_requires_means_and_stds() -> None:
+    data = xr.Dataset({"zos": ("time", [0.0, 1.0])})
+    with pytest.raises(ValueError, match="missing statistics: \\['stds'\\]"):
+        SourceTree.from_datasets(data, means=xr.Dataset({"zos": 0.5}))
+
+
+def test_source_tree_rejects_statistics_on_another_grid() -> None:
+    # A statistic built for different depth levels must not be paired with
+    # this data: the tree checks shared coordinates across all nodes.
+    data = xr.Dataset({"thetao": ("lev", [1.0, 2.0])}, coords={"lev": [2.5, 10.0]})
+    means = xr.Dataset({"thetao": ("lev", [1.0, 2.0])}, coords={"lev": [2.5, 22.5]})
+    with pytest.raises(ValueError, match="align"):
+        SourceTree.from_datasets(data, means=means, stds=means)
+
+
+def test_source_tree_statistics_keep_their_shared_index_coordinates() -> None:
+    # The tree stores a shared index (here lev) once, on the data; a statistic
+    # must still expose it, but not coordinates of dimensions it lacks.
+    data = xr.Dataset(
+        {"thetao": (("time", "lev"), [[1.0, 2.0]])},
+        coords={"time": [0], "lev": [2.5, 10.0]},
+    )
+    means = xr.Dataset({"thetao": ("lev", [1.0, 2.0])}, coords={"lev": [2.5, 10.0]})
+    tree = SourceTree.from_datasets(data, means=means, stds=means)
+    assert list(tree.means.coords) == ["lev"]
+    xr.testing.assert_identical(tree.means, means)

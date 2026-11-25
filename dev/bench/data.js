@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795631784565,
+  "lastUpdate": 1795643753252,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -14073,6 +14073,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.6968836000268068",
             "extra": "mean: 17.860686098600013 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "e16c303abd77f203c0d0a2b82b9e3109a93ef596",
+          "message": "Open each source's data and statistics as one DataTree (#1045)\n\nOpens each data source's data and statistics together as one\n`xarray.DataTree`, and finds the statistics stores by the release's\nnaming convention. The `CanonicalReader` protocol is unchanged: a source\nconfig opens and canonicalizes its tree, then builds the same reader\nfrom it, which reads exactly as before. This is the first of three PRs:\nthe next adds a training-period climatology as one more statistic\n(replacing load-time `hfds_anomalies` and letting the Rust loader use\nanomalies), and then the Δ-norm PR (#1043) rebases on top with its\nincrement RMS as another statistic. No change to what is read or how.\nWritten by Claude Opus 5.5 (Claude Code).\n\n<details>\n<summary>Design, what changed, and checks</summary>\n\n### Why\n\nA source's data, means and stds are one concern, but the code passed\nthem around as three loose datasets, and every new statistic (Δ-norm's\nincrement RMS, a climatology) needed its own plumbing through configs,\ncanonicalization and readers. Grouping them makes \"a source and all its\nstatistics\" one object.\n\n### Design\n\n- **`SourceTree`** (`utils/data.py`) is a small frozen, typed facade\nover an `xr.DataTree`. The root holds the data; each child holds one\nstatistic (`means` and `stds` are required; later PRs add optional\nones). `SourceTree.open` assembles the tree from separate stores, so\nnothing changes on disk. xarray checks that every node agrees with the\ndata on shared dimensions and coordinates, so a statistics store built\nfor another grid fails at open time.\n- **Naming convention.** `data_means_location` and `data_stds_location`\nare now optional. When omitted, an OM4 or CM4 source uses\n`<stem>_means.zarr` and `<stem>_stds.zarr` beside its data store\n(`sibling_location`, for relative, local and S3 locations), and an LLC\nsource reads them from its data store, where the producer embeds them.\nThe convention is applied when the config is validated, so a saved run\nconfig records the stores actually used. Explicit locations still\noverride, so every existing config loads unchanged (the test configs\nkeep `means.nc` and `stds.nc`).\n- **Canonicalization** takes a `SourceTree` and returns `(SourceTree,\nDataLayout)` for OM4, CM4 and LLC. OM4 and CM4 apply the same\ndepth-level transformation to every statistic in the tree in one pass,\nso a statistic added later needs no new canonicalization code. LLC has\nno statistics beyond means and stds yet, so it rejects any others rather\nthan dropping them.\n- **The reader boundary is unchanged.** `CanonicalReader`,\n`NativeOm4Reader`, `CanonicalSource` and `validate_source` are as on\nmain. `XarrayCanonicalReader` gains one constructor,\n`from_source_tree(tree, channels)`, which passes the tree's data, means\nand stds to the existing `from_datasets`. The source config builds its\nreader with it, so the xarray and Rust readers see exactly what they saw\nbefore.\n\n**One intended behavior change:** the tree requires the data and each\nstatistics store to agree exactly on any index they share (e.g. `lev`)\nand on shared dimension sizes. On main a compact means store with\nslightly different `lev` values, or a different number of levels, was\npaired with the data by position; now it fails at open time. I checked\nthat the real v2026-09 stores (1°, 2° and tripolar snapshots) assemble\ninto a tree without alignment errors: their statistics stores carry no\ncoordinates that could conflict with the data's.\n\n### Tests\n\n- New: the naming convention for relative, local and S3 locations, with\nexplicit overrides winning; LLC defaulting to its data store; a tree\nwithout means or stds is rejected; a statistic on other depth levels is\nrejected. The CM4 loading test now relies on the convention instead of\nlisting its statistics stores.\n- Updated call sites for the new `canonicalize_datasets` signature.\n- From review: derived locations are recorded on the config; a data\nlocation with no name fails at validation; statistics keep shared index\ncoordinates; statistic values and channel order survive with distinct\nmeans and stds.\n- Full CPU suite at the latest commit, with the Rust extra built (`uv\nsync --dev --extra rust`, then `uv run pytest -m \"not manual and not\ncuda\" -n auto`): 923 passed, 2 skipped, 10 xfailed. The Rust loader\ntests (`tests/test_rust_data.py`, `tests/test_native_loader.py`) pass.\n- `uvx pre-commit run`: all hooks pass. Locally, mypy cannot follow the\neditable `samudra_verification` install that `tests/conftest.py` imports\n(a pre-existing environment issue; CI type-checks that file on every\nrun), so I ran mypy on `src/` and every other changed test file: clean.\n\n### Review\n\nAn adversarial review found nothing major; its minor findings are fixed\nin the second commit (above), except the stricter alignment, which is\nintended. A first draft also moved statistics out of the readers; per\nreview, the third commit keeps the `CanonicalReader` boundary as on\nmain. The fourth commit, also from review, canonicalizes all statistics\nin one loop and adds `XarrayCanonicalReader.from_source_tree`.\n\n### Performance\n\nOnly source construction changes. The readers and their read paths are\nuntouched.\n\n</details>\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_0147gmWkxtY1ezR6h1ZHw7JS\n\n---------\n\nCo-authored-by: Claude Opus 5.5 <noreply@anthropic.com>",
+          "timestamp": "2026-11-25T21:32:24Z",
+          "tree_id": "fc0ddd45efcef8010026daebd8693dbc75e88712",
+          "url": "https://github.com/m2lines/Samudra/commit/e16c303abd77f203c0d0a2b82b9e3109a93ef596"
+        },
+        "date": 1795643751208,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 1.0634309926926029,
+            "unit": "iter/sec",
+            "range": "stddev: 0.005925317638272137",
+            "extra": "mean: 940.3525070000114 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_dataset__1gb[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.33268056832578846,
+            "unit": "iter/sec",
+            "range": "stddev: 0.010611174371129692",
+            "extra": "mean: 3.005886412400008 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.056515425504121315,
+            "unit": "iter/sec",
+            "range": "stddev: 0.6514359455924871",
+            "extra": "mean: 17.694284190200005 sec\nrounds: 5"
           }
         ]
       }

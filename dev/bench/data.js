@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795631777847,
+  "lastUpdate": 1795631784565,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -28155,6 +28155,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.054671730944308404",
             "extra": "mean: 12.039431280800022 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7f5de56231bc0e2bbdc5db5d705e8138d4786aac",
+          "message": "Add weekly fresh-install smoke test against PyPI (#1024)\n\nEvery other CI job installs from `uv.lock`, so none of them sees the\nnewer upstream releases that `pip install samudra` resolves. That's how\nthe xarray 2026.9 / zarr 2 break (#1017) reached users unnoticed. This\nPR adds a weekly job that installs samudra from PyPI with normal\ndependency resolution, checks the data path for real, and fails loudly\nwhen an upstream release breaks installs. It's red at the moment, for a\ngood reason: it has already caught a second break of the same kind, a\npyarrow release that needs NumPy 2. That's being fixed separately.\nWritten by Claude Code (Claude Opus 5.5).\n\n<details>\n<summary>What it does, validation and design choices</summary>\n\n**Workflow `.github/workflows/fresh-install.yml`**\n- **Triggers:**\n  - weekly, Mondays at 09:23 UTC, after the 06:00 UTC nightly publish\n  - `workflow_dispatch`, with a `spec` input\n- `pull_request`, only when the workflow file or its script changes, and\nskipping experiment branches and labels like the other workflows\n- **`spec` input:**\n- `nightly` (the default) installs `samudra==<newest version on PyPI,\ndev builds included>`. Pinning the exact version keeps samudra the only\npre-release: its dependencies resolve to stable releases, as they would\nfor a user. A blanket `--prerelease=allow` would also pull in\npre-release torch, numpy and so on, and cause false alarms.\n  - `stable` installs the newest stable release.\n  - Anything else is used as a pip spec, e.g. `samudra==0.2.1`.\n- **Runner:** GitHub-hosted `ubuntu-latest`, Python 3.12, CPU only. It\ninstalls with `uv pip install --no-cache` into a fresh virtual\nenvironment, never from the lockfile. The checkout is sparse and fetches\nonly `scripts/`. `permissions: contents: read`, `persist-credentials:\nfalse`, and actions pinned to the same SHAs as the other workflows.\n\n**Script `scripts/fresh_install_smoke.py`** runs with `python -I`\nagainst the installed package. It asserts that `samudra` was imported\nfrom `site-packages`, not from the checkout, then:\n1. prints the resolved versions of samudra, xarray, zarr, numpy, pandas\nand torch\n2. imports `samudra.train`, `eval`, `stepper`, `viz` and `search`\n3. resolves the bundled preset `samudra_om4/train.yaml`\n4. validates the Colab quickstart's YAML with\n`TrainConfig.from_yaml_and_cli`. The YAML comes from\n`scripts/build_quickstart_notebook.render_quickstart_yaml()`, so it's\nexactly what the notebook ships. That module imports `nbformat`, so the\njob installs `nbformat` and loads the module by file path (`-I` keeps\nthe script directory off `sys.path`).\n5. opens the public, anonymous 2° OM4 store. It checks the 90×180 grid\nand the 17-frame training window, and that the first frame's ocean-mean\n`zos` is finite.\n6. writes a small DataFrame to Parquet and reads it back, as\n`samudra.search` does for `results.parquet` and `epochs.parquet`. pandas\nimports pyarrow only when it's needed, so importing modules alone can't\ncatch this.\n\nThe data check runs before the Parquet check, so a run still reports\nwhether the data path works when Parquet fails. Nothing is caught and\nignored, and nothing is trained. It should take a few minutes, mostly\ninstalling torch.\n\n`.github/CI-README.md` gains a short section describing the job.\n\n**Local validation:** fresh uv environments on Python 3.12, with\npackages from PyPI:\n\n| Install | Result |\n| --- | --- |\n| `samudra==0.2.0` | Fails while opening the store: `TypeError:\nopen_group() got an unexpected keyword argument 'zarr_format'`. This is\nthe #1017 bug, so the job would have caught it. |\n| `samudra==0.2.1` | Data path passes: xarray 2026.7.0, zarr 2.18.7,\nnumpy 1.26.4, ocean-mean `zos` −0.199 m. Then the **Parquet round trip\nfails**: a fresh install resolves pyarrow 26.0.1, and `import pyarrow`\nraises `ImportError: pyarrow requires NumPy 2.0 or newer, found 1.26.4`.\npyarrow doesn't declare that NumPy bound in its metadata, so the\nresolver can't avoid it. |\n\n**Known current failure:** because of that pyarrow break, this job will\nfail on today's PyPI packages, including its own run on this PR. That's\ncorrect behaviour. It means `samudra.search` can't write its results\ntables from a fresh pip install. The fix (a pyarrow cap, or the planned\nNumPy 2 upgrade) is being handled separately and isn't part of this PR.\n\n**Lint:**\n- actionlint 1.7.12: clean\n- zizmor: no findings\n- pre-commit: all hooks pass on the changed files, including mypy\n\n</details>\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\n---------\n\nCo-authored-by: Claude Opus 5.5 <noreply@anthropic.com>",
+          "timestamp": "2026-11-25T18:08:11Z",
+          "tree_id": "3de5eb8bb21d68195a35bea50489f2fc63be3637",
+          "url": "https://github.com/m2lines/Samudra/commit/7f5de56231bc0e2bbdc5db5d705e8138d4786aac"
+        },
+        "date": 1795631784248,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 1.0219046723759744,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0009427852873758061",
+            "extra": "mean: 978.5648574000106 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_dataset__1gb[cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.33787040708402005,
+            "unit": "iter/sec",
+            "range": "stddev: 0.008786899823478182",
+            "extra": "mean: 2.9597146687999953 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.08311896778101023,
+            "unit": "iter/sec",
+            "range": "stddev: 0.038504812425076106",
+            "extra": "mean: 12.030948250400012 sec\nrounds: 5"
           }
         ]
       }

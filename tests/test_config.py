@@ -40,11 +40,81 @@ def om4_source_config(**kwargs) -> Om4DataSourceConfig:
         val_time=Om4TimeConfig(
             start=JulianDate("2013-10-05"), end=JulianDate("2014-10-05")
         ),
-        data_location=UnresolvedLocation(path="data.zarr"),
-        data_means_location=UnresolvedLocation(path="means.zarr"),
-        data_stds_location=UnresolvedLocation(path="stds.zarr"),
-        **kwargs,
+        **{
+            "data_location": UnresolvedLocation(path="data.zarr"),
+            "data_means_location": UnresolvedLocation(path="means.zarr"),
+            "data_stds_location": UnresolvedLocation(path="stds.zarr"),
+            **kwargs,
+        },
     )
+
+
+@pytest.mark.parametrize(
+    "data_location, expected_means",
+    [
+        (
+            UnresolvedLocation(path="om4_onedeg/OM4.zarr"),
+            UnresolvedLocation(path="om4_onedeg/OM4_means.zarr"),
+        ),
+        (
+            LocalLocation(path=pathlib.Path("/data/om4_onedeg/OM4.zarr")),
+            LocalLocation(path=pathlib.Path("/data/om4_onedeg/OM4_means.zarr")),
+        ),
+        (
+            S3Location(
+                bucket="m2lines-pubs", path="Samudra/v2026-09/om4_onedeg/OM4.zarr"
+            ),
+            S3Location(
+                bucket="m2lines-pubs", path="Samudra/v2026-09/om4_onedeg/OM4_means.zarr"
+            ),
+        ),
+    ],
+)
+def test_statistics_default_to_the_release_naming_convention(
+    data_location, expected_means
+):
+    source = om4_source_config(
+        data_location=data_location, data_means_location=None, data_stds_location=None
+    )
+    assert source.statistic_locations()["means"] == expected_means
+    # Filled in at validation, so a saved run config records the stores used.
+    assert source.data_means_location == expected_means
+    explicit = UnresolvedLocation(path="elsewhere/means.zarr")
+    overridden = om4_source_config(
+        data_location=data_location, data_means_location=explicit
+    )
+    assert overridden.statistic_locations()["means"] == explicit
+
+
+@pytest.mark.parametrize("path", [".", "", "./"])
+def test_statistics_beside_a_path_without_a_name_need_explicit_locations(path):
+    with pytest.raises(ValidationError, match="set its location explicitly"):
+        om4_source_config(
+            data_location=UnresolvedLocation(path=path),
+            data_means_location=None,
+            data_stds_location=None,
+        )
+
+
+def test_llc_statistics_default_to_the_data_store():
+    # The LLC producer embeds *_mean and *_std arrays in its data store.
+    source = LlcDataSourceConfig.model_validate(
+        {
+            "train_time": {
+                "start": "2011-09-13T00:00:00Z",
+                "end": "2012-09-13T23:00:00Z",
+            },
+            "val_time": {
+                "start": "2012-09-14T00:00:00Z",
+                "end": "2012-11-15T14:00:00Z",
+            },
+            "data_location": "LLC4320.zarr",
+        }
+    )
+    assert source.statistic_locations() == {
+        "means": UnresolvedLocation(path="LLC4320.zarr"),
+        "stds": UnresolvedLocation(path="LLC4320.zarr"),
+    }
 
 
 def test_data_config_rejects_legacy_num_workers_field():

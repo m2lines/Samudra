@@ -20,8 +20,8 @@ builds Boolean masks from `wet_area(k, y, x) > 0`. Surface fields use the first
 level's mask. This includes partially wet coastal cells.
 
 Normalization comes from the embedded `*_mean(k)` and `*_std(k)` arrays, or
-`*_mean(one)` and `*_std(one)` for surface fields. The preset sets
-`data_location`, `data_means_location`, and `data_stds_location` to the same store. Statistics must be finite, with positive
+`*_mean(one)` and `*_std(one)` for surface fields. An LLC source reads
+its statistics from the data store unless `data_means_location` or `data_stds_location` says otherwise. Statistics must be finite, with positive
 standard deviations. The supplied statistics were computed from 96 sampled
 hours in the training interval, using wet-area weighting.
 

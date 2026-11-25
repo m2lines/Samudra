@@ -14,7 +14,7 @@ import xarray as xr
 
 from samudra.config import Om4DataSourceConfig
 from samudra.constants import build_om4_layout
-from samudra.utils.data import BatchPreprocessor, CanonicalSource
+from samudra.utils.data import BatchPreprocessor, CanonicalSource, SourceTree
 from samudra.utils.output import ModelInferenceOutput
 from samudra.utils.writer import ZarrWriter
 from tests.conftest import TEST_FULL_DATA_LAYOUT
@@ -270,8 +270,13 @@ def test_tripolar_om4_canonicalization_preserves_writer_geometry(tmp_path):
         boundary_vars_key="hfds",
         grid_type="tripolar",
     )
-    canonical_data, canonical_means, canonical_stds, data_layout = (
-        canonicalizer.canonicalize_datasets(data, means, stds)
+    canonical, data_layout = canonicalizer.canonicalize_datasets(
+        SourceTree.from_datasets(data, means=means, stds=stds)
+    )
+    canonical_data, canonical_means, canonical_stds = (
+        canonical.data,
+        canonical.means,
+        canonical.stds,
     )
     source = CanonicalSource.from_datasets(
         canonical_data,

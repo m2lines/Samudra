@@ -175,3 +175,31 @@ Location = Annotated[
     BeforeValidator(string_to_unresolved),
     PlainSerializer(serialize_location),
 ]
+
+
+def _sibling_name(path: str, suffix: str) -> str:
+    head, slash, name = path.rstrip("/").rpartition("/")
+    stem, dot, extension = name.rpartition(".")
+    if not dot:
+        stem, extension = name, ""
+    if not stem or stem in (".", ".."):
+        raise ValueError(
+            f"Cannot name a companion store beside {path!r}; set its location explicitly"
+        )
+    return f"{head}{slash}{stem}_{suffix}{dot}{extension}"
+
+
+def sibling_location(location: Location, suffix: str) -> Location:
+    """The store beside ``location`` named ``<stem>_<suffix><ext>``.
+
+    This is the release layout's naming convention for a dataset's companion
+    stores: ``OM4.zarr`` sits beside ``OM4_means.zarr`` and ``OM4_stds.zarr``.
+    """
+    match location:
+        case UnresolvedLocation(path=path):
+            return UnresolvedLocation(path=_sibling_name(path, suffix))
+        case LocalLocation(path=path):
+            return LocalLocation(path=Path(_sibling_name(str(path), suffix)))
+        case S3Location(path=path):
+            return location.model_copy(update={"path": _sibling_name(path, suffix)})
+    raise TypeError(f"Unsupported location type: {type(location).__name__}")

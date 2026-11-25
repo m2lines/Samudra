@@ -1072,14 +1072,28 @@ class BaseModelConfig(BaseConfig, abc.ABC):
             raise ValueError("scale_residuals requires pred_residuals")
         return self
 
-    def _check_residual_scale(self, residual_scale: torch.Tensor | None) -> None:
-        if self.scale_residuals and residual_scale is None:
+    def _residual_scale(
+        self, residual_scale: torch.Tensor | None, out_channels: int
+    ) -> torch.Tensor | None:
+        """One scale per output channel, from one per prognostic variable."""
+        if not self.scale_residuals:
+            if residual_scale is not None:
+                raise ValueError(
+                    "Got a residual scale for a model without scale_residuals"
+                )
+            return None
+        if residual_scale is None:
             raise ValueError(
                 "model.scale_residuals needs the data source's increment RMS; see "
                 "residual_scale_for"
             )
-        if not self.scale_residuals and residual_scale is not None:
-            raise ValueError("Got a residual scale for a model without scale_residuals")
+        if residual_scale.ndim != 1 or out_channels % residual_scale.numel():
+            raise ValueError(
+                f"Expected one scale per variable dividing {out_channels} output "
+                f"channels, got shape {tuple(residual_scale.shape)}"
+            )
+        # Channels are time-major, so the scale repeats for each output step.
+        return residual_scale.float().repeat(out_channels // residual_scale.numel())
 
     last_kernel_size: int = 3
     pad: str = "circular"
@@ -1136,7 +1150,6 @@ class SamudraConfig(BaseModelConfig):
         grid_sizes: list[GridSize],
         residual_scale: torch.Tensor | None = None,
     ) -> Samudra:
-        self._check_residual_scale(residual_scale)
         if len(grid_sizes) != 1:
             raise ValueError(
                 "Samudra only supports training at a single scale! Please configure exactly one data source."
@@ -1150,7 +1163,7 @@ class SamudraConfig(BaseModelConfig):
             in_channels=total_in_channels,
             out_channels=out_channels,
             pred_residuals=self.pred_residuals,
-            residual_scale=residual_scale,
+            residual_scale=self._residual_scale(residual_scale, out_channels),
             last_kernel_size=self.last_kernel_size,
             pad=self.pad,
             unet=self.unet.build(
@@ -1197,7 +1210,6 @@ class SamudraMultiConfig(BaseModelConfig):
         grid_sizes: list[GridSize],
         residual_scale: torch.Tensor | None = None,
     ) -> SamudraMulti:
-        self._check_residual_scale(residual_scale)
         assert len(self.patch_extent) == 2, "patch_extent must be a pair of floats."
         extent = self.patch_extent[0], self.patch_extent[1]
 
@@ -1241,7 +1253,7 @@ class SamudraMultiConfig(BaseModelConfig):
             in_channels=total_in_channels,
             out_channels=out_channels,
             pred_residuals=self.pred_residuals,
-            residual_scale=residual_scale,
+            residual_scale=self._residual_scale(residual_scale, out_channels),
             last_kernel_size=self.last_kernel_size,
             pad=self.pad,
             encoder=encoder,
@@ -1294,7 +1306,6 @@ class SamudraMiniConfig(BaseModelConfig):
         grid_sizes: list[GridSize],
         residual_scale: torch.Tensor | None = None,
     ) -> SamudraMini:
-        self._check_residual_scale(residual_scale)
         if self.add_3d_coordinates:
             raise ValueError(
                 "SamudraMini always uses learned Cartesian coordinate embeddings. "
@@ -1319,7 +1330,7 @@ class SamudraMiniConfig(BaseModelConfig):
             in_channels=in_channels,
             out_channels=out_channels,
             pred_residuals=self.pred_residuals,
-            residual_scale=residual_scale,
+            residual_scale=self._residual_scale(residual_scale, out_channels),
             last_kernel_size=self.last_kernel_size,
             pad=self.pad,
             input_embedding_dim=self.embedding_dim,
@@ -1658,6 +1669,15 @@ class TrainConfig(TopLevelConfig):
             raise ValueError(
                 "normalized_delta needs data.output_steps == 1; its scale q is "
                 f"the RMS of a single step, got output_steps={self.data.output_steps}"
+            )
+        if isinstance(self.loss, NormalizedDeltaLossConfig) and any(
+            stride != 1 for stride in self.data_stride
+        ):
+            # A stride of s makes each model step span s stored steps, while
+            # q is the RMS of a single stored step.
+            raise ValueError(
+                "normalized_delta needs data_stride == [1]; its scale q is the "
+                f"RMS of a single step, got data_stride={self.data_stride}"
             )
         if (
             isinstance(self.loss, NormalizedDeltaLossConfig)

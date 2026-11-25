@@ -24,6 +24,7 @@ from samudra.config import TrainConfig
 from samudra.models.base import BaseModel
 from samudra.train import Trainer
 from samudra.utils.ctx import BatchGrid
+from samudra.utils.data import ChannelStatistics
 from samudra.utils.location import LocalLocation, sibling_location
 from samudra.utils.loss import NormalizedDeltaLoss
 from samudra.utils.multiton import MultitonScope
@@ -91,8 +92,11 @@ def test_zero_or_nan_increment_rms_fails_loudly(bad):
     q = torch.tensor([0.4, bad, 0.0016])
     with pytest.raises(ValueError, match="positive, finite"):
         NormalizedDeltaLoss(increment_rms=q, device=torch.device("cpu"))
+    statistics = ChannelStatistics(
+        mean=np.zeros(N), std=np.ones(N), increment_rms=q.numpy()
+    )
     with pytest.raises(ValueError, match="positive and finite"):
-        residual_model(q)
+        statistics.normalized_increment_rms()
 
 
 def test_residual_scale_is_a_data_statistic_not_checkpoint_state():
@@ -113,15 +117,24 @@ def train_yaml(**changes) -> dict:
         section, field = key.split("__")
         if section == "source":
             raw["data"]["sources"][0][field] = value
+        elif section == "top":
+            raw[field] = value
         else:
             raw[section][field] = value
     return raw
 
 
-def test_config_rejects_normalized_delta_with_two_output_steps():
+@pytest.mark.parametrize(
+    "changes, match",
+    [
+        ({"data__output_steps": 2}, "output_steps == 1"),
+        ({"top__data_stride": [1, 2]}, "data_stride == \\[1\\]"),
+    ],
+)
+def test_config_rejects_steps_longer_than_one_stored_step(changes, match):
     TrainConfig.model_validate(train_yaml())
-    with pytest.raises(ValidationError, match="output_steps == 1"):
-        TrainConfig.model_validate(train_yaml(data__output_steps=2))
+    with pytest.raises(ValidationError, match=match):
+        TrainConfig.model_validate(train_yaml(**changes))
 
 
 def test_increment_rms_is_read_by_convention_only_when_needed():

@@ -26,8 +26,6 @@ class BaseModel(torch.nn.Module):
     autoregressive rollouts.
     """
 
-    residual_scale: torch.Tensor | None
-
     def __init__(
         self,
         in_channels,
@@ -39,13 +37,6 @@ class BaseModel(torch.nn.Module):
         gradient_detach_interval: int,
         residual_scale: torch.Tensor | None = None,
     ) -> None:
-        """``residual_scale``, if given, multiplies the network output before it
-        is added to the input: one positive value per prognostic variable, in
-        normalized units, repeated for every output step (channels are
-        time-major). It is a normalization statistic of the data
-        (``ChannelStatistics.normalized_increment_rms``), not a learned or saved
-        parameter, so it is kept out of the state dict, like the means and stds.
-        """
         super().__init__()
         assert last_kernel_size % 2 != 0, "Cannot use even kernel sizes!"
         self.in_channels = in_channels
@@ -57,20 +48,15 @@ class BaseModel(torch.nn.Module):
             raise ValueError(f"input_steps must be positive, got {input_steps}")
         self.input_steps = input_steps
         self.gradient_detach_interval = gradient_detach_interval
-        if residual_scale is not None:
-            if not pred_residuals:
-                raise ValueError("A residual scale requires pred_residuals")
-            if residual_scale.ndim != 1 or out_channels % residual_scale.numel():
-                raise ValueError(
-                    f"Expected one scale per variable dividing {out_channels} "
-                    f"output channels, got shape {tuple(residual_scale.shape)}"
-                )
-            if not torch.isfinite(residual_scale).all() or (residual_scale <= 0).any():
-                raise ValueError("Residual scale must be positive and finite")
-            residual_scale = residual_scale.float().repeat(
-                out_channels // residual_scale.numel()
-            )
-        self.register_buffer("residual_scale", residual_scale, persistent=False)
+        # Multiplies the network output, per output channel, before it is
+        # added to the input. Not saved: it comes from the data, like the
+        # normalization statistics.
+        self.residual_scale: torch.Tensor
+        self.register_buffer(
+            "residual_scale",
+            torch.ones(out_channels) if residual_scale is None else residual_scale,
+            persistent=False,
+        )
 
     def _assemble_prediction(
         self, prognostic: Prognostic, decoding: Prognostic
@@ -81,9 +67,7 @@ class BaseModel(torch.nn.Module):
         # timestep. For 2-in/1-out this is x[t]; for the legacy 2-in/2-out case
         # this remains the original elementwise, same-slot residual assembly.
         residual_base = prognostic[:, -self.out_channels :]
-        if self.residual_scale is not None:
-            decoding = decoding * self.residual_scale.view(1, -1, 1, 1)
-        return residual_base + decoding
+        return residual_base + decoding * self.residual_scale.view(1, -1, 1, 1)
 
     def _advance_prognostic_history(
         self, prognostic: Prognostic, prediction: Prognostic

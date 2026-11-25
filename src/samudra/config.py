@@ -378,9 +378,7 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
                 (*data_layout.prognostic_var_names, *data_layout.boundary_var_names)
             )
         )
-        xarray_reader = XarrayCanonicalReader.from_datasets(
-            data, source_tree.means, source_tree.stds, channels
-        )
+        xarray_reader = XarrayCanonicalReader.from_source_tree(source_tree, channels)
         reader: CanonicalReader = xarray_reader
         if not turn_on_dask:
             reader = source_backend.build_reader(
@@ -562,26 +560,22 @@ class Om4FamilyDataSourceConfig[Om4FamilyTimeConfigT: Om4TimeConfig | Cm4TimeCon
     ) -> tuple[SourceTree, DataLayout]:
         """Normalize OM4 coordinates and statistics while retaining compact arrays."""
         data_layout = self.build_layout()
-        data = source.data.copy()
-        means = source.means.copy()
-        stds = source.stds.copy()
-
-        data = with_lat_lon_coords(data)
+        data = with_lat_lon_coords(source.data.copy())
         data = with_level_index_vars(data, depth_levels=data_layout.depth_levels)
-        means = with_level_index_vars(means, depth_levels=data_layout.depth_levels)
-        stds = with_level_index_vars(stds, depth_levels=data_layout.depth_levels)
         data = flatten_masks(data)
+        statistics = {
+            name: with_level_index_vars(
+                dataset.copy(), depth_levels=data_layout.depth_levels
+            )
+            for name, dataset in source.statistics().items()
+        }
 
         anomalies_vars = get_anomalies_vars(data_layout.boundary_var_names)
         if anomalies_vars:
-            data, means, stds = compute_anomalies(data, means, stds, anomalies_vars)
+            data, statistics["means"], statistics["stds"] = compute_anomalies(
+                data, statistics["means"], statistics["stds"], anomalies_vars
+            )
 
-        statistics = {
-            name: with_level_index_vars(dataset, depth_levels=data_layout.depth_levels)
-            for name, dataset in source.statistics().items()
-            if name not in ("means", "stds")
-        }
-        statistics.update(means=means, stds=stds)
         canonical = SourceTree.from_datasets(
             data,
             **{name: expand_compact_levels(ds) for name, ds in statistics.items()},

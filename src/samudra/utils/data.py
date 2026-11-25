@@ -281,6 +281,11 @@ class XarrayCanonicalReader:
             )
         return cls(data, means[list(channels)], stds[list(channels)], channels)
 
+    @classmethod
+    def from_source_tree(cls, source: SourceTree, channels: tuple[str, ...]) -> Self:
+        """Read a canonical source tree's data, means and stds."""
+        return cls.from_datasets(source.data, source.means, source.stds, channels)
+
     @cached_property
     def channel_variables(self) -> dict[str, tuple[str, int | None]]:
         variables = _channel_variables(self.data)

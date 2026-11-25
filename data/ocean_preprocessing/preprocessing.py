@@ -12,6 +12,7 @@ import numpy as np
 import xarray as xr
 from xgcm import Grid
 
+from ocean_preprocessing.regridding import conservative_regridder
 from ocean_preprocessing.schema import OM4_3D_VARS
 from ocean_preprocessing.utils import split_2d_3d
 
@@ -21,100 +22,6 @@ except ImportError:
     logging.exception("Error importing xesmf")
     xe = None
 # Could I replace this with the xarray logic I am using in the tests?
-
-
-def manual_v0_fixes(ds_input: xr.Dataset) -> xr.Dataset:
-    """Manual fixes for the already existing data (for now only v0.0). This should not be used in the future."""
-    # fixes that should be checked and fixes on the input data
-    area = xr.open_dataset(
-        "gs://leap-persistent/sd5313/grids_CM2x.zarr", engine="zarr", chunks={}
-    )["area_C"].rename({"xu_ocean": "x", "yu_ocean": "y"})
-    # from https://github.com/m2lines/ocean_emulators/issues/17
-    dz = xr.DataArray(
-        [
-            5,
-            10,
-            15,
-            20,
-            30,
-            50,
-            70,
-            100,
-            150,
-            200,
-            250,
-            300,
-            400,
-            500,
-            600,
-            800,
-            1000,
-            1000,
-            1000,
-        ],
-        dims=["lev"],
-    )
-    z = xr.DataArray(
-        [
-            2.5,
-            10,
-            22.5,
-            40,
-            65,
-            105,
-            165,
-            250,
-            375,
-            550,
-            775,
-            1050,
-            1400,
-            1850,
-            2400,
-            3100,
-            4000,
-            5000,
-            6000,
-        ],
-        dims="lev",
-    )
-    wetmask = ~np.isnan(ds_input.thetao.isel(time=0).reset_coords(drop=True))
-    lon = xr.ones_like(ds_input.y) * ds_input.x
-    lat = ds_input.y * xr.ones_like(ds_input.x)
-    ds_input = ds_input.assign_coords(
-        areacello=area, dz=dz, lev=z, wetmask=wetmask, lon=lon, lat=lat
-    )
-    # give a dummy commit hash
-    ds_input.attrs["m2lines/ocean-emulators_git_hash"] = "dummy"
-    return ds_input
-
-
-# i need to test 2d and 3d separately
-
-
-# def rename(ds: xr.Dataset) -> xr.Dataset:
-#     """Rename variables and dimensions to CMOR standard names"""
-#     # TODO: how to detect non-CMIP datasets?
-#     return combined_preprocessing(ds)
-
-
-# def standardize_dataset(ds_ocean: xr.Dataset, ds_atmos: xr.Dataset) -> xr.Dataset:
-#     """Full wrapper that does
-#     1. Rename variables and dimensions to CMOR standard names
-#     2. Combine varibles if necessary
-#     3. Interpolate velocity to tracer cells
-#     4. Optional Filter the data
-#     5. Horizontal regridding
-#     6. Add metadata and provenance info
-#     """
-#     # Rename variables and dimensions to CMOR standard names
-#     ds_renamed = rename(ds)
-#     # Combine varibles if necessary
-#     # Interpolate velocity to tracer cells
-#     # Optional Filter the data
-#     # Horizontal regridding
-#     # Add metadata and provenance info
-#     return ds_renamed
 
 
 #################### CMIP specific Code ###########################
@@ -269,24 +176,9 @@ def spatially_filter(
     return ds_filtered
 
 
-def horizontal_regrid(ds, ds_target):
+def horizontal_regrid(ds: xr.Dataset, ds_target: xr.Dataset) -> xr.Dataset:
     """Regrid `ds` horizontally, and conserve the integral in space."""
-    regridder_kwargs = dict(ignore_degenerate=True, periodic=True, unmapped_to_nan=True)
-
-    # try to run this with higher precision (TODO: Test if this actually makes a difference).
-    s = xr.Dataset(
-        coords={
-            co: ds[co].astype(np.float64) for co in ["lon", "lat", "lon_b", "lat_b"]
-        }
-    )
-    t = xr.Dataset(
-        coords={
-            co: ds_target[co].astype(np.float64)
-            for co in ["lon", "lat", "lon_b", "lat_b"]
-        }
-    )
-
-    regridder = xe.Regridder(s, t, "conservative", **regridder_kwargs)
+    regridder = conservative_regridder(ds, ds_target)
     ds_regridded = regridder(ds, skipna=True, na_thres=1)
 
     # get lon/lats from the target grid
@@ -311,6 +203,16 @@ def horizontal_regrid(ds, ds_target):
     ocean_frac = regridder(ds.wetmask.astype("float64")).fillna(0.0)
 
     ds_regridded = ds_regridded.drop_vars(["lon_b", "lat_b"])
+    if "dz" in ds.coords and {"y", "x"} <= set(ds["dz"].dims):
+        # Partial cells (account_for_partial_depths) make dz vary horizontally,
+        # and the regridder drops such coordinates. Average each layer's wet
+        # thickness over the target cell's ocean part, so that
+        # areacello * ocean_fraction * dz keeps the source volume. Dividing by
+        # ocean_frac, rather than regridding with skipna, keeps the thickness of
+        # cells whose wet fraction is below xESMF's skipna cutoff (1e-6).
+        wet_thickness = regridder(ds["dz"].where(ds.wetmask, 0.0).astype("float64"))
+        dz = (wet_thickness / ocean_frac).where(ocean_frac > 0, 0.0)
+        ds_regridded = ds_regridded.assign_coords(dz=dz)
     ds_regridded = ds_regridded.assign_coords(
         lon=lon,
         lat=lat,

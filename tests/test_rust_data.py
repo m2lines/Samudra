@@ -35,6 +35,7 @@ from samudra.train import Trainer
 from samudra.utils.data import (
     CanonicalReadRequest,
     CanonicalSource,
+    SourceTree,
     XarrayCanonicalReader,
 )
 from samudra.utils.location import LocalLocation, UnresolvedLocation
@@ -244,8 +245,13 @@ def compact_om4_source(tmp_path):
         prognostic_vars_key="thetao_1",
         boundary_vars_key="hfds",
     )
-    canonical_data, canonical_means, canonical_stds, _ = (
-        canonicalizer.canonicalize_datasets(data, means, stds)
+    canonical, _ = canonicalizer.canonicalize_datasets(
+        SourceTree.from_datasets(data, means=means, stds=stds)
+    )
+    canonical_data, canonical_means, canonical_stds = (
+        canonical.data,
+        canonical.means,
+        canonical.stds,
     )
     source = CanonicalSource.from_datasets(
         canonical_data,

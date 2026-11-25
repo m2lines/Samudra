@@ -34,6 +34,7 @@ The `DynamicLoss` class implements the variance-weighted loss used in Samudra 2.
 
 - Channels with lower running error receive larger inverse-error weights, balancing channel contributions
 - A configurable `limit` parameter clamps the ratio between channel weights; the shipped presets use 20, while the class default is no limit
+
 - Uses a rolling window of 25 steps to smooth scale estimates
 
 **Configuration (choose one alternative):**

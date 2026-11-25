@@ -3,6 +3,24 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # syntax=docker/dockerfile:1.7
+
+# Docker refuses to pull images deeper than 125 layers ("max depth exceeded"),
+# and the PhysicsNeMo base image already uses most of that budget. Gather the
+# build context in a throwaway stage so it lands in the final image as a single
+# layer, and keep the number of RUN steps below small.
+# scripts/container/build_physicsnemo_26_05.sh enforces the limit after a build.
+FROM scratch AS sources
+COPY LICENSE README.md pyproject.toml rust-toolchain.toml uv.lock /ctx/
+COPY .cargo /ctx/.cargo
+COPY src /ctx/src
+COPY tests /ctx/tests
+COPY data/prepare_observation_normalization.py /ctx/data/prepare_observation_normalization.py
+COPY rust/loader /ctx/rust/loader
+COPY verification /ctx/verification
+COPY scripts/container /ctx/scripts/container
+COPY scripts/build_quickstart_notebook.py /ctx/scripts/build_quickstart_notebook.py
+COPY notebooks/samudra-quickstart.ipynb /ctx/notebooks/samudra-quickstart.ipynb
+
 FROM nvcr.io/nvidia/physicsnemo/physicsnemo:26.05
 
 WORKDIR /workspace
@@ -41,29 +59,20 @@ RUN apt-get update \
     && ln -sf /usr/local/bin/nsys /usr/local/cuda/bin/nsys \
     && nsys --version
 
-COPY LICENSE README.md pyproject.toml rust-toolchain.toml uv.lock ./
-COPY .cargo ./.cargo
-COPY src ./src
-COPY tests ./tests
-COPY rust/loader ./rust/loader
-COPY scripts/container ./scripts/container
-COPY scripts/build_quickstart_notebook.py ./scripts/build_quickstart_notebook.py
-COPY notebooks/quickstart.ipynb ./notebooks/quickstart.ipynb
+COPY --from=sources /ctx/ ./
 
-# Bind-mount targets used by Slurm harnesses (ensure they exist in the image so
-# Apptainer --bind doesn't fail when mounting into subpaths).
-RUN mkdir -p /workspace/.data_cache
-
-# Ensure image-provided heavy deps satisfy this project's declared requirements.
-RUN python scripts/container/verify_image_packages.py
-
-# Reuse image-provided torch stack via system site-packages at runtime.
-RUN uv venv .venv --python /usr/bin/python3 --system-site-packages
-
-# Keep torch and torchvision from the base image; install the rest with uv.
-# Build the local Rust extension with a pinned, temporary toolchain. This is a
-# development container, so include dev dependencies too.
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+# One RUN step (one layer) for environment setup:
+# - create bind-mount targets used by Slurm harnesses, so Apptainer --bind
+#   doesn't fail when mounting into subpaths;
+# - check that image-provided heavy deps satisfy our declared requirements;
+# - create a venv that reuses the image's torch stack via system site-packages;
+# - keep torch and torchvision from the base image and install the rest with uv,
+#   building the local Rust extension with a pinned, temporary toolchain. This
+#   is a development container, so dev dependencies are included too.
+RUN mkdir -p /workspace/.data_cache \
+    && python scripts/container/verify_image_packages.py \
+    && uv venv .venv --python /usr/bin/python3 --system-site-packages \
+    && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
         | sh -s -- -y --profile minimal --default-toolchain none \
     && . /root/.cargo/env \
     && rustup toolchain install \
@@ -104,10 +113,10 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
         --no-install-package triton \
     && rm -rf /root/.cargo /root/.rustup rust/loader/target
 
-# Catch missing test imports and notebook assets on PR builds, before publishing.
+# Catch missing test imports, notebook assets, and normalization scripts before publishing.
 RUN . .venv/bin/activate \
     && python scripts/container/smoke_test.py \
     && python -m pytest -p no:zarr --collect-only -q \
-    && python -m pytest -p no:zarr -q tests/test_quickstart_config.py
+    && python -m pytest -p no:zarr -q tests/test_quickstart_config.py tests/test_observation_baseline_normalization.py
 
 CMD ["/bin/bash"]

@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import pytest
 import torch
 
 from samudra.utils.schedule import (
@@ -149,3 +150,27 @@ def test_cosine_with_warmup():
         "LR must decrease after warmup"
     )
     assert top / 20 > last, "LR must decrease by a significant amount after warmup"
+
+
+def test_linear_cooldown_reaches_final_rate():
+    from samudra.utils.schedule import LinearCooldownSchedulerConfig
+
+    parameter = torch.nn.Parameter(torch.ones(()))
+    optimizer = torch.optim.SGD([parameter], lr=1.0)
+    config = LinearCooldownSchedulerConfig(final_lr=0.1)
+    scheduler = config.build(optimizer, 3)
+    rates = []
+    for _ in range(3):
+        rates.append(optimizer.param_groups[0]["lr"])
+        optimizer.step()
+        scheduler.step()
+    assert rates == pytest.approx([0.7, 0.4, 0.1])
+    assert optimizer.param_groups[0]["lr"] == pytest.approx(0.1)
+
+
+def test_linear_cooldown_rejects_increasing_rate():
+    from samudra.utils.schedule import LinearCooldownSchedulerConfig
+
+    optimizer = torch.optim.SGD([torch.nn.Parameter(torch.ones(()))], lr=0.1)
+    with pytest.raises(ValueError, match="must not exceed"):
+        LinearCooldownSchedulerConfig(final_lr=0.2).build(optimizer, 5)

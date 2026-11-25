@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Generate ``notebooks/quickstart.ipynb`` from reviewable cell sources.
+"""Generate ``notebooks/samudra-quickstart.ipynb`` from reviewable cell sources.
 
 Run this script whenever a quickstart cell changes:
 
@@ -15,7 +15,7 @@ from pathlib import Path
 import nbformat as nbf
 
 REPO = Path(__file__).resolve().parent.parent
-OUT = REPO / "notebooks" / "quickstart.ipynb"
+OUT = REPO / "notebooks" / "samudra-quickstart.ipynb"
 
 
 INTRO_MD = """\
@@ -45,102 +45,41 @@ By the end of this notebook, you will be able to:
 5. Identify the controls to extend the run with more data, epochs, or variables.
 """
 
-RUNTIME_MD = """\
+SETUP_MD = """\
 ## Setup
 
-### 1. Check the runtime
+### 1. Install Samudra 2
 
-Choose **Runtime → Change runtime type → T4 GPU** before continuing. Samudra
-currently supports Python 3.12; the explicit check below gives a useful error
-before any project module is imported.
-"""
+First choose **Runtime → Change runtime type** and set:
 
-RUNTIME_PY = """\
-import sys
+- **Hardware accelerator:** T4 GPU.
+- **Runtime version:** 2026.07, which uses Python 3.12. Samudra doesn't support
+  Python 3.13 yet, so on newer runtime versions pip finds no installable release.
 
-SUPPORTED_PYTHON = (3, 12)
-if sys.version_info[:2] != SUPPORTED_PYTHON:
-    raise RuntimeError(
-        "The current Samudra package supports Python 3.12, but this runtime is "
-        f"Python {sys.version.split()[0]}. Select Colab's latest runtime."
-    )
+Then run the cell below. It installs the latest stable `samudra` release from
+PyPI; the `cuda` extra adds torchvision, and PyTorch supplies the GPU attention
+kernels.
 
-print(f"Python: {sys.version.split()[0]}")
-!nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
-"""
-
-INSTALL_MD = """\
-### 2. Install Samudra 2
-
-This tracks and installs the latest stable `samudra` release from PyPI.
-
-Samudra's Perceiver uses PyTorch's native scaled dot product attention, so it
-does not need separately compiled `flash-attn`, `flash-perceiver`, or
-`perceiver-pytorch` packages. The published `cuda` extra now describes the
-complete GPU-capable installation, including torchvision, while PyTorch itself
-supplies the compiled attention kernels. Pip retains Colab's CUDA-enabled
-PyTorch when it satisfies Samudra's supported version range. The following cell
-verifies CUDA and PyTorch's compiled FlashAttention support before training.
-
-Colab may have already loaded NumPy 2 before this installation replaces it.
-The following cell detects that one-time mismatch and restarts the Python
-kernel automatically. After Colab reconnects, click **Runtime → Run all** once
-more to continue automatically through the remaining cells.
+Colab starts with NumPy already loaded. If installing Samudra changes the NumPy
+version, the cell restarts the Python kernel once so the new version takes
+effect. After Colab reconnects, choose **Runtime → Run all** again; the install
+is then a no-op and the notebook runs through. When Samudra's NumPy requirement
+matches Colab's, no restart happens.
 """
 
 INSTALL_PY = """\
-!pip install --quiet --progress-bar off "samudra[cuda]"
-"""
+!pip install --quiet "samudra[cuda]"
 
-RESTART_PY = """\
-from importlib.metadata import version
-import os
-import signal
-import sys
-import time
-
-from packaging.version import Version
-
-installed_numpy_version = Version(version("numpy"))
-loaded_numpy = sys.modules.get("numpy")
-loaded_numpy_version = (
-    Version(loaded_numpy.__version__) if loaded_numpy is not None else None
-)
-
-if (
-    loaded_numpy_version is not None
-    and loaded_numpy_version != installed_numpy_version
-):
-    print(
-        "Setup installed NumPy "
-        f"{installed_numpy_version}, replacing the preloaded "
-        f"{loaded_numpy_version}. Restarting the Python kernel now. "
-        "After Colab reconnects, click Runtime → Run all once more."
-    )
-    time.sleep(1)
-    os.kill(os.getpid(), signal.SIGKILL)
-else:
-    print(f"Python environment ready (NumPy {installed_numpy_version}).")
-
-import torch
-
-if not torch.cuda.is_available():
-    raise RuntimeError(
-        "The installed PyTorch cannot access CUDA. Select a Colab GPU runtime "
-        "and rerun setup."
-    )
-
-print(f"PyTorch: {torch.__version__} (CUDA {torch.version.cuda})")
-print(
-    "PyTorch FlashAttention compiled: "
-    f"{torch.backends.cuda.is_flash_attention_available()}"
-)
+import importlib.metadata, os, numpy
+if numpy.__version__ != importlib.metadata.version("numpy"):
+    print("Restarting to load the newly installed NumPy. Then choose Runtime → Run all again.")
+    os.kill(os.getpid(), 9)
 """
 
 CONFIG_MD = """\
 ## Steps
 
-### 3. Write the YAML configuration
+### 2. Write the YAML configuration
 
 Samudra is configured primarily through YAML and secondarily through CLI
 overrides. The first cell below uses Colab's `%%writefile` magic to create a
@@ -295,13 +234,15 @@ display(Markdown(
 
 
 DATA_MD = """\
-### 4. Inspect the selected public OM4 data
+### 3. Inspect the selected public OM4 data
 
 The YAML points to `OM4.zarr`, `OM4_means.zarr`, and `OM4_stds.zarr` in the
 public `s3://m2lines-pubs/Samudra/v2026-09/om4_twodeg/` directory. The cell
 opens remote metadata, selects the exact train and validation windows, and
-loads one sea-surface-height value as a connectivity check. Only the selected
-chunks stream into Colab.
+loads the first frame's area-weighted global-mean sea-surface height (`zos`) as
+a connectivity check. Following the CMIP convention, `zos` is dynamic sea level
+with its global area-weighted mean removed, so this value should be close to
+zero. Only the selected chunks stream into Colab.
 
 These locations match Samudra's bundled
 [`data/om4_demo.yaml`](https://github.com/m2lines/Samudra/blob/main/src/samudra/configs/data/om4_demo.yaml).
@@ -334,7 +275,11 @@ assert (ds.sizes[lat_dim], ds.sizes[lon_dim]) == (90, 180)
 assert expected_variables.issubset(ds.data_vars)
 assert train_window.sizes["time"] == 17
 assert val_window.sizes["time"] == 7
-probe = train_window["zos"].isel(time=0, **{lat_dim: 0, lon_dim: 0}).load()
+# Global statistics must be area-weighted: high-latitude cells are smaller.
+# Land cells are NaN and drop out of both the sum and the weights.
+first_zos = train_window["zos"].isel(time=0)
+probe = first_zos.weighted(ds["areacello"].fillna(0)).mean().load()
+assert abs(probe.item()) < 0.05, "area-mean sea-surface height should be ~0 m"
 
 display(Markdown(
     "| Observed experiment setting | Selected value | YAML control |\\n"
@@ -350,13 +295,13 @@ display(Markdown(
     f"| Batch size | {cfg.batch_size} | `batch_size` |"
 ))
 print(f"Anonymous stream: {source.data_location}")
-print(f"Connectivity probe — first source zos value: {probe.item()}")
+print(f"Connectivity probe — area-weighted mean zos of the first frame: {probe.item():.4f} m (≈ 0, as expected)")
 print("Requested chunks streamed directly from public storage.")
 ds.close()
 """
 
 TRAIN_MD = """\
-### 5. Train and validate Samudra 2
+### 4. Train and validate Samudra 2
 
 The normal `Trainer` handles normalization, masking, dynamic
 variance-weighted loss, validation, and checkpointing. The small wrapper below
@@ -443,7 +388,7 @@ display(Markdown(
 PREDICTION_MD = """\
 ## Checks
 
-### 6. Compare one prediction with ground truth
+### 5. Compare one prediction with ground truth
 
 The final cell runs the trained model on one held-out validation batch and
 plots normalized sea-surface height (`zos`). Ground truth, prediction, and
@@ -540,11 +485,8 @@ def build_notebook() -> nbf.NotebookNode:
     notebook = nbf.v4.new_notebook()
     notebook.cells = [
         _markdown_cell(INTRO_MD, "intro"),
-        _markdown_cell(RUNTIME_MD, "runtime"),
-        _code_cell(RUNTIME_PY, "runtime-code"),
-        _markdown_cell(INSTALL_MD, "install"),
+        _markdown_cell(SETUP_MD, "setup"),
         _code_cell(INSTALL_PY, "install-code"),
-        _code_cell(RESTART_PY, "restart-code"),
         _markdown_cell(CONFIG_MD, "config"),
         _code_cell(CONFIG_YAML_CELL, "config-yaml"),
         _code_cell(CONFIG_LOAD_PY, "config-load-code"),
@@ -576,7 +518,7 @@ def main(*, check: bool = False) -> None:
     if check:
         if not OUT.exists() or nbf.read(OUT, as_version=4) != notebook:
             raise SystemExit(
-                "notebooks/quickstart.ipynb is stale; run "
+                "notebooks/samudra-quickstart.ipynb is stale; run "
                 "`uv run python scripts/build_quickstart_notebook.py`"
             )
         print(f"{OUT.relative_to(REPO)} is current")

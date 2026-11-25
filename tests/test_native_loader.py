@@ -89,17 +89,11 @@ def test_shared_pipeline_accepts_an_independent_bulk_reader(
     normalize_before_mask, prefetch_to_device, device_type, monkeypatch
 ):
     source, _ = _equivalent_om4_sources()
-    data, means, stds = source._xarray_datasets_for_testing()
     calls: list[tuple[TimeIndices, tuple[str, ...]]] = []
-    native = CanonicalSource.from_datasets(
-        data,
-        means,
-        stds,
-        data_layout=source.data_layout,
-        prognostic_var_names=["so_0", "so_2", "zos"],
-        boundary_var_names=["hfds"],
-        reader_factory=lambda xarray_reader: ArrayBulkReader(
-            source, xarray_reader, np.arange(source.time.size), calls
+    native = replace(
+        source,
+        _reader=ArrayBulkReader(
+            source, source.reader, np.arange(source.time.size), calls
         ),
     )
     period = Om4TimeConfig(start=JulianDate("2000-01-02"), end=JulianDate("2000-01-08"))
@@ -169,3 +163,28 @@ def test_shared_pipeline_accepts_an_independent_bulk_reader(
     np.testing.assert_array_equal(calls[1][0], [0, 1, 2, 3])
     assert calls[0][1] == ("so_0", "so_2", "zos")
     assert calls[1][1] == ("hfds",)
+
+
+def test_native_bulk_read_rejects_duplicate_channels_before_io():
+    from unittest.mock import Mock
+
+    from samudra.native_reader import NativeOm4Reader, PhysicalVariable
+    from samudra.utils.data import XarrayCanonicalReader
+
+    source, _ = _equivalent_om4_sources()
+    assert isinstance(source.reader, XarrayCanonicalReader)
+    planes = Mock()
+    reader = NativeOm4Reader(
+        xarray_reader=source.reader,
+        channels=source.channels,
+        path="unused",
+        _planes=planes,
+        _reader_variables={"so_0": PhysicalVariable("so_0")},
+        _physical_time_indices=np.arange(source.time.size),
+        _spatial_shape=source.grid_size,
+    )
+    output = np.full((1, 2, *source.grid_size), np.nan, dtype=np.float32)
+    with pytest.raises(ValueError, match="channel names must be unique"):
+        reader.read_into(np.array([0]), ("so_0", "so_0"), output)
+    planes.read_into.assert_not_called()
+    assert np.isnan(output).all()

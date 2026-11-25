@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import datetime
+import json
 from pathlib import Path
 from typing import cast
 
@@ -13,7 +14,7 @@ import xarray as xr
 
 from samudra.config import Om4DataSourceConfig
 from samudra.constants import build_om4_layout
-from samudra.utils.data import BatchPreprocessor, CanonicalSource
+from samudra.utils.data import BatchPreprocessor, CanonicalSource, SourceTree
 from samudra.utils.output import ModelInferenceOutput
 from samudra.utils.writer import ZarrWriter
 from tests.conftest import TEST_FULL_DATA_LAYOUT
@@ -68,6 +69,9 @@ def test_writer_slices_time_coordinates_for_each_append(
             )
         )
         writer.write()
+    assert (
+        json.loads((Path(writer.pred_path) / ".zgroup").read_text())["zarr_format"] == 2
+    )
     result = xr.open_zarr(writer.pred_path)
     np.testing.assert_array_equal(result.time.values, times[2:])
     np.testing.assert_array_equal(result.time_bnds.values, bounds[2:])
@@ -266,8 +270,13 @@ def test_tripolar_om4_canonicalization_preserves_writer_geometry(tmp_path):
         boundary_vars_key="hfds",
         grid_type="tripolar",
     )
-    canonical_data, canonical_means, canonical_stds, data_layout = (
-        canonicalizer.canonicalize_datasets(data, means, stds)
+    canonical, data_layout = canonicalizer.canonicalize_datasets(
+        SourceTree.from_datasets(data, means=means, stds=stds)
+    )
+    canonical_data, canonical_means, canonical_stds = (
+        canonical.data,
+        canonical.means,
+        canonical.stds,
     )
     source = CanonicalSource.from_datasets(
         canonical_data,

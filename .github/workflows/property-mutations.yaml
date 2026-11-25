@@ -1,0 +1,149 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+name: Property mutation gate
+
+on:
+  # Every PR runs the cheap plan job, which checks every fault's anchor, so a
+  # refactor that breaks a catalog fails on its own PR. The gates themselves run
+  # only when a file their verdicts depend on changes.
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: property-mutations-${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  plan:
+    if: >-
+      github.event_name != 'pull_request' || (
+        !startsWith(github.head_ref, 'experiment/') &&
+        !contains(github.event.pull_request.labels.*.name, 'experiment')
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      root: ${{ steps.plan.outputs.root }}
+      data: ${{ steps.plan.outputs.data }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 2  # The PR merge commit and its base.
+      - uses: astral-sh/setup-uv@d0d8abe699bfb85fec6de9f7adb5ae17292296ff
+        with:
+          python-version: "3.12"
+      - name: Check anchors and choose the gates to run
+        id: plan
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          if test "$EVENT" = pull_request; then
+            changed=$(git diff --name-only HEAD^1 HEAD)
+          fi
+          # project, catalog directory, files outside the catalogs' inputs that
+          # still change every verdict (environments, conftests, the tooling).
+          while read -r project directory shared; do
+            # Root catalogs target src/samudra, which this lightweight environment
+            # doesn't install, so point the module search at it.
+            inputs=$(PYTHONPATH=src uv run --locked --no-dev --package samudra-verification \
+              python -m samudra_verification.gate --plan "$directory")
+            if test -z "$inputs"; then
+              run=false; why="no *_faults.py catalogs in $directory"
+            elif test "$EVENT" != pull_request; then
+              run=true; why="$EVENT runs every gate"
+            elif grep -qxF -f <(printf '%s\n' "$inputs") <<< "$changed" ||
+                 grep -qE "^(verification/|\.github/workflows/property-(mutations|soak)\.yaml\$|$shared)" <<< "$changed"; then
+              run=true; why="this PR changes a catalog, its target, its detectors, or their environment"
+            else
+              run=false; why="no catalog input changed; anchors checked"
+            fi
+            echo "$project=$run" >> "$GITHUB_OUTPUT"
+            echo "- \`$project\` mutation gate: **$run** ($why)" >> "$GITHUB_STEP_SUMMARY"
+          done <<'PROJECTS'
+          root tests pyproject\.toml$|uv\.lock$|tests/conftest\.py$
+          data data/tests data/pyproject\.toml$|data/tests/conftest\.py$|src/samudra/invariants/|pyproject\.toml$
+          PROJECTS
+
+  root:
+    needs: plan
+    if: needs.plan.outputs.root == 'true'
+    runs-on: ubuntu-latest
+    # Each catalog: controls at most seeds x detectors x 60 s, then mutants share
+    # 600 s. Recompute when adding detectors.
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: astral-sh/setup-uv@d0d8abe699bfb85fec6de9f7adb5ae17292296ff
+        with:
+          enable-cache: true
+          python-version: "3.12"
+      - run: uv sync --locked --dev
+      - name: Verify generated discovery of historical faults
+        run: |
+          set -o pipefail
+          uv run --locked python -m samudra_verification.gate tests \
+            --output /tmp/property-mutations --seeds 0 1 95920261105 --timeout 60 --budget 600 \
+            2>&1 | tee /tmp/property-mutations-run.log
+      - name: Summarize
+        if: always()
+        run: test ! -f /tmp/property-mutations/summary.md || cat /tmp/property-mutations/summary.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: property-mutations-root
+          path: |
+            /tmp/property-mutations/
+            /tmp/property-mutations-run.log
+          retention-days: 30
+
+  data:
+    needs: plan
+    if: needs.plan.outputs.data == 'true'
+    runs-on: ubuntu-latest
+    # Worst case: controls take 3 seeds x 11 distinct detectors x 60 s (33 min), then
+    # mutants share 600 s (10 min). The rest covers the install. Recompute when adding
+    # detectors.
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: astral-sh/setup-uv@d0d8abe699bfb85fec6de9f7adb5ae17292296ff
+        with:
+          enable-cache: true
+          python-version: "3.12"
+      - name: Install the data-test environment
+        # The packages data-tests.yaml installs: the newest versions data/pyproject.toml allows.
+        # samudra.invariants is shared with the data tests. Install CPU torch first so
+        # uv doesn't pull the CUDA wheels as samudra's dependency.
+        run: |
+          uv venv /tmp/data-env
+          uv pip install --python /tmp/data-env 'torch>=2.9,<2.13' --index-url https://download.pytorch.org/whl/cpu
+          uv pip install --python /tmp/data-env -e . -e ./verification -e "./data[test]"
+          echo /tmp/data-env/bin >> "$GITHUB_PATH"
+      - name: Verify generated discovery of historical faults
+        run: |
+          set -o pipefail
+          python -m samudra_verification.gate data/tests \
+            --output /tmp/property-mutations --seeds 0 1 95920261105 --timeout 60 --budget 600 \
+            2>&1 | tee /tmp/property-mutations-run.log
+      - name: Preserve solved environment and summarize
+        if: always()
+        run: |
+          if test -d /tmp/property-mutations; then
+            uv pip freeze --python /tmp/data-env > /tmp/property-mutations/requirements-frozen.txt
+            cat /tmp/property-mutations/summary.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: property-mutations-data
+          path: |
+            /tmp/property-mutations/
+            /tmp/property-mutations-run.log
+          retention-days: 30

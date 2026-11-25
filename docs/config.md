@@ -35,8 +35,26 @@ you can use to reproduce the run by passing to train e.g. `uv run -m samudra.tra
 
 ## Data locations
 
-Each data source names three stores — `data_location`, `data_means_location`, and
-`data_stds_location`. Every one of them is a *location*, which can be written two ways:
+Each data source reads its data from `data_location`, plus the statistics stores for that data: its means and
+standard deviations. Samudra opens them together as one `xarray.DataTree` per source, with the data at the root and one
+child per statistic. The stores stay separate on disk.
+
+By default the statistics stores are found by the release's naming convention. For OM4 and CM4, a data store
+`<stem>.zarr` has its means in `<stem>_means.zarr` and its stds in `<stem>_stds.zarr`, in the same directory. For
+LLC, the statistics are embedded in the data store itself. Set `data_means_location` or `data_stds_location` to read a
+statistic from somewhere else:
+
+```yaml
+sources:
+  - type: om4
+    data_location: om4_onedeg/OM4.zarr  # means: om4_onedeg/OM4_means.zarr, stds: om4_onedeg/OM4_stds.zarr
+  - type: om4
+    data_location: data.zarr
+    data_means_location: means.nc       # explicit locations override the convention
+    data_stds_location: stds.nc
+```
+
+Every one of these is a *location*, which can be written two ways:
 
 - **A relative string** (e.g. `OM4.zarr`). It is resolved against `experiment.data_root`,
   so the same data config works against a local copy or a bucket just by changing the root:

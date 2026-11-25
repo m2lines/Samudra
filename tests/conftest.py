@@ -15,12 +15,25 @@ import pytest
 import torch
 import xarray as xr
 from numpy.typing import ArrayLike, NDArray
+from samudra_verification.profiles import (
+    configure_profiles,
+    register_torch_random,
+    tag_project_items,
+)
 
 import samudra.constants as c
 from samudra.config import Om4DataSourceConfig, TrainBackendConfig, TrainConfig
 from samudra.train import Trainer
-from samudra.utils.data import CanonicalSource, Masks, compact_dataset
+from samudra.utils.data import CanonicalSource, Masks, SourceTree, compact_dataset
 from samudra.utils.multiton import MultitonScope
+
+configure_profiles(default_profile="unit")
+register_torch_random()
+
+
+def pytest_collection_modifyitems(items):
+    tag_project_items(items, project="samudra", root=pathlib.Path(__file__).parent)
+
 
 REMOTE_DATA = "https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/"
 # Test-only config fixtures live alongside the tests (they aren't shipped in the
@@ -48,8 +61,13 @@ def canonicalize_mock_om4(
         prognostic_vars_key="thermo_dynamic_all",
         boundary_vars_key="hfds",
     )
-    canonical_data, canonical_means, canonical_stds, _ = (
-        canonicalizer.canonicalize_datasets(data, means, stds)
+    canonical, _ = canonicalizer.canonicalize_datasets(
+        SourceTree.from_datasets(data, means=means, stds=stds)
+    )
+    canonical_data, canonical_means, canonical_stds = (
+        canonical.data,
+        canonical.means,
+        canonical.stds,
     )
     return canonical_data, canonical_means, canonical_stds
 

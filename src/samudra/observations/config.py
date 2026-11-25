@@ -71,7 +71,7 @@ class ObservationTrainConfig(TopLevelConfig):
 
     Update counts and cadence count optimizer steps. One microbatch is a monthly
     source window; gradient_accumulation_steps sets the global effective batch
-    size, divided across ranks when update_prefetch enables distributed training.
+    size, divided across ranks when the pipeline engine trains distributed.
     """
 
     experiment: ExperimentConfig
@@ -104,7 +104,11 @@ class ObservationTrainConfig(TopLevelConfig):
     loss: ObservationLossConfig = ObservationLossConfig()
     milestone_updates: list[int] = Field(default_factory=list)
     measure_timing: bool = False
-    update_prefetch: bool = False
+    engine: Literal["sequential", "pipeline"] = Field(
+        default="sequential",
+        description="sequential: one process, no prefetch. pipeline: prefetches "
+        "the next update in the background and supports DDP.",
+    )
     prefetch_enabled: bool = True
     backend: TrainBackendConfig = "auto"
     debug: bool = False
@@ -160,7 +164,7 @@ class ObservationTrainConfig(TopLevelConfig):
                     "Scheduler final_lr must not exceed its phase learning rate"
                 )
         if self.resume_ckpt_path and self.fork_ckpt_path:
-            raise ValueError("Specify resume or an uncooled main checkpoint fork")
+            raise ValueError("Specify resume or a fork from a main-phase checkpoint")
         if any(i < 1 or i > self.main_updates for i in self.milestone_updates):
             raise ValueError("Milestones must lie within the main trajectory")
         if self.model.forcing_mode == "shared_era5":

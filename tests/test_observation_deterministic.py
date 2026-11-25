@@ -206,8 +206,8 @@ def test_distributed_estimate_excludes_sync_controls_and_counts_gpu_allocation()
     ] == pytest.approx(8 * result["hours_with_30_percent_execution_allowance"][0])
 
 
-@pytest.mark.parametrize("prefetch", [False, True])
-def test_qualification_keeps_prefetched_sources_on_cpu(monkeypatch, tmp_path, prefetch):
+@pytest.mark.parametrize("engine", ["sequential", "pipeline"])
+def test_qualification_keeps_pipeline_sources_on_cpu(monkeypatch, tmp_path, engine):
     """Stop at the data boundary without allocating a GPU or opening real archives."""
     import torch
 
@@ -217,7 +217,7 @@ def test_qualification_keeps_prefetched_sources_on_cpu(monkeypatch, tmp_path, pr
         update={
             "main_updates": 4,
             "post_training_updates": 2,
-            "update_prefetch": prefetch,
+            "engine": engine,
         }
     )
     cfg.experiment.base_output_dir = str(tmp_path)
@@ -239,7 +239,7 @@ def test_qualification_keeps_prefetched_sources_on_cpu(monkeypatch, tmp_path, pr
         return SimpleNamespace(obs=data, models={})
 
     def manifest(config, data, sources):
-        if prefetch:
+        if engine == "pipeline":
             assert data.device == "cuda"
             assert data is not sources.obs
         raise DataBoundary
@@ -248,7 +248,7 @@ def test_qualification_keeps_prefetched_sources_on_cpu(monkeypatch, tmp_path, pr
     monkeypatch.setattr(qualify.baseline, "run_manifest", manifest)
     with pytest.raises(DataBoundary):
         qualify.run(cfg)
-    assert devices == ["cpu" if prefetch else "cuda"]
+    assert devices == ["cpu" if engine == "pipeline" else "cuda"]
 
 
 def test_data_parity_compares_the_prepared_month_with_the_daily_path(tmp_path):

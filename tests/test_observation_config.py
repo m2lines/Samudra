@@ -163,7 +163,7 @@ def test_distributed_launch_rejects_a_single_device_backend(
     monkeypatch.setattr(
         entry, "init_train_backend", lambda _: pytest.fail("backend initialized")
     )
-    cfg = config(tmp_path, update_prefetch=True).model_copy(update={"backend": backend})
+    cfg = config(tmp_path, engine="pipeline").model_copy(update={"backend": backend})
     with pytest.raises(ValueError, match="requires backend nccl or auto"):
         entry.run_training(cfg)
     assert not cfg.experiment.output_dir.exists()

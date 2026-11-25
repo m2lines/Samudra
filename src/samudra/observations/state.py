@@ -162,7 +162,7 @@ class TrainingState[ModelT: torch.nn.Module]:
                 or saved["updates"] > manifest["config"]["main_updates"]
             ):
                 raise ValueError(
-                    "Fork requires an uncooled checkpoint before the new main endpoint"
+                    "Fork requires a main-phase checkpoint before the new main endpoint"
                 )
         if parent != current:
             raise ValueError("Checkpoint code/data/recipe manifest differs")

@@ -48,10 +48,10 @@ def screen_configs(
 
 
 def winner_configs(winner: ObservationTrainConfig) -> dict[str, ObservationTrainConfig]:
-    """Continue the uncooled 4k state; branch isolated cooldowns at 8k and 12k.
+    """Continue the 4k main-phase state; branch isolated post-training at 8k and 12k.
 
-    The screen already supplies the 4k cooldown. The main continuation finishes
-    with its 16k cooldown, for 20k total updates including all four cooldowns.
+    The screen already supplies post-training at 4k. The main continuation finishes
+    with post-training at 16k, for 20k total updates including all four post-training runs.
     """
     root = winner.experiment.base_output_dir
     name = winner.experiment.name
@@ -74,7 +74,7 @@ def winner_configs(winner: ObservationTrainConfig) -> dict[str, ObservationTrain
                 Path(root) / main.experiment.name / "saved_nets" / f"main-{update}.pt"
             ),
         )
-        branch["experiment"]["name"] = name + f"-cooldown{update}"
+        branch["experiment"]["name"] = name + f"-post{update}"
         result[branch["experiment"]["name"]] = ObservationTrainConfig.model_validate(
             branch
         )

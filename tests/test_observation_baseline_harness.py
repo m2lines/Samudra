@@ -535,14 +535,16 @@ def test_fork_only_changes_budget_and_does_not_mutate_parent(monkeypatch, tmp_pa
     with pytest.raises(ValueError, match="manifest differs"):
         child.restore(parent_path, {"config": changed.scientific_config()}, fork=True)
     state.in_post_training = True
-    state.save(tmp_path / "cooled.pt", manifest)
-    with pytest.raises(ValueError, match="uncooled"):
+    state.save(tmp_path / "post-trained.pt", manifest)
+    with pytest.raises(ValueError, match="main-phase checkpoint"):
         child.restore(
-            tmp_path / "cooled.pt", {"config": continued.scientific_config()}, fork=True
+            tmp_path / "post-trained.pt",
+            {"config": continued.scientific_config()},
+            fork=True,
         )
 
 
-def test_uncooled_fork_continuation_matches_uninterrupted_main(monkeypatch, tmp_path):
+def test_main_phase_fork_continuation_matches_uninterrupted_main(monkeypatch, tmp_path):
     short = small_recipe(monkeypatch)
     long = short.model_copy(
         update={"main_updates": 16, "milestone_updates": [8, 12, 16]}

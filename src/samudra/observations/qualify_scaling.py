@@ -105,9 +105,9 @@ def verify_telemetry_devices(uuids: Sequence[str]) -> None:
 
 
 def run(cfg: ObservationTrainConfig) -> None:
-    if not cfg.update_prefetch or cfg.data.loading is None:
+    if cfg.engine != "pipeline" or cfg.data.loading is None:
         raise ValueError(
-            "Scaling qualification requires update_prefetch and Rust loading"
+            "Scaling qualification requires the pipeline engine and Rust loading"
         )
     if (
         cfg.gradient_accumulation_steps != 8
@@ -115,7 +115,7 @@ def run(cfg: ObservationTrainConfig) -> None:
         or cfg.post_training_updates != 2
     ):
         raise ValueError(
-            "Qualify global batch eight, at least 32 main and two cooldown updates"
+            "Qualify global batch eight, at least 32 main and two post-training updates"
         )
     os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
     size = int(os.environ.get("WORLD_SIZE", "1"))
@@ -287,11 +287,11 @@ def run(cfg: ObservationTrainConfig) -> None:
         fork_manifest = {**manifest, "config": fork.scientific_config()}
         state.restore(main_path, fork_manifest, fork=True)
         if state.in_post_training or state.updates != cfg.main_updates:
-            raise AssertionError("Main continuation inherited cooldown")
+            raise AssertionError("Main continuation inherited post-training")
         state.restore(main_path, manifest)
-        train_until("cooldown", cfg.total_updates)
+        train_until("post-training", cfg.total_updates)
         if not state.in_post_training or state.ema.num_updates != 2:
-            raise AssertionError("Cooldown did not reset EMA exactly once")
+            raise AssertionError("Post-training did not reset EMA exactly once")
         hashes = [model_digest(model)]
         if world.size > 1:
             hashes = [None] * world.size
@@ -312,7 +312,9 @@ def run(cfg: ObservationTrainConfig) -> None:
             dist.all_gather_object(memories, memory, group=world.group)
         if world.rank == 0:
             if baseline.digest(main_path) != parent_sha:
-                raise AssertionError("Cooldown modified uncooled parent checkpoint")
+                raise AssertionError(
+                    "Post-training modified its main-phase parent checkpoint"
+                )
             if telemetry.poll() is not None:
                 raise RuntimeError("GPU utilization telemetry stopped unexpectedly")
             report = {
@@ -325,7 +327,7 @@ def run(cfg: ObservationTrainConfig) -> None:
                 "slurm_job_id": os.environ.get("SLURM_JOB_ID"),
                 "parameters": sum(p.numel() for p in model.parameters()),
                 "exact_prefetch_and_resume": True,
-                "isolated_uncooled_fork": True,
+                "isolated_main_phase_fork": True,
                 "rank_model_sha256": hashes,
                 "memory": memories,
                 "exposure": state.exposure,

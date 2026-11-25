@@ -188,8 +188,9 @@ sbatch --nodes=1 --gres=gpu:rtx6000:1 --cpus-per-task=16 --mem=64G \
 ```
 
 Set the container and site-specific resource settings as for other Samudra runs.
-The legacy sequential path requires one process. Set `update_prefetch: true`
-for DDP with a global example count divisible by the number of ranks. Resume
+`engine` selects the training loop. The default, `sequential`, runs in one
+process. `pipeline` prefetches the next update in the background and supports
+DDP, with a global example count divisible by the number of ranks. Resume
 requires the same world size. On Torch RTX6000 nodes, export
 `NCCL_P2P_DISABLE=1` and `TORCH_NCCL_ASYNC_ERROR_HANDLING=1`, including
 the corresponding `APPTAINERENV_` variables; see [Torch guidance](../../../docs/torch.md#nccl-gotcha-on-rtx6000-nodes).
@@ -222,11 +223,11 @@ parameter layout and seeded initialization of the
 
 The [mixed large preset](../configs/observations/deterministic_mixed_large.yaml)
 contains the full Samudra evolution and initializer U-Nets, direct eight-field
-ERA5 conditioning, source-separated replay, and observation-only cooldown.
+ERA5 conditioning, source-separated replay, and observation-only post-training.
 It alternates OM4 and observation updates for 4,000 updates, then runs 1,000
-observation-only cooldown updates. The global batch is eight monthly windows:
+observation-only post-training updates. The global batch is eight monthly windows:
 four ranks accumulate two examples each, normally four fresh and four replayed.
-The preset enables the Rust readers and one-update asynchronous prefetch.
+The preset enables the Rust readers and the `pipeline` engine.
 
 Install the Rust extra (`uv sync --extra rust`) and prepare the observation
 archives and normalization as above. The daily product names are `sst`, `adt`,
@@ -267,13 +268,14 @@ Here `CONFIG` is your configured small-initializer base, and the output director
 receives five YAML files. Train each generated config with the observation
 entrypoint.
 For a selected screen config, `python -m samudra.observations.campaign CONFIG OUTPUT
---winner` generates continuation from the uncooled 4k checkpoint to 16k total main
-updates and separate 1k cooldown branches at 8k and 12k. The screen supplies the
-4k cooldown; the main continuation ends with the 16k cooldown. These branches
-preserve optimizer, replay and RNG state without cooling the continuing trajectory.
+--winner` generates a continuation of the main phase from the 4k checkpoint to 16k
+total main updates, and separate 1k post-training branches at 8k and 12k. The
+screen supplies post-training at 4k; the main continuation ends with post-training
+at 16k. These branches preserve optimizer, replay and RNG state without
+post-training the continuing main trajectory.
 The generator derives checkpoint paths from the selected config's output directory.
 Run the main continuation first so it writes `main-8000.pt` and `main-12000.pt`,
-then run the two generated cooldown configs from those checkpoints.
+then run the two generated post-training configs from those checkpoints.
 
 Use `python -m samudra.observations.campaign CONFIG OUTPUT --qualification`
 to generate short configs for `python -m samudra.observations.qualify CONFIG`.

@@ -294,7 +294,7 @@ def run(cfg: QualificationConfig) -> None:
     require_single_process()
     if cfg.main_updates != 4 or cfg.post_training_updates != 2:
         raise ValueError(
-            "Qualification requires exactly four main and two cooldown updates"
+            "Qualification requires exactly four main and two post-training updates"
         )
     if cfg.gradient_accumulation_steps != 8:
         raise ValueError("Qualify the production effective batch of eight")
@@ -319,8 +319,10 @@ def run(cfg: QualificationConfig) -> None:
         emit({"event": "already_qualified", "path": str(output)})
         return
     started = time.perf_counter()
-    sources = build_sources(cfg, torch.device("cpu" if cfg.update_prefetch else "cuda"))
-    data = sources.obs.to(torch.device("cuda")) if cfg.update_prefetch else sources.obs
+    # The pipeline loads on CPU in the background and keeps a GPU copy for losses.
+    pipeline = cfg.engine == "pipeline"
+    sources = build_sources(cfg, torch.device("cpu" if pipeline else "cuda"))
+    data = sources.obs.to(torch.device("cuda")) if pipeline else sources.obs
     manifest = baseline.run_manifest(cfg, data, sources)
     manifest_path = output / "manifest.json"
     if manifest_path.exists() and json.loads(manifest_path.read_text()) != manifest:
@@ -404,7 +406,7 @@ def run(cfg: QualificationConfig) -> None:
         )
 
     # Completed checkpoints survive preemption. Repeat comparison stages from
-    # the same uncooled checkpoint so interrupted qualification stays bounded.
+    # the same main-phase checkpoint so interrupted qualification stays bounded.
     main_path = output / "main.pt"
     if main_path.exists():
         state.restore(main_path, manifest)
@@ -418,7 +420,7 @@ def run(cfg: QualificationConfig) -> None:
     fork_manifest = {**manifest, "config": fork_cfg.scientific_config()}
     state.restore(main_path, fork_manifest, fork=True)
     if state.in_post_training or state.updates != 4:
-        raise AssertionError("Main continuation inherited cooldown")
+        raise AssertionError("Main continuation inherited post-training")
     state.restore(main_path, manifest)
     train_until(5)
     expected = output / "expected.pt"
@@ -436,12 +438,12 @@ def run(cfg: QualificationConfig) -> None:
     equal_tree(actual_payload, expected_payload)
     del actual_payload, expected_payload
     if baseline.digest(main_path) != parent_sha:
-        raise AssertionError("Cooldown branch modified main checkpoint")
+        raise AssertionError("Post-training branch modified main checkpoint")
     emit(
         {
             "event": "exact_resume",
             "optimizer_ema_rng_replay": True,
-            "isolated_uncooled_fork": True,
+            "isolated_main_phase_fork": True,
         }
     )
     train_until(6)
@@ -452,7 +454,7 @@ def run(cfg: QualificationConfig) -> None:
         if not replay and (exposure["replay"] or state.pools[source].entries):
             raise AssertionError("No-replay control used replay")
     if not state.in_post_training or state.ema.num_updates != 2:
-        raise AssertionError("Cooldown must reset EMA once and retain optimizer")
+        raise AssertionError("Post-training must reset EMA once and retain optimizer")
     if cfg.qualify_chains:
         # Include populated Adam moments AND full replay capacity in the storage
         # benchmark. This diagnostic checkpoint is never used for training.
@@ -483,7 +485,7 @@ def run(cfg: QualificationConfig) -> None:
         "peak_gpu_allocated_bytes": torch.cuda.max_memory_allocated(),
         "peak_gpu_reserved_bytes": torch.cuda.max_memory_reserved(),
         "exact_resume": True,
-        "isolated_uncooled_fork": True,
+        "isolated_main_phase_fork": True,
         "data_parity": parity,
         "annual_metrics": metrics,
         "exposure": state.exposure,

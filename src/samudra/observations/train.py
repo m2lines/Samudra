@@ -39,7 +39,7 @@ def require_single_process() -> None:
 
 
 def run_training(cfg: ObservationTrainConfig) -> None:
-    if not cfg.update_prefetch:
+    if cfg.engine == "sequential":
         require_single_process()
     world_size = int(os.environ.get("WORLD_SIZE", "1"))
     if cfg.gradient_accumulation_steps % world_size:
@@ -152,10 +152,10 @@ def _run_training(cfg: ObservationTrainConfig, device: torch.device) -> None:
     rank = torch.distributed.get_rank() if distributed else 0
     sources = build_sources(
         cfg,
-        torch.device("cpu") if cfg.update_prefetch else device,
+        torch.device("cpu") if cfg.engine == "pipeline" else device,
         verify_data=rank == 0,
     )
-    data = sources.obs.to(device) if cfg.update_prefetch else sources.obs
+    data = sources.obs.to(device) if cfg.engine == "pipeline" else sources.obs
     manifest = run_manifest(cfg, sources.obs, sources) if rank == 0 else None
     if distributed:
         shared = [manifest]
@@ -257,7 +257,7 @@ def _run_training(cfg: ObservationTrainConfig, device: torch.device) -> None:
 
 def main() -> None:
     cfg = ObservationTrainConfig.from_yaml_and_cli()
-    if not cfg.update_prefetch:
+    if cfg.engine == "sequential":
         require_single_process()
     cfg.prepare_output_dirs()
     handle_logging(cfg.debug, cfg.experiment.output_dir)

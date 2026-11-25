@@ -294,7 +294,7 @@ def train(
     stopping: Callable[[], bool] = lambda: False,
 ) -> None:
     """The complete scientific sequence is visible and editable here."""
-    if cfg.update_prefetch:
+    if cfg.engine == "pipeline":
         from samudra.observations.pipeline import train as train_pipeline
 
         train_pipeline(

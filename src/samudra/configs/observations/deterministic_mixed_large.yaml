@@ -22,6 +22,7 @@ data:
   om4: om4_onedeg_v3
 debug: false
 ema_decay: 0.9930924954370359
+engine: pipeline
 experiment:
   base_output_dir: .LOCAL
   data_root: .
@@ -144,7 +145,6 @@ replay:
 resume_ckpt_path: null
 save_freq: 25
 stop_after: null
-update_prefetch: true
 validation_freq: 250
 validation_origin: '2013-11-01'
 weight_decay: 0.01

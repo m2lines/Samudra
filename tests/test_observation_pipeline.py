@@ -106,7 +106,7 @@ def configuration(**changes):
         post_training_updates=2,
         save_freq=1,
         validation_freq=6,
-        update_prefetch=True,
+        engine="pipeline",
         **changes,
     )
 
@@ -180,7 +180,7 @@ def _distributed_worker(rank, root):
 
 
 @pytest.mark.parametrize("main_updates", [3, 4])
-def test_prefetched_uncooled_fork_matches_continuous_main(
+def test_pipeline_main_phase_fork_matches_continuous_main(
     monkeypatch, tmp_path, main_updates
 ):
     torch.set_num_threads(1)
@@ -288,12 +288,12 @@ class MisalignedSources(Sources):
         return sample
 
 
-@pytest.mark.parametrize("prefetch", [False, True])
+@pytest.mark.parametrize("engine", ["sequential", "pipeline"])
 def test_replay_refuses_states_that_miss_next_months_input_time(
-    monkeypatch, tmp_path, prefetch
+    monkeypatch, tmp_path, engine
 ):
     monkeypatch.setattr(baseline, "objective", objective)
-    cfg = configuration().model_copy(update={"update_prefetch": prefetch})
+    cfg = configuration().model_copy(update={"engine": engine})
     with pytest.raises(ValueError, match="Replay boundary differs"):
         baseline.train(
             cfg,
@@ -307,9 +307,9 @@ def test_replay_refuses_states_that_miss_next_months_input_time(
         )
 
 
-@pytest.mark.parametrize("prefetch", [False, True])
-def test_stop_limit_before_the_restored_update_fails(tmp_path, prefetch):
-    cfg = configuration().model_copy(update={"update_prefetch": prefetch})
+@pytest.mark.parametrize("engine", ["sequential", "pipeline"])
+def test_stop_limit_before_the_restored_update_fails(tmp_path, engine):
+    cfg = configuration().model_copy(update={"engine": engine})
     state = make_state(cfg)
     state.updates = 3
     with pytest.raises(ValueError, match="Stop limit precedes"):

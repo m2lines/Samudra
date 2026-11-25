@@ -44,6 +44,7 @@ ContextHistory = Float[Tensor, "batch time context height width"]
 WetMask = Bool[Tensor, "channels height width"]
 PhysicalStates = Float[Tensor, "batch state_history channels height width"]
 Predictions = Float[Tensor, "batch time channels height width"]
+ForcingMode = Literal["per_source", "shared_era5"]
 Padding = Literal["circular", "constant", "reflect", "replicate"]
 
 # Unit-sphere neighbor distances at one degree are approximately 0.017. Scaling
@@ -80,7 +81,7 @@ class SurfaceInitializedConfig(BaseConfig):
     pad: Padding = "circular"
     initializer_backbone: UNetBackboneConfig | None = None
     evolution_backbone: UNetBackboneConfig | None = None
-    forcing_mode: Literal["native", "shared_era5"] = "native"
+    forcing_mode: ForcingMode = "per_source"
     output_kernel_size: Literal[1, 3] = 1
     activation_checkpointing: bool = True
 
@@ -319,7 +320,7 @@ class SurfaceInitializedModel(nn.Module):
         activation_checkpointing: bool = True,
         initializer_backbone: UNetBackboneConfig | None = None,
         evolution_backbone: UNetBackboneConfig | None = None,
-        forcing_mode: Literal["native", "shared_era5"] = "native",
+        forcing_mode: ForcingMode = "per_source",
         output_kernel_size: Literal[1, 3] = 1,
     ) -> None:
         super().__init__()
@@ -362,7 +363,7 @@ class SurfaceInitializedModel(nn.Module):
             self.forcing_channels,
             output_kernel_size,
         )
-        # In native mode, ERA5 fields are mapped to model forcing, starting at zero
+        # In per-source mode, ERA5 fields are mapped to model forcing, starting at zero
         # forcing; model-family forcing passes through. In shared-ERA5 mode every
         # domain supplies ERA5 fields and both encoders pass them through.
         era5: nn.Module

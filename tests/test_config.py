@@ -77,11 +77,23 @@ def test_statistics_default_to_the_release_naming_convention(
         data_location=data_location, data_means_location=None, data_stds_location=None
     )
     assert source.statistic_locations()["means"] == expected_means
+    # Filled in at validation, so a saved run config records the stores used.
+    assert source.data_means_location == expected_means
     explicit = UnresolvedLocation(path="elsewhere/means.zarr")
     overridden = om4_source_config(
         data_location=data_location, data_means_location=explicit
     )
     assert overridden.statistic_locations()["means"] == explicit
+
+
+@pytest.mark.parametrize("path", [".", "", "./"])
+def test_statistics_beside_a_path_without_a_name_need_explicit_locations(path):
+    with pytest.raises(ValidationError, match="set its location explicitly"):
+        om4_source_config(
+            data_location=UnresolvedLocation(path=path),
+            data_means_location=None,
+            data_stds_location=None,
+        )
 
 
 def test_llc_statistics_default_to_the_data_store():

@@ -77,7 +77,10 @@ class NativeOm4SourceBackend:
             )
         locations = {
             "data_location": data_location,
-            **{f"{name} statistics": loc for name, loc in statistic_locations.items()},
+            **{
+                f"data_{name}_location": loc
+                for name, loc in statistic_locations.items()
+            },
         }
         for field_name, location in locations.items():
             if not isinstance(location, LocalLocation):

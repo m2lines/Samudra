@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from abc import ABC, abstractmethod
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import Annotated, Any, Literal, Self
 from urllib.parse import quote, urljoin, urlparse
 
@@ -177,6 +177,18 @@ Location = Annotated[
 ]
 
 
+def _sibling_name(path: str, suffix: str) -> str:
+    head, slash, name = path.rstrip("/").rpartition("/")
+    stem, dot, extension = name.rpartition(".")
+    if not dot:
+        stem, extension = name, ""
+    if not stem or stem in (".", ".."):
+        raise ValueError(
+            f"Cannot name a companion store beside {path!r}; set its location explicitly"
+        )
+    return f"{head}{slash}{stem}_{suffix}{dot}{extension}"
+
+
 def sibling_location(location: Location, suffix: str) -> Location:
     """The store beside ``location`` named ``<stem>_<suffix><ext>``.
 
@@ -185,17 +197,9 @@ def sibling_location(location: Location, suffix: str) -> Location:
     """
     match location:
         case UnresolvedLocation(path=path):
-            p = PurePosixPath(path)
-            return UnresolvedLocation(
-                path=str(p.with_name(f"{p.stem}_{suffix}{p.suffix}"))
-            )
+            return UnresolvedLocation(path=_sibling_name(path, suffix))
         case LocalLocation(path=path):
-            return LocalLocation(
-                path=path.with_name(f"{path.stem}_{suffix}{path.suffix}")
-            )
+            return LocalLocation(path=Path(_sibling_name(str(path), suffix)))
         case S3Location(path=path):
-            p = PurePosixPath(path)
-            return location.model_copy(
-                update={"path": str(p.with_name(f"{p.stem}_{suffix}{p.suffix}"))}
-            )
+            return location.model_copy(update={"path": _sibling_name(path, suffix)})
     raise TypeError(f"Unsupported location type: {type(location).__name__}")

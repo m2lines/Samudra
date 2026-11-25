@@ -365,3 +365,16 @@ def test_source_tree_rejects_statistics_on_another_grid() -> None:
     means = xr.Dataset({"thetao": ("lev", [1.0, 2.0])}, coords={"lev": [2.5, 22.5]})
     with pytest.raises(ValueError, match="align"):
         SourceTree.from_datasets(data, means=means, stds=means)
+
+
+def test_source_tree_statistics_keep_their_shared_index_coordinates() -> None:
+    # The tree stores a shared index (here lev) once, on the data; a statistic
+    # must still expose it, but not coordinates of dimensions it lacks.
+    data = xr.Dataset(
+        {"thetao": (("time", "lev"), [[1.0, 2.0]])},
+        coords={"time": [0], "lev": [2.5, 10.0]},
+    )
+    means = xr.Dataset({"thetao": ("lev", [1.0, 2.0])}, coords={"lev": [2.5, 10.0]})
+    tree = SourceTree.from_datasets(data, means=means, stds=means)
+    assert list(tree.means.coords) == ["lev"]
+    xr.testing.assert_identical(tree.means, means)

@@ -79,10 +79,14 @@ def test_cm4_loads_compact_fields_and_slices_native_dates(tmp_path: Path) -> Non
             "wetmask": (("lev", "y", "x"), np.ones((19, 2, 3), dtype=bool)),
         },
     )
-    stats = data.mean(["time", "x", "y"])
+    means = data.mean(["time", "x", "y"]) * 0 + 2.0
+    # Distinct per channel and from the means, so order and pairing are checked.
+    stds = means.copy()
+    stds["thetao"] = ("lev", np.arange(1.0, 20.0))
+    stds["wfo"] = stds["wfo"] * 0 + 7.0
     data.chunk({"time": 1, "lev": -1}).to_zarr(tmp_path / "CM4.zarr", consolidated=True)
-    stats.to_zarr(tmp_path / "CM4_means.zarr", consolidated=True)
-    stats.to_zarr(tmp_path / "CM4_stds.zarr", consolidated=True)
+    means.to_zarr(tmp_path / "CM4_means.zarr", consolidated=True)
+    stds.to_zarr(tmp_path / "CM4_stds.zarr", consolidated=True)
     cfg = DataConfig.model_validate({"sources": [_config()]})
     bundle = cfg.build(LocalLocation(path=tmp_path), include_inference=True)
     assert bundle.train_sources[0].time.size == 3
@@ -94,6 +98,9 @@ def test_cm4_loads_compact_fields_and_slices_native_dates(tmp_path: Path) -> Non
     assert source.time.values[-1] == times[2]
     values = source.read(np.array([0]), ["thetao_0", "wfo"])
     np.testing.assert_array_equal(values, np.ones((1, 2, 2, 3)))
+    statistics = source.statistics(["wfo", "thetao_18", "thetao_0"])
+    np.testing.assert_array_equal(statistics.mean, [2.0, 2.0, 2.0])
+    np.testing.assert_array_equal(statistics.std, [7.0, 19.0, 1.0])
 
     # A native reader uses the same physical schema; source_type must not
     # reject CM4 before that reader is constructed.

@@ -162,7 +162,17 @@ class SourceTree:
             raise KeyError(
                 f"No {name!r} statistics; this source has {list(self.tree.children)}"
             )
-        return self.tree.children[name].to_dataset(inherit=False)
+        # A child shares the root's index coordinates (e.g. ``lev``) rather
+        # than storing its own copy, so inherit them, but keep only those on
+        # this statistic's own dimensions: means carry no time or lat/lon.
+        dataset = self.tree.children[name].to_dataset(inherit=True)
+        own_dims = {dim for var in dataset.data_vars.values() for dim in var.dims}
+        foreign = [
+            coord
+            for coord, value in dataset.coords.items()
+            if not set(value.dims) <= own_dims
+        ]
+        return dataset.drop_vars(foreign)
 
     @property
     def means(self) -> xr.Dataset:

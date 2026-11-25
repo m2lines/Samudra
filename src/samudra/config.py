@@ -293,18 +293,22 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
         """Where this source type keeps ``statistic`` when not configured."""
         raise NotImplementedError
 
+    @pydantic.model_validator(mode="after")
+    def fill_statistic_locations(self) -> Self:
+        """Apply the naming convention now, so a saved config records the stores."""
+        if self.data_means_location is None:
+            self.data_means_location = self.default_statistic_location("means")
+        if self.data_stds_location is None:
+            self.data_stds_location = self.default_statistic_location("stds")
+        return self
+
     def statistic_locations(self) -> dict[str, Location]:
-        """The store of each statistic, from the config or the naming convention."""
-        configured = {
-            "means": self.data_means_location,
-            "stds": self.data_stds_location,
-        }
-        return {
-            name: location
-            if location is not None
-            else self.default_statistic_location(name)
-            for name, location in configured.items()
-        }
+        """The store of each statistic, by statistic name."""
+        locations = {"means": self.data_means_location, "stds": self.data_stds_location}
+        unset = [name for name, location in locations.items() if location is None]
+        if unset:
+            raise ValueError(f"Statistics locations are unset: {unset}")
+        return {name: location for name, location in locations.items() if location}
 
     @abc.abstractmethod
     def canonicalize_datasets(
@@ -571,10 +575,15 @@ class Om4FamilyDataSourceConfig[Om4FamilyTimeConfigT: Om4TimeConfig | Cm4TimeCon
         if anomalies_vars:
             data, means, stds = compute_anomalies(data, means, stds, anomalies_vars)
 
+        statistics = {
+            name: with_level_index_vars(dataset, depth_levels=data_layout.depth_levels)
+            for name, dataset in source.statistics().items()
+            if name not in ("means", "stds")
+        }
+        statistics.update(means=means, stds=stds)
         canonical = SourceTree.from_datasets(
             data,
-            means=expand_compact_levels(means),
-            stds=expand_compact_levels(stds),
+            **{name: expand_compact_levels(ds) for name, ds in statistics.items()},
         )
         return canonical, data_layout
 
@@ -626,6 +635,9 @@ class LlcDataSourceConfig(BaseDataSourceConfig[LlcTimeConfig]):
     def canonicalize_datasets(
         self, source: SourceTree
     ) -> tuple[SourceTree, DataLayout]:
+        extra = set(source.statistic_names).difference(("means", "stds"))
+        if extra:
+            raise ValueError(f"LLC sources do not support statistics {sorted(extra)}")
         data, means, stds, layout = canonicalize_llc_datasets(
             source.data,
             source.means,
@@ -645,8 +657,9 @@ DataSourceConfig = Annotated[
 class DataConfig(BaseConfig):
     sources: list[DataSourceConfig] = Field(
         description=(
-            "Data sources to include, each with explicit data/means/stds "
-            "locations. These are resolved relative to data_root."
+            "Data sources to include, each with a data location and, by "
+            "default, statistics stores named after it (see "
+            "data_means_location). These are resolved relative to data_root."
         ),
         min_length=1,
     )

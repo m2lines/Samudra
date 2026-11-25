@@ -2,8 +2,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Literal
-
 import torch
 import torch.nn as nn
 import torch.utils.checkpoint
@@ -11,6 +9,7 @@ import torch.utils.checkpoint
 from samudra.constants import Boundary, GridSize, Prognostic
 from samudra.models.base import BaseModel
 from samudra.models.modules.unet_backbone import UNetBackbone
+from samudra.models.residual import ResidualHead
 from samudra.utils.ctx import BatchGrid
 from samudra.utils.device import autocast
 
@@ -26,7 +25,6 @@ class Samudra(BaseModel):
         self,
         in_channels: int,
         out_channels: int,
-        pred_residuals: bool,
         last_kernel_size: int,
         pad: str,
         unet: UNetBackbone,
@@ -36,16 +34,13 @@ class Samudra(BaseModel):
         grid_size: GridSize,
         gradient_detach_interval: int,
         use_bfloat16: bool,
-        residual_scale: torch.Tensor | None = None,
-        residual_anchor: Literal["same_slot", "chained"] = "same_slot",
+        residual: ResidualHead | None = None,
     ):
         super().__init__(
             in_channels=in_channels,
             out_channels=out_channels,
             input_steps=input_steps,
-            pred_residuals=pred_residuals,
-            residual_scale=residual_scale,
-            residual_anchor=residual_anchor,
+            residual=residual,
             last_kernel_size=last_kernel_size,
             pad=pad,
             gradient_detach_interval=gradient_detach_interval,

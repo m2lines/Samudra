@@ -238,7 +238,7 @@ class NormalizedDeltaLoss:
 
     With ``q`` the per-channel RMS one-step change over wet cells, in
     normalized units, the network's increment ``d`` satisfies
-    ``x[t+1] = x[t] + q * d`` (``model.scale_residuals``), and the loss is the
+    ``x[t+1] = x[t] + q * d`` (``model.residual.scale: increment_rms``), and the loss is the
     MSE between ``d`` and ``(label - x[t]) / q``. Because ``q`` is fixed, that
     equals a state-space MSE with per-channel weights ``1 / q**2``, which is
     how it is applied here: to the per-channel MSE of the assembled state.

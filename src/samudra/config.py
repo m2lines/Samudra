@@ -7,7 +7,7 @@ import datetime
 from collections.abc import Sequence
 from functools import cached_property, partial
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Literal, Self, assert_never
+from typing import TYPE_CHECKING, Annotated, Any, Literal, Self, assert_never
 
 import cftime
 import numpy as np
@@ -59,10 +59,12 @@ from samudra.models.modules.augment_input import (
 )
 from samudra.models.modules.blocks import ZonallyPeriodicBilinearUpsample
 from samudra.models.modules.encoder import patch_from
+from samudra.models.residual import ResidualAnchor, ResidualHead
 from samudra.post_train_eval import CheckpointSweep
 from samudra.utils.data import (
     CanonicalReader,
     CanonicalSource,
+    ChannelStatistics,
     DataBundle,
     SourceSplits,
     SourceTree,
@@ -291,7 +293,7 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
             "written with the means and stds by "
             "``ocean_preprocessing.make_norm_datasets``. Read only when set. A "
             "training or eval config whose loss or model needs it "
-            "(``normalized_delta``, ``model.scale_residuals``) sets it by the "
+            "(``normalized_delta``, ``model.residual.scale: increment_rms``) sets it by the "
             "naming convention when unset: for OM4 and CM4, "
             "``<stem>_increment_rms.zarr`` beside the data; " + LOCATION_DOCS
         ),
@@ -1052,63 +1054,127 @@ class UNetBackboneConfig(BaseConfig):
         )
 
 
-class BaseModelConfig(BaseConfig, abc.ABC):
-    pred_residuals: bool = False
-    scale_residuals: bool = Field(
-        default=False,
+class ResidualConfig(BaseConfig):
+    """Predict each next state as an increment on the input, not the state itself.
+
+    The network's output is multiplied by a per-channel ``scale`` and added to
+    an anchor state chosen by ``anchor``.
+    """
+
+    scale: Literal["none", "increment_rms"] = Field(
+        default="none",
         description=(
-            "Multiply the network output by a fixed per-channel scale before "
-            "adding it to the input (GraphCast-style residual scaling), so the "
-            "network emits unit-scale increments. The scale is the data "
-            "source's typical one-step change in normalized units, tau / sigma, "
-            "from its increment RMS store; like the means and stds, it "
-            "comes from the data, not the checkpoint. Requires pred_residuals."
+            "'none' adds the network output unscaled. 'increment_rms' multiplies "
+            "it by each channel's typical one-step change in normalized units, "
+            "q = tau / sigma, from the data source's increment RMS store "
+            "(GraphCast-style residual scaling), so the network emits unit-scale "
+            "increments. Like the means and stds, q comes from the data, not the "
+            "checkpoint. Trains with the normalized_delta loss."
         ),
     )
-
-    residual_anchor: Literal["same_slot", "chained"] = Field(
+    anchor: ResidualAnchor = Field(
         default="same_slot",
         description=(
-            "How residual outputs are anchored when the model emits several "
-            "steps per call. 'same_slot' adds output step k to input step k "
-            "(the legacy 2-in/2-out assembly), so with two outputs each one is "
-            "a two-step change. 'chained' makes each output a one-step "
-            "increment on the previous output, starting from the newest input: "
-            "z1 = x[t] + d1, z2 = z1 + d2. The two are identical for one output "
-            "step. Requires pred_residuals."
+            "How outputs are anchored when the model emits several steps per "
+            "call. 'same_slot' adds output step k to input step k (the legacy "
+            "2-in/2-out assembly), so with two outputs each one is a two-step "
+            "change. 'chained' makes each output a one-step increment on the "
+            "previous output, starting from the newest input: z1 = x[t] + d1, "
+            "z2 = z1 + d2. The two are identical for one output step."
         ),
     )
 
-    @pydantic.model_validator(mode="after")
-    def validate_scale_residuals(self) -> Self:
-        if self.scale_residuals and not self.pred_residuals:
-            raise ValueError("scale_residuals requires pred_residuals")
-        if self.residual_anchor == "chained" and not self.pred_residuals:
-            raise ValueError("residual_anchor='chained' requires pred_residuals")
-        return self
+    @property
+    def needs_increment_rms(self) -> bool:
+        return self.scale == "increment_rms"
 
-    def _residual_scale(
-        self, residual_scale: torch.Tensor | None, out_channels: int
-    ) -> torch.Tensor | None:
-        """One scale per output channel, from one per prognostic variable."""
-        if not self.scale_residuals:
-            if residual_scale is not None:
+    def configure_data(self, data: DataConfig, data_stride: Sequence[int]) -> None:
+        """Check the data suits this head, and request the statistics it needs.
+
+        q is the RMS of one stored step, so with ``increment_rms`` every output
+        must be a one-step increment: one output step or chained anchoring, and
+        no stride.
+        """
+        if not self.needs_increment_rms:
+            return
+        if data.output_steps != 1 and self.anchor != "chained":
+            # Same-slot anchoring makes each of several outputs a multi-step
+            # change, while q is the RMS of one step.
+            raise ValueError(
+                "residual.scale='increment_rms' with data.output_steps > 1 needs "
+                "residual.anchor='chained'; q is the RMS of a single step, got "
+                f"output_steps={data.output_steps}"
+            )
+        if any(stride != 1 for stride in data_stride):
+            # A stride of s makes each model step span s stored steps.
+            raise ValueError(
+                "residual.scale='increment_rms' needs data_stride == [1]; q is the "
+                f"RMS of a single step, got data_stride={list(data_stride)}"
+            )
+        if len(data.sources) != 1:
+            raise ValueError(
+                "residual.scale='increment_rms' is defined for a single data "
+                "source's normalization"
+            )
+        data.sources[0].require_increment_rms()
+
+    def build(
+        self,
+        *,
+        out_channels: int,
+        input_steps: int,
+        statistics: ChannelStatistics | None,
+    ) -> ResidualHead:
+        if not self.needs_increment_rms:
+            scale = torch.ones(out_channels)
+        else:
+            if statistics is None:
                 raise ValueError(
-                    "Got a residual scale for a model without scale_residuals"
+                    "residual.scale='increment_rms' needs the data source's "
+                    "prognostic statistics"
                 )
+            q = torch.from_numpy(statistics.normalized_increment_rms()).float()
+            if out_channels % q.numel():
+                raise ValueError(
+                    f"Got {q.numel()} scales for {out_channels} output channels"
+                )
+            # Channels are time-major, so q repeats for each output step.
+            scale = q.repeat(out_channels // q.numel())
+        return ResidualHead(input_steps=input_steps, scale=scale, anchor=self.anchor)
+
+
+class BaseModelConfig(BaseConfig, abc.ABC):
+    residual: ResidualConfig | None = Field(
+        default=None,
+        description=(
+            "Predict each next state as an increment on the input. Omit to "
+            "predict full states; ``residual: {}`` adds the unscaled network "
+            "output to the newest input."
+        ),
+    )
+
+    @pydantic.model_validator(mode="before")
+    @classmethod
+    def reject_pred_residuals(cls, data: Any) -> Any:
+        if isinstance(data, dict) and "pred_residuals" in data:
+            raise ValueError(
+                "model.pred_residuals was replaced by model.residual: use "
+                "`residual: {}` for `pred_residuals: true`, and omit both for "
+                "`pred_residuals: false`"
+            )
+        return data
+
+    def _build_residual(
+        self,
+        out_channels: int,
+        input_steps: int,
+        statistics: ChannelStatistics | None,
+    ) -> ResidualHead | None:
+        if self.residual is None:
             return None
-        if residual_scale is None:
-            raise ValueError(
-                "model.scale_residuals needs the data source's increment RMS; see "
-                "residual_scale_for"
-            )
-        if residual_scale.ndim != 1 or out_channels % residual_scale.numel():
-            raise ValueError(
-                f"Expected one scale per variable dividing {out_channels} output "
-                f"channels, got shape {tuple(residual_scale.shape)}"
-            )
-        # Channels are time-major, so the scale repeats for each output step.
-        return residual_scale.float().repeat(out_channels // residual_scale.numel())
+        return self.residual.build(
+            out_channels=out_channels, input_steps=input_steps, statistics=statistics
+        )
 
     last_kernel_size: int = 3
     pad: str = "circular"
@@ -1163,7 +1229,7 @@ class SamudraConfig(BaseModelConfig):
         out_channels: int,
         input_steps: int,
         grid_sizes: list[GridSize],
-        residual_scale: torch.Tensor | None = None,
+        statistics: ChannelStatistics | None = None,
     ) -> Samudra:
         if len(grid_sizes) != 1:
             raise ValueError(
@@ -1177,9 +1243,7 @@ class SamudraConfig(BaseModelConfig):
         return Samudra(
             in_channels=total_in_channels,
             out_channels=out_channels,
-            pred_residuals=self.pred_residuals,
-            residual_scale=self._residual_scale(residual_scale, out_channels),
-            residual_anchor=self.residual_anchor,
+            residual=self._build_residual(out_channels, input_steps, statistics),
             last_kernel_size=self.last_kernel_size,
             pad=self.pad,
             unet=self.unet.build(
@@ -1224,7 +1288,7 @@ class SamudraMultiConfig(BaseModelConfig):
         out_channels: int,
         input_steps: int,
         grid_sizes: list[GridSize],
-        residual_scale: torch.Tensor | None = None,
+        statistics: ChannelStatistics | None = None,
     ) -> SamudraMulti:
         assert len(self.patch_extent) == 2, "patch_extent must be a pair of floats."
         extent = self.patch_extent[0], self.patch_extent[1]
@@ -1268,9 +1332,7 @@ class SamudraMultiConfig(BaseModelConfig):
         return SamudraMulti(
             in_channels=total_in_channels,
             out_channels=out_channels,
-            pred_residuals=self.pred_residuals,
-            residual_scale=self._residual_scale(residual_scale, out_channels),
-            residual_anchor=self.residual_anchor,
+            residual=self._build_residual(out_channels, input_steps, statistics),
             last_kernel_size=self.last_kernel_size,
             pad=self.pad,
             encoder=encoder,
@@ -1321,7 +1383,7 @@ class SamudraMiniConfig(BaseModelConfig):
         out_channels: int,
         input_steps: int,
         grid_sizes: list[GridSize],
-        residual_scale: torch.Tensor | None = None,
+        statistics: ChannelStatistics | None = None,
     ) -> SamudraMini:
         if self.add_3d_coordinates:
             raise ValueError(
@@ -1346,9 +1408,7 @@ class SamudraMiniConfig(BaseModelConfig):
         return SamudraMini(
             in_channels=in_channels,
             out_channels=out_channels,
-            pred_residuals=self.pred_residuals,
-            residual_scale=self._residual_scale(residual_scale, out_channels),
-            residual_anchor=self.residual_anchor,
+            residual=self._build_residual(out_channels, input_steps, statistics),
             last_kernel_size=self.last_kernel_size,
             pad=self.pad,
             input_embedding_dim=self.embedding_dim,
@@ -1532,7 +1592,7 @@ class NormalizedDeltaLossConfig(pydantic.BaseModel):
     is ``tau``, the RMS one-step change over wet cells during the training
     period, in physical units. In the normalized units the model works in, it
     is ``q = tau / sigma``, where ``sigma`` is the channel's normalization
-    std. With ``model.scale_residuals``, the network predicts the normalized
+    std. With ``model.residual.scale: increment_rms``, the network predicts the normalized
     delta ``d`` and the next state is ``x[t+1] = x[t] + q * d``.
 
     The loss is the MSE between ``d`` and the true normalized delta
@@ -1551,26 +1611,13 @@ class NormalizedDeltaLossConfig(pydantic.BaseModel):
 Loss = LossMetric | DynamicLossConfig | GradientLossConfig | NormalizedDeltaLossConfig
 
 
-def residual_scale_for(
-    model_cfg: "BaseModelConfig",
-    source: CanonicalSource,
-    channels: Sequence[str],
-) -> torch.Tensor | None:
-    """The scaled residual head's scale, from the source's increment RMS."""
-    if not model_cfg.scale_residuals:
-        return None
-    q = source.statistics(channels).normalized_increment_rms()
-    return torch.from_numpy(q).float()
-
-
 def build_loss_fn(
     loss_cfg: Loss,
     device: torch.device,
     num_channels: int,
     pad_mode: str,
     *,
-    source: CanonicalSource | None = None,
-    channels: Sequence[str] | None = None,
+    statistics: ChannelStatistics | None = None,
 ) -> LossFnWithContext:
     match loss_cfg:
         case str():
@@ -1584,18 +1631,12 @@ def build_loss_fn(
                 num_channels=num_channels,
             )
         case NormalizedDeltaLossConfig():
-            if source is None or channels is None:
-                raise ValueError("normalized_delta loss needs the source and channels")
-            if len(channels) != num_channels:
-                raise ValueError(
-                    f"Got {len(channels)} channel names for {num_channels} channels"
-                )
-            return NormalizedDeltaLoss(
-                increment_rms=torch.from_numpy(
-                    source.statistics(channels).normalized_increment_rms()
-                ),
-                device=device,
-            )
+            if statistics is None:
+                raise ValueError("normalized_delta needs the prognostic statistics")
+            q = torch.from_numpy(statistics.normalized_increment_rms())
+            if q.numel() != num_channels:
+                raise ValueError(f"Got {q.numel()} scales for {num_channels} channels")
+            return NormalizedDeltaLoss(increment_rms=q, device=device)
         case GradientLossConfig(metric=metric, alpha=alpha):
             loss_fn = loss_fn_from_metric(metric)
             return GradientLoss(
@@ -1671,47 +1712,17 @@ class TrainConfig(TopLevelConfig):
             raise ValueError(
                 "validation_loss scoring cannot use a dynamically weighted loss"
             )
-        if self.model.scale_residuals and not isinstance(
-            self.loss, NormalizedDeltaLossConfig
-        ):
+        residual = self.model.residual
+        scaled = residual is not None and residual.needs_increment_rms
+        if isinstance(self.loss, NormalizedDeltaLossConfig) != scaled:
+            # Both use the same one-step scale q: the head emits increments in
+            # units of q, and the loss weights them by 1 / q**2.
             raise ValueError(
-                "model.scale_residuals takes its scale from a normalized_delta loss"
+                "The normalized_delta loss and model.residual.scale="
+                "'increment_rms' go together"
             )
-        if (
-            isinstance(self.loss, NormalizedDeltaLossConfig)
-            and self.data.output_steps != 1
-            and self.model.residual_anchor != "chained"
-        ):
-            # Same-slot anchoring makes each of several outputs a multi-step
-            # change, while q is the RMS of one step. Chained anchoring makes
-            # every output a one-step increment.
-            raise ValueError(
-                "normalized_delta with data.output_steps > 1 needs "
-                "model.residual_anchor='chained'; its scale q is the RMS of a "
-                f"single step, got output_steps={self.data.output_steps}"
-            )
-        if isinstance(self.loss, NormalizedDeltaLossConfig) and any(
-            stride != 1 for stride in self.data_stride
-        ):
-            # A stride of s makes each model step span s stored steps, while
-            # q is the RMS of a single stored step.
-            raise ValueError(
-                "normalized_delta needs data_stride == [1]; its scale q is the "
-                f"RMS of a single step, got data_stride={self.data_stride}"
-            )
-        if (
-            isinstance(self.loss, NormalizedDeltaLossConfig)
-            and len(self.data.sources) != 1
-        ):
-            raise ValueError(
-                "normalized_delta weights are defined for a single data source's "
-                "normalization"
-            )
-        if (
-            isinstance(self.loss, NormalizedDeltaLossConfig)
-            or self.model.scale_residuals
-        ):
-            self.data.sources[0].require_increment_rms()
+        if residual is not None:
+            residual.configure_data(self.data, self.data_stride)
         if self.validation_score == "rollout_rmse":
             if self.rollout_validation is None:
                 raise ValueError(
@@ -1889,11 +1900,9 @@ class EvalConfig(TopLevelConfig):
     )
 
     @pydantic.model_validator(mode="after")
-    def _scaled_residuals_need_one_source_with_increment_rms(self) -> Self:
-        if self.model.scale_residuals:
-            if len(self.data.sources) != 1:
-                raise ValueError("model.scale_residuals needs exactly one data source")
-            self.data.sources[0].require_increment_rms()
+    def _residual_head_fits_the_data(self) -> Self:
+        if self.model.residual is not None:
+            self.model.residual.configure_data(self.data, data_stride=(1,))
         return self
 
     @pydantic.model_validator(mode="after")

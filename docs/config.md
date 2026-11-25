@@ -56,8 +56,9 @@ sources:
 
 Some losses and models need one more statistic: the *increment RMS*, each channel's root-mean-square one-step
 change over wet cells, written by `ocean_preprocessing.make_norm_datasets` beside the means and stds. The
-`normalized_delta` loss and `model.scale_residuals` divide increments by it. A source reads it only when its config
-needs it, from `<stem>_increment_rms.zarr` by default or from `data_increment_rms_location` when set.
+`normalized_delta` loss and the scaled residual head (`model.residual.scale: increment_rms`, below) divide
+increments by it. A source reads it only when its config needs it, from `<stem>_increment_rms.zarr` by default or
+from `data_increment_rms_location` when set.
 
 Every one of these is a *location*, which can be written two ways:
 
@@ -98,6 +99,26 @@ samudra train samudra_om4/train.yaml --data @data/om4_demo.yaml
 samudra eval  samudra_om4/eval.yaml  --data @data/om4_demo.yaml
 samudra viz   samudra_om4/viz.yaml   --data @data/om4_demo.yaml
 ```
+
+## Residual prediction
+
+By default a model predicts each next state directly. With `model.residual`, it instead predicts an increment that is
+added to its input:
+
+```yaml
+model:
+  residual:                # omit to predict full states
+    scale: increment_rms   # default none: add the network output unscaled
+    anchor: chained        # default same_slot
+```
+
+- `scale: increment_rms` multiplies the output by each channel's typical one-step change, so the network emits
+  unit-scale increments. It trains with the `normalized_delta` loss, and the two must be used together.
+- `anchor` matters only with several output steps per call. `same_slot` adds output step k to input step k, so each
+  output is a multi-step change. `chained` makes each output a one-step increment on the one before it.
+
+`model.residual` replaced `model.pred_residuals`: write `residual: {}` for `pred_residuals: true`, and omit both for
+`pred_residuals: false`. A config that still sets `pred_residuals` fails validation with that message.
 
 ## API Reference
 

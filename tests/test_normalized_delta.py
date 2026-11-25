@@ -20,8 +20,9 @@ import xarray as xr
 import yaml
 from pydantic import ValidationError
 
-from samudra.config import TrainConfig
+from samudra.config import ResidualConfig, TrainConfig
 from samudra.models.base import BaseModel
+from samudra.models.residual import ResidualHead
 from samudra.train import Trainer
 from samudra.utils.ctx import BatchGrid
 from samudra.utils.data import ChannelStatistics
@@ -45,12 +46,14 @@ def residual_model(q: torch.Tensor, output_steps: int = 1) -> BaseModel:
         in_channels=2 * q.numel(),
         out_channels=output_steps * q.numel(),
         input_steps=2,
-        pred_residuals=True,
         last_kernel_size=3,
         pad="circular",
         gradient_detach_interval=0,
-        residual_scale=q.repeat(output_steps),
-        residual_anchor="chained" if output_steps > 1 else "same_slot",
+        residual=ResidualHead(
+            input_steps=2,
+            scale=q.repeat(output_steps),
+            anchor="chained" if output_steps > 1 else "same_slot",
+        ),
     )
 
 
@@ -143,20 +146,34 @@ def test_residual_scale_is_a_data_statistic_not_checkpoint_state():
     # Like the means and stds, the scale comes from the data source when the
     # model is built, so a checkpoint never carries a stale copy of it.
     model = residual_model(torch.tensor([0.4, 0.026, 0.0016]))
-    assert "residual_scale" not in model.state_dict()
+    assert (
+        model.state_dict().keys()
+        == BaseModel(
+            in_channels=6,
+            out_channels=3,
+            input_steps=2,
+            last_kernel_size=3,
+            pad="circular",
+            gradient_detach_interval=0,
+        )
+        .state_dict()
+        .keys()
+    )
 
 
 def train_yaml(**changes) -> dict:
     with open(TEST_CONFIGS_DIR / "train_default_2step.yaml") as f:
         raw = yaml.safe_load(f)
     raw["data"].update(input_steps=2, output_steps=1)
-    raw["model"].update(pred_residuals=True, scale_residuals=True)
+    raw["model"]["residual"] = {"scale": "increment_rms"}
     raw["loss"] = {"type": "normalized_delta"}
     raw["data"]["sources"][0]["data_increment_rms_location"] = "rms.zarr"
     for key, value in changes.items():
         section, field = key.split("__")
         if section == "source":
             raw["data"]["sources"][0][field] = value
+        elif section == "residual":
+            raw["model"]["residual"][field] = value
         elif section == "top":
             raw[field] = value
         else:
@@ -167,17 +184,18 @@ def train_yaml(**changes) -> dict:
 @pytest.mark.parametrize(
     "changes, match",
     [
-        ({"data__output_steps": 2}, "residual_anchor='chained'"),
+        ({"data__output_steps": 2}, "anchor='chained'"),
         ({"top__data_stride": [1, 2]}, "data_stride == \\[1\\]"),
+        ({"residual__scale": "none"}, "go together"),
     ],
 )
-def test_config_rejects_steps_longer_than_one_stored_step(changes, match):
+def test_config_rejects_normalized_delta_it_cannot_train(changes, match):
     TrainConfig.model_validate(train_yaml())
     with pytest.raises(ValidationError, match=match):
         TrainConfig.model_validate(train_yaml(**changes))
     # Chained anchoring keeps every output a one-step increment.
     TrainConfig.model_validate(
-        train_yaml(data__output_steps=2, model__residual_anchor="chained")
+        train_yaml(data__output_steps=2, residual__anchor="chained")
     )
 
 
@@ -190,7 +208,7 @@ def test_increment_rms_is_read_by_convention_only_when_needed():
     )
     # A config that does not use it never opens a store that may not exist.
     raw = train_yaml(source__data_increment_rms_location=None)
-    raw["model"].update(scale_residuals=False)
+    del raw["model"]["residual"]
     raw["loss"] = "mse"
     unneeded = TrainConfig.model_validate(raw).data.sources[0]
     assert "increment_rms" not in unneeded.statistic_locations()
@@ -220,10 +238,9 @@ def normalized_delta_config(
     write_increment_rms(tmp_path / "rms.zarr", channels[:kept], tau[:kept], over)
     source = train_config.data.sources[0]
     source.data_increment_rms_location = LocalLocation(path=tmp_path / "rms.zarr")
-    train_config.model.pred_residuals = True
-    train_config.model.scale_residuals = True
-    if output_steps > 1:
-        train_config.model.residual_anchor = "chained"
+    train_config.model.residual = ResidualConfig(
+        scale="increment_rms", anchor="chained" if output_steps > 1 else "same_slot"
+    )
     train_config.loss = TrainConfig.model_validate(train_yaml()).loss
     return channels, torch.tensor(tau / stds, dtype=torch.float32)
 
@@ -239,7 +256,9 @@ def test_trainer_takes_one_scale_from_the_source_and_trains(
     )
     with MultitonScope():
         trainer = Trainer(train_config)
-        torch.testing.assert_close(trainer.model.residual_scale, q.repeat(output_steps))
+        residual = trainer.model.residual
+        assert isinstance(residual, ResidualHead)
+        torch.testing.assert_close(residual.scale, q.repeat(output_steps))
         assert isinstance(trainer.loss_fn, NormalizedDeltaLoss)
         torch.testing.assert_close(
             trainer.loss_fn.loss_scale_per_channel(),

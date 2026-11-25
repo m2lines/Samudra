@@ -24,6 +24,7 @@ from samudra.config import (
     Om4TimeConfig,
     RolloutValidationConfig,
     RustDataLoadingConfig,
+    SamudraConfig,
     TrainConfig,
 )
 from samudra.config_schema import get_pydantic_models
@@ -660,3 +661,9 @@ def test_validation_loss_score_rejects_dynamic_weighting():
 def test_multi_source_preset_uses_one_step_rmse():
     cfg = TrainConfig.from_yaml_and_cli(["samudra_multi_om4/train.yaml"])
     assert cfg.validation_score == "one_step_rmse"
+
+
+@pytest.mark.parametrize("value", [True, False])
+def test_pred_residuals_names_its_replacement(value):
+    with pytest.raises(ValidationError, match="replaced by model.residual"):
+        SamudraConfig.model_validate({"pred_residuals": value})

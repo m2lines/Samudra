@@ -9,6 +9,7 @@ import xarray as xr
 
 from samudra.datasets import InferenceDataset, ModelBatch
 from samudra.models.base import BaseModel
+from samudra.models.residual import ResidualHead
 from samudra.stepper import _get_rollout_step_chunks, validate_batch
 from samudra.utils.ctx import BatchGrid
 from samudra.utils.data import BatchPreprocessor, CanonicalSource
@@ -157,7 +158,7 @@ def test_validate_batch_uses_absolute_predictions_for_residual_models():
         in_channels=2,
         out_channels=1,
         input_steps=1,
-        pred_residuals=True,
+        residual=ResidualHead(input_steps=1, scale=torch.ones(1)),
         last_kernel_size=3,
         pad="circular",
         gradient_detach_interval=0,
@@ -204,7 +205,7 @@ def test_two_input_one_output_residual_rollout_anchors_latest_state(
         in_channels=3,
         out_channels=1,
         input_steps=2,
-        pred_residuals=True,
+        residual=ResidualHead(input_steps=2, scale=torch.ones(1)),
         last_kernel_size=3,
         pad="circular",
         gradient_detach_interval=0,
@@ -243,7 +244,7 @@ def test_two_input_one_output_training_shifts_predicted_history():
         in_channels=4,
         out_channels=1,
         input_steps=2,
-        pred_residuals=True,
+        residual=ResidualHead(input_steps=2, scale=torch.ones(1)),
         last_kernel_size=3,
         pad="circular",
         gradient_detach_interval=0,
@@ -328,7 +329,6 @@ def test_inference_rollout(inf_data_init, hist, num_steps):
         in_channels=1,
         out_channels=inference_dataset.num_prognostic_channels,
         input_steps=hist + 1,
-        pred_residuals=False,
         last_kernel_size=3,
         pad="circular",
         gradient_detach_interval=0,
@@ -381,7 +381,6 @@ def test_inference_rollout_methods(inf_data_init, hist, merge_step):
         in_channels=1,
         out_channels=inference_dataset.num_prognostic_channels,
         input_steps=hist + 1,
-        pred_residuals=False,
         last_kernel_size=3,
         pad="circular",
         gradient_detach_interval=0,

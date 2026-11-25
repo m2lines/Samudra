@@ -29,7 +29,7 @@ from samudra.aggregator.loss import (
 )
 from samudra.aggregator.validate.rollout import RolloutValidationAggregator
 from samudra.backend import init_train_backend
-from samudra.config import TrainConfig, build_loss_fn, residual_scale_for
+from samudra.config import TrainConfig, build_loss_fn
 from samudra.constants import (
     MAX_TRAIN_MODEL_STEPS_FORWARD,
     BoundaryVarNames,
@@ -178,15 +178,16 @@ class Trainer:
             boundary_var_names=self.boundary_var_names,
         )
 
+        prognostic_statistics = self.primary_source.statistics(
+            self.prognostic_var_names
+        )
         self.model = cfg.model.build(
             prog_channels=self.num_prog_in,
             boundary_channels=self.num_boundary_in,
             out_channels=self.num_out,
             input_steps=self.input_steps,
             grid_sizes=[source.grid_size for source in self.data_bundle.train_sources],
-            residual_scale=residual_scale_for(
-                cfg.model, self.primary_source, self.prognostic_var_names
-            ),
+            statistics=prognostic_statistics,
         ).to(self.device)
 
         self.nets_dir = cfg.experiment.nets_dir
@@ -198,8 +199,7 @@ class Trainer:
             device=self.device,
             num_channels=self.N_prog,
             pad_mode=cfg.model.pad,
-            source=self.primary_source,
-            channels=self.prognostic_var_names,
+            statistics=prognostic_statistics,
         )
 
         # Optimizer

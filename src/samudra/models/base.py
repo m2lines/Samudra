@@ -5,11 +5,11 @@
 # TODO: Need to return step-wise losses for logging
 
 import logging
-from typing import Literal
 
 import torch
 
 from samudra.constants import Boundary, Prognostic
+from samudra.models.residual import ResidualHead
 from samudra.utils.ctx import BatchGrid
 
 logger = logging.getLogger(__name__)
@@ -32,12 +32,10 @@ class BaseModel(torch.nn.Module):
         in_channels,
         out_channels,
         input_steps,
-        pred_residuals,
         last_kernel_size,
         pad,
         gradient_detach_interval: int,
-        residual_scale: torch.Tensor | None = None,
-        residual_anchor: Literal["same_slot", "chained"] = "same_slot",
+        residual: ResidualHead | None = None,
     ) -> None:
         super().__init__()
         assert last_kernel_size % 2 != 0, "Cannot use even kernel sizes!"
@@ -45,40 +43,19 @@ class BaseModel(torch.nn.Module):
         self.out_channels = out_channels
         self.N_pad = int((last_kernel_size - 1) / 2)
         self.pad: str = pad
-        self.pred_residuals = pred_residuals
         if input_steps < 1:
             raise ValueError(f"input_steps must be positive, got {input_steps}")
         self.input_steps = input_steps
         self.gradient_detach_interval = gradient_detach_interval
-        self.residual_anchor = residual_anchor
-        # Multiplies the network output, per output channel, before it is
-        # added to the input. Not saved: it comes from the data, like the
-        # normalization statistics.
-        self.residual_scale: torch.Tensor
-        self.register_buffer(
-            "residual_scale",
-            torch.ones(out_channels) if residual_scale is None else residual_scale,
-            persistent=False,
-        )
+        # None predicts full states; a head predicts increments on the input.
+        self.residual = residual
 
     def _assemble_prediction(
         self, prognostic: Prognostic, decoding: Prognostic
     ) -> Prognostic:
-        if not self.pred_residuals:
+        if self.residual is None:
             return decoding
-        increments = decoding * self.residual_scale.view(1, -1, 1, 1)
-        if self.residual_anchor == "chained":
-            # Each output step is an increment on the one before it, and the
-            # first on the newest input: z1 = x[t] + d1, z2 = z1 + d2, ...
-            # Gradients flow through the earlier predicted steps.
-            n_var = prognostic.shape[1] // self.input_steps
-            batch, _, *grid = increments.shape
-            steps = increments.view(batch, -1, n_var, *grid).cumsum(dim=1)
-            return (prognostic[:, -n_var:].unsqueeze(1) + steps).flatten(1, 2)
-        # Anchor each predicted timestep to the corresponding most-recent input
-        # timestep. For 2-in/1-out this is x[t]; for the legacy 2-in/2-out case
-        # this remains the original elementwise, same-slot residual assembly.
-        return prognostic[:, -self.out_channels :] + increments
+        return self.residual(prognostic, decoding)
 
     def _advance_prognostic_history(
         self, prognostic: Prognostic, prediction: Prognostic

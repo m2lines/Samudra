@@ -182,7 +182,6 @@ data:
 model:
   # Recompute U-Net layers during backpropagation to reduce GPU memory use.
   checkpointing: all
-  pred_residuals: false
   last_kernel_size: 3
   # Longitude is periodic, so circular padding avoids a seam at 0°/360°.
   pad: circular

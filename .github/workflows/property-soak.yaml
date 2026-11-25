@@ -78,9 +78,22 @@ jobs:
           uv pip install --python /tmp/data-env -e . -e ./verification -e "./data[test]"
           echo /tmp/data-env/bin >> "$GITHUB_PATH"
       - name: Explore and shrink
+        id: data-campaign
         working-directory: data
         run: |
-          python -m samudra_verification.campaign --project data --lane canary --tests tests/test_*_properties.py \
+          shopt -s nullglob
+          property_tests=()
+          for test_file in tests/test_*_properties.py; do
+            # Virtual archive properties need the separate Zarr 3 environment.
+            [[ "$test_file" == tests/test_virtual_archive_properties.py ]] && continue
+            property_tests+=("$test_file")
+          done
+          if (( ${#property_tests[@]} == 0 )); then
+            echo "No data property modules for the Zarr 2 environment." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo "has-tests=true" >> "$GITHUB_OUTPUT"
+          python -m samudra_verification.campaign --project data --lane canary --tests "${property_tests[@]}" \
             --dependency-file pyproject.toml --output /tmp/property-soak \
             --examples 1000 --timeout 1800
       - name: Preserve solved environment and summarize
@@ -91,7 +104,7 @@ jobs:
             cat /tmp/property-soak/summary.md >> "$GITHUB_STEP_SUMMARY"
           fi
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        if: always()
+        if: always() && steps.data-campaign.outputs.has-tests == 'true'
         with:
           name: property-soak-data-canary-${{ matrix.storage }}
           path: /tmp/property-soak/

@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795567079127,
+  "lastUpdate": 1795567251141,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -13983,6 +13983,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.19101283985707757",
             "extra": "mean: 17.533489984400013 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fomobot640@gmail.com",
+            "name": "fomo-bot",
+            "username": "fomo-bot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "8af19883aa4be0abfd715f8342a4042d77c9e6f9",
+          "message": "Package observation normalization in PhysicsNeMo images (#1042)\n\nCodex adds the observation normalization script to the PhysicsNeMo\nimage. The image build now runs the root tests that import the script so\nPR builds catch missing packaging inputs.\n\n<details>\n<summary>Failure and validation</summary>\n\nOn main at `905c1f3f8c55cfd7ede5a627f9ae97b1b05bf8a7`, 11 observation\nnormalization tests failed with `FileNotFoundError` for\n`/workspace/data/prepare_observation_normalization.py` in both the\n[ARM64 CPU\njob](https://github.com/m2lines/Samudra/actions/runs/45296121429/job/138117551755)\nand [amd64 CPU\njob](https://github.com/m2lines/Samudra/actions/runs/45296121429/job/138124466078).\nThe script is now copied through the existing source stage, which\npreserves the final image layer count.\n\n- `git diff --check` passed.\n- The local ARM64 Docker build completed its test stage. Test collection\nsucceeded and all 19 quickstart and observation-normalization tests\npassed using the image’s own files.\n- The [amd64 PR\nbuild](https://github.com/m2lines/Samudra/actions/runs/45410934353/job/138505164862)\npassed all 19 focused tests inside the image and reported 115 layers\n(limit 125). The full container CPU/GPU jobs need verification on main\nafter merge.\n\n</details>",
+          "timestamp": "2026-11-25T00:16:08Z",
+          "tree_id": "fe006265e1c1ef199eedd217051b015306fe9536",
+          "url": "https://github.com/m2lines/Samudra/commit/8af19883aa4be0abfd715f8342a4042d77c9e6f9"
+        },
+        "date": 1795567249251,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 1.0051936564976225,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0050392180452705215",
+            "extra": "mean: 994.8331781999912 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_dataset__1gb[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.3345120730606828,
+            "unit": "iter/sec",
+            "range": "stddev: 0.006231069968157293",
+            "extra": "mean: 2.9894287247999953 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.057146870062689814,
+            "unit": "iter/sec",
+            "range": "stddev: 0.4054281077286932",
+            "extra": "mean: 17.498771129600016 sec\nrounds: 5"
           }
         ]
       }

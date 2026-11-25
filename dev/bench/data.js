@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795552083628,
+  "lastUpdate": 1795567072340,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -13938,6 +13938,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.47417297851213663",
             "extra": "mean: 17.78038231879999 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "94a3b9ab31b220d547f7a3722642051270b711d7",
+          "message": "Property tests for observation training (#1014)\n\nClaude (Opus 5.5) adds Hypothesis property tests (\"searches\") for the\nobservation training path that #955 merged: the surface-initialized\nforecast model, replay pools, the observation losses, the streaming\nannual evaluator, and checkpoint/resume. Each property compares the code\nagainst an independent oracle, such as a reference model, a dense\nrestatement of the rule, or the uninterrupted run. The soak found one\nreal bug, which #955 fixed before merging. It is now catalogued as a\nfault. This PR changes tests only.\n\n<details>\n<summary>Properties</summary>\n\nEach docstring names its oracle.\n\n| File | Properties |\n| --- | --- |\n| `test_observation_model_properties.py` | Continuing from any split\nreproduces the forecast, and the carried pair is the trajectory's last\ntwo frames. No prediction depends on later forcing or calendar. Invalid\nor dry surface values (even NaN) never reach the model. The initial\nstate copies measurements and zeros dry cells. Batch independence and\nlongitude-shift equivariance (both `proposed`). Every model property\nruns for both input domains (`observation` and `om4-family`) |\n| `test_observation_replay_properties.py` | After every operation, the\npool matches a reference model: per-month FIFO with an age window. A\nrestored pool draws exactly like the original. Replay months hand off\nand cover their calendar month. Training and evaluation month weights\nagree |\n| `test_observation_loss_properties.py` | Artificial gaps only hide\ndata. Corruption partitions valid cells into inputs and targets. Masked\nlosses ignore unsupported cells and scale quadratically. The balanced\nloss ignores channel order |\n| `test_observation_evaluation_properties.py` | The streamed annual\nscore equals a dense NumPy restatement of the scoring rule |\n| `test_observation_training_properties.py` | Resuming after any update\nreproduces the uninterrupted run, across source mixes, schedulers,\ngradient accumulation and post-training. That covers every record, the\nweights, optimizer moments, EMA, best score, exposure and later replay\ndraws |\n\n</details>\n\n<details>\n<summary>Results</summary>\n\nAll on the current head, `dba09197`.\n\n- All 17 properties pass at the soak budget of 1,000 examples, in about\n3 minutes on a laptop CPU. At the PR budget of 40 they take a few\nseconds.\n- `tests/observation_faults.py` re-plants the one bug the soak found.\nWith no completion support, `completion_loss` summed the raw prediction,\nso a NaN in any unsupported cell made the loss NaN. #955 fixed it and\nadded a regression test. The mutation gate (`python -m\nsamudra_verification.gate tests/observation_faults.py`) kills the fault\non seeds 0, 1 and 95920261105, with clean controls. CI's mutation gate\ncovers only `data/` catalogs so far, so this result is from a local run.\n- Earlier, 16 hand-planted mutants were all killed at the PR budget.\nOnly the real bug is catalogued.\n\n</details>\n\n<details>\n<summary>Scope and follow-ups</summary>\n\nThese properties run CPU-only on generated data. They don't cover the\nobservation data path, and #1012's data invariants assume OM4-style\nstores, where a NaN means land. In observation data a NaN usually means\nno measurement. A follow-up could add:\n\n- properties for the observation sample code in `samudra`: a\nnormalization round trip, `fit_statistics` ignoring values outside each\nchannel's support, `interpolate_depth` never bridging gaps, and the two\ndomains producing identical context planes for the same dates;\n- live checks of the prepared observation archive with\n`samudra.invariants`: plausible bounds, measured cells only where the\nmask is wet, and a contiguous daily time axis.\n\n`ModelMonths` window planning is also untested by properties. \"Forcing\nmeasurably matters\" can't be a property at initialization. The\nobservation forcing encoder's last layer is zero-initialized, so ERA5\nforcing has no effect until training, by design.\n\n</details>\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\n---------\n\nCo-authored-by: Claude Opus 5.5 <noreply@anthropic.com>",
+          "timestamp": "2026-11-25T00:12:59Z",
+          "tree_id": "c703cdbbbf254db766515ef9d16f80f5db5cd5ce",
+          "url": "https://github.com/m2lines/Samudra/commit/94a3b9ab31b220d547f7a3722642051270b711d7"
+        },
+        "date": 1795567070453,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.9891680456783728,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0039094811050601",
+            "extra": "mean: 1.0109505703999957 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_dataset__1gb[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.33222362935754596,
+            "unit": "iter/sec",
+            "range": "stddev: 0.009819649116737704",
+            "extra": "mean: 3.0100206957999944 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.05703371096625516,
+            "unit": "iter/sec",
+            "range": "stddev: 0.19101283985707757",
+            "extra": "mean: 17.533489984400013 sec\nrounds: 5"
           }
         ]
       }

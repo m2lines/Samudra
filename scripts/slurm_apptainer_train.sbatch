@@ -357,8 +357,9 @@ if [[ -z "${GPUS_PER_NODE}" ]]; then
   fi
 fi
 
-# Observation update prefetch supports DDP; its entrypoint validates the global
-# example count and rejects multi-rank launches of the legacy sequential recipe.
+# Observation training uses the single-device cuda backend only for one process in
+# total; its entrypoint rejects multi-rank launches of engine: sequential.
+TOTAL_GPUS="$(( SLURM_NNODES * GPUS_PER_NODE ))"
 
 # Avoid oversubscribing CPU threads when torchrun spawns one process per GPU.
 if [[ -z "${OMP_NUM_THREADS:-}" ]]; then
@@ -497,7 +498,7 @@ srun --ntasks="${SLURM_NNODES}" --ntasks-per-node=1 \
       fi
       if [[ \"${SAMUDRA_MODULE}\" == \"samudra.train\" || \"${SAMUDRA_MODULE}\" == \"samudra.observations.train\" ]]; then
         train_backend=nccl
-        if [[ \"${SAMUDRA_MODULE}\" == \"samudra.observations.train\" && \"${GPUS_PER_NODE}\" == \"1\" ]]; then
+        if [[ \"${SAMUDRA_MODULE}\" == \"samudra.observations.train\" && \"${TOTAL_GPUS}\" == \"1\" ]]; then
           train_backend=cuda
         fi
         module_args=(

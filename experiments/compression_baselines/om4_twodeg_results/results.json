@@ -1,0 +1,4975 @@
+{
+ "meta": {
+  "source": "https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/v2026-09/om4_twodeg/OM4.zarr",
+  "attrs": {
+   "m2lines/cli_args": "/scratch/am16581/Samudra-data-v2026-09/data/ocean_preprocessing/__main__.py om4 s3://m2lines-pubs/Samudra/raw/om4_5daily.zarr s3://m2lines-pubs/Samudra/raw/ocean_static_no_mask_table.zarr s3://m2lines-pubs/Samudra/raw/grids/ocean_hgrid.zarr s3://m2lines-pubs/Samudra/raw/grids/gaussian_grid_90_by_180.zarr --output_path=s3://m2lines-pubs/Samudra/v2026-09/om4_twodeg/OM4.zarr --cluster=local --n_workers=32 --threads_per_worker=1 --skip_spatial_filtering --skip_validation --wfo_source_path=s3://m2lines-pubs/Samudra/raw/om4_5daily_snapshots.zarr",
+   "m2lines/date_created": "2026-09-03T19:57:10.502351",
+   "m2lines/ocean_emulators_git_hash": "https://github.com/m2lines/Samudra/commit/42851c09247afd1517cb7fb71b59c0e6f30d6156",
+   "m2lines/samudra_git_hash": "https://github.com/m2lines/Samudra/commit/42851c09247afd1517cb7fb71b59c0e6f30d6156",
+   "m2lines/wfo_surgery_alignment": "donor time == recipient time_bnds upper bound; donor wfo relabeled to recipient interval-midpoint time",
+   "m2lines/wfo_surgery_source": "s3://m2lines-pubs/Samudra/raw/om4_5daily_snapshots.zarr"
+  },
+  "channels": [
+   "thetao_0",
+   "thetao_1",
+   "thetao_2",
+   "thetao_3",
+   "thetao_4",
+   "thetao_5",
+   "thetao_6",
+   "thetao_7",
+   "thetao_8",
+   "thetao_9",
+   "thetao_10",
+   "thetao_11",
+   "thetao_12",
+   "thetao_13",
+   "thetao_14",
+   "thetao_15",
+   "thetao_16",
+   "thetao_17",
+   "thetao_18",
+   "so_0",
+   "so_1",
+   "so_2",
+   "so_3",
+   "so_4",
+   "so_5",
+   "so_6",
+   "so_7",
+   "so_8",
+   "so_9",
+   "so_10",
+   "so_11",
+   "so_12",
+   "so_13",
+   "so_14",
+   "so_15",
+   "so_16",
+   "so_17",
+   "so_18",
+   "uo_0",
+   "uo_1",
+   "uo_2",
+   "uo_3",
+   "uo_4",
+   "uo_5",
+   "uo_6",
+   "uo_7",
+   "uo_8",
+   "uo_9",
+   "uo_10",
+   "uo_11",
+   "uo_12",
+   "uo_13",
+   "uo_14",
+   "uo_15",
+   "uo_16",
+   "uo_17",
+   "uo_18",
+   "vo_0",
+   "vo_1",
+   "vo_2",
+   "vo_3",
+   "vo_4",
+   "vo_5",
+   "vo_6",
+   "vo_7",
+   "vo_8",
+   "vo_9",
+   "vo_10",
+   "vo_11",
+   "vo_12",
+   "vo_13",
+   "vo_14",
+   "vo_15",
+   "vo_16",
+   "vo_17",
+   "vo_18",
+   "zos"
+  ],
+  "levels": {
+   "thetao_0": 0,
+   "thetao_1": 1,
+   "thetao_2": 2,
+   "thetao_3": 3,
+   "thetao_4": 4,
+   "thetao_5": 5,
+   "thetao_6": 6,
+   "thetao_7": 7,
+   "thetao_8": 8,
+   "thetao_9": 9,
+   "thetao_10": 10,
+   "thetao_11": 11,
+   "thetao_12": 12,
+   "thetao_13": 13,
+   "thetao_14": 14,
+   "thetao_15": 15,
+   "thetao_16": 16,
+   "thetao_17": 17,
+   "thetao_18": 18,
+   "so_0": 0,
+   "so_1": 1,
+   "so_2": 2,
+   "so_3": 3,
+   "so_4": 4,
+   "so_5": 5,
+   "so_6": 6,
+   "so_7": 7,
+   "so_8": 8,
+   "so_9": 9,
+   "so_10": 10,
+   "so_11": 11,
+   "so_12": 12,
+   "so_13": 13,
+   "so_14": 14,
+   "so_15": 15,
+   "so_16": 16,
+   "so_17": 17,
+   "so_18": 18,
+   "uo_0": 0,
+   "uo_1": 1,
+   "uo_2": 2,
+   "uo_3": 3,
+   "uo_4": 4,
+   "uo_5": 5,
+   "uo_6": 6,
+   "uo_7": 7,
+   "uo_8": 8,
+   "uo_9": 9,
+   "uo_10": 10,
+   "uo_11": 11,
+   "uo_12": 12,
+   "uo_13": 13,
+   "uo_14": 14,
+   "uo_15": 15,
+   "uo_16": 16,
+   "uo_17": 17,
+   "uo_18": 18,
+   "vo_0": 0,
+   "vo_1": 1,
+   "vo_2": 2,
+   "vo_3": 3,
+   "vo_4": 4,
+   "vo_5": 5,
+   "vo_6": 6,
+   "vo_7": 7,
+   "vo_8": 8,
+   "vo_9": 9,
+   "vo_10": 10,
+   "vo_11": 11,
+   "vo_12": 12,
+   "vo_13": 13,
+   "vo_14": 14,
+   "vo_15": 15,
+   "vo_16": 16,
+   "vo_17": 17,
+   "vo_18": 18,
+   "zos": 0
+  },
+  "depth": {
+   "thetao_0": 2.5,
+   "thetao_1": 10.0,
+   "thetao_2": 22.5,
+   "thetao_3": 40.0,
+   "thetao_4": 65.0,
+   "thetao_5": 105.0,
+   "thetao_6": 165.0,
+   "thetao_7": 250.0,
+   "thetao_8": 375.0,
+   "thetao_9": 550.0,
+   "thetao_10": 775.0,
+   "thetao_11": 1050.0,
+   "thetao_12": 1400.0,
+   "thetao_13": 1850.0,
+   "thetao_14": 2400.0,
+   "thetao_15": 3100.0,
+   "thetao_16": 4000.0,
+   "thetao_17": 5000.0,
+   "thetao_18": 6000.0,
+   "so_0": 2.5,
+   "so_1": 10.0,
+   "so_2": 22.5,
+   "so_3": 40.0,
+   "so_4": 65.0,
+   "so_5": 105.0,
+   "so_6": 165.0,
+   "so_7": 250.0,
+   "so_8": 375.0,
+   "so_9": 550.0,
+   "so_10": 775.0,
+   "so_11": 1050.0,
+   "so_12": 1400.0,
+   "so_13": 1850.0,
+   "so_14": 2400.0,
+   "so_15": 3100.0,
+   "so_16": 4000.0,
+   "so_17": 5000.0,
+   "so_18": 6000.0,
+   "uo_0": 2.5,
+   "uo_1": 10.0,
+   "uo_2": 22.5,
+   "uo_3": 40.0,
+   "uo_4": 65.0,
+   "uo_5": 105.0,
+   "uo_6": 165.0,
+   "uo_7": 250.0,
+   "uo_8": 375.0,
+   "uo_9": 550.0,
+   "uo_10": 775.0,
+   "uo_11": 1050.0,
+   "uo_12": 1400.0,
+   "uo_13": 1850.0,
+   "uo_14": 2400.0,
+   "uo_15": 3100.0,
+   "uo_16": 4000.0,
+   "uo_17": 5000.0,
+   "uo_18": 6000.0,
+   "vo_0": 2.5,
+   "vo_1": 10.0,
+   "vo_2": 22.5,
+   "vo_3": 40.0,
+   "vo_4": 65.0,
+   "vo_5": 105.0,
+   "vo_6": 165.0,
+   "vo_7": 250.0,
+   "vo_8": 375.0,
+   "vo_9": 550.0,
+   "vo_10": 775.0,
+   "vo_11": 1050.0,
+   "vo_12": 1400.0,
+   "vo_13": 1850.0,
+   "vo_14": 2400.0,
+   "vo_15": 3100.0,
+   "vo_16": 4000.0,
+   "vo_17": 5000.0,
+   "vo_18": 6000.0,
+   "zos": 2.5
+  },
+  "split_ranges": {
+   "train": [
+    "2003-01-03 12:00:00",
+    "2004-12-28 12:00:00",
+    146
+   ],
+   "val": [
+    "2010-01-03 12:00:00",
+    "2010-12-29 12:00:00",
+    73
+   ],
+   "test": [
+    "2015-01-03 12:00:00",
+    "2015-12-29 12:00:00",
+    73
+   ]
+  }
+ },
+ "args": {
+  "cache": "cache_om4_twodeg",
+  "out": "results_om4_twodeg",
+  "bins": 8192,
+  "n_eval": 8000,
+  "n_train": 400000,
+  "channels": "",
+  "seed": 0
+ },
+ "channels": [
+  {
+   "channel": "thetao_0",
+   "depth": 2.5,
+   "bin_width": 0.004747606326279804,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 7.814411723578408,
+    "ar1": 7.62072842880675,
+    "lpc": 7.538580659079338,
+    "lpc_ctx": 7.413515697649687,
+    "analog": 7.488467558846863,
+    "lpc_analog": 7.4566209956974285,
+    "mix": 7.348889179199275
+   },
+   "rmse": {
+    "persistence": 0.2955479456056898,
+    "ar1": 0.2636305684305881,
+    "lpc": 0.258216383083034,
+    "lpc_ctx": 0.258216383083034,
+    "analog": 0.25846887858071543,
+    "lpc_analog": 0.2550416637220146,
+    "mix": 0.2557529434884381
+   },
+   "mix_weights": {
+    "persistence": 1.2919267861991646e-06,
+    "ar1": 0.0003059628663611894,
+    "lpc": 0.03156338971746528,
+    "lpc_ctx": 0.5890920348857804,
+    "analog": 0.09272229336566988,
+    "lpc_analog": 0.286315027237937
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 7.809337758364503,
+    "ar1": 7.608759959341355,
+    "lpc": 7.523114187580978,
+    "lpc_ctx": 7.401942178338026
+   },
+   "blosc_bits_per_value": {
+    "truth": 10.650624433295048,
+    "ar1_forecast": 10.686603397207278,
+    "lpc_forecast": 10.651678655624737,
+    "residual_vs_persistence": 8.650435833887444
+   },
+   "lpc_error_zonal_corr": 0.8691491640037902,
+   "joint_coding_gap_bits_est": 1.0158116239527042,
+   "seconds": 5.062663316726685
+  },
+  {
+   "channel": "thetao_1",
+   "depth": 10.0,
+   "bin_width": 0.004737885088579904,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 7.716471316776855,
+    "ar1": 7.451939259814673,
+    "lpc": 7.355871961205619,
+    "lpc_ctx": 7.2313473483519495,
+    "analog": 7.3065072159983595,
+    "lpc_analog": 7.256865370370468,
+    "mix": 7.169399750379565
+   },
+   "rmse": {
+    "persistence": 0.26597815507518036,
+    "ar1": 0.2296070860972365,
+    "lpc": 0.22262864255087936,
+    "lpc_ctx": 0.22262864255087936,
+    "analog": 0.2218410445872892,
+    "lpc_analog": 0.2197252433939537,
+    "mix": 0.2198173278115372
+   },
+   "mix_weights": {
+    "persistence": 2.021090991495382e-11,
+    "ar1": 0.00025022907885479583,
+    "lpc": 0.0073215895640633515,
+    "lpc_ctx": 0.5481975601476563,
+    "analog": 0.10083288476884286,
+    "lpc_analog": 0.34339773642037175
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 7.731845056753952,
+    "ar1": 7.455417480290706,
+    "lpc": 7.35021369671647,
+    "lpc_ctx": 7.23501566999565
+   },
+   "blosc_bits_per_value": {
+    "truth": 10.685907030163815,
+    "ar1_forecast": 10.720444901166656,
+    "lpc_forecast": 10.685974732515263,
+    "residual_vs_persistence": 8.631904733119748
+   },
+   "lpc_error_zonal_corr": 0.8439491302166451,
+   "joint_coding_gap_bits_est": 0.8985564201698507,
+   "seconds": 4.304311513900757
+  },
+  {
+   "channel": "thetao_2",
+   "depth": 22.5,
+   "bin_width": 0.004658056760127513,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 7.531998784304285,
+    "ar1": 7.153061968028223,
+    "lpc": 7.0460023116251005,
+    "lpc_ctx": 6.914445408739697,
+    "analog": 6.945703584452215,
+    "lpc_analog": 6.901767607435523,
+    "mix": 6.822505767553174
+   },
+   "rmse": {
+    "persistence": 0.22858423340102604,
+    "ar1": 0.18998221838529444,
+    "lpc": 0.17806250126756168,
+    "lpc_ctx": 0.17806250126756168,
+    "analog": 0.1766522050337851,
+    "lpc_analog": 0.17412589291883887,
+    "mix": 0.17479387884068834
+   },
+   "mix_weights": {
+    "persistence": 1.0305092330746186e-10,
+    "ar1": 0.018745109696017892,
+    "lpc": 0.002040158183841744,
+    "lpc_ctx": 0.4593119699594821,
+    "analog": 0.01952123348946685,
+    "lpc_analog": 0.5003815285681406
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 7.522078940579345,
+    "ar1": 7.139584665049495,
+    "lpc": 7.0176376482017435,
+    "lpc_ctx": 6.880734157280619
+   },
+   "blosc_bits_per_value": {
+    "truth": 10.806866471461626,
+    "ar1_forecast": 10.84194486635931,
+    "lpc_forecast": 10.80328744145677,
+    "residual_vs_persistence": 8.55698288745804
+   },
+   "lpc_error_zonal_corr": 0.7555350164128041,
+   "joint_coding_gap_bits_est": 0.6101947445966867,
+   "seconds": 4.203659772872925
+  },
+  {
+   "channel": "thetao_3",
+   "depth": 40.0,
+   "bin_width": 0.00451305587891167,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 7.253524282718945,
+    "ar1": 6.891494246741153,
+    "lpc": 6.77706020378686,
+    "lpc_ctx": 6.610681589887699,
+    "analog": 6.673756773995323,
+    "lpc_analog": 6.611176181061212,
+    "mix": 6.509229534087917
+   },
+   "rmse": {
+    "persistence": 0.19296901576728556,
+    "ar1": 0.16566290632402547,
+    "lpc": 0.15547786979728706,
+    "lpc_ctx": 0.15547786979728706,
+    "analog": 0.15835277746488188,
+    "lpc_analog": 0.15257387970060218,
+    "mix": 0.15283993227251436
+   },
+   "mix_weights": {
+    "persistence": 1.520079485870878e-11,
+    "ar1": 0.014427914202056958,
+    "lpc": 0.008336609118179947,
+    "lpc_ctx": 0.4162815740944445,
+    "analog": 0.014860665949693702,
+    "lpc_analog": 0.5460932366204241
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 7.297884927700502,
+    "ar1": 6.93590393169772,
+    "lpc": 6.81950267528468,
+    "lpc_ctx": 6.649753812115483
+   },
+   "blosc_bits_per_value": {
+    "truth": 11.100673767374893,
+    "ar1_forecast": 11.126172324466678,
+    "lpc_forecast": 11.094894750767603,
+    "residual_vs_persistence": 8.521657160085898
+   },
+   "lpc_error_zonal_corr": 0.6583457022584371,
+   "joint_coding_gap_bits_est": 0.40982301727257714,
+   "seconds": 4.464786052703857
+  },
+  {
+   "channel": "thetao_4",
+   "depth": 65.0,
+   "bin_width": 0.004419526395969873,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 7.121045522578335,
+    "ar1": 6.8596687384212816,
+    "lpc": 6.649495756345542,
+    "lpc_ctx": 6.519617419922912,
+    "analog": 6.5575062390058285,
+    "lpc_analog": 6.492501336972251,
+    "mix": 6.340282780033325
+   },
+   "rmse": {
+    "persistence": 0.1929354217350006,
+    "ar1": 0.18099807873314283,
+    "lpc": 0.17408116226911677,
+    "lpc_ctx": 0.17408116226911677,
+    "analog": 0.17390903655304832,
+    "lpc_analog": 0.17164459192066012,
+    "mix": 0.17175387126582883
+   },
+   "mix_weights": {
+    "persistence": 2.069358836419707e-13,
+    "ar1": 0.0003159031452515644,
+    "lpc": 0.05499044403854141,
+    "lpc_ctx": 0.2143628252688777,
+    "analog": 0.02157136944593678,
+    "lpc_analog": 0.7087594581011856
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 7.114930634267878,
+    "ar1": 6.856277705517665,
+    "lpc": 6.645248332817327,
+    "lpc_ctx": 6.484012280067972
+   },
+   "blosc_bits_per_value": {
+    "truth": 11.418229429699045,
+    "ar1_forecast": 11.435976282662775,
+    "lpc_forecast": 11.398467475949095,
+    "residual_vs_persistence": 8.539219023748512
+   },
+   "lpc_error_zonal_corr": 0.6400588800258743,
+   "joint_coding_gap_bits_est": 0.38020977915820564,
+   "seconds": 4.114264726638794
+  },
+  {
+   "channel": "thetao_5",
+   "depth": 105.0,
+   "bin_width": 0.004327902574987617,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 6.885371020966795,
+    "ar1": 6.693548567089878,
+    "lpc": 6.350707788751783,
+    "lpc_ctx": 6.193169074500987,
+    "analog": 6.1977797474497,
+    "lpc_analog": 6.119622799444415,
+    "mix": 5.953072134102726
+   },
+   "rmse": {
+    "persistence": 0.1773850695153701,
+    "ar1": 0.16784638101201552,
+    "lpc": 0.16259438841860835,
+    "lpc_ctx": 0.16259438841860835,
+    "analog": 0.16358959907676235,
+    "lpc_analog": 0.15981542897598863,
+    "mix": 0.1601215257132137
+   },
+   "mix_weights": {
+    "persistence": 8.177025006379888e-06,
+    "ar1": 0.008376351214880383,
+    "lpc": 0.057384081543094226,
+    "lpc_ctx": 0.20478971834899823,
+    "analog": 0.005337522659520415,
+    "lpc_analog": 0.7241041492085003
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 6.917580137705414,
+    "ar1": 6.7250138674942965,
+    "lpc": 6.360191819905104,
+    "lpc_ctx": 6.206358685191249
+   },
+   "blosc_bits_per_value": {
+    "truth": 11.529269207759153,
+    "ar1_forecast": 11.546912866688977,
+    "lpc_forecast": 11.511138827203682,
+    "residual_vs_persistence": 8.467891582757886
+   },
+   "lpc_error_zonal_corr": 0.6527946076017698,
+   "joint_coding_gap_bits_est": 0.4006156441210135,
+   "seconds": 4.334197044372559
+  },
+  {
+   "channel": "thetao_6",
+   "depth": 165.0,
+   "bin_width": 0.003682929091008985,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 6.688918364844424,
+    "ar1": 6.501065478457658,
+    "lpc": 6.199629710279002,
+    "lpc_ctx": 5.950686008180008,
+    "analog": 5.9698538014229205,
+    "lpc_analog": 5.891115431503786,
+    "mix": 5.720817803941633
+   },
+   "rmse": {
+    "persistence": 0.1404119278170765,
+    "ar1": 0.1340753865913626,
+    "lpc": 0.12989469394213457,
+    "lpc_ctx": 0.12989469394213457,
+    "analog": 0.13167585098069468,
+    "lpc_analog": 0.12905955806320882,
+    "mix": 0.12897762485665845
+   },
+   "mix_weights": {
+    "persistence": 9.665274282101039e-10,
+    "ar1": 0.0030893190926330263,
+    "lpc": 0.04550887957394611,
+    "lpc_ctx": 0.2728193306202482,
+    "analog": 0.007322169399279677,
+    "lpc_analog": 0.6712603003473655
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 6.712554318414061,
+    "ar1": 6.528569379346794,
+    "lpc": 6.201362114251639,
+    "lpc_ctx": 5.975247926218909
+   },
+   "blosc_bits_per_value": {
+    "truth": 11.709246695399338,
+    "ar1_forecast": 11.725640814138123,
+    "lpc_forecast": 11.694729136163982,
+    "residual_vs_persistence": 8.418080960138575
+   },
+   "lpc_error_zonal_corr": 0.5874171460430241,
+   "joint_coding_gap_bits_est": 0.3052814670641514,
+   "seconds": 4.22048807144165
+  },
+  {
+   "channel": "thetao_7",
+   "depth": 250.0,
+   "bin_width": 0.00327389927908321,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 6.235991853875715,
+    "ar1": 5.981823300367424,
+    "lpc": 5.850274508256879,
+    "lpc_ctx": 5.5029549830202615,
+    "analog": 5.498868029862286,
+    "lpc_analog": 5.419065046470126,
+    "mix": 5.293065428657322
+   },
+   "rmse": {
+    "persistence": 0.08906011592229754,
+    "ar1": 0.0812443717544474,
+    "lpc": 0.07827775850647015,
+    "lpc_ctx": 0.07827775850647015,
+    "analog": 0.07932822113700286,
+    "lpc_analog": 0.0769656167542359,
+    "mix": 0.07708704584924667
+   },
+   "mix_weights": {
+    "persistence": 6.181680326725723e-08,
+    "ar1": 0.008501091259411338,
+    "lpc": 0.012990920478969393,
+    "lpc_ctx": 0.23541917294121414,
+    "analog": 0.0027839555014003434,
+    "lpc_analog": 0.7403047980022015
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 6.23054029398613,
+    "ar1": 5.987568918886484,
+    "lpc": 5.826655537940592,
+    "lpc_ctx": 5.516622872910278
+   },
+   "blosc_bits_per_value": {
+    "truth": 11.65431195058985,
+    "ar1_forecast": 11.669537596810564,
+    "lpc_forecast": 11.645883467860527,
+    "residual_vs_persistence": 8.173139439887587
+   },
+   "lpc_error_zonal_corr": 0.3169909794032198,
+   "joint_coding_gap_bits_est": 0.07638899916720962,
+   "seconds": 4.26621150970459
+  },
+  {
+   "channel": "thetao_8",
+   "depth": 375.0,
+   "bin_width": 0.0032218103080695662,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 5.761278288881362,
+    "ar1": 5.481891993012912,
+    "lpc": 5.382056441006551,
+    "lpc_ctx": 4.982805115990999,
+    "analog": 4.9872762092179235,
+    "lpc_analog": 4.907155241007766,
+    "mix": 4.773803696830504
+   },
+   "rmse": {
+    "persistence": 0.06459225429294088,
+    "ar1": 0.05873437010882148,
+    "lpc": 0.05495091044305176,
+    "lpc_ctx": 0.05495091044305176,
+    "analog": 0.05619685887489913,
+    "lpc_analog": 0.05443510639604068,
+    "mix": 0.054432200072241185
+   },
+   "mix_weights": {
+    "persistence": 1.6919705818550296e-05,
+    "ar1": 0.006100299155667731,
+    "lpc": 0.012979460305511923,
+    "lpc_ctx": 0.2790117956892467,
+    "analog": 0.03257655012615866,
+    "lpc_analog": 0.6693149750175963
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 5.7448661052104395,
+    "ar1": 5.468551141314057,
+    "lpc": 5.383096952838364,
+    "lpc_ctx": 5.005995687998815
+   },
+   "blosc_bits_per_value": {
+    "truth": 11.365629130986449,
+    "ar1_forecast": 11.378965083376249,
+    "lpc_forecast": 11.358695709879328,
+    "residual_vs_persistence": 7.7407983521179835
+   },
+   "lpc_error_zonal_corr": 0.17050843086525064,
+   "joint_coding_gap_bits_est": 0.021282725595658594,
+   "seconds": 4.474878787994385
+  },
+  {
+   "channel": "thetao_9",
+   "depth": 550.0,
+   "bin_width": 0.003220355785317211,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 5.313073634060181,
+    "ar1": 4.9912208563762235,
+    "lpc": 4.94677509396902,
+    "lpc_ctx": 4.4981344945365915,
+    "analog": 4.460119319872701,
+    "lpc_analog": 4.388690328818701,
+    "mix": 4.282351470143501
+   },
+   "rmse": {
+    "persistence": 0.05291296585062788,
+    "ar1": 0.04397792701975101,
+    "lpc": 0.0415503838302629,
+    "lpc_ctx": 0.0415503838302629,
+    "analog": 0.04416345063074429,
+    "lpc_analog": 0.04102447800181032,
+    "mix": 0.04112237807043836
+   },
+   "mix_weights": {
+    "persistence": 2.6485636929876772e-05,
+    "ar1": 0.0029351408622265433,
+    "lpc": 0.013478465283404415,
+    "lpc_ctx": 0.2648230687564724,
+    "analog": 0.09649173848781106,
+    "lpc_analog": 0.6222451009731558
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 5.316351563579173,
+    "ar1": 5.028357166390331,
+    "lpc": 4.958910925094521,
+    "lpc_ctx": 4.545374894592044
+   },
+   "blosc_bits_per_value": {
+    "truth": 11.037869323230145,
+    "ar1_forecast": 11.047495025047715,
+    "lpc_forecast": 11.033854092483242,
+    "residual_vs_persistence": 7.298680264191332
+   },
+   "lpc_error_zonal_corr": 0.10481413325503576,
+   "joint_coding_gap_bits_est": 0.007968577680687275,
+   "seconds": 4.168814420700073
+  },
+  {
+   "channel": "thetao_10",
+   "depth": 775.0,
+   "bin_width": 0.003173214683156768,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 4.842419407685159,
+    "ar1": 4.531336836881545,
+    "lpc": 4.489484836594296,
+    "lpc_ctx": 4.042955215040533,
+    "analog": 3.942267611382017,
+    "lpc_analog": 3.8921975284651267,
+    "mix": 3.7972588045213387
+   },
+   "rmse": {
+    "persistence": 0.03683808987969873,
+    "ar1": 0.03115679848204804,
+    "lpc": 0.029219006696684154,
+    "lpc_ctx": 0.029219006696684154,
+    "analog": 0.031002298534627017,
+    "lpc_analog": 0.029192545973904093,
+    "mix": 0.029102987827055816
+   },
+   "mix_weights": {
+    "persistence": 0.0027623220347284074,
+    "ar1": 0.000299321632706015,
+    "lpc": 0.00047676472569444715,
+    "lpc_ctx": 0.21074097746067572,
+    "analog": 0.05488888658171604,
+    "lpc_analog": 0.7308317275644793
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 4.857323143342462,
+    "ar1": 4.5749842238148,
+    "lpc": 4.524193560273872,
+    "lpc_ctx": 4.0712305105507705
+   },
+   "blosc_bits_per_value": {
+    "truth": 10.7193101556417,
+    "ar1_forecast": 10.731036623043394,
+    "lpc_forecast": 10.719487493523014,
+    "residual_vs_persistence": 6.836929505421274
+   },
+   "lpc_error_zonal_corr": 0.09627235219460958,
+   "joint_coding_gap_bits_est": 0.006716888282434145,
+   "seconds": 4.0192224979400635
+  },
+  {
+   "channel": "thetao_11",
+   "depth": 1050.0,
+   "bin_width": 0.003169553025562055,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 4.233362345591987,
+    "ar1": 3.972205552914811,
+    "lpc": 3.9288544449475555,
+    "lpc_ctx": 3.426901517675235,
+    "analog": 3.388293589821638,
+    "lpc_analog": 3.359349401818748,
+    "mix": 3.234320327916098
+   },
+   "rmse": {
+    "persistence": 0.02451068464742416,
+    "ar1": 0.02232225761432691,
+    "lpc": 0.020470860561772573,
+    "lpc_ctx": 0.020470860561772573,
+    "analog": 0.02118833064028111,
+    "lpc_analog": 0.02009584899744758,
+    "mix": 0.02012884980106423
+   },
+   "mix_weights": {
+    "persistence": 4.575126464899223e-11,
+    "ar1": 1.2666390853258708e-06,
+    "lpc": 0.01641200680746426,
+    "lpc_ctx": 0.24854241034235075,
+    "analog": 0.06883126706118808,
+    "lpc_analog": 0.6662130491041602
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 4.285121827131343,
+    "ar1": 4.032927040239115,
+    "lpc": 3.9701656715619444,
+    "lpc_ctx": 3.49718213149465
+   },
+   "blosc_bits_per_value": {
+    "truth": 10.387255708861098,
+    "ar1_forecast": 10.3881673820769,
+    "lpc_forecast": 10.383924162294717,
+    "residual_vs_persistence": 6.3351158795747216
+   },
+   "lpc_error_zonal_corr": 0.12610376127073966,
+   "joint_coding_gap_bits_est": 0.011563167976576734,
+   "seconds": 4.39372992515564
+  },
+  {
+   "channel": "thetao_12",
+   "depth": 1400.0,
+   "bin_width": 0.0031658358605146353,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 3.5493146064771026,
+    "ar1": 3.362895825714966,
+    "lpc": 3.2542260483204775,
+    "lpc_ctx": 2.836194612249904,
+    "analog": 2.8250391948252744,
+    "lpc_analog": 2.8034295481621387,
+    "mix": 2.6538498972457565
+   },
+   "rmse": {
+    "persistence": 0.014830795008681967,
+    "ar1": 0.013500669131709343,
+    "lpc": 0.0127553755626381,
+    "lpc_ctx": 0.0127553755626381,
+    "analog": 0.013263447370428125,
+    "lpc_analog": 0.012600046295101025,
+    "mix": 0.01261396265975095
+   },
+   "mix_weights": {
+    "persistence": 7.856713872687106e-14,
+    "ar1": 1.9140444478368265e-07,
+    "lpc": 0.016037297471169,
+    "lpc_ctx": 0.3608169740056816,
+    "analog": 0.02480251046032362,
+    "lpc_analog": 0.5983430266583025
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 3.536992458092868,
+    "ar1": 3.3487539597980303,
+    "lpc": 3.234597351113397,
+    "lpc_ctx": 2.846012488524877
+   },
+   "blosc_bits_per_value": {
+    "truth": 9.975792342708733,
+    "ar1_forecast": 9.977664568974127,
+    "lpc_forecast": 9.974993221741796,
+    "residual_vs_persistence": 5.695426459466017
+   },
+   "lpc_error_zonal_corr": 0.2514487348543818,
+   "joint_coding_gap_bits_est": 0.0471138891575711,
+   "seconds": 4.286449432373047
+  },
+  {
+   "channel": "thetao_13",
+   "depth": 1850.0,
+   "bin_width": 0.003064049247243747,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 2.986126280665329,
+    "ar1": 2.818598144359673,
+    "lpc": 2.632497251123402,
+    "lpc_ctx": 2.2853041392300626,
+    "analog": 2.3257338145690314,
+    "lpc_analog": 2.299199439453486,
+    "mix": 2.1436362427511173
+   },
+   "rmse": {
+    "persistence": 0.00887162768554624,
+    "ar1": 0.008249283839171994,
+    "lpc": 0.008024956800211551,
+    "lpc_ctx": 0.008024956800211551,
+    "analog": 0.008091951588533977,
+    "lpc_analog": 0.007870318039485348,
+    "mix": 0.007893697790231314
+   },
+   "mix_weights": {
+    "persistence": 2.891210538651882e-07,
+    "ar1": 4.5747384671992605e-08,
+    "lpc": 0.049027757938504106,
+    "lpc_ctx": 0.3489867207302093,
+    "analog": 0.04183137940808605,
+    "lpc_analog": 0.560153807054762
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 2.96104580028798,
+    "ar1": 2.8089329486199373,
+    "lpc": 2.635657409888644,
+    "lpc_ctx": 2.3401143611121076
+   },
+   "blosc_bits_per_value": {
+    "truth": 9.771558607126233,
+    "ar1_forecast": 9.772486841551833,
+    "lpc_forecast": 9.77189509210551,
+    "residual_vs_persistence": 4.992659696206276
+   },
+   "lpc_error_zonal_corr": 0.2450697807959709,
+   "joint_coding_gap_bits_est": 0.044679098075351927,
+   "seconds": 4.141592025756836
+  },
+  {
+   "channel": "thetao_14",
+   "depth": 2400.0,
+   "bin_width": 0.0019487473996321928,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 3.0872744975581354,
+    "ar1": 2.907267766889675,
+    "lpc": 2.802431634410142,
+    "lpc_ctx": 2.4629744693924125,
+    "analog": 2.383192958986456,
+    "lpc_analog": 2.37385898612041,
+    "mix": 2.2336990265507426
+   },
+   "rmse": {
+    "persistence": 0.0069314291392162325,
+    "ar1": 0.006563911841914492,
+    "lpc": 0.006600594625169895,
+    "lpc_ctx": 0.006600594625169895,
+    "analog": 0.006401381158995484,
+    "lpc_analog": 0.006484781448318539,
+    "mix": 0.006430581991320124
+   },
+   "mix_weights": {
+    "persistence": 3.539238716901699e-09,
+    "ar1": 4.622650527217703e-05,
+    "lpc": 0.03312341030697139,
+    "lpc_ctx": 0.30711218730471024,
+    "analog": 0.2770744721652552,
+    "lpc_analog": 0.3826437001785522
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 3.0774297469934404,
+    "ar1": 2.9011426075714986,
+    "lpc": 2.795848877038683,
+    "lpc_ctx": 2.4193487626212162
+   },
+   "blosc_bits_per_value": {
+    "truth": 10.031867975529947,
+    "ar1_forecast": 10.036373120880162,
+    "lpc_forecast": 10.031903542466925,
+    "residual_vs_persistence": 5.030706122255419
+   },
+   "lpc_error_zonal_corr": 0.047562418309870916,
+   "joint_coding_gap_bits_est": 0.001633669083456554,
+   "seconds": 4.366269111633301
+  },
+  {
+   "channel": "thetao_15",
+   "depth": 3100.0,
+   "bin_width": 0.001954842682432645,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 2.6286752961794893,
+    "ar1": 2.409920659775434,
+    "lpc": 2.457212380401472,
+    "lpc_ctx": 2.0540150698906,
+    "analog": 1.9222637300022234,
+    "lpc_analog": 1.9450426595178913,
+    "mix": 1.8415841248612521
+   },
+   "rmse": {
+    "persistence": 0.005611558961803802,
+    "ar1": 0.005170345263702413,
+    "lpc": 0.004980965431749711,
+    "lpc_ctx": 0.004980965431749711,
+    "analog": 0.004994943431978777,
+    "lpc_analog": 0.004903269295242434,
+    "mix": 0.004880892457465016
+   },
+   "mix_weights": {
+    "persistence": 1.2514468355482253e-06,
+    "ar1": 0.004024798853933634,
+    "lpc": 7.104061482623955e-06,
+    "lpc_ctx": 0.21886364484469567,
+    "analog": 0.5324030049080165,
+    "lpc_analog": 0.2447001958850359
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 2.6612977143797925,
+    "ar1": 2.4644978231254235,
+    "lpc": 2.4932763875643222,
+    "lpc_ctx": 2.0676597467282
+   },
+   "blosc_bits_per_value": {
+    "truth": 9.838075907885537,
+    "ar1_forecast": 9.837213528272194,
+    "lpc_forecast": 9.845997480619559,
+    "residual_vs_persistence": 4.508114068183427
+   },
+   "lpc_error_zonal_corr": -0.05793509948941441,
+   "joint_coding_gap_bits_est": 0.002425257902148704,
+   "seconds": 3.929928779602051
+  },
+  {
+   "channel": "thetao_16",
+   "depth": 4000.0,
+   "bin_width": 0.0019649718048120124,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 2.4032366240792262,
+    "ar1": 2.1636161212617715,
+    "lpc": 2.198609641290527,
+    "lpc_ctx": 1.7346684611930405,
+    "analog": 1.7186206317742918,
+    "lpc_analog": 1.7001198245850087,
+    "mix": 1.5638557257413803
+   },
+   "rmse": {
+    "persistence": 0.005006673185567804,
+    "ar1": 0.004176350242782079,
+    "lpc": 0.004026548885887155,
+    "lpc_ctx": 0.004026548885887155,
+    "analog": 0.004206693392230152,
+    "lpc_analog": 0.003994393939008837,
+    "mix": 0.004023572456360386
+   },
+   "mix_weights": {
+    "persistence": 0.011435512210526763,
+    "ar1": 0.004126341810086678,
+    "lpc": 2.8413806318587176e-05,
+    "lpc_ctx": 0.1912658879517366,
+    "analog": 0.37975081656382137,
+    "lpc_analog": 0.41339302765751
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 2.3977003706345936,
+    "ar1": 2.181032949074355,
+    "lpc": 2.2193179455844247,
+    "lpc_ctx": 1.7339891805343015
+   },
+   "blosc_bits_per_value": {
+    "truth": 10.334257838929434,
+    "ar1_forecast": 10.33664054981398,
+    "lpc_forecast": 10.33385842496613,
+    "residual_vs_persistence": 4.138575985924101
+   },
+   "lpc_error_zonal_corr": 0.004484478736570615,
+   "joint_coding_gap_bits_est": 1.450684091532474e-05,
+   "seconds": 3.9727978706359863
+  },
+  {
+   "channel": "thetao_17",
+   "depth": 5000.0,
+   "bin_width": 0.0014515868510159636,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 1.591128596282336,
+    "ar1": 1.3609103847957837,
+    "lpc": 1.3142526280154518,
+    "lpc_ctx": 1.061538154809767,
+    "analog": 1.073575234702581,
+    "lpc_analog": 1.043185854834674,
+    "mix": 0.9526862487970348
+   },
+   "rmse": {
+    "persistence": 0.002403124989605489,
+    "ar1": 0.002554018824954299,
+    "lpc": 0.0022388116113410857,
+    "lpc_ctx": 0.0022388116113410857,
+    "analog": 0.002103048220449272,
+    "lpc_analog": 0.0022335662956834037,
+    "mix": 0.002203075149385518
+   },
+   "mix_weights": {
+    "persistence": 0.0012062633296144236,
+    "ar1": 0.0166460320408937,
+    "lpc": 0.00419383647014392,
+    "lpc_ctx": 0.21950602479469353,
+    "analog": 0.10234279108932948,
+    "lpc_analog": 0.6561050522753249
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 1.5592371074125535,
+    "ar1": 1.3587377704378367,
+    "lpc": 1.303206615201823,
+    "lpc_ctx": 1.044187173329699
+   },
+   "blosc_bits_per_value": {
+    "truth": 12.147804733011043,
+    "ar1_forecast": 12.145161823167307,
+    "lpc_forecast": 12.145536235395168,
+    "residual_vs_persistence": 3.872942109262299
+   },
+   "lpc_error_zonal_corr": -0.006881198364841191,
+   "joint_coding_gap_bits_est": 3.415725646240093e-05,
+   "seconds": 3.51057505607605
+  },
+  {
+   "channel": "thetao_18",
+   "depth": 6000.0,
+   "bin_width": 0.0006078980542590725,
+   "n_train_rows": 243216,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 1.3551023153011306,
+    "ar1": 1.1353330654631937,
+    "lpc": 1.0143207924246955,
+    "lpc_ctx": 0.8771414509298757,
+    "analog": 0.8786672527788889,
+    "lpc_analog": 0.8098009924741318,
+    "mix": 0.7513118257964101
+   },
+   "rmse": {
+    "persistence": 0.0005640547741169705,
+    "ar1": 0.00044850952021826987,
+    "lpc": 0.00042744549137748887,
+    "lpc_ctx": 0.00042744549137748887,
+    "analog": 0.0004693270787587012,
+    "lpc_analog": 0.0004251899712265083,
+    "mix": 0.00042488987502531237
+   },
+   "mix_weights": {
+    "persistence": 4.7388308609830495e-05,
+    "ar1": 0.00016612936243614495,
+    "lpc": 0.07933919051843713,
+    "lpc_ctx": 0.19656833073113314,
+    "analog": 0.014830316997305772,
+    "lpc_analog": 0.709048644082078
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 1.3255220174982096,
+    "ar1": 1.103697610624881,
+    "lpc": 0.9977300380774309,
+    "lpc_ctx": 0.8661279980360066
+   },
+   "blosc_bits_per_value": {
+    "truth": 16.87385651981755,
+    "ar1_forecast": 16.873589673029297,
+    "lpc_forecast": 16.870721070055623,
+    "residual_vs_persistence": 4.874890551122006
+   },
+   "lpc_error_zonal_corr": -0.016221357161982967,
+   "joint_coding_gap_bits_est": 0.00018983490156854115,
+   "seconds": 3.114922523498535
+  },
+  {
+   "channel": "so_0",
+   "depth": 2.5,
+   "bin_width": 0.0056187866509032295,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 5.153456379809625,
+    "ar1": 5.0230084815057445,
+    "lpc": 4.933845425531574,
+    "lpc_ctx": 4.5404922315637535,
+    "analog": 4.724779956917473,
+    "lpc_analog": 4.700345842321441,
+    "mix": 4.4926937582890245
+   },
+   "rmse": {
+    "persistence": 0.10867362223502788,
+    "ar1": 0.10266290103804217,
+    "lpc": 0.09915292084638862,
+    "lpc_ctx": 0.09915292084638862,
+    "analog": 0.1039875789270224,
+    "lpc_analog": 0.0995598977855261,
+    "mix": 0.09959896358663493
+   },
+   "mix_weights": {
+    "persistence": 0.0016024500123037334,
+    "ar1": 0.015098177342238677,
+    "lpc": 0.013326110069934017,
+    "lpc_ctx": 0.6485585503521438,
+    "analog": 0.13934419178656146,
+    "lpc_analog": 0.18207052043681826
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 5.127511935304582,
+    "ar1": 5.007997618127207,
+    "lpc": 4.928972966348495,
+    "lpc_ctx": 4.525050899326562
+   },
+   "blosc_bits_per_value": {
+    "truth": 10.01575046847609,
+    "ar1_forecast": 10.021727618932479,
+    "lpc_forecast": 10.018574623707913,
+    "residual_vs_persistence": 6.736180861996011
+   },
+   "lpc_error_zonal_corr": 0.504862577473696,
+   "joint_coding_gap_bits_est": 0.21223367745440377,
+   "seconds": 4.801579713821411
+  },
+  {
+   "channel": "so_1",
+   "depth": 10.0,
+   "bin_width": 0.0056190435793800056,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 4.850000332097381,
+    "ar1": 4.679439998302165,
+    "lpc": 4.594241072720983,
+    "lpc_ctx": 4.291775476718781,
+    "analog": 4.434083845755015,
+    "lpc_analog": 4.4056969258162315,
+    "mix": 4.232335834635507
+   },
+   "rmse": {
+    "persistence": 0.05967508128104171,
+    "ar1": 0.060422780044428206,
+    "lpc": 0.057775755320457624,
+    "lpc_ctx": 0.057775755320457624,
+    "analog": 0.05534726809807813,
+    "lpc_analog": 0.05646092573319389,
+    "mix": 0.05642965262762484
+   },
+   "mix_weights": {
+    "persistence": 0.0010024970132043566,
+    "ar1": 0.01152481838919287,
+    "lpc": 0.04525460707421663,
+    "lpc_ctx": 0.4871389935312061,
+    "analog": 0.11408169663540799,
+    "lpc_analog": 0.34099738735677204
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 4.9253782583592445,
+    "ar1": 4.756314758370605,
+    "lpc": 4.663238718089514,
+    "lpc_ctx": 4.334054293560826
+   },
+   "blosc_bits_per_value": {
+    "truth": 9.972053436498822,
+    "ar1_forecast": 9.980825726893553,
+    "lpc_forecast": 9.976047875234238,
+    "residual_vs_persistence": 6.579981865441575
+   },
+   "lpc_error_zonal_corr": 0.4889081697963,
+   "joint_coding_gap_bits_est": 0.19704539405798802,
+   "seconds": 4.350247859954834
+  },
+  {
+   "channel": "so_2",
+   "depth": 22.5,
+   "bin_width": 0.005279112080215491,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 4.680021831621616,
+    "ar1": 4.539604552869666,
+    "lpc": 4.3931306281287155,
+    "lpc_ctx": 4.100179542766983,
+    "analog": 4.149720812918802,
+    "lpc_analog": 4.129265326482285,
+    "mix": 4.007828812735098
+   },
+   "rmse": {
+    "persistence": 0.053705398680415954,
+    "ar1": 0.05160843028522395,
+    "lpc": 0.049663760844712766,
+    "lpc_ctx": 0.049663760844712766,
+    "analog": 0.04980966563327052,
+    "lpc_analog": 0.049204580117081016,
+    "mix": 0.049182000051078534
+   },
+   "mix_weights": {
+    "persistence": 3.5563579623766055e-08,
+    "ar1": 3.2783679897296728e-06,
+    "lpc": 0.022432332612749947,
+    "lpc_ctx": 0.383074926210165,
+    "analog": 0.0684165934630351,
+    "lpc_analog": 0.5260728337824805
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 4.6517961957448,
+    "ar1": 4.514412067359991,
+    "lpc": 4.369238076747462,
+    "lpc_ctx": 4.09266878257506
+   },
+   "blosc_bits_per_value": {
+    "truth": 9.851918852564932,
+    "ar1_forecast": 9.854717712541477,
+    "lpc_forecast": 9.85347919262154,
+    "residual_vs_persistence": 6.41498706624375
+   },
+   "lpc_error_zonal_corr": 0.5914427762789801,
+   "joint_coding_gap_bits_est": 0.31052732577230546,
+   "seconds": 4.477715969085693
+  },
+  {
+   "channel": "so_3",
+   "depth": 40.0,
+   "bin_width": 0.00494305642027618,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 4.368851600170352,
+    "ar1": 4.187614004932322,
+    "lpc": 4.0564371893638995,
+    "lpc_ctx": 3.7838597218105527,
+    "analog": 3.862251307346217,
+    "lpc_analog": 3.8253866680147866,
+    "mix": 3.677190845165883
+   },
+   "rmse": {
+    "persistence": 0.046582209722697186,
+    "ar1": 0.04584411880372085,
+    "lpc": 0.04409169651224315,
+    "lpc_ctx": 0.04409169651224315,
+    "analog": 0.04432032845615062,
+    "lpc_analog": 0.04292333331241364,
+    "mix": 0.04333980748354142
+   },
+   "mix_weights": {
+    "persistence": 2.1483004245997297e-10,
+    "ar1": 2.411991450268722e-05,
+    "lpc": 0.04134114100579152,
+    "lpc_ctx": 0.39972022619974407,
+    "analog": 0.029637271473206772,
+    "lpc_analog": 0.529277241191925
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 4.383430579866105,
+    "ar1": 4.217908810898978,
+    "lpc": 4.070229735515178,
+    "lpc_ctx": 3.815070457431788
+   },
+   "blosc_bits_per_value": {
+    "truth": 9.746375500710684,
+    "ar1_forecast": 9.748393726272004,
+    "lpc_forecast": 9.744357275149364,
+    "residual_vs_persistence": 6.2454629920193945
+   },
+   "lpc_error_zonal_corr": 0.5776867554593987,
+   "joint_coding_gap_bits_est": 0.29290190499623886,
+   "seconds": 4.573727369308472
+  },
+  {
+   "channel": "so_4",
+   "depth": 65.0,
+   "bin_width": 0.004915984612274451,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 3.981545370211624,
+    "ar1": 3.8135777467961978,
+    "lpc": 3.641566529407908,
+    "lpc_ctx": 3.3623870735535126,
+    "analog": 3.473654646432245,
+    "lpc_analog": 3.423436515837227,
+    "mix": 3.2439790235692936
+   },
+   "rmse": {
+    "persistence": 0.028711204794239095,
+    "ar1": 0.026969994457042814,
+    "lpc": 0.026532625973095844,
+    "lpc_ctx": 0.026532625973095844,
+    "analog": 0.02645770819010452,
+    "lpc_analog": 0.025994005406455953,
+    "mix": 0.026126905500092373
+   },
+   "mix_weights": {
+    "persistence": 0.0029468699452395736,
+    "ar1": 1.9584284339275768e-06,
+    "lpc": 0.04168466401663686,
+    "lpc_ctx": 0.36510308164881866,
+    "analog": 0.01554796127962944,
+    "lpc_analog": 0.5747154646812415
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 4.047880946459738,
+    "ar1": 3.8789701560131284,
+    "lpc": 3.7035067916719115,
+    "lpc_ctx": 3.407992443216421
+   },
+   "blosc_bits_per_value": {
+    "truth": 9.722182942720512,
+    "ar1_forecast": 9.725664478237286,
+    "lpc_forecast": 9.721783912861854,
+    "residual_vs_persistence": 5.969626345946419
+   },
+   "lpc_error_zonal_corr": 0.5817529709426024,
+   "joint_coding_gap_bits_est": 0.29802424845062525,
+   "seconds": 5.18079948425293
+  },
+  {
+   "channel": "so_5",
+   "depth": 105.0,
+   "bin_width": 0.004716113902872318,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 3.5293282128777355,
+    "ar1": 3.3425291863546818,
+    "lpc": 3.207212275920089,
+    "lpc_ctx": 2.9127901605735187,
+    "analog": 2.9598377531487414,
+    "lpc_analog": 2.9070080103699403,
+    "mix": 2.755755895438805
+   },
+   "rmse": {
+    "persistence": 0.018757722676211584,
+    "ar1": 0.01779142645949166,
+    "lpc": 0.01751179431360968,
+    "lpc_ctx": 0.01751179431360968,
+    "analog": 0.017189848313437363,
+    "lpc_analog": 0.017140690325378828,
+    "mix": 0.017208157353783386
+   },
+   "mix_weights": {
+    "persistence": 2.7667092073767413e-08,
+    "ar1": 6.261663085457045e-06,
+    "lpc": 0.03178462134142359,
+    "lpc_ctx": 0.31829640840039547,
+    "analog": 0.0018037435807057667,
+    "lpc_analog": 0.6481089373472976
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 3.5562646711659025,
+    "ar1": 3.3656474881447207,
+    "lpc": 3.2230142030813704,
+    "lpc_ctx": 2.921907291381302
+   },
+   "blosc_bits_per_value": {
+    "truth": 9.686743933724735,
+    "ar1_forecast": 9.689907624291466,
+    "lpc_forecast": 9.687656536772831,
+    "residual_vs_persistence": 5.661363428953853
+   },
+   "lpc_error_zonal_corr": 0.5047052158133577,
+   "joint_coding_gap_bits_est": 0.2120798938372711,
+   "seconds": 4.967060327529907
+  },
+  {
+   "channel": "so_6",
+   "depth": 165.0,
+   "bin_width": 0.0046326677951424484,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 3.282114635420462,
+    "ar1": 3.0344713744728677,
+    "lpc": 2.8892495100331232,
+    "lpc_ctx": 2.5104032592366146,
+    "analog": 2.5861536819201074,
+    "lpc_analog": 2.52691028223643,
+    "mix": 2.3622696604735114
+   },
+   "rmse": {
+    "persistence": 0.017015748246072458,
+    "ar1": 0.015603190622027582,
+    "lpc": 0.015106099197347721,
+    "lpc_ctx": 0.015106099197347721,
+    "analog": 0.015380715879624349,
+    "lpc_analog": 0.014934677162420473,
+    "mix": 0.014955791920626344
+   },
+   "mix_weights": {
+    "persistence": 9.801840006378558e-07,
+    "ar1": 0.0024203241590747444,
+    "lpc": 0.01622368673073647,
+    "lpc_ctx": 0.3029138149546492,
+    "analog": 0.04070838325264822,
+    "lpc_analog": 0.6377328107188907
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 3.24842363306482,
+    "ar1": 3.028058932292768,
+    "lpc": 2.876817182234823,
+    "lpc_ctx": 2.5159730434328758
+   },
+   "blosc_bits_per_value": {
+    "truth": 9.654548079104199,
+    "ar1_forecast": 9.657280432227333,
+    "lpc_forecast": 9.6554141834904,
+    "residual_vs_persistence": 5.296403604643968
+   },
+   "lpc_error_zonal_corr": 0.49902884278118986,
+   "joint_coding_gap_bits_est": 0.2065862040014273,
+   "seconds": 4.318669080734253
+  },
+  {
+   "channel": "so_7",
+   "depth": 250.0,
+   "bin_width": 0.004441403921527671,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 2.785222680908098,
+    "ar1": 2.528464421780268,
+    "lpc": 2.433642437739558,
+    "lpc_ctx": 2.093876395926448,
+    "analog": 2.1520363553148782,
+    "lpc_analog": 2.0951794979305247,
+    "mix": 1.949156021590205
+   },
+   "rmse": {
+    "persistence": 0.010690207982382545,
+    "ar1": 0.009516182368760279,
+    "lpc": 0.009187181665123908,
+    "lpc_ctx": 0.009187181665123908,
+    "analog": 0.009338859822621113,
+    "lpc_analog": 0.009099598442744125,
+    "mix": 0.009103322575959798
+   },
+   "mix_weights": {
+    "persistence": 3.1891762233353357e-07,
+    "ar1": 0.008129504749741582,
+    "lpc": 0.019358336062656575,
+    "lpc_ctx": 0.35285660088030646,
+    "analog": 0.023206985760512423,
+    "lpc_analog": 0.5964482536291605
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 2.7687339893746388,
+    "ar1": 2.5109696079497796,
+    "lpc": 2.424511557766868,
+    "lpc_ctx": 2.077621127525547
+   },
+   "blosc_bits_per_value": {
+    "truth": 9.507108918009216,
+    "ar1_forecast": 9.513330936897487,
+    "lpc_forecast": 9.5109571582628,
+    "residual_vs_persistence": 4.787284075683802
+   },
+   "lpc_error_zonal_corr": 0.3053282564106851,
+   "joint_coding_gap_bits_est": 0.07059201313555317,
+   "seconds": 4.187495946884155
+  },
+  {
+   "channel": "so_8",
+   "depth": 375.0,
+   "bin_width": 0.002656111495289739,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 2.8997637694777985,
+    "ar1": 2.5628347882871094,
+    "lpc": 2.540790781104405,
+    "lpc_ctx": 2.1758630352675308,
+    "analog": 2.196499405067005,
+    "lpc_analog": 2.133197323002514,
+    "mix": 2.0150747867446253
+   },
+   "rmse": {
+    "persistence": 0.008002305512964701,
+    "ar1": 0.0070521134342697595,
+    "lpc": 0.006937738475768499,
+    "lpc_ctx": 0.006937738475768499,
+    "analog": 0.006994698785668991,
+    "lpc_analog": 0.006856570830269452,
+    "mix": 0.006859220732832293
+   },
+   "mix_weights": {
+    "persistence": 0.016746608235140573,
+    "ar1": 0.012259575903521586,
+    "lpc": 0.0031039244868925286,
+    "lpc_ctx": 0.2408151012578726,
+    "analog": 0.013132158528084793,
+    "lpc_analog": 0.713942631588488
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 2.9234330450512873,
+    "ar1": 2.593769991317957,
+    "lpc": 2.5578295058122666,
+    "lpc_ctx": 2.151794939962156
+   },
+   "blosc_bits_per_value": {
+    "truth": 9.65989074287413,
+    "ar1_forecast": 9.667790383461718,
+    "lpc_forecast": 9.660442868291542,
+    "residual_vs_persistence": 4.929142135132697
+   },
+   "lpc_error_zonal_corr": 0.12528267569997203,
+   "joint_coding_gap_bits_est": 0.01141188467802558,
+   "seconds": 4.520576477050781
+  },
+  {
+   "channel": "so_9",
+   "depth": 550.0,
+   "bin_width": 0.002571653913660906,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 2.453276237385958,
+    "ar1": 2.08990284410981,
+    "lpc": 2.0783155711816166,
+    "lpc_ctx": 1.6966712205194685,
+    "analog": 1.7135109330333926,
+    "lpc_analog": 1.672130560388174,
+    "mix": 1.5471998498968005
+   },
+   "rmse": {
+    "persistence": 0.005816057928825861,
+    "ar1": 0.00459840280204787,
+    "lpc": 0.0045473040663003405,
+    "lpc_ctx": 0.0045473040663003405,
+    "analog": 0.004824214763417462,
+    "lpc_analog": 0.004511027268717389,
+    "mix": 0.0045181384214611564
+   },
+   "mix_weights": {
+    "persistence": 0.003480590144684538,
+    "ar1": 0.00012666160851492963,
+    "lpc": 3.078522677228794e-08,
+    "lpc_ctx": 0.27611788701501827,
+    "analog": 0.0378153696926894,
+    "lpc_analog": 0.6824594607538661
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 2.4426525513190076,
+    "ar1": 2.1158895082469815,
+    "lpc": 2.0922430759180917,
+    "lpc_ctx": 1.6958530278821904
+   },
+   "blosc_bits_per_value": {
+    "truth": 9.202843760046553,
+    "ar1_forecast": 9.214422817362617,
+    "lpc_forecast": 9.206565987468682,
+    "residual_vs_persistence": 4.251044163468726
+   },
+   "lpc_error_zonal_corr": 0.04516246280138956,
+   "joint_coding_gap_bits_est": 0.0014727975662190767,
+   "seconds": 4.837164640426636
+  },
+  {
+   "channel": "so_10",
+   "depth": 775.0,
+   "bin_width": 0.0025354250008449986,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 1.874165044269822,
+    "ar1": 1.5842315022161237,
+    "lpc": 1.5606755786653757,
+    "lpc_ctx": 1.1771307394389285,
+    "analog": 1.221660877476215,
+    "lpc_analog": 1.2092752443729047,
+    "mix": 1.0653684820601206
+   },
+   "rmse": {
+    "persistence": 0.0034514004031154463,
+    "ar1": 0.0027216892375550015,
+    "lpc": 0.0025981195259763444,
+    "lpc_ctx": 0.0025981195259763444,
+    "analog": 0.002799122190118541,
+    "lpc_analog": 0.0025938749443075925,
+    "mix": 0.002599069047581288
+   },
+   "mix_weights": {
+    "persistence": 0.00855541335558821,
+    "ar1": 0.00654851944665686,
+    "lpc": 8.452490585764739e-06,
+    "lpc_ctx": 0.2704224025256147,
+    "analog": 0.12057589964856935,
+    "lpc_analog": 0.593889312532985
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 1.8872245819812352,
+    "ar1": 1.6005599263469195,
+    "lpc": 1.5789403233344814,
+    "lpc_ctx": 1.182692883848414
+   },
+   "blosc_bits_per_value": {
+    "truth": 8.571770580199669,
+    "ar1_forecast": 8.580316049355348,
+    "lpc_forecast": 8.57780006816425,
+    "residual_vs_persistence": 3.4511614245773683
+   },
+   "lpc_error_zonal_corr": -0.004163437186992737,
+   "joint_coding_gap_bits_est": 1.2504097207144084e-05,
+   "seconds": 4.480372428894043
+  },
+  {
+   "channel": "so_11",
+   "depth": 1050.0,
+   "bin_width": 0.002508737956144615,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 1.6280063210788018,
+    "ar1": 1.4595635819090826,
+    "lpc": 1.4161950373837153,
+    "lpc_ctx": 1.080707913203082,
+    "analog": 1.1219958875600577,
+    "lpc_analog": 1.0994024582639301,
+    "mix": 0.9656777841932934
+   },
+   "rmse": {
+    "persistence": 0.0025465057565118862,
+    "ar1": 0.0022450196123430547,
+    "lpc": 0.0021688863352834313,
+    "lpc_ctx": 0.0021688863352834313,
+    "analog": 0.002237135773061308,
+    "lpc_analog": 0.002168903420613522,
+    "mix": 0.0021565837648671116
+   },
+   "mix_weights": {
+    "persistence": 2.3296176165918554e-06,
+    "ar1": 0.0017616651673451834,
+    "lpc": 0.014268342486024401,
+    "lpc_ctx": 0.29464292681358417,
+    "analog": 0.07898749650431756,
+    "lpc_analog": 0.6103372394111122
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 1.6259702044503976,
+    "ar1": 1.4371669864352905,
+    "lpc": 1.389693340103578,
+    "lpc_ctx": 1.0527964472937719
+   },
+   "blosc_bits_per_value": {
+    "truth": 7.953763536166554,
+    "ar1_forecast": 7.964410978909115,
+    "lpc_forecast": 7.96552524617287,
+    "residual_vs_persistence": 3.0315385470348817
+   },
+   "lpc_error_zonal_corr": 0.045925704462217005,
+   "joint_coding_gap_bits_est": 0.0015230515407711114,
+   "seconds": 4.0891759395599365
+  },
+  {
+   "channel": "so_12",
+   "depth": 1400.0,
+   "bin_width": 0.002454585156267276,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 1.2793911638627105,
+    "ar1": 1.1407831114696747,
+    "lpc": 1.1264683529734503,
+    "lpc_ctx": 0.8327811850492512,
+    "analog": 0.8523433023628577,
+    "lpc_analog": 0.8366997902918961,
+    "mix": 0.763058985110088
+   },
+   "rmse": {
+    "persistence": 0.0020974553498719502,
+    "ar1": 0.0017622213255891657,
+    "lpc": 0.0017947904854759033,
+    "lpc_ctx": 0.0017947904854759033,
+    "analog": 0.0018396069770590434,
+    "lpc_analog": 0.0017666515277627286,
+    "mix": 0.001775607332076979
+   },
+   "mix_weights": {
+    "persistence": 3.0752250826305004e-05,
+    "ar1": 0.014192475377769553,
+    "lpc": 7.978069379156607e-05,
+    "lpc_ctx": 0.293433171834521,
+    "analog": 0.2458259778640031,
+    "lpc_analog": 0.4464378419790886
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 1.2948301324781828,
+    "ar1": 1.1638731158572746,
+    "lpc": 1.144287169057343,
+    "lpc_ctx": 0.8408350774817646
+   },
+   "blosc_bits_per_value": {
+    "truth": 7.737854074803429,
+    "ar1_forecast": 7.750754170412548,
+    "lpc_forecast": 7.749350000713502,
+    "residual_vs_persistence": 2.617977367752615
+   },
+   "lpc_error_zonal_corr": 0.02669030821309092,
+   "joint_coding_gap_bits_est": 0.0005140512941486475,
+   "seconds": 4.1865620613098145
+  },
+  {
+   "channel": "so_13",
+   "depth": 1850.0,
+   "bin_width": 0.002435472293230705,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 0.873208797206421,
+    "ar1": 0.7728593216198284,
+    "lpc": 0.7312510889200119,
+    "lpc_ctx": 0.5186619294877357,
+    "analog": 0.526855364168076,
+    "lpc_analog": 0.5159974398916898,
+    "mix": 0.46262834129765623
+   },
+   "rmse": {
+    "persistence": 0.0011816691838925392,
+    "ar1": 0.0010751342359691168,
+    "lpc": 0.0009879362515262554,
+    "lpc_ctx": 0.0009879362515262554,
+    "analog": 0.0010500058358184582,
+    "lpc_analog": 0.0009814430716043028,
+    "mix": 0.0009944261608728364
+   },
+   "mix_weights": {
+    "persistence": 0.0005618798009089287,
+    "ar1": 0.018301858603373848,
+    "lpc": 0.0019453884143080032,
+    "lpc_ctx": 0.31941715420321226,
+    "analog": 0.38137214706543976,
+    "lpc_analog": 0.27840157191275716
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 0.8976922481116539,
+    "ar1": 0.788104813598128,
+    "lpc": 0.7580659653460879,
+    "lpc_ctx": 0.5282333601358863
+   },
+   "blosc_bits_per_value": {
+    "truth": 6.715451187197326,
+    "ar1_forecast": 6.726740838398738,
+    "lpc_forecast": 6.718920463363023,
+    "residual_vs_persistence": 1.9424929766012404
+   },
+   "lpc_error_zonal_corr": -0.04395736900580699,
+   "joint_coding_gap_bits_est": 0.0013951723010517474,
+   "seconds": 4.0428712368011475
+  },
+  {
+   "channel": "so_14",
+   "depth": 2400.0,
+   "bin_width": 0.0022022861050465144,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 0.4735982678030026,
+    "ar1": 0.4130172930940261,
+    "lpc": 0.40628617617938495,
+    "lpc_ctx": 0.304137806023704,
+    "analog": 0.31124215890515516,
+    "lpc_analog": 0.2969978589217543,
+    "mix": 0.2724463490365081
+   },
+   "rmse": {
+    "persistence": 0.00048289616038390274,
+    "ar1": 0.00043609167197682916,
+    "lpc": 0.0004297809667512351,
+    "lpc_ctx": 0.0004297809667512351,
+    "analog": 0.00042912753819590523,
+    "lpc_analog": 0.0004231386271033419,
+    "mix": 0.00042406908650929984
+   },
+   "mix_weights": {
+    "persistence": 0.0007616710000801978,
+    "ar1": 0.03286713604803283,
+    "lpc": 0.02675016891774024,
+    "lpc_ctx": 0.5749255282093092,
+    "analog": 0.13022447255531586,
+    "lpc_analog": 0.23447102326952166
+   },
+   "bandwidth_mult": {
+    "analog": 2.0,
+    "lpc_analog": 2.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 0.5022767047112523,
+    "ar1": 0.44101839053416875,
+    "lpc": 0.4289493207900717,
+    "lpc_ctx": 0.3045200320964845
+   },
+   "blosc_bits_per_value": {
+    "truth": 6.0755797410726995,
+    "ar1_forecast": 6.083736425285723,
+    "lpc_forecast": 6.0729122207995445,
+    "residual_vs_persistence": 1.3351353914734196
+   },
+   "lpc_error_zonal_corr": 0.028076280041501617,
+   "joint_coding_gap_bits_est": 0.000568846254565477,
+   "seconds": 4.030447006225586
+  },
+  {
+   "channel": "so_15",
+   "depth": 3100.0,
+   "bin_width": 0.0006315409975615333,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 0.8930108638825688,
+    "ar1": 0.7842669501108857,
+    "lpc": 0.7685547095733719,
+    "lpc_ctx": 0.5552144753275001,
+    "analog": 0.5467425891377136,
+    "lpc_analog": 0.5463421697159352,
+    "mix": 0.5012551877896609
+   },
+   "rmse": {
+    "persistence": 0.0003207406330731556,
+    "ar1": 0.0002651348733212686,
+    "lpc": 0.0002522948779052533,
+    "lpc_ctx": 0.0002522948779052533,
+    "analog": 0.0002704038105826202,
+    "lpc_analog": 0.0002441700288545143,
+    "mix": 0.00025281704550730784
+   },
+   "mix_weights": {
+    "persistence": 3.243438116186148e-05,
+    "ar1": 0.036819414918652614,
+    "lpc": 7.089116225708329e-06,
+    "lpc_ctx": 0.0931202308745689,
+    "analog": 0.512071178888477,
+    "lpc_analog": 0.357949651820914
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 0.8874465191323089,
+    "ar1": 0.7891818709470589,
+    "lpc": 0.7917534993926907,
+    "lpc_ctx": 0.592756510114611
+   },
+   "blosc_bits_per_value": {
+    "truth": 8.013588638764583,
+    "ar1_forecast": 8.02298857655005,
+    "lpc_forecast": 8.016988878382913,
+    "residual_vs_persistence": 2.038443651192086
+   },
+   "lpc_error_zonal_corr": -0.059155813212490756,
+   "joint_coding_gap_bits_est": 0.0025287179932268608,
+   "seconds": 3.9453394412994385
+  },
+  {
+   "channel": "so_16",
+   "depth": 4000.0,
+   "bin_width": 0.0006380130536854274,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 0.9621623998451735,
+    "ar1": 0.8233087428317056,
+    "lpc": 0.7962399748169574,
+    "lpc_ctx": 0.525991066925554,
+    "analog": 0.5394062770422772,
+    "lpc_analog": 0.5279308134847772,
+    "mix": 0.48345446030201883
+   },
+   "rmse": {
+    "persistence": 0.00035038609050245465,
+    "ar1": 0.000293736880312847,
+    "lpc": 0.0002891762571320547,
+    "lpc_ctx": 0.0002891762571320547,
+    "analog": 0.000308556877962229,
+    "lpc_analog": 0.000284838656240757,
+    "mix": 0.00028905019944953534
+   },
+   "mix_weights": {
+    "persistence": 0.0026885356099568664,
+    "ar1": 0.07742076629583539,
+    "lpc": 0.0031928356602296155,
+    "lpc_ctx": 0.5966264570164612,
+    "analog": 0.15410359285602374,
+    "lpc_analog": 0.16596781256149323
+   },
+   "bandwidth_mult": {
+    "analog": 2.0,
+    "lpc_analog": 2.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 0.9447408308409176,
+    "ar1": 0.8427011404893564,
+    "lpc": 0.8204530231111742,
+    "lpc_ctx": 0.5391372726904601
+   },
+   "blosc_bits_per_value": {
+    "truth": 8.224319145529577,
+    "ar1_forecast": 8.232817021921287,
+    "lpc_forecast": 8.224704786597595,
+    "residual_vs_persistence": 1.8963486332983843
+   },
+   "lpc_error_zonal_corr": 0.02276266881246259,
+   "joint_coding_gap_bits_est": 0.0003738552117402772,
+   "seconds": 4.177951812744141
+  },
+  {
+   "channel": "so_17",
+   "depth": 5000.0,
+   "bin_width": 6.957533769309451e-05,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 1.978009940602672,
+    "ar1": 1.7155471430909244,
+    "lpc": 1.6822520817734783,
+    "lpc_ctx": 1.2339990190976013,
+    "analog": 1.2728160364360535,
+    "lpc_analog": 1.2214800484795705,
+    "mix": 1.115794002035659
+   },
+   "rmse": {
+    "persistence": 0.00015453300485443838,
+    "ar1": 0.00012202631646470447,
+    "lpc": 0.00012108550320035398,
+    "lpc_ctx": 0.00012108550320035398,
+    "analog": 0.00013017793628069242,
+    "lpc_analog": 0.00012133091072653739,
+    "mix": 0.0001219082658971968
+   },
+   "mix_weights": {
+    "persistence": 0.0010171810915547007,
+    "ar1": 0.00014188372412815117,
+    "lpc": 0.01636257190611498,
+    "lpc_ctx": 0.24847273388694505,
+    "analog": 0.21897980841405226,
+    "lpc_analog": 0.5150258209772048
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 1.9309445326081476,
+    "ar1": 1.6821424927904787,
+    "lpc": 1.651837627418482,
+    "lpc_ctx": 1.2373432382713483
+   },
+   "blosc_bits_per_value": {
+    "truth": 12.47585591736502,
+    "ar1_forecast": 12.476824984307724,
+    "lpc_forecast": 12.477331542027772,
+    "residual_vs_persistence": 4.1912145271944405
+   },
+   "lpc_error_zonal_corr": 0.0040978103928346445,
+   "joint_coding_gap_bits_est": 1.2113005343306322e-05,
+   "seconds": 3.501251697540283
+  },
+  {
+   "channel": "so_18",
+   "depth": 6000.0,
+   "bin_width": 5.395933402562586e-05,
+   "n_train_rows": 243216,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 1.1385204170132246,
+    "ar1": 0.9879434444546605,
+    "lpc": 0.9150594864475438,
+    "lpc_ctx": 0.7258296032558148,
+    "analog": 0.7424185952083774,
+    "lpc_analog": 0.7084691531543077,
+    "mix": 0.641327996108359
+   },
+   "rmse": {
+    "persistence": 4.826634185197274e-05,
+    "ar1": 3.762697177518295e-05,
+    "lpc": 3.787642309719298e-05,
+    "lpc_ctx": 3.787642309719298e-05,
+    "analog": 4.090594257676824e-05,
+    "lpc_analog": 3.7552087333655284e-05,
+    "mix": 3.750730901451059e-05
+   },
+   "mix_weights": {
+    "persistence": 0.00039491373099768203,
+    "ar1": 0.002167604557321002,
+    "lpc": 0.0371105200983429,
+    "lpc_ctx": 0.22778201619260813,
+    "analog": 0.1438231853289268,
+    "lpc_analog": 0.5887217600918037
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 1.150886570032544,
+    "ar1": 0.9834172906805944,
+    "lpc": 0.921257354932516,
+    "lpc_ctx": 0.7282133612031043
+   },
+   "blosc_bits_per_value": {
+    "truth": 16.566515731452064,
+    "ar1_forecast": 16.565848614481443,
+    "lpc_forecast": 16.56538163260201,
+    "residual_vs_persistence": 4.108039593392206
+   },
+   "lpc_error_zonal_corr": -0.013034589745480465,
+   "joint_coding_gap_bits_est": 0.00012256773837395523,
+   "seconds": 2.8699581623077393
+  },
+  {
+   "channel": "uo_0",
+   "depth": 2.5,
+   "bin_width": 0.00031157579568907206,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 9.333306714204028,
+    "ar1": 9.26914495187069,
+    "lpc": 9.186026937082097,
+    "lpc_ctx": 9.116033215296028,
+    "analog": 9.268227469002602,
+    "lpc_analog": 9.181598753233994,
+    "mix": 9.09058445883504
+   },
+   "rmse": {
+    "persistence": 0.05384576626428846,
+    "ar1": 0.052248752829736664,
+    "lpc": 0.049813768228334575,
+    "lpc_ctx": 0.049813768228334575,
+    "analog": 0.051207850906119734,
+    "lpc_analog": 0.05007490609169241,
+    "mix": 0.04997343834691051
+   },
+   "mix_weights": {
+    "persistence": 0.0003335796891070081,
+    "ar1": 0.001676676445179231,
+    "lpc": 0.00472113970266394,
+    "lpc_ctx": 0.5153174689849359,
+    "analog": 0.4000914249857951,
+    "lpc_analog": 0.0778597101923189
+   },
+   "bandwidth_mult": {
+    "analog": 0.5,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 9.32705218229128,
+    "ar1": 9.271345030813405,
+    "lpc": 9.201129031329174,
+    "lpc_ctx": 9.131010081562357
+   },
+   "blosc_bits_per_value": {
+    "truth": 11.090989542404643,
+    "ar1_forecast": 11.04527111164843,
+    "lpc_forecast": 10.942150758629028,
+    "residual_vs_persistence": 10.028836365834492
+   },
+   "lpc_error_zonal_corr": 0.9000116487434726,
+   "joint_coding_gap_bits_est": 1.1980439484735868,
+   "seconds": 4.777243614196777
+  },
+  {
+   "channel": "uo_1",
+   "depth": 10.0,
+   "bin_width": 0.0003050622221602605,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 8.964560081190005,
+    "ar1": 8.924063316849281,
+    "lpc": 8.742425830221311,
+    "lpc_ctx": 8.66096652508087,
+    "analog": 8.75513958428801,
+    "lpc_analog": 8.738697735455181,
+    "mix": 8.628937633132946
+   },
+   "rmse": {
+    "persistence": 0.0450309190082958,
+    "ar1": 0.04455013215028678,
+    "lpc": 0.04255213842036307,
+    "lpc_ctx": 0.04255213842036307,
+    "analog": 0.04298650583530122,
+    "lpc_analog": 0.04230596782438125,
+    "mix": 0.04230551724349606
+   },
+   "mix_weights": {
+    "persistence": 0.0006472950590402688,
+    "ar1": 0.0044986788356379285,
+    "lpc": 0.04922780265890881,
+    "lpc_ctx": 0.534165180463987,
+    "analog": 0.2576685134557077,
+    "lpc_analog": 0.1537925295267183
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 8.948834759942967,
+    "ar1": 8.90886452536096,
+    "lpc": 8.745065944400547,
+    "lpc_ctx": 8.668945910849132
+   },
+   "blosc_bits_per_value": {
+    "truth": 11.029535150819077,
+    "ar1_forecast": 11.00245421023998,
+    "lpc_forecast": 10.904073021821919,
+    "residual_vs_persistence": 9.893112494710754
+   },
+   "lpc_error_zonal_corr": 0.8613946807506042,
+   "joint_coding_gap_bits_est": 0.9772807402467801,
+   "seconds": 4.690931558609009
+  },
+  {
+   "channel": "uo_2",
+   "depth": 22.5,
+   "bin_width": 0.00028501487176124077,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 8.61758377062423,
+    "ar1": 8.608725230148577,
+    "lpc": 8.343469383218917,
+    "lpc_ctx": 8.248553207327856,
+    "analog": 8.349172364127998,
+    "lpc_analog": 8.323173988344486,
+    "mix": 8.191294769356226
+   },
+   "rmse": {
+    "persistence": 0.036180219068893224,
+    "ar1": 0.03613768736062131,
+    "lpc": 0.03424459963463171,
+    "lpc_ctx": 0.03424459963463171,
+    "analog": 0.03505034709011603,
+    "lpc_analog": 0.034224072541130704,
+    "mix": 0.034120236029871076
+   },
+   "mix_weights": {
+    "persistence": 4.1561163056258936e-05,
+    "ar1": 7.303803152737091e-05,
+    "lpc": 0.06632433969253623,
+    "lpc_ctx": 0.5233805452256445,
+    "analog": 0.17670400402979355,
+    "lpc_analog": 0.23347651185744203
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 8.603078412535185,
+    "ar1": 8.592685713182474,
+    "lpc": 8.34350732773201,
+    "lpc_ctx": 8.247017839832338
+   },
+   "blosc_bits_per_value": {
+    "truth": 11.077214890520201,
+    "ar1_forecast": 11.071227085552957,
+    "lpc_forecast": 10.996711095724427,
+    "residual_vs_persistence": 9.72335658402553
+   },
+   "lpc_error_zonal_corr": 0.8223474341644375,
+   "joint_coding_gap_bits_est": 0.8135357655918523,
+   "seconds": 4.628998756408691
+  },
+  {
+   "channel": "uo_3",
+   "depth": 40.0,
+   "bin_width": 0.0002654659619061902,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 8.204474298037432,
+    "ar1": 8.213615788365919,
+    "lpc": 7.8666197454110645,
+    "lpc_ctx": 7.670279686839393,
+    "analog": 7.79142555452251,
+    "lpc_analog": 7.762753485883372,
+    "mix": 7.589299281626042
+   },
+   "rmse": {
+    "persistence": 0.028803528539351857,
+    "ar1": 0.028971393304652107,
+    "lpc": 0.027471375900812917,
+    "lpc_ctx": 0.027471375900812917,
+    "analog": 0.028183814538384522,
+    "lpc_analog": 0.027370017161021054,
+    "mix": 0.02734017839975452
+   },
+   "mix_weights": {
+    "persistence": 0.006312048486259853,
+    "ar1": 0.004834465911037684,
+    "lpc": 0.03428501413426325,
+    "lpc_ctx": 0.510187378275725,
+    "analog": 0.21373420012811611,
+    "lpc_analog": 0.2306468930645981
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 8.211510295197893,
+    "ar1": 8.214963420782404,
+    "lpc": 7.893102434514168,
+    "lpc_ctx": 7.692447758032046
+   },
+   "blosc_bits_per_value": {
+    "truth": 11.089519379272579,
+    "ar1_forecast": 11.095642970975701,
+    "lpc_forecast": 11.018901174631887,
+    "residual_vs_persistence": 9.4907893846258
+   },
+   "lpc_error_zonal_corr": 0.7790192555653627,
+   "joint_coding_gap_bits_est": 0.6734626528538449,
+   "seconds": 4.455575704574585
+  },
+  {
+   "channel": "uo_4",
+   "depth": 65.0,
+   "bin_width": 0.0002538642337382023,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 7.973236367621119,
+    "ar1": 7.964778642850526,
+    "lpc": 7.5891545742377,
+    "lpc_ctx": 7.280873344528744,
+    "analog": 7.3708047573441275,
+    "lpc_analog": 7.350879569869685,
+    "mix": 7.163189908956352
+   },
+   "rmse": {
+    "persistence": 0.02670093351449053,
+    "ar1": 0.02670934204137511,
+    "lpc": 0.025519737205188683,
+    "lpc_ctx": 0.025519737205188683,
+    "analog": 0.025711632985060493,
+    "lpc_analog": 0.025159109692124478,
+    "mix": 0.025164414460371296
+   },
+   "mix_weights": {
+    "persistence": 0.011171888919296089,
+    "ar1": 0.0042601830289889075,
+    "lpc": 0.025866118487360448,
+    "lpc_ctx": 0.37459551291799437,
+    "analog": 0.27585236026985904,
+    "lpc_analog": 0.3082539363765012
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 7.955248657539123,
+    "ar1": 7.951174495507876,
+    "lpc": 7.576023241221965,
+    "lpc_ctx": 7.287187472109825
+   },
+   "blosc_bits_per_value": {
+    "truth": 11.155468267773971,
+    "ar1_forecast": 11.160436189514245,
+    "lpc_forecast": 11.099374645393386,
+    "residual_vs_persistence": 9.293734607734946
+   },
+   "lpc_error_zonal_corr": 0.7468520083886842,
+   "joint_coding_gap_bits_est": 0.5885948333669233,
+   "seconds": 4.1386730670928955
+  },
+  {
+   "channel": "uo_5",
+   "depth": 105.0,
+   "bin_width": 0.0002235282843984705,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 7.830329332754301,
+    "ar1": 7.817128536097349,
+    "lpc": 7.454509218406009,
+    "lpc_ctx": 7.15154196358123,
+    "analog": 7.186210970348195,
+    "lpc_analog": 7.156534900387586,
+    "mix": 7.041679035142948
+   },
+   "rmse": {
+    "persistence": 0.01986184990810159,
+    "ar1": 0.019801166847050643,
+    "lpc": 0.018598666331202513,
+    "lpc_ctx": 0.018598666331202513,
+    "analog": 0.01884099812887043,
+    "lpc_analog": 0.0184233653536217,
+    "mix": 0.018375056749618365
+   },
+   "mix_weights": {
+    "persistence": 0.001255361240744824,
+    "ar1": 0.007795654959601688,
+    "lpc": 0.015057353332504384,
+    "lpc_ctx": 0.4280757218311915,
+    "analog": 0.2693872765012451,
+    "lpc_analog": 0.27842863213471253
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 7.812862927557233,
+    "ar1": 7.805003150491367,
+    "lpc": 7.464658652121803,
+    "lpc_ctx": 7.140535493795731
+   },
+   "blosc_bits_per_value": {
+    "truth": 11.221002038146807,
+    "ar1_forecast": 11.229134345308713,
+    "lpc_forecast": 11.181871647451306,
+    "residual_vs_persistence": 9.280382076476135
+   },
+   "lpc_error_zonal_corr": 0.7149326134862833,
+   "joint_coding_gap_bits_est": 0.5162366055921365,
+   "seconds": 4.608638525009155
+  },
+  {
+   "channel": "uo_6",
+   "depth": 165.0,
+   "bin_width": 0.00018563337970965797,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 7.740163122368007,
+    "ar1": 7.731163772178894,
+    "lpc": 7.460438321120293,
+    "lpc_ctx": 7.162096156750146,
+    "analog": 7.21309768749721,
+    "lpc_analog": 7.173403435784418,
+    "mix": 7.069263186862197
+   },
+   "rmse": {
+    "persistence": 0.014932327376099994,
+    "ar1": 0.014961397955804133,
+    "lpc": 0.013190073813881122,
+    "lpc_ctx": 0.013190073813881122,
+    "analog": 0.014004856956523839,
+    "lpc_analog": 0.013064732553686193,
+    "mix": 0.0131463224334816
+   },
+   "mix_weights": {
+    "persistence": 5.536067019148874e-06,
+    "ar1": 9.913898790346446e-06,
+    "lpc": 0.031471800447311724,
+    "lpc_ctx": 0.42476486606138236,
+    "analog": 0.20400358272896277,
+    "lpc_analog": 0.3397443007965337
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 7.7565118265055135,
+    "ar1": 7.7444928298659095,
+    "lpc": 7.471951681556228,
+    "lpc_ctx": 7.167901756619867
+   },
+   "blosc_bits_per_value": {
+    "truth": 11.39598498752397,
+    "ar1_forecast": 11.394386818716102,
+    "lpc_forecast": 11.365588847874951,
+    "residual_vs_persistence": 9.387550780525025
+   },
+   "lpc_error_zonal_corr": 0.6513529644466654,
+   "joint_coding_gap_bits_est": 0.3982561807309404,
+   "seconds": 4.637922763824463
+  },
+  {
+   "channel": "uo_7",
+   "depth": 250.0,
+   "bin_width": 0.00015847446946725264,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 7.708664075123552,
+    "ar1": 7.680805204283128,
+    "lpc": 7.4681866853747065,
+    "lpc_ctx": 7.2075736041425245,
+    "analog": 7.28511795613819,
+    "lpc_analog": 7.247987104803701,
+    "mix": 7.127899642750901
+   },
+   "rmse": {
+    "persistence": 0.011368265947563887,
+    "ar1": 0.011153835787931136,
+    "lpc": 0.010200669141605948,
+    "lpc_ctx": 0.010200669141605948,
+    "analog": 0.01061143079021149,
+    "lpc_analog": 0.01009108940204882,
+    "mix": 0.01009492159115411
+   },
+   "mix_weights": {
+    "persistence": 0.000762401045974894,
+    "ar1": 0.021929367096220797,
+    "lpc": 0.011267327585592861,
+    "lpc_ctx": 0.4411505490070098,
+    "analog": 0.1991121667839069,
+    "lpc_analog": 0.3257781884812947
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 7.731114896087813,
+    "ar1": 7.712616331570898,
+    "lpc": 7.4926991833955405,
+    "lpc_ctx": 7.230207606571231
+   },
+   "blosc_bits_per_value": {
+    "truth": 11.460299990196399,
+    "ar1_forecast": 11.478213130289861,
+    "lpc_forecast": 11.433623737786345,
+    "residual_vs_persistence": 9.485410280709779
+   },
+   "lpc_error_zonal_corr": 0.5938320011850569,
+   "joint_coding_gap_bits_est": 0.31367597434870886,
+   "seconds": 4.6665050983428955
+  },
+  {
+   "channel": "uo_8",
+   "depth": 375.0,
+   "bin_width": 0.00014493422232665927,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 7.7126509395344405,
+    "ar1": 7.699576710871517,
+    "lpc": 7.48355667311851,
+    "lpc_ctx": 7.24835452394069,
+    "analog": 7.334096447428727,
+    "lpc_analog": 7.28389506725604,
+    "mix": 7.176891675254469
+   },
+   "rmse": {
+    "persistence": 0.010004836774830297,
+    "ar1": 0.009929447718179378,
+    "lpc": 0.008874293436660212,
+    "lpc_ctx": 0.008874293436660212,
+    "analog": 0.009300499278722103,
+    "lpc_analog": 0.00880643425261679,
+    "mix": 0.00880519969268285
+   },
+   "mix_weights": {
+    "persistence": 1.6349623403654316e-05,
+    "ar1": 6.0612639496621126e-05,
+    "lpc": 0.028300943187814915,
+    "lpc_ctx": 0.4930348801114055,
+    "analog": 0.20495759874626443,
+    "lpc_analog": 0.27362961569161487
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 7.691163593705023,
+    "ar1": 7.670938226239699,
+    "lpc": 7.4646938758349926,
+    "lpc_ctx": 7.232151622132979
+   },
+   "blosc_bits_per_value": {
+    "truth": 11.47694610937392,
+    "ar1_forecast": 11.486279152487484,
+    "lpc_forecast": 11.452578266432367,
+    "residual_vs_persistence": 9.5254269681413
+   },
+   "lpc_error_zonal_corr": 0.5743665011575099,
+   "joint_coding_gap_bits_est": 0.2887724827538866,
+   "seconds": 4.1680803298950195
+  },
+  {
+   "channel": "uo_9",
+   "depth": 550.0,
+   "bin_width": 0.00014022225496293413,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 7.605846838783679,
+    "ar1": 7.587501647225452,
+    "lpc": 7.378346077312879,
+    "lpc_ctx": 7.159287682690811,
+    "analog": 7.245898163438546,
+    "lpc_analog": 7.19652766001394,
+    "mix": 7.093165553298897
+   },
+   "rmse": {
+    "persistence": 0.008881851249249133,
+    "ar1": 0.008739032259461734,
+    "lpc": 0.007816618067211626,
+    "lpc_ctx": 0.007816618067211626,
+    "analog": 0.008324329267981472,
+    "lpc_analog": 0.00775111653308262,
+    "mix": 0.007777648115512984
+   },
+   "mix_weights": {
+    "persistence": 8.606334051012538e-06,
+    "ar1": 4.1929456427047034e-05,
+    "lpc": 0.04134547181227774,
+    "lpc_ctx": 0.5032149444289181,
+    "analog": 0.19709461122329355,
+    "lpc_analog": 0.2582944367450325
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 7.594802938010987,
+    "ar1": 7.579413932041517,
+    "lpc": 7.375348736080367,
+    "lpc_ctx": 7.155705632959117
+   },
+   "blosc_bits_per_value": {
+    "truth": 11.346488640016926,
+    "ar1_forecast": 11.36287512225428,
+    "lpc_forecast": 11.310905014019395,
+    "residual_vs_persistence": 9.475543039611065
+   },
+   "lpc_error_zonal_corr": 0.5937353746499914,
+   "joint_coding_gap_bits_est": 0.31354812089202644,
+   "seconds": 4.366385221481323
+  },
+  {
+   "channel": "uo_10",
+   "depth": 775.0,
+   "bin_width": 0.000123379383795767,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 7.644285513558048,
+    "ar1": 7.638791340925831,
+    "lpc": 7.451785693052092,
+    "lpc_ctx": 7.240942982979883,
+    "analog": 7.302652028488098,
+    "lpc_analog": 7.268058305253957,
+    "mix": 7.168127522439469
+   },
+   "rmse": {
+    "persistence": 0.008173529872977462,
+    "ar1": 0.008082090055985692,
+    "lpc": 0.007164173971898682,
+    "lpc_ctx": 0.007164173971898682,
+    "analog": 0.0076612967754415605,
+    "lpc_analog": 0.0071215795926424345,
+    "mix": 0.007155222646581906
+   },
+   "mix_weights": {
+    "persistence": 0.0003469766602615838,
+    "ar1": 0.006760184499336539,
+    "lpc": 0.028503772517090468,
+    "lpc_ctx": 0.5362153289530057,
+    "analog": 0.19739850999752645,
+    "lpc_analog": 0.23077522737277928
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 7.622672711119604,
+    "ar1": 7.614795237560665,
+    "lpc": 7.418859786117611,
+    "lpc_ctx": 7.212542527286585
+   },
+   "blosc_bits_per_value": {
+    "truth": 11.389924437437134,
+    "ar1_forecast": 11.411936501954875,
+    "lpc_forecast": 11.361627961750434,
+    "residual_vs_persistence": 9.539170889986783
+   },
+   "lpc_error_zonal_corr": 0.6221092427380257,
+   "joint_coding_gap_bits_est": 0.35304393983360394,
+   "seconds": 4.229788064956665
+  },
+  {
+   "channel": "uo_11",
+   "depth": 1050.0,
+   "bin_width": 0.00010658326242120568,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 7.705899844356076,
+    "ar1": 7.7064758008984064,
+    "lpc": 7.535973566890237,
+    "lpc_ctx": 7.3267093862374475,
+    "analog": 7.389578466856028,
+    "lpc_analog": 7.3486147160755095,
+    "mix": 7.2664696527204375
+   },
+   "rmse": {
+    "persistence": 0.007182592207142865,
+    "ar1": 0.0071815777458296105,
+    "lpc": 0.006499368440926861,
+    "lpc_ctx": 0.006499368440926861,
+    "analog": 0.006859994573607732,
+    "lpc_analog": 0.006487899961630637,
+    "mix": 0.006495001749811501
+   },
+   "mix_weights": {
+    "persistence": 0.010183187762972608,
+    "ar1": 0.008308977312272208,
+    "lpc": 0.0021590778721689015,
+    "lpc_ctx": 0.5152966068294395,
+    "analog": 0.2330379800427702,
+    "lpc_analog": 0.23101417018037654
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 7.669016212031064,
+    "ar1": 7.666295905128946,
+    "lpc": 7.490697752101035,
+    "lpc_ctx": 7.295469765555005
+   },
+   "blosc_bits_per_value": {
+    "truth": 11.292502191251595,
+    "ar1_forecast": 11.299018966460833,
+    "lpc_forecast": 11.261178900392666,
+    "residual_vs_persistence": 9.617634686352057
+   },
+   "lpc_error_zonal_corr": 0.6384763406998074,
+   "joint_coding_gap_bits_est": 0.3777415945621113,
+   "seconds": 4.158076047897339
+  },
+  {
+   "channel": "uo_12",
+   "depth": 1400.0,
+   "bin_width": 8.866783779736543e-05,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 7.754014089486032,
+    "ar1": 7.754575131880308,
+    "lpc": 7.613364748847752,
+    "lpc_ctx": 7.434770945036998,
+    "analog": 7.485572895079051,
+    "lpc_analog": 7.45727386441718,
+    "mix": 7.392665041514472
+   },
+   "rmse": {
+    "persistence": 0.005798736249484722,
+    "ar1": 0.005792944426178943,
+    "lpc": 0.005294957112167597,
+    "lpc_ctx": 0.005294957112167597,
+    "analog": 0.005563859486389768,
+    "lpc_analog": 0.005299141055330697,
+    "mix": 0.005281226273909243
+   },
+   "mix_weights": {
+    "persistence": 0.001423312189359637,
+    "ar1": 0.0010210065099509954,
+    "lpc": 0.003799359547368441,
+    "lpc_ctx": 0.645445122195132,
+    "analog": 0.13769265593076793,
+    "lpc_analog": 0.21061854362742105
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 7.757141067517524,
+    "ar1": 7.757087335122526,
+    "lpc": 7.618307532874476,
+    "lpc_ctx": 7.438418665911691
+   },
+   "blosc_bits_per_value": {
+    "truth": 11.29476433066484,
+    "ar1_forecast": 11.296419652667778,
+    "lpc_forecast": 11.256943076901123,
+    "residual_vs_persistence": 9.737380310230176
+   },
+   "lpc_error_zonal_corr": 0.6472085311154259,
+   "joint_coding_gap_bits_est": 0.3915446067238267,
+   "seconds": 4.121594429016113
+  },
+  {
+   "channel": "uo_13",
+   "depth": 1850.0,
+   "bin_width": 7.441636121850105e-05,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 7.874013945296728,
+    "ar1": 7.873915051166049,
+    "lpc": 7.7488918005285194,
+    "lpc_ctx": 7.589427258264574,
+    "analog": 7.684690318096551,
+    "lpc_analog": 7.645797887840448,
+    "mix": 7.559887143031673
+   },
+   "rmse": {
+    "persistence": 0.005171217368606564,
+    "ar1": 0.0051762601515371485,
+    "lpc": 0.0047947685985762585,
+    "lpc_ctx": 0.0047947685985762585,
+    "analog": 0.004995100834528653,
+    "lpc_analog": 0.004781941495753001,
+    "mix": 0.004775154656521985
+   },
+   "mix_weights": {
+    "persistence": 0.0028489953850616475,
+    "ar1": 0.0037004956984857933,
+    "lpc": 0.002756554324937473,
+    "lpc_ctx": 0.5849615080731887,
+    "analog": 0.13459843730518684,
+    "lpc_analog": 0.27113400921313946
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 7.875463616790094,
+    "ar1": 7.874722316363487,
+    "lpc": 7.761694650237497,
+    "lpc_ctx": 7.599831615393629
+   },
+   "blosc_bits_per_value": {
+    "truth": 11.250062003158897,
+    "ar1_forecast": 11.247845843467767,
+    "lpc_forecast": 11.198278125140504,
+    "residual_vs_persistence": 9.867955752225223
+   },
+   "lpc_error_zonal_corr": 0.6582959376541356,
+   "joint_coding_gap_bits_est": 0.4097396019918251,
+   "seconds": 4.325852870941162
+  },
+  {
+   "channel": "uo_14",
+   "depth": 2400.0,
+   "bin_width": 5.689764138029642e-05,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 8.173269818946931,
+    "ar1": 8.168201921908498,
+    "lpc": 8.06819784968782,
+    "lpc_ctx": 7.924484086852016,
+    "analog": 8.002686679597916,
+    "lpc_analog": 7.971779742888374,
+    "mix": 7.894271326055481
+   },
+   "rmse": {
+    "persistence": 0.00470702131442634,
+    "ar1": 0.00470418358079439,
+    "lpc": 0.0044177530824587,
+    "lpc_ctx": 0.0044177530824587,
+    "analog": 0.004559649577979611,
+    "lpc_analog": 0.004428163651771772,
+    "mix": 0.004401292232574328
+   },
+   "mix_weights": {
+    "persistence": 0.0007066029644767086,
+    "ar1": 0.0013248504105378282,
+    "lpc": 0.0029787326338229737,
+    "lpc_ctx": 0.6041307383019721,
+    "analog": 0.07459956359281361,
+    "lpc_analog": 0.31625951209637676
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 8.20021233212729,
+    "ar1": 8.195271741143369,
+    "lpc": 8.098707211440434,
+    "lpc_ctx": 7.942324114357495
+   },
+   "blosc_bits_per_value": {
+    "truth": 11.273912837293121,
+    "ar1_forecast": 11.261357708540809,
+    "lpc_forecast": 11.168551714326362,
+    "residual_vs_persistence": 10.155878029117465
+   },
+   "lpc_error_zonal_corr": 0.6693818311161792,
+   "joint_coding_gap_bits_est": 0.4287240557120657,
+   "seconds": 4.093318700790405
+  },
+  {
+   "channel": "uo_15",
+   "depth": 3100.0,
+   "bin_width": 4.2374964536259386e-05,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 8.645811868780887,
+    "ar1": 8.639191494815162,
+    "lpc": 8.533323574439342,
+    "lpc_ctx": 8.386219105359869,
+    "analog": 8.460595968612651,
+    "lpc_analog": 8.430736958274448,
+    "mix": 8.352724511250427
+   },
+   "rmse": {
+    "persistence": 0.00490262703934029,
+    "ar1": 0.0048884342480496725,
+    "lpc": 0.004561598448759986,
+    "lpc_ctx": 0.004561598448759986,
+    "analog": 0.0046854106040904375,
+    "lpc_analog": 0.004529795327817888,
+    "mix": 0.0045341900769217194
+   },
+   "mix_weights": {
+    "persistence": 0.00599083617469035,
+    "ar1": 0.007546148414306117,
+    "lpc": 0.004303006816837451,
+    "lpc_ctx": 0.5420457791364744,
+    "analog": 0.12869152705021047,
+    "lpc_analog": 0.3114227024074811
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 8.617627768980753,
+    "ar1": 8.611433052049854,
+    "lpc": 8.519792784689717,
+    "lpc_ctx": 8.360870679676667
+   },
+   "blosc_bits_per_value": {
+    "truth": 11.63221973432548,
+    "ar1_forecast": 11.621674063625138,
+    "lpc_forecast": 11.499031362898583,
+    "residual_vs_persistence": 10.537773767028147
+   },
+   "lpc_error_zonal_corr": 0.6641878667674883,
+   "joint_coding_gap_bits_est": 0.41972771603514064,
+   "seconds": 3.974884271621704
+  },
+  {
+   "channel": "uo_16",
+   "depth": 4000.0,
+   "bin_width": 4.167572579343057e-05,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 8.64477805422277,
+    "ar1": 8.640629941229099,
+    "lpc": 8.536270785951256,
+    "lpc_ctx": 8.388901384795194,
+    "analog": 8.459985541717487,
+    "lpc_analog": 8.43422505889163,
+    "mix": 8.3532599159286
+   },
+   "rmse": {
+    "persistence": 0.005076404840054134,
+    "ar1": 0.005078814464368503,
+    "lpc": 0.00481067044932136,
+    "lpc_ctx": 0.00481067044932136,
+    "analog": 0.004862792969795088,
+    "lpc_analog": 0.004754464389257679,
+    "mix": 0.004764786090442261
+   },
+   "mix_weights": {
+    "persistence": 0.0005860748295018028,
+    "ar1": 0.000672764806044319,
+    "lpc": 0.009161622976002082,
+    "lpc_ctx": 0.5115227952396535,
+    "analog": 0.06512394113721623,
+    "lpc_analog": 0.4129328010115821
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 8.650659817807233,
+    "ar1": 8.64712016439906,
+    "lpc": 8.544050080906976,
+    "lpc_ctx": 8.388337575433587
+   },
+   "blosc_bits_per_value": {
+    "truth": 11.792683493701482,
+    "ar1_forecast": 11.781706496158225,
+    "lpc_forecast": 11.541534748154001,
+    "residual_vs_persistence": 10.862861560021415
+   },
+   "lpc_error_zonal_corr": 0.6027982498905238,
+   "joint_coding_gap_bits_est": 0.3257316378809077,
+   "seconds": 5.400516510009766
+  },
+  {
+   "channel": "uo_17",
+   "depth": 5000.0,
+   "bin_width": 4.0597062574600345e-05,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 8.662515824955703,
+    "ar1": 8.66311485344967,
+    "lpc": 8.555787074908855,
+    "lpc_ctx": 8.438020315513796,
+    "analog": 8.515925276603294,
+    "lpc_analog": 8.494492349259916,
+    "mix": 8.41031278524808
+   },
+   "rmse": {
+    "persistence": 0.00509640977237984,
+    "ar1": 0.005096067976959754,
+    "lpc": 0.004799236773225421,
+    "lpc_ctx": 0.004799236773225421,
+    "analog": 0.004906942461428326,
+    "lpc_analog": 0.004773381442303073,
+    "mix": 0.004776971945101639
+   },
+   "mix_weights": {
+    "persistence": 1.0757885982277542e-05,
+    "ar1": 1.3186436470253241e-05,
+    "lpc": 0.01901571417095124,
+    "lpc_ctx": 0.6778818101191376,
+    "analog": 0.024046317050228735,
+    "lpc_analog": 0.2790322143372298
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 8.664609538265967,
+    "ar1": 8.665659214785883,
+    "lpc": 8.548672018159989,
+    "lpc_ctx": 8.428220213168128
+   },
+   "blosc_bits_per_value": {
+    "truth": 13.741060908059774,
+    "ar1_forecast": 13.748086643394378,
+    "lpc_forecast": 13.544626633923949,
+    "residual_vs_persistence": 12.277021000121131
+   },
+   "lpc_error_zonal_corr": 0.52946129168349,
+   "joint_coding_gap_bits_est": 0.23729554523464216,
+   "seconds": 3.7978882789611816
+  },
+  {
+   "channel": "uo_18",
+   "depth": 6000.0,
+   "bin_width": 3.913004822524723e-05,
+   "n_train_rows": 243216,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 8.559283738278275,
+    "ar1": 8.561666349342058,
+    "lpc": 8.455525282845237,
+    "lpc_ctx": 8.32978677137207,
+    "analog": 8.374882487634517,
+    "lpc_analog": 8.353152315697645,
+    "mix": 8.285103168091194
+   },
+   "rmse": {
+    "persistence": 0.005079103637145808,
+    "ar1": 0.005071396442446493,
+    "lpc": 0.00472833371385467,
+    "lpc_ctx": 0.00472833371385467,
+    "analog": 0.004894785567165401,
+    "lpc_analog": 0.0046730423818564645,
+    "mix": 0.004695616497742437
+   },
+   "mix_weights": {
+    "persistence": 1.549412905571478e-05,
+    "ar1": 7.83979466957812e-06,
+    "lpc": 0.04734072811803935,
+    "lpc_ctx": 0.5482458104457882,
+    "analog": 0.15541720061354722,
+    "lpc_analog": 0.24897292689889988
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 8.55319489575489,
+    "ar1": 8.555923605707278,
+    "lpc": 8.440694457648254,
+    "lpc_ctx": 8.331854005502551
+   },
+   "blosc_bits_per_value": {
+    "truth": 17.788407174843023,
+    "ar1_forecast": 17.80128253237602,
+    "lpc_forecast": 17.59287519075376,
+    "residual_vs_persistence": 15.441823230680708
+   },
+   "lpc_error_zonal_corr": 0.5288309852761921,
+   "joint_coding_gap_bits_est": 0.2366272523238551,
+   "seconds": 2.98344087600708
+  },
+  {
+   "channel": "vo_0",
+   "depth": 2.5,
+   "bin_width": 0.00025126112647205886,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 9.533495412458986,
+    "ar1": 9.457717841454308,
+    "lpc": 9.33142880474244,
+    "lpc_ctx": 9.24432272589708,
+    "analog": 9.360726390709504,
+    "lpc_analog": 9.308137002704077,
+    "mix": 9.22343096071707
+   },
+   "rmse": {
+    "persistence": 0.05134078130097724,
+    "ar1": 0.04906041894109752,
+    "lpc": 0.044520879947442,
+    "lpc_ctx": 0.044520879947442,
+    "analog": 0.04648421812495649,
+    "lpc_analog": 0.0442356626894361,
+    "mix": 0.044311889408977526
+   },
+   "mix_weights": {
+    "persistence": 0.00030848042051907456,
+    "ar1": 0.02294203355846161,
+    "lpc": 0.00032869005530252295,
+    "lpc_ctx": 0.6546337828572345,
+    "analog": 0.07453732614580903,
+    "lpc_analog": 0.24724968696267335
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 9.517381027704438,
+    "ar1": 9.44275100355873,
+    "lpc": 9.326454860858501,
+    "lpc_ctx": 9.24201965097508
+   },
+   "blosc_bits_per_value": {
+    "truth": 11.490771927703562,
+    "ar1_forecast": 11.438138185335186,
+    "lpc_forecast": 11.311544459892401,
+    "residual_vs_persistence": 10.429885752281933
+   },
+   "lpc_error_zonal_corr": 0.7753562483578282,
+   "joint_coding_gap_bits_est": 0.6630903055581211,
+   "seconds": 4.523340702056885
+  },
+  {
+   "channel": "vo_1",
+   "depth": 10.0,
+   "bin_width": 0.0002465043499821327,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 9.255664161530825,
+    "ar1": 9.203321080849612,
+    "lpc": 9.032063545028532,
+    "lpc_ctx": 8.986109221536946,
+    "analog": 9.025318872478065,
+    "lpc_analog": 9.013544238556587,
+    "mix": 8.920746692555493
+   },
+   "rmse": {
+    "persistence": 0.044422008705911,
+    "ar1": 0.042829980899528025,
+    "lpc": 0.03975610789392145,
+    "lpc_ctx": 0.03975610789392145,
+    "analog": 0.040657894281404296,
+    "lpc_analog": 0.039326390256071354,
+    "mix": 0.03935418900828151
+   },
+   "mix_weights": {
+    "persistence": 0.0034058827174988774,
+    "ar1": 0.03883192290126175,
+    "lpc": 0.12032097637082484,
+    "lpc_ctx": 0.482149440758174,
+    "analog": 0.16085017299690338,
+    "lpc_analog": 0.19444160425533716
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 9.25829832170436,
+    "ar1": 9.20801791664268,
+    "lpc": 9.028870098339935,
+    "lpc_ctx": 8.968825801282449
+   },
+   "blosc_bits_per_value": {
+    "truth": 11.424926555038384,
+    "ar1_forecast": 11.39820346974551,
+    "lpc_forecast": 11.299067883697033,
+    "residual_vs_persistence": 10.26343468536541
+   },
+   "lpc_error_zonal_corr": 0.7153661585521742,
+   "joint_coding_gap_bits_est": 0.5171521650324933,
+   "seconds": 5.195091962814331
+  },
+  {
+   "channel": "vo_2",
+   "depth": 22.5,
+   "bin_width": 0.00024315973563269645,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 8.970235049810169,
+    "ar1": 8.945234116183872,
+    "lpc": 8.743369411470015,
+    "lpc_ctx": 8.68857738717043,
+    "analog": 8.75457863955503,
+    "lpc_analog": 8.74225586347405,
+    "mix": 8.606428961588467
+   },
+   "rmse": {
+    "persistence": 0.037393660971270934,
+    "ar1": 0.03689361212648996,
+    "lpc": 0.033595542731371004,
+    "lpc_ctx": 0.033595542731371004,
+    "analog": 0.0345336185957302,
+    "lpc_analog": 0.033144924274198025,
+    "mix": 0.033078190005028076
+   },
+   "mix_weights": {
+    "persistence": 0.00027596776313452444,
+    "ar1": 0.0009660509341137396,
+    "lpc": 0.11720091024933935,
+    "lpc_ctx": 0.4152299831500863,
+    "analog": 0.25946525588326075,
+    "lpc_analog": 0.20686183202006533
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 8.970975423982306,
+    "ar1": 8.942659864954464,
+    "lpc": 8.71603674849548,
+    "lpc_ctx": 8.675305694138455
+   },
+   "blosc_bits_per_value": {
+    "truth": 11.426653046198258,
+    "ar1_forecast": 11.39636294484929,
+    "lpc_forecast": 11.308603568790277,
+    "residual_vs_persistence": 10.126021839884734
+   },
+   "lpc_error_zonal_corr": 0.6308135775076629,
+   "joint_coding_gap_bits_est": 0.36599336269363947,
+   "seconds": 4.827387571334839
+  },
+  {
+   "channel": "vo_3",
+   "depth": 40.0,
+   "bin_width": 0.00023198437636141677,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 8.567395656988724,
+    "ar1": 8.561226448531084,
+    "lpc": 8.251511505803679,
+    "lpc_ctx": 8.140960846338261,
+    "analog": 8.209783937335358,
+    "lpc_analog": 8.186316794728302,
+    "mix": 8.026525897730554
+   },
+   "rmse": {
+    "persistence": 0.029108106120464463,
+    "ar1": 0.02894660227815588,
+    "lpc": 0.025310180326699946,
+    "lpc_ctx": 0.025310180326699946,
+    "analog": 0.02629023998216299,
+    "lpc_analog": 0.02468961402808515,
+    "mix": 0.02475700803768441
+   },
+   "mix_weights": {
+    "persistence": 0.003494148101046367,
+    "ar1": 0.0010409244053216492,
+    "lpc": 0.08422631050306253,
+    "lpc_ctx": 0.3984681776369716,
+    "analog": 0.28279974616141634,
+    "lpc_analog": 0.22997069319218139
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 8.588722339296657,
+    "ar1": 8.584092933845032,
+    "lpc": 8.282285780040597,
+    "lpc_ctx": 8.143143887456414
+   },
+   "blosc_bits_per_value": {
+    "truth": 11.224622351848092,
+    "ar1_forecast": 11.208181197275394,
+    "lpc_forecast": 11.130829010761817,
+    "residual_vs_persistence": 10.008065518493224
+   },
+   "lpc_error_zonal_corr": 0.48800028562172926,
+   "joint_coding_gap_bits_est": 0.1962051430527554,
+   "seconds": 4.219517707824707
+  },
+  {
+   "channel": "vo_4",
+   "depth": 65.0,
+   "bin_width": 0.00021806053854598982,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 8.317455036686058,
+    "ar1": 8.319361251313094,
+    "lpc": 7.924455726153747,
+    "lpc_ctx": 7.651996090576582,
+    "analog": 7.74553660502486,
+    "lpc_analog": 7.717708405745665,
+    "mix": 7.529442157002837
+   },
+   "rmse": {
+    "persistence": 0.026240706903353384,
+    "ar1": 0.026221645416704086,
+    "lpc": 0.02261768720221435,
+    "lpc_ctx": 0.02261768720221435,
+    "analog": 0.02386501077053307,
+    "lpc_analog": 0.022165579840897558,
+    "mix": 0.02229985744236543
+   },
+   "mix_weights": {
+    "persistence": 3.186561823159318e-09,
+    "ar1": 1.536694998446521e-09,
+    "lpc": 0.06286841720281719,
+    "lpc_ctx": 0.41263197986356953,
+    "analog": 0.3151388123602238,
+    "lpc_analog": 0.20936078585013268
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 8.309001232711717,
+    "ar1": 8.30982226174098,
+    "lpc": 7.9193654272944904,
+    "lpc_ctx": 7.634119846152246
+   },
+   "blosc_bits_per_value": {
+    "truth": 11.464217620909167,
+    "ar1_forecast": 11.460486691730733,
+    "lpc_forecast": 11.393459651222965,
+    "residual_vs_persistence": 9.85193747700902
+   },
+   "lpc_error_zonal_corr": 0.3925836049624654,
+   "joint_coding_gap_bits_est": 0.12073915092097638,
+   "seconds": 4.422948837280273
+  },
+  {
+   "channel": "vo_5",
+   "depth": 105.0,
+   "bin_width": 0.00019461916640845455,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 8.204231003965058,
+    "ar1": 8.202607091248865,
+    "lpc": 7.82628082016863,
+    "lpc_ctx": 7.474373691763434,
+    "analog": 7.495785420621368,
+    "lpc_analog": 7.47908262394233,
+    "mix": 7.323988353273413
+   },
+   "rmse": {
+    "persistence": 0.02287849953301241,
+    "ar1": 0.02292100504420642,
+    "lpc": 0.019299120250759326,
+    "lpc_ctx": 0.019299120250759326,
+    "analog": 0.02053370573133831,
+    "lpc_analog": 0.018862455949571814,
+    "mix": 0.019017590462902752
+   },
+   "mix_weights": {
+    "persistence": 0.00022296423556288685,
+    "ar1": 0.0005350253609471798,
+    "lpc": 0.025466506757836443,
+    "lpc_ctx": 0.30703769606963055,
+    "analog": 0.34598268012530703,
+    "lpc_analog": 0.32075512745071594
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 8.153071453571473,
+    "ar1": 8.150290505924772,
+    "lpc": 7.778707458465073,
+    "lpc_ctx": 7.443947451313001
+   },
+   "blosc_bits_per_value": {
+    "truth": 11.418053316298074,
+    "ar1_forecast": 11.421298127135744,
+    "lpc_forecast": 11.365203459779552,
+    "residual_vs_persistence": 9.80965128423529
+   },
+   "lpc_error_zonal_corr": 0.3269396000202936,
+   "joint_coding_gap_bits_est": 0.08154470726987774,
+   "seconds": 4.911100625991821
+  },
+  {
+   "channel": "vo_6",
+   "depth": 165.0,
+   "bin_width": 0.00017520719296913728,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 8.0455385303161,
+    "ar1": 8.035626273072385,
+    "lpc": 7.669672040013478,
+    "lpc_ctx": 7.367671965468625,
+    "analog": 7.408854117060827,
+    "lpc_analog": 7.3628723433780685,
+    "mix": 7.244555337118434
+   },
+   "rmse": {
+    "persistence": 0.017541638734075597,
+    "ar1": 0.017690306208055506,
+    "lpc": 0.01424788331364577,
+    "lpc_ctx": 0.01424788331364577,
+    "analog": 0.015338797061899336,
+    "lpc_analog": 0.013856713369069594,
+    "mix": 0.014008939101177342
+   },
+   "mix_weights": {
+    "persistence": 6.032848998744068e-10,
+    "ar1": 4.258496958005528e-09,
+    "lpc": 2.8236757168036364e-05,
+    "lpc_ctx": 0.4025329287836444,
+    "analog": 0.3087765594054066,
+    "lpc_analog": 0.2886622701919991
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 8.025856882189103,
+    "ar1": 8.015153815967869,
+    "lpc": 7.690440967022857,
+    "lpc_ctx": 7.354052209710409
+   },
+   "blosc_bits_per_value": {
+    "truth": 11.573216752933414,
+    "ar1_forecast": 11.581465366135317,
+    "lpc_forecast": 11.535623698265729,
+    "residual_vs_persistence": 9.819375992411274
+   },
+   "lpc_error_zonal_corr": 0.23656193912015883,
+   "joint_coding_gap_bits_est": 0.04154123788641123,
+   "seconds": 5.192764759063721
+  },
+  {
+   "channel": "vo_7",
+   "depth": 250.0,
+   "bin_width": 0.0001664093788770475,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 7.914669236274071,
+    "ar1": 7.892400912329707,
+    "lpc": 7.600815193972539,
+    "lpc_ctx": 7.2866941295141965,
+    "analog": 7.323372668393092,
+    "lpc_analog": 7.266827073438643,
+    "mix": 7.1732620491389385
+   },
+   "rmse": {
+    "persistence": 0.014113204978626693,
+    "ar1": 0.014010724650382106,
+    "lpc": 0.011362281470289283,
+    "lpc_ctx": 0.011362281470289283,
+    "analog": 0.012270129298750465,
+    "lpc_analog": 0.011126543123278348,
+    "mix": 0.011175470449230368
+   },
+   "mix_weights": {
+    "persistence": 0.00024201223683309098,
+    "ar1": 0.002266436002564133,
+    "lpc": 0.0016620897864365377,
+    "lpc_ctx": 0.40639818528858473,
+    "analog": 0.22686444761299324,
+    "lpc_analog": 0.36256682907258836
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 7.899309751768653,
+    "ar1": 7.877951971988784,
+    "lpc": 7.583253575656205,
+    "lpc_ctx": 7.270521731207895
+   },
+   "blosc_bits_per_value": {
+    "truth": 11.305094604751478,
+    "ar1_forecast": 11.32755661579687,
+    "lpc_forecast": 11.257566746184763,
+    "residual_vs_persistence": 9.797556942583574
+   },
+   "lpc_error_zonal_corr": 0.16318821293605196,
+   "joint_coding_gap_bits_est": 0.01947018339719386,
+   "seconds": 7.3643999099731445
+  },
+  {
+   "channel": "vo_8",
+   "depth": 375.0,
+   "bin_width": 0.00015599109780895187,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 7.893165010357617,
+    "ar1": 7.872468038639341,
+    "lpc": 7.564088241309045,
+    "lpc_ctx": 7.262078939399616,
+    "analog": 7.325106087284115,
+    "lpc_analog": 7.2845206767391755,
+    "mix": 7.1691751746375445
+   },
+   "rmse": {
+    "persistence": 0.013008462889883401,
+    "ar1": 0.01297082663804918,
+    "lpc": 0.01041567599175528,
+    "lpc_ctx": 0.01041567599175528,
+    "analog": 0.011495729322185634,
+    "lpc_analog": 0.01023035035832411,
+    "mix": 0.010335249228426475
+   },
+   "mix_weights": {
+    "persistence": 4.974926143186943e-05,
+    "ar1": 0.0005841162495531325,
+    "lpc": 0.012482718253836574,
+    "lpc_ctx": 0.41575794186900955,
+    "analog": 0.23556800915921855,
+    "lpc_analog": 0.3355574652069504
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 7.8566559599931365,
+    "ar1": 7.834149729184926,
+    "lpc": 7.5410346941247655,
+    "lpc_ctx": 7.255705439328371
+   },
+   "blosc_bits_per_value": {
+    "truth": 11.25072333738579,
+    "ar1_forecast": 11.280007220101613,
+    "lpc_forecast": 11.197305203251167,
+    "residual_vs_persistence": 9.815260958893202
+   },
+   "lpc_error_zonal_corr": 0.14078156293690075,
+   "joint_coding_gap_bits_est": 0.01444028669962608,
+   "seconds": 6.543195486068726
+  },
+  {
+   "channel": "vo_9",
+   "depth": 550.0,
+   "bin_width": 0.00014512157804569384,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 7.806916334290886,
+    "ar1": 7.793542498370827,
+    "lpc": 7.483147199197843,
+    "lpc_ctx": 7.234082432132034,
+    "analog": 7.247438126273885,
+    "lpc_analog": 7.209228809057562,
+    "mix": 7.1246393693177055
+   },
+   "rmse": {
+    "persistence": 0.011762448074450071,
+    "ar1": 0.01183705632583449,
+    "lpc": 0.009302121555217719,
+    "lpc_ctx": 0.009302121555217719,
+    "analog": 0.010341494455163825,
+    "lpc_analog": 0.009226664140087926,
+    "mix": 0.009349710217262231
+   },
+   "mix_weights": {
+    "persistence": 5.120787683664625e-05,
+    "ar1": 0.0007257783579484088,
+    "lpc": 0.0017942067309387425,
+    "lpc_ctx": 0.39345044216717007,
+    "analog": 0.36042660546235916,
+    "lpc_analog": 0.24355175940474705
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 7.806440269929793,
+    "ar1": 7.790257424731452,
+    "lpc": 7.5032588476101605,
+    "lpc_ctx": 7.244554687698033
+   },
+   "blosc_bits_per_value": {
+    "truth": 11.489420002631604,
+    "ar1_forecast": 11.513164123913278,
+    "lpc_forecast": 11.43979392099491,
+    "residual_vs_persistence": 9.816609761622804
+   },
+   "lpc_error_zonal_corr": 0.1441585656202376,
+   "joint_coding_gap_bits_est": 0.015148781626031695,
+   "seconds": 5.801825761795044
+  },
+  {
+   "channel": "vo_10",
+   "depth": 775.0,
+   "bin_width": 0.00012564045737727388,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 7.85037497268393,
+    "ar1": 7.841328092765093,
+    "lpc": 7.551686255879742,
+    "lpc_ctx": 7.329752035584719,
+    "analog": 7.358334343908373,
+    "lpc_analog": 7.317838617317602,
+    "mix": 7.218010800738881
+   },
+   "rmse": {
+    "persistence": 0.009989886830338692,
+    "ar1": 0.010017062918536008,
+    "lpc": 0.008024914655768055,
+    "lpc_ctx": 0.008024914655768055,
+    "analog": 0.008788803086190738,
+    "lpc_analog": 0.007921868737452929,
+    "mix": 0.007971231590535411
+   },
+   "mix_weights": {
+    "persistence": 2.965409050201975e-08,
+    "ar1": 2.0645113748119946e-07,
+    "lpc": 0.015094481333625034,
+    "lpc_ctx": 0.3782534488331712,
+    "analog": 0.32542543741114677,
+    "lpc_analog": 0.281226396316829
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 7.841333213924104,
+    "ar1": 7.833391408559305,
+    "lpc": 7.551090776123795,
+    "lpc_ctx": 7.314644128029806
+   },
+   "blosc_bits_per_value": {
+    "truth": 11.511810979985757,
+    "ar1_forecast": 11.529555851734447,
+    "lpc_forecast": 11.449997644731262,
+    "residual_vs_persistence": 9.891375005888168
+   },
+   "lpc_error_zonal_corr": 0.17301337241559758,
+   "joint_coding_gap_bits_est": 0.02192231674634018,
+   "seconds": 5.528088331222534
+  },
+  {
+   "channel": "vo_11",
+   "depth": 1050.0,
+   "bin_width": 0.00010260674303201772,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 7.9602689870618155,
+    "ar1": 7.957489896531482,
+    "lpc": 7.6903684883664365,
+    "lpc_ctx": 7.473175830233364,
+    "analog": 7.491694517923231,
+    "lpc_analog": 7.471576692556453,
+    "mix": 7.376276259140857
+   },
+   "rmse": {
+    "persistence": 0.008766348426718062,
+    "ar1": 0.008745799118980171,
+    "lpc": 0.006941665923864451,
+    "lpc_ctx": 0.006941665923864451,
+    "analog": 0.0077642655999458285,
+    "lpc_analog": 0.006852276555813941,
+    "mix": 0.0069029166086758895
+   },
+   "mix_weights": {
+    "persistence": 0.00016089760609105255,
+    "ar1": 0.0005478442650882667,
+    "lpc": 0.004554673889231564,
+    "lpc_ctx": 0.38934373264181943,
+    "analog": 0.26787428765433835,
+    "lpc_analog": 0.3375185639434314
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 7.938980556157902,
+    "ar1": 7.936728362960164,
+    "lpc": 7.67461222766333,
+    "lpc_ctx": 7.457627412044533
+   },
+   "blosc_bits_per_value": {
+    "truth": 11.187929896831795,
+    "ar1_forecast": 11.20457637443882,
+    "lpc_forecast": 11.085743710087918,
+    "residual_vs_persistence": 10.037015620845235
+   },
+   "lpc_error_zonal_corr": 0.19506534259007513,
+   "joint_coding_gap_bits_est": 0.027983459346864976,
+   "seconds": 6.273258686065674
+  },
+  {
+   "channel": "vo_12",
+   "depth": 1400.0,
+   "bin_width": 8.106557734271134e-05,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 8.111725112811877,
+    "ar1": 8.1127750089929,
+    "lpc": 7.8887737386394825,
+    "lpc_ctx": 7.665709061730302,
+    "analog": 7.715591317347556,
+    "lpc_analog": 7.661950651092456,
+    "mix": 7.58982406130685
+   },
+   "rmse": {
+    "persistence": 0.007398639700918119,
+    "ar1": 0.007413628587187321,
+    "lpc": 0.006166003879804134,
+    "lpc_ctx": 0.006166003879804134,
+    "analog": 0.006763595854768098,
+    "lpc_analog": 0.006076983794230063,
+    "mix": 0.006166607208899045
+   },
+   "mix_weights": {
+    "persistence": 6.662476301083308e-07,
+    "ar1": 1.077611040406606e-06,
+    "lpc": 3.0056805320996623e-06,
+    "lpc_ctx": 0.41403668139407984,
+    "analog": 0.308851662402244,
+    "lpc_analog": 0.27710690666447363
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 8.06701856709345,
+    "ar1": 8.067365422865137,
+    "lpc": 7.855336883866015,
+    "lpc_ctx": 7.646648289189763
+   },
+   "blosc_bits_per_value": {
+    "truth": 11.242079426916106,
+    "ar1_forecast": 11.257159981163577,
+    "lpc_forecast": 11.133364727371319,
+    "residual_vs_persistence": 10.205950597200225
+   },
+   "lpc_error_zonal_corr": 0.21631845222353518,
+   "joint_coding_gap_bits_est": 0.034569783476900665,
+   "seconds": 4.862604856491089
+  },
+  {
+   "channel": "vo_13",
+   "depth": 1850.0,
+   "bin_width": 6.462908947918584e-05,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 8.242989103665822,
+    "ar1": 8.243601730007667,
+    "lpc": 8.069002855272549,
+    "lpc_ctx": 7.8702095701991155,
+    "analog": 7.909306836092282,
+    "lpc_analog": 7.860424504095975,
+    "mix": 7.800782867174682
+   },
+   "rmse": {
+    "persistence": 0.006125515298006097,
+    "ar1": 0.0061259412303488435,
+    "lpc": 0.005370516967728864,
+    "lpc_ctx": 0.005370516967728864,
+    "analog": 0.005638637243320791,
+    "lpc_analog": 0.005229526074305336,
+    "mix": 0.005272781064129444
+   },
+   "mix_weights": {
+    "persistence": 0.0011678585216203386,
+    "ar1": 0.0010651137119853553,
+    "lpc": 0.0009078525442451946,
+    "lpc_ctx": 0.40795857091452026,
+    "analog": 0.14641610622215004,
+    "lpc_analog": 0.4424844980854789
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 8.234552683698498,
+    "ar1": 8.235225860020229,
+    "lpc": 8.066621737118432,
+    "lpc_ctx": 7.867959634362846
+   },
+   "blosc_bits_per_value": {
+    "truth": 11.241835525561982,
+    "ar1_forecast": 11.24652310941128,
+    "lpc_forecast": 11.110884853969871,
+    "residual_vs_persistence": 10.38400768113987
+   },
+   "lpc_error_zonal_corr": 0.20546971805743944,
+   "joint_coding_gap_bits_est": 0.031115239282771292,
+   "seconds": 4.0806725025177
+  },
+  {
+   "channel": "vo_14",
+   "depth": 2400.0,
+   "bin_width": 5.3594056889717996e-05,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 8.430278237470455,
+    "ar1": 8.424304541389619,
+    "lpc": 8.272593920797634,
+    "lpc_ctx": 8.080375068893845,
+    "analog": 8.108431913745715,
+    "lpc_analog": 8.065052069720956,
+    "mix": 8.018483704921149
+   },
+   "rmse": {
+    "persistence": 0.005581185783411234,
+    "ar1": 0.005577847050902709,
+    "lpc": 0.005006351039841101,
+    "lpc_ctx": 0.005006351039841101,
+    "analog": 0.005157902024995749,
+    "lpc_analog": 0.004906045054305676,
+    "mix": 0.004927487063896769
+   },
+   "mix_weights": {
+    "persistence": 0.001145428564026409,
+    "ar1": 0.0005410520853446954,
+    "lpc": 0.00040124500584437484,
+    "lpc_ctx": 0.4810465849544149,
+    "analog": 0.12119458235000273,
+    "lpc_analog": 0.3956711070403669
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 8.409980319477073,
+    "ar1": 8.404658864218206,
+    "lpc": 8.245540476142143,
+    "lpc_ctx": 8.056804163499326
+   },
+   "blosc_bits_per_value": {
+    "truth": 11.326160667709962,
+    "ar1_forecast": 11.310451937212502,
+    "lpc_forecast": 11.13965950585669,
+    "residual_vs_persistence": 10.573007065964813
+   },
+   "lpc_error_zonal_corr": 0.1901516617889807,
+   "joint_coding_gap_bits_est": 0.026565454474722482,
+   "seconds": 4.6856865882873535
+  },
+  {
+   "channel": "vo_15",
+   "depth": 3100.0,
+   "bin_width": 4.0642651392182145e-05,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 8.773822561896656,
+    "ar1": 8.763585871265697,
+    "lpc": 8.605824843748957,
+    "lpc_ctx": 8.407750386856227,
+    "analog": 8.440504929493224,
+    "lpc_analog": 8.400715882620316,
+    "mix": 8.347414378725595
+   },
+   "rmse": {
+    "persistence": 0.005307604143009963,
+    "ar1": 0.005287590920248334,
+    "lpc": 0.0047800703994818955,
+    "lpc_ctx": 0.0047800703994818955,
+    "analog": 0.004897856125222315,
+    "lpc_analog": 0.004723396725459454,
+    "mix": 0.004716372958463162
+   },
+   "mix_weights": {
+    "persistence": 1.2831340485475382e-05,
+    "ar1": 4.646589811209738e-06,
+    "lpc": 6.069236866039645e-06,
+    "lpc_ctx": 0.4726139728148211,
+    "analog": 0.10946084274181149,
+    "lpc_analog": 0.4179016372762047
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 8.796356897633798,
+    "ar1": 8.785971178813309,
+    "lpc": 8.61553981142538,
+    "lpc_ctx": 8.423520651345589
+   },
+   "blosc_bits_per_value": {
+    "truth": 11.920611796737123,
+    "ar1_forecast": 11.897771056692221,
+    "lpc_forecast": 11.74397181250635,
+    "residual_vs_persistence": 10.94919044113797
+   },
+   "lpc_error_zonal_corr": 0.18278003550253108,
+   "joint_coding_gap_bits_est": 0.02451092428937966,
+   "seconds": 3.2372519969940186
+  },
+  {
+   "channel": "vo_16",
+   "depth": 4000.0,
+   "bin_width": 4.3967763733873786e-05,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 8.68278963095688,
+    "ar1": 8.673840013914036,
+    "lpc": 8.529696968706968,
+    "lpc_ctx": 8.335581063990185,
+    "analog": 8.369821921409352,
+    "lpc_analog": 8.330552121873364,
+    "mix": 8.273998538260015
+   },
+   "rmse": {
+    "persistence": 0.005575806862531871,
+    "ar1": 0.005545631351029878,
+    "lpc": 0.004888944275180657,
+    "lpc_ctx": 0.004888944275180657,
+    "analog": 0.005047479707129781,
+    "lpc_analog": 0.004794058468883146,
+    "mix": 0.004816807497367745
+   },
+   "mix_weights": {
+    "persistence": 4.0663249704216993e-08,
+    "ar1": 2.860956745237349e-08,
+    "lpc": 2.8147182643237268e-06,
+    "lpc_ctx": 0.4176596207635305,
+    "analog": 0.2661337344563967,
+    "lpc_analog": 0.3162037607889913
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 8.694875761699265,
+    "ar1": 8.685756762617595,
+    "lpc": 8.53488355678169,
+    "lpc_ctx": 8.33617274411184
+   },
+   "blosc_bits_per_value": {
+    "truth": 12.000227252772223,
+    "ar1_forecast": 11.975339630989707,
+    "lpc_forecast": 11.732151618917758,
+    "residual_vs_persistence": 11.140729722424512
+   },
+   "lpc_error_zonal_corr": 0.1781367192839608,
+   "joint_coding_gap_bits_est": 0.02326135402357491,
+   "seconds": 2.996863842010498
+  },
+  {
+   "channel": "vo_17",
+   "depth": 5000.0,
+   "bin_width": 4.119936917350902e-05,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 8.735553693721435,
+    "ar1": 8.735922632966604,
+    "lpc": 8.593726181068607,
+    "lpc_ctx": 8.422942433532068,
+    "analog": 8.451783047383522,
+    "lpc_analog": 8.419080458068128,
+    "mix": 8.366278209734595
+   },
+   "rmse": {
+    "persistence": 0.005319834978840767,
+    "ar1": 0.005319636298891491,
+    "lpc": 0.004776691123362488,
+    "lpc_ctx": 0.004776691123362488,
+    "analog": 0.004923725372998755,
+    "lpc_analog": 0.004697545790289361,
+    "mix": 0.004718435009401177
+   },
+   "mix_weights": {
+    "persistence": 7.134202193087318e-09,
+    "ar1": 7.199851031423566e-09,
+    "lpc": 1.6715639315660475e-06,
+    "lpc_ctx": 0.4681052826322037,
+    "analog": 0.18747915232651666,
+    "lpc_analog": 0.3444138791432948
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 8.730793546190933,
+    "ar1": 8.731266853149933,
+    "lpc": 8.60293789044973,
+    "lpc_ctx": 8.42679882794314
+   },
+   "blosc_bits_per_value": {
+    "truth": 13.771190080278387,
+    "ar1_forecast": 13.773634771883843,
+    "lpc_forecast": 13.5360151526831,
+    "residual_vs_persistence": 12.531599290819187
+   },
+   "lpc_error_zonal_corr": 0.22525198143546266,
+   "joint_coding_gap_bits_est": 0.037561227484828985,
+   "seconds": 2.6537764072418213
+  },
+  {
+   "channel": "vo_18",
+   "depth": 6000.0,
+   "bin_width": 4.9661255344961976e-05,
+   "n_train_rows": 243216,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 8.317856376266395,
+    "ar1": 8.324303328809918,
+    "lpc": 8.206113991264194,
+    "lpc_ctx": 8.070614550216122,
+    "analog": 8.082774481113404,
+    "lpc_analog": 8.053834113930762,
+    "mix": 8.002003068292339
+   },
+   "rmse": {
+    "persistence": 0.0051221045068910245,
+    "ar1": 0.005144223493942013,
+    "lpc": 0.00476073548060476,
+    "lpc_ctx": 0.00476073548060476,
+    "analog": 0.004820625998427222,
+    "lpc_analog": 0.004649090961472359,
+    "mix": 0.004698192740128916
+   },
+   "mix_weights": {
+    "persistence": 1.037569317743669e-06,
+    "ar1": 7.930809252995907e-07,
+    "lpc": 0.00040864945324681375,
+    "lpc_ctx": 0.5267852964067735,
+    "analog": 0.2601351333162881,
+    "lpc_analog": 0.2126690901734485
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 8.297315775993692,
+    "ar1": 8.305192303192218,
+    "lpc": 8.179431813120331,
+    "lpc_ctx": 8.0401368763775
+   },
+   "blosc_bits_per_value": {
+    "truth": 17.515156063676315,
+    "ar1_forecast": 17.529899348727056,
+    "lpc_forecast": 17.333033130696553,
+    "residual_vs_persistence": 15.328279922280874
+   },
+   "lpc_error_zonal_corr": 0.17080591684349636,
+   "joint_coding_gap_bits_est": 0.021358165612341492,
+   "seconds": 2.2030842304229736
+  },
+  {
+   "channel": "zos",
+   "depth": 2.5,
+   "bin_width": 0.00043859911544871246,
+   "n_train_rows": 400000,
+   "n_eval_rows": 8000,
+   "bits": {
+    "persistence": 7.576611341884671,
+    "ar1": 7.564048442126818,
+    "lpc": 7.427122989293015,
+    "lpc_ctx": 7.383083529780584,
+    "analog": 7.486457273887518,
+    "lpc_analog": 7.469561201014779,
+    "mix": 7.350721930858943
+   },
+   "rmse": {
+    "persistence": 0.02601661873357262,
+    "ar1": 0.025342596648096596,
+    "lpc": 0.024997792516501954,
+    "lpc_ctx": 0.024997792516501954,
+    "analog": 0.02535276953580639,
+    "lpc_analog": 0.025116025438854078,
+    "mix": 0.024943274507704078
+   },
+   "mix_weights": {
+    "persistence": 4.3091621570328095e-07,
+    "ar1": 5.562696829169889e-08,
+    "lpc": 0.3237093502019171,
+    "lpc_ctx": 0.38249766048540174,
+    "analog": 0.09672223147069095,
+    "lpc_analog": 0.1970702712988061
+   },
+   "bandwidth_mult": {
+    "analog": 1.0,
+    "lpc_analog": 1.0
+   },
+   "n_params": {
+    "persistence": 1,
+    "ar1": 2,
+    "lpc": 63,
+    "lpc_ctx": 106,
+    "analog": 1,
+    "lpc_analog": 61,
+    "mix": 6
+   },
+   "bits_full_field": {
+    "persistence": 7.565688810721124,
+    "ar1": 7.557405556534093,
+    "lpc": 7.415245212661347,
+    "lpc_ctx": 7.370677236511739
+   },
+   "blosc_bits_per_value": {
+    "truth": 11.005684579580487,
+    "ar1_forecast": 10.995142356283624,
+    "lpc_forecast": 10.977733180197061,
+    "residual_vs_persistence": 9.064619476515746
+   },
+   "lpc_error_zonal_corr": 0.8996752175702738,
+   "joint_coding_gap_bits_est": 1.1957486407916358,
+   "seconds": 3.4783780574798584
+  }
+ ]
+}

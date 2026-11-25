@@ -117,7 +117,12 @@ class ReplayPool:
             "per_month": self.per_month,
             "max_age": self.max_age,
             "rng": deepcopy(self.rng.bit_generator.state),
-            "entries": deepcopy(self.entries),
+            # Entries are never mutated (`add` stores a private clone), so new
+            # lists suffice. Sharing their tensors lets a checkpoint that also
+            # holds a pending plan's view of the pool save each state once.
+            "entries": {
+                month: list(entries) for month, entries in self.entries.items()
+            },
         }
 
     def load_state_dict(self, state: ReplayPoolState) -> None:

@@ -116,6 +116,9 @@ def test_scientific_identity_ignores_stop_controls_but_tracks_recipe(tmp_path):
         {"post_training_learning_rate": 1e-8},
         {"scheduler": {"type": "linear_cooldown", "final_lr": 0.1}},
         {"batch_size": 2},
+        # Caches that the configured loading or forcing mode would never read.
+        {"data": {"native_om4": "om4-cache", "native_om4_proof_sha256": "proof"}},
+        {"data": {"era5_cache": "era5-cache", "era5_proof_sha256": "proof"}},
     ],
 )
 def test_invalid_recipes_fail_before_loading_data(tmp_path, override):
@@ -146,6 +149,22 @@ def test_multiprocess_launch_rejected_before_files_or_backend(tmp_path, monkeypa
     )
     cfg = config(tmp_path)
     with pytest.raises(ValueError, match="one process"):
+        entry.run_training(cfg)
+    assert not cfg.experiment.output_dir.exists()
+
+
+@pytest.mark.parametrize("backend", ["cpu", "cuda"])
+def test_distributed_launch_rejects_a_single_device_backend(
+    tmp_path, monkeypatch, backend
+):
+    from samudra.observations import train as entry
+
+    monkeypatch.setenv("WORLD_SIZE", "2")
+    monkeypatch.setattr(
+        entry, "init_train_backend", lambda _: pytest.fail("backend initialized")
+    )
+    cfg = config(tmp_path, engine="pipeline").model_copy(update={"backend": backend})
+    with pytest.raises(ValueError, match="requires backend nccl or auto"):
         entry.run_training(cfg)
     assert not cfg.experiment.output_dir.exists()
 

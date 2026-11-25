@@ -1,0 +1,62 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+# SPDX-License-Identifier: Apache-2.0
+# yaml-language-server: $schema=../schemas/ObservationTrainConfig.json
+experiment:
+  name: deterministic-obs-v2
+  rand_seed: 1729
+  base_output_dir: .LOCAL
+  wandb:
+    mode: disabled
+    project: observational-transfer
+data: !include data.yaml
+model:
+  backbone:
+    ch_width:
+    - 128
+    - 192
+    - 256
+    - 384
+    dilation:
+    - 1
+    - 2
+    - 4
+    - 8
+    n_layers:
+    - 1
+    - 1
+    - 1
+    - 1
+    core_block:
+      block_type: conv_next_block
+      norm: instance
+      instance_norm_affine: true
+      upscale_factor: 2
+    down_sampling_block: avg_pool
+    up_sampling_block: zonally_periodic_upsample
+  initializer_backbone:
+    ch_width: [128, 192, 256, 384]
+    dilation: [1, 2, 4, 8]
+    n_layers: [1, 1, 1, 1]
+    core_block: {norm: instance, instance_norm_affine: true, activation: capped_gelu, upscale_factor: 2}
+  evolution_backbone:
+    ch_width: [280, 380, 480, 520]
+    dilation: [1, 2, 4, 8]
+    n_layers: [1, 1, 1, 1]
+    core_block: {norm: instance, instance_norm_affine: true, activation: capped_gelu, upscale_factor: 2}
+  forcing_mode: shared_era5
+  output_kernel_size: 3
+  activation_checkpointing: true
+pretrain_mix: obs
+main_updates: 4000
+post_training_updates: 1000
+milestone_updates: [4000]
+gradient_accumulation_steps: 8
+fresh_examples: 4
+learning_rate: 0.0001
+post_training_scheduler: {type: linear_cooldown, final_lr: 0.000001}
+validation_freq: 250
+save_freq: 25
+measure_timing: true
+loss: {monthly_ts: 0.5, sst: 0.25, ssh: 0.25, reconstruction: 0.1, completion: 0.1}
+replay: {per_month: 2, max_age: 250}
+backend: auto

@@ -334,3 +334,38 @@ def test_regional_padding_is_forwarded_to_both_backbones():
     assert output.predictions.shape[1] == 1
     assert output.initial_states.shape[1] == 2
     assert torch.isfinite(output.predictions).all()
+
+
+def test_direct_era5_preserves_all_fields_and_matches_processor_across_initializers():
+    def build(width):
+        torch.manual_seed(1729)
+        return SurfaceInitializedModel(
+            NAMES,
+            backbone=tiny_backbone(),
+            initializer_backbone=tiny_backbone().model_copy(
+                update={"ch_width": [width]}
+            ),
+            evolution_backbone=tiny_backbone(),
+            forcing_mode="shared_era5",
+            output_kernel_size=3,
+            activation_checkpointing=False,
+        )
+
+    small, large = build(4), build(8)
+    for key, value in small.evolution.state_dict().items():
+        torch.testing.assert_close(
+            value, large.evolution.state_dict()[key], rtol=0, atol=0
+        )
+    inputs = example()
+    for domain in ("om4-family", "observation"):
+        torch.testing.assert_close(
+            small.encode_forcing(inputs[1], domain), inputs[1], rtol=0, atol=0
+        )
+    assert not list(small.forcing_encoders.parameters())
+    forcing = inputs[1].clone().requires_grad_()
+    forecast, _ = small.forecast(inputs[0], forcing, *inputs[2:], domain="om4-family")
+    forecast.square().mean().backward()
+    assert forcing.grad is not None
+    assert (forcing.grad.abs().sum((0, 1, 3, 4)) > 0).all()
+    with pytest.raises(ValueError):
+        small.encode_forcing(forcing[:, :, :3], "om4-family")

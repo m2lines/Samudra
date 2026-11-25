@@ -63,8 +63,9 @@ python -m ocean_preprocessing om4 \
   "$RAW/grids/gaussian_grid_180_by_360.zarr" \
   --output_path=./om4_onedeg/OM4.zarr --skip_spatial_filtering
 
-# 3. Compute means and standard deviations for your selected training interval.
-# Set TRAIN_START and TRAIN_END to dates in the dataset's calendar.
+# 3. Compute means, standard deviations and the RMS one-step change
+# (OM4_increment_rms.zarr, used by the normalized_delta loss) for your selected
+# training interval. Set TRAIN_START and TRAIN_END to dates in the dataset's calendar.
 python -m ocean_preprocessing.make_norm_datasets ./om4_onedeg/OM4.zarr \
   --start "$TRAIN_START" --end "$TRAIN_END"
 ```
@@ -239,10 +240,14 @@ python -m ocean_preprocessing.make_norm_datasets ./om4_onedeg/OM4.zarr \
   --start "$TRAIN_START" --end "$TRAIN_END"
 ```
 
-The command writes `OM4_means.zarr` and `OM4_stds.zarr` beside `OM4.zarr`.
-It computes unweighted population means and standard deviations over finite wet
-space and time, retaining depth. The outputs record the source, selected time
-coverage, and reduction method. Omitting `--start` and `--end` uses the entire
+The command writes `OM4_means.zarr`, `OM4_stds.zarr` and `OM4_increment_rms.zarr`
+beside `OM4.zarr`. It computes unweighted population means and standard deviations
+over finite wet space and time, retaining depth. The increment RMS is the
+root-mean-square one-step change over the same wet samples: the typical size of
+a five-day increment, which the `normalized_delta` training loss divides
+increments by. Samudra finds it beside the data by this naming convention, so
+a source needs no extra configuration to use it. The outputs record the source,
+selected time coverage, and reduction method. Omitting `--start` and `--end` uses the entire
 source record, so choose these explicitly when holding out validation/test years.
 
 ## Observation products

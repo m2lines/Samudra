@@ -100,10 +100,36 @@ class CanonicalReadRequest:
 
 @dataclasses.dataclass(frozen=True)
 class ChannelStatistics:
-    """Normalization statistics aligned one-for-one with canonical channels."""
+    """Normalization statistics aligned one-for-one with canonical channels.
+
+    ``increment_rms`` is each channel's RMS one-step change over wet cells, in
+    physical units. Only sources that read an increment RMS store have it,
+    and only when the store covers every requested channel.
+    """
 
     mean: np.ndarray
     std: np.ndarray
+    increment_rms: np.ndarray | None = None
+
+    def normalized_increment_rms(self) -> np.ndarray:
+        """Typical one-step change per channel in normalized units, ``tau / sigma``.
+
+        ``tau`` is the increment RMS and ``sigma`` the normalization std. The
+        ``normalized_delta`` loss and the scaled residual head both take their
+        scale from here.
+        """
+        if self.increment_rms is None:
+            raise ValueError(
+                "No increment RMS for these channels: the source needs a "
+                "data_increment_rms_location whose store covers every channel"
+            )
+        scale = self.increment_rms.astype(np.float64) / self.std.astype(np.float64)
+        if not np.isfinite(scale).all() or (scale <= 0).any():
+            raise ValueError(
+                "Increment RMS must be positive and finite in normalized units; "
+                f"got {scale.tolist()}"
+            )
+        return scale
 
 
 REQUIRED_STATISTICS = ("means", "stds")
@@ -249,6 +275,7 @@ class XarrayCanonicalReader:
     means: xr.Dataset
     stds: xr.Dataset
     channels: tuple[str, ...]
+    increment_rms: xr.Dataset | None = None
 
     @classmethod
     def from_datasets(
@@ -257,6 +284,7 @@ class XarrayCanonicalReader:
         means: xr.Dataset,
         stds: xr.Dataset,
         channels: tuple[str, ...],
+        increment_rms: xr.Dataset | None = None,
     ) -> Self:
         """Validate prepared arrays and align statistics to canonical channels."""
         for dataset in (data, means, stds):
@@ -279,12 +307,27 @@ class XarrayCanonicalReader:
                 f"data={sorted(missing_data)}, means={sorted(missing_means)}, "
                 f"stds={sorted(missing_stds)}"
             )
-        return cls(data, means[list(channels)], stds[list(channels)], channels)
+        if increment_rms is not None:
+            # A store may cover only some channels (e.g. not derived forcings
+            # such as hfds_anomalies); statistics() serves it where it is whole.
+            increment_rms = increment_rms[
+                [name for name in channels if name in increment_rms.data_vars]
+            ]
+        return cls(
+            data, means[list(channels)], stds[list(channels)], channels, increment_rms
+        )
 
     @classmethod
     def from_source_tree(cls, source: SourceTree, channels: tuple[str, ...]) -> Self:
-        """Read a canonical source tree's data, means and stds."""
-        return cls.from_datasets(source.data, source.means, source.stds, channels)
+        """Read a canonical source tree's data and statistics."""
+        increment_rms = (
+            source.statistic("increment_rms")
+            if "increment_rms" in source.statistic_names
+            else None
+        )
+        return cls.from_datasets(
+            source.data, source.means, source.stds, channels, increment_rms
+        )
 
     @cached_property
     def channel_variables(self) -> dict[str, tuple[str, int | None]]:
@@ -306,9 +349,15 @@ class XarrayCanonicalReader:
         if len(channels) != len(set(channels)):
             raise ValueError("Canonical channel names must be unique")
         self._validate_channels(channels)
+        increment_rms = None
+        if self.increment_rms is not None and set(channels).issubset(
+            self.increment_rms.data_vars
+        ):
+            increment_rms = _flatten(self.increment_rms[list(channels)])
         return ChannelStatistics(
             _flatten(self.means[list(channels)]),
             _flatten(self.stds[list(channels)]),
+            increment_rms,
         )
 
     @property

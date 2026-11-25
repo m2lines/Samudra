@@ -233,6 +233,53 @@ class DynamicLoss:
             self._per_channel_scale = state["per_channel_scale"].to(self._device)
 
 
+class NormalizedDeltaLoss:
+    """MSE on increments measured in each channel's typical one-step change.
+
+    With ``q`` the per-channel RMS one-step change over wet cells, in
+    normalized units, the network's increment ``d`` satisfies
+    ``x[t+1] = x[t] + q * d`` (``model.residual.scale: increment_rms``), and the loss is the
+    MSE between ``d`` and ``(label - x[t]) / q``. Because ``q`` is fixed, that
+    equals a state-space MSE with per-channel weights ``1 / q**2``, which is
+    how it is applied here: to the per-channel MSE of the assembled state.
+    Every channel then counts in units of its own typical change, so slowly
+    changing fields (deep temperature) are not drowned out by fast ones
+    (velocities). No cap and no rescaling of the weights.
+    """
+
+    def __init__(
+        self,
+        *,
+        increment_rms: Float[torch.Tensor, " var"],
+        device: torch.device,
+    ):
+        if increment_rms.ndim != 1:
+            raise ValueError(
+                "Expected one increment RMS per channel, got shape "
+                f"{tuple(increment_rms.shape)}"
+            )
+        if not torch.isfinite(increment_rms).all() or (increment_rms <= 0).any():
+            raise ValueError(
+                "normalized_delta needs a positive, finite increment RMS for "
+                f"every channel; got {increment_rms.tolist()}"
+            )
+        self.loss_fn = loss_fn_from_metric("mse")
+        self._weights = increment_rms.double().square().reciprocal().float().to(device)
+
+    def __call__(
+        self,
+        pred: Float[torch.Tensor, "batch hist*var lat lon"],
+        target: Float[torch.Tensor, "batch hist*var lat lon"],
+        ctx: BatchGrid,
+    ) -> Float[torch.Tensor, " hist*var"]:
+        loss: Float[torch.Tensor, " hist*var"] = self.loss_fn(pred, target, ctx)
+        # Channels are time-major: (hist+1) * var.
+        return (loss.reshape(-1, self._weights.shape[0]) * self._weights).reshape(-1)
+
+    def loss_scale_per_channel(self) -> Float[torch.Tensor, " var"]:
+        return self._weights
+
+
 class GradientLoss:
     """Combine a base loss with a gradient matching penalty.
 

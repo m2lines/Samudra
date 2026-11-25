@@ -1408,3 +1408,40 @@ def test_native_bulk_reads_use_positions_in_the_current_time_slice(
     reader.read_into(indices, channels, output)
 
     np.testing.assert_array_equal(output, expected)
+
+
+def test_rust_source_serves_the_increment_rms(flat_om4_source, tmp_path):
+    # The native reader serves statistics through its xarray reader, so the
+    # normalized_delta scale is the same whichever loader reads the planes.
+    tau = {"thetao_0": 0.25, "hfds": 0.5}
+    rms = xr.Dataset({name: xr.DataArray(value) for name, value in tau.items()})
+    rms.attrs["over"] = "wet"
+    rms.to_zarr(tmp_path / "data_increment_rms.zarr")
+    source_cfg = Om4DataSourceConfig(
+        train_time=Om4TimeConfig.model_validate(
+            {"start": "2000-01-01", "end": "2000-02-10"}
+        ),
+        val_time=Om4TimeConfig.model_validate(
+            {"start": "2000-02-15", "end": "2000-03-20"}
+        ),
+        data_location=UnresolvedLocation(path="data.zarr"),
+        data_means_location=UnresolvedLocation(path="means.zarr"),
+        data_stds_location=UnresolvedLocation(path="stds.zarr"),
+        prognostic_vars_key="thetao_1",
+        boundary_vars_key="hfds",
+    )
+    source_cfg.require_increment_rms()
+    source = source_cfg.build(
+        LocalLocation(path=tmp_path),
+        use_dask=False,
+        is_primary=True,
+        include_inference=False,
+        source_backend=RustDataLoadingConfig().build_source_backend(),
+    ).train
+
+    assert isinstance(source.reader, NativeOm4Reader)
+    statistics = source.statistics(("thetao_0", "hfds"))
+    np.testing.assert_allclose(
+        statistics.normalized_increment_rms(),
+        np.array([tau["thetao_0"], tau["hfds"]]) / statistics.std,
+    )

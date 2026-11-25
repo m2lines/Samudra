@@ -5,7 +5,6 @@
 # yaml-language-server: $schema=../schemas/SamudraConfig.json
 
 checkpointing: all
-pred_residuals: false
 last_kernel_size: 3
 pad: "circular"
 use_bfloat16: true

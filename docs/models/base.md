@@ -7,3 +7,5 @@ SPDX-License-Identifier: CC-BY-4.0
 # Base Model
 
 ::: samudra.models.base
+
+::: samudra.models.residual

@@ -4,9 +4,10 @@
 
 import abc
 import datetime
+from collections.abc import Sequence
 from functools import cached_property, partial
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Literal, Self, assert_never
+from typing import TYPE_CHECKING, Annotated, Any, Literal, Self, assert_never
 
 import cftime
 import numpy as np
@@ -58,10 +59,12 @@ from samudra.models.modules.augment_input import (
 )
 from samudra.models.modules.blocks import ZonallyPeriodicBilinearUpsample
 from samudra.models.modules.encoder import patch_from
+from samudra.models.residual import ResidualAnchor, ResidualHead
 from samudra.post_train_eval import CheckpointSweep
 from samudra.utils.data import (
     CanonicalReader,
     CanonicalSource,
+    ChannelStatistics,
     DataBundle,
     SourceSplits,
     SourceTree,
@@ -87,6 +90,7 @@ from samudra.utils.loss import (
     GradientLoss,
     LossFnWithContext,
     LossMetric,
+    NormalizedDeltaLoss,
     loss_fn_from_metric,
 )
 from samudra.utils.profiler import Profiler
@@ -282,6 +286,18 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
             "beside the data); " + LOCATION_DOCS
         ),
     )
+    data_increment_rms_location: Location | None = Field(
+        default=None,
+        description=(
+            "Location of the per-channel RMS one-step change over wet cells, "
+            "written with the means and stds by "
+            "``ocean_preprocessing.make_norm_datasets``. Read only when set. A "
+            "training or eval config whose loss or model needs it "
+            "(``normalized_delta``, ``model.residual.scale: increment_rms``) sets it by the "
+            "naming convention when unset: for OM4 and CM4, "
+            "``<stem>_increment_rms.zarr`` beside the data; " + LOCATION_DOCS
+        ),
+    )
 
     @abc.abstractmethod
     def build_layout(self) -> DataLayout:
@@ -301,12 +317,21 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
             self.data_stds_location = self.default_statistic_location("stds")
         return self
 
+    def require_increment_rms(self) -> None:
+        """Read the increment RMS, from the naming convention unless configured."""
+        if self.data_increment_rms_location is None:
+            self.data_increment_rms_location = self.default_statistic_location(
+                "increment_rms"
+            )
+
     def statistic_locations(self) -> dict[str, Location]:
         """The store of each statistic, by statistic name."""
         locations = {"means": self.data_means_location, "stds": self.data_stds_location}
         unset = [name for name, location in locations.items() if location is None]
         if unset:
             raise ValueError(f"Statistics locations are unset: {unset}")
+        if self.data_increment_rms_location is not None:
+            locations["increment_rms"] = self.data_increment_rms_location
         return {name: location for name, location in locations.items() if location}
 
     @abc.abstractmethod
@@ -369,9 +394,20 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
             data_layout=self.build_layout(),
         )
         chunks: dict[str, int] | None = {} if turn_on_dask else None
-        source_tree, data_layout = self.canonicalize_datasets(
-            SourceTree.open(resolved_data_location, resolved_statistics, chunks)
-        )
+        opened = SourceTree.open(resolved_data_location, resolved_statistics, chunks)
+        if "increment_rms" in opened.statistic_names:
+            over = opened.statistic("increment_rms").attrs.get("over")
+            # An RMS averaged over the full grid with land counted as zero is
+            # smaller by sqrt(wet fraction) per level, and would train normally
+            # with wrong channel weights.
+            if over != "wet":
+                raise ValueError(
+                    f"Increment RMS dataset {resolved_statistics['increment_rms']} "
+                    f"has over={over!r}, but it must be the RMS over wet cells "
+                    "(over='wet'), as ocean_preprocessing.make_norm_datasets "
+                    "writes it"
+                )
+        source_tree, data_layout = self.canonicalize_datasets(opened)
         data = source_tree.data
         channels = tuple(
             dict.fromkeys(
@@ -1018,8 +1054,128 @@ class UNetBackboneConfig(BaseConfig):
         )
 
 
+class ResidualConfig(BaseConfig):
+    """Predict each next state as an increment on the input, not the state itself.
+
+    The network's output is multiplied by a per-channel ``scale`` and added to
+    an anchor state chosen by ``anchor``.
+    """
+
+    scale: Literal["none", "increment_rms"] = Field(
+        default="none",
+        description=(
+            "'none' adds the network output unscaled. 'increment_rms' multiplies "
+            "it by each channel's typical one-step change in normalized units, "
+            "q = tau / sigma, from the data source's increment RMS store "
+            "(GraphCast-style residual scaling), so the network emits unit-scale "
+            "increments. Like the means and stds, q comes from the data, not the "
+            "checkpoint. Trains with the normalized_delta loss."
+        ),
+    )
+    anchor: ResidualAnchor = Field(
+        default="same_slot",
+        description=(
+            "How outputs are anchored when the model emits several steps per "
+            "call. 'same_slot' adds output step k to input step k (the legacy "
+            "2-in/2-out assembly), so with two outputs each one is a two-step "
+            "change. 'chained' makes each output a one-step increment on the "
+            "previous output, starting from the newest input: z1 = x[t] + d1, "
+            "z2 = z1 + d2. The two are identical for one output step."
+        ),
+    )
+
+    @property
+    def needs_increment_rms(self) -> bool:
+        return self.scale == "increment_rms"
+
+    def configure_data(self, data: DataConfig, data_stride: Sequence[int]) -> None:
+        """Check the data suits this head, and request the statistics it needs.
+
+        q is the RMS of one stored step, so with ``increment_rms`` every output
+        must be a one-step increment: one output step or chained anchoring, and
+        no stride.
+        """
+        if not self.needs_increment_rms:
+            return
+        if data.output_steps != 1 and self.anchor != "chained":
+            # Same-slot anchoring makes each of several outputs a multi-step
+            # change, while q is the RMS of one step.
+            raise ValueError(
+                "residual.scale='increment_rms' with data.output_steps > 1 needs "
+                "residual.anchor='chained'; q is the RMS of a single step, got "
+                f"output_steps={data.output_steps}"
+            )
+        if any(stride != 1 for stride in data_stride):
+            # A stride of s makes each model step span s stored steps.
+            raise ValueError(
+                "residual.scale='increment_rms' needs data_stride == [1]; q is the "
+                f"RMS of a single step, got data_stride={list(data_stride)}"
+            )
+        if len(data.sources) != 1:
+            raise ValueError(
+                "residual.scale='increment_rms' is defined for a single data "
+                "source's normalization"
+            )
+        data.sources[0].require_increment_rms()
+
+    def build(
+        self,
+        *,
+        out_channels: int,
+        input_steps: int,
+        statistics: ChannelStatistics | None,
+    ) -> ResidualHead:
+        if not self.needs_increment_rms:
+            scale = torch.ones(out_channels)
+        else:
+            if statistics is None:
+                raise ValueError(
+                    "residual.scale='increment_rms' needs the data source's "
+                    "prognostic statistics"
+                )
+            q = torch.from_numpy(statistics.normalized_increment_rms()).float()
+            if out_channels % q.numel():
+                raise ValueError(
+                    f"Got {q.numel()} scales for {out_channels} output channels"
+                )
+            # Channels are time-major, so q repeats for each output step.
+            scale = q.repeat(out_channels // q.numel())
+        return ResidualHead(input_steps=input_steps, scale=scale, anchor=self.anchor)
+
+
 class BaseModelConfig(BaseConfig, abc.ABC):
-    pred_residuals: bool = False
+    residual: ResidualConfig | None = Field(
+        default=None,
+        description=(
+            "Predict each next state as an increment on the input. Omit to "
+            "predict full states; ``residual: {}`` adds the unscaled network "
+            "output to the newest input."
+        ),
+    )
+
+    @pydantic.model_validator(mode="before")
+    @classmethod
+    def reject_pred_residuals(cls, data: Any) -> Any:
+        if isinstance(data, dict) and "pred_residuals" in data:
+            raise ValueError(
+                "model.pred_residuals was replaced by model.residual: use "
+                "`residual: {}` for `pred_residuals: true`, and omit both for "
+                "`pred_residuals: false`"
+            )
+        return data
+
+    def _build_residual(
+        self,
+        out_channels: int,
+        input_steps: int,
+        statistics: ChannelStatistics | None,
+    ) -> ResidualHead | None:
+        if self.residual is None:
+            return None
+        return self.residual.build(
+            out_channels=out_channels, input_steps=input_steps, statistics=statistics
+        )
+
     last_kernel_size: int = 3
     pad: str = "circular"
 
@@ -1073,6 +1229,7 @@ class SamudraConfig(BaseModelConfig):
         out_channels: int,
         input_steps: int,
         grid_sizes: list[GridSize],
+        statistics: ChannelStatistics | None = None,
     ) -> Samudra:
         if len(grid_sizes) != 1:
             raise ValueError(
@@ -1086,7 +1243,7 @@ class SamudraConfig(BaseModelConfig):
         return Samudra(
             in_channels=total_in_channels,
             out_channels=out_channels,
-            pred_residuals=self.pred_residuals,
+            residual=self._build_residual(out_channels, input_steps, statistics),
             last_kernel_size=self.last_kernel_size,
             pad=self.pad,
             unet=self.unet.build(
@@ -1131,6 +1288,7 @@ class SamudraMultiConfig(BaseModelConfig):
         out_channels: int,
         input_steps: int,
         grid_sizes: list[GridSize],
+        statistics: ChannelStatistics | None = None,
     ) -> SamudraMulti:
         assert len(self.patch_extent) == 2, "patch_extent must be a pair of floats."
         extent = self.patch_extent[0], self.patch_extent[1]
@@ -1174,7 +1332,7 @@ class SamudraMultiConfig(BaseModelConfig):
         return SamudraMulti(
             in_channels=total_in_channels,
             out_channels=out_channels,
-            pred_residuals=self.pred_residuals,
+            residual=self._build_residual(out_channels, input_steps, statistics),
             last_kernel_size=self.last_kernel_size,
             pad=self.pad,
             encoder=encoder,
@@ -1225,6 +1383,7 @@ class SamudraMiniConfig(BaseModelConfig):
         out_channels: int,
         input_steps: int,
         grid_sizes: list[GridSize],
+        statistics: ChannelStatistics | None = None,
     ) -> SamudraMini:
         if self.add_3d_coordinates:
             raise ValueError(
@@ -1249,7 +1408,7 @@ class SamudraMiniConfig(BaseModelConfig):
         return SamudraMini(
             in_channels=in_channels,
             out_channels=out_channels,
-            pred_residuals=self.pred_residuals,
+            residual=self._build_residual(out_channels, input_steps, statistics),
             last_kernel_size=self.last_kernel_size,
             pad=self.pad,
             input_embedding_dim=self.embedding_dim,
@@ -1425,7 +1584,31 @@ class GradientLossConfig(pydantic.BaseModel):
     )
 
 
-Loss = LossMetric | DynamicLossConfig | GradientLossConfig
+class NormalizedDeltaLossConfig(pydantic.BaseModel):
+    """MSE on normalized deltas: one-step increments in units of their typical size.
+
+    A *normalized delta* is a channel's one-step change, ``x[t+1] - x[t]``,
+    divided by that channel's typical one-step change. Here the typical change
+    is ``tau``, the RMS one-step change over wet cells during the training
+    period, in physical units. In the normalized units the model works in, it
+    is ``q = tau / sigma``, where ``sigma`` is the channel's normalization
+    std. With ``model.residual.scale: increment_rms``, the network predicts the normalized
+    delta ``d`` and the next state is ``x[t+1] = x[t] + q * d``.
+
+    The loss is the MSE between ``d`` and the true normalized delta
+    ``(label - x[t]) / q``, so every channel counts in units of its own
+    typical change: slowly changing fields such as deep temperature are not
+    drowned out by fast ones such as velocities. Because ``q`` is fixed, this
+    equals a state-space MSE with per-channel weights ``1 / q**2``, which is
+    how it is implemented. The weights are not capped or rescaled.
+    ``tau`` comes from the data source's increment RMS store
+    (``<stem>_increment_rms.zarr`` beside the data by default), written with the means and stds by ``ocean_preprocessing.make_norm_datasets``.
+    """
+
+    type: Literal["normalized_delta"] = "normalized_delta"
+
+
+Loss = LossMetric | DynamicLossConfig | GradientLossConfig | NormalizedDeltaLossConfig
 
 
 def build_loss_fn(
@@ -1433,6 +1616,8 @@ def build_loss_fn(
     device: torch.device,
     num_channels: int,
     pad_mode: str,
+    *,
+    statistics: ChannelStatistics | None = None,
 ) -> LossFnWithContext:
     match loss_cfg:
         case str():
@@ -1445,6 +1630,13 @@ def build_loss_fn(
                 device=device,
                 num_channels=num_channels,
             )
+        case NormalizedDeltaLossConfig():
+            if statistics is None:
+                raise ValueError("normalized_delta needs the prognostic statistics")
+            q = torch.from_numpy(statistics.normalized_increment_rms())
+            if q.numel() != num_channels:
+                raise ValueError(f"Got {q.numel()} scales for {num_channels} channels")
+            return NormalizedDeltaLoss(increment_rms=q, device=device)
         case GradientLossConfig(metric=metric, alpha=alpha):
             loss_fn = loss_fn_from_metric(metric)
             return GradientLoss(
@@ -1520,6 +1712,17 @@ class TrainConfig(TopLevelConfig):
             raise ValueError(
                 "validation_loss scoring cannot use a dynamically weighted loss"
             )
+        residual = self.model.residual
+        scaled = residual is not None and residual.needs_increment_rms
+        if isinstance(self.loss, NormalizedDeltaLossConfig) != scaled:
+            # Both use the same one-step scale q: the head emits increments in
+            # units of q, and the loss weights them by 1 / q**2.
+            raise ValueError(
+                "The normalized_delta loss and model.residual.scale="
+                "'increment_rms' go together"
+            )
+        if residual is not None:
+            residual.configure_data(self.data, self.data_stride)
         if self.validation_score == "rollout_rmse":
             if self.rollout_validation is None:
                 raise ValueError(
@@ -1695,6 +1898,12 @@ class EvalConfig(TopLevelConfig):
             "Present means enabled; omit to skip the phase."
         ),
     )
+
+    @pydantic.model_validator(mode="after")
+    def _residual_head_fits_the_data(self) -> Self:
+        if self.model.residual is not None:
+            self.model.residual.configure_data(self.data, data_stride=(1,))
+        return self
 
     @pydantic.model_validator(mode="after")
     def _observations_need_a_saved_rollout(self) -> Self:

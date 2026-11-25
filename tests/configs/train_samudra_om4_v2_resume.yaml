@@ -63,7 +63,6 @@ data:
 
 model:
   checkpointing: all
-  pred_residuals: false
   last_kernel_size: 3
   pad: "circular"
 

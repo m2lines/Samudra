@@ -37,7 +37,6 @@ def make_model(query_chunk_size: int | None) -> SamudraMini:
     return SamudraMini(
         in_channels=10,
         out_channels=6,
-        pred_residuals=False,
         last_kernel_size=3,
         pad="circular",
         input_embedding_dim=12,

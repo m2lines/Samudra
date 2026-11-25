@@ -153,3 +153,39 @@ def test_normalization_with_depth_dependent_grid_coordinates(flattened: bool) ->
         xr.testing.assert_identical(masked.lev, source.lev)
         xr.testing.assert_identical(masked.ocean_fraction, source.ocean_fraction)
         assert masked.thetao.attrs["units"] == "degC"
+
+
+@pytest.mark.parametrize("flattened", [False, True])
+def test_increment_rms_is_wet_one_step_change_retaining_depth(flattened: bool) -> None:
+    from ocean_preprocessing.make_norm_datasets import (
+        increment_rms,
+        normalization_fields,
+    )
+
+    # One wet and one land column; land values would dominate if counted.
+    source = xr.Dataset(
+        {
+            "thetao": (
+                ("time", "lev", "y", "x"),
+                [
+                    [[[1.0, 999.0]], [[10.0, -999.0]]],
+                    [[[3.0, -999.0]], [[10.0, 999.0]]],
+                    [[[6.0, 999.0]], [[14.0, -999.0]]],
+                ],
+            ),
+        },
+        coords={"wetmask": (("lev", "y", "x"), [[[True, False]], [[True, False]]])},
+    )
+    if flattened:
+        for level in range(2):
+            source[f"thetao_{level}"] = source.thetao.isel(lev=level, drop=True)
+            source[f"mask_{level}"] = source.wetmask.isel(lev=level, drop=True)
+        source = source.drop_vars(["thetao", "wetmask"])
+
+    rms = increment_rms(normalization_fields(source))
+    # Level 0 changes by 2 then 3; level 1 by 0 then 4.
+    expected = [np.sqrt((4 + 9) / 2), np.sqrt((0 + 16) / 2)]
+    if flattened:
+        assert [rms.thetao_0.item(), rms.thetao_1.item()] == pytest.approx(expected)
+    else:
+        np.testing.assert_allclose(rms.thetao, expected)

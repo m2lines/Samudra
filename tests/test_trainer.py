@@ -632,7 +632,7 @@ def test_multiscale_training_validates_primary_source_and_logs_reduced_metrics(
 
         class PerfectModel(BaseModel):
             def __init__(self):
-                super().__init__(0, 0, 1, False, 1, "constant", 0)
+                super().__init__(0, 0, 1, 1, "constant", 0)
 
             def forward(self, batch, loss_fn=None):
                 return [batch.get_label(0)]
@@ -672,7 +672,7 @@ def test_trainer_supports_two_input_one_output_batches(train_config):
 
         class PerfectOneStepModel(BaseModel):
             def __init__(self):
-                super().__init__(0, 0, 1, False, 1, "constant", 0)
+                super().__init__(0, 0, 1, 1, "constant", 0)
 
             def forward(self, batch, loss_fn=None):
                 return [batch.get_label(0)]

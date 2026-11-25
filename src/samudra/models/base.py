@@ -9,6 +9,7 @@ import logging
 import torch
 
 from samudra.constants import Boundary, Prognostic
+from samudra.models.residual import ResidualHead
 from samudra.utils.ctx import BatchGrid
 
 logger = logging.getLogger(__name__)
@@ -31,10 +32,10 @@ class BaseModel(torch.nn.Module):
         in_channels,
         out_channels,
         input_steps,
-        pred_residuals,
         last_kernel_size,
         pad,
         gradient_detach_interval: int,
+        residual: ResidualHead | None = None,
     ) -> None:
         super().__init__()
         assert last_kernel_size % 2 != 0, "Cannot use even kernel sizes!"
@@ -42,22 +43,19 @@ class BaseModel(torch.nn.Module):
         self.out_channels = out_channels
         self.N_pad = int((last_kernel_size - 1) / 2)
         self.pad: str = pad
-        self.pred_residuals = pred_residuals
         if input_steps < 1:
             raise ValueError(f"input_steps must be positive, got {input_steps}")
         self.input_steps = input_steps
         self.gradient_detach_interval = gradient_detach_interval
+        # None predicts full states; a head predicts increments on the input.
+        self.residual = residual
 
     def _assemble_prediction(
         self, prognostic: Prognostic, decoding: Prognostic
     ) -> Prognostic:
-        if not self.pred_residuals:
+        if self.residual is None:
             return decoding
-        # Anchor each predicted timestep to the corresponding most-recent input
-        # timestep. For 2-in/1-out this is x[t]; for the legacy 2-in/2-out case
-        # this remains the original elementwise, same-slot residual assembly.
-        residual_base = prognostic[:, -self.out_channels :]
-        return residual_base + decoding
+        return self.residual(prognostic, decoding)
 
     def _advance_prognostic_history(
         self, prognostic: Prognostic, prediction: Prognostic

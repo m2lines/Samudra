@@ -99,6 +99,7 @@ class Eval:
             out_channels=self.num_out,
             input_steps=self.input_steps,
             grid_sizes=[source.grid_size for source in self.data_bundle.train_sources],
+            statistics=self.source.statistics(self.prognostic_var_names),
         ).to(self.device)
 
         get_model_summary(self.model, None, cfg.debug)

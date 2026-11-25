@@ -20,6 +20,7 @@ from samudra.models.modules import (
     PerceiverEncoder,
 )
 from samudra.models.modules.unet_backbone import UNetBackbone
+from samudra.models.residual import ResidualHead
 from samudra.utils.ctx import BatchGrid
 from samudra.utils.device import autocast
 
@@ -48,7 +49,6 @@ class SamudraMulti(BaseModel):
         self,
         in_channels: int,
         out_channels: int,
-        pred_residuals: bool,
         last_kernel_size: int,
         pad: str,
         add_3d_coordinates: nn.Module | None,
@@ -59,12 +59,13 @@ class SamudraMulti(BaseModel):
         checkpointing: "Checkpointing | None",
         gradient_detach_interval: int,
         use_bfloat16: bool,
+        residual: ResidualHead | None = None,
     ):
         super().__init__(
             in_channels=in_channels,
             out_channels=out_channels,
             input_steps=input_steps,
-            pred_residuals=pred_residuals,
+            residual=residual,
             last_kernel_size=last_kernel_size,
             pad=pad,
             gradient_detach_interval=gradient_detach_interval,

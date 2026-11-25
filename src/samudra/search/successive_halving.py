@@ -61,23 +61,30 @@ def _atomic_json(path: Path, value: dict[str, Any]) -> None:
         )
 
 
-def _git_provenance(*, allow_dirty: bool) -> dict[str, Any]:
+def _git_provenance(*, allow_dirty: bool) -> dict[str, Any] | None:
+    """Return the commit identity of the running code, or None outside a checkout."""
     immutable_commit = os.environ.get("SAMUDRA_CODE_COMMIT")
     if immutable_commit is not None:
         if re.fullmatch(r"[0-9a-fA-F]{40}", immutable_commit) is None:
             raise ValueError("SAMUDRA_CODE_COMMIT must be a full 40-character Git SHA")
         return {
+            "source": "git",
             "commit": immutable_commit.lower(),
             "dirty": False,
             "package_version": importlib.metadata.version("samudra"),
         }
 
-    root = subprocess.run(
-        ["git", "-C", str(Path(__file__).parent), "rev-parse", "--show-toplevel"],
-        check=True,
-        capture_output=True,
-        text=True,
-    ).stdout.strip()
+    try:
+        toplevel = subprocess.run(
+            ["git", "-C", str(Path(__file__).parent), "rev-parse", "--show-toplevel"],
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError:  # no git executable, so no checkout to identify
+        return None
+    if toplevel.returncode != 0:
+        return None
+    root = toplevel.stdout.strip()
     commit = subprocess.run(
         ["git", "-C", root, "rev-parse", "HEAD"],
         check=True,
@@ -95,10 +102,43 @@ def _git_provenance(*, allow_dirty: bool) -> dict[str, Any]:
     if dirty and not allow_dirty:
         raise ValueError("Commit tracked changes or set allow_dirty=true")
     return {
+        "source": "git",
         "commit": commit,
         "dirty": dirty,
         "package_version": importlib.metadata.version("samudra"),
     }
+
+
+def _is_editable_install() -> bool:
+    direct_url = importlib.metadata.distribution("samudra").read_text("direct_url.json")
+    if direct_url is None:
+        return False
+    return bool(json.loads(direct_url).get("dir_info", {}).get("editable", False))
+
+
+def _code_provenance(*, allow_dirty: bool, local: bool) -> dict[str, Any]:
+    """Identify the code a search runs.
+
+    Prefer a Git commit. Without a checkout, a local search may instead record
+    the version of a regular (non-editable) install, e.g. ``pip install
+    samudra`` in Colab, where every task runs in this same process. Slurm
+    searches always need a commit: their workers are separate processes that
+    must prove they run the controller's code.
+    """
+    git = _git_provenance(allow_dirty=allow_dirty)
+    if git is not None:
+        return git
+    if local and not _is_editable_install():
+        return {
+            "source": "package",
+            "dirty": False,
+            "package_version": importlib.metadata.version("samudra"),
+        }
+    raise ValueError(
+        "Cannot identify the code for this search: samudra is not running from a "
+        "Git checkout. Run it from a checkout, set SAMUDRA_CODE_COMMIT to the full "
+        "commit SHA, or (local executor only) use a regular, non-editable install."
+    )
 
 
 class SuccessiveHalving:
@@ -131,7 +171,10 @@ class SuccessiveHalving:
             self.publisher.prepare()
         competing = [item.name for item in self.config.candidates if not item.fixed]
         anchors = [item.name for item in self.config.candidates if item.fixed]
-        provenance = _git_provenance(allow_dirty=self.config.allow_dirty)
+        provenance = _code_provenance(
+            allow_dirty=self.config.allow_dirty,
+            local=not isinstance(self.config.executor, SlurmExecutorConfig),
+        )
         code_layer_metadata: dict[str, Any] | None = None
         if isinstance(self.config.executor, SlurmExecutorConfig):
             code_layer = self.config.executor.code_layer

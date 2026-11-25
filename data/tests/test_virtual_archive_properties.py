@@ -2,6 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+# ruff: noqa: E402  (imports follow the environment check)
+
 """Property tests for `virtualize_om4`, the Kerchunk reference builder for OM4 NetCDF archives.
 
 The oracle is the source NetCDF itself: decoded references must match a direct read.
@@ -11,6 +13,17 @@ Each example writes to its own directory, so shrinking never reuses an earlier o
 All source data are small and local, so no credentials or model output are needed.
 """
 
+import pytest
+import zarr
+
+# virtualize_om4.py runs in its own environment, the only one with zarr-python 3
+# (VirtualiZarr). CI doesn't run these tests; data/AGENTS.md has the command that does.
+if int(zarr.__version__.split(".")[0]) < 3:
+    pytest.skip(
+        "needs virtualize_om4.py's environment (zarr-python 3); see data/AGENTS.md",
+        allow_module_level=True,
+    )
+
 import math
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -18,7 +31,6 @@ from tempfile import TemporaryDirectory
 import fsspec
 import h5py
 import numpy as np
-import pytest
 import xarray as xr
 from fsspec.implementations.reference import LazyReferenceMapper
 from hypothesis import example, given

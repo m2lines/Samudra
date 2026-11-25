@@ -1,0 +1,89 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+# SPDX-License-Identifier: Apache-2.0
+"""Observation support policy tested against actual ESMF conservative weights."""
+
+import numpy as np
+import pytest
+from ocean_preprocessing.regridding import FiniteCoverageRemap, rectilinear_grid
+
+from tests import requires_xesmf
+
+
+def test_remap_requires_supplied_cell_bounds():
+    import xarray as xr
+
+    grid = xr.Dataset(coords={"lat": [0], "lon": [0]})
+    with pytest.raises(ValueError, match="explicit lat_b"):
+        FiniteCoverageRemap(grid, grid)
+
+
+@requires_xesmf
+def test_esmf_identity_preserves_values_and_missingness():
+    lat, lon = [-45, 45], [45, 135, 225, 315]
+    grid = rectilinear_grid(lat, lon, [-90, 0, 90], [0, 90, 180, 270, 360])
+    remap = FiniteCoverageRemap(grid, grid)
+    raw = np.array([[1, np.nan, 3, 4], [5, 6, 7, 8]], dtype=float)
+    actual, coverage = remap(raw)
+    np.testing.assert_allclose(actual, raw, equal_nan=True, atol=1e-6)
+    np.testing.assert_allclose(coverage, np.isfinite(raw).astype(float), atol=1e-6)
+
+
+@requires_xesmf
+def test_esmf_coverage_uses_full_cell_area_not_finite_renormalization():
+    source_lon = np.arange(22.5, 360, 45)
+    target_lon = np.arange(45, 360, 90)
+    remap = FiniteCoverageRemap(
+        rectilinear_grid([-45, 45], source_lon, [-90, 0, 90], np.arange(0, 361, 45)),
+        rectilinear_grid([-45, 45], target_lon, [-90, 0, 90], np.arange(0, 361, 90)),
+    )
+    values = np.full((2, 2, 8), 7.0)
+    values[0, 0, 0] = np.nan
+    values[1, 0, :2] = np.nan
+    actual, coverage = remap(values)
+    assert coverage[0, 0, 0] == pytest.approx(0.5, abs=1e-6)
+    assert coverage[1, 0, 0] == pytest.approx(0, abs=1e-6)
+    assert np.isnan(actual[:, 0, 0]).all()
+    np.testing.assert_allclose(actual[:, 1], 7)
+    accepted, _ = remap(values, min_coverage=0.4)
+    assert accepted[0, 0, 0] == pytest.approx(7)
+    assert np.isnan(accepted[1, 0, 0])
+
+
+@requires_xesmf
+def test_esmf_poles_and_shifted_seam_keep_complete_global_support():
+    source_lon = np.arange(22.5, 360, 45)
+    target_lon = np.arange(0, 360, 90)
+    remap = FiniteCoverageRemap(
+        rectilinear_grid(
+            [-90, -30, 30, 90], source_lon, [-90, -60, 0, 60, 90], np.arange(0, 361, 45)
+        ),
+        rectilinear_grid(
+            [-60, 0, 60], target_lon, [-90, -30, 30, 90], np.arange(-45, 316, 90)
+        ),
+    )
+    actual, coverage = remap(np.full((4, 8), 7.0))
+    np.testing.assert_allclose(actual, 7.0, atol=1e-6)
+    np.testing.assert_allclose(coverage, 1.0, atol=1e-6)
+
+
+@requires_xesmf
+def test_esmf_full_support_preserves_spherical_integral():
+    import xesmf as xe
+
+    source_lat, source_lon = [-60, 0, 60], np.arange(22.5, 360, 45)
+    target_lat, target_lon = [-45, 45], np.arange(45, 360, 90)
+    raw = np.arange(24, dtype=float).reshape(3, 8)
+    source = rectilinear_grid(
+        source_lat, source_lon, [-90, -30, 30, 90], np.arange(0, 361, 45)
+    )
+    target = rectilinear_grid(
+        target_lat, target_lon, [-90, 0, 90], np.arange(0, 361, 90)
+    )
+    remap = FiniteCoverageRemap(source, target)
+    actual, coverage = remap(raw)
+    source_area = xe.util.cell_area(source).values
+    target_area = xe.util.cell_area(target).values
+    np.testing.assert_allclose(coverage, 1, atol=1e-6)
+    np.testing.assert_allclose(
+        (actual * target_area).sum(), (raw * source_area).sum(), rtol=1e-6
+    )

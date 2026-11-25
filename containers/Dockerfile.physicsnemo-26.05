@@ -14,11 +14,12 @@ COPY LICENSE README.md pyproject.toml rust-toolchain.toml uv.lock /ctx/
 COPY .cargo /ctx/.cargo
 COPY src /ctx/src
 COPY tests /ctx/tests
+COPY data/prepare_observation_normalization.py /ctx/data/prepare_observation_normalization.py
 COPY rust/loader /ctx/rust/loader
 COPY verification /ctx/verification
 COPY scripts/container /ctx/scripts/container
 COPY scripts/build_quickstart_notebook.py /ctx/scripts/build_quickstart_notebook.py
-COPY notebooks/quickstart.ipynb /ctx/notebooks/quickstart.ipynb
+COPY notebooks/samudra-quickstart.ipynb /ctx/notebooks/samudra-quickstart.ipynb
 
 FROM nvcr.io/nvidia/physicsnemo/physicsnemo:26.05
 
@@ -112,10 +113,10 @@ RUN mkdir -p /workspace/.data_cache \
         --no-install-package triton \
     && rm -rf /root/.cargo /root/.rustup rust/loader/target
 
-# Catch missing test imports and notebook assets on PR builds, before publishing.
+# Catch missing test imports, notebook assets, and normalization scripts before publishing.
 RUN . .venv/bin/activate \
     && python scripts/container/smoke_test.py \
     && python -m pytest -p no:zarr --collect-only -q \
-    && python -m pytest -p no:zarr -q tests/test_quickstart_config.py
+    && python -m pytest -p no:zarr -q tests/test_quickstart_config.py tests/test_observation_baseline_normalization.py
 
 CMD ["/bin/bash"]

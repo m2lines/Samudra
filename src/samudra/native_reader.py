@@ -138,7 +138,10 @@ class NativeOm4Reader:
         """Read positions relative to this reader's current time slice."""
         if time_indices.ndim != 1:
             raise ValueError("Canonical time indices must be one-dimensional")
-        missing = set(channels).difference(self._reader_variables)
+        requested = set(channels)
+        if len(channels) != len(requested):
+            raise ValueError("Canonical channel names must be unique")
+        missing = requested.difference(self._reader_variables)
         if missing:
             raise KeyError(f"Canonical channels not found: {sorted(missing)}")
         self._planes.read_into(
@@ -178,7 +181,7 @@ def build_om4_reader(
     backend: str,
 ) -> NativeOm4Reader:
     """Construct an OM4 reader from canonical metadata and an I/O runtime."""
-    physical = location.open({})
+    physical = location.open(None)
     reader_variables: dict[str, PhysicalVariable] = {}
     for logical_name in xarray_reader.channels:
         if logical_name in physical.data_vars:

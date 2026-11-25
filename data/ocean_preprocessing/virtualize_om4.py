@@ -2,9 +2,33 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+# This script has its own environment: VirtualiZarr needs zarr-python 3, while the
+# rest of ocean_preprocessing (and samudra) use zarr-python 2. The direct
+# dependencies are pinned exactly, at the versions its tests last passed with.
+# /// script
+# requires-python = ">=3.12,<3.13"
+# dependencies = [
+#   "fire==0.7.1",
+#   "fsspec==2026.9.0",
+#   "h5py==3.16.0",
+#   "kerchunk==0.2.10",
+#   "numcodecs==0.17.1",
+#   "numpy==2.5.5",
+#   "obspec-utils==0.9.0",
+#   "obstore==0.12.1",
+#   "pandas==3.1.1",
+#   "pyarrow==26.0.1",
+#   "s3fs==2026.9.0",
+#   "scipy==1.18.1",             # NetCDF3 files
+#   "virtualizarr[hdf]==2.8.0",
+#   "xarray==2026.2.0",
+#   "zarr==3.4.2",
+# ]
+# ///
+
 """Index native NetCDF chunks as a Parquet Kerchunk store, without rewriting data.
 
-Run with ``python -m ocean_preprocessing.virtualize_om4 --help``.
+Run with ``uv run --script data/ocean_preprocessing/virtualize_om4.py --help``.
 The local output directory can subsequently be published using rclone.
 """
 

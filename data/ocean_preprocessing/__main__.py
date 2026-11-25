@@ -60,6 +60,34 @@ logging.getLogger("distributed.nanny").setLevel(logging.WARNING)
 Cluster = Literal["off", "local", "gateway", "kube", "coiled", "slurm"]
 
 
+def recorded_arguments(cli_args: str, drop: frozenset[str] = frozenset()) -> list[str]:
+    """The arguments of a recorded ``m2lines/cli_args`` command line, without the program name.
+
+    Each flag named in ``drop`` (without dashes, e.g. ``"output_path"``) is removed
+    with its value, whether it was written ``--flag=value`` or ``--flag value``.
+    Fire accepts ``-`` for ``_`` in flag names, so both match. The pipeline records
+    ``" ".join(sys.argv)``, so the tokens are recovered by splitting on whitespace.
+    Raises ``ValueError`` if a dropped flag has no value.
+    """
+    tokens = cli_args.split()[1:]
+    kept = []
+    i = 0
+    while i < len(tokens):
+        token = tokens[i]
+        name, has_value, _ = token.partition("=")
+        if not (name.startswith("--") and name[2:].replace("-", "_") in drop):
+            kept.append(token)
+            i += 1
+            continue
+        if has_value:
+            i += 1
+            continue
+        if i + 1 == len(tokens) or tokens[i + 1].startswith("--"):
+            raise ValueError(f"recorded flag {name} has no value: {cli_args!r}")
+        i += 2
+    return kept
+
+
 def init_cluster(cluster: Cluster, **cluster_opts):
     """Initialize and return a Dask distributed cluster client.
 

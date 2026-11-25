@@ -34,35 +34,36 @@ classifiers = [
 dependencies = [
   "bokeh>=3.1",
   "cartopy>=0.23",
-  "cftime>=1.6.4.post1",    # CM4 no-leap and OM4 Julian calendars
-  "copernicusmarine>=2",    # DUACS downloads; needs a free Copernicus Marine account
-  "dask[distributed]",      # Cluster-backed processing and normalization writes
+  "cftime>=1.6.4.post1",     # CM4 no-leap and OM4 Julian calendars
+  "copernicusmarine>=2",     # DUACS downloads; needs a free Copernicus Marine account
+  "dask[distributed]",       # Cluster-backed processing and normalization writes
   "fire>=0.7.1",
-  "gcm-filters",            # to avoid https://stackoverflow.com/questions/7446187/no-module-named-pkg-resources which seemed to have https://github.com/m2lines/ocean_emulators/actions/runs/10392595642/job/28778202015?pr=53
+  "gcm-filters",             # to avoid https://stackoverflow.com/questions/7446187/no-module-named-pkg-resources which seemed to have https://github.com/m2lines/ocean_emulators/actions/runs/10392595642/job/28778202015?pr=53
   "gcsfs>=2025.10",
+  "gsw>=3.6.20",             # IAP salinity conversion
   "h5netcdf>=1.7.3",
-  "h5py",                   # h5netcdf's backend for the HDF5-based OISST/ARGO NetCDF files
-  "kerchunk==0.2.10",       # Parquet serialization used by VirtualiZarr
-  "numcodecs>=0.15.1",
-  "obspec-utils>=0.9",
-  "obstore>=0.12",
-  "pyarrow",                # Kerchunk Parquet reference writer and reader.
-  "pypdl>=1.5",             # concurrent, segmented downloads of the observation archives
+  "h5py",                    # h5netcdf's backend for the HDF5-based OISST/ARGO NetCDF files
+  "numcodecs>=0.15.1,<0.16", # The last series zarr-python 2 supports.
+  "numpy>=2,<3",
+  "pyarrow",                 # Reads the Kerchunk Parquet references to the raw archive.
+  "pypdl>=1.5",              # concurrent, segmented downloads of the observation archives
   "s3fs>=2025.10",
   "setuptools",
-  "virtualizarr[hdf]==2.8",
-  "xarray>=2025.6,<2026.4", # Retain compressor encoding for Zarr v2 writes.
-  "xarrayutils",            # Vector-rotation QC plotting
+  "xarray>=2025.6,<2026.4",  # Retain compressor encoding for Zarr v2 writes.
+  "xarrayutils",             # Vector-rotation QC plotting
   "xarrera",
   "xesmf>=0.8.10",
-  "xgcm>=0.9,<0.10",        # Explicit boundary padding and autoparse_metadata API.
-  "zarr>=3.1.6,<4",         # VirtualiZarr runtime; processed stores still use Zarr v2.
+  "xgcm>=0.9,<0.10",         # Explicit boundary padding and autoparse_metadata API.
+  "zarr>=2.18,<3",           # As samudra. virtualize_om4.py, which needs 3, has its own environment.
 ]
 
 optional-dependencies.dev = [
   "ocean-preprocessing[test]",
   "pre-commit",
 ]
+# Observation preparation uses Samudra's supported Python version.
+optional-dependencies.observations = [ "samudra; python_version=='3.12'" ]
+
 optional-dependencies.test = [
   "dask",
   "h5py",
@@ -72,6 +73,7 @@ optional-dependencies.test = [
   # samudra-verification is a local project, not a PyPI package, so install it
   # separately: pip install -e ./verification
   "pytest-reportlog>=1",
+  "samudra",             # samudra.invariants; install this checkout (pip install -e .), not PyPI's.
   "scipy",               # Write NetCDF3 fixtures for the virtualization tests.
 ]
 
@@ -82,4 +84,9 @@ exclude = [ "book", "docs" ] # exclude packages matching these glob patterns (em
 testpaths = [ "tests" ]
 markers = [
   "invariant(status): status is 'proposed' or 'agreed'; triage never files failures of proposed invariants",
+  "om4_live: reads the published OM4 stores from OSN; skipped without --om4-live",
+  "om4_live_heavy: reads years of 1/4 degree data or re-runs the pipeline; skipped without --om4-live-heavy",
 ]
+
+[tool.uv.sources]
+samudra = { path = "..", editable = true }

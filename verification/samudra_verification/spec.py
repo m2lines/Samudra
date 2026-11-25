@@ -16,8 +16,8 @@ REPLAY = "replay.json"
 class Lane(StrEnum):
     """Which dependency set a campaign ran against."""
 
-    PINNED = "pinned"  # A lock or pinned environment file (uv.lock, data/.test.yml).
-    CANARY = "canary"  # Floats within the supported ranges (data/.test-canary.yml).
+    PINNED = "pinned"  # A lock or an environment file with exact versions.
+    CANARY = "canary"  # Floats within the supported ranges, resolved afresh.
 
 
 @dataclass(frozen=True)

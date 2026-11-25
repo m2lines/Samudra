@@ -15,13 +15,10 @@ dependencies:
     - setuptools
     - fire==0.7.1
     - cartopy
-    - zarr>=3.1.6,<4  # Runtime supports VirtualiZarr; writers explicitly emit Zarr v2.
-    - numcodecs>=0.15.1
-    - obstore>=0.12
-    - obspec_utils>=0.9
-    - virtualizarr==2.8.0
-    - kerchunk==0.2.10
-    - pyarrow
+    - zarr>=2.18,<3  # As samudra. virtualize_om4.py, which needs 3, has its own environment.
+    - numcodecs>=0.15.1,<0.16
+    - numpy>=2,<3
+    - pyarrow  # Reads the Kerchunk Parquet references to the raw archive.
     - hdf5plugin
     - imagecodecs
     - gcsfs
@@ -36,5 +33,11 @@ dependencies:
     - distributed
     - pip
     - pip:
-      - -e .  # local sources
+      # conda passes these lines to pip as a requirements file, so an option line
+      # works. With the CPU index alongside PyPI, pip prefers torch's +cpu build
+      # (a local version sorts above the plain one), so Torch HPC and the DTN don't
+      # pull the CUDA wheels as samudra's dependency.
+      - --extra-index-url https://download.pytorch.org/whl/cpu
+      - -e ..  # samudra: the ocean-physics invariants and shared observation routines
+      - -e .[observations]  # local sources
       - -e ../verification  # samudra_verification, which data/tests/conftest.py imports

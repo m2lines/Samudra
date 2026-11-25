@@ -12,7 +12,7 @@ property tests. This README explains how the tooling works, for anyone maintaini
 
 The project is published as `samudra-verification` and imported as `samudra_verification`. It depends only on
 Hypothesis, pytest, and pytest-reportlog, so the `data/` environment can install it without the root package's torch
-and `zarr<3` pins. Root `uv sync --dev` installs it as a workspace member. `data/` installs it with
+dependency. Root `uv sync --dev` installs it as a workspace member. `data/` installs it with
 `pip install -e ./verification`; it isn't on PyPI.
 
 ## Modules
@@ -46,9 +46,10 @@ A *campaign* is one run of a project's property suite with a fixed seed and exam
 | `Property mutation gate` | every PR checks anchors; a project's gate runs when the PR changes one of its catalogs' inputs (see below); every gate runs in the nightly soak | 40 per property in each trial |
 
 The root CPU test step skips `*_properties.py`, and a separate step runs them with `verification/tests`, so each
-property runs once per PR. The soak runs the data suite three times: twice in the `pinned` lane (`data/.test.yml`),
-once for each pandas string storage backend, and once in the `canary` lane (`data/.test-canary.yml`), so upstream
-breakage shows up early.
+property runs once per PR. The soak runs the data properties twice in the data-test environment, once for each pandas
+string storage backend. pip installs the newest versions `data/pyproject.toml` allows, so both are `canary` lanes and
+upstream breakage shows up early. The properties of `data/ocean_preprocessing/virtualize_om4.py` run only by hand;
+`data/AGENTS.md` has the command.
 
 To reproduce a CI campaign, artifacts included, run from the repository root:
 

@@ -1,0 +1,48 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+# SPDX-License-Identifier: Apache-2.0
+#
+# Spike replay windows and arms. make_arm.py combines one window and one arm into
+# a training config. Paths under JESSE are #1037's EAI run roots.
+jesse: /projects/ny/lz1955/multiscale/jrusak/runs
+windows:
+  # OBS-only: loss 0.0017 -> 56 over updates 4871-4877; validation spike at 4900-5000.
+  obs-4877:
+    base: ../llc-observation-six-hour/long-obs-only.yaml
+    parent: obs-only-six-hour-long-20261120/outputs/obs-only-six-hour-long/saved_nets/main-4000.pt
+    original_metrics: obs-only-six-hour-long-20261120/outputs/obs-only-six-hour-long/metrics.jsonl
+    stop_after: 5000
+  # Mixed: OBS-update gradient bursts at 6660-6676; validation spike at 6700-6800.
+  mixed-6676:
+    base: ../llc-observation-six-hour/long-mixed.yaml
+    parent: llc-obs-six-hour-long-20261120/outputs/llc-obs-six-hour-long/saved_nets/main-6000.pt
+    original_metrics: llc-obs-six-hour-long-20261120/outputs/llc-obs-six-hour-long/metrics.jsonl
+    stop_after: 6800
+  # Mixed: OBS-update burst at 3304-3314; parent is the original 2,000-update run.
+  mixed-3308:
+    base: ../llc-observation-six-hour/long-mixed.yaml
+    parent: llc-obs-six-hour-20261120/outputs/llc-obs-six-hour-v1/saved_nets/main-2000.pt
+    original_metrics: llc-obs-six-hour-long-20261120/outputs/llc-obs-six-hour-long/metrics.jsonl
+    stop_after: 3400
+arms:
+  # Stage 1: reproduce, then vary only the data order.
+  control:
+    probe: {weights_every: 50}
+  reseed-1:
+    reseed: 1
+    probe: {}
+  reseed-2:
+    reseed: 2
+    probe: {}
+  # Stage 2: one intervention each, from the same weights and data order.
+  clip-0.3:
+    gradient_clip: 0.3
+    probe: {}
+  beta2-0.95:
+    adam_betas: [0.9, 0.95]
+    probe: {}
+  guard-5x:
+    loss_guard: {factor: 5, window: 50, max_consecutive: 20}
+    probe: {}
+  lr-5e-5:
+    learning_rate: 5.0e-5
+    probe: {}

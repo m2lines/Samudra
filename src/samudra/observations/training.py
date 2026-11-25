@@ -149,6 +149,7 @@ def objective(
     cached: torch.Tensor | None = None,
     coverage: torch.Tensor | None = None,
     weights: ObservationLossConfig | None = None,
+    diagnostics: bool = False,
 ) -> tuple[torch.Tensor, dict[str, torch.Tensor], torch.Tensor]:
     """One forecast window plus separate initializer reconstruction/completion.
 
@@ -169,7 +170,10 @@ def objective(
             "obs" if source == "obs" else "llc",
             seed,
             data.task,
+            diagnostics=diagnostics,
         )
+    if diagnostics:
+        raise ValueError("Rollout diagnostics are implemented for snapshot tasks only")
     task: ModelTask = "observation" if source == "obs" else "om4-family"
     loss_weights = weights or ObservationLossConfig()
     auxiliary = corrupt_sample(auxiliary, seed)

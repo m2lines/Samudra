@@ -75,6 +75,8 @@ class TrainingState[ModelT: torch.nn.Module]:
         self.exposure = {
             name: {"updates": 0, "fresh": 0, "replay": 0} for name in sources
         }
+        # Loss-guard medians and skip counts; empty unless the guard is configured.
+        self.loss_guard: dict[str, Any] = {}
 
     def build_scheduler(self) -> None:
         """Build the shared scheduler for the current phase, measured in updates."""
@@ -114,6 +116,7 @@ class TrainingState[ModelT: torch.nn.Module]:
                 "in_post_training": self.in_post_training,
                 "best_score": self.best_score,
                 "exposure": self.exposure,
+                "loss_guard": self.loss_guard,
                 "sampler_rng": self.rng.bit_generator.state,
                 "pools": {name: pool.state_dict() for name, pool in self.pools.items()},
                 "pending_plan": self.pending_plan,
@@ -186,6 +189,8 @@ class TrainingState[ModelT: torch.nn.Module]:
         self.ema = EMATracker.from_state(saved["ema"], self.model)
         for key in ("updates", "in_post_training", "best_score", "exposure"):
             setattr(self, key, saved[key])
+        # Checkpoints from before the guard existed restore an empty guard.
+        self.loss_guard = saved.get("loss_guard", {})
         if fork:
             self.best_score = float("inf")
         for name, pool in self.pools.items():

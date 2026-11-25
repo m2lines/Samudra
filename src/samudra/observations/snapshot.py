@@ -138,8 +138,13 @@ def snapshot_objective(
     source: Literal["obs", "llc"],
     seed: int,
     task: SnapshotTaskConfig = SnapshotTaskConfig(),
+    *,
+    diagnostics: bool = False,
 ) -> tuple[torch.Tensor, dict[str, torch.Tensor], torch.Tensor]:
     """Forecast every six hours; score OBS only daily, without monthly branches.
+
+    ``diagnostics`` adds detached ``diag/`` entries to the returned parts; see
+    :func:`rollout_diagnostics`. They never enter the loss.
 
     The loader must supply finite normalized LLC fields on the physical wet mask,
     and original observation availability in ``validity``. Artificial corruption
@@ -244,4 +249,74 @@ def snapshot_objective(
         loss = loss + task.reconstruction_weight * parts["reconstruction"]
     if not torch.isfinite(loss):
         raise FloatingPointError("Nonfinite snapshot objective")
+    if diagnostics:
+        with torch.no_grad():
+            parts.update(
+                rollout_diagnostics(
+                    initial, prediction, sample, area, surface_indices, source, task
+                )
+            )
     return loss, parts, final.detach()
+
+
+def rollout_diagnostics(
+    initial: torch.Tensor,
+    prediction: torch.Tensor,
+    sample: ForecastSample,
+    area: torch.Tensor,
+    surface_indices: list[int],
+    source: Literal["obs", "llc"],
+    task: SnapshotTaskConfig,
+) -> dict[str, torch.Tensor]:
+    """Sub-daily behavior of the rollout, in normalized units, wet-area means.
+
+    - ``increment_rms/{sst,ssh}/k``: RMS change of the surface between steps k-1
+      and k (step 0 is the inferred state at t). Growth with k means the rollout
+      amplifies.
+    - ``day_range/{sst,ssh}/d``: mean over cells of max minus min across the four
+      six-hour states of forecast day d. This is the spurious daily cycle.
+    - ``max_abs``: largest absolute predicted value in any channel.
+    - LLC only: the same two statistics for the true trajectory
+      (``true_increment_rms``, ``true_day_range``), and ``llc_mse/k``, the
+      normalized MSE over all channels at step k.
+    """
+    names = ("sst", "ssh")
+    surface_area = area[surface_indices].float()
+    total = surface_area.sum((-2, -1)).clamp_min(1e-12)
+
+    def mean(values: torch.Tensor) -> torch.Tensor:  # [batch, 2, y, x] -> [2]
+        return (values.float() * surface_area).sum((-2, -1)).mean(0) / total
+
+    def describe(states: torch.Tensor, prefix: str) -> dict[str, torch.Tensor]:
+        result = {}
+        increments = states.diff(dim=1)
+        for k in range(increments.shape[1]):
+            rms = mean(increments[:, k].square()).sqrt()
+            for j, name in enumerate(names):
+                result[f"diag/{prefix}increment_rms/{name}/{k + 1}"] = rms[j]
+        days = states[:, 1:].unflatten(1, (-1, task.observation_stride))
+        ranges = days.amax(2) - days.amin(2)
+        for d in range(ranges.shape[1]):
+            value = mean(ranges[:, d])
+            for j, name in enumerate(names):
+                result[f"diag/{prefix}day_range/{name}/{d + 1}"] = value[j]
+        return result
+
+    surface = prediction[:, :, surface_indices]
+    parts = describe(torch.cat((initial[:, -1:, surface_indices], surface), 1), "")
+    parts["diag/max_abs"] = prediction.abs().amax().float()
+    if source == "llc":
+        truth = torch.cat(
+            (
+                sample["initial_fields"][:, -1:, surface_indices],
+                sample["target_fields"][:, :, surface_indices],
+            ),
+            1,
+        )
+        parts.update(describe(truth, "true_"))
+        weights = area.float()
+        error = (prediction.float() - sample["target_fields"].float()).square()
+        mse = (error * weights).sum((-2, -1)) / weights.sum((-2, -1)).clamp_min(1e-12)
+        for k in range(mse.shape[1]):
+            parts[f"diag/llc_mse/{k + 1}"] = mse[:, k].mean()
+    return parts

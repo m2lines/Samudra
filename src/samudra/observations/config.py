@@ -71,6 +71,31 @@ class ObservationLossConfig(BaseConfig):
     completion: float = Field(default=0.1, ge=0)
 
 
+class LossGuardConfig(BaseConfig):
+    """Skip an optimizer update whose global loss is far above its recent median.
+
+    The median is per source, over the last ``window`` accepted updates, and the
+    guard is inactive until that window is full. Skipped updates still advance
+    the update counter, sampler and schedule, so data order is unchanged. A run
+    of ``max_consecutive`` skips raises: it means the weights themselves, not a
+    batch, produce the high loss, and skipping cannot recover.
+    """
+
+    factor: float = Field(gt=1)
+    window: int = Field(default=50, ge=1)
+    max_consecutive: int = Field(default=20, ge=1)
+
+
+class ProbeConfig(BaseConfig):
+    """Read-only training diagnostics. Enabling them must not change any weight.
+
+    Records land in ``<nets_dir>/probe.jsonl``. ``weights_every`` also saves raw
+    and EMA model weights (no optimizer) for offline stability analysis.
+    """
+
+    weights_every: int | None = Field(default=None, ge=1)
+
+
 class ObservationTrainConfig(TopLevelConfig):
     """Train the observation-initialized model from YAML and CLI overrides.
 
@@ -100,6 +125,9 @@ class ObservationTrainConfig(TopLevelConfig):
     post_training_learning_rate: float | None = Field(default=None, gt=0)
     weight_decay: float = Field(default=0.01, ge=0)
     gradient_clip: float = Field(default=1.0, gt=0)
+    adam_betas: tuple[float, float] = (0.9, 0.999)
+    loss_guard: LossGuardConfig | None = None
+    probe: ProbeConfig | None = None
     save_freq: int = Field(
         default=25, ge=1, description="Optimizer updates between saves"
     )
@@ -169,6 +197,10 @@ class ObservationTrainConfig(TopLevelConfig):
                 )
         if self.fresh_examples > self.gradient_accumulation_steps:
             raise ValueError("fresh_examples exceeds gradient_accumulation_steps")
+        if not all(0 <= beta < 1 for beta in self.adam_betas):
+            raise ValueError("Adam betas must lie in [0, 1)")
+        if (self.loss_guard or self.probe) and not self.update_prefetch:
+            raise ValueError("loss_guard and probe require update_prefetch training")
         for scheduler, rate in (
             (self.scheduler, self.learning_rate),
             (
@@ -248,6 +280,8 @@ class ObservationTrainConfig(TopLevelConfig):
                 "stop_after",
                 "measure_timing",
                 "prefetch_enabled",
+                # Read-only; tests/test_spike_probe.py checks it changes no weight.
+                "probe",
             },
         )
         values["seed"] = self.experiment.rand_seed

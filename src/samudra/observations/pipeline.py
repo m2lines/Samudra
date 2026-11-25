@@ -29,6 +29,7 @@ from torch.nn.parallel import DistributedDataParallel
 from samudra.models.surface_initialized import SurfaceInitializedModel
 from samudra.observations import training as baseline
 from samudra.observations.config import ObservationLossConfig, ObservationTrainConfig
+from samudra.observations.probes import LossGuard, Probe
 from samudra.observations.replay import ReplayEntry
 from samudra.observations.sample_types import ForecastSample
 from samudra.observations.samples import Samples
@@ -219,6 +220,14 @@ class World:
             assert send is not None
             send.wait()
         return metadata, local
+
+    def gather_objects[T](self, value: T) -> list[T] | None:
+        """Small picklable values from every rank, in rank order, on rank zero."""
+        if self.size == 1:
+            return [value]
+        result: list[T] | None = [None] * self.size if self.rank == 0 else None  # type: ignore[list-item]
+        dist.gather_object(value, object_gather_list=result, dst=0, group=self.group)
+        return result
 
     def gather_states(self, states: list[torch.Tensor]) -> list[torch.Tensor] | None:
         local = torch.stack(states).detach().cpu().contiguous()
@@ -423,9 +432,11 @@ class Objective(torch.nn.Module):
         model: SurfaceInitializedModel,
         data: Samples,
         weights: ObservationLossConfig,
+        diagnostics: bool = False,
     ) -> None:
         super().__init__()
         self.model, self.data, self.weights = model, data, weights
+        self.diagnostics = diagnostics
 
     def forward(
         self, source: str, item: LoadedExample
@@ -440,6 +451,7 @@ class Objective(torch.nn.Module):
             cached=item["cached"],
             coverage=item["coverage"],
             weights=self.weights,
+            **({"diagnostics": True} if self.diagnostics else {}),
         )
         return loss, {k: v.detach() for k, v in parts.items()}, states.detach()
 
@@ -464,7 +476,15 @@ def train(
         raise ValueError("Global example count must be divisible by world size")
     per_rank = cfg.gradient_accumulation_steps // world.size
     data = sources.obs.to(device)
-    objective: torch.nn.Module = Objective(state.model, data, cfg.loss)
+    objective: torch.nn.Module = Objective(
+        state.model, data, cfg.loss, diagnostics=cfg.probe is not None
+    )
+    probe = (
+        Probe(cfg.probe, state.model, output)
+        if cfg.probe is not None and world.rank == 0
+        else None
+    )
+    guard = LossGuard(cfg.loss_guard, state.loss_guard) if cfg.loss_guard else None
     if world.size > 1:
         objective = DistributedDataParallel(
             objective,
@@ -527,6 +547,7 @@ def train(
             state.optimizer.zero_grad(set_to_none=True)
             parts_sum: dict[str, torch.Tensor] = {}
             next_states = []
+            example_records = []
             for index, item in enumerate(batch.examples):
                 sync = (
                     objective.no_sync()
@@ -541,14 +562,54 @@ def train(
                 next_states.append(states)
                 for key, value in {"loss": loss.detach(), **parts}.items():
                     parts_sum[key] = parts_sum.get(key, 0) + value / per_rank
+                if cfg.probe is not None:
+                    global_index = world.rank + index * world.size
+                    example_records.append(
+                        {
+                            "index": global_index,
+                            "origin": metadata["examples"][global_index]["origin"],
+                            "seed": item["seed"],
+                            "loss": float(loss.detach()),
+                            **{k: float(v) for k, v in parts.items()},
+                        }
+                    )
+            # Reads only; the same all-reduced values on every rank.
+            means = world.mean(parts_sum)
+            gathered_records = (
+                world.gather_objects(example_records) if cfg.probe is not None else None
+            )
+            probe_before = probe.before_step() if probe is not None else {}
             norm = torch.nn.utils.clip_grad_norm_(
                 state.model.parameters(), cfg.gradient_clip, error_if_nonfinite=True
             )
-            state.optimizer.step()
+            skipped = guard is not None and guard.skip(source, means["loss"])
+            if skipped:
+                state.optimizer.zero_grad(set_to_none=True)
+            else:
+                state.optimizer.step()
+            # The schedule follows update count, so skips keep the data and LR plan.
             if state.scheduler is not None:
                 state.scheduler.step()
-            state.ema(state.model)
-            means = world.mean(parts_sum)
+            if not skipped:
+                state.ema(state.model)
+            if probe is not None:
+                assert gathered_records is not None
+                probe.write(
+                    {
+                        "updates": update + 1,
+                        "source": source,
+                        "gradient_norm": float(norm),
+                        "skipped": skipped,
+                        **probe_before,
+                        **probe.after_step(),
+                        **{f"mean/{k}": v for k, v in means.items()},
+                        "examples": sorted(
+                            (r for rank in gathered_records for r in rank),
+                            key=lambda r: r["index"],
+                        ),
+                    }
+                )
+                probe.save_weights(update + 1, state.model, state.ema.get_state(True))
             if cfg.fresh_examples < cfg.gradient_accumulation_steps:
                 gathered = world.gather_states(next_states)
                 if world.rank == 0:
@@ -589,6 +650,7 @@ def train(
                     {
                         "updates": state.updates,
                         "train/gradient_norm": float(norm),
+                        "train/skipped": int(skipped),
                         **{f"train/{source}/{k}": v for k, v in means.items()},
                         f"train/{source}/lr": learning_rate,
                         f"train/{source}/fresh": fresh,

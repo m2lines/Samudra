@@ -170,7 +170,10 @@ def _run_training(cfg: ObservationTrainConfig, device: torch.device) -> None:
     # DUPLICATED: Trainer currently constructs Adam inline. This entrypoint uses
     # AdamW; a shared optimizer config/factory can replace both constructors.
     optimizer = torch.optim.AdamW(
-        model.parameters(), lr=cfg.learning_rate, weight_decay=cfg.weight_decay
+        model.parameters(),
+        lr=cfg.learning_rate,
+        betas=cfg.adam_betas,
+        weight_decay=cfg.weight_decay,
     )
     state = TrainingState(
         model,

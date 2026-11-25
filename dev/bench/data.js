@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795643760081,
+  "lastUpdate": 1795648345668,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -14118,6 +14118,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.6514359455924871",
             "extra": "mean: 17.694284190200005 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "0c9c0c148e936908ef0ee4f1f383f0dc412013f2",
+          "message": "Add full deterministic observation model with Rust prefetch and DDP (#960)\n\nThis PR builds out the deterministic observation model on top of the\nobservation training entrypoint from #955 (merged). It adds full Samudra\ninitializer and evolution U-Nets, direct eight-field ERA5 conditioning,\nsource-separated replay, mixed OM4/observation training and\nobservation-only post-training. It also adds verified native caches,\nshared Rust loading, asynchronous prefetch, and DDP with a fixed global\nbatch. Jesse wrote it with Codex. Claude (Opus 5.5) is landing it: it\nrebased the branch onto `main`, resolved the conflicts with #955's final\nAPI, and fixed the findings of a code review. Run launchers, receipts\nand scientific results stay in #958.\n\n<details>\n<summary>What's here</summary>\n\n- **Model:** separate initializer and evolution backbones\n(`initializer_backbone`, `evolution_backbone`), configurable padding and\nkernel size, and a physical readout. `forcing_mode: shared_era5` feeds\nall eight ERA5 fields to both input domains (observation and OM4); the\ndefault, `per_source`, gives each domain its own forcing. The per-domain\nforcing encoders are then identity maps with no weights, so checkpoint\nkey names don't depend on the encoder layout.\n- **Training:** a `pretrain_mix` of observations, OM4 and CM4, followed\nby observation-only post-training (`post_training_updates`,\n`post_training_scheduler`, `post_training_learning_rate`). Replay pools\nare kept per source. A global sampling plan doesn't depend on world\nsize. Resume is exact, including forks at the main and post-training\nboundaries. A fork that changes the next update's data source re-plans\nfrom the saved RNG and the planning-time replay entries. Forks that\nchange an active main scheduler's horizon are rejected.\n- **Loading:** verified packed caches for observations, OM4 and ERA5\n(`data/prepare_observation_*.py`), read through the shared Rust loader.\nWith `engine: pipeline`, one update is prefetched asynchronously and DDP\nruns over `torchrun` with a fixed global batch. The default `engine:\nsequential` is the single-process loop from #955.\n- **Tools:** presets (`observations/deterministic*.yaml`), the five-arm\nscreen and winner continuation (`campaign.py`), qualification and\nscaling checks (`qualify.py`, `qualify_scaling.py`), a runtime\nestimator, and reproduction instructions in\n`src/samudra/observations/README.md`.\n- **Normalization:** policy v3, in which observed fields use observation\nstatistics and unobserved fields use OM4 statistics. Policy-v2\ncheckpoints need their original code and data; this branch doesn't\nconvert them.\n\n</details>\n\n<details>\n<summary>Changes made while landing</summary>\n\n**Rebase.** The branch previously sat on #955's pre-squash history. It's\nnow on `main`, and the old copies of #955 commits are gone. The main\nconflict was `forcing_mode` against #955's per-domain\n`forcing_encoders`. In `shared_era5` mode both encoders are identity\nmaps, so the existing `shared_era5` checkpoints still load.\n\n**Fixes for bugs found after the rebase:**\n- `qualify.data_parity` compared the old `\"atmosphere\"` sample key,\nwhich would have raised a `KeyError` at runtime.\n- Five mypy errors in `tests/test_observation_native.py`.\n- The container smoke build failed at collection: it didn't copy a\nscript that a test loaded. The migration script is now removed (last\nbullet below), so it doesn't matter anymore.\n\n**Review fixes** (`cf4a92dc`). Each fix comes with a test that fails\nwithout it.\n- The `runtime_estimate` CLI crashed on every call: it defined\n`--cooldown-updates` but read `post_training_updates`. The flag is now\n`--post-training-updates`.\n- `SharedEra5` checked its source contracts by re-hashing the paths\nrecorded at build time. That crashed if the data had moved, or passed\nagainst stale files. It now checks the recorded digests against the grid\nand OM4 store the run actually loads. The proof format is unchanged, so\nthe pinned proof checksum still holds. Also, only rank zero hashes the\nroughly 10 GB cache, as with the other caches.\n- With Rust loading on, `qualify.data_parity` compared the native\narchive with itself. It now reads the prepared month directly.\n- The pipeline engine now refuses replay states that miss the next\nmonth's input time, as the sequential engine already did.\n- Checkpoints stored the replay pools twice: once in the pools and once\nin the pending plan's pre-update view. That's about 1 GB extra per\nsource at 1°. `ReplayPool.state_dict` now shares the pool's tensors,\nwhich are never mutated, so each state is saved once. The checkpoint\nformat is unchanged.\n- Config validation rejects a packed OM4 cache without Rust loading, and\nan ERA5 cache without `shared_era5`. Both used to be ignored silently,\nthough they still appeared in the run manifest.\n- The pipeline engine raises when the stop limit precedes the restored\ncheckpoint. A multi-process launch now rejects a single-device backend\ninstead of overriding it with `nccl`.\n- Removed `scripts/migrate_observation_checkpoint.py` and its test. It\naccepted only checkpoints from an audited runtime (`7bef723`) that isn't\nin this repository, so it rejected every checkpoint this code writes. It\nremains in this PR's history.\n\n**Renames** (`5ce41ae6`). Saved configs that use the old names no longer\nvalidate.\n- `engine: sequential | pipeline` replaces `update_prefetch`. The flag\nchose the whole training loop, including DDP support, not just\nprefetching. `prefetch_enabled` still turns background loading on or off\nwithin the pipeline.\n- `forcing_mode: per_source` replaces `native`. Elsewhere in Samudra\n\"native\" means the Rust reader path, as in `data.native_om4` in this\nsame config.\n- The observation-only phase is called \"post-training\" everywhere,\nmatching `post_training_updates`. Error messages, qualification receipts\nand campaign branch names (now `-post<update>`) used to say \"cooldown\"\nor \"uncooled\". \"Cooldown\" now refers only to learning-rate schedules\nsuch as `LinearCooldownSchedulerConfig`.\n\n**Launcher** (`82381a6c`). `scripts/slurm_apptainer_train.sbatch` now\nchooses the single-device `cuda` backend only when the whole run has one\nGPU. Before, two nodes with one GPU each got `cuda`, which the\nentrypoint rejects. The launcher has no automated tests; this change was\nchecked with `bash -n` only.\n\nOne review finding was wrong. It said\n`data/prepare_observation_native.py` might write Zarr 3. Both\nenvironments pin `zarr<3` (#1021), so the writer produces v2.\n\n</details>\n\n<details>\n<summary>Validation</summary>\n\n- CI passes on `cf4a92dc`, including the CPU, GPU, Rust-loader and\ncontainer smoke jobs. CI also passes on `5ce41ae6` (renames) and\n`82381a6c` (launcher).\n- After the renames, the 152 observation and surface-model tests that\nrun without the Rust extra pass locally.\n- Locally, with the Rust loader built (`uv sync --dev --extra rust`),\n253 observation, surface-model and Rust-loader tests pass. They include\ntwo-process DDP, exact resume, forks at both boundaries, and native\ncache parity. CI's Rust integration job runs only\n`tests/test_rust_data.py`, so `tests/test_observation_native.py` skips\nin CI.\n- No GPU training or evaluation was launched for these changes.\n\n</details>\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\n---------\n\nCo-authored-by: OA jder bot <jesse+bot@openathena.ai>\nCo-authored-by: Alexander Merose <alex@openathena.ai>\nCo-authored-by: Claude Opus 5.5 <noreply@anthropic.com>",
+          "timestamp": "2026-11-25T22:49:01Z",
+          "tree_id": "bf1544e538f5b8bb6d0a8a830d89a80a24d3eab8",
+          "url": "https://github.com/m2lines/Samudra/commit/0c9c0c148e936908ef0ee4f1f383f0dc412013f2"
+        },
+        "date": 1795648343715,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 1.005860733059338,
+            "unit": "iter/sec",
+            "range": "stddev: 0.006886205969417563",
+            "extra": "mean: 994.1734149999945 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_dataset__1gb[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.33419743167276666,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00681233305796093",
+            "extra": "mean: 2.9922432227999933 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.05602976448263825,
+            "unit": "iter/sec",
+            "range": "stddev: 0.41209757076335335",
+            "extra": "mean: 17.847656673799985 sec\nrounds: 5"
           }
         ]
       }

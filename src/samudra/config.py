@@ -1066,10 +1066,25 @@ class BaseModelConfig(BaseConfig, abc.ABC):
         ),
     )
 
+    residual_anchor: Literal["same_slot", "chained"] = Field(
+        default="same_slot",
+        description=(
+            "How residual outputs are anchored when the model emits several "
+            "steps per call. 'same_slot' adds output step k to input step k "
+            "(the legacy 2-in/2-out assembly), so with two outputs each one is "
+            "a two-step change. 'chained' makes each output a one-step "
+            "increment on the previous output, starting from the newest input: "
+            "z1 = x[t] + d1, z2 = z1 + d2. The two are identical for one output "
+            "step. Requires pred_residuals."
+        ),
+    )
+
     @pydantic.model_validator(mode="after")
     def validate_scale_residuals(self) -> Self:
         if self.scale_residuals and not self.pred_residuals:
             raise ValueError("scale_residuals requires pred_residuals")
+        if self.residual_anchor == "chained" and not self.pred_residuals:
+            raise ValueError("residual_anchor='chained' requires pred_residuals")
         return self
 
     def _residual_scale(
@@ -1164,6 +1179,7 @@ class SamudraConfig(BaseModelConfig):
             out_channels=out_channels,
             pred_residuals=self.pred_residuals,
             residual_scale=self._residual_scale(residual_scale, out_channels),
+            residual_anchor=self.residual_anchor,
             last_kernel_size=self.last_kernel_size,
             pad=self.pad,
             unet=self.unet.build(
@@ -1254,6 +1270,7 @@ class SamudraMultiConfig(BaseModelConfig):
             out_channels=out_channels,
             pred_residuals=self.pred_residuals,
             residual_scale=self._residual_scale(residual_scale, out_channels),
+            residual_anchor=self.residual_anchor,
             last_kernel_size=self.last_kernel_size,
             pad=self.pad,
             encoder=encoder,
@@ -1331,6 +1348,7 @@ class SamudraMiniConfig(BaseModelConfig):
             out_channels=out_channels,
             pred_residuals=self.pred_residuals,
             residual_scale=self._residual_scale(residual_scale, out_channels),
+            residual_anchor=self.residual_anchor,
             last_kernel_size=self.last_kernel_size,
             pad=self.pad,
             input_embedding_dim=self.embedding_dim,
@@ -1662,13 +1680,15 @@ class TrainConfig(TopLevelConfig):
         if (
             isinstance(self.loss, NormalizedDeltaLossConfig)
             and self.data.output_steps != 1
+            and self.model.residual_anchor != "chained"
         ):
-            # Each output slot is anchored on its own input slot, so with two
-            # outputs both heads predict two-step changes while q is the RMS of
-            # one step. Multi-output Δ-norm needs chained anchoring instead.
+            # Same-slot anchoring makes each of several outputs a multi-step
+            # change, while q is the RMS of one step. Chained anchoring makes
+            # every output a one-step increment.
             raise ValueError(
-                "normalized_delta needs data.output_steps == 1; its scale q is "
-                f"the RMS of a single step, got output_steps={self.data.output_steps}"
+                "normalized_delta with data.output_steps > 1 needs "
+                "model.residual_anchor='chained'; its scale q is the RMS of a "
+                f"single step, got output_steps={self.data.output_steps}"
             )
         if isinstance(self.loss, NormalizedDeltaLossConfig) and any(
             stride != 1 for stride in self.data_stride

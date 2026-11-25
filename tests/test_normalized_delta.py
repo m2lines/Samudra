@@ -40,16 +40,17 @@ TRAINER_CASE = pytest.mark.parametrize(
 CPU_BACKEND = pytest.mark.parametrize("backend", ["cpu"], indirect=True)
 
 
-def residual_model(q: torch.Tensor) -> BaseModel:
+def residual_model(q: torch.Tensor, output_steps: int = 1) -> BaseModel:
     return BaseModel(
         in_channels=2 * q.numel(),
-        out_channels=q.numel(),
+        out_channels=output_steps * q.numel(),
         input_steps=2,
         pred_residuals=True,
         last_kernel_size=3,
         pad="circular",
         gradient_detach_interval=0,
-        residual_scale=q,
+        residual_scale=q.repeat(output_steps),
+        residual_anchor="chained" if output_steps > 1 else "same_slot",
     )
 
 
@@ -85,6 +86,45 @@ def test_matches_the_reference_normalized_delta_objective():
 
     torch.testing.assert_close(ours, ref, rtol=1e-5, atol=1e-7)
     torch.testing.assert_close(d_ours.grad, d_ref.grad, rtol=1e-5, atol=1e-9)
+
+
+def test_chained_two_heads_match_the_two_head_objective():
+    """2-in/2-out: z1 = x[t] + q d1, z2 = z1 + q d2, gradients through z1."""
+    q = torch.tensor([0.4, 0.026, 0.0016])
+    loss_fn = NormalizedDeltaLoss(increment_rms=q, device=torch.device("cpu"))
+    model = residual_model(q, output_steps=2)
+
+    g = torch.Generator().manual_seed(1)
+    wet = torch.rand(N, H, W, generator=g) > 0.3
+    wet2 = torch.cat((wet, wet))
+    prev, anchor = (torch.randn(B, N, H, W, generator=g) * wet for _ in range(2))
+    label = torch.randn(B, 2 * N, H, W, generator=g) * wet2
+    raw = torch.randn(B, 2 * N, H, W, generator=g)
+
+    lat, lon = torch.linspace(-80, 80, H), torch.linspace(0, 359, W)
+    d_ours = raw.clone().requires_grad_()
+    pred = model._assemble_prediction(
+        torch.cat((prev, anchor), dim=1), torch.where(wet2, d_ours, 0.0)
+    )
+    ours = loss_fn(pred, label, BatchGrid(wet2, (lat, lon), (lat, lon)))
+    ours.sum().backward()
+
+    # The second head's target is measured from the first head's prediction.
+    d_ref = raw.clone().requires_grad_()
+    qv = q.view(1, -1, 1, 1)
+    z1 = torch.where(wet, anchor + qv * d_ref[:, :N], 0.0)
+    target = torch.where(
+        wet2,
+        torch.cat(((label[:, :N] - anchor) / qv, (label[:, N:] - z1) / qv), dim=1),
+        0.0,
+    )
+    ref = F.mse_loss(d_ref * wet2, target * wet2, reduction="none").mean(dim=(0, 2, 3))
+    ref.sum().backward()
+
+    torch.testing.assert_close(ours, ref, rtol=1e-5, atol=1e-7)
+    # The two forms divide by q in different places; float32 rounding,
+    # amplified by 1/q for the smallest q, differs by up to ~1e-4 relative.
+    torch.testing.assert_close(d_ours.grad, d_ref.grad, rtol=1e-4, atol=1e-6)
 
 
 @pytest.mark.parametrize("bad", [0.0, float("nan")])
@@ -127,7 +167,7 @@ def train_yaml(**changes) -> dict:
 @pytest.mark.parametrize(
     "changes, match",
     [
-        ({"data__output_steps": 2}, "output_steps == 1"),
+        ({"data__output_steps": 2}, "residual_anchor='chained'"),
         ({"top__data_stride": [1, 2]}, "data_stride == \\[1\\]"),
     ],
 )
@@ -135,6 +175,10 @@ def test_config_rejects_steps_longer_than_one_stored_step(changes, match):
     TrainConfig.model_validate(train_yaml())
     with pytest.raises(ValidationError, match=match):
         TrainConfig.model_validate(train_yaml(**changes))
+    # Chained anchoring keeps every output a one-step increment.
+    TrainConfig.model_validate(
+        train_yaml(data__output_steps=2, model__residual_anchor="chained")
+    )
 
 
 def test_increment_rms_is_read_by_convention_only_when_needed():
@@ -159,10 +203,12 @@ def write_increment_rms(path, channels, tau, over="wet") -> None:
     stats.to_zarr(path)
 
 
-def normalized_delta_config(train_config, tmp_path, *, over="wet", drop=0):
-    """Switch a 2-in-1-out test config to normalized_delta with known tau."""
+def normalized_delta_config(
+    train_config, tmp_path, *, over="wet", drop=0, output_steps=1
+):
+    """Switch a 2-input test config to normalized_delta with known tau."""
     train_config.data.input_steps = 2
-    train_config.data.output_steps = 1
+    train_config.data.output_steps = output_steps
     train_config.data.loading.num_workers = 0
     with MultitonScope():
         probe = Trainer(train_config)
@@ -176,19 +222,24 @@ def normalized_delta_config(train_config, tmp_path, *, over="wet", drop=0):
     source.data_increment_rms_location = LocalLocation(path=tmp_path / "rms.zarr")
     train_config.model.pred_residuals = True
     train_config.model.scale_residuals = True
+    if output_steps > 1:
+        train_config.model.residual_anchor = "chained"
     train_config.loss = TrainConfig.model_validate(train_yaml()).loss
     return channels, torch.tensor(tau / stds, dtype=torch.float32)
 
 
 @CPU_BACKEND
 @TRAINER_CASE
-def test_trainer_takes_one_scale_from_the_source_and_trains_2in1out(
-    train_config, tmp_path
+@pytest.mark.parametrize("output_steps", [1, 2], ids=["2in1out", "2in2out_chained"])
+def test_trainer_takes_one_scale_from_the_source_and_trains(
+    train_config, tmp_path, output_steps
 ):
-    channels, q = normalized_delta_config(train_config, tmp_path)
+    channels, q = normalized_delta_config(
+        train_config, tmp_path, output_steps=output_steps
+    )
     with MultitonScope():
         trainer = Trainer(train_config)
-        torch.testing.assert_close(trainer.model.residual_scale, q)
+        torch.testing.assert_close(trainer.model.residual_scale, q.repeat(output_steps))
         assert isinstance(trainer.loss_fn, NormalizedDeltaLoss)
         torch.testing.assert_close(
             trainer.loss_fn.loss_scale_per_channel(),

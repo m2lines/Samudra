@@ -5,6 +5,7 @@
 # TODO: Need to return step-wise losses for logging
 
 import logging
+from typing import Literal
 
 import torch
 
@@ -36,6 +37,7 @@ class BaseModel(torch.nn.Module):
         pad,
         gradient_detach_interval: int,
         residual_scale: torch.Tensor | None = None,
+        residual_anchor: Literal["same_slot", "chained"] = "same_slot",
     ) -> None:
         super().__init__()
         assert last_kernel_size % 2 != 0, "Cannot use even kernel sizes!"
@@ -48,6 +50,7 @@ class BaseModel(torch.nn.Module):
             raise ValueError(f"input_steps must be positive, got {input_steps}")
         self.input_steps = input_steps
         self.gradient_detach_interval = gradient_detach_interval
+        self.residual_anchor = residual_anchor
         # Multiplies the network output, per output channel, before it is
         # added to the input. Not saved: it comes from the data, like the
         # normalization statistics.
@@ -63,11 +66,19 @@ class BaseModel(torch.nn.Module):
     ) -> Prognostic:
         if not self.pred_residuals:
             return decoding
+        increments = decoding * self.residual_scale.view(1, -1, 1, 1)
+        if self.residual_anchor == "chained":
+            # Each output step is an increment on the one before it, and the
+            # first on the newest input: z1 = x[t] + d1, z2 = z1 + d2, ...
+            # Gradients flow through the earlier predicted steps.
+            n_var = prognostic.shape[1] // self.input_steps
+            batch, _, *grid = increments.shape
+            steps = increments.view(batch, -1, n_var, *grid).cumsum(dim=1)
+            return (prognostic[:, -n_var:].unsqueeze(1) + steps).flatten(1, 2)
         # Anchor each predicted timestep to the corresponding most-recent input
         # timestep. For 2-in/1-out this is x[t]; for the legacy 2-in/2-out case
         # this remains the original elementwise, same-slot residual assembly.
-        residual_base = prognostic[:, -self.out_channels :]
-        return residual_base + decoding * self.residual_scale.view(1, -1, 1, 1)
+        return prognostic[:, -self.out_channels :] + increments
 
     def _advance_prognostic_history(
         self, prognostic: Prognostic, prediction: Prognostic

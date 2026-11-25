@@ -13,6 +13,7 @@ from pydantic import ValidationError
 
 from samudra.config import Cm4DataSourceConfig, Cm4TimeConfig, DataConfig
 from samudra.data_backend import NativeOm4SourceBackend
+from samudra.utils.data import SourceTree
 from samudra.utils.location import LocalLocation
 
 
@@ -22,9 +23,9 @@ def _config() -> dict[str, str | dict[str, str]]:
         "train_time": {"start": "0151-01-06", "end": "0151-01-16"},
         "val_time": {"start": "0151-01-21", "end": "0151-01-26"},
         "inference_time": {"start": "0151-01-31", "end": "0151-02-05"},
+        # Statistics come from the release naming convention: CM4_means.zarr
+        # and CM4_stds.zarr beside the data.
         "data_location": "CM4.zarr",
-        "data_means_location": "CM4_means.zarr",
-        "data_stds_location": "CM4_stds.zarr",
     }
 
 
@@ -100,8 +101,10 @@ def test_cm4_loads_compact_fields_and_slices_native_dates(tmp_path: Path) -> Non
         "rust", lambda: pytest.fail("Validation must not open the reader")
     ).validate_source(
         data_location=LocalLocation(path=tmp_path / "CM4.zarr"),
-        means_location=LocalLocation(path=tmp_path / "CM4_means.zarr"),
-        stds_location=LocalLocation(path=tmp_path / "CM4_stds.zarr"),
+        statistic_locations={
+            "means": LocalLocation(path=tmp_path / "CM4_means.zarr"),
+            "stds": LocalLocation(path=tmp_path / "CM4_stds.zarr"),
+        },
         source_type="cm4",
         data_layout=cfg.sources[0].build_layout(),
     )
@@ -111,4 +114,6 @@ def test_cm4_rejects_a_dataset_on_the_wrong_calendar() -> None:
     cfg = Cm4DataSourceConfig.model_validate(_config())
     data = xr.Dataset(coords={"time": [cftime.DatetimeJulian(151, 1, 6)]})
     with pytest.raises(ValueError, match="no-leap calendar"):
-        cfg.canonicalize_datasets(data, xr.Dataset(), xr.Dataset())
+        cfg.canonicalize_datasets(
+            SourceTree.from_datasets(data, means=xr.Dataset(), stds=xr.Dataset())
+        )

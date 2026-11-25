@@ -4,7 +4,7 @@
 
 """Source construction policies selected by the concrete loading configs."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import Protocol
 
 from samudra.config import DataSourceType
@@ -19,8 +19,7 @@ class TrainingSourceBackend(Protocol):
         self,
         *,
         data_location: ResolvedLocation,
-        means_location: ResolvedLocation,
-        stds_location: ResolvedLocation,
+        statistic_locations: Mapping[str, ResolvedLocation],
         source_type: DataSourceType,
         data_layout: DataLayout,
     ) -> None: ...
@@ -39,8 +38,7 @@ class PythonSourceBackend:
         self,
         *,
         data_location: ResolvedLocation,
-        means_location: ResolvedLocation,
-        stds_location: ResolvedLocation,
+        statistic_locations: Mapping[str, ResolvedLocation],
         source_type: DataSourceType,
         data_layout: DataLayout,
     ) -> None:
@@ -68,8 +66,7 @@ class NativeOm4SourceBackend:
         self,
         *,
         data_location: ResolvedLocation,
-        means_location: ResolvedLocation,
-        stds_location: ResolvedLocation,
+        statistic_locations: Mapping[str, ResolvedLocation],
         source_type: DataSourceType,
         data_layout: DataLayout,
     ) -> None:
@@ -80,8 +77,7 @@ class NativeOm4SourceBackend:
             )
         locations = {
             "data_location": data_location,
-            "data_means_location": means_location,
-            "data_stds_location": stds_location,
+            **{f"{name} statistics": loc for name, loc in statistic_locations.items()},
         }
         for field_name, location in locations.items():
             if not isinstance(location, LocalLocation):

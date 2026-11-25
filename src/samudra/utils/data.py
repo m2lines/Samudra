@@ -18,6 +18,7 @@ from jaxtyping import Bool, Int
 
 if TYPE_CHECKING:
     from samudra.config import TimeConfig
+    from samudra.utils.location import ResolvedLocation
 
 from samudra.constants import (
     BatchTimeSeriesOutput,
@@ -105,8 +106,81 @@ class ChannelStatistics:
     std: np.ndarray
 
 
+REQUIRED_STATISTICS = ("means", "stds")
+
+
+@dataclasses.dataclass(frozen=True)
+class SourceTree:
+    """A source's data and its statistics, opened together as one DataTree.
+
+    The root node holds the data. Each child node holds one statistic of that
+    data (``means`` and ``stds``, which every source has, and any optional
+    ones), with one variable per field like the data's. The stores stay
+    separate on disk; the tree only groups them, and xarray checks that every
+    node agrees with the data on shared dimensions and coordinates.
+    """
+
+    tree: xr.DataTree
+
+    def __post_init__(self) -> None:
+        missing = set(REQUIRED_STATISTICS).difference(self.tree.children)
+        if missing:
+            raise ValueError(f"Source tree is missing statistics: {sorted(missing)}")
+
+    @classmethod
+    def from_datasets(cls, data: xr.Dataset, **statistics: xr.Dataset) -> Self:
+        """Group in-memory datasets; each keyword names one statistic."""
+        return cls(
+            xr.DataTree.from_dict(
+                {"/": data, **{f"/{name}": ds for name, ds in statistics.items()}}
+            )
+        )
+
+    @classmethod
+    def open(
+        cls,
+        data: "ResolvedLocation",
+        statistics: Mapping[str, "ResolvedLocation"],
+        chunks: dict[str, int] | None,
+    ) -> Self:
+        """Open the data store and one store per statistic."""
+        return cls.from_datasets(
+            data.open(chunks),
+            **{name: location.open(chunks) for name, location in statistics.items()},
+        )
+
+    @property
+    def data(self) -> xr.Dataset:
+        return self.tree.to_dataset(inherit=False)
+
+    @property
+    def statistic_names(self) -> tuple[str, ...]:
+        return tuple(self.tree.children)
+
+    def statistic(self, name: str) -> xr.Dataset:
+        if name not in self.tree.children:
+            raise KeyError(
+                f"No {name!r} statistics; this source has {list(self.tree.children)}"
+            )
+        return self.tree.children[name].to_dataset(inherit=False)
+
+    @property
+    def means(self) -> xr.Dataset:
+        return self.statistic("means")
+
+    @property
+    def stds(self) -> xr.Dataset:
+        return self.statistic("stds")
+
+    def statistics(self) -> dict[str, xr.Dataset]:
+        return {name: self.statistic(name) for name in self.statistic_names}
+
+
 class CanonicalReader(Protocol):
-    """Canonical channel, coordinate, statistics and read semantics.
+    """Canonical channel, coordinate and read semantics.
+
+    Readers serve data only. A source's statistics belong to the
+    ``CanonicalSource`` that owns the reader.
 
     Read and statistics requests require unique channel names in the desired order.
     """
@@ -119,8 +193,6 @@ class CanonicalReader(Protocol):
 
     @property
     def resolution(self) -> tuple[Lat, Lon]: ...
-
-    def statistics(self, channels: tuple[str, ...]) -> ChannelStatistics: ...
 
     @property
     def attrs(self) -> Mapping[str, Any]: ...
@@ -162,40 +234,24 @@ class XarrayCanonicalReader:
     """Canonical reads over flat channels or compact depth arrays."""
 
     data: xr.Dataset
-    means: xr.Dataset
-    stds: xr.Dataset
     channels: tuple[str, ...]
 
     @classmethod
-    def from_datasets(
-        cls,
-        data: xr.Dataset,
-        means: xr.Dataset,
-        stds: xr.Dataset,
-        channels: tuple[str, ...],
-    ) -> Self:
-        """Validate prepared arrays and align statistics to canonical channels."""
-        for dataset in (data, means, stds):
-            level_channels = [
-                name
-                for name in channels
-                if name in dataset and "lev" in dataset[name].dims
-            ]
-            if level_channels:
-                raise ValueError(
-                    "Canonical channels cannot expose a 'lev' dimension: "
-                    f"{level_channels}"
-                )
-        missing_data = set(channels).difference(_channel_variables(data))
-        missing_means = set(channels).difference(means.data_vars)
-        missing_stds = set(channels).difference(stds.data_vars)
-        if missing_data or missing_means or missing_stds:
+    def from_dataset(cls, data: xr.Dataset, channels: tuple[str, ...]) -> Self:
+        """Validate prepared arrays against the canonical channels."""
+        level_channels = [
+            name for name in channels if name in data and "lev" in data[name].dims
+        ]
+        if level_channels:
             raise ValueError(
-                "Canonical channels are missing: "
-                f"data={sorted(missing_data)}, means={sorted(missing_means)}, "
-                f"stds={sorted(missing_stds)}"
+                f"Canonical channels cannot expose a 'lev' dimension: {level_channels}"
             )
-        return cls(data, means[list(channels)], stds[list(channels)], channels)
+        missing = set(channels).difference(_channel_variables(data))
+        if missing:
+            raise ValueError(
+                f"Canonical channels are missing from data: {sorted(missing)}"
+            )
+        return cls(data, channels)
 
     @cached_property
     def channel_variables(self) -> dict[str, tuple[str, int | None]]:
@@ -211,15 +267,6 @@ class XarrayCanonicalReader:
         return (
             torch.from_numpy(self.data.lat.values).clone(),
             torch.from_numpy(self.data.lon.values).clone(),
-        )
-
-    def statistics(self, channels: tuple[str, ...]) -> ChannelStatistics:
-        if len(channels) != len(set(channels)):
-            raise ValueError("Canonical channel names must be unique")
-        self._validate_channels(channels)
-        return ChannelStatistics(
-            _flatten(self.means[list(channels)]),
-            _flatten(self.stds[list(channels)]),
         )
 
     @property
@@ -303,6 +350,33 @@ class XarrayCanonicalReader:
         return construct_metadata(expand_compact_levels(self.data), data_layout)
 
 
+def channel_statistics(
+    channels: Sequence[str], **statistics: xr.Dataset
+) -> Mapping[str, xr.Dataset]:
+    """Align each named statistic to ``channels``, one scalar variable each.
+
+    Statistics must already be in canonical channel form (see
+    ``expand_compact_levels``): a channel with a ``lev`` dimension or a missing
+    channel is an error rather than a silent gap.
+    """
+    aligned = {}
+    for name, dataset in statistics.items():
+        level_channels = [
+            c for c in channels if c in dataset and "lev" in dataset[c].dims
+        ]
+        if level_channels:
+            raise ValueError(
+                f"Canonical {name} cannot expose a 'lev' dimension: {level_channels}"
+            )
+        missing = set(channels).difference(map(str, dataset.data_vars))
+        if missing:
+            raise ValueError(
+                f"Canonical channels are missing from {name}: {sorted(missing)}"
+            )
+        aligned[name] = dataset[list(channels)]
+    return aligned
+
+
 @final
 @dataclasses.dataclass(frozen=True)
 class CanonicalSource:
@@ -318,6 +392,16 @@ class CanonicalSource:
     _reader: CanonicalReader
     masks: Masks
     data_layout: DataLayout
+    # Per-channel statistics by name ("means", "stds", ...), each with one
+    # scalar variable per canonical channel. Built by channel_statistics().
+    _statistics: Mapping[str, xr.Dataset]
+
+    def __post_init__(self) -> None:
+        missing = set(REQUIRED_STATISTICS).difference(self._statistics)
+        if missing:
+            raise ValueError(
+                f"Source {self.name!r} is missing statistics: {sorted(missing)}"
+            )
 
     @property
     def reader(self) -> CanonicalReader:
@@ -347,22 +431,16 @@ class CanonicalSource:
         useful for focused in-memory tests and named preprocessing stages.
         """
         channels = tuple(str(name) for name in means.data_vars)
-        if any("lev" in dataset.dims for dataset in (data, means, stds)):
+        if "lev" in data.dims:
             raise ValueError("Canonical datasets cannot expose a 'lev' dimension")
-        if set(channels) - set(map(str, data.data_vars)) or set(channels) - set(
-            map(str, stds.data_vars)
-        ):
-            raise ValueError("Canonical data, means, and stds have different channels")
+        if set(channels) - set(map(str, data.data_vars)):
+            raise ValueError("Canonical data and means have different channels")
         return cls(
             name=name,
-            _reader=XarrayCanonicalReader(
-                data,
-                means[list(channels)],
-                stds[list(channels)],
-                channels,
-            ),
+            _reader=XarrayCanonicalReader(data, channels),
             masks=masks,
             data_layout=data_layout,
+            _statistics=channel_statistics(channels, means=means, stds=stds),
         )
 
     @property
@@ -374,7 +452,17 @@ class CanonicalSource:
         return self._reader.time
 
     def statistics(self, channels: Sequence[str]) -> ChannelStatistics:
-        return self._reader.statistics(tuple(channels))
+        """Normalization means and stds for ``channels``, in that order."""
+        channels = tuple(channels)
+        if len(channels) != len(set(channels)):
+            raise ValueError("Canonical channel names must be unique")
+        missing = set(channels).difference(self.channels)
+        if missing:
+            raise KeyError(f"Canonical channels not found: {sorted(missing)}")
+        return ChannelStatistics(
+            _flatten(self._statistics["means"][list(channels)]),
+            _flatten(self._statistics["stds"][list(channels)]),
+        )
 
     @property
     def attrs(self) -> MappingProxyType[str, Any]:
@@ -446,7 +534,11 @@ class CanonicalSource:
         """Expose xarray fixtures without making them part of the public contract."""
         if not isinstance(self._reader, XarrayCanonicalReader):
             raise TypeError("This canonical dataset is not backed by xarray")
-        return self.to_xarray_dataset(), self._reader.means, self._reader.stds
+        return (
+            self.to_xarray_dataset(),
+            self._statistics["means"],
+            self._statistics["stds"],
+        )
 
     @classmethod
     def from_datasets(
@@ -462,9 +554,15 @@ class CanonicalSource:
     ) -> Self:
         """Construct a Python source from prepared flat or compact arrays."""
         channels = tuple(dict.fromkeys((*prognostic_var_names, *boundary_var_names)))
-        reader = XarrayCanonicalReader.from_datasets(data, means, stds, channels)
+        reader = XarrayCanonicalReader.from_dataset(data, channels)
         masks = extract_wet_mask(data, prognostic_var_names, boundary_var_names)
-        return cls(name=name, _reader=reader, masks=masks, data_layout=data_layout)
+        return cls(
+            name=name,
+            _reader=reader,
+            masks=masks,
+            data_layout=data_layout,
+            _statistics=channel_statistics(channels, means=means, stds=stds),
+        )
 
 
 @dataclasses.dataclass

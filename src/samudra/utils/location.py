@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from abc import ABC, abstractmethod
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Annotated, Any, Literal, Self
 from urllib.parse import quote, urljoin, urlparse
 
@@ -175,3 +175,27 @@ Location = Annotated[
     BeforeValidator(string_to_unresolved),
     PlainSerializer(serialize_location),
 ]
+
+
+def sibling_location(location: Location, suffix: str) -> Location:
+    """The store beside ``location`` named ``<stem>_<suffix><ext>``.
+
+    This is the release layout's naming convention for a dataset's companion
+    stores: ``OM4.zarr`` sits beside ``OM4_means.zarr`` and ``OM4_stds.zarr``.
+    """
+    match location:
+        case UnresolvedLocation(path=path):
+            p = PurePosixPath(path)
+            return UnresolvedLocation(
+                path=str(p.with_name(f"{p.stem}_{suffix}{p.suffix}"))
+            )
+        case LocalLocation(path=path):
+            return LocalLocation(
+                path=path.with_name(f"{path.stem}_{suffix}{path.suffix}")
+            )
+        case S3Location(path=path):
+            p = PurePosixPath(path)
+            return location.model_copy(
+                update={"path": str(p.with_name(f"{p.stem}_{suffix}{p.suffix}"))}
+            )
+    raise TypeError(f"Unsupported location type: {type(location).__name__}")

@@ -16,11 +16,7 @@ import xarray as xr
 from jaxtyping import Int
 
 from samudra.constants import CanonicalPlanes, DataLayout
-from samudra.utils.data import (
-    CanonicalReadRequest,
-    ChannelStatistics,
-    XarrayCanonicalReader,
-)
+from samudra.utils.data import CanonicalReadRequest, XarrayCanonicalReader
 from samudra.utils.location import LocalLocation
 
 
@@ -78,9 +74,6 @@ class NativeOm4Reader:
     @property
     def resolution(self):
         return self.xarray_reader.resolution
-
-    def statistics(self, channels: tuple[str, ...]) -> ChannelStatistics:
-        return self.xarray_reader.statistics(channels)
 
     @property
     def attrs(self):

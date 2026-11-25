@@ -99,7 +99,10 @@ def test_compact_reads_match_array_oracle_and_touch_each_chunk_once(case):
         )
         with xr.open_zarr(root, chunks=None) as stored:
             reader = XarrayCanonicalReader(
-                stored, tuple(["a_0", "a_1", "a_2", "b_0", "b_1", "b_2", "s"])
+                stored,
+                xr.Dataset(),
+                xr.Dataset(),
+                tuple(["a_0", "a_1", "a_2", "b_0", "b_1", "b_2", "s"]),
             )
             reads: Counter[str] = Counter()
             original = DirectoryStore.__getitem__
@@ -145,7 +148,7 @@ def test_compact_channel_metadata_preserves_variable_attributes(levels, units):
         }
     )
     data.a.attrs.update(long_name="Physical field", units=units)
-    reader = XarrayCanonicalReader(data, channels)
+    reader = XarrayCanonicalReader(data, xr.Dataset(), xr.Dataset(), channels)
     metadata = reader.metadata(build_om4_layout("thetao_1", "hfds"))
     for channel in channels:
         assert metadata[channel] == {"long_name": "Physical field", "units": units}
@@ -178,7 +181,9 @@ def test_compact_cf_decoding_matches_physical_units(scale, offset, times, levels
             },
         )
         with xr.open_zarr(root, chunks=None) as stored:
-            reader = XarrayCanonicalReader(stored, ("a_0", "a_1", "a_2"))
+            reader = XarrayCanonicalReader(
+                stored, xr.Dataset(), xr.Dataset(), ("a_0", "a_1", "a_2")
+            )
             actual = reader.read(
                 CanonicalReadRequest(
                     np.array(times, dtype=np.int64),

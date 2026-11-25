@@ -45,6 +45,9 @@ class ArrayBulkReader:
     def attrs(self):
         return self.view.attrs
 
+    def statistics(self, channels):
+        return self.view.statistics(channels)
+
     def coordinates(self):
         return self.view.coordinates()
 

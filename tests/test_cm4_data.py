@@ -108,10 +108,8 @@ def test_cm4_loads_compact_fields_and_slices_native_dates(tmp_path: Path) -> Non
         "rust", lambda: pytest.fail("Validation must not open the reader")
     ).validate_source(
         data_location=LocalLocation(path=tmp_path / "CM4.zarr"),
-        statistic_locations={
-            "means": LocalLocation(path=tmp_path / "CM4_means.zarr"),
-            "stds": LocalLocation(path=tmp_path / "CM4_stds.zarr"),
-        },
+        means_location=LocalLocation(path=tmp_path / "CM4_means.zarr"),
+        stds_location=LocalLocation(path=tmp_path / "CM4_stds.zarr"),
         source_type="cm4",
         data_layout=cfg.sources[0].build_layout(),
     )

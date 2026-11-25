@@ -66,7 +66,6 @@ from samudra.utils.data import (
     SourceSplits,
     SourceTree,
     XarrayCanonicalReader,
-    channel_statistics,
     compute_anomalies,
     expand_compact_levels,
     extract_wet_mask,
@@ -364,7 +363,8 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
 
         source_backend.validate_source(
             data_location=resolved_data_location,
-            statistic_locations=resolved_statistics,
+            means_location=resolved_statistics["means"],
+            stds_location=resolved_statistics["stds"],
             source_type=self.type,
             data_layout=self.build_layout(),
         )
@@ -378,7 +378,9 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
                 (*data_layout.prognostic_var_names, *data_layout.boundary_var_names)
             )
         )
-        xarray_reader = XarrayCanonicalReader.from_dataset(data, channels)
+        xarray_reader = XarrayCanonicalReader.from_datasets(
+            data, source_tree.means, source_tree.stds, channels
+        )
         reader: CanonicalReader = xarray_reader
         if not turn_on_dask:
             reader = source_backend.build_reader(
@@ -393,7 +395,6 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
                 data, data_layout.prognostic_var_names, data_layout.boundary_var_names
             ),
             data_layout=data_layout,
-            _statistics=channel_statistics(channels, **source_tree.statistics()),
         )
 
 

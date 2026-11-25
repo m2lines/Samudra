@@ -8,12 +8,15 @@ import pytest
 from samudra.eval import Eval
 
 
+@pytest.mark.parametrize("with_scorecard", [True, False])
 @pytest.mark.parametrize("with_observations", [True, False])
-def test_run_returns_and_logs_configured_metrics(with_observations):
+def test_run_returns_and_logs_configured_metrics(with_observations, with_scorecard):
     evaluator = Mock(spec=Eval)
     evaluator.standalone_inference = Mock(return_value={"inference/error": 1.0})
     evaluator.observations = object() if with_observations else None
     evaluator.report_observation_metrics = Mock(return_value={"obs/sst_rmse": 2.0})
+    evaluator.scorecard = object() if with_scorecard else None
+    evaluator.report_scorecard = Mock(return_value={"scorecard/passed": 1.0})
     evaluator.wandb_logger = Mock()
     evaluator.finish = Mock()
 
@@ -29,6 +32,7 @@ def test_run_returns_and_logs_configured_metrics(with_observations):
         )
     else:
         evaluator.report_observation_metrics.assert_not_called()
+    assert ("scorecard/passed" in metrics) == with_scorecard
     # The rollout is logged before observation scoring mutates the returned map.
     evaluator.wandb_logger.log.assert_called_once()
     evaluator.finish.assert_called_once()
@@ -42,6 +46,7 @@ def test_run_propagates_failures_and_finishes(phase):
     evaluator.standalone_inference = Mock(return_value={"inference/error": 1.0})
     evaluator.observations = object()
     evaluator.report_observation_metrics = Mock(return_value={})
+    evaluator.scorecard = None
     evaluator.wandb_logger = Mock()
     evaluator.finish = Mock()
     getattr(evaluator, phase).side_effect = RuntimeError("scoring failed")

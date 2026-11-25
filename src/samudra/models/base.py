@@ -43,7 +43,7 @@ class BaseModel(torch.nn.Module):
         is added to the input: one positive value per prognostic variable, in
         normalized units, repeated for every output step (channels are
         time-major). It is a normalization statistic of the data
-        (``CanonicalSource.normalized_increment_rms``), not a learned or saved
+        (``ChannelStatistics.normalized_increment_rms``), not a learned or saved
         parameter, so it is kept out of the state dict, like the means and stds.
         """
         super().__init__()

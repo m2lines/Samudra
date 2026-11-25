@@ -24,7 +24,7 @@ from samudra.config import TrainConfig
 from samudra.models.base import BaseModel
 from samudra.train import Trainer
 from samudra.utils.ctx import BatchGrid
-from samudra.utils.location import LocalLocation
+from samudra.utils.location import LocalLocation, sibling_location
 from samudra.utils.loss import NormalizedDeltaLoss
 from samudra.utils.multiton import MultitonScope
 
@@ -118,17 +118,25 @@ def train_yaml(**changes) -> dict:
     return raw
 
 
-@pytest.mark.parametrize(
-    "changes, match",
-    [
-        ({"data__output_steps": 2}, "output_steps == 1"),
-        ({"source__data_increment_rms_location": None}, "data_increment_rms_location"),
-    ],
-)
-def test_config_rejects_normalized_delta_it_cannot_train(changes, match):
+def test_config_rejects_normalized_delta_with_two_output_steps():
     TrainConfig.model_validate(train_yaml())
-    with pytest.raises(ValidationError, match=match):
-        TrainConfig.model_validate(train_yaml(**changes))
+    with pytest.raises(ValidationError, match="output_steps == 1"):
+        TrainConfig.model_validate(train_yaml(data__output_steps=2))
+
+
+def test_increment_rms_is_read_by_convention_only_when_needed():
+    needed = TrainConfig.model_validate(
+        train_yaml(source__data_increment_rms_location=None)
+    ).data.sources[0]
+    assert needed.data_increment_rms_location == sibling_location(
+        needed.data_location, "increment_rms"
+    )
+    # A config that does not use it never opens a store that may not exist.
+    raw = train_yaml(source__data_increment_rms_location=None)
+    raw["model"].update(scale_residuals=False)
+    raw["loss"] = "mse"
+    unneeded = TrainConfig.model_validate(raw).data.sources[0]
+    assert "increment_rms" not in unneeded.statistic_locations()
 
 
 def write_increment_rms(path, channels, tau, over="wet") -> None:
@@ -138,7 +146,7 @@ def write_increment_rms(path, channels, tau, over="wet") -> None:
     stats.to_zarr(path)
 
 
-def normalized_delta_config(train_config, tmp_path, *, over="wet"):
+def normalized_delta_config(train_config, tmp_path, *, over="wet", drop=0):
     """Switch a 2-in-1-out test config to normalized_delta with known tau."""
     train_config.data.input_steps = 2
     train_config.data.output_steps = 1
@@ -149,7 +157,8 @@ def normalized_delta_config(train_config, tmp_path, *, over="wet"):
         stds = probe.primary_source.statistics(channels).std
     tau = np.linspace(0.01, 0.1, len(channels))
     # Written outside the shared test-data cache that serves as data_root.
-    write_increment_rms(tmp_path / "rms.zarr", channels, tau, over)
+    kept = len(channels) - drop
+    write_increment_rms(tmp_path / "rms.zarr", channels[:kept], tau[:kept], over)
     source = train_config.data.sources[0]
     source.data_increment_rms_location = LocalLocation(path=tmp_path / "rms.zarr")
     train_config.model.pred_residuals = True
@@ -188,4 +197,12 @@ def test_increment_rms_not_over_wet_cells_fails_loudly(train_config, tmp_path, o
     # per level; a run given one would train normally with wrong weights.
     normalized_delta_config(train_config, tmp_path, over=over)
     with MultitonScope(), pytest.raises(ValueError, match="over='wet'"):
+        Trainer(train_config)
+
+
+@CPU_BACKEND
+@TRAINER_CASE
+def test_increment_rms_missing_a_channel_fails_loudly(train_config, tmp_path):
+    normalized_delta_config(train_config, tmp_path, drop=1)
+    with MultitonScope(), pytest.raises(ValueError, match="No increment RMS"):
         Trainer(train_config)

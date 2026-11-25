@@ -245,8 +245,9 @@ beside `OM4.zarr`. It computes unweighted population means and standard deviatio
 over finite wet space and time, retaining depth. The increment RMS is the
 root-mean-square one-step change over the same wet samples: the typical size of
 a five-day increment, which the `normalized_delta` training loss divides
-increments by (point a source's `data_increment_rms_location` at it). The outputs record the source, selected time
-coverage, and reduction method. Omitting `--start` and `--end` uses the entire
+increments by. Samudra finds it beside the data by this naming convention, so
+a source needs no extra configuration to use it. The outputs record the source,
+selected time coverage, and reduction method. Omitting `--start` and `--end` uses the entire
 source record, so choose these explicitly when holding out validation/test years.
 
 ## Observation products

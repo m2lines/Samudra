@@ -54,6 +54,11 @@ sources:
     data_stds_location: stds.nc
 ```
 
+Some losses and models need one more statistic: the *increment RMS*, each channel's root-mean-square one-step
+change over wet cells, written by `ocean_preprocessing.make_norm_datasets` beside the means and stds. The
+`normalized_delta` loss and `model.scale_residuals` divide increments by it. A source reads it only when its config
+needs it, from `<stem>_increment_rms.zarr` by default or from `data_increment_rms_location` when set.
+
 Every one of these is a *location*, which can be written two ways:
 
 - **A relative string** (e.g. `OM4.zarr`). It is resolved against `experiment.data_root`,

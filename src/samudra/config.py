@@ -14,7 +14,6 @@ import numpy as np
 import pandas as pd
 import pydantic
 import torch
-import xarray as xr
 from pydantic import (
     Field,
     PlainSerializer,
@@ -288,23 +287,19 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
     data_increment_rms_location: Location | None = Field(
         default=None,
         description=(
-            "Location of the per-channel RMS one-step change over wet cells "
-            "(``*_increment_rms.zarr``, written beside the means and stds by "
-            "``ocean_preprocessing.make_norm_datasets``). Needed by "
-            "``model.scale_residuals`` and the ``normalized_delta`` loss; "
-            + LOCATION_DOCS
+            "Location of the per-channel RMS one-step change over wet cells, "
+            "written with the means and stds by "
+            "``ocean_preprocessing.make_norm_datasets``. Read only when set. A "
+            "training or eval config whose loss or model needs it "
+            "(``normalized_delta``, ``model.scale_residuals``) sets it by the "
+            "naming convention when unset: for OM4 and CM4, "
+            "``<stem>_increment_rms.zarr`` beside the data; " + LOCATION_DOCS
         ),
     )
 
     @abc.abstractmethod
     def build_layout(self) -> DataLayout:
         raise NotImplementedError
-
-    def canonicalize_increment_rms(self, increment_rms: xr.Dataset) -> xr.Dataset:
-        """Name the increment RMS by canonical channel, as the stds are."""
-        raise ValueError(
-            f"{type(self).__name__} sources do not support increment RMS statistics yet"
-        )
 
     @abc.abstractmethod
     def default_statistic_location(self, statistic: str) -> Location:
@@ -320,12 +315,21 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
             self.data_stds_location = self.default_statistic_location("stds")
         return self
 
+    def require_increment_rms(self) -> None:
+        """Read the increment RMS, from the naming convention unless configured."""
+        if self.data_increment_rms_location is None:
+            self.data_increment_rms_location = self.default_statistic_location(
+                "increment_rms"
+            )
+
     def statistic_locations(self) -> dict[str, Location]:
         """The store of each statistic, by statistic name."""
         locations = {"means": self.data_means_location, "stds": self.data_stds_location}
         unset = [name for name, location in locations.items() if location is None]
         if unset:
             raise ValueError(f"Statistics locations are unset: {unset}")
+        if self.data_increment_rms_location is not None:
+            locations["increment_rms"] = self.data_increment_rms_location
         return {name: location for name, location in locations.items() if location}
 
     @abc.abstractmethod
@@ -388,9 +392,20 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
             data_layout=self.build_layout(),
         )
         chunks: dict[str, int] | None = {} if turn_on_dask else None
-        source_tree, data_layout = self.canonicalize_datasets(
-            SourceTree.open(resolved_data_location, resolved_statistics, chunks)
-        )
+        opened = SourceTree.open(resolved_data_location, resolved_statistics, chunks)
+        if "increment_rms" in opened.statistic_names:
+            over = opened.statistic("increment_rms").attrs.get("over")
+            # An RMS averaged over the full grid with land counted as zero is
+            # smaller by sqrt(wet fraction) per level, and would train normally
+            # with wrong channel weights.
+            if over != "wet":
+                raise ValueError(
+                    f"Increment RMS dataset {resolved_statistics['increment_rms']} "
+                    f"has over={over!r}, but it must be the RMS over wet cells "
+                    "(over='wet'), as ocean_preprocessing.make_norm_datasets "
+                    "writes it"
+                )
+        source_tree, data_layout = self.canonicalize_datasets(opened)
         data = source_tree.data
         channels = tuple(
             dict.fromkeys(
@@ -405,21 +420,6 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
                 data_location=resolved_data_location,
                 data_layout=data_layout,
             )
-        increment_rms = None
-        if self.data_increment_rms_location is not None:
-            location = data_root.resolve(self.data_increment_rms_location)
-            raw = location.open(None)
-            # An RMS averaged over the full grid with land counted as zero is
-            # smaller by sqrt(wet fraction) per level, and would train normally
-            # with wrong channel weights.
-            if raw.attrs.get("over") != "wet":
-                raise ValueError(
-                    f"Increment RMS dataset {location} has "
-                    f"over={raw.attrs.get('over')!r}, but it must be the RMS over "
-                    "wet cells (over='wet'), as ocean_preprocessing.make_norm_datasets "
-                    "writes it"
-                )
-            increment_rms = self.canonicalize_increment_rms(raw)
         return CanonicalSource(
             name=f"{resolved_data_location}-{turn_on_dask}",
             _reader=reader,
@@ -427,7 +427,6 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
                 data, data_layout.prognostic_var_names, data_layout.boundary_var_names
             ),
             data_layout=data_layout,
-            increment_rms=increment_rms,
         )
 
 
@@ -616,12 +615,6 @@ class Om4FamilyDataSourceConfig[Om4FamilyTimeConfigT: Om4TimeConfig | Cm4TimeCon
             **{name: expand_compact_levels(ds) for name, ds in statistics.items()},
         )
         return canonical, data_layout
-
-    def canonicalize_increment_rms(self, increment_rms: xr.Dataset) -> xr.Dataset:
-        depth_levels = self.build_layout().depth_levels
-        return expand_compact_levels(
-            with_level_index_vars(increment_rms, depth_levels=depth_levels)
-        )
 
 
 class Om4DataSourceConfig(Om4FamilyDataSourceConfig[Om4TimeConfig]):
@@ -1068,7 +1061,7 @@ class BaseModelConfig(BaseConfig, abc.ABC):
             "adding it to the input (GraphCast-style residual scaling), so the "
             "network emits unit-scale increments. The scale is the data "
             "source's typical one-step change in normalized units, tau / sigma, "
-            "from its data_increment_rms_location; like the means and stds, it "
+            "from its increment RMS store; like the means and stds, it "
             "comes from the data, not the checkpoint. Requires pred_residuals."
         ),
     )
@@ -1519,8 +1512,8 @@ class NormalizedDeltaLossConfig(pydantic.BaseModel):
     drowned out by fast ones such as velocities. Because ``q`` is fixed, this
     equals a state-space MSE with per-channel weights ``1 / q**2``, which is
     how it is implemented. The weights are not capped or rescaled.
-    ``q`` comes from the data source's ``data_increment_rms_location``,
-    written with the means and stds by ``ocean_preprocessing.make_norm_datasets``.
+    ``tau`` comes from the data source's increment RMS store
+    (``<stem>_increment_rms.zarr`` beside the data by default), written with the means and stds by ``ocean_preprocessing.make_norm_datasets``.
     """
 
     type: Literal["normalized_delta"] = "normalized_delta"
@@ -1537,7 +1530,8 @@ def residual_scale_for(
     """The scaled residual head's scale, from the source's increment RMS."""
     if not model_cfg.scale_residuals:
         return None
-    return torch.from_numpy(source.normalized_increment_rms(channels)).float()
+    q = source.statistics(channels).normalized_increment_rms()
+    return torch.from_numpy(q).float()
 
 
 def build_loss_fn(
@@ -1569,7 +1563,7 @@ def build_loss_fn(
                 )
             return NormalizedDeltaLoss(
                 increment_rms=torch.from_numpy(
-                    source.normalized_increment_rms(channels)
+                    source.statistics(channels).normalized_increment_rms()
                 ),
                 device=device,
             )
@@ -1676,11 +1670,8 @@ class TrainConfig(TopLevelConfig):
         if (
             isinstance(self.loss, NormalizedDeltaLossConfig)
             or self.model.scale_residuals
-        ) and self.data.sources[0].data_increment_rms_location is None:
-            raise ValueError(
-                "normalized_delta and model.scale_residuals need the source's "
-                "data_increment_rms_location"
-            )
+        ):
+            self.data.sources[0].require_increment_rms()
         if self.validation_score == "rollout_rmse":
             if self.rollout_validation is None:
                 raise ValueError(
@@ -1859,14 +1850,10 @@ class EvalConfig(TopLevelConfig):
 
     @pydantic.model_validator(mode="after")
     def _scaled_residuals_need_one_source_with_increment_rms(self) -> Self:
-        if self.model.scale_residuals and (
-            len(self.data.sources) != 1
-            or self.data.sources[0].data_increment_rms_location is None
-        ):
-            raise ValueError(
-                "model.scale_residuals needs exactly one data source with a "
-                "data_increment_rms_location"
-            )
+        if self.model.scale_residuals:
+            if len(self.data.sources) != 1:
+                raise ValueError("model.scale_residuals needs exactly one data source")
+            self.data.sources[0].require_increment_rms()
         return self
 
     @pydantic.model_validator(mode="after")

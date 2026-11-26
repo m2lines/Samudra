@@ -110,8 +110,56 @@ jobs:
           path: /tmp/property-soak/
           retention-days: 30
 
+  explore-xesmf:
+    name: Data properties with xESMF (canary)
+    # The pip lanes above have no ESMF, so they skip the regridding and observation
+    # preparation properties. This lane builds the environment data-tests-xesmf.yaml uses.
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash -l {0}
+    env:
+      SAMUDRA_HYPOTHESIS_PROFILE: soak
+      SAMUDRA_HYPOTHESIS_EXAMPLES: "1000"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Create the xESMF environment
+        uses: mamba-org/setup-micromamba@4b9113af4fba0e9e1124b252dd6497a419e7396d
+        with:
+          environment-name: ci
+          cache-downloads: true
+          micromamba-version: 'latest'
+          create-args: >-
+            python=3.12 xesmf esmf=*=nompi_* numpy<2
+      - name: Install the data-test packages
+        # Install CPU torch first so pip doesn't pull the CUDA wheels as samudra's dependency.
+        run: |
+          python -m pip install 'torch>=2.9,<2.13' --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -e . -e ./verification -e "./data[observations,test]"
+      - name: Explore and shrink
+        working-directory: data
+        run: |
+          python -m samudra_verification.campaign --project data --lane canary --tests tests/test_*_properties.py \
+            --dependency-file pyproject.toml --output /tmp/property-soak \
+            --examples 1000 --timeout 1800
+      - name: Preserve solved environment and summarize
+        if: always()
+        run: |
+          if test -d /tmp/property-soak; then
+            micromamba list > /tmp/property-soak/conda-list.txt
+            python -m pip freeze > /tmp/property-soak/requirements-frozen.txt
+            cat /tmp/property-soak/summary.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: property-soak-data-canary-xesmf
+          path: /tmp/property-soak/
+          retention-days: 30
+
   report:
-    needs: [explore, samudra]
+    needs: [explore, explore-xesmf, samudra]
     if: >-
       always() && !cancelled()
     runs-on: ubuntu-latest
